@@ -25,6 +25,7 @@ class TxObject : public QObject
 public:
     TxObject(QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
+    bool operator==(const TxObject& other) const;
 
     auto timeCreated() const -> beam::Timestamp;
     auto getTxID() const -> beam::wallet::TxID;
@@ -34,7 +35,7 @@ public:
     auto getComment() const -> QString;
     auto getAddressFrom() const -> QString;
     auto getAddressTo() const -> QString;
-    auto getFee() const -> QString;
+    virtual auto getFee() const -> QString;
     auto getKernelID() const -> QString;
     auto getTransactionID() const -> QString;
     auto hasPaymentProof() const -> bool;

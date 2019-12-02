@@ -30,6 +30,7 @@
 
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/utils.h"
+#include "wallet/aissue_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
@@ -79,6 +80,7 @@ namespace beam
         case Coin::Maturing: ss << kCoinStatusMaturing; break;
         case Coin::Outgoing: ss << kCoinStatusOutgoing; break;
         case Coin::Incoming: ss << kCoinStatusIncoming; break;
+        case Coin::Consumed: ss << kCoinStatusConsumed; break;
         default:
             BOOST_ASSERT_MSG(false, kErrorUnknownCoinStatus);
         }
@@ -98,6 +100,14 @@ namespace beam
         case TxStatus::Canceled: return kTxStatusCancelled;
         case TxStatus::Completed:
         {
+            if (tx.m_txType == TxType::AssetIssue)
+            {
+                return kTxStatusIssued;
+            }
+            if (tx.m_txType == TxType::AssetConsume)
+            {
+                return kTxStatusConsumed;
+            }
             if (tx.m_selfTx)
             {
                 return kTxStatusSentToOwn;
@@ -224,7 +234,7 @@ namespace
 
                     AmountBig::Type valInBurst = Zero;
 
-                    for (Treasury::EntryMap::const_iterator it = tres.m_Entries.begin(); tres.m_Entries.end() != it; it++)
+                    for (Treasury::EntryMap::const_iterator it = tres.m_Entries.begin(); tres.m_Entries.end() != it; ++it)
                     {
                         if (&it->second == pE)
                             continue;
@@ -531,19 +541,106 @@ namespace
         return 0;
     }
 
+    void ShowAssetInfo(const storage::Totals::AssetTotals& totals)
+    {
+        const unsigned kWidth = 26;
+        cout << boost::format(kWalletAssetSummaryFormat)
+             % totals.AssetId.str()
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, kAmountASSET, kAmountAGROTH))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, kAmountASSET, kAmountAGROTH))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, kAmountASSET, kAmountAGROTH))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, kAmountASSET, kAmountAGROTH));
+    }
+
+    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, AssetID assetId, const char* coin, const char* groth)
+    {
+        const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
+        cout << boost::format(kCoinsTableHeadFormat)
+                 % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
+                 % boost::io::group(right, setw(columnWidths[1]), coin)
+                 % boost::io::group(right, setw(columnWidths[2]), groth)
+                 % boost::io::group(left, setw(columnWidths[3]), kCoinColumnMaturity)
+                 % boost::io::group(left, setw(columnWidths[4]), kCoinColumnStatus)
+                 % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
+                 << std::endl;
+
+        walletDB->visitCoins([&columnWidths, &assetId](const Coin& c)->bool
+        {
+            if (c.m_assetId == assetId) {
+                cout << boost::format(kCoinsTableFormat)
+                        % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
+                        % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
+                        % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
+                        % boost::io::group(left, setw(columnWidths[3]),
+                                           (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity))
+                                                                : "-"))
+                        % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
+                        % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
+                     << std::endl;
+            }
+            return true;
+        });
+
+        cout << std::endl;
+    }
+
+    void ShowAssetTxs(const IWalletDB::Ptr& walletDB, AssetID assetId, const char* coin, const char* groth)
+    {
+        auto txHistory = walletDB->getTxHistory(TxType::AssetIssue);
+        auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
+        auto txSimple  = walletDB->getTxHistory(TxType::Simple);
+        txHistory.insert(txHistory.end(), txConsume.begin(), txConsume.end());
+        txHistory.insert(txHistory.end(), txSimple.begin(), txSimple.end());
+
+        txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [&assetId](const auto& tx) {
+            return tx.m_assetId != assetId;
+        }), txHistory.end());
+
+        if (txHistory.empty())
+        {
+            cout << kTxHistoryEmpty << endl;
+            return;
+        }
+
+        if (!txHistory.empty())
+        {
+            const array<uint8_t, 6> columnWidths{{20, 17, 26, 21, 33, 65}};
+                cout << boost::format(kTxHistoryTableHead)
+                        % boost::io::group(left, setw(columnWidths[0]),  kTxHistoryColumnDatetTime)
+                        % boost::io::group(left, setw(columnWidths[1]),  kTxHistoryColumnDirection)
+                        % boost::io::group(right, setw(columnWidths[2]), kAssetTxHistoryColumnAmount)
+                        % boost::io::group(left, setw(columnWidths[3]),  kTxHistoryColumnStatus)
+                        % boost::io::group(left, setw(columnWidths[4]),  kTxHistoryColumnId)
+                        % boost::io::group(left, setw(columnWidths[5]),  kTxHistoryColumnKernelId)
+                     << std::endl;
+
+            for (auto& tx : txHistory) {
+                auto direction = tx.m_selfTx || tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume ?
+                                 kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut : kTxDirectionIn);
+                cout << boost::format(kTxHistoryTableFormat)
+                        % boost::io::group(left, setw(columnWidths[0]),  format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                        % boost::io::group(left, setw(columnWidths[1]),  direction)
+                        % boost::io::group(right, setw(columnWidths[2]), to_string(PrintableAmount(tx.m_amount, true)))
+                        % boost::io::group(left, setw(columnWidths[3]),  getTxStatus(tx))
+                        % boost::io::group(left, setw(columnWidths[4]),  to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                        % boost::io::group(left, setw(columnWidths[5]),  to_string(tx.m_kernelID))
+                     << std::endl;
+            }
+        }
+    }
+
     int ShowWalletInfo(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
+        storage::Totals totalsCalc(*walletDB);
 
-        storage::Totals totals(*walletDB);
-
+        // Show info about BEAM
+        const auto& totals = totalsCalc.GetTotals(Zero);
         const unsigned kWidth = 26; 
         cout << boost::format(kWalletSummaryFormat)
-
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurHeight) % stateID.m_Height
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurStateID) % stateID.m_Hash
-
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(totals.Maturing))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming))
@@ -553,18 +650,22 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvaliableFee) % to_string(PrintableAmount(totals.AvailFee))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalFee) % to_string(PrintableAmount(totals.Fee))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent));
+        ShowAssetCoins(walletDB, Zero, kBEAM, kGROTH);
 
         if (vm.count(cli::TX_HISTORY))
         {
             auto txHistory = walletDB->getTxHistory();
+            txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [](const auto& tx) {
+                return tx.m_assetId != Zero;
+            }), txHistory.end());
+
             if (txHistory.empty())
             {
                 cout << kTxHistoryEmpty << endl;
-                return 0;
             }
-
-            const array<uint8_t, 6> columnWidths{ { 20, 17, 26, 21, 33, 65} };
-
+            else
+            {
+                const array<uint8_t, 6> columnWidths{{20, 17, 26, 21, 33, 65}};
             cout << boost::format(kTxHistoryTableHead)
                  % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
                  % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
@@ -574,18 +675,21 @@ namespace
                  % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
                  << std::endl;
 
-            for (auto& tx : txHistory)
-            {
+                for (auto &tx : txHistory) {
                 cout << boost::format(kTxHistoryTableFormat)
-                     % boost::io::group(left, setw(columnWidths[0]), format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
-                     % boost::io::group(left, setw(columnWidths[1]), (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut : kTxDirectionIn)))
-                     % boost::io::group(right, setw(columnWidths[2]), to_string(PrintableAmount(tx.m_amount, true)))
+                            % boost::io::group(left, setw(columnWidths[0]),
+                                               format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                            % boost::io::group(left, setw(columnWidths[1]),
+                                               (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut
+                                                                                              : kTxDirectionIn)))
+                            % boost::io::group(right, setw(columnWidths[2]),
+                                               to_string(PrintableAmount(tx.m_amount, true)))
                      % boost::io::group(left, setw(columnWidths[3]), getTxStatus(tx))
                      % boost::io::group(left, setw(columnWidths[4]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
                      % boost::io::group(left, setw(columnWidths[5]), to_string(tx.m_kernelID))
                      << std::endl;
             }
-            return 0;
+            }
         }
 
         if (vm.count(cli::SWAP_TX_HISTORY))
@@ -594,11 +698,10 @@ namespace
             if (txHistory.empty())
             {
                 cout << kSwapTxHistoryEmpty << endl;
-                return 0;
             }
-
-            const array<uint8_t, 6> columnWidths{ { 20, 26, 18, 15, 23, 33} };
-
+            else
+            {
+                const array<uint8_t, 6> columnWidths{{20, 26, 18, 15, 23, 33}};
             cout << boost::format(kTxHistoryTableHead)
                  % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
                  % boost::io::group(right, setw(columnWidths[1]), kTxHistoryColumnAmount)
@@ -608,53 +711,52 @@ namespace
                  % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnId)
                  << std::endl;
 
-            for (auto& tx : txHistory)
-            {
+                for (auto &tx : txHistory) {
                 Amount swapAmount = 0;
-                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapAmount, swapAmount);
+                    storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
+                                            wallet::TxParameterID::AtomicSwapAmount, swapAmount);
                 bool isBeamSide = false;
-                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+                    storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
+                                            wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
 
                 AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
-                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, swapCoin);
+                    storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
+                                            wallet::TxParameterID::AtomicSwapCoin, swapCoin);
 
                 stringstream ss;
-                ss << (isBeamSide ? kBEAM : to_string(swapCoin)) << " <--> " << (!isBeamSide ? kBEAM : to_string(swapCoin));
+                    ss << (isBeamSide ? kBEAM : to_string(swapCoin)) << " <--> "
+                       << (!isBeamSide ? kBEAM : to_string(swapCoin));
 
                 cout << boost::format(kSwapTxHistoryTableFormat)
-                     % boost::io::group(left, setw(columnWidths[0]), format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
-                     % boost::io::group(right, setw(columnWidths[1]), to_string(PrintableAmount(tx.m_amount, true)))
+                            % boost::io::group(left, setw(columnWidths[0]),
+                                               format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                            % boost::io::group(right, setw(columnWidths[1]),
+                                               to_string(PrintableAmount(tx.m_amount, true)))
                      % boost::io::group(right, setw(columnWidths[2]), swapAmount)
                      % boost::io::group(right, setw(columnWidths[3]), ss.str())
                      % boost::io::group(left, setw(columnWidths[4]), getSwapTxStatus(walletDB, tx))
                      % boost::io::group(left, setw(columnWidths[5]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
                      << std::endl;
             }
-            return 0;
+            }
         }
 
-        const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
-        cout << boost::format(kCoinsTableHeadFormat)
-                 % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
-                 % boost::io::group(right, setw(columnWidths[1]), kBEAM)
-                 % boost::io::group(right, setw(columnWidths[2]), kGROTH)
-                 % boost::io::group(left, setw(columnWidths[3]), kCoinColumnMaturity)
-                 % boost::io::group(left, setw(columnWidths[4]), kCoinColumnStatus)
-                 % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
-                 << std::endl;
-        
-        walletDB->visitCoins([&columnWidths](const Coin& c)->bool
+        //
+        // Show info about assets
+        //
+        for(auto it: totalsCalc.allTotals) {
+            const auto assetId = it.second.AssetId;
+            if (assetId != Zero) {
+                cout << endl;
+                ShowAssetInfo(it.second);
+                ShowAssetCoins(walletDB, it.second.AssetId, kASSET, kAGROTH);
+                if (vm.count(cli::TX_HISTORY))
         {
-            cout << boost::format(kCoinsTableFormat)
-                 % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
-                 % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
-                 % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
-                 % boost::io::group(left, setw(columnWidths[3]), (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-"))
-                 % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
-                 % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
-                 << std::endl;
-            return true;
-        });
+                    ShowAssetTxs(walletDB, it.second.AssetId, kASSET, kAGROTH);
+                }
+            }
+        }
+
         return 0;
     }
 
@@ -823,8 +925,17 @@ namespace
     int ImportWalletData(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         ByteBuffer buffer;
-        if (!LoadDataToImport(vm[cli::IMPORT_EXPORT_PATH].as<string>(), buffer))
+        if (vm[cli::IMPORT_EXPORT_PATH].defaulted())
         {
+            LOG_ERROR() << kErrorFileLocationParamReqired;
+            return -1;
+        }
+
+        auto path = vm[cli::IMPORT_EXPORT_PATH].as<string>();
+        if (path.empty() || !LoadDataToImport(path, buffer))
+        {
+            LOG_ERROR() << boost::format(kErrorImportPathInvalid)
+                        % path;
             return -1;
         }
         const char* p = (char*)(&buffer[0]);
@@ -854,11 +965,31 @@ namespace
         return coinIDs;
     }
 
-    bool LoadBaseParamsForTX(const po::variables_map& vm, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
+    bool ReadAssetId(const po::variables_map& vm, AssetID& assetId)
+    {
+        if(!vm.count(cli::ASSET_ID))
+        {
+            // Just no asset id, it is normal, use BEAM
+            return true;
+        }
+
+        const auto hexstr = vm[cli::ASSET_ID].as<string>();
+        const auto buffer = from_hex(hexstr);
+        if (buffer.size() != sizeof(assetId))
+        {
+            return false;
+        }
+
+        beam::Blob blob(buffer);
+        assetId = blob;
+
+        return true;
+    }
+
+    bool LoadBaseParamsForTX(const po::variables_map& vm, AssetID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
     {
         if (!skipReceiverWalletID)
         {
-
             if (vm.count(cli::RECEIVER_ADDR) == 0)
             {
                 LOG_ERROR() << kErrorReceiverAddrMissing;
@@ -896,11 +1027,17 @@ namespace
             return false;
         }
 
+        if (!ReadAssetId(vm, assetId))
+        {
+            LOG_ERROR() << kInvalidAssetID;
+            return false;
+        }
+
         return true;
     }
 
     template<typename Settings>
-    bool ParseElectrumSettings(const po::variables_map& vm, uint8_t addressVersion, Settings& settings)
+    bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
     {
         if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
         {
@@ -923,7 +1060,7 @@ namespace
             {
                 electrumSettings.m_address = vm[cli::ELECTRUM_ADDR].as<string>();
                 if (!io::Address().resolve(electrumSettings.m_address.c_str()))
-            {
+                {
                     throw std::runtime_error("unable to resolve electrum address: " + electrumSettings.m_address);
                 }
             }
@@ -953,8 +1090,6 @@ namespace
                 LOG_INFO() << "seed = " << strSeed;
             }
 
-            electrumSettings.m_addressVersion = addressVersion;
-
             settings.SetElectrumConnectionOptions(electrumSettings);
 
             return true;
@@ -971,20 +1106,20 @@ namespace
             auto coreSettings = settings.GetConnectionOptions();
             if (!coreSettings.IsInitialized())
             {
-            if (vm.count(cli::SWAP_WALLET_USER) == 0)
-            {
-                throw std::runtime_error(kErrorSwapWalletUserNameUnspecified);
-            }
+                if (vm.count(cli::SWAP_WALLET_USER) == 0)
+                {
+                    throw std::runtime_error(kErrorSwapWalletUserNameUnspecified);
+                }
 
                 if (vm.count(cli::SWAP_WALLET_ADDR) == 0)
                 {
                     throw std::runtime_error(kErrorSwapWalletAddrUnspecified);
                 }
 
-            if (vm.count(cli::SWAP_WALLET_PASS) == 0)
-            {
-                throw std::runtime_error(kErrorSwapWalletPwdNotProvided);
-            }
+                if (vm.count(cli::SWAP_WALLET_PASS) == 0)
+                {
+                    throw std::runtime_error(kErrorSwapWalletPwdNotProvided);
+                }
             }
 
             if (vm.count(cli::SWAP_WALLET_USER))
@@ -1016,7 +1151,7 @@ namespace
     }
 
     template<typename SettingsProvider, typename Settings, typename CoreSettings, typename ElectrumSettings>
-    int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, uint8_t addressVersion)
+    int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         SettingsProvider settingsProvider{ walletDB };
         settingsProvider.Initialize();
@@ -1027,7 +1162,7 @@ namespace
 
             if (connectionType)
             {
-                if (*connectionType == bitcoin::ISettings::Core)
+                if (*connectionType == bitcoin::ISettings::ConnectionType::Core)
                 {
                     auto settings = settingsProvider.GetSettings();
 
@@ -1036,38 +1171,38 @@ namespace
                         if (settings.GetElectrumConnectionOptions().IsInitialized())
                         {
                             settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Electrum);
+                            settings.SetConnectionOptions(CoreSettings{});
                         }
                         else
                         {
-                            settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::None);
+                            settings = Settings{};
                         }
                     }
 
-                    settings.SetConnectionOptions(CoreSettings{});
                     settingsProvider.SetSettings(settings);
-            return 0;
-        }
+                    return 0;
+                }
 
-                if (*connectionType == bitcoin::ISettings::Electrum)
-        {
-            auto settings = settingsProvider.GetSettings();
+                if (*connectionType == bitcoin::ISettings::ConnectionType::Electrum)
+                {
+                    auto settings = settingsProvider.GetSettings();
 
                     if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Electrum)
                     {
-            if (settings.GetConnectionOptions().IsInitialized())
-            {
+                        if (settings.GetConnectionOptions().IsInitialized())
+                        {
                             settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Core);
+                            settings.SetElectrumConnectionOptions(ElectrumSettings{});
                         }
                         else
                         {
-                            settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::None);
+                            settings = Settings{};
                         }
                     }
 
-                    settings.SetElectrumConnectionOptions(ElectrumSettings{});
                     settingsProvider.SetSettings(settings);
-                return 0;
-            }
+                    return 0;
+                }
             }
 
             LOG_ERROR() << "unknown parameter";
@@ -1078,7 +1213,7 @@ namespace
         bool isChanged = false;
 
         isChanged |= ParseSwapSettings(vm, settings);
-        isChanged |= ParseElectrumSettings(vm, addressVersion, settings);
+        isChanged |= ParseElectrumSettings(vm, settings);
 
         if (!isChanged && !settings.IsInitialized())
         {
@@ -1113,18 +1248,18 @@ namespace
 
             settings.ChangeConnectionType(*typeConnection);
             isChanged = true;
-            }
+        }
 
         if (isChanged)
         {
             settingsProvider.SetSettings(settings);
         }
-            return 0;
-        }
+        return 0;
+    }
 
     template<typename SettingsProvider>
     void ShowSwapSettings(const IWalletDB::Ptr& walletDB, const char* coinName)
-        {
+    {
         SettingsProvider settingsProvider{ walletDB };
         
         settingsProvider.Initialize();
@@ -1152,7 +1287,7 @@ namespace
         }
 
         LOG_INFO() << coinName << " settings are not initialized.";
-            }
+    }
 
     bool HasActiveSwapTx(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
     {
@@ -1180,6 +1315,7 @@ namespace
 
         Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
         wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
+        Amount feeRate = Amount(0);
 
         if (vm.count(cli::SWAP_COIN) > 0)
         {
@@ -1199,7 +1335,8 @@ namespace
                     throw std::runtime_error("BTC settings should be initialized.");
                 }
 
-                if (!BitcoinSide::CheckAmount(swapAmount, btcSettings.GetFeeRate()))
+                feeRate = btcSettings.GetFeeRate();
+                if (!BitcoinSide::CheckAmount(swapAmount, feeRate))
                 {
                     throw std::runtime_error("The swap amount must be greater than the redemption fee.");
                 }
@@ -1215,7 +1352,9 @@ namespace
                 {
                     throw std::runtime_error("LTC settings should be initialized.");
                 }
-                if (!LitecoinSide::CheckAmount(swapAmount, ltcSettings.GetFeeRate()))
+
+                feeRate = ltcSettings.GetFeeRate();
+                if (!LitecoinSide::CheckAmount(swapAmount, feeRate))
                 {
                     throw std::runtime_error("The swap amount must be greater than the redemption fee.");
                 }
@@ -1231,7 +1370,9 @@ namespace
                 {
                     throw std::runtime_error("Qtum settings should be initialized.");
                 }
-                if (!QtumSide::CheckAmount(swapAmount, qtumSettings.GetFeeRate()))
+
+                feeRate = qtumSettings.GetFeeRate();
+                if (!QtumSide::CheckAmount(swapAmount, feeRate))
                 {
                     throw std::runtime_error("The swap amount must be greater than the redemption fee.");
                 }
@@ -1246,13 +1387,19 @@ namespace
 
         bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
+        AssetID assetId = Zero;
         Amount amount = 0;
         Amount fee = 0;
         WalletID receiverWalletID(Zero);
 
-        if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, checkFee, true))
+        if (!LoadBaseParamsForTX(vm, assetId, amount, fee, receiverWalletID, checkFee, true))
         {
             return boost::none;
+        }
+
+        if (assetId != Zero)
+        {
+            throw std::runtime_error(kErrorCantSwapAsset);
         }
 
         if (vm.count(cli::SWAP_AMOUNT) == 0)
@@ -1269,9 +1416,23 @@ namespace
 
         // TODO:SWAP use async callbacks or IWalletObserver?
         Height minHeight = walletDB->getCurrentHeight();
-        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, minHeight, amount, fee, swapCoin, swapAmount, isBeamSide);
+        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, minHeight, amount, fee, swapCoin, swapAmount, feeRate, isBeamSide);
 
         boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
+        
+        // delete local parameters from token
+        if (isBeamSide)
+        {
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_LOCK_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REFUND_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REDEEM_TX);
+        }
+        else
+        {
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REDEEM_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::LOCK_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REFUND_TX);
+        }
 
         // print swap tx token
         {
@@ -1285,7 +1446,6 @@ namespace
 
             auto swapTxToken = std::to_string(swapTxParameters);
             LOG_INFO() << "Swap token: " << swapTxToken;
-            // TODO: exit after print and new start with listen command?
         }
         return currentTxID;
     }
@@ -1308,8 +1468,10 @@ namespace
         auto swapAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
         auto peerID = swapTxParameters->GetParameter<WalletID>(TxParameterID::PeerID);
         auto peerResponseTime = swapTxParameters->GetParameter<Height>(TxParameterID::PeerResponseTime);
+        auto createTime = swapTxParameters->GetParameter<Height>(TxParameterID::CreateTime);
+        auto minHeight = swapTxParameters->GetParameter<Height>(TxParameterID::MinHeight);
 
-        bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseTime;
+        bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseTime && createTime && minHeight;
 
         if (!transactionType || *transactionType != TxType::AtomicSwap || !isValidToken)
         {
@@ -1404,12 +1566,20 @@ namespace
         // on accepting
         WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
 
+        Amount fee = cli::kMinimumFee;
         swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-
-        // TODO: check fee
-        swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(cli::kMinimumFee));
-        auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
-        swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, swapFeeRate, subTxID);
+        if (isBeamSide)
+        {
+            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::REDEEM_TX);
+        }
+        else
+        {
+            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::LOCK_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::REFUND_TX);
+        }
 
         return wallet.StartTransaction(*swapTxParameters);
     }
@@ -1426,15 +1596,18 @@ namespace
             // btcSettingsProvider stored in bitcoinBridgeCreator
             auto bitcoinBridgeCreator = [settingsProvider = btcSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
-                if (settingsProvider->GetElectrumSettings().IsInitialized())
+                if (settingsProvider->GetSettings().IsElectrumActivated())
                     return std::make_shared<bitcoin::Electrum>(io::Reactor::get_Current(), *settingsProvider);
 
+                if (settingsProvider->GetSettings().IsCoreActivated())
                 return std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), *settingsProvider);
+
+                return bitcoin::IBridge::Ptr();
             };
 
             auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bitcoinBridgeCreator, *btcSettingsProvider);
-                swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
-            }
+            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
+        }
 
         {
             auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
@@ -1443,15 +1616,18 @@ namespace
             // ltcSettingsProvider stored in litecoinBridgeCreator
             auto litecoinBridgeCreator = [settingsProvider = ltcSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
-                if (settingsProvider->GetElectrumSettings().IsInitialized())
+                if (settingsProvider->GetSettings().IsElectrumActivated())
                     return std::make_shared<litecoin::Electrum>(io::Reactor::get_Current(), *settingsProvider);
 
+                if (settingsProvider->GetSettings().IsCoreActivated())
                 return std::make_shared<litecoin::LitecoinCore017>(io::Reactor::get_Current(), *settingsProvider);
+
+                return bitcoin::IBridge::Ptr();
             };
 
             auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Electrum, litecoin::ISettingsProvider>(litecoinBridgeCreator, *ltcSettingsProvider);
-                swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
-            }
+            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
+        }
 
         {
             auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
@@ -1460,15 +1636,18 @@ namespace
             // qtumSettingsProvider stored in qtumBridgeCreator
             auto qtumBridgeCreator = [settingsProvider = qtumSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
-                if (settingsProvider->GetElectrumSettings().IsInitialized())
+                if (settingsProvider->GetSettings().IsElectrumActivated())
                     return std::make_shared<qtum::Electrum>(io::Reactor::get_Current(), *settingsProvider);
 
+                if (settingsProvider->GetSettings().IsCoreActivated())
                 return std::make_shared<qtum::QtumCore017>(io::Reactor::get_Current(), *settingsProvider);
+
+                return bitcoin::IBridge::Ptr();
             };
 
             auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::Electrum, qtum::ISettingsProvider>(qtumBridgeCreator, *qtumSettingsProvider);
-                swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
-            }
+            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
+        }
     }
 
     proto::FlyClient::NetworkStd::Ptr CreateNetwork(
@@ -1514,6 +1693,18 @@ namespace
                           % uint32_t(responceTime_s / 3600);
         }
         nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
+        nnet->m_Cfg.m_UseProxy = vm[cli::PROXY_USE].as<bool>();
+        if (nnet->m_Cfg.m_UseProxy)
+        {
+            string proxyURI = vm[cli::PROXY_ADDRESS].as<string>();
+            io::Address proxyAddr;
+            if (!proxyAddr.resolve(proxyURI.c_str()))
+            {
+                LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % nodeURI;
+                return nullptr;
+            }
+            nnet->m_Cfg.m_ProxyAddr = proxyAddr;
+        }
         nnet->Connect();
 
         return nnet;
@@ -1895,6 +2086,52 @@ namespace
 
         return false;
     }
+
+    void RegisterAssetCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
+    {
+        auto crIssue = std::make_shared<AssetIssueTransaction::Creator>(true);
+        wallet.RegisterTransactionType(TxType::AssetIssue, std::static_pointer_cast<BaseTransaction::Creator>(crIssue));
+
+        auto crConsume = std::make_shared<AssetIssueTransaction::Creator>(false);
+        wallet.RegisterTransactionType(TxType::AssetConsume, std::static_pointer_cast<BaseTransaction::Creator>(crConsume));
+    }
+
+    TxID IssueConsumeAsset(bool issue, const po::variables_map& vm, Wallet& wallet)
+    {
+        if(!vm.count(cli::ASSET_INDEX))
+        {
+            throw std::runtime_error(kErrorAssetIdxRequired);
+        }
+
+        const auto aidx = vm[cli::ASSET_INDEX].as<Positive<uint32_t>>().value;
+
+        if (!vm.count(cli::AMOUNT))
+        {
+            throw std::runtime_error(kErrorAmountMissing);
+        }
+
+        auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
+        auto amount = static_cast<ECC::Amount>(std::round(signedAmount * Rules::Coin));
+        if (amount == 0)
+        {
+            throw std::runtime_error(kErrorZeroAmount);
+        }
+
+        auto fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
+        if (fee < cli::kMinimumFee)
+        {
+            throw std::runtime_error(kErrorFeeToLow);
+        }
+
+        auto params = CreateTransactionParameters(issue ? TxType::AssetIssue : TxType::AssetConsume, GenerateTxID())
+                        .SetParameter(TxParameterID::Amount, amount)
+                        .SetParameter(TxParameterID::Fee, fee)
+                        .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
+                        .SetParameter(TxParameterID::AssetIdx, Key::Index(aidx))
+                        .SetParameter(TxParameterID::MyID, WalletID(Zero));
+
+        return wallet.StartTransaction(params);
+    }
 }
 
 io::Reactor::Ptr reactor;
@@ -2020,7 +2257,9 @@ int main_impl(int argc, char* argv[])
                             cli::SWAP_ACCEPT,
                             cli::SET_SWAP_SETTINGS,
                             cli::SHOW_SWAP_SETTINGS,
-                            cli::LASER
+                            cli::LASER,
+                            cli::ASSET_ISSUE,
+                            cli::ASSET_CONSUME
                         };
 
                         if (find(begin(commands), end(commands), command) == end(commands))
@@ -2229,19 +2468,16 @@ int main_impl(int argc, char* argv[])
                             switch (swapCoin)
                             {
                             case beam::wallet::AtomicSwapCoin::Bitcoin:
-                    {
-                        return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>
-                                    (vm, walletDB, bitcoin::getAddressVersion());
-                    }
+                            {
+                                return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>(vm, walletDB);
+                            }
                             case beam::wallet::AtomicSwapCoin::Litecoin:
-                    {
-                        return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>
-                                    (vm, walletDB, litecoin::getAddressVersion());
+                            {
+                                return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>(vm, walletDB);
                             }
                             case beam::wallet::AtomicSwapCoin::Qtum:
                             {
-                                return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
-                                    (vm, walletDB, qtum::getAddressVersion());
+                                return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>(vm, walletDB);
                             }
                             default:
                             {
@@ -2306,11 +2542,12 @@ int main_impl(int argc, char* argv[])
 
                     /// HERE!!
                     io::Address receiverAddr;
+                    AssetID assetId = Zero;
                     Amount amount = 0;
                     Amount fee = 0;
                     WalletID receiverWalletID(Zero);
                     bool isTxInitiator = (command == cli::SEND);
-                    if (isTxInitiator && !LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1))
+                    if (isTxInitiator && !LoadBaseParamsForTX(vm, assetId, amount, fee, receiverWalletID, isFork1))
                     {
                         return -1;
                     }
@@ -2350,14 +2587,13 @@ int main_impl(int argc, char* argv[])
                         wallet::AsyncContextHolder holder(wallet);
 
                         TryToRegisterSwapTxCreators(wallet, walletDB);
+                        RegisterAssetCreators(wallet, walletDB);
                         wallet.ResumeAllTransactions();
 
                         if (!coldWallet)
                         {
                             auto nnet = CreateNetwork(wallet, vm);
-
-                            wallet.AddMessageEndpoint(
-                                make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
+                            wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
                             wallet.SetNodeEndpoint(nnet);
                         }
                         else
@@ -2391,6 +2627,16 @@ int main_impl(int argc, char* argv[])
                             }
                         }
 
+                        if (command == cli::ASSET_ISSUE)
+                        {
+                            currentTxID = IssueConsumeAsset(true, vm, wallet);
+                        }
+
+                        if (command == cli::ASSET_CONSUME)
+                        {
+                            currentTxID = IssueConsumeAsset(false, vm, wallet);
+                        }
+
                         if (isTxInitiator)
                         {
                             WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
@@ -2399,6 +2645,7 @@ int main_impl(int argc, char* argv[])
                                 .SetParameter(TxParameterID::PeerID, receiverWalletID)
                                 .SetParameter(TxParameterID::Amount, amount)
                                 .SetParameter(TxParameterID::Fee, fee)
+                                .SetParameter(TxParameterID::AssetID, assetId)
                                 .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm)));
                         }
 
@@ -2448,7 +2695,7 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::WALLET_RESCAN)
                         {
-                            wallet.Refresh();
+                            wallet.Rescan();
                         }
                     }
                     io::Reactor::get_Current().run();

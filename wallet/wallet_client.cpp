@@ -24,6 +24,8 @@ namespace
     using namespace beam;
     using namespace beam::wallet;
 
+    const size_t kCollectorBufferSize = 50;
+
 template<typename Observer, typename Notifier>
 struct ScopedSubscriber
 {
@@ -106,6 +108,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
 		call_async(&IWalletModelAsync::publishSwapOffer, offer);
     }
+
+    void loadSwapParams() override
+    {
+        call_async(&IWalletModelAsync::loadSwapParams);
+    }
+
+    void storeSwapParams(const beam::ByteBuffer& params) override
+    {
+        call_async(&IWalletModelAsync::storeSwapParams, params);
+    }
 #endif
     void cancelTx(const wallet::TxID& id) override
     {
@@ -131,6 +143,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::changeCurrentWalletIDs, senderID, receiverID);
     }
+
 
     void generateNewAddress() override
     {
@@ -165,9 +178,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getNetworkStatus);
     }
 
-    void refresh() override
+    void rescan() override
     {
-        call_async(&IWalletModelAsync::refresh);
+        call_async(&IWalletModelAsync::rescan);
     }
 
     void exportPaymentProof(const wallet::TxID& id) override
@@ -184,6 +197,21 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::importRecovery, path);
     }
+
+    void importDataFromJson(const std::string& data) override
+    {
+        call_async(&IWalletModelAsync::importDataFromJson, data);
+    }
+
+    void exportDataToJson() override
+    {
+        call_async(&IWalletModelAsync::exportDataToJson);
+    }
+
+    void exportTxHistoryToCsv() override
+    {
+        call_async(&IWalletModelAsync::exportTxHistoryToCsv);
+    }
 };
 }
 
@@ -196,6 +224,9 @@ namespace beam::wallet
         , m_isConnected(false)
         , m_nodeAddrStr(nodeAddr)
         , m_keyKeeper(keyKeeper)
+        , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAllUtxoChanged(action, items); })
+        , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
+        , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
     {
         m_keyKeeper->subscribe(this);
     }
@@ -232,6 +263,11 @@ namespace beam::wallet
         }
     }
 
+    void WalletClient::postFunctionToClientContext(MessageFunction&& func)
+    {
+        onPostFunctionToClientContext(move(func));
+    }
+
     void WalletClient::start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
         m_thread = std::make_shared<std::thread>([this, txCreators]()
@@ -259,6 +295,8 @@ namespace beam::wallet
                     }
 
                     wallet->ResumeAllTransactions();
+
+                    updateClientState();
 
                     class NodeNetwork final: public proto::FlyClient::NetworkStd
                     {
@@ -410,29 +448,37 @@ namespace beam::wallet
 
     bool WalletClient::isFork1() const
     {
-        return m_walletDB->getCurrentHeight() >= Rules::get().pForks[1].m_Height;
+        return m_currentHeight >= Rules::get().pForks[1].m_Height;
     }
 
-    void WalletClient::onCoinsChanged()
+    size_t WalletClient::getUnsafeActiveTransactionsCount() const
     {
-        onAllUtxoChanged(getUtxos());
+        return m_unsafeActiveTxCount;
+    }
+
+    void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
+    {
+        m_CoinChangesCollector.CollectItems(action, items);
+        // TODO: refactor this
+        // We should call getStatus to update balances
+        onStatus(getStatus());
     }
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
     {
-        onTxStatus(action, items);
+        m_TransactionChangesCollector.CollectItems(action, items);
+        updateClientTxState();
     }
 
     void WalletClient::onSystemStateChanged(const Block::SystemState::ID& stateID)
     {
         onStatus(getStatus());
+        updateClientState();
     }
 
     void WalletClient::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
     {
-        // TODO: need to change this behavior
-        onAddresses(true, m_walletDB->getAddresses(true));
-        onAddresses(false, m_walletDB->getAddresses(false));
+        m_AddressChangesCollector.CollectItems(action, items);
     }
 
     void WalletClient::onSyncProgress(int done, int total)
@@ -572,7 +618,7 @@ namespace beam::wallet
 
     void WalletClient::calcChange(Amount&& amount)
     {
-        auto coins = m_walletDB->selectCoins(amount);
+        auto coins = m_walletDB->selectCoins(amount, Zero);
         Amount sum = 0;
         for (auto& c : coins)
         {
@@ -600,7 +646,7 @@ namespace beam::wallet
 
     void WalletClient::getUtxosStatus()
     {
-        onAllUtxoChanged(getUtxos());
+        onAllUtxoChanged(ChangeAction::Reset, getUtxos());
     }
 
     void WalletClient::getAddresses(bool own)
@@ -624,6 +670,23 @@ namespace beam::wallet
             p->publishOffer(offer);
         }
     }
+
+    namespace {
+        const char* SWAP_PARAMS_NAME = "LastSwapParams";
+    }
+
+    void WalletClient::loadSwapParams()
+    {
+        ByteBuffer params;
+        m_walletDB->getBlob(SWAP_PARAMS_NAME, params);
+        onSwapParamsLoaded(params);
+    }
+
+    void WalletClient::storeSwapParams(const ByteBuffer& params)
+    {
+        m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
+    }
+
 #endif
 
     void WalletClient::cancelTx(const TxID& id)
@@ -711,7 +774,7 @@ namespace beam::wallet
 
             if (addr)
             {
-                if (addr->m_OwnID &&
+                if (addr->isOwn() &&
                     status != WalletAddress::ExpirationStatus::AsIs)
                 {
                     addr->setExpiration(status);
@@ -776,7 +839,7 @@ namespace beam::wallet
         onNodeConnectionChanged(m_isConnected);
     }
 
-    void WalletClient::refresh()
+    void WalletClient::rescan()
     {
         try
         {
@@ -784,7 +847,7 @@ namespace beam::wallet
             auto s = m_wallet.lock();
             if (s)
             {
-                s->Refresh();
+                s->Rescan();
             }
         }
         catch (const std::exception& e)
@@ -827,6 +890,27 @@ namespace beam::wallet
         onWalletError(ErrorType::ImportRecoveryError);
     }
 
+    void WalletClient::importDataFromJson(const std::string& data)
+    {
+        auto isOk = storage::ImportDataFromJson(*m_walletDB, m_keyKeeper, data.data(), data.size());
+
+        onImportDataFromJson(isOk);
+    }
+
+    void WalletClient::exportDataToJson()
+    {
+        auto data = storage::ExportDataToJson(*m_walletDB);
+
+        onExportDataToJson(data);
+    }
+
+    void WalletClient::exportTxHistoryToCsv()
+    {
+        auto data = storage::ExportTxHistoryToCsv(*m_walletDB);
+
+        onExportTxHistoryToCsv(data);   
+    }
+
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)
     {
         onImportRecoveryProgress(done, total);
@@ -836,7 +920,8 @@ namespace beam::wallet
     WalletStatus WalletClient::getStatus() const
     {
         WalletStatus status;
-        storage::Totals totals(*m_walletDB);
+        storage::Totals totalsCalc(*m_walletDB);
+        const auto& totals = totalsCalc.GetTotals(Zero);
 
         status.available = totals.Avail;
         status.receivingIncoming = totals.ReceivingIncoming;
@@ -890,5 +975,27 @@ namespace beam::wallet
     {
         m_isConnected = isNodeConnected;
         onNodeConnectionChanged(isNodeConnected);
+    }
+
+    void WalletClient::updateClientState()
+    {
+        if (auto w = m_wallet.lock(); w)
+        {
+            postFunctionToClientContext([this, currentHeight = m_walletDB->getCurrentHeight(), count = w->GetUnsafeActiveTransactionsCount()]()
+            {
+                m_currentHeight = currentHeight;
+                m_unsafeActiveTxCount = count;
+            });
+        }
+    }
+    void WalletClient::updateClientTxState()
+    {
+        if (auto w = m_wallet.lock(); w)
+        {
+            postFunctionToClientContext([this, count = w->GetUnsafeActiveTransactionsCount()]()
+            {
+                m_unsafeActiveTxCount = count;
+            });
+        }
     }
 }

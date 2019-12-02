@@ -18,7 +18,7 @@
 
 namespace beam::qtum
 {
-    QtumCore017::QtumCore017(io::Reactor& reactor, IQtumCoreSettingsProvider& settingsProvider)
+    QtumCore017::QtumCore017(io::Reactor& reactor, ISettingsProvider& settingsProvider)
         : BitcoinCore017(reactor, settingsProvider)
     {
     }

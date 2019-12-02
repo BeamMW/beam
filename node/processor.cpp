@@ -1379,8 +1379,6 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 	if (bKeepBlocks)
 		return;
 
-	HeightRange hrDel(m_Cursor.m_Sid.m_Height + 1, sidFwd.m_Height);
-
 	if (!(mbc.m_pidLast == Zero))
 	{
 		OnPeerInsane(mbc.m_pidLast);
@@ -1395,14 +1393,14 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 			if (pid != mbc.m_pidLast)
 				break;
 
-			hrDel.m_Max++;
+			sidFwd.m_Row = vPath[iPos - 1];
+			sidFwd.m_Height++;
 		}
 	}
 
-	LOG_INFO() << "Deleting blocks range: " << hrDel.m_Min << "-" <<  hrDel.m_Max;
+	LOG_INFO() << "Deleting blocks range: " << (m_Cursor.m_Sid.m_Height + 1) << "-" <<  sidFwd.m_Height;
 
-	for (; !hrDel.IsEmpty(); iPos++, hrDel.m_Max--)
-		DeleteBlock(vPath[iPos]);
+	DeleteBlocksInRange(sidFwd, m_Cursor.m_Sid.m_Height);
 }
 
 void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
@@ -1597,16 +1595,24 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 		if (!m_DB.get_StateInputs(rowid, v))
 			continue;
 
+		size_t iRes = 0;
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			TxoID id = v[i].get_ID();
+			const NodeDB::StateInput& inp = v[i];
+			TxoID id = inp.get_ID();
 			if (id >= m_Extra.m_TxosTreasury)
 				m_DB.TxoDel(id);
+			else
+			{
+				if (iRes != i)
+					v[iRes] = inp;
+				iRes++;
+			}
 		}
 
-		hRet += v.size();
+		hRet += (v.size() - iRes);
 
-		m_DB.set_StateInputs(rowid, nullptr, 0);
+		m_DB.set_StateInputs(rowid, &v.front(), iRes);
 	}
 
 	m_Extra.m_TxoLo = hTrg;
@@ -2091,6 +2097,10 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			m_DB.set_StateInputs(sid.m_Row, &v.front(), v.size());
 
 
+		auto r = block.get_Reader();
+		r.Reset();
+		RecognizeUtxos(std::move(r), sid.m_Height, id0);
+
 		Serializer ser;
 		bbP.clear();
 		ser.swap_buf(bbP);
@@ -2107,10 +2117,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			SerializeBuffer sb = ser.buffer();
 			m_DB.TxoAdd(id0++, Blob(sb.first, static_cast<uint32_t>(sb.second)));
 		}
-
-		auto r = block.get_Reader();
-		r.Reset();
-		RecognizeUtxos(std::move(r), sid.m_Height);
 
 		m_RecentStates.Push(sid.m_Row, s);
 	}
@@ -2132,42 +2138,100 @@ void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
 	offs = s;
 }
 
-void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
+void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h, TxoID nShielded)
 {
 	NodeDB::WalkerEvent wlk(m_DB);
 
 	for ( ; r.m_pUtxoIn; r.NextUtxoIn())
 	{
 		const Input& x = *r.m_pUtxoIn;
+
+		ECC::Point pt;
+		const UtxoEvent::Key& key = x.m_pSpendProof ? pt : x.m_Commitment;
 		if (x.m_pSpendProof)
-			continue; // irrelevant
-
-		assert(x.m_Internal.m_Maturity); // must've already been validated
-
-		const UtxoEvent::Key& key = x.m_Commitment;
+		{
+			pt = x.m_pSpendProof->m_Part1.m_SpendPk;
+			static_assert(proto::UtxoEvent::Flags::Shielded != 1); // 1 is used in the point itself
+			pt.m_Y |= proto::UtxoEvent::Flags::Shielded;
+		}
 
 		m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
-		if (wlk.MoveNext())
+		if (!wlk.MoveNext())
+			continue;
+
+		if (x.m_pSpendProof)
 		{
+			if (wlk.m_Body.n < sizeof(UtxoEvent::ValueS))
+				OnCorrupted();
+
+			UtxoEvent::ValueS evt = *reinterpret_cast<const UtxoEvent::ValueS*>(wlk.m_Body.p); // copy
+
+			evt.m_Flags &= ~proto::UtxoEvent::Flags::Add;
+
+			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+			OnUtxoEvent(evt, h);
+		}
+		else
+		{
+
 			if (wlk.m_Body.n < sizeof(UtxoEvent::Value))
 				OnCorrupted();
 
 			UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
-			evt.m_Maturity = x.m_Internal.m_Maturity;
-			evt.m_Added = 0;
+
+			assert(x.m_Internal.m_Maturity); // must've already been validated
+			evt.m_Maturity = x.m_Internal.m_Maturity; // in case of duplicated utxo this is necessary
+
+			evt.m_Flags = 0;
 
 			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
 			OnUtxoEvent(evt, h);
 		}
 	}
 
+	Key::IPKdf* pKey = get_ViewerKey();
+	const Output::Shielded::Viewer* pKeyShielded = get_ViewerShieldedKey();
+	if (!(pKey || pKeyShielded))
+		return;
+
+	Output::Shielded::Data d;
+	d.m_hScheme = h;
+
 	for (; r.m_pUtxoOut; r.NextUtxoOut())
 	{
 		const Output& x = *r.m_pUtxoOut;
 
-		Key::IDV kidv;
-		if (Recover(kidv, x, h))
+		if (x.m_pShielded)
 		{
+			TxoID nID = nShielded++;
+
+			if (!(pKeyShielded && d.Recover(x, *pKeyShielded)))
+				continue;
+
+			UtxoEvent::ValueS evt;
+			evt.m_Kidv.m_Value = d.m_Value;
+			evt.m_Shielded.Set(evt.m_Kidv, ECC::Scalar(d.m_kSerG), nID);
+			evt.m_AssetID = x.m_AssetID;
+			evt.m_Maturity = h;
+
+			evt.m_Flags =
+				proto::UtxoEvent::Flags::Add |
+				proto::UtxoEvent::Flags::Shielded;
+
+			ECC::Point::Native ptN;
+			d.GetSpendPKey(ptN, *pKeyShielded->m_pSer);
+			UtxoEvent::Key key = ptN;
+			key.m_Y |= proto::UtxoEvent::Flags::Shielded;
+
+			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+			OnUtxoEvent(evt, h);
+		}
+		else
+		{
+			Key::IDV kidv;
+			if (!(pKey && x.Recover(h, *pKey, kidv)))
+				continue;
+
 			// filter-out dummies
 			if (IsDummy(kidv))
 			{
@@ -2178,7 +2242,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
 			// bingo!
 			UtxoEvent::Value evt;
 			evt.m_Kidv = kidv;
-			evt.m_Added = 1;
+			evt.m_Flags = proto::UtxoEvent::Flags::Add;
 			evt.m_AssetID = r.m_pUtxoOut->m_AssetID;
 
 			evt.m_Maturity = x.get_MinMaturity(h);
@@ -2190,19 +2254,49 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
 	}
 }
 
+struct NodeProcessor::BlockShieldedData
+{
+	ByteBuffer m_Buf;
+	TxVectors::Perishable m_txvp;
+	ECC::Scalar m_Offs;
+
+	bool FromRow(NodeProcessor& p, uint64_t row)
+	{
+		if (!p.get_DB().get_StateExtra(row, m_Offs, &m_Buf) || m_Buf.empty())
+			return false;
+
+		m_txvp.m_vInputs.clear();
+		m_txvp.m_vOutputs.clear();
+
+		Deserializer der;
+		der.reset(m_Buf);
+		der & m_txvp;
+
+		return true;
+	}
+
+	bool FromHeight(NodeProcessor& p, Height h)
+	{
+		return FromRow(p, p.FindActiveAtStrict(h));
+	}
+};
+
 void NodeProcessor::RescanOwnedTxos()
 {
-	LOG_INFO() << "Rescanning owned Txos...";
-
 	m_DB.DeleteEventsFrom(Rules::HeightGenesis - 1);
 
 	struct TxoRecover
 		:public ITxoRecover
 	{
+		NodeProcessor& m_This;
 		uint32_t m_Total = 0;
 		uint32_t m_Unspent = 0;
 
-		TxoRecover(NodeProcessor& x) :ITxoRecover(x) {}
+		TxoRecover(Key::IPKdf& key, NodeProcessor& x)
+			:ITxoRecover(key)
+			,m_This(x)
+		{
+		}
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp, const Key::IDV& kidv) override
 		{
@@ -2215,7 +2309,7 @@ void NodeProcessor::RescanOwnedTxos()
 			UtxoEvent::Value evt;
 			evt.m_Kidv = kidv;
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
-			evt.m_Added = 1;
+			evt.m_Flags = proto::UtxoEvent::Flags::Add;
 			evt.m_AssetID = outp.m_AssetID;
 
 			const UtxoEvent::Key& key = outp.m_Commitment;
@@ -2229,7 +2323,7 @@ void NodeProcessor::RescanOwnedTxos()
 				m_Unspent++;
 			else
 			{
-				evt.m_Added = 0;
+				evt.m_Flags = 0;
 				m_This.get_DB().InsertEvent(wlk.m_SpendHeight, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
 				m_This.OnUtxoEvent(evt, wlk.m_SpendHeight);
 			}
@@ -2238,10 +2332,52 @@ void NodeProcessor::RescanOwnedTxos()
 		}
 	};
 
-	TxoRecover wlk(*this);
-	EnumTxos(wlk);
+	Key::IPKdf* pKey = get_ViewerKey();
+	if (pKey)
+	{
+		LOG_INFO() << "Rescanning owned Txos...";
 
-	LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
+		TxoRecover wlk(*pKey, *this);
+		EnumTxos(wlk);
+
+		LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
+	}
+	else
+	{
+		LOG_INFO() << "Owned Txos reset";
+	}
+
+	if (get_ViewerShieldedKey())
+	{
+		LOG_INFO() << "Rescanning shielded Txos...";
+
+		// shielded items
+		Height h0 = Rules::get().pForks[2].m_Height;
+		if (m_Cursor.m_Sid.m_Height >= h0)
+		{
+			BlockShieldedData bd;
+			TxVectors::Eternal txve; // dummy
+
+			TxoID nShielded = 0;
+
+			while (true)
+			{
+				if (bd.FromHeight(*this, h0))
+				{
+					TxVectors::Reader r(bd.m_txvp, txve);
+					r.Reset();
+
+					RecognizeUtxos(std::move(r), h0, nShielded);
+					nShielded += bd.m_txvp.m_vOutputs.size();
+				}
+
+				if (++h0 > m_Cursor.m_Sid.m_Height)
+					break;
+			}
+		}
+
+		LOG_INFO() << "Shielded scan complete";
+	}
 }
 
 bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
@@ -2671,9 +2807,10 @@ void NodeProcessor::RollbackTo(Height h)
 
 
 	// Kernels, shielded elements, and cursor
-	ByteBuffer bbE;
+	BlockShieldedData bd;
+	ByteBuffer& bbE = bd.m_Buf; // alias
 	TxVectors::Eternal txve;
-	TxVectors::Perishable txvp;
+	TxVectors::Perishable& txvp = bd.m_txvp; // alias
 
 	for (; m_Cursor.m_Sid.m_Height > h; m_DB.MoveBack(m_Cursor.m_Sid))
 	{
@@ -2693,18 +2830,8 @@ void NodeProcessor::RollbackTo(Height h)
 			m_DB.DeleteKernel(hv, m_Cursor.m_Sid.m_Height);
 		}
 
-		ECC::Scalar offs;
-		bbE.clear();
-		m_DB.get_StateExtra(m_Cursor.m_Sid.m_Row, offs, &bbE);
-
-		if (!bbE.empty())
+		if (bd.FromRow(*this, m_Cursor.m_Sid.m_Row))
 		{
-			txvp.m_vInputs.clear();
-			txvp.m_vOutputs.clear();
-
-			der.reset(bbE);
-			der & txvp;
-
 			for (size_t i = 0; i < txvp.m_vInputs.size(); i++)
 			{
 				const Input& v = *txvp.m_vInputs[i];
@@ -3612,36 +3739,10 @@ bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, 
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
 	Key::IDV kidv;
-	if (!m_This.Recover(kidv, outp, hCreate))
+	if (!outp.Recover(hCreate, m_Key, kidv))
 		return true;
 
 	return OnTxo(wlk, hCreate, outp, kidv);
-}
-
-bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp, Height h)
-{
-	struct Walker :public IKeyWalker
-	{
-		Key::IDV& m_Kidv;
-		const Output& m_Outp;
-		Height m_Height;
-
-		Walker(Key::IDV& kidv, const Output& outp)
-			:m_Kidv(kidv)
-			,m_Outp(outp)
-		{
-		}
-
-		virtual bool OnKey(Key::IPKdf& tag, Key::Index) override
-		{
-			return !m_Outp.Recover(m_Height, tag, m_Kidv);
-		}
-
-	} wlk(kidv, outp);
-
-	wlk.m_Height = h;
-
-	return !EnumViewerKeys(wlk);
 }
 
 bool NodeProcessor::ITxoWalker_UnspentNaked::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate)
@@ -3698,26 +3799,16 @@ void NodeProcessor::InitializeUtxos()
 	Height h0 = Rules::get().pForks[2].m_Height;
 	if (m_Cursor.m_Sid.m_Height >= h0)
 	{
-		ByteBuffer bbE;
-		TxVectors::Perishable txvp;
+		BlockShieldedData bd;
+		TxVectors::Perishable& txvp = bd.m_txvp; // alias
 
 		TxoID nShielded = m_Extra.m_Shielded;
 		m_Extra.m_Shielded = 0;
 
 		while (true)
 		{
-			ECC::Scalar offs;
-			m_DB.get_StateExtra(FindActiveAtStrict(h0), offs, &bbE);
-
-			if (!bbE.empty())
+			if (bd.FromHeight(*this, h0))
 			{
-				txvp.m_vInputs.clear();
-				txvp.m_vOutputs.clear();
-
-				Deserializer der;
-				der.reset(bbE);
-				der & txvp;
-
 				for (size_t i = 0; i < txvp.m_vInputs.size(); i++)
 				{
 					const Input& v = *txvp.m_vInputs[i];
@@ -3791,28 +3882,21 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 	if (!bActive && !(m_DB.GetStateFlags(sid.m_Row) & NodeDB::StateFlags::Active))
 		return false; // only active states are supported
 
-	TxBase txb;
-
 	TxoID idInpCut = get_TxosBefore(h0 + 1);
 	TxoID id0;
 
 	TxoID id1 = m_DB.get_StateTxos(sid.m_Row);
 
-	ByteBuffer bbBlob;
+	BlockShieldedData bd;
+	ByteBuffer& bbBlob = bd.m_Buf; // alias
 
-	if (!m_DB.get_StateExtra(sid.m_Row, txb.m_Offset, &bbBlob))
-		OnCorrupted();
+	bd.FromRow(*this, sid.m_Row);
+	bbBlob.clear();
 
-	TxVectors::Perishable txvpShielded;
+	TxVectors::Perishable& txvpShielded = bd.m_txvp; // alias
+	TxBase txb;
+	txb.m_Offset = bd.m_Offs;
 
-	if (!bbBlob.empty())
-	{
-		Deserializer der;
-		der.reset(bbBlob);
-		der & txvpShielded;
-
-		bbBlob.clear();
-	}
 
 	uint64_t rowid = sid.m_Row;
 	if (m_DB.get_Prev(rowid))

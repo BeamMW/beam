@@ -12,7 +12,10 @@ target_sources(wallet
         wallet.cpp
         base_transaction.cpp
         base_tx_builder.cpp
+        aissue_tx_builder.cpp
+        aissue_transaction.cpp
         wallet_transaction.cpp
+        strings_resources.cpp
         wallet_network.cpp
         wallet_db.cpp
         wallet_client.h
@@ -38,14 +41,14 @@ if(BEAM_ATOMIC_SWAP_SUPPORT)
     add_subdirectory(swaps)
 endif()
 
-if (NOT ANDROID)
+if (NOT ANDROID AND NOT IOS)
     if(BEAM_HW_WALLET)
 
         target_compile_definitions(wallet PRIVATE BEAM_HW_WALLET)
 
     endif()
 
-    add_executable(${TARGET_NAME} cli.cpp strings_resources.h strings_resources.cpp)
+    add_executable(${TARGET_NAME} cli.cpp)
 
     if(LINUX)
         target_link_libraries(${TARGET_NAME}

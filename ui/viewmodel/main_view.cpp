@@ -39,7 +39,8 @@ MainViewModel::MainViewModel()
 
     connect(&m_timer, SIGNAL(timeout()), this, SLOT(lockWallet()));
     connect(&m_settings, SIGNAL(lockTimeoutChanged()), this, SLOT(onLockTimeoutChanged()));
-
+    connect(AppModel::getInstance().getWallet().get(), SIGNAL(stateIDChanged()), SIGNAL(unsafeTxCountChanged()));
+    connect(AppModel::getInstance().getWallet().get(), SIGNAL(transactionsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)), SIGNAL(unsafeTxCountChanged()));
 #if defined(BEAM_HW_WALLET)
     connect(AppModel::getInstance().getWallet().get(), SIGNAL(showTrezorMessage()), this, SIGNAL(showTrezorMessage()));
     connect(AppModel::getInstance().getWallet().get(), SIGNAL(hideTrezorMessage()), this, SIGNAL(hideTrezorMessage()));
@@ -81,4 +82,9 @@ void MainViewModel::resetLockTimer()
     {
         m_timer.start();
     }
+}
+
+int MainViewModel::getUnsafeTxCount() const
+{
+    return static_cast<int>(AppModel::getInstance().getWallet()->getUnsafeActiveTransactionsCount());
 }

@@ -1862,6 +1862,11 @@ namespace ECC {
 		return 0;
 	}
 
+	bool Key::ID::isAsset() const
+	{
+	    return m_Type == Key::Type::Asset || m_Type == Key::Type::AssetChange;
+	}
+
 	int Key::IDV::cmp(const IDV& x) const
 	{
 		int n = ID::cmp(x);
@@ -1982,6 +1987,18 @@ namespace ECC {
 		Generate(sk_.V.m_Value);
 	}
 
+	void HKdf::GenerateChildParallel(Key::IKdf& kdf, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		kdf.DerivePKey(sk, hv);
+
+		NoLeak<Scalar> sk_;
+		sk_.V = sk;
+		Generate(sk_.V.m_Value);
+
+		m_kCoFactor *= sk;
+	}
+
 	void HKdf::CreateChild(Ptr& pRes, Key::IKdf& kdf, Key::Index iKdf)
 	{
 		std::shared_ptr<HKdf> pVal = std::make_shared<HKdf>();
@@ -2073,6 +2090,22 @@ namespace ECC {
 		m_Generator = v.m_Generator;
 		m_PkG = Context::get().G * v.m_kCoFactor;
 		m_PkJ = Context::get().J * v.m_kCoFactor;
+	}
+
+	void HKdfPub::GenerateChildParallel(Key::IPKdf& kdf, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		kdf.DerivePKey(sk, hv);
+
+		NoLeak<Scalar> sk_;
+		sk_.V = sk;
+
+		HKdf hkdf;
+		hkdf.Generate(sk_.V.m_Value);
+		GenerateFrom(hkdf);
+
+		m_PkG = m_PkG * sk;
+		m_PkJ = m_PkJ * sk;
 	}
 
 	/////////////////////

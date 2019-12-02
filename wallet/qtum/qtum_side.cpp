@@ -31,7 +31,6 @@ namespace beam::wallet
 
     bool QtumSide::CheckAmount(Amount amount, Amount feeRate)
     {
-        //TODO:double?
         Amount fee = static_cast<Amount>(std::round(double(kQtumWithdrawTxAverageSize * feeRate) / 1000));
         return amount > kQtumDustThreshold && amount > fee;
     }
@@ -39,10 +38,5 @@ namespace beam::wallet
     uint32_t QtumSide::GetLockTxEstimatedTimeInBeamBlocks() const
     {
         return kQtumLockTxEstimatedTimeInBeamBlocks;
-    }
-
-    uint8_t QtumSide::GetAddressVersion() const
-    {
-        return qtum::getAddressVersion();
     }
 }

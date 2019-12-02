@@ -49,7 +49,7 @@ namespace beam::wallet
             return true;
         }
 
-        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool allowPrivate = false)
+        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool isInternalSource, bool allowPrivate = false)
         {
             bool txChanged = false;
             SubTxID subTxID = kDefaultSubTxID;
@@ -66,6 +66,11 @@ namespace beam::wallet
 
                 if (allowPrivate || p.first < TxParameterID::PrivateFirstParam)
                 {
+                    if (!isInternalSource && !tx->IsTxParameterExternalSettable(p.first, subTxID))
+                    {
+                        LOG_WARNING() << tx->GetTxID() << "Attempt to set internal tx parameter: " << static_cast<int>(p.first);
+                        continue;
+                    }
                     txChanged |= tx->SetParameter(p.first, p.second, subTxID);
                 }
                 else
@@ -165,9 +170,8 @@ namespace beam::wallet
         m_MessageEndpoints.insert(endpoint);
     }
 
-    // TODO: Rename to Rescan ?
-    // Reset wallet state and rescan the blockchain
-    void Wallet::Refresh()
+    // Rescan the blockchain for UTXOs
+    void Wallet::Rescan()
     {
         // We save all Incoming coins of active transactions and
         // restore them after clearing db. This will save our outgoing & available amounts
@@ -179,9 +183,6 @@ namespace beam::wallet
         }
 
         m_WalletDB->clearCoins();
-        Block::SystemState::ID id;
-        ZeroObject(id);
-        m_WalletDB->setSystemStateID(id);
 
         // Restore Incoming coins of active transactions
         m_WalletDB->saveCoins(ocoins);
@@ -242,6 +243,14 @@ namespace beam::wallet
         return IsValidTimeStamp(state.m_TimeStamp);
     }
 
+    size_t Wallet::GetUnsafeActiveTransactionsCount() const
+    {
+        return std::count_if(m_ActiveTransactions.begin(), m_ActiveTransactions.end(), [](const auto& p)
+            {
+                return !p.second->IsInSafety();
+            });
+    }
+
     void Wallet::OnAsyncStarted()
     {
         if (m_AsyncUpdateCounter == 0)
@@ -289,7 +298,7 @@ namespace beam::wallet
     void Wallet::confirm_outputs(const vector<Coin>& coins)
     {
         for (auto& coin : coins)
-            getUtxoProof(coin.m_ID);
+            getUtxoProof(coin);
     }
 
     bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
@@ -415,7 +424,7 @@ namespace beam::wallet
             return;
         }
 
-        if (ApplyTransactionParameters(t, msg.m_Parameters))
+        if (ApplyTransactionParameters(t, msg.m_Parameters, false))
         {
             UpdateTransaction(msg.m_TxID);
         }
@@ -502,7 +511,7 @@ namespace beam::wallet
         const auto& proof = r.m_Res.m_Proofs.front(); // Currently - no handling for multiple coins for the same commitment.
 
         proto::UtxoEvent evt;
-        evt.m_Added = 1;
+        evt.m_Flags = proto::UtxoEvent::Flags::Add;
         evt.m_Kidv = r.m_CoinID;
         evt.m_Maturity = proof.m_State.m_Maturity;
         evt.m_Height = evt.m_Maturity; // we don't know the real height, but it'll be used for logging only. For standard outputs maturity and height are the same
@@ -551,6 +560,12 @@ namespace beam::wallet
             tx->SetParameter(TxParameterID::Kernel, r.m_Res.m_Kernel, r.m_SubTxID);
             tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Height, r.m_SubTxID);
         }
+        else
+        {
+            Block::SystemState::Full sTip;
+            get_tip(sTip);
+            tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
+        }
     }
 
     void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
@@ -593,17 +608,19 @@ namespace beam::wallet
     {
         std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 
-        function<Point(const Key::IDV&)> commitmentFunc;
+        function<Point(const Key::IDV&, const AssetID& assetId)> commitmentFunc;
         if (m_KeyKeeper)
         {
-            commitmentFunc = [this](const auto& kidv) {return m_KeyKeeper->GeneratePublicKeySync(kidv, true); };
+            commitmentFunc = [this](const auto& kidv, const auto& assetId) {
+                return m_KeyKeeper->GenerateCoinKeySync(kidv, assetId);
+            };
         }
         else if (auto ownerKdf = m_WalletDB->get_OwnerKdf(); ownerKdf)
         {
-            commitmentFunc = [ownerKdf](const auto& kidv)
+            commitmentFunc = [ownerKdf](const auto& kidv, const auto& assetId)
             {
                 Point::Native pt;
-                SwitchCommitment sw;
+                SwitchCommitment sw(&assetId);
 
                 sw.Recover(pt, *ownerKdf, kidv);
                 Point commitment = pt;
@@ -618,7 +635,7 @@ namespace beam::wallet
             // filter-out false positives
             if (commitmentFunc)
             {
-                Point commitment = commitmentFunc(event.m_Kidv);
+                Point commitment = commitmentFunc(event.m_Kidv, event.m_AssetID);
                 if (commitment == event.m_Commitment)
                     ProcessUtxoEvent(event);
                 else
@@ -628,7 +645,7 @@ namespace beam::wallet
                     {
                         event.m_Kidv.set_WorkaroundBb21();
 
-                        commitment = commitmentFunc(event.m_Kidv);
+                        commitment = commitmentFunc(event.m_Kidv, event.m_AssetID);
                         if (commitment == event.m_Commitment)
                             ProcessUtxoEvent(event);
                     }
@@ -672,13 +689,16 @@ namespace beam::wallet
     {
         Coin c;
         c.m_ID = evt.m_Kidv;
+        c.m_assetId = evt.m_AssetID;
 
         bool bExists = m_WalletDB->findCoin(c);
         c.m_maturity = evt.m_Maturity;
 
-        LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent") << ", Height=" << evt.m_Height;
+		bool bAdd = 0 != (proto::UtxoEvent::Flags::Add & evt.m_Flags);
+        LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + evt.m_AssetID.str() : "")
+                   << " Maturity=" << evt.m_Maturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << evt.m_Height;
 
-        if (evt.m_Added)
+        if (bAdd)
         {
             c.m_confirmHeight = std::min(c.m_confirmHeight, evt.m_Height); // in case of std utxo proofs - the event height may be bigger than actual utxo height
 
@@ -692,7 +712,8 @@ namespace beam::wallet
                 {
                     c.m_status = Coin::Status::Outgoing;
                     c.m_spentTxId = txid;
-                    LOG_INFO() << "CoinID: " << evt.m_Kidv << " marked as Outgoing";
+                    LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + evt.m_AssetID.str() : "")
+                               << " marked as Outgoing";
                 }
             }
         }
@@ -788,18 +809,18 @@ namespace beam::wallet
         ProcessStoredMessages();
     }
 
-    void Wallet::getUtxoProof(const Coin::ID& cid)
+    void Wallet::getUtxoProof(const Coin& coin)
     {
         MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
-        pReq->m_CoinID = cid;
+        pReq->m_CoinID = coin.m_ID;
 
         if (!m_KeyKeeper)
         {
             LOG_WARNING() << "You cannot get utxo commitment without private key";
             return;
         }
-        pReq->m_Msg.m_Utxo = m_KeyKeeper->GeneratePublicKeySync(cid, true);
 
+        pReq->m_Msg.m_Utxo = m_KeyKeeper->GenerateCoinKeySync(coin.m_ID, coin.m_assetId);
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
         PostReqUnique(*pReq);
@@ -938,7 +959,15 @@ namespace beam::wallet
             {
                 LOG_WARNING() << msg.m_TxID << " Parameters for invalid tx type";
             }
-            it->second->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+            if (WalletID peerID; it->second->GetParameter(TxParameterID::PeerID, peerID) && peerID != msg.m_From)
+            {
+                // if we already have PeerID, we should ignore messages from others
+                return BaseTransaction::Ptr();
+            }
+            else
+            {
+                it->second->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+            }
             return it->second;
         }
 
@@ -949,8 +978,14 @@ namespace beam::wallet
             return BaseTransaction::Ptr();
         }
 
+        if (msg.m_Type == TxType::AtomicSwap)
+        {
+            // we don't create swap from SBBS message
+            return BaseTransaction::Ptr();
+        }
+
         bool isSender = false;
-        if (!msg.GetParameter(TxParameterID::IsSender, isSender) || (isSender == true && msg.m_Type != TxType::AtomicSwap))
+        if (!msg.GetParameter(TxParameterID::IsSender, isSender) || isSender == true)
         {
             return BaseTransaction::Ptr();
         }
@@ -1019,7 +1054,7 @@ namespace beam::wallet
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
         auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, *parameters.GetTxID());
-        ApplyTransactionParameters(newTx, completedParameters.Pack());
+        ApplyTransactionParameters(newTx, completedParameters.Pack(), true);
         return newTx;
     }
 

@@ -20,7 +20,6 @@
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
-#include "swaps/second_side.h"
 #include <algorithm>
 
 namespace beam::wallet
@@ -29,12 +28,16 @@ namespace beam::wallet
     {
         Simple,
         AtomicSwap,
+        AssetIssue,
+        AssetConsume,
         ALL
     };
 
     using TxID = std::array<uint8_t, 16>;
     const Height kDefaultTxLifetime = 2 * 60;
     const Height kDefaultTxResponseTime = 12 * 60;
+    const char kTimeStampFormat3x3[] = "%Y.%m.%d %H:%M:%S";
+    const char kTimeStampFormatCsv[] = "%d %b %Y | %H:%M";
 
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
@@ -74,12 +77,17 @@ namespace beam::wallet
 
     struct PrintableAmount
     {
-        explicit PrintableAmount(const Amount& amount, bool showPoint = false) 
-            : m_value{ amount }
+        explicit PrintableAmount(const Amount& amount, bool showPoint = false, const std::string& coinName = "", const std::string& grothName ="")
+            : m_value{amount}
             , m_showPoint{showPoint}
+            , m_coinName{coinName}
+            , m_grothName{grothName}
         {}
+
         const Amount& m_value;
         bool m_showPoint;
+        std::string m_coinName;
+        std::string m_grothName;
     };
     
     struct Coin;
@@ -112,7 +120,7 @@ namespace beam::wallet
     MACRO(InvalidTransaction,            4, "Transaction is not valid") \
     MACRO(InvalidKernelProof,            5, "Invalid kernel proof provided") \
     MACRO(FailedToSendParameters,        6, "Failed to send tx parameters") \
-    MACRO(NoInputs,                      7, "No inputs") \
+    MACRO(NoInputs,                      7, "Not enough inputs to process the transaction") \
     MACRO(ExpiredAddressProvided,        8, "Address is expired") \
     MACRO(FailedToGetParameter,          9, "Failed to get parameter") \
     MACRO(TransactionExpired,            10, "Transaction has expired") \
@@ -129,6 +137,11 @@ namespace beam::wallet
     MACRO(NotEnoughTimeToFinishBtcTx,    21, "Not enough time to finish btc lock transaction") \
     MACRO(FailedToCreateMultiSig,        22, "Failed to create multi-signature") \
     MACRO(FeeIsTooSmall,                 23, "Fee is too small") \
+    MACRO(MinHeightIsUnacceptable,       24, "Kernel's min height is unacceptable") \
+    MACRO(NotLoopback,                   25, "Not a loopback transaction") \
+    MACRO(NoKeyKeeper,                   26, "Key keeper is not initialized") \
+    MACRO(NoAssetId,                     27, "No valid asset id/asset idx") \
+    MACRO(ConsumeAmountTooBig,           28, "Cannot consume more than MAX_INT64 asset groth in one transaction")
 
     enum TxFailureReason : int32_t
     {
@@ -189,6 +202,7 @@ namespace beam::wallet
         Lifetime = 15,
         PeerProtoVersion = 16,
         MaxHeight = 17,
+        AssetID = 18,
 
         PeerResponseTime = 24,
         SubTxIndex = 25,
@@ -196,6 +210,7 @@ namespace beam::wallet
 
         IsSelfTx = 27,
 
+        AtomicSwapPeerPrivateKey = 29,
         AtomicSwapIsBeamSide = 30,
         AtomicSwapCoin = 31,
         AtomicSwapAmount = 32,
@@ -231,6 +246,7 @@ namespace beam::wallet
         PeerSharedBulletProofPart3 = 110,
 
         PeerLockImage = 115,
+        AssetIdx = 116,
 
         // private parameters
         PrivateFirstParam = 128,
@@ -245,10 +261,11 @@ namespace beam::wallet
 
         Offset = 140,
 
-        Change = 150,
+        ChangeAsset = 149,
+        ChangeBeam = 150,
         Status = 151,
         KernelID = 152,
-
+        EmissionKernelID = 153,
         MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
 
         SharedBlindingFactor = 160,
@@ -264,11 +281,15 @@ namespace beam::wallet
         OutputCoins = 184,
         Outputs = 190,
 
+        EmissionKernel = 199,
         Kernel = 200,
         PreImage = 201,
         AtomicSwapSecretPrivateKey = 202,
         AtomicSwapSecretPublicKey = 203,
         Confirmations = 204,
+        AtomicSwapPrivateKey = 205,
+        AtomicSwapWithdrawAddress = 206,
+        AtomicSwapExternalHeight = 207,
 
         InternalFailureReason = 210,
     
@@ -287,7 +308,7 @@ namespace beam::wallet
         bool operator==(const TxParameters& other);
         bool operator!=(const TxParameters& other);
 
-        boost::optional<TxID> GetTxID() const;
+        const boost::optional<TxID>& GetTxID() const;
 
         template <typename T>
         boost::optional<T> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const
@@ -383,7 +404,7 @@ namespace beam::wallet
         PackedTxParameters m_Parameters;
     };    
 
-    enum class AtomicSwapCoin
+    enum class AtomicSwapCoin : int32_t // explicit signed type for serialization backward compatibility
     {
         Bitcoin,
         Litecoin,
@@ -448,6 +469,7 @@ namespace beam::wallet
             , TxType txType = TxType::Simple
             , Amount amount = 0
             , Amount fee =0
+            , const AssetID& assetId = Zero
             , Height minHeight = 0
             , const WalletID & peerId = Zero
             , const WalletID& myId = Zero
@@ -459,7 +481,9 @@ namespace beam::wallet
             , m_txType{ txType }
             , m_amount{ amount }
             , m_fee{ fee }
-            , m_change{}
+            , m_changeBeam{0}
+            , m_changeAsset{0}
+            , m_assetId{assetId}
             , m_minHeight{ minHeight }
             , m_peerId{ peerId }
             , m_myId{ myId }
@@ -485,7 +509,10 @@ namespace beam::wallet
         wallet::TxType m_txType = wallet::TxType::Simple;
         Amount m_amount = 0;
         Amount m_fee = 0;
-        Amount m_change = 0;
+        Amount m_changeBeam = 0;
+        Amount m_changeAsset = 0;
+        AssetID m_assetId = Zero;
+        Key::Index m_assetIdx = 0;
         Height m_minHeight = 0;
         WalletID m_peerId = Zero;
         WalletID m_myId = Zero;

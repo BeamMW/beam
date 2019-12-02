@@ -13,7 +13,7 @@ ColumnLayout {
     property var defaultFocusItem: addressComment
 
     // callbacks set by parent
-    property var onClosed: undefined
+    property var onClosed: function() {}
 
     TopGradient {
         mainRoot: main
@@ -35,6 +35,10 @@ ColumnLayout {
 
     function isValid() {
         return viewModel.commentValid
+    }
+
+    function saveAddress() {
+        if (receiveView.isValid()) viewModel.saveAddress();
     }
 
     Item {
@@ -206,41 +210,6 @@ ColumnLayout {
         }
     }
 
-    /* Token temorarily removed, only address at the moment
-    SFText {
-        Layout.alignment: Qt.AlignHCenter
-        Layout.topMargin: 40
-        font.pixelSize:   14
-        font.styleName:   "Bold"
-        font.weight:      Font.Bold
-        color:            Style.content_main
-        //% "Your transaction token:"
-        text: qsTrId("wallet-receive-your-token")
-    }
-
-    SFTextArea {
-        Layout.alignment:    Qt.AlignHCenter
-        width:               392
-        height:              48
-        focus:               true
-        activeFocusOnTab:    true
-        font.pixelSize:      14
-        wrapMode:            TextInput.Wrap
-        color:               isValid() ? Style.content_secondary : Style.validator_error
-        text:                viewModel.transactionToken
-        horizontalAlignment: TextEdit.AlignHCenter
-        readOnly:            true
-    }
-
-    SFText {
-        Layout.alignment: Qt.AlignHCenter
-        Layout.topMargin: 5
-        font.pixelSize:   14
-        color:            Style.content_main
-        //% "Send this token to the sender over an external secure channel or scan the QR code"
-        text: qsTrId("wallet-receive-token-message")
-    }
-    */
     SFText {
         Layout.alignment: Qt.AlignHCenter
         Layout.topMargin: 30
@@ -276,7 +245,7 @@ ColumnLayout {
             palette.buttonText: Style.content_main
             icon.source:        "qrc:/assets/icon-cancel-white.svg"
             onClicked:          {
-                if (receiveView.isValid()) viewModel.saveAddress();
+                receiveView.saveAddress();
                 onClosed();
             }
         }
@@ -288,7 +257,11 @@ ColumnLayout {
             icon.color:         Style.content_opposite
             palette.button:     Style.active
             icon.source:        "qrc:/assets/icon-copy.svg"
-            onClicked:          BeamGlobals.copyToClipboard(viewModel.receiverAddress)
+            onClicked:          {
+                BeamGlobals.copyToClipboard(viewModel.receiverAddress);
+                receiveView.saveAddress();
+                onClosed();
+            }
             enabled:            receiveView.isValid()
         }
     }

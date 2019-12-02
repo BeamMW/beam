@@ -15,6 +15,8 @@
 
 #include <QObject>
 #include <QQmlListProperty>
+#include <QQueue>
+#include <QString>
 #include "wallet/bitcoin/client.h"
 #include "model/wallet_model.h"
 #include "model/settings.h"
@@ -51,13 +53,15 @@ public:
     QString getWalletStatusErrorMsg() const;
     void allowBeamMWLinks(bool value);
 
-    Q_INVOKABLE void cancelTx(QVariant variantTxID);
-    Q_INVOKABLE void deleteTx(QVariant variantTxID);
-    Q_INVOKABLE PaymentInfoItem* getPaymentInfo(QVariant variantTxID);
+    Q_INVOKABLE void cancelTx(const QVariant& variantTxID);
+    Q_INVOKABLE void deleteTx(const QVariant& variantTxID);
+    Q_INVOKABLE PaymentInfoItem* getPaymentInfo(const QVariant& variantTxID);
     Q_INVOKABLE bool isAllowedBeamMWLinks() const;
+    Q_INVOKABLE void exportTxHistoryToCsv();
 
 public slots:
     void onTransactionsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items);
+    void onTxHistoryExportedToCsv(const QString& data);
 
 signals:
     void beamAvailableChanged();
@@ -72,4 +76,5 @@ private:
     WalletModel& _model;
     WalletSettings& _settings;
     TxObjectList _transactionsList;
+    QQueue<QString> _txHistoryToCsvPaths;
 };

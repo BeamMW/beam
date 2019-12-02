@@ -16,11 +16,15 @@ matrix:
         - brew update
         - brew unlink cmake
         - brew install cmake
+        - brew link cmake
+        - brew uninstall --ignore-dependencies qt boost
         - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/56c500b569c724b049be7ab9e12d9693f85522f9/Formula/qt.rb
         - brew install ./qt.rb
         - brew link qt5 --force
+        - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
+        - brew install ./boost.rb
         - export PATH=/usr/local/opt/qt/bin:$PATH
-        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
+        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl@1.1"
       env: 
         - BUILD_TYPE=Debug
         - OS_FOLDER=mac
@@ -46,9 +50,13 @@ matrix:
         - brew update
         - brew unlink cmake
         - brew install cmake
+        - brew link cmake
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
+        - brew uninstall --ignore-dependencies qt boost
+        - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
+        - brew install ./boost.rb
+        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl@1.1"
         - export PATH=/usr/local/qt5-static/bin:$PATH
-        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
         - openssl aes-256-cbc -K $encrypted_1f9ebee66ea9_key -iv $encrypted_1f9ebee66ea9_iv -in macos_cert.enc -out macos_cert.tar -d

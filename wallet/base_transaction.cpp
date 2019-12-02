@@ -38,7 +38,7 @@ namespace beam::wallet
         return txID;
     }
 
-    TxParameters CreateTransactionParameters(TxType type, TxID txID)
+    TxParameters CreateTransactionParameters(TxType type, const TxID& txID)
     {
         return TxParameters(txID)
             .SetParameter(TxParameterID::TransactionType, type)
@@ -147,6 +147,7 @@ namespace beam::wallet
             UpdateImpl();
 
             CheckExpired();
+            SetParameter(TxParameterID::ModifyTime, getTimestamp(), true);
         }
         catch (const TransactionFailedException & ex)
         {
@@ -296,10 +297,7 @@ namespace beam::wallet
 
     void BaseTransaction::UpdateTxDescription(TxStatus s)
     {
-        if (SetParameter(TxParameterID::Status, s, true))
-        {
-            SetParameter(TxParameterID::ModifyTime, getTimestamp(), true);
-        }
+        SetParameter(TxParameterID::Status, s, true);
     }
 
     void BaseTransaction::OnFailed(TxFailureReason reason, bool notify)

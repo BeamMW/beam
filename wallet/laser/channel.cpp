@@ -130,7 +130,7 @@ Amount Channel::SelectInputs(std::vector<Key::IDV>& vInp, Amount valRequired)
     assert(vInp.empty());
 
     Amount nDone = 0;
-    auto coins = m_rHolder.getWalletDB()->selectCoins(valRequired);
+    auto coins = m_rHolder.getWalletDB()->selectCoins(valRequired, Zero);
     vInp.reserve(coins.size());
     std::transform(coins.begin(), coins.end(), std::back_inserter(vInp),
                    [&nDone] (const Coin& coin) -> Key::IDV

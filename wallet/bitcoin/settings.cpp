@@ -56,7 +56,8 @@ namespace beam::bitcoin
 
     bool Settings::IsCoreActivated() const
     {
-        return GetConnectionOptions().IsInitialized() && GetCurrentConnectionType() == ISettings::Core;
+        return GetConnectionOptions().IsInitialized() &&
+               GetCurrentConnectionType() == ISettings::ConnectionType::Core;
     }
 
     ElectrumSettings Settings::GetElectrumConnectionOptions() const
@@ -66,7 +67,8 @@ namespace beam::bitcoin
 
     bool Settings::IsElectrumActivated() const
     {
-        return GetElectrumConnectionOptions().IsInitialized() && GetCurrentConnectionType() == ISettings::Electrum;
+        return GetElectrumConnectionOptions().IsInitialized() &&
+               GetCurrentConnectionType() == ISettings::ConnectionType::Electrum;
     }
 
     Amount Settings::GetFeeRate() const
@@ -104,6 +106,16 @@ namespace beam::bitcoin
         return m_connectionType;
     }
 
+    double Settings::GetBlocksPerHour() const
+    {
+        return m_blocksPerHour;
+    }
+
+    uint8_t Settings::GetAddressVersion() const
+    {
+        return m_addressVersion;
+    }
+
     void Settings::SetConnectionOptions(const BitcoinCoreSettings& connectionSettings)
     {
         m_connectionSettings = connectionSettings;
@@ -137,5 +149,15 @@ namespace beam::bitcoin
     void Settings::ChangeConnectionType(ISettings::ConnectionType type)
     {
         m_connectionType = type;
+    }
+
+    void Settings::SetBlocksPerHour(double blocksPerHour)
+    {
+        m_blocksPerHour = blocksPerHour;
+    }
+
+    void Settings::SetAddressVersion(uint8_t addressVersion)
+    {
+        m_addressVersion = addressVersion;
     }
 } // namespace beam::bitcoin

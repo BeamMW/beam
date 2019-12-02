@@ -133,6 +133,8 @@ namespace proto {
 				uint32_t m_PollPeriod_ms = 0; // set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks
 				uint32_t m_ReconnectTimeout_ms = 5000;
                 uint32_t m_CloseConnectionDelay_ms = 1000;
+				bool m_UseProxy = false;
+				io::Address m_ProxyAddr;
 			} m_Cfg;
 
 			class Connection

@@ -26,8 +26,8 @@ namespace beam::wallet
 {
     class BaseTxBuilder;
 
-    TxParameters CreateSimpleTransactionParameters(boost::optional<TxID> txId = boost::none);
-    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, boost::optional<TxID> txId = boost::none);
+    TxParameters CreateSimpleTransactionParameters(const boost::optional<TxID>& txId = boost::none);
+    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, const boost::optional<TxID>& txId = boost::none);
 
     class SimpleTransaction : public BaseTransaction
     {
@@ -64,6 +64,7 @@ namespace beam::wallet
                         , const TxID& txID);
     private:
         TxType GetType() const override;
+        bool IsInSafety() const override;
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         void SendInvitation(const BaseTxBuilder& builder, bool isSender);

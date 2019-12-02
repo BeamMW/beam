@@ -1845,17 +1845,8 @@ void TestAES()
 	verify_test(!memcmp(pBuf, pPlaintext, sizeof(pPlaintext)));
 }
 
-void TestKdf()
+void TestKdfPair(Key::IKdf& skdf, Key::IPKdf& pkdf)
 {
-	HKdf skdf;
-	HKdfPub pkdf;
-
-	uintBig seed;
-	SetRandom(seed);
-
-	skdf.Generate(seed);
-	pkdf.GenerateFrom(skdf);
-
 	for (uint32_t i = 0; i < 10; i++)
 	{
 		Hash::Value hv;
@@ -1882,6 +1873,20 @@ void TestKdf()
 		pk0 += pk1;
 		verify_test(pk0 == Zero);
 	}
+}
+
+void TestKdf()
+{
+	HKdf skdf;
+	HKdfPub pkdf;
+
+	uintBig seed;
+	SetRandom(seed);
+
+	skdf.Generate(seed);
+	pkdf.GenerateFrom(skdf);
+
+	TestKdfPair(skdf, pkdf);
 
 	const std::string sPass("test password");
 
@@ -1905,6 +1910,16 @@ void TestKdf()
 	seed.Inc();
 	skdf2.Generate(seed);
 	verify_test(!skdf2.IsSame(skdf));
+
+	// parallel key generation
+	SetRandom(seed);
+
+	skdf2.GenerateChildParallel(skdf, seed);
+
+	pkdf.GenerateFrom(skdf);
+	pkdf2.GenerateChildParallel(pkdf, seed);
+
+	TestKdfPair(skdf2, pkdf2);
 }
 
 void TestBbs()
@@ -2290,6 +2305,69 @@ void TestLelantusKeys()
 
 }
 
+void TestAssetEmission()
+{
+	const beam::Height hScheme = g_hFork;
+
+	beam::Key::IDV kidvInpBeam (100, 12, beam::Key::Type::Regular);
+	beam::Key::IDV kidvInpAsset(70,  15, beam::Key::Type::Asset);
+	beam::Key::IDV kidvOutBeam (70,  25, beam::Key::Type::Regular);
+	const beam::Amount fee = 100;
+
+	beam::Key::IKdf::Ptr pKdf;
+	HKdf::Create(pKdf, Zero);
+
+	Scalar::Native skAssetSk, sk, kOffset(Zero);
+	pKdf->DeriveKey(skAssetSk, beam::Key::ID(1231231, beam::Key::Type::Asset));
+
+	beam::AssetID assetID;
+	beam::proto::Sk2Pk(assetID, skAssetSk);
+
+
+	beam::Transaction tx;
+
+	beam::Input::Ptr pInp(new beam::Input);
+	beam::SwitchCommitment().Create(sk, pInp->m_Commitment, *pKdf, kidvInpBeam);
+	tx.m_vInputs.push_back(std::move(pInp));
+	kOffset += sk;
+
+	beam::Input::Ptr pInpAsset(new beam::Input);
+	beam::SwitchCommitment(&assetID).Create(sk, pInpAsset->m_Commitment, *pKdf, kidvInpAsset);
+	tx.m_vInputs.push_back(std::move(pInpAsset));
+	kOffset += sk;
+
+	beam::Output::Ptr pOutp(new beam::Output);
+	pOutp->Create(hScheme, sk, *pKdf, kidvOutBeam, *pKdf);
+	tx.m_vOutputs.push_back(std::move(pOutp));
+	kOffset += -sk;
+
+	beam::TxKernel::Ptr pKrn(new beam::TxKernel);
+	pKdf->DeriveKey(sk, beam::Key::ID(23123, beam::Key::Type::Kernel));
+	pKrn->m_Commitment = ECC::Context::get().G * sk;
+	pKrn->m_Fee = fee;
+	pKrn->Sign(sk);
+	tx.m_vKernels.push_back(std::move(pKrn));
+	kOffset += -sk;
+
+	pKrn.reset(new beam::TxKernel);
+	//pKrn->m_Commitment = ECC::Context::get().G * skAssetSk;
+	pKrn->m_Commitment.m_X = assetID;
+	pKrn->m_Commitment.m_Y = 0;
+	pKrn->m_AssetEmission  = -static_cast<beam::AmountSigned>(kidvInpAsset.m_Value);
+	pKrn->Sign(skAssetSk);
+	tx.m_vKernels.push_back(std::move(pKrn));
+	kOffset += -skAssetSk;
+
+	tx.m_Offset = kOffset;
+
+	beam::Transaction::Context::Params pars;
+	beam::Transaction::Context ctx(pars);
+	ctx.m_Height.m_Min = hScheme;
+	bool bIsValid = tx.IsValid(ctx);
+
+	verify_test(bIsValid);
+}
+
 void TestTxKernel()
 {
     TransactionMaker tm;
@@ -2384,6 +2462,7 @@ void TestAll()
 	TestRandom();
 	TestFourCC();
 	TestTreasury();
+	TestAssetEmission();
 	TestLelantus();
 	TestLelantusKeys();
 }

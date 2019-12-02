@@ -902,17 +902,16 @@ void Node::Processor::Stop()
     }
 }
 
-bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
+Key::IPKdf* Node::Processor::get_ViewerKey()
 {
-    const Keys& keys = get_ParentObj().m_Keys;
+	return get_ParentObj().m_Keys.m_pOwner.get();
+}
 
-    // according to current design - a single master viewer key is enough
-	if (keys.m_pOwner && !w.OnKey(*keys.m_pOwner, 0)) {
-		// stupid compiler insists on parentheses here!
-		return false;
-	}
-
-    return true;
+const Output::Shielded::Viewer* Node::Processor::get_ViewerShieldedKey()
+{
+	return get_ParentObj().m_Keys.m_pOwner ?
+		&get_ParentObj().m_Keys.m_ShieldedViewer :
+		nullptr;
 }
 
 void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
@@ -925,7 +924,7 @@ void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
 		Height hMaturity;
 		evt.m_Maturity.Export(hMaturity);
 
-		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << hMaturity << ", Added=" << static_cast<uint32_t>(evt.m_Added) << ", Height=" << h;
+		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << hMaturity << ", Flags=" << static_cast<uint32_t>(evt.m_Flags) << ", Height=" << h;
 	}
 }
 
@@ -1070,6 +1069,8 @@ void Node::InitKeys()
 			throw exc;
 
 		}
+
+		m_Keys.m_ShieldedViewer.FromOwner(*m_Keys.m_pOwner);
 	}
 	else
         m_Keys.m_pMiner = nullptr; // can't mine without owner view key, because it's used for Tagging
@@ -3394,6 +3395,9 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
                 continue; // although shouldn't happen
             const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
 
+			if ((proto::UtxoEvent::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
+				continue; // although shouldn't happen
+
             msgOut.m_Events.emplace_back();
             proto::UtxoEvent& res = msgOut.m_Events.back();
 
@@ -3403,8 +3407,11 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 
             res.m_Commitment = *reinterpret_cast<const ECC::Point*>(wlk.m_Key.p);
             res.m_AssetID = evt.m_AssetID;
-            res.m_Added = evt.m_Added;
-        }
+            res.m_Flags = evt.m_Flags;
+
+			if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+				res.m_Shielded = Cast::Up<UE::ValueS>(evt).m_Shielded;
+		}
     }
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";

@@ -33,6 +33,11 @@ TxObject::TxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
     setKernelID(kernelID);
 }
 
+bool TxObject::operator==(const TxObject& other) const
+{
+    return getTxID() == other.getTxID();
+}
+
 auto TxObject::timeCreated() const -> beam::Timestamp
 {
     return m_tx.m_createTime;

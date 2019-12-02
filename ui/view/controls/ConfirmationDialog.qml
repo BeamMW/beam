@@ -12,12 +12,15 @@ Dialog {
     property alias okButtonIconSource: okButton.icon.source
     property alias okButtonVisible: okButton.visible
     property alias okButtonColor: okButton.palette.button
+    property alias okButtonAllLowercase: okButton.allLowercase
     property alias cancelButton: cancelButton
     property alias cancelButtonEnable: cancelButton.enabled
     property alias cancelButtonText: cancelButton.text
     property alias cancelButtonIconSource: cancelButton.icon.source
     property alias cancelButtonVisible: cancelButton.visible
     property alias cancelButtonColor: cancelButton.palette.button
+    property alias cancelButtonAllLowercase: cancelButton.allLowercase
+
     function confirmationHandler() {
         accepted();
         close();

@@ -17,9 +17,13 @@
 namespace beam
 {
     const char kDefaultConfigFile[] = "beam-wallet.cfg";
-    const char kTimeStampFormat3x3[] = "%Y.%m.%d %H:%M:%S";
     const char kBEAM[] = "BEAM";
     const char kGROTH[] = "GROTH";
+    const char kASSET[] = "ASSET";
+    const char kAGROTH[] = "AGROTH";
+    const char kAmountASSET[] = "assets";
+    const char kAmountAGROTH[] = "agroth";
+
     // Coin statuses
     const char kCoinStatusAvailable[] = "Available";
     const char kCoinStatusUnavailable[] = "Unavailable";
@@ -27,6 +31,7 @@ namespace beam
     const char kCoinStatusMaturing[] = "Maturing";
     const char kCoinStatusOutgoing[] = "In progress(outgoing)";
     const char kCoinStatusIncoming[] = "In progress(incoming/change)";
+    const char kCoinStatusConsumed[]    = "Consumed";
 
     // Tx statuses
     const char kTxStatusPending[] = "pending";
@@ -40,6 +45,8 @@ namespace beam
     const char kTxStatusFailed[] = "failed";
     const char kTxStatusSentToOwn[] = "sent to own address";
     const char kTxStatusExpired[] = "expired";
+    const char kTxStatusConsumed[] = "asset consumed";
+    const char kTxStatusIssued[] = "asset issued";
 
     // Errors
     const char kErrorUnknownCoinStatus[] = "Unknown coin status";
@@ -87,7 +94,8 @@ namespace beam
     const char kErrorNodeAddrUnresolved[] = "unable to resolve node address: %1%";
     const char kErrorNodePoolPeriodTooMuch[] = "The \"--node_poll_period\" parameter set to more than %1% hours may cause transaction problems.";
     const char kErrorSwapAmountMissing[] = "swap amount is missing";
-    const char kErrorSwapCoinUnknown[] = "Unknown coin for swap";
+    const char kErrorSwapCoinUnknown[] = "cannot swap asset coins";
+    const char kErrorCantSwapAsset[] = "Unknown coin for swap";
     const char kErrorNoBTCNodeCredentials[] = "BTC node credentials should be provided";
     const char kErrorSwapAmountTooLow[] = "The swap amount must be greater than the redemption fee.";
     const char kErrorNoLTCNodeCredentials[] = "LTC node credentials should be provided";
@@ -96,6 +104,8 @@ namespace beam
     const char kErrorUnableSendZeroCoin[] = "Unable to send zero coins";
     const char kErrorTxStatusInvalid[] = "Transaction could not be deleted. Invalid transaction status.";
     const char kErrorTxIdUnknown[] = "Unknown transaction ID.";
+    const char kErrorImportPathInvalid[] = "Operation failed: provided path \"%1%\" is not valid";
+    const char kErrorFileLocationParamReqired[] = "Failed, --file_location param required";
 
     // Swap Tx statuses
     const char kSwapTxStatusInitial[] = "initial";
@@ -149,6 +159,7 @@ namespace beam
 
     // Wallet info
     const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
+    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\nAsset ID: %1%\n\n%2%%3%\n%4%%5%\n%6%%7%\n%8%%9%\n\n";
     const char kWalletSummaryFieldCurHeight[] = "Current height";
     const char kWalletSummaryFieldCurStateID[] = "Current state ID";
     const char kWalletSummaryFieldAvailable[] = "Available";
@@ -173,6 +184,7 @@ namespace beam
     const char kTxHistoryColumnDatetTime[] = "datetime";
     const char kTxHistoryColumnDirection[] = "direction";
     const char kTxHistoryColumnAmount[] = "amount, BEAM";
+    const char kAssetTxHistoryColumnAmount[] = "amount, ASSET";
     const char kTxHistoryColumnStatus[] = "status";
     const char kTxHistoryColumnId[] = "ID";
     const char kTxHistoryColumnKernelId[] = "kernel ID";
@@ -207,6 +219,10 @@ namespace beam
     const char kNodePoolPeriodRounded[] = "Node poll period has been automatically rounded up to block rate: %1% ms";
 
     const char kPpRequired[] = "Parameter set: Payment proof required: %1%";
+
+    // Confidential assets
+    const char kInvalidAssetID[] = "Invalid asset ID";
+    const char kErrorAssetIdxRequired[] = "Asset index is not specified";
 
     // Laser
     const char kLaserOpening[] = "Opening";

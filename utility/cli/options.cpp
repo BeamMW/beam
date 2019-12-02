@@ -211,10 +211,10 @@ namespace beam
         const char* IMPORT_DATA = "import_data";
         const char* IMPORT_EXPORT_PATH = "file_location";
         const char* IP_WHITELIST = "ip_whitelist";
-        const char* FAST_SYNC = "fast_sync";
-        const char* GENERATE_RECOVERY_PATH = "generate_recovery";
-        const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
-        const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
+	const char* FAST_SYNC = "fast_sync";
+	const char* GENERATE_RECOVERY_PATH = "generate_recovery";
+	const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
+	const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
         const char* COLD_WALLET = "cold_wallet";
         const char* SWAP_INIT = "swap_init";
         const char* SWAP_ACCEPT = "swap_accept";
@@ -225,6 +225,8 @@ namespace beam
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* NODE_POLL_PERIOD = "node_poll_period";
+        const char* PROXY_USE = "proxy";
+        const char* PROXY_ADDRESS = "proxy_addr";
         // values
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";
@@ -263,8 +265,16 @@ namespace beam
         const char* TR_COMMENT = "tr_comment";
         const char* TR_M = "tr_M";
         const char* TR_N = "tr_N";
+
         // ui
         const char* APPDATA_PATH = "appdata";
+
+        // assets
+        const char* ASSET_ISSUE   = "issue";
+        const char* ASSET_CONSUME = "consume";
+        const char* ASSET_INDEX   = "asset_idx";
+        const char* ASSET_ID      = "asset_id";
+
         // Defaults
         const Amount kMinimumFee = 100;
     }
@@ -348,8 +358,10 @@ namespace beam
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
             (cli::COLD_WALLET, "used to init cold wallet")
             (cli::IGNORE_DICTIONARY, "ignore dictionaty while validating seed phrase")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_accept|laser]")
-            (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|laser]")
+            (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
+            (cli::PROXY_USE, po::value<bool>()->default_value(false), "Use socks5 proxy server for node connection")
+            (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "Proxy server address");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
@@ -367,6 +379,9 @@ namespace beam
             (cli::APPDATA_PATH, po::value<string>());
 
         po::options_description swap_options("Atomic swap options");
+        po::options_description visible_swap_options(swap_options);
+        visible_swap_options.add_options()
+            (cli::COMMAND, po::value<string>(), "command to execute [swap_init|swap_accept]");
         swap_options.add_options()
             (cli::SET_SWAP_SETTINGS, po::value<std::string>(), "command to work with swap settings.")
             (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings [core|electrum]")
@@ -385,6 +400,17 @@ namespace beam
             (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
             (cli::SWAP_TOKEN, po::value<string>(), "swap transaction token");
 
+        for (auto opt : swap_options.options())
+        {
+            visible_swap_options.add(opt);
+        }
+
+        po::options_description wallet_assets_options("Confidential assets options");
+        wallet_assets_options.add_options()
+            (cli::ASSET_INDEX, po::value<Positive<uint32_t>>(), "asset index")
+            (cli::ASSET_ID, po::value<string>(), "asset id");
+
+        
         po::options_description lazer_options("Lightning options");
         lazer_options.add_options()
             (cli::LASER_OPEN, "open lightning channel")
@@ -422,9 +448,11 @@ namespace beam
             options.add(wallet_treasury_options);
             options.add(swap_options);
             options.add(lazer_options);
+            if(Rules::get().CA.Enabled) options.add(wallet_assets_options);
             visible_options.add(wallet_options);
-            visible_options.add(swap_options);
+            visible_options.add(visible_swap_options);
             visible_options.add(lazer_options);
+            if(Rules::get().CA.Enabled) visible_options.add(wallet_assets_options);
         }
         if (flags & UI_OPTIONS)
         {

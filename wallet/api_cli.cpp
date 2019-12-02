@@ -342,7 +342,7 @@ namespace
 
                 if (addr)
                 {
-                    if (addr->m_OwnID)
+                    if (addr->isOwn())
                     {
                         FillAddressData(data, *addr);
                         _walletDB->saveAddress(*addr);
@@ -372,7 +372,7 @@ namespace
                 LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
                 auto addr = _walletDB->getAddress(data.address);
-                bool isMine = addr ? addr->m_OwnID != 0 : false;
+                bool isMine = addr ? addr->isOwn() : false;
                 doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? !addr->isExpired() : true), isMine});
             }
 
@@ -398,7 +398,7 @@ namespace
                         }
 
                         auto addr = _walletDB->getAddress(*data.from);
-                        bool isMine = addr ? addr->m_OwnID != 0 : false;
+                        bool isMine = addr ? addr->isOwn() : false;
 
                         if(!isMine)
                         {
@@ -644,7 +644,8 @@ namespace
                     response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
                 }
 
-                storage::Totals totals(*_walletDB);
+                storage::Totals allTotals(*_walletDB);
+                const auto& totals = allTotals.GetTotals(Zero);
 
                 response.available = totals.Avail;
                 response.receiving = totals.Incoming;
