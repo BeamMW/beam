@@ -996,8 +996,6 @@ namespace beam::wallet
 
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
         {
-            UpdateTxDescription(TxStatus::InProgress);
-
             if (isBeamOwner)
             {
                 lockTxBuilder->SelectInputs();
@@ -1047,6 +1045,8 @@ namespace beam::wallet
 
             SetState(SubTxState::Constructed, SubTxIndex::BEAM_LOCK_TX);
             lockTxState = SubTxState::Constructed;
+
+            UpdateTxDescription(TxStatus::InProgress);
 
             if (!isBeamOwner)
             {
