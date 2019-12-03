@@ -282,7 +282,6 @@ public:
 	virtual Task::Processor& get_TaskProcessor() { return m_SyncProcessor; }
 
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
-	bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
 	virtual Key::IPKdf* get_ViewerKey() { return nullptr; }
 	virtual const Output::Shielded::Viewer* get_ViewerShieldedKey() { return nullptr; }

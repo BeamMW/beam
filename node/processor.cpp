@@ -3422,7 +3422,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 {
 	bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
-
+	bc.m_Hdr.m_Height = m_Cursor.m_ID.m_Height + 1;
 	get_Definition(bc.m_Hdr.m_Definition, true);
 
 #ifndef NDEBUG
@@ -3471,27 +3471,15 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height + 1, true);
 
-	bool bEmpty =
-		bc.m_Block.m_vInputs.empty() &&
-		bc.m_Block.m_vOutputs.empty() &&
-		bc.m_Block.m_vKernels.empty();
+	size_t nSizeEstimated = 1;
 
-	if (!bEmpty)
+	if (BlockContext::Mode::Finalize == bc.m_Mode)
 	{
-		if ((BlockContext::Mode::Finalize != bc.m_Mode) && !VerifyBlock(bc.m_Block, bc.m_Block.get_Reader(), bic.m_Height))
-			return false;
-
 		if (!HandleValidatedTx(bc.m_Block.get_Reader(), bic))
 			return false;
 	}
-
-	size_t nSizeEstimated = 1;
-
-	if (BlockContext::Mode::Finalize != bc.m_Mode)
+	else
 		nSizeEstimated = GenerateNewBlockInternal(bc, bic);
-
-	if (nSizeEstimated)
-		bc.m_Hdr.m_Height = bic.m_Height;
 
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block.get_Reader(), bic)); // undo changes
@@ -3504,7 +3492,10 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		return false;
 
 	if (BlockContext::Mode::Assemble == bc.m_Mode)
+	{
+		bc.m_Hdr.m_Height = bic.m_Height;
 		return true;
+	}
 
 	size_t nCutThrough = bc.m_Block.Normalize(); // right before serialization
 	nCutThrough; // remove "unused var" warning
@@ -3623,20 +3614,6 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	mbc.PushTasks(pShared, pShared->m_Pars);
 
 	return mbc.Flush();
-}
-
-bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
-{
-	if ((hr.m_Min < Rules::HeightGenesis) || hr.IsEmpty())
-		return false;
-
-	TxBase::Context::Params pars;
-	TxBase::Context ctx(pars);
-	ctx.m_Height = hr;
-
-	return
-		ValidateAndSummarize(ctx, block, std::move(r)) &&
-		ctx.IsValidBlock();
 }
 
 bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
