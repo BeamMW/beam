@@ -225,6 +225,7 @@ namespace beam
     const char kErrorAssetIdxRequired[] = "Asset index is not specified";
 
     // Laser
+#ifdef BEAM_LASER_SUPPORT
     const char kLaserOpening[] = "Opening";
     const char kLaserOpenFailed[] = "OpenFailed";
     const char kLaserOpen[] = "Open";
@@ -248,5 +249,6 @@ namespace beam
     const char kLaserMessageChannelServed[] = "Channel: %1% served";
     const char kLaserMessageUpdateFinished[] = "Update finished : %1%";
 
-    const char kCurrentState[] = "Current state is %1%";
+    const char kLaserCurrentState[] = "Current state is %1%";
+#endif  // BEAM_LASER_SUPPORT
 }

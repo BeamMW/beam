@@ -216,6 +216,7 @@ namespace beam
     extern const char kErrorAssetIdxRequired[];
 
     // Laser
+#ifdef BEAM_LASER_SUPPORT
     extern const char kLaserOpening[];
     extern const char kLaserOpenFailed[];
     extern const char kLaserOpen[];
@@ -239,5 +240,6 @@ namespace beam
     extern const char kLaserMessageChannelServed[];
     extern const char kLaserMessageUpdateFinished[];
 
-    extern const char kCurrentState[];
+    extern const char kLaserCurrentState[];
+#endif  // BEAM_LASER_SUPPORT
 }

@@ -20,7 +20,9 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 #include "wallet/secstring.h"
+#ifdef BEAM_LASER_SUPPORT
 #include "wallet/laser/mediator.h"
+#endif
 #include "wallet/strings_resources.h"
 #include "wallet/bitcoin/bitcoin.h"
 #include "wallet/litecoin/electrum.h"
@@ -1710,6 +1712,7 @@ namespace
         return nnet;
     }
 
+#ifdef BEAM_LASER_SUPPORT
     class LaserObserver : public laser::Mediator::Observer
     {
     public:
@@ -1975,7 +1978,7 @@ namespace
                 % boost::io::group(left, setw(columnWidths[5]), std::get<LaserFields::LASER_LOCK_HEIGHT>(ch))
                 << std::endl;
         }
-        cout << boost::format(kCurrentState) % id << std::endl;
+        cout << boost::format(kLaserCurrentState) % id << std::endl;
     }
 
     bool LaserClose(const unique_ptr<laser::Mediator>& laser,
@@ -2086,6 +2089,7 @@ namespace
 
         return false;
     }
+#endif  // BEAM_LASER_SUPPORT
 
     void RegisterAssetCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
     {
@@ -2257,7 +2261,9 @@ int main_impl(int argc, char* argv[])
                             cli::SWAP_ACCEPT,
                             cli::SET_SWAP_SETTINGS,
                             cli::SHOW_SWAP_SETTINGS,
+#ifdef BEAM_LASER_SUPPORT
                             cli::LASER,
+#endif  // BEAM_LASER_SUPPORT
                             cli::ASSET_ISSUE,
                             cli::ASSET_CONSUME
                         };
@@ -2527,6 +2533,7 @@ int main_impl(int argc, char* argv[])
                         return -1;
                     }
 
+#ifdef BEAM_LASER_SUPPORT
                     if (command == cli::LASER || vm.count(cli::LASER))
                     {
                         auto laser =
@@ -2539,6 +2546,7 @@ int main_impl(int argc, char* argv[])
                         }
                         return 0;
                     }
+#endif  // BEAM_LASER_SUPPORT
 
                     /// HERE!!
                     io::Address receiverAddr;

@@ -35,17 +35,17 @@ target_link_libraries(wallet
 
 target_compile_features(wallet PUBLIC cxx_std_17)
 
-
-add_subdirectory(laser)
 if(BEAM_ATOMIC_SWAP_SUPPORT)
     add_subdirectory(swaps)
 endif()
 
 if (NOT ANDROID AND NOT IOS)
+    if(BEAM_LASER_SUPPORT)
+        add_subdirectory(laser)
+    endif()
+
     if(BEAM_HW_WALLET)
-
         target_compile_definitions(wallet PRIVATE BEAM_HW_WALLET)
-
     endif()
 
     add_executable(${TARGET_NAME} cli.cpp)
@@ -64,7 +64,6 @@ if (NOT ANDROID AND NOT IOS)
         PRIVATE
             wallet
             cli
-            laser
             mnemonic
     )
 
@@ -75,6 +74,12 @@ if (NOT ANDROID AND NOT IOS)
             utility 
             http
     )
+
+    if(BEAM_LASER_SUPPORT)
+        target_compile_definitions(wallet PRIVATE BEAM_LASER_SUPPORT)
+        target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_LASER_SUPPORT)
+        target_link_libraries(${TARGET_NAME} PRIVATE laser)
+    endif()
 
     if(BEAM_ATOMIC_SWAP_SUPPORT)
         target_compile_definitions(wallet PRIVATE BEAM_ATOMIC_SWAP_SUPPORT)
