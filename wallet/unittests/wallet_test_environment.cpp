@@ -134,19 +134,20 @@ public:
 
     WalletAddress m_LastAdddr;
 
-    void saveAddress(const WalletAddress& wa) override
+    void saveAddress(const WalletAddress& wa, bool isLaser = false) override
     {
         m_LastAdddr = wa;
     }
 
-    boost::optional<WalletAddress> getAddress(const WalletID& id) const override
+    boost::optional<WalletAddress> getAddress(
+        const WalletID& id, bool isLaser = false) const override
     {
         if (id == m_LastAdddr.m_walletID)
             return m_LastAdddr;
 
         return boost::optional<WalletAddress>();
     }
-    void deleteAddress(const WalletID&) override {}
+    void deleteAddress(const WalletID&, bool isLaser = false) override {}
 
     Height getCurrentHeight() const override
     {

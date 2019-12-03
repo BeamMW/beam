@@ -211,10 +211,10 @@ namespace beam
         const char* IMPORT_DATA = "import_data";
         const char* IMPORT_EXPORT_PATH = "file_location";
         const char* IP_WHITELIST = "ip_whitelist";
-		const char* FAST_SYNC = "fast_sync";
-		const char* GENERATE_RECOVERY_PATH = "generate_recovery";
-		const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
-		const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
+        const char* FAST_SYNC = "fast_sync";
+        const char* GENERATE_RECOVERY_PATH = "generate_recovery";
+        const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
+        const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
         const char* COLD_WALLET = "cold_wallet";
         const char* SWAP_INIT = "swap_init";
         const char* SWAP_ACCEPT = "swap_accept";
@@ -231,6 +231,25 @@ namespace beam
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";
         const char* EXPIRATION_TIME_NOW = "now";
+        // laser
+#ifdef BEAM_LASER_SUPPORT
+        const char* LASER = "laser";
+        const char* LASER_OPEN = "open";
+        const char* LASER_TRANSFER = "transfer";
+        const char* LASER_WAIT = "wait_incoming";
+        const char* LASER_SERVE = "serve";
+        const char* LASER_LIST = "list";
+        const char* LASER_CLOSE = "close";
+        const char* LASER_DELETE = "delete";
+        const char* LASER_AMOUNT_MY = "a_my";
+        const char* LASER_AMOUNT_TARGET = "a_trg";
+        const char* LASER_TARGET_ADDR = "laser_target";
+        const char* LASER_FEE = "lfee";
+        const char* LASER_LOCK_TIME = "laser_lock_time";
+        const char* LASER_CHANNEL_ID = "channel";
+        const char* LASER_ALL = "all,a";
+        const char* LASER_CLOSE_GRACEFUL = "graceful_close";
+#endif  // BEAM_LASER_SUPPORT
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -341,7 +360,11 @@ namespace beam
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
             (cli::COLD_WALLET, "used to init cold wallet")
             (cli::IGNORE_DICTIONARY, "ignore dictionaty while validating seed phrase")
+#ifdef BEAM_LASER_SUPPORT
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|laser]")
+#else
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx]")
+#endif  // BEAM_LASER_SUPPORT
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "Use socks5 proxy server for node connection")
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "Proxy server address");
@@ -393,6 +416,26 @@ namespace beam
             (cli::ASSET_INDEX, po::value<Positive<uint32_t>>(), "asset index")
             (cli::ASSET_ID, po::value<string>(), "asset id");
 
+#ifdef BEAM_LASER_SUPPORT
+        po::options_description lazer_options("Lightning options");
+        lazer_options.add_options()
+            (cli::LASER_OPEN, "open lightning channel")
+            (cli::LASER_TRANSFER, "send to lightning channel")
+            (cli::LASER_WAIT, "wait for open incomming lightning channel")
+            (cli::LASER_LIST, "view all opened lightning channel")
+            (cli::LASER_SERVE, po::value<string>()->implicit_value("all"), "listen lightning channels --serve [chID1, ..., chIDN]")
+            (cli::LASER_CLOSE, po::value<string>()->implicit_value(""), ("close opened lightning channel --close <chID1, ..., chIDN> [" + std::string(cli::LASER_ALL) + "]").c_str())
+            (cli::LASER_DELETE, po::value<string>(), "delete laser channel --delete <chID1, ..., chIDN>")
+            (cli::LASER_AMOUNT_MY, po::value<Positive<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::LASER_AMOUNT_TARGET, po::value<Positive<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::LASER_TARGET_ADDR, po::value<string>(), "address of laser receiver")
+            (cli::LASER_FEE, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::LASER_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks beam transaction")
+            (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID")
+            (cli::LASER_ALL, "all channels")
+            (cli::LASER_CLOSE_GRACEFUL, "graceful close flag");
+#endif  // BEAM_LASER_SUPPORT
+
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
         if (flags & GENERAL_OPTIONS)
@@ -415,6 +458,11 @@ namespace beam
             visible_options.add(wallet_options);
             visible_options.add(visible_swap_options);
             if(Rules::get().CA.Enabled) visible_options.add(wallet_assets_options);
+
+#ifdef BEAM_LASER_SUPPORT
+            options.add(lazer_options);
+            visible_options.add(lazer_options);
+#endif  // BEAM_LASER_SUPPORT
         }
         if (flags & UI_OPTIONS)
         {

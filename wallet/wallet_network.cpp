@@ -303,12 +303,12 @@ namespace beam::wallet {
         try 
         {
             m_WalletDB->Unsubscribe(this);
-		    m_Miner.Stop();
+		m_Miner.Stop();
 
-		    while (!m_PendingBbsMsgs.empty())
-			    DeleteReq(m_PendingBbsMsgs.front());
+		while (!m_PendingBbsMsgs.empty())
+			DeleteReq(m_PendingBbsMsgs.front());
 
-            Unsubscribe();
+        Unsubscribe();
 		
 			SaveBbsTimestamps();
 		} 
@@ -342,7 +342,7 @@ namespace beam::wallet {
 		m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), buffer.size());
 	}
 
-	void WalletNetworkViaBbs::DeleteReq(MyRequestBbsMsg& r)
+	void WalletNetworkViaBbs::DeleteReq(WalletRequestBbsMsg& r)
 	{
 		m_PendingBbsMsgs.erase(BbsMsgList::s_iterator_to(r));
 		r.m_pTrg = NULL;
@@ -359,7 +359,7 @@ namespace beam::wallet {
 	void WalletNetworkViaBbs::BbsSentEvt::OnComplete(proto::FlyClient::Request& r)
 	{
 		assert(r.get_Type() == proto::FlyClient::Request::Type::BbsMsg);
-		get_ParentObj().DeleteReq(static_cast<MyRequestBbsMsg&>(r));
+		get_ParentObj().DeleteReq(static_cast<WalletRequestBbsMsg&>(r));
 	}
 
 	void WalletNetworkViaBbs::BbsSentEvt::OnMsg(proto::BbsMsg&& msg)
@@ -395,8 +395,8 @@ namespace beam::wallet {
     {
         // first store message for accidental app close
         auto messageID = m_WalletDB->saveWalletMessage(OutgoingWalletMessage{ 0, peerID, msg });
-        
-        Miner::Task::Ptr pTask = std::make_shared<Miner::Task>();
+
+        BbsMiner::Task::Ptr pTask = std::make_shared<BbsMiner::Task>();
         pTask->m_Msg.m_Message = msg;
         
         pTask->m_Done = false;
@@ -418,7 +418,7 @@ namespace beam::wallet {
                 m_Miner.m_vThreads.resize(nThreads);
 
                 for (uint32_t i = 0; i < nThreads; i++)
-                    m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
+                    m_Miner.m_vThreads[i] = std::thread(&BbsMiner::Thread, &m_Miner, i);
             }
 
             std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
@@ -452,7 +452,7 @@ namespace beam::wallet {
 	{
 		while (true)
 		{
-			Miner::Task::Ptr pTask;
+			BbsMiner::Task::Ptr pTask;
 			{
 				std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
 
@@ -470,12 +470,12 @@ namespace beam::wallet {
 		}
 	}
 
-	void WalletNetworkViaBbs::OnMined(Miner::Task::Ptr task)
+	void WalletNetworkViaBbs::OnMined(BbsMiner::Task::Ptr task)
 	{
-		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
+		WalletRequestBbsMsg::Ptr pReq(new WalletRequestBbsMsg);
 
 		pReq->m_Msg = std::move(task->m_Msg);
-        pReq->m_MessageID = task->m_StoredMessageID;
+                pReq->m_MessageID = task->m_StoredMessageID;
 
 		m_PendingBbsMsgs.push_back(*pReq);
 		pReq->AddRef();
@@ -512,99 +512,6 @@ namespace beam::wallet {
             break;
         }
     }
-
-	void WalletNetworkViaBbs::Miner::Stop()
-	{
-		if (!m_vThreads.empty())
-		{
-			{
-				std::unique_lock<std::mutex> scope(m_Mutex);
-				m_Shutdown = true;
-				m_NewTask.notify_all();
-			}
-
-			for (size_t i = 0; i < m_vThreads.size(); i++)
-				if (m_vThreads[i].joinable())
-					m_vThreads[i].join();
-
-			m_vThreads.clear();
-			m_pEvt.reset();
-		}
-	}
-
-	void WalletNetworkViaBbs::Miner::Thread(uint32_t iThread)
-	{
-		proto::Bbs::NonceType nStep = static_cast<uint32_t>(m_vThreads.size());
-
-		while (true)
-		{
-			Task::Ptr pTask;
-
-			for (std::unique_lock<std::mutex> scope(m_Mutex); ; m_NewTask.wait(scope))
-			{
-				if (m_Shutdown)
-					return;
-
-				if (!m_Pending.empty())
-				{
-					pTask = m_Pending.front();
-					break;
-				}
-			}
-
-			Timestamp ts = 0;
-			proto::Bbs::NonceType nonce = iThread;
-			bool bSuccess = false;
-
-			for (uint32_t i = 0; ; i++)
-			{
-				if (pTask->m_Done || m_Shutdown)
-					break;
-
-				if (!(i & 0xff))
-					ts = getTimestamp();
-
-				// attempt to mine it
-				ECC::Hash::Value hv;
-				ECC::Hash::Processor hp = pTask->m_hpPartial;
-				hp
-					<< ts
-					<< nonce
-					>> hv;
-
-				if (proto::Bbs::IsHashValid(hv))
-				{
-					bSuccess = true;
-					break;
-				}
-
-				nonce += nStep;
-			}
-
-			if (bSuccess)
-			{
-				std::unique_lock<std::mutex> scope(m_Mutex);
-
-				if (pTask->m_Done)
-					bSuccess = false;
-				else
-				{
-					assert(m_Pending.front() == pTask);
-
-					pTask->m_Msg.m_TimePosted = ts;
-					pTask->m_Msg.m_Nonce = nonce;
-
-					pTask->m_Done = true;
-					m_Pending.pop_front();
-					m_Done.push_back(std::move(pTask));
-				}
-			}
-
-			if (bSuccess)
-				m_pEvt->post();
-		}
-
-	}
 
     /////////////////////////////////
     ColdWalletMessageEndpoint::ColdWalletMessageEndpoint(IWalletMessageConsumer& wallet, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper)

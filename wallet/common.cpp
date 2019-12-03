@@ -125,7 +125,7 @@ namespace std
         s.swap_buf(buffer);
         return beam::wallet::EncodeToBase58(buffer);
     }
-}
+}  // namespace std
 
 namespace beam
 {
@@ -143,7 +143,7 @@ namespace beam
         
         return os;
     }
-}
+}  // namespace beam
 
 namespace beam::wallet
 {
@@ -520,4 +520,14 @@ namespace beam::wallet
         assert(false && "Unknown TX status!");
         return "unknown";
     }
-}
+
+    uint64_t get_RandomID()
+    {
+        uintBigFor<uint64_t>::Type val;
+        ECC::GenRandom(val);
+
+        uint64_t ret;
+        val.Export(ret);
+        return ret;
+    }
+}  // namespace beam::wallet

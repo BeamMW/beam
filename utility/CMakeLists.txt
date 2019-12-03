@@ -56,6 +56,9 @@ target_include_directories(utility PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(utility PUBLIC cxx_std_17)
 
 add_library(cli STATIC ${CLI_SRC})
+if(BEAM_LASER_SUPPORT)
+    target_compile_definitions(cli PRIVATE BEAM_LASER_SUPPORT)
+endif()
 
 if (UV_INTERNAL)
     target_link_libraries(utility uv_a)

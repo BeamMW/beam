@@ -1874,7 +1874,9 @@ Please check the swap token and try again.</translation>
     </message>
     <message id="send-swap-sconfirmation-online-time">
         <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
-        <translation>Keep your wallet online. The swap normally takes about 1 hour
+        <oldsource>Keep your wallet online. The swap normally takes about 1 hour
+to complete.</oldsource>
+        <translation type="unfinished">Keep your wallet online. The swap normally takes about 1 hour
 to complete.</translation>
     </message>
     <message id="beam-transaction-fee">

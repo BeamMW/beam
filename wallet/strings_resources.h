@@ -214,4 +214,32 @@ namespace beam
     // Assets
     extern const char kInvalidAssetID[];
     extern const char kErrorAssetIdxRequired[];
+
+    // Laser
+#ifdef BEAM_LASER_SUPPORT
+    extern const char kLaserOpening[];
+    extern const char kLaserOpenFailed[];
+    extern const char kLaserOpen[];
+    extern const char kLaserUpdating[];
+    extern const char kLaserClosing[];
+    extern const char kLaserClosed[];
+    extern const char kLaserUnknown[];
+    extern const char kLaserErrorParamsRead[];
+    extern const char kLaserAmountZero[];
+    extern const char kLaserErrorChannelIdMissing[];
+    extern const char kLaserChannelListTableHead[];
+    extern const char kLaserChannelListChannelId[];
+    extern const char kLaserChannelListAMy[];
+    extern const char kLaserChannelListATrg[];
+    extern const char kLaserChannelListState[];
+    extern const char kLaserChannelListFee[];
+    extern const char kLaserChannelListLocktime[];
+    extern const char kLaserChannelTableBody[];
+    extern const char kLaserErrorOpenFailed[];
+    extern const char kLaserMessageClosed[];
+    extern const char kLaserMessageChannelServed[];
+    extern const char kLaserMessageUpdateFinished[];
+
+    extern const char kLaserCurrentState[];
+#endif  // BEAM_LASER_SUPPORT
 }

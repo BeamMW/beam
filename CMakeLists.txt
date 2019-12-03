@@ -175,7 +175,8 @@ if(SWAP_MAINNET)
     add_definitions(-DSWAP_MAINNET)
 endif()
 
-option(BEAM_ATOMIC_SWAP_SUPPORT "Build with wallet with atomic swap support" ON)
+option(BEAM_ATOMIC_SWAP_SUPPORT "Build wallet with atomic swap support" ON)
+option(BEAM_LASER_SUPPORT "Build wallet with laser support" ON)
 
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 
@@ -300,12 +301,14 @@ endfunction()
 
 if(IOS)
     set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
+    set(BEAM_LASER_SUPPORT OFF)
     add_compile_definitions(BOOST_NO_AUTO_PTR)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
     CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_IOS}" "lib/libboost_" ".a")
 elseif(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
     set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
+    set(BEAM_LASER_SUPPORT OFF)
     add_compile_definitions(BOOST_ERROR_CODE_HEADER_ONLY)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
 
@@ -321,8 +324,7 @@ elseif(ANDROID)
         set(ANDROID_SUFFIX "-clang-mt-a64-1_68.a")
     endif()
 
-    CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")
-    
+    CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")   
     
 else()
 

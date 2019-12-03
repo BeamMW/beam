@@ -6,6 +6,7 @@ add_library(wallet STATIC)
 target_sources(wallet
     PRIVATE
         common.cpp
+        common_utils.cpp
         default_peers.cpp
         wallet.h
         wallet.cpp
@@ -20,6 +21,7 @@ target_sources(wallet
         wallet_client.h
         wallet_client.cpp
         base58.cpp
+        bbs_miner.cpp
         unittests/util.cpp
 )
 
@@ -38,10 +40,12 @@ if(BEAM_ATOMIC_SWAP_SUPPORT)
 endif()
 
 if (NOT ANDROID AND NOT IOS)
+    if(BEAM_LASER_SUPPORT)
+        add_subdirectory(laser)
+    endif()
+
     if(BEAM_HW_WALLET)
-
         target_compile_definitions(wallet PRIVATE BEAM_HW_WALLET)
-
     endif()
 
     add_executable(${TARGET_NAME} cli.cpp)
@@ -70,6 +74,12 @@ if (NOT ANDROID AND NOT IOS)
             utility 
             http
     )
+
+    if(BEAM_LASER_SUPPORT)
+        target_compile_definitions(wallet PRIVATE BEAM_LASER_SUPPORT)
+        target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_LASER_SUPPORT)
+        target_link_libraries(${TARGET_NAME} PRIVATE laser)
+    endif()
 
     if(BEAM_ATOMIC_SWAP_SUPPORT)
         target_compile_definitions(wallet PRIVATE BEAM_ATOMIC_SWAP_SUPPORT)

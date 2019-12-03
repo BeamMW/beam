@@ -25,6 +25,7 @@
 #  pragma clang diagnostic pop
 #endif
 
+#include <tuple>
 #include "core/common.h"
 #include "core/ecc_native.h"
 #include "wallet/common.h"
@@ -123,6 +124,59 @@ namespace beam::wallet
         static constexpr uint64_t AddressExpiration24h   = 24 * 60 * 60;
         static constexpr uint64_t AddressExpiration1h    = 60 * 60;
     };
+
+    class ILaserChannelEntity
+    {
+    public:
+        virtual const std::shared_ptr<uintBig_t<16>>& get_chID() const = 0;
+        virtual const WalletID& get_myWID() const = 0;
+        virtual const WalletID& get_trgWID() const = 0;
+        virtual int get_State() const = 0;
+        virtual const Amount& get_fee() const = 0;
+        virtual const Height& getLocktime() const = 0;
+        virtual const Amount& get_amountMy() const = 0;
+        virtual const Amount& get_amountTrg() const = 0;
+        virtual const Amount& get_amountCurrentMy() const = 0;
+        virtual const Amount& get_amountCurrentTrg() const = 0;
+        virtual const Height& get_LockHeight() const = 0;
+        virtual const Timestamp& get_BbsTimestamp() const = 0;
+        virtual const ByteBuffer& get_Data() const = 0;
+        virtual const WalletAddress& get_myAddr() const = 0;
+    };
+
+    class LaserFields
+    {
+    public:
+        static constexpr size_t LASER_CH_ID = 0;
+        static constexpr size_t LASER_MY_WID = 1;
+        static constexpr size_t LASER_TRG_WID = 2;
+        static constexpr size_t LASER_STATE = 3;
+        static constexpr size_t LASER_FEE = 4;
+        static constexpr size_t LASER_LOCKTIME = 5;
+        static constexpr size_t LASER_AMOUNT_MY = 6;
+        static constexpr size_t LASER_AMOUNT_TRG = 7;
+        static constexpr size_t LASER_AMOUNT_CURRENT_MY = 8;
+        static constexpr size_t LASER_AMOUNT_CURRENT_TRG = 9;
+        static constexpr size_t LASER_LOCK_HEIGHT = 10;
+        static constexpr size_t LASER_BBS_TIMESTAMP = 11;
+        static constexpr size_t LASER_DATA = 12;
+    };
+
+    using TLaserChannelEntity = std::tuple<
+        uintBig_t<16>,  // 0 chID
+        WalletID,       // 1 myWID
+        WalletID,       // 2 trgWID
+        int,            // 3 State
+        Amount,         // 4 fee
+        Height,         // 5 Locktime
+        Amount,         // 6 amountMy
+        Amount,         // 7 amountTrg
+        Amount,         // 8 amountCurrentMy
+        Amount,         // 9 amountCurrentTrg
+        Height,         // 10 lockHeight
+        Timestamp,      // 11 bbs timestamp
+        ByteBuffer      // 12 Data
+    >;
 
     // Describes structure of generic transaction parameter
     struct TxParameter
@@ -261,10 +315,18 @@ namespace beam::wallet
 
         // ////////////////////////////////////////////
         // Address management
-        virtual boost::optional<WalletAddress> getAddress(const WalletID&) const = 0;
+        virtual boost::optional<WalletAddress> getAddress(
+                const WalletID&, bool isLaser = false) const = 0;
         virtual std::vector<WalletAddress> getAddresses(bool own) const = 0;
-        virtual void saveAddress(const WalletAddress&) = 0;
-        virtual void deleteAddress(const WalletID&) = 0;
+        virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
+        virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
+
+        // Laser
+        virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
+        virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
+                                     TLaserChannelEntity* entity) = 0;
+        virtual bool removeLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId) = 0;
+        virtual std::vector<TLaserChannelEntity> loadLaserChannels() = 0;
 
         // 
         virtual Timestamp getLastUpdateTime() const = 0;
@@ -351,9 +413,16 @@ namespace beam::wallet
         void rollbackTx(const TxID& txId) override;
 
         std::vector<WalletAddress> getAddresses(bool own) const override;
-        void saveAddress(const WalletAddress&) override;
-        boost::optional<WalletAddress> getAddress(const WalletID&) const override;
-        void deleteAddress(const WalletID&) override;
+        void saveAddress(const WalletAddress&, bool isLaser = false) override;
+        boost::optional<WalletAddress> getAddress(
+            const WalletID&, bool isLaser = false) const override;
+        void deleteAddress(const WalletID&, bool isLaser = false) override;
+
+        void saveLaserChannel(const ILaserChannelEntity&) override;
+        virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
+                                     TLaserChannelEntity* entity) override;
+        bool removeLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId) override;
+        std::vector<TLaserChannelEntity> loadLaserChannels() override;
 
         Timestamp getLastUpdateTime() const override;
         void setSystemStateID(const Block::SystemState::ID& stateID) override;
@@ -392,7 +461,6 @@ namespace beam::wallet
         void notifySystemStateChanged(const Block::SystemState::ID& stateID);
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
 
-        static uint64_t get_RandomID();
         bool updateCoinRaw(const Coin&);
         void insertCoinRaw(const Coin&);
         void insertNewCoin(Coin&);

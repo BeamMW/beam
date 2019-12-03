@@ -651,13 +651,15 @@ namespace beam::wallet
 
         void get_Hash(ECC::Hash::Value&) const override;
     };
-}
+
+    uint64_t get_RandomID();
+}  // beam::wallet
 
 namespace beam
 {
     std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount);
     std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid);
-}
+}  // namespace beam
 
 namespace std
 {

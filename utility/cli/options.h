@@ -134,6 +134,25 @@ namespace beam
         extern const char* EXPIRATION_TIME_24H;
         extern const char* EXPIRATION_TIME_NEVER;
         extern const char* EXPIRATION_TIME_NOW;
+        // laser
+#ifdef BEAM_LASER_SUPPORT
+        extern const char* LASER;
+        extern const char* LASER_OPEN;
+        extern const char* LASER_TRANSFER;
+        extern const char* LASER_WAIT;
+        extern const char* LASER_SERVE;
+        extern const char* LASER_LIST;
+        extern const char* LASER_CLOSE;
+        extern const char* LASER_DELETE;
+        extern const char* LASER_AMOUNT_MY;
+        extern const char* LASER_AMOUNT_TARGET;
+        extern const char* LASER_TARGET_ADDR;
+        extern const char* LASER_FEE;
+        extern const char* LASER_LOCK_TIME;
+        extern const char* LASER_CHANNEL_ID;
+        extern const char* LASER_ALL;
+        extern const char* LASER_CLOSE_GRACEFUL;
+#endif  // BEAM_LASER_SUPPORT
 
         // wallet api
         extern const char* API_USE_HTTP;

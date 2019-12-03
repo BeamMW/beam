@@ -25,12 +25,12 @@ namespace beam
     const char kAmountAGROTH[] = "agroth";
 
     // Coin statuses
-    const char kCoinStatusAvailable[]   = "Available";
+    const char kCoinStatusAvailable[] = "Available";
     const char kCoinStatusUnavailable[] = "Unavailable";
-    const char kCoinStatusSpent[]       = "Spent";
-    const char kCoinStatusMaturing[]    = "Maturing";
-    const char kCoinStatusOutgoing[]    = "In progress(outgoing)";
-    const char kCoinStatusIncoming[]    = "In progress(incoming/change)";
+    const char kCoinStatusSpent[] = "Spent";
+    const char kCoinStatusMaturing[] = "Maturing";
+    const char kCoinStatusOutgoing[] = "In progress(outgoing)";
+    const char kCoinStatusIncoming[] = "In progress(incoming/change)";
     const char kCoinStatusConsumed[]    = "Consumed";
 
     // Tx statuses
@@ -217,9 +217,38 @@ namespace beam
 
     const char kNodePoolPeriod[] = "Node poll period = %1% ms";
     const char kNodePoolPeriodRounded[] = "Node poll period has been automatically rounded up to block rate: %1% ms";
+
     const char kPpRequired[] = "Parameter set: Payment proof required: %1%";
 
     // Confidential assets
     const char kInvalidAssetID[] = "Invalid asset ID";
     const char kErrorAssetIdxRequired[] = "Asset index is not specified";
+
+    // Laser
+#ifdef BEAM_LASER_SUPPORT
+    const char kLaserOpening[] = "Opening";
+    const char kLaserOpenFailed[] = "OpenFailed";
+    const char kLaserOpen[] = "Open";
+    const char kLaserUpdating[] = "Updating";
+    const char kLaserClosing[] = "Closing";
+    const char kLaserClosed[] = "Closed";
+    const char kLaserUnknown[] = "Unknown";
+    const char kLaserErrorParamsRead[] = "Can't read lightning params";
+    const char kLaserAmountZero[] = "My amount is 0.";
+    const char kLaserErrorChannelIdMissing[] = "channel ID is missing";
+    const char kLaserChannelListTableHead[] = "Laser Channels:\n\n%1%|%2%|%3%|%4%|%5%|%6%";
+    const char kLaserChannelListChannelId[] = "chId";
+    const char kLaserChannelListAMy[] = "aMy";
+    const char kLaserChannelListATrg[] = "aTrg";
+    const char kLaserChannelListState[] = "state";
+    const char kLaserChannelListFee[] = "fee";
+    const char kLaserChannelListLocktime[] = "locktime";
+    const char kLaserChannelTableBody[] = "%1%|%2%|%3%|%4%|%5%|%6%";
+    const char kLaserErrorOpenFailed[] = "Open failed : %1%";
+    const char kLaserMessageClosed[] = "Closed : %1%";
+    const char kLaserMessageChannelServed[] = "Channel: %1% served";
+    const char kLaserMessageUpdateFinished[] = "Update finished : %1%";
+
+    const char kLaserCurrentState[] = "Current state is %1%";
+#endif  // BEAM_LASER_SUPPORT
 }
