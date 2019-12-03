@@ -336,6 +336,10 @@ namespace beam::wallet
         switch (state)
         {
         case State::Initial:
+        case State::Failed:
+        case State::Canceled:
+        case State::Refunded:
+        case State::CompleteSwap:
             return true;
         case State::SendingRedeemTX:
         case State::SendingBeamRedeemTX:
