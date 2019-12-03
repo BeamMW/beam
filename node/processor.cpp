@@ -1079,7 +1079,6 @@ struct NodeProcessor::MultiblockContext
 			{
 				// finalize multi-block arithmetics
 				TxBase::Context::Params pars;
-				pars.m_bBlockMode = true;
 				pars.m_bAllowUnsignedOutputs = true; // ignore verification of locked coinbase
 
 				TxBase::Context ctx(pars);
@@ -1156,7 +1155,6 @@ struct NodeProcessor::MultiblockContext
 
 		pShared->m_Pars.m_bAllowUnsignedOutputs = !bFull;
 		pShared->m_Pars.m_bVerifyOrder = bFull; // in case of unsigned outputs sometimes order of outputs may look incorrect (duplicated commitment, part of signatures removed)
-		pShared->m_Pars.m_bBlockMode = true;
 		pShared->m_Pars.m_pAbort = &m_bFail;
 		pShared->m_Pars.m_nVerifiers = tp.get_Threads();
 
@@ -3633,7 +3631,6 @@ bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& 
 		return false;
 
 	TxBase::Context::Params pars;
-	pars.m_bBlockMode = true;
 	TxBase::Context ctx(pars);
 	ctx.m_Height = hr;
 

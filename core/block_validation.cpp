@@ -52,21 +52,12 @@ namespace beam
 
 	bool TxBase::Context::HandleElementHeight(const HeightRange& hr)
 	{
-		HeightRange r = m_Height;
-		r.Intersect(hr);
-		if (r.IsEmpty())
-			return false;
-
-		if (!m_Params.m_bBlockMode)
-			m_Height = r; // shrink permitted range
-
-		return true;
+		m_Height.Intersect(hr); // shrink permitted range. For blocks have no effect, since the range must already consist of a single height
+		return !m_Height.IsEmpty();
 	}
 
 	bool TxBase::Context::Merge(const Context& x)
 	{
-		assert(m_Params.m_bBlockMode == x.m_Params.m_bBlockMode);
-
 		if (!HandleElementHeight(x.m_Height))
 			return false;
 
@@ -86,9 +77,6 @@ namespace beam
 		if (rules.FindFork(m_Height.m_Max) != iFork)
 		{
 			// mixed versions are not allowed!
-			if (m_Params.m_bBlockMode)
-				return false;
-
 			m_Height.m_Max = rules.pForks[iFork + 1].m_Height - 1;
 			assert(!m_Height.IsEmpty());
 
@@ -175,9 +163,6 @@ namespace beam
 
 				r.m_pUtxoOut->AddStats(m_Stats);
 				m_Sigma += pt;
-
-				if (r.m_pUtxoOut->m_Coinbase && !m_Params.m_bBlockMode)
-					return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 			}
 		}
 
@@ -210,7 +195,8 @@ namespace beam
 
 	bool TxBase::Context::IsValidTransaction()
 	{
-		assert(m_Stats.m_Coinbase == Zero); // must have already been checked
+		if (m_Stats.m_Coinbase != Zero)
+			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
 		AmountBig::AddTo(m_Sigma, m_Stats.m_Fee);
 		return m_Sigma == Zero;

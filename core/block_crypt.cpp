@@ -1826,8 +1826,6 @@ namespace beam
 			return false;
 
 		TxBase::Context::Params pars;
-		pars.m_bBlockMode = true;
-
 		TxBase::Context ctx(pars);
 		ctx.m_Height = hr;
 
