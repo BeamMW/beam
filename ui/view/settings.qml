@@ -598,7 +598,6 @@ deploy the key at the node you trust completely."*/
                 }
 
                  CustomButton {
-                    // Layout.preferredWidth: 250
                     Layout.fillWidth: true
                     Layout.preferredHeight: 38
                     Layout.alignment: Qt.AlignHCenter
@@ -618,11 +617,12 @@ deploy the key at the node you trust completely."*/
                          //: settings tab, general section, Show owner key button and dialog title
                          //% "Show owner key"
                         confirmPasswordDialog.okButtonText = qsTrId("settings-general-require-pwd-to-show-owner-key")
-                        confirmPasswordDialog.okButtonIcon = "assets/icon-show-key.svg"
+                        confirmPasswordDialog.okButtonIcon = "qrc:/assets/icon-show-key.svg"
                         confirmPasswordDialog.onDialogAccepted = function () {
                             showOwnerKeyDialog.pwd = confirmPasswordDialog.pwd;
                             showOwnerKeyDialog.open();
                         };
+                        confirmPasswordDialog.onDialogRejected = function() {}
                         confirmPasswordDialog.open();
                     }
                 }
@@ -808,6 +808,10 @@ deploy the key at the node you trust completely."*/
                                     //: settings tab, general section, ask password to send, confirm password dialog, message
                                     //% "Password verification is required to change that setting"
                                     confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-message");
+                                    //: confirm password dialog, ok button
+				                    //% "Proceed"
+                                    confirmPasswordDialog.okButtonText = qsTrId("general-proceed")
+                                    confirmPasswordDialog.okButtonIcon = "qrc:/assets/icon-done.svg"
                                     confirmPasswordDialog.onDialogAccepted = onDialogAccepted;
                                     confirmPasswordDialog.onDialogRejected = onDialogRejected;
                                     confirmPasswordDialog.open();
