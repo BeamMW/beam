@@ -573,7 +573,7 @@ namespace beam::wallet
         {
             {"txId", txIDToString(tx.m_txId)},
             {"status", tx.m_status},
-            {"status_string", tx.getStatusString()},
+            {"status_string", tx.getStatusStringApi()},
             {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
             {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
             {"fee", tx.m_fee},

@@ -486,6 +486,7 @@ namespace beam::wallet
         bool canCancel() const;
         bool canDelete() const;
         std::string getStatusString() const;
+        std::string getStatusStringApi() const;
 
     //private:
         TxID m_txId = {};
