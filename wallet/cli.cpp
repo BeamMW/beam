@@ -1056,16 +1056,17 @@ namespace
                 {
                     auto settings = settingsProvider.GetSettings();
 
-                    if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Core)
+                    if (!settings.GetElectrumConnectionOptions().IsInitialized())
                     {
-                        if (settings.GetElectrumConnectionOptions().IsInitialized())
+                        settings = Settings{};
+                    }
+                    else
+                    {
+                        settings.SetConnectionOptions(CoreSettings{});
+
+                        if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Core)
                         {
                             settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Electrum);
-                            settings.SetConnectionOptions(CoreSettings{});
-                        }
-                        else
-                        {
-                            settings = Settings{};
                         }
                     }
 
@@ -1077,16 +1078,17 @@ namespace
                 {
                     auto settings = settingsProvider.GetSettings();
 
-                    if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Electrum)
+                    if (!settings.GetConnectionOptions().IsInitialized())
                     {
-                        if (settings.GetConnectionOptions().IsInitialized())
+                        settings = Settings{};
+                    }
+                    else
+                    {
+                        settings.SetElectrumConnectionOptions(ElectrumSettings{});
+
+                        if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Electrum)
                         {
                             settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Core);
-                            settings.SetElectrumConnectionOptions(ElectrumSettings{});
-                        }
-                        else
-                        {
-                            settings = Settings{};
                         }
                     }
 
