@@ -24,7 +24,7 @@ namespace beam::wallet
         beam::Amount fee;
         ECC::Point commitment;
         boost::optional<ECC::Hash::Value> lockImage;
-        boost::optional<beam::TxKernel::HashLock> hashLock;
+		boost::optional<ECC::Hash::Value> lockPreImage;
     };
 
     //

@@ -672,7 +672,7 @@ namespace beam
 				if (m_bUseHashlock)
 				{
 					krn.m_pHashLock.reset(new TxKernel::HashLock); // why not?
-					ECC::Hash::Processor() << m_Fee << m_k >> krn.m_pHashLock->m_Preimage;
+					ECC::Hash::Processor() << m_Fee << m_k >> krn.m_pHashLock->m_Value;
 				}
 
 				if (!(m_hvRelLock == Zero))

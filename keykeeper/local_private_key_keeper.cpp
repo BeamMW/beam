@@ -269,12 +269,20 @@ namespace beam::wallet
         kernel.m_Commitment = kernelParamerters.commitment;
         kernel.m_Fee = kernelParamerters.fee;
         kernel.m_Height = kernelParamerters.height;
-        if (kernelParamerters.hashLock)
+        if (kernelParamerters.lockImage || kernelParamerters.lockPreImage)
         {
-            kernel.m_pHashLock = make_unique<TxKernel::HashLock>(*kernelParamerters.hashLock);
+            kernel.m_pHashLock = make_unique<TxKernel::HashLock>();
+
+			if (kernelParamerters.lockPreImage)
+				kernel.m_pHashLock->m_Value = *kernelParamerters.lockPreImage;
+			else
+			{
+				kernel.m_pHashLock->m_Value = *kernelParamerters.lockImage;
+				kernel.m_pHashLock->m_IsImage = true;
+			}
         }
         Merkle::Hash message;
-        kernel.get_Hash(message, kernelParamerters.lockImage ? &*kernelParamerters.lockImage : nullptr);
+        kernel.get_Hash(message);
 
         ECC::Signature::MultiSig multiSig;
         ECC::Scalar::Native partialSignature;

@@ -111,7 +111,6 @@ namespace beam::wallet
         std::vector<Output::Ptr> m_PeerOutputs;
         ECC::Scalar::Native m_PeerOffset;
         Height m_PeerMaxHeight;
-        std::unique_ptr<ECC::Hash::Value> m_PeerLockImage;
 
         // deduced values,
         TxKernel::Ptr m_Kernel;

@@ -808,7 +808,16 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const
+	const ECC::Hash::Value& TxKernel::HashLock::get_Image(ECC::Hash::Value& hv) const
+	{
+		if (m_IsImage)
+			return m_Value;
+
+		ECC::Hash::Processor() << m_Value >> hv;
+		return hv;
+	}
+
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, ECC::Point::Native* pExcess, const TxKernel* pParent, const Height* pScheme) const
 	{
 		if (pScheme)
 		{
@@ -828,7 +837,7 @@ namespace beam
 		}
 
 		uint8_t nFlags =
-			((m_pHashLock || pLockImage) ? 1 : 0) |
+			(m_pHashLock ? 1 : 0) |
 			(m_pRelativeLock ? 2 : 0) |
 			(m_CanEmbed ? 4 : 0);
 
@@ -840,15 +849,9 @@ namespace beam
 			<< Amount(m_AssetEmission)
 			<< nFlags;
 
-		if (m_pHashLock || pLockImage)
+		if (m_pHashLock)
 		{
-			if (!pLockImage)
-			{
-				ECC::Hash::Processor() << m_pHashLock->m_Preimage >> hv;
-				pLockImage = &hv;
-			}
-
-			hp << *pLockImage;
+			hp << m_pHashLock->get_Image(hv);
 		}
 
 		if (m_pRelativeLock)
@@ -876,7 +879,7 @@ namespace beam
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pExcess ? &ptExcNested : nullptr, this, nullptr, pScheme))
+			if (!v.Traverse(hv, pExcess ? &ptExcNested : nullptr, this, pScheme))
 				return false;
 
 			hp << hv;
@@ -948,20 +951,20 @@ namespace beam
 			(*it)->AddStats(s);
 	}
 
-	void TxKernel::get_Hash(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
+	void TxKernel::get_Hash(Merkle::Hash& out) const
 	{
-		Traverse(out, nullptr, nullptr, pLockImage, nullptr);
+		Traverse(out, nullptr, nullptr, nullptr);
 	}
 
 	bool TxKernel::IsValid(Height hScheme, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
-		return Traverse(hv, &exc, nullptr, nullptr, &hScheme);
+		return Traverse(hv, &exc, nullptr, &hScheme);
 	}
 
-	void TxKernel::get_ID(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
+	void TxKernel::get_ID(Merkle::Hash& out) const
 	{
-		get_Hash(out, pLockImage);
+		get_Hash(out);
 	}
 
 	int TxKernel::cmp(const TxKernel& v) const
@@ -1002,7 +1005,7 @@ namespace beam
 
 	int TxKernel::HashLock::cmp(const HashLock& v) const
 	{
-		CMP_MEMBER_EX(m_Preimage)
+		CMP_MEMBER_EX(m_Value)
 		return 0;
 	}
 

@@ -435,7 +435,10 @@ namespace beam
 
 		struct HashLock
 		{
-			ECC::uintBig m_Preimage;
+			ECC::Hash::Value m_Value;
+			bool m_IsImage = false; // not serialized. Used only internally to get the kernel ID after it'd be substituted
+
+			const ECC::Hash::Value& get_Image(ECC::Hash::Value& hv) const;
 
 			int cmp(const HashLock&) const;
 			COMPARISON_VIA_CMP
@@ -464,8 +467,8 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
-		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
+		void get_Hash(Merkle::Hash&) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
+		void get_ID(Merkle::Hash&) const; // unique kernel identifier in the system.
 
 		bool IsValid(Height hScheme, ECC::Point::Native& exc) const;
 
@@ -480,7 +483,7 @@ namespace beam
 		void AddStats(TxStats&) const; // including self and nested
 
 	private:
-		bool Traverse(ECC::Hash::Value&, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const;
+		bool Traverse(ECC::Hash::Value&, ECC::Point::Native*, const TxKernel* pParent, const Height* pScheme) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }

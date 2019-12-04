@@ -252,18 +252,20 @@ namespace beam::wallet
         m_Tx.SetParameter(TxParameterID::MaxHeight, GetMaxHeight(), m_SubTxID);
 
         // load kernel's extra data
-        Hash::Value peerLockImage;
-        if (m_Tx.GetParameter(TxParameterID::PeerLockImage, peerLockImage, m_SubTxID))
+        Hash::Value hv;
+        if (m_Tx.GetParameter(TxParameterID::PeerLockImage, hv, m_SubTxID))
         {
-            m_PeerLockImage = make_unique<Hash::Value>(move(peerLockImage));
+			m_Kernel->m_pHashLock = make_unique<TxKernel::HashLock>();
+			m_Kernel->m_pHashLock->m_IsImage = true;
+			m_Kernel->m_pHashLock->m_Value = hv;
         }
 
         uintBig preImage;
         if (m_Tx.GetParameter(TxParameterID::PreImage, preImage, m_SubTxID))
         {
-            m_Kernel->m_pHashLock = make_unique<TxKernel::HashLock>();
-            m_Kernel->m_pHashLock->m_Preimage = move(preImage);
-        }
+			m_Kernel->m_pHashLock = make_unique<TxKernel::HashLock>();
+			m_Kernel->m_pHashLock->m_Value = hv;
+		}
     }
 
     void BaseTxBuilder::GenerateOffset()
@@ -429,20 +431,17 @@ namespace beam::wallet
         totalPublicExcess += m_PeerPublicExcess;
         m_Kernel->m_Commitment = totalPublicExcess;
 
-        m_Kernel->get_Hash(m_Message, m_PeerLockImage.get());
+        m_Kernel->get_Hash(m_Message);
 
         KernelParameters kernelParameters;
         kernelParameters.fee = m_Fee;
         kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
         kernelParameters.commitment = totalPublicExcess;
-        if (m_PeerLockImage)
-        {
-            *kernelParameters.lockImage = *m_PeerLockImage;
-        }
-        if (m_Kernel->m_pHashLock)
-        {
-            *kernelParameters.hashLock = *m_Kernel->m_pHashLock;
-        }
+
+		if (m_Kernel->m_pHashLock)
+		{
+			*(m_Kernel->m_pHashLock->m_IsImage ? kernelParameters.lockImage : kernelParameters.lockPreImage) = m_Kernel->m_pHashLock->m_Value;
+		}
 
         m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_AssetId, m_Offset, m_NonceSlot, kernelParameters, GetPublicNonce() + m_PeerPublicNonce);
         StoreKernelID();
@@ -576,13 +575,11 @@ namespace beam::wallet
 
     Hash::Value BaseTxBuilder::GetLockImage() const
     {
-        Hash::Value lockImage(Zero);
-        if (m_Kernel->m_pHashLock)
-        {
-            Hash::Processor() << m_Kernel->m_pHashLock->m_Preimage >> lockImage;
-        }
+		if (!m_Kernel->m_pHashLock)
+			return Zero;
 
-        return lockImage;
+        Hash::Value hv;
+		return m_Kernel->m_pHashLock->get_Image(hv);
     }
 
     const Merkle::Hash& BaseTxBuilder::GetKernelID() const
@@ -606,7 +603,7 @@ namespace beam::wallet
     {
         assert(m_Kernel);
         Merkle::Hash kernelID;
-        m_Kernel->get_ID(kernelID, m_PeerLockImage.get());
+        m_Kernel->get_ID(kernelID);
 
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
     }

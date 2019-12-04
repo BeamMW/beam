@@ -1246,7 +1246,7 @@ struct TransactionMaker
 
 	Peer m_pPeers[2]; // actually can be more
 
-	void CoSignKernel(beam::TxKernel& krn, const Hash::Value& hvLockImage, bool is_trezor_debug = false)
+	void CoSignKernel(beam::TxKernel& krn, bool is_trezor_debug = false)
 	{
 		// 1st pass. Public excesses and Nonces are summed.
 		Scalar::Native pX[_countof(m_pPeers)];
@@ -1275,7 +1275,7 @@ struct TransactionMaker
 		krn.m_Commitment = kG;
 
 		Hash::Value msg;
-		krn.get_ID(msg, &hvLockImage);
+		krn.get_ID(msg);
 
 		// 2nd pass. Signing. Total excess is the signature public key.
 		Scalar::Native kSig = Zero;
@@ -1311,11 +1311,11 @@ struct TransactionMaker
 		pKrn->m_pHashLock.reset(new beam::TxKernel::HashLock);
 		//pKrn->m_pHashLock.release();
 
-		uintBig hlPreimage;
-		SetRandom(hlPreimage, is_trezor_debug);
+		beam::TxKernel::HashLock hl;
+		SetRandom(hl.m_Value, is_trezor_debug);
 
-		Hash::Value hvLockImage;
-		Hash::Processor() << hlPreimage >> hvLockImage;
+		pKrn->m_pHashLock->m_IsImage = true;
+		pKrn->m_pHashLock->m_Value = hl.get_Image(pKrn->m_pHashLock->m_Value);
 
 		if (bEmitCustomTag)
 		{
@@ -1344,14 +1344,14 @@ struct TransactionMaker
 			m_pPeers[0].m_k += skAsset;
 		}
 
-		CoSignKernel(*pKrn, hvLockImage, is_trezor_debug);
-
+		CoSignKernel(*pKrn, is_trezor_debug);
 
 		Point::Native exc;
+		pKrn->m_pHashLock->m_IsImage = false;
 		verify_test(!pKrn->IsValid(g_hFork, exc)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
-		pKrn->m_pHashLock->m_Preimage = hlPreimage;
+		pKrn->m_pHashLock->m_Value = hl.m_Value;
 		verify_test(pKrn->IsValid(g_hFork, exc));
 
 		lstTrg.push_back(std::move(pKrn));
