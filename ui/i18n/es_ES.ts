@@ -1366,10 +1366,6 @@ please review your settings and try again</source>
         <source>Expires on</source>
         <translation>Caduca en</translation>
     </message>
-    <message id="general-address-from">
-        <source>From</source>
-        <translation>Desde</translation>
-    </message>
     <message id="general-address-to">
         <source>To</source>
         <translation>A</translation>

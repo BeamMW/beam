@@ -1366,10 +1366,6 @@ bitte überprüfen Sie Ihre Einstellungen und versuchen Sie es erneut.</translat
         <source>Expires on</source>
         <translation>Läuft ab am</translation>
     </message>
-    <message id="general-address-from">
-        <source>From</source>
-        <translation>Von</translation>
-    </message>
     <message id="general-address-to">
         <source>To</source>
         <translation>Bis</translation>

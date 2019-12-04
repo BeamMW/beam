@@ -1366,10 +1366,6 @@ prosím zkontrolujte nastavení a zkuste to znovu.</translation>
         <source>Expires on</source>
         <translation>Vyprší dne</translation>
     </message>
-    <message id="general-address-from">
-        <source>From</source>
-        <translation>Od</translation>
-    </message>
     <message id="general-address-to">
         <source>To</source>
         <translation>Komu</translation>
