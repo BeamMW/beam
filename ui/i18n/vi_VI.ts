@@ -1402,10 +1402,6 @@ please review your settings and try again</source>
         <source>Transactions</source>
         <translation>Giao dịch</translation>
     </message>
-    <message id="atomic-swap-only-my-offers">
-        <source>Only my offers</source>
-        <translation type="unfinished">Only my offers</translation>
-    </message>
     <message id="atomic-swap-fit-current-balance">
         <source>Fit my current balance</source>
         <translation type="unfinished">Fit my current balance</translation>

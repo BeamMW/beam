@@ -1402,10 +1402,6 @@ please review your settings and try again</source>
         <source>Transactions</source>
         <translation>거래내역</translation>
     </message>
-    <message id="atomic-swap-only-my-offers">
-        <source>Only my offers</source>
-        <translation>내 오퍼들만</translation>
-    </message>
     <message id="atomic-swap-fit-current-balance">
         <source>Fit my current balance</source>
         <translation>현재 자금에 맞추기</translation>

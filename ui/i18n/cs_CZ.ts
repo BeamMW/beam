@@ -1403,10 +1403,6 @@ prosím zkontrolujte nastavení a zkuste to znovu.</translation>
         <source>Transactions</source>
         <translation>Platby</translation>
     </message>
-    <message id="atomic-swap-only-my-offers">
-        <source>Only my offers</source>
-        <translation>Pouze moje nabídky</translation>
-    </message>
     <message id="atomic-swap-fit-current-balance">
         <source>Fit my current balance</source>
         <translation>Přizpůsobit aktuální zůstatek</translation>

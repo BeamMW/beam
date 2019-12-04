@@ -1403,10 +1403,6 @@ bitte überprüfen Sie Ihre Einstellungen und versuchen Sie es erneut.</translat
         <source>Transactions</source>
         <translation>Transaktionen</translation>
     </message>
-    <message id="atomic-swap-only-my-offers">
-        <source>Only my offers</source>
-        <translation>Nur meine Angebote</translation>
-    </message>
     <message id="atomic-swap-fit-current-balance">
         <source>Fit my current balance</source>
         <translation>Mein aktuelles Guthaben anpassen</translation>

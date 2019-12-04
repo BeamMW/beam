@@ -1402,10 +1402,6 @@ please review your settings and try again</translation>
         <source>Transactions</source>
         <translation>Transactions</translation>
     </message>
-    <message id="atomic-swap-only-my-offers">
-        <source>Only my offers</source>
-        <translation>Only my offers</translation>
-    </message>
     <message id="atomic-swap-fit-current-balance">
         <source>Fit my current balance</source>
         <translation>Fit my current balance</translation>
