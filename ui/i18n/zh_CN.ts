@@ -1418,14 +1418,6 @@ please review your settings and try again</source>
         <source>Transactions</source>
         <translation>交易</translation>
     </message>
-    <message id="atomic-swap-receive-beam">
-        <source>Receive BEAM</source>
-        <translation>接收Beam</translation>
-    </message>
-    <message id="atomic-swap-send-beam">
-        <source>Send BEAM</source>
-        <translation>支付Beam</translation>
-    </message>
     <message id="atomic-swap-only-my-offers">
         <source>Only my offers</source>
         <translation type="unfinished">Only my offers</translation>
@@ -1985,6 +1977,10 @@ deploy the key at the node you trust completely.</source>
     </message>
     <message id="tx-state-initial-receiver">
         <source>If the sender won&apos;t get online in %1, the transaction will be cancelled automatically</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-my-offers-tab">
+        <source>My offers</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

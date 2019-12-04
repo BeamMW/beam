@@ -18,7 +18,7 @@ ComboBox {
         id: itemDelegate
         width: control.width
         contentItem: SFText {
-            text: modelData
+            text: control.textRole ? (Array.isArray(control.model) ? modelData[control.textRole] : model[control.textRole]) : modelData
             color: Style.content_main
             elide: Text.ElideMiddle
             verticalAlignment: Text.AlignVCenter
@@ -46,7 +46,7 @@ ComboBox {
         leftPadding: 0
         rightPadding: control.indicator.width + control.spacing
         clip: true
-        text: control.currentText
+        text: control.editable ? control.editText : control.displayText
         color: control.color
 		font.pixelSize: fontPixelSize
         verticalAlignment: Text.AlignVCenter

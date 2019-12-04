@@ -39,7 +39,8 @@ public:
         IsOwnOffer,
         isSendBeam,
         RawTxID,
-        RawTxParameters
+        RawTxParameters,
+        Pair
     };
 
     SwapOffersList();

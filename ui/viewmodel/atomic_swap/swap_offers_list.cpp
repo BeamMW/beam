@@ -36,7 +36,8 @@ QHash<int, QByteArray> SwapOffersList::roleNames() const
         { static_cast<int>(Roles::IsOwnOffer), "isOwnOffer" },
         { static_cast<int>(Roles::isSendBeam), "isSendBeam" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" },
-        { static_cast<int>(Roles::RawTxParameters), "rawTxParameters" }
+        { static_cast<int>(Roles::RawTxParameters), "rawTxParameters" },
+        { static_cast<int>(Roles::Pair), "pair" }
         
     };
     return roles;
@@ -48,6 +49,10 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
     {
        return QVariant();
     }
+    auto isSendBeam = [](const auto& value)
+    {
+        return value->isOwnOffer() ? value->isBeamSide() : !value->isBeamSide();
+    };
     auto& value = m_list[index.row()];
     switch (static_cast<Roles>(role))
     {
@@ -85,14 +90,20 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
             return value->isOwnOffer();
 
         case Roles::isSendBeam:
-            return value->isOwnOffer() ? value->isBeamSide() : !value->isBeamSide();
+            return isSendBeam(value);
 
         case Roles::RawTxID:
             return QVariant::fromValue(value->getTxID());
 
         case Roles::RawTxParameters:
             return QVariant::fromValue(value->getTxParameters());
-            
+
+        case Roles::Pair:
+        {
+            auto swapCoin = value->getSwapCoinName();
+            const QString beam = "beam";
+            return  isSendBeam(value) ? swapCoin + beam : beam + swapCoin;
+        }
         default:
             return QVariant();
     }
