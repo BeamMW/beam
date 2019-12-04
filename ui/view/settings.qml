@@ -674,7 +674,6 @@ deploy the key at the node you trust completely."*/
 
                             Item {
                             }
-
                             ColumnLayout {
                                 CustomComboBox {
                                     id: lockTimeoutControl
@@ -803,7 +802,7 @@ deploy the key at the node you trust completely."*/
                                 }
                                 onClicked: {
                                     //: settings tab, general section, ask password to send, confirm password dialog, title
-                                    //% "Don’t ask password on every Send"
+                                    //% "Don't ask password on every Send"
                                     confirmPasswordDialog.dialogTitle = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-title");
                                     //: settings tab, general section, ask password to send, confirm password dialog, message
                                     //% "Password verification is required to change that setting"

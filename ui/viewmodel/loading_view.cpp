@@ -144,7 +144,7 @@ void LoadingViewModel::updateProgress()
 
         if (m_hasLocalNode)
         {
-            //% "Synching with blockchain"
+            //% "Syncing with blockchain"
             progressMessage = qtTrId("loading-view-download-blocks");
         }
         else
@@ -207,7 +207,7 @@ void LoadingViewModel::updateProgress()
         QString::asprintf(getPercentagePlaceholder(progress), progress * 100));
     if (m_isDownloadStarted)
     {
-        progressMessage.append(" " + estimateStr);
+        progressMessage.append(". " + estimateStr);
     }
 
     setProgressMessage(progressMessage);
