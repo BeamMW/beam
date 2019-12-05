@@ -919,6 +919,15 @@ namespace beam::wallet
             {
                 if (!IsBeamSide() && m_secondSide->IsQuickRefundAvailable())
                 {
+                    if (reason == TxFailureReason::Canceled)
+                    {
+                        LOG_ERROR() << GetTxID() << " Swap cancelled. The other side has cancelled the transaction.";
+                    }
+                    else
+                    {
+                        LOG_ERROR() << GetTxID() << " The other side has failed the transaction. Reason: " << GetFailureMessage(reason);
+                    }
+
                     SetState(State::SendingRefundTX);
                 }
 
