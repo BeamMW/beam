@@ -10,7 +10,7 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 
 [Download latest version](http://beam.mw/downloads)
-**Clear Cathode 3.1**
+**Double Doppler 4.0**
 
 
 ### JOIN OUR COMMUNITIES ON TELEGRAM
@@ -87,6 +87,13 @@ See Beam roadmap for 2019 on https://beam.mw
 - Payment proof
 - Ultra fast sync
 - Android Mobile wallet
+
+#### Clear Cathode 3.0 ( 2019)
+- PoW change (BeamHash II)
+- Atomic Swaps CLI support
+
+#### Double Doppler 4.0 (December 2019)
+- Atomic Swaps desktop wallet support
 
 See [How to build](https://github.com/BeamMW/beam/wiki/How-to-build)
 
