@@ -115,7 +115,6 @@ namespace beam::wallet
         // deduced values,
         TxKernel::Ptr m_Kernel;
         ECC::Scalar::Native m_PeerSignature;
-        ECC::Hash::Value m_Message;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
         io::AsyncEvent::Ptr m_AsyncCompletedEvent;

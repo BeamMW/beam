@@ -462,8 +462,8 @@ namespace beam::wallet
         //
         m_Offset += m_keyKeeper->SignEmissionInOutKernel(m_Kernel, m_assetIdx);
 
-        Merkle::Hash kernelID;
-        m_Kernel->get_ID(kernelID);
+		m_Kernel->UpdateID();
+        const Merkle::Hash& kernelID = m_Kernel->m_Internal.m_ID;
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID);
 
@@ -472,8 +472,8 @@ namespace beam::wallet
         //
         m_Offset += m_keyKeeper->SignEmissionKernel(m_EmissionKernel, m_assetIdx);
 
-        Merkle::Hash emissionKernelID;
-        m_Kernel->get_ID(emissionKernelID);
+		m_EmissionKernel->UpdateID();
+        const Merkle::Hash& emissionKernelID = m_EmissionKernel->m_Internal.m_ID;
         m_Tx.SetParameter(TxParameterID::EmissionKernelID, emissionKernelID, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::EmissionKernel, m_EmissionKernel, m_SubTxID);
     }

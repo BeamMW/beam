@@ -67,6 +67,8 @@ class NodeProcessor
 
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
+	struct KrnFlyMmr;
+
 	static const uint32_t s_TxoNakedMin = sizeof(ECC::Point); // minimal output size - commitment
 	static const uint32_t s_TxoNakedMax = s_TxoNakedMin + 0x10; // In case the output has the Incubation period - extra size is needed (actually less than this).
 

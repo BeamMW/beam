@@ -431,8 +431,6 @@ namespace beam::wallet
         totalPublicExcess += m_PeerPublicExcess;
         m_Kernel->m_Commitment = totalPublicExcess;
 
-        m_Kernel->get_Hash(m_Message);
-
         KernelParameters kernelParameters;
         kernelParameters.fee = m_Fee;
         kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
@@ -442,6 +440,8 @@ namespace beam::wallet
 		{
 			*(m_Kernel->m_pHashLock->m_IsImage ? kernelParameters.lockImage : kernelParameters.lockPreImage) = m_Kernel->m_pHashLock->m_Value;
 		}
+
+		m_Kernel->UpdateID();
 
         m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_AssetId, m_Offset, m_NonceSlot, kernelParameters, GetPublicNonce() + m_PeerPublicNonce);
         StoreKernelID();
@@ -510,7 +510,7 @@ namespace beam::wallet
         Signature peerSig;
         peerSig.m_NoncePub = m_PeerPublicNonce + GetPublicNonce();
         peerSig.m_k = m_PeerSignature;
-        return peerSig.IsValidPartial(m_Message, m_PeerPublicNonce, m_PeerPublicExcess);
+        return peerSig.IsValidPartial(m_Kernel->m_Internal.m_ID, m_PeerPublicNonce, m_PeerPublicExcess);
     }
 
     Amount BaseTxBuilder::GetAmount() const
@@ -602,10 +602,7 @@ namespace beam::wallet
     void BaseTxBuilder::StoreKernelID()
     {
         assert(m_Kernel);
-        Merkle::Hash kernelID;
-        m_Kernel->get_ID(kernelID);
-
-        m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
+        m_Tx.SetParameter(TxParameterID::KernelID, m_Kernel->m_Internal.m_ID, m_SubTxID);
     }
 
     string BaseTxBuilder::GetKernelIDString() const

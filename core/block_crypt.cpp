@@ -817,25 +817,8 @@ namespace beam
 		return hv;
 	}
 
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, ECC::Point::Native* pExcess, const TxKernel* pParent, const Height* pScheme) const
+	void TxKernel::UpdateID()
 	{
-		if (pScheme)
-		{
-			if ((*pScheme < Rules::get().pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
-				return false; // unsupported for that version
-		}
-
-		if (pParent)
-		{
-			if (!m_CanEmbed && pScheme && (*pScheme >= Rules::get().pForks[1].m_Height)) // for older version embedding is implicitly allowed (though unlikely to be used)
-				return false;
-
-			// nested kernel restrictions
-			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
-				(m_Height.m_Max < pParent->m_Height.m_Max))
-				return false; // parent Height range must be contained in ours.
-		}
-
 		uint8_t nFlags =
 			(m_pHashLock ? 1 : 0) |
 			(m_pRelativeLock ? 2 : 0) |
@@ -851,7 +834,7 @@ namespace beam
 
 		if (m_pHashLock)
 		{
-			hp << m_pHashLock->get_Image(hv);
+			hp << m_pHashLock->get_Image(m_Internal.m_ID);
 		}
 
 		if (m_pRelativeLock)
@@ -862,10 +845,8 @@ namespace beam
 		}
 
 		ECC::Point::Native ptExcNested;
-		if (pExcess)
-			ptExcNested = Zero;
+		ptExcNested = Zero;
 
-		const TxKernel* p0Krn = NULL;
 		for (auto it = m_vNested.begin(); ; it++)
 		{
 			bool bBreak = (m_vNested.end() == it);
@@ -874,69 +855,97 @@ namespace beam
 			if (bBreak)
 				break;
 
-			const TxKernel& v = *(*it);
-			if (p0Krn && (*p0Krn > v))
-				return false;
-			p0Krn = &v;
+			TxKernel& v = *(*it);
+			v.UpdateID();
 
-			if (!v.Traverse(hv, pExcess ? &ptExcNested : nullptr, this, pScheme))
-				return false;
-
-			hp << hv;
+			hp << v.m_Internal.m_ID;
 		}
 
-		hp >> hv;
+		hp >> m_Internal.m_ID;
+	}
 
-		if (pExcess)
+
+	bool TxKernel::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		const Rules& r = Rules::get(); // alias
+		if ((hScheme < r.pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
+			return false; // unsupported for that version
+
+		if (pParent)
 		{
-			ECC::Point::Native pt;
-			if (!pt.ImportNnz(m_Commitment))
+			if (!m_CanEmbed && (hScheme >= r.pForks[1].m_Height)) // for older version embedding is implicitly allowed (though unlikely to be used)
 				return false;
+
+			// nested kernel restrictions
+			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
+				(m_Height.m_Max < pParent->m_Height.m_Max))
+				return false; // parent Height range must be contained in ours.
+		}
+
+		ECC::Point::Native pt;
+		if (!pt.ImportNnz(m_Commitment))
+			return false;
+
+		exc += pt;
+
+		if (!m_vNested.empty())
+		{
+			ECC::Point::Native ptExcNested(Zero);
+
+			const TxKernel* p0Krn = NULL;
+			for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
+			{
+				const TxKernel& v = *(*it);
+				if (p0Krn && (*p0Krn > v))
+					return false;
+				p0Krn = &v;
+
+				if (!v.IsValid(hScheme, ptExcNested, this))
+					return false;
+			}
 
 			ptExcNested = -ptExcNested;
-			ptExcNested += pt;
+			pt += ptExcNested;
+		}
 
-			if (!m_Signature.IsValid(hv, ptExcNested))
+		if (!m_Signature.IsValid(m_Internal.m_ID, pt))
+			return false;
+
+		if (m_AssetEmission)
+		{
+			if (!r.CA.Enabled)
 				return false;
 
-			*pExcess += pt;
+			if (pParent || !m_vNested.empty())
+				return false; // Ban complex cases. Emission kernels must be simple
 
-			if (m_AssetEmission)
+			const AssetID& aid = m_Commitment.m_X;
+			if (aid == Zero)
 			{
-				if (!Rules::get().CA.Enabled)
-					return false;
-
-				if (pParent || !m_vNested.empty())
-					return false; // Ban complex cases. Emission kernels must be simple
-
-				const AssetID& aid = m_Commitment.m_X;
-				if (aid == Zero)
-				{
-					assert(false); // Currently zero kernels are not allowed, but if we change this eventually - this will allow attacker to emit default asset (i.e. Beams).
-					// hence - extra verification
-					return false;
-				}
-
-				SwitchCommitment sc(&aid);
-				assert(ECC::Tag::IsCustom(&sc.m_hGen));
-
-				sc.m_hGen = -sc.m_hGen;
-
-				if (Rules::get().CA.Deposit)
-					sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
-
-				// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
-				Amount val;
-				if (m_AssetEmission > 0)
-					val = m_AssetEmission;
-				else
-				{
-					val = -m_AssetEmission;
-					sc.m_hGen = -sc.m_hGen;
-				}
-
-				ECC::Tag::AddValue(*pExcess, &sc.m_hGen, val);
+				assert(false); // Currently zero kernels are not allowed, but if we change this eventually - this will allow attacker to emit default asset (i.e. Beams).
+				// hence - extra verification
+				return false;
 			}
+
+			SwitchCommitment sc(&aid);
+			assert(ECC::Tag::IsCustom(&sc.m_hGen));
+
+			sc.m_hGen = -sc.m_hGen;
+
+			if (r.CA.Deposit)
+				sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
+
+			// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
+			Amount val;
+			if (m_AssetEmission > 0)
+				val = m_AssetEmission;
+			else
+			{
+				val = -m_AssetEmission;
+				sc.m_hGen = -sc.m_hGen;
+			}
+
+			ECC::Tag::AddValue(exc, &sc.m_hGen, val);
 		}
 
 		return true;
@@ -949,22 +958,6 @@ namespace beam
 
 		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
 			(*it)->AddStats(s);
-	}
-
-	void TxKernel::get_Hash(Merkle::Hash& out) const
-	{
-		Traverse(out, nullptr, nullptr, nullptr);
-	}
-
-	bool TxKernel::IsValid(Height hScheme, ECC::Point::Native& exc) const
-	{
-		ECC::Hash::Value hv;
-		return Traverse(hv, &exc, nullptr, &hScheme);
-	}
-
-	void TxKernel::get_ID(Merkle::Hash& out) const
-	{
-		get_Hash(out);
 	}
 
 	int TxKernel::cmp(const TxKernel& v) const
@@ -1019,14 +1012,13 @@ namespace beam
 	void TxKernel::Sign(const ECC::Scalar::Native& sk)
 	{
 		m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
-
-		ECC::Hash::Value hv;
-		get_Hash(hv);
-		m_Signature.Sign(hv, sk);
+		UpdateID();
+		m_Signature.Sign(m_Internal.m_ID, sk);
 	}
 
 	void TxKernel::operator = (const TxKernel& v)
 	{
+		m_Internal = v.m_Internal;
 		Cast::Down<TxElement>(*this) = v;
 		m_Signature = v.m_Signature;
 		m_Fee = v.m_Fee;
@@ -1735,9 +1727,7 @@ namespace beam
 
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const
 	{
-		Merkle::Hash hv;
-		krn.get_ID(hv);
-		return IsValidProofKernel(hv, proof);
+		return IsValidProofKernel(krn.m_Internal.m_ID, proof);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof& proof) const

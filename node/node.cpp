@@ -2201,11 +2201,9 @@ void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyT
     for (size_t i = 0; i < tx.m_vKernels.size(); i++)
     {
         const TxKernel& krn = *tx.m_vKernels[i];
-        Merkle::Hash hv;
-        krn.get_ID(hv);
 
 		char sz[Merkle::Hash::nTxtLen + 1];
-		hv.Print(sz);
+		krn.m_Internal.m_ID.Print(sz);
 
         os << "\n\tK: " << sz << " Fee=" << krn.m_Fee;
     }
@@ -2224,12 +2222,8 @@ void Node::LogTxStem(const Transaction& tx, const char* szTxt)
 
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 	{
-		const TxKernel& krn = *tx.m_vKernels[i];
-		Merkle::Hash hv;
-		krn.get_ID(hv);
-
 		char sz[Merkle::Hash::nTxtLen + 1];
-		hv.Print(sz);
+		tx.m_vKernels[i]->m_Internal.m_ID.Print(sz);
 
 		os << "\n\tK: " << sz;
 	}
@@ -2287,7 +2281,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         const TxKernel& krn = *ptx->m_vKernels[i];
 
         TxPool::Stem::Element::Kernel key;
-        krn.get_ID(key.m_hv);
+		key.m_pKrn = &krn;
 
         TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
         if (m_Dandelion.m_setKrns.end() == it)
@@ -2640,7 +2634,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
         for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
         {
             TxPool::Stem::Element::Kernel key;
-            ptx->m_vKernels[i]->get_ID(key.m_hv);
+			key.m_pKrn = ptx->m_vKernels[i].get();
 
             TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
             if (m_Dandelion.m_setKrns.end() != it)

@@ -427,6 +427,11 @@ namespace beam
 		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
 		bool			m_CanEmbed;
 
+		struct Internal
+		{
+			Merkle::Hash m_ID; // unique kernel identifier in the system.
+		} m_Internal;
+
 		TxKernel()
 			:m_Fee(0)
 			,m_AssetEmission(0)
@@ -467,10 +472,9 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		void get_Hash(Merkle::Hash&) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
-		void get_ID(Merkle::Hash&) const; // unique kernel identifier in the system.
+		void UpdateID();
 
-		bool IsValid(Height hScheme, ECC::Point::Native& exc) const;
+		bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const;
 
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
@@ -481,9 +485,6 @@ namespace beam
 		COMPARISON_VIA_CMP
 
 		void AddStats(TxStats&) const; // including self and nested
-
-	private:
-		bool Traverse(ECC::Hash::Value&, ECC::Point::Native*, const TxKernel* pParent, const Height* pScheme) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }

@@ -774,14 +774,11 @@ struct TestBlockchain
 
     void AddKernel(const TxKernel& krn)
     {
-        Merkle::Hash hvKrn;
-        krn.get_Hash(hvKrn);
-
         if (m_vBlockKernels.size() <= m_mcm.m_vStates.size())
             m_vBlockKernels.emplace_back();
 
         KrnPerBlock& kpb = m_vBlockKernels.back();
-        kpb.m_vKrnIDs.push_back(hvKrn);
+        kpb.m_vKrnIDs.push_back(krn.m_Internal.m_ID);
 
         auto ptr = make_shared<TxKernel>();
         *ptr = krn;

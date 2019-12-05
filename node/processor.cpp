@@ -1723,8 +1723,7 @@ uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, con
 
 	for (uint64_t i = 0; r.m_pKernel; r.NextKernel(), i++)
 	{
-		Merkle::Hash hv;
-		r.m_pKernel->get_ID(hv);
+		const Merkle::Hash& hv = r.m_pKernel->m_Internal.m_ID;
 		mmr.Append(hv);
 
 		if (hv == idKrn)
@@ -1870,6 +1869,23 @@ std::ostream& operator << (std::ostream& s, const LogSid& sid)
 	return s;
 }
 
+struct NodeProcessor::KrnFlyMmr
+	:public Merkle::FlyMmr
+{
+	const TxVectors::Eternal& m_Txve;
+
+	KrnFlyMmr(const TxVectors::Eternal& txve)
+		:m_Txve(txve)
+	{
+		m_Count = txve.m_vKernels.size();
+	}
+
+	virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+		assert(n < m_Count);
+		hv = m_Txve.m_vKernels[n]->m_Internal.m_ID;
+	}
+};
+
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& mbc)
 {
 	ByteBuffer bbP, bbE;
@@ -1894,11 +1910,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		LOG_WARNING() << LogSid(m_DB, sid) << " Block deserialization failed";
 		return false;
 	}
-
-	std::vector<Merkle::Hash> vKrnID(block.m_vKernels.size()); // allocate mem for all kernel IDs, we need them for initial verification vs header, and at the end - to add to the kernel index.
-	// better to allocate the memory, then to calculate IDs twice
-	for (size_t i = 0; i < vKrnID.size(); i++)
-		block.m_vKernels[i]->get_ID(vKrnID[i]);
 
 	bool bFirstTime = (m_DB.get_StateTxos(sid.m_Row) == MaxHeight);
 	if (bFirstTime)
@@ -1932,17 +1943,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			return false;
 		}
 
-		struct MyFlyMmr :public Merkle::FlyMmr {
-			const Merkle::Hash* m_pHashes;
-			virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
-				hv = m_pHashes[n];
-			}
-		};
-
-		MyFlyMmr fmmr;
-		fmmr.m_Count = vKrnID.size();
-		fmmr.m_pHashes = vKrnID.empty() ? NULL : &vKrnID.front();
-
+		KrnFlyMmr fmmr(block);
 		Merkle::Hash hv;
 		fmmr.get_Hash(hv);
 
@@ -2075,8 +2076,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			m_DB.set_StateExtra(sid.m_Row, &blob);
 		}
 
-		for (size_t i = 0; i < vKrnID.size(); i++)
-			m_DB.InsertKernel(vKrnID[i], sid.m_Height);
+		for (size_t i = 0; i < block.m_vKernels.size(); i++)
+			m_DB.InsertKernel(block.m_vKernels[i]->m_Internal.m_ID, sid.m_Height);
 
 		std::vector<NodeDB::StateInput> v;
 		v.reserve(block.m_vInputs.size());
@@ -2821,12 +2822,7 @@ void NodeProcessor::RollbackTo(Height h)
 		der & Cast::Down<TxVectors::Eternal>(txve);
 
 		for (size_t i = 0; i < txve.m_vKernels.size(); i++)
-		{
-			Merkle::Hash hv;
-			txve.m_vKernels[i]->get_ID(hv);
-
-			m_DB.DeleteKernel(hv, m_Cursor.m_Sid.m_Height);
-		}
+			m_DB.DeleteKernel(txve.m_vKernels[i]->m_Internal.m_ID, m_Cursor.m_Sid.m_Height);
 
 		if (bd.FromRow(*this, m_Cursor.m_Sid.m_Row))
 		{
@@ -3435,16 +3431,7 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 	}
 #endif // NDEBUG
 
-	struct MyFlyMmr :public Merkle::FlyMmr {
-		const TxKernel::Ptr* m_ppKrn;
-		virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
-			m_ppKrn[n]->get_ID(hv);
-		}
-	};
-
-	MyFlyMmr fmmr;
-	fmmr.m_Count = bc.m_Block.m_vKernels.size();
-	fmmr.m_ppKrn = bc.m_Block.m_vKernels.empty() ? NULL : &bc.m_Block.m_vKernels.front();
+	KrnFlyMmr fmmr(bc.m_Block);
 	fmmr.get_Hash(bc.m_Hdr.m_Kernels);
 
 	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;

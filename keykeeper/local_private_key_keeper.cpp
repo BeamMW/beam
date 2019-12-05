@@ -281,8 +281,8 @@ namespace beam::wallet
 				kernel.m_pHashLock->m_IsImage = true;
 			}
         }
-        Merkle::Hash message;
-        kernel.get_Hash(message);
+		kernel.UpdateID();
+        const Merkle::Hash& message = kernel.m_Internal.m_ID;
 
         ECC::Signature::MultiSig multiSig;
         ECC::Scalar::Native partialSignature;

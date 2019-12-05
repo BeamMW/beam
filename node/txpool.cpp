@@ -206,7 +206,7 @@ void TxPool::Stem::InsertKrn(Element& x)
 	for (size_t i = 0; i < x.m_vKrn.size(); i++)
 	{
 		Element::Kernel& n = x.m_vKrn[i];
-		tx.m_vKernels[i]->get_ID(n.m_hv);
+		n.m_pKrn = tx.m_vKernels[i].get();
 		m_setKrns.insert(n);
 		n.m_pThis = &x;
 	}

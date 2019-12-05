@@ -968,7 +968,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load_Recursive(Archive& ar, beam::TxKernel& val, uint32_t nRecusion)
+        static void load_Recursive(Archive& ar, beam::TxKernel& val, uint32_t nRecusion)
         {
 			uint8_t nFlags;
 			ar
@@ -1041,14 +1041,14 @@ namespace detail
 				if (4 & nFlags2)
 					val.m_CanEmbed = true;
 			}
-
-            return ar;
         }
 
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::TxKernel& val)
 		{
-			return load_Recursive(ar, val, 0);
+			load_Recursive(ar, val, 0);
+			val.UpdateID();
+			return ar;
 		}
 
         /// beam::Transaction serialization

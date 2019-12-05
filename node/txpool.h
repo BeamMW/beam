@@ -119,8 +119,8 @@ struct TxPool
 				:public boost::intrusive::set_base_hook<>
 			{
 				Element* m_pThis;
-				Merkle::Hash m_hv;
-				bool operator < (const Kernel& t) const { return m_hv < t.m_hv; }
+				const TxKernel* m_pKrn;
+				bool operator < (const Kernel& t) const { return m_pKrn->m_Internal.m_ID < t.m_pKrn->m_Internal.m_ID; }
 			};
 
 			HeightRange m_Height;

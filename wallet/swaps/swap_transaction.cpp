@@ -1166,15 +1166,7 @@ namespace beam::wallet
                     auto peerPublicNonce = GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicNonce, subTxID);
                     Scalar::Native challenge;
                     {
-                        Point::Native publicNonceNative = builder.GetPublicNonce() + peerPublicNonce;
-                        Point publicNonce;
-                        publicNonceNative.Export(publicNonce);
-
-                        // Signature::get_Challenge(e, m_NoncePub, msg);
-                        uintBig message;
-                        builder.GetKernel().get_Hash(message);
-
-                        Oracle() << publicNonce << message >> challenge;
+						builder.GetKernel().m_Signature.get_Challenge(challenge, builder.GetKernel().m_Internal.m_ID);
                     }
 
                     Scalar::Native peerSignature = GetMandatoryParameter<Scalar::Native>(TxParameterID::PeerSignature, subTxID);

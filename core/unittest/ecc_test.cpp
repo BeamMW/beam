@@ -1118,13 +1118,13 @@ void TestMultiSigOutput()
     ECC::Point::Native noncePublicB = Context::get().G * nonceB;
     ECC::Point::Native noncePublic = noncePublicA + noncePublicB;
 
-    ECC::Hash::Value message;
     std::unique_ptr<beam::TxKernel> pKernel(new beam::TxKernel);
     pKernel->m_Fee = 0;
     pKernel->m_Height.m_Min = 100;
     pKernel->m_Height.m_Max = 220;
     pKernel->m_Commitment = blindingExcessPublicA + blindingExcessPublicB;
-    pKernel->get_Hash(message);
+    pKernel->UpdateID();
+	const ECC::Hash::Value& message = pKernel->m_Internal.m_ID;
 
     ECC::Signature::MultiSig multiSigKernel;
     ECC::Scalar::Native partialSignatureA;
@@ -1274,8 +1274,8 @@ struct TransactionMaker
 
 		krn.m_Commitment = kG;
 
-		Hash::Value msg;
-		krn.get_ID(msg);
+		krn.UpdateID();
+		const Hash::Value& msg = krn.m_Internal.m_ID;
 
 		// 2nd pass. Signing. Total excess is the signature public key.
 		Scalar::Native kSig = Zero;
@@ -1348,10 +1348,12 @@ struct TransactionMaker
 
 		Point::Native exc;
 		pKrn->m_pHashLock->m_IsImage = false;
+		pKrn->UpdateID();
 		verify_test(!pKrn->IsValid(g_hFork, exc)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Value = hl.m_Value;
+		pKrn->UpdateID();
 		verify_test(pKrn->IsValid(g_hFork, exc));
 
 		lstTrg.push_back(std::move(pKrn));
@@ -1574,8 +1576,8 @@ struct HWWalletEmulator
 		krn.m_Fee = tx.m_Fee;
 		krn.m_Commitment = tx.m_KernelCommitment;
 
-		Hash::Value krnID;
-		krn.get_ID(krnID);
+		krn.UpdateID();
+		const Hash::Value& krnID = krn.m_Internal.m_ID;
 
 		// Create partial signature
 
@@ -1741,6 +1743,9 @@ void TestTransactionHW()
 	k1 += k2;
 	mw1.m_Kernel.m_Signature.m_k = k1;
 	mw2.m_Kernel.m_Signature.m_k = mw1.m_Kernel.m_Signature.m_k;
+
+	mw1.m_Kernel.UpdateID();
+	mw2.m_Kernel.UpdateID();
 
 	{
 		Point::Native exc;

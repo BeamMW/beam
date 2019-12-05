@@ -654,11 +654,7 @@ void Channel::CreatePunishmentTx()
 	offs += k;
 	k = -k;
 
-	pKrn->m_Commitment = ECC::Context::get().G * k;
-
-	ECC::Hash::Value hv;
-	pKrn->get_ID(hv);
-	pKrn->m_Signature.Sign(hv, k);
+	pKrn->Sign(k);
 
 	tx.m_Offset = offs;
 
@@ -846,7 +842,7 @@ void Channel::DataUpdate::get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const
 	if (tx.m_vKernels.empty())
 		hv = Zero; //?!
 	else
-		tx.m_vKernels.front()->get_ID(hv);
+		hv = tx.m_vKernels.front()->m_Internal.m_ID;
 }
 
 void Channel::DataUpdate::CheckStdType()

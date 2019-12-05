@@ -667,7 +667,6 @@ namespace beam
 			void Export(TxKernel& krn) const
 			{
 				krn.m_Fee = m_Fee;
-				krn.m_Commitment = ECC::Point::Native(ECC::Context::get().G * m_k);
 
 				if (m_bUseHashlock)
 				{
@@ -682,10 +681,7 @@ namespace beam
 					krn.m_pRelativeLock->m_LockHeight = 1;
 				}
 
-				ECC::Hash::Value hv;
-				krn.get_Hash(hv);
-				krn.m_Signature.Sign(hv, m_k);
-
+				krn.Sign(m_k);
 			}
 
 			void Export(TxKernel::Ptr& pKrn) const
@@ -1754,7 +1750,7 @@ namespace beam
 				verify_test(msgTx.m_Transaction->IsValid(ctx));
 
 				verify_test(msgTx.m_Transaction->m_vKernels.size() == 1);
-				msgTx.m_Transaction->m_vKernels.front()->get_ID(m_Shielded.m_SpendKernelID);
+				m_Shielded.m_SpendKernelID = msgTx.m_Transaction->m_vKernels.front()->m_Internal.m_ID;
 
 				msgTx.m_Fluff = true;
 				Send(msgTx);
@@ -1890,14 +1886,14 @@ namespace beam
 					mk.Export(krn);
 
 					proto::GetProofKernel2 msgOut2;
-					krn.get_ID(msgOut2.m_ID);
+					msgOut2.m_ID = krn.m_Internal.m_ID;
 					msgOut2.m_Fetch = true;
 					Send(msgOut2);
 
 					m_queProofsKrnExpected.push_back(i);
 
 					proto::GetProofKernel msgOut3;
-					krn.get_ID(msgOut3.m_ID);
+					msgOut3.m_ID = krn.m_Internal.m_ID;
 					Send(msgOut3);
 
 					m_queProofsKrnExpected.push_back(i);
@@ -2040,8 +2036,7 @@ namespace beam
 						ECC::Point::Native exc;
 						verify_test(msg.m_Kernel->IsValid(msg.m_Height, exc));
 
-						Merkle::Hash hv;
-						msg.m_Kernel->get_ID(hv);
+						Merkle::Hash hv = msg.m_Kernel->m_Internal.m_ID;
 						Merkle::Interpret(hv, msg.m_Proof);
 
 						verify_test(msg.m_Height <= m_vStates.size());
@@ -2068,9 +2063,7 @@ namespace beam
 						mk.Export(krn);
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 
-						krn.get_ID(m_Wallet.m_hvKrnRel);
-
-						if (!m_Shielded.m_SpendConfirmed && (m_Wallet.m_hvKrnRel == m_Shielded.m_SpendKernelID))
+						if (!m_Shielded.m_SpendConfirmed && (krn.m_Internal.m_ID == m_Shielded.m_SpendKernelID))
 							m_Shielded.m_SpendConfirmed = true;
 					}
 				}
