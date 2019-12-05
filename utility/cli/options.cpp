@@ -162,6 +162,7 @@ namespace beam
         const char* RESET_ID = "reset_id";
         const char* ERASE_ID = "erase_id";
         const char* CHECKDB = "check_db";
+        const char* VACUUM = "vacuum";
         const char* CRASH = "crash";
         const char* INIT = "init";
         const char* RESTORE = "restore";
@@ -289,7 +290,8 @@ namespace beam
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
-            (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check and compact (vacuum)")
+            (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check")
+            (cli::VACUUM, po::value<bool>()->default_value(false), "DB vacuum (compact)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
             (cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
             (cli::OWNER_KEY, po::value<string>(), "Owner viewer key")

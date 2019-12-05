@@ -88,11 +88,10 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_DB.Open(szPath);
 	m_DbTx.Start(m_DB);
 
-	if (sp.m_CheckIntegrityAndVacuum)
+	if (sp.m_CheckIntegrity)
 	{
 		LOG_INFO() << "DB integrity check...";
 		m_DB.CheckIntegrity();
-		Vacuum();
 	}
 
 	Merkle::Hash hv;
@@ -187,7 +186,12 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	m_Horizon.Normalize();
 
-	if (PruneOld())
+	if (PruneOld() && !sp.m_Vacuum)
+	{
+		LOG_INFO() << "Old data was just removed from the DB. Some space can be freed by vacuum";
+	}
+
+	if (sp.m_Vacuum)
 		Vacuum();
 
 	if (sp.m_ResetCursor)
