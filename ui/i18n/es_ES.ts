@@ -776,8 +776,9 @@
         <translation>No se pudo iniciar el wallet. Por favor, compruebe la ubicación de los datos de su wallet</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Synching with blockchain</source>
-        <translation>Sincronizando con blockchain</translation>
+        <source>Syncing with blockchain</source>
+        <oldsource>Synching with blockchain</oldsource>
+        <translation type="unfinished">Sincronizando con blockchain</translation>
     </message>
     <message id="loading-view-scaning-utxo">
         <source>Loading wallet data %d/%d</source>
@@ -1141,9 +1142,10 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <translation>Hecha de creación</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
-        <source>Don’t ask password on every Send</source>
+        <source>Don&apos;t ask password on every Send</source>
+        <oldsource>Don’t ask password on every Send</oldsource>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
-        <translation>No pedir contraseña en cada envío</translation>
+        <translation type="unfinished">No pedir contraseña en cada envío</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
         <source>Password verification is required to change that setting</source>
@@ -1953,15 +1955,25 @@ deploy the key at the node you trust completely.</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-state-initial-sender">
-        <source>If the receiver won&apos;t get online in %1, the transaction will be cancelled automatically</source>
+        <source>If the receiver won&apos;t get online in %1, the transaction will be canceled automatically</source>
+        <oldsource>If the receiver won&apos;t get online in %1, the transaction will be cancelled automatically</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-state-initial-receiver">
-        <source>If the sender won&apos;t get online in %1, the transaction will be cancelled automatically</source>
+        <source>If the sender won&apos;t get online in %1, the transaction will be canceled automatically</source>
+        <oldsource>If the sender won&apos;t get online in %1, the transaction will be cancelled automatically</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="atomic-swap-my-offers-tab">
         <source>My offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-in-progress-normal">
+        <source>The transaction is usually expected to complete in a few minutes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-in-progress-long">
+        <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

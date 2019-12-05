@@ -250,6 +250,7 @@ RowLayout {
             Layout.fillWidth: true
             visible: root.stateDetails != ""
             SvgImage {
+                Layout.alignment: Qt.AlignTop
                 sourceSize: Qt.size(16, 16)
                 source:  "qrc:/assets/icon-attention.svg"
             }
@@ -298,7 +299,7 @@ RowLayout {
         columns: 2
         columnSpacing: 44
         rowSpacing: 14
-        visible: !root.isIncome && root.isFieldVisible()
+        visible: !root.isIncome && root.isFieldVisible() && root.hasPaymentProof && !root.isSelfTx
 
         Item {
             Layout.fillWidth: true

@@ -33,11 +33,49 @@ namespace
         }
         if (isSender)
         {
-            //% "If the receiver won't get online in %1, the transaction will be cancelled automatically"
+            //% "If the receiver won't get online in %1, the transaction will be canceled automatically"
             return qtTrId("tx-state-initial-sender").arg(time);
         }
-        //% "If the sender won't get online in %1, the transaction will be cancelled automatically"
+        //% "If the sender won't get online in %1, the transaction will be canceled automatically"
         return qtTrId("tx-state-initial-receiver").arg(time);
+    }
+
+    QString getInProgressStr(const beam::wallet::TxParameters& txParameters)
+    {
+        const Height kNormalTxConfirmationDelay = 10;
+        auto maxHeight = txParameters.GetParameter<beam::Height>(TxParameterID::MaxHeight);
+        QString time = "";
+        if (!maxHeight)
+        {
+            return "";
+        }
+
+        auto currentHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
+        if (currentHeight >= *maxHeight)
+        {
+            return "";
+        }
+
+        Height delta =  *maxHeight - currentHeight;
+        auto lifetime = txParameters.GetParameter<beam::Height>(TxParameterID::Lifetime);
+        if (!lifetime || *lifetime < delta)
+        {
+            return "";
+        }
+        delta = *lifetime - delta;
+        if (delta <= kNormalTxConfirmationDelay)
+        {
+            //% "The transaction is usually expected to complete in a few minutes."
+            return qtTrId("tx-state-in-progress-normal");
+        }
+
+        time = beamui::convertBeamHeightDiffToTime(delta);
+        if (time.isEmpty())
+        {
+            return "";
+        }
+        //% "It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1."
+        return qtTrId("tx-state-in-progress-long").arg(time);
     }
 }
 
@@ -258,6 +296,8 @@ QString TxObject::getStateDetails() const
             }
             return getWaitingPeerStr(tx, tx.m_sender);
         }
+        case beam::wallet::TxStatus::Registering:
+            return getInProgressStr(tx);
         default:
             break;
         }
