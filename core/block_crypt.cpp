@@ -958,7 +958,9 @@ namespace beam
 
 		ZeroObject(pForks);
 
-		pForks[1].m_Height = 199403; // not decided yet 
+		pForks[1].m_Height = 30;
+		Emission.Drop0 = 3000;
+		Emission.Drop1 = 5000;
 
 		// future forks
 		for (size_t i = 2; i < _countof(pForks); i++)
