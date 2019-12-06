@@ -18,6 +18,7 @@
 #ifdef WIN32
     #include <Ws2tcpip.h>
 #else
+    #include <arpa/inet.h>
     #include <netdb.h>
 #endif // WIN32
 
@@ -32,19 +33,30 @@ uint32_t resolve_host(std::string&& host) {
 
     addrinfo hint;
     memset(&hint, 0, sizeof(struct addrinfo));
-    hint.ai_flags = AF_INET;
+    hint.ai_family = AF_INET;
     hint.ai_socktype = SOCK_STREAM;
+    hint.ai_protocol = IPPROTO_TCP;
+    hint.ai_flags = AI_CANONNAME;
 
-    addrinfo* ai=0;
+    addrinfo* ai = nullptr;
 
     // NOTE: leaks memory, but only once
-    int r = getaddrinfo(host.c_str(), 0, &hint, &ai);
+    int r = getaddrinfo(host.c_str(), nullptr, &hint, &ai);
 
     if (r == 0) {
         for (addrinfo* p = ai; p; p = p->ai_next) {
             if (p->ai_family == AF_INET) {
-                ip = ntohl(((sockaddr_in*)(p->ai_addr))->sin_addr.s_addr);
-                break;
+                auto* addr = (sockaddr_in*)p->ai_addr;
+                if (p->ai_canonname) {
+                    ip = ntohl(addr->sin_addr.s_addr);
+                    break;
+                } else {
+                    char* resolved_addr = inet_ntoa(addr->sin_addr);
+                    if (resolved_addr && strcmp(host.c_str(), resolved_addr) == 0) {
+                        ip = ntohl(addr->sin_addr.s_addr);
+                        break;
+                    }
+                }
             }
         }
     }
