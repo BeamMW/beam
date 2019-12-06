@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #include "address.h"
 #include <iostream>
 #include <stdlib.h>
@@ -47,9 +46,12 @@ uint32_t resolve_host(std::string&& host) {
         for (addrinfo* p = ai; p; p = p->ai_next) {
             if (p->ai_family == AF_INET) {
                 auto* addr = (sockaddr_in*)p->ai_addr;
+#ifndef WIN32
                 if (p->ai_canonname) {
+#endif // WIN32
                     ip = ntohl(addr->sin_addr.s_addr);
                     break;
+#ifndef WIN32
                 } else {
                     char* resolved_addr = inet_ntoa(addr->sin_addr);
                     if (resolved_addr && strcmp(host.c_str(), resolved_addr) == 0) {
@@ -57,6 +59,7 @@ uint32_t resolve_host(std::string&& host) {
                         break;
                     }
                 }
+#endif // WIN32
             }
         }
     }
@@ -112,4 +115,3 @@ std::ostream& operator<<(std::ostream& os, const Address& a) {
 }
 
 }} //namespaces
-
