@@ -777,8 +777,7 @@
     </message>
     <message id="loading-view-download-blocks">
         <source>Syncing with blockchain</source>
-        <oldsource>Synching with blockchain</oldsource>
-        <translation type="unfinished">Synchronizace s blockchainem</translation>
+        <translation>Synchronizace s blockchainem</translation>
     </message>
     <message id="loading-view-scaning-utxo">
         <source>Loading wallet data %d/%d</source>
