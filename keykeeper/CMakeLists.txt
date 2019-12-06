@@ -1,9 +1,10 @@
+if(EMSCRIPTEN)
+
 project(keykeeper)
 cmake_minimum_required(VERSION 3.11)
 
 set(TARGET_NAME wasm-key-keeper)
 
-if(EMSCRIPTEN)
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
