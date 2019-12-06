@@ -1661,17 +1661,15 @@ namespace
             return nullptr;
         }
 
-        auto nnet = make_shared<proto::FlyClient::NetworkStd>(fc);
-
         string nodeURI = vm[cli::NODE_ADDR].as<string>();
         io::Address nodeAddress;
         if (!nodeAddress.resolve(nodeURI.c_str()))
         {
-            LOG_ERROR() << boost::format(kErrorNodeAddrNotSpecified) % nodeURI;
+            LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % nodeURI;
             return nullptr;
         }
 
-        
+        auto nnet = make_shared<proto::FlyClient::NetworkStd>(fc);
         nnet->m_Cfg.m_PollPeriod_ms =
             vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
         if (nnet->m_Cfg.m_PollPeriod_ms)
@@ -1702,7 +1700,7 @@ namespace
             io::Address proxyAddr;
             if (!proxyAddr.resolve(proxyURI.c_str()))
             {
-                LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % nodeURI;
+                LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % proxyURI;
                 return nullptr;
             }
             nnet->m_Cfg.m_ProxyAddr = proxyAddr;
@@ -2601,6 +2599,10 @@ int main_impl(int argc, char* argv[])
                         if (!coldWallet)
                         {
                             auto nnet = CreateNetwork(wallet, vm);
+                            if (!nnet)
+                            {
+                                return -1;
+                            }
                             wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
                             wallet.SetNodeEndpoint(nnet);
                         }
