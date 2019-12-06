@@ -354,9 +354,11 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 
 	SpendKey::ToSerial(xPwr, m_Part1.m_SpendPk);
 
-	Point::Native ptBias = outp.m_Pt;
-	ptBias += Context::get().J * xPwr;
-	bc.AddCasual(ptBias, -mctx.m_kBias, true);
+	mctx.m_kBias = -mctx.m_kBias;
+	bc.AddCasual(outp.m_Pt, mctx.m_kBias, true); // -= kBias * Input::m_Commitment
+
+	mctx.m_kBias *= xPwr;
+	bc.AddPreparedM(InnerProduct::BatchContext::s_Idx_J, mctx.m_kBias); // -= kBias * serial * J
 
 	// compare with target
 	bc.m_Multiplier = -bc.m_Multiplier;
