@@ -146,6 +146,9 @@ namespace beam
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
 
+		Height MaxKernelValidityDH = 1440 * 30; // past Fork2
+		// if kernel has higher lifetime - its max height is implicitly decreased
+
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;
 

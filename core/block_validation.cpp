@@ -179,7 +179,16 @@ namespace beam
 				if (!r.m_pKernel->IsValid(m_Height.m_Min, m_Sigma))
 					return false;
 
-				if (!HandleElementHeight(r.m_pKernel->m_Height))
+				HeightRange hr = r.m_pKernel->m_Height;
+				if (iFork >= 2)
+				{
+					assert(hr.m_Min >= rules.pForks[2].m_Height);
+
+					if (!hr.IsEmpty() && (hr.m_Max - hr.m_Min > rules.MaxKernelValidityDH))
+						hr.m_Max = hr.m_Min + rules.MaxKernelValidityDH;
+				}
+
+				if (!HandleElementHeight(hr))
 					return false;
 
 				r.m_pKernel->AddStats(m_Stats);

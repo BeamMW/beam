@@ -1547,6 +1547,7 @@ namespace beam
 		oracle
 			<< "fork2"
 			<< pForks[2].m_Height
+			<< MaxKernelValidityDH
 			<< Shielded.Enabled
 			<< uint32_t(1) // our current strategy w.r.t. allowed anonymity set in shielded inputs
 			<< Shielded.NMax
