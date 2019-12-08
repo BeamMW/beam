@@ -962,6 +962,23 @@ namespace beam
 
 	int TxKernel::cmp(const TxKernel& v) const
 	{
+		const Rules& r = Rules::get();
+		bool b2Me = (m_Height.m_Min >= r.pForks[2].m_Height);
+		bool b2Other = (v.m_Height.m_Min >= r.pForks[2].m_Height);
+
+		if (b2Me)
+		{
+			if (!b2Other)
+				return 1;
+
+			CMP_MEMBER_EX(m_Internal.m_ID)
+		}
+		else
+		{
+			if (b2Other)
+				return -1;
+		}
+
 		{
 			int n = Cast::Down<TxElement>(*this).cmp(v);
 			if (n)

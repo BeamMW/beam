@@ -222,9 +222,7 @@ namespace beam
 	struct TxElement
 	{
 		ECC::Point m_Commitment;
-
 		int cmp(const TxElement&) const;
-		COMPARISON_VIA_CMP
 	};
 
 	struct Input

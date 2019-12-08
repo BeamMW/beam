@@ -2363,6 +2363,8 @@ void TestAssetEmission()
 
 	tx.m_Offset = kOffset;
 
+	tx.Normalize();
+
 	beam::Transaction::Context::Params pars;
 	beam::Transaction::Context ctx(pars);
 	ctx.m_Height.m_Min = hScheme;
