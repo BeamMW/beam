@@ -2076,9 +2076,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			m_DB.set_StateExtra(sid.m_Row, &blob);
 		}
 
-		for (size_t i = 0; i < block.m_vKernels.size(); i++)
-			m_DB.InsertKernel(block.m_vKernels[i]->m_Internal.m_ID, sid.m_Height);
-
 		std::vector<NodeDB::StateInput> v;
 		v.reserve(block.m_vInputs.size());
 
@@ -2384,43 +2381,102 @@ bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
 	return !kidv.m_Value && (Key::Type::Decoy == kidv.m_Type);
 }
 
-bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, BlockInterpretCtx& bic)
+bool NodeProcessor::ValidateKernel(const TxKernel& krn, Height h)
 {
-	uint32_t nInp = 0, nOut = 0;
-	r.Reset();
+	const Rules& rules = Rules::get();
+	bool bPastFork2 = (h >= rules.pForks[2].m_Height);
 
-	for (; r.m_pKernel; r.NextKernel())
+	HeightRange hr = krn.m_Height;
+
+	if (krn.m_pRelativeLock)
 	{
-		if (!r.m_pKernel->m_pRelativeLock)
-			continue;
-		const TxKernel::RelativeLock& x = *r.m_pKernel->m_pRelativeLock;
+		const TxKernel::RelativeLock& x = *krn.m_pRelativeLock;
 
 		Height h0 = m_DB.FindKernel(x.m_ID);
 		if (h0 < Rules::HeightGenesis)
 			return false;
 
+		if (bPastFork2 && (h - h0 > rules.MaxKernelValidityDH))
+			return false;
+
 		HeightAdd(h0, x.m_LockHeight);
-		if (h0 > bic.m_Height)
+		if (h0 > h)
 			return false;
 	}
 
-	bool bOk = true;
-	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
-		if (!HandleBlockElement(*r.m_pUtxoIn, bic))
+	if (bPastFork2)
+	{
+		if (!hr.IsEmpty() && (hr.m_Max - hr.m_Min > rules.MaxKernelValidityDH))
+			hr.m_Max = hr.m_Min + rules.MaxKernelValidityDH;
+
+		Height hPrev = m_DB.FindKernel(krn.m_Internal.m_ID);
+		assert(hPrev <= h);
+		if (hPrev && (h - hPrev <= rules.MaxKernelValidityDH))
+			return false; // duplicated
+	}
+
+	return hr.IsInRange(h);
+}
+
+bool NodeProcessor::HandleValidatedTxInternal(TxBase::IReader&& r, BlockInterpretCtx& bic, uint32_t& nInp, uint32_t& nOut, uint32_t& nKrn)
+{
+	r.Reset();
+
+	if (bic.m_Height >= Rules::HeightGenesis)
+	{
+		// for historical reasons treasury kernels are ignored
+		for (; r.m_pKernel; r.NextKernel())
 		{
-			bOk = false;
-			break;
-		}
-
-	if (bOk)
-		for (; r.m_pUtxoOut; r.NextUtxoOut(), nOut++)
-			if (!HandleBlockElement(*r.m_pUtxoOut, bic))
-			{
-				bOk = false;
+			if (!bic.m_Fwd && !nKrn)
 				break;
-			}
 
-	if (bOk)
+			if (!HandleBlockElement(*r.m_pKernel, bic))
+				return false;
+
+			if (bic.m_Fwd)
+				nKrn++;
+			else
+				nKrn--;
+		}
+	}
+
+	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
+	{
+		if (!bic.m_Fwd && !nInp)
+			break;
+
+		if (!HandleBlockElement(*r.m_pUtxoIn, bic))
+			return false;
+
+		if (bic.m_Fwd)
+			nInp++;
+		else
+			nInp--;
+	}
+
+	for (; r.m_pUtxoOut; r.NextUtxoOut(), nOut++)
+	{
+		if (!bic.m_Fwd && !nOut)
+			break;
+
+		if (!HandleBlockElement(*r.m_pUtxoOut, bic))
+			return false;
+
+		if (bic.m_Fwd)
+			nOut++;
+		else
+			nOut--;
+	}
+
+	return true;
+}
+
+bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, BlockInterpretCtx& bic)
+{
+	uint32_t nInp, nOut, nKrn;
+	nInp = nOut = nKrn = (bic.m_Fwd ? 0 : static_cast<uint32_t>(-1));
+
+	if (HandleValidatedTxInternal(std::move(r), bic, nInp, nOut, nKrn))
 		return true;
 
 	if (!bic.m_Fwd)
@@ -2428,13 +2484,9 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, BlockInterpretCtx& bi
 
 	// Rollback all the changes. Must succeed!
 	bic.m_Fwd = false;
-	r.Reset();
 
-	for (; nOut--; r.NextUtxoOut())
-		HandleBlockElement(*r.m_pUtxoOut, bic);
-
-	for (; nInp--; r.NextUtxoIn())
-		HandleBlockElement(*r.m_pUtxoIn, bic);
+	if (!HandleValidatedTxInternal(std::move(r), bic, nInp, nOut, nKrn))
+		OnCorrupted();
 
 	bic.m_Fwd = true; // restore it to prevent confuse
 	return false;
@@ -2624,6 +2676,23 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 			m_Utxos.Delete(cu);
 		else
 			m_Utxos.PopID(*p);
+	}
+
+	return true;
+}
+
+bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic)
+{
+	if (bic.m_Fwd)
+	{
+		if (!ValidateKernel(v, bic.m_Height))
+			return false;
+
+		m_DB.InsertKernel(v.m_Internal.m_ID, bic.m_Height);
+	}
+	else
+	{
+		m_DB.DeleteKernel(v.m_Internal.m_ID, bic.m_Height);
 	}
 
 	return true;
@@ -3144,42 +3213,29 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, const HeightRange& hr)
-{
-	Height h = m_Cursor.m_Sid.m_Height + 1;
-	if (!hr.IsInRange(h))
-		return false;
-
-	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
-	{
-		const TxKernel& krn = *tx.m_vKernels[i];
-		assert(krn.m_Height.IsInRange(h));
-
-		if (krn.m_pRelativeLock)
-		{
-			const TxKernel::RelativeLock& x = *krn.m_pRelativeLock;
-
-			Height h0 = m_DB.FindKernel(x.m_ID);
-			if (h0 < Rules::HeightGenesis)
-				return false;
-
-			HeightAdd(h0, x.m_LockHeight);
-			if (h0 > h)
-				return false;
-		}
-	}
-
-	return true;
-}
-
 bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& hr, bool bShieldedTested)
 {
-	if (!ValidateTxWrtHeight(tx, hr))
+	Height h = m_Cursor.m_ID.m_Height + 1;
+
+	if (!hr.IsInRange(h))
 		return false;
 
 	uint32_t nIns = 0, nOuts = 0;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
+	// Ensure kernels are ok
+
+	bool bPastFork2 = (h >= Rules::get().pForks[2].m_Height);
+
+	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
+	{
+		if (!ValidateKernel(*tx.m_vKernels[i], h))
+			return false;
+
+		if (bPastFork2 && i && (tx.m_vKernels[i - 1]->m_Internal.m_ID >= tx.m_vKernels[i]->m_Internal.m_ID))
+			return false; // duplicated kernels within the same tx!
+	}
+
 	// Ensure input UTXOs are present
 	const ECC::Point* pPrevShielded = nullptr;
 	for (size_t i = 0; i < tx.m_vInputs.size(); i++)
@@ -3318,6 +3374,10 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
 		}
+
+		if (!HandleBlockElement(*pKrn, bic))
+			return 0;
+
 		bc.m_Block.m_vKernels.push_back(std::move(pKrn));
 	}
 
@@ -3380,7 +3440,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		Transaction& tx = *x.m_pValue;
 
-		if (ValidateTxWrtHeight(tx, x.m_Threshold.m_Height) && HandleValidatedTx(tx.get_Reader(), bic))
+		if (x.m_Threshold.m_Height.IsInRange(bic.m_Height) && HandleValidatedTx(tx.get_Reader(), bic))
 		{
 			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 

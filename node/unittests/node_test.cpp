@@ -836,7 +836,6 @@ namespace beam
 				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
 
 				verify_test(np.ValidateTxContext(*pTx, hr, false));
-				verify_test(np.ValidateTxWrtHeight(*pTx, hr));
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);

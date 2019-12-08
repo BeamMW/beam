@@ -58,9 +58,11 @@ class NodeProcessor
 
 	bool HandleBlock(const NodeDB::StateID&, MultiblockContext&);
 	bool HandleValidatedTx(TxBase::IReader&&, BlockInterpretCtx&);
+	bool HandleValidatedTxInternal(TxBase::IReader&&, BlockInterpretCtx&, uint32_t& nInp, uint32_t& nOut, uint32_t& nKrn);
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
+	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
 	void RecognizeUtxos(TxBase::IReader&&, Height h, TxoID nShielded);
@@ -293,7 +295,7 @@ public:
 	uint64_t FindActiveAtStrict(Height);
 
 	bool ValidateTxContext(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
-	bool ValidateTxWrtHeight(const Transaction&, const HeightRange&);
+	bool ValidateKernel(const TxKernel&, Height);
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
 	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
 	bool IsShieldedInPool(const Input&);
