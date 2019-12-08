@@ -667,6 +667,7 @@ namespace beam
 			void Export(TxKernel& krn) const
 			{
 				krn.m_Fee = m_Fee;
+				krn.m_Height.m_Min = m_Height + 1;
 
 				if (m_bUseHashlock)
 				{
@@ -1929,6 +1930,7 @@ namespace beam
 						pKrn->m_Commitment.m_X = m_AssetEmitted;
 						pKrn->m_Commitment.m_Y = 0;
 						pKrn->m_AssetEmission = kidv.m_Value;
+						pKrn->m_Height.m_Min = msg.m_Description.m_Height + 1;
 						pKrn->Sign(skAsset);
 
 						Output::Ptr pOutp(new Output);

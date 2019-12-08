@@ -1304,6 +1304,7 @@ struct TransactionMaker
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
+		pKrn->m_Height.m_Min = g_hFork;
 		pKrn->m_CanEmbed = bNested;
 		pKrn->m_vNested.swap(lstNested);
 
@@ -1336,6 +1337,7 @@ struct TransactionMaker
 			pKrnEmission->m_AssetEmission = valAsset;
 			pKrnEmission->m_Commitment.m_X = aid;
 			pKrnEmission->m_Commitment.m_Y = 0;
+			pKrnEmission->m_Height.m_Min = g_hFork;
 			pKrnEmission->Sign(skAsset);
 
 			lstTrg.push_back(std::move(pKrnEmission));
@@ -2348,6 +2350,7 @@ void TestAssetEmission()
 	pKdf->DeriveKey(sk, beam::Key::ID(23123, beam::Key::Type::Kernel));
 	pKrn->m_Commitment = ECC::Context::get().G * sk;
 	pKrn->m_Fee = fee;
+	pKrn->m_Height.m_Min = hScheme;
 	pKrn->Sign(sk);
 	tx.m_vKernels.push_back(std::move(pKrn));
 	kOffset += -sk;
@@ -2357,6 +2360,7 @@ void TestAssetEmission()
 	pKrn->m_Commitment.m_X = assetID;
 	pKrn->m_Commitment.m_Y = 0;
 	pKrn->m_AssetEmission  = -static_cast<beam::AmountSigned>(kidvInpAsset.m_Value);
+	pKrn->m_Height.m_Min = hScheme;
 	pKrn->Sign(skAssetSk);
 	tx.m_vKernels.push_back(std::move(pKrn));
 	kOffset += -skAssetSk;

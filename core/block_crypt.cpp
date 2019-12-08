@@ -871,6 +871,12 @@ namespace beam
 		if ((hScheme < r.pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
 			return false; // unsupported for that version
 
+		if (!pParent && (hScheme >= r.pForks[2].m_Height))
+		{
+			if (m_Height.m_Min < r.pForks[2].m_Height)
+				return false;
+		}
+
 		if (pParent)
 		{
 			if (!m_CanEmbed && (hScheme >= r.pForks[1].m_Height)) // for older version embedding is implicitly allowed (though unlikely to be used)
