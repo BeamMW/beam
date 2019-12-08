@@ -2422,24 +2422,6 @@ bool NodeProcessor::HandleValidatedTxInternal(TxBase::IReader&& r, BlockInterpre
 {
 	r.Reset();
 
-	if (bic.m_Height >= Rules::HeightGenesis)
-	{
-		// for historical reasons treasury kernels are ignored
-		for (; r.m_pKernel; r.NextKernel())
-		{
-			if (!bic.m_Fwd && !nKrn)
-				break;
-
-			if (!HandleBlockElement(*r.m_pKernel, bic))
-				return false;
-
-			if (bic.m_Fwd)
-				nKrn++;
-			else
-				nKrn--;
-		}
-	}
-
 	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
 	{
 		if (!bic.m_Fwd && !nInp)
@@ -2466,6 +2448,24 @@ bool NodeProcessor::HandleValidatedTxInternal(TxBase::IReader&& r, BlockInterpre
 			nOut++;
 		else
 			nOut--;
+	}
+
+	if (bic.m_Height >= Rules::HeightGenesis)
+	{
+		// for historical reasons treasury kernels are ignored
+		for (; r.m_pKernel; r.NextKernel())
+		{
+			if (!bic.m_Fwd && !nKrn)
+				break;
+
+			if (!HandleBlockElement(*r.m_pKernel, bic))
+				return false;
+
+			if (bic.m_Fwd)
+				nKrn++;
+			else
+				nKrn--;
+		}
 	}
 
 	return true;
@@ -3223,18 +3223,6 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	uint32_t nIns = 0, nOuts = 0;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
-	// Ensure kernels are ok
-
-	bool bPastFork2 = (h >= Rules::get().pForks[2].m_Height);
-
-	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
-	{
-		if (!ValidateKernel(*tx.m_vKernels[i], h))
-			return false;
-
-		if (bPastFork2 && i && (tx.m_vKernels[i - 1]->m_Internal.m_ID >= tx.m_vKernels[i]->m_Internal.m_ID))
-			return false; // duplicated kernels within the same tx!
-	}
 
 	// Ensure input UTXOs are present
 	const ECC::Point* pPrevShielded = nullptr;
@@ -3278,6 +3266,18 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 
 			nOuts++;
 		}
+	}
+
+	// Ensure kernels are ok
+	bool bPastFork2 = (h >= Rules::get().pForks[2].m_Height);
+
+	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
+	{
+		if (!ValidateKernel(*tx.m_vKernels[i], h))
+			return false;
+
+		if (bPastFork2 && i && (tx.m_vKernels[i - 1]->m_Internal.m_ID >= tx.m_vKernels[i]->m_Internal.m_ID))
+			return false; // duplicated kernels within the same tx!
 	}
 
 	if (!bShieldedTested)
