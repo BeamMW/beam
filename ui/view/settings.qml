@@ -706,41 +706,43 @@ deploy the key at the node you trust completely."*/
                             Layout.preferredHeight: 15
                         }
 
-                        //RowLayout {
-                        //    Layout.preferredHeight: 16
-                        //
-                        //    ColumnLayout {
-                        //        SFText {
-                        //            Layout.fillWidth: true
-                        //            //: settings tab, general section, language label
-                        //            //% "Language"
-                        //            text: qsTrId("settings-general-language")
-                        //            color: Style.content_secondary
-                        //            font.pixelSize: 14
-                        //        }
-                        //    }
-                        //
-                        //    Item {
-                        //    }
-                        //
-                        //    ColumnLayout {
-                        //        CustomComboBox {
-                        //            id: language
-                        //            Layout.preferredWidth: generalBlock.width * 0.33
-                        //            fontPixelSize: 14
-                        //
-                        //            model: viewModel.supportedLanguages
-                        //            currentIndex: viewModel.currentLanguageIndex
-                        //            onActivated: {
-                        //                viewModel.currentLanguage = currentText;
-                        //            }
-                        //        }
-                        //    }
-                        //}
-                        //
-                        //Item {
-                        //    Layout.preferredHeight: 10
-                        //}
+                        RowLayout {
+                           Layout.preferredHeight: 16
+                        
+                           ColumnLayout {
+                               SFText {
+                                   Layout.fillWidth: true
+                                   //: settings tab, general section, language label
+                                   //% "Language"
+                                   text: qsTrId("settings-general-language")
+                                   color: Style.content_secondary
+                                   font.pixelSize: 14
+                               }
+                           }
+                        
+                           Item {
+                           }
+                        
+                           ColumnLayout {
+                               CustomComboBox {
+                                   id: language
+                                   Layout.preferredWidth: generalBlock.width * 0.33
+                                   fontPixelSize: 14
+                        
+                                   model: viewModel.supportedLanguages
+                                   currentIndex: viewModel.currentLanguageIndex
+                                   onActivated: {
+                                       viewModel.currentLanguage = currentText;
+                                   }
+                               }
+                           }
+                           visible: false  // Remove to enable language dropdown
+                        }
+                        
+                        Item {
+                           Layout.preferredHeight: 10
+                           visible: false  // Remove to enable language dropdown
+                        }
 
                         SFText {
                             //: settings tab, general section, wallet data folder location label
