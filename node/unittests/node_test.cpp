@@ -1736,7 +1736,7 @@ namespace beam
 				}
 
 				Amount fee = 100;
-				fee += Transaction::FeeSettings().m_ShieldedOutput;
+				fee += Transaction::FeeSettings().m_ShieldedInput;
 
 				msgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
 				m_Wallet.UpdateOffset(*msgTx.m_Transaction, sk, false);
