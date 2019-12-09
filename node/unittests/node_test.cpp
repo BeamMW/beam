@@ -1754,9 +1754,6 @@ namespace beam
 
 				msgTx.m_Fluff = true;
 				Send(msgTx);
-
-				printf("Shielded spend tx sent\n");
-
 			}
 
 			virtual void OnMsg(proto::ProofShieldedTxo&& msg) override

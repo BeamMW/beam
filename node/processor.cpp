@@ -3284,8 +3284,6 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	{
 		if (nIns)
 		{
-			printf("$$$ Shielded spend tx ctx check\n");
-
 			if (nIns > Rules::get().Shielded.MaxIns)
 				return false;
 
@@ -3299,8 +3297,6 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 
 			if (!bc.Flush())
 				return false;
-
-			printf("$$$ Shielded spend tx ctx OK\n");
 		}
 
 		if (nOuts && (nOuts > Rules::get().Shielded.MaxOuts))
