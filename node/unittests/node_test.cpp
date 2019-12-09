@@ -1774,33 +1774,38 @@ namespace beam
 				Send(msgOut);
 			}
 
-			bool OnNotAchieved(bool bFin, const char* sz)
+			struct AchievementTester
 			{
-				if (bFin)
-					fail_test(sz);
-				return false;
-			}
+				bool m_AllDone = true;
+				const bool m_Fin;
+
+				AchievementTester(bool bFin) :m_Fin(bFin) {}
+
+				void Test(bool bAchieved, const char* sz)
+				{
+					if (!bAchieved)
+					{
+						m_AllDone = false;
+						if (m_Fin)
+							fail_test(sz);
+					}
+				}
+			};
+
 
 			bool TestAllDone(bool bFin)
 			{
-				if (!IsHeightReached())
-					return OnNotAchieved(bFin, "Blockchain height didn't reach target");
-				if (!IsAllProofsReceived())
-					return OnNotAchieved(bFin, "some proofs missing");
-				if (!IsAllBbsReceived())
-					return OnNotAchieved(bFin, "some BBS messages missing");
-				if (!IsAllRecoveryReceived())
-					return OnNotAchieved(bFin, "some recovery messages missing");
-				//if (!m_bCustomAssetRecognized)
-				//	return OnNotAchieved(bFin, "CA not recognized");
-				if (!m_Shielded.m_SpendConfirmed)
-					return OnNotAchieved(bFin, "Shielded spend not confirmed");
-				if (!m_Shielded.m_EvtAdd)
-					return OnNotAchieved(bFin, "Shielded Add event didn't arrive");
-				if (!m_Shielded.m_EvtSpend)
-					return OnNotAchieved(bFin, "Shielded Spend event didn't arrive");
+				AchievementTester t(bFin);
+				t.Test(IsHeightReached(), "Blockchain height didn't reach target");
+				t.Test(IsAllProofsReceived(), "some proofs missing");
+				t.Test(IsAllBbsReceived(), "some BBS messages missing");
+				t.Test(IsAllRecoveryReceived(), "some recovery messages missing");
+				//t.Test(m_bCustomAssetRecognized, "CA not recognized");
+				t.Test(m_Shielded.m_SpendConfirmed, "Shielded spend not confirmed");
+				t.Test(m_Shielded.m_EvtAdd, "Shielded Add event didn't arrive");
+				t.Test(m_Shielded.m_EvtSpend, "Shielded Spend event didn't arrive");
 
-				return true; // all achieved
+				return t.m_AllDone;
 			}
 
 			virtual void OnMsg(proto::NewTip&& msg) override
