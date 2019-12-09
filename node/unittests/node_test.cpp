@@ -1742,7 +1742,7 @@ namespace beam
 				m_Wallet.UpdateOffset(*msgTx.m_Transaction, sk, false);
 
 				Height h = m_vStates.back().m_Height;
-				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h + 1, 0, m_Shielded.m_Value, fee);
+				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h, 0, m_Shielded.m_Value, fee);
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
