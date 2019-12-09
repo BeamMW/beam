@@ -1384,7 +1384,7 @@ please review your settings and try again</source>
         <translation type="unfinished">t</translation>
     </message>
     <message id="loading-view-net-problems">
-        <source>It may take longer then usual. Please, check your network.</source>
+        <source>It may take longer than usual. Please, check your network.</source>
         <translation>Tämä voi kestää kauemmin kuin tavallisesti. Tarkista verkkoyhteytesi.</translation>
     </message>
     <message id="atomic-swap-title">

@@ -1385,7 +1385,7 @@ bitte überprüfen Sie Ihre Einstellungen und versuchen Sie es erneut.</translat
         <translation type="unfinished">h.</translation>
     </message>
     <message id="loading-view-net-problems">
-        <source>It may take longer then usual. Please, check your network.</source>
+        <source>It may take longer than usual. Please, check your network.</source>
         <translation>Es kann länger dauern als üblich. Bitte überprüfen Sie Ihre Netzwerkverbindung.</translation>
     </message>
     <message id="atomic-swap-title">

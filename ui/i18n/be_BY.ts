@@ -1382,7 +1382,7 @@ please review your settings and try again.</translation>
         <translation>гадз</translation>
     </message>
     <message id="loading-view-net-problems">
-        <source>It may take longer then usual. Please, check your network.</source>
+        <source>It may take longer than usual. Please, check your network.</source>
         <translation>Можа патрабаватца больш часу чым заўсёды. Каліласка, праверце далучэнне да интэрнэта.</translation>
     </message>
     <message id="atomic-swap-title">

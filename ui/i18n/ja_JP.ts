@@ -1384,8 +1384,8 @@ please review your settings and try again</source>
         <translation type="unfinished">h.</translation>
     </message>
     <message id="loading-view-net-problems">
-        <source>It may take longer then usual. Please, check your network.</source>
-        <translation type="unfinished">It may take longer then usual. Please, check your network.</translation>
+        <source>It may take longer than usual. Please, check your network.</source>
+        <translation type="unfinished">It may take longer than usual. Please, check your network.</translation>
     </message>
     <message id="atomic-swap-title">
         <source>Atomic Swaps</source>
