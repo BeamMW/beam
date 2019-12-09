@@ -103,7 +103,7 @@ function currenciesList() {
     return ["BEAM", "BTC", "LTC", "QTUM"]
 }
 
-const symbolBeam  = '\uEAFB'
-const symbolBtc   = '\u20BF'
-const symbolLtc   = '\u0141'
-const symbolQtum  = '\uEAFD'
+const symbolBeam  = "BEAM";
+const symbolBtc   = "BTC";
+const symbolLtc   = "LTC";
+const symbolQtum  = "QTUM";
