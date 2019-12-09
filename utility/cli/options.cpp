@@ -354,9 +354,10 @@ namespace beam
         po::options_description swap_options("Atomic swap options");        
         po::options_description visible_swap_options(swap_options);
         visible_swap_options.add_options()
-            (cli::COMMAND, po::value<string>(), "command to execute [swap_init|swap_accept]");
+            (cli::SWAP_INIT, "command to initialize")
+            (cli::SWAP_ACCEPT, "command to accept swap");
         swap_options.add_options()
-            (cli::SET_SWAP_SETTINGS, po::value<std::string>(), "command to work with swap settings.")
+            (cli::SET_SWAP_SETTINGS, "command to work with swap settings.")
             (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings [core|electrum]")
             (cli::ACTIVE_CONNECTION, po::value<string>(), "set active connection [core|electrum|none]")
             (cli::SHOW_SWAP_SETTINGS, "show altcoin's settings")
