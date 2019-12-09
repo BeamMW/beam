@@ -1366,6 +1366,10 @@ please review your settings and try again</source>
         <source>Expires on</source>
         <translation>Vanhentuu</translation>
     </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation>Lähettäjä</translation>
+    </message>
     <message id="general-address-to">
         <source>To</source>
         <translation>Saaja</translation>

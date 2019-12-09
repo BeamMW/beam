@@ -1366,6 +1366,10 @@ please review your settings and try again</source>
         <source>Expires on</source>
         <translation>Förfaller den</translation>
     </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation>Från</translation>
+    </message>
     <message id="general-address-to">
         <source>To</source>
         <translation>Till</translation>

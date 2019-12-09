@@ -1365,6 +1365,10 @@ please review your settings and try again.</translation>
         <source>Expires on</source>
         <translation>Заканчваецца</translation>
     </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation>Ад каго</translation>
+    </message>
     <message id="general-address-to">
         <source>To</source>
         <translation>Каму</translation>

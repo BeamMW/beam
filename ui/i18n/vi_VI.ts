@@ -1366,6 +1366,10 @@ please review your settings and try again</source>
         <source>Expires on</source>
         <translation>Hết hạn vào</translation>
     </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation>Từ</translation>
+    </message>
     <message id="general-address-to">
         <source>To</source>
         <translation>Đến</translation>
