@@ -1755,7 +1755,11 @@ namespace beam
 				msgTx.m_Fluff = true;
 				Send(msgTx);
 
-				printf("Shielded spend tx sent\n");
+				std::ostringstream os;
+				os << "Shielded spend tx Kid: " << m_Shielded.m_SpendKernelID << std::endl;
+
+
+				printf("%s", os.str().c_str());
 
 			}
 
@@ -2531,7 +2535,7 @@ namespace beam
 
 int main()
 {
-	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+	auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
 	beam::PrintEmissionSchedule();
 
 	beam::Rules::get().AllowPublicUtxos = true;
