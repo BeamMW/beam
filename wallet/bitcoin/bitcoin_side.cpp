@@ -812,16 +812,10 @@ namespace beam::wallet
         m_tx.UpdateAsync();
     }
 
-    void BitcoinSide::OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& error, const std::string& hexScript, Amount amount, uint32_t confirmations)
+    void BitcoinSide::OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& /*error*/, const std::string& hexScript, Amount amount, uint32_t confirmations)
     {
         try
         {
-            if (error.m_type != bitcoin::IBridge::None)
-            {
-                SetTxError(error, SubTxIndex::LOCK_TX);
-                return;
-            }
-
             if (hexScript.empty())
             {
                 return;
