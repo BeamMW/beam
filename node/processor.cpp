@@ -3218,10 +3218,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	Height h = m_Cursor.m_ID.m_Height + 1;
 
 	if (!hr.IsInRange(h))
-	{
-		printf("@@@ Tx not in range\n");
 		return false;
-	}
 
 	uint32_t nIns = 0, nOuts = 0;
 
@@ -3245,26 +3242,17 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 
 			const ECC::Point& key = v.m_pSpendProof->m_Part1.m_SpendPk;
 			if (pPrevShielded && (*pPrevShielded == key))
-			{
-				printf("@@@ Shielded inp duplicate\n");
 				return false; // duplicated
-			}
 
 			if (!ValidateShieldedNoDup(key, false))
-			{
-				printf("@@@ Shielded double-spend\n");
 				return false; // double-spending
-			}
 
 			nIns++;
 		}
 		else
 		{
 			if (!ValidateInputs(v.m_Commitment, nCount))
-			{
-				printf("@@@ Input absent\n");
 				return false; // some input UTXOs are missing
-			}
 		}
 	}
 
@@ -3274,10 +3262,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 		if (v.m_pShielded)
 		{
 			if (!ValidateShieldedNoDup(v.m_pShielded->m_SerialPub, true))
-			{
-				printf("@@@ Shielded outp duplicate\n");
 				return false; // shielded duplicates are not allowed
-			}
 
 			nOuts++;
 		}
@@ -3289,16 +3274,10 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 	{
 		if (!ValidateKernel(*tx.m_vKernels[i], h))
-		{
-			printf("@@@ Invalid krn\n");
 			return false;
-		}
 
 		if (bPastFork2 && i && (tx.m_vKernels[i - 1]->m_Internal.m_ID >= tx.m_vKernels[i]->m_Internal.m_ID))
-		{
-			printf("@@@ Duplicated krn\n");
 			return false; // duplicated kernels within the same tx!
-		}
 	}
 
 	if (!bShieldedTested)
