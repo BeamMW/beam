@@ -425,11 +425,20 @@ Item {
                     resizable: false
                 }
                 TableViewColumn {
+                    role: "addressFrom"
+                    //% "From"
+                    title: qsTrId("general-address-from")
+                    elideMode: Text.ElideMiddle
+                    width: 200 * transactionsTable.columnResizeRatio
+                    movable: false
+                    resizable: false
+                }
+                TableViewColumn {
                     role: "addressTo"
                     //% "To"
                     title: qsTrId("general-address-to")
                     elideMode: Text.ElideMiddle
-                    width: 400 * transactionsTable.columnResizeRatio
+                    width: 200 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                 }
