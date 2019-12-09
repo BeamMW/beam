@@ -2067,7 +2067,7 @@ int main_impl(int argc, char* argv[])
                                     }
                                     else
                                     {
-                                        LOG_ERROR() << kErrorTxStatusInvalid;
+                                        LOG_ERROR() << kErrorCancelTxInInvalidStatus << beam::getSwapTxStatus(walletDB, *tx);
                                         return -1;
                                     }
                                 }

@@ -93,6 +93,7 @@ namespace beam
     extern const char kErrorAmountTooLow[];
     extern const char kErrorUnableSendZeroCoin[];
     extern const char kErrorTxStatusInvalid[];
+    extern const char kErrorCancelTxInInvalidStatus[];
     extern const char kErrorTxIdUnknown[];
     extern const char kErrorImportPathInvalid[];
     extern const char kErrorFileLocationParamReqired[];
