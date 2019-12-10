@@ -162,6 +162,7 @@ namespace beam::wallet
         static constexpr size_t LASER_DATA = 12;
     };
 
+    // TODO: consider using struct here
     using TLaserChannelEntity = std::tuple<
         uintBig_t<16>,  // 0 chID
         WalletID,       // 1 myWID
