@@ -50,11 +50,11 @@ uint32_t resolve_host(std::string&& host) {
                 char* resolved_addr = inet_ntoa(addr->sin_addr);
                 bool is_same_host_resolved =
                     resolved_addr && strcmp(host.c_str(), resolved_addr) == 0;
-                if (!is_same_host_resolved &&
-                    !p->ai_canonname) {
-                        continue;
+                bool is_canonname = p->ai_canonname;
+                if (!is_canonname && !is_same_host_resolved) {
+                    continue;
                 }
-#endif // APPLE
+#endif // WIN32
                 ip = ntohl(addr->sin_addr.s_addr);
                 break;
             }
