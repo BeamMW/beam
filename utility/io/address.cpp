@@ -47,19 +47,16 @@ uint32_t resolve_host(std::string&& host) {
             if (p->ai_family == AF_INET) {
                 auto* addr = (sockaddr_in*)p->ai_addr;
 #ifndef WIN32
-                if (p->ai_canonname) {
-#endif // WIN32
-                    ip = ntohl(addr->sin_addr.s_addr);
-                    break;
-#ifndef WIN32
-                } else {
-                    char* resolved_addr = inet_ntoa(addr->sin_addr);
-                    if (resolved_addr && strcmp(host.c_str(), resolved_addr) == 0) {
-                        ip = ntohl(addr->sin_addr.s_addr);
-                        break;
-                    }
+                char* resolved_addr = inet_ntoa(addr->sin_addr);
+                bool is_same_host_resolved =
+                    resolved_addr && strcmp(host.c_str(), resolved_addr) == 0;
+                if (!is_same_host_resolved &&
+                    !p->ai_canonname) {
+                        continue;
                 }
-#endif // WIN32
+#endif // APPLE
+                ip = ntohl(addr->sin_addr.s_addr);
+                break;
             }
         }
     }
