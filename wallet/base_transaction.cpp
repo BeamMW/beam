@@ -389,4 +389,18 @@ namespace beam::wallet
 
         GetWalletDB()->saveCoins(modified);
     }
+
+	bool BaseTransaction::GetParameter(TxParameterID paramID, TxKernelStd::Ptr& p, SubTxID subTxID /* =  kDefaultSubTxID */) const
+	{
+		p.reset();
+		TxKernel::Ptr pKrn;
+		if (!GetParameter(paramID, pKrn, subTxID))
+			return false;
+
+		if (!(pKrn && (TxKernel::Subtype::Std == pKrn->get_Subtype())))
+			return false;
+
+		p.reset(Cast::Up<TxKernelStd>(pKrn.release()));
+		return true;
+	}
 }

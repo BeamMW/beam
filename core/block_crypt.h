@@ -461,6 +461,7 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
+		virtual ~TxKernel() {}
 		virtual Subtype::Enum get_Subtype() const = 0;
 		virtual void UpdateID() = 0;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const = 0;
@@ -516,6 +517,7 @@ namespace beam
 
 		std::unique_ptr<RelativeLock> m_pRelativeLock;
 
+		virtual ~TxKernelStd() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual void UpdateID() override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
