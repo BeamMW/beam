@@ -1291,13 +1291,9 @@ Update your settings and try again.</source>
         <source>Offer expiration time</source>
         <translation type="unfinished">Offer expiration time</translation>
     </message>
-    <message id="wallet-receive-expires-12">
-        <source>12 hours</source>
-        <translation>24 гадзіны {12 ?}</translation>
-    </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
-        <translation>24 гадзіны {6 ?}</translation>
+        <translation>6 гадзін</translation>
     </message>
     <message id="general-rate">
         <source>Exchange rate</source>
@@ -1975,6 +1971,22 @@ deploy the key at the node you trust completely.</source>
     <message id="tx-state-in-progress-long">
         <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-expires-15m">
+        <source>15 minutes</source>
+        <translation type="unfinished">15 хвілін</translation>
+    </message>
+    <message id="wallet-receive-expires-30m">
+        <source>30 minutes</source>
+        <translation type="unfinished">30 хвілін</translation>
+    </message>
+    <message id="wallet-receive-expires-1">
+        <source>1 hour</source>
+        <translation type="unfinished">1 гадзіна</translation>
+    </message>
+    <message id="wallet-receive-expires-2">
+        <source>2 hours</source>
+        <translation type="unfinished">24 гадзіны {6 ?} {2 ?}</translation>
     </message>
 </context>
 </TS>

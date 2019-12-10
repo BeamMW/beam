@@ -23,19 +23,29 @@
 #include "qml_globals.h"
 
 namespace {
-    enum {
-        OfferExpires12h = 0,
-        OfferExpires6h  = 1
+    enum
+    {
+        OfferExpires15min = 0,
+        OfferExpires30min,
+        OfferExpires1h,
+        OfferExpires2h,
+        OfferExpires6h    
     };
 
-    uint16_t GetHourCount(int offerExpires)
+    double GetHourCount(int offerExpires)
     {
         switch (offerExpires)
         {
-        case OfferExpires12h:
-            return 12;
+        case OfferExpires15min:
+            return 0.25;
+        case OfferExpires30min:
+            return 0.5;
+        case OfferExpires1h:
+            return 1.0;
+        case OfferExpires2h:
+            return 2.0;
         case OfferExpires6h:
-            return 6;
+            return 6.0;
         default:
         {
             assert(false && "Unexpected value!");
@@ -57,7 +67,7 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     , _sentFeeGrothes(0)
     , _receiveCurrency(Currency::CurrBeam)
     , _sentCurrency(Currency::CurrBtc)
-    , _offerExpires(OfferExpires12h)
+    , _offerExpires(OfferExpires30min)
     , _saveParamsAllowed(false)
     , _walletModel(*AppModel::getInstance().getWallet())
     , _txParameters(beam::wallet::CreateSwapParameters()

@@ -438,13 +438,19 @@ please review your settings and try again"
                         CustomComboBox {
                             id:                  expiresCombo
                             Layout.topMargin:    18
-                            Layout.minimumWidth: 75
+                            Layout.minimumWidth: 90
                             height:              20
                             currentIndex:        viewModel.offerExpires
 
                             model: [
-                                //% "12 hours"
-                                qsTrId("wallet-receive-expires-12"),
+                                //% "15 minutes"
+                                qsTrId("wallet-receive-expires-15m"),
+                                //% "30 minutes"
+                                qsTrId("wallet-receive-expires-30m"),
+                                //% "1 hour"
+                                qsTrId("wallet-receive-expires-1"),
+                                //% "2 hours"
+                                qsTrId("wallet-receive-expires-2"),
                                 //% "6 hours"
                                 qsTrId("wallet-receive-expires-6")
                             ]

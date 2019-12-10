@@ -1309,10 +1309,6 @@ Update your settings and try again.</source>
         <source>Offer expiration time</source>
         <translation>报价失效时间</translation>
     </message>
-    <message id="wallet-receive-expires-12">
-        <source>12 hours</source>
-        <translation>12小时</translation>
-    </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
         <translation>6小时</translation>
@@ -1993,6 +1989,22 @@ deploy the key at the node you trust completely.</source>
     <message id="tx-state-in-progress-long">
         <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-expires-15m">
+        <source>15 minutes</source>
+        <translation type="unfinished">15分钟</translation>
+    </message>
+    <message id="wallet-receive-expires-30m">
+        <source>30 minutes</source>
+        <translation type="unfinished">30分钟</translation>
+    </message>
+    <message id="wallet-receive-expires-1">
+        <source>1 hour</source>
+        <translation type="unfinished">1小时</translation>
+    </message>
+    <message id="wallet-receive-expires-2">
+        <source>2 hours</source>
+        <translation type="unfinished">6小时 {2 ?}</translation>
     </message>
 </context>
 </TS>
