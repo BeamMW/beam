@@ -1956,9 +1956,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 	BlockInterpretCtx bic(sid.m_Height, true);
 	bool bOk = HandleValidatedBlock(block.get_Reader(), block, bic);
 	if (!bOk)
+	{
+		assert(m_Extra.m_Txos == id0);
 		LOG_WARNING() << LogSid(m_DB, sid) << " invalid in its context";
-
-	assert(m_Extra.m_Txos > id0);
+	}
+	else
+		assert(m_Extra.m_Txos > id0);
 
 	if (bFirstTime && bOk)
 	{
