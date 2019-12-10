@@ -113,11 +113,27 @@ namespace beam::wallet
             return storage::getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value);
         }
 
+		template <>
+		bool GetParameter(TxParameterID paramID, TxKernelStd::Ptr& p, SubTxID subTxID) const
+		{
+			p.reset();
+			TxKernel::Ptr pKrn;
+			if (!GetParameter(paramID, pKrn, subTxID))
+				return false;
+
+			if (!(pKrn && (TxKernel::Subtype::Std == pKrn->get_Subtype())))
+				return false;
+
+			p.reset(Cast::Up<TxKernelStd>(pKrn.release()));
+			return true;
+		}
+
         template <typename T>
         T GetMandatoryParameter(TxParameterID paramID, SubTxID subTxID = kDefaultSubTxID) const
         {
             T value{};
-            if (!storage::getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value))
+			
+            if (!GetParameter(paramID, value, subTxID))
             {
                 LOG_ERROR() << GetTxID() << " Failed to get parameter: " << (int)paramID;
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);

@@ -416,16 +416,29 @@ namespace beam
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
 
+#define BeamKernelsAll(macro) \
+	macro(1, Std)
+
+#define THE_MACRO(id, name) struct TxKernel##name;
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
 	struct TxKernel
 		:public TxElement
 	{
 		typedef std::unique_ptr<TxKernel> Ptr;
 
-		// Mandatory
-		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
+		struct Subtype
+		{
+			enum Enum {
+#define THE_MACRO(id, name) name = id,
+				BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+			};
+		};
+
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
-		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
 		bool			m_CanEmbed;
 
 		struct Internal
@@ -435,8 +448,48 @@ namespace beam
 
 		TxKernel()
 			:m_Fee(0)
-			,m_AssetEmission(0)
 			,m_CanEmbed(false)
+		{}
+
+		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
+
+		static const uint32_t s_MaxRecursionDepth = 2;
+
+		static void TestRecursion(uint32_t n)
+		{
+			if (n > s_MaxRecursionDepth)
+				throw std::runtime_error("recursion too deep");
+		}
+
+		virtual Subtype::Enum get_Subtype() const = 0;
+		virtual void UpdateID() = 0;
+		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const = 0;
+		virtual void AddStats(TxStats&) const = 0; // including self and nested
+		virtual int cmp_Subtype(const TxKernel&) const = 0;
+		virtual void Clone(Ptr&) const = 0;
+
+		struct LongProof; // legacy
+
+		int cmp(const TxKernel&) const;
+		COMPARISON_VIA_CMP
+
+	protected:
+		void CopyFrom(const TxKernel&);
+	private:
+		void operator = (const TxKernel&);
+	};
+
+	struct TxKernelStd
+		:public TxKernel
+	{
+		typedef std::unique_ptr<TxKernelStd> Ptr;
+
+		// Mandatory
+		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
+		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
+
+		TxKernelStd()
+			:m_AssetEmission(0)
 		{}
 
 		struct HashLock
@@ -463,29 +516,14 @@ namespace beam
 
 		std::unique_ptr<RelativeLock> m_pRelativeLock;
 
-		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
-
-		static const uint32_t s_MaxRecursionDepth = 2;
-
-		static void TestRecursion(uint32_t n)
-		{
-			if (n > s_MaxRecursionDepth)
-				throw std::runtime_error("recursion too deep");
-		}
-
-		void UpdateID();
-
-		bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const;
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual void UpdateID() override;
+		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void AddStats(TxStats&) const override; // including self and nested
+		virtual int cmp_Subtype(const TxKernel&) const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
 
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
-
-		struct LongProof; // legacy
-
-		void operator = (const TxKernel&);
-		int cmp(const TxKernel&) const;
-		COMPARISON_VIA_CMP
-
-		void AddStats(TxStats&) const; // including self and nested
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }

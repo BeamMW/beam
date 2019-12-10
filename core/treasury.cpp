@@ -194,8 +194,8 @@ namespace beam
 
 		kdf.DeriveKey(sk, Key::ID(nIndex++, FOURCC_FROM(KeR3)));
 
-		m_pKernel.reset(new TxKernel);
-		m_pKernel->Sign(sk);
+		m_pKernel.reset(new TxKernelStd);
+		Cast::Up<TxKernelStd>(*m_pKernel).Sign(sk);
 		offset += sk;
 
 		offset = -offset;

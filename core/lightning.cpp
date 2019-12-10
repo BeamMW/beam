@@ -644,7 +644,7 @@ void Channel::CreatePunishmentTx()
 
 	tx.m_vKernels.resize(1);
 	TxKernel::Ptr& pKrn = tx.m_vKernels.back();
-	pKrn.reset(new TxKernel);
+	pKrn.reset(new TxKernelStd);
 
 //	pKrn->m_Height.m_Min = m_State.m_Close.m_hPhase1; // not mandatory
 	pKrn->m_Fee = m_Params.m_Fee;
@@ -654,7 +654,7 @@ void Channel::CreatePunishmentTx()
 	offs += k;
 	k = -k;
 
-	pKrn->Sign(k);
+	Cast::Up<TxKernelStd>(*pKrn).Sign(k);
 
 	tx.m_Offset = offs;
 

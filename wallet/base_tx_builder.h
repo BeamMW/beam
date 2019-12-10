@@ -113,7 +113,7 @@ namespace beam::wallet
         Height m_PeerMaxHeight;
 
         // deduced values,
-        TxKernel::Ptr m_Kernel;
+        TxKernelStd::Ptr m_Kernel;
         ECC::Scalar::Native m_PeerSignature;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;

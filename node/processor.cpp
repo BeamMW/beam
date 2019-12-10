@@ -1730,10 +1730,7 @@ uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, con
 		{
 			iRet = i; // found
 			if (ppRes)
-			{
-				ppRes->reset(new TxKernel);
-				**ppRes = *r.m_pKernel;
-			}
+				r.m_pKernel->Clone(*ppRes);
 		}
 	}
 
@@ -2388,20 +2385,25 @@ bool NodeProcessor::ValidateKernel(const TxKernel& krn, Height h)
 
 	HeightRange hr = krn.m_Height;
 
-	if (krn.m_pRelativeLock)
+	if (TxKernel::Subtype::Std == krn.get_Subtype())
 	{
-		const TxKernel::RelativeLock& x = *krn.m_pRelativeLock;
+		const TxKernelStd& krnStd = Cast::Up<TxKernelStd>(krn);
 
-		Height h0 = m_DB.FindKernel(x.m_ID);
-		if (h0 < Rules::HeightGenesis)
-			return false;
+		if (krnStd.m_pRelativeLock)
+		{
+			const TxKernelStd::RelativeLock& x = *krnStd.m_pRelativeLock;
 
-		if (bPastFork2 && (h - h0 > rules.MaxKernelValidityDH))
-			return false;
+			Height h0 = m_DB.FindKernel(x.m_ID);
+			if (h0 < Rules::HeightGenesis)
+				return false;
 
-		HeightAdd(h0, x.m_LockHeight);
-		if (h0 > h)
-			return false;
+			if (bPastFork2 && (h - h0 > rules.MaxKernelValidityDH))
+				return false;
+
+			HeightAdd(h0, x.m_LockHeight);
+			if (h0 > h)
+				return false;
+		}
 	}
 
 	if (bPastFork2)
@@ -3361,7 +3363,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	bb.AddCoinbaseAndKrn(pOutp, pKrn);
 	if (pOutp)
 		ssc & *pOutp;
-	ssc & *pKrn;
+	yas::detail::SaveKrn(ssc, *pKrn, false); // pessimistic
 
 	ECC::Scalar::Native offset = bc.m_Block.m_Offset;
 
@@ -3574,9 +3576,18 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	size_t nSize = bc.m_BodyP.size() + bc.m_BodyE.size();
 
 	if (BlockContext::Mode::SinglePass == bc.m_Mode)
+	{
+		// the actual block size may be less because of:
+		// 1. Cut-through removed some data
+		// 2. our size estimation is a little pessimistic because of extension of kernels. If all kernels are standard, then 1 bytes per kernel is saved
 		assert(nCutThrough ?
 			(nSize < nSizeEstimated) :
-			(nSize == nSizeEstimated));
+			(
+				(nSize == nSizeEstimated) ||
+				(nSize == nSizeEstimated - bc.m_Block.m_vKernels.size())
+			)
+		);
+	}
 
 	return nSize <= Rules::get().MaxBodySize;
 }

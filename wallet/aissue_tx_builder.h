@@ -92,8 +92,8 @@ namespace beam::wallet
         //
         ECC::Scalar::Native m_Offset;
 
-        TxKernel::Ptr m_Kernel;
-        TxKernel::Ptr m_EmissionKernel;
+        TxKernelStd::Ptr m_Kernel;
+        TxKernelStd::Ptr m_EmissionKernel;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
         mutable boost::optional<Merkle::Hash> m_EmissionKernelID;

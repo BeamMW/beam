@@ -664,20 +664,20 @@ namespace beam
 			Height m_Height = 0;
 			Merkle::Hash m_hvRelLock = Zero;
 
-			void Export(TxKernel& krn) const
+			void Export(TxKernelStd& krn) const
 			{
 				krn.m_Fee = m_Fee;
 				krn.m_Height.m_Min = m_Height + 1;
 
 				if (m_bUseHashlock)
 				{
-					krn.m_pHashLock.reset(new TxKernel::HashLock); // why not?
+					krn.m_pHashLock.reset(new TxKernelStd::HashLock); // why not?
 					ECC::Hash::Processor() << m_Fee << m_k >> krn.m_pHashLock->m_Value;
 				}
 
 				if (!(m_hvRelLock == Zero))
 				{
-					krn.m_pRelativeLock.reset(new TxKernel::RelativeLock);
+					krn.m_pRelativeLock.reset(new TxKernelStd::RelativeLock);
 					krn.m_pRelativeLock->m_ID = m_hvRelLock;
 					krn.m_pRelativeLock->m_LockHeight = 1;
 				}
@@ -685,9 +685,9 @@ namespace beam
 				krn.Sign(m_k);
 			}
 
-			void Export(TxKernel::Ptr& pKrn) const
+			void Export(TxKernelStd::Ptr& pKrn) const
 			{
-				pKrn.reset(new TxKernel);
+				pKrn.reset(new TxKernelStd);
 				Export(*pKrn);
 			}
 		};
@@ -757,7 +757,7 @@ namespace beam
 
 			m_pKdf->DeriveKey(mk.m_k, Key::ID(++m_nRunningIndex, Key::Type::Kernel));
 
-			TxKernel::Ptr pKrn;
+			TxKernelStd::Ptr pKrn;
 			mk.Export(pKrn);
 
 			tx.m_vKernels.push_back(std::move(pKrn));
@@ -1887,7 +1887,7 @@ namespace beam
 				{
 					const MiniWallet::MyKernel mk = m_Wallet.m_MyKernels[i];
 
-					TxKernel krn;
+					TxKernelStd krn;
 					mk.Export(krn);
 
 					proto::GetProofKernel2 msgOut2;
@@ -1930,7 +1930,7 @@ namespace beam
 						ECC::SetRandom(skAsset);
 						proto::Sk2Pk(m_AssetEmitted, skAsset);
 
-						TxKernel::Ptr pKrn(new TxKernel);
+						TxKernelStd::Ptr pKrn(new TxKernelStd);
 						pKrn->m_Commitment.m_X = m_AssetEmitted;
 						pKrn->m_Commitment.m_Y = 0;
 						pKrn->m_AssetEmission = kidv.m_Value;
@@ -2065,7 +2065,7 @@ namespace beam
 
 					if (!msg.m_Proof.empty())
 					{
-						TxKernel krn;
+						TxKernelStd krn;
 						mk.Export(krn);
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 

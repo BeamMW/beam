@@ -56,8 +56,8 @@ namespace beam::wallet
         // Assets
         //
         AssetID AIDFromKeyIndex(uint32_t assetIdx) override;
-        ECC::Scalar::Native SignEmissionInOutKernel(TxKernel::Ptr& m_Kernel, uint32_t assetIdx) override;
-        ECC::Scalar::Native SignEmissionKernel(TxKernel::Ptr& kernel, uint32_t assetIdx) override;
+        ECC::Scalar::Native SignEmissionInOutKernel(TxKernelStd& m_Kernel, uint32_t assetIdx) override;
+        ECC::Scalar::Native SignEmissionKernel(TxKernelStd& kernel, uint32_t assetIdx) override;
 
     private:
         ECC::Scalar::Native GetAssetKey(beam::Key::ID assetKeyId);

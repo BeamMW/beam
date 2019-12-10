@@ -255,7 +255,7 @@ namespace Negotiator {
 		void CalcMSig(const Key::IDV& kidv, ECC::Scalar::Native& offs);
 		ECC::Point& PushInput(Transaction& tx);
 		bool BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& offs);
-		bool ReadKrn(TxKernel& krn);
+		bool ReadKrn(TxKernelStd& krn);
 
 		virtual uint32_t Update2() override;
 

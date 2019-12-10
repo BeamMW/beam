@@ -423,7 +423,7 @@ bool MultiTx::BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& 
 	return true; // ok
 }
 
-bool MultiTx::ReadKrn(TxKernel& krn)
+bool MultiTx::ReadKrn(TxKernelStd& krn)
 {
 	Get(krn.m_Height.m_Min, Codes::KrnH0);
 	Get(krn.m_Height.m_Max, Codes::KrnH1);
@@ -433,7 +433,7 @@ bool MultiTx::ReadKrn(TxKernel& krn)
 	Get(hLock, Codes::KrnLockHeight);
 	if (hLock)
 	{
-		krn.m_pRelativeLock.reset(new TxKernel::RelativeLock);
+		krn.m_pRelativeLock.reset(new TxKernelStd::RelativeLock);
 		krn.m_pRelativeLock->m_LockHeight = hLock;
 
 		if (!Get(krn.m_pRelativeLock->m_ID, Codes::KrnLockID))
@@ -481,7 +481,7 @@ uint32_t MultiTx::Update2()
 
 	if (!iRole)
 	{
-		TxKernel krn;
+		TxKernelStd krn;
 
 		if (RaiseTo(1))
 		{
@@ -514,8 +514,8 @@ uint32_t MultiTx::Update2()
 		if (!krn.IsValid(hScheme, comm))
 			return Status::Error;
 
-		tx.m_vKernels.emplace_back(new TxKernel);
-		*tx.m_vKernels.back() = krn;
+		tx.m_vKernels.emplace_back();
+		krn.Clone(tx.m_vKernels.back());
 
 		if (RaiseTo(2))
 			Set(krn.m_Internal.m_ID, Codes::KernelID);
@@ -525,7 +525,7 @@ uint32_t MultiTx::Update2()
 	{
 		if (m_Pos < 1)
 		{
-			TxKernel krn;
+			TxKernelStd krn;
 
 			if (!Get(krn.m_Commitment, Codes::KrnCommitment) ||
 				!Get(krn.m_Signature.m_NoncePub, Codes::KrnNonce))

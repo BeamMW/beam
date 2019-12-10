@@ -808,7 +808,7 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	const ECC::Hash::Value& TxKernel::HashLock::get_Image(ECC::Hash::Value& hv) const
+	const ECC::Hash::Value& TxKernelStd::HashLock::get_Image(ECC::Hash::Value& hv) const
 	{
 		if (m_IsImage)
 			return m_Value;
@@ -817,7 +817,7 @@ namespace beam
 		return hv;
 	}
 
-	void TxKernel::UpdateID()
+	void TxKernelStd::UpdateID()
 	{
 		uint8_t nFlags =
 			(m_pHashLock ? 1 : 0) |
@@ -865,7 +865,7 @@ namespace beam
 	}
 
 
-	bool TxKernel::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	bool TxKernelStd::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
 		const Rules& r = Rules::get(); // alias
 		if ((hScheme < r.pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
@@ -957,7 +957,12 @@ namespace beam
 		return true;
 	}
 
-	void TxKernel::AddStats(TxStats& s) const
+	TxKernel::Subtype::Enum TxKernelStd::get_Subtype() const
+	{
+		return Subtype::Std;
+	}
+
+	void TxKernelStd::AddStats(TxStats& s) const
 	{
 		s.m_Kernels++;
 		s.m_Fee += uintBigFrom(m_Fee);
@@ -991,6 +996,17 @@ namespace beam
 				return n;
 		}
 
+		Subtype::Enum t0 = get_Subtype();
+		Subtype::Enum t1 = v.get_Subtype();
+		CMP_SIMPLE(t0, t1)
+
+		return cmp_Subtype(v);
+	}
+
+	int TxKernelStd::cmp_Subtype(const TxKernel& v_) const
+	{
+		const TxKernelStd& v = Cast::Up<TxKernelStd>(v_);
+
 		CMP_MEMBER_EX(m_Signature)
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
@@ -1019,41 +1035,49 @@ namespace beam
 		return 0;
 	}
 
-	int TxKernel::HashLock::cmp(const HashLock& v) const
+	int TxKernelStd::HashLock::cmp(const HashLock& v) const
 	{
 		CMP_MEMBER_EX(m_Value)
 		return 0;
 	}
 
-	int TxKernel::RelativeLock::cmp(const RelativeLock& v) const
+	int TxKernelStd::RelativeLock::cmp(const RelativeLock& v) const
 	{
 		CMP_MEMBER_EX(m_ID)
 		CMP_MEMBER(m_LockHeight)
 		return 0;
 	}
 
-	void TxKernel::Sign(const ECC::Scalar::Native& sk)
+	void TxKernelStd::Sign(const ECC::Scalar::Native& sk)
 	{
 		m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
 		UpdateID();
 		m_Signature.Sign(m_Internal.m_ID, sk);
 	}
 
-	void TxKernel::operator = (const TxKernel& v)
+	void TxKernel::CopyFrom(const TxKernel& v)
 	{
 		m_Internal = v.m_Internal;
 		Cast::Down<TxElement>(*this) = v;
-		m_Signature = v.m_Signature;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
-		m_AssetEmission = v.m_AssetEmission;
-		ClonePtr(m_pHashLock, v.m_pHashLock);
-		ClonePtr(m_pRelativeLock, v.m_pRelativeLock);
 
 		m_vNested.resize(v.m_vNested.size());
 
 		for (size_t i = 0; i < v.m_vNested.size(); i++)
-			ClonePtr(m_vNested[i], v.m_vNested[i]);
+			v.m_vNested[i]->Clone(m_vNested[i]);
+	}
+
+	void TxKernelStd::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelStd);
+		TxKernelStd& v = Cast::Up<TxKernelStd>(*p);
+
+		v.CopyFrom(*this);
+		v.m_Signature = m_Signature;
+		v.m_AssetEmission = m_AssetEmission;
+		ClonePtr(v.m_pHashLock, m_pHashLock);
+		ClonePtr(v.m_pRelativeLock, m_pRelativeLock);
 	}
 
 	/////////////
@@ -1326,7 +1350,8 @@ namespace beam
 
 	void TxVectors::Writer::Write(const TxKernel& v)
 	{
-		PushVectorPtr(m_E.m_vKernels, v);
+		m_E.m_vKernels.emplace_back();
+		v.Clone(m_E.m_vKernels.back());
 	}
 
 	/////////////
@@ -1961,11 +1986,11 @@ namespace beam
 			m_Offset += sk;
 		}
 
-		pKrn.reset(new TxKernel);
+		pKrn.reset(new TxKernelStd);
 		pKrn->m_Height.m_Min = m_Height; // make it similar to others
 
 		m_Coin.DeriveKey(sk, Key::ID(m_Height, Key::Type::Kernel2, m_SubIdx));
-		pKrn->Sign(sk);
+		Cast::Up<TxKernelStd>(*pKrn).Sign(sk);
 		m_Offset += sk;
 	}
 

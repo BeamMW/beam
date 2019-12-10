@@ -243,7 +243,7 @@ namespace beam::wallet
     {
         // create kernel
         assert(!m_Kernel);
-        m_Kernel = make_unique<TxKernel>();
+        m_Kernel = make_unique<TxKernelStd>();
         m_Kernel->m_Fee = GetFee();
         m_Kernel->m_Height.m_Min = GetMinHeight();
         m_Kernel->m_Height.m_Max = GetMaxHeight();
@@ -255,7 +255,7 @@ namespace beam::wallet
         Hash::Value hv;
         if (m_Tx.GetParameter(TxParameterID::PeerLockImage, hv, m_SubTxID))
         {
-			m_Kernel->m_pHashLock = make_unique<TxKernel::HashLock>();
+			m_Kernel->m_pHashLock = make_unique<TxKernelStd::HashLock>();
 			m_Kernel->m_pHashLock->m_IsImage = true;
 			m_Kernel->m_pHashLock->m_Value = hv;
         }
@@ -263,7 +263,7 @@ namespace beam::wallet
         uintBig preImage;
         if (m_Tx.GetParameter(TxParameterID::PreImage, preImage, m_SubTxID))
         {
-			m_Kernel->m_pHashLock = make_unique<TxKernel::HashLock>();
+			m_Kernel->m_pHashLock = make_unique<TxKernelStd::HashLock>();
 			m_Kernel->m_pHashLock->m_Value = hv;
 		}
     }

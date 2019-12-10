@@ -864,9 +864,9 @@ namespace detail
             return ar;
         }
 
-		/// beam::TxKernel::HashLock serialization
+		/// beam::TxKernelStd::HashLock serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernel::HashLock& val)
+		static Archive& save(Archive& ar, const beam::TxKernelStd::HashLock& val)
 		{
 			ar
 				& val.m_Value
@@ -876,7 +876,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::TxKernel::HashLock& val)
+		static Archive& load(Archive& ar, beam::TxKernelStd::HashLock& val)
 		{
 			ar
 				& val.m_Value
@@ -885,9 +885,9 @@ namespace detail
 			return ar;
 		}
 
-		/// beam::TxKernel::RelativeLock serialization
+		/// beam::TxKernelStd::RelativeLock serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernel::RelativeLock& val)
+		static Archive& save(Archive& ar, const beam::TxKernelStd::RelativeLock& val)
 		{
 			ar
 				& val.m_ID
@@ -898,7 +898,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::TxKernel::RelativeLock& val)
+		static Archive& load(Archive& ar, beam::TxKernelStd::RelativeLock& val)
 		{
 			ar
 				& val.m_ID
@@ -908,9 +908,104 @@ namespace detail
 			return ar;
 		}
 
-        /// beam::TxKernel serialization
-        template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernel& val)
+		// TxKernel management
+		struct ImplTxKernel
+		{
+			static void ThrowUnknownSubtype(uint8_t)
+			{
+				throw std::runtime_error("Bad kernel subtype");
+			}
+
+			template <typename Archive>
+			static void save1(Archive& ar, const beam::TxKernel& krn, uint8_t nType)
+			{
+				assert(krn.get_Subtype() == nType);
+
+				switch (nType)
+				{
+#define THE_MACRO(id, name) \
+				case beam::TxKernel::Subtype::name: \
+					ar & Cast::Up<beam::TxKernel##name>(krn); \
+					break;
+
+				BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
+				default:
+					assert(false); // must not happen!
+					ThrowUnknownSubtype(nType);
+				}
+			}
+
+			template <typename Archive>
+			static void save2(Archive& ar, const beam::TxKernel& krn, bool bAssumeStd)
+			{
+				uint8_t nType;
+				if (bAssumeStd)
+				{
+					assert(beam::TxKernel::Subtype::Std == krn.get_Subtype());
+					nType = beam::TxKernel::Subtype::Std;
+				}
+				else
+				{
+					nType = static_cast<uint8_t>(krn.get_Subtype());
+					ar & nType;
+				}
+
+				save1(ar, krn, nType);
+			}
+
+
+			template<typename Archive>
+			static Archive& load2(Archive& ar, beam::TxKernel::Ptr& pPtr, uint32_t nRecursion, bool bIsStd)
+			{
+				uint8_t nType;
+				if (bIsStd)
+					nType = beam::TxKernel::Subtype::Std;
+				else
+					ar & nType;
+
+				load1(ar, pPtr, nType, nRecursion);
+				pPtr->UpdateID();
+
+				return ar;
+			}
+
+
+			template<typename Archive>
+			static void load1(Archive& ar, beam::TxKernel::Ptr& pPtr, uint8_t nType, uint32_t nRecursion)
+			{
+				beam::TxKernel::TestRecursion(nRecursion);
+
+				switch (nType)
+				{
+#define THE_MACRO(id, name) \
+				case beam::TxKernel::Subtype::name: \
+					pPtr.reset(new beam::TxKernel##name); \
+					load0(ar, Cast::Up<beam::TxKernel##name>(*pPtr), nRecursion); \
+					break;
+
+					BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
+				default:
+					ThrowUnknownSubtype(nType);
+				}
+			}
+
+			static bool HasNonStd(const std::vector<beam::TxKernel::Ptr>& vec)
+			{
+				for (size_t i = 0; i < vec.size(); i++)
+					if (beam::TxKernel::Subtype::Std != vec[i]->get_Subtype())
+						return true;
+				return false;
+			}
+
+		};
+
+        /// beam::TxKernelStd serialization
+		template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxKernelStd& val)
         {
 			uint8_t nFlags2 =
 				(val.m_AssetEmission ? 1 : 0) |
@@ -947,11 +1042,17 @@ namespace detail
 
 			if (0x40 & nFlags)
 			{
-				uint32_t nCount = (uint32_t) val.m_vNested.size();
+				uint32_t nCount = 0;
+
+				bool bNestedNonStd = ImplTxKernel::HasNonStd(val.m_vNested);
+				if (bNestedNonStd)
+					ar & nCount;
+
+				nCount = (uint32_t) val.m_vNested.size();
 				ar & nCount;
 
 				for (uint32_t i = 0; i < nCount; i++)
-					save(ar, *val.m_vNested[i]);
+					ImplTxKernel::save2(ar, *val.m_vNested[i], !bNestedNonStd);
 			}
 
 			if (nFlags2)
@@ -968,7 +1069,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static void load_Recursive(Archive& ar, beam::TxKernel& val, uint32_t nRecusion)
+        static void load0(Archive& ar, beam::TxKernelStd& val, uint32_t nRecursion)
         {
 			uint8_t nFlags;
 			ar
@@ -1002,24 +1103,25 @@ namespace detail
 
 			if (0x20 & nFlags)
 			{
-				val.m_pHashLock.reset(new beam::TxKernel::HashLock);
+				val.m_pHashLock.reset(new beam::TxKernelStd::HashLock);
 				ar & *val.m_pHashLock;
 			}
 
 			if (0x40 & nFlags)
 			{
-				beam::TxKernel::TestRecursion(++nRecusion);
+				nRecursion++;
 
 				uint32_t nCount;
 				ar & nCount;
+
+				bool bNestedNonStd = !nCount;
+				if (bNestedNonStd)
+					ar & nCount;
+
 				val.m_vNested.resize(nCount);
 
 				for (uint32_t i = 0; i < nCount; i++)
-				{
-					std::unique_ptr<beam::TxKernel>& v = val.m_vNested[i];
-					v = std::make_unique<beam::TxKernel>();
-					load_Recursive(ar, *v, nRecusion);
-				}
+					ImplTxKernel::load2(ar, val.m_vNested[i], nRecursion, !bNestedNonStd);
 			}
 
 			val.m_AssetEmission = 0;
@@ -1034,7 +1136,7 @@ namespace detail
 
 				if (2 & nFlags2)
 				{
-					val.m_pRelativeLock.reset(new beam::TxKernel::RelativeLock);
+					val.m_pRelativeLock.reset(new beam::TxKernelStd::RelativeLock);
 					ar & *val.m_pRelativeLock;
 				}
 
@@ -1042,14 +1144,6 @@ namespace detail
 					val.m_CanEmbed = true;
 			}
         }
-
-		template<typename Archive>
-		static Archive& load(Archive& ar, beam::TxKernel& val)
-		{
-			load_Recursive(ar, val, 0);
-			val.UpdateID();
-			return ar;
-		}
 
         /// beam::Transaction serialization
         template<typename Archive>
@@ -1090,7 +1184,8 @@ namespace detail
 			x.Export(nSize);
 
 			v.resize(nSize);
-			for (uint32_t i = 0; i < nSize; i++)
+
+			for (size_t i = 0; i < v.size(); i++)
 			{
 				v[i].reset(new typename TPtr::element_type);
 				ar & *v[i];
@@ -1116,14 +1211,42 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::TxVectors::Eternal& txv)
 		{
-			save_VecPtr(ar, txv.m_vKernels);
+			uint32_t nSize = static_cast<uint32_t>(txv.m_vKernels.size());
+			bool bStd = !ImplTxKernel::HasNonStd(txv.m_vKernels);
+			if (!bStd)
+			{
+				const uint32_t nFlag = uint32_t(1) << 31;
+				nSize |= nFlag;
+			}
+
+			ar & beam::uintBigFrom(nSize);
+
+			for (size_t i = 0; i < txv.m_vKernels.size(); i++)
+				ImplTxKernel::save2(ar, *txv.m_vKernels[i], bStd);
+
 			return ar;
 		}
 
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::TxVectors::Eternal& txv)
 		{
-			load_VecPtr(ar, txv.m_vKernels);
+			beam::uintBigFor<uint32_t>::Type x;
+			ar & x;
+
+			uint32_t nSize;
+			x.Export(nSize);
+
+			const uint32_t nFlag = uint32_t(1) << 31;
+
+			bool bStd = !(nSize & nFlag);
+			if (!bStd)
+				nSize &= ~nFlag;
+
+			txv.m_vKernels.resize(nSize);
+
+			for (size_t i = 0; i < txv.m_vKernels.size(); i++)
+				ImplTxKernel::load2(ar, txv.m_vKernels[i], 0, bStd);
+
 			return ar;
 		}
 
@@ -1289,5 +1412,50 @@ namespace detail
 			return ar;
 		}
 	};
+
+    template <std::size_t F>
+    struct serializer<
+        type_prop::not_a_fundamental,
+        ser_method::use_internal_serializer,
+        F,
+        beam::TxKernel::Ptr
+    > {
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernel::Ptr& pPtr)
+		{
+			beam::TxKernel* p = pPtr.get();
+			uint8_t nType = p ? static_cast<uint8_t>(p->get_Subtype()) : 0;
+			ar & nType;
+
+			if (p)
+				serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, beam::TxKernel>::ImplTxKernel::save1(ar, *p, nType);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::TxKernel::Ptr& pPtr)
+		{
+			uint8_t nType;
+			ar & nType;
+
+			if (nType)
+			{
+				serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, beam::TxKernel>::ImplTxKernel::load1(ar, pPtr, nType, 0);
+				pPtr->UpdateID();
+			}
+			else
+				pPtr.reset();
+
+			return ar;
+		}
+    };
+
+	template <typename Archive>
+	void SaveKrn(Archive& ar, const beam::TxKernel& krn, bool bAssumeStd)
+	{
+		serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, 0, beam::TxKernel>::ImplTxKernel::save2(ar, krn, bAssumeStd);
+	}
+
 }
 }

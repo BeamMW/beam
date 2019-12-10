@@ -969,7 +969,7 @@ void TestRangeProof(bool bCustomTag)
 
 	WriteSizeSerialized("In-Utxo", beam::Input());
 
-	beam::TxKernel txk;
+	beam::TxKernelStd txk;
 	txk.m_Fee = 50;
 	WriteSizeSerialized("Kernel(simple)", txk);
 }
@@ -1118,7 +1118,7 @@ void TestMultiSigOutput()
     ECC::Point::Native noncePublicB = Context::get().G * nonceB;
     ECC::Point::Native noncePublic = noncePublicA + noncePublicB;
 
-    std::unique_ptr<beam::TxKernel> pKernel(new beam::TxKernel);
+    std::unique_ptr<beam::TxKernelStd> pKernel(new beam::TxKernelStd);
     pKernel->m_Fee = 0;
     pKernel->m_Height.m_Min = 100;
     pKernel->m_Height.m_Max = 220;
@@ -1246,7 +1246,7 @@ struct TransactionMaker
 
 	Peer m_pPeers[2]; // actually can be more
 
-	void CoSignKernel(beam::TxKernel& krn, bool is_trezor_debug = false)
+	void CoSignKernel(beam::TxKernelStd& krn, bool is_trezor_debug = false)
 	{
 		// 1st pass. Public excesses and Nonces are summed.
 		Scalar::Native pX[_countof(m_pPeers)];
@@ -1302,17 +1302,17 @@ struct TransactionMaker
 
 	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag, bool bNested, bool is_trezor_debug = false)
 	{
-		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
+		std::unique_ptr<beam::TxKernelStd> pKrn(new beam::TxKernelStd);
 		pKrn->m_Fee = fee;
 		pKrn->m_Height.m_Min = g_hFork;
 		pKrn->m_CanEmbed = bNested;
 		pKrn->m_vNested.swap(lstNested);
 
 		// hashlock
-		pKrn->m_pHashLock.reset(new beam::TxKernel::HashLock);
+		pKrn->m_pHashLock.reset(new beam::TxKernelStd::HashLock);
 		//pKrn->m_pHashLock.release();
 
-		beam::TxKernel::HashLock hl;
+		beam::TxKernelStd::HashLock hl;
 		SetRandom(hl.m_Value, is_trezor_debug);
 
 		pKrn->m_pHashLock->m_IsImage = true;
@@ -1333,7 +1333,7 @@ struct TransactionMaker
 
 			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid, is_trezor_debug); // output UTXO to consume the created asset
 
-			std::unique_ptr<beam::TxKernel> pKrnEmission(new beam::TxKernel);
+			std::unique_ptr<beam::TxKernelStd> pKrnEmission(new beam::TxKernelStd);
 			pKrnEmission->m_AssetEmission = valAsset;
 			pKrnEmission->m_Commitment.m_X = aid;
 			pKrnEmission->m_Commitment.m_Y = 0;
@@ -1573,7 +1573,7 @@ struct HWWalletEmulator
 
 
 		// Calculate the kernelID
-		beam::TxKernel krn;
+		beam::TxKernelStd krn;
 		krn.m_Height = tx.m_Height;
 		krn.m_Fee = tx.m_Fee;
 		krn.m_Commitment = tx.m_KernelCommitment;
@@ -1601,7 +1601,7 @@ struct MyWallet
 	IHWWallet& m_HW;
 
 	uint32_t m_iSlot; // slot selected for the transaction
-	beam::TxKernel m_Kernel;
+	beam::TxKernelStd m_Kernel;
 
 	uint64_t m_nLastCoinIndex = 0;
 
@@ -1763,9 +1763,8 @@ void TestTransactionHW()
 	txFull.m_Offset = Zero;
 	txFull.Normalize();
 
-	beam::TxKernel::Ptr pKrn(new beam::TxKernel);
-	*pKrn = mw1.m_Kernel;
-	txFull.m_vKernels.push_back(std::move(pKrn));
+	txFull.m_vKernels.emplace_back();
+	mw1.m_Kernel.Clone(txFull.m_vKernels.back());
 
 	Scalar::Native offs = mw1.m_Offset;
 	offs += mw2.m_Offset;
@@ -2346,7 +2345,7 @@ void TestAssetEmission()
 	tx.m_vOutputs.push_back(std::move(pOutp));
 	kOffset += -sk;
 
-	beam::TxKernel::Ptr pKrn(new beam::TxKernel);
+	beam::TxKernelStd::Ptr pKrn(new beam::TxKernelStd);
 	pKdf->DeriveKey(sk, beam::Key::ID(23123, beam::Key::Type::Kernel));
 	pKrn->m_Commitment = ECC::Context::get().G * sk;
 	pKrn->m_Fee = fee;
@@ -2355,7 +2354,7 @@ void TestAssetEmission()
 	tx.m_vKernels.push_back(std::move(pKrn));
 	kOffset += -sk;
 
-	pKrn.reset(new beam::TxKernel);
+	pKrn.reset(new beam::TxKernelStd);
 	//pKrn->m_Commitment = ECC::Context::get().G * skAssetSk;
 	pKrn->m_Commitment.m_X = assetID;
 	pKrn->m_Commitment.m_Y = 0;

@@ -442,13 +442,13 @@ namespace beam::wallet
             }
         }
 
-        m_Kernel = make_unique<TxKernel>();
+        m_Kernel = make_unique<TxKernelStd>();
         m_Kernel->m_Fee          = m_Fee;
         m_Kernel->m_Height.m_Min = GetMinHeight();
         m_Kernel->m_Height.m_Max = m_MaxHeight;
         m_Kernel->m_Commitment   = Zero;
 
-        m_EmissionKernel = make_unique<TxKernel>();
+        m_EmissionKernel = make_unique<TxKernelStd>();
         m_EmissionKernel->m_AssetEmission  = m_issue ? GetAmountBeam() : -static_cast<AmountSigned>(GetAmountAsset());
         m_EmissionKernel->m_Height.m_Min   = GetMinHeight();
         m_EmissionKernel->m_Height.m_Max   = m_MaxHeight;
@@ -460,9 +460,8 @@ namespace beam::wallet
         //
         // Kernel
         //
-        m_Offset += m_keyKeeper->SignEmissionInOutKernel(m_Kernel, m_assetIdx);
+        m_Offset += m_keyKeeper->SignEmissionInOutKernel(*m_Kernel, m_assetIdx);
 
-		m_Kernel->UpdateID();
         const Merkle::Hash& kernelID = m_Kernel->m_Internal.m_ID;
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID);
@@ -470,9 +469,8 @@ namespace beam::wallet
         //
         // Emission kernel
         //
-        m_Offset += m_keyKeeper->SignEmissionKernel(m_EmissionKernel, m_assetIdx);
+        m_Offset += m_keyKeeper->SignEmissionKernel(*m_EmissionKernel, m_assetIdx);
 
-		m_EmissionKernel->UpdateID();
         const Merkle::Hash& emissionKernelID = m_EmissionKernel->m_Internal.m_ID;
         m_Tx.SetParameter(TxParameterID::EmissionKernelID, emissionKernelID, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::EmissionKernel, m_EmissionKernel, m_SubTxID);

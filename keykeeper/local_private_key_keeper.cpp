@@ -265,13 +265,13 @@ namespace beam::wallet
     {
         auto excess = GetExcess(inputs, outputs, assetId, offset);
 
-        TxKernel kernel;
+        TxKernelStd kernel;
         kernel.m_Commitment = kernelParamerters.commitment;
         kernel.m_Fee = kernelParamerters.fee;
         kernel.m_Height = kernelParamerters.height;
         if (kernelParamerters.lockImage || kernelParamerters.lockPreImage)
         {
-            kernel.m_pHashLock = make_unique<TxKernel::HashLock>();
+            kernel.m_pHashLock = make_unique<TxKernelStd::HashLock>();
 
 			if (kernelParamerters.lockPreImage)
 				kernel.m_pHashLock->m_Value = *kernelParamerters.lockPreImage;
@@ -384,27 +384,22 @@ namespace beam::wallet
         return assetId;
     }
 
-    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionInOutKernel(TxKernel::Ptr& kernel, uint32_t assetIdx)
+    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionInOutKernel(TxKernelStd& kernel, uint32_t assetIdx)
     {
         Scalar::Native sk;
 
         auto kernelKeyId = Key::ID(assetIdx,  Key::Type::Kernel, assetIdx);
         m_MasterKdf->DeriveKey(sk, kernelKeyId);
-        kernel->m_Commitment = ECC::Context::get().G * sk;
-        kernel->Sign(sk);
+        kernel.Sign(sk);
 
         sk = -sk;
         return sk;
     }
 
-    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernel::Ptr& kernel, uint32_t assetIdx)
+    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernelStd& kernel, uint32_t assetIdx)
     {
-        auto assetID = AIDFromKeyIndex(assetIdx);
-        kernel->m_Commitment.m_X = assetID;
-        kernel->m_Commitment.m_Y = 0;
-
         auto assetKey = GetAssetKey(Key::ID(assetIdx, Key::Type::Asset, assetIdx));
-        kernel->Sign(assetKey);
+        kernel.Sign(assetKey);
 
         assetKey = -assetKey;
         return assetKey;

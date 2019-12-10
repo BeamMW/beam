@@ -1514,7 +1514,7 @@ namespace beam::wallet
     void AtomicSwapTransaction::ExtractSecretPrivateKey()
     {
         auto subTxID = SubTxIndex::BEAM_REDEEM_TX;
-        TxKernel::Ptr kernel = GetMandatoryParameter<TxKernel::Ptr>(TxParameterID::Kernel, subTxID);
+        TxKernelStd::Ptr kernel = GetMandatoryParameter<TxKernelStd::Ptr>(TxParameterID::Kernel, subTxID);
 
         SharedTxBuilder builder{ *this, subTxID };
         builder.GetSharedParameters();
