@@ -1141,17 +1141,24 @@ namespace beam
 		if (!m_Value || (m_AssetID == Zero))
 			return false;
 
-		ECC::Point::Native pt;
-		if (!pt.ImportNnz(m_Commitment))
+		ECC::Point::Native pPt[2];
+		if (!pPt[0].ImportNnz(m_Commitment))
 			return false;
 
-		exc += pt;
+		exc += pPt[0];
 
-		if (!IsValidBase(hScheme, pt, pParent))
+		if (!IsValidBase(hScheme, pPt[0], pParent))
 			return false;
 
-		// TODO: check the signature
-		// prover must prove knowledge of preimages of m_Commitmend AND m_AssetID
+		ECC::Point pkAsset;
+		pkAsset.m_X = m_AssetID;
+		pkAsset.m_Y = 0;
+		if (!pPt[1].Import(pkAsset))
+			return false;
+
+		// prover must prove knowledge of excess AND m_AssetID sk
+		if (!m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Internal.m_ID, m_Signature.m_pK, pPt))
+			return false;
 
 		SwitchCommitment sc(&m_AssetID);
 		assert(ECC::Tag::IsCustom(&sc.m_hGen));

@@ -1189,7 +1189,7 @@ namespace detail
 				& nFlags
 				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
-				& val.m_Signature.m_k
+				& val.m_Signature.m_pK[0]
 				& val.m_AssetID
 				& val.m_Value;
 
@@ -1207,7 +1207,7 @@ namespace detail
 				& nFlags
 				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
-				& val.m_Signature.m_k
+				& val.m_Signature.m_pK[0]
 				& val.m_AssetID
 				& val.m_Value;
 

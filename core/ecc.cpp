@@ -1774,6 +1774,10 @@ namespace ECC {
 		ctx.m_Sig.m_CfgGJ1.m_nG = 2;
 		ctx.m_Sig.m_CfgGJ1.m_pG = ctx.m_Sig.m_pGenGJ;
 
+		ctx.m_Sig.m_CfgG2.m_nKeys = 2;
+		ctx.m_Sig.m_CfgG2.m_nG = 1;
+		ctx.m_Sig.m_CfgG2.m_pG = &ctx.m_Sig.m_GenG;
+
 #ifndef NDEBUG
 		g_bContextInitialized = true;
 #endif // NDEBUG

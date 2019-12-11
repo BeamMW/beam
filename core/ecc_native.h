@@ -791,6 +791,7 @@ namespace ECC
 
 			SignatureBase::Config m_CfgG1; // regular
 			SignatureBase::Config m_CfgGJ1; // Generalized G+J
+			SignatureBase::Config m_CfgG2; // G, 2 keys
 
 		} m_Sig;
 

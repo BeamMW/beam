@@ -547,8 +547,8 @@ namespace beam
 		AssetID m_AssetID;
 		AmountSigned m_Value;
 
-		ECC::Point		m_Commitment;	// aggregated, including nested kernels
-		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
+		ECC::Point m_Commitment;	// aggregated, including nested kernels
+		ECC::SignatureGeneralized<1> m_Signature;
 
 		TxKernelAssetEmit()
 			:m_Value(0)
