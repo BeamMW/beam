@@ -2002,5 +2002,9 @@ deploy the key at the node you trust completely.</translation>
         <source>Invalid seed phrase. Please check again and resubmit.</source>
         <translation>Invalid seed phrase. Please check again and resubmit.</translation>
     </message>
+    <message id="accept-swap-token">
+        <source>Your swap token</source>
+        <translation>Your swap token</translation>
+    </message>
 </context>
 </TS>

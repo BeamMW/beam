@@ -13,6 +13,7 @@ ColumnLayout {
     
     property var defaultFocusItem: comment_input
     property var predefinedTxParams: undefined
+    property bool tokenOnTop: true
 
     // callbacks set by parent
     property var onAccepted: undefined
@@ -129,6 +130,7 @@ please review your settings and try again"
                     color:           Style.content_main
                     //% "Swap token"
                     text:            qsTrId("send-swap-token")
+                    visible:         tokenOnTop
                 }
 
                 SFTextInput {
@@ -143,6 +145,7 @@ please review your settings and try again"
                     selectByMouse:    true
                     readOnly:         true
                     onTextChanged:    cursorPosition = 0
+                    visible:          tokenOnTop
                 }
 
                 Item {
@@ -346,10 +349,60 @@ please review your settings and try again"
                     }
                 }
             }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 30
+                Layout.alignment: Qt.AlignHCenter
+                visible:          !tokenOnTop
+                Row {
+                    Layout.alignment: Qt.AlignHCenter
+                    SFText {
+                        font.pixelSize:  14
+                        font.styleName:  "Bold"; font.weight: Font.Bold
+                        color:           Style.content_main
+                        //% "Your swap token"
+                        text:            qsTrId("accept-swap-token")
+                    }
+
+                    Item {
+                        width:  17
+                        height: 1
+                    }
+
+                    SvgImage {
+                        source:  tokenRow.visible ? "qrc:/assets/icon-grey-arrow-down.svg" : "qrc:/assets/icon-grey-arrow-up.svg"
+                        anchors.verticalCenter: parent.verticalCenter
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                tokenRow.visible = !tokenRow.visible;
+                            }
+                        }
+                    }
+                }
+
+                Row {
+                    id:      tokenRow
+                    visible: false
+                    Layout.topMargin: 10
+                    SFLabel {
+                        horizontalAlignment: Text.AlignHCenter
+                        width:               392
+                        font.pixelSize:      14
+                        text:                viewModel.token
+                        copyMenuEnabled:     true
+                        onCopyText:          BeamGlobals.copyToClipboard(text)
+                        wrapMode:            Text.WrapAnywhere
+                        color:               Style.content_secondary
+                    }
+                }
+            }
 
             Row {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 60
+                Layout.topMargin: tokenOnTop ? 60 : 30
                 spacing:          25
 
                 CustomButton {
