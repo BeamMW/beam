@@ -424,7 +424,6 @@ namespace beam
 #undef THE_MACRO
 
 	struct TxKernel
-		:public TxElement
 	{
 		typedef std::unique_ptr<TxKernel> Ptr;
 
@@ -465,8 +464,8 @@ namespace beam
 		virtual Subtype::Enum get_Subtype() const = 0;
 		virtual void UpdateID() = 0;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const = 0;
-		virtual void AddStats(TxStats&) const = 0; // including self and nested
-		virtual int cmp_Subtype(const TxKernel&) const = 0;
+		virtual void AddStats(TxStats&) const; // including self and nested
+		virtual int cmp_Subtype(const TxKernel&) const;
 		virtual void Clone(Ptr&) const = 0;
 
 		struct LongProof; // legacy
@@ -476,6 +475,7 @@ namespace beam
 
 	protected:
 		void CopyFrom(const TxKernel&);
+		bool IsValidBase(Height hScheme, ECC::Point::Native& comm, const TxKernel* pParent) const;
 	private:
 		void operator = (const TxKernel&);
 	};
@@ -485,7 +485,7 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelStd> Ptr;
 
-		// Mandatory
+		ECC::Point		m_Commitment;	// aggregated, including nested kernels
 		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
 		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
 
@@ -521,7 +521,6 @@ namespace beam
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual void UpdateID() override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual void AddStats(TxStats&) const override; // including self and nested
 		virtual int cmp_Subtype(const TxKernel&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 

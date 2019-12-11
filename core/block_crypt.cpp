@@ -864,11 +864,10 @@ namespace beam
 		hp >> m_Internal.m_ID;
 	}
 
-
-	bool TxKernelStd::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	bool TxKernel::IsValidBase(Height hScheme, ECC::Point::Native& comm, const TxKernel* pParent) const
 	{
 		const Rules& r = Rules::get(); // alias
-		if ((hScheme < r.pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
+		if ((hScheme < r.pForks[1].m_Height) && m_CanEmbed)
 			return false; // unsupported for that version
 
 		if (!pParent && (hScheme >= r.pForks[2].m_Height))
@@ -888,31 +887,45 @@ namespace beam
 				return false; // parent Height range must be contained in ours.
 		}
 
+		if (!m_vNested.empty())
+		{
+			ECC::Point::Native excNested(Zero);
+
+			const TxKernel* p0Krn = nullptr;
+			for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
+			{
+				const TxKernel& v = *(*it);
+
+				// sort for nested kernels is not important. But for 'historical' reasons it's enforced up to Fork2
+				if ((hScheme < r.pForks[2].m_Height) && p0Krn && (*p0Krn > v))
+					return false;
+				p0Krn = &v;
+
+				if (!v.IsValid(hScheme, excNested, this))
+					return false;
+			}
+
+			excNested = -excNested;
+			comm += excNested;
+		}
+
+		return true;
+	}
+
+	bool TxKernelStd::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		const Rules& r = Rules::get(); // alias
+		if ((hScheme < r.pForks[1].m_Height) && m_pRelativeLock)
+			return false; // unsupported for that version
+
 		ECC::Point::Native pt;
 		if (!pt.ImportNnz(m_Commitment))
 			return false;
 
 		exc += pt;
 
-		if (!m_vNested.empty())
-		{
-			ECC::Point::Native ptExcNested(Zero);
-
-			const TxKernel* p0Krn = NULL;
-			for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
-			{
-				const TxKernel& v = *(*it);
-				if (p0Krn && (*p0Krn > v))
-					return false;
-				p0Krn = &v;
-
-				if (!v.IsValid(hScheme, ptExcNested, this))
-					return false;
-			}
-
-			ptExcNested = -ptExcNested;
-			pt += ptExcNested;
-		}
+		if (!IsValidBase(hScheme, pt, pParent))
+			return false;
 
 		if (!m_Signature.IsValid(m_Internal.m_ID, pt))
 			return false;
@@ -962,7 +975,7 @@ namespace beam
 		return Subtype::Std;
 	}
 
-	void TxKernelStd::AddStats(TxStats& s) const
+	void TxKernel::AddStats(TxStats& s) const
 	{
 		s.m_Kernels++;
 		s.m_Fee += uintBigFrom(m_Fee);
@@ -990,12 +1003,6 @@ namespace beam
 				return -1;
 		}
 
-		{
-			int n = Cast::Down<TxElement>(*this).cmp(v);
-			if (n)
-				return n;
-		}
-
 		Subtype::Enum t0 = get_Subtype();
 		Subtype::Enum t1 = v.get_Subtype();
 		CMP_SIMPLE(t0, t1)
@@ -1003,10 +1010,16 @@ namespace beam
 		return cmp_Subtype(v);
 	}
 
+	int TxKernel::cmp_Subtype(const TxKernel&) const
+	{
+		return 0;
+	}
+
 	int TxKernelStd::cmp_Subtype(const TxKernel& v_) const
 	{
 		const TxKernelStd& v = Cast::Up<TxKernelStd>(v_);
 
+		CMP_MEMBER_EX(m_Commitment)
 		CMP_MEMBER_EX(m_Signature)
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
@@ -1058,7 +1071,6 @@ namespace beam
 	void TxKernel::CopyFrom(const TxKernel& v)
 	{
 		m_Internal = v.m_Internal;
-		Cast::Down<TxElement>(*this) = v;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
 
@@ -1074,6 +1086,7 @@ namespace beam
 		TxKernelStd& v = Cast::Up<TxKernelStd>(*p);
 
 		v.CopyFrom(*this);
+		v.m_Commitment = m_Commitment;
 		v.m_Signature = m_Signature;
 		v.m_AssetEmission = m_AssetEmission;
 		ClonePtr(v.m_pHashLock, m_pHashLock);

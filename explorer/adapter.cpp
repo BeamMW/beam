@@ -264,10 +264,15 @@ private:
 				TxStats s;
 				v->AddStats(s);
 
+				ECC::Point::Native exc;
+				v->IsValid(height, exc);
+
+				ECC::Point comm(exc);
+
                 kernels.push_back(
                     json{
                         {"id", hash_to_hex(buf, v->m_Internal.m_ID)},
-                        {"excess", uint256_to_hex(buf, v->m_Commitment.m_X)},
+                        {"excess", uint256_to_hex(buf, comm.m_X)},
                         {"minHeight", v->m_Height.m_Min},
                         {"maxHeight", v->m_Height.m_Max},
                         {"fee", AmountBig::get_Lo(s.m_Fee)}

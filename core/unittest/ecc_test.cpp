@@ -1268,7 +1268,7 @@ struct TransactionMaker
 		for (size_t i = 0; i < krn.m_vNested.size(); i++)
 		{
 			Point::Native ptNested;
-			verify_test(ptNested.Import(krn.m_vNested[i]->m_Commitment));
+			verify_test(ptNested.Import(Cast::Up<beam::TxKernelStd>(*krn.m_vNested[i]).m_Commitment));
 			kG += Point::Native(ptNested);
 		}
 
