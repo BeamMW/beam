@@ -675,7 +675,6 @@ Item {
         var item = walletStackView.currentItem;
         if (item && item.saveAddress && typeof item.saveAddress == "function") {
             item.saveAddress();
-            console.log("saveAddress");
         }
     }
 }
