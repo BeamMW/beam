@@ -1001,6 +1001,91 @@ namespace detail
 				return false;
 			}
 
+			static uint8_t get_CommonFlags(const beam::TxKernel& krn)
+			{
+				return
+					(krn.m_Fee ? 2 : 0) |
+					(krn.m_Height.m_Min ? 4 : 0) |
+					((krn.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
+					(krn.m_vNested.empty() ? 0 : 0x40);
+			}
+
+			template <typename Archive>
+			static void save_Nested(Archive& ar, const beam::TxKernel& krn)
+			{
+				if (krn.m_vNested.empty())
+					return;
+
+				uint32_t nCount = 0;
+
+				bool bNestedNonStd = ImplTxKernel::HasNonStd(krn.m_vNested);
+				if (bNestedNonStd)
+					ar & nCount;
+
+				nCount = (uint32_t) krn.m_vNested.size();
+				ar & nCount;
+
+				for (uint32_t i = 0; i < nCount; i++)
+					save2(ar, *krn.m_vNested[i], !bNestedNonStd);
+			}
+
+			template <typename Archive>
+			static void load_Nested(Archive& ar, beam::TxKernel& krn, uint32_t nFlags, uint32_t nRecursion)
+			{
+				if (!(0x40 & nFlags))
+					return;
+
+				nRecursion++;
+
+				uint32_t nCount;
+				ar & nCount;
+
+				bool bNestedNonStd = !nCount;
+				if (bNestedNonStd)
+					ar & nCount;
+
+				krn.m_vNested.resize(nCount);
+
+				for (uint32_t i = 0; i < nCount; i++)
+					ImplTxKernel::load2(ar, krn.m_vNested[i], nRecursion, !bNestedNonStd);
+			}
+
+			template <typename Archive>
+			static void save_FeeHeight(Archive& ar, const beam::TxKernel& krn, uint32_t nFlags)
+			{
+				if (2 & nFlags)
+					ar & krn.m_Fee;
+				if (4 & nFlags)
+					ar & krn.m_Height.m_Min;
+				if (8 & nFlags)
+				{
+					beam::Height dh = krn.m_Height.m_Max - krn.m_Height.m_Min;
+					ar & dh;
+				}
+			}
+
+			template <typename Archive>
+			static void load_FeeHeight(Archive& ar, beam::TxKernel& krn, uint32_t nFlags)
+			{
+				if (2 & nFlags)
+					ar & krn.m_Fee;
+				else
+					krn.m_Fee = 0;
+
+				if (4 & nFlags)
+					ar & krn.m_Height.m_Min;
+				else
+					krn.m_Height.m_Min = 0;
+
+				if (8 & nFlags)
+				{
+					beam::Height dh;
+					ar & dh;
+					krn.m_Height.m_Max = krn.m_Height.m_Min + dh;
+				}
+				else
+					krn.m_Height.m_Max = beam::Height(-1);
+			}
 		};
 
         /// beam::TxKernelStd serialization
@@ -1013,13 +1098,10 @@ namespace detail
 				(val.m_CanEmbed ? 4 : 0);
 
 			uint8_t nFlags =
+				ImplTxKernel::get_CommonFlags(val) |
 				(val.m_Commitment.m_Y ? 1 : 0) |
-				(val.m_Fee ? 2 : 0) |
-				(val.m_Height.m_Min ? 4 : 0) |
-				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
 				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
 				(val.m_pHashLock ? 0x20 : 0) |
-				(val.m_vNested.empty() ? 0 : 0x40) |
 				(nFlags2 ? 0x80 : 0);
 
 			ar
@@ -1028,32 +1110,12 @@ namespace detail
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
 
-			if (2 & nFlags)
-				ar & val.m_Fee;
-			if (4 & nFlags)
-				ar & val.m_Height.m_Min;
-			if (8 & nFlags)
-			{
-				beam::Height dh = val.m_Height.m_Max - val.m_Height.m_Min;
-				ar & dh;
-			}
+			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
+
 			if (0x20 & nFlags)
 				ar & *val.m_pHashLock;
 
-			if (0x40 & nFlags)
-			{
-				uint32_t nCount = 0;
-
-				bool bNestedNonStd = ImplTxKernel::HasNonStd(val.m_vNested);
-				if (bNestedNonStd)
-					ar & nCount;
-
-				nCount = (uint32_t) val.m_vNested.size();
-				ar & nCount;
-
-				for (uint32_t i = 0; i < nCount; i++)
-					ImplTxKernel::save2(ar, *val.m_vNested[i], !bNestedNonStd);
-			}
+			ImplTxKernel::save_Nested(ar, val);
 
 			if (nFlags2)
 			{
@@ -1079,27 +1141,9 @@ namespace detail
 				& val.m_Signature.m_k;
 
 			val.m_Commitment.m_Y = (1 & nFlags);
-
-			if (2 & nFlags)
-				ar & val.m_Fee;
-			else
-				val.m_Fee = 0;
-
-			if (4 & nFlags)
-				ar & val.m_Height.m_Min;
-			else
-				val.m_Height.m_Min = 0;
-
-			if (8 & nFlags)
-			{
-				beam::Height dh;
-				ar & dh;
-				val.m_Height.m_Max = val.m_Height.m_Min + dh;
-			}
-			else
-				val.m_Height.m_Max = beam::Height(-1);
-
 			val.m_Signature.m_NoncePub.m_Y = ((0x10 & nFlags) != 0);
+
+			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
 
 			if (0x20 & nFlags)
 			{
@@ -1107,22 +1151,7 @@ namespace detail
 				ar & *val.m_pHashLock;
 			}
 
-			if (0x40 & nFlags)
-			{
-				nRecursion++;
-
-				uint32_t nCount;
-				ar & nCount;
-
-				bool bNestedNonStd = !nCount;
-				if (bNestedNonStd)
-					ar & nCount;
-
-				val.m_vNested.resize(nCount);
-
-				for (uint32_t i = 0; i < nCount; i++)
-					ImplTxKernel::load2(ar, val.m_vNested[i], nRecursion, !bNestedNonStd);
-			}
+			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
 
 			val.m_AssetEmission = 0;
 
