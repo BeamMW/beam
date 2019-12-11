@@ -672,7 +672,6 @@ Item {
     }
 
     Component.onDestruction: {
-        console.log("Component.onDestruction");
         var item = walletStackView.currentItem;
         if (item && item.saveAddress && typeof item.saveAddress == "function") {
             item.saveAddress();
