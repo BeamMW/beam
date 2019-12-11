@@ -817,36 +817,22 @@ namespace beam
 		return hv;
 	}
 
-	void TxKernelStd::UpdateID()
+	void TxKernel::UpdateID()
 	{
-		uint8_t nFlags =
-			(m_pHashLock ? 1 : 0) |
-			(m_pRelativeLock ? 2 : 0) |
-			(m_CanEmbed ? 4 : 0);
-
 		ECC::Hash::Processor hp;
+		HashSelf(hp);
+		hp >> m_Internal.m_ID;
+	}
+
+	void TxKernel::HashBase(ECC::Hash::Processor& hp) const
+	{
 		hp	<< m_Fee
 			<< m_Height.m_Min
-			<< m_Height.m_Max
-			<< m_Commitment
-			<< Amount(m_AssetEmission)
-			<< nFlags;
+			<< m_Height.m_Max;
+	}
 
-		if (m_pHashLock)
-		{
-			hp << m_pHashLock->get_Image(m_Internal.m_ID);
-		}
-
-		if (m_pRelativeLock)
-		{
-			hp
-				<< m_pRelativeLock->m_ID
-				<< m_pRelativeLock->m_LockHeight;
-		}
-
-		ECC::Point::Native ptExcNested;
-		ptExcNested = Zero;
-
+	void TxKernel::HashNested(ECC::Hash::Processor& hp) const
+	{
 		for (auto it = m_vNested.begin(); ; it++)
 		{
 			bool bBreak = (m_vNested.end() == it);
@@ -860,8 +846,35 @@ namespace beam
 
 			hp << v.m_Internal.m_ID;
 		}
+	}
 
-		hp >> m_Internal.m_ID;
+	void TxKernelStd::HashSelf(ECC::Hash::Processor& hp) const
+	{
+		HashBase(hp);
+
+		uint8_t nFlags =
+			(m_pHashLock ? 1 : 0) |
+			(m_pRelativeLock ? 2 : 0) |
+			(m_CanEmbed ? 4 : 0);
+
+		hp	<< m_Commitment
+			<< Amount(m_AssetEmission)
+			<< nFlags;
+
+		if (m_pHashLock)
+		{
+			ECC::Hash::Value hv;
+			hp << m_pHashLock->get_Image(hv);
+		}
+
+		if (m_pRelativeLock)
+		{
+			hp
+				<< m_pRelativeLock->m_ID
+				<< m_pRelativeLock->m_LockHeight;
+		}
+
+		HashNested(hp);
 	}
 
 	bool TxKernel::IsValidBase(Height hScheme, ECC::Point::Native& comm, const TxKernel* pParent) const
@@ -1092,6 +1105,20 @@ namespace beam
 		v.m_AssetEmission = m_AssetEmission;
 		ClonePtr(v.m_pHashLock, m_pHashLock);
 		ClonePtr(v.m_pRelativeLock, m_pRelativeLock);
+	}
+
+	void TxKernelNonStd::HashSelf(ECC::Hash::Processor& hp) const
+	{
+		HashBase(hp);
+
+		ECC::Point comm(Zero);
+		comm.m_Y = 1; // invalid point
+		
+		hp
+			<< comm
+			<< static_cast<uint32_t>(get_Subtype());
+
+		HashNested(hp);
 	}
 
 	/////////////

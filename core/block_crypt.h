@@ -460,9 +460,10 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
+		void UpdateID();
+
 		virtual ~TxKernel() {}
 		virtual Subtype::Enum get_Subtype() const = 0;
-		virtual void UpdateID() = 0;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const = 0;
 		virtual void AddStats(TxStats&) const; // including self and nested
 		virtual int cmp_Subtype(const TxKernel&) const;
@@ -474,6 +475,9 @@ namespace beam
 		COMPARISON_VIA_CMP
 
 	protected:
+		virtual void HashSelf(ECC::Hash::Processor&) const = 0;
+		void HashBase(ECC::Hash::Processor&) const;
+		void HashNested(ECC::Hash::Processor&) const;
 		void CopyFrom(const TxKernel&);
 		bool IsValidBase(Height hScheme, ECC::Point::Native& comm, const TxKernel* pParent) const;
 	private:
@@ -519,12 +523,20 @@ namespace beam
 
 		virtual ~TxKernelStd() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual void UpdateID() override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual int cmp_Subtype(const TxKernel&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
+	protected:
+		virtual void HashSelf(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelNonStd
+		:public TxKernel
+	{
+	protected:
+		virtual void HashSelf(ECC::Hash::Processor&) const override;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
