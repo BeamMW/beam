@@ -21,6 +21,10 @@
 namespace beam::litecoin
 {
     constexpr uint64_t kDustThreshold = bitcoin::kDustThreshold;
+    extern const char kMainnetGenesisBlockHash[];
+    extern const char kTestnetGenesisBlockHash[];
+    extern const char kRegtestGenesisBlockHash[];
 
     uint8_t getAddressVersion();
+    std::vector<std::string> getGenesisBlockHashes();
 } // namespace beam::litecoin

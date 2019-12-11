@@ -39,6 +39,7 @@ namespace beam::qtum
             SetMinFeeRate(kQtumMinFeeRate);
             SetBlocksPerHour(kQtumBlocksPerHour);
             SetAddressVersion(getAddressVersion());
+            SetGenesisBlockHashes(getGenesisBlockHashes());
         }
     };
 } // namespace beam::qtum

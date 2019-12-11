@@ -302,6 +302,28 @@ namespace beam::bitcoin
             });
     }
 
+    void BitcoinCore016::getGenesisBlockHash(std::function<void(const Error&, const std::string&)> callback)
+    {
+        sendRequest("getblockhash", "0", [callback](IBridge::Error error, const json& result)
+        {
+            std::string genesisBlockHash;
+
+            if (error.m_type == IBridge::None)
+            {
+                try
+                {
+                    genesisBlockHash = result.get<std::string>();
+                }
+                catch (const std::exception & ex)
+                {
+                    error.m_type = IBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
+            callback(error, genesisBlockHash);
+        });
+    }
+
     std::string BitcoinCore016::getCoinName() const
     {
         return "bitcoin";

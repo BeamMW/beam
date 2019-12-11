@@ -22,12 +22,25 @@ namespace
 
 namespace beam::qtum
 {
+    const char kMainnetGenesisBlockHash[] = "000075aef83cf2853580f8ae8ce6f8c3096cfa21d98334d6e3f95e5582ed986c";
+    const char kTestnetGenesisBlockHash[] = "0000e803ee215c0684ca0d2f9220594d3f828617972aad66feb2ba51f5e14222";
+    const char kRegtestGenesisBlockHash[] = "665ed5b402ac0b44efc37d8926332994363e8a7278b7ee9a58fb972efadae943";
+
     uint8_t getAddressVersion()
     {
 #if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
         return kQtumMainnetP2KH;
 #else
         return kQtumTestnetP2KH;
+#endif
+    }
+
+    std::vector<std::string> getGenesisBlockHashes()
+    {
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
+        return { kMainnetGenesisBlockHash };
+#else
+        return { kTestnetGenesisBlockHash , kRegtestGenesisBlockHash };
 #endif
     }
 } // namespace beam::qtum

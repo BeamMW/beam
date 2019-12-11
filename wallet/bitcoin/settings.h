@@ -78,6 +78,7 @@ namespace beam::bitcoin
         virtual ConnectionType GetCurrentConnectionType() const = 0;
         virtual double GetBlocksPerHour() const = 0;
         virtual uint8_t GetAddressVersion() const = 0;
+        virtual std::vector<std::string> GetGenesisBlockHashes() const = 0;
     };
 
     boost::optional<ISettings::ConnectionType> from_string(const std::string&);
@@ -101,6 +102,7 @@ namespace beam::bitcoin
         ConnectionType GetCurrentConnectionType() const override;
         double GetBlocksPerHour() const override;
         uint8_t GetAddressVersion() const override;
+        std::vector<std::string> GetGenesisBlockHashes() const override;
 
         void SetConnectionOptions(const BitcoinCoreSettings& connectionSettings);
         void SetElectrumConnectionOptions(const ElectrumSettings& connectionSettings);
@@ -111,6 +113,7 @@ namespace beam::bitcoin
         void ChangeConnectionType(ConnectionType type);
         void SetBlocksPerHour(double beamBlocksPerBlock);
         void SetAddressVersion(uint8_t addressVersion);
+        void SetGenesisBlockHashes(const std::vector<std::string>& genesisBlockHashes);
 
     protected:
         BitcoinCoreSettings m_connectionSettings;
@@ -123,5 +126,6 @@ namespace beam::bitcoin
         uint32_t m_lockTimeInBlocks = 12 * 6;  // 12h
         double m_blocksPerHour = 6;
         uint8_t m_addressVersion = getAddressVersion();
+        std::vector<std::string> m_genesisBlockHashes = getGenesisBlockHashes();
     };
 } // namespace beam::bitcoin

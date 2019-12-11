@@ -23,6 +23,10 @@ namespace
 
 namespace beam::litecoin
 {
+    const char kMainnetGenesisBlockHash[] = "12a765e31ffd4059bada1e25190f6e98c99d9714d334efa41a195a7e7e04bfe2";
+    const char kTestnetGenesisBlockHash[] = "4966625a4b2851d9fdee139e56211a0d88575f59ed816ff5e6a63deb4e3e29a0";
+    const char kRegtestGenesisBlockHash[] = "530827f38f93b43ed12af0b3ad25a288dc02ed74d6d7857862df51fc56c416f9";
+
     uint8_t getAddressVersion()
     {
 #if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
@@ -30,6 +34,15 @@ namespace beam::litecoin
 #else
 
         return libbitcoin::wallet::ec_private::testnet_p2kh;
+#endif
+    }
+
+    std::vector<std::string> getGenesisBlockHashes()
+    {
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
+        return { kMainnetGenesisBlockHash };
+#else
+        return { kTestnetGenesisBlockHash , kRegtestGenesisBlockHash };
 #endif
     }
 } // namespace beam::litecoin

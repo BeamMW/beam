@@ -116,6 +116,11 @@ namespace beam::bitcoin
         return m_addressVersion;
     }
 
+    std::vector<std::string> Settings::GetGenesisBlockHashes() const
+    {
+        return m_genesisBlockHashes;
+    }
+
     void Settings::SetConnectionOptions(const BitcoinCoreSettings& connectionSettings)
     {
         m_connectionSettings = connectionSettings;
@@ -159,5 +164,10 @@ namespace beam::bitcoin
     void Settings::SetAddressVersion(uint8_t addressVersion)
     {
         m_addressVersion = addressVersion;
+    }
+
+    void Settings::SetGenesisBlockHashes(const std::vector<std::string>& genesisBlockHashes)
+    {
+        m_genesisBlockHashes = genesisBlockHashes;
     }
 } // namespace beam::bitcoin

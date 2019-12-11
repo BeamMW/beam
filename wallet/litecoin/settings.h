@@ -37,6 +37,7 @@ namespace beam::litecoin
             SetMinFeeRate(kLtcMinFeeRate);
             SetBlocksPerHour(kLTCBlocksPerHour);
             SetAddressVersion(getAddressVersion());
+            SetGenesisBlockHashes(getGenesisBlockHashes());
         }
     };
 } //namespace beam::litecoin

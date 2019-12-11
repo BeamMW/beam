@@ -463,6 +463,29 @@ namespace beam::bitcoin
         });
     }
 
+    void Electrum::getGenesisBlockHash(std::function<void(const Error&, const std::string&)> callback)
+    {
+        sendRequest("server.features", "", [callback](IBridge::Error error, const json& result, uint64_t)
+            {
+                std::string genesisBlockHash;
+
+                if (error.m_type == IBridge::None)
+                {
+                    try
+                    {
+                        genesisBlockHash = result["genesis_hash"].get<std::string>();
+                    }
+                    catch (const std::exception & ex)
+                    {
+                        error.m_type = IBridge::InvalidResultFormat;
+                        error.m_message = ex.what();
+                    }
+                }
+                callback(error, genesisBlockHash);
+                return false;
+            });
+    }
+
     void Electrum::listUnspent(std::function<void(const Error&, const std::vector<Utxo>&)> callback)
     {
         LOG_DEBUG() << "listunstpent command";
