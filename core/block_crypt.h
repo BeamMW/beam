@@ -417,7 +417,8 @@ namespace beam
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
 
 #define BeamKernelsAll(macro) \
-	macro(1, Std)
+	macro(1, Std) \
+	macro(2, AssetEmit)
 
 #define THE_MACRO(id, name) struct TxKernel##name;
 	BeamKernelsAll(THE_MACRO)
@@ -535,6 +536,29 @@ namespace beam
 	struct TxKernelNonStd
 		:public TxKernel
 	{
+	protected:
+		virtual void HashSelf(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelAssetEmit
+		:public TxKernelNonStd
+	{
+		typedef std::unique_ptr<TxKernelAssetEmit> Ptr;
+
+		AssetID m_AssetID;
+		AmountSigned m_Value;
+
+		ECC::Point		m_Commitment;	// aggregated, including nested kernels
+		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
+
+		TxKernelAssetEmit()
+			:m_Value(0)
+		{}
+
+		virtual ~TxKernelAssetEmit() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
 		virtual void HashSelf(ECC::Hash::Processor&) const override;
 	};

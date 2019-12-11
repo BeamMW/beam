@@ -1122,6 +1122,78 @@ namespace beam
 	}
 
 	/////////////
+	// TxKernelAssetEmit
+	TxKernel::Subtype::Enum TxKernelAssetEmit::get_Subtype() const
+	{
+		return Subtype::AssetEmit;
+	}
+
+	void TxKernelAssetEmit::HashSelf(ECC::Hash::Processor& hp) const
+	{
+		TxKernelNonStd::HashSelf(hp);
+		hp
+			<< m_Commitment
+			<< m_AssetID
+			<< Amount(m_Value);
+	}
+
+	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		const Rules& r = Rules::get(); // alias
+		if ((hScheme < r.pForks[2].m_Height) || !r.CA.Enabled)
+			return false; // unsupported for that version
+
+		if (!m_Value || (m_AssetID == Zero))
+			return false;
+
+		ECC::Point::Native pt;
+		if (!pt.ImportNnz(m_Commitment))
+			return false;
+
+		exc += pt;
+
+		if (!IsValidBase(hScheme, pt, pParent))
+			return false;
+
+		// TODO: check the signature
+		// prover must prove knowledge of preimages of m_Commitmend AND m_AssetID
+
+		SwitchCommitment sc(&m_AssetID);
+		assert(ECC::Tag::IsCustom(&sc.m_hGen));
+
+		sc.m_hGen = -sc.m_hGen;
+
+		if (r.CA.Deposit)
+			sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
+
+		// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
+		Amount val;
+		if (m_Value > 0)
+			val = m_Value;
+		else
+		{
+			val = -m_Value;
+			sc.m_hGen = -sc.m_hGen;
+		}
+
+		ECC::Tag::AddValue(exc, &sc.m_hGen, val);
+
+		return true;
+	}
+
+	void TxKernelAssetEmit::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelAssetEmit);
+		TxKernelAssetEmit& v = Cast::Up<TxKernelAssetEmit>(*p);
+
+		v.CopyFrom(*this);
+		v.m_Commitment = m_Commitment;
+		v.m_Signature = m_Signature;
+		v.m_AssetID = m_AssetID;
+		v.m_Value = m_Value;
+	}
+
+	/////////////
 	// Transaction
 	Transaction::FeeSettings::FeeSettings()
 	{

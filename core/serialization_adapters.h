@@ -1174,6 +1174,53 @@ namespace detail
 			}
         }
 
+
+        /// beam::TxKernelAssetEmit serialization
+		template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxKernelAssetEmit& val)
+        {
+			uint32_t nFlags =
+				ImplTxKernel::get_CommonFlags(val) |
+				(val.m_Commitment.m_Y ? 1 : 0) |
+				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
+				(val.m_CanEmbed ? 0x20 : 0);
+
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_Signature.m_NoncePub.m_X
+				& val.m_Signature.m_k
+				& val.m_AssetID
+				& val.m_Value;
+
+			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::save_Nested(ar, val);
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static void load0(Archive& ar, beam::TxKernelAssetEmit& val, uint32_t nRecursion)
+        {
+			uint32_t nFlags;
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_Signature.m_NoncePub.m_X
+				& val.m_Signature.m_k
+				& val.m_AssetID
+				& val.m_Value;
+
+			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
+
+			val.m_Commitment.m_Y = (1 & nFlags);
+			val.m_Signature.m_NoncePub.m_Y = ((0x10 & nFlags) != 0);
+
+			if (0x20 & nFlags)
+				val.m_CanEmbed = true;
+        }
+
         /// beam::Transaction serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxBase& txb)
