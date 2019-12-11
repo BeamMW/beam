@@ -1236,23 +1236,9 @@ namespace beam
 
 	void Transaction::get_Key(KeyType& key) const
 	{
-		if (m_Offset.m_Value == Zero)
-		{
-			// proper transactions must contain non-trivial offset, and this should be enough to identify it with sufficient probability
-			// However in case it's not specified - construct the key from contents
-			key = Zero;
-
-			for (size_t i = 0; i < m_vInputs.size(); i++)
-				key ^= m_vInputs[i]->m_Commitment.m_X;
-
-			for (size_t i = 0; i < m_vOutputs.size(); i++)
-				key ^= m_vOutputs[i]->m_Commitment.m_X;
-
-			for (size_t i = 0; i < m_vKernels.size(); i++)
-				key ^= m_vKernels[i]->m_Commitment.m_X;
-		}
-		else
-			key = m_Offset.m_Value;
+		// proper transactions must contain non-trivial offset, and this should be enough to identify it with sufficient probability
+		// In case it's not specified - just ignore the collisions (means, part of those txs would not propagate)
+		key = m_Offset.m_Value;
 	}
 
 	template <typename T>
