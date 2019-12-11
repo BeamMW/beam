@@ -95,11 +95,11 @@ ColumnLayout {
         cancelButtonText: qsTrId("general-close")
         cancelButtonVisible: true
         width: 460
-        height: 372
 
         contentItem: Item {
             ColumnLayout {
                 anchors.fill: parent
+                spacing: 20
                 SFText {
                     id: ownerKeyValue
                     Layout.fillWidth: true
@@ -108,7 +108,7 @@ ColumnLayout {
                     topPadding: 15
                     font.pixelSize: 14
                     color: Style.content_secondary
-                    wrapMode: Text.Wrap
+                    wrapMode: Text.WrapAnywhere
                     horizontalAlignment : Text.AlignHCenter
                     text: ""
                 }
