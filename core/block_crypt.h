@@ -211,8 +211,8 @@ namespace beam
 		AmountBig::Type m_Coinbase;
 
 		uint64_t m_Kernels;
-		uint64_t m_Inputs;
-		uint64_t m_Outputs;
+		uint64_t m_Inputs; // all types
+		uint64_t m_Outputs; // all types
 		uint64_t m_InputsShielded;
 		uint64_t m_OutputsShielded;
 

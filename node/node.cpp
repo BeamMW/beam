@@ -2265,7 +2265,9 @@ uint32_t Node::RandomUInt32(uint32_t threshold)
 
 uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
-	if (ptx->m_vInputs.empty() || ptx->m_vKernels.empty()) {
+	TxStats s;
+	ptx->get_Reader().AddStats(s);
+	if (!s.m_Inputs || !s.m_Kernels) {
 		// stupid compiler insists on parentheses here!
 		return proto::TxStatus::TooSmall;
 	}
