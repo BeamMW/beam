@@ -870,12 +870,6 @@ namespace beam
 		if ((hScheme < r.pForks[1].m_Height) && m_CanEmbed)
 			return false; // unsupported for that version
 
-		if (!pParent && (hScheme >= r.pForks[2].m_Height))
-		{
-			if (m_Height.m_Min < r.pForks[2].m_Height)
-				return false;
-		}
-
 		if (pParent)
 		{
 			if (!m_CanEmbed && (hScheme >= r.pForks[1].m_Height)) // for older version embedding is implicitly allowed (though unlikely to be used)
@@ -885,6 +879,12 @@ namespace beam
 			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
 				(m_Height.m_Max < pParent->m_Height.m_Max))
 				return false; // parent Height range must be contained in ours.
+		}
+		else
+		{
+			if ((hScheme >= r.pForks[2].m_Height) && (m_Height.m_Min < r.pForks[2].m_Height))
+				// Starting from Fork2 non-embedded kernels must have appropriate min height
+				return false;
 		}
 
 		if (!m_vNested.empty())
@@ -1073,6 +1073,7 @@ namespace beam
 		m_Internal = v.m_Internal;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
+		m_CanEmbed = v.m_CanEmbed;
 
 		m_vNested.resize(v.m_vNested.size());
 
