@@ -1535,6 +1535,17 @@ namespace
             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
         }
     }
+
+    struct CliNodeConnection final : public proto::FlyClient::NetworkStd
+    {
+    public:
+        CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
+        void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
+        {
+            LOG_ERROR() << kErrorConnectionFailed;
+        };
+    };
+    
 }
 
 io::Reactor::Ptr reactor;
@@ -1973,7 +1984,7 @@ int main_impl(int argc, char* argv[])
                                 return -1;
                             }
 
-                            auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
+                            auto nnet = make_shared<CliNodeConnection>(wallet);
                             nnet->m_Cfg.m_PollPeriod_ms = vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
                             if (nnet->m_Cfg.m_PollPeriod_ms)
                             {
@@ -1991,6 +2002,7 @@ int main_impl(int argc, char* argv[])
                             }
                             nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
                             nnet->Connect();
+                            // nnet->
                             wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
                             wallet.SetNodeEndpoint(nnet);
                         }

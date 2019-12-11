@@ -35,7 +35,6 @@ uint32_t resolve_host(std::string&& host) {
     hint.ai_family = AF_INET;
     hint.ai_socktype = SOCK_STREAM;
     hint.ai_protocol = IPPROTO_TCP;
-    hint.ai_flags = AI_CANONNAME;
 
     addrinfo* ai = nullptr;
 
@@ -45,17 +44,7 @@ uint32_t resolve_host(std::string&& host) {
     if (r == 0) {
         for (addrinfo* p = ai; p; p = p->ai_next) {
             if (p->ai_family == AF_INET) {
-                auto* addr = (sockaddr_in*)p->ai_addr;
-#ifndef WIN32
-                char* resolved_addr = inet_ntoa(addr->sin_addr);
-                bool is_same_host_resolved =
-                    resolved_addr && strcmp(host.c_str(), resolved_addr) == 0;
-                bool is_canonname = p->ai_canonname;
-                if (!is_canonname && !is_same_host_resolved) {
-                    continue;
-                }
-#endif // WIN32
-                ip = ntohl(addr->sin_addr.s_addr);
+                ip = ntohl(((sockaddr_in*)(p->ai_addr))->sin_addr.s_addr);
                 break;
             }
         }

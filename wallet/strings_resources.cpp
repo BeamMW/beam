@@ -98,6 +98,7 @@ namespace beam
     const char kErrorTxIdUnknown[] = "Unknown transaction ID.";
     const char kErrorImportPathInvalid[] = "Operation failed: provided path \"%1%\" is not valid";
     const char kErrorFileLocationParamReqired[] = "Failed, --file_location param required";
+    const char kErrorConnectionFailed[] = "Connection Failed - Please check your network";
 
     // Swap Tx statuses
     const char kSwapTxStatusInitial[] = "initial";
