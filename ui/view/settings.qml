@@ -110,7 +110,7 @@ ColumnLayout {
                     color: Style.content_secondary
                     wrapMode: Text.Wrap
                     horizontalAlignment : Text.AlignHCenter
-                    text: viewModel.getOwnerKey(showOwnerKeyDialog.pwd)
+                    text: ""
                 }
                 SFText {
                     Layout.fillWidth: true
@@ -135,6 +135,10 @@ deploy the key at the node you trust completely."*/
 
         onAccepted: {
             BeamGlobals.copyToClipboard(ownerKeyValue.text);
+        }
+
+        onOpened: {
+            ownerKeyValue.text = viewModel.getOwnerKey(showOwnerKeyDialog.pwd);
         }
     }
 
