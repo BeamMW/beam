@@ -285,6 +285,7 @@ namespace beam::wallet
         const Merkle::Hash& message = kernel.m_Internal.m_ID;
 
         Scalar::Native nonce = GetNonce(nonceSlot);
+        ECC::GenRandom(m_Nonces[nonceSlot].V); // Invalidate slot immediately after using it (to make it similar to HW wallet)!
 
 		kernel.m_Signature.m_NoncePub = publicNonce;
 		kernel.m_Signature.SignPartial(message, excess, nonce);
@@ -340,9 +341,10 @@ namespace beam::wallet
     {
         const auto& randomValue = m_Nonces[slot].V;
 
-        NoLeak<Scalar::Native> nonce;
-        m_MasterKdf->DeriveKey(nonce.V, randomValue);
-        return nonce.V;
+        Scalar::Native nonce;
+        m_MasterKdf->DeriveKey(nonce, randomValue);
+
+        return nonce;
     }
 
     Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset) const
