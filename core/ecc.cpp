@@ -2142,13 +2142,16 @@ namespace ECC {
 		get_Challenge(out, m_NoncePub, msg);
 	}
 
-	void Signature::MultiSig::SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const
+	void Signature::SignPartial(const Hash::Value& msg, const Scalar::Native& sk, const Scalar::Native& nonce)
 	{
-		get_Challenge(k, m_NoncePub, msg);
+		Scalar::Native k;
+		get_Challenge(k, msg);
 
 		k *= sk;
-		k += m_Nonce;
+		k += nonce;
 		k = -k;
+
+		m_k = k;
 	}
 
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
@@ -2156,21 +2159,21 @@ namespace ECC {
 		NonceGenerator nonceGen("beam-Schnorr");
 
 		NoLeak<Scalar> s_;
+		Scalar::Native nonce;
+
 		s_.V = sk;
-		nonceGen << s_.V.m_Value;
+		nonceGen
+			<< s_.V.m_Value
+			<< msg;
 
 		GenRandom(s_.V.m_Value); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
-		nonceGen << s_.V.m_Value;
+		nonceGen
+			<< s_.V.m_Value
+			>> nonce;
 
-		MultiSig msig;
-		nonceGen >> msig.m_Nonce;
-		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
+		m_NoncePub = Context::get().G * nonce;
 
-		Scalar::Native k;
-		msig.SignPartial(k, msg, sk);
-
-		m_NoncePub = msig.m_NoncePub;
-		m_k = k;
+		SignPartial(msg, sk, nonce);
 	}
 
 	bool Signature::IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk, const Scalar* pSer /* = nullptr */) const

@@ -155,6 +155,13 @@ namespace ECC
 
 	struct Signature
 	{
+		//	NOTE: Schnorr's multisig should be used carefully. If done naively it has the following potential weaknesses:
+		//	1. Key cancellation. (The attacker may exclude you and actually create a signature for its private key).
+		//		This isn't a problem for our case, but should be taken into consideration if used in other schemes.
+		//	2. Private Key leak. If the same message signed with the same key but co-signers use different nonces (altering the challenge) - there's a potential for key leak. 
+		//		This is indeed the case if the nonce is generated from the secret key and the message only.
+		//		In order to prevent this the signer **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
+
 		Point m_NoncePub;
 		Scalar m_k;
 
@@ -164,8 +171,7 @@ namespace ECC
 		// simple signature
 		void Sign(const Hash::Value& msg, const Scalar::Native& sk);
 
-		// multi-signature
-		struct MultiSig;
+		void SignPartial(const Hash::Value& msg, const Scalar::Native& sk, const Scalar::Native& nonce);
 
 		int cmp(const Signature&) const;
 		COMPARISON_VIA_CMP

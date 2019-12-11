@@ -284,13 +284,12 @@ namespace beam::wallet
 		kernel.UpdateID();
         const Merkle::Hash& message = kernel.m_Internal.m_ID;
 
-        ECC::Signature::MultiSig multiSig;
-        ECC::Scalar::Native partialSignature;
-        multiSig.m_NoncePub = publicNonce;
-        multiSig.m_Nonce = GetNonce(nonceSlot);
-        multiSig.SignPartial(partialSignature, message, excess);
+        Scalar::Native nonce = GetNonce(nonceSlot);
 
-        return Scalar(partialSignature);
+		kernel.m_Signature.m_NoncePub = publicNonce;
+		kernel.m_Signature.SignPartial(message, excess, nonce);
+
+		return kernel.m_Signature.m_k;
     }
 
     Key::IKdf::Ptr LocalPrivateKeyKeeper::get_SbbsKdf() const

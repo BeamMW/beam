@@ -1126,33 +1126,17 @@ void TestMultiSigOutput()
     pKernel->UpdateID();
 	const Hash::Value& message = pKernel->m_Internal.m_ID;
 
-    ECC::Signature::MultiSig multiSigKernel;
-    ECC::Scalar::Native partialSignatureA;
-    ECC::Scalar::Native partialSignatureB;
+	pKernel->m_Signature.m_NoncePub = noncePublic;
 
-    multiSigKernel.m_Nonce = nonceA;
-    multiSigKernel.m_NoncePub = noncePublic;
-    multiSigKernel.SignPartial(partialSignatureA, message, blindingExcessA);
-    {
-        // test Signature
-        Signature peerSig;
-        peerSig.m_NoncePub = noncePublic;
-        peerSig.m_k = partialSignatureA;
-        verify_test(peerSig.IsValidPartial(message, noncePublicA, blindingExcessPublicA));
-    }
+	pKernel->m_Signature.SignPartial(message, blindingExcessA, nonceA);
+	verify_test(pKernel->m_Signature.IsValidPartial(message, noncePublicA, blindingExcessPublicA));
+	Scalar::Native partialSignatureA = pKernel->m_Signature.m_k;
 
-    multiSigKernel.m_Nonce = nonceB;
-    multiSigKernel.SignPartial(partialSignatureB, message, blindingExcessB);
-    {
-        // test Signature
-        Signature peerSig;
-        peerSig.m_NoncePub = noncePublic;
-        peerSig.m_k = partialSignatureB;
-        verify_test(peerSig.IsValidPartial(message, noncePublicB, blindingExcessPublicB));
-    }
+	pKernel->m_Signature.SignPartial(message, blindingExcessB, nonceB);
+	verify_test(pKernel->m_Signature.IsValidPartial(message, noncePublicB, blindingExcessPublicB));
+	Scalar::Native partialSignatureB = pKernel->m_Signature.m_k;
 
     pKernel->m_Signature.m_k = partialSignatureA + partialSignatureB;
-    pKernel->m_Signature.m_NoncePub = noncePublic;
 
     // create transaction
     beam::Transaction transaction;
@@ -1273,6 +1257,7 @@ struct TransactionMaker
 		}
 
 		krn.m_Commitment = kG;
+		krn.m_Signature.m_NoncePub = xG;
 
 		krn.UpdateID();
 		const Hash::Value& msg = krn.m_Internal.m_ID;
@@ -1284,19 +1269,12 @@ struct TransactionMaker
 		{
 			Peer& p = m_pPeers[i];
 
-			Signature::MultiSig msig;
-			msig.m_Nonce = pX[i];
-			msig.m_NoncePub = xG;
-
-			Scalar::Native k;
-			msig.SignPartial(k, msg, p.m_k);
-
-			kSig += k;
+			krn.m_Signature.SignPartial(msg, p.m_k, pX[i]);
+			kSig += krn.m_Signature.m_k;
 
 			p.m_k = Zero; // signed, prepare for next tx
 		}
 
-		krn.m_Signature.m_NoncePub = xG;
 		krn.m_Signature.m_k = kSig;
 	}
 
@@ -1581,15 +1559,15 @@ struct HWWalletEmulator
 		krn.UpdateID();
 		const Hash::Value& krnID = krn.m_Internal.m_ID;
 
-		// Create partial signature
-
-		Signature::MultiSig msig;
-		msig.m_NoncePub.Import(tx.m_KernelNonce);
-
-		msig.m_Nonce = m_pNonces[tx.m_iNonce];
+		// fetch nonce
+		Scalar::Native nonce = m_pNonces[tx.m_iNonce];
 		Regenerate(tx.m_iNonce);
 
-		msig.SignPartial(res, krnID, skTotal);
+		// Create partial signature
+		krn.m_Signature.m_NoncePub = tx.m_KernelNonce;
+		krn.m_Signature.SignPartial(krnID, skTotal, nonce);
+
+		res = krn.m_Signature.m_k;
 
 		return true; // finito!
 	}
