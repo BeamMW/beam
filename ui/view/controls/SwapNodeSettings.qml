@@ -43,11 +43,12 @@ Control {
     //
     // Electrum props
     //
-    property alias addressElectrum:            addressInputElectrum.address
-    property alias seedPhrasesElectrum:        seedPhraseDialog.seedPhrasesElectrum
-    property alias phrasesSeparatorElectrum:   seedPhraseDialog.phrasesSeparatorElectrum
-    property bool  isCurrentElectrumSeedValid: false
-    property bool  canEditElectrum:            !control.isElectrumConnection
+    property alias addressElectrum:                     addressInputElectrum.address
+    property alias seedPhrasesElectrum:                 seedPhraseDialog.seedPhrasesElectrum
+    property alias phrasesSeparatorElectrum:            seedPhraseDialog.phrasesSeparatorElectrum
+    property bool  isCurrentElectrumSeedValid:          false
+    property bool  isCurrentElectrumSeedSegwitAndValid: false
+    property bool  canEditElectrum:                     !control.isElectrumConnection
 
     // function to get "receiving" addresses
     property var   getAddressesElectrum:       undefined
@@ -462,6 +463,7 @@ Control {
                     function editSeedPhrase() {
                         seedPhraseDialog.setModeEdit();
                         seedPhraseDialog.isCurrentElectrumSeedValid = Qt.binding(function(){return isCurrentElectrumSeedValid;});
+                        seedPhraseDialog.isCurrentElectrumSeedSegwitAndValid = Qt.binding(function(){return isCurrentElectrumSeedSegwitAndValid;});
                         seedPhraseDialog.open();
                     }
                     if (isCurrentElectrumSeedValid) {
@@ -638,11 +640,13 @@ fee while you have transactions in progress."
         modal:       true
         visible:     false
         
-        property string showSeedDialogTitle:        ""
-        property string phrasesSeparatorElectrum:   ""
-        property var    seedPhrasesElectrum:        undefined
-        property bool   isCurrentElectrumSeedValid: false
-        property bool   isSeedChanged:              false
+        property string showSeedDialogTitle:                 ""
+        property string phrasesSeparatorElectrum:            ""
+        property var    seedPhrasesElectrum:                 undefined
+        property bool   isCurrentElectrumSeedValid:          false
+        property bool   isCurrentElectrumSeedSegwitAndValid: false
+        property bool   isSeedChanged:                       false
+        property bool   isAllWordsAllowed:                   true
 
         signal newSeedElectrum
         signal copySeedElectrum
@@ -653,6 +657,10 @@ fee while you have transactions in progress."
         onValidateFullSeedPhrase: control.validateCurrentSeedPhrase()
         onClosed: {
             internalElectrum.isSeedChanged = seedPhraseDialog.isSeedChanged
+        }
+
+        Component.onCompleted: {
+            updateIsAllWordsAllowed();
         }
 
         function setModeEdit() {
@@ -695,6 +703,16 @@ fee while you have transactions in progress."
                 }
             }
             isSeedChanged = isChanged;
+        }
+
+        function updateIsAllWordsAllowed() {
+            for (var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
+                if (!seedPhraseDialog.seedPhrasesElectrum[i].isAllowed) {
+                    isAllWordsAllowed = false;
+                    return;
+                }
+            }
+            isAllWordsAllowed = true;
         }
 
         background: Rectangle {
@@ -740,11 +758,11 @@ fee while you have transactions in progress."
             // body: seed phrase
             GridLayout {
                 Layout.topMargin:    50
-                Layout.bottomMargin: 50
+                Layout.bottomMargin: invalidSeedWarning.visible ? 6 : 50
                 columns:             4
                 columnSpacing:       30
                 rowSpacing:          20
-                                    
+
                 Repeater {
                     model: seedPhrasesElectrum
                     Rectangle {
@@ -809,6 +827,7 @@ fee while you have transactions in progress."
                                     onValueChanged: {
                                         seedPhraseDialog.updateIsSeedChanged();
                                         seedPhraseDialog.validateFullSeedPhrase()
+                                        seedPhraseDialog.updateIsAllWordsAllowed()
                                     }
                                 }
                             }
@@ -825,6 +844,24 @@ fee while you have transactions in progress."
                         }
                     }
                 }
+            }
+
+            SFText {
+                id: invalidSeedWarning
+                Layout.fillWidth:     true
+                Layout.bottomMargin:  28
+                text:                 isCurrentElectrumSeedSegwitAndValid ? 
+                                      //% "Segwit seed phrase is not supported yet."
+                                      qsTrId("settings-swap-seed-segwit-warning") :
+                                      //% "Invalid seed phrase. Please check again and resubmit."
+                                      qsTrId("settings-swap-seed-invali-warning")
+                color:                Style.validator_error
+                font.pixelSize:       12
+                font.styleName:       "Italic"
+                width:                parent.width
+                horizontalAlignment:  Text.AlignHCenter
+                visible:              isCurrentElectrumSeedSegwitAndValid || 
+                                      (!isCurrentElectrumSeedValid && seedPhraseDialog.isAllWordsAllowed && seedPhraseDialog.isSeedChanged)
             }
 
             // buttons
@@ -856,14 +893,9 @@ fee while you have transactions in progress."
                     Layout.minimumWidth:    126
                     text:                   qsTrId("settings-apply")
                     icon.source:            "qrc:/assets/icon-done.svg"
-                    enabled: {
-                        var enable = seedPhraseDialog.isCurrentElectrumSeedValid && seedPhraseDialog.isSeedChanged;
-                        for (var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
-                            enable = enable && seedPhraseDialog.seedPhrasesElectrum[i].isAllowed;
-                        }
-                        return enable;
-                    }
-                    onClicked: seedPhraseDialog.applySeedPhrase()
+                    enabled:                seedPhraseDialog.isCurrentElectrumSeedValid && 
+                                            seedPhraseDialog.isSeedChanged && seedPhraseDialog.isAllWordsAllowed;
+                    onClicked:              seedPhraseDialog.applySeedPhrase()
                 }
 
                 // viewPhrase: "close" "copy"

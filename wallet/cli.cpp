@@ -963,6 +963,10 @@ namespace
 
                 if (!bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords))
                 {
+                    if (bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords, true))
+                    {
+                        throw std::runtime_error("Segwit seed phrase is not supported yet.");
+                    }
                     throw std::runtime_error("seed is not valid");
                 }
             }

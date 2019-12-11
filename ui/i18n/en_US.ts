@@ -1994,5 +1994,13 @@ deploy the key at the node you trust completely.</translation>
         <source>2 hours</source>
         <translation>2 hours</translation>
     </message>
+    <message id="settings-swap-seed-segwit-warning">
+        <source>Segwit seed phrase is not supported yet.</source>
+        <translation>Segwit seed phrase is not supported yet.</translation>
+    </message>
+    <message id="settings-swap-seed-invali-warning">
+        <source>Invalid seed phrase. Please check again and resubmit.</source>
+        <translation>Invalid seed phrase. Please check again and resubmit.</translation>
+    </message>
 </context>
 </TS>

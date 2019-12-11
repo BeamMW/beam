@@ -351,6 +351,11 @@ bool SwapCoinSettingsItem::getIsCurrentSeedValid() const
     return m_isCurrentSeedValid;
 }
 
+bool SwapCoinSettingsItem::getIsCurrentSeedSegwit() const
+{
+    return m_isCurrentSeedSegwit;
+}
+
 QString SwapCoinSettingsItem::getNodeAddressElectrum() const
 {
     return m_nodeAddressElectrum;
@@ -533,6 +538,7 @@ void SwapCoinSettingsItem::validateCurrentElectrumSeedPhrase()
     }
 
     setIsCurrentSeedValid(bitcoin::validateElectrumMnemonic(seedElectrum));
+    setIsCurrentSeedSegwit(bitcoin::validateElectrumMnemonic(seedElectrum, true));
 }
 
 void SwapCoinSettingsItem::LoadSettings()
@@ -587,6 +593,7 @@ void SwapCoinSettingsItem::SetSeedElectrum(const std::vector<std::string>& seedE
     }
 
     setIsCurrentSeedValid(bitcoin::validateElectrumMnemonic(seedElectrum));
+    setIsCurrentSeedSegwit(bitcoin::validateElectrumMnemonic(seedElectrum, true));
     emit electrumSeedPhrasesChanged();
 }
 
@@ -618,6 +625,15 @@ void SwapCoinSettingsItem::setIsCurrentSeedValid(bool value)
     {
         m_isCurrentSeedValid = value;
         emit isCurrentSeedValidChanged();
+    }
+}
+
+void SwapCoinSettingsItem::setIsCurrentSeedSegwit(bool value)
+{
+    if (m_isCurrentSeedSegwit != value)
+    {
+        m_isCurrentSeedSegwit = value;
+        emit isCurrentSeedSegwitChanged();
     }
 }
 

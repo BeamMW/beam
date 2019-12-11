@@ -235,10 +235,11 @@ deploy the key at the node you trust completely."*/
                     //
                     // Electrum
                     //
-                    addressElectrum:            modelData.nodeAddressElectrum
-                    seedPhrasesElectrum:        modelData.electrumSeedPhrases
-                    phrasesSeparatorElectrum:   modelData.phrasesSeparatorElectrum
-                    isCurrentElectrumSeedValid: modelData.isCurrentSeedValid
+                    addressElectrum:                     modelData.nodeAddressElectrum
+                    seedPhrasesElectrum:                 modelData.electrumSeedPhrases
+                    phrasesSeparatorElectrum:            modelData.phrasesSeparatorElectrum
+                    isCurrentElectrumSeedValid:          modelData.isCurrentSeedValid
+                    isCurrentElectrumSeedSegwitAndValid: modelData.isCurrentSeedSegwit
 
                     Connections {
                         target: modelData
@@ -266,6 +267,7 @@ deploy the key at the node you trust completely."*/
                         onNodeAddressElectrumChanged: settingsControl.addressElectrum = modelData.nodeAddressElectrum
                         onElectrumSeedPhrasesChanged: settingsControl.seedPhrasesElectrum = modelData.electrumSeedPhrases
                         onIsCurrentSeedValidChanged:  settingsControl.isCurrentElectrumSeedValid = modelData.isCurrentSeedValid
+                        onIsCurrentSeedSegwitChanged: settingsControl.isCurrentElectrumSeedSegwitAndValid = modelData.isCurrentSeedSegwit
                     }
 
                     onApplyNode:                 modelData.applyNodeSettings()

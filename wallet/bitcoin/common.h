@@ -36,7 +36,7 @@ namespace beam::bitcoin
     uint64_t btc_to_satoshi(double btc);
     uint8_t getAddressVersion();
     std::vector<std::string> getGenesisBlockHashes();
-    bool validateElectrumMnemonic(const std::vector<std::string>& words);
+    bool validateElectrumMnemonic(const std::vector<std::string>& words, bool isSegwitType = false);
     std::vector<std::string> createElectrumMnemonic(const std::vector<uint8_t>& entropy);
 
     // the first key is receiving master private key

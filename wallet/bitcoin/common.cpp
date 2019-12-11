@@ -45,9 +45,10 @@ namespace beam::bitcoin
 #endif
     }
 
-    bool validateElectrumMnemonic(const std::vector<std::string>& words)
+    bool validateElectrumMnemonic(const std::vector<std::string>& words, bool isSegwitType)
     {
-        return libbitcoin::wallet::electrum::validate_mnemonic(words);
+        auto seedType = isSegwitType ? libbitcoin::wallet::electrum::seed::witness : libbitcoin::wallet::electrum::seed::standard;
+        return libbitcoin::wallet::electrum::validate_mnemonic(words, seedType);
     }
 
     std::vector<std::string> createElectrumMnemonic(const std::vector<uint8_t>& entropy)

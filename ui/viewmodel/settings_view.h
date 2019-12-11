@@ -73,6 +73,7 @@ class SwapCoinSettingsItem : public QObject
     // electrum settings
     Q_PROPERTY(QChar           phrasesSeparatorElectrum READ getPhrasesSeparatorElectrum                          CONSTANT)
     Q_PROPERTY(bool            isCurrentSeedValid       READ getIsCurrentSeedValid                                NOTIFY isCurrentSeedValidChanged)
+    Q_PROPERTY(bool            isCurrentSeedSegwit      READ getIsCurrentSeedSegwit                               NOTIFY isCurrentSeedSegwitChanged)
     Q_PROPERTY(QList<QObject*> electrumSeedPhrases      READ getElectrumSeedPhrases                               NOTIFY electrumSeedPhrasesChanged)
     Q_PROPERTY(QString         nodeAddressElectrum      READ getNodeAddressElectrum  WRITE setNodeAddressElectrum NOTIFY nodeAddressElectrumChanged)
 
@@ -105,6 +106,7 @@ public:
     void setNodeAddress(const QString& value);
 
     bool getIsCurrentSeedValid() const;
+    bool getIsCurrentSeedSegwit() const;
     QList<QObject*> getElectrumSeedPhrases();
     QChar getPhrasesSeparatorElectrum() const;
     QString getNodeAddressElectrum() const;
@@ -143,6 +145,7 @@ signals:
     void nodeAddressChanged();
 
     void isCurrentSeedValidChanged();
+    void isCurrentSeedSegwitChanged();
     void electrumSeedPhrasesChanged();
     void nodeAddressElectrumChanged();
 
@@ -161,6 +164,7 @@ private:
     void SetDefaultElectrumSettings();
     void setConnectionType(beam::bitcoin::ISettings::ConnectionType type);
     void setIsCurrentSeedValid(bool value);
+    void setIsCurrentSeedSegwit(bool value);
 
     std::vector<std::string> GetSeedPhraseFromSeedItems() const;
 
@@ -180,6 +184,8 @@ private:
     QList<QObject*> m_seedPhraseItems;
     QString m_nodeAddressElectrum;
     bool m_isCurrentSeedValid = false;
+    // "true" if current seed valid and segwit type
+    bool m_isCurrentSeedSegwit = false;
 };
 
 
