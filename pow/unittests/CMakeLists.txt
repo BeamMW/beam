@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.13)
 
 add_test_snippet(equihash_test pow)
 target_link_libraries(equihash_test pow core)
