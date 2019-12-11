@@ -1756,6 +1756,24 @@ namespace ECC {
 			<< uint32_t(2) // increment this each time we change signature formula (rangeproof and etc.)
 			>> ctx.m_hvChecksum;
 
+		ctx.m_Sig.m_GenG.m_pGen = &ctx.G;
+		ctx.m_Sig.m_GenG.m_pGenPrep = &ctx.m_Ipp.G_;
+		ctx.m_Sig.m_GenG.m_nBatchIdx = InnerProduct::BatchContext::s_Idx_G;
+
+		ctx.m_Sig.m_CfgG1.m_nKeys = 1;
+		ctx.m_Sig.m_CfgG1.m_nG = 1;
+		ctx.m_Sig.m_CfgG1.m_pG = &ctx.m_Sig.m_GenG;
+
+		ctx.m_Sig.m_pGenGJ[0] = ctx.m_Sig.m_GenG;
+
+		ctx.m_Sig.m_pGenGJ[1].m_pGen = &ctx.J;
+		ctx.m_Sig.m_pGenGJ[1].m_pGenPrep = &ctx.m_Ipp.J_;
+		ctx.m_Sig.m_pGenGJ[1].m_nBatchIdx = InnerProduct::BatchContext::s_Idx_J;
+
+		ctx.m_Sig.m_CfgGJ1.m_nKeys = 1;
+		ctx.m_Sig.m_CfgGJ1.m_nG = 2;
+		ctx.m_Sig.m_CfgGJ1.m_pG = ctx.m_Sig.m_pGenGJ;
+
 #ifndef NDEBUG
 		g_bContextInitialized = true;
 #endif // NDEBUG
@@ -2132,100 +2150,184 @@ namespace ECC {
 
 	/////////////////////
 	// Signature
-	void Signature::get_Challenge(Scalar::Native& out, const Point& pt, const Hash::Value& msg)
+	void SignatureBase::Expose(Oracle& oracle, const Hash::Value& msg) const
 	{
-		Oracle() << pt << msg >> out;
-	}
-
-	void Signature::get_Challenge(Scalar::Native& out, const Hash::Value& msg) const
-	{
-		get_Challenge(out, m_NoncePub, msg);
-	}
-
-	void Signature::SignPartial(const Hash::Value& msg, const Scalar::Native& sk, const Scalar::Native& nonce)
-	{
-		Scalar::Native k;
-		get_Challenge(k, msg);
-
-		k *= sk;
-		k += nonce;
-		k = -k;
-
-		m_k = k;
-	}
-
-	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
-	{
-		NonceGenerator nonceGen("beam-Schnorr");
-
-		NoLeak<Scalar> s_;
-		Scalar::Native nonce;
-
-		s_.V = sk;
-		nonceGen
-			<< s_.V.m_Value
+		oracle
+			<< m_NoncePub
 			<< msg;
-
-		GenRandom(s_.V.m_Value); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
-		nonceGen
-			<< s_.V.m_Value
-			>> nonce;
-
-		m_NoncePub = Context::get().G * nonce;
-
-		SignPartial(msg, sk, nonce);
 	}
 
-	bool Signature::IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk, const Scalar* pSer /* = nullptr */) const
+	void SignatureBase::get_Challenge(Scalar::Native& out, const Hash::Value& msg) const
+	{
+		Oracle oracle;
+		Expose(oracle, msg);
+		oracle >> out;
+	}
+
+	bool SignatureBase::IsValid(const Config& cfg, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk) const
+	{
+		Point::Native noncePub;
+		if (!noncePub.Import(m_NoncePub))
+			return false;
+
+		return IsValidPartial(cfg, msg, pK, pPk, noncePub);
+	}
+
+	bool SignatureBase::IsValidPartial(const Config& cfg, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		Scalar::Native e;
-		get_Challenge(e, msg);
+		Oracle oracle;
+		Expose(oracle, msg);
+
+		// TODO: remove this limitation, get adequate MultiMac instance by vcall to cfg, which would invoke us back
+		const uint32_t nMaxG = 2;
+		const uint32_t nMaxK = 2;
+		assert((cfg.m_nG <= nMaxG) && (cfg.m_nKeys <= nMaxK));
+
+		MultiMac_WithBufs<nMaxK, nMaxG> mm;
 
 		InnerProduct::BatchContext* pBc = InnerProduct::BatchContext::s_pInstance;
 		if (pBc)
-		{
 			pBc->EquationBegin();
-
-			pBc->AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_k);
-			if (pSer)
-				pBc->AddPrepared(InnerProduct::BatchContext::s_Idx_J, *pSer);
-			pBc->AddCasual(pk, e);
-			pBc->AddCasual(pubNonce, pBc->m_Multiplier, true);
-
-			return true;
+		else
+		{
+			mm.m_Prepared = cfg.m_nG;
+			mm.m_Casual = cfg.m_nKeys;
 		}
 
-		MultiMac_WithBufs<1, 2> mm;
-		mm.m_ppPrepared[0] = &Context::get().m_Ipp.G_;
-		mm.m_pKPrep[0] = m_k;
-		mm.m_Prepared = 1;
-		mm.m_pCasual[0].Init(pk);
-		mm.m_pKCasual = &e;
-		mm.m_Casual = 1;
-
-		if (pSer)
+		for (uint32_t iK = 0; iK < cfg.m_nKeys; iK++)
 		{
-			mm.m_ppPrepared[1] = &Context::get().m_Ipp.J_;
-			mm.m_pKPrep[1] = *pSer;
-			mm.m_Prepared = 2;
+			Scalar::Native e;
+			oracle >> e;
+
+			if (pBc)
+				pBc->AddCasual(pPk[iK], e);
+			else
+			{
+				mm.m_pCasual[iK].Init(pPk[iK]);
+				mm.m_pKCasual[iK] = e;
+			}
+		}
+
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+		{
+			if (pBc)
+				pBc->AddPrepared(cfg.m_pG[iG].m_nBatchIdx, pK[iG]);
+			else
+			{
+				mm.m_ppPrepared[iG] = cfg.m_pG[iG].m_pGenPrep;
+				mm.m_pKPrep[iG] = pK[iG];
+			}
+		}
+
+		if (pBc)
+		{
+			pBc->AddCasual(noncePub, pBc->m_Multiplier, true);
+			return true;
 		}
 
 		Point::Native pt;
 		mm.Calculate(pt);
 
-		pt += pubNonce;
+		pt += noncePub;
 		return pt == Zero;
 	}
 
-	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk, const Scalar* pSer /* = nullptr */) const
+	void SignatureBase::SetNoncePub(const Config& cfg, const Scalar::Native* pNonce)
 	{
-		Point::Native pubNonce;
-		if (!pubNonce.Import(m_NoncePub))
-			return false;
+		Point::Native pubNonce = (*cfg.m_pG[0].m_pGen) * pNonce[0];
 
-		return IsValidPartial(msg, pubNonce, pk, pSer);
+		for (uint32_t iG = 1; iG < cfg.m_nG; iG++)
+			pubNonce += (*cfg.m_pG[iG].m_pGen) * pNonce[iG];
+
+		m_NoncePub = pubNonce;
+	}
+
+	void SignatureBase::Sign(const Config& cfg, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes)
+	{
+		NonceGenerator nonceGen("beam-Schnorr");
+
+		NoLeak<Scalar> s_;
+
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+		{
+			s_.V = pSk[iG];
+			nonceGen << s_.V.m_Value;
+		}
+
+		nonceGen << msg;
+
+		GenRandom(s_.V.m_Value); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
+		nonceGen
+			<< s_.V.m_Value;
+
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+			nonceGen >> pRes[iG];
+
+		SetNoncePub(cfg, pRes);
+
+		SignRaw(cfg, msg, pK, pSk, pRes);
+	}
+
+	void SignatureBase::SignRaw(const Config& cfg, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes) const
+	{
+		Oracle oracle;
+		Expose(oracle, msg);
+
+		Scalar::Native e, k;
+
+		for (uint32_t iK = 0; iK < cfg.m_nKeys; iK++, pSk += cfg.m_nG)
+		{
+			oracle >> e; // challenge
+
+			for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+			{
+				k = pSk[iG] * e;
+				pRes[iG] += k;
+			}
+		}
+
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+		{
+			pRes[iG] = -pRes[iG];
+			pK[iG] = pRes[iG];
+		}
+	}
+
+	void SignatureBase::SignPartial(const Config& cfg, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, const Scalar::Native* pNonce, Scalar::Native* pRes) const
+	{
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+			pRes[iG] = pNonce[iG];
+
+		SignRaw(cfg, msg, pK, pSk, pRes);
+	}
+
+	const SignatureBase::Config& Signature::get_Config()
+	{
+		return ECC::Context::get().m_Sig.m_CfgG1;
+	}
+
+	void Signature::SignPartial(const Hash::Value& msg, const Scalar::Native& sk, const Scalar::Native& nonce)
+	{
+		Scalar::Native res;
+		SignatureBase::SignPartial(get_Config(), msg, &m_k, &sk, &nonce, &res);
+	}
+
+	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
+	{
+		Scalar::Native res;
+		SignatureBase::Sign(get_Config(), msg, &m_k, &sk, &res);
+	}
+
+	bool Signature::IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk) const
+	{
+		return SignatureBase::IsValidPartial(get_Config(), msg, &m_k, &pk, pubNonce);
+	}
+
+	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
+	{
+		return SignatureBase::IsValid(get_Config(), msg, &m_k, &pk);
 	}
 
 	int Signature::cmp(const Signature& x) const

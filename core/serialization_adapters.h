@@ -746,8 +746,8 @@ namespace detail
 				& nFlags
 				& x.m_SerialPub.m_X
 				& x.m_Signature.m_NoncePub.m_X
-				& x.m_Signature.m_k
-				& x.m_kSer;
+				& x.m_Signature.m_pK[0]
+				& x.m_Signature.m_pK[1];
 
 			return ar;
 		}
@@ -761,8 +761,8 @@ namespace detail
 				& nFlags
 				& x.m_SerialPub.m_X
 				& x.m_Signature.m_NoncePub.m_X
-				& x.m_Signature.m_k
-				& x.m_kSer;
+				& x.m_Signature.m_pK[0]
+				& x.m_Signature.m_pK[1];
 
 			x.m_SerialPub.m_Y = (1 & nFlags);
 			x.m_Signature.m_NoncePub.m_Y = 0 != (2 & nFlags);

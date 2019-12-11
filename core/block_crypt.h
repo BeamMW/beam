@@ -326,8 +326,7 @@ namespace beam
 		struct Shielded
 		{
 			ECC::Point m_SerialPub; // blinded
-			ECC::Signature m_Signature;
-			ECC::Scalar m_kSer;
+			ECC::SignatureGeneralized<2> m_Signature;
 
 			bool IsValid() const;
 

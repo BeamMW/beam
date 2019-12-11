@@ -737,6 +737,21 @@ namespace ECC
 		void GenerateChildParallel(Key::IPKdf&, const Hash::Value&); // generate a subkey compatible with the appropriate HKdfPub
 	};
 
+	struct SignatureBase::Config
+	{
+		uint32_t m_nG; // num of generators
+		uint32_t m_nKeys; // num of keys
+
+		struct Generator
+		{
+			const MultiMac::Prepared* m_pGenPrep;
+			const ECC::Generator::Obscured* m_pGen;
+			uint32_t m_nBatchIdx;
+		};
+
+		const Generator* m_pG;
+	};
+
 	struct Context
 	{
 		static const Context& get();
@@ -768,6 +783,16 @@ namespace ECC
 			Point::Compact m_Compensation;
 
 		} m_Casual;
+
+		struct Sig
+		{
+			SignatureBase::Config::Generator m_GenG;
+			SignatureBase::Config::Generator m_pGenGJ[2];
+
+			SignatureBase::Config m_CfgG1; // regular
+			SignatureBase::Config m_CfgGJ1; // Generalized G+J
+
+		} m_Sig;
 
 		Hash::Value m_hvChecksum; // all the generators and signature version. In case we change seed strings or formula
 

@@ -153,9 +153,15 @@ namespace ECC
 
 	typedef beam::Amount Amount;
 
-	struct Signature
+	struct SignatureBase
 	{
-		//	NOTE: Schnorr's multisig should be used carefully. If done naively it has the following potential weaknesses:
+		//	Generalized Schnorr's signature. Very flexible.
+		//	1. Multiple generators
+		//	2. Multiple keys
+		//		This is different from multi-signature. Rather than proving sum of keys the prover must prove each key separately
+		//		It is verified by generating multiple challenges, and comparing vs multiple known pubkeys (each of which can be a linear combination of multiple generators)
+		// 
+		//	NOTE: Schnorr's multi-signature should be used carefully. If done naively it has the following potential weaknesses:
 		//	1. Key cancellation. (The attacker may exclude you and actually create a signature for its private key).
 		//		This isn't a problem for our case, but should be taken into consideration if used in other schemes.
 		//	2. Private Key leak. If the same message signed with the same key but co-signers use different nonces (altering the challenge) - there's a potential for key leak. 
@@ -163,22 +169,45 @@ namespace ECC
 		//		In order to prevent this the signer **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
 
 		Point m_NoncePub;
+
+		void Expose(Oracle&, const Hash::Value& msg) const;
+		void get_Challenge(Scalar::Native&, const Hash::Value& msg) const; // suitable for 1 key (otherwise multiple challenges should be generated)
+
+		struct Config;
+
+		bool IsValid(const Config&, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk) const;
+		bool IsValidPartial(const Config&, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const;
+
+		void Sign(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes);
+		void SignRaw(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes) const;
+		void SignPartial(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, const Scalar::Native* pNonce, Scalar::Native* pRes) const;
+		void SetNoncePub(const Config&, const Scalar::Native* pNonce);
+	};
+
+
+	struct Signature
+		:public SignatureBase
+	{
+		static const Config& get_Config();
+
 		Scalar m_k;
 
-		bool IsValid(const Hash::Value& msg, const Point::Native& pk, const Scalar* pSer = nullptr) const;
-		bool IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk, const Scalar* pSer = nullptr) const;
+		bool IsValid(const Hash::Value& msg, const Point::Native& pk) const;
+		bool IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk) const;
 
 		// simple signature
 		void Sign(const Hash::Value& msg, const Scalar::Native& sk);
-
 		void SignPartial(const Hash::Value& msg, const Scalar::Native& sk, const Scalar::Native& nonce);
 
 		int cmp(const Signature&) const;
 		COMPARISON_VIA_CMP
+	};
 
-		void get_Challenge(Scalar::Native&, const Hash::Value& msg) const;
-	private:
-		static void get_Challenge(Scalar::Native&, const Point&, const Hash::Value& msg);
+	template <uint32_t nG>
+	struct SignatureGeneralized
+		:public SignatureBase
+	{
+		Scalar m_pK[nG];
 	};
 
 	struct Key

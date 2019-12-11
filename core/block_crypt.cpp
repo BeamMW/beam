@@ -374,7 +374,8 @@ namespace beam
 
 		ECC::Hash::Value hv;
 		get_Hash(hv);
-		return m_Signature.IsValid(hv, comm, &m_kSer);
+
+		return m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgGJ1, hv, m_Signature.m_pK, &comm);
 	}
 
 	int Output::Shielded::cmp(const Shielded& v) const
@@ -469,8 +470,8 @@ namespace beam
 				oracle
 					<< m_pShielded->m_SerialPub
 					<< m_pShielded->m_Signature.m_NoncePub
-					<< m_pShielded->m_Signature.m_k
-					<< m_pShielded->m_kSer;
+					<< m_pShielded->m_Signature.m_pK[0]
+					<< m_pShielded->m_Signature.m_pK[1];
 			}
 		}
 
@@ -642,14 +643,15 @@ namespace beam
 
 	void Output::Shielded::Data::GenerateS(Shielded& s, const PublicGen& gen, const ECC::Hash::Value& nonce)
 	{
-		ECC::Scalar::Native kJ, nG, nJ, e;
+		ECC::Scalar::Native pSk[2];
 
 		gen.m_pSer->DerivePKey(m_kSerG, HashTxt("kG") << nonce);
-		GetSerial(kJ, *gen.m_pSer);
+		pSk[0] = m_kSerG;
+		GetSerial(pSk[1], *gen.m_pSer);
 		ToSk(*gen.m_pGen);
 
 		ECC::Point::Native pt, pt1;
-		DoubleBlindedCommitment(pt, m_kSerG, kJ);
+		DoubleBlindedCommitment(pt, pSk[0], pSk[1]);
 
 		s.m_SerialPub = pt;
 
@@ -660,25 +662,18 @@ namespace beam
 		gen.m_pGen->DerivePKeyG(pt, hv);
 		gen.m_pGen->DerivePKeyJ(pt1, hv);
 
-		pt = pt * m_kSerG;
-		pt += pt1 * kJ; // shared point
+		pt = pt * pSk[0];
+		pt += pt1 * pSk[1]; // shared point
 
-		GenerateS1(*gen.m_pGen, pt, nG, nJ);
+		ECC::Scalar::Native pN[2];
+
+		GenerateS1(*gen.m_pGen, pt, pN[0], pN[1]);
 
 		// generalized Schnorr's sig
-		Data::DoubleBlindedCommitment(pt, nG, nJ);
-		s.m_Signature.m_NoncePub = pt;
-
 		s.get_Hash(hv);
-		s.m_Signature.get_Challenge(e, hv);
 
-		kJ *= e;
-		kJ += nJ;
-		s.m_kSer = -kJ;
-
-		kJ = m_kSerG * e;
-		kJ += nG;
-		s.m_Signature.m_k = -kJ;
+		s.m_Signature.SetNoncePub(ECC::Context::get().m_Sig.m_CfgGJ1, pN);
+		s.m_Signature.SignRaw(ECC::Context::get().m_Sig.m_CfgGJ1, hv, s.m_Signature.m_pK, pSk, pN);
 	}
 
 	void Output::Shielded::Data::Generate(Output& outp, const PublicGen& gen, const ECC::Hash::Value& nonce)
@@ -765,10 +760,10 @@ namespace beam
 		if (!IsEqual(pt, s.m_Signature.m_NoncePub))
 			return false;
 
-		m_kSerG = s.m_Signature.m_k;
+		m_kSerG = s.m_Signature.m_pK[0];
 		m_kSerG += nG;
 
-		kJ = s.m_kSer;
+		kJ = s.m_Signature.m_pK[1];
 		kJ += nJ;
 
 		s.get_Hash(hv);
