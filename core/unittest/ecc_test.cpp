@@ -182,7 +182,7 @@ void SetRandom(Key::IKdf::Ptr& pPtr)
 {
 	uintBig hv;
 	SetRandom(hv);
-	ECC::HKdf::Create(pPtr, hv);
+	HKdf::Create(pPtr, hv);
 }
 
 
@@ -683,7 +683,7 @@ void TestCommitments()
 		Key::IDV kidv(100500, 15, Key::Type::Regular, 7, nScheme);
 
 		Scalar::Native sk;
-		ECC::Point::Native comm;
+		Point::Native comm;
 		beam::SwitchCommitment().Create(sk, comm, kdf, kidv);
 
 		sigma = Commitment(sk, kidv.m_Value);
@@ -976,7 +976,7 @@ void TestRangeProof(bool bCustomTag)
 
 void TestMultiSigOutput()
 {
-    ECC::Amount amount = 5000;
+    Amount amount = 5000;
 
     beam::Key::IKdf::Ptr pKdf_A;
     beam::Key::IKdf::Ptr pKdf_B;
@@ -1053,7 +1053,7 @@ void TestMultiSigOutput()
 
     // B part3
     {
-		outp.m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
+		outp.m_pConfidential = std::make_unique<RangeProof::Confidential>();
 		outp.m_pConfidential->m_Part1 = multiSig.m_Part1;
 		outp.m_pConfidential->m_Part2 = multiSig.m_Part2;
 		outp.m_pConfidential->m_Part3 = p3;
@@ -1088,7 +1088,7 @@ void TestMultiSigOutput()
     std::unique_ptr<beam::Output> pOutput(new beam::Output);
 	*pOutput = outp;
     {
-        ECC::Point::Native comm;
+        Point::Native comm;
         verify_test(pOutput->IsValid(g_hFork, comm));
     }
     Scalar::Native outputBlindingFactor;
@@ -1097,8 +1097,8 @@ void TestMultiSigOutput()
     offset += outputBlindingFactor;
 
     // kernel
-    ECC::Scalar::Native blindingExcessA;
-    ECC::Scalar::Native blindingExcessB;
+    Scalar::Native blindingExcessA;
+    Scalar::Native blindingExcessB;
     SetRandom(blindingExcessA);
     SetRandom(blindingExcessB);
     offset += blindingExcessA;
@@ -1107,16 +1107,16 @@ void TestMultiSigOutput()
     blindingExcessA = -blindingExcessA;
     blindingExcessB = -blindingExcessB;
 
-    ECC::Point::Native blindingExcessPublicA = Context::get().G * blindingExcessA;
-    ECC::Point::Native blindingExcessPublicB = Context::get().G * blindingExcessB;
+    Point::Native blindingExcessPublicA = Context::get().G * blindingExcessA;
+    Point::Native blindingExcessPublicB = Context::get().G * blindingExcessB;
 
-    ECC::Scalar::Native nonceA;
-    ECC::Scalar::Native nonceB;
+    Scalar::Native nonceA;
+    Scalar::Native nonceB;
     SetRandom(nonceA);
     SetRandom(nonceB);
-    ECC::Point::Native noncePublicA = Context::get().G * nonceA;
-    ECC::Point::Native noncePublicB = Context::get().G * nonceB;
-    ECC::Point::Native noncePublic = noncePublicA + noncePublicB;
+    Point::Native noncePublicA = Context::get().G * nonceA;
+    Point::Native noncePublicB = Context::get().G * nonceB;
+    Point::Native noncePublic = noncePublicA + noncePublicB;
 
     std::unique_ptr<beam::TxKernelStd> pKernel(new beam::TxKernelStd);
     pKernel->m_Fee = 0;
@@ -1124,7 +1124,7 @@ void TestMultiSigOutput()
     pKernel->m_Height.m_Max = 220;
     pKernel->m_Commitment = blindingExcessPublicA + blindingExcessPublicB;
     pKernel->UpdateID();
-	const ECC::Hash::Value& message = pKernel->m_Internal.m_ID;
+	const Hash::Value& message = pKernel->m_Internal.m_ID;
 
     ECC::Signature::MultiSig multiSigKernel;
     ECC::Scalar::Native partialSignatureA;
@@ -2242,7 +2242,7 @@ void TestLelantus()
 	}
 	MyBatch bc;
 
-	std::vector<ECC::Scalar::Native> vKs;
+	std::vector<Scalar::Native> vKs;
 	vKs.resize(N);
 
 	bool bSuccess = true;
@@ -2251,7 +2251,7 @@ void TestLelantus()
 	{
 		const uint32_t nCycles = j ? 1 : 11;
 
-		memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * vKs.size());
+		memset0(&vKs.front(), sizeof(Scalar::Native) * vKs.size());
 
 		t = beam::GetTime_ms();
 
@@ -2299,7 +2299,7 @@ void TestLelantusKeys()
 	beam::Output outp;
 	d1.Generate(outp, gen, nonce);
 
-	ECC::Point::Native pt;
+	Point::Native pt;
 	verify_test(pt.Import(outp.m_Commitment));
 	verify_test(outp.IsValid(d1.m_hScheme, pt));
 
@@ -2347,7 +2347,7 @@ void TestAssetEmission()
 
 	beam::TxKernelStd::Ptr pKrn(new beam::TxKernelStd);
 	pKdf->DeriveKey(sk, beam::Key::ID(23123, beam::Key::Type::Kernel));
-	pKrn->m_Commitment = ECC::Context::get().G * sk;
+	pKrn->m_Commitment = Context::get().G * sk;
 	pKrn->m_Fee = fee;
 	pKrn->m_Height.m_Min = hScheme;
 	pKrn->Sign(sk);
@@ -2355,7 +2355,7 @@ void TestAssetEmission()
 	kOffset += -sk;
 
 	pKrn.reset(new beam::TxKernelStd);
-	//pKrn->m_Commitment = ECC::Context::get().G * skAssetSk;
+	//pKrn->m_Commitment = Context::get().G * skAssetSk;
 	pKrn->m_Commitment.m_X = assetID;
 	pKrn->m_Commitment.m_Y = 0;
 	pKrn->m_AssetEmission  = -static_cast<beam::AmountSigned>(kidvInpAsset.m_Value);
