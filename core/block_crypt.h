@@ -554,6 +554,8 @@ namespace beam
 			:m_Value(0)
 		{}
 
+		void Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset); // suitable for aux kernels, created by single party
+
 		virtual ~TxKernelAssetEmit() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;

@@ -1071,7 +1071,7 @@ namespace beam
 
 	void TxKernelStd::Sign(const ECC::Scalar::Native& sk)
 	{
-		m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
+		m_Commitment = ECC::Context::get().G * sk;
 		UpdateID();
 		m_Signature.Sign(m_Internal.m_ID, sk);
 	}
@@ -1193,6 +1193,16 @@ namespace beam
 		v.m_Signature = m_Signature;
 		v.m_AssetID = m_AssetID;
 		v.m_Value = m_Value;
+	}
+
+	void TxKernelAssetEmit::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
+	{
+		m_Commitment = ECC::Context::get().G * sk;
+		UpdateID();
+
+		ECC::Scalar::Native pSk[2] = { sk, skAsset };
+		ECC::Scalar::Native res;
+		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Internal.m_ID, m_Signature.m_pK, pSk, &res);
 	}
 
 	/////////////
