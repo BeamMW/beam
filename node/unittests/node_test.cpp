@@ -2536,7 +2536,7 @@ namespace beam
 int main()
 {
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
-//	beam::PrintEmissionSchedule();
+	beam::PrintEmissionSchedule();
 
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
@@ -2551,10 +2551,10 @@ int main()
 	beam::Rules::get().UpdateChecksum();
 
 	beam::PrepareTreasury();
-/*
+
 	beam::TestHalving();
 	beam::TestChainworkProof();
-*/
+
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files
 	//	ports, wrong beacon and etc.
@@ -2562,7 +2562,7 @@ int main()
 
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
-/*
+
 	printf("NodeDB test...\n");
 	fflush(stdout);
 
@@ -2599,7 +2599,7 @@ int main()
 	beam::TestNodeConversation();
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
-*/
+
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().UpdateChecksum();
 
