@@ -52,8 +52,7 @@ namespace beam::wallet
         ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) override;
 
         AssetID AIDFromKeyIndex(uint32_t assetIdx) override;
-        ECC::Scalar::Native SignEmissionInOutKernel(TxKernelStd& m_Kernel, uint32_t assetIdx) override;
-        ECC::Scalar::Native SignEmissionKernel(TxKernelStd& kernel, uint32_t assetIdx) override;
+        ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx) override;
     private:
         beam::HWWallet m_hwWallet;
         mutable Key::IKdf::Ptr m_sbbsKdf;

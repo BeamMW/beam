@@ -385,24 +385,16 @@ namespace beam::wallet
         return assetId;
     }
 
-    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionInOutKernel(TxKernelStd& kernel, uint32_t assetIdx)
+    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx)
     {
+        auto kernelKeyId = Key::ID(assetIdx, Key::Type::Kernel, assetIdx);
         Scalar::Native sk;
-
-        auto kernelKeyId = Key::ID(assetIdx,  Key::Type::Kernel, assetIdx);
         m_MasterKdf->DeriveKey(sk, kernelKeyId);
-        kernel.Sign(sk);
+
+        auto assetKey = GetAssetKey(Key::ID(assetIdx, Key::Type::Asset, assetIdx));
+        kernel.Sign(sk, assetKey);
 
         sk = -sk;
         return sk;
-    }
-
-    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernelStd& kernel, uint32_t assetIdx)
-    {
-        auto assetKey = GetAssetKey(Key::ID(assetIdx, Key::Type::Asset, assetIdx));
-        kernel.Sign(assetKey);
-
-        assetKey = -assetKey;
-        return assetKey;
     }
 }

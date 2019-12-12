@@ -129,11 +129,8 @@ namespace beam::wallet
     {
         if (m_Tx.GetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID))
         {
-            if (m_Tx.GetParameter(TxParameterID::EmissionKernel, m_EmissionKernel, m_SubTxID))
-            {
-                GetInitialTxParams();
-                return true;
-            }
+            GetInitialTxParams();
+            return true;
         }
         return false;
     }
@@ -160,7 +157,6 @@ namespace beam::wallet
         tx->m_vInputs  = std::move(m_Inputs);
         tx->m_vOutputs = std::move(m_Outputs);
         tx->m_vKernels.push_back(std::move(m_Kernel));
-        tx->m_vKernels.push_back(std::move(m_EmissionKernel));
 
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
         tx->m_Offset = m_Offset;
@@ -408,72 +404,37 @@ namespace beam::wallet
         return *m_KernelID;
     }
 
-    const Merkle::Hash& AssetIssueTxBuilder::GetEmissionKernelID() const
-    {
-        if (!m_EmissionKernelID)
-        {
-            Merkle::Hash kernelID;
-            if (m_Tx.GetParameter(TxParameterID::EmissionKernelID, kernelID, m_SubTxID))
-            {
-                m_EmissionKernelID = kernelID;
-            }
-            else
-            {
-                assert(false && "EmissionKernelID is not stored");
-            }
-
-        }
-        return *m_EmissionKernelID;
-    }
-
     void AssetIssueTxBuilder::CreateKernels()
     {
-        static_assert(std::is_same<decltype(m_EmissionKernel->m_AssetEmission), int64_t>::value,
+        static_assert(std::is_same<decltype(m_Kernel->m_Value), int64_t>::value,
                       "If this fails please update value in the ConsumeAmountTooBig's message and typecheck in this assert");
 
         assert(!m_Kernel);
         if (!m_issue)
         {
-            // Note, m_EmissionKernel is still nullptr, do not don't anything except typecheks here
+            // Note, m_Kernel is still nullptr, do not don't anything except typecheks here
             // This should never happen, nobody would ever have so much asset/beams, but just in case
-            if (GetAmountAsset() > (Amount)std::numeric_limits<decltype(m_EmissionKernel->m_AssetEmission)>::max())
+            if (GetAmountAsset() > (Amount)std::numeric_limits<decltype(m_Kernel->m_Value)>::max())
             {
                 throw TransactionFailedException(!m_Tx.IsInitiator(), ConsumeAmountTooBig);
             }
         }
 
-        m_Kernel = make_unique<TxKernelStd>();
+        m_Kernel = make_unique<TxKernelAssetEmit>();
         m_Kernel->m_Fee          = m_Fee;
         m_Kernel->m_Height.m_Min = GetMinHeight();
         m_Kernel->m_Height.m_Max = m_MaxHeight;
         m_Kernel->m_Commitment   = Zero;
-
-        m_EmissionKernel = make_unique<TxKernelStd>();
-        m_EmissionKernel->m_AssetEmission  = m_issue ? GetAmountBeam() : -static_cast<AmountSigned>(GetAmountAsset());
-        m_EmissionKernel->m_Height.m_Min   = GetMinHeight();
-        m_EmissionKernel->m_Height.m_Max   = m_MaxHeight;
-        m_EmissionKernel->m_Commitment     = Zero;
+        m_Kernel->m_Value = m_issue ? GetAmountBeam() : -static_cast<AmountSigned>(GetAmountAsset());
     }
 
     void AssetIssueTxBuilder::SignKernels()
     {
-        //
-        // Kernel
-        //
-        m_Offset += m_keyKeeper->SignEmissionInOutKernel(*m_Kernel, m_assetIdx);
+        m_Offset += m_keyKeeper->SignEmissionKernel(*m_Kernel, m_assetIdx);
 
         const Merkle::Hash& kernelID = m_Kernel->m_Internal.m_ID;
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID);
-
-        //
-        // Emission kernel
-        //
-        m_Offset += m_keyKeeper->SignEmissionKernel(*m_EmissionKernel, m_assetIdx);
-
-        const Merkle::Hash& emissionKernelID = m_EmissionKernel->m_Internal.m_ID;
-        m_Tx.SetParameter(TxParameterID::EmissionKernelID, emissionKernelID, m_SubTxID);
-        m_Tx.SetParameter(TxParameterID::EmissionKernel, m_EmissionKernel, m_SubTxID);
     }
 }
 

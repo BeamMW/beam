@@ -54,7 +54,6 @@ namespace beam::wallet
         // Blockchain stuff
         //
         const Merkle::Hash& GetKernelID() const;
-        const Merkle::Hash& GetEmissionKernelID() const;
         bool LoadKernels();
         void CreateKernels();
         void SignKernels();
@@ -92,10 +91,8 @@ namespace beam::wallet
         //
         ECC::Scalar::Native m_Offset;
 
-        TxKernelStd::Ptr m_Kernel;
-        TxKernelStd::Ptr m_EmissionKernel;
+        TxKernelAssetEmit::Ptr m_Kernel;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
-        mutable boost::optional<Merkle::Hash> m_EmissionKernelID;
     };
 }

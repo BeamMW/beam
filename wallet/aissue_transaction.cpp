@@ -194,7 +194,6 @@ namespace beam::wallet
         case TxParameterID::Status:
         case TxParameterID::TransactionType:
         case TxParameterID::KernelID:
-        case TxParameterID::EmissionKernelID:
         case TxParameterID::AssetIdx:
             return true;
         default:

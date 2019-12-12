@@ -83,7 +83,6 @@ namespace beam::wallet
         // For assets
         //
         virtual AssetID AIDFromKeyIndex(uint32_t assetIdx) = 0;
-        virtual ECC::Scalar::Native SignEmissionInOutKernel(TxKernelStd& m_Kernel, uint32_t assetIdx) = 0;
-        virtual ECC::Scalar::Native SignEmissionKernel(TxKernelStd& kernel, uint32_t assetIdx) = 0;
+        virtual ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& m_Kernel, uint32_t assetIdx) = 0;
     };
 }
