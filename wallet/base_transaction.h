@@ -154,13 +154,13 @@ namespace beam::wallet
         uint32_t get_PeerVersion() const;
         bool GetTip(Block::SystemState::Full& state) const;
         void UpdateAsync();
+        void UpdateOnNextTip();
         INegotiatorGateway& GetGateway() const;
     protected:
         
         virtual bool CheckExpired();
         virtual bool CheckExternalFailures();
         void ConfirmKernel(const Merkle::Hash& kernelID);
-        void UpdateOnNextTip();
         void CompleteTx();
         virtual void RollbackTx();
         virtual void NotifyFailure(TxFailureReason);
