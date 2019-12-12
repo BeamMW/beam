@@ -776,8 +776,8 @@
         <translation>Failed to start wallet. Please check your wallet data location</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Synching with blockchain</source>
-        <translation>Synching with blockchain</translation>
+        <source>Syncing with blockchain</source>
+        <translation>Syncing with blockchain</translation>
     </message>
     <message id="loading-view-scaning-utxo">
         <source>Loading wallet data %d/%d</source>
