@@ -45,6 +45,20 @@ namespace beam::qtum
 
             electrumSettings.m_nodeAddresses =
             {
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
+                "s1.qtum.info:50002",
+                "s2.qtum.info:50002",
+                "s3.qtum.info:50002",
+                "s4.qtum.info:50002",
+                "s5.qtum.info:50002",
+                "s7.qtum.info:50002",
+                "s8.qtum.info:50002",
+                "s9.qtum.info:50002"
+#else // MASTERNET and TESTNET
+                "s1.qtum.info:51002",
+                "s2.qtum.info:51002",
+                "s3.qtum.info:51002"
+#endif
             };
 
             SetElectrumConnectionOptions(electrumSettings);
