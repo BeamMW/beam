@@ -42,12 +42,22 @@ namespace beam::bitcoin
         std::string m_address;
         std::vector<std::string> m_secretWords;
 
+        std::vector<std::string> m_nodeAddresses
+        {
+            "testnet.qtornado.com:51002",
+            "bitcoin.cluelessperson.com:51002",
+            "testnet.hsmiths.com:53012",
+            "testnet1.bauerj.eu:50002",
+            "tn.not.fyi:55002"
+        };
+        bool m_automaticChooseAddress = false;
         uint32_t m_receivingAddressAmount = 21;
         uint32_t m_changeAddressAmount = 6;
 
         bool IsInitialized() const
         {
-            return !m_secretWords.empty() && !m_address.empty();
+            return !m_secretWords.empty() &&
+                ((!m_address.empty() && !m_automaticChooseAddress) || (m_automaticChooseAddress && m_nodeAddresses.size() > 0));
         }
     };
 

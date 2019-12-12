@@ -48,8 +48,9 @@ namespace beam::bitcoin
             return m_settings;
         }
 
-        void SetSettings(const bitcoin::Settings& /*settings*/) override
+        void SetSettings(const bitcoin::Settings& settings) override
         {
+            m_settings = settings;
         }
 
         bool CanModify() const override
@@ -194,6 +195,231 @@ void testConnection()
     mainReactor->run();
 }
 
+void testReconnect1()
+{
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    bitcoin::ElectrumSettings settings;
+    settings.m_automaticChooseAddress = true;
+    settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
+    settings.m_nodeAddresses = {
+        "127.0.0.1:11001",
+        "127.0.0.1:11002",
+        "127.0.0.1:11003",
+        "127.0.0.1:11004"
+    };
+
+    TestElectrumWallet btcWallet(*mainReactor, settings.m_nodeAddresses.back());
+    auto provider = std::make_shared<bitcoin::Provider>(settings);
+    auto electrum = std::make_shared<bitcoin::Electrum>(*mainReactor, *provider);
+    std::size_t ind = 0;
+    std::function<void()> nextStep;
+    auto callback = [&](const bitcoin::IBridge::Error& error, uint64_t)
+    {
+        ind++;
+        if (ind < settings.m_nodeAddresses.size())
+        {
+            WALLET_CHECK(error.m_type == bitcoin::IBridge::IOError);
+            WALLET_CHECK(provider->GetSettings().GetElectrumConnectionOptions().m_address == settings.m_nodeAddresses[ind]);
+        }
+        else
+        {
+            WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
+            WALLET_CHECK(provider->GetSettings().GetElectrumConnectionOptions().m_address == settings.m_nodeAddresses.back());
+        }
+
+        nextStep();
+    };
+
+    nextStep = [&]()
+    {
+        if (ind < settings.m_nodeAddresses.size())
+            electrum->getBalance(0, callback);
+        else
+            mainReactor->stop();
+    };
+
+    electrum->getBalance(0, callback);
+    mainReactor->run();
+}
+
+void testReconnect2()
+{
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    bitcoin::ElectrumSettings settings;
+    settings.m_automaticChooseAddress = true;
+    settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
+    settings.m_nodeAddresses = {
+        "127.0.0.1:11001",
+        "127.0.0.1:11002",
+        "127.0.0.1:11003",
+        "127.0.0.1:11004"
+    };
+
+    auto provider = std::make_shared<bitcoin::Provider>(settings);
+    auto electrum = std::make_shared<bitcoin::Electrum>(*mainReactor, *provider);
+    std::size_t ind = 0;
+    std::function<void()> nextStep;
+    auto callback = [&](const bitcoin::IBridge::Error& error, uint64_t)
+    {
+        ind++;
+        WALLET_CHECK(error.m_type == bitcoin::IBridge::IOError);
+        if (ind < settings.m_nodeAddresses.size())
+        {
+            WALLET_CHECK(provider->GetSettings().GetElectrumConnectionOptions().m_address == settings.m_nodeAddresses[ind]);
+        }
+        else
+        {
+            WALLET_CHECK(provider->GetSettings().GetElectrumConnectionOptions().m_address == settings.m_nodeAddresses.front());
+        }
+
+        nextStep();
+    };
+
+    nextStep = [&]()
+    {
+        if (ind < settings.m_nodeAddresses.size())
+            electrum->getBalance(0, callback);
+        else
+            mainReactor->stop();
+    };
+
+    electrum->getBalance(0, callback);
+    mainReactor->run();
+}
+
+void testConnectToOfflineNode()
+{
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    bitcoin::ElectrumSettings settings;
+    settings.m_automaticChooseAddress = false;
+    settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
+    settings.m_address = "127.0.0.1:12000";
+    settings.m_nodeAddresses = {
+        "127.0.0.1:11001",
+        "127.0.0.1:11002",
+        "127.0.0.1:11003",
+        "127.0.0.1:11004"
+    };
+
+    auto provider = std::make_shared<bitcoin::Provider>(settings);
+    auto electrum = std::make_shared<bitcoin::Electrum>(*mainReactor, *provider);
+    std::size_t ind = 0;
+    std::function<void()> nextStep;
+    auto callback = [&](const bitcoin::IBridge::Error& error, uint64_t)
+    {
+        ind++;
+        WALLET_CHECK(error.m_type == bitcoin::IBridge::IOError);
+        WALLET_CHECK(provider->GetSettings().GetElectrumConnectionOptions().m_address == settings.m_address);
+
+        nextStep();
+    };
+
+    nextStep = [&]()
+    {
+        if (ind < settings.m_nodeAddresses.size())
+            electrum->getBalance(0, callback);
+        else
+            mainReactor->stop();
+    };
+
+    electrum->getBalance(0, callback);
+    mainReactor->run();
+}
+
+void testConnectToInvalidAddress()
+{
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    bitcoin::ElectrumSettings settings;
+    settings.m_automaticChooseAddress = false;
+    settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
+    settings.m_address = "tutututu";
+    settings.m_nodeAddresses = {
+        "127.0.0.1:11001",
+        "127.0.0.1:11002",
+        "127.0.0.1:11003",
+        "127.0.0.1:11004"
+    };
+
+    auto provider = std::make_shared<bitcoin::Provider>(settings);
+    auto electrum = std::make_shared<bitcoin::Electrum>(*mainReactor, *provider);
+    std::size_t ind = 0;
+    std::function<void()> nextStep;
+    auto callback = [&](const bitcoin::IBridge::Error& error, uint64_t)
+    {
+        ind++;
+        WALLET_CHECK(error.m_type == bitcoin::IBridge::IOError);
+        WALLET_CHECK(provider->GetSettings().GetElectrumConnectionOptions().m_address == settings.m_address);
+
+        nextStep();
+    };
+
+    nextStep = [&]()
+    {
+        if (ind < settings.m_nodeAddresses.size())
+            electrum->getBalance(0, callback);
+        else
+            mainReactor->stop();
+    };
+
+    electrum->getBalance(0, callback);
+    mainReactor->run();
+}
+
+void testReconnectToInvalidAddresses()
+{
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    bitcoin::ElectrumSettings settings;
+    settings.m_automaticChooseAddress = true;
+    settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
+    settings.m_nodeAddresses = {
+        "tutututu1",
+        "tutututu2",
+        "tutututu3",
+        "tutututu4"
+    };
+
+    auto provider = std::make_shared<bitcoin::Provider>(settings);
+    auto electrum = std::make_shared<bitcoin::Electrum>(*mainReactor, *provider);
+    std::size_t ind = 0;
+    std::function<void()> nextStep;
+    auto callback = [&](const bitcoin::IBridge::Error& error, uint64_t)
+    {
+        ind++;
+        WALLET_CHECK(error.m_type == bitcoin::IBridge::IOError);
+        if (ind < settings.m_nodeAddresses.size())
+        {
+            WALLET_CHECK(provider->GetSettings().GetElectrumConnectionOptions().m_address == settings.m_nodeAddresses[ind]);
+        }
+        else
+        {
+            WALLET_CHECK(provider->GetSettings().GetElectrumConnectionOptions().m_address == settings.m_nodeAddresses.front());
+        }
+
+        nextStep();
+    };
+
+    nextStep = [&]()
+    {
+        if (ind < settings.m_nodeAddresses.size())
+            electrum->getBalance(0, callback);
+        else
+            mainReactor->stop();
+    };
+
+    electrum->getBalance(0, callback);
+    mainReactor->run();
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -201,6 +427,11 @@ int main()
 
     testAddress();
     //testConnection();
+    testReconnect1();
+    testReconnect2();
+    testConnectToOfflineNode();
+    testConnectToInvalidAddress();
+    testReconnectToInvalidAddresses();
     
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

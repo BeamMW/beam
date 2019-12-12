@@ -93,15 +93,19 @@ namespace beam::bitcoin
         bool isLockedUtxo(std::string hash, uint32_t pos);
         void reviewLockedUtxo();
 
+        void tryToChangeAddress();
+
     private:
         beam::io::Reactor& m_reactor;
         std::map<uint64_t, TCPConnect> m_connections;
         uint64_t m_idCounter = 0;
         ISettingsProvider& m_settingsProvider;
+        std::size_t m_currentAddressIndex = 0;
 
         std::vector<LockUtxo> m_lockedUtxo;
         std::vector<Utxo> m_cache;
         std::chrono::system_clock::time_point m_lastCache;
         io::AsyncEvent::Ptr m_asyncEvent;
+        std::set<std::string> m_badAddresses;
     };
 } // namespace beam::bitcoin

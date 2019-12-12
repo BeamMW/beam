@@ -40,6 +40,14 @@ namespace beam::qtum
             SetBlocksPerHour(kQtumBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());
+
+            auto electrumSettings = GetElectrumConnectionOptions();
+
+            electrumSettings.m_nodeAddresses =
+            {
+            };
+
+            SetElectrumConnectionOptions(electrumSettings);
         }
     };
 } // namespace beam::qtum

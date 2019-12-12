@@ -568,15 +568,36 @@ namespace beam::bitcoin
         connection.m_callback = callback;
 
         io::Address address;
-        if (!address.resolve(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_address.c_str()))
         {
-            // TODO process error
-            LOG_ERROR() << "unable to resolve electrum address: " << m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_address;
-            return;
+            auto settings = m_settingsProvider.GetSettings();
+            auto electrumSettings = settings.GetElectrumConnectionOptions();
+            
+            if (electrumSettings.m_automaticChooseAddress && m_currentAddressIndex < electrumSettings.m_nodeAddresses.size() &&
+                electrumSettings.m_address != electrumSettings.m_nodeAddresses.at(m_currentAddressIndex))
+            {
+                electrumSettings.m_address = electrumSettings.m_nodeAddresses.at(m_currentAddressIndex);
+
+                settings.SetElectrumConnectionOptions(electrumSettings);
+                m_settingsProvider.SetSettings(settings);
+            }
+
+
+            if (!address.resolve(electrumSettings.m_address.c_str()))
+            {
+                tryToChangeAddress();
+
+                LOG_ERROR() << "unable to resolve electrum address: " << electrumSettings.m_address;
+
+                // TODO maybe to need async??
+                Error error{ IOError, "unable to resolve electrum address: " + electrumSettings.m_address };
+                json result;
+                callback(error, result, currentId);
+                return;
+            }
         }
 
         auto tag = uint64_t(&connection);
-        m_reactor.tcp_connect(address, tag, [this, currentId, weak = this->weak_from_this()](uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode status)
+        auto result = m_reactor.tcp_connect(address, tag, [this, currentId, weak = this->weak_from_this()](uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode status)
         {
             if (weak.expired())
             {
@@ -655,6 +676,8 @@ namespace beam::bitcoin
             }
             else
             {
+                tryToChangeAddress();
+
                 // error
                 Error error{ IOError, "stream is empty" };
                 json result;
@@ -662,6 +685,11 @@ namespace beam::bitcoin
                 m_connections.erase(currentId);
             }
         }, 2000, true);
+
+        if (result)
+            return;
+
+        LOG_ERROR() << "error in Electrum::sendRequest: code = " << io::error_descr(result.error());
     }
 
     std::vector<libbitcoin::wallet::ec_private> Electrum::generatePrivateKeyList() const
@@ -707,5 +735,35 @@ namespace beam::bitcoin
         });
 
         m_lockedUtxo.erase(idx, m_lockedUtxo.end());
+    }
+
+    void Electrum::tryToChangeAddress()
+    {
+        auto settings = m_settingsProvider.GetSettings();
+        auto electrumSettings = settings.GetElectrumConnectionOptions();
+
+        if (electrumSettings.m_automaticChooseAddress && m_currentAddressIndex < electrumSettings.m_nodeAddresses.size())
+        {
+            auto index = m_currentAddressIndex;
+            if (electrumSettings.m_address == electrumSettings.m_nodeAddresses.at(m_currentAddressIndex))
+            {
+                do {
+                    ++m_currentAddressIndex;
+                    if (m_currentAddressIndex >= electrumSettings.m_nodeAddresses.size())
+                    {
+                        m_currentAddressIndex = 0;
+                    }
+                } while (index != m_currentAddressIndex &&
+                    (electrumSettings.m_address == electrumSettings.m_nodeAddresses.at(m_currentAddressIndex) ||
+                        m_badAddresses.find(electrumSettings.m_nodeAddresses.at(m_currentAddressIndex)) != m_badAddresses.end()));
+            }
+
+            if (index != m_currentAddressIndex)
+            {
+                electrumSettings.m_address = electrumSettings.m_nodeAddresses.at(m_currentAddressIndex);
+                settings.SetElectrumConnectionOptions(electrumSettings);
+                m_settingsProvider.SetSettings(settings);
+            }
+        }
     }
 } // namespace beam::bitcoin

@@ -38,6 +38,16 @@ namespace beam::litecoin
             SetBlocksPerHour(kLTCBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());
+
+            auto electrumSettings = GetElectrumConnectionOptions();
+
+            electrumSettings.m_nodeAddresses =
+            {
+                "electrum.ltc.xurious.com:51002",
+                "electrum-ltc.bysh.me:51002"
+            };
+
+            SetElectrumConnectionOptions(electrumSettings);
         }
     };
 } //namespace beam::litecoin
