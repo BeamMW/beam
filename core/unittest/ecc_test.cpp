@@ -1299,11 +1299,12 @@ struct TransactionMaker
 		if (bEmitCustomTag)
 		{
 			// emit some asset
-			Scalar::Native skAsset;
+			Scalar::Native sk, skAsset;
 			beam::AssetID aid;
 			Amount valAsset = 4431;
 
-			SetRandom(skAsset, is_trezor_debug);
+			SetRandom(sk, is_trezor_debug); // excess
+			SetRandom(skAsset, is_trezor_debug); // asset sk
 			beam::proto::Sk2Pk(aid, skAsset);
 
 			if (beam::Rules::get().CA.Deposit)
@@ -1311,17 +1312,18 @@ struct TransactionMaker
 
 			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid, is_trezor_debug); // output UTXO to consume the created asset
 
-			std::unique_ptr<beam::TxKernelStd> pKrnEmission(new beam::TxKernelStd);
-			pKrnEmission->m_AssetEmission = valAsset;
-			pKrnEmission->m_Commitment.m_X = aid;
-			pKrnEmission->m_Commitment.m_Y = 0;
+			beam::TxKernelAssetEmit::Ptr pKrnEmission(new beam::TxKernelAssetEmit);
 			pKrnEmission->m_Height.m_Min = g_hFork;
-			pKrnEmission->Sign(skAsset);
+			pKrnEmission->m_CanEmbed = bNested;
+			pKrnEmission->m_AssetID = aid;
+			pKrnEmission->m_Value = valAsset;
+
+			pKrnEmission->Sign(sk, skAsset);
 
 			lstTrg.push_back(std::move(pKrnEmission));
 
-			skAsset = -skAsset;
-			m_pPeers[0].m_k += skAsset;
+			sk = -sk;
+			m_pPeers[0].m_k += sk;
 		}
 
 		CoSignKernel(*pKrn, is_trezor_debug);
@@ -2332,15 +2334,14 @@ void TestAssetEmission()
 	tx.m_vKernels.push_back(std::move(pKrn));
 	kOffset += -sk;
 
-	pKrn.reset(new beam::TxKernelStd);
-	//pKrn->m_Commitment = Context::get().G * skAssetSk;
-	pKrn->m_Commitment.m_X = assetID;
-	pKrn->m_Commitment.m_Y = 0;
-	pKrn->m_AssetEmission  = -static_cast<beam::AmountSigned>(kidvInpAsset.m_Value);
-	pKrn->m_Height.m_Min = hScheme;
-	pKrn->Sign(skAssetSk);
-	tx.m_vKernels.push_back(std::move(pKrn));
-	kOffset += -skAssetSk;
+	beam::TxKernelAssetEmit::Ptr pKrnAsset(new beam::TxKernelAssetEmit);
+	pKdf->DeriveKey(sk, beam::Key::ID(73123, beam::Key::Type::Kernel));
+	pKrnAsset->m_AssetID = assetID;
+	pKrnAsset->m_Value = -static_cast<beam::AmountSigned>(kidvInpAsset.m_Value);
+	pKrnAsset->m_Height.m_Min = hScheme;
+	pKrnAsset->Sign(sk, skAssetSk);
+	tx.m_vKernels.push_back(std::move(pKrnAsset));
+	kOffset += -sk;
 
 	tx.m_Offset = kOffset;
 

@@ -1919,23 +1919,30 @@ namespace beam
 
 					assert(msgTx.m_Transaction);
 
-					bool bEmitAsset = (m_AssetEmitted == Zero);
+					const Amount nFeeForEmission = 300;
+					bool bEmitAsset =
+						(m_AssetEmitted == Zero) &&
+						(msg.m_Description.m_Height + 1 >= Rules::get().pForks[2].m_Height) &&
+						(val >= nFeeForEmission);
 
 					if (bEmitAsset)
 					{
+						val -= nFeeForEmission;
+
 						Key::IDV kidv(Zero);
 						kidv.m_Value = val;
 
-						ECC::Scalar::Native skAsset, skOut;
+						ECC::Scalar::Native sk, skAsset, skOut;
+						ECC::SetRandom(sk);
 						ECC::SetRandom(skAsset);
 						proto::Sk2Pk(m_AssetEmitted, skAsset);
 
-						TxKernelStd::Ptr pKrn(new TxKernelStd);
-						pKrn->m_Commitment.m_X = m_AssetEmitted;
-						pKrn->m_Commitment.m_Y = 0;
-						pKrn->m_AssetEmission = kidv.m_Value;
+						TxKernelAssetEmit::Ptr pKrn(new TxKernelAssetEmit);
+						pKrn->m_AssetID = m_AssetEmitted;
+						pKrn->m_Fee = nFeeForEmission;
+						pKrn->m_Value = kidv.m_Value;
 						pKrn->m_Height.m_Min = msg.m_Description.m_Height + 1;
-						pKrn->Sign(skAsset);
+						pKrn->Sign(sk, skAsset);
 
 						Output::Ptr pOutp(new Output);
 						pOutp->m_AssetID = m_AssetEmitted;
@@ -1945,7 +1952,7 @@ namespace beam
 						m_Wallet.UpdateOffset(*msgTx.m_Transaction, skOut, true);
 
 						msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-						m_Wallet.UpdateOffset(*msgTx.m_Transaction, skAsset, true);
+						m_Wallet.UpdateOffset(*msgTx.m_Transaction, sk, true);
 
 						msgTx.m_Transaction->Normalize();
 					}
@@ -2529,7 +2536,7 @@ namespace beam
 int main()
 {
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
-	beam::PrintEmissionSchedule();
+//	beam::PrintEmissionSchedule();
 
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
@@ -2544,10 +2551,10 @@ int main()
 	beam::Rules::get().UpdateChecksum();
 
 	beam::PrepareTreasury();
-
+/*
 	beam::TestHalving();
 	beam::TestChainworkProof();
-
+*/
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files
 	//	ports, wrong beacon and etc.
@@ -2555,7 +2562,7 @@ int main()
 
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
-
+/*
 	printf("NodeDB test...\n");
 	fflush(stdout);
 
@@ -2592,7 +2599,7 @@ int main()
 	beam::TestNodeConversation();
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
-
+*/
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().UpdateChecksum();
 
