@@ -390,17 +390,27 @@ namespace beam::wallet
         GetWalletDB()->saveCoins(modified);
     }
 
-	bool BaseTransaction::GetParameter(TxParameterID paramID, TxKernelStd::Ptr& p, SubTxID subTxID /* =  kDefaultSubTxID */) const
+    template <typename TKrn>
+	bool BaseTransaction::GetParameterKrn(TxParameterID paramID, typename TKrn::Ptr& p, TxKernel::Subtype::Enum eType, SubTxID subTxID) const
 	{
 		p.reset();
 		TxKernel::Ptr pKrn;
 		if (!GetParameter(paramID, pKrn, subTxID))
 			return false;
 
-		if (!(pKrn && (TxKernel::Subtype::Std == pKrn->get_Subtype())))
+		if (!(pKrn && (pKrn->get_Subtype() == eType)))
 			return false;
 
-		p.reset(Cast::Up<TxKernelStd>(pKrn.release()));
+		p.reset(Cast::Up<TKrn>(pKrn.release()));
 		return true;
 	}
+
+#define THE_MACRO(id, name) \
+    bool BaseTransaction::GetParameter(TxParameterID paramID, TxKernel##name::Ptr& p, SubTxID subTxID) const \
+    { \
+        return GetParameterKrn<TxKernel##name>(paramID, p, TxKernel::Subtype::name, subTxID); \
+    }
+
+    BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
 }
