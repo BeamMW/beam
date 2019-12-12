@@ -2427,7 +2427,7 @@ bool NodeProcessor::HandleValidatedTxInternal(TxBase::IReader&& r, BlockInterpre
 {
 	r.Reset();
 
-	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
+	for (; r.m_pUtxoIn; r.NextUtxoIn())
 	{
 		if (!bic.m_Fwd && !nInp)
 			break;
@@ -2441,7 +2441,7 @@ bool NodeProcessor::HandleValidatedTxInternal(TxBase::IReader&& r, BlockInterpre
 			nInp--;
 	}
 
-	for (; r.m_pUtxoOut; r.NextUtxoOut(), nOut++)
+	for (; r.m_pUtxoOut; r.NextUtxoOut())
 	{
 		if (!bic.m_Fwd && !nOut)
 			break;
