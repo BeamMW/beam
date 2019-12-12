@@ -34,7 +34,7 @@ QHash<int, QByteArray> SwapOffersList::roleNames() const
         { static_cast<int>(Roles::ExpirationSort), "expirationSort" },
         { static_cast<int>(Roles::SwapCoin), "swapCoin" },
         { static_cast<int>(Roles::IsOwnOffer), "isOwnOffer" },
-        { static_cast<int>(Roles::isSendBeam), "isSendBeam" },
+        { static_cast<int>(Roles::IsSendBeam), "isSendBeam" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" },
         { static_cast<int>(Roles::RawTxParameters), "rawTxParameters" },
         { static_cast<int>(Roles::Pair), "pair" }
@@ -89,7 +89,7 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
         case Roles::IsOwnOffer:
             return value->isOwnOffer();
 
-        case Roles::isSendBeam:
+        case Roles::IsSendBeam:
             return isSendBeam(value);
 
         case Roles::RawTxID:

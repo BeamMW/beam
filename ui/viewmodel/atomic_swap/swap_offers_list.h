@@ -37,7 +37,7 @@ public:
         ExpirationSort,
         SwapCoin,
         IsOwnOffer,
-        isSendBeam,
+        IsSendBeam,
         RawTxID,
         RawTxParameters,
         Pair
