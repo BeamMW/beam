@@ -419,8 +419,6 @@ Control {
                 Layout.fillWidth: true
                 color:            Style.content_main
                 ipOnly:           false
-                underlineVisible: canEditElectrum
-                readOnly:         !canEditElectrum
             }
 
             // common fee rate
@@ -556,7 +554,7 @@ Control {
 
         // alert text if we have active transactions
         SFText {
-            visible:               !control.canEdit
+            visible:               !control.canEdit && !(editElectrum && isSettingsChanged())
             Layout.topMargin:      30
             Layout.preferredWidth: 400
             Layout.alignment:      Qt.AlignVCenter | Qt.AlignHCenter
@@ -576,7 +574,7 @@ fee while you have transactions in progress."
         // "cancel" "apply"
         // "connect to node" or "connect to electrum"
         RowLayout {
-            visible:          control.canEdit
+            visible:          control.canEdit || (editElectrum && isSettingsChanged())
             Layout.fillWidth: true
             Layout.topMargin: 30
             spacing:          15
