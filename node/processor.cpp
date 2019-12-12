@@ -1823,13 +1823,13 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	BlockInterpretCtx bic(0, true);
 	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 	{
-		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), bic))
+		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data, bic))
 		{
 			// undo partial changes
 			bic.m_Fwd = false;
 			while (iG--)
 			{
-				if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), bic))
+				if (!HandleValidatedTx(td.m_vGroups[iG].m_Data, bic))
 					OnCorrupted(); // although should not happen anyway
 			}
 
@@ -1954,7 +1954,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 	TxoID id0 = m_Extra.m_Txos;
 
 	BlockInterpretCtx bic(sid.m_Height, true);
-	bool bOk = HandleValidatedBlock(block.get_Reader(), block, bic);
+	bool bOk = HandleValidatedBlock(block, bic);
 	if (!bOk)
 	{
 		assert(m_Extra.m_Txos == id0);
@@ -1997,7 +1997,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		else
 		{
 			bic.m_Fwd = false;
-			BEAM_VERIFY(HandleValidatedBlock(block.get_Reader(), block, bic));
+			BEAM_VERIFY(HandleValidatedBlock(block, bic));
 		}
 	}
 
@@ -2423,81 +2423,65 @@ bool NodeProcessor::ValidateKernel(const TxKernel& krn, Height h)
 	return hr.IsInRange(h);
 }
 
-bool NodeProcessor::HandleValidatedTxInternal(TxBase::IReader&& r, BlockInterpretCtx& bic, uint32_t& nInp, uint32_t& nOut, uint32_t& nKrn)
+template <typename T>
+bool NodeProcessor::HandleElementVecFwd(const T& vec, BlockInterpretCtx& bic, size_t& n)
 {
-	r.Reset();
+	assert(bic.m_Fwd);
 
-	for (; r.m_pUtxoIn; r.NextUtxoIn())
-	{
-		if (!bic.m_Fwd && !nInp)
-			break;
-
-		if (!HandleBlockElement(*r.m_pUtxoIn, bic))
+	for (; n < vec.size(); n++)
+		if (!HandleBlockElement(*vec[n], bic))
 			return false;
-
-		if (bic.m_Fwd)
-			nInp++;
-		else
-			nInp--;
-	}
-
-	for (; r.m_pUtxoOut; r.NextUtxoOut())
-	{
-		if (!bic.m_Fwd && !nOut)
-			break;
-
-		if (!HandleBlockElement(*r.m_pUtxoOut, bic))
-			return false;
-
-		if (bic.m_Fwd)
-			nOut++;
-		else
-			nOut--;
-	}
-
-	if (bic.m_Height >= Rules::HeightGenesis)
-	{
-		// for historical reasons treasury kernels are ignored
-		for (; r.m_pKernel; r.NextKernel())
-		{
-			if (!bic.m_Fwd && !nKrn)
-				break;
-
-			if (!HandleBlockElement(*r.m_pKernel, bic))
-				return false;
-
-			if (bic.m_Fwd)
-				nKrn++;
-			else
-				nKrn--;
-		}
-	}
 
 	return true;
 }
 
-bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, BlockInterpretCtx& bic)
+template <typename T>
+void NodeProcessor::HandleElementVecBwd(const T& vec, BlockInterpretCtx& bic, size_t n)
 {
-	uint32_t nInp, nOut, nKrn;
-	nInp = nOut = nKrn = (bic.m_Fwd ? 0 : static_cast<uint32_t>(-1));
+	assert(!bic.m_Fwd);
 
-	if (HandleValidatedTxInternal(std::move(r), bic, nInp, nOut, nKrn))
-		return true;
-
-	if (!bic.m_Fwd)
-		OnCorrupted();
-
-	// Rollback all the changes. Must succeed!
-	bic.m_Fwd = false;
-
-	if (!HandleValidatedTxInternal(std::move(r), bic, nInp, nOut, nKrn))
-		OnCorrupted();
-
-	bic.m_Fwd = true; // restore it to prevent confuse
-	return false;
+	while (n--)
+		if (!HandleBlockElement(*vec[n], bic))
+			OnCorrupted();
 }
 
-bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleValidatedTx(const TxVectors::Full& txv, BlockInterpretCtx& bic)
+{
+	size_t pN[3];
+
+	bool bOk = true;
+	if (bic.m_Fwd)
+	{
+		ZeroObject(pN);
+		bOk =
+			HandleElementVecFwd(txv.m_vInputs, bic, pN[0]) &&
+			HandleElementVecFwd(txv.m_vOutputs, bic, pN[1]) &&
+			HandleElementVecFwd(txv.m_vKernels, bic, pN[2]);
+
+		if (bOk)
+			return true;
+
+		bic.m_Fwd = false; // rollback partial changes
+	}
+	else
+	{
+		// rollback all
+		pN[0] = txv.m_vInputs.size();
+		pN[1] = txv.m_vOutputs.size();
+		pN[2] = txv.m_vKernels.size();
+	}
+
+	HandleElementVecBwd(txv.m_vKernels, bic, pN[2]);
+	HandleElementVecBwd(txv.m_vOutputs, bic, pN[1]);
+	HandleElementVecBwd(txv.m_vInputs, bic, pN[0]);
+
+	if (!bOk)
+		bic.m_Fwd = true; // restore it to prevent confuse
+
+	return bOk;
+}
+
+bool NodeProcessor::HandleValidatedBlock(const Block::Body& block, BlockInterpretCtx& bic)
 {
 	// make sure we adjust txo count, to prevent the same Txos for consecutive blocks after cut-through
 	if (!bic.m_Fwd)
@@ -2506,7 +2490,7 @@ bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyB
 		m_Extra.m_Txos--;
 	}
 
-	if (!HandleValidatedTx(std::move(r), bic))
+	if (!HandleValidatedTx(block, bic))
 		return false;
 
 	// currently there's no extra info in the block that's needed
@@ -2688,16 +2672,20 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 
 bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic)
 {
-	if (bic.m_Fwd)
+	if (bic.m_Height >= Rules::HeightGenesis)
 	{
-		if (!ValidateKernel(v, bic.m_Height))
-			return false;
+		// for historical reasons treasury kernels are ignored
+		if (bic.m_Fwd)
+		{
+			if (!ValidateKernel(v, bic.m_Height))
+				return false;
 
-		m_DB.InsertKernel(v.m_Internal.m_ID, bic.m_Height);
-	}
-	else
-	{
-		m_DB.DeleteKernel(v.m_Internal.m_ID, bic.m_Height);
+			m_DB.InsertKernel(v.m_Internal.m_ID, bic.m_Height);
+		}
+		else
+		{
+			m_DB.DeleteKernel(v.m_Internal.m_ID, bic.m_Height);
+		}
 	}
 
 	return true;
@@ -3445,7 +3433,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		Transaction& tx = *x.m_pValue;
 
-		if (x.m_Threshold.m_Height.IsInRange(bic.m_Height) && HandleValidatedTx(tx.get_Reader(), bic))
+		if (x.m_Threshold.m_Height.IsInRange(bic.m_Height) && HandleValidatedTx(tx, bic))
 		{
 			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 
@@ -3527,14 +3515,14 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	if (BlockContext::Mode::Finalize == bc.m_Mode)
 	{
-		if (!HandleValidatedTx(bc.m_Block.get_Reader(), bic))
+		if (!HandleValidatedTx(bc.m_Block, bic))
 			return false;
 	}
 	else
 		nSizeEstimated = GenerateNewBlockInternal(bc, bic);
 
 	bic.m_Fwd = false;
-    BEAM_VERIFY(HandleValidatedTx(bc.m_Block.get_Reader(), bic)); // undo changes
+    BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
 
 	// reset input maturities
 	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
@@ -3555,14 +3543,14 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	// The effect of the cut-through block may be different than it was during block construction, because the consumed and created UTXOs (removed by cut-through) could have different maturities.
 	// Hence - we need to re-apply the block after the cut-throught, evaluate the definition, and undo the changes (once again).
 	bic.m_Fwd = true;
-	if (!HandleValidatedTx(bc.m_Block.get_Reader(), bic))
+	if (!HandleValidatedTx(bc.m_Block, bic))
 	{
 		LOG_WARNING() << "couldn't apply block after cut-through!";
 		return false; // ?!
 	}
 	GenerateNewHdr(bc);
 	bic.m_Fwd = false;
-    BEAM_VERIFY(HandleValidatedTx(bc.m_Block.get_Reader(), bic)); // undo changes
+    BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
 
 
 	Serializer ser;

@@ -56,10 +56,14 @@ class NodeProcessor
 
 	struct BlockInterpretCtx;
 
+	template <typename T>
+	bool HandleElementVecFwd(const T& vec, BlockInterpretCtx&, size_t& n);
+	template <typename T>
+	void HandleElementVecBwd(const T& vec, BlockInterpretCtx&, size_t n);
+
 	bool HandleBlock(const NodeDB::StateID&, MultiblockContext&);
-	bool HandleValidatedTx(TxBase::IReader&&, BlockInterpretCtx&);
-	bool HandleValidatedTxInternal(TxBase::IReader&&, BlockInterpretCtx&, uint32_t& nInp, uint32_t& nOut, uint32_t& nKrn);
-	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, BlockInterpretCtx&);
+	bool HandleValidatedTx(const TxVectors::Full&, BlockInterpretCtx&);
+	bool HandleValidatedBlock(const Block::Body&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
