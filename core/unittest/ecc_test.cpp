@@ -2405,8 +2405,8 @@ void TestTransactionHWSingular()
     mw1.m_Offset = (uint32_t)3;
 
 #if TREZOR_DEBUG == 1
-    printf("Kernel params for TX sign:\n\tFee: %ld\n\tMin_height: %ld; Max_height: %ld\n\tAsset_emission: %ld\n",
-           (long)mw1.m_Kernel.m_Fee, (long)mw1.m_Kernel.m_Height.m_Min, (long)mw1.m_Kernel.m_Height.m_Max, (long)mw1.m_Kernel.m_AssetEmission);
+    printf("Kernel params for TX sign:\n\tFee: %ld\n\tMin_height: %ld; Max_height: %ld\n",
+           (long)mw1.m_Kernel.m_Fee, (long)mw1.m_Kernel.m_Height.m_Min, (long)mw1.m_Kernel.m_Height.m_Max);
     char point_str[64];
     mw1.m_Kernel.m_Signature.m_NoncePub.m_X.Print(point_str);
     printf("\tNonce pub x: %s\n", point_str);

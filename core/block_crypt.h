@@ -491,11 +491,6 @@ namespace beam
 
 		ECC::Point		m_Commitment;	// aggregated, including nested kernels
 		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
-		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
-
-		TxKernelStd()
-			:m_AssetEmission(0)
-		{}
 
 		struct HashLock
 		{

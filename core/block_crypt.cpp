@@ -853,7 +853,7 @@ namespace beam
 			(m_CanEmbed ? 4 : 0);
 
 		hp	<< m_Commitment
-			<< Amount(m_AssetEmission)
+			<< Amount(0) // former m_AssetEmission
 			<< nFlags;
 
 		if (m_pHashLock)
@@ -938,43 +938,6 @@ namespace beam
 		if (!m_Signature.IsValid(m_Internal.m_ID, pt))
 			return false;
 
-		if (m_AssetEmission)
-		{
-			if (!r.CA.Enabled)
-				return false;
-
-			if (pParent || !m_vNested.empty())
-				return false; // Ban complex cases. Emission kernels must be simple
-
-			const AssetID& aid = m_Commitment.m_X;
-			if (aid == Zero)
-			{
-				assert(false); // Currently zero kernels are not allowed, but if we change this eventually - this will allow attacker to emit default asset (i.e. Beams).
-				// hence - extra verification
-				return false;
-			}
-
-			SwitchCommitment sc(&aid);
-			assert(ECC::Tag::IsCustom(&sc.m_hGen));
-
-			sc.m_hGen = -sc.m_hGen;
-
-			if (r.CA.Deposit)
-				sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
-
-			// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
-			Amount val;
-			if (m_AssetEmission > 0)
-				val = m_AssetEmission;
-			else
-			{
-				val = -m_AssetEmission;
-				sc.m_hGen = -sc.m_hGen;
-			}
-
-			ECC::Tag::AddValue(exc, &sc.m_hGen, val);
-		}
-
 		return true;
 	}
 
@@ -1032,7 +995,6 @@ namespace beam
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
 		CMP_MEMBER(m_Height.m_Max)
-		CMP_MEMBER(m_AssetEmission)
 
 		auto it0 = m_vNested.begin();
 		auto it1 = v.m_vNested.begin();
@@ -1097,7 +1059,6 @@ namespace beam
 		v.CopyFrom(*this);
 		v.m_Commitment = m_Commitment;
 		v.m_Signature = m_Signature;
-		v.m_AssetEmission = m_AssetEmission;
 		ClonePtr(v.m_pHashLock, m_pHashLock);
 		ClonePtr(v.m_pRelativeLock, m_pRelativeLock);
 	}
@@ -1652,8 +1613,8 @@ namespace beam
 			<< MaxBodySize
 			<< FakePoW
 			<< AllowPublicUtxos
-			<< CA.Enabled
-			<< CA.Deposit
+			<< false // deprecated CA.Enabled
+			<< true // deprecated CA.Deposit
 			<< DA.Target_s
 			<< DA.MaxAhead_s
 			<< DA.WindowWork
@@ -1689,6 +1650,8 @@ namespace beam
 			<< Shielded.NMax
 			<< Shielded.NMin
 			<< Shielded.MaxWindowBacklog
+			<< CA.Enabled
+			<< CA.Deposit
 			// out
 			>> pForks[2].m_Hash;
 	}

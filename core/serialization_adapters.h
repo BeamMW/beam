@@ -1093,7 +1093,7 @@ namespace detail
         static Archive& save(Archive& ar, const beam::TxKernelStd& val)
         {
 			uint8_t nFlags2 =
-				(val.m_AssetEmission ? 1 : 0) |
+				//(val.m_AssetEmission ? 1 : 0) |
 				(val.m_pRelativeLock ? 2 : 0) |
 				(val.m_CanEmbed ? 4 : 0);
 
@@ -1120,9 +1120,6 @@ namespace detail
 			if (nFlags2)
 			{
 				ar & nFlags2;
-
-				if (1 & nFlags2)
-					ar & val.m_AssetEmission;
 
 				if (2 & nFlags2)
 					ar & *val.m_pRelativeLock;
@@ -1153,15 +1150,10 @@ namespace detail
 
 			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
 
-			val.m_AssetEmission = 0;
-
 			if (0x80 & nFlags)
 			{
 				uint8_t nFlags2;
 				ar & nFlags2;
-
-				if (1 & nFlags2)
-					ar & val.m_AssetEmission;
 
 				if (2 & nFlags2)
 				{
