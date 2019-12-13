@@ -570,8 +570,8 @@ Please try again later or create an offer yourself."
                                 width: parent.width
                                 height: offersTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isSendBeam")
-                                property var isOwnOffer: offersTable.model.getRoleValue(styleData.row, "isOwnOffer")
+                                property var isSendBeam: !!model && model.isSendBeam
+                                property var isOwnOffer: !!model && model.isOwnOffer
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -668,7 +668,7 @@ Please try again later or create an offer yourself."
                                 Item {
                                     Layout.fillWidth : true
                                     Layout.fillHeight : true
-                                    property var isOwnOffer: offersTable.model.getRoleValue(styleData.row, "isOwnOffer")
+                                    property var isOwnOffer: !!model && model.isOwnOffer
 
                                     SFText {
                                         anchors.right: parent.right
