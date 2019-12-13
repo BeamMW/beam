@@ -110,6 +110,7 @@ SwapCoinSettingsItem::SwapCoinSettingsItem(SwapCoinClientModel& coinClient, wall
     , m_coinClient(coinClient)
 {
     connect(&m_coinClient, SIGNAL(statusChanged()), this, SIGNAL(connectionStatusChanged()));
+    connect(&m_coinClient, SIGNAL(connectionErrorChanged()), this, SIGNAL(connectionErrorMsgChanged()));
     LoadSettings();
 }
 
@@ -444,6 +445,29 @@ QString SwapCoinSettingsItem::getConnectionStatus() const
         case Client::Status::Unknown:
         default:
             return "error";
+    }
+}
+
+QString SwapCoinSettingsItem::getConnectionErrorMsg() const
+{
+    using beam::bitcoin::IBridge;
+
+    switch (m_coinClient.getConnectionError())
+    {
+        case IBridge::ErrorType::InvalidCredentials:
+            //% "Invalid credentials"
+            return qtTrId("swap-invalid-credentials-error");
+
+        case IBridge::ErrorType::IOError:
+            //% "Cannot connect to node"
+            return qtTrId("swap-connection-error");
+
+        case IBridge::ErrorType::InvalidGenesisBlock:
+            //% "Invalid genesis block"
+            return qtTrId("swap-invalid-genesis-block-error");
+
+        default:
+            return QString();
     }
 }
 

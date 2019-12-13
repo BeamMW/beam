@@ -30,6 +30,7 @@ Control {
     property bool   isNodeConnection:       false
     property bool   isElectrumConnection:   false
     property alias  connectionStatus:       statusIndicator.status
+    property alias  connectionErrorMsg:     connectionErrorMsg.text
 
     //
     // Node props
@@ -265,6 +266,15 @@ Control {
                 font.weight:            Font.Bold
                 font.capitalization:    Font.AllUppercase
                 font.letterSpacing:     3.11
+            }
+
+            SFText {
+                id:                connectionErrorMsg
+                Layout.leftMargin: 20
+                color:             Style.validator_error
+                font.pixelSize:    14
+                font.italic:       true
+                visible:           statusIndicator.status == "error"
             }
         }
 
@@ -870,7 +880,7 @@ fee while you have transactions in progress."
                                       qsTrId("settings-swap-seed-invali-warning")
                 color:                Style.validator_error
                 font.pixelSize:       12
-                font.styleName:       "Italic"
+                font.italic:          true
                 width:                parent.width
                 horizontalAlignment:  Text.AlignHCenter
                 visible:              isCurrentElectrumSeedSegwitAndValid || 

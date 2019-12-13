@@ -33,7 +33,8 @@ namespace beam::bitcoin
             IOError,
             BitcoinError,
             InvalidCredentials,
-            EmptyResult
+            EmptyResult,
+            InvalidGenesisBlock
         };
 
         struct Error

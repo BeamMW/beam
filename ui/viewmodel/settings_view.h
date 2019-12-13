@@ -85,6 +85,7 @@ class SwapCoinSettingsItem : public QObject
     Q_PROPERTY(bool isNodeConnection        READ getIsNodeConnection        NOTIFY connectionTypeChanged)
     Q_PROPERTY(bool isElectrumConnection    READ getIsElectrumConnection    NOTIFY connectionTypeChanged)
     Q_PROPERTY(QString connectionStatus     READ getConnectionStatus        NOTIFY connectionStatusChanged)
+    Q_PROPERTY(QString connectionErrorMsg   READ getConnectionErrorMsg      NOTIFY connectionErrorMsgChanged)
 
 public:
     SwapCoinSettingsItem(SwapCoinClientModel& coinClient, beam::wallet::AtomicSwapCoin swapCoin);
@@ -121,6 +122,7 @@ public:
     bool getIsNodeConnection() const;
     bool getIsElectrumConnection() const;
     QString getConnectionStatus() const;
+    QString getConnectionErrorMsg() const;
 
     Q_INVOKABLE void applyNodeSettings();
     Q_INVOKABLE void applyElectrumSettings();
@@ -156,6 +158,7 @@ signals:
     void canEditChanged();
     void connectionTypeChanged();
     void connectionStatusChanged();
+    void connectionErrorMsgChanged();
 
 private:
     QString getGeneralTitle() const;

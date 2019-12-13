@@ -114,11 +114,9 @@ namespace beam::bitcoin
                 return;
             }
 
-            {
-                Lock lock(m_mutex);
-                // TODO: check error and update status
-                SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
-            }
+            // TODO: check error and update status
+            SetConnectionError(error.m_type);
+            SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
 
             Balance balance;
             balance.m_available = confirmed;
@@ -187,6 +185,15 @@ namespace beam::bitcoin
         {
             --m_refCount;
             OnCanModifySettingsChanged(CanModify());
+        }
+    }
+
+    void Client::SetConnectionError(const IBridge::ErrorType& error)
+    {
+        if (m_connectionError != error)
+        {
+            m_connectionError = error;
+            OnConnectionError(m_connectionError);
         }
     }
 

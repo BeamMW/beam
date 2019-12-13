@@ -226,6 +226,7 @@ deploy the key at the node you trust completely."*/
                     isNodeConnection:         modelData.isNodeConnection
                     isElectrumConnection:     modelData.isElectrumConnection
                     connectionStatus:         modelData.connectionStatus
+                    connectionErrorMsg:       modelData.connectionErrorMsg 
                     getAddressesElectrum:     modelData.getAddressesElectrum
 
                     //
@@ -258,6 +259,10 @@ deploy the key at the node you trust completely."*/
                         }
                         onConnectionStatusChanged: {
                             settingsControl.connectionStatus     = modelData.connectionStatus;
+                        }
+
+                        onConnectionErrorMsgChanged: {
+                            settingsControl.connectionErrorMsg   = modelData.connectionErrorMsg;
                         }
 
                         //

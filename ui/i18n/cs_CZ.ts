@@ -2041,5 +2041,17 @@ fee while you have transactions in progress.</oldsource>
         <source>There is active transaction that uses this address, therefore the address expiration cannot be changed.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="swap-invalid-credentials-error">
+        <source>Invalid credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-connection-error">
+        <source>Cannot connect to node</source>
+        <translation type="unfinished">Nelze se připojit k uzlu</translation>
+    </message>
+    <message id="swap-invalid-genesis-block-error">
+        <source>Invalid genesis block</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
