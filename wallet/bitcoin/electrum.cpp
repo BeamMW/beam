@@ -52,6 +52,23 @@ namespace beam::bitcoin
         : m_reactor(reactor)
         , m_settingsProvider(settingsProvider)
     {
+        auto settings = m_settingsProvider.GetSettings();
+        auto electrumSettings = settings.GetElectrumConnectionOptions();
+        auto idx = std::find(electrumSettings.m_nodeAddresses.begin(), electrumSettings.m_nodeAddresses.end(), electrumSettings.m_address);
+
+        if (idx != electrumSettings.m_nodeAddresses.end())
+        {
+            m_currentAddressIndex = std::distance(electrumSettings.m_nodeAddresses.begin(), idx);
+        }
+    }
+
+    Electrum::~Electrum()
+    {
+        for (const auto& connection : m_connections)
+        {
+            auto tag = uint64_t(&connection.second);
+            m_reactor.cancel_tcp_connect(tag);
+        }
     }
 
     void Electrum::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int)> callback)
@@ -562,11 +579,6 @@ namespace beam::bitcoin
 
         //LOG_INFO() << request;
 
-        uint64_t currentId = m_idCounter++;
-        TCPConnect& connection = m_connections[currentId];
-        connection.m_request = request;
-        connection.m_callback = callback;
-
         io::Address address;
         {
             auto settings = m_settingsProvider.GetSettings();
@@ -591,10 +603,15 @@ namespace beam::bitcoin
                 // TODO maybe to need async??
                 Error error{ IOError, "unable to resolve electrum address: " + electrumSettings.m_address };
                 json result;
-                callback(error, result, currentId);
+                callback(error, result, 0);
                 return;
             }
         }
+
+        uint64_t currentId = m_idCounter++;
+        TCPConnect& connection = m_connections[currentId];
+        connection.m_request = request;
+        connection.m_callback = callback;
 
         auto tag = uint64_t(&connection);
         auto result = m_reactor.tcp_connect(address, tag, [this, currentId, weak = this->weak_from_this()](uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode status)
