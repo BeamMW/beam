@@ -51,6 +51,7 @@ namespace beam::bitcoin
     {
         std::string m_address;
         std::vector<std::string> m_secretWords;
+        bool m_automaticChooseAddress = true;
 
         std::vector<std::string> m_nodeAddresses
         {
@@ -96,7 +97,7 @@ namespace beam::bitcoin
             "tn.not.fyi:55002"
 #endif
         };
-        bool m_automaticChooseAddress = true;
+
         uint32_t m_receivingAddressAmount = 21;
         uint32_t m_changeAddressAmount = 6;
 
