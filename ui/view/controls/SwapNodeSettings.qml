@@ -537,7 +537,7 @@ Control {
             spacing:             20
             Layout.fillWidth:    true
             Layout.topMargin:    30
-            Layout.bottomMargin: 37
+            Layout.bottomMargin: 7
 
             LinkButton {
                 //% "Show seed phrase"
