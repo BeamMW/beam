@@ -67,6 +67,7 @@ namespace beam::wallet
         bool isRunning() const;
         bool isFork1() const;
         size_t getUnsafeActiveTransactionsCount() const;
+        bool isConnectionTrusted() const;
 
     protected:
         // Call this before derived class is destructed to ensure
@@ -110,6 +111,7 @@ namespace beam::wallet
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
         void onSyncProgress(int done, int total) override;
+        void onOwnedNode(const PeerID& id, bool connected) override;
 
         void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
         void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
@@ -155,6 +157,9 @@ namespace beam::wallet
         void nodeConnectedStatusChanged(bool isNodeConnected);
         void updateClientState();
         void updateClientTxState();
+        void updateConnectionTrust(bool trustedConnected);
+        bool isConnected() const;
+
     private:
         std::shared_ptr<std::thread> m_thread;
         IWalletDB::Ptr m_walletDB;
@@ -166,11 +171,15 @@ namespace beam::wallet
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
 #endif
-        bool m_isConnected;
+        uint32_t m_connectedNodesCount;
+        uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;
         std::string m_nodeAddrStr;
         IPrivateKeyKeeper::Ptr m_keyKeeper;
+
+        // these variables is accessible from UI thread
         size_t m_unsafeActiveTxCount = 0;
         beam::Height m_currentHeight = 0;
+        bool m_isConnectionTrusted = false;
     };
 }

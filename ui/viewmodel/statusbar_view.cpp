@@ -21,6 +21,7 @@ StatusbarViewModel::StatusbarViewModel()
     , m_isOnline(false)
     , m_isSyncInProgress(false)
     , m_isFailedStatus(false)
+    , m_isConnectionTrusted(false)
     , m_nodeSyncProgress(0)
     , m_nodeDone(0)
     , m_nodeTotal(0)
@@ -60,6 +61,11 @@ bool StatusbarViewModel::getIsFailedStatus() const
 bool StatusbarViewModel::getIsSyncInProgress() const
 {
     return m_isSyncInProgress;
+}
+
+bool StatusbarViewModel::getIsConnectionTrusted() const
+{
+    return m_isConnectionTrusted;
 }
 
 int StatusbarViewModel::getNodeSyncProgress() const
@@ -120,6 +126,15 @@ void StatusbarViewModel::setIsSyncInProgress(bool value)
     }
 }
 
+void StatusbarViewModel::setIsConnectionTrusted(bool value)
+{
+    if (m_isConnectionTrusted != value)
+    {
+        m_isConnectionTrusted = value;
+        emit isConnectionTrustedChanged();
+    }
+}
+
 void StatusbarViewModel::setWalletStatusErrorMsg(const QString& value)
 {
     if (m_errorMsg != value)
@@ -131,6 +146,8 @@ void StatusbarViewModel::setWalletStatusErrorMsg(const QString& value)
 
 void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
 {
+    setIsConnectionTrusted(m_model.isConnectionTrusted());
+
     if (isNodeConnected == getIsOnline())
     {
         return;

@@ -2051,7 +2051,8 @@ fee while you have transactions in progress.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-fee-rate-note">
-        <source>Remember to validate the expected fee rate for the blockchain (as it varies with time)</source>
+        <source>Remember to validate the expected fee rate for the blockchain (as it varies with time).</source>
+        <oldsource>Remember to validate the expected fee rate for the blockchain (as it varies with time)</oldsource>
         <translation type="unfinished"></translation>
     </message>
 </context>

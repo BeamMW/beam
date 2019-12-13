@@ -153,6 +153,11 @@ namespace beam::wallet
             if (!--m_OwnedNodesOnline)
                 AbortUtxoEvents();
         }
+
+        for (auto sub : m_subscribers)
+        {
+            sub->onOwnedNode(id, bUp);
+        }
     }
 
     Block::SystemState::IHistory& Wallet::get_History()
