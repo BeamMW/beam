@@ -354,7 +354,7 @@ QString SwapTxObject::getFee() const
         auto fee = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::BEAM_LOCK_TX : SubTxIndex::BEAM_REDEEM_TX);
         if (fee)
         {
-            return beamui::AmountToUIString(*fee, beamui::Currencies::Beam);
+            return beamui::AmountInGrothToUIString(*fee);
         }
     }
     return QString();

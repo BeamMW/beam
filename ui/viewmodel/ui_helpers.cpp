@@ -58,6 +58,11 @@ namespace beamui
         return amount + coinSign;
     }
 
+    QString AmountInGrothToUIString(const beam::Amount& value)
+    {
+        return QString("%1 %2").arg(value).arg(qtTrId("general-groth"));
+    }
+
     beam::Amount UIStringToAmount(const QString& value)
     {
         beam::Amount amount = 0;

@@ -158,7 +158,7 @@ QString TxObject::getFee() const
 {
     if (m_tx.m_fee)
     {
-        return AmountToUIString(m_tx.m_fee, Currencies::Beam);
+        return AmountInGrothToUIString(m_tx.m_fee);
     }
     return QString{};
 }
