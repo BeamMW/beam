@@ -35,6 +35,16 @@ namespace beam::bitcoin
         {
             return !m_userName.empty() && !m_pass.empty() && !m_address.empty();
         }
+
+        bool operator == (const BitcoinCoreSettings& other) const
+        {
+            return m_userName == other.m_userName && m_pass == other.m_pass && m_address == other.m_address;
+        }
+
+        bool operator != (const BitcoinCoreSettings& other) const
+        {
+            return !(*this == other);
+        }
     };
 
     struct ElectrumSettings
@@ -94,6 +104,18 @@ namespace beam::bitcoin
         {
             return !m_secretWords.empty() &&
                 ((!m_address.empty() && !m_automaticChooseAddress) || (m_automaticChooseAddress && m_nodeAddresses.size() > 0));
+        }
+
+        bool operator == (const ElectrumSettings& other) const
+        {
+            return m_address == other.m_address
+                && m_secretWords == other.m_secretWords
+                && m_automaticChooseAddress == other.m_automaticChooseAddress;
+        }
+
+        bool operator != (const ElectrumSettings& other) const
+        {
+            return !(*this == other);
         }
     };
 

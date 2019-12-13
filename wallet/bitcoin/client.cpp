@@ -20,6 +20,29 @@
 
 namespace beam::bitcoin
 {
+    namespace
+    {
+        bool IsChangedConnectionSettings(const Settings& currentSettings, const Settings& newSettings)
+        {
+            bool isConnectionTypeChanged = currentSettings.GetCurrentConnectionType() != newSettings.GetCurrentConnectionType();
+
+            if (isConnectionTypeChanged)
+            {
+                return true;
+            }
+
+            switch (currentSettings.GetCurrentConnectionType())
+            {
+            case Settings::ConnectionType::Electrum:
+                return currentSettings.GetElectrumConnectionOptions() != newSettings.GetElectrumConnectionOptions();
+            case Settings::ConnectionType::Core:
+                return currentSettings.GetConnectionOptions() != newSettings.GetConnectionOptions();
+            default:
+                return false;
+            }
+        }
+    }
+
     struct BitcoinClientBridge : public Bridge<IClientAsync>
     {
         BRIDGE_INIT(BitcoinClientBridge);
@@ -110,16 +133,23 @@ namespace beam::bitcoin
     {
         {
             Lock lock(m_mutex);
-            m_settingsProvider->SetSettings(settings);
-            m_bridgeHolder->Reset();
+            auto currentSettings = m_settingsProvider->GetSettings();
+            bool shouldReconnect = IsChangedConnectionSettings(currentSettings, settings);
 
-            if (m_settingsProvider->GetSettings().IsActivated())
+            m_settingsProvider->SetSettings(settings);
+
+            if (shouldReconnect)
             {
-                SetStatus(Status::Connecting);
-            }
-            else
-            {
-                SetStatus(Status::Uninitialized);
+                m_bridgeHolder->Reset();
+
+                if (m_settingsProvider->GetSettings().IsActivated())
+                {
+                    SetStatus(Status::Connecting);
+                }
+                else
+                {
+                    SetStatus(Status::Uninitialized);
+                }
             }
         }
 
