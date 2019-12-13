@@ -378,7 +378,9 @@ namespace beam::bitcoin
             {
                 try
                 {
-                    blockCount = result["height"].get<uint64_t>();
+                    auto key = (result.find("height") != result.end()) ? "height" : "block_height";
+
+                    blockCount = result[key].get<uint64_t>();
                 }
                 catch (const std::exception& ex)
                 {
