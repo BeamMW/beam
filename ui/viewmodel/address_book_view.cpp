@@ -119,9 +119,12 @@ AddressBookViewModel::AddressBookViewModel()
     connect(&m_model,
             SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
             SLOT(onAddresses(bool, const std::vector<beam::wallet::WalletAddress>&)));
+    connect(&m_model,
+            SIGNAL(transactionsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
+            SLOT(onTransactions(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
 
     getAddressesFromModel();
-
+    m_model.getAsync()->getTransactions();
     startTimer(3 * 1000);
 }
 
@@ -231,6 +234,13 @@ void AddressBookViewModel::setContactSortRole(QString value)
     sortContacts();
 }
 
+bool AddressBookViewModel::isAddressBusy(const QString& addr)
+{
+    WalletID walletID;
+    walletID.FromHex(addr.toStdString());
+    return find(m_busyAddresses.cbegin(), m_busyAddresses.cend(), walletID) != m_busyAddresses.cend();
+}
+
 void AddressBookViewModel::deleteAddress(const QString& addr)
 {
     WalletID walletID;
@@ -293,6 +303,60 @@ void AddressBookViewModel::onAddresses(bool own, const std::vector<beam::wallet:
         }
 
         sortContacts();
+    }
+}
+
+void AddressBookViewModel::onTransactions(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)
+{
+    switch (action)
+    {
+        case ChangeAction::Reset:
+            {
+                m_busyAddresses.clear();
+                // no beak!
+            }
+
+        case ChangeAction::Added:
+            {
+                for (const auto& tx : transactions)
+                {
+                    if (!tx.canDelete())    // only active transactions
+                    {
+                        m_busyAddresses.push_back(tx.m_myId);
+                    }
+                }
+                break;
+            }
+        
+        case ChangeAction::Updated:
+            {
+                for (const auto& tx : transactions)
+                {
+                    auto it = find(m_busyAddresses.cbegin(), m_busyAddresses.cend(), tx.m_myId);
+                    if (it != m_busyAddresses.cend() && tx.canDelete())
+                    {
+                        m_busyAddresses.erase(it);
+                    }
+                }
+                break;
+            }
+
+        case ChangeAction::Removed:
+            {
+                for (const auto& tx : transactions)
+                {
+                    auto it = find(m_busyAddresses.cbegin(), m_busyAddresses.cend(), tx.m_myId);
+                    if (it != m_busyAddresses.cend())
+                    {
+                        m_busyAddresses.erase(it);
+                    }
+                }
+                break;
+            }
+
+        default:
+            assert(false && "Unexpected action");
+            break;
     }
 }
 
