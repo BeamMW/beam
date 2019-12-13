@@ -97,9 +97,9 @@ bool QMLGlobals::isFeeOK(uint32_t fee, Currency currency)
     switch (currency)
     {
     case Currency::CurrBeam: return fee >= minFeeBeam();
-    case Currency::CurrBtc:  return fee >= minFeeRateBtc();
-    case Currency::CurrLtc:  return fee >= minFeeRateLtc();
-    case Currency::CurrQtum: return fee >= minFeeRateQtum();
+    case Currency::CurrBtc:  return true;
+    case Currency::CurrLtc:  return true;
+    case Currency::CurrQtum: return true;
     default:
         assert(false);
         return false;
@@ -117,33 +117,16 @@ uint32_t QMLGlobals::defFeeBeam()
     return minFeeBeam();
 }
 
-uint32_t QMLGlobals::minFeeRateBtc()
-{
-     const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
-     return btcSettings.GetMinFeeRate();
-}
-
 uint32_t QMLGlobals::defFeeRateBtc()
 {
      const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
      return btcSettings.GetFeeRate();
 }
 
-uint32_t QMLGlobals::minFeeRateLtc()
-{
-    const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
-    return ltcSettings.GetMinFeeRate();
-}
-
 uint32_t QMLGlobals::defFeeRateLtc()
 {
     const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
     return ltcSettings.GetFeeRate();
-}
-
-uint32_t QMLGlobals::minFeeRateQtum()
-{
-    return AppModel::getInstance().getQtumClient()->GetSettings().GetMinFeeRate();
 }
 
 uint32_t QMLGlobals::defFeeRateQtum()
@@ -186,10 +169,7 @@ int QMLGlobals::getMinFeeOrRate(Currency currency)
 {
     switch (currency) {
         case Currency::CurrBeam: return minFeeBeam();
-        case Currency::CurrBtc:  return minFeeRateBtc();
-        case Currency::CurrLtc:  return minFeeRateLtc();
-        case Currency::CurrQtum: return minFeeRateQtum();
-        default: assert(false); return 0;
+        default: return 0;
     }
 }
 

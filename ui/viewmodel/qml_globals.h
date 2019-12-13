@@ -41,9 +41,6 @@ public:
     static int  getMinFeeOrRate(Currency currency);
 
     Q_INVOKABLE static unsigned int minFeeBeam();
-    Q_INVOKABLE static unsigned int minFeeRateBtc();
-    Q_INVOKABLE static unsigned int minFeeRateLtc();
-    Q_INVOKABLE static unsigned int minFeeRateQtum();
 
     Q_INVOKABLE static unsigned int defFeeBeam();
     Q_INVOKABLE static unsigned int defFeeRateBtc();

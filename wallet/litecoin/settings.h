@@ -34,7 +34,6 @@ namespace beam::litecoin
 
             SetLockTimeInBlocks(kLTCDefaultLockTimeInBlocks);
             SetFeeRate(kLtcMinFeeRate);
-            SetMinFeeRate(kLtcMinFeeRate);
             SetBlocksPerHour(kLTCBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());

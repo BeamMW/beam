@@ -76,11 +76,6 @@ namespace beam::bitcoin
         return m_feeRate;
     }
 
-    Amount Settings::GetMinFeeRate() const
-    {
-        return m_minFeeRate;
-    }
-
     uint16_t Settings::GetTxMinConfirmations() const
     {
         return m_txMinConfirmations;
@@ -134,11 +129,6 @@ namespace beam::bitcoin
     void Settings::SetFeeRate(Amount feeRate)
     {
         m_feeRate = feeRate;
-    }
-
-    void Settings::SetMinFeeRate(beam::Amount feeRate)
-    {
-        m_minFeeRate = feeRate;
     }
 
     void Settings::SetTxMinConfirmations(uint16_t txMinConfirmations)

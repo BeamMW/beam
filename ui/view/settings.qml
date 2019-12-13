@@ -219,7 +219,6 @@ deploy the key at the node you trust completely."*/
                     title:                    modelData.title
                     showSeedDialogTitle:      modelData.showSeedDialogTitle
                     showAddressesDialogTitle: modelData.showAddressesDialogTitle
-                    minFeeRate:               modelData.minFeeRate
                     feeRateLabel:             modelData.feeRateLabel
                     canEdit:                  modelData.canEdit
                     isConnected:              modelData.isConnected

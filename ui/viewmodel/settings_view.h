@@ -61,7 +61,6 @@ class SwapCoinSettingsItem : public QObject
     Q_OBJECT
 
     Q_PROPERTY(QString  feeRateLabel             READ getFeeRateLabel                         CONSTANT)
-    Q_PROPERTY(int      minFeeRate               READ getMinFeeRate                           CONSTANT)
     Q_PROPERTY(QString  showSeedDialogTitle      READ getShowSeedDialogTitle                  CONSTANT)
     Q_PROPERTY(QString  showAddressesDialogTitle READ getShowAddressesDialogTitle             CONSTANT)
     Q_PROPERTY(QString  title                    READ getTitle                                NOTIFY titleChanged)
@@ -92,7 +91,6 @@ public:
     virtual ~SwapCoinSettingsItem();
 
     QString getFeeRateLabel() const;
-    int getMinFeeRate() const;
 
     QString getTitle() const;
     QString getShowSeedDialogTitle() const;

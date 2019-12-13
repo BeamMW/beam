@@ -2052,5 +2052,9 @@ fee while you have transactions in progress.</oldsource>
         <source>Invalid genesis block</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="settings-fee-rate-note">
+        <source>Remember to validate the expected fee rate for the blockchain (as it varies with time)</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

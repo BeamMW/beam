@@ -21,7 +21,6 @@ Control {
     property alias  showSeedDialogTitle:      seedPhraseDialog.showSeedDialogTitle
     property alias  showAddressesDialogTitle: showAddressesDialog.showAddressesDialogTitle
     property string feeRateLabel:        ""
-    property int    minFeeRate:          0
     property string color:               Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
     property alias  editElectrum:        useElectrumSwitch.checked
     property bool   canEdit:             true
@@ -161,7 +160,7 @@ Control {
     }
 
     function canApplyNode() {
-        return feeRate >= minFeeRate && password.length && username.length && addressInput.isValid
+        return password.length && username.length && addressInput.isValid
     }
 
     function applyChangesNode() {
@@ -178,7 +177,7 @@ Control {
     }
 
     function haveNodeSettings() {
-        return feeRate >= minFeeRate && password.length && username.length && addressInput.isValid;
+        return password.length && username.length && addressInput.isValid;
     }
 
     //
@@ -211,7 +210,7 @@ Control {
     }
 
     function canApplyElectrum() {
-        return feeRate >= minFeeRate && isCurrentElectrumSeedValid && (addressInputElectrum.isValid || isSelectServerAutomatcally)
+        return isCurrentElectrumSeedValid && (addressInputElectrum.isValid || isSelectServerAutomatcally)
     }
 
     function canClearElectrum() {
@@ -228,7 +227,7 @@ Control {
     }
 
     function haveElectrumSettings() {
-        return feeRate >= minFeeRate && isCurrentElectrumSeedValid && (addressInputElectrum.isValid || isSelectServerAutomatcally);
+        return isCurrentElectrumSeedValid && (addressInputElectrum.isValid || isSelectServerAutomatcally);
     }
 
     Component.onCompleted: {
@@ -459,7 +458,7 @@ Control {
                 Layout.fillWidth:    true
                 fillWidth:           true
                 inputPreferredWidth: -1
-                minFee:              control.minFeeRate
+                minFee:              0
                 feeLabel:            control.feeRateLabel
                 color:               Style.content_main
                 spacing:             0
@@ -468,6 +467,16 @@ Control {
             }
         }
 
+        SFText {
+            Layout.preferredWidth: 400
+            font.pixelSize:        14
+            wrapMode:              Text.WordWrap
+            color:                 control.color
+            lineHeight:            1.1 
+            //% "Remember to validate the expected fee rate for the blockchain (as it varies with time)."
+            text:                  qsTrId("settings-fee-rate-note")
+        }
+       
         // electrum settings - seed: new || edit
         RowLayout {
             visible:             editElectrum && canEditElectrum

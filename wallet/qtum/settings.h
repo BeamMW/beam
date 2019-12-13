@@ -36,7 +36,6 @@ namespace beam::qtum
             SetTxMinConfirmations(kQtumDefaultTxMinConfirmations);
             SetLockTimeInBlocks(kQtumDefaultLockTimeInBlocks);
             SetFeeRate(kQtumMinFeeRate);
-            SetMinFeeRate(kQtumMinFeeRate);
             SetBlocksPerHour(kQtumBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());

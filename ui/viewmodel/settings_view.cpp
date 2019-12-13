@@ -137,24 +137,6 @@ QString SwapCoinSettingsItem::getFeeRateLabel() const
     }
 }
 
-int SwapCoinSettingsItem::getMinFeeRate() const
-{
-    switch (m_swapCoin)
-    {
-        case beam::wallet::AtomicSwapCoin::Bitcoin:
-            return QMLGlobals::minFeeRateBtc();
-        case beam::wallet::AtomicSwapCoin::Litecoin:
-            return QMLGlobals::minFeeRateLtc();
-        case beam::wallet::AtomicSwapCoin::Qtum:
-            return QMLGlobals::minFeeRateQtum();
-        default:
-        {
-            assert(false && "unexpected swap coin!");
-            return 0;
-        }
-    }
-}
-
 QString SwapCoinSettingsItem::getTitle() const
 {
     switch (m_settings->GetCurrentConnectionType())
