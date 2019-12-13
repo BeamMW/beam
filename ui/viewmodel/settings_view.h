@@ -76,6 +76,7 @@ class SwapCoinSettingsItem : public QObject
     Q_PROPERTY(bool            isCurrentSeedSegwit      READ getIsCurrentSeedSegwit                               NOTIFY isCurrentSeedSegwitChanged)
     Q_PROPERTY(QList<QObject*> electrumSeedPhrases      READ getElectrumSeedPhrases                               NOTIFY electrumSeedPhrasesChanged)
     Q_PROPERTY(QString         nodeAddressElectrum      READ getNodeAddressElectrum  WRITE setNodeAddressElectrum NOTIFY nodeAddressElectrumChanged)
+    Q_PROPERTY(bool            selectServerAutomatically      READ getSelectServerAutomatically  WRITE setSelectServerAutomatically NOTIFY selectServerAutomaticallyChanged)
 
     Q_PROPERTY(bool canEdit      READ getCanEdit                            NOTIFY canEditChanged)
 
@@ -111,6 +112,8 @@ public:
     QChar getPhrasesSeparatorElectrum() const;
     QString getNodeAddressElectrum() const;
     void setNodeAddressElectrum(const QString& value);
+    bool getSelectServerAutomatically() const;
+    void setSelectServerAutomatically(bool value);
 
     bool getCanEdit() const;
 
@@ -148,6 +151,7 @@ signals:
     void isCurrentSeedSegwitChanged();
     void electrumSeedPhrasesChanged();
     void nodeAddressElectrumChanged();
+    void selectServerAutomaticallyChanged();
 
     void canEditChanged();
     void connectionTypeChanged();
@@ -183,6 +187,7 @@ private:
 
     QList<QObject*> m_seedPhraseItems;
     QString m_nodeAddressElectrum;
+    bool m_selectServerAutomatically;
     bool m_isCurrentSeedValid = false;
     // "true" if current seed valid and segwit type
     bool m_isCurrentSeedSegwit = false;

@@ -43,6 +43,7 @@ namespace beam::bitcoin
 
             WriteToDb(GetElectrumAddressName(), electrumSettings.m_address);
             WriteToDb(GetSecretWordsName(), electrumSettings.m_secretWords);
+            WriteToDb(GetSelectServerAutomatically(), electrumSettings.m_automaticChooseAddress);
         }
 
         WriteToDb(GetFeeRateName(), settings.GetFeeRate());
@@ -59,7 +60,7 @@ namespace beam::bitcoin
             m_settings = std::make_unique<Settings>(GetEmptySettings());
 
             {
-                BitcoinCoreSettings settings;
+                BitcoinCoreSettings settings = m_settings->GetConnectionOptions();
 
                 ReadFromDB(GetUserName(), settings.m_userName);
                 ReadFromDB(GetPassName(), settings.m_pass);
@@ -68,10 +69,11 @@ namespace beam::bitcoin
                 m_settings->SetConnectionOptions(settings);
             }
             {
-                ElectrumSettings settings;
+                ElectrumSettings settings = m_settings->GetElectrumConnectionOptions();
 
                 ReadFromDB(GetElectrumAddressName(), settings.m_address);
                 ReadFromDB(GetSecretWordsName(), settings.m_secretWords);
+                ReadFromDB(GetSelectServerAutomatically(), settings.m_automaticChooseAddress);
 
                 m_settings->SetElectrumConnectionOptions(settings);
             }
@@ -156,5 +158,10 @@ namespace beam::bitcoin
     std::string SettingsProvider::GetConnectrionTypeName() const
     {
         return GetSettingsName() + "_ConnectionType";
+    }
+
+    std::string SettingsProvider::GetSelectServerAutomatically() const
+    {
+        return GetSettingsName() + "_SelectServerAutomatically";
     }
 } // namespace beam::bitcoin

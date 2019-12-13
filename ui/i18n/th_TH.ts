@@ -1236,26 +1236,6 @@
         <source>Swap</source>
         <translation>สวอป</translation>
     </message>
-    <message id="settings-reset">
-        <source>Clear</source>
-        <translation>ล้างข้อมูล</translation>
-    </message>
-    <message id="settings-node-address">
-        <source>Node Address</source>
-        <translation>ที่อยู่ของ Node</translation>
-    </message>
-    <message id="settings-username">
-        <source>Username</source>
-        <translation>ชื่อผู้ใช้</translation>
-    </message>
-    <message id="settings-password">
-        <source>Password</source>
-        <translation>รหัสผ่าน</translation>
-    </message>
-    <message id="settings-fee-rate">
-        <source>Default fee</source>
-        <translation>ค่าธรรมเนียมมาตรฐาน</translation>
-    </message>
     <message id="swap-beta-message">
         <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
         <translation>ฟังก์ชั่น Atomic Swap อยู่ในสถานะเบต้าในขณะนี้ เราไม่แนะนำให้ใช้งานในจำนวนที่เยอะ</translation>
@@ -1340,10 +1320,6 @@ Update your settings and try again.</source>
     <message id="general-qtum">
         <source>QTUM</source>
         <translation>QTUM</translation>
-    </message>
-    <message id="general-electrum">
-        <source>Electrum</source>
-        <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
@@ -1539,12 +1515,6 @@ please review your settings and try again</source>
         <source>Received</source>
         <translation>ได้​รับ​แล้ว</translation>
     </message>
-    <message id="settings-progress-na">
-        <source>You cannot disconnect wallet, edit seed phrase or change default
-fee while you have transactions in progress.</source>
-        <translation>คุณไม่สามารถตัดการเชื่อมต่อกระเป๋า, แก้ไขกลุ่มคำลับหรือเปลี่ยนค่าธรรมเนียม\n
-ในขณะที่คุณมีธุรกรรมที่กำลังดำเนินการอยู่</translation>
-    </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.
 Please try again later or create an offer yourself.</source>
@@ -1570,10 +1540,6 @@ Please try again later or create an offer yourself.</source>
     <message id="wallet-search-transactions-placeholder">
         <source>Transaction or kernel ID, comment, address or contact</source>
         <translation>ID ของธุรกรรม หรือ Kernel ID, คอมเมนต์, ที่อยู่ หรือรายชื่อผู้ติดต่อ</translation>
-    </message>
-    <message id="settings-swap-node">
-        <source>Node</source>
-        <translation>Node</translation>
     </message>
     <message id="wallet-clear-search">
         <source>Clear search</source>
@@ -1687,10 +1653,6 @@ Please try again later or create an offer yourself.</source>
         <source>%1 Transaction fee rate</source>
         <translation>ค่าธรรมเนียมธุรกรรม</translation>
     </message>
-    <message id="settings-swap-disconnect">
-        <source>Disconnect</source>
-        <translation>ตัดการเชื่อมต่อ</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation>Node ของ Bitcoin</translation>
@@ -1740,46 +1702,6 @@ Please check the swap token and try again.</source>
         <source>Refunded</source>
         <translation>ชำระคืนแล้ว</translation>
     </message>
-    <message id="settings-swap-edit-seed">
-        <source>Edit your seed phrase</source>
-        <translation>แก้ไขกลุ่มคำลับของคุณ</translation>
-    </message>
-    <message id="settings-swap-enter-seed">
-        <source>Enter your seed phrase</source>
-        <translation>กรุณาใส่กลุ่มคำลับของคุณ</translation>
-    </message>
-    <message id="settings-swap-label-or">
-        <source>or</source>
-        <translation>หรือ</translation>
-    </message>
-    <message id="settings-swap-new-seed">
-        <source>Generate new seed phrase</source>
-        <translation>สร้างกลุ่มคำลับใหม่</translation>
-    </message>
-    <message id="settings-swap-show-seed">
-        <source>Show seed phrase</source>
-        <translation>แสดงกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-show-addresses">
-        <source>Show wallet addresses</source>
-        <translation>แสดงที่อยู่ของกระเป๋า</translation>
-    </message>
-    <message id="swap-seed-info-message">
-        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
-    </message>
-    <message id="settings-swap-seed-generate">
-        <source>generate another seed phrase</source>
-        <translation>สร้างกลุ่มคำลับชุดอื่น</translation>
-    </message>
-    <message id="swap-seed-new">
-        <source>New seed phrase</source>
-        <translation>กลุ่มคำลับใหม่</translation>
-    </message>
-    <message id="swap-seed-edit">
-        <source>Enter your seed phrase</source>
-        <translation>กรุณาใส่กลุ่มคำลับของคุณ</translation>
-    </message>
     <message id="bitcoin-show-seed-title">
         <source>Bitcoin seed phrase</source>
         <translation>กลุ่มคำลับของ Bitcoin</translation>
@@ -1804,50 +1726,6 @@ Please check the swap token and try again.</source>
         <source>Qtum wallet addresses</source>
         <translation>ที่อยู่ของกระเป๋า Qtum</translation>
     </message>
-    <message id="settings-swap-copy-address">
-        <source>Copy address</source>
-        <translation>คัดลอกที่อยู่</translation>
-    </message>
-    <message id="settings-swap-confirm-edit-seed-title">
-        <source>Edit seed phrase</source>
-        <extracomment>electrum settings, ask password to edit seed phrase, dialog title</extracomment>
-        <translation>แก้ไขกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-confirm-edit-seed-message">
-        <source>Enter your wallet password to edit the phrase</source>
-        <extracomment>electrum settings, ask password to edit seed phrase, dialog message</extracomment>
-        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อแก้ไขกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-confirm-generate-seed-title">
-        <source>Generate new seed phrase</source>
-        <extracomment>electrum settings, ask password to generate new seed phrase, dialog title</extracomment>
-        <translation>สร้างกลุ่มคำลับใหม่</translation>
-    </message>
-    <message id="settings-swap-confirm-generate-seed-message">
-        <source>Enter your wallet password to generate new seed phrase</source>
-        <extracomment>electrum settings, ask password to generate new seed phrase, dialog message</extracomment>
-        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อสร้างกลุ่มคำลับใหม่</translation>
-    </message>
-    <message id="settings-swap-confirm-show-seed-title">
-        <source>Show seed phrase</source>
-        <extracomment>electrum settings, ask password to show seed phrase, dialog title</extracomment>
-        <translation>แสดงกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-confirm-show-seed-message">
-        <source>Enter your wallet password to see the phrase</source>
-        <extracomment>electrum settings, ask password to show seed phrase, dialog message</extracomment>
-        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อดูกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-confirm-clear-seed-title">
-        <source>Clear seed phrase</source>
-        <extracomment>electrum settings, ask password to clear seed phrase, dialog title</extracomment>
-        <translation>ล้างกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-confirm-clear-seed-message">
-        <source>Enter your wallet password to clear seed phrase</source>
-        <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
-        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อล้างกลุ่มคำลับ</translation>
-    </message>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token:</source>
         <translation>โทเค็นแลกเปลี่ยนของคุณ</translation>
@@ -1871,10 +1749,6 @@ Please check the swap token and try again.</source>
     <message id="send-swap-token-hint">
         <source>Paste token here</source>
         <translation>วางโทเค็นที่นี่</translation>
-    </message>
-    <message id="settings-swap-connect">
-        <source>connect</source>
-        <translation>เชื่อมต่อ</translation>
     </message>
     <message id="swap-tx-state-initial">
         <source>If nobody accepts the offer in %1, the offer will be automatically canceled</source>
@@ -1992,6 +1866,123 @@ deploy the key at the node you trust completely.</source>
         <source>2 hours</source>
         <translation type="unfinished">6 ชั่วโมง {2 ?}</translation>
     </message>
+    <message id="accept-swap-token">
+        <source>Your swap token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-node">
+        <source>Node</source>
+        <translation type="unfinished">Node</translation>
+    </message>
+    <message id="general-electrum">
+        <source>Electrum</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-reset">
+        <source>Clear</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-title">
+        <source>Clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-message">
+        <source>Enter your wallet password to clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-disconnect">
+        <source>Disconnect</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-node-address">
+        <source>Node Address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-username">
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-password">
+        <source>Password</source>
+        <translation type="unfinished">รหัสผ่าน</translation>
+    </message>
+    <message id="select-server-automatically">
+        <source>Select server automatically</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source>Default fee</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-edit-seed">
+        <source>Edit your seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-enter-seed">
+        <source>Enter your seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-title">
+        <source>Edit seed phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-message">
+        <source>Enter your wallet password to edit the phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-label-or">
+        <source>or</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-new-seed">
+        <source>Generate new seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-title">
+        <source>Generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-message">
+        <source>Enter your wallet password to generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-show-seed">
+        <source>Show seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-title">
+        <source>Show seed phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-message">
+        <source>Enter your wallet password to see the phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-show-addresses">
+        <source>Show wallet addresses</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-progress-na">
+        <source>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-seed-info-message">
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="settings-swap-seed-segwit-warning">
         <source>Segwit seed phrase is not supported yet.</source>
         <translation type="unfinished"></translation>
@@ -2000,8 +1991,20 @@ deploy the key at the node you trust completely.</source>
         <source>Invalid seed phrase. Please check again and resubmit.</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="accept-swap-token">
-        <source>Your swap token</source>
+    <message id="settings-swap-seed-generate">
+        <source>generate another seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-seed-new">
+        <source>New seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-seed-edit">
+        <source>Enter your seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-copy-address">
+        <source>Copy address</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

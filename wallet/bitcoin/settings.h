@@ -96,7 +96,7 @@ namespace beam::bitcoin
             "tn.not.fyi:55002"
 #endif
         };
-        bool m_automaticChooseAddress = false;
+        bool m_automaticChooseAddress = true;
         uint32_t m_receivingAddressAmount = 21;
         uint32_t m_changeAddressAmount = 6;
 

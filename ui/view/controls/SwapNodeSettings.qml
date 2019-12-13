@@ -44,6 +44,7 @@ Control {
     // Electrum props
     //
     property alias addressElectrum:                     addressInputElectrum.address
+    property alias isSelectServerAutomatcally:          selectServerAutomatically.checked
     property alias seedPhrasesElectrum:                 seedPhraseDialog.seedPhrasesElectrum
     property alias phrasesSeparatorElectrum:            seedPhraseDialog.phrasesSeparatorElectrum
     property bool  isCurrentElectrumSeedValid:          false
@@ -186,27 +187,30 @@ Control {
     QtObject {
         id: internalElectrum
         property string initialAddress
+        property bool   initialSelectServerAutomatically
         property string initialSeed
         property bool   isSeedChanged: false
 
         function restore() {
             isSeedChanged = false
             addressElectrum = initialAddress
+            isSelectServerAutomatcally = initialSelectServerAutomatically
             control.restoreSeedElectrum()
         }
 
         function save() {
             initialAddress  = addressElectrum
+            initialSelectServerAutomatically = isSelectServerAutomatcally
             isSeedChanged = false
         }
 
         function isChanged() {
-            return initialAddress !== addressElectrum || isSeedChanged
+            return initialAddress !== addressElectrum || isSeedChanged || isSelectServerAutomatcally !== initialSelectServerAutomatically
         }
     }
 
     function canApplyElectrum() {
-        return feeRate >= minFeeRate && isCurrentElectrumSeedValid && addressInputElectrum.isValid
+        return feeRate >= minFeeRate && isCurrentElectrumSeedValid && (addressInputElectrum.isValid || isSelectServerAutomatcally)
     }
 
     function canClearElectrum() {
@@ -223,7 +227,7 @@ Control {
     }
 
     function haveElectrumSettings() {
-        return feeRate >= minFeeRate && isCurrentElectrumSeedValid && addressInputElectrum.isValid;
+        return feeRate >= minFeeRate && isCurrentElectrumSeedValid && (addressInputElectrum.isValid || isSelectServerAutomatcally);
     }
 
     Component.onCompleted: {
@@ -405,6 +409,16 @@ Control {
             }
 
             // electrum settings
+            CustomCheckBox {
+                id: selectServerAutomatically
+                visible:        editElectrum
+                Layout.columnSpan: 2
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
+                //% "Select server automatically"
+                text: qsTrId("select-server-automatically")
+            }
+
             SFText {
                 visible:        editElectrum
                 font.pixelSize: 14
@@ -419,6 +433,7 @@ Control {
                 Layout.fillWidth: true
                 color:            Style.content_main
                 ipOnly:           false
+                readOnly:         selectServerAutomatically.checked
             }
 
             // common fee rate
@@ -449,7 +464,7 @@ Control {
             spacing:             20
             Layout.fillWidth:    true
             Layout.topMargin:    30
-            Layout.bottomMargin: 37
+            Layout.bottomMargin: 7
 
             LinkButton {
                 text:      isCurrentElectrumSeedValid ?   

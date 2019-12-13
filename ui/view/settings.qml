@@ -240,6 +240,7 @@ deploy the key at the node you trust completely."*/
                     // Electrum
                     //
                     addressElectrum:                     modelData.nodeAddressElectrum
+                    isSelectServerAutomatcally:          modelData.selectServerAutomatically
                     seedPhrasesElectrum:                 modelData.electrumSeedPhrases
                     phrasesSeparatorElectrum:            modelData.phrasesSeparatorElectrum
                     isCurrentElectrumSeedValid:          modelData.isCurrentSeedValid
@@ -269,6 +270,7 @@ deploy the key at the node you trust completely."*/
                         // Electrum
                         //
                         onNodeAddressElectrumChanged: settingsControl.addressElectrum = modelData.nodeAddressElectrum
+                        onSelectServerAutomaticallyChanged: settingsControl.isSelectServerAutomatcally = modelData.selectServerAutomatically
                         onElectrumSeedPhrasesChanged: settingsControl.seedPhrasesElectrum = modelData.electrumSeedPhrases
                         onIsCurrentSeedValidChanged:  settingsControl.isCurrentElectrumSeedValid = modelData.isCurrentSeedValid
                         onIsCurrentSeedSegwitChanged: settingsControl.isCurrentElectrumSeedSegwitAndValid = modelData.isCurrentSeedSegwit
@@ -314,6 +316,12 @@ deploy the key at the node you trust completely."*/
                         target:   modelData
                         property: "nodeAddressElectrum"
                         value:    settingsControl.addressElectrum
+                    }
+
+                    Binding {
+                        target:   modelData
+                        property: "selectServerAutomatically"
+                        value:    settingsControl.isSelectServerAutomatcally
                     }
                 }
             }

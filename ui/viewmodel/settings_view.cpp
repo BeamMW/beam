@@ -370,6 +370,20 @@ void SwapCoinSettingsItem::setNodeAddressElectrum(const QString& value)
     }
 }
 
+bool SwapCoinSettingsItem::getSelectServerAutomatically() const
+{
+    return m_selectServerAutomatically;
+}
+
+void SwapCoinSettingsItem::setSelectServerAutomatically(bool value)
+{
+    if (value != m_selectServerAutomatically)
+    {
+        m_selectServerAutomatically = value;
+        emit selectServerAutomaticallyChanged();
+    }
+}
+
 QStringList SwapCoinSettingsItem::getAddressesElectrum() const
 {
     auto electrumSettings = m_settings->GetElectrumConnectionOptions();
@@ -435,7 +449,7 @@ QString SwapCoinSettingsItem::getConnectionStatus() const
 
 void SwapCoinSettingsItem::applyNodeSettings()
 {
-    bitcoin::BitcoinCoreSettings connectionSettings;
+    bitcoin::BitcoinCoreSettings connectionSettings = m_coinClient.GetSettings().GetConnectionOptions();
     connectionSettings.m_pass = m_nodePass.toStdString();
     connectionSettings.m_userName = m_nodeUser.toStdString();
 
@@ -453,13 +467,14 @@ void SwapCoinSettingsItem::applyNodeSettings()
 
 void SwapCoinSettingsItem::applyElectrumSettings()
 {
-    bitcoin::ElectrumSettings electrumSettings;
+    bitcoin::ElectrumSettings electrumSettings = m_coinClient.GetSettings().GetElectrumConnectionOptions();
     
-    if (!m_nodeAddressElectrum.isEmpty())
+    if (!m_selectServerAutomatically && !m_nodeAddressElectrum.isEmpty())
     {
         electrumSettings.m_address = m_nodeAddressElectrum.toStdString();
     }
 
+    electrumSettings.m_automaticChooseAddress = m_selectServerAutomatically;
     electrumSettings.m_secretWords = GetSeedPhraseFromSeedItems();
     
     m_settings->SetElectrumConnectionOptions(electrumSettings);
@@ -562,6 +577,7 @@ void SwapCoinSettingsItem::LoadSettings()
     {
         SetSeedElectrum(options.m_secretWords);
         setNodeAddressElectrum(str2qstr(options.m_address));
+        setSelectServerAutomatically(options.m_automaticChooseAddress);
     }
 }
 
@@ -607,6 +623,7 @@ void SwapCoinSettingsItem::SetDefaultNodeSettings()
 void SwapCoinSettingsItem::SetDefaultElectrumSettings()
 {
     setNodeAddressElectrum("");
+    setSelectServerAutomatically(true);
     SetSeedElectrum({});
 }
 
