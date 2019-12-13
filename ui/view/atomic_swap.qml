@@ -673,6 +673,7 @@ Please try again later or create an offer yourself."
                                     SFText {
                                         anchors.right: parent.right
                                         anchors.verticalCenter: parent.verticalCenter
+                                        anchors.left: parent.left
                                         anchors.rightMargin: 20
 
                                         font.pixelSize: 14
