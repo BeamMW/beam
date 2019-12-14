@@ -100,7 +100,7 @@ ColumnLayout {
             ColumnLayout {
                 anchors.fill: parent
                 spacing: 20
-                SFText {
+                SFLabel {
                     id: ownerKeyValue
                     Layout.fillWidth: true
                     leftPadding: 20
@@ -111,6 +111,8 @@ ColumnLayout {
                     wrapMode: Text.WrapAnywhere
                     horizontalAlignment : Text.AlignHCenter
                     text: ""
+                    copyMenuEnabled: true
+                    onCopyText: BeamGlobals.copyToClipboard(text)
                 }
                 SFText {
                     Layout.fillWidth: true
