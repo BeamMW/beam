@@ -56,7 +56,7 @@ namespace
             if (currentHeight < *minHeightRefund)
             {
                 time = beamui::convertBeamHeightDiffToTime(*minHeightRefund - currentHeight);
-                //% "The swap is expected to complete in %1 at most"
+                //% "The swap is expected to complete in %1 at most."
                 return qtTrId("swap-tx-state-in-progress-normal").arg(time);
             }
         }
@@ -66,7 +66,7 @@ namespace
             if (maxHeightLockTx && currentHeight < *maxHeightLockTx)
             {
                 time = beamui::convertBeamHeightDiffToTime(*maxHeightLockTx - currentHeight);
-                //% "If peer will not finish negotiation in %1, the offer will be automatically canceled"
+                //% "If the other side will not sign the transaction in %1, the offer will be canceled automatically."
                 return qtTrId("swap-tx-state-in-progress-negotiation").arg(time);
             }
         }
@@ -116,7 +116,7 @@ namespace
             return "";
         }
 
-        //% "The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2"
+        //% "The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2."
         return qtTrId("swap-tx-state-in-progress-refunding").arg(time).arg(coin);
     }
 }
