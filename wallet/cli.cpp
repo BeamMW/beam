@@ -114,7 +114,7 @@ namespace beam
 
     const char* getSwapTxStatus(const IWalletDB::Ptr& walletDB, const TxDescription& tx)
     {
-        wallet::AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::CompleteSwap;
+        wallet::AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::Initial;
         storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::State, state);
 
         return wallet::getSwapTxStatus(state);
