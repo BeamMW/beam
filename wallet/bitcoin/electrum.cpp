@@ -704,7 +704,7 @@ namespace beam::bitcoin
                         }
                         else
                         {
-                            error.m_type = InvalidResultFormat;
+                            error.m_type = IOError;
                             error.m_message = "Empty response.";
                         }
 
