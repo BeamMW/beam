@@ -74,6 +74,7 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, beam::wallet::AtomicSwapCoin::Bitcoin)
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, true)
         .SetParameter(beam::wallet::TxParameterID::IsInitiator, true))
+    , _isBeamSide(true)
 {
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveSwapViewModel::onGeneratedNewAddress);
     connect(&_walletModel, &WalletModel::swapParamsLoaded, this, &ReceiveSwapViewModel::onSwapParamsLoaded);
@@ -118,6 +119,21 @@ void ReceiveSwapViewModel::storeSwapParams()
     }
 }
 
+bool ReceiveSwapViewModel::isSendBeam() const
+{
+    return !_isBeamSide;
+}
+
+QString ReceiveSwapViewModel::getRate() const
+{
+    beam::Amount otherCoinAmount =
+        isSendBeam() ? _amountToReceiveGrothes : _amountSentGrothes;
+    beam::Amount beamAmount =
+        isSendBeam() ? _amountSentGrothes : _amountToReceiveGrothes;
+
+    return QMLGlobals::getRateStr(beamAmount, otherCoinAmount);
+}
+
 void ReceiveSwapViewModel::onSwapParamsLoaded(const beam::ByteBuffer& params)
 {
     if(!params.empty())
@@ -160,7 +176,8 @@ void ReceiveSwapViewModel::setAmountToReceive(QString value)
     if (amount != _amountToReceiveGrothes)
     {
         _amountToReceiveGrothes = amount;
-        emit amountToReceiveChanged();
+        emit amountReceiveChanged();
+        emit rateChanged();
         updateTransactionToken();
     }
 }
@@ -180,8 +197,10 @@ void ReceiveSwapViewModel::setAmountSent(QString value)
     auto amount = beamui::UIStringToAmount(value);
     if (amount != _amountSentGrothes)
     {
+        bool isPreviouseSendWasZero = _amountSentGrothes == 0;
         _amountSentGrothes = amount;
         emit amountSentChanged();
+        if (isPreviouseSendWasZero) emit rateChanged();
         updateTransactionToken();
     }
 }
@@ -215,6 +234,7 @@ void ReceiveSwapViewModel::setReceiveCurrency(Currency value)
         _receiveCurrency = value;
         emit receiveCurrencyChanged();
         updateTransactionToken();
+        emit rateChanged();
         storeSwapParams();
     }
 }
@@ -233,6 +253,7 @@ void ReceiveSwapViewModel::setSentCurrency(Currency value)
         _sentCurrency = value;
         emit sentCurrencyChanged();
         updateTransactionToken();
+        emit rateChanged();
         storeSwapParams();
     }
 }
@@ -448,17 +469,17 @@ void ReceiveSwapViewModel::updateTransactionToken()
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 
     // All parameters sets as if we were on the recipient side (mirrored)
-    bool isBeamSide = (_receiveCurrency == Currency::CurrBeam);
-    auto swapCoin   = convertCurrencyToSwapCoin(isBeamSide ? _sentCurrency : _receiveCurrency);
-    auto beamAmount = isBeamSide ? _amountToReceiveGrothes : _amountSentGrothes;
-    auto swapAmount = isBeamSide ? _amountSentGrothes : _amountToReceiveGrothes;
+    _isBeamSide = (_receiveCurrency == Currency::CurrBeam);
+    auto swapCoin   = convertCurrencyToSwapCoin(_isBeamSide ? _sentCurrency : _receiveCurrency);
+    auto beamAmount = _isBeamSide ? _amountToReceiveGrothes : _amountSentGrothes;
+    auto swapAmount = _isBeamSide ? _amountSentGrothes : _amountToReceiveGrothes;
 
-    _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, _isBeamSide);
     _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, beamAmount);
     _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, swapCoin);
     _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, swapAmount);
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
-    _txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, isBeamSide);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, _isBeamSide);
 
     setTransactionToken(QString::fromStdString(std::to_string(_txParameters)));
 }

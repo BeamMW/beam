@@ -346,7 +346,9 @@ please review your settings and try again"
                         Layout.topMargin: 3
                         font.pixelSize:   14
                         color:            Style.content_secondary
-                        text:             ["1", sendAmountInput.currencyLabel, "=", Utils.calcDisplayRate(receiveAmountInput, sendAmountInput).displayRate, receiveAmountInput.currencyLabel].join(" ")
+                        text:             viewModel.isSendBeam
+                            ? ["1", sendAmountInput.currencyLabel, "=", Utils.number2Locale(viewModel.rate), receiveAmountInput.currencyLabel].join(" ")
+                            : ["1", receiveAmountInput.currencyLabel, "=", Utils.number2Locale(viewModel.rate), sendAmountInput.currencyLabel].join(" ")
                     }
                 }
             }

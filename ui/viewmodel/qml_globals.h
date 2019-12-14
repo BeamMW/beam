@@ -64,6 +64,7 @@ public:
 
     Q_INVOKABLE static bool canReceive(Currency currency);
     Q_INVOKABLE static QString getCurrencyName(Currency currency);
+    Q_INVOKABLE static QString getRateStr(quint64 beamAmount, quint64 otherCoinAmount);
 
 private:
     QQmlEngine& _engine;

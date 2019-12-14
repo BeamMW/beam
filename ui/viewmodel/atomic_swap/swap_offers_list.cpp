@@ -49,10 +49,7 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
     {
        return QVariant();
     }
-    auto isSendBeam = [](const auto& value)
-    {
-        return value->isOwnOffer() ? value->isBeamSide() : !value->isBeamSide();
-    };
+
     auto& value = m_list[index.row()];
     switch (static_cast<Roles>(role))
     {
@@ -74,9 +71,8 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
             return static_cast<qulonglong>(value->rawAmountReceive());
 
         case Roles::Rate:
-            return value->rate();
         case Roles::RateSort:
-            return value->rateValue();
+            return value->rate();
 
         case Roles::Expiration:
             return value->timeExpiration().toString(Qt::SystemLocaleShortDate);
@@ -90,7 +86,7 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
             return value->isOwnOffer();
 
         case Roles::IsSendBeam:
-            return isSendBeam(value);
+            return value->isSendBeam();
 
         case Roles::RawTxID:
             return QVariant::fromValue(value->getTxID());
@@ -102,7 +98,7 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
         {
             auto swapCoin = value->getSwapCoinName();
             const QString beam = "beam";
-            return  isSendBeam(value) ? swapCoin + beam : beam + swapCoin;
+            return  value->isSendBeam() ? beam + swapCoin : swapCoin + beam;
         }
         default:
             return QVariant();

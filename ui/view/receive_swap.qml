@@ -33,9 +33,9 @@ ColumnLayout {
     }
 
     function isValid () {
-        if (!viewModel.commentValid) return false
-        if (viewModel.receiveCurrency == viewModel.sentCurrency) return false
-        return receiveAmountInput.isValid && sentAmountInput.isValid && !currencyError() && rateRow.rateValid()
+        if (!viewModel.commentValid) return false;
+        if (viewModel.receiveCurrency == viewModel.sentCurrency) return false;
+        return receiveAmountInput.isValid && sentAmountInput.isValid && !currencyError() && rateRow.rateValid;
     }
 
     function canSend () {
@@ -320,88 +320,87 @@ please review your settings and try again"
 
                         property double maxAmount: 254000000
                         property double minAmount: 0.00000001
+                        property bool rateValid:   true
 
-                        function calcReceiveAmount () {
-                            var rate = parseFloat(rateInput.text) || 0
-                            if (rate == 0) return {amount:0, error: false}
-
-                            var ramount = sentAmountInput.amount * rate
-                            var error = ramount > maxAmount || ramount < minAmount
-
-                            if (ramount > maxAmount) ramount = maxAmount
-                            if (ramount < minAmount) ramount = minAmount
-
-                            return {
-                                amount:    ramount.toFixed(8).replace(/\.?0+$/,""),
-                                error:     error,
-                                //% "Invalid rate"
-                                errorText: qsTrId("swap-invalid-rate")
+                        function changeReceiveBySendValue() {
+                            if (sentAmountInput.amount != "0" && rateInput.text.length != 0) {
+                                var receive = viewModel.isSendBeam
+                                    ? parseFloat(sentAmountInput.amount) * parseFloat(rateInput.text)
+                                    : parseFloat(sentAmountInput.amount) / parseFloat(rateInput.text);
+                                receiveAmountInput.amount = receive == 0 ? "0" : receive.toFixed(8).replace(/\.?0+$/,"");
                             }
                         }
 
-                        function calcRate () {
-                            return Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rateInput.focus)
+                        function changeReceiveByRateValue() {
+                            if (sentAmountInput.amount != "0" && rateInput.text.length != 0) {
+                                var receive = viewModel.isSendBeam
+                                    ? parseFloat(sentAmountInput.amount) * parseFloat(rateInput.text)
+                                    : parseFloat(sentAmountInput.amount) / parseFloat(rateInput.text);
+                                receiveAmountInput.amount = receive == 0 ? "0" : receive.toFixed(8).replace(/\.?0+$/,"");
+                            } else if (rateInput.text.length == 0) {
+                                receiveAmountInput.amount = "0";
+                            }
                         }
 
-                        function rateValid () {
-                           return !calcReceiveAmount().error && !calcRate().error
-                        }
-
-                        function rateError () {
-                            return calcRate().errorText || calcReceiveAmount().errorText || ""
-                        }
-
-                        function recalcAmount () {
-                             if (sentAmountInput.amount == 0) sentAmountInput.amount = 1
-                             receiveAmountInput.amount = calcReceiveAmount().amount
+                        function checkIsRateValid() {
+                            var rate = parseFloat(rateInput.text) || 0;
+                            if (rate == 0) {
+                                rateValid = true;
+                                return;
+                            }
+                            rateValid = parseFloat(receiveAmountInput.amount) <= rateRow.maxAmount && parseFloat(receiveAmountInput.amount) >= rateRow.minAmount;
                         }
 
                         SFText {
                             font.pixelSize:   14
-                            color:            rateRow.rateValid() ? Style.content_secondary : Style.validator_error
-                            text:             ["1", sentAmountInput.currencyLabel, "="].join(" ")
+                            color:            rateRow.rateValid ? Style.content_secondary : Style.validator_error
+                            text:             viewModel.isSendBeam
+                                ? ["1", sentAmountInput.currencyLabel, "="].join(" ")
+                                : ["1", receiveAmountInput.currencyLabel, "="].join(" ") 
                         }
 
                         SFTextInput {
+                            property string rate: viewModel.rate
+
                             id:                  rateInput
                             padding:             0
                             Layout.minimumWidth: 35
                             activeFocusOnTab:    true
                             font.pixelSize:      14
-                            color:               rateRow.rateValid() ? Style.content_main : Style.validator_error
-                            backgroundColor:     rateRow.rateValid() ? Style.content_main : Style.validator_error
-                            text:                rateRow.calcRate().displayRate
+                            color:               rateRow.rateValid ? Style.content_main : Style.validator_error
+                            backgroundColor:     rateRow.rateValid ? Style.content_main : Style.validator_error
+                            text:                ""
                             selectByMouse:       true
                             maximumLength:       30
-                            validator:           RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,27}[1-9])?$/}
-
-                            onTextEdited: {
-                                // unbind
-                                text = text
-                                // update
-                                rateRow.recalcAmount()
+                            
+                            validator: DoubleValidator {
+                                bottom: rateRow.minAmount
+                                top: rateRow.maxAmount
+                                decimals: 8
+                                locale: Qt.locale().name
+                                notation: DoubleValidator.StandardNotation
                             }
 
-                            onFocusChanged: {
-                                if (focus) {
-                                    var rcalc = rateRow.calcRate()
-                                    if (rcalc.rate < rcalc.minRate) {
-                                        text = rcalc.minDisplayRate
-                                        rateRow.recalcAmount()
-                                    }
+                            onRateChanged: {
+                                text = rate != "0" ? rate : "";
+                            }
+
+                            onTextEdited: {
+                                if (rateInput.focus) {
+                                    rateRow.changeReceiveByRateValue();
                                 }
-                                if (!focus) {
-                                    text = Qt.binding(function() {
-                                            return rateRow.calcRate().displayRate
-                                        })
-                                }
+                                rateRow.checkIsRateValid();
+                            }
+
+                            Component.onCompleted: {
+                                viewModel.amountSentChanged.connect(rateRow.changeReceiveBySendValue);
                             }
                         }
 
                         SFText {
                             font.pixelSize:  14
-                            color:           rateRow.rateValid() ? Style.content_secondary : Style.validator_error
-                            text:            receiveAmountInput.currencyLabel
+                            color:           rateRow.rateValid ? Style.content_secondary : Style.validator_error
+                            text:            viewModel.isSendBeam ? receiveAmountInput.currencyLabel : sentAmountInput.currencyLabel
                         }
                     }
 
@@ -412,8 +411,9 @@ please review your settings and try again"
                             font.pixelSize:      12
                             font.styleName:      "Italic"
                             width:               parent.width
-                            text:                rateRow.rateError()
-                            visible:             !rateRow.rateValid()
+                            //% "Invalid rate"
+                            text:                qsTrId("swap-invalid-rate")
+                            visible:             !rateRow.rateValid
                         }
                     }
 

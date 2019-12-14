@@ -571,7 +571,6 @@ Please try again later or create an offer yourself."
                                 height: offersTable.rowHeight
                                 property var swapCoin: styleData.value
                                 property var isSendBeam: !!model && model.isSendBeam
-                                property var isOwnOffer: !!model && model.isOwnOffer
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -579,9 +578,9 @@ Please try again later or create an offer yourself."
                                 anchors.topMargin: 18
 
                                 RowLayout {
-                                    layoutDirection: Qt.RightToLeft
                                     spacing: -4
                                     SvgImage {
+                                        z: 1
                                         sourceSize: Qt.size(20, 20)
                                         source: isSendBeam
                                             ? "qrc:/assets/icon-beam.svg"
@@ -858,7 +857,7 @@ Please try again later or create an offer yourself."
                                 width: parent.width
                                 height: transactionsTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: transactionsTable.model.getRoleValue(styleData.row, "isBeamSideSwap")
+                                property var isSendBeam: !!model && model.isBeamSideSwap
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -866,15 +865,15 @@ Please try again later or create an offer yourself."
                                 anchors.topMargin: 18
 
                                 RowLayout {
-                                    layoutDirection: Qt.RightToLeft
                                     spacing: -4
                                     SvgImage {
+                                        z: 1
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
+                                        source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
                                     }
                                     SvgImage {
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
+                                        source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
                                     }
                                 }
                             }

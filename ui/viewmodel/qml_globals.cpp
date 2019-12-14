@@ -23,10 +23,20 @@
 #include "wallet/litecoin/litecoin_side.h"
 #include "wallet/qtum/qtum_side.h"
 
+#include <iomanip>
+#include <boost/algorithm/string.hpp>
+#include "3rdparty/libbitcoin/include/bitcoin/bitcoin/formats/base_10.hpp"
+
 namespace
 {
     const int kDefaultFeeInGroth = 10;
     const int kFeeInGroth_Fork1 = 100;
+
+    template <char C>
+    bool char_is(const char c)
+    {
+        return c == C;
+    }
 }
 
 QMLGlobals::QMLGlobals(QQmlEngine& engine)
@@ -314,4 +324,35 @@ bool QMLGlobals::isSwapFeeOK(unsigned int amount, unsigned int fee, Currency cur
             return true;
         }
     }
+}
+
+QString QMLGlobals::getRateStr(quint64 beamAmount, quint64 otherCoinAmount)
+{
+    // TODO should be created unit tests
+    if (!beamAmount) return QString("0");
+
+    const uint8_t decimalPlaces = libbitcoin::btc_decimal_places;
+    std::ostringstream stream;
+
+    stream << otherCoinAmount / beamAmount << '.' << std::setfill('0') << std::setw(decimalPlaces) << '0';
+
+    std::string result = stream.str();
+    quint64 remainder = otherCoinAmount % beamAmount;
+
+    remainder *= static_cast<quint64>(std::pow(10, decimalPlaces + 1));
+    stream.str(std::string());
+    stream << (remainder / beamAmount + 5);
+
+    std::string str = stream.str();
+    size_t size = result.size();
+    if (!str.empty())
+    {
+        result.insert(size - decimalPlaces + (decimalPlaces >= str.size() ? decimalPlaces - str.size() + 1 : 0), str);
+        result.erase(size);
+    }
+
+    boost::algorithm::trim_right_if(result, char_is<'0'>);
+    boost::algorithm::trim_right_if(result, char_is<'.'>);
+
+    return QString(result.c_str());
 }

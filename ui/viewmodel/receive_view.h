@@ -20,7 +20,7 @@ class QR;
 class ReceiveViewModel: public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString  amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive  NOTIFY  amountToReceiveChanged)
+    Q_PROPERTY(QString  amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive  NOTIFY  amountReceiveChanged)
     Q_PROPERTY(int      addressExpires     READ getAddressExpires     WRITE  setAddressExpires   NOTIFY  addressExpiresChanged)
     Q_PROPERTY(QString  addressComment     READ getAddressComment     WRITE  setAddressComment   NOTIFY  addressCommentChanged)
     Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                               NOTIFY  receiverAddressChanged)
@@ -33,7 +33,7 @@ public:
     ~ReceiveViewModel() override;
 
 signals:
-    void amountToReceiveChanged();
+    void amountReceiveChanged();
     void addressExpiresChanged();
     void receiverAddressChanged();
     void addressCommentChanged();
