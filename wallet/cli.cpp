@@ -929,7 +929,8 @@ namespace
     template<typename Settings>
     bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
     {
-        if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
+        if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) ||
+            vm.count(cli::GENERATE_ELECTRUM_SEED) || vm.count(cli::SELECT_SERVER_AUTOMATICALLY))
         {
             auto electrumSettings = settings.GetElectrumConnectionOptions();
 
@@ -940,7 +941,8 @@ namespace
                     throw std::runtime_error("electrum seed should be specified");
                 }
 
-                if (!vm.count(cli::ELECTRUM_ADDR))
+                if (!vm.count(cli::ELECTRUM_ADDR) && 
+                    (!vm.count(cli::SELECT_SERVER_AUTOMATICALLY) || (vm.count(cli::SELECT_SERVER_AUTOMATICALLY) && !vm[cli::SELECT_SERVER_AUTOMATICALLY].as<bool>())))
                 {
                     throw std::runtime_error("electrum address should be specified");
                 }
@@ -952,6 +954,15 @@ namespace
                 if (!io::Address().resolve(electrumSettings.m_address.c_str()))
                 {
                     throw std::runtime_error("unable to resolve electrum address: " + electrumSettings.m_address);
+                }
+            }
+
+            if (vm.count(cli::SELECT_SERVER_AUTOMATICALLY))
+            {
+                electrumSettings.m_automaticChooseAddress = vm[cli::SELECT_SERVER_AUTOMATICALLY].as<bool>();
+                if (!electrumSettings.m_automaticChooseAddress && electrumSettings.m_address.empty())
+                {
+                    throw std::runtime_error("electrum address should be specified");
                 }
             }
 
@@ -1173,7 +1184,14 @@ namespace
 
             if (settings.GetElectrumConnectionOptions().IsInitialized())
             {
-                stream << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
+                if (settings.GetElectrumConnectionOptions().m_automaticChooseAddress)
+                {
+                    stream << "Automatic node selection mode is turned ON.\n";
+                }
+                else
+                {
+                    stream << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
+                }
             }
             stream << "Fee rate: " << settings.GetFeeRate() << '\n';
             stream << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';

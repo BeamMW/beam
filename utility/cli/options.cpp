@@ -147,6 +147,7 @@ namespace beam
         const char* SHOW_SWAP_SETTINGS = "show_swap_settings";
         const char* ELECTRUM_SEED = "electrum_seed";
         const char* GENERATE_ELECTRUM_SEED = "generate_electrum_seed";
+        const char* SELECT_SERVER_AUTOMATICALLY = "select_server_automatically";
         const char* ELECTRUM_ADDR = "electrum_addr";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
@@ -363,6 +364,7 @@ namespace beam
             (cli::SHOW_SWAP_SETTINGS, "show altcoin's settings")
             (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
             (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
+            (cli::SELECT_SERVER_AUTOMATICALLY, po::value<bool>(), "select electrum server automatically")
             (cli::ELECTRUM_ADDR, po::value<string>(), "electrum address")
             (cli::SWAP_WALLET_ADDR, po::value<string>(), "rpc address of swap wallet")
             (cli::SWAP_WALLET_USER, po::value<string>(), "rpc user name for the swap wallet")
