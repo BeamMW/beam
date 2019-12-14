@@ -259,9 +259,9 @@ please review your settings and try again"
 
                         function getErrorText() {
                             if(!BeamGlobals.canReceive(currency)) {
-                                /*% "%1 is not connected, 
-                                please review your settings and try again"
-                                */
+/*% "%1 is not connected, 
+please review your settings and try again"
+*/
                                 return qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\n", "")
                             }
                             if(!viewModel.isReceiveFeeOK) {
