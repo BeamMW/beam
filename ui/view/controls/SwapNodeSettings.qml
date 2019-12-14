@@ -443,6 +443,7 @@ Control {
                 color:            Style.content_main
                 ipOnly:           false
                 readOnly:         selectServerAutomatically.checked
+                underlineVisible: !selectServerAutomatically.checked
             }
 
             // common fee rate
