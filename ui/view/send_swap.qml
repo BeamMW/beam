@@ -271,6 +271,7 @@ please review your settings and try again"
                         color:            Style.accent_incoming
                         currColor:        viewModel.receiveCurrency == viewModel.sendCurrency || getErrorText().length ? Style.validator_error : Style.content_main
                         error:            getErrorText()
+                        showTotalFee:     true
 
                         function getErrorText() {
                             if(!viewModel.isReceiveFeeOK) {

@@ -317,6 +317,11 @@ namespace beam::wallet
         return amount > bitcoin::kDustThreshold && amount > fee;
     }
 
+    Amount BitcoinSide::CalcTotalFee(Amount feeRate)
+    {
+        return bitcoin::kBTCWithdrawTxAverageSize * feeRate;
+    }
+
     uint8_t BitcoinSide::GetAddressVersion() const
     {
         return m_settingsProvider.GetSettings().GetAddressVersion();

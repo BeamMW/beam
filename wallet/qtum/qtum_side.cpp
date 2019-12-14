@@ -35,6 +35,11 @@ namespace beam::wallet
         return amount > kQtumDustThreshold && amount > fee;
     }
 
+    Amount QtumSide::CalcTotalFee(Amount feeRate)
+    {
+        return kQtumWithdrawTxAverageSize * feeRate;
+    }
+
     uint32_t QtumSide::GetLockTxEstimatedTimeInBeamBlocks() const
     {
         return kQtumLockTxEstimatedTimeInBeamBlocks;

@@ -2073,5 +2073,10 @@ fee while you have transactions in progress.</oldsource>
         <oldsource>Remember to validate the expected fee rate for the blockchain (as it varies with time)</oldsource>
         <translation type="unfinished"></translation>
     </message>
+    <message id="general-fee-total">
+        <source>%1 Transaction fee (est)</source>
+        <oldsource>%1 Transaction fee</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

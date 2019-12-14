@@ -119,8 +119,8 @@ uint32_t QMLGlobals::defFeeBeam()
 
 uint32_t QMLGlobals::defFeeRateBtc()
 {
-     const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
-     return btcSettings.GetFeeRate();
+    const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
+    return btcSettings.GetFeeRate();
 }
 
 uint32_t QMLGlobals::defFeeRateLtc()
@@ -170,6 +170,31 @@ int QMLGlobals::getMinFeeOrRate(Currency currency)
     switch (currency) {
         case Currency::CurrBeam: return minFeeBeam();
         default: return 0;
+    }
+}
+
+QString QMLGlobals::calcTotalFee(Currency currency, unsigned int feeRate)
+{
+    switch (currency) {
+        case Currency::CurrBeam: {
+            return QString::fromStdString(std::to_string(feeRate));
+        }
+        case Currency::CurrBtc: {
+            auto total = beam::wallet::BitcoinSide::CalcTotalFee(feeRate);
+            return QString::fromStdString(std::to_string(total)) + " sat";
+        }
+        case Currency::CurrLtc: {
+            auto total = beam::wallet::LitecoinSide::CalcTotalFee(feeRate);
+            return QString::fromStdString(std::to_string(total)) + " ph";
+        }
+        case Currency::CurrQtum: {
+            auto total = beam::wallet::QtumSide::CalcTotalFee(feeRate);
+            return QString::fromStdString(std::to_string(total)) + " qsat";
+        }
+        default: {
+            assert(false);
+            return QString();
+        }
     }
 }
 

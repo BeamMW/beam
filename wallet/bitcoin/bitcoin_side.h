@@ -45,6 +45,7 @@ namespace beam::wallet
         bool IsQuickRefundAvailable() override;
 
         static bool CheckAmount(Amount amount, Amount feeRate);
+        static Amount CalcTotalFee(Amount feeRate);
 
     protected:
         virtual uint32_t GetLockTxEstimatedTimeInBeamBlocks() const;
