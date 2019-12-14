@@ -96,6 +96,8 @@ namespace beam::bitcoin
 
         void tryToChangeAddress();
 
+        bool isNodeAddressCheckedAndVerified(const std::string& address) const;
+
     private:
         beam::io::Reactor& m_reactor;
         std::map<uint64_t, TCPConnect> m_connections;
@@ -107,6 +109,6 @@ namespace beam::bitcoin
         std::vector<Utxo> m_cache;
         std::chrono::system_clock::time_point m_lastCache;
         io::AsyncEvent::Ptr m_asyncEvent;
-        std::set<std::string> m_badAddresses;
+        std::map<std::string, bool> m_verifiedAddresses;
     };
 } // namespace beam::bitcoin

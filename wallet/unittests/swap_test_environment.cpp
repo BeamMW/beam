@@ -304,8 +304,11 @@ private:
                     try
                     {
                         json request = json::parse(strResponse);
-
-                        if (request["method"] == "blockchain.headers.subscribe")
+                        if (request["method"] == "server.features")
+                        {
+                            result = R"({"jsonrpc": "2.0", "result": {"genesis_hash": "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"}, "id": "verify"})";
+                        }
+                        else if (request["method"] == "blockchain.headers.subscribe")
                         {
                             result = R"({"jsonrpc": "2.0", "result": {"hex": "00000020f067b25ee650df3118827383cc128eb00ff88ad521dd3a17c43ebeef56ce0f50d3e5df9a08d80ffff34f3b64b04eb303679290b0b908e5ae6ddd08f38aee29237ca0805dffff7f2001000000", "height": )" + std::to_string(m_blockCount++) + R"(}, "id": "test"})";
                         }

@@ -44,6 +44,8 @@ namespace
         libbitcoin::data_chunk reverseSecretHash(secretHash.rbegin(), secretHash.rend());
         return libbitcoin::encode_base16(reverseSecretHash);
     }
+
+    const char kInvalidGenesisBlockHashMsg[] = "Invalid genesis block hash";
 }
 
 namespace beam::bitcoin
@@ -579,11 +581,10 @@ namespace beam::bitcoin
         std::string request(R"({"method":")" + method + R"(","params":[)" + params + R"(], "id": "test"})");
         request += "\n";
 
+        auto settings = m_settingsProvider.GetSettings();
         //LOG_INFO() << request;
-
         io::Address address;
         {
-            auto settings = m_settingsProvider.GetSettings();
             auto electrumSettings = settings.GetElectrumConnectionOptions();
             
             if (electrumSettings.m_automaticChooseAddress && m_currentAddressIndex < electrumSettings.m_nodeAddresses.size() &&
@@ -616,7 +617,7 @@ namespace beam::bitcoin
         connection.m_callback = callback;
 
         auto tag = uint64_t(&connection);
-        auto result = m_reactor.tcp_connect(address, tag, [this, currentId, weak = this->weak_from_this()](uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode status)
+        auto result = m_reactor.tcp_connect(address, tag, [this, currentId, weak = this->weak_from_this(), settings](uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode status)
         {
             if (weak.expired())
             {
@@ -630,7 +631,7 @@ namespace beam::bitcoin
 
                 connection.m_stream = std::move(newStream);
 
-                connection.m_stream->enable_read([this, weak, currentId](ErrorCode what, void* data, size_t size) -> bool
+                connection.m_stream->enable_read([this, weak, currentId, settings](ErrorCode what, void* data, size_t size) -> bool
                 {
                     if (weak.expired())
                     {
@@ -663,6 +664,36 @@ namespace beam::bitcoin
                                 else
                                 {
                                     result = reply["result"];
+                                    auto id = reply["id"].get<std::string>();
+                                    if (id == "verify")
+                                    {
+                                        auto genesisBlockHash = result["genesis_hash"].get<std::string>();
+                                        TCPConnect& connection = m_connections[currentId];
+                                        auto genesisBlockHashes = settings.GetGenesisBlockHashes();
+                                        auto currentNodeAddress = settings.GetElectrumConnectionOptions().m_address;
+
+                                        if (std::find(genesisBlockHashes.begin(), genesisBlockHashes.end(), genesisBlockHash) != genesisBlockHashes.end())
+                                        {
+                                            m_verifiedAddresses.emplace(currentNodeAddress, true);
+                                            Result res = connection.m_stream->write(connection.m_request.data(), connection.m_request.size());
+                                            if (!res)
+                                            {
+                                                LOG_ERROR() << error_str(res.error());
+                                            }
+                                            return true;
+                                        }
+                                        else
+                                        {
+                                            m_verifiedAddresses.emplace(currentNodeAddress, false);
+
+                                            tryToChangeAddress();
+
+                                            error.m_message = kInvalidGenesisBlockHashMsg;
+                                            error.m_type = IBridge::InvalidGenesisBlock;
+                                            connection.m_callback(error, result, currentId);
+                                            return false;
+                                        }
+                                    }
                                 }
                             }
                             catch (const std::exception& ex)
@@ -688,7 +719,33 @@ namespace beam::bitcoin
                     return true;
                 });
 
-                Result res = connection.m_stream->write(connection.m_request.data(), connection.m_request.size());
+                Result res;
+
+                // find address in map
+                auto iter = m_verifiedAddresses.find(settings.GetElectrumConnectionOptions().m_address);
+                if (iter != m_verifiedAddresses.end())
+                {
+                    // node have invalid genesis block hash
+                    if (!iter->second)
+                    {
+                        tryToChangeAddress();
+                        // error
+                        Error error{ InvalidGenesisBlock, kInvalidGenesisBlockHashMsg };
+                        json result;
+                        connection.m_callback(error, result, currentId);
+                        m_connections.erase(currentId);
+                        return;
+                    }
+                    res = connection.m_stream->write(connection.m_request.data(), connection.m_request.size());
+                }
+                else
+                {
+                    // Node have not validated yet
+                    std::string verifyRequest = R"({"method":"server.features","params":[], "id": "verify"})";
+                    verifyRequest += "\n";
+                    res = connection.m_stream->write(verifyRequest.data(), verifyRequest.size());
+                }
+
                 if (!res) {
                     LOG_ERROR() << error_str(res.error());
                 }
@@ -774,7 +831,7 @@ namespace beam::bitcoin
                     }
                 } while (index != m_currentAddressIndex &&
                     (electrumSettings.m_address == electrumSettings.m_nodeAddresses.at(m_currentAddressIndex) ||
-                        m_badAddresses.find(electrumSettings.m_nodeAddresses.at(m_currentAddressIndex)) != m_badAddresses.end()));
+                        !isNodeAddressCheckedAndVerified(electrumSettings.m_nodeAddresses.at(m_currentAddressIndex))));
             }
 
             if (index != m_currentAddressIndex)
@@ -784,5 +841,11 @@ namespace beam::bitcoin
                 m_settingsProvider.SetSettings(settings);
             }
         }
+    }
+
+    bool Electrum::isNodeAddressCheckedAndVerified(const std::string& address) const
+    {
+        auto iter = m_verifiedAddresses.find(address);
+        return iter != m_verifiedAddresses.end() && iter->second;
     }
 } // namespace beam::bitcoin
