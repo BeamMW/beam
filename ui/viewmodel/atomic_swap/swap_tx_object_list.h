@@ -79,7 +79,7 @@ public:
         BeamLockTxKernelId,
         BeamRedeemTxKernelId,
         BeamRefundTxKernelId,
-        SwapState
+        StateDetails
     };
 
     SwapTxObjectList();

@@ -49,21 +49,28 @@ namespace
         }
 
         auto minHeightRefund = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight, BEAM_REFUND_TX);
-         QString time = "";
+        QString time = "";
         if (minHeightRefund)
         {
             auto currentHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
             if (currentHeight < *minHeightRefund)
             {
                 time = beamui::convertBeamHeightDiffToTime(*minHeightRefund - currentHeight);
+                //% "The swap is expected to complete in %1 at most"
+                return qtTrId("swap-tx-state-in-progress-normal").arg(time);
             }
         }
-        if (time.isEmpty())
-        {
-            return "";
+        else {
+            auto maxHeightLockTx = txParameters.GetParameter<beam::Height>(TxParameterID::MaxHeight, BEAM_LOCK_TX);
+            auto currentHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
+            if (maxHeightLockTx && currentHeight < *maxHeightLockTx)
+            {
+                time = beamui::convertBeamHeightDiffToTime(*maxHeightLockTx - currentHeight);
+                //% "If peer will not finish negotiation in %1, the offer will be automatically canceled"
+                return qtTrId("swap-tx-state-in-progress-negotiation").arg(time);
+            }
         }
-        //% "The swap is expected to complete in %1 at most"
-        return qtTrId("swap-tx-state-in-progress-normal").arg(time);
+        return "";
     }
 
     QString getInProgressRefundingStr(const beam::wallet::TxParameters& txParameters, double blocksPerHour)

@@ -2063,5 +2063,9 @@ fee while you have transactions in progress.</oldsource>
         <oldsource>%1 Transaction fee</oldsource>
         <translation type="unfinished"></translation>
     </message>
+    <message id="swap-tx-state-in-progress-negotiation">
+        <source>If peer will not finish negotiation in %1, the offer will be automatically canceled</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
