@@ -79,6 +79,8 @@ using json = nlohmann::json;
 
 void testAddress()
 {
+    std::cout << "\nTesting generation of electrum address...\n";
+
     bitcoin::ElectrumSettings settings;
     settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
 
@@ -197,6 +199,8 @@ void testConnection()
 
 void testReconnect1()
 {
+    std::cout << "\nTesting connection to 3 offline and 1 online electrum servers...\n";
+
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
@@ -246,6 +250,8 @@ void testReconnect1()
 
 void testReconnect2()
 {
+    std::cout << "\nTesting connection to 4 offline electrum servers...\n";
+
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
@@ -293,6 +299,8 @@ void testReconnect2()
 
 void testConnectToOfflineNode()
 {
+    std::cout << "\nTesting connection to offline electrum server (automatic node selection mode is turned OFF)...\n";
+
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
@@ -334,6 +342,8 @@ void testConnectToOfflineNode()
 
 void testConnectToInvalidAddress()
 {
+    std::cout << "\nTesting connection to invalid address (automatic node selection mode is turned OFF)...\n";
+
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
@@ -375,6 +385,8 @@ void testConnectToInvalidAddress()
 
 void testReconnectToInvalidAddresses()
 {
+    std::cout << "\nTesting connection to invalid addresses (automatic node selection mode is turned ON)...\n";
+
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 

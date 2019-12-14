@@ -846,6 +846,6 @@ namespace beam::bitcoin
     bool Electrum::isNodeAddressCheckedAndVerified(const std::string& address) const
     {
         auto iter = m_verifiedAddresses.find(address);
-        return iter != m_verifiedAddresses.end() && iter->second;
+        return iter == m_verifiedAddresses.end() || (iter != m_verifiedAddresses.end() && iter->second);
     }
 } // namespace beam::bitcoin
