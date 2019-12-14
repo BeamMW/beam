@@ -2101,7 +2101,7 @@ int main_impl(int argc, char* argv[])
                                     }
                                     else
                                     {
-                                        LOG_ERROR() << kErrorCancelTxInInvalidStatus << beam::getSwapTxStatus(walletDB, *tx);
+                                        LOG_ERROR() << kErrorCancelTxInInvalidStatus << (tx->m_txType == wallet::TxType::AtomicSwap ? beam::getSwapTxStatus(walletDB, *tx) : beam::getTxStatus(*tx));
                                         return -1;
                                     }
                                 }
