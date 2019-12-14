@@ -1772,6 +1772,7 @@ struct NodeProcessor::BlockInterpretCtx
 {
 	Height m_Height;
 	bool m_Fwd;
+	bool m_ValidateOnly; // don't make changes to state
 
 	uint32_t m_ShieldedIns;
 	uint32_t m_ShieldedOuts;
@@ -1781,6 +1782,7 @@ struct NodeProcessor::BlockInterpretCtx
 		,m_Fwd(bFwd)
 		,m_ShieldedIns(0)
 		,m_ShieldedOuts(0)
+		,m_ValidateOnly(false)
 	{
 	}
 };
@@ -2380,46 +2382,31 @@ bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
 	return !kidv.m_Value && (Key::Type::Decoy == kidv.m_Type);
 }
 
-bool NodeProcessor::ValidateKernel(const TxKernel& krn, Height h)
+bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
 {
-	const Rules& rules = Rules::get();
-	bool bPastFork2 = (h >= rules.pForks[2].m_Height);
-
-	HeightRange hr = krn.m_Height;
-
-	if (TxKernel::Subtype::Std == krn.get_Subtype())
+	if (bic.m_Fwd && krn.m_pRelativeLock)
 	{
-		const TxKernelStd& krnStd = Cast::Up<TxKernelStd>(krn);
+		const TxKernelStd::RelativeLock& x = *krn.m_pRelativeLock;
 
-		if (krnStd.m_pRelativeLock)
-		{
-			const TxKernelStd::RelativeLock& x = *krnStd.m_pRelativeLock;
+		Height h0 = m_DB.FindKernel(x.m_ID);
+		if (h0 < Rules::HeightGenesis)
+			return false;
 
-			Height h0 = m_DB.FindKernel(x.m_ID);
-			if (h0 < Rules::HeightGenesis)
-				return false;
+		const Rules& rules = Rules::get();
+		if ((bic.m_Height >= rules.pForks[2].m_Height) && (bic.m_Height - h0 > rules.MaxKernelValidityDH))
+			return false;
 
-			if (bPastFork2 && (h - h0 > rules.MaxKernelValidityDH))
-				return false;
-
-			HeightAdd(h0, x.m_LockHeight);
-			if (h0 > h)
-				return false;
-		}
+		HeightAdd(h0, x.m_LockHeight);
+		if (h0 > bic.m_Height)
+			return false;
 	}
 
-	if (bPastFork2)
-	{
-		if (!hr.IsEmpty() && (hr.m_Max - hr.m_Min > rules.MaxKernelValidityDH))
-			hr.m_Max = hr.m_Min + rules.MaxKernelValidityDH;
+	return true;
+}
 
-		Height hPrev = m_DB.FindKernel(krn.m_Internal.m_ID);
-		assert(hPrev <= h);
-		if (hPrev && (h - hPrev <= rules.MaxKernelValidityDH))
-			return false; // duplicated
-	}
-
-	return hr.IsInRange(h);
+bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
+{
+	return true; // no special processing at the moment
 }
 
 template <typename T>
@@ -2671,20 +2658,35 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 
 bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic)
 {
-	if (bic.m_Height >= Rules::HeightGenesis)
+	const Rules& r = Rules::get();
+	if (bic.m_Fwd && (bic.m_Height >= r.pForks[2].m_Height))
+	{
+		Height hPrev = m_DB.FindKernel(v.m_Internal.m_ID);
+		assert(hPrev <= bic.m_Height);
+		if ((hPrev >= Rules::HeightGenesis) && (bic.m_Height - hPrev <= r.MaxKernelValidityDH))
+			return false; // duplicated
+	}
+
+	switch (v.get_Subtype())
+	{
+#define THE_MACRO(id, name) \
+	case TxKernel::Subtype::name: \
+		if (!HandleKernel(Cast::Up<TxKernel##name>(v), bic)) \
+			return false; \
+		break;
+
+		BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
+	}
+
+	if ((bic.m_Height >= Rules::HeightGenesis) && !bic.m_ValidateOnly)
 	{
 		// for historical reasons treasury kernels are ignored
 		if (bic.m_Fwd)
-		{
-			if (!ValidateKernel(v, bic.m_Height))
-				return false;
-
 			m_DB.InsertKernel(v.m_Internal.m_ID, bic.m_Height);
-		}
 		else
-		{
 			m_DB.DeleteKernel(v.m_Internal.m_ID, bic.m_Height);
-		}
 	}
 
 	return true;
@@ -3261,16 +3263,11 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	}
 
 	// Ensure kernels are ok
-	bool bPastFork2 = (h >= Rules::get().pForks[2].m_Height);
-
-	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
-	{
-		if (!ValidateKernel(*tx.m_vKernels[i], h))
-			return false;
-
-		if (bPastFork2 && i && (tx.m_vKernels[i - 1]->m_Internal.m_ID >= tx.m_vKernels[i]->m_Internal.m_ID))
-			return false; // duplicated kernels within the same tx!
-	}
+	BlockInterpretCtx bic(h, true);
+	bic.m_ValidateOnly = true;
+	size_t n = 0;
+	if (!HandleElementVecFwd(tx.m_vKernels, bic, n))
+		return false;
 
 	if (!bShieldedTested)
 	{

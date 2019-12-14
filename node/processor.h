@@ -69,6 +69,10 @@ class NodeProcessor
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
+#define THE_MACRO(id, name) bool HandleKernel(const TxKernel##name&, BlockInterpretCtx&);
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
 	void RecognizeUtxos(TxBase::IReader&&, Height h, TxoID nShielded);
 
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
@@ -299,7 +303,6 @@ public:
 	uint64_t FindActiveAtStrict(Height);
 
 	bool ValidateTxContext(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
-	bool ValidateKernel(const TxKernel&, Height);
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
 	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
 	bool IsShieldedInPool(const Input&);
