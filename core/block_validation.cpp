@@ -21,7 +21,6 @@ namespace beam
 	TxBase::Context::Params::Params()
 	{
 		ZeroObject(*this);
-		m_bVerifyOrder = true;
 		m_nVerifiers = 1;
 	}
 
@@ -101,21 +100,18 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_Params.m_bVerifyOrder)
+				if (pPrev && (*pPrev > *r.m_pUtxoIn))
+					return false;
+
+				// make sure no redundant outputs
+				for (; r.m_pUtxoOut; r.NextUtxoOut())
 				{
-					if (pPrev && (*pPrev > *r.m_pUtxoIn))
-						return false;
+					int n = CmpInOut(*r.m_pUtxoIn, *r.m_pUtxoOut);
+					if (n < 0)
+						break;
 
-					// make sure no redundant outputs
-					for (; r.m_pUtxoOut; r.NextUtxoOut())
-					{
-						int n = CmpInOut(*r.m_pUtxoIn, *r.m_pUtxoOut);
-						if (n < 0)
-							break;
-
-						if (!n)
-							return false; // duplicate!
-					}
+					if (!n)
+						return false; // duplicate!
 				}
 
 				if (r.m_pUtxoIn->m_pSpendProof && (m_Height.m_Min < rules.pForks[2].m_Height))
@@ -141,8 +137,12 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_Params.m_bVerifyOrder && pPrev && (*pPrev > *r.m_pUtxoOut))
-					return false;
+				if (pPrev && (*pPrev > *r.m_pUtxoOut))
+				{
+					// in case of unsigned outputs sometimes order of outputs may look incorrect (duplicated commitment, part of signatures removed)
+					if (!m_Params.m_bAllowUnsignedOutputs || (pPrev->m_Commitment != r.m_pUtxoOut->m_Commitment))
+						return false;
+				}
 
 				bool bSigned = r.m_pUtxoOut->m_pConfidential || r.m_pUtxoOut->m_pPublic;
 
@@ -173,7 +173,7 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_Params.m_bVerifyOrder && pPrev && (*pPrev > *r.m_pKernel))
+				if (pPrev && (*pPrev > *r.m_pKernel))
 					return false;
 
 				if (!r.m_pKernel->IsValid(m_Height.m_Min, m_Sigma))
