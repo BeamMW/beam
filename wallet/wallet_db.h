@@ -164,6 +164,51 @@ namespace beam::wallet
 
     };
 
+    class DatabaseException : public std::runtime_error
+    {
+    public:
+        explicit DatabaseException(const std::string& message)
+            : std::runtime_error(message)
+        {
+        }
+    };
+
+    class InvalidDatabaseVersionException : public DatabaseException
+    {
+    public:
+        explicit InvalidDatabaseVersionException()
+            : DatabaseException("")
+        {
+        }
+    };
+
+    class DatabaseMigrationException : public DatabaseException
+    {
+    public:
+        explicit DatabaseMigrationException()
+            : DatabaseException("")
+        {
+        }
+    };
+
+    class DatabaseNotFoundException : public DatabaseException
+    {
+    public:
+        explicit DatabaseNotFoundException()
+            : DatabaseException("")
+        {
+        }
+    };
+    
+    class FileIsNotDatabaseException : public DatabaseException
+    {
+    public:
+        explicit FileIsNotDatabaseException()
+            : DatabaseException("")
+        {
+        }
+    };
+
     struct IWalletDbObserver
     {
         virtual void onCoinsChanged() {};

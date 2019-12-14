@@ -1791,12 +1791,6 @@ int main_impl(int argc, char* argv[])
                     }
 
                     auto walletDB = WalletDB::open(walletPath, pass, reactor);
-                    if (!walletDB)
-                    {
-                        LOG_ERROR() << kErrorCantOpenWallet;
-                        return -1;
-                    }
-
                     IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
                     const auto& currHeight = walletDB->getCurrentHeight();
@@ -2127,6 +2121,16 @@ int main_impl(int argc, char* argv[])
         }
         catch (const FailToStartSwapException&)
         {
+        }
+        catch (const FileIsNotDatabaseException&)
+        {
+            LOG_ERROR() << kErrorCantOpenWallet;
+            return -1;
+        }
+        catch (const DatabaseException & ex)
+        {
+            LOG_ERROR() << ex.what();
+            return -1;
         }
         catch (const po::invalid_option_value& e)
         {

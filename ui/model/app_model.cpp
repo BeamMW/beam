@@ -141,26 +141,33 @@ bool AppModel::openWallet(const beam::SecString& pass)
 {
     assert(m_db == nullptr);
 
-    if (WalletDB::isInitialized(m_settings.getWalletStorage()))
+    try
     {
-        m_db = WalletDB::open(m_settings.getWalletStorage(), pass, m_walletReactor);
-        if (!m_db) return false;
-        m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db, m_db->get_MasterKdf());
-    }
+        if (WalletDB::isInitialized(m_settings.getWalletStorage()))
+        {
+            m_db = WalletDB::open(m_settings.getWalletStorage(), pass, m_walletReactor);
+            m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db, m_db->get_MasterKdf());
+        }
 #if defined(BEAM_HW_WALLET)
-    else if (WalletDB::isInitialized(m_settings.getTrezorWalletStorage()))
-    {
-        m_db = WalletDB::open(m_settings.getTrezorWalletStorage(), pass, m_walletReactor, true);
-        if (!m_db) return false;
-        m_keyKeeper = std::make_shared<TrezorKeyKeeper>();
-    }
+        else if (WalletDB::isInitialized(m_settings.getTrezorWalletStorage()))
+        {
+            m_db = WalletDB::open(m_settings.getTrezorWalletStorage(), pass, m_walletReactor, true);
+            m_keyKeeper = std::make_shared<TrezorKeyKeeper>();
+        }
 #endif
 
-    if (!m_db)
-        return false;
+        if (!m_db)
+            return false;
 
-    onWalledOpened(pass);
-    return true;
+        onWalledOpened(pass);
+        return true;
+    }
+    catch (...)
+    {
+        // TODO: handle the reasons of failure
+    }
+
+    return false;
 }
 
 void AppModel::onWalledOpened(const beam::SecString& pass)
