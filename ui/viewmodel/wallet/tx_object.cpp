@@ -62,8 +62,8 @@ namespace
         {
             return "";
         }
-        delta = *lifetime - delta;
-        if (delta <= kNormalTxConfirmationDelay)
+
+        if (*lifetime - delta <= kNormalTxConfirmationDelay)
         {
             //% "The transaction is usually expected to complete in a few minutes."
             return qtTrId("tx-state-in-progress-normal");
