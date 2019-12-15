@@ -13,7 +13,6 @@ Item {
     Layout.fillHeight: true
 
     property bool shouldShowActiveTransactions: false
-    property bool showAcceptableTokenOnTop: false
 
     SwapOffersViewModel {
         id: viewModel
@@ -150,8 +149,7 @@ Item {
                         offersStackView.push(Qt.createComponent("send_swap.qml"),
                                             {
                                                 "onAccepted": atomicSwapLayout.onAccepted,
-                                                "onClosed": atomicSwapLayout.onClosed,
-                                                "tokenOnTop": offersViewRoot.showAcceptableTokenOnTop
+                                                "onClosed": atomicSwapLayout.onClosed
                                             });
                         offersStackView.currentItem.setToken(token);
                     }
@@ -179,7 +177,6 @@ Item {
                     text: qsTrId("atomic-swap-accept")
                     font.pixelSize: 12
                     onClicked: {
-                        offersViewRoot.showAcceptableTokenOnTop = true;
                         offersStackView.push(Qt.createComponent("send.qml"),
                                              {
                                                 "onClosed":    onClosed,
@@ -695,7 +692,6 @@ Please try again later or create an offer yourself."
                                                 else {
                                                     var txParameters = offersTable.model.getRoleValue(styleData.row, "rawTxParameters");
                                                     var token = BeamGlobals.rawTxParametrsToTokenStr(txParameters);
-                                                    offersViewRoot.showAcceptableTokenOnTop = false;
                                                     tokenDuplicateChecker.checkTokenForDuplicate(token);
                                                 }
                                             }

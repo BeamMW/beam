@@ -13,7 +13,6 @@ ColumnLayout {
     
     property var defaultFocusItem: comment_input
     property var predefinedTxParams: undefined
-    property bool tokenOnTop: true
 
     // callbacks set by parent
     property var onAccepted: undefined
@@ -123,30 +122,6 @@ please review your settings and try again"
             ColumnLayout {
                 Layout.fillWidth: true
                 visible: predefinedTxParams == undefined
-
-                SFText {
-                    font.pixelSize:  14
-                    font.styleName:  "Bold"; font.weight: Font.Bold
-                    color:           Style.content_main
-                    //% "Swap token"
-                    text:            qsTrId("send-swap-token")
-                    visible:         tokenOnTop
-                }
-
-                SFTextInput {
-                    Layout.fillWidth: true
-                    id:               tokenInput
-                    font.pixelSize:   14
-                    color:            viewModel.tokenValid ? Style.content_main : Style.validator_error
-                    backgroundColor:  viewModel.tokenValid ? Style.content_main : Style.validator_error
-                    font.italic :     !viewModel.tokenValid
-                    text:             viewModel.token
-                    validator:        RegExpValidator { regExp: /[0-9a-fA-F]{1,}/ }
-                    selectByMouse:    true
-                    readOnly:         true
-                    onTextChanged:    cursorPosition = 0
-                    visible:          tokenOnTop
-                }
 
                 Item {
                     Layout.fillWidth: true
@@ -356,7 +331,7 @@ please review your settings and try again"
                 Layout.fillWidth: true
                 Layout.topMargin: 30
                 Layout.alignment: Qt.AlignHCenter
-                visible:          !tokenOnTop
+                
                 Row {
                     Layout.alignment: Qt.AlignHCenter
                     SFText {
@@ -405,7 +380,7 @@ please review your settings and try again"
 
             Row {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: tokenOnTop ? 60 : 30
+                Layout.topMargin: 30
                 spacing:          25
 
                 CustomButton {

@@ -466,38 +466,67 @@ please review your settings and try again"
                 }  // ColumnLayout
             }
 
-            SFText {
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 30
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 40
-                font.pixelSize:   14
-                font.styleName:   "Bold"
-                font.weight:      Font.Bold
-                color:            Style.content_main
-                //% "Your swap token:"
-                text: qsTrId("wallet-receive-swap-your-token")
-            }
+                Row {
+                    Layout.alignment: Qt.AlignHCenter
+                    SFText {
+                        font.pixelSize:  14
+                        font.styleName:  "Bold"; font.weight: Font.Bold
+                        color:           Style.content_main
+                        //% "Your swap token"
+                        text:            qsTrId("wallet-receive-swap-your-token")
+                    }
 
-            SFTextArea {
-                Layout.alignment:    Qt.AlignHCenter
-                width:               570
-                focus:               true
-                activeFocusOnTab:    true
-                font.pixelSize:      14
-                wrapMode:            TextInput.Wrap
-                color:               isValid() ? (canSend() ? Style.content_secondary : Qt.darker(Style.content_secondary)) : Style.validator_error
-                text:                viewModel.transactionToken
-                horizontalAlignment: TextEdit.AlignHCenter
-                readOnly:            true
-                enabled:             false
-            }
+                    Item {
+                        width:  17
+                        height: 1
+                    }
 
-            SFText {
-                Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 5
-                font.pixelSize:   14
-                color:            Style.content_main
-                //% "Send this token to the sender over a secure external channel"
-                text: qsTrId("wallet-swap-token-message")
+                    SvgImage {
+                        source:  tokenRow.visible ? "qrc:/assets/icon-grey-arrow-down.svg" : "qrc:/assets/icon-grey-arrow-up.svg"
+                        anchors.verticalCenter: parent.verticalCenter
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                tokenRow.visible = !tokenRow.visible;
+                            }
+                        }
+                    }
+                }
+
+                Row {
+                    id:      tokenRow
+                    visible: false
+                    Layout.topMargin: 10
+                    SFLabel {
+                        horizontalAlignment: Text.AlignHCenter
+                        width:               392
+                        font.pixelSize:      14
+                        color:               isValid() ? (canSend() ? Style.content_secondary : Qt.darker(Style.content_secondary)) : Style.validator_error
+                        text:                viewModel.transactionToken
+                        copyMenuEnabled:     true
+                        onCopyText:          BeamGlobals.copyToClipboard(text)
+                        wrapMode:            Text.WrapAnywhere
+                    }
+                }
+
+                Row {
+                    visible: tokenRow.visible
+                    Layout.topMargin: 10
+                    Layout.alignment: Qt.AlignHCenter
+                    SFText {
+                        horizontalAlignment: Text.AlignHCenter
+                        font.pixelSize:   14
+                        color:            Style.content_main
+                        //% "Send this token to the sender over a secure external channel"
+                        text: qsTrId("wallet-swap-token-message")
+                    }
+                }
             }
 
             Row {
