@@ -323,28 +323,31 @@ please review your settings and try again"
                         property bool rateValid:   true
 
                         function changeReceiveBySendValue() {
-                            if (sentAmountInput.amount != "0" && rateInput.text.length != 0) {
+                            var rateValue = parseFloat(rateInput.text) || 0;
+                            if (sentAmountInput.amount != "0" && rateValue) {
                                 var receive = viewModel.isSendBeam
-                                    ? parseFloat(sentAmountInput.amount) * parseFloat(rateInput.text)
-                                    : parseFloat(sentAmountInput.amount) / parseFloat(rateInput.text);
+                                    ? parseFloat(sentAmountInput.amount) * rateValue
+                                    : parseFloat(sentAmountInput.amount) / rateValue;
                                 receiveAmountInput.amount = receive == 0 ? "0" : receive.toFixed(8).replace(/\.?0+$/,"");
                             }
                         }
 
                         function changeReceiveByRateValue() {
-                            if (sentAmountInput.amount != "0" && rateInput.text.length != 0) {
+                            var rateValue = parseFloat(rateInput.text) || 0;
+                            if (sentAmountInput.amount != "0" && rateValue) {
                                 var receive = viewModel.isSendBeam
-                                    ? parseFloat(sentAmountInput.amount) * parseFloat(rateInput.text)
-                                    : parseFloat(sentAmountInput.amount) / parseFloat(rateInput.text);
+                                    ? parseFloat(sentAmountInput.amount) * rateValue
+                                    : parseFloat(sentAmountInput.amount) / rateValue;
                                 receiveAmountInput.amount = receive == 0 ? "0" : receive.toFixed(8).replace(/\.?0+$/,"");
-                            } else if (rateInput.text.length == 0) {
+                            } else if (!rateValue) {
                                 receiveAmountInput.amount = "0";
                             }
                         }
 
                         function checkIsRateValid() {
                             var rate = parseFloat(rateInput.text) || 0;
-                            if (rate == 0) {
+                            if (rate == 0 ||
+                                receiveAmountInput.amount == "0") {
                                 rateValid = true;
                                 return;
                             }
