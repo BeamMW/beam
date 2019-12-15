@@ -1763,6 +1763,12 @@ namespace beam
 			<< m_TimeStamp
 			<< m_PoW.m_Difficulty.m_Packed;
 
+		// Starting from Fork2: add Rules cfg. Make it harder to tamper using headers mined on different cfg
+		const Rules& r = Rules::get();
+		size_t iFork = r.FindFork(m_Height);
+		if (iFork >= 2)
+			hp << r.pForks[iFork].m_Hash;
+
 		if (bTotal)
 		{
 			hp
