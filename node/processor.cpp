@@ -1773,6 +1773,7 @@ struct NodeProcessor::BlockInterpretCtx
 	Height m_Height;
 	bool m_Fwd;
 	bool m_ValidateOnly; // don't make changes to state
+	bool m_AlreadyValidated; // set during reorgs, when a block is being applied for 2nd time
 
 	uint32_t m_ShieldedIns;
 	uint32_t m_ShieldedOuts;
@@ -1783,6 +1784,7 @@ struct NodeProcessor::BlockInterpretCtx
 		,m_ShieldedIns(0)
 		,m_ShieldedOuts(0)
 		,m_ValidateOnly(false)
+		,m_AlreadyValidated(false)
 	{
 	}
 };
@@ -1955,6 +1957,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 	TxoID id0 = m_Extra.m_Txos;
 
 	BlockInterpretCtx bic(sid.m_Height, true);
+	if (!bFirstTime)
+		bic.m_AlreadyValidated = true;
+
 	bool bOk = HandleValidatedBlock(block, bic);
 	if (!bOk)
 	{
@@ -2384,7 +2389,7 @@ bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
 
 bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
 {
-	if (bic.m_Fwd && krn.m_pRelativeLock)
+	if (bic.m_Fwd && krn.m_pRelativeLock && !bic.m_AlreadyValidated)
 	{
 		const TxKernelStd::RelativeLock& x = *krn.m_pRelativeLock;
 
@@ -2659,7 +2664,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic)
 {
 	const Rules& r = Rules::get();
-	if (bic.m_Fwd && (bic.m_Height >= r.pForks[2].m_Height))
+	if (bic.m_Fwd && (bic.m_Height >= r.pForks[2].m_Height) && !bic.m_AlreadyValidated)
 	{
 		Height hPrev = m_DB.FindKernel(v.m_Internal.m_ID);
 		assert(hPrev <= bic.m_Height);
@@ -2706,17 +2711,17 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 
 	if (bOk)
 	{
-	switch (v.get_Subtype())
-	{
+		switch (v.get_Subtype())
+		{
 #define THE_MACRO(id, name) \
-	case TxKernel::Subtype::name: \
+		case TxKernel::Subtype::name: \
 			bOk = HandleKernel(Cast::Up<TxKernel##name>(v), bic); \
-		break;
+			break;
 
 		BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
 
-	}
+		}
 	}
 
 	if (!bOk)
