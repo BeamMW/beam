@@ -1739,7 +1739,8 @@ Please check the swap token and try again.</oldsource>
         <translation type="unfinished">Qtum wallet addresses</translation>
     </message>
     <message id="wallet-receive-swap-your-token">
-        <source>Your swap token:</source>
+        <source>Your swap token</source>
+        <oldsource>Your swap token:</oldsource>
         <translation type="unfinished">Your swap token:</translation>
     </message>
     <message id="send-swap-confirmation-title">
@@ -1884,7 +1885,7 @@ deploy the key at the node you trust completely.</oldsource>
     </message>
     <message id="accept-swap-token">
         <source>Your swap token</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Your swap token:</translation>
     </message>
     <message id="settings-swap-node">
         <source>Node</source>

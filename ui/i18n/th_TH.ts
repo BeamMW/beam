@@ -1740,8 +1740,9 @@ Please check the swap token and try again.</oldsource>
         <translation>ที่อยู่ของกระเป๋า Qtum</translation>
     </message>
     <message id="wallet-receive-swap-your-token">
-        <source>Your swap token:</source>
-        <translation>โทเค็นแลกเปลี่ยนของคุณ</translation>
+        <source>Your swap token</source>
+        <oldsource>Your swap token:</oldsource>
+        <translation type="unfinished">โทเค็นแลกเปลี่ยนของคุณ</translation>
     </message>
     <message id="send-swap-confirmation-title">
         <source>Confirm atomic swap</source>
@@ -1885,7 +1886,7 @@ deploy the key at the node you trust completely.</oldsource>
     </message>
     <message id="accept-swap-token">
         <source>Your swap token</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">โทเค็นแลกเปลี่ยนของคุณ</translation>
     </message>
     <message id="settings-swap-node">
         <source>Node</source>
