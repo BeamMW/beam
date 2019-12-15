@@ -2667,29 +2667,77 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 			return false; // duplicated
 	}
 
+	bool bSaveID = ((bic.m_Height >= Rules::HeightGenesis) && !bic.m_ValidateOnly); // for historical reasons treasury kernels are ignored
+	if (bSaveID && !bic.m_Fwd)
+		m_DB.DeleteKernel(v.m_Internal.m_ID, bic.m_Height);
+
+	if (!HandleKernel(v, bic))
+	{
+		if (!bic.m_Fwd)
+			OnCorrupted();
+		return false;
+	}
+
+	if (bSaveID && bic.m_Fwd)
+		m_DB.InsertKernel(v.m_Internal.m_ID, bic.m_Height);
+
+	return true;
+}
+
+bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
+{
+	size_t n = 0;
+	bool bOk = true;
+
+	if (bic.m_Fwd)
+	{
+		// nested
+		for (; n < v.m_vNested.size(); n++)
+		{
+			if (!HandleKernel(*v.m_vNested[n], bic))
+			{
+				bOk = false;
+				break;
+			}
+		}
+	}
+	else
+		n = v.m_vNested.size();
+
+	if (bOk)
+	{
 	switch (v.get_Subtype())
 	{
 #define THE_MACRO(id, name) \
 	case TxKernel::Subtype::name: \
-		if (!HandleKernel(Cast::Up<TxKernel##name>(v), bic)) \
-			return false; \
+			bOk = HandleKernel(Cast::Up<TxKernel##name>(v), bic); \
 		break;
 
 		BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
 
 	}
-
-	if ((bic.m_Height >= Rules::HeightGenesis) && !bic.m_ValidateOnly)
-	{
-		// for historical reasons treasury kernels are ignored
-		if (bic.m_Fwd)
-			m_DB.InsertKernel(v.m_Internal.m_ID, bic.m_Height);
-		else
-			m_DB.DeleteKernel(v.m_Internal.m_ID, bic.m_Height);
 	}
 
-	return true;
+	if (!bOk)
+	{
+		if (!bic.m_Fwd)
+			OnCorrupted();
+		bic.m_Fwd = false;
+	}
+
+	if (!bic.m_Fwd && !bic.m_ValidateOnly) // for validate-only mode no need to revert the changes
+	{
+		// nested
+		while (n--)
+			if (!HandleKernel(*v.m_vNested[n], bic))
+				OnCorrupted();
+
+		if (!bOk)
+			bic.m_Fwd = true; // restore it back
+	}
+
+	return bOk;
 }
 
 bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
@@ -2884,8 +2932,8 @@ void NodeProcessor::RollbackTo(Height h)
 		der.reset(bbE);
 		der & Cast::Down<TxVectors::Eternal>(txve);
 
-		for (size_t i = 0; i < txve.m_vKernels.size(); i++)
-			m_DB.DeleteKernel(txve.m_vKernels[i]->m_Internal.m_ID, m_Cursor.m_Sid.m_Height);
+		BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height, false);
+		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
 
 		if (bd.FromRow(*this, m_Cursor.m_Sid.m_Row))
 		{
