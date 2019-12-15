@@ -50,5 +50,6 @@ namespace beam::bitcoin
     private:
         HttpClient m_httpClient;
         ISettingsProvider& m_settingsProvider;
+        std::map<beam::io::Address, bool> m_verifiedAddresses;
     };
 } // namespace beam::bitcoin

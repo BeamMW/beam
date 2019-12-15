@@ -215,6 +215,14 @@ private:
             {
                 result = R"( {"result":)" + std::to_string(m_blockCount++) + R"(,"error":null,"id":null})";
             }
+            else if (j["method"] == "getblockhash")
+            {
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
+                result = R"( {"result":"000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f","error":null,"id":"verify"})";
+#else
+                result = R"( {"result":"0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206","error":null,"id":"verify"})";
+#endif
+            }
         }
         else
         {
