@@ -1774,6 +1774,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_Fwd;
 	bool m_ValidateOnly; // don't make changes to state
 	bool m_AlreadyValidated; // set during reorgs, when a block is being applied for 2nd time
+	bool m_SaveKid;
 
 	uint32_t m_ShieldedIns;
 	uint32_t m_ShieldedOuts;
@@ -1785,6 +1786,7 @@ struct NodeProcessor::BlockInterpretCtx
 		,m_ShieldedOuts(0)
 		,m_ValidateOnly(false)
 		,m_AlreadyValidated(false)
+		,m_SaveKid(true)
 	{
 	}
 };
@@ -2398,7 +2400,11 @@ bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
 			return false;
 
 		const Rules& rules = Rules::get();
-		if ((bic.m_Height >= rules.pForks[2].m_Height) && (bic.m_Height - h0 > rules.MaxKernelValidityDH))
+		// We should NOT allow for (h0 == bic.m_Height), which is possible if (x.m_LockHeight == 0).
+		// it will be fragile when kernels are sorted, attacker may do this to prevent correct block generation.
+		//
+		// Can't be enforced prior to Fork2. But since Fork2 - the following comparison makes sure to reject it.
+		if ((bic.m_Height >= rules.pForks[2].m_Height) && (Height(bic.m_Height - h0 - 1) >= rules.MaxKernelValidityDH))
 			return false;
 
 		HeightAdd(h0, x.m_LockHeight);
@@ -2672,7 +2678,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 			return false; // duplicated
 	}
 
-	bool bSaveID = ((bic.m_Height >= Rules::HeightGenesis) && !bic.m_ValidateOnly); // for historical reasons treasury kernels are ignored
+	bool bSaveID = ((bic.m_Height >= Rules::HeightGenesis) && !bic.m_ValidateOnly && bic.m_SaveKid); // for historical reasons treasury kernels are ignored
 	if (bSaveID && !bic.m_Fwd)
 		m_DB.DeleteKernel(v.m_Internal.m_ID, bic.m_Height);
 
@@ -3591,7 +3597,11 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	// The effect of the cut-through block may be different than it was during block construction, because the consumed and created UTXOs (removed by cut-through) could have different maturities.
 	// Hence - we need to re-apply the block after the cut-throught, evaluate the definition, and undo the changes (once again).
+	//
+	// In addition to this, kernels reorder may also have effect: shielded outputs may get different IDs
 	bic.m_Fwd = true;
+	bic.m_AlreadyValidated = true;
+	bic.m_SaveKid = false;
 	if (!HandleValidatedTx(bc.m_Block, bic))
 	{
 		LOG_WARNING() << "couldn't apply block after cut-through!";
