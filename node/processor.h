@@ -69,6 +69,8 @@ class NodeProcessor
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
+	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
+
 #define THE_MACRO(id, name) bool HandleKernel(const TxKernel##name&, BlockInterpretCtx&);
 	BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
