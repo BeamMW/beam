@@ -13,6 +13,7 @@ ColumnLayout {
 
     property var  defaultFocusItem: sentAmountInput.amountInput
     property bool addressSaved: false
+    property var locale: Qt.locale()
 
     // callbacks set by parent
     property var onClosed: undefined
@@ -330,7 +331,8 @@ please review your settings and try again"
                         }
 
                         function changeReceive(byRate) {
-                            var rateValue = parseFloat(rateInput.rate) || 0;
+                            var rateValue =
+                                parseFloat(rateInput.rate.replace(locale.decimalPoint, '.')) || 0;
                             if (sentAmountInput.amount != "0" && rateValue) {
                                 var receive = viewModel.isSendBeam
                                     ? parseFloat(sentAmountInput.amount) * rateValue
@@ -342,13 +344,15 @@ please review your settings and try again"
                         }
 
                         function checkIsRateValid() {
-                            var rate = parseFloat(rateInput.text) || 0;
+                            var rate = parseFloat(rateInput.rate.replace(locale.decimalPoint, '.')) || 0;
                             if (rate == 0 ||
                                 receiveAmountInput.amount == "0") {
                                 rateValid = true;
                                 return;
                             }
-                            rateValid = parseFloat(receiveAmountInput.amount) <= rateRow.maxAmount && parseFloat(receiveAmountInput.amount) >= rateRow.minAmount;
+                            rateValid =
+                                parseFloat(receiveAmountInput.amount) <= rateRow.maxAmount &&
+                                parseFloat(receiveAmountInput.amount) >= rateRow.minAmount;
                         }
 
                         SFText {
@@ -361,7 +365,6 @@ please review your settings and try again"
 
                         SFTextInput {
                             property string rate: "0"
-                            property var locale: Qt.locale()
 
                             id:                  rateInput
                             padding:             0
@@ -378,12 +381,12 @@ please review your settings and try again"
                                 bottom: rateRow.minAmount
                                 top: rateRow.maxAmount
                                 decimals: 8
-                                locale: Qt.locale().name
+                                locale: locale.name
                                 notation: DoubleValidator.StandardNotation
                             }
 
                             onFocusChanged: {
-                                text = rate == "0" ? "" : (rateInput.focus ? rate : Utils.uiStringToLocale(rate));
+                                text = rate == "0" ? "" : (rateInput.focus ? rate : Utils.uiStringToLocale(rate.replace(locale.decimalPoint, '.')));
                                 if (focus) cursorPosition = positionAt(rateInput.getMousePos().x, rateInput.getMousePos().y);
                             }
 
@@ -393,7 +396,7 @@ please review your settings and try again"
                                     var parts = value.split(locale.decimalPoint);
                                     var left = (parseInt(parts[0], 10) || 0).toString();
                                     rate = parts[1] ? [left, parts[1]].join(locale.decimalPoint) : left;
-                                    if (!parseFloat(rate)) {
+                                    if (!parseFloat(rate.replace(locale.decimalPoint, '.'))) {
                                         rate = "0";
                                     }
                                     rateRow.changeReceive(true);
