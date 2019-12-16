@@ -36,7 +36,7 @@ namespace beam::wallet
 
     Amount LitecoinSide::CalcTotalFee(Amount feeRate)
     {
-        return kLitecoinWithdrawTxAverageSize * feeRate;
+        return static_cast<Amount>(std::round(double(kLitecoinWithdrawTxAverageSize * feeRate) / 1000));
     }
 
     uint32_t LitecoinSide::GetLockTxEstimatedTimeInBeamBlocks() const

@@ -1742,8 +1742,7 @@ Please check the swap token and try again.</translation>
     </message>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token</source>
-        <oldsource>Your swap token:</oldsource>
-        <translation type="unfinished">Your swap token:</translation>
+        <translation>Your swap token</translation>
     </message>
     <message id="send-swap-confirmation-title">
         <source>Confirm atomic swap</source>
@@ -2071,6 +2070,10 @@ fee while you have transactions in progress.</oldsource>
     <message id="swap-tx-state-in-progress-negotiation">
         <source>If the other side will not sign the transaction in %1, the offer will be canceled automatically.</source>
         <oldsource>If peer will not finish negotiation in %1, the offer will be automatically canceled</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-tab">
+        <source>General</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -37,7 +37,7 @@ namespace beam::wallet
 
     Amount QtumSide::CalcTotalFee(Amount feeRate)
     {
-        return kQtumWithdrawTxAverageSize * feeRate;
+        return static_cast<Amount>(std::round(double(kQtumWithdrawTxAverageSize * feeRate) / 1000));
     }
 
     uint32_t QtumSide::GetLockTxEstimatedTimeInBeamBlocks() const

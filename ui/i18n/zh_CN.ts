@@ -2085,5 +2085,9 @@ fee while you have transactions in progress.</oldsource>
         <oldsource>If peer will not finish negotiation in %1, the offer will be automatically canceled</oldsource>
         <translation type="unfinished"></translation>
     </message>
+    <message id="general-tab">
+        <source>General</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

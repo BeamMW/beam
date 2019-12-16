@@ -319,7 +319,7 @@ namespace beam::wallet
 
     Amount BitcoinSide::CalcTotalFee(Amount feeRate)
     {
-        return bitcoin::kBTCWithdrawTxAverageSize * feeRate;
+        return static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
     }
 
     uint8_t BitcoinSide::GetAddressVersion() const

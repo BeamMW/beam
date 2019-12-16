@@ -512,8 +512,6 @@ please review your settings and try again"
                         font.pixelSize:      14
                         color:               isValid() ? (canSend() ? Style.content_secondary : Qt.darker(Style.content_secondary)) : Style.validator_error
                         text:                viewModel.transactionToken
-                        copyMenuEnabled:     true
-                        onCopyText:          BeamGlobals.copyToClipboard(text)
                         wrapMode:            Text.WrapAnywhere
                     }
                 }
