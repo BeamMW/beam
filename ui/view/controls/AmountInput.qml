@@ -205,7 +205,7 @@ ColumnLayout {
     SFText {
         enabled:               showTotalFee && control.hasFee && control.currency != Currency.CurrBeam
         visible:               enabled
-        Layout.preferredWidth: 390
+        Layout.preferredWidth: 370
         font.pixelSize:        14
         wrapMode:              Text.WordWrap
         color:                 Style.content_secondary
