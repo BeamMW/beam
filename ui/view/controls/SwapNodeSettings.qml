@@ -205,7 +205,8 @@ Control {
         }
 
         function isChanged() {
-            return initialAddress !== addressElectrum || isSeedChanged || isSelectServerAutomatcally !== initialSelectServerAutomatically
+            return (!isSelectServerAutomatcally && initialAddress !== addressElectrum) || isSeedChanged || 
+                    isSelectServerAutomatcally !== initialSelectServerAutomatically
         }
     }
 
