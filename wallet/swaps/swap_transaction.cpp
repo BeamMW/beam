@@ -774,7 +774,11 @@ namespace beam::wallet
     {
         LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
 
-        if (notify)
+        if (reason == TxFailureReason::NoInputs)
+        {
+            NotifyFailure(TxFailureReason::Canceled);
+        }
+        else if (notify)
         {
             NotifyFailure(reason);
         }
