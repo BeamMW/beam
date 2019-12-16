@@ -27,6 +27,15 @@ function uiStringToLocale (amount) {
     return parts[1] ? [left, parts[1]].join(locale.decimalPoint) : left;
 }
 
+function localeDecimalToCString(amount) {
+    var locale = Qt.locale();
+    return amount
+        .split(locale.groupSeparator)
+        .join('')
+        .split(locale.decimalPoint)
+        .join('.');
+}
+
 function getLogoTopGapSize(parentHeight) {
     return parentHeight * (parentHeight < 768 ? 0.13 : 0.18)
 }

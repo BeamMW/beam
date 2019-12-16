@@ -332,7 +332,7 @@ please review your settings and try again"
 
                         function changeReceive(byRate) {
                             var rateValue =
-                                parseFloat(rateInput.rate.replace(locale.decimalPoint, '.')) || 0;
+                                parseFloat(Utils.localeDecimalToCString(rateInput.rate)) || 0;
                             if (sentAmountInput.amount != "0" && rateValue) {
                                 var receive = viewModel.isSendBeam
                                     ? parseFloat(sentAmountInput.amount) * rateValue
@@ -344,7 +344,7 @@ please review your settings and try again"
                         }
 
                         function checkIsRateValid() {
-                            var rate = parseFloat(rateInput.rate.replace(locale.decimalPoint, '.')) || 0;
+                            var rate = parseFloat(Utils.localeDecimalToCString(rateInput.rate)) || 0;
                             if (rate == 0 ||
                                 receiveAmountInput.amount == "0") {
                                 rateValid = true;
@@ -386,7 +386,7 @@ please review your settings and try again"
                             }
 
                             onFocusChanged: {
-                                text = rate == "0" ? "" : (rateInput.focus ? rate : Utils.uiStringToLocale(rate.replace(locale.decimalPoint, '.')));
+                                text = rate == "0" ? "" : (rateInput.focus ? rate : Utils.uiStringToLocale(Utils.localeDecimalToCString(rate)));
                                 if (focus) cursorPosition = positionAt(rateInput.getMousePos().x, rateInput.getMousePos().y);
                             }
 
@@ -396,7 +396,7 @@ please review your settings and try again"
                                     var parts = value.split(locale.decimalPoint);
                                     var left = (parseInt(parts[0], 10) || 0).toString();
                                     rate = parts[1] ? [left, parts[1]].join(locale.decimalPoint) : left;
-                                    if (!parseFloat(rate.replace(locale.decimalPoint, '.'))) {
+                                    if (!parseFloat(Utils.localeDecimalToCString(rate))) {
                                         rate = "0";
                                     }
                                     rateRow.changeReceive(true);
