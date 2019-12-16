@@ -322,24 +322,21 @@ please review your settings and try again"
                         property double minAmount: 0.00000001
                         property bool rateValid:   true
 
-                        function changeReceiveBySendValue() {
-                            var rateValue = parseFloat(rateInput.text) || 0;
-                            if (sentAmountInput.amount != "0" && rateValue) {
-                                var receive = viewModel.isSendBeam
-                                    ? parseFloat(sentAmountInput.amount) * rateValue
-                                    : parseFloat(sentAmountInput.amount) / rateValue;
-                                receiveAmountInput.amount = receive == 0 ? "0" : receive.toFixed(8).replace(/\.?0+$/,"");
+                        function changeRate() {
+                            if (!rateInput.focus) {
+                                rateInput.rate = viewModel.rate;
+                                rateInput.text = rateInput.rate == "0" ? "" : Utils.uiStringToLocale(rateInput.rate);
                             }
                         }
 
-                        function changeReceiveByRateValue() {
-                            var rateValue = parseFloat(rateInput.text) || 0;
+                        function changeReceive(byRate) {
+                            var rateValue = parseFloat(rateInput.rate) || 0;
                             if (sentAmountInput.amount != "0" && rateValue) {
                                 var receive = viewModel.isSendBeam
                                     ? parseFloat(sentAmountInput.amount) * rateValue
                                     : parseFloat(sentAmountInput.amount) / rateValue;
                                 receiveAmountInput.amount = receive == 0 ? "0" : receive.toFixed(8).replace(/\.?0+$/,"");
-                            } else if (!rateValue) {
+                            } else if (byRate && !rateValue) {
                                 receiveAmountInput.amount = "0";
                             }
                         }
@@ -363,7 +360,8 @@ please review your settings and try again"
                         }
 
                         SFTextInput {
-                            property string rate: viewModel.rate
+                            property string rate: "0"
+                            property var locale: Qt.locale()
 
                             id:                  rateInput
                             padding:             0
@@ -384,19 +382,28 @@ please review your settings and try again"
                                 notation: DoubleValidator.StandardNotation
                             }
 
-                            onRateChanged: {
-                                text = rate != "0" ? rate : "";
+                            onFocusChanged: {
+                                text = rate == "0" ? "" : (rateInput.focus ? rate : Utils.uiStringToLocale(rate));
+                                if (focus) cursorPosition = positionAt(rateInput.getMousePos().x, rateInput.getMousePos().y);
                             }
 
                             onTextEdited: {
                                 if (rateInput.focus) {
-                                    rateRow.changeReceiveByRateValue();
+                                    var value = text ? text.split(locale.groupSeparator).join('') : "0";
+                                    var parts = value.split(locale.decimalPoint);
+                                    var left = (parseInt(parts[0], 10) || 0).toString();
+                                    rate = parts[1] ? [left, parts[1]].join(locale.decimalPoint) : left;
+                                    if (!parseFloat(rate)) {
+                                        rate = "0";
+                                    }
+                                    rateRow.changeReceive(true);
+                                    rateRow.checkIsRateValid();
                                 }
-                                rateRow.checkIsRateValid();
                             }
 
                             Component.onCompleted: {
-                                viewModel.amountSentChanged.connect(rateRow.changeReceiveBySendValue);
+                                viewModel.amountSentChanged.connect(rateRow.changeReceive);
+                                viewModel.rateChanged.connect(rateRow.changeRate);
                             }
                         }
 

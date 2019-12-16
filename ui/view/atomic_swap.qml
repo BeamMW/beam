@@ -640,7 +640,7 @@ Please try again later or create an offer yourself."
                             movable: false
                             resizable: false
                             delegate: TableItem {
-                                text: Utils.number2Locale(styleData.value)
+                                text: Utils.uiStringToLocale(styleData.value)
                             }
                         }
 

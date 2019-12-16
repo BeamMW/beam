@@ -298,8 +298,8 @@ please review your settings and try again"
                         font.pixelSize:   14
                         color:            Style.content_secondary
                         text:             viewModel.isSendBeam
-                            ? ["1", sendAmountInput.currencyLabel, "=", Utils.number2Locale(viewModel.rate), receiveAmountInput.currencyLabel].join(" ")
-                            : ["1", receiveAmountInput.currencyLabel, "=", Utils.number2Locale(viewModel.rate), sendAmountInput.currencyLabel].join(" ")
+                            ? ["1", sendAmountInput.currencyLabel, "=", Utils.uiStringToLocale(viewModel.rate), receiveAmountInput.currencyLabel].join(" ")
+                            : ["1", receiveAmountInput.currencyLabel, "=", Utils.uiStringToLocale(viewModel.rate), sendAmountInput.currencyLabel].join(" ")
                     }
                 }
             }
