@@ -119,30 +119,6 @@ please review your settings and try again"
         ColumnLayout {
             width: scrollView.availableWidth
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                visible: predefinedTxParams == undefined
-
-                Item {
-                    Layout.fillWidth: true
-                    SFText {
-                        Layout.alignment: Qt.AlignTop
-                        id:               receiverTAError
-                        color:            Style.validator_error
-                        font.pixelSize:   12
-                        //% "Invalid address"
-                        text:             qsTrId("general-invalid-address")
-                        visible:          !viewModel.tokenValid
-                    }
-                }
-
-                Binding {
-                    target:   viewModel
-                    property: "token"
-                    value:    tokenInput.text
-                }
-            }
-
             Grid  {
                 Layout.fillWidth: true
                 columnSpacing:    70
