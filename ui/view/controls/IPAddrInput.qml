@@ -37,6 +37,7 @@ ColumnLayout {
             font.pixelSize: 12
             font.italic:    true
             color:          Style.validator_error
+            //% "Invalid address"
             text:           qsTrId("general-invalid-address")
             visible:        address.length && !isValid
         }

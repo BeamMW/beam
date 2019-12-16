@@ -370,7 +370,7 @@ deploy the key at the node you trust completely."*/
                     Layout.fillWidth: true
                     radius: 10
                     color: Style.background_second
-                    Layout.preferredHeight: viewModel.localNodeRun ? 460 : (nodeAddressError.visible ? 285 : 240)
+                    Layout.preferredHeight: viewModel.localNodeRun ? 460 : (nodeAddressError.visible ? 330 : 285)
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -378,7 +378,6 @@ deploy the key at the node you trust completely."*/
                         spacing: 10
 
                         SFText {
-                            Layout.preferredHeight: 21
                             //: settings tab, node section, title
                             //% "Node"
                             text: qsTrId("settings-node-title")
@@ -387,37 +386,29 @@ deploy the key at the node you trust completely."*/
                             font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
-                        RowLayout {
-                            Layout.preferredHeight: 16
+                        CustomSwitch {
+                            id: localNodeRun
+                            Layout.fillWidth: true
                             Layout.topMargin: 15
-
-                            CustomSwitch {
-                                id: localNodeRun
-                                Layout.fillWidth: true
-                                //: settings tab, node section, run node label
-                                //% "Run local node"
-                                text: qsTrId("settings-local-node-run-checkbox")
-                                font.pixelSize: 14
-                                width: parent.width
-                                checked: viewModel.localNodeRun
-                                Binding {
-                                    target: viewModel
-                                    property: "localNodeRun"
-                                    value: localNodeRun.checked
-                                }
+                            Layout.bottomMargin: 24
+                            //: settings tab, node section, run node label
+                            //% "Run local node"
+                            text: qsTrId("settings-local-node-run-checkbox")
+                            font.pixelSize: 14
+                            checked: viewModel.localNodeRun
+                            Binding {
+                                target: viewModel
+                                property: "localNodeRun"
+                                value: localNodeRun.checked
                             }
                         }
 
-                        Item {
-                            Layout.preferredHeight: 12
-                        }
-
                         RowLayout {
-                            Layout.preferredHeight: 16
                             visible: viewModel.localNodeRun
 
                             SFText {
                                 Layout.fillWidth: true;
+                                Layout.preferredWidth: 3
                                 //: settings tab, node section, port label
                                 //% "Port"
                                 text: qsTrId("settings-local-node-port")
@@ -425,13 +416,11 @@ deploy the key at the node you trust completely."*/
                                 font.pixelSize: 14
                             }
 
-                            Item {
-                                Layout.fillWidth: true
-                            }
 
                             SFTextInput {
                                 id: localNodePort
-                                Layout.preferredWidth: nodeBlock.width * 0.55
+                                Layout.fillWidth: true;
+                                Layout.preferredWidth: 7
                                 Layout.alignment: Qt.AlignRight
                                 activeFocusOnTab: true
                                 font.pixelSize: 14
@@ -449,14 +438,16 @@ deploy the key at the node you trust completely."*/
                             }
                         }
 
-                        RowLayout {
-                            Layout.preferredHeight: 16
+                        GridLayout {
+                            Layout.fillWidth: true
                             visible: !viewModel.localNodeRun
+                            columns : 2
                             SFText {
                                 Layout.fillWidth: true
+                                Layout.preferredWidth:3
                                 //: settings tab, node section, address label
-                                //% "ip:port"
-                                text: qsTrId("settings-remote-node-ip-port")
+                                //% "Address"
+                                text: qsTrId("settings-remote-node-address")
                                 color: Style.content_secondary
                                 font.pixelSize: 14
                             }
@@ -464,13 +455,13 @@ deploy the key at the node you trust completely."*/
                             SFTextInput {
                                 id: nodeAddress
                                 Layout.fillWidth: true
-                                Layout.maximumWidth: nodeBlock.width * 0.6
-                                Layout.minimumWidth: nodeBlock.width * 0.5
+                                Layout.preferredWidth: 7
                                 focus: true
                                 activeFocusOnTab: true
                                 font.pixelSize: 14
-                                color: Style.content_main
-                                validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([1-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                color:  text.length && (!viewModel.isValidNodeAddress || !nodeAddress.acceptableInput) ? Style.validator_error : Style.content_main
+                                backgroundColor:  text.length && (!viewModel.isValidNodeAddress || !nodeAddress.acceptableInput) ? Style.validator_error : Style.content_main
+                                validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(\s|\x180E)*$/ }
                                 text: viewModel.nodeAddress
                                 Binding {
                                     target: viewModel
@@ -478,24 +469,60 @@ deploy the key at the node you trust completely."*/
                                     value: nodeAddress.text.trim()
                                 }
                             }
-                        }
 
-                        RowLayout {
-                            id: nodeAddressError
-                            Layout.preferredHeight: 16
-                            visible: !viewModel.localNodeRun && (!viewModel.isValidNodeAddress || !nodeAddress.acceptableInput)
+                            RowLayout {
+                                id: nodeAddressError
+                                Layout.fillWidth: true
+                                Layout.columnSpan: 2
+                                Layout.topMargin: -4
 
-                            Item {
-                                Layout.fillWidth: true;
+                                Item {
+                                    height: 20
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 3
+                                }
+                                SFText {
+                                    height: 20
+                                    Layout.fillWidth: true;
+                                    Layout.preferredWidth: 7
+                                    color: Style.validator_error
+                                    font.pixelSize: 12
+                                    font.italic: true
+                                    text: qsTrId("general-invalid-address")
+                                    visible: (!viewModel.isValidNodeAddress || !nodeAddress.acceptableInput)
+                                }
                             }
 
+                            // remote port
                             SFText {
-                                Layout.preferredWidth: nodeBlock.width * 0.6
-                                color: Style.validator_error
+                                Layout.fillWidth: true;
+                                Layout.preferredWidth: 3
+                                text: qsTrId("settings-local-node-port")
+                                color: Style.content_secondary
                                 font.pixelSize: 14
-                                font.italic: true
-                                //% "Invalid address"
-                                text: qsTrId("general-invalid-address")
+                            }
+                            
+                            SFTextInput {
+                                id: remoteNodePort
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 7
+                                Layout.alignment: Qt.AlignRight
+                                activeFocusOnTab: true
+                                font.pixelSize: 14
+                                color: Style.content_main
+                                text: viewModel.remoteNodePort
+                                validator: IntValidator {
+                                    bottom: 1
+                                    top: 65535
+                                }
+                                Binding {
+                                    target: viewModel
+                                    property: "remoteNodePort"
+                                    value: remoteNodePort.text
+                                }
+                            }
+                            Item {
+                                Layout.fillHeight: true
                             }
                         }
 

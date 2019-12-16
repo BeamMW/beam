@@ -47,6 +47,11 @@ namespace
         return {};
     }
 
+    QString formatAddress(const QString& address, uint16_t port)
+    {
+        return QString("%1:%2").arg(address).arg(port);
+    }
+
     const char ELECTRUM_PHRASES_SEPARATOR = ' ';
 }
 
@@ -709,6 +714,7 @@ std::vector<std::string> SwapCoinSettingsItem::GetSeedPhraseFromSeedItems() cons
 
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance().getSettings()}
+    , m_remoteNodePort(0)
     , m_isValidNodeAddress{true}
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
@@ -824,6 +830,21 @@ void SettingsViewModel::setLocalNodePort(uint value)
     {
         m_localNodePort = value;
         emit localNodePortChanged();
+        emit propertiesChanged();
+    }
+}
+
+uint SettingsViewModel::getRemoteNodePort() const
+{
+    return m_remoteNodePort;
+}
+
+void SettingsViewModel::setRemoteNodePort(uint value)
+{
+    if (value != m_remoteNodePort)
+    {
+        m_remoteNodePort = value;
+        emit remoteNodePortChanged();
         emit propertiesChanged();
     }
 }
@@ -955,7 +976,7 @@ QString SettingsViewModel::getOwnerKey(const QString& password) const
 
 bool SettingsViewModel::isChanged() const
 {
-    return m_nodeAddress != m_settings.getNodeAddress()
+    return formatAddress(m_nodeAddress, m_remoteNodePort) != m_settings.getNodeAddress()
         || m_localNodeRun != m_settings.getRunLocalNode()
         || m_localNodePort != m_settings.getLocalNodePort()
         || m_localNodePeers != m_settings.getLocalNodePeers();
@@ -969,7 +990,7 @@ void SettingsViewModel::applyChanges()
         return;
     }
 
-    m_settings.setNodeAddress(m_nodeAddress);
+    m_settings.setNodeAddress(formatAddress(m_nodeAddress, m_remoteNodePort));
     m_settings.setRunLocalNode(m_localNodeRun);
     m_settings.setLocalNodePort(m_localNodePort);
     m_settings.setLocalNodePeers(m_localNodePeers);
@@ -996,7 +1017,23 @@ QString SettingsViewModel::getWalletLocation() const
 
 void SettingsViewModel::undoChanges()
 {
-    setNodeAddress(m_settings.getNodeAddress());
+    auto remoteNodeAddress = m_settings.getNodeAddress();
+    auto separator = remoteNodeAddress.indexOf(':');
+    if (separator > -1)
+    {
+        setNodeAddress(remoteNodeAddress.left(separator));
+        auto portStr = remoteNodeAddress.mid(separator + 1);
+        bool ok = false;
+        uint16_t port = portStr.toInt(&ok);
+        if (ok)
+        {
+            setRemoteNodePort(port);
+        }
+    }
+    else
+    {
+        setNodeAddress(remoteNodeAddress);
+    }
     setLocalNodeRun(m_settings.getRunLocalNode());
     setLocalNodePort(m_settings.getLocalNodePort());
     setLockTimeout(m_settings.getLockTimeout());

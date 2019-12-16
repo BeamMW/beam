@@ -306,11 +306,6 @@
         <extracomment>settings tab, version label</extracomment>
         <translation>เวอร์ชัน</translation>
     </message>
-    <message id="settings-remote-node-ip-port">
-        <source>ip:port</source>
-        <extracomment>settings tab, node section, address label</extracomment>
-        <translation>ip:port</translation>
-    </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
         <extracomment>settings tab, node section, run node label</extracomment>
@@ -2073,6 +2068,12 @@ fee while you have transactions in progress.</oldsource>
     <message id="swap-details-tx-fee-estimated">
         <source>%1 Estimated transaction fee</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-remote-node-address">
+        <source>Address</source>
+        <oldsource>Node Address</oldsource>
+        <extracomment>settings tab, node section, address label</extracomment>
+        <translation type="unfinished">ที่อยู่</translation>
     </message>
 </context>
 </TS>

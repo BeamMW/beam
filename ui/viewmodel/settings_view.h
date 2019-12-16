@@ -207,6 +207,7 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString  version         READ getVersion         CONSTANT)
     Q_PROPERTY(bool     localNodeRun    READ getLocalNodeRun    WRITE setLocalNodeRun   NOTIFY localNodeRunChanged)
     Q_PROPERTY(uint     localNodePort   READ getLocalNodePort   WRITE setLocalNodePort  NOTIFY localNodePortChanged)
+    Q_PROPERTY(uint     remoteNodePort  READ getRemoteNodePort  WRITE setRemoteNodePort NOTIFY remoteNodePortChanged)
     Q_PROPERTY(bool     isChanged       READ isChanged          NOTIFY propertiesChanged)
     Q_PROPERTY(QStringList  localNodePeers  READ getLocalNodePeers  NOTIFY localNodePeersChanged)
     Q_PROPERTY(int      lockTimeout         READ getLockTimeout     WRITE setLockTimeout NOTIFY lockTimeoutChanged)
@@ -233,6 +234,8 @@ public:
     void setLocalNodeRun(bool value);
     uint getLocalNodePort() const;
     void setLocalNodePort(uint value);
+    uint getRemoteNodePort() const;
+    void setRemoteNodePort(uint value);
     int getLockTimeout() const;
     void setLockTimeout(int value);
     bool isPasswordReqiredToSpendMoney() const;
@@ -277,6 +280,7 @@ signals:
     void nodeAddressChanged();
     void localNodeRunChanged();
     void localNodePortChanged();
+    void remoteNodePortChanged();
     void localNodePeersChanged();
     void propertiesChanged();
     void lockTimeoutChanged();
@@ -296,6 +300,7 @@ private:
     QString m_nodeAddress;
     bool m_localNodeRun;
     uint m_localNodePort;
+    uint m_remoteNodePort;
     QStringList m_localNodePeers;
     int m_lockTimeout;
     bool m_isPasswordReqiredToSpendMoney;
