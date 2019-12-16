@@ -367,7 +367,7 @@ QString SwapTxObject::getFee() const
     return QString();
 }
 
-QString SwapTxObject::getFeeRate() const
+QString SwapTxObject::getSwapCoinFeeRate() const
 {
     if (m_isBeamSide)   // check if initialized
     {
@@ -396,6 +396,41 @@ QString SwapTxObject::getFeeRate() const
                 break;
             }
             return value + " " + rateMeasure;
+        }
+    }
+    return QString();
+}
+
+QString SwapTxObject::getSwapCoinFee() const
+{
+    if (m_isBeamSide)   // check if initialized
+    {
+        auto feeRate = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
+
+        if (feeRate && m_swapCoin)
+        {
+            Currency coinTypeQt;
+
+            switch (*m_swapCoin)
+            {
+            case AtomicSwapCoin::Bitcoin:
+                coinTypeQt = Currency::CurrBtc;
+                break;
+
+            case AtomicSwapCoin::Litecoin:
+                coinTypeQt = Currency::CurrLtc;
+                break;
+
+            case AtomicSwapCoin::Qtum:
+                coinTypeQt = Currency::CurrQtum;
+                break;
+            
+            default:
+                coinTypeQt = Currency::CurrStart;
+                break;
+            }
+
+            return QMLGlobals::calcTotalFee(coinTypeQt, *feeRate);
         }
     }
     return QString();

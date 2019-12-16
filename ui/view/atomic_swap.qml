@@ -805,7 +805,8 @@ Please try again later or create an offer yourself."
                                     property var txRolesMap: myModel
                                     txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
                                     fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
-                                    feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
+                                    swapCoinFeeRate:                txRolesMap && txRolesMap.swapCoinFeeRate ? txRolesMap.swapCoinFeeRate : ""
+                                    swapCoinFee:                    txRolesMap && txRolesMap.swapCoinFee ? txRolesMap.swapCoinFee : ""
                                     comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
                                     swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
                                     isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false

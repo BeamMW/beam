@@ -2074,5 +2074,9 @@ fee while you have transactions in progress.</oldsource>
         <source>General</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="swap-details-tx-fee-estimated">
+        <source>%1 Estimated transaction fee</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
