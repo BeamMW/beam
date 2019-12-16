@@ -269,6 +269,7 @@ Control {
 
             SFText {
                 id:                connectionErrorMsg
+                Layout.topMargin:  3
                 Layout.leftMargin: 20
                 color:             Style.validator_error
                 font.pixelSize:    14
