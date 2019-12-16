@@ -667,11 +667,12 @@ Please try again later or create an offer yourself."
                                     property var isOwnOffer: !!model && model.isOwnOffer
 
                                     SFText {
-                                        anchors.right: parent.right
+                                        anchors.fill: parent
                                         anchors.verticalCenter: parent.verticalCenter
-                                        anchors.left: parent.left
+                                        anchors.leftMargin:  20
                                         anchors.rightMargin: 20
 
+                                        verticalAlignment:   Text.AlignVCenter
                                         font.pixelSize: 14
                                         color: isOwnOffer ? Style.swapCurrencyStateIndicator : Style.active
                                         text: isOwnOffer
