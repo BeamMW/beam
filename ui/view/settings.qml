@@ -10,7 +10,7 @@ import Beam.Wallet 1.0
 ColumnLayout {
     id: settingsView
     Layout.fillWidth: true
-
+    state: "general"
     property string linkStyle: "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>"
     property bool swapMode:  false
 
@@ -175,26 +175,40 @@ deploy the key at the node you trust completely."*/
 
     RowLayout {
         Layout.fillWidth:    true
-        Layout.bottomMargin: 23
+        Layout.topMargin:    42
+        Layout.bottomMargin: 10
 
-        Item {
-            Layout.fillWidth: true
+        TxFilter {
+            id: generalSettingsTab
+            Layout.alignment: Qt.AlignVCenter
+            //% "General"
+            label: qsTrId("general-tab")
+            onClicked: settingsView.state = "general"
+            capitalization: Font.AllUppercase
         }
 
-        CustomSwitch {
-            id:                mode
+        TxFilter {
+            id: swapSettingsTab
+            Layout.alignment: Qt.AlignVCenter
             //% "Swap"
-            text:              qsTrId("general-swap")
-            Layout.alignment:  Qt.AlignRight
-            checked:           settingsView.swapMode
-        }
-
-        Binding {
-            target:   settingsView
-            property: "swapMode"
-            value:    mode.checked
+            label: qsTrId("general-swap")
+            onClicked: settingsView.state = "swap"
+            capitalization: Font.AllUppercase
         }
     }
+
+    states: [
+        State {
+            name: "general"
+            PropertyChanges { target: generalSettingsTab; state: "active" }
+            PropertyChanges { target: settingsView; swapMode: false }
+        },
+        State {
+            name: "swap"
+            PropertyChanges { target: swapSettingsTab; state: "active" }
+            PropertyChanges { target: settingsView; swapMode: true }
+        }
+    ]
 
     ScrollView {
         Layout.fillWidth: true
