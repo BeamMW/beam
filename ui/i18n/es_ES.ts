@@ -1688,10 +1688,6 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Qtum electrum</source>
         <translation>Qtum electrum</translation>
     </message>
-    <message id="invalid-rate-min">
-        <source>Rate cannot be less than %1</source>
-        <translation>La tasa no puede ser inferior a %1</translation>
-    </message>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</source>

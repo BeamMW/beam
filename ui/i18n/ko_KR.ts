@@ -1687,10 +1687,6 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Qtum electrum</source>
         <translation>큐텀 일렉트럼</translation>
     </message>
-    <message id="invalid-rate-min">
-        <source>Rate cannot be less than %1</source>
-        <translation>Rate는 %1보다 작을 수 없습니다</translation>
-    </message>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</source>
