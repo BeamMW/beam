@@ -158,6 +158,10 @@ signals:
     void connectionStatusChanged();
     void connectionErrorMsgChanged();
 
+public slots:
+
+    void onStatusChanged();
+
 private:
     QString getGeneralTitle() const;
     QString getConnectedNodeTitle() const;

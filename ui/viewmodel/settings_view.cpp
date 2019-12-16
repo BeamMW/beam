@@ -109,7 +109,7 @@ SwapCoinSettingsItem::SwapCoinSettingsItem(SwapCoinClientModel& coinClient, wall
     : m_swapCoin(swapCoin)
     , m_coinClient(coinClient)
 {
-    connect(&m_coinClient, SIGNAL(statusChanged()), this, SIGNAL(connectionStatusChanged()));
+    connect(&m_coinClient, SIGNAL(statusChanged()), this, SLOT(onStatusChanged()));
     connect(&m_coinClient, SIGNAL(connectionErrorChanged()), this, SIGNAL(connectionErrorMsgChanged()));
     LoadSettings();
 }
@@ -364,6 +364,20 @@ void SwapCoinSettingsItem::setSelectServerAutomatically(bool value)
     {
         m_selectServerAutomatically = value;
         emit selectServerAutomaticallyChanged();
+
+        if (!m_selectServerAutomatically)
+        {
+            setNodeAddressElectrum("");
+        }
+        else
+        {
+            auto settings = m_coinClient.GetSettings();
+
+            if (auto options = settings.GetElectrumConnectionOptions(); options.IsInitialized())
+            {
+                setNodeAddressElectrum(str2qstr(options.m_address));
+            }
+        }
     }
 }
 
@@ -386,6 +400,21 @@ QStringList SwapCoinSettingsItem::getAddressesElectrum() const
         return result;
     }
     return {};
+}
+
+void SwapCoinSettingsItem::onStatusChanged()
+{
+    emit connectionStatusChanged();
+
+    if (m_selectServerAutomatically)
+    {
+        auto settings = m_coinClient.GetSettings();
+
+        if (auto options = settings.GetElectrumConnectionOptions(); options.IsInitialized())
+        {
+            setNodeAddressElectrum(str2qstr(options.m_address));
+        }
+    }
 }
 
 bool SwapCoinSettingsItem::getCanEdit() const
