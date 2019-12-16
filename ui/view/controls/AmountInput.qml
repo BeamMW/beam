@@ -202,6 +202,18 @@ ColumnLayout {
         }
     }
 
+    SFText {
+        enabled:               showTotalFee && control.hasFee && control.currency != Currency.CurrBeam
+        visible:               enabled
+        Layout.preferredWidth: 390
+        font.pixelSize:        14
+        wrapMode:              Text.WordWrap
+        color:                 Style.content_secondary
+        lineHeight:            1.1 
+        //% "Remember to validate the expected fee rate for the blockchain (as it varies with time)."
+        text:                  qsTrId("settings-fee-rate-note")
+    }
+
     Binding {
         target:   control
         property: "fee"
