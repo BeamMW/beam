@@ -79,7 +79,7 @@ namespace
         auto isRegistered = txParameters.GetParameter<uint8_t>(TxParameterID::TransactionRegistered, isBeamSide ? BEAM_REFUND_TX : REFUND_TX);
         if (isRegistered)
         {
-            //% "Refunding"
+            //% "Swap failed, the money is being released back to your wallet"
             return qtTrId("swap-tx-state-refunding");
         }
 
@@ -116,7 +116,7 @@ namespace
             return "";
         }
 
-        //% "The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2."
+        //% "Swap failed: the refund of your %2 will start in %1. The refund duration depends on the transaction fee you specified for %2."
         return qtTrId("swap-tx-state-in-progress-refunding").arg(time).arg(coin);
     }
 }
