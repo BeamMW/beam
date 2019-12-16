@@ -13,7 +13,7 @@ Control {
     rightPadding:  25
     topPadding:    20
     bottomPadding: 20
-
+    height:        362
     //
     // Common props
     //
@@ -470,7 +470,7 @@ Control {
         }
 
         SFText {
-            Layout.preferredWidth: 400
+            Layout.preferredWidth: 390
             font.pixelSize:        14
             wrapMode:              Text.WordWrap
             color:                 control.color
@@ -592,7 +592,7 @@ Control {
         SFText {
             visible:               !control.canEdit && !(editElectrum && isSettingsChanged())
             Layout.topMargin:      30
-            Layout.preferredWidth: 400
+            Layout.preferredWidth: 390
             Layout.alignment:      Qt.AlignVCenter | Qt.AlignHCenter
             horizontalAlignment:   Text.AlignHCenter
             verticalAlignment:     Text.AlignVCenter
