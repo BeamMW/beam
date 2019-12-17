@@ -17,16 +17,14 @@ matrix:
         - brew unlink cmake
         - brew install cmake
         - brew link cmake
-        - brew uninstall --ignore-dependencies qt boost openssl
+        - brew uninstall --ignore-dependencies qt boost
         - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/56c500b569c724b049be7ab9e12d9693f85522f9/Formula/qt.rb
         - brew install ./qt.rb
         - brew link qt5 --force
         - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
         - brew install ./boost.rb
         - export PATH=/usr/local/opt/qt/bin:$PATH
-        - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/8b9d6d688f483a0f33fcfc93d433de501b9c3513/Formula/openssl.rb
-        - brew install ./openssl.rb
-        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
+        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl@1.1"
       env: 
         - BUILD_TYPE=Debug
         - OS_FOLDER=mac
@@ -54,12 +52,10 @@ matrix:
         - brew install cmake
         - brew link cmake
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
-        - brew uninstall --ignore-dependencies qt boost openssl
+        - brew uninstall --ignore-dependencies qt boost
         - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
         - brew install ./boost.rb
-        - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/8b9d6d688f483a0f33fcfc93d433de501b9c3513/Formula/openssl.rb
-        - brew install ./openssl.rb
-        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
+        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl@1.1"
         - export PATH=/usr/local/qt5-static/bin:$PATH
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
@@ -209,8 +205,14 @@ matrix:
           - android-23
       install:
         - echo y | sdkmanager "ndk-bundle"
-        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
-        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+        - mkdir ${DEPS_DIR} && cd ${DEPS_DIR}
+        - travis_retry wget --no-check-certificate https://github.com/Kitware/CMake/releases/download/v3.14.0/cmake-3.14.0-Linux-x86_64.tar.gz
+        - tar -xvf cmake-3.14.0-Linux-x86_64.tar.gz > /dev/null
+        - mv cmake-3.14.0-Linux-x86_64 cmake-install
+        - PATH=${DEPS_DIR}/cmake-install:${DEPS_DIR}/cmake-install/bin:$PATH
+        - cd ${TRAVIS_BUILD_DIR}
+        - cmake --version
         - sudo git clone --depth=1 https://github.com/BeamMW/boost-android.git /usr/local/boost_1_68-android
         - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
@@ -251,8 +253,14 @@ matrix:
           - android-23
       install:
         - echo y | sdkmanager "ndk-bundle"
-        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
-        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+        - mkdir ${DEPS_DIR} && cd ${DEPS_DIR}
+        - travis_retry wget --no-check-certificate https://github.com/Kitware/CMake/releases/download/v3.14.0/cmake-3.14.0-Linux-x86_64.tar.gz
+        - tar -xvf cmake-3.14.0-Linux-x86_64.tar.gz > /dev/null
+        - mv cmake-3.14.0-Linux-x86_64 cmake-install
+        - PATH=${DEPS_DIR}/cmake-install:${DEPS_DIR}/cmake-install/bin:$PATH
+        - cd ${TRAVIS_BUILD_DIR}
+        - cmake --version
         - sudo git clone --depth=1 https://github.com/BeamMW/boost-android.git /usr/local/boost_1_68-android
         - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
@@ -293,8 +301,14 @@ matrix:
           - android-23
       install:
         - echo y | sdkmanager "ndk-bundle"
-        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
-        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+        - mkdir ${DEPS_DIR} && cd ${DEPS_DIR}
+        - travis_retry wget --no-check-certificate https://github.com/Kitware/CMake/releases/download/v3.14.0/cmake-3.14.0-Linux-x86_64.tar.gz
+        - tar -xvf cmake-3.14.0-Linux-x86_64.tar.gz > /dev/null
+        - mv cmake-3.14.0-Linux-x86_64 cmake-install
+        - PATH=${DEPS_DIR}/cmake-install:${DEPS_DIR}/cmake-install/bin:$PATH
+        - cd ${TRAVIS_BUILD_DIR}
+        - cmake --version
         - sudo git clone --depth=1 https://github.com/BeamMW/boost-android.git /usr/local/boost_1_68-android
         - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
@@ -335,8 +349,14 @@ matrix:
           - android-23
       install:
         - echo y | sdkmanager "ndk-bundle"
-        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
-        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+        - mkdir ${DEPS_DIR} && cd ${DEPS_DIR}
+        - travis_retry wget --no-check-certificate https://github.com/Kitware/CMake/releases/download/v3.14.0/cmake-3.14.0-Linux-x86_64.tar.gz
+        - tar -xvf cmake-3.14.0-Linux-x86_64.tar.gz > /dev/null
+        - mv cmake-3.14.0-Linux-x86_64 cmake-install
+        - PATH=${DEPS_DIR}/cmake-install:${DEPS_DIR}/cmake-install/bin:$PATH
+        - cd ${TRAVIS_BUILD_DIR}
+        - cmake --version
         - sudo git clone --depth=1 https://github.com/BeamMW/boost-android.git /usr/local/boost_1_68-android
         - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle

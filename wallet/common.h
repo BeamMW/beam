@@ -35,6 +35,8 @@ namespace beam::wallet
     using TxID = std::array<uint8_t, 16>;
     const Height kDefaultTxLifetime = 2 * 60;
     const Height kDefaultTxResponseTime = 12 * 60;
+    const char kTimeStampFormat3x3[] = "%Y.%m.%d %H:%M:%S";
+    const char kTimeStampFormatCsv[] = "%d %b %Y | %H:%M";
 
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
@@ -292,7 +294,7 @@ namespace beam::wallet
         bool operator==(const TxParameters& other);
         bool operator!=(const TxParameters& other);
 
-        boost::optional<TxID> GetTxID() const;
+        const boost::optional<TxID>& GetTxID() const;
 
         template <typename T>
         boost::optional<T> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const
@@ -484,6 +486,7 @@ namespace beam::wallet
         bool canCancel() const;
         bool canDelete() const;
         std::string getStatusString() const;
+        std::string getStatusStringApi() const;
 
     //private:
         TxID m_txId = {};

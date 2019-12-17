@@ -63,9 +63,11 @@ namespace beam::wallet
         static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
         static constexpr uint8_t m_protocolVersion = 1;
         Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
+        Height m_currentHeight = 0;
         std::unordered_map<TxID, SwapOffer> m_offersCache;
 
         auto getChannel(AtomicSwapCoin coin) const -> BbsChannel;
+        bool isOfferExpired(const SwapOffer& offer) const;
         void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
         void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);
         void notifySubscribers(ChangeAction action, const std::vector<SwapOffer>& offers) const;

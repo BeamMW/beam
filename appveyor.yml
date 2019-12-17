@@ -104,9 +104,9 @@ artifacts:
 deploy:
   provider: S3
   access_key_id:
-    secure: J8+/d4TSbhxiaFlDQopFzKbfLPvUy1rMUJlAgnfbBNE=
+    secure: vku9qEnfo8NirxsplNRBBezWqJa1sV5eSfpt2syfwwk=
   secret_access_key:
-    secure: sqF9zdsuUm/k9QzY46s250MZJamHjKrwBCAPbinBA/iOJlgLsHC7lq1F5pTr/B+U
+    secure: sBTxw2gzbkQrPyMDF5OihFJ+s96yDgNgqbF1/MNmWpYMKrZwkOzIeExfW4Cp3F8B
   bucket: builds.beam.mw
   region: us-west-2
   unzip: false

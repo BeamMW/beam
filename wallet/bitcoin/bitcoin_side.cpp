@@ -317,6 +317,11 @@ namespace beam::wallet
         return amount > bitcoin::kDustThreshold && amount > fee;
     }
 
+    Amount BitcoinSide::CalcTotalFee(Amount feeRate)
+    {
+        return static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
+    }
+
     uint8_t BitcoinSide::GetAddressVersion() const
     {
         return m_settingsProvider.GetSettings().GetAddressVersion();
@@ -398,7 +403,15 @@ namespace beam::wallet
                 {
                     if (error.m_type != bitcoin::IBridge::None)
                     {
-                        SetTxError(error, subTxID);
+                        if (error.m_type == bitcoin::IBridge::BitcoinError ||
+                            error.m_type == bitcoin::IBridge::InvalidResultFormat)
+                        {
+                            SetTxError(error, SubTxIndex::LOCK_TX);
+                        }
+                        else
+                        {
+                            m_tx.UpdateOnNextTip();
+                        }
                         return;
                     }
 
@@ -455,8 +468,6 @@ namespace beam::wallet
                     OnFundRawTransaction(error, hexTx, changePos);
                 }
             });
-
-            m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
             return SwapTxState::CreatingTx;
         }
 
@@ -660,7 +671,7 @@ namespace beam::wallet
         {
             if (error.m_type != bitcoin::IBridge::None)
             {
-                SetTxError(error, SubTxIndex::LOCK_TX);
+                m_tx.UpdateOnNextTip();
                 return;
             }
 
@@ -682,9 +693,18 @@ namespace beam::wallet
 
     void BitcoinSide::OnFundRawTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos)
     {
-        if (error.m_type != bitcoin::IBridge::None)
+        // TODO: refactor this condition.
+        // Checking !m_SwapLockRawTx.is_initialized() used to ignore double lock on electrum
+        if (error.m_type != bitcoin::IBridge::None && !m_SwapLockRawTx.is_initialized())
         {
-            SetTxError(error, SubTxIndex::LOCK_TX);
+            if (error.m_type == bitcoin::IBridge::BitcoinError)
+            {
+                SetTxError(error, SubTxIndex::LOCK_TX);
+            }
+            else
+            {
+                m_tx.UpdateOnNextTip();
+            }
             return;
         }
 
@@ -692,6 +712,7 @@ namespace beam::wallet
         {
             m_SwapLockRawTx = hexTx;
             m_LockTxValuePosition = changePos ? 0 : 1;
+            m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
             m_tx.UpdateAsync();
         }
     }
@@ -700,7 +721,14 @@ namespace beam::wallet
     {
         if (error.m_type != bitcoin::IBridge::None)
         {
-            SetTxError(error, SubTxIndex::LOCK_TX);
+            if (error.m_type == bitcoin::IBridge::BitcoinError)
+            {
+                SetTxError(error, SubTxIndex::LOCK_TX);
+            }
+            else
+            {
+                m_tx.UpdateOnNextTip();
+            }
             return;
         }
 
@@ -718,7 +746,7 @@ namespace beam::wallet
     {
         if (error.m_type != bitcoin::IBridge::None)
         {
-            SetTxError(error, subTxID);
+            m_tx.UpdateOnNextTip();
             return;
         }
 
@@ -811,16 +839,10 @@ namespace beam::wallet
         m_tx.UpdateAsync();
     }
 
-    void BitcoinSide::OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& error, const std::string& hexScript, Amount amount, uint32_t confirmations)
+    void BitcoinSide::OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& /*error*/, const std::string& hexScript, Amount amount, uint32_t confirmations)
     {
         try
         {
-            if (error.m_type != bitcoin::IBridge::None)
-            {
-                SetTxError(error, SubTxIndex::LOCK_TX);
-                return;
-            }
-
             if (hexScript.empty())
             {
                 return;
@@ -890,7 +912,7 @@ namespace beam::wallet
         {
             if (error.m_type != bitcoin::IBridge::None)
             {
-                SetTxError(error, SubTxIndex::LOCK_TX);
+                m_tx.UpdateOnNextTip();
                 return;
             }
 

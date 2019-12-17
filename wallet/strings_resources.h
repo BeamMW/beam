@@ -18,7 +18,6 @@ namespace beam
 {
     extern const char kDefaultConfigFile[];
 
-    extern const char kTimeStampFormat3x3[];
     extern const char kBEAM[];
     extern const char kGROTH[];
     // Coin statuses
@@ -94,7 +93,11 @@ namespace beam
     extern const char kErrorAmountTooLow[];
     extern const char kErrorUnableSendZeroCoin[];
     extern const char kErrorTxStatusInvalid[];
+    extern const char kErrorCancelTxInInvalidStatus[];
     extern const char kErrorTxIdUnknown[];
+    extern const char kErrorImportPathInvalid[];
+    extern const char kErrorFileLocationParamReqired[];
+    extern const char kErrorConnectionFailed[];
 
     // Swap Tx statuses
     extern const char kSwapTxStatusInitial[];

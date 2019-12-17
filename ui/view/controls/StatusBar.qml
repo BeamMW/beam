@@ -53,17 +53,31 @@ Item {
             anchors.leftMargin: 0
             anchors.topMargin: 2
 
-            width: rootControl.indicator_radius * 2
-            height: rootControl.indicator_radius * 2
-            radius: rootControl.indicator_radius
-            color: parent.color
+            width:      rootControl.indicator_radius * 2
+            height:     rootControl.indicator_radius * 2
+            radius:     rootControl.indicator_radius
+            color:      parent.color
+            visible:    !model.isConnectionTrusted
+        }
+
+        SvgImage {
+            id:              onlineTrusted
+            anchors.top:     parent.top
+            anchors.left:    parent.left
+            anchors.leftMargin: 0
+            anchors.topMargin: 2
+            width: 10
+            height: 10
+            sourceSize:     Qt.size(10, 10)
+            source:         "qrc:/assets/icon-trusted-node-status.svg"
+            visible:        model.isConnectionTrusted
         }
 
         DropShadow {
-            anchors.fill: online_rect
+            anchors.fill: model.isConnectionTrusted ? onlineTrusted : online_rect
             radius: 5
             samples: 9
-            source: online_rect
+            source: model.isConnectionTrusted ? onlineTrusted : online_rect
             color: parent.color
         }
     }

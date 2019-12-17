@@ -236,7 +236,10 @@ CustomTableView {
             text: qsTrId("address-table-cm-delete")
             icon.source: "qrc:/assets/icon-delete.svg"
             onTriggered: {
-                viewModel.deleteAddress(contextMenu.address);
+                if (viewModel.isAddressBusy(contextMenu.address))
+                    deleteAddressDialog.open();
+                else
+                    viewModel.deleteAddress(contextMenu.address);
             }
         }
     
@@ -245,5 +248,18 @@ CustomTableView {
                 contextMenu.removeAction(showQRAction);
             }
         }
+    }
+    
+    ConfirmationDialog {
+        id:                 deleteAddressDialog
+        width:              460
+        //% "Delete address"
+        title:              qsTrId("addresses-delete-warning-title")
+        //% "There is active transaction that uses this address, therefore the address cannot be deleted."
+        text:               qsTrId("addresses-delete-warning-text")
+        //% "Ok"
+        okButtonText:       qsTrId("general-ok")
+        okButtonIconSource: "qrc:/assets/icon-done.svg"
+        cancelButtonVisible: false
     }
 }

@@ -40,6 +40,7 @@ public:
     auto hasPaymentProof() const -> bool;
     virtual auto getStatus() const -> QString;
     virtual auto getFailureReason() const -> QString;
+    virtual QString getStateDetails() const;
 
     bool isIncome() const;
     bool isSelfTx() const;

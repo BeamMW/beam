@@ -22,6 +22,7 @@ namespace beamui
     QString toString(const beam::Merkle::Hash&);
     // convert amount to ui string with "." as a separator
     QString AmountToUIString(const beam::Amount& value, Currencies coinType = Currencies::Unknown);
+    QString AmountInGrothToUIString(const beam::Amount& value);
     // expects ui string with a "." as a separator
     beam::Amount UIStringToAmount(const QString& value);
     QString toString(const beam::Timestamp& ts);
@@ -41,4 +42,6 @@ namespace beamui
     };
     QDateTime CalculateExpiresTime(beam::Height currentHeight, beam::Height expiresHeight);
     QString getEstimateTimeStr(int estimate);
+    QString convertBeamHeightDiffToTime(int32_t dt);
+
 }  // namespace beamui

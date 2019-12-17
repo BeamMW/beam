@@ -88,11 +88,10 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_DB.Open(szPath);
 	m_DbTx.Start(m_DB);
 
-	if (sp.m_CheckIntegrityAndVacuum)
+	if (sp.m_CheckIntegrity)
 	{
 		LOG_INFO() << "DB integrity check...";
 		m_DB.CheckIntegrity();
-		Vacuum();
 	}
 
 	Merkle::Hash hv;
@@ -187,7 +186,12 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	m_Horizon.Normalize();
 
-	if (PruneOld())
+	if (PruneOld() && !sp.m_Vacuum)
+	{
+		LOG_INFO() << "Old data was just removed from the DB. Some space can be freed by vacuum";
+	}
+
+	if (sp.m_Vacuum)
 		Vacuum();
 
 	if (sp.m_ResetCursor)
@@ -1120,8 +1124,6 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 	if (bKeepBlocks)
 		return;
 
-	HeightRange hrDel(m_Cursor.m_Sid.m_Height + 1, sidFwd.m_Height);
-
 	if (!(mbc.m_pidLast == Zero))
 	{
 		OnPeerInsane(mbc.m_pidLast);
@@ -1136,14 +1138,14 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 			if (pid != mbc.m_pidLast)
 				break;
 
-			hrDel.m_Max++;
+			sidFwd.m_Row = vPath[iPos - 1];
+			sidFwd.m_Height++;
 		}
 	}
 
-	LOG_INFO() << "Deleting blocks range: " << hrDel.m_Min << "-" <<  hrDel.m_Max;
+	LOG_INFO() << "Deleting blocks range: " << (m_Cursor.m_Sid.m_Height + 1) << "-" <<  sidFwd.m_Height;
 
-	for (; !hrDel.IsEmpty(); iPos++, hrDel.m_Max--)
-		DeleteBlock(vPath[iPos]);
+	DeleteBlocksInRange(sidFwd, m_Cursor.m_Sid.m_Height);
 }
 
 void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
@@ -1338,16 +1340,24 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 		if (!m_DB.get_StateInputs(rowid, v))
 			continue;
 
+		size_t iRes = 0;
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			TxoID id = v[i].get_ID();
+			const NodeDB::StateInput& inp = v[i];
+			TxoID id = inp.get_ID();
 			if (id >= m_Extra.m_TxosTreasury)
 				m_DB.TxoDel(id);
+			else
+			{
+				if (iRes != i)
+					v[iRes] = inp;
+				iRes++;
+			}
 		}
 
-		hRet += v.size();
+		hRet += (v.size() - iRes);
 
-		m_DB.set_StateInputs(rowid, nullptr, 0);
+		m_DB.set_StateInputs(rowid, &v.front(), iRes);
 	}
 
 	m_Extra.m_TxoLo = hTrg;

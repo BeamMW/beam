@@ -54,7 +54,8 @@ public:
         IsExpired,
         HasPaymentProof,
         RawTxID,
-        Search
+        Search,
+        StateDetails
     };
 
     TxObjectList();

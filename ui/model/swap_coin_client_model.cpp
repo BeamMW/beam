@@ -35,6 +35,7 @@ SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridg
 {
     qRegisterMetaType<beam::bitcoin::Client::Status>("beam::bitcoin::Client::Status");
     qRegisterMetaType<beam::bitcoin::Client::Balance>("beam::bitcoin::Client::Balance");
+    qRegisterMetaType<beam::bitcoin::IBridge::ErrorType>("beam::bitcoin::IBridge::ErrorType");
 
     connect(&m_timer, SIGNAL(timeout()), this, SLOT(requestBalance()));
 
@@ -42,6 +43,7 @@ SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridg
     connect(this, SIGNAL(gotBalance(const beam::bitcoin::Client::Balance&)), this, SLOT(setBalance(const beam::bitcoin::Client::Balance&)));
     connect(this, SIGNAL(gotStatus(beam::bitcoin::Client::Status)), this, SLOT(setStatus(beam::bitcoin::Client::Status)));
     connect(this, SIGNAL(gotCanModifySettings(bool)), this, SLOT(setCanModifySettings(bool)));
+    connect(this, SIGNAL(gotConnectionError(beam::bitcoin::IBridge::ErrorType)), this, SLOT(setConnectionError(beam::bitcoin::IBridge::ErrorType)));
 
     requestBalance();
 
@@ -70,6 +72,11 @@ bool SwapCoinClientModel::canModifySettings() const
     return m_canModifySettings;
 }
 
+beam::bitcoin::IBridge::ErrorType SwapCoinClientModel::getConnectionError() const
+{
+    return m_connectionError;
+}
+
 void SwapCoinClientModel::OnBalance(const bitcoin::Client::Balance& balance)
 {
     emit gotBalance(balance);
@@ -83,6 +90,11 @@ void SwapCoinClientModel::OnCanModifySettingsChanged(bool canModify)
 void SwapCoinClientModel::OnChangedSettings()
 {
     requestBalance();
+}
+
+void SwapCoinClientModel::OnConnectionError(beam::bitcoin::IBridge::ErrorType error)
+{
+    emit gotConnectionError(error);
 }
 
 void SwapCoinClientModel::requestBalance()
@@ -118,5 +130,14 @@ void SwapCoinClientModel::setCanModifySettings(bool canModify)
     {
         m_canModifySettings = canModify;
         emit canModifySettingsChanged();
+    }
+}
+
+void SwapCoinClientModel::setConnectionError(beam::bitcoin::IBridge::ErrorType error)
+{
+    if (m_connectionError != error)
+    {
+        m_connectionError = error;
+        emit connectionErrorChanged();
     }
 }

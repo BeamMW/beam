@@ -215,6 +215,14 @@ private:
             {
                 result = R"( {"result":)" + std::to_string(m_blockCount++) + R"(,"error":null,"id":null})";
             }
+            else if (j["method"] == "getblockhash")
+            {
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
+                result = R"( {"result":"000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f","error":null,"id":"verify"})";
+#else
+                result = R"( {"result":"0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206","error":null,"id":"verify"})";
+#endif
+            }
         }
         else
         {
@@ -304,8 +312,11 @@ private:
                     try
                     {
                         json request = json::parse(strResponse);
-
-                        if (request["method"] == "blockchain.headers.subscribe")
+                        if (request["method"] == "server.features")
+                        {
+                            result = R"({"jsonrpc": "2.0", "result": {"genesis_hash": "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"}, "id": "verify"})";
+                        }
+                        else if (request["method"] == "blockchain.headers.subscribe")
                         {
                             result = R"({"jsonrpc": "2.0", "result": {"hex": "00000020f067b25ee650df3118827383cc128eb00ff88ad521dd3a17c43ebeef56ce0f50d3e5df9a08d80ffff34f3b64b04eb303679290b0b908e5ae6ddd08f38aee29237ca0805dffff7f2001000000", "height": )" + std::to_string(m_blockCount++) + R"(}, "id": "test"})";
                         }

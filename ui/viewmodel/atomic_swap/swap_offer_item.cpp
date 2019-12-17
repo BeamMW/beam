@@ -16,9 +16,7 @@
 #include "utility/helpers.h"
 #include "wallet/common.h"
 #include "ui/viewmodel/ui_helpers.h"
-#include "3rdparty/libbitcoin/include/bitcoin/bitcoin/formats/base_10.hpp"
-#include <boost/algorithm/string.hpp>
-#include <iomanip>
+#include "ui/viewmodel/qml_globals.h"
 
 namespace
 {
@@ -61,20 +59,7 @@ auto SwapOfferItem::timeExpiration() const -> QDateTime
 
 auto SwapOfferItem::rawAmountSend() const -> beam::Amount
 {
-    auto paramID = isBeamSide()
-        ? TxParameterID::AtomicSwapAmount
-        : TxParameterID::Amount;
-    beam::Amount amount;
-    if (m_offer.GetParameter(paramID, amount))
-    {
-        return amount;
-    }
-    return 0;
-}
-
-auto SwapOfferItem::rawAmountReceive() const -> beam::Amount
-{
-    auto paramID = isBeamSide()
+    auto paramID = isSendBeam()
         ? TxParameterID::Amount
         : TxParameterID::AtomicSwapAmount;
     beam::Amount amount;
@@ -85,59 +70,45 @@ auto SwapOfferItem::rawAmountReceive() const -> beam::Amount
     return 0;
 }
 
-auto SwapOfferItem::rate() const -> QString
+auto SwapOfferItem::rawAmountReceive() const -> beam::Amount
 {
-    // TODO should be refactored this code
-    // TODO should be created unit tests
-    const uint8_t decimalPlaces = libbitcoin::btc_decimal_places;
-    beam::Amount first = rawAmountReceive();
-    beam::Amount second = rawAmountSend();
-    std::ostringstream stream;
-
-    stream << first / second << '.' << std::setfill('0') << std::setw(decimalPlaces) << '0';
-
-    std::string result = stream.str();
-    beam::Amount remainder = first % second;
-
-    remainder *= static_cast<beam::Amount>(std::pow(10, decimalPlaces + 1));
-    stream.str(std::string());
-    stream << (remainder / second + 5);
-
-    std::string str = stream.str();
-    size_t size = result.size();
-    if (!str.empty())
+    auto paramID = isSendBeam()
+        ? TxParameterID::AtomicSwapAmount
+        : TxParameterID::Amount;
+    beam::Amount amount;
+    if (m_offer.GetParameter(paramID, amount))
     {
-        result.insert(size - decimalPlaces + (decimalPlaces >= str.size() ? decimalPlaces - str.size() + 1 : 0), str);
-        result.erase(size);
+        return amount;
     }
-
-    boost::algorithm::trim_right_if(result, char_is<'0'>);
-    boost::algorithm::trim_right_if(result, char_is<'.'>);
-
-    return QString(result.c_str());
+    return 0;
 }
 
-auto SwapOfferItem::rateValue() const -> double
+auto SwapOfferItem::rate() const -> QString
 {
-    double amountReceive = double(int64_t(rawAmountReceive()));
-    double amountSend = double(int64_t(rawAmountSend()));
-    return amountReceive / amountSend;
+    beam::Amount otherCoinAmount =
+        isSendBeam() ? rawAmountReceive() : rawAmountSend();
+    beam::Amount beamAmount =
+        isSendBeam() ? rawAmountSend() : rawAmountReceive();
+
+    if (!beamAmount) return QString();
+
+    return QMLGlobals::divideWithPrecision8(beamui::AmountToUIString(otherCoinAmount), beamui::AmountToUIString(beamAmount));
 }
 
 auto SwapOfferItem::amountSend() const -> QString
 {
-    auto coinType = isBeamSide()
-        ? getSwapCoinType()
-        : beamui::Currencies::Beam;
+    auto coinType = isSendBeam()        
+        ? beamui::Currencies::Beam
+        : getSwapCoinType();
 
     return beamui::AmountToUIString(rawAmountSend(), coinType);
 }
 
 auto SwapOfferItem::amountReceive() const -> QString
 {
-    auto coinType = isBeamSide()
-        ? beamui::Currencies::Beam
-        : getSwapCoinType();
+    auto coinType = isSendBeam()
+        ? getSwapCoinType()
+        : beamui::Currencies::Beam;
     
     return beamui::AmountToUIString(rawAmountReceive(), coinType);
 }
@@ -147,9 +118,9 @@ auto SwapOfferItem::isOwnOffer() const -> bool
     return m_isOwnOffer;
 }
 
-auto SwapOfferItem::isBeamSide() const -> bool
+auto SwapOfferItem::isSendBeam() const -> bool
 {
-    return m_isOwnOffer ? m_isBeamSide : !m_isBeamSide;
+    return m_isOwnOffer ? !m_isBeamSide : m_isBeamSide;
 }
 
 auto SwapOfferItem::getTxParameters() const -> beam::wallet::TxParameters

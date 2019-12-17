@@ -34,9 +34,27 @@ namespace beam::litecoin
 
             SetLockTimeInBlocks(kLTCDefaultLockTimeInBlocks);
             SetFeeRate(kLtcMinFeeRate);
-            SetMinFeeRate(kLtcMinFeeRate);
             SetBlocksPerHour(kLTCBlocksPerHour);
             SetAddressVersion(getAddressVersion());
+            SetGenesisBlockHashes(getGenesisBlockHashes());
+
+            auto electrumSettings = GetElectrumConnectionOptions();
+
+            electrumSettings.m_nodeAddresses =
+            {
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
+                "backup.electrum-ltc.org:443",
+                "btc.cihar.com:60002",
+                "electrum-ltc.bysh.me:50002",
+                "electrum.ltc.xurious.com:50002",
+                "ltc.litepay.ch.org:50022"
+#else // MASTERNET and TESTNET
+                "electrum.ltc.xurious.com:51002",
+                "electrum-ltc.bysh.me:51002"
+#endif
+            };
+
+            SetElectrumConnectionOptions(electrumSettings);
         }
     };
 } //namespace beam::litecoin

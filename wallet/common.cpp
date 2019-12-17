@@ -304,7 +304,7 @@ namespace beam::wallet
         return !(*this == other);
     }
 
-    boost::optional<TxID> TxParameters::GetTxID() const
+    const boost::optional<TxID>& TxParameters::GetTxID() const
     {
         return m_ID;
     }
@@ -476,6 +476,24 @@ namespace beam::wallet
     }
 
     std::string TxDescription::getStatusString() const
+    {
+        const auto& statusStr = getStatusStringApi();
+        if (statusStr == "receiving" || statusStr == "sending")
+        {
+            return "in progress";
+        }
+        else if (statusStr == "completed")
+        {
+            return "sent to own address";
+        }
+        else if (statusStr == "self sending")
+        {
+            return "sending to own address";
+        }
+        return statusStr;
+    }
+
+    std::string TxDescription::getStatusStringApi() const
     {
         switch (m_status)
         {

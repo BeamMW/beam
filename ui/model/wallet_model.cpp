@@ -210,6 +210,11 @@ void WalletModel::onExportDataToJson(const std::string& data)
 {
 }
 
+void WalletModel::onExportTxHistoryToCsv(const std::string& data)
+{
+    emit txHistoryExportedToCsv(QString::fromStdString(data));
+}
+
 void WalletModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
 {
     emit changeCurrentWalletIDs(senderID, receiverID);
@@ -344,6 +349,9 @@ void WalletModel::setAddresses(bool own, const std::vector<beam::wallet::WalletA
 {
     if (own)
     {
+        m_myWalletIds.clear();
+        m_myAddrLabels.clear();
+
         for (const auto& addr : addrs)
         {
             m_myWalletIds.emplace(addr.m_walletID);

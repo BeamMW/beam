@@ -59,6 +59,7 @@ Item {
         id: tokenDuplicateChecker
         onAccepted: {
             walletStackView.pop();
+            main.openSwapActiveTransactionsList()
         }
         Connections {
             target: tokenDuplicateChecker.model
@@ -70,7 +71,7 @@ Item {
                 walletStackView.pop();
                 walletStackView.push(Qt.createComponent("send_swap.qml"),
                                      {
-                                         "onAccepted": onAccepted,
+                                         "onAccepted": tokenDuplicateChecker.onAccepted,
                                          "onClosed": onClosed
                                      });
                 walletStackView.currentItem.setToken(token);
@@ -235,6 +236,16 @@ Item {
                 }
                 CustomToolButton {
                     Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                    icon.source: "qrc:/assets/icon-export.svg"
+                    //: transactions history screen, export button tooltip and open file dialog
+                    //% "Export transactions history"
+                    ToolTip.text: qsTrId("wallet-export-tx-history")
+                    onClicked: {
+                        viewModel.exportTxHistoryToCsv();
+                    }
+                }
+                CustomToolButton {
+                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
                     icon.source: "qrc:/assets/icon-proof.svg"
                     //% "Verify payment"
                     ToolTip.text: qsTrId("wallet-verify-payment")
@@ -315,194 +326,79 @@ Item {
                     filterCaseSensitivity: Qt.CaseInsensitive
                 }
 
-                rowDelegate: Rectangle {
-                    id:             rowItem
-                    height:         transactionsTable.rowHeight
-                    anchors.left:   parent.left
-                    anchors.right:  parent.right
-                    color:          styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
-
-                    property bool collapsed:   true
-                    property bool rowInModel:  styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
-                    property var  myModel:     parent.model
-
-                    onCollapsedChanged: {
-                        height = collapsed ? transactionsTable.rowHeight : transactionsTable.rowHeight + txDetails.maximumHeight
-                        txDetails.height = collapsed ? 0 : txDetails.maximumHeight
-                    }
-
-                    function expand(animate) {
-                       if (!rowInModel) return
-                       if (animate) expandAnimation.start()
-                       else collapsed = false
-                    }
-
-                    function collapse(animate) {
-                        if (!rowInModel) return
-                        if (animate) collapseAnimation.start()
-                        else collapsed = true
-                    }
-
-                    Connections {
-                        target: searchBox
-                        onTextChanged: {
-                            searchBox.text.length ? expand() : collapse()
-                            detailsPanel.hideFiltered = true
+                rowDelegate: ExpandableRowDelegate {
+                    id: rowItem
+                    collapsed: true
+                    rowInModel: styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
+                    rowHeight: transactionsTable.rowHeight
+                    backgroundColor: styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
+                    property var myModel: parent.model
+                    property bool hideFiltered: true
+                    onLeftClick: function() {
+                        if (!collapsed && searchBox.text.length && hideFiltered) {
+                            hideFiltered = false;
+                            return false;
                         }
+                        return true;
                     }
 
-                    Item {
-                        id:      txDetails
-                        height:  0
-                        y:       transactionsTable.rowHeight
-                        width:   parent.width
-                        clip:    true
-                        property int maximumHeight: detailsPanel.implicitHeight
+                    delegate: TransactionDetails {
+                        id: detailsPanel
+                        width: transactionsTable.width
+                        property var        txRolesMap: myModel
+                        sendAddress:        txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
+                        receiveAddress:     txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
+                        fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
+                        comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
+                        txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
+                        kernelID:           txRolesMap && txRolesMap.kernelID ? txRolesMap.kernelID : ""
+                        status:             txRolesMap && txRolesMap.status ? txRolesMap.status : ""
+                        failureReason:      txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
+                        isIncome:           txRolesMap && txRolesMap.isIncome ? txRolesMap.isIncome : false
+                        hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
+                        isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
+                        rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
+                        stateDetails:       txRolesMap && txRolesMap.stateDetails ? txRolesMap.stateDetails : ""
+                        searchFilter:       searchBox.text
+                        hideFiltered:       rowItem.hideFiltered
 
-                        Rectangle {
-                            anchors.fill: parent
-                            color: Style.background_details
+                        onSearchFilterChanged: function(text) {
+                            rowItem.collapsed = searchBox.text.length == 0;
+                            rowItem.hideFiltered = true;
                         }
 
-                        TransactionDetails {
-                            id: detailsPanel
-                            width: transactionsTable.width
+                        onOpenExternal : function() {
+                            var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
+                            Utils.openExternal(url, viewModel, externalLinkConfirmation);
+                        }
 
-                            onHeightChanged: {
-                                if (searchFilter.length && rowItem.collapsed) expand()
-                                if (!rowItem.collapsed) {
-                                    rowItem.height = transactionsTable.rowHeight + detailsPanel.height
-                                    txDetails.height = detailsPanel.height
-                                    txDetails.visible = true
-                                    detailsPanel.visible = true
-                                }
-                            }
+                        onTextCopied: function (text) {
+                            BeamGlobals.copyToClipboard(text);
+                        }
 
-                            property var txRolesMap: myModel
-                            sendAddress:        txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
-                            receiveAddress:     txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
-                            fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
-                            comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
-                            txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
-                            kernelID:           txRolesMap && txRolesMap.kernelID ? txRolesMap.kernelID : ""
-                            status:             txRolesMap && txRolesMap.status ? txRolesMap.status : ""
-                            failureReason:      txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
-                            isIncome:           txRolesMap && txRolesMap.isIncome ? txRolesMap.isIncome : false
-                            hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
-                            isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
-                            rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
-                            searchFilter:       searchBox.text
-                            hideFiltered:       true
-
-                            onOpenExternal : function() {
-                                var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
-                                Utils.openExternal(url, viewModel, externalLinkConfirmation);
-                            }
-
-                            onTextCopied: function (text) {
-                                BeamGlobals.copyToClipboard(text);
-                            }
-
-                            onCopyPaymentProof: function() {
-                                if (detailsPanel.rawTxID)
+                        onCopyPaymentProof: function() {
+                            if (detailsPanel.rawTxID)
+                            {
+                                var paymentInfo = viewModel.getPaymentInfo(detailsPanel.rawTxID);
+                                if (paymentInfo.paymentProof.length === 0)
                                 {
-                                    var paymentInfo = viewModel.getPaymentInfo(detailsPanel.rawTxID);
-                                    if (paymentInfo.paymentProof.length === 0)
-                                    {
-                                        paymentInfo.paymentProofChanged.connect(function() {
-                                            textCopied(paymentInfo.paymentProof);
-                                        });
-                                    }
-                                    else
-                                    {
+                                    paymentInfo.paymentProofChanged.connect(function() {
                                         textCopied(paymentInfo.paymentProof);
-                                    }
+                                    });
                                 }
-                            }
-                            onShowPaymentProof: {
-                                if (detailsPanel.rawTxID)
+                                else
                                 {
-                                    paymentInfoDialog.model = viewModel.getPaymentInfo(detailsPanel.rawTxID);
-                                    paymentInfoDialog.open();
+                                    textCopied(paymentInfo.paymentProof);
                                 }
                             }
                         }
-                    }
-
-                    MouseArea {
-                        anchors.top:      parent.top
-                        anchors.left:     parent.left
-                        height:           transactionsTable.rowHeight
-                        width:            parent.width
-                        acceptedButtons:  Qt.LeftButton | Qt.RightButton
-
-                        onClicked: {
-                            if (rowInModel) {
-                                if (mouse.button === Qt.RightButton) {
-                                    transactionsTable.showContextMenu(styleData.row)
-                                } else if (mouse.button === Qt.LeftButton) {
-                                    if(rowItem.collapsed) {
-                                        expand(true)
-                                        return
-                                    }
-                                    if (searchBox.text && detailsPanel.hideFiltered) {
-                                        detailsPanel.hideFiltered = false
-                                        return
-                                    }
-                                    collapse(true)
-                                }
+                        onShowPaymentProof: {
+                            if (detailsPanel.rawTxID)
+                            {
+                                paymentInfoDialog.model = viewModel.getPaymentInfo(detailsPanel.rawTxID);
+                                paymentInfoDialog.open();
                             }
                         }
-                    }
-
-                    ParallelAnimation {
-                        id: expandAnimation
-                        running: false
-
-                        property int expandDuration: 200
-
-                        NumberAnimation {
-                            target: rowItem
-                            easing.type: Easing.Linear
-                            property: "height"
-                            to: transactionsTable.rowHeight + txDetails.maximumHeight
-                            duration: expandAnimation.expandDuration
-                        }
-
-                        NumberAnimation {
-                            target: txDetails
-                            easing.type: Easing.Linear
-                            property: "height"
-                            to: txDetails.maximumHeight
-                            duration: expandAnimation.expandDuration
-                        }
-
-                        onStopped: rowItem.collapsed = false
-                    }
-
-                    ParallelAnimation {
-                        id: collapseAnimation
-                        running: false
-
-                        property int collapseDuration: 200
-
-                        NumberAnimation {
-                            target: rowItem
-                            easing.type: Easing.Linear
-                            property: "height"
-                            to: transactionsTable.rowHeight
-                            duration: collapseAnimation.collapseDuration
-                        }
-
-                        NumberAnimation {
-                            target: txDetails
-                            easing.type: Easing.Linear
-                            property: "height"
-                            to: 0
-                            duration: collapseAnimation.collapseDuration
-                        }
-
-                        onStopped: rowItem.collapsed = true
                     }
                 }
 
@@ -772,6 +668,13 @@ Item {
         if (root.toSend) {
             sendButton.clicked();
             root.toSend = false;
+        }
+    }
+
+    Component.onDestruction: {
+        var item = walletStackView.currentItem;
+        if (item && item.saveAddress && typeof item.saveAddress == "function") {
+            item.saveAddress();
         }
     }
 }

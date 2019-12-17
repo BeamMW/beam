@@ -539,7 +539,7 @@ namespace
 
                 if (tx)
                 {
-                    if (tx->canCancel())
+                    if (_wallet.CanCancelTransaction(tx->m_txId))
                     {
                         _wallet.CancelTransaction(tx->m_txId);
                         TxCancel::Response result{ true };
@@ -1101,11 +1101,6 @@ int main(int argc, char* argv[])
             }
 
             walletDB = WalletDB::open(options.walletPath, pass, reactor);
-            if (!walletDB)
-            {
-                LOG_ERROR() << "Wallet not opened.";
-                return -1;
-            }
 
             LOG_INFO() << "wallet sucessfully opened...";
         }
@@ -1151,6 +1146,11 @@ int main(int argc, char* argv[])
         io::Reactor::get_Current().run();
 
         LOG_INFO() << "Done";
+    }
+    catch (const DatabaseException&)
+    {
+        LOG_ERROR() << "Wallet not opened.";
+        return -1;
     }
     catch (const std::exception& e)
     {

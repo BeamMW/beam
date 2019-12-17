@@ -41,6 +41,7 @@ namespace beam::bitcoin
         void getBlockCount(std::function<void(const Error&, uint64_t)> callback) override;
         void getBalance(uint32_t confirmations, std::function<void(const Error&, Amount)> callback) override;
         void getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback) override;
+        void getGenesisBlockHash(std::function<void(const Error&, const std::string&)> callback) override;
 
     protected:
         void sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const nlohmann::json&)> callback);
@@ -49,5 +50,6 @@ namespace beam::bitcoin
     private:
         HttpClient m_httpClient;
         ISettingsProvider& m_settingsProvider;
+        std::map<beam::io::Address, bool> m_verifiedAddresses;
     };
 } // namespace beam::bitcoin

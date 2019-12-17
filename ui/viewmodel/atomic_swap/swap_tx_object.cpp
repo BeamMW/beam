@@ -26,21 +26,6 @@ namespace
 {
     constexpr uint32_t kSecondsPerHour = 60 * 60;
 
-    QString convertBeamHeightDiffToTime(int32_t dt)
-    {
-        if (dt <= 0)
-        {
-            return "";
-        }
-        const int32_t minute_s = 60;
-        const int32_t quantum_s = 5 * minute_s;
-        int32_t time_s = dt * beam::Rules().DA.Target_s;
-        time_s = (time_s + (quantum_s >> 1)) / quantum_s;
-        time_s *= quantum_s;
-        return beamui::getEstimateTimeStr(time_s);
-    }
-
-
     QString getWaitingPeerStr(const beam::wallet::TxParameters& txParameters)
     {
         auto minHeight = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight);
@@ -48,7 +33,7 @@ namespace
         QString time = "";
         if (minHeight && responseTime)
         {
-            time = convertBeamHeightDiffToTime(*minHeight + *responseTime - AppModel::getInstance().getWallet()->getCurrentHeight());
+            time = beamui::convertBeamHeightDiffToTime(*minHeight + *responseTime - AppModel::getInstance().getWallet()->getCurrentHeight());
         }
         //% "If nobody accepts the offer in %1, the offer will be automatically canceled"
         return qtTrId("swap-tx-state-initial").arg(time);
@@ -64,21 +49,28 @@ namespace
         }
 
         auto minHeightRefund = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight, BEAM_REFUND_TX);
-         QString time = "";
+        QString time = "";
         if (minHeightRefund)
         {
             auto currentHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
             if (currentHeight < *minHeightRefund)
             {
-                time = convertBeamHeightDiffToTime(*minHeightRefund - currentHeight);
+                time = beamui::convertBeamHeightDiffToTime(*minHeightRefund - currentHeight);
+                //% "The swap is expected to complete in %1 at most."
+                return qtTrId("swap-tx-state-in-progress-normal").arg(time);
             }
         }
-        if (time.isEmpty())
-        {
-            return "";
+        else {
+            auto maxHeightLockTx = txParameters.GetParameter<beam::Height>(TxParameterID::MaxHeight, BEAM_LOCK_TX);
+            auto currentHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
+            if (maxHeightLockTx && currentHeight < *maxHeightLockTx)
+            {
+                time = beamui::convertBeamHeightDiffToTime(*maxHeightLockTx - currentHeight);
+                //% "If the other side will not sign the transaction in %1, the offer will be canceled automatically."
+                return qtTrId("swap-tx-state-in-progress-negotiation").arg(time);
+            }
         }
-        //% "The swap is expected to complete in %1 at most"
-        return qtTrId("swap-tx-state-in-progress-normal").arg(time);
+        return "";
     }
 
     QString getInProgressRefundingStr(const beam::wallet::TxParameters& txParameters, double blocksPerHour)
@@ -87,7 +79,7 @@ namespace
         auto isRegistered = txParameters.GetParameter<uint8_t>(TxParameterID::TransactionRegistered, isBeamSide ? BEAM_REFUND_TX : REFUND_TX);
         if (isRegistered)
         {
-            //% "Refunding"
+            //% "Swap failed, the money is being released back to your wallet"
             return qtTrId("swap-tx-state-refunding");
         }
 
@@ -99,7 +91,7 @@ namespace
             auto refundMinHeight = txParameters.GetParameter<Height>(TxParameterID::MinHeight, BEAM_REFUND_TX);
             if (refundMinHeight && currentBeamHeight < *refundMinHeight)
             {
-                time = convertBeamHeightDiffToTime(*refundMinHeight - currentBeamHeight);
+                time = beamui::convertBeamHeightDiffToTime(*refundMinHeight - currentBeamHeight);
                 coin = "beam";
             }
         }
@@ -115,7 +107,7 @@ namespace
                 {
                     double beamBlocksPerBlock = (kSecondsPerHour / beam::Rules().DA.Target_s) / blocksPerHour;
                     double beamBlocks = (*lockTime - *currentCoinHeight) * beamBlocksPerBlock;
-                    time = convertBeamHeightDiffToTime(static_cast<int32_t>(std::round(beamBlocks)));
+                    time = beamui::convertBeamHeightDiffToTime(static_cast<int32_t>(std::round(beamBlocks)));
                 }
             }
         }
@@ -124,7 +116,7 @@ namespace
             return "";
         }
 
-        //% "The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2"
+        //% "Swap failed: the refund of your %2 will start in %1. The refund duration depends on the transaction fee you specified for %2."
         return qtTrId("swap-tx-state-in-progress-refunding").arg(time).arg(coin);
     }
 }
@@ -369,13 +361,13 @@ QString SwapTxObject::getFee() const
         auto fee = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::BEAM_LOCK_TX : SubTxIndex::BEAM_REDEEM_TX);
         if (fee)
         {
-            return beamui::AmountToUIString(*fee, beamui::Currencies::Beam);
+            return beamui::AmountInGrothToUIString(*fee);
         }
     }
     return QString();
 }
 
-QString SwapTxObject::getFeeRate() const
+QString SwapTxObject::getSwapCoinFeeRate() const
 {
     if (m_isBeamSide)   // check if initialized
     {
@@ -404,6 +396,41 @@ QString SwapTxObject::getFeeRate() const
                 break;
             }
             return value + " " + rateMeasure;
+        }
+    }
+    return QString();
+}
+
+QString SwapTxObject::getSwapCoinFee() const
+{
+    if (m_isBeamSide)   // check if initialized
+    {
+        auto feeRate = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
+
+        if (feeRate && m_swapCoin)
+        {
+            Currency coinTypeQt;
+
+            switch (*m_swapCoin)
+            {
+            case AtomicSwapCoin::Bitcoin:
+                coinTypeQt = Currency::CurrBtc;
+                break;
+
+            case AtomicSwapCoin::Litecoin:
+                coinTypeQt = Currency::CurrLtc;
+                break;
+
+            case AtomicSwapCoin::Qtum:
+                coinTypeQt = Currency::CurrQtum;
+                break;
+            
+            default:
+                coinTypeQt = Currency::CurrStart;
+                break;
+            }
+
+            return QMLGlobals::calcTotalFee(coinTypeQt, *feeRate);
         }
     }
     return QString();
@@ -439,7 +466,7 @@ QString SwapTxObject::getFailureReason() const
     return QString();
 }
 
-QString SwapTxObject::getSwapState() const
+QString SwapTxObject::getStateDetails() const
 {
     if (getTxDescription().m_txType == beam::wallet::TxType::AtomicSwap)
     {

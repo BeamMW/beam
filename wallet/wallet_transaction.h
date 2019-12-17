@@ -31,6 +31,7 @@ namespace beam::wallet
 
     class SimpleTransaction : public BaseTransaction
     {
+    public:
         enum State : uint8_t
         {
             Initial,
@@ -43,7 +44,7 @@ namespace beam::wallet
             KernelConfirmation,
             OutputsConfirmation
         };
-    public:
+
         class Creator : public BaseTransaction::Creator
         {
         public:

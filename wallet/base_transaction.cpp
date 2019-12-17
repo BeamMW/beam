@@ -161,6 +161,14 @@ namespace beam::wallet
         }
     }
 
+    bool BaseTransaction::CanCancel() const
+    {
+        TxStatus status = TxStatus::Failed;
+        GetParameter(TxParameterID::Status, status);
+
+        return status == TxStatus::InProgress || status == TxStatus::Pending;
+    }
+
     void BaseTransaction::Cancel()
     {
         TxStatus s = TxStatus::Failed;

@@ -61,6 +61,7 @@ namespace beam::bitcoin
     public:
         Electrum() = delete;
         Electrum(beam::io::Reactor& reactor, ISettingsProvider& settingsProvider);
+        ~Electrum() override;
 
         void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) override;
         void signRawTransaction(const std::string& rawTx, std::function<void(const Error&, const std::string&, bool)> callback) override;
@@ -79,6 +80,8 @@ namespace beam::bitcoin
 
         void getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback) override;
 
+        void getGenesisBlockHash(std::function<void(const Error&, const std::string&)> callback) override;
+
     protected:
         void listUnspent(std::function<void(const Error&, const std::vector<Utxo>&)> callback);
 
@@ -91,15 +94,21 @@ namespace beam::bitcoin
         bool isLockedUtxo(std::string hash, uint32_t pos);
         void reviewLockedUtxo();
 
+        void tryToChangeAddress();
+
+        bool isNodeAddressCheckedAndVerified(const std::string& address) const;
+
     private:
         beam::io::Reactor& m_reactor;
         std::map<uint64_t, TCPConnect> m_connections;
         uint64_t m_idCounter = 0;
         ISettingsProvider& m_settingsProvider;
+        std::size_t m_currentAddressIndex = 0;
 
         std::vector<LockUtxo> m_lockedUtxo;
         std::vector<Utxo> m_cache;
         std::chrono::system_clock::time_point m_lastCache;
         io::AsyncEvent::Ptr m_asyncEvent;
+        std::map<std::string, bool> m_verifiedAddresses;
     };
 } // namespace beam::bitcoin

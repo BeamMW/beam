@@ -15,8 +15,15 @@
 #pragma once
 
 #include <stdint.h>
+#include <string>
+#include <vector>
 
 namespace beam::qtum
 {
+    extern const char kMainnetGenesisBlockHash[];
+    extern const char kTestnetGenesisBlockHash[];
+    extern const char kRegtestGenesisBlockHash[];
+
     uint8_t getAddressVersion();
+    std::vector<std::string> getGenesisBlockHashes();
 } // namespace beam::qtum

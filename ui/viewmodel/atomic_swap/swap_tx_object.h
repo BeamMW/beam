@@ -40,11 +40,12 @@ public:
     auto getBeamRedeemTxKernelId() const -> QString;
     auto getBeamRefundTxKernelId() const -> QString;
     auto getSwapCoinName() const -> QString;
-    auto getFeeRate() const -> QString;
+    auto getSwapCoinFeeRate() const -> QString;
+    auto getSwapCoinFee() const -> QString;
     auto getFee() const -> QString override;
     auto getStatus() const -> QString override;
     auto getFailureReason() const -> QString override;
-    QString getSwapState() const;
+    QString getStateDetails() const override;
     beam::wallet::AtomicSwapCoin getSwapCoinType() const;
 
     bool isLockTxProofReceived() const;

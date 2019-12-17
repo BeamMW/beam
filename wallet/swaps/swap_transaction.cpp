@@ -184,7 +184,7 @@ namespace beam::wallet
     {
     }
 
-    void AtomicSwapTransaction::Cancel()
+    bool AtomicSwapTransaction::CanCancel() const
     {
         State state = GetState(kDefaultSubTxID);
 
@@ -200,14 +200,24 @@ namespace beam::wallet
         case State::BuildingBeamRedeemTX:
         case State::BuildingBeamRefundTX:
         {
-            SetNextState(State::Canceled);
-            return;
+            return true;
         }
         default:
             break;
         }
 
-        LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(state);
+        return false;
+    }
+
+    void AtomicSwapTransaction::Cancel()
+    {
+        if (CanCancel())
+        {
+            SetNextState(State::Canceled);
+            return;
+        }
+
+        LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(GetState(kDefaultSubTxID));
     }
 
     bool AtomicSwapTransaction::Rollback(Height height)
@@ -326,6 +336,10 @@ namespace beam::wallet
         switch (state)
         {
         case State::Initial:
+        case State::Failed:
+        case State::Canceled:
+        case State::Refunded:
+        case State::CompleteSwap:
             return true;
         case State::SendingRedeemTX:
         case State::SendingBeamRedeemTX:
@@ -519,6 +533,8 @@ namespace beam::wallet
             {
                 assert(!isBeamOwner);
 
+                m_WalletDB->deleteCoinsCreatedByTx(GetTxID());
+
                 if (!m_secondSide->IsLockTimeExpired() && !m_secondSide->IsQuickRefundAvailable())
                 {
                     UpdateOnNextTip();
@@ -591,9 +607,17 @@ namespace beam::wallet
                         NoLeak<uintBig> secretPrivateKey;
                         if (!GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX))
                         {
-                            LOG_INFO() << GetTxID() << " Beam locktime expired.";
-                            SetNextState(State::SendingBeamRefundTX);
-                            break;
+                            Height kernelUnconfirmedHeight = 0;
+                            GetParameter(TxParameterID::KernelUnconfirmedHeight, kernelUnconfirmedHeight, SubTxIndex::BEAM_REDEEM_TX);
+                            Height refundMinHeight = MaxHeight;
+                            GetParameter(TxParameterID::MinHeight, refundMinHeight, SubTxIndex::BEAM_REFUND_TX);
+
+                            if (kernelUnconfirmedHeight > refundMinHeight)
+                            {
+                                LOG_INFO() << GetTxID() << " Beam locktime expired.";
+                                SetNextState(State::SendingBeamRefundTX);
+                                break;
+                            }
                         }
                     }
 
@@ -610,6 +634,7 @@ namespace beam::wallet
                 {
                     if (!IsBeamRedeemTxRegistered() && !IsSafeToSendBeamRedeemTx())
                     {
+                        LOG_INFO() << GetTxID() << " Not enough time to finish Beam redeem transaction.";
                         SetNextState(State::SendingRefundTX);
                         break;
                     }
@@ -660,6 +685,11 @@ namespace beam::wallet
             }
             case State::Failed:
             {
+                if (isBeamOwner)
+                {
+                    m_WalletDB->deleteCoinsCreatedByTx(GetTxID());
+                }
+
                 TxFailureReason reason = TxFailureReason::Unknown;
                 if (GetParameter(TxParameterID::FailureReason, reason))
                 {
@@ -744,7 +774,11 @@ namespace beam::wallet
     {
         LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
 
-        if (notify)
+        if (reason == TxFailureReason::NoInputs)
+        {
+            NotifyFailure(TxFailureReason::Canceled);
+        }
+        else if (notify)
         {
             NotifyFailure(reason);
         }
@@ -910,6 +944,15 @@ namespace beam::wallet
             {
                 if (!IsBeamSide() && m_secondSide->IsQuickRefundAvailable())
                 {
+                    if (reason == TxFailureReason::Canceled)
+                    {
+                        LOG_ERROR() << GetTxID() << " Swap cancelled. The other side has cancelled the transaction.";
+                    }
+                    else
+                    {
+                        LOG_ERROR() << GetTxID() << " The other side has failed the transaction. Reason: " << GetFailureMessage(reason);
+                    }
+
                     SetState(State::SendingRefundTX);
                 }
 
@@ -975,7 +1018,6 @@ namespace beam::wallet
                 lockTxBuilder->SelectInputs();
                 lockTxBuilder->AddChange();
             }
-            UpdateTxDescription(TxStatus::InProgress);
 
             lockTxBuilder->GenerateOffset();
         }
@@ -1020,6 +1062,8 @@ namespace beam::wallet
 
             SetState(SubTxState::Constructed, SubTxIndex::BEAM_LOCK_TX);
             lockTxState = SubTxState::Constructed;
+
+            UpdateTxDescription(TxStatus::InProgress);
 
             if (!isBeamOwner)
             {
@@ -1262,12 +1306,12 @@ namespace beam::wallet
 
     bool AtomicSwapTransaction::IsBeamLockTimeExpired() const
     {
-        Height lockTimeHeight = MaxHeight;
-        GetParameter(TxParameterID::MinHeight, lockTimeHeight);
+        Height refundMinHeight = MaxHeight;
+        GetParameter(TxParameterID::MinHeight, refundMinHeight, SubTxIndex::BEAM_REFUND_TX);
 
         Block::SystemState::Full state;
 
-        return GetTip(state) && state.m_Height > (lockTimeHeight + kBeamLockTimeInBlocks);
+        return GetTip(state) && state.m_Height > refundMinHeight;
     }
 
     bool AtomicSwapTransaction::IsBeamRedeemTxRegistered() const
@@ -1279,7 +1323,7 @@ namespace beam::wallet
     bool AtomicSwapTransaction::IsSafeToSendBeamRedeemTx() const
     {
         Height minHeight = MaxHeight;
-        GetParameter(TxParameterID::MinHeight, minHeight);
+        GetParameter(TxParameterID::MinHeight, minHeight, SubTxIndex::BEAM_LOCK_TX);
 
         Block::SystemState::Full state;
 
@@ -1297,7 +1341,7 @@ namespace beam::wallet
             return false;
         }
 
-        if ((SubTxIndex::BEAM_REDEEM_TX == subTxID) || (SubTxIndex::BEAM_REFUND_TX == subTxID))
+        if (SubTxIndex::BEAM_REFUND_TX == subTxID)
         {
             // store Coin in DB
             auto amount = GetMandatoryParameter<Amount>(TxParameterID::Amount, subTxID);

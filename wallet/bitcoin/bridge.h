@@ -33,7 +33,8 @@ namespace beam::bitcoin
             IOError,
             BitcoinError,
             InvalidCredentials,
-            EmptyResult
+            EmptyResult,
+            InvalidGenesisBlock
         };
 
         struct Error
@@ -68,5 +69,7 @@ namespace beam::bitcoin
         virtual void getBalance(uint32_t confirmations, std::function<void(const Error&, Amount)> callback) = 0;
         // error, confirmed, unconfirmed and immature balances
         virtual void getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback) = 0;
+        // error, genesis block hash
+        virtual void getGenesisBlockHash(std::function<void(const Error&, const std::string&)> callback) = 0;
     };
 } // namespace beam::bitcoin

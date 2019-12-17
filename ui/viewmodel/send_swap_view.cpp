@@ -26,6 +26,7 @@ SendSwapViewModel::SendSwapViewModel()
     , _receiveCurrency(Currency::CurrBtc)
     , _changeGrothes(0)
     , _walletModel(*AppModel::getInstance().getWallet())
+    , _isBeamSide(true)
 {
     connect(&_walletModel, &WalletModel::changeCalculated,  this,  &SendSwapViewModel::onChangeCalculated);
     connect(&_walletModel, &WalletModel::availableChanged, this, &SendSwapViewModel::recalcAvailable);
@@ -96,6 +97,7 @@ void SendSwapViewModel::fillParameters(const beam::wallet::TxParameters& paramet
         setExpiresTime(beamui::CalculateExpiresTime(currentHeight, expiresHeight));
 
         _txParameters = parameters;
+        _isBeamSide = *isBeamSide;
     }
 }
 
@@ -113,12 +115,12 @@ void SendSwapViewModel::setToken(const QString& value)
     if (_token != value)
     {
         _token = value;
-        emit tokenChanged();
         auto parameters = beam::wallet::ParseParameters(_token.toStdString());
         if (getTokenValid() && parameters)
         {
             fillParameters(parameters.value());
         }
+        emit tokenChanged();
     }
 }
 
@@ -362,11 +364,10 @@ void SendSwapViewModel::sendMoney()
     using beam::wallet::TxParameterID;
     
     auto txParameters = beam::wallet::TxParameters(_txParameters);
-    auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-    auto beamFee = isBeamSide ? getSendFee() : getReceiveFee();
-    auto swapFee = isBeamSide ? getReceiveFee() : getSendFee();
+    auto beamFee = _isBeamSide ? getSendFee() : getReceiveFee();
+    auto swapFee = _isBeamSide ? getReceiveFee() : getSendFee();
 
-    if (isBeamSide)
+    if (_isBeamSide)
     {
         txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_LOCK_TX);
         txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_REFUND_TX);
@@ -394,7 +395,7 @@ void SendSwapViewModel::sendMoney()
         auto minimalHeight = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight);
 
         LOG_INFO() << *txID << " Accept offer.\n\t"
-                    << "isBeamSide: " << (isBeamSide ? "true" : "false") << "\n\t"
+                    << "isBeamSide: " << (_isBeamSide ? "true" : "false") << "\n\t"
                     << "swapCoin: " << std::to_string(*swapCoin) << "\n\t"
                     << "amount: " << *amount << "\n\t"
                     << "swapAmount: " << *swapAmount << "\n\t"
@@ -413,4 +414,21 @@ bool SendSwapViewModel::isSendFeeOK() const
 bool SendSwapViewModel::isReceiveFeeOK() const
 {
     return _receiveAmountGrothes == 0 || QMLGlobals::isSwapFeeOK(_receiveAmountGrothes, _receiveFeeGrothes, _receiveCurrency);
+}
+
+bool SendSwapViewModel::isSendBeam() const
+{
+    return _isBeamSide;
+}
+
+QString SendSwapViewModel::getRate() const
+{
+    beam::Amount otherCoinAmount =
+        isSendBeam() ? _receiveAmountGrothes : _sendAmountGrothes;
+    beam::Amount beamAmount =
+        isSendBeam() ? _sendAmountGrothes : _receiveAmountGrothes;
+
+    if (!beamAmount) return QString();
+
+    return QMLGlobals::divideWithPrecision8(beamui::AmountToUIString(otherCoinAmount), beamui::AmountToUIString(beamAmount));
 }

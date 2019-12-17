@@ -41,6 +41,8 @@ namespace beam::wallet
         // Updates state of transation. 
         virtual void Update() = 0;
 
+        virtual bool CanCancel() const = 0;
+
         // Cancel active transaction
         virtual void Cancel() = 0;
         
@@ -96,6 +98,7 @@ namespace beam::wallet
 
         const TxID& GetTxID() const;
         void Update() override;
+        bool CanCancel() const override;
         void Cancel() override;
 
         bool Rollback(Height height) override;
@@ -151,13 +154,13 @@ namespace beam::wallet
         uint32_t get_PeerVersion() const;
         bool GetTip(Block::SystemState::Full& state) const;
         void UpdateAsync();
+        void UpdateOnNextTip();
         INegotiatorGateway& GetGateway() const;
     protected:
         
         virtual bool CheckExpired();
         virtual bool CheckExternalFailures();
         void ConfirmKernel(const Merkle::Hash& kernelID);
-        void UpdateOnNextTip();
         void CompleteTx();
         virtual void RollbackTx();
         virtual void NotifyFailure(TxFailureReason);

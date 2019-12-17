@@ -29,6 +29,10 @@ T.Switch {
         color: control.palette.text
         elide: Text.ElideRight
         verticalAlignment: Text.AlignVCenter
+        MouseArea {
+            anchors.fill: parent
+            anchors.rightMargin: parent.rightPadding
+        }
     }
 
     indicator: Rectangle {

@@ -76,6 +76,8 @@ SwapOffersViewModel::SwapOffersViewModel()
     connect(m_ltcClient.get(), SIGNAL(statusChanged()), this, SIGNAL(ltcOKChanged()));
     connect(m_qtumClient.get(), SIGNAL(statusChanged()), this, SIGNAL(qtumOKChanged()));
 
+    monitorAllOffersFitBalance();
+
     m_walletModel.getAsync()->getSwapOffers();
     m_walletModel.getAsync()->getTransactions();
     
@@ -102,6 +104,11 @@ void SwapOffersViewModel::setSelectedCoin(int coinType)
 QAbstractItemModel* SwapOffersViewModel::getAllOffers()
 {
     return &m_offersList;
+}
+
+QAbstractItemModel* SwapOffersViewModel::getAllOffersFitBalance()
+{
+    return &m_offersListFitBalance;
 }
 
 QString SwapOffersViewModel::beamAvailable() const
@@ -334,12 +341,14 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
         case ChangeAction::Reset:
             {
                 m_offersList.reset(modifiedOffers);
+                resetAllOffersFitBalance();
                 break;
             }
 
         case ChangeAction::Added:
             {
                 m_offersList.insert(modifiedOffers);
+                insertAllOffersFitBalance(modifiedOffers);
                 break;
             }
 
@@ -351,6 +360,7 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
                         QVariant::fromValue(modifiedOffer->getTxID()));
                 }
                 m_offersList.remove(modifiedOffers);
+                removeAllOffersFitBalance(modifiedOffers);
                 break;
             }
         
@@ -360,6 +370,22 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
     }
     
     emit allOffersChanged();
+}
+
+void SwapOffersViewModel::resetAllOffersFitBalance()
+{
+    auto offersCount = m_offersList.rowCount();
+    std::vector<std::shared_ptr<SwapOfferItem>> offersListFitBalance;
+    offersListFitBalance.reserve(offersCount);
+
+    for(int i = 0; i < offersCount; ++i)
+    {
+        const auto&it = m_offersList.get(i);
+        if (isOfferFitBalance(*it))
+            offersListFitBalance.push_back(it);
+    }
+    m_offersListFitBalance.reset(offersListFitBalance);
+    emit allOffersFitBalanceChanged();
 }
 
 bool SwapOffersViewModel::showBetaWarning() const
@@ -391,6 +417,85 @@ bool SwapOffersViewModel::hasLtcTx() const
 bool SwapOffersViewModel::hasQtumTx() const
 {
     return m_activeTxCounters.qtum > 0;
+}
+
+void SwapOffersViewModel::monitorAllOffersFitBalance()
+{
+    connect(this, SIGNAL(beamAvailableChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(btcAvailableChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(ltcAvailableChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(qtumAvailableChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(btcOKChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(ltcOKChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(qtumOKChanged()), SLOT(resetAllOffersFitBalance()));
+}
+
+bool SwapOffersViewModel::isOfferFitBalance(const SwapOfferItem& offer)
+{
+    if (offer.isOwnOffer())
+        return true;
+
+    bool isSendBeam = offer.isSendBeam();
+
+    auto beamOfferAmount =
+        isSendBeam ? offer.rawAmountSend() : offer.rawAmountReceive();
+    if (beamOfferAmount > m_walletModel.getAvailable())
+        return false;
+    
+    auto swapCoinOfferAmount =
+        isSendBeam ? offer.rawAmountReceive() : offer.rawAmountSend();
+    auto swapCoinName = offer.getSwapCoinName();
+
+    
+    if (swapCoinName == toString(beamui::Currencies::Bitcoin))
+    {
+        auto myBtcAmount = btcOK() ? m_btcClient->getAvailable() : 0;
+        return isSendBeam ? btcOK() : swapCoinOfferAmount <= myBtcAmount;
+    } 
+    else if (swapCoinName == toString(beamui::Currencies::Litecoin))
+    {
+        auto myLtcAmount = ltcOK() ? m_ltcClient->getAvailable() : 0;
+        return isSendBeam ? ltcOK() : swapCoinOfferAmount <= myLtcAmount;
+    }
+    else if (swapCoinName == toString(beamui::Currencies::Qtum))
+    {
+        auto myQtumAmount = qtumOK() ? m_qtumClient->getAvailable() : 0;
+        return isSendBeam ? qtumOK() : swapCoinOfferAmount <= myQtumAmount;
+    }
+    
+    return false;
+}
+
+void SwapOffersViewModel::insertAllOffersFitBalance(
+    const std::vector<std::shared_ptr<SwapOfferItem>>& offers)
+{
+    std::vector<std::shared_ptr<SwapOfferItem>> fitBalanceOffers;
+    fitBalanceOffers.reserve(offers.size());
+
+    std::copy_if(offers.begin(), offers.end(),
+                 std::back_inserter(fitBalanceOffers),
+                 [this] (const std::shared_ptr<SwapOfferItem>& it)
+                 {
+                     return isOfferFitBalance(*it);
+                 });
+    m_offersListFitBalance.insert(fitBalanceOffers);
+    emit allOffersFitBalanceChanged();
+}
+
+void SwapOffersViewModel::removeAllOffersFitBalance(
+    const std::vector<std::shared_ptr<SwapOfferItem>>& offers)
+{
+    std::vector<std::shared_ptr<SwapOfferItem>> fitBalanceOffers;
+    fitBalanceOffers.reserve(offers.size());
+
+    std::copy_if(offers.begin(), offers.end(),
+                 std::back_inserter(fitBalanceOffers),
+                 [this] (const std::shared_ptr<SwapOfferItem>& it)
+                 {
+                     return isOfferFitBalance(*it);
+                 });
+    m_offersListFitBalance.remove(fitBalanceOffers);
+    emit allOffersFitBalanceChanged();    
 }
 
 bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
