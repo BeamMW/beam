@@ -287,6 +287,29 @@ namespace detail
             return ar;
         }
 
+		/// ECC::Signature serialization
+        template<typename Archive, uint32_t nG>
+        static Archive& save(Archive& ar, const ECC::SignatureGeneralized<nG>& val)
+        {
+            ar & val.m_NoncePub;
+
+			for (uint32_t i = 0; i < nG; i++)
+                ar & val.m_pK[i];
+
+            return ar;
+        }
+
+        template<typename Archive, uint32_t nG>
+        static Archive& load(Archive& ar, ECC::SignatureGeneralized<nG>& val)
+        {
+			ar& val.m_NoncePub;
+
+			for (uint32_t i = 0; i < nG; i++)
+				ar& val.m_pK[i];
+
+			return ar;
+		}
+
 		template<typename Archive>
 		static void save_nobits(Archive& ar, const ECC::InnerProduct& v)
 		{
@@ -1526,4 +1549,11 @@ namespace detail
 	}
 
 }
+}
+
+template <typename T>
+inline ECC::Hash::Processor& ECC::Hash::Processor::Serialize(const T& t)
+{
+	beam::SerializerProxy<ECC::Hash::Processor>(*this) & t;
+	return *this;
 }

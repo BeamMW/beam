@@ -16,6 +16,7 @@
 #include <chrono>
 #include <sstream>
 #include "block_crypt.h"
+#include "serialization_adapters.h"
 
 namespace beam
 {
@@ -467,11 +468,7 @@ namespace beam
 			if (m_pShielded)
 			{
 				// include all the fields, in case they will become meaningful for recognition
-				oracle
-					<< m_pShielded->m_SerialPub
-					<< m_pShielded->m_Signature.m_NoncePub
-					<< m_pShielded->m_Signature.m_pK[0]
-					<< m_pShielded->m_Signature.m_pK[1];
+				oracle.Serialize(*m_pShielded);
 			}
 		}
 
@@ -1106,11 +1103,7 @@ namespace beam
 
 	void TxKernelAssetEmit::HashSelfForID(ECC::Hash::Processor& hp) const
 	{
-		static_assert(_countof(m_Signature.m_pK) == 1);
-
-		hp
-			<< m_Signature.m_NoncePub
-			<< m_Signature.m_pK[0];
+		hp.Serialize(m_Signature);
 	}
 
 	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const

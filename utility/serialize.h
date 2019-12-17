@@ -139,6 +139,38 @@ struct SerializerSizeCounter
 	}
 };
 
+template <typename Trg>
+struct SerializerProxy
+{
+	struct Impl
+	{
+        Trg& m_Trg;
+        Impl(Trg& trg) :m_Trg(trg) {}
+
+		size_t write(const void* p, const size_t size)
+		{
+            m_Trg << Blob(p, static_cast<uint32_t>(size));
+			return size;
+		}
+
+	} m_Impl;
+
+	yas::binary_oarchive<Impl, SERIALIZE_OPTIONS> _oa;
+
+
+    SerializerProxy(Trg& trg)
+        :m_Impl(trg)
+        ,_oa(m_Impl)
+	{
+	}
+
+	template <typename T> SerializerProxy& operator & (const T& object)
+	{
+		_oa & object;
+		return *this;
+	}
+};
+
 /// Deserializer from static buffer
 class Deserializer {
 public:
