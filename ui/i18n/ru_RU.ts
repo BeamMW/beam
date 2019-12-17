@@ -2070,10 +2070,9 @@ fee while you have transactions in progress.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-remote-node-address">
-        <source>Address</source>
-        <oldsource>Node Address</oldsource>
+        <source>Remote node address</source>
         <extracomment>settings tab, node section, address label</extracomment>
-        <translation type="unfinished">Адрес</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

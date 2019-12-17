@@ -446,50 +446,49 @@ deploy the key at the node you trust completely."*/
                                 Layout.fillWidth: true
                                 Layout.preferredWidth:3
                                 //: settings tab, node section, address label
-                                //% "Address"
+                                //% "Remote node address"
                                 text: qsTrId("settings-remote-node-address")
                                 color: Style.content_secondary
                                 font.pixelSize: 14
+                                wrapMode: Text.WordWrap
                             }
 
-                            SFTextInput {
-                                id: nodeAddress
+                            ColumnLayout {
                                 Layout.fillWidth: true
                                 Layout.preferredWidth: 7
-                                focus: true
-                                activeFocusOnTab: true
-                                font.pixelSize: 14
-                                color:  text.length && (!viewModel.isValidNodeAddress || !nodeAddress.acceptableInput) ? Style.validator_error : Style.content_main
-                                backgroundColor:  text.length && (!viewModel.isValidNodeAddress || !nodeAddress.acceptableInput) ? Style.validator_error : Style.content_main
-                                validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(\s|\x180E)*$/ }
-                                text: viewModel.nodeAddress
-                                Binding {
-                                    target: viewModel
-                                    property: "nodeAddress"
-                                    value: nodeAddress.text.trim()
-                                }
-                            }
+                                Layout.alignment: Qt.AlignTop
+                                spacing: 0
 
-                            RowLayout {
-                                id: nodeAddressError
-                                Layout.fillWidth: true
-                                Layout.columnSpan: 2
-                                Layout.topMargin: -4
+                                SFTextInput {
+                                    id: nodeAddress
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignTop
+                                    topPadding: 0
+                                    focus: true
+                                    activeFocusOnTab: true
+                                    font.pixelSize: 14
+                                    color:  text.length && (!viewModel.isValidNodeAddress || !nodeAddress.acceptableInput) ? Style.validator_error : Style.content_main
+                                    backgroundColor:  text.length && (!viewModel.isValidNodeAddress || !nodeAddress.acceptableInput) ? Style.validator_error : Style.content_main
+                                    validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(\s|\x180E)*$/ }
+                                    text: viewModel.nodeAddress
+                                    Binding {
+                                        target: viewModel
+                                        property: "nodeAddress"
+                                        value: nodeAddress.text.trim()
+                                    }
+                                }
 
                                 Item {
-                                    height: 20
+                                    id: nodeAddressError
                                     Layout.fillWidth: true
-                                    Layout.preferredWidth: 3
-                                }
-                                SFText {
-                                    height: 20
-                                    Layout.fillWidth: true;
-                                    Layout.preferredWidth: 7
-                                    color: Style.validator_error
-                                    font.pixelSize: 12
-                                    font.italic: true
-                                    text: qsTrId("general-invalid-address")
-                                    visible: (!viewModel.isValidNodeAddress || !nodeAddress.acceptableInput)
+
+                                    SFText {
+                                        color:          Style.validator_error
+                                        font.pixelSize: 12
+                                        font.italic:    true
+                                        text:           qsTrId("general-invalid-address")
+                                        visible:        (!viewModel.isValidNodeAddress || !nodeAddress.acceptableInput)
+                                    }
                                 }
                             }
 
