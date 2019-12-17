@@ -427,5 +427,8 @@ QString SendSwapViewModel::getRate() const
         isSendBeam() ? _receiveAmountGrothes : _sendAmountGrothes;
     beam::Amount beamAmount =
         isSendBeam() ? _sendAmountGrothes : _receiveAmountGrothes;
-    return QMLGlobals::getRateStr(beamAmount, otherCoinAmount);
+
+    if (!beamAmount) return QString();
+
+    return QMLGlobals::divideWithPrecision8(beamui::AmountToUIString(otherCoinAmount), beamui::AmountToUIString(beamAmount));
 }

@@ -334,10 +334,9 @@ please review your settings and try again"
                             var rateValue =
                                 parseFloat(Utils.localeDecimalToCString(rateInput.rate)) || 0;
                             if (sentAmountInput.amount != "0" && rateValue) {
-                                var receive = viewModel.isSendBeam
-                                    ? parseFloat(sentAmountInput.amount) * rateValue
-                                    : parseFloat(sentAmountInput.amount) / rateValue;
-                                receiveAmountInput.amount = receive == 0 ? "0" : receive.toFixed(8).replace(/\.?0+$/,"");
+                                receiveAmountInput.amount= viewModel.isSendBeam
+                                    ? BeamGlobals.multiplyWithPrecision8(sentAmountInput.amount, rateValue)
+                                    : BeamGlobals.divideWithPrecision8(sentAmountInput.amount, rateValue);
                             } else if (byRate && !rateValue) {
                                 receiveAmountInput.amount = "0";
                             }

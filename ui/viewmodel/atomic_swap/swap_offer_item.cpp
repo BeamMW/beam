@@ -89,7 +89,10 @@ auto SwapOfferItem::rate() const -> QString
         isSendBeam() ? rawAmountReceive() : rawAmountSend();
     beam::Amount beamAmount =
         isSendBeam() ? rawAmountSend() : rawAmountReceive();
-    return QMLGlobals::getRateStr(beamAmount, otherCoinAmount);
+
+    if (!beamAmount) return QString();
+
+    return QMLGlobals::divideWithPrecision8(beamui::AmountToUIString(otherCoinAmount), beamui::AmountToUIString(beamAmount));
 }
 
 auto SwapOfferItem::amountSend() const -> QString

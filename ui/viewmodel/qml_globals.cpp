@@ -22,10 +22,13 @@
 #include "wallet/bitcoin/bitcoin_side.h"
 #include "wallet/litecoin/litecoin_side.h"
 #include "wallet/qtum/qtum_side.h"
+#include "utility/string_helpers.h"
 
-#include <iomanip>
 #include <boost/algorithm/string.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 #include "3rdparty/libbitcoin/include/bitcoin/bitcoin/formats/base_10.hpp"
+
+using boost::multiprecision::cpp_dec_float_50;
 
 namespace
 {
@@ -36,6 +39,36 @@ namespace
     bool char_is(const char c)
     {
         return c == C;
+    }
+
+    template<uint8_t N>
+    QString rountWithPrecision(const QString& number)
+    {
+        //TODO rounding percision
+        const char delimeter = '.';
+        auto parts = string_helpers::split(number.toStdString(), delimeter);
+
+        std::ostringstream oss;
+        if (parts.size() == 2)
+        {    
+            cpp_dec_float_50 afterPoint("0." + parts[1]);
+
+            std::ostringstream afterPointOss;
+            afterPointOss.precision(N);
+            afterPointOss << std::fixed << afterPoint;
+
+            auto afterPointParts = string_helpers::split(afterPointOss.str(), delimeter);
+            oss << parts[0] << delimeter << (afterPointParts.size() > 1 ? afterPointParts[1] : "0");
+        }
+        else
+        {
+            oss << parts[0];
+        }
+
+        auto result = oss.str();
+        boost::algorithm::trim_right_if(result, char_is<'0'>);
+        boost::algorithm::trim_right_if(result, char_is<'.'>);
+        return QString::fromStdString(result);
     }
 }
 
@@ -326,33 +359,37 @@ bool QMLGlobals::isSwapFeeOK(unsigned int amount, unsigned int fee, Currency cur
     }
 }
 
-QString QMLGlobals::getRateStr(quint64 beamAmount, quint64 otherCoinAmount)
+QString QMLGlobals::divideWithPrecision8(const QString& dividend, const QString& divider)
 {
-    // TODO should be created unit tests
-    if (!beamAmount) return QString("0");
+    cpp_dec_float_50 dec_dividend(dividend.toStdString().c_str());
+    cpp_dec_float_50 dec_divider(divider.toStdString().c_str());
 
-    const uint8_t decimalPlaces = libbitcoin::btc_decimal_places;
-    std::ostringstream stream;
+    cpp_dec_float_50 quotient = dec_dividend / dec_divider;
 
-    stream << otherCoinAmount / beamAmount << '.' << std::setfill('0') << std::setw(decimalPlaces) << '0';
+    std::ostringstream oss;
+    oss.precision(std::numeric_limits<cpp_dec_float_50>::digits10);
+    oss << quotient;
 
-    std::string result = stream.str();
-    quint64 remainder = otherCoinAmount % beamAmount;
+    QString result = QString::fromStdString(oss.str());
+    return QMLGlobals::rountWithPrecision8(result);
+}
 
-    remainder *= static_cast<quint64>(std::pow(10, decimalPlaces + 1));
-    stream.str(std::string());
-    stream << (remainder / beamAmount + 5);
+QString QMLGlobals::multiplyWithPrecision8(const QString& first, const QString& second)
+{
+    cpp_dec_float_50 dec_first(first.toStdString().c_str());
+    cpp_dec_float_50 dec_second(second.toStdString().c_str());
 
-    std::string str = stream.str();
-    size_t size = result.size();
-    if (!str.empty())
-    {
-        result.insert(size - decimalPlaces + (decimalPlaces >= str.size() ? decimalPlaces - str.size() + 1 : 0), str);
-        result.erase(size);
-    }
+    cpp_dec_float_50 product = dec_first * dec_second;
 
-    boost::algorithm::trim_right_if(result, char_is<'0'>);
-    boost::algorithm::trim_right_if(result, char_is<'.'>);
+    std::ostringstream oss;
+    oss.precision(std::numeric_limits<cpp_dec_float_50>::digits10);
+    oss << product;
 
-    return QString(result.c_str());
+    QString result = QString::fromStdString(oss.str());
+    return QMLGlobals::rountWithPrecision8(result);
+}
+
+QString QMLGlobals::rountWithPrecision8(const QString& number)
+{
+    return rountWithPrecision<libbitcoin::btc_decimal_places>(number);
 }

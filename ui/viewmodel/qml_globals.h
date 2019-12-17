@@ -64,7 +64,9 @@ public:
 
     Q_INVOKABLE static bool canReceive(Currency currency);
     Q_INVOKABLE static QString getCurrencyName(Currency currency);
-    Q_INVOKABLE static QString getRateStr(quint64 beamAmount, quint64 otherCoinAmount);
+    Q_INVOKABLE static QString divideWithPrecision8(const QString& dividend, const QString& divider);
+    Q_INVOKABLE static QString multiplyWithPrecision8(const QString& first, const QString& second);
+    Q_INVOKABLE static QString rountWithPrecision8(const QString& number);
 
 private:
     QQmlEngine& _engine;
