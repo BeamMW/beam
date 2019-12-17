@@ -713,6 +713,7 @@ void SwapCoinSettingsItem::SetSeedElectrum(const std::vector<std::string>& seedE
 
 void SwapCoinSettingsItem::SetDefaultNodeSettings()
 {
+    setNodePort(0);
     setNodeAddress("");
     setNodePass("");
     setNodeUser("");
@@ -720,6 +721,7 @@ void SwapCoinSettingsItem::SetDefaultNodeSettings()
 
 void SwapCoinSettingsItem::SetDefaultElectrumSettings()
 {
+    setNodePortElectrum(0);
     setNodeAddressElectrum("");
     setSelectServerAutomatically(true);
     SetSeedElectrum({});
