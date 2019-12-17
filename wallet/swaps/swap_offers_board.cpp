@@ -87,6 +87,11 @@ namespace beam::wallet
         // New offer
         if (it == m_offersCache.end())
         {
+            if (isOfferExpired(newOffer) && newOffer.m_status == SwapOfferStatus::Pending)
+            {
+                newOffer.m_status = SwapOfferStatus::Expired;
+            }
+            
             m_offersCache[newOffer.m_txId] = newOffer;
 
             if (newOffer.m_status == SwapOfferStatus::Pending)
@@ -128,29 +133,38 @@ namespace beam::wallet
 
     /**
      *  Watches for system state to remove stuck expired offers from board.
-     *  Notify only subscribers. Doesn't push any updates to network.
+     *  Doesn't push any updates to network, just notify subscribers.
      */
     void SwapOffersBoard::onSystemStateChanged(const Block::SystemState::ID& stateID)
     {
-        Height currentHeight = stateID.m_Height;
+        m_currentHeight = stateID.m_Height;
 
         for (auto& pair : m_offersCache)
         {
-            if (pair.second.m_status != SwapOfferStatus::Pending) continue;    // have to be already removed from board
-
-            auto peerResponseTime = pair.second.GetParameter<Height>(TxParameterID::PeerResponseTime);
-            auto minHeight = pair.second.GetParameter<Height>(TxParameterID::MinHeight);
-            if (peerResponseTime && minHeight)
+            auto& offer = pair.second;
+            if (offer.m_status != SwapOfferStatus::Pending) continue;    // have to be already removed from board
+            if (isOfferExpired(offer))
             {
-                auto expiresHeight = *minHeight + *peerResponseTime;
-
-                if (expiresHeight <= currentHeight)
-                {
-                    pair.second.m_status = SwapOfferStatus::Expired;
-                    notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{pair.second});
-                }
+                offer.m_status = SwapOfferStatus::Expired;
+                notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{offer});
             }
         }
+    }
+
+    /**
+     *  Offers without PeerResponseTime or MinHeight
+     *  are supposed to be invalid and expired by default.
+     */
+    bool SwapOffersBoard::isOfferExpired(const SwapOffer& offer) const
+    {
+        auto peerResponseTime = offer.GetParameter<Height>(TxParameterID::PeerResponseTime);
+        auto minHeight = offer.GetParameter<Height>(TxParameterID::MinHeight);
+        if (peerResponseTime && minHeight)
+        {
+            auto expiresHeight = *minHeight + *peerResponseTime;
+            return expiresHeight <= m_currentHeight;
+        }
+        else return true;
     }
 
     void SwapOffersBoard::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
