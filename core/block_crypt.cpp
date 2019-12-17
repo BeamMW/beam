@@ -804,13 +804,6 @@ namespace beam
 		return hv;
 	}
 
-	void TxKernel::UpdateID()
-	{
-		ECC::Hash::Processor hp;
-		HashSelf(hp);
-		hp >> m_Internal.m_ID;
-	}
-
 	void TxKernel::HashBase(ECC::Hash::Processor& hp) const
 	{
 		hp	<< m_Fee
@@ -835,8 +828,9 @@ namespace beam
 		}
 	}
 
-	void TxKernelStd::HashSelf(ECC::Hash::Processor& hp) const
+	void TxKernelStd::UpdateID()
 	{
+		ECC::Hash::Processor hp;
 		HashBase(hp);
 
 		uint8_t nFlags =
@@ -862,6 +856,7 @@ namespace beam
 		}
 
 		HashNested(hp);
+		hp >> m_Internal.m_ID;
 	}
 
 	bool TxKernel::IsValidBase(Height hScheme, ECC::Point::Native& comm, const TxKernel* pParent) const
@@ -1055,18 +1050,43 @@ namespace beam
 		ClonePtr(v.m_pRelativeLock, m_pRelativeLock);
 	}
 
-	void TxKernelNonStd::HashSelf(ECC::Hash::Processor& hp) const
+	void TxKernelNonStd::UpdateID()
 	{
+		UpdateMsg();
+		MsgToID();
+	}
+
+	void TxKernelNonStd::UpdateMsg()
+	{
+		ECC::Hash::Processor hp;
+
 		HashBase(hp);
 
 		ECC::Point comm(Zero);
 		comm.m_Y = 1; // invalid point
-		
+
 		hp
 			<< comm
 			<< static_cast<uint32_t>(get_Subtype());
 
 		HashNested(hp);
+		HashSelfForMsg(hp);
+
+		hp >> m_Msg;
+	}
+
+	void TxKernelNonStd::MsgToID()
+	{
+		ECC::Hash::Processor hp;
+		hp << m_Msg;
+		HashSelfForID(hp);
+		hp >> m_Internal.m_ID;
+	}
+
+	void TxKernelNonStd::CopyFrom(const TxKernelNonStd& v)
+	{
+		TxKernel::CopyFrom(v);
+		m_Msg = v.m_Msg;
 	}
 
 	/////////////
@@ -1076,13 +1096,21 @@ namespace beam
 		return Subtype::AssetEmit;
 	}
 
-	void TxKernelAssetEmit::HashSelf(ECC::Hash::Processor& hp) const
+	void TxKernelAssetEmit::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
-		TxKernelNonStd::HashSelf(hp);
 		hp
 			<< m_Commitment
 			<< m_AssetID
 			<< Amount(m_Value);
+	}
+
+	void TxKernelAssetEmit::HashSelfForID(ECC::Hash::Processor& hp) const
+	{
+		static_assert(_countof(m_Signature.m_pK) == 1);
+
+		hp
+			<< m_Signature.m_NoncePub
+			<< m_Signature.m_pK[0];
 	}
 
 	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
@@ -1110,7 +1138,7 @@ namespace beam
 			return false;
 
 		// prover must prove knowledge of excess AND m_AssetID sk
-		if (!m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Internal.m_ID, m_Signature.m_pK, pPt))
+		if (!m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt))
 			return false;
 
 		SwitchCommitment sc(&m_AssetID);
@@ -1151,11 +1179,13 @@ namespace beam
 	void TxKernelAssetEmit::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
 	{
 		m_Commitment = ECC::Context::get().G * sk;
-		UpdateID();
+		UpdateMsg();
 
 		ECC::Scalar::Native pSk[2] = { sk, skAsset };
 		ECC::Scalar::Native res;
-		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Internal.m_ID, m_Signature.m_pK, pSk, &res);
+		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pSk, &res);
+
+		MsgToID();
 	}
 
 	/////////////
