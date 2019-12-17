@@ -201,8 +201,8 @@ void ReceiveSwapViewModel::setAmountSent(QString value)
     {
         bool isPreviouseSendWasZero = _amountSentGrothes == 0;
         _amountSentGrothes = amount;
+        if (isPreviouseSendWasZero && _amountToReceiveGrothes) emit rateChanged();
         emit amountSentChanged();
-        if (isPreviouseSendWasZero) emit rateChanged();
         updateTransactionToken();
     }
 }

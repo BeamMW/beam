@@ -322,15 +322,17 @@ please review your settings and try again"
                         property double maxAmount: 254000000
                         property double minAmount: 0.00000001
                         property bool rateValid:   true
+                        property bool lockedByReceiveAmount: false
 
                         function changeRate() {
-                            if (!rateInput.focus) {
+                            if (!rateInput.focus && !lockedByReceiveAmount) {
                                 rateInput.rate = viewModel.rate;
                                 rateInput.text = rateInput.rate == "0" ? "" : Utils.uiStringToLocale(rateInput.rate);
                             }
                         }
 
                         function changeReceive(byRate) {
+                            lockedByReceiveAmount = true;
                             var rateValue =
                                 parseFloat(Utils.localeDecimalToCString(rateInput.rate)) || 0;
                             if (sentAmountInput.amount != "0" && rateValue) {
@@ -339,7 +341,11 @@ please review your settings and try again"
                                     : BeamGlobals.divideWithPrecision8(sentAmountInput.amount, rateValue);
                             } else if (byRate && !rateValue) {
                                 receiveAmountInput.amount = "0";
+                            } else if (!byRate && sentAmountInput.amount == "0") {
+                                lockedByReceiveAmount = false;
+                                receiveAmountInput.amount = "0";
                             }
+                            lockedByReceiveAmount = false;
                         }
 
                         function checkIsRateValid() {
@@ -391,6 +397,10 @@ please review your settings and try again"
 
                             onTextEdited: {
                                 if (rateInput.focus) {
+                                    if (text.match("^00*$")) {
+                                        text = "0";
+                                    }
+
                                     var value = text ? text.split(locale.groupSeparator).join('') : "0";
                                     var parts = value.split(locale.decimalPoint);
                                     var left = (parseInt(parts[0], 10) || 0).toString();
