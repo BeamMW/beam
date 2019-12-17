@@ -60,7 +60,7 @@ void Connection::PostRequestInternal(FlyClient::Request& r)
             {
                 MineBbsRequest(dynamic_cast<FlyClient::RequestBbsMsg&>(r));
             }
-            catch(std::bad_cast)
+            catch(const std::bad_cast&)
             {
                 LOG_ERROR()  << "### Bbs mesage out  ERROR ###";
             }

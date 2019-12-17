@@ -148,12 +148,12 @@ if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
 
-# uncoment next line for testnet
+# uncomment next line for testnet
 #set(BEAM_TESTNET TRUE)
-# uncoment next line for mainnet
+# uncomment next line for mainnet
 #set(BEAM_MAINNET TRUE)
 
-# uncoment next line for swap mainnet
+# uncomment next line for swap mainnet
 #set(SWAP_MAINNET TRUE)
 
 if(BEAM_TESTNET)
