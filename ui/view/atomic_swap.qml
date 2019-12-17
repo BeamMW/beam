@@ -1169,7 +1169,7 @@ Please try again later or create an offer yourself."
     function getStatusText(value) {
 
         switch(value) {
-            //% "waiting for peer"
+            //% "waiting for counterparty"
             case "pending": return qsTrId("wallet-txs-status-waiting-peer");
             //% "in progress"
             case "in progress": return qsTrId("wallet-txs-status-in-progress");
