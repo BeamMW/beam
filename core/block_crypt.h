@@ -337,9 +337,6 @@ namespace beam
 			{
 				Key::IPKdf::Ptr m_pGen;
 				Key::IPKdf::Ptr m_pSer;
-
-				PeerID m_Owner;
-				void get_OwnerNonce(ECC::Hash::Value&, const ECC::Scalar::Native&) const;
 			};
 
 			struct Viewer

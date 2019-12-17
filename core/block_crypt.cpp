@@ -598,11 +598,6 @@ namespace beam
 		res += ECC::Context::get().J * kJ;
 	}
 
-	void Output::Shielded::PublicGen::get_OwnerNonce(ECC::Hash::Value& hv, const ECC::Scalar::Native& sk) const
-	{
-		Data::HashTxt("Owner") << sk >> hv;
-	}
-
 	bool Output::Shielded::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1)
 	{
 		// Import/Export seems to be the same complexity
@@ -686,9 +681,6 @@ namespace beam
 	void Output::Shielded::Data::GenerateO(Output& outp, const PublicGen& gen)
 	{
 		assert(outp.m_pShielded);
-
-		ECC::Hash::Value bpNonce;
-		gen.get_OwnerNonce(bpNonce, m_kOutG);
 
 		ECC::Point::Native pt = ECC::Commitment(m_kOutG, m_Value);
 		outp.m_Commitment = pt;

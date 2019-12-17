@@ -1638,7 +1638,6 @@ namespace beam
 					Output::Shielded::PublicGen gen;
 					gen.m_pGen = viewer.m_pGen;
 					gen.m_pSer = viewer.m_pSer;
-					gen.m_Owner = 12U; // whatever
 
 					ECC::Hash::Value nonce;
 					nonce = 13U; // whatever

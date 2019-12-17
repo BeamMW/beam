@@ -2263,7 +2263,6 @@ void TestLelantusKeys()
 	beam::Output::Shielded::PublicGen gen;
 	gen.m_pGen = pGen;
 	gen.m_pSer = pSer;
-	SetRandom(gen.m_Owner);
 
 	beam::Output::Shielded::Viewer viewer;
 	viewer.m_pGen = pGen;
