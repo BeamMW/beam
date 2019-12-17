@@ -1782,11 +1782,11 @@ struct NodeProcessor::BlockInterpretCtx
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
 		,m_Fwd(bFwd)
-		,m_ShieldedIns(0)
-		,m_ShieldedOuts(0)
 		,m_ValidateOnly(false)
 		,m_AlreadyValidated(false)
 		,m_SaveKid(true)
+		,m_ShieldedIns(0)
+		,m_ShieldedOuts(0)
 	{
 	}
 };
