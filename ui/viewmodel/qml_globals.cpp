@@ -48,6 +48,7 @@ namespace
         const char delimeter = '.';
         auto parts = string_helpers::split(number.toStdString(), delimeter);
 
+        std::string result;
         std::ostringstream oss;
         if (parts.size() == 2)
         {    
@@ -59,15 +60,16 @@ namespace
 
             auto afterPointParts = string_helpers::split(afterPointOss.str(), delimeter);
             oss << parts[0] << delimeter << (afterPointParts.size() > 1 ? afterPointParts[1] : "0");
+            result = oss.str();
+            boost::algorithm::trim_right_if(result, char_is<'0'>);
+            boost::algorithm::trim_right_if(result, char_is<'.'>);
         }
         else
         {
             oss << parts[0];
+            result = oss.str();
         }
 
-        auto result = oss.str();
-        boost::algorithm::trim_right_if(result, char_is<'0'>);
-        boost::algorithm::trim_right_if(result, char_is<'.'>);
         return QString::fromStdString(result);
     }
 }
@@ -368,7 +370,7 @@ QString QMLGlobals::divideWithPrecision8(const QString& dividend, const QString&
 
     std::ostringstream oss;
     oss.precision(std::numeric_limits<cpp_dec_float_50>::digits10);
-    oss << quotient;
+    oss << std::fixed << quotient;
 
     QString result = QString::fromStdString(oss.str());
     return QMLGlobals::rountWithPrecision8(result);
@@ -383,7 +385,7 @@ QString QMLGlobals::multiplyWithPrecision8(const QString& first, const QString& 
 
     std::ostringstream oss;
     oss.precision(std::numeric_limits<cpp_dec_float_50>::digits10);
-    oss << product;
+    oss << std::fixed << product;
 
     QString result = QString::fromStdString(oss.str());
     return QMLGlobals::rountWithPrecision8(result);
