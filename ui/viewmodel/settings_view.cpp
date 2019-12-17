@@ -39,7 +39,8 @@ using namespace std;
 
 namespace
 {
-    QString AddressToQstring(const io::Address& address) {
+    QString AddressToQstring(const io::Address& address) 
+    {
         if (!address.empty())
         {
             return str2qstr(address.str());
@@ -50,6 +51,34 @@ namespace
     QString formatAddress(const QString& address, uint16_t port)
     {
         return QString("%1:%2").arg(address).arg(port);
+    }
+
+    struct UnpackedAddress 
+    {
+        QString address;
+        uint16_t port = 0;
+    };
+
+    UnpackedAddress parseAddress(const QString& address)
+    {
+        UnpackedAddress res;
+        auto separator = address.indexOf(':');
+        if (separator > -1)
+        {
+            res.address = address.left(separator);
+            auto portStr = address.mid(separator + 1);
+            bool ok = false;
+            uint16_t port = portStr.toInt(&ok);
+            if (ok)
+            {
+                res.port = port;
+            }
+        }
+        else
+        {
+            res.address = address;
+        }
+        return res;
     }
 
     const char ELECTRUM_PHRASES_SEPARATOR = ' ';
@@ -324,6 +353,20 @@ void SwapCoinSettingsItem::setNodeAddress(const QString& value)
     }
 }
 
+uint16_t SwapCoinSettingsItem::getNodePort() const
+{
+    return m_nodePort;
+}
+
+void SwapCoinSettingsItem::setNodePort(const uint16_t& value)
+{
+    if (value != m_nodePort)
+    {
+        m_nodePort = value;
+        emit nodePortChanged();
+    }
+}
+
 QList<QObject*> SwapCoinSettingsItem::getElectrumSeedPhrases()
 {
     return m_seedPhraseItems;
@@ -358,6 +401,20 @@ void SwapCoinSettingsItem::setNodeAddressElectrum(const QString& value)
     }
 }
 
+uint16_t SwapCoinSettingsItem::getNodePortElectrum() const
+{
+    return m_nodePortElectrum;
+}
+
+void SwapCoinSettingsItem::setNodePortElectrum(const uint16_t& value)
+{
+    if (value != m_nodePortElectrum)
+    {
+        m_nodePortElectrum = value;
+        emit nodePortElectrumChanged();
+    }
+}
+
 bool SwapCoinSettingsItem::getSelectServerAutomatically() const
 {
     return m_selectServerAutomatically;
@@ -380,7 +437,7 @@ void SwapCoinSettingsItem::setSelectServerAutomatically(bool value)
 
             if (auto options = settings.GetElectrumConnectionOptions(); options.IsInitialized())
             {
-                setNodeAddressElectrum(str2qstr(options.m_address));
+                applyNodeAddressElectrum(str2qstr(options.m_address));
             }
         }
     }
@@ -417,7 +474,7 @@ void SwapCoinSettingsItem::onStatusChanged()
 
         if (auto options = settings.GetElectrumConnectionOptions(); options.IsInitialized())
         {
-            setNodeAddressElectrum(str2qstr(options.m_address));
+            applyNodeAddressElectrum(str2qstr(options.m_address));
         }
     }
 }
@@ -497,6 +554,7 @@ void SwapCoinSettingsItem::applyNodeSettings()
     {
         const std::string address = m_nodeAddress.toStdString();
         connectionSettings.m_address.resolve(address.c_str());
+        connectionSettings.m_address.port(m_nodePort);
     }
 
     m_settings->SetConnectionOptions(connectionSettings);
@@ -511,7 +569,7 @@ void SwapCoinSettingsItem::applyElectrumSettings()
     
     if (!m_selectServerAutomatically && !m_nodeAddressElectrum.isEmpty())
     {
-        electrumSettings.m_address = m_nodeAddressElectrum.toStdString();
+        electrumSettings.m_address = formatAddress(m_nodeAddressElectrum, m_nodePortElectrum).toStdString();
     }
 
     electrumSettings.m_automaticChooseAddress = m_selectServerAutomatically;
@@ -610,14 +668,14 @@ void SwapCoinSettingsItem::LoadSettings()
     {
         setNodeUser(str2qstr(options.m_userName));
         setNodePass(str2qstr(options.m_pass));
-        setNodeAddress(AddressToQstring(options.m_address));
+        applyNodeAddress(AddressToQstring(options.m_address));
     }
 
     if (auto options = m_settings->GetElectrumConnectionOptions(); options.IsInitialized())
     {
         SetSeedElectrum(options.m_secretWords);
-        setNodeAddressElectrum(str2qstr(options.m_address));
         setSelectServerAutomatically(options.m_automaticChooseAddress);
+        applyNodeAddressElectrum(str2qstr(options.m_address));
     }
 }
 
@@ -709,6 +767,26 @@ std::vector<std::string> SwapCoinSettingsItem::GetSeedPhraseFromSeedItems() cons
     }
 
     return seedElectrum;
+}
+
+void SwapCoinSettingsItem::applyNodeAddress(const QString& address)
+{
+    auto unpackedAddress = parseAddress(address);
+    setNodeAddress(unpackedAddress.address);
+    if (unpackedAddress.port > 0)
+    {
+        setNodePort(unpackedAddress.port);
+    }
+}
+
+void SwapCoinSettingsItem::applyNodeAddressElectrum(const QString& address)
+{
+    auto unpackedAddress = parseAddress(address);
+    setNodeAddressElectrum(unpackedAddress.address);
+    if (unpackedAddress.port > 0)
+    {
+        setNodePortElectrum(unpackedAddress.port);
+    }
 }
 
 
@@ -1018,22 +1096,13 @@ QString SettingsViewModel::getWalletLocation() const
 void SettingsViewModel::undoChanges()
 {
     auto remoteNodeAddress = m_settings.getNodeAddress();
-    auto separator = remoteNodeAddress.indexOf(':');
-    if (separator > -1)
+    auto unpackedAddress = parseAddress(m_settings.getNodeAddress());
+    setNodeAddress(unpackedAddress.address);
+    if (unpackedAddress.port > 0)
     {
-        setNodeAddress(remoteNodeAddress.left(separator));
-        auto portStr = remoteNodeAddress.mid(separator + 1);
-        bool ok = false;
-        uint16_t port = portStr.toInt(&ok);
-        if (ok)
-        {
-            setRemoteNodePort(port);
-        }
+        setRemoteNodePort(unpackedAddress.port);
     }
-    else
-    {
-        setNodeAddress(remoteNodeAddress);
-    }
+
     setLocalNodeRun(m_settings.getRunLocalNode());
     setLocalNodePort(m_settings.getLocalNodePort());
     setLockTimeout(m_settings.getLockTimeout());

@@ -35,6 +35,7 @@ Control {
     // Node props
     //
     property alias  address:      addressInput.address
+    property alias  port:         portInput.text
     property alias  username:     usernameInput.text
     property alias  password:     passwordInput.text
     property alias  feeRate:      feeRateInput.fee
@@ -44,6 +45,7 @@ Control {
     // Electrum props
     //
     property alias addressElectrum:                     addressInputElectrum.address
+    property alias portElectrum:                        portInputElectrum.text
     property alias isSelectServerAutomatcally:          selectServerAutomatically.checked
     property alias seedPhrasesElectrum:                 seedPhraseDialog.seedPhrasesElectrum
     property alias phrasesSeparatorElectrum:            seedPhraseDialog.phrasesSeparatorElectrum
@@ -95,23 +97,27 @@ Control {
     QtObject {
         id: internalNode
         property string initialAddress
+        property string initialPort
         property string initialUsername
         property string initialPassword        
 
         function restore() {
             address  = initialAddress
+            port     = initialPort
             username = initialUsername
             password = initialPassword
         }
 
         function save() {
             initialAddress  = address
+            initialPort     = port
             initialUsername = username
             initialPassword = password
         }
 
         function isChanged() {
             return initialAddress  !== address
+                || initialPort     !== port
                 || initialUsername !== username
                 || initialPassword !== password
         }
@@ -160,7 +166,7 @@ Control {
     }
 
     function canApplyNode() {
-        return password.length && username.length && addressInput.isValid
+        return password.length && username.length && addressInput.isValid && portInput.acceptableInput
     }
 
     function applyChangesNode() {
@@ -177,7 +183,7 @@ Control {
     }
 
     function haveNodeSettings() {
-        return password.length && username.length && addressInput.isValid;
+        return password.length && username.length && addressInput.isValid && portInput.acceptableInput;
     }
 
     //
@@ -187,6 +193,7 @@ Control {
     QtObject {
         id: internalElectrum
         property string initialAddress
+        property string initialPort
         property bool   initialSelectServerAutomatically
         property string initialSeed
         property bool   isSeedChanged: false
@@ -194,24 +201,26 @@ Control {
         function restore() {
             isSeedChanged = false
             addressElectrum = initialAddress
+            porttElectrum = initialPort
             isSelectServerAutomatcally = initialSelectServerAutomatically
             control.restoreSeedElectrum()
         }
 
         function save() {
             initialAddress  = addressElectrum
+            initialPort     = portElectrum
             initialSelectServerAutomatically = isSelectServerAutomatcally
             isSeedChanged = false
         }
 
         function isChanged() {
-            return (!isSelectServerAutomatcally && initialAddress !== addressElectrum) || isSeedChanged || 
+            return (!isSelectServerAutomatcally && initialAddress !== addressElectrum) || initialPort !== portElectrum || isSeedChanged || 
                     isSelectServerAutomatcally !== initialSelectServerAutomatically
         }
     }
 
     function canApplyElectrum() {
-        return isCurrentElectrumSeedValid && (addressInputElectrum.isValid || isSelectServerAutomatcally)
+        return isCurrentElectrumSeedValid && ((addressInputElectrum.isValid && portInputElectrum.acceptableInput) || isSelectServerAutomatcally)
     }
 
     function canClearElectrum() {
@@ -228,7 +237,7 @@ Control {
     }
 
     function haveElectrumSettings() {
-        return isCurrentElectrumSeedValid && (addressInputElectrum.isValid || isSelectServerAutomatcally);
+        return isCurrentElectrumSeedValid && ((addressInputElectrum.isValid && portInputElectrum.acceptableInput) || isSelectServerAutomatcally);
     }
 
     Component.onCompleted: {
@@ -384,6 +393,28 @@ Control {
                 visible:        !editElectrum
                 font.pixelSize: 14
                 color:          control.color
+                text:           qsTrId("settings-local-node-port")
+            }
+
+            SFTextInput {
+                id:                 portInput
+                visible:            !editElectrum
+                Layout.fillWidth:   true
+                font.pixelSize:     14
+                activeFocusOnTab:   true
+                color:              Style.content_main
+                underlineVisible:   canEditNode
+                readOnly:           !canEditNode
+                validator: IntValidator {
+                    bottom: 1
+                    top: 65535
+                }
+            }
+
+            SFText {
+                visible:        !editElectrum
+                font.pixelSize: 14
+                color:          control.color
                 //% "Username"
                 text:           qsTrId("settings-username")
             }
@@ -446,6 +477,28 @@ Control {
                 ipOnly:           false
                 readOnly:         selectServerAutomatically.checked
                 underlineVisible: !selectServerAutomatically.checked
+            }
+
+            SFText {
+                visible:        editElectrum
+                font.pixelSize: 14
+                color:          control.color
+                text:           qsTrId("settings-local-node-port")
+            }
+
+            SFTextInput {
+                id:                 portInputElectrum
+                visible:            editElectrum
+                Layout.fillWidth:   true
+                font.pixelSize:     14
+                activeFocusOnTab:   true
+                color:              Style.content_main
+                readOnly:           selectServerAutomatically.checked
+                underlineVisible:   !selectServerAutomatically.checked
+                validator: IntValidator {
+                    bottom: 1
+                    top: 65535
+                }
             }
 
             // common fee rate

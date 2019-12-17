@@ -248,6 +248,7 @@ deploy the key at the node you trust completely."*/
                     // Node
                     //
                     address:             modelData.nodeAddress
+                    port:                modelData.nodePort
                     username:            modelData.nodeUser
                     password:            modelData.nodePass
                     feeRate:             modelData.feeRate
@@ -256,6 +257,7 @@ deploy the key at the node you trust completely."*/
                     // Electrum
                     //
                     addressElectrum:                     modelData.nodeAddressElectrum
+                    portElectrum:                        modelData.nodePortElectrum
                     isSelectServerAutomatcally:          modelData.selectServerAutomatically
                     seedPhrasesElectrum:                 modelData.electrumSeedPhrases
                     phrasesSeparatorElectrum:            modelData.phrasesSeparatorElectrum
@@ -284,12 +286,14 @@ deploy the key at the node you trust completely."*/
                         // Node
                         //
                         onNodeAddressChanged: settingsControl.address  = modelData.nodeAddress
+                        onNodePortChanged:    settingsControl.port     = modelData.nodePort
                         onNodeUserChanged:    settingsControl.username = modelData.nodeUser
                         onNodePassChanged:    settingsControl.password = modelData.nodePass
                         //
                         // Electrum
                         //
                         onNodeAddressElectrumChanged: settingsControl.addressElectrum = modelData.nodeAddressElectrum
+                        onNodePortElectrumChanged: settingsControl.portElectrum = modelData.nodePortElectrum
                         onSelectServerAutomaticallyChanged: settingsControl.isSelectServerAutomatcally = modelData.selectServerAutomatically
                         onElectrumSeedPhrasesChanged: settingsControl.seedPhrasesElectrum = modelData.electrumSeedPhrases
                         onIsCurrentSeedValidChanged:  settingsControl.isCurrentElectrumSeedValid = modelData.isCurrentSeedValid
@@ -316,6 +320,12 @@ deploy the key at the node you trust completely."*/
 
                     Binding {
                         target:   modelData
+                        property: "nodePort"
+                        value:    settingsControl.port
+                    }
+
+                    Binding {
+                        target:   modelData
                         property: "nodeUser"
                         value:    settingsControl.username
                     }
@@ -336,6 +346,12 @@ deploy the key at the node you trust completely."*/
                         target:   modelData
                         property: "nodeAddressElectrum"
                         value:    settingsControl.addressElectrum
+                    }
+
+                    Binding {
+                        target:   modelData
+                        property: "nodePortElectrum"
+                        value:    settingsControl.portElectrum
                     }
 
                     Binding {
