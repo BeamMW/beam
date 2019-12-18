@@ -864,7 +864,7 @@ namespace beam
 
 		if (pParent)
 		{
-			if (!m_CanEmbed && (hScheme >= r.pForks[1].m_Height)) // for older version embedding is implicitly allowed (though unlikely to be used)
+			if (!m_CanEmbed)
 				return false;
 
 			// nested kernel restrictions
