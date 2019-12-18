@@ -474,7 +474,7 @@ namespace beam
 		void HashBase(ECC::Hash::Processor&) const;
 		void HashNested(ECC::Hash::Processor&) const;
 		void CopyFrom(const TxKernel&);
-		bool IsValidBase(Height hScheme, ECC::Point::Native& comm, const TxKernel* pParent) const;
+		bool IsValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm = nullptr) const;
 	private:
 		void operator = (const TxKernel&);
 	};

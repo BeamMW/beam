@@ -1249,13 +1249,6 @@ struct TransactionMaker
 
 		m_Trans.m_Offset = offset;
 
-		for (size_t i = 0; i < krn.m_vNested.size(); i++)
-		{
-			Point::Native ptNested;
-			verify_test(ptNested.Import(Cast::Up<beam::TxKernelStd>(*krn.m_vNested[i]).m_Commitment));
-			kG += Point::Native(ptNested);
-		}
-
 		krn.m_Commitment = kG;
 		krn.m_Signature.m_NoncePub = xG;
 

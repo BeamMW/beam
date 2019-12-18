@@ -856,7 +856,7 @@ namespace beam
 		hp >> m_Internal.m_ID;
 	}
 
-	bool TxKernel::IsValidBase(Height hScheme, ECC::Point::Native& comm, const TxKernel* pParent) const
+	bool TxKernel::IsValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm) const
 	{
 		const Rules& r = Rules::get(); // alias
 		if ((hScheme < r.pForks[1].m_Height) && m_CanEmbed)
@@ -889,6 +889,7 @@ namespace beam
 				const TxKernel& v = *(*it);
 
 				// sort for nested kernels is not important. But for 'historical' reasons it's enforced up to Fork2
+				// Remove this code once Fork2 is reached iff no multiple nested kernels
 				if ((hScheme < r.pForks[2].m_Height) && p0Krn && (*p0Krn > v))
 					return false;
 				p0Krn = &v;
@@ -897,8 +898,17 @@ namespace beam
 					return false;
 			}
 
-			excNested = -excNested;
-			comm += excNested;
+			if (hScheme < r.pForks[2].m_Height)
+			{
+				// Prior to Fork2 the parent commitment was supposed to include the nested. But nested kernels are unlikely to be seen up to Fork2.
+				// Remove this code once Fork2 is reached iff no such kernels exist
+				if (!pComm)
+					return false;
+				excNested = -excNested;
+				(*pComm) += excNested;
+			}
+			else
+				exc += excNested;
 		}
 
 		return true;
@@ -916,7 +926,7 @@ namespace beam
 
 		exc += pt;
 
-		if (!IsValidBase(hScheme, pt, pParent))
+		if (!IsValidBase(hScheme, exc, pParent, &pt))
 			return false;
 
 		if (!m_Signature.IsValid(m_Internal.m_ID, pt))
@@ -1108,6 +1118,9 @@ namespace beam
 
 	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
+		if (!IsValidBase(hScheme, exc, pParent))
+			return false;
+
 		const Rules& r = Rules::get(); // alias
 		if ((hScheme < r.pForks[2].m_Height) || !r.CA.Enabled)
 			return false; // unsupported for that version
@@ -1120,9 +1133,6 @@ namespace beam
 			return false;
 
 		exc += pPt[0];
-
-		if (!IsValidBase(hScheme, pPt[0], pParent))
-			return false;
 
 		ECC::Point pkAsset;
 		pkAsset.m_X = m_AssetID;
