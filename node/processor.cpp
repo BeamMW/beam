@@ -2420,6 +2420,11 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 	return true; // no special processing at the moment
 }
 
+bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
+{
+	return true; // no special processing at the moment
+}
+
 template <typename T>
 bool NodeProcessor::HandleElementVecFwd(const T& vec, BlockInterpretCtx& bic, size_t& n)
 {

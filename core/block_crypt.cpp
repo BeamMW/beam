@@ -1192,6 +1192,63 @@ namespace beam
 	}
 
 	/////////////
+	// TxKernelShieldedOutput
+	bool TxKernelShieldedOutput::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!IsValidBase(hScheme, exc, pParent))
+			return false;
+
+		const Rules& r = Rules::get(); // alias
+		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
+			return false; // unsupported for that version
+
+		ECC::Point::Native comm;
+		if (!comm.ImportNnz(m_Commitment))
+			return false;
+
+		exc += comm;
+
+		if (!m_Shielded.IsValid())
+			return false;
+
+		ECC::Oracle oracle;
+		oracle << m_Msg;
+
+		return m_RangeProof.IsValid(comm, oracle);
+	}
+
+	void TxKernelShieldedOutput::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		hp
+			<< m_Commitment
+			<< m_Shielded.m_SerialPub;
+
+		hp.Serialize(m_Shielded.m_Signature);
+	}
+
+	void TxKernelShieldedOutput::HashSelfForID(ECC::Hash::Processor& hp) const
+	{
+		hp.Serialize(m_RangeProof);
+	}
+
+	void TxKernelShieldedOutput::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelShieldedOutput);
+		TxKernelShieldedOutput& v = Cast::Up<TxKernelShieldedOutput>(*p);
+
+		v.CopyFrom(*this);
+		v.m_Commitment = m_Commitment;
+		v.m_RangeProof = m_RangeProof;
+		v.m_Shielded = m_Shielded;
+	}
+
+	void TxKernelShieldedOutput::AddStats(TxStats& s) const
+	{
+		TxKernelNonStd::AddStats(s);
+		s.m_OutputsShielded++;
+	}
+
+	/////////////
 	// Transaction
 	Transaction::FeeSettings::FeeSettings()
 	{

@@ -1236,6 +1236,56 @@ namespace detail
 				val.m_CanEmbed = true;
         }
 
+        /// beam::TxKernelShieldedOutput serialization
+		template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxKernelShieldedOutput& val)
+        {
+			uint32_t nFlags =
+				ImplTxKernel::get_CommonFlags(val) |
+				(val.m_Commitment.m_Y ? 1 : 0) |
+				(val.m_Shielded.m_SerialPub.m_Y ? 0x10 : 0) |
+				(val.m_Shielded.m_Signature.m_NoncePub.m_Y ? 0x20 : 0) |
+				(val.m_CanEmbed ? 0x80 : 0);
+
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_RangeProof
+				& val.m_Shielded.m_SerialPub.m_X
+				& val.m_Shielded.m_Signature.m_NoncePub
+				& val.m_Shielded.m_Signature.m_pK[0]
+				& val.m_Shielded.m_Signature.m_pK[1];
+
+			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::save_Nested(ar, val);
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static void load0(Archive& ar, beam::TxKernelShieldedOutput& val, uint32_t nRecursion)
+        {
+			uint32_t nFlags;
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_RangeProof
+				& val.m_Shielded.m_SerialPub.m_X
+				& val.m_Shielded.m_Signature.m_NoncePub
+				& val.m_Shielded.m_Signature.m_pK[0]
+				& val.m_Shielded.m_Signature.m_pK[1];
+
+			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
+
+			val.m_Commitment.m_Y = (1 & nFlags);
+			val.m_Shielded.m_SerialPub.m_Y = ((0x10 & nFlags) != 0);
+			val.m_Shielded.m_Signature.m_NoncePub.m_Y = ((0x20 & nFlags) != 0);
+
+			if (0x80 & nFlags)
+				val.m_CanEmbed = true;
+        }
+
         /// beam::Transaction serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxBase& txb)
