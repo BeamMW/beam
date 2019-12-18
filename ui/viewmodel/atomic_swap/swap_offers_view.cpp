@@ -435,32 +435,32 @@ bool SwapOffersViewModel::isOfferFitBalance(const SwapOfferItem& offer)
     if (offer.isOwnOffer())
         return true;
 
-    bool isBeamSide = offer.isBeamSide();
+    bool isSendBeam = offer.isSendBeam();
 
     auto beamOfferAmount =
-        isBeamSide ? offer.rawAmountSend() : offer.rawAmountReceive();
+        isSendBeam ? offer.rawAmountSend() : offer.rawAmountReceive();
     if (beamOfferAmount > m_walletModel.getAvailable())
         return false;
     
     auto swapCoinOfferAmount =
-        isBeamSide ? offer.rawAmountReceive() : offer.rawAmountSend();
+        isSendBeam ? offer.rawAmountReceive() : offer.rawAmountSend();
     auto swapCoinName = offer.getSwapCoinName();
 
     
     if (swapCoinName == toString(beamui::Currencies::Bitcoin))
     {
         auto myBtcAmount = btcOK() ? m_btcClient->getAvailable() : 0;
-        return isBeamSide ? btcOK() : swapCoinOfferAmount <= myBtcAmount;
+        return isSendBeam ? btcOK() : swapCoinOfferAmount <= myBtcAmount;
     } 
     else if (swapCoinName == toString(beamui::Currencies::Litecoin))
     {
         auto myLtcAmount = ltcOK() ? m_ltcClient->getAvailable() : 0;
-        return isBeamSide ? ltcOK() : swapCoinOfferAmount <= myLtcAmount;
+        return isSendBeam ? ltcOK() : swapCoinOfferAmount <= myLtcAmount;
     }
     else if (swapCoinName == toString(beamui::Currencies::Qtum))
     {
         auto myQtumAmount = qtumOK() ? m_qtumClient->getAvailable() : 0;
-        return isBeamSide ? qtumOK() : swapCoinOfferAmount <= myQtumAmount;
+        return isSendBeam ? qtumOK() : swapCoinOfferAmount <= myQtumAmount;
     }
     
     return false;

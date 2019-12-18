@@ -127,7 +127,7 @@ namespace beam
 
     const char* getSwapTxStatus(const IWalletDB::Ptr& walletDB, const TxDescription& tx)
     {
-        wallet::AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::CompleteSwap;
+        wallet::AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::Initial;
         storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::State, state);
 
         return wallet::getSwapTxStatus(state);
@@ -1041,7 +1041,8 @@ namespace
     template<typename Settings>
     bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
     {
-        if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
+        if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) ||
+            vm.count(cli::GENERATE_ELECTRUM_SEED) || vm.count(cli::SELECT_SERVER_AUTOMATICALLY))
         {
             auto electrumSettings = settings.GetElectrumConnectionOptions();
 
@@ -1052,7 +1053,8 @@ namespace
                     throw std::runtime_error("electrum seed should be specified");
                 }
 
-                if (!vm.count(cli::ELECTRUM_ADDR))
+                if (!vm.count(cli::ELECTRUM_ADDR) && 
+                    (!vm.count(cli::SELECT_SERVER_AUTOMATICALLY) || (vm.count(cli::SELECT_SERVER_AUTOMATICALLY) && !vm[cli::SELECT_SERVER_AUTOMATICALLY].as<bool>())))
                 {
                     throw std::runtime_error("electrum address should be specified");
                 }
@@ -1067,6 +1069,15 @@ namespace
                 }
             }
 
+            if (vm.count(cli::SELECT_SERVER_AUTOMATICALLY))
+            {
+                electrumSettings.m_automaticChooseAddress = vm[cli::SELECT_SERVER_AUTOMATICALLY].as<bool>();
+                if (!electrumSettings.m_automaticChooseAddress && electrumSettings.m_address.empty())
+                {
+                    throw std::runtime_error("electrum address should be specified");
+                }
+            }
+
             if (vm.count(cli::ELECTRUM_SEED))
             {
                 auto tempPhrase = vm[cli::ELECTRUM_SEED].as<string>();
@@ -1075,6 +1086,10 @@ namespace
 
                 if (!bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords))
                 {
+                    if (bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords, true))
+                    {
+                        throw std::runtime_error("Segwit seed phrase is not supported yet.");
+                    }
                     throw std::runtime_error("seed is not valid");
                 }
             }
@@ -1168,16 +1183,17 @@ namespace
                 {
                     auto settings = settingsProvider.GetSettings();
 
-                    if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Core)
+                    if (!settings.GetElectrumConnectionOptions().IsInitialized())
                     {
-                        if (settings.GetElectrumConnectionOptions().IsInitialized())
+                        settings = Settings{};
+                    }
+                    else
+                    {
+                        settings.SetConnectionOptions(CoreSettings{});
+
+                        if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Core)
                         {
                             settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Electrum);
-                            settings.SetConnectionOptions(CoreSettings{});
-                        }
-                        else
-                        {
-                            settings = Settings{};
                         }
                     }
 
@@ -1189,16 +1205,17 @@ namespace
                 {
                     auto settings = settingsProvider.GetSettings();
 
-                    if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Electrum)
+                    if (!settings.GetConnectionOptions().IsInitialized())
                     {
-                        if (settings.GetConnectionOptions().IsInitialized())
+                        settings = Settings{};
+                    }
+                    else
+                    {
+                        settings.SetElectrumConnectionOptions(ElectrumSettings{});
+
+                        if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Electrum)
                         {
                             settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Core);
-                            settings.SetElectrumConnectionOptions(ElectrumSettings{});
-                        }
-                        else
-                        {
-                            settings = Settings{};
                         }
                     }
 
@@ -1279,7 +1296,14 @@ namespace
 
             if (settings.GetElectrumConnectionOptions().IsInitialized())
             {
-                stream << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
+                if (settings.GetElectrumConnectionOptions().m_automaticChooseAddress)
+                {
+                    stream << "Automatic node selection mode is turned ON.\n";
+                }
+                else
+                {
+                    stream << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
+                }
             }
             stream << "Fee rate: " << settings.GetFeeRate() << '\n';
             stream << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
@@ -1652,6 +1676,16 @@ namespace
         }
     }
 
+    struct CliNodeConnection final : public proto::FlyClient::NetworkStd
+    {
+    public:
+        CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
+        void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
+        {
+            LOG_ERROR() << kErrorConnectionFailed;
+        };
+    };
+
     proto::FlyClient::NetworkStd::Ptr CreateNetwork(
         proto::FlyClient& fc, const po::variables_map& vm)
     {
@@ -1669,7 +1703,7 @@ namespace
             return nullptr;
         }
 
-        auto nnet = make_shared<proto::FlyClient::NetworkStd>(fc);
+        auto nnet = make_shared<CliNodeConnection>(fc);
         nnet->m_Cfg.m_PollPeriod_ms =
             vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
         if (nnet->m_Cfg.m_PollPeriod_ms)
@@ -2362,12 +2396,6 @@ int main_impl(int argc, char* argv[])
                     }
 
                     auto walletDB = WalletDB::open(walletPath, pass, reactor);
-                    if (!walletDB)
-                    {
-                        LOG_ERROR() << kErrorCantOpenWallet;
-                        return -1;
-                    }
-
                     IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
                     const auto& currHeight = walletDB->getCurrentHeight();
@@ -2684,14 +2712,14 @@ int main_impl(int argc, char* argv[])
                                 }
                                 else
                                 {
-                                    if (tx->canCancel())
+                                    if (wallet.CanCancelTransaction(txId))
                                     {
                                         currentTxID = txId;
                                         wallet.CancelTransaction(txId);
                                     }
                                     else
                                     {
-                                        LOG_ERROR() << kErrorTxStatusInvalid;
+                                        LOG_ERROR() << kErrorCancelTxInInvalidStatus << (tx->m_txType == wallet::TxType::AtomicSwap ? beam::getSwapTxStatus(walletDB, *tx) : beam::getTxStatus(*tx));
                                         return -1;
                                     }
                                 }
@@ -2717,6 +2745,16 @@ int main_impl(int argc, char* argv[])
         }
         catch (const FailToStartSwapException&)
         {
+        }
+        catch (const FileIsNotDatabaseException&)
+        {
+            LOG_ERROR() << kErrorCantOpenWallet;
+            return -1;
+        }
+        catch (const DatabaseException & ex)
+        {
+            LOG_ERROR() << ex.what();
+            return -1;
         }
         catch (const po::invalid_option_value& e)
         {

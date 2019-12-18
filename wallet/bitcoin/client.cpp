@@ -20,6 +20,29 @@
 
 namespace beam::bitcoin
 {
+    namespace
+    {
+        bool IsChangedConnectionSettings(const Settings& currentSettings, const Settings& newSettings)
+        {
+            bool isConnectionTypeChanged = currentSettings.GetCurrentConnectionType() != newSettings.GetCurrentConnectionType();
+
+            if (isConnectionTypeChanged)
+            {
+                return true;
+            }
+
+            switch (currentSettings.GetCurrentConnectionType())
+            {
+            case Settings::ConnectionType::Electrum:
+                return currentSettings.GetElectrumConnectionOptions() != newSettings.GetElectrumConnectionOptions();
+            case Settings::ConnectionType::Core:
+                return currentSettings.GetConnectionOptions() != newSettings.GetConnectionOptions();
+            default:
+                return false;
+            }
+        }
+    }
+
     struct BitcoinClientBridge : public Bridge<IClientAsync>
     {
         BRIDGE_INIT(BitcoinClientBridge);
@@ -91,11 +114,9 @@ namespace beam::bitcoin
                 return;
             }
 
-            {
-                Lock lock(m_mutex);
-                // TODO: check error and update status
-                SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
-            }
+            // TODO: check error and update status
+            SetConnectionError(error.m_type);
+            SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
 
             Balance balance;
             balance.m_available = confirmed;
@@ -110,16 +131,23 @@ namespace beam::bitcoin
     {
         {
             Lock lock(m_mutex);
-            m_settingsProvider->SetSettings(settings);
-            m_bridgeHolder->Reset();
+            auto currentSettings = m_settingsProvider->GetSettings();
+            bool shouldReconnect = IsChangedConnectionSettings(currentSettings, settings);
 
-            if (m_settingsProvider->GetSettings().IsActivated())
+            m_settingsProvider->SetSettings(settings);
+
+            if (shouldReconnect)
             {
-                SetStatus(Status::Connecting);
-            }
-            else
-            {
-                SetStatus(Status::Uninitialized);
+                m_bridgeHolder->Reset();
+
+                if (m_settingsProvider->GetSettings().IsActivated())
+                {
+                    SetStatus(Status::Connecting);
+                }
+                else
+                {
+                    SetStatus(Status::Uninitialized);
+                }
             }
         }
 
@@ -157,6 +185,15 @@ namespace beam::bitcoin
         {
             --m_refCount;
             OnCanModifySettingsChanged(CanModify());
+        }
+    }
+
+    void Client::SetConnectionError(const IBridge::ErrorType& error)
+    {
+        if (m_connectionError != error)
+        {
+            m_connectionError = error;
+            OnConnectionError(m_connectionError);
         }
     }
 

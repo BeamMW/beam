@@ -68,6 +68,11 @@ namespace beam::wallet
         // @param done - number of done tasks
         // @param total - number of total tasks
         virtual void onSyncProgress(int done, int total) = 0;
+
+        // Callback for wallet own(trusted) node connection
+        // @param id - connected node peer id
+        // @param connected - true if node has connected otherwise false
+        virtual void onOwnedNode(const PeerID& id, bool connected) = 0;
     };
     
     // Interface for swap bulletin board observer. 
@@ -120,6 +125,7 @@ namespace beam::wallet
 
         void RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator);
         TxID StartTransaction(const TxParameters& parameters);
+        bool CanCancelTransaction(const TxID& txId) const;
         void CancelTransaction(const TxID& txId);
         void DeleteTransaction(const TxID& txId);
         

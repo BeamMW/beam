@@ -119,52 +119,6 @@ please review your settings and try again"
         ColumnLayout {
             width: scrollView.availableWidth
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                visible: predefinedTxParams == undefined
-
-                SFText {
-                    font.pixelSize:  14
-                    font.styleName:  "Bold"; font.weight: Font.Bold
-                    color:           Style.content_main
-                    //% "Swap token"
-                    text:            qsTrId("send-swap-token")
-                }
-
-                SFTextInput {
-                    Layout.fillWidth: true
-                    id:               tokenInput
-                    font.pixelSize:   14
-                    color:            viewModel.tokenValid ? Style.content_main : Style.validator_error
-                    backgroundColor:  viewModel.tokenValid ? Style.content_main : Style.validator_error
-                    font.italic :     !viewModel.tokenValid
-                    text:             viewModel.token
-                    validator:        RegExpValidator { regExp: /[0-9a-fA-F]{1,}/ }
-                    selectByMouse:    true
-                    readOnly:         true
-                    onTextChanged:    cursorPosition = 0
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                    SFText {
-                        Layout.alignment: Qt.AlignTop
-                        id:               receiverTAError
-                        color:            Style.validator_error
-                        font.pixelSize:   12
-                        //% "Invalid address"
-                        text:             qsTrId("general-invalid-address")
-                        visible:          !viewModel.tokenValid
-                    }
-                }
-
-                Binding {
-                    target:   viewModel
-                    property: "token"
-                    value:    tokenInput.text
-                }
-            }
-
             Grid  {
                 Layout.fillWidth: true
                 columnSpacing:    70
@@ -268,6 +222,7 @@ please review your settings and try again"
                         color:            Style.accent_incoming
                         currColor:        viewModel.receiveCurrency == viewModel.sendCurrency || getErrorText().length ? Style.validator_error : Style.content_main
                         error:            getErrorText()
+                        showTotalFee:     true
 
                         function getErrorText() {
                             if(!viewModel.isReceiveFeeOK) {
@@ -342,14 +297,66 @@ please review your settings and try again"
                         Layout.topMargin: 3
                         font.pixelSize:   14
                         color:            Style.content_secondary
-                        text:             ["1", sendAmountInput.currencyLabel, "=", Utils.calcDisplayRate(receiveAmountInput, sendAmountInput).displayRate, receiveAmountInput.currencyLabel].join(" ")
+                        text:             viewModel.isSendBeam
+                            ? ["1", sendAmountInput.currencyLabel, "=", Utils.uiStringToLocale(viewModel.rate), receiveAmountInput.currencyLabel].join(" ")
+                            : ["1", receiveAmountInput.currencyLabel, "=", Utils.uiStringToLocale(viewModel.rate), sendAmountInput.currencyLabel].join(" ")
+                    }
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 30
+                Layout.alignment: Qt.AlignHCenter
+                
+                Row {
+                    Layout.alignment: Qt.AlignHCenter
+                    SFText {
+                        font.pixelSize:  14
+                        font.styleName:  "Bold"; font.weight: Font.Bold
+                        color:           Style.content_main
+                        //% "Your swap token"
+                        text:            qsTrId("accept-swap-token")
+                    }
+
+                    Item {
+                        width:  17
+                        height: 1
+                    }
+
+                    SvgImage {
+                        source:  tokenRow.visible ? "qrc:/assets/icon-grey-arrow-down.svg" : "qrc:/assets/icon-grey-arrow-up.svg"
+                        anchors.verticalCenter: parent.verticalCenter
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                tokenRow.visible = !tokenRow.visible;
+                            }
+                        }
+                    }
+                }
+
+                Row {
+                    id:      tokenRow
+                    visible: false
+                    Layout.topMargin: 10
+                    SFLabel {
+                        horizontalAlignment: Text.AlignHCenter
+                        width:               392
+                        font.pixelSize:      14
+                        text:                viewModel.token
+                        copyMenuEnabled:     true
+                        onCopyText:          BeamGlobals.copyToClipboard(text)
+                        wrapMode:            Text.WrapAnywhere
+                        color:               Style.content_secondary
                     }
                 }
             }
 
             Row {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 60
+                Layout.topMargin: 30
                 spacing:          25
 
                 CustomButton {

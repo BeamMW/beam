@@ -11,13 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #include "address.h"
 #include <iostream>
 #include <stdlib.h>
 #ifdef WIN32
     #include <Ws2tcpip.h>
 #else
+    #include <arpa/inet.h>
     #include <netdb.h>
 #endif // WIN32
 
@@ -32,13 +32,14 @@ uint32_t resolve_host(std::string&& host) {
 
     addrinfo hint;
     memset(&hint, 0, sizeof(struct addrinfo));
-    hint.ai_flags = AF_INET;
+    hint.ai_family = AF_INET;
     hint.ai_socktype = SOCK_STREAM;
+    hint.ai_protocol = IPPROTO_TCP;
 
-    addrinfo* ai=0;
+    addrinfo* ai = nullptr;
 
     // NOTE: leaks memory, but only once
-    int r = getaddrinfo(host.c_str(), 0, &hint, &ai);
+    int r = getaddrinfo(host.c_str(), nullptr, &hint, &ai);
 
     if (r == 0) {
         for (addrinfo* p = ai; p; p = p->ai_next) {
@@ -100,4 +101,3 @@ std::ostream& operator<<(std::ostream& os, const Address& a) {
 }
 
 }} //namespaces
-

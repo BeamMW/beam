@@ -221,7 +221,8 @@ namespace beam::wallet
         : m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
         , m_async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *m_reactor) }
-        , m_isConnected(false)
+        , m_connectedNodesCount(0)
+        , m_trustedConnectionCount(0)
         , m_nodeAddrStr(nodeAddr)
         , m_keyKeeper(keyKeeper)
         , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAllUtxoChanged(action, items); })
@@ -456,6 +457,11 @@ namespace beam::wallet
         return m_unsafeActiveTxCount;
     }
 
+    bool WalletClient::isConnectionTrusted() const
+    {
+        return m_isConnectionTrusted;
+    }
+
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
         m_CoinChangesCollector.CollectItems(action, items);
@@ -484,6 +490,12 @@ namespace beam::wallet
     void WalletClient::onSyncProgress(int done, int total)
     {
         onSyncProgressUpdated(done, total);
+    }
+
+    void WalletClient::onOwnedNode(const PeerID& id, bool connected)
+    {
+        updateConnectionTrust(connected);
+        onNodeConnectionChanged(isConnected());
     }
 
     void WalletClient::sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
@@ -830,13 +842,13 @@ namespace beam::wallet
 
     void WalletClient::getNetworkStatus()
     {
-        if (m_walletError.is_initialized() && !m_isConnected)
+        if (m_walletError.is_initialized() && !isConnected())
         {
             onWalletError(*m_walletError);
             return;
         }
 
-        onNodeConnectionChanged(m_isConnected);
+        onNodeConnectionChanged(isConnected());
     }
 
     void WalletClient::rescan()
@@ -951,8 +963,6 @@ namespace beam::wallet
 
     void WalletClient::nodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
     {
-        m_isConnected = false;
-
         // reason -> ErrorType
         if (proto::NodeConnection::DisconnectReason::ProcessingExc == reason.m_Type)
         {
@@ -973,8 +983,16 @@ namespace beam::wallet
 
     void WalletClient::nodeConnectedStatusChanged(bool isNodeConnected)
     {
-        m_isConnected = isNodeConnected;
-        onNodeConnectionChanged(isNodeConnected);
+        if (isNodeConnected)
+        {
+            ++m_connectedNodesCount;
+        }
+        else if (m_connectedNodesCount)
+        {
+            --m_connectedNodesCount;
+        }
+
+        onNodeConnectionChanged(isConnected());
     }
 
     void WalletClient::updateClientState()
@@ -997,5 +1015,27 @@ namespace beam::wallet
                 m_unsafeActiveTxCount = count;
             });
         }
+    }
+
+    void WalletClient::updateConnectionTrust(bool trustedConnected)
+    {
+        if (trustedConnected)
+        {
+            ++m_trustedConnectionCount;
+        }
+        else if (m_trustedConnectionCount)
+        {
+            --m_trustedConnectionCount;
+        }
+
+        postFunctionToClientContext([this, isTrusted = m_trustedConnectionCount > 0 && m_trustedConnectionCount == m_connectedNodesCount]()
+        {
+            m_isConnectionTrusted = isTrusted;
+        });
+    }
+
+    bool WalletClient::isConnected() const
+    {
+        return m_connectedNodesCount > 0;
     }
 }

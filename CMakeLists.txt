@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 4)
@@ -348,7 +348,7 @@ else()
     endif()
 
     #set (Boost_VERBOSE TRUE)
-    find_package(Boost 1.67 REQUIRED COMPONENTS ${BEAM_BOOST_COMPONENTS})
+    find_package(Boost 1.66 REQUIRED COMPONENTS ${BEAM_BOOST_COMPONENTS})
 endif()
 
 #Boost end

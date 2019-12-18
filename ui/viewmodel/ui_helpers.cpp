@@ -36,19 +36,19 @@ namespace beamui
         switch (coinType)
         {
             case Currencies::Beam:
-                coinSign = QString::fromUtf16(u" \uEAFB");
+                coinSign = QString(" BEAM");
                 break;
 
             case Currencies::Bitcoin:
-                coinSign = QString::fromUtf16(u" \u20BF");
+                coinSign = QString(" BTC");
                 break;
 
             case Currencies::Litecoin:
-                coinSign = QString::fromUtf16(u" \u0141");
+                coinSign = QString(" LTC");
                 break;
 
             case Currencies::Qtum:
-                coinSign = QString::fromUtf16(u" \uEAFD");
+                coinSign = QString(" QTUM");
                 break;
 
             case Currencies::Unknown:
@@ -56,6 +56,11 @@ namespace beamui
                 break;
         }
         return amount + coinSign;
+    }
+
+    QString AmountInGrothToUIString(const beam::Amount& value)
+    {
+        return QString("%1 %2").arg(value).arg(qtTrId("general-groth"));
     }
 
     beam::Amount UIStringToAmount(const QString& value)
@@ -225,4 +230,19 @@ namespace beamui
     {
         return toString(currency).toStdString();
     }
+
+    QString convertBeamHeightDiffToTime(int32_t dt)
+    {
+        if (dt <= 0)
+        {
+            return "";
+        }
+        const int32_t minute_s = 60;
+        const int32_t quantum_s = 5 * minute_s;
+        int32_t time_s = dt * beam::Rules().DA.Target_s;
+        time_s = (time_s + (quantum_s >> 1)) / quantum_s;
+        time_s *= quantum_s;
+        return beamui::getEstimateTimeStr(time_s);
+    }
+
 }  // namespace beamui

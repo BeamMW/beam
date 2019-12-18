@@ -223,6 +223,51 @@ namespace beam::wallet
 
     };
 
+    class DatabaseException : public std::runtime_error
+    {
+    public:
+        explicit DatabaseException(const std::string& message)
+            : std::runtime_error(message)
+        {
+        }
+    };
+
+    class InvalidDatabaseVersionException : public DatabaseException
+    {
+    public:
+        explicit InvalidDatabaseVersionException()
+            : DatabaseException("")
+        {
+        }
+    };
+
+    class DatabaseMigrationException : public DatabaseException
+    {
+    public:
+        explicit DatabaseMigrationException()
+            : DatabaseException("")
+        {
+        }
+    };
+
+    class DatabaseNotFoundException : public DatabaseException
+    {
+    public:
+        explicit DatabaseNotFoundException()
+            : DatabaseException("")
+        {
+        }
+    };
+    
+    class FileIsNotDatabaseException : public DatabaseException
+    {
+    public:
+        explicit FileIsNotDatabaseException()
+            : DatabaseException("")
+        {
+        }
+    };
+
     struct IWalletDbObserver
     {
         virtual void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) {};
@@ -313,6 +358,7 @@ namespace beam::wallet
         virtual bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const = 0;
         virtual auto getAllTxParameters() const -> std::vector<TxParameter> = 0;
         virtual void rollbackTx(const TxID& txId) = 0;
+        virtual void deleteCoinsCreatedByTx(const TxID& txId) = 0;
 
         // ////////////////////////////////////////////
         // Address management
@@ -412,6 +458,7 @@ namespace beam::wallet
         void saveTx(const TxDescription& p) override;
         void deleteTx(const TxID& txId) override;
         void rollbackTx(const TxID& txId) override;
+        void deleteCoinsCreatedByTx(const TxID& txId) override;
 
         std::vector<WalletAddress> getAddresses(bool own) const override;
         void saveAddress(const WalletAddress&, bool isLaser = false) override;

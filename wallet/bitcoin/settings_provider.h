@@ -64,6 +64,7 @@ namespace beam::bitcoin
         std::string GetAddressVersionName() const;
         std::string GetFeeRateName() const;
         std::string GetConnectrionTypeName() const;
+        std::string GetSelectServerAutomatically() const;
 
         template<typename T>
         void ReadFromDB(const std::string& name, T& value)

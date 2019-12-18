@@ -8,10 +8,10 @@ ColumnLayout {
     id: control
 
     readonly property variant currencies: [
-        {label: "BEAM", feeLabel: BeamGlobals.beamFeeRateLabel(), minFee: BeamGlobals.minFeeBeam(),     defaultFee: BeamGlobals.defFeeBeam()},
-        {label: "BTC",  feeLabel: BeamGlobals.btcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateBtc(),  defaultFee: BeamGlobals.defFeeRateBtc()},
-        {label: "LTC",  feeLabel: BeamGlobals.ltcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateLtc(),  defaultFee: BeamGlobals.defFeeRateLtc()},
-        {label: "QTUM", feeLabel: BeamGlobals.qtumFeeRateLabel(), minFee: BeamGlobals.minFeeRateQtum(), defaultFee: BeamGlobals.defFeeRateQtum()}
+        {label: "BEAM", feeLabel: BeamGlobals.beamFeeRateLabel(), minFee: BeamGlobals.minFeeBeam(), defaultFee: BeamGlobals.defFeeBeam()},
+        {label: "BTC",  feeLabel: BeamGlobals.btcFeeRateLabel(),  minFee: 0,                        defaultFee: BeamGlobals.defFeeRateBtc()},
+        {label: "LTC",  feeLabel: BeamGlobals.ltcFeeRateLabel(),  minFee: 0,                        defaultFee: BeamGlobals.defFeeRateLtc()},
+        {label: "QTUM", feeLabel: BeamGlobals.qtumFeeRateLabel(), minFee: 0,                        defaultFee: BeamGlobals.defFeeRateQtum()}
     ]
 
     function getCurrencyLabel() {
@@ -34,6 +34,15 @@ ColumnLayout {
         return qsTrId("general-fee-rate").arg(getCurrencyLabel())
     }
 
+    function getTotalFeeTitle() {
+        //% "%1 Transaction fee (est)"
+        return qsTrId("general-fee-total").arg(getCurrencyLabel())
+    }
+
+    function getTotalFeeAmount() {
+        return BeamGlobals.calcTotalFee(control.currency, control.fee);
+    }
+
     readonly property bool     isValidFee:     hasFee ? feeInput.isValid : true
     readonly property bool     isValid:        error.length == 0 && isValidFee
     readonly property string   currencyLabel:  getCurrencyLabel()
@@ -52,6 +61,7 @@ ColumnLayout {
     property bool     readOnlyF:    false
     property bool     resetAmount:  true
     property var      amountInput:  ainput
+    property bool     showTotalFee: false
 
     SFText {
         font.pixelSize:   14
@@ -143,31 +153,65 @@ ColumnLayout {
         }
     }
 
-    SFText {
+    GridLayout {
+        columns:       2
         Layout.topMargin: 30
-        font.pixelSize:   14
-        font.styleName:   "Bold"
-        font.weight:      Font.Bold
-        color:            Style.content_main
-        text:             getFeeTitle()
-        visible:          control.hasFee
+        ColumnLayout {
+            Layout.maximumWidth:  198
+            SFText {
+                font.pixelSize:   14
+                font.styleName:   "Bold"
+                font.weight:      Font.Bold
+                color:            Style.content_main
+                text:             getFeeTitle()
+                visible:          control.hasFee
+            }
+            FeeInput {
+                id:               feeInput
+                Layout.fillWidth: true
+                visible:          control.hasFee
+                fee:              control.fee
+                minFee:           currencies[currency].minFee
+                feeLabel:         getFeeLabel()
+                color:            control.color
+                readOnly:         control.readOnlyF
+                Connections {
+                    target: control
+                    onFeeChanged: feeInput.fee = control.fee
+                    onCurrencyChanged: feeInput.fee = currencies[currency].defaultFee
+                }
+            }
+        }
+       
+        ColumnLayout {
+            Layout.alignment:     Qt.AlignLeft | Qt.AlignTop
+            visible:              showTotalFee && control.hasFee && control.currency != Currency.CurrBeam
+            SFText {
+                font.pixelSize:   14
+                font.styleName:   "Bold"
+                font.weight:      Font.Bold
+                color:            Style.content_main
+                text:             getTotalFeeTitle()
+            }
+            SFText {
+                Layout.topMargin: 6
+                font.pixelSize:   14
+                color:            Style.content_main
+                text:             getTotalFeeAmount()
+            }
+        }
     }
 
-    FeeInput {
-        id:               feeInput
-        Layout.fillWidth: true
-        visible:          control.hasFee
-        fee:              control.fee
-        minFee:           currencies[currency].minFee
-        feeLabel:         getFeeLabel()
-        color:            control.color
-        readOnly:         control.readOnlyF
-
-       Connections {
-            target: control
-            onFeeChanged: feeInput.fee = control.fee
-            onCurrencyChanged: feeInput.fee = currencies[currency].defaultFee
-        }
+    SFText {
+        enabled:               control.hasFee && control.currency != Currency.CurrBeam
+        visible:               enabled
+        Layout.preferredWidth: 370
+        font.pixelSize:        14
+        wrapMode:              Text.WordWrap
+        color:                 Style.content_secondary
+        lineHeight:            1.1 
+        //% "Remember to validate the expected fee rate for the blockchain (as it varies with time)."
+        text:                  qsTrId("settings-fee-rate-note")
     }
 
     Binding {

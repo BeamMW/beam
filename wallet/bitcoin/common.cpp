@@ -18,6 +18,10 @@
 
 namespace beam::bitcoin
 {
+    const char kMainnetGenesisBlockHash[] = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f";
+    const char kTestnetGenesisBlockHash[] = "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943";
+    const char kRegtestGenesisBlockHash[] = "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206";
+
     uint64_t btc_to_satoshi(double btc)
     {
         return static_cast<uint64_t>(std::round(btc * libbitcoin::satoshi_per_bitcoin));
@@ -28,14 +32,23 @@ namespace beam::bitcoin
 #if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
         return libbitcoin::wallet::ec_private::mainnet_p2kh;
 #else
-
         return libbitcoin::wallet::ec_private::testnet_p2kh;
 #endif
     }
 
-    bool validateElectrumMnemonic(const std::vector<std::string>& words)
+    std::vector<std::string> getGenesisBlockHashes()
     {
-        return libbitcoin::wallet::electrum::validate_mnemonic(words);
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
+        return { kMainnetGenesisBlockHash };
+#else
+        return { kTestnetGenesisBlockHash , kRegtestGenesisBlockHash };
+#endif
+    }
+
+    bool validateElectrumMnemonic(const std::vector<std::string>& words, bool isSegwitType)
+    {
+        auto seedType = isSegwitType ? libbitcoin::wallet::electrum::seed::witness : libbitcoin::wallet::electrum::seed::standard;
+        return libbitcoin::wallet::electrum::validate_mnemonic(words, seedType);
     }
 
     std::vector<std::string> createElectrumMnemonic(const std::vector<uint8_t>& entropy)

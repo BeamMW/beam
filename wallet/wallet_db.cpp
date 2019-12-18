@@ -163,7 +163,11 @@ namespace beam::wallet
             stringstream ss;
             ss << "sqlite error code=" << res << ", " << sqlite3_errmsg(db);
             LOG_DEBUG() << ss.str();
-            throw runtime_error(ss.str());
+            if (res == SQLITE_NOTADB)
+            {
+                throw FileIsNotDatabaseException();
+            }
+            throw DatabaseException(ss.str());
         }
 
 
@@ -1147,308 +1151,290 @@ namespace beam::wallet
 
     IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, io::Reactor::Ptr reactor, bool useTrezor)
     {
-        try
+        if (!isInitialized(path))
         {
-            if (isInitialized(path))
+            LOG_ERROR() << path << " not found, please init the wallet before.";
+            throw DatabaseNotFoundException();
+        }
+
+        sqlite3* db = nullptr;
+        OpenAndMigrateIfNeeded(path, &db, password);
+        sqlite3* sdb = db;
+        string privatePath = path + ".private";
+        bool separateDBForPrivateData = isInitialized(privatePath);
+        if (separateDBForPrivateData)
+        {
+            OpenAndMigrateIfNeeded(privatePath, &sdb, password);
+        }
+
+        auto walletDB = make_shared<WalletDB>(db, reactor, sdb);
+        {
+            int ret = sqlite3_busy_timeout(walletDB->_db, BusyTimeoutMs);
+            throwIfError(ret, walletDB->_db);
+        }
+        {
+            int version = 0;
+            storage::getVar(*walletDB, Version, version);
+
+            // migration
+            try
             {
-                sqlite3 *db = nullptr;
-                OpenAndMigrateIfNeeded(path, &db, password);
-                sqlite3 *sdb = db;
-                string privatePath = path + ".private";
-                bool separateDBForPrivateData = isInitialized(privatePath);
-                if (separateDBForPrivateData)
+                switch (version)
                 {
-                    OpenAndMigrateIfNeeded(privatePath, &sdb, password);
-                }
+                case DbVersion10:
+                case DbVersion11:
+                case DbVersion12:
+                {
+                    LOG_INFO() << "Converting DB from format 10-11";
 
-                auto walletDB = make_shared<WalletDB>(db, reactor, sdb);
-                {
-                    int ret = sqlite3_busy_timeout(walletDB->_db, BusyTimeoutMs);
-                    throwIfError(ret, walletDB->_db);
-                }
-                {
-                    int version = 0;
-                    storage::getVar(*walletDB, Version, version);
+                    // storage table changes: removed [status], [createHeight], [lockedHeight], added [spentHeight]
+                    // sqlite doesn't support column removal. So instead we'll rename this table, select the data, and insert it to the new table
+                    //
+                    // The missing data, [spentHeight] - can only be deduced strictly if the UTXO has a reference to the spending tx. Otherwise we'll have to put a dummy spentHeight.
+                    // In case of a rollback there's a chance (albeit small) we won't notice the UTXO un-spent status. But in case of such a problem this should be fixed by the "UTXO rescan".
 
-                    // migration
-                    try
+                    if (!IsTableCreated(walletDB.get(), STORAGE_NAME "_del"))
                     {
-                        switch (version)
+                        const char* req =
+                            "ALTER TABLE " STORAGE_NAME " RENAME TO " STORAGE_NAME "_del;"
+                            "DROP INDEX CoinIndex;"
+                            "DROP INDEX ConfirmIndex;";
+
+                        int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                        throwIfError(ret, walletDB->_db);
+                    }
+
+                    if (!IsTableCreated(walletDB.get(), STORAGE_NAME))
+                    {
+                        CreateStorageTable(walletDB->_db);
+                    }
+
+                    {
+                        const char* req = "SELECT * FROM " STORAGE_NAME "_del;";
+
+                        for (sqlite::Statement stm(walletDB.get(), req); stm.step(); )
                         {
-                        case DbVersion10:
-                        case DbVersion11:
-                        case DbVersion12:
+                            Coin coin;
+                            stm.get(0, coin.m_ID.m_Type);
+                            stm.get(1, coin.m_ID.m_SubIdx);
+                            stm.get(2, coin.m_ID.m_Idx);
+                            stm.get(3, coin.m_ID.m_Value);
+
+                            uint32_t status = 0;
+                            stm.get(4, status);
+
+                            stm.get(5, coin.m_maturity);
+                            // createHeight - skip
+                            stm.get(7, coin.m_confirmHeight);
+                            // lockedHeight - skip
+                            stm.get(9, coin.m_createTxId);
+                            stm.get(10, coin.m_spentTxId);
+                            stm.get(11, coin.m_sessionId);
+
+                            if (Coin::Status::Spent == static_cast<Coin::Status>(status))
                             {
-                                LOG_INFO() << "Converting DB from format 10-11";
+                                // try to guess the spentHeight
+                                coin.m_spentHeight = coin.m_maturity; // init guess
 
-                                // storage table changes: removed [status], [createHeight], [lockedHeight], added [spentHeight]
-                                // sqlite doesn't support column removal. So instead we'll rename this table, select the data, and insert it to the new table
-                                //
-                                // The missing data, [spentHeight] - can only be deduced strictly if the UTXO has a reference to the spending tx. Otherwise we'll have to put a dummy spentHeight.
-                                // In case of a rollback there's a chance (albeit small) we won't notice the UTXO un-spent status. But in case of such a problem this should be fixed by the "UTXO rescan".
-
-                                if (!IsTableCreated(walletDB.get(), STORAGE_NAME "_del"))
+                                if (coin.m_spentTxId)
                                 {
-                                    const char* req =
-                                        "ALTER TABLE " STORAGE_NAME " RENAME TO " STORAGE_NAME "_del;"
-                                        "DROP INDEX CoinIndex;"
-                                        "DROP INDEX ConfirmIndex;";
+                                    // we cannot use getTxParameter since it uses newer db scheme
+                                    //storage::getTxParameter(*walletDB, coin.m_spentTxId.get(), TxParameterID::KernelProofHeight, coin.m_spentHeight);
+                                    sqlite::Statement stm2(walletDB.get(), "SELECT value FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
+                                    stm2.bind(1, coin.m_spentTxId.get());
+                                    stm2.bind(2, TxParameterID::KernelProofHeight);
 
-                                    int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
-                                    throwIfError(ret, walletDB->_db);
-                                }
-
-                                if (!IsTableCreated(walletDB.get(), STORAGE_NAME))
-                                {
-                                    CreateStorageTable(walletDB->_db);
-                                }
-
-                                {
-                                    const char* req = "SELECT * FROM " STORAGE_NAME "_del;";
-                                
-                                    for (sqlite::Statement stm(walletDB.get(), req);  stm.step(); )
+                                    if (stm2.step())
                                     {
-                                        Coin coin;
-                                        stm.get(0, coin.m_ID.m_Type);
-                                        stm.get(1, coin.m_ID.m_SubIdx);
-                                        stm.get(2, coin.m_ID.m_Idx);
-                                        stm.get(3, coin.m_ID.m_Value);
-
-                                        uint32_t status = 0;
-                                        stm.get(4, status);
-
-                                        stm.get(5, coin.m_maturity);
-                                        // createHeight - skip
-                                        stm.get(7, coin.m_confirmHeight);
-                                        // lockedHeight - skip
-                                        stm.get(9, coin.m_createTxId);
-                                        stm.get(10, coin.m_spentTxId);
-                                        stm.get(11, coin.m_sessionId);
-
-                                        if (Coin::Status::Spent == static_cast<Coin::Status>(status))
+                                        ByteBuffer buf;
+                                        stm2.get(0, buf);
+                                        Height h = 0;
+                                        if (fromByteBuffer(buf, h))
                                         {
-                                            // try to guess the spentHeight
-                                            coin.m_spentHeight = coin.m_maturity; // init guess
-
-                                            if (coin.m_spentTxId)
-                                            {
-                                                // we cannot use getTxParameter since it uses newer db scheme
-                                                //storage::getTxParameter(*walletDB, coin.m_spentTxId.get(), TxParameterID::KernelProofHeight, coin.m_spentHeight);
-                                                sqlite::Statement stm2(walletDB.get(), "SELECT value FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
-                                                stm2.bind(1, coin.m_spentTxId.get());
-                                                stm2.bind(2, TxParameterID::KernelProofHeight);
-
-                                                if (stm2.step())
-                                                {
-                                                    ByteBuffer buf;
-                                                    stm2.get(0, buf);
-                                                    Height h = 0;
-                                                    if (fromByteBuffer(buf, h))
-                                                    {
-                                                        coin.m_spentHeight = h;
-                                                    }
-                                                }
-                                            }
+                                            coin.m_spentHeight = h;
                                         }
-
-                                        walletDB->saveCoin(coin);
                                     }
                                 }
-
-                                {
-                                    const char* req = "DROP TABLE " STORAGE_NAME "_del;";
-                                    int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
-                                    throwIfError(ret, walletDB->_db);
-                                }
                             }
 
-                            // no break;
-
-                        case DbVersion13:
-                            LOG_INFO() << "Converting DB to format 13...";
-
-                            CreateWalletMessageTable(walletDB->_db);
-                            CreatePrivateVariablesTable(walletDB->m_PrivateDB);
-
-                            if (!MoveSeedToPrivateVariables(*walletDB))
-                            {
-                                return Ptr();
-                            }
-
-                        case DbVersion14:
-                            {
-                                LOG_INFO() << "Converting DB from format 14...";
-
-                                // tx_params table changed: added new column [subTxID]
-                                // move old data to temp table
-                                {
-                                    const char* req = "ALTER TABLE " TX_PARAMS_NAME " RENAME TO " TX_PARAMS_NAME "_del;";
-                                    int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
-                                    throwIfError(ret, walletDB->_db);
-                                }
-
-                                // create new table
-                                CreateTxParamsTable(walletDB->_db);
-
-                                // migration
-                                {
-                                    const char* req = "INSERT INTO " TX_PARAMS_NAME " (" ENUM_TX_PARAMS_FIELDS(LIST, COMMA, ) ") SELECT \"txID\", ?1 as \"subTxID\", \"paramID\", \"value\" FROM " TX_PARAMS_NAME "_del;";
-                                    sqlite::Statement stm(walletDB.get(), req);
-                                    stm.bind(1, kDefaultSubTxID);
-                                    stm.step();
-                                }
-
-                                // remove tmp table
-                                {
-                                    const char* req = "DROP TABLE " TX_PARAMS_NAME "_del;";
-                                    int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
-                                    throwIfError(ret, walletDB->_db);
-                                }
-                            }
-                            // no break;
-
-                        case DbVersion15:
-                            LOG_INFO() << "Converting DB from format 15...";
-
-                            // migrate coins
-                            if (!IsTableCreated(walletDB.get(), STORAGE_NAME "_del"))
-                            {
-                                const char* req =
-                                    "ALTER TABLE " STORAGE_NAME " RENAME TO " STORAGE_NAME "_del;"
-                                    "DROP INDEX CoinIndex;"
-                                    "DROP INDEX ConfirmIndex;";
-
-                                int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
-                                throwIfError(ret, walletDB->_db);
-                            }
-
-                            if (!IsTableCreated(walletDB.get(), STORAGE_NAME))
-                            {
-                                CreateStorageTable(walletDB->_db);
-                            }
-
-                            {
-                                const char *req = "SELECT * FROM " STORAGE_NAME "_del;";
-                                for (sqlite::Statement stm(walletDB.get(), req); stm.step();) {
-                                    Coin coin;
-                                    stm.get(0, coin.m_ID.m_Type);
-                                    stm.get(1, coin.m_ID.m_SubIdx);
-                                    stm.get(2, coin.m_ID.m_Idx);
-                                    stm.get(3, coin.m_ID.m_Value);
-                                    stm.get(4, coin.m_maturity);
-                                    stm.get(5, coin.m_confirmHeight);
-                                    stm.get(6, coin.m_spentHeight);
-                                    stm.get(7, coin.m_createTxId);
-                                    stm.get(8, coin.m_spentTxId);
-                                    stm.get(9, coin.m_sessionId);
-                                    walletDB->saveCoin(coin);
-                                }
-                            }
-
-                            {
-                                const char* req = "DROP TABLE " STORAGE_NAME "_del;";
-                                int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
-                                throwIfError(ret, walletDB->_db);
-                            }
-                            // no break; 
-                    case DbVersion16:
-                        {
-                            LOG_INFO() << "Converting DB from format 16...";
-                            CreateLaserTables(walletDB->_db);
-                            // no break;   
+                            walletDB->saveCoin(coin);
                         }
+                    }
 
-                            storage::setVar(*walletDB, Version, DbVersion);
-                            // no break
+                    {
+                        const char* req = "DROP TABLE " STORAGE_NAME "_del;";
+                        int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                        throwIfError(ret, walletDB->_db);
+                    }
+                }
 
-                        case DbVersion:
-                            // drop private variables from public database for cold wallet
-                            if (separateDBForPrivateData && !DropPrivateVariablesFromPublicDatabase(*walletDB))
-                            {
-                                return Ptr();
-                            }
-                            break; // ok
+                // no break;
 
-                        default:
-                            {
-                                LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
-                                return Ptr();
-                            }
+                case DbVersion13:
+                    LOG_INFO() << "Converting DB to format 13...";
+
+                    CreateWalletMessageTable(walletDB->_db);
+                    CreatePrivateVariablesTable(walletDB->m_PrivateDB);
+
+                    if (!MoveSeedToPrivateVariables(*walletDB))
+                    {
+                        throw DatabaseException("failed to move seed to private valiables");
+                    }
+
+                case DbVersion14:
+                {
+                    LOG_INFO() << "Converting DB from format 14...";
+
+                    // tx_params table changed: added new column [subTxID]
+                    // move old data to temp table
+                    {
+                        const char* req = "ALTER TABLE " TX_PARAMS_NAME " RENAME TO " TX_PARAMS_NAME "_del;";
+                        int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                        throwIfError(ret, walletDB->_db);
+                    }
+
+                    // create new table
+                    CreateTxParamsTable(walletDB->_db);
+
+                    // migration
+                    {
+                        const char* req = "INSERT INTO " TX_PARAMS_NAME " (" ENUM_TX_PARAMS_FIELDS(LIST, COMMA, ) ") SELECT \"txID\", ?1 as \"subTxID\", \"paramID\", \"value\" FROM " TX_PARAMS_NAME "_del;";
+                        sqlite::Statement stm(walletDB.get(), req);
+                        stm.bind(1, kDefaultSubTxID);
+                        stm.step();
+                    }
+
+                    // remove tmp table
+                    {
+                        const char* req = "DROP TABLE " TX_PARAMS_NAME "_del;";
+                        int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                        throwIfError(ret, walletDB->_db);
+                    }
+                }
+                // no break;
+
+                case DbVersion15:
+                    LOG_INFO() << "Converting DB from format 15...";
+
+                    // migrate coins
+                    if (!IsTableCreated(walletDB.get(), STORAGE_NAME "_del"))
+                    {
+                        const char* req =
+                            "ALTER TABLE " STORAGE_NAME " RENAME TO " STORAGE_NAME "_del;"
+                            "DROP INDEX CoinIndex;"
+                            "DROP INDEX ConfirmIndex;";
+
+                        int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                        throwIfError(ret, walletDB->_db);
+                    }
+
+                    if (!IsTableCreated(walletDB.get(), STORAGE_NAME))
+                    {
+                        CreateStorageTable(walletDB->_db);
+                    }
+
+                    {
+                        const char* req = "SELECT * FROM " STORAGE_NAME "_del;";
+                        for (sqlite::Statement stm(walletDB.get(), req); stm.step();) {
+                            Coin coin;
+                            stm.get(0, coin.m_ID.m_Type);
+                            stm.get(1, coin.m_ID.m_SubIdx);
+                            stm.get(2, coin.m_ID.m_Idx);
+                            stm.get(3, coin.m_ID.m_Value);
+                            stm.get(4, coin.m_maturity);
+                            stm.get(5, coin.m_confirmHeight);
+                            stm.get(6, coin.m_spentHeight);
+                            stm.get(7, coin.m_createTxId);
+                            stm.get(8, coin.m_spentTxId);
+                            stm.get(9, coin.m_sessionId);
+                            walletDB->saveCoin(coin);
                         }
+                    }
 
-                        walletDB->flushDB();
-                    }
-                    catch (...)
                     {
-                        LOG_ERROR() << "Database migration failed";
-                        walletDB->rollbackDB();
-                        return {};
+                        const char* req = "DROP TABLE " STORAGE_NAME "_del;";
+                        int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                        throwIfError(ret, walletDB->_db);
                     }
-                }
+                    // no break; 
+                case DbVersion16:
                 {
-                    const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";
-                    int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
-                    if (ret != SQLITE_OK)
-                    {
-                        LOG_ERROR() << "Invalid DB or wrong password :(";
-                        return Ptr();
-                    }
+                    LOG_INFO() << "Converting DB from format 16...";
+                    CreateLaserTables(walletDB->_db);
+                    // no break;   
                 }
 
+                storage::setVar(*walletDB, Version, DbVersion);
+                // no break
+
+                case DbVersion:
+                    // drop private variables from public database for cold wallet
+                    if (separateDBForPrivateData && !DropPrivateVariablesFromPublicDatabase(*walletDB))
+                    {
+                        throw DatabaseException("failed to drop private variables from public database");
+                    }
+
+                    break; // ok
+
+                default:
                 {
-                    const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME ";";
-                    int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
-                    if (ret != SQLITE_OK)
-                    {
-                        LOG_ERROR() << "Invalid DB format :(";
-                        return Ptr();
-                    }
+                    LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
+                    throw InvalidDatabaseVersionException();
+                }
                 }
 
-                {
-                    const char* req = "SELECT " VARIABLES_FIELDS " FROM " VARIABLES_NAME ";";
-                    int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
-                    if (ret != SQLITE_OK)
-                    {
-                        LOG_ERROR() << "Invalid DB format :(";
-                        return Ptr();
-                    }
-                }
-                {
-                    ECC::NoLeak<ECC::Hash::Value> seed;
-                    if (walletDB->getPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V)))
-                    {
-                        ECC::HKdf::Create(walletDB->m_pKdf, seed.V);
-                        walletDB->m_OwnerKdf = walletDB->m_pKdf;
-                    }
-                    else
-                    {
-                        ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
-                        if (storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V))
-                        {
-                            auto publicKdf = make_shared<ECC::HKdfPub>();
-                            if (!publicKdf->Import(packedOwnerKey.V))
-                            {
-                                LOG_ERROR() << "Failed to load owner key";
-                                return Ptr();
-                            }
-                            walletDB->m_OwnerKdf = publicKdf;
-                        }
-
-                    }
-                }
-
-                walletDB->m_useTrezor = useTrezor;
-                return static_pointer_cast<IWalletDB>(walletDB);
+                walletDB->flushDB();
             }
-
-            LOG_ERROR() << path << " not found, please init the wallet before.";
+            catch (...)
+            {
+                LOG_ERROR() << "Database migration failed";
+                walletDB->rollbackDB();
+                throw DatabaseMigrationException();
+            }
         }
-        catch (const exception&)
         {
+            const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";
+            int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, walletDB->_db);
         }
 
-        return Ptr();
+        {
+            const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME ";";
+            int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, walletDB->_db);
+        }
+
+        {
+            const char* req = "SELECT " VARIABLES_FIELDS " FROM " VARIABLES_NAME ";";
+            int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, walletDB->_db);
+        }
+        {
+            ECC::NoLeak<ECC::Hash::Value> seed;
+            if (walletDB->getPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V)))
+            {
+                ECC::HKdf::Create(walletDB->m_pKdf, seed.V);
+                walletDB->m_OwnerKdf = walletDB->m_pKdf;
+            }
+            else
+            {
+                ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
+                if (storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V))
+                {
+                    auto publicKdf = make_shared<ECC::HKdfPub>();
+                    if (!publicKdf->Import(packedOwnerKey.V))
+                    {
+                        LOG_ERROR() << "Failed to load owner key";
+                        return Ptr();
+                    }
+                    walletDB->m_OwnerKdf = publicKdf;
+                }
+
+            }
+        }
+
+        walletDB->m_useTrezor = useTrezor;
+        return static_pointer_cast<IWalletDB>(walletDB);
     }
 
     WalletDB::WalletDB(sqlite3* db, io::Reactor::Ptr reactor)
@@ -2294,6 +2280,11 @@ namespace beam::wallet
             notifyCoinsChanged(ChangeAction::Updated, getCoinsByRowIDs(updatedRows));
         }
 
+        deleteCoinsCreatedByTx(txId);
+    }
+
+    void WalletDB::deleteCoinsCreatedByTx(const TxID& txId)
+    {
         std::vector<Coin> deletedItems;
         {
             const char* req = "SELECT " ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) " FROM " STORAGE_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";

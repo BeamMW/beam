@@ -46,6 +46,7 @@ namespace beam
         extern const char* SHOW_SWAP_SETTINGS;
         extern const char* ELECTRUM_SEED;
         extern const char* GENERATE_ELECTRUM_SEED;
+        extern const char* SELECT_SERVER_AUTOMATICALLY;
         extern const char* ELECTRUM_ADDR;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
@@ -63,6 +64,7 @@ namespace beam
         extern const char* RESET_ID;
         extern const char* ERASE_ID;
         extern const char* CHECKDB;
+        extern const char* VACUUM;
         extern const char* CRASH;
         extern const char* INIT;
         extern const char* RESTORE;

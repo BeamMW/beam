@@ -150,6 +150,7 @@ namespace beam::wallet
                             , const TxID& txID
                             , ISecondSideProvider& secondSideProvider);
 
+        bool CanCancel() const override;
         void Cancel() override;
 
         bool Rollback(Height height) override;

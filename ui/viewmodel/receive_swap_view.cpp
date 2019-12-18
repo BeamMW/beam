@@ -23,19 +23,29 @@
 #include "qml_globals.h"
 
 namespace {
-    enum {
-        OfferExpires12h = 0,
-        OfferExpires6h  = 1
+    enum
+    {
+        OfferExpires15min = 0,
+        OfferExpires30min,
+        OfferExpires1h,
+        OfferExpires2h,
+        OfferExpires6h    
     };
 
-    uint16_t GetHourCount(int offerExpires)
+    double GetHourCount(int offerExpires)
     {
         switch (offerExpires)
         {
-        case OfferExpires12h:
-            return 12;
+        case OfferExpires15min:
+            return 0.25;
+        case OfferExpires30min:
+            return 0.5;
+        case OfferExpires1h:
+            return 1.0;
+        case OfferExpires2h:
+            return 2.0;
         case OfferExpires6h:
-            return 6;
+            return 6.0;
         default:
         {
             assert(false && "Unexpected value!");
@@ -57,13 +67,14 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     , _sentFeeGrothes(0)
     , _receiveCurrency(Currency::CurrBeam)
     , _sentCurrency(Currency::CurrBtc)
-    , _offerExpires(OfferExpires12h)
+    , _offerExpires(OfferExpires30min)
     , _saveParamsAllowed(false)
     , _walletModel(*AppModel::getInstance().getWallet())
     , _txParameters(beam::wallet::CreateSwapParameters()
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, beam::wallet::AtomicSwapCoin::Bitcoin)
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, true)
         .SetParameter(beam::wallet::TxParameterID::IsInitiator, true))
+    , _isBeamSide(true)
 {
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveSwapViewModel::onGeneratedNewAddress);
     connect(&_walletModel, &WalletModel::swapParamsLoaded, this, &ReceiveSwapViewModel::onSwapParamsLoaded);
@@ -108,6 +119,23 @@ void ReceiveSwapViewModel::storeSwapParams()
     }
 }
 
+bool ReceiveSwapViewModel::isSendBeam() const
+{
+    return !_isBeamSide;
+}
+
+QString ReceiveSwapViewModel::getRate() const
+{
+    beam::Amount otherCoinAmount =
+        isSendBeam() ? _amountToReceiveGrothes : _amountSentGrothes;
+    beam::Amount beamAmount =
+        isSendBeam() ? _amountSentGrothes : _amountToReceiveGrothes;
+
+    if (!beamAmount) return QString();
+
+    return QMLGlobals::divideWithPrecision8(beamui::AmountToUIString(otherCoinAmount), beamui::AmountToUIString(beamAmount));
+}
+
 void ReceiveSwapViewModel::onSwapParamsLoaded(const beam::ByteBuffer& params)
 {
     if(!params.empty())
@@ -150,7 +178,8 @@ void ReceiveSwapViewModel::setAmountToReceive(QString value)
     if (amount != _amountToReceiveGrothes)
     {
         _amountToReceiveGrothes = amount;
-        emit amountToReceiveChanged();
+        emit amountReceiveChanged();
+        emit rateChanged();
         updateTransactionToken();
     }
 }
@@ -170,7 +199,9 @@ void ReceiveSwapViewModel::setAmountSent(QString value)
     auto amount = beamui::UIStringToAmount(value);
     if (amount != _amountSentGrothes)
     {
+        bool isPreviouseSendWasZero = _amountSentGrothes == 0;
         _amountSentGrothes = amount;
+        if (isPreviouseSendWasZero && _amountToReceiveGrothes) emit rateChanged();
         emit amountSentChanged();
         updateTransactionToken();
     }
@@ -205,6 +236,7 @@ void ReceiveSwapViewModel::setReceiveCurrency(Currency value)
         _receiveCurrency = value;
         emit receiveCurrencyChanged();
         updateTransactionToken();
+        emit rateChanged();
         storeSwapParams();
     }
 }
@@ -223,6 +255,7 @@ void ReceiveSwapViewModel::setSentCurrency(Currency value)
         _sentCurrency = value;
         emit sentCurrencyChanged();
         updateTransactionToken();
+        emit rateChanged();
         storeSwapParams();
     }
 }
@@ -438,17 +471,17 @@ void ReceiveSwapViewModel::updateTransactionToken()
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 
     // All parameters sets as if we were on the recipient side (mirrored)
-    bool isBeamSide = (_receiveCurrency == Currency::CurrBeam);
-    auto swapCoin   = convertCurrencyToSwapCoin(isBeamSide ? _sentCurrency : _receiveCurrency);
-    auto beamAmount = isBeamSide ? _amountToReceiveGrothes : _amountSentGrothes;
-    auto swapAmount = isBeamSide ? _amountSentGrothes : _amountToReceiveGrothes;
+    _isBeamSide = (_receiveCurrency == Currency::CurrBeam);
+    auto swapCoin   = convertCurrencyToSwapCoin(_isBeamSide ? _sentCurrency : _receiveCurrency);
+    auto beamAmount = _isBeamSide ? _amountToReceiveGrothes : _amountSentGrothes;
+    auto swapAmount = _isBeamSide ? _amountSentGrothes : _amountToReceiveGrothes;
 
-    _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, _isBeamSide);
     _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, beamAmount);
     _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, swapCoin);
     _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, swapAmount);
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
-    _txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, isBeamSide);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, _isBeamSide);
 
     setTransactionToken(QString::fromStdString(std::to_string(_txParameters)));
 }

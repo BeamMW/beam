@@ -69,7 +69,8 @@ public:
         AmountReceiveSort,
         Token,
         SwapCoin,
-        FeeRate,
+        SwapCoinFeeRate,
+        SwapCoinFee,
         SwapCoinLockTxId,
         SwapCoinLockTxConfirmations,
         SwapCoinRedeemTxId,
@@ -79,7 +80,7 @@ public:
         BeamLockTxKernelId,
         BeamRedeemTxKernelId,
         BeamRefundTxKernelId,
-        SwapState
+        StateDetails
     };
 
     SwapTxObjectList();

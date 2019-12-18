@@ -13,8 +13,8 @@ ColumnLayout {
     property alias address: addressInput.text
     readonly property bool  isValid: addressInput.acceptableInput
 
-    property var ipValidator: RegExpValidator {regExp: /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]):([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/g}
-    property var ipDomainValidator: RegExpValidator {regExp: /^((((([A-Za-z0-9-]{1,63}(?!-)\.)+[A-Za-z]{2,6}))|((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))):([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5]))$/g}
+    property var ipValidator: RegExpValidator {regExp: /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/g}
+    property var ipDomainValidator: RegExpValidator {regExp: /^((((([A-Za-z0-9-]{1,63}(?!-)\.)+[A-Za-z]{2,6}))|((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))))$/g}
 
     property alias readOnly: addressInput.readOnly
     property alias underlineVisible: addressInput.underlineVisible
@@ -37,6 +37,7 @@ ColumnLayout {
             font.pixelSize: 12
             font.italic:    true
             color:          Style.validator_error
+            //% "Invalid address"
             text:           qsTrId("general-invalid-address")
             visible:        address.length && !isValid
         }

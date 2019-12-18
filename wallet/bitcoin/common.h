@@ -29,10 +29,14 @@ namespace beam::bitcoin
     constexpr uint32_t kTransactionVersion = 2;
     constexpr uint64_t kDustThreshold = 546;
     constexpr uint32_t kBTCWithdrawTxAverageSize = 360;
+    extern const char kMainnetGenesisBlockHash[];
+    extern const char kTestnetGenesisBlockHash[];
+    extern const char kRegtestGenesisBlockHash[];
 
     uint64_t btc_to_satoshi(double btc);
     uint8_t getAddressVersion();
-    bool validateElectrumMnemonic(const std::vector<std::string>& words);
+    std::vector<std::string> getGenesisBlockHashes();
+    bool validateElectrumMnemonic(const std::vector<std::string>& words, bool isSegwitType = false);
     std::vector<std::string> createElectrumMnemonic(const std::vector<uint8_t>& entropy);
 
     // the first key is receiving master private key

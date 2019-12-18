@@ -688,8 +688,10 @@ namespace
             cout << "Case: offers removed when chain height growns beyond expiration" << endl;
 
             SwapOffer aliceOffer = correctOffer;
+            SwapOffer aliceExpiredOffer = correctOffer;
             SwapOffer bobOffer = correctOffer;
             aliceOffer.m_txId = stepTxID(txId);
+            aliceExpiredOffer.m_txId = stepTxID(txId);
             bobOffer.m_txId = stepTxID(txId);
             Bob.publishOffer(bobOffer);
             Alice.publishOffer(aliceOffer);
@@ -723,6 +725,13 @@ namespace
             Alice.Unsubscribe(&obsRemove);
             WALLET_CHECK(Alice.getOffersList().size() == offerCount - 2);
             WALLET_CHECK(Bob.getOffersList().size() == offerCount);
+            WALLET_CHECK(exCount == 2);
+
+            // check expired offer 
+            Alice.Subscribe(&obsRemove);
+            Alice.publishOffer(aliceExpiredOffer);
+            Alice.Unsubscribe(&obsRemove);
+            WALLET_CHECK(Alice.getOffersList().size() == offerCount - 2);
             WALLET_CHECK(exCount == 2);
         }
 

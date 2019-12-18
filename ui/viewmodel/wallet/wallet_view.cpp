@@ -148,7 +148,9 @@ void WalletViewModel::onTxHistoryExportedToCsv(const QString& data)
         QFile file(path);
         if (file.open(QIODevice::WriteOnly | QIODevice::Text))
         {
+            QTextCodec *codec = QTextCodec::codecForName("UTF8");
             QTextStream out(&file);
+            out.setCodec(codec);
             out << data;
         }
     }

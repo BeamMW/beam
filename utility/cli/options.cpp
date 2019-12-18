@@ -147,6 +147,7 @@ namespace beam
         const char* SHOW_SWAP_SETTINGS = "show_swap_settings";
         const char* ELECTRUM_SEED = "electrum_seed";
         const char* GENERATE_ELECTRUM_SEED = "generate_electrum_seed";
+        const char* SELECT_SERVER_AUTOMATICALLY = "select_server_automatically";
         const char* ELECTRUM_ADDR = "electrum_addr";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
@@ -162,6 +163,7 @@ namespace beam
         const char* RESET_ID = "reset_id";
         const char* ERASE_ID = "erase_id";
         const char* CHECKDB = "check_db";
+        const char* VACUUM = "vacuum";
         const char* CRASH = "crash";
         const char* INIT = "init";
         const char* RESTORE = "restore";
@@ -318,7 +320,8 @@ namespace beam
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
-            (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check and compact (vacuum)")
+            (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check")
+            (cli::VACUUM, po::value<bool>()->default_value(false), "DB vacuum (compact)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
             (cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
             (cli::OWNER_KEY, po::value<string>(), "Owner viewer key")
@@ -384,17 +387,19 @@ namespace beam
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
             (cli::APPDATA_PATH, po::value<string>());
 
-        po::options_description swap_options("Atomic swap options");
+        po::options_description swap_options("Atomic swap options");        
         po::options_description visible_swap_options(swap_options);
         visible_swap_options.add_options()
-            (cli::COMMAND, po::value<string>(), "command to execute [swap_init|swap_accept]");
+            (cli::SWAP_INIT, "command to initialize")
+            (cli::SWAP_ACCEPT, "command to accept swap");
         swap_options.add_options()
-            (cli::SET_SWAP_SETTINGS, po::value<std::string>(), "command to work with swap settings.")
+            (cli::SET_SWAP_SETTINGS, "command to work with swap settings.")
             (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings [core|electrum]")
             (cli::ACTIVE_CONNECTION, po::value<string>(), "set active connection [core|electrum|none]")
             (cli::SHOW_SWAP_SETTINGS, "show altcoin's settings")
             (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
             (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
+            (cli::SELECT_SERVER_AUTOMATICALLY, po::value<bool>(), "select electrum server automatically")
             (cli::ELECTRUM_ADDR, po::value<string>(), "electrum address")
             (cli::SWAP_WALLET_ADDR, po::value<string>(), "rpc address of swap wallet")
             (cli::SWAP_WALLET_USER, po::value<string>(), "rpc user name for the swap wallet")

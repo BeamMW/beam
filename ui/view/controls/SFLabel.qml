@@ -25,7 +25,7 @@ Label {
         anchors.left: control.left
         anchors.top: control.top
         height: control.height
-        width: control.contentWidth
+        width: control.width
         color: selectionColor
     }
 
@@ -34,7 +34,7 @@ Label {
         anchors.left: control.left
         anchors.top: control.top
         height: control.height
-        width: control.contentWidth
+        width: control.width
         acceptedButtons: Qt.RightButton
         hoverEnabled: true
 
