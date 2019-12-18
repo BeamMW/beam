@@ -914,6 +914,16 @@ namespace beam
 		return true;
 	}
 
+#define THE_MACRO(id, name) \
+	TxKernel::Subtype::Enum TxKernel##name::get_Subtype() const \
+	{ \
+		return Subtype::name; \
+	}
+
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
+
 	bool TxKernelStd::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
 		const Rules& r = Rules::get(); // alias
@@ -933,11 +943,6 @@ namespace beam
 			return false;
 
 		return true;
-	}
-
-	TxKernel::Subtype::Enum TxKernelStd::get_Subtype() const
-	{
-		return Subtype::Std;
 	}
 
 	void TxKernel::AddStats(TxStats& s) const
@@ -1098,11 +1103,6 @@ namespace beam
 
 	/////////////
 	// TxKernelAssetEmit
-	TxKernel::Subtype::Enum TxKernelAssetEmit::get_Subtype() const
-	{
-		return Subtype::AssetEmit;
-	}
-
 	void TxKernelAssetEmit::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
 		hp
