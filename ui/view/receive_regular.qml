@@ -107,7 +107,7 @@ ColumnLayout {
             // Comment
             //
             SFText {
-                Layout.topMargin: 40
+                Layout.topMargin: 0//40
                 font.pixelSize:   14
                 font.styleName:   "Bold"; font.weight: Font.Bold
                 color:            Style.content_main
@@ -266,7 +266,7 @@ ColumnLayout {
         }
     }
 
-    Row {
+    Item {
         Layout.fillHeight: true
     }
 }
