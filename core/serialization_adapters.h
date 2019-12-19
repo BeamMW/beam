@@ -1636,12 +1636,44 @@ namespace detail
 		serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, 0, beam::TxKernel>::ImplTxKernel::save2(ar, krn, bAssumeStd);
 	}
 
+	template <typename Trg>
+	struct SerializerProxy
+	{
+		struct Impl
+		{
+			Trg& m_Trg;
+			Impl(Trg& trg) :m_Trg(trg) {}
+
+			size_t write(const void* p, const size_t size)
+			{
+				m_Trg << beam::Blob(p, static_cast<uint32_t>(size));
+				return size;
+			}
+
+		} m_Impl;
+
+		yas::binary_oarchive<Impl, beam::SERIALIZE_OPTIONS> _oa;
+
+
+		SerializerProxy(Trg& trg)
+			:m_Impl(trg)
+			,_oa(m_Impl)
+		{
+		}
+
+		template <typename T> SerializerProxy& operator & (const T& object)
+		{
+			_oa & object;
+			return *this;
+		}
+	};
+
 }
 }
 
 template <typename T>
 inline ECC::Hash::Processor& ECC::Hash::Processor::Serialize(const T& t)
 {
-	beam::SerializerProxy<ECC::Hash::Processor>(*this) & t;
+	yas::detail::SerializerProxy<ECC::Hash::Processor>(*this) & t;
 	return *this;
 }
