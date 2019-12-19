@@ -415,7 +415,8 @@ namespace beam
 #define BeamKernelsAll(macro) \
 	macro(1, Std) \
 	macro(2, AssetEmit) \
-	macro(3, ShieldedOutput)
+	macro(3, ShieldedOutput) \
+	macro(4, ShieldedInput)
 
 #define THE_MACRO(id, name) struct TxKernel##name;
 	BeamKernelsAll(THE_MACRO)
@@ -573,6 +574,24 @@ namespace beam
 		Output::Shielded m_Shielded;
 
 		virtual ~TxKernelShieldedOutput() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void AddStats(TxStats&) const;
+		virtual void Clone(TxKernel::Ptr&) const override;
+	protected:
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelShieldedInput
+		:public TxKernelNonStd
+	{
+		typedef std::unique_ptr<TxKernelShieldedInput> Ptr;
+
+		ECC::Point m_Commitment;
+		Input::SpendProof m_SpendProof;
+
+		virtual ~TxKernelShieldedInput() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void AddStats(TxStats&) const;

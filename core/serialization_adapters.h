@@ -1286,6 +1286,44 @@ namespace detail
 				val.m_CanEmbed = true;
         }
 
+		/// beam::TxKernelShieldedInput serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernelShieldedInput& val)
+		{
+			uint32_t nFlags =
+				ImplTxKernel::get_CommonFlags(val) |
+				(val.m_Commitment.m_Y ? 1 : 0) |
+				(val.m_CanEmbed ? 0x80 : 0);
+
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_SpendProof;
+
+			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::save_Nested(ar, val);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static void load0(Archive& ar, beam::TxKernelShieldedInput& val, uint32_t nRecursion)
+		{
+			uint32_t nFlags;
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_SpendProof;
+
+			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
+
+			val.m_Commitment.m_Y = (1 & nFlags);
+
+			if (0x80 & nFlags)
+				val.m_CanEmbed = true;
+		}
+
         /// beam::Transaction serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxBase& txb)

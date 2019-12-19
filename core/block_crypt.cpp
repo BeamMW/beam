@@ -1249,6 +1249,53 @@ namespace beam
 	}
 
 	/////////////
+	// TxKernelShieldedInput
+	bool TxKernelShieldedInput::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!IsValidBase(hScheme, exc, pParent))
+			return false;
+
+		const Rules& r = Rules::get(); // alias
+		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
+			return false; // unsupported for that version
+
+		ECC::Point::Native comm;
+		if (!comm.ImportNnz(m_Commitment))
+			return false;
+
+		comm = -comm;
+		exc += comm;
+
+		return true; // Spend proof verification is not done here
+	}
+
+	void TxKernelShieldedInput::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		hp << m_Commitment;
+	}
+
+	void TxKernelShieldedInput::HashSelfForID(ECC::Hash::Processor& hp) const
+	{
+		hp.Serialize(m_SpendProof);
+	}
+
+	void TxKernelShieldedInput::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelShieldedInput);
+		TxKernelShieldedInput& v = Cast::Up<TxKernelShieldedInput>(*p);
+
+		v.CopyFrom(*this);
+		v.m_Commitment = m_Commitment;
+		v.m_SpendProof = m_SpendProof;
+	}
+
+	void TxKernelShieldedInput::AddStats(TxStats& s) const
+	{
+		TxKernelNonStd::AddStats(s);
+		s.m_InputsShielded++;
+	}
+
+	/////////////
 	// Transaction
 	Transaction::FeeSettings::FeeSettings()
 	{

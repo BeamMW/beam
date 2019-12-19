@@ -2492,6 +2492,51 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 	return true;
 }
 
+bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpretCtx& bic)
+{
+	const ECC::Point& key = krn.m_SpendProof.m_Part1.m_SpendPk;
+	if (bic.m_Fwd)
+	{
+		if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
+			return false;
+
+		if (bic.m_ValidateOnly)
+		{
+			if (!ValidateShieldedNoDup(key, false))
+				return false;
+
+			ECC::Point key2 = key;
+			key2.m_Y ^= 2;
+
+			assert(bic.m_pDups);
+			if (bic.m_pDups->end() != bic.m_pDups->find(key2))
+				return false;
+
+			bic.m_pDups->insert(key2);
+		}
+		else
+		{
+			if (!HandleShieldedElement(key, false, true))
+				return false;
+		}
+
+		bic.m_ShieldedIns++; // ok
+
+	}
+	else
+	{
+		assert(!bic.m_ValidateOnly);
+
+		if (!HandleShieldedElement(key, false, false))
+			OnCorrupted();
+
+		assert(bic.m_ShieldedIns);
+		bic.m_ShieldedIns--;
+	}
+
+	return true;
+}
+
 template <typename T>
 bool NodeProcessor::HandleElementVecFwd(const T& vec, BlockInterpretCtx& bic, size_t& n)
 {
