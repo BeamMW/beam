@@ -1779,6 +1779,9 @@ struct NodeProcessor::BlockInterpretCtx
 	uint32_t m_ShieldedIns;
 	uint32_t m_ShieldedOuts;
 
+	ECC::Point::Storage* m_pShieldedOut; // used in normal (apply) mode
+	std::set<ECC::Point>* m_pDups; // used in validate-only mode
+
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
 		,m_Fwd(bFwd)
@@ -1787,6 +1790,8 @@ struct NodeProcessor::BlockInterpretCtx
 		,m_SaveKid(true)
 		,m_ShieldedIns(0)
 		,m_ShieldedOuts(0)
+		,m_pShieldedOut(nullptr)
+		,m_pDups(nullptr)
 	{
 	}
 };
@@ -1956,20 +1961,34 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		}
 	}
 
+	TxStats stats;
+	block.get_Reader().AddStats(stats);
+
 	TxoID id0 = m_Extra.m_Txos;
 
 	BlockInterpretCtx bic(sid.m_Height, true);
 	if (!bFirstTime)
 		bic.m_AlreadyValidated = true;
 
+	std::vector<ECC::Point::Storage> vShieldedOut;
+	if (stats.m_OutputsShielded)
+	{
+		vShieldedOut.resize(stats.m_OutputsShielded);
+		bic.m_pShieldedOut = &vShieldedOut.front();
+	}
+
 	bool bOk = HandleValidatedBlock(block, bic);
 	if (!bOk)
 	{
+		assert(bFirstTime);
 		assert(m_Extra.m_Txos == id0);
 		LOG_WARNING() << LogSid(m_DB, sid) << " invalid in its context";
 	}
 	else
+	{
 		assert(m_Extra.m_Txos > id0);
+		assert(bic.m_ShieldedOuts == stats.m_OutputsShielded);
+	}
 
 	if (bFirstTime && bOk)
 	{
@@ -2422,7 +2441,55 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 
 bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
 {
-	return true; // no special processing at the moment
+	const ECC::Point& key = krn.m_Shielded.m_SerialPub;
+	if (bic.m_Fwd)
+	{
+		if (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts)
+			return false;
+
+		if (bic.m_ValidateOnly)
+		{
+			if (!ValidateShieldedNoDup(key, true))
+				return false;
+
+			assert(bic.m_pDups);
+			if (bic.m_pDups->end() != bic.m_pDups->find(key))
+				return false;
+
+			bic.m_pDups->insert(key);
+		}
+		else
+		{
+			if (!HandleShieldedElement(key, true, true))
+				return false;
+
+			if (bic.m_pShieldedOut)
+			{
+				ECC::Point::Native pt, pt2;
+				pt.Import(krn.m_Commitment); // don't care if Import fails (kernels are not necessarily tested at this stage)
+				pt2.Import(krn.m_Shielded.m_SerialPub);
+				pt += pt2;
+
+				ECC::Point::Storage pt_s;
+				pt.Export(bic.m_pShieldedOut[bic.m_ShieldedOuts]);
+			}
+		}
+
+		bic.m_ShieldedOuts++; // ok
+
+	}
+	else
+	{
+		assert(!bic.m_ValidateOnly);
+
+		if (!HandleShieldedElement(key, true, false))
+			OnCorrupted();
+
+		assert(bic.m_ShieldedOuts);
+		bic.m_ShieldedOuts--;
+	}
+
+	return true;
 }
 
 template <typename T>
@@ -3329,6 +3396,10 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	// Ensure kernels are ok
 	BlockInterpretCtx bic(h, true);
 	bic.m_ValidateOnly = true;
+
+	std::set<ECC::Point> setDups;
+	bic.m_pDups = &setDups;
+
 	size_t n = 0;
 	if (!HandleElementVecFwd(tx.m_vKernels, bic, n))
 		return false;
