@@ -66,7 +66,7 @@ public:
     );
 
     /**
-     * Connect to remote socket using proxy server
+     * Connect to remote destination using proxy server
      * @proxyAddr proxy server address
      */
     Result tcp_connect_with_proxy(
