@@ -32,9 +32,8 @@ public:
     auto amountSend() const -> QString;
     auto amountReceive() const -> QString;
     auto rate() const -> QString;
-    auto rateValue() const-> double;
     auto isOwnOffer() const -> bool;
-    auto isBeamSide() const -> bool;
+    auto isSendBeam() const -> bool;
 
     auto rawAmountSend() const -> beam::Amount;
     auto rawAmountReceive() const -> beam::Amount;

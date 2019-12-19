@@ -67,6 +67,7 @@ namespace beam::wallet
         bool isRunning() const;
         bool isFork1() const;
         size_t getUnsafeActiveTransactionsCount() const;
+        bool isConnectionTrusted() const;
 
     protected:
         // Call this before derived class is destructed to ensure
@@ -84,7 +85,6 @@ namespace beam::wallet
         virtual void onChangeCalculated(Amount change) = 0;
         virtual void onAllUtxoChanged(const std::vector<Coin>& utxos) = 0;
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) = 0;
-        virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override = 0;
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) = 0;
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) = 0;
         virtual void onNewAddressFailed() = 0;
@@ -102,6 +102,7 @@ namespace beam::wallet
         virtual void onImportDataFromJson(bool isOk) = 0;
         virtual void onExportDataToJson(const std::string& data) = 0;
         virtual void onPostFunctionToClientContext(MessageFunction&& func) = 0;
+        virtual void onExportTxHistoryToCsv(const std::string& data) = 0;
 
     private:
 
@@ -110,6 +111,7 @@ namespace beam::wallet
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
         void onSyncProgress(int done, int total) override;
+        void onOwnedNode(const PeerID& id, bool connected) override;
 
         void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
         void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
@@ -143,6 +145,7 @@ namespace beam::wallet
         void importRecovery(const std::string& path) override;
         void importDataFromJson(const std::string& data) override;
         void exportDataToJson() override;
+        void exportTxHistoryToCsv() override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
@@ -154,6 +157,9 @@ namespace beam::wallet
         void nodeConnectedStatusChanged(bool isNodeConnected);
         void updateClientState();
         void updateClientTxState();
+        void updateConnectionTrust(bool trustedConnected);
+        bool isConnected() const;
+
     private:
         std::shared_ptr<std::thread> m_thread;
         IWalletDB::Ptr m_walletDB;
@@ -165,11 +171,15 @@ namespace beam::wallet
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
 #endif
-        bool m_isConnected;
+        uint32_t m_connectedNodesCount;
+        uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;
         std::string m_nodeAddrStr;
         IPrivateKeyKeeper::Ptr m_keyKeeper;
+
+        // these variables is accessible from UI thread
         size_t m_unsafeActiveTxCount = 0;
         beam::Height m_currentHeight = 0;
+        bool m_isConnectionTrusted = false;
     };
 }

@@ -317,7 +317,10 @@ int main_impl(int argc, char* argv[])
 					}
 
 					if (vm.count(cli::CHECKDB))
-						node.m_Cfg.m_ProcessorParams.m_CheckIntegrityAndVacuum = vm[cli::CHECKDB].as<bool>();
+						node.m_Cfg.m_ProcessorParams.m_CheckIntegrity = vm[cli::CHECKDB].as<bool>();
+
+					if (vm.count(cli::VACUUM))
+						node.m_Cfg.m_ProcessorParams.m_Vacuum = vm[cli::VACUUM].as<bool>();
 
 					if (vm.count(cli::RESET_ID))
 						node.m_Cfg.m_ProcessorParams.m_ResetSelfID = vm[cli::RESET_ID].as<bool>();

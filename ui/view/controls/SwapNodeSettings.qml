@@ -13,7 +13,7 @@ Control {
     rightPadding:  25
     topPadding:    20
     bottomPadding: 20
-
+    height:        362
     //
     // Common props
     //
@@ -21,7 +21,6 @@ Control {
     property alias  showSeedDialogTitle:      seedPhraseDialog.showSeedDialogTitle
     property alias  showAddressesDialogTitle: showAddressesDialog.showAddressesDialogTitle
     property string feeRateLabel:        ""
-    property int    minFeeRate:          0
     property string color:               Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
     property alias  editElectrum:        useElectrumSwitch.checked
     property bool   canEdit:             true
@@ -30,11 +29,13 @@ Control {
     property bool   isNodeConnection:       false
     property bool   isElectrumConnection:   false
     property alias  connectionStatus:       statusIndicator.status
+    property alias  connectionErrorMsg:     connectionErrorMsg.text
 
     //
     // Node props
     //
     property alias  address:      addressInput.address
+    property alias  port:         portInput.text
     property alias  username:     usernameInput.text
     property alias  password:     passwordInput.text
     property alias  feeRate:      feeRateInput.fee
@@ -43,11 +44,14 @@ Control {
     //
     // Electrum props
     //
-    property alias addressElectrum:            addressInputElectrum.address
-    property alias seedPhrasesElectrum:        seedPhraseDialog.seedPhrasesElectrum
-    property alias phrasesSeparatorElectrum:   seedPhraseDialog.phrasesSeparatorElectrum
-    property bool  isCurrentElectrumSeedValid: false
-    property bool  canEditElectrum:            !control.isElectrumConnection
+    property alias addressElectrum:                     addressInputElectrum.address
+    property alias portElectrum:                        portInputElectrum.text
+    property alias isSelectServerAutomatcally:          selectServerAutomatically.checked
+    property alias seedPhrasesElectrum:                 seedPhraseDialog.seedPhrasesElectrum
+    property alias phrasesSeparatorElectrum:            seedPhraseDialog.phrasesSeparatorElectrum
+    property bool  isCurrentElectrumSeedValid:          false
+    property bool  isCurrentElectrumSeedSegwitAndValid: false
+    property bool  canEditElectrum:                     !control.isElectrumConnection
 
     // function to get "receiving" addresses
     property var   getAddressesElectrum:       undefined
@@ -93,23 +97,27 @@ Control {
     QtObject {
         id: internalNode
         property string initialAddress
+        property string initialPort
         property string initialUsername
         property string initialPassword        
 
         function restore() {
             address  = initialAddress
+            port     = initialPort
             username = initialUsername
             password = initialPassword
         }
 
         function save() {
             initialAddress  = address
+            initialPort     = port
             initialUsername = username
             initialPassword = password
         }
 
         function isChanged() {
             return initialAddress  !== address
+                || initialPort     !== port
                 || initialUsername !== username
                 || initialPassword !== password
         }
@@ -158,7 +166,7 @@ Control {
     }
 
     function canApplyNode() {
-        return feeRate >= minFeeRate && password.length && username.length && addressInput.isValid
+        return password.length && username.length && addressInput.isValid && portInput.acceptableInput
     }
 
     function applyChangesNode() {
@@ -175,7 +183,7 @@ Control {
     }
 
     function haveNodeSettings() {
-        return feeRate >= minFeeRate && password.length && username.length && addressInput.isValid;
+        return password.length && username.length && addressInput.isValid && portInput.acceptableInput;
     }
 
     //
@@ -185,27 +193,34 @@ Control {
     QtObject {
         id: internalElectrum
         property string initialAddress
+        property string initialPort
+        property bool   initialSelectServerAutomatically
         property string initialSeed
         property bool   isSeedChanged: false
 
         function restore() {
             isSeedChanged = false
             addressElectrum = initialAddress
+            porttElectrum = initialPort
+            isSelectServerAutomatcally = initialSelectServerAutomatically
             control.restoreSeedElectrum()
         }
 
         function save() {
             initialAddress  = addressElectrum
+            initialPort     = portElectrum
+            initialSelectServerAutomatically = isSelectServerAutomatcally
             isSeedChanged = false
         }
 
         function isChanged() {
-            return initialAddress !== addressElectrum || isSeedChanged
+            return (!isSelectServerAutomatcally && initialAddress !== addressElectrum) || initialPort !== portElectrum || isSeedChanged || 
+                    isSelectServerAutomatcally !== initialSelectServerAutomatically
         }
     }
 
     function canApplyElectrum() {
-        return feeRate >= minFeeRate && isCurrentElectrumSeedValid && addressInputElectrum.isValid
+        return isCurrentElectrumSeedValid && ((addressInputElectrum.isValid && portInputElectrum.acceptableInput) || isSelectServerAutomatcally)
     }
 
     function canClearElectrum() {
@@ -222,7 +237,7 @@ Control {
     }
 
     function haveElectrumSettings() {
-        return feeRate >= minFeeRate && isCurrentElectrumSeedValid && addressInputElectrum.isValid;
+        return isCurrentElectrumSeedValid && ((addressInputElectrum.isValid && portInputElectrum.acceptableInput) || isSelectServerAutomatcally);
     }
 
     Component.onCompleted: {
@@ -260,6 +275,16 @@ Control {
                 font.weight:            Font.Bold
                 font.capitalization:    Font.AllUppercase
                 font.letterSpacing:     3.11
+            }
+
+            SFText {
+                id:                connectionErrorMsg
+                Layout.topMargin:  3
+                Layout.leftMargin: 20
+                color:             Style.validator_error
+                font.pixelSize:    14
+                font.italic:       true
+                visible:           statusIndicator.status == "error"
             }
         }
 
@@ -368,6 +393,28 @@ Control {
                 visible:        !editElectrum
                 font.pixelSize: 14
                 color:          control.color
+                text:           qsTrId("settings-local-node-port")
+            }
+
+            SFTextInput {
+                id:                 portInput
+                visible:            !editElectrum
+                Layout.fillWidth:   true
+                font.pixelSize:     14
+                activeFocusOnTab:   true
+                color:              Style.content_main
+                underlineVisible:   canEditNode
+                readOnly:           !canEditNode
+                validator: IntValidator {
+                    bottom: 1
+                    top: 65535
+                }
+            }
+
+            SFText {
+                visible:        !editElectrum
+                font.pixelSize: 14
+                color:          control.color
                 //% "Username"
                 text:           qsTrId("settings-username")
             }
@@ -404,6 +451,16 @@ Control {
             }
 
             // electrum settings
+            CustomCheckBox {
+                id: selectServerAutomatically
+                visible:        editElectrum
+                Layout.columnSpan: 2
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
+                //% "Select server automatically"
+                text: qsTrId("select-server-automatically")
+            }
+
             SFText {
                 visible:        editElectrum
                 font.pixelSize: 14
@@ -418,8 +475,30 @@ Control {
                 Layout.fillWidth: true
                 color:            Style.content_main
                 ipOnly:           false
-                underlineVisible: canEditElectrum
-                readOnly:         !canEditElectrum
+                readOnly:         selectServerAutomatically.checked
+                underlineVisible: !selectServerAutomatically.checked
+            }
+
+            SFText {
+                visible:        editElectrum
+                font.pixelSize: 14
+                color:          control.color
+                text:           qsTrId("settings-local-node-port")
+            }
+
+            SFTextInput {
+                id:                 portInputElectrum
+                visible:            editElectrum
+                Layout.fillWidth:   true
+                font.pixelSize:     14
+                activeFocusOnTab:   true
+                color:              Style.content_main
+                readOnly:           selectServerAutomatically.checked
+                underlineVisible:   !selectServerAutomatically.checked
+                validator: IntValidator {
+                    bottom: 1
+                    top: 65535
+                }
             }
 
             // common fee rate
@@ -435,7 +514,7 @@ Control {
                 Layout.fillWidth:    true
                 fillWidth:           true
                 inputPreferredWidth: -1
-                minFee:              control.minFeeRate
+                minFee:              0
                 feeLabel:            control.feeRateLabel
                 color:               Style.content_main
                 spacing:             0
@@ -444,13 +523,23 @@ Control {
             }
         }
 
+        SFText {
+            Layout.preferredWidth: 390
+            font.pixelSize:        14
+            wrapMode:              Text.WordWrap
+            color:                 control.color
+            lineHeight:            1.1 
+            //% "Remember to validate the expected fee rate for the blockchain (as it varies with time)."
+            text:                  qsTrId("settings-fee-rate-note")
+        }
+       
         // electrum settings - seed: new || edit
         RowLayout {
             visible:             editElectrum && canEditElectrum
             spacing:             20
             Layout.fillWidth:    true
             Layout.topMargin:    30
-            Layout.bottomMargin: 37
+            Layout.bottomMargin: 7
 
             LinkButton {
                 text:      isCurrentElectrumSeedValid ?   
@@ -462,6 +551,7 @@ Control {
                     function editSeedPhrase() {
                         seedPhraseDialog.setModeEdit();
                         seedPhraseDialog.isCurrentElectrumSeedValid = Qt.binding(function(){return isCurrentElectrumSeedValid;});
+                        seedPhraseDialog.isCurrentElectrumSeedSegwitAndValid = Qt.binding(function(){return isCurrentElectrumSeedSegwitAndValid;});
                         seedPhraseDialog.open();
                     }
                     if (isCurrentElectrumSeedValid) {
@@ -522,7 +612,7 @@ Control {
             spacing:             20
             Layout.fillWidth:    true
             Layout.topMargin:    30
-            Layout.bottomMargin: 37
+            Layout.bottomMargin: 7
 
             LinkButton {
                 //% "Show seed phrase"
@@ -554,9 +644,9 @@ Control {
 
         // alert text if we have active transactions
         SFText {
-            visible:               !control.canEdit
+            visible:               !control.canEdit && !(editElectrum && isSettingsChanged())
             Layout.topMargin:      30
-            Layout.preferredWidth: 400
+            Layout.preferredWidth: 390
             Layout.alignment:      Qt.AlignVCenter | Qt.AlignHCenter
             horizontalAlignment:   Text.AlignHCenter
             verticalAlignment:     Text.AlignVCenter
@@ -574,7 +664,7 @@ fee while you have transactions in progress."
         // "cancel" "apply"
         // "connect to node" or "connect to electrum"
         RowLayout {
-            visible:          control.canEdit
+            visible:          control.canEdit || (editElectrum && isSettingsChanged())
             Layout.fillWidth: true
             Layout.topMargin: 30
             spacing:          15
@@ -638,11 +728,13 @@ fee while you have transactions in progress."
         modal:       true
         visible:     false
         
-        property string showSeedDialogTitle:        ""
-        property string phrasesSeparatorElectrum:   ""
-        property var    seedPhrasesElectrum:        undefined
-        property bool   isCurrentElectrumSeedValid: false
-        property bool   isSeedChanged:              false
+        property string showSeedDialogTitle:                 ""
+        property string phrasesSeparatorElectrum:            ""
+        property var    seedPhrasesElectrum:                 undefined
+        property bool   isCurrentElectrumSeedValid:          false
+        property bool   isCurrentElectrumSeedSegwitAndValid: false
+        property bool   isSeedChanged:                       false
+        property bool   isAllWordsAllowed:                   true
 
         signal newSeedElectrum
         signal copySeedElectrum
@@ -653,6 +745,10 @@ fee while you have transactions in progress."
         onValidateFullSeedPhrase: control.validateCurrentSeedPhrase()
         onClosed: {
             internalElectrum.isSeedChanged = seedPhraseDialog.isSeedChanged
+        }
+
+        Component.onCompleted: {
+            updateIsAllWordsAllowed();
         }
 
         function setModeEdit() {
@@ -695,6 +791,16 @@ fee while you have transactions in progress."
                 }
             }
             isSeedChanged = isChanged;
+        }
+
+        function updateIsAllWordsAllowed() {
+            for (var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
+                if (!seedPhraseDialog.seedPhrasesElectrum[i].isAllowed) {
+                    isAllWordsAllowed = false;
+                    return;
+                }
+            }
+            isAllWordsAllowed = true;
         }
 
         background: Rectangle {
@@ -740,11 +846,11 @@ fee while you have transactions in progress."
             // body: seed phrase
             GridLayout {
                 Layout.topMargin:    50
-                Layout.bottomMargin: 50
+                Layout.bottomMargin: invalidSeedWarning.visible ? 6 : 50
                 columns:             4
                 columnSpacing:       30
                 rowSpacing:          20
-                                    
+
                 Repeater {
                     model: seedPhrasesElectrum
                     Rectangle {
@@ -809,6 +915,7 @@ fee while you have transactions in progress."
                                     onValueChanged: {
                                         seedPhraseDialog.updateIsSeedChanged();
                                         seedPhraseDialog.validateFullSeedPhrase()
+                                        seedPhraseDialog.updateIsAllWordsAllowed()
                                     }
                                 }
                             }
@@ -825,6 +932,24 @@ fee while you have transactions in progress."
                         }
                     }
                 }
+            }
+
+            SFText {
+                id: invalidSeedWarning
+                Layout.fillWidth:     true
+                Layout.bottomMargin:  28
+                text:                 isCurrentElectrumSeedSegwitAndValid ? 
+                                      //% "Segwit seed phrase is not supported yet."
+                                      qsTrId("settings-swap-seed-segwit-warning") :
+                                      //% "Invalid seed phrase. Please check again and resubmit."
+                                      qsTrId("settings-swap-seed-invali-warning")
+                color:                Style.validator_error
+                font.pixelSize:       12
+                font.italic:          true
+                width:                parent.width
+                horizontalAlignment:  Text.AlignHCenter
+                visible:              isCurrentElectrumSeedSegwitAndValid || 
+                                      (!isCurrentElectrumSeedValid && seedPhraseDialog.isAllWordsAllowed && seedPhraseDialog.isSeedChanged)
             }
 
             // buttons
@@ -856,14 +981,9 @@ fee while you have transactions in progress."
                     Layout.minimumWidth:    126
                     text:                   qsTrId("settings-apply")
                     icon.source:            "qrc:/assets/icon-done.svg"
-                    enabled: {
-                        var enable = seedPhraseDialog.isCurrentElectrumSeedValid && seedPhraseDialog.isSeedChanged;
-                        for (var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
-                            enable = enable && seedPhraseDialog.seedPhrasesElectrum[i].isAllowed;
-                        }
-                        return enable;
-                    }
-                    onClicked: seedPhraseDialog.applySeedPhrase()
+                    enabled:                seedPhraseDialog.isCurrentElectrumSeedValid && 
+                                            seedPhraseDialog.isSeedChanged && seedPhraseDialog.isAllWordsAllowed;
+                    onClicked:              seedPhraseDialog.applySeedPhrase()
                 }
 
                 // viewPhrase: "close" "copy"

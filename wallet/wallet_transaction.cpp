@@ -68,6 +68,18 @@ namespace beam::wallet
                 LOG_INFO() << "Can't send to the expired address.";
                 throw AddressExpiredException();
             }
+
+            // update address comment if changed
+            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            {
+                auto messageStr = std::string(message->begin(), message->end());
+                if (messageStr != receiverAddr->m_label)
+                {
+                    receiverAddr->m_label = messageStr;
+                    m_WalletDB->saveAddress(*receiverAddr);
+                }
+            }          
+
             TxParameters temp{ parameters };
             temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->m_OwnID != 0);
             return temp;

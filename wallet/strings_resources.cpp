@@ -17,7 +17,6 @@
 namespace beam
 {
     const char kDefaultConfigFile[] = "beam-wallet.cfg";
-    const char kTimeStampFormat3x3[] = "%Y.%m.%d %H:%M:%S";
     const char kBEAM[] = "BEAM";
     const char kGROTH[] = "GROTH";
     // Coin statuses
@@ -95,7 +94,11 @@ namespace beam
     const char kErrorAmountTooLow[] = "The amount must be greater than the redemption fee.";
     const char kErrorUnableSendZeroCoin[] = "Unable to send zero coins";
     const char kErrorTxStatusInvalid[] = "Transaction could not be deleted. Invalid transaction status.";
+    const char kErrorCancelTxInInvalidStatus[] = "You cannot cancel transaction in state: ";
     const char kErrorTxIdUnknown[] = "Unknown transaction ID.";
+    const char kErrorImportPathInvalid[] = "Operation failed: provided path \"%1%\" is not valid";
+    const char kErrorFileLocationParamReqired[] = "Failed, --file_location param required";
+    const char kErrorConnectionFailed[] = "Connection Failed - Please check your network";
 
     // Swap Tx statuses
     const char kSwapTxStatusInitial[] = "initial";

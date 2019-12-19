@@ -245,26 +245,21 @@ Item
                                 }
                             }
 
-                            RowLayout {
+                            SFText {
                                 Layout.alignment: Qt.AlignHCenter
-                                Layout.fillWidth: true
                                 Layout.topMargin: 65
-                                spacing: 30
-                                SFText {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    //% "Restore wallet"
-                                    text: qsTrId("general-restore-wallet")
-                                    color: Style.active
-                                    font.pixelSize: 14
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        acceptedButtons: Qt.LeftButton
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            restoreWalletConfirmation.open();
-                                        }
-                                        hoverEnabled: true
+                                //% "Restore wallet"
+                                text: qsTrId("general-restore-wallet")
+                                color: Style.active
+                                font.pixelSize: 14
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.LeftButton
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        restoreWalletConfirmation.open();
                                     }
+                                    hoverEnabled: true
                                 }
                             }
 
@@ -323,17 +318,19 @@ Item
                             anchors.fill: parent
                             spacing: 0
 
-                            SFText {
-                                Layout.alignment: Qt.AlignHCenter
-                                //% "Your wallet will be migrated to v."
-                                text: qsTrId("start-migration-message") + viewModel.walletVersion()
-                                color: Style.content_main
-                                font.pixelSize: 14
-                            }
-
                             Item {
-                                Layout.minimumHeight: 30
-                                Layout.preferredHeight: 100
+                                Layout.fillHeight: true
+                                Layout.minimumHeight: 40
+                                Layout.maximumHeight: 180
+                                Layout.fillWidth: true
+                                SFText {
+                                    //Layout.alignment: Qt.AlignHCenter
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    //% "Your wallet will be migrated to v."
+                                    text: qsTrId("start-migration-message") + viewModel.walletVersion()
+                                    color: Style.content_main
+                                    font.pixelSize: 14
+                                }
                             }
 
                             RowLayout {
@@ -378,7 +375,6 @@ Item
 
                             SFText {
                                 Layout.alignment: Qt.AlignHCenter
-                                Layout.preferredHeight: 16
                                 Layout.topMargin: 65
                                 //% "Restore wallet or create a new one"
                                 text: qsTrId("general-restore-or-create-wallet")
@@ -2195,7 +2191,6 @@ Item
 
                             Item {
                                 Layout.alignment: Qt.AlignHCenter
-                                Layout.fillHeight: true
                                 Layout.preferredHeight: 36
                                 Layout.topMargin: 20
                                 Layout.bottomMargin: 9
@@ -2221,25 +2216,20 @@ Item
                                 }
                             }
 
-                            Row {
+                            SFText {
                                 Layout.alignment: Qt.AlignHCenter
-                                Layout.preferredHeight: 16
-                                // spacing: 30
-                                SFText {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    //% "Restore wallet or create a new one"
-                                    text: qsTrId("general-restore-or-create-wallet")
-                                    color: Style.active
-                                    font.pixelSize: 14
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        acceptedButtons: Qt.LeftButton
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            confirmChangeWalletDialog.open();
-                                        }
-                                        hoverEnabled: true
+                                //% "Restore wallet or create a new one"
+                                text: qsTrId("general-restore-or-create-wallet")
+                                color: Style.active
+                                font.pixelSize: 14
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.LeftButton
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        confirmChangeWalletDialog.open();
                                     }
+                                    hoverEnabled: true
                                 }
                             }
 

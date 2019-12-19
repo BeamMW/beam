@@ -38,6 +38,7 @@ Dialog {
 				//: Edit address dialog, expiration option, do not change
 				//% "Within 24 hours"
 				expirationOptionsForActive.model = [qsTrId("edit-addr-as-is-option"),].concat(expirationOptions);
+				expirationOptionsForActive.currentIndex = 0;
 			}
 		}
 	}
@@ -451,7 +452,18 @@ Dialog {
 							}
 						}
 					}
-					console.log(expirationStatus);
+					// check if address expiration has been changed
+					if (!rootControl.isExpiredAddress &&
+							(disactivate.checked ||
+							 (expirationOptionsForActive.currentIndex != 0 && !isNeverExpired()) ||
+							 (expirationOptionsForActive.currentIndex != 1 && isNeverExpired()))
+					   ) {
+						if (parentModel.isAddressBusy(addressID.text)) {
+							// there are active transactions for this address
+                    		forbidEditAddressDialog.open();
+							return;
+						}
+					}
 					parentModel.saveChanges(addressID.text, addressName.text, expirationStatus);
 					rootControl.accepted();
                     rootControl.close();
@@ -462,5 +474,18 @@ Dialog {
 				Layout.fillWidth: true
 			}
 		}
+    }
+
+	ConfirmationDialog {
+        id:                 forbidEditAddressDialog
+        width:              460
+        //% "Edit address"
+        title:              qsTrId("addresses-edit-warning-title")
+        //% "There is active transaction that uses this address, therefore the address expiration cannot be changed."
+        text:               qsTrId("addresses-edit-warning-text")
+        //% "Ok"
+        okButtonText:       qsTrId("general-ok")
+        okButtonIconSource: "qrc:/assets/icon-done.svg"
+        cancelButtonVisible: false
     }
 }

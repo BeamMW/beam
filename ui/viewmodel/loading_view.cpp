@@ -144,7 +144,7 @@ void LoadingViewModel::updateProgress()
 
         if (m_hasLocalNode)
         {
-            //% "Synching with blockchain"
+            //% "Syncing with blockchain"
             progressMessage = qtTrId("loading-view-download-blocks");
         }
         else
@@ -170,7 +170,7 @@ void LoadingViewModel::updateProgress()
         }
         else if (detectNetworkProblems())
         {
-            //% "It may take longer then usual. Please, check your network."
+            //% "It may take longer than usual. Please, check your network."
             estimateStr = qtTrId("loading-view-net-problems");
         }
         else
@@ -207,7 +207,7 @@ void LoadingViewModel::updateProgress()
         QString::asprintf(getPercentagePlaceholder(progress), progress * 100));
     if (m_isDownloadStarted)
     {
-        progressMessage.append(" " + estimateStr);
+        progressMessage.append(". " + estimateStr);
     }
 
     setProgressMessage(progressMessage);

@@ -13,6 +13,7 @@ ColumnLayout {
 
     property var  defaultFocusItem: sentAmountInput.amountInput
     property bool addressSaved: false
+    property var locale: Qt.locale()
 
     // callbacks set by parent
     property var onClosed: undefined
@@ -33,9 +34,9 @@ ColumnLayout {
     }
 
     function isValid () {
-        if (!viewModel.commentValid) return false
-        if (viewModel.receiveCurrency == viewModel.sentCurrency) return false
-        return receiveAmountInput.isValid && sentAmountInput.isValid && !currencyError() && rateRow.rateValid()
+        if (!viewModel.commentValid) return false;
+        if (viewModel.receiveCurrency == viewModel.sentCurrency) return false;
+        return receiveAmountInput.isValid && sentAmountInput.isValid && !currencyError() && rateRow.rateValid;
     }
 
     function canSend () {
@@ -48,6 +49,13 @@ ColumnLayout {
         if (viewModel.receiveCurrency == viewModel.sentCurrency) return true;
         if (viewModel.receiveCurrency != Currency.CurrBeam && viewModel.sentCurrency != Currency.CurrBeam) return true;
         return false;
+    }
+
+    function saveAddress() {
+        if (!thisView.addressSaved) {
+            thisView.addressSaved = true
+            viewModel.saveAddress()
+        }
     }
 
     Component.onCompleted: {
@@ -248,6 +256,7 @@ please review your settings and try again"
                         resetAmount:      false
                         currColor:        currencyError() || !BeamGlobals.canReceive(currency) ? Style.validator_error : Style.content_main
                         error:            getErrorText()
+                        showTotalFee:     true
 
                         function getErrorText() {
                             if(!BeamGlobals.canReceive(currency)) {
@@ -312,88 +321,108 @@ please review your settings and try again"
 
                         property double maxAmount: 254000000
                         property double minAmount: 0.00000001
+                        property bool rateValid:   true
+                        property bool lockedByReceiveAmount: false
 
-                        function calcReceiveAmount () {
-                            var rate = parseFloat(rateInput.text) || 0
-                            if (rate == 0) return {amount:0, error: false}
-
-                            var ramount = sentAmountInput.amount * rate
-                            var error = ramount > maxAmount || ramount < minAmount
-
-                            if (ramount > maxAmount) ramount = maxAmount
-                            if (ramount < minAmount) ramount = minAmount
-
-                            return {
-                                amount:    ramount.toFixed(8).replace(/\.?0+$/,""),
-                                error:     error,
-                                //% "Invalid rate"
-                                errorText: qsTrId("swap-invalid-rate")
+                        function changeRate() {
+                            if (!rateInput.focus && !lockedByReceiveAmount) {
+                                rateInput.rate = viewModel.rate;
+                                rateInput.text = rateInput.rate == "0" ? "" : Utils.uiStringToLocale(rateInput.rate);
                             }
                         }
 
-                        function calcRate () {
-                            return Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rateInput.focus)
+                        function changeReceive(byRate) {
+                            lockedByReceiveAmount = true;
+                            var rateValue =
+                                parseFloat(Utils.localeDecimalToCString(rateInput.rate)) || 0;
+                            if (sentAmountInput.amount != "0" && rateValue) {
+                                receiveAmountInput.amount= viewModel.isSendBeam
+                                    ? BeamGlobals.multiplyWithPrecision8(sentAmountInput.amount, rateValue)
+                                    : BeamGlobals.divideWithPrecision8(sentAmountInput.amount, rateValue);
+                            } else if (byRate && !rateValue) {
+                                receiveAmountInput.amount = "0";
+                            } else if (!byRate && sentAmountInput.amount == "0") {
+                                lockedByReceiveAmount = false;
+                                receiveAmountInput.amount = "0";
+                            }
+                            lockedByReceiveAmount = false;
                         }
 
-                        function rateValid () {
-                           return !calcReceiveAmount().error && !calcRate().error
-                        }
-
-                        function rateError () {
-                            return calcRate().errorText || calcReceiveAmount().errorText || ""
-                        }
-
-                        function recalcAmount () {
-                             if (sentAmountInput.amount == 0) sentAmountInput.amount = 1
-                             receiveAmountInput.amount = calcReceiveAmount().amount
+                        function checkIsRateValid() {
+                            var rate = parseFloat(Utils.localeDecimalToCString(rateInput.rate)) || 0;
+                            if (rate == 0 ||
+                                receiveAmountInput.amount == "0") {
+                                rateValid = true;
+                                return;
+                            }
+                            rateValid =
+                                parseFloat(receiveAmountInput.amount) <= rateRow.maxAmount &&
+                                parseFloat(receiveAmountInput.amount) >= rateRow.minAmount;
                         }
 
                         SFText {
                             font.pixelSize:   14
-                            color:            rateRow.rateValid() ? Style.content_secondary : Style.validator_error
-                            text:             ["1", sentAmountInput.currencyLabel, "="].join(" ")
+                            color:            rateRow.rateValid ? Style.content_secondary : Style.validator_error
+                            text:             viewModel.isSendBeam
+                                ? ["1", sentAmountInput.currencyLabel, "="].join(" ")
+                                : ["1", receiveAmountInput.currencyLabel, "="].join(" ") 
                         }
 
                         SFTextInput {
+                            property string rate: "0"
+
                             id:                  rateInput
                             padding:             0
                             Layout.minimumWidth: 35
                             activeFocusOnTab:    true
                             font.pixelSize:      14
-                            color:               rateRow.rateValid() ? Style.content_main : Style.validator_error
-                            backgroundColor:     rateRow.rateValid() ? Style.content_main : Style.validator_error
-                            text:                rateRow.calcRate().displayRate
+                            color:               rateRow.rateValid ? Style.content_main : Style.validator_error
+                            backgroundColor:     rateRow.rateValid ? Style.content_main : Style.validator_error
+                            text:                ""
                             selectByMouse:       true
                             maximumLength:       30
-                            validator:           RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,27}[1-9])?$/}
-
-                            onTextEdited: {
-                                // unbind
-                                text = text
-                                // update
-                                rateRow.recalcAmount()
+                            
+                            validator: DoubleValidator {
+                                bottom: rateRow.minAmount
+                                top: rateRow.maxAmount
+                                decimals: 8
+                                locale: locale.name
+                                notation: DoubleValidator.StandardNotation
                             }
 
                             onFocusChanged: {
-                                if (focus) {
-                                    var rcalc = rateRow.calcRate()
-                                    if (rcalc.rate < rcalc.minRate) {
-                                        text = rcalc.minDisplayRate
-                                        rateRow.recalcAmount()
+                                text = rate == "0" ? "" : (rateInput.focus ? rate : Utils.uiStringToLocale(Utils.localeDecimalToCString(rate)));
+                                if (focus) cursorPosition = positionAt(rateInput.getMousePos().x, rateInput.getMousePos().y);
+                            }
+
+                            onTextEdited: {
+                                if (rateInput.focus) {
+                                    if (text.match("^00*$")) {
+                                        text = "0";
                                     }
+
+                                    var value = text ? text.split(locale.groupSeparator).join('') : "0";
+                                    var parts = value.split(locale.decimalPoint);
+                                    var left = (parseInt(parts[0], 10) || 0).toString();
+                                    rate = parts[1] ? [left, parts[1]].join(locale.decimalPoint) : left;
+                                    if (!parseFloat(Utils.localeDecimalToCString(rate))) {
+                                        rate = "0";
+                                    }
+                                    rateRow.changeReceive(true);
+                                    rateRow.checkIsRateValid();
                                 }
-                                if (!focus) {
-                                    text = Qt.binding(function() {
-                                            return rateRow.calcRate().displayRate
-                                        })
-                                }
+                            }
+
+                            Component.onCompleted: {
+                                viewModel.amountSentChanged.connect(rateRow.changeReceive);
+                                viewModel.rateChanged.connect(rateRow.changeRate);
                             }
                         }
 
                         SFText {
                             font.pixelSize:  14
-                            color:           rateRow.rateValid() ? Style.content_secondary : Style.validator_error
-                            text:            receiveAmountInput.currencyLabel
+                            color:           rateRow.rateValid ? Style.content_secondary : Style.validator_error
+                            text:            viewModel.isSendBeam ? receiveAmountInput.currencyLabel : sentAmountInput.currencyLabel
                         }
                     }
 
@@ -404,8 +433,9 @@ please review your settings and try again"
                             font.pixelSize:      12
                             font.styleName:      "Italic"
                             width:               parent.width
-                            text:                rateRow.rateError()
-                            visible:             !rateRow.rateValid()
+                            //% "Invalid rate"
+                            text:                qsTrId("swap-invalid-rate")
+                            visible:             !rateRow.rateValid
                         }
                     }
 
@@ -431,13 +461,19 @@ please review your settings and try again"
                         CustomComboBox {
                             id:                  expiresCombo
                             Layout.topMargin:    18
-                            Layout.minimumWidth: 75
+                            Layout.minimumWidth: 90
                             height:              20
                             currentIndex:        viewModel.offerExpires
 
                             model: [
-                                //% "12 hours"
-                                qsTrId("wallet-receive-expires-12"),
+                                //% "15 minutes"
+                                qsTrId("wallet-receive-expires-15m"),
+                                //% "30 minutes"
+                                qsTrId("wallet-receive-expires-30m"),
+                                //% "1 hour"
+                                qsTrId("wallet-receive-expires-1"),
+                                //% "2 hours"
+                                qsTrId("wallet-receive-expires-2"),
                                 //% "6 hours"
                                 qsTrId("wallet-receive-expires-6")
                             ]
@@ -452,38 +488,65 @@ please review your settings and try again"
                 }  // ColumnLayout
             }
 
-            SFText {
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 30
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 40
-                font.pixelSize:   14
-                font.styleName:   "Bold"
-                font.weight:      Font.Bold
-                color:            Style.content_main
-                //% "Your swap token:"
-                text: qsTrId("wallet-receive-swap-your-token")
-            }
+                Row {
+                    Layout.alignment: Qt.AlignHCenter
+                    SFText {
+                        font.pixelSize:  14
+                        font.styleName:  "Bold"; font.weight: Font.Bold
+                        color:           Style.content_main
+                        //% "Your swap token"
+                        text:            qsTrId("wallet-receive-swap-your-token")
+                    }
 
-            SFTextArea {
-                Layout.alignment:    Qt.AlignHCenter
-                width:               570
-                focus:               true
-                activeFocusOnTab:    true
-                font.pixelSize:      14
-                wrapMode:            TextInput.Wrap
-                color:               isValid() ? (canSend() ? Style.content_secondary : Qt.darker(Style.content_secondary)) : Style.validator_error
-                text:                viewModel.transactionToken
-                horizontalAlignment: TextEdit.AlignHCenter
-                readOnly:            true
-                enabled:             false
-            }
+                    Item {
+                        width:  17
+                        height: 1
+                    }
 
-            SFText {
-                Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 5
-                font.pixelSize:   14
-                color:            Style.content_main
-                //% "Send this token to the sender over a secure external channel"
-                text: qsTrId("wallet-swap-token-message")
+                    SvgImage {
+                        source:  tokenRow.visible ? "qrc:/assets/icon-grey-arrow-down.svg" : "qrc:/assets/icon-grey-arrow-up.svg"
+                        anchors.verticalCenter: parent.verticalCenter
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                tokenRow.visible = !tokenRow.visible;
+                            }
+                        }
+                    }
+                }
+
+                Row {
+                    id:      tokenRow
+                    visible: false
+                    Layout.topMargin: 10
+                    SFLabel {
+                        horizontalAlignment: Text.AlignHCenter
+                        width:               392
+                        font.pixelSize:      14
+                        color:               isValid() ? (canSend() ? Style.content_secondary : Qt.darker(Style.content_secondary)) : Style.validator_error
+                        text:                viewModel.transactionToken
+                        wrapMode:            Text.WrapAnywhere
+                    }
+                }
+
+                Row {
+                    visible: tokenRow.visible
+                    Layout.topMargin: 10
+                    Layout.alignment: Qt.AlignHCenter
+                    SFText {
+                        horizontalAlignment: Text.AlignHCenter
+                        font.pixelSize:   14
+                        color:            Style.content_main
+                        //% "Send this token to the sender over a secure external channel"
+                        text: qsTrId("wallet-swap-token-message")
+                    }
+                }
             }
 
             Row {
@@ -511,12 +574,9 @@ please review your settings and try again"
                     enabled:             thisView.canSend()
                     onClicked: {
                         BeamGlobals.copyToClipboard(viewModel.transactionToken);
-                        if (!thisView.addressSaved) {
-                            thisView.addressSaved = true
-                            viewModel.saveAddress()
-                        }
-                        viewModel.startListen()
-                        onClosed()
+                        thisView.saveAddress();
+                        viewModel.startListen();
+                        onClosed();
                     }
                 }
 
@@ -529,13 +589,10 @@ please review your settings and try again"
                     icon.source:         "qrc:/assets/icon-share.svg"
                     enabled:             thisView.canSend()
                     onClicked: {
-                        if (!thisView.addressSaved) {
-                            thisView.addressSaved = true
-                            viewModel.saveAddress()
-                        }
-                        viewModel.startListen()
-                        viewModel.publishToken()
-                        onClosed()
+                        thisView.saveAddress();
+                        viewModel.startListen();
+                        viewModel.publishToken();
+                        onClosed();
                     }
                 }
             }

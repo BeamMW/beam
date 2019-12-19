@@ -14,10 +14,70 @@
 #include "tx_object.h"
 #include "viewmodel/ui_helpers.h"
 #include "wallet/common.h"
+#include "model/app_model.h"
 
 using namespace beam;
 using namespace beam::wallet;
 using namespace beamui;
+
+namespace
+{
+    QString getWaitingPeerStr(const beam::wallet::TxParameters& txParameters, bool isSender)
+    {
+        auto minHeight = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight);
+        auto responseTime = txParameters.GetParameter<beam::Height>(TxParameterID::PeerResponseTime);
+        QString time = "";
+        if (minHeight && responseTime)
+        {
+            time = convertBeamHeightDiffToTime(*minHeight + *responseTime - AppModel::getInstance().getWallet()->getCurrentHeight());
+        }
+        if (isSender)
+        {
+            //% "If the receiver won't get online in %1, the transaction will be canceled automatically"
+            return qtTrId("tx-state-initial-sender").arg(time);
+        }
+        //% "If the sender won't get online in %1, the transaction will be canceled automatically"
+        return qtTrId("tx-state-initial-receiver").arg(time);
+    }
+
+    QString getInProgressStr(const beam::wallet::TxParameters& txParameters)
+    {
+        const Height kNormalTxConfirmationDelay = 10;
+        auto maxHeight = txParameters.GetParameter<beam::Height>(TxParameterID::MaxHeight);
+        QString time = "";
+        if (!maxHeight)
+        {
+            return "";
+        }
+
+        auto currentHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
+        if (currentHeight >= *maxHeight)
+        {
+            return "";
+        }
+
+        Height delta =  *maxHeight - currentHeight;
+        auto lifetime = txParameters.GetParameter<beam::Height>(TxParameterID::Lifetime);
+        if (!lifetime || *lifetime < delta)
+        {
+            return "";
+        }
+
+        if (*lifetime - delta <= kNormalTxConfirmationDelay)
+        {
+            //% "The transaction is usually expected to complete in a few minutes."
+            return qtTrId("tx-state-in-progress-normal");
+        }
+
+        time = beamui::convertBeamHeightDiffToTime(delta);
+        if (time.isEmpty())
+        {
+            return "";
+        }
+        //% "It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1."
+        return qtTrId("tx-state-in-progress-long").arg(time);
+    }
+}
 
 TxObject::TxObject(QObject* parent)
         : QObject(parent)
@@ -98,7 +158,7 @@ QString TxObject::getFee() const
 {
     if (m_tx.m_fee)
     {
-        return AmountToUIString(m_tx.m_fee, Currencies::Beam);
+        return AmountInGrothToUIString(m_tx.m_fee);
     }
     return QString{};
 }
@@ -195,7 +255,7 @@ QString TxObject::getReasonString(beam::wallet::TxFailureReason reason) const
 QString TxObject::getFailureReason() const
 {
     // TODO: add support for other transactions
-    if (getTxDescription().m_status == TxStatus::Failed && getTxDescription().m_txType == beam::wallet::TxType::Simple)
+    if (getTxDescription().m_status == wallet::TxStatus::Failed && getTxDescription().m_txType == beam::wallet::TxType::Simple)
     {
         return getReasonString(getTxDescription().m_failureReason);
     }
@@ -212,9 +272,42 @@ void TxObject::setFailureReason(beam::wallet::TxFailureReason reason)
     }
 }
 
+QString TxObject::getStateDetails() const
+{
+    auto& tx = getTxDescription();
+    if (tx.m_txType == beam::wallet::TxType::Simple)
+    {
+        switch (tx.m_status)
+        {
+        case beam::wallet::TxStatus::Pending:
+        case beam::wallet::TxStatus::InProgress:
+        {
+            auto state = getTxDescription().GetParameter<wallet::SimpleTransaction::State>(TxParameterID::State);
+            if (state)
+            {
+                switch (*state)
+                {
+                case wallet::SimpleTransaction::Initial:
+                case wallet::SimpleTransaction::Invitation:
+                    return getWaitingPeerStr(tx, tx.m_sender);
+                default:
+                    break;
+                }
+            }
+            return getWaitingPeerStr(tx, tx.m_sender);
+        }
+        case beam::wallet::TxStatus::Registering:
+            return getInProgressStr(tx);
+        default:
+            break;
+        }
+    }
+    return "";
+}
+
 bool TxObject::hasPaymentProof() const
 {
-    return !isIncome() && m_tx.m_status == TxStatus::Completed;
+    return !isIncome() && m_tx.m_status == wallet::TxStatus::Completed;
 }
 
 void TxObject::update(const beam::wallet::TxDescription& tx)
@@ -229,9 +322,9 @@ bool TxObject::isInProgress() const
 {
     switch (m_tx.m_status)
     {
-        case TxStatus::Pending:
-        case TxStatus::InProgress:
-        case TxStatus::Registering:
+        case wallet::TxStatus::Pending:
+        case wallet::TxStatus::InProgress:
+        case wallet::TxStatus::Registering:
             return true;
         default:
             return false;
@@ -240,12 +333,12 @@ bool TxObject::isInProgress() const
 
 bool TxObject::isPending() const
 {
-    return m_tx.m_status == TxStatus::Pending;
+    return m_tx.m_status == wallet::TxStatus::Pending;
 }
 
 bool TxObject::isCompleted() const
 {
-    return m_tx.m_status == TxStatus::Completed;
+    return m_tx.m_status == wallet::TxStatus::Completed;
 }
 
 bool TxObject::isSelfTx() const
@@ -255,12 +348,12 @@ bool TxObject::isSelfTx() const
 
 bool TxObject::isCanceled() const
 {
-    return m_tx.m_status == TxStatus::Canceled;
+    return m_tx.m_status == wallet::TxStatus::Canceled;
 }
 
 bool TxObject::isFailed() const
 {
-    return m_tx.m_status == TxStatus::Failed;
+    return m_tx.m_status == wallet::TxStatus::Failed;
 }
 
 bool TxObject::isExpired() const

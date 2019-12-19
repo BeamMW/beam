@@ -228,6 +228,10 @@ Rectangle {
         updateItem("settings", {swapMode:true})
     }
 
+    function openSwapActiveTransactionsList() {
+        updateItem("atomic_swap", {"shouldShowActiveTransactions": true})
+    }
+
     function resetLockTimer() {
         viewModel.resetLockTimer();
     }

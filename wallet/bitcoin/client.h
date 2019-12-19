@@ -77,6 +77,7 @@ namespace beam::bitcoin
         virtual void OnBalance(const Balance& balance) = 0;
         virtual void OnCanModifySettingsChanged(bool canModify) = 0;
         virtual void OnChangedSettings() = 0;
+        virtual void OnConnectionError(IBridge::ErrorType error) = 0;
 
         bool CanModify() const override;
         void AddRef() override;
@@ -91,6 +92,8 @@ namespace beam::bitcoin
         void SetStatus(const Status& status);
         IBridge::Ptr GetBridge();
 
+        void SetConnectionError(const IBridge::ErrorType& error);
+
     private:
         Status m_status;
         io::Reactor& m_reactor;
@@ -101,5 +104,6 @@ namespace beam::bitcoin
         mutable std::mutex m_mutex;
         using Lock = std::unique_lock<std::mutex>;
         size_t m_refCount = 0;
+        IBridge::ErrorType m_connectionError = IBridge::ErrorType::None;
     };
 } // namespace beam::bitcoin

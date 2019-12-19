@@ -289,9 +289,18 @@ ColumnLayout {
             model: viewModel.contacts
             sortIndicatorVisible: true
             sortIndicatorColumn: 0
-            sortIndicatorOrder: Qt.AscendingOrder
-            onSortIndicatorColumnChanged: {
-                sortIndicatorOrder = Qt.AscendingOrder;
+            sortIndicatorOrder: Qt.DescendingOrder
+            
+            Binding{
+                target: viewModel
+                property: "contactSortRole"
+                value: contactsView.getColumn(contactsView.sortIndicatorColumn).role
+            }
+
+            Binding{
+                target: viewModel
+                property: "contactSortOrder"
+                value: contactsView.sortIndicatorOrder
             }
 
             TableViewColumn {

@@ -27,30 +27,32 @@ using namespace beam::wallet;
 class SwapOffersViewModel : public QObject
 {
 	Q_OBJECT
-    Q_PROPERTY(QAbstractItemModel*  transactions     READ getTransactions    NOTIFY allTransactionsChanged)
-    Q_PROPERTY(QAbstractItemModel*  allOffers        READ getAllOffers       NOTIFY allOffersChanged)
-    Q_PROPERTY(int                  selectedCoin     READ getSelectedCoin    NOTIFY selectedCoinChanged     WRITE   setSelectedCoin)
-    Q_PROPERTY(QString              beamAvailable    READ beamAvailable      NOTIFY beamAvailableChanged)
-    Q_PROPERTY(QString              btcAvailable     READ btcAvailable       NOTIFY btcAvailableChanged)
-    Q_PROPERTY(QString              ltcAvailable     READ ltcAvailable       NOTIFY ltcAvailableChanged)
-    Q_PROPERTY(QString              qtumAvailable    READ qtumAvailable      NOTIFY qtumAvailableChanged)
-    Q_PROPERTY(bool                 btcOK            READ btcOK              NOTIFY btcOKChanged)
-    Q_PROPERTY(bool                 ltcOK            READ ltcOK              NOTIFY ltcOKChanged)
-    Q_PROPERTY(bool                 qtumOK           READ qtumOK             NOTIFY qtumOKChanged)
-    Q_PROPERTY(bool                 btcConnecting    READ btcConnecting      NOTIFY btcOKChanged)
-    Q_PROPERTY(bool                 ltcConnecting    READ ltcConnecting      NOTIFY ltcOKChanged)
-    Q_PROPERTY(bool                 qtumConnecting   READ qtumConnecting     NOTIFY qtumOKChanged)
-    Q_PROPERTY(bool                 showBetaWarning  READ showBetaWarning)
-    Q_PROPERTY(int                  activeTxCount    READ getActiveTxCount   NOTIFY allTransactionsChanged)
-    Q_PROPERTY(bool                 hasBtcTx         READ hasBtcTx           NOTIFY allTransactionsChanged)
-    Q_PROPERTY(bool                 hasLtcTx         READ hasLtcTx           NOTIFY allTransactionsChanged)
-    Q_PROPERTY(bool                 hasQtumTx        READ hasQtumTx          NOTIFY allTransactionsChanged)
+    Q_PROPERTY(QAbstractItemModel*  transactions        READ getTransactions        NOTIFY allTransactionsChanged)
+    Q_PROPERTY(QAbstractItemModel*  allOffers           READ getAllOffers           NOTIFY allOffersChanged)
+    Q_PROPERTY(QAbstractItemModel*  allOffersFitBalance READ getAllOffersFitBalance NOTIFY allOffersFitBalanceChanged)
+    Q_PROPERTY(int                  selectedCoin        READ getSelectedCoin        NOTIFY selectedCoinChanged     WRITE   setSelectedCoin)
+    Q_PROPERTY(QString              beamAvailable       READ beamAvailable          NOTIFY beamAvailableChanged)
+    Q_PROPERTY(QString              btcAvailable        READ btcAvailable           NOTIFY btcAvailableChanged)
+    Q_PROPERTY(QString              ltcAvailable        READ ltcAvailable           NOTIFY ltcAvailableChanged)
+    Q_PROPERTY(QString              qtumAvailable       READ qtumAvailable          NOTIFY qtumAvailableChanged)
+    Q_PROPERTY(bool                 btcOK               READ btcOK                  NOTIFY btcOKChanged)
+    Q_PROPERTY(bool                 ltcOK               READ ltcOK                  NOTIFY ltcOKChanged)
+    Q_PROPERTY(bool                 qtumOK              READ qtumOK                 NOTIFY qtumOKChanged)
+    Q_PROPERTY(bool                 btcConnecting       READ btcConnecting          NOTIFY btcOKChanged)
+    Q_PROPERTY(bool                 ltcConnecting       READ ltcConnecting          NOTIFY ltcOKChanged)
+    Q_PROPERTY(bool                 qtumConnecting      READ qtumConnecting         NOTIFY qtumOKChanged)
+    Q_PROPERTY(bool                 showBetaWarning     READ showBetaWarning)
+    Q_PROPERTY(int                  activeTxCount       READ getActiveTxCount       NOTIFY allTransactionsChanged)
+    Q_PROPERTY(bool                 hasBtcTx            READ hasBtcTx               NOTIFY allTransactionsChanged)
+    Q_PROPERTY(bool                 hasLtcTx            READ hasLtcTx               NOTIFY allTransactionsChanged)
+    Q_PROPERTY(bool                 hasQtumTx           READ hasQtumTx              NOTIFY allTransactionsChanged)
 
 public:
     SwapOffersViewModel();
 
     QAbstractItemModel* getTransactions();
     QAbstractItemModel* getAllOffers();
+    QAbstractItemModel* getAllOffersFitBalance();
     int getSelectedCoin();
     void setSelectedCoin(int coinType);
     QString beamAvailable() const;
@@ -81,10 +83,12 @@ public slots:
     void onSwapOffersDataModelChanged(
         beam::wallet::ChangeAction action,
         const std::vector<beam::wallet::SwapOffer>& offers);
+    void resetAllOffersFitBalance();
 
 signals:
     void allTransactionsChanged();
     void allOffersChanged();
+    void allOffersFitBalanceChanged();
     void selectedCoinChanged();
     void beamAvailableChanged();
     void btcAvailableChanged();
@@ -96,6 +100,12 @@ signals:
     void offerRemovedFromTable(QVariant variantTxID);
 
 private:
+    void monitorAllOffersFitBalance();
+    bool isOfferFitBalance(const SwapOfferItem& offer);
+    void insertAllOffersFitBalance(
+        const std::vector<std::shared_ptr<SwapOfferItem>>& offers);
+    void removeAllOffersFitBalance(
+        const std::vector<std::shared_ptr<SwapOfferItem>>& offers);
     bool hasActiveTx(const std::string& swapCoin) const;
     uint32_t getTxMinConfirmations(AtomicSwapCoin swapCoinType);
     double getBlocksPerHour(AtomicSwapCoin swapCoinType);
@@ -106,6 +116,7 @@ private:
 
     SwapTxObjectList m_transactionsList;
     SwapOffersList m_offersList;
+    SwapOffersList m_offersListFitBalance;
     SwapCoinClientModel::Ptr m_btcClient;
     SwapCoinClientModel::Ptr m_ltcClient;
     SwapCoinClientModel::Ptr m_qtumClient;

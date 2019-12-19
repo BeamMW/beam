@@ -19,6 +19,7 @@
 #include <QApplication>
 #include <QtGui/qimage.h>
 #include <QtCore/qbuffer.h>
+#include <QFileDialog>
 #include <QUrlQuery>
 #include <QClipboard>
 
@@ -33,6 +34,13 @@ using namespace beam::wallet;
 using namespace std;
 using namespace beamui;
 
+namespace
+{
+const char kTxHistoryFileNamePrefix[] = "transactions_history_";
+const char kTxHistoryFileFormatDesc[] = "Comma-Separated Values (*.csv)";
+const char kTxHistoryFileNameFormat[] = "yyyy_MM_dd_HH_mm_ss";
+}  // namespace
+
 WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance().getWallet())
     , _settings(AppModel::getInstance().getSettings())
@@ -46,6 +54,8 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(maturingChanged()), this, SIGNAL(beamLockedChanged()));
     connect(&_model, SIGNAL(receivingChangeChanged()), this, SIGNAL(beamReceivingChanged()));
     connect(&_model, SIGNAL(receivingIncomingChanged()), this, SIGNAL(beamReceivingChanged()));
+    connect(&_model, SIGNAL(txHistoryExportedToCsv(const QString&)),
+            this, SLOT(onTxHistoryExportedToCsv(const QString&)));
 
     _model.getAsync()->getTransactions();
 }
@@ -130,6 +140,22 @@ void WalletViewModel::onTransactionsChanged(beam::wallet::ChangeAction action, c
     emit transactionsChanged();
 }
 
+void WalletViewModel::onTxHistoryExportedToCsv(const QString& data)
+{
+    if (!_txHistoryToCsvPaths.isEmpty())
+    {
+        const auto& path = _txHistoryToCsvPaths.dequeue();
+        QFile file(path);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            QTextCodec *codec = QTextCodec::codecForName("UTF8");
+            QTextStream out(&file);
+            out.setCodec(codec);
+            out << data;
+        }
+    }
+}
+
 QString WalletViewModel::beamAvailable() const
 {
     return beamui::AmountToUIString(_model.getAvailable());
@@ -168,6 +194,27 @@ QString WalletViewModel::beamLockedMaturing() const
 bool WalletViewModel::isAllowedBeamMWLinks() const
 {
     return _settings.isAllowedBeamMWLinks();
+}
+
+void WalletViewModel::exportTxHistoryToCsv()
+{
+    QDateTime now = QDateTime::currentDateTime();
+    QString path = QFileDialog::getSaveFileName(
+        nullptr,
+        //: transactions history screen, export button tooltip and open file dialog
+        //% "Export transactions history"
+        qtTrId("wallet-export-tx-history"),
+        QDir(QStandardPaths::writableLocation(QStandardPaths::DesktopLocation))
+            .filePath(kTxHistoryFileNamePrefix +
+                      now.toString(kTxHistoryFileNameFormat)),
+        kTxHistoryFileFormatDesc);
+
+    
+    if (!path.isEmpty())
+    {
+        _txHistoryToCsvPaths.enqueue(path);
+        _model.getAsync()->exportTxHistoryToCsv();
+    }
 }
 
 void WalletViewModel::allowBeamMWLinks(bool value)

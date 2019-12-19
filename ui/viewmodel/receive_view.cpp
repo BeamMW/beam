@@ -64,7 +64,7 @@ void ReceiveViewModel::setAmountToReceive(QString value)
     {
         _amountToReceiveGrothes = amount;
         _qr->setAmount(_amountToReceiveGrothes);
-        emit amountToReceiveChanged();
+        emit amountReceiveChanged();
         updateTransactionToken();
     }
 }

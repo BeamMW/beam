@@ -306,11 +306,6 @@
         <extracomment>settings tab, version label</extracomment>
         <translation>เวอร์ชัน</translation>
     </message>
-    <message id="settings-remote-node-ip-port">
-        <source>ip:port</source>
-        <extracomment>settings tab, node section, address label</extracomment>
-        <translation>ip:port</translation>
-    </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
         <extracomment>settings tab, node section, run node label</extracomment>
@@ -776,7 +771,7 @@
         <translation>ไม่สามารถเปิดกระเป๋าได้ กรุณาตรวจสอบที่ตั้งของข้อมูลกระเป๋า</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Synching with blockchain</source>
+        <source>Syncing with blockchain</source>
         <translation>กำลังดึงข้อมูลจากบล็อกเชน</translation>
     </message>
     <message id="loading-view-scaning-utxo">
@@ -994,7 +989,12 @@
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
 •  must contain at least one number</source>
-        <translation>รหัสผ่านที่ปลอดภัยจะต้องประกอบด้วยข้อกำหนดดังนี้:
+        <oldsource>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</oldsource>
+        <translation type="unfinished">รหัสผ่านที่ปลอดภัยจะต้องประกอบด้วยข้อกำหนดดังนี้:
 •  ความยาวอย่างน้อย 10 ตัวอักษร
 •  มีตัวพิมพ์เล็กอย่างน้อย 1 ตัวอักษร
 •  มีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัวอักษร
@@ -1140,9 +1140,10 @@
         <translation>วันที่สร้าง</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
-        <source>Don’t ask password on every Send</source>
+        <source>Don&apos;t ask password on every Send</source>
+        <oldsource>Don’t ask password on every Send</oldsource>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
-        <translation>ไม่ต้องถามรหัสผ่านทุกครั้งที่จะทำการโอน</translation>
+        <translation type="unfinished">ไม่ต้องถามรหัสผ่านทุกครั้งที่จะทำการโอน</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
         <source>Password verification is required to change that setting</source>
@@ -1235,26 +1236,6 @@
         <source>Swap</source>
         <translation>สวอป</translation>
     </message>
-    <message id="settings-reset">
-        <source>Clear</source>
-        <translation>ล้างข้อมูล</translation>
-    </message>
-    <message id="settings-node-address">
-        <source>Node Address</source>
-        <translation>ที่อยู่ของ Node</translation>
-    </message>
-    <message id="settings-username">
-        <source>Username</source>
-        <translation>ชื่อผู้ใช้</translation>
-    </message>
-    <message id="settings-password">
-        <source>Password</source>
-        <translation>รหัสผ่าน</translation>
-    </message>
-    <message id="settings-fee-rate">
-        <source>Default fee</source>
-        <translation>ค่าธรรมเนียมมาตรฐาน</translation>
-    </message>
     <message id="swap-beta-message">
         <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
         <translation>ฟังก์ชั่น Atomic Swap อยู่ในสถานะเบต้าในขณะนี้ เราไม่แนะนำให้ใช้งานในจำนวนที่เยอะ</translation>
@@ -1266,7 +1247,9 @@
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</source>
-        <translation>คุณไม่มีสกุลเงินอื่นเชื่อมต่ออยู่ กรุณาแก้ไขการตั้งค่าและลองใหม่อีกครั้ง</translation>
+        <oldsource>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</oldsource>
+        <translation type="unfinished">คุณไม่มีสกุลเงินอื่นเชื่อมต่ออยู่ กรุณาแก้ไขการตั้งค่าและลองใหม่อีกครั้ง</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create a Swap Offer</source>
@@ -1291,10 +1274,6 @@ Update your settings and try again.</source>
     <message id="wallet-receive-offer-expires-label">
         <source>Offer expiration time</source>
         <translation>เวลาหมดอายุของข้อเสนอ</translation>
-    </message>
-    <message id="wallet-receive-expires-12">
-        <source>12 hours</source>
-        <translation>12 ชั่วโมง</translation>
     </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
@@ -1344,14 +1323,12 @@ Update your settings and try again.</source>
         <source>QTUM</source>
         <translation>QTUM</translation>
     </message>
-    <message id="general-electrum">
-        <source>Electrum</source>
-        <translation>Electrum</translation>
-    </message>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
 please review your settings and try again</source>
-        <translation>%1 เชื่อมต่อไม่ได้ \nกรุณาตรวจสอบการตั้งค่าและลองอีกครั้ง</translation>
+        <oldsource>%1 is not connected, 
+please review your settings and try again</oldsource>
+        <translation type="unfinished">%1 เชื่อมต่อไม่ได้ \nกรุณาตรวจสอบการตั้งค่าและลองอีกครั้ง</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1387,7 +1364,7 @@ please review your settings and try again</source>
         <translation type="unfinished">ชม.</translation>
     </message>
     <message id="loading-view-net-problems">
-        <source>It may take longer then usual. Please, check your network.</source>
+        <source>It may take longer than usual. Please, check your network.</source>
         <translation>มีการใช้เวลามากกว่าปกติ กรุณาตรวจสอบอินเตอร์เนทของคุณ</translation>
     </message>
     <message id="atomic-swap-title">
@@ -1405,18 +1382,6 @@ please review your settings and try again</source>
     <message id="atomic-swap-transactions-tab">
         <source>Transactions</source>
         <translation>ธุรกรรม</translation>
-    </message>
-    <message id="atomic-swap-receive-beam">
-        <source>Receive BEAM</source>
-        <translation>รับ Beam</translation>
-    </message>
-    <message id="atomic-swap-send-beam">
-        <source>Send BEAM</source>
-        <translation>ส่ง BEAM</translation>
-    </message>
-    <message id="atomic-swap-only-my-offers">
-        <source>Only my offers</source>
-        <translation>เฉพาะข้อเสนอของฉัน</translation>
     </message>
     <message id="atomic-swap-fit-current-balance">
         <source>Fit my current balance</source>
@@ -1554,16 +1519,12 @@ please review your settings and try again</source>
         <source>Received</source>
         <translation>ได้​รับ​แล้ว</translation>
     </message>
-    <message id="settings-progress-na">
-        <source>You cannot disconnect wallet, edit seed phrase or change default
-fee while you have transactions in progress.</source>
-        <translation>คุณไม่สามารถตัดการเชื่อมต่อกระเป๋า, แก้ไขกลุ่มคำลับหรือเปลี่ยนค่าธรรมเนียม\n
-ในขณะที่คุณมีธุรกรรมที่กำลังดำเนินการอยู่</translation>
-    </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.
 Please try again later or create an offer yourself.</source>
-        <translation>ไม่มีข้อเสนอการแลกเปลี่ยนใดๆในตอนนี้\n
+        <oldsource>There are no active offers at the moment.
+Please try again later or create an offer yourself.</oldsource>
+        <translation type="unfinished">ไม่มีข้อเสนอการแลกเปลี่ยนใดๆในตอนนี้\n
 กรุณาลองอีกครั้งหรือสร้างข้อเสนอของตัวเองเลย</translation>
     </message>
     <message id="send-less-than-fee">
@@ -1585,10 +1546,6 @@ Please try again later or create an offer yourself.</source>
     <message id="wallet-search-transactions-placeholder">
         <source>Transaction or kernel ID, comment, address or contact</source>
         <translation>ID ของธุรกรรม หรือ Kernel ID, คอมเมนต์, ที่อยู่ หรือรายชื่อผู้ติดต่อ</translation>
-    </message>
-    <message id="settings-swap-node">
-        <source>Node</source>
-        <translation>Node</translation>
     </message>
     <message id="wallet-clear-search">
         <source>Clear search</source>
@@ -1702,10 +1659,6 @@ Please try again later or create an offer yourself.</source>
         <source>%1 Transaction fee rate</source>
         <translation>ค่าธรรมเนียมธุรกรรม</translation>
     </message>
-    <message id="settings-swap-disconnect">
-        <source>Disconnect</source>
-        <translation>ตัดการเชื่อมต่อ</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation>Node ของ Bitcoin</translation>
@@ -1730,14 +1683,12 @@ Please try again later or create an offer yourself.</source>
         <source>Qtum electrum</source>
         <translation>Qtum Electrum</translation>
     </message>
-    <message id="invalid-rate-min">
-        <source>Rate cannot be less than %1</source>
-        <translation>เรทไม่สามารถต่ำกว่า %1</translation>
-    </message>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</source>
-        <translation>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</translation>
+        <oldsource>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</oldsource>
+        <translation type="unfinished">The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
         <source>Оffer is already accepted</source>
@@ -1754,46 +1705,6 @@ Please check the swap token and try again.</source>
     <message id="swap-tx-failture-refunded">
         <source>Refunded</source>
         <translation>ชำระคืนแล้ว</translation>
-    </message>
-    <message id="settings-swap-edit-seed">
-        <source>Edit your seed phrase</source>
-        <translation>แก้ไขกลุ่มคำลับของคุณ</translation>
-    </message>
-    <message id="settings-swap-enter-seed">
-        <source>Enter your seed phrase</source>
-        <translation>กรุณาใส่กลุ่มคำลับของคุณ</translation>
-    </message>
-    <message id="settings-swap-label-or">
-        <source>or</source>
-        <translation>หรือ</translation>
-    </message>
-    <message id="settings-swap-new-seed">
-        <source>Generate new seed phrase</source>
-        <translation>สร้างกลุ่มคำลับใหม่</translation>
-    </message>
-    <message id="settings-swap-show-seed">
-        <source>Show seed phrase</source>
-        <translation>แสดงกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-show-addresses">
-        <source>Show wallet addresses</source>
-        <translation>แสดงที่อยู่ของกระเป๋า</translation>
-    </message>
-    <message id="swap-seed-info-message">
-        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
-    </message>
-    <message id="settings-swap-seed-generate">
-        <source>generate another seed phrase</source>
-        <translation>สร้างกลุ่มคำลับชุดอื่น</translation>
-    </message>
-    <message id="swap-seed-new">
-        <source>New seed phrase</source>
-        <translation>กลุ่มคำลับใหม่</translation>
-    </message>
-    <message id="swap-seed-edit">
-        <source>Enter your seed phrase</source>
-        <translation>กรุณาใส่กลุ่มคำลับของคุณ</translation>
     </message>
     <message id="bitcoin-show-seed-title">
         <source>Bitcoin seed phrase</source>
@@ -1819,53 +1730,10 @@ Please check the swap token and try again.</source>
         <source>Qtum wallet addresses</source>
         <translation>ที่อยู่ของกระเป๋า Qtum</translation>
     </message>
-    <message id="settings-swap-copy-address">
-        <source>Copy address</source>
-        <translation>คัดลอกที่อยู่</translation>
-    </message>
-    <message id="settings-swap-confirm-edit-seed-title">
-        <source>Edit seed phrase</source>
-        <extracomment>electrum settings, ask password to edit seed phrase, dialog title</extracomment>
-        <translation>แก้ไขกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-confirm-edit-seed-message">
-        <source>Enter your wallet password to edit the phrase</source>
-        <extracomment>electrum settings, ask password to edit seed phrase, dialog message</extracomment>
-        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อแก้ไขกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-confirm-generate-seed-title">
-        <source>Generate new seed phrase</source>
-        <extracomment>electrum settings, ask password to generate new seed phrase, dialog title</extracomment>
-        <translation>สร้างกลุ่มคำลับใหม่</translation>
-    </message>
-    <message id="settings-swap-confirm-generate-seed-message">
-        <source>Enter your wallet password to generate new seed phrase</source>
-        <extracomment>electrum settings, ask password to generate new seed phrase, dialog message</extracomment>
-        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อสร้างกลุ่มคำลับใหม่</translation>
-    </message>
-    <message id="settings-swap-confirm-show-seed-title">
-        <source>Show seed phrase</source>
-        <extracomment>electrum settings, ask password to show seed phrase, dialog title</extracomment>
-        <translation>แสดงกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-confirm-show-seed-message">
-        <source>Enter your wallet password to see the phrase</source>
-        <extracomment>electrum settings, ask password to show seed phrase, dialog message</extracomment>
-        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อดูกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-confirm-clear-seed-title">
-        <source>Clear seed phrase</source>
-        <extracomment>electrum settings, ask password to clear seed phrase, dialog title</extracomment>
-        <translation>ล้างกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-swap-confirm-clear-seed-message">
-        <source>Enter your wallet password to clear seed phrase</source>
-        <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
-        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อล้างกลุ่มคำลับ</translation>
-    </message>
     <message id="wallet-receive-swap-your-token">
-        <source>Your swap token:</source>
-        <translation>โทเค็นแลกเปลี่ยนของคุณ</translation>
+        <source>Your swap token</source>
+        <oldsource>Your swap token:</oldsource>
+        <translation type="unfinished">โทเค็นแลกเปลี่ยนของคุณ</translation>
     </message>
     <message id="send-swap-confirmation-title">
         <source>Confirm atomic swap</source>
@@ -1887,22 +1755,19 @@ Please check the swap token and try again.</source>
         <source>Paste token here</source>
         <translation>วางโทเค็นที่นี่</translation>
     </message>
-    <message id="settings-swap-connect">
-        <source>connect</source>
-        <translation>เชื่อมต่อ</translation>
-    </message>
     <message id="swap-tx-state-initial">
         <source>If nobody accepts the offer in %1, the offer will be automatically canceled</source>
         <oldsource>if nobody accepts the offer in %1, the offer will be automatically canceled</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-tx-state-in-progress-normal">
-        <source>The swap is expected to complete in %1 at most</source>
+        <source>The swap is expected to complete in %1 at most.</source>
+        <oldsource>The swap is expected to complete in %1 at most</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-tx-state-in-progress-refunding">
-        <source>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</source>
-        <oldsource>The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)</oldsource>
+        <source>Swap failed: the refund of your %2 will start in %1. The refund duration depends on the transaction fee you specified for %2.</source>
+        <oldsource>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="atomic-swap-tx-cancel">
@@ -1923,11 +1788,13 @@ Please check the swap token and try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-tx-state-refunding">
-        <source>Refunding</source>
+        <source>Swap failed, the money is being released back to your wallet</source>
+        <oldsource>Refunding</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-txs-status-waiting-peer">
-        <source>waiting for peer</source>
+        <source>waiting for counterparty</source>
+        <oldsource>waiting for peer</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-fee-warning">
@@ -1940,6 +1807,273 @@ Please check the swap token and try again.</source>
     </message>
     <message id="app-close-text">
         <source>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-export-tx-history">
+        <source>Export transactions history</source>
+        <extracomment>transactions history screen, export button tooltip and open file dialog</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-show-owner-key-title">
+        <source>Owner key</source>
+        <extracomment>settings tab, show owner key dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-show-owner-key-message">
+        <source>Please notice, that knowing your owner key allows to
+know all your funds (UTXO). Make sure that you
+deploy the key at the node you trust completely.</source>
+        <oldsource>Please notice, that knowing your owner key allows to
+know all your funds (UTXO). Make sure that you
+deploy the key at the node you trust completely.</oldsource>
+        <extracomment>settings tab, show owner key message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-general-require-pwd-to-show-owner-key">
+        <source>Show owner key</source>
+        <extracomment>settings tab, general section, Show owner key button and dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-general-require-pwd-to-show-owner-key-message">
+        <source>Password verification is required to see the owner key</source>
+        <extracomment>settings tab, general section, ask password to Show owner key, message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-initial-sender">
+        <source>If the receiver won&apos;t get online in %1, the transaction will be canceled automatically</source>
+        <oldsource>If the receiver won&apos;t get online in %1, the transaction will be cancelled automatically</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-initial-receiver">
+        <source>If the sender won&apos;t get online in %1, the transaction will be canceled automatically</source>
+        <oldsource>If the sender won&apos;t get online in %1, the transaction will be cancelled automatically</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-my-offers-tab">
+        <source>My offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-in-progress-normal">
+        <source>The transaction is usually expected to complete in a few minutes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-in-progress-long">
+        <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-expires-15m">
+        <source>15 minutes</source>
+        <translation type="unfinished">15 นาที</translation>
+    </message>
+    <message id="wallet-receive-expires-30m">
+        <source>30 minutes</source>
+        <translation type="unfinished">30 นาที</translation>
+    </message>
+    <message id="wallet-receive-expires-1">
+        <source>1 hour</source>
+        <translation type="unfinished">1 ชั่วโมง</translation>
+    </message>
+    <message id="wallet-receive-expires-2">
+        <source>2 hours</source>
+        <translation type="unfinished">6 ชั่วโมง {2 ?}</translation>
+    </message>
+    <message id="accept-swap-token">
+        <source>Your swap token</source>
+        <translation type="unfinished">โทเค็นแลกเปลี่ยนของคุณ</translation>
+    </message>
+    <message id="settings-swap-node">
+        <source>Node</source>
+        <translation type="unfinished">Node</translation>
+    </message>
+    <message id="general-electrum">
+        <source>Electrum</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-reset">
+        <source>Clear</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-title">
+        <source>Clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-message">
+        <source>Enter your wallet password to clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-disconnect">
+        <source>Disconnect</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-node-address">
+        <source>Node Address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-username">
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-password">
+        <source>Password</source>
+        <translation type="unfinished">รหัสผ่าน</translation>
+    </message>
+    <message id="select-server-automatically">
+        <source>Select server automatically</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source>Default fee</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-edit-seed">
+        <source>Edit your seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-enter-seed">
+        <source>Enter your seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-title">
+        <source>Edit seed phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-message">
+        <source>Enter your wallet password to edit the phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-label-or">
+        <source>or</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-new-seed">
+        <source>Generate new seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-title">
+        <source>Generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-message">
+        <source>Enter your wallet password to generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-show-seed">
+        <source>Show seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-title">
+        <source>Show seed phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-message">
+        <source>Enter your wallet password to see the phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-show-addresses">
+        <source>Show wallet addresses</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-progress-na">
+        <source>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</source>
+        <oldsource>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-seed-info-message">
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-seed-segwit-warning">
+        <source>Segwit seed phrase is not supported yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-seed-invali-warning">
+        <source>Invalid seed phrase. Please check again and resubmit.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-seed-generate">
+        <source>generate another seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-seed-new">
+        <source>New seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-seed-edit">
+        <source>Enter your seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-copy-address">
+        <source>Copy address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="addresses-delete-warning-title">
+        <source>Delete address</source>
+        <translation type="unfinished">ลบที่อยู่</translation>
+    </message>
+    <message id="addresses-delete-warning-text">
+        <source>There is active transaction that uses this address, therefore the address cannot be deleted.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="addresses-edit-warning-title">
+        <source>Edit address</source>
+        <translation type="unfinished">แก้ไขที่อยู่</translation>
+    </message>
+    <message id="addresses-edit-warning-text">
+        <source>There is active transaction that uses this address, therefore the address expiration cannot be changed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-invalid-credentials-error">
+        <source>Invalid credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-connection-error">
+        <source>Cannot connect to node</source>
+        <translation type="unfinished">ไม่สามารถเชื่อมต่อ Node ได้</translation>
+    </message>
+    <message id="swap-invalid-genesis-block-error">
+        <source>Invalid genesis block</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-fee-rate-note">
+        <source>Remember to validate the expected fee rate for the blockchain (as it varies with time).</source>
+        <oldsource>Remember to validate the expected fee rate for the blockchain (as it varies with time)</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-fee-total">
+        <source>%1 Transaction fee (est)</source>
+        <oldsource>%1 Transaction fee</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-negotiation">
+        <source>If the other side will not sign the transaction in %1, the offer will be canceled automatically.</source>
+        <oldsource>If peer will not finish negotiation in %1, the offer will be automatically canceled</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-tab">
+        <source>General</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-tx-fee-estimated">
+        <source>%1 Estimated transaction fee</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-remote-node-address">
+        <source>Remote node address</source>
+        <extracomment>settings tab, node section, address label</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -76,6 +76,7 @@ signals:
     void hideTrezorMessage();
     void showTrezorError(const QString& error);
 #endif
+    void txHistoryExportedToCsv(const QString& data);
 
 private:
     void onStatus(const beam::wallet::WalletStatus& status) override;
@@ -101,6 +102,7 @@ private:
     void onNoDeviceConnected() override;
     void onImportDataFromJson(bool isOk) override;
     void onExportDataToJson(const std::string& data) override;
+    void onExportTxHistoryToCsv(const std::string& data) override;
 
     void onShowKeyKeeperMessage() override;
     void onHideKeyKeeperMessage() override;

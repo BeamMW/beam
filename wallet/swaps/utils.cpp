@@ -18,7 +18,7 @@ namespace beam::wallet
 {
     const char* getSwapTxStatus(AtomicSwapTransaction::State state)
     {
-        static const char* Initial = "initial";
+        static const char* Initial = "waiting for peer";
         static const char* BuildingBeamLockTX = "building Beam LockTX";
         static const char* BuildingBeamRefundTX = "building Beam RefundTX";
         static const char* BuildingBeamRedeemTX = "building Beam RedeemTX";

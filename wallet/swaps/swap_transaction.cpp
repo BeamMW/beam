@@ -184,7 +184,7 @@ namespace beam::wallet
     {
     }
 
-    void AtomicSwapTransaction::Cancel()
+    bool AtomicSwapTransaction::CanCancel() const
     {
         State state = GetState(kDefaultSubTxID);
 
@@ -200,14 +200,24 @@ namespace beam::wallet
         case State::BuildingBeamRedeemTX:
         case State::BuildingBeamRefundTX:
         {
-            SetNextState(State::Canceled);
-            return;
+            return true;
         }
         default:
             break;
         }
 
-        LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(state);
+        return false;
+    }
+
+    void AtomicSwapTransaction::Cancel()
+    {
+        if (CanCancel())
+        {
+            SetNextState(State::Canceled);
+            return;
+        }
+
+        LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(GetState(kDefaultSubTxID));
     }
 
     bool AtomicSwapTransaction::Rollback(Height height)
@@ -326,6 +336,10 @@ namespace beam::wallet
         switch (state)
         {
         case State::Initial:
+        case State::Failed:
+        case State::Canceled:
+        case State::Refunded:
+        case State::CompleteSwap:
             return true;
         case State::SendingRedeemTX:
         case State::SendingBeamRedeemTX:
@@ -519,6 +533,8 @@ namespace beam::wallet
             {
                 assert(!isBeamOwner);
 
+                m_WalletDB->deleteCoinsCreatedByTx(GetTxID());
+
                 if (!m_secondSide->IsLockTimeExpired() && !m_secondSide->IsQuickRefundAvailable())
                 {
                     UpdateOnNextTip();
@@ -669,6 +685,11 @@ namespace beam::wallet
             }
             case State::Failed:
             {
+                if (isBeamOwner)
+                {
+                    m_WalletDB->deleteCoinsCreatedByTx(GetTxID());
+                }
+
                 TxFailureReason reason = TxFailureReason::Unknown;
                 if (GetParameter(TxParameterID::FailureReason, reason))
                 {
@@ -753,7 +774,11 @@ namespace beam::wallet
     {
         LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
 
-        if (notify)
+        if (reason == TxFailureReason::NoInputs)
+        {
+            NotifyFailure(TxFailureReason::Canceled);
+        }
+        else if (notify)
         {
             NotifyFailure(reason);
         }
@@ -988,8 +1013,6 @@ namespace beam::wallet
 
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
         {
-            UpdateTxDescription(TxStatus::InProgress);
-
             if (isBeamOwner)
             {
                 lockTxBuilder->SelectInputs();
@@ -1039,6 +1062,8 @@ namespace beam::wallet
 
             SetState(SubTxState::Constructed, SubTxIndex::BEAM_LOCK_TX);
             lockTxState = SubTxState::Constructed;
+
+            UpdateTxDescription(TxStatus::InProgress);
 
             if (!isBeamOwner)
             {
@@ -1316,7 +1341,7 @@ namespace beam::wallet
             return false;
         }
 
-        if ((SubTxIndex::BEAM_REDEEM_TX == subTxID) || (SubTxIndex::BEAM_REFUND_TX == subTxID))
+        if (SubTxIndex::BEAM_REFUND_TX == subTxID)
         {
             // store Coin in DB
             auto amount = GetMandatoryParameter<Amount>(TxParameterID::Amount, subTxID);

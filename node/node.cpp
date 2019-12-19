@@ -2603,13 +2603,15 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	Transaction::Context ctx(pars);
     if (pElem)
     {
-		if (!pElem->m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1))
-			return false;
+		bool bValid = pElem->m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
 
         ctx.m_Fee = pElem->m_Profit.m_Fee;
 		ctx.m_Height = pElem->m_Height;
         m_Dandelion.Delete(*pElem);
-    }
+
+		if (!bValid)
+			return false;
+	}
     else
     {
         for (size_t i = 0; i < ptx->m_vKernels.size(); i++)

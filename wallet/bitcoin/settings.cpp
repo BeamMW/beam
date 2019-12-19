@@ -76,11 +76,6 @@ namespace beam::bitcoin
         return m_feeRate;
     }
 
-    Amount Settings::GetMinFeeRate() const
-    {
-        return m_minFeeRate;
-    }
-
     uint16_t Settings::GetTxMinConfirmations() const
     {
         return m_txMinConfirmations;
@@ -116,6 +111,11 @@ namespace beam::bitcoin
         return m_addressVersion;
     }
 
+    std::vector<std::string> Settings::GetGenesisBlockHashes() const
+    {
+        return m_genesisBlockHashes;
+    }
+
     void Settings::SetConnectionOptions(const BitcoinCoreSettings& connectionSettings)
     {
         m_connectionSettings = connectionSettings;
@@ -129,11 +129,6 @@ namespace beam::bitcoin
     void Settings::SetFeeRate(Amount feeRate)
     {
         m_feeRate = feeRate;
-    }
-
-    void Settings::SetMinFeeRate(beam::Amount feeRate)
-    {
-        m_minFeeRate = feeRate;
     }
 
     void Settings::SetTxMinConfirmations(uint16_t txMinConfirmations)
@@ -159,5 +154,10 @@ namespace beam::bitcoin
     void Settings::SetAddressVersion(uint8_t addressVersion)
     {
         m_addressVersion = addressVersion;
+    }
+
+    void Settings::SetGenesisBlockHashes(const std::vector<std::string>& genesisBlockHashes)
+    {
+        m_genesisBlockHashes = genesisBlockHashes;
     }
 } // namespace beam::bitcoin

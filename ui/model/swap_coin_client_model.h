@@ -33,31 +33,37 @@ public:
     beam::Amount getAvailable();
     beam::bitcoin::Client::Status getStatus() const;
     bool canModifySettings() const;
+    beam::bitcoin::IBridge::ErrorType getConnectionError() const;
 
 signals:
     void gotStatus(beam::bitcoin::Client::Status status);
     void gotBalance(const beam::bitcoin::Client::Balance& balance);
     void gotCanModifySettings(bool canModify);
+    void gotConnectionError(const beam::bitcoin::IBridge::ErrorType& error);
 
     void canModifySettingsChanged();
     void balanceChanged();
     void statusChanged();
+    void connectionErrorChanged();
 
 private:
     void OnStatus(Status status) override;
     void OnBalance(const Client::Balance& balance) override;
     void OnCanModifySettingsChanged(bool canModify) override;
     void OnChangedSettings() override;
+    void OnConnectionError(beam::bitcoin::IBridge::ErrorType error) override;
 
 private slots:
     void requestBalance();
     void setBalance(const beam::bitcoin::Client::Balance& balance);
     void setStatus(beam::bitcoin::Client::Status status);
     void setCanModifySettings(bool canModify);
+    void setConnectionError(beam::bitcoin::IBridge::ErrorType error);
 
 private:
     QTimer m_timer;
     Client::Balance m_balance;
     Status m_status = Status::Unknown;
     bool m_canModifySettings = true;
+    beam::bitcoin::IBridge::ErrorType m_connectionError = beam::bitcoin::IBridge::ErrorType::None;
 };

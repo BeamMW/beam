@@ -34,9 +34,10 @@ QHash<int, QByteArray> SwapOffersList::roleNames() const
         { static_cast<int>(Roles::ExpirationSort), "expirationSort" },
         { static_cast<int>(Roles::SwapCoin), "swapCoin" },
         { static_cast<int>(Roles::IsOwnOffer), "isOwnOffer" },
-        { static_cast<int>(Roles::IsBeamSide), "isBeamSide" },
+        { static_cast<int>(Roles::IsSendBeam), "isSendBeam" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" },
-        { static_cast<int>(Roles::RawTxParameters), "rawTxParameters" }
+        { static_cast<int>(Roles::RawTxParameters), "rawTxParameters" },
+        { static_cast<int>(Roles::Pair), "pair" }
         
     };
     return roles;
@@ -48,6 +49,7 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
     {
        return QVariant();
     }
+
     auto& value = m_list[index.row()];
     switch (static_cast<Roles>(role))
     {
@@ -69,9 +71,8 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
             return static_cast<qulonglong>(value->rawAmountReceive());
 
         case Roles::Rate:
-            return value->rate();
         case Roles::RateSort:
-            return value->rateValue();
+            return value->rate();
 
         case Roles::Expiration:
             return value->timeExpiration().toString(Qt::SystemLocaleShortDate);
@@ -84,15 +85,21 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
         case Roles::IsOwnOffer:
             return value->isOwnOffer();
 
-        case Roles::IsBeamSide:
-            return value->isBeamSide();
+        case Roles::IsSendBeam:
+            return value->isSendBeam();
 
         case Roles::RawTxID:
             return QVariant::fromValue(value->getTxID());
 
         case Roles::RawTxParameters:
             return QVariant::fromValue(value->getTxParameters());
-            
+
+        case Roles::Pair:
+        {
+            auto swapCoin = value->getSwapCoinName();
+            const QString beam = "beam";
+            return  value->isSendBeam() ? beam + swapCoin : swapCoin + beam;
+        }
         default:
             return QVariant();
     }

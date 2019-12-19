@@ -153,6 +153,11 @@ namespace beam::wallet
             if (!--m_OwnedNodesOnline)
                 AbortUtxoEvents();
         }
+
+        for (auto sub : m_subscribers)
+        {
+            sub->onOwnedNode(id, bUp);
+        }
     }
 
     Block::SystemState::IHistory& Wallet::get_History()
@@ -444,6 +449,15 @@ namespace beam::wallet
             it->second->SetParameter(TxParameterID::TransactionRegistered, r.m_Res.m_Value, r.m_SubTxID);
             UpdateTransaction(r.m_TxID);
         }
+    }
+
+    bool Wallet::CanCancelTransaction(const TxID& txId) const
+    {
+        if (auto it = m_ActiveTransactions.find(txId); it != m_ActiveTransactions.end())
+        {
+            return it->second->CanCancel();
+        }
+        return false;
     }
 
     void Wallet::CancelTransaction(const TxID& txId)

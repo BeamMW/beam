@@ -17,6 +17,8 @@
         <file>controls/TableItem.qml</file>
         <file>controls/ContextMenu.qml</file>
         <file>controls/DefaultButton.qml</file>
+        <file>controls/EditAddress.qml</file>
+        <file>controls/ExpandableRowDelegate.qml</file>
         <file>controls/PrimaryButton.qml</file>
         <file>controls/CustomButton.qml</file>
         <file>controls/ConfirmationDialog.qml</file>
@@ -85,6 +87,8 @@
         <file>assets/bg.svg</file>
         <file>assets/b-grey.svg</file>
         <file>assets/b-red.svg</file>
+        <file>assets/icon-grey-arrow-down.svg</file>
+        <file>assets/icon-grey-arrow-up.svg</file>
         <file>assets/icon-attention.svg</file>
         <file>assets/icon-dashboard.svg</file>
         <file>assets/icon-dashboard-active.svg</file>
@@ -125,6 +129,7 @@
         <file>assets/icon-transaction-list.svg</file>
         <file>assets/icon-edit.svg</file>
         <file>assets/icon-expired.svg</file>
+        <file>assets/icon-export.svg</file>
         <file>assets/icon-external-link.svg</file>
         <file>assets/icon-external-link-black.svg</file>
         <file>assets/icon-external-link-green.svg</file>
@@ -145,6 +150,7 @@
         <file>assets/icon-send-blue.svg</file>
         <file>assets/icon-password.svg</file>
         <file>assets/icon-share.svg</file>
+        <file>assets/icon-show-key.svg</file>
         <file>assets/icon-search.svg</file>
         <file>controls/AddressComboBox.qml</file>
         <file>controls/CustomRadioButton.qml</file>
@@ -183,7 +189,6 @@
         <file>controls/SearchBox.qml</file>
         <file>assets/icon-maturing.svg</file>
         <file>assets/icon-padlock.svg</file>
-        <file>controls/EditAddress.qml</file>
         <file>assets/icon-repeat.svg</file>
         <file>assets/icon-repeat-white.svg</file>
         <file>assets/icon-save.svg</file>
@@ -200,6 +205,7 @@
         <file>assets/icon-accept-offer.svg</file>
         <file>assets/icon-create-offer.svg</file>
         <file>assets/atomic-empty-state.svg</file>
+        <file>assets/icon-trusted-node-status.svg</file>
         <file>controls/OpenExternalLinkConfirmation.qml</file>
         <file>controls/SeedInput.qml</file>
         <file>utils.js</file>

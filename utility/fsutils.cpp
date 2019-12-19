@@ -37,4 +37,33 @@ namespace beam::fsutils
         return fsutils::remove(path);
 #endif
     }
+
+    bool isExist(const std::string& path)
+    {
+#ifdef WIN32
+        return boost::filesystem::exists(Utf8toUtf16(path.c_str()));
+#else
+        return boost::filesystem::exists(path);
+#endif
+    }
+
+    bool rename(const boost::filesystem::path& oldPath, const boost::filesystem::path& newPath)
+    {
+        boost::system::error_code error;
+        boost::filesystem::rename(oldPath, newPath, error);
+        if (error) LOG_ERROR() << "fsutils::rename " << oldPath << " error: " << error.message();
+        return !static_cast<bool>(error);
+    }
+
+    bool rename(const std::string& oldPath, const std::string& newPath)
+    {
+#ifdef WIN32
+        boost::filesystem::path fromPath(Utf8toUtf16(oldPath));
+        boost::filesystem::path toPath(Utf8toUtf16(newPath));
+#else
+        boost::filesystem::path fromPath(oldPath);
+        boost::filesystem::path toPath(newPath);
+#endif
+        return fsutils::rename(fromPath, toPath);
+    }
 }
