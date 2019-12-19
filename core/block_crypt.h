@@ -515,7 +515,7 @@ namespace beam
 
 		virtual ~TxKernelStd() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual void UpdateID();
+		virtual void UpdateID() override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual int cmp_Subtype(const TxKernel&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
@@ -576,7 +576,7 @@ namespace beam
 		virtual ~TxKernelShieldedOutput() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual void AddStats(TxStats&) const;
+		virtual void AddStats(TxStats&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
@@ -594,7 +594,7 @@ namespace beam
 		virtual ~TxKernelShieldedInput() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual void AddStats(TxStats&) const;
+		virtual void AddStats(TxStats&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
