@@ -17,7 +17,7 @@
 
 #include <boost/program_options.hpp>
 
-#include "wallet/secstring.h"
+#include "wallet/core/secstring.h"
 
 namespace po = boost::program_options;
 using namespace beam;

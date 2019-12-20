@@ -18,7 +18,7 @@
 #include "utility/helpers.h"
 #include "nlohmann/json.hpp"
 
-#include "wallet/bitcoin/bitcoin.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 
 #include "test_helpers.h"
 

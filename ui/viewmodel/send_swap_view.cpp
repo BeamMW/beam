@@ -14,7 +14,7 @@
 #include "send_swap_view.h"
 #include "model/app_model.h"
 #include "qml_globals.h"
-#include "wallet/swaps/common.h"
+#include "wallet/transactions/swaps/common.h"
 #include "ui_helpers.h"
 
 SendSwapViewModel::SendSwapViewModel()

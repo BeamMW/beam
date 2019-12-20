@@ -15,10 +15,10 @@
 #include "receive_swap_view.h"
 #include "ui_helpers.h"
 #include "model/app_model.h"
-#include "wallet/swaps/utils.h"
-#include "wallet/bitcoin/bitcoin_side.h"
-#include "wallet/litecoin/litecoin_side.h"
-#include "wallet/qtum/qtum_side.h"
+#include "wallet/transactions/swaps/utils.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_side.h"
+#include "wallet/transactions/swaps/bridges/litecoin/litecoin_side.h"
+#include "wallet/transactions/swaps/bridges/qtum/qtum_side.h"
 #include <QClipboard>
 #include "qml_globals.h"
 

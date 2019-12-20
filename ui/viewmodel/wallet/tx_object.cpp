@@ -13,8 +13,8 @@
 // limitations under the License.
 #include "tx_object.h"
 #include "viewmodel/ui_helpers.h"
-#include "wallet/common.h"
-#include "wallet/simple_transaction.h"
+#include "wallet/core/common.h"
+#include "wallet/core/simple_transaction.h"
 #include "model/app_model.h"
 
 using namespace beam;

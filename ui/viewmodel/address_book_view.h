@@ -19,7 +19,7 @@
 #include <QtCore/qvariant.h>
 #include <QDateTime>
 #include <QQmlListProperty>
-#include "wallet/wallet_db.h"
+#include "wallet/core/wallet_db.h"
 #include "model/wallet_model.h"
 
 class AddressItem : public QObject

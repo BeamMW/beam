@@ -18,8 +18,8 @@
 #include "wallet/laser/i_channel_holder.h"
 #include "wallet/laser/receiver.h"
 #include "wallet/laser/types.h"
-#include "wallet/wallet_db.h"
-#include "wallet/common.h"
+#include "wallet/core/wallet_db.h"
+#include "wallet/core/common.h"
 
 namespace beam::wallet::laser
 {

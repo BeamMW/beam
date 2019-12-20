@@ -16,16 +16,16 @@
     #define LOG_VERBOSE_ENABLED 0
 #endif
 
-#include "wallet/common.h"
-#include "wallet/wallet_network.h"
-#include "wallet/wallet.h"
-#include "wallet/secstring.h"
-#include "wallet/base58.h"
-#include "wallet/wallet_client.h"
+#include "wallet/core/common.h"
+#include "wallet/core/wallet_network.h"
+#include "wallet/core/wallet.h"
+#include "wallet/core/secstring.h"
+#include "wallet/core/base58.h"
+#include "wallet/client/wallet_client.h"
 #include "utility/test_helpers.h"
 #include "core/radixtree.h"
 #include "core/unittest/mini_blockchain.h"
-#include "wallet/simple_transaction.h"
+#include "wallet/core/simple_transaction.h"
 #include "core/negotiator.h"
 #include "node/node.h"
 #include "keykeeper/local_private_key_keeper.h"

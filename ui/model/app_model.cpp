@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "app_model.h"
-#include "wallet/swaps/swap_transaction.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
 #include "utility/common.h"
 #include "utility/logger.h"
 #include "utility/fsutils.h"
@@ -21,9 +21,9 @@
 #include <QApplication>
 #include <QTranslator>
 
-#include "wallet/bitcoin/bitcoin.h"
-#include "wallet/litecoin/litecoin.h"
-#include "wallet/qtum/qtum.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
+#include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
+#include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 
 #include "keykeeper/local_private_key_keeper.h"
 

@@ -19,8 +19,8 @@
 #include <QQmlListProperty>
 
 #include "model/settings.h"
-#include "wallet/bitcoin/client.h"
-#include "wallet/bitcoin/settings.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/settings.h"
 
 class SwapCoinClientModel;
 

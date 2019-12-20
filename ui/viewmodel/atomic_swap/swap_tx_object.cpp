@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "swap_tx_object.h"
-#include "wallet/swaps/common.h"
-#include "wallet/swaps/swap_transaction.h"
+#include "wallet/transactions/swaps/common.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
 #include "core/ecc.h"
 #include "viewmodel/qml_globals.h"
 #include "model/app_model.h"

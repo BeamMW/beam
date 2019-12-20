@@ -16,7 +16,7 @@
 
 #include <QObject>
 
-#include "wallet/wallet_client.h"
+#include "wallet/client/wallet_client.h"
 #include <set>
 
 class WalletModel

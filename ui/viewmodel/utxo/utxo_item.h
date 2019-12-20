@@ -14,7 +14,7 @@
 #pragma once
 
 #include <QObject>
-#include "wallet/wallet_client.h"
+#include "wallet/client/wallet_client.h"
 #include "utxo_view_status.h"
 #include "utxo_view_type.h"
 

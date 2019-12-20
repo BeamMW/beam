@@ -14,7 +14,7 @@
 
 #include "swap_offer_item.h"
 #include "utility/helpers.h"
-#include "wallet/common.h"
+#include "wallet/core/common.h"
 #include "ui/viewmodel/ui_helpers.h"
 #include "ui/viewmodel/qml_globals.h"
 

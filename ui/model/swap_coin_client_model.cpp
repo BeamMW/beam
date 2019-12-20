@@ -15,10 +15,10 @@
 #include "swap_coin_client_model.h"
 
 #include "model/app_model.h"
-#include "wallet/common.h"
-#include "wallet/swaps/common.h"
-#include "wallet/bitcoin/bitcoin_core_017.h"
-#include "wallet/bitcoin/settings_provider.h"
+#include "wallet/core/common.h"
+#include "wallet/transactions/swaps/common.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_core_017.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/settings_provider.h"
 
 using namespace beam;
 

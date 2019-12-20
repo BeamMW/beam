@@ -17,11 +17,11 @@
 #include <QClipboard>
 #include "version.h"
 #include "model/app_model.h"
-#include "wallet/common.h"
+#include "wallet/core/common.h"
 #include "ui_helpers.h"
-#include "wallet/bitcoin/bitcoin_side.h"
-#include "wallet/litecoin/litecoin_side.h"
-#include "wallet/qtum/qtum_side.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_side.h"
+#include "wallet/transactions/swaps/bridges/litecoin/litecoin_side.h"
+#include "wallet/transactions/swaps/bridges/qtum/qtum_side.h"
 #include "utility/string_helpers.h"
 
 #include <boost/algorithm/string.hpp>

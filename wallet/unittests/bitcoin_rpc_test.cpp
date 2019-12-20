@@ -18,8 +18,8 @@
 #include "utility/helpers.h"
 #include "nlohmann/json.hpp"
 
-#include "wallet/bitcoin/bitcoin_core_016.h"
-#include "wallet/bitcoin/settings_provider.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_core_016.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/settings_provider.h"
 
 #include "test_helpers.h"
 

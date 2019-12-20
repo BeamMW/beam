@@ -14,7 +14,7 @@
 
 #include "utxo_item.h"
 #include "viewmodel/ui_helpers.h"
-#include "wallet/common.h"
+#include "wallet/core/common.h"
 
 using namespace beam;
 using namespace beam::wallet;

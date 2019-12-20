@@ -1,6 +1,6 @@
 #pragma once
 #include <QObject>
-#include "wallet/common.h"
+#include "wallet/core/common.h"
 
 Q_DECLARE_METATYPE(beam::wallet::TxID)
 Q_DECLARE_METATYPE(beam::wallet::TxParameters)

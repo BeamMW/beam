@@ -1,6 +1,6 @@
 #include "server.h"
 #include "adapter.h"
-#include "wallet/secstring.h"
+#include "wallet/core/secstring.h"
 #include "core/ecc_native.h"
 #include "core/block_rw.h"
 

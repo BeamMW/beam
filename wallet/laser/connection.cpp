@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "wallet/laser/connection.h"
-#include "wallet/wallet_request_bbs_msg.h"
+#include "wallet/core/wallet_request_bbs_msg.h"
 #include "utility/logger.h"
 
 namespace beam::wallet::laser
