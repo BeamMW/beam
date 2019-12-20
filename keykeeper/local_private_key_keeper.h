@@ -55,16 +55,19 @@ namespace beam::wallet
         //
         // Assets
         //
-        AssetID AIDFromKeyIndex(uint32_t assetIdx) override;
+        AssetID GetAssetID(uint32_t assetIdx) override;
         ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx) override;
 
     private:
-        ECC::Scalar::Native GetAssetKey(beam::Key::ID assetKeyId);
+        // pair<asset public (asset id), asset private>
+        std::pair<AssetID, ECC::Scalar::Native> GetAssetKeypair(uint32_t assetIdx);
+
         Key::IKdf::Ptr GetChildKdf(const Key::IDV&) const;
         ECC::Scalar::Native GetNonce(size_t slot);
         ECC::Scalar::Native GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset) const;
         void LoadNonceSeeds();
         void SaveNonceSeeds();
+
     private:
         IVariablesDB::Ptr m_Variables;
         Key::IKdf::Ptr m_MasterKdf;

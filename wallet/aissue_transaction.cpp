@@ -61,7 +61,7 @@ namespace beam::wallet
         auto sharedBuilder = m_TxBuilder;
         AssetIssueTxBuilder& builder = *sharedBuilder;
 
-        if (!builder.LoadKernels())
+        if (!builder.LoadKernel())
         {
             if (!builder.GetInitialTxParams() && GetState() == State::Initial)
             {
@@ -110,8 +110,8 @@ namespace beam::wallet
             if(GetState() == State::MakingOutputs)
             {
                 SetState(State::MakingKernels);
-                builder.CreateKernels();
-                builder.SignKernels();
+                builder.CreateKernel();
+                builder.SignKernel();
             }
         }
 

@@ -71,7 +71,7 @@ namespace beam::wallet
         }
 
         m_assetIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetIdx);
-        m_assetId  = m_keyKeeper->AIDFromKeyIndex(m_assetIdx);
+        m_assetId  = m_keyKeeper->GetAssetID(m_assetIdx);
         m_Tx.SetParameter(TxParameterID::AssetID, m_assetId, m_SubTxID);
         if (m_assetIdx == 0 || m_assetId == Zero)
         {
@@ -125,7 +125,7 @@ namespace beam::wallet
         return m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
     }
 
-    bool AssetIssueTxBuilder::LoadKernels()
+    bool AssetIssueTxBuilder::LoadKernel()
     {
         if (m_Tx.GetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID))
         {
@@ -160,16 +160,14 @@ namespace beam::wallet
 
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
         tx->m_Offset = m_Offset;
-
         tx->Normalize();
 
+#ifdef DEBUG
         beam::Transaction::Context::Params pars;
         beam::Transaction::Context ctx(pars);
         ctx.m_Height.m_Min = m_MinHeight;
-        bool bIsValid = tx->IsValid(ctx);
-        //verify_test(bIsValid);
-        int a = bIsValid;
-        a++;
+        assert(tx->IsValid(ctx));
+#endif
 
         return tx;
     }
@@ -404,7 +402,7 @@ namespace beam::wallet
         return *m_KernelID;
     }
 
-    void AssetIssueTxBuilder::CreateKernels()
+    void AssetIssueTxBuilder::CreateKernel()
     {
         static_assert(std::is_same<decltype(m_Kernel->m_Value), int64_t>::value,
                       "If this fails please update value in the ConsumeAmountTooBig's message and typecheck in this assert");
@@ -425,10 +423,11 @@ namespace beam::wallet
         m_Kernel->m_Height.m_Min = GetMinHeight();
         m_Kernel->m_Height.m_Max = m_MaxHeight;
         m_Kernel->m_Commitment   = Zero;
+        m_Kernel->m_AssetID      = m_assetId;
         m_Kernel->m_Value = m_issue ? GetAmountBeam() : -static_cast<AmountSigned>(GetAmountAsset());
     }
 
-    void AssetIssueTxBuilder::SignKernels()
+    void AssetIssueTxBuilder::SignKernel()
     {
         m_Offset += m_keyKeeper->SignEmissionKernel(*m_Kernel, m_assetIdx);
 
