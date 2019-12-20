@@ -1088,7 +1088,7 @@ namespace beam::wallet
         {
             for (auto& endpoint : m_MessageEndpoints)
             {
-                endpoint->SendEncryptedMessage(message.m_PeerID, message.m_Message);
+                endpoint->SendRawMessage(message.m_PeerID, message.m_Message);
             }
             m_WalletDB->deleteWalletMessage(message.m_ID);
         }

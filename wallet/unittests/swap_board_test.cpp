@@ -95,7 +95,7 @@ namespace
         /**
          *  Redirects BBS messages to subscribers
          */
-        virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override
+        virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
         {
             beam::BbsChannel channel;
             peerID.m_Channel.Export(channel);

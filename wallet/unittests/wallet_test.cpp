@@ -1224,7 +1224,7 @@ namespace
                 IWalletMessageEndpoint& endpoint = m_Bbs;
                 ByteBuffer message;
                 std::generate_n(std::back_inserter(message), 10000, []() { return uint8_t(std::rand() % 256); });
-                //endpoint.SendEncryptedMessage(m_ReceiverID, message);
+                //endpoint.SendRawMessage(m_ReceiverID, message);
                 SetTxParameter params;
                 params.m_From = m_WalletID;
                 params.m_Type = TxType::Simple;

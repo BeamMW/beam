@@ -97,7 +97,7 @@ namespace beam::wallet
     {
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
-        virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
+        virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
         virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version) = 0;
     };
 

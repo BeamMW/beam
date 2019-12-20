@@ -210,7 +210,7 @@ namespace beam::wallet {
         ByteBuffer encryptedMessage;
         if (proto::Bbs::Encrypt(encryptedMessage, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
         {
-            SendEncryptedMessage(peerID, encryptedMessage);
+            SendRawMessage(peerID, encryptedMessage);
         }
         else
         {
@@ -256,7 +256,7 @@ namespace beam::wallet {
             
             WalletID dummyWId;
             dummyWId.m_Channel = channel;
-            SendEncryptedMessage(dummyWId, finalMessage);
+            SendRawMessage(dummyWId, finalMessage);
         }
     }
 
@@ -391,7 +391,7 @@ namespace beam::wallet {
         ProcessMessage(msg.m_Channel, msg.m_Message);
 	}
 
-    void WalletNetworkViaBbs::SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg)
+    void WalletNetworkViaBbs::SendRawMessage(const WalletID& peerID, const ByteBuffer& msg)
     {
         // first store message for accidental app close
         auto messageID = m_WalletDB->saveWalletMessage(OutgoingWalletMessage{ 0, peerID, msg });
@@ -535,7 +535,7 @@ namespace beam::wallet {
         Unsubscribe();
     }
 
-    void ColdWalletMessageEndpoint::SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg)
+    void ColdWalletMessageEndpoint::SendRawMessage(const WalletID& peerID, const ByteBuffer& msg)
     {
         m_WalletDB->saveWalletMessage(OutgoingWalletMessage{ 0, peerID, msg });
     }

@@ -131,7 +131,7 @@ namespace beam::wallet
         void OnChannelAdded(BbsChannel channel) override;
         void OnChannelDeleted(BbsChannel channel) override;
         // IWalletMessageEndpoint
-        void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;
+        void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
     };
 
@@ -142,7 +142,7 @@ namespace beam::wallet
         ColdWalletMessageEndpoint(IWalletMessageConsumer& wallet, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper);
         ~ColdWalletMessageEndpoint();
     private:
-        void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;
+        void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override;
     private:
         IWalletDB::Ptr m_WalletDB;
     };
