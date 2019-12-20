@@ -20,7 +20,7 @@
 #include <QStringList>
 #include <mutex>
 #include "model/wallet_model.h"
-#include "wallet/bitcoin/settings.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/settings.h"
 
 
 class WalletSettings : public QObject

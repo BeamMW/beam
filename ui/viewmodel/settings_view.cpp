@@ -21,17 +21,18 @@
 #include "model/helpers.h"
 #include "model/swap_coin_client_model.h"
 #include <thread>
-#include "wallet/secstring.h"
+#include "wallet/core/secstring.h"
 #include "qml_globals.h"
 #include <algorithm>
-#include "wallet/litecoin/settings.h"
-#include "wallet/qtum/settings.h"
 #include <boost/algorithm/string/trim.hpp>
 #include "utility/string_helpers.h"
 #include "mnemonic/mnemonic.h"
-#include "wallet/bitcoin/common.h"
-#include "wallet/qtum/common.h"
-#include "wallet/litecoin/common.h"
+
+#include "wallet/transactions/swaps/bridges/litecoin/settings.h"
+#include "wallet/transactions/swaps/bridges/qtum/settings.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/common.h"
+#include "wallet/transactions/swaps/bridges/qtum/common.h"
+#include "wallet/transactions/swaps/bridges/litecoin/common.h"
 
 using namespace beam;
 using namespace ECC;

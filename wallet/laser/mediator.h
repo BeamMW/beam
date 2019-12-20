@@ -22,7 +22,7 @@
 #include "wallet/laser/i_receiver_holder.h"
 #include "core/fly_client.h"
 #include "wallet/laser/channel.h"
-#include "wallet/wallet_db.h"
+#include "wallet/core/wallet_db.h"
 
 namespace beam::wallet::laser
 {

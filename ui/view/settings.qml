@@ -681,6 +681,7 @@ deploy the key at the node you trust completely."*/
                     //: settings tab, general section, Show owner key button and dialog title
                     //% "Show owner key"
                     text: qsTrId("settings-general-require-pwd-to-show-owner-key")
+                    enabled: viewModel.localNodeRun && viewModel.isLocalNodeRunning
                     palette.button: Style.background_second
                     palette.buttonText : viewModel.localNodeRun ? Style.content_main : Style.content_disabled
                     onClicked: {
@@ -914,7 +915,7 @@ deploy the key at the node you trust completely."*/
                                 Layout.preferredHeight: 32
                                 linkEnabled: true
                                 onLinkActivated:  {
-                                    Utils.handleExternalLink(link, viewModel, externalLinkConfirmation)
+                                    Utils.openExternal(link, viewModel, externalLinkConfirmation)
                                 }
                             }
 
@@ -1023,7 +1024,7 @@ deploy the key at the node you trust completely."*/
                             wrapMode: Text.WordWrap
                             linkEnabled: true
                             onLinkActivated: {
-                                Utils.handleExternalLink(link, viewModel, externalLinkConfirmation);
+                                Utils.openExternal(link, viewModel, externalLinkConfirmation);
                             }
                         }
 

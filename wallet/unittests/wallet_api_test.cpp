@@ -16,7 +16,7 @@
 
 #include "test_helpers.h"
 
-#include "wallet/api.h"
+#include "wallet/api/api.h"
 #include "nlohmann/json.hpp"
 
 using namespace std;

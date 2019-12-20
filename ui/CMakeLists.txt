@@ -275,8 +275,7 @@ target_link_libraries(${TARGET_NAME} quazip_static)
 #endif()
 
 target_link_libraries(${TARGET_NAME}
-        wallet
-        swap
+        wallet_client
         mnemonic 
         Qt5::Qml
         Qt5::Quick 

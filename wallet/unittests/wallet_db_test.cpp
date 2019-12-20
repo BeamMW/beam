@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/wallet_db.h"
+#include "wallet/core/wallet_db.h"
 #include <assert.h>
 #include "test_helpers.h"
 #include "utility/test_helpers.h"

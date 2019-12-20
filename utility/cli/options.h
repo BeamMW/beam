@@ -16,7 +16,7 @@
 
 #include <boost/program_options.hpp>
 #include "utility/logger.h"
-#include "wallet/secstring.h"
+#include "wallet/core/secstring.h"
 
 namespace beam
 {

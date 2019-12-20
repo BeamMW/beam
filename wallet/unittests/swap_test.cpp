@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/common.h"
-#include "wallet/wallet_network.h"
-#include "wallet/wallet.h"
-#include "wallet/wallet_transaction.h"
+#include "wallet/core/common.h"
+#include "wallet/core/wallet_network.h"
+#include "wallet/core/wallet.h"
+#include "wallet/core/simple_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
-#include "wallet/secstring.h"
-#include "wallet/swaps/common.h"
-#include "wallet/swaps/swap_transaction.h"
-#include "wallet/swaps/utils.h"
-#include "wallet/swaps/second_side.h"
-#include "wallet/bitcoin/bitcoin.h"
+#include "wallet/core/secstring.h"
+#include "wallet/transactions/swaps/common.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
+#include "wallet/transactions/swaps/utils.h"
+#include "wallet/transactions/swaps/second_side.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 
 #include "http/http_client.h"
 #include "utility/test_helpers.h"

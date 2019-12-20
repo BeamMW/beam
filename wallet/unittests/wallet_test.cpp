@@ -16,16 +16,16 @@
     #define LOG_VERBOSE_ENABLED 0
 #endif
 
-#include "wallet/common.h"
-#include "wallet/wallet_network.h"
-#include "wallet/wallet.h"
-#include "wallet/secstring.h"
-#include "wallet/base58.h"
-#include "wallet/wallet_client.h"
+#include "wallet/core/common.h"
+#include "wallet/core/wallet_network.h"
+#include "wallet/core/wallet.h"
+#include "wallet/core/secstring.h"
+#include "wallet/core/base58.h"
+#include "wallet/client/wallet_client.h"
 #include "utility/test_helpers.h"
 #include "core/radixtree.h"
 #include "core/unittest/mini_blockchain.h"
-#include "wallet/wallet_transaction.h"
+#include "wallet/core/simple_transaction.h"
 #include "core/negotiator.h"
 #include "node/node.h"
 #include "keykeeper/local_private_key_keeper.h"
@@ -1224,7 +1224,7 @@ namespace
                 IWalletMessageEndpoint& endpoint = m_Bbs;
                 ByteBuffer message;
                 std::generate_n(std::back_inserter(message), 10000, []() { return uint8_t(std::rand() % 256); });
-                //endpoint.SendEncryptedMessage(m_ReceiverID, message);
+                //endpoint.SendRawMessage(m_ReceiverID, message);
                 SetTxParameter params;
                 params.m_From = m_WalletID;
                 params.m_Type = TxType::Simple;

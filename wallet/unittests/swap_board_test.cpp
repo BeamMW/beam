@@ -20,8 +20,9 @@
 #include <boost/filesystem.hpp>
 
 #include "test_helpers.h"
-#include "wallet/common.h"
-#include "wallet/wallet_network.h"
+#include "wallet/core/common.h"
+#include "wallet/core/simple_transaction.h"
+#include "wallet/core/wallet_network.h"
 #include "keykeeper/local_private_key_keeper.h"
 
 // for wallet_test_environment.cpp
@@ -34,8 +35,8 @@ WALLET_TEST_INIT
 
 #include "wallet_test_environment.cpp"
 
-#include "wallet/swaps/swap_offers_board.h"
-#include "wallet/swaps/swap_offers_board.cpp"
+#include "wallet/transactions/swaps/swap_offers_board.h"
+#include "wallet/transactions/swaps/swap_offers_board.cpp"
 
 using namespace beam;
 using namespace beam::wallet;
@@ -94,7 +95,7 @@ namespace
         /**
          *  Redirects BBS messages to subscribers
          */
-        virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override
+        virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
         {
             beam::BbsChannel channel;
             peerID.m_Channel.Export(channel);
