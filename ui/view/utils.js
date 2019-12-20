@@ -52,18 +52,6 @@ function openExternal(externalLink, settings, dialog) {
     }
 }
 
-function handleExternalLink(externalLink, settings, dialog) {
-    if (settings.isAllowedBeamMWLinks) {
-        Qt.openUrlExternally(externalLink);
-    } else {
-        dialog.externalUrl = externalLink;
-        dialog.onOkClicked = function () {
-            settings.isAllowedBeamMWLinks = true;
-        };
-        dialog.open();
-    }
-}
-
 function currenciesList() {
     return ["BEAM", "BTC", "LTC", "QTUM"]
 }

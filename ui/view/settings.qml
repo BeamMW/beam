@@ -914,7 +914,7 @@ deploy the key at the node you trust completely."*/
                                 Layout.preferredHeight: 32
                                 linkEnabled: true
                                 onLinkActivated:  {
-                                    Utils.handleExternalLink(link, viewModel, externalLinkConfirmation)
+                                    Utils.openExternal(link, viewModel, externalLinkConfirmation)
                                 }
                             }
 
@@ -1023,7 +1023,7 @@ deploy the key at the node you trust completely."*/
                             wrapMode: Text.WordWrap
                             linkEnabled: true
                             onLinkActivated: {
-                                Utils.handleExternalLink(link, viewModel, externalLinkConfirmation);
+                                Utils.openExternal(link, viewModel, externalLinkConfirmation);
                             }
                         }
 
