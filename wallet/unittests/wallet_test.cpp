@@ -25,7 +25,7 @@
 #include "utility/test_helpers.h"
 #include "core/radixtree.h"
 #include "core/unittest/mini_blockchain.h"
-#include "wallet/wallet_transaction.h"
+#include "wallet/simple_transaction.h"
 #include "core/negotiator.h"
 #include "node/node.h"
 #include "keykeeper/local_private_key_keeper.h"

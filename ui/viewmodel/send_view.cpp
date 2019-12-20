@@ -14,6 +14,8 @@
 #include "send_view.h"
 #include "model/app_model.h"
 #include "wallet/common.h"
+#include "wallet/simple_transaction.h"
+
 #include "ui_helpers.h"
 #include "qml_globals.h"
 #include <QLocale>

@@ -16,7 +16,7 @@
 
 #include "wallet/wallet_db.h"
 #include "wallet/common.h"
-#include "wallet/wallet_transaction.h"
+#include "wallet/base_transaction.h"
 #include "core/fly_client.h"
 
 namespace beam::wallet

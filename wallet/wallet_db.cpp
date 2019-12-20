@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "wallet_db.h"
-#include "wallet_transaction.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "sqlite/sqlite3.h"

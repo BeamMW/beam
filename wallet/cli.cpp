@@ -19,6 +19,7 @@
 #include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
+#include "wallet/simple_transaction.h"
 #include "wallet/secstring.h"
 #ifdef BEAM_LASER_SUPPORT
 #include "wallet/laser/mediator.h"

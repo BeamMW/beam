@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "wallet_client.h"
+#include "simple_transaction.h"
 #include "utility/log_rotation.h"
 #include "core/block_rw.h"
 #include "keykeeper/trezor_key_keeper.h"

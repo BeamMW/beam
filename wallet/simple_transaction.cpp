@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet_transaction.h"
+#include "simple_transaction.h"
 #include "base_tx_builder.h"
 #include "wallet.h"
 #include "core/block_crypt.h"

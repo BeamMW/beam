@@ -21,6 +21,7 @@
 
 #include "test_helpers.h"
 #include "wallet/common.h"
+#include "wallet/simple_transaction.h"
 #include "wallet/wallet_network.h"
 #include "keykeeper/local_private_key_keeper.h"
 

@@ -15,6 +15,7 @@
 
 #include "util.h"
 #include "wallet/wallet_network.h"
+#include "wallet/simple_transaction.h"
 #include "node/node.h"
 #include "utility/logger.h"
 #include <future>

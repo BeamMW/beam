@@ -14,7 +14,7 @@ target_sources(wallet
         base_tx_builder.cpp
         aissue_tx_builder.cpp
         aissue_transaction.cpp
-        wallet_transaction.cpp
+        simple_transaction.cpp
         strings_resources.cpp
         wallet_network.cpp
         wallet_db.cpp
