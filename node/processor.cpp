@@ -1772,26 +1772,19 @@ struct NodeProcessor::BlockInterpretCtx
 {
 	Height m_Height;
 	bool m_Fwd;
-	bool m_ValidateOnly; // don't make changes to state
-	bool m_AlreadyValidated; // set during reorgs, when a block is being applied for 2nd time
-	bool m_SaveKid;
+	bool m_ValidateOnly = false; // don't make changes to state
+	bool m_AlreadyValidated = false; // set during reorgs, when a block is being applied for 2nd time
+	bool m_SaveKid = true;
 
-	uint32_t m_ShieldedIns;
-	uint32_t m_ShieldedOuts;
+	uint32_t m_ShieldedIns = 0;
+	uint32_t m_ShieldedOuts = 0;
 
-	ECC::Point::Storage* m_pShieldedOut; // used in normal (apply) mode
-	std::set<ECC::Point>* m_pDups; // used in validate-only mode
+	ECC::Point::Storage* m_pShieldedOut = nullptr; // used in normal (apply) mode
+	std::set<ECC::Point>* m_pDups = nullptr; // used in validate-only mode
 
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
 		,m_Fwd(bFwd)
-		,m_ValidateOnly(false)
-		,m_AlreadyValidated(false)
-		,m_SaveKid(true)
-		,m_ShieldedIns(0)
-		,m_ShieldedOuts(0)
-		,m_pShieldedOut(nullptr)
-		,m_pDups(nullptr)
 	{
 	}
 };
