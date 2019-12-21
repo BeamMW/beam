@@ -2122,7 +2122,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 
 		auto r = block.get_Reader();
 		r.Reset();
-		RecognizeUtxos(std::move(r), sid.m_Height, id0);
+		RecognizeUtxos(std::move(r), sid.m_Height, m_Extra.m_Shielded - bic.m_ShieldedOuts);
 
 		Serializer ser;
 		bbP.clear();
@@ -2795,7 +2795,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 			return false; // duplicated
 	}
 
-	bool bSaveID = ((bic.m_Height >= Rules::HeightGenesis) && !bic.m_ValidateOnly && bic.m_SaveKid); // for historical reasons treasury kernels are ignored
+	bool bSaveID = ((bic.m_Height >= Rules::HeightGenesis) && bic.m_SaveKid); // for historical reasons treasury kernels are ignored
 	if (bSaveID && !bic.m_Fwd)
 		m_DB.DeleteKernel(v.m_Internal.m_ID, bic.m_Height);
 
@@ -3441,6 +3441,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	// Ensure kernels are ok
 	BlockInterpretCtx bic(h, true);
 	bic.m_ValidateOnly = true;
+	bic.m_SaveKid = false;
 
 	std::set<ECC::Point> setDups;
 	bic.m_pDups = &setDups;
