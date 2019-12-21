@@ -19,7 +19,7 @@
 #include <QtCore/qvariant.h>
 #include <QDateTime>
 #include <QQmlListProperty>
-#include "wallet/wallet_db.h"
+#include "wallet/core/wallet_db.h"
 #include "model/wallet_model.h"
 
 class AddressItem : public QObject
@@ -93,6 +93,7 @@ class AddressBookViewModel : public QObject
     Q_PROPERTY(QString contactSortRole READ contactSortRole WRITE setContactSortRole)
 
 public:
+    Q_INVOKABLE bool isAddressBusy(const QString& addr);
     Q_INVOKABLE void deleteAddress(const QString& addr);
     Q_INVOKABLE void saveChanges(const QString& addr, const QString& name, uint expirationStatus);
     Q_INVOKABLE static QString generateQR(const QString& addr, uint width, uint height);
@@ -128,6 +129,7 @@ public:
 
 public slots:
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
+    void onTransactions(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&);
     void onAddressesChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::WalletAddress>& addresses);
 
 signals:
@@ -160,4 +162,5 @@ private:
     QString m_activeAddrSortRole;
     QString m_expiredAddrSortRole;
     QString m_contactSortRole;
+    std::vector<beam::wallet::WalletID> m_busyAddresses;
 };

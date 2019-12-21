@@ -10,6 +10,11 @@ Dialog {
 	SettingsViewModel {id: viewModel}
 	property string dialogTitle: "title"
 	property string dialogMessage: "message"
+	property alias okButtonText: okButton.text
+	property alias okButtonIcon: okButton.icon.source
+	property alias cancelButtonText: cancelButton.text
+	property alias cancelButtonIcon: cancelButton.icon.source
+	property alias pwd: pwd.text
 	property bool showError: false
 	property var onDialogAccepted: function() {
 		console.log("Accepted");
@@ -115,6 +120,7 @@ Dialog {
 			Layout.alignment: Qt.AlignHCenter
 
 			CustomButton {
+				id: cancelButton
 				Layout.preferredHeight: 38
 				//% "Cancel"
 				text: qsTrId("general-cancel")
@@ -123,6 +129,7 @@ Dialog {
 			}
 
 			PrimaryButton {
+				id: okButton
 				Layout.preferredHeight: 38
 				//: confirm password dialog, ok button
 				//% "Proceed"

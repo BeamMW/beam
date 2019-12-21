@@ -522,7 +522,7 @@ struct TestWalletNetwork
         PostAsync();
     }
 
-    virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override
+    virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
     {
     }
     

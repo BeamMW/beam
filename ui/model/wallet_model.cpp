@@ -370,6 +370,9 @@ void WalletModel::setAddresses(bool own, const std::vector<beam::wallet::WalletA
 {
     if (own)
     {
+        m_myWalletIds.clear();
+        m_myAddrLabels.clear();
+
         for (const auto& addr : addrs)
         {
             m_myWalletIds.emplace(addr.m_walletID);

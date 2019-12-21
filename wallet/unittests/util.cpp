@@ -1,5 +1,5 @@
 #include "util.h"
-#include "wallet/wallet.h"
+#include "wallet/core/wallet.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "utility/logger.h"
@@ -12,23 +12,6 @@ using namespace beam;
 using namespace ECC;
 
 namespace beam {
-
-bool ReadTreasury(ByteBuffer& bb, const string& sPath)
-{
-	if (sPath.empty())
-		return false;
-
-	std::FStream f;
-	if (!f.Open(sPath.c_str(), true))
-		return false;
-
-	size_t nSize = static_cast<size_t>(f.get_Remaining());
-	if (!nSize)
-		return false;
-
-	bb.resize(f.get_Remaining());
-	return f.read(&bb.front(), nSize) == nSize;
-}
 
 wallet::IWalletDB::Ptr init_wallet_db(const std::string& path, uintBig* walletSeed, io::Reactor::Ptr reactor) {
     static const std::string TEST_PASSWORD("12321");

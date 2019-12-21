@@ -6,6 +6,7 @@ import QtGraphicalEffects 1.0
 import QtQuick.Window 2.2
 import "controls"
 import Beam.Wallet 1.0
+import "utils.js" as Utils
 
 Rectangle {
     id: main
@@ -40,6 +41,14 @@ Rectangle {
             Qt.quit();
         }
         modal: true
+    }
+
+    OpenExternalLinkConfirmation {
+        id: externalLinkConfirmation
+    }
+
+    SettingsViewModel {
+        id: settingsViewModel
     }
 
     function onClosing (close) {
@@ -101,7 +110,6 @@ Rectangle {
     Item {
         id: sidebar
         width: 70
-        height: 0
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.top: parent.top
@@ -187,6 +195,69 @@ Rectangle {
             smooth: true
         }
 
+        Item {
+            property int prevSelectedIndex: 0
+            id: whereToBuyControl
+            width: parent.width
+            anchors.bottom: parent.bottom
+            height: 66
+            activeFocusOnTab: true
+
+            function clickHandler() {
+                console.log("clickHandler");
+                if (selectedItem == 100) {
+                    selectedItem = prevSelectedIndex;
+                } else {
+                    prevSelectedIndex = selectedItem;
+                    selectedItem = 100;
+                }
+                whereToBuyControl.focus = !whereToBuyControl.focus
+                // Utils.openExternal("https://www.beam.mw/#exchanges", settingsViewModel, externalLinkConfirmation);
+            }
+
+            SvgImage {
+                x: 21
+                y: 16
+                width: 28
+                height: 28
+                source: whereToBuyControl.activeFocus
+                    ? "qrc:/assets/icon-where-to-buy-beam-green.svg"
+                    : "qrc:/assets/icon-where-to-buy-beam-gray.svg"
+            }
+            Item {
+                Rectangle {
+                    id: indicator
+                    y: 6
+                    width: 4
+                    height: 48
+                    color: whereToBuyControl.activeFocus ? Style.active : Style.passive
+                }
+
+                DropShadow {
+                    anchors.fill: indicator
+                    radius: 5
+                    samples: 9
+                    color: Style.active
+                    source: indicator
+                }
+
+                visible: whereToBuyControl.activeFocus
+            }
+            Keys.onPressed: {
+                if ((event.key == Qt.Key_Return || event.key == Qt.Key_Enter || event.key == Qt.Key_Space) && whereToBuyControl.activeFocus)
+                    whereToBuyControl.clickHandler();
+            }
+
+            MouseArea {
+                id: mouseArea
+                anchors.fill: parent
+                onClicked: {
+                    whereToBuyControl.clickHandler();
+                }
+                hoverEnabled: true
+            }
+        }
+
     }
 
     Loader {
@@ -226,6 +297,10 @@ Rectangle {
 
 	function openSwapSettings() {
         updateItem("settings", {swapMode:true})
+    }
+
+    function openSwapActiveTransactionsList() {
+        updateItem("atomic_swap", {"shouldShowActiveTransactions": true})
     }
 
     function resetLockTimer() {

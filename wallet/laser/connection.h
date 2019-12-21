@@ -16,7 +16,7 @@
 
 #include <memory>
 #include "core/fly_client.h"
-#include "wallet/bbs_miner.h"
+#include "wallet/core/bbs_miner.h"
 
 namespace beam::wallet::laser
 {

@@ -372,32 +372,27 @@ namespace beam::wallet
         return excess;
     }
 
-    Scalar::Native LocalPrivateKeyKeeper::GetAssetKey(beam::Key::ID assetKeyId)
-    {
-        Scalar::Native secretKey;
-        m_MasterKdf->DeriveKey(secretKey, assetKeyId);
-        return secretKey;
-    }
-
-    AssetID LocalPrivateKeyKeeper::AIDFromKeyIndex(uint32_t assetIdx)
-    {
-        auto assetKeyId = Key::ID(assetIdx, Key::Type::Asset, assetIdx);
-        auto assetKey = GetAssetKey(assetKeyId);
-        AssetID assetId = Zero;
-        proto::Sk2Pk(assetId, assetKey);
-        return assetId;
-    }
-
     ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx)
     {
-        auto kernelKeyId = Key::ID(assetIdx, Key::Type::Kernel, assetIdx);
-        Scalar::Native sk;
-        m_MasterKdf->DeriveKey(sk, kernelKeyId);
+        ECC::Scalar::Native kernelSk;
+        m_MasterKdf->DeriveKey(kernelSk, Key::ID(assetIdx, Key::Type::Kernel, assetIdx));
+        kernel.Sign(kernelSk, GetAssetKeypair(assetIdx).second);
+        return -kernelSk;
+    }
 
-        auto assetKey = GetAssetKey(Key::ID(assetIdx, Key::Type::Asset, assetIdx));
-        kernel.Sign(sk, assetKey);
+    std::pair<AssetID, ECC::Scalar::Native> LocalPrivateKeyKeeper::GetAssetKeypair(uint32_t assetIdx)
+    {
+        Scalar::Native skAssetSk;
+        m_MasterKdf->DeriveKey(skAssetSk, beam::Key::ID(assetIdx, beam::Key::Type::Asset));
 
-        sk = -sk;
-        return sk;
+        beam::AssetID assetId;
+        beam::proto::Sk2Pk(assetId, skAssetSk);
+
+        return std::make_pair(assetId, std::move(skAssetSk));
+    }
+
+    AssetID LocalPrivateKeyKeeper::GetAssetID(uint32_t assetIdx)
+    {
+        return GetAssetKeypair(assetIdx).first;
     }
 }

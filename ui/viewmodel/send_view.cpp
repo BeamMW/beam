@@ -13,7 +13,9 @@
 // limitations under the License.
 #include "send_view.h"
 #include "model/app_model.h"
-#include "wallet/common.h"
+#include "wallet/core/common.h"
+#include "wallet/core/simple_transaction.h"
+
 #include "ui_helpers.h"
 #include "qml_globals.h"
 #include <QLocale>

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.13)
 
 set (TARGET_NAME "beam-wallet-ui")
 
@@ -275,8 +275,7 @@ target_link_libraries(${TARGET_NAME} quazip_static)
 #endif()
 
 target_link_libraries(${TARGET_NAME}
-        wallet
-        swap
+        wallet_client
         mnemonic 
         Qt5::Qml
         Qt5::Quick 

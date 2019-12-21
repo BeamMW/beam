@@ -307,11 +307,6 @@
         <extracomment>settings tab, version label</extracomment>
         <translation>版本</translation>
     </message>
-    <message id="settings-remote-node-ip-port">
-        <source>ip:port</source>
-        <extracomment>settings tab, node section, address label</extracomment>
-        <translation>IP地址:端口</translation>
-    </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
         <extracomment>settings tab, node section, run node label</extracomment>
@@ -786,7 +781,8 @@
 请检查您的钱包数据文件位置</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Synching with blockchain</source>
+        <source>Syncing with blockchain</source>
+        <oldsource>Synching with blockchain</oldsource>
         <translation type="unfinished">Synching with blockchain</translation>
     </message>
     <message id="loading-view-scaning-utxo">
@@ -1153,9 +1149,10 @@
         <translation>创建日期</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
-        <source>Don’t ask password on every Send</source>
+        <source>Don&apos;t ask password on every Send</source>
+        <oldsource>Don’t ask password on every Send</oldsource>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
-        <translation>每次付款不验证密码</translation>
+        <translation type="unfinished">每次付款不验证密码</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
         <source>Password verification is required to change that setting</source>
@@ -1310,10 +1307,6 @@ Update your settings and try again.</source>
         <source>Offer expiration time</source>
         <translation>报价失效时间</translation>
     </message>
-    <message id="wallet-receive-expires-12">
-        <source>12 hours</source>
-        <translation>12小时</translation>
-    </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
         <translation>6小时</translation>
@@ -1410,7 +1403,8 @@ nplease review your settings and try again.</translation>
         <translation type="unfinished">小时</translation>
     </message>
     <message id="loading-view-net-problems">
-        <source>It may take longer then usual. Please, check your network.</source>
+        <source>It may take longer than usual. Please, check your network.</source>
+        <oldsource>It may take longer then usual. Please, check your network.</oldsource>
         <translation type="unfinished">It may take longer then usual. Please, check your network.</translation>
     </message>
     <message id="atomic-swap-title">
@@ -1429,18 +1423,6 @@ nplease review your settings and try again.</translation>
     <message id="atomic-swap-transactions-tab">
         <source>Transactions</source>
         <translation>交易</translation>
-    </message>
-    <message id="atomic-swap-receive-beam">
-        <source>Receive BEAM</source>
-        <translation>接收Beam</translation>
-    </message>
-    <message id="atomic-swap-send-beam">
-        <source>Send BEAM</source>
-        <translation>支付Beam</translation>
-    </message>
-    <message id="atomic-swap-only-my-offers">
-        <source>Only my offers</source>
-        <translation type="unfinished">Only my offers</translation>
     </message>
     <message id="atomic-swap-fit-current-balance">
         <source>Fit my current balance</source>
@@ -1760,10 +1742,6 @@ Please check the swap token and try again.</translation>
         <source>Qtum electrum</source>
         <translation type="unfinished">Qtum electrum</translation>
     </message>
-    <message id="invalid-rate-min">
-        <source>Rate cannot be less than %1</source>
-        <translation type="unfinished">Rate cannot be less than %1</translation>
-    </message>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</source>
@@ -1895,7 +1873,8 @@ Please check the swap token and try again.</translation>
         <translation type="unfinished">Enter your wallet password to clear seed phrase</translation>
     </message>
     <message id="wallet-receive-swap-your-token">
-        <source>Your swap token:</source>
+        <source>Your swap token</source>
+        <oldsource>Your swap token:</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-confirmation-title">
@@ -1935,7 +1914,8 @@ Please check the swap token and try again.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-txs-status-waiting-peer">
-        <source>waiting for peer</source>
+        <source>waiting for counterparty</source>
+        <oldsource>waiting for peer</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-swap-connect">
@@ -1964,15 +1944,145 @@ Please check the swap token and try again.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-tx-state-in-progress-normal">
-        <source>The swap is expected to complete in %1 at most</source>
+        <source>The swap is expected to complete in %1 at most.</source>
+        <oldsource>The swap is expected to complete in %1 at most</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-tx-state-refunding">
-        <source>Refunding</source>
+        <source>Swap failed, the money is being released back to your wallet</source>
+        <oldsource>Refunding</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-tx-state-in-progress-refunding">
-        <source>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</source>
+        <source>Swap failed: the refund of your %2 will start in %1. The refund duration depends on the transaction fee you specified for %2.</source>
+        <oldsource>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-my-offers-tab">
+        <source>My offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="addresses-delete-warning-title">
+        <source>Delete address</source>
+        <translation type="unfinished">删除地址</translation>
+    </message>
+    <message id="addresses-delete-warning-text">
+        <source>There is active transaction that uses this address, therefore the address cannot be deleted.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-fee-total">
+        <source>%1 Transaction fee (est)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-fee-rate-note">
+        <source>Remember to validate the expected fee rate for the blockchain (as it varies with time).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="addresses-edit-warning-title">
+        <source>Edit address</source>
+        <translation type="unfinished">编辑地址</translation>
+    </message>
+    <message id="addresses-edit-warning-text">
+        <source>There is active transaction that uses this address, therefore the address expiration cannot be changed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="select-server-automatically">
+        <source>Select server automatically</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-seed-segwit-warning">
+        <source>Segwit seed phrase is not supported yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-seed-invali-warning">
+        <source>Invalid seed phrase. Please check again and resubmit.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-tx-fee-estimated">
+        <source>%1 Estimated transaction fee</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-expires-15m">
+        <source>15 minutes</source>
+        <translation type="unfinished">15分钟</translation>
+    </message>
+    <message id="wallet-receive-expires-30m">
+        <source>30 minutes</source>
+        <translation type="unfinished">30分钟</translation>
+    </message>
+    <message id="wallet-receive-expires-1">
+        <source>1 hour</source>
+        <translation type="unfinished">1小时</translation>
+    </message>
+    <message id="wallet-receive-expires-2">
+        <source>2 hours</source>
+        <translation type="unfinished">6小时 {2 ?}</translation>
+    </message>
+    <message id="accept-swap-token">
+        <source>Your swap token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-show-owner-key-title">
+        <source>Owner key</source>
+        <extracomment>settings tab, show owner key dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-show-owner-key-message">
+        <source>Please notice, that knowing your owner key allows to
+know all your funds (UTXO). Make sure that you
+deploy the key at the node you trust completely.</source>
+        <extracomment>settings tab, show owner key message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-tab">
+        <source>General</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-remote-node-address">
+        <source>Remote node address</source>
+        <extracomment>settings tab, node section, address label</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-general-require-pwd-to-show-owner-key">
+        <source>Show owner key</source>
+        <extracomment>settings tab, general section, Show owner key button and dialog title</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-general-require-pwd-to-show-owner-key-message">
+        <source>Password verification is required to see the owner key</source>
+        <extracomment>settings tab, general section, ask password to Show owner key, message</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-negotiation">
+        <source>If the other side will not sign the transaction in %1, the offer will be canceled automatically.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-invalid-credentials-error">
+        <source>Invalid credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-connection-error">
+        <source>Cannot connect to node</source>
+        <translation type="unfinished">无法连接到节点</translation>
+    </message>
+    <message id="swap-invalid-genesis-block-error">
+        <source>Invalid genesis block</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-initial-sender">
+        <source>If the receiver won&apos;t get online in %1, the transaction will be canceled automatically</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-initial-receiver">
+        <source>If the sender won&apos;t get online in %1, the transaction will be canceled automatically</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-in-progress-normal">
+        <source>The transaction is usually expected to complete in a few minutes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-in-progress-long">
+        <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

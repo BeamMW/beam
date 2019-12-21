@@ -48,13 +48,14 @@ Control {
 
             RowLayout {
                 SFLabel {
-                    id:             amountText
-                    font.pixelSize: fontSize
-                    font.styleName: lightFont ? "Light" : "Regular"
-                    font.weight:    lightFont ? Font.Light : Font.Normal
-                    color:          control.error ? Style.validator_error : control.color
-                    text:           parseFloat(amount) > 0 || showZero ? prefix + [Utils.uiStringToLocale(amount), control.currencySymbol].join(" ") : "-"
-                    onCopyText:     BeamGlobals.copyToClipboard(amount)
+                    id:              amountText
+                    font.pixelSize:  fontSize
+                    font.styleName:  lightFont ? "Light" : "Regular"
+                    font.weight:     lightFont ? Font.Light : Font.Normal
+                    color:           control.error ? Style.validator_error : control.color
+                    text:            parseFloat(amount) > 0 || showZero ? prefix + [Utils.uiStringToLocale(amount), control.currencySymbol].join(" ") : "-"
+                    onCopyText:      BeamGlobals.copyToClipboard(amount)
+                    copyMenuEnabled: true
                 }
                 Image {
                     visible: showDrop

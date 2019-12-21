@@ -20,7 +20,7 @@
 #include <QStringList>
 #include <mutex>
 #include "model/wallet_model.h"
-#include "wallet/bitcoin/settings.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/settings.h"
 
 
 class WalletSettings : public QObject
@@ -69,8 +69,6 @@ public:
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
     static void openFolder(const QString& path);
-
-    std::shared_ptr<beam::bitcoin::Settings> getBitcoinSettings() const;
 
 public:
     static const char* WalletCfg;

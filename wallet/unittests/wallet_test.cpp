@@ -16,15 +16,16 @@
     #define LOG_VERBOSE_ENABLED 0
 #endif
 
-#include "wallet/common.h"
-#include "wallet/wallet_network.h"
-#include "wallet/wallet.h"
-#include "wallet/secstring.h"
-#include "wallet/base58.h"
+#include "wallet/core/common.h"
+#include "wallet/core/wallet_network.h"
+#include "wallet/core/wallet.h"
+#include "wallet/core/secstring.h"
+#include "wallet/core/base58.h"
+#include "wallet/client/wallet_client.h"
 #include "utility/test_helpers.h"
 #include "core/radixtree.h"
 #include "core/unittest/mini_blockchain.h"
-#include "wallet/wallet_transaction.h"
+#include "wallet/core/simple_transaction.h"
 #include "core/negotiator.h"
 #include "node/node.h"
 #include "keykeeper/local_private_key_keeper.h"
@@ -1223,7 +1224,7 @@ namespace
                 IWalletMessageEndpoint& endpoint = m_Bbs;
                 ByteBuffer message;
                 std::generate_n(std::back_inserter(message), 10000, []() { return uint8_t(std::rand() % 256); });
-                //endpoint.SendEncryptedMessage(m_ReceiverID, message);
+                //endpoint.SendRawMessage(m_ReceiverID, message);
                 SetTxParameter params;
                 params.m_From = m_WalletID;
                 params.m_Type = TxType::Simple;
@@ -1537,6 +1538,93 @@ namespace
                 WALLET_CHECK(to == from);
             }
         }
+    }
+    struct TestWalletClient : public WalletClient
+    {
+        TestWalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper)
+            : WalletClient(walletDB, nodeAddr, reactor, keyKeeper)
+        {
+        }
+
+        virtual ~TestWalletClient()
+        {
+            stopReactor();
+        }
+
+
+        void onStatus(const WalletStatus& status) override {}
+        void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) override {};
+        void onSyncProgressUpdated(int done, int total) override {};
+        void onChangeCalculated(Amount change) override {};
+        void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) override {}
+        void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) override {};
+        void onAddresses(bool own, const std::vector<WalletAddress>& addresses) override {};
+        void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override {};
+        void onGeneratedNewAddress(const WalletAddress& walletAddr) override {};
+        void onSwapParamsLoaded(const beam::ByteBuffer& params) override {};
+        void onNewAddressFailed() override {};
+        void onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID) override {};
+        void onNodeConnectionChanged(bool isNodeConnected) override {};
+        void onWalletError(ErrorType error) override {}
+
+        void FailedToStartWallet() override {};
+        void onSendMoneyVerified() override {};
+        void onCantSendToExpired() override {};
+        void onPaymentProofExported(const TxID& txID, const ByteBuffer& proof) override {}
+        void onCoinsByTx(const std::vector<Coin>& coins) override {}
+        void onAddressChecked(const std::string& addr, bool isValid) override {}
+        void onImportRecoveryProgress(uint64_t done, uint64_t total) override {}
+        void onNoDeviceConnected() override {}
+        void onImportDataFromJson(bool isOk) override {}
+        void onExportDataToJson(const std::string& data) override {}
+        void onPostFunctionToClientContext(MessageFunction&& func) override {}
+        void onExportTxHistoryToCsv(const std::string& data) override {}
+
+        ///
+        void onShowKeyKeeperMessage() override {}
+        void onHideKeyKeeperMessage() override {}
+        void onShowKeyKeeperError(const std::string&) override {}
+
+
+    };
+
+    void TestClient()
+    {
+        io::Reactor::Ptr mainReactor(io::Reactor::create());
+        io::Reactor::Scope scope(*mainReactor);
+        auto db = createSenderWalletDB();
+        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(db, db->get_MasterKdf());
+        std::string nodeAddr = "127.0.0.1:32546";
+        TestWalletClient client(db, nodeAddr, io::Reactor::create(), keyKeeper);
+        client.start();
+        auto timer = io::Timer::create(*mainReactor);
+        
+        auto startEvent = io::AsyncEvent::create(*mainReactor, [&timer, mainReactor, &client, keyKeeper]()
+            {
+                
+                {
+                    std::vector<WalletAddress> newAddresses;
+                    newAddresses.resize(50);
+                    for (auto& addr : newAddresses)
+                    {
+                        addr.m_label = "contact label";
+                        addr.m_category = "test category";
+                        addr.m_createTime = beam::getTimestamp();
+                        addr.m_duration = std::rand();
+                        addr.m_OwnID = std::rand();
+                        addr.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, 32);
+                    }
+
+                    for (auto& addr : newAddresses)
+                    {
+                        client.getAsync()->saveAddress(addr, true);
+                    }
+                    timer->start(1500, false, [mainReactor]() { mainReactor->stop(); });
+                }
+            });
+        startEvent->post();
+
+        mainReactor->run();
     }
 }
 
@@ -2156,6 +2244,8 @@ int main()
 
     TestConvertions();
     TestTxParameters();
+
+    //TestClient();
    
 	TestNegotiation();
    

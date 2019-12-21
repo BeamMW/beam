@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 4)
-set(VERSION_MINOR 1)
+set(VERSION_MINOR 2)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -148,12 +148,12 @@ if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
 
-# uncoment next line for testnet
+# uncomment next line for testnet
 #set(BEAM_TESTNET TRUE)
-# uncoment next line for mainnet
+# uncomment next line for mainnet
 #set(BEAM_MAINNET TRUE)
 
-# uncoment next line for swap mainnet
+# uncomment next line for swap mainnet
 #set(SWAP_MAINNET TRUE)
 
 if(BEAM_TESTNET)
@@ -177,6 +177,8 @@ endif()
 
 option(BEAM_ATOMIC_SWAP_SUPPORT "Build wallet with atomic swap support" ON)
 option(BEAM_LASER_SUPPORT "Build wallet with laser support" ON)
+
+option(BEAM_CONFIDENTIAL_ASSETS_SUPPORT "Build wallet with confidential assets support" ON)
 
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 
@@ -348,7 +350,7 @@ else()
     endif()
 
     #set (Boost_VERBOSE TRUE)
-    find_package(Boost 1.67 REQUIRED COMPONENTS ${BEAM_BOOST_COMPONENTS})
+    find_package(Boost 1.66 REQUIRED COMPONENTS ${BEAM_BOOST_COMPONENTS})
 endif()
 
 #Boost end

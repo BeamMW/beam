@@ -12,8 +12,9 @@ RowLayout {
 
     property var    txId
     property var    fee
-    property var    feeRate
     property var    comment
+    property var    swapCoinFeeRate
+    property var    swapCoinFee
     property var    swapCoinLockTxId
     property var    swapCoinLockTxConfirmations
     property var    beamLockTxKernelId
@@ -63,7 +64,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.txId
             onCopyText: textCopied(text)
@@ -86,7 +86,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.comment
             onCopyText: textCopied(text)
@@ -104,7 +103,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.fee
             onCopyText: textCopied(text)
@@ -122,9 +120,30 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
-            text: root.feeRate
+            text: root.swapCoinFeeRate
+            onCopyText: textCopied(text)
+        }
+
+        SFText {
+            enabled: swapCoinFee.enabled
+            visible: enabled            
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "%1 Estimated transaction fee"
+            text: qsTrId("swap-details-tx-fee-estimated").arg(swapCoinName.toUpperCase()) + ":"
+        }
+        SFLabel {
+            id: swapCoinFee
+            enabled: (text != "") && (isBeamSide || swapCoinRefundTxConfirmationsLabel.enabled)
+            visible: enabled
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            elide: Text.ElideMiddle
+            text: root.swapCoinFee
             onCopyText: textCopied(text)
         }
         
@@ -145,7 +164,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.swapCoinLockTxId
             onCopyText: textCopied(text)
@@ -168,7 +186,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.swapCoinLockTxConfirmations
             onCopyText: textCopied(text)
@@ -191,7 +208,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.beamLockTxKernelId
             onCopyText: textCopied(text)
@@ -214,7 +230,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            // wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.beamRedeemTxKernelId
             onCopyText: textCopied(text)
@@ -237,7 +252,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            // wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.swapCoinRedeemTxId
             onCopyText: textCopied(text)
@@ -260,7 +274,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            // wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.swapCoinRedeemTxConfirmations
             onCopyText: textCopied(text)
@@ -283,7 +296,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            // wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.beamRefundTxKernelId
             onCopyText: textCopied(text)
@@ -306,7 +318,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            // wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.swapCoinRefundTxId
             onCopyText: textCopied(text)
@@ -329,7 +340,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            // wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.swapCoinRefundTxConfirmations
             onCopyText: textCopied(text)
@@ -344,7 +354,6 @@ RowLayout {
                 source:  "qrc:/assets/icon-attention.svg"
             }
             SFLabel {
-                id: stateDelailsLabel
                 Layout.fillWidth: true
                 copyMenuEnabled: true
                 font.pixelSize: 14
@@ -355,7 +364,6 @@ RowLayout {
                 onCopyText: textCopied(text)
             }
         }
-        
 
         SFText {
             enabled: failureReasonLabel.enabled
@@ -374,7 +382,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            // wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.failureReason
             onCopyText: textCopied(text)

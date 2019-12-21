@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "wallet/wallet_db.h"
+#include "wallet/core/wallet_db.h"
 #include "core/fly_client.h"
 #include "wallet/laser/i_receiver_holder.h"
 

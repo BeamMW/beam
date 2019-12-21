@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "wallet/laser/connection.h"
-#include "wallet/wallet_request_bbs_msg.h"
+#include "wallet/core/wallet_request_bbs_msg.h"
 #include "utility/logger.h"
 
 namespace beam::wallet::laser
@@ -60,7 +60,7 @@ void Connection::PostRequestInternal(FlyClient::Request& r)
             {
                 MineBbsRequest(dynamic_cast<FlyClient::RequestBbsMsg&>(r));
             }
-            catch(std::bad_cast)
+            catch(const std::bad_cast&)
             {
                 LOG_ERROR()  << "### Bbs mesage out  ERROR ###";
             }
