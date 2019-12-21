@@ -40,13 +40,21 @@ function getLogoTopGapSize(parentHeight) {
     return parentHeight * (parentHeight < 768 ? 0.13 : 0.18)
 }
 
-function openExternal(externalLink, settings, dialog) {
+function openExternal(externalLink, settings, dialog, onFinish) {
+    var onFinishCallback = onFinish && (typeof onFinish === "function")
+        ? onFinish
+        : function () {};
     if (settings.isAllowedBeamMWLinks) {
         Qt.openUrlExternally(externalLink);
+        onFinishCallback();
     } else {
         dialog.externalUrl = externalLink;
         dialog.onOkClicked = function () {
             settings.isAllowedBeamMWLinks = true;
+            onFinishCallback();
+        };
+        dialog.onCancelClicked = function() {
+            onFinishCallback();
         };
         dialog.open();
     }

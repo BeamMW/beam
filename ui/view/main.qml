@@ -196,7 +196,7 @@ Rectangle {
         }
 
         Item {
-            property int prevSelectedIndex: 0
+            property bool clicked: false
             id: whereToBuyControl
             width: parent.width
             anchors.bottom: parent.bottom
@@ -204,15 +204,20 @@ Rectangle {
             activeFocusOnTab: true
 
             function clickHandler() {
-                console.log("clickHandler");
-                if (selectedItem == 100) {
-                    selectedItem = prevSelectedIndex;
-                } else {
-                    prevSelectedIndex = selectedItem;
-                    selectedItem = 100;
+                whereToBuyControl.clicked = true;
+            }
+
+            onClickedChanged: {
+                if (clicked) {
+                    Utils.openExternal(
+                        "https://www.beam.mw/#exchanges",
+                        settingsViewModel,
+                        externalLinkConfirmation,
+                        function () {
+                            console.log("onFinish");
+                            whereToBuyControl.clicked = false;
+                        });
                 }
-                whereToBuyControl.focus = !whereToBuyControl.focus
-                // Utils.openExternal("https://www.beam.mw/#exchanges", settingsViewModel, externalLinkConfirmation);
             }
 
             SvgImage {
@@ -220,7 +225,7 @@ Rectangle {
                 y: 16
                 width: 28
                 height: 28
-                source: whereToBuyControl.activeFocus
+                source: whereToBuyControl.clicked
                     ? "qrc:/assets/icon-where-to-buy-beam-green.svg"
                     : "qrc:/assets/icon-where-to-buy-beam-gray.svg"
             }
@@ -230,7 +235,7 @@ Rectangle {
                     y: 6
                     width: 4
                     height: 48
-                    color: whereToBuyControl.activeFocus ? Style.active : Style.passive
+                    color: whereToBuyControl.clicked ? Style.active : Style.passive
                 }
 
                 DropShadow {
