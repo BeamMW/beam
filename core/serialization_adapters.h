@@ -672,6 +672,7 @@ namespace detail
 			ar
 				& v.m_Cfg.n
 				& v.m_Cfg.M
+				& v.m_Part1.m_Commitment.m_X
 				& v.m_Part1.m_SpendPk.m_X
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
@@ -690,6 +691,7 @@ namespace detail
 
 			MultibitVar<Archive> mb(ar);
 
+			mb.put(v.m_Part1.m_Commitment.m_Y);
 			mb.put(v.m_Part1.m_SpendPk.m_Y);
 			mb.put(v.m_Part1.m_A.m_Y);
 			mb.put(v.m_Part1.m_B.m_Y);
@@ -717,6 +719,7 @@ namespace detail
 			ar
 				& v.m_Cfg.n
 				& v.m_Cfg.M
+				& v.m_Part1.m_Commitment.m_X
 				& v.m_Part1.m_SpendPk.m_X
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
@@ -738,6 +741,7 @@ namespace detail
 
 			MultibitVar<Archive> mb(ar);
 
+			mb.get(v.m_Part1.m_Commitment.m_Y);
 			mb.get(v.m_Part1.m_SpendPk.m_Y);
 			mb.get(v.m_Part1.m_A.m_Y);
 			mb.get(v.m_Part1.m_B.m_Y);

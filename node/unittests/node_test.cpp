@@ -1727,9 +1727,9 @@ namespace beam
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
 				p.m_Witness.V.m_V = m_Shielded.m_Value;
 
-				Lelantus::Proof::Output outp;
 				ECC::Oracle o1;
-				p.Generate(outp, Zero, o1);
+				p.Generate(Zero, o1);
+				verify_test(pInp->m_Commitment == pInp->m_pSpendProof->m_Part1.m_Commitment);
 
 				{
 					// test

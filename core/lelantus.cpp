@@ -186,6 +186,7 @@ uint32_t Cfg::get_F() const
 void Proof::Part1::Expose(Oracle& oracle) const
 {
 	oracle
+		<< m_Commitment
 		<< m_SpendPk
 		<< m_Nonce
 		<< m_A
@@ -197,7 +198,7 @@ void Proof::Part1::Expose(Oracle& oracle) const
 		oracle << m_vG[k];
 }
 
-bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output& outp, Scalar::Native* pKs) const
+bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Native* pKs) const
 {
 	const uint32_t N = m_Cfg.get_N();
 	if (!N)
@@ -255,7 +256,6 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	mctx.m_Pitch = m_Cfg.n - 1;
 
 	m_Part1.Expose(oracle);
-	oracle << outp.m_Commitment;
 	oracle >> mctx.x;
 
 	Scalar::Native x2, x3;
@@ -328,7 +328,9 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	if (!bc.AddCasual(m_Part1.m_SpendPk, x2))
 		return false;
 
-	bc.AddCasual(outp.m_Pt, x3);
+	// The following is deferred until next equation, which also uses m_Commitment
+	// bc.AddCasual(m_Part1.m_Commitment, x3);
+	x3 *= bc.m_Multiplier;
 
 	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_ProofG);
 	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Part2.m_ProofH);
@@ -355,7 +357,9 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	SpendKey::ToSerial(xPwr, m_Part1.m_SpendPk);
 
 	mctx.m_kBias = -mctx.m_kBias;
-	bc.AddCasual(outp.m_Pt, mctx.m_kBias, true); // -= kBias * Input::m_Commitment
+	x3 += mctx.m_kBias; // from previous equation
+	if (!bc.AddCasual(m_Part1.m_Commitment, x3, true)) // -= kBias * Input::m_Commitment
+		return false;
 
 	mctx.m_kBias *= xPwr;
 	bc.AddPreparedM(InnerProduct::BatchContext::s_Idx_J, mctx.m_kBias); // -= kBias * serial * J
@@ -669,13 +673,13 @@ void Prover::ExtractPart2(Oracle& oracle)
 	}
 }
 
-void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
+void Prover::Generate(const uintBig& seed, Oracle& oracle)
 {
 	// Since this is a heavy proof, do it in 'fast' mode. Use 'secure' mode only for the most sensitive part - the SpendSk
 	Mode::Scope scope(Mode::Fast);
 
-	outp.m_Pt = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
-	outp.m_Commitment = outp.m_Pt;
+	Point::Native comm = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
+	m_Proof.m_Part1.m_Commitment = comm;
 
 	const uint32_t N = m_Proof.m_Cfg.get_N();
 	assert(N);
@@ -695,7 +699,7 @@ void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
 	InitNonces(seed);
 	ExtractABCD();
 	CalculateP();
-	ExtractG(outp.m_Pt);
+	ExtractG(comm);
 
 	{
 		// SpendSk is protected by rNonceG. This is where 'secure' mode is needed
@@ -707,8 +711,6 @@ void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
 	}
 
 	m_Proof.m_Part1.Expose(oracle);
-	oracle << outp.m_Commitment;
-
 	ExtractPart2(oracle);
 }
 

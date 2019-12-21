@@ -731,7 +731,7 @@ struct NodeProcessor::MultiShieldedContext
 	}
 
 	void Calculate(ECC::Point::Native&, NodeProcessor&);
-	bool IsValid(const Input&, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
+	bool IsValid(const Input::SpendProof&, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
 	bool IsValid(const std::vector<Input::Ptr>&, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal);
 
 private:
@@ -862,16 +862,9 @@ void NodeProcessor::MultiShieldedContext::Calculate(ECC::Point::Native& res, Nod
 	}
 }
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const Input& v, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
+bool NodeProcessor::MultiShieldedContext::IsValid(const Input::SpendProof& x, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
 {
-	assert(v.m_pSpendProof);
-
-	Lelantus::Proof::Output outp;
-	outp.m_Commitment = v.m_Commitment;
-	if (!outp.m_Pt.Import(outp.m_Commitment))
-		return false;
-
-	uint32_t N = v.m_pSpendProof->m_Cfg.get_N();
+	uint32_t N = x.m_Cfg.get_N();
 	if (!N)
 		return false;
 
@@ -879,10 +872,10 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const Input& v, std::vector<EC
 	memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * N);
 
 	ECC::Oracle oracle;
-	if (!v.m_pSpendProof->IsValid(bc, oracle, outp, &vKs.front()))
+	if (!x.IsValid(bc, oracle, &vKs.front()))
 		return false;
 
-	TxoID id1 = v.m_pSpendProof->m_WindowEnd;
+	TxoID id1 = x.m_WindowEnd;
 	if (id1 >= N)
 		Add(id1 - N, N, &vKs.front());
 	else
@@ -900,7 +893,10 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const std::vector<Input::Ptr>&
 		const Input& v = *vInp[i];
 		if (v.m_pSpendProof)
 		{
-			if (!iVerifier && !IsValid(v, vKs, bc))
+			if (v.m_Commitment != v.m_pSpendProof->m_Part1.m_Commitment)
+				return false;
+
+			if (!iVerifier && !IsValid(*v.m_pSpendProof, vKs, bc))
 				return false;
 
 			if (++iVerifier == nTotal)

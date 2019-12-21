@@ -2170,7 +2170,6 @@ void TestLelantus()
 
 	beam::Lelantus::Proof proof;
 	proof.m_Cfg = cfg;
-	beam::Lelantus::Proof::Output outp;
 	beam::Lelantus::Prover p(lst, proof);
 
 	p.m_Witness.V.m_V = 100500;
@@ -2193,7 +2192,7 @@ void TestLelantus()
 
 	uint32_t t = beam::GetTime_ms();
 
-	p.Generate(outp, Zero, oracle);
+	p.Generate(Zero, oracle);
 
 	printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
 
@@ -2231,7 +2230,7 @@ void TestLelantus()
 		for (uint32_t i = 0; i < nCycles; i++)
 		{
 			Oracle o2;
-			if (!proof.IsValid(bc, o2, outp, &vKs.front()))
+			if (!proof.IsValid(bc, o2, &vKs.front()))
 				bSuccess = false;
 		}
 
