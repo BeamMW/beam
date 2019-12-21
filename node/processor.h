@@ -69,13 +69,14 @@ class NodeProcessor
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
+	void Recognize(const Input&, Height);
+	void Recognize(const Output&, BlockInterpretCtx&);
+
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 
 #define THE_MACRO(id, name) bool HandleKernel(const TxKernel##name&, BlockInterpretCtx&);
 	BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
-
-	void RecognizeUtxos(TxBase::IReader&&, Height h, TxoID nShielded);
 
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 

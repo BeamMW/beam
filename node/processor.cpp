@@ -1773,6 +1773,7 @@ struct NodeProcessor::BlockInterpretCtx
 	Height m_Height;
 	bool m_Fwd;
 	bool m_ValidateOnly = false; // don't make changes to state
+	bool m_RecognizeOnly = false;
 	bool m_AlreadyValidated = false; // set during reorgs, when a block is being applied for 2nd time
 	bool m_SaveKid = true;
 
@@ -1781,6 +1782,9 @@ struct NodeProcessor::BlockInterpretCtx
 
 	ECC::Point::Storage* m_pShieldedOut = nullptr; // used in normal (apply) mode
 	std::set<ECC::Point>* m_pDups = nullptr; // used in validate-only mode
+
+	Key::IPKdf* m_pKey = nullptr;
+	const Output::Shielded::Viewer* m_pKeyShielded = nullptr;
 
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
@@ -2112,10 +2116,14 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		if (!v.empty())
 			m_DB.set_StateInputs(sid.m_Row, &v.front(), v.size());
 
+		bic.m_pKey = get_ViewerKey();
+		bic.m_pKeyShielded = get_ViewerShieldedKey();
+		bic.m_AlreadyValidated = true;
+		bic.m_RecognizeOnly = true;
+		bic.m_SaveKid = false;
 
-		auto r = block.get_Reader();
-		r.Reset();
-		RecognizeUtxos(std::move(r), sid.m_Height, m_Extra.m_Shielded - bic.m_ShieldedOuts);
+		m_Extra.m_Shielded -= bic.m_ShieldedOuts;
+		BEAM_VERIFY(HandleValidatedTx(block, bic));
 
 		Serializer ser;
 		bbP.clear();
@@ -2154,119 +2162,106 @@ void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
 	offs = s;
 }
 
-void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h, TxoID nShielded)
+void NodeProcessor::Recognize(const Input& x, Height h)
 {
 	NodeDB::WalkerEvent wlk(m_DB);
 
-	for ( ; r.m_pUtxoIn; r.NextUtxoIn())
+	ECC::Point pt;
+	const UtxoEvent::Key& key = x.m_pSpendProof ? pt : x.m_Commitment;
+	if (x.m_pSpendProof)
 	{
-		const Input& x = *r.m_pUtxoIn;
-
-		ECC::Point pt;
-		const UtxoEvent::Key& key = x.m_pSpendProof ? pt : x.m_Commitment;
-		if (x.m_pSpendProof)
-		{
-			pt = x.m_pSpendProof->m_Part1.m_SpendPk;
-			static_assert(proto::UtxoEvent::Flags::Shielded != 1); // 1 is used in the point itself
-			pt.m_Y |= proto::UtxoEvent::Flags::Shielded;
-		}
-
-		m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
-		if (!wlk.MoveNext())
-			continue;
-
-		if (x.m_pSpendProof)
-		{
-			if (wlk.m_Body.n < sizeof(UtxoEvent::ValueS))
-				OnCorrupted();
-
-			UtxoEvent::ValueS evt = *reinterpret_cast<const UtxoEvent::ValueS*>(wlk.m_Body.p); // copy
-
-			evt.m_Flags &= ~proto::UtxoEvent::Flags::Add;
-
-			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-			OnUtxoEvent(evt, h);
-		}
-		else
-		{
-
-			if (wlk.m_Body.n < sizeof(UtxoEvent::Value))
-				OnCorrupted();
-
-			UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
-
-			assert(x.m_Internal.m_Maturity); // must've already been validated
-			evt.m_Maturity = x.m_Internal.m_Maturity; // in case of duplicated utxo this is necessary
-
-			evt.m_Flags = 0;
-
-			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-			OnUtxoEvent(evt, h);
-		}
+		pt = x.m_pSpendProof->m_Part1.m_SpendPk;
+		static_assert(proto::UtxoEvent::Flags::Shielded != 1); // 1 is used in the point itself
+		pt.m_Y |= proto::UtxoEvent::Flags::Shielded;
 	}
 
-	Key::IPKdf* pKey = get_ViewerKey();
-	const Output::Shielded::Viewer* pKeyShielded = get_ViewerShieldedKey();
-	if (!(pKey || pKeyShielded))
+	m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
+	if (!wlk.MoveNext())
 		return;
 
-	Output::Shielded::Data d;
-	d.m_hScheme = h;
-
-	for (; r.m_pUtxoOut; r.NextUtxoOut())
+	if (x.m_pSpendProof)
 	{
-		const Output& x = *r.m_pUtxoOut;
+		if (wlk.m_Body.n < sizeof(UtxoEvent::ValueS))
+			OnCorrupted();
 
-		if (x.m_pShielded)
+		UtxoEvent::ValueS evt = *reinterpret_cast<const UtxoEvent::ValueS*>(wlk.m_Body.p); // copy
+
+		evt.m_Flags &= ~proto::UtxoEvent::Flags::Add;
+
+		m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+		OnUtxoEvent(evt, h);
+	}
+	else
+	{
+
+		if (wlk.m_Body.n < sizeof(UtxoEvent::Value))
+			OnCorrupted();
+
+		UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
+
+		assert(x.m_Internal.m_Maturity); // must've already been validated
+		evt.m_Maturity = x.m_Internal.m_Maturity; // in case of duplicated utxo this is necessary
+
+		evt.m_Flags = 0;
+
+		m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+		OnUtxoEvent(evt, h);
+	}
+}
+
+void NodeProcessor::Recognize(const Output& x, BlockInterpretCtx& bic)
+{
+	if (x.m_pShielded)
+	{
+		TxoID nID = m_Extra.m_Shielded++;
+
+		Output::Shielded::Data d;
+		d.m_hScheme = bic.m_Height;
+		if (!(bic.m_pKeyShielded && d.Recover(x, *bic.m_pKeyShielded)))
+			return;
+
+		UtxoEvent::ValueS evt;
+		evt.m_Kidv.m_Value = d.m_Value;
+		evt.m_Shielded.Set(evt.m_Kidv, ECC::Scalar(d.m_kSerG), nID);
+		evt.m_AssetID = x.m_AssetID;
+		evt.m_Maturity = bic.m_Height;
+
+		evt.m_Flags =
+			proto::UtxoEvent::Flags::Add |
+			proto::UtxoEvent::Flags::Shielded;
+
+		ECC::Point::Native ptN;
+		d.GetSpendPKey(ptN, *bic.m_pKeyShielded->m_pSer);
+		UtxoEvent::Key key = ptN;
+		key.m_Y |= proto::UtxoEvent::Flags::Shielded;
+
+		m_DB.InsertEvent(bic.m_Height, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+		OnUtxoEvent(evt, bic.m_Height);
+	}
+	else
+	{
+		Key::IDV kidv;
+		if (!(bic.m_pKey && x.Recover(bic.m_Height, *bic.m_pKey, kidv)))
+			return;
+
+		// filter-out dummies
+		if (IsDummy(kidv))
 		{
-			TxoID nID = nShielded++;
-
-			if (!(pKeyShielded && d.Recover(x, *pKeyShielded)))
-				continue;
-
-			UtxoEvent::ValueS evt;
-			evt.m_Kidv.m_Value = d.m_Value;
-			evt.m_Shielded.Set(evt.m_Kidv, ECC::Scalar(d.m_kSerG), nID);
-			evt.m_AssetID = x.m_AssetID;
-			evt.m_Maturity = h;
-
-			evt.m_Flags =
-				proto::UtxoEvent::Flags::Add |
-				proto::UtxoEvent::Flags::Shielded;
-
-			ECC::Point::Native ptN;
-			d.GetSpendPKey(ptN, *pKeyShielded->m_pSer);
-			UtxoEvent::Key key = ptN;
-			key.m_Y |= proto::UtxoEvent::Flags::Shielded;
-
-			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-			OnUtxoEvent(evt, h);
+			OnDummy(kidv, bic.m_Height);
+			return;
 		}
-		else
-		{
-			Key::IDV kidv;
-			if (!(pKey && x.Recover(h, *pKey, kidv)))
-				continue;
 
-			// filter-out dummies
-			if (IsDummy(kidv))
-			{
-				OnDummy(kidv, h);
-				continue;
-			}
+		// bingo!
+		UtxoEvent::Value evt;
+		evt.m_Kidv = kidv;
+		evt.m_Flags = proto::UtxoEvent::Flags::Add;
+		evt.m_AssetID = x.m_AssetID;
 
-			// bingo!
-			UtxoEvent::Value evt;
-			evt.m_Kidv = kidv;
-			evt.m_Flags = proto::UtxoEvent::Flags::Add;
-			evt.m_AssetID = r.m_pUtxoOut->m_AssetID;
+		evt.m_Maturity = x.get_MinMaturity(bic.m_Height);
 
-			evt.m_Maturity = x.get_MinMaturity(h);
-
-			const UtxoEvent::Key& key = x.m_Commitment;
-			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-			OnUtxoEvent(evt, h);
-		}
+		const UtxoEvent::Key& key = x.m_Commitment;
+		m_DB.InsertEvent(bic.m_Height, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+		OnUtxoEvent(evt, bic.m_Height);
 	}
 }
 
@@ -2372,19 +2367,29 @@ void NodeProcessor::RescanOwnedTxos()
 		if (m_Cursor.m_Sid.m_Height >= h0)
 		{
 			BlockShieldedData bd;
-			TxVectors::Eternal txve; // dummy
+			TxVectors::Full txv;
 
-			TxoID nShielded = 0;
+			BlockInterpretCtx bic(0, true);
+			bic.m_pKeyShielded = get_ViewerShieldedKey();
+			bic.m_AlreadyValidated = true;
+			bic.m_RecognizeOnly = true;
+			bic.m_SaveKid = false;
+
+			m_Extra.m_Shielded = 0;
 
 			while (true)
 			{
 				if (bd.FromHeight(*this, h0))
 				{
-					TxVectors::Reader r(bd.m_txvp, txve);
-					r.Reset();
+					bic.m_Height = h0;
 
-					RecognizeUtxos(std::move(r), h0, nShielded);
-					nShielded += bd.m_txvp.m_vOutputs.size();
+					txv.m_vInputs.swap(bd.m_txvp.m_vInputs);
+					txv.m_vOutputs.swap(bd.m_txvp.m_vOutputs);
+
+					HandleValidatedTx(txv, bic);
+
+					txv.m_vInputs.swap(bd.m_txvp.m_vInputs);
+					txv.m_vOutputs.swap(bd.m_txvp.m_vOutputs);
 				}
 
 				if (++h0 > m_Cursor.m_Sid.m_Height)
@@ -2434,6 +2439,11 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 
 bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
 {
+	if (bic.m_RecognizeOnly)
+	{
+		return true;
+	}
+
 	const ECC::Point& key = krn.m_Shielded.m_SerialPub;
 	if (bic.m_Fwd)
 	{
@@ -2487,6 +2497,11 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 
 bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpretCtx& bic)
 {
+	if (bic.m_RecognizeOnly)
+	{
+		return true;
+	}
+
 	const ECC::Point& key = krn.m_SpendProof.m_Part1.m_SpendPk;
 	if (bic.m_Fwd)
 	{
@@ -2610,6 +2625,12 @@ bool NodeProcessor::HandleValidatedBlock(const Block::Body& block, BlockInterpre
 
 bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 {
+	if (bic.m_RecognizeOnly)
+	{
+		Recognize(v, bic.m_Height);
+		return true;
+	}
+
 	if (v.m_pSpendProof)
 	{
 		if (bic.m_Fwd)
@@ -2710,6 +2731,12 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 
 bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 {
+	if (bic.m_RecognizeOnly)
+	{
+		Recognize(v, bic);
+		return true;
+	}
+
 	if (v.m_pShielded)
 	{
 		if (bic.m_Fwd && (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts))
