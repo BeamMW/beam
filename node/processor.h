@@ -79,7 +79,7 @@ class NodeProcessor
 	BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
 
-	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
+	static uint64_t ProcessKrnMmr(Merkle::Mmr&, std::vector<TxKernel::Ptr>&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
 	struct KrnFlyMmr;
 

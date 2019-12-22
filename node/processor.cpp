@@ -1725,20 +1725,21 @@ void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
 	get_Definition(hv, bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History);
 }
 
-uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
+uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, std::vector<TxKernel::Ptr>& vKrn, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
 {
 	uint64_t iRet = uint64_t (-1);
 
-	for (uint64_t i = 0; r.m_pKernel; r.NextKernel(), i++)
+	for (size_t i = 0; i < vKrn.size(); i++)
 	{
-		const Merkle::Hash& hv = r.m_pKernel->m_Internal.m_ID;
+		TxKernel::Ptr& p = vKrn[i];
+		const Merkle::Hash& hv = p->m_Internal.m_ID;
 		mmr.Append(hv);
 
 		if (hv == idKrn)
 		{
 			iRet = i; // found
 			if (ppRes)
-				r.m_pKernel->Clone(*ppRes);
+				ppRes->swap(p);
 		}
 	}
 
@@ -1757,18 +1758,14 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	m_DB.GetStateBlock(rowid, nullptr, &bbE);
 
 	TxVectors::Eternal txve;
-	TxVectors::Perishable txvp; // dummy
 
 	Deserializer der;
 	der.reset(bbE);
 	der & txve;
 
-	TxVectors::Reader r(txvp, txve);
-	r.Reset();
-
 	Merkle::FixedMmmr mmr;
 	mmr.Reset(txve.m_vKernels.size());
-	size_t iTrg = ProcessKrnMmr(mmr, std::move(r), idKrn, ppRes);
+	size_t iTrg = ProcessKrnMmr(mmr, txve.m_vKernels, idKrn, ppRes);
 
 	if (uint64_t(-1) == iTrg)
 		OnCorrupted();
