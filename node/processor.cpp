@@ -731,7 +731,7 @@ struct NodeProcessor::MultiShieldedContext
 	}
 
 	void Calculate(ECC::Point::Native&, NodeProcessor&);
-	bool IsValid(const std::vector<TxKernel::Ptr>&, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal);
+	bool IsValid(const TxVectors::Eternal&, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal);
 
 private:
 
@@ -742,7 +742,6 @@ private:
 	std::vector<ECC::Point::Native> m_vRes;
 
 	bool IsValid(const TxKernelShieldedInput&, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
-	bool IsValid(const std::vector<TxKernel::Ptr>&, ECC::InnerProduct::BatchContext&, uint32_t& iVerifier, uint32_t nTotal, std::vector<ECC::Scalar::Native>& vKs);
 };
 
 void NodeProcessor::MultiShieldedContext::ClearLocked()
@@ -887,33 +886,40 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	return true;
 }
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const std::vector<TxKernel::Ptr>& vKrn, ECC::InnerProduct::BatchContext& bc, uint32_t iVerifier, uint32_t nTotal)
+bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve, ECC::InnerProduct::BatchContext& bc, uint32_t iVerifier, uint32_t nTotal)
 {
-	std::vector<ECC::Scalar::Native> vKs;
-	return IsValid(vKrn, bc, iVerifier, nTotal, vKs);
-}
-
-bool NodeProcessor::MultiShieldedContext::IsValid(const std::vector<TxKernel::Ptr>& vKrn, ECC::InnerProduct::BatchContext& bc, uint32_t& iVerifier, uint32_t nTotal, std::vector<ECC::Scalar::Native>& vKs)
-{
-	for (size_t i = 0; i < vKrn.size(); i++)
+	struct Walker
+		:public TxKernel::IWalker
 	{
-		const TxKernel& krn = *vKrn[i];
-		if (!IsValid(krn.m_vNested, bc, iVerifier, nTotal, vKs))
-			return false;
+		std::vector<ECC::Scalar::Native> m_vKs;
+		MultiShieldedContext* m_pThis;
+		ECC::InnerProduct::BatchContext* m_pBc;
+		uint32_t m_iVerifier;
+		uint32_t m_Total;
 
-		if (TxKernel::Subtype::ShieldedInput == krn.get_Subtype())
+		virtual bool OnKrn(const TxKernel& krn) override
 		{
+			if (TxKernel::Subtype::ShieldedInput != krn.get_Subtype())
+				return true;
+
 			const TxKernelShieldedInput& v = Cast::Up<TxKernelShieldedInput>(krn);
 
-			if (!iVerifier && !IsValid(v, vKs, bc))
+			if (!m_iVerifier && !m_pThis->IsValid(v, m_vKs, *m_pBc))
 				return false;
 
-			if (++iVerifier == nTotal)
-				iVerifier = 0;
-		}
-	}
+			if (++m_iVerifier == m_Total)
+				m_iVerifier = 0;
 
-	return true;
+			return true;
+		}
+
+	} wlk;
+	wlk.m_pThis = this;
+	wlk.m_pBc = &bc;
+	wlk.m_iVerifier = iVerifier;
+	wlk.m_Total = nTotal;
+
+	return wlk.Process(txve.m_vKernels);
 }
 
 struct NodeProcessor::MultiblockContext
@@ -1241,7 +1247,7 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
 
 	if (bValid)
-		bValid = m_Mbc.m_Msc.IsValid(m_Body.m_vKernels, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers);
+		bValid = m_Mbc.m_Msc.IsValid(m_Body, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers);
 
 	std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 
@@ -2885,25 +2891,21 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 
 bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
 {
-	return IsShieldedInPool(tx.m_vKernels);
-}
-
-bool NodeProcessor::IsShieldedInPool(const std::vector<TxKernel::Ptr>& vKrn)
-{
-	for (size_t i = 0; i < vKrn.size(); i++)
+	struct Walker
+		:public TxKernel::IWalker
 	{
-		const TxKernel& krn = *vKrn[i];
-		if (!IsShieldedInPool(krn.m_vNested))
-			return false;
+		NodeProcessor* m_pThis;
+		virtual bool OnKrn(const TxKernel& krn) override
+		{
+			if (krn.get_Subtype() != TxKernel::Subtype::ShieldedInput)
+				return true;
 
-		if (TxKernel::Subtype::ShieldedInput != krn.get_Subtype())
-			continue;
+			return m_pThis->IsShieldedInPool(Cast::Up<TxKernelShieldedInput>(krn).m_SpendProof);
+		}
+	} wlk;
+	wlk.m_pThis = this;
 
-		if (!IsShieldedInPool(Cast::Up<TxKernelShieldedInput>(krn).m_SpendProof))
-			return false;
-	}
-
-	return true;
+	return wlk.Process(tx.m_vKernels);
 }
 
 bool NodeProcessor::IsShieldedInPool(const Input::SpendProof& x)
@@ -3458,7 +3460,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 			ECC::InnerProduct::BatchContextEx<4> bc;
 			MultiShieldedContext msc;
 
-			if (!msc.IsValid(tx.m_vKernels, bc, 0, 1))
+			if (!msc.IsValid(tx, bc, 0, 1))
 				return false;
 
 			msc.Calculate(bc.m_Sum, *this);
