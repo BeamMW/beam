@@ -18,6 +18,7 @@
 #include "utility/io/timer.h"
 #include "core/proto.h"
 #include "core/block_crypt.h"
+#include "core/shielded.h"
 #include "core/peer_manager.h"
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/set.hpp>

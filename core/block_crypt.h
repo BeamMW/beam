@@ -317,59 +317,9 @@ namespace beam
 
 			bool IsValid() const;
 
-			int cmp(const Shielded&) const;
-			COMPARISON_VIA_CMP
-
-			struct PublicGen
-			{
-				Key::IPKdf::Ptr m_pGen;
-				Key::IPKdf::Ptr m_pSer;
-			};
-
-			struct Viewer
-			{
-				Key::IKdf::Ptr m_pGen;
-				Key::IPKdf::Ptr m_pSer;
-
-				void FromOwner(Key::IPKdf&);
-				static void GenerateSerPrivate(Key::IKdf::Ptr&, Key::IKdf&);
-
-			private:
-				static void GenerateSerSrc(ECC::Hash::Value&, Key::IPKdf&);
-			};
-
-			struct Data
-			{
-				ECC::Scalar::Native m_kSerG; // blinding factor for the serial
-				ECC::Scalar::Native m_kOutG; // blinding factor for the Output
-				Amount m_Value;
-				Height m_hScheme = 0; // must set
-
-				// Generates Shielded from nonce
-				// Sets both m_kOutG and m_kSerG
-				void GenerateS(Shielded&, const PublicGen&, const ECC::Hash::Value& nonce);
-				void GenerateO(ECC::Point&, ECC::RangeProof::Confidential&, Shielded&, ECC::Oracle&, const PublicGen&); // generate UTXO from m_kOutG
-				void Generate(ECC::Point&, ECC::RangeProof::Confidential&, Shielded&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce); // generate everything nonce
-
-				bool Recover(const ECC::Point&, const ECC::RangeProof::Confidential&, const Shielded&, ECC::Oracle&, const Viewer&);
-
-				struct HashTxt;
-
-				void GetSpendKey(ECC::Scalar::Native&, Key::IKdf& ser) const;
-				void GetSpendPKey(ECC::Point::Native&, Key::IPKdf& ser) const;
-
-				void GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value&) const;
-
-			private:
-				static void GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ);
-				void GetSerialPreimage(ECC::Hash::Value& res) const;
-				void GetSerial(ECC::Scalar::Native& kJ, Key::IPKdf& ser) const;
-				void ToSk(Key::IPKdf& gen);
-				static void GetDH(ECC::Hash::Value&, const ECC::Point&);
-				static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ);
-				static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1);
-				static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1);
-			};
+			struct PublicGen;
+			struct Viewer;
+			struct Data;
 
 		private:
 			void get_Hash(ECC::Hash::Value&) const;
