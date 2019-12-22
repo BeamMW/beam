@@ -1197,6 +1197,7 @@ namespace beam
 	void TxKernelShieldedOutput::AddStats(TxStats& s) const
 	{
 		TxKernelNonStd::AddStats(s);
+		s.m_Outputs++;
 		s.m_OutputsShielded++;
 	}
 
@@ -1244,6 +1245,7 @@ namespace beam
 	void TxKernelShieldedInput::AddStats(TxStats& s) const
 	{
 		TxKernelNonStd::AddStats(s);
+		s.m_Inputs++;
 		s.m_InputsShielded++;
 	}
 
