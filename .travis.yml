@@ -84,8 +84,8 @@ matrix:
         - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet$BEAM_DISPLAY_SUFFIX2.dmg"
         # sign our builds
         - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp beam/beam-node$BEAM_TARGET_SUFFIX
-        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/beam-wallet$BEAM_TARGET_SUFFIX
-        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/wallet-api$BEAM_TARGET_SUFFIX
+        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/cli/beam-wallet$BEAM_TARGET_SUFFIX
+        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/api/wallet-api$BEAM_TARGET_SUFFIX
         - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp explorer/explorer-node$BEAM_TARGET_SUFFIX
         - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp $BEAM_WALLET_UI_IN
         - bash notarize.sh
@@ -417,8 +417,8 @@ after_success:
   # deploy using ftp server
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
   - tar -cvzf beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg
-  - tar -cvzf beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg
-  - tar -cvzf wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet wallet-api$BEAM_TARGET_SUFFIX wallet-api.cfg
+  - tar -cvzf beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/cli beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg
+  - tar -cvzf wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/api/ wallet-api$BEAM_TARGET_SUFFIX wallet-api.cfg
   - tar -cvzf explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/explorer explorer-node$BEAM_TARGET_SUFFIX explorer-node.cfg
     
   # upload binaries to FTP
