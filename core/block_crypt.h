@@ -282,8 +282,6 @@ namespace beam
 			COMPARISON_VIA_CMP
 		};
 
-		std::unique_ptr<SpendProof> m_pSpendProof;
-
 		void get_ShieldedID(Merkle::Hash&) const;
 
 		Input() {}
@@ -291,13 +289,11 @@ namespace beam
 			:TxElement(v)
 		{
 			m_Internal = v.m_Internal;
-			m_pSpendProof = std::move(v.m_pSpendProof);
 		}
 
 		void AddStats(TxStats&) const;
 
 		void operator = (const Input&);
-		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP
 	};
 
@@ -588,7 +584,6 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelShieldedInput> Ptr;
 
-		ECC::Point m_Commitment;
 		Input::SpendProof m_SpendProof;
 
 		virtual ~TxKernelShieldedInput() {}

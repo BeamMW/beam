@@ -131,15 +131,6 @@ namespace beam
 	{
 		Cast::Down<TxElement>(*this) = v;
 		m_Internal = v.m_Internal;
-		ClonePtr(m_pSpendProof, v.m_pSpendProof);
-	}
-
-	int Input::cmp(const Input& v) const
-	{
-		// make sure shielded are after MW
-		CMP_MEMBER_PTR(m_pSpendProof)
-
-		return Cast::Down<TxElement>(*this).cmp(v);
 	}
 
 	int Input::SpendProof::cmp(const SpendProof& v) const
@@ -152,8 +143,6 @@ namespace beam
 	void Input::AddStats(TxStats& s) const
 	{
 		s.m_Inputs++;
-		if (m_pSpendProof)
-			s.m_InputsShielded++;
 	}
 
 	/////////////
@@ -1260,7 +1249,7 @@ namespace beam
 			return false; // unsupported for that version
 
 		ECC::Point::Native comm;
-		if (!comm.ImportNnz(m_Commitment))
+		if (!comm.ImportNnz(m_SpendProof.m_Part1.m_Commitment))
 			return false;
 
 		comm = -comm;
@@ -1271,7 +1260,7 @@ namespace beam
 
 	void TxKernelShieldedInput::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
-		hp << m_Commitment;
+		hp << m_SpendProof.m_WindowEnd;
 	}
 
 	void TxKernelShieldedInput::HashSelfForID(ECC::Hash::Processor& hp) const
@@ -1285,7 +1274,6 @@ namespace beam
 		TxKernelShieldedInput& v = Cast::Up<TxKernelShieldedInput>(*p);
 
 		v.CopyFrom(*this);
-		v.m_Commitment = m_Commitment;
 		v.m_SpendProof = m_SpendProof;
 	}
 

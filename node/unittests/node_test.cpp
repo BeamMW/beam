@@ -1696,11 +1696,12 @@ namespace beam
 				ECC::Scalar::Native sk;
 				ECC::SetRandom(sk);
 
-				Input::Ptr pInp(new Input);
-				pInp->m_Commitment = ECC::Commitment(sk, m_Shielded.m_Value);
-				pInp->m_pSpendProof.reset(new Input::SpendProof);
-				pInp->m_pSpendProof->m_WindowEnd = nWnd1;
-				pInp->m_pSpendProof->m_Cfg = m_Shielded.m_Cfg;
+				Height h = m_vStates.back().m_Height;
+
+				TxKernelShieldedInput::Ptr pKrn(new TxKernelShieldedInput);
+				pKrn->m_Height.m_Min = h + 1;
+				pKrn->m_SpendProof.m_WindowEnd = nWnd1;
+				pKrn->m_SpendProof.m_Cfg = m_Shielded.m_Cfg;
 
 				Lelantus::CmListVec lst;
 
@@ -1720,16 +1721,20 @@ namespace beam
 					std::copy(msg.m_Items.begin(), msg.m_Items.end(), lst.m_vec.end() - msg.m_Items.size());
 				}
 
-				Lelantus::Prover p(lst, *pInp->m_pSpendProof);
+				Lelantus::Prover p(lst, pKrn->m_SpendProof);
 				p.m_Witness.V.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
 				p.m_Witness.V.m_R = m_Shielded.m_sk;
 				p.m_Witness.V.m_R_Output = sk;
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
 				p.m_Witness.V.m_V = m_Shielded.m_Value;
 
+				pKrn->UpdateMsg();
+
 				ECC::Oracle o1;
+				o1 << pKrn->m_Msg;
 				p.Generate(Zero, o1);
-				verify_test(pInp->m_Commitment == pInp->m_pSpendProof->m_Part1.m_Commitment);
+
+				pKrn->MsgToID();
 
 				{
 					// test
@@ -1738,10 +1743,9 @@ namespace beam
 				Amount fee = 100;
 				fee += Transaction::FeeSettings().m_ShieldedInput;
 
-				msgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
+				msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msgTx.m_Transaction, sk, false);
 
-				Height h = m_vStates.back().m_Height;
 				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h, 0, m_Shielded.m_Value, fee);
 
 				Transaction::Context::Params pars;
@@ -1749,8 +1753,12 @@ namespace beam
 				ctx.m_Height.m_Min = h + 1;
 				verify_test(msgTx.m_Transaction->IsValid(ctx));
 
-				verify_test(msgTx.m_Transaction->m_vKernels.size() == 1);
-				m_Shielded.m_SpendKernelID = msgTx.m_Transaction->m_vKernels.front()->m_Internal.m_ID;
+				for (size_t i = 0; i < msgTx.m_Transaction->m_vKernels.size(); i++)
+				{
+					const TxKernel& krn = *msgTx.m_Transaction->m_vKernels[i];
+					if (krn.get_Subtype() == TxKernel::Subtype::Std)
+						m_Shielded.m_SpendKernelID = krn.m_Internal.m_ID;
+				}
 
 				msgTx.m_Fluff = true;
 				Send(msgTx);

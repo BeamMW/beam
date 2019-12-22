@@ -573,15 +573,11 @@ namespace detail
         static Archive& save(Archive& ar, const beam::Input& input)
         {
 			uint8_t nFlags =
-				(input.m_Commitment.m_Y ? 1 : 0) |
-				(input.m_pSpendProof ? 2 : 0);
+				(input.m_Commitment.m_Y ? 1 : 0);
 
 			ar
 				& nFlags
 				& input.m_Commitment.m_X;
-
-			if (input.m_pSpendProof)
-				ar & *input.m_pSpendProof;
 
             return ar;
         }
@@ -595,12 +591,6 @@ namespace detail
 				& input.m_Commitment.m_X;
 
 			input.m_Commitment.m_Y = (1 & nFlags);
-
-			if (2 & nFlags)
-			{
-				input.m_pSpendProof.reset(new beam::Input::SpendProof);
-				ar & *input.m_pSpendProof;
-			}
 
             return ar;
         }
@@ -1296,12 +1286,10 @@ namespace detail
 		{
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
-				(val.m_Commitment.m_Y ? 1 : 0) |
 				(val.m_CanEmbed ? 0x80 : 0);
 
 			ar
 				& nFlags
-				& val.m_Commitment.m_X
 				& val.m_SpendProof;
 
 			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
@@ -1316,13 +1304,10 @@ namespace detail
 			uint32_t nFlags;
 			ar
 				& nFlags
-				& val.m_Commitment.m_X
 				& val.m_SpendProof;
 
 			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
 			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
-
-			val.m_Commitment.m_Y = (1 & nFlags);
 
 			if (0x80 & nFlags)
 				val.m_CanEmbed = true;

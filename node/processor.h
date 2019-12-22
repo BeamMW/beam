@@ -71,6 +71,7 @@ class NodeProcessor
 
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, BlockInterpretCtx&);
+	void Recognize(const TxKernelShieldedInput&, Height);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 
@@ -309,8 +310,10 @@ public:
 	bool ValidateTxContext(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
 	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
-	bool IsShieldedInPool(const Input&);
+
 	bool IsShieldedInPool(const Transaction&);
+	bool IsShieldedInPool(const std::vector<TxKernel::Ptr>&);
+	bool IsShieldedInPool(const Input::SpendProof&);
 
 	struct GeneratedBlock
 	{

@@ -731,8 +731,7 @@ struct NodeProcessor::MultiShieldedContext
 	}
 
 	void Calculate(ECC::Point::Native&, NodeProcessor&);
-	bool IsValid(const Input::SpendProof&, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
-	bool IsValid(const std::vector<Input::Ptr>&, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal);
+	bool IsValid(const std::vector<TxKernel::Ptr>&, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal);
 
 private:
 
@@ -742,6 +741,8 @@ private:
 	Lelantus::CmListVec m_Lst;
 	std::vector<ECC::Point::Native> m_vRes;
 
+	bool IsValid(const TxKernelShieldedInput&, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
+	bool IsValid(const std::vector<TxKernel::Ptr>&, ECC::InnerProduct::BatchContext&, uint32_t& iVerifier, uint32_t nTotal, std::vector<ECC::Scalar::Native>& vKs);
 };
 
 void NodeProcessor::MultiShieldedContext::ClearLocked()
@@ -862,8 +863,9 @@ void NodeProcessor::MultiShieldedContext::Calculate(ECC::Point::Native& res, Nod
 	}
 }
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const Input::SpendProof& x, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
+bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
 {
+	const Input::SpendProof& x = krn.m_SpendProof;
 	uint32_t N = x.m_Cfg.get_N();
 	if (!N)
 		return false;
@@ -872,6 +874,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const Input::SpendProof& x, st
 	memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * N);
 
 	ECC::Oracle oracle;
+	oracle << krn.m_Msg;
 	if (!x.IsValid(bc, oracle, &vKs.front()))
 		return false;
 
@@ -884,19 +887,25 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const Input::SpendProof& x, st
 	return true;
 }
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const std::vector<Input::Ptr>& vInp, ECC::InnerProduct::BatchContext& bc, uint32_t iVerifier, uint32_t nTotal)
+bool NodeProcessor::MultiShieldedContext::IsValid(const std::vector<TxKernel::Ptr>& vKrn, ECC::InnerProduct::BatchContext& bc, uint32_t iVerifier, uint32_t nTotal)
 {
 	std::vector<ECC::Scalar::Native> vKs;
+	return IsValid(vKrn, bc, iVerifier, nTotal, vKs);
+}
 
-	for (size_t i = 0; i < vInp.size(); i++)
+bool NodeProcessor::MultiShieldedContext::IsValid(const std::vector<TxKernel::Ptr>& vKrn, ECC::InnerProduct::BatchContext& bc, uint32_t& iVerifier, uint32_t nTotal, std::vector<ECC::Scalar::Native>& vKs)
+{
+	for (size_t i = 0; i < vKrn.size(); i++)
 	{
-		const Input& v = *vInp[i];
-		if (v.m_pSpendProof)
-		{
-			if (v.m_Commitment != v.m_pSpendProof->m_Part1.m_Commitment)
-				return false;
+		const TxKernel& krn = *vKrn[i];
+		if (!IsValid(krn.m_vNested, bc, iVerifier, nTotal, vKs))
+			return false;
 
-			if (!iVerifier && !IsValid(*v.m_pSpendProof, vKs, bc))
+		if (TxKernel::Subtype::ShieldedInput == krn.get_Subtype())
+		{
+			const TxKernelShieldedInput& v = Cast::Up<TxKernelShieldedInput>(krn);
+
+			if (!iVerifier && !IsValid(v, vKs, bc))
 				return false;
 
 			if (++iVerifier == nTotal)
@@ -1232,7 +1241,7 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
 
 	if (bValid)
-		bValid = m_Mbc.m_Msc.IsValid(m_Body.m_vInputs, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers);
+		bValid = m_Mbc.m_Msc.IsValid(m_Body.m_vKernels, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers);
 
 	std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 
@@ -2039,10 +2048,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		}
 
 		// save shielded in/outs
-		const uint32_t& nIns = bic.m_ShieldedIns; // alias
 		uint32_t& nOuts = bic.m_ShieldedOuts; // alias
 
-		if (nIns || nOuts)
+		if (nOuts)
 		{
 			Serializer ser;
 			bbP.clear();
@@ -2050,11 +2058,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 
 			ser & offsAcc;
 
-			ser & beam::uintBigFrom(nIns);
-			for (size_t i = 0; i < block.m_vInputs.size(); i++)
-				if (block.m_vInputs[i]->m_pSpendProof)
-					ser & *block.m_vInputs[i];
-
+			ser & beam::uintBigFrom(uint32_t(0));
 			ser & beam::uintBigFrom(nOuts);
 
 			if (nOuts)
@@ -2106,11 +2110,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		for (size_t i = 0; i < block.m_vInputs.size(); i++)
 		{
 			const Input& x = *block.m_vInputs[i];
-			if (!x.m_pSpendProof)
-			{
-				m_DB.TxoSetSpent(x.m_Internal.m_ID, sid.m_Height);
-				v.emplace_back().Set(x.m_Internal.m_ID, x.m_Commitment);
-			}
+			m_DB.TxoSetSpent(x.m_Internal.m_ID, sid.m_Height);
+			v.emplace_back().Set(x.m_Internal.m_ID, x.m_Commitment);
 		}
 
 		if (!v.empty())
@@ -2166,47 +2167,48 @@ void NodeProcessor::Recognize(const Input& x, Height h)
 {
 	NodeDB::WalkerEvent wlk(m_DB);
 
-	ECC::Point pt;
-	const UtxoEvent::Key& key = x.m_pSpendProof ? pt : x.m_Commitment;
-	if (x.m_pSpendProof)
-	{
-		pt = x.m_pSpendProof->m_Part1.m_SpendPk;
-		static_assert(proto::UtxoEvent::Flags::Shielded != 1); // 1 is used in the point itself
-		pt.m_Y |= proto::UtxoEvent::Flags::Shielded;
-	}
+	const UtxoEvent::Key& key = x.m_Commitment;
+	m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
+	if (!wlk.MoveNext())
+		return;
+
+	if (wlk.m_Body.n < sizeof(UtxoEvent::Value))
+		OnCorrupted();
+
+	UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
+
+	assert(x.m_Internal.m_Maturity); // must've already been validated
+	evt.m_Maturity = x.m_Internal.m_Maturity; // in case of duplicated utxo this is necessary
+
+	evt.m_Flags = 0;
+
+	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+	OnUtxoEvent(evt, h);
+}
+
+void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
+{
+	NodeDB::WalkerEvent wlk(m_DB);
+
+	ECC::Point pt = x.m_SpendProof.m_Part1.m_SpendPk;
+	static_assert(proto::UtxoEvent::Flags::Shielded != 1); // 1 is used in the point itself
+	pt.m_Y |= proto::UtxoEvent::Flags::Shielded;
+
+	const UtxoEvent::Key& key = pt;
 
 	m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
 	if (!wlk.MoveNext())
 		return;
 
-	if (x.m_pSpendProof)
-	{
-		if (wlk.m_Body.n < sizeof(UtxoEvent::ValueS))
-			OnCorrupted();
+	if (wlk.m_Body.n < sizeof(UtxoEvent::ValueS))
+		OnCorrupted();
 
-		UtxoEvent::ValueS evt = *reinterpret_cast<const UtxoEvent::ValueS*>(wlk.m_Body.p); // copy
+	UtxoEvent::ValueS evt = *reinterpret_cast<const UtxoEvent::ValueS*>(wlk.m_Body.p); // copy
 
-		evt.m_Flags &= ~proto::UtxoEvent::Flags::Add;
+	evt.m_Flags &= ~proto::UtxoEvent::Flags::Add;
 
-		m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-		OnUtxoEvent(evt, h);
-	}
-	else
-	{
-
-		if (wlk.m_Body.n < sizeof(UtxoEvent::Value))
-			OnCorrupted();
-
-		UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
-
-		assert(x.m_Internal.m_Maturity); // must've already been validated
-		evt.m_Maturity = x.m_Internal.m_Maturity; // in case of duplicated utxo this is necessary
-
-		evt.m_Flags = 0;
-
-		m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-		OnUtxoEvent(evt, h);
-	}
+	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+	OnUtxoEvent(evt, h);
 }
 
 void NodeProcessor::Recognize(const Output& x, BlockInterpretCtx& bic)
@@ -2377,9 +2379,23 @@ void NodeProcessor::RescanOwnedTxos()
 
 			m_Extra.m_Shielded = 0;
 
+			ByteBuffer bbE;
+
 			while (true)
 			{
-				if (bd.FromHeight(*this, h0))
+				uint64_t row = FindActiveAtStrict(h0);
+				m_DB.GetStateBlock(row, nullptr, &bbE);
+
+				Deserializer der;
+				der.reset(bbE);
+				der & Cast::Down<TxVectors::Eternal>(txv);
+
+				bic.m_Height = h0;
+
+				if (!HandleValidatedTx(txv, bic))
+					OnCorrupted();
+
+				if (bd.FromRow(*this, row))
 				{
 					bic.m_Height = h0;
 
@@ -2499,14 +2515,21 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 {
 	if (bic.m_RecognizeOnly)
 	{
+		Recognize(krn, bic.m_Height);
 		return true;
 	}
 
 	const ECC::Point& key = krn.m_SpendProof.m_Part1.m_SpendPk;
 	if (bic.m_Fwd)
 	{
-		if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
-			return false;
+		if (!bic.m_AlreadyValidated)
+		{
+			if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
+				return false;
+
+			if (!IsShieldedInPool(krn.m_SpendProof))
+				return false; // references invalid pool window
+		}
 
 		if (bic.m_ValidateOnly)
 		{
@@ -2628,31 +2651,6 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 	if (bic.m_RecognizeOnly)
 	{
 		Recognize(v, bic.m_Height);
-		return true;
-	}
-
-	if (v.m_pSpendProof)
-	{
-		if (bic.m_Fwd)
-		{
-			if (!IsShieldedInPool(v))
-				return false;
-
-			if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
-				return false;
-		}
-
-		if (!HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, bic.m_Fwd))
-			return false;
-
-		if (bic.m_Fwd)
-			bic.m_ShieldedIns++;
-		else
-		{
-			assert(bic.m_ShieldedIns);
-			bic.m_ShieldedIns--;
-		}
-
 		return true;
 	}
 
@@ -2890,28 +2888,37 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 
 bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
 {
-	for (size_t i = 0; i < tx.m_vInputs.size(); i++)
+	return IsShieldedInPool(tx.m_vKernels);
+}
+
+bool NodeProcessor::IsShieldedInPool(const std::vector<TxKernel::Ptr>& vKrn)
+{
+	for (size_t i = 0; i < vKrn.size(); i++)
 	{
-		const Input& v = *tx.m_vInputs[i];
-		if (v.m_pSpendProof && !IsShieldedInPool(v))
+		const TxKernel& krn = *vKrn[i];
+		if (!IsShieldedInPool(krn.m_vNested))
+			return false;
+
+		if (TxKernel::Subtype::ShieldedInput != krn.get_Subtype())
+			continue;
+
+		if (!IsShieldedInPool(Cast::Up<TxKernelShieldedInput>(krn).m_SpendProof))
 			return false;
 	}
 
 	return true;
 }
 
-bool NodeProcessor::IsShieldedInPool(const Input& v)
+bool NodeProcessor::IsShieldedInPool(const Input::SpendProof& x)
 {
-	assert(v.m_pSpendProof);
-
 	const Rules& r = Rules::get();
 	if (!r.Shielded.Enabled)
 		return false;
 
-	if (v.m_pSpendProof->m_WindowEnd > m_Extra.m_Shielded)
+	if (x.m_WindowEnd > m_Extra.m_Shielded)
 		return false;
 
-	uint32_t N = v.m_pSpendProof->m_Cfg.get_N();
+	uint32_t N = x.m_Cfg.get_N();
 	if (N < r.Shielded.NMin)
 		return false; // invalid cfg or anonymity set is too small
 
@@ -2920,7 +2927,7 @@ bool NodeProcessor::IsShieldedInPool(const Input& v)
 		if (N > r.Shielded.NMax)
 			return false; // too large
 
-		if (v.m_pSpendProof->m_WindowEnd > m_Extra.m_Shielded + r.Shielded.MaxWindowBacklog)
+		if (x.m_WindowEnd > m_Extra.m_Shielded + r.Shielded.MaxWindowBacklog)
 			return false; // large anonymity set is no more allowed, expired
 	}
 
@@ -3085,13 +3092,6 @@ void NodeProcessor::RollbackTo(Height h)
 
 		if (bd.FromRow(*this, m_Cursor.m_Sid.m_Row))
 		{
-			for (size_t i = 0; i < txvp.m_vInputs.size(); i++)
-			{
-				const Input& v = *txvp.m_vInputs[i];
-				assert(v.m_pSpendProof);
-				HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, false);
-			}
-
 			if (!txvp.m_vOutputs.empty())
 			{
 				for (size_t i = 0; i < txvp.m_vOutputs.size(); i++)
@@ -3410,12 +3410,11 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	if (!hr.IsInRange(h))
 		return false;
 
-	uint32_t nIns = 0, nOuts = 0;
+	uint32_t nOuts = 0;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 
 	// Ensure input UTXOs are present
-	const ECC::Point* pPrevShielded = nullptr;
 	for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 	{
 		Input::Count nCount = 1;
@@ -3425,25 +3424,8 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 			if (tx.m_vInputs[i + 1]->m_Commitment != v.m_Commitment)
 				break;
 
-		if (v.m_pSpendProof)
-		{
-			if (!IsShieldedInPool(v))
-				return false; // references invalid pool window
-
-			const ECC::Point& key = v.m_pSpendProof->m_Part1.m_SpendPk;
-			if (pPrevShielded && (*pPrevShielded == key))
-				return false; // duplicated
-
-			if (!ValidateShieldedNoDup(key, false))
-				return false; // double-spending
-
-			nIns++;
-		}
-		else
-		{
-			if (!ValidateInputs(v.m_Commitment, nCount))
-				return false; // some input UTXOs are missing
-		}
+		if (!ValidateInputs(v.m_Commitment, nCount))
+			return false; // some input UTXOs are missing
 	}
 
 	for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
@@ -3472,15 +3454,14 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 
 	if (!bShieldedTested)
 	{
-		if (nIns)
+		if (bic.m_ShieldedIns)
 		{
-			if (nIns > Rules::get().Shielded.MaxIns)
-				return false;
+			assert(bic.m_ShieldedIns <= Rules::get().Shielded.MaxIns);
 
 			ECC::InnerProduct::BatchContextEx<4> bc;
 			MultiShieldedContext msc;
 
-			if (!msc.IsValid(tx.m_vInputs, bc, 0, 1))
+			if (!msc.IsValid(tx.m_vKernels, bc, 0, 1))
 				return false;
 
 			msc.Calculate(bc.m_Sum, *this);
@@ -4029,17 +4010,27 @@ void NodeProcessor::InitializeUtxos()
 		TxoID nShielded = m_Extra.m_Shielded;
 		m_Extra.m_Shielded = 0;
 
+		ByteBuffer bbE;
+		TxVectors::Full txv;
+
 		while (true)
 		{
-			if (bd.FromHeight(*this, h0))
-			{
-				for (size_t i = 0; i < txvp.m_vInputs.size(); i++)
-				{
-					const Input& v = *txvp.m_vInputs[i];
-					assert(v.m_pSpendProof);
-					HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, true);
-				}
+			uint64_t row = FindActiveAtStrict(h0);
+			m_DB.GetStateBlock(row, nullptr, &bbE);
 
+			Deserializer der;
+			der.reset(bbE);
+			der & Cast::Down<TxVectors::Eternal>(txv);
+
+			BlockInterpretCtx bic(h0, true);
+			bic.m_AlreadyValidated = true;
+			bic.m_SaveKid = false;
+
+			if (!HandleValidatedTx(txv, bic))
+				OnCorrupted();
+
+			if (bd.FromRow(*this, row))
+			{
 				for (size_t i = 0; i < txvp.m_vOutputs.size(); i++)
 				{
 					const Output& v = *txvp.m_vOutputs[i];
