@@ -1282,6 +1282,7 @@ namespace beam
 		TxKernelShieldedInput& v = Cast::Up<TxKernelShieldedInput>(*p);
 
 		v.CopyFrom(*this);
+		v.m_WindowEnd = m_WindowEnd;
 		v.m_SpendProof = m_SpendProof;
 	}
 
