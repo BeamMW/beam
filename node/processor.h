@@ -70,7 +70,8 @@ class NodeProcessor
 	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
 	void Recognize(const Input&, Height);
-	void Recognize(const Output&, BlockInterpretCtx&);
+	void Recognize(const Output&, Height, Key::IPKdf*, const Output::Shielded::Viewer*);
+	void Recognize(const TxVectors::Eternal&, Height, const Output::Shielded::Viewer*);
 	void Recognize(const TxKernelShieldedInput&, Height);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);

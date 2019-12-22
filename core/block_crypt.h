@@ -468,6 +468,15 @@ namespace beam
 		int cmp(const TxKernel&) const;
 		COMPARISON_VIA_CMP
 
+
+		struct IWalker
+		{
+			virtual bool OnKrn(const TxKernel&) = 0;
+
+			bool Process(const std::vector<TxKernel::Ptr>&);
+			bool Process(const TxKernel&);
+		};
+
 	protected:
 		void HashBase(ECC::Hash::Processor&) const;
 		void HashNested(ECC::Hash::Processor&) const;

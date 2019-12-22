@@ -1051,6 +1051,21 @@ namespace beam
 		ClonePtr(v.m_pRelativeLock, m_pRelativeLock);
 	}
 
+	bool TxKernel::IWalker::Process(const std::vector<TxKernel::Ptr>& v)
+	{
+		for (size_t i = 0; i < v.size(); i++)
+			if (!Process(*v[i]))
+				return false;
+		return true;
+	}
+
+	bool TxKernel::IWalker::Process(const TxKernel& krn)
+	{
+		return
+			Process(krn.m_vNested) &&
+			OnKrn(krn);
+	}
+
 	void TxKernelNonStd::UpdateID()
 	{
 		UpdateMsg();

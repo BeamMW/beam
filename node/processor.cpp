@@ -1779,7 +1779,6 @@ struct NodeProcessor::BlockInterpretCtx
 	Height m_Height;
 	bool m_Fwd;
 	bool m_ValidateOnly = false; // don't make changes to state
-	bool m_RecognizeOnly = false;
 	bool m_AlreadyValidated = false; // set during reorgs, when a block is being applied for 2nd time
 	bool m_SaveKid = true;
 
@@ -1788,9 +1787,6 @@ struct NodeProcessor::BlockInterpretCtx
 
 	ECC::Point::Storage* m_pShieldedOut = nullptr; // used in normal (apply) mode
 	std::set<ECC::Point>* m_pDups = nullptr; // used in validate-only mode
-
-	Key::IPKdf* m_pKey = nullptr;
-	const Output::Shielded::Viewer* m_pKeyShielded = nullptr;
 
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
@@ -2114,14 +2110,20 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		if (!v.empty())
 			m_DB.set_StateInputs(sid.m_Row, &v.front(), v.size());
 
-		bic.m_pKey = get_ViewerKey();
-		bic.m_pKeyShielded = get_ViewerShieldedKey();
-		bic.m_AlreadyValidated = true;
-		bic.m_RecognizeOnly = true;
-		bic.m_SaveKid = false;
+		// recognize all
+		for (size_t i = 0; i < block.m_vInputs.size(); i++)
+			Recognize(*block.m_vInputs[i], sid.m_Height);
+
+		Key::IPKdf* pKey = get_ViewerKey();
+		const Output::Shielded::Viewer* pKeyShielded = get_ViewerShieldedKey();
+		if (pKey || pKeyShielded)
+		{
+			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+				Recognize(*block.m_vOutputs[i], sid.m_Height, pKey, pKeyShielded);
+		}
 
 		m_Extra.m_Shielded -= bic.m_ShieldedOuts;
-		BEAM_VERIFY(HandleValidatedTx(block, bic));
+		Recognize(block, sid.m_Height, pKeyShielded);
 
 		Serializer ser;
 		bbP.clear();
@@ -2208,45 +2210,76 @@ void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
 	OnUtxoEvent(evt, h);
 }
 
-void NodeProcessor::Recognize(const Output& x, BlockInterpretCtx& bic)
+void NodeProcessor::Recognize(const TxVectors::Eternal& txve, Height h, const Output::Shielded::Viewer* pKeyShielded)
+{
+	struct Walker
+		:public TxKernel::IWalker
+	{
+		NodeProcessor* m_pThis;
+		Height m_Height;
+		const Output::Shielded::Viewer* m_pKeyShielded;
+
+		virtual bool OnKrn(const TxKernel& krn) override
+		{
+			switch (krn.get_Subtype())
+			{
+			case TxKernel::Subtype::ShieldedInput:
+				m_pThis->Recognize(Cast::Up<TxKernelShieldedInput>(krn), m_Height);
+				break;
+			default:
+				break; // suppress warning
+			}
+
+			return true;
+		}
+	} wlk;
+
+	wlk.m_pThis = this;
+	wlk.m_Height = h;
+	wlk.m_pKeyShielded = pKeyShielded;
+
+	wlk.Process(txve.m_vKernels);
+}
+
+void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf* pKey, const Output::Shielded::Viewer* pKeyShielded)
 {
 	if (x.m_pShielded)
 	{
 		TxoID nID = m_Extra.m_Shielded++;
 
 		Output::Shielded::Data d;
-		d.m_hScheme = bic.m_Height;
-		if (!(bic.m_pKeyShielded && d.Recover(x, *bic.m_pKeyShielded)))
+		d.m_hScheme = h;
+		if (!(pKeyShielded && d.Recover(x, *pKeyShielded)))
 			return;
 
 		UtxoEvent::ValueS evt;
 		evt.m_Kidv.m_Value = d.m_Value;
 		evt.m_Shielded.Set(evt.m_Kidv, ECC::Scalar(d.m_kSerG), nID);
 		evt.m_AssetID = x.m_AssetID;
-		evt.m_Maturity = bic.m_Height;
+		evt.m_Maturity = h;
 
 		evt.m_Flags =
 			proto::UtxoEvent::Flags::Add |
 			proto::UtxoEvent::Flags::Shielded;
 
 		ECC::Point::Native ptN;
-		d.GetSpendPKey(ptN, *bic.m_pKeyShielded->m_pSer);
+		d.GetSpendPKey(ptN, *pKeyShielded->m_pSer);
 		UtxoEvent::Key key = ptN;
 		key.m_Y |= proto::UtxoEvent::Flags::Shielded;
 
-		m_DB.InsertEvent(bic.m_Height, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-		OnUtxoEvent(evt, bic.m_Height);
+		m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+		OnUtxoEvent(evt, h);
 	}
 	else
 	{
 		Key::IDV kidv;
-		if (!(bic.m_pKey && x.Recover(bic.m_Height, *bic.m_pKey, kidv)))
+		if (!(pKey && x.Recover(h, *pKey, kidv)))
 			return;
 
 		// filter-out dummies
 		if (IsDummy(kidv))
 		{
-			OnDummy(kidv, bic.m_Height);
+			OnDummy(kidv, h);
 			return;
 		}
 
@@ -2256,11 +2289,11 @@ void NodeProcessor::Recognize(const Output& x, BlockInterpretCtx& bic)
 		evt.m_Flags = proto::UtxoEvent::Flags::Add;
 		evt.m_AssetID = x.m_AssetID;
 
-		evt.m_Maturity = x.get_MinMaturity(bic.m_Height);
+		evt.m_Maturity = x.get_MinMaturity(h);
 
 		const UtxoEvent::Key& key = x.m_Commitment;
-		m_DB.InsertEvent(bic.m_Height, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-		OnUtxoEvent(evt, bic.m_Height);
+		m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+		OnUtxoEvent(evt, h);
 	}
 }
 
@@ -2357,7 +2390,8 @@ void NodeProcessor::RescanOwnedTxos()
 		LOG_INFO() << "Owned Txos reset";
 	}
 
-	if (get_ViewerShieldedKey())
+	const Output::Shielded::Viewer* pKeyShielded = get_ViewerShieldedKey();
+	if (pKeyShielded)
 	{
 		LOG_INFO() << "Rescanning shielded Txos...";
 
@@ -2366,13 +2400,8 @@ void NodeProcessor::RescanOwnedTxos()
 		if (m_Cursor.m_Sid.m_Height >= h0)
 		{
 			BlockShieldedData bd;
-			TxVectors::Full txv;
+			TxVectors::Eternal txve;
 
-			BlockInterpretCtx bic(0, true);
-			bic.m_pKeyShielded = get_ViewerShieldedKey();
-			bic.m_AlreadyValidated = true;
-			bic.m_RecognizeOnly = true;
-			bic.m_SaveKid = false;
 
 			m_Extra.m_Shielded = 0;
 
@@ -2383,27 +2412,21 @@ void NodeProcessor::RescanOwnedTxos()
 				uint64_t row = FindActiveAtStrict(h0);
 				m_DB.GetStateBlock(row, nullptr, &bbE);
 
-				Deserializer der;
-				der.reset(bbE);
-				der & Cast::Down<TxVectors::Eternal>(txv);
-
-				bic.m_Height = h0;
-
-				if (!HandleValidatedTx(txv, bic))
-					OnCorrupted();
-
 				if (bd.FromRow(*this, row))
 				{
-					bic.m_Height = h0;
+					// recognize all
+					for (size_t i = 0; i < bd.m_txvp.m_vInputs.size(); i++)
+						Recognize(*bd.m_txvp.m_vInputs[i], h0);
 
-					txv.m_vInputs.swap(bd.m_txvp.m_vInputs);
-					txv.m_vOutputs.swap(bd.m_txvp.m_vOutputs);
-
-					HandleValidatedTx(txv, bic);
-
-					txv.m_vInputs.swap(bd.m_txvp.m_vInputs);
-					txv.m_vOutputs.swap(bd.m_txvp.m_vOutputs);
+					for (size_t i = 0; i < bd.m_txvp.m_vOutputs.size(); i++)
+						Recognize(*bd.m_txvp.m_vOutputs[i], h0, pKey, pKeyShielded);
 				}
+
+				Deserializer der;
+				der.reset(bbE);
+				der& txve;
+
+				Recognize(txve, h0, pKeyShielded);
 
 				if (++h0 > m_Cursor.m_Sid.m_Height)
 					break;
@@ -2452,11 +2475,6 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 
 bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
 {
-	if (bic.m_RecognizeOnly)
-	{
-		return true;
-	}
-
 	const ECC::Point& key = krn.m_Shielded.m_SerialPub;
 	if (bic.m_Fwd)
 	{
@@ -2510,12 +2528,6 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 
 bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpretCtx& bic)
 {
-	if (bic.m_RecognizeOnly)
-	{
-		Recognize(krn, bic.m_Height);
-		return true;
-	}
-
 	const ECC::Point& key = krn.m_SpendProof.m_Part1.m_SpendPk;
 	if (bic.m_Fwd)
 	{
@@ -2645,12 +2657,6 @@ bool NodeProcessor::HandleValidatedBlock(const Block::Body& block, BlockInterpre
 
 bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 {
-	if (bic.m_RecognizeOnly)
-	{
-		Recognize(v, bic.m_Height);
-		return true;
-	}
-
 	UtxoTree::Cursor cu;
 	UtxoTree::MyLeaf* p;
 	UtxoTree::Key::Data d;
@@ -2726,12 +2732,6 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 
 bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 {
-	if (bic.m_RecognizeOnly)
-	{
-		Recognize(v, bic);
-		return true;
-	}
-
 	if (v.m_pShielded)
 	{
 		if (bic.m_Fwd && (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts))
