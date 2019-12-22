@@ -1700,7 +1700,7 @@ namespace beam
 
 				TxKernelShieldedInput::Ptr pKrn(new TxKernelShieldedInput);
 				pKrn->m_Height.m_Min = h + 1;
-				pKrn->m_SpendProof.m_WindowEnd = nWnd1;
+				pKrn->m_WindowEnd = nWnd1;
 				pKrn->m_SpendProof.m_Cfg = m_Shielded.m_Cfg;
 
 				Lelantus::CmListVec lst;

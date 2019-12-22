@@ -133,13 +133,6 @@ namespace beam
 		m_Internal = v.m_Internal;
 	}
 
-	int Input::SpendProof::cmp(const SpendProof& v) const
-	{
-		CMP_MEMBER(m_Part1.m_SpendPk)
-		// ignore rest of the members
-		return 0;
-	}
-
 	void Input::AddStats(TxStats& s) const
 	{
 		s.m_Inputs++;
@@ -1275,7 +1268,7 @@ namespace beam
 
 	void TxKernelShieldedInput::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
-		hp << m_SpendProof.m_WindowEnd;
+		hp << m_WindowEnd;
 	}
 
 	void TxKernelShieldedInput::HashSelfForID(ECC::Hash::Processor& hp) const

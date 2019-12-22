@@ -864,7 +864,7 @@ void NodeProcessor::MultiShieldedContext::Calculate(ECC::Point::Native& res, Nod
 
 bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
 {
-	const Input::SpendProof& x = krn.m_SpendProof;
+	const Lelantus::Proof& x = krn.m_SpendProof;
 	uint32_t N = x.m_Cfg.get_N();
 	if (!N)
 		return false;
@@ -877,7 +877,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	if (!x.IsValid(bc, oracle, &vKs.front()))
 		return false;
 
-	TxoID id1 = x.m_WindowEnd;
+	TxoID id1 = krn.m_WindowEnd;
 	if (id1 >= N)
 		Add(id1 - N, N, &vKs.front());
 	else
@@ -2542,7 +2542,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 			if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
 				return false;
 
-			if (!IsShieldedInPool(krn.m_SpendProof))
+			if (!IsShieldedInPool(krn))
 				return false; // references invalid pool window
 		}
 
@@ -2900,7 +2900,7 @@ bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
 			if (krn.get_Subtype() != TxKernel::Subtype::ShieldedInput)
 				return true;
 
-			return m_pThis->IsShieldedInPool(Cast::Up<TxKernelShieldedInput>(krn).m_SpendProof);
+			return m_pThis->IsShieldedInPool(Cast::Up<TxKernelShieldedInput>(krn));
 		}
 	} wlk;
 	wlk.m_pThis = this;
@@ -2908,16 +2908,16 @@ bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
 	return wlk.Process(tx.m_vKernels);
 }
 
-bool NodeProcessor::IsShieldedInPool(const Input::SpendProof& x)
+bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 {
 	const Rules& r = Rules::get();
 	if (!r.Shielded.Enabled)
 		return false;
 
-	if (x.m_WindowEnd > m_Extra.m_Shielded)
+	if (krn.m_WindowEnd > m_Extra.m_Shielded)
 		return false;
 
-	uint32_t N = x.m_Cfg.get_N();
+	uint32_t N = krn.m_SpendProof.m_Cfg.get_N();
 	if (N < r.Shielded.NMin)
 		return false; // invalid cfg or anonymity set is too small
 
@@ -2926,7 +2926,7 @@ bool NodeProcessor::IsShieldedInPool(const Input::SpendProof& x)
 		if (N > r.Shielded.NMax)
 			return false; // too large
 
-		if (x.m_WindowEnd > m_Extra.m_Shielded + r.Shielded.MaxWindowBacklog)
+		if (krn.m_WindowEnd > m_Extra.m_Shielded + r.Shielded.MaxWindowBacklog)
 			return false; // large anonymity set is no more allowed, expired
 	}
 

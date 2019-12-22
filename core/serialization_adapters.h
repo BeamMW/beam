@@ -596,26 +596,6 @@ namespace detail
         }
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Input::SpendProof& v)
-		{
-			ar
-				& v.m_WindowEnd
-				& Cast::Down<beam::Lelantus::Proof>(v);
-
-			return ar;
-		}
-
-		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Input::SpendProof& v)
-		{
-			ar
-				& v.m_WindowEnd
-				& Cast::Down<beam::Lelantus::Proof>(v);
-
-			return ar;
-		}
-
-		template<typename Archive>
 		class MultibitVar
 		{
 			Archive& m_ar;
@@ -1290,6 +1270,7 @@ namespace detail
 
 			ar
 				& nFlags
+				& val.m_WindowEnd
 				& val.m_SpendProof;
 
 			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
@@ -1304,6 +1285,7 @@ namespace detail
 			uint32_t nFlags;
 			ar
 				& nFlags
+				& val.m_WindowEnd
 				& val.m_SpendProof;
 
 			ImplTxKernel::load_FeeHeight(ar, val, nFlags);

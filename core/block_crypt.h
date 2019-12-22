@@ -273,15 +273,6 @@ namespace beam
 			static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
 		};
 
-		struct SpendProof
-			:public Lelantus::Proof
-		{
-			TxoID m_WindowEnd; // ID of the 1st element outside the window
-
-			int cmp(const SpendProof&) const;
-			COMPARISON_VIA_CMP
-		};
-
 		void get_ShieldedID(Merkle::Hash&) const;
 
 		Input() {}
@@ -593,7 +584,8 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelShieldedInput> Ptr;
 
-		Input::SpendProof m_SpendProof;
+		TxoID m_WindowEnd; // ID of the 1st element outside the window
+		Lelantus::Proof m_SpendProof;
 
 		virtual ~TxKernelShieldedInput() {}
 		virtual Subtype::Enum get_Subtype() const override;

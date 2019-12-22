@@ -313,7 +313,7 @@ public:
 	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
 
 	bool IsShieldedInPool(const Transaction&);
-	bool IsShieldedInPool(const Input::SpendProof&);
+	bool IsShieldedInPool(const TxKernelShieldedInput&);
 
 	struct GeneratedBlock
 	{
