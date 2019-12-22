@@ -3959,8 +3959,8 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 
 	ByteBuffer bbBlob;
 	TxBase txb;
-	txb.m_Offset = Zero;
-
+	if (!m_DB.get_StateExtra(sid.m_Row, txb.m_Offset))
+		OnCorrupted();
 
 	uint64_t rowid = sid.m_Row;
 	if (m_DB.get_Prev(rowid))
