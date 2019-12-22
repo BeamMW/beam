@@ -50,7 +50,7 @@ after_build:
         
     mkdir pdb
     
-    7z a c:/projects/beam/beam/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet%BEAM_DISPLAY_SUFFIX3%.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node%BEAM_TARGET_SUFFIX%.pdb" "c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet%BEAM_TARGET_SUFFIX%.pdb"
+    7z a c:/projects/beam/beam/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet%BEAM_DISPLAY_SUFFIX3%.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node%BEAM_TARGET_SUFFIX%.pdb" "c:/projects/beam/wallet/cli/%BUILD_CONFIG%/beam-wallet%BEAM_TARGET_SUFFIX%.pdb"
 
     copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\beam-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
