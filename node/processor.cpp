@@ -2046,61 +2046,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			AdjustOffset(offsAcc, row, true);
 		}
 
-		// save shielded in/outs
-		uint32_t& nOuts = bic.m_ShieldedOuts; // alias
+		Blob blob(offsAcc.m_Value);
+		m_DB.set_StateExtra(sid.m_Row, &blob);
 
-		if (nOuts)
+		// save shielded outs
+		if (bic.m_ShieldedOuts)
 		{
-			Serializer ser;
-			bbP.clear();
-			ser.swap_buf(bbP);
-
-			ser & offsAcc;
-
-			ser & beam::uintBigFrom(uint32_t(0));
-			ser & beam::uintBigFrom(nOuts);
-
-			if (nOuts)
-			{
-				ECC::Point::Native pt_n, pt_n2;
-				bbE.resize(sizeof(ECC::Point::Storage) * nOuts);
-				ECC::Point::Storage* pSt = reinterpret_cast<ECC::Point::Storage*>(&bbE.front());
-
-				nOuts = 0;
-				for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-				{
-					const Output& v = *block.m_vOutputs[i];
-					if (v.m_pShielded)
-					{
-						ser & v;
-
-						BEAM_VERIFY(pt_n.Import(v.m_Commitment));
-						BEAM_VERIFY(pt_n2.Import(v.m_pShielded->m_SerialPub));
-						pt_n += pt_n2;
-
-						ECC::Point::Storage pt_s;
-						pt_n.Export(pt_s);
-
-						memcpy(pSt + nOuts, &pt_s, sizeof(pt_s));
-
-						nOuts++;
-					}
-				}
-
-				// Append to cmList
-				m_DB.ShieldedResize(m_Extra.m_Shielded);
-				m_DB.ShieldedWrite(m_Extra.m_Shielded - nOuts, pSt, nOuts);
-
-			}
-			ser.swap_buf(bbP);
-
-			Blob blob(bbP);
-			m_DB.set_StateExtra(sid.m_Row, &blob);
-		}
-		else
-		{
-			Blob blob(offsAcc.m_Value);
-			m_DB.set_StateExtra(sid.m_Row, &blob);
+			// Append to cmList
+			m_DB.ShieldedResize(m_Extra.m_Shielded);
+			m_DB.ShieldedWrite(m_Extra.m_Shielded - bic.m_ShieldedOuts, bic.m_pShieldedOut, bic.m_ShieldedOuts);
 		}
 
 		std::vector<NodeDB::StateInput> v;
@@ -2121,13 +2075,13 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			Recognize(*block.m_vInputs[i], sid.m_Height);
 
 		Key::IPKdf* pKey = get_ViewerKey();
-		const Output::Shielded::Viewer* pKeyShielded = get_ViewerShieldedKey();
-		if (pKey || pKeyShielded)
+		if (pKey)
 		{
 			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-				Recognize(*block.m_vOutputs[i], sid.m_Height, pKey, pKeyShielded);
+				Recognize(*block.m_vOutputs[i], sid.m_Height, *pKey);
 		}
 
+		const Output::Shielded::Viewer* pKeyShielded = get_ViewerShieldedKey();
 		m_Extra.m_Shielded -= bic.m_ShieldedOuts;
 		Recognize(block, sid.m_Height, pKeyShielded);
 
@@ -2138,8 +2092,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
 		{
 			const Output& x = *block.m_vOutputs[i];
-			if (x.m_pShielded)
-				continue;
 
 			ser.reset();
 			ser & x;
@@ -2232,6 +2184,9 @@ void NodeProcessor::Recognize(const TxVectors::Eternal& txve, Height h, const Ou
 			case TxKernel::Subtype::ShieldedInput:
 				m_pThis->Recognize(Cast::Up<TxKernelShieldedInput>(krn), m_Height);
 				break;
+			case TxKernel::Subtype::ShieldedOutput:
+				m_pThis->Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height, m_pKeyShielded);
+				break;
 			default:
 				break; // suppress warning
 			}
@@ -2247,88 +2202,61 @@ void NodeProcessor::Recognize(const TxVectors::Eternal& txve, Height h, const Ou
 	wlk.Process(txve.m_vKernels);
 }
 
-void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf* pKey, const Output::Shielded::Viewer* pKeyShielded)
+void NodeProcessor::Recognize(const TxKernelShieldedOutput& x, Height h, const Output::Shielded::Viewer* pKeyShielded)
 {
-	if (x.m_pShielded)
-	{
-		TxoID nID = m_Extra.m_Shielded++;
+	TxoID nID = m_Extra.m_Shielded++;
 
-		Output::Shielded::Data d;
-		d.m_hScheme = h;
-		if (!(pKeyShielded && d.Recover(x, *pKeyShielded)))
-			return;
+	Output::Shielded::Data d;
+	d.m_hScheme = h;
+	ECC::Oracle oracle;
+	oracle << x.m_Msg;
+	if (!(pKeyShielded && d.Recover(x.m_Commitment, x.m_RangeProof, x.m_Shielded, oracle, *pKeyShielded)))
+		return;
 
-		UtxoEvent::ValueS evt;
-		evt.m_Kidv.m_Value = d.m_Value;
-		evt.m_Shielded.Set(evt.m_Kidv, ECC::Scalar(d.m_kSerG), nID);
-		evt.m_AssetID = x.m_AssetID;
-		evt.m_Maturity = h;
+	UtxoEvent::ValueS evt;
+	evt.m_Kidv.m_Value = d.m_Value;
+	evt.m_Shielded.Set(evt.m_Kidv, ECC::Scalar(d.m_kSerG), nID);
+	evt.m_AssetID = Zero;
+	evt.m_Maturity = h;
 
-		evt.m_Flags =
-			proto::UtxoEvent::Flags::Add |
-			proto::UtxoEvent::Flags::Shielded;
+	evt.m_Flags =
+		proto::UtxoEvent::Flags::Add |
+		proto::UtxoEvent::Flags::Shielded;
 
-		ECC::Point::Native ptN;
-		d.GetSpendPKey(ptN, *pKeyShielded->m_pSer);
-		UtxoEvent::Key key = ptN;
-		key.m_Y |= proto::UtxoEvent::Flags::Shielded;
+	ECC::Point::Native ptN;
+	d.GetSpendPKey(ptN, *pKeyShielded->m_pSer);
+	UtxoEvent::Key key = ptN;
+	key.m_Y |= proto::UtxoEvent::Flags::Shielded;
 
-		m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-		OnUtxoEvent(evt, h);
-	}
-	else
-	{
-		Key::IDV kidv;
-		if (!(pKey && x.Recover(h, *pKey, kidv)))
-			return;
-
-		// filter-out dummies
-		if (IsDummy(kidv))
-		{
-			OnDummy(kidv, h);
-			return;
-		}
-
-		// bingo!
-		UtxoEvent::Value evt;
-		evt.m_Kidv = kidv;
-		evt.m_Flags = proto::UtxoEvent::Flags::Add;
-		evt.m_AssetID = x.m_AssetID;
-
-		evt.m_Maturity = x.get_MinMaturity(h);
-
-		const UtxoEvent::Key& key = x.m_Commitment;
-		m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-		OnUtxoEvent(evt, h);
-	}
+	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+	OnUtxoEvent(evt, h);
 }
 
-struct NodeProcessor::BlockShieldedData
+void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 {
-	ByteBuffer m_Buf;
-	TxVectors::Perishable m_txvp;
-	ECC::Scalar m_Offs;
+	Key::IDV kidv;
+	if (!x.Recover(h, keyViewer, kidv))
+		return;
 
-	bool FromRow(NodeProcessor& p, uint64_t row)
+	// filter-out dummies
+	if (IsDummy(kidv))
 	{
-		if (!p.get_DB().get_StateExtra(row, m_Offs, &m_Buf) || m_Buf.empty())
-			return false;
-
-		m_txvp.m_vInputs.clear();
-		m_txvp.m_vOutputs.clear();
-
-		Deserializer der;
-		der.reset(m_Buf);
-		der & m_txvp;
-
-		return true;
+		OnDummy(kidv, h);
+		return;
 	}
 
-	bool FromHeight(NodeProcessor& p, Height h)
-	{
-		return FromRow(p, p.FindActiveAtStrict(h));
-	}
-};
+	// bingo!
+	UtxoEvent::Value evt;
+	evt.m_Kidv = kidv;
+	evt.m_Flags = proto::UtxoEvent::Flags::Add;
+	evt.m_AssetID = x.m_AssetID;
+
+	evt.m_Maturity = x.get_MinMaturity(h);
+
+	const UtxoEvent::Key& key = x.m_Commitment;
+	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+	OnUtxoEvent(evt, h);
+}
 
 void NodeProcessor::RescanOwnedTxos()
 {
@@ -2405,32 +2333,19 @@ void NodeProcessor::RescanOwnedTxos()
 		Height h0 = Rules::get().pForks[2].m_Height;
 		if (m_Cursor.m_Sid.m_Height >= h0)
 		{
-			BlockShieldedData bd;
+			ByteBuffer bbE;
 			TxVectors::Eternal txve;
 
-
 			m_Extra.m_Shielded = 0;
-
-			ByteBuffer bbE;
 
 			while (true)
 			{
 				uint64_t row = FindActiveAtStrict(h0);
 				m_DB.GetStateBlock(row, nullptr, &bbE);
 
-				if (bd.FromRow(*this, row))
-				{
-					// recognize all
-					for (size_t i = 0; i < bd.m_txvp.m_vInputs.size(); i++)
-						Recognize(*bd.m_txvp.m_vInputs[i], h0);
-
-					for (size_t i = 0; i < bd.m_txvp.m_vOutputs.size(); i++)
-						Recognize(*bd.m_txvp.m_vOutputs[i], h0, pKey, pKeyShielded);
-				}
-
 				Deserializer der;
 				der.reset(bbE);
-				der& txve;
+				der & txve;
 
 				Recognize(txve, h0, pKeyShielded);
 
@@ -2738,25 +2653,6 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 
 bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 {
-	if (v.m_pShielded)
-	{
-		if (bic.m_Fwd && (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts))
-			return false;
-
-		if (!HandleShieldedElement(v.m_pShielded->m_SerialPub, true, bic.m_Fwd))
-			return false;
-
-		if (bic.m_Fwd)
-			bic.m_ShieldedOuts++;
-		else
-		{
-			assert(bic.m_ShieldedOuts);
-			bic.m_ShieldedOuts--;
-		}
-
-		return true;
-	}
-
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
 	d.m_Maturity = v.get_MinMaturity(bic.m_Height);
@@ -3069,12 +2965,10 @@ void NodeProcessor::RollbackTo(Height h)
 	m_DB.TxoDelFrom(id0);
 	m_DB.DeleteEventsFrom(h + 1);
 
-
 	// Kernels, shielded elements, and cursor
-	BlockShieldedData bd;
-	ByteBuffer& bbE = bd.m_Buf; // alias
+	ByteBuffer bbE;
 	TxVectors::Eternal txve;
-	TxVectors::Perishable& txvp = bd.m_txvp; // alias
+	TxoID nShielded0 = m_Extra.m_Shielded;
 
 	for (; m_Cursor.m_Sid.m_Height > h; m_DB.MoveBack(m_Cursor.m_Sid))
 	{
@@ -3088,23 +2982,11 @@ void NodeProcessor::RollbackTo(Height h)
 
 		BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height, false);
 		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
-
-		if (bd.FromRow(*this, m_Cursor.m_Sid.m_Row))
-		{
-			if (!txvp.m_vOutputs.empty())
-			{
-				for (size_t i = 0; i < txvp.m_vOutputs.size(); i++)
-				{
-					const Output& v = *txvp.m_vOutputs[i];
-					assert(v.m_pShielded);
-					HandleShieldedElement(v.m_pShielded->m_SerialPub, true, false);
-				}
-
-				// Shrink cmList
-				m_DB.ShieldedResize(m_Extra.m_Shielded);
-			}
-		}
 	}
+
+	assert(m_Extra.m_Shielded <= nShielded0);
+	if (m_Extra.m_Shielded < nShielded0)
+		m_DB.ShieldedResize(m_Extra.m_Shielded);
 
 	m_RecentStates.RollbackTo(h);
 
@@ -3409,8 +3291,6 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	if (!hr.IsInRange(h))
 		return false;
 
-	uint32_t nOuts = 0;
-
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 
 	// Ensure input UTXOs are present
@@ -3425,18 +3305,6 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 
 		if (!ValidateInputs(v.m_Commitment, nCount))
 			return false; // some input UTXOs are missing
-	}
-
-	for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
-	{
-		const Output& v = *tx.m_vOutputs[i];
-		if (v.m_pShielded)
-		{
-			if (!ValidateShieldedNoDup(v.m_pShielded->m_SerialPub, true))
-				return false; // shielded duplicates are not allowed
-
-			nOuts++;
-		}
 	}
 
 	// Ensure kernels are ok
@@ -3469,8 +3337,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 				return false;
 		}
 
-		if (nOuts && (nOuts > Rules::get().Shielded.MaxOuts))
-			return false;
+		assert(bic.m_ShieldedOuts <= Rules::get().Shielded.MaxOuts);
 	}
 
 	return true;
@@ -4003,14 +3870,11 @@ void NodeProcessor::InitializeUtxos()
 	Height h0 = Rules::get().pForks[2].m_Height;
 	if (m_Cursor.m_Sid.m_Height >= h0)
 	{
-		BlockShieldedData bd;
-		TxVectors::Perishable& txvp = bd.m_txvp; // alias
-
 		TxoID nShielded = m_Extra.m_Shielded;
 		m_Extra.m_Shielded = 0;
 
 		ByteBuffer bbE;
-		TxVectors::Full txv;
+		TxVectors::Eternal txve;
 
 		while (true)
 		{
@@ -4019,24 +3883,15 @@ void NodeProcessor::InitializeUtxos()
 
 			Deserializer der;
 			der.reset(bbE);
-			der & Cast::Down<TxVectors::Eternal>(txv);
+			der & txve;
 
 			BlockInterpretCtx bic(h0, true);
 			bic.m_AlreadyValidated = true;
 			bic.m_SaveKid = false;
 
-			if (!HandleValidatedTx(txv, bic))
+			size_t n = 0;
+			if (!HandleElementVecFwd(txve.m_vKernels, bic, n))
 				OnCorrupted();
-
-			if (bd.FromRow(*this, row))
-			{
-				for (size_t i = 0; i < txvp.m_vOutputs.size(); i++)
-				{
-					const Output& v = *txvp.m_vOutputs[i];
-					assert(v.m_pShielded);
-					HandleShieldedElement(v.m_pShielded->m_SerialPub, true, true);
-				}
-			}
 
 			if (++h0 > m_Cursor.m_Sid.m_Height)
 				break;
@@ -4101,15 +3956,9 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 
 	TxoID id1 = m_DB.get_StateTxos(sid.m_Row);
 
-	BlockShieldedData bd;
-	ByteBuffer& bbBlob = bd.m_Buf; // alias
-
-	bd.FromRow(*this, sid.m_Row);
-	bbBlob.clear();
-
-	TxVectors::Perishable& txvpShielded = bd.m_txvp; // alias
+	ByteBuffer bbBlob;
 	TxBase txb;
-	txb.m_Offset = bd.m_Offs;
+	txb.m_Offset = Zero;
 
 
 	uint64_t rowid = sid.m_Row;
@@ -4127,7 +3976,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 	else
 		ser & txb;
 
-	uint32_t nCount = static_cast<uint32_t>(txvpShielded.m_vInputs.size());
+	uint32_t nCount = 0;
 
 	// inputs
 	std::vector<NodeDB::StateInput> v;
@@ -4169,17 +4018,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 		}
 
 		if (iCycle)
-		{
-			for (size_t i = 0; i < txvpShielded.m_vInputs.size(); i++)
-			{
-				Input::Ptr& pInp = txvpShielded.m_vInputs[i];
-				if (pBody)
-					pBody->m_vInputs.push_back(std::move(pInp));
-				ser & *pInp;
-			}
-			
 			break;
-		}
 
 		if (pBody)
 			pBody->m_vInputs.reserve(nCount);
@@ -4187,7 +4026,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 			ser & uintBigFrom(nCount);
 	}
 
-	nCount = static_cast<uint32_t>(txvpShielded.m_vOutputs.size());
+	nCount = 0;
 
 	// outputs
 	if (pBody)
@@ -4229,22 +4068,13 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 		}
 	}
 
-	if (pBody)
-	{
-		for (size_t i = 0; i < txvpShielded.m_vOutputs.size(); i++)
-			pBody->m_vOutputs.push_back(std::move(txvpShielded.m_vOutputs[i]));
-		
-	}
-	else
+	if (!pBody)
 	{
 		ser & uintBigFrom(nCount);
 		ser.swap_buf(*pPerishable);
 		pPerishable->insert(pPerishable->end(), bbBlob.begin(), bbBlob.end());
 		
 		ser.swap_buf(*pPerishable);
-
-		for (size_t i = 0; i < txvpShielded.m_vOutputs.size(); i++)
-			ser & *txvpShielded.m_vOutputs[i];
 
 		ser.swap_buf(*pPerishable);
 	}

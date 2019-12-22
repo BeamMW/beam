@@ -771,8 +771,7 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
         {
-			uint8_t nFlags2 =
-				(output.m_pShielded ? 1 : 0);
+			uint8_t nFlags2 = 0;
 
 			uint8_t nFlags =
 				(output.m_Commitment.m_Y ? 1 : 0) |
@@ -799,14 +798,6 @@ namespace detail
 
 			if (0x20 & nFlags)
 				ar & output.m_AssetID;
-
-			if (nFlags2)
-			{
-				ar & nFlags2;
-
-				if ((1 & nFlags2) && !output.m_RecoveryOnly)
-					ar & *output.m_pShielded;
-			}
 
             return ar;
         }
@@ -847,15 +838,6 @@ namespace detail
 			{
 				uint8_t nFlags2;
 				ar & nFlags2;
-
-				if (1 & nFlags2)
-				{
-					output.m_pShielded = std::make_unique<beam::Output::Shielded>();
-					if (output.m_RecoveryOnly)
-						ZeroObject(*output.m_pShielded);
-					else
-						ar & *output.m_pShielded;
-				}
 			}
 
             return ar;

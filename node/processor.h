@@ -70,9 +70,10 @@ class NodeProcessor
 	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
 	void Recognize(const Input&, Height);
-	void Recognize(const Output&, Height, Key::IPKdf*, const Output::Shielded::Viewer*);
+	void Recognize(const Output&, Height, Key::IPKdf&);
 	void Recognize(const TxVectors::Eternal&, Height, const Output::Shielded::Viewer*);
 	void Recognize(const TxKernelShieldedInput&, Height);
+	void Recognize(const TxKernelShieldedOutput&, Height, const Output::Shielded::Viewer*);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 
@@ -155,8 +156,6 @@ class NodeProcessor
 
 	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
 	void DeleteBlock(uint64_t);
-
-	struct BlockShieldedData;
 
 public:
 

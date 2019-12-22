@@ -1631,7 +1631,8 @@ namespace beam
 				assert(msgTx.m_Transaction);
 
 				{
-					Output::Ptr pOut(new Output);
+					TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
+					pKrn->m_Height.m_Min = h + 1;
 
 					Output::Shielded::Viewer viewer;
 					viewer.FromOwner(*m_Wallet.m_pKdf);
@@ -1646,21 +1647,40 @@ namespace beam
 					Output::Shielded::Data d;
 					d.m_hScheme = h + 1;
 					d.m_Value = m_Shielded.m_Value;
-					d.Generate(*pOut, gen, nonce);
+					d.GenerateS(pKrn->m_Shielded, gen, nonce);
+
+					ECC::Point::Native pt = ECC::Commitment(d.m_kOutG, d.m_Value);
+					pKrn->m_Commitment = pt;
+
+					pKrn->UpdateMsg();
+
+					ECC::RangeProof::CreatorParams cp;
+					d.GetOutputSeed(*gen.m_pGen, cp.m_Seed.V);
+
+					ZeroObject(cp.m_Kidv);
+					cp.m_Kidv.set_Subkey(0);
+					cp.m_Kidv.m_Value = d.m_Value;
+
+					ECC::Oracle oracle;
+					oracle << pKrn->m_Msg;
+
+					pKrn->m_RangeProof.Create(d.m_kOutG, cp, oracle);
+
+
+					pKrn->MsgToID();
 
 					m_Shielded.m_sk = d.m_kOutG;
 					m_Shielded.m_sk += d.m_kSerG;
-					m_Shielded.m_Commitment = pOut->m_pShielded->m_SerialPub;
+					m_Shielded.m_Commitment = pKrn->m_Shielded.m_SerialPub;
 
 					Key::IKdf::Ptr pSerPrivate;
 					Output::Shielded::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
 
 					d.GetSpendKey(m_Shielded.m_skSpendKey, *pSerPrivate);
 
-					ECC::Point::Native pt;
-					verify_test(pOut->IsValid(h + 1, pt));
+					verify_test(pKrn->IsValid(h + 1, pt));
 
-					msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
+					msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 					m_Wallet.UpdateOffset(*msgTx.m_Transaction, d.m_kOutG, true);
 				}
 

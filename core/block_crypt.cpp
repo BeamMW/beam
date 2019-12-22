@@ -308,19 +308,10 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			if (m_pShielded)
-			{
-				if (hScheme < Rules::get().pForks[2].m_Height)
-					return false; // not supported in this version
-
-				if (!m_pShielded->IsValid())
-					return false;
-			}
-
 			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen);
 		}
 
-		if (!m_pPublic || m_pShielded)
+		if (!m_pPublic)
 			return false;
 
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
@@ -338,7 +329,6 @@ namespace beam
 		m_AssetID = v.m_AssetID;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
-		ClonePtr(m_pShielded, v.m_pShielded);
 	}
 
 	void Output::Shielded::get_Hash(ECC::Hash::Value& hv) const
@@ -369,9 +359,6 @@ namespace beam
 
 	int Output::cmp(const Output& v) const
 	{
-		// make sure shielded are after MW
-		CMP_MEMBER_PTR(m_pShielded)
-
 		{
 			int n = Cast::Down<TxElement>(*this).cmp(v);
 			if (n)
@@ -391,8 +378,6 @@ namespace beam
 	void Output::AddStats(TxStats& s) const
 	{
 		s.m_Outputs++;
-		if (m_pShielded)
-			s.m_OutputsShielded++;
 
 		if (m_Coinbase && m_pPublic)
 			s.m_Coinbase += uintBigFrom(m_pPublic->m_Value);
@@ -441,19 +426,6 @@ namespace beam
 		{
 			oracle << m_Commitment;
 		}
-
-		uint8_t nFlags = m_pShielded ? 1 : 0;
-		if (nFlags)
-		{
-			oracle << nFlags;
-
-			if (m_pShielded)
-			{
-				// include all the fields, in case they will become meaningful for recognition
-				oracle.Serialize(*m_pShielded);
-			}
-		}
-
 	}
 
 	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, Key::IDV& kidv) const
@@ -650,23 +622,16 @@ namespace beam
 		s.m_Signature.SignRaw(ECC::Context::get().m_Sig.m_CfgGJ1, hv, s.m_Signature.m_pK, pSk, pN);
 	}
 
-	void Output::Shielded::Data::Generate(Output& outp, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	void Output::Shielded::Data::Generate(ECC::Point& comm, ECC::RangeProof::Confidential& rp, Shielded& s, ECC::Oracle& oracle, const PublicGen& gen, const ECC::Hash::Value& nonce)
 	{
-		outp.m_pShielded.reset(new Shielded);
-		GenerateS(*outp.m_pShielded, gen, nonce);
-		GenerateO(outp, gen);
+		GenerateS(s, gen, nonce);
+		GenerateO(comm, rp, s, oracle, gen);
 	}
 
-	void Output::Shielded::Data::GenerateO(Output& outp, const PublicGen& gen)
+	void Output::Shielded::Data::GenerateO(ECC::Point& comm, ECC::RangeProof::Confidential& rp, Shielded& s, ECC::Oracle& oracle, const PublicGen& gen)
 	{
-		assert(outp.m_pShielded);
-
 		ECC::Point::Native pt = ECC::Commitment(m_kOutG, m_Value);
-		outp.m_Commitment = pt;
-
-		assert(m_hScheme >= Rules::get().pForks[2].m_Height);
-		ECC::Oracle oracle;
-		outp.Prepare(oracle, m_hScheme);
+		comm = pt;
 
 		ECC::RangeProof::CreatorParams cp;
 		GetOutputSeed(*gen.m_pGen, cp.m_Seed.V);
@@ -675,8 +640,7 @@ namespace beam
 		cp.m_Kidv.set_Subkey(0);
 		cp.m_Kidv.m_Value = m_Value;
 
-		outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
-		outp.m_pConfidential->Create(m_kOutG, cp, oracle);
+		rp.Create(m_kOutG, cp, oracle);
 	}
 
 	void Output::Shielded::Data::GetSerialPreimage(ECC::Hash::Value& res) const
@@ -707,13 +671,8 @@ namespace beam
 		ser.DeriveKey(sk, hv);
 	}
 
-	bool Output::Shielded::Data::Recover(const Output& outp, const Viewer& v)
+	bool Output::Shielded::Data::Recover(const ECC::Point& comm, const ECC::RangeProof::Confidential& rp, const Shielded& s, ECC::Oracle& oracle, const Viewer& v)
 	{
-		if (!outp.m_pConfidential || !outp.m_pShielded)
-			return false; // ?!
-
-		const Shielded& s = *outp.m_pShielded;
-
 		ECC::Point::Native ptSer;
 		if (!ptSer.Import(s.m_SerialPub))
 			return false;
@@ -759,17 +718,13 @@ namespace beam
 		ECC::RangeProof::CreatorParams cp;
 		GetOutputSeed(*v.m_pGen, cp.m_Seed.V);
 
-		assert(m_hScheme >= Rules::get().pForks[2].m_Height);
-		ECC::Oracle oracle;
-		outp.Prepare(oracle, m_hScheme);
-
-		if (!outp.m_pConfidential->Recover(oracle, cp))
+		if (!rp.Recover(oracle, cp))
 			return false; // oops?
 
 		m_Value = cp.m_Kidv.m_Value;
 
 		pt = ECC::Commitment(m_kOutG, m_Value);
-		return IsEqual(pt, outp.m_Commitment);
+		return IsEqual(pt, comm);
 	}
 
 	/////////////

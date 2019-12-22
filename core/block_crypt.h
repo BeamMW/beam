@@ -348,22 +348,23 @@ namespace beam
 				// Generates Shielded from nonce
 				// Sets both m_kOutG and m_kSerG
 				void GenerateS(Shielded&, const PublicGen&, const ECC::Hash::Value& nonce);
-				void GenerateO(Output&, const PublicGen&); // generate UTXO from m_kOutG
-				void Generate(Output&, const PublicGen&, const ECC::Hash::Value& nonce); // generate everything nonce
+				void GenerateO(ECC::Point&, ECC::RangeProof::Confidential&, Shielded&, ECC::Oracle&, const PublicGen&); // generate UTXO from m_kOutG
+				void Generate(ECC::Point&, ECC::RangeProof::Confidential&, Shielded&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce); // generate everything nonce
 
-				bool Recover(const Output&, const Viewer&);
+				bool Recover(const ECC::Point&, const ECC::RangeProof::Confidential&, const Shielded&, ECC::Oracle&, const Viewer&);
 
 				struct HashTxt;
 
 				void GetSpendKey(ECC::Scalar::Native&, Key::IKdf& ser) const;
 				void GetSpendPKey(ECC::Point::Native&, Key::IPKdf& ser) const;
 
+				void GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value&) const;
+
 			private:
 				static void GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ);
 				void GetSerialPreimage(ECC::Hash::Value& res) const;
 				void GetSerial(ECC::Scalar::Native& kJ, Key::IPKdf& ser) const;
 				void ToSk(Key::IPKdf& gen);
-				void GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value&) const;
 				static void GetDH(ECC::Hash::Value&, const ECC::Point&);
 				static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ);
 				static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1);
@@ -377,7 +378,6 @@ namespace beam
 		// one of the following *must* be specified
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
-		std::unique_ptr<Shielded> m_pShielded; // for shielded output, complements the confidential
 
 		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
