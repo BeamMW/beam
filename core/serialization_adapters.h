@@ -731,9 +731,9 @@ namespace detail
 			return ar;
 		}
 
-		/// beam::Output::Shielded serialization
+		/// beam::ShieldedTxo::Serial serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Output::Shielded& x)
+		static Archive& save(Archive& ar, const beam::ShieldedTxo::Serial& x)
 		{
 			uint8_t nFlags =
 				(x.m_SerialPub.m_Y ? 1 : 0) |
@@ -750,7 +750,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Output::Shielded& x)
+		static Archive& load(Archive& ar, beam::ShieldedTxo::Serial& x)
 		{
 			uint8_t nFlags;
 
@@ -763,6 +763,47 @@ namespace detail
 
 			x.m_SerialPub.m_Y = (1 & nFlags);
 			x.m_Signature.m_NoncePub.m_Y = 0 != (2 & nFlags);
+
+			return ar;
+		}
+
+		/// beam::ShieldedTxo serialization
+		template<typename Archive>
+        static Archive& save(Archive& ar, const beam::ShieldedTxo& val)
+        {
+			uint32_t nFlags =
+				(val.m_Commitment.m_Y ? 1 : 0) |
+				(val.m_Serial.m_SerialPub.m_Y ? 2 : 0) |
+				(val.m_Serial.m_Signature.m_NoncePub.m_Y ? 4 : 0);
+
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_RangeProof
+				& val.m_Serial.m_SerialPub.m_X
+				& val.m_Serial.m_Signature.m_NoncePub
+				& val.m_Serial.m_Signature.m_pK[0]
+				& val.m_Serial.m_Signature.m_pK[1];
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::ShieldedTxo& val)
+        {
+			uint32_t nFlags;
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_RangeProof
+				& val.m_Serial.m_SerialPub.m_X
+				& val.m_Serial.m_Signature.m_NoncePub
+				& val.m_Serial.m_Signature.m_pK[0]
+				& val.m_Serial.m_Signature.m_pK[1];
+
+			val.m_Commitment.m_Y = (1 & nFlags);
+			val.m_Serial.m_SerialPub.m_Y = ((2 & nFlags) != 0);
+			val.m_Serial.m_Signature.m_NoncePub.m_Y = ((4 & nFlags) != 0);
 
 			return ar;
 		}
@@ -1198,19 +1239,11 @@ namespace detail
         {
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
-				(val.m_Commitment.m_Y ? 1 : 0) |
-				(val.m_Shielded.m_SerialPub.m_Y ? 0x10 : 0) |
-				(val.m_Shielded.m_Signature.m_NoncePub.m_Y ? 0x20 : 0) |
 				(val.m_CanEmbed ? 0x80 : 0);
 
 			ar
 				& nFlags
-				& val.m_Commitment.m_X
-				& val.m_RangeProof
-				& val.m_Shielded.m_SerialPub.m_X
-				& val.m_Shielded.m_Signature.m_NoncePub
-				& val.m_Shielded.m_Signature.m_pK[0]
-				& val.m_Shielded.m_Signature.m_pK[1];
+				& val.m_Txo;
 
 			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
 			ImplTxKernel::save_Nested(ar, val);
@@ -1224,19 +1257,10 @@ namespace detail
 			uint32_t nFlags;
 			ar
 				& nFlags
-				& val.m_Commitment.m_X
-				& val.m_RangeProof
-				& val.m_Shielded.m_SerialPub.m_X
-				& val.m_Shielded.m_Signature.m_NoncePub
-				& val.m_Shielded.m_Signature.m_pK[0]
-				& val.m_Shielded.m_Signature.m_pK[1];
+				& val.m_Txo;
 
 			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
 			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
-
-			val.m_Commitment.m_Y = (1 & nFlags);
-			val.m_Shielded.m_SerialPub.m_Y = ((0x10 & nFlags) != 0);
-			val.m_Shielded.m_Signature.m_NoncePub.m_Y = ((0x20 & nFlags) != 0);
 
 			if (0x80 & nFlags)
 				val.m_CanEmbed = true;

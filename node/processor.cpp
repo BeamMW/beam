@@ -2082,7 +2082,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 				Recognize(*block.m_vOutputs[i], sid.m_Height, *pKey);
 		}
 
-		const Output::Shielded::Viewer* pKeyShielded = get_ViewerShieldedKey();
+		const ShieldedTxo::Viewer* pKeyShielded = get_ViewerShieldedKey();
 		m_Extra.m_Shielded -= bic.m_ShieldedOuts;
 		Recognize(block, sid.m_Height, pKeyShielded);
 
@@ -2169,14 +2169,14 @@ void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
 	OnUtxoEvent(evt, h);
 }
 
-void NodeProcessor::Recognize(const TxVectors::Eternal& txve, Height h, const Output::Shielded::Viewer* pKeyShielded)
+void NodeProcessor::Recognize(const TxVectors::Eternal& txve, Height h, const ShieldedTxo::Viewer* pKeyShielded)
 {
 	struct Walker
 		:public TxKernel::IWalker
 	{
 		NodeProcessor* m_pThis;
 		Height m_Height;
-		const Output::Shielded::Viewer* m_pKeyShielded;
+		const ShieldedTxo::Viewer* m_pKeyShielded;
 
 		virtual bool OnKrn(const TxKernel& krn) override
 		{
@@ -2203,15 +2203,17 @@ void NodeProcessor::Recognize(const TxVectors::Eternal& txve, Height h, const Ou
 	wlk.Process(txve.m_vKernels);
 }
 
-void NodeProcessor::Recognize(const TxKernelShieldedOutput& x, Height h, const Output::Shielded::Viewer* pKeyShielded)
+void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const ShieldedTxo::Viewer* pKeyShielded)
 {
 	TxoID nID = m_Extra.m_Shielded++;
 
-	Output::Shielded::Data d;
+	const ShieldedTxo& x = v.m_Txo;
+
+	ShieldedTxo::Data d;
 	d.m_hScheme = h;
 	ECC::Oracle oracle;
-	oracle << x.m_Msg;
-	if (!(pKeyShielded && d.Recover(x.m_Commitment, x.m_RangeProof, x.m_Shielded, oracle, *pKeyShielded)))
+	oracle << v.m_Msg;
+	if (!(pKeyShielded && d.Recover(x, oracle, *pKeyShielded)))
 		return;
 
 	UtxoEvent::ValueS evt;
@@ -2325,7 +2327,7 @@ void NodeProcessor::RescanOwnedTxos()
 		LOG_INFO() << "Owned Txos reset";
 	}
 
-	const Output::Shielded::Viewer* pKeyShielded = get_ViewerShieldedKey();
+	const ShieldedTxo::Viewer* pKeyShielded = get_ViewerShieldedKey();
 	if (pKeyShielded)
 	{
 		LOG_INFO() << "Rescanning shielded Txos...";
@@ -2397,7 +2399,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 
 bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
 {
-	const ECC::Point& key = krn.m_Shielded.m_SerialPub;
+	const ECC::Point& key = krn.m_Txo.m_Serial.m_SerialPub;
 	if (bic.m_Fwd)
 	{
 		if (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts)
@@ -2422,8 +2424,8 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			if (bic.m_pShieldedOut)
 			{
 				ECC::Point::Native pt, pt2;
-				pt.Import(krn.m_Commitment); // don't care if Import fails (kernels are not necessarily tested at this stage)
-				pt2.Import(krn.m_Shielded.m_SerialPub);
+				pt.Import(krn.m_Txo.m_Commitment); // don't care if Import fails (kernels are not necessarily tested at this stage)
+				pt2.Import(krn.m_Txo.m_Serial.m_SerialPub);
 				pt += pt2;
 
 				ECC::Point::Storage pt_s;

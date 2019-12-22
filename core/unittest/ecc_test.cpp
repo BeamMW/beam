@@ -15,6 +15,7 @@
 #include <iostream>
 #include "../ecc_native.h"
 #include "../block_rw.h"
+#include "../shielded.h"
 #include "../treasury.h"
 #include "../../utility/serialize.h"
 #include "../serialization_adapters.h"
@@ -2252,31 +2253,44 @@ void TestLelantusKeys()
 	SetRandom(pGen);
 	SetRandom(pSer);
 
-	beam::Output::Shielded::PublicGen gen;
+	beam::ShieldedTxo::PublicGen gen;
 	gen.m_pGen = pGen;
 	gen.m_pSer = pSer;
 
-	beam::Output::Shielded::Viewer viewer;
+	beam::ShieldedTxo::Viewer viewer;
 	viewer.m_pGen = pGen;
 	viewer.m_pSer = pSer;
 
-	beam::Output::Shielded::Data d1;
+	beam::ShieldedTxo::Data d1;
 	d1.m_hScheme = beam::Rules::get().pForks[2].m_Height;
 	d1.m_Value = 115;
 
 	Hash::Value nonce;
 	SetRandom(nonce);
 
-	beam::Output outp;
-	d1.Generate(outp, gen, nonce);
+	beam::ShieldedTxo txo;
+	{
+		Oracle oracle;
+		d1.Generate(txo, oracle, gen, nonce);
+	}
 
 	Point::Native pt;
-	verify_test(pt.Import(outp.m_Commitment));
-	verify_test(outp.IsValid(d1.m_hScheme, pt));
+	verify_test(pt.Import(txo.m_Commitment));
 
-	beam::Output::Shielded::Data d2;
+	verify_test(txo.m_Serial.IsValid());
+
+	{
+		Oracle oracle;
+		verify_test(txo.m_RangeProof.IsValid(pt, oracle));
+	}
+
+	beam::ShieldedTxo::Data d2;
 	d2.m_hScheme = d1.m_hScheme;
-	verify_test(d2.Recover(outp, viewer));
+
+	{
+		Oracle oracle;
+		verify_test(d2.Recover(txo, oracle, viewer));
+	}
 
 }
 

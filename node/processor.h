@@ -71,9 +71,9 @@ class NodeProcessor
 
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, Height, Key::IPKdf&);
-	void Recognize(const TxVectors::Eternal&, Height, const Output::Shielded::Viewer*);
+	void Recognize(const TxVectors::Eternal&, Height, const ShieldedTxo::Viewer*);
 	void Recognize(const TxKernelShieldedInput&, Height);
-	void Recognize(const TxKernelShieldedOutput&, Height, const Output::Shielded::Viewer*);
+	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 
@@ -301,7 +301,7 @@ public:
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
 
 	virtual Key::IPKdf* get_ViewerKey() { return nullptr; }
-	virtual const Output::Shielded::Viewer* get_ViewerShieldedKey() { return nullptr; }
+	virtual const ShieldedTxo::Viewer* get_ViewerShieldedKey() { return nullptr; }
 
 	void RescanOwnedTxos();
 

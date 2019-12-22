@@ -310,21 +310,6 @@ namespace beam
 
 		static const Amount s_MinimumValue = 1;
 
-		struct Shielded
-		{
-			ECC::Point m_SerialPub; // blinded
-			ECC::SignatureGeneralized<2> m_Signature;
-
-			bool IsValid() const;
-
-			struct PublicGen;
-			struct Viewer;
-			struct Data;
-
-		private:
-			void get_Hash(ECC::Hash::Value&) const;
-		};
-
 		// one of the following *must* be specified
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
@@ -348,6 +333,27 @@ namespace beam
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
+
+	struct ShieldedTxo
+	{
+		struct Serial
+		{
+			ECC::Point m_SerialPub; // blinded
+			ECC::SignatureGeneralized<2> m_Signature;
+
+			bool IsValid() const;
+			void get_Hash(ECC::Hash::Value&) const;
+		};
+
+
+		ECC::Point m_Commitment;
+		ECC::RangeProof::Confidential m_RangeProof;
+		Serial m_Serial;
+
+		struct PublicGen;
+		struct Viewer;
+		struct Data;
+	};
 
 #define BeamKernelsAll(macro) \
 	macro(1, Std) \
@@ -515,9 +521,7 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelShieldedOutput> Ptr;
 
-		ECC::Point m_Commitment;
-		ECC::RangeProof::Confidential m_RangeProof;
-		Output::Shielded m_Shielded;
+		ShieldedTxo m_Txo;
 
 		virtual ~TxKernelShieldedOutput() {}
 		virtual Subtype::Enum get_Subtype() const override;

@@ -16,7 +16,7 @@
 
 namespace beam
 {
-	void Output::Shielded::get_Hash(ECC::Hash::Value& hv) const
+	void ShieldedTxo::Serial::get_Hash(ECC::Hash::Value& hv) const
 	{
 		ECC::Hash::Processor()
 			<< "Out-S"
@@ -24,7 +24,7 @@ namespace beam
 			>> hv;
 	}
 
-	bool Output::Shielded::IsValid() const
+	bool ShieldedTxo::Serial::IsValid() const
 	{
 		ECC::Point::Native comm;
 		if (!comm.Import(m_SerialPub))
@@ -38,7 +38,7 @@ namespace beam
 
 	/////////////
 	// Shielded keygen
-	struct Output::Shielded::Data::HashTxt
+	struct ShieldedTxo::Data::HashTxt
 	{
 		ECC::Hash::Processor m_Processor;
 		ECC::Hash::Value m_hv;
@@ -67,7 +67,7 @@ namespace beam
 		}
 	};
 
-	void Output::Shielded::Viewer::FromOwner(Key::IPKdf& key)
+	void ShieldedTxo::Viewer::FromOwner(Key::IPKdf& key)
 	{
 		ECC::Scalar::Native sk;
 		key.DerivePKey(sk, Data::HashTxt("Own.Gen"));
@@ -82,7 +82,7 @@ namespace beam
 		Cast::Up<ECC::HKdfPub>(*m_pSer).GenerateChildParallel(key, s.V.m_Value);
 	}
 
-	void Output::Shielded::Viewer::GenerateSerSrc(ECC::Hash::Value& res, Key::IPKdf& key)
+	void ShieldedTxo::Viewer::GenerateSerSrc(ECC::Hash::Value& res, Key::IPKdf& key)
 	{
 		ECC::Scalar::Native sk;
 		key.DerivePKey(sk, Data::HashTxt("Own.Ser"));
@@ -91,7 +91,7 @@ namespace beam
 		((ECC::Scalar&) res) = sk;
 	}
 
-	void Output::Shielded::Viewer::GenerateSerPrivate(Key::IKdf::Ptr& pOut, Key::IKdf& key)
+	void ShieldedTxo::Viewer::GenerateSerPrivate(Key::IKdf::Ptr& pOut, Key::IKdf& key)
 	{
 		ECC::NoLeak<ECC::Hash::Value> hv;
 		GenerateSerSrc(hv.V, key);
@@ -100,13 +100,13 @@ namespace beam
 		Cast::Up<ECC::HKdf>(*pOut).GenerateChildParallel(key, hv.V);
 	}
 
-	void Output::Shielded::Data::DoubleBlindedCommitment(ECC::Point::Native& res, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ)
+	void ShieldedTxo::Data::DoubleBlindedCommitment(ECC::Point::Native& res, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ)
 	{
 		res = ECC::Context::get().G * kG;
 		res += ECC::Context::get().J * kJ;
 	}
 
-	bool Output::Shielded::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1)
+	bool ShieldedTxo::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1)
 	{
 		// Import/Export seems to be the same complexity
 		ECC::Point pt2;
@@ -114,37 +114,37 @@ namespace beam
 		return pt2 == pt1;
 	}
 
-	bool Output::Shielded::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1)
+	bool ShieldedTxo::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1)
 	{
 		ECC::Point::Native pt = -pt0;
 		pt += pt1;
 		return pt == Zero;
 	}
 
-	void Output::Shielded::Data::GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ)
+	void ShieldedTxo::Data::GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ)
 	{
 		gen.DerivePKey(nG, HashTxt("nG") << ptShared);
 		gen.DerivePKey(nJ, HashTxt("nJ") << ptShared);
 	}
 
-	void Output::Shielded::Data::ToSk(Key::IPKdf& gen)
+	void ShieldedTxo::Data::ToSk(Key::IPKdf& gen)
 	{
 		gen.DerivePKey(m_kOutG, HashTxt("sG") << m_kSerG);
 	}
 
-	void Output::Shielded::Data::GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value& res) const
+	void ShieldedTxo::Data::GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value& res) const
 	{
 		ECC::Scalar::Native k;
 		gen.DerivePKey(k, HashTxt("seed") << m_kOutG);
 		ECC::Hash::Processor() << k >> res;
 	}
 
-	void Output::Shielded::Data::GetDH(ECC::Hash::Value& res, const ECC::Point& pt)
+	void ShieldedTxo::Data::GetDH(ECC::Hash::Value& res, const ECC::Point& pt)
 	{
 		HashTxt("DH") << pt >> res;
 	}
 
-	void Output::Shielded::Data::GenerateS(Shielded& s, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	void ShieldedTxo::Data::GenerateS(Serial& s, const PublicGen& gen, const ECC::Hash::Value& nonce)
 	{
 		ECC::Scalar::Native pSk[2];
 
@@ -179,16 +179,16 @@ namespace beam
 		s.m_Signature.SignRaw(ECC::Context::get().m_Sig.m_CfgGJ1, hv, s.m_Signature.m_pK, pSk, pN);
 	}
 
-	void Output::Shielded::Data::Generate(ECC::Point& comm, ECC::RangeProof::Confidential& rp, Shielded& s, ECC::Oracle& oracle, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	void ShieldedTxo::Data::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const PublicGen& gen, const ECC::Hash::Value& nonce)
 	{
-		GenerateS(s, gen, nonce);
-		GenerateO(comm, rp, s, oracle, gen);
+		GenerateS(txo.m_Serial, gen, nonce);
+		GenerateO(txo, oracle, gen);
 	}
 
-	void Output::Shielded::Data::GenerateO(ECC::Point& comm, ECC::RangeProof::Confidential& rp, Shielded& s, ECC::Oracle& oracle, const PublicGen& gen)
+	void ShieldedTxo::Data::GenerateO(ShieldedTxo& txo, ECC::Oracle& oracle, const PublicGen& gen)
 	{
 		ECC::Point::Native pt = ECC::Commitment(m_kOutG, m_Value);
-		comm = pt;
+		txo.m_Commitment = pt;
 
 		ECC::RangeProof::CreatorParams cp;
 		GetOutputSeed(*gen.m_pGen, cp.m_Seed.V);
@@ -197,45 +197,45 @@ namespace beam
 		cp.m_Kidv.set_Subkey(0);
 		cp.m_Kidv.m_Value = m_Value;
 
-		rp.Create(m_kOutG, cp, oracle);
+		txo.m_RangeProof.Create(m_kOutG, cp, oracle);
 	}
 
-	void Output::Shielded::Data::GetSerialPreimage(ECC::Hash::Value& res) const
+	void ShieldedTxo::Data::GetSerialPreimage(ECC::Hash::Value& res) const
 	{
 		ECC::NoLeak<ECC::Scalar> sk;
 		sk.V = m_kSerG;
 		HashTxt("kG-ser") << sk.V.m_Value >> res;
 	}
 
-	void Output::Shielded::Data::GetSerial(ECC::Scalar::Native& kJ, Key::IPKdf& ser) const
+	void ShieldedTxo::Data::GetSerial(ECC::Scalar::Native& kJ, Key::IPKdf& ser) const
 	{
 		ECC::Point::Native pt;
 		GetSpendPKey(pt, ser);
 		Lelantus::SpendKey::ToSerial(kJ, pt);
 	}
 
-	void Output::Shielded::Data::GetSpendPKey(ECC::Point::Native& pt, Key::IPKdf& ser) const
+	void ShieldedTxo::Data::GetSpendPKey(ECC::Point::Native& pt, Key::IPKdf& ser) const
 	{
 		ECC::Hash::Value hv;
 		GetSerialPreimage(hv);
 		ser.DerivePKeyG(pt, hv);
 	}
 
-	void Output::Shielded::Data::GetSpendKey(ECC::Scalar::Native& sk, Key::IKdf& ser) const
+	void ShieldedTxo::Data::GetSpendKey(ECC::Scalar::Native& sk, Key::IKdf& ser) const
 	{
 		ECC::Hash::Value hv;
 		GetSerialPreimage(hv);
 		ser.DeriveKey(sk, hv);
 	}
 
-	bool Output::Shielded::Data::Recover(const ECC::Point& comm, const ECC::RangeProof::Confidential& rp, const Shielded& s, ECC::Oracle& oracle, const Viewer& v)
+	bool ShieldedTxo::Data::Recover(const ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v)
 	{
 		ECC::Point::Native ptSer;
-		if (!ptSer.Import(s.m_SerialPub))
+		if (!ptSer.Import(txo.m_Serial.m_SerialPub))
 			return false;
 
 		ECC::Hash::Value hv;
-		GetDH(hv, s.m_SerialPub);
+		GetDH(hv, txo.m_Serial.m_SerialPub);
 
 		ECC::Scalar::Native kJ, nG, nJ;
 		v.m_pGen->DeriveKey(kJ, hv);
@@ -244,17 +244,17 @@ namespace beam
 		GenerateS1(*v.m_pGen, pt, nG, nJ);
 
 		DoubleBlindedCommitment(pt, nG, nJ);
-		if (!IsEqual(pt, s.m_Signature.m_NoncePub))
+		if (!IsEqual(pt, txo.m_Serial.m_Signature.m_NoncePub))
 			return false;
 
-		m_kSerG = s.m_Signature.m_pK[0];
+		m_kSerG = txo.m_Serial.m_Signature.m_pK[0];
 		m_kSerG += nG;
 
-		kJ = s.m_Signature.m_pK[1];
+		kJ = txo.m_Serial.m_Signature.m_pK[1];
 		kJ += nJ;
 
-		s.get_Hash(hv);
-		s.m_Signature.get_Challenge(nJ, hv);
+		txo.m_Serial.get_Hash(hv);
+		txo.m_Serial.m_Signature.get_Challenge(nJ, hv);
 		nJ.Inv();
 		nJ = -nJ;
 
@@ -275,13 +275,13 @@ namespace beam
 		ECC::RangeProof::CreatorParams cp;
 		GetOutputSeed(*v.m_pGen, cp.m_Seed.V);
 
-		if (!rp.Recover(oracle, cp))
+		if (!txo.m_RangeProof.Recover(oracle, cp))
 			return false; // oops?
 
 		m_Value = cp.m_Kidv.m_Value;
 
 		pt = ECC::Commitment(m_kOutG, m_Value);
-		return IsEqual(pt, comm);
+		return IsEqual(pt, txo.m_Commitment);
 	}
 
 } // namespace beam

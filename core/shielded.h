@@ -18,13 +18,13 @@
 namespace beam
 {
 
-	struct Output::Shielded::PublicGen
+	struct ShieldedTxo::PublicGen
 	{
 		Key::IPKdf::Ptr m_pGen;
 		Key::IPKdf::Ptr m_pSer;
 	};
 
-	struct Output::Shielded::Viewer
+	struct ShieldedTxo::Viewer
 	{
 		Key::IKdf::Ptr m_pGen;
 		Key::IPKdf::Ptr m_pSer;
@@ -36,7 +36,7 @@ namespace beam
 		static void GenerateSerSrc(ECC::Hash::Value&, Key::IPKdf&);
 	};
 
-	struct Output::Shielded::Data
+	struct ShieldedTxo::Data
 	{
 		ECC::Scalar::Native m_kSerG; // blinding factor for the serial
 		ECC::Scalar::Native m_kOutG; // blinding factor for the Output
@@ -45,11 +45,11 @@ namespace beam
 
 		// Generates Shielded from nonce
 		// Sets both m_kOutG and m_kSerG
-		void GenerateS(Shielded&, const PublicGen&, const ECC::Hash::Value& nonce);
-		void GenerateO(ECC::Point&, ECC::RangeProof::Confidential&, Shielded&, ECC::Oracle&, const PublicGen&); // generate UTXO from m_kOutG
-		void Generate(ECC::Point&, ECC::RangeProof::Confidential&, Shielded&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce); // generate everything nonce
+		void GenerateS(Serial&, const PublicGen&, const ECC::Hash::Value& nonce);
+		void GenerateO(ShieldedTxo&, ECC::Oracle&, const PublicGen&); // generate UTXO from m_kOutG
+		void Generate(ShieldedTxo&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce); // generate everything nonce
 
-		bool Recover(const ECC::Point&, const ECC::RangeProof::Confidential&, const Shielded&, ECC::Oracle&, const Viewer&);
+		bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
 
 		struct HashTxt;
 

@@ -907,7 +907,7 @@ Key::IPKdf* Node::Processor::get_ViewerKey()
 	return get_ParentObj().m_Keys.m_pOwner.get();
 }
 
-const Output::Shielded::Viewer* Node::Processor::get_ViewerShieldedKey()
+const ShieldedTxo::Viewer* Node::Processor::get_ViewerShieldedKey()
 {
 	return get_ParentObj().m_Keys.m_pOwner ?
 		&get_ParentObj().m_Keys.m_ShieldedViewer :

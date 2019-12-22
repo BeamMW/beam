@@ -881,32 +881,35 @@ namespace beam
 			return false; // unsupported for that version
 
 		ECC::Point::Native comm;
-		if (!comm.ImportNnz(m_Commitment))
+		if (!comm.ImportNnz(m_Txo.m_Commitment))
 			return false;
 
 		exc += comm;
 
-		if (!m_Shielded.IsValid())
+		if (!m_Txo.m_Serial.IsValid())
 			return false;
 
 		ECC::Oracle oracle;
 		oracle << m_Msg;
 
-		return m_RangeProof.IsValid(comm, oracle);
+		return m_Txo.m_RangeProof.IsValid(comm, oracle);
 	}
 
 	void TxKernelShieldedOutput::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
-		hp
-			<< m_Commitment
-			<< m_Shielded.m_SerialPub;
+		// Since m_Serial doesn't contribute to the transaction balance, it MUST be exposed to the Oracle used with m_RangeProof.
+		// m_Commitment also should be used (for the same reason it's used in regular Output)
 
-		hp.Serialize(m_Shielded.m_Signature);
+		hp
+			<< m_Txo.m_Commitment
+			<< m_Txo.m_Serial.m_SerialPub;
+
+		hp.Serialize(m_Txo.m_Serial.m_Signature);
 	}
 
 	void TxKernelShieldedOutput::HashSelfForID(ECC::Hash::Processor& hp) const
 	{
-		hp.Serialize(m_RangeProof);
+		hp.Serialize(m_Txo.m_RangeProof);
 	}
 
 	void TxKernelShieldedOutput::Clone(TxKernel::Ptr& p) const
@@ -915,9 +918,7 @@ namespace beam
 		TxKernelShieldedOutput& v = Cast::Up<TxKernelShieldedOutput>(*p);
 
 		v.CopyFrom(*this);
-		v.m_Commitment = m_Commitment;
-		v.m_RangeProof = m_RangeProof;
-		v.m_Shielded = m_Shielded;
+		v.m_Txo = m_Txo;
 	}
 
 	void TxKernelShieldedOutput::AddStats(TxStats& s) const
