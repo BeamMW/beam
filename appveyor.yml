@@ -42,9 +42,9 @@ after_build:
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/beam/%BUILD_CONFIG%/beam-node%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/beam/beam-node.cfg
     
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/wallet/beam-wallet.cfg
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/cli/%BUILD_CONFIG%/beam-wallet%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/wallet/cli/beam-wallet.cfg
     
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/wallet/wallet-api.cfg
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/api/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/wallet/api/wallet-api.cfg
 
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/explorer/explorer-node.cfg
         
