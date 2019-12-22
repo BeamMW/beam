@@ -938,13 +938,14 @@ namespace beam
 		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
 			return false; // unsupported for that version
 
+		ECC::Point ptNeg = m_SpendProof.m_Part1.m_Commitment;
+		ptNeg.m_Y = !ptNeg.m_Y; // probably faster than negating the result
+
 		ECC::Point::Native comm;
-		if (!comm.ImportNnz(m_SpendProof.m_Part1.m_Commitment))
+		if (!comm.ImportNnz(ptNeg))
 			return false;
 
-		comm = -comm;
 		exc += comm;
-
 		return true; // Spend proof verification is not done here
 	}
 
