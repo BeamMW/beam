@@ -19,7 +19,7 @@
 
 #include <boost/optional.hpp>
 #include "utility/logger.h"
-#include "keykeeper/private_key_keeper.h"
+#include "private_key_keeper.h"
 
 #include <condition_variable>
 #include <memory>

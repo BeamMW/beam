@@ -18,8 +18,8 @@
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
+#include "wallet/core/private_key_keeper.h"
 #include "wallet_model_async.h"
-#include "keykeeper/private_key_keeper.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/swap_offers_board.h"
 #endif

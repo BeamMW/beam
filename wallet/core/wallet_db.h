@@ -31,7 +31,7 @@
 #include "common.h"
 #include "utility/io/address.h"
 #include "secstring.h"
-#include "keykeeper/private_key_keeper.h"
+#include "private_key_keeper.h"
 #include "variables_db.h"
 
 #include <string>
