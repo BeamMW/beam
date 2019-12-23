@@ -15,6 +15,7 @@
 #include <iostream>
 #include "../ecc_native.h"
 #include "../block_rw.h"
+#include "../shielded.h"
 #include "../treasury.h"
 #include "../../utility/serialize.h"
 #include "../serialization_adapters.h"
@@ -1249,13 +1250,6 @@ struct TransactionMaker
 
 		m_Trans.m_Offset = offset;
 
-		for (size_t i = 0; i < krn.m_vNested.size(); i++)
-		{
-			Point::Native ptNested;
-			verify_test(ptNested.Import(Cast::Up<beam::TxKernelStd>(*krn.m_vNested[i]).m_Commitment));
-			kG += Point::Native(ptNested);
-		}
-
 		krn.m_Commitment = kG;
 		krn.m_Signature.m_NoncePub = xG;
 
@@ -2177,7 +2171,6 @@ void TestLelantus()
 
 	beam::Lelantus::Proof proof;
 	proof.m_Cfg = cfg;
-	beam::Lelantus::Proof::Output outp;
 	beam::Lelantus::Prover p(lst, proof);
 
 	p.m_Witness.V.m_V = 100500;
@@ -2200,7 +2193,7 @@ void TestLelantus()
 
 	uint32_t t = beam::GetTime_ms();
 
-	p.Generate(outp, Zero, oracle);
+	p.Generate(Zero, oracle);
 
 	printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
 
@@ -2238,7 +2231,7 @@ void TestLelantus()
 		for (uint32_t i = 0; i < nCycles; i++)
 		{
 			Oracle o2;
-			if (!proof.IsValid(bc, o2, outp, &vKs.front()))
+			if (!proof.IsValid(bc, o2, &vKs.front()))
 				bSuccess = false;
 		}
 
@@ -2260,32 +2253,44 @@ void TestLelantusKeys()
 	SetRandom(pGen);
 	SetRandom(pSer);
 
-	beam::Output::Shielded::PublicGen gen;
+	beam::ShieldedTxo::PublicGen gen;
 	gen.m_pGen = pGen;
 	gen.m_pSer = pSer;
-	SetRandom(gen.m_Owner);
 
-	beam::Output::Shielded::Viewer viewer;
+	beam::ShieldedTxo::Viewer viewer;
 	viewer.m_pGen = pGen;
 	viewer.m_pSer = pSer;
 
-	beam::Output::Shielded::Data d1;
+	beam::ShieldedTxo::Data d1;
 	d1.m_hScheme = beam::Rules::get().pForks[2].m_Height;
 	d1.m_Value = 115;
 
 	Hash::Value nonce;
 	SetRandom(nonce);
 
-	beam::Output outp;
-	d1.Generate(outp, gen, nonce);
+	beam::ShieldedTxo txo;
+	{
+		Oracle oracle;
+		d1.Generate(txo, oracle, gen, nonce);
+	}
 
 	Point::Native pt;
-	verify_test(pt.Import(outp.m_Commitment));
-	verify_test(outp.IsValid(d1.m_hScheme, pt));
+	verify_test(pt.Import(txo.m_Commitment));
 
-	beam::Output::Shielded::Data d2;
+	verify_test(txo.m_Serial.IsValid());
+
+	{
+		Oracle oracle;
+		verify_test(txo.m_RangeProof.IsValid(pt, oracle));
+	}
+
+	beam::ShieldedTxo::Data d2;
 	d2.m_hScheme = d1.m_hScheme;
-	verify_test(d2.Recover(outp, viewer));
+
+	{
+		Oracle oracle;
+		verify_test(d2.Recover(txo, oracle, viewer));
+	}
 
 }
 

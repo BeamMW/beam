@@ -287,6 +287,29 @@ namespace detail
             return ar;
         }
 
+		/// ECC::Signature serialization
+        template<typename Archive, uint32_t nG>
+        static Archive& save(Archive& ar, const ECC::SignatureGeneralized<nG>& val)
+        {
+            ar & val.m_NoncePub;
+
+			for (uint32_t i = 0; i < nG; i++)
+                ar & val.m_pK[i];
+
+            return ar;
+        }
+
+        template<typename Archive, uint32_t nG>
+        static Archive& load(Archive& ar, ECC::SignatureGeneralized<nG>& val)
+        {
+			ar& val.m_NoncePub;
+
+			for (uint32_t i = 0; i < nG; i++)
+				ar& val.m_pK[i];
+
+			return ar;
+		}
+
 		template<typename Archive>
 		static void save_nobits(Archive& ar, const ECC::InnerProduct& v)
 		{
@@ -550,15 +573,11 @@ namespace detail
         static Archive& save(Archive& ar, const beam::Input& input)
         {
 			uint8_t nFlags =
-				(input.m_Commitment.m_Y ? 1 : 0) |
-				(input.m_pSpendProof ? 2 : 0);
+				(input.m_Commitment.m_Y ? 1 : 0);
 
 			ar
 				& nFlags
 				& input.m_Commitment.m_X;
-
-			if (input.m_pSpendProof)
-				ar & *input.m_pSpendProof;
 
             return ar;
         }
@@ -573,34 +592,8 @@ namespace detail
 
 			input.m_Commitment.m_Y = (1 & nFlags);
 
-			if (2 & nFlags)
-			{
-				input.m_pSpendProof.reset(new beam::Input::SpendProof);
-				ar & *input.m_pSpendProof;
-			}
-
             return ar;
         }
-
-		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Input::SpendProof& v)
-		{
-			ar
-				& v.m_WindowEnd
-				& Cast::Down<beam::Lelantus::Proof>(v);
-
-			return ar;
-		}
-
-		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Input::SpendProof& v)
-		{
-			ar
-				& v.m_WindowEnd
-				& Cast::Down<beam::Lelantus::Proof>(v);
-
-			return ar;
-		}
 
 		template<typename Archive>
 		class MultibitVar
@@ -649,6 +642,7 @@ namespace detail
 			ar
 				& v.m_Cfg.n
 				& v.m_Cfg.M
+				& v.m_Part1.m_Commitment.m_X
 				& v.m_Part1.m_SpendPk.m_X
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
@@ -667,6 +661,7 @@ namespace detail
 
 			MultibitVar<Archive> mb(ar);
 
+			mb.put(v.m_Part1.m_Commitment.m_Y);
 			mb.put(v.m_Part1.m_SpendPk.m_Y);
 			mb.put(v.m_Part1.m_A.m_Y);
 			mb.put(v.m_Part1.m_B.m_Y);
@@ -694,6 +689,7 @@ namespace detail
 			ar
 				& v.m_Cfg.n
 				& v.m_Cfg.M
+				& v.m_Part1.m_Commitment.m_X
 				& v.m_Part1.m_SpendPk.m_X
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
@@ -715,6 +711,7 @@ namespace detail
 
 			MultibitVar<Archive> mb(ar);
 
+			mb.get(v.m_Part1.m_Commitment.m_Y);
 			mb.get(v.m_Part1.m_SpendPk.m_Y);
 			mb.get(v.m_Part1.m_A.m_Y);
 			mb.get(v.m_Part1.m_B.m_Y);
@@ -734,9 +731,9 @@ namespace detail
 			return ar;
 		}
 
-		/// beam::Output::Shielded serialization
+		/// beam::ShieldedTxo::Serial serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Output::Shielded& x)
+		static Archive& save(Archive& ar, const beam::ShieldedTxo::Serial& x)
 		{
 			uint8_t nFlags =
 				(x.m_SerialPub.m_Y ? 1 : 0) |
@@ -753,7 +750,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Output::Shielded& x)
+		static Archive& load(Archive& ar, beam::ShieldedTxo::Serial& x)
 		{
 			uint8_t nFlags;
 
@@ -770,12 +767,52 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::ShieldedTxo serialization
+		template<typename Archive>
+        static Archive& save(Archive& ar, const beam::ShieldedTxo& val)
+        {
+			uint32_t nFlags =
+				(val.m_Commitment.m_Y ? 1 : 0) |
+				(val.m_Serial.m_SerialPub.m_Y ? 2 : 0) |
+				(val.m_Serial.m_Signature.m_NoncePub.m_Y ? 4 : 0);
+
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_RangeProof
+				& val.m_Serial.m_SerialPub.m_X
+				& val.m_Serial.m_Signature.m_NoncePub
+				& val.m_Serial.m_Signature.m_pK[0]
+				& val.m_Serial.m_Signature.m_pK[1];
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::ShieldedTxo& val)
+        {
+			uint32_t nFlags;
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_RangeProof
+				& val.m_Serial.m_SerialPub.m_X
+				& val.m_Serial.m_Signature.m_NoncePub
+				& val.m_Serial.m_Signature.m_pK[0]
+				& val.m_Serial.m_Signature.m_pK[1];
+
+			val.m_Commitment.m_Y = (1 & nFlags);
+			val.m_Serial.m_SerialPub.m_Y = ((2 & nFlags) != 0);
+			val.m_Serial.m_Signature.m_NoncePub.m_Y = ((4 & nFlags) != 0);
+
+			return ar;
+		}
+
         /// beam::Output serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
         {
-			uint8_t nFlags2 =
-				(output.m_pShielded ? 1 : 0);
+			uint8_t nFlags2 = 0;
 
 			uint8_t nFlags =
 				(output.m_Commitment.m_Y ? 1 : 0) |
@@ -802,14 +839,6 @@ namespace detail
 
 			if (0x20 & nFlags)
 				ar & output.m_AssetID;
-
-			if (nFlags2)
-			{
-				ar & nFlags2;
-
-				if ((1 & nFlags2) && !output.m_RecoveryOnly)
-					ar & *output.m_pShielded;
-			}
 
             return ar;
         }
@@ -850,15 +879,6 @@ namespace detail
 			{
 				uint8_t nFlags2;
 				ar & nFlags2;
-
-				if (1 & nFlags2)
-				{
-					output.m_pShielded = std::make_unique<beam::Output::Shielded>();
-					if (output.m_RecoveryOnly)
-						ZeroObject(*output.m_pShielded);
-					else
-						ar & *output.m_pShielded;
-				}
 			}
 
             return ar;
@@ -1213,6 +1233,74 @@ namespace detail
 				val.m_CanEmbed = true;
         }
 
+        /// beam::TxKernelShieldedOutput serialization
+		template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxKernelShieldedOutput& val)
+        {
+			uint32_t nFlags =
+				ImplTxKernel::get_CommonFlags(val) |
+				(val.m_CanEmbed ? 0x80 : 0);
+
+			ar
+				& nFlags
+				& val.m_Txo;
+
+			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::save_Nested(ar, val);
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static void load0(Archive& ar, beam::TxKernelShieldedOutput& val, uint32_t nRecursion)
+        {
+			uint32_t nFlags;
+			ar
+				& nFlags
+				& val.m_Txo;
+
+			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
+
+			if (0x80 & nFlags)
+				val.m_CanEmbed = true;
+        }
+
+		/// beam::TxKernelShieldedInput serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernelShieldedInput& val)
+		{
+			uint32_t nFlags =
+				ImplTxKernel::get_CommonFlags(val) |
+				(val.m_CanEmbed ? 0x80 : 0);
+
+			ar
+				& nFlags
+				& val.m_WindowEnd
+				& val.m_SpendProof;
+
+			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::save_Nested(ar, val);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static void load0(Archive& ar, beam::TxKernelShieldedInput& val, uint32_t nRecursion)
+		{
+			uint32_t nFlags;
+			ar
+				& nFlags
+				& val.m_WindowEnd
+				& val.m_SpendProof;
+
+			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
+
+			if (0x80 & nFlags)
+				val.m_CanEmbed = true;
+		}
+
         /// beam::Transaction serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxBase& txb)
@@ -1525,5 +1613,44 @@ namespace detail
 		serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, 0, beam::TxKernel>::ImplTxKernel::save2(ar, krn, bAssumeStd);
 	}
 
+	template <typename Trg>
+	struct SerializerProxy
+	{
+		struct Impl
+		{
+			Trg& m_Trg;
+			Impl(Trg& trg) :m_Trg(trg) {}
+
+			size_t write(const void* p, const size_t size)
+			{
+				m_Trg << beam::Blob(p, static_cast<uint32_t>(size));
+				return size;
+			}
+
+		} m_Impl;
+
+		yas::binary_oarchive<Impl, beam::SERIALIZE_OPTIONS> _oa;
+
+
+		SerializerProxy(Trg& trg)
+			:m_Impl(trg)
+			,_oa(m_Impl)
+		{
+		}
+
+		template <typename T> SerializerProxy& operator & (const T& object)
+		{
+			_oa & object;
+			return *this;
+		}
+	};
+
 }
+}
+
+template <typename T>
+inline ECC::Hash::Processor& ECC::Hash::Processor::Serialize(const T& t)
+{
+	yas::detail::SerializerProxy<ECC::Hash::Processor>(*this) & t;
+	return *this;
 }

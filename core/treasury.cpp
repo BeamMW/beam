@@ -216,11 +216,14 @@ namespace beam
 			(m_pKernel->m_Height.m_Max != MaxHeight))
 			return false;
 
+		TxVectors::Full txv;
+		TxVectors::Writer(txv, txv).Dump(Reader(*this));
+		txv.Normalize();
+
 		TxBase::Context::Params pars;
-		pars.m_bVerifyOrder = false;
 		TxBase::Context ctx(pars);
 		ZeroObject(ctx.m_Height);
-		if (!ctx.ValidateAndSummarize(m_Base, Reader(*this)))
+		if (!ctx.ValidateAndSummarize(m_Base, txv.get_Reader()))
 			return false;
 
 		Point::Native comm, comm2;

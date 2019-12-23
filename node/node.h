@@ -18,6 +18,7 @@
 #include "utility/io/timer.h"
 #include "core/proto.h"
 #include "core/block_crypt.h"
+#include "core/shielded.h"
 #include "core/peer_manager.h"
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/set.hpp>
@@ -162,7 +163,7 @@ struct Node
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
 
-		Output::Shielded::Viewer m_ShieldedViewer; // derived from owner
+		ShieldedTxo::Viewer m_ShieldedViewer; // derived from owner
 
 	} m_Keys;
 
@@ -208,7 +209,7 @@ private:
 		void OnRolledBack() override;
 		void OnModified() override;
 		Key::IPKdf* get_ViewerKey() override;
-		const Output::Shielded::Viewer* get_ViewerShieldedKey() override;
+		const ShieldedTxo::Viewer* get_ViewerShieldedKey() override;
 		void OnUtxoEvent(const UtxoEvent::Value&, Height) override;
 		void OnDummy(const Key::ID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;

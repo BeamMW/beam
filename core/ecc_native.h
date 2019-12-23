@@ -594,6 +594,9 @@ namespace ECC
 		template <typename T>
 		Processor& operator << (const T& t) { Write(t); return *this; }
 
+		template <typename T>
+		Processor& Serialize(const T&);
+
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
 
@@ -902,6 +905,9 @@ namespace ECC
 
 		template <typename T>
 		Oracle& operator << (const T& t) { m_hp << t; return *this; }
+
+		template <typename T>
+		Oracle& Serialize(const T& t) { m_hp.Serialize(t); return *this; }
 
 		void operator >> (Scalar::Native&);
 		void operator >> (Hash::Value&);

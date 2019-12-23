@@ -65,15 +65,9 @@ namespace Lelantus {
 	{
 		Cfg m_Cfg;
 
-		struct Output
-		{
-			// not a part of the proof, a by-product
-			ECC::Point m_Commitment;
-			ECC::Point::Native m_Pt; // same
-		};
-
 		struct Part1
 		{
+			ECC::Point m_Commitment;
 			ECC::Point m_SpendPk;
 			ECC::Point m_A, m_B, m_C, m_D;
 			ECC::Point m_Nonce; // Used in signatures
@@ -93,7 +87,7 @@ namespace Lelantus {
 
 		} m_Part2;
 
-		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, const Output&, ECC::Scalar::Native* pKs) const;
+		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs) const;
 	};
 
 	class Prover
@@ -151,7 +145,7 @@ namespace Lelantus {
 		};
 		ECC::NoLeak<Witness> m_Witness;
 
-		void Generate(Proof::Output&, const ECC::uintBig& seed, ECC::Oracle& oracle);
+		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle);
 
 		// result
 		Proof& m_Proof;

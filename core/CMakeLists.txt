@@ -21,6 +21,7 @@ set(CORE_SRC
     peer_manager.cpp
     fly_client.cpp
     treasury.cpp
+    shielded.cpp
 # ~etc
 )
 

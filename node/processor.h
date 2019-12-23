@@ -69,9 +69,19 @@ class NodeProcessor
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
-	void RecognizeUtxos(TxBase::IReader&&, Height h, TxoID nShielded);
+	void Recognize(const Input&, Height);
+	void Recognize(const Output&, Height, Key::IPKdf&);
+	void Recognize(const TxVectors::Eternal&, Height, const ShieldedTxo::Viewer*);
+	void Recognize(const TxKernelShieldedInput&, Height);
+	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
 
-	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
+	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
+
+#define THE_MACRO(id, name) bool HandleKernel(const TxKernel##name&, BlockInterpretCtx&);
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
+	static uint64_t ProcessKrnMmr(Merkle::Mmr&, std::vector<TxKernel::Ptr>&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
 	struct KrnFlyMmr;
 
@@ -146,8 +156,6 @@ class NodeProcessor
 
 	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
 	void DeleteBlock(uint64_t);
-
-	struct BlockShieldedData;
 
 public:
 
@@ -293,18 +301,18 @@ public:
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
 
 	virtual Key::IPKdf* get_ViewerKey() { return nullptr; }
-	virtual const Output::Shielded::Viewer* get_ViewerShieldedKey() { return nullptr; }
+	virtual const ShieldedTxo::Viewer* get_ViewerShieldedKey() { return nullptr; }
 
 	void RescanOwnedTxos();
 
 	uint64_t FindActiveAtStrict(Height);
 
 	bool ValidateTxContext(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
-	bool ValidateKernel(const TxKernel&, Height);
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
 	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
-	bool IsShieldedInPool(const Input&);
+
 	bool IsShieldedInPool(const Transaction&);
+	bool IsShieldedInPool(const TxKernelShieldedInput&);
 
 	struct GeneratedBlock
 	{

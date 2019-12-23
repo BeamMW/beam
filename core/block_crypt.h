@@ -273,17 +273,6 @@ namespace beam
 			static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
 		};
 
-		struct SpendProof
-			:public Lelantus::Proof
-		{
-			TxoID m_WindowEnd; // ID of the 1st element outside the window
-
-			int cmp(const SpendProof&) const;
-			COMPARISON_VIA_CMP
-		};
-
-		std::unique_ptr<SpendProof> m_pSpendProof;
-
 		void get_ShieldedID(Merkle::Hash&) const;
 
 		Input() {}
@@ -291,13 +280,11 @@ namespace beam
 			:TxElement(v)
 		{
 			m_Internal = v.m_Internal;
-			m_pSpendProof = std::move(v.m_pSpendProof);
 		}
 
 		void AddStats(TxStats&) const;
 
 		void operator = (const Input&);
-		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP
 	};
 
@@ -323,77 +310,9 @@ namespace beam
 
 		static const Amount s_MinimumValue = 1;
 
-		struct Shielded
-		{
-			ECC::Point m_SerialPub; // blinded
-			ECC::SignatureGeneralized<2> m_Signature;
-
-			bool IsValid() const;
-
-			int cmp(const Shielded&) const;
-			COMPARISON_VIA_CMP
-
-			struct PublicGen
-			{
-				Key::IPKdf::Ptr m_pGen;
-				Key::IPKdf::Ptr m_pSer;
-
-				PeerID m_Owner;
-				void get_OwnerNonce(ECC::Hash::Value&, const ECC::Scalar::Native&) const;
-			};
-
-			struct Viewer
-			{
-				Key::IKdf::Ptr m_pGen;
-				Key::IPKdf::Ptr m_pSer;
-
-				void FromOwner(Key::IPKdf&);
-				static void GenerateSerPrivate(Key::IKdf::Ptr&, Key::IKdf&);
-
-			private:
-				static void GenerateSerSrc(ECC::Hash::Value&, Key::IPKdf&);
-			};
-
-			struct Data
-			{
-				ECC::Scalar::Native m_kSerG; // blinding factor for the serial
-				ECC::Scalar::Native m_kOutG; // blinding factor for the Output
-				Amount m_Value;
-				Height m_hScheme = 0; // must set
-
-				// Generates Shielded from nonce
-				// Sets both m_kOutG and m_kSerG
-				void GenerateS(Shielded&, const PublicGen&, const ECC::Hash::Value& nonce);
-				void GenerateO(Output&, const PublicGen&); // generate UTXO from m_kOutG
-				void Generate(Output&, const PublicGen&, const ECC::Hash::Value& nonce); // generate everything nonce
-
-				bool Recover(const Output&, const Viewer&);
-
-				struct HashTxt;
-
-				void GetSpendKey(ECC::Scalar::Native&, Key::IKdf& ser) const;
-				void GetSpendPKey(ECC::Point::Native&, Key::IPKdf& ser) const;
-
-			private:
-				static void GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ);
-				void GetSerialPreimage(ECC::Hash::Value& res) const;
-				void GetSerial(ECC::Scalar::Native& kJ, Key::IPKdf& ser) const;
-				void ToSk(Key::IPKdf& gen);
-				void GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value&) const;
-				static void GetDH(ECC::Hash::Value&, const ECC::Point&);
-				static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ);
-				static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1);
-				static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1);
-			};
-
-		private:
-			void get_Hash(ECC::Hash::Value&) const;
-		};
-
 		// one of the following *must* be specified
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
-		std::unique_ptr<Shielded> m_pShielded; // for shielded output, complements the confidential
 
 		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
@@ -415,9 +334,32 @@ namespace beam
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
 
+	struct ShieldedTxo
+	{
+		struct Serial
+		{
+			ECC::Point m_SerialPub; // blinded
+			ECC::SignatureGeneralized<2> m_Signature;
+
+			bool IsValid() const;
+			void get_Hash(ECC::Hash::Value&) const;
+		};
+
+
+		ECC::Point m_Commitment;
+		ECC::RangeProof::Confidential m_RangeProof;
+		Serial m_Serial;
+
+		struct PublicGen;
+		struct Viewer;
+		struct Data;
+	};
+
 #define BeamKernelsAll(macro) \
 	macro(1, Std) \
-	macro(2, AssetEmit)
+	macro(2, AssetEmit) \
+	macro(3, ShieldedOutput) \
+	macro(4, ShieldedInput)
 
 #define THE_MACRO(id, name) struct TxKernel##name;
 	BeamKernelsAll(THE_MACRO)
@@ -460,10 +402,9 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		void UpdateID();
-
 		virtual ~TxKernel() {}
 		virtual Subtype::Enum get_Subtype() const = 0;
+		virtual void UpdateID() = 0;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const = 0;
 		virtual void AddStats(TxStats&) const; // including self and nested
 		virtual int cmp_Subtype(const TxKernel&) const;
@@ -474,12 +415,20 @@ namespace beam
 		int cmp(const TxKernel&) const;
 		COMPARISON_VIA_CMP
 
+
+		struct IWalker
+		{
+			virtual bool OnKrn(const TxKernel&) = 0;
+
+			bool Process(const std::vector<TxKernel::Ptr>&);
+			bool Process(const TxKernel&);
+		};
+
 	protected:
-		virtual void HashSelf(ECC::Hash::Processor&) const = 0;
 		void HashBase(ECC::Hash::Processor&) const;
 		void HashNested(ECC::Hash::Processor&) const;
 		void CopyFrom(const TxKernel&);
-		bool IsValidBase(Height hScheme, ECC::Point::Native& comm, const TxKernel* pParent) const;
+		bool IsValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm = nullptr) const;
 	private:
 		void operator = (const TxKernel&);
 	};
@@ -518,20 +467,27 @@ namespace beam
 
 		virtual ~TxKernelStd() {}
 		virtual Subtype::Enum get_Subtype() const override;
+		virtual void UpdateID() override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual int cmp_Subtype(const TxKernel&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
-	protected:
-		virtual void HashSelf(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelNonStd
 		:public TxKernel
 	{
+		Merkle::Hash m_Msg; // message to sign, diffetent from ID
+
+		virtual void UpdateID() override;
+		void UpdateMsg();
+		void MsgToID();
+
 	protected:
-		virtual void HashSelf(ECC::Hash::Processor&) const override;
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const = 0;
+		virtual void HashSelfForID(ECC::Hash::Processor&) const = 0;
+		void CopyFrom(const TxKernelNonStd&);
 	};
 
 	struct TxKernelAssetEmit
@@ -556,7 +512,43 @@ namespace beam
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
-		virtual void HashSelf(ECC::Hash::Processor&) const override;
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelShieldedOutput
+		:public TxKernelNonStd
+	{
+		typedef std::unique_ptr<TxKernelShieldedOutput> Ptr;
+
+		ShieldedTxo m_Txo;
+
+		virtual ~TxKernelShieldedOutput() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void AddStats(TxStats&) const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
+	protected:
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelShieldedInput
+		:public TxKernelNonStd
+	{
+		typedef std::unique_ptr<TxKernelShieldedInput> Ptr;
+
+		TxoID m_WindowEnd; // ID of the 1st element outside the window
+		Lelantus::Proof m_SpendProof;
+
+		virtual ~TxKernelShieldedInput() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void AddStats(TxStats&) const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
+	protected:
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -926,7 +918,6 @@ namespace beam
 
 		struct Params
 		{
-			bool m_bVerifyOrder; // check the correct order, as well as elimination of spent outputs. On by default. Turned Off only for specific internal validations (such as treasury).
 			bool m_bAllowUnsignedOutputs; // allow outputs without signature (commitment only). Applicable for cut-through blocks only, outputs that are supposed to be consumed in the later block.
 
 			// for multi-tasking, parallel verification
