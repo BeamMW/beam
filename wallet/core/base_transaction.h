@@ -116,16 +116,6 @@ namespace beam::wallet
             return storage::getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value);
         }
 
-//		bool GetParameter(TxParameterID paramID, TxKernelStd::Ptr& p, SubTxID subTxID = kDefaultSubTxID) const;
-
-        template <typename TKrn>
-        bool GetParameterKrn(TxParameterID paramID, typename TKrn::Ptr& p, TxKernel::Subtype::Enum, SubTxID subTxID) const;
-
-#define THE_MACRO(id, name) \
-        bool GetParameter(TxParameterID paramID, TxKernel##name::Ptr& p, SubTxID subTxID = kDefaultSubTxID) const;
-        BeamKernelsAll(THE_MACRO)
-#undef THE_MACRO
-
         template <typename T>
         T GetMandatoryParameter(TxParameterID paramID, SubTxID subTxID = kDefaultSubTxID) const
         {

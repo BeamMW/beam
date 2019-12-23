@@ -29,6 +29,8 @@ namespace detail
         F,
         std::unique_ptr<T>
     > {
+		static_assert(!std::is_base_of<beam::TxKernel, T>::value);
+
         template<typename Archive>
         static Archive& save(Archive& ar, const std::unique_ptr<T>& ptr) {
             T* t = ptr.get();
@@ -1577,9 +1579,8 @@ namespace detail
         beam::TxKernel::Ptr
     > {
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernel::Ptr& pPtr)
+		static Archive& save(Archive& ar, const beam::TxKernel* p)
 		{
-			beam::TxKernel* p = pPtr.get();
 			uint8_t nType = p ? static_cast<uint8_t>(p->get_Subtype()) : 0;
 			ar & nType;
 
@@ -1587,6 +1588,12 @@ namespace detail
 				serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, beam::TxKernel>::ImplTxKernel::save1(ar, *p, nType);
 
 			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernel::Ptr& pPtr)
+		{
+			return save(ar, pPtr.get());
 		}
 
 		template<typename Archive>
@@ -1606,6 +1613,51 @@ namespace detail
 			return ar;
 		}
     };
+
+	template <std::size_t F, typename TKrn>
+	struct serializerKrn
+	{
+		template<typename Archive>
+		static Archive & save(Archive & ar, const typename TKrn::Ptr & pPtr)
+		{
+			return serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, beam::TxKernel::Ptr>::save(ar, pPtr.get());
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, typename TKrn::Ptr& pPtr, beam::TxKernel::Subtype::Enum eType)
+		{
+			beam::TxKernel::Ptr pKrn;
+			ar & pKrn;
+
+			if (pKrn && (pKrn->get_Subtype() == eType))
+				pPtr.reset(Cast::Up<TKrn>(pKrn.release()));
+			else
+				pPtr.reset();
+
+			return ar;
+		}
+	};
+
+#define THE_MACRO(id, name) \
+    template<std::size_t F> \
+    struct serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, beam::TxKernel##name::Ptr> \
+	{ \
+        template<typename Archive> \
+        static Archive& save(Archive& ar, const beam::TxKernel##name::Ptr& pPtr) \
+		{ \
+			return serializerKrn<F, beam::TxKernel##name>::save(ar, pPtr); \
+        } \
+ \
+        template<typename Archive> \
+        static Archive& load(Archive& ar, beam::TxKernel##name::Ptr& pPtr) \
+		{ \
+			return serializerKrn<F, beam::TxKernel##name>::load(ar, pPtr, beam::TxKernel::Subtype::name); \
+		} \
+    };
+
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
 
 	template <typename Archive>
 	void SaveKrn(Archive& ar, const beam::TxKernel& krn, bool bAssumeStd)
