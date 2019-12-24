@@ -159,7 +159,7 @@ namespace beam
 	void Treasury::get_ID(Key::IKdf& kdf, PeerID& pid, Scalar::Native& sk)
 	{
 		Key::ID kid(Zero);
-		kid.m_Type = FOURCC_FROM(tRid);
+		kid.m_Type = ECC::Key::Type::WalletID;
 
 		kdf.DeriveKey(sk, kid);
 		proto::Sk2Pk(pid, sk);

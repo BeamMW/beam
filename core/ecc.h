@@ -227,7 +227,8 @@ namespace ECC
 			static const uint32_t Change      = FOURCC_FROM(chng);
 			static const uint32_t Kernel      = FOURCC_FROM(kern); // tests only
 			static const uint32_t Kernel2     = FOURCC_FROM(kerM); // used by the miner
-			static const uint32_t Identity    = FOURCC_FROM(iden); // Node-Wallet auth
+			static const uint32_t ProtoID     = FOURCC_FROM(iden); // Node-Wallet auth
+			static const uint32_t WalletID    = FOURCC_FROM(tRid); // Wallet ID (historically used for treasury)
 			static const uint32_t ChildKey    = FOURCC_FROM(SubK);
 			static const uint32_t Bbs         = FOURCC_FROM(BbsM);
 			static const uint32_t Decoy       = FOURCC_FROM(dcoy);

@@ -811,7 +811,7 @@ void NodeConnection::HashAddNonce(ECC::Hash::Processor& hp, bool bRemote)
 void NodeConnection::ProveKdfObscured(Key::IKdf& kdf, uint8_t nIDType)
 {
     ECC::Hash::Processor hp;
-    hp << (uint32_t) Key::Type::Identity;
+    hp << (uint32_t) Key::Type::ProtoID;
     HashAddNonce(hp, true);
     HashAddNonce(hp, false);
 
@@ -851,7 +851,7 @@ void NodeConnection::ProvePKdfObscured(Key::IPKdf& kdf, uint8_t nIDType)
 bool NodeConnection::IsKdfObscured(Key::IPKdf& kdf, const PeerID& id)
 {
     ECC::Hash::Processor hp;
-    hp << (uint32_t)Key::Type::Identity;
+    hp << (uint32_t) Key::Type::ProtoID;
     HashAddNonce(hp, false);
     HashAddNonce(hp, true);
 
