@@ -69,14 +69,14 @@ class SwapCoinSettingsItem : public QObject
     Q_PROPERTY(QString  nodeUser     READ getNodeUser     WRITE setNodeUser       NOTIFY nodeUserChanged)
     Q_PROPERTY(QString  nodePass     READ getNodePass     WRITE setNodePass       NOTIFY nodePassChanged)
     Q_PROPERTY(QString  nodeAddress  READ getNodeAddress  WRITE setNodeAddress    NOTIFY nodeAddressChanged)
-    Q_PROPERTY(uint     nodePort     READ getNodePort     WRITE setNodePort       NOTIFY nodePortChanged)
+    Q_PROPERTY(QString  nodePort     READ getNodePort     WRITE setNodePort       NOTIFY nodePortChanged)
     // electrum settings
     Q_PROPERTY(QChar           phrasesSeparatorElectrum READ getPhrasesSeparatorElectrum                          CONSTANT)
     Q_PROPERTY(bool            isCurrentSeedValid       READ getIsCurrentSeedValid                                NOTIFY isCurrentSeedValidChanged)
     Q_PROPERTY(bool            isCurrentSeedSegwit      READ getIsCurrentSeedSegwit                               NOTIFY isCurrentSeedSegwitChanged)
     Q_PROPERTY(QList<QObject*> electrumSeedPhrases      READ getElectrumSeedPhrases                               NOTIFY electrumSeedPhrasesChanged)
     Q_PROPERTY(QString         nodeAddressElectrum      READ getNodeAddressElectrum  WRITE setNodeAddressElectrum NOTIFY nodeAddressElectrumChanged)
-    Q_PROPERTY(uint            nodePortElectrum         READ getNodePortElectrum     WRITE setNodePortElectrum    NOTIFY nodePortElectrumChanged)
+    Q_PROPERTY(QString         nodePortElectrum         READ getNodePortElectrum     WRITE setNodePortElectrum    NOTIFY nodePortElectrumChanged)
     Q_PROPERTY(bool            selectServerAutomatically      READ getSelectServerAutomatically  WRITE setSelectServerAutomatically NOTIFY selectServerAutomaticallyChanged)
 
     Q_PROPERTY(bool canEdit      READ getCanEdit                            NOTIFY canEditChanged)
@@ -106,8 +106,8 @@ public:
     void setNodePass(const QString& value);
     QString getNodeAddress() const;
     void setNodeAddress(const QString& value);
-    uint16_t getNodePort() const;
-    void setNodePort(const uint16_t& value);
+    QString getNodePort() const;
+    void setNodePort(const QString& value);
 
     bool getIsCurrentSeedValid() const;
     bool getIsCurrentSeedSegwit() const;
@@ -115,8 +115,8 @@ public:
     QChar getPhrasesSeparatorElectrum() const;
     QString getNodeAddressElectrum() const;
     void setNodeAddressElectrum(const QString& value);
-    uint16_t getNodePortElectrum() const;
-    void setNodePortElectrum(const uint16_t& value);
+    QString getNodePortElectrum() const;
+    void setNodePortElectrum(const QString& value);
     bool getSelectServerAutomatically() const;
     void setSelectServerAutomatically(bool value);
 
@@ -202,11 +202,11 @@ private:
     QString m_nodeUser;
     QString m_nodePass;
     QString m_nodeAddress;
-    uint16_t m_nodePort = 0;
+    QString m_nodePort;
 
     QList<QObject*> m_seedPhraseItems;
     QString m_nodeAddressElectrum;
-    uint16_t m_nodePortElectrum = 0;
+    QString m_nodePortElectrum;
     bool m_selectServerAutomatically;
     bool m_isCurrentSeedValid = false;
     // "true" if current seed valid and segwit type
@@ -221,8 +221,8 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString  nodeAddress     READ getNodeAddress     WRITE setNodeAddress    NOTIFY nodeAddressChanged)
     Q_PROPERTY(QString  version         READ getVersion         CONSTANT)
     Q_PROPERTY(bool     localNodeRun    READ getLocalNodeRun    WRITE setLocalNodeRun   NOTIFY localNodeRunChanged)
-    Q_PROPERTY(uint     localNodePort   READ getLocalNodePort   WRITE setLocalNodePort  NOTIFY localNodePortChanged)
-    Q_PROPERTY(uint     remoteNodePort  READ getRemoteNodePort  WRITE setRemoteNodePort NOTIFY remoteNodePortChanged)
+    Q_PROPERTY(QString  localNodePort   READ getLocalNodePort   WRITE setLocalNodePort  NOTIFY localNodePortChanged)
+    Q_PROPERTY(QString  remoteNodePort  READ getRemoteNodePort  WRITE setRemoteNodePort NOTIFY remoteNodePortChanged)
     Q_PROPERTY(bool     isChanged       READ isChanged          NOTIFY propertiesChanged)
     Q_PROPERTY(QStringList  localNodePeers  READ getLocalNodePeers  NOTIFY localNodePeersChanged)
     Q_PROPERTY(int      lockTimeout         READ getLockTimeout     WRITE setLockTimeout NOTIFY lockTimeoutChanged)
@@ -247,10 +247,10 @@ public:
     QString getVersion() const;
     bool getLocalNodeRun() const;
     void setLocalNodeRun(bool value);
-    uint getLocalNodePort() const;
-    void setLocalNodePort(uint value);
-    uint getRemoteNodePort() const;
-    void setRemoteNodePort(uint value);
+    QString getLocalNodePort() const;
+    void setLocalNodePort(const QString& value);
+    QString getRemoteNodePort() const;
+    void setRemoteNodePort(const QString& value);
     int getLockTimeout() const;
     void setLockTimeout(int value);
     bool isPasswordReqiredToSpendMoney() const;
@@ -314,8 +314,8 @@ private:
 
     QString m_nodeAddress;
     bool m_localNodeRun;
-    uint m_localNodePort;
-    uint m_remoteNodePort;
+    QString m_localNodePort;
+    QString m_remoteNodePort;
     QStringList m_localNodePeers;
     int m_lockTimeout;
     bool m_isPasswordReqiredToSpendMoney;

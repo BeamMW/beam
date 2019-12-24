@@ -49,15 +49,20 @@ namespace
         return {};
     }
 
-    QString formatAddress(const QString& address, uint16_t port)
+    QString formatAddress(const QString& address, const QString& port)
     {
         return QString("%1:%2").arg(address).arg(port);
+    }
+
+    QString formatPort(uint16_t port)
+    {
+        return port > 0 ? QString("%1").arg(port) : "";
     }
 
     struct UnpackedAddress 
     {
         QString address;
-        uint16_t port = 0;
+        QString port = 0;
     };
 
     UnpackedAddress parseAddress(const QString& address)
@@ -67,13 +72,7 @@ namespace
         if (separator > -1)
         {
             res.address = address.left(separator);
-            auto portStr = address.mid(separator + 1);
-            bool ok = false;
-            uint16_t port = portStr.toInt(&ok);
-            if (ok)
-            {
-                res.port = port;
-            }
+            res.port = address.mid(separator + 1);
         }
         else
         {
@@ -354,12 +353,12 @@ void SwapCoinSettingsItem::setNodeAddress(const QString& value)
     }
 }
 
-uint16_t SwapCoinSettingsItem::getNodePort() const
+QString SwapCoinSettingsItem::getNodePort() const
 {
     return m_nodePort;
 }
 
-void SwapCoinSettingsItem::setNodePort(const uint16_t& value)
+void SwapCoinSettingsItem::setNodePort(const QString& value)
 {
     if (value != m_nodePort)
     {
@@ -402,12 +401,12 @@ void SwapCoinSettingsItem::setNodeAddressElectrum(const QString& value)
     }
 }
 
-uint16_t SwapCoinSettingsItem::getNodePortElectrum() const
+QString SwapCoinSettingsItem::getNodePortElectrum() const
 {
     return m_nodePortElectrum;
 }
 
-void SwapCoinSettingsItem::setNodePortElectrum(const uint16_t& value)
+void SwapCoinSettingsItem::setNodePortElectrum(const QString& value)
 {
     if (value != m_nodePortElectrum)
     {
@@ -555,7 +554,7 @@ void SwapCoinSettingsItem::applyNodeSettings()
     {
         const std::string address = m_nodeAddress.toStdString();
         connectionSettings.m_address.resolve(address.c_str());
-        connectionSettings.m_address.port(m_nodePort);
+        connectionSettings.m_address.port(m_nodePort.toInt());
     }
 
     m_settings->SetConnectionOptions(connectionSettings);
@@ -795,7 +794,6 @@ void SwapCoinSettingsItem::applyNodeAddressElectrum(const QString& address)
 
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance().getSettings()}
-    , m_remoteNodePort(0)
     , m_isValidNodeAddress{true}
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
@@ -900,12 +898,12 @@ void SettingsViewModel::setLocalNodeRun(bool value)
     }
 }
 
-uint SettingsViewModel::getLocalNodePort() const
+QString SettingsViewModel::getLocalNodePort() const
 {
     return m_localNodePort;
 }
 
-void SettingsViewModel::setLocalNodePort(uint value)
+void SettingsViewModel::setLocalNodePort(const QString& value)
 {
     if (value != m_localNodePort)
     {
@@ -915,12 +913,12 @@ void SettingsViewModel::setLocalNodePort(uint value)
     }
 }
 
-uint SettingsViewModel::getRemoteNodePort() const
+QString SettingsViewModel::getRemoteNodePort() const
 {
     return m_remoteNodePort;
 }
 
-void SettingsViewModel::setRemoteNodePort(uint value)
+void SettingsViewModel::setRemoteNodePort(const QString& value)
 {
     if (value != m_remoteNodePort)
     {
@@ -1059,7 +1057,7 @@ bool SettingsViewModel::isChanged() const
 {
     return formatAddress(m_nodeAddress, m_remoteNodePort) != m_settings.getNodeAddress()
         || m_localNodeRun != m_settings.getRunLocalNode()
-        || m_localNodePort != m_settings.getLocalNodePort()
+        || static_cast<uint>(m_localNodePort.toInt()) != m_settings.getLocalNodePort()
         || m_localNodePeers != m_settings.getLocalNodePeers();
 }
 
@@ -1073,7 +1071,7 @@ void SettingsViewModel::applyChanges()
 
     m_settings.setNodeAddress(formatAddress(m_nodeAddress, m_remoteNodePort));
     m_settings.setRunLocalNode(m_localNodeRun);
-    m_settings.setLocalNodePort(m_localNodePort);
+    m_settings.setLocalNodePort(m_localNodePort.toInt());
     m_settings.setLocalNodePeers(m_localNodePeers);
     m_settings.applyChanges();
     emit propertiesChanged();
@@ -1107,7 +1105,7 @@ void SettingsViewModel::undoChanges()
     }
 
     setLocalNodeRun(m_settings.getRunLocalNode());
-    setLocalNodePort(m_settings.getLocalNodePort());
+    setLocalNodePort(formatPort(m_settings.getLocalNodePort()));
     setLockTimeout(m_settings.getLockTimeout());
     setLocalNodePeers(m_settings.getLocalNodePeers());
     setPasswordReqiredToSpendMoney(m_settings.isPasswordReqiredToSpendMoney());

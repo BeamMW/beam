@@ -307,9 +307,10 @@
         <translation>버전</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
-        <source>Run local node</source>
+        <source>Run integrated node</source>
+        <oldsource>Run local node</oldsource>
         <extracomment>settings tab, node section, run node label</extracomment>
-        <translation>로컬 노드 실행하기</translation>
+        <translation type="unfinished">로컬 노드 실행하기</translation>
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>

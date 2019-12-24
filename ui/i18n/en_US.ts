@@ -307,9 +307,9 @@
         <translation>Version</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
-        <source>Run local node</source>
+        <source>Run integrated node</source>
         <extracomment>settings tab, node section, run node label</extracomment>
-        <translation>Run local node</translation>
+        <translation>Run integrated node</translation>
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
