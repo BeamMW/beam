@@ -40,7 +40,13 @@
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
+
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+#include "wallet/transactions/swaps/swap_offers_board.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
 #include "keykeeper/local_private_key_keeper.h"
+
 
 #include "nlohmann/json.hpp"
 #include "version.h"
@@ -145,6 +151,16 @@ namespace
             stop();
         }
 
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+        void initSwapOffers(proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
+        {
+            _offersBulletinBoard = std::make_shared<SwapOffersBoard>(nnet, wnet);
+        }
+    private:
+    
+        std::shared_ptr<SwapOffersBoard> _offersBulletinBoard;
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+
     protected:
 
         void start()
@@ -194,7 +210,17 @@ namespace
         template<typename T>
         std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
         {
-            return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, _walletDB, _wallet, _wnet, std::move(newStream), _acl));
+            return std::static_pointer_cast<ApiConnection>(
+                std::make_shared<T>(*this
+                                  , _walletDB
+                                  , _wallet
+                                  , _wnet
+                                  , std::move(newStream)
+                                  , _acl
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+                                  , *_offersBulletinBoard
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+            ));
         }
 
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -228,11 +254,21 @@ namespace
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
         {
         public:
-            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, WalletApi::ACL acl)
+            ApiConnection(IWalletDB::Ptr walletDB
+                        , Wallet& wallet
+                        , IWalletMessageEndpoint& wnet
+                        , WalletApi::ACL acl
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+                        , SwapOffersBoard& swapOffersBoard
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT                
+                )
                 : _walletDB(walletDB)
                 , _wallet(wallet)
                 , _api(*this, acl)
                 , _wnet(wnet)
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+                , _swapOffersBoard(swapOffersBoard)
+#endif  //BEAM_ATOMIC_SWAP_SUPPORT
             {
                 _walletDB->Subscribe(this);
             }
@@ -521,7 +557,7 @@ namespace
                 }
             }
 
-            void onMessage(const JsonRpcId& id, const Status& data) override
+            void onMessage(const JsonRpcId& id, const wallet::Status& data) override
             {
                 LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -532,7 +568,7 @@ namespace
                     Block::SystemState::ID stateID = {};
                     _walletDB->getSystemStateID(stateID);
 
-                    Status::Response result;
+                    wallet::Status::Response result;
                     result.tx = *tx;
                     result.kernelProofHeight = 0;
                     result.systemHeight = stateID.m_Height;
@@ -750,7 +786,7 @@ namespace
 
                     for (const auto& tx : txList)
                     {
-                        Status::Response item;
+                        wallet::Status::Response item;
                         item.tx = tx;
                         item.kernelProofHeight = 0;
                         item.systemHeight = stateID.m_Height;
@@ -792,18 +828,74 @@ namespace
                 doResponse(id, res);
             }
 
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+            void onMessage(const JsonRpcId& id, const OffersList& data) override
+            {
+                doResponse(id, OffersList::Response{_swapOffersBoard.getOffersList()});
+            }
+
+            void onMessage(const JsonRpcId& id, const CreateOffer& data) override
+            {
+                CreateOffer::Response res;
+                doResponse(id, res);
+            }
+
+            void onMessage(const JsonRpcId& id, const PublishOffer& data) override
+            {
+                PublishOffer::Response res;
+                doResponse(id, res);
+            }
+
+            void onMessage(const JsonRpcId& id, const AcceptOffer & data) override
+            {
+                AcceptOffer ::Response res;
+                doResponse(id, res);
+            }
+
+            void onMessage(const JsonRpcId& id, const CancelOffer& data) override
+            {
+                CancelOffer::Response res;
+                doResponse(id, res);
+            }
+
+            void onMessage(const JsonRpcId& id, const OfferStatus& data) override
+            {
+                OfferStatus::Response res;
+                doResponse(id, res);
+            }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         protected:
             IWalletDB::Ptr _walletDB;
             Wallet& _wallet;
             WalletApi _api;
             IWalletMessageEndpoint& _wnet;
+
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+            SwapOffersBoard& _swapOffersBoard;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         };
 
         class TcpApiConnection : public ApiConnection
         {
         public:
-            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
-                : ApiConnection(walletDB, wallet, wnet, acl)
+            TcpApiConnection(IWalletApiServer& server
+                           , IWalletDB::Ptr walletDB
+                           , Wallet& wallet
+                           , IWalletMessageEndpoint& wnet
+                           , io::TcpStream::Ptr&& newStream
+                           , WalletApi::ACL acl
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+                           , SwapOffersBoard& swapOffersBoard
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+                )
+                : ApiConnection(walletDB
+                              , wallet
+                              , wnet
+                              , acl
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)                
+                              , swapOffersBoard
+#endif // BEAM_ATOMIC_SWAP_SUPPORT                
+                )
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
                 , _server(server)
@@ -862,8 +954,21 @@ namespace
         class HttpApiConnection : public ApiConnection
         {
         public:
-            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
-                : ApiConnection(walletDB, wallet, wnet, acl)
+            HttpApiConnection(IWalletApiServer& server
+                            , IWalletDB::Ptr walletDB
+                            , Wallet& wallet
+                            , IWalletMessageEndpoint& wnet
+                            , io::TcpStream::Ptr&& newStream
+                            , WalletApi::ACL acl
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+                            , SwapOffersBoard& swapOffersBoard
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+                )
+                : ApiConnection(walletDB, wallet, wnet, acl
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)                
+                , swapOffersBoard
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+                )
                 , _keepalive(false)
                 , _msgCreator(2000)
                 , _packer(PACKER_FRAGMENTS_SIZE)
@@ -1193,6 +1298,10 @@ int main(int argc, char* argv[])
 
         WalletApiServer server(walletDB, wallet, *wnet, *reactor, 
             listenTo, options.useHttp, acl, tlsOptions, whitelist);
+
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+        server.initSwapOffers(*nnet, *wnet);
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
         io::Reactor::get_Current().run();
 

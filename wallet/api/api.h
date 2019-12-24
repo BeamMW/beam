@@ -47,6 +47,18 @@ namespace beam::wallet
 #define API_WRITE_ACCESS true
 #define API_READ_ACCESS false
 
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+#define SWAP_OFFER_API_METHODS(macro) \
+    macro(OffersList,       "swap_offers_list",     API_READ_ACCESS)    \
+    macro(CreateOffer,      "swap_create_offer",    API_WRITE_ACCESS)   \
+    macro(PublishOffer,     "swap_publish_offer",   API_WRITE_ACCESS)   \
+    macro(AcceptOffer,      "swap_accept_offer",    API_WRITE_ACCESS)   \
+    macro(CancelOffer,      "swap_cancel_offer",    API_WRITE_ACCESS)   \
+    macro(OfferStatus,      "swap_offer_status",    API_READ_ACCESS)
+#else
+#define SWAP_OFFER_API_METHODS(macro)
+#endif
+
 #define WALLET_API_METHODS(macro) \
     macro(CreateAddress,    "create_address",   API_WRITE_ACCESS)   \
     macro(DeleteAddress,    "delete_address",   API_WRITE_ACCESS)   \
@@ -64,7 +76,58 @@ namespace beam::wallet
     macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
     macro(TxList,           "tx_list",          API_READ_ACCESS)    \
     macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)    \
-    macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)
+    macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)    \
+    SWAP_OFFER_API_METHODS(macro)
+
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+    struct OffersList
+    {
+        struct Response
+        {
+            std::vector<SwapOffer> list;
+        };
+    };
+
+    struct CreateOffer
+    {
+        struct Response
+        {
+
+        };
+    };
+
+    struct PublishOffer
+    {
+        struct Response
+        {
+
+        };
+    };
+
+    struct AcceptOffer
+    {
+        struct Response
+        {
+
+        };
+    };
+
+    struct CancelOffer
+    {
+        struct Response
+        {
+
+        };
+    };
+
+    struct OfferStatus
+    {
+        struct Response
+        {
+
+        };
+    };
+#endif
 
     struct AddressData
     {

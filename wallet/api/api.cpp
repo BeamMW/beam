@@ -494,6 +494,45 @@ namespace beam::wallet
         _handler.onMessage(id, generateTxId);
     }
 
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+
+    void WalletApi::onOffersListMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        OffersList offersList;
+        _handler.onMessage(id, offersList);
+    }
+
+    void WalletApi::onCreateOfferMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        CreateOffer data;
+        _handler.onMessage(id, data);
+    }
+
+    void WalletApi::onPublishOfferMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        PublishOffer data;
+        _handler.onMessage(id, data);
+    }
+
+    void WalletApi::onAcceptOfferMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        AcceptOffer data;
+        _handler.onMessage(id, data);
+    }
+
+    void WalletApi::onCancelOfferMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        CancelOffer data;
+        _handler.onMessage(id, data);
+    }
+
+    void WalletApi::onOfferStatusMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        OfferStatus data;
+        _handler.onMessage(id, data);
+    }
+#endif
+
     void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
     {
         msg = json
@@ -619,6 +658,69 @@ namespace beam::wallet
             }
         };
     }
+
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+
+    static json getNotImplError(const JsonRpcId& id)
+    {
+        return json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"error",
+                {
+                    {"code", ApiError::InternalErrorJsonRpc},
+                    {"message", "Not implemented yet!"},
+                }
+            }
+        };
+    }
+    
+    void WalletApi::getResponse(const JsonRpcId& id, const OffersList::Response& res, json& msg)
+    {
+        msg = 
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", json::array()}
+        };
+
+        for (auto& offer : res.list)
+        {
+            msg["result"].push_back(
+            {
+                {"status", offer.m_status},
+                {"tx_id", txIDToString(offer.m_txId)},
+            });
+        }
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const CreateOffer::Response& res, json& msg)
+    {
+        msg = getNotImplError(id);
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const PublishOffer::Response& res, json& msg)
+    {
+        msg = getNotImplError(id);
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const AcceptOffer::Response& res, json& msg)
+    {
+        msg = getNotImplError(id);
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const CancelOffer::Response& res, json& msg)
+    {
+        msg = getNotImplError(id);
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const OfferStatus::Response& res, json& msg)
+    {
+        msg = getNotImplError(id);
+    }
+
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     static void getStatusResponseJson(const TxDescription& tx, json& msg, Height kernelProofHeight, Height systemHeight)
     {

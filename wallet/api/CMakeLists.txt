@@ -11,6 +11,11 @@ target_link_libraries(wallet_api_proto
         http
 )
 
+if(BEAM_ATOMIC_SWAP_SUPPORT)
+    target_compile_definitions(wallet_api_proto PUBLIC BEAM_ATOMIC_SWAP_SUPPORT)
+    target_link_libraries(wallet_api_proto PRIVATE swap)
+endif()
+
 set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
 
 add_executable(${WALLET_API_NAME} api_cli.cpp)
