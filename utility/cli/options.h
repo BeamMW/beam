@@ -63,6 +63,7 @@ namespace beam
         extern const char* TREASURY_BLOCK;
         extern const char* RESET_ID;
         extern const char* ERASE_ID;
+        extern const char* PRINT_TXO;
         extern const char* CHECKDB;
         extern const char* VACUUM;
         extern const char* CRASH;

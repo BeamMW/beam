@@ -342,6 +342,9 @@ int main_impl(int argc, char* argv[])
 
 					node.Initialize(stratumServer.get());
 
+					if (vm[cli::PRINT_TXO].as<bool>())
+						node.PrintTxos();
+
 					if (vm.count(cli::GENERATE_RECOVERY_PATH))
 					{
 						string sPath = vm[cli::GENERATE_RECOVERY_PATH].as<string>();

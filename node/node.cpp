@@ -4259,4 +4259,69 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	return true;
 }
 
+void Node::PrintTxos()
+{
+    if (!m_Keys.m_pOwner)
+    {
+        LOG_INFO() << "Owner key not specified";
+        return;
+    }
+
+    ECC::Point pt;
+    PeerID& pid = pt.m_X; // alias
+
+    {
+        Key::ID kid(Zero);
+        kid.m_Type = ECC::Key::Type::WalletID;
+        kid.get_Hash(pid);
+
+        ECC::Point::Native ptN;
+        m_Keys.m_pOwner->DerivePKeyG(ptN, pid);
+        pt = ptN;
+    }
+
+    std::ostringstream os;
+    os << "Printing Txo movement for Key=" << pid << std::endl;
+
+    if (m_Processor.IsFastSync())
+        os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
+
+    if (m_Processor.m_Extra.m_TxoHi >= Rules::HeightGenesis)
+        os << "Note: Cut-through up to Height=" << m_Processor.m_Extra.m_TxoHi << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
+
+    NodeDB::WalkerEvent wlk(m_Processor.get_DB());
+    for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
+    {
+        typedef NodeProcessor::UtxoEvent UE;
+
+        if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
+            continue; // although shouldn't happen
+        const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
+
+        if ((proto::UtxoEvent::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
+            continue; // although shouldn't happen
+
+        Height hMaturity;
+        Amount val;
+        evt.m_Maturity.Export(hMaturity);
+        evt.m_Kidv.m_Value.Export(val);
+
+        os
+            << "\tHeight=" << wlk.m_Height << ", "
+            << ((proto::UtxoEvent::Flags::Add & evt.m_Flags) ? "Add" : "Spend")
+            << ", Value=" << val
+            << ", Maturity=" << hMaturity;
+
+        if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+        {
+            ECC::Scalar k;
+            os << ", Shielded TxoID=" << Cast::Up<UE::ValueS>(evt).m_Shielded.Get(evt.m_Kidv, k);
+        }
+
+        os << std::endl;
+    }
+
+    LOG_INFO() << os.str();
+}
+
 } // namespace beam

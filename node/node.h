@@ -194,6 +194,7 @@ struct Node
 	bool m_PostStartSynced = false;
 
 	bool GenerateRecoveryInfo(const char*);
+	void PrintTxos();
 
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
 
