@@ -358,7 +358,7 @@ namespace beam::wallet
         virtual bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) = 0;
         virtual bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const = 0;
-        virtual auto getAllTxParameters() const -> std::vector<TxParameter> = 0;
+        virtual std::vector<TxParameter> getAllTxParameters() const = 0;
         virtual void rollbackTx(const TxID& txId) = 0;
         virtual void deleteCoinsCreatedByTx(const TxID& txId) = 0;
 
@@ -486,7 +486,7 @@ namespace beam::wallet
         bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) override;
         bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const override;
-        auto getAllTxParameters() const -> std::vector<TxParameter> override;
+        std::vector<TxParameter> getAllTxParameters() const override;
 
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
