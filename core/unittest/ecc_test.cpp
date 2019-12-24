@@ -1375,6 +1375,45 @@ void TestTransaction()
 	verify_test(ctx.m_Stats.m_Fee == beam::AmountBig::Type(fee1 + fee2));
 }
 
+// Copy+Pasted from wallet/common.h
+struct PaymentConfirmation
+{
+	// I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
+	Amount m_Value;
+	Hash::Value m_KernelID;
+	beam::PeerID m_Sender;
+
+	void get_Hash(Hash::Value& hv) const
+	{
+        Hash::Processor()
+            << "PaymentConfirmation"
+            << m_KernelID
+            << m_Sender
+            << m_Value
+            >> hv;
+	}
+
+	bool IsValid(const Signature& s, const beam::PeerID& pid) const
+	{
+		Point::Native pk;
+		if (!beam::proto::ImportPeerID(pk, pid))
+			return false;
+
+		Hash::Value hv;
+		get_Hash(hv);
+
+		return s.IsValid(hv, pk);
+	}
+
+	void Sign(Signature& s, const Scalar::Native& sk)
+	{
+		Hash::Value hv;
+		get_Hash(hv);
+
+		s.Sign(hv, sk);
+	}
+};
+
 struct IHWWallet
 {
 	static const uint32_t s_Slots = 16;
@@ -1417,10 +1456,15 @@ struct IHWWallet
 		Signature m_SignatureKrn;
 		// Additional explicit blinding factor that should be added
 		Scalar m_Offset;
+		// sender/receiver details
+		beam::PeerID m_Peer; // For receiver: address to who to sign the PaymentProof. For sender: address of the receiver that signed the PaymentProof
+		Signature m_PaymentProofSignature;
 	};
 
 	virtual bool SignTransactionRcv(TransactionData& tx) = 0;
 	virtual bool SignTransactionSnd(TransactionData& tx, uint32_t iSlot, bool bFinal) = 0;
+
+	virtual void GetWalletID(beam::PeerID& res) = 0;
 
 	// The flow is:
 	//	1. Sender is called SignTransactionSnd(), bFinal == false. It create the commitments and offset
@@ -1535,6 +1579,7 @@ struct HWWalletEmulator
 
 		if (dVal >= 0)
 			return false; // not receiving
+		Amount val = -dVal;
 
 		Scalar::Native kKrn, kNonce;
 
@@ -1548,7 +1593,7 @@ struct HWWalletEmulator
 			<< tx.m_SignatureKrn.m_NoncePub
 			<< tx.m_Peer
 			<< skTotal
-			<< Amount(-dVal);
+			<< val;
 
 		ng >> kKrn;
 		ng >> kNonce;
@@ -1580,6 +1625,15 @@ struct HWWalletEmulator
 		skTotal += kKrn;
 		tx.m_Offset = skTotal;
 		tx.m_KernelCommitment = krn.m_Commitment;
+
+		PaymentConfirmation pc;
+		pc.m_KernelID = krn.m_Internal.m_ID;
+		pc.m_Sender = tx.m_Peer;
+		pc.m_Value = val;
+
+		beam::PeerID pidSelf;
+		GetWalletIDInternal(pidSelf, skTotal);
+		pc.Sign(tx.m_PaymentProofSignature, skTotal);
 
 		return true; // finito!
 	}
@@ -1626,17 +1680,32 @@ struct HWWalletEmulator
 			return true;
 		}
 
-		/////////////////////////
-		// Ask for user permission!
-
-		if (!comm.Import(tx.m_KernelCommitment))
-			return false;
-
 		beam::TxKernelStd krn;
 		krn.m_Fee = tx.m_Fee;
 		krn.m_Height = tx.m_Height;
 		krn.m_Commitment = tx.m_KernelCommitment;
 		krn.UpdateID();
+
+		/////////////////////////
+		// Verify peer signature
+		PaymentConfirmation pc;
+		pc.m_KernelID = krn.m_Internal.m_ID;
+		pc.m_Value = dVal;
+
+
+		Scalar::Native skId;
+		GetWalletIDInternal(pc.m_Sender, skId);
+
+		if (!pc.IsValid(tx.m_PaymentProofSignature, tx.m_Peer))
+			return false;
+
+		/////////////////////////
+		// Ask for user permission!
+		//
+		// ...
+
+		if (!comm.Import(tx.m_KernelCommitment))
+			return false;
 
 		Scalar::Native kSig = tx.m_SignatureKrn.m_k;
 		Scalar::Native kNonce = nonce;
@@ -1655,6 +1724,22 @@ struct HWWalletEmulator
 		tx.m_Offset = skTotal;
 
 		return true; // finito!
+	}
+
+	void GetWalletIDInternal(beam::PeerID& res, Scalar::Native& sk)
+	{
+		Key::IDV kidv(Zero);
+		kidv.m_Type = Key::Type::WalletID;
+
+		m_pKdf->DeriveKey(sk, kidv);
+
+		beam::proto::Sk2Pk(res, sk);
+	}
+
+	virtual void GetWalletID(beam::PeerID& res) override
+	{
+		Scalar::Native sk;
+		GetWalletIDInternal(res, sk);
 	}
 };
 
@@ -1703,7 +1788,7 @@ struct MyWallet
 		m_Balance -= val;
 	}
 
-	void AssignTxBase(IHWWallet::TransactionData& tx, const beam::TxKernelStd& krn)
+	void AssignTxBase(IHWWallet::TransactionData& tx, const beam::TxKernelStd& krn, const beam::PeerID& pid)
 	{
 		tx.m_pInputs = m_vIns.empty() ? nullptr : &m_vIns.front();
 		tx.m_pOutputs = m_vOuts.empty() ? nullptr : &m_vOuts.front();
@@ -1712,12 +1797,13 @@ struct MyWallet
 
 		tx.m_Fee = krn.m_Fee;
 		tx.m_Height = krn.m_Height;
+		tx.m_Peer = pid;
 	}
 
-	bool SignSnd1(beam::TxKernelStd& krn)
+	bool SignSnd1(beam::TxKernelStd& krn, const beam::PeerID& pidRcv)
 	{
 		IHWWallet::TransactionData tx;
-		AssignTxBase(tx, krn);
+		AssignTxBase(tx, krn, pidRcv);
 
 		if (!m_HW.SignTransactionSnd(tx, m_iSlot, false))
 			return false;
@@ -1727,10 +1813,10 @@ struct MyWallet
 		return true;
 	}
 
-	bool SignRcv(beam::TxKernelStd& krn, Scalar& offs)
+	bool SignRcv(beam::TxKernelStd& krn, Scalar& offs, const beam::PeerID& pidSnd, Signature& sigPeer)
 	{
 		IHWWallet::TransactionData tx;
-		AssignTxBase(tx, krn);
+		AssignTxBase(tx, krn, pidSnd);
 
 		tx.m_KernelCommitment = krn.m_Commitment;
 		tx.m_SignatureKrn.m_NoncePub = krn.m_Signature.m_NoncePub;
@@ -1743,17 +1829,19 @@ struct MyWallet
 
 		krn.m_Signature = tx.m_SignatureKrn;
 		offs = tx.m_Offset;
+		sigPeer = tx.m_PaymentProofSignature;
 		return true;
 	}
 
-	bool SignSnd2(beam::TxKernelStd& krn, Scalar& offs)
+	bool SignSnd2(beam::TxKernelStd& krn, Scalar& offs, const beam::PeerID& pidRcv, const Signature& sigPeer)
 	{
 		IHWWallet::TransactionData tx;
-		AssignTxBase(tx, krn);
+		AssignTxBase(tx, krn, pidRcv);
 
 		tx.m_KernelCommitment = krn.m_Commitment;
 		tx.m_SignatureKrn = krn.m_Signature;
 		tx.m_Offset = offs;
+		tx.m_PaymentProofSignature = sigPeer;
 
 		if (!m_HW.SignTransactionSnd(tx, m_iSlot, true))
 			return false;
@@ -1776,6 +1864,10 @@ void TestTransactionHW()
 	hw1.Initialize();
 	hw2.Initialize();
 
+	beam::PeerID pidSnd, pidRcv;
+	hw1.GetWalletID(pidSnd);
+	hw2.GetWalletID(pidRcv);
+
 	MyWallet mw1(hw1), mw2(hw2);
 
 	beam::Transaction tx;
@@ -1796,9 +1888,11 @@ void TestTransactionHW()
 
 	assert(mw1.m_Balance + mw2.m_Balance - pKrn->m_Fee == 0);
 
-	verify_test(mw1.SignSnd1(*pKrn));
-	verify_test(mw2.SignRcv(*pKrn, tx.m_Offset));
-	verify_test(mw1.SignSnd2(*pKrn, tx.m_Offset));
+	Signature sigPaymentProof;
+
+	verify_test(mw1.SignSnd1(*pKrn, pidRcv));
+	verify_test(mw2.SignRcv(*pKrn, tx.m_Offset, pidSnd, sigPaymentProof));
+	verify_test(mw1.SignSnd2(*pKrn, tx.m_Offset, pidRcv, sigPaymentProof));
 
 
 	Point::Native pt;
