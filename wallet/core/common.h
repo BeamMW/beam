@@ -651,6 +651,12 @@ namespace beam::wallet
         void get_Hash(ECC::Hash::Value&) const override;
     };
 
+    struct SignatureConfirmation : public ConfirmationBase
+    {
+        ByteBuffer m_data;
+        void get_Hash(ECC::Hash::Value&) const override;
+    };
+
     uint64_t get_RandomID();
 }  // beam::wallet
 

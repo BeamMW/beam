@@ -49,7 +49,7 @@ namespace beam::wallet
             if (header.V0 != 0 ||
                 header.V1 != 0 ||
                 header.V2 != m_protocolVersion ||
-                header.type != 0)
+                header.type != MsgType)
             {
                 LOG_WARNING() << "offer board message version unsupported";
                 return;

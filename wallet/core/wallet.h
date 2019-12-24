@@ -80,6 +80,12 @@ namespace beam::wallet
     {
         virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) = 0;
     };
+    
+    // Interface for news channels observers. 
+    struct INewsObserver
+    {
+        virtual void onNewsUpdate() = 0;
+    };
 
     // Interface for wallet message consumer
     struct IWalletMessageConsumer

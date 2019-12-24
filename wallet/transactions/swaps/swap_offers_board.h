@@ -61,6 +61,7 @@ namespace beam::wallet
         IWalletMessageEndpoint& m_messageEndpoint;          /// destination of outgoing BBS messages
 
         static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
+        static constexpr uint8_t MsgType = 0;
         static constexpr uint8_t m_protocolVersion = 1;
         Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
         Height m_currentHeight = 0;

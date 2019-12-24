@@ -287,6 +287,15 @@ namespace beam::wallet
             >> hv;
     }
 
+    void SignatureConfirmation::get_Hash(Hash::Value& hv) const
+    {
+        beam::Blob data(m_data);
+        Hash::Processor()
+            << "Undersign"
+            << data
+            >> hv;
+    }
+
     TxParameters::TxParameters(const boost::optional<TxID>& txID)
         : m_ID(txID)
     {
