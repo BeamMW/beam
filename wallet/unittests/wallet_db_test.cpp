@@ -738,6 +738,34 @@ void TestExportImportTx()
     WALLET_CHECK(walletDB->getTxHistory().size() == 1);
     _tr = walletDB->getTx(tr2.m_txId);
     WALLET_CHECK(!_tr.is_initialized());
+
+    // ill-formed transations
+
+    TxID tx3ID = GenerateTxID();
+
+    storage::setTxParameter(
+        *walletDB,
+        tx3ID,
+        kDefaultSubTxID,
+        TxParameterID::MyAddressID,
+        (*walletDB).AllocateKidRange(1),
+        false);
+    storage::setTxParameter(
+        *walletDB,
+        tx3ID,
+        kDefaultSubTxID,
+        TxParameterID::Amount,
+        Amount(5),
+        false);
+
+    exported = storage::ExportDataToJson(*walletDB);
+    walletDB->deleteTx(tx3ID);
+    WALLET_CHECK(walletDB->getTxHistory().size() == 1);
+    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, keyKeeper, &exported[0], exported.size()));
+    WALLET_CHECK(walletDB->getTxHistory().size() == 1);
+    _tr = walletDB->getTx(tx3ID);
+    WALLET_CHECK(!_tr.is_initialized());
+
 }
 
 vector<Coin::ID> ExtractIDs(const vector<Coin>& src)
