@@ -1474,8 +1474,7 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 				RollbackTo(sid.m_Height - 1);
 
 				m_DB.SetStateBlock(sid.m_Row, bbP, bbE);
-				m_DB.set_StateExtra(sid.m_Row, nullptr);
-				m_DB.set_StateTxos(sid.m_Row, nullptr);
+				m_DB.set_StateTxosAndExtra(sid.m_Row, nullptr, nullptr);
 			}
 
 			mbc.OnFastSyncFailed(false);
@@ -1510,8 +1509,6 @@ void NodeProcessor::DeleteBlock(uint64_t row)
 {
 	m_DB.DelStateBlockAll(row);
 	m_DB.SetStateNotFunctional(row);
-	m_DB.set_StateExtra(row, nullptr);
-	m_DB.set_StateTxos(row, nullptr);
 }
 
 Height NodeProcessor::PruneOld()
@@ -1578,12 +1575,7 @@ Height NodeProcessor::RaiseFossil(Height hTrg)
 			if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
 				m_DB.DelStateBlockPP(ws.m_Sid.m_Row);
 			else
-			{
-				m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
-
-				m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
-				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
-			}
+				DeleteBlock(ws.m_Sid.m_Row);
 
 			hRet++;
 		}
@@ -2025,9 +2017,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			}
 		}
 
-		if (bOk)
-			m_DB.set_StateTxos(sid.m_Row, &m_Extra.m_Txos);
-		else
+		if (!bOk)
 		{
 			bic.m_Fwd = false;
 			BEAM_VERIFY(HandleValidatedBlock(block, bic));
@@ -2048,7 +2038,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		}
 
 		Blob blob(offsAcc.m_Value);
-		m_DB.set_StateExtra(sid.m_Row, &blob);
+		m_DB.set_StateTxosAndExtra(sid.m_Row, &m_Extra.m_Txos, &blob);
 
 		// save shielded outs
 		if (bic.m_ShieldedOuts)

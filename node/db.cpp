@@ -1183,16 +1183,6 @@ bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
 	return true;
 }
 
-void NodeDB::set_StateExtra(uint64_t rowid, const Blob* p)
-{
-	Recordset rs(*this, Query::StateSetExtra, "UPDATE " TblStates " SET " TblStates_Extra "=? WHERE rowid=?");
-	if (p)
-		rs.put(0, *p);
-	rs.put(1, rowid);
-	rs.Step();
-	TestChanged1Row();
-}
-
 bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val, ByteBuffer* p)
 {
 	Recordset rs(*this, Query::StateGetExtra, "SELECT " TblStates_Extra " FROM " TblStates " WHERE rowid=?");
@@ -1280,12 +1270,14 @@ bool NodeDB::StateInput::IsLess(const StateInput& x1, const StateInput& x2)
 	return pt1 < pt2;
 }
 
-void NodeDB::set_StateTxos(uint64_t rowid, const TxoID* pId)
+void NodeDB::set_StateTxosAndExtra(uint64_t rowid, const TxoID* pId, const Blob* pExtra)
 {
-	Recordset rs(*this, Query::StateSetTxos, "UPDATE " TblStates " SET " TblStates_Txos "=? WHERE rowid=?");
+	Recordset rs(*this, Query::StateSetTxosAndExtra, "UPDATE " TblStates " SET " TblStates_Txos "=?," TblStates_Extra "=? WHERE rowid=?");
 	if (pId)
 		rs.put(0, *pId);
-	rs.put(1, rowid);
+	if (pExtra)
+		rs.put(1, *pExtra);
+	rs.put(2, rowid);
 	rs.Step();
 	TestChanged1Row();
 }
@@ -1346,7 +1338,7 @@ void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE)
 
 void NodeDB::DelStateBlockPP(uint64_t rowid)
 {
-	Recordset rs(*this, Query::StateDelBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=NULL," TblStates_Peer "=NULL WHERE rowid=?");
+	Recordset rs(*this, Query::StateDelBlockPP, "UPDATE " TblStates " SET " TblStates_BodyP "=NULL," TblStates_Peer "=NULL WHERE rowid=?");
 	rs.put(0, rowid);
 	rs.Step();
 	TestChanged1Row();
@@ -1354,8 +1346,11 @@ void NodeDB::DelStateBlockPP(uint64_t rowid)
 
 void NodeDB::DelStateBlockAll(uint64_t rowid)
 {
-	Blob bEmpty(NULL, 0);
-	SetStateBlock(rowid, bEmpty, bEmpty);
+	Recordset rs(*this, Query::StateDelBlockAll , "UPDATE " TblStates
+		" SET " TblStates_BodyP "=NULL," TblStates_BodyE "=NULL," TblStates_Peer "=NULL," TblStates_Extra "=NULL," TblStates_Txos "=NULL WHERE rowid=?");
+	rs.put(0, rowid);
+	rs.Step();
+	TestChanged1Row();
 }
 
 void NodeDB::SetFlags(uint64_t rowid, uint32_t n)
