@@ -603,8 +603,28 @@ void NodeProcessor::EnumCongestions()
 			m_SyncData.m_Target.m_Row = pMaxTarget->m_Rows.at(pMaxTarget->m_Height - m_SyncData.m_Target.m_Height);
 
 			if (m_SyncData.m_TxoLo)
+			{
 				// ensure no old blocks, which could be generated with incorrect TxLo
-				DeleteBlocksInRange(m_SyncData.m_Target, hTargetPrev);
+				//
+				// Deleting all the blocks in the range is a time-consuming operation, whereas it's VERY unlikely there's any block in there
+				// So we'll limit the height range by the maximum "sane" value (which is also very unlikely to contain any block).
+				//
+				// In a worst-case scenario (extremely unlikely) the sync will fail, then all the blocks will be deleted, and sync restarts
+				Height hMaxSane = m_Cursor.m_ID.m_Height + Rules::get().MaxRollback;
+				if (hTargetPrev < hMaxSane)
+				{
+					if (m_SyncData.m_Target.m_Height <= hMaxSane)
+						DeleteBlocksInRange(m_SyncData.m_Target, hTargetPrev);
+					else
+					{
+						NodeDB::StateID sid;
+						sid.m_Height = hMaxSane;
+						sid.m_Row = pMaxTarget->m_Rows.at(pMaxTarget->m_Height - hMaxSane);
+
+						DeleteBlocksInRange(sid, hTargetPrev);
+					}
+				}
+			}
 
 			SaveSyncData();
 		}
