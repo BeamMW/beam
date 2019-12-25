@@ -1473,7 +1473,11 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 
 				RollbackTo(sid.m_Height - 1);
 
-				m_DB.SetStateBlock(sid.m_Row, bbP, bbE);
+				PeerID peer;
+				if (!m_DB.get_Peer(sid.m_Row, peer))
+					peer = Zero;
+
+				m_DB.SetStateBlock(sid.m_Row, bbP, bbE, peer);
 				m_DB.set_StateTxosAndExtra(sid.m_Row, nullptr, nullptr);
 			}
 
@@ -3036,10 +3040,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateSilent(const Block::System
 {
 	DataStatus::Enum ret = OnStateInternal(s, id, bAlreadyChecked);
 	if (DataStatus::Accepted == ret)
-	{
-		uint64_t rowid = m_DB.InsertState(s);
-		m_DB.set_Peer(rowid, &peer);
-	}
+		m_DB.InsertState(s, peer);
 
 	return ret;
 }
@@ -3076,9 +3077,8 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const NodeDB::StateID& si
 	if (sid.m_Height < get_LowestReturnHeight())
 		return DataStatus::Unreachable;
 
-	m_DB.SetStateBlock(sid.m_Row, bbP, bbE);
+	m_DB.SetStateBlock(sid.m_Row, bbP, bbE, peer);
 	m_DB.SetStateFunctional(sid.m_Row);
-	m_DB.set_Peer(sid.m_Row, &peer);
 
 	return DataStatus::Accepted;
 }

@@ -693,7 +693,7 @@ void NodeDB::get_State(uint64_t rowid, Block::SystemState::Full& out)
 #undef THE_MACRO_1
 }
 
-uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
+uint64_t NodeDB::InsertState(const Block::SystemState::Full& s, const PeerID& peer)
 {
 	assert(s.m_Height >= Rules::HeightGenesis);
 
@@ -731,8 +731,8 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 #define THE_MACRO_2(dbname, extname) "?,"
 
 	rs.Reset(Query::StateIns, "INSERT INTO " TblStates
-		" (" TblStates_Hash "," StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_Flags "," TblStates_CountNext "," TblStates_CountNextF "," TblStates_RowPrev ")"
-		" VALUES(?," StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?,?)");
+		" (" TblStates_Hash "," StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_Flags "," TblStates_CountNext "," TblStates_CountNextF "," TblStates_RowPrev "," TblStates_Peer ")"
+		" VALUES(?," StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?,?,?)");
 
 #undef THE_MACRO_1
 #undef THE_MACRO_2
@@ -747,6 +747,9 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	rs.put(iCol++, nCountNextF);
 	if (rowPrev)
 		rs.put(iCol, rowPrev); // otherwise it'd be NULL
+	iCol++;
+
+	rs.put(iCol, peer);
 
 	rs.Step();
 	TestChanged1Row();
@@ -1311,14 +1314,15 @@ TxoID NodeDB::FindStateByTxoID(StateID& sid, TxoID id0)
 	return id0;
 }
 
-void NodeDB::SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE)
+void NodeDB::SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE, const PeerID& peer)
 {
-	Recordset rs(*this, Query::StateSetBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=?," TblStates_BodyE "=? WHERE rowid=?");
+	Recordset rs(*this, Query::StateSetBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=?," TblStates_BodyE "=?," TblStates_Peer "=? WHERE rowid=?");
 	if (bodyP.n)
 		rs.put(0, bodyP);
 	if (bodyE.n)
 		rs.put(1, bodyE);
-	rs.put(2, rowid);
+	rs.put(2, peer);
+	rs.put(3, rowid);
 
 	rs.Step();
 	TestChanged1Row();

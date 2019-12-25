@@ -281,6 +281,9 @@ namespace beam
 			s.m_Kernels = Zero;
 		}
 
+		Merkle::Hash peer, peer2;
+		memset(peer.m_pData, 0x66, peer.nBytes);
+
 		uint64_t pRows[hMax];
 
 		// insert states in random order
@@ -288,7 +291,7 @@ namespace beam
 		{
 			for (uint32_t h = h1; h < hMax; h += nOrd)
 			{
-				pRows[h] = db.InsertState(vStates[h]);
+				pRows[h] = db.InsertState(vStates[h], peer);
 				db.assert_valid();
 
 				if (h)
@@ -300,10 +303,9 @@ namespace beam
 		}
 
 		Blob bBodyP("body", 4), bBodyE("abc", 3);
-		Merkle::Hash peer, peer2;
-		memset(peer.m_pData, 0x66, peer.nBytes);
 
-		db.SetStateBlock(pRows[0], bBodyP, bBodyE);
+		db.SetStateBlock(pRows[0], bBodyP, bBodyE, peer);
+		db.set_Peer(pRows[0], nullptr);
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
 		db.set_Peer(pRows[0], &peer);
@@ -332,7 +334,7 @@ namespace beam
 		Block::SystemState::Full s = vStates[hFork0];
 		s.m_Definition.Inc(); // alter
 
-		uint64_t r0 = db.InsertState(s);
+		uint64_t r0 = db.InsertState(s, peer);
 
 		verify_test(CountTips(db, false) == 2);
 
@@ -350,7 +352,7 @@ namespace beam
 		s.m_Height++;
 		s.m_ChainWork = s.m_Height;
 
-		uint64_t rowLast1 = db.InsertState(s);
+		uint64_t rowLast1 = db.InsertState(s, peer);
 
 		NodeDB::StateID sid;
 		verify_test(CountTips(db, false, &sid) == 2);

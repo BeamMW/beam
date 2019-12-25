@@ -250,7 +250,7 @@ public:
 
 	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
 
-	uint64_t InsertState(const Block::SystemState::Full&); // Fails if state already exists
+	uint64_t InsertState(const Block::SystemState::Full&, const PeerID&); // Fails if state already exists
 
 	uint64_t FindActiveStateStrict(Height);
 	uint64_t StateFindSafe(const Block::SystemState::ID&);
@@ -274,7 +274,7 @@ public:
 
 	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob*);
 
-	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE);
+	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE, const PeerID&);
 	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE);
 	void DelStateBlockPP(uint64_t rowid); // delete perishable, peer. Keep eternal, extra, txos
 	void DelStateBlockAll(uint64_t rowid); // delete perishable, peer, eternal, extra, txos
