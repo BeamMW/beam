@@ -17,21 +17,35 @@
 #include "wallet/core/wallet.h"
 #include "utility/logger.h"
 
+using namespace beam::proto;
+
 namespace beam::wallet
 {
+    /**
+     *  Message item broadcasted using NewsChannels
+     */
     struct NewsMessage
     {
         std::string m_content;
+        SERIALIZE(m_content);
     };
 
     /**
-     *  Implementation of public news channels reader via bbs.
+     *  Interface for news channels observers. 
      */
-    class NewsChannelsReader
+    struct INewsObserver
+    {
+        virtual void onNewsUpdate(NewsMessage msg) = 0;
+    };
+
+    /**
+     *  Implementation of public news channels reader via bulletin board system (BBS).
+     */
+    class NewsEndpoint
         : public FlyClient::IBbsReceiver
     {
     public:
-        NewsChannelsReader(FlyClient::INetwork& network);
+        NewsEndpoint(FlyClient::INetwork& network);
 
         /**
          *  FlyClient::IBbsReceiver implementation
@@ -39,21 +53,26 @@ namespace beam::wallet
          */
         virtual void OnMsg(proto::BbsMsg&& msg) override;
         
+        // INewsObserver interface
         void Subscribe(INewsObserver* observer);
         void Unsubscribe(INewsObserver* observer);
 
+        void setPublicKeys(std::vector<PeerID> keys);
+
+        static constexpr BbsChannel BbsChannelsOffset = 1024u;
+
     private:
 		FlyClient::INetwork& m_network;                     /// source of incoming BBS messages
-        std::vector<INewsObserver*> m_subscribers;          /// used to notify subscribers about offers changes
-        std::vector<PeerID> m_publicKeys;                   /// publisher keys
+        std::vector<INewsObserver*> m_subscribers;          /// fresh news subscribers
+        std::vector<PeerID> m_publicKeys;                      /// publisher keys
 
         static const std::set<BbsChannel> m_channels;
-        static constexpr BbsChannel BbsChannelsOffset = 1024u;
         static constexpr uint8_t MsgType = 1;
         static constexpr uint8_t m_protocolVersion = 1;
         Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
 
-        void notifySubscribers(/**/) const;
+        void verifyPublisher(std::function<bool(PeerID)> signPredicate);
+        void notifySubscribers(NewsMessage msg) const;
     };
 
 } // namespace beam::wallet

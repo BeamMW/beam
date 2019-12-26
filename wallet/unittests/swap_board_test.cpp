@@ -15,7 +15,6 @@
 
 #include <assert.h>
 #include <iostream>
-#include <map>
 #include <functional>
 #include <boost/filesystem.hpp>
 
@@ -34,6 +33,7 @@
 WALLET_TEST_INIT
 
 #include "wallet_test_environment.cpp"
+#include "mock_bbs_network.cpp"
 
 #include "wallet/transactions/swaps/swap_offers_board.h"
 #include "wallet/transactions/swaps/swap_offers_board.cpp"
@@ -49,7 +49,8 @@ namespace
      */
     struct MockBoardObserver : public ISwapOffersObserver
     {
-        MockBoardObserver(function<void(ChangeAction, const vector<SwapOffer>&)> checker) :
+        using CheckerFunction = function<void(ChangeAction, const vector<SwapOffer>&)>;
+        MockBoardObserver(CheckerFunction checker) :
             m_testChecker(checker) {};
 
         virtual void onSwapOffersChanged(ChangeAction action, const vector<SwapOffer>& offers) override
@@ -57,64 +58,7 @@ namespace
             m_testChecker(action, offers);
         }
 
-        function<void(ChangeAction, const vector<SwapOffer>&)> m_testChecker;
-    };
-
-    /**
-     *  Real Wallet implementation isn't used in this test.
-     *  Mock used to for BaseMessageEndpoint constructor.
-     */
-    struct MockWallet : public IWalletMessageConsumer
-    {
-        virtual void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override {};
-    };
-
-    /**
-     *  Implementation of test network for SwapOffersBoard class.
-     *  SwapOffersBoard uses BaseMessageEndpoint::SendAndSign() to push outgoing messages and
-     *  FlyClient::INetwork for incoming messages.
-     *  Main idea is to test real BaseMessageEndpoint::SendAndSign() implementation with board.
-     */
-    class MockNetwork : public BaseMessageEndpoint, public FlyClient::INetwork
-    {
-    public:
-        MockNetwork(IWalletMessageConsumer& wallet, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
-            : BaseMessageEndpoint(wallet, walletDB, keyKeeper)
-        {};
-
-        // INetwork
-        virtual void Connect() override {};
-        virtual void Disconnect() override {};
-        virtual void PostRequestInternal(FlyClient::Request&) override {};
-        virtual void BbsSubscribe(BbsChannel channel, Timestamp ts, FlyClient::IBbsReceiver* callback) override
-        {
-            m_subscriptions[channel].push_back(make_pair(callback, ts));
-        };
-
-        // IWalletMessageEndpoint
-        /**
-         *  Redirects BBS messages to subscribers
-         */
-        virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
-        {
-            beam::BbsChannel channel;
-            peerID.m_Channel.Export(channel);
-            auto search = m_subscriptions.find(channel);
-            if (search != m_subscriptions.end())
-            {
-                BbsMsg bbsMsg;
-                bbsMsg.m_Channel = channel;
-                bbsMsg.m_Message = msg;
-                bbsMsg.m_TimePosted = getTimestamp();
-                for (const auto& pair : m_subscriptions[channel])
-                {
-                    pair.first->OnMsg(std::move(bbsMsg));
-                }
-            }
-        };
-
-    private:
-        map<BbsChannel, vector<pair<FlyClient::IBbsReceiver*, Timestamp>>> m_subscriptions;
+        CheckerFunction m_testChecker;
     };
 
     TxID generateTxID()
@@ -155,7 +99,16 @@ namespace
         return o;
     }
 
-    void TestProtocolCorruption()
+    BbsMsg makeBbsMsg(ByteBuffer data)
+    {
+        BbsMsg m;
+        m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
+        m.m_TimePosted = getTimestamp();
+        m.m_Message = data;
+        return m;
+    }
+
+    void TestProtocolStress()
     {
         cout << endl << "Test protocol corruption" << endl;
 
@@ -171,92 +124,64 @@ namespace
         
         {
             cout << "Case: empty message" << endl;
-            BbsMsg m;
-            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
-            m.m_TimePosted = getTimestamp();
-            m.m_Message = ByteBuffer();
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(move(m)));
+            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(ByteBuffer())));
             WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
             WALLET_CHECK(countOffers == 0);
         }
         {
             cout << "Case: message header too short" << endl;
-            BbsMsg m;
-            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
-            m.m_TimePosted = getTimestamp();
-            m.m_Message = ByteBuffer(beam::MsgHeader::SIZE - 2, 't');
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(move(m)));
+            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(ByteBuffer(beam::MsgHeader::SIZE - 2, 't'))));
             WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
             WALLET_CHECK(countOffers == 0);
         }
         {
             cout << "Case: message contain only header" << endl;
-            BbsMsg m;
-            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
-            m.m_TimePosted = getTimestamp();
             ByteBuffer data;
             data.reserve(MsgHeader::SIZE);
             MsgHeader header(0,0,1,0,0);            
             header.write(data.data());
-            m.m_Message = data;
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(move(m)));
+            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(data)));
             WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
             WALLET_CHECK(countOffers == 0);
         }
         {
             cout << "Case: unsupported version" << endl;
-            BbsMsg m;
-            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
-            m.m_TimePosted = getTimestamp();
             ByteBuffer data;
             data.reserve(MsgHeader::SIZE);
             MsgHeader header(1,2,3,0,0);
             header.write(data.data());
-            m.m_Message = data;
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(move(m)));
+            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(data)));
             WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
             WALLET_CHECK(countOffers == 0);
         }
         {
             cout << "Case: wrong length" << endl;
-            BbsMsg m;
-            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
-            m.m_TimePosted = getTimestamp();
             ByteBuffer data;
             data.reserve(MsgHeader::SIZE);
             MsgHeader header(0,0,1,0,5);
             header.write(data.data());
-            m.m_Message = data;
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(move(m)));
+            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(data)));
             WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
             WALLET_CHECK(countOffers == 0);
         }
         {
             cout << "Case: wrong message type" << endl;
-            BbsMsg m;
-            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
-            m.m_TimePosted = getTimestamp();
             ByteBuffer data;
             data.reserve(MsgHeader::SIZE);
-            MsgHeader header(0,0,1,5,0);
+            MsgHeader header(0,0,1,123,0);
             header.write(data.data());
-            m.m_Message = data;
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(move(m)));
+            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(data)));
             WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
             WALLET_CHECK(countOffers == 0);
         }
         {
             cout << "Case: wrong body length" << endl;
-            BbsMsg m;
-            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
-            m.m_TimePosted = getTimestamp();
             ByteBuffer data;
             uint32_t bodyLength = 6;
             data.reserve(MsgHeader::SIZE + bodyLength);
             MsgHeader header(0,0,1,0,bodyLength);
             header.write(data.data());
-            m.m_Message = data;
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(move(m)));
+            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(data)));
             WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
             WALLET_CHECK(countOffers == 0);
         }
@@ -804,7 +729,7 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    TestProtocolCorruption();
+    TestProtocolStress();
     TestSignature();
     TestMandatoryParameters();
     TestCommunication();

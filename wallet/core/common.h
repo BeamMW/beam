@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include "core/common.h"
 #include "core/ecc_native.h"
 #include "core/merkle.h"
 

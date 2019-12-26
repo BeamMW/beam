@@ -16,8 +16,8 @@
 
 namespace beam::wallet
 {
-    NewsChannelsReader::NewsChannelsReader(FlyClient::INetwork& network)
-        : m_network(network),
+    NewsEndpoint::NewsEndpoint(FlyClient::INetwork& network)
+        : m_network(network)
     {
         for (auto channel : m_channels)
         {
@@ -25,17 +25,17 @@ namespace beam::wallet
         }
     }
 
-    const std::set<BbsChannel> NewsChannelsReader::m_channels =
+    const std::set<BbsChannel> NewsEndpoint::m_channels =
     {
         proto::Bbs::s_MaxChannels + BbsChannelsOffset,
     };
 
-    void NewsChannelsReader::OnMsg(proto::BbsMsg &&msg)
+    void NewsEndpoint::OnMsg(proto::BbsMsg &&msg)
     {
         if (msg.m_Message.empty() || msg.m_Message.size() < MsgHeader::SIZE)
             return;
 
-        NewsMessage news;
+        NewsMessage freshNews;
         SignatureConfirmation confirmation;
         try
         {
@@ -52,7 +52,7 @@ namespace beam::wallet
             // message body
             Deserializer d;
             d.reset(msg.m_Message.data() + header.SIZE, header.size);
-            d & news;
+            d & freshNews;
             d & confirmation.m_Signature;
         }
         catch(...)
@@ -61,27 +61,24 @@ namespace beam::wallet
             return;
         }
         
-        confirmation.m_data = toByteBuffer(news);
+        confirmation.m_data = toByteBuffer(freshNews);
         
-        for (const auto& pubKey : m_publicKeys)
+        auto it = std::find_if(m_publicKeys.cbegin(), m_publicKeys.cend(), confirmation.IsValid);
+        if (it != m_publicKeys.cend())
         {
-            if (confirmation.IsValid(pubKey))
-            {
-                // do smth
-                notifySubscribers(/*news*/);
-                break;
-            }
+            // TODO polymorphic parsing
+            notifySubscribers(freshNews);
         }
     }
 
-    void NewsChannelsReader::Subscribe(INewsObserver* observer)
+    void NewsEndpoint::Subscribe(INewsObserver* observer)
     {
         assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
 
         m_subscribers.push_back(observer);
     }
 
-    void NewsChannelsReader::Unsubscribe(INewsObserver* observer)
+    void NewsEndpoint::Unsubscribe(INewsObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
 
@@ -90,11 +87,21 @@ namespace beam::wallet
         m_subscribers.erase(it);
     }
 
-    void NewsChannelsReader::notifySubscribers() const
+    void NewsEndpoint::notifySubscribers(NewsMessage msg) const
     {
         for (auto sub : m_subscribers)
         {
-            sub->onNewsUpdate();
+            sub->onNewsUpdate(msg);
         }
     }
+
+    void NewsEndpoint::setPublicKeys(std::vector<PeerID> keys)
+    {
+        m_publicKeys.clear();
+        for (const auto& key : keys)
+        {
+            m_publicKeys.push_back(key);
+        }
+    }
+
 } // namespace beam::wallet
