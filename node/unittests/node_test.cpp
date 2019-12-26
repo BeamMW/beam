@@ -562,7 +562,8 @@ namespace beam
 		verify_test(db.FindKernel(bBodyP) == 0);
 
 		// Shielded
-		db.ShieldedResize(16 * 1024 * 3 + 5);
+		TxoID nShielded = 16 * 1024 * 3 + 5;
+		db.ShieldedResize(nShielded, 0);
 
 		StoragePts pts;
 		pts.Init();
@@ -577,8 +578,8 @@ namespace beam
 		db.ShieldedRead(16 * 1024 * 2 -2, pts.m_pArr, _countof(pts.m_pArr));
 		verify_test(pts.IsValid(0, _countof(pts.m_pArr), 0));
 
-		db.ShieldedResize(1);
-		db.ShieldedResize(0);
+		db.ShieldedResize(1, nShielded);
+		db.ShieldedResize(0, 1);
 
 		tr.Commit();
 	}

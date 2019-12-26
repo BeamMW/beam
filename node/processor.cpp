@@ -2068,8 +2068,11 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		if (bic.m_ShieldedOuts)
 		{
 			// Append to cmList
-			m_DB.ShieldedResize(m_Extra.m_Shielded);
-			m_DB.ShieldedWrite(m_Extra.m_Shielded - bic.m_ShieldedOuts, bic.m_pShieldedOut, bic.m_ShieldedOuts);
+			TxoID n0 = m_Extra.m_Shielded - bic.m_ShieldedOuts;
+			m_DB.ShieldedResize(m_Extra.m_Shielded, n0);
+			m_DB.ParamSet(NodeDB::ParamID::ShieldedPoolSize, &m_Extra.m_Shielded, nullptr);
+
+			m_DB.ShieldedWrite(n0, bic.m_pShieldedOut, bic.m_ShieldedOuts);
 		}
 
 		std::vector<NodeDB::StateInput> v;
@@ -3003,7 +3006,10 @@ void NodeProcessor::RollbackTo(Height h)
 
 	assert(m_Extra.m_Shielded <= nShielded0);
 	if (m_Extra.m_Shielded < nShielded0)
-		m_DB.ShieldedResize(m_Extra.m_Shielded);
+	{
+		m_DB.ShieldedResize(m_Extra.m_Shielded, nShielded0);
+		m_DB.ParamSet(NodeDB::ParamID::ShieldedPoolSize, &m_Extra.m_Shielded, nullptr);
+	}
 
 	m_RecentStates.RollbackTo(h);
 

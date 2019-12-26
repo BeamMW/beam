@@ -85,8 +85,8 @@ namespace beam {
 #define TblTxo_SpendHeight		"SpendHeight"
 
 #define TblShielded				"Shielded"
-#define TblShielded_ID			"ID"
-#define TblShielded_Value		"Value"
+#define TblStream_ID			"ID"
+#define TblStream_Value			"Value"
 
 NodeDB::NodeDB()
 	:m_pDb(NULL)
@@ -453,8 +453,8 @@ void NodeDB::Create()
 void NodeDB::CreateTableShielded()
 {
 	ExecQuick("CREATE TABLE [" TblShielded "] ("
-		"[" TblShielded_ID			"] INTEGER NOT NULL PRIMARY KEY,"
-		"[" TblShielded_Value		"] BLOB NOT NULL)");
+		"[" TblStream_ID			"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblStream_Value			"] BLOB NOT NULL)");
 }
 
 void NodeDB::Vacuum()
@@ -2222,36 +2222,44 @@ void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
 	wlk.m_Rs.get(0, wlk.m_Value);
 }
 
-const uint32_t NodeDB::s_ShieldedBlob = 16*1024; // arbitrary, but should not be changed after DB is created
+const uint32_t NodeDB::s_StreamBlob = 1024*1024; // arbitrary, but should not be changed after DB is created
 
-void NodeDB::ShieldedResize(uint64_t n)
+void NodeDB::StreamResize(uint64_t n, uint64_t n0, Query::Enum eIns, const char* szIns, Query::Enum eDel, const char* szDel)
 {
-	uint64_t n0 = 0;
-	ParamGet(ParamID::ShieldedPoolSize, &n0, nullptr);
-
-	uint64_t nBlobs0 = (n0 + s_ShieldedBlob - 1) / s_ShieldedBlob;
-	uint64_t nBlobs1 = (n + s_ShieldedBlob - 1) / s_ShieldedBlob;
+	uint64_t nBlobs0 = (n0 + s_StreamBlob - 1) / s_StreamBlob;
+	uint64_t nBlobs1 = (n + s_StreamBlob - 1) / s_StreamBlob;
 
 	for (; nBlobs0 < nBlobs1; nBlobs0++)
 	{
-		Recordset rs(*this, Query::ShieldedIns, "INSERT INTO " TblShielded "(" TblShielded_ID "," TblShielded_Value ") VALUES (?,?)");
+		Recordset rs(*this, eIns, szIns);
 		rs.put(0, nBlobs0);
-		rs.putZeroBlob(1, s_ShieldedBlob * sizeof(ECC::Point::Storage));
+		rs.putZeroBlob(1, s_StreamBlob);
 		rs.Step();
 		TestChanged1Row();
 	}
 
 	if (nBlobs0 > nBlobs1)
 	{
-		Recordset rs(*this, Query::ShieldedDel, "DELETE FROM " TblShielded " WHERE " TblShielded_ID ">=?");
+		Recordset rs(*this, eDel, szDel);
 		rs.put(0, nBlobs1);
 		rs.Step();
-	}
 
-	ParamSet(ParamID::ShieldedPoolSize, &n, nullptr);
+		uint64_t ret = get_RowsChanged();
+		if (ret != nBlobs0 - nBlobs1)
+			ThrowInconsistent();
+	}
 }
 
-void NodeDB::ShieldeIO(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount, bool bWrite)
+#define MAKE_STREAM_QUERIES(name) \
+	Query::name##Ins, "INSERT INTO " Tbl##name "(" TblStream_ID "," TblStream_Value ") VALUES (?,?)", \
+	Query::name##Del, "DELETE FROM " Tbl##name " WHERE " TblStream_ID ">=?"
+
+void NodeDB::ShieldedResize(uint64_t n, uint64_t n0)
+{
+	StreamResize(n * sizeof(ECC::Point::Storage), n0 * sizeof(ECC::Point::Storage), MAKE_STREAM_QUERIES(Shielded));
+}
+
+void NodeDB::StreamIO(uint64_t pos, const char* szTblName, uint8_t* p, uint64_t nCount, bool bWrite)
 {
 	struct Guard
 	{
@@ -2264,23 +2272,22 @@ void NodeDB::ShieldeIO(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount, bo
 		}
 	};
 
-	uint64_t nBlob0 = pos / s_ShieldedBlob;
-	uint32_t nOffs = static_cast<uint32_t>(pos % s_ShieldedBlob);
-	;
+	uint64_t nBlob0 = pos / s_StreamBlob;
+	uint32_t nOffs = static_cast<uint32_t>(pos % s_StreamBlob);
 
 	while (nCount)
 	{
 		Guard blob;
 
-		TestRet(sqlite3_blob_open(m_pDb, "main", TblShielded, TblShielded_Value, nBlob0, bWrite ? 1 : 0, &blob.m_pPtr));
+		TestRet(sqlite3_blob_open(m_pDb, "main", szTblName, TblStream_Value, nBlob0, bWrite ? 1 : 0, &blob.m_pPtr));
 
-		uint32_t nPortion = s_ShieldedBlob - nOffs;
+		uint32_t nPortion = s_StreamBlob - nOffs;
 		if (nPortion > nCount)
 			nPortion = static_cast<uint32_t>(nCount);
 
 		int nRes = bWrite ?
-			sqlite3_blob_write(blob.m_pPtr, p, nPortion * sizeof(ECC::Point::Storage), nOffs * sizeof(ECC::Point::Storage)) :
-			sqlite3_blob_read(blob.m_pPtr, p, nPortion * sizeof(ECC::Point::Storage), nOffs * sizeof(ECC::Point::Storage));
+			sqlite3_blob_write(blob.m_pPtr, p, nPortion, nOffs) :
+			sqlite3_blob_read(blob.m_pPtr, p, nPortion, nOffs);
 
 		TestRet(nRes);
 
@@ -2289,6 +2296,11 @@ void NodeDB::ShieldeIO(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount, bo
 		nOffs = 0;
 		nBlob0++;
 	}
+}
+
+void NodeDB::ShieldeIO(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount, bool bWrite)
+{
+	StreamIO(pos * sizeof(ECC::Point::Storage), TblShielded, reinterpret_cast<uint8_t*>(p), nCount * sizeof(ECC::Point::Storage), bWrite);
 }
 
 void NodeDB::ShieldedWrite(uint64_t pos, const ECC::Point::Storage* p, uint64_t nCount)

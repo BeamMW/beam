@@ -477,7 +477,7 @@ public:
 	void TxoSetValue(TxoID, const Blob&);
 	void TxoGetValue(WalkerTxo&, TxoID);
 
-	void ShieldedResize(uint64_t);
+	void ShieldedResize(uint64_t n, uint64_t n0);
 	void ShieldedWrite(uint64_t pos, const ECC::Point::Storage*, uint64_t nCount);
 	void ShieldedRead(uint64_t pos, ECC::Point::Storage*, uint64_t nCount);
 
@@ -541,7 +541,10 @@ private:
 
 	struct Dmmr;
 
-	static const uint32_t s_ShieldedBlob;
+	static const uint32_t s_StreamBlob;
+	void StreamIO(uint64_t pos, const char* szTblName, uint8_t*, uint64_t nCount, bool bWrite);
+	void StreamResize(uint64_t n, uint64_t n0, Query::Enum eIns, const char* szIns, Query::Enum eDel, const char* szDel);
+
 	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
 };
 
