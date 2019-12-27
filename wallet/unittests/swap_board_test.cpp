@@ -50,6 +50,7 @@ namespace
     struct MockBoardObserver : public ISwapOffersObserver
     {
         using CheckerFunction = function<void(ChangeAction, const vector<SwapOffer>&)>;
+
         MockBoardObserver(CheckerFunction checker) :
             m_testChecker(checker) {};
 
@@ -71,7 +72,7 @@ namespace
         }
         return txId;
     }
-
+    
     TxID& stepTxID(TxID& id)
     {
         for (uint8_t& i : id)
