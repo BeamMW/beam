@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// #include <assert.h>
-#include <iostream>
-// #include <functional>
 #include <boost/filesystem.hpp>
 
 #include "test_helpers.h"
@@ -57,15 +54,42 @@ namespace
         CheckerFunction m_testChecker;
     };
 
-    BbsMsg makeBbsMsg(ByteBuffer data)
+    /**
+     *  Pack data to structure w/o changes.
+     */
+    BbsMsg makeBbsMsg(ByteBuffer fullMsgRaw)
     {
         BbsMsg m;
         m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels + NewsEndpoint::BbsChannelsOffset);
         m.m_TimePosted = getTimestamp();
-        m.m_Message = data;
+        m.m_Message = fullMsgRaw;
+        return m;
+    }
+    
+    /**
+     *  Add protocol defined header to data and pack to structure.
+     */
+    BbsMsg makeBbsMsg(ByteBuffer msgRaw, ByteBuffer signatureRaw)
+    {
+        BbsMsg m;
+        m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels + NewsEndpoint::BbsChannelsOffset);
+        m.m_TimePosted = getTimestamp();
+
+        ByteBuffer rawFullMsg(MsgHeader::SIZE);
+        size_t rawBodySize = msgRaw.size() + signatureRaw.size();
+        assert(rawBodySize <= UINT32_MAX);
+        MsgHeader header(0, 0, 1, 1, static_cast<uint32_t>(rawBodySize));
+        header.write(rawFullMsg.data());
+        std::copy(std::begin(msgRaw), std::end(msgRaw), std::back_inserter(rawFullMsg));
+        std::copy(std::begin(signatureRaw), std::end(signatureRaw), std::back_inserter(rawFullMsg));
+
+        m.m_Message = rawFullMsg;
         return m;
     }
 
+    /**
+     *  Tests NewsEndpoint according to BBS news and updates broadcasting protocol for stress conditions.
+     */
     void TestProtocolStress()
     {
         cout << endl << "Test protocol corruption" << endl;
@@ -128,6 +152,111 @@ namespace
         cout << "Test end" << endl;
     }
 
+    /**
+     *  Tests:
+     *  - only correctly signed with PrivateKey messageas are accepted
+     *  - publishers PublicKeys are correcly accepted
+     *  - observers are notified about news correctly
+     */
+    void TestSignature()
+    {
+        cout << endl << "Test signature verification" << endl;
+
+        MockWallet mockWalletWallet;
+        auto senderWalletDB = createSenderWalletDB();
+        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>
+            (senderWalletDB, senderWalletDB->get_MasterKdf());
+        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        NewsEndpoint newsEndpoint(mockNetwork);
+
+        using PrivateKey = ECC::Scalar::Native;
+        using PublicKey = PeerID;
+
+        std::array<std::pair<PublicKey,PrivateKey>,10> keyPairsArray;
+        for (int i = 0; i < keyPairsArray.size(); ++i)
+        {
+            PrivateKey sk;
+            PublicKey pk;
+            senderWalletDB->get_MasterKdf()->DeriveKey(sk, ECC::Key::ID(i, Key::Type::Bbs));
+            proto::Sk2Pk(pk, sk);
+            keyPairsArray[i] = std::make_pair(pk, sk);
+        }
+
+        std::array<std::pair<bool, bool>, keyPairsArray.size()> keyDistributionTable = 
+        {
+            // different combinations with keys:
+            // (loadKeyToEndpoint, signMessageWithKey)
+            std::make_pair(true, true),
+            std::make_pair(true, false),
+            std::make_pair(false, true),
+            std::make_pair(false, false),
+            std::make_pair(true, true),
+            std::make_pair(true, false),
+            std::make_pair(false, true),
+            std::make_pair(false, false),
+            std::make_pair(true, true),
+            std::make_pair(true, true)
+        };
+
+        std::array<BbsMsg, keyPairsArray.size()> bbsMessages;   // messages to broadcast
+        std::vector<PublicKey> pubKeys;     // keys to load in NewsEndpoint
+        for (int i = 0; i < keyPairsArray.size(); ++i)
+        {
+            const auto [to_load, to_sign] = keyDistributionTable[i];
+            const auto& [pubKey, privKey] = keyPairsArray[i];
+
+            if (to_load) pubKeys.push_back(pubKey);
+
+            NewsMessage msg = { std::to_string(i) };
+
+            SignatureConfirmation signature;
+            const auto msgRaw = toByteBuffer(msg);
+            signature.m_data = msgRaw;
+            if (to_sign) signature.Sign(privKey);
+
+            bbsMessages[i] = makeBbsMsg(msgRaw, toByteBuffer(signature.m_Signature));
+        }
+
+        newsEndpoint.setPublicKeys(pubKeys);
+
+        // Subscribe test checker
+        int countReceived = 0;
+        MockNewsObserver testObserver(
+            [&keyDistributionTable, &countReceived](NewsMessage msg)
+            {
+                cout << "Case: " << msg.m_content << endl;
+                int keyIdx = std::stoi(msg.m_content);
+                assert(keyIdx >= 0 && keyIdx < keyDistributionTable.size());
+                auto [sharedKey, msgSigned] = keyDistributionTable[keyIdx];
+                WALLET_CHECK(sharedKey && msgSigned);
+                // Only messages with signed with keys set to NewsEndpoint
+                // have to appear here.
+                ++countReceived;
+            });
+        newsEndpoint.Subscribe(&testObserver);
+
+        // Push messages and check
+        std::for_each(  std::cbegin(bbsMessages),
+                        std::cend(bbsMessages),
+                        [&newsEndpoint](BbsMsg m)
+                        {
+                            newsEndpoint.OnMsg(std::move(m));
+                        });
+
+        // Count amount of valid messages and compare to amount successfully received
+        int countValid = 0;
+        std::for_each(  std::cbegin(keyDistributionTable),
+                        std::cend(keyDistributionTable),
+                        [&countValid](const auto& pair)
+                        {
+                            if (pair.first && pair.second)
+                                ++countValid;
+                        });
+        WALLET_CHECK(countReceived == countValid);
+        
+        cout << "Test end" << endl;
+    }
+
 } // namespace
 
 int main()
@@ -138,6 +267,7 @@ int main()
     io::Reactor::Scope scope(*mainReactor);
 
     TestProtocolStress();
+    TestSignature();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

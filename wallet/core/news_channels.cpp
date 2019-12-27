@@ -63,7 +63,12 @@ namespace beam::wallet
         
         confirmation.m_data = toByteBuffer(freshNews);
         
-        auto it = std::find_if(m_publicKeys.cbegin(), m_publicKeys.cend(), confirmation.IsValid);
+        auto it = std::find_if( std::cbegin(m_publicKeys),
+                                std::cend(m_publicKeys),
+                                [&confirmation](PeerID pk)
+                                {
+                                    return confirmation.IsValid(pk);
+                                });
         if (it != m_publicKeys.cend())
         {
             // TODO polymorphic parsing

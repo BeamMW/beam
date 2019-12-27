@@ -64,14 +64,13 @@ namespace beam::wallet
     private:
 		FlyClient::INetwork& m_network;                     /// source of incoming BBS messages
         std::vector<INewsObserver*> m_subscribers;          /// fresh news subscribers
-        std::vector<PeerID> m_publicKeys;                      /// publisher keys
+        std::vector<PeerID> m_publicKeys;                   /// publisher keys
 
         static const std::set<BbsChannel> m_channels;
         static constexpr uint8_t MsgType = 1;
         static constexpr uint8_t m_protocolVersion = 1;
         Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
 
-        void verifyPublisher(std::function<bool(PeerID)> signPredicate);
         void notifySubscribers(NewsMessage msg) const;
     };
 
