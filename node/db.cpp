@@ -84,7 +84,7 @@ namespace beam {
 #define TblTxo_Value			"Value"
 #define TblTxo_SpendHeight		"SpendHeight"
 
-#define TblShielded				"Shielded"
+#define TblStreams				"Streams"
 #define TblStream_ID			"ID"
 #define TblStream_Value			"Value"
 
@@ -303,7 +303,8 @@ void NodeDB::Open(const char* szPath)
 	const uint64_t nVersion17 = 17; // before UTXO image
 	const uint64_t nVersion18 = 18; // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
 	const uint64_t nVersion19 = 19; // before Shielded shards
-	const uint64_t nVersionTop = 20;
+	const uint64_t nVersion20 = 20; // Deprecated Shielded table created.
+	const uint64_t nVersionTop = 21;
 
 	Transaction t(*this);
 
@@ -327,7 +328,11 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case nVersion19:
-			CreateTableShielded();
+			// ignore
+			// no break;
+
+		case nVersion20:
+			CreateTableStreams();
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 			// no break;
 
@@ -447,12 +452,12 @@ void NodeDB::Create()
 		"[" TblTxo_Value			"] BLOB NOT NULL,"
 		"[" TblTxo_SpendHeight		"] INTEGER)");
 
-	CreateTableShielded();
+	CreateTableStreams();
 }
 
-void NodeDB::CreateTableShielded()
+void NodeDB::CreateTableStreams()
 {
-	ExecQuick("CREATE TABLE [" TblShielded "] ("
+	ExecQuick("CREATE TABLE [" TblStreams "] ("
 		"[" TblStream_ID			"] INTEGER NOT NULL PRIMARY KEY,"
 		"[" TblStream_Value			"] BLOB NOT NULL)");
 }
@@ -2224,15 +2229,21 @@ void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
 
 const uint32_t NodeDB::s_StreamBlob = 1024*1024; // arbitrary, but should not be changed after DB is created
 
-void NodeDB::StreamResize(uint64_t n, uint64_t n0, Query::Enum eIns, const char* szIns, Query::Enum eDel, const char* szDel)
+uint64_t NodeDB::StreamType::Key(uint64_t idx, Enum eType)
+{
+	return idx | (static_cast<uint64_t>(eType) << 32);
+}
+
+
+void NodeDB::StreamResize(StreamType::Enum eType, uint64_t n, uint64_t n0)
 {
 	uint64_t nBlobs0 = (n0 + s_StreamBlob - 1) / s_StreamBlob;
 	uint64_t nBlobs1 = (n + s_StreamBlob - 1) / s_StreamBlob;
 
 	for (; nBlobs0 < nBlobs1; nBlobs0++)
 	{
-		Recordset rs(*this, eIns, szIns);
-		rs.put(0, nBlobs0);
+		Recordset rs(*this, Query::StreamIns, "INSERT INTO " TblStreams "(" TblStream_ID "," TblStream_Value ") VALUES (?,?)");
+		rs.put(0, StreamType::Key(nBlobs0, eType));
 		rs.putZeroBlob(1, s_StreamBlob);
 		rs.Step();
 		TestChanged1Row();
@@ -2240,8 +2251,9 @@ void NodeDB::StreamResize(uint64_t n, uint64_t n0, Query::Enum eIns, const char*
 
 	if (nBlobs0 > nBlobs1)
 	{
-		Recordset rs(*this, eDel, szDel);
-		rs.put(0, nBlobs1);
+		Recordset rs(*this, Query::StreamDel, "DELETE FROM " TblStreams " WHERE " TblStream_ID ">=? AND " TblStream_ID "<?");
+		rs.put(0, StreamType::Key(nBlobs1, eType));
+		rs.put(1, StreamType::Key(nBlobs0, eType));
 		rs.Step();
 
 		uint64_t ret = get_RowsChanged();
@@ -2250,16 +2262,12 @@ void NodeDB::StreamResize(uint64_t n, uint64_t n0, Query::Enum eIns, const char*
 	}
 }
 
-#define MAKE_STREAM_QUERIES(name) \
-	Query::name##Ins, "INSERT INTO " Tbl##name "(" TblStream_ID "," TblStream_Value ") VALUES (?,?)", \
-	Query::name##Del, "DELETE FROM " Tbl##name " WHERE " TblStream_ID ">=?"
-
 void NodeDB::ShieldedResize(uint64_t n, uint64_t n0)
 {
-	StreamResize(n * sizeof(ECC::Point::Storage), n0 * sizeof(ECC::Point::Storage), MAKE_STREAM_QUERIES(Shielded));
+	StreamResize(StreamType::Shielded, n * sizeof(ECC::Point::Storage), n0 * sizeof(ECC::Point::Storage));
 }
 
-void NodeDB::StreamIO(uint64_t pos, const char* szTblName, uint8_t* p, uint64_t nCount, bool bWrite)
+void NodeDB::StreamIO(StreamType::Enum eType, uint64_t pos, uint8_t* p, uint64_t nCount, bool bWrite)
 {
 	struct Guard
 	{
@@ -2279,7 +2287,7 @@ void NodeDB::StreamIO(uint64_t pos, const char* szTblName, uint8_t* p, uint64_t 
 	{
 		Guard blob;
 
-		TestRet(sqlite3_blob_open(m_pDb, "main", szTblName, TblStream_Value, nBlob0, bWrite ? 1 : 0, &blob.m_pPtr));
+		TestRet(sqlite3_blob_open(m_pDb, "main", TblStreams, TblStream_Value, StreamType::Key(nBlob0, eType), bWrite ? 1 : 0, &blob.m_pPtr));
 
 		uint32_t nPortion = s_StreamBlob - nOffs;
 		if (nPortion > nCount)
@@ -2300,7 +2308,7 @@ void NodeDB::StreamIO(uint64_t pos, const char* szTblName, uint8_t* p, uint64_t 
 
 void NodeDB::ShieldeIO(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount, bool bWrite)
 {
-	StreamIO(pos * sizeof(ECC::Point::Storage), TblShielded, reinterpret_cast<uint8_t*>(p), nCount * sizeof(ECC::Point::Storage), bWrite);
+	StreamIO(StreamType::Shielded, pos * sizeof(ECC::Point::Storage), reinterpret_cast<uint8_t*>(p), nCount * sizeof(ECC::Point::Storage), bWrite);
 }
 
 void NodeDB::ShieldedWrite(uint64_t pos, const ECC::Point::Storage* p, uint64_t nCount)

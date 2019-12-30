@@ -153,8 +153,8 @@ public:
 			TxoGetValue,
 			BlockFind,
 			FindHeightBelow,
-			ShieldedIns,
-			ShieldedDel,
+			StreamIns,
+			StreamDel,
 			EnumSystemStatesBkwd,
 
 			Dbg0,
@@ -167,6 +167,17 @@ public:
 		};
 	};
 
+	struct StreamType
+	{
+		enum Enum
+		{
+			Shielded,
+
+			count
+		};
+
+		static uint64_t Key(uint64_t idx, Enum);
+	};
 
 	NodeDB();
 	virtual ~NodeDB();
@@ -516,7 +527,7 @@ private:
 	static void ThrowInconsistent();
 
 	void Create();
-	void CreateTableShielded();
+	void CreateTableStreams();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
@@ -542,8 +553,9 @@ private:
 	struct Dmmr;
 
 	static const uint32_t s_StreamBlob;
-	void StreamIO(uint64_t pos, const char* szTblName, uint8_t*, uint64_t nCount, bool bWrite);
-	void StreamResize(uint64_t n, uint64_t n0, Query::Enum eIns, const char* szIns, Query::Enum eDel, const char* szDel);
+
+	void StreamIO(StreamType::Enum, uint64_t pos, uint8_t*, uint64_t nCount, bool bWrite);
+	void StreamResize(StreamType::Enum, uint64_t n, uint64_t n0);
 
 	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
 };
