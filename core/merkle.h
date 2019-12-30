@@ -126,9 +126,18 @@ namespace Merkle {
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
 	};
 
+	// All hashes are stored in a 'flat' stream/array in a 'diagonal' form.
+	class FlatMmr
+		:public Mmr
+	{
+	public:
+		static uint64_t Pos2Idx(const Position& pos);
+		static uint64_t get_TotalHashes(uint64_t nCount);
+	};
+
 	// A variant where the max number of elements is known in advance. All hashes are stored in a flat array.
 	class FixedMmr
-		:public Mmr
+		:public FlatMmr
 	{
 		std::vector<Hash> m_vHashes;
 		uint64_t m_Total;
