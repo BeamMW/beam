@@ -1786,7 +1786,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	der.reset(bbE);
 	der & txve;
 
-	Merkle::FixedMmmr mmr;
+	Merkle::FixedMmr mmr;
 	mmr.Reset(txve.m_vKernels.size());
 	size_t iTrg = ProcessKrnMmr(mmr, txve.m_vKernels, idKrn, ppRes);
 

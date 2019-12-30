@@ -127,7 +127,7 @@ namespace Merkle {
 	};
 
 	// A variant where the max number of elements is known in advance. All hashes are stored in a flat array.
-	class FixedMmmr
+	class FixedMmr
 		:public Mmr
 	{
 		std::vector<Hash> m_vHashes;
@@ -136,7 +136,7 @@ namespace Merkle {
 		uint64_t Pos2Idx(const Position& pos) const;
 
 	public:
-		FixedMmmr(uint64_t nTotal = 0) { Reset(nTotal); }
+		FixedMmr(uint64_t nTotal = 0) { Reset(nTotal); }
 		void Reset(uint64_t nTotal);
 	protected:
 		// Mmr

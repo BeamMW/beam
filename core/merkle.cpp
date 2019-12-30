@@ -382,8 +382,8 @@ void CompactMmr::Append(const Hash& hv)
 }
 
 /////////////////////////////
-// FixedMmmr
-void FixedMmmr::Reset(uint64_t nTotal)
+// FixedMmr
+void FixedMmr::Reset(uint64_t nTotal)
 {
 	m_Total = nTotal;
 
@@ -394,7 +394,7 @@ void FixedMmmr::Reset(uint64_t nTotal)
 	m_vHashes.resize(nHashes);
 }
 
-uint64_t FixedMmmr::Pos2Idx(const Position& pos) const
+uint64_t FixedMmr::Pos2Idx(const Position& pos) const
 {
 	uint64_t nTotal = m_Total;
 	uint64_t ret = pos.X;
@@ -410,12 +410,12 @@ uint64_t FixedMmmr::Pos2Idx(const Position& pos) const
 	return ret;
 }
 
-void FixedMmmr::LoadElement(Hash& hv, const Position& pos) const
+void FixedMmr::LoadElement(Hash& hv, const Position& pos) const
 {
 	hv = m_vHashes[Pos2Idx(pos)];
 }
 
-void FixedMmmr::SaveElement(const Hash& hv, const Position& pos)
+void FixedMmr::SaveElement(const Hash& hv, const Position& pos)
 {
 	m_vHashes[Pos2Idx(pos)] = hv;
 }
