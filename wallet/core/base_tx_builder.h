@@ -55,6 +55,8 @@ namespace beam::wallet
         void FinalizeInputs();
         virtual Transaction::Ptr CreateTransaction();
         void SignPartial();
+        void SignSender(bool initial);
+        void SignReceiver();
         bool IsPeerSignatureValid() const;
 
         Amount GetAmount() const;
@@ -102,6 +104,7 @@ namespace beam::wallet
         std::vector<Coin::ID> m_OutputCoins;
         size_t m_NonceSlot = 0;
         ECC::Point::Native m_PublicNonce;
+        ECC::Point::Native m_PublicExcess;
 
         // peer values
         ECC::Scalar::Native m_PartialSignature;

@@ -78,7 +78,7 @@ namespace beam::wallet
         return m_Reason;
     }
 
-    const uint32_t BaseTransaction::s_ProtoVersion = 3;
+    const uint32_t BaseTransaction::s_ProtoVersion = 4;
 
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB

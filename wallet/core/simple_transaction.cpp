@@ -188,8 +188,16 @@ namespace beam::wallet
                         }
                     }
                 }
-
-                builder.GenerateOffset();
+                if (isSender)
+                {
+                    builder.GenerateNonce();
+                    builder.SignSender(true);
+                }
+                else
+                {
+                    builder.SignReceiver();
+                }
+                //builder.GenerateOffset();
             }
 
             if (builder.CreateInputs())
@@ -214,8 +222,6 @@ namespace beam::wallet
                 }
             }
 
-            builder.GenerateNonce();
-
             if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
             {
                 assert(IsInitiator());
@@ -235,7 +241,7 @@ namespace beam::wallet
             }
 
             builder.CreateKernel();
-            builder.SignPartial();
+//            builder.SignPartial();
 
             if (!isSelfTx && !builder.GetPeerSignature())
             {
@@ -296,24 +302,11 @@ namespace beam::wallet
 
                 if (!bSuccess)
                 {
-                    //if (!get_PeerVersion())
-                    //{
-                    //    // older wallets don't support it. Check if unsigned payments are ok
-                    //    uint8_t nRequired = 0;
-                    //    storage::getVar(*m_WalletDB, storage::g_szPaymentProofRequired, nRequired);
-                    //
-                    //    if (!nRequired)
-                    //        bSuccess = true;
-                    //}
-
-                    //if (!bSuccess)
-                    //{
-                        OnFailed(TxFailureReason::NoPaymentProof);
-                        return;
-                    //}
+                    OnFailed(TxFailureReason::NoPaymentProof);
+                    return;
                 }
             }
-
+            builder.SignSender(false);
             builder.FinalizeSignature();
         }
 

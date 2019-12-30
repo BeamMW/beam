@@ -293,58 +293,59 @@ namespace beam::wallet
 
     Point::Native BaseTxBuilder::GetPublicExcess() const
     {
-        // PublicExcess = Sum(inputs) - Sum(outputs) - offset * G - (Sum(input amounts) - Sum(output amounts)) * H
-        const auto assetHGen = SwitchCommitment::HGenFromAID(m_AssetId);
-        Point::Native publicAmount = Zero;
-        for (const auto& cid : m_InputCoins)
-        {
-            if (cid.isAsset())
-            {
-                AmountBig::AddTo(publicAmount, cid.m_Value, assetHGen);
-            }
-            else
-            {
-                AmountBig::AddTo(publicAmount, cid.m_Value);
-            }
-        }
-
-        publicAmount = -publicAmount;
-        for (const auto& cid : m_OutputCoins)
-        {
-            if(cid.m_Type == Key::Type::Asset || cid.m_Type == Key::Type::AssetChange)
-            {
-                 AmountBig::AddTo(publicAmount, cid.m_Value, assetHGen);
-            }
-            else
-            {
-                AmountBig::AddTo(publicAmount, cid.m_Value);
-            }
-        }
-
-        Point::Native publicExcess = Context::get().G * m_Offset;
-        {
-            Point::Native commitment;
-
-            for (const auto& output : m_Outputs)
-            {
-                if (commitment.Import(output->m_Commitment))
-                {
-                    publicExcess += commitment;
-                }
-            }
-
-            publicExcess = -publicExcess;
-            for (const auto& input : m_Inputs)
-            {
-                if (commitment.Import(input->m_Commitment))
-                {
-                    publicExcess += commitment;
-                }
-            }
-        }
-
-        publicExcess += publicAmount;
-        return publicExcess;
+        return m_PublicExcess;
+        //// PublicExcess = Sum(inputs) - Sum(outputs) - offset * G - (Sum(input amounts) - Sum(output amounts)) * H
+        //const auto assetHGen = SwitchCommitment::HGenFromAID(m_AssetId);
+        //Point::Native publicAmount = Zero;
+        //for (const auto& cid : m_InputCoins)
+        //{
+        //    if (cid.isAsset())
+        //    {
+        //        AmountBig::AddTo(publicAmount, cid.m_Value, assetHGen);
+        //    }
+        //    else
+        //    {
+        //        AmountBig::AddTo(publicAmount, cid.m_Value);
+        //    }
+        //}
+        //
+        //publicAmount = -publicAmount;
+        //for (const auto& cid : m_OutputCoins)
+        //{
+        //    if(cid.m_Type == Key::Type::Asset || cid.m_Type == Key::Type::AssetChange)
+        //    {
+        //         AmountBig::AddTo(publicAmount, cid.m_Value, assetHGen);
+        //    }
+        //    else
+        //    {
+        //        AmountBig::AddTo(publicAmount, cid.m_Value);
+        //    }
+        //}
+        //
+        //Point::Native publicExcess = Context::get().G * m_Offset;
+        //{
+        //    Point::Native commitment;
+        //
+        //    for (const auto& output : m_Outputs)
+        //    {
+        //        if (commitment.Import(output->m_Commitment))
+        //        {
+        //            publicExcess += commitment;
+        //        }
+        //    }
+        //
+        //    publicExcess = -publicExcess;
+        //    for (const auto& input : m_Inputs)
+        //    {
+        //        if (commitment.Import(input->m_Commitment))
+        //        {
+        //            publicExcess += commitment;
+        //        }
+        //    }
+        //}
+        //
+        //publicExcess += publicAmount;
+        //return publicExcess;
     }
 
     Point::Native BaseTxBuilder::GetPublicNonce() const
@@ -382,7 +383,7 @@ namespace beam::wallet
         m_Tx.GetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::AssetID, m_AssetId, m_SubTxID);
 
-         if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
+        if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
         {
             // adjust min height, this allows create transaction when node is out of sync
             auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
@@ -402,7 +403,10 @@ namespace beam::wallet
 
         CheckMinimumFee();
 
-        return m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+        m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+        return m_Tx.GetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID)
+            && m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
+        //return m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
     }
 
     bool BaseTxBuilder::GetInputs()
@@ -445,6 +449,63 @@ namespace beam::wallet
 
         m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_AssetId, m_Offset, m_NonceSlot, kernelParameters, GetPublicNonce() + m_PeerPublicNonce);
         StoreKernelID();
+    }
+
+    void BaseTxBuilder::SignSender(bool initial)
+    {
+        Point::Native totalPublicExcess = GetPublicExcess();
+        totalPublicExcess += m_PeerPublicExcess;
+
+        Point::Native publicNonce = GetPublicNonce();
+        publicNonce += m_PeerPublicNonce;
+        
+        KernelParameters kernelParameters;
+        kernelParameters.fee = m_Fee;
+        kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
+        kernelParameters.commitment = totalPublicExcess;
+        auto signature = m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, publicNonce, initial);
+        if (!signature)
+        {
+            throw TransactionFailedException(!initial, TxFailureReason::FailedToCreateMultiSig);
+        }
+        if (initial)
+        {
+            m_Tx.SetParameter(TxParameterID::PublicNonce, signature->m_KernelSignature.m_NoncePub);
+            m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce);
+            
+            m_Tx.SetParameter(TxParameterID::PublicExcess, signature->m_KernelCommitment);
+            m_Tx.GetParameter(TxParameterID::PublicExcess, m_PublicExcess);
+        }
+        else
+        {
+            //m_PeerPublicNonce = signature->m_KernelSignature.m_NoncePub;
+            //m_PeerPublicNonce -= m_PublicNonce;
+            //m_PeerPublicExcess = signature->m_KernelCommitment;
+            //m_PeerPublicExcess -= m_PublicExcess;
+            //m_Partial
+        }
+    }
+
+    void BaseTxBuilder::SignReceiver()
+    {
+        KernelParameters kernelParameters;
+        kernelParameters.fee = m_Fee;
+        kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
+        kernelParameters.commitment = m_PeerPublicExcess;
+        auto signature = m_Tx.GetKeyKeeper()->SignReceiver(m_InputCoins, m_OutputCoins, m_AssetId, kernelParameters, m_PeerPublicNonce);
+        if (!signature)
+        {
+            throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
+        }
+        m_PartialSignature = signature->m_KernelSignature.m_k;
+        m_PublicNonce = signature->m_KernelSignature.m_NoncePub;
+        m_PublicNonce -= m_PeerPublicNonce;
+        m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce);
+        m_PublicExcess = signature->m_KernelCommitment;
+        m_PublicExcess -= m_PeerPublicExcess;
+        m_Tx.SetParameter(TxParameterID::PublicExcess, m_PublicExcess);
+        m_Offset = signature->m_Offset;
+        m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
     }
 
     void BaseTxBuilder::FinalizeSignature()

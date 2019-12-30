@@ -322,7 +322,7 @@ namespace beam::wallet
             << val;
 
         ng >> kKrn;
-        ng >> kNonce;
+        ng >> kNonce; // maybe random?
 
         Point::Native commitment;
         if (!commitment.Import(kernelParamerters.commitment))
@@ -400,7 +400,7 @@ namespace beam::wallet
             << "hw-wlt-snd"
             << kernelParamerters.fee
             << kernelParamerters.height.m_Min
-            << kernelParamerters.height.m_Max
+           // << kernelParamerters.height.m_Max
             //            << kernelParamerters.m_Peer
             << excess
             << Amount(value);
