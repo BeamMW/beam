@@ -122,7 +122,7 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false);
+        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false, false);
 
         // add coin with keyType - Coinbase
         beam::Amount coin_amount = 40;
@@ -508,7 +508,7 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false);
+        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false, false);
 
         // add coin with keyType - Coinbase
         beam::Amount coin_amount = 40;
@@ -605,7 +605,7 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false);
+        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false, false);
 
         // add coin with keyType - Coinbase
         Coin coin = CreateAvailCoin(100, 0);
@@ -1309,7 +1309,7 @@ namespace
         };
 
 
-        auto db = createSqliteWalletDB(SenderWalletDB, false);
+        auto db = createSqliteWalletDB(SenderWalletDB, false, false);
         auto treasury = createTreasury(db);
 
         auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {})->io::Address
@@ -1364,7 +1364,7 @@ namespace
             }
         };
 
-        auto db = createSqliteWalletDB(SenderWalletDB, false);
+        auto db = createSqliteWalletDB(SenderWalletDB, false, false);
         auto treasury = createTreasury(db, AmountList{Amount(5*Count)});
 
         auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
