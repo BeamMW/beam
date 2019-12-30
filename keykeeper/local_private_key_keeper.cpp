@@ -296,6 +296,193 @@ namespace beam::wallet
 		return kernel.m_Signature.m_k;
     }
 
+    boost::optional<ReceiverSignature> LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce)
+    {
+        boost::optional<ReceiverSignature> res;
+        auto value = CalculateValue(inputs, outputs);
+        if (value >= 0)
+        {
+            return res; // we are not receiving
+        }
+
+        auto excess = GetExcess(inputs, outputs, assetId, Zero);
+        Amount val = -value;
+
+        Scalar::Native kKrn, kNonce;
+        Oracle ng;
+        ng
+            << "hw-wlt-rcv"
+            << kernelParamerters.fee
+            << kernelParamerters.height.m_Min
+            << kernelParamerters.height.m_Max
+            << kernelParamerters.commitment
+            << publicNonce
+//            << kernelParamerters.m_Peer
+            << excess
+            << val;
+
+        ng >> kKrn;
+        ng >> kNonce;
+
+        Point::Native commitment;
+        if (!commitment.Import(kernelParamerters.commitment))
+        {
+            return res;
+        }
+        
+        Point::Native temp;
+        temp = Context::get().G * kKrn; // public kernel commitment
+        commitment += temp;
+        
+        // 
+        TxKernelStd kernel;
+        kernel.m_Commitment = commitment;
+        kernel.m_Fee = kernelParamerters.fee;
+        kernel.m_Height = kernelParamerters.height;
+        if (kernelParamerters.lockImage || kernelParamerters.lockPreImage)
+        {
+            kernel.m_pHashLock = make_unique<TxKernelStd::HashLock>();
+        
+            if (kernelParamerters.lockPreImage)
+                kernel.m_pHashLock->m_Value = *kernelParamerters.lockPreImage;
+            else
+            {
+                kernel.m_pHashLock->m_Value = *kernelParamerters.lockImage;
+                kernel.m_pHashLock->m_IsImage = true;
+            }
+        }
+        kernel.UpdateID();
+        const Merkle::Hash& message = kernel.m_Internal.m_ID;
+
+        temp = Context::get().G * kNonce; // public receiver nonce, we don't need slots here since we sign transaction only once
+        Point::Native pt;
+        if (!pt.Import(publicNonce))
+        {
+            return res;
+        }
+        res.emplace();
+        res->m_KernelCommitment = kernel.m_Commitment;
+        res->m_KernelSignature.m_NoncePub = pt + temp;
+        res->m_KernelSignature.SignPartial(message, kKrn, kNonce);
+        kKrn = -kKrn;
+        excess += kKrn;
+        res->m_Offset = excess;
+
+        //PaymentConfirmation pc;
+        //pc.m_KernelID = kernel.m_Internal.m_ID;
+        //pc.m_Sender = tx.m_Peer;
+        //pc.m_Value = val;
+        //
+        //beam::PeerID pidSelf;
+        //GetWalletIDInternal(pidSelf, skTotal);
+        //pc.Sign(tx.m_PaymentProofSignature, skTotal);
+
+        return res;
+    }
+
+    boost::optional<SenderSignature> LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce, bool initial)
+    {
+        boost::optional<SenderSignature> res;
+        auto value = CalculateValue(inputs, outputs);
+
+        value -= kernelParamerters.fee;
+
+        if (value <= 0)
+        {
+            return res; // we are not sending
+        }
+
+        auto excess = GetExcess(inputs, outputs, assetId, Zero);
+
+        Scalar::Native kKrn;
+        Oracle ng;
+        ng
+            << "hw-wlt-snd"
+            << kernelParamerters.fee
+            << kernelParamerters.height.m_Min
+            << kernelParamerters.height.m_Max
+            //            << kernelParamerters.m_Peer
+            << excess
+            << Amount(value);
+
+        ng >> kKrn;
+
+        Point::Native commitment;
+        commitment = Context::get().G * kKrn; // public kernel commitment
+
+        Scalar::Native nonce = GetNonce(nonceSlot);
+        Point::Native myPublicNonce;
+        myPublicNonce = Context::get().G * nonce;
+        if (initial)
+        {
+            res.emplace();
+            res->m_KernelCommitment = commitment;
+            res->m_KernelSignature.m_NoncePub = myPublicNonce;
+            return res;
+        }
+
+        //////////////////////////
+        //// Verify peer signature
+        //PaymentConfirmation pc;
+        //pc.m_KernelID = krn.m_Internal.m_ID;
+        //pc.m_Value = dVal;
+        //
+        //
+        //Scalar::Native skId;
+        //GetWalletIDInternal(pc.m_Sender, skId);
+        //
+        //if (!pc.IsValid(tx.m_PaymentProofSignature, tx.m_Peer))
+        //    return false;
+        //
+        ///////////////////////////
+        //// Ask for user permission!
+        ////
+        //// ...
+
+        // 
+
+        if (!commitment.Import(kernelParamerters.commitment))
+        {
+            return res;
+        }
+
+        TxKernelStd kernel;
+        kernel.m_Commitment = commitment;
+        kernel.m_Fee = kernelParamerters.fee;
+        kernel.m_Height = kernelParamerters.height;
+        if (kernelParamerters.lockImage || kernelParamerters.lockPreImage)
+        {
+            kernel.m_pHashLock = make_unique<TxKernelStd::HashLock>();
+
+            if (kernelParamerters.lockPreImage)
+                kernel.m_pHashLock->m_Value = *kernelParamerters.lockPreImage;
+            else
+            {
+                kernel.m_pHashLock->m_Value = *kernelParamerters.lockImage;
+                kernel.m_pHashLock->m_IsImage = true;
+            }
+        }
+        kernel.UpdateID();
+        const Merkle::Hash& message = kernel.m_Internal.m_ID;
+
+
+        // TODO: Fix this!!!
+        // If the following line is uncommented - swap_test hangs!
+        //ECC::GenRandom(m_Nonces[nonceSlot].V); // Invalidate slot immediately after using it (to make it similar to HW wallet)!
+
+        //kernel.m_Signature.m_NoncePub = publicNonce;
+        //kernel.m_Signature.SignPartial(message, kKrn, nonce);
+        res.emplace();
+        res->m_KernelSignature.m_NoncePub = publicNonce;// + myPublicNonce;
+        res->m_KernelSignature.SignPartial(message, kKrn, nonce);
+
+        kKrn = -kKrn;
+        excess += kKrn;
+        res->m_Offset = excess;
+
+        return res;
+    }
+
     Key::IKdf::Ptr LocalPrivateKeyKeeper::get_SbbsKdf() const
     {
         return m_MasterKdf;
@@ -370,6 +557,24 @@ namespace beam::wallet
         }
 
         return excess;
+    }
+
+    int64_t LocalPrivateKeyKeeper::CalculateValue(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs) const
+    {
+        int64_t value = 0;
+        for (const auto& coinID : outputs)
+        {
+            value += coinID.m_Value;
+        }
+
+        value = -value;
+
+        for (const auto& coinID : inputs)
+        {
+            value += coinID.m_Value;
+        }
+
+        return value;
     }
 
     ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx)

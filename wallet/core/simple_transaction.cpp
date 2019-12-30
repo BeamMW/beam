@@ -296,21 +296,21 @@ namespace beam::wallet
 
                 if (!bSuccess)
                 {
-                    if (!get_PeerVersion())
-                    {
-                        // older wallets don't support it. Check if unsigned payments are ok
-                        uint8_t nRequired = 0;
-                        storage::getVar(*m_WalletDB, storage::g_szPaymentProofRequired, nRequired);
+                    //if (!get_PeerVersion())
+                    //{
+                    //    // older wallets don't support it. Check if unsigned payments are ok
+                    //    uint8_t nRequired = 0;
+                    //    storage::getVar(*m_WalletDB, storage::g_szPaymentProofRequired, nRequired);
+                    //
+                    //    if (!nRequired)
+                    //        bSuccess = true;
+                    //}
 
-                        if (!nRequired)
-                            bSuccess = true;
-                    }
-
-                    if (!bSuccess)
-                    {
+                    //if (!bSuccess)
+                    //{
                         OnFailed(TxFailureReason::NoPaymentProof);
                         return;
-                    }
+                    //}
                 }
             }
 
