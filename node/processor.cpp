@@ -2165,7 +2165,7 @@ void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
 {
 	NodeDB::WalkerEvent wlk(m_DB);
 
-	ECC::Point pt = x.m_SpendProof.m_Part1.m_SpendPk;
+	ECC::Point pt = x.m_SpendProof.m_SpendPk;
 	static_assert(proto::UtxoEvent::Flags::Shielded != 1); // 1 is used in the point itself
 	pt.m_Y |= proto::UtxoEvent::Flags::Shielded;
 
@@ -2469,7 +2469,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 
 bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpretCtx& bic)
 {
-	const ECC::Point& key = krn.m_SpendProof.m_Part1.m_SpendPk;
+	const ECC::Point& key = krn.m_SpendProof.m_SpendPk;
 	if (bic.m_Fwd)
 	{
 		if (!bic.m_AlreadyValidated)

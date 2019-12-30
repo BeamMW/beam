@@ -16,7 +16,7 @@
 #include "ecc_native.h"
 
 namespace beam {
-namespace Lelantus {
+namespace Sigma {
 
 	struct CmList
 	{
@@ -53,13 +53,9 @@ namespace Lelantus {
 			static const uint32_t N = 0x100000; // 1mln. Typically it's VERY MUCH smaller.
 		};
 
-		uint32_t get_N() const; // n^M is parameters are sane, 0 otherwise
+		uint32_t get_N() const; // n^M if parameters are sane, 0 otherwise
 		uint32_t get_F() const; // M * (n - 1)
 	};
-
-	namespace SpendKey {
-		void ToSerial(ECC::Scalar::Native& serial, const ECC::Point& pk);
-	}
 
 	struct Proof
 	{
@@ -67,11 +63,7 @@ namespace Lelantus {
 
 		struct Part1
 		{
-			ECC::Point m_Commitment;
-			ECC::Point m_SpendPk;
 			ECC::Point m_A, m_B, m_C, m_D;
-			ECC::Point m_Nonce; // Used in signatures
-
 			std::vector<ECC::Point> m_vG;
 
 			void Expose(ECC::Oracle& oracle) const;
@@ -82,12 +74,9 @@ namespace Lelantus {
 		{
 			ECC::Scalar m_zA, m_zC, m_zR;
 			std::vector<ECC::Scalar> m_vF;
-			ECC::Scalar m_ProofG; // generalized proof for Outp + spend proof
-			ECC::Scalar m_ProofH; // generalized proof for Outp
-
 		} m_Part2;
 
-		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs) const;
+		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs, ECC::Scalar::Native& kBias) const;
 	};
 
 	class Prover
@@ -103,10 +92,6 @@ namespace Lelantus {
 				rB,
 				rC,
 				rD,
-				rNonceG,
-				rNonceH,
-				Serial,
-
 				count
 			};
 		};
@@ -138,8 +123,54 @@ namespace Lelantus {
 		struct Witness
 		{
 			uint32_t m_L;
-			Amount m_V;
 			ECC::Scalar::Native m_R;
+		};
+		ECC::NoLeak<Witness> m_Witness;
+
+		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle, const ECC::Point::Native& ptBias);
+
+		// result
+		Proof& m_Proof;
+	};
+
+} // namespace Sigma
+
+namespace Lelantus
+{
+	typedef Sigma::CmList CmList;
+	typedef Sigma::Cfg Cfg;
+
+	namespace SpendKey {
+		void ToSerial(ECC::Scalar::Native& serial, const ECC::Point& pk);
+	}
+
+	struct Proof
+		:public Sigma::Proof
+	{
+		ECC::Point m_Commitment;
+		ECC::Point m_SpendPk;
+		void Expose0(ECC::Oracle& oracle, ECC::Hash::Value&) const;
+
+		ECC::SignatureGeneralized<2> m_Signature;
+
+		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs) const;
+	};
+
+	class Prover
+	{
+		CmList& m_List;
+	public:
+		Prover(CmList& lst, Proof& proof)
+			:m_List(lst)
+			,m_Proof(proof)
+		{
+		}
+
+		// witness data
+		struct Witness
+			:public Sigma::Prover::Witness
+		{
+			Amount m_V;
 			ECC::Scalar::Native m_R_Output;
 			ECC::Scalar::Native m_SpendSk;
 		};
