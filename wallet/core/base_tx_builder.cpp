@@ -146,6 +146,7 @@ namespace beam::wallet
         {
             newUtxo.m_ID.m_Type = Key::Type::AssetChange;
         }
+        newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);

@@ -5,6 +5,7 @@ target_sources(assets
     PRIVATE
         aissue_tx_builder.cpp
         aissue_transaction.cpp
+        assets_register.cpp
 )
 
 target_link_libraries(assets 

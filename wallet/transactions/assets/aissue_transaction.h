@@ -34,8 +34,11 @@ namespace beam::wallet
         {
         public:
             explicit Creator(bool issue);
+
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const TxID& txID) override;
+            TxParameters CheckAndCompleteParameters(const TxParameters& p) override;
+
             bool _issue;
         };
 

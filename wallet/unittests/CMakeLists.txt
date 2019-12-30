@@ -5,6 +5,7 @@ add_definitions( -DSQLITE_HAS_CODEC )
 add_test_snippet(wallet_test wallet node mnemonic swap wallet wallet_client)
 add_test_snippet(wallet_db_test wallet)
 add_test_snippet(wallet_api_test wallet_api_proto)
+add_test_snippet(wallet_assets_test core node wallet pow assets)
 
 if(BEAM_HW_WALLET)
     target_compile_definitions(wallet_test PRIVATE BEAM_HW_WALLET)
