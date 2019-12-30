@@ -611,7 +611,7 @@ void Prover::ExtractPart2(Oracle& oracle)
 	}
 }
 
-void Prover::Generate(const uintBig& seed, Oracle& oracle, const ECC::Point::Native& ptBias)
+void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native& ptBias)
 {
 	// Since this is a heavy proof, do it in 'fast' mode. Use 'secure' mode only for the most sensitive part - the SpendSk
 	Mode::Scope scope(Mode::Fast);
@@ -651,7 +651,7 @@ void SpendKey::ToSerial(Scalar::Native& serial, const Point& pk)
 		>> serial;
 }
 
-void Proof::Expose0(ECC::Oracle& oracle, Hash::Value& hv) const
+void Proof::Expose0(Oracle& oracle, Hash::Value& hv) const
 {
 	oracle
 		<< m_Commitment
@@ -659,7 +659,7 @@ void Proof::Expose0(ECC::Oracle& oracle, Hash::Value& hv) const
 		>> hv;
 }
 
-bool Proof::IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs) const
+bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Native* pKs) const
 {
 	Mode::Scope scope(Mode::Fast);
 
@@ -691,7 +691,7 @@ bool Proof::IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, EC
 	return true;
 }
 
-void Prover::Generate(const ECC::uintBig& seed, ECC::Oracle& oracle)
+void Prover::Generate(const uintBig& seed, Oracle& oracle)
 {
 	Point::Native ptBias = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
 	m_Proof.m_Commitment = ptBias;
