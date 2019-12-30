@@ -2317,7 +2317,7 @@ void TestLelantus()
 	const uint32_t N = cfg.get_N();
 	printf("Lelantus [n, M, N] = [%u, %u, %u]\n", cfg.n, cfg.M, N);
 
-	beam::Sigma::CmListVec lst;
+	beam::Lelantus::CmListVec lst;
 	lst.m_vec.resize(N);
 
 	Point::Native rnd;

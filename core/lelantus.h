@@ -138,6 +138,7 @@ namespace Sigma {
 namespace Lelantus
 {
 	typedef Sigma::CmList CmList;
+	typedef Sigma::CmListVec CmListVec;
 	typedef Sigma::Cfg Cfg;
 
 	namespace SpendKey {
