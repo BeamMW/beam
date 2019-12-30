@@ -663,18 +663,35 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Nati
 {
 	Mode::Scope scope(Mode::Fast);
 
-	Point::Native pN[2];
-	if (!pN[0].Import(m_Commitment) ||
-		!pN[1].Import(m_SpendPk))
+	Point::Native comm, spendPk;
+	if (!comm.Import(m_Commitment) ||
+		!spendPk.Import(m_SpendPk))
 		return false;
 
+	// Little optimization:
+	// The m_Commitment is needed both in the m_Signature verification (to prove it's of the form k*G + v*H), and to subtract as a bias.
+	Scalar::Native kComm;
 	{
 		Hash::Value hv;
 		Expose0(oracle, hv);
 
-		InnerProduct::BatchContext::Scope scope2(bc);
+		Oracle o2;
+		m_Signature.Expose(o2, hv);
 
-		if (!m_Signature.IsValid(Context::get().m_Sig.m_CfgGH2, hv, m_Signature.m_pK, pN))
+		bc.EquationBegin();
+
+		Scalar::Native e;
+
+		o2 >> kComm;
+		kComm *= bc.m_Multiplier;
+		// defer the evaluation of comm
+		o2 >> e;
+		bc.AddCasual(spendPk, e);
+
+		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Signature.m_pK[0]);
+		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Signature.m_pK[1]);
+
+		if (!bc.AddCasual(m_Signature.m_NoncePub, bc.m_Multiplier, true))
 			return false;
 	}
 
@@ -682,7 +699,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Nati
 	if (!Sigma::Proof::IsValid(bc, oracle, pKs, kBias))
 		return false;
 
-	bc.AddCasual(pN[0], kBias, true);
+	bc.AddCasual(comm, kBias + kComm, true); // the deferred part from m_Signature, plus the needed bias
 
 	SpendKey::ToSerial(kSer, m_SpendPk);
 	kSer *= kBias;
