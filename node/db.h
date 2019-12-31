@@ -526,6 +526,7 @@ public:
 		StatesMmr(NodeDB&, Height);
 
 		void ResizeByHeight(Height h, Height h0);
+		void LoadStateHash(Merkle::Hash& hv, Height) const;
 
 	protected:
 		// Mmr
@@ -577,6 +578,7 @@ private:
 	void TestChanged1Row();
 
 	void MigrateFrom18();
+	void MigrateFrom20();
 
 	static const uint32_t s_StreamBlob;
 

@@ -37,7 +37,7 @@ namespace beam {
 #define TblStates_CountNext		"CountNext"
 #define TblStates_CountNextF	"CountNextFunctional"
 #define TblStates_PoW			"PoW"
-#define TblStates_Mmr			"Mmr"
+#define TblStates_Mmr			"Mmr" // deprecated
 #define TblStates_BodyP			"Perishable"
 #define TblStates_BodyE			"Ethernal"
 #define TblStates_Peer			"Peer"
@@ -333,6 +333,10 @@ void NodeDB::Open(const char* szPath)
 
 		case nVersion20:
 			CreateTableStreams();
+
+			LOG_INFO() << "DB migrate from" << nVersion20;
+			MigrateFrom20();
+
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 			// no break;
 
@@ -380,7 +384,6 @@ void NodeDB::Create()
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
 		"[" TblStates_CountNextF	"] INTEGER NOT NULL,"
 		"[" TblStates_PoW			"] BLOB,"
-		"[" TblStates_Mmr			"] BLOB,"
 		"[" TblStates_BodyP			"] BLOB,"
 		"[" TblStates_BodyE			"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
@@ -2145,10 +2148,13 @@ void NodeDB::StatesMmr::LoadElement(Merkle::Hash& hv, const Merkle::Position& po
 	if (pos.H)
 		StreamMmr::LoadElement(hv, pos);
 	else
-	{
-		uint64_t row = m_DB.FindActiveStateStrict(pos.X + Rules::HeightGenesis);
-		m_DB.get_StateHash(row, hv);
-	}
+		LoadStateHash(hv, pos.X + Rules::HeightGenesis);
+}
+
+void NodeDB::StatesMmr::LoadStateHash(Merkle::Hash& hv, Height h) const
+{
+	uint64_t row = m_DB.FindActiveStateStrict(h);
+	m_DB.get_StateHash(row, hv);
 }
 
 void NodeDB::StatesMmr::SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos)
@@ -2316,6 +2322,28 @@ void NodeDB::MigrateFrom18()
 	}
 
 	ExecQuick("DROP INDEX [Idx" TblTxo "SH]");
+}
+
+void NodeDB::MigrateFrom20()
+{
+	LOG_INFO() << "Rebuilding states MMR...";
+
+	// sqlite doesn't support drop column. Hence - just reset its value
+	ExecQuick("UPDATE " TblStates " SET " TblStates_Mmr);
+
+	StateID sid;
+	get_Cursor(sid);
+
+	StatesMmr smmr(*this, 0);
+	smmr.ResizeByHeight(sid.m_Height, Rules::HeightGenesis - 1);
+
+	for (Height h = Rules::HeightGenesis; h < sid.m_Height; h++)
+	{
+		Merkle::Hash hv;
+		smmr.LoadStateHash(hv, h); // there's a more effective way to select hashes of all active states. But it's just a migration.
+		smmr.Append(hv);
+
+	}
 }
 
 } // namespace beam
