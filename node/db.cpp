@@ -2329,7 +2329,7 @@ void NodeDB::MigrateFrom20()
 	LOG_INFO() << "Rebuilding states MMR...";
 
 	// sqlite doesn't support drop column. Hence - just reset its value
-	ExecQuick("UPDATE " TblStates " SET " TblStates_Mmr);
+	ExecQuick("UPDATE " TblStates " SET " TblStates_Mmr "=NULL");
 
 	StateID sid;
 	get_Cursor(sid);
