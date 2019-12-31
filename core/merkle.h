@@ -127,12 +127,13 @@ namespace Merkle {
 	};
 
 	// All hashes are stored in a 'flat' stream/array in a 'diagonal' form.
+	// bStoreH0 specifies if hashes at H=0 should be stored (or omitted)
 	class FlatMmr
 		:public Mmr
 	{
 	public:
-		static uint64_t Pos2Idx(const Position& pos);
-		static uint64_t get_TotalHashes(uint64_t nCount);
+		static uint64_t Pos2Idx(const Position& pos, bool bStoreH0);
+		static uint64_t get_TotalHashes(uint64_t nCount, bool bStoreH0);
 	};
 
 	// A variant where the max number of elements is known in advance. All hashes are stored in a flat array.

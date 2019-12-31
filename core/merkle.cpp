@@ -383,9 +383,11 @@ void CompactMmr::Append(const Hash& hv)
 
 /////////////////////////////
 // FlatMmr
-uint64_t FlatMmr::Pos2Idx(const Position& pos)
+uint64_t FlatMmr::Pos2Idx(const Position& pos, bool bStoreH0)
 {
-	uint64_t nStep = (uint64_t(2) << pos.H) - 1;
+	assert(bStoreH0 || pos.H);
+
+	uint64_t nStep = (uint64_t(bStoreH0 ? 2 : 1) << pos.H) - 1;
 	uint64_t ret = (pos.X + 1) * nStep - 1;
 
 	for (uint64_t val = pos.X; val >>= 1; )
@@ -394,9 +396,9 @@ uint64_t FlatMmr::Pos2Idx(const Position& pos)
 	return ret;
 }
 
-uint64_t FlatMmr::get_TotalHashes(uint64_t nCount)
+uint64_t FlatMmr::get_TotalHashes(uint64_t nCount, bool bStoreH0)
 {
-	uint64_t ret = nCount;
+	uint64_t ret = bStoreH0 ? nCount : 0;
 	while (nCount >>= 1)
 		ret += nCount;
 
@@ -408,12 +410,12 @@ uint64_t FlatMmr::get_TotalHashes(uint64_t nCount)
 void FixedMmr::Reset(uint64_t nTotal)
 {
 	m_Total = nTotal;
-	m_vHashes.resize(get_TotalHashes(nTotal));
+	m_vHashes.resize(get_TotalHashes(nTotal, true));
 }
 
 uint64_t FixedMmr::Pos2Idx(const Position& pos) const
 {
-	uint64_t ret = FlatMmr::Pos2Idx(pos);
+	uint64_t ret = FlatMmr::Pos2Idx(pos, true);
 	assert(ret < m_vHashes.size());
 	return ret;
 }
