@@ -24,7 +24,7 @@
 			</div>
 			<div class="form-group">
 				<label for="seed-phrase-input">Enter seed phrase:</label>
-				<input type="text" class="seed-phrase-input form-control" placeholder="Enter seed phrase" value="copy vendor shallow raven coffee appear book blast lock exchange farm glue">
+				<input type="text" class="seed-phrase-input form-control" placeholder="Enter seed phrase">
 			</div>
 			<div class="form-group">
 				<label for="wallet-pass-input">Enter wallet password:</label>
@@ -181,13 +181,6 @@
 			}
 
 			start();
-
-			function initKeyKeeper(seed)
-			{
-				var wordList = new Module.WordList()
-				seed.split(' ').forEach((word) => wordList.push_back(word))
-				return new Module.KeyKeeper(wordList)
-			}
 
 			function send(amount, address)
 			{
@@ -429,7 +422,7 @@
 			$('#open-wallet-panel .open-wallet-button').click(() => 
 			{
 				console.log(`Opening wallet with seed phrase: ${localStorage.seed}`)
-				keykeeper = initKeyKeeper(localStorage.seed)
+				keykeeper = new Module.KeyKeeper(localStorage.seed)
 				var walletPass = $('#open-wallet-panel .wallet-pass-input').val()
 
 				connection.onmessage = e => 
@@ -514,7 +507,13 @@
 				var seed = $('#create-wallet-panel .seed-phrase-input').val()
 				console.log(`Creating new wallet with seed phrase: ${seed}`)
 
-				keykeeper = initKeyKeeper(seed)
+				if(!Module.KeyKeeper.IsValidPhrase(seed))
+				{
+					alert('error: invalid seed prase');
+					return;
+				}
+
+				keykeeper = new Module.KeyKeeper(seed)
 				var walletPass = $('#create-wallet-panel .wallet-pass-input').val()
 				var ownerKey = keykeeper.getOwnerKey(walletPass)
 
@@ -566,7 +565,11 @@
 			function refresh()
 			{
 				if(localStorage.id) showPanel('#open-wallet-panel')
-				else showPanel('#create-wallet-panel')
+				else
+				{
+					$('#create-wallet-panel .seed-phrase-input').val(Module.KeyKeeper.GeneratePhrase())
+					showPanel('#create-wallet-panel')
+				}
 			}
 		})
 

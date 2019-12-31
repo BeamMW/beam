@@ -16,6 +16,9 @@
 #include "mnemonic/mnemonic.h"
 #include "wasm_key_keeper.h"
 
+#include <boost/algorithm/string.hpp>
+#include "utility/string_helpers.cpp"
+
 #include <emscripten/bind.h>
 
 using namespace emscripten;
@@ -26,12 +29,15 @@ using namespace beam::wallet;
 
 struct KeyKeeper
 {
-    KeyKeeper(const beam::WordList& words)
+    KeyKeeper(const std::string& words)
     {
         static_assert(sizeof(uint64_t) == sizeof(unsigned long long));
 
-        ECC::NoLeak<ECC::uintBig> seed;
-        auto buf = beam::decodeMnemonic(words);
+        if(!IsValidPhrase(words))
+            throw "Invalid seed phrase";
+
+        ECC::NoLeak<ECC::uintBig> seed;       
+        auto buf = beam::decodeMnemonic(string_helpers::split(words, ' '));
         ECC::Hash::Processor() << beam::Blob(buf.data(), (uint32_t)buf.size()) >> seed.V;
         ECC::HKdf::Create(_kdf, seed.V);
 
@@ -230,6 +236,21 @@ struct KeyKeeper
         return to_base64(sign);
     }
 
+    static std::string GeneratePhrase()
+    {
+        return boost::join(createMnemonic(getEntropy(), language::en), " ");
+    }
+
+    static bool IsAllowedWord(const std::string& word)
+    {
+        return isAllowedWord(word, language::en);
+    }
+
+    static bool IsValidPhrase(const std::string& words)
+    {
+        return isValidMnemonic(string_helpers::split(words, ' '), language::en);
+    }
+
 private:
     Key::IKdf::Ptr _kdf;
     IPrivateKeyKeeper::Ptr _impl;
@@ -238,16 +259,17 @@ private:
 // Binding code
 EMSCRIPTEN_BINDINGS() 
 {
-    register_vector<std::string>("WordList");
-
     class_<KeyKeeper>("KeyKeeper")
-        .constructor<const beam::WordList&>()
-        .function("generatePublicKey",  &KeyKeeper::GeneratePublicKey)
-        .function("getOwnerKey",        &KeyKeeper::GetOwnerKey)
-        .function("allocateNonceSlot",  &KeyKeeper::AllocateNonceSlot)
-        .function("generateNonce",      &KeyKeeper::GenerateNonce)
-        .function("generateOutput",     &KeyKeeper::GenerateOutput)
-        .function("sign",               &KeyKeeper::Sign)
+        .constructor<const std::string&>()
+        .function("generatePublicKey",      &KeyKeeper::GeneratePublicKey)
+        .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
+        .function("allocateNonceSlot",      &KeyKeeper::AllocateNonceSlot)
+        .function("generateNonce",          &KeyKeeper::GenerateNonce)
+        .function("generateOutput",         &KeyKeeper::GenerateOutput)
+        .function("sign",                   &KeyKeeper::Sign)
+        .class_function("GeneratePhrase",   &KeyKeeper::GeneratePhrase)
+        .class_function("IsAllowedWord",    &KeyKeeper::IsAllowedWord)
+        .class_function("IsValidPhrase",    &KeyKeeper::IsValidPhrase)
         // .function("func", &KeyKeeper::func)
         // .property("prop", &KeyKeeper::getProp, &KeyKeeper::setProp)
         // .class_function("StaticFunc", &KeyKeeper::StaticFunc)
