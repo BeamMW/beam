@@ -2106,9 +2106,9 @@ void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
 }
 
 NodeDB::StreamMmr::StreamMmr(NodeDB& db, StreamType::Enum eType, bool bStoreH0, uint64_t nCount)
-	:m_DB(db)
-	,m_StoreH0(bStoreH0)
+	:m_StoreH0(bStoreH0)
 	,m_eType(eType)
+	,m_DB(db)
 {
 	m_Count = nCount;
 
