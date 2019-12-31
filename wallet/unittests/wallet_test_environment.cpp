@@ -222,7 +222,7 @@ const string SenderWalletDB = "sender_wallet.db";
 const string ReceiverWalletDB = "receiver_wallet.db";
 const string DBPassword = "pass123";
 
-IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivateData)
+IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivateData, bool generateSeed)
 {
     if (boost::filesystem::exists(path))
     {
@@ -235,7 +235,16 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
     }
 
     ECC::NoLeak<ECC::uintBig> seed;
-    seed.V = Zero;
+    if (generateSeed)
+    {
+        void* p = reinterpret_cast<void*>(&seed.V);
+    	for (uint32_t i = 0; i < sizeof(seed.V); i++)
+		    ((uint8_t*) p)[i] = (uint8_t) rand();
+    }
+    else
+    {
+        seed.V = Zero;
+    }
                
     auto walletDB = WalletDB::init(path, DBPassword, seed, io::Reactor::get_Current().shared_from_this(), separateDBForPrivateData);
     return walletDB;
@@ -243,7 +252,7 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
 
 IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const AmountList& amounts = {5, 2, 1, 9})
 {
-    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData);
+    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, false);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
     for (auto amount : amounts)
     {
@@ -255,7 +264,7 @@ IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const
 
 IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false)
 {
-    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData);
+    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, false);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
     for (int i = 0; i < count; ++i)
     {
@@ -267,7 +276,7 @@ IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBFor
 
 IWalletDB::Ptr createReceiverWalletDB(bool separateDBForPrivateData = false)
 {
-    return createSqliteWalletDB(ReceiverWalletDB, separateDBForPrivateData);
+    return createSqliteWalletDB(ReceiverWalletDB, separateDBForPrivateData, false);
 }
 
 struct TestGateway : wallet::INegotiatorGateway
@@ -944,7 +953,7 @@ public:
         }
     }
 
-    Height GetHeight()
+    Height GetHeight() const
     {
         return m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height;
     }

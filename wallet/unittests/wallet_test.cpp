@@ -122,7 +122,7 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false);
+        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false, false);
 
         // add coin with keyType - Coinbase
         beam::Amount coin_amount = 40;
@@ -508,7 +508,7 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false);
+        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false, false);
 
         // add coin with keyType - Coinbase
         beam::Amount coin_amount = 40;
@@ -605,7 +605,7 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false);
+        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false, false);
 
         // add coin with keyType - Coinbase
         Coin coin = CreateAvailCoin(100, 0);
@@ -1309,7 +1309,7 @@ namespace
         };
 
 
-        auto db = createSqliteWalletDB(SenderWalletDB, false);
+        auto db = createSqliteWalletDB(SenderWalletDB, false, false);
         auto treasury = createTreasury(db);
 
         auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {})->io::Address
@@ -1364,7 +1364,7 @@ namespace
             }
         };
 
-        auto db = createSqliteWalletDB(SenderWalletDB, false);
+        auto db = createSqliteWalletDB(SenderWalletDB, false, false);
         auto treasury = createTreasury(db, AmountList{Amount(5*Count)});
 
         auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
@@ -1649,56 +1649,79 @@ namespace
 
         //TestNode node;
         TestWalletRig sender("sender", createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
-        IPrivateKeyKeeper::Ptr keyKeeper = sender.m_KeyKeeper;
+        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        //IPrivateKeyKeeper::Ptr keyKeeper = sender.m_KeyKeeper;
 
-        auto nonceSlot = keyKeeper->AllocateNonceSlot();
-        ECC::Scalar::Native offset;
-        offset.GenRandomNnz();
+//        auto nonceSlot = keyKeeper->AllocateNonceSlot();
+//        ECC::Scalar::Native offset;
+//        offset.GenRandomNnz();
 
         Coin::ID inputID = Coin::ID(4, 10, Key::Type::Coinbase);
         Coin::ID outputID = Coin::ID(3, 11, Key::Type::Regular);
 
         AssetID assetID = Zero;
         auto input = make_unique<Input>();
-        input->m_Commitment = keyKeeper->GenerateCoinKeySync(inputID, assetID);
-        auto outputs = keyKeeper->GenerateOutputsSync(1, { outputID });
+        input->m_Commitment = sender.m_KeyKeeper->GenerateCoinKeySync(inputID, assetID);
+        auto outputs = receiver.m_KeyKeeper->GenerateOutputsSync(1, { outputID });
 
         KernelParameters kernelParams;
         kernelParams.height = { 1, 20 };
         kernelParams.fee = 1;
         
 
-        {
-            Point::Native excess = Context::get().G * offset;
-            Point::Native c;
-            WALLET_CHECK(c.Import(outputs[0]->m_Commitment));
-            excess += c;
-            excess = -excess;
-            WALLET_CHECK(c.Import(input->m_Commitment));
-            excess += c;
+        // sender
+        auto nonceSlot = sender.m_KeyKeeper->AllocateNonceSlot();
+        auto senderSignature = sender.m_KeyKeeper->SignSender({ inputID }, {}, Zero, nonceSlot, kernelParams, {}, true);
+        WALLET_CHECK(senderSignature);
+        kernelParams.commitment = senderSignature->m_KernelCommitment;
+        auto receiverSignature = receiver.m_KeyKeeper->SignReceiver({}, { outputID }, Zero, kernelParams, senderSignature->m_KernelSignature.m_NoncePub);
+        WALLET_CHECK(receiverSignature);
+        kernelParams.commitment = receiverSignature->m_KernelCommitment;
+        auto finalSenderSignature = sender.m_KeyKeeper->SignSender({ inputID }, {}, Zero, nonceSlot, kernelParams, receiverSignature->m_KernelSignature.m_NoncePub, false);
+        WALLET_CHECK(finalSenderSignature);
+        Point publicNonce = finalSenderSignature->m_KernelSignature.m_NoncePub;
+        Scalar::Native signature = finalSenderSignature->m_KernelSignature.m_k;
+        Scalar::Native pt = receiverSignature->m_KernelSignature.m_k;
+        signature += pt;
+        Scalar::Native offset = finalSenderSignature->m_Offset;
+        pt = receiverSignature->m_Offset;
+        offset += pt;
 
-            Point::Native amount = Zero;
-            AmountBig::AddTo(amount, inputID.m_Value);
-            amount = -amount;
-            AmountBig::AddTo(amount, outputID.m_Value);
-            excess += amount;
-            kernelParams.commitment = excess;
-        }
 
-        Point publicNonce = keyKeeper->GenerateNonceSync(nonceSlot);
-        Point::Native publicNonceNative;
+        // receiver
+        // sender
 
-        WALLET_CHECK(publicNonceNative.Import(publicNonce));
-
-        auto signature = keyKeeper->SignSync(
-                                    { inputID },
-                                    { outputID },
-                                    assetID,
-                                    offset,
-                                    nonceSlot,
-                                    kernelParams,
-                                    publicNonceNative
-                                );
+        //{
+        //    Point::Native excess = Context::get().G * offset;
+        //    Point::Native c;
+        //    WALLET_CHECK(c.Import(outputs[0]->m_Commitment));
+        //    excess += c;
+        //    excess = -excess;
+        //    WALLET_CHECK(c.Import(input->m_Commitment));
+        //    excess += c;
+        //
+        //    Point::Native amount = Zero;
+        //    AmountBig::AddTo(amount, inputID.m_Value);
+        //    amount = -amount;
+        //    AmountBig::AddTo(amount, outputID.m_Value);
+        //    excess += amount;
+        //    kernelParams.commitment = excess;
+        //}
+        //
+        //Point publicNonce = keyKeeper->GenerateNonceSync(nonceSlot);
+        //Point::Native publicNonceNative;
+        //
+        //WALLET_CHECK(publicNonceNative.Import(publicNonce));
+        //
+        //auto signature = keyKeeper->SignSync(
+        //                            { inputID },
+        //                            { outputID },
+        //                            assetID,
+        //                            offset,
+        //                            nonceSlot,
+        //                            kernelParams,
+        //                            publicNonceNative
+        //                        );
 
         auto kernel = make_unique<TxKernelStd>();
 
