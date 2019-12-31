@@ -307,9 +307,10 @@
         <translation>Sürüm</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
-        <source>Run local node</source>
+        <source>Run integrated node</source>
+        <oldsource>Run local node</oldsource>
         <extracomment>settings tab, node section, run node label</extracomment>
-        <translation>Lokal nodu çalıştır</translation>
+        <translation type="unfinished">Lokal nodu çalıştır</translation>
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>

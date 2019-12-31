@@ -495,10 +495,7 @@ Control {
                 color:              Style.content_main
                 readOnly:           selectServerAutomatically.checked
                 underlineVisible:   !selectServerAutomatically.checked
-                validator: IntValidator {
-                    bottom: 1
-                    top: 65535
-                }
+                validator:          RegExpValidator {regExp: /^([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/g}
             }
 
             // common fee rate

@@ -603,8 +603,28 @@ void NodeProcessor::EnumCongestions()
 			m_SyncData.m_Target.m_Row = pMaxTarget->m_Rows.at(pMaxTarget->m_Height - m_SyncData.m_Target.m_Height);
 
 			if (m_SyncData.m_TxoLo)
+			{
 				// ensure no old blocks, which could be generated with incorrect TxLo
-				DeleteBlocksInRange(m_SyncData.m_Target, hTargetPrev);
+				//
+				// Deleting all the blocks in the range is a time-consuming operation, whereas it's VERY unlikely there's any block in there
+				// So we'll limit the height range by the maximum "sane" value (which is also very unlikely to contain any block).
+				//
+				// In a worst-case scenario (extremely unlikely) the sync will fail, then all the blocks will be deleted, and sync restarts
+				Height hMaxSane = m_Cursor.m_ID.m_Height + Rules::get().MaxRollback;
+				if (hTargetPrev < hMaxSane)
+				{
+					if (m_SyncData.m_Target.m_Height <= hMaxSane)
+						DeleteBlocksInRange(m_SyncData.m_Target, hTargetPrev);
+					else
+					{
+						NodeDB::StateID sid;
+						sid.m_Height = hMaxSane;
+						sid.m_Row = pMaxTarget->m_Rows.at(pMaxTarget->m_Height - hMaxSane);
+
+						DeleteBlocksInRange(sid, hTargetPrev);
+					}
+				}
+			}
 
 			SaveSyncData();
 		}
@@ -1473,9 +1493,12 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 
 				RollbackTo(sid.m_Height - 1);
 
-				m_DB.SetStateBlock(sid.m_Row, bbP, bbE);
-				m_DB.set_StateExtra(sid.m_Row, nullptr);
-				m_DB.set_StateTxos(sid.m_Row, nullptr);
+				PeerID peer;
+				if (!m_DB.get_Peer(sid.m_Row, peer))
+					peer = Zero;
+
+				m_DB.SetStateBlock(sid.m_Row, bbP, bbE, peer);
+				m_DB.set_StateTxosAndExtra(sid.m_Row, nullptr, nullptr);
 			}
 
 			mbc.OnFastSyncFailed(false);
@@ -1510,8 +1533,6 @@ void NodeProcessor::DeleteBlock(uint64_t row)
 {
 	m_DB.DelStateBlockAll(row);
 	m_DB.SetStateNotFunctional(row);
-	m_DB.set_StateExtra(row, nullptr);
-	m_DB.set_StateTxos(row, nullptr);
 }
 
 Height NodeProcessor::PruneOld()
@@ -1578,12 +1599,7 @@ Height NodeProcessor::RaiseFossil(Height hTrg)
 			if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
 				m_DB.DelStateBlockPP(ws.m_Sid.m_Row);
 			else
-			{
-				m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
-
-				m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
-				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
-			}
+				DeleteBlock(ws.m_Sid.m_Row);
 
 			hRet++;
 		}
@@ -2025,9 +2041,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			}
 		}
 
-		if (bOk)
-			m_DB.set_StateTxos(sid.m_Row, &m_Extra.m_Txos);
-		else
+		if (!bOk)
 		{
 			bic.m_Fwd = false;
 			BEAM_VERIFY(HandleValidatedBlock(block, bic));
@@ -2048,7 +2062,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		}
 
 		Blob blob(offsAcc.m_Value);
-		m_DB.set_StateExtra(sid.m_Row, &blob);
+		m_DB.set_StateTxosAndExtra(sid.m_Row, &m_Extra.m_Txos, &blob);
 
 		// save shielded outs
 		if (bic.m_ShieldedOuts)
@@ -3046,10 +3060,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateSilent(const Block::System
 {
 	DataStatus::Enum ret = OnStateInternal(s, id, bAlreadyChecked);
 	if (DataStatus::Accepted == ret)
-	{
-		uint64_t rowid = m_DB.InsertState(s);
-		m_DB.set_Peer(rowid, &peer);
-	}
+		m_DB.InsertState(s, peer);
 
 	return ret;
 }
@@ -3086,9 +3097,8 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const NodeDB::StateID& si
 	if (sid.m_Height < get_LowestReturnHeight())
 		return DataStatus::Unreachable;
 
-	m_DB.SetStateBlock(sid.m_Row, bbP, bbE);
+	m_DB.SetStateBlock(sid.m_Row, bbP, bbE, peer);
 	m_DB.SetStateFunctional(sid.m_Row);
-	m_DB.set_Peer(sid.m_Row, &peer);
 
 	return DataStatus::Accepted;
 }

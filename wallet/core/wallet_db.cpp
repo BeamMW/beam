@@ -2244,6 +2244,7 @@ namespace beam::wallet
         auto tx = getTx(txId);
         if (tx.is_initialized())
         {
+            // we left one record about tx type in order to avoid re-launching of deleted transaction
             const char* req = "DELETE FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID!=?2;";
             sqlite::Statement stm(this, req);
 
@@ -2714,7 +2715,7 @@ namespace beam::wallet
         return false;
     }
 
-    auto WalletDB::getAllTxParameters() const -> std::vector<TxParameter>
+    std::vector<TxParameter> WalletDB::getAllTxParameters() const
     {
         sqlite::Statement stm(this, "SELECT * FROM " TX_PARAMS_NAME ";");
         std::vector<TxParameter> res;
@@ -3555,18 +3556,63 @@ namespace beam::wallet
             json ExportTransactionsToJson(const IWalletDB& db)
             {
                 json txParams = json::array();
+                map<TxID, map<SubTxID, map<TxParameterID, ByteBuffer>>> exportedParams;
+                set<TxID> txIDs;
                 for (const auto& p : db.getAllTxParameters())
                 {
-                    txParams.push_back(
-                        json
-                        {
-                            {Fields::TransactionId, p.m_txID},
-                            {Fields::SubTransactionId, p.m_subTxID},
-                            {Fields::ParameterId, p.m_paramID},
-                            {Fields::Value, p.m_value}
-                        }
-                    );
+                    exportedParams[p.m_txID][(SubTxID)p.m_subTxID].emplace((TxParameterID)p.m_paramID, p.m_value);
+                    txIDs.insert(p.m_txID);
                 }
+
+                array<TxParameterID, 5> mandatoryTxParams = { 
+                        TxParameterID::TransactionType,
+                        TxParameterID::IsSender,
+                        TxParameterID::Amount,
+                        TxParameterID::MyID,
+                        TxParameterID::CreateTime
+                };
+
+                for (const auto& tx : txIDs)
+                {
+                    const auto& params = exportedParams[tx][(int)kDefaultSubTxID];
+
+                    if (params.size() == 1 && params.begin()->first == TxParameterID::TransactionType) // we do not export deleted transactions
+                    {
+                        continue;
+                    }
+
+                    bool canExport = true;
+                    for (const auto& mp : mandatoryTxParams)
+                    {
+                        if (params.find(mp) == params.end())
+                        {
+                            LOG_WARNING() << "Transaction " << tx << " doesn't have mandatory parameters" << (int)mp << ". Skipping it";
+                            canExport = false;
+                            break;
+                        }
+                    }
+                    if (!canExport)
+                    {
+                        continue;
+                    }
+
+                    for (const auto& subTx : exportedParams[tx])
+                    {
+                        for (const auto& p : subTx.second)
+                        {
+                            txParams.push_back(
+                                json
+                                {
+                                    {Fields::TransactionId, tx},
+                                    {Fields::SubTransactionId, subTx.first},
+                                    {Fields::ParameterId, p.first},
+                                    {Fields::Value, p.second}
+                                }
+                            );
+                        }
+                    }
+                }
+                
                 return txParams;
             }
         }

@@ -408,7 +408,7 @@ deploy the key at the node you trust completely."*/
                             Layout.topMargin: 15
                             Layout.bottomMargin: 24
                             //: settings tab, node section, run node label
-                            //% "Run local node"
+                            //% "Run integrated node"
                             text: qsTrId("settings-local-node-run-checkbox")
                             font.pixelSize: 14
                             checked: viewModel.localNodeRun
@@ -442,10 +442,7 @@ deploy the key at the node you trust completely."*/
                                 font.pixelSize: 14
                                 color: Style.content_main
                                 text: viewModel.localNodePort
-                                validator: IntValidator {
-                                    bottom: 1
-                                    top: 65535
-                                }
+                                validator: RegExpValidator {regExp: /^([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/g}
                                 Binding {
                                     target: viewModel
                                     property: "localNodePort"
@@ -526,10 +523,7 @@ deploy the key at the node you trust completely."*/
                                 font.pixelSize: 14
                                 color: Style.content_main
                                 text: viewModel.remoteNodePort
-                                validator: IntValidator {
-                                    bottom: 1
-                                    top: 65535
-                                }
+                                validator: RegExpValidator {regExp: /^([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/g}
                                 Binding {
                                     target: viewModel
                                     property: "remoteNodePort"
