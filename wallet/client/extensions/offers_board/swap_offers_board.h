@@ -14,6 +14,11 @@
 
 #pragma once
 
+#include "swap_offer.h"
+#include "swap_offers_observer.h"
+#include "swap_offer_token.h"
+#include "offers_protocol_handler.h"
+
 #include "wallet/core/wallet.h"
 #include "utility/logger.h"
 #include "utility/std_extension.h"
@@ -23,64 +28,6 @@
 namespace beam::wallet
 {
     using namespace beam::proto;
-
-    class OfferBoardProtocolBuilder
-    {
-        using PrivateKey = ECC::Scalar::Native;
-        using PublicKey = PeerID;
-
-    public:
-
-        OfferBoardProtocolBuilder(ECC::Key::IKdf& sbbsKdf, beam::wallet::IWalletDB& walletDB);
-    
-        ByteBuffer createMessage(const SwapOfferToken& content, const BbsChannel& channel, const WalletID& wid)
-        {
-            constexpr uint8_t MessageType = 0;
-            auto waddr = m_walletDB->getAddress(wid);
-
-            if (waddr && waddr->isOwn())
-            {
-                // Get private key
-                PrivateKey sk;
-                PublicKey pk;
-                m_sbbsKdf->DeriveKey(sk, ECC::Key::ID(waddr->m_OwnID, Key::Type::Bbs));
-                proto::Sk2Pk(pk, sk);
-
-                // Sign data with private key
-                SwapOfferConfirmation confirmationBuilder;
-                auto& contentRaw = confirmationBuilder.m_offerData;
-                contentRaw = toByteBuffer(content);
-                confirmationBuilder.Sign(sk);
-                auto signatureRaw = toByteBuffer(confirmationBuilder.m_Signature);
-
-                // Create message header according to protocol
-                size_t msgBodySize = contentRaw.size() + signatureRaw.size();
-                assert(msgBodySize <= UINT32_MAX);
-                MsgHeader header(0, 0, m_protocolVersion, MessageType, static_cast<uint32_t>(msgBodySize));
-
-                // Combine all to final message
-                ByteBuffer finalMessage(header.SIZE);
-                header.write(finalMessage.data());  // copy header to finalMessage
-                finalMessage.reserve(header.SIZE + header.size);
-                std::copy(  std::begin(contentRaw),
-                            std::end(contentRaw),
-                            std::back_inserter(finalMessage));
-                std::copy(  std::begin(signatureRaw),
-                            std::end(signatureRaw),
-                            std::back_inserter(finalMessage));
-                
-                return finalMessage;
-            }
-        };
-
-        // TODO: parseMessage()
-
-    private:
-        std::shared_ptr<beam::wallet::IWalletDB> m_walletDB;
-        std::shared_ptr<ECC::Key::IKdf> m_sbbsKdf;
-
-        static constexpr uint8_t m_protocolVersion = 1;
-    };
 
     /**
      *  Implementation of public swap offers bulletin board using not crypted BBS broadcasting.

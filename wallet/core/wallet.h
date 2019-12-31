@@ -75,12 +75,6 @@ namespace beam::wallet
         virtual void onOwnedNode(const PeerID& id, bool connected) = 0;
     };
     
-    // Interface for swap bulletin board observer. 
-    struct ISwapOffersObserver
-    {
-        virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) = 0;
-    };
-
     // Interface for wallet message consumer
     struct IWalletMessageConsumer
     {

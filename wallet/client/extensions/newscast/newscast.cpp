@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "news_channels.h"
+#include "newscast.h"
 
 namespace beam::wallet
 {
-    NewsEndpoint::NewsEndpoint(FlyClient::INetwork& network)
+    Newscast::Newscast(FlyClient::INetwork& network)
         : m_network(network)
     {
         for (auto channel : m_channels)
@@ -25,12 +25,12 @@ namespace beam::wallet
         }
     }
 
-    const std::set<BbsChannel> NewsEndpoint::m_channels =
+    const std::set<BbsChannel> Newscast::m_channels =
     {
         proto::Bbs::s_MaxChannels + BbsChannelsOffset,
     };
 
-    void NewsEndpoint::OnMsg(proto::BbsMsg &&msg)
+    void Newscast::OnMsg(proto::BbsMsg &&msg)
     {
         if (msg.m_Message.empty() || msg.m_Message.size() < MsgHeader::SIZE)
             return;
@@ -76,14 +76,14 @@ namespace beam::wallet
         }
     }
 
-    void NewsEndpoint::Subscribe(INewsObserver* observer)
+    void Newscast::Subscribe(INewsObserver* observer)
     {
         assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
 
         m_subscribers.push_back(observer);
     }
 
-    void NewsEndpoint::Unsubscribe(INewsObserver* observer)
+    void Newscast::Unsubscribe(INewsObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
 
@@ -92,7 +92,7 @@ namespace beam::wallet
         m_subscribers.erase(it);
     }
 
-    void NewsEndpoint::notifySubscribers(NewsMessage msg) const
+    void Newscast::notifySubscribers(NewsMessage msg) const
     {
         for (auto sub : m_subscribers)
         {
@@ -100,7 +100,7 @@ namespace beam::wallet
         }
     }
 
-    void NewsEndpoint::setPublicKeys(std::vector<PeerID> keys)
+    void Newscast::setPublicKeys(std::vector<PeerID> keys)
     {
         m_publicKeys.clear();
         for (const auto& key : keys)

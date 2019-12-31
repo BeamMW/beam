@@ -14,6 +14,10 @@
 
 #pragma once
 
+#include "news_message.h"
+#include "news_observer.h"
+#include "news_protocol_handler.h"
+
 #include "wallet/core/wallet.h"
 #include "utility/logger.h"
 
@@ -22,30 +26,13 @@ using namespace beam::proto;
 namespace beam::wallet
 {
     /**
-     *  Message item broadcasted using NewsChannels
-     */
-    struct NewsMessage
-    {
-        std::string m_content;
-        SERIALIZE(m_content);
-    };
-
-    /**
-     *  Interface for news channels observers. 
-     */
-    struct INewsObserver
-    {
-        virtual void onNewsUpdate(NewsMessage msg) = 0;
-    };
-
-    /**
      *  Implementation of public news channels reader via bulletin board system (BBS).
      */
-    class NewsEndpoint
+    class Newscast
         : public FlyClient::IBbsReceiver
     {
     public:
-        NewsEndpoint(FlyClient::INetwork& network);
+        Newscast(FlyClient::INetwork& network);
 
         /**
          *  FlyClient::IBbsReceiver implementation

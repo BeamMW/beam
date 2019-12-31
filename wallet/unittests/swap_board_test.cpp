@@ -35,8 +35,7 @@ WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 #include "mock_bbs_network.cpp"
 
-#include "wallet/transactions/swaps/swap_offers_board.h"
-#include "wallet/transactions/swaps/swap_offers_board.cpp"
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
 
 using namespace beam;
 using namespace beam::wallet;

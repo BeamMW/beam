@@ -5,6 +5,11 @@ target_sources(wallet_client
     PRIVATE
         wallet_client.h
         wallet_client.cpp
+        extensions/offers_board/swap_offer.cpp
+        extensions/offers_board/swap_offer_token.cpp
+        extensions/offers_board/offers_protocol_handler.cpp
+        extensions/offers_board/swap_offers_board.cpp
+        extensions/newscast/newscast.cpp
 )
 
 target_link_libraries(wallet_client 

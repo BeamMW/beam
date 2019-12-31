@@ -29,7 +29,7 @@ WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 #include "mock_bbs_network.cpp"
 
-#include "wallet/core/news_channels.h"
+#include "wallet/client/extensions/newscast/newscast.h"
 
 using namespace beam;
 using namespace beam::wallet;
@@ -60,7 +60,7 @@ namespace
     BbsMsg makeBbsMsg(ByteBuffer fullMsgRaw)
     {
         BbsMsg m;
-        m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels + NewsEndpoint::BbsChannelsOffset);
+        m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels + Newscast::BbsChannelsOffset);
         m.m_TimePosted = getTimestamp();
         m.m_Message = fullMsgRaw;
         return m;
@@ -72,7 +72,7 @@ namespace
     BbsMsg makeBbsMsg(ByteBuffer msgRaw, ByteBuffer signatureRaw)
     {
         BbsMsg m;
-        m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels + NewsEndpoint::BbsChannelsOffset);
+        m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels + Newscast::BbsChannelsOffset);
         m.m_TimePosted = getTimestamp();
 
         ByteBuffer rawFullMsg(MsgHeader::SIZE);
@@ -98,7 +98,7 @@ namespace
         auto senderWalletDB = createSenderWalletDB();
         auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
-        NewsEndpoint newsEndpoint(mockNetwork);
+        Newscast newsEndpoint(mockNetwork);
         
         {
             cout << "Case: empty message" << endl;
@@ -167,7 +167,7 @@ namespace
         auto keyKeeper = make_shared<LocalPrivateKeyKeeper>
             (senderWalletDB, senderWalletDB->get_MasterKdf());
         MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
-        NewsEndpoint newsEndpoint(mockNetwork);
+        Newscast newsEndpoint(mockNetwork);
 
         using PrivateKey = ECC::Scalar::Native;
         using PublicKey = PeerID;

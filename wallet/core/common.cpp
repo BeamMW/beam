@@ -433,37 +433,6 @@ namespace beam::wallet
         return {};
     }
 
-    void SwapOffer::SetTxParameters(const PackedTxParameters& parameters)
-    {
-        // Do not forget to set other SwapOffer members also!
-        SubTxID subTxID = kDefaultSubTxID;
-        Deserializer d;
-        for (const auto& p : parameters)
-        {
-            if (p.first == TxParameterID::SubTxIndex)
-            {
-                // change subTxID
-                d.reset(p.second.data(), p.second.size());
-                d & subTxID;
-                continue;
-            }
-
-            SetParameter(p.first, p.second, subTxID);
-        }
-    }
-
-    SwapOffer SwapOfferToken::Unpack() const
-    {
-        SwapOffer result(m_TxID);
-        result.SetTxParameters(m_Parameters);
-
-        if (m_TxID) result.m_txId = *m_TxID;
-        if (m_status) result.m_status = *m_status;
-        if (m_publisherId) result.m_publisherId = *m_publisherId;
-        if (m_coin) result.m_coin = *m_coin;
-        return result;
-    }
-
     bool TxDescription::canResume() const
     {
         return m_status == TxStatus::Pending
