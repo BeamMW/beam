@@ -110,9 +110,6 @@ public:
 			StateGetPrev,
 			Unactivate,
 			Activate,
-			MmrGet,
-			MmrSet,
-			HashForHist,
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlockPP,
@@ -171,6 +168,7 @@ public:
 	{
 		enum Enum
 		{
+			StatesMmr,
 			Shielded,
 
 			count
@@ -340,9 +338,6 @@ public:
 
 	bool get_Cursor(StateID& sid);
 
-    void get_Proof(Merkle::IProofBuilder&, const StateID& sid, Height hPrev);
-    void get_PredictedStatesHash(Merkle::Hash&, const StateID& sid); // For the next block.
-
 	void get_ChainWork(uint64_t, Difficulty::Raw&);
 
 	// the following functions move the curos, and mark the states with 'Active' flag
@@ -504,6 +499,40 @@ public:
 
 	void EnumSystemStatesBkwd(WalkerSystemState&, const StateID&);
 
+	class StreamMmr
+		:public Merkle::FlatMmr
+	{
+		const bool m_StoreH0;
+		StreamType::Enum m_eType;
+
+	public:
+		NodeDB& m_DB;
+
+		StreamMmr(NodeDB&, StreamType::Enum, bool bStoreH0, uint64_t nCount);
+		void Resize(uint64_t n, uint64_t n0);
+
+	protected:
+		// Mmr
+		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override;
+		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override;
+	};
+
+	class StatesMmr
+		:public StreamMmr
+	{
+	public:
+		static uint64_t H2I(Height h);
+
+		StatesMmr(NodeDB&, Height);
+
+		void ResizeByHeight(Height h, Height h0);
+
+	protected:
+		// Mmr
+		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override;
+		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override;
+	};
+
 private:
 
 	sqlite3* m_pDb;
@@ -543,14 +572,11 @@ private:
 	void SetNextCount(uint64_t rowid, uint32_t);
 	void SetNextCountFunctional(uint64_t rowid, uint32_t);
 	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
-	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
 
 	void TestChanged1Row();
 
 	void MigrateFrom18();
-
-	struct Dmmr;
 
 	static const uint32_t s_StreamBlob;
 

@@ -400,6 +400,13 @@ public:
 
 	static bool IsDummy(const Key::IDV&);
 
+	struct StatesMmr
+		:public NodeDB::StatesMmr
+	{
+		StatesMmr(NodeProcessor&);
+	};
+
+
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&);

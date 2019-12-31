@@ -369,37 +369,9 @@ namespace beam
 		tr.Commit();
 		tr.Start(db);
 
-		// test proofs
 		NodeDB::StateID sid2;
 		verify_test(CountTips(db, false, &sid2) == 2);
 		verify_test(sid2.m_Height == hMax-1 + Rules::HeightGenesis);
-
-		do
-		{
-			if (sid2.m_Height + 1 < hMax + Rules::HeightGenesis)
-			{
-				Merkle::Hash hv;
-				db.get_PredictedStatesHash(hv, sid2);
-				Merkle::Interpret(hv, hvZero, true);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Rules::HeightGenesis].m_Definition);
-			}
-
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Rules::HeightGenesis].m_Definition;
-
-			for (Height h = Rules::HeightGenesis; h < sid2.m_Height; h++)
-			{
-				Merkle::ProofBuilderStd bld;
-				db.get_Proof(bld, sid2, h);
-
-				Merkle::Hash hv;
-				vStates[h - Rules::HeightGenesis].get_Hash(hv);
-				Merkle::Interpret(hv, bld.m_Proof);
-				Merkle::Interpret(hv, hvZero, true);
-
-				verify_test(hvRoot == hv);
-			}
-
-		} while (db.get_Prev(sid2));
 
 		while (db.get_Prev(sid))
 			;
@@ -413,10 +385,46 @@ namespace beam
 		db.assert_valid();
 		verify_test(CountTips(db, true) == 2);
 
-		for (sid.m_Height = Rules::HeightGenesis; sid.m_Height <= hMax; sid.m_Height++)
+		// test cursor and StatesMmr
+		NodeDB::StatesMmr smmr(db, Rules::HeightGenesis - 1);
+		Merkle::Hash hvRoot(Zero);
+
+		for (sid.m_Height = Rules::HeightGenesis; sid.m_Height < hMax + Rules::HeightGenesis; sid.m_Height++)
 		{
 			sid.m_Row = pRows[sid.m_Height - Rules::HeightGenesis];
 			db.MoveFwd(sid);
+			
+			Merkle::Hash hv;
+			if (sid.m_Height < Rules::HeightGenesis + 50) // skip it for big heights, coz it's quadratic
+			{
+				for (Height h = Rules::HeightGenesis; h < sid.m_Height; h++)
+				{
+					Merkle::ProofBuilderStd bld;
+					smmr.get_Proof(bld, smmr.H2I(h));
+
+					vStates[h - Rules::HeightGenesis].get_Hash(hv);
+					Merkle::Interpret(hv, bld.m_Proof);
+					verify_test(hvRoot == hv);
+				}
+			}
+
+			const Block::SystemState::Full& sTop = vStates[sid.m_Height - Rules::HeightGenesis];
+
+			hv = hvRoot;
+			Merkle::Interpret(hv, hvZero, true);
+			verify_test(hv == sTop.m_Definition);
+
+			sTop.get_Hash(hv);
+			smmr.get_PredictedHash(hvRoot, hv);
+
+			smmr.ResizeByHeight(sid.m_Height + 1, sid.m_Height);
+
+			smmr.Append(hv);
+
+			smmr.get_Hash(hv);
+			verify_test(hv == hvRoot);
+
+
 		}
 
 		tr.Commit();

@@ -1122,9 +1122,6 @@ void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b
 
 	while (true)
 	{
-		if (b)
-			BuildMmr(rowid, rowPrev, h);
-
 		rowPrev = rowid;
 
 		{
@@ -1657,128 +1654,6 @@ void NodeDB::MoveFwd(const StateID& sid)
 	put_Cursor(sid);
 }
 
-struct NodeDB::Dmmr
-	:public Merkle::DistributedMmr
-{
-	NodeDB& m_This;
-	Recordset m_Rs;
-	uint64_t m_RowLast;
-
-	Dmmr(NodeDB& x)
-		:m_This(x)
-		,m_Rs(x)
-		,m_RowLast(0)
-	{}
-
-	void Goto(uint64_t rowid);
-	void get_NodeHashInternal(Merkle::Hash&, Key);
-
-	// DistributedMmr
-	virtual const void* get_NodeData(Key) const override;
-	virtual void get_NodeHash(Merkle::Hash&, Key) const override;
-};
-
-void NodeDB::Dmmr::Goto(uint64_t rowid)
-{
-	if (m_RowLast == rowid)
-		return;
-	m_RowLast = rowid;
-
-	m_Rs.Reset(Query::MmrGet, "SELECT " TblStates_Mmr " FROM " TblStates " WHERE rowid=?");
-	m_Rs.put(0, rowid);
-	m_Rs.StepStrict();
-}
-
-const void* NodeDB::Dmmr::get_NodeData(Key rowid) const
-{
-	Dmmr* pThis = Cast::NotConst(this);
-	pThis->Goto(rowid);
-
-	Blob b;
-	pThis->m_Rs.get(0, b);
-	return b.p;
-}
-
-void NodeDB::Dmmr::get_NodeHash(Merkle::Hash& hv, Key rowid) const
-{
-	Dmmr* pThis = Cast::NotConst(this);
-
-	if (!pThis->m_This.get_Prev(rowid))
-		ThrowInconsistent();
-
-	pThis->get_NodeHashInternal(hv, rowid);
-}
-
-void NodeDB::Dmmr::get_NodeHashInternal(Merkle::Hash& hv, Key rowid)
-{
-	Recordset rs(m_This, Query::HashForHist, "SELECT " TblStates_Hash " FROM " TblStates " WHERE rowid=?");
-	rs.put(0, rowid);
-
-	rs.StepStrict();
-
-	rs.get(0, hv);
-}
-
-void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
-{
-	if (Rules::HeightGenesis == h)
-	{
-		assert(!rowPrev);
-		return;
-	}
-
-	assert((h > Rules::HeightGenesis) && rowPrev && (rowid != rowPrev));
-
-	Dmmr dmmr(*this);
-	dmmr.Goto(rowid);
-
-	if (!dmmr.m_Rs.IsNull(0))
-		return;
-
-	dmmr.m_Count = h - (Rules::HeightGenesis + 1);
-	dmmr.m_kLast = rowPrev;
-
-	Merkle::Hash hv;
-	dmmr.get_NodeHashInternal(hv, rowPrev);
-
-	Blob b;
-	b.n = dmmr.get_NodeSize(dmmr.m_Count);
-	std::unique_ptr<uint8_t[]> pRes(new uint8_t[b.n]);
-	b.p = pRes.get();
-
-	dmmr.Append(rowid, pRes.get(), hv);
-
-	dmmr.m_Rs.Reset();
-
-	Recordset rs(*this, Query::MmrSet, "UPDATE " TblStates " SET " TblStates_Mmr "=? WHERE rowid=?");
-	rs.put(0, b);
-	rs.put(1, rowid);
-	rs.Step();
-	TestChanged1Row();
-}
-
-void NodeDB::get_Proof(Merkle::IProofBuilder& bld, const StateID& sid, Height hPrev)
-{
-	assert((hPrev >= Rules::HeightGenesis) && (hPrev < sid.m_Height));
-
-    Dmmr dmmr(*this);
-    dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;
-    dmmr.m_kLast = sid.m_Row;
-
-    dmmr.get_Proof(bld, hPrev - Rules::HeightGenesis);
-}
-
-void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
-{
-	get_StateHash(sid.m_Row, hv);
-
-    Dmmr dmmr(*this);
-    dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;
-    dmmr.m_kLast = sid.m_Row;
-
-    dmmr.get_PredictedHash(hv, hv);
-}
-
 void NodeDB::InsertEvent(Height h, const Blob& b, const Blob& key)
 {
 	Recordset rs(*this, Query::EventIns, "INSERT INTO " TblEvents "(" TblEvents_Height "," TblEvents_Body "," TblEvents_Key ") VALUES (?,?,?)");
@@ -2225,6 +2100,61 @@ void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
 
 	wlk.m_Rs.StepStrict();
 	wlk.m_Rs.get(0, wlk.m_Value);
+}
+
+NodeDB::StreamMmr::StreamMmr(NodeDB& db, StreamType::Enum eType, bool bStoreH0, uint64_t nCount)
+	:m_DB(db)
+	,m_StoreH0(bStoreH0)
+	,m_eType(eType)
+{
+	m_Count = nCount;
+}
+
+void NodeDB::StreamMmr::Resize(uint64_t n, uint64_t n0)
+{
+	m_DB.StreamResize(m_eType, get_TotalHashes(n, m_StoreH0) * sizeof(Merkle::Hash), get_TotalHashes(n0, m_StoreH0) * sizeof(Merkle::Hash));
+}
+
+void NodeDB::StreamMmr::LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const
+{
+	m_DB.StreamIO(m_eType, Pos2Idx(pos, m_StoreH0) * sizeof(Merkle::Hash), hv.m_pData, hv.nBytes, false);
+}
+
+void NodeDB::StreamMmr::SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos)
+{
+	m_DB.StreamIO(m_eType, Pos2Idx(pos, m_StoreH0) * sizeof(Merkle::Hash), Cast::NotConst(hv.m_pData), hv.nBytes, true);
+}
+
+NodeDB::StatesMmr::StatesMmr(NodeDB& db, Height h)
+	:StreamMmr(db, StreamType::StatesMmr, false, H2I(h))
+{
+}
+
+uint64_t NodeDB::StatesMmr::H2I(Height h)
+{
+	return (h <= Rules::HeightGenesis) ? 0 : (h - Rules::HeightGenesis);
+}
+
+void NodeDB::StatesMmr::ResizeByHeight(Height h, Height h0)
+{
+	Resize(H2I(h), H2I(h0));
+}
+
+void NodeDB::StatesMmr::LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const
+{
+	if (pos.H)
+		StreamMmr::LoadElement(hv, pos);
+	else
+	{
+		uint64_t row = m_DB.FindActiveStateStrict(pos.X + Rules::HeightGenesis);
+		m_DB.get_StateHash(row, hv);
+	}
+}
+
+void NodeDB::StatesMmr::SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos)
+{
+	if (pos.H)
+		StreamMmr::SaveElement(hv, pos);
 }
 
 const uint32_t NodeDB::s_StreamBlob = 1024*1024; // arbitrary, but should not be changed after DB is created

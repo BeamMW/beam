@@ -2950,7 +2950,10 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height 
     assert(h < m_Cursor.m_Sid.m_Height);
 
     Merkle::ProofBuilderHard bld;
-    get_DB().get_Proof(bld, m_Cursor.m_Sid, h);
+
+    StatesMmr smmr(*this);
+    smmr.get_Proof(bld, smmr.H2I(h));
+
     proof.swap(bld.m_Proof);
 
     proof.resize(proof.size() + 1);
@@ -3110,7 +3113,12 @@ bool Node::Processor::BuildCwp()
         :public Block::ChainWorkProof::ISource
     {
         Processor& m_Proc;
-        Source(Processor& proc) :m_Proc(proc) {}
+        StatesMmr m_Smmr;
+
+        Source(Processor& proc)
+            :m_Proc(proc)
+            ,m_Smmr(proc)
+        {}
 
         virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
         {
@@ -3120,8 +3128,7 @@ bool Node::Processor::BuildCwp()
 
         virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
         {
-            const NodeDB::StateID& sid = m_Proc.m_Cursor.m_Sid;
-            m_Proc.get_DB().get_Proof(bld, sid, h);
+            m_Smmr.get_Proof(bld, m_Smmr.H2I(h));
         }
     };
 
