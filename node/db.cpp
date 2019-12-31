@@ -2111,6 +2111,12 @@ NodeDB::StreamMmr::StreamMmr(NodeDB& db, StreamType::Enum eType, bool bStoreH0, 
 	,m_eType(eType)
 {
 	m_Count = nCount;
+
+	for (size_t i = 0; i < _countof(m_pCache); i++)
+		m_pCache[i].m_X = static_cast<uint64_t>(-1);
+
+	m_LastOut.m_Pos.H = Merkle::Position::HMax;
+	m_LastOut.m_Pos.X = static_cast<uint64_t>(-1);
 }
 
 void NodeDB::StreamMmr::Resize(uint64_t n, uint64_t n0)
@@ -2120,12 +2126,57 @@ void NodeDB::StreamMmr::Resize(uint64_t n, uint64_t n0)
 
 void NodeDB::StreamMmr::LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const
 {
+	if (CacheFind(hv, pos))
+		return;
+
 	m_DB.StreamIO(m_eType, Pos2Idx(pos, m_StoreH0) * sizeof(Merkle::Hash), hv.m_pData, hv.nBytes, false);
+	Cast::NotConst(this)->CacheAdd(hv, pos);
 }
 
 void NodeDB::StreamMmr::SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos)
 {
 	m_DB.StreamIO(m_eType, Pos2Idx(pos, m_StoreH0) * sizeof(Merkle::Hash), Cast::NotConst(hv.m_pData), hv.nBytes, true);
+	CacheAdd(hv, pos);
+}
+
+bool NodeDB::StreamMmr::CacheFind(Merkle::Hash& hv, const Merkle::Position& pos) const
+{
+	// Note: ALWAYS test the main cache BEFORE m_LastOut, coz that element could already be overwritten
+	if (pos.H < _countof(m_pCache)) // 'if' is needed only if we decide to reduce the cache size
+	{
+		const CacheEntry& ce = m_pCache[pos.H];
+		if (ce.m_X == pos.X)
+		{
+			hv = ce.m_Value;
+			return true;
+		}
+	}
+
+	if ((m_LastOut.m_Pos.H == pos.H) && (m_LastOut.m_Pos.X == pos.X))
+	{
+		hv = m_LastOut.m_Value;
+		return true;
+	}
+
+	return false;
+}
+
+void NodeDB::StreamMmr::CacheAdd(const Merkle::Hash& hv, const Merkle::Position& pos)
+{
+	if (pos.H < _countof(m_pCache)) // 'if' is needed only if we decide to reduce the cache size
+	{
+		CacheEntry& ce = m_pCache[pos.H];
+
+		if ((m_LastOut.m_Pos.H != pos.H) || (m_LastOut.m_Pos.X != ce.m_X))
+		{
+			m_LastOut.m_Pos.X = ce.m_X;
+			m_LastOut.m_Pos.H = pos.H;
+			m_LastOut.m_Value = ce.m_Value;
+		}
+
+		ce.m_Value = hv;
+		ce.m_X = pos.X;
+	}
 }
 
 NodeDB::StatesMmr::StatesMmr(NodeDB& db, Height h)
@@ -2148,7 +2199,13 @@ void NodeDB::StatesMmr::LoadElement(Merkle::Hash& hv, const Merkle::Position& po
 	if (pos.H)
 		StreamMmr::LoadElement(hv, pos);
 	else
+	{
+		if (CacheFind(hv, pos))
+			return;
+
 		LoadStateHash(hv, pos.X + Rules::HeightGenesis);
+		Cast::NotConst(this)->CacheAdd(hv, pos);
+	}
 }
 
 void NodeDB::StatesMmr::LoadStateHash(Merkle::Hash& hv, Height h) const
@@ -2161,6 +2218,8 @@ void NodeDB::StatesMmr::SaveElement(const Merkle::Hash& hv, const Merkle::Positi
 {
 	if (pos.H)
 		StreamMmr::SaveElement(hv, pos);
+	else
+		CacheAdd(hv, pos);
 }
 
 const uint32_t NodeDB::s_StreamBlob = 1024*1024; // arbitrary, but should not be changed after DB is created

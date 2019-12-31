@@ -299,6 +299,11 @@ void NodeProcessor::SaveSyncData()
 		m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, nullptr);
 }
 
+NodeProcessor::NodeProcessor()
+	:m_StatesMmr(m_DB, 0)
+{
+}
+
 NodeProcessor::~NodeProcessor()
 {
 	if (m_DbTx.IsInProgress())
@@ -357,11 +362,6 @@ void NodeProcessor::CommitDB()
 	}
 }
 
-NodeProcessor::StatesMmr::StatesMmr(NodeProcessor& np)
-	:NodeDB::StatesMmr(np.get_DB(),  np.m_Cursor.m_ID.m_Height)
-{
-}
-
 void NodeProcessor::InitCursor()
 {
 	if (m_DB.get_Cursor(m_Cursor.m_Sid))
@@ -369,12 +369,13 @@ void NodeProcessor::InitCursor()
 		m_DB.get_State(m_Cursor.m_Sid.m_Row, m_Cursor.m_Full);
 		m_Cursor.m_Full.get_ID(m_Cursor.m_ID);
 
-		StatesMmr smmr(*this);
-		smmr.get_Hash(m_Cursor.m_History);
-		smmr.get_PredictedHash(m_Cursor.m_HistoryNext, m_Cursor.m_ID.m_Hash);
+		m_StatesMmr.m_Count = m_Cursor.m_ID.m_Height - Rules::HeightGenesis;
+		m_StatesMmr.get_Hash(m_Cursor.m_History);
+		m_StatesMmr.get_PredictedHash(m_Cursor.m_HistoryNext, m_Cursor.m_ID.m_Hash);
 	}
 	else
 	{
+		m_StatesMmr.m_Count = 0;
 		ZeroObject(m_Cursor);
 		m_Cursor.m_ID.m_Hash = Rules::get().Prehistoric;
 	}
@@ -1381,17 +1382,14 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 			break;
 		}
 
-		{
-			// Update mmr and cursor
-			StatesMmr smmr(*this);
-			smmr.ResizeByHeight(sidFwd.m_Height, sidFwd.m_Height - 1);
+		// Update mmr and cursor
+		m_StatesMmr.ResizeByHeight(sidFwd.m_Height, sidFwd.m_Height - 1);
 
-			if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
-				smmr.Append(m_Cursor.m_ID.m_Hash);
+		if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+			m_StatesMmr.Append(m_Cursor.m_ID.m_Hash);
 
-			m_DB.MoveFwd(sidFwd);
-			InitCursor();
-		}
+		m_DB.MoveFwd(sidFwd);
+		InitCursor();
 
 		if (IsFastSync())
 			m_DB.DelStateBlockPP(sidFwd.m_Row); // save space
@@ -3024,10 +3022,7 @@ void NodeProcessor::RollbackTo(Height h)
 
 	m_RecentStates.RollbackTo(h);
 
-	{
-		StatesMmr smmr(*this);
-		smmr.ResizeByHeight(m_Cursor.m_Sid.m_Height, hPrev);
-	}
+	m_StatesMmr.ResizeByHeight(m_Cursor.m_Sid.m_Height, hPrev);
 
 	InitCursor();
 	OnRolledBack();

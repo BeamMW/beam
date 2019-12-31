@@ -2951,8 +2951,7 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height 
 
     Merkle::ProofBuilderHard bld;
 
-    StatesMmr smmr(*this);
-    smmr.get_Proof(bld, smmr.H2I(h));
+    m_StatesMmr.get_Proof(bld, m_StatesMmr.H2I(h));
 
     proof.swap(bld.m_Proof);
 
@@ -3113,11 +3112,9 @@ bool Node::Processor::BuildCwp()
         :public Block::ChainWorkProof::ISource
     {
         Processor& m_Proc;
-        StatesMmr m_Smmr;
 
         Source(Processor& proc)
             :m_Proc(proc)
-            ,m_Smmr(proc)
         {}
 
         virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
@@ -3128,7 +3125,7 @@ bool Node::Processor::BuildCwp()
 
         virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
         {
-            m_Smmr.get_Proof(bld, m_Smmr.H2I(h));
+            m_Proc.m_StatesMmr.get_Proof(bld, m_Proc.m_StatesMmr.H2I(h));
         }
     };
 

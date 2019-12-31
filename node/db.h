@@ -515,6 +515,25 @@ public:
 		// Mmr
 		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override;
 		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override;
+
+		struct CacheEntry
+		{
+			Merkle::Hash m_Value;
+			uint64_t m_X;
+		};
+
+		// Simple cache, optimized for sequential add and root calculation
+		CacheEntry m_pCache[64];
+
+		// last popped element
+		struct
+		{
+			Merkle::Hash m_Value;
+			Merkle::Position m_Pos;
+		} m_LastOut;
+
+		bool CacheFind(Merkle::Hash& hv, const Merkle::Position& pos) const;
+		void CacheAdd(const Merkle::Hash& hv, const Merkle::Position& pos);
 	};
 
 	class StatesMmr

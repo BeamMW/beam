@@ -26,6 +26,8 @@ namespace Merkle {
 	struct Position {
 		uint8_t H;
 		uint64_t X;
+
+		static const uint8_t HMax = sizeof(X) * 8;
 	};
 
 	struct IProofBuilder {

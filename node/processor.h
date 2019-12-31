@@ -172,6 +172,7 @@ public:
 
 	static void get_UtxoMappingPath(std::string&, const char*);
 
+	NodeProcessor();
 	virtual ~NodeProcessor();
 
 	struct Horizon {
@@ -400,12 +401,7 @@ public:
 
 	static bool IsDummy(const Key::IDV&);
 
-	struct StatesMmr
-		:public NodeDB::StatesMmr
-	{
-		StatesMmr(NodeProcessor&);
-	};
-
+	NodeDB::StatesMmr m_StatesMmr;
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
