@@ -3060,7 +3060,9 @@ void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
 	proto::ProofShieldedTxo msgOut;
 
 	Processor& p = m_This.m_Processor;
-	if (!p.IsFastSync())
+    msgOut.m_Total = p.m_ShieldedMmr.m_Count;
+
+    if (!p.IsFastSync())
 	{
         if (msg.m_SerialPub.m_Y > 1)
             ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
@@ -3074,15 +3076,16 @@ void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
             msgOut.m_Commitment = sop.m_Commitment;
             sop.m_TxoID.Export(msgOut.m_ID);
 
-            p.m_ShieldedMmr.get_Proof(msgOut.m_Proof, msgOut.m_ID);
+            Merkle::ProofBuilderHard bld;
+            p.m_ShieldedMmr.get_Proof(bld, msgOut.m_ID);
+
+            msgOut.m_Proof.swap(bld.m_Proof);
 
             msgOut.m_Proof.emplace_back();
-            msgOut.m_Proof.back().first = false;
-            p.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
+            p.get_Utxos().get_Hash(msgOut.m_Proof.back());
 
             msgOut.m_Proof.emplace_back();
-            msgOut.m_Proof.back().first = false;
-            msgOut.m_Proof.back().second = p.m_Cursor.m_History;
+            msgOut.m_Proof.back() = p.m_Cursor.m_History;
         }
 	}
 

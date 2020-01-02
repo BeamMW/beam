@@ -742,7 +742,7 @@ namespace beam
 
 					// The following not only interprets the proof, but also verifies the knwon part of its structure.
 					bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
-					bool IsValidProofShieldedTxo(const ShieldedTxo::Description&, const Merkle::Proof&) const;
+					bool IsValidProofShieldedTxo(const ShieldedTxo::Description&, const Merkle::HardProof&, TxoID nTotal) const;
 
 				private:
 					bool IsValidProofToDefinition(Merkle::Hash&, const Merkle::Proof&) const;

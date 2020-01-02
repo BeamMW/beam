@@ -1811,7 +1811,7 @@ namespace beam
 				d.m_Commitment = msg.m_Commitment;
 				d.m_ID = msg.m_ID;
 
-				verify_test(m_vStates.back().IsValidProofShieldedTxo(d, msg.m_Proof));
+				verify_test(m_vStates.back().IsValidProofShieldedTxo(d, msg.m_Proof, msg.m_Total));
 				m_Shielded.m_Confirmed = msg.m_ID;
 
 				m_Shielded.m_N = m_Shielded.m_Cfg.get_N();

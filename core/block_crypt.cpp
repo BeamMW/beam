@@ -1665,16 +1665,17 @@ namespace beam
 			>> hv;
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofShieldedTxo(const ShieldedTxo::Description& d, const Merkle::Proof& p) const
+	bool Block::SystemState::Sequence::Element::IsValidProofShieldedTxo(const ShieldedTxo::Description& d, const Merkle::HardProof& p, TxoID nTotal) const
 	{
-		// verify known part. Last node (history) should be at left. Before last (Utxos) should be at left.
-		if ((p.size() < 2) || p.back().first || p[p.size() - 2].first)
-			return false;
+		Merkle::HardVerifier hver(p);
+		d.get_Hash(hver.m_hv);
 
-		Merkle::Hash hv;
-		d.get_Hash(hv);
-
-		return IsValidProofToDefinition(hv, p);
+		return
+			hver.InterpretMmr(d.m_ID, nTotal) &&
+			hver.InterpretOnce(false) &&
+			hver.InterpretOnce(false) &&
+			hver.IsEnd() &&
+			(hver.m_hv == m_Definition);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const
