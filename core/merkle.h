@@ -91,10 +91,23 @@ namespace Merkle {
 		void get_Proof(Proof&, uint64_t i) const;
 
 	protected:
+		bool get_ProofInternal(IProofBuilder&, uint64_t i, bool bIgnoreHashes) const;
 		bool get_HashForRange(Hash&, uint64_t n0, uint64_t n) const;
 
 		virtual void LoadElement(Hash&, const Position&) const = 0;
 		virtual void SaveElement(const Hash&, const Position&) = 0;
+	};
+
+	// Doesn't store elements. Used only to deduce proof path
+	struct PathCaclulator
+		:public Mmr
+		,private IProofBuilder
+	{
+		bool InterpretPath(uint64_t i);
+
+	protected:
+		virtual void LoadElement(Hash&, const Position&) const override;
+		virtual void SaveElement(const Hash&, const Position&) override;
 	};
 
 	struct DistributedMmr
@@ -223,8 +236,7 @@ namespace Merkle {
 		};
 
 		class Verifier
-			:private IProofBuilder
-			,private Mmr
+			:private PathCaclulator
 		{
 			struct MyNode {
 				Hash m_hv; // correct value at this position
@@ -237,8 +249,6 @@ namespace Merkle {
 			std::vector<MyNode> m_vLastRev;
 
 			virtual bool AppendNode(const Node& n, const Position& pos) override;
-			virtual void LoadElement(Hash&, const Position&) const override {}
-			virtual void SaveElement(const Hash&, const Position&) override {}
 
 			virtual bool IsRootValid(const Hash&) = 0;
 
