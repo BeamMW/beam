@@ -2363,15 +2363,11 @@ bool NodeDB::UniqueInsertSafe(const Blob& key, const Blob* pVal)
 	return rs.StepModifySafe();
 }
 
-bool NodeDB::UniqueFind(const Blob& key, Recordset& rs, Blob& val)
+bool NodeDB::UniqueFind(const Blob& key, Recordset& rs)
 {
 	rs.Reset(*this, Query::UniqueFind, "SELECT " TblUnique_Value " FROM " TblUnique " WHERE " TblUnique_Key "=?");
 	rs.put(0, key);
-	if (!rs.Step())
-		return false;
-
-	rs.get(1, val);
-	return true;
+	return rs.Step();
 }
 
 void NodeDB::UniqueDeleteStrict(const Blob& key)

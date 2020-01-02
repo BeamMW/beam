@@ -1805,14 +1805,6 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	return h;
 }
 
-#pragma pack (push, 1)
-struct NodeProcessor::ShieldedOutpPacked
-{
-	uintBigFor<TxoID>::Type m_TxoID;
-	ECC::Point m_Commitment;
-};
-#pragma pack (pop)
-
 struct NodeProcessor::BlockInterpretCtx
 {
 	Height m_Height;
@@ -2931,8 +2923,7 @@ bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
 		return false;
 
 	NodeDB::Recordset rs;
-	Blob blob;
-	if (m_DB.UniqueFind(key, rs, blob))
+	if (m_DB.UniqueFind(key, rs))
 		return false;
 
 	BlobItem* pItem = new (key.n) BlobItem;

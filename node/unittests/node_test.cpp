@@ -1808,7 +1808,12 @@ namespace beam
 				if (msg.m_Proof.empty())
 					return;
 
-				verify_test(m_vStates.back().IsValidProofShieldedTxo(m_Shielded.m_Commitment, msg.m_ID, msg.m_Proof));
+				ShieldedTxo::Description d;
+				d.m_SerialPub = m_Shielded.m_Commitment;
+				d.m_Commitment = msg.m_Commitment;
+				d.m_ID = msg.m_ID;
+
+				verify_test(m_vStates.back().IsValidProofShieldedTxo(d, msg.m_Proof));
 				m_Shielded.m_Confirmed = msg.m_ID;
 
 				m_Shielded.m_N = m_Shielded.m_Cfg.get_N();
@@ -1878,7 +1883,7 @@ namespace beam
 				if (!m_Shielded.m_Withdrew && m_Shielded.m_Sent && (msg.m_Description.m_Height - m_Shielded.m_Sent >= 5))
 				{
 					proto::GetProofShieldedTxo msgOut;
-					msgOut.m_Commitment = m_Shielded.m_Commitment;
+					msgOut.m_SerialPub = m_Shielded.m_Commitment;
 					Send(msgOut);
 
 					m_Shielded.m_Withdrew = true;

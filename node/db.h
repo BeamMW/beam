@@ -552,7 +552,7 @@ public:
 	};
 
 	bool UniqueInsertSafe(const Blob& key, const Blob* pVal); // returns false if not unique (and doesn't update the value)
-	bool UniqueFind(const Blob& key, Recordset&, Blob& val);
+	bool UniqueFind(const Blob& key, Recordset&);
 	void UniqueDeleteStrict(const Blob& key);
 
 private:
