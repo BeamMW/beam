@@ -1805,6 +1805,14 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	return h;
 }
 
+#pragma pack (push, 1)
+struct NodeProcessor::ShieldedOutpPacked
+{
+	uintBigFor<TxoID>::Type m_TxoID;
+	ECC::Point m_Commitment;
+};
+#pragma pack (pop)
+
 struct NodeProcessor::BlockInterpretCtx
 {
 	Height m_Height;
@@ -2475,6 +2483,8 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
 {
 	const ECC::Point& key = krn.m_Txo.m_Serial.m_SerialPub;
+	Blob blobKey(&key, sizeof(key));
+
 	if (bic.m_Fwd)
 	{
 		if (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts)
@@ -2482,16 +2492,18 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 
 		if (bic.m_ValidateOnly)
 		{
-			if (!ValidateShieldedNoDup(key, true))
-				return false;
-
-			Blob blobKey(&key, sizeof(key));
 			if (!ValidateUniqueNoDup(bic, blobKey))
 				return false;
 		}
 		else
 		{
-			if (!HandleShieldedElement(key, true, true))
+			ShieldedOutpPacked sop;
+			sop.m_TxoID = m_Extra.m_Shielded;
+			sop.m_Commitment = krn.m_Txo.m_Commitment;
+
+			Blob blobVal(&sop, sizeof(sop));
+
+			if (!m_DB.UniqueInsertSafe(blobKey, &blobVal))
 				return false;
 
 			if (bic.m_pShieldedOut)
@@ -2504,6 +2516,8 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 				ECC::Point::Storage pt_s;
 				pt.Export(bic.m_pShieldedOut[bic.m_ShieldedOuts]);
 			}
+
+			m_Extra.m_Shielded++;
 		}
 
 		bic.m_ShieldedOuts++; // ok
@@ -2513,8 +2527,8 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 	{
 		assert(!bic.m_ValidateOnly);
 
-		if (!HandleShieldedElement(key, true, false))
-			OnCorrupted();
+		m_DB.UniqueDeleteStrict(blobKey);
+		m_Extra.m_Shielded--;
 
 		assert(bic.m_ShieldedOuts);
 		bic.m_ShieldedOuts--;
@@ -2525,7 +2539,10 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 
 bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpretCtx& bic)
 {
-	const ECC::Point& key = krn.m_SpendProof.m_SpendPk;
+	ECC::Point key = krn.m_SpendProof.m_SpendPk;
+	key.m_Y |= 2;
+	Blob blobKey(&key, sizeof(key));
+
 	if (bic.m_Fwd)
 	{
 		if (!bic.m_AlreadyValidated)
@@ -2539,19 +2556,12 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 
 		if (bic.m_ValidateOnly)
 		{
-			if (!ValidateShieldedNoDup(key, false))
-				return false;
-
-			ECC::Point key2 = key;
-			key2.m_Y ^= 2;
-
-			Blob blobKey(&key2, sizeof(key2));
 			if (!ValidateUniqueNoDup(bic, blobKey))
 				return false;
 		}
 		else
 		{
-			if (!HandleShieldedElement(key, false, true))
+			if (!m_DB.UniqueInsertSafe(blobKey, nullptr))
 				return false;
 		}
 
@@ -2562,8 +2572,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 	{
 		assert(!bic.m_ValidateOnly);
 
-		if (!HandleShieldedElement(key, false, false))
-			OnCorrupted();
+		m_DB.UniqueDeleteStrict(blobKey);
 
 		assert(bic.m_ShieldedIns);
 		bic.m_ShieldedIns--;
@@ -2903,56 +2912,6 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 	return true;
 }
 
-bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bool bFwd)
-{
-	UtxoTree::Key key;
-	key.SetShielded(comm, bOutp);
-
-	m_Utxos.EnsureReserve();
-
-	UtxoTree::Cursor cu;
-	bool bCreate = true;
-	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
-
-	cu.InvalidateElement();
-	m_Utxos.OnDirty();
-
-	if (bFwd)
-	{
-		if (!bCreate)
-			return false; // duplicates are not allowed
-
-		if (bOutp)
-		{
-			p->m_ID = m_Extra.m_Shielded;
-			m_Extra.m_Shielded++;
-		}
-		else
-			p->m_ID = 0; // not used
-	}
-	else
-	{
-		assert(!bCreate && !p->IsExt());
-		m_Utxos.Delete(cu);
-
-		if (bOutp)
-			m_Extra.m_Shielded--;
-	}
-
-	return true;
-}
-
-bool NodeProcessor::ValidateShieldedNoDup(const ECC::Point& comm, bool bOutp)
-{
-	UtxoTree::Key key;
-	key.SetShielded(comm, bOutp);
-
-	UtxoTree::Cursor cu;
-	bool bCreate = false;
-	
-	return !m_Utxos.Find(cu, key, bCreate);
-}
-
 bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
 {
 	assert(bic.m_pDups);
@@ -2969,6 +2928,11 @@ bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
 	};
 
 	if (bic.m_pDups->end() != bic.m_pDups->find(key, Comparator()))
+		return false;
+
+	NodeDB::Recordset rs;
+	Blob blob;
+	if (m_DB.UniqueFind(key, rs, blob))
 		return false;
 
 	BlobItem* pItem = new (key.n) BlobItem;
@@ -3968,41 +3932,6 @@ void NodeProcessor::InitializeUtxos()
 	Walker wlk(*this);
 	wlk.m_TxosTotal = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 	EnumTxos(wlk);
-
-	// shielded items
-	Height h0 = Rules::get().pForks[2].m_Height;
-	if (m_Cursor.m_Sid.m_Height >= h0)
-	{
-		TxoID nShielded = m_Extra.m_Shielded;
-		m_Extra.m_Shielded = 0;
-
-		ByteBuffer bbE;
-		TxVectors::Eternal txve;
-
-		while (true)
-		{
-			uint64_t row = FindActiveAtStrict(h0);
-			m_DB.GetStateBlock(row, nullptr, &bbE);
-
-			Deserializer der;
-			der.reset(bbE);
-			der & txve;
-
-			BlockInterpretCtx bic(h0, true);
-			bic.m_AlreadyValidated = true;
-			bic.m_SaveKid = false;
-
-			size_t n = 0;
-			if (!HandleElementVecFwd(txve.m_vKernels, bic, n))
-				OnCorrupted();
-
-			if (++h0 > m_Cursor.m_Sid.m_Height)
-				break;
-		}
-
-		if (m_Extra.m_Shielded != nShielded)
-			OnCorrupted();
-	}
 }
 
 bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive)

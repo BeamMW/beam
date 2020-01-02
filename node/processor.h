@@ -67,7 +67,6 @@ class NodeProcessor
 	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
-	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, Height, Key::IPKdf&);
@@ -84,6 +83,7 @@ class NodeProcessor
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, std::vector<TxKernel::Ptr>&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
 	struct KrnFlyMmr;
+	struct ShieldedOutpPacked;
 
 	static const uint32_t s_TxoNakedMin = sizeof(ECC::Point); // minimal output size - commitment
 	static const uint32_t s_TxoNakedMax = s_TxoNakedMin + 0x10; // In case the output has the Incubation period - extra size is needed (actually less than this).
@@ -311,7 +311,6 @@ public:
 	bool ValidateTxContext(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
 	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob&);
-	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
 
 	bool IsShieldedInPool(const Transaction&);
 	bool IsShieldedInPool(const TxKernelShieldedInput&);
