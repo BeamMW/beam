@@ -1159,7 +1159,7 @@ bool Node::Bbs::IsInLimits() const
 void Node::Bbs::Cleanup()
 {
 	NodeDB& db = get_ParentObj().m_Processor.get_DB();
-	NodeDB::WalkerBbsTimeLen wlk(db);
+	NodeDB::WalkerBbsTimeLen wlk;
 
 	Timestamp ts = getTimestamp() - get_ParentObj().m_Cfg.m_Bbs.m_MessageTimeout_s;
 
@@ -1779,7 +1779,7 @@ void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 		{
 			sid.m_Height = msg.m_Top.m_Height;
 
-			NodeDB::WalkerSystemState wlk(db);
+			NodeDB::WalkerSystemState wlk;
 			for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
 			{
 				if (msgOut.m_vElements.empty())
@@ -2844,7 +2844,7 @@ void Node::Peer::BroadcastBbs()
 	size_t nExtra = 0;
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-	NodeDB::WalkerBbsLite wlk(db);
+	NodeDB::WalkerBbsLite wlk;
 
 	wlk.m_ID = m_CursorBbs;
 	for (db.EnumAllBbsSeq(wlk); wlk.MoveNext(); )
@@ -3199,7 +3199,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
         return; // don't allow too much out-of-order messages
 
     NodeDB& db = m_This.m_Processor.get_DB();
-    NodeDB::WalkerBbs wlk(db);
+    NodeDB::WalkerBbs wlk;
 
     wlk.m_Data.m_Channel = msg.m_Channel;
     wlk.m_Data.m_TimePosted = msg.m_TimePosted;
@@ -3285,7 +3285,7 @@ void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 		ThrowUnexpected();
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-    NodeDB::WalkerBbs wlk(db);
+    NodeDB::WalkerBbs wlk;
 
     wlk.m_Data.m_Key = msg.m_Key;
     if (!db.BbsFind(wlk))
@@ -3340,7 +3340,7 @@ void Node::Peer::BroadcastBbs(Bbs::Subscription& s)
 		return;
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-	NodeDB::WalkerBbs wlk(db);
+	NodeDB::WalkerBbs wlk;
 
 	wlk.m_Data.m_Channel = s.m_Peer.m_Channel;
 	wlk.m_ID = s.m_Cursor;
@@ -3372,7 +3372,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
     {
 		Processor& p = m_This.m_Processor;
 		NodeDB& db = p.get_DB();
-        NodeDB::WalkerEvent wlk(db);
+        NodeDB::WalkerEvent wlk;
 
         Height hLast = 0;
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
@@ -4092,7 +4092,7 @@ void Node::PeerMan::Initialize()
     m_pTimerFlush->start(cfg.m_Timeout.m_PeersDbFlush_ms, true, [this]() { OnFlush(); });
 
     {
-        NodeDB::WalkerPeer wlk(get_ParentObj().m_Processor.get_DB());
+        NodeDB::WalkerPeer wlk;
         for (get_ParentObj().m_Processor.get_DB().EnumPeers(wlk); wlk.MoveNext(); )
         {
             if (wlk.m_Data.m_ID == get_ParentObj().m_MyPublicID)
@@ -4220,7 +4220,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
 		void OnUtxo(const UtxoTree::Key::Data& d, TxoID id)
 		{
-			NodeDB::WalkerTxo wlk(*m_pDB);
+			NodeDB::WalkerTxo wlk;
 			m_pDB->TxoGetValue(wlk, id);
 
 			Deserializer der;
@@ -4293,7 +4293,7 @@ void Node::PrintTxos()
     if (m_Processor.m_Extra.m_TxoHi >= Rules::HeightGenesis)
         os << "Note: Cut-through up to Height=" << m_Processor.m_Extra.m_TxoHi << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
 
-    NodeDB::WalkerEvent wlk(m_Processor.get_DB());
+    NodeDB::WalkerEvent wlk;
     for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
     {
         typedef NodeProcessor::UtxoEvent UE;

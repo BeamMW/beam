@@ -200,7 +200,7 @@ namespace beam
 	{
 		uint32_t nTips = 0;
 
-		NodeDB::WalkerState ws(db);
+		NodeDB::WalkerState ws;
 
 		if (bFunctional)
 			db.EnumFunctionalTips(ws);
@@ -473,7 +473,7 @@ namespace beam
 			db.PeerIns(d);
 		}
 
-		NodeDB::WalkerPeer wlkp(db);
+		NodeDB::WalkerPeer wlkp;
 		for (db.EnumPeers(wlkp); wlkp.MoveNext(); )
 			;
 
@@ -496,7 +496,7 @@ namespace beam
 			db.BbsIns(dBbs);
 		}
 
-		NodeDB::WalkerBbs wlkbbs(db);
+		NodeDB::WalkerBbs wlkbbs;
 		wlkbbs.m_Data = dBbs;
 		verify_test(db.BbsFind(wlkbbs));
 

@@ -437,7 +437,7 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 	CongestionCache::TipCongestion* pMaxTarget = nullptr;
 
 	// Find all potentially missing data
-	NodeDB::WalkerState ws(m_DB);
+	NodeDB::WalkerState ws;
 	for (m_DB.EnumTips(ws); ws.MoveNext(); )
 	{
 		NodeDB::StateID& sid = ws.m_Sid; // alias
@@ -1310,7 +1310,7 @@ void NodeProcessor::TryGoUp()
 		NodeDB::StateID sidTrg;
 
 		{
-			NodeDB::WalkerState ws(m_DB);
+			NodeDB::WalkerState ws;
 			m_DB.EnumFunctionalTips(ws);
 
 			if (!ws.MoveNext())
@@ -1454,7 +1454,7 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 
 	{
 		// ensure no reduced UTXOs are left
-		NodeDB::WalkerTxo wlk(m_DB);
+		NodeDB::WalkerTxo wlk;
 		for (m_DB.EnumTxos(wlk, mbc.m_id0); wlk.MoveNext(); )
 		{
 			if (wlk.m_SpendHeight != MaxHeight)
@@ -1558,7 +1558,7 @@ Height NodeProcessor::PruneOld()
 		{
 			uint64_t rowid;
 			{
-				NodeDB::WalkerState ws(m_DB);
+				NodeDB::WalkerState ws;
 				m_DB.EnumTips(ws);
 				if (!ws.MoveNext())
 					break;
@@ -1601,7 +1601,7 @@ Height NodeProcessor::RaiseFossil(Height hTrg)
 	{
 		m_Extra.m_Fossil++;
 
-		NodeDB::WalkerState ws(m_DB);
+		NodeDB::WalkerState ws;
 		for (m_DB.EnumStatesAt(ws, m_Extra.m_Fossil); ws.MoveNext(); )
 		{
 			if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
@@ -1666,7 +1666,7 @@ Height NodeProcessor::RaiseTxoHi(Height hTrg)
 	Height hRet = 0;
 	std::vector<NodeDB::StateInput> v;
 
-	NodeDB::WalkerTxo wlk(m_DB);
+	NodeDB::WalkerTxo wlk;
 
 	while (m_Extra.m_TxoHi < hTrg)
 	{
@@ -2148,7 +2148,7 @@ void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
 
 void NodeProcessor::Recognize(const Input& x, Height h)
 {
-	NodeDB::WalkerEvent wlk(m_DB);
+	NodeDB::WalkerEvent wlk;
 
 	const UtxoEvent::Key& key = x.m_Commitment;
 	m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
@@ -2171,7 +2171,7 @@ void NodeProcessor::Recognize(const Input& x, Height h)
 
 void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
 {
-	NodeDB::WalkerEvent wlk(m_DB);
+	NodeDB::WalkerEvent wlk;
 
 	ECC::Point pt = x.m_SpendProof.m_SpendPk;
 	static_assert(proto::UtxoEvent::Flags::Shielded != 1); // 1 is used in the point itself
@@ -2913,7 +2913,7 @@ void NodeProcessor::ToInputWithMaturity(Input& inp, TxoID id)
 	// NodeDB::StateInput doesn't contain the maturity of the spent UTXO. Hence we reconstruct it
 	// We find the original UTXO height, and then decode the UTXO body, and check its additional maturity factors (coinbase, incubation)
 
-	NodeDB::WalkerTxo wlk(m_DB);
+	NodeDB::WalkerTxo wlk;
 	m_DB.TxoGetValue(wlk, id);
 
 	uint8_t pNaked[s_TxoNakedMax];
@@ -3792,7 +3792,7 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 	TxoID id1 = get_TxosBefore(hr.m_Min);
 	Height h = hr.m_Min - 1; // don't care about overflow
 
-	NodeDB::WalkerTxo wlk(m_DB);
+	NodeDB::WalkerTxo wlk;
 	for (m_DB.EnumTxos(wlk, id1);  wlk.MoveNext(); )
 	{
 		if (wlk.m_ID >= id1)
@@ -4062,7 +4062,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 	if (pBody)
 		pBody->m_vOutputs.reserve(static_cast<size_t>(id1 - id0 - 1)); // num of original outputs
 
-	NodeDB::WalkerTxo wlk(m_DB);
+	NodeDB::WalkerTxo wlk;
 	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
 	{
 		if (wlk.m_ID >= id1)

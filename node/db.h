@@ -194,16 +194,18 @@ public:
 	class Recordset
 	{
 		sqlite3_stmt* m_pStmt;
+		NodeDB* m_pDB;
+
+		void InitInternal(NodeDB&, Query::Enum, const char*);
+
 	public:
 
-		NodeDB & m_DB;
-
-		Recordset(NodeDB&);
+		Recordset();
 		Recordset(NodeDB&, Query::Enum, const char*);
 		~Recordset();
 
 		void Reset();
-		void Reset(Query::Enum, const char*);
+		void Reset(NodeDB&, Query::Enum, const char*);
 
 		// Perform the query step. SELECT only: returns true while there're rows to read
 		bool Step();
@@ -306,7 +308,6 @@ public:
 		Recordset m_Rs;
 		StateID m_Sid;
 
-		WalkerState(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -359,7 +360,6 @@ public:
 		Blob m_Body;
 		Blob m_Key;
 
-		WalkerEvent(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -377,7 +377,6 @@ public:
 			Timestamp m_LastSeen;
 		} m_Data;
 
-		WalkerPeer(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -400,7 +399,6 @@ public:
 			uint32_t m_Nonce;
 		} m_Data;
 
-		WalkerBbs(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -429,7 +427,6 @@ public:
 		Key m_Key;
 		uint32_t m_Size;
 
-		WalkerBbsLite(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -442,7 +439,6 @@ public:
 		Timestamp m_Time;
 		uint32_t m_Size;
 
-		WalkerBbsTimeLen(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -479,7 +475,6 @@ public:
 		Blob m_Value;
 		Height m_SpendHeight;
 
-		WalkerTxo(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -497,7 +492,6 @@ public:
 		uint64_t m_RowTrg;
 		Block::SystemState::Full m_State;
 
-		WalkerSystemState(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 

@@ -150,17 +150,22 @@ void NodeDB::Close()
 	}
 }
 
-NodeDB::Recordset::Recordset(NodeDB& db)
-	:m_pStmt(NULL)
-	,m_DB(db)
+NodeDB::Recordset::Recordset()
+	:m_pDB(nullptr)
+	,m_pStmt(nullptr)
 {
 }
 
 NodeDB::Recordset::Recordset(NodeDB& db, Query::Enum val, const char* sql)
-	:m_pStmt(NULL)
-	,m_DB(db)
+	:m_pStmt(nullptr)
 {
-	m_pStmt = m_DB.get_Statement(val, sql);
+	InitInternal(db, val, sql);
+}
+
+void NodeDB::Recordset::InitInternal(NodeDB& db, Query::Enum val, const char* sql)
+{
+	m_pDB = &db;
+	m_pStmt = db.get_Statement(val, sql);
 }
 
 NodeDB::Recordset::~Recordset()
@@ -177,15 +182,15 @@ void NodeDB::Recordset::Reset()
 	}
 }
 
-void NodeDB::Recordset::Reset(Query::Enum val, const char* sql)
+void NodeDB::Recordset::Reset(NodeDB& db, Query::Enum val, const char* sql)
 {
 	Reset();
-	m_pStmt = m_DB.get_Statement(val, sql);
+	InitInternal(db, val, sql);
 }
 
 bool NodeDB::Recordset::Step()
 {
-	return m_DB.ExecStep(m_pStmt);
+	return m_pDB->ExecStep(m_pStmt);
 }
 
 void NodeDB::Recordset::StepStrict()
@@ -196,12 +201,12 @@ void NodeDB::Recordset::StepStrict()
 
 bool NodeDB::Recordset::StepModifySafe()
 {
-	int nVal = m_DB.ExecStepRaw(m_pStmt);
+	int nVal = m_pDB->ExecStepRaw(m_pStmt);
 	switch (nVal)
 	{
 
 	default:
-		m_DB.ThrowSqliteError(nVal);
+		m_pDB->ThrowSqliteError(nVal);
 		// no break
 
 	case SQLITE_DONE:
@@ -219,17 +224,17 @@ bool NodeDB::Recordset::IsNull(int col)
 
 void NodeDB::Recordset::putNull(int col)
 {
-	m_DB.TestRet(sqlite3_bind_null(m_pStmt, col+1));
+	m_pDB->TestRet(sqlite3_bind_null(m_pStmt, col+1));
 }
 
 void NodeDB::Recordset::put(int col, uint32_t x)
 {
-	m_DB.TestRet(sqlite3_bind_int(m_pStmt, col+1, x));
+	m_pDB->TestRet(sqlite3_bind_int(m_pStmt, col+1, x));
 }
 
 void NodeDB::Recordset::put(int col, uint64_t x)
 {
-	m_DB.TestRet(sqlite3_bind_int64(m_pStmt, col+1, x));
+	m_pDB->TestRet(sqlite3_bind_int64(m_pStmt, col+1, x));
 }
 
 void NodeDB::Recordset::put(int col, const Blob& x)
@@ -242,12 +247,12 @@ void NodeDB::Recordset::put(int col, const Blob& x)
 	//
 	// Hence - we work this around, use `this`, as an arbitrary non-NULL pointer
 	const void* pPtr = x.n ? x.p : this;
-	m_DB.TestRet(sqlite3_bind_blob(m_pStmt, col+1, pPtr, x.n, NULL));
+	m_pDB->TestRet(sqlite3_bind_blob(m_pStmt, col+1, pPtr, x.n, NULL));
 }
 
 void NodeDB::Recordset::put(int col, const char* sz)
 {
-	m_DB.TestRet(sqlite3_bind_text(m_pStmt, col+1, sz, -1, NULL));
+	m_pDB->TestRet(sqlite3_bind_text(m_pStmt, col+1, sz, -1, NULL));
 }
 
 void NodeDB::Recordset::put(int col, const Key::ID& kid, Key::ID::Packed& p)
@@ -258,7 +263,7 @@ void NodeDB::Recordset::put(int col, const Key::ID& kid, Key::ID::Packed& p)
 
 void NodeDB::Recordset::putZeroBlob(int col, uint32_t nSize)
 {
-	m_DB.TestRet(sqlite3_bind_zeroblob(m_pStmt, col + 1, nSize));
+	m_pDB->TestRet(sqlite3_bind_zeroblob(m_pStmt, col + 1, nSize));
 }
 
 void NodeDB::Recordset::get(int col, uint32_t& x)
@@ -617,7 +622,7 @@ void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
 
 	if (!get_RowsChanged())
 	{
-		rs.Reset(Query::ParamIns, "INSERT INTO " TblParams " (" TblParams_ID "," TblParams_Int "," TblParams_Blob ") VALUES(?,?,?)");
+		rs.Reset(*this, Query::ParamIns, "INSERT INTO " TblParams " (" TblParams_ID "," TblParams_Int "," TblParams_Blob ") VALUES(?,?,?)");
 
 		rs.put(0, ID);
 		if (p0)
@@ -757,7 +762,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s, const PeerID& pe
 	s.get_Hash(hash);
 
 	// Count next functional
-	rs.Reset(Query::StateGetNextFCount, "SELECT COUNT() FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=? AND (" TblStates_Flags " & ?)");
+	rs.Reset(*this, Query::StateGetNextFCount, "SELECT COUNT() FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=? AND (" TblStates_Flags " & ?)");
 	rs.put(0, s.m_Height + 1);
 	rs.put(1, hash);
 	rs.put(2, StateFlags::Functional);
@@ -770,7 +775,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s, const PeerID& pe
 #define THE_MACRO_1(dbname, extname) TblStates_##dbname ","
 #define THE_MACRO_2(dbname, extname) "?,"
 
-	rs.Reset(Query::StateIns, "INSERT INTO " TblStates
+	rs.Reset(*this, Query::StateIns, "INSERT INTO " TblStates
 		" (" TblStates_Hash "," StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_Flags "," TblStates_CountNext "," TblStates_CountNextF "," TblStates_RowPrev "," TblStates_Peer ")"
 		" VALUES(?," StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?,?,?)");
 
@@ -806,7 +811,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s, const PeerID& pe
 	}
 
 	// Ancestors
-	rs.Reset(Query::StateUpdPrevRow, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=?");
+	rs.Reset(*this, Query::StateUpdPrevRow, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=?");
 	rs.put(0, rowid);
 	rs.put(1, s.m_Height + 1);
 	rs.put(2, hash);
@@ -903,7 +908,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 	if (StateFlags::Reachable & nFlags)
 		TipReachableDel(rowid);
 
-	rs.Reset(Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
+	rs.Reset(*this, Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
 	rs.Step();
@@ -962,7 +967,7 @@ void NodeDB::SetNextCountFunctional(uint64_t rowid, uint32_t n)
 void NodeDB::EnumSystemStatesBkwd(WalkerSystemState& x, const StateID& sid)
 {
 #define THE_MACRO_1(dbname, extname) TblStates_##dbname
-	x.m_Rs.Reset(Query::EnumSystemStatesBkwd,
+	x.m_Rs.Reset(*this, Query::EnumSystemStatesBkwd,
 		"SELECT rowid," TblStates_RowPrev "," StateCvt_Fields(THE_MACRO_1, THE_MACRO_COMMA_S)
 		" FROM " TblStates " WHERE " TblStates_Height "<=? ORDER BY " TblStates_Height " DESC");
 #undef THE_MACRO_1
@@ -1498,7 +1503,7 @@ void NodeDB::assert_valid()
 			nTipsReachable++;
 	}
 	
-	rs.Reset(Query::Dbg1, "SELECT "
+	rs.Reset(*this, Query::Dbg1, "SELECT "
 		TblTips "." TblTips_Height ","
 		TblStates "." TblStates_Height ","
 		TblStates "." TblStates_CountNext
@@ -1518,7 +1523,7 @@ void NodeDB::assert_valid()
 
 	assert(!nTips);
 
-	rs.Reset(Query::Dbg2, "SELECT "
+	rs.Reset(*this, Query::Dbg2, "SELECT "
 		TblStates "." TblStates_CountNextF ","
 		TblStates "." TblStates_Flags
 		" FROM " TblTipsReachable " LEFT JOIN " TblStates " ON " TblTipsReachable "." TblTips_State "=" TblStates ".rowid");
@@ -1534,7 +1539,7 @@ void NodeDB::assert_valid()
 
 	assert(!nTipsReachable);
 
-	rs.Reset(Query::Dbg3, "SELECT "
+	rs.Reset(*this, Query::Dbg3, "SELECT "
 		TblStates ".rowid," TblStates "." TblStates_CountNext ",COUNT(nxt.rowid) FROM " TblStates
 		" LEFT JOIN " TblStates " nxt ON (" TblStates "." TblStates_Height "=nxt." TblStates_Height "-1) AND (" TblStates "." TblStates_Hash "=nxt." TblStates_HashPrev ")"
 		"GROUP BY " TblStates ".rowid");
@@ -1549,7 +1554,7 @@ void NodeDB::assert_valid()
 		assert(n0 == n1);
 	}
 
-	rs.Reset(Query::Dbg4, "SELECT "
+	rs.Reset(*this, Query::Dbg4, "SELECT "
 		TblStates ".rowid," TblStates "." TblStates_CountNextF ",COUNT(nxt.rowid) FROM " TblStates
 		" LEFT JOIN " TblStates " nxt ON (" TblStates "." TblStates_Height "=nxt." TblStates_Height "-1) AND (" TblStates "." TblStates_Hash "=nxt." TblStates_HashPrev ") AND (nxt." TblStates_Flags " & 1) "
 		"GROUP BY " TblStates ".rowid");
@@ -1567,12 +1572,12 @@ void NodeDB::assert_valid()
 
 void NodeDB::EnumTips(WalkerState& x)
 {
-	x.m_Rs.Reset(Query::EnumTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTips " ORDER BY "  TblTips_Height " ASC," TblTips_State " ASC");
+	x.m_Rs.Reset(*this, Query::EnumTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTips " ORDER BY "  TblTips_Height " ASC," TblTips_State " ASC");
 }
 
 void NodeDB::EnumFunctionalTips(WalkerState& x)
 {
-	x.m_Rs.Reset(Query::EnumFunctionalTips, "SELECT "
+	x.m_Rs.Reset(*this, Query::EnumFunctionalTips, "SELECT "
 		TblStates "." TblStates_Height ","
 		TblStates ".rowid"
 		" FROM " TblTipsReachable
@@ -1594,13 +1599,13 @@ Height NodeDB::get_HeightBelow(Height h)
 
 void NodeDB::EnumStatesAt(WalkerState& x, Height h)
 {
-	x.m_Rs.Reset(Query::EnumAtHeight, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? ORDER BY " TblStates_Hash);
+	x.m_Rs.Reset(*this, Query::EnumAtHeight, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? ORDER BY " TblStates_Hash);
 	x.m_Rs.put(0, h);
 }
 
 void NodeDB::EnumAncestors(WalkerState& x, const StateID& sid)
 {
-	x.m_Rs.Reset(Query::EnumAncestors, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_RowPrev "=? ORDER BY " TblStates_Hash);
+	x.m_Rs.Reset(*this, Query::EnumAncestors, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_RowPrev "=? ORDER BY " TblStates_Hash);
 	x.m_Rs.put(0, sid.m_Height + 1);
 	x.m_Rs.put(1, sid.m_Row);
 }
@@ -1709,13 +1714,13 @@ void NodeDB::DeleteEventsFrom(Height h)
 
 void NodeDB::EnumEvents(WalkerEvent& x, Height hMin)
 {
-	x.m_Rs.Reset(Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Height ">=? ORDER BY "  TblEvents_Height " ASC," TblEvents_Body " ASC");
+	x.m_Rs.Reset(*this, Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Height ">=? ORDER BY "  TblEvents_Height " ASC," TblEvents_Body " ASC");
 	x.m_Rs.put(0, hMin);
 }
 
 void NodeDB::FindEvents(WalkerEvent& x, const Blob& key)
 {
-	x.m_Rs.Reset(Query::EventFind, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=?");
+	x.m_Rs.Reset(*this, Query::EventFind, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=?");
 	x.m_Rs.put(0, key);
 }
 
@@ -1734,7 +1739,7 @@ bool NodeDB::WalkerEvent::MoveNext()
 
 void NodeDB::EnumPeers(WalkerPeer& x)
 {
-	x.m_Rs.Reset(Query::PeerEnum, "SELECT " TblPeer_Key "," TblPeer_Rating "," TblPeer_Addr "," TblPeer_LastSeen " FROM " TblPeer);
+	x.m_Rs.Reset(*this, Query::PeerEnum, "SELECT " TblPeer_Key "," TblPeer_Rating "," TblPeer_Addr "," TblPeer_LastSeen " FROM " TblPeer);
 }
 
 bool NodeDB::WalkerPeer::MoveNext()
@@ -1785,7 +1790,7 @@ bool NodeDB::EnumBbs(IBbsHistogram& x)
 
 void NodeDB::EnumAllBbsSeq(WalkerBbsLite& x)
 {
-	x.m_Rs.Reset(Query::BbsEnumAllSeq, "SELECT " TblBbs_ID "," TblBbs_Key ",LENGTH(" TblBbs_Msg ") FROM " TblBbs " WHERE " TblBbs_ID ">? ORDER BY " TblBbs_ID);
+	x.m_Rs.Reset(*this, Query::BbsEnumAllSeq, "SELECT " TblBbs_ID "," TblBbs_Key ",LENGTH(" TblBbs_Msg ") FROM " TblBbs " WHERE " TblBbs_ID ">? ORDER BY " TblBbs_ID);
 	x.m_Rs.put(0, x.m_ID);
 }
 
@@ -1801,7 +1806,7 @@ bool NodeDB::WalkerBbsLite::MoveNext()
 
 void NodeDB::EnumAllBbs(WalkerBbsTimeLen& x)
 {
-	x.m_Rs.Reset(Query::BbsEnumAll, "SELECT " TblBbs_ID "," TblBbs_Time ",LENGTH(" TblBbs_Msg ") FROM " TblBbs " ORDER BY " TblBbs_ID);
+	x.m_Rs.Reset(*this, Query::BbsEnumAll, "SELECT " TblBbs_ID "," TblBbs_Time ",LENGTH(" TblBbs_Msg ") FROM " TblBbs " ORDER BY " TblBbs_ID);
 }
 
 bool NodeDB::WalkerBbsTimeLen::MoveNext()
@@ -1828,7 +1833,7 @@ void NodeDB::get_BbsTotals(BbsTotals& x)
 
 void NodeDB::EnumBbsCSeq(WalkerBbs& x)
 {
-	x.m_Rs.Reset(Query::BbsEnumCSeq, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_ID ">? ORDER BY " TblBbs_ID);
+	x.m_Rs.Reset(*this, Query::BbsEnumCSeq, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_ID ">? ORDER BY " TblBbs_ID);
 
 	x.m_Rs.put(0, x.m_Data.m_Channel);
 	x.m_Rs.put(1, x.m_ID);
@@ -1870,7 +1875,7 @@ bool NodeDB::WalkerBbs::MoveNext()
 
 bool NodeDB::BbsFind(WalkerBbs& x)
 {
-	x.m_Rs.Reset(Query::BbsFind, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Key "=?");
+	x.m_Rs.Reset(*this, Query::BbsFind, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Key "=?");
 
 	x.m_Rs.put(0, x.m_Data.m_Key);
 	return x.MoveNext();
@@ -2099,7 +2104,7 @@ void NodeDB::TxoSetSpent(TxoID id, Height h)
 
 void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)
 {
-	wlk.m_Rs.Reset(Query::TxoEnum, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_ID ">=? ORDER BY " TblTxo_ID);
+	wlk.m_Rs.Reset(*this, Query::TxoEnum, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_ID ">=? ORDER BY " TblTxo_ID);
 	wlk.m_Rs.put(0, id0);
 }
 
@@ -2130,7 +2135,7 @@ void NodeDB::TxoSetValue(TxoID id, const Blob& v)
 
 void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
 {
-	wlk.m_Rs.Reset(Query::TxoGetValue, "SELECT " TblTxo_Value " FROM " TblTxo " WHERE " TblTxo_ID "=?");
+	wlk.m_Rs.Reset(*this, Query::TxoGetValue, "SELECT " TblTxo_Value " FROM " TblTxo " WHERE " TblTxo_ID "=?");
 	wlk.m_Rs.put(0, id0);
 
 	wlk.m_Rs.StepStrict();
@@ -2360,7 +2365,7 @@ bool NodeDB::UniqueInsertSafe(const Blob& key, const Blob* pVal)
 
 bool NodeDB::UniqueFind(const Blob& key, Recordset& rs, Blob& val)
 {
-	rs.Reset(Query::UniqueFind, "SELECT " TblUnique_Value " FROM " TblUnique " WHERE " TblUnique_Key "=?");
+	rs.Reset(*this, Query::UniqueFind, "SELECT " TblUnique_Value " FROM " TblUnique " WHERE " TblUnique_Key "=?");
 	rs.put(0, key);
 	if (!rs.Step())
 		return false;
@@ -2386,7 +2391,7 @@ void NodeDB::MigrateFrom18()
 		std::vector<WalkerPeer::Data> v;
 
 		{
-			WalkerPeer wlk(*this);
+			WalkerPeer wlk;
 			for (EnumPeers(wlk); wlk.MoveNext(); )
 				v.push_back(wlk.m_Data);
 		}
@@ -2408,8 +2413,8 @@ void NodeDB::MigrateFrom18()
 	std::vector<StateInput> vInps;
 	Height h = 0;
 
-	WalkerTxo wlk(*this);
-	wlk.m_Rs.Reset(Query::TxoEnumBySpentMigrate, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight " IS NOT NULL ORDER BY " TblTxo_SpendHeight "," TblTxo_ID);
+	WalkerTxo wlk;
+	wlk.m_Rs.Reset(*this, Query::TxoEnumBySpentMigrate, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight " IS NOT NULL ORDER BY " TblTxo_SpendHeight "," TblTxo_ID);
 	while (true)
 	{
 		bool bNext = wlk.MoveNext();
