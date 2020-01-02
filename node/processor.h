@@ -100,7 +100,6 @@ class NodeProcessor
 	void InitializeUtxos(const char*);
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, bool bForNextState);
-	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
@@ -257,6 +256,7 @@ public:
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
 
+	void get_UtxoHash(Merkle::Hash&, bool bForNextState);
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
 
 	void CommitDB();

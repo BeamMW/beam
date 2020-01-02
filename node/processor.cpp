@@ -1745,7 +1745,7 @@ bool NodeProcessor::TxoIsNaked(const Blob& v)
 
 }
 
-void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
+void NodeProcessor::get_UtxoHash(Merkle::Hash& hv, bool bForNextState)
 {
 	m_Utxos.get_Hash(hv);
 	Merkle::Interpret(hv, hvHist, false);
@@ -1753,7 +1753,9 @@ void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
 
 void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
 {
-	get_Definition(hv, bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History);
+	get_UtxoHash(hv, bForNextState);
+	const Merkle::Hash& hvHist = bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History;
+	Merkle::Interpret(hv, hvHist, false);
 }
 
 uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, std::vector<TxKernel::Ptr>& vKrn, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)

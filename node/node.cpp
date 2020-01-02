@@ -2955,8 +2955,8 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height 
 
     proof.swap(bld.m_Proof);
 
-    proof.resize(proof.size() + 1);
-    get_Utxos().get_Hash(proof.back());
+    proof.emplace_back();
+    get_UtxoHash(proof.back(), false);
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
@@ -2994,8 +2994,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
     struct Traveler :public UtxoTree::ITraveler
     {
         proto::ProofUtxo m_Msg;
-        UtxoTree* m_pTree;
-        Merkle::Hash m_hvHistory;
+        NodeProcessor& m_Proc;
 
         virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
@@ -3003,27 +3002,27 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
             UtxoTree::Key::Data d;
             d = v.m_Key;
 
-            m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
-            Input::Proof& ret = m_Msg.m_Proofs.back();
+            Input::Proof& ret = m_Msg.m_Proofs.emplace_back();
 
             ret.m_State.m_Count = v.get_Count();
             ret.m_State.m_Maturity = d.m_Maturity;
-            m_pTree->get_Proof(ret.m_Proof, *m_pCu);
+            m_Proc.get_Utxos().get_Proof(ret.m_Proof, *m_pCu);
 
-            ret.m_Proof.resize(ret.m_Proof.size() + 1);
+            ret.m_Proof.emplace_back();
             ret.m_Proof.back().first = false;
-            ret.m_Proof.back().second = m_hvHistory;
+            ret.m_Proof.back().second = m_Proc.m_Cursor.m_History;
 
             return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
         }
-    } t;
+
+        Traveler(NodeProcessor& np) :m_Proc(np) {}
+    };
 
 	Processor& p = m_This.m_Processor;
+    Traveler t(p);
+
 	if (!p.IsFastSync())
 	{
-		t.m_pTree = &p.get_Utxos();
-		t.m_hvHistory = p.m_Cursor.m_History;
-
 		UtxoTree::Cursor cu;
 		t.m_pCu = &cu;
 
@@ -3040,7 +3039,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		t.m_pBound[0] = kMin.V.m_pData;
 		t.m_pBound[1] = kMax.V.m_pData;
 
-		t.m_pTree->Traverse(t);
+        p.get_Utxos().Traverse(t);
 	}
 
     Send(t.m_Msg);
@@ -3147,7 +3146,7 @@ bool Node::Processor::BuildCwp()
     Source src(*this);
 
     m_Cwp.Create(src, m_Cursor.m_Full);
-    get_Utxos().get_Hash(m_Cwp.m_hvRootLive);
+    get_UtxoHash(m_Cwp.m_hvRootLive, false);
 
     return true;
 }
