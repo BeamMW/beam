@@ -173,6 +173,7 @@ public:
 		{
 			StatesMmr,
 			Shielded,
+			ShieldedMmr,
 
 			count
 		};

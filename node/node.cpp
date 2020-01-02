@@ -3008,6 +3008,16 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
             ret.m_State.m_Maturity = d.m_Maturity;
             m_Proc.get_Utxos().get_Proof(ret.m_Proof, *m_pCu);
 
+            if (m_Proc.m_Cursor.m_ID.m_Height >= Rules::get().pForks[2].m_Height)
+            {
+                Merkle::Hash hv2;
+                m_Proc.m_ShieldedMmr.get_Hash(hv2);
+
+                ret.m_Proof.emplace_back();
+                ret.m_Proof.back().first = true;
+                ret.m_Proof.back().second = hv2;
+            }
+
             ret.m_Proof.emplace_back();
             ret.m_Proof.back().first = false;
             ret.m_Proof.back().second = m_Proc.m_Cursor.m_History;
@@ -3064,29 +3074,16 @@ void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
             msgOut.m_Commitment = sop.m_Commitment;
             sop.m_TxoID.Export(msgOut.m_ID);
 
-            // TODO: proof
+            p.m_ShieldedMmr.get_Proof(msgOut.m_Proof, msgOut.m_ID);
+
+            msgOut.m_Proof.emplace_back();
+            msgOut.m_Proof.back().first = false;
+            p.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
+
+            msgOut.m_Proof.emplace_back();
+            msgOut.m_Proof.back().first = false;
+            msgOut.m_Proof.back().second = p.m_Cursor.m_History;
         }
-
-		//UtxoTree::Key key;
-		//key.SetShielded(msg.m_Commitment, true);
-
-		//UtxoTree::Cursor cu;
-		//bool bCreate = false;
-
-		//const UtxoTree::MyLeaf* pLeaf = p.get_Utxos().Find(cu, key, bCreate);
-		//if (pLeaf)
-		//{
-		//	const UtxoTree::MyLeaf& v = *pLeaf;
-		//	UtxoTree::Key::Data d;
-		//	d = v.m_Key;
-
-		//	msgOut.m_ID = pLeaf->m_ID;
-		//	p.get_Utxos().get_Proof(msgOut.m_Proof, cu);
-
-		//	msgOut.m_Proof.emplace_back();
-		//	msgOut.m_Proof.back().first = false;
-		//	msgOut.m_Proof.back().second = p.m_Cursor.m_History;
-		//}
 	}
 
 	Send(msgOut);
@@ -3097,12 +3094,12 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 	proto::ShieldedList msgOut;
 
 	Processor& p = m_This.m_Processor;
-	if ((msg.m_Id0 < p.m_Extra.m_Shielded) && msg.m_Count)
+	if ((msg.m_Id0 < p.m_ShieldedMmr.m_Count) && msg.m_Count)
 	{
 		if (msg.m_Count > Lelantus::Cfg::Max::N)
 			msg.m_Count = Lelantus::Cfg::Max::N;
 
-		TxoID n = p.m_Extra.m_Shielded - msg.m_Id0;
+		TxoID n = p.m_ShieldedMmr.m_Count - msg.m_Id0;
 
 		if (msg.m_Count > n)
 			msg.m_Count = static_cast<uint32_t>(n);

@@ -211,7 +211,6 @@ public:
 	{
 		TxoID m_TxosTreasury;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
-		TxoID m_Shielded;
 
 		Height m_Fossil; // from here and down - no original blocks
 		Height m_TxoLo;
@@ -408,6 +407,7 @@ public:
 	static bool IsDummy(const Key::IDV&);
 
 	NodeDB::StatesMmr m_StatesMmr;
+	NodeDB::StreamMmr m_ShieldedMmr;
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);

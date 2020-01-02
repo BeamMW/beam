@@ -102,7 +102,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Extra.m_Fossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
-	m_Extra.m_Shielded = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedPoolSize);
+	m_ShieldedMmr.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedPoolSize);
 
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	if (!bUpdateChecksum)
@@ -301,6 +301,7 @@ void NodeProcessor::SaveSyncData()
 
 NodeProcessor::NodeProcessor()
 	:m_StatesMmr(m_DB, 0)
+	,m_ShieldedMmr(m_DB, NodeDB::StreamType::ShieldedMmr, true, 0)
 {
 }
 
@@ -1748,7 +1749,14 @@ bool NodeProcessor::TxoIsNaked(const Blob& v)
 void NodeProcessor::get_UtxoHash(Merkle::Hash& hv, bool bForNextState)
 {
 	m_Utxos.get_Hash(hv);
-	Merkle::Interpret(hv, hvHist, false);
+
+	Height h = m_Cursor.m_ID.m_Height + (!!bForNextState);
+	if (h >= Rules::get().pForks[2].m_Height)
+	{
+		Merkle::Hash hv2;
+		m_ShieldedMmr.get_Hash(hv2);
+		Merkle::Interpret(hv, hv2, true);
+	}
 }
 
 void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
@@ -1814,6 +1822,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_ValidateOnly = false; // don't make changes to state
 	bool m_AlreadyValidated = false; // set during reorgs, when a block is being applied for 2nd time
 	bool m_SaveKid = true;
+	bool m_ShieldedMmr = true;
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
@@ -2057,6 +2066,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 	{
 		vShieldedOut.resize(stats.m_OutputsShielded);
 		bic.m_pShieldedOut = &vShieldedOut.front();
+
+		m_ShieldedMmr.Resize(m_ShieldedMmr.m_Count + stats.m_OutputsShielded, m_ShieldedMmr.m_Count);
 	}
 
 	bool bOk = HandleValidatedBlock(block, bic);
@@ -2108,6 +2119,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		}
 	}
 
+	if (!bOk && stats.m_OutputsShielded)
+		m_ShieldedMmr.Resize(m_ShieldedMmr.m_Count, m_ShieldedMmr.m_Count + stats.m_OutputsShielded);
+
 	if (bOk)
 	{
 		ECC::Scalar offsAcc = block.m_Offset;
@@ -2128,9 +2142,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		if (bic.m_ShieldedOuts)
 		{
 			// Append to cmList
-			TxoID n0 = m_Extra.m_Shielded - bic.m_ShieldedOuts;
-			m_DB.ShieldedResize(m_Extra.m_Shielded, n0);
-			m_DB.ParamSet(NodeDB::ParamID::ShieldedPoolSize, &m_Extra.m_Shielded, nullptr);
+			TxoID n0 = m_ShieldedMmr.m_Count - bic.m_ShieldedOuts;
+			m_DB.ShieldedResize(m_ShieldedMmr.m_Count, n0);
+			m_DB.ParamSet(NodeDB::ParamID::ShieldedPoolSize, &m_ShieldedMmr.m_Count, nullptr);
 
 			m_DB.ShieldedWrite(n0, bic.m_pShieldedOut, bic.m_ShieldedOuts);
 		}
@@ -2160,7 +2174,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		}
 
 		const ShieldedTxo::Viewer* pKeyShielded = get_ViewerShieldedKey();
-		m_Extra.m_Shielded -= bic.m_ShieldedOuts;
+		m_ShieldedMmr.m_Count -= bic.m_ShieldedOuts;
 		Recognize(block, sid.m_Height, pKeyShielded);
 
 		Serializer ser;
@@ -2282,7 +2296,7 @@ void NodeProcessor::Recognize(const TxVectors::Eternal& txve, Height h, const Sh
 
 void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const ShieldedTxo::Viewer* pKeyShielded)
 {
-	TxoID nID = m_Extra.m_Shielded++;
+	TxoID nID = m_ShieldedMmr.m_Count++;
 
 	const ShieldedTxo& x = v.m_Txo;
 
@@ -2416,7 +2430,7 @@ void NodeProcessor::RescanOwnedTxos()
 			ByteBuffer bbE;
 			TxVectors::Eternal txve;
 
-			m_Extra.m_Shielded = 0;
+			m_ShieldedMmr.m_Count = 0;
 
 			while (true)
 			{
@@ -2492,7 +2506,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 		else
 		{
 			ShieldedOutpPacked sop;
-			sop.m_TxoID = m_Extra.m_Shielded;
+			sop.m_TxoID = m_ShieldedMmr.m_Count;
 			sop.m_Commitment = krn.m_Txo.m_Commitment;
 
 			Blob blobVal(&sop, sizeof(sop));
@@ -2511,7 +2525,19 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 				pt.Export(bic.m_pShieldedOut[bic.m_ShieldedOuts]);
 			}
 
-			m_Extra.m_Shielded++;
+			if (bic.m_ShieldedMmr)
+			{
+				ShieldedTxo::Description d;
+				d.m_SerialPub = krn.m_Txo.m_Serial.m_SerialPub;
+				d.m_Commitment = krn.m_Txo.m_Commitment;
+				d.m_ID = m_ShieldedMmr.m_Count;
+
+				Merkle::Hash hv;
+				d.get_Hash(hv);
+				m_ShieldedMmr.Append(hv);
+			}
+			else
+				m_ShieldedMmr.m_Count++;
 		}
 
 		bic.m_ShieldedOuts++; // ok
@@ -2522,7 +2548,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 		assert(!bic.m_ValidateOnly);
 
 		m_DB.UniqueDeleteStrict(blobKey);
-		m_Extra.m_Shielded--;
+		m_ShieldedMmr.m_Count--;
 
 		assert(bic.m_ShieldedOuts);
 		bic.m_ShieldedOuts--;
@@ -2887,7 +2913,7 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 	if (!r.Shielded.Enabled)
 		return false;
 
-	if (krn.m_WindowEnd > m_Extra.m_Shielded)
+	if (krn.m_WindowEnd > m_ShieldedMmr.m_Count)
 		return false;
 
 	uint32_t N = krn.m_SpendProof.m_Cfg.get_N();
@@ -2899,7 +2925,7 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 		if (N > r.Shielded.NMax)
 			return false; // too large
 
-		if (krn.m_WindowEnd > m_Extra.m_Shielded + r.Shielded.MaxWindowBacklog)
+		if (krn.m_WindowEnd > m_ShieldedMmr.m_Count + r.Shielded.MaxWindowBacklog)
 			return false; // large anonymity set is no more allowed, expired
 	}
 
@@ -3027,7 +3053,7 @@ void NodeProcessor::RollbackTo(Height h)
 	// Kernels, shielded elements, and cursor
 	ByteBuffer bbE;
 	TxVectors::Eternal txve;
-	TxoID nShielded0 = m_Extra.m_Shielded;
+	TxoID nShielded0 = m_ShieldedMmr.m_Count;
 
 	for (; m_Cursor.m_Sid.m_Height > h; m_DB.MoveBack(m_Cursor.m_Sid))
 	{
@@ -3043,11 +3069,12 @@ void NodeProcessor::RollbackTo(Height h)
 		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
 	}
 
-	assert(m_Extra.m_Shielded <= nShielded0);
-	if (m_Extra.m_Shielded < nShielded0)
+	assert(m_ShieldedMmr.m_Count <= nShielded0);
+	if (m_ShieldedMmr.m_Count < nShielded0)
 	{
-		m_DB.ShieldedResize(m_Extra.m_Shielded, nShielded0);
-		m_DB.ParamSet(NodeDB::ParamID::ShieldedPoolSize, &m_Extra.m_Shielded, nullptr);
+		m_ShieldedMmr.Resize(m_ShieldedMmr.m_Count, nShielded0);
+		m_DB.ShieldedResize(m_ShieldedMmr.m_Count, nShielded0);
+		m_DB.ParamSet(NodeDB::ParamID::ShieldedPoolSize, &m_ShieldedMmr.m_Count, nullptr);
 	}
 
 	m_RecentStates.RollbackTo(h);
@@ -3614,6 +3641,7 @@ NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height + 1, true);
+	bic.m_ShieldedMmr = false;
 
 	size_t nSizeEstimated = 1;
 
@@ -3625,8 +3653,12 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	else
 		nSizeEstimated = GenerateNewBlockInternal(bc, bic);
 
+	TxoID nShielded = m_ShieldedMmr.m_Count;
+
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
+
+	assert(nShielded >= m_ShieldedMmr.m_Count);
 
 	// reset input maturities
 	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
@@ -3651,7 +3683,20 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bic.m_Fwd = true;
 	bic.m_AlreadyValidated = true;
 	bic.m_SaveKid = false;
-	if (!HandleValidatedTx(bc.m_Block, bic))
+	bic.m_ShieldedMmr = true;
+
+	if (nShielded > m_ShieldedMmr.m_Count)
+	{
+		m_ShieldedMmr.Resize(nShielded, m_ShieldedMmr.m_Count);
+		nShielded = m_ShieldedMmr.m_Count;
+	}
+
+	bool bOk = HandleValidatedTx(bc.m_Block, bic);
+
+	if (nShielded < m_ShieldedMmr.m_Count)
+		m_ShieldedMmr.Resize(nShielded, m_ShieldedMmr.m_Count);
+
+	if (!bOk)
 	{
 		LOG_WARNING() << "couldn't apply block after cut-through!";
 		return false; // ?!
@@ -3659,7 +3704,6 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	GenerateNewHdr(bc);
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
-
 
 	Serializer ser;
 
