@@ -153,6 +153,9 @@ public:
 			StreamIns,
 			StreamDel,
 			EnumSystemStatesBkwd,
+			UniqueIns,
+			UniqueFind,
+			UniqueDel,
 
 			Dbg0,
 			Dbg1,
@@ -554,6 +557,10 @@ public:
 		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override;
 	};
 
+	bool UniqueInsertSafe(const Blob& key, const Blob* pVal); // returns false if not unique (and doesn't update the value)
+	bool UniqueFind(const Blob& key, Recordset&, Blob& val);
+	void UniqueDeleteStrict(const Blob& key);
+
 private:
 
 	sqlite3* m_pDb;
@@ -577,7 +584,7 @@ private:
 	static void ThrowInconsistent();
 
 	void Create();
-	void CreateTableStreams();
+	void CreateTables20();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

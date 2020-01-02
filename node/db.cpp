@@ -88,6 +88,10 @@ namespace beam {
 #define TblStream_ID			"ID"
 #define TblStream_Value			"Value"
 
+#define TblUnique				"UniqueStorage"
+#define TblUnique_Key			"Key"
+#define TblUnique_Value			"Value"
+
 NodeDB::NodeDB()
 	:m_pDb(NULL)
 {
@@ -350,7 +354,7 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case nVersion20:
-			CreateTableStreams();
+			CreateTables20();
 
 			LOG_INFO() << "DB migrate from" << nVersion20;
 			MigrateFrom20();
@@ -473,14 +477,18 @@ void NodeDB::Create()
 		"[" TblTxo_Value			"] BLOB NOT NULL,"
 		"[" TblTxo_SpendHeight		"] INTEGER)");
 
-	CreateTableStreams();
+	CreateTables20();
 }
 
-void NodeDB::CreateTableStreams()
+void NodeDB::CreateTables20()
 {
 	ExecQuick("CREATE TABLE [" TblStreams "] ("
 		"[" TblStream_ID			"] INTEGER NOT NULL PRIMARY KEY,"
 		"[" TblStream_Value			"] BLOB NOT NULL)");
+
+	ExecQuick("CREATE TABLE [" TblUnique "] ("
+		"[" TblUnique_Key			"] BLOB NOT NULL PRIMARY KEY,"
+		"[" TblUnique_Value			"] BLOB) WITHOUT ROWID");
 }
 
 void NodeDB::Vacuum()
@@ -2338,6 +2346,36 @@ void NodeDB::ShieldedWrite(uint64_t pos, const ECC::Point::Storage* p, uint64_t 
 void NodeDB::ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount)
 {
 	ShieldeIO(pos, p, nCount, false);
+}
+
+bool NodeDB::UniqueInsertSafe(const Blob& key, const Blob* pVal)
+{
+	Recordset rs(*this, Query::UniqueIns, "INSERT INTO " TblUnique " (" TblUnique_Key "," TblUnique_Value ") VALUES(?,?)");
+	rs.put(0, key);
+	if (pVal)
+		rs.put(1, *pVal);
+
+	return rs.StepModifySafe();
+}
+
+bool NodeDB::UniqueFind(const Blob& key, Recordset& rs, Blob& val)
+{
+	rs.Reset(Query::UniqueFind, "SELECT " TblUnique_Value " FROM " TblUnique " WHERE " TblUnique_Key "=?");
+	rs.put(0, key);
+	if (!rs.Step())
+		return false;
+
+	rs.get(1, val);
+	return true;
+}
+
+void NodeDB::UniqueDeleteStrict(const Blob& key)
+{
+	Recordset rs(*this, Query::UniqueDel, "DELETE FROM " TblUnique " WHERE " TblUnique_Key "=?");
+	rs.put(0, key);
+
+	rs.Step();
+	TestChanged1Row();
 }
 
 void NodeDB::MigrateFrom18()

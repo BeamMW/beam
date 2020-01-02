@@ -589,6 +589,14 @@ namespace beam
 		db.ShieldedResize(1, nShielded);
 		db.ShieldedResize(0, 1);
 
+		ECC::uintBig k1 = 223U;
+		Blob val(nullptr, 0);
+
+		verify_test(db.UniqueInsertSafe(k1, &val));
+		db.UniqueDeleteStrict(k1);
+		verify_test(db.UniqueInsertSafe(k1, nullptr));
+		verify_test(!db.UniqueInsertSafe(k1, nullptr));
+
 		tr.Commit();
 	}
 
