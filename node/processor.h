@@ -61,7 +61,7 @@ class NodeProcessor
 	template <typename T>
 	void HandleElementVecBwd(const T& vec, BlockInterpretCtx&, size_t n);
 
-	bool HandleBlock(const NodeDB::StateID&, MultiblockContext&);
+	bool HandleBlock(const NodeDB::StateID&, const Block::SystemState::Full&, MultiblockContext&);
 	bool HandleValidatedTx(const TxVectors::Full&, BlockInterpretCtx&);
 	bool HandleValidatedBlock(const Block::Body&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
@@ -95,7 +95,7 @@ class NodeProcessor
 	TxoID get_TxosBefore(Height);
 	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 
-	void InitCursor();
+	void InitCursor(bool bMovingUp);
 	bool InitUtxoMapping(const char*, bool bForceReset);
 	void InitializeUtxos(const char*);
 	static void OnCorrupted();

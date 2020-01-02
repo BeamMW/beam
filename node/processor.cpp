@@ -161,7 +161,9 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	else
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
 
-	InitCursor();
+	m_DB.get_Cursor(m_Cursor.m_Sid);
+	m_StatesMmr.m_Count = m_Cursor.m_Sid.m_Height - Rules::HeightGenesis;
+	InitCursor(false);
 
 	InitializeUtxos(szPath);
 
@@ -363,15 +365,22 @@ void NodeProcessor::CommitDB()
 	}
 }
 
-void NodeProcessor::InitCursor()
+void NodeProcessor::InitCursor(bool bMovingUp)
 {
-	if (m_DB.get_Cursor(m_Cursor.m_Sid))
+	if (m_Cursor.m_Sid.m_Height >= Rules::HeightGenesis)
 	{
-		m_DB.get_State(m_Cursor.m_Sid.m_Row, m_Cursor.m_Full);
-		m_Cursor.m_Full.get_ID(m_Cursor.m_ID);
+		if (bMovingUp)
+		{
+			assert(m_Cursor.m_Full.m_Height == m_Cursor.m_Sid.m_Height); // must already initialized
+			m_Cursor.m_History = m_Cursor.m_HistoryNext;
+		}
+		else
+		{
+			m_DB.get_State(m_Cursor.m_Sid.m_Row, m_Cursor.m_Full);
+			m_StatesMmr.get_Hash(m_Cursor.m_History);
+		}
 
-		m_StatesMmr.m_Count = m_Cursor.m_ID.m_Height - Rules::HeightGenesis;
-		m_StatesMmr.get_Hash(m_Cursor.m_History);
+		m_Cursor.m_Full.get_ID(m_Cursor.m_ID);
 		m_StatesMmr.get_PredictedHash(m_Cursor.m_HistoryNext, m_Cursor.m_ID.m_Hash);
 	}
 	else
@@ -1373,7 +1382,10 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 		sidFwd.m_Height = m_Cursor.m_Sid.m_Height + 1;
 		sidFwd.m_Row = vPath[--iPos];
 
-		if (!HandleBlock(sidFwd, mbc))
+		Block::SystemState::Full s;
+		m_DB.get_State(sidFwd.m_Row, s); // need it for logging anyway
+
+		if (!HandleBlock(sidFwd, s, mbc))
 		{
 			bContextFail = mbc.m_bFail = true;
 
@@ -1388,7 +1400,9 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 			m_StatesMmr.Append(m_Cursor.m_ID.m_Hash);
 
 		m_DB.MoveFwd(sidFwd);
-		InitCursor();
+		m_Cursor.m_Sid = sidFwd;
+		m_Cursor.m_Full = s;
+		InitCursor(true);
 
 		if (IsFastSync())
 			m_DB.DelStateBlockPP(sidFwd.m_Row); // save space
@@ -1982,13 +1996,10 @@ struct NodeProcessor::KrnFlyMmr
 	}
 };
 
-bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& mbc)
+bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemState::Full& s, MultiblockContext& mbc)
 {
 	ByteBuffer bbP, bbE;
 	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE);
-
-	Block::SystemState::Full s;
-	m_DB.get_State(sid.m_Row, s); // need it for logging anyway
 
 	MultiblockContext::MyTask::SharedBlock::Ptr pShared = std::make_shared<MultiblockContext::MyTask::SharedBlock>(mbc);
 	Block::Body& block = pShared->m_Body;
@@ -3076,7 +3087,7 @@ void NodeProcessor::RollbackTo(Height h)
 
 	m_StatesMmr.ShrinkTo(m_StatesMmr.H2I(m_Cursor.m_Sid.m_Height));
 
-	InitCursor();
+	InitCursor(false);
 	OnRolledBack();
 
 	m_Extra.m_Txos = id0;
