@@ -1818,7 +1818,55 @@ struct NodeProcessor::BlockInterpretCtx
 
 	ECC::Point::Storage* m_pShieldedOut = nullptr; // used in normal (apply) mode
 
-	typedef std::map<Blob, std::unique_ptr<uint8_t[]> > BlobSet;
+	struct BlobItem
+		:public boost::intrusive::set_base_hook<>
+	{
+		uint32_t m_Size;
+
+		Blob ToBlob() const
+		{
+			Blob x;
+			x.p = this + 1;
+			x.n = m_Size;
+			return x;
+		}
+
+		bool operator < (const BlobItem& x) const {
+			return ToBlob() < x.ToBlob();
+		}
+
+		void* operator new(size_t n, uint32_t nExtra) {
+			return new uint8_t[n + nExtra];
+		}
+
+		void operator delete(void* p) {
+			delete[] reinterpret_cast<uint8_t*>(p);
+		}
+
+		void operator delete(void* p, uint32_t) {
+			delete[] reinterpret_cast<uint8_t*>(p);
+		}
+	};
+
+	struct BlobSet
+		:public boost::intrusive::multiset<BlobItem>
+	{
+		~BlobSet()
+		{
+			Clear();
+		}
+
+		void Clear()
+		{
+			while (!empty())
+			{
+				BlobItem& x = *begin();
+				erase(x);
+				delete &x;
+			}
+		}
+	};
+
 	BlobSet* m_pDups = nullptr; // used in validate-only mode
 
 	BlockInterpretCtx(Height h, bool bFwd)
@@ -2908,14 +2956,27 @@ bool NodeProcessor::ValidateShieldedNoDup(const ECC::Point& comm, bool bOutp)
 bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
 {
 	assert(bic.m_pDups);
-	if (bic.m_pDups->end() != bic.m_pDups->find(key))
+	typedef BlockInterpretCtx::BlobItem BlobItem;
+
+	struct Comparator
+	{
+		bool operator()(const Blob& a, const BlobItem& b) const {
+			return a < b.ToBlob();
+		}
+		bool operator()(const BlobItem& a, const Blob& b) const {
+			return a.ToBlob() < b;
+		}
+	};
+
+	if (bic.m_pDups->end() != bic.m_pDups->find(key, Comparator()))
 		return false;
 
-	BlockInterpretCtx::BlobSet::mapped_type v;
-	v.reset(new uint8_t[key.n]);
-	memcpy(v.get(), key.p, key.n);
+	BlobItem* pItem = new (key.n) BlobItem;
+	pItem->m_Size = key.n;
+	memcpy(pItem + 1, key.p, key.n);
 
-	(*bic.m_pDups)[key] = std::move(v);
+	bic.m_pDups->insert(*pItem);
+
 	return true;
 }
 
