@@ -2142,13 +2142,11 @@ void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
 	wlk.m_Rs.get(0, wlk.m_Value);
 }
 
-NodeDB::StreamMmr::StreamMmr(NodeDB& db, StreamType::Enum eType, bool bStoreH0, uint64_t nCount)
+NodeDB::StreamMmr::StreamMmr(NodeDB& db, StreamType::Enum eType, bool bStoreH0)
 	:m_StoreH0(bStoreH0)
 	,m_eType(eType)
 	,m_DB(db)
 {
-	m_Count = nCount;
-
 	for (size_t i = 0; i < _countof(m_pCache); i++)
 		m_pCache[i].m_X = static_cast<uint64_t>(-1);
 
@@ -2156,9 +2154,17 @@ NodeDB::StreamMmr::StreamMmr(NodeDB& db, StreamType::Enum eType, bool bStoreH0, 
 	m_LastOut.m_Pos.X = static_cast<uint64_t>(-1);
 }
 
-void NodeDB::StreamMmr::Resize(uint64_t n, uint64_t n0)
+void NodeDB::StreamMmr::Append(const Merkle::Hash& hv)
 {
-	m_DB.StreamResize(m_eType, get_TotalHashes(n, m_StoreH0) * sizeof(Merkle::Hash), get_TotalHashes(n0, m_StoreH0) * sizeof(Merkle::Hash));
+	m_DB.StreamResize(m_eType, get_TotalHashes(m_Count + 1, m_StoreH0) * sizeof(Merkle::Hash), get_TotalHashes(m_Count, m_StoreH0) * sizeof(Merkle::Hash));
+	Mmr::Append(hv);
+}
+
+void NodeDB::StreamMmr::ShrinkTo(uint64_t nCount)
+{
+	assert(m_Count >= nCount);
+	m_DB.StreamResize(m_eType, get_TotalHashes(nCount, m_StoreH0) * sizeof(Merkle::Hash), get_TotalHashes(m_Count, m_StoreH0) * sizeof(Merkle::Hash));
+	m_Count = nCount;
 }
 
 void NodeDB::StreamMmr::LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const
@@ -2216,19 +2222,14 @@ void NodeDB::StreamMmr::CacheAdd(const Merkle::Hash& hv, const Merkle::Position&
 	}
 }
 
-NodeDB::StatesMmr::StatesMmr(NodeDB& db, Height h)
-	:StreamMmr(db, StreamType::StatesMmr, false, H2I(h))
+NodeDB::StatesMmr::StatesMmr(NodeDB& db)
+	:StreamMmr(db, StreamType::StatesMmr, false)
 {
 }
 
 uint64_t NodeDB::StatesMmr::H2I(Height h)
 {
 	return (h <= Rules::HeightGenesis) ? 0 : (h - Rules::HeightGenesis);
-}
-
-void NodeDB::StatesMmr::ResizeByHeight(Height h, Height h0)
-{
-	Resize(H2I(h), H2I(h0));
 }
 
 void NodeDB::StatesMmr::LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const
@@ -2456,9 +2457,7 @@ void NodeDB::MigrateFrom20()
 	StateID sid;
 	get_Cursor(sid);
 
-	StatesMmr smmr(*this, 0);
-	smmr.ResizeByHeight(sid.m_Height, Rules::HeightGenesis - 1);
-
+	StatesMmr smmr(*this);
 	for (Height h = Rules::HeightGenesis; h < sid.m_Height; h++)
 	{
 		Merkle::Hash hv;

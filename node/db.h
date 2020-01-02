@@ -507,8 +507,10 @@ public:
 	public:
 		NodeDB& m_DB;
 
-		StreamMmr(NodeDB&, StreamType::Enum, bool bStoreH0, uint64_t nCount);
-		void Resize(uint64_t n, uint64_t n0);
+		StreamMmr(NodeDB&, StreamType::Enum, bool bStoreH0);
+
+		void Append(const Merkle::Hash&);
+		void ShrinkTo(uint64_t nCount);
 
 	protected:
 		// Mmr
@@ -541,9 +543,8 @@ public:
 	public:
 		static uint64_t H2I(Height h);
 
-		StatesMmr(NodeDB&, Height);
+		StatesMmr(NodeDB&);
 
-		void ResizeByHeight(Height h, Height h0);
 		void LoadStateHash(Merkle::Hash& hv, Height) const;
 
 	protected:

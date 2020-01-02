@@ -386,7 +386,7 @@ namespace beam
 		verify_test(CountTips(db, true) == 2);
 
 		// test cursor and StatesMmr
-		NodeDB::StatesMmr smmr(db, Rules::HeightGenesis - 1);
+		NodeDB::StatesMmr smmr(db);
 		Merkle::Hash hvRoot(Zero);
 
 		for (sid.m_Height = Rules::HeightGenesis; sid.m_Height < hMax + Rules::HeightGenesis; sid.m_Height++)
@@ -416,8 +416,6 @@ namespace beam
 
 			sTop.get_Hash(hv);
 			smmr.get_PredictedHash(hvRoot, hv);
-
-			smmr.ResizeByHeight(sid.m_Height + 1, sid.m_Height);
 
 			smmr.Append(hv);
 

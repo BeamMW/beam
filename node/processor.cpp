@@ -300,8 +300,8 @@ void NodeProcessor::SaveSyncData()
 }
 
 NodeProcessor::NodeProcessor()
-	:m_StatesMmr(m_DB, 0)
-	,m_ShieldedMmr(m_DB, NodeDB::StreamType::ShieldedMmr, true, 0)
+	:m_StatesMmr(m_DB)
+	,m_ShieldedMmr(m_DB, NodeDB::StreamType::ShieldedMmr, true)
 {
 }
 
@@ -1384,8 +1384,6 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 		}
 
 		// Update mmr and cursor
-		m_StatesMmr.ResizeByHeight(sidFwd.m_Height, sidFwd.m_Height - 1);
-
 		if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
 			m_StatesMmr.Append(m_Cursor.m_ID.m_Hash);
 
@@ -2066,8 +2064,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 	{
 		vShieldedOut.resize(stats.m_OutputsShielded);
 		bic.m_pShieldedOut = &vShieldedOut.front();
-
-		m_ShieldedMmr.Resize(m_ShieldedMmr.m_Count + stats.m_OutputsShielded, m_ShieldedMmr.m_Count);
 	}
 
 	bool bOk = HandleValidatedBlock(block, bic);
@@ -2118,9 +2114,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			BEAM_VERIFY(HandleValidatedBlock(block, bic));
 		}
 	}
-
-	if (!bOk && stats.m_OutputsShielded)
-		m_ShieldedMmr.Resize(m_ShieldedMmr.m_Count, m_ShieldedMmr.m_Count + stats.m_OutputsShielded);
 
 	if (bOk)
 	{
@@ -2548,7 +2541,11 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 		assert(!bic.m_ValidateOnly);
 
 		m_DB.UniqueDeleteStrict(blobKey);
-		m_ShieldedMmr.m_Count--;
+
+		if (bic.m_ShieldedMmr)
+			m_ShieldedMmr.ShrinkTo(m_ShieldedMmr.m_Count - 1);
+		else
+			m_ShieldedMmr.m_Count--;
 
 		assert(bic.m_ShieldedOuts);
 		bic.m_ShieldedOuts--;
@@ -2998,7 +2995,6 @@ void NodeProcessor::RollbackTo(Height h)
 		return;
 
 	TxoID id0 = get_TxosBefore(h + 1);
-	Height hPrev = m_Cursor.m_Sid.m_Height;
 
 	// undo inputs
 	for (NodeDB::StateID sid = m_Cursor.m_Sid; sid.m_Height > h; )
@@ -3072,14 +3068,13 @@ void NodeProcessor::RollbackTo(Height h)
 	assert(m_ShieldedMmr.m_Count <= nShielded0);
 	if (m_ShieldedMmr.m_Count < nShielded0)
 	{
-		m_ShieldedMmr.Resize(m_ShieldedMmr.m_Count, nShielded0);
 		m_DB.ShieldedResize(m_ShieldedMmr.m_Count, nShielded0);
 		m_DB.ParamSet(NodeDB::ParamID::ShieldedPoolSize, &m_ShieldedMmr.m_Count, nullptr);
 	}
 
 	m_RecentStates.RollbackTo(h);
 
-	m_StatesMmr.ResizeByHeight(m_Cursor.m_Sid.m_Height, hPrev);
+	m_StatesMmr.ShrinkTo(m_StatesMmr.H2I(m_Cursor.m_Sid.m_Height));
 
 	InitCursor();
 	OnRolledBack();
@@ -3653,12 +3648,8 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	else
 		nSizeEstimated = GenerateNewBlockInternal(bc, bic);
 
-	TxoID nShielded = m_ShieldedMmr.m_Count;
-
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
-
-	assert(nShielded >= m_ShieldedMmr.m_Count);
 
 	// reset input maturities
 	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
@@ -3685,17 +3676,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bic.m_SaveKid = false;
 	bic.m_ShieldedMmr = true;
 
-	if (nShielded > m_ShieldedMmr.m_Count)
-	{
-		m_ShieldedMmr.Resize(nShielded, m_ShieldedMmr.m_Count);
-		nShielded = m_ShieldedMmr.m_Count;
-	}
-
 	bool bOk = HandleValidatedTx(bc.m_Block, bic);
-
-	if (nShielded < m_ShieldedMmr.m_Count)
-		m_ShieldedMmr.Resize(nShielded, m_ShieldedMmr.m_Count);
-
 	if (!bOk)
 	{
 		LOG_WARNING() << "couldn't apply block after cut-through!";
