@@ -151,8 +151,8 @@ void NodeDB::Close()
 }
 
 NodeDB::Recordset::Recordset()
-	:m_pDB(nullptr)
-	,m_pStmt(nullptr)
+	:m_pStmt(nullptr)
+	,m_pDB(nullptr)
 {
 }
 
