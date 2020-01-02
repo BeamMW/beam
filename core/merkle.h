@@ -58,6 +58,20 @@ namespace Merkle {
 		}
 	};
 
+	struct HardVerifier
+	{
+		Hash m_hv;
+
+		HardProof::const_iterator m_itPos;
+		HardProof::const_iterator m_itEnd;
+
+		HardVerifier(const HardProof& p);
+
+		bool IsEnd() const;
+		bool InterpretOnce(bool bOnRight);
+		bool InterpretMmr(uint64_t iIdx, uint64_t nCount);
+	};
+
 	void Interpret(Hash&, const Proof&);
 	void Interpret(Hash&, const Node&);
 	void Interpret(Hash&, const Hash& hLeft, const Hash& hRight);

@@ -600,5 +600,53 @@ void MultiProof::Verifier::Process(uint64_t i)
 	}
 }
 
+/////////////////////////////
+// HardVerifier
+HardVerifier::HardVerifier(const HardProof& p)
+{
+	m_itPos = p.begin();
+	m_itEnd = p.end();
+}
+
+bool HardVerifier::IsEnd() const
+{
+	return m_itPos == m_itEnd;
+}
+
+bool HardVerifier::InterpretOnce(bool bOnRight)
+{
+	if (IsEnd())
+		return false;
+
+	Interpret(m_hv, *m_itPos++, bOnRight);
+	return true;
+}
+
+bool HardVerifier::InterpretMmr(uint64_t iIdx, uint64_t nCount)
+{
+	struct MyMmr
+		:public Merkle::Mmr
+		,public Merkle::IProofBuilder
+	{
+		HardVerifier& m_This;
+		MyMmr(HardVerifier& x) :m_This(x) {}
+
+		virtual bool AppendNode(const Merkle::Node& n, const Merkle::Position&) override
+		{
+			return m_This.InterpretOnce(n.first);
+		}
+
+		virtual void LoadElement(Merkle::Hash&, const Merkle::Position&) const override {}
+		virtual void SaveElement(const Merkle::Hash&, const Merkle::Position&) override {}
+	};
+
+	if (iIdx >= nCount)
+		return false;
+
+	MyMmr mmr(*this);
+	mmr.m_Count = nCount;
+	return mmr.get_Proof(mmr, iIdx);
+}
+
 } // namespace Merkle
 } // namespace beam

@@ -1708,49 +1708,14 @@ namespace beam
 		if ((id.m_Height < Rules::HeightGenesis) || (id.m_Height >= m_Height))
 			return false;
 
-		struct Verifier
-			:public Merkle::Mmr
-			,public Merkle::IProofBuilder
-		{
-			Merkle::Hash m_hv;
+		Merkle::HardVerifier hver(proof);
+		hver.m_hv = id.m_Hash;
 
-			Merkle::HardProof::const_iterator m_itPos;
-			Merkle::HardProof::const_iterator m_itEnd;
-
-			bool InterpretOnce(bool bOnRight)
-			{
-				if (m_itPos == m_itEnd)
-					return false;
-
-				Merkle::Interpret(m_hv, *m_itPos++, bOnRight);
-				return true;
-			}
-
-			virtual bool AppendNode(const Merkle::Node& n, const Merkle::Position&) override
-			{
-				return InterpretOnce(n.first);
-			}
-
-			virtual void LoadElement(Merkle::Hash&, const Merkle::Position&) const override {}
-			virtual void SaveElement(const Merkle::Hash&, const Merkle::Position&) override {}
-		};
-
-		Verifier vmmr;
-		vmmr.m_hv = id.m_Hash;
-		vmmr.m_itPos = proof.begin();
-		vmmr.m_itEnd = proof.end();
-
-		vmmr.m_Count = m_Height - Rules::HeightGenesis;
-		if (!vmmr.get_Proof(vmmr, id.m_Height - Rules::HeightGenesis))
-			return false;
-
-		if (!vmmr.InterpretOnce(true))
-			return false;
-		
-		if (vmmr.m_itPos != vmmr.m_itEnd)
-			return false;
-
-		return vmmr.m_hv == m_Definition;
+		return
+			hver.InterpretMmr(id.m_Height - Rules::HeightGenesis, m_Height - Rules::HeightGenesis) &&
+			hver.InterpretOnce(true) &&
+			hver.IsEnd() &&
+			(hver.m_hv == m_Definition);
 	}
 
 	void Block::BodyBase::ZeroInit()
