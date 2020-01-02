@@ -190,6 +190,24 @@ void NodeDB::Recordset::StepStrict()
 		ThrowError("not found");
 }
 
+bool NodeDB::Recordset::StepModifySafe()
+{
+	int nVal = m_DB.ExecStepRaw(m_pStmt);
+	switch (nVal)
+	{
+
+	default:
+		m_DB.ThrowSqliteError(nVal);
+		// no break
+
+	case SQLITE_DONE:
+		return true;
+
+	case SQLITE_CONSTRAINT:
+		return false;
+	}
+}
+
 bool NodeDB::Recordset::IsNull(int col)
 {
 	return SQLITE_NULL == sqlite3_column_type(m_pStmt, col);
@@ -498,7 +516,7 @@ std::string NodeDB::ExecTextOut(const char* szSql)
 	return sRes;
 }
 
-bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
+int NodeDB::ExecStepRaw(sqlite3_stmt* pStmt)
 {
 	int n = sqlite3_total_changes(m_pDb);
 
@@ -507,6 +525,12 @@ bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
 	if (sqlite3_total_changes(m_pDb) != n)
 		OnModified();
 
+	return nVal;
+}
+
+bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
+{
+	int nVal = ExecStepRaw(pStmt);
 	switch (nVal)
 	{
 

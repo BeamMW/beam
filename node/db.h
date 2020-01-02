@@ -205,6 +205,7 @@ public:
 		// Perform the query step. SELECT only: returns true while there're rows to read
 		bool Step();
 		void StepStrict(); // must return at least 1 row, applicable for SELECT
+		bool StepModifySafe(); // UPDATE/INSERT: returns true if successful, false if constraints are violated (but exc is not raised)
 
 		// in/out
 		void put(int col, uint32_t);
@@ -580,6 +581,7 @@ private:
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
+	int ExecStepRaw(sqlite3_stmt*);
 	bool ExecStep(Query::Enum, const char*); // returns true while there's a row
 
 	sqlite3_stmt* get_Statement(Query::Enum, const char*);
