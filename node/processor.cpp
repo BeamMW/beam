@@ -1817,7 +1817,9 @@ struct NodeProcessor::BlockInterpretCtx
 	uint32_t m_ShieldedOuts = 0;
 
 	ECC::Point::Storage* m_pShieldedOut = nullptr; // used in normal (apply) mode
-	std::set<ECC::Point>* m_pDups = nullptr; // used in validate-only mode
+
+	typedef std::map<Blob, std::unique_ptr<uint8_t[]> > BlobSet;
+	BlobSet* m_pDups = nullptr; // used in validate-only mode
 
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
@@ -2435,11 +2437,9 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			if (!ValidateShieldedNoDup(key, true))
 				return false;
 
-			assert(bic.m_pDups);
-			if (bic.m_pDups->end() != bic.m_pDups->find(key))
+			Blob blobKey(&key, sizeof(key));
+			if (!ValidateUniqueNoDup(bic, blobKey))
 				return false;
-
-			bic.m_pDups->insert(key);
 		}
 		else
 		{
@@ -2497,11 +2497,9 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 			ECC::Point key2 = key;
 			key2.m_Y ^= 2;
 
-			assert(bic.m_pDups);
-			if (bic.m_pDups->end() != bic.m_pDups->find(key2))
+			Blob blobKey(&key2, sizeof(key2));
+			if (!ValidateUniqueNoDup(bic, blobKey))
 				return false;
-
-			bic.m_pDups->insert(key2);
 		}
 		else
 		{
@@ -2905,6 +2903,20 @@ bool NodeProcessor::ValidateShieldedNoDup(const ECC::Point& comm, bool bOutp)
 	bool bCreate = false;
 	
 	return !m_Utxos.Find(cu, key, bCreate);
+}
+
+bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
+{
+	assert(bic.m_pDups);
+	if (bic.m_pDups->end() != bic.m_pDups->find(key))
+		return false;
+
+	BlockInterpretCtx::BlobSet::mapped_type v;
+	v.reset(new uint8_t[key.n]);
+	memcpy(v.get(), key.p, key.n);
+
+	(*bic.m_pDups)[key] = std::move(v);
+	return true;
 }
 
 void NodeProcessor::ToInputWithMaturity(Input& inp, TxoID id)
@@ -3342,7 +3354,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	bic.m_ValidateOnly = true;
 	bic.m_SaveKid = false;
 
-	std::set<ECC::Point> setDups;
+	BlockInterpretCtx::BlobSet setDups;
 	bic.m_pDups = &setDups;
 
 	size_t n = 0;

@@ -310,6 +310,7 @@ public:
 
 	bool ValidateTxContext(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
+	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob&);
 	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
 
 	bool IsShieldedInPool(const Transaction&);
