@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "local_private_key_keeper.h"
+#include "utility/logger.h"
 
 namespace beam::wallet
 {
@@ -300,11 +301,15 @@ namespace beam::wallet
     {
         boost::optional<ReceiverSignature> res;
         auto value = CalculateValue(inputs, outputs);
-        if (value >= 0)
+        if (value > 0 && !inputs.empty() && Amount(value) == kernelParamerters.fee) // self tx
+        {
+            value = 0;
+        }
+        else if (value >= 0)
         {
             return res; // we are not receiving
         }
-
+       
         auto excess = GetExcess(inputs, outputs, assetId, Zero);
         Amount val = -value;
 
@@ -353,7 +358,6 @@ namespace beam::wallet
         }
         kernel.UpdateID();
         const Merkle::Hash& message = kernel.m_Internal.m_ID;
-
         temp = Context::get().G * kNonce; // public receiver nonce, we don't need slots here since we sign transaction only once
         Point::Native pt;
         if (!pt.Import(publicNonce))
@@ -465,10 +469,9 @@ namespace beam::wallet
         kernel.UpdateID();
         const Merkle::Hash& message = kernel.m_Internal.m_ID;
 
-
         // TODO: Fix this!!!
         // If the following line is uncommented - swap_test hangs!
-        //ECC::GenRandom(m_Nonces[nonceSlot].V); // Invalidate slot immediately after using it (to make it similar to HW wallet)!
+        ECC::GenRandom(m_Nonces[nonceSlot].V); // Invalidate slot immediately after using it (to make it similar to HW wallet)!
 
         //kernel.m_Signature.m_NoncePub = publicNonce;
         //kernel.m_Signature.SignPartial(message, kKrn, nonce);

@@ -379,8 +379,8 @@ namespace beam::wallet
     {
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
+        bool hasInputs = m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins, m_SubTxID);
+        bool hasOutputs = m_Tx.GetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::AssetID, m_AssetId, m_SubTxID);
 
         if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
@@ -404,9 +404,10 @@ namespace beam::wallet
         CheckMinimumFee();
 
         m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
-        return m_Tx.GetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID)
-            && m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
-        //return m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+        m_Tx.GetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
+        m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
+
+        return hasInputs || hasOutputs; 
     }
 
     bool BaseTxBuilder::GetInputs()
@@ -470,19 +471,15 @@ namespace beam::wallet
         }
         if (initial)
         {
-            m_Tx.SetParameter(TxParameterID::PublicNonce, signature->m_KernelSignature.m_NoncePub);
-            m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce);
-            
-            m_Tx.SetParameter(TxParameterID::PublicExcess, signature->m_KernelCommitment);
-            m_Tx.GetParameter(TxParameterID::PublicExcess, m_PublicExcess);
+            StoreAndLoad(TxParameterID::PublicNonce, signature->m_KernelSignature.m_NoncePub, m_PublicNonce);
+            StoreAndLoad(TxParameterID::PublicExcess, signature->m_KernelCommitment, m_PublicExcess);
         }
         else
         {
-            //m_PeerPublicNonce = signature->m_KernelSignature.m_NoncePub;
-            //m_PeerPublicNonce -= m_PublicNonce;
-            //m_PeerPublicExcess = signature->m_KernelCommitment;
-            //m_PeerPublicExcess -= m_PublicExcess;
-            //m_Partial
+            StoreAndLoad(TxParameterID::PartialSignature, signature->m_KernelSignature.m_k, m_PartialSignature);
+            m_Offset = signature->m_Offset;
+            m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
+            StoreKernelID();
         }
     }
 
@@ -497,24 +494,28 @@ namespace beam::wallet
         {
             throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
         }
-        m_PartialSignature = signature->m_KernelSignature.m_k;
-        m_PublicNonce = signature->m_KernelSignature.m_NoncePub;
+        StoreAndLoad(TxParameterID::PartialSignature, signature->m_KernelSignature.m_k, m_PartialSignature);
+        if (!m_PublicNonce.Import(signature->m_KernelSignature.m_NoncePub)
+         || !m_PublicExcess.Import(signature->m_KernelCommitment))
+        {
+            throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
+        }
         m_PublicNonce -= m_PeerPublicNonce;
         m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce);
-        m_PublicExcess = signature->m_KernelCommitment;
         m_PublicExcess -= m_PeerPublicExcess;
         m_Tx.SetParameter(TxParameterID::PublicExcess, m_PublicExcess);
         m_Offset = signature->m_Offset;
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
+        StoreKernelID();
     }
 
     void BaseTxBuilder::FinalizeSignature()
     {
+        assert(m_Kernel);
         // final signature
         m_Kernel->m_Signature.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
         m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
 
-        StoreKernelID();
         m_Tx.SetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID);
     }
 
@@ -663,6 +664,11 @@ namespace beam::wallet
     void BaseTxBuilder::StoreKernelID()
     {
         assert(m_Kernel);
+        Point::Native totalPublicExcess = GetPublicExcess();
+        totalPublicExcess += m_PeerPublicExcess;
+        m_Kernel->m_Commitment = totalPublicExcess;
+
+        m_Kernel->UpdateID();
         m_Tx.SetParameter(TxParameterID::KernelID, m_Kernel->m_Internal.m_ID, m_SubTxID);
     }
 

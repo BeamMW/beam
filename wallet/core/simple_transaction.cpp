@@ -171,6 +171,7 @@ namespace beam::wallet
 
                     builder.SelectInputs();
                     builder.AddChange();
+                    builder.GenerateNonce();
                 }
 
                 if (isSelfTx || !isSender)
@@ -187,15 +188,6 @@ namespace beam::wallet
                             builder.GenerateBeamCoin(amount, false);
                         }
                     }
-                }
-                if (isSender)
-                {
-                    builder.GenerateNonce();
-                    builder.SignSender(true);
-                }
-                else
-                {
-                    builder.SignReceiver();
                 }
                 //builder.GenerateOffset();
             }
@@ -227,6 +219,7 @@ namespace beam::wallet
                 assert(IsInitiator());
                 if (txState == State::Initial)
                 {
+                    builder.SignSender(true);
                     SendInvitation(builder, isSender);
                     SetState(State::Invitation);
                 }
@@ -241,7 +234,6 @@ namespace beam::wallet
             }
 
             builder.CreateKernel();
-//            builder.SignPartial();
 
             if (!isSelfTx && !builder.GetPeerSignature())
             {
@@ -251,6 +243,7 @@ namespace beam::wallet
                     assert(!IsInitiator());
 
                     UpdateTxDescription(TxStatus::Registering);
+                    builder.SignReceiver();
                     ConfirmInvitation(builder, !hasPeersInputsAndOutputs);
 
                     uint32_t nVer = 0;
@@ -273,6 +266,15 @@ namespace beam::wallet
                 {
                     return;
                 }
+            }
+
+            if (!isSelfTx)
+            {
+                builder.SignSender(false);
+            }
+            else
+            {
+                builder.SignReceiver();
             }
 
             if (IsInitiator() && !builder.IsPeerSignatureValid())
@@ -306,7 +308,6 @@ namespace beam::wallet
                     return;
                 }
             }
-            builder.SignSender(false);
             builder.FinalizeSignature();
         }
 

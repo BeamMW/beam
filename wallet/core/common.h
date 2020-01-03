@@ -267,6 +267,8 @@ namespace beam::wallet
         KernelID = 152,
         MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
 
+        PartialSignature = 159,
+
         SharedBlindingFactor = 160,
         MyNonce = 162,
         NonceSlot = 163,
