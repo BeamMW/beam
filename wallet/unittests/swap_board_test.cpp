@@ -112,12 +112,13 @@ namespace
     {
         cout << endl << "Test protocol corruption" << endl;
 
-        MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
+            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+        MockBbsNetwork mockNetwork;
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
+        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
 
-        SwapOffersBoard Alice(mockNetwork, mockNetwork);
         size_t countOffers = 0;
         WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
         WALLET_CHECK(countOffers == 0);
@@ -193,12 +194,13 @@ namespace
     {
         cout << endl << "Test board messages signature" << endl;
 
-        MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
+            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+        MockBbsNetwork mockNetwork;
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
+        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
 
-        SwapOffersBoard Alice(mockNetwork, mockNetwork);
         WALLET_CHECK(Alice.getOffersList().size() == 0);
 
         TxID txId = generateTxID();
@@ -315,12 +317,13 @@ namespace
     {
         cout << endl << "Test mandatory parameters validation" << endl;
 
-        MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
+            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+        MockBbsNetwork mockNetwork;
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
+        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
 
-        SwapOffersBoard Alice(mockNetwork, mockNetwork);
         WALLET_CHECK(Alice.getOffersList().size() == 0);
 
         TxID txId = generateTxID();
@@ -386,14 +389,15 @@ namespace
     {
         cout << endl << "Test boards communication and notification" << endl;
 
-        MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
+            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+        MockBbsNetwork mockNetwork;
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
 
-        SwapOffersBoard Alice(mockNetwork, mockNetwork);
-        SwapOffersBoard Bob(mockNetwork, mockNetwork);
-        SwapOffersBoard Cory(mockNetwork, mockNetwork);
+        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
+        SwapOffersBoard Bob(mockNetwork, mockNetwork, protocolHandler);
+        SwapOffersBoard Cory(mockNetwork, mockNetwork, protocolHandler);
 
         WALLET_CHECK(Alice.getOffersList().size() == 0);
         WALLET_CHECK(Bob.getOffersList().size() == 0);
@@ -530,13 +534,14 @@ namespace
     {
         cout << endl << "Test linked transaction status changes" << endl;
 
-        MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
+            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+        MockBbsNetwork mockNetwork;
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
 
-        SwapOffersBoard Alice(mockNetwork, mockNetwork);
-        SwapOffersBoard Bob(mockNetwork, mockNetwork);
+        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
+        SwapOffersBoard Bob(mockNetwork, mockNetwork, protocolHandler);
 
         TxID txId = generateTxID();
         WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
@@ -668,13 +673,14 @@ namespace
     {
         cout << endl << "Test delayed offer update" << endl;
 
-        MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
+            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+        MockBbsNetwork mockNetwork;
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
 
-        SwapOffersBoard Alice(mockNetwork, mockNetwork);
-        SwapOffersBoard Bob(mockNetwork, mockNetwork);
+        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
+        SwapOffersBoard Bob(mockNetwork, mockNetwork, protocolHandler);
 
         TxID txId = generateTxID();
         WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);

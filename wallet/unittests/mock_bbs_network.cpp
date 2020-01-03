@@ -26,26 +26,12 @@ namespace
 {
 
 /**
- *  Real Wallet implementation isn't used in this test.
- *  Mock used to for BaseMessageEndpoint constructor.
+ *  Implementation of test BBS network.
  */
-struct MockWallet : public IWalletMessageConsumer
-{
-    virtual void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override {};
-};
-
-/**
- *  Implementation of test network for SwapOffersBoard class.
- *  SwapOffersBoard uses BaseMessageEndpoint::SendAndSign() to push outgoing messages and
- *  FlyClient::INetwork for incoming messages.
- *  Main idea is to test real BaseMessageEndpoint::SendAndSign() implementation with board.
- */
-class MockNetwork : public BaseMessageEndpoint, public FlyClient::INetwork
+class MockBbsNetwork : public IWalletMessageEndpoint, public FlyClient::INetwork
 {
 public:
-    MockNetwork(IWalletMessageConsumer& wallet, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
-        : BaseMessageEndpoint(wallet, walletDB, keyKeeper)
-    {};
+    MockBbsNetwork() {};
 
     // INetwork
     virtual void Connect() override {};
@@ -77,6 +63,7 @@ public:
             }
         }
     };
+    virtual void Send(const WalletID& peerID, const SetTxParameter& msg) override {};
 
 private:
     std::map<BbsChannel, std::vector<std::pair<FlyClient::IBbsReceiver*, Timestamp>>> m_subscriptions;

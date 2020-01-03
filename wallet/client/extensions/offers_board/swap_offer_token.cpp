@@ -27,4 +27,10 @@ namespace beam::wallet
         if (m_coin) result.m_coin = *m_coin;
         return result;
     }
+
+    boost::optional<WalletID> SwapOfferToken::getPublicKey() const
+    {
+        return m_publisherId;
+    }
+
 } // namespace beam::wallet

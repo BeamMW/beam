@@ -16,7 +16,6 @@
 
 #include "swap_offer.h"
 #include "swap_offers_observer.h"
-#include "swap_offer_token.h"
 #include "offers_protocol_handler.h"
 
 #include "wallet/core/wallet.h"
@@ -37,7 +36,9 @@ namespace beam::wallet
           public IWalletDbObserver
     {
     public:
-        SwapOffersBoard(FlyClient::INetwork& network, IWalletMessageEndpoint& messageEndpoint);
+        SwapOffersBoard(FlyClient::INetwork&,
+                        IWalletMessageEndpoint&,
+                        OfferBoardProtocolHandler&);
 
         /**
          *  FlyClient::IBbsReceiver implementation
@@ -62,15 +63,14 @@ namespace beam::wallet
 
     private:
 		FlyClient::INetwork& m_network;                     /// source of incoming BBS messages
-        std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
         IWalletMessageEndpoint& m_messageEndpoint;          /// destination of outgoing BBS messages
+        OfferBoardProtocolHandler& m_protocolHandler;       /// handles message creating and parsing
 
         static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
-        static constexpr uint8_t MsgType = 0;
-        static constexpr uint8_t m_protocolVersion = 1;
         Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
         Height m_currentHeight = 0;
         std::unordered_map<TxID, SwapOffer> m_offersCache;
+        std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
 
         auto getChannel(AtomicSwapCoin coin) const -> BbsChannel;
         bool isOfferExpired(const SwapOffer& offer) const;

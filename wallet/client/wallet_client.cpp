@@ -386,7 +386,9 @@ namespace beam::wallet
                     std::unique_ptr<WalletDbSubscriber> walletDbSubscriber;
                     std::unique_ptr<SwapOffersBoardSubscriber> swapOffersBoardSubscriber;
 
-                    auto offersBulletinBoard = make_shared<SwapOffersBoard>(*nodeNetwork, *walletNetwork);
+                    OfferBoardProtocolHandler protocolHandler(m_keyKeeper->get_SbbsKdf(), m_walletDB);
+
+                    auto offersBulletinBoard = make_shared<SwapOffersBoard>(*nodeNetwork, *walletNetwork, protocolHandler);
                     m_offersBulletinBoard = offersBulletinBoard;
 
                     walletDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);

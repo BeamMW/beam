@@ -93,11 +93,8 @@ namespace
     void TestProtocolStress()
     {
         cout << endl << "Test protocol corruption" << endl;
-
-        MockWallet mockWalletWallet;
-        auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        
+        MockBbsNetwork mockNetwork;
         Newscast newsEndpoint(mockNetwork);
         
         {
@@ -162,11 +159,8 @@ namespace
     {
         cout << endl << "Test signature verification" << endl;
 
-        MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>
-            (senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        MockBbsNetwork mockNetwork;
         Newscast newsEndpoint(mockNetwork);
 
         using PrivateKey = ECC::Scalar::Native;

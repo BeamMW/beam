@@ -18,9 +18,17 @@
 
 namespace beam::wallet
 {
-    SwapOffersBoard::SwapOffersBoard(FlyClient::INetwork& network, IWalletMessageEndpoint& messageEndpoint)
+    /**
+     *  @network            incoming bbs source
+     *  @messageEndpoint    outgoing bbs destination
+     *  @protocolHandler    offer board protocol handler
+     */
+    SwapOffersBoard::SwapOffersBoard(FlyClient::INetwork& network,
+                                     IWalletMessageEndpoint& messageEndpoint,
+                                     OfferBoardProtocolHandler& protocolHandler)
         :   m_network(network),
-            m_messageEndpoint(messageEndpoint)
+            m_messageEndpoint(messageEndpoint),
+            m_protocolHandler(protocolHandler)
     {
         for (auto channel : m_channelsMap)
         {
@@ -37,66 +45,29 @@ namespace beam::wallet
 
     void SwapOffersBoard::OnMsg(proto::BbsMsg &&msg)
     {
-        if (msg.m_Message.empty() || msg.m_Message.size() < MsgHeader::SIZE)
-            return;
+        auto newOffer = m_protocolHandler.parseMessage(msg.m_Message);
+        if (!newOffer) return;
 
-        SwapOfferToken token;
-        SwapOfferConfirmation confirmation;
-
-        try
-        {
-            MsgHeader header(msg.m_Message.data());
-            if (header.V0 != 0 ||
-                header.V1 != 0 ||
-                header.V2 != m_protocolVersion ||
-                header.type != MsgType)
-            {
-                LOG_WARNING() << "offer board message version unsupported";
-                return;
-            }
-
-            // message body
-            Deserializer d;
-            d.reset(msg.m_Message.data() + header.SIZE, header.size);
-            d & token;
-            d & confirmation.m_Signature;
-        }
-        catch(...)
-        {
-            LOG_WARNING() << "offer board message deserialization exception";
-            return;
-        }
-        
-        auto newOffer = token.Unpack();
-
-        confirmation.m_offerData = toByteBuffer(token);
-                    
-        if (!confirmation.IsValid(newOffer.m_publisherId.m_Pk))
-        {
-            LOG_WARNING() << "offer board message signature is invalid";
-            return;
-        }
-
-        if (newOffer.m_coin >= AtomicSwapCoin::Unknown || newOffer.m_status > SwapOfferStatus::Failed)
+        if (newOffer->m_coin >= AtomicSwapCoin::Unknown || newOffer->m_status > SwapOfferStatus::Failed)
         {
             LOG_WARNING() << "offer board message is invalid";
             return;
         }
 
-        auto it = m_offersCache.find(newOffer.m_txId);
+        auto it = m_offersCache.find(newOffer->m_txId);
         // New offer
         if (it == m_offersCache.end())
         {
-            if (isOfferExpired(newOffer) && newOffer.m_status == SwapOfferStatus::Pending)
+            if (isOfferExpired(*newOffer) && newOffer->m_status == SwapOfferStatus::Pending)
             {
-                newOffer.m_status = SwapOfferStatus::Expired;
+                newOffer->m_status = SwapOfferStatus::Expired;
             }
             
-            m_offersCache[newOffer.m_txId] = newOffer;
+            m_offersCache[newOffer->m_txId] = *newOffer;
 
-            if (newOffer.m_status == SwapOfferStatus::Pending)
+            if (newOffer->m_status == SwapOfferStatus::Pending)
             {
-                notifySubscribers(ChangeAction::Added, std::vector<SwapOffer>{newOffer});
+                notifySubscribers(ChangeAction::Added, std::vector<SwapOffer>{*newOffer});
             }
             else
             {
@@ -106,15 +77,15 @@ namespace beam::wallet
         // Existing offer update
         else    
         {
-            SwapOfferStatus existingStatus = m_offersCache[newOffer.m_txId].m_status;
+            SwapOfferStatus existingStatus = m_offersCache[newOffer->m_txId].m_status;
 
             // Normal case
             if (existingStatus == SwapOfferStatus::Pending)
             {
-                if (newOffer.m_status != SwapOfferStatus::Pending)
+                if (newOffer->m_status != SwapOfferStatus::Pending)
                 {
-                    m_offersCache[newOffer.m_txId].m_status = newOffer.m_status;
-                    notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{newOffer});
+                    m_offersCache[newOffer->m_txId].m_status = newOffer->m_status;
+                    notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{*newOffer});
                 }
             }
             // Transaction state has changed asynchronously while board was offline.
@@ -123,9 +94,9 @@ namespace beam::wallet
             // it need to be updated to latest status.
             else
             {
-                if (newOffer.m_status == SwapOfferStatus::Pending)
+                if (newOffer->m_status == SwapOfferStatus::Pending)
                 {
-                    sendUpdateToNetwork(newOffer.m_txId, newOffer.m_publisherId, newOffer.m_coin, existingStatus);
+                    sendUpdateToNetwork(newOffer->m_txId, newOffer->m_publisherId, newOffer->m_coin, existingStatus);
                 }
             }
         }
@@ -278,16 +249,32 @@ namespace beam::wallet
                     << "responseTime: " << *responseTime << "\n\t"
                     << "minimalHeight: " << *minimalHeight;
         
-        beam::wallet::SwapOfferToken token(offer);
-        m_messageEndpoint.SendAndSign(toByteBuffer(token), getChannel(*swapCoin), offer.m_publisherId, m_protocolVersion);
+        auto message = m_protocolHandler.createMessage(offer, offer.m_publisherId);
+        if (!message)
+        {
+            LOG_WARNING() << offer.m_txId << " Offer has foreign Pk and will not be published.\n\t";
+            return;
+        }
+        WalletID dummyWId;
+        dummyWId.m_Channel = getChannel(*swapCoin);
+        m_messageEndpoint.SendRawMessage(dummyWId, *message);
     }
 
+    /**
+     *  Creates truncated offer w/o any unnecessary data to reduce size.
+     */
     void SwapOffersBoard::sendUpdateToNetwork(const TxID& offerID, const WalletID& publisherID, AtomicSwapCoin coin, SwapOfferStatus newStatus) const
     {
-        LOG_INFO() << offerID << " Update offer status to " << std::to_string(newStatus);
-
-        beam::wallet::SwapOfferToken token(SwapOffer(offerID, newStatus, publisherID, coin));
-        m_messageEndpoint.SendAndSign(toByteBuffer(token), getChannel(coin), publisherID, m_protocolVersion);
+        LOG_INFO() << offerID << " offer status updated to " << std::to_string(newStatus);
+        auto message = m_protocolHandler.createMessage(SwapOffer(offerID, newStatus, publisherID, coin), publisherID);
+        if (!message)
+        {
+            LOG_WARNING() << offerID << " Offer has foreign Pk and will not be updated.\n\t";
+            return;
+        }
+        WalletID dummyWId;
+        dummyWId.m_Channel = getChannel(coin);
+        m_messageEndpoint.SendRawMessage(dummyWId, *message);
     }
     
     void SwapOffersBoard::Subscribe(ISwapOffersObserver* observer)

@@ -28,21 +28,34 @@ namespace beam::wallet
 
     public:
 
+        // TODO: split to message creator with access to KDF and walletDB and 
+        // message parser without access
+
         /**
          *  Create message with swap offer according to protocol.
          *  Message includes signature and pubKey for validation.
          */
-        OfferBoardProtocolHandler(ECC::Key::IKdf& sbbsKdf, beam::wallet::IWalletDB& walletDB);
+        OfferBoardProtocolHandler(ECC::Key::IKdf::Ptr sbbsKdf, beam::wallet::IWalletDB::Ptr walletDB);
     
-        boost::optional<ByteBuffer> createMessage(const SwapOfferToken& content, const BbsChannel& channel, const WalletID& wid);
+        /**
+         * Create message signed with private key
+         *
+         * @param content   Swap offer data
+         * @param wid       Signatory's public key 
+         */
+        boost::optional<ByteBuffer> createMessage(const SwapOffer& content, const WalletID& wid);
 
-        // TODO: parseMessage()
+        /**
+         *  Parse message and verify signature.
+         */
+        boost::optional<SwapOffer> parseMessage(ByteBuffer& rawMessage);
 
     private:
         std::shared_ptr<beam::wallet::IWalletDB> m_walletDB;
         std::shared_ptr<ECC::Key::IKdf> m_sbbsKdf;
 
         static constexpr uint8_t m_protocolVersion = 1;
+        static constexpr uint8_t m_msgType = 0;
     };
     
 } // namespace beam::wallet

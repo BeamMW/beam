@@ -30,6 +30,7 @@ namespace beam::wallet
               m_Parameters(offer.Pack()) {};
         
         SwapOffer Unpack() const;
+        boost::optional<WalletID> getPublicKey() const;
         SERIALIZE(m_TxID, m_status, m_publisherId, m_coin, m_Parameters);
 
     private:
