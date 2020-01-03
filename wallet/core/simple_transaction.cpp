@@ -139,7 +139,7 @@ namespace beam::wallet
         auto sharedBuilder = m_TxBuilder;
         BaseTxBuilder& builder = *sharedBuilder;
 
-        bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
+        builder.GetPeerInputsAndOutputs();
 
         // Check if we already have signed kernel
         if ((isSender && !builder.LoadKernel())
@@ -244,7 +244,7 @@ namespace beam::wallet
 
                     UpdateTxDescription(TxStatus::Registering);
                     builder.SignReceiver();
-                    ConfirmInvitation(builder, !hasPeersInputsAndOutputs);
+                    ConfirmInvitation(builder);
 
                     uint32_t nVer = 0;
                     if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
@@ -314,20 +314,6 @@ namespace beam::wallet
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
         {
-            if (!isSelfTx && (!hasPeersInputsAndOutputs || IsInitiator()))
-            {
-                if (txState == State::Invitation)
-                {
-                    UpdateTxDescription(TxStatus::Registering);
-                    ConfirmTransaction(builder, !hasPeersInputsAndOutputs);
-                    SetState(State::PeerConfirmation);
-                }
-                if (!hasPeersInputsAndOutputs)
-                {
-                    return;
-                }
-            }
-
             if (CheckExpired())
             {
                 return;
@@ -399,7 +385,7 @@ namespace beam::wallet
         }
     }
 
-    void SimpleTransaction::ConfirmInvitation(const BaseTxBuilder& builder, bool sendUtxos)
+    void SimpleTransaction::ConfirmInvitation(const BaseTxBuilder& builder)
     {
         LOG_INFO() << GetTxID() << " Transaction accepted. Kernel: " << builder.GetKernelIDString();
         SetTxParameter msg;
@@ -408,13 +394,10 @@ namespace beam::wallet
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
             .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
-            .AddParameter(TxParameterID::PeerMaxHeight, builder.GetMaxHeight());
-        if (sendUtxos)
-        {
-            msg.AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
+            .AddParameter(TxParameterID::PeerMaxHeight, builder.GetMaxHeight())
+            .AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
             .AddParameter(TxParameterID::PeerOutputs, builder.GetOutputs())
             .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
-        }
 
         assert(!IsSelfTx());
         if (!GetMandatoryParameter<bool>(TxParameterID::IsSender))
@@ -446,26 +429,6 @@ namespace beam::wallet
             }
         }
 
-        SendTxParameters(move(msg));
-    }
-
-    void SimpleTransaction::ConfirmTransaction(const BaseTxBuilder& builder, bool sendUtxos)
-    {
-        uint32_t nVer = 0;
-        if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
-        {
-            // we skip this step for new tx flow
-            return;
-        }
-        LOG_INFO() << GetTxID() << " Peer signature is valid. Kernel: " << builder.GetKernelIDString();
-        SetTxParameter msg;
-        msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.GetPartialSignature()));
-        if (sendUtxos)
-        {
-            msg.AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
-                .AddParameter(TxParameterID::PeerOutputs, builder.GetOutputs())
-                .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
-        }
         SendTxParameters(move(msg));
     }
 

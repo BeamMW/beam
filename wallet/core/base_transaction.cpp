@@ -47,7 +47,6 @@ namespace beam::wallet
             .SetParameter(TxParameterID::IsInitiator, true)
             .SetParameter(TxParameterID::IsSender, true)
             .SetParameter(TxParameterID::CreateTime, getTimestamp());
-
     }
 
     std::string GetFailureMessage(TxFailureReason reason)

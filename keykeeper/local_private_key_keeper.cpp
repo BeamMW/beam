@@ -469,12 +469,8 @@ namespace beam::wallet
         kernel.UpdateID();
         const Merkle::Hash& message = kernel.m_Internal.m_ID;
 
-        // TODO: Fix this!!!
-        // If the following line is uncommented - swap_test hangs!
         ECC::GenRandom(m_Nonces[nonceSlot].V); // Invalidate slot immediately after using it (to make it similar to HW wallet)!
 
-        //kernel.m_Signature.m_NoncePub = publicNonce;
-        //kernel.m_Signature.SignPartial(message, kKrn, nonce);
         res.emplace();
         res->m_KernelSignature.m_NoncePub = publicNonce;// + myPublicNonce;
         res->m_KernelSignature.SignPartial(message, kKrn, nonce);

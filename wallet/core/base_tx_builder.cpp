@@ -294,58 +294,6 @@ namespace beam::wallet
     Point::Native BaseTxBuilder::GetPublicExcess() const
     {
         return m_PublicExcess;
-        //// PublicExcess = Sum(inputs) - Sum(outputs) - offset * G - (Sum(input amounts) - Sum(output amounts)) * H
-        //const auto assetHGen = SwitchCommitment::HGenFromAID(m_AssetId);
-        //Point::Native publicAmount = Zero;
-        //for (const auto& cid : m_InputCoins)
-        //{
-        //    if (cid.isAsset())
-        //    {
-        //        AmountBig::AddTo(publicAmount, cid.m_Value, assetHGen);
-        //    }
-        //    else
-        //    {
-        //        AmountBig::AddTo(publicAmount, cid.m_Value);
-        //    }
-        //}
-        //
-        //publicAmount = -publicAmount;
-        //for (const auto& cid : m_OutputCoins)
-        //{
-        //    if(cid.m_Type == Key::Type::Asset || cid.m_Type == Key::Type::AssetChange)
-        //    {
-        //         AmountBig::AddTo(publicAmount, cid.m_Value, assetHGen);
-        //    }
-        //    else
-        //    {
-        //        AmountBig::AddTo(publicAmount, cid.m_Value);
-        //    }
-        //}
-        //
-        //Point::Native publicExcess = Context::get().G * m_Offset;
-        //{
-        //    Point::Native commitment;
-        //
-        //    for (const auto& output : m_Outputs)
-        //    {
-        //        if (commitment.Import(output->m_Commitment))
-        //        {
-        //            publicExcess += commitment;
-        //        }
-        //    }
-        //
-        //    publicExcess = -publicExcess;
-        //    for (const auto& input : m_Inputs)
-        //    {
-        //        if (commitment.Import(input->m_Commitment))
-        //        {
-        //            publicExcess += commitment;
-        //        }
-        //    }
-        //}
-        //
-        //publicExcess += publicAmount;
-        //return publicExcess;
     }
 
     Point::Native BaseTxBuilder::GetPublicNonce() const
