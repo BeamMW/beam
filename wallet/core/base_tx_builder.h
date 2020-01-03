@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include "wallet_db.h"
+#include "base_transaction.h"
 
 #include <condition_variable>
 #include <boost/optional.hpp>
@@ -23,7 +24,6 @@
 
 namespace beam::wallet
 {
-    class BaseTransaction;
 
     class BaseTxBuilder : public std::enable_shared_from_this<BaseTxBuilder>
     {

@@ -189,7 +189,6 @@ namespace beam::wallet
                         }
                     }
                 }
-                //builder.GenerateOffset();
             }
 
             if (builder.CreateInputs())
