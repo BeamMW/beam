@@ -39,7 +39,6 @@ namespace beam::wallet
         bool LoadKernel();
         bool HasKernelID() const;
         void CreateKernel();
-        void GenerateOffset();
         void GenerateNonce();
         virtual ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
@@ -54,7 +53,6 @@ namespace beam::wallet
         bool CreateInputs();
         void FinalizeInputs();
         virtual Transaction::Ptr CreateTransaction();
-        void SignPartial();
         void SignSender(bool initial);
         void SignReceiver();
         bool IsPeerSignatureValid() const;

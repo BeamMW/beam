@@ -1018,8 +1018,6 @@ namespace beam::wallet
                 lockTxBuilder->SelectInputs();
                 lockTxBuilder->AddChange();
             }
-
-            lockTxBuilder->GenerateOffset();
         }
 
         lockTxBuilder->CreateInputs();

@@ -268,12 +268,6 @@ namespace beam::wallet
 		}
     }
 
-    void BaseTxBuilder::GenerateOffset()
-    {
-        m_Offset.GenRandomNnz();
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
-    }
-
     void BaseTxBuilder::GenerateNonce()
     {
         // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
@@ -375,30 +369,6 @@ namespace beam::wallet
         bool hasOutputs = (m_Tx.GetParameter(TxParameterID::PeerOutputs, m_PeerOutputs, m_SubTxID)
             && m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset, m_SubTxID));
         return hasInputs || hasOutputs;
-    }
-
-    void BaseTxBuilder::SignPartial()
-    {
-        // create signature
-        Point::Native totalPublicExcess = GetPublicExcess();
-        totalPublicExcess += m_PeerPublicExcess;
-        m_Kernel->m_Commitment = totalPublicExcess;
-
-        KernelParameters kernelParameters;
-        kernelParameters.fee = m_Fee;
-        kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
-        kernelParameters.commitment = totalPublicExcess;
-
-		if (m_Kernel->m_pHashLock)
-		{
-			*(m_Kernel->m_pHashLock->m_IsImage ? kernelParameters.lockImage : kernelParameters.lockPreImage) = m_Kernel->m_pHashLock->m_Value;
-		}
-
-		m_Kernel->UpdateID();
-
-        m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_AssetId, m_Offset, m_NonceSlot, kernelParameters, GetPublicNonce() + m_PeerPublicNonce);
-        m_Tx.SetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID);
-        StoreKernelID();
     }
 
     void BaseTxBuilder::SignSender(bool initial)
