@@ -1770,6 +1770,12 @@ namespace ECC {
 		ctx.m_Sig.m_pGenGJ[1].m_pGenPrep = &ctx.m_Ipp.J_;
 		ctx.m_Sig.m_pGenGJ[1].m_nBatchIdx = InnerProduct::BatchContext::s_Idx_J;
 
+		ctx.m_Sig.m_pGenGH[0] = ctx.m_Sig.m_GenG;
+
+		ctx.m_Sig.m_pGenGH[1].m_pGen = &ctx.H_Big;
+		ctx.m_Sig.m_pGenGH[1].m_pGenPrep = &ctx.m_Ipp.H_;
+		ctx.m_Sig.m_pGenGH[1].m_nBatchIdx = InnerProduct::BatchContext::s_Idx_H;
+
 		ctx.m_Sig.m_CfgGJ1.m_nKeys = 1;
 		ctx.m_Sig.m_CfgGJ1.m_nG = 2;
 		ctx.m_Sig.m_CfgGJ1.m_pG = ctx.m_Sig.m_pGenGJ;
@@ -1777,6 +1783,10 @@ namespace ECC {
 		ctx.m_Sig.m_CfgG2.m_nKeys = 2;
 		ctx.m_Sig.m_CfgG2.m_nG = 1;
 		ctx.m_Sig.m_CfgG2.m_pG = &ctx.m_Sig.m_GenG;
+
+		ctx.m_Sig.m_CfgGH2.m_nKeys = 2;
+		ctx.m_Sig.m_CfgGH2.m_nG = 2;
+		ctx.m_Sig.m_CfgGH2.m_pG = ctx.m_Sig.m_pGenGH;
 
 #ifndef NDEBUG
 		g_bContextInitialized = true;

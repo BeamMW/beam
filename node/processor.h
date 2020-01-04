@@ -61,13 +61,12 @@ class NodeProcessor
 	template <typename T>
 	void HandleElementVecBwd(const T& vec, BlockInterpretCtx&, size_t n);
 
-	bool HandleBlock(const NodeDB::StateID&, MultiblockContext&);
+	bool HandleBlock(const NodeDB::StateID&, const Block::SystemState::Full&, MultiblockContext&);
 	bool HandleValidatedTx(const TxVectors::Full&, BlockInterpretCtx&);
 	bool HandleValidatedBlock(const Block::Body&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
-	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, Height, Key::IPKdf&);
@@ -96,12 +95,11 @@ class NodeProcessor
 	TxoID get_TxosBefore(Height);
 	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 
-	void InitCursor();
+	void InitCursor(bool bMovingUp);
 	bool InitUtxoMapping(const char*, bool bForceReset);
 	void InitializeUtxos(const char*);
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, bool bForNextState);
-	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
@@ -172,6 +170,7 @@ public:
 
 	static void get_UtxoMappingPath(std::string&, const char*);
 
+	NodeProcessor();
 	virtual ~NodeProcessor();
 
 	struct Horizon {
@@ -212,7 +211,6 @@ public:
 	{
 		TxoID m_TxosTreasury;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
-		TxoID m_Shielded;
 
 		Height m_Fossil; // from here and down - no original blocks
 		Height m_TxoLo;
@@ -257,6 +255,7 @@ public:
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
 
+	void get_UtxoHash(Merkle::Hash&, bool bForNextState);
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
 
 	void CommitDB();
@@ -309,7 +308,7 @@ public:
 
 	bool ValidateTxContext(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
-	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
+	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob&);
 
 	bool IsShieldedInPool(const Transaction&);
 	bool IsShieldedInPool(const TxKernelShieldedInput&);
@@ -393,12 +392,22 @@ public:
 			proto::UtxoEvent::Shielded m_Shielded;
 		};
 	};
+
+	struct ShieldedOutpPacked
+	{
+		uintBigFor<TxoID>::Type m_TxoID;
+		ECC::Point m_Commitment;
+	};
+
 #pragma pack (pop)
 
 	virtual void OnUtxoEvent(const UtxoEvent::Value&, Height) {}
 	virtual void OnDummy(const Key::ID&, Height) {}
 
 	static bool IsDummy(const Key::IDV&);
+
+	NodeDB::StatesMmr m_StatesMmr;
+	NodeDB::StreamMmr m_ShieldedMmr;
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);

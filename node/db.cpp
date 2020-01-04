@@ -37,7 +37,7 @@ namespace beam {
 #define TblStates_CountNext		"CountNext"
 #define TblStates_CountNextF	"CountNextFunctional"
 #define TblStates_PoW			"PoW"
-#define TblStates_Mmr			"Mmr"
+#define TblStates_Mmr			"Mmr" // deprecated
 #define TblStates_BodyP			"Perishable"
 #define TblStates_BodyE			"Ethernal"
 #define TblStates_Peer			"Peer"
@@ -84,9 +84,13 @@ namespace beam {
 #define TblTxo_Value			"Value"
 #define TblTxo_SpendHeight		"SpendHeight"
 
-#define TblShielded				"Shielded"
-#define TblShielded_ID			"ID"
-#define TblShielded_Value		"Value"
+#define TblStreams				"Streams"
+#define TblStream_ID			"ID"
+#define TblStream_Value			"Value"
+
+#define TblUnique				"UniqueStorage"
+#define TblUnique_Key			"Key"
+#define TblUnique_Value			"Value"
 
 NodeDB::NodeDB()
 	:m_pDb(NULL)
@@ -146,17 +150,22 @@ void NodeDB::Close()
 	}
 }
 
-NodeDB::Recordset::Recordset(NodeDB& db)
-	:m_pStmt(NULL)
-	,m_DB(db)
+NodeDB::Recordset::Recordset()
+	:m_pStmt(nullptr)
+	,m_pDB(nullptr)
 {
 }
 
 NodeDB::Recordset::Recordset(NodeDB& db, Query::Enum val, const char* sql)
-	:m_pStmt(NULL)
-	,m_DB(db)
+	:m_pStmt(nullptr)
 {
-	m_pStmt = m_DB.get_Statement(val, sql);
+	InitInternal(db, val, sql);
+}
+
+void NodeDB::Recordset::InitInternal(NodeDB& db, Query::Enum val, const char* sql)
+{
+	m_pDB = &db;
+	m_pStmt = db.get_Statement(val, sql);
 }
 
 NodeDB::Recordset::~Recordset()
@@ -173,21 +182,39 @@ void NodeDB::Recordset::Reset()
 	}
 }
 
-void NodeDB::Recordset::Reset(Query::Enum val, const char* sql)
+void NodeDB::Recordset::Reset(NodeDB& db, Query::Enum val, const char* sql)
 {
 	Reset();
-	m_pStmt = m_DB.get_Statement(val, sql);
+	InitInternal(db, val, sql);
 }
 
 bool NodeDB::Recordset::Step()
 {
-	return m_DB.ExecStep(m_pStmt);
+	return m_pDB->ExecStep(m_pStmt);
 }
 
 void NodeDB::Recordset::StepStrict()
 {
 	if (!Step())
 		ThrowError("not found");
+}
+
+bool NodeDB::Recordset::StepModifySafe()
+{
+	int nVal = m_pDB->ExecStepRaw(m_pStmt);
+	switch (nVal)
+	{
+
+	default:
+		m_pDB->ThrowSqliteError(nVal);
+		// no break
+
+	case SQLITE_DONE:
+		return true;
+
+	case SQLITE_CONSTRAINT:
+		return false;
+	}
 }
 
 bool NodeDB::Recordset::IsNull(int col)
@@ -197,17 +224,17 @@ bool NodeDB::Recordset::IsNull(int col)
 
 void NodeDB::Recordset::putNull(int col)
 {
-	m_DB.TestRet(sqlite3_bind_null(m_pStmt, col+1));
+	m_pDB->TestRet(sqlite3_bind_null(m_pStmt, col+1));
 }
 
 void NodeDB::Recordset::put(int col, uint32_t x)
 {
-	m_DB.TestRet(sqlite3_bind_int(m_pStmt, col+1, x));
+	m_pDB->TestRet(sqlite3_bind_int(m_pStmt, col+1, x));
 }
 
 void NodeDB::Recordset::put(int col, uint64_t x)
 {
-	m_DB.TestRet(sqlite3_bind_int64(m_pStmt, col+1, x));
+	m_pDB->TestRet(sqlite3_bind_int64(m_pStmt, col+1, x));
 }
 
 void NodeDB::Recordset::put(int col, const Blob& x)
@@ -220,12 +247,12 @@ void NodeDB::Recordset::put(int col, const Blob& x)
 	//
 	// Hence - we work this around, use `this`, as an arbitrary non-NULL pointer
 	const void* pPtr = x.n ? x.p : this;
-	m_DB.TestRet(sqlite3_bind_blob(m_pStmt, col+1, pPtr, x.n, NULL));
+	m_pDB->TestRet(sqlite3_bind_blob(m_pStmt, col+1, pPtr, x.n, NULL));
 }
 
 void NodeDB::Recordset::put(int col, const char* sz)
 {
-	m_DB.TestRet(sqlite3_bind_text(m_pStmt, col+1, sz, -1, NULL));
+	m_pDB->TestRet(sqlite3_bind_text(m_pStmt, col+1, sz, -1, NULL));
 }
 
 void NodeDB::Recordset::put(int col, const Key::ID& kid, Key::ID::Packed& p)
@@ -236,7 +263,7 @@ void NodeDB::Recordset::put(int col, const Key::ID& kid, Key::ID::Packed& p)
 
 void NodeDB::Recordset::putZeroBlob(int col, uint32_t nSize)
 {
-	m_DB.TestRet(sqlite3_bind_zeroblob(m_pStmt, col + 1, nSize));
+	m_pDB->TestRet(sqlite3_bind_zeroblob(m_pStmt, col + 1, nSize));
 }
 
 void NodeDB::Recordset::get(int col, uint32_t& x)
@@ -303,7 +330,8 @@ void NodeDB::Open(const char* szPath)
 	const uint64_t nVersion17 = 17; // before UTXO image
 	const uint64_t nVersion18 = 18; // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
 	const uint64_t nVersion19 = 19; // before Shielded shards
-	const uint64_t nVersionTop = 20;
+	const uint64_t nVersion20 = 20; // Deprecated Shielded table created.
+	const uint64_t nVersionTop = 21;
 
 	Transaction t(*this);
 
@@ -327,7 +355,15 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case nVersion19:
-			CreateTableShielded();
+			// ignore
+			// no break;
+
+		case nVersion20:
+			CreateTables20();
+
+			LOG_INFO() << "DB migrate from" << nVersion20;
+			MigrateFrom20();
+
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 			// no break;
 
@@ -375,7 +411,6 @@ void NodeDB::Create()
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
 		"[" TblStates_CountNextF	"] INTEGER NOT NULL,"
 		"[" TblStates_PoW			"] BLOB,"
-		"[" TblStates_Mmr			"] BLOB,"
 		"[" TblStates_BodyP			"] BLOB,"
 		"[" TblStates_BodyE			"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
@@ -447,14 +482,18 @@ void NodeDB::Create()
 		"[" TblTxo_Value			"] BLOB NOT NULL,"
 		"[" TblTxo_SpendHeight		"] INTEGER)");
 
-	CreateTableShielded();
+	CreateTables20();
 }
 
-void NodeDB::CreateTableShielded()
+void NodeDB::CreateTables20()
 {
-	ExecQuick("CREATE TABLE [" TblShielded "] ("
-		"[" TblShielded_ID			"] INTEGER NOT NULL PRIMARY KEY,"
-		"[" TblShielded_Value		"] BLOB NOT NULL)");
+	ExecQuick("CREATE TABLE [" TblStreams "] ("
+		"[" TblStream_ID			"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblStream_Value			"] BLOB NOT NULL)");
+
+	ExecQuick("CREATE TABLE [" TblUnique "] ("
+		"[" TblUnique_Key			"] BLOB NOT NULL PRIMARY KEY,"
+		"[" TblUnique_Value			"] BLOB) WITHOUT ROWID");
 }
 
 void NodeDB::Vacuum()
@@ -490,7 +529,7 @@ std::string NodeDB::ExecTextOut(const char* szSql)
 	return sRes;
 }
 
-bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
+int NodeDB::ExecStepRaw(sqlite3_stmt* pStmt)
 {
 	int n = sqlite3_total_changes(m_pDb);
 
@@ -499,6 +538,12 @@ bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
 	if (sqlite3_total_changes(m_pDb) != n)
 		OnModified();
 
+	return nVal;
+}
+
+bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
+{
+	int nVal = ExecStepRaw(pStmt);
 	switch (nVal)
 	{
 
@@ -577,7 +622,7 @@ void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
 
 	if (!get_RowsChanged())
 	{
-		rs.Reset(Query::ParamIns, "INSERT INTO " TblParams " (" TblParams_ID "," TblParams_Int "," TblParams_Blob ") VALUES(?,?,?)");
+		rs.Reset(*this, Query::ParamIns, "INSERT INTO " TblParams " (" TblParams_ID "," TblParams_Int "," TblParams_Blob ") VALUES(?,?,?)");
 
 		rs.put(0, ID);
 		if (p0)
@@ -717,7 +762,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s, const PeerID& pe
 	s.get_Hash(hash);
 
 	// Count next functional
-	rs.Reset(Query::StateGetNextFCount, "SELECT COUNT() FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=? AND (" TblStates_Flags " & ?)");
+	rs.Reset(*this, Query::StateGetNextFCount, "SELECT COUNT() FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=? AND (" TblStates_Flags " & ?)");
 	rs.put(0, s.m_Height + 1);
 	rs.put(1, hash);
 	rs.put(2, StateFlags::Functional);
@@ -730,7 +775,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s, const PeerID& pe
 #define THE_MACRO_1(dbname, extname) TblStates_##dbname ","
 #define THE_MACRO_2(dbname, extname) "?,"
 
-	rs.Reset(Query::StateIns, "INSERT INTO " TblStates
+	rs.Reset(*this, Query::StateIns, "INSERT INTO " TblStates
 		" (" TblStates_Hash "," StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_Flags "," TblStates_CountNext "," TblStates_CountNextF "," TblStates_RowPrev "," TblStates_Peer ")"
 		" VALUES(?," StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?,?,?)");
 
@@ -766,7 +811,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s, const PeerID& pe
 	}
 
 	// Ancestors
-	rs.Reset(Query::StateUpdPrevRow, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=?");
+	rs.Reset(*this, Query::StateUpdPrevRow, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=?");
 	rs.put(0, rowid);
 	rs.put(1, s.m_Height + 1);
 	rs.put(2, hash);
@@ -863,7 +908,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 	if (StateFlags::Reachable & nFlags)
 		TipReachableDel(rowid);
 
-	rs.Reset(Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
+	rs.Reset(*this, Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
 	rs.Step();
@@ -922,7 +967,7 @@ void NodeDB::SetNextCountFunctional(uint64_t rowid, uint32_t n)
 void NodeDB::EnumSystemStatesBkwd(WalkerSystemState& x, const StateID& sid)
 {
 #define THE_MACRO_1(dbname, extname) TblStates_##dbname
-	x.m_Rs.Reset(Query::EnumSystemStatesBkwd,
+	x.m_Rs.Reset(*this, Query::EnumSystemStatesBkwd,
 		"SELECT rowid," TblStates_RowPrev "," StateCvt_Fields(THE_MACRO_1, THE_MACRO_COMMA_S)
 		" FROM " TblStates " WHERE " TblStates_Height "<=? ORDER BY " TblStates_Height " DESC");
 #undef THE_MACRO_1
@@ -1117,9 +1162,6 @@ void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b
 
 	while (true)
 	{
-		if (b)
-			BuildMmr(rowid, rowPrev, h);
-
 		rowPrev = rowid;
 
 		{
@@ -1461,7 +1503,7 @@ void NodeDB::assert_valid()
 			nTipsReachable++;
 	}
 	
-	rs.Reset(Query::Dbg1, "SELECT "
+	rs.Reset(*this, Query::Dbg1, "SELECT "
 		TblTips "." TblTips_Height ","
 		TblStates "." TblStates_Height ","
 		TblStates "." TblStates_CountNext
@@ -1481,7 +1523,7 @@ void NodeDB::assert_valid()
 
 	assert(!nTips);
 
-	rs.Reset(Query::Dbg2, "SELECT "
+	rs.Reset(*this, Query::Dbg2, "SELECT "
 		TblStates "." TblStates_CountNextF ","
 		TblStates "." TblStates_Flags
 		" FROM " TblTipsReachable " LEFT JOIN " TblStates " ON " TblTipsReachable "." TblTips_State "=" TblStates ".rowid");
@@ -1497,7 +1539,7 @@ void NodeDB::assert_valid()
 
 	assert(!nTipsReachable);
 
-	rs.Reset(Query::Dbg3, "SELECT "
+	rs.Reset(*this, Query::Dbg3, "SELECT "
 		TblStates ".rowid," TblStates "." TblStates_CountNext ",COUNT(nxt.rowid) FROM " TblStates
 		" LEFT JOIN " TblStates " nxt ON (" TblStates "." TblStates_Height "=nxt." TblStates_Height "-1) AND (" TblStates "." TblStates_Hash "=nxt." TblStates_HashPrev ")"
 		"GROUP BY " TblStates ".rowid");
@@ -1512,7 +1554,7 @@ void NodeDB::assert_valid()
 		assert(n0 == n1);
 	}
 
-	rs.Reset(Query::Dbg4, "SELECT "
+	rs.Reset(*this, Query::Dbg4, "SELECT "
 		TblStates ".rowid," TblStates "." TblStates_CountNextF ",COUNT(nxt.rowid) FROM " TblStates
 		" LEFT JOIN " TblStates " nxt ON (" TblStates "." TblStates_Height "=nxt." TblStates_Height "-1) AND (" TblStates "." TblStates_Hash "=nxt." TblStates_HashPrev ") AND (nxt." TblStates_Flags " & 1) "
 		"GROUP BY " TblStates ".rowid");
@@ -1530,12 +1572,12 @@ void NodeDB::assert_valid()
 
 void NodeDB::EnumTips(WalkerState& x)
 {
-	x.m_Rs.Reset(Query::EnumTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTips " ORDER BY "  TblTips_Height " ASC," TblTips_State " ASC");
+	x.m_Rs.Reset(*this, Query::EnumTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTips " ORDER BY "  TblTips_Height " ASC," TblTips_State " ASC");
 }
 
 void NodeDB::EnumFunctionalTips(WalkerState& x)
 {
-	x.m_Rs.Reset(Query::EnumFunctionalTips, "SELECT "
+	x.m_Rs.Reset(*this, Query::EnumFunctionalTips, "SELECT "
 		TblStates "." TblStates_Height ","
 		TblStates ".rowid"
 		" FROM " TblTipsReachable
@@ -1557,13 +1599,13 @@ Height NodeDB::get_HeightBelow(Height h)
 
 void NodeDB::EnumStatesAt(WalkerState& x, Height h)
 {
-	x.m_Rs.Reset(Query::EnumAtHeight, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? ORDER BY " TblStates_Hash);
+	x.m_Rs.Reset(*this, Query::EnumAtHeight, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? ORDER BY " TblStates_Hash);
 	x.m_Rs.put(0, h);
 }
 
 void NodeDB::EnumAncestors(WalkerState& x, const StateID& sid)
 {
-	x.m_Rs.Reset(Query::EnumAncestors, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_RowPrev "=? ORDER BY " TblStates_Hash);
+	x.m_Rs.Reset(*this, Query::EnumAncestors, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_RowPrev "=? ORDER BY " TblStates_Hash);
 	x.m_Rs.put(0, sid.m_Height + 1);
 	x.m_Rs.put(1, sid.m_Row);
 }
@@ -1652,128 +1694,6 @@ void NodeDB::MoveFwd(const StateID& sid)
 	put_Cursor(sid);
 }
 
-struct NodeDB::Dmmr
-	:public Merkle::DistributedMmr
-{
-	NodeDB& m_This;
-	Recordset m_Rs;
-	uint64_t m_RowLast;
-
-	Dmmr(NodeDB& x)
-		:m_This(x)
-		,m_Rs(x)
-		,m_RowLast(0)
-	{}
-
-	void Goto(uint64_t rowid);
-	void get_NodeHashInternal(Merkle::Hash&, Key);
-
-	// DistributedMmr
-	virtual const void* get_NodeData(Key) const override;
-	virtual void get_NodeHash(Merkle::Hash&, Key) const override;
-};
-
-void NodeDB::Dmmr::Goto(uint64_t rowid)
-{
-	if (m_RowLast == rowid)
-		return;
-	m_RowLast = rowid;
-
-	m_Rs.Reset(Query::MmrGet, "SELECT " TblStates_Mmr " FROM " TblStates " WHERE rowid=?");
-	m_Rs.put(0, rowid);
-	m_Rs.StepStrict();
-}
-
-const void* NodeDB::Dmmr::get_NodeData(Key rowid) const
-{
-	Dmmr* pThis = Cast::NotConst(this);
-	pThis->Goto(rowid);
-
-	Blob b;
-	pThis->m_Rs.get(0, b);
-	return b.p;
-}
-
-void NodeDB::Dmmr::get_NodeHash(Merkle::Hash& hv, Key rowid) const
-{
-	Dmmr* pThis = Cast::NotConst(this);
-
-	if (!pThis->m_This.get_Prev(rowid))
-		ThrowInconsistent();
-
-	pThis->get_NodeHashInternal(hv, rowid);
-}
-
-void NodeDB::Dmmr::get_NodeHashInternal(Merkle::Hash& hv, Key rowid)
-{
-	Recordset rs(m_This, Query::HashForHist, "SELECT " TblStates_Hash " FROM " TblStates " WHERE rowid=?");
-	rs.put(0, rowid);
-
-	rs.StepStrict();
-
-	rs.get(0, hv);
-}
-
-void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
-{
-	if (Rules::HeightGenesis == h)
-	{
-		assert(!rowPrev);
-		return;
-	}
-
-	assert((h > Rules::HeightGenesis) && rowPrev && (rowid != rowPrev));
-
-	Dmmr dmmr(*this);
-	dmmr.Goto(rowid);
-
-	if (!dmmr.m_Rs.IsNull(0))
-		return;
-
-	dmmr.m_Count = h - (Rules::HeightGenesis + 1);
-	dmmr.m_kLast = rowPrev;
-
-	Merkle::Hash hv;
-	dmmr.get_NodeHashInternal(hv, rowPrev);
-
-	Blob b;
-	b.n = dmmr.get_NodeSize(dmmr.m_Count);
-	std::unique_ptr<uint8_t[]> pRes(new uint8_t[b.n]);
-	b.p = pRes.get();
-
-	dmmr.Append(rowid, pRes.get(), hv);
-
-	dmmr.m_Rs.Reset();
-
-	Recordset rs(*this, Query::MmrSet, "UPDATE " TblStates " SET " TblStates_Mmr "=? WHERE rowid=?");
-	rs.put(0, b);
-	rs.put(1, rowid);
-	rs.Step();
-	TestChanged1Row();
-}
-
-void NodeDB::get_Proof(Merkle::IProofBuilder& bld, const StateID& sid, Height hPrev)
-{
-	assert((hPrev >= Rules::HeightGenesis) && (hPrev < sid.m_Height));
-
-    Dmmr dmmr(*this);
-    dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;
-    dmmr.m_kLast = sid.m_Row;
-
-    dmmr.get_Proof(bld, hPrev - Rules::HeightGenesis);
-}
-
-void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
-{
-	get_StateHash(sid.m_Row, hv);
-
-    Dmmr dmmr(*this);
-    dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;
-    dmmr.m_kLast = sid.m_Row;
-
-    dmmr.get_PredictedHash(hv, hv);
-}
-
 void NodeDB::InsertEvent(Height h, const Blob& b, const Blob& key)
 {
 	Recordset rs(*this, Query::EventIns, "INSERT INTO " TblEvents "(" TblEvents_Height "," TblEvents_Body "," TblEvents_Key ") VALUES (?,?,?)");
@@ -1794,13 +1714,13 @@ void NodeDB::DeleteEventsFrom(Height h)
 
 void NodeDB::EnumEvents(WalkerEvent& x, Height hMin)
 {
-	x.m_Rs.Reset(Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Height ">=? ORDER BY "  TblEvents_Height " ASC," TblEvents_Body " ASC");
+	x.m_Rs.Reset(*this, Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Height ">=? ORDER BY "  TblEvents_Height " ASC," TblEvents_Body " ASC");
 	x.m_Rs.put(0, hMin);
 }
 
 void NodeDB::FindEvents(WalkerEvent& x, const Blob& key)
 {
-	x.m_Rs.Reset(Query::EventFind, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=?");
+	x.m_Rs.Reset(*this, Query::EventFind, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=?");
 	x.m_Rs.put(0, key);
 }
 
@@ -1819,7 +1739,7 @@ bool NodeDB::WalkerEvent::MoveNext()
 
 void NodeDB::EnumPeers(WalkerPeer& x)
 {
-	x.m_Rs.Reset(Query::PeerEnum, "SELECT " TblPeer_Key "," TblPeer_Rating "," TblPeer_Addr "," TblPeer_LastSeen " FROM " TblPeer);
+	x.m_Rs.Reset(*this, Query::PeerEnum, "SELECT " TblPeer_Key "," TblPeer_Rating "," TblPeer_Addr "," TblPeer_LastSeen " FROM " TblPeer);
 }
 
 bool NodeDB::WalkerPeer::MoveNext()
@@ -1870,7 +1790,7 @@ bool NodeDB::EnumBbs(IBbsHistogram& x)
 
 void NodeDB::EnumAllBbsSeq(WalkerBbsLite& x)
 {
-	x.m_Rs.Reset(Query::BbsEnumAllSeq, "SELECT " TblBbs_ID "," TblBbs_Key ",LENGTH(" TblBbs_Msg ") FROM " TblBbs " WHERE " TblBbs_ID ">? ORDER BY " TblBbs_ID);
+	x.m_Rs.Reset(*this, Query::BbsEnumAllSeq, "SELECT " TblBbs_ID "," TblBbs_Key ",LENGTH(" TblBbs_Msg ") FROM " TblBbs " WHERE " TblBbs_ID ">? ORDER BY " TblBbs_ID);
 	x.m_Rs.put(0, x.m_ID);
 }
 
@@ -1886,7 +1806,7 @@ bool NodeDB::WalkerBbsLite::MoveNext()
 
 void NodeDB::EnumAllBbs(WalkerBbsTimeLen& x)
 {
-	x.m_Rs.Reset(Query::BbsEnumAll, "SELECT " TblBbs_ID "," TblBbs_Time ",LENGTH(" TblBbs_Msg ") FROM " TblBbs " ORDER BY " TblBbs_ID);
+	x.m_Rs.Reset(*this, Query::BbsEnumAll, "SELECT " TblBbs_ID "," TblBbs_Time ",LENGTH(" TblBbs_Msg ") FROM " TblBbs " ORDER BY " TblBbs_ID);
 }
 
 bool NodeDB::WalkerBbsTimeLen::MoveNext()
@@ -1913,7 +1833,7 @@ void NodeDB::get_BbsTotals(BbsTotals& x)
 
 void NodeDB::EnumBbsCSeq(WalkerBbs& x)
 {
-	x.m_Rs.Reset(Query::BbsEnumCSeq, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_ID ">? ORDER BY " TblBbs_ID);
+	x.m_Rs.Reset(*this, Query::BbsEnumCSeq, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_ID ">? ORDER BY " TblBbs_ID);
 
 	x.m_Rs.put(0, x.m_Data.m_Channel);
 	x.m_Rs.put(1, x.m_ID);
@@ -1955,7 +1875,7 @@ bool NodeDB::WalkerBbs::MoveNext()
 
 bool NodeDB::BbsFind(WalkerBbs& x)
 {
-	x.m_Rs.Reset(Query::BbsFind, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Key "=?");
+	x.m_Rs.Reset(*this, Query::BbsFind, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Key "=?");
 
 	x.m_Rs.put(0, x.m_Data.m_Key);
 	return x.MoveNext();
@@ -2184,7 +2104,7 @@ void NodeDB::TxoSetSpent(TxoID id, Height h)
 
 void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)
 {
-	wlk.m_Rs.Reset(Query::TxoEnum, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_ID ">=? ORDER BY " TblTxo_ID);
+	wlk.m_Rs.Reset(*this, Query::TxoEnum, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_ID ">=? ORDER BY " TblTxo_ID);
 	wlk.m_Rs.put(0, id0);
 }
 
@@ -2215,43 +2135,172 @@ void NodeDB::TxoSetValue(TxoID id, const Blob& v)
 
 void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
 {
-	wlk.m_Rs.Reset(Query::TxoGetValue, "SELECT " TblTxo_Value " FROM " TblTxo " WHERE " TblTxo_ID "=?");
+	wlk.m_Rs.Reset(*this, Query::TxoGetValue, "SELECT " TblTxo_Value " FROM " TblTxo " WHERE " TblTxo_ID "=?");
 	wlk.m_Rs.put(0, id0);
 
 	wlk.m_Rs.StepStrict();
 	wlk.m_Rs.get(0, wlk.m_Value);
 }
 
-const uint32_t NodeDB::s_ShieldedBlob = 16*1024; // arbitrary, but should not be changed after DB is created
-
-void NodeDB::ShieldedResize(uint64_t n)
+NodeDB::StreamMmr::StreamMmr(NodeDB& db, StreamType::Enum eType, bool bStoreH0)
+	:m_StoreH0(bStoreH0)
+	,m_eType(eType)
+	,m_DB(db)
 {
-	uint64_t n0 = 0;
-	ParamGet(ParamID::ShieldedPoolSize, &n0, nullptr);
+	for (size_t i = 0; i < _countof(m_pCache); i++)
+		m_pCache[i].m_X = static_cast<uint64_t>(-1);
 
-	uint64_t nBlobs0 = (n0 + s_ShieldedBlob - 1) / s_ShieldedBlob;
-	uint64_t nBlobs1 = (n + s_ShieldedBlob - 1) / s_ShieldedBlob;
+	m_LastOut.m_Pos.H = Merkle::Position::HMax;
+	m_LastOut.m_Pos.X = static_cast<uint64_t>(-1);
+}
+
+void NodeDB::StreamMmr::Append(const Merkle::Hash& hv)
+{
+	m_DB.StreamResize(m_eType, get_TotalHashes(m_Count + 1, m_StoreH0) * sizeof(Merkle::Hash), get_TotalHashes(m_Count, m_StoreH0) * sizeof(Merkle::Hash));
+	Mmr::Append(hv);
+}
+
+void NodeDB::StreamMmr::ShrinkTo(uint64_t nCount)
+{
+	assert(m_Count >= nCount);
+	m_DB.StreamResize(m_eType, get_TotalHashes(nCount, m_StoreH0) * sizeof(Merkle::Hash), get_TotalHashes(m_Count, m_StoreH0) * sizeof(Merkle::Hash));
+	m_Count = nCount;
+}
+
+void NodeDB::StreamMmr::LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const
+{
+	if (CacheFind(hv, pos))
+		return;
+
+	m_DB.StreamIO(m_eType, Pos2Idx(pos, m_StoreH0) * sizeof(Merkle::Hash), hv.m_pData, hv.nBytes, false);
+	Cast::NotConst(this)->CacheAdd(hv, pos);
+}
+
+void NodeDB::StreamMmr::SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos)
+{
+	m_DB.StreamIO(m_eType, Pos2Idx(pos, m_StoreH0) * sizeof(Merkle::Hash), Cast::NotConst(hv.m_pData), hv.nBytes, true);
+	CacheAdd(hv, pos);
+}
+
+bool NodeDB::StreamMmr::CacheFind(Merkle::Hash& hv, const Merkle::Position& pos) const
+{
+	// Note: ALWAYS test the main cache BEFORE m_LastOut, coz that element could already be overwritten
+	if (pos.H < _countof(m_pCache)) // 'if' is needed only if we decide to reduce the cache size
+	{
+		const CacheEntry& ce = m_pCache[pos.H];
+		if (ce.m_X == pos.X)
+		{
+			hv = ce.m_Value;
+			return true;
+		}
+	}
+
+	if ((m_LastOut.m_Pos.H == pos.H) && (m_LastOut.m_Pos.X == pos.X))
+	{
+		hv = m_LastOut.m_Value;
+		return true;
+	}
+
+	return false;
+}
+
+void NodeDB::StreamMmr::CacheAdd(const Merkle::Hash& hv, const Merkle::Position& pos)
+{
+	if (pos.H < _countof(m_pCache)) // 'if' is needed only if we decide to reduce the cache size
+	{
+		CacheEntry& ce = m_pCache[pos.H];
+
+		if ((m_LastOut.m_Pos.H != pos.H) || (m_LastOut.m_Pos.X != ce.m_X))
+		{
+			m_LastOut.m_Pos.X = ce.m_X;
+			m_LastOut.m_Pos.H = pos.H;
+			m_LastOut.m_Value = ce.m_Value;
+		}
+
+		ce.m_Value = hv;
+		ce.m_X = pos.X;
+	}
+}
+
+NodeDB::StatesMmr::StatesMmr(NodeDB& db)
+	:StreamMmr(db, StreamType::StatesMmr, false)
+{
+}
+
+uint64_t NodeDB::StatesMmr::H2I(Height h)
+{
+	return (h <= Rules::HeightGenesis) ? 0 : (h - Rules::HeightGenesis);
+}
+
+void NodeDB::StatesMmr::LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const
+{
+	if (pos.H)
+		StreamMmr::LoadElement(hv, pos);
+	else
+	{
+		if (CacheFind(hv, pos))
+			return;
+
+		LoadStateHash(hv, pos.X + Rules::HeightGenesis);
+		Cast::NotConst(this)->CacheAdd(hv, pos);
+	}
+}
+
+void NodeDB::StatesMmr::LoadStateHash(Merkle::Hash& hv, Height h) const
+{
+	uint64_t row = m_DB.FindActiveStateStrict(h);
+	m_DB.get_StateHash(row, hv);
+}
+
+void NodeDB::StatesMmr::SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos)
+{
+	if (pos.H)
+		StreamMmr::SaveElement(hv, pos);
+	else
+		CacheAdd(hv, pos);
+}
+
+const uint32_t NodeDB::s_StreamBlob = 1024*1024; // arbitrary, but should not be changed after DB is created
+
+uint64_t NodeDB::StreamType::Key(uint64_t idx, Enum eType)
+{
+	return idx | (static_cast<uint64_t>(eType) << 32);
+}
+
+
+void NodeDB::StreamResize(StreamType::Enum eType, uint64_t n, uint64_t n0)
+{
+	uint64_t nBlobs0 = (n0 + s_StreamBlob - 1) / s_StreamBlob;
+	uint64_t nBlobs1 = (n + s_StreamBlob - 1) / s_StreamBlob;
 
 	for (; nBlobs0 < nBlobs1; nBlobs0++)
 	{
-		Recordset rs(*this, Query::ShieldedIns, "INSERT INTO " TblShielded "(" TblShielded_ID "," TblShielded_Value ") VALUES (?,?)");
-		rs.put(0, nBlobs0);
-		rs.putZeroBlob(1, s_ShieldedBlob * sizeof(ECC::Point::Storage));
+		Recordset rs(*this, Query::StreamIns, "INSERT INTO " TblStreams "(" TblStream_ID "," TblStream_Value ") VALUES (?,?)");
+		rs.put(0, StreamType::Key(nBlobs0, eType));
+		rs.putZeroBlob(1, s_StreamBlob);
 		rs.Step();
 		TestChanged1Row();
 	}
 
 	if (nBlobs0 > nBlobs1)
 	{
-		Recordset rs(*this, Query::ShieldedDel, "DELETE FROM " TblShielded " WHERE " TblShielded_ID ">=?");
-		rs.put(0, nBlobs1);
+		Recordset rs(*this, Query::StreamDel, "DELETE FROM " TblStreams " WHERE " TblStream_ID ">=? AND " TblStream_ID "<?");
+		rs.put(0, StreamType::Key(nBlobs1, eType));
+		rs.put(1, StreamType::Key(nBlobs0, eType));
 		rs.Step();
-	}
 
-	ParamSet(ParamID::ShieldedPoolSize, &n, nullptr);
+		uint64_t ret = get_RowsChanged();
+		if (ret != nBlobs0 - nBlobs1)
+			ThrowInconsistent();
+	}
 }
 
-void NodeDB::ShieldeIO(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount, bool bWrite)
+void NodeDB::ShieldedResize(uint64_t n, uint64_t n0)
+{
+	StreamResize(StreamType::Shielded, n * sizeof(ECC::Point::Storage), n0 * sizeof(ECC::Point::Storage));
+}
+
+void NodeDB::StreamIO(StreamType::Enum eType, uint64_t pos, uint8_t* p, uint64_t nCount, bool bWrite)
 {
 	struct Guard
 	{
@@ -2264,23 +2313,22 @@ void NodeDB::ShieldeIO(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount, bo
 		}
 	};
 
-	uint64_t nBlob0 = pos / s_ShieldedBlob;
-	uint32_t nOffs = static_cast<uint32_t>(pos % s_ShieldedBlob);
-	;
+	uint64_t nBlob0 = pos / s_StreamBlob;
+	uint32_t nOffs = static_cast<uint32_t>(pos % s_StreamBlob);
 
 	while (nCount)
 	{
 		Guard blob;
 
-		TestRet(sqlite3_blob_open(m_pDb, "main", TblShielded, TblShielded_Value, nBlob0, bWrite ? 1 : 0, &blob.m_pPtr));
+		TestRet(sqlite3_blob_open(m_pDb, "main", TblStreams, TblStream_Value, StreamType::Key(nBlob0, eType), bWrite ? 1 : 0, &blob.m_pPtr));
 
-		uint32_t nPortion = s_ShieldedBlob - nOffs;
+		uint32_t nPortion = s_StreamBlob - nOffs;
 		if (nPortion > nCount)
 			nPortion = static_cast<uint32_t>(nCount);
 
 		int nRes = bWrite ?
-			sqlite3_blob_write(blob.m_pPtr, p, nPortion * sizeof(ECC::Point::Storage), nOffs * sizeof(ECC::Point::Storage)) :
-			sqlite3_blob_read(blob.m_pPtr, p, nPortion * sizeof(ECC::Point::Storage), nOffs * sizeof(ECC::Point::Storage));
+			sqlite3_blob_write(blob.m_pPtr, p, nPortion, nOffs) :
+			sqlite3_blob_read(blob.m_pPtr, p, nPortion, nOffs);
 
 		TestRet(nRes);
 
@@ -2289,6 +2337,11 @@ void NodeDB::ShieldeIO(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount, bo
 		nOffs = 0;
 		nBlob0++;
 	}
+}
+
+void NodeDB::ShieldeIO(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount, bool bWrite)
+{
+	StreamIO(StreamType::Shielded, pos * sizeof(ECC::Point::Storage), reinterpret_cast<uint8_t*>(p), nCount * sizeof(ECC::Point::Storage), bWrite);
 }
 
 void NodeDB::ShieldedWrite(uint64_t pos, const ECC::Point::Storage* p, uint64_t nCount)
@@ -2301,6 +2354,32 @@ void NodeDB::ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount)
 	ShieldeIO(pos, p, nCount, false);
 }
 
+bool NodeDB::UniqueInsertSafe(const Blob& key, const Blob* pVal)
+{
+	Recordset rs(*this, Query::UniqueIns, "INSERT INTO " TblUnique " (" TblUnique_Key "," TblUnique_Value ") VALUES(?,?)");
+	rs.put(0, key);
+	if (pVal)
+		rs.put(1, *pVal);
+
+	return rs.StepModifySafe();
+}
+
+bool NodeDB::UniqueFind(const Blob& key, Recordset& rs)
+{
+	rs.Reset(*this, Query::UniqueFind, "SELECT " TblUnique_Value " FROM " TblUnique " WHERE " TblUnique_Key "=?");
+	rs.put(0, key);
+	return rs.Step();
+}
+
+void NodeDB::UniqueDeleteStrict(const Blob& key)
+{
+	Recordset rs(*this, Query::UniqueDel, "DELETE FROM " TblUnique " WHERE " TblUnique_Key "=?");
+	rs.put(0, key);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
 void NodeDB::MigrateFrom18()
 {
 	{
@@ -2309,7 +2388,7 @@ void NodeDB::MigrateFrom18()
 		std::vector<WalkerPeer::Data> v;
 
 		{
-			WalkerPeer wlk(*this);
+			WalkerPeer wlk;
 			for (EnumPeers(wlk); wlk.MoveNext(); )
 				v.push_back(wlk.m_Data);
 		}
@@ -2331,8 +2410,8 @@ void NodeDB::MigrateFrom18()
 	std::vector<StateInput> vInps;
 	Height h = 0;
 
-	WalkerTxo wlk(*this);
-	wlk.m_Rs.Reset(Query::TxoEnumBySpentMigrate, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight " IS NOT NULL ORDER BY " TblTxo_SpendHeight "," TblTxo_ID);
+	WalkerTxo wlk;
+	wlk.m_Rs.Reset(*this, Query::TxoEnumBySpentMigrate, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight " IS NOT NULL ORDER BY " TblTxo_SpendHeight "," TblTxo_ID);
 	while (true)
 	{
 		bool bNext = wlk.MoveNext();
@@ -2366,6 +2445,26 @@ void NodeDB::MigrateFrom18()
 	}
 
 	ExecQuick("DROP INDEX [Idx" TblTxo "SH]");
+}
+
+void NodeDB::MigrateFrom20()
+{
+	LOG_INFO() << "Rebuilding states MMR...";
+
+	// sqlite doesn't support drop column. Hence - just reset its value
+	ExecQuick("UPDATE " TblStates " SET " TblStates_Mmr "=NULL");
+
+	StateID sid;
+	get_Cursor(sid);
+
+	StatesMmr smmr(*this);
+	for (Height h = Rules::HeightGenesis; h < sid.m_Height; h++)
+	{
+		Merkle::Hash hv;
+		smmr.LoadStateHash(hv, h); // there's a more effective way to select hashes of all active states. But it's just a migration.
+		smmr.Append(hv);
+
+	}
 }
 
 } // namespace beam

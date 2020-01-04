@@ -17,6 +17,7 @@
 #include "core/block_crypt.h"
 #include "utility/logger.h"
 #include "wallet/core/strings_resources.h"
+#include "wallet/core/wallet.h"
 
 namespace beam::wallet
 {
@@ -28,6 +29,36 @@ namespace beam::wallet
     BaseTransaction::Ptr AssetIssueTransaction::Creator::Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const TxID& txID)
     {
         return BaseTransaction::Ptr(new AssetIssueTransaction(_issue, gateway, walletDB, keyKeeper, txID));
+    }
+
+    TxParameters AssetIssueTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
+    {
+        if(params.GetParameter<WalletID>(TxParameterID::PeerID))
+        {
+            throw InvalidTransactionParametersException();
+        }
+
+        if(params.GetParameter<WalletID>(TxParameterID::MyID))
+        {
+            throw InvalidTransactionParametersException();
+        }
+
+        const auto isSenderO = params.GetParameter<bool>(TxParameterID::IsSender);
+        if (!isSenderO || !isSenderO.get())
+        {
+            throw InvalidTransactionParametersException();
+        }
+
+        const auto isInitiatorO = params.GetParameter<bool>(TxParameterID::IsInitiator);
+        if (!isInitiatorO || !isInitiatorO.get())
+        {
+            throw InvalidTransactionParametersException();
+        }
+
+        TxParameters result{params};
+        result.SetParameter(TxParameterID::IsSelfTx, true);
+        result.SetParameter(TxParameterID::MyID, WalletID(Zero)); // Mandatory parameter
+        return result;
     }
 
     AssetIssueTransaction::AssetIssueTransaction(bool issue, INegotiatorGateway& gateway

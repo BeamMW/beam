@@ -497,7 +497,7 @@ namespace beam
 		MyMmr mmr;
 		MyDmmr dmmr;
 		Merkle::CompactMmr cmmr;
-		Merkle::FixedMmmr fmmr(vHashes.size());
+		Merkle::FixedMmr fmmr(vHashes.size());
 
 		struct MyFlyMmr
 			:public Merkle::FlyMmr

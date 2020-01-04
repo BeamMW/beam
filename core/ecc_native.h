@@ -791,10 +791,12 @@ namespace ECC
 		{
 			SignatureBase::Config::Generator m_GenG;
 			SignatureBase::Config::Generator m_pGenGJ[2];
+			SignatureBase::Config::Generator m_pGenGH[2];
 
 			SignatureBase::Config m_CfgG1; // regular
 			SignatureBase::Config m_CfgGJ1; // Generalized G+J
 			SignatureBase::Config m_CfgG2; // G, 2 keys
+			SignatureBase::Config m_CfgGH2; // Generalized G+H, 2 keys
 
 		} m_Sig;
 

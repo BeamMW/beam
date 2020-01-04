@@ -126,6 +126,11 @@ void Mmr::get_Proof(Proof& proof, uint64_t i) const
 
 bool Mmr::get_Proof(IProofBuilder& proof, uint64_t i) const
 {
+	return get_ProofInternal(proof, i, false);
+}
+
+bool Mmr::get_ProofInternal(IProofBuilder& proof, uint64_t i, bool bIgnoreHashes) const
+{
 	assert(i < m_Count);
 
 	uint64_t n = m_Count;
@@ -148,10 +153,13 @@ bool Mmr::get_Proof(IProofBuilder& proof, uint64_t i) const
 			if (nRemaining >> pos.H)
 				bFullSibling = true;
 			else
-                BEAM_VERIFY(get_HashForRange(node.second, n0, nRemaining));
+			{
+				if (!bIgnoreHashes)
+					BEAM_VERIFY(get_HashForRange(node.second, n0, nRemaining));
+			}
 		}
 
-		if (bFullSibling)
+		if (bFullSibling && !bIgnoreHashes)
 			LoadElement(node.second, pos);
 
 		if (!proof.AppendNode(node, pos))
@@ -160,6 +168,25 @@ bool Mmr::get_Proof(IProofBuilder& proof, uint64_t i) const
 
 	return true;
 }
+
+/////////////////////////////
+// PathCaclulator
+void PathCaclulator::LoadElement(Hash& hv, const Position&) const
+{
+	assert(false);
+	hv = Zero; // should not be really called. Just supporess a warning
+}
+
+void PathCaclulator::SaveElement(const Hash&, const Position&)
+{
+	assert(false);
+}
+
+bool PathCaclulator::InterpretPath(uint64_t i)
+{
+	return get_ProofInternal(*this, i, true);
+}
+
 
 /////////////////////////////
 // DistributedMmr
@@ -382,40 +409,50 @@ void CompactMmr::Append(const Hash& hv)
 }
 
 /////////////////////////////
-// FixedMmmr
-void FixedMmmr::Reset(uint64_t nTotal)
+// FlatMmr
+uint64_t FlatMmr::Pos2Idx(const Position& pos, bool bStoreH0)
 {
-	m_Total = nTotal;
+	assert(bStoreH0 || pos.H);
 
-	uint64_t nHashes = nTotal;
-	while (nTotal >>= 1)
-		nHashes += nTotal;
+	uint64_t nStep = (uint64_t(bStoreH0 ? 2 : 1) << pos.H) - 1;
+	uint64_t ret = (pos.X + 1) * nStep - 1;
 
-	m_vHashes.resize(nHashes);
+	for (uint64_t val = pos.X; val >>= 1; )
+		ret += val;
+
+	return ret;
 }
 
-uint64_t FixedMmmr::Pos2Idx(const Position& pos) const
+uint64_t FlatMmr::get_TotalHashes(uint64_t nCount, bool bStoreH0)
 {
-	uint64_t nTotal = m_Total;
-	uint64_t ret = pos.X;
+	uint64_t ret = bStoreH0 ? nCount : 0;
+	while (nCount >>= 1)
+		ret += nCount;
 
-	for (uint8_t y = 0; y < pos.H; y++)
-	{
-		ret += nTotal;
-		nTotal >>= 1;
-	}
+	return ret;
+}
 
-	assert(pos.X < nTotal);
+/////////////////////////////
+// FixedMmr
+void FixedMmr::Reset(uint64_t nTotal)
+{
+	m_Total = nTotal;
+	m_vHashes.resize(get_TotalHashes(nTotal, true));
+}
+
+uint64_t FixedMmr::Pos2Idx(const Position& pos) const
+{
+	uint64_t ret = FlatMmr::Pos2Idx(pos, true);
 	assert(ret < m_vHashes.size());
 	return ret;
 }
 
-void FixedMmmr::LoadElement(Hash& hv, const Position& pos) const
+void FixedMmr::LoadElement(Hash& hv, const Position& pos) const
 {
 	hv = m_vHashes[Pos2Idx(pos)];
 }
 
-void FixedMmmr::SaveElement(const Hash& hv, const Position& pos)
+void FixedMmr::SaveElement(const Hash& hv, const Position& pos)
 {
 	m_vHashes[Pos2Idx(pos)] = hv;
 }
@@ -546,7 +583,7 @@ bool MultiProof::Verifier::AppendNode(const Node& n, const Position& pos)
 
 	if (pos.H)
 	{
-		m_vLastRev.resize(m_vLastRev.size() + 1);
+		m_vLastRev.emplace_back();
 		m_vLastRev.back().m_Pos = pos;
 		m_vLastRev.back().m_hv = m_hvPos;
 	}
@@ -580,7 +617,7 @@ void MultiProof::Verifier::Process(uint64_t i)
 		m_bVerify = false;
 	else
 	{
-		if (Mmr::get_Proof(*this, i))
+		if (InterpretPath(i))
 			// probably 1st time. Verify the result
 			if (m_bVerify && !IsRootValid(m_hvPos))
 				m_bVerify = false;
@@ -588,6 +625,50 @@ void MultiProof::Verifier::Process(uint64_t i)
 		for (; !m_vLastRev.empty(); m_vLastRev.pop_back())
 			m_vLast.push_back(m_vLastRev.back());
 	}
+}
+
+/////////////////////////////
+// HardVerifier
+HardVerifier::HardVerifier(const HardProof& p)
+{
+	m_itPos = p.begin();
+	m_itEnd = p.end();
+}
+
+bool HardVerifier::IsEnd() const
+{
+	return m_itPos == m_itEnd;
+}
+
+bool HardVerifier::InterpretOnce(bool bOnRight)
+{
+	if (IsEnd())
+		return false;
+
+	Interpret(m_hv, *m_itPos++, bOnRight);
+	return true;
+}
+
+bool HardVerifier::InterpretMmr(uint64_t iIdx, uint64_t nCount)
+{
+	struct MyMmr
+		:public PathCaclulator
+	{
+		HardVerifier& m_This;
+		MyMmr(HardVerifier& x) :m_This(x) {}
+
+		virtual bool AppendNode(const Merkle::Node& n, const Merkle::Position&) override
+		{
+			return m_This.InterpretOnce(n.first);
+		}
+	};
+
+	if (iIdx >= nCount)
+		return false;
+
+	MyMmr mmr(*this);
+	mmr.m_Count = nCount;
+	return mmr.InterpretPath(iIdx);
 }
 
 } // namespace Merkle

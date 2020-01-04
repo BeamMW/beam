@@ -110,9 +110,6 @@ public:
 			StateGetPrev,
 			Unactivate,
 			Activate,
-			MmrGet,
-			MmrSet,
-			HashForHist,
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlockPP,
@@ -153,9 +150,12 @@ public:
 			TxoGetValue,
 			BlockFind,
 			FindHeightBelow,
-			ShieldedIns,
-			ShieldedDel,
+			StreamIns,
+			StreamDel,
 			EnumSystemStatesBkwd,
+			UniqueIns,
+			UniqueFind,
+			UniqueDel,
 
 			Dbg0,
 			Dbg1,
@@ -167,6 +167,19 @@ public:
 		};
 	};
 
+	struct StreamType
+	{
+		enum Enum
+		{
+			StatesMmr,
+			Shielded,
+			ShieldedMmr,
+
+			count
+		};
+
+		static uint64_t Key(uint64_t idx, Enum);
+	};
 
 	NodeDB();
 	virtual ~NodeDB();
@@ -182,20 +195,23 @@ public:
 	class Recordset
 	{
 		sqlite3_stmt* m_pStmt;
+		NodeDB* m_pDB;
+
+		void InitInternal(NodeDB&, Query::Enum, const char*);
+
 	public:
 
-		NodeDB & m_DB;
-
-		Recordset(NodeDB&);
+		Recordset();
 		Recordset(NodeDB&, Query::Enum, const char*);
 		~Recordset();
 
 		void Reset();
-		void Reset(Query::Enum, const char*);
+		void Reset(NodeDB&, Query::Enum, const char*);
 
 		// Perform the query step. SELECT only: returns true while there're rows to read
 		bool Step();
 		void StepStrict(); // must return at least 1 row, applicable for SELECT
+		bool StepModifySafe(); // UPDATE/INSERT: returns true if successful, false if constraints are violated (but exc is not raised)
 
 		// in/out
 		void put(int col, uint32_t);
@@ -293,7 +309,6 @@ public:
 		Recordset m_Rs;
 		StateID m_Sid;
 
-		WalkerState(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -329,9 +344,6 @@ public:
 
 	bool get_Cursor(StateID& sid);
 
-    void get_Proof(Merkle::IProofBuilder&, const StateID& sid, Height hPrev);
-    void get_PredictedStatesHash(Merkle::Hash&, const StateID& sid); // For the next block.
-
 	void get_ChainWork(uint64_t, Difficulty::Raw&);
 
 	// the following functions move the curos, and mark the states with 'Active' flag
@@ -349,7 +361,6 @@ public:
 		Blob m_Body;
 		Blob m_Key;
 
-		WalkerEvent(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -367,7 +378,6 @@ public:
 			Timestamp m_LastSeen;
 		} m_Data;
 
-		WalkerPeer(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -390,7 +400,6 @@ public:
 			uint32_t m_Nonce;
 		} m_Data;
 
-		WalkerBbs(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -419,7 +428,6 @@ public:
 		Key m_Key;
 		uint32_t m_Size;
 
-		WalkerBbsLite(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -432,7 +440,6 @@ public:
 		Timestamp m_Time;
 		uint32_t m_Size;
 
-		WalkerBbsTimeLen(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -469,7 +476,6 @@ public:
 		Blob m_Value;
 		Height m_SpendHeight;
 
-		WalkerTxo(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
@@ -477,7 +483,7 @@ public:
 	void TxoSetValue(TxoID, const Blob&);
 	void TxoGetValue(WalkerTxo&, TxoID);
 
-	void ShieldedResize(uint64_t);
+	void ShieldedResize(uint64_t n, uint64_t n0);
 	void ShieldedWrite(uint64_t pos, const ECC::Point::Storage*, uint64_t nCount);
 	void ShieldedRead(uint64_t pos, ECC::Point::Storage*, uint64_t nCount);
 
@@ -487,11 +493,69 @@ public:
 		uint64_t m_RowTrg;
 		Block::SystemState::Full m_State;
 
-		WalkerSystemState(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
 	void EnumSystemStatesBkwd(WalkerSystemState&, const StateID&);
+
+	class StreamMmr
+		:public Merkle::FlatMmr
+	{
+		const bool m_StoreH0;
+		StreamType::Enum m_eType;
+
+	public:
+		NodeDB& m_DB;
+
+		StreamMmr(NodeDB&, StreamType::Enum, bool bStoreH0);
+
+		void Append(const Merkle::Hash&);
+		void ShrinkTo(uint64_t nCount);
+
+	protected:
+		// Mmr
+		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override;
+		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override;
+
+		struct CacheEntry
+		{
+			Merkle::Hash m_Value;
+			uint64_t m_X;
+		};
+
+		// Simple cache, optimized for sequential add and root calculation
+		CacheEntry m_pCache[64];
+
+		// last popped element
+		struct
+		{
+			Merkle::Hash m_Value;
+			Merkle::Position m_Pos;
+		} m_LastOut;
+
+		bool CacheFind(Merkle::Hash& hv, const Merkle::Position& pos) const;
+		void CacheAdd(const Merkle::Hash& hv, const Merkle::Position& pos);
+	};
+
+	class StatesMmr
+		:public StreamMmr
+	{
+	public:
+		static uint64_t H2I(Height h);
+
+		StatesMmr(NodeDB&);
+
+		void LoadStateHash(Merkle::Hash& hv, Height) const;
+
+	protected:
+		// Mmr
+		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override;
+		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override;
+	};
+
+	bool UniqueInsertSafe(const Blob& key, const Blob* pVal); // returns false if not unique (and doesn't update the value)
+	bool UniqueFind(const Blob& key, Recordset&);
+	void UniqueDeleteStrict(const Blob& key);
 
 private:
 
@@ -516,10 +580,11 @@ private:
 	static void ThrowInconsistent();
 
 	void Create();
-	void CreateTableShielded();
+	void CreateTables20();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
+	int ExecStepRaw(sqlite3_stmt*);
 	bool ExecStep(Query::Enum, const char*); // returns true while there's a row
 
 	sqlite3_stmt* get_Statement(Query::Enum, const char*);
@@ -532,16 +597,18 @@ private:
 	void SetNextCount(uint64_t rowid, uint32_t);
 	void SetNextCountFunctional(uint64_t rowid, uint32_t);
 	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
-	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
 
 	void TestChanged1Row();
 
 	void MigrateFrom18();
+	void MigrateFrom20();
 
-	struct Dmmr;
+	static const uint32_t s_StreamBlob;
 
-	static const uint32_t s_ShieldedBlob;
+	void StreamIO(StreamType::Enum, uint64_t pos, uint8_t*, uint64_t nCount, bool bWrite);
+	void StreamResize(StreamType::Enum, uint64_t n, uint64_t n0);
+
 	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
 };
 

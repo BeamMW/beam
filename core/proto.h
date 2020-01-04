@@ -85,7 +85,7 @@ namespace proto {
     macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
 #define BeamNodeMsg_GetProofShieldedTxo(macro) \
-    macro(ECC::Point, Commitment)
+    macro(ECC::Point, SerialPub)
 
 #define BeamNodeMsg_GetShieldedList(macro) \
     macro(TxoID, Id0) \
@@ -106,8 +106,10 @@ namespace proto {
     macro(std::vector<Input::Proof>, Proofs)
 
 #define BeamNodeMsg_ProofShieldedTxo(macro) \
-    macro(Merkle::Proof, Proof) \
-    macro(TxoID, ID)
+    macro(ECC::Point, Commitment) \
+    macro(TxoID, ID) \
+    macro(TxoID, Total) \
+    macro(Merkle::HardProof, Proof)
 
 #define BeamNodeMsg_ShieldedList(macro) \
     macro(std::vector<ECC::Point::Storage>, Items)
