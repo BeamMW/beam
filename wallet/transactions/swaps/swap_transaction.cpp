@@ -1035,6 +1035,7 @@ namespace beam::wallet
         {
             if (lockTxState == SubTxState::Initial && isBeamOwner)
             {
+                lockTxBuilder->SignSender(true);
                 SendLockTxInvitation(*lockTxBuilder);
                 SetState(SubTxState::Invitation, SubTxIndex::BEAM_LOCK_TX);
                 lockTxState = SubTxState::Invitation;
@@ -1044,7 +1045,15 @@ namespace beam::wallet
 
         assert(fee);
         lockTxBuilder->CreateKernel();
-        lockTxBuilder->SignPartial();
+
+        if (isBeamOwner)
+        {
+            lockTxBuilder->SignSender(false);
+        }
+        else
+        {
+            lockTxBuilder->SignReceiver();
+        }
 
         if (lockTxState == SubTxState::Initial || lockTxState == SubTxState::Invitation)
         {
@@ -1142,8 +1151,10 @@ namespace beam::wallet
             return subTxState;
         }
 
+        bool hasInputs = builder.GetInputs();
+        bool hasOutputs = builder.GetOutputs();
         // send invite to get 
-        if (!builder.GetInitialTxParams() && subTxState == SubTxState::Initial)
+        if ((!builder.GetInitialTxParams() || !(hasInputs || hasOutputs)) && subTxState == SubTxState::Initial)
         {
             builder.InitTx(isTxOwner);
             {
@@ -1166,6 +1177,7 @@ namespace beam::wallet
         {
             if (subTxState == SubTxState::Initial && isTxOwner)
             {
+                builder.SignSender(true);
                 SendSharedTxInvitation(builder);
                 SetState(SubTxState::Invitation, subTxID);
                 subTxState = SubTxState::Invitation;
@@ -1173,12 +1185,12 @@ namespace beam::wallet
             return subTxState;
         }
 
-        builder.SignPartial();
 
         if (!builder.GetPeerSignature())
         {
             if (subTxState == SubTxState::Initial && !isTxOwner)
             {
+                builder.SignReceiver();
                 // invited participant
                 ConfirmSharedTxInvitation(builder);
 
@@ -1190,6 +1202,8 @@ namespace beam::wallet
             }
             return subTxState;
         }
+
+        builder.SignSender(false);
 
         if (subTxID == SubTxIndex::BEAM_REDEEM_TX)
         {
@@ -1556,7 +1570,7 @@ namespace beam::wallet
         builder.GetPeerPublicExcessAndNonce();
         builder.GenerateNonce();
         builder.CreateKernel();
-        builder.SignPartial();
+        builder.SignSender(false);
 
         Scalar::Native peerSignature = GetMandatoryParameter<Scalar::Native>(TxParameterID::PeerSignature, subTxID);
         Scalar::Native partialSignature = builder.GetPartialSignature();

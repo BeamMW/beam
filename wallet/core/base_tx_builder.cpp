@@ -397,6 +397,7 @@ namespace beam::wallet
 		m_Kernel->UpdateID();
 
         m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_AssetId, m_Offset, m_NonceSlot, kernelParameters, GetPublicNonce() + m_PeerPublicNonce);
+        m_Tx.SetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID);
         StoreKernelID();
     }
 
@@ -404,6 +405,18 @@ namespace beam::wallet
     {
         Point::Native totalPublicExcess = GetPublicExcess();
         totalPublicExcess += m_PeerPublicExcess;
+        
+        if (!initial)
+        {
+            assert(m_Kernel);
+            m_Kernel->m_Commitment = totalPublicExcess;
+            m_Kernel->UpdateID();
+
+            if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
+            {
+                return;
+            }
+        }
 
         Point::Native publicNonce = GetPublicNonce();
         publicNonce += m_PeerPublicNonce;
@@ -426,7 +439,7 @@ namespace beam::wallet
         {
             StoreAndLoad(TxParameterID::PartialSignature, signature->m_KernelSignature.m_k, m_PartialSignature);
             m_Offset = signature->m_Offset;
-            m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
+            m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
             StoreKernelID();
         }
     }
@@ -449,11 +462,11 @@ namespace beam::wallet
             throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
         }
         m_PublicNonce -= m_PeerPublicNonce;
-        m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce);
+        m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
         m_PublicExcess -= m_PeerPublicExcess;
-        m_Tx.SetParameter(TxParameterID::PublicExcess, m_PublicExcess);
+        m_Tx.SetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
         m_Offset = signature->m_Offset;
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
+        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
         StoreKernelID();
     }
 

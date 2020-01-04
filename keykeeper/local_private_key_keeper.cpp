@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "local_private_key_keeper.h"
-#include "utility/logger.h"
 
 namespace beam::wallet
 {
@@ -301,7 +300,9 @@ namespace beam::wallet
     {
         boost::optional<ReceiverSignature> res;
         auto value = CalculateValue(inputs, outputs);
-        if (value > 0 && !inputs.empty() && Amount(value) == kernelParamerters.fee) // self tx
+        if (value > 0 && !inputs.empty() && 
+            (Amount(value) == kernelParamerters.fee // self tx
+                || outputs.empty())) // spending shared utxo
         {
             value = 0;
         }
@@ -391,7 +392,7 @@ namespace beam::wallet
 
         value -= kernelParamerters.fee;
 
-        if (value <= 0)
+        if (value < 0)
         {
             return res; // we are not sending
         }

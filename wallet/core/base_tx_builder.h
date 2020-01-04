@@ -85,10 +85,10 @@ namespace beam::wallet
         void CheckMinimumFee();
 
         template<typename T1, typename T2>
-        void StoreAndLoad(TxParameterID parameterID, const T1& source, T2& dest, SubTxID subTxID = kDefaultSubTxID)
+        void StoreAndLoad(TxParameterID parameterID, const T1& source, T2& dest)
         {
-            m_Tx.SetParameter(parameterID, source, subTxID);
-            m_Tx.GetParameter(parameterID, dest, subTxID);
+            m_Tx.SetParameter(parameterID, source, m_SubTxID);
+            m_Tx.GetParameter(parameterID, dest, m_SubTxID);
         }
     protected:
         BaseTransaction& m_Tx;
