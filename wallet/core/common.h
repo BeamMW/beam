@@ -606,7 +606,7 @@ namespace beam::wallet
         void get_Hash(ECC::Hash::Value&) const override;
     };
 
-    struct SignatureConfirmation : public ConfirmationBase
+    struct SignatureHandler : public ConfirmationBase
     {
         ByteBuffer m_data;
         void get_Hash(ECC::Hash::Value&) const override;

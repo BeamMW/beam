@@ -287,7 +287,7 @@ namespace beam::wallet
             >> hv;
     }
 
-    void SignatureConfirmation::get_Hash(Hash::Value& hv) const
+    void SignatureHandler::get_Hash(Hash::Value& hv) const
     {
         beam::Blob data(m_data);
         Hash::Processor()

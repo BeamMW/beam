@@ -23,7 +23,7 @@ namespace beam::wallet
      */
     struct INewsObserver
     {
-        virtual void onNewsUpdate(NewsMessage msg) = 0;
+        virtual void onNewsUpdate(const NewsMessage& msg) = 0;
     };
 
 } // namespace beam::wallet

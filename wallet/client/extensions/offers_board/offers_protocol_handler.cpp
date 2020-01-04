@@ -23,9 +23,8 @@ namespace beam::wallet
           m_walletDB(walletDB)
     {}
 
-    boost::optional<ByteBuffer> OfferBoardProtocolHandler::createMessage(const SwapOffer& content, const WalletID& wid)
+    boost::optional<ByteBuffer> OfferBoardProtocolHandler::createMessage(const SwapOffer& content, const WalletID& wid) const
     {
-        constexpr uint8_t MessageType = 0;
         auto waddr = m_walletDB->getAddress(wid);
 
         if (waddr && waddr->isOwn())
@@ -46,7 +45,7 @@ namespace beam::wallet
             // Create message header according to protocol
             size_t msgBodySize = contentRaw.size() + signatureRaw.size();
             assert(msgBodySize <= UINT32_MAX);
-            MsgHeader header(0, 0, m_protocolVersion, MessageType, static_cast<uint32_t>(msgBodySize));
+            MsgHeader header(0, 0, m_protocolVersion, m_msgType, static_cast<uint32_t>(msgBodySize));
 
             // Combine all to final message
             ByteBuffer finalMessage(header.SIZE);
@@ -64,7 +63,7 @@ namespace beam::wallet
         return boost::none;
     };
 
-    boost::optional<SwapOffer> OfferBoardProtocolHandler::parseMessage(ByteBuffer& msg)
+    boost::optional<SwapOffer> OfferBoardProtocolHandler::parseMessage(const ByteBuffer& msg) const
     {
         if (msg.empty() || msg.size() < MsgHeader::SIZE)
             return boost::none;

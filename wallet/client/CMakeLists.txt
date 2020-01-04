@@ -10,6 +10,7 @@ target_sources(wallet_client
         extensions/offers_board/offers_protocol_handler.cpp
         extensions/offers_board/swap_offers_board.cpp
         extensions/newscast/newscast.cpp
+        extensions/newscast/newscast_protocol_parser.cpp
 )
 
 target_link_libraries(wallet_client 

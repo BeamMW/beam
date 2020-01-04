@@ -31,22 +31,27 @@ WALLET_TEST_INIT
 
 #include "wallet/client/extensions/newscast/newscast.h"
 
+#include <tuple>
+
 using namespace beam;
 using namespace beam::wallet;
-using namespace std;
 
 namespace
 {
+    using PrivateKey = ECC::Scalar::Native;
+    using PublicKey = PeerID;
+
     /**
      *  Class to test correct notification of news channels observers
      */
     struct MockNewsObserver : public INewsObserver
     {
-        using CheckerFunction = function<void(NewsMessage msg)>;
+        using CheckerFunction = function<void(const NewsMessage& msg)>;
+
         MockNewsObserver(CheckerFunction checker) :
             m_testChecker(checker) {};
 
-        virtual void onNewsUpdate(NewsMessage msg) override
+        virtual void onNewsUpdate(const NewsMessage& msg) override
         {
             m_testChecker(msg);
         }
@@ -55,55 +60,70 @@ namespace
     };
 
     /**
-     *  Pack data to structure w/o changes.
+     *  Derive key pair with specified @keyIndex
      */
-    BbsMsg makeBbsMsg(ByteBuffer fullMsgRaw)
+    std::tuple<PublicKey, PrivateKey> deriveKeypair(IWalletDB::Ptr walletDB, uint64_t keyIndex)
     {
-        BbsMsg m;
-        m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels + Newscast::BbsChannelsOffset);
-        m.m_TimePosted = getTimestamp();
-        m.m_Message = fullMsgRaw;
-        return m;
+        PrivateKey sk;
+        PublicKey pk;
+        walletDB->get_MasterKdf()->DeriveKey(sk, ECC::Key::ID(keyIndex, Key::Type::Bbs));
+        proto::Sk2Pk(pk, sk);
+        return std::make_tuple(pk, sk);
+    }
+
+    /**
+     *  Create signature for @data using key derived with specified @keyIndex
+     *  return derived public key and signature
+     */
+    std::tuple<PublicKey, ByteBuffer> signData(const ByteBuffer& data, uint64_t keyIndex, IWalletDB::Ptr walletDB)
+    {
+        const auto& [pk, sk] = deriveKeypair(walletDB, keyIndex);
+        SignatureHandler signHandler;
+        signHandler.m_data = data;
+        signHandler.Sign(sk);
+        ByteBuffer rawSignature = toByteBuffer(signHandler.m_Signature);
+        return std::make_tuple(pk, rawSignature);
     }
     
     /**
-     *  Add protocol defined header to data and pack to structure.
+     *  Create message according to Newscast protocol
      */
-    BbsMsg makeBbsMsg(ByteBuffer msgRaw, ByteBuffer signatureRaw)
+    ByteBuffer makeMsg(const ByteBuffer& msgRaw, const ByteBuffer& signatureRaw)
     {
-        BbsMsg m;
-        m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels + Newscast::BbsChannelsOffset);
-        m.m_TimePosted = getTimestamp();
-
-        ByteBuffer rawFullMsg(MsgHeader::SIZE);
+        ByteBuffer fullMsg(MsgHeader::SIZE);
         size_t rawBodySize = msgRaw.size() + signatureRaw.size();
         assert(rawBodySize <= UINT32_MAX);
-        MsgHeader header(0, 0, 1, 1, static_cast<uint32_t>(rawBodySize));
-        header.write(rawFullMsg.data());
-        std::copy(std::begin(msgRaw), std::end(msgRaw), std::back_inserter(rawFullMsg));
-        std::copy(std::begin(signatureRaw), std::end(signatureRaw), std::back_inserter(rawFullMsg));
 
-        m.m_Message = rawFullMsg;
-        return m;
+        MsgHeader header(0, 0, 1, 1, static_cast<uint32_t>(rawBodySize));
+        header.write(fullMsg.data());
+
+        std::copy(  std::begin(msgRaw),
+                    std::end(msgRaw),
+                    std::back_inserter(fullMsg));
+        std::copy(  std::begin(signatureRaw),
+                    std::end(signatureRaw),
+                    std::back_inserter(fullMsg));
+
+        return fullMsg;
     }
 
     /**
-     *  Tests NewsEndpoint according to BBS news and updates broadcasting protocol for stress conditions.
+     *  Test NewscastProtocolParser for stress conditions.
      */
-    void TestProtocolStress()
+    void TestProtocolParserStress()
     {
-        cout << endl << "Test protocol corruption" << endl;
+        cout << endl << "Test protocol parser stress" << endl;
         
-        MockBbsNetwork mockNetwork;
-        Newscast newsEndpoint(mockNetwork);
-        
+        NewscastProtocolParser parser;
         {
             cout << "Case: empty message" << endl;
-            WALLET_CHECK_NO_THROW(newsEndpoint.OnMsg(makeBbsMsg(ByteBuffer())));
+            ByteBuffer emptyBuf;
+            WALLET_CHECK_NO_THROW(parser.parseMessage(emptyBuf));
         }        
         {
             cout << "Case: message header too short" << endl;
-            WALLET_CHECK_NO_THROW(newsEndpoint.OnMsg(makeBbsMsg(ByteBuffer(beam::MsgHeader::SIZE - 2, 't'))));
+            ByteBuffer data(beam::MsgHeader::SIZE - 2, 't');
+            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
         }
         {
             cout << "Case: message contain only header" << endl;
@@ -111,7 +131,7 @@ namespace
             data.reserve(MsgHeader::SIZE);
             MsgHeader header(0,0,1,1,0);
             header.write(data.data());
-            WALLET_CHECK_NO_THROW(newsEndpoint.OnMsg(makeBbsMsg(data)));
+            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
         }
         {
             cout << "Case: unsupported version" << endl;
@@ -119,7 +139,7 @@ namespace
             data.reserve(MsgHeader::SIZE);
             MsgHeader header(0,0,2,1,0);
             header.write(data.data());
-            WALLET_CHECK_NO_THROW(newsEndpoint.OnMsg(makeBbsMsg(data)));
+            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
         }
         {
             cout << "Case: wrong length" << endl;
@@ -127,7 +147,7 @@ namespace
             data.reserve(MsgHeader::SIZE);
             MsgHeader header(0,0,1,1,5);
             header.write(data.data());
-            WALLET_CHECK_NO_THROW(newsEndpoint.OnMsg(makeBbsMsg(data)));
+            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
         }
         {
             cout << "Case: wrong message type" << endl;
@@ -135,7 +155,7 @@ namespace
             data.reserve(MsgHeader::SIZE);
             MsgHeader header(0,0,1,123,0);
             header.write(data.data());
-            WALLET_CHECK_NO_THROW(newsEndpoint.OnMsg(makeBbsMsg(data)));
+            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
         }
         {
             cout << "Case: wrong body length" << endl;
@@ -144,7 +164,7 @@ namespace
             data.reserve(MsgHeader::SIZE + bodyLength);
             MsgHeader header(0,0,1,1,bodyLength);
             header.write(data.data());
-            WALLET_CHECK_NO_THROW(newsEndpoint.OnMsg(makeBbsMsg(data)));
+            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
         }
         cout << "Test end" << endl;
     }
@@ -153,33 +173,27 @@ namespace
      *  Tests:
      *  - only correctly signed with PrivateKey messageas are accepted
      *  - publishers PublicKeys are correcly accepted
-     *  - observers are notified about news correctly
      */
-    void TestSignature()
+    void TestSignatureVerification()
     {
-        cout << endl << "Test signature verification" << endl;
+        cout << endl << "Test NewscastProtocolParser signature verification" << endl;
 
         auto senderWalletDB = createSenderWalletDB();
-        MockBbsNetwork mockNetwork;
-        Newscast newsEndpoint(mockNetwork);
+        NewscastProtocolParser parser;
 
-        using PrivateKey = ECC::Scalar::Native;
-        using PublicKey = PeerID;
-
+        // generate key pairs for test
         std::array<std::pair<PublicKey,PrivateKey>,10> keyPairsArray;
         for (int i = 0; i < keyPairsArray.size(); ++i)
         {
-            PrivateKey sk;
-            PublicKey pk;
-            senderWalletDB->get_MasterKdf()->DeriveKey(sk, ECC::Key::ID(i, Key::Type::Bbs));
-            proto::Sk2Pk(pk, sk);
+            const auto [pk, sk] = deriveKeypair(senderWalletDB, i);
             keyPairsArray[i] = std::make_pair(pk, sk);
         }
 
-        std::array<std::pair<bool, bool>, keyPairsArray.size()> keyDistributionTable = 
+        // generate cases for test
+        const std::array<std::pair<bool, bool>, keyPairsArray.size()> keyDistributionTable = 
         {
             // different combinations with keys:
-            // (loadKeyToEndpoint, signMessageWithKey)
+            // (loadKeyToEndpoint, signDataWithKey)
             std::make_pair(true, true),
             std::make_pair(true, false),
             std::make_pair(false, true),
@@ -192,62 +206,181 @@ namespace
             std::make_pair(true, true)
         };
 
-        std::array<BbsMsg, keyPairsArray.size()> bbsMessages;   // messages to broadcast
-        std::vector<PublicKey> pubKeys;     // keys to load in NewsEndpoint
+        // prepare messages and publisher keys
+        std::array<ByteBuffer, keyPairsArray.size()> messages;  // messages for test
+        std::vector<PublicKey> publisherKeys;   // keys to load in NewsEndpoint
         for (int i = 0; i < keyPairsArray.size(); ++i)
         {
             const auto [to_load, to_sign] = keyDistributionTable[i];
             const auto& [pubKey, privKey] = keyPairsArray[i];
 
-            if (to_load) pubKeys.push_back(pubKey);
+            if (to_load) publisherKeys.push_back(pubKey);
 
             NewsMessage msg = { std::to_string(i) };
 
-            SignatureConfirmation signature;
-            const auto msgRaw = toByteBuffer(msg);
-            signature.m_data = msgRaw;
+            SignatureHandler signature;
+            signature.m_data = toByteBuffer(msg);
             if (to_sign) signature.Sign(privKey);
 
-            bbsMessages[i] = makeBbsMsg(msgRaw, toByteBuffer(signature.m_Signature));
+            messages[i] = makeMsg(signature.m_data, toByteBuffer(signature.m_Signature));
         }
 
-        newsEndpoint.setPublicKeys(pubKeys);
+        WALLET_CHECK_NO_THROW(parser.setPublisherKeys(publisherKeys));
 
-        // Subscribe test checker
-        int countReceived = 0;
-        MockNewsObserver testObserver(
-            [&keyDistributionTable, &countReceived](NewsMessage msg)
+        // Push messages and check parser result
+        for (int i = 0; i < messages.size(); ++i)
+        {
+            const ByteBuffer& data = messages[i];
+            boost::optional<NewsMessage> res;
+            WALLET_CHECK_NO_THROW(res = parser.parseMessage(data));
+
+            auto [keyLoaded, msgSigned] = keyDistributionTable[i];
+
+            if (res.has_value())
             {
-                cout << "Case: " << msg.m_content << endl;
-                int keyIdx = std::stoi(msg.m_content);
-                assert(keyIdx >= 0 && keyIdx < keyDistributionTable.size());
-                auto [sharedKey, msgSigned] = keyDistributionTable[keyIdx];
-                WALLET_CHECK(sharedKey && msgSigned);
-                // Only messages with signed with keys set to NewsEndpoint
-                // have to appear here.
-                ++countReceived;
-            });
-        newsEndpoint.Subscribe(&testObserver);
+                cout << "Case: " << res->m_content << endl;
+                // Only messages with signed with correct keys have to pass validation.
+                WALLET_CHECK(keyLoaded && msgSigned);
+                // Check content
+                NewsMessage referenceMsg = { std::to_string(i) };
+                WALLET_CHECK(referenceMsg == *res);
+            }
+            else
+            {
+                WALLET_CHECK(!keyLoaded || !msgSigned);
+                // key not loaded to parser or message not correctly signed
+                // are the reasons to fail parsers validation.
+            }
+            
+        }
+        cout << "Test end" << endl;
+    }
 
-        // Push messages and check
-        std::for_each(  std::cbegin(bbsMessages),
-                        std::cend(bbsMessages),
-                        [&newsEndpoint](BbsMsg m)
-                        {
-                            newsEndpoint.OnMsg(std::move(m));
-                        });
+    /**
+     *  Test NewscastProtocolParser key loading
+     */
+    void TestPublisherKeysLoading()
+    {
+        cout << endl << "Test NewscastProtocolParser keys loading" << endl;
 
-        // Count amount of valid messages and compare to amount successfully received
-        int countValid = 0;
-        std::for_each(  std::cbegin(keyDistributionTable),
-                        std::cend(keyDistributionTable),
-                        [&countValid](const auto& pair)
-                        {
-                            if (pair.first && pair.second)
-                                ++countValid;
-                        });
-        WALLET_CHECK(countReceived == countValid);
+        auto senderWalletDB = createSenderWalletDB();
+        NewscastProtocolParser parser;
+
+        {
+            cout << "Case: no keys loaded, not signed message" << endl;
+
+            const NewsMessage news = { "not signed message" };
+            ByteBuffer msgRaw = toByteBuffer(news);
+            SignatureHandler signatureHandler;
+            signatureHandler.m_data = msgRaw;
+            ByteBuffer data = makeMsg(msgRaw, toByteBuffer(signatureHandler.m_Signature));
+
+            boost::optional<NewsMessage> res;
+            WALLET_CHECK_NO_THROW(res = parser.parseMessage(data));
+            WALLET_CHECK(!res.has_value());
+        }
+        {
+            cout << "Case: no keys loaded, correct message" << endl;
+
+            const NewsMessage news = { "correct message" };
+            ByteBuffer msgRaw = toByteBuffer(news);
+
+            const auto& [pk, signatureRaw] = signData(msgRaw, 123, senderWalletDB);
+            ByteBuffer data = makeMsg(msgRaw, signatureRaw);
+
+            boost::optional<NewsMessage> res;
+            WALLET_CHECK_NO_THROW(res = parser.parseMessage(data));
+            WALLET_CHECK(!res.has_value());
+
+            cout << "Case: key loaded, correct message" << endl;
+            WALLET_CHECK_NO_THROW(parser.setPublisherKeys({pk}));
+            WALLET_CHECK_NO_THROW(res = parser.parseMessage(data));
+            WALLET_CHECK(res.has_value());
+            WALLET_CHECK(*res == news);
+            
+            cout << "Case: keys cleared" << endl;
+
+            WALLET_CHECK_NO_THROW(parser.setPublisherKeys({}));
+            WALLET_CHECK(!parser.parseMessage(data).has_value());
+        }
+        {
+            cout << "Case: new key loaded" << endl;
+
+            const NewsMessage news = { "test message" };
+            ByteBuffer msgRaw = toByteBuffer(news);
+
+            const auto& [pk, signatureRaw] = signData(msgRaw, 159, senderWalletDB);
+            ByteBuffer data = makeMsg(msgRaw, signatureRaw);
+
+            WALLET_CHECK_NO_THROW(parser.setPublisherKeys({pk}));
+            boost::optional<NewsMessage> res;
+            WALLET_CHECK_NO_THROW(res = parser.parseMessage(data));
+            WALLET_CHECK(res.has_value());
+            WALLET_CHECK(*res == news);
+        }
+        cout << "Test end" << endl;
+    }
+
+    void TestNewscastObservers()
+    {
+        cout << endl << "Test Newscast observers" << endl;
+
+        MockBbsNetwork network;
+        NewscastProtocolParser parser;
+        Newscast newsEndpoint(network, parser);
+        auto senderWalletDB = createSenderWalletDB();
         
+        int notificationCount = 0;
+        const NewsMessage news = { "test message" };
+        MockNewsObserver testObserver(
+            // void onNewsUpdate(const NewsMessage& msg)
+            [&notificationCount, &news]
+            (const NewsMessage& receivedNews)
+            {
+                WALLET_CHECK(news == receivedNews);
+                ++notificationCount;
+            });
+
+        WalletID channel;   // only channel is used in WalletID structure
+        channel.m_Channel = Bbs::s_MaxChannels + Newscast::BbsChannelsOffset;
+
+        ByteBuffer msgRaw = toByteBuffer(news);
+        const auto& [pk, signatureRaw] = signData(msgRaw, 321, senderWalletDB);
+        ByteBuffer data = makeMsg(msgRaw, signatureRaw);
+
+        {
+            const auto& [pk2, sk2] = deriveKeypair(senderWalletDB, 789);    // just for amount
+            const auto& [pk3, sk3] = deriveKeypair(senderWalletDB, 456);
+            parser.setPublisherKeys({pk, pk2, pk3});
+        }
+
+        {
+            cout << "Case: subscribed on valid message" << endl;
+            newsEndpoint.Subscribe(&testObserver);
+            network.SendRawMessage(channel, data);
+            WALLET_CHECK(notificationCount == 1);
+        }
+        {
+            cout << "Case: unsubscribed on valid message" << endl;
+            newsEndpoint.Unsubscribe(&testObserver);
+            network.SendRawMessage(channel, data);
+            WALLET_CHECK(notificationCount == 1);
+        }
+        {
+            cout << "Case: subscribed back" << endl;
+            newsEndpoint.Subscribe(&testObserver);
+            network.SendRawMessage(channel, data);
+            WALLET_CHECK(notificationCount == 2);
+        }
+        {
+            cout << "Case: subscribed on invalid message" << endl;
+            // sign the same message with other key
+            const auto& [newPk, newSignatureRaw] = signData(msgRaw, 322, senderWalletDB);
+            data = makeMsg(msgRaw, newSignatureRaw);
+
+            network.SendRawMessage(channel, data);
+            WALLET_CHECK(notificationCount == 2);
+        }
         cout << "Test end" << endl;
     }
 
@@ -255,13 +388,15 @@ namespace
 
 int main()
 {
-    cout << "NewsEndpoint tests:" << endl;
+    cout << "Newscast tests:" << endl;
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    TestProtocolStress();
-    TestSignature();
+    TestProtocolParserStress();
+    TestSignatureVerification();
+    TestPublisherKeysLoading();
+    TestNewscastObservers();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

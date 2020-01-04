@@ -16,10 +16,9 @@
 
 #include "news_message.h"
 #include "news_observer.h"
-#include "news_protocol_handler.h"
+#include "newscast_protocol_parser.h"
 
 #include "wallet/core/wallet.h"
-#include "utility/logger.h"
 
 using namespace beam::proto;
 
@@ -32,7 +31,7 @@ namespace beam::wallet
         : public FlyClient::IBbsReceiver
     {
     public:
-        Newscast(FlyClient::INetwork& network);
+        Newscast(FlyClient::INetwork& network, NewscastProtocolParser& parser);
 
         /**
          *  FlyClient::IBbsReceiver implementation
@@ -44,18 +43,14 @@ namespace beam::wallet
         void Subscribe(INewsObserver* observer);
         void Unsubscribe(INewsObserver* observer);
 
-        void setPublicKeys(std::vector<PeerID> keys);
-
         static constexpr BbsChannel BbsChannelsOffset = 1024u;
 
     private:
 		FlyClient::INetwork& m_network;                     /// source of incoming BBS messages
+        NewscastProtocolParser& m_parser;                   /// news protocol parser
         std::vector<INewsObserver*> m_subscribers;          /// fresh news subscribers
-        std::vector<PeerID> m_publicKeys;                   /// publisher keys
 
         static const std::set<BbsChannel> m_channels;
-        static constexpr uint8_t MsgType = 1;
-        static constexpr uint8_t m_protocolVersion = 1;
         Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
 
         void notifySubscribers(NewsMessage msg) const;

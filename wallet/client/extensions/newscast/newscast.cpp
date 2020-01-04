@@ -13,11 +13,13 @@
 // limitations under the License.
 
 #include "newscast.h"
+#include "utility/logger.h"
 
 namespace beam::wallet
 {
-    Newscast::Newscast(FlyClient::INetwork& network)
-        : m_network(network)
+    Newscast::Newscast(FlyClient::INetwork& network, NewscastProtocolParser& parser)
+        : m_network(network),
+          m_parser(parser)
     {
         for (auto channel : m_channels)
         {
@@ -32,63 +34,30 @@ namespace beam::wallet
 
     void Newscast::OnMsg(proto::BbsMsg &&msg)
     {
-        if (msg.m_Message.empty() || msg.m_Message.size() < MsgHeader::SIZE)
-            return;
+        auto news = m_parser.parseMessage(msg.m_Message);
 
-        NewsMessage freshNews;
-        SignatureConfirmation confirmation;
-        try
-        {
-            MsgHeader header(msg.m_Message.data());
-            if (header.V0 != 0 ||
-                header.V1 != 0 ||
-                header.V2 != m_protocolVersion ||
-                header.type != MsgType)
-            {
-                LOG_WARNING() << "news message version unsupported";
-                return;
-            }
-
-            // message body
-            Deserializer d;
-            d.reset(msg.m_Message.data() + header.SIZE, header.size);
-            d & freshNews;
-            d & confirmation.m_Signature;
-        }
-        catch(...)
-        {
-            LOG_WARNING() << "news message deserialization exception";
-            return;
-        }
-        
-        confirmation.m_data = toByteBuffer(freshNews);
-        
-        auto it = std::find_if( std::cbegin(m_publicKeys),
-                                std::cend(m_publicKeys),
-                                [&confirmation](PeerID pk)
-                                {
-                                    return confirmation.IsValid(pk);
-                                });
-        if (it != m_publicKeys.cend())
+        if (news.has_value())
         {
             // TODO polymorphic parsing
-            notifySubscribers(freshNews);
+            notifySubscribers(*news);
         }
     }
 
     void Newscast::Subscribe(INewsObserver* observer)
     {
-        assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
-
+        auto it = std::find(m_subscribers.begin(),
+                            m_subscribers.end(),
+                            observer);
+        assert(it == m_subscribers.end());
         m_subscribers.push_back(observer);
     }
 
     void Newscast::Unsubscribe(INewsObserver* observer)
     {
-        auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
-
+        auto it = std::find(m_subscribers.begin(),
+                            m_subscribers.end(),
+                            observer);
         assert(it != m_subscribers.end());
-
         m_subscribers.erase(it);
     }
 
@@ -97,15 +66,6 @@ namespace beam::wallet
         for (auto sub : m_subscribers)
         {
             sub->onNewsUpdate(msg);
-        }
-    }
-
-    void Newscast::setPublicKeys(std::vector<PeerID> keys)
-    {
-        m_publicKeys.clear();
-        for (const auto& key : keys)
-        {
-            m_publicKeys.push_back(key);
         }
     }
 

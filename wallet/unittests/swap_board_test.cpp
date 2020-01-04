@@ -43,6 +43,8 @@ using namespace std;
 
 namespace
 {
+    using PrivateKey = ECC::Scalar::Native;
+    using PublicKey = PeerID;
     /**
      *  Class to test correct notification of SwapOffersBoard observers
      */
@@ -61,6 +63,7 @@ namespace
         CheckerFunction m_testChecker;
     };
 
+    // Generate random TxID
     TxID generateTxID()
     {
         std::srand(static_cast<unsigned int>(std::time(nullptr)));
@@ -72,7 +75,8 @@ namespace
         return txId;
     }
     
-    TxID& stepTxID(TxID& id)
+    // Increment by 1 @id
+    TxID& incrementTxID(TxID& id)
     {
         for (uint8_t& i : id)
         {
@@ -85,7 +89,8 @@ namespace
         return id;
     }
 
-    SwapOffer generateOffer(TxID& txID, SwapOfferStatus s, const WalletID& pubK, AtomicSwapCoin c)
+    // Construct SwapOffer with random tx parameters.
+    SwapOffer createOffer(const TxID& txID, SwapOfferStatus s, const WalletID& pubK, AtomicSwapCoin c)
     {
         std::srand(static_cast<unsigned int>(std::time(nullptr)));
         SwapOffer o(txID, s, pubK, c);
@@ -99,41 +104,94 @@ namespace
         return o;
     }
 
-    BbsMsg makeBbsMsg(ByteBuffer data)
+    /**
+     *  Generate random offer.
+     *  Create address in database. Use random TxID.
+     *  return generated swap offer and address key derivation index
+     */
+    std::tuple<SwapOffer, uint64_t> generateTestOffer(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
     {
-        BbsMsg m;
-        m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
-        m.m_TimePosted = getTimestamp();
-        m.m_Message = data;
-        return m;
+        WalletAddress wa = storage::createAddress(*walletDB, keyKeeper);
+        walletDB->saveAddress(wa);
+        TxID txID = generateTxID();
+        const auto offer = createOffer( txID,
+                                        SwapOfferStatus::Pending,
+                                        wa.m_walletID,
+                                        AtomicSwapCoin::Bitcoin);
+        return std::make_tuple(offer, wa.m_OwnID);
     }
 
-    void TestProtocolStress()
+    /**
+     *  Derive key pair with specified @keyIndex
+     */
+    std::tuple<PublicKey, PrivateKey> deriveKeypair(IWalletDB::Ptr walletDB, uint64_t keyIndex)
     {
-        cout << endl << "Test protocol corruption" << endl;
+        PrivateKey sk;
+        PublicKey pk;
+        walletDB->get_MasterKdf()->DeriveKey(sk, ECC::Key::ID(keyIndex, Key::Type::Bbs));
+        proto::Sk2Pk(pk, sk);
+        return std::make_tuple(pk, sk);
+    }
+    
+    /**
+     *  Create signature for @data using key derived with specified @keyIndex
+     *  return signature
+     */
+    ByteBuffer signData(const ByteBuffer& data, uint64_t keyIndex, IWalletDB::Ptr walletDB)
+    {
+        const auto& [pk, sk] = deriveKeypair(walletDB, keyIndex);
+        SwapOfferConfirmation signHandler;
+        signHandler.m_offerData = data;
+        signHandler.Sign(sk);
+        ByteBuffer rawSignature = toByteBuffer(signHandler.m_Signature);
+        return rawSignature;
+    }
+
+    /**
+     *  Create message according to protocol.
+     *  Create protocol header, add message body and signature.
+     */
+    ByteBuffer makeMsg(const ByteBuffer& msgRaw, const ByteBuffer& signatureRaw)
+    {
+        ByteBuffer fullMsg(MsgHeader::SIZE);
+        size_t rawBodySize = msgRaw.size() + signatureRaw.size();
+        assert(rawBodySize <= UINT32_MAX);
+
+        MsgHeader header(0, 0, 1, 0, static_cast<uint32_t>(rawBodySize));
+        header.write(fullMsg.data());
+
+        std::copy(  std::begin(msgRaw),
+                    std::end(msgRaw),
+                    std::back_inserter(fullMsg));
+        std::copy(  std::begin(signatureRaw),
+                    std::end(signatureRaw),
+                    std::back_inserter(fullMsg));
+
+        return fullMsg;
+    }
+
+    void TestProtocolHandlerParsing()
+    {
+        cout << endl << "Test protocol handler parser stress" << endl;
 
         auto senderWalletDB = createSenderWalletDB();
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockBbsNetwork mockNetwork;
-        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
-        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
+        OfferBoardProtocolHandler handler(keyKeeper->get_SbbsKdf(), senderWalletDB);
 
-        size_t countOffers = 0;
-        WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
-        WALLET_CHECK(countOffers == 0);
-        
         {
             cout << "Case: empty message" << endl;
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(ByteBuffer())));
-            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
-            WALLET_CHECK(countOffers == 0);
+            boost::optional<SwapOffer> res;
+            ByteBuffer emptyBuf;
+            WALLET_CHECK_NO_THROW(res = handler.parseMessage(emptyBuf));
+            WALLET_CHECK(!res.has_value());
         }
         {
             cout << "Case: message header too short" << endl;
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(ByteBuffer(beam::MsgHeader::SIZE - 2, 't'))));
-            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
-            WALLET_CHECK(countOffers == 0);
+            boost::optional<SwapOffer> res;
+            ByteBuffer data(beam::MsgHeader::SIZE - 2, 't');
+            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
+            WALLET_CHECK(!res.has_value());
         }
         {
             cout << "Case: message contain only header" << endl;
@@ -141,9 +199,9 @@ namespace
             data.reserve(MsgHeader::SIZE);
             MsgHeader header(0,0,1,0,0);            
             header.write(data.data());
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(data)));
-            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
-            WALLET_CHECK(countOffers == 0);
+            boost::optional<SwapOffer> res;
+            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
+            WALLET_CHECK(!res.has_value());
         }
         {
             cout << "Case: unsupported version" << endl;
@@ -151,9 +209,9 @@ namespace
             data.reserve(MsgHeader::SIZE);
             MsgHeader header(1,2,3,0,0);
             header.write(data.data());
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(data)));
-            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
-            WALLET_CHECK(countOffers == 0);
+            boost::optional<SwapOffer> res;
+            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
+            WALLET_CHECK(!res.has_value());
         }
         {
             cout << "Case: wrong length" << endl;
@@ -161,9 +219,9 @@ namespace
             data.reserve(MsgHeader::SIZE);
             MsgHeader header(0,0,1,0,5);
             header.write(data.data());
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(data)));
-            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
-            WALLET_CHECK(countOffers == 0);
+            boost::optional<SwapOffer> res;
+            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
+            WALLET_CHECK(!res.has_value());
         }
         {
             cout << "Case: wrong message type" << endl;
@@ -171,9 +229,9 @@ namespace
             data.reserve(MsgHeader::SIZE);
             MsgHeader header(0,0,1,123,0);
             header.write(data.data());
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(data)));
-            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
-            WALLET_CHECK(countOffers == 0);
+            boost::optional<SwapOffer> res;
+            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
+            WALLET_CHECK(!res.has_value());
         }
         {
             cout << "Case: wrong body length" << endl;
@@ -182,132 +240,83 @@ namespace
             data.reserve(MsgHeader::SIZE + bodyLength);
             MsgHeader header(0,0,1,0,bodyLength);
             header.write(data.data());
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(makeBbsMsg(data)));
-            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
-            WALLET_CHECK(countOffers == 0);
+            boost::optional<SwapOffer> res;
+            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
+            WALLET_CHECK(!res.has_value());
         }
 
         cout << "Test end" << endl;
     }
 
-    void TestSignature()
+    void TestProtocolHandlerSignature()
     {
-        cout << endl << "Test board messages signature" << endl;
+        cout << endl << "Test protocol handler signature" << endl;
 
         auto senderWalletDB = createSenderWalletDB();
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockBbsNetwork mockNetwork;
         OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
-        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
-
-        WALLET_CHECK(Alice.getOffersList().size() == 0);
-
-        TxID txId = generateTxID();
-        auto kdf = senderWalletDB->get_MasterKdf();
-        size_t count = 0;
 
         {
-            std::cout << "Case: invalid signature" << endl;
-            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
-            SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
-            const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
-            ECC::Scalar::Native sk;
-            SwapOfferConfirmation confirmation;
-            kdf->DeriveKey(sk, ECC::Key::ID(wa.m_OwnID, Key::Type::Bbs));
-            PeerID generatedPk;
-            proto::Sk2Pk(generatedPk, sk);
-            confirmation.m_offerData = msg;
-            confirmation.Sign(sk);
+            std::cout << "Case: parsing message with invalid signature" << endl;
 
-            ByteBuffer signature = toByteBuffer(confirmation.m_Signature);
-            signature.front() += 1;  // corrupt signature
+            const auto& [offer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
 
-            size_t bodySize = msg.size() + signature.size();
-            assert(bodySize <= UINT32_MAX);
-            MsgHeader header(0, 0, 1, 0, static_cast<uint32_t>(bodySize));
+            const ByteBuffer msgRaw = toByteBuffer(SwapOfferToken(offer));
+            auto signatureRaw = signData(msgRaw, keyIndex, senderWalletDB);
+            // corrupt signature
+            signatureRaw.front() += 1;
 
-            ByteBuffer finalMessage(header.SIZE);
-            header.write(finalMessage.data());
-            finalMessage.reserve(header.size + header.SIZE);
-            std::copy(std::begin(msg), std::end(msg), std::back_inserter(finalMessage));
-            std::copy(std::begin(signature), std::end(signature), std::back_inserter(finalMessage));
-
-            BbsMsg m;
-            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
-            m.m_TimePosted = getTimestamp();
-            m.m_Message = finalMessage;
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(move(m)));
-            WALLET_CHECK_NO_THROW(count = Alice.getOffersList().size());
-            WALLET_CHECK(count == 0);
+            const auto finalMessage = makeMsg(msgRaw, signatureRaw);
+            
+            boost::optional<SwapOffer> res;
+            WALLET_CHECK_NO_THROW(res = protocolHandler.parseMessage(finalMessage));
+            WALLET_CHECK(!res.has_value());
         }
         {
-            std::cout << "Case: invalid public key" << endl;
-            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
-            SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
-            WalletAddress newAddr = storage::createAddress(*senderWalletDB, keyKeeper);
-            offer.m_publisherId = newAddr.m_walletID;   // changed public key to new random
-            const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
-            ECC::Scalar::Native sk;
-            SwapOfferConfirmation confirmation;
-            kdf->DeriveKey(sk, ECC::Key::ID(wa.m_OwnID, Key::Type::Bbs));
-            PeerID generatedPk;
-            proto::Sk2Pk(generatedPk, sk);
-            confirmation.m_offerData = msg;
-            confirmation.Sign(sk);
+            std::cout << "Case: parsing message with invalid public key" << endl;
 
-            ByteBuffer signature = toByteBuffer(confirmation.m_Signature);
+            auto [offer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
 
-            size_t bodySize = msg.size() + signature.size();
-            assert(bodySize <= UINT32_MAX);
-            MsgHeader header(0, 0, 1, 0, static_cast<uint32_t>(bodySize));
+            // changed public key another
+            WalletAddress anotherAddress = storage::createAddress(*senderWalletDB, keyKeeper);
+            offer.m_publisherId = anotherAddress.m_walletID;
 
-            ByteBuffer finalMessage(header.SIZE);
-            header.write(finalMessage.data());
-            finalMessage.reserve(header.size + header.SIZE);
-            std::copy(std::begin(msg), std::end(msg), std::back_inserter(finalMessage));
-            std::copy(std::begin(signature), std::end(signature), std::back_inserter(finalMessage));
+            const ByteBuffer msgRaw = toByteBuffer(SwapOfferToken(offer));
+            const auto signatureRaw = signData(msgRaw, keyIndex, senderWalletDB);
+            const auto finalMessage = makeMsg(msgRaw, signatureRaw);
 
-            BbsMsg m;
-            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
-            m.m_TimePosted = getTimestamp();
-            m.m_Message = finalMessage;
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(move(m)));
-            WALLET_CHECK_NO_THROW(count = Alice.getOffersList().size());
-            WALLET_CHECK(count == 0);
+            boost::optional<SwapOffer> res;
+            WALLET_CHECK_NO_THROW(res = protocolHandler.parseMessage(finalMessage));
+            WALLET_CHECK(!res.has_value());
         }
         {
-            std::cout << "Case: correct message" << endl;
-            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
-            SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
-            const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
-            ECC::Scalar::Native sk;
-            SwapOfferConfirmation confirmation;
-            kdf->DeriveKey(sk, ECC::Key::ID(wa.m_OwnID, Key::Type::Bbs));
-            PeerID generatedPk;
-            proto::Sk2Pk(generatedPk, sk);
-            confirmation.m_offerData = msg;
-            confirmation.Sign(sk);
+            std::cout << "Case: parsing correct message" << endl;
 
-            ByteBuffer signature = toByteBuffer(confirmation.m_Signature);
+            const auto& [offer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
 
-            size_t bodySize = msg.size() + signature.size();
-            assert(bodySize <= UINT32_MAX);
-            MsgHeader header(0, 0, 1, 0, static_cast<uint32_t>(bodySize));
+            const ByteBuffer msgRaw = toByteBuffer(SwapOfferToken(offer));
+            const auto signatureRaw = signData(msgRaw, keyIndex, senderWalletDB);
+            const auto finalMessage = makeMsg(msgRaw, signatureRaw);
 
-            ByteBuffer finalMessage(header.SIZE);
-            header.write(finalMessage.data());
-            finalMessage.reserve(header.size + header.SIZE);
-            std::copy(std::begin(msg), std::end(msg), std::back_inserter(finalMessage));
-            std::copy(std::begin(signature), std::end(signature), std::back_inserter(finalMessage));
+            boost::optional<SwapOffer> res;
+            WALLET_CHECK_NO_THROW(res = protocolHandler.parseMessage(finalMessage));
+            WALLET_CHECK(res.has_value());
+            WALLET_CHECK(*res == offer);
+        }
+        {
+            std::cout << "Case: parsing own created message" << endl;
 
-            BbsMsg m;
-            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
-            m.m_TimePosted = getTimestamp();
-            m.m_Message = finalMessage;
-            WALLET_CHECK_NO_THROW(Alice.OnMsg(move(m)));
-            WALLET_CHECK_NO_THROW(count = Alice.getOffersList().size());
-            WALLET_CHECK(count == 1);
+            const auto& [offer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
+
+            boost::optional<ByteBuffer> msg;
+            WALLET_CHECK_NO_THROW(msg = protocolHandler.createMessage(offer, offer.m_publisherId));
+            WALLET_CHECK(msg.has_value());
+
+            boost::optional<SwapOffer> res;
+            WALLET_CHECK_NO_THROW(res = protocolHandler.parseMessage(*msg));
+            WALLET_CHECK(res.has_value());
+            WALLET_CHECK(*res == offer);
         }
 
         cout << "Test end" << endl;
@@ -329,7 +338,7 @@ namespace
         TxID txId = generateTxID();
         WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
         senderWalletDB->saveAddress(wa);
-        SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
+        SwapOffer correctOffer = createOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
         
         size_t offersCount = 0;
         size_t count = 0;
@@ -345,7 +354,7 @@ namespace
 
             for (auto parameter : mandatoryParams)
             {
-                stepTxID(txId);
+                incrementTxID(txId);
                 SwapOffer o = correctOffer;
                 o.m_txId = txId;
                 cout << "\tparameter code " << static_cast<uint32_t>(parameter) << endl;
@@ -357,7 +366,7 @@ namespace
         }
         {
             cout << "Case: AtomicSwapCoin parameter validation" << endl;
-            stepTxID(txId);
+            incrementTxID(txId);
             SwapOffer o = correctOffer;
             o.m_txId = txId;
             o.m_coin = AtomicSwapCoin::Unknown;
@@ -367,7 +376,7 @@ namespace
         }
         {
             cout << "Case: SwapOfferStatus parameter validation" << endl;
-            stepTxID(txId);
+            incrementTxID(txId);
             SwapOffer o = correctOffer;
             o.m_txId = txId;
             o.m_status = static_cast<SwapOfferStatus>(static_cast<uint32_t>(SwapOfferStatus::Failed) + 1);
@@ -376,7 +385,7 @@ namespace
             WALLET_CHECK(count == offersCount);
         }
 
-        stepTxID(txId);
+        incrementTxID(txId);
         SwapOffer o = correctOffer;
         o.m_txId = txId;
         Alice.publishOffer(o);
@@ -406,7 +415,7 @@ namespace
         TxID txId = generateTxID();
         WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
         senderWalletDB->saveAddress(wa);
-        SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
+        SwapOffer correctOffer = createOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
         
         size_t offersCount = 0;
         {
@@ -424,8 +433,8 @@ namespace
             SwapOffer o1 = correctOffer;
             SwapOffer o2 = correctOffer;
             SwapOffer o3 = correctOffer;
-            o2.m_txId = stepTxID(txId);
-            o3.m_txId = stepTxID(txId);
+            o2.m_txId = incrementTxID(txId);
+            o3.m_txId = incrementTxID(txId);
             Alice.publishOffer(o1);
             Bob.publishOffer(o2);
             Cory.publishOffer(o3);
@@ -464,7 +473,7 @@ namespace
             WALLET_CHECK(executionCount == 9);
 
             cout << "Case: different TxID" << endl;
-            o4.m_txId = stepTxID(txId);
+            o4.m_txId = incrementTxID(txId);
             o4.m_coin = AtomicSwapCoin::Qtum;
             Cory.publishOffer(o4);
             offersCount++;
@@ -479,7 +488,7 @@ namespace
 
             cout << "Case: unsubscribe stops notification" << endl;
             o4 = correctOffer;
-            o4.m_txId = stepTxID(txId);
+            o4.m_txId = incrementTxID(txId);
             o4.m_coin = AtomicSwapCoin::Litecoin;
             Bob.publishOffer(o4);
             offersCount++;
@@ -507,7 +516,7 @@ namespace
                 for (auto s : nonActiveStatuses)
                 {
                     SwapOffer o = correctOffer;
-                    o.m_txId = stepTxID(txId);
+                    o.m_txId = incrementTxID(txId);
                     cout << "\tparameter " << static_cast<uint32_t>(s) << endl;
                     o.m_status = s;
                     Alice.publishOffer(o);
@@ -518,7 +527,7 @@ namespace
             {
                 cout << "Case: notification on new offer in Pending status" << endl;
                 SwapOffer o = correctOffer;
-                o.m_txId = stepTxID(txId);
+                o.m_txId = incrementTxID(txId);
                 o.m_status = SwapOfferStatus::Pending;
                 Alice.publishOffer(o);
                 offersCount++;
@@ -546,7 +555,7 @@ namespace
         TxID txId = generateTxID();
         WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
         senderWalletDB->saveAddress(wa);
-        SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
+        SwapOffer correctOffer = createOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
 
         size_t offerCount = 0;
         {
@@ -557,11 +566,11 @@ namespace
             SwapOffer o3 = correctOffer;
             SwapOffer o4 = correctOffer;
             SwapOffer o5 = correctOffer;
-            o1.m_txId = stepTxID(txId);
-            o2.m_txId = stepTxID(txId);
-            o3.m_txId = stepTxID(txId);
-            o4.m_txId = stepTxID(txId);
-            o5.m_txId = stepTxID(txId);
+            o1.m_txId = incrementTxID(txId);
+            o2.m_txId = incrementTxID(txId);
+            o3.m_txId = incrementTxID(txId);
+            o4.m_txId = incrementTxID(txId);
+            o5.m_txId = incrementTxID(txId);
             Alice.publishOffer(o1);
             Alice.publishOffer(o2);
             Alice.publishOffer(o3);
@@ -621,9 +630,9 @@ namespace
             SwapOffer aliceOffer = correctOffer;
             SwapOffer aliceExpiredOffer = correctOffer;
             SwapOffer bobOffer = correctOffer;
-            aliceOffer.m_txId = stepTxID(txId);
-            aliceExpiredOffer.m_txId = stepTxID(txId);
-            bobOffer.m_txId = stepTxID(txId);
+            aliceOffer.m_txId = incrementTxID(txId);
+            aliceExpiredOffer.m_txId = incrementTxID(txId);
+            bobOffer.m_txId = incrementTxID(txId);
             Bob.publishOffer(bobOffer);
             Alice.publishOffer(aliceOffer);
             offerCount += 2;
@@ -685,7 +694,7 @@ namespace
         TxID txId = generateTxID();
         WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
         senderWalletDB->saveAddress(wa);
-        SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
+        SwapOffer correctOffer = createOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
 
         uint32_t exCount = 0;
         MockBoardObserver observer([&exCount](ChangeAction action, const vector<SwapOffer>& offers) { exCount++; });
@@ -735,8 +744,8 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    TestProtocolStress();
-    TestSignature();
+    TestProtocolHandlerParsing();
+    TestProtocolHandlerSignature();
     TestMandatoryParameters();
     TestCommunication();
     TestLinkedTransactionChanges();

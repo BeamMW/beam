@@ -14,29 +14,31 @@
 
 #pragma once
 
-#include "utility/serialize.h"
+#include "news_message.h"
+#include "core/block_crypt.h"
+
+#include "boost/optional.hpp"
 
 namespace beam::wallet
 {
     /**
-     *  Message item broadcasted using news channels
+     *  Validate message signatures according to publisher keys.
      */
-    struct NewsMessage
+    class NewscastProtocolParser
     {
-        std::string m_content;
-        SERIALIZE(m_content);
+        using PublicKey = PeerID;
 
-        bool operator==(const NewsMessage& other) const
-        {
-            return m_content == other.m_content;
-        };
+    public:
+        NewscastProtocolParser() {};
+
+        void setPublisherKeys(const std::vector<PublicKey>& keys);
+        boost::optional<NewsMessage> parseMessage(const ByteBuffer&) const;
+
+    private:
+        static constexpr uint8_t MsgType = 1;
+        static constexpr uint8_t m_protocolVersion = 1;
         
-        bool operator!=(const NewsMessage& other) const
-        {
-            return !(*this == other);
-        };
+        std::vector<PeerID> m_publisherKeys;       /// publisher keys to validate messages
     };
-
-    
 
 } // namespace beam::wallet

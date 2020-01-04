@@ -43,12 +43,12 @@ namespace beam::wallet
          * @param content   Swap offer data
          * @param wid       Signatory's public key 
          */
-        boost::optional<ByteBuffer> createMessage(const SwapOffer& content, const WalletID& wid);
+        boost::optional<ByteBuffer> createMessage(const SwapOffer& content, const WalletID& wid) const;
 
         /**
          *  Parse message and verify signature.
          */
-        boost::optional<SwapOffer> parseMessage(ByteBuffer& rawMessage);
+        boost::optional<SwapOffer> parseMessage(const ByteBuffer& rawMessage) const;
 
     private:
         std::shared_ptr<beam::wallet::IWalletDB> m_walletDB;
