@@ -335,16 +335,14 @@ namespace
 
         WALLET_CHECK(Alice.getOffersList().size() == 0);
 
-        TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
-        senderWalletDB->saveAddress(wa);
-        SwapOffer correctOffer = createOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
+        const auto [correctOffer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
+        TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
         
         size_t offersCount = 0;
         size_t count = 0;
         {
             cout << "Case: mandatory parameters presence:" << endl;
-            std::array<TxParameterID,6> mandatoryParams {
+            const std::array<TxParameterID,6> mandatoryParams {
                 TxParameterID::AtomicSwapCoin,
                 TxParameterID::AtomicSwapIsBeamSide,
                 TxParameterID::Amount,
@@ -354,9 +352,9 @@ namespace
 
             for (auto parameter : mandatoryParams)
             {
-                incrementTxID(txId);
+                // check that offers without mandatory parameters don't appear on board
                 SwapOffer o = correctOffer;
-                o.m_txId = txId;
+                o.m_txId = incrementTxID(txID);
                 cout << "\tparameter code " << static_cast<uint32_t>(parameter) << endl;
                 o.DeleteParameter(parameter);
                 Alice.publishOffer(o);
@@ -366,9 +364,8 @@ namespace
         }
         {
             cout << "Case: AtomicSwapCoin parameter validation" << endl;
-            incrementTxID(txId);
             SwapOffer o = correctOffer;
-            o.m_txId = txId;
+            o.m_txId = incrementTxID(txID);
             o.m_coin = AtomicSwapCoin::Unknown;
             Alice.publishOffer(o);
             WALLET_CHECK_NO_THROW(count = Alice.getOffersList().size());
@@ -376,21 +373,20 @@ namespace
         }
         {
             cout << "Case: SwapOfferStatus parameter validation" << endl;
-            incrementTxID(txId);
             SwapOffer o = correctOffer;
-            o.m_txId = txId;
+            o.m_txId = incrementTxID(txID);
             o.m_status = static_cast<SwapOfferStatus>(static_cast<uint32_t>(SwapOfferStatus::Failed) + 1);
             Alice.publishOffer(o);
             WALLET_CHECK_NO_THROW(count = Alice.getOffersList().size());
             WALLET_CHECK(count == offersCount);
         }
-
-        incrementTxID(txId);
-        SwapOffer o = correctOffer;
-        o.m_txId = txId;
-        Alice.publishOffer(o);
-        WALLET_CHECK(Alice.getOffersList().size() == ++offersCount);
-
+        {
+            cout << "Case: correct offer" << endl;
+            SwapOffer o = correctOffer;
+            o.m_txId = incrementTxID(txID);
+            Alice.publishOffer(o);
+            WALLET_CHECK(Alice.getOffersList().size() == ++offersCount);
+        }
         cout << "Test end" << endl;
     }
 
@@ -412,19 +408,20 @@ namespace
         WALLET_CHECK(Bob.getOffersList().size() == 0);
         WALLET_CHECK(Cory.getOffersList().size() == 0);
 
-        TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
-        senderWalletDB->saveAddress(wa);
-        SwapOffer correctOffer = createOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
+        const auto [correctOffer, keyIndex] =  generateTestOffer(senderWalletDB, keyKeeper);
+        TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
         
         size_t offersCount = 0;
         {
             uint32_t executionCount = 0;
-            MockBoardObserver testObserver([&executionCount](ChangeAction action, const vector<SwapOffer>& offers) {
-                        WALLET_CHECK(action == ChangeAction::Added);
-                        WALLET_CHECK(offers.size() == 1);
-                        executionCount++;
-                    });
+            MockBoardObserver testObserver(
+                [&executionCount]
+                (ChangeAction action, const vector<SwapOffer>& offers)
+                {
+                    WALLET_CHECK(action == ChangeAction::Added);
+                    WALLET_CHECK(offers.size() == 1);
+                    executionCount++;
+                });
             Alice.Subscribe(&testObserver);
             Bob.Subscribe(&testObserver);
             Cory.Subscribe(&testObserver);
@@ -433,8 +430,8 @@ namespace
             SwapOffer o1 = correctOffer;
             SwapOffer o2 = correctOffer;
             SwapOffer o3 = correctOffer;
-            o2.m_txId = incrementTxID(txId);
-            o3.m_txId = incrementTxID(txId);
+            o2.m_txId = incrementTxID(txID);
+            o3.m_txId = incrementTxID(txID);
             Alice.publishOffer(o1);
             Bob.publishOffer(o2);
             Cory.publishOffer(o3);
@@ -473,7 +470,7 @@ namespace
             WALLET_CHECK(executionCount == 9);
 
             cout << "Case: different TxID" << endl;
-            o4.m_txId = incrementTxID(txId);
+            o4.m_txId = incrementTxID(txID);
             o4.m_coin = AtomicSwapCoin::Qtum;
             Cory.publishOffer(o4);
             offersCount++;
@@ -488,7 +485,7 @@ namespace
 
             cout << "Case: unsubscribe stops notification" << endl;
             o4 = correctOffer;
-            o4.m_txId = incrementTxID(txId);
+            o4.m_txId = incrementTxID(txID);
             o4.m_coin = AtomicSwapCoin::Litecoin;
             Bob.publishOffer(o4);
             offersCount++;
@@ -500,7 +497,10 @@ namespace
         
         {
             uint32_t execCount = 0;
-            MockBoardObserver testObserver([&execCount](ChangeAction action, const vector<SwapOffer>& offers) {
+            MockBoardObserver testObserver(
+                [&execCount]
+                (ChangeAction action, const vector<SwapOffer>& offers)
+                {
                     execCount++;
                 });
             Bob.Subscribe(&testObserver);
@@ -516,7 +516,7 @@ namespace
                 for (auto s : nonActiveStatuses)
                 {
                     SwapOffer o = correctOffer;
-                    o.m_txId = incrementTxID(txId);
+                    o.m_txId = incrementTxID(txID);
                     cout << "\tparameter " << static_cast<uint32_t>(s) << endl;
                     o.m_status = s;
                     Alice.publishOffer(o);
@@ -527,7 +527,7 @@ namespace
             {
                 cout << "Case: notification on new offer in Pending status" << endl;
                 SwapOffer o = correctOffer;
-                o.m_txId = incrementTxID(txId);
+                o.m_txId = incrementTxID(txID);
                 o.m_status = SwapOfferStatus::Pending;
                 Alice.publishOffer(o);
                 offersCount++;
@@ -552,10 +552,8 @@ namespace
         SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
         SwapOffersBoard Bob(mockNetwork, mockNetwork, protocolHandler);
 
-        TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
-        senderWalletDB->saveAddress(wa);
-        SwapOffer correctOffer = createOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
+        const auto [correctOffer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
+        TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
 
         size_t offerCount = 0;
         {
@@ -566,11 +564,11 @@ namespace
             SwapOffer o3 = correctOffer;
             SwapOffer o4 = correctOffer;
             SwapOffer o5 = correctOffer;
-            o1.m_txId = incrementTxID(txId);
-            o2.m_txId = incrementTxID(txId);
-            o3.m_txId = incrementTxID(txId);
-            o4.m_txId = incrementTxID(txId);
-            o5.m_txId = incrementTxID(txId);
+            o1.m_txId = incrementTxID(txID);
+            o2.m_txId = incrementTxID(txID);
+            o3.m_txId = incrementTxID(txID);
+            o4.m_txId = incrementTxID(txID);
+            o5.m_txId = incrementTxID(txID);
             Alice.publishOffer(o1);
             Alice.publishOffer(o2);
             Alice.publishOffer(o3);
@@ -630,9 +628,9 @@ namespace
             SwapOffer aliceOffer = correctOffer;
             SwapOffer aliceExpiredOffer = correctOffer;
             SwapOffer bobOffer = correctOffer;
-            aliceOffer.m_txId = incrementTxID(txId);
-            aliceExpiredOffer.m_txId = incrementTxID(txId);
-            bobOffer.m_txId = incrementTxID(txId);
+            aliceOffer.m_txId = incrementTxID(txID);
+            aliceExpiredOffer.m_txId = incrementTxID(txID);
+            bobOffer.m_txId = incrementTxID(txID);
             Bob.publishOffer(bobOffer);
             Alice.publishOffer(aliceOffer);
             offerCount += 2;
@@ -691,13 +689,15 @@ namespace
         SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
         SwapOffersBoard Bob(mockNetwork, mockNetwork, protocolHandler);
 
-        TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
-        senderWalletDB->saveAddress(wa);
-        SwapOffer correctOffer = createOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
+        const auto [correctOffer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
 
         uint32_t exCount = 0;
-        MockBoardObserver observer([&exCount](ChangeAction action, const vector<SwapOffer>& offers) { exCount++; });
+        MockBoardObserver observer(
+            [&exCount]
+            (ChangeAction action, const vector<SwapOffer>& offers)
+            {
+                exCount++;
+            });
         {
             cout << "Case: delayed offer update broadcast to network" << endl;
             // Case when no offer exist on board.
@@ -731,7 +731,6 @@ namespace
             WALLET_CHECK(Alice.getOffersList().size() == 0);
             WALLET_CHECK(Bob.getOffersList().size() == 0);
         }
-        
         cout << "Test end" << endl;
     }
 
