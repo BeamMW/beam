@@ -2418,6 +2418,20 @@ void TestLelantusKeys()
 	viewer.m_pGen = pGen;
 	viewer.m_pSer = pSer;
 
+	{
+		beam::ShieldedTxo::Data::SerialParams sprs, sprs2;
+		beam::ShieldedTxo::Serial s;
+
+
+		sprs.Generate(s, gen, 115U);
+		verify_test(sprs2.Recover(s, viewer));
+		verify_test(!sprs2.m_IsCreatedByViewer);
+
+		sprs.Generate(s, viewer, 115U);
+		verify_test(sprs2.Recover(s, viewer));
+		verify_test(sprs2.m_IsCreatedByViewer);
+	}
+
 	beam::ShieldedTxo::Data d1;
 	d1.m_hScheme = beam::Rules::get().pForks[2].m_Height;
 	d1.m_Value = 115;

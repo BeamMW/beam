@@ -67,6 +67,147 @@ namespace beam
 		}
 	};
 
+	void ShieldedTxo::Data::SerialParams::DoubleBlindedCommitment(ECC::Point::Native& res, const ECC::Scalar::Native* pK)
+	{
+		res = ECC::Context::get().G * pK[0];
+		res += ECC::Context::get().J * pK[1];
+	}
+
+	void ShieldedTxo::Data::SerialParams::Generate(Serial& s, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	{
+		GenerateInternal(s, nonce, *gen.m_pGen, nullptr, *gen.m_pSer);
+	}
+
+	void ShieldedTxo::Data::SerialParams::Generate(Serial& s, const Viewer& v, const ECC::Hash::Value& nonce)
+	{
+		GenerateInternal(s, nonce, *v.m_pGen, v.m_pGen.get(), *v.m_pSer);
+	}
+
+	void ShieldedTxo::Data::SerialParams::set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
+	{
+		ECC::NoLeak<ECC::Scalar> sk;
+		sk.V = m_pK[0];
+
+		HashTxt htxt("kG-k");
+		htxt << sk.V.m_Value;
+		const ECC::Hash::Value& hv = htxt;
+
+		ECC::Scalar::Native k;
+
+		m_IsCreatedByViewer = !!pGenPriv;
+		if (pGenPriv)
+			pGenPriv->DeriveKey(k, hv);
+		else
+			gen.DerivePKey(k, hv);
+
+		sk.V = k;
+		m_SerialPreimage = Cast::Down<const ECC::Hash::Value>(HashTxt("k-pI") << sk.V.m_Value);
+
+		ECC::Point::Native pt;
+		ser.DerivePKeyG(pt, m_SerialPreimage);
+		m_SpendPk = pt;
+
+		Lelantus::SpendKey::ToSerial(m_pK[1], m_SpendPk);
+	}
+
+	void ShieldedTxo::Data::SerialParams::get_DH(ECC::Hash::Value& res, const Serial& s)
+	{
+		HashTxt("DH") << s.m_SerialPub >> res;
+	}
+
+	void ShieldedTxo::Data::SerialParams::get_Nonces(Key::IPKdf& gen, const ECC::Point::Native& pt, ECC::Scalar::Native* pN)
+	{
+		ECC::Point ptShared = pt;
+		gen.DerivePKey(pN[0], HashTxt("nG") << ptShared);
+		gen.DerivePKey(pN[1], HashTxt("nJ") << ptShared);
+	}
+
+	void ShieldedTxo::Data::SerialParams::GenerateInternal(Serial& s, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
+	{
+		ser.DerivePKey(m_pK[0], HashTxt("kG") << nonce);
+		set_FromkG(gen, pGenPriv, ser);
+
+		ECC::Point::Native pt, pt1;
+		DoubleBlindedCommitment(pt, m_pK);
+		s.m_SerialPub = pt;
+
+		ECC::Hash::Value hv;
+		get_DH(hv, s);
+
+		gen.DerivePKeyG(pt, hv);
+		gen.DerivePKeyJ(pt1, hv);
+
+		pt = pt * m_pK[0];
+		pt += pt1 * m_pK[1]; // shared point
+
+		ECC::Scalar::Native pN[2];
+		get_Nonces(gen, pt, pN);
+
+		// generalized Schnorr's sig
+		s.get_Hash(hv);
+		s.m_Signature.SetNoncePub(ECC::Context::get().m_Sig.m_CfgGJ1, pN);
+		s.m_Signature.SignRaw(ECC::Context::get().m_Sig.m_CfgGJ1, hv, s.m_Signature.m_pK, m_pK, pN);
+	}
+
+	bool ShieldedTxo::Data::SerialParams::Recover(const Serial& s, const Viewer& v)
+	{
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		ECC::Point::Native pt;
+		if (!pt.Import(s.m_SerialPub))
+			return false;
+
+		ECC::Hash::Value hv;
+		get_DH(hv, s);
+
+		ECC::Scalar::Native k;
+		v.m_pGen->DeriveKey(k, hv);
+
+		pt = pt * k; // shared point
+
+		ECC::Scalar::Native pN[2];
+		get_Nonces(*v.m_pGen, pt, pN);
+
+		DoubleBlindedCommitment(pt, pN);
+		if (!IsEqual(pt, s.m_Signature.m_NoncePub))
+			return false;
+
+		// there's a match with high probability. Reverse-engineer the keys
+		s.get_Hash(hv);
+		s.m_Signature.get_Challenge(k, hv);
+		k.Inv();
+		k = -k;
+
+		for (size_t i = 0; i < _countof(m_pK); i++)
+		{
+			m_pK[i] = s.m_Signature.m_pK[i];
+			m_pK[i] += pN[i];
+			m_pK[i] *= k;
+		}
+
+		k = m_pK[1];
+
+		set_FromkG(*v.m_pGen, v.m_pGen.get(), *v.m_pSer);
+		if (k == m_pK[1])
+			return true;
+
+		set_FromkG(*v.m_pGen, nullptr, *v.m_pSer);
+		if (k == m_pK[1])
+			return true;
+
+		return false;
+	}
+
+
+
+
+
+
+
+
+
+
+
 	void ShieldedTxo::Viewer::FromOwner(Key::IPKdf& key)
 	{
 		ECC::Scalar::Native sk;

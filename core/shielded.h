@@ -38,6 +38,29 @@ namespace beam
 
 	struct ShieldedTxo::Data
 	{
+		struct SerialParams
+		{
+			ECC::Scalar::Native m_pK[2]; // kG, kJ
+
+			ECC::Hash::Value m_SerialPreimage;
+			ECC::Point m_SpendPk;
+
+			bool m_IsCreatedByViewer;
+
+			void Generate(Serial&, const PublicGen&, const ECC::Hash::Value& nonce);
+			void Generate(Serial&, const Viewer&, const ECC::Hash::Value& nonce);
+
+			bool Recover(const Serial&, const Viewer&);
+
+			static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native*);
+
+		protected:
+			void GenerateInternal(Serial&, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
+			void set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
+			static void get_DH(ECC::Hash::Value&, const Serial&);
+			static void get_Nonces(Key::IPKdf& gen, const ECC::Point::Native& ptShared, ECC::Scalar::Native*);
+		};
+
 		ECC::Scalar::Native m_kSerG; // blinding factor for the serial
 		ECC::Scalar::Native m_kOutG; // blinding factor for the Output
 		Amount m_Value;
