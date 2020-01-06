@@ -430,6 +430,10 @@ namespace ECC
 			Key::IDV m_Kidv;
 
 			struct Padded;
+
+			// more params to embed/recover, optional
+			const uintBig* m_pSeedSk = nullptr; // set only when recovering
+			Scalar::Native* m_pSk; // set only when recovering
 		};
 
 		struct Confidential

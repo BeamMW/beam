@@ -852,6 +852,28 @@ void TestRangeProof(bool bCustomTag)
 		verify_test(cp.m_Kidv == cp2.m_Kidv);
 	}
 
+	// Bulletproof with extra data embedded
+	uintBig seedSk = 4432U;
+	{
+		Oracle oracle;
+		bp.CoSign(seedSk, sk, cp, oracle, RangeProof::Confidential::Phase::SinglePass, &tag.m_hGen);
+	}
+	{
+		Oracle oracle;
+		verify_test(bp.IsValid(comm, oracle, &tag.m_hGen));
+	}
+	{
+		Oracle oracle;
+		Scalar::Native sk2;
+		RangeProof::CreatorParams cp2;
+		cp2.m_Seed = cp.m_Seed;
+		cp2.m_pSeedSk = &seedSk;
+		cp2.m_pSk = &sk2;
+
+		verify_test(bp.Recover(oracle, cp2));
+		verify_test(sk == sk2);
+	}
+
 	InnerProduct::BatchContextEx<2> bc;
 
 	{

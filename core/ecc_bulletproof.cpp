@@ -885,7 +885,31 @@ namespace ECC {
 		Point ptA;
 		CalcA(ptA, alpha_minus_params, cp.m_Kidv.m_Value);
 
-		return ptA == m_Part1.m_A; // the probability of false positive should be negligible
+		if (ptA != m_Part1.m_A)
+			return false; // the probability of false positive should be negligible
+
+		if (cp.m_pSeedSk && cp.m_pSk)
+		{
+			cs.SetZZ();
+
+			// recover the blinding factor
+			Scalar::Native& sk = *cp.m_pSk; // alias
+			sk = Zero;
+
+			Nonces nonces(*cp.m_pSeedSk);
+
+			Scalar::Native k;
+			nonces.AddInfo2(k, cs);
+
+			sk = m_Part3.m_TauX;
+			k = -k;
+			sk += k;
+
+			k.SetInv(cs.zz);
+			sk *= k;
+		}
+
+		return true;
 	}
 
 	void RangeProof::Confidential::Nonces::Init(const uintBig& seedSk)
