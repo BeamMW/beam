@@ -501,9 +501,7 @@ namespace ECC
             static void GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle);
 
 		private:
-			struct ChallengeSet0;
-			struct ChallengeSet1;
-			struct ChallengeSet2;
+			struct ChallengeSet;
 			static void CalcA(Point&, const Scalar::Native& alpha, Amount v);
 		};
 

@@ -595,18 +595,12 @@ namespace ECC {
             >> seedSk;
     }
 
-	struct RangeProof::Confidential::ChallengeSet0
+	struct RangeProof::Confidential::ChallengeSet
 	{
-		Scalar::Native x, y, z;
+		Scalar::Native x, y, z, zz;
 		void Init1(const Part1&, Oracle&);
 		void Init2(const Part2&, Oracle&);
-	};
-
-	struct RangeProof::Confidential::ChallengeSet1
-		:public ChallengeSet0
-	{
-		Scalar::Native zz;
-		void Init1(const Part1&, Oracle&);
+		void SetZZ();
 	};
 
 #pragma pack (push, 1)
@@ -666,8 +660,9 @@ namespace ECC {
 		//	return; // stop after A,S calculated
 
 		// get challenges
-		ChallengeSet1 cs;
+		ChallengeSet cs;
 		cs.Init1(m_Part1, oracle);
+		cs.SetZZ();
 
 		// calculate t1, t2 - parts of vec(L)*vec(R) which depend on (future) x and x^2.
 		Scalar::Native t0(Zero), t1(Zero), t2(Zero);
@@ -860,7 +855,7 @@ namespace ECC {
 		nonceGen >> ro;
 
 		// get challenges
-		ChallengeSet0 cs;
+		ChallengeSet cs;
 		cs.Init1(m_Part1, oracle);
 		cs.Init2(m_Part2, oracle);
 
@@ -907,20 +902,20 @@ namespace ECC {
 		ptT2 = Context::get().G * m_tau2;
 	}
 
-	void RangeProof::Confidential::Nonces::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1& cs) const
+	void RangeProof::Confidential::Nonces::AddInfo2(Scalar::Native& taux, const ChallengeSet& cs) const
 	{
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
 		taux = m_tau2;
 		taux *= cs.x;
 		taux *= cs.x;
 
-		Scalar::Native t1 = m_tau1;
-		t1 *= cs.x;
-		taux += t1;
+		taux += m_tau1 * cs.x;
+	}
 
-		t1 = cs.zz;
-		t1 *= sk; // UTXO blinding factor (or part of it in case of multi-sig)
-		taux += t1;
+	void RangeProof::Confidential::Nonces::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet& cs) const
+	{
+		AddInfo2(taux, cs);
+		taux += sk * cs.zz; // UTXO blinding factor (or part of it in case of multi-sig)
 	}
 
 	bool RangeProof::Confidential::MultiSig::CoSignPart(const Nonces& nonces, Part2& p2)
@@ -944,8 +939,9 @@ namespace ECC {
 
 	void RangeProof::Confidential::MultiSig::CoSignPart(const Nonces& nonces, const Scalar::Native& sk, Oracle& oracle, Part3& p3) const
 	{
-		ChallengeSet1 cs;
+		ChallengeSet cs;
 		cs.Init1(m_Part1, oracle);
+		cs.SetZZ();
 		cs.Init2(m_Part2, oracle);
 
 		Scalar::Native taux;
@@ -955,21 +951,20 @@ namespace ECC {
 		p3.m_TauX = taux;
 	}
 
-	void RangeProof::Confidential::ChallengeSet0::Init1(const Part1& p1, Oracle& oracle)
+	void RangeProof::Confidential::ChallengeSet::Init1(const Part1& p1, Oracle& oracle)
 	{
 		oracle << p1.m_A << p1.m_S;
 		oracle >> y;
 		oracle >> z;
 	}
 
-	void RangeProof::Confidential::ChallengeSet1::Init1(const Part1& p1, Oracle& oracle)
+	void RangeProof::Confidential::ChallengeSet::SetZZ()
 	{
-		ChallengeSet0::Init1(p1, oracle);
 		zz = z;
 		zz *= z;
 	}
 
-	void RangeProof::Confidential::ChallengeSet0::Init2(const Part2& p2, Oracle& oracle)
+	void RangeProof::Confidential::ChallengeSet::Init2(const Part2& p2, Oracle& oracle)
 	{
 		oracle << p2.m_T1 << p2.m_T2;
 		oracle >> x;
@@ -992,8 +987,9 @@ namespace ECC {
 
 		Mode::Scope scope(Mode::Fast);
 
-		ChallengeSet1 cs;
+		ChallengeSet cs;
 		cs.Init1(m_Part1, oracle);
+		cs.SetZZ();
 		cs.Init2(m_Part2, oracle);
 
 		InnerProduct::Modifier::Channel ch1;

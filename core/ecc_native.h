@@ -926,6 +926,7 @@ namespace ECC
 		void Init(const uintBig& seedSk);
 
 		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
-		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1&) const;
+		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
+		void AddInfo2(Scalar::Native& taux, const ChallengeSet&) const;
 	};
 }
