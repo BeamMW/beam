@@ -144,8 +144,11 @@ namespace ECC {
 			dst = src;
 	}
 
-	struct InnerProduct::Calculator
+	struct InnerProduct::CalculatorBase
 	{
+		Scalar::Native m_pVal[2][nDim >> 1];
+		const Scalar::Native* m_ppSrc[2];
+
 		struct XSet
 		{
 			Scalar::Native m_Val[nCycles];
@@ -155,6 +158,52 @@ namespace ECC {
 			Scalar::Native m_DotMultiplier;
 			XSet m_pX[2];
 		};
+
+		ChallengeSet m_Cs;
+
+		uint32_t m_iCycle;
+		uint32_t m_n;
+
+		void CycleStart(Oracle& oracle)
+		{
+			m_n = nDim >> (m_iCycle + 1);
+
+			oracle >> m_Cs.m_pX[0].m_Val[m_iCycle];
+			m_Cs.m_pX[1].m_Val[m_iCycle].SetInv(m_Cs.m_pX[0].m_Val[m_iCycle]);
+		}
+
+		void CycleExpose(Oracle& oracle, const InnerProduct& ip)
+		{
+			for (int j = 0; j < 2; j++)
+				oracle << ip.m_pLR[m_iCycle][j];
+		}
+
+		void CycleEnd()
+		{
+			if (!m_iCycle)
+			{
+				for (int j = 0; j < 2; j++)
+					m_ppSrc[j] = m_pVal[j];
+			}
+		}
+
+		void CondenseBase();
+	};
+
+	void InnerProduct::CalculatorBase::CondenseBase()
+	{
+		for (int j = 0; j < 2; j++)
+			for (uint32_t i = 0; i < m_n; i++)
+			{
+				// dst and src need not to be distinct
+				m_pVal[j][i] = m_ppSrc[j][i] * m_Cs.m_pX[j].m_Val[m_iCycle];
+				m_pVal[j][i] += m_ppSrc[j][m_n + i] * m_Cs.m_pX[!j].m_Val[m_iCycle];
+			}
+	}
+
+	struct InnerProduct::Calculator
+		:public CalculatorBase
+	{
 
 		struct Aggregator
 		{
@@ -185,17 +234,11 @@ namespace ECC {
 		static const uint32_t s_iCycle0 = 2; // condense source generators into points (after 3 iterations, 8 points)
 
 		Point::Native m_pGen[2][nDim >> (1 + s_iCycle0)];
-		Scalar::Native m_pVal[2][nDim >> 1];
-
-		const Scalar::Native* m_ppSrc[2];
 
 		const Modifier& m_Mod;
-		ChallengeSet m_Cs;
 
 		MultiMac_WithBufs<(nDim >> (s_iCycle0 + 1)), nDim * 2> m_Mm;
 
-		uint32_t m_iCycle;
-		uint32_t m_n;
 		uint32_t m_GenOrder;
 
 		void Condense();
@@ -207,13 +250,7 @@ namespace ECC {
 	void InnerProduct::Calculator::Condense()
 	{
 		// Vectors
-		for (int j = 0; j < 2; j++)
-			for (uint32_t i = 0; i < m_n; i++)
-			{
-				// dst and src need not to be distinct
-				m_pVal[j][i] = m_ppSrc[j][i] * m_Cs.m_pX[j].m_Val[m_iCycle];
-				m_pVal[j][i] += m_ppSrc[j][m_n + i] * m_Cs.m_pX[!j].m_Val[m_iCycle];
-			}
+		CondenseBase();
 
 		// Points
 		switch (m_iCycle)
@@ -392,10 +429,7 @@ namespace ECC {
 
 		for (c.m_iCycle = 0; c.m_iCycle < nCycles; c.m_iCycle++)
 		{
-			c.m_n = nDim >> (c.m_iCycle + 1);
-
-			oracle >> c.m_Cs.m_pX[0].m_Val[c.m_iCycle];
-			c.m_Cs.m_pX[1].m_Val[c.m_iCycle].SetInv(c.m_Cs.m_pX[0].m_Val[c.m_iCycle]);
+			c.CycleStart(oracle);
 
 			for (int j = 0; j < 2; j++)
 			{
@@ -403,14 +437,13 @@ namespace ECC {
 
 				c.m_Mm.Calculate(comm);
 				m_pLR[c.m_iCycle][j] = comm;
-				oracle << m_pLR[c.m_iCycle][j];
 			}
+
+			c.CycleExpose(oracle, *this);
 
 			c.Condense();
 
-			if (!c.m_iCycle)
-				for (int j = 0; j < 2; j++)
-					c.m_ppSrc[j] = c.m_pVal[j];
+			c.CycleEnd();
 		}
 
 		for (int i = 0; i < 2; i++)

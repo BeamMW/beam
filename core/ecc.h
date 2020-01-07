@@ -413,6 +413,7 @@ namespace ECC
 		struct Challenges;
 		bool IsValid(BatchContext&, Challenges&, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
+		struct CalculatorBase;
 	private:
 		struct Calculator;
 
