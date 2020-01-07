@@ -652,6 +652,8 @@ namespace ECC {
 		const Scalar::Native m_One = 1U;
 		const Scalar::Native m_Two = 2U;
 
+		Scalar::Native m_pZ[2];
+
 		void Set(NonceGeneratorBp& ng)
 		{
 			for (int j = 0; j < 2; j++)
@@ -661,13 +663,18 @@ namespace ECC {
 				}
 		}
 
+		void Set(const ChallengeSet& cs)
+		{
+			m_pZ[0] = cs.z;
+			m_pZ[1] = cs.z - m_One;
+		}
+
 		void ToLR(const ChallengeSet& cs, Amount val)
 		{
 			// construct vectors l,r, use buffers pS
 			// P - m_Mu*G
 			Scalar::Native yPwr = m_One;
 			Scalar::Native zz_twoPwr = cs.zz;
-			Scalar::Native z_Minus1 = cs.z - m_One;
 			Scalar::Native x;
 
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
@@ -675,15 +682,12 @@ namespace ECC {
 				uint32_t bit = 1 & (val >> i);
 
 				m_pS[0][i] *= cs.x;
-
-				m_pS[0][i] += -cs.z;
-				if (bit)
-					m_pS[0][i] += m_One;
+				m_pS[0][i] -= m_pZ[bit];
 
 				m_pS[1][i] *= cs.x;
 				m_pS[1][i] *= yPwr;
 
-				x = bit ? cs.z : z_Minus1;
+				x = m_pZ[!bit];
 				x *= yPwr;
 				x += zz_twoPwr;
 
@@ -745,6 +749,7 @@ namespace ECC {
 		ChallengeSet cs;
 		cs.Init1(m_Part1, oracle);
 		cs.SetZZ();
+		vecs.Set(cs);
 
 		// calculate t1, t2 - parts of vec(L)*vec(R) which depend on (future) x and x^2.
 		Scalar::Native t0(Zero), t1(Zero), t2(Zero);
@@ -758,16 +763,10 @@ namespace ECC {
 		{
 			uint32_t bit = 1 & (cp.m_Kidv.m_Value >> i);
 
-			l0 = -cs.z;
-			if (bit)
-				l0 += vecs.m_One;
 
 			const Scalar::Native& lx = vecs.m_pS[0][i];
 
-			r0 = cs.z;
-			if (!bit)
-				r0 += -vecs.m_One;
-
+			r0 = vecs.m_pZ[!bit];
 			r0 *= yPwr;
 			r0 += zz_twoPwr;
 
@@ -777,6 +776,7 @@ namespace ECC {
 			zz_twoPwr *= vecs.m_Two;
 			yPwr *= cs.y;
 
+			l0 = -vecs.m_pZ[bit];
 			t0 += l0 * r0;
 			t1 += l0 * rx;
 			t1 += lx * r0;
