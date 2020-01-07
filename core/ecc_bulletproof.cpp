@@ -731,11 +731,16 @@ namespace ECC {
 		vecs.Set(nonceGen);
 
 		for (int j = 0; j < 2; j++)
+		{
+			if (cp.m_pExtra)
+				vecs.m_pS[j][0] += cp.m_pExtra[j];
+
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 			{
 				mm.m_pKPrep[mm.m_Prepared] = vecs.m_pS[j][i];
 				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
 			}
+		}
 
 		Point::Native comm;
 		mm.Calculate(comm);
@@ -943,9 +948,12 @@ namespace ECC {
 		if (ptA != m_Part1.m_A)
 			return false; // the probability of false positive should be negligible
 
-		if (cp.m_pSeedSk && cp.m_pSk)
-		{
+		bool bRecoverSk = (cp.m_pSeedSk && cp.m_pSk);
+		if (bRecoverSk || cp.m_pExtra)
 			cs.SetZZ();
+
+		if (bRecoverSk)
+		{
 
 			// recover the blinding factor
 			Scalar::Native& sk = *cp.m_pSk; // alias
@@ -962,6 +970,46 @@ namespace ECC {
 
 			k.SetInv(cs.zz);
 			sk *= k;
+		}
+
+		if (cp.m_pExtra)
+		{
+			// recover 2 more scalars
+			Vectors vecs;
+			vecs.Set(nonceGen);
+			vecs.Set(cs);
+
+			vecs.ToLR(cs, cp.m_Kidv.m_Value);
+
+			InnerProduct::CalculatorBase c;
+			c.m_ppSrc[0] = vecs.m_pS[0];
+			c.m_ppSrc[1] = vecs.m_pS[1];
+
+			oracle << m_tDot >> c.m_Cs.m_DotMultiplier;
+
+			for (c.m_iCycle = 0; c.m_iCycle < InnerProduct::nCycles; c.m_iCycle++)
+			{
+				c.CycleStart(oracle);
+				c.CycleExpose(oracle, m_P_Tag);
+				c.CondenseBase();
+				c.CycleEnd();
+			}
+
+			for (int j = 0; j < 2; j++)
+			{
+				Scalar::Native kDiff = m_P_Tag.m_pCondensed[j];
+				kDiff -= c.m_pVal[j][0]; // actual differnce
+
+				// now let's estimate the difference that would be if extra == 1.
+				Scalar::Native kDiff1 = cs.x; // After ToLR
+
+				for (c.m_iCycle = 0; c.m_iCycle < InnerProduct::nCycles; c.m_iCycle++)
+					kDiff1 *= c.m_Cs.m_pX[j].m_Val[c.m_iCycle];
+
+				Scalar::Native& x = cp.m_pExtra[j]; // alias
+				x.SetInv(kDiff1);
+				x *= kDiff;
+			}
 		}
 
 		return true;

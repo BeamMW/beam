@@ -854,8 +854,12 @@ void TestRangeProof(bool bCustomTag)
 
 	// Bulletproof with extra data embedded
 	uintBig seedSk = 4432U;
+	Scalar::Native pEx[2];
+	SetRandom(pEx[0]);
+	SetRandom(pEx[1]);
 	{
 		Oracle oracle;
+		cp.m_pExtra = pEx;
 		bp.CoSign(seedSk, sk, cp, oracle, RangeProof::Confidential::Phase::SinglePass, &tag.m_hGen);
 	}
 	{
@@ -865,13 +869,17 @@ void TestRangeProof(bool bCustomTag)
 	{
 		Oracle oracle;
 		Scalar::Native sk2;
+		Scalar::Native pExVer[2];
+
 		RangeProof::CreatorParams cp2;
 		cp2.m_Seed = cp.m_Seed;
 		cp2.m_pSeedSk = &seedSk;
 		cp2.m_pSk = &sk2;
+		cp2.m_pExtra = pExVer;
 
 		verify_test(bp.Recover(oracle, cp2));
 		verify_test(sk == sk2);
+		verify_test((pEx[0] == pExVer[0]) && (pEx[1] == pExVer[1]));
 	}
 
 	InnerProduct::BatchContextEx<2> bc;

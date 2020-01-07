@@ -435,6 +435,8 @@ namespace ECC
 			// more params to embed/recover, optional
 			const uintBig* m_pSeedSk = nullptr; // set only when recovering
 			Scalar::Native* m_pSk; // set only when recovering
+
+			Scalar::Native* m_pExtra = nullptr; // 2 more scalars can be embedded
 		};
 
 		struct Confidential
