@@ -506,6 +506,7 @@ namespace ECC
 
 		private:
 			struct ChallengeSet;
+			struct Vectors;
 			static void CalcA(Point&, const Scalar::Native& alpha, Amount v);
 		};
 

@@ -612,6 +612,56 @@ namespace ECC {
 
 #pragma pack (pop)
 
+	struct RangeProof::Confidential::Vectors
+	{
+		Scalar::Native m_pS[2][InnerProduct::nDim];
+
+		const Scalar::Native m_One = 1U;
+		const Scalar::Native m_Two = 2U;
+
+		void Set(NonceGeneratorBp& ng)
+		{
+			for (int j = 0; j < 2; j++)
+				for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+				{
+					ng >> m_pS[j][i];
+				}
+		}
+
+		void ToLR(const ChallengeSet& cs, Amount val)
+		{
+			// construct vectors l,r, use buffers pS
+			// P - m_Mu*G
+			Scalar::Native yPwr = m_One;
+			Scalar::Native zz_twoPwr = cs.zz;
+			Scalar::Native z_Minus1 = cs.z - m_One;
+			Scalar::Native x;
+
+			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+			{
+				uint32_t bit = 1 & (val >> i);
+
+				m_pS[0][i] *= cs.x;
+
+				m_pS[0][i] += -cs.z;
+				if (bit)
+					m_pS[0][i] += m_One;
+
+				m_pS[1][i] *= cs.x;
+				m_pS[1][i] *= yPwr;
+
+				x = bit ? cs.z : z_Minus1;
+				x *= yPwr;
+				x += zz_twoPwr;
+
+				m_pS[1][i] += x;
+
+				zz_twoPwr *= m_Two;
+				yPwr *= cs.y;
+			}
+		}
+	};
+
 	bool RangeProof::Confidential::CoSign(const Nonces& nonces, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, const Point::Native* pHGen /* = nullptr */)
 	{
 		NonceGeneratorBp nonceGen(cp.m_Seed.V);
@@ -640,14 +690,13 @@ namespace ECC {
 		mm.m_pKPrep[mm.m_Prepared] = ro;
 		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
 
-		Scalar::Native pS[2][InnerProduct::nDim];
+		Vectors vecs;
+		vecs.Set(nonceGen);
 
 		for (int j = 0; j < 2; j++)
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 			{
-				nonceGen >> pS[j][i];
-
-				mm.m_pKPrep[mm.m_Prepared] = pS[j][i];
+				mm.m_pKPrep[mm.m_Prepared] = vecs.m_pS[j][i];
 				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
 			}
 
@@ -667,9 +716,9 @@ namespace ECC {
 		// calculate t1, t2 - parts of vec(L)*vec(R) which depend on (future) x and x^2.
 		Scalar::Native t0(Zero), t1(Zero), t2(Zero);
 
-		Scalar::Native l0, r0, rx, one(1U), two(2U), yPwr, zz_twoPwr;
+		Scalar::Native l0, r0, rx, yPwr, zz_twoPwr;
 
-		yPwr = one;
+		yPwr = vecs.m_One;
 		zz_twoPwr = cs.zz;
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
@@ -678,21 +727,21 @@ namespace ECC {
 
 			l0 = -cs.z;
 			if (bit)
-				l0 += one;
+				l0 += vecs.m_One;
 
-			const Scalar::Native& lx = pS[0][i];
+			const Scalar::Native& lx = vecs.m_pS[0][i];
 
 			r0 = cs.z;
 			if (!bit)
-				r0 += -one;
+				r0 += -vecs.m_One;
 
 			r0 *= yPwr;
 			r0 += zz_twoPwr;
 
 			rx = yPwr;
-			rx *= pS[1][i];
+			rx *= vecs.m_pS[1][i];
 
-			zz_twoPwr *= two;
+			zz_twoPwr *= vecs.m_Two;
 			yPwr *= cs.y;
 
 			t0 += l0 * r0;
@@ -782,34 +831,7 @@ namespace ECC {
 
 		// construct vectors l,r, use buffers pS
 		// P - m_Mu*G
-		yPwr = one;
-		zz_twoPwr = cs.zz;
-
-		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
-		{
-			uint32_t bit = 1 & (cp.m_Kidv.m_Value >> i);
-
-			pS[0][i] *= cs.x;
-
-			pS[0][i] += -cs.z;
-			if (bit)
-				pS[0][i] += one;
-
-			pS[1][i] *= cs.x;
-			pS[1][i] *= yPwr;
-
-			r0 = cs.z;
-			if (!bit)
-				r0 += -one;
-
-			r0 *= yPwr;
-			r0 += zz_twoPwr;
-
-			pS[1][i] += r0;
-
-			zz_twoPwr *= two;
-			yPwr *= cs.y;
-		}
+		vecs.ToLR(cs, cp.m_Kidv.m_Value);
 
 		Scalar::Native& yInv = alpha; // alias
 		yInv.SetInv(cs.y);
@@ -819,7 +841,7 @@ namespace ECC {
 		InnerProduct::Modifier mod;
 		mod.m_ppC[1] = &ch1;
 
-		m_P_Tag.Create(oracle, l0, pS[0], pS[1], mod);
+		m_P_Tag.Create(oracle, l0, vecs.m_pS[0], vecs.m_pS[1], mod);
 
 		return true;
 	}
