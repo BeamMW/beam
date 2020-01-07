@@ -67,6 +67,8 @@ namespace beam
 		}
 	};
 
+	/////////////
+	// SerialParams
 	void ShieldedTxo::Data::SerialParams::DoubleBlindedCommitment(ECC::Point::Native& res, const ECC::Scalar::Native* pK)
 	{
 		res = ECC::Context::get().G * pK[0];
@@ -124,7 +126,7 @@ namespace beam
 
 	void ShieldedTxo::Data::SerialParams::GenerateInternal(Serial& s, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
 	{
-		ser.DerivePKey(m_pK[0], HashTxt("kG") << nonce);
+		gen.DerivePKey(m_pK[0], HashTxt("kG") << nonce);
 		set_FromkG(gen, pGenPriv, ser);
 
 		ECC::Point::Native pt, pt1;
