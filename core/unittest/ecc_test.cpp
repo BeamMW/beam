@@ -2443,6 +2443,17 @@ void TestLelantusKeys()
 	beam::ShieldedTxo::PublicGen gen;
 	gen.m_pGen = pGen;
 	gen.m_pSer = pSer;
+	{
+		// extract co-factor
+		Scalar::Native k0, k1;
+		pGen->DerivePKey(k0, 0U);
+		pGen->DeriveKey(k1, 0U);
+
+		k0.Inv();
+		k1 *= k0; // co-factor
+
+		gen.m_ptImgH = Context::get().H_Big * k1;
+	}
 
 	beam::ShieldedTxo::Viewer viewer;
 	viewer.m_pGen = pGen;
@@ -2450,16 +2461,39 @@ void TestLelantusKeys()
 
 	{
 		beam::ShieldedTxo::Data::SerialParams sprs, sprs2;
-		beam::ShieldedTxo::Serial s;
+		beam::ShieldedTxo txo;
 
-
-		sprs.Generate(s, gen, 115U);
-		verify_test(sprs2.Recover(s, viewer));
+		sprs.Generate(txo.m_Serial, gen, 115U);
+		verify_test(sprs2.Recover(txo.m_Serial, viewer));
 		verify_test(!sprs2.m_IsCreatedByViewer);
 
-		sprs.Generate(s, viewer, 115U);
-		verify_test(sprs2.Recover(s, viewer));
+		sprs.Generate(txo.m_Serial, viewer, 115U);
+		verify_test(sprs2.Recover(txo.m_Serial, viewer));
 		verify_test(sprs2.m_IsCreatedByViewer);
+
+		beam::ShieldedTxo::Data::OutputParams oprs, oprs2;
+		oprs.m_Sender = 1U;
+		oprs.m_Value = 3002U;
+		{
+			Oracle oracle;
+			oprs.Generate(txo, oracle, gen, 115U);
+		}
+		{
+			Oracle oracle;
+			verify_test(oprs2.Recover(txo, oracle, viewer));
+			verify_test(oprs.m_Sender == oprs2.m_Sender);
+		}
+
+		oprs.m_Sender.Negate(); // won't fin ECC::Scalar, special handling should be done
+		{
+			Oracle oracle;
+			oprs.Generate(txo, oracle, gen, 115U);
+		}
+		{
+			Oracle oracle;
+			verify_test(oprs2.Recover(txo, oracle, viewer));
+			verify_test(oprs.m_Sender == oprs2.m_Sender);
+		}
 	}
 
 	beam::ShieldedTxo::Data d1;

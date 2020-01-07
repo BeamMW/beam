@@ -200,13 +200,103 @@ namespace beam
 		return false;
 	}
 
+	/////////////
+	// OutputParams
+	void ShieldedTxo::Data::OutputParams::get_DH(ECC::Hash::Value& res, const ShieldedTxo& txo)
+	{
+		HashTxt("DH-o") << txo.m_Commitment >> res;
+	}
 
+	void ShieldedTxo::Data::OutputParams::get_Seed(ECC::uintBig& res, const ECC::Point::Native& pt)
+	{
+		HashTxt("bp-s") << pt >> res;
+	}
 
+	void ShieldedTxo::Data::OutputParams::Prepare(ECC::Oracle& oracle, const ShieldedTxo& txo)
+	{
+		oracle
+			<< txo.m_Serial.m_SerialPub
+			<< txo.m_Commitment;
+	}
 
+	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	{
+		gen.m_pGen->DerivePKey(m_k, HashTxt("kG-O") << nonce);
 
+		ECC::RangeProof::CreatorParams cp;
+		ZeroObject(cp.m_Kidv);
+		cp.m_Kidv.m_Value = m_Value;
 
+		ECC::Scalar k;
+		k.m_Value = m_Sender;
 
+		ECC::Scalar::Native pExtra[2] = { k, Zero };
+		cp.m_pExtra = pExtra;
+		k = pExtra[0];
 
+		uint32_t nOverflow = (k.m_Value != m_Sender); // overflow (highly unlikely, but possible).
+		cp.m_Kidv.set_Subkey(nOverflow);
+
+		ECC::Point::Native pt = ECC::Commitment(m_k, m_Value);
+		txo.m_Commitment = pt;
+
+		ECC::Hash::Value hv;
+		get_DH(hv, txo);
+
+		gen.m_pGen->DerivePKeyG(pt, hv);
+
+		gen.m_pGen->DerivePKey(pExtra[1], hv);
+		pExtra[1] *= m_Value;
+
+		pt = pt * m_k;
+		pt += gen.m_ptImgH * pExtra[1]; // shared point
+		pExtra[1] = Zero;
+
+		get_Seed(cp.m_Seed.V, pt);
+
+		Prepare(oracle, txo);
+		txo.m_RangeProof.CoSign(cp.m_Seed.V, m_k, cp, oracle, ECC::RangeProof::Confidential::Phase::SinglePass);
+	}
+
+	bool ShieldedTxo::Data::OutputParams::Recover(const ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v)
+	{
+		ECC::Point::Native pt;
+		if (!pt.Import(txo.m_Commitment))
+			return false;
+
+		ECC::Hash::Value hv;
+		get_DH(hv, txo);
+		v.m_pGen->DeriveKey(m_k, hv);
+
+		pt = pt * m_k; // shared point
+
+		ECC::RangeProof::CreatorParams cp;
+		get_Seed(cp.m_Seed.V, pt);
+
+		ECC::Scalar::Native pExtra[2];
+
+		cp.m_pSeedSk = &cp.m_Seed.V; // same seed
+		cp.m_pSk = &m_k;
+		cp.m_pExtra = pExtra;
+
+		Prepare(oracle, txo);
+		if (!txo.m_RangeProof.Recover(oracle, cp))
+			return false;
+
+		m_Value = cp.m_Kidv.m_Value;
+
+		pt = ECC::Commitment(m_k, m_Value);
+		if (!IsEqual(pt, txo.m_Commitment))
+			return false;
+
+		static_assert(sizeof(m_Sender) == sizeof(ECC::Scalar));
+		reinterpret_cast<ECC::Scalar&>(m_Sender) = pExtra[0];
+
+		if (cp.m_Kidv.get_Subkey())
+			m_Sender += ECC::Scalar::s_Order;
+
+		return true;
+	}
 
 
 
