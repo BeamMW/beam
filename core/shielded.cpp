@@ -359,6 +359,22 @@ namespace beam
 		res += ECC::Context::get().J * kJ;
 	}
 
+	void ShieldedTxo::PublicGen::FromViewer(const Viewer& v)
+	{
+		m_pSer = v.m_pSer;
+		m_pGen = v.m_pGen;
+
+		// extract co-factor
+		ECC::Scalar::Native k0, k1;
+		v.m_pGen->DerivePKey(k0, 0U);
+		v.m_pGen->DeriveKey(k1, 0U);
+
+		k0.Inv();
+		k1 *= k0; // co-factor
+
+		m_ptImgH = ECC::Context::get().H_Big * k1;
+	}
+
 	bool ShieldedTxo::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1)
 	{
 		// Import/Export seems to be the same complexity

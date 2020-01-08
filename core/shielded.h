@@ -24,6 +24,8 @@ namespace beam
 		Key::IPKdf::Ptr m_pSer;
 
 		ECC::Point::Native m_ptImgH; // co-factor multiplied by H
+
+		void FromViewer(const Viewer&);
 	};
 
 	struct ShieldedTxo::Viewer

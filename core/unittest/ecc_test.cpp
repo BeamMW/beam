@@ -2436,97 +2436,70 @@ void TestLelantus()
 void TestLelantusKeys()
 {
 	// Test encoding and recognition
-	Key::IKdf::Ptr pGen, pSer;
-	SetRandom(pGen);
-	SetRandom(pSer);
+	Key::IKdf::Ptr pMaster;
+	SetRandom(pMaster);
 
-	beam::ShieldedTxo::PublicGen gen;
-	gen.m_pGen = pGen;
-	gen.m_pSer = pSer;
-	{
-		// extract co-factor
-		Scalar::Native k0, k1;
-		pGen->DerivePKey(k0, 0U);
-		pGen->DeriveKey(k1, 0U);
-
-		k0.Inv();
-		k1 *= k0; // co-factor
-
-		gen.m_ptImgH = Context::get().H_Big * k1;
-	}
+	Key::IKdf::IPKdf& keyOwner = *pMaster;
 
 	beam::ShieldedTxo::Viewer viewer;
-	viewer.m_pGen = pGen;
-	viewer.m_pSer = pSer;
+	viewer.FromOwner(keyOwner);
 
-	{
-		beam::ShieldedTxo::Data::SerialParams sprs, sprs2;
-		beam::ShieldedTxo txo;
+	Key::IKdf::Ptr pPrivateSpendGen;
+	viewer.GenerateSerPrivate(pPrivateSpendGen, *pMaster);
+	verify_test(viewer.m_pSer->IsSame(*pPrivateSpendGen));
 
-		sprs.Generate(txo.m_Serial, gen, 115U);
-		verify_test(sprs2.Recover(txo.m_Serial, viewer));
-		verify_test(!sprs2.m_IsCreatedByViewer);
+	beam::ShieldedTxo::PublicGen gen;
+	gen.FromViewer(viewer);
 
-		sprs.Generate(txo.m_Serial, viewer, 115U);
-		verify_test(sprs2.Recover(txo.m_Serial, viewer));
-		verify_test(sprs2.m_IsCreatedByViewer);
-
-		beam::ShieldedTxo::Data::OutputParams oprs, oprs2;
-		oprs.m_Sender = 1U;
-		oprs.m_Value = 3002U;
-		{
-			Oracle oracle;
-			oprs.Generate(txo, oracle, gen, 115U);
-		}
-		{
-			Oracle oracle;
-			verify_test(oprs2.Recover(txo, oracle, viewer));
-			verify_test(oprs.m_Sender == oprs2.m_Sender);
-		}
-
-		oprs.m_Sender.Negate(); // won't fin ECC::Scalar, special handling should be done
-		{
-			Oracle oracle;
-			oprs.Generate(txo, oracle, gen, 115U);
-		}
-		{
-			Oracle oracle;
-			verify_test(oprs2.Recover(txo, oracle, viewer));
-			verify_test(oprs.m_Sender == oprs2.m_Sender);
-		}
-	}
-
-	beam::ShieldedTxo::Data d1;
-	d1.m_hScheme = beam::Rules::get().pForks[2].m_Height;
-	d1.m_Value = 115;
-
-	Hash::Value nonce;
-	SetRandom(nonce);
-
+	beam::ShieldedTxo::Data::SerialParams sprs, sprs2;
 	beam::ShieldedTxo txo;
-	{
-		Oracle oracle;
-		d1.Generate(txo, oracle, gen, nonce);
-	}
 
 	Point::Native pt;
-	verify_test(pt.Import(txo.m_Commitment));
 
-	verify_test(txo.m_Serial.IsValid());
+	sprs.Generate(txo.m_Serial, gen, 115U);
+	verify_test(txo.m_Serial.IsValid(pt));
+	verify_test(sprs2.Recover(txo.m_Serial, viewer));
+	verify_test(!sprs2.m_IsCreatedByViewer);
+
+	sprs.Generate(txo.m_Serial, viewer, 115U);
+	verify_test(txo.m_Serial.IsValid(pt));
+	verify_test(sprs2.Recover(txo.m_Serial, viewer));
+	verify_test(sprs2.m_IsCreatedByViewer);
+
+	// make sure we get the appropriate private spend key
+	Scalar::Native kSpend;
+	pPrivateSpendGen->DeriveKey(kSpend, sprs2.m_SerialPreimage);
+	Point ptSpend = Context::get().G * kSpend;
+	verify_test(ptSpend == sprs2.m_SpendPk);
+
+	beam::ShieldedTxo::Data::OutputParams oprs, oprs2;
+	oprs.m_Sender = 1U;
+	oprs.m_Value = 3002U;
+	{
+		Oracle oracle;
+		oprs.Generate(txo, oracle, gen, 115U);
+	}
+	{
+		Oracle oracle;
+		verify_test(oprs2.Recover(txo, oracle, viewer));
+		verify_test(oprs.m_Sender == oprs2.m_Sender);
+	}
+
+	oprs.m_Sender.Negate(); // won't fin ECC::Scalar, special handling should be done
+	{
+		Oracle oracle;
+		oprs.Generate(txo, oracle, gen, 115U);
+	}
+	{
+		Oracle oracle;
+		verify_test(oprs2.Recover(txo, oracle, viewer));
+		verify_test(oprs.m_Sender == oprs2.m_Sender);
+	}
 
 	{
 		Oracle oracle;
-		verify_test(txo.m_RangeProof.IsValid(pt, oracle));
+		verify_test(txo.IsValid(oracle, pt, pt));
 	}
-
-	beam::ShieldedTxo::Data d2;
-	d2.m_hScheme = d1.m_hScheme;
-
-	{
-		Oracle oracle;
-		verify_test(d2.Recover(txo, oracle, viewer));
-	}
-
 }
 
 void TestAssetEmission()
