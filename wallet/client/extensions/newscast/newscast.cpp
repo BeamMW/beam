@@ -49,7 +49,7 @@ namespace beam::wallet
                             m_subscribers.end(),
                             observer);
         assert(it == m_subscribers.end());
-        m_subscribers.push_back(observer);
+        if (it == m_subscribers.end()) m_subscribers.push_back(observer);
     }
 
     void Newscast::Unsubscribe(INewsObserver* observer)
