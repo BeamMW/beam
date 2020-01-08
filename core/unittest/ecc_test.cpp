@@ -2469,7 +2469,7 @@ void TestLelantusKeys()
 	// make sure we get the appropriate private spend key
 	Scalar::Native kSpend;
 	pPrivateSpendGen->DeriveKey(kSpend, sprs2.m_SerialPreimage);
-	Point ptSpend = Context::get().G * kSpend;
+	Point::Native ptSpend = Context::get().G * kSpend;
 	verify_test(ptSpend == sprs2.m_SpendPk);
 
 	beam::ShieldedTxo::Data::OutputParams oprs, oprs2;
