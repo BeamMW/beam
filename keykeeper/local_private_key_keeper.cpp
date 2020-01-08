@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "local_private_key_keeper.h"
+#include "utility/logger.h"
 
 namespace beam::wallet
 {
@@ -396,7 +397,13 @@ namespace beam::wallet
         return res;
     }
 
-    boost::optional<SenderSignature> LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce, bool initial)
+    boost::optional<SenderSignature> LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs
+                                                                     , const std::vector<Key::IDV>& outputs
+                                                                     , const AssetID& assetId
+                                                                     , size_t nonceSlot
+                                                                     , const KernelParameters& kernelParamerters
+                                                                     , const ECC::Point& publicNonce
+                                                                     , bool initial)
     {
         boost::optional<SenderSignature> res;
         auto value = CalculateValue(inputs, outputs);
@@ -437,33 +444,8 @@ namespace beam::wallet
             return res;
         }
 
-        //////////////////////////
-        //// Verify peer signature
-        //PaymentConfirmation pc;
-        //pc.m_KernelID = krn.m_Internal.m_ID;
-        //pc.m_Value = dVal;
-        //
-        //
-        //Scalar::Native skId;
-        //GetWalletIDInternal(pc.m_Sender, skId);
-        //
-        //if (!pc.IsValid(tx.m_PaymentProofSignature, tx.m_Peer))
-        //    return false;
-        //
-        ///////////////////////////
-        //// Ask for user permission!
-        ////
-        //// ...
-
-        // 
-
-        if (!commitment.Import(kernelParamerters.commitment))
-        {
-            return res;
-        }
-
         TxKernelStd kernel;
-        kernel.m_Commitment = commitment;
+        kernel.m_Commitment = kernelParamerters.commitment;
         kernel.m_Fee = kernelParamerters.fee;
         kernel.m_Height = kernelParamerters.height;
         if (kernelParamerters.lockImage || kernelParamerters.lockPreImage)
@@ -480,6 +462,34 @@ namespace beam::wallet
         }
         kernel.UpdateID();
         const Merkle::Hash& message = kernel.m_Internal.m_ID;
+
+        // TODO: temporal solution
+        if (kernelParamerters.myID != Zero && kernelParamerters.peerID != Zero)
+        {
+            ////////////////////////
+            // Verify peer signature
+            PaymentConfirmation pc;
+            pc.m_KernelID = message;
+            pc.m_Value = Amount(value);
+            pc.m_Sender = kernelParamerters.myID;
+            pc.m_Signature = kernelParamerters.paymentProofSignature;
+
+            if (!pc.IsValid(kernelParamerters.peerID))
+                return res;
+
+        }
+        
+        /////////////////////////
+        // Ask for user permission!
+        //
+        // ...
+
+         
+
+        if (!commitment.Import(kernelParamerters.commitment))
+        {
+            return res;
+        }
 
         ECC::GenRandom(m_Nonces[nonceSlot].V); // Invalidate slot immediately after using it (to make it similar to HW wallet)!
 

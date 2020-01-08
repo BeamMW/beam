@@ -55,7 +55,13 @@ namespace beam::wallet
                                                       , const ECC::Point& publicNonce
                                                       , const PeerID& peerID
                                                       , const WalletIDKey& walletIDkey) override;
-        boost::optional<SenderSignature> SignSender(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce, bool initial) override;
+        boost::optional<SenderSignature> SignSender(const std::vector<Key::IDV>& inputs
+                                                  , const std::vector<Key::IDV>& outputs
+                                                  , const AssetID& assetId
+                                                  , size_t nonceSlot
+                                                  , const KernelParameters& kernelParamerters
+                                                  , const ECC::Point& publicNonce
+                                                  , bool initial) override;
 
         Key::IKdf::Ptr get_SbbsKdf() const override;
 

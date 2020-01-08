@@ -366,7 +366,12 @@ namespace beam::wallet
         WalletID peerID;
         if (GetParameter(TxParameterID::MyID, msg.m_From)
             && GetParameter(TxParameterID::PeerID, peerID))
-        {
+        { 
+            PeerID secureWalletID = Zero;
+            if (GetParameter(TxParameterID::MySecureWalletID, secureWalletID))
+            {
+                msg.AddParameter(TxParameterID::PeerSecureWalletID, secureWalletID);
+            }
             GetGateway().send_tx_params(peerID, msg);
             return true;
         }

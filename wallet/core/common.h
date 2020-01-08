@@ -205,6 +205,9 @@ namespace beam::wallet
         MaxHeight = 17,
         AssetID = 18,
 
+        MySecureWalletID = 20,
+        PeerSecureWalletID = 21,
+
         PeerResponseTime = 24,
         SubTxIndex = 25,
         PeerPublicSharedBlindingFactor = 26,
@@ -241,6 +244,7 @@ namespace beam::wallet
         FailureReason = 92,
 
         PaymentConfirmation = 99,
+        PaymentConfirmation2 = 100, // uses wallet ID to sign payment proof
 
         PeerSharedBulletProofMSig = 108,
         PeerSharedBulletProofPart2 = 109,

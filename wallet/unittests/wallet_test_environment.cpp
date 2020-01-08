@@ -418,12 +418,16 @@ struct TestWalletRig
         , m_Wallet{ m_WalletDB, m_KeyKeeper, move(action),( type == Type::ColdWallet) ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
     {
 
-        if (m_WalletDB->get_MasterKdf()) // can create secrets
+        if (auto kdf = m_WalletDB->get_MasterKdf(); kdf) // can create secrets
         {
             WalletAddress wa = storage::createAddress(*m_WalletDB, m_KeyKeeper);
             m_WalletDB->saveAddress(wa);
             m_WalletID = wa.m_walletID;
             m_OwnID = wa.m_OwnID;
+            Key::ID kid(m_OwnID, Key::Type::WalletID);
+            Scalar::Native sk;
+            kdf->DeriveKey(sk, kid);
+            proto::Sk2Pk(m_SecureWalletID, sk);
         }
         else
         {
@@ -504,6 +508,7 @@ struct TestWalletRig
     }
 
     WalletID m_WalletID;
+    PeerID m_SecureWalletID;
     uint64_t m_OwnID;
     IWalletDB::Ptr m_WalletDB;
     IPrivateKeyKeeper::Ptr m_KeyKeeper;

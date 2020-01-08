@@ -24,7 +24,10 @@ namespace beam::wallet
         beam::Amount fee;
         ECC::Point commitment;
         boost::optional<ECC::Hash::Value> lockImage;
-		boost::optional<ECC::Hash::Value> lockPreImage;
+        boost::optional<ECC::Hash::Value> lockPreImage;
+        ECC::Signature paymentProofSignature;
+        PeerID peerID;
+        PeerID myID;
     };
 
     struct ReceiverSignature
@@ -38,7 +41,6 @@ namespace beam::wallet
     struct SenderSignature
     {
         ECC::Signature m_KernelSignature;
-        //ECC::Signature m_PaymentProofSignature;
         ECC::Scalar m_Offset;
         ECC::Point m_KernelCommitment;
     };
@@ -102,7 +104,13 @@ namespace beam::wallet
                                                               , const ECC::Point& publicNonce
                                                               , const PeerID& peerID
                                                               , const WalletIDKey& walletIDkey) = 0;
-        virtual boost::optional<SenderSignature> SignSender(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce, bool initial) = 0;
+        virtual boost::optional<SenderSignature> SignSender(const std::vector<Key::IDV>& inputs
+                                                          , const std::vector<Key::IDV>& outputs
+                                                          , const AssetID& assetId
+                                                          , size_t nonceSlot
+                                                          , const KernelParameters& kernelParamerters
+                                                          , const ECC::Point& publicNonce
+                                                          , bool initial) = 0;
 
         virtual Key::IKdf::Ptr get_SbbsKdf() const = 0;
         virtual void subscribe(Handler::Ptr handler) = 0;

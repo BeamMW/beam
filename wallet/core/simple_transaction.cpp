@@ -285,26 +285,29 @@ namespace beam::wallet
             if (!isSelfTx && isSender && IsInitiator())
             {
                 // verify peer payment confirmation
-
-                PaymentConfirmation pc;
-                WalletID widPeer, widMy;
-                bool bSuccess =
-                    GetParameter(TxParameterID::PeerID, widPeer) &&
-                    GetParameter(TxParameterID::MyID, widMy) &&
-                    GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
-                    GetParameter(TxParameterID::Amount, pc.m_Value) &&
-                    GetParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
-
-                if (bSuccess)
+                Signature sig;
+                if (!GetParameter(TxParameterID::PaymentConfirmation2, sig))
                 {
-                    pc.m_Sender = widMy.m_Pk;
-                    bSuccess = pc.IsValid(widPeer.m_Pk);
-                }
+                    PaymentConfirmation pc;
+                    WalletID widPeer, widMy;
+                    bool bSuccess =
+                        GetParameter(TxParameterID::PeerID, widPeer) &&
+                        GetParameter(TxParameterID::MyID, widMy) &&
+                        GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
+                        GetParameter(TxParameterID::Amount, pc.m_Value) &&
+                        GetParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
 
-                if (!bSuccess)
-                {
-                    OnFailed(TxFailureReason::NoPaymentProof);
-                    return;
+                    if (bSuccess)
+                    {
+                        pc.m_Sender = widMy.m_Pk;
+                        bSuccess = pc.IsValid(widPeer.m_Pk);
+                    }
+
+                    if (!bSuccess)
+                    {
+                        OnFailed(TxFailureReason::NoPaymentProof);
+                        return;
+                    }
                 }
             }
             builder.FinalizeSignature();
@@ -401,11 +404,10 @@ namespace beam::wallet
         assert(!IsSelfTx());
         if (!GetMandatoryParameter<bool>(TxParameterID::IsSender))
         {
-
             Signature paymentProofSignature;
-            if (GetParameter(TxParameterID::PaymentConfirmation, paymentProofSignature))
+            if (GetParameter(TxParameterID::PaymentConfirmation2, paymentProofSignature))
             {
-                msg.AddParameter(TxParameterID::PaymentConfirmation, paymentProofSignature);
+                msg.AddParameter(TxParameterID::PaymentConfirmation2, paymentProofSignature);
             }
             else
             {
