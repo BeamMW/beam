@@ -73,9 +73,11 @@ namespace beam
 			PeerID m_Sender;
 
 			void Generate(ShieldedTxo&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce);
+			void Generate(ShieldedTxo&, ECC::Oracle&, const Viewer&, const ECC::Hash::Value& nonce);
 			bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
 
 		protected:
+			void GenerateInternal(ShieldedTxo&, ECC::Oracle&, Key::IPKdf& gen, Key::IKdf* pGenPriv, const ECC::Point::Native* pImgH, const ECC::Hash::Value& nonce);
 			static void get_DH(ECC::Hash::Value&, const ShieldedTxo&);
 			static void get_Seed(ECC::uintBig&, const ECC::Point::Native&);
 		};

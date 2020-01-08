@@ -1654,9 +1654,6 @@ namespace beam
 					ShieldedTxo::Viewer viewer;
 					viewer.FromOwner(*m_Wallet.m_pKdf);
 
-					ShieldedTxo::PublicGen gen;
-					gen.FromViewer(viewer);
-
 					ShieldedTxo::Data::SerialParams sp;
 					sp.Generate(pKrn->m_Txo.m_Serial, viewer, 13U);
 
@@ -1667,7 +1664,7 @@ namespace beam
 					ShieldedTxo::Data::OutputParams op;
 					op.m_Sender = 16U;
 					op.m_Value = m_Shielded.m_Value;
-					op.Generate(pKrn->m_Txo, oracle, gen, 18U);
+					op.Generate(pKrn->m_Txo, oracle, viewer, 18U);
 
 					pKrn->MsgToID();
 

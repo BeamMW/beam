@@ -241,7 +241,17 @@ namespace beam
 
 	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const PublicGen& gen, const ECC::Hash::Value& nonce)
 	{
-		gen.m_pGen->DerivePKey(m_k, HashTxt("kG-O") << nonce);
+		GenerateInternal(txo, oracle, *gen.m_pGen, nullptr, &gen.m_ptImgH, nonce);
+	}
+
+	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v, const ECC::Hash::Value& nonce)
+	{
+		GenerateInternal(txo, oracle, *v.m_pGen, v.m_pGen.get(), nullptr, nonce);
+	}
+
+	void ShieldedTxo::Data::OutputParams::GenerateInternal(ShieldedTxo& txo, ECC::Oracle& oracle, Key::IPKdf& gen, Key::IKdf* pGenPriv, const ECC::Point::Native* pImgH, const ECC::Hash::Value& nonce)
+	{
+		gen.DerivePKey(m_k, HashTxt("kG-O") << nonce);
 
 		ECC::RangeProof::CreatorParams cp;
 		ZeroObject(cp.m_Kidv);
@@ -263,13 +273,22 @@ namespace beam
 		ECC::Hash::Value hv;
 		get_DH(hv, txo);
 
-		gen.m_pGen->DerivePKeyG(pt, hv);
+		if (pGenPriv)
+		{
+			pGenPriv->DeriveKey(pExtra[1], hv);
+			pt = pt * pExtra[1]; // shared point
+		}
+		else
+		{
+			gen.DerivePKeyG(pt, hv);
 
-		gen.m_pGen->DerivePKey(pExtra[1], hv);
-		pExtra[1] *= m_Value;
+			gen.DerivePKey(pExtra[1], hv);
+			pExtra[1] *= m_Value;
 
-		pt = pt * m_k;
-		pt += gen.m_ptImgH * pExtra[1]; // shared point
+			pt = pt * m_k;
+			pt += (*pImgH) * pExtra[1]; // shared point
+		}
+
 		pExtra[1] = Zero;
 
 		get_Seed(cp.m_Seed.V, pt);
