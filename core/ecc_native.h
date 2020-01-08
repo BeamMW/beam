@@ -156,6 +156,9 @@ namespace ECC
 		bool operator == (Zero_) const;
         bool operator != (Zero_) const;
 
+		bool operator == (const Native&) const;
+		bool operator == (const Point&) const;
+
 		Native& operator = (Zero_);
 		Native& operator = (Minus);
 		Native& operator = (Plus);

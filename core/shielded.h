@@ -81,9 +81,6 @@ namespace beam
 		};
 
 		struct HashTxt;
-	protected:
-		static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1);
-		static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1);
 	};
 
 } // namespace beam

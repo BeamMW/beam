@@ -136,6 +136,8 @@ namespace ECC
 		Point& operator = (const Point&);
 		Point& operator = (const Commitment&);
 
+		bool operator == (const Native&) const;
+
 		struct Storage; // affine form, platform-independent.
 		struct Compact; // affine form, platform-dependent. For internal tables
 	};

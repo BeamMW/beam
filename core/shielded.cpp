@@ -198,7 +198,7 @@ namespace beam
 		get_Nonces(*v.m_pGen, pt, pN);
 
 		DoubleBlindedCommitment(pt, pN);
-		if (!IsEqual(pt, s.m_Signature.m_NoncePub))
+		if (!(pt == s.m_Signature.m_NoncePub))
 			return false;
 
 		// there's a match with high probability. Reverse-engineer the keys
@@ -306,7 +306,7 @@ namespace beam
 		m_Value = cp.m_Kidv.m_Value;
 
 		pt = ECC::Commitment(m_k, m_Value);
-		if (!IsEqual(pt, txo.m_Commitment))
+		if (!(pt == txo.m_Commitment))
 			return false;
 
 		static_assert(sizeof(m_Sender) == sizeof(ECC::Scalar));
@@ -367,21 +367,6 @@ namespace beam
 		k1 *= k0; // co-factor
 
 		m_ptImgH = ECC::Context::get().H_Big * k1;
-	}
-
-	bool ShieldedTxo::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1)
-	{
-		// Import/Export seems to be the same complexity
-		ECC::Point pt2;
-		pt0.Export(pt2);
-		return pt2 == pt1;
-	}
-
-	bool ShieldedTxo::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1)
-	{
-		ECC::Point::Native pt = -pt0;
-		pt += pt1;
-		return pt == Zero;
 	}
 
 } // namespace beam
