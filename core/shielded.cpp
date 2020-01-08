@@ -85,7 +85,7 @@ namespace beam
 		GenerateInternal(s, nonce, *v.m_pGen, v.m_pGen.get(), *v.m_pSer);
 	}
 
-	void ShieldedTxo::Data::SerialParams::set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
+	void ShieldedTxo::Data::SerialParams::set_PreimageFromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
 	{
 		ECC::NoLeak<ECC::Scalar> sk;
 		sk.V = m_pK[0];
@@ -104,6 +104,11 @@ namespace beam
 
 		sk.V = k;
 		m_SerialPreimage = Cast::Down<const ECC::Hash::Value>(HashTxt("k-pI") << sk.V.m_Value);
+	}
+
+	void ShieldedTxo::Data::SerialParams::set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
+	{
+		set_PreimageFromkG(gen, pGenPriv, ser);
 
 		ECC::Point::Native pt;
 		ser.DerivePKeyG(pt, m_SerialPreimage);
@@ -128,7 +133,11 @@ namespace beam
 	{
 		gen.DerivePKey(m_pK[0], HashTxt("kG") << nonce);
 		set_FromkG(gen, pGenPriv, ser);
+		Export(s, gen, ser);
+	}
 
+	void ShieldedTxo::Data::SerialParams::Export(Serial& s, Key::IPKdf& gen, Key::IPKdf& ser) const
+	{
 		ECC::Point::Native pt, pt1;
 		DoubleBlindedCommitment(pt, m_pK);
 		s.m_SerialPub = pt;

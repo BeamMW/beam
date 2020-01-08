@@ -54,11 +54,12 @@ namespace beam
 
 			bool Recover(const Serial&, const Viewer&);
 
-			static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native*);
-
 		protected:
 			void GenerateInternal(Serial&, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
+			void Export(Serial&, Key::IPKdf& gen, Key::IPKdf& ser) const;
+			void set_PreimageFromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
 			void set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
+			static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native*);
 			static void get_DH(ECC::Hash::Value&, const Serial&);
 			static void get_Nonces(Key::IPKdf& gen, const ECC::Point::Native& ptShared, ECC::Scalar::Native*);
 		};
