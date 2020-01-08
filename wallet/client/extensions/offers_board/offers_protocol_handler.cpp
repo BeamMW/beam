@@ -19,8 +19,8 @@
 namespace beam::wallet
 {
     OfferBoardProtocolHandler::OfferBoardProtocolHandler(ECC::Key::IKdf::Ptr sbbsKdf, beam::wallet::IWalletDB::Ptr walletDB)
-        : m_sbbsKdf(sbbsKdf),
-          m_walletDB(walletDB)
+        : m_walletDB(walletDB),
+          m_sbbsKdf(sbbsKdf)
     {}
 
     boost::optional<ByteBuffer> OfferBoardProtocolHandler::createMessage(const SwapOffer& content, const WalletID& wid) const
