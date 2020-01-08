@@ -880,31 +880,19 @@ namespace beam
 		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
 			return false; // unsupported for that version
 
-		ECC::Point::Native comm;
-		if (!comm.ImportNnz(m_Txo.m_Commitment))
-			return false;
-
-		exc += comm;
-
-		if (!m_Txo.m_Serial.IsValid())
-			return false;
-
 		ECC::Oracle oracle;
 		oracle << m_Msg;
 
-		return m_Txo.m_RangeProof.IsValid(comm, oracle);
+		ECC::Point::Native comm, ser;
+		if (!m_Txo.IsValid(oracle, comm, ser))
+			return false;
+
+		exc += comm;
+		return true;
 	}
 
 	void TxKernelShieldedOutput::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
-		// Since m_Serial doesn't contribute to the transaction balance, it MUST be exposed to the Oracle used with m_RangeProof.
-		// m_Commitment also should be used (for the same reason it's used in regular Output)
-
-		hp
-			<< m_Txo.m_Commitment
-			<< m_Txo.m_Serial.m_SerialPub;
-
-		hp.Serialize(m_Txo.m_Serial.m_Signature);
 	}
 
 	void TxKernelShieldedOutput::HashSelfForID(ECC::Hash::Processor& hp) const

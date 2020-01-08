@@ -24,9 +24,8 @@ namespace beam
 			>> hv;
 	}
 
-	bool ShieldedTxo::Serial::IsValid() const
+	bool ShieldedTxo::Serial::IsValid(ECC::Point::Native& comm) const
 	{
-		ECC::Point::Native comm;
 		if (!comm.Import(m_SerialPub))
 			return false;
 
@@ -34,6 +33,25 @@ namespace beam
 		get_Hash(hv);
 
 		return m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgGJ1, hv, m_Signature.m_pK, &comm);
+	}
+
+	void ShieldedTxo::Prepare(ECC::Oracle& oracle) const
+	{
+		// Since m_Serial doesn't contribute to the transaction balance, it MUST be exposed to the Oracle used with m_RangeProof.
+		// m_Commitment also should be used (for the same reason it's used in regular Output)
+		oracle
+			<< m_Serial.m_SerialPub
+			<< m_Serial.m_Signature.m_NoncePub
+			<< m_Commitment;
+	}
+
+	bool ShieldedTxo::IsValid(ECC::Oracle& oracle, ECC::Point::Native& comm, ECC::Point::Native& ser) const
+	{
+		if (!(m_Serial.IsValid(ser) && comm.Import(m_Commitment)))
+			return false;
+
+		Prepare(oracle);
+		return m_RangeProof.IsValid(comm, oracle);
 	}
 
 	/////////////
@@ -221,13 +239,6 @@ namespace beam
 		HashTxt("bp-s") << pt >> res;
 	}
 
-	void ShieldedTxo::Data::OutputParams::Prepare(ECC::Oracle& oracle, const ShieldedTxo& txo)
-	{
-		oracle
-			<< txo.m_Serial.m_SerialPub
-			<< txo.m_Commitment;
-	}
-
 	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const PublicGen& gen, const ECC::Hash::Value& nonce)
 	{
 		gen.m_pGen->DerivePKey(m_k, HashTxt("kG-O") << nonce);
@@ -263,7 +274,7 @@ namespace beam
 
 		get_Seed(cp.m_Seed.V, pt);
 
-		Prepare(oracle, txo);
+		txo.Prepare(oracle);
 		txo.m_RangeProof.CoSign(cp.m_Seed.V, m_k, cp, oracle, ECC::RangeProof::Confidential::Phase::SinglePass);
 	}
 
@@ -288,7 +299,7 @@ namespace beam
 		cp.m_pSk = &m_k;
 		cp.m_pExtra = pExtra;
 
-		Prepare(oracle, txo);
+		txo.Prepare(oracle);
 		if (!txo.m_RangeProof.Recover(oracle, cp))
 			return false;
 

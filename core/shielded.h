@@ -76,7 +76,6 @@ namespace beam
 		protected:
 			static void get_DH(ECC::Hash::Value&, const ShieldedTxo&);
 			static void get_Seed(ECC::uintBig&, const ECC::Point::Native&);
-			static void Prepare(ECC::Oracle&, const ShieldedTxo&);
 		};
 
 		ECC::Scalar::Native m_kSerG; // blinding factor for the serial

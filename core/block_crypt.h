@@ -339,7 +339,7 @@ namespace beam
 			ECC::Point m_SerialPub; // blinded
 			ECC::SignatureGeneralized<2> m_Signature;
 
-			bool IsValid() const;
+			bool IsValid(ECC::Point::Native&) const;
 			void get_Hash(ECC::Hash::Value&) const;
 		};
 
@@ -355,6 +355,9 @@ namespace beam
 		ECC::Point m_Commitment;
 		ECC::RangeProof::Confidential m_RangeProof;
 		Serial m_Serial;
+
+		void Prepare(ECC::Oracle&) const;
+		bool IsValid(ECC::Oracle&, ECC::Point::Native& comm, ECC::Point::Native& ser) const;
 
 		struct PublicGen;
 		struct Viewer;
