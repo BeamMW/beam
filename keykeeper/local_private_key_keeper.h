@@ -48,7 +48,13 @@ namespace beam::wallet
         ECC::Point GenerateNonceSync(size_t slot) override;
         ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const ECC::Point::Native& publicNonce) override;
 
-        boost::optional<ReceiverSignature> SignReceiver(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce) override;
+        boost::optional<ReceiverSignature> SignReceiver(const std::vector<Key::IDV>& inputs
+                                                      , const std::vector<Key::IDV>& outputs
+                                                      , const AssetID& assetId
+                                                      , const KernelParameters& kernelParamerters
+                                                      , const ECC::Point& publicNonce
+                                                      , const PeerID& peerID
+                                                      , const WalletIDKey& walletIDkey) override;
         boost::optional<SenderSignature> SignSender(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce, bool initial) override;
 
         Key::IKdf::Ptr get_SbbsKdf() const override;
@@ -71,6 +77,13 @@ namespace beam::wallet
         int64_t CalculateValue(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs) const;
         void LoadNonceSeeds();
         void SaveNonceSeeds();
+
+        struct KeyPair
+        {
+            ECC::Scalar::Native m_PrivateKey;
+            PeerID m_PublicKey;
+        };
+        KeyPair GetWalletID(const WalletIDKey& walletKeyID) const;
 
     private:
         IVariablesDB::Ptr m_Variables;

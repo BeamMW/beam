@@ -421,7 +421,22 @@ namespace beam::wallet
         kernelParameters.fee = m_Fee;
         kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
         kernelParameters.commitment = m_PeerPublicExcess;
-        auto signature = m_Tx.GetKeyKeeper()->SignReceiver(m_InputCoins, m_OutputCoins, m_AssetId, kernelParameters, m_PeerPublicNonce);
+
+        PeerID peerID;
+        uint64_t addressID = 0;
+        if (!m_Tx.GetParameter(TxParameterID::PeerID, peerID, m_SubTxID)
+         && !m_Tx.GetParameter(TxParameterID::MyAddressID, addressID, m_SubTxID))
+        {
+            throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+        }
+
+        auto signature = m_Tx.GetKeyKeeper()->SignReceiver(m_InputCoins
+                                                         , m_OutputCoins
+                                                         , m_AssetId
+                                                         , kernelParameters
+                                                         , m_PeerPublicNonce
+                                                         , peerID
+                                                         , addressID);
         if (!signature)
         {
             throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
@@ -438,6 +453,7 @@ namespace beam::wallet
         m_Tx.SetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
         m_Offset = signature->m_Offset;
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+        m_Tx.SetParameter(TxParameterID::PaymentConfirmation, signature->m_PaymentProofSignature);
         StoreKernelID();
     }
 

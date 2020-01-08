@@ -296,7 +296,13 @@ namespace beam::wallet
 		return kernel.m_Signature.m_k;
     }
 
-    boost::optional<ReceiverSignature> LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce)
+    boost::optional<ReceiverSignature> LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs
+                                                                         , const std::vector<Key::IDV>& outputs
+                                                                         , const AssetID& assetId
+                                                                         , const KernelParameters& kernelParamerters
+                                                                         , const ECC::Point& publicNonce
+                                                                         , const PeerID& peerID
+                                                                         , const WalletIDKey& walletIDkey)
     {
         boost::optional<ReceiverSignature> res;
         auto value = CalculateValue(inputs, outputs);
@@ -373,15 +379,20 @@ namespace beam::wallet
         excess += kKrn;
         res->m_Offset = excess;
 
-        //PaymentConfirmation pc;
-        //pc.m_KernelID = kernel.m_Internal.m_ID;
-        //pc.m_Sender = tx.m_Peer;
-        //pc.m_Value = val;
-        //
-        //beam::PeerID pidSelf;
-        //GetWalletIDInternal(pidSelf, skTotal);
-        //pc.Sign(tx.m_PaymentProofSignature, skTotal);
+        if (walletIDkey)
+        {
+            PaymentConfirmation pc;
+            pc.m_KernelID = kernel.m_Internal.m_ID;
+            pc.m_Sender = peerID;
+            pc.m_Value = val;
 
+            auto keyPair = GetWalletID(walletIDkey);
+
+            pc.Sign(keyPair.m_PrivateKey);
+
+            res->m_PaymentProofSignature = pc.m_Signature;
+        }
+        
         return res;
     }
 
@@ -518,6 +529,16 @@ namespace beam::wallet
         ByteBuffer buffer;
         s.swap_buf(buffer);
         m_Variables->setVarRaw(LOCAL_NONCE_SEEDS, buffer.data(), buffer.size());
+    }
+
+
+    LocalPrivateKeyKeeper::KeyPair LocalPrivateKeyKeeper::GetWalletID(const WalletIDKey& walletKeyID) const
+    {
+        Key::ID kid(walletKeyID, Key::Type::WalletID);
+        LocalPrivateKeyKeeper::KeyPair res;
+        m_MasterKdf->DeriveKey(res.m_PrivateKey, kid);
+        beam::proto::Sk2Pk(res.m_PublicKey, res.m_PrivateKey);
+        return res;
     }
 
     ////

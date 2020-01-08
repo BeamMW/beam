@@ -401,29 +401,38 @@ namespace beam::wallet
         assert(!IsSelfTx());
         if (!GetMandatoryParameter<bool>(TxParameterID::IsSender))
         {
-            PaymentConfirmation pc;
-            WalletID widPeer, widMy;
-            bool bSuccess =
-                GetParameter(TxParameterID::PeerID, widPeer) &&
-                GetParameter(TxParameterID::MyID, widMy) &&
-                GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
-                GetParameter(TxParameterID::Amount, pc.m_Value);
 
-            if (bSuccess)
+            Signature paymentProofSignature;
+            if (GetParameter(TxParameterID::PaymentConfirmation, paymentProofSignature))
             {
-                pc.m_Sender = widPeer.m_Pk;
+                msg.AddParameter(TxParameterID::PaymentConfirmation, paymentProofSignature);
+            }
+            else
+            {
+                PaymentConfirmation pc;
+                WalletID widPeer, widMy;
+                bool bSuccess =
+                    GetParameter(TxParameterID::PeerID, widPeer) &&
+                    GetParameter(TxParameterID::MyID, widMy) &&
+                    GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
+                    GetParameter(TxParameterID::Amount, pc.m_Value);
 
-                auto waddr = m_WalletDB->getAddress(widMy);
-                if (waddr && waddr->isOwn())
+                if (bSuccess)
                 {
-                    Scalar::Native sk;
-                    
-                    m_KeyKeeper->get_SbbsKdf()->DeriveKey(sk, Key::ID(waddr->m_OwnID, Key::Type::Bbs));
+                    pc.m_Sender = widPeer.m_Pk;
 
-                    proto::Sk2Pk(widMy.m_Pk, sk);
+                    auto waddr = m_WalletDB->getAddress(widMy);
+                    if (waddr && waddr->isOwn())
+                    {
+                        Scalar::Native sk;
 
-                    pc.Sign(sk);
-                    msg.AddParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
+                        m_KeyKeeper->get_SbbsKdf()->DeriveKey(sk, Key::ID(waddr->m_OwnID, Key::Type::Bbs));
+
+                        proto::Sk2Pk(widMy.m_Pk, sk);
+
+                        pc.Sign(sk);
+                        msg.AddParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
+                    }
                 }
             }
         }

@@ -423,11 +423,13 @@ struct TestWalletRig
             WalletAddress wa = storage::createAddress(*m_WalletDB, m_KeyKeeper);
             m_WalletDB->saveAddress(wa);
             m_WalletID = wa.m_walletID;
+            m_OwnID = wa.m_OwnID;
         }
         else
         {
             auto addresses = m_WalletDB->getAddresses(true);
             m_WalletID = addresses[0].m_walletID;
+            m_OwnID = addresses[0].m_OwnID;
         }
 
         m_Wallet.ResumeAllTransactions();
@@ -502,6 +504,7 @@ struct TestWalletRig
     }
 
     WalletID m_WalletID;
+    uint64_t m_OwnID;
     IWalletDB::Ptr m_WalletDB;
     IPrivateKeyKeeper::Ptr m_KeyKeeper;
     TestWallet m_Wallet;

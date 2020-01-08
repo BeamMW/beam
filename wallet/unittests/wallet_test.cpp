@@ -1674,7 +1674,7 @@ namespace
         auto senderSignature = sender.m_KeyKeeper->SignSender({ inputID }, {}, Zero, nonceSlot, kernelParams, {}, true);
         WALLET_CHECK(senderSignature);
         kernelParams.commitment = senderSignature->m_KernelCommitment;
-        auto receiverSignature = receiver.m_KeyKeeper->SignReceiver({}, { outputID }, Zero, kernelParams, senderSignature->m_KernelSignature.m_NoncePub);
+        auto receiverSignature = receiver.m_KeyKeeper->SignReceiver({}, { outputID }, Zero, kernelParams, senderSignature->m_KernelSignature.m_NoncePub, sender.m_WalletID.m_Pk, receiver.m_OwnID);
         WALLET_CHECK(receiverSignature);
         kernelParams.commitment = receiverSignature->m_KernelCommitment;
         auto finalSenderSignature = sender.m_KeyKeeper->SignSender({ inputID }, {}, Zero, nonceSlot, kernelParams, receiverSignature->m_KernelSignature.m_NoncePub, false);
