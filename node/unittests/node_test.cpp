@@ -2567,8 +2567,11 @@ namespace beam
 
 int main()
 {
+	bool bClientProtoOnly = false;
+
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
-	beam::PrintEmissionSchedule();
+	if (!bClientProtoOnly)
+		beam::PrintEmissionSchedule();
 
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
@@ -2584,8 +2587,11 @@ int main()
 
 	beam::PrepareTreasury();
 
-	beam::TestHalving();
-	beam::TestChainworkProof();
+	if (!bClientProtoOnly)
+	{
+		beam::TestHalving();
+		beam::TestChainworkProof();
+	}
 
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files
@@ -2595,42 +2601,45 @@ int main()
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
 
-	printf("NodeDB test...\n");
-	fflush(stdout);
-
-	beam::TestNodeDB();
-	beam::DeleteFile(beam::g_sz);
-
+	if (!bClientProtoOnly)
 	{
-		printf("NodeProcessor test1...\n");
+		printf("NodeDB test...\n");
 		fflush(stdout);
 
-
-		std::vector<beam::BlockPlus::Ptr> blockChain;
-		beam::TestNodeProcessor1(blockChain);
-		beam::DeleteFile(beam::g_sz);
-		beam::DeleteFile(beam::g_sz2);
-
-		printf("NodeProcessor test2...\n");
-		fflush(stdout);
-
-		beam::TestNodeProcessor2(blockChain);
+		beam::TestNodeDB();
 		beam::DeleteFile(beam::g_sz);
 
-		printf("NodeProcessor test3...\n");
+		{
+			printf("NodeProcessor test1...\n");
+			fflush(stdout);
+
+
+			std::vector<beam::BlockPlus::Ptr> blockChain;
+			beam::TestNodeProcessor1(blockChain);
+			beam::DeleteFile(beam::g_sz);
+			beam::DeleteFile(beam::g_sz2);
+
+			printf("NodeProcessor test2...\n");
+			fflush(stdout);
+
+			beam::TestNodeProcessor2(blockChain);
+			beam::DeleteFile(beam::g_sz);
+
+			printf("NodeProcessor test3...\n");
+			fflush(stdout);
+
+			beam::TestNodeProcessor3(blockChain);
+			beam::DeleteFile(beam::g_sz);
+			beam::DeleteFile(beam::g_sz2);
+		}
+
+		printf("NodeX2 concurrent test...\n");
 		fflush(stdout);
 
-		beam::TestNodeProcessor3(blockChain);
+		beam::TestNodeConversation();
 		beam::DeleteFile(beam::g_sz);
 		beam::DeleteFile(beam::g_sz2);
 	}
-
-	printf("NodeX2 concurrent test...\n");
-	fflush(stdout);
-
-	beam::TestNodeConversation();
-	beam::DeleteFile(beam::g_sz);
-	beam::DeleteFile(beam::g_sz2);
 
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().UpdateChecksum();
