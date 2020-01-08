@@ -2302,18 +2302,32 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 {
 	TxoID nID = m_ShieldedMmr.m_Count++;
 
-	const ShieldedTxo& x = v.m_Txo;
-
-	ShieldedTxo::Data d;
-	d.m_hScheme = h;
-	ECC::Oracle oracle;
-	oracle << v.m_Msg;
-	if (!(pKeyShielded && d.Recover(x, oracle, *pKeyShielded)))
+	if (!pKeyShielded)
 		return;
 
+	const ShieldedTxo& txo = v.m_Txo;
+
+	ShieldedTxo::Data::SerialParams sp;
+	if (!sp.Recover(txo.m_Serial, *pKeyShielded))
+		return;
+
+	ECC::Oracle oracle;
+	oracle << v.m_Msg;
+
+	ShieldedTxo::Data::OutputParams op;
+	if (!op.Recover(txo, oracle, *pKeyShielded))
+		return;
+
+	proto::UtxoEvent::Shielded ues;
+	ues.m_ID = nID;
+	ues.m_Sender = op.m_Sender;
+	ues.m_IsCreatedByViewer = sp.m_IsCreatedByViewer;
+	ues.m_kSerG = sp.m_pK[0];
+	ues.m_kOutG = op.m_k;
+
 	UtxoEvent::ValueS evt;
-	evt.m_Kidv.m_Value = d.m_Value;
-	evt.m_Shielded.Set(evt.m_Kidv, ECC::Scalar(d.m_kSerG), nID);
+	evt.m_Kidv.m_Value = op.m_Value;
+	evt.m_ShieldedDelta.Set(evt.m_Kidv, ues);
 	evt.m_AssetID = Zero;
 	evt.m_Maturity = h;
 
@@ -2321,9 +2335,7 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 		proto::UtxoEvent::Flags::Add |
 		proto::UtxoEvent::Flags::Shielded;
 
-	ECC::Point::Native ptN;
-	d.GetSpendPKey(ptN, *pKeyShielded->m_pSer);
-	UtxoEvent::Key key = ptN;
+	UtxoEvent::Key key = sp.m_SpendPk;
 	key.m_Y |= proto::UtxoEvent::Flags::Shielded;
 
 	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));

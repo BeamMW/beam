@@ -972,22 +972,20 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 
 /////////////////////////
 // UtxoEvent
-void UtxoEvent::Shielded::Set(Key::ID::Packed& kid, const ECC::Scalar& k, TxoID id)
+void UtxoEvent::Shielded::Delta::Set(Key::ID::Packed& kid, const Shielded& s)
 {
-	memcpy(&kid, k.m_Value.m_pData, sizeof(kid));
-	memcpy(m_pBuf, k.m_Value.m_pData + sizeof(kid), sizeof(k.m_Value) - sizeof(kid));
-
-	*((uintBigFor<TxoID>::Type*) (m_pBuf + sizeof(k.m_Value) - sizeof(kid))) = id;
+    const uint8_t* p = reinterpret_cast<const uint8_t*>(&s);
+    static_assert(sizeof(s) == sizeof(kid) + sizeof(m_pBuf));
+	memcpy(&kid, p, sizeof(kid));
+	memcpy(m_pBuf, p + sizeof(kid), sizeof(m_pBuf));
 }
 
-TxoID UtxoEvent::Shielded::Get(const Key::ID::Packed& kid, ECC::Scalar& k) const
+void UtxoEvent::Shielded::Delta::Get(const Key::ID::Packed& kid, Shielded& s) const
 {
-	memcpy(k.m_Value.m_pData, &kid, sizeof(kid));
-	memcpy(k.m_Value.m_pData + sizeof(kid), m_pBuf, sizeof(k.m_Value) - sizeof(kid));
+    uint8_t* p = reinterpret_cast<uint8_t*>(&s);
 
-	TxoID ret;
-	((uintBigFor<TxoID>::Type*) (m_pBuf + sizeof(k.m_Value) - sizeof(kid)))->Export(ret);
-	return ret;
+    memcpy(p, &kid, sizeof(kid));
+    memcpy(p + sizeof(kid), m_pBuf, sizeof(m_pBuf));
 }
 
 

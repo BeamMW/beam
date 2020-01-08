@@ -1655,50 +1655,35 @@ namespace beam
 					viewer.FromOwner(*m_Wallet.m_pKdf);
 
 					ShieldedTxo::PublicGen gen;
-					gen.m_pGen = viewer.m_pGen;
-					gen.m_pSer = viewer.m_pSer;
+					gen.FromViewer(viewer);
 
-					ECC::Hash::Value nonce;
-					nonce = 13U; // whatever
-
-					ShieldedTxo::Data d;
-					d.m_hScheme = h + 1;
-					d.m_Value = m_Shielded.m_Value;
-					d.GenerateS(pKrn->m_Txo.m_Serial, gen, nonce);
-
-					ECC::Point::Native pt = ECC::Commitment(d.m_kOutG, d.m_Value);
-					pKrn->m_Txo.m_Commitment = pt;
+					ShieldedTxo::Data::SerialParams sp;
+					sp.Generate(pKrn->m_Txo.m_Serial, viewer, 13U);
 
 					pKrn->UpdateMsg();
-
-					ECC::RangeProof::CreatorParams cp;
-					d.GetOutputSeed(*gen.m_pGen, cp.m_Seed.V);
-
-					ZeroObject(cp.m_Kidv);
-					cp.m_Kidv.set_Subkey(0);
-					cp.m_Kidv.m_Value = d.m_Value;
-
 					ECC::Oracle oracle;
 					oracle << pKrn->m_Msg;
 
-					pKrn->m_Txo.m_RangeProof.Create(d.m_kOutG, cp, oracle);
-
+					ShieldedTxo::Data::OutputParams op;
+					op.m_Sender = 16U;
+					op.m_Value = m_Shielded.m_Value;
+					op.Generate(pKrn->m_Txo, oracle, gen, 18U);
 
 					pKrn->MsgToID();
 
-					m_Shielded.m_sk = d.m_kOutG;
-					m_Shielded.m_sk += d.m_kSerG;
+					m_Shielded.m_sk = sp.m_pK[0];
+					m_Shielded.m_sk += op.m_k;
 					m_Shielded.m_Commitment = pKrn->m_Txo.m_Serial.m_SerialPub;
 
 					Key::IKdf::Ptr pSerPrivate;
 					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
+					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sp.m_SerialPreimage);
 
-					d.GetSpendKey(m_Shielded.m_skSpendKey, *pSerPrivate);
-
+					ECC::Point::Native pt;
 					verify_test(pKrn->IsValid(h + 1, pt));
 
 					msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-					m_Wallet.UpdateOffset(*msgTx.m_Transaction, d.m_kOutG, true);
+					m_Wallet.UpdateOffset(*msgTx.m_Transaction, op.m_k, true);
 				}
 
 				m_Wallet.MakeTxKernel(*msgTx.m_Transaction, fee, h);

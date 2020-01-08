@@ -3418,7 +3418,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
             res.m_Flags = evt.m_Flags;
 
 			if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
-				res.m_Shielded = Cast::Up<UE::ValueS>(evt).m_Shielded;
+				res.m_ShieldedDelta = Cast::Up<UE::ValueS>(evt).m_ShieldedDelta;
 		}
     }
     else
@@ -4332,8 +4332,11 @@ void Node::PrintTxos()
 
         if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
         {
-            ECC::Scalar k;
-            os << ", Shielded TxoID=" << Cast::Up<UE::ValueS>(evt).m_Shielded.Get(evt.m_Kidv, k);
+            proto::UtxoEvent::Shielded ues;
+            Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kidv, ues);
+            TxoID id;
+            ues.m_ID.Export(id);
+            os << ", Shielded TxoID=" << id;
         }
 
         os << std::endl;

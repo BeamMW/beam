@@ -389,7 +389,7 @@ public:
 		struct ValueS
 			:public Value
 		{
-			proto::UtxoEvent::Shielded m_Shielded;
+			proto::UtxoEvent::Shielded::Delta m_ShieldedDelta;
 		};
 	};
 

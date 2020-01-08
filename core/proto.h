@@ -307,16 +307,30 @@ namespace proto {
 	{
 		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
+#pragma pack(push, 1)
 		struct Shielded
 		{
-			uint8_t m_pBuf[sizeof(ECC::Scalar) - sizeof(Key::ID) + sizeof(TxoID)]; // remaining part of ID for shielded outputs. Not used for non-shielded
+            ECC::Scalar m_kSerG;
+            ECC::Scalar m_kOutG;
+            PeerID m_Sender;
+            uintBigFor<TxoID>::Type m_ID;
+            uint8_t m_IsCreatedByViewer;
 
-			void Set(Key::ID::Packed&, const ECC::Scalar&, TxoID);
-			TxoID Get(const Key::ID::Packed&, ECC::Scalar&) const;
+            struct Delta;
 		};
 
+        struct Shielded::Delta
+        {
+            uint8_t m_pBuf[sizeof(Shielded) - sizeof(Key::ID::Packed)];
+
+            void Set(Key::ID::Packed&, const Shielded&);
+            void Get(const Key::ID::Packed&, Shielded&) const;
+        };
+
+#pragma pack(pop)
+
 		Key::IDV m_Kidv;
-		Shielded m_Shielded;
+		Shielded::Delta m_ShieldedDelta;
 		ECC::Point m_Commitment;
 		AssetID m_AssetID;
 
@@ -342,7 +356,7 @@ namespace proto {
 				& m_Flags;
 
 			if (beam::proto::UtxoEvent::Flags::Shielded & m_Flags)
-				ar & m_Shielded.m_pBuf;
+				ar & m_ShieldedDelta.m_pBuf;
 		}
 	};
 
