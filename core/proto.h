@@ -315,11 +315,9 @@ namespace proto {
             PeerID m_Sender;
             uintBigFor<TxoID>::Type m_ID;
             uint8_t m_IsCreatedByViewer;
-
-            struct Delta;
 		};
 
-        struct Shielded::Delta
+        struct ShieldedDelta
         {
             uint8_t m_pBuf[sizeof(Shielded) - sizeof(Key::ID::Packed)];
 
@@ -330,7 +328,7 @@ namespace proto {
 #pragma pack(pop)
 
 		Key::IDV m_Kidv;
-		Shielded::Delta m_ShieldedDelta;
+		ShieldedDelta m_ShieldedDelta;
 		ECC::Point m_Commitment;
 		AssetID m_AssetID;
 
