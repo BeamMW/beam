@@ -37,6 +37,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/intrusive/list.hpp>
 #include <string_view>
+#include <utility>
 
 using namespace beam;
 using namespace std;
@@ -153,7 +154,7 @@ void InitElectrum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor,
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
 }
 
-void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
+void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool useSecureIDs = false)
 {
     cout << "\nTesting atomic swap transaction...\n";
 
@@ -230,16 +231,25 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
             auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
                 currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, isBeamSide);
 
+            if (useSecureIDs)
+            {
+                parameters.SetParameter(TxParameterID::MySecureWalletID, isBeamOwnerStart ? receiver.m_SecureWalletID : sender.m_SecureWalletID);
+            }
+
+            TestWalletRig* initiator = &sender;
+            TestWalletRig* acceptor = &receiver;
             if (isBeamOwnerStart)
             {
-                receiver.m_Wallet.StartTransaction(parameters);
-                txID = sender.m_Wallet.StartTransaction(AcceptSwapParameters(parameters, sender.m_WalletID, beamFee, feeRate));
+                std::swap(initiator, acceptor);
             }
-            else
+            
+            initiator->m_Wallet.StartTransaction(parameters);
+            auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, feeRate);
+            if (useSecureIDs)
             {
-                sender.m_Wallet.StartTransaction(parameters);
-                txID = receiver.m_Wallet.StartTransaction(AcceptSwapParameters(parameters, receiver.m_WalletID, beamFee, feeRate));
+                acceptParams.SetParameter(TxParameterID::MySecureWalletID, acceptor->m_SecureWalletID);
             }
+            txID = acceptor->m_Wallet.StartTransaction(acceptParams);
         }
     });
 
@@ -1679,6 +1689,8 @@ int main()
 
     TestSwapTransaction(true, fork1Height);
     TestSwapTransaction(false, fork1Height);
+    TestSwapTransaction(true, fork1Height, true);
+    TestSwapTransaction(false, fork1Height, true);
     TestSwapTransactionWithoutChange(true);
 
     TestSwapBTCQuickRefundTransaction();
