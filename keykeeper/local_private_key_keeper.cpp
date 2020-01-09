@@ -322,20 +322,23 @@ namespace beam::wallet
         Amount val = -value;
 
         Scalar::Native kKrn, kNonce;
-        Oracle ng;
-        ng
-            << "hw-wlt-rcv"
+        
+        ECC::Hash::Value hv;
+        Hash::Processor()
             << kernelParamerters.fee
             << kernelParamerters.height.m_Min
             << kernelParamerters.height.m_Max
             << kernelParamerters.commitment
             << publicNonce
-//            << kernelParamerters.m_Peer
+            << kernelParamerters.peerID
             << excess
-            << val;
+            << val >> hv;
+
+        NonceGenerator ng("hw-wlt-rcv");
+        ng << hv;
 
         ng >> kKrn;
-        ng >> kNonce; // maybe random?
+        ng >> kNonce; 
 
         Point::Native commitment;
         if (!commitment.Import(kernelParamerters.commitment))
@@ -418,15 +421,17 @@ namespace beam::wallet
         auto excess = GetExcess(inputs, outputs, assetId, Zero);
 
         Scalar::Native kKrn;
-        Oracle ng;
-        ng
-            << "hw-wlt-snd"
+        ECC::Hash::Value hv;
+        Hash::Processor()
             << kernelParamerters.fee
             << kernelParamerters.height.m_Min
-           // << kernelParamerters.height.m_Max
-            //            << kernelParamerters.m_Peer
+            // << kernelParamerters.height.m_Max
+            //<< kernelParamerters.peerID 
             << excess
-            << Amount(value);
+            << Amount(value) >> hv;
+
+        NonceGenerator ng("hw-wlt-snd");
+        ng << hv;
 
         ng >> kKrn;
 
@@ -476,15 +481,12 @@ namespace beam::wallet
 
             if (!pc.IsValid(kernelParamerters.peerID))
                 return res;
-
         }
         
         /////////////////////////
         // Ask for user permission!
         //
         // ...
-
-         
 
         if (!commitment.Import(kernelParamerters.commitment))
         {

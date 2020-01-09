@@ -19,7 +19,6 @@
 
 namespace beam::wallet
 {
-
     //
     // Private key keeper in local storage implementation
     //
