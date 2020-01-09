@@ -2955,8 +2955,15 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height 
 
     proof.swap(bld.m_Proof);
 
-    proof.emplace_back();
-    get_UtxoHash(proof.back(), false);
+    struct MyProofBuilder
+        :public ProofBuilderHard
+    {
+        using ProofBuilderHard::ProofBuilderHard;
+        virtual bool get_History(Merkle::Hash&) override { return false; }
+    };
+
+    MyProofBuilder pb(*this, proof);
+    pb.GenerateProof();
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
@@ -3008,19 +3015,15 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
             ret.m_State.m_Maturity = d.m_Maturity;
             m_Proc.get_Utxos().get_Proof(ret.m_Proof, *m_pCu);
 
-            if (m_Proc.m_Cursor.m_ID.m_Height >= Rules::get().pForks[2].m_Height)
+            struct MyProofBuilder
+                :public NodeProcessor::ProofBuilder
             {
-                Merkle::Hash hv2;
-                m_Proc.m_ShieldedMmr.get_Hash(hv2);
+                using ProofBuilder::ProofBuilder;
+                virtual bool get_Utxos(Merkle::Hash&) override { return false; }
+            };
 
-                ret.m_Proof.emplace_back();
-                ret.m_Proof.back().first = true;
-                ret.m_Proof.back().second = hv2;
-            }
-
-            ret.m_Proof.emplace_back();
-            ret.m_Proof.back().first = false;
-            ret.m_Proof.back().second = m_Proc.m_Cursor.m_History;
+            MyProofBuilder pb(m_Proc, ret.m_Proof);
+            pb.GenerateProof();
 
             return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
         }
@@ -3081,11 +3084,15 @@ void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
 
             msgOut.m_Proof.swap(bld.m_Proof);
 
-            msgOut.m_Proof.emplace_back();
-            p.get_Utxos().get_Hash(msgOut.m_Proof.back());
+            struct MyProofBuilder
+                :public NodeProcessor::ProofBuilderHard
+            {
+                using ProofBuilderHard::ProofBuilderHard;
+                virtual bool get_Shielded(Merkle::Hash&) override { return false; }
+            };
 
-            msgOut.m_Proof.emplace_back();
-            msgOut.m_Proof.back() = p.m_Cursor.m_History;
+            MyProofBuilder pb(p, msgOut.m_Proof);
+            pb.GenerateProof();
         }
 	}
 
@@ -3146,7 +3153,9 @@ bool Node::Processor::BuildCwp()
     Source src(*this);
 
     m_Cwp.Create(src, m_Cursor.m_Full);
-    get_UtxoHash(m_Cwp.m_hvRootLive, false);
+
+    Evaluator ev(*this);
+    ev.get_Live(m_Cwp.m_hvRootLive);
 
     return true;
 }

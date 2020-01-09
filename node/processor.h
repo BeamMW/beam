@@ -254,7 +254,6 @@ public:
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
 
-	void get_UtxoHash(Merkle::Hash&, bool bForNextState);
 	struct Evaluator
 		:public Block::SystemState::Evaluator
 	{
@@ -264,6 +263,34 @@ public:
 		virtual bool get_History(Merkle::Hash&) override;
 		virtual bool get_Utxos(Merkle::Hash&) override;
 		virtual bool get_Shielded(Merkle::Hash&) override;
+	};
+
+	struct ProofBuilder
+		:public Evaluator
+	{
+		Merkle::Proof& m_Proof;
+		ProofBuilder(NodeProcessor& p, Merkle::Proof& proof)
+			:Evaluator(p)
+			,m_Proof(proof)
+		{
+		}
+
+	protected:
+		virtual void OnProof(const Merkle::Hash&, bool);
+	};
+
+	struct ProofBuilderHard
+		:public Evaluator
+	{
+		Merkle::HardProof& m_Proof;
+		ProofBuilderHard(NodeProcessor& p, Merkle::HardProof& proof)
+			:Evaluator(p)
+			,m_Proof(proof)
+		{
+		}
+
+	protected:
+		virtual void OnProof(const Merkle::Hash&, bool);
 	};
 
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);

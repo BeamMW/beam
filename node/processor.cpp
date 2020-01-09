@@ -1760,19 +1760,6 @@ bool NodeProcessor::TxoIsNaked(const Blob& v)
 
 }
 
-void NodeProcessor::get_UtxoHash(Merkle::Hash& hv, bool bForNextState)
-{
-	m_Utxos.get_Hash(hv);
-
-	Height h = m_Cursor.m_ID.m_Height + (!!bForNextState);
-	if (h >= Rules::get().pForks[2].m_Height)
-	{
-		Merkle::Hash hv2;
-		m_ShieldedMmr.get_Hash(hv2);
-		Merkle::Interpret(hv, hv2, true);
-	}
-}
-
 NodeProcessor::Evaluator::Evaluator(NodeProcessor& p)
 	:m_Proc(p)
 {
