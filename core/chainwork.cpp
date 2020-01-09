@@ -384,7 +384,7 @@ namespace beam
 			}
 
 
-			virtual bool IsRootValid(const Merkle::Hash& hv)
+			virtual bool IsRootValid(const Merkle::Hash& hv) override
 			{
 				// Use the standard Evaluator.
 				m_pHist = &hv;
