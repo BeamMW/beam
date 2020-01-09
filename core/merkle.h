@@ -267,7 +267,7 @@ namespace Merkle {
 
 	// Helper class for arbitrary (custom) tree
 	// Can be used to get the root hash, build a proof, and verification (deduce number of nodes and their direction)
-	struct IEveluator
+	struct IEvaluator
 	{
 		bool m_DontHash = false; // verification mode
 		bool m_Failed = false;

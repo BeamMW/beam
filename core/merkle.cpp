@@ -673,7 +673,7 @@ bool HardVerifier::InterpretMmr(uint64_t iIdx, uint64_t nCount)
 
 /////////////////////////////
 // IEvaluator
-bool IEveluator::Interpret(Hash& hv, const Hash& hvL, bool bL, const Hash& hvR, bool bR)
+bool IEvaluator::Interpret(Hash& hv, const Hash& hvL, bool bL, const Hash& hvR, bool bR)
 {
 	if (m_Failed)
 		return false;
@@ -698,11 +698,11 @@ bool IEveluator::Interpret(Hash& hv, const Hash& hvL, bool bL, const Hash& hvR, 
 	return false;
 }
 
-void IEveluator::OnProof(const Merkle::Hash&, bool)
+void IEvaluator::OnProof(const Merkle::Hash&, bool)
 {
 }
 
-bool IEveluator::OnNotImpl()
+bool IEvaluator::OnNotImpl()
 {
 	if (!m_DontHash)
 		m_Failed = true;
