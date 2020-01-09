@@ -1785,14 +1785,14 @@ bool NodeProcessor::Evaluator::get_Shielded(Merkle::Hash& hv)
 	return true;
 }
 
-void NodeProcessor::ProofBuilder::OnProof(const Merkle::Hash& hv, bool bNewOnRight)
+void NodeProcessor::ProofBuilder::OnProof(Merkle::Hash& hv, bool bNewOnRight)
 {
 	m_Proof.emplace_back();
 	m_Proof.back().first = bNewOnRight;
 	m_Proof.back().second = hv;
 }
 
-void NodeProcessor::ProofBuilderHard::OnProof(const Merkle::Hash& hv, bool bNewOnRight)
+void NodeProcessor::ProofBuilderHard::OnProof(Merkle::Hash& hv, bool bNewOnRight)
 {
 	m_Proof.emplace_back();
 	m_Proof.back() = hv;

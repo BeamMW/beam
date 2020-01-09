@@ -673,7 +673,7 @@ bool HardVerifier::InterpretMmr(uint64_t iIdx, uint64_t nCount)
 
 /////////////////////////////
 // IEvaluator
-bool IEvaluator::Interpret(Hash& hv, const Hash& hvL, bool bL, const Hash& hvR, bool bR)
+bool IEvaluator::Interpret(Hash& hv, Hash& hvL, bool bL, Hash& hvR, bool bR)
 {
 	if (m_Failed)
 		return false;
@@ -682,8 +682,8 @@ bool IEvaluator::Interpret(Hash& hv, const Hash& hvL, bool bL, const Hash& hvR, 
 	{
 		if (bR)
 		{
-			if (!m_DontHash)
-				Merkle::Interpret(hv, hvL, hvR);
+			assert(!m_Verifier);
+			Merkle::Interpret(hv, hvL, hvR);
 			return true;
 		}
 
@@ -695,18 +695,18 @@ bool IEvaluator::Interpret(Hash& hv, const Hash& hvL, bool bL, const Hash& hvR, 
 			OnProof(hvR, true);
 	}
 
-	return false;
+	return m_Verifier && (bL || bR);
 }
 
-void IEvaluator::OnProof(const Merkle::Hash&, bool)
+void IEvaluator::OnProof(Merkle::Hash&, bool)
 {
 }
 
 bool IEvaluator::OnNotImpl()
 {
-	if (!m_DontHash)
+	if (!m_Verifier)
 		m_Failed = true;
-	return true;
+	return false;
 }
 
 } // namespace Merkle

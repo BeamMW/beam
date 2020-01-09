@@ -276,7 +276,7 @@ public:
 		}
 
 	protected:
-		virtual void OnProof(const Merkle::Hash&, bool);
+		virtual void OnProof(Merkle::Hash&, bool);
 	};
 
 	struct ProofBuilderHard
@@ -290,7 +290,7 @@ public:
 		}
 
 	protected:
-		virtual void OnProof(const Merkle::Hash&, bool);
+		virtual void OnProof(Merkle::Hash&, bool);
 	};
 
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
