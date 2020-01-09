@@ -226,7 +226,9 @@ bool NodeProcessor::TestDefinition()
 		return true; // irrelevant
 
 	Merkle::Hash hv;
-	get_Definition(hv, false);
+	Evaluator ev(*this);
+	ev.get_Definition(hv);
+
 	return m_Cursor.m_Full.m_Definition == hv;
 }
 
@@ -1771,11 +1773,42 @@ void NodeProcessor::get_UtxoHash(Merkle::Hash& hv, bool bForNextState)
 	}
 }
 
-void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
+NodeProcessor::Evaluator::Evaluator(NodeProcessor& p)
+	:m_Proc(p)
 {
-	get_UtxoHash(hv, bForNextState);
-	const Merkle::Hash& hvHist = bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History;
-	Merkle::Interpret(hv, hvHist, false);
+	m_Height = m_Proc.m_Cursor.m_ID.m_Height;
+}
+
+bool NodeProcessor::Evaluator::get_History(Merkle::Hash& hv)
+{
+	const Cursor& c = m_Proc.m_Cursor;
+	hv = (m_Height == c.m_ID.m_Height) ? c.m_History : c.m_HistoryNext;
+	return true;
+}
+
+bool NodeProcessor::Evaluator::get_Utxos(Merkle::Hash& hv)
+{
+	m_Proc.m_Utxos.get_Hash(hv);
+	return true;
+}
+
+bool NodeProcessor::Evaluator::get_Shielded(Merkle::Hash& hv)
+{
+	m_Proc.m_ShieldedMmr.get_Hash(hv);
+	return true;
+}
+
+void NodeProcessor::ProofBuilder::OnProof(const Merkle::Hash& hv, bool bNewOnRight)
+{
+	m_Proof.emplace_back();
+	m_Proof.back().first = bNewOnRight;
+	m_Proof.back().second = hv;
+}
+
+void NodeProcessor::ProofBuilderHard::OnProof(const Merkle::Hash& hv, bool bNewOnRight)
+{
+	m_Proof.emplace_back();
+	m_Proof.back() = hv;
 }
 
 uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, std::vector<TxKernel::Ptr>& vKrn, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
@@ -2096,7 +2129,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		{
 			// check the validity of state description.
 			Merkle::Hash hvDef;
-			get_Definition(hvDef, true);
+			Evaluator ev(*this);
+			ev.m_Height++;
+			ev.get_Definition(hvDef);
 
 			if (s.m_Definition != hvDef)
 			{
@@ -3621,7 +3656,10 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 {
 	bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 	bc.m_Hdr.m_Height = m_Cursor.m_ID.m_Height + 1;
-	get_Definition(bc.m_Hdr.m_Definition, true);
+
+	Evaluator ev(*this);
+	ev.m_Height++;
+	ev.get_Definition(bc.m_Hdr.m_Definition);
 
 #ifndef NDEBUG
 	// kernels must be sorted already

@@ -99,7 +99,6 @@ class NodeProcessor
 	bool InitUtxoMapping(const char*, bool bForceReset);
 	void InitializeUtxos(const char*);
 	static void OnCorrupted();
-	void get_Definition(Merkle::Hash&, bool bForNextState);
 
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
@@ -256,6 +255,17 @@ public:
 	UtxoTree& get_Utxos() { return m_Utxos; }
 
 	void get_UtxoHash(Merkle::Hash&, bool bForNextState);
+	struct Evaluator
+		:public Block::SystemState::Evaluator
+	{
+		NodeProcessor& m_Proc;
+		Evaluator(NodeProcessor&);
+
+		virtual bool get_History(Merkle::Hash&) override;
+		virtual bool get_Utxos(Merkle::Hash&) override;
+		virtual bool get_Shielded(Merkle::Hash&) override;
+	};
+
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
 
 	void CommitDB();
