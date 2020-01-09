@@ -728,6 +728,24 @@ namespace beam
 		{
 			typedef HeightHash ID;
 
+			struct Evaluator
+				:public Merkle::IEvaluator
+			{
+				Height m_Height;
+
+				// The state Definition is defined as Hash[ History | Live ]
+				// Before Fork2: Live = Utxos
+				// Past Fork2: Live = Hash[ Utxos | Shielded ]
+
+				bool get_Definition(Merkle::Hash&);
+				void GenerateProof(); // same as above, except it's used for proof generation, and the resulting hash is not evaluated
+
+				virtual bool get_History(Merkle::Hash&);
+				virtual bool get_Live(Merkle::Hash&);
+				virtual bool get_Utxos(Merkle::Hash&);
+				virtual bool get_Shielded(Merkle::Hash&);
+			};
+
 			struct Sequence
 			{
 				struct Prefix {
@@ -739,7 +757,7 @@ namespace beam
 				struct Element
 				{
 					Merkle::Hash	m_Kernels; // of this block only
-					Merkle::Hash	m_Definition; // Defined as Hash[ History | Utxos ]. If past fork2, then Utxos = Hash[ UtxoTree | Shielded ]
+					Merkle::Hash	m_Definition;
 					Timestamp		m_TimeStamp;
 					PoW				m_PoW;
 

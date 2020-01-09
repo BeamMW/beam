@@ -1625,6 +1625,46 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
+	bool Block::SystemState::Evaluator::get_Definition(Merkle::Hash& hv)
+	{
+		Merkle::Hash hvHist;
+		return Interpret(hv, hvHist, get_History(hvHist), hv, get_Live(hv));
+	}
+
+	void Block::SystemState::Evaluator::GenerateProof()
+	{
+		Merkle::Hash hvDummy;
+		bool b = get_Definition(hvDummy);
+
+		assert(!b || m_Failed);
+	}
+
+	bool Block::SystemState::Evaluator::get_Live(Merkle::Hash& hv)
+	{
+		bool bUtxo = get_Utxos(hv);
+
+		if (m_Height < Rules::get().pForks[2].m_Height)
+			return bUtxo;
+
+		Merkle::Hash hvShielded;
+		return Interpret(hv, hv, bUtxo, hvShielded, get_Shielded(hvShielded));
+	}
+
+	bool Block::SystemState::Evaluator::get_History(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	bool Block::SystemState::Evaluator::get_Utxos(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	bool Block::SystemState::Evaluator::get_Shielded(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
 	bool Block::SystemState::Sequence::Element::IsValidProofToDefinition(Merkle::Hash& hv, const Merkle::Proof& p) const
 	{
 		Merkle::Interpret(hv, p);
