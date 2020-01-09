@@ -308,9 +308,8 @@
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run integrated node</source>
-        <oldsource>Run local node</oldsource>
         <extracomment>settings tab, node section, run node label</extracomment>
-        <translation type="unfinished">Lokale node draaien</translation>
+        <translation>Gebruik geïntegreerde node</translation>
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
@@ -773,8 +772,7 @@
     </message>
     <message id="loading-view-download-blocks">
         <source>Syncing with blockchain</source>
-        <oldsource>Synching with blockchain</oldsource>
-        <translation type="unfinished">Synchroniseren met blockchain</translation>
+        <translation>Synchroniseren met blockchain</translation>
     </message>
     <message id="loading-view-scaning-utxo">
         <source>Loading wallet data %d/%d</source>
@@ -804,59 +802,59 @@
         <source>Wallet is not connected to the node</source>
         <translation>Wallet is niet met de node verbonden</translation>
     </message>
-    <message id="tx-failture-undefined">
+    <message id="tx-failure-undefined">
         <source>Unexpected reason, please send wallet logs to Beam support</source>
         <translation>Onverwachte reden, stuur wallet logs naar Beam support</translation>
     </message>
-    <message id="tx-failture-cancelled">
+    <message id="tx-failure-cancelled">
         <source>Transaction cancelled</source>
         <translation>Transactie geannuleerd</translation>
     </message>
-    <message id="tx-failture-receiver-signature-invalid">
+    <message id="tx-failure-receiver-signature-invalid">
         <source>Receiver signature in not valid, please send wallet logs to Beam support</source>
         <translation>Handtekening van ontvanger is niet geldig, stuur wallet logs naar Beam support</translation>
     </message>
-    <message id="tx-failture-not-registered-in-blockchain">
+    <message id="tx-failure-not-registered-in-blockchain">
         <source>Failed to register transaction with the blockchain, see node logs for details</source>
         <translation>Transactie op de blockchain registreren is mislukt, zie node logs voor details</translation>
     </message>
-    <message id="tx-failture-not-valid">
+    <message id="tx-failure-not-valid">
         <source>Transaction is not valid, please send wallet logs to Beam support</source>
         <translation>Transactie is niet geldig, stuur wallet logs naar Beam support</translation>
     </message>
-    <message id="tx-failture-kernel-invalid">
+    <message id="tx-failure-kernel-invalid">
         <source>Invalid kernel proof provided</source>
         <translation>Ongeldig kernelbewijs geleverd</translation>
     </message>
-    <message id="tx-failture-parameters-not-sended">
+    <message id="tx-failure-parameters-not-sended">
         <source>Failed to send Transaction parameters</source>
         <translation>Verzenden van transactie parameters mislukt</translation>
     </message>
-    <message id="tx-failture-no-inputs">
+    <message id="tx-failure-no-inputs">
         <source>No inputs</source>
         <translation>Geen invoer</translation>
     </message>
-    <message id="tx-failture-addr-expired">
+    <message id="tx-failure-addr-expired">
         <source>Address is expired</source>
         <translation>Adres is verlopen</translation>
     </message>
-    <message id="tx-failture-parameters-not-readed">
+    <message id="tx-failure-parameters-not-readed">
         <source>Failed to get transaction parameters</source>
         <translation>Ophalen van transactie parameters mislukt</translation>
     </message>
-    <message id="tx-failture-time-out">
+    <message id="tx-failure-time-out">
         <source>Transaction timed out</source>
         <translation>Transactie time out</translation>
     </message>
-    <message id="tx-failture-not-signed-by-receiver">
+    <message id="tx-failure-not-signed-by-receiver">
         <source>Payment not signed by the receiver, please send wallet logs to Beam support</source>
         <translation>Betaling niet door de ontvanger ondertekend, stuur wallet logs naar Beam support</translation>
     </message>
-    <message id="tx-failture-max-height-to-high">
+    <message id="tx-failure-max-height-to-high">
         <source>Kernel maximum height is too high</source>
         <translation>Maximale kernel height is te hoog</translation>
     </message>
-    <message id="tx-failture-invalid-state">
+    <message id="tx-failure-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>Transactie heeft ongeldige status</translation>
     </message>
@@ -1140,7 +1138,7 @@
         <source>Don&apos;t ask password on every Send</source>
         <oldsource>Don’t ask password on every Send</oldsource>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
-        <translation type="unfinished">Vraag niet om wachtwoord bij iedere verzending</translation>
+        <translation>Vraag niet bij elke verzending om wachtwoord</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
         <source>Password verification is required to change that setting</source>
@@ -1163,55 +1161,53 @@
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
         <translation>Gebruik dezelfde herstelzin niet op verschillende apparaten. Uw saldo- en transactielijst zal niet worden gesynchroniseerd.</translation>
     </message>
-    <message id="tx-failture-subtx-failed">
+    <message id="tx-failure-subtx-failed">
         <source>Subtransaction has failed</source>
         <translation>Subtransactie is mislukt</translation>
     </message>
-    <message id="tx-failture-invalid-contract-amount">
+    <message id="tx-failure-invalid-contract-amount">
         <source>Contract&apos;s amount is not valid</source>
         <translation>Contract&apos;s bedrag is niet geldig</translation>
     </message>
-    <message id="tx-failture-invalid-sidechain-contract">
+    <message id="tx-failure-invalid-sidechain-contract">
         <source>Side chain has invalid contract</source>
         <translation>Side chain bevat een ongeldig contract</translation>
     </message>
-    <message id="tx-failture-sidechain-internal-error">
+    <message id="tx-failure-sidechain-internal-error">
         <source>Side chain bridge has internal error</source>
         <translation>Side chain bridge bevat een interne fout</translation>
     </message>
-    <message id="tx-failture-sidechain-network-error">
+    <message id="tx-failure-sidechain-network-error">
         <source>Side chain bridge has network error</source>
         <translation>Side chain bridge bevat een netwerkfout</translation>
     </message>
-    <message id="tx-failture-invalid-sidechain-response-format">
+    <message id="tx-failure-invalid-sidechain-response-format">
         <source>Side chain bridge has response format error</source>
         <translation>Side chain bridge bevat een response format fout</translation>
     </message>
-    <message id="tx-failture-invalid-side-chain-credentials">
+    <message id="tx-failure-invalid-side-chain-credentials">
         <source>Invalid credentials of Side chain</source>
         <translation>Ongeldige inloggegevens van de Side chain</translation>
     </message>
-    <message id="tx-failture-not-enough-time-btc-lock">
+    <message id="tx-failure-not-enough-time-btc-lock">
         <source>Not enough time to finish btc lock transaction</source>
         <translation>Niet genoeg tijd om btc lock transactie af te ronden</translation>
     </message>
-    <message id="tx-failture-create-multisig">
+    <message id="tx-failure-create-multisig">
         <source>Failed to create multi-signature</source>
         <translation>Multi-signature aanmaken mislukt</translation>
     </message>
-    <message id="tx-failture-fee-too-small">
+    <message id="tx-failure-fee-too-small">
         <source>Fee is too small</source>
         <translation>Fee is te laag</translation>
     </message>
     <message id="loading-view-estimate-minutes">
         <source>min</source>
-        <oldsource>min.</oldsource>
-        <translation type="unfinished">min.</translation>
+        <translation>min</translation>
     </message>
     <message id="loading-view-estimate-seconds">
         <source>sec</source>
-        <oldsource>sec.</oldsource>
-        <translation type="unfinished">sec.</translation>
+        <translation>sec.</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1264,8 +1260,7 @@
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</source>
-        <translation>U heeft geen 3rd-party valuta gekoppeld.
-Update uw instellingen en probeer opnieuw.</translation>
+        <translation>U heeft geen 3rd-party valuta gekoppeld.\nUpdate uw instellingen en probeer opnieuw.</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create a Swap Offer</source>
@@ -1346,8 +1341,7 @@ Update uw instellingen en probeer opnieuw.</translation>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
 please review your settings and try again</source>
-        <translation>%1 is niet verbonden,
-controleer uw instellingen en probeer opnieuw.</translation>
+        <translation>%1 is niet verbonden, \ncontroleer uw instellingen en probeer opnieuw.</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1379,13 +1373,12 @@ controleer uw instellingen en probeer opnieuw.</translation>
     </message>
     <message id="loading-view-estimate-hours">
         <source>h</source>
-        <oldsource>h.</oldsource>
-        <translation type="unfinished">h.</translation>
+        <translation>h</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer than usual. Please, check your network.</source>
         <oldsource>It may take longer then usual. Please, check your network.</oldsource>
-        <translation type="unfinished">Het kan langer duren dan gebruikelijk. Controleer uw netwerk.</translation>
+        <translation>Het kan langer duren dan gebruikelijk. Controleer uw netwerk.</translation>
     </message>
     <message id="atomic-swap-title">
         <source>Atomic Swaps</source>
@@ -1542,14 +1535,12 @@ controleer uw instellingen en probeer opnieuw.</translation>
     <message id="settings-progress-na">
         <source>You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</source>
-        <translation>U kunt de wallet niet loskoppelen, bewerk herstelzin of wijzig de standaard
-fee terwijl u transacties in uitvoering hebt.</translation>
+        <translation>U kunt de wallet niet loskoppelen, bewerk herstelzin of wijzig de standaard\nfee terwijl u transacties in uitvoering hebt.</translation>
     </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.
 Please try again later or create an offer yourself.</source>
-        <translation>Er zijn momenteel geen actieve aanbiedingen.
-Probeer het later opnieuw of maak zelf een aanbieding.</translation>
+        <translation>Er zijn momenteel geen actieve aanbiedingen.\nProbeer het later opnieuw of maak zelf een aanbieding.</translation>
     </message>
     <message id="send-less-than-fee">
         <source>The swap amount must be greater than the transaction fee</source>
@@ -1613,8 +1604,7 @@ Probeer het later opnieuw of maak zelf een aanbieding.</translation>
     </message>
     <message id="accept-own-offer-allert-body">
         <source>The swap token was generated by you, and therefore cannot be accepted.</source>
-        <translation>De transactietoken is door u gegenereerd. Het is niet toegestaan uw eigen aanbod te accepteren.
-Controleer de swaptoken en probeer het opnieuw.</translation>
+        <translation>De transactietoken is door u gegenereerd. Het is niet toegestaan uw eigen aanbod te accepteren.\nControleer de swaptoken en probeer het opnieuw.</translation>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
@@ -1719,8 +1709,7 @@ Controleer de swaptoken en probeer het opnieuw.</translation>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</source>
-        <translation>Het aanbod met deze transactietoken is al geaccepteerd.
-Controleer de swaptoken en probeer het opnieuw.</translation>
+        <translation>Het aanbod met deze transactietoken is al geaccepteerd.\nControleer de swaptoken en probeer het opnieuw.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
         <source>Оffer is already accepted</source>
@@ -1734,7 +1723,7 @@ Controleer de swaptoken en probeer het opnieuw.</translation>
         <source>Error</source>
         <translation>Fout</translation>
     </message>
-    <message id="swap-tx-failture-refunded">
+    <message id="swap-tx-failure-refunded">
         <source>Refunded</source>
         <translation>Teruggestort</translation>
     </message>
@@ -1764,8 +1753,7 @@ Controleer de swaptoken en probeer het opnieuw.</translation>
     </message>
     <message id="swap-seed-info-message">
         <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation>Uw herstelzin is de toegangssleutel tot alle tegoeden! Print de zin uit of schrijf deze op en bewaar de zin op een veilige plaats.
-Zonder de zin kunt u uw tegoeden niet herstellen.</translation>
+        <translation>Uw herstelzin is de toegangssleutel tot alle tegoeden! Print de zin uit of schrijf deze op en bewaar de zin op een veilige plaats.\nZonder de zin kunt u uw tegoeden niet herstellen.</translation>
     </message>
     <message id="settings-swap-seed-generate">
         <source>generate another seed phrase</source>
@@ -1850,7 +1838,7 @@ Zonder de zin kunt u uw tegoeden niet herstellen.</translation>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token</source>
         <oldsource>Your swap token:</oldsource>
-        <translation type="unfinished">Uw swap token:</translation>
+        <translation>Uw swap token</translation>
     </message>
     <message id="send-swap-confirmation-title">
         <source>Confirm atomic swap</source>
@@ -1858,6 +1846,8 @@ Zonder de zin kunt u uw tegoeden niet herstellen.</translation>
     </message>
     <message id="send-swap-sconfirmation-online-time">
         <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
+        <oldsource>Keep your wallet online. The swap normally takes about 1 hour
+to complete.</oldsource>
         <translation>Houd uw portemonnee online. Het duurt normaal gesproken ongeveer 1 uur om de swap te voltooien.</translation>
     </message>
     <message id="beam-transaction-fee">
@@ -1878,189 +1868,188 @@ Zonder de zin kunt u uw tegoeden niet herstellen.</translation>
     </message>
     <message id="swap-tx-state-initial">
         <source>If nobody accepts the offer in %1, the offer will be automatically canceled</source>
-        <oldsource>if nobody accepts the offer in %1, the offer will be automatically canceled</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Indien niemand de aanbieding binnen %1 accepteert wordt deze automatisch geannuleerd</translation>
     </message>
     <message id="swap-tx-state-in-progress-normal">
         <source>The swap is expected to complete in %1 at most.</source>
         <oldsource>The swap is expected to complete in %1 at most</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Naar verwachting wordt de swap in maximaal %1 voltooid.</translation>
     </message>
     <message id="swap-tx-state-in-progress-refunding">
         <source>Swap failed: the refund of your %2 will start in %1. The refund duration depends on the transaction fee you specified for %2.</source>
         <oldsource>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Swap mislukt: de terugbetaling van uw %2 begint in %1. De terugbetalingsduur is afhankelijk van de transactiekosten die u hebt opgegeven voor %2.</translation>
     </message>
     <message id="atomic-swap-tx-cancel">
         <source>Cancel atomic swap</source>
-        <translation type="unfinished"></translation>
+        <translation>Annuleer atomic swap</translation>
     </message>
     <message id="atomic-swap-tx-cancel-text">
         <source>Are you sure you want to cancel?</source>
         <oldsource>Are you sure you want to cancel atomic swap transaction?</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Weet u zeker dat u wilt annuleren?</translation>
     </message>
     <message id="atomic-swap-tx-yes-button">
         <source>yes</source>
-        <translation type="unfinished"></translation>
+        <translation>ja</translation>
     </message>
     <message id="atomic-swap-no-button">
         <source>no</source>
-        <translation type="unfinished"></translation>
+        <translation>nee</translation>
     </message>
     <message id="swap-tx-state-refunding">
         <source>Swap failed, the money is being released back to your wallet</source>
         <oldsource>Refunding</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Swap mislukt, het geld wordt teruggestuurd naar uw wallet</translation>
     </message>
     <message id="wallet-txs-status-waiting-peer">
         <source>waiting for counterparty</source>
         <oldsource>waiting for peer</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>wachten op tegenpartij</translation>
     </message>
     <message id="send-swap-fee-warning">
         <source> Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled.</source>
-        <translation type="unfinished"></translation>
+        <translation>Zodra de aanbieding door de andere partij is geaccepteerd worden de %1 transactiekosten in rekening gebracht, zelfs als de aanbieding wordt geannuleerd.</translation>
     </message>
     <message id="app-close-title">
         <source>Beam wallet close</source>
-        <translation type="unfinished"></translation>
+        <translation>Beam wallet dicht</translation>
     </message>
     <message id="app-close-text">
         <source>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</source>
-        <translation type="unfinished"></translation>
+        <translation>Er zijn %1 actieve transacties die mogelijk mislukken indien de wallet offline gaat. Weet u zeker dat u de wallet nu wilt sluiten?</translation>
     </message>
     <message id="wallet-export-tx-history">
         <source>Export transactions history</source>
         <extracomment>transactions history screen, export button tooltip and open file dialog</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Transactiegeschiedenis exporteren</translation>
     </message>
     <message id="atomic-swap-my-offers-tab">
         <source>My offers</source>
-        <translation type="unfinished"></translation>
+        <translation>Mijn aanbiedingen</translation>
     </message>
     <message id="addresses-delete-warning-title">
         <source>Delete address</source>
-        <translation type="unfinished">Adres verwijderen</translation>
+        <translation>Adres verwijderen</translation>
     </message>
     <message id="addresses-delete-warning-text">
         <source>There is active transaction that uses this address, therefore the address cannot be deleted.</source>
-        <translation type="unfinished"></translation>
+        <translation>Er is een actieve transactie die dit adres gebruikt. Het adres kan daarom niet worden verwijderd.</translation>
     </message>
     <message id="general-fee-total">
         <source>%1 Transaction fee (est)</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 Transactiekosten (est)</translation>
     </message>
     <message id="settings-fee-rate-note">
         <source>Remember to validate the expected fee rate for the blockchain (as it varies with time).</source>
-        <translation type="unfinished"></translation>
+        <translation>Vergeet niet de te verwachte fee voor de blockchain te valideren (dit varieert met de tijd).</translation>
     </message>
     <message id="addresses-edit-warning-title">
         <source>Edit address</source>
-        <translation type="unfinished">Adres bewerken</translation>
+        <translation>Adres bewerken</translation>
     </message>
     <message id="addresses-edit-warning-text">
         <source>There is active transaction that uses this address, therefore the address expiration cannot be changed.</source>
-        <translation type="unfinished"></translation>
+        <translation>Er is een actieve transactie die dit adres gebruikt. De verlooptijd van het adres kan daarom niet worden gewijzigd.</translation>
     </message>
     <message id="select-server-automatically">
         <source>Select server automatically</source>
-        <translation type="unfinished"></translation>
+        <translation>Selecteer server automatisch</translation>
     </message>
     <message id="settings-swap-seed-segwit-warning">
         <source>Segwit seed phrase is not supported yet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Segwit herstelzin wordt nog niet ondersteund.</translation>
     </message>
     <message id="settings-swap-seed-invali-warning">
         <source>Invalid seed phrase. Please check again and resubmit.</source>
-        <translation type="unfinished"></translation>
+        <translation>Ongeldige herstelzin. Controleer en voer de zin opnieuw in.</translation>
     </message>
     <message id="swap-details-tx-fee-estimated">
         <source>%1 Estimated transaction fee</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 Geschatte transactiekosten</translation>
     </message>
     <message id="wallet-receive-expires-15m">
         <source>15 minutes</source>
-        <translation type="unfinished">15 minuten</translation>
+        <translation>15 minuten</translation>
     </message>
     <message id="wallet-receive-expires-30m">
         <source>30 minutes</source>
-        <translation type="unfinished">30 minuten</translation>
+        <translation>30 minuten</translation>
     </message>
     <message id="wallet-receive-expires-1">
         <source>1 hour</source>
-        <translation type="unfinished">1 uur</translation>
+        <translation>1 uur</translation>
     </message>
     <message id="wallet-receive-expires-2">
         <source>2 hours</source>
-        <translation type="unfinished">6 uur {2 ?}</translation>
+        <translation>2 uur</translation>
     </message>
     <message id="accept-swap-token">
         <source>Your swap token</source>
-        <translation type="unfinished">Uw swap token:</translation>
+        <translation>Uw swap token</translation>
     </message>
     <message id="settings-show-owner-key-title">
         <source>Owner key</source>
         <extracomment>settings tab, show owner key dialog title</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Eigenaarssleutel</translation>
     </message>
     <message id="settings-show-owner-key-message">
         <source>Please notice, that knowing your owner key allows to
 know all your funds (UTXO). Make sure that you
 deploy the key at the node you trust completely.</source>
         <extracomment>settings tab, show owner key message</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Let op dat het kennen van uw eigenaarssleutel inzicht in al uw tegoeden (UTXO) geeft. Zorg ervoor dat u de sleutel op een node invoert die u volledig vertrouwt.</translation>
     </message>
     <message id="general-tab">
         <source>General</source>
-        <translation type="unfinished"></translation>
+        <translation>Algemeen</translation>
     </message>
     <message id="settings-remote-node-address">
         <source>Remote node address</source>
         <extracomment>settings tab, node section, address label</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Extern node adres</translation>
     </message>
     <message id="settings-general-require-pwd-to-show-owner-key">
         <source>Show owner key</source>
         <extracomment>settings tab, general section, Show owner key button and dialog title</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Toon eigenaarssleutel</translation>
     </message>
     <message id="settings-general-require-pwd-to-show-owner-key-message">
         <source>Password verification is required to see the owner key</source>
         <extracomment>settings tab, general section, ask password to Show owner key, message</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Wachtwoordverificatie is vereist om de eigenaarssleutel te bekijken</translation>
     </message>
     <message id="swap-tx-state-in-progress-negotiation">
         <source>If the other side will not sign the transaction in %1, the offer will be canceled automatically.</source>
-        <translation type="unfinished"></translation>
+        <translation>Indien de tegenpartij de transactie niet binnen %1 ondertekent wordt de aanbieding automatisch geannuleerd.</translation>
     </message>
     <message id="swap-invalid-credentials-error">
         <source>Invalid credentials</source>
-        <translation type="unfinished"></translation>
+        <translation>Ongeldige inloggegevens</translation>
     </message>
     <message id="swap-connection-error">
         <source>Cannot connect to node</source>
-        <translation type="unfinished">Kan geen verbinding maken met node</translation>
+        <translation>Kan geen verbinding maken met node</translation>
     </message>
     <message id="swap-invalid-genesis-block-error">
         <source>Invalid genesis block</source>
-        <translation type="unfinished"></translation>
+        <translation>Ongeldig genesis block</translation>
     </message>
     <message id="tx-state-initial-sender">
         <source>If the receiver won&apos;t get online in %1, the transaction will be canceled automatically</source>
-        <translation type="unfinished"></translation>
+        <translation>Indien de ontvanger niet binnen %1 online komt wordt de transactie automatisch geannuleerd</translation>
     </message>
     <message id="tx-state-initial-receiver">
         <source>If the sender won&apos;t get online in %1, the transaction will be canceled automatically</source>
-        <translation type="unfinished"></translation>
+        <translation>Indien de verzender niet binnen %1 online komt wordt de transactie automatisch geannuleerd</translation>
     </message>
     <message id="tx-state-in-progress-normal">
         <source>The transaction is usually expected to complete in a few minutes.</source>
-        <translation type="unfinished"></translation>
+        <translation>De transactie wordt gewoonlijk binnen enkele minuten voltooid.</translation>
     </message>
     <message id="tx-state-in-progress-long">
         <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
-        <translation type="unfinished"></translation>
+        <translation>Het duurt langer dan gebruikelijk. Als de transactie niet kan worden voltooid wordt deze automatisch geannuleerd in %1.</translation>
     </message>
 </context>
 </TS>

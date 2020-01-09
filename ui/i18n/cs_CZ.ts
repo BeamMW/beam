@@ -248,7 +248,7 @@
     </message>
     <message id="addresses-tab-expired">
         <source>My expired addresses</source>
-        <translation>Moje prošlé adresy</translation>
+        <translation>Mé již ukončené adresy</translation>
     </message>
     <message id="addresses-tab-contacts">
         <source>Contacts</source>
@@ -291,7 +291,7 @@
     </message>
     <message id="available-panel-maturing">
         <source>Maturing</source>
-        <translation>Vyzrávaní</translation>
+        <translation>Dokončování</translation>
     </message>
     <message id="available-panel-change">
         <source>Change</source>
@@ -308,9 +308,8 @@
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run integrated node</source>
-        <oldsource>Run local node</oldsource>
         <extracomment>settings tab, node section, run node label</extracomment>
-        <translation type="unfinished">Spustit místní uzel</translation>
+        <translation type="unfinished">Run integrated node</translation>
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
@@ -354,7 +353,7 @@
     </message>
     <message id="logo-description">
         <source>Scalable confidential cryptocurrency</source>
-        <translation>Škálovatelná anonymní kryptoměna</translation>
+        <translation>Anonymní škálovatelná kryptoměna</translation>
     </message>
     <message id="change-pwd-old-empty">
         <source>Please, enter old password</source>
@@ -685,7 +684,7 @@
     </message>
     <message id="start-node-integrated-radio">
         <source>Run integrated node (recommended)</source>
-        <translation>Spustit integrovaný uzel (doporučeno)</translation>
+        <translation>Spustit integrovaný přístupový bod Node (doporučeno)</translation>
     </message>
     <message id="start-node-port-label">
         <source>Enter port to listen</source>
@@ -725,7 +724,7 @@
     </message>
     <message id="appmodel-failed-start-node">
         <source>Failed to start node. Please check your node configuration</source>
-        <translation>Nepodařilo se spustit uzel. Zkontrolujte prosím konfiguraci uzlu</translation>
+        <translation>Nepodařilo se spustit přístupový bod Node. Zkontrolujte prosím konfiguraci přístupového bodu</translation>
     </message>
     <message id="wallet-model-node-protocol-error">
         <source>Node protocol error!</source>
@@ -749,7 +748,7 @@
     </message>
     <message id="wallet-model-connection-host-unreach-error">
         <source>Node is unreachable</source>
-        <translation>Uzel je nedostupný</translation>
+        <translation>Přístupový bod Node je nedostupný</translation>
     </message>
     <message id="wallet-model-connection-addr-in-use-error">
         <source>The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.</source>
@@ -773,8 +772,7 @@
     </message>
     <message id="loading-view-download-blocks">
         <source>Syncing with blockchain</source>
-        <oldsource>Synching with blockchain</oldsource>
-        <translation type="unfinished">Synchronizace s blockchainem</translation>
+        <translation>Synchronizace s blockchainem</translation>
     </message>
     <message id="loading-view-scaning-utxo">
         <source>Loading wallet data %d/%d</source>
@@ -804,59 +802,59 @@
         <source>Wallet is not connected to the node</source>
         <translation>Peněženka není připojena k uzlu</translation>
     </message>
-    <message id="tx-failture-undefined">
+    <message id="tx-failure-undefined">
         <source>Unexpected reason, please send wallet logs to Beam support</source>
         <translation>Neočekávaný důvod, prosím pošlete protokol na podporu Beam</translation>
     </message>
-    <message id="tx-failture-cancelled">
+    <message id="tx-failure-cancelled">
         <source>Transaction cancelled</source>
         <translation>Transakce byla zrušena</translation>
     </message>
-    <message id="tx-failture-receiver-signature-invalid">
+    <message id="tx-failure-receiver-signature-invalid">
         <source>Receiver signature in not valid, please send wallet logs to Beam support</source>
         <translation>Podpis příjemce není platný, prosím odešlete protokol na podporu Beam</translation>
     </message>
-    <message id="tx-failture-not-registered-in-blockchain">
+    <message id="tx-failure-not-registered-in-blockchain">
         <source>Failed to register transaction with the blockchain, see node logs for details</source>
         <translation>Nepodařilo se zaregistrovat transakci pomocí blockchainu, podrobnosti naleznete v protokolech uzlu</translation>
     </message>
-    <message id="tx-failture-not-valid">
+    <message id="tx-failure-not-valid">
         <source>Transaction is not valid, please send wallet logs to Beam support</source>
         <translation>Transakce není platná, prosím odešlete protokol na podporu Beam</translation>
     </message>
-    <message id="tx-failture-kernel-invalid">
+    <message id="tx-failure-kernel-invalid">
         <source>Invalid kernel proof provided</source>
         <translation>Poskytnuto neplatné ověření jádra</translation>
     </message>
-    <message id="tx-failture-parameters-not-sended">
+    <message id="tx-failure-parameters-not-sended">
         <source>Failed to send Transaction parameters</source>
         <translation>Nepodařilo se odeslat parametry transakce</translation>
     </message>
-    <message id="tx-failture-no-inputs">
+    <message id="tx-failure-no-inputs">
         <source>No inputs</source>
         <translation>Žádné vstupy</translation>
     </message>
-    <message id="tx-failture-addr-expired">
+    <message id="tx-failure-addr-expired">
         <source>Address is expired</source>
         <translation>Platnost adresy vypršela</translation>
     </message>
-    <message id="tx-failture-parameters-not-readed">
+    <message id="tx-failure-parameters-not-readed">
         <source>Failed to get transaction parameters</source>
         <translation>Nepodařilo se získat parametry transakce</translation>
     </message>
-    <message id="tx-failture-time-out">
+    <message id="tx-failure-time-out">
         <source>Transaction timed out</source>
         <translation>Vypršel časový limit transakce</translation>
     </message>
-    <message id="tx-failture-not-signed-by-receiver">
+    <message id="tx-failure-not-signed-by-receiver">
         <source>Payment not signed by the receiver, please send wallet logs to Beam support</source>
         <translation>Platba není podepsána příjemcem, prosím odešlete log podpoře Beam</translation>
     </message>
-    <message id="tx-failture-max-height-to-high">
+    <message id="tx-failure-max-height-to-high">
         <source>Kernel maximum height is too high</source>
         <translation>Maximální velikost jádra je příliš vysoká</translation>
     </message>
-    <message id="tx-failture-invalid-state">
+    <message id="tx-failure-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>Transakce má neplatný stav</translation>
     </message>
@@ -874,7 +872,7 @@
     </message>
     <message id="utxo-head-maturity">
         <source>Maturity</source>
-        <translation>Vyzrávaní</translation>
+        <translation>Dokončeno</translation>
     </message>
     <message id="utxo-head-type">
         <source>Type</source>
@@ -942,7 +940,7 @@
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
-        <translation>Nepodařilo se spustit integrovaný uzel: nastavení časového pásma vašeho počítače není synchronizované. Opravte jej a restartujte peněženku.</translation>
+        <translation>Nepodařilo se spustit integrovaný přístupový bod Node: nastavení časového pásma vašeho počítače není synchronizované. Opravte jej a restartujte peněženku.</translation>
     </message>
     <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
@@ -1024,7 +1022,7 @@
     <message id="settings-node-title">
         <source>Node</source>
         <extracomment>settings tab, node section, title</extracomment>
-        <translation>Uzel</translation>
+        <translation>přístupový bod Node</translation>
     </message>
     <message id="settings-general-allow-beammw-label">
         <source>Allow access to %1 and %2 (to fetch exchanges and transaction data)</source>
@@ -1140,7 +1138,7 @@
         <source>Don&apos;t ask password on every Send</source>
         <oldsource>Don’t ask password on every Send</oldsource>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
-        <translation type="unfinished">Neptat se na heslo při každém odeslání</translation>
+        <translation>Neptat se na heslo při každém odeslání</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
         <source>Password verification is required to change that setting</source>
@@ -1163,49 +1161,49 @@
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
         <translation>Nepoužívejte stejná klíčová slova na několika zařízeních, váš zůstatek a seznam transakcí nebude synchronizován.</translation>
     </message>
-    <message id="tx-failture-subtx-failed">
+    <message id="tx-failure-subtx-failed">
         <source>Subtransaction has failed</source>
         <translation>Podtransakce se nezdařila</translation>
     </message>
-    <message id="tx-failture-invalid-contract-amount">
+    <message id="tx-failure-invalid-contract-amount">
         <source>Contract&apos;s amount is not valid</source>
         <translation>Smluvená částka není platná</translation>
     </message>
-    <message id="tx-failture-invalid-sidechain-contract">
+    <message id="tx-failure-invalid-sidechain-contract">
         <source>Side chain has invalid contract</source>
         <translation>Vedlejší řetězec je neplatný</translation>
     </message>
-    <message id="tx-failture-sidechain-internal-error">
+    <message id="tx-failure-sidechain-internal-error">
         <source>Side chain bridge has internal error</source>
         <translation>Můstek vedlejšího řetězce obsahuje vnitřní chybu</translation>
     </message>
-    <message id="tx-failture-sidechain-network-error">
+    <message id="tx-failure-sidechain-network-error">
         <source>Side chain bridge has network error</source>
         <translation>Můstek vedlejšího řetězce nelze připojit</translation>
     </message>
-    <message id="tx-failture-invalid-sidechain-response-format">
+    <message id="tx-failure-invalid-sidechain-response-format">
         <source>Side chain bridge has response format error</source>
         <translation>Můstek vedlejšího řetězce má chybný formát odpovědi</translation>
     </message>
-    <message id="tx-failture-invalid-side-chain-credentials">
+    <message id="tx-failure-invalid-side-chain-credentials">
         <source>Invalid credentials of Side chain</source>
         <translation>Neplatné přihlašovací údaje pro vedlejší řetězec</translation>
     </message>
-    <message id="tx-failture-not-enough-time-btc-lock">
+    <message id="tx-failure-not-enough-time-btc-lock">
         <source>Not enough time to finish btc lock transaction</source>
         <translation>Není dost času na dokončení uzamčené transakce Btc</translation>
     </message>
-    <message id="tx-failture-create-multisig">
+    <message id="tx-failure-create-multisig">
         <source>Failed to create multi-signature</source>
         <translation>Nepodařilo se vytvořit vícenásobný podpis</translation>
     </message>
-    <message id="tx-failture-fee-too-small">
+    <message id="tx-failure-fee-too-small">
         <source>Fee is too small</source>
         <translation>Poplatek je příliš malý</translation>
     </message>
     <message id="loading-view-estimate-minutes">
         <source>min</source>
-        <translation>minut</translation>
+        <translation>min</translation>
     </message>
     <message id="loading-view-estimate-seconds">
         <source>sec</source>
@@ -1229,7 +1227,7 @@
     </message>
     <message id="general-swap">
         <source>Swap</source>
-        <translation>Vyměnit</translation>
+        <translation>Změnit</translation>
     </message>
     <message id="settings-reset">
         <source>Clear</source>
@@ -1376,12 +1374,12 @@ prosím zkontrolujte nastavení a zkuste to znovu.</translation>
     </message>
     <message id="loading-view-estimate-hours">
         <source>h</source>
-        <translation type="unfinished">h</translation>
+        <translation>hod.</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer than usual. Please, check your network.</source>
         <oldsource>It may take longer then usual. Please, check your network.</oldsource>
-        <translation type="unfinished">Trvá to déle než obvykle. Zkontrolujte prosím síť.</translation>
+        <translation>Trvá to déle než obvykle. Zkontrolujte prosím síť.</translation>
     </message>
     <message id="atomic-swap-title">
         <source>Atomic Swaps</source>
@@ -1441,7 +1439,7 @@ prosím zkontrolujte nastavení a zkuste to znovu.</translation>
     </message>
     <message id="atomic-swap-in-progress-transactions-tab">
         <source>In progress</source>
-        <translation>Probíhá</translation>
+        <translation>Probíhající</translation>
     </message>
     <message id="atomic-swap-tx-table-created">
         <source>Created on</source>
@@ -1525,7 +1523,7 @@ prosím zkontrolujte nastavení a zkuste to znovu.</translation>
     </message>
     <message id="wallet-transactions-in-progress-tab">
         <source>In progress</source>
-        <translation>Probíhá</translation>
+        <translation>Probíhající</translation>
     </message>
     <message id="wallet-transactions-sent-tab">
         <source>Sent</source>
@@ -1551,7 +1549,7 @@ Please try again later or create an offer yourself.</source>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>
-        <translation>probíhá</translation>
+        <translation>probíhající</translation>
     </message>
     <message id="wallet-txs-status-own-sent">
         <source>sent to own address</source>
@@ -1567,7 +1565,7 @@ Please try again later or create an offer yourself.</source>
     </message>
     <message id="settings-swap-node">
         <source>Node</source>
-        <translation>Uzel</translation>
+        <translation>přístupový bod Node</translation>
     </message>
     <message id="wallet-clear-search">
         <source>Clear search</source>
@@ -1687,15 +1685,15 @@ Please try again later or create an offer yourself.</source>
     </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
-        <translation>Bitcoin uzel</translation>
+        <translation>Bitcoinový přístupový bod Node</translation>
     </message>
     <message id="settings-swap-litecoin-node">
         <source>Litecoin node</source>
-        <translation>Litecoin uzel</translation>
+        <translation>Litecoinový přístupový bod Node</translation>
     </message>
     <message id="settings-swap-qtum-node">
         <source>Qtum node</source>
-        <translation>Qtum uzel</translation>
+        <translation>Qtumový přístupový bod Node</translation>
     </message>
     <message id="settings-swap-bitcoin-electrum">
         <source>Bitcoin electrum</source>
@@ -1726,7 +1724,7 @@ Please check the swap token and try again.</source>
         <source>Error</source>
         <translation>Chyba</translation>
     </message>
-    <message id="swap-tx-failture-refunded">
+    <message id="swap-tx-failure-refunded">
         <source>Refunded</source>
         <translation>Vráceno</translation>
     </message>
@@ -1841,7 +1839,7 @@ Please check the swap token and try again.</source>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token</source>
         <oldsource>Your swap token:</oldsource>
-        <translation type="unfinished">Váš swap token:</translation>
+        <translation type="unfinished">Your swap token</translation>
     </message>
     <message id="send-swap-confirmation-title">
         <source>Confirm atomic swap</source>
@@ -1849,6 +1847,8 @@ Please check the swap token and try again.</source>
     </message>
     <message id="send-swap-sconfirmation-online-time">
         <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
+        <oldsource>Keep your wallet online. The swap normally takes about 1 hour
+to complete.</oldsource>
         <translation>Nechte Vaši peněženku online. Výměna měn obvykle trvá asi 1 hodinu.</translation>
     </message>
     <message id="beam-transaction-fee">
@@ -1869,189 +1869,189 @@ Please check the swap token and try again.</source>
     </message>
     <message id="swap-tx-state-initial">
         <source>If nobody accepts the offer in %1, the offer will be automatically canceled</source>
-        <oldsource>if nobody accepts the offer in %1, the offer will be automatically canceled</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Jestliže nikdo nepřijme nabídku v %1, bude automaticky zrušena</translation>
     </message>
     <message id="swap-tx-state-in-progress-normal">
         <source>The swap is expected to complete in %1 at most.</source>
         <oldsource>The swap is expected to complete in %1 at most</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Předpokládá se, že výměna bude dokončena maximálně za %1.</translation>
     </message>
     <message id="swap-tx-state-in-progress-refunding">
         <source>Swap failed: the refund of your %2 will start in %1. The refund duration depends on the transaction fee you specified for %2.</source>
         <oldsource>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</oldsource>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Swap failed: the refund of your %2 will start in %1. The refund duration depends on the transaction fee you specified for %2.</translation>
     </message>
     <message id="atomic-swap-tx-cancel">
         <source>Cancel atomic swap</source>
-        <translation type="unfinished"></translation>
+        <translation>Zrušit okamžitý převod měn</translation>
     </message>
     <message id="atomic-swap-tx-cancel-text">
         <source>Are you sure you want to cancel?</source>
         <oldsource>Are you sure you want to cancel atomic swap transaction?</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Opravdu chcete zrušit?</translation>
     </message>
     <message id="atomic-swap-tx-yes-button">
         <source>yes</source>
-        <translation type="unfinished"></translation>
+        <translation>ano</translation>
     </message>
     <message id="atomic-swap-no-button">
         <source>no</source>
-        <translation type="unfinished"></translation>
+        <translation>ne</translation>
     </message>
     <message id="swap-tx-state-refunding">
         <source>Swap failed, the money is being released back to your wallet</source>
         <oldsource>Refunding</oldsource>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Swap failed, the money is being released back to your wallet</translation>
     </message>
     <message id="wallet-txs-status-waiting-peer">
         <source>waiting for counterparty</source>
         <oldsource>waiting for peer</oldsource>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">waiting for counterparty</translation>
     </message>
     <message id="send-swap-fee-warning">
         <source> Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled.</source>
-        <translation type="unfinished"></translation>
+        <translation> Jakmile bude nabídka přijata druhou stranou, bude poplatek za transakci %1 účtován i v případě, že bude nabídka zrušena.</translation>
     </message>
     <message id="app-close-title">
         <source>Beam wallet close</source>
-        <translation type="unfinished"></translation>
+        <translation>Zavřít peněženku</translation>
     </message>
     <message id="app-close-text">
         <source>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</source>
-        <translation type="unfinished"></translation>
+        <translation>Existuje %1 aktivních transakcí, které nemusí proběhnout, pokud bude peněženka odpojena. Opravdu nyní chcete zavřít peněženku?</translation>
     </message>
     <message id="wallet-export-tx-history">
         <source>Export transactions history</source>
         <extracomment>transactions history screen, export button tooltip and open file dialog</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Exportovat historii transakcí</translation>
     </message>
     <message id="atomic-swap-my-offers-tab">
         <source>My offers</source>
-        <translation type="unfinished"></translation>
+        <translation>Moje nabídky</translation>
     </message>
     <message id="addresses-delete-warning-title">
         <source>Delete address</source>
-        <translation type="unfinished">Odstranit adresu</translation>
+        <translation>Odstranit adresu</translation>
     </message>
     <message id="addresses-delete-warning-text">
         <source>There is active transaction that uses this address, therefore the address cannot be deleted.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">There is active transaction that uses this address, therefore the address cannot be deleted.</translation>
     </message>
     <message id="general-fee-total">
         <source>%1 Transaction fee (est)</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">%1 Transaction fee (est)</translation>
     </message>
     <message id="settings-fee-rate-note">
         <source>Remember to validate the expected fee rate for the blockchain (as it varies with time).</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Remember to validate the expected fee rate for the blockchain (as it varies with time).</translation>
     </message>
     <message id="addresses-edit-warning-title">
         <source>Edit address</source>
-        <translation type="unfinished">Upravit adresu</translation>
+        <translation>Upravit adresu</translation>
     </message>
     <message id="addresses-edit-warning-text">
         <source>There is active transaction that uses this address, therefore the address expiration cannot be changed.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">There is active transaction that uses this address, therefore the address expiration cannot be changed.</translation>
     </message>
     <message id="select-server-automatically">
         <source>Select server automatically</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Select server automatically</translation>
     </message>
     <message id="settings-swap-seed-segwit-warning">
         <source>Segwit seed phrase is not supported yet.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Segwit seed phrase is not supported yet.</translation>
     </message>
     <message id="settings-swap-seed-invali-warning">
         <source>Invalid seed phrase. Please check again and resubmit.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Invalid seed phrase. Please check again and resubmit.</translation>
     </message>
     <message id="swap-details-tx-fee-estimated">
         <source>%1 Estimated transaction fee</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">%1 Estimated transaction fee</translation>
     </message>
     <message id="wallet-receive-expires-15m">
         <source>15 minutes</source>
-        <translation type="unfinished">15 minut</translation>
+        <translation>15 minut</translation>
     </message>
     <message id="wallet-receive-expires-30m">
         <source>30 minutes</source>
-        <translation type="unfinished">30 minut</translation>
+        <translation>30 minut</translation>
     </message>
     <message id="wallet-receive-expires-1">
         <source>1 hour</source>
-        <translation type="unfinished">1 hodina</translation>
+        <translation>1 hodina</translation>
     </message>
     <message id="wallet-receive-expires-2">
         <source>2 hours</source>
-        <translation type="unfinished">6 hodin {2 ?}</translation>
+        <translation>2 hodiny</translation>
     </message>
     <message id="accept-swap-token">
         <source>Your swap token</source>
-        <translation type="unfinished">Váš swap token:</translation>
+        <translation type="unfinished">Your swap token</translation>
     </message>
     <message id="settings-show-owner-key-title">
         <source>Owner key</source>
         <extracomment>settings tab, show owner key dialog title</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Privátní klíč</translation>
     </message>
     <message id="settings-show-owner-key-message">
         <source>Please notice, that knowing your owner key allows to
 know all your funds (UTXO). Make sure that you
 deploy the key at the node you trust completely.</source>
         <extracomment>settings tab, show owner key message</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Upozorňujeme, že znalost vašeho vlastnického klíče umožňuje
+znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč v uzlu Node, kterému důvěřujete.</translation>
     </message>
     <message id="general-tab">
         <source>General</source>
-        <translation type="unfinished"></translation>
+        <translation>Obecné</translation>
     </message>
     <message id="settings-remote-node-address">
         <source>Remote node address</source>
         <extracomment>settings tab, node section, address label</extracomment>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Remote node address</translation>
     </message>
     <message id="settings-general-require-pwd-to-show-owner-key">
         <source>Show owner key</source>
         <extracomment>settings tab, general section, Show owner key button and dialog title</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Zobrazit privátní klíč</translation>
     </message>
     <message id="settings-general-require-pwd-to-show-owner-key-message">
         <source>Password verification is required to see the owner key</source>
         <extracomment>settings tab, general section, ask password to Show owner key, message</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Pro zobrazení vlastnického klíče je vyžadováno ověření hesla</translation>
     </message>
     <message id="swap-tx-state-in-progress-negotiation">
         <source>If the other side will not sign the transaction in %1, the offer will be canceled automatically.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">If the other side will not sign the transaction in %1, the offer will be canceled automatically.</translation>
     </message>
     <message id="swap-invalid-credentials-error">
         <source>Invalid credentials</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Invalid credentials</translation>
     </message>
     <message id="swap-connection-error">
         <source>Cannot connect to node</source>
-        <translation type="unfinished">Nelze se připojit k uzlu</translation>
+        <translation>Nelze se připojit k uzlu</translation>
     </message>
     <message id="swap-invalid-genesis-block-error">
         <source>Invalid genesis block</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Invalid genesis block</translation>
     </message>
     <message id="tx-state-initial-sender">
         <source>If the receiver won&apos;t get online in %1, the transaction will be canceled automatically</source>
-        <translation type="unfinished"></translation>
+        <translation>Pokud příjemce vyhrál&apos;t v %1, transakce bude automaticky zrušena</translation>
     </message>
     <message id="tx-state-initial-receiver">
         <source>If the sender won&apos;t get online in %1, the transaction will be canceled automatically</source>
-        <translation type="unfinished"></translation>
+        <translation>Pokud odesílatel vyhrál:&apos;t je online v %1, transakce bude automaticky zrušena</translation>
     </message>
     <message id="tx-state-in-progress-normal">
         <source>The transaction is usually expected to complete in a few minutes.</source>
-        <translation type="unfinished"></translation>
+        <translation>Očekává se, že transakce bude dokončena během několika minut.</translation>
     </message>
     <message id="tx-state-in-progress-long">
         <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
-        <translation type="unfinished"></translation>
+        <translation>Trvá to déle než obvykle. V případě, že transakce nebude možné dokončit, bude automaticky zrušena za %1.</translation>
     </message>
 </context>
 </TS>
