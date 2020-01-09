@@ -29,7 +29,7 @@ namespace beam::wallet
 
     const std::set<BbsChannel> Newscast::m_channels =
     {
-        proto::Bbs::s_MaxChannels + BbsChannelsOffset,
+        BbsChannelsOffset,
     };
 
     void Newscast::OnMsg(proto::BbsMsg &&msg)

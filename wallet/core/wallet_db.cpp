@@ -3306,7 +3306,7 @@ namespace beam::wallet
             // derive the channel from the address
             BbsChannel ch;
             walletID.m_Pk.ExportWord<0>(ch);
-            ch %= proto::Bbs::s_MaxChannels;
+            ch %= proto::Bbs::s_MaxWalletChannels;
 
             walletID.m_Channel = ch;
 

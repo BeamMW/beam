@@ -44,7 +44,7 @@ namespace beam::wallet
 
             // Create message header according to protocol
             size_t msgBodySize = contentRaw.size() + signatureRaw.size();
-            assert(msgBodySize <= UINT32_MAX);
+            assert(msgBodySize + MsgHeader::SIZE <= Bbs::s_MaxMsgSize);
             MsgHeader header(0, 0, m_protocolVersion, m_msgType, static_cast<uint32_t>(msgBodySize));
 
             // Combine all to final message

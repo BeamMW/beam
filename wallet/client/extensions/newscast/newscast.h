@@ -43,7 +43,7 @@ namespace beam::wallet
         void Subscribe(INewsObserver* observer);
         void Unsubscribe(INewsObserver* observer);
 
-        static constexpr BbsChannel BbsChannelsOffset = 1024u;
+        static constexpr BbsChannel BbsChannelsOffset = Bbs::s_MaxWalletChannels + 1024u;
 
     private:
 		FlyClient::INetwork& m_network;                     /// source of incoming BBS messages

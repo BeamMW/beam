@@ -38,9 +38,9 @@ namespace beam::wallet
 
     const std::map<AtomicSwapCoin, BbsChannel> SwapOffersBoard::m_channelsMap =
     {
-        {AtomicSwapCoin::Bitcoin, proto::Bbs::s_MaxChannels},
-        {AtomicSwapCoin::Litecoin, proto::Bbs::s_MaxChannels + 1},
-        {AtomicSwapCoin::Qtum, proto::Bbs::s_MaxChannels + 2}
+        {AtomicSwapCoin::Bitcoin, proto::Bbs::s_MaxWalletChannels},
+        {AtomicSwapCoin::Litecoin, proto::Bbs::s_MaxWalletChannels + 1},
+        {AtomicSwapCoin::Qtum, proto::Bbs::s_MaxWalletChannels + 2}
     };
 
     void SwapOffersBoard::OnMsg(proto::BbsMsg &&msg)
