@@ -139,7 +139,8 @@ namespace
      */
     ByteBuffer signData(const ByteBuffer& data, uint64_t keyIndex, IWalletDB::Ptr walletDB)
     {
-        const auto& [pk, sk] = deriveKeypair(walletDB, keyIndex);
+        PrivateKey sk;
+        std::tie(std::ignore, sk) = deriveKeypair(walletDB, keyIndex);
         SwapOfferConfirmation signHandler;
         signHandler.m_offerData = data;
         signHandler.Sign(sk);
@@ -307,7 +308,8 @@ namespace
         {
             std::cout << "Case: parsing own created message" << endl;
 
-            const auto& [offer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
+            SwapOffer offer;
+            std::tie(offer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);
 
             boost::optional<ByteBuffer> msg;
             WALLET_CHECK_NO_THROW(msg = protocolHandler.createMessage(offer, offer.m_publisherId));
@@ -335,7 +337,8 @@ namespace
 
         WALLET_CHECK(Alice.getOffersList().size() == 0);
 
-        const auto [correctOffer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
+        SwapOffer correctOffer;
+        std::tie(correctOffer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);
         TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
         
         size_t offersCount = 0;
@@ -408,7 +411,8 @@ namespace
         WALLET_CHECK(Bob.getOffersList().size() == 0);
         WALLET_CHECK(Cory.getOffersList().size() == 0);
 
-        const auto [correctOffer, keyIndex] =  generateTestOffer(senderWalletDB, keyKeeper);
+        SwapOffer correctOffer;
+        std::tie(correctOffer, std::ignore) =  generateTestOffer(senderWalletDB, keyKeeper);
         TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
         
         size_t offersCount = 0;
@@ -552,7 +556,8 @@ namespace
         SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
         SwapOffersBoard Bob(mockNetwork, mockNetwork, protocolHandler);
 
-        const auto [correctOffer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
+        SwapOffer correctOffer;
+        std::tie(correctOffer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);
         TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
 
         size_t offerCount = 0;
@@ -689,7 +694,8 @@ namespace
         SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
         SwapOffersBoard Bob(mockNetwork, mockNetwork, protocolHandler);
 
-        const auto [correctOffer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
+        SwapOffer correctOffer;
+        std::tie(correctOffer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);
 
         uint32_t exCount = 0;
         MockBoardObserver observer(
