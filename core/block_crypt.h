@@ -760,13 +760,6 @@ namespace beam
 					Merkle::Hash	m_Definition;
 					Timestamp		m_TimeStamp;
 					PoW				m_PoW;
-
-					// The following not only interprets the proof, but also verifies the knwon part of its structure.
-					bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
-					bool IsValidProofShieldedTxo(const ShieldedTxo::Description&, const Merkle::HardProof&, TxoID nTotal) const;
-
-				private:
-					bool IsValidProofToDefinition(Merkle::Hash&, const Merkle::Proof&) const;
 				};
 			};
 
@@ -794,6 +787,9 @@ namespace beam
 				bool IsValidProofKernel(const TxKernel&, const TxKernel::LongProof&) const;
 				bool IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof&) const;
 
+				bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
+				bool IsValidProofShieldedTxo(const ShieldedTxo::Description&, const Merkle::HardProof&, TxoID nTotal) const;
+
 				int cmp(const Full&) const;
 				COMPARISON_VIA_CMP
 
@@ -801,6 +797,9 @@ namespace beam
 
 			private:
 				void get_HashInternal(Merkle::Hash&, bool bTotal) const;
+
+				struct ProofVerifier;
+				struct ProofVerifierHard;
 			};
 
 			struct IHistory

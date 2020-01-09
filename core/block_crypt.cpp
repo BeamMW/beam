@@ -1634,9 +1634,7 @@ namespace beam
 	void Block::SystemState::Evaluator::GenerateProof()
 	{
 		Merkle::Hash hvDummy;
-		bool b = get_Definition(hvDummy);
-
-		assert(!b || m_Failed);
+		get_Definition(hvDummy);
 	}
 
 	bool Block::SystemState::Evaluator::get_Live(Merkle::Hash& hv)
@@ -1665,24 +1663,6 @@ namespace beam
 		return OnNotImpl();
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofToDefinition(Merkle::Hash& hv, const Merkle::Proof& p) const
-	{
-		Merkle::Interpret(hv, p);
-		return hv == m_Definition;
-	}
-
-	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
-	{
-		// verify known part. Last node (history) should be at left
-		if (p.m_Proof.empty() || p.m_Proof.back().first)
-			return false;
-
-		Merkle::Hash hv;
-		p.m_State.get_ID(hv, comm);
-
-		return IsValidProofToDefinition(hv, p.m_Proof);
-	}
-
 	void ShieldedTxo::Description::get_Hash(Merkle::Hash& hv) const
 	{
 		ECC::Hash::Processor()
@@ -1693,17 +1673,115 @@ namespace beam
 			>> hv;
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofShieldedTxo(const ShieldedTxo::Description& d, const Merkle::HardProof& p, TxoID nTotal) const
+	struct Block::SystemState::Full::ProofVerifierHard
+		:public Merkle::HardVerifier
+		,public Evaluator
 	{
-		Merkle::HardVerifier hver(p);
-		d.get_Hash(hver.m_hv);
+		using HardVerifier::HardVerifier;
 
-		return
-			hver.InterpretMmr(d.m_ID, nTotal) &&
-			hver.InterpretOnce(false) &&
-			hver.InterpretOnce(false) &&
-			hver.IsEnd() &&
-			(hver.m_hv == m_Definition);
+		bool Verify(const Full& s, uint64_t iIdx, uint64_t nCount)
+		{
+			if (!InterpretMmr(iIdx, nCount))
+				return false;
+
+			m_Height = s.m_Height;
+			m_Verifier = true;
+
+			GenerateProof();
+
+			return
+				IsEnd() &&
+				(m_hv == s.m_Definition);
+		}
+
+		virtual void OnProof(Merkle::Hash&, bool bOnRight) override
+		{
+			InterpretOnce(!bOnRight);
+		}
+	};
+
+	struct Block::SystemState::Full::ProofVerifier
+		:public Evaluator
+	{
+		size_t m_Hashes = 0;
+		const Merkle::Node* m_pNode = nullptr;
+
+		bool VerifyKnownPartOrder(const Full& s, const Merkle::Proof& proof)
+		{
+			// deduce and verify the hashing direction of the last part
+			m_Height = s.m_Height;
+			m_Verifier = true;
+
+			// Phase 1: count known elements
+			GenerateProof();
+
+			if (m_Hashes > proof.size())
+				return false;
+			if (!m_Hashes)
+				return true; // nothing to check
+
+			// Phase 2: verify order
+			m_pNode = &proof.back() - (m_Hashes - 1);
+
+			GenerateProof();
+			return !m_Failed;
+		}
+
+		bool Verify(const Full& s, Merkle::Hash& hv, const Merkle::Proof& proof)
+		{
+			if (!VerifyKnownPartOrder(s, proof))
+				return false;
+
+			Merkle::Interpret(hv, proof);
+			return hv == s.m_Definition;
+		}
+
+		virtual void OnProof(Merkle::Hash&, bool bOnRight) override
+		{
+			if (m_pNode)
+			{
+				if (m_pNode->first == bOnRight)
+					m_Failed = true;
+
+				m_pNode++;
+			}
+			else
+				m_Hashes++;
+		}
+	};
+
+	bool Block::SystemState::Full::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
+	{
+		struct MyVerifier
+			:public ProofVerifier
+		{
+			virtual bool get_Utxos(Merkle::Hash&) override {
+				return true;
+			}
+		} v;
+
+		Merkle::Hash hv;
+		p.m_State.get_ID(hv, comm);
+
+		return v.Verify(*this, hv, p.m_Proof);
+	}
+
+	bool Block::SystemState::Full::IsValidProofShieldedTxo(const ShieldedTxo::Description& d, const Merkle::HardProof& p, TxoID nTotal) const
+	{
+		struct MyVerifier
+			:public ProofVerifierHard
+		{
+			using ProofVerifierHard::ProofVerifierHard;
+
+			virtual bool get_Shielded(Merkle::Hash& hv) override {
+				hv = m_hv;
+				return true;
+			}
+		};
+
+		MyVerifier hver(p);
+		d.get_Hash(hver.m_hv);
+		return hver.Verify(*this, d.m_ID, nTotal);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const
@@ -1737,14 +1815,20 @@ namespace beam
 		if ((id.m_Height < Rules::HeightGenesis) || (id.m_Height >= m_Height))
 			return false;
 
-		Merkle::HardVerifier hver(proof);
-		hver.m_hv = id.m_Hash;
+		struct MyVerifier
+			:public ProofVerifierHard
+		{
+			using ProofVerifierHard::ProofVerifierHard;
 
-		return
-			hver.InterpretMmr(id.m_Height - Rules::HeightGenesis, m_Height - Rules::HeightGenesis) &&
-			hver.InterpretOnce(true) &&
-			hver.IsEnd() &&
-			(hver.m_hv == m_Definition);
+			virtual bool get_History(Merkle::Hash& hv) override {
+				hv = m_hv;
+				return true;
+			}
+		};
+
+		MyVerifier hver(proof);
+		hver.m_hv = id.m_Hash;
+		return hver.Verify(*this, id.m_Height - Rules::HeightGenesis, m_Height - Rules::HeightGenesis);
 	}
 
 	void Block::BodyBase::ZeroInit()

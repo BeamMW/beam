@@ -361,7 +361,9 @@ namespace beam
 
 		SystemState::Full& s = wlk.m_Tip; // alias
 
-		struct MyVerifier :public Merkle::MultiProof::Verifier
+		struct MyVerifier
+			:public Merkle::MultiProof::Verifier
+			,public SystemState::Evaluator
 		{
 			const ChainWorkProof& m_This;
 			Merkle::Hash m_hvRootDefinition;
@@ -370,16 +372,33 @@ namespace beam
 				,m_This(x)
 			{}
 
+			const Merkle::Hash* m_pHist;
+
+			virtual bool get_History(Merkle::Hash& hv) override {
+				hv = *m_pHist;
+				return true;
+			}
+			virtual bool get_Live(Merkle::Hash& hv) override {
+				hv = m_This.m_hvRootLive;
+				return true;
+			}
+
+
 			virtual bool IsRootValid(const Merkle::Hash& hv)
 			{
+				// Use the standard Evaluator.
+				m_pHist = &hv;
 				Merkle::Hash hvDef;
-				Merkle::Interpret(hvDef, hv, m_This.m_hvRootLive);
-				return hvDef == m_hvRootDefinition;
+				return
+					get_Definition(hvDef) &&
+					!m_Failed &&
+					(hvDef == m_hvRootDefinition);
 			}
 		};
 
 		MyVerifier ver(*this, s.m_Height - Rules::HeightGenesis);
 		ver.m_hvRootDefinition = s.m_Definition;
+		ver.m_Height = s.m_Height;
 
 		Sampler samp(s, lowerBound);
 		if (samp.m_Begin >= samp.m_End) // overflow attack?
