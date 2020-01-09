@@ -183,7 +183,7 @@ namespace
 
         // generate key pairs for test
         std::array<std::pair<PublicKey,PrivateKey>,10> keyPairsArray;
-        for (int i = 0; i < keyPairsArray.size(); ++i)
+        for (size_t i = 0; i < keyPairsArray.size(); ++i)
         {
             const auto [pk, sk] = deriveKeypair(senderWalletDB, i);
             keyPairsArray[i] = std::make_pair(pk, sk);
@@ -209,7 +209,7 @@ namespace
         // prepare messages and publisher keys
         std::array<ByteBuffer, keyPairsArray.size()> messages;  // messages for test
         std::vector<PublicKey> publisherKeys;   // keys to load in NewsEndpoint
-        for (int i = 0; i < keyPairsArray.size(); ++i)
+        for (size_t i = 0; i < keyPairsArray.size(); ++i)
         {
             const auto [to_load, to_sign] = keyDistributionTable[i];
             const auto& [pubKey, privKey] = keyPairsArray[i];
@@ -228,7 +228,7 @@ namespace
         WALLET_CHECK_NO_THROW(parser.setPublisherKeys(publisherKeys));
 
         // Push messages and check parser result
-        for (int i = 0; i < messages.size(); ++i)
+        for (size_t i = 0; i < messages.size(); ++i)
         {
             const ByteBuffer& data = messages[i];
             boost::optional<NewsMessage> res;
@@ -349,8 +349,9 @@ namespace
         ByteBuffer data = makeMsg(msgRaw, signatureRaw);
 
         {
-            const auto& [pk2, sk2] = deriveKeypair(senderWalletDB, 789);    // just for amount
-            const auto& [pk3, sk3] = deriveKeypair(senderWalletDB, 456);
+            PublicKey pk2, pk3;
+            std::tie(pk2, std::ignore) = deriveKeypair(senderWalletDB, 789);    // just for amount
+            std::tie(pk3, std::ignore) = deriveKeypair(senderWalletDB, 456);
             parser.setPublisherKeys({pk, pk2, pk3});
         }
 
@@ -375,7 +376,8 @@ namespace
         {
             cout << "Case: subscribed on invalid message" << endl;
             // sign the same message with other key
-            const auto& [newPk, newSignatureRaw] = signData(msgRaw, 322, senderWalletDB);
+            ByteBuffer newSignatureRaw;
+            std::tie(std::ignore, newSignatureRaw) = signData(msgRaw, 322, senderWalletDB);
             data = makeMsg(msgRaw, newSignatureRaw);
 
             network.SendRawMessage(channel, data);
