@@ -671,5 +671,43 @@ bool HardVerifier::InterpretMmr(uint64_t iIdx, uint64_t nCount)
 	return mmr.InterpretPath(iIdx);
 }
 
+/////////////////////////////
+// IEvaluator
+bool IEveluator::Interpret(Hash& hv, const Hash& hvL, bool bL, const Hash& hvR, bool bR)
+{
+	if (m_Failed)
+		return false;
+
+	if (bL)
+	{
+		if (bR)
+		{
+			if (!m_DontHash)
+				Merkle::Interpret(hv, hvL, hvR);
+			return true;
+		}
+
+		OnProof(hvL, false);
+	}
+	else
+	{
+		if (bR)
+			OnProof(hvR, true);
+	}
+
+	return false;
+}
+
+void IEveluator::OnProof(const Merkle::Hash&, bool)
+{
+}
+
+bool IEveluator::OnNotImpl()
+{
+	if (!m_DontHash)
+		m_Failed = true;
+	return true;
+}
+
 } // namespace Merkle
 } // namespace beam

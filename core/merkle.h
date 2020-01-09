@@ -265,5 +265,22 @@ namespace Merkle {
 		};
 	};
 
+	// Helper class for arbitrary (custom) tree
+	// Can be used to get the root hash, build a proof, and verification (deduce number of nodes and their direction)
+	struct IEveluator
+	{
+		bool m_DontHash = false; // verification mode
+		bool m_Failed = false;
+
+		// each of the node evaluating functions returns true if the resulting hash is valid (if it's not - this doesnt' necessarily means an error, this may be  proof build/verification instead)
+		// For children it should call Interpret()
+
+	protected:
+		bool Interpret(Hash& hv, const Hash& hvL, bool bL, const Hash& hvR, bool bR);
+		virtual void OnProof(const Hash&, bool);
+
+		bool OnNotImpl();
+	};
+
 } // namespace Merkle
 } // namespace beam
