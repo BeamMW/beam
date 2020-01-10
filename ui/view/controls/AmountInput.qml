@@ -150,7 +150,10 @@ ColumnLayout {
             visible:             control.showAddAll
 
             function addAll(){
-                control.amount = maxAvailable;
+                if (parseFloat(maxAvailable)) {
+                    ainput.focus = true;
+                    ainput.text = maxAvailable;
+                }
             }
 
             SvgImage {

@@ -171,7 +171,7 @@ ColumnLayout {
                 amount:           viewModel.sendAmount
                 hasFee:           true
                 showAddAll:       true
-                maxAvailable:     viewModel.available
+                maxAvailable:     viewModel.maxAvailable
                 color:            Style.accent_outgoing
                 //% "Insufficient funds: you would need %1 to complete the transaction"
                 error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.uiStringToLocale(viewModel.missing))
