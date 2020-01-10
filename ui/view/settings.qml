@@ -23,11 +23,13 @@ ColumnLayout {
     }
 
     ChangePasswordDialog {
-        id: changePasswordDialog        
+        id: changePasswordDialog
+        settingsViewModel: viewModel    
     }
 
     ConfirmPasswordDialog {
         id: confirmPasswordDialog
+        settingsViewModel: viewModel 
     }
 
     ConfirmationDialog {
