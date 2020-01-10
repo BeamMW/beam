@@ -57,12 +57,19 @@ ColumnLayout {
         }
     }
 
-    GridLayout  {
+    RowLayout  {
         Layout.fillWidth: true
-        columnSpacing:    70
-        columns:          2
+        spacing:    70
 
+        //
+        // Left column
+        //
         ColumnLayout {
+            Layout.alignment: Qt.AlignTop
+            Layout.leftMargin: 25
+            Layout.fillWidth: true
+            Layout.preferredWidth: 100
+
             SFText {
                 font.pixelSize:  14
                 font.styleName:  "Bold"; font.weight: Font.Bold
@@ -111,33 +118,6 @@ ColumnLayout {
                 value:    receiverTAInput.text
             }
 
-            //
-            // Amount
-            //
-            AmountInput {
-                Layout.topMargin: 25
-                //% "Transaction amount"
-                title:            qsTrId("send-amount-label")
-                id:               sendAmountInput
-                amount:           viewModel.sendAmount
-                hasFee:           true
-                color:            Style.accent_outgoing
-                //% "Insufficient funds: you would need %1 to complete the transaction"
-                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.uiStringToLocale(viewModel.missing))
-            }
-
-            Binding {
-                target:   viewModel
-                property: "sendAmount"
-                value:    sendAmountInput.amount
-            }
-
-            Binding {
-                target:   viewModel
-                property: "feeGrothes"
-                value:    sendAmountInput.fee
-            }
-
             SFText {
                 Layout.topMargin: 25
                 font.pixelSize:   14
@@ -178,88 +158,121 @@ ColumnLayout {
         //
         // Right column
         //
-        GridLayout {
-            Layout.alignment:    Qt.AlignTop
-            Layout.minimumWidth: 370
-            columnSpacing:       20
-            columns:             2
+        ColumnLayout {
+            Layout.alignment: Qt.AlignTop
+            Layout.rightMargin: 35
+            Layout.fillWidth: true
+            Layout.preferredWidth: 100
 
-            Rectangle {
-                x: 0
-                y: 0
-                width: parent.width
-                height: parent.height
-                radius:       10
-                color:        Style.background_second
+            AmountInput {
+                //% "Send"
+                title:            qsTrId("send-amount-label")
+                id:               sendAmountInput
+                amount:           viewModel.sendAmount
+                hasFee:           true
+                showAddAll:       true
+                maxAvailable:     viewModel.available
+                color:            Style.accent_outgoing
+                //% "Insufficient funds: you would need %1 to complete the transaction"
+                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.uiStringToLocale(viewModel.missing))
             }
 
-            SFText {
-                Layout.topMargin:  20
-                Layout.leftMargin: 25
-                font.pixelSize:    14
-                color:             Style.content_secondary
-                //% "Total UTXO value"
-                text:              qsTrId("send-total-label") + ":"
+            Binding {
+                target:   viewModel
+                property: "sendAmount"
+                value:    sendAmountInput.amount
             }
 
-            BeamAmount
-            {
-                Layout.topMargin:   15
-                Layout.rightMargin: 25
-                error:              !viewModel.isEnough
-                amount:             viewModel.totalUTXO
+            Binding {
+                target:   viewModel
+                property: "feeGrothes"
+                value:    sendAmountInput.fee
             }
 
-            SFText {
-                Layout.topMargin:  15
-                Layout.leftMargin: 25
-                font.pixelSize:    14
-                color:             Style.content_secondary
-                //% "Transaction amount"
-                text:              qsTrId("send-amount-label") + ":"
-            }
+            GridLayout {
+                Layout.topMargin:    50
+                Layout.alignment:    Qt.AlignTop
+                Layout.minimumWidth: 400
+                columnSpacing:       20
+                columns:             2
 
-            BeamAmount
-            {
-                Layout.topMargin:   15
-                Layout.rightMargin: 25
-                error:              !viewModel.isEnough
-                amount:             viewModel.sendAmount
-            }
+                Rectangle {
+                    x: 0
+                    y: 0
+                    width: parent.width
+                    height: parent.height
+                    radius:       10
+                    color:        Style.background_second
+                }
 
-            SFText {
-                Layout.topMargin:  15
-                Layout.leftMargin: 25
-                font.pixelSize:    14
-                color:             Style.content_secondary
-                text:              qsTrId("general-change") + ":"
-            }
+                SFText {
+                    Layout.topMargin:  20
+                    Layout.leftMargin: 25
+                    font.pixelSize:    14
+                    color:             Style.content_secondary
+                    //% "Total UTXO value"
+                    text:              qsTrId("send-total-label") + ":"
+                }
 
-            BeamAmount
-            {
-                Layout.topMargin:   15
-                Layout.rightMargin: 25
-                error:              !viewModel.isEnough
-                amount:             viewModel.change
-            }
+                BeamAmount
+                {
+                    Layout.topMargin:   15
+                    Layout.rightMargin: 25
+                    error:              !viewModel.isEnough
+                    amount:             viewModel.totalUTXO
+                }
 
-            SFText {
-                Layout.topMargin:    15
-                Layout.leftMargin:   25
-                Layout.bottomMargin: 20
-                font.pixelSize:      14
-                color:               Style.content_secondary
-                //% "Remaining"
-                text:                qsTrId("send-remaining-label") + ":"
-            }
+                SFText {
+                    Layout.topMargin:  15
+                    Layout.leftMargin: 25
+                    font.pixelSize:    14
+                    color:             Style.content_secondary
+                    //% "Transaction amount"
+                    text:              qsTrId("send-amount-label") + ":"
+                }
 
-            BeamAmount
-            {
-                Layout.topMargin:    15
-                Layout.rightMargin:  25
-                Layout.bottomMargin: 20
-                error:               !viewModel.isEnough
-                amount:              viewModel.available
+                BeamAmount
+                {
+                    Layout.topMargin:   15
+                    Layout.rightMargin: 25
+                    error:              !viewModel.isEnough
+                    amount:             viewModel.sendAmount
+                }
+
+                SFText {
+                    Layout.topMargin:  15
+                    Layout.leftMargin: 25
+                    font.pixelSize:    14
+                    color:             Style.content_secondary
+                    text:              qsTrId("general-change") + ":"
+                }
+
+                BeamAmount
+                {
+                    Layout.topMargin:   15
+                    Layout.rightMargin: 25
+                    error:              !viewModel.isEnough
+                    amount:             viewModel.change
+                }
+
+                SFText {
+                    Layout.topMargin:    15
+                    Layout.leftMargin:   25
+                    Layout.bottomMargin: 20
+                    font.pixelSize:      14
+                    color:               Style.content_secondary
+                    //% "Remaining"
+                    text:                qsTrId("send-remaining-label") + ":"
+                }
+
+                BeamAmount
+                {
+                    Layout.topMargin:    15
+                    Layout.rightMargin:  25
+                    Layout.bottomMargin: 20
+                    error:               !viewModel.isEnough
+                    amount:              viewModel.available
+                }
             }
         }
     }

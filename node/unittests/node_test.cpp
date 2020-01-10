@@ -200,7 +200,7 @@ namespace beam
 	{
 		uint32_t nTips = 0;
 
-		NodeDB::WalkerState ws(db);
+		NodeDB::WalkerState ws;
 
 		if (bFunctional)
 			db.EnumFunctionalTips(ws);
@@ -369,37 +369,9 @@ namespace beam
 		tr.Commit();
 		tr.Start(db);
 
-		// test proofs
 		NodeDB::StateID sid2;
 		verify_test(CountTips(db, false, &sid2) == 2);
 		verify_test(sid2.m_Height == hMax-1 + Rules::HeightGenesis);
-
-		do
-		{
-			if (sid2.m_Height + 1 < hMax + Rules::HeightGenesis)
-			{
-				Merkle::Hash hv;
-				db.get_PredictedStatesHash(hv, sid2);
-				Merkle::Interpret(hv, hvZero, true);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Rules::HeightGenesis].m_Definition);
-			}
-
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Rules::HeightGenesis].m_Definition;
-
-			for (Height h = Rules::HeightGenesis; h < sid2.m_Height; h++)
-			{
-				Merkle::ProofBuilderStd bld;
-				db.get_Proof(bld, sid2, h);
-
-				Merkle::Hash hv;
-				vStates[h - Rules::HeightGenesis].get_Hash(hv);
-				Merkle::Interpret(hv, bld.m_Proof);
-				Merkle::Interpret(hv, hvZero, true);
-
-				verify_test(hvRoot == hv);
-			}
-
-		} while (db.get_Prev(sid2));
 
 		while (db.get_Prev(sid))
 			;
@@ -413,10 +385,44 @@ namespace beam
 		db.assert_valid();
 		verify_test(CountTips(db, true) == 2);
 
-		for (sid.m_Height = Rules::HeightGenesis; sid.m_Height <= hMax; sid.m_Height++)
+		// test cursor and StatesMmr
+		NodeDB::StatesMmr smmr(db);
+		Merkle::Hash hvRoot(Zero);
+
+		for (sid.m_Height = Rules::HeightGenesis; sid.m_Height < hMax + Rules::HeightGenesis; sid.m_Height++)
 		{
 			sid.m_Row = pRows[sid.m_Height - Rules::HeightGenesis];
 			db.MoveFwd(sid);
+			
+			Merkle::Hash hv;
+			if (sid.m_Height < Rules::HeightGenesis + 50) // skip it for big heights, coz it's quadratic
+			{
+				for (Height h = Rules::HeightGenesis; h < sid.m_Height; h++)
+				{
+					Merkle::ProofBuilderStd bld;
+					smmr.get_Proof(bld, smmr.H2I(h));
+
+					vStates[h - Rules::HeightGenesis].get_Hash(hv);
+					Merkle::Interpret(hv, bld.m_Proof);
+					verify_test(hvRoot == hv);
+				}
+			}
+
+			const Block::SystemState::Full& sTop = vStates[sid.m_Height - Rules::HeightGenesis];
+
+			hv = hvRoot;
+			Merkle::Interpret(hv, hvZero, true);
+			verify_test(hv == sTop.m_Definition);
+
+			sTop.get_Hash(hv);
+			smmr.get_PredictedHash(hvRoot, hv);
+
+			smmr.Append(hv);
+
+			smmr.get_Hash(hv);
+			verify_test(hv == hvRoot);
+
+
 		}
 
 		tr.Commit();
@@ -465,7 +471,7 @@ namespace beam
 			db.PeerIns(d);
 		}
 
-		NodeDB::WalkerPeer wlkp(db);
+		NodeDB::WalkerPeer wlkp;
 		for (db.EnumPeers(wlkp); wlkp.MoveNext(); )
 			;
 
@@ -488,7 +494,7 @@ namespace beam
 			db.BbsIns(dBbs);
 		}
 
-		NodeDB::WalkerBbs wlkbbs(db);
+		NodeDB::WalkerBbs wlkbbs;
 		wlkbbs.m_Data = dBbs;
 		verify_test(db.BbsFind(wlkbbs));
 
@@ -562,7 +568,8 @@ namespace beam
 		verify_test(db.FindKernel(bBodyP) == 0);
 
 		// Shielded
-		db.ShieldedResize(16 * 1024 * 3 + 5);
+		TxoID nShielded = 16 * 1024 * 3 + 5;
+		db.ShieldedResize(nShielded, 0);
 
 		StoragePts pts;
 		pts.Init();
@@ -577,8 +584,16 @@ namespace beam
 		db.ShieldedRead(16 * 1024 * 2 -2, pts.m_pArr, _countof(pts.m_pArr));
 		verify_test(pts.IsValid(0, _countof(pts.m_pArr), 0));
 
-		db.ShieldedResize(1);
-		db.ShieldedResize(0);
+		db.ShieldedResize(1, nShielded);
+		db.ShieldedResize(0, 1);
+
+		ECC::uintBig k1 = 223U;
+		Blob val(nullptr, 0);
+
+		verify_test(db.UniqueInsertSafe(k1, &val));
+		db.UniqueDeleteStrict(k1);
+		verify_test(db.UniqueInsertSafe(k1, nullptr));
+		verify_test(!db.UniqueInsertSafe(k1, nullptr));
 
 		tr.Commit();
 	}
@@ -1791,7 +1806,12 @@ namespace beam
 				if (msg.m_Proof.empty())
 					return;
 
-				verify_test(m_vStates.back().IsValidProofShieldedTxo(m_Shielded.m_Commitment, msg.m_ID, msg.m_Proof));
+				ShieldedTxo::Description d;
+				d.m_SerialPub = m_Shielded.m_Commitment;
+				d.m_Commitment = msg.m_Commitment;
+				d.m_ID = msg.m_ID;
+
+				verify_test(m_vStates.back().IsValidProofShieldedTxo(d, msg.m_Proof, msg.m_Total));
 				m_Shielded.m_Confirmed = msg.m_ID;
 
 				m_Shielded.m_N = m_Shielded.m_Cfg.get_N();
@@ -1861,7 +1881,7 @@ namespace beam
 				if (!m_Shielded.m_Withdrew && m_Shielded.m_Sent && (msg.m_Description.m_Height - m_Shielded.m_Sent >= 5))
 				{
 					proto::GetProofShieldedTxo msgOut;
-					msgOut.m_Commitment = m_Shielded.m_Commitment;
+					msgOut.m_SerialPub = m_Shielded.m_Commitment;
 					Send(msgOut);
 
 					m_Shielded.m_Withdrew = true;

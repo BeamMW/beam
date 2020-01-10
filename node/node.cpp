@@ -1159,7 +1159,7 @@ bool Node::Bbs::IsInLimits() const
 void Node::Bbs::Cleanup()
 {
 	NodeDB& db = get_ParentObj().m_Processor.get_DB();
-	NodeDB::WalkerBbsTimeLen wlk(db);
+	NodeDB::WalkerBbsTimeLen wlk;
 
 	Timestamp ts = getTimestamp() - get_ParentObj().m_Cfg.m_Bbs.m_MessageTimeout_s;
 
@@ -1779,7 +1779,7 @@ void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 		{
 			sid.m_Height = msg.m_Top.m_Height;
 
-			NodeDB::WalkerSystemState wlk(db);
+			NodeDB::WalkerSystemState wlk;
 			for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
 			{
 				if (msgOut.m_vElements.empty())
@@ -2844,7 +2844,7 @@ void Node::Peer::BroadcastBbs()
 	size_t nExtra = 0;
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-	NodeDB::WalkerBbsLite wlk(db);
+	NodeDB::WalkerBbsLite wlk;
 
 	wlk.m_ID = m_CursorBbs;
 	for (db.EnumAllBbsSeq(wlk); wlk.MoveNext(); )
@@ -2950,11 +2950,13 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height 
     assert(h < m_Cursor.m_Sid.m_Height);
 
     Merkle::ProofBuilderHard bld;
-    get_DB().get_Proof(bld, m_Cursor.m_Sid, h);
+
+    m_StatesMmr.get_Proof(bld, m_StatesMmr.H2I(h));
+
     proof.swap(bld.m_Proof);
 
-    proof.resize(proof.size() + 1);
-    get_Utxos().get_Hash(proof.back());
+    proof.emplace_back();
+    get_UtxoHash(proof.back(), false);
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
@@ -2992,8 +2994,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
     struct Traveler :public UtxoTree::ITraveler
     {
         proto::ProofUtxo m_Msg;
-        UtxoTree* m_pTree;
-        Merkle::Hash m_hvHistory;
+        NodeProcessor& m_Proc;
 
         virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
@@ -3001,27 +3002,37 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
             UtxoTree::Key::Data d;
             d = v.m_Key;
 
-            m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
-            Input::Proof& ret = m_Msg.m_Proofs.back();
+            Input::Proof& ret = m_Msg.m_Proofs.emplace_back();
 
             ret.m_State.m_Count = v.get_Count();
             ret.m_State.m_Maturity = d.m_Maturity;
-            m_pTree->get_Proof(ret.m_Proof, *m_pCu);
+            m_Proc.get_Utxos().get_Proof(ret.m_Proof, *m_pCu);
 
-            ret.m_Proof.resize(ret.m_Proof.size() + 1);
+            if (m_Proc.m_Cursor.m_ID.m_Height >= Rules::get().pForks[2].m_Height)
+            {
+                Merkle::Hash hv2;
+                m_Proc.m_ShieldedMmr.get_Hash(hv2);
+
+                ret.m_Proof.emplace_back();
+                ret.m_Proof.back().first = true;
+                ret.m_Proof.back().second = hv2;
+            }
+
+            ret.m_Proof.emplace_back();
             ret.m_Proof.back().first = false;
-            ret.m_Proof.back().second = m_hvHistory;
+            ret.m_Proof.back().second = m_Proc.m_Cursor.m_History;
 
             return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
         }
-    } t;
+
+        Traveler(NodeProcessor& np) :m_Proc(np) {}
+    };
 
 	Processor& p = m_This.m_Processor;
+    Traveler t(p);
+
 	if (!p.IsFastSync())
 	{
-		t.m_pTree = &p.get_Utxos();
-		t.m_hvHistory = p.m_Cursor.m_History;
-
 		UtxoTree::Cursor cu;
 		t.m_pCu = &cu;
 
@@ -3038,7 +3049,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		t.m_pBound[0] = kMin.V.m_pData;
 		t.m_pBound[1] = kMax.V.m_pData;
 
-		t.m_pTree->Traverse(t);
+        p.get_Utxos().Traverse(t);
 	}
 
     Send(t.m_Msg);
@@ -3049,28 +3060,33 @@ void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
 	proto::ProofShieldedTxo msgOut;
 
 	Processor& p = m_This.m_Processor;
-	if (!p.IsFastSync())
+    msgOut.m_Total = p.m_ShieldedMmr.m_Count;
+
+    if (!p.IsFastSync())
 	{
-		UtxoTree::Key key;
-		key.SetShielded(msg.m_Commitment, true);
+        if (msg.m_SerialPub.m_Y > 1)
+            ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
 
-		UtxoTree::Cursor cu;
-		bool bCreate = false;
+        NodeDB::Recordset rs;
+        Blob blob(&msg.m_SerialPub, sizeof(msg.m_SerialPub));
+        if (p.get_DB().UniqueFind(blob, rs))
+        {
+            const NodeProcessor::ShieldedOutpPacked& sop = rs.get_As<NodeProcessor::ShieldedOutpPacked>(0); // Note: will throw CorruptionException if of wrong size
 
-		const UtxoTree::MyLeaf* pLeaf = p.get_Utxos().Find(cu, key, bCreate);
-		if (pLeaf)
-		{
-			const UtxoTree::MyLeaf& v = *pLeaf;
-			UtxoTree::Key::Data d;
-			d = v.m_Key;
+            msgOut.m_Commitment = sop.m_Commitment;
+            sop.m_TxoID.Export(msgOut.m_ID);
 
-			msgOut.m_ID = pLeaf->m_ID;
-			p.get_Utxos().get_Proof(msgOut.m_Proof, cu);
+            Merkle::ProofBuilderHard bld;
+            p.m_ShieldedMmr.get_Proof(bld, msgOut.m_ID);
 
-			msgOut.m_Proof.emplace_back();
-			msgOut.m_Proof.back().first = false;
-			msgOut.m_Proof.back().second = p.m_Cursor.m_History;
-		}
+            msgOut.m_Proof.swap(bld.m_Proof);
+
+            msgOut.m_Proof.emplace_back();
+            p.get_Utxos().get_Hash(msgOut.m_Proof.back());
+
+            msgOut.m_Proof.emplace_back();
+            msgOut.m_Proof.back() = p.m_Cursor.m_History;
+        }
 	}
 
 	Send(msgOut);
@@ -3081,12 +3097,12 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 	proto::ShieldedList msgOut;
 
 	Processor& p = m_This.m_Processor;
-	if ((msg.m_Id0 < p.m_Extra.m_Shielded) && msg.m_Count)
+	if ((msg.m_Id0 < p.m_ShieldedMmr.m_Count) && msg.m_Count)
 	{
 		if (msg.m_Count > Lelantus::Cfg::Max::N)
 			msg.m_Count = Lelantus::Cfg::Max::N;
 
-		TxoID n = p.m_Extra.m_Shielded - msg.m_Id0;
+		TxoID n = p.m_ShieldedMmr.m_Count - msg.m_Id0;
 
 		if (msg.m_Count > n)
 			msg.m_Count = static_cast<uint32_t>(n);
@@ -3110,7 +3126,10 @@ bool Node::Processor::BuildCwp()
         :public Block::ChainWorkProof::ISource
     {
         Processor& m_Proc;
-        Source(Processor& proc) :m_Proc(proc) {}
+
+        Source(Processor& proc)
+            :m_Proc(proc)
+        {}
 
         virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
         {
@@ -3120,15 +3139,14 @@ bool Node::Processor::BuildCwp()
 
         virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
         {
-            const NodeDB::StateID& sid = m_Proc.m_Cursor.m_Sid;
-            m_Proc.get_DB().get_Proof(bld, sid, h);
+            m_Proc.m_StatesMmr.get_Proof(bld, m_Proc.m_StatesMmr.H2I(h));
         }
     };
 
     Source src(*this);
 
     m_Cwp.Create(src, m_Cursor.m_Full);
-    get_Utxos().get_Hash(m_Cwp.m_hvRootLive);
+    get_UtxoHash(m_Cwp.m_hvRootLive, false);
 
     return true;
 }
@@ -3195,7 +3213,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
         return; // don't allow too much out-of-order messages
 
     NodeDB& db = m_This.m_Processor.get_DB();
-    NodeDB::WalkerBbs wlk(db);
+    NodeDB::WalkerBbs wlk;
 
     wlk.m_Data.m_Channel = msg.m_Channel;
     wlk.m_Data.m_TimePosted = msg.m_TimePosted;
@@ -3281,7 +3299,7 @@ void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 		ThrowUnexpected();
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-    NodeDB::WalkerBbs wlk(db);
+    NodeDB::WalkerBbs wlk;
 
     wlk.m_Data.m_Key = msg.m_Key;
     if (!db.BbsFind(wlk))
@@ -3336,7 +3354,7 @@ void Node::Peer::BroadcastBbs(Bbs::Subscription& s)
 		return;
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-	NodeDB::WalkerBbs wlk(db);
+	NodeDB::WalkerBbs wlk;
 
 	wlk.m_Data.m_Channel = s.m_Peer.m_Channel;
 	wlk.m_ID = s.m_Cursor;
@@ -3368,7 +3386,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
     {
 		Processor& p = m_This.m_Processor;
 		NodeDB& db = p.get_DB();
-        NodeDB::WalkerEvent wlk(db);
+        NodeDB::WalkerEvent wlk;
 
         Height hLast = 0;
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
@@ -4088,7 +4106,7 @@ void Node::PeerMan::Initialize()
     m_pTimerFlush->start(cfg.m_Timeout.m_PeersDbFlush_ms, true, [this]() { OnFlush(); });
 
     {
-        NodeDB::WalkerPeer wlk(get_ParentObj().m_Processor.get_DB());
+        NodeDB::WalkerPeer wlk;
         for (get_ParentObj().m_Processor.get_DB().EnumPeers(wlk); wlk.MoveNext(); )
         {
             if (wlk.m_Data.m_ID == get_ParentObj().m_MyPublicID)
@@ -4216,7 +4234,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
 		void OnUtxo(const UtxoTree::Key::Data& d, TxoID id)
 		{
-			NodeDB::WalkerTxo wlk(*m_pDB);
+			NodeDB::WalkerTxo wlk;
 			m_pDB->TxoGetValue(wlk, id);
 
 			Deserializer der;
@@ -4289,7 +4307,7 @@ void Node::PrintTxos()
     if (m_Processor.m_Extra.m_TxoHi >= Rules::HeightGenesis)
         os << "Note: Cut-through up to Height=" << m_Processor.m_Extra.m_TxoHi << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
 
-    NodeDB::WalkerEvent wlk(m_Processor.get_DB());
+    NodeDB::WalkerEvent wlk;
     for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
     {
         typedef NodeProcessor::UtxoEvent UE;

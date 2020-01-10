@@ -939,7 +939,7 @@ namespace beam
 		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
 			return false; // unsupported for that version
 
-		ECC::Point ptNeg = m_SpendProof.m_Part1.m_Commitment;
+		ECC::Point ptNeg = m_SpendProof.m_Commitment;
 		ptNeg.m_Y = !ptNeg.m_Y; // probably faster than negating the result
 
 		ECC::Point::Native comm;
@@ -1637,34 +1637,45 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofUtxoInternal(Merkle::Hash& hv, const Merkle::Proof& p) const
+	bool Block::SystemState::Sequence::Element::IsValidProofToDefinition(Merkle::Hash& hv, const Merkle::Proof& p) const
 	{
-		// verify known part. Last node (history) should be at left
-		if (p.empty() || p.back().first)
-			return false;
-
 		Merkle::Interpret(hv, p);
 		return hv == m_Definition;
 	}
 
 	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
 	{
+		// verify known part. Last node (history) should be at left
+		if (p.m_Proof.empty() || p.m_Proof.back().first)
+			return false;
+
 		Merkle::Hash hv;
 		p.m_State.get_ID(hv, comm);
 
-		return IsValidProofUtxoInternal(hv, p.m_Proof);
+		return IsValidProofToDefinition(hv, p.m_Proof);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofShieldedTxo(const ECC::Point& comm, TxoID id, const Merkle::Proof& p) const
+	void ShieldedTxo::Description::get_Hash(Merkle::Hash& hv) const
 	{
-		Merkle::Hash hv;
+		ECC::Hash::Processor()
+			<< "stxo"
+			<< m_SerialPub
+			<< m_Commitment
+			<< m_ID
+			>> hv;
+	}
 
-		Input inp;
-		inp.m_Commitment = comm;
-		inp.m_Internal.m_ID = id;
-		inp.get_ShieldedID(hv);
+	bool Block::SystemState::Sequence::Element::IsValidProofShieldedTxo(const ShieldedTxo::Description& d, const Merkle::HardProof& p, TxoID nTotal) const
+	{
+		Merkle::HardVerifier hver(p);
+		d.get_Hash(hver.m_hv);
 
-		return IsValidProofUtxoInternal(hv, p);
+		return
+			hver.InterpretMmr(d.m_ID, nTotal) &&
+			hver.InterpretOnce(false) &&
+			hver.InterpretOnce(false) &&
+			hver.IsEnd() &&
+			(hver.m_hv == m_Definition);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const
@@ -1698,49 +1709,14 @@ namespace beam
 		if ((id.m_Height < Rules::HeightGenesis) || (id.m_Height >= m_Height))
 			return false;
 
-		struct Verifier
-			:public Merkle::Mmr
-			,public Merkle::IProofBuilder
-		{
-			Merkle::Hash m_hv;
+		Merkle::HardVerifier hver(proof);
+		hver.m_hv = id.m_Hash;
 
-			Merkle::HardProof::const_iterator m_itPos;
-			Merkle::HardProof::const_iterator m_itEnd;
-
-			bool InterpretOnce(bool bOnRight)
-			{
-				if (m_itPos == m_itEnd)
-					return false;
-
-				Merkle::Interpret(m_hv, *m_itPos++, bOnRight);
-				return true;
-			}
-
-			virtual bool AppendNode(const Merkle::Node& n, const Merkle::Position&) override
-			{
-				return InterpretOnce(n.first);
-			}
-
-			virtual void LoadElement(Merkle::Hash&, const Merkle::Position&) const override {}
-			virtual void SaveElement(const Merkle::Hash&, const Merkle::Position&) override {}
-		};
-
-		Verifier vmmr;
-		vmmr.m_hv = id.m_Hash;
-		vmmr.m_itPos = proof.begin();
-		vmmr.m_itEnd = proof.end();
-
-		vmmr.m_Count = m_Height - Rules::HeightGenesis;
-		if (!vmmr.get_Proof(vmmr, id.m_Height - Rules::HeightGenesis))
-			return false;
-
-		if (!vmmr.InterpretOnce(true))
-			return false;
-		
-		if (vmmr.m_itPos != vmmr.m_itEnd)
-			return false;
-
-		return vmmr.m_hv == m_Definition;
+		return
+			hver.InterpretMmr(id.m_Height - Rules::HeightGenesis, m_Height - Rules::HeightGenesis) &&
+			hver.InterpretOnce(true) &&
+			hver.IsEnd() &&
+			(hver.m_hv == m_Definition);
 	}
 
 	void Block::BodyBase::ZeroInit()

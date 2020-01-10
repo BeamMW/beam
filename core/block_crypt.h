@@ -273,8 +273,6 @@ namespace beam
 			static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
 		};
 
-		void get_ShieldedID(Merkle::Hash&) const;
-
 		Input() {}
 		Input(Input&& v)
 			:TxElement(v)
@@ -345,6 +343,14 @@ namespace beam
 			void get_Hash(ECC::Hash::Value&) const;
 		};
 
+		struct Description
+		{
+			ECC::Point m_SerialPub; // blinded
+			ECC::Point m_Commitment;
+			TxoID m_ID;
+
+			void get_Hash(Merkle::Hash&) const;
+		};
 
 		ECC::Point m_Commitment;
 		ECC::RangeProof::Confidential m_RangeProof;
@@ -730,16 +736,16 @@ namespace beam
 				struct Element
 				{
 					Merkle::Hash	m_Kernels; // of this block only
-					Merkle::Hash	m_Definition; // Defined as Hash[ History | Utxos ]
+					Merkle::Hash	m_Definition; // Defined as Hash[ History | Utxos ]. If past fork2, then Utxos = Hash[ UtxoTree | Shielded ]
 					Timestamp		m_TimeStamp;
 					PoW				m_PoW;
 
 					// The following not only interprets the proof, but also verifies the knwon part of its structure.
 					bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
-					bool IsValidProofShieldedTxo(const ECC::Point&, TxoID, const Merkle::Proof&) const;
+					bool IsValidProofShieldedTxo(const ShieldedTxo::Description&, const Merkle::HardProof&, TxoID nTotal) const;
 
 				private:
-					bool IsValidProofUtxoInternal(Merkle::Hash&, const Merkle::Proof&) const;
+					bool IsValidProofToDefinition(Merkle::Hash&, const Merkle::Proof&) const;
 				};
 			};
 

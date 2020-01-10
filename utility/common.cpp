@@ -93,6 +93,18 @@ namespace beam
 		else
 			x.clear();
 	}
+
+	int Blob::cmp(const Blob& x) const
+	{
+		int nRet = memcmp(p, x.p, std::min(n, x.n));
+		if (nRet)
+			return nRet;
+
+		if (n < x.n)
+			return -1;
+
+		return (n > x.n);
+	}
 }
 
 namespace std

@@ -23,11 +23,13 @@ ColumnLayout {
     }
 
     ChangePasswordDialog {
-        id: changePasswordDialog        
+        id: changePasswordDialog
+        settingsViewModel: viewModel    
     }
 
     ConfirmPasswordDialog {
         id: confirmPasswordDialog
+        settingsViewModel: viewModel 
     }
 
     ConfirmationDialog {
@@ -675,9 +677,8 @@ deploy the key at the node you trust completely."*/
                     //: settings tab, general section, Show owner key button and dialog title
                     //% "Show owner key"
                     text: qsTrId("settings-general-require-pwd-to-show-owner-key")
-                    enabled: viewModel.localNodeRun && viewModel.isLocalNodeRunning
                     palette.button: Style.background_second
-                    palette.buttonText : viewModel.localNodeRun ? Style.content_main : Style.content_disabled
+                    palette.buttonText : Style.content_main
                     onClicked: {
                         //: settings tab, general section, Show owner key button and dialog title
                         //% "Show owner key"

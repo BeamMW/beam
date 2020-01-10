@@ -167,6 +167,9 @@ namespace beam
 		Blob(const uintBig_t<nBytes_>& x) :p(x.m_pData), n(x.nBytes) {}
 
 		void Export(ByteBuffer&) const;
+
+		int cmp(const Blob&) const;
+		COMPARISON_VIA_CMP
 	};
 
 	template <typename T>
