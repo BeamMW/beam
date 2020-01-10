@@ -345,13 +345,13 @@ namespace beam
 
 		struct DescriptionBase
 		{
-			TxoID m_ID;
 			Height m_Height;
 		};
 
 		struct DescriptionOutp
 			:public DescriptionBase
 		{
+			TxoID m_ID;
 			ECC::Point m_SerialPub; // blinded
 			ECC::Point m_Commitment;
 
