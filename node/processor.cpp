@@ -1854,7 +1854,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_ValidateOnly = false; // don't make changes to state
 	bool m_AlreadyValidated = false; // set during reorgs, when a block is being applied for 2nd time
 	bool m_SaveKid = true;
-	bool m_ShieldedMmr = true;
+	bool m_UpdateShieldedMmr = true;
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
@@ -2564,7 +2564,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 				pt.Export(bic.m_pShieldedOut[bic.m_ShieldedOuts]);
 			}
 
-			if (bic.m_ShieldedMmr)
+			if (bic.m_UpdateShieldedMmr)
 			{
 				ShieldedTxo::Description d;
 				d.m_SerialPub = krn.m_Txo.m_Serial.m_SerialPub;
@@ -2588,7 +2588,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 
 		m_DB.UniqueDeleteStrict(blobKey);
 
-		if (bic.m_ShieldedMmr)
+		if (bic.m_UpdateShieldedMmr)
 			m_ShieldedMmr.ShrinkTo(m_ShieldedMmr.m_Count - 1);
 		else
 			m_ShieldedMmr.m_Count--;
@@ -3685,7 +3685,7 @@ NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height + 1, true);
-	bic.m_ShieldedMmr = false;
+	bic.m_UpdateShieldedMmr = false;
 
 	size_t nSizeEstimated = 1;
 
@@ -3723,7 +3723,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bic.m_Fwd = true;
 	bic.m_AlreadyValidated = true;
 	bic.m_SaveKid = false;
-	bic.m_ShieldedMmr = true;
+	bic.m_UpdateShieldedMmr = true;
 
 	bool bOk = HandleValidatedTx(bc.m_Block, bic);
 	if (!bOk)
