@@ -1616,7 +1616,8 @@ namespace beam
 				Amount m_Value;
 				ECC::Scalar::Native m_sk;
 				ECC::Scalar::Native m_skSpendKey;
-				ECC::Point m_Commitment;
+				ECC::Point m_SerialPub;
+				ECC::Point m_SpendPk;
 				PeerID m_Sender = 165U;
 				ECC::uintBig m_Message = 243U;
 
@@ -1673,7 +1674,7 @@ namespace beam
 
 					m_Shielded.m_sk = sp.m_pK[0];
 					m_Shielded.m_sk += op.m_k;
-					m_Shielded.m_Commitment = pKrn->m_Txo.m_Serial.m_SerialPub;
+					m_Shielded.m_SerialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
 
 					Key::IKdf::Ptr pSerPrivate;
 					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
@@ -1762,6 +1763,8 @@ namespace beam
 					// test
 				}
 
+				m_Shielded.m_SpendPk = pKrn->m_SpendProof.m_SpendPk;
+
 				Amount fee = 100;
 				fee += Transaction::FeeSettings().m_ShieldedInput;
 
@@ -1786,7 +1789,7 @@ namespace beam
 				Send(msgTx);
 			}
 
-			virtual void OnMsg(proto::ProofShieldedTxo&& msg) override
+			virtual void OnMsg(proto::ProofShieldedOutp&& msg) override
 			{
 				if (msg.m_Proof.empty())
 					return;
@@ -1794,7 +1797,7 @@ namespace beam
 				ShieldedTxo::DescriptionOutp d;
 				d.m_ID = msg.m_ID;
 				d.m_Height = msg.m_Height;
-				d.m_SerialPub = m_Shielded.m_Commitment;
+				d.m_SerialPub = m_Shielded.m_SerialPub;
 				d.m_Commitment = msg.m_Commitment;
 
 				verify_test(m_vStates.back().IsValidProofShieldedOutp(d, msg.m_Proof));
@@ -1866,8 +1869,8 @@ namespace beam
 
 				if (!m_Shielded.m_Withdrew && m_Shielded.m_Sent && (msg.m_Description.m_Height - m_Shielded.m_Sent >= 5))
 				{
-					proto::GetProofShieldedTxo msgOut;
-					msgOut.m_SerialPub = m_Shielded.m_Commitment;
+					proto::GetProofShieldedOutp msgOut;
+					msgOut.m_SerialPub = m_Shielded.m_SerialPub;
 					Send(msgOut);
 
 					m_Shielded.m_Withdrew = true;

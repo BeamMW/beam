@@ -3058,17 +3058,34 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
     Send(t.m_Msg);
 }
 
-void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
+void Node::Processor::GenerateProofShielded(Merkle::Proof& p, const uintBigFor<TxoID>::Type& mmrIdx)
 {
-	proto::ProofShieldedTxo msgOut;
+    TxoID nIdx;
+    mmrIdx.Export(nIdx);
+
+    m_ShieldedMmr.get_Proof(p, nIdx);
+
+    struct MyProofBuilder
+        :public NodeProcessor::ProofBuilder
+    {
+        using ProofBuilder::ProofBuilder;
+        virtual bool get_Shielded(Merkle::Hash&) override { return false; }
+    };
+
+    MyProofBuilder pb(*this, p);
+    pb.GenerateProof();
+}
+
+void Node::Peer::OnMsg(proto::GetProofShieldedOutp&& msg)
+{
+    if (msg.m_SerialPub.m_Y > 1)
+        ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
+
+    proto::ProofShieldedOutp msgOut;
 
 	Processor& p = m_This.m_Processor;
-
     if (!p.IsFastSync())
 	{
-        if (msg.m_SerialPub.m_Y > 1)
-            ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
-
         NodeDB::Recordset rs;
         Blob blob(&msg.m_SerialPub, sizeof(msg.m_SerialPub));
         if (p.get_DB().UniqueFind(blob, rs))
@@ -3079,20 +3096,7 @@ void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
             sop.m_TxoID.Export(msgOut.m_ID);
             msgOut.m_Commitment = sop.m_Commitment;
 
-            TxoID nIdx;
-            sop.m_MmrIndex.Export(nIdx);
-
-            p.m_ShieldedMmr.get_Proof(msgOut.m_Proof, nIdx);
-
-            struct MyProofBuilder
-                :public NodeProcessor::ProofBuilder
-            {
-                using ProofBuilder::ProofBuilder;
-                virtual bool get_Shielded(Merkle::Hash&) override { return false; }
-            };
-
-            MyProofBuilder pb(p, msgOut.m_Proof);
-            pb.GenerateProof();
+            p.GenerateProofShielded(msgOut.m_Proof, sop.m_MmrIndex);
         }
 	}
 

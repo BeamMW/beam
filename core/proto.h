@@ -84,7 +84,7 @@ namespace proto {
     macro(ECC::Point, Utxo) \
     macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
-#define BeamNodeMsg_GetProofShieldedTxo(macro) \
+#define BeamNodeMsg_GetProofShieldedOutp(macro) \
     macro(ECC::Point, SerialPub)
 
 #define BeamNodeMsg_GetShieldedList(macro) \
@@ -105,7 +105,7 @@ namespace proto {
 #define BeamNodeMsg_ProofUtxo(macro) \
     macro(std::vector<Input::Proof>, Proofs)
 
-#define BeamNodeMsg_ProofShieldedTxo(macro) \
+#define BeamNodeMsg_ProofShieldedOutp(macro) \
     macro(ECC::Point, Commitment) \
     macro(TxoID, ID) \
     macro(Height, Height) \
@@ -250,8 +250,8 @@ namespace proto {
     macro(0x25, ProofKernel2) \
     macro(0x26, GetBodyPack) \
     macro(0x27, BodyPack) \
-    macro(0x28, GetProofShieldedTxo) \
-    macro(0x29, ProofShieldedTxo) \
+    macro(0x28, GetProofShieldedOutp) \
+    macro(0x29, ProofShieldedOutp) \
     macro(0x2a, GetShieldedList) \
     macro(0x2b, ShieldedList) \
     /* onwer-relevant */ \
