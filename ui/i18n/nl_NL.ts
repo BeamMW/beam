@@ -573,8 +573,9 @@
         <translation>Geef contact of transactietoken op</translation>
     </message>
     <message id="send-amount-label">
-        <source>Transaction amount</source>
-        <translation>Transactiebedrag</translation>
+        <source>Send</source>
+        <oldsource>Transaction amount</oldsource>
+        <translation type="unfinished">Transactiebedrag</translation>
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
@@ -2050,6 +2051,10 @@ deploy the key at the node you trust completely.</source>
     <message id="tx-state-in-progress-long">
         <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
         <translation>Het duurt langer dan gebruikelijk. Als de transactie niet kan worden voltooid wordt deze automatisch geannuleerd in %1.</translation>
+    </message>
+    <message id="amount-input-add-all">
+        <source>add all</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>
