@@ -297,7 +297,7 @@ namespace beam::wallet
 		return kernel.m_Signature.m_k;
     }
 
-    ReceiverSignature LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs
+    ReceiverSignature LocalPrivateKeyKeeper::SignReceiverSync(const std::vector<Key::IDV>& inputs
                                                         , const std::vector<Key::IDV>& outputs
                                                         , const AssetID& assetId
                                                         , const KernelParameters& kernelParamerters
@@ -400,7 +400,7 @@ namespace beam::wallet
         return res;
     }
 
-    SenderSignature LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs
+    SenderSignature LocalPrivateKeyKeeper::SignSenderSync(const std::vector<Key::IDV>& inputs
                                                     , const std::vector<Key::IDV>& outputs
                                                     , const AssetID& assetId
                                                     , size_t nonceSlot

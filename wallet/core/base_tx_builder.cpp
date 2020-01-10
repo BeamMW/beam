@@ -427,7 +427,7 @@ namespace beam::wallet
                 }
             }
 
-            auto signature = m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, publicNonce, initial);
+            auto signature = m_Tx.GetKeyKeeper()->SignSenderSync(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, publicNonce, initial);
             if (initial)
             {
                 StoreAndLoad(TxParameterID::PublicNonce, signature.m_KernelSignature.m_NoncePub, m_PublicNonce);
@@ -471,7 +471,7 @@ namespace beam::wallet
                 throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
             }
 
-            auto signature = m_Tx.GetKeyKeeper()->SignReceiver(m_InputCoins
+            auto signature = m_Tx.GetKeyKeeper()->SignReceiverSync(m_InputCoins
                                                              , m_OutputCoins
                                                              , m_AssetId
                                                              , kernelParameters

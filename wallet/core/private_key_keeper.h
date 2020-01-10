@@ -117,14 +117,14 @@ namespace beam::wallet
         virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
         virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) = 0;
 
-        virtual ReceiverSignature SignReceiver(const std::vector<Key::IDV>& inputs
+        virtual ReceiverSignature SignReceiverSync(const std::vector<Key::IDV>& inputs
                                              , const std::vector<Key::IDV>& outputs
                                              , const AssetID& assetId
                                              , const KernelParameters& kernelParamerters
                                              , const ECC::Point& publicNonce
                                              , const PeerID& peerID
                                              , const WalletIDKey& walletIDkey) = 0;
-        virtual SenderSignature SignSender(const std::vector<Key::IDV>& inputs
+        virtual SenderSignature SignSenderSync(const std::vector<Key::IDV>& inputs
                                          , const std::vector<Key::IDV>& outputs
                                          , const AssetID& assetId
                                          , size_t nonceSlot
