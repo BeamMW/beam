@@ -215,6 +215,8 @@ public:
 		Height m_TxoLo;
 		Height m_TxoHi;
 
+		TxoID m_ShieldedOutputs;
+
 	} m_Extra;
 
 	struct SyncData

@@ -55,7 +55,7 @@ public:
 			SyncData,
 			LastRecoveryHeight,
 			UtxoStamp,
-			ShieldedPoolSize,
+			ShieldedOutputs,
 		};
 	};
 

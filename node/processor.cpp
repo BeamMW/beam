@@ -102,7 +102,9 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Extra.m_Fossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
-	m_ShieldedMmr.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedPoolSize);
+
+	m_Extra.m_ShieldedOutputs = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedOutputs);
+	m_ShieldedMmr.m_Count += m_Extra.m_ShieldedOutputs;
 
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	if (!bUpdateChecksum)
@@ -2180,7 +2182,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		}
 
 		const ShieldedTxo::Viewer* pKeyShielded = get_ViewerShieldedKey();
-		m_ShieldedMmr.m_Count -= bic.m_ShieldedOuts;
+		m_Extra.m_ShieldedOutputs -= bic.m_ShieldedOuts;
 		Recognize(block, sid.m_Height, pKeyShielded);
 
 		Serializer ser;
@@ -2302,7 +2304,7 @@ void NodeProcessor::Recognize(const TxVectors::Eternal& txve, Height h, const Sh
 
 void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const ShieldedTxo::Viewer* pKeyShielded)
 {
-	TxoID nID = m_ShieldedMmr.m_Count++;
+	TxoID nID = m_Extra.m_ShieldedOutputs++;
 
 	if (!pKeyShielded)
 		return;
@@ -2449,7 +2451,7 @@ void NodeProcessor::RescanOwnedTxos()
 			ByteBuffer bbE;
 			TxVectors::Eternal txve;
 
-			m_ShieldedMmr.m_Count = 0;
+			m_Extra.m_ShieldedOutputs = 0;
 
 			while (true)
 			{
@@ -2525,7 +2527,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 		else
 		{
 			ShieldedOutpPacked sop;
-			sop.m_TxoID = m_ShieldedMmr.m_Count;
+			sop.m_TxoID = m_Extra.m_ShieldedOutputs;
 			sop.m_Commitment = krn.m_Txo.m_Commitment;
 
 			Blob blobVal(&sop, sizeof(sop));
@@ -2543,12 +2545,12 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 				ECC::Point::Storage pt_s;
 				pt.Export(pt_s);
 
-				TxoID n = m_ShieldedMmr.m_Count + 1;
-				m_DB.ShieldedResize(n, m_ShieldedMmr.m_Count);
+				TxoID n = m_Extra.m_ShieldedOutputs + 1;
+				m_DB.ShieldedResize(n, m_Extra.m_ShieldedOutputs);
 				m_DB.ParamSet(NodeDB::ParamID::ShieldedOutputs, &n, nullptr);
 
 				// Append to cmList
-				m_DB.ShieldedWrite(m_ShieldedMmr.m_Count, &pt_s, 1);
+				m_DB.ShieldedWrite(m_Extra.m_ShieldedOutputs, &pt_s, 1);
 			}
 
 			if (bic.m_UpdateShieldedMmr)
@@ -2556,7 +2558,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 				ShieldedTxo::Description d;
 				d.m_SerialPub = krn.m_Txo.m_Serial.m_SerialPub;
 				d.m_Commitment = krn.m_Txo.m_Commitment;
-				d.m_ID = m_ShieldedMmr.m_Count;
+				d.m_ID = m_Extra.m_ShieldedOutputs;
 
 				Merkle::Hash hv;
 				d.get_Hash(hv);
@@ -2564,6 +2566,8 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			}
 			else
 				m_ShieldedMmr.m_Count++;
+
+			m_Extra.m_ShieldedOutputs++;
 		}
 
 		bic.m_ShieldedOuts++; // ok
@@ -2581,10 +2585,13 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			m_ShieldedMmr.m_Count--;
 
 		if (bic.m_StoreShieldedOutput)
-			m_DB.ShieldedResize(m_ShieldedMmr.m_Count, m_ShieldedMmr.m_Count + 1);
+			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs - 1, m_Extra.m_ShieldedOutputs);
 
 		assert(bic.m_ShieldedOuts);
 		bic.m_ShieldedOuts--;
+
+		assert(m_Extra.m_ShieldedOutputs);
+		m_Extra.m_ShieldedOutputs--;
 	}
 
 	return true;
@@ -2946,7 +2953,7 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 	if (!r.Shielded.Enabled)
 		return false;
 
-	if (krn.m_WindowEnd > m_ShieldedMmr.m_Count)
+	if (krn.m_WindowEnd > m_Extra.m_ShieldedOutputs)
 		return false;
 
 	uint32_t N = krn.m_SpendProof.m_Cfg.get_N();
@@ -2958,7 +2965,7 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 		if (N > r.Shielded.NMax)
 			return false; // too large
 
-		if (krn.m_WindowEnd > m_ShieldedMmr.m_Count + r.Shielded.MaxWindowBacklog)
+		if (krn.m_WindowEnd > m_Extra.m_ShieldedOutputs + r.Shielded.MaxWindowBacklog)
 			return false; // large anonymity set is no more allowed, expired
 	}
 
