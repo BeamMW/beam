@@ -19,7 +19,7 @@ namespace beam::wallet
 {
     using namespace ECC;
     using namespace std;
-
+    
     namespace
     {
         const char* LOCAL_NONCE_SEEDS = "NonceSeeds";
@@ -41,47 +41,14 @@ namespace beam::wallet
 
     void LocalPrivateKeyKeeper::GeneratePublicKeys(const vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
-        try
-        {
-            resultCallback(GeneratePublicKeysSync(ids, createCoinKey));
-        }
-        catch (const exception& ex)
-        {
-            exceptionCallback(ex);
-        }
+       // DoAsync(MakeAsyncFunc(&LocalPrivateKeyKeeper::GeneratePublicKeysSync, ids, createCoinKey), move(resultCallback), move(exceptionCallback));
+
+        DoAsync([this, ids, createCoinKey]() { return GeneratePublicKeysSync(ids, createCoinKey); }, move(resultCallback), move(exceptionCallback));
     }
 
     void LocalPrivateKeyKeeper::GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
-        auto thisHolder = shared_from_this();
-        shared_ptr<Outputs> result = make_shared<Outputs>();
-        shared_ptr<exception> storedException;
-        shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
-        *futureHolder = do_thread_async(
-            [thisHolder, this, schemeHeight, ids, result, storedException]()
-            {
-                try
-                {
-                    *result = GenerateOutputsSync(schemeHeight, ids);
-                }
-                catch (const exception& ex)
-                {
-                    *storedException = ex;
-                }
-            },
-            [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
-            {
-                if (storedException)
-                {
-                    exceptionCallback(*storedException);
-                }
-                else
-                {
-                    resultCallback(move(*result));
-                }
-                futureHolder.reset();
-            });
-
+        DoThreadAsync([this, schemeHeight, ids]() { return GenerateOutputsSync(schemeHeight, ids); }, std::move(resultCallback), std::move(exceptionCallback));
     }
 
     void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&& resultCallback, ExceptionCallback&& exceptionCallback)

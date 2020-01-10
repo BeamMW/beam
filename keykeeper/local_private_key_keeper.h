@@ -16,6 +16,7 @@
 
 #include "wallet/core/private_key_keeper.h"
 #include "wallet/core/variables_db.h"
+#include <utility>
 
 namespace beam::wallet
 {
@@ -89,6 +90,62 @@ namespace beam::wallet
             PeerID m_PublicKey;
         };
         KeyPair GetWalletID(const WalletIDKey& walletKeyID) const;
+
+
+        template <typename Func, typename ...Args>
+        auto MakeAsyncFunc(Func&& func, Args... args)
+        {
+            return [this, func, args...]() mutable
+            {
+                return (this->*func)(std::forward<Args>(args)...);
+            };
+        }
+
+        template <typename Result, typename Func>
+        void DoAsync(Func&& asyncFunc, Callback<Result>&& resultCallback, ExceptionCallback&& exceptionCallback)
+        {
+            try
+            {
+                resultCallback(asyncFunc());
+            }
+            catch (const exception & ex)
+            {
+                exceptionCallback(ex);
+            }
+        }
+
+        template <typename Result, typename Func>
+        void DoThreadAsync(Func&& asyncFunc, Callback<Result>&& resultCallback, ExceptionCallback&& exceptionCallback)
+        {
+            auto thisHolder = shared_from_this();
+            shared_ptr<Result> result = make_shared<Result>();
+            shared_ptr<exception> storedException;
+            shared_ptr<future<void>> futureHolder = std::make_shared<future<void>>();
+            *futureHolder = do_thread_async(
+                [thisHolder, this, asyncFunc, result, storedException]()
+                {
+                    try
+                    {
+                        *result = asyncFunc();
+                    }
+                    catch (const exception & ex)
+                    {
+                        *storedException = ex;
+                    }
+                },
+                [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
+                {
+                    if (storedException)
+                    {
+                        exceptionCallback(*storedException);
+                    }
+                    else
+                    {
+                        resultCallback(move(*result));
+                    }
+                    futureHolder.reset();
+                });
+        }
 
     private:
         IVariablesDB::Ptr m_Variables;
