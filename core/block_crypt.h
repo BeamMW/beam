@@ -358,6 +358,10 @@ namespace beam
 			void get_Hash(Merkle::Hash&) const;
 		};
 
+		struct DescriptionInp
+			:public DescriptionBase
+		{
+			ECC::Point m_SpendPk;
 
 			void get_Hash(Merkle::Hash&) const;
 		};
@@ -799,6 +803,7 @@ namespace beam
 
 				bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
 				bool IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp&, const Merkle::Proof&) const;
+				bool IsValidProofShieldedInp(const ShieldedTxo::DescriptionInp&, const Merkle::Proof&) const;
 
 				int cmp(const Full&) const;
 				COMPARISON_VIA_CMP

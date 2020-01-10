@@ -568,6 +568,7 @@ private:
 		virtual void OnMsg(proto::GetProofKernel2&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
 		virtual void OnMsg(proto::GetProofShieldedOutp&&) override;
+		virtual void OnMsg(proto::GetProofShieldedInp&&) override;
 		virtual void OnMsg(proto::GetShieldedList&&) override;
 		virtual void OnMsg(proto::GetProofChainWork&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;

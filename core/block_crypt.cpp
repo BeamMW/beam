@@ -1674,6 +1674,15 @@ namespace beam
 			>> hv;
 	}
 
+	void ShieldedTxo::DescriptionInp::get_Hash(Merkle::Hash& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "stxo-in"
+			<< m_Height
+			<< m_SpendPk
+			>> hv;
+	}
+
 	struct Block::SystemState::Full::ProofVerifierHard
 		:public Merkle::HardVerifier
 		,public Evaluator
@@ -1768,6 +1777,13 @@ namespace beam
 	}
 
 	bool Block::SystemState::Full::IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp& d, const Merkle::Proof& p) const
+	{
+		Merkle::Hash hv;
+		d.get_Hash(hv);
+		return IsValidProofShielded(hv, p);
+	}
+
+	bool Block::SystemState::Full::IsValidProofShieldedInp(const ShieldedTxo::DescriptionInp& d, const Merkle::Proof& p) const
 	{
 		Merkle::Hash hv;
 		d.get_Hash(hv);

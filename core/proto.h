@@ -87,6 +87,9 @@ namespace proto {
 #define BeamNodeMsg_GetProofShieldedOutp(macro) \
     macro(ECC::Point, SerialPub)
 
+#define BeamNodeMsg_GetProofShieldedInp(macro) \
+    macro(ECC::Point, SpendPk)
+
 #define BeamNodeMsg_GetShieldedList(macro) \
     macro(TxoID, Id0) \
 	macro(uint32_t, Count)
@@ -108,6 +111,10 @@ namespace proto {
 #define BeamNodeMsg_ProofShieldedOutp(macro) \
     macro(ECC::Point, Commitment) \
     macro(TxoID, ID) \
+    macro(Height, Height) \
+    macro(Merkle::Proof, Proof)
+
+#define BeamNodeMsg_ProofShieldedInp(macro) \
     macro(Height, Height) \
     macro(Merkle::Proof, Proof)
 
@@ -251,7 +258,9 @@ namespace proto {
     macro(0x26, GetBodyPack) \
     macro(0x27, BodyPack) \
     macro(0x28, GetProofShieldedOutp) \
+    macro(0x20, GetProofShieldedInp) \
     macro(0x29, ProofShieldedOutp) \
+    macro(0x21, ProofShieldedInp) \
     macro(0x2a, GetShieldedList) \
     macro(0x2b, ShieldedList) \
     /* onwer-relevant */ \

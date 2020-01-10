@@ -104,6 +104,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
 
 	m_Extra.m_ShieldedOutputs = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedOutputs);
+	m_ShieldedMmr.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
 	m_ShieldedMmr.m_Count += m_Extra.m_ShieldedOutputs;
 
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
@@ -2624,8 +2625,27 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 		}
 		else
 		{
-			if (!m_DB.UniqueInsertSafe(blobKey, nullptr))
+			ShieldedInpPacked sip;
+			sip.m_Height = bic.m_Height;
+			sip.m_MmrIndex = m_ShieldedMmr.m_Count;
+
+			Blob blobVal(&sip, sizeof(sip));
+
+			if (!m_DB.UniqueInsertSafe(blobKey, &blobVal))
 				return false;
+
+			if (bic.m_UpdateShieldedMmr)
+			{
+				ShieldedTxo::DescriptionInp d;
+				d.m_SpendPk = krn.m_SpendProof.m_SpendPk;
+				d.m_Height = bic.m_Height;
+
+				Merkle::Hash hv;
+				d.get_Hash(hv);
+				m_ShieldedMmr.Append(hv);
+			}
+			else
+				m_ShieldedMmr.m_Count++;
 		}
 
 		bic.m_ShieldedIns++; // ok
@@ -2636,6 +2656,11 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 		assert(!bic.m_ValidateOnly);
 
 		m_DB.UniqueDeleteStrict(blobKey);
+
+		if (bic.m_UpdateShieldedMmr)
+			m_ShieldedMmr.ShrinkTo(m_ShieldedMmr.m_Count - 1);
+		else
+			m_ShieldedMmr.m_Count--;
 
 		assert(bic.m_ShieldedIns);
 		bic.m_ShieldedIns--;

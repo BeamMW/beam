@@ -3103,6 +3103,33 @@ void Node::Peer::OnMsg(proto::GetProofShieldedOutp&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetProofShieldedInp&& msg)
+{
+    if (msg.m_SpendPk.m_Y > 1)
+        ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
+
+    proto::ProofShieldedInp msgOut;
+
+    Processor& p = m_This.m_Processor;
+    if (!p.IsFastSync())
+    {
+        NodeDB::Recordset rs;
+
+        msg.m_SpendPk.m_Y |= 2;
+        Blob blob(&msg.m_SpendPk, sizeof(msg.m_SpendPk));
+        if (p.get_DB().UniqueFind(blob, rs))
+        {
+            const NodeProcessor::ShieldedInpPacked& sip = rs.get_As<NodeProcessor::ShieldedInpPacked>(0); // Note: will throw CorruptionException if of wrong size
+
+            sip.m_Height.Export(msgOut.m_Height);
+
+            p.GenerateProofShielded(msgOut.m_Proof, sip.m_MmrIndex);
+        }
+    }
+
+    Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 {
 	proto::ShieldedList msgOut;

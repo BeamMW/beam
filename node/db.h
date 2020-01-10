@@ -56,6 +56,7 @@ public:
 			LastRecoveryHeight,
 			UtxoStamp,
 			ShieldedOutputs,
+			ShieldedInputs,
 		};
 	};
 

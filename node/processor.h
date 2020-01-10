@@ -445,6 +445,11 @@ public:
 		uintBigFor<TxoID>::Type m_TxoID;
 	};
 
+	struct ShieldedInpPacked
+		:public ShieldedBase
+	{
+	};
+
 #pragma pack (pop)
 
 	virtual void OnUtxoEvent(const UtxoEvent::Value&, Height) {}

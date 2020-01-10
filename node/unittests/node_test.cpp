@@ -1813,6 +1813,18 @@ namespace beam
 				Send(msgOut);
 			}
 
+			virtual void OnMsg(proto::ProofShieldedInp&& msg) override
+			{
+				if (msg.m_Proof.empty())
+					return;
+
+				ShieldedTxo::DescriptionInp d;
+				d.m_Height = msg.m_Height;
+				d.m_SpendPk = m_Shielded.m_SpendPk;
+
+				verify_test(m_vStates.back().IsValidProofShieldedInp(d, msg.m_Proof));
+			}
+
 			struct AchievementTester
 			{
 				bool m_AllDone = true;
@@ -2116,7 +2128,13 @@ namespace beam
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 
 						if (!m_Shielded.m_SpendConfirmed && (krn.m_Internal.m_ID == m_Shielded.m_SpendKernelID))
+						{
 							m_Shielded.m_SpendConfirmed = true;
+
+							proto::GetProofShieldedInp msgOut;
+							msgOut.m_SpendPk = m_Shielded.m_SpendPk;
+							Send(msgOut);
+						}
 					}
 				}
 				else
