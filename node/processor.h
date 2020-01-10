@@ -432,14 +432,14 @@ public:
 		};
 	};
 
-	struct ShieldedOutpBase
+	struct ShieldedBase
 	{
 		uintBigFor<TxoID>::Type m_MmrIndex;
 		uintBigFor<Height>::Type m_Height;
 	};
 
 	struct ShieldedOutpPacked
-		:public ShieldedOutpBase
+		:public ShieldedBase
 	{
 		ECC::Point m_Commitment;
 		uintBigFor<TxoID>::Type m_TxoID;
