@@ -319,8 +319,8 @@ please review your settings and try again"
                         Layout.topMargin: 3
                         Layout.fillWidth: true
 
-                        property double maxAmount: 254000000
-                        property double minAmount: 0.00000001
+                        property double maxAmount: parseFloat(Utils.maxAmount)
+                        property double minAmount: parseFloat(Utils.minAmount)
                         property bool rateValid:   true
                         property bool lockedByReceiveAmount: false
 

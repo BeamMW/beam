@@ -90,6 +90,7 @@ signals:
     void localNodePeersChanged();
     void localNodeSynchronizedChanged();
     void localeChanged();
+    void beamMWLinksChanged();
 
 private:
     QSettings m_data;

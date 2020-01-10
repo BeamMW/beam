@@ -167,6 +167,11 @@ QString SendViewModel::getTotalUTXO() const
     return beamui::AmountToUIString(calcTotalAmount() + _changeGrothes);
 }
 
+QString SendViewModel::getMaxAvailable() const
+{
+    return beamui::AmountToUIString(_walletModel.getAvailable() - _feeGrothes);
+}
+
 bool SendViewModel::canSend() const
 {
     return !QMLGlobals::isSwapToken(_receiverTA) && getRreceiverTAValid()

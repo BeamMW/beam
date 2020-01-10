@@ -31,6 +31,7 @@ class SendViewModel: public QObject
     Q_PROPERTY(QString  available          READ getAvailable                                    NOTIFY availableChanged)
     Q_PROPERTY(QString  change             READ getChange                                       NOTIFY availableChanged)
     Q_PROPERTY(QString  totalUTXO          READ getTotalUTXO                                    NOTIFY availableChanged)
+    Q_PROPERTY(QString  maxAvailable       READ getMaxAvailable                                 NOTIFY availableChanged)
     Q_PROPERTY(QString  missing            READ getMissing                                      NOTIFY availableChanged)
     Q_PROPERTY(bool     isEnough           READ isEnough                                        NOTIFY availableChanged)
     Q_PROPERTY(bool     canSend            READ canSend                                         NOTIFY canSendChanged)
@@ -56,6 +57,7 @@ public:
     QString getMissing() const;
     QString getChange() const;
     QString getTotalUTXO() const;
+    QString getMaxAvailable() const;
 
     bool isEnough() const;
     bool canSend() const;

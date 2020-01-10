@@ -573,8 +573,9 @@
         <translation>Určete prosím kontakt nebo token transakce</translation>
     </message>
     <message id="send-amount-label">
-        <source>Transaction amount</source>
-        <translation>Částka transakce</translation>
+        <source>Send</source>
+        <oldsource>Transaction amount</oldsource>
+        <translation type="unfinished">Částka transakce</translation>
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
@@ -2052,6 +2053,10 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
     <message id="tx-state-in-progress-long">
         <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
         <translation>Trvá to déle než obvykle. V případě, že transakce nebude možné dokončit, bude automaticky zrušena za %1.</translation>
+    </message>
+    <message id="amount-input-add-all">
+        <source>add all</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

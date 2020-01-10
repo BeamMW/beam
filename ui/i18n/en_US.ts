@@ -562,19 +562,19 @@
     </message>
     <message id="send-title">
         <source>Send</source>
-        <translation>Send Beam</translation>
+        <translation>Send</translation>
     </message>
     <message id="send-send-to-label">
         <source>Transaction token or contact</source>
-        <translation>Send To</translation>
+        <translation>Transaction token or contact</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact or transaction token</source>
-        <translation>Please specify contact</translation>
+        <translation>Please specify contact or transaction token</translation>
     </message>
     <message id="send-amount-label">
-        <source>Transaction amount</source>
-        <translation>Transaction amount</translation>
+        <source>Send</source>
+        <translation>Send</translation>
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
@@ -2057,6 +2057,10 @@ deploy the key at the node you trust completely.</source>
     <message id="tx-state-in-progress-long">
         <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="amount-input-add-all">
+        <source>add all</source>
+        <translation>add all</translation>
     </message>
 </context>
 </TS>
