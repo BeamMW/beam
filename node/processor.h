@@ -432,10 +432,17 @@ public:
 		};
 	};
 
-	struct ShieldedOutpPacked
+	struct ShieldedOutpBase
 	{
-		uintBigFor<TxoID>::Type m_TxoID;
+		uintBigFor<TxoID>::Type m_MmrIndex;
+		uintBigFor<Height>::Type m_Height;
+	};
+
+	struct ShieldedOutpPacked
+		:public ShieldedOutpBase
+	{
 		ECC::Point m_Commitment;
+		uintBigFor<TxoID>::Type m_TxoID;
 	};
 
 #pragma pack (pop)

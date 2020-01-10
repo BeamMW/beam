@@ -2527,6 +2527,8 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 		else
 		{
 			ShieldedOutpPacked sop;
+			sop.m_Height = bic.m_Height;
+			sop.m_MmrIndex = m_ShieldedMmr.m_Count;
 			sop.m_TxoID = m_Extra.m_ShieldedOutputs;
 			sop.m_Commitment = krn.m_Txo.m_Commitment;
 
@@ -2555,10 +2557,11 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 
 			if (bic.m_UpdateShieldedMmr)
 			{
-				ShieldedTxo::Description d;
+				ShieldedTxo::DescriptionOutp d;
 				d.m_SerialPub = krn.m_Txo.m_Serial.m_SerialPub;
 				d.m_Commitment = krn.m_Txo.m_Commitment;
 				d.m_ID = m_Extra.m_ShieldedOutputs;
+				d.m_Height = bic.m_Height;
 
 				Merkle::Hash hv;
 				d.get_Hash(hv);

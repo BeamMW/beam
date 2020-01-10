@@ -343,11 +343,21 @@ namespace beam
 			void get_Hash(ECC::Hash::Value&) const;
 		};
 
-		struct Description
+		struct DescriptionBase
+		{
+			TxoID m_ID;
+			Height m_Height;
+		};
+
+		struct DescriptionOutp
+			:public DescriptionBase
 		{
 			ECC::Point m_SerialPub; // blinded
 			ECC::Point m_Commitment;
-			TxoID m_ID;
+
+			void get_Hash(Merkle::Hash&) const;
+		};
+
 
 			void get_Hash(Merkle::Hash&) const;
 		};
@@ -788,7 +798,7 @@ namespace beam
 				bool IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof&) const;
 
 				bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
-				bool IsValidProofShieldedTxo(const ShieldedTxo::Description&, const Merkle::HardProof&, TxoID nTotal) const;
+				bool IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp&, const Merkle::Proof&) const;
 
 				int cmp(const Full&) const;
 				COMPARISON_VIA_CMP
@@ -797,6 +807,7 @@ namespace beam
 
 			private:
 				void get_HashInternal(Merkle::Hash&, bool bTotal) const;
+				bool IsValidProofShielded(Merkle::Hash&, const Merkle::Proof&) const;
 
 				struct ProofVerifier;
 				struct ProofVerifierHard;

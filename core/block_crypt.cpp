@@ -1663,13 +1663,14 @@ namespace beam
 		return OnNotImpl();
 	}
 
-	void ShieldedTxo::Description::get_Hash(Merkle::Hash& hv) const
+	void ShieldedTxo::DescriptionOutp::get_Hash(Merkle::Hash& hv) const
 	{
 		ECC::Hash::Processor()
-			<< "stxo"
+			<< "stxo-out"
+			<< m_ID
+			<< m_Height
 			<< m_SerialPub
 			<< m_Commitment
-			<< m_ID
 			>> hv;
 	}
 
@@ -1766,22 +1767,24 @@ namespace beam
 		return v.Verify(*this, hv, p.m_Proof);
 	}
 
-	bool Block::SystemState::Full::IsValidProofShieldedTxo(const ShieldedTxo::Description& d, const Merkle::HardProof& p, TxoID nTotal) const
+	bool Block::SystemState::Full::IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp& d, const Merkle::Proof& p) const
+	{
+		Merkle::Hash hv;
+		d.get_Hash(hv);
+		return IsValidProofShielded(hv, p);
+	}
+
+	bool Block::SystemState::Full::IsValidProofShielded(Merkle::Hash& hv, const Merkle::Proof& p) const
 	{
 		struct MyVerifier
-			:public ProofVerifierHard
+			:public ProofVerifier
 		{
-			using ProofVerifierHard::ProofVerifierHard;
-
-			virtual bool get_Shielded(Merkle::Hash& hv) override {
-				hv = m_hv;
+			virtual bool get_Shielded(Merkle::Hash&) override {
 				return true;
 			}
-		};
+		} v;
 
-		MyVerifier hver(p);
-		d.get_Hash(hver.m_hv);
-		return hver.Verify(*this, d.m_ID, nTotal);
+		return v.Verify(*this, hv, p);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const

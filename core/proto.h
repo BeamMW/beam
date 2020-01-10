@@ -108,8 +108,8 @@ namespace proto {
 #define BeamNodeMsg_ProofShieldedTxo(macro) \
     macro(ECC::Point, Commitment) \
     macro(TxoID, ID) \
-    macro(TxoID, Total) \
-    macro(Merkle::HardProof, Proof)
+    macro(Height, Height) \
+    macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ShieldedList(macro) \
     macro(std::vector<ECC::Point::Storage>, Items)

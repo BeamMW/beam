@@ -3063,7 +3063,6 @@ void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
 	proto::ProofShieldedTxo msgOut;
 
 	Processor& p = m_This.m_Processor;
-    msgOut.m_Total = p.m_ShieldedMmr.m_Count;
 
     if (!p.IsFastSync())
 	{
@@ -3076,18 +3075,19 @@ void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
         {
             const NodeProcessor::ShieldedOutpPacked& sop = rs.get_As<NodeProcessor::ShieldedOutpPacked>(0); // Note: will throw CorruptionException if of wrong size
 
-            msgOut.m_Commitment = sop.m_Commitment;
+            sop.m_Height.Export(msgOut.m_Height);
             sop.m_TxoID.Export(msgOut.m_ID);
+            msgOut.m_Commitment = sop.m_Commitment;
 
-            Merkle::ProofBuilderHard bld;
-            p.m_ShieldedMmr.get_Proof(bld, msgOut.m_ID);
+            TxoID nIdx;
+            sop.m_MmrIndex.Export(nIdx);
 
-            msgOut.m_Proof.swap(bld.m_Proof);
+            p.m_ShieldedMmr.get_Proof(msgOut.m_Proof, nIdx);
 
             struct MyProofBuilder
-                :public NodeProcessor::ProofBuilderHard
+                :public NodeProcessor::ProofBuilder
             {
-                using ProofBuilderHard::ProofBuilderHard;
+                using ProofBuilder::ProofBuilder;
                 virtual bool get_Shielded(Merkle::Hash&) override { return false; }
             };
 
