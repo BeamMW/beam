@@ -71,6 +71,7 @@ namespace beam
 			Amount m_Value;
 			ECC::Scalar::Native m_k;
 			PeerID m_Sender;
+			ECC::uintBig m_Message;
 
 			void Generate(ShieldedTxo&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce);
 			void Generate(ShieldedTxo&, ECC::Oracle&, const Viewer&, const ECC::Hash::Value& nonce);
@@ -80,6 +81,8 @@ namespace beam
 			void GenerateInternal(ShieldedTxo&, ECC::Oracle&, Key::IPKdf& gen, Key::IKdf* pGenPriv, const ECC::Point::Native* pImgH, const ECC::Hash::Value& nonce);
 			static void get_DH(ECC::Hash::Value&, const ShieldedTxo&);
 			static void get_Seed(ECC::uintBig&, const ECC::Point::Native&);
+			static uint32_t Msg2Scalar(ECC::Scalar::Native&, const ECC::uintBig&);
+			static void Scalar2Msg(ECC::uintBig&, const ECC::Scalar::Native&, uint32_t);
 		};
 
 		struct HashTxt;

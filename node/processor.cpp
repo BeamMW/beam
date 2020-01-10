@@ -2343,6 +2343,7 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 	proto::UtxoEvent::Shielded ues;
 	ues.m_ID = nID;
 	ues.m_Sender = op.m_Sender;
+	ues.m_Message = op.m_Message;
 	ues.m_IsCreatedByViewer = sp.m_IsCreatedByViewer;
 	ues.m_kSerG = sp.m_pK[0];
 	ues.m_kOutG = op.m_k;

@@ -257,39 +257,37 @@ namespace beam
 		ZeroObject(cp.m_Kidv);
 		cp.m_Kidv.m_Value = m_Value;
 
-		ECC::Scalar k;
-		k.m_Value = m_Sender;
-
-		ECC::Scalar::Native pExtra[2] = { k, Zero };
-		cp.m_pExtra = pExtra;
-		k = pExtra[0];
-
-		uint32_t nOverflow = (k.m_Value != m_Sender); // overflow (highly unlikely, but possible).
-		cp.m_Kidv.set_Subkey(nOverflow);
-
 		ECC::Point::Native pt = ECC::Commitment(m_k, m_Value);
 		txo.m_Commitment = pt;
 
 		ECC::Hash::Value hv;
 		get_DH(hv, txo);
 
+		ECC::Scalar::Native pExtra[2];
+		cp.m_pExtra = pExtra;
+		ECC::Scalar::Native& k = pExtra[0]; // alias
+
 		if (pGenPriv)
 		{
-			pGenPriv->DeriveKey(pExtra[1], hv);
-			pt = pt * pExtra[1]; // shared point
+			pGenPriv->DeriveKey(k, hv);
+			pt = pt * k; // shared point
 		}
 		else
 		{
 			gen.DerivePKeyG(pt, hv);
 
-			gen.DerivePKey(pExtra[1], hv);
-			pExtra[1] *= m_Value;
+			gen.DerivePKey(k, hv);
+			k *= m_Value;
 
 			pt = pt * m_k;
-			pt += (*pImgH) * pExtra[1]; // shared point
+			pt += (*pImgH) * k; // shared point
 		}
 
-		pExtra[1] = Zero;
+		uint32_t iOverflow =
+			Msg2Scalar(pExtra[0], m_Sender) |
+			(Msg2Scalar(pExtra[1], m_Message) << 1);
+
+		cp.m_Kidv.set_Subkey(iOverflow);
 
 		get_Seed(cp.m_Seed.V, pt);
 
@@ -328,13 +326,28 @@ namespace beam
 		if (!(pt == txo.m_Commitment))
 			return false;
 
-		static_assert(sizeof(m_Sender) == sizeof(ECC::Scalar));
-		reinterpret_cast<ECC::Scalar&>(m_Sender) = pExtra[0];
+		uint32_t nFlags = cp.m_Kidv.get_Subkey();
 
-		if (cp.m_Kidv.get_Subkey())
-			m_Sender += ECC::Scalar::s_Order;
+		Scalar2Msg(m_Sender, pExtra[0], 1 & nFlags);
+		Scalar2Msg(m_Message, pExtra[1], 2 & nFlags);
 
 		return true;
+	}
+
+	uint32_t ShieldedTxo::Data::OutputParams::Msg2Scalar(ECC::Scalar::Native& s, const ECC::uintBig& x)
+	{
+		static_assert(sizeof(x) == sizeof(ECC::Scalar));
+		s = reinterpret_cast<const ECC::Scalar&>(x);
+		return (x >= ECC::Scalar::s_Order);
+	}
+
+	void ShieldedTxo::Data::OutputParams::Scalar2Msg(ECC::uintBig& x, const ECC::Scalar::Native& s, uint32_t nOverflow)
+	{
+		static_assert(sizeof(x) == sizeof(ECC::Scalar));
+		reinterpret_cast<ECC::Scalar&>(x) = s;
+
+		if (nOverflow)
+			x += ECC::Scalar::s_Order;
 	}
 
 	/////////////

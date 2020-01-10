@@ -1617,6 +1617,8 @@ namespace beam
 				ECC::Scalar::Native m_sk;
 				ECC::Scalar::Native m_skSpendKey;
 				ECC::Point m_Commitment;
+				PeerID m_Sender = 165U;
+				ECC::uintBig m_Message = 243U;
 
 				ECC::Hash::Value m_SpendKernelID;
 				bool m_SpendConfirmed = false;
@@ -1662,7 +1664,8 @@ namespace beam
 					oracle << pKrn->m_Msg;
 
 					ShieldedTxo::Data::OutputParams op;
-					op.m_Sender = 16U;
+					op.m_Sender = m_Shielded.m_Sender;
+					op.m_Message = m_Shielded.m_Message;
 					op.m_Value = m_Shielded.m_Value;
 					op.Generate(pKrn->m_Txo, oracle, viewer, 18U);
 
@@ -2143,6 +2146,14 @@ namespace beam
 
 					if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
 					{
+						Key::ID::Packed kid;
+						kid = evt.m_Kidv;
+						proto::UtxoEvent::Shielded s;
+						evt.m_ShieldedDelta.Get(kid, s);
+
+						verify_test(s.m_Sender == m_Shielded.m_Sender);
+						verify_test(s.m_Message == m_Shielded.m_Message);
+
 						if (proto::UtxoEvent::Flags::Add & evt.m_Flags)
 							m_Shielded.m_EvtAdd = true;
 						else

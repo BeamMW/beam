@@ -2475,6 +2475,7 @@ void TestLelantusKeys()
 	beam::ShieldedTxo::Data::OutputParams oprs, oprs2;
 	oprs.m_Sender = 1U;
 	oprs.m_Value = 3002U;
+	oprs.m_Message = Scalar::s_Order;
 	{
 		Oracle oracle;
 		oprs.Generate(txo, oracle, gen, 115U);
@@ -2483,9 +2484,14 @@ void TestLelantusKeys()
 		Oracle oracle;
 		verify_test(oprs2.Recover(txo, oracle, viewer));
 		verify_test(oprs.m_Sender == oprs2.m_Sender);
+		verify_test(oprs.m_Message == oprs2.m_Message);
 	}
 
 	oprs.m_Sender.Negate(); // won't fin ECC::Scalar, special handling should be done
+	oprs.m_Message.Negate();
+	oprs.m_Message.Inc();
+	oprs.m_Message.Negate(); // should be 1 less than the order
+
 	{
 		Oracle oracle;
 		oprs.Generate(txo, oracle, gen, 115U);
@@ -2494,6 +2500,7 @@ void TestLelantusKeys()
 		Oracle oracle;
 		verify_test(oprs2.Recover(txo, oracle, viewer));
 		verify_test(oprs.m_Sender == oprs2.m_Sender);
+		verify_test(oprs.m_Message == oprs2.m_Message);
 	}
 
 	{

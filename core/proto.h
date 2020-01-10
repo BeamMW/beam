@@ -313,6 +313,7 @@ namespace proto {
             ECC::Scalar m_kSerG;
             ECC::Scalar m_kOutG;
             PeerID m_Sender;
+            ECC::uintBig m_Message;
             uintBigFor<TxoID>::Type m_ID;
             uint8_t m_IsCreatedByViewer;
 		};
