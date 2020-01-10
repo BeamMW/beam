@@ -374,124 +374,134 @@ namespace beam::wallet
 
     void BaseTxBuilder::SignSender(bool initial)
     {
-        Point::Native totalPublicExcess = GetPublicExcess();
-        totalPublicExcess += m_PeerPublicExcess;
-
-        if (!initial)
+        try
         {
-            assert(m_Kernel);
-            m_Kernel->m_Commitment = totalPublicExcess;
-            m_Kernel->UpdateID();
+            Point::Native totalPublicExcess = GetPublicExcess();
+            totalPublicExcess += m_PeerPublicExcess;
 
-            if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
+            if (!initial)
             {
-                return;
-            }
-        }
+                assert(m_Kernel);
+                m_Kernel->m_Commitment = totalPublicExcess;
+                m_Kernel->UpdateID();
 
-        Point::Native publicNonce = GetPublicNonce();
-        publicNonce += m_PeerPublicNonce;
-        
-        KernelParameters kernelParameters;
-        kernelParameters.fee = m_Fee;
-        kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
-        kernelParameters.commitment = totalPublicExcess;
-
-        if (!initial) 
-        {
-            if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation2, kernelParameters.paymentProofSignature, m_SubTxID)) //
-            {
-                if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, kernelParameters.peerID)
-                 || !m_Tx.GetParameter(TxParameterID::MySecureWalletID, kernelParameters.myID))
+                if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
                 {
-                    throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                    return;
                 }
             }
-            else if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation, kernelParameters.paymentProofSignature, m_SubTxID))
+
+            Point::Native publicNonce = GetPublicNonce();
+            publicNonce += m_PeerPublicNonce;
+
+            KernelParameters kernelParameters;
+            kernelParameters.fee = m_Fee;
+            kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
+            kernelParameters.commitment = totalPublicExcess;
+
+            if (!initial)
             {
-                WalletID myWalletID, peerWalletID;
-                if (!m_Tx.GetParameter(TxParameterID::PeerID, peerWalletID)
-                 || !m_Tx.GetParameter(TxParameterID::MyID, myWalletID))
+                if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation2, kernelParameters.paymentProofSignature, m_SubTxID)) //
                 {
-                    throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                    if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, kernelParameters.peerID)
+                        || !m_Tx.GetParameter(TxParameterID::MySecureWalletID, kernelParameters.myID))
+                    {
+                        throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                    }
                 }
-                kernelParameters.peerID = peerWalletID.m_Pk;
-                kernelParameters.myID = myWalletID.m_Pk;
+                else if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation, kernelParameters.paymentProofSignature, m_SubTxID))
+                {
+                    WalletID myWalletID, peerWalletID;
+                    if (!m_Tx.GetParameter(TxParameterID::PeerID, peerWalletID)
+                        || !m_Tx.GetParameter(TxParameterID::MyID, myWalletID))
+                    {
+                        throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                    }
+                    kernelParameters.peerID = peerWalletID.m_Pk;
+                    kernelParameters.myID = myWalletID.m_Pk;
+                }
+                else
+                {
+                    kernelParameters.peerID = Zero;
+                    kernelParameters.myID = Zero;
+                }
+            }
+
+            auto signature = m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, publicNonce, initial);
+            if (initial)
+            {
+                StoreAndLoad(TxParameterID::PublicNonce, signature.m_KernelSignature.m_NoncePub, m_PublicNonce);
+                StoreAndLoad(TxParameterID::PublicExcess, signature.m_KernelCommitment, m_PublicExcess);
             }
             else
             {
-                kernelParameters.peerID = Zero;
-                kernelParameters.myID = Zero;
+                StoreAndLoad(TxParameterID::PartialSignature, signature.m_KernelSignature.m_k, m_PartialSignature);
+                m_Offset = signature.m_Offset;
+                m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+                StoreKernelID();
             }
         }
-
-        auto signature = m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, publicNonce, initial);
-        if (!signature)
+        catch (const InvalidPaymentProofException&)
+        {
+            throw TransactionFailedException(!initial, TxFailureReason::NoPaymentProof);
+        }
+        catch (const KeyKeeperException&)
         {
             throw TransactionFailedException(!initial, TxFailureReason::FailedToCreateMultiSig);
-        }
-        if (initial)
-        {
-            StoreAndLoad(TxParameterID::PublicNonce, signature->m_KernelSignature.m_NoncePub, m_PublicNonce);
-            StoreAndLoad(TxParameterID::PublicExcess, signature->m_KernelCommitment, m_PublicExcess);
-        }
-        else
-        {
-            StoreAndLoad(TxParameterID::PartialSignature, signature->m_KernelSignature.m_k, m_PartialSignature);
-            m_Offset = signature->m_Offset;
-            m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
-            StoreKernelID();
         }
     }
 
     void BaseTxBuilder::SignReceiver()
     {
-        KernelParameters kernelParameters;
-        kernelParameters.fee = m_Fee;
-        kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
-        kernelParameters.commitment = m_PeerPublicExcess;
-
-        PeerID peerID = Zero;
-        uint64_t addressID = 0;
-        if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, peerID))
+        try
         {
-            // old sender
-        }
-        else if (!m_Tx.GetParameter(TxParameterID::MyAddressID, addressID))
-        {
-            throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
-        }
+            KernelParameters kernelParameters;
+            kernelParameters.fee = m_Fee;
+            kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
+            kernelParameters.commitment = m_PeerPublicExcess;
 
-        auto signature = m_Tx.GetKeyKeeper()->SignReceiver(m_InputCoins
-                                                         , m_OutputCoins
-                                                         , m_AssetId
-                                                         , kernelParameters
-                                                         , m_PeerPublicNonce
-                                                         , peerID
-                                                         , addressID);
-        if (!signature)
+            PeerID peerID = Zero;
+            uint64_t addressID = 0;
+            if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, peerID))
+            {
+                // old sender
+            }
+            else if (!m_Tx.GetParameter(TxParameterID::MyAddressID, addressID))
+            {
+                throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+            }
+
+            auto signature = m_Tx.GetKeyKeeper()->SignReceiver(m_InputCoins
+                                                             , m_OutputCoins
+                                                             , m_AssetId
+                                                             , kernelParameters
+                                                             , m_PeerPublicNonce
+                                                             , peerID
+                                                             , addressID);
+
+            StoreAndLoad(TxParameterID::PartialSignature, signature.m_KernelSignature.m_k, m_PartialSignature);
+            if (!m_PublicNonce.Import(signature.m_KernelSignature.m_NoncePub)
+                || !m_PublicExcess.Import(signature.m_KernelCommitment))
+            {
+                throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
+            }
+
+            m_PublicNonce -= m_PeerPublicNonce;
+            m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
+            m_PublicExcess -= m_PeerPublicExcess;
+            m_Tx.SetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
+            m_Offset = signature.m_Offset;
+            m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+            if (addressID)
+            {
+                m_Tx.SetParameter(TxParameterID::PaymentConfirmation2, signature.m_PaymentProofSignature);
+            }
+            StoreKernelID();
+        }
+        catch (const KeyKeeperException&)
         {
             throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
         }
-
-        StoreAndLoad(TxParameterID::PartialSignature, signature->m_KernelSignature.m_k, m_PartialSignature);
-        if (!m_PublicNonce.Import(signature->m_KernelSignature.m_NoncePub)
-         || !m_PublicExcess.Import(signature->m_KernelCommitment))
-        {
-            throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
-        }
-
-        m_PublicNonce -= m_PeerPublicNonce;
-        m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
-        m_PublicExcess -= m_PeerPublicExcess;
-        m_Tx.SetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
-        m_Offset = signature->m_Offset;
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
-        if (addressID)
-        {
-            m_Tx.SetParameter(TxParameterID::PaymentConfirmation2, signature->m_PaymentProofSignature);
-        }
-        StoreKernelID();
     }
 
     void BaseTxBuilder::FinalizeSignature()

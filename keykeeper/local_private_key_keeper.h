@@ -47,20 +47,20 @@ namespace beam::wallet
         ECC::Point GenerateNonceSync(size_t slot) override;
         ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const ECC::Point::Native& publicNonce) override;
 
-        boost::optional<ReceiverSignature> SignReceiver(const std::vector<Key::IDV>& inputs
-                                                      , const std::vector<Key::IDV>& outputs
-                                                      , const AssetID& assetId
-                                                      , const KernelParameters& kernelParamerters
-                                                      , const ECC::Point& publicNonce
-                                                      , const PeerID& peerID
-                                                      , const WalletIDKey& walletIDkey) override;
-        boost::optional<SenderSignature> SignSender(const std::vector<Key::IDV>& inputs
-                                                  , const std::vector<Key::IDV>& outputs
-                                                  , const AssetID& assetId
-                                                  , size_t nonceSlot
-                                                  , const KernelParameters& kernelParamerters
-                                                  , const ECC::Point& publicNonce
-                                                  , bool initial) override;
+        ReceiverSignature SignReceiver(const std::vector<Key::IDV>& inputs
+                                     , const std::vector<Key::IDV>& outputs
+                                     , const AssetID& assetId
+                                     , const KernelParameters& kernelParamerters
+                                     , const ECC::Point& publicNonce
+                                     , const PeerID& peerID
+                                     , const WalletIDKey& walletIDkey) override;
+        SenderSignature SignSender(const std::vector<Key::IDV>& inputs
+                                 , const std::vector<Key::IDV>& outputs
+                                 , const AssetID& assetId
+                                 , size_t nonceSlot
+                                 , const KernelParameters& kernelParamerters
+                                 , const ECC::Point& publicNonce
+                                 , bool initial) override;
 
         Key::IKdf::Ptr get_SbbsKdf() const override;
 

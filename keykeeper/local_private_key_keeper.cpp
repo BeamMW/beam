@@ -297,15 +297,15 @@ namespace beam::wallet
 		return kernel.m_Signature.m_k;
     }
 
-    boost::optional<ReceiverSignature> LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs
-                                                                         , const std::vector<Key::IDV>& outputs
-                                                                         , const AssetID& assetId
-                                                                         , const KernelParameters& kernelParamerters
-                                                                         , const ECC::Point& publicNonce
-                                                                         , const PeerID& peerID
-                                                                         , const WalletIDKey& walletIDkey)
+    ReceiverSignature LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs
+                                                        , const std::vector<Key::IDV>& outputs
+                                                        , const AssetID& assetId
+                                                        , const KernelParameters& kernelParamerters
+                                                        , const ECC::Point& publicNonce
+                                                        , const PeerID& peerID
+                                                        , const WalletIDKey& walletIDkey)
     {
-        boost::optional<ReceiverSignature> res;
+        ReceiverSignature res;
         auto value = CalculateValue(inputs, outputs);
         if (value > 0 && !inputs.empty() && 
             (Amount(value) == kernelParamerters.fee // self tx
@@ -315,7 +315,7 @@ namespace beam::wallet
         }
         else if (value >= 0)
         {
-            return res; // we are not receiving
+            throw KeyKeeperException("Receover failed to sign tx. We are not receiving");
         }
        
         auto excess = GetExcess(inputs, outputs, assetId, Zero);
@@ -343,14 +343,14 @@ namespace beam::wallet
         Point::Native commitment;
         if (!commitment.Import(kernelParamerters.commitment))
         {
-            return res;
+            throw InvalidParametersException();
         }
         
         Point::Native temp;
         temp = Context::get().G * kKrn; // public kernel commitment
         commitment += temp;
         
-        // 
+
         TxKernelStd kernel;
         kernel.m_Commitment = commitment;
         kernel.m_Fee = kernelParamerters.fee;
@@ -373,15 +373,15 @@ namespace beam::wallet
         Point::Native pt;
         if (!pt.Import(publicNonce))
         {
-            return res;
+            throw InvalidParametersException();
         }
-        res.emplace();
-        res->m_KernelCommitment = kernel.m_Commitment;
-        res->m_KernelSignature.m_NoncePub = pt + temp;
-        res->m_KernelSignature.SignPartial(message, kKrn, kNonce);
+
+        res.m_KernelCommitment = kernel.m_Commitment;
+        res.m_KernelSignature.m_NoncePub = pt + temp;
+        res.m_KernelSignature.SignPartial(message, kKrn, kNonce);
         kKrn = -kKrn;
         excess += kKrn;
-        res->m_Offset = excess;
+        res.m_Offset = excess;
 
         if (walletIDkey)
         {
@@ -394,28 +394,28 @@ namespace beam::wallet
 
             pc.Sign(keyPair.m_PrivateKey);
 
-            res->m_PaymentProofSignature = pc.m_Signature;
+            res.m_PaymentProofSignature = pc.m_Signature;
         }
         
         return res;
     }
 
-    boost::optional<SenderSignature> LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs
-                                                                     , const std::vector<Key::IDV>& outputs
-                                                                     , const AssetID& assetId
-                                                                     , size_t nonceSlot
-                                                                     , const KernelParameters& kernelParamerters
-                                                                     , const ECC::Point& publicNonce
-                                                                     , bool initial)
+    SenderSignature LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs
+                                                    , const std::vector<Key::IDV>& outputs
+                                                    , const AssetID& assetId
+                                                    , size_t nonceSlot
+                                                    , const KernelParameters& kernelParamerters
+                                                    , const ECC::Point& publicNonce
+                                                    , bool initial)
     {
-        boost::optional<SenderSignature> res;
+        SenderSignature res;
         auto value = CalculateValue(inputs, outputs);
 
         value -= kernelParamerters.fee;
 
         if (value < 0)
         {
-            return res; // we are not sending
+            throw KeyKeeperException("Sender failed to sign tx. We are not sending");
         }
 
         auto excess = GetExcess(inputs, outputs, assetId, Zero);
@@ -443,9 +443,8 @@ namespace beam::wallet
         myPublicNonce = Context::get().G * nonce;
         if (initial)
         {
-            res.emplace();
-            res->m_KernelCommitment = commitment;
-            res->m_KernelSignature.m_NoncePub = myPublicNonce;
+            res.m_KernelCommitment = commitment;
+            res.m_KernelSignature.m_NoncePub = myPublicNonce;
             return res;
         }
 
@@ -480,7 +479,9 @@ namespace beam::wallet
             pc.m_Signature = kernelParamerters.paymentProofSignature;
 
             if (!pc.IsValid(kernelParamerters.peerID))
-                return res;
+            {
+                throw InvalidPaymentProofException();
+            }
         }
         
         /////////////////////////
@@ -490,18 +491,17 @@ namespace beam::wallet
 
         if (!commitment.Import(kernelParamerters.commitment))
         {
-            return res;
+            throw InvalidParametersException();
         }
 
         ECC::GenRandom(m_Nonces[nonceSlot].V); // Invalidate slot immediately after using it (to make it similar to HW wallet)!
 
-        res.emplace();
-        res->m_KernelSignature.m_NoncePub = publicNonce;// + myPublicNonce;
-        res->m_KernelSignature.SignPartial(message, kKrn, nonce);
+        res.m_KernelSignature.m_NoncePub = publicNonce;// + myPublicNonce;
+        res.m_KernelSignature.SignPartial(message, kKrn, nonce);
 
         kKrn = -kKrn;
         excess += kKrn;
-        res->m_Offset = excess;
+        res.m_Offset = excess;
 
         return res;
     }

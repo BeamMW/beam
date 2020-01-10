@@ -1668,22 +1668,24 @@ namespace
 
         // sender
         auto nonceSlot = sender.m_KeyKeeper->AllocateNonceSlot();
-        auto senderSignature = sender.m_KeyKeeper->SignSender({ inputID }, {}, Zero, nonceSlot, kernelParams, {}, true);
-        WALLET_CHECK(senderSignature);
-        kernelParams.commitment = senderSignature->m_KernelCommitment;
-        auto receiverSignature = receiver.m_KeyKeeper->SignReceiver({}, { outputID }, Zero, kernelParams, senderSignature->m_KernelSignature.m_NoncePub, sender.m_SecureWalletID, receiver.m_OwnID);
-        WALLET_CHECK(receiverSignature);
-        kernelParams.commitment = receiverSignature->m_KernelCommitment;
-        kernelParams.paymentProofSignature = receiverSignature->m_PaymentProofSignature;
+        SenderSignature senderSignature;
+        WALLET_CHECK_NO_THROW(senderSignature = sender.m_KeyKeeper->SignSender({ inputID }, {}, Zero, nonceSlot, kernelParams, {}, true));
+        
+        kernelParams.commitment = senderSignature.m_KernelCommitment;
+        ReceiverSignature receiverSignature;
+        WALLET_CHECK_NO_THROW(receiverSignature = receiver.m_KeyKeeper->SignReceiver({}, { outputID }, Zero, kernelParams, senderSignature.m_KernelSignature.m_NoncePub, sender.m_SecureWalletID, receiver.m_OwnID));
+        
+        kernelParams.commitment = receiverSignature.m_KernelCommitment;
+        kernelParams.paymentProofSignature = receiverSignature.m_PaymentProofSignature;
 
-        auto finalSenderSignature = sender.m_KeyKeeper->SignSender({ inputID }, {}, Zero, nonceSlot, kernelParams, receiverSignature->m_KernelSignature.m_NoncePub, false);
-        WALLET_CHECK(finalSenderSignature);
-        Point publicNonce = finalSenderSignature->m_KernelSignature.m_NoncePub;
-        Scalar::Native signature = finalSenderSignature->m_KernelSignature.m_k;
-        Scalar::Native pt = receiverSignature->m_KernelSignature.m_k;
+        SenderSignature finalSenderSignature;
+        WALLET_CHECK_NO_THROW(finalSenderSignature = sender.m_KeyKeeper->SignSender({ inputID }, {}, Zero, nonceSlot, kernelParams, receiverSignature.m_KernelSignature.m_NoncePub, false));
+        Point publicNonce = finalSenderSignature.m_KernelSignature.m_NoncePub;
+        Scalar::Native signature = finalSenderSignature.m_KernelSignature.m_k;
+        Scalar::Native pt = receiverSignature.m_KernelSignature.m_k;
         signature += pt;
-        Scalar::Native offset = finalSenderSignature->m_Offset;
-        pt = receiverSignature->m_Offset;
+        Scalar::Native offset = finalSenderSignature.m_Offset;
+        pt = receiverSignature.m_Offset;
         offset += pt;
 
         auto kernel = make_unique<TxKernelStd>();

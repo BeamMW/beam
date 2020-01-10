@@ -47,6 +47,26 @@ namespace beam::wallet
 
     using WalletIDKey = uint64_t;
 
+    class KeyKeeperException : public std::runtime_error
+    {
+    public:
+        explicit KeyKeeperException(const std::string& message) : std::runtime_error(message) {}
+        explicit KeyKeeperException(const char* message) : std::runtime_error(message) {}
+    };
+
+    class InvalidPaymentProofException : public KeyKeeperException
+    {
+    public:
+        InvalidPaymentProofException() : KeyKeeperException("Invalid payment proof") {}
+    };
+
+    class InvalidParametersException : public KeyKeeperException
+    {
+    public:
+        InvalidParametersException() : KeyKeeperException("Invalid signature parameters") {}
+    };
+
+
     //
     // Interface to master key storage. HW wallet etc.
     // Only public info should cross its boundary.
@@ -97,20 +117,20 @@ namespace beam::wallet
         virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
         virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) = 0;
 
-        virtual boost::optional<ReceiverSignature> SignReceiver(const std::vector<Key::IDV>& inputs
-                                                              , const std::vector<Key::IDV>& outputs
-                                                              , const AssetID& assetId
-                                                              , const KernelParameters& kernelParamerters
-                                                              , const ECC::Point& publicNonce
-                                                              , const PeerID& peerID
-                                                              , const WalletIDKey& walletIDkey) = 0;
-        virtual boost::optional<SenderSignature> SignSender(const std::vector<Key::IDV>& inputs
-                                                          , const std::vector<Key::IDV>& outputs
-                                                          , const AssetID& assetId
-                                                          , size_t nonceSlot
-                                                          , const KernelParameters& kernelParamerters
-                                                          , const ECC::Point& publicNonce
-                                                          , bool initial) = 0;
+        virtual ReceiverSignature SignReceiver(const std::vector<Key::IDV>& inputs
+                                             , const std::vector<Key::IDV>& outputs
+                                             , const AssetID& assetId
+                                             , const KernelParameters& kernelParamerters
+                                             , const ECC::Point& publicNonce
+                                             , const PeerID& peerID
+                                             , const WalletIDKey& walletIDkey) = 0;
+        virtual SenderSignature SignSender(const std::vector<Key::IDV>& inputs
+                                         , const std::vector<Key::IDV>& outputs
+                                         , const AssetID& assetId
+                                         , size_t nonceSlot
+                                         , const KernelParameters& kernelParamerters
+                                         , const ECC::Point& publicNonce
+                                         , bool initial) = 0;
 
         virtual Key::IKdf::Ptr get_SbbsKdf() const = 0;
         virtual void subscribe(Handler::Ptr handler) = 0;
