@@ -1855,11 +1855,10 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_AlreadyValidated = false; // set during reorgs, when a block is being applied for 2nd time
 	bool m_SaveKid = true;
 	bool m_UpdateShieldedMmr = true;
+	bool m_StoreShieldedOutput = false;
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
-
-	ECC::Point::Storage* m_pShieldedOut = nullptr; // used in normal (apply) mode
 
 	struct BlobItem
 		:public boost::intrusive::set_base_hook<>
@@ -2081,21 +2080,13 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		}
 	}
 
-	TxStats stats;
-	block.get_Reader().AddStats(stats);
-
 	TxoID id0 = m_Extra.m_Txos;
 
 	BlockInterpretCtx bic(sid.m_Height, true);
 	if (!bFirstTime)
 		bic.m_AlreadyValidated = true;
 
-	std::vector<ECC::Point::Storage> vShieldedOut;
-	if (stats.m_OutputsShielded)
-	{
-		vShieldedOut.resize(stats.m_OutputsShielded);
-		bic.m_pShieldedOut = &vShieldedOut.front();
-	}
+	bic.m_StoreShieldedOutput = true;
 
 	bool bOk = HandleValidatedBlock(block, bic);
 	if (!bOk)
@@ -2107,7 +2098,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	else
 	{
 		assert(m_Extra.m_Txos > id0);
-		assert(bic.m_ShieldedOuts == stats.m_OutputsShielded);
 	}
 
 	if (bFirstTime && bOk)
@@ -2164,16 +2154,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		Blob blob(offsAcc.m_Value);
 		m_DB.set_StateTxosAndExtra(sid.m_Row, &m_Extra.m_Txos, &blob);
 
-		// save shielded outs
-		if (bic.m_ShieldedOuts)
-		{
-			// Append to cmList
-			TxoID n0 = m_ShieldedMmr.m_Count - bic.m_ShieldedOuts;
-			m_DB.ShieldedResize(m_ShieldedMmr.m_Count, n0);
-			m_DB.ParamSet(NodeDB::ParamID::ShieldedPoolSize, &m_ShieldedMmr.m_Count, nullptr);
-
-			m_DB.ShieldedWrite(n0, bic.m_pShieldedOut, bic.m_ShieldedOuts);
-		}
 
 		std::vector<NodeDB::StateInput> v;
 		v.reserve(block.m_vInputs.size());
@@ -2553,7 +2533,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			if (!m_DB.UniqueInsertSafe(blobKey, &blobVal))
 				return false;
 
-			if (bic.m_pShieldedOut)
+			if (bic.m_StoreShieldedOutput)
 			{
 				ECC::Point::Native pt, pt2;
 				pt.Import(krn.m_Txo.m_Commitment); // don't care if Import fails (kernels are not necessarily tested at this stage)
@@ -2561,7 +2541,14 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 				pt += pt2;
 
 				ECC::Point::Storage pt_s;
-				pt.Export(bic.m_pShieldedOut[bic.m_ShieldedOuts]);
+				pt.Export(pt_s);
+
+				TxoID n = m_ShieldedMmr.m_Count + 1;
+				m_DB.ShieldedResize(n, m_ShieldedMmr.m_Count);
+				m_DB.ParamSet(NodeDB::ParamID::ShieldedOutputs, &n, nullptr);
+
+				// Append to cmList
+				m_DB.ShieldedWrite(m_ShieldedMmr.m_Count, &pt_s, 1);
 			}
 
 			if (bic.m_UpdateShieldedMmr)
@@ -2592,6 +2579,9 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			m_ShieldedMmr.ShrinkTo(m_ShieldedMmr.m_Count - 1);
 		else
 			m_ShieldedMmr.m_Count--;
+
+		if (bic.m_StoreShieldedOutput)
+			m_DB.ShieldedResize(m_ShieldedMmr.m_Count, m_ShieldedMmr.m_Count + 1);
 
 		assert(bic.m_ShieldedOuts);
 		bic.m_ShieldedOuts--;
@@ -3095,7 +3085,6 @@ void NodeProcessor::RollbackTo(Height h)
 	// Kernels, shielded elements, and cursor
 	ByteBuffer bbE;
 	TxVectors::Eternal txve;
-	TxoID nShielded0 = m_ShieldedMmr.m_Count;
 
 	for (; m_Cursor.m_Sid.m_Height > h; m_DB.MoveBack(m_Cursor.m_Sid))
 	{
@@ -3108,15 +3097,10 @@ void NodeProcessor::RollbackTo(Height h)
 		der & Cast::Down<TxVectors::Eternal>(txve);
 
 		BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height, false);
+		bic.m_StoreShieldedOutput = true;
 		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
 	}
 
-	assert(m_ShieldedMmr.m_Count <= nShielded0);
-	if (m_ShieldedMmr.m_Count < nShielded0)
-	{
-		m_DB.ShieldedResize(m_ShieldedMmr.m_Count, nShielded0);
-		m_DB.ParamSet(NodeDB::ParamID::ShieldedPoolSize, &m_ShieldedMmr.m_Count, nullptr);
-	}
 
 	m_RecentStates.RollbackTo(h);
 
