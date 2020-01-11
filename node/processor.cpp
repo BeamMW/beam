@@ -2548,10 +2548,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 				ECC::Point::Storage pt_s;
 				pt.Export(pt_s);
 
-				TxoID n = m_Extra.m_ShieldedOutputs + 1;
-				m_DB.ShieldedResize(n, m_Extra.m_ShieldedOutputs);
-				m_DB.ParamSet(NodeDB::ParamID::ShieldedOutputs, &n, nullptr);
-
+				m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs + 1, m_Extra.m_ShieldedOutputs);
 				// Append to cmList
 				m_DB.ShieldedWrite(m_Extra.m_ShieldedOutputs, &pt_s, 1);
 			}
@@ -2568,8 +2565,6 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 				d.get_Hash(hv);
 				m_ShieldedMmr.Append(hv);
 			}
-			else
-				m_ShieldedMmr.m_Count++;
 
 			m_Extra.m_ShieldedOutputs++;
 		}
@@ -2585,8 +2580,6 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 
 		if (bic.m_UpdateShieldedMmr)
 			m_ShieldedMmr.ShrinkTo(m_ShieldedMmr.m_Count - 1);
-		else
-			m_ShieldedMmr.m_Count--;
 
 		if (bic.m_StoreShieldedOutput)
 			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs - 1, m_Extra.m_ShieldedOutputs);
@@ -2597,6 +2590,9 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 		assert(m_Extra.m_ShieldedOutputs);
 		m_Extra.m_ShieldedOutputs--;
 	}
+
+	if (bic.m_StoreShieldedOutput)
+		m_DB.ParamSet(NodeDB::ParamID::ShieldedOutputs, &m_Extra.m_ShieldedOutputs, nullptr);
 
 	return true;
 }
@@ -2644,8 +2640,6 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 				d.get_Hash(hv);
 				m_ShieldedMmr.Append(hv);
 			}
-			else
-				m_ShieldedMmr.m_Count++;
 		}
 
 		bic.m_ShieldedIns++; // ok
@@ -2659,12 +2653,19 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 
 		if (bic.m_UpdateShieldedMmr)
 			m_ShieldedMmr.ShrinkTo(m_ShieldedMmr.m_Count - 1);
-		else
-			m_ShieldedMmr.m_Count--;
 
 		assert(bic.m_ShieldedIns);
 		bic.m_ShieldedIns--;
 	}
+
+	if (bic.m_StoreShieldedOutput)
+	{
+		assert(bic.m_UpdateShieldedMmr); // otherwise the following formula will be wrong
+
+		TxoID nShieldedInputs = m_ShieldedMmr.m_Count - m_Extra.m_ShieldedOutputs;
+		m_DB.ParamSet(NodeDB::ParamID::ShieldedInputs, &nShieldedInputs, nullptr);
+	}
+
 
 	return true;
 }
