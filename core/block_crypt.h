@@ -513,22 +513,30 @@ namespace beam
 		void CopyFrom(const TxKernelNonStd&);
 	};
 
-	struct TxKernelAssetEmit
+	struct TxKernelAssetBase
 		:public TxKernelNonStd
 	{
-		typedef std::unique_ptr<TxKernelAssetEmit> Ptr;
-
 		AssetID m_AssetID;
-		AmountSigned m_Value;
 
 		ECC::Point m_Commitment;	// aggregated, including nested kernels
 		ECC::SignatureGeneralized<1> m_Signature;
 
-		TxKernelAssetEmit()
-			:m_Value(0)
-		{}
-
 		void Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset); // suitable for aux kernels, created by single party
+
+		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+	protected:
+		void CopyFrom(const TxKernelAssetBase&);
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelAssetEmit
+		:public TxKernelAssetBase
+	{
+		typedef std::unique_ptr<TxKernelAssetEmit> Ptr;
+
+		AmountSigned m_Value;
+		TxKernelAssetEmit() :m_Value(0) {}
 
 		virtual ~TxKernelAssetEmit() {}
 		virtual Subtype::Enum get_Subtype() const override;
@@ -536,7 +544,6 @@ namespace beam
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
-		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelShieldedOutput

@@ -780,21 +780,20 @@ namespace beam
 	}
 
 	/////////////
-	// TxKernelAssetEmit
-	void TxKernelAssetEmit::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	// TxKernelAssetBase
+	void TxKernelAssetBase::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
 		hp
 			<< m_Commitment
-			<< m_AssetID
-			<< Amount(m_Value);
+			<< m_AssetID;
 	}
 
-	void TxKernelAssetEmit::HashSelfForID(ECC::Hash::Processor& hp) const
+	void TxKernelAssetBase::HashSelfForID(ECC::Hash::Processor& hp) const
 	{
 		hp.Serialize(m_Signature);
 	}
 
-	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	bool TxKernelAssetBase::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
 		if (!IsValidBase(hScheme, exc, pParent))
 			return false;
@@ -802,9 +801,6 @@ namespace beam
 		const Rules& r = Rules::get(); // alias
 		if ((hScheme < r.pForks[2].m_Height) || !r.CA.Enabled)
 			return false; // unsupported for that version
-
-		if (!m_Value || (m_AssetID == Zero))
-			return false;
 
 		ECC::Point::Native pPt[2];
 		if (!pPt[0].ImportNnz(m_Commitment))
@@ -819,7 +815,45 @@ namespace beam
 			return false;
 
 		// prover must prove knowledge of excess AND m_AssetID sk
-		if (!m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt))
+		return m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt);
+	}
+
+	void TxKernelAssetBase::CopyFrom(const TxKernelAssetBase& v)
+	{
+		TxKernelNonStd::CopyFrom(v);
+		m_Commitment = v.m_Commitment;
+		m_Signature = v.m_Signature;
+		m_AssetID = v.m_AssetID;
+	}
+
+	void TxKernelAssetBase::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
+	{
+		m_Commitment = ECC::Context::get().G * sk;
+		UpdateMsg();
+
+		ECC::Scalar::Native pSk[2] = { sk, skAsset };
+		ECC::Scalar::Native res;
+		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pSk, &res);
+
+		MsgToID();
+	}
+
+	/////////////
+	// TxKernelAssetEmit
+	void TxKernelAssetEmit::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelAssetBase::HashSelfForMsg(hp);
+		hp << Amount(m_Value);
+	}
+
+	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!TxKernelAssetBase::IsValid(hScheme, exc, pParent))
+			return false;
+
+		const Rules& r = Rules::get(); // alias
+
+		if (!m_Value || (m_AssetID == Zero))
 			return false;
 
 		SwitchCommitment sc(&m_AssetID);
@@ -851,22 +885,7 @@ namespace beam
 		TxKernelAssetEmit& v = Cast::Up<TxKernelAssetEmit>(*p);
 
 		v.CopyFrom(*this);
-		v.m_Commitment = m_Commitment;
-		v.m_Signature = m_Signature;
-		v.m_AssetID = m_AssetID;
 		v.m_Value = m_Value;
-	}
-
-	void TxKernelAssetEmit::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
-	{
-		m_Commitment = ECC::Context::get().G * sk;
-		UpdateMsg();
-
-		ECC::Scalar::Native pSk[2] = { sk, skAsset };
-		ECC::Scalar::Native res;
-		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pSk, &res);
-
-		MsgToID();
 	}
 
 	/////////////
