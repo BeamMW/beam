@@ -1188,10 +1188,9 @@ namespace detail
 			}
         }
 
-
-        /// beam::TxKernelAssetEmit serialization
+        /// beam::TxKernelAssetBase serialization
 		template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernelAssetEmit& val)
+        static Archive& saveBase(Archive& ar, const beam::TxKernelAssetBase& val)
         {
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
@@ -1204,8 +1203,7 @@ namespace detail
 				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_pK[0]
-				& val.m_AssetID
-				& val.m_Value;
+				& val.m_AssetID;
 
 			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
 			ImplTxKernel::save_Nested(ar, val);
@@ -1214,7 +1212,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static void load0(Archive& ar, beam::TxKernelAssetEmit& val, uint32_t nRecursion)
+        static void load0Base(Archive& ar, beam::TxKernelAssetBase& val, uint32_t nRecursion)
         {
 			uint32_t nFlags;
 			ar
@@ -1222,8 +1220,7 @@ namespace detail
 				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_pK[0]
-				& val.m_AssetID
-				& val.m_Value;
+				& val.m_AssetID;
 
 			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
 			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
@@ -1234,6 +1231,22 @@ namespace detail
 			if (0x20 & nFlags)
 				val.m_CanEmbed = true;
         }
+
+        /// beam::TxKernelAssetEmit serialization
+		template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxKernelAssetEmit& val)
+        {
+			saveBase(ar, Cast::Down<beam::TxKernelAssetBase>(val));
+			ar & val.m_Value;
+            return ar;
+        }
+
+        template<typename Archive>
+        static void load0(Archive& ar, beam::TxKernelAssetEmit& val, uint32_t nRecursion)
+        {
+			load0Base(ar, Cast::Down<beam::TxKernelAssetBase>(val), nRecursion);
+			ar & val.m_Value;
+		}
 
         /// beam::TxKernelShieldedOutput serialization
 		template<typename Archive>

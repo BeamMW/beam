@@ -808,6 +808,9 @@ namespace beam
 
 		exc += pPt[0];
 
+		if (m_AssetID == Zero)
+			return false;
+
 		ECC::Point pkAsset;
 		pkAsset.m_X = m_AssetID;
 		pkAsset.m_Y = 0;
@@ -853,7 +856,7 @@ namespace beam
 
 		const Rules& r = Rules::get(); // alias
 
-		if (!m_Value || (m_AssetID == Zero))
+		if (!m_Value)
 			return false;
 
 		SwitchCommitment sc(&m_AssetID);
