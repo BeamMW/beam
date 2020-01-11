@@ -1331,9 +1331,6 @@ struct TransactionMaker
 			SetRandom(skAsset, is_trezor_debug); // asset sk
 			beam::proto::Sk2Pk(aid, skAsset);
 
-			if (beam::Rules::get().CA.Deposit)
-				m_pPeers[0].AddInput(m_Trans, valAsset, m_Kdf, nullptr, is_trezor_debug); // input being-deposited
-
 			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid, is_trezor_debug); // output UTXO to consume the created asset
 
 			beam::TxKernelAssetEmit::Ptr pKrnEmission(new beam::TxKernelAssetEmit);
@@ -2513,8 +2510,8 @@ void TestAssetEmission()
 {
 	const beam::Height hScheme = g_hFork;
 
-	beam::Key::IDV kidvInpBeam (100, 12, beam::Key::Type::Regular);
-	beam::Key::IDV kidvInpAsset(70,  15, beam::Key::Type::Asset);
+	beam::Key::IDV kidvInpBeam (170, 12, beam::Key::Type::Regular);
+	beam::Key::IDV kidvInpAsset(53,  15, beam::Key::Type::Asset);
 	beam::Key::IDV kidvOutBeam (70,  25, beam::Key::Type::Regular);
 	const beam::Amount fee = 100;
 

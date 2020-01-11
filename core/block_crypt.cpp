@@ -854,27 +854,22 @@ namespace beam
 		if (!TxKernelAssetBase::IsValid(hScheme, exc, pParent))
 			return false;
 
-		const Rules& r = Rules::get(); // alias
-
 		if (!m_Value)
 			return false;
 
 		SwitchCommitment sc(&m_AssetID);
 		assert(ECC::Tag::IsCustom(&sc.m_hGen));
 
-		sc.m_hGen = -sc.m_hGen;
-
-		if (r.CA.Deposit)
-			sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
-
 		// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
 		Amount val;
 		if (m_Value > 0)
+		{
 			val = m_Value;
+			sc.m_hGen = -sc.m_hGen;
+		}
 		else
 		{
 			val = -m_Value;
-			sc.m_hGen = -sc.m_hGen;
 		}
 
 		ECC::Tag::AddValue(exc, &sc.m_hGen, val);
@@ -1474,7 +1469,6 @@ namespace beam
 			<< Shielded.NMin
 			<< Shielded.MaxWindowBacklog
 			<< CA.Enabled
-			<< CA.Deposit
 			// out
 			>> pForks[2].m_Hash;
 	}

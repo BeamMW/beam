@@ -2008,8 +2008,7 @@ namespace beam
 						msgTx.m_Transaction->Normalize();
 					}
 
-					if (!(bEmitAsset && Rules::get().CA.Deposit))
-						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
+					m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
 					Transaction::Context::Params pars;
 					Transaction::Context ctx(pars);

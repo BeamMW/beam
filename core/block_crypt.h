@@ -136,7 +136,6 @@ namespace beam
 
 		struct {
 			bool Enabled = false;
-			bool Deposit = true; // CA emission in exchange for beams. If not specified - the emission is free
 		} CA;
 
 		uint32_t MaxRollback = 1440; // 1 day roughly
