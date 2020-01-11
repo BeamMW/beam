@@ -2505,6 +2505,11 @@ bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
 	return true;
 }
 
+bool NodeProcessor::HandleKernel(const TxKernelAssetControl& krn, BlockInterpretCtx& bic)
+{
+	return true; // TODO
+}
+
 bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
 	return true; // no special processing at the moment

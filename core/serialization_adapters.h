@@ -1248,6 +1248,22 @@ namespace detail
 			ar & val.m_Value;
 		}
 
+		/// beam::TxKernelAssetControl serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernelAssetControl& val)
+		{
+			saveBase(ar, Cast::Down<beam::TxKernelAssetBase>(val));
+			ar & val.m_Flags;
+			return ar;
+		}
+
+		template<typename Archive>
+		static void load0(Archive& ar, beam::TxKernelAssetControl& val, uint32_t nRecursion)
+		{
+			load0Base(ar, Cast::Down<beam::TxKernelAssetBase>(val), nRecursion);
+			ar & val.m_Flags;
+		}
+
         /// beam::TxKernelShieldedOutput serialization
 		template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxKernelShieldedOutput& val)

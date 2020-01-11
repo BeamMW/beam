@@ -887,6 +887,47 @@ namespace beam
 	}
 
 	/////////////
+	// TxKernelAssetControl
+	void TxKernelAssetControl::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelAssetBase::HashSelfForMsg(hp);
+		hp << m_Flags;
+	}
+
+	bool TxKernelAssetControl::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!TxKernelAssetBase::IsValid(hScheme, exc, pParent))
+			return false;
+
+		const Rules& r = Rules::get(); // alias
+
+		if ((Flags::Add | Flags::Remove) & m_Flags)
+		{
+			ECC::Point::Native pt = ECC::Context::get().H * r.CA.DepositForList;
+
+			if (Flags::Add & m_Flags)
+				exc += pt;
+
+			if (Flags::Remove & m_Flags)
+			{
+				pt = -pt;
+				exc += pt;
+			}
+		}
+
+		return true;
+	}
+
+	void TxKernelAssetControl::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelAssetControl);
+		TxKernelAssetControl& v = Cast::Up<TxKernelAssetControl>(*p);
+
+		v.CopyFrom(*this);
+		v.m_Flags = m_Flags;
+	}
+
+	/////////////
 	// TxKernelShieldedOutput
 	bool TxKernelShieldedOutput::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
@@ -1469,6 +1510,7 @@ namespace beam
 			<< Shielded.NMin
 			<< Shielded.MaxWindowBacklog
 			<< CA.Enabled
+			<< CA.DepositForList
 			// out
 			>> pForks[2].m_Hash;
 	}
