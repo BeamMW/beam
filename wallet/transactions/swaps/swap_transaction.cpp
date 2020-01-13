@@ -1036,7 +1036,8 @@ namespace beam::wallet
         {
             if (lockTxState == SubTxState::Initial && isBeamOwner)
             {
-                lockTxBuilder->SignSender(true);
+                if (lockTxBuilder->SignSender(true))
+                    return lockTxState;
                 SendLockTxInvitation(*lockTxBuilder);
                 SetState(SubTxState::Invitation, SubTxIndex::BEAM_LOCK_TX);
                 lockTxState = SubTxState::Invitation;
@@ -1049,11 +1050,13 @@ namespace beam::wallet
 
         if (isBeamOwner)
         {
-            lockTxBuilder->SignSender(false);
+            if (lockTxBuilder->SignSender(false))
+                return lockTxState;
         }
         else
         {
-            lockTxBuilder->SignReceiver();
+            if (lockTxBuilder->SignReceiver())
+                return lockTxState;
         }
 
         if (lockTxState == SubTxState::Initial || lockTxState == SubTxState::Invitation)
@@ -1178,7 +1181,8 @@ namespace beam::wallet
         {
             if (subTxState == SubTxState::Initial && isTxOwner)
             {
-                builder.SignSender(true);
+                if (builder.SignSender(true))
+                    return subTxState;
                 SendSharedTxInvitation(builder);
                 SetState(SubTxState::Invitation, subTxID);
                 subTxState = SubTxState::Invitation;
@@ -1191,7 +1195,8 @@ namespace beam::wallet
         {
             if (subTxState == SubTxState::Initial && !isTxOwner)
             {
-                builder.SignReceiver();
+                if (builder.SignReceiver())
+                    return subTxState;
                 // invited participant
                 ConfirmSharedTxInvitation(builder);
 
@@ -1204,7 +1209,8 @@ namespace beam::wallet
             return subTxState;
         }
 
-        builder.SignSender(false);
+        if (builder.SignSender(false))
+            return subTxState;
 
         if (subTxID == SubTxIndex::BEAM_REDEEM_TX)
         {
@@ -1571,7 +1577,8 @@ namespace beam::wallet
         builder.GetPeerPublicExcessAndNonce();
         builder.GenerateNonce();
         builder.CreateKernel();
-        builder.SignSender(false);
+        if (builder.SignSender(false))
+            return;
 
         Scalar::Native peerSignature = GetMandatoryParameter<Scalar::Native>(TxParameterID::PeerSignature, subTxID);
         Scalar::Native partialSignature = builder.GetPartialSignature();

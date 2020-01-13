@@ -172,7 +172,7 @@ namespace beam::wallet
             return false;
         }
 
-        DoAsync<IPrivateKeyKeeper::Outputs>([this](auto&& r, auto&& ex)
+        DoAsync2<IPrivateKeyKeeper::Outputs>([this](auto&& r, auto&& ex)
             {
                 m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId, move(r), move(ex));
             },
@@ -199,7 +199,7 @@ namespace beam::wallet
         {
             return false;
         }
-        DoAsync<IPrivateKeyKeeper::PublicKeys>([this](auto&& r, auto&& ex)
+        DoAsync2<IPrivateKeyKeeper::PublicKeys>([this](auto&& r, auto&& ex)
             {
                 m_Tx.GetKeyKeeper()->GeneratePublicKeysEx(m_InputCoins, true, m_AssetId, move(r), move(ex));
             },
@@ -224,8 +224,9 @@ namespace beam::wallet
 
     void BaseTxBuilder::CreateKernel()
     {
+        if (m_Kernel)
+            return;
         // create kernel
-        assert(!m_Kernel);
         m_Kernel = make_unique<TxKernelStd>();
         m_Kernel->m_Fee = GetFee();
         m_Kernel->m_Height.m_Min = GetMinHeight();
@@ -354,7 +355,7 @@ namespace beam::wallet
         return hasInputs || hasOutputs;
     }
 
-    void BaseTxBuilder::SignSender(bool initial)
+    bool BaseTxBuilder::SignSender(bool initial)
     {
         try
         {
@@ -369,7 +370,15 @@ namespace beam::wallet
 
                 if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
                 {
-                    return;
+                    return false;
+                }
+            }
+            else
+            {
+                if (m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID)
+                 && m_Tx.GetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID))
+                {
+                    return false;
                 }
             }
 
@@ -409,19 +418,26 @@ namespace beam::wallet
                 }
             }
 
-            auto signature = m_Tx.GetKeyKeeper()->SignSenderSync(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, publicNonce, initial);
-            if (initial)
-            {
-                StoreAndLoad(TxParameterID::PublicNonce, signature.m_KernelSignature.m_NoncePub, m_PublicNonce);
-                StoreAndLoad(TxParameterID::PublicExcess, signature.m_KernelCommitment, m_PublicExcess);
-            }
-            else
-            {
-                StoreAndLoad(TxParameterID::PartialSignature, signature.m_KernelSignature.m_k, m_PartialSignature);
-                m_Offset = signature.m_Offset;
-                m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
-                StoreKernelID();
-            }
+            DoAsync<SenderSignature>([=](auto&& r, auto&& ex)
+                {
+                    m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, publicNonce, initial, move(r), move(ex));
+                },
+                [=](SenderSignature&& signature)
+                {
+                    if (initial)
+                    {
+                        StoreAndLoad(TxParameterID::PublicNonce, signature.m_KernelSignature.m_NoncePub, m_PublicNonce);
+                        StoreAndLoad(TxParameterID::PublicExcess, signature.m_KernelCommitment, m_PublicExcess);
+                    }
+                    else
+                    {
+                        StoreAndLoad(TxParameterID::PartialSignature, signature.m_KernelSignature.m_k, m_PartialSignature);
+                        m_Offset = signature.m_Offset;
+                        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+                        StoreKernelID();
+                    }
+                });
+            return true; // async
         }
         catch (const InvalidPaymentProofException&)
         {
@@ -433,15 +449,19 @@ namespace beam::wallet
         }
     }
 
-    void BaseTxBuilder::SignReceiver()
+    bool BaseTxBuilder::SignReceiver()
     {
         try
         {
+            if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
+            {
+                return false;
+            }
             KernelParameters kernelParameters;
             kernelParameters.fee = m_Fee;
             kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
             kernelParameters.commitment = m_PeerPublicExcess;
-
+        
             PeerID peerID = Zero;
             uint64_t addressID = 0;
             if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, peerID))
@@ -452,33 +472,41 @@ namespace beam::wallet
             {
                 throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
             }
-
-            auto signature = m_Tx.GetKeyKeeper()->SignReceiverSync(m_InputCoins
-                                                             , m_OutputCoins
-                                                             , m_AssetId
-                                                             , kernelParameters
-                                                             , m_PeerPublicNonce
-                                                             , peerID
-                                                             , addressID);
-
-            StoreAndLoad(TxParameterID::PartialSignature, signature.m_KernelSignature.m_k, m_PartialSignature);
-            if (!m_PublicNonce.Import(signature.m_KernelSignature.m_NoncePub)
-                || !m_PublicExcess.Import(signature.m_KernelCommitment))
-            {
-                throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
-            }
-
-            m_PublicNonce -= m_PeerPublicNonce;
-            m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
-            m_PublicExcess -= m_PeerPublicExcess;
-            m_Tx.SetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
-            m_Offset = signature.m_Offset;
-            m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
-            if (addressID)
-            {
-                m_Tx.SetParameter(TxParameterID::PaymentConfirmation2, signature.m_PaymentProofSignature);
-            }
-            StoreKernelID();
+        
+            DoAsync<ReceiverSignature>([=](auto&& r, auto&& ex)
+                {
+                    m_Tx.GetKeyKeeper()->SignReceiver(m_InputCoins
+                        , m_OutputCoins
+                        , m_AssetId
+                        , kernelParameters
+                        , m_PeerPublicNonce
+                        , peerID
+                        , addressID
+                        , move(r)
+                        , move(ex));
+                },
+                [=](ReceiverSignature&& signature)
+                {
+                    StoreAndLoad(TxParameterID::PartialSignature, signature.m_KernelSignature.m_k, m_PartialSignature);
+                    if (!m_PublicNonce.Import(signature.m_KernelSignature.m_NoncePub)
+                        || !m_PublicExcess.Import(signature.m_KernelCommitment))
+                    {
+                        throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
+                    }
+        
+                    m_PublicNonce -= m_PeerPublicNonce;
+                    m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
+                    m_PublicExcess -= m_PeerPublicExcess;
+                    m_Tx.SetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
+                    m_Offset = signature.m_Offset;
+                    m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+                    if (addressID)
+                    {
+                        m_Tx.SetParameter(TxParameterID::PaymentConfirmation2, signature.m_PaymentProofSignature);
+                    }
+                    StoreKernelID();
+                });
+            return true;
         }
         catch (const KeyKeeperException&)
         {

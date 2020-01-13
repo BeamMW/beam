@@ -57,7 +57,7 @@ namespace beam::wallet
     }
 
     void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&& resultCallback, ExceptionCallback&& exceptionCallback)
-     {
+    {
         auto thisHolder = shared_from_this();
         auto resOuts    = make_shared<Outputs>();
         auto resOffset  = make_shared<ECC::Scalar::Native>();
@@ -88,6 +88,36 @@ namespace beam::wallet
                 futureHolder.reset();
             });
      }
+
+    void LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs
+                                           , const std::vector<Key::IDV>& outputs
+                                           , const AssetID& assetId
+                                           , const KernelParameters& kernelParamerters
+                                           , const ECC::Point& publicNonce
+                                           , const PeerID& peerID
+                                           , const WalletIDKey& walletIDkey
+                                           , Callback<ReceiverSignature>&& resultCallback
+                                           , ExceptionCallback&& exceptionCallback)
+    {
+        DoAsync([=]() { return SignReceiverSync(inputs, outputs, assetId, kernelParamerters, publicNonce, peerID, walletIDkey); }, move(resultCallback), move(exceptionCallback));
+    }
+
+    void LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs
+                                         , const std::vector<Key::IDV>& outputs
+                                         , const AssetID& assetId
+                                         , size_t nonceSlot
+                                         , const KernelParameters& kernelParamerters
+                                         , const ECC::Point& publicNonce
+                                         , bool initial
+                                         , Callback<SenderSignature>&& resultCallback
+                                         , ExceptionCallback&& exceptionCallback)
+    {
+        DoAsync([=]() { return SignSenderSync(inputs, outputs, assetId, nonceSlot, kernelParamerters, publicNonce, initial); }, move(resultCallback), move(exceptionCallback));
+    }
+
+
+    ////////
+
 
     size_t LocalPrivateKeyKeeper::AllocateNonceSlotSync()
     {

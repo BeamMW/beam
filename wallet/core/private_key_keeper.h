@@ -104,6 +104,23 @@ namespace beam::wallet
         virtual void GenerateOutputs(Height schemeHeigh, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) = 0;
         virtual void GenerateOutputsEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&) = 0;
 
+        virtual void SignReceiver(const std::vector<Key::IDV>& inputs
+                                , const std::vector<Key::IDV>& outputs
+                                , const AssetID& assetId
+                                , const KernelParameters& kernelParamerters
+                                , const ECC::Point& publicNonce
+                                , const PeerID& peerID
+                                , const WalletIDKey& walletIDkey
+                                , Callback<ReceiverSignature>&&, ExceptionCallback&&) = 0;
+        virtual void SignSender(const std::vector<Key::IDV>& inputs
+                              , const std::vector<Key::IDV>& outputs
+                              , const AssetID& assetId
+                              , size_t nonceSlot
+                              , const KernelParameters& kernelParamerters
+                              , const ECC::Point& publicNonce
+                              , bool initial
+                              , Callback<SenderSignature>&&, ExceptionCallback&&) = 0;
+
 
         // sync part for integration test
         virtual size_t AllocateNonceSlotSync() = 0;

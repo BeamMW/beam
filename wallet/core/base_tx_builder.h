@@ -53,8 +53,8 @@ namespace beam::wallet
         bool CreateInputs();
         void FinalizeInputs();
         virtual Transaction::Ptr CreateTransaction();
-        void SignSender(bool initial);
-        void SignReceiver();
+        bool SignSender(bool initial);
+        bool SignReceiver();
         bool IsPeerSignatureValid() const;
 
         Amount GetAmount() const;
@@ -82,7 +82,7 @@ namespace beam::wallet
     protected:
 
         template <typename Result, typename Func, typename ContinueFunc>
-        void DoAsync(Func&& asyncFunc, ContinueFunc&& continueFunc)
+        void DoAsync2(Func&& asyncFunc, ContinueFunc&& continueFunc)
         {
             auto thisHolder = shared_from_this();
             auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
@@ -92,13 +92,35 @@ namespace beam::wallet
                 [thisHolder, this, txHolder, continueFunc](Result&& res, auto&&)
                 {
                     continueFunc(std::move(res));
-                    m_Tx.Update(); // may complete transaction
+                    m_Tx.UpdateAsync(); // may complete transaction
                     m_Tx.GetAsyncAcontext().OnAsyncFinished();
                 },
                 [thisHolder, this, txHolder](const std::exception&)
                 {
                     //m_Tx.Update();
                     m_Tx.GetAsyncAcontext().OnAsyncFinished();
+                    throw;
+                });
+        }
+
+        template <typename Result, typename Func, typename ContinueFunc>
+        void DoAsync(Func&& asyncFunc, ContinueFunc&& continueFunc)
+        {
+            auto thisHolder = shared_from_this();
+            auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
+            m_Tx.GetAsyncAcontext().OnAsyncStarted();
+
+            asyncFunc(
+                [thisHolder, this, txHolder, continueFunc](Result&& res)
+                {
+                    continueFunc(std::move(res));
+                    m_Tx.UpdateAsync(); // may complete transaction
+                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
+                },
+                [thisHolder, this, txHolder](const std::exception&)
+                {
+                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
+                    throw;
                 });
         }
 

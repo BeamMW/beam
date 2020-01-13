@@ -116,11 +116,14 @@ namespace beam::wallet
     {
         if (!m_EventToUpdate)
         {
+            GetAsyncAcontext().OnAsyncStarted();
             m_EventToUpdate = io::AsyncEvent::create(io::Reactor::get_Current(), [this, weak = this->weak_from_this()]()
             { 
-                if (auto l = weak.lock())
+                auto eventHolder = m_EventToUpdate;
+                if (auto tx = weak.lock())
                 {
                     Update();
+                    GetAsyncAcontext().OnAsyncFinished();
                 }
             });
             m_EventToUpdate->post();

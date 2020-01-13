@@ -143,7 +143,7 @@ namespace beam::wallet
 
         // Check if we already have signed kernel
         if ((isSender && !builder.LoadKernel())
-         || (!isSender && !builder.HasKernelID()))
+         || (!isSender && !builder.HasKernelID() || txState == State::Initial))
         {
             // We don't need key keeper initialized to go on beyond this point
             if (!m_KeyKeeper)
@@ -218,7 +218,9 @@ namespace beam::wallet
                 assert(IsInitiator());
                 if (txState == State::Initial)
                 {
-                    builder.SignSender(true);
+                    if (builder.SignSender(true))
+                        return;
+
                     SendInvitation(builder, isSender);
                     SetState(State::Invitation);
                 }
@@ -241,8 +243,10 @@ namespace beam::wallet
                     // invited participant
                     assert(!IsInitiator());
 
+                    if (builder.SignReceiver())
+                        return;
+
                     UpdateTxDescription(TxStatus::Registering);
-                    builder.SignReceiver();
                     ConfirmInvitation(builder);
 
                     uint32_t nVer = 0;
@@ -269,11 +273,13 @@ namespace beam::wallet
 
             if (!isSelfTx)
             {
-                builder.SignSender(false);
+                if (builder.SignSender(false))
+                    return;
             }
             else
             {
-                builder.SignReceiver();
+                if (builder.SignReceiver())
+                    return;
             }
 
             if (IsInitiator() && !builder.IsPeerSignatureValid())

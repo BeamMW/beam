@@ -35,6 +35,24 @@ namespace beam::wallet
         void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) override;
         void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&) override;
 
+        void SignReceiver(const std::vector<Key::IDV>& inputs
+                        , const std::vector<Key::IDV>& outputs
+                        , const AssetID& assetId
+                        , const KernelParameters& kernelParamerters
+                        , const ECC::Point& publicNonce
+                        , const PeerID& peerID
+                        , const WalletIDKey& walletIDkey
+                        , Callback<ReceiverSignature>&&, ExceptionCallback&&) override;
+        void SignSender(const std::vector<Key::IDV>& inputs
+                      , const std::vector<Key::IDV>& outputs
+                      , const AssetID& assetId
+                      , size_t nonceSlot
+                      , const KernelParameters& kernelParamerters
+                      , const ECC::Point& publicNonce
+                      , bool initial
+                      , Callback<SenderSignature>&&, ExceptionCallback&&) override;
+
+
         size_t AllocateNonceSlotSync() override;
 
         PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
