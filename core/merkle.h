@@ -83,6 +83,7 @@ namespace Merkle {
 		Mmr() :m_Count(0) {}
 
 		void Append(const Hash&);
+		void Replace(uint64_t n, const Hash&);
 
 		void get_Hash(Hash&) const;
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;

@@ -640,6 +640,33 @@ namespace beam
 			}
 
 		}
+
+		// test replacing
+		for (uint32_t i = 0; i < vHashes.size(); i++)
+		{
+			Merkle::Hash& hv = vHashes[i];
+			hv = i;
+
+			mmr.Replace(i, hv);
+			fmmr.Replace(i, hv);
+
+			Merkle::Hash hvRoot, hvRoot2;
+
+			mmr.get_Hash(hvRoot);
+			fmmr.get_Hash(hvRoot2);
+			verify_test(hvRoot == hvRoot2);
+
+			cmmr.m_Count = 0;
+			cmmr.m_vNodes.clear();
+			for (uint32_t j = 0; j < vHashes.size(); j++)
+				cmmr.Append(vHashes[j]);
+
+			cmmr.get_Hash(hvRoot2);
+			verify_test(hvRoot == hvRoot2);
+
+
+		}
+
 	}
 
 } // namespace beam
