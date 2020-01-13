@@ -92,6 +92,11 @@ namespace beam {
 #define TblUnique_Key			"Key"
 #define TblUnique_Value			"Value"
 
+#define TblAssets				"Assets"
+#define TblAssets_ID			"ID"
+#define TblAssets_Owner			"Owner"
+#define TblAssets_Value			"Value"
+
 NodeDB::NodeDB()
 	:m_pDb(NULL)
 {
@@ -491,6 +496,13 @@ void NodeDB::CreateTables20()
 	ExecQuick("CREATE TABLE [" TblUnique "] ("
 		"[" TblUnique_Key			"] BLOB NOT NULL PRIMARY KEY,"
 		"[" TblUnique_Value			"] BLOB) WITHOUT ROWID");
+
+	ExecQuick("CREATE TABLE [" TblAssets "] ("
+		"[" TblAssets_ID			"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblAssets_Owner			"] BLOB,"
+		"[" TblAssets_Value			"] BLOB)");
+
+	ExecQuick("CREATE INDEX [Idx" TblAssets "Own] ON [" TblAssets "] ([" TblAssets_Owner "])");
 }
 
 void NodeDB::Vacuum()
@@ -2385,6 +2397,99 @@ void NodeDB::UniqueDeleteStrict(const Blob& key)
 	Recordset rs(*this, Query::UniqueDel, "DELETE FROM " TblUnique " WHERE " TblUnique_Key "=?");
 	rs.put(0, key);
 
+	rs.Step();
+	TestChanged1Row();
+}
+
+const uint64_t NodeDB::s_AssetEmpty0 = uint64_t(1) << 62;
+
+bool NodeDB::IsAssetPresent(TxoID id, const PeerID& own)
+{
+	Recordset rs(*this, Query::AssetFindBoth, "SELECT NULL FROM " TblAssets " WHERE " TblAssets_ID "=? AND " TblAssets_Owner "=?");
+	rs.put(0, id);
+	rs.put(1, own);
+	return rs.Step();
+}
+
+bool NodeDB::AssetFindByOwner(AssetInfo::Full& ai)
+{
+	Recordset rs(*this, Query::AssetFindOwner, "SELECT " TblAssets_ID "," TblAssets_Value " FROM " TblAssets " WHERE " TblAssets_Owner "=? AND " TblAssets_ID ">=? ORDER BY " TblAssets_ID " ASC LIMIT 1");
+	rs.put_As(0, ai.m_Owner);
+	rs.put(1, ai.m_ID);
+	if (!rs.Step())
+		return false;
+
+	rs.get(0, ai.m_ID);
+	rs.get_As(1, ai.m_Value);
+	return true;
+}
+
+void NodeDB::AssetDeleteRaw(TxoID id)
+{
+	Recordset rs(*this, Query::AssetDel, "DELETE FROM " TblAssets " WHERE " TblAssets_ID "=?");
+	rs.put(0, id);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::AssetInsertRaw(TxoID id, const AssetInfo::Full* pAi)
+{
+	Recordset rs(*this, Query::AssetAdd, "INSERT INTO " TblAssets "(" TblAssets_ID "," TblAssets_Owner "," TblAssets_Value ") VALUES(?,?,?)");
+	rs.put(0, id);
+
+	if (pAi)
+	{
+		rs.put(1, pAi->m_Owner);
+		rs.put_As(2, pAi->m_Value);
+	}
+
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::AssetAdd(AssetInfo::Full& ai)
+{
+	// find free index
+	Recordset rs(*this, Query::AssetFindMin, "SELECT " TblAssets_ID " FROM " TblAssets " WHERE " TblAssets_ID ">=? ORDER BY " TblAssets_ID " ASC LIMIT 1");
+	rs.put(0, s_AssetEmpty0);
+
+	if (rs.Step())
+	{
+		rs.get(0, ai.m_ID);
+		AssetDeleteRaw(ai.m_ID);
+
+		ai.m_ID -= s_AssetEmpty0;
+	}
+	else
+	{
+		ai.m_ID = ParamIntGetDef(ParamID::AssetsCountHigh);
+
+		TxoID val = ai.m_ID + 1;
+		ParamSet(ParamID::AssetsCountHigh, &val, nullptr);
+	}
+
+	AssetInsertRaw(ai.m_ID, &ai);
+}
+
+void NodeDB::AssetDelete(TxoID id)
+{
+	AssetDeleteRaw(id);
+	AssetInsertRaw(id + s_AssetEmpty0, nullptr);
+}
+
+void NodeDB::AssetGetValue(TxoID id, AmountBig::Type& val)
+{
+	Recordset rs(*this, Query::AssetGetVal, "SELECT " TblAssets_Value " FROM " TblAssets " WHERE " TblAssets_ID "=?");
+	rs.put(0, id);
+	rs.StepStrict();
+	rs.get_As(0, val);
+}
+
+void NodeDB::AssetSetValue(TxoID id, const AmountBig::Type& val)
+{
+	Recordset rs(*this, Query::AssetSetVal, "UPDATE " TblAssets " SET " TblAssets_Value "=? WHERE " TblAssets_ID "=?");
+	rs.put_As(0, val);
+	rs.put(1, id);
 	rs.Step();
 	TestChanged1Row();
 }

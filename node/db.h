@@ -57,6 +57,7 @@ public:
 			UtxoStamp,
 			ShieldedOutputs,
 			ShieldedInputs,
+			AssetsCountHigh,
 		};
 	};
 
@@ -158,6 +159,14 @@ public:
 			UniqueIns,
 			UniqueFind,
 			UniqueDel,
+
+			AssetFindOwner,
+			AssetFindBoth,
+			AssetFindMin,
+			AssetAdd,
+			AssetDel,
+			AssetGetVal,
+			AssetSetVal,
 
 			Dbg0,
 			Dbg1,
@@ -560,6 +569,13 @@ public:
 	bool UniqueFind(const Blob& key, Recordset&);
 	void UniqueDeleteStrict(const Blob& key);
 
+	void AssetAdd(AssetInfo::Full&); // on return sets the ID
+	bool AssetFindByOwner(AssetInfo::Full&); // set ID to min threshold as well
+	bool IsAssetPresent(TxoID, const PeerID&);
+	void AssetDelete(TxoID);
+	void AssetGetValue(TxoID, AmountBig::Type&);
+	void AssetSetValue(TxoID, const AmountBig::Type&);
+
 private:
 
 	sqlite3* m_pDb;
@@ -613,6 +629,10 @@ private:
 	void StreamResize(StreamType::Enum, uint64_t n, uint64_t n0);
 
 	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
+
+	static const uint64_t s_AssetEmpty0;
+	void AssetInsertRaw(TxoID, const AssetInfo::Full*);
+	void AssetDeleteRaw(TxoID);
 };
 
 

@@ -595,6 +595,47 @@ namespace beam
 		verify_test(db.UniqueInsertSafe(k1, nullptr));
 		verify_test(!db.UniqueInsertSafe(k1, nullptr));
 
+
+		// Assets
+		AssetInfo::Full ai1;
+		ZeroObject(ai1);
+
+		for (uint32_t i = 0; i < 5; i++)
+		{
+			db.AssetAdd(ai1);
+			verify_test(ai1.m_ID == i);
+		}
+
+		db.AssetDelete(4);
+		db.AssetDelete(2);
+
+		verify_test(!db.IsAssetPresent(2, ai1.m_Owner));
+		verify_test(db.IsAssetPresent(1, ai1.m_Owner));
+
+		ai1.m_Owner.Inc();
+		ai1.m_Owner.Negate();
+
+		verify_test(!db.IsAssetPresent(1, ai1.m_Owner));
+
+		db.AssetAdd(ai1);
+		verify_test(ai1.m_ID == 2);
+
+		AmountBig::Type assetVal1, assetVal2 = 1U;
+		db.AssetGetValue(2, assetVal2);
+		verify_test(assetVal2 == Zero);
+
+
+		assetVal2 = 334U;
+		db.AssetSetValue(2, assetVal2);
+
+		db.AssetGetValue(2, assetVal1);
+		verify_test(assetVal1 == assetVal2);
+
+		ai1.m_ID = 0;
+		verify_test(db.AssetFindByOwner(ai1));
+		verify_test(ai1.m_ID == 2);
+		verify_test(ai1.m_Value == assetVal2);
+
 		tr.Commit();
 	}
 

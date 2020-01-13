@@ -222,6 +222,24 @@ namespace beam
 		void operator += (const TxStats&);
 	};
 
+	struct AssetInfo
+	{
+		struct Base
+		{
+			TxoID m_ID;
+			void get_Generator(ECC::Point::Native&) const;
+			void get_Generator(ECC::Point::Storage&) const;
+		};
+
+		struct Full
+			:public Base
+		{
+			AmountBig::Type m_Value;
+			PeerID m_Owner;
+			// metadata?
+		};
+	};
+
 	struct TxElement
 	{
 		ECC::Point m_Commitment;
