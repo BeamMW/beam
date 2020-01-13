@@ -999,7 +999,6 @@ namespace beam
 			NodeProcessor::StartParams sp;
 			sp.m_CheckIntegrity = true;
 			sp.m_Vacuum = true;
-			sp.m_ResetCursor = true;
 			np.Initialize(g_sz, sp);
 		}
 

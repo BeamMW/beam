@@ -144,18 +144,11 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	ZeroObject(m_SyncData);
 
-	if (sp.m_ResetCursor)
-	{
-		SaveSyncData();
-	}
-	else
-	{
-		blob.p = &m_SyncData;
-		blob.n = sizeof(m_SyncData);
-		m_DB.ParamGet(NodeDB::ParamID::SyncData, nullptr, &blob);
+	blob.p = &m_SyncData;
+	blob.n = sizeof(m_SyncData);
+	m_DB.ParamGet(NodeDB::ParamID::SyncData, nullptr, &blob);
 
-		LogSyncData();
-	}
+	LogSyncData();
 
 	m_nSizeUtxoComission = 0;
 
@@ -182,22 +175,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	if (sp.m_Vacuum)
 		Vacuum();
 
-	if (sp.m_ResetCursor)
-	{
-		RollbackTo(Rules::HeightGenesis - 1);
-
-		m_Extra.m_TxoLo = 0;
-		m_Extra.m_TxoHi = 0;
-		m_Extra.m_Fossil = 0;
-		m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &m_Extra.m_TxoLo, nullptr);
-		m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &m_Extra.m_TxoHi, nullptr);
-		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, nullptr);
-
-	}
-	else
-	{
-		TryGoUp();
-	}
+	TryGoUp();
 }
 
 void NodeProcessor::InitializeUtxos(const char* sz)
@@ -3076,6 +3054,8 @@ void NodeProcessor::RollbackTo(Height h)
 	assert(h <= m_Cursor.m_Sid.m_Height);
 	if (h == m_Cursor.m_Sid.m_Height)
 		return;
+
+	assert(h >= m_Extra.m_Fossil);
 
 	TxoID id0 = get_TxosBefore(h + 1);
 

@@ -157,7 +157,6 @@ class NodeProcessor
 public:
 
 	struct StartParams {
-		bool m_ResetCursor = false;
 		bool m_CheckIntegrity = false;
 		bool m_Vacuum = false;
 		bool m_ResetSelfID = false;
