@@ -171,13 +171,12 @@ namespace Merkle {
 		:public FlatMmr
 	{
 		std::vector<Hash> m_vHashes;
-		uint64_t m_Total;
 
 		uint64_t Pos2Idx(const Position& pos) const;
 
 	public:
-		FixedMmr(uint64_t nTotal = 0) { Reset(nTotal); }
-		void Reset(uint64_t nTotal);
+		FixedMmr(uint64_t nTotal = 0) { Resize(nTotal); }
+		void Resize(uint64_t nTotal);
 	protected:
 		// Mmr
 		virtual void LoadElement(Hash& hv, const Position& pos) const override;

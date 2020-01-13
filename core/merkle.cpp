@@ -441,9 +441,8 @@ uint64_t FlatMmr::get_TotalHashes(uint64_t nCount, bool bStoreH0)
 
 /////////////////////////////
 // FixedMmr
-void FixedMmr::Reset(uint64_t nTotal)
+void FixedMmr::Resize(uint64_t nTotal)
 {
-	m_Total = nTotal;
 	m_vHashes.resize(get_TotalHashes(nTotal, true));
 }
 
