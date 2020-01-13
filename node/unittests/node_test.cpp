@@ -316,13 +316,13 @@ namespace beam
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
 		ByteBuffer bbBodyP, bbBodyE;
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, nullptr);
 
 		//db.DelStateBlockPP(pRows[0]);
 		//db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
 
 		db.DelStateBlockAll(pRows[0]);
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, nullptr);
 
 		tr.Commit();
 		tr.Start(db);

@@ -1524,7 +1524,7 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 					peer = Zero;
 
 				m_DB.SetStateBlock(sid.m_Row, bbP, bbE, peer);
-				m_DB.set_StateTxosAndExtra(sid.m_Row, nullptr, nullptr);
+				m_DB.set_StateTxosAndExtra(sid.m_Row, nullptr, nullptr, nullptr);
 			}
 
 			mbc.OnFastSyncFailed(false);
@@ -1623,7 +1623,7 @@ Height NodeProcessor::RaiseFossil(Height hTrg)
 		for (m_DB.EnumStatesAt(ws, m_Extra.m_Fossil); ws.MoveNext(); )
 		{
 			if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
-				m_DB.DelStateBlockPP(ws.m_Sid.m_Row);
+				m_DB.DelStateBlockPPR(ws.m_Sid.m_Row);
 			else
 				DeleteBlock(ws.m_Sid.m_Row);
 
@@ -1831,7 +1831,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	uint64_t rowid = FindActiveAtStrict(h);
 
 	ByteBuffer bbE;
-	m_DB.GetStateBlock(rowid, nullptr, &bbE);
+	m_DB.GetStateBlock(rowid, nullptr, &bbE, nullptr);
 
 	TxVectors::Eternal txve;
 
@@ -1862,6 +1862,9 @@ struct NodeProcessor::BlockInterpretCtx
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
+
+	// rollback data
+	ByteBuffer* m_pRollback = nullptr;
 
 	struct BlobItem
 		:public boost::intrusive::set_base_hook<>
@@ -2021,7 +2024,7 @@ struct NodeProcessor::KrnFlyMmr
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemState::Full& s, MultiblockContext& mbc)
 {
 	ByteBuffer bbP, bbE;
-	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE);
+	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, nullptr);
 
 	MultiblockContext::MyTask::SharedBlock::Ptr pShared = std::make_shared<MultiblockContext::MyTask::SharedBlock>(mbc);
 	Block::Body& block = pShared->m_Body;
@@ -2089,6 +2092,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	if (!bFirstTime)
 		bic.m_AlreadyValidated = true;
 
+	bbP.clear();
+	bic.m_pRollback = &bbP;
+
 	bic.m_StoreShieldedOutput = true;
 
 	bool bOk = HandleValidatedBlock(block, bic);
@@ -2154,9 +2160,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			AdjustOffset(offsAcc, row, true);
 		}
 
-		Blob blob(offsAcc.m_Value);
-		m_DB.set_StateTxosAndExtra(sid.m_Row, &m_Extra.m_Txos, &blob);
-
+		Blob blobExtra(offsAcc.m_Value);
+		Blob blobRB(bbP);
+		m_DB.set_StateTxosAndExtra(sid.m_Row, &m_Extra.m_Txos, &blobExtra, &blobRB);
 
 		std::vector<NodeDB::StateInput> v;
 		v.reserve(block.m_vInputs.size());
@@ -2457,7 +2463,7 @@ void NodeProcessor::RescanOwnedTxos()
 			while (true)
 			{
 				uint64_t row = FindActiveAtStrict(h0);
-				m_DB.GetStateBlock(row, nullptr, &bbE);
+				m_DB.GetStateBlock(row, nullptr, &bbE, nullptr);
 
 				Deserializer der;
 				der.reset(bbE);
@@ -3124,14 +3130,15 @@ void NodeProcessor::RollbackTo(Height h)
 	m_DB.DeleteEventsFrom(h + 1);
 
 	// Kernels, shielded elements, and cursor
-	ByteBuffer bbE;
+	ByteBuffer bbE, bbR;
 	TxVectors::Eternal txve;
 
 	for (; m_Cursor.m_Sid.m_Height > h; m_DB.MoveBack(m_Cursor.m_Sid))
 	{
 		txve.m_vKernels.clear();
 		bbE.clear();
-		m_DB.GetStateBlock(m_Cursor.m_Sid.m_Row, nullptr, &bbE);
+		bbR.clear();
+		m_DB.GetStateBlock(m_Cursor.m_Sid.m_Row, nullptr, &bbE, &bbR);
 
 		Deserializer der;
 		der.reset(bbE);
@@ -3139,7 +3146,9 @@ void NodeProcessor::RollbackTo(Height h)
 
 		BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height, false);
 		bic.m_StoreShieldedOutput = true;
+		bic.m_pRollback = &bbR;
 		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
+		assert(bbR.empty());
 	}
 
 
@@ -3712,6 +3721,9 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height + 1, true);
 	bic.m_UpdateShieldedMmr = false;
 
+	ByteBuffer bbR;
+	bic.m_pRollback = &bbR;
+
 	size_t nSizeEstimated = 1;
 
 	if (BlockContext::Mode::Finalize == bc.m_Mode)
@@ -3724,6 +3736,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
+	assert(bbR.empty());
 
 	// reset input maturities
 	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
@@ -3759,6 +3772,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	GenerateNewHdr(bc);
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
+	assert(bbR.empty());
 
 	Serializer ser;
 
@@ -4066,7 +4080,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 		return false;
 
 	bool bFullBlock = (sid.m_Height >= hHi1) && (sid.m_Height > hLo1) && !pBody;
-	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? pPerishable : nullptr, pEthernal);
+	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? pPerishable : nullptr, pEthernal, nullptr);
 
 	if (!pBody && !(pPerishable && pPerishable->empty()))
 		return true;

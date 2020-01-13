@@ -114,6 +114,7 @@ public:
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlockPP,
+			StateDelBlockPPR,
 			StateDelBlockAll,
 			EventIns,
 			EventDel,
@@ -289,12 +290,13 @@ public:
 	bool get_StateExtra(uint64_t rowid, ECC::Scalar&, ByteBuffer* = nullptr);
 	TxoID get_StateTxos(uint64_t rowid);
 
-	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob*);
+	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob* pExtra, const Blob* pRB);
 
 	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE, const PeerID&);
-	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE);
-	void DelStateBlockPP(uint64_t rowid); // delete perishable, peer. Keep eternal, extra, txos
-	void DelStateBlockAll(uint64_t rowid); // delete perishable, peer, eternal, extra, txos
+	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRB);
+	void DelStateBlockPP(uint64_t rowid); // delete perishable, peer. Keep eternal, extra, txos, rollback
+	void DelStateBlockPPR(uint64_t rowid); // delete perishable, rollback, peer. Keep eternal, extra, txos
+	void DelStateBlockAll(uint64_t rowid); // delete perishable, peer, eternal, extra, txos, rollback
 
 	struct StateID {
 		uint64_t m_Row;

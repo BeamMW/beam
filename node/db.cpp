@@ -37,7 +37,7 @@ namespace beam {
 #define TblStates_CountNext		"CountNext"
 #define TblStates_CountNextF	"CountNextFunctional"
 #define TblStates_PoW			"PoW"
-#define TblStates_Mmr			"Mmr" // deprecated
+#define TblStates_Rollback		"Mmr" // For historical reasons it was used for states MMR. Not it's a rollback data
 #define TblStates_BodyP			"Perishable"
 #define TblStates_BodyE			"Ethernal"
 #define TblStates_Peer			"Peer"
@@ -407,6 +407,7 @@ void NodeDB::Create()
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
 		"[" TblStates_CountNextF	"] INTEGER NOT NULL,"
 		"[" TblStates_PoW			"] BLOB,"
+		"[" TblStates_Rollback		"] BLOB,"
 		"[" TblStates_BodyP			"] BLOB,"
 		"[" TblStates_BodyE			"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
@@ -1311,14 +1312,16 @@ bool NodeDB::StateInput::IsLess(const StateInput& x1, const StateInput& x2)
 	return pt1 < pt2;
 }
 
-void NodeDB::set_StateTxosAndExtra(uint64_t rowid, const TxoID* pId, const Blob* pExtra)
+void NodeDB::set_StateTxosAndExtra(uint64_t rowid, const TxoID* pId, const Blob* pExtra, const Blob* pRB)
 {
-	Recordset rs(*this, Query::StateSetTxosAndExtra, "UPDATE " TblStates " SET " TblStates_Txos "=?," TblStates_Extra "=? WHERE rowid=?");
+	Recordset rs(*this, Query::StateSetTxosAndExtra, "UPDATE " TblStates " SET " TblStates_Txos "=?," TblStates_Extra "=?," TblStates_Rollback "=? WHERE rowid=?");
 	if (pId)
 		rs.put(0, *pId);
 	if (pExtra)
 		rs.put(1, *pExtra);
-	rs.put(2, rowid);
+	if (pRB)
+		rs.put(2, *pRB);
+	rs.put(3, rowid);
 	rs.Step();
 	TestChanged1Row();
 }
@@ -1366,9 +1369,9 @@ void NodeDB::SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE,
 	TestChanged1Row();
 }
 
-void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE)
+void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRB)
 {
-	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_BodyP "," TblStates_BodyE " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_BodyP "," TblStates_BodyE "," TblStates_Rollback " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 	rs.StepStrict();
 
@@ -1376,6 +1379,8 @@ void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE)
 		rs.get(0, *pP);
 	if (pE && !rs.IsNull(1))
 		rs.get(1, *pE);
+	if (pRB && !rs.IsNull(2))
+		rs.get(2, *pRB);
 }
 
 void NodeDB::DelStateBlockPP(uint64_t rowid)
@@ -1386,10 +1391,18 @@ void NodeDB::DelStateBlockPP(uint64_t rowid)
 	TestChanged1Row();
 }
 
+void NodeDB::DelStateBlockPPR(uint64_t rowid)
+{
+	Recordset rs(*this, Query::StateDelBlockPPR, "UPDATE " TblStates " SET " TblStates_BodyP "=NULL," TblStates_Rollback "=NULL," TblStates_Peer "=NULL WHERE rowid=?");
+	rs.put(0, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
 void NodeDB::DelStateBlockAll(uint64_t rowid)
 {
-	Recordset rs(*this, Query::StateDelBlockAll , "UPDATE " TblStates
-		" SET " TblStates_BodyP "=NULL," TblStates_BodyE "=NULL," TblStates_Peer "=NULL," TblStates_Extra "=NULL," TblStates_Txos "=NULL WHERE rowid=?");
+	Recordset rs(*this, Query::StateDelBlockAll, "UPDATE " TblStates
+		" SET " TblStates_BodyP "=NULL," TblStates_BodyE "=NULL," TblStates_Rollback "=NULL," TblStates_Peer "=NULL," TblStates_Extra "=NULL," TblStates_Txos "=NULL WHERE rowid=?");
 	rs.put(0, rowid);
 	rs.Step();
 	TestChanged1Row();
@@ -2447,8 +2460,7 @@ void NodeDB::MigrateFrom20()
 {
 	LOG_INFO() << "Rebuilding states MMR...";
 
-	// sqlite doesn't support drop column. Hence - just reset its value
-	ExecQuick("UPDATE " TblStates " SET " TblStates_Mmr "=NULL");
+	ExecQuick("UPDATE " TblStates " SET " TblStates_Rollback "=NULL"); // was used for states MMR. Prepare it for the new use
 
 	StateID sid;
 	get_Cursor(sid);
