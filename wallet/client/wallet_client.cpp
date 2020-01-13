@@ -300,76 +300,7 @@ namespace beam::wallet
 
                     updateClientState();
 
-                    class NodeNetwork final: public proto::FlyClient::NetworkStd
-                    {
-                    public:
-                        NodeNetwork(proto::FlyClient& fc, WalletClient& client, const std::string& nodeAddress)
-                            : proto::FlyClient::NetworkStd(fc)
-                            , m_nodeAddrStr(nodeAddress)
-                            , m_walletClient(client)
-                        {
-                        }
-
-                        void tryToConnect()
-                        {
-                            // if user changed address to correct (using of setNodeAddress)
-                            if (m_Cfg.m_vNodes.size() > 0)
-                                return;
-
-                            if (!m_timer)
-                            {
-                                m_timer = io::Timer::create(io::Reactor::get_Current());
-                            }
-
-                            if (m_attemptToConnect < MAX_ATTEMPT_TO_CONNECT)
-                            {
-                                ++m_attemptToConnect;
-                            }
-                            else if (m_attemptToConnect == MAX_ATTEMPT_TO_CONNECT)
-                            {
-                                proto::NodeConnection::DisconnectReason reason;
-                                reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
-                                reason.m_IoError = io::EC_HOST_RESOLVED_ERROR;
-                                m_walletClient.nodeConnectionFailed(reason);
-                            }
-
-                            m_timer->start(RECONNECTION_TIMEOUT, false, [this]() {
-                                io::Address nodeAddr;
-                                if (nodeAddr.resolve(m_nodeAddrStr.c_str()))
-                                {
-                                    m_Cfg.m_vNodes.push_back(nodeAddr);
-                                    Connect();
-                                }
-                                else
-                                {
-                                    tryToConnect();
-                                }
-                            });
-                        }
-
-                    private:
-                        void OnNodeConnected(size_t, bool bConnected) override
-                        {
-                            m_walletClient.nodeConnectedStatusChanged(bConnected);
-                        }
-
-                        void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
-                        {
-                            m_walletClient.nodeConnectionFailed(reason);
-                        }
-
-                    public:
-                        std::string m_nodeAddrStr;
-                        WalletClient& m_walletClient;
-
-                        io::Timer::Ptr m_timer;
-                        uint8_t m_attemptToConnect = 0;
-
-                        const uint8_t MAX_ATTEMPT_TO_CONNECT = 5;
-                        const uint16_t RECONNECTION_TIMEOUT = 1000;
-                    };
-
-                    auto nodeNetwork = make_shared<NodeNetwork>(*wallet, *this, m_nodeAddrStr);
+                    auto nodeNetwork = make_shared<NodeNetwork>(*wallet, static_cast<INodeConnectionObserver&>(*this), m_nodeAddrStr);
                     m_nodeNetwork = nodeNetwork;
 
                     auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB, m_keyKeeper);

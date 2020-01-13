@@ -18,6 +18,7 @@
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
+#include "wallet/core/node_network.h"
 #include "wallet/core/private_key_keeper.h"
 #include "wallet_model_async.h"
 #include "wallet/client/extensions/offers_board/swap_offers_observer.h"
@@ -55,6 +56,7 @@ namespace beam::wallet
         , private IWalletModelAsync
         , private IWalletDB::IRecoveryProgress
         , private IPrivateKeyKeeper::Handler
+        , private INodeConnectionObserver
     {
     public:
         WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper);
@@ -69,6 +71,10 @@ namespace beam::wallet
         bool isFork1() const;
         size_t getUnsafeActiveTransactionsCount() const;
         bool isConnectionTrusted() const;
+
+        /// INodeConnectionObserver implementation
+        void nodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
+        void nodeConnectedStatusChanged(bool isNodeConnected) override;
 
     protected:
         // Call this before derived class is destructed to ensure
@@ -155,8 +161,6 @@ namespace beam::wallet
         WalletStatus getStatus() const;
         std::vector<Coin> getUtxos() const;
 
-        void nodeConnectionFailed(const proto::NodeConnection::DisconnectReason&);
-        void nodeConnectedStatusChanged(bool isNodeConnected);
         void updateClientState();
         void updateClientTxState();
         void updateConnectionTrust(bool trustedConnected);
