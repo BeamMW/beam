@@ -98,7 +98,7 @@ namespace beam::wallet
         assert(false);
     }
 
-    size_t TrezorKeyKeeper::AllocateNonceSlot()
+    size_t TrezorKeyKeeper::AllocateNonceSlotSync()
     {
         m_latestSlot++;
         m_hwWallet.generateNonceSync((uint8_t)m_latestSlot);

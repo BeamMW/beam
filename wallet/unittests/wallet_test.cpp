@@ -1667,7 +1667,7 @@ namespace
         kernelParams.peerID = receiver.m_SecureWalletID;
 
         // sender
-        auto nonceSlot = sender.m_KeyKeeper->AllocateNonceSlot();
+        auto nonceSlot = sender.m_KeyKeeper->AllocateNonceSlotSync();
         SenderSignature senderSignature;
         WALLET_CHECK_NO_THROW(senderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, Zero, nonceSlot, kernelParams, {}, true));
         
@@ -2252,7 +2252,7 @@ void TestHWTransaction(IPrivateKeyKeeper& pkk)
         Signature signature;
 
         ECC::Point::Native publicNonce;
-        uint8_t nonceSlot = (uint8_t)pkk.AllocateNonceSlot();
+        uint8_t nonceSlot = (uint8_t)pkk.AllocateNonceSlotSync();
         publicNonce.Import(pkk.GenerateNonceSync(nonceSlot));
 
 

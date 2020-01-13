@@ -1020,7 +1020,10 @@ namespace beam::wallet
             }
         }
 
-        lockTxBuilder->CreateInputs();
+        if (lockTxBuilder->CreateInputs())
+        {
+            return lockTxState;
+        }
         if (isBeamOwner && lockTxBuilder->CreateOutputs())
         {
             return lockTxState;

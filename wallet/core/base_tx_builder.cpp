@@ -172,21 +172,14 @@ namespace beam::wallet
             return false;
         }
 
-        auto thisHolder = shared_from_this();
-        auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
-        m_Tx.GetAsyncAcontext().OnAsyncStarted();
-        m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId,
-            [thisHolder, this, txHolder](IPrivateKeyKeeper::Outputs&& resOutputs, auto&&)
+        DoAsync<IPrivateKeyKeeper::Outputs>([this](auto&& r, auto&& ex)
+            {
+                m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId, move(r), move(ex));
+            },
+            [this](IPrivateKeyKeeper::Outputs&& resOutputs)
             {
                 m_Outputs = std::move(resOutputs);
                 FinalizeOutputs();
-                m_Tx.Update(); // may complete transaction
-                m_Tx.GetAsyncAcontext().OnAsyncFinished();
-            },
-            [thisHolder, this, txHolder](const exception&)
-            {
-                //m_Tx.Update();
-                m_Tx.GetAsyncAcontext().OnAsyncFinished();
             });
         return true;// true if async
     }
@@ -206,33 +199,22 @@ namespace beam::wallet
         {
             return false;
         }
-        //auto thisHolder = shared_from_this();
-        //m_Tx.GetKeyKeeper()->GenerateKey(m_InputCoins, true,
-        //    [thisHolder, this](const auto & result)
-        //    {
-        //        m_Inputs.reserve(result.size());
-        //        for (const auto& commitment : result)
-        //        {
-        //            auto& input = m_Inputs.emplace_back(make_unique<Input>());
-        //            input->m_Commitment = commitment;
-        //        }
-        //        FinalizeInputs();
-        //        //m_Tx.Update();
-        //    },
-        //    [thisHolder, this](const exception&)
-        //    {
-        //        //m_Tx.Update();
-        //    });
-        IPrivateKeyKeeper::PublicKeys commitments;
-        std::tie(commitments, std::ignore) = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_AssetId);
-        m_Inputs.reserve(commitments.size());
-        for (const auto& commitment : commitments)
-        {
-            auto& input = m_Inputs.emplace_back(make_unique<Input>());
-            input->m_Commitment = commitment;
-        }
-        FinalizeInputs();
-        return false; // true if async operation has run
+        DoAsync<IPrivateKeyKeeper::PublicKeys>([this](auto&& r, auto&& ex)
+            {
+                m_Tx.GetKeyKeeper()->GeneratePublicKeysEx(m_InputCoins, true, m_AssetId, move(r), move(ex));
+            },
+            [this](IPrivateKeyKeeper::PublicKeys&& commitments)
+            {
+                m_Inputs.reserve(commitments.size());
+                for (const auto& commitment : commitments)
+                {
+                    auto& input = m_Inputs.emplace_back(make_unique<Input>());
+                    input->m_Commitment = commitment;
+                }
+                FinalizeInputs();
+            });
+
+        return true; // true if async operation has run
     }
 
     void BaseTxBuilder::FinalizeInputs()
@@ -274,7 +256,7 @@ namespace beam::wallet
         // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
         if (!m_Tx.GetParameter(TxParameterID::NonceSlot, m_NonceSlot, m_SubTxID))
         {
-            m_NonceSlot = m_Tx.GetKeyKeeper()->AllocateNonceSlot();
+            m_NonceSlot = m_Tx.GetKeyKeeper()->AllocateNonceSlotSync();
             m_Tx.SetParameter(TxParameterID::NonceSlot, m_NonceSlot, false, m_SubTxID);
         }
         

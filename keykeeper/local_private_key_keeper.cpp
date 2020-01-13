@@ -46,6 +46,11 @@ namespace beam::wallet
         DoAsync([this, ids, createCoinKey]() { return GeneratePublicKeysSync(ids, createCoinKey); }, move(resultCallback), move(exceptionCallback));
     }
 
+    void LocalPrivateKeyKeeper::GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, CallbackEx<PublicKeys, ECC::Scalar::Native>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    {
+        DoAsync([this, ids, createCoinKey, assetID]() { return GeneratePublicKeysSyncEx(ids, createCoinKey, assetID); }, move(resultCallback), move(exceptionCallback));
+    }
+
     void LocalPrivateKeyKeeper::GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
         DoThreadAsync([this, schemeHeight, ids]() { return GenerateOutputsSync(schemeHeight, ids); }, std::move(resultCallback), std::move(exceptionCallback));
@@ -84,7 +89,7 @@ namespace beam::wallet
             });
      }
 
-    size_t LocalPrivateKeyKeeper::AllocateNonceSlot()
+    size_t LocalPrivateKeyKeeper::AllocateNonceSlotSync()
     {
         ++m_NonceSlotLast %= kMaxNonces;
 

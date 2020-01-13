@@ -100,12 +100,13 @@ namespace beam::wallet
         };
 
         virtual void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
+        virtual void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, CallbackEx<PublicKeys, ECC::Scalar::Native>&&, ExceptionCallback&&) = 0;
         virtual void GenerateOutputs(Height schemeHeigh, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) = 0;
         virtual void GenerateOutputsEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&) = 0;
 
-        virtual size_t AllocateNonceSlot() = 0;
 
         // sync part for integration test
+        virtual size_t AllocateNonceSlotSync() = 0;
         virtual PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) = 0;
         virtual std::pair<PublicKeys, ECC::Scalar::Native> GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID) = 0;
 

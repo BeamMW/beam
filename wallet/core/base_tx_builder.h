@@ -78,6 +78,30 @@ namespace beam::wallet
 
         const std::vector<Coin::ID>& GetInputCoins() const;
         const std::vector<Coin::ID>& GetOutputCoins() const;
+
+    protected:
+
+        template <typename Result, typename Func, typename ContinueFunc>
+        void DoAsync(Func&& asyncFunc, ContinueFunc&& continueFunc)
+        {
+            auto thisHolder = shared_from_this();
+            auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
+            m_Tx.GetAsyncAcontext().OnAsyncStarted();
+
+            asyncFunc(
+                [thisHolder, this, txHolder, continueFunc](Result&& res, auto&&)
+                {
+                    continueFunc(std::move(res));
+                    m_Tx.Update(); // may complete transaction
+                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
+                },
+                [thisHolder, this, txHolder](const std::exception&)
+                {
+                    //m_Tx.Update();
+                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
+                });
+        }
+
     private:
         Amount GetMinimumFee() const;
         void CheckMinimumFee();

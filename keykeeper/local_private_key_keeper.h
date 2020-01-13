@@ -31,10 +31,11 @@ namespace beam::wallet
         virtual ~LocalPrivateKeyKeeper();
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
+        void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, CallbackEx<PublicKeys, ECC::Scalar::Native>&&, ExceptionCallback&&) override;
         void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) override;
         void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&) override;
 
-        size_t AllocateNonceSlot() override;
+        size_t AllocateNonceSlotSync() override;
 
         PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
         std::pair<PublicKeys, ECC::Scalar::Native> GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID) override;
@@ -107,6 +108,20 @@ namespace beam::wallet
             try
             {
                 resultCallback(asyncFunc());
+            }
+            catch (const exception & ex)
+            {
+                exceptionCallback(ex);
+            }
+        }
+
+        template <typename Result, typename R2, typename Func>
+        void DoAsync(Func&& asyncFunc, CallbackEx<Result, R2>&& resultCallback, ExceptionCallback&& exceptionCallback)
+        {
+            try
+            {
+                auto r = asyncFunc();
+                resultCallback(std::move(r.first), std::move(r.second));
             }
             catch (const exception & ex)
             {
