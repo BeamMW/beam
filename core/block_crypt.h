@@ -30,6 +30,7 @@ namespace beam
 	typedef ECC::Hash::Value BbsMsgID;
 	typedef PeerID AssetID;
 	typedef uint64_t TxoID;
+	typedef uint64_t AssetIdx; // 1-based asset index. 0 is reserved for default asset (Beam)
 
 	using ECC::Key;
 
@@ -226,7 +227,7 @@ namespace beam
 	{
 		struct Base
 		{
-			TxoID m_ID;
+			AssetIdx m_ID;
 			void get_Generator(ECC::Point::Native&) const;
 			void get_Generator(ECC::Point::Storage&) const;
 			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;

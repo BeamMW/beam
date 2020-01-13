@@ -2119,6 +2119,8 @@ namespace beam
 	// AssetInfo
 	void AssetInfo::Base::get_Generator(ECC::Point::Native& res, ECC::Point::Storage& res_s) const
 	{
+		assert(m_ID);
+
 		ECC::Point pt;
 		pt.m_Y = 0;
 
