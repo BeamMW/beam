@@ -2179,6 +2179,7 @@ Item
                                             {
                                                 //% "Invalid password provided"
                                                 openPasswordError.text = qsTrId("general-pwd-invalid");
+                                                openPassword.selectAll();
                                             }
                                             else
                                             {
