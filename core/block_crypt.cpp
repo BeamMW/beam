@@ -2123,7 +2123,10 @@ namespace beam
 		pt.m_Y = 0;
 
 		ECC::Oracle oracle;
-		oracle << "B.Asset.Gen.V1";
+		oracle
+			<< "B.Asset.Gen.V1"
+			<< m_ID;
+
 		do
 			oracle >> pt.m_X;
 		while (!res.ImportNnz(pt, &res_s));
