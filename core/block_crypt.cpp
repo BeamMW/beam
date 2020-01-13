@@ -2115,4 +2115,40 @@ namespace beam
 		return ret ? ret : 1;
 	}
 
+	/////////////
+	// AssetInfo
+	void AssetInfo::Base::get_Generator(ECC::Point::Native& res, ECC::Point::Storage& res_s) const
+	{
+		ECC::Point pt;
+		pt.m_Y = 0;
+
+		ECC::Oracle oracle;
+		oracle << "B.Asset.Gen.V1";
+		do
+			oracle >> pt.m_X;
+		while (!res.ImportNnz(pt, &res_s));
+	}
+
+	void AssetInfo::Base::get_Generator(ECC::Point::Native& res) const
+	{
+		ECC::Point::Storage res_s;
+		get_Generator(res, res_s);
+	}
+
+	void AssetInfo::Base::get_Generator(ECC::Point::Storage& res_s) const
+	{
+		ECC::Point::Native res;
+		get_Generator(res, res_s);
+	}
+
+	void AssetInfo::Full::get_Hash(ECC::Hash::Value& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "B.Asset.V1"
+			<< m_ID
+			<< m_Value
+			<< m_Owner
+			>> hv;
+	}
+
 } // namespace beam

@@ -606,8 +606,8 @@ namespace beam
 			verify_test(ai1.m_ID == i);
 		}
 
-		db.AssetDelete(4);
-		db.AssetDelete(2);
+		verify_test(db.AssetDelete(4) == 4); // should shrink
+		verify_test(db.AssetDelete(2) == 4); // should retain the same size
 
 		verify_test(!db.IsAssetPresent(2, ai1.m_Owner));
 		verify_test(db.IsAssetPresent(1, ai1.m_Owner));
@@ -635,6 +635,11 @@ namespace beam
 		verify_test(db.AssetFindByOwner(ai1));
 		verify_test(ai1.m_ID == 2);
 		verify_test(ai1.m_Value == assetVal2);
+
+		verify_test(db.AssetDelete(1) == 4);
+		verify_test(db.AssetDelete(2) == 4);
+		verify_test(db.AssetDelete(3) == 1);
+		verify_test(db.AssetDelete(0) == 0);
 
 		tr.Commit();
 	}

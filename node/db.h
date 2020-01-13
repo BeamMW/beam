@@ -57,7 +57,7 @@ public:
 			UtxoStamp,
 			ShieldedOutputs,
 			ShieldedInputs,
-			AssetsCountHigh,
+			AssetsCount, // The last element is guaranteed to be used.
 		};
 	};
 
@@ -572,7 +572,7 @@ public:
 	void AssetAdd(AssetInfo::Full&); // on return sets the ID
 	bool AssetFindByOwner(AssetInfo::Full&); // set ID to min threshold as well
 	bool IsAssetPresent(TxoID, const PeerID&);
-	void AssetDelete(TxoID);
+	TxoID AssetDelete(TxoID); // returns remaining assets count (including the unused)
 	void AssetGetValue(TxoID, AmountBig::Type&);
 	void AssetSetValue(TxoID, const AmountBig::Type&);
 
@@ -633,6 +633,7 @@ private:
 	static const uint64_t s_AssetEmpty0;
 	void AssetInsertRaw(TxoID, const AssetInfo::Full*);
 	void AssetDeleteRaw(TxoID);
+	TxoID AssetFindMinFree(TxoID nMin);
 };
 
 

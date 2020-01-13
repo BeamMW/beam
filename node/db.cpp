@@ -2447,34 +2447,64 @@ void NodeDB::AssetInsertRaw(TxoID id, const AssetInfo::Full* pAi)
 	TestChanged1Row();
 }
 
-void NodeDB::AssetAdd(AssetInfo::Full& ai)
+TxoID NodeDB::AssetFindMinFree(TxoID nMin)
 {
 	// find free index
 	Recordset rs(*this, Query::AssetFindMin, "SELECT " TblAssets_ID " FROM " TblAssets " WHERE " TblAssets_ID ">=? ORDER BY " TblAssets_ID " ASC LIMIT 1");
-	rs.put(0, s_AssetEmpty0);
+	rs.put(0, nMin);
 
-	if (rs.Step())
+	if (!rs.Step())
+		return 0;
+
+	TxoID ret;
+	rs.get(0, ret);
+	return ret;
+}
+
+void NodeDB::AssetAdd(AssetInfo::Full& ai)
+{
+	// find free index
+	ai.m_ID = AssetFindMinFree(s_AssetEmpty0);
+	if (ai.m_ID)
 	{
-		rs.get(0, ai.m_ID);
+		assert(ai.m_ID >= s_AssetEmpty0);
 		AssetDeleteRaw(ai.m_ID);
-
 		ai.m_ID -= s_AssetEmpty0;
 	}
 	else
 	{
-		ai.m_ID = ParamIntGetDef(ParamID::AssetsCountHigh);
+		ai.m_ID = ParamIntGetDef(ParamID::AssetsCount);
 
 		TxoID val = ai.m_ID + 1;
-		ParamSet(ParamID::AssetsCountHigh, &val, nullptr);
+		ParamSet(ParamID::AssetsCount, &val, nullptr);
 	}
 
 	AssetInsertRaw(ai.m_ID, &ai);
 }
 
-void NodeDB::AssetDelete(TxoID id)
+TxoID NodeDB::AssetDelete(TxoID id)
 {
 	AssetDeleteRaw(id);
-	AssetInsertRaw(id + s_AssetEmpty0, nullptr);
+
+	TxoID nCount = ParamIntGetDef(ParamID::AssetsCount);
+	if (nCount == id + 1)
+	{
+		// last erased.
+		while (--nCount)
+		{
+			id = nCount + s_AssetEmpty0 - 1;
+			if (!AssetFindMinFree(id))
+				break;
+
+			AssetDeleteRaw(id);
+		}
+
+		ParamSet(ParamID::AssetsCount, &nCount, nullptr);
+	}
+	else
+		AssetInsertRaw(id + s_AssetEmpty0, nullptr);
+
+	return nCount;
 }
 
 void NodeDB::AssetGetValue(TxoID id, AmountBig::Type& val)

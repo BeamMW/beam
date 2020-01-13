@@ -229,6 +229,7 @@ namespace beam
 			TxoID m_ID;
 			void get_Generator(ECC::Point::Native&) const;
 			void get_Generator(ECC::Point::Storage&) const;
+			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
 		};
 
 		struct Full
@@ -237,6 +238,8 @@ namespace beam
 			AmountBig::Type m_Value;
 			PeerID m_Owner;
 			// metadata?
+
+			void get_Hash(ECC::Hash::Value&) const;
 		};
 	};
 
