@@ -2172,6 +2172,7 @@ Item
                                         {
                                             //% "Please, enter password"
                                             openPasswordError.text = qsTrId("general-pwd-empty-error");
+                                            openPassword.focus = true;
                                         }
                                         else
                                         {
@@ -2180,6 +2181,7 @@ Item
                                                 //% "Invalid password provided"
                                                 openPasswordError.text = qsTrId("general-pwd-invalid");
                                                 openPassword.selectAll();
+                                                openPassword.focus = true;
                                             }
                                             else
                                             {
