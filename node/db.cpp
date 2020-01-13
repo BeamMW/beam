@@ -327,10 +327,6 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion17 = 17; // before UTXO image
-	const uint64_t nVersion18 = 18; // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
-	const uint64_t nVersion19 = 19; // before Shielded shards
-	const uint64_t nVersion20 = 20; // Deprecated Shielded table created.
 	const uint64_t nVersionTop = 21;
 
 	Transaction t(*this);
@@ -345,23 +341,23 @@ void NodeDB::Open(const char* szPath)
 		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
 		switch (nVer)
 		{
-		case nVersion17:
+		case 17: // before UTXO image
 			// no break;
 
-		case nVersion18:
+		case 18: // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
 
-			LOG_INFO() << "DB migrate from" << nVersion18;
+			LOG_INFO() << "DB migrate from" << 18;
 			MigrateFrom18();
 			// no break;
 
-		case nVersion19:
+		case 19: // before Shielded shards
 			// ignore
 			// no break;
 
-		case nVersion20:
+		case 20: // Deprecated Shielded table created.
 			CreateTables20();
 
-			LOG_INFO() << "DB migrate from" << nVersion20;
+			LOG_INFO() << "DB migrate from" << 20;
 			MigrateFrom20();
 
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
@@ -371,7 +367,7 @@ void NodeDB::Open(const char* szPath)
 			break;
 
 		default:
-			if (nVer < nVersion17)
+			if (nVer < nVersionTop)
 				throw NodeDBUpgradeException("Node upgrade is not supported. Please, remove node.db and tempmb files");
 
 			if (nVer > nVersionTop)
