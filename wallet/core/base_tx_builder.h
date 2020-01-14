@@ -29,7 +29,7 @@ namespace beam::wallet
     {
     public:
         BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
-
+        virtual ~BaseTxBuilder() = default;
         void SelectInputs();
         void AddChange();
         void GenerateAssetCoin(Amount amount, bool change);
