@@ -143,7 +143,7 @@ namespace beam::wallet
 
         // Check if we already have signed kernel
         if ((isSender && !builder.LoadKernel())
-         || (!isSender && !builder.HasKernelID() || txState == State::Initial))
+         || (!isSender && (!builder.HasKernelID() || txState == State::Initial)))
         {
             // We don't need key keeper initialized to go on beyond this point
             if (!m_KeyKeeper)
