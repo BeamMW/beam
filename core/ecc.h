@@ -136,6 +136,8 @@ namespace ECC
 		Point& operator = (const Point&);
 		Point& operator = (const Commitment&);
 
+		bool operator == (const Native&) const;
+
 		struct Storage; // affine form, platform-independent.
 		struct Compact; // affine form, platform-dependent. For internal tables
 	};
@@ -413,6 +415,7 @@ namespace ECC
 		struct Challenges;
 		bool IsValid(BatchContext&, Challenges&, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
+		struct CalculatorBase;
 	private:
 		struct Calculator;
 
@@ -430,6 +433,12 @@ namespace ECC
 			Key::IDV m_Kidv;
 
 			struct Padded;
+
+			// more params to embed/recover, optional
+			const uintBig* m_pSeedSk = nullptr; // set only when recovering
+			Scalar::Native* m_pSk; // set only when recovering
+
+			Scalar::Native* m_pExtra = nullptr; // 2 more scalars can be embedded
 		};
 
 		struct Confidential
@@ -501,9 +510,8 @@ namespace ECC
             static void GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle);
 
 		private:
-			struct ChallengeSet0;
-			struct ChallengeSet1;
-			struct ChallengeSet2;
+			struct ChallengeSet;
+			struct Vectors;
 			static void CalcA(Point&, const Scalar::Native& alpha, Amount v);
 		};
 

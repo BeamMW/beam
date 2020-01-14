@@ -31,19 +31,19 @@ namespace beam::wallet
         virtual ~LocalPrivateKeyKeeper();
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, Callback<PublicKeysEx>&&, ExceptionCallback&&) override;
+        void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID assetID, Callback<PublicKeysEx>&&, ExceptionCallback&&) override;
         void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) override;
-        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, Callback<OutputsEx>&&, ExceptionCallback&&) override;
+        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, AssetID assetId, Callback<OutputsEx>&&, ExceptionCallback&&) override;
 
         void SignReceiver(const std::vector<Key::IDV>& inputs
                         , const std::vector<Key::IDV>& outputs
-                        , const AssetID& assetId
+                        , AssetID assetId
                         , const KernelParameters& kernelParamerters
                         , const WalletIDKey& walletIDkey
                         , Callback<ReceiverSignature>&&, ExceptionCallback&&) override;
         void SignSender(const std::vector<Key::IDV>& inputs
                       , const std::vector<Key::IDV>& outputs
-                      , const AssetID& assetId
+                      , AssetID assetId
                       , size_t nonceSlot
                       , const KernelParameters& kernelParamerters
                       , bool initial
@@ -53,25 +53,25 @@ namespace beam::wallet
         size_t AllocateNonceSlotSync() override;
 
         PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
-        PublicKeysEx GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID) override;
+        PublicKeysEx GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID) override;
 
         ECC::Point GeneratePublicKeySync(const Key::IDV& id) override;
-        ECC::Point GenerateCoinKeySync(const Key::IDV& id, const AssetID& assetId) override;
+        ECC::Point GenerateCoinKeySync(const Key::IDV& id, AssetID) override;
         Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
-        OutputsEx GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId) override;
+        OutputsEx GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID) override;
 
         //RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
         ECC::Point GenerateNonceSync(size_t slot) override;
-        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const ECC::Point::Native& publicNonce) override;
+        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const ECC::Point::Native& publicNonce) override;
 
         ReceiverSignature SignReceiverSync(const std::vector<Key::IDV>& inputs
                                      , const std::vector<Key::IDV>& outputs
-                                     , const AssetID& assetId
+                                     , AssetID
                                      , const KernelParameters& kernelParamerters
                                      , const WalletIDKey& walletIDkey) override;
         SenderSignature SignSenderSync(const std::vector<Key::IDV>& inputs
                                  , const std::vector<Key::IDV>& outputs
-                                 , const AssetID& assetId
+                                 , AssetID
                                  , size_t nonceSlot
                                  , const KernelParameters& kernelParamerters
                                  , bool initial) override;
@@ -83,16 +83,16 @@ namespace beam::wallet
         //
         // Assets
         //
-        AssetID GetAssetID(uint32_t assetIdx) override;
-        ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx) override;
+        PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override;
+        ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx) override;
 
     private:
         // pair<asset public (asset id), asset private>
-        std::pair<AssetID, ECC::Scalar::Native> GetAssetKeypair(uint32_t assetIdx);
+        std::pair<PeerID, ECC::Scalar::Native> GetAssetOwnerKeypair(Key::Index assetOwnerIdx);
 
         Key::IKdf::Ptr GetChildKdf(const Key::IDV&) const;
         ECC::Scalar::Native GetNonce(size_t slot);
-        ECC::Scalar::Native GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset) const;
+        ECC::Scalar::Native GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID, const ECC::Scalar::Native& offset) const;
         int64_t CalculateValue(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs) const;
         void LoadNonceSeeds();
         void SaveNonceSeeds();

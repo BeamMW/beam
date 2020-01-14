@@ -60,12 +60,12 @@ namespace beam::wallet
             count
         };
 
-        explicit Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular, AssetID assetId = Zero);
+        explicit Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular, AssetID assetId = 0);
         bool operator==(const Coin&) const;
         bool operator!=(const Coin&) const;
         bool isReward() const;
         bool isAsset() const;
-        bool isAsset(AssetID assetId) const;
+        bool isAsset(AssetID) const;
         std::string toStringID() const;
         Amount getAmount() const;
 
@@ -293,7 +293,7 @@ namespace beam::wallet
         virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const = 0;
 
         // Calculates blinding factor and commitment of specifc Coin::ID
-        ECC::Point calcCommitment(const Coin::ID&, const AssetID& assetId);
+        ECC::Point calcCommitment(const Coin::ID&, AssetID);
 
 		// import blockchain recovery data (all at once)
 		// should be used only upon creation on 'clean' wallet. Throws exception on error
@@ -314,7 +314,7 @@ namespace beam::wallet
         // Selects a list of coins matching certain specified amount
         // Selection logic will optimize for number of UTXOs and minimize change
         // Uses greedy algorithm up to a point and follows by some heuristics
-        virtual std::vector<Coin> selectCoins(Amount amount, AssetID assetId) = 0;
+        virtual std::vector<Coin> selectCoins(Amount amount, AssetID) = 0;
 
         // Some getters to get lists of coins by some input parameters
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
@@ -322,7 +322,7 @@ namespace beam::wallet
         virtual std::vector<Coin> getCoinsByID(const CoinIDList& ids) = 0;
 
         // Generates a new valid coin with specific amount. In order to save it into the database you have to call save() method
-        virtual Coin generateNewCoin(Amount amount, const AssetID& assetId) = 0;
+        virtual Coin generateNewCoin(Amount amount, AssetID) = 0;
 
         // Set of basic coin related database methods
         virtual void storeCoin(Coin& coin) = 0;
@@ -427,12 +427,12 @@ namespace beam::wallet
         beam::Key::IKdf::Ptr get_MasterKdf() const override;
         beam::Key::IPKdf::Ptr get_OwnerKdf() const override;
         uint64_t AllocateKidRange(uint64_t nCount) override;
-        std::vector<Coin> selectCoins(Amount amount, AssetID assetId) override;
+        std::vector<Coin> selectCoins(Amount amount, AssetID) override;
 
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByID(const CoinIDList& ids) override;
-        Coin generateNewCoin(Amount amount, const AssetID& assetId) override;
+        Coin generateNewCoin(Amount amount, AssetID) override;
         void storeCoin(Coin& coin) override;
         void storeCoins(std::vector<Coin>&) override;
         void saveCoin(const Coin& coin) override;
@@ -644,7 +644,7 @@ namespace beam::wallet
         struct Totals
         {
             struct AssetTotals {
-                AssetID AssetId = Zero;
+                AssetID AssetId = 0;
                 Amount  Avail = 0;
                 Amount  Maturing = 0;
                 Amount  Incoming = 0;
@@ -661,7 +661,7 @@ namespace beam::wallet
 
             Totals();
             explicit Totals(IWalletDB& db);
-            AssetTotals GetTotals(AssetID assetId) const;
+            AssetTotals GetTotals(AssetID) const;
             mutable std::map<AssetID, AssetTotals> allTotals;
 
         private:

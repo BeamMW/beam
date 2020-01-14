@@ -48,8 +48,9 @@ namespace beam::wallet
         : m_Tx{tx}
         , m_keyKeeper(std::move(keyKeeper))
         , m_SubTxID(subTxID)
-        , m_assetId(Zero)
-        , m_assetIdx(0)
+        , m_assetId(0)
+        , m_assetOwnerIdx(0)
+        , m_assetOwnerId(Zero)
         , m_issue(issue)
         , m_AmountList{0}
         , m_Fee(0)
@@ -70,10 +71,12 @@ namespace beam::wallet
             m_AmountList = AmountList{m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount, m_SubTxID)};
         }
 
-        m_assetIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetIdx);
-        m_assetId  = m_keyKeeper->GetAssetID(m_assetIdx);
-        m_Tx.SetParameter(TxParameterID::AssetID, m_assetId, m_SubTxID);
-        if (m_assetIdx == 0 || m_assetId == Zero)
+        m_assetOwnerIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetOwnerIdx);
+        m_assetOwnerId  = m_keyKeeper->GetAssetOwnerID(m_assetOwnerIdx);
+
+        m_assetId = m_Tx.GetMandatoryParameter<AssetID>(TxParameterID::AssetID, m_SubTxID);
+
+        if (m_assetOwnerIdx == 0 || m_assetId == 0)
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
         }
@@ -222,14 +225,19 @@ namespace beam::wallet
         return m_Fee;
     }
 
-    uint32_t AssetIssueTxBuilder::GetAssetIdx() const
+    Key::Index AssetIssueTxBuilder::GetAssetOwnerIdx() const
     {
-        return m_assetIdx;
+        return m_assetOwnerIdx;
     }
+
+     PeerID AssetIssueTxBuilder::GetAssetOwnerId() const
+     {
+        return m_assetOwnerId;
+     }
 
      AssetID AssetIssueTxBuilder::GetAssetId() const
      {
-        return m_assetId;
+         return m_assetId;
      }
 
     string AssetIssueTxBuilder::GetKernelIDString() const {
@@ -333,7 +341,7 @@ namespace beam::wallet
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
         LOG_INFO() << m_Tx.GetTxID() << " Creating ASSET coin" << (change ? " (change):" : ":")
                    << PrintableAmount(amount, false, kAmountASSET, kAmountAGROTH)
-                   << ", asset id " << m_assetId.str()
+                   << ", asset id " << m_assetId
                    << ", id " << newUtxo.toStringID();
     }
 
@@ -421,7 +429,7 @@ namespace beam::wallet
 
     void AssetIssueTxBuilder::SignKernel()
     {
-        m_Offset += m_keyKeeper->SignEmissionKernel(*m_Kernel, m_assetIdx);
+        m_Offset += m_keyKeeper->SignEmissionKernel(*m_Kernel, m_assetOwnerIdx);
 
         const Merkle::Hash& kernelID = m_Kernel->m_Internal.m_ID;
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);

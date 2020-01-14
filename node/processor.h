@@ -99,7 +99,6 @@ class NodeProcessor
 	bool InitUtxoMapping(const char*, bool bForceReset);
 	void InitializeUtxos(const char*);
 	static void OnCorrupted();
-	void get_Definition(Merkle::Hash&, bool bForNextState);
 
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
@@ -158,7 +157,6 @@ class NodeProcessor
 public:
 
 	struct StartParams {
-		bool m_ResetCursor = false;
 		bool m_CheckIntegrity = false;
 		bool m_Vacuum = false;
 		bool m_ResetSelfID = false;
@@ -216,6 +214,8 @@ public:
 		Height m_TxoLo;
 		Height m_TxoHi;
 
+		TxoID m_ShieldedOutputs;
+
 	} m_Extra;
 
 	struct SyncData
@@ -255,7 +255,45 @@ public:
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
 
-	void get_UtxoHash(Merkle::Hash&, bool bForNextState);
+	struct Evaluator
+		:public Block::SystemState::Evaluator
+	{
+		NodeProcessor& m_Proc;
+		Evaluator(NodeProcessor&);
+
+		virtual bool get_History(Merkle::Hash&) override;
+		virtual bool get_Utxos(Merkle::Hash&) override;
+		virtual bool get_Shielded(Merkle::Hash&) override;
+	};
+
+	struct ProofBuilder
+		:public Evaluator
+	{
+		Merkle::Proof& m_Proof;
+		ProofBuilder(NodeProcessor& p, Merkle::Proof& proof)
+			:Evaluator(p)
+			,m_Proof(proof)
+		{
+		}
+
+	protected:
+		virtual void OnProof(Merkle::Hash&, bool);
+	};
+
+	struct ProofBuilderHard
+		:public Evaluator
+	{
+		Merkle::HardProof& m_Proof;
+		ProofBuilderHard(NodeProcessor& p, Merkle::HardProof& proof)
+			:Evaluator(p)
+			,m_Proof(proof)
+		{
+		}
+
+	protected:
+		virtual void OnProof(Merkle::Hash&, bool);
+	};
+
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
 
 	void CommitDB();
@@ -382,21 +420,34 @@ public:
 		struct Value {
 			ECC::Key::IDV::Packed m_Kidv;
 			uintBigFor<Height>::Type m_Maturity;
-			AssetID m_AssetID;
+			uintBigFor<AssetID>::Type m_AssetID;
+			proto::UtxoEvent::AuxBuf1 m_Buf1;
 			uint8_t m_Flags;
 		};
 
 		struct ValueS
 			:public Value
 		{
-			proto::UtxoEvent::Shielded m_Shielded;
+			proto::UtxoEvent::ShieldedDelta m_ShieldedDelta;
 		};
 	};
 
-	struct ShieldedOutpPacked
+	struct ShieldedBase
 	{
-		uintBigFor<TxoID>::Type m_TxoID;
+		uintBigFor<TxoID>::Type m_MmrIndex;
+		uintBigFor<Height>::Type m_Height;
+	};
+
+	struct ShieldedOutpPacked
+		:public ShieldedBase
+	{
 		ECC::Point m_Commitment;
+		uintBigFor<TxoID>::Type m_TxoID;
+	};
+
+	struct ShieldedInpPacked
+		:public ShieldedBase
+	{
 	};
 
 #pragma pack (pop)
@@ -406,8 +457,13 @@ public:
 
 	static bool IsDummy(const Key::IDV&);
 
-	NodeDB::StatesMmr m_StatesMmr;
-	NodeDB::StreamMmr m_ShieldedMmr;
+	struct Mmr
+	{
+		Mmr(NodeDB&);
+		NodeDB::StatesMmr m_States;
+		NodeDB::StreamMmr m_Shielded;
+
+	} m_Mmr;
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);

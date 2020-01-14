@@ -454,7 +454,7 @@ QString SwapTxObject::getFailureReason() const
             if (txState && *txState == wallet::AtomicSwapTransaction::State::Refunded)
             {
                 //% "Refunded"
-                return qtTrId("swap-tx-failture-refunded");
+                return qtTrId("swap-tx-failure-refunded");
             }
             else
             {

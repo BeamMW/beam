@@ -154,7 +154,7 @@ namespace beam::wallet
 
             if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
-                const auto isAsset = builder.GetAssetId() != Zero;
+                const auto isAsset = builder.GetAssetId() != 0;
                 LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
                     << PrintableAmount(builder.GetAmount(), false,isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")
                     << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
@@ -179,7 +179,7 @@ namespace beam::wallet
                     // create receiver utxo
                     for (const auto& amount : builder.GetAmountList())
                     {
-                        if (builder.GetAssetId() != Zero)
+                        if (builder.GetAssetId() != 0)
                         {
                             builder.GenerateAssetCoin(amount, false);
                         }

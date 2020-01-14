@@ -692,6 +692,30 @@ namespace ECC {
         return !(operator == (v));
     }
 
+	bool Point::Native::operator == (const Native& v) const
+	{
+		Native val = -v;
+		val += *this;
+		return val == Zero;
+	}
+
+	bool Point::Native::operator == (const Point& v) const
+	{
+		// There's a fast way to compare the X coordinate (without normalizing the gej).
+		// But there is no known way to check the oddity of the Y coordinate
+		// Hence - we'll do the normalization.
+
+		// Import/Export seems to be the same complexity
+		ECC::Point v2;
+		Export(v2);
+		return v2 == v;
+	}
+
+	bool Point::operator == (const Native& pt) const
+	{
+		return pt == *this;
+	}
+
 	Point::Native& Point::Native::operator = (Minus v)
 	{
 		secp256k1_gej_neg(this, &v.x);

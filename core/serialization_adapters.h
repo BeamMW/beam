@@ -822,7 +822,7 @@ namespace detail
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
-				((output.m_AssetID == beam::Zero) ? 0 : 0x20) |
+				(output.m_AssetID ? 0 : 0x20) |
 				(output.m_RecoveryOnly ? 0x40 : 0) |
 				(nFlags2 ? 0x80 : 0);
 
@@ -875,7 +875,7 @@ namespace detail
 			if (0x20 & nFlags)
 				ar & output.m_AssetID;
 			else
-				output.m_AssetID = beam::Zero;
+				output.m_AssetID = 0;
 
 			if (0x80 & nFlags)
 			{
@@ -1188,10 +1188,9 @@ namespace detail
 			}
         }
 
-
-        /// beam::TxKernelAssetEmit serialization
+        /// beam::TxKernelAssetBase serialization
 		template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernelAssetEmit& val)
+        static Archive& saveBase(Archive& ar, const beam::TxKernelAssetBase& val)
         {
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
@@ -1204,8 +1203,7 @@ namespace detail
 				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_pK[0]
-				& val.m_AssetID
-				& val.m_Value;
+				& val.m_Owner;
 
 			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
 			ImplTxKernel::save_Nested(ar, val);
@@ -1214,7 +1212,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static void load0(Archive& ar, beam::TxKernelAssetEmit& val, uint32_t nRecursion)
+        static void load0Base(Archive& ar, beam::TxKernelAssetBase& val, uint32_t nRecursion)
         {
 			uint32_t nFlags;
 			ar
@@ -1222,8 +1220,7 @@ namespace detail
 				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_pK[0]
-				& val.m_AssetID
-				& val.m_Value;
+				& val.m_Owner;
 
 			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
 			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
@@ -1234,6 +1231,38 @@ namespace detail
 			if (0x20 & nFlags)
 				val.m_CanEmbed = true;
         }
+
+        /// beam::TxKernelAssetEmit serialization
+		template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxKernelAssetEmit& val)
+        {
+			saveBase(ar, Cast::Down<beam::TxKernelAssetBase>(val));
+			ar & val.m_Value;
+            return ar;
+        }
+
+        template<typename Archive>
+        static void load0(Archive& ar, beam::TxKernelAssetEmit& val, uint32_t nRecursion)
+        {
+			load0Base(ar, Cast::Down<beam::TxKernelAssetBase>(val), nRecursion);
+			ar & val.m_Value;
+		}
+
+		/// beam::TxKernelAssetControl serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernelAssetControl& val)
+		{
+			saveBase(ar, Cast::Down<beam::TxKernelAssetBase>(val));
+			ar & val.m_Flags;
+			return ar;
+		}
+
+		template<typename Archive>
+		static void load0(Archive& ar, beam::TxKernelAssetControl& val, uint32_t nRecursion)
+		{
+			load0Base(ar, Cast::Down<beam::TxKernelAssetBase>(val), nRecursion);
+			ar & val.m_Flags;
+		}
 
         /// beam::TxKernelShieldedOutput serialization
 		template<typename Archive>

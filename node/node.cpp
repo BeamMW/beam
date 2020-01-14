@@ -2951,12 +2951,19 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height 
 
     Merkle::ProofBuilderHard bld;
 
-    m_StatesMmr.get_Proof(bld, m_StatesMmr.H2I(h));
+    m_Mmr.m_States.get_Proof(bld, m_Mmr.m_States.H2I(h));
 
     proof.swap(bld.m_Proof);
 
-    proof.emplace_back();
-    get_UtxoHash(proof.back(), false);
+    struct MyProofBuilder
+        :public ProofBuilderHard
+    {
+        using ProofBuilderHard::ProofBuilderHard;
+        virtual bool get_History(Merkle::Hash&) override { return false; }
+    };
+
+    MyProofBuilder pb(*this, proof);
+    pb.GenerateProof();
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
@@ -3008,19 +3015,15 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
             ret.m_State.m_Maturity = d.m_Maturity;
             m_Proc.get_Utxos().get_Proof(ret.m_Proof, *m_pCu);
 
-            if (m_Proc.m_Cursor.m_ID.m_Height >= Rules::get().pForks[2].m_Height)
+            struct MyProofBuilder
+                :public NodeProcessor::ProofBuilder
             {
-                Merkle::Hash hv2;
-                m_Proc.m_ShieldedMmr.get_Hash(hv2);
+                using ProofBuilder::ProofBuilder;
+                virtual bool get_Utxos(Merkle::Hash&) override { return false; }
+            };
 
-                ret.m_Proof.emplace_back();
-                ret.m_Proof.back().first = true;
-                ret.m_Proof.back().second = hv2;
-            }
-
-            ret.m_Proof.emplace_back();
-            ret.m_Proof.back().first = false;
-            ret.m_Proof.back().second = m_Proc.m_Cursor.m_History;
+            MyProofBuilder pb(m_Proc, ret.m_Proof);
+            pb.GenerateProof();
 
             return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
         }
@@ -3055,41 +3058,76 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
     Send(t.m_Msg);
 }
 
-void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
+void Node::Processor::GenerateProofShielded(Merkle::Proof& p, const uintBigFor<TxoID>::Type& mmrIdx)
 {
-	proto::ProofShieldedTxo msgOut;
+    TxoID nIdx;
+    mmrIdx.Export(nIdx);
+
+    m_Mmr.m_Shielded.get_Proof(p, nIdx);
+
+    struct MyProofBuilder
+        :public NodeProcessor::ProofBuilder
+    {
+        using ProofBuilder::ProofBuilder;
+        virtual bool get_Shielded(Merkle::Hash&) override { return false; }
+    };
+
+    MyProofBuilder pb(*this, p);
+    pb.GenerateProof();
+}
+
+void Node::Peer::OnMsg(proto::GetProofShieldedOutp&& msg)
+{
+    if (msg.m_SerialPub.m_Y > 1)
+        ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
+
+    proto::ProofShieldedOutp msgOut;
 
 	Processor& p = m_This.m_Processor;
-    msgOut.m_Total = p.m_ShieldedMmr.m_Count;
-
     if (!p.IsFastSync())
 	{
-        if (msg.m_SerialPub.m_Y > 1)
-            ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
-
         NodeDB::Recordset rs;
         Blob blob(&msg.m_SerialPub, sizeof(msg.m_SerialPub));
         if (p.get_DB().UniqueFind(blob, rs))
         {
             const NodeProcessor::ShieldedOutpPacked& sop = rs.get_As<NodeProcessor::ShieldedOutpPacked>(0); // Note: will throw CorruptionException if of wrong size
 
-            msgOut.m_Commitment = sop.m_Commitment;
+            sop.m_Height.Export(msgOut.m_Height);
             sop.m_TxoID.Export(msgOut.m_ID);
+            msgOut.m_Commitment = sop.m_Commitment;
 
-            Merkle::ProofBuilderHard bld;
-            p.m_ShieldedMmr.get_Proof(bld, msgOut.m_ID);
-
-            msgOut.m_Proof.swap(bld.m_Proof);
-
-            msgOut.m_Proof.emplace_back();
-            p.get_Utxos().get_Hash(msgOut.m_Proof.back());
-
-            msgOut.m_Proof.emplace_back();
-            msgOut.m_Proof.back() = p.m_Cursor.m_History;
+            p.GenerateProofShielded(msgOut.m_Proof, sop.m_MmrIndex);
         }
 	}
 
 	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetProofShieldedInp&& msg)
+{
+    if (msg.m_SpendPk.m_Y > 1)
+        ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
+
+    proto::ProofShieldedInp msgOut;
+
+    Processor& p = m_This.m_Processor;
+    if (!p.IsFastSync())
+    {
+        NodeDB::Recordset rs;
+
+        msg.m_SpendPk.m_Y |= 2;
+        Blob blob(&msg.m_SpendPk, sizeof(msg.m_SpendPk));
+        if (p.get_DB().UniqueFind(blob, rs))
+        {
+            const NodeProcessor::ShieldedInpPacked& sip = rs.get_As<NodeProcessor::ShieldedInpPacked>(0); // Note: will throw CorruptionException if of wrong size
+
+            sip.m_Height.Export(msgOut.m_Height);
+
+            p.GenerateProofShielded(msgOut.m_Proof, sip.m_MmrIndex);
+        }
+    }
+
+    Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
@@ -3097,12 +3135,12 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 	proto::ShieldedList msgOut;
 
 	Processor& p = m_This.m_Processor;
-	if ((msg.m_Id0 < p.m_ShieldedMmr.m_Count) && msg.m_Count)
+	if ((msg.m_Id0 < p.m_Mmr.m_Shielded.m_Count) && msg.m_Count)
 	{
 		if (msg.m_Count > Lelantus::Cfg::Max::N)
 			msg.m_Count = Lelantus::Cfg::Max::N;
 
-		TxoID n = p.m_ShieldedMmr.m_Count - msg.m_Id0;
+		TxoID n = p.m_Mmr.m_Shielded.m_Count - msg.m_Id0;
 
 		if (msg.m_Count > n)
 			msg.m_Count = static_cast<uint32_t>(n);
@@ -3139,14 +3177,16 @@ bool Node::Processor::BuildCwp()
 
         virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
         {
-            m_Proc.m_StatesMmr.get_Proof(bld, m_Proc.m_StatesMmr.H2I(h));
+            m_Proc.m_Mmr.m_States.get_Proof(bld, m_Proc.m_Mmr.m_States.H2I(h));
         }
     };
 
     Source src(*this);
 
     m_Cwp.Create(src, m_Cursor.m_Full);
-    get_UtxoHash(m_Cwp.m_hvRootLive, false);
+
+    Evaluator ev(*this);
+    ev.get_Live(m_Cwp.m_hvRootLive);
 
     return true;
 }
@@ -3418,7 +3458,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
             res.m_Flags = evt.m_Flags;
 
 			if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
-				res.m_Shielded = Cast::Up<UE::ValueS>(evt).m_Shielded;
+				res.m_ShieldedDelta = Cast::Up<UE::ValueS>(evt).m_ShieldedDelta;
 		}
     }
     else
@@ -4332,8 +4372,11 @@ void Node::PrintTxos()
 
         if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
         {
-            ECC::Scalar k;
-            os << ", Shielded TxoID=" << Cast::Up<UE::ValueS>(evt).m_Shielded.Get(evt.m_Kidv, k);
+            proto::UtxoEvent::Shielded ues;
+            Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kidv, evt.m_Buf1, ues);
+            TxoID id;
+            ues.m_ID.Export(id);
+            os << ", Shielded TxoID=" << id;
         }
 
         os << std::endl;

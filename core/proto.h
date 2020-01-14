@@ -84,8 +84,11 @@ namespace proto {
     macro(ECC::Point, Utxo) \
     macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
-#define BeamNodeMsg_GetProofShieldedTxo(macro) \
+#define BeamNodeMsg_GetProofShieldedOutp(macro) \
     macro(ECC::Point, SerialPub)
+
+#define BeamNodeMsg_GetProofShieldedInp(macro) \
+    macro(ECC::Point, SpendPk)
 
 #define BeamNodeMsg_GetShieldedList(macro) \
     macro(TxoID, Id0) \
@@ -105,11 +108,15 @@ namespace proto {
 #define BeamNodeMsg_ProofUtxo(macro) \
     macro(std::vector<Input::Proof>, Proofs)
 
-#define BeamNodeMsg_ProofShieldedTxo(macro) \
+#define BeamNodeMsg_ProofShieldedOutp(macro) \
     macro(ECC::Point, Commitment) \
     macro(TxoID, ID) \
-    macro(TxoID, Total) \
-    macro(Merkle::HardProof, Proof)
+    macro(Height, Height) \
+    macro(Merkle::Proof, Proof)
+
+#define BeamNodeMsg_ProofShieldedInp(macro) \
+    macro(Height, Height) \
+    macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ShieldedList(macro) \
     macro(std::vector<ECC::Point::Storage>, Items)
@@ -250,8 +257,10 @@ namespace proto {
     macro(0x25, ProofKernel2) \
     macro(0x26, GetBodyPack) \
     macro(0x27, BodyPack) \
-    macro(0x28, GetProofShieldedTxo) \
-    macro(0x29, ProofShieldedTxo) \
+    macro(0x28, GetProofShieldedOutp) \
+    macro(0x20, GetProofShieldedInp) \
+    macro(0x29, ProofShieldedOutp) \
+    macro(0x21, ProofShieldedInp) \
     macro(0x2a, GetShieldedList) \
     macro(0x2b, ShieldedList) \
     /* onwer-relevant */ \
@@ -307,18 +316,35 @@ namespace proto {
 	{
 		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
+        typedef uintBig_t<ECC::uintBig::nBytes - sizeof(AssetID)> AuxBuf1;
+
+#pragma pack(push, 1)
 		struct Shielded
 		{
-			uint8_t m_pBuf[sizeof(ECC::Scalar) - sizeof(Key::ID) + sizeof(TxoID)]; // remaining part of ID for shielded outputs. Not used for non-shielded
-
-			void Set(Key::ID::Packed&, const ECC::Scalar&, TxoID);
-			TxoID Get(const Key::ID::Packed&, ECC::Scalar&) const;
+            ECC::Scalar m_kSerG;
+            ECC::Scalar m_kOutG;
+            PeerID m_Sender;
+            ECC::uintBig m_Message;
+            uintBigFor<TxoID>::Type m_ID;
+            uint8_t m_IsCreatedByViewer;
 		};
 
+        struct ShieldedDelta
+        {
+            uint8_t m_pBuf[sizeof(Shielded) - sizeof(Key::ID::Packed) - AuxBuf1::nBytes];
+
+            void Set(Key::ID::Packed&, AuxBuf1&, const Shielded&);
+            void Get(const Key::ID::Packed&, const AuxBuf1&, Shielded&) const;
+        };
+
+#pragma pack(pop)
+
 		Key::IDV m_Kidv;
-		Shielded m_Shielded;
+		ShieldedDelta m_ShieldedDelta;
 		ECC::Point m_Commitment;
-		AssetID m_AssetID;
+        uintBigFor<AssetID>::Type m_AssetID;
+
+        AuxBuf1 m_Buf1; // for hystorical reasons
 
 		Height m_Height;
 		Height m_Maturity;
@@ -337,12 +363,13 @@ namespace proto {
 				& m_Commitment
 				& m_Kidv
 				& m_AssetID
+                & m_Buf1
 				& m_Height
 				& m_Maturity
 				& m_Flags;
 
 			if (beam::proto::UtxoEvent::Flags::Shielded & m_Flags)
-				ar & m_Shielded.m_pBuf;
+				ar & m_ShieldedDelta.m_pBuf;
 		}
 	};
 

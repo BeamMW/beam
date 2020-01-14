@@ -1659,9 +1659,8 @@ namespace
         Coin::ID inputID = Coin::ID(4, 10, Key::Type::Coinbase);
         Coin::ID outputID = Coin::ID(3, 11, Key::Type::Regular);
 
-        AssetID assetID = Zero;
         auto input = make_unique<Input>();
-        input->m_Commitment = sender.m_KeyKeeper->GenerateCoinKeySync(inputID, assetID);
+        input->m_Commitment = sender.m_KeyKeeper->GenerateCoinKeySync(inputID, 0);
         auto outputs = receiver.m_KeyKeeper->GenerateOutputsSync(1, { outputID });
 
         KernelParameters kernelParams;

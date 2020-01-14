@@ -161,36 +161,10 @@ namespace beam
 
 	/////////////
 	// SwitchCommitment
-	ECC::Point::Native SwitchCommitment::HGenFromAID(const AssetID& assetId)
-    {
-	    if (assetId == Zero)
-        {
-	        return Zero;
-        }
-
-	    ECC::Oracle oracle;
-        oracle
-            << "a-id"
-            << assetId;
-
-        ECC::Point pt;
-        pt.m_Y = 0;
-
-        ECC::Point::Native result;
-        do
-        {
-            oracle
-                << "a-gen"
-                >> pt.m_X;
-        }
-        while (!result.ImportNnz(pt));
-
-        return result;
-    }
-
-	SwitchCommitment::SwitchCommitment(const AssetID* pAssetID /* = nullptr */)
+	SwitchCommitment::SwitchCommitment(const AssetID nAssetID /* = 0 */)
 	{
-	    m_hGen = SwitchCommitment::HGenFromAID(pAssetID ? *pAssetID : Zero);
+		if (nAssetID)
+			AssetInfo::Base(nAssetID).get_Generator(m_hGen);
 	}
 
 	void SwitchCommitment::get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J)
@@ -295,7 +269,7 @@ namespace beam
 		if (!comm.Import(m_Commitment))
 			return false;
 
-		SwitchCommitment sc(&m_AssetID);
+		SwitchCommitment sc(m_AssetID);
 
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
@@ -342,7 +316,7 @@ namespace beam
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER(m_RecoveryOnly)
 		CMP_MEMBER(m_Incubation)
-		CMP_MEMBER_EX(m_AssetID)
+		CMP_MEMBER(m_AssetID)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
 
@@ -359,7 +333,7 @@ namespace beam
 
 	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
-		SwitchCommitment sc(&m_AssetID);
+		SwitchCommitment sc(m_AssetID);
 		sc.Create(sk, m_Commitment, coinKdf, kidv);
 
 		ECC::Oracle oracle;
@@ -431,7 +405,7 @@ namespace beam
 		if (!comm2.Import(m_Commitment))
 			return false;
 
-		SwitchCommitment(&m_AssetID).Recover(comm, coinKdf, kidv);
+		SwitchCommitment(m_AssetID).Recover(comm, coinKdf, kidv);
 
 		comm = -comm;
 		comm += comm2;
@@ -780,21 +754,20 @@ namespace beam
 	}
 
 	/////////////
-	// TxKernelAssetEmit
-	void TxKernelAssetEmit::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	// TxKernelAssetBase
+	void TxKernelAssetBase::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
 		hp
 			<< m_Commitment
-			<< m_AssetID
-			<< Amount(m_Value);
+			<< m_Owner;
 	}
 
-	void TxKernelAssetEmit::HashSelfForID(ECC::Hash::Processor& hp) const
+	void TxKernelAssetBase::HashSelfForID(ECC::Hash::Processor& hp) const
 	{
 		hp.Serialize(m_Signature);
 	}
 
-	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	bool TxKernelAssetBase::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
 		if (!IsValidBase(hScheme, exc, pParent))
 			return false;
@@ -803,41 +776,76 @@ namespace beam
 		if ((hScheme < r.pForks[2].m_Height) || !r.CA.Enabled)
 			return false; // unsupported for that version
 
-		if (!m_Value || (m_AssetID == Zero))
-			return false;
-
 		ECC::Point::Native pPt[2];
 		if (!pPt[0].ImportNnz(m_Commitment))
 			return false;
 
 		exc += pPt[0];
 
-		ECC::Point pkAsset;
-		pkAsset.m_X = m_AssetID;
-		pkAsset.m_Y = 0;
-		if (!pPt[1].Import(pkAsset))
+		if (m_Owner == Zero)
+			return false;
+
+		ECC::Point pkOwner;
+		pkOwner.m_X = m_Owner;
+		pkOwner.m_Y = 0;
+		if (!pPt[1].Import(pkOwner))
 			return false;
 
 		// prover must prove knowledge of excess AND m_AssetID sk
-		if (!m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt))
+		return m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt);
+	}
+
+	void TxKernelAssetBase::CopyFrom(const TxKernelAssetBase& v)
+	{
+		TxKernelNonStd::CopyFrom(v);
+		m_Commitment = v.m_Commitment;
+		m_Signature = v.m_Signature;
+		m_Owner = v.m_Owner;
+	}
+
+	void TxKernelAssetBase::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
+	{
+		m_Commitment = ECC::Context::get().G * sk;
+		UpdateMsg();
+
+		ECC::Scalar::Native pSk[2] = { sk, skAsset };
+		ECC::Scalar::Native res;
+		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pSk, &res);
+
+		MsgToID();
+	}
+
+	/////////////
+	// TxKernelAssetEmit
+	void TxKernelAssetEmit::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelAssetBase::HashSelfForMsg(hp);
+		hp
+			<< m_AssetID
+			<< Amount(m_Value);
+	}
+
+	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!TxKernelAssetBase::IsValid(hScheme, exc, pParent))
 			return false;
 
-		SwitchCommitment sc(&m_AssetID);
+		if (!m_Value || !m_AssetID)
+			return false;
+
+		SwitchCommitment sc(m_AssetID);
 		assert(ECC::Tag::IsCustom(&sc.m_hGen));
-
-		sc.m_hGen = -sc.m_hGen;
-
-		if (r.CA.Deposit)
-			sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
 
 		// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
 		Amount val;
 		if (m_Value > 0)
+		{
 			val = m_Value;
+			sc.m_hGen = -sc.m_hGen;
+		}
 		else
 		{
 			val = -m_Value;
-			sc.m_hGen = -sc.m_hGen;
 		}
 
 		ECC::Tag::AddValue(exc, &sc.m_hGen, val);
@@ -851,22 +859,48 @@ namespace beam
 		TxKernelAssetEmit& v = Cast::Up<TxKernelAssetEmit>(*p);
 
 		v.CopyFrom(*this);
-		v.m_Commitment = m_Commitment;
-		v.m_Signature = m_Signature;
-		v.m_AssetID = m_AssetID;
 		v.m_Value = m_Value;
 	}
 
-	void TxKernelAssetEmit::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
+	/////////////
+	// TxKernelAssetControl
+	void TxKernelAssetControl::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
-		m_Commitment = ECC::Context::get().G * sk;
-		UpdateMsg();
+		TxKernelAssetBase::HashSelfForMsg(hp);
+		hp << m_Flags;
+	}
 
-		ECC::Scalar::Native pSk[2] = { sk, skAsset };
-		ECC::Scalar::Native res;
-		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pSk, &res);
+	bool TxKernelAssetControl::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!TxKernelAssetBase::IsValid(hScheme, exc, pParent))
+			return false;
 
-		MsgToID();
+		const Rules& r = Rules::get(); // alias
+
+		if ((Flags::Add | Flags::Remove) & m_Flags)
+		{
+			ECC::Point::Native pt = ECC::Context::get().H * r.CA.DepositForList;
+
+			if (Flags::Add & m_Flags)
+				exc += pt;
+
+			if (Flags::Remove & m_Flags)
+			{
+				pt = -pt;
+				exc += pt;
+			}
+		}
+
+		return true;
+	}
+
+	void TxKernelAssetControl::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelAssetControl);
+		TxKernelAssetControl& v = Cast::Up<TxKernelAssetControl>(*p);
+
+		v.CopyFrom(*this);
+		v.m_Flags = m_Flags;
 	}
 
 	/////////////
@@ -880,31 +914,19 @@ namespace beam
 		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
 			return false; // unsupported for that version
 
-		ECC::Point::Native comm;
-		if (!comm.ImportNnz(m_Txo.m_Commitment))
-			return false;
-
-		exc += comm;
-
-		if (!m_Txo.m_Serial.IsValid())
-			return false;
-
 		ECC::Oracle oracle;
 		oracle << m_Msg;
 
-		return m_Txo.m_RangeProof.IsValid(comm, oracle);
+		ECC::Point::Native comm, ser;
+		if (!m_Txo.IsValid(oracle, comm, ser))
+			return false;
+
+		exc += comm;
+		return true;
 	}
 
 	void TxKernelShieldedOutput::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
-		// Since m_Serial doesn't contribute to the transaction balance, it MUST be exposed to the Oracle used with m_RangeProof.
-		// m_Commitment also should be used (for the same reason it's used in regular Output)
-
-		hp
-			<< m_Txo.m_Commitment
-			<< m_Txo.m_Serial.m_SerialPub;
-
-		hp.Serialize(m_Txo.m_Serial.m_Signature);
 	}
 
 	void TxKernelShieldedOutput::HashSelfForID(ECC::Hash::Processor& hp) const
@@ -1464,7 +1486,7 @@ namespace beam
 			<< Shielded.NMin
 			<< Shielded.MaxWindowBacklog
 			<< CA.Enabled
-			<< CA.Deposit
+			<< CA.DepositForList
 			// out
 			>> pForks[2].m_Hash;
 	}
@@ -1637,45 +1659,182 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofToDefinition(Merkle::Hash& hv, const Merkle::Proof& p) const
+	bool Block::SystemState::Evaluator::get_Definition(Merkle::Hash& hv)
 	{
-		Merkle::Interpret(hv, p);
-		return hv == m_Definition;
+		Merkle::Hash hvHist;
+		return Interpret(hv, hvHist, get_History(hvHist), hv, get_Live(hv));
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
+	void Block::SystemState::Evaluator::GenerateProof()
 	{
-		// verify known part. Last node (history) should be at left
-		if (p.m_Proof.empty() || p.m_Proof.back().first)
-			return false;
+		Merkle::Hash hvDummy;
+		get_Definition(hvDummy);
+	}
+
+	bool Block::SystemState::Evaluator::get_Live(Merkle::Hash& hv)
+	{
+		bool bUtxo = get_Utxos(hv);
+
+		if (m_Height < Rules::get().pForks[2].m_Height)
+			return bUtxo;
+
+		Merkle::Hash hvShielded;
+		return Interpret(hv, hv, bUtxo, hvShielded, get_Shielded(hvShielded));
+	}
+
+	bool Block::SystemState::Evaluator::get_History(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	bool Block::SystemState::Evaluator::get_Utxos(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	bool Block::SystemState::Evaluator::get_Shielded(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	void ShieldedTxo::DescriptionOutp::get_Hash(Merkle::Hash& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "stxo-out"
+			<< m_ID
+			<< m_Height
+			<< m_SerialPub
+			<< m_Commitment
+			>> hv;
+	}
+
+	void ShieldedTxo::DescriptionInp::get_Hash(Merkle::Hash& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "stxo-in"
+			<< m_Height
+			<< m_SpendPk
+			>> hv;
+	}
+
+	struct Block::SystemState::Full::ProofVerifierHard
+		:public Merkle::HardVerifier
+		,public Evaluator
+	{
+		using HardVerifier::HardVerifier;
+
+		bool Verify(const Full& s, uint64_t iIdx, uint64_t nCount)
+		{
+			if (!InterpretMmr(iIdx, nCount))
+				return false;
+
+			m_Height = s.m_Height;
+			m_Verifier = true;
+
+			GenerateProof();
+
+			return
+				IsEnd() &&
+				(m_hv == s.m_Definition);
+		}
+
+		virtual void OnProof(Merkle::Hash&, bool bOnRight) override
+		{
+			InterpretOnce(!bOnRight);
+		}
+	};
+
+	struct Block::SystemState::Full::ProofVerifier
+		:public Evaluator
+	{
+		size_t m_Hashes = 0;
+		const Merkle::Node* m_pNode = nullptr;
+
+		bool VerifyKnownPartOrder(const Full& s, const Merkle::Proof& proof)
+		{
+			// deduce and verify the hashing direction of the last part
+			m_Height = s.m_Height;
+			m_Verifier = true;
+
+			// Phase 1: count known elements
+			GenerateProof();
+
+			if (m_Hashes > proof.size())
+				return false;
+			if (!m_Hashes)
+				return true; // nothing to check
+
+			// Phase 2: verify order
+			m_pNode = &proof.back() - (m_Hashes - 1);
+
+			GenerateProof();
+			return !m_Failed;
+		}
+
+		bool Verify(const Full& s, Merkle::Hash& hv, const Merkle::Proof& proof)
+		{
+			if (!VerifyKnownPartOrder(s, proof))
+				return false;
+
+			Merkle::Interpret(hv, proof);
+			return hv == s.m_Definition;
+		}
+
+		virtual void OnProof(Merkle::Hash&, bool bOnRight) override
+		{
+			if (m_pNode)
+			{
+				if (m_pNode->first == bOnRight)
+					m_Failed = true;
+
+				m_pNode++;
+			}
+			else
+				m_Hashes++;
+		}
+	};
+
+	bool Block::SystemState::Full::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
+	{
+		struct MyVerifier
+			:public ProofVerifier
+		{
+			virtual bool get_Utxos(Merkle::Hash&) override {
+				return true;
+			}
+		} v;
 
 		Merkle::Hash hv;
 		p.m_State.get_ID(hv, comm);
 
-		return IsValidProofToDefinition(hv, p.m_Proof);
+		return v.Verify(*this, hv, p.m_Proof);
 	}
 
-	void ShieldedTxo::Description::get_Hash(Merkle::Hash& hv) const
+	bool Block::SystemState::Full::IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp& d, const Merkle::Proof& p) const
 	{
-		ECC::Hash::Processor()
-			<< "stxo"
-			<< m_SerialPub
-			<< m_Commitment
-			<< m_ID
-			>> hv;
+		Merkle::Hash hv;
+		d.get_Hash(hv);
+		return IsValidProofShielded(hv, p);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofShieldedTxo(const ShieldedTxo::Description& d, const Merkle::HardProof& p, TxoID nTotal) const
+	bool Block::SystemState::Full::IsValidProofShieldedInp(const ShieldedTxo::DescriptionInp& d, const Merkle::Proof& p) const
 	{
-		Merkle::HardVerifier hver(p);
-		d.get_Hash(hver.m_hv);
+		Merkle::Hash hv;
+		d.get_Hash(hv);
+		return IsValidProofShielded(hv, p);
+	}
 
-		return
-			hver.InterpretMmr(d.m_ID, nTotal) &&
-			hver.InterpretOnce(false) &&
-			hver.InterpretOnce(false) &&
-			hver.IsEnd() &&
-			(hver.m_hv == m_Definition);
+	bool Block::SystemState::Full::IsValidProofShielded(Merkle::Hash& hv, const Merkle::Proof& p) const
+	{
+		struct MyVerifier
+			:public ProofVerifier
+		{
+			virtual bool get_Shielded(Merkle::Hash&) override {
+				return true;
+			}
+		} v;
+
+		return v.Verify(*this, hv, p);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const
@@ -1709,14 +1868,20 @@ namespace beam
 		if ((id.m_Height < Rules::HeightGenesis) || (id.m_Height >= m_Height))
 			return false;
 
-		Merkle::HardVerifier hver(proof);
-		hver.m_hv = id.m_Hash;
+		struct MyVerifier
+			:public ProofVerifierHard
+		{
+			using ProofVerifierHard::ProofVerifierHard;
 
-		return
-			hver.InterpretMmr(id.m_Height - Rules::HeightGenesis, m_Height - Rules::HeightGenesis) &&
-			hver.InterpretOnce(true) &&
-			hver.IsEnd() &&
-			(hver.m_hv == m_Definition);
+			virtual bool get_History(Merkle::Hash& hv) override {
+				hv = m_hv;
+				return true;
+			}
+		};
+
+		MyVerifier hver(proof);
+		hver.m_hv = id.m_Hash;
+		return hver.Verify(*this, id.m_Height - Rules::HeightGenesis, m_Height - Rules::HeightGenesis);
 	}
 
 	void Block::BodyBase::ZeroInit()
@@ -1924,6 +2089,47 @@ namespace beam
 	{
 		uint32_t ret = GetTime_ms();
 		return ret ? ret : 1;
+	}
+
+	/////////////
+	// AssetInfo
+	void AssetInfo::Base::get_Generator(ECC::Point::Native& res, ECC::Point::Storage& res_s) const
+	{
+		assert(m_ID);
+
+		ECC::Point pt;
+		pt.m_Y = 0;
+
+		ECC::Oracle oracle;
+		oracle
+			<< "B.Asset.Gen.V1"
+			<< m_ID;
+
+		do
+			oracle >> pt.m_X;
+		while (!res.ImportNnz(pt, &res_s));
+	}
+
+	void AssetInfo::Base::get_Generator(ECC::Point::Native& res) const
+	{
+		ECC::Point::Storage res_s;
+		get_Generator(res, res_s);
+	}
+
+	void AssetInfo::Base::get_Generator(ECC::Point::Storage& res_s) const
+	{
+		ECC::Point::Native res;
+		get_Generator(res, res_s);
+	}
+
+	void AssetInfo::Full::get_Hash(ECC::Hash::Value& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "B.Asset.V1"
+			<< m_ID
+			<< m_Value
+			<< m_Owner
+			>> hv;
 	}
 
 } // namespace beam

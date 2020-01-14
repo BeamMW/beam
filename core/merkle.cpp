@@ -48,24 +48,31 @@ void Interpret(Hash& hash, const Proof& p)
 // Mmr
 void Mmr::Append(const Hash& hv)
 {
+	uint64_t n = m_Count++;
+	Replace(n, hv);
+}
+
+void Mmr::Replace(uint64_t n, const Hash& hv)
+{
 	Hash hv1 = hv;
 
 	Position pos;
-	pos.X = m_Count;
-	for (pos.H = 0; ; pos.H++, pos.X >>= 1)
+	pos.X = n;
+	n = m_Count;
+
+	for (pos.H = 0; ; pos.H++, pos.X >>= 1, n >>= 1)
 	{
+		assert(pos.X < n);
 		SaveElement(hv1, pos);
-		if (!(1 & pos.X))
+
+		pos.X ^= 1;
+		if (pos.X >= n)
 			break;
 
 		Hash hv0;
-		pos.X ^= 1;
 		LoadElement(hv0, pos);
-
-		Interpret(hv1, hv0, false);
+		Interpret(hv1, hv0, 0 != (pos.X & 1));
 	}
-
-	m_Count++;
 }
 
 void Mmr::get_PredictedHash(Hash& hv, const Hash& hvAppend) const
@@ -255,7 +262,7 @@ void DistributedMmr::Impl::SaveElement(const Hash& hash, const Position& pos)
 	{
 		m_pTrgHash[pos.H - 1] = hash;
 
-		assert(m_pNodes[m_nDepth].m_nIdx == m_Count - (uint64_t(1) << (pos.H - 1)));
+		assert(m_pNodes[m_nDepth].m_nIdx == m_Count - 1 - (uint64_t(1) << (pos.H - 1)));
 		m_pTrgKey[pos.H - 1] = m_pNodes[m_nDepth].m_Key;
 	}
 }
@@ -434,9 +441,8 @@ uint64_t FlatMmr::get_TotalHashes(uint64_t nCount, bool bStoreH0)
 
 /////////////////////////////
 // FixedMmr
-void FixedMmr::Reset(uint64_t nTotal)
+void FixedMmr::Resize(uint64_t nTotal)
 {
-	m_Total = nTotal;
 	m_vHashes.resize(get_TotalHashes(nTotal, true));
 }
 
@@ -669,6 +675,44 @@ bool HardVerifier::InterpretMmr(uint64_t iIdx, uint64_t nCount)
 	MyMmr mmr(*this);
 	mmr.m_Count = nCount;
 	return mmr.InterpretPath(iIdx);
+}
+
+/////////////////////////////
+// IEvaluator
+bool IEvaluator::Interpret(Hash& hv, Hash& hvL, bool bL, Hash& hvR, bool bR)
+{
+	if (m_Failed)
+		return false;
+
+	if (bL)
+	{
+		if (bR)
+		{
+			assert(!m_Verifier);
+			Merkle::Interpret(hv, hvL, hvR);
+			return true;
+		}
+
+		OnProof(hvL, false);
+	}
+	else
+	{
+		if (bR)
+			OnProof(hvR, true);
+	}
+
+	return m_Verifier && (bL || bR);
+}
+
+void IEvaluator::OnProof(Merkle::Hash&, bool)
+{
+}
+
+bool IEvaluator::OnNotImpl()
+{
+	if (!m_Verifier)
+		m_Failed = true;
+	return false;
 }
 
 } // namespace Merkle

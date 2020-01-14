@@ -156,6 +156,9 @@ namespace ECC
 		bool operator == (Zero_) const;
         bool operator != (Zero_) const;
 
+		bool operator == (const Native&) const;
+		bool operator == (const Point&) const;
+
 		Native& operator = (Zero_);
 		Native& operator = (Minus);
 		Native& operator = (Plus);
@@ -926,6 +929,7 @@ namespace ECC
 		void Init(const uintBig& seedSk);
 
 		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
-		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1&) const;
+		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
+		void AddInfo2(Scalar::Native& taux, const ChallengeSet&) const;
 	};
 }
