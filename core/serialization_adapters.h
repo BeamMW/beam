@@ -822,7 +822,7 @@ namespace detail
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
-				(output.m_AssetID ? 0 : 0x20) |
+				(output.m_AssetID ? 0x20 : 0) |
 				(output.m_RecoveryOnly ? 0x40 : 0) |
 				(nFlags2 ? 0x80 : 0);
 
@@ -1237,7 +1237,9 @@ namespace detail
         static Archive& save(Archive& ar, const beam::TxKernelAssetEmit& val)
         {
 			saveBase(ar, val);
-			ar & val.m_Value;
+			ar
+				& val.m_AssetID
+				& val.m_Value;
             return ar;
         }
 
@@ -1245,7 +1247,9 @@ namespace detail
         static void load0(Archive& ar, beam::TxKernelAssetEmit& val, uint32_t nRecursion)
         {
 			load0Base(ar, val, nRecursion);
-			ar & val.m_Value;
+			ar
+				& val.m_AssetID
+				& val.m_Value;
 		}
 
 		/// beam::TxKernelAssetCreate serialization
