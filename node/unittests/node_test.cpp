@@ -597,11 +597,12 @@ namespace beam
 
 
 		// Assets
-		AssetInfo::Full ai1;
+		AssetInfo::Full ai1, ai2;
 		ZeroObject(ai1);
 
 		for (uint32_t i = 1; i <= 5; i++)
 		{
+			ai1.m_ID = 0;
 			db.AssetAdd(ai1);
 			verify_test(ai1.m_ID == i);
 		}
@@ -609,27 +610,28 @@ namespace beam
 		verify_test(db.AssetDelete(5) == 4); // should shrink
 		verify_test(db.AssetDelete(3) == 4); // should retain the same size
 
-		verify_test(!db.IsAssetPresent(3, ai1.m_Owner));
-		verify_test(db.IsAssetPresent(2, ai1.m_Owner));
+		ai2.m_ID = 3;
+		verify_test(!db.AssetGetSafe(ai2));
+		ai2.m_ID = 2;
+		verify_test(db.AssetGetSafe(ai2));
+		verify_test(ai2.m_Owner == ai1.m_Owner);
 
 		ai1.m_Owner.Inc();
 		ai1.m_Owner.Negate();
-
-		verify_test(!db.IsAssetPresent(2, ai1.m_Owner));
-
+		ai1.m_ID = 0;
 		db.AssetAdd(ai1);
 		verify_test(ai1.m_ID == 3);
 
 		AmountBig::Type assetVal1, assetVal2 = 1U;
-		db.AssetGetValue(3, assetVal2);
-		verify_test(assetVal2 == Zero);
-
+		ai2.m_ID = 3;
+		verify_test(db.AssetGetSafe(ai2));
+		verify_test(ai2.m_Value == Zero);
 
 		assetVal2 = 334U;
 		db.AssetSetValue(3, assetVal2);
 
-		db.AssetGetValue(3, assetVal1);
-		verify_test(assetVal1 == assetVal2);
+		verify_test(db.AssetGetSafe(ai2));
+		verify_test(ai2.m_Value == assetVal2);
 
 		ai1.m_ID = 1;
 		verify_test(db.AssetFindByOwner(ai1));

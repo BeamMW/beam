@@ -161,11 +161,10 @@ public:
 			UniqueDel,
 
 			AssetFindOwner,
-			AssetFindBoth,
 			AssetFindMin,
 			AssetAdd,
 			AssetDel,
-			AssetGetVal,
+			AssetGet,
 			AssetSetVal,
 
 			Dbg0,
@@ -523,6 +522,7 @@ public:
 
 		void Append(const Merkle::Hash&);
 		void ShrinkTo(uint64_t nCount);
+		void ResizeTo(uint64_t nCount);
 
 	protected:
 		// Mmr
@@ -569,11 +569,10 @@ public:
 	bool UniqueFind(const Blob& key, Recordset&);
 	void UniqueDeleteStrict(const Blob& key);
 
-	void AssetAdd(AssetInfo::Full&); // on return sets the ID
+	void AssetAdd(AssetInfo::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
 	bool AssetFindByOwner(AssetInfo::Full&); // set ID to min threshold as well
-	bool IsAssetPresent(AssetID, const PeerID&);
 	AssetID AssetDelete(AssetID); // returns remaining assets count (including the unused)
-	void AssetGetValue(AssetID, AmountBig::Type&);
+	bool AssetGetSafe(AssetInfo::Full&); // must set ID before invocation
 	void AssetSetValue(AssetID, const AmountBig::Type&);
 
 private:
