@@ -2029,7 +2029,7 @@ namespace beam
 				}
 
 				proto::NewTransaction msgTx;
-				while (true)
+				for (int i = 0; i < 2; i++) // don't send too many txs, it's too heavy for the test
 				{
 					Amount val = m_Wallet.MakeTxInput(msgTx.m_Transaction, msg.m_Description.m_Height);
 					if (!val)
@@ -2109,7 +2109,7 @@ namespace beam
 					return;
 				
 				proto::GetUtxoEvents msg;
-				msg.m_HeightMin = m_hUtxoEvts;
+				msg.m_HeightMin = m_hUtxoEvts + 1;
 				Send(msg);
 
 				m_bUtxoEvtsPending = true;
