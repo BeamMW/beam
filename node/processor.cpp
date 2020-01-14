@@ -2519,7 +2519,7 @@ void NodeProcessor::InternalAssetDel(AssetID nAssetID)
 
 	assert(nCount <= m_Mmr.m_Assets.m_Count);
 	if (nCount < m_Mmr.m_Assets.m_Count)
-		m_Mmr.m_Assets.ResizeTo(nAssetID);
+		m_Mmr.m_Assets.ResizeTo(nCount);
 	else
 	{
 		assert(nAssetID < nCount);
