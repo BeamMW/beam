@@ -150,6 +150,7 @@ namespace beam::wallet
         template <typename Result, typename Func>
         void DoThreadAsync(Func&& asyncFunc, Callback<Result>&& resultCallback, ExceptionCallback&& exceptionCallback)
         {
+            using namespace std;
             auto thisHolder = shared_from_this();
             shared_ptr<Result> result = make_shared<Result>();
             shared_ptr<exception> storedException;
