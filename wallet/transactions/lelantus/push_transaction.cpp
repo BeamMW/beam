@@ -12,8 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pull_transaction.h"
+#include "push_transaction.h"
 
 namespace beam::wallet::lelantus
 {
+    BaseTransaction::Ptr PushTransaction::Creator::Create(INegotiatorGateway& gateway
+        , IWalletDB::Ptr walletDB
+        , IPrivateKeyKeeper::Ptr keyKeeper
+        , const TxID& txID)
+    {
+        return BaseTransaction::Ptr(new PushTransaction(gateway, walletDB, keyKeeper, txID));
+    }
+
+    TxParameters PushTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
+    {
+        // TODO roman.strilets implement this
+        return parameters;
+    }
+
+    PushTransaction::PushTransaction(INegotiatorGateway& gateway
+        , IWalletDB::Ptr walletDB
+        , IPrivateKeyKeeper::Ptr keyKeeper
+        , const TxID& txID)
+        : BaseTransaction(gateway, walletDB, keyKeeper, txID)
+    {
+    }
+
+    TxType PushTransaction::GetType() const
+    {
+        return TxType::PushTransaction;
+    }
+
+    bool PushTransaction::IsInSafety() const
+    {
+        // TODO roman.strilets implement this
+        return true;
+    }
+
+    void PushTransaction::UpdateImpl()
+    {
+
+    }
 }

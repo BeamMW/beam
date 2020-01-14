@@ -16,4 +16,41 @@
 
 namespace beam::wallet::lelantus
 {
+    BaseTransaction::Ptr PullTransaction::Creator::Create(INegotiatorGateway& gateway
+        , IWalletDB::Ptr walletDB
+        , IPrivateKeyKeeper::Ptr keyKeeper
+        , const TxID& txID)
+    {
+        return BaseTransaction::Ptr(new PullTransaction(gateway, walletDB, keyKeeper, txID));
+    }
+
+    TxParameters PullTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
+    {
+        // TODO roman.strilets implement this
+        return parameters;
+    }
+
+    PullTransaction::PullTransaction(INegotiatorGateway& gateway
+        , IWalletDB::Ptr walletDB
+        , IPrivateKeyKeeper::Ptr keyKeeper
+        , const TxID& txID)
+        : BaseTransaction(gateway, walletDB, keyKeeper, txID)
+    {
+    }
+
+    TxType PullTransaction::GetType() const
+    {
+        return TxType::PullTransaction;
+    }
+
+    bool PullTransaction::IsInSafety() const
+    {
+        // TODO roman.strilets implement this
+        return true;
+    }
+
+    void PullTransaction::UpdateImpl()
+    {
+
+    }
 }

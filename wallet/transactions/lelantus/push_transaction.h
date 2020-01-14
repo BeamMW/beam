@@ -18,7 +18,7 @@
 
 namespace beam::wallet::lelantus
 {
-    class PullTransaction : public BaseTransaction
+    class PushTransaction : public BaseTransaction
     {
     public:
         class Creator : public BaseTransaction::Creator
@@ -28,18 +28,18 @@ namespace beam::wallet::lelantus
 
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway
-                                        , IWalletDB::Ptr walletDB
-                                        , IPrivateKeyKeeper::Ptr keyKeeper
-                                        , const TxID& txID) override;
+                , IWalletDB::Ptr walletDB
+                , IPrivateKeyKeeper::Ptr keyKeeper
+                , const TxID& txID) override;
 
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
         };
 
     public:
-        PullTransaction(INegotiatorGateway& gateway
-                        , IWalletDB::Ptr walletDB
-                        , IPrivateKeyKeeper::Ptr keyKeeper
-                        , const TxID& txID);
+        PushTransaction(INegotiatorGateway& gateway
+            , IWalletDB::Ptr walletDB
+            , IPrivateKeyKeeper::Ptr keyKeeper
+            , const TxID& txID);
 
     private:
         TxType GetType() const override;
