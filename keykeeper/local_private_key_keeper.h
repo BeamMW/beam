@@ -31,15 +31,14 @@ namespace beam::wallet
         virtual ~LocalPrivateKeyKeeper();
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, CallbackEx<PublicKeys, ECC::Scalar::Native>&&, ExceptionCallback&&) override;
+        void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, Callback<PublicKeysEx>&&, ExceptionCallback&&) override;
         void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) override;
-        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&) override;
+        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, Callback<OutputsEx>&&, ExceptionCallback&&) override;
 
         void SignReceiver(const std::vector<Key::IDV>& inputs
                         , const std::vector<Key::IDV>& outputs
                         , const AssetID& assetId
                         , const KernelParameters& kernelParamerters
-                        , const PeerID& peerID
                         , const WalletIDKey& walletIDkey
                         , Callback<ReceiverSignature>&&, ExceptionCallback&&) override;
         void SignSender(const std::vector<Key::IDV>& inputs
@@ -54,12 +53,12 @@ namespace beam::wallet
         size_t AllocateNonceSlotSync() override;
 
         PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
-        std::pair<PublicKeys, ECC::Scalar::Native> GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID) override;
+        PublicKeysEx GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID) override;
 
         ECC::Point GeneratePublicKeySync(const Key::IDV& id) override;
         ECC::Point GenerateCoinKeySync(const Key::IDV& id, const AssetID& assetId) override;
         Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
-        std::pair<Outputs, ECC::Scalar::Native> GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId) override;
+        OutputsEx GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId) override;
 
         //RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
         ECC::Point GenerateNonceSync(size_t slot) override;
@@ -69,7 +68,6 @@ namespace beam::wallet
                                      , const std::vector<Key::IDV>& outputs
                                      , const AssetID& assetId
                                      , const KernelParameters& kernelParamerters
-                                     , const PeerID& peerID
                                      , const WalletIDKey& walletIDkey) override;
         SenderSignature SignSenderSync(const std::vector<Key::IDV>& inputs
                                  , const std::vector<Key::IDV>& outputs
@@ -123,23 +121,9 @@ namespace beam::wallet
             {
                 resultCallback(asyncFunc());
             }
-            catch (const std::exception & ex)
+            catch (...)
             {
-                exceptionCallback(ex);
-            }
-        }
-
-        template <typename Result, typename R2, typename Func>
-        void DoAsync(Func&& asyncFunc, CallbackEx<Result, R2>&& resultCallback, ExceptionCallback&& exceptionCallback)
-        {
-            try
-            {
-                auto r = asyncFunc();
-                resultCallback(std::move(r.first), std::move(r.second));
-            }
-            catch (const std::exception & ex)
-            {
-                exceptionCallback(ex);
+                exceptionCallback(std::current_exception());
             }
         }
 
@@ -149,7 +133,7 @@ namespace beam::wallet
             using namespace std;
             auto thisHolder = shared_from_this();
             shared_ptr<Result> result = make_shared<Result>();
-            shared_ptr<exception> storedException;
+            shared_ptr<exception_ptr> storedException = make_shared<exception_ptr>();
             shared_ptr<future<void>> futureHolder = std::make_shared<future<void>>();
             *futureHolder = do_thread_async(
                 [thisHolder, asyncFunc, result, storedException]()
@@ -158,16 +142,16 @@ namespace beam::wallet
                     {
                         *result = asyncFunc();
                     }
-                    catch (const exception & ex)
+                    catch (...)
                     {
-                        *storedException = ex;
+                        *storedException = current_exception();
                     }
                 },
                 [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
                 {
-                    if (storedException)
+                    if (*storedException)
                     {
-                        exceptionCallback(*storedException);
+                        exceptionCallback(move(*storedException));
                     }
                     else
                     {

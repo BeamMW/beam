@@ -41,64 +41,33 @@ namespace beam::wallet
 
     void LocalPrivateKeyKeeper::GeneratePublicKeys(const vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
-       // DoAsync(MakeAsyncFunc(&LocalPrivateKeyKeeper::GeneratePublicKeysSync, ids, createCoinKey), move(resultCallback), move(exceptionCallback));
-
-        DoAsync([this, ids, createCoinKey]() { return GeneratePublicKeysSync(ids, createCoinKey); }, move(resultCallback), move(exceptionCallback));
+        DoAsync([=]() { return GeneratePublicKeysSync(ids, createCoinKey); }, move(resultCallback), move(exceptionCallback));
     }
 
-    void LocalPrivateKeyKeeper::GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, CallbackEx<PublicKeys, ECC::Scalar::Native>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, Callback<PublicKeysEx>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
-        DoAsync([this, ids, createCoinKey, assetID]() { return GeneratePublicKeysSyncEx(ids, createCoinKey, assetID); }, move(resultCallback), move(exceptionCallback));
+        DoAsync([=]() { return GeneratePublicKeysSyncEx(ids, createCoinKey, assetID); }, move(resultCallback), move(exceptionCallback));
     }
 
     void LocalPrivateKeyKeeper::GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
-        DoThreadAsync([this, schemeHeight, ids]() { return GenerateOutputsSync(schemeHeight, ids); }, std::move(resultCallback), std::move(exceptionCallback));
+        DoThreadAsync([=]() { return GenerateOutputsSync(schemeHeight, ids); }, std::move(resultCallback), std::move(exceptionCallback));
     }
 
-    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, Callback<OutputsEx>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
-        auto thisHolder = shared_from_this();
-        auto resOuts    = make_shared<Outputs>();
-        auto resOffset  = make_shared<ECC::Scalar::Native>();
-        shared_ptr<exception> storedException;
-        shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
-        *futureHolder = do_thread_async(
-            [thisHolder, this, schemeHeight, ids, assetId, resOuts, resOffset, storedException]()
-            {
-                try
-                {
-                   std::tie(*resOuts, *resOffset) = GenerateOutputsSyncEx(schemeHeight, ids, assetId);
-                }
-                catch (const exception& ex)
-                {
-                    *storedException = ex;
-                }
-            },
-            [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), resOuts, resOffset, storedException]() mutable
-            {
-                if (storedException)
-                {
-                    exceptionCallback(*storedException);
-                }
-                else
-                {
-                    resultCallback(move(*resOuts), std::move(*resOffset));
-                }
-                futureHolder.reset();
-            });
-     }
+        DoThreadAsync([=]() { return GenerateOutputsSyncEx(schemeHeight, ids, assetId); }, std::move(resultCallback), std::move(exceptionCallback));
+    }
 
     void LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs
                                            , const std::vector<Key::IDV>& outputs
                                            , const AssetID& assetId
                                            , const KernelParameters& kernelParameters
-                                           , const PeerID& peerID
                                            , const WalletIDKey& walletIDkey
                                            , Callback<ReceiverSignature>&& resultCallback
                                            , ExceptionCallback&& exceptionCallback)
     {
-        DoAsync([=]() { return SignReceiverSync(inputs, outputs, assetId, kernelParameters, peerID, walletIDkey); }, move(resultCallback), move(exceptionCallback));
+        DoAsync([=]() { return SignReceiverSync(inputs, outputs, assetId, kernelParameters, walletIDkey); }, move(resultCallback), move(exceptionCallback));
     }
 
     void LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs
@@ -163,7 +132,7 @@ namespace beam::wallet
         return result;
     }
 
-    std::pair<IPrivateKeyKeeper::PublicKeys, ECC::Scalar::Native> LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID)
+    IPrivateKeyKeeper::PublicKeysEx LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID)
     {
         PublicKeys resKeys;
         Scalar::Native resOffset;
@@ -234,7 +203,7 @@ namespace beam::wallet
         return result;
     }
 
-    std::pair<IPrivateKeyKeeper::Outputs, ECC::Scalar::Native> LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId)
+    IPrivateKeyKeeper::OutputsEx LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId)
     {
         Outputs resOuts;
         Scalar::Native resOffset;
@@ -301,7 +270,6 @@ namespace beam::wallet
                                                         , const std::vector<Key::IDV>& outputs
                                                         , const AssetID& assetID
                                                         , const KernelParameters& kernelParameters
-                                                        , const PeerID& peerID
                                                         , const WalletIDKey& walletIDkey)
     {
         ReceiverSignature res;
@@ -386,7 +354,7 @@ namespace beam::wallet
         {
             PaymentConfirmation pc;
             pc.m_KernelID = kernel.m_Internal.m_ID;
-            pc.m_Sender = peerID;
+            pc.m_Sender = kernelParameters.peerID;
             pc.m_Value = val;
 
             auto keyPair = GetWalletID(walletIDkey);

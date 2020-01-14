@@ -1431,6 +1431,11 @@ namespace
 
         WalletID myID(Zero);
         WALLET_CHECK(myID.FromHex("7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3"));
+        {
+            WalletID peerID(Zero);
+            WALLET_CHECK(peerID.FromHex("6fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
+           // WALLET_CHECK(peerID.IsValid());
+        }
 
         WalletID peerID(Zero);
         WALLET_CHECK(peerID.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
@@ -1673,14 +1678,17 @@ namespace
         
         kernelParams.commitment = senderSignature.m_KernelCommitment;
         kernelParams.publicNonce = senderSignature.m_KernelSignature.m_NoncePub;
+        kernelParams.peerID = sender.m_SecureWalletID;
         ReceiverSignature receiverSignature;
-        WALLET_CHECK_NO_THROW(receiverSignature = receiver.m_KeyKeeper->SignReceiverSync({}, { outputID }, Zero, kernelParams, sender.m_SecureWalletID, receiver.m_OwnID));
+        WALLET_CHECK_NO_THROW(receiverSignature = receiver.m_KeyKeeper->SignReceiverSync({}, { outputID }, Zero, kernelParams, receiver.m_OwnID));
         
         kernelParams.commitment = receiverSignature.m_KernelCommitment;
         kernelParams.paymentProofSignature = receiverSignature.m_PaymentProofSignature;
         kernelParams.publicNonce = receiverSignature.m_KernelSignature.m_NoncePub;
 
         SenderSignature finalSenderSignature;
+        WALLET_CHECK_THROW(finalSenderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, Zero, nonceSlot, kernelParams, false));
+        kernelParams.peerID = receiver.m_SecureWalletID;
         WALLET_CHECK_NO_THROW(finalSenderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, Zero, nonceSlot, kernelParams, false));
         Point publicNonce = finalSenderSignature.m_KernelSignature.m_NoncePub;
         Scalar::Native signature = finalSenderSignature.m_KernelSignature.m_k;
@@ -1738,6 +1746,25 @@ namespace
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
+
+        //completedCount = 1;
+        //auto txId1 = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        //    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+        //    .SetParameter(TxParameterID::MySecureWalletID, sender.m_SecureWalletID)
+        //    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+        //    .SetParameter(TxParameterID::PeerSecureWalletID, sender.m_SecureWalletID)
+        //    .SetParameter(TxParameterID::Amount, Amount(4))
+        //    .SetParameter(TxParameterID::Fee, Amount(2))
+        //    .SetParameter(TxParameterID::Lifetime, Height(200))
+        //    .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
+        //
+        //mainReactor->run();
+        //
+        //// Tx history check
+        //auto stx1 = sender.m_WalletDB->getTx(txId1);
+        //WALLET_CHECK(stx1);
+        //
+        //WALLET_CHECK(stx1->m_status == TxStatus::Failed);
 
         auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
@@ -2425,22 +2452,22 @@ int main()
     TestP2PWalletNegotiationST();
 
     TestTxRollback();
-   
+    
     {
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
         //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
         TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
     }
-   
+    
     TestSplitTransaction();
    
     TestMinimalFeeTransaction();
    
     TestTxToHimself();
-   
+    
     TestExpiredTransaction();
-   
+    
     TestTransactionUpdate();
     //TestTxPerformance();
     //TestTxNonces();

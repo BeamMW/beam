@@ -81,31 +81,16 @@ namespace beam::wallet
 
     protected:
 
-        template <typename Result, typename Func, typename ContinueFunc>
-        void DoAsync2(Func&& asyncFunc, ContinueFunc&& continueFunc)
-        {
-            auto thisHolder = shared_from_this();
-            auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
-            m_Tx.GetAsyncAcontext().OnAsyncStarted();
-
-            asyncFunc(
-                [thisHolder, this, txHolder, continueFunc](Result&& res, auto&&)
-                {
-                    continueFunc(std::move(res));
-                    m_Tx.UpdateAsync(); // may complete transaction
-                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
-                },
-                [thisHolder, this, txHolder](const std::exception&)
-                {
-                    //m_Tx.Update();
-                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
-                    throw;
-                });
-        }
 
         template <typename Result, typename Func, typename ContinueFunc>
-        void DoAsync(Func&& asyncFunc, ContinueFunc&& continueFunc)
+        void DoAsync(Func&& asyncFunc, ContinueFunc&& continueFunc, int line)
         {
+            if (auto it = m_Exceptions.find(line); it != m_Exceptions.end())
+            {
+                auto ex = it->second;
+                m_Exceptions.erase(it);
+                std::rethrow_exception(ex);
+            }
             auto thisHolder = shared_from_this();
             auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
             m_Tx.GetAsyncAcontext().OnAsyncStarted();
@@ -117,12 +102,15 @@ namespace beam::wallet
                     m_Tx.UpdateAsync(); // may complete transaction
                     m_Tx.GetAsyncAcontext().OnAsyncFinished();
                 },
-                [thisHolder, this, txHolder](const std::exception&)
+                [thisHolder, this, line, txHolder](std::exception_ptr ex)
                 {
+                    m_Exceptions.emplace(line, ex);
+                    m_Tx.UpdateAsync();
                     m_Tx.GetAsyncAcontext().OnAsyncFinished();
-                    throw;
                 });
         }
+
+        std::map<int, std::exception_ptr> m_Exceptions;
 
     private:
         Amount GetMinimumFee() const;

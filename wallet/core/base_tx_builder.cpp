@@ -172,15 +172,15 @@ namespace beam::wallet
             return false;
         }
 
-        DoAsync2<IPrivateKeyKeeper::Outputs>([this](auto&& r, auto&& ex)
+        DoAsync<IPrivateKeyKeeper::OutputsEx>([this](auto&& r, auto&& ex)
             {
                 m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId, move(r), move(ex));
             },
-            [this](IPrivateKeyKeeper::Outputs&& resOutputs)
+            [this](IPrivateKeyKeeper::OutputsEx&& resOutputs)
             {
-                m_Outputs = std::move(resOutputs);
+                m_Outputs = std::move(resOutputs.first);
                 FinalizeOutputs();
-            });
+            }, __LINE__);
         return true;// true if async
     }
 
@@ -199,20 +199,20 @@ namespace beam::wallet
         {
             return false;
         }
-        DoAsync2<IPrivateKeyKeeper::PublicKeys>([this](auto&& r, auto&& ex)
+        DoAsync<IPrivateKeyKeeper::PublicKeysEx>([this](auto&& r, auto&& ex)
             {
                 m_Tx.GetKeyKeeper()->GeneratePublicKeysEx(m_InputCoins, true, m_AssetId, move(r), move(ex));
             },
-            [this](IPrivateKeyKeeper::PublicKeys&& commitments)
+            [this](IPrivateKeyKeeper::PublicKeysEx&& commitments)
             {
-                m_Inputs.reserve(commitments.size());
-                for (const auto& commitment : commitments)
+                m_Inputs.reserve(commitments.first.size());
+                for (const auto& commitment : commitments.first)
                 {
                     auto& input = m_Inputs.emplace_back(make_unique<Input>());
                     input->m_Commitment = commitment;
                 }
                 FinalizeInputs();
-            });
+            }, __LINE__);
 
         return true; // true if async operation has run
     }
@@ -437,7 +437,7 @@ namespace beam::wallet
                         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
                         StoreKernelID();
                     }
-                });
+                }, __LINE__);
             return true; // async
         }
         catch (const InvalidPaymentProofException&)
@@ -463,10 +463,9 @@ namespace beam::wallet
             kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
             kernelParameters.commitment = m_PeerPublicExcess;
             kernelParameters.publicNonce = m_PeerPublicNonce;
-        
-            PeerID peerID = Zero;
+
             uint64_t addressID = 0;
-            if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, peerID))
+            if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, kernelParameters.peerID))
             {
                 // old sender
             }
@@ -481,7 +480,6 @@ namespace beam::wallet
                         , m_OutputCoins
                         , m_AssetId
                         , kernelParameters
-                        , peerID
                         , addressID
                         , move(r)
                         , move(ex));
@@ -506,7 +504,7 @@ namespace beam::wallet
                         m_Tx.SetParameter(TxParameterID::PaymentConfirmation2, signature.m_PaymentProofSignature);
                     }
                     StoreKernelID();
-                });
+                }, __LINE__);
             return true;
         }
         catch (const KeyKeeperException&)
