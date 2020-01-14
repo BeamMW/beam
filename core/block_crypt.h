@@ -868,6 +868,7 @@ namespace beam
 				bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
 				bool IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp&, const Merkle::Proof&) const;
 				bool IsValidProofShieldedInp(const ShieldedTxo::DescriptionInp&, const Merkle::Proof&) const;
+				bool IsValidProofAsset(const AssetInfo::Full&, const Merkle::Proof&) const;
 
 				int cmp(const Full&) const;
 				COMPARISON_VIA_CMP

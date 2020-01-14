@@ -1855,6 +1855,21 @@ namespace beam
 		return v.Verify(*this, hv, p);
 	}
 
+	bool Block::SystemState::Full::IsValidProofAsset(const AssetInfo::Full& ai, const Merkle::Proof& p) const
+	{
+		struct MyVerifier
+			:public ProofVerifier
+		{
+			virtual bool get_Assets(Merkle::Hash&) override {
+				return true;
+			}
+		} v;
+
+		Merkle::Hash hv;
+		ai.get_Hash(hv);
+		return v.Verify(*this, hv, p);
+	}
+
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const
 	{
 		return IsValidProofKernel(krn.m_Internal.m_ID, proof);
