@@ -117,7 +117,7 @@ public:
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ChangeBeam, toByteBuffer(p.m_changeBeam), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ChangeAsset, toByteBuffer(p.m_changeAsset), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetID, toByteBuffer(p.m_assetId), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetIdx, toByteBuffer(p.m_assetIdx), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetOwnerIdx, toByteBuffer(p.m_assetOwnerIdx), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MinHeight, toByteBuffer(p.m_minHeight), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerID, toByteBuffer(p.m_peerId), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MyID, toByteBuffer(p.m_myId), false);

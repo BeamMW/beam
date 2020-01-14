@@ -198,17 +198,17 @@ namespace beam::wallet
         m_handlers.push_back(handler);
     }
 
-    ECC::Scalar::Native TrezorKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx)
+    ECC::Scalar::Native TrezorKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx)
     {
         // TODO:ASSETS implement
         assert(false);
         return ECC::Scalar::Native();
     }
 
-    ECC::Scalar::Native TrezorKeyKeeper::GetAssetID() override
+    PeerID TrezorKeyKeeper::GetAssetOwnerID() override
     {
         // TODO:ASSETS implement
         assert(false);
-        return ECC::Scalar::Native();
+        return Zero;
     }
 }

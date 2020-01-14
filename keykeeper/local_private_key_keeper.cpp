@@ -577,27 +577,27 @@ namespace beam::wallet
         return value;
     }
 
-    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx)
+    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx)
     {
         ECC::Scalar::Native kernelSk;
-        m_MasterKdf->DeriveKey(kernelSk, Key::ID(assetIdx, Key::Type::Kernel, assetIdx));
-        kernel.Sign(kernelSk, GetAssetKeypair(assetIdx).second);
+        m_MasterKdf->DeriveKey(kernelSk, Key::ID(assetOwnerIdx, Key::Type::Kernel, assetOwnerIdx));
+        kernel.Sign(kernelSk, GetAssetOwnerKeypair(assetOwnerIdx).second);
         return -kernelSk;
     }
 
-    std::pair<AssetID, ECC::Scalar::Native> LocalPrivateKeyKeeper::GetAssetKeypair(uint32_t assetIdx)
+    std::pair<PeerID, ECC::Scalar::Native> LocalPrivateKeyKeeper::GetAssetOwnerKeypair(Key::Index assetOwnerIdx)
     {
-        Scalar::Native skAssetSk;
-        m_MasterKdf->DeriveKey(skAssetSk, beam::Key::ID(assetIdx, beam::Key::Type::Asset));
+        Scalar::Native skAssetOwnerSk;
+        m_MasterKdf->DeriveKey(skAssetOwnerSk, beam::Key::ID(assetOwnerIdx, beam::Key::Type::Asset));
 
-        beam::AssetID assetId;
-        beam::proto::Sk2Pk(assetId, skAssetSk);
+        beam::PeerID assetOwnerId;
+        beam::proto::Sk2Pk(assetOwnerId, skAssetOwnerSk);
 
-        return std::make_pair(assetId, std::move(skAssetSk));
+        return std::make_pair(assetOwnerId, std::move(skAssetOwnerSk));
     }
 
-    AssetID LocalPrivateKeyKeeper::GetAssetID(uint32_t assetIdx)
+    AssetID LocalPrivateKeyKeeper::GetAssetOwnerID(Key::Index assetOwnerIdx)
     {
-        return GetAssetKeypair(assetIdx).first;
+        return GetAssetOwnerKeypair(assetOwnerIdx).first;
     }
 }

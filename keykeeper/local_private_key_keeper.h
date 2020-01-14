@@ -58,12 +58,12 @@ namespace beam::wallet
         //
         // Assets
         //
-        AssetID GetAssetID(uint32_t assetIdx) override;
-        ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx) override;
+        PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override;
+        ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx) override;
 
     private:
         // pair<asset public (asset id), asset private>
-        std::pair<AssetID, ECC::Scalar::Native> GetAssetKeypair(uint32_t assetIdx);
+        std::pair<PeerID, ECC::Scalar::Native> GetAssetOwnerKeypair(Key::Index assetOwnerIdx);
 
         Key::IKdf::Ptr GetChildKdf(const Key::IDV&) const;
         ECC::Scalar::Native GetNonce(size_t slot);

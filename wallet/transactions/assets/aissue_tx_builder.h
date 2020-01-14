@@ -47,7 +47,8 @@ namespace beam::wallet
         void     GenerateBeamCoin(Amount amount, bool change);
         bool     CreateInputs();
         bool     CreateOutputs();
-        uint32_t GetAssetIdx() const;
+        Key::Index GetAssetOwnerIdx() const;
+        PeerID  GetAssetOwnerId() const;
         AssetID  GetAssetId() const;
 
         //
@@ -71,7 +72,8 @@ namespace beam::wallet
         SubTxID m_SubTxID;
 
         beam::AssetID m_assetId;
-        uint32_t      m_assetIdx;
+        beam::Key::Index m_assetOwnerIdx;
+        beam::PeerID m_assetOwnerId;
 
         bool       m_issue;
         AmountList m_AmountList;

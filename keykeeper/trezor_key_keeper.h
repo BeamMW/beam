@@ -51,8 +51,8 @@ namespace beam::wallet
         ECC::Point GenerateNonceSync(size_t slot) override;
         ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) override;
 
-        ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx) override;
-        AssetID GetAssetID(uint32_t assetIdx) override;
+        ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx) override;
+        PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override;
 
     private:
         beam::HWWallet m_hwWallet;

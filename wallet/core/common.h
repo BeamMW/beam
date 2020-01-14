@@ -246,7 +246,7 @@ namespace beam::wallet
         PeerSharedBulletProofPart3 = 110,
 
         PeerLockImage = 115,
-        AssetIdx = 116,
+        AssetOwnerIdx = 116,
 
         // private parameters
         PrivateFirstParam = 128,
@@ -511,7 +511,7 @@ namespace beam::wallet
         Amount m_changeBeam = 0;
         Amount m_changeAsset = 0;
         AssetID m_assetId = Zero;
-        Key::Index m_assetIdx = 0;
+        Key::Index m_assetOwnerIdx = 0;
         Height m_minHeight = 0;
         WalletID m_peerId = Zero;
         WalletID m_myId = Zero;

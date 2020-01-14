@@ -2164,7 +2164,7 @@ namespace
                         .SetParameter(TxParameterID::Amount, amount)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
-                        .SetParameter(TxParameterID::AssetIdx, Key::Index(aidx))
+                        .SetParameter(TxParameterID::AssetOwnerIdx, Key::Index(aidx))
                         .SetParameter(TxParameterID::MyID, WalletID(Zero));
 
         return wallet.StartTransaction(params);

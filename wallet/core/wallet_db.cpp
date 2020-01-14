@@ -2197,8 +2197,8 @@ namespace beam::wallet
                 case TxParameterID ::AssetID:
                     deserialize(txDescription.m_assetId, parameter.m_value);
                     break;
-                case TxParameterID::AssetIdx:
-                    deserialize(txDescription.m_assetIdx, parameter.m_value);
+                case TxParameterID::AssetOwnerIdx:
+                    deserialize(txDescription.m_assetOwnerIdx, parameter.m_value);
                     break;
                 default:
                     break; // suppress warning
@@ -2224,7 +2224,7 @@ namespace beam::wallet
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeBeam,  p.m_changeBeam, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeAsset, p.m_changeAsset, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetID, p.m_assetId, false);
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetIdx, p.m_assetIdx, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetOwnerIdx, p.m_assetOwnerIdx, false);
         if (p.m_minHeight)
         {
             storage::setTxParameter(*this, p.m_txId, TxParameterID::MinHeight, p.m_minHeight, false);
