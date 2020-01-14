@@ -875,9 +875,13 @@ deploy the key at the node you trust completely."*/
                                     checked = !checked;
                                 }
                                 onClicked: {
-                                    //: settings tab, general section, ask password to send, confirm password dialog, title
-                                    //% "Don't ask password on every Send"
-                                    confirmPasswordDialog.dialogTitle = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-title");
+                                    confirmPasswordDialog.dialogTitle = viewModel.isPasswordReqiredToSpendMoney
+                                        //: settings tab, general section, ask password to send, confirm password dialog, title if checked
+                                        //% "Don't ask password on every Send"
+                                        ? qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-title")
+                                        //: settings tab, general section, ask password to send, confirm password dialog, title if unchecked
+                                        //% "Ask password on every Send"
+                                        : qsTrId("settings-general-no-require-pwd-to-spend-confirm-pwd-title");
                                     //: settings tab, general section, ask password to send, confirm password dialog, message
                                     //% "Password verification is required to change that setting"
                                     confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-message");
