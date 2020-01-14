@@ -707,7 +707,9 @@ namespace beam
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
 		UtxoQueue m_MyUtxos;
 
-		const MyUtxo* AddMyUtxo(const Key::IDV& kidv)
+		bool m_AutoAddTxOutputs = true; // assume tx outputs are always ok, and add them to the m_MyUtxos
+
+		const MyUtxo* AddMyUtxo(const Key::IDV& kidv, Height hMaturity)
 		{
 			if (!kidv.m_Value)
 				return NULL;
@@ -715,10 +717,15 @@ namespace beam
 			MyUtxo utxo;
 			utxo.m_Kidv = kidv;
 
+			return &m_MyUtxos.insert(std::make_pair(hMaturity, utxo))->second;
+		}
+
+		const MyUtxo* AddMyUtxo(const Key::IDV& kidv)
+		{
 			Height h = kidv.m_Idx; // this is our convention
 			h += (Key::Type::Coinbase == kidv.m_Type) ? Rules::get().Maturity.Coinbase : Rules::get().Maturity.Std;
 
-			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
+			return AddMyUtxo(kidv, h);
 		}
 
 		struct MyKernel
@@ -844,7 +851,9 @@ namespace beam
 				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
 
 				ToOutput(utxoOut, tx, h, hIncubation);
-				m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
+
+				if (m_AutoAddTxOutputs)
+					m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
 			}
 
 			tx.Normalize();
@@ -1566,7 +1575,7 @@ namespace beam
 
 			std::vector<Block::SystemState::Full> m_vStates;
 
-			std::set<ECC::Point> m_UtxosConfirmed;
+			std::set<ECC::Point> m_UtxosBeingSpent;
 			std::list<ECC::Point> m_queProofsExpected;
 			std::list<uint32_t> m_queProofsStateExpected;
 			std::list<uint32_t> m_queProofsKrnExpected;
@@ -1577,10 +1586,13 @@ namespace beam
 			AssetID m_AssetID = 0;
 			bool m_bCustomAssetRecognized = false;
 
+			Height m_hUtxoEvts = 0;
+			bool m_bUtxoEvtsPending = false;
 
 			MyClient(const Key::IKdf::Ptr& pKdf)
 			{
 				m_Wallet.m_pKdf = pKdf;
+				m_Wallet.m_AutoAddTxOutputs = false;
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
@@ -1649,6 +1661,12 @@ namespace beam
 			void OnTimer() {
 
 				io::Reactor::get_Current().stop();
+			}
+
+			void OnBeingSpent(const proto::NewTransaction& msg)
+			{
+				for (size_t i = 0; i < msg.m_Transaction->m_vInputs.size(); i++)
+					m_UtxosBeingSpent.insert(msg.m_Transaction->m_vInputs[i]->m_Commitment);
 			}
 
 			struct Shielded
@@ -1747,6 +1765,7 @@ namespace beam
 				verify_test(isTxValid);
 
 				msgTx.m_Fluff = true;
+				OnBeingSpent(msgTx);
 				Send(msgTx);
 
 				return true;
@@ -1834,6 +1853,7 @@ namespace beam
 				}
 
 				msgTx.m_Fluff = true;
+				OnBeingSpent(msgTx);
 				Send(msgTx);
 			}
 
@@ -1945,9 +1965,6 @@ namespace beam
 
 				m_nBbsMsgsPending++;
 
-				// assume we've mined this
-				m_Wallet.AddMyUtxo(Key::IDV(Rules::get_Emission(msg.m_Description.m_Height), msg.m_Description.m_Height, Key::Type::Coinbase));
-
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
 					proto::GetProofState msgOut2;
@@ -1977,9 +1994,11 @@ namespace beam
 					ECC::Scalar::Native sk;
 					m_Wallet.ToCommtiment(utxo, msgOut2.m_Utxo, sk);
 
-					Send(msgOut2);
-
-					m_queProofsExpected.push_back(msgOut2.m_Utxo);
+					if (m_UtxosBeingSpent.find(msgOut2.m_Utxo) == m_UtxosBeingSpent.end())
+					{
+						Send(msgOut2);
+						m_queProofsExpected.push_back(msgOut2.m_Utxo);
+					}
 				}
 
 				for (uint32_t i = 0; i < m_Wallet.m_MyKernels.size(); i++)
@@ -2065,12 +2084,11 @@ namespace beam
 					ctx.m_Height.m_Min = msg.m_Description.m_Height + 1;
 					verify_test(msgTx.m_Transaction->IsValid(ctx));
 
+					OnBeingSpent(msgTx);
 					Send(msgTx);
 				}
 
-				proto::GetUtxoEvents msgEvt;
-				Send(msgEvt);
-				m_nRecoveryPending++;
+				MaybeAskUtxoEvents();
 
 				if (!(msg.m_Description.m_Height % 4))
 				{
@@ -2079,6 +2097,23 @@ namespace beam
 					SendLogin();
 				}
 
+			}
+
+			void MaybeAskUtxoEvents()
+			{
+				if (m_bUtxoEvtsPending || m_vStates.empty())
+					return;
+
+				assert(m_hUtxoEvts <= m_vStates.back().m_Height);
+				if (m_hUtxoEvts == m_vStates.back().m_Height)
+					return;
+				
+				proto::GetUtxoEvents msg;
+				msg.m_HeightMin = m_hUtxoEvts;
+				Send(msg);
+
+				m_bUtxoEvtsPending = true;
+				m_nRecoveryPending++;
 			}
 
 			bool m_MiningFinalization = false;
@@ -2117,18 +2152,10 @@ namespace beam
 				{
 					const ECC::Point& comm = m_queProofsExpected.front();
 
-					auto it = m_UtxosConfirmed.find(comm);
+					verify_test(!msg.m_Proofs.empty());
 
-					if (msg.m_Proofs.empty())
-						verify_test(m_UtxosConfirmed.end() == it);
-					else
-					{
-						for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
-							verify_test(m_vStates.back().IsValidProofUtxo(comm, msg.m_Proofs[j]));
-
-						if (m_UtxosConfirmed.end() == it)
-							m_UtxosConfirmed.insert(comm);
-					}
+					for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
+						verify_test(m_vStates.back().IsValidProofUtxo(comm, msg.m_Proofs[j]));
 
 					m_queProofsExpected.pop_front();
 				}
@@ -2203,7 +2230,8 @@ namespace beam
 				verify_test(m_nRecoveryPending);
 				m_nRecoveryPending--;
 
-				verify_test(!msg.m_Events.empty());
+				verify_test(m_bUtxoEvtsPending);
+				m_bUtxoEvtsPending = false;
 
 				for (size_t i = 0; i < msg.m_Events.size(); i++)
 				{
@@ -2238,8 +2266,20 @@ namespace beam
 						ECC::Point comm;
 						SwitchCommitment(nAssetID).Create(sk, comm, *m_Wallet.m_pKdf, evt.m_Kidv);
 						verify_test(comm == evt.m_Commitment);
+
+						if (!nAssetID && (proto::UtxoEvent::Flags::Add & evt.m_Flags))
+							m_Wallet.AddMyUtxo(evt.m_Kidv, evt.m_Maturity);
 					}
 				}
+
+				verify_test(!m_vStates.empty());
+
+				m_hUtxoEvts = (msg.m_Events.size() < proto::UtxoEvent::s_Max) ?
+					m_vStates.back().m_Height :
+					msg.m_Events.back().m_Height;
+
+				MaybeAskUtxoEvents();
+
 			}
 
 			virtual void OnMsg(proto::GetBlockFinalization&& msg) override
