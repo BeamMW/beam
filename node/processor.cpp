@@ -1891,20 +1891,11 @@ struct NodeProcessor::BlockInterpretCtx
 	struct BlobSet
 		:public boost::intrusive::multiset<BlobItem>
 	{
-		~BlobSet()
-		{
-			Clear();
-		}
+		~BlobSet();
+		void Clear();
 
-		void Clear()
-		{
-			while (!empty())
-			{
-				BlobItem& x = *begin();
-				erase(x);
-				delete &x;
-			}
-		}
+		bool Find(const Blob&) const;
+		void Add(const Blob&);
 	};
 
 	BlobSet* m_pDups = nullptr; // used in validate-only mode
@@ -3150,11 +3141,23 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 	return true;
 }
 
-bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
+NodeProcessor::BlockInterpretCtx::BlobSet::~BlobSet()
 {
-	assert(bic.m_pDups);
-	typedef BlockInterpretCtx::BlobItem BlobItem;
+	Clear();
+}
 
+void NodeProcessor::BlockInterpretCtx::BlobSet::Clear()
+{
+	while (!empty())
+	{
+		BlobItem& x = *begin();
+		erase(x);
+		delete& x;
+	}
+}
+
+bool NodeProcessor::BlockInterpretCtx::BlobSet::Find(const Blob& key) const
+{
 	struct Comparator
 	{
 		bool operator()(const Blob& a, const BlobItem& b) const {
@@ -3165,18 +3168,29 @@ bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
 		}
 	};
 
-	if (bic.m_pDups->end() != bic.m_pDups->find(key, Comparator()))
+	return end() != find(key, Comparator());
+}
+
+void NodeProcessor::BlockInterpretCtx::BlobSet::Add(const Blob& key)
+{
+	BlobItem* pItem = new (key.n) BlobItem;
+	pItem->m_Size = key.n;
+	memcpy(pItem + 1, key.p, key.n);
+
+	insert(*pItem);
+}
+
+bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
+{
+	assert(bic.m_pDups);
+	if (bic.m_pDups->Find(key))
 		return false;
 
 	NodeDB::Recordset rs;
 	if (m_DB.UniqueFind(key, rs))
 		return false;
 
-	BlobItem* pItem = new (key.n) BlobItem;
-	pItem->m_Size = key.n;
-	memcpy(pItem + 1, key.p, key.n);
-
-	bic.m_pDups->insert(*pItem);
+	bic.m_pDups->Add(key);
 
 	return true;
 }
