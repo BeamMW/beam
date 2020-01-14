@@ -859,6 +859,7 @@ namespace beam
 		TxKernelAssetEmit& v = Cast::Up<TxKernelAssetEmit>(*p);
 
 		v.CopyFrom(*this);
+		v.m_AssetID = m_AssetID;
 		v.m_Value = m_Value;
 	}
 

@@ -2609,6 +2609,9 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 
 bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
+	if (!bic.m_Fwd && !bic.m_UpdateMmrs)
+		return true;
+
 	AssetInfo::Full ai;
 	ai.m_ID = krn.m_AssetID;
 	if (!m_DB.AssetGetSafe(ai))

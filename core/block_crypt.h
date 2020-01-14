@@ -234,13 +234,17 @@ namespace beam
 			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
 		};
 
-		struct Full
-			:public Base
+		struct Data
 		{
 			AmountBig::Type m_Value;
 			PeerID m_Owner;
 			// metadata?
+		};
 
+		struct Full
+			:public Base
+			,public Data
+		{
 			void get_Hash(ECC::Hash::Value&) const;
 		};
 	};
