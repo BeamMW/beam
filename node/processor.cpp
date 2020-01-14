@@ -107,6 +107,8 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
 	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
 
+	m_Mmr.m_Assets.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::AssetsCount);
+
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	if (!bUpdateChecksum)
 	{
@@ -287,6 +289,7 @@ void NodeProcessor::SaveSyncData()
 NodeProcessor::Mmr::Mmr(NodeDB& db)
 	:m_States(db)
 	,m_Shielded(db, NodeDB::StreamType::ShieldedMmr, true)
+	,m_Assets(db, NodeDB::StreamType::AssetsMmr, true)
 {
 }
 
@@ -1768,6 +1771,12 @@ bool NodeProcessor::Evaluator::get_Utxos(Merkle::Hash& hv)
 bool NodeProcessor::Evaluator::get_Shielded(Merkle::Hash& hv)
 {
 	m_Proc.m_Mmr.m_Shielded.get_Hash(hv);
+	return true;
+}
+
+bool NodeProcessor::Evaluator::get_Assets(Merkle::Hash& hv)
+{
+	m_Proc.m_Mmr.m_Assets.get_Hash(hv);
 	return true;
 }
 

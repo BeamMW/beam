@@ -1688,8 +1688,10 @@ namespace beam
 		if (m_Height < Rules::get().pForks[2].m_Height)
 			return bUtxo;
 
-		Merkle::Hash hvShielded;
-		return Interpret(hv, hv, bUtxo, hvShielded, get_Shielded(hvShielded));
+		Merkle::Hash hvShielded, hvAssets;
+
+		bool bShieldedAndAssets = Interpret(hvShielded, hvShielded, get_Shielded(hvShielded), hvAssets, get_Assets(hvAssets));
+		return Interpret(hv, hv, bUtxo, hvShielded, bShieldedAndAssets);
 	}
 
 	bool Block::SystemState::Evaluator::get_History(Merkle::Hash&)
@@ -1703,6 +1705,11 @@ namespace beam
 	}
 
 	bool Block::SystemState::Evaluator::get_Shielded(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	bool Block::SystemState::Evaluator::get_Assets(Merkle::Hash&)
 	{
 		return OnNotImpl();
 	}

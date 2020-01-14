@@ -184,6 +184,7 @@ public:
 			StatesMmr,
 			Shielded,
 			ShieldedMmr,
+			AssetsMmr,
 
 			count
 		};

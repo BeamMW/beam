@@ -264,6 +264,7 @@ public:
 		virtual bool get_History(Merkle::Hash&) override;
 		virtual bool get_Utxos(Merkle::Hash&) override;
 		virtual bool get_Shielded(Merkle::Hash&) override;
+		virtual bool get_Assets(Merkle::Hash&) override;
 	};
 
 	struct ProofBuilder
@@ -462,6 +463,7 @@ public:
 		Mmr(NodeDB&);
 		NodeDB::StatesMmr m_States;
 		NodeDB::StreamMmr m_Shielded;
+		NodeDB::StreamMmr m_Assets;
 
 	} m_Mmr;
 

@@ -808,7 +808,7 @@ namespace beam
 
 				// The state Definition is defined as Hash[ History | Live ]
 				// Before Fork2: Live = Utxos
-				// Past Fork2: Live = Hash[ Utxos | Shielded ]
+				// Past Fork2: Live = Hash[ Utxos | Hash[Shielded | Assets] ]
 
 				bool get_Definition(Merkle::Hash&);
 				void GenerateProof(); // same as above, except it's used for proof generation, and the resulting hash is not evaluated
@@ -817,6 +817,7 @@ namespace beam
 				virtual bool get_Live(Merkle::Hash&);
 				virtual bool get_Utxos(Merkle::Hash&);
 				virtual bool get_Shielded(Merkle::Hash&);
+				virtual bool get_Assets(Merkle::Hash&);
 			};
 
 			struct Sequence
