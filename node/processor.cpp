@@ -3098,10 +3098,10 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 		while (n--)
 			if (!HandleKernel(*v.m_vNested[n], bic))
 				OnCorrupted();
-
-		if (!bOk)
-			bic.m_Fwd = true; // restore it back
 	}
+
+	if (!bOk)
+		bic.m_Fwd = true; // restore it back
 
 	return bOk;
 }
