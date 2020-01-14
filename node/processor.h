@@ -457,8 +457,13 @@ public:
 
 	static bool IsDummy(const Key::IDV&);
 
-	NodeDB::StatesMmr m_StatesMmr;
-	NodeDB::StreamMmr m_ShieldedMmr;
+	struct Mmr
+	{
+		Mmr(NodeDB&);
+		NodeDB::StatesMmr m_States;
+		NodeDB::StreamMmr m_Shielded;
+
+	} m_Mmr;
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);

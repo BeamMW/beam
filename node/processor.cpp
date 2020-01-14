@@ -104,8 +104,8 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
 
 	m_Extra.m_ShieldedOutputs = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedOutputs);
-	m_ShieldedMmr.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
-	m_ShieldedMmr.m_Count += m_Extra.m_ShieldedOutputs;
+	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
+	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
 
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	if (!bUpdateChecksum)
@@ -158,7 +158,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
 
 	m_DB.get_Cursor(m_Cursor.m_Sid);
-	m_StatesMmr.m_Count = m_Cursor.m_Sid.m_Height - Rules::HeightGenesis;
+	m_Mmr.m_States.m_Count = m_Cursor.m_Sid.m_Height - Rules::HeightGenesis;
 	InitCursor(false);
 
 	InitializeUtxos(szPath);
@@ -284,9 +284,14 @@ void NodeProcessor::SaveSyncData()
 		m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, nullptr);
 }
 
+NodeProcessor::Mmr::Mmr(NodeDB& db)
+	:m_States(db)
+	,m_Shielded(db, NodeDB::StreamType::ShieldedMmr, true)
+{
+}
+
 NodeProcessor::NodeProcessor()
-	:m_StatesMmr(m_DB)
-	,m_ShieldedMmr(m_DB, NodeDB::StreamType::ShieldedMmr, true)
+	:m_Mmr(m_DB)
 {
 }
 
@@ -360,15 +365,15 @@ void NodeProcessor::InitCursor(bool bMovingUp)
 		else
 		{
 			m_DB.get_State(m_Cursor.m_Sid.m_Row, m_Cursor.m_Full);
-			m_StatesMmr.get_Hash(m_Cursor.m_History);
+			m_Mmr.m_States.get_Hash(m_Cursor.m_History);
 		}
 
 		m_Cursor.m_Full.get_ID(m_Cursor.m_ID);
-		m_StatesMmr.get_PredictedHash(m_Cursor.m_HistoryNext, m_Cursor.m_ID.m_Hash);
+		m_Mmr.m_States.get_PredictedHash(m_Cursor.m_HistoryNext, m_Cursor.m_ID.m_Hash);
 	}
 	else
 	{
-		m_StatesMmr.m_Count = 0;
+		m_Mmr.m_States.m_Count = 0;
 		ZeroObject(m_Cursor);
 		m_Cursor.m_ID.m_Hash = Rules::get().Prehistoric;
 	}
@@ -1380,7 +1385,7 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 
 		// Update mmr and cursor
 		if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
-			m_StatesMmr.Append(m_Cursor.m_ID.m_Hash);
+			m_Mmr.m_States.Append(m_Cursor.m_ID.m_Hash);
 
 		m_DB.MoveFwd(sidFwd);
 		m_Cursor.m_Sid = sidFwd;
@@ -1762,7 +1767,7 @@ bool NodeProcessor::Evaluator::get_Utxos(Merkle::Hash& hv)
 
 bool NodeProcessor::Evaluator::get_Shielded(Merkle::Hash& hv)
 {
-	m_Proc.m_ShieldedMmr.get_Hash(hv);
+	m_Proc.m_Mmr.m_Shielded.get_Hash(hv);
 	return true;
 }
 
@@ -2520,7 +2525,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 		{
 			ShieldedOutpPacked sop;
 			sop.m_Height = bic.m_Height;
-			sop.m_MmrIndex = m_ShieldedMmr.m_Count;
+			sop.m_MmrIndex = m_Mmr.m_Shielded.m_Count;
 			sop.m_TxoID = m_Extra.m_ShieldedOutputs;
 			sop.m_Commitment = krn.m_Txo.m_Commitment;
 
@@ -2554,7 +2559,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 
 				Merkle::Hash hv;
 				d.get_Hash(hv);
-				m_ShieldedMmr.Append(hv);
+				m_Mmr.m_Shielded.Append(hv);
 			}
 
 			m_Extra.m_ShieldedOutputs++;
@@ -2570,7 +2575,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 		m_DB.UniqueDeleteStrict(blobKey);
 
 		if (bic.m_UpdateShieldedMmr)
-			m_ShieldedMmr.ShrinkTo(m_ShieldedMmr.m_Count - 1);
+			m_Mmr.m_Shielded.ShrinkTo(m_Mmr.m_Shielded.m_Count - 1);
 
 		if (bic.m_StoreShieldedOutput)
 			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs - 1, m_Extra.m_ShieldedOutputs);
@@ -2614,7 +2619,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 		{
 			ShieldedInpPacked sip;
 			sip.m_Height = bic.m_Height;
-			sip.m_MmrIndex = m_ShieldedMmr.m_Count;
+			sip.m_MmrIndex = m_Mmr.m_Shielded.m_Count;
 
 			Blob blobVal(&sip, sizeof(sip));
 
@@ -2629,7 +2634,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 
 				Merkle::Hash hv;
 				d.get_Hash(hv);
-				m_ShieldedMmr.Append(hv);
+				m_Mmr.m_Shielded.Append(hv);
 			}
 		}
 
@@ -2643,7 +2648,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 		m_DB.UniqueDeleteStrict(blobKey);
 
 		if (bic.m_UpdateShieldedMmr)
-			m_ShieldedMmr.ShrinkTo(m_ShieldedMmr.m_Count - 1);
+			m_Mmr.m_Shielded.ShrinkTo(m_Mmr.m_Shielded.m_Count - 1);
 
 		assert(bic.m_ShieldedIns);
 		bic.m_ShieldedIns--;
@@ -2653,7 +2658,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 	{
 		assert(bic.m_UpdateShieldedMmr); // otherwise the following formula will be wrong
 
-		TxoID nShieldedInputs = m_ShieldedMmr.m_Count - m_Extra.m_ShieldedOutputs;
+		TxoID nShieldedInputs = m_Mmr.m_Shielded.m_Count - m_Extra.m_ShieldedOutputs;
 		m_DB.ParamSet(NodeDB::ParamID::ShieldedInputs, &nShieldedInputs, nullptr);
 	}
 
@@ -3136,7 +3141,7 @@ void NodeProcessor::RollbackTo(Height h)
 
 	m_RecentStates.RollbackTo(h);
 
-	m_StatesMmr.ShrinkTo(m_StatesMmr.H2I(m_Cursor.m_Sid.m_Height));
+	m_Mmr.m_States.ShrinkTo(m_Mmr.m_States.H2I(m_Cursor.m_Sid.m_Height));
 
 	InitCursor(false);
 	OnRolledBack();
