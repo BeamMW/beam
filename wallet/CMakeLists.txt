@@ -13,6 +13,10 @@ if (NOT ANDROID AND NOT IOS)
         add_subdirectory(transactions/assets)
     endif()
 
+    if(BEAM_LELANTUS_SUPPORT)
+        add_subdirectory(transactions/lelantus)
+    endif()
+
     if(BEAM_LASER_SUPPORT)
         add_subdirectory(laser)
     endif()
