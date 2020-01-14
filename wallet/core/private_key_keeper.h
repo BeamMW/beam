@@ -23,6 +23,7 @@ namespace beam::wallet
         beam::HeightRange height;
         beam::Amount fee;
         ECC::Point commitment;
+        ECC::Point publicNonce;
         boost::optional<ECC::Hash::Value> lockImage;
         boost::optional<ECC::Hash::Value> lockPreImage;
         ECC::Signature paymentProofSignature;
@@ -108,7 +109,6 @@ namespace beam::wallet
                                 , const std::vector<Key::IDV>& outputs
                                 , const AssetID& assetId
                                 , const KernelParameters& kernelParamerters
-                                , const ECC::Point& publicNonce
                                 , const PeerID& peerID
                                 , const WalletIDKey& walletIDkey
                                 , Callback<ReceiverSignature>&&, ExceptionCallback&&) = 0;
@@ -117,7 +117,6 @@ namespace beam::wallet
                               , const AssetID& assetId
                               , size_t nonceSlot
                               , const KernelParameters& kernelParamerters
-                              , const ECC::Point& publicNonce
                               , bool initial
                               , Callback<SenderSignature>&&, ExceptionCallback&&) = 0;
 
@@ -139,7 +138,6 @@ namespace beam::wallet
                                              , const std::vector<Key::IDV>& outputs
                                              , const AssetID& assetId
                                              , const KernelParameters& kernelParamerters
-                                             , const ECC::Point& publicNonce
                                              , const PeerID& peerID
                                              , const WalletIDKey& walletIDkey) = 0;
         virtual SenderSignature SignSenderSync(const std::vector<Key::IDV>& inputs
@@ -147,7 +145,6 @@ namespace beam::wallet
                                          , const AssetID& assetId
                                          , size_t nonceSlot
                                          , const KernelParameters& kernelParamerters
-                                         , const ECC::Point& publicNonce
                                          , bool initial) = 0;
 
         virtual Key::IKdf::Ptr get_SbbsKdf() const = 0;

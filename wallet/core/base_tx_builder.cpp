@@ -389,6 +389,7 @@ namespace beam::wallet
             kernelParameters.fee = m_Fee;
             kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
             kernelParameters.commitment = totalPublicExcess;
+            kernelParameters.publicNonce = publicNonce;
 
             if (!initial)
             {
@@ -420,7 +421,7 @@ namespace beam::wallet
 
             DoAsync<SenderSignature>([=](auto&& r, auto&& ex)
                 {
-                    m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, publicNonce, initial, move(r), move(ex));
+                    m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, initial, move(r), move(ex));
                 },
                 [=](SenderSignature&& signature)
                 {
@@ -461,6 +462,7 @@ namespace beam::wallet
             kernelParameters.fee = m_Fee;
             kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
             kernelParameters.commitment = m_PeerPublicExcess;
+            kernelParameters.publicNonce = m_PeerPublicNonce;
         
             PeerID peerID = Zero;
             uint64_t addressID = 0;
@@ -479,7 +481,6 @@ namespace beam::wallet
                         , m_OutputCoins
                         , m_AssetId
                         , kernelParameters
-                        , m_PeerPublicNonce
                         , peerID
                         , addressID
                         , move(r)

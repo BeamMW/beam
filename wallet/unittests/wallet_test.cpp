@@ -1669,17 +1669,19 @@ namespace
         // sender
         auto nonceSlot = sender.m_KeyKeeper->AllocateNonceSlotSync();
         SenderSignature senderSignature;
-        WALLET_CHECK_NO_THROW(senderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, Zero, nonceSlot, kernelParams, {}, true));
+        WALLET_CHECK_NO_THROW(senderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, Zero, nonceSlot, kernelParams, true));
         
         kernelParams.commitment = senderSignature.m_KernelCommitment;
+        kernelParams.publicNonce = senderSignature.m_KernelSignature.m_NoncePub;
         ReceiverSignature receiverSignature;
-        WALLET_CHECK_NO_THROW(receiverSignature = receiver.m_KeyKeeper->SignReceiverSync({}, { outputID }, Zero, kernelParams, senderSignature.m_KernelSignature.m_NoncePub, sender.m_SecureWalletID, receiver.m_OwnID));
+        WALLET_CHECK_NO_THROW(receiverSignature = receiver.m_KeyKeeper->SignReceiverSync({}, { outputID }, Zero, kernelParams, sender.m_SecureWalletID, receiver.m_OwnID));
         
         kernelParams.commitment = receiverSignature.m_KernelCommitment;
         kernelParams.paymentProofSignature = receiverSignature.m_PaymentProofSignature;
+        kernelParams.publicNonce = receiverSignature.m_KernelSignature.m_NoncePub;
 
         SenderSignature finalSenderSignature;
-        WALLET_CHECK_NO_THROW(finalSenderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, Zero, nonceSlot, kernelParams, receiverSignature.m_KernelSignature.m_NoncePub, false));
+        WALLET_CHECK_NO_THROW(finalSenderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, Zero, nonceSlot, kernelParams, false));
         Point publicNonce = finalSenderSignature.m_KernelSignature.m_NoncePub;
         Scalar::Native signature = finalSenderSignature.m_KernelSignature.m_k;
         Scalar::Native pt = receiverSignature.m_KernelSignature.m_k;

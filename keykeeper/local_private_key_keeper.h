@@ -39,7 +39,6 @@ namespace beam::wallet
                         , const std::vector<Key::IDV>& outputs
                         , const AssetID& assetId
                         , const KernelParameters& kernelParamerters
-                        , const ECC::Point& publicNonce
                         , const PeerID& peerID
                         , const WalletIDKey& walletIDkey
                         , Callback<ReceiverSignature>&&, ExceptionCallback&&) override;
@@ -48,7 +47,6 @@ namespace beam::wallet
                       , const AssetID& assetId
                       , size_t nonceSlot
                       , const KernelParameters& kernelParamerters
-                      , const ECC::Point& publicNonce
                       , bool initial
                       , Callback<SenderSignature>&&, ExceptionCallback&&) override;
 
@@ -71,7 +69,6 @@ namespace beam::wallet
                                      , const std::vector<Key::IDV>& outputs
                                      , const AssetID& assetId
                                      , const KernelParameters& kernelParamerters
-                                     , const ECC::Point& publicNonce
                                      , const PeerID& peerID
                                      , const WalletIDKey& walletIDkey) override;
         SenderSignature SignSenderSync(const std::vector<Key::IDV>& inputs
@@ -79,7 +76,6 @@ namespace beam::wallet
                                  , const AssetID& assetId
                                  , size_t nonceSlot
                                  , const KernelParameters& kernelParamerters
-                                 , const ECC::Point& publicNonce
                                  , bool initial) override;
 
         Key::IKdf::Ptr get_SbbsKdf() const override;
@@ -156,7 +152,7 @@ namespace beam::wallet
             shared_ptr<exception> storedException;
             shared_ptr<future<void>> futureHolder = std::make_shared<future<void>>();
             *futureHolder = do_thread_async(
-                [thisHolder, this, asyncFunc, result, storedException]()
+                [thisHolder, asyncFunc, result, storedException]()
                 {
                     try
                     {
