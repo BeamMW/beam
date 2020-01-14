@@ -754,20 +754,20 @@ namespace beam
 	}
 
 	/////////////
-	// TxKernelAssetBase
-	void TxKernelAssetBase::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	// TxKernelAssetControl
+	void TxKernelAssetControl::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
 		hp
 			<< m_Commitment
 			<< m_Owner;
 	}
 
-	void TxKernelAssetBase::HashSelfForID(ECC::Hash::Processor& hp) const
+	void TxKernelAssetControl::HashSelfForID(ECC::Hash::Processor& hp) const
 	{
 		hp.Serialize(m_Signature);
 	}
 
-	bool TxKernelAssetBase::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	bool TxKernelAssetControl::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
 		if (!IsValidBase(hScheme, exc, pParent))
 			return false;
@@ -795,7 +795,7 @@ namespace beam
 		return m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt);
 	}
 
-	void TxKernelAssetBase::CopyFrom(const TxKernelAssetBase& v)
+	void TxKernelAssetControl::CopyFrom(const TxKernelAssetControl& v)
 	{
 		TxKernelNonStd::CopyFrom(v);
 		m_Commitment = v.m_Commitment;
@@ -803,7 +803,7 @@ namespace beam
 		m_Owner = v.m_Owner;
 	}
 
-	void TxKernelAssetBase::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
+	void TxKernelAssetControl::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
 	{
 		m_Commitment = ECC::Context::get().G * sk;
 		UpdateMsg();
@@ -819,7 +819,7 @@ namespace beam
 	// TxKernelAssetEmit
 	void TxKernelAssetEmit::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
-		TxKernelAssetBase::HashSelfForMsg(hp);
+		TxKernelAssetControl::HashSelfForMsg(hp);
 		hp
 			<< m_AssetID
 			<< Amount(m_Value);
@@ -827,7 +827,7 @@ namespace beam
 
 	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!TxKernelAssetBase::IsValid(hScheme, exc, pParent))
+		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
 			return false;
 
 		if (!m_Value || !m_AssetID)
@@ -863,44 +863,54 @@ namespace beam
 	}
 
 	/////////////
-	// TxKernelAssetControl
-	void TxKernelAssetControl::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	// TxKernelAssetCreate
+	bool TxKernelAssetCreate::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		TxKernelAssetBase::HashSelfForMsg(hp);
-		hp << m_Flags;
-	}
-
-	bool TxKernelAssetControl::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
-	{
-		if (!TxKernelAssetBase::IsValid(hScheme, exc, pParent))
+		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
 			return false;
 
-		const Rules& r = Rules::get(); // alias
-
-		if ((Flags::Add | Flags::Remove) & m_Flags)
-		{
-			ECC::Point::Native pt = ECC::Context::get().H * r.CA.DepositForList;
-
-			if (Flags::Add & m_Flags)
-				exc += pt;
-
-			if (Flags::Remove & m_Flags)
-			{
-				pt = -pt;
-				exc += pt;
-			}
-		}
+		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
+		exc += pt;
 
 		return true;
 	}
 
-	void TxKernelAssetControl::Clone(TxKernel::Ptr& p) const
+	void TxKernelAssetCreate::Clone(TxKernel::Ptr& p) const
 	{
-		p.reset(new TxKernelAssetControl);
-		TxKernelAssetControl& v = Cast::Up<TxKernelAssetControl>(*p);
+		p.reset(new TxKernelAssetCreate);
+		TxKernelAssetCreate& v = Cast::Up<TxKernelAssetCreate>(*p);
 
 		v.CopyFrom(*this);
-		v.m_Flags = m_Flags;
+	}
+
+	/////////////
+	// TxKernelAssetDestroy
+	void TxKernelAssetDestroy::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelAssetControl::HashSelfForMsg(hp);
+		hp << m_AssetID;
+	}
+
+	bool TxKernelAssetDestroy::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
+			return false;
+
+		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
+
+		pt = -pt;
+		exc += pt;
+
+		return true;
+	}
+
+	void TxKernelAssetDestroy::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelAssetDestroy);
+		TxKernelAssetDestroy& v = Cast::Up<TxKernelAssetDestroy>(*p);
+
+		v.CopyFrom(*this);
+		v.m_AssetID = m_AssetID;
 	}
 
 	/////////////

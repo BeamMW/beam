@@ -2496,7 +2496,12 @@ bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
 	return true;
 }
 
-bool NodeProcessor::HandleKernel(const TxKernelAssetControl& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
+{
+	return true; // TODO
+}
+
+bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
 {
 	return true; // TODO
 }

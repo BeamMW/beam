@@ -406,7 +406,8 @@ namespace beam
 	macro(2, AssetEmit) \
 	macro(3, ShieldedOutput) \
 	macro(4, ShieldedInput) \
-	macro(5, AssetControl)
+	macro(5, AssetCreate) \
+	macro(6, AssetDestroy)
 
 #define THE_MACRO(id, name) struct TxKernel##name;
 	BeamKernelsAll(THE_MACRO)
@@ -537,7 +538,7 @@ namespace beam
 		void CopyFrom(const TxKernelNonStd&);
 	};
 
-	struct TxKernelAssetBase
+	struct TxKernelAssetControl
 		:public TxKernelNonStd
 	{
 		PeerID m_Owner;
@@ -549,13 +550,13 @@ namespace beam
 
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:
-		void CopyFrom(const TxKernelAssetBase&);
+		void CopyFrom(const TxKernelAssetControl&);
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelAssetEmit
-		:public TxKernelAssetBase
+		:public TxKernelAssetControl
 	{
 		typedef std::unique_ptr<TxKernelAssetEmit> Ptr;
 
@@ -571,20 +572,25 @@ namespace beam
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
 
-	struct TxKernelAssetControl
-		:public TxKernelAssetBase
+	struct TxKernelAssetCreate
+		:public TxKernelAssetControl
 	{
-		typedef std::unique_ptr<TxKernelAssetControl> Ptr;
+		typedef std::unique_ptr<TxKernelAssetCreate> Ptr;
 
-		struct Flags {
-			static const uint32_t Add = 1;
-			static const uint32_t Remove = 2;
-		};
+		virtual ~TxKernelAssetCreate() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
+	};
 
-		uint32_t m_Flags;
-		TxKernelAssetControl() :m_Flags(0) {}
+	struct TxKernelAssetDestroy
+		:public TxKernelAssetControl
+	{
+		typedef std::unique_ptr<TxKernelAssetDestroy> Ptr;
 
-		virtual ~TxKernelAssetControl() {}
+		AssetID m_AssetID;
+
+		virtual ~TxKernelAssetDestroy() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
