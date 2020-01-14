@@ -127,7 +127,7 @@ namespace beam::wallet
             {
                 resultCallback(asyncFunc());
             }
-            catch (const exception & ex)
+            catch (const std::exception & ex)
             {
                 exceptionCallback(ex);
             }
@@ -141,7 +141,7 @@ namespace beam::wallet
                 auto r = asyncFunc();
                 resultCallback(std::move(r.first), std::move(r.second));
             }
-            catch (const exception & ex)
+            catch (const std::exception & ex)
             {
                 exceptionCallback(ex);
             }
