@@ -1582,9 +1582,16 @@ namespace beam
 			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
 			uint32_t m_nRecoveryPending = 0;
-			PeerID m_AssetOwner = Zero;
-			AssetID m_AssetID = 0;
-			bool m_bCustomAssetRecognized = false;
+
+			struct
+			{
+				Height m_hCreated = 0;
+				bool m_Emitted = false;
+				ECC::Scalar::Native m_skOwner;
+				AssetID m_ID = 0; // set after successful creation + proof
+				bool m_Recognized = false;
+
+			} m_Assets;
 
 			Height m_hUtxoEvts = 0;
 			bool m_bUtxoEvtsPending = false;
@@ -1893,6 +1900,19 @@ namespace beam
 				verify_test(m_vStates.back().IsValidProofShieldedInp(d, msg.m_Proof));
 			}
 
+			virtual void OnMsg(proto::ProofAsset&& msg) override
+			{
+				verify_test(m_Assets.m_hCreated && !m_Assets.m_ID);
+
+				if (msg.m_Proof.empty())
+					return;
+
+				verify_test(m_vStates.back().IsValidProofAsset(msg.m_Info, msg.m_Proof));
+
+				m_Assets.m_ID = msg.m_Info.m_ID;
+				verify_test(m_Assets.m_ID);
+			}
+
 			struct AchievementTester
 			{
 				bool m_AllDone = true;
@@ -1919,7 +1939,8 @@ namespace beam
 				t.Test(IsAllProofsReceived(), "some proofs missing");
 				t.Test(IsAllBbsReceived(), "some BBS messages missing");
 				t.Test(IsAllRecoveryReceived(), "some recovery messages missing");
-				//t.Test(m_bCustomAssetRecognized, "CA not recognized");
+				t.Test(m_Assets.m_ID != 0, "CA not created");
+				t.Test(m_Assets.m_Recognized, "CA output not recognized");
 				t.Test(m_Shielded.m_SpendConfirmed, "Shielded spend not confirmed");
 				t.Test(m_Shielded.m_EvtAdd, "Shielded Add event didn't arrive");
 				t.Test(m_Shielded.m_EvtSpend, "Shielded Spend event didn't arrive");
@@ -1954,6 +1975,13 @@ namespace beam
 					Send(msgOut);
 
 					m_Shielded.m_Withdrew = true;
+				}
+
+				if (m_Assets.m_hCreated && (msg.m_Description.m_Height == m_Assets.m_hCreated + 3))
+				{
+					proto::GetProofAsset msgOut;
+					proto::Sk2Pk(msgOut.m_Owner, m_Assets.m_skOwner);
+					Send(msgOut);
 				}
 
 				proto::BbsMsg msgBbs;
@@ -2029,6 +2057,10 @@ namespace beam
 				}
 
 				proto::NewTransaction msgTx;
+				msgTx.m_Fluff = true; // currently - DISABLE dandelion. In this test blocks are assembled fast, and there's a (small) lag between the 2 nodes
+				// sometimes a stem node, which is slightly behind, receives a tx whose m_Height.m_Min is already larger.
+				// TODO: re-enable Dandelion once we take care of this (put slightly lower kernel height, wait a little longer for inputs to spend, don't send txs near the forks).
+
 				for (int i = 0; i < 2; i++) // don't send too many txs, it's too heavy for the test
 				{
 					Amount val = m_Wallet.MakeTxInput(msgTx.m_Transaction, msg.m_Description.m_Height);
@@ -2037,45 +2069,8 @@ namespace beam
 
 					assert(msgTx.m_Transaction);
 
-					const Amount nFeeForEmission = 300;
-					bool bEmitAsset =
-						(m_AssetOwner == Zero) &&
-						(msg.m_Description.m_Height + 1 >= Rules::get().pForks[2].m_Height) &&
-						(val >= nFeeForEmission);
-
-					if (bEmitAsset)
-					{
-						val -= nFeeForEmission;
-
-						Key::IDV kidv(Zero);
-						kidv.m_Value = val;
-
-						ECC::Scalar::Native sk, skAsset, skOut;
-						ECC::SetRandom(sk);
-						ECC::SetRandom(skAsset);
-						proto::Sk2Pk(m_AssetOwner, skAsset);
-						m_AssetID = 43;
-
-						TxKernelAssetEmit::Ptr pKrn(new TxKernelAssetEmit);
-						pKrn->m_Owner = m_AssetOwner;
-						pKrn->m_AssetID = m_AssetID;
-						pKrn->m_Fee = nFeeForEmission;
-						pKrn->m_Value = kidv.m_Value;
-						pKrn->m_Height.m_Min = msg.m_Description.m_Height + 1;
-						pKrn->Sign(sk, skAsset);
-
-						Output::Ptr pOutp(new Output);
-						pOutp->m_AssetID = m_AssetID;
-						pOutp->Create(msg.m_Description.m_Height + 1, skOut, *m_Wallet.m_pKdf, kidv, *m_Wallet.m_pKdf);
-
-						msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
-						m_Wallet.UpdateOffset(*msgTx.m_Transaction, skOut, true);
-
-						msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-						m_Wallet.UpdateOffset(*msgTx.m_Transaction, sk, true);
-
-						msgTx.m_Transaction->Normalize();
-					}
+					MaybeCreateAsset(msgTx, val);
+					MaybeEmitAsset(msgTx, val);
 
 					m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
@@ -2097,6 +2092,84 @@ namespace beam
 					SendLogin();
 				}
 
+			}
+
+			bool MaybeCreateAsset(proto::NewTransaction& msg, Amount& val)
+			{
+				if (m_Assets.m_hCreated)
+					return false;
+
+				const Amount nFee = 330;
+				Amount nLock = Rules::get().CA.DepositForList;
+				if (val < nLock + nFee)
+					return false;
+
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (s.m_Height + 1 < Rules::get().pForks[2].m_Height)
+					return false;
+
+				val -= nLock + nFee;
+
+				ECC::Scalar::Native sk;
+				ECC::SetRandom(sk);
+				ECC::SetRandom(m_Assets.m_skOwner);
+
+				TxKernelAssetCreate::Ptr pKrn(new TxKernelAssetCreate);
+				pKrn->m_Fee = nFee;
+				pKrn->m_Height.m_Min = s.m_Height + 1;
+				proto::Sk2Pk(pKrn->m_Owner, m_Assets.m_skOwner);
+				pKrn->Sign(sk, m_Assets.m_skOwner);
+
+				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+
+				m_Assets.m_hCreated = s.m_Height;
+
+				return true;
+			}
+
+			bool MaybeEmitAsset(proto::NewTransaction& msg, Amount& val)
+			{
+				if (m_Assets.m_Emitted)
+					return false;
+
+				const Amount nFee = 300;
+				if (!m_Assets.m_ID || (val < nFee))
+					return false;
+
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (s.m_Height + 1 < Rules::get().pForks[2].m_Height)
+					return false;
+
+				val -= nFee;
+
+				Key::IDV kidv(Zero);
+				kidv.m_Value = 100500;
+
+				ECC::Scalar::Native sk, skOut;
+				ECC::SetRandom(sk);
+
+				TxKernelAssetEmit::Ptr pKrn(new TxKernelAssetEmit);
+				proto::Sk2Pk(pKrn->m_Owner, m_Assets.m_skOwner);
+				pKrn->m_AssetID = m_Assets.m_ID;
+				pKrn->m_Fee = nFee;
+				pKrn->m_Value = kidv.m_Value;
+				pKrn->m_Height.m_Min = s.m_Height + 1;
+				pKrn->Sign(sk, m_Assets.m_skOwner);
+
+				Output::Ptr pOutp(new Output);
+				pOutp->m_AssetID = m_Assets.m_ID;
+				pOutp->Create(s.m_Height + 1, skOut, *m_Wallet.m_pKdf, kidv, *m_Wallet.m_pKdf);
+
+				msg.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, skOut, true);
+
+				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+
+				m_Assets.m_Emitted = true;
+
+				return true;
 			}
 
 			void MaybeAskUtxoEvents()
@@ -2241,8 +2314,8 @@ namespace beam
 					evt.m_AssetID.Export(nAssetID);
 					if (nAssetID)
 					{
-						verify_test(nAssetID == m_AssetID);
-						m_bCustomAssetRecognized = true;
+						verify_test(nAssetID == m_Assets.m_ID);
+						m_Assets.m_Recognized = true;
 					}
 
 					if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
@@ -2766,6 +2839,7 @@ int main()
 	}
 
 	beam::Rules::get().pForks[2].m_Height = 17;
+	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
 	beam::Rules::get().UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");
