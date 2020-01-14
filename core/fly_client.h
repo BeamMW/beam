@@ -25,12 +25,15 @@ namespace proto {
 	struct FlyClient
 	{
 #define REQUEST_TYPES_All(macro) \
-		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
-		macro(Kernel,		GetProofKernel,		ProofKernel) \
-		macro(Kernel2,		GetProofKernel2,	ProofKernel2) \
-		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
-		macro(Transaction,	NewTransaction,		Status) \
-		macro(BbsMsg,		BbsMsg,				Pong)
+		macro(Utxo,              GetProofUtxo,         ProofUtxo) \
+		macro(Kernel,            GetProofKernel,       ProofKernel) \
+		macro(Kernel2,           GetProofKernel2,      ProofKernel2) \
+		macro(UtxoEvents,        GetUtxoEvents,        UtxoEvents) \
+		macro(Transaction,       NewTransaction,       Status) \
+		macro(ShieldedList,      GetShieldedList,      ShieldedList) \
+		macro(ProofShieldedInp,  GetProofShieldedInp,  ProofShieldedInp) \
+		macro(ProofShieldedOutp, GetProofShieldedOutp, ProofShieldedOutp) \
+		macro(BbsMsg,            BbsMsg,               Pong)
 
 		class Request
 		{

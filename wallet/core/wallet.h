@@ -242,6 +242,11 @@ namespace beam::wallet
                 TxID m_TxID;
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
+            struct ProofShieldedOutp
+            {
+                TxID m_TxID;
+                SubTxID m_SubTxID = kDefaultSubTxID;
+            };
         };
 
 #define THE_MACRO(type, msgOut, msgIn) \

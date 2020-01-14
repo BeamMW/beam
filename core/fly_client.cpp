@@ -758,6 +758,36 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
 {
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestShieldedList& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestShieldedList& req)
+{
+    // TODO(alex.starun): add check
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestProofShieldedInp& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestProofShieldedInp& req)
+{
+    // TODO(alex.starun): add check
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestProofShieldedOutp& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestProofShieldedOutp& req)
+{
+    // TODO(alex.starun): add check
+}
+
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
 {
     return (LoginFlags::Bbs & m_LoginFlags) && IsAtTip();

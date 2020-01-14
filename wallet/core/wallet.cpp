@@ -331,6 +331,11 @@ namespace beam::wallet
         return false;
     }
 
+    bool Wallet::MyRequestProofShieldedOutp::operator < (const MyRequestProofShieldedOutp& x) const
+    {
+        return m_TxID < x.m_TxID;
+    }
+
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
         uint32_t n = get_ParentObj().SyncRemains();
@@ -580,6 +585,21 @@ namespace beam::wallet
             get_tip(sTip);
             tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
         }
+    }
+
+    void Wallet::OnRequestComplete(MyRequestShieldedList& r)
+    {
+        // TODO(alex.starun): implement this
+    }
+
+    void Wallet::OnRequestComplete(MyRequestProofShieldedInp& r)
+    {
+        // TODO(alex.starun): implement this
+    }
+
+    void Wallet::OnRequestComplete(MyRequestProofShieldedOutp& r)
+    {
+        // TODO(alex.starun): implement this
     }
 
     void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
