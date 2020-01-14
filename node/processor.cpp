@@ -1849,7 +1849,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_ValidateOnly = false; // don't make changes to state
 	bool m_AlreadyValidated = false; // set during reorgs, when a block is being applied for 2nd time
 	bool m_SaveKid = true;
-	bool m_UpdateShieldedMmr = true;
+	bool m_UpdateMmrs = true;
 	bool m_StoreShieldedOutput = false;
 
 	uint32_t m_ShieldedIns = 0;
@@ -2563,7 +2563,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 				m_DB.ShieldedWrite(m_Extra.m_ShieldedOutputs, &pt_s, 1);
 			}
 
-			if (bic.m_UpdateShieldedMmr)
+			if (bic.m_UpdateMmrs)
 			{
 				ShieldedTxo::DescriptionOutp d;
 				d.m_SerialPub = krn.m_Txo.m_Serial.m_SerialPub;
@@ -2588,7 +2588,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 
 		m_DB.UniqueDeleteStrict(blobKey);
 
-		if (bic.m_UpdateShieldedMmr)
+		if (bic.m_UpdateMmrs)
 			m_Mmr.m_Shielded.ShrinkTo(m_Mmr.m_Shielded.m_Count - 1);
 
 		if (bic.m_StoreShieldedOutput)
@@ -2640,7 +2640,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 			if (!m_DB.UniqueInsertSafe(blobKey, &blobVal))
 				return false;
 
-			if (bic.m_UpdateShieldedMmr)
+			if (bic.m_UpdateMmrs)
 			{
 				ShieldedTxo::DescriptionInp d;
 				d.m_SpendPk = krn.m_SpendProof.m_SpendPk;
@@ -2661,7 +2661,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 
 		m_DB.UniqueDeleteStrict(blobKey);
 
-		if (bic.m_UpdateShieldedMmr)
+		if (bic.m_UpdateMmrs)
 			m_Mmr.m_Shielded.ShrinkTo(m_Mmr.m_Shielded.m_Count - 1);
 
 		assert(bic.m_ShieldedIns);
@@ -2670,7 +2670,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 
 	if (bic.m_StoreShieldedOutput)
 	{
-		assert(bic.m_UpdateShieldedMmr); // otherwise the following formula will be wrong
+		assert(bic.m_UpdateMmrs); // otherwise the following formula will be wrong
 
 		TxoID nShieldedInputs = m_Mmr.m_Shielded.m_Count - m_Extra.m_ShieldedOutputs;
 		m_DB.ParamSet(NodeDB::ParamID::ShieldedInputs, &nShieldedInputs, nullptr);
@@ -3473,6 +3473,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	// Ensure kernels are ok
 	BlockInterpretCtx bic(h, true);
 	bic.m_ValidateOnly = true;
+	bic.m_UpdateMmrs = false;
 	bic.m_SaveKid = false;
 
 	BlockInterpretCtx::BlobSet setDups;
@@ -3720,7 +3721,7 @@ NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height + 1, true);
-	bic.m_UpdateShieldedMmr = false;
+	bic.m_UpdateMmrs = false;
 
 	ByteBuffer bbR;
 	bic.m_pRollback = &bbR;
@@ -3762,7 +3763,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bic.m_Fwd = true;
 	bic.m_AlreadyValidated = true;
 	bic.m_SaveKid = false;
-	bic.m_UpdateShieldedMmr = true;
+	bic.m_UpdateMmrs = true;
 
 	bool bOk = HandleValidatedTx(bc.m_Block, bic);
 	if (!bOk)
