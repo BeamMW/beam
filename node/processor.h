@@ -74,6 +74,9 @@ class NodeProcessor
 	void Recognize(const TxKernelShieldedInput&, Height);
 	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
 
+	void InternalAssetAdd(AssetInfo::Full&);
+	void InternalAssetDel(AssetID);
+
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 
 #define THE_MACRO(id, name) bool HandleKernel(const TxKernel##name&, BlockInterpretCtx&);

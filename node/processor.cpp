@@ -2505,19 +2505,158 @@ bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
 	return true;
 }
 
+void NodeProcessor::InternalAssetAdd(AssetInfo::Full& ai)
+{
+	ai.m_Value = Zero;
+	m_DB.AssetAdd(ai);
+	assert(ai.m_ID); // it's 1-based
+
+	if (m_Mmr.m_Assets.m_Count < ai.m_ID)
+	{
+		assert(m_Mmr.m_Assets.m_Count + 1 == ai.m_ID);
+		m_Mmr.m_Assets.ResizeTo(ai.m_ID);
+	}
+
+	Merkle::Hash hv;
+	ai.get_Hash(hv);
+	m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
+}
+
+void NodeProcessor::InternalAssetDel(AssetID nAssetID)
+{
+	nAssetID = m_DB.AssetDelete(nAssetID);
+
+	assert(nAssetID <= m_Mmr.m_Assets.m_Count);
+	if (nAssetID < m_Mmr.m_Assets.m_Count)
+		m_Mmr.m_Assets.ResizeTo(nAssetID);
+}
+
 bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
 {
-	return true; // TODO
+	if (!bic.m_UpdateMmrs)
+		return true;
+
+	assert(!bic.m_ValidateOnly);
+	assert(bic.m_pRollback);
+	ByteBuffer& rb = *bic.m_pRollback;
+
+	if (bic.m_Fwd)
+	{
+		AssetInfo::Full ai;
+		ai.m_ID = 0; // auto
+		ai.m_Owner = krn.m_Owner;
+		InternalAssetAdd(ai);
+
+		// Save AssetID
+		uintBigFor<AssetID>::Type nID = ai.m_ID;
+		size_t n = rb.size();
+		rb.resize(n + nID.nBytes);
+		memcpy(&rb.front() + n, nID.m_pData, nID.nBytes);
+	}
+	else
+	{
+		// Read AssetID
+		uintBigFor<AssetID>::Type nID;
+
+		if (rb.size() < nID.nBytes)
+			OnCorrupted();
+		size_t n = rb.size() - nID.nBytes;
+		memcpy(nID.m_pData, &rb.front() + n, nID.nBytes);
+		rb.resize(n);
+
+		AssetID nVal;
+		nID.Export(nVal);
+		InternalAssetDel(nVal);
+	}
+
+	return true;
 }
 
 bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
 {
-	return true; // TODO
+	if (!bic.m_UpdateMmrs)
+		return true;
+
+	assert(!bic.m_ValidateOnly);
+
+	if (bic.m_Fwd)
+	{
+		AssetInfo::Full ai;
+		ai.m_ID = krn.m_AssetID;
+		if (!m_DB.AssetGetSafe(ai))
+			return false;
+
+		if (ai.m_Owner != krn.m_Owner)
+			return false;
+
+		if (ai.m_Value != Zero)
+			return false;
+
+		// looks good
+		InternalAssetDel(krn.m_AssetID);
+	}
+	else
+	{
+		// Currently rollback data is not neeed (until we add metadata to the asset)
+		AssetInfo::Full ai;
+		ai.m_ID = krn.m_AssetID;
+		ai.m_Owner = krn.m_Owner;
+
+		InternalAssetAdd(ai);
+
+		if (ai.m_ID != krn.m_AssetID)
+			OnCorrupted();
+	}
+
+	return true;
 }
+
+
 
 bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
-	return true; // no special processing at the moment
+	if (!bic.m_UpdateMmrs)
+		return true;
+
+	AssetInfo::Full ai;
+	ai.m_ID = krn.m_AssetID;
+	if (!m_DB.AssetGetSafe(ai))
+		return false;
+	if (ai.m_Owner != krn.m_Owner)
+		return false; // as well
+
+	AmountSigned val = krn.m_Value;
+	bool bAdd = (val >= 0);
+	if (!bAdd)
+	{
+		val = -val;
+		if (val < 0)
+			// can happen if val is 0x800....0, such a number can't be negated on its own. Ban this case
+			return false;
+	}
+
+	AmountBig::Type valBig = (Amount) val;
+	if (!bic.m_Fwd)
+		bAdd = !bAdd;
+
+	if (bAdd)
+	{
+		ai.m_Value += valBig;
+		if (ai.m_Value < valBig)
+			return false; // overflow (?!)
+	}
+	else
+	{
+		if (ai.m_Value < valBig)
+			return false; // not enough to burn
+
+		valBig.Negate();
+		ai.m_Value += valBig;
+	}
+
+	m_DB.AssetSetValue(ai.m_ID, ai.m_Value);
+
+	return true;
 }
 
 bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
