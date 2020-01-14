@@ -31,6 +31,8 @@ Dialog {
 			accept();
 		} else {
 			showError = true;
+			pwd.selectAll();
+			pwd.focus = true;
 		}
 	}
 

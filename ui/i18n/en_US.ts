@@ -1138,8 +1138,8 @@ or send this address to the sender over secure channel</translation>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
         <source>Don&apos;t ask password on every Send</source>
         <oldsource>Don’t ask password on every Send</oldsource>
-        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
-        <translation type="unfinished">Don’t ask password on every Send</translation>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if checked</extracomment>
+        <translation>Don’t ask password on every Send</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
         <source>Password verification is required to change that setting</source>
@@ -2061,6 +2061,11 @@ deploy the key at the node you trust completely.</source>
     <message id="amount-input-add-all">
         <source>add all</source>
         <translation>add all</translation>
+    </message>
+    <message id="settings-general-no-require-pwd-to-spend-confirm-pwd-title">
+        <source>Ask password on every Send</source>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if unchecked</extracomment>
+        <translation>Ask password on every Send</translation>
     </message>
 </context>
 </TS>

@@ -1138,7 +1138,7 @@
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
         <source>Don&apos;t ask password on every Send</source>
         <oldsource>Don’t ask password on every Send</oldsource>
-        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if checked</extracomment>
         <translation>Älä kysy salasanaa ennen lähettämistä</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
@@ -2056,6 +2056,11 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
     </message>
     <message id="amount-input-add-all">
         <source>add all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-general-no-require-pwd-to-spend-confirm-pwd-title">
+        <source>Ask password on every Send</source>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if unchecked</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>
