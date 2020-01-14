@@ -2515,11 +2515,16 @@ void NodeProcessor::InternalAssetAdd(AssetInfo::Full& ai)
 
 void NodeProcessor::InternalAssetDel(AssetID nAssetID)
 {
-	nAssetID = m_DB.AssetDelete(nAssetID);
+	AssetID nCount = m_DB.AssetDelete(nAssetID);
 
-	assert(nAssetID <= m_Mmr.m_Assets.m_Count);
-	if (nAssetID < m_Mmr.m_Assets.m_Count)
+	assert(nCount <= m_Mmr.m_Assets.m_Count);
+	if (nCount < m_Mmr.m_Assets.m_Count)
 		m_Mmr.m_Assets.ResizeTo(nAssetID);
+	else
+	{
+		assert(nAssetID < nCount);
+		m_Mmr.m_Assets.Replace(nAssetID - 1, Zero);
+	}
 }
 
 bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
@@ -2565,11 +2570,6 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 
 bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
 {
-	if (!bic.m_UpdateMmrs)
-		return true;
-
-	assert(!bic.m_ValidateOnly);
-
 	if (bic.m_Fwd)
 	{
 		AssetInfo::Full ai;
@@ -2583,20 +2583,23 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 		if (ai.m_Value != Zero)
 			return false;
 
-		// looks good
-		InternalAssetDel(krn.m_AssetID);
+		if (bic.m_UpdateMmrs)
+			// looks good
+			InternalAssetDel(krn.m_AssetID);
 	}
 	else
 	{
-		// Currently rollback data is not neeed (until we add metadata to the asset)
-		AssetInfo::Full ai;
-		ai.m_ID = krn.m_AssetID;
-		ai.m_Owner = krn.m_Owner;
+		if (bic.m_UpdateMmrs)
+		{
+			AssetInfo::Full ai;
+			ai.m_ID = krn.m_AssetID;
+			ai.m_Owner = krn.m_Owner;
 
-		InternalAssetAdd(ai);
+			InternalAssetAdd(ai);
 
-		if (ai.m_ID != krn.m_AssetID)
-			OnCorrupted();
+			if (ai.m_ID != krn.m_AssetID)
+				OnCorrupted();
+		}
 	}
 
 	return true;
@@ -2606,9 +2609,6 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 
 bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
-	if (!bic.m_UpdateMmrs)
-		return true;
-
 	AssetInfo::Full ai;
 	ai.m_ID = krn.m_AssetID;
 	if (!m_DB.AssetGetSafe(ai))
@@ -2645,7 +2645,15 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 		ai.m_Value += valBig;
 	}
 
-	m_DB.AssetSetValue(ai.m_ID, ai.m_Value);
+	if (bic.m_UpdateMmrs)
+	{
+		m_DB.AssetSetValue(ai.m_ID, ai.m_Value);
+
+		Merkle::Hash hv;
+		ai.get_Hash(hv);
+
+		m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
+	}
 
 	return true;
 }
