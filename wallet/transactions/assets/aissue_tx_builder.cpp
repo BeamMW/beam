@@ -48,7 +48,7 @@ namespace beam::wallet
         : m_Tx{tx}
         , m_keyKeeper(std::move(keyKeeper))
         , m_SubTxID(subTxID)
-        , m_assetId(Zero)
+        , m_assetId(0)
         , m_assetOwnerIdx(0)
         , m_assetOwnerId(Zero)
         , m_issue(issue)
@@ -76,7 +76,7 @@ namespace beam::wallet
 
         m_assetId = m_Tx.GetMandatoryParameter<AssetID>(TxParameterID::AssetID, m_SubTxID);
 
-        if (m_assetOwnerIdx == 0 || m_assetId == Zero)
+        if (m_assetOwnerIdx == 0 || m_assetId == 0)
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
         }
@@ -341,7 +341,7 @@ namespace beam::wallet
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
         LOG_INFO() << m_Tx.GetTxID() << " Creating ASSET coin" << (change ? " (change):" : ":")
                    << PrintableAmount(amount, false, kAmountASSET, kAmountAGROTH)
-                   << ", asset id " << m_assetId.str()
+                   << ", asset id " << m_assetId
                    << ", id " << newUtxo.toStringID();
     }
 

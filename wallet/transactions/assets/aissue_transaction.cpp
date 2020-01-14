@@ -99,12 +99,12 @@ namespace beam::wallet
                 if (_issue)
                 {
                     LOG_INFO() << GetTxID() << " Generating asset with owner index " << builder.GetAssetOwnerIdx()
-                               << " and asset id " << builder.GetAssetId().str() << ". Amount: " << PrintableAmount(builder.GetAmountBeam(), false, kASSET, kAGROTH);
+                               << " and asset id " << builder.GetAssetId() << ". Amount: " << PrintableAmount(builder.GetAmountBeam(), false, kASSET, kAGROTH);
                     LOG_INFO() << GetTxID() << " Please remember your assset index. You won't be able to consume the asset or generate additional coins without it";
                 }
                 else
                 {
-                    LOG_INFO() << GetTxID() << " Consuming asset with index " << builder.GetAssetOwnerIdx() << " and asset id " << builder.GetAssetId().str()
+                    LOG_INFO() << GetTxID() << " Consuming asset with index " << builder.GetAssetOwnerIdx() << " and asset id " << builder.GetAssetId()
                                << ". Amount: " << PrintableAmount(builder.GetAmountAsset(), false, kASSET, kAGROTH);
                 }
 

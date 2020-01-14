@@ -1571,7 +1571,8 @@ namespace beam
 			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
 			uint32_t m_nRecoveryPending = 0;
-			AssetID m_AssetEmitted = Zero;
+			PeerID m_AssetOwner = Zero;
+			AssetID m_AssetID = 0;
 			bool m_bCustomAssetRecognized = false;
 
 
@@ -2017,7 +2018,7 @@ namespace beam
 
 					const Amount nFeeForEmission = 300;
 					bool bEmitAsset =
-						(m_AssetEmitted == Zero) &&
+						(m_AssetOwner == Zero) &&
 						(msg.m_Description.m_Height + 1 >= Rules::get().pForks[2].m_Height) &&
 						(val >= nFeeForEmission);
 
@@ -2031,17 +2032,19 @@ namespace beam
 						ECC::Scalar::Native sk, skAsset, skOut;
 						ECC::SetRandom(sk);
 						ECC::SetRandom(skAsset);
-						proto::Sk2Pk(m_AssetEmitted, skAsset);
+						proto::Sk2Pk(m_AssetOwner, skAsset);
+						m_AssetID = 43;
 
 						TxKernelAssetEmit::Ptr pKrn(new TxKernelAssetEmit);
-						pKrn->m_AssetID = m_AssetEmitted;
+						pKrn->m_Owner = m_AssetOwner;
+						pKrn->m_AssetID = m_AssetID;
 						pKrn->m_Fee = nFeeForEmission;
 						pKrn->m_Value = kidv.m_Value;
 						pKrn->m_Height.m_Min = msg.m_Description.m_Height + 1;
 						pKrn->Sign(sk, skAsset);
 
 						Output::Ptr pOutp(new Output);
-						pOutp->m_AssetID = m_AssetEmitted;
+						pOutp->m_AssetID = m_AssetID;
 						pOutp->Create(msg.m_Description.m_Height + 1, skOut, *m_Wallet.m_pKdf, kidv, *m_Wallet.m_pKdf);
 
 						msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
@@ -2204,9 +2207,11 @@ namespace beam
 				{
 					const proto::UtxoEvent& evt = msg.m_Events[i];
 
-					if (!(evt.m_AssetID == Zero))
+					AssetID nAssetID;
+					evt.m_AssetID.Export(nAssetID);
+					if (nAssetID)
 					{
-						verify_test(evt.m_AssetID == m_AssetEmitted);
+						verify_test(nAssetID == m_AssetID);
 						m_bCustomAssetRecognized = true;
 					}
 
@@ -2215,7 +2220,7 @@ namespace beam
 						Key::ID::Packed kid;
 						kid = evt.m_Kidv;
 						proto::UtxoEvent::Shielded s;
-						evt.m_ShieldedDelta.Get(kid, s);
+						evt.m_ShieldedDelta.Get(kid, evt.m_Buf1, s);
 
 						verify_test(s.m_Sender == m_Shielded.m_Sender);
 						verify_test(s.m_Message == m_Shielded.m_Message);
@@ -2229,7 +2234,7 @@ namespace beam
 					{
 						ECC::Scalar::Native sk;
 						ECC::Point comm;
-						SwitchCommitment(&evt.m_AssetID).Create(sk, comm, *m_Wallet.m_pKdf, evt.m_Kidv);
+						SwitchCommitment(nAssetID).Create(sk, comm, *m_Wallet.m_pKdf, evt.m_Kidv);
 						verify_test(comm == evt.m_Commitment);
 					}
 				}

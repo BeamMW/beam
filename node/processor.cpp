@@ -1718,7 +1718,7 @@ void NodeProcessor::TxoToNaked(uint8_t* pBuf, Blob& v)
 
 	outp.m_pConfidential.reset();
 	outp.m_pPublic.reset();
-	outp.m_AssetID = Zero;
+	outp.m_AssetID = 0;
 
 	StaticBufferSerializer<s_TxoNakedMax> ser;
 	ser & outp;
@@ -2317,8 +2317,8 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 
 	UtxoEvent::ValueS evt;
 	evt.m_Kidv.m_Value = op.m_Value;
-	evt.m_ShieldedDelta.Set(evt.m_Kidv, ues);
-	evt.m_AssetID = Zero;
+	evt.m_ShieldedDelta.Set(evt.m_Kidv, evt.m_Buf1, ues);
+	evt.m_AssetID = 0U;
 	evt.m_Maturity = h;
 
 	evt.m_Flags =
@@ -2350,6 +2350,7 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 	evt.m_Kidv = kidv;
 	evt.m_Flags = proto::UtxoEvent::Flags::Add;
 	evt.m_AssetID = x.m_AssetID;
+	evt.m_Buf1 = Zero;
 
 	evt.m_Maturity = x.get_MinMaturity(h);
 
@@ -2388,6 +2389,7 @@ void NodeProcessor::RescanOwnedTxos()
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
 			evt.m_Flags = proto::UtxoEvent::Flags::Add;
 			evt.m_AssetID = outp.m_AssetID;
+			evt.m_Buf1 = Zero;
 
 			const UtxoEvent::Key& key = outp.m_Commitment;
 

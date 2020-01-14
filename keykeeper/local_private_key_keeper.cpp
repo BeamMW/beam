@@ -83,7 +83,7 @@ namespace beam::wallet
 
     }
 
-    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, AssetID assetId, CallbackEx<Outputs, ECC::Scalar::Native>&& resultCallback, ExceptionCallback&& exceptionCallback)
      {
         auto thisHolder = shared_from_this();
         auto resOuts    = make_shared<Outputs>();
@@ -162,7 +162,7 @@ namespace beam::wallet
         return result;
     }
 
-    std::pair<IPrivateKeyKeeper::PublicKeys, ECC::Scalar::Native> LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID)
+    std::pair<IPrivateKeyKeeper::PublicKeys, ECC::Scalar::Native> LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID assetId)
     {
         PublicKeys resKeys;
         Scalar::Native resOffset;
@@ -175,7 +175,7 @@ namespace beam::wallet
                 if(coinID.isAsset())
                 {
                     Point &publicKey = resKeys.emplace_back();
-                    SwitchCommitment(&assetID).Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
+                    SwitchCommitment(assetId).Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
                     resOffset += secretKey;
                 }
                 else
@@ -211,11 +211,11 @@ namespace beam::wallet
         return publicKey;
     }
 
-    ECC::Point LocalPrivateKeyKeeper::GenerateCoinKeySync(const Key::IDV& id, const AssetID& assetId)
+    ECC::Point LocalPrivateKeyKeeper::GenerateCoinKeySync(const Key::IDV& id, AssetID assetId)
     {
         Scalar::Native secretKey;
         Point publicKey;
-        SwitchCommitment(&assetId).Create(secretKey, publicKey, *GetChildKdf(id), id);
+        SwitchCommitment(assetId).Create(secretKey, publicKey, *GetChildKdf(id), id);
         return publicKey;
     }
 
@@ -233,7 +233,7 @@ namespace beam::wallet
         return result;
     }
 
-    std::pair<IPrivateKeyKeeper::Outputs, ECC::Scalar::Native> LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId)
+    std::pair<IPrivateKeyKeeper::Outputs, ECC::Scalar::Native> LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID assetId)
     {
         Outputs resOuts;
         Scalar::Native resOffset;
@@ -261,7 +261,7 @@ namespace beam::wallet
         return result;
     }
 
-    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const Point::Native& publicNonce)
+    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetId, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const Point::Native& publicNonce)
     {
         auto excess = GetExcess(inputs, outputs, assetId, offset);
 
@@ -296,7 +296,7 @@ namespace beam::wallet
 		return kernel.m_Signature.m_k;
     }
 
-    boost::optional<ReceiverSignature> LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce)
+    boost::optional<ReceiverSignature> LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetId, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce)
     {
         boost::optional<ReceiverSignature> res;
         auto value = CalculateValue(inputs, outputs);
@@ -380,7 +380,7 @@ namespace beam::wallet
         return res;
     }
 
-    boost::optional<SenderSignature> LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce, bool initial)
+    boost::optional<SenderSignature> LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetId, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce, bool initial)
     {
         boost::optional<SenderSignature> res;
         auto value = CalculateValue(inputs, outputs);
@@ -537,7 +537,7 @@ namespace beam::wallet
         return nonce;
     }
 
-    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset) const
+    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetId, const ECC::Scalar::Native& offset) const
     {
         // Excess = Sum(input blinfing factors) - Sum(output blinfing factors) - offset
         Point commitment;
@@ -546,13 +546,13 @@ namespace beam::wallet
 
         for (const auto& coinID : outputs)
         {
-            SwitchCommitment(coinID.isAsset() ? &assetId : nullptr).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            SwitchCommitment(coinID.isAsset() ? assetId : 0).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
             excess += blindingFactor;
         }
         excess = -excess;
         for (const auto& coinID : inputs)
         {
-            SwitchCommitment(coinID.isAsset() ? &assetId : nullptr).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            SwitchCommitment(coinID.isAsset() ? assetId : 0).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
             excess += blindingFactor;
         }
 
@@ -596,7 +596,7 @@ namespace beam::wallet
         return std::make_pair(assetOwnerId, std::move(skAssetOwnerSk));
     }
 
-    AssetID LocalPrivateKeyKeeper::GetAssetOwnerID(Key::Index assetOwnerIdx)
+    PeerID LocalPrivateKeyKeeper::GetAssetOwnerID(Key::Index assetOwnerIdx)
     {
         return GetAssetOwnerKeypair(assetOwnerIdx).first;
     }

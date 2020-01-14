@@ -35,7 +35,7 @@ namespace beam::wallet
     BaseTxBuilder::BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList, Amount fee)
         : m_Tx{ tx }
         , m_SubTxID(subTxID)
-        , m_AssetId(Zero)
+        , m_AssetId(0)
         , m_AmountList{ amountList }
         , m_Fee{ fee }
         , m_ChangeBeam{0}
@@ -76,7 +76,7 @@ namespace beam::wallet
             m_Tx.GetWalletDB()->saveCoins(coins);
         }
 
-        const bool isBeamTransaction = m_AssetId == Zero;
+        const bool isBeamTransaction = m_AssetId == 0;
         const Amount amountBeamWithFee = (isBeamTransaction ? GetAmount() : 0) + GetFee();
         if (preselAmountBeam < amountBeamWithFee)
         {
@@ -295,7 +295,10 @@ namespace beam::wallet
     Point::Native BaseTxBuilder::GetPublicExcess() const
     {
         // PublicExcess = Sum(inputs) - Sum(outputs) - offset * G - (Sum(input amounts) - Sum(output amounts)) * H
-        const auto assetHGen = SwitchCommitment::HGenFromAID(m_AssetId);
+        ECC::Point::Native assetHGen;
+        if (m_AssetId)
+            AssetInfo::Base(m_AssetId).get_Generator(assetHGen);
+
         Point::Native publicAmount = Zero;
         for (const auto& cid : m_InputCoins)
         {

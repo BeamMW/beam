@@ -420,7 +420,8 @@ public:
 		struct Value {
 			ECC::Key::IDV::Packed m_Kidv;
 			uintBigFor<Height>::Type m_Maturity;
-			AssetID m_AssetID;
+			uintBigFor<AssetID>::Type m_AssetID;
+			proto::UtxoEvent::AuxBuf1 m_Buf1;
 			uint8_t m_Flags;
 		};
 

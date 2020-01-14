@@ -4373,7 +4373,7 @@ void Node::PrintTxos()
         if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
         {
             proto::UtxoEvent::Shielded ues;
-            Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kidv, ues);
+            Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kidv, evt.m_Buf1, ues);
             TxoID id;
             ues.m_ID.Export(id);
             os << ", Shielded TxoID=" << id;

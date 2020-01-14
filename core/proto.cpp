@@ -972,20 +972,22 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 
 /////////////////////////
 // UtxoEvent
-void UtxoEvent::ShieldedDelta::Set(Key::ID::Packed& kid, const Shielded& s)
+void UtxoEvent::ShieldedDelta::Set(Key::ID::Packed& kid, AuxBuf1& buf1, const Shielded& s)
 {
     const uint8_t* p = reinterpret_cast<const uint8_t*>(&s);
-    static_assert(sizeof(s) == sizeof(kid) + sizeof(m_pBuf));
+    static_assert(sizeof(s) == sizeof(kid) + buf1.nBytes + sizeof(m_pBuf));
 	memcpy(&kid, p, sizeof(kid));
-	memcpy(m_pBuf, p + sizeof(kid), sizeof(m_pBuf));
+	memcpy(buf1.m_pData, p + sizeof(kid), buf1.nBytes);
+    memcpy(m_pBuf, p + sizeof(kid) + buf1.nBytes, sizeof(m_pBuf));
 }
 
-void UtxoEvent::ShieldedDelta::Get(const Key::ID::Packed& kid, Shielded& s) const
+void UtxoEvent::ShieldedDelta::Get(const Key::ID::Packed& kid, const AuxBuf1& buf1, Shielded& s) const
 {
     uint8_t* p = reinterpret_cast<uint8_t*>(&s);
 
     memcpy(p, &kid, sizeof(kid));
-    memcpy(p + sizeof(kid), m_pBuf, sizeof(m_pBuf));
+    memcpy(p + sizeof(kid), buf1.m_pData, buf1.nBytes);
+    memcpy(p + sizeof(kid) + buf1.nBytes, m_pBuf, sizeof(m_pBuf));
 }
 
 

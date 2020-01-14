@@ -62,7 +62,7 @@ void TestAssets() {
     const auto assetOwnerId = sender.m_KeyKeeper->GetAssetOwnerID(assetOwnerIdx);
     WALLET_CHECK(assetOwnerId != Zero);
 
-    AssetID assetId = 445U; // whatever
+    AssetID assetId = 445; // whatever
 
     const auto checkTotals = [&] (Amount beam, Amount amountAsset) {
         storage::Totals allTotals(*walletDB);

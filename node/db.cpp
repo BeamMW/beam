@@ -2401,9 +2401,9 @@ void NodeDB::UniqueDeleteStrict(const Blob& key)
 	TestChanged1Row();
 }
 
-const AssetIdx NodeDB::s_AssetEmpty0 = uint64_t(1) << 62;
+const AssetID NodeDB::s_AssetEmpty0 = uint64_t(1) << 62;
 
-bool NodeDB::IsAssetPresent(AssetIdx id, const PeerID& own)
+bool NodeDB::IsAssetPresent(AssetID id, const PeerID& own)
 {
 	Recordset rs(*this, Query::AssetFindBoth, "SELECT NULL FROM " TblAssets " WHERE " TblAssets_ID "=? AND " TblAssets_Owner "=?");
 	rs.put(0, id);
@@ -2424,7 +2424,7 @@ bool NodeDB::AssetFindByOwner(AssetInfo::Full& ai)
 	return true;
 }
 
-void NodeDB::AssetDeleteRaw(AssetIdx id)
+void NodeDB::AssetDeleteRaw(AssetID id)
 {
 	Recordset rs(*this, Query::AssetDel, "DELETE FROM " TblAssets " WHERE " TblAssets_ID "=?");
 	rs.put(0, id);
@@ -2432,7 +2432,7 @@ void NodeDB::AssetDeleteRaw(AssetIdx id)
 	TestChanged1Row();
 }
 
-void NodeDB::AssetInsertRaw(AssetIdx id, const AssetInfo::Full* pAi)
+void NodeDB::AssetInsertRaw(AssetID id, const AssetInfo::Full* pAi)
 {
 	Recordset rs(*this, Query::AssetAdd, "INSERT INTO " TblAssets "(" TblAssets_ID "," TblAssets_Owner "," TblAssets_Value ") VALUES(?,?,?)");
 	rs.put(0, id);
@@ -2447,7 +2447,7 @@ void NodeDB::AssetInsertRaw(AssetIdx id, const AssetInfo::Full* pAi)
 	TestChanged1Row();
 }
 
-AssetIdx NodeDB::AssetFindMinFree(AssetIdx nMin)
+AssetID NodeDB::AssetFindMinFree(AssetID nMin)
 {
 	// find free index
 	Recordset rs(*this, Query::AssetFindMin, "SELECT " TblAssets_ID " FROM " TblAssets " WHERE " TblAssets_ID ">=? ORDER BY " TblAssets_ID " ASC LIMIT 1");
@@ -2456,7 +2456,7 @@ AssetIdx NodeDB::AssetFindMinFree(AssetIdx nMin)
 	if (!rs.Step())
 		return 0;
 
-	AssetIdx ret;
+	AssetID ret;
 	rs.get(0, ret);
 	return ret;
 }
@@ -2480,11 +2480,11 @@ void NodeDB::AssetAdd(AssetInfo::Full& ai)
 	AssetInsertRaw(ai.m_ID, &ai);
 }
 
-AssetIdx NodeDB::AssetDelete(AssetIdx id)
+AssetID NodeDB::AssetDelete(AssetID id)
 {
 	AssetDeleteRaw(id);
 
-	AssetIdx nCount = ParamIntGetDef(ParamID::AssetsCount);
+	AssetID nCount = ParamIntGetDef(ParamID::AssetsCount);
 	if (nCount == id)
 	{
 		// last erased.
@@ -2505,7 +2505,7 @@ AssetIdx NodeDB::AssetDelete(AssetIdx id)
 	return nCount;
 }
 
-void NodeDB::AssetGetValue(AssetIdx id, AmountBig::Type& val)
+void NodeDB::AssetGetValue(AssetID id, AmountBig::Type& val)
 {
 	Recordset rs(*this, Query::AssetGetVal, "SELECT " TblAssets_Value " FROM " TblAssets " WHERE " TblAssets_ID "=?");
 	rs.put(0, id);
@@ -2513,7 +2513,7 @@ void NodeDB::AssetGetValue(AssetIdx id, AmountBig::Type& val)
 	rs.get_As(0, val);
 }
 
-void NodeDB::AssetSetValue(AssetIdx id, const AmountBig::Type& val)
+void NodeDB::AssetSetValue(AssetID id, const AmountBig::Type& val)
 {
 	Recordset rs(*this, Query::AssetSetVal, "UPDATE " TblAssets " SET " TblAssets_Value "=? WHERE " TblAssets_ID "=?");
 	rs.put_As(0, val);

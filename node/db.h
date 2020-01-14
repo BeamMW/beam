@@ -571,10 +571,10 @@ public:
 
 	void AssetAdd(AssetInfo::Full&); // on return sets the ID
 	bool AssetFindByOwner(AssetInfo::Full&); // set ID to min threshold as well
-	bool IsAssetPresent(AssetIdx, const PeerID&);
-	AssetIdx AssetDelete(AssetIdx); // returns remaining assets count (including the unused)
-	void AssetGetValue(AssetIdx, AmountBig::Type&);
-	void AssetSetValue(AssetIdx, const AmountBig::Type&);
+	bool IsAssetPresent(AssetID, const PeerID&);
+	AssetID AssetDelete(AssetID); // returns remaining assets count (including the unused)
+	void AssetGetValue(AssetID, AmountBig::Type&);
+	void AssetSetValue(AssetID, const AmountBig::Type&);
 
 private:
 
@@ -630,10 +630,10 @@ private:
 
 	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
 
-	static const AssetIdx s_AssetEmpty0;
-	void AssetInsertRaw(AssetIdx, const AssetInfo::Full*);
-	void AssetDeleteRaw(AssetIdx);
-	AssetIdx AssetFindMinFree(AssetIdx nMin);
+	static const AssetID s_AssetEmpty0;
+	void AssetInsertRaw(AssetID, const AssetInfo::Full*);
+	void AssetDeleteRaw(AssetID);
+	AssetID AssetFindMinFree(AssetID nMin);
 };
 
 
