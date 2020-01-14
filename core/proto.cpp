@@ -975,7 +975,7 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 void UtxoEvent::ShieldedDelta::Set(Key::ID::Packed& kid, AuxBuf1& buf1, const Shielded& s)
 {
     const uint8_t* p = reinterpret_cast<const uint8_t*>(&s);
-    static_assert(sizeof(s) == sizeof(kid) + buf1.nBytes + sizeof(m_pBuf));
+    static_assert(sizeof(s) == sizeof(kid) + AuxBuf1::nBytes + sizeof(m_pBuf));
 	memcpy(&kid, p, sizeof(kid));
 	memcpy(buf1.m_pData, p + sizeof(kid), buf1.nBytes);
     memcpy(m_pBuf, p + sizeof(kid) + buf1.nBytes, sizeof(m_pBuf));
