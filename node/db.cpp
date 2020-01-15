@@ -2239,7 +2239,7 @@ void NodeDB::StreamMmr::CacheAdd(const Merkle::Hash& hv, const Merkle::Position&
 	{
 		CacheEntry& ce = m_pCache[pos.H];
 
-		if ((m_LastOut.m_Pos.H != pos.H) || (m_LastOut.m_Pos.X != ce.m_X))
+		if ((ce.m_X != pos.X) && (ce.m_X != static_cast<uint64_t>(-1)))
 		{
 			m_LastOut.m_Pos.X = ce.m_X;
 			m_LastOut.m_Pos.H = pos.H;
