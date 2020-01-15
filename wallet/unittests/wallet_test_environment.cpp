@@ -117,7 +117,7 @@ public:
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ChangeBeam, toByteBuffer(p.m_changeBeam), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ChangeAsset, toByteBuffer(p.m_changeAsset), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetID, toByteBuffer(p.m_assetId), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetIdx, toByteBuffer(p.m_assetIdx), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetOwnerIdx, toByteBuffer(p.m_assetOwnerIdx), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MinHeight, toByteBuffer(p.m_minHeight), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerID, toByteBuffer(p.m_peerId), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MyID, toByteBuffer(p.m_myId), false);
@@ -418,16 +418,22 @@ struct TestWalletRig
         , m_Wallet{ m_WalletDB, m_KeyKeeper, move(action),( type == Type::ColdWallet) ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
     {
 
-        if (m_WalletDB->get_MasterKdf()) // can create secrets
+        if (auto kdf = m_WalletDB->get_MasterKdf(); kdf) // can create secrets
         {
             WalletAddress wa = storage::createAddress(*m_WalletDB, m_KeyKeeper);
             m_WalletDB->saveAddress(wa);
             m_WalletID = wa.m_walletID;
+            m_OwnID = wa.m_OwnID;
+            Key::ID kid(m_OwnID, Key::Type::WalletID);
+            Scalar::Native sk;
+            kdf->DeriveKey(sk, kid);
+            proto::Sk2Pk(m_SecureWalletID, sk);
         }
         else
         {
             auto addresses = m_WalletDB->getAddresses(true);
             m_WalletID = addresses[0].m_walletID;
+            m_OwnID = addresses[0].m_OwnID;
         }
 
         m_Wallet.ResumeAllTransactions();
@@ -502,6 +508,8 @@ struct TestWalletRig
     }
 
     WalletID m_WalletID;
+    PeerID m_SecureWalletID;
+    uint64_t m_OwnID;
     IWalletDB::Ptr m_WalletDB;
     IPrivateKeyKeeper::Ptr m_KeyKeeper;
     TestWallet m_Wallet;

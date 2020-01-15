@@ -143,7 +143,8 @@ namespace beam::wallet
     MACRO(NotLoopback,                   25, "Not a loopback transaction") \
     MACRO(NoKeyKeeper,                   26, "Key keeper is not initialized") \
     MACRO(NoAssetId,                     27, "No valid asset id/asset idx") \
-    MACRO(ConsumeAmountTooBig,           28, "Cannot consume more than MAX_INT64 asset groth in one transaction")
+    MACRO(ConsumeAmountTooBig,           28, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
+    MACRO(NotEnoughDataForProof,         29, "Some mandatory data for payment proof is missing") \
 
     enum TxFailureReason : int32_t
     {
@@ -206,6 +207,9 @@ namespace beam::wallet
         MaxHeight = 17,
         AssetID = 18,
 
+        MySecureWalletID = 20,
+        PeerSecureWalletID = 21,
+
         PeerResponseTime = 24,
         SubTxIndex = 25,
         PeerPublicSharedBlindingFactor = 26,
@@ -242,13 +246,14 @@ namespace beam::wallet
         FailureReason = 92,
 
         PaymentConfirmation = 99,
+        PaymentConfirmation2 = 100, // uses wallet ID to sign payment proof
 
         PeerSharedBulletProofMSig = 108,
         PeerSharedBulletProofPart2 = 109,
         PeerSharedBulletProofPart3 = 110,
 
         PeerLockImage = 115,
-        AssetIdx = 116,
+        AssetOwnerIdx = 116,
 
         // private parameters
         PrivateFirstParam = 128,
@@ -269,10 +274,13 @@ namespace beam::wallet
         KernelID = 152,
         MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
 
+        PartialSignature = 159,
+
         SharedBlindingFactor = 160,
         MyNonce = 162,
         NonceSlot = 163,
         PublicNonce = 164,
+        PublicExcess = 165,
         SharedBulletProof = 171,
         SharedCoinID = 172,
         SharedSeed = 173,
@@ -469,7 +477,7 @@ namespace beam::wallet
             , TxType txType = TxType::Simple
             , Amount amount = 0
             , Amount fee =0
-            , const AssetID& assetId = Zero
+            , AssetID assetId = 0
             , Height minHeight = 0
             , const WalletID & peerId = Zero
             , const WalletID& myId = Zero
@@ -512,8 +520,8 @@ namespace beam::wallet
         Amount m_fee = 0;
         Amount m_changeBeam = 0;
         Amount m_changeAsset = 0;
-        AssetID m_assetId = Zero;
-        Key::Index m_assetIdx = 0;
+        AssetID m_assetId = 0;
+        Key::Index m_assetOwnerIdx = 0;
         Height m_minHeight = 0;
         WalletID m_peerId = Zero;
         WalletID m_myId = Zero;

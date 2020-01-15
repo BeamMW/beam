@@ -55,13 +55,6 @@ namespace beam::wallet
             && m_Tx.GetParameter(TxParameterID::PeerPublicSharedBlindingFactor, m_PeerPublicSharedBlindingFactor, SubTxIndex::BEAM_LOCK_TX);
     }
 
-    ECC::Point::Native SharedTxBuilder::GetPublicExcess() const
-    {
-        // correct public blinding excess
-        Point::Native pt = m_PeerPublicSharedBlindingFactor;
-        pt = -pt;
-        return BaseTxBuilder::GetPublicExcess() + pt;
-    }
 
     void SharedTxBuilder::InitTx(bool isTxOwner)
     {
@@ -80,7 +73,6 @@ namespace beam::wallet
         {
             InitInput();
         }
-        GenerateOffset();
     }
 
     void SharedTxBuilder::InitInput()

@@ -31,6 +31,8 @@ Control {
     property alias  connectionStatus:       statusIndicator.status
     property alias  connectionErrorMsg:     connectionErrorMsg.text
 
+    property var    mainSettingsViewModel: undefined
+
     //
     // Node props
     //
@@ -59,6 +61,7 @@ Control {
     ConfirmPasswordDialog {
         id: confirmPasswordDialog
         parent: control.parent
+        settingsViewModel: mainSettingsViewModel 
     }
 
     //

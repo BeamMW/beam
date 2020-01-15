@@ -157,7 +157,6 @@ class NodeProcessor
 public:
 
 	struct StartParams {
-		bool m_ResetCursor = false;
 		bool m_CheckIntegrity = false;
 		bool m_Vacuum = false;
 		bool m_ResetSelfID = false;
@@ -421,7 +420,8 @@ public:
 		struct Value {
 			ECC::Key::IDV::Packed m_Kidv;
 			uintBigFor<Height>::Type m_Maturity;
-			AssetID m_AssetID;
+			uintBigFor<AssetID>::Type m_AssetID;
+			proto::UtxoEvent::AuxBuf1 m_Buf1;
 			uint8_t m_Flags;
 		};
 
@@ -457,8 +457,13 @@ public:
 
 	static bool IsDummy(const Key::IDV&);
 
-	NodeDB::StatesMmr m_StatesMmr;
-	NodeDB::StreamMmr m_ShieldedMmr;
+	struct Mmr
+	{
+		Mmr(NodeDB&);
+		NodeDB::StatesMmr m_States;
+		NodeDB::StreamMmr m_Shielded;
+
+	} m_Mmr;
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);

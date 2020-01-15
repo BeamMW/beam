@@ -158,9 +158,9 @@ struct KeyKeeper
         return ks.m_sRes;
     }
 
-    size_t AllocateNonceSlot()
+    size_t AllocateNonceSlotSync()
     {
-        return _impl->AllocateNonceSlot();
+        return _impl->AllocateNonceSlotSync();
     }
 
     std::string GenerateNonce(size_t slot)
@@ -280,7 +280,7 @@ struct KeyKeeper
 
             ECC::Point::Native peerPublicNonce = Zero;
             ECC::Point::Native publicNonce;
-            uint8_t nonceSlot = (uint8_t)_impl->AllocateNonceSlot();
+            uint8_t nonceSlot = (uint8_t)_impl->AllocateNonceSlotSync();
             publicNonce.Import(_impl->GenerateNonceSync(nonceSlot));
 
             ECC::Signature signature;
@@ -325,7 +325,7 @@ EMSCRIPTEN_BINDINGS()
         .constructor<const beam::WordList&>()
         .function("generatePublicKey",  &KeyKeeper::GeneratePublicKey)
         .function("getOwnerKey",        &KeyKeeper::GetOwnerKey)
-        .function("allocateNonceSlot",  &KeyKeeper::AllocateNonceSlot)
+        .function("allocateNonceSlot",  &KeyKeeper::AllocateNonceSlotSync)
         .function("generateNonce",      &KeyKeeper::GenerateNonce)
         .function("generateOutput",     &KeyKeeper::GenerateOutput)
         .function("sign",               &KeyKeeper::Sign)

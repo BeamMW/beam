@@ -161,36 +161,10 @@ namespace beam
 
 	/////////////
 	// SwitchCommitment
-	ECC::Point::Native SwitchCommitment::HGenFromAID(const AssetID& assetId)
-    {
-	    if (assetId == Zero)
-        {
-	        return Zero;
-        }
-
-	    ECC::Oracle oracle;
-        oracle
-            << "a-id"
-            << assetId;
-
-        ECC::Point pt;
-        pt.m_Y = 0;
-
-        ECC::Point::Native result;
-        do
-        {
-            oracle
-                << "a-gen"
-                >> pt.m_X;
-        }
-        while (!result.ImportNnz(pt));
-
-        return result;
-    }
-
-	SwitchCommitment::SwitchCommitment(const AssetID* pAssetID /* = nullptr */)
+	SwitchCommitment::SwitchCommitment(const AssetID nAssetID /* = 0 */)
 	{
-	    m_hGen = SwitchCommitment::HGenFromAID(pAssetID ? *pAssetID : Zero);
+		if (nAssetID)
+			AssetInfo::Base(nAssetID).get_Generator(m_hGen);
 	}
 
 	void SwitchCommitment::get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J)
@@ -295,7 +269,7 @@ namespace beam
 		if (!comm.Import(m_Commitment))
 			return false;
 
-		SwitchCommitment sc(&m_AssetID);
+		SwitchCommitment sc(m_AssetID);
 
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
@@ -342,7 +316,7 @@ namespace beam
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER(m_RecoveryOnly)
 		CMP_MEMBER(m_Incubation)
-		CMP_MEMBER_EX(m_AssetID)
+		CMP_MEMBER(m_AssetID)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
 
@@ -359,7 +333,7 @@ namespace beam
 
 	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
-		SwitchCommitment sc(&m_AssetID);
+		SwitchCommitment sc(m_AssetID);
 		sc.Create(sk, m_Commitment, coinKdf, kidv);
 
 		ECC::Oracle oracle;
@@ -431,7 +405,7 @@ namespace beam
 		if (!comm2.Import(m_Commitment))
 			return false;
 
-		SwitchCommitment(&m_AssetID).Recover(comm, coinKdf, kidv);
+		SwitchCommitment(m_AssetID).Recover(comm, coinKdf, kidv);
 
 		comm = -comm;
 		comm += comm2;
@@ -785,7 +759,7 @@ namespace beam
 	{
 		hp
 			<< m_Commitment
-			<< m_AssetID;
+			<< m_Owner;
 	}
 
 	void TxKernelAssetBase::HashSelfForID(ECC::Hash::Processor& hp) const
@@ -808,13 +782,13 @@ namespace beam
 
 		exc += pPt[0];
 
-		if (m_AssetID == Zero)
+		if (m_Owner == Zero)
 			return false;
 
-		ECC::Point pkAsset;
-		pkAsset.m_X = m_AssetID;
-		pkAsset.m_Y = 0;
-		if (!pPt[1].Import(pkAsset))
+		ECC::Point pkOwner;
+		pkOwner.m_X = m_Owner;
+		pkOwner.m_Y = 0;
+		if (!pPt[1].Import(pkOwner))
 			return false;
 
 		// prover must prove knowledge of excess AND m_AssetID sk
@@ -826,7 +800,7 @@ namespace beam
 		TxKernelNonStd::CopyFrom(v);
 		m_Commitment = v.m_Commitment;
 		m_Signature = v.m_Signature;
-		m_AssetID = v.m_AssetID;
+		m_Owner = v.m_Owner;
 	}
 
 	void TxKernelAssetBase::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
@@ -846,7 +820,9 @@ namespace beam
 	void TxKernelAssetEmit::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
 		TxKernelAssetBase::HashSelfForMsg(hp);
-		hp << Amount(m_Value);
+		hp
+			<< m_AssetID
+			<< Amount(m_Value);
 	}
 
 	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
@@ -854,10 +830,10 @@ namespace beam
 		if (!TxKernelAssetBase::IsValid(hScheme, exc, pParent))
 			return false;
 
-		if (!m_Value)
+		if (!m_Value || !m_AssetID)
 			return false;
 
-		SwitchCommitment sc(&m_AssetID);
+		SwitchCommitment sc(m_AssetID);
 		assert(ECC::Tag::IsCustom(&sc.m_hGen));
 
 		// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
@@ -2113,6 +2089,47 @@ namespace beam
 	{
 		uint32_t ret = GetTime_ms();
 		return ret ? ret : 1;
+	}
+
+	/////////////
+	// AssetInfo
+	void AssetInfo::Base::get_Generator(ECC::Point::Native& res, ECC::Point::Storage& res_s) const
+	{
+		assert(m_ID);
+
+		ECC::Point pt;
+		pt.m_Y = 0;
+
+		ECC::Oracle oracle;
+		oracle
+			<< "B.Asset.Gen.V1"
+			<< m_ID;
+
+		do
+			oracle >> pt.m_X;
+		while (!res.ImportNnz(pt, &res_s));
+	}
+
+	void AssetInfo::Base::get_Generator(ECC::Point::Native& res) const
+	{
+		ECC::Point::Storage res_s;
+		get_Generator(res, res_s);
+	}
+
+	void AssetInfo::Base::get_Generator(ECC::Point::Storage& res_s) const
+	{
+		ECC::Point::Native res;
+		get_Generator(res, res_s);
+	}
+
+	void AssetInfo::Full::get_Hash(ECC::Hash::Value& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "B.Asset.V1"
+			<< m_ID
+			<< m_Value
+			<< m_Owner
+			>> hv;
 	}
 
 } // namespace beam

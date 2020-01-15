@@ -642,19 +642,19 @@ namespace beam::wallet
     {
         std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 
-        function<Point(const Key::IDV&, const AssetID& assetId)> commitmentFunc;
+        function<Point(const Key::IDV&, AssetID assetId)> commitmentFunc;
         if (m_KeyKeeper)
         {
-            commitmentFunc = [this](const auto& kidv, const auto& assetId) {
+            commitmentFunc = [this](const auto& kidv, AssetID assetId) {
                 return m_KeyKeeper->GenerateCoinKeySync(kidv, assetId);
             };
         }
         else if (auto ownerKdf = m_WalletDB->get_OwnerKdf(); ownerKdf)
         {
-            commitmentFunc = [ownerKdf](const auto& kidv, const auto& assetId)
+            commitmentFunc = [ownerKdf](const auto& kidv, AssetID assetId)
             {
                 Point::Native pt;
-                SwitchCommitment sw(&assetId);
+                SwitchCommitment sw(assetId);
 
                 sw.Recover(pt, *ownerKdf, kidv);
                 Point commitment = pt;
@@ -669,7 +669,10 @@ namespace beam::wallet
             // filter-out false positives
             if (commitmentFunc)
             {
-                Point commitment = commitmentFunc(event.m_Kidv, event.m_AssetID);
+                AssetID assetId;
+                event.m_AssetID.Export(assetId);
+
+                Point commitment = commitmentFunc(event.m_Kidv, assetId);
                 if (commitment == event.m_Commitment)
                     ProcessUtxoEvent(event);
                 else
@@ -679,7 +682,7 @@ namespace beam::wallet
                     {
                         event.m_Kidv.set_WorkaroundBb21();
 
-                        commitment = commitmentFunc(event.m_Kidv, event.m_AssetID);
+                        commitment = commitmentFunc(event.m_Kidv, assetId);
                         if (commitment == event.m_Commitment)
                             ProcessUtxoEvent(event);
                     }
@@ -723,13 +726,13 @@ namespace beam::wallet
     {
         Coin c;
         c.m_ID = evt.m_Kidv;
-        c.m_assetId = evt.m_AssetID;
+        evt.m_AssetID.Export(c.m_assetId);
 
         bool bExists = m_WalletDB->findCoin(c);
         c.m_maturity = evt.m_Maturity;
 
 		bool bAdd = 0 != (proto::UtxoEvent::Flags::Add & evt.m_Flags);
-        LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + evt.m_AssetID.str() : "")
+        LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + to_string(c.m_assetId) : "")
                    << " Maturity=" << evt.m_Maturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << evt.m_Height;
 
         if (bAdd)
@@ -746,7 +749,7 @@ namespace beam::wallet
                 {
                     c.m_status = Coin::Status::Outgoing;
                     c.m_spentTxId = txid;
-                    LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + evt.m_AssetID.str() : "")
+                    LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + to_string(c.m_assetId) : "")
                                << " marked as Outgoing";
                 }
             }
@@ -909,12 +912,15 @@ namespace beam::wallet
         std::unordered_set<BaseTransaction::Ptr> txSet;
         txSet.swap(m_TransactionsToUpdate);
 
-        AsyncContextHolder async(*this);
-        for (auto it = txSet.begin(); txSet.end() != it; it++)
+        if (!txSet.empty())
         {
-            BaseTransaction::Ptr pTx = *it;
-            if (m_ActiveTransactions.find(pTx->GetTxID()) != m_ActiveTransactions.end())
-                pTx->Update();
+            AsyncContextHolder async(*this);
+            for (auto it = txSet.begin(); txSet.end() != it; it++)
+            {
+                BaseTransaction::Ptr pTx = *it;
+                if (m_ActiveTransactions.find(pTx->GetTxID()) != m_ActiveTransactions.end())
+                    pTx->Update();
+            }
         }
     }
 

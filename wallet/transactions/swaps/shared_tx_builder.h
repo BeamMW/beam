@@ -31,7 +31,6 @@ namespace beam::wallet
         Height GetMaxHeight() const override;
 
         bool GetSharedParameters();
-        ECC::Point::Native GetPublicExcess() const override;
 
     protected:
 
@@ -39,7 +38,6 @@ namespace beam::wallet
         void InitOutput();
         void InitMinHeight();
 
-        //void InitOffset();
         void LoadPeerOffset();
 
 

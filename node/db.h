@@ -57,6 +57,7 @@ public:
 			UtxoStamp,
 			ShieldedOutputs,
 			ShieldedInputs,
+			AssetsCount, // The last element is guaranteed to be used.
 		};
 	};
 
@@ -114,6 +115,7 @@ public:
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlockPP,
+			StateDelBlockPPR,
 			StateDelBlockAll,
 			EventIns,
 			EventDel,
@@ -157,6 +159,14 @@ public:
 			UniqueIns,
 			UniqueFind,
 			UniqueDel,
+
+			AssetFindOwner,
+			AssetFindBoth,
+			AssetFindMin,
+			AssetAdd,
+			AssetDel,
+			AssetGetVal,
+			AssetSetVal,
 
 			Dbg0,
 			Dbg1,
@@ -289,12 +299,13 @@ public:
 	bool get_StateExtra(uint64_t rowid, ECC::Scalar&, ByteBuffer* = nullptr);
 	TxoID get_StateTxos(uint64_t rowid);
 
-	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob*);
+	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob* pExtra, const Blob* pRB);
 
 	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE, const PeerID&);
-	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE);
-	void DelStateBlockPP(uint64_t rowid); // delete perishable, peer. Keep eternal, extra, txos
-	void DelStateBlockAll(uint64_t rowid); // delete perishable, peer, eternal, extra, txos
+	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRB);
+	void DelStateBlockPP(uint64_t rowid); // delete perishable, peer. Keep eternal, extra, txos, rollback
+	void DelStateBlockPPR(uint64_t rowid); // delete perishable, rollback, peer. Keep eternal, extra, txos
+	void DelStateBlockAll(uint64_t rowid); // delete perishable, peer, eternal, extra, txos, rollback
 
 	struct StateID {
 		uint64_t m_Row;
@@ -558,6 +569,13 @@ public:
 	bool UniqueFind(const Blob& key, Recordset&);
 	void UniqueDeleteStrict(const Blob& key);
 
+	void AssetAdd(AssetInfo::Full&); // on return sets the ID
+	bool AssetFindByOwner(AssetInfo::Full&); // set ID to min threshold as well
+	bool IsAssetPresent(AssetID, const PeerID&);
+	AssetID AssetDelete(AssetID); // returns remaining assets count (including the unused)
+	void AssetGetValue(AssetID, AmountBig::Type&);
+	void AssetSetValue(AssetID, const AmountBig::Type&);
+
 private:
 
 	sqlite3* m_pDb;
@@ -611,6 +629,11 @@ private:
 	void StreamResize(StreamType::Enum, uint64_t n, uint64_t n0);
 
 	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
+
+	static const AssetID s_AssetEmpty0;
+	void AssetInsertRaw(AssetID, const AssetInfo::Full*);
+	void AssetDeleteRaw(AssetID);
+	AssetID AssetFindMinFree(AssetID nMin);
 };
 
 

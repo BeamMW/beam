@@ -738,7 +738,7 @@ namespace beam::wallet
         const int DbVersion10 = 10;
     }
 
-    Coin::Coin(Amount amount /* = 0 */, Key::Type keyType /* = Key::Type::Regular */, AssetID assetId /* = Zero */)
+    Coin::Coin(Amount amount /* = 0 */, Key::Type keyType /* = Key::Type::Regular */, AssetID assetId /* = 0 */)
         : m_status{ Status::Unavailable }
         , m_maturity{ MaxHeight }
         , m_confirmHeight{ MaxHeight }
@@ -749,7 +749,7 @@ namespace beam::wallet
         m_ID = Zero;
         m_ID.m_Value = amount;
         m_ID.m_Type = keyType;
-        assert((m_ID.isAsset() && m_assetId != Zero) || (!m_ID.isAsset() && m_assetId == Zero));
+        assert((m_ID.isAsset() && m_assetId != 0) || (!m_ID.isAsset() && m_assetId == 0));
     }
 
     bool Coin::isReward() const
@@ -766,7 +766,7 @@ namespace beam::wallet
 
     bool Coin::isAsset() const
     {
-        assert((m_ID.isAsset() && m_assetId != Zero) || (!m_ID.isAsset() && m_assetId == Zero));
+        assert((m_ID.isAsset() && m_assetId != 0) || (!m_ID.isAsset() && m_assetId == 0));
         return m_ID.isAsset();
     }
 
@@ -1506,11 +1506,11 @@ namespace beam::wallet
         return m_OwnerKdf;
     }
 
-    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid, const AssetID& assetId)
+    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid, AssetID assetId)
     {
         ECC::Point commitment;
         ECC::Scalar::Native sk;
-        SwitchCommitment(&assetId).Create(sk, commitment, *get_ChildKdf(cid), cid);
+        SwitchCommitment(assetId).Create(sk, commitment, *get_ChildKdf(cid), cid);
         return commitment;
     }
 
@@ -1762,9 +1762,9 @@ namespace beam::wallet
         return updatedCoins;
     }
 
-    Coin WalletDB::generateNewCoin(Amount amount, const AssetID& assetId)
+    Coin WalletDB::generateNewCoin(Amount amount, AssetID assetId)
     {
-        Coin coin(amount, assetId == Zero ? Key::Type::Regular : Key::Type::Asset, assetId);
+        Coin coin(amount, assetId == 0 ? Key::Type::Regular : Key::Type::Asset, assetId);
         coin.m_ID.m_Idx = get_RandomID();
 
         // check for collisions
@@ -2194,11 +2194,11 @@ namespace beam::wallet
                 case TxParameterID::IsSelfTx:
                     deserialize(txDescription.m_selfTx, parameter.m_value);
                     break;
-                case TxParameterID ::AssetID:
+                case TxParameterID::AssetID:
                     deserialize(txDescription.m_assetId, parameter.m_value);
                     break;
-                case TxParameterID::AssetIdx:
-                    deserialize(txDescription.m_assetIdx, parameter.m_value);
+                case TxParameterID::AssetOwnerIdx:
+                    deserialize(txDescription.m_assetOwnerIdx, parameter.m_value);
                     break;
                 default:
                     break; // suppress warning
@@ -2224,7 +2224,7 @@ namespace beam::wallet
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeBeam,  p.m_changeBeam, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeAsset, p.m_changeAsset, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetID, p.m_assetId, false);
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetIdx, p.m_assetIdx, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetOwnerIdx, p.m_assetOwnerIdx, false);
         if (p.m_minHeight)
         {
             storage::setTxParameter(*this, p.m_txId, TxParameterID::MinHeight, p.m_minHeight, false);

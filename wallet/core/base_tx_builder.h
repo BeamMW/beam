@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include "wallet_db.h"
+#include "base_transaction.h"
 
 #include <condition_variable>
 #include <boost/optional.hpp>
@@ -23,13 +24,12 @@
 
 namespace beam::wallet
 {
-    class BaseTransaction;
 
     class BaseTxBuilder : public std::enable_shared_from_this<BaseTxBuilder>
     {
     public:
         BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
-
+        virtual ~BaseTxBuilder() = default;
         void SelectInputs();
         void AddChange();
         void GenerateAssetCoin(Amount amount, bool change);
@@ -39,7 +39,6 @@ namespace beam::wallet
         bool LoadKernel();
         bool HasKernelID() const;
         void CreateKernel();
-        void GenerateOffset();
         void GenerateNonce();
         virtual ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
@@ -54,7 +53,8 @@ namespace beam::wallet
         bool CreateInputs();
         void FinalizeInputs();
         virtual Transaction::Ptr CreateTransaction();
-        void SignPartial();
+        bool SignSender(bool initial);
+        bool SignReceiver();
         bool IsPeerSignatureValid() const;
 
         Amount GetAmount() const;
@@ -78,9 +78,50 @@ namespace beam::wallet
 
         const std::vector<Coin::ID>& GetInputCoins() const;
         const std::vector<Coin::ID>& GetOutputCoins() const;
+
+    protected:
+
+
+        template <typename Result, typename Func, typename ContinueFunc>
+        void DoAsync(Func&& asyncFunc, ContinueFunc&& continueFunc, int line)
+        {
+            if (auto it = m_Exceptions.find(line); it != m_Exceptions.end())
+            {
+                auto ex = it->second;
+                m_Exceptions.erase(it);
+                std::rethrow_exception(ex);
+            }
+            auto thisHolder = shared_from_this();
+            auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
+            m_Tx.GetAsyncAcontext().OnAsyncStarted();
+
+            asyncFunc(
+                [thisHolder, this, txHolder, continueFunc](Result&& res)
+                {
+                    continueFunc(std::move(res));
+                    m_Tx.UpdateAsync(); // may complete transaction
+                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
+                },
+                [thisHolder, this, line, txHolder](std::exception_ptr ex)
+                {
+                    m_Exceptions.emplace(line, ex);
+                    m_Tx.UpdateAsync();
+                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
+                });
+        }
+
+        std::map<int, std::exception_ptr> m_Exceptions;
+
     private:
         Amount GetMinimumFee() const;
         void CheckMinimumFee();
+
+        template<typename T1, typename T2>
+        void StoreAndLoad(TxParameterID parameterID, const T1& source, T2& dest)
+        {
+            m_Tx.SetParameter(parameterID, source, m_SubTxID);
+            m_Tx.GetParameter(parameterID, dest, m_SubTxID);
+        }
     protected:
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
@@ -102,6 +143,7 @@ namespace beam::wallet
         std::vector<Coin::ID> m_OutputCoins;
         size_t m_NonceSlot = 0;
         ECC::Point::Native m_PublicNonce;
+        ECC::Point::Native m_PublicExcess;
 
         // peer values
         ECC::Scalar::Native m_PartialSignature;

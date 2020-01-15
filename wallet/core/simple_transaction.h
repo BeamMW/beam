@@ -69,8 +69,7 @@ namespace beam::wallet
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         void SendInvitation(const BaseTxBuilder& builder, bool isSender);
-        void ConfirmInvitation(const BaseTxBuilder& builder, bool sendUtxos);
-        void ConfirmTransaction(const BaseTxBuilder& builder, bool sendUtxos);
+        void ConfirmInvitation(const BaseTxBuilder& builder);
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;
         State GetState() const;

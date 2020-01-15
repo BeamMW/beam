@@ -316,6 +316,8 @@ namespace proto {
 	{
 		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
+        typedef uintBig_t<ECC::uintBig::nBytes - sizeof(AssetID)> AuxBuf1;
+
 #pragma pack(push, 1)
 		struct Shielded
 		{
@@ -329,10 +331,10 @@ namespace proto {
 
         struct ShieldedDelta
         {
-            uint8_t m_pBuf[sizeof(Shielded) - sizeof(Key::ID::Packed)];
+            uint8_t m_pBuf[sizeof(Shielded) - sizeof(Key::ID::Packed) - AuxBuf1::nBytes];
 
-            void Set(Key::ID::Packed&, const Shielded&);
-            void Get(const Key::ID::Packed&, Shielded&) const;
+            void Set(Key::ID::Packed&, AuxBuf1&, const Shielded&);
+            void Get(const Key::ID::Packed&, const AuxBuf1&, Shielded&) const;
         };
 
 #pragma pack(pop)
@@ -340,7 +342,9 @@ namespace proto {
 		Key::IDV m_Kidv;
 		ShieldedDelta m_ShieldedDelta;
 		ECC::Point m_Commitment;
-		AssetID m_AssetID;
+        uintBigFor<AssetID>::Type m_AssetID;
+
+        AuxBuf1 m_Buf1; // for hystorical reasons
 
 		Height m_Height;
 		Height m_Maturity;
@@ -359,6 +363,7 @@ namespace proto {
 				& m_Commitment
 				& m_Kidv
 				& m_AssetID
+                & m_Buf1
 				& m_Height
 				& m_Maturity
 				& m_Flags;

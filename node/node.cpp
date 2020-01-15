@@ -2951,7 +2951,7 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height 
 
     Merkle::ProofBuilderHard bld;
 
-    m_StatesMmr.get_Proof(bld, m_StatesMmr.H2I(h));
+    m_Mmr.m_States.get_Proof(bld, m_Mmr.m_States.H2I(h));
 
     proof.swap(bld.m_Proof);
 
@@ -3063,7 +3063,7 @@ void Node::Processor::GenerateProofShielded(Merkle::Proof& p, const uintBigFor<T
     TxoID nIdx;
     mmrIdx.Export(nIdx);
 
-    m_ShieldedMmr.get_Proof(p, nIdx);
+    m_Mmr.m_Shielded.get_Proof(p, nIdx);
 
     struct MyProofBuilder
         :public NodeProcessor::ProofBuilder
@@ -3135,12 +3135,12 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 	proto::ShieldedList msgOut;
 
 	Processor& p = m_This.m_Processor;
-	if ((msg.m_Id0 < p.m_ShieldedMmr.m_Count) && msg.m_Count)
+	if ((msg.m_Id0 < p.m_Mmr.m_Shielded.m_Count) && msg.m_Count)
 	{
 		if (msg.m_Count > Lelantus::Cfg::Max::N)
 			msg.m_Count = Lelantus::Cfg::Max::N;
 
-		TxoID n = p.m_ShieldedMmr.m_Count - msg.m_Id0;
+		TxoID n = p.m_Mmr.m_Shielded.m_Count - msg.m_Id0;
 
 		if (msg.m_Count > n)
 			msg.m_Count = static_cast<uint32_t>(n);
@@ -3177,7 +3177,7 @@ bool Node::Processor::BuildCwp()
 
         virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
         {
-            m_Proc.m_StatesMmr.get_Proof(bld, m_Proc.m_StatesMmr.H2I(h));
+            m_Proc.m_Mmr.m_States.get_Proof(bld, m_Proc.m_Mmr.m_States.H2I(h));
         }
     };
 
@@ -4373,7 +4373,7 @@ void Node::PrintTxos()
         if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
         {
             proto::UtxoEvent::Shielded ues;
-            Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kidv, ues);
+            Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kidv, evt.m_Buf1, ues);
             TxoID id;
             ues.m_ID.Export(id);
             os << ", Shielded TxoID=" << id;

@@ -28,7 +28,7 @@ namespace beam
 	typedef ECC::Hash::Value PeerID;
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
-	typedef PeerID AssetID;
+	typedef uint64_t AssetID; // 1-based asset index. 0 is reserved for default asset (Beam)
 	typedef uint64_t TxoID;
 
 	using ECC::Key;
@@ -194,10 +194,9 @@ namespace beam
 		void AddValue(ECC::Point::Native& comm, Amount) const;
 		static void get_Hash(ECC::Hash::Value&, const Key::IDV&);
 	public:
-		static ECC::Point::Native HGenFromAID(const AssetID& assetId);
 
 	    ECC::Point::Native m_hGen;
-		SwitchCommitment(const AssetID* pAssetID = nullptr);
+		SwitchCommitment(AssetID = 0);
 
 		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&) const;
 		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const Key::IDV&) const;
@@ -220,6 +219,30 @@ namespace beam
 
 		void Reset();
 		void operator += (const TxStats&);
+	};
+
+	struct AssetInfo
+	{
+		struct Base
+		{
+			AssetID m_ID;
+
+			Base(AssetID id = 0) :m_ID(id) {}
+
+			void get_Generator(ECC::Point::Native&) const;
+			void get_Generator(ECC::Point::Storage&) const;
+			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
+		};
+
+		struct Full
+			:public Base
+		{
+			AmountBig::Type m_Value;
+			PeerID m_Owner;
+			// metadata?
+
+			void get_Hash(ECC::Hash::Value&) const;
+		};
 	};
 
 	struct TxElement
@@ -302,7 +325,7 @@ namespace beam
 			:m_Coinbase(false)
 			,m_RecoveryOnly(false)
 			,m_Incubation(0)
-			,m_AssetID(Zero)
+			,m_AssetID(0)
 		{
 		}
 
@@ -517,7 +540,7 @@ namespace beam
 	struct TxKernelAssetBase
 		:public TxKernelNonStd
 	{
-		AssetID m_AssetID;
+		PeerID m_Owner;
 
 		ECC::Point m_Commitment;	// aggregated, including nested kernels
 		ECC::SignatureGeneralized<1> m_Signature;
@@ -536,6 +559,7 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelAssetEmit> Ptr;
 
+		AssetID m_AssetID;
 		AmountSigned m_Value;
 		TxKernelAssetEmit() :m_Value(0) {}
 
