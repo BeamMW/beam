@@ -636,6 +636,7 @@ namespace beam::wallet
 
         bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, WalletAddress::ExpirationStatus status);
         WalletAddress createAddress(IWalletDB& walletDB, IPrivateKeyKeeper::Ptr keyKeeper);
+        PeerID generateIdentityFromIndex(const IWalletDB& walletDB, uint64_t ownID);
         WalletID generateWalletIDFromIndex(IPrivateKeyKeeper::Ptr keyKeeper, uint64_t ownID);
 
         Coin::Status GetCoinStatus(const IWalletDB&, const Coin&, Height hTop);
