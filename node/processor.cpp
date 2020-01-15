@@ -2559,6 +2559,9 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 		AssetInfo::Full ai;
 		ai.m_ID = 0; // auto
 		ai.m_Owner = krn.m_Owner;
+
+		TemporarySwap<ByteBuffer> ts(Cast::NotConst(krn).m_MetaData, ai.m_Metadata);
+
 		InternalAssetAdd(ai);
 
 		BlockInterpretCtx::Ser ser(bic);
@@ -2593,8 +2596,13 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 			return false;
 
 		if (bic.m_UpdateMmrs)
+		{
 			// looks good
 			InternalAssetDel(krn.m_AssetID);
+
+			BlockInterpretCtx::Ser ser(bic);
+			ser & ai.m_Metadata;
+		}
 	}
 	else
 	{
@@ -2603,6 +2611,9 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 			AssetInfo::Full ai;
 			ai.m_ID = krn.m_AssetID;
 			ai.m_Owner = krn.m_Owner;
+
+			BlockInterpretCtx::Der der(bic);
+			der & ai.m_Metadata;
 
 			InternalAssetAdd(ai);
 

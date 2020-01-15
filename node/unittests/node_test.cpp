@@ -1587,6 +1587,7 @@ namespace beam
 			{
 				Height m_hCreated = 0;
 				bool m_Emitted = false;
+				ByteBuffer m_MetaData;
 				ECC::Scalar::Native m_skOwner;
 				AssetID m_ID = 0; // set after successful creation + proof
 				bool m_Recognized = false;
@@ -1907,6 +1908,8 @@ namespace beam
 				if (msg.m_Proof.empty())
 					return;
 
+				verify_test(msg.m_Info.m_Metadata == m_Assets.m_MetaData);
+
 				verify_test(m_vStates.back().IsValidProofAsset(msg.m_Info, msg.m_Proof));
 
 				m_Assets.m_ID = msg.m_Info.m_ID;
@@ -2114,10 +2117,15 @@ namespace beam
 				ECC::SetRandom(sk);
 				ECC::SetRandom(m_Assets.m_skOwner);
 
+				static const char szMyData[] = "My cool metadata!";
+				m_Assets.m_MetaData.resize(sizeof(szMyData) - 1);
+				memcpy(&m_Assets.m_MetaData.front(), szMyData, sizeof(szMyData) - 1);
+
 				TxKernelAssetCreate::Ptr pKrn(new TxKernelAssetCreate);
 				pKrn->m_Fee = nFee;
 				pKrn->m_Height.m_Min = s.m_Height + 1;
 				proto::Sk2Pk(pKrn->m_Owner, m_Assets.m_skOwner);
+				pKrn->m_MetaData = m_Assets.m_MetaData;
 				pKrn->Sign(sk, m_Assets.m_skOwner);
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));

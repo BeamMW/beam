@@ -426,8 +426,8 @@ namespace proto {
     inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
     inline void ZeroInit(TxKernel::LongProof& x) { ZeroObject(x.m_State); }
 	inline void ZeroInit(BodyBuffers&) { }
-    inline void ZeroInit(AssetInfo::Data& x) { ZeroObject(x); } // ok as long as there're no non-trivial objects inside (such as metadata buffer)
-    inline void ZeroInit(AssetInfo::Full& x) { ZeroObject(x); }
+    inline void ZeroInit(AssetInfo::Data& x) { x.Reset(); }
+    inline void ZeroInit(AssetInfo::Full& x) { x.Reset(); }
 
     template <typename T> struct InitArg {
         typedef const T& TArg;

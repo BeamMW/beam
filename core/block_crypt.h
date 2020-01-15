@@ -238,7 +238,11 @@ namespace beam
 		{
 			AmountBig::Type m_Value;
 			PeerID m_Owner;
-			// metadata?
+
+			ByteBuffer m_Metadata;
+			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
+
+			void Reset();
 		};
 
 		struct Full
@@ -581,10 +585,14 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelAssetCreate> Ptr;
 
+		ByteBuffer m_MetaData;
+
 		virtual ~TxKernelAssetCreate() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
+	protected:
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelAssetDestroy

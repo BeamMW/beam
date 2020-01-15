@@ -1257,6 +1257,7 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::TxKernelAssetCreate& val)
 		{
 			saveBase(ar, val);
+			ar & val.m_MetaData;
 			return ar;
 		}
 
@@ -1264,6 +1265,7 @@ namespace detail
 		static void load0(Archive& ar, beam::TxKernelAssetCreate& val, uint32_t nRecursion)
 		{
 			load0Base(ar, val, nRecursion);
+			ar & val.m_MetaData;
 		}
 
 		/// beam::TxKernelAssetDestroy serialization
@@ -1588,7 +1590,8 @@ namespace detail
 		{
 			ar
 				& v.m_Owner
-				& v.m_Value;
+				& v.m_Value
+				& v.m_Metadata;
 			return ar;
 		}
 
@@ -1597,7 +1600,8 @@ namespace detail
 		{
 			ar
 				& v.m_Owner
-				& v.m_Value;
+				& v.m_Value
+				& v.m_Metadata;
 			return ar;
 		}
 

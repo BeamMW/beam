@@ -870,6 +870,9 @@ namespace beam
 		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
 			return false;
 
+		if (m_MetaData.size() > AssetInfo::Data::s_MetadataMaxSize)
+			return false;
+
 		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
 		exc += pt;
 
@@ -882,6 +885,15 @@ namespace beam
 		TxKernelAssetCreate& v = Cast::Up<TxKernelAssetCreate>(*p);
 
 		v.CopyFrom(*this);
+		v.m_MetaData = m_MetaData;
+	}
+
+	void TxKernelAssetCreate::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelAssetControl::HashSelfForMsg(hp);
+		hp
+			<< m_MetaData.size()
+			<< Blob(m_MetaData);
 	}
 
 	/////////////
@@ -2155,6 +2167,13 @@ namespace beam
 		get_Generator(res, res_s);
 	}
 
+	void AssetInfo::Data::Reset()
+	{
+		m_Value = Zero;
+		m_Owner = Zero;
+		m_Metadata.clear();
+	}
+
 	void AssetInfo::Full::get_Hash(ECC::Hash::Value& hv) const
 	{
 		ECC::Hash::Processor()
@@ -2162,6 +2181,8 @@ namespace beam
 			<< m_ID
 			<< m_Value
 			<< m_Owner
+			<< m_Metadata.size()
+			<< Blob(m_Metadata)
 			>> hv;
 	}
 
