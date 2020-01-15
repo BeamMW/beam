@@ -18,6 +18,10 @@ if (BEAM_ATOMIC_SWAP_SUPPORT)
     add_test_snippet(electrum_test swap)
 endif()
 
+if (BEAM_LELANTUS_SUPPORT)
+    add_test_snippet(lelantus_test lelantus wallet)
+endif()
+
 
 #add_executable(offline offline.cpp)
 #target_link_libraries(offline node wallet)
