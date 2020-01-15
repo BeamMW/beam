@@ -371,24 +371,16 @@ namespace beam::wallet
             return false;
         }
 
-        auto thisHolder = shared_from_this();
-        auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
-        m_Tx.GetAsyncAcontext().OnAsyncStarted();
-
-        m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_assetId,
-            [thisHolder, this, txHolder](IPrivateKeyKeeper::Outputs&& resOutputs, auto&& resOffset)
+        DoAsync<IPrivateKeyKeeper::OutputsEx>([this](auto&& r, auto&& ex)
             {
-                m_Outputs = std::move(resOutputs);
-                m_Offset += resOffset;
-                m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
-                m_Tx.Update(); // may complete transaction
-                m_Tx.GetAsyncAcontext().OnAsyncFinished();
+                m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_assetId, move(r), move(ex));
             },
-            [thisHolder, this, txHolder](const exception&)
+            [this](IPrivateKeyKeeper::OutputsEx&& resOutputs)
             {
-                m_Tx.GetAsyncAcontext().OnAsyncFinished();
+                m_Outputs = std::move(resOutputs.first);
+                m_Offset += resOutputs.second;
+                m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
             });
-
         return true; // true if async
     }
 

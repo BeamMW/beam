@@ -172,22 +172,15 @@ namespace beam::wallet
             return false;
         }
 
-        auto thisHolder = shared_from_this();
-        auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
-        m_Tx.GetAsyncAcontext().OnAsyncStarted();
-        m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId,
-            [thisHolder, this, txHolder](IPrivateKeyKeeper::Outputs&& resOutputs, auto&&)
+        DoAsync<IPrivateKeyKeeper::OutputsEx>([this](auto&& r, auto&& ex)
             {
-                m_Outputs = std::move(resOutputs);
-                FinalizeOutputs();
-                m_Tx.Update(); // may complete transaction
-                m_Tx.GetAsyncAcontext().OnAsyncFinished();
+                m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId, move(r), move(ex));
             },
-            [thisHolder, this, txHolder](const exception&)
+            [this](IPrivateKeyKeeper::OutputsEx&& resOutputs)
             {
-                //m_Tx.Update();
-                m_Tx.GetAsyncAcontext().OnAsyncFinished();
-            });
+                m_Outputs = std::move(resOutputs.first);
+                FinalizeOutputs();
+            }, __LINE__);
         return true;// true if async
     }
 
@@ -206,33 +199,22 @@ namespace beam::wallet
         {
             return false;
         }
-        //auto thisHolder = shared_from_this();
-        //m_Tx.GetKeyKeeper()->GenerateKey(m_InputCoins, true,
-        //    [thisHolder, this](const auto & result)
-        //    {
-        //        m_Inputs.reserve(result.size());
-        //        for (const auto& commitment : result)
-        //        {
-        //            auto& input = m_Inputs.emplace_back(make_unique<Input>());
-        //            input->m_Commitment = commitment;
-        //        }
-        //        FinalizeInputs();
-        //        //m_Tx.Update();
-        //    },
-        //    [thisHolder, this](const exception&)
-        //    {
-        //        //m_Tx.Update();
-        //    });
-        IPrivateKeyKeeper::PublicKeys commitments;
-        std::tie(commitments, std::ignore) = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_AssetId);
-        m_Inputs.reserve(commitments.size());
-        for (const auto& commitment : commitments)
-        {
-            auto& input = m_Inputs.emplace_back(make_unique<Input>());
-            input->m_Commitment = commitment;
-        }
-        FinalizeInputs();
-        return false; // true if async operation has run
+        DoAsync<IPrivateKeyKeeper::PublicKeysEx>([this](auto&& r, auto&& ex)
+            {
+                m_Tx.GetKeyKeeper()->GeneratePublicKeysEx(m_InputCoins, true, m_AssetId, move(r), move(ex));
+            },
+            [this](IPrivateKeyKeeper::PublicKeysEx&& commitments)
+            {
+                m_Inputs.reserve(commitments.first.size());
+                for (const auto& commitment : commitments.first)
+                {
+                    auto& input = m_Inputs.emplace_back(make_unique<Input>());
+                    input->m_Commitment = commitment;
+                }
+                FinalizeInputs();
+            }, __LINE__);
+
+        return true; // true if async operation has run
     }
 
     void BaseTxBuilder::FinalizeInputs()
@@ -242,8 +224,9 @@ namespace beam::wallet
 
     void BaseTxBuilder::CreateKernel()
     {
+        if (m_Kernel)
+            return;
         // create kernel
-        assert(!m_Kernel);
         m_Kernel = make_unique<TxKernelStd>();
         m_Kernel->m_Fee = GetFee();
         m_Kernel->m_Height.m_Min = GetMinHeight();
@@ -269,18 +252,12 @@ namespace beam::wallet
 		}
     }
 
-    void BaseTxBuilder::GenerateOffset()
-    {
-        m_Offset.GenRandomNnz();
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
-    }
-
     void BaseTxBuilder::GenerateNonce()
     {
         // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
         if (!m_Tx.GetParameter(TxParameterID::NonceSlot, m_NonceSlot, m_SubTxID))
         {
-            m_NonceSlot = m_Tx.GetKeyKeeper()->AllocateNonceSlot();
+            m_NonceSlot = m_Tx.GetKeyKeeper()->AllocateNonceSlotSync();
             m_Tx.SetParameter(TxParameterID::NonceSlot, m_NonceSlot, false, m_SubTxID);
         }
         
@@ -294,61 +271,7 @@ namespace beam::wallet
 
     Point::Native BaseTxBuilder::GetPublicExcess() const
     {
-        // PublicExcess = Sum(inputs) - Sum(outputs) - offset * G - (Sum(input amounts) - Sum(output amounts)) * H
-        ECC::Point::Native assetHGen;
-        if (m_AssetId)
-            AssetInfo::Base(m_AssetId).get_Generator(assetHGen);
-
-        Point::Native publicAmount = Zero;
-        for (const auto& cid : m_InputCoins)
-        {
-            if (cid.isAsset())
-            {
-                AmountBig::AddTo(publicAmount, cid.m_Value, assetHGen);
-            }
-            else
-            {
-                AmountBig::AddTo(publicAmount, cid.m_Value);
-            }
-        }
-
-        publicAmount = -publicAmount;
-        for (const auto& cid : m_OutputCoins)
-        {
-            if(cid.m_Type == Key::Type::Asset || cid.m_Type == Key::Type::AssetChange)
-            {
-                 AmountBig::AddTo(publicAmount, cid.m_Value, assetHGen);
-            }
-            else
-            {
-                AmountBig::AddTo(publicAmount, cid.m_Value);
-            }
-        }
-
-        Point::Native publicExcess = Context::get().G * m_Offset;
-        {
-            Point::Native commitment;
-
-            for (const auto& output : m_Outputs)
-            {
-                if (commitment.Import(output->m_Commitment))
-                {
-                    publicExcess += commitment;
-                }
-            }
-
-            publicExcess = -publicExcess;
-            for (const auto& input : m_Inputs)
-            {
-                if (commitment.Import(input->m_Commitment))
-                {
-                    publicExcess += commitment;
-                }
-            }
-        }
-
-        publicExcess += publicAmount;
-        return publicExcess;
+        return m_PublicExcess;
     }
 
     Point::Native BaseTxBuilder::GetPublicNonce() const
@@ -382,11 +305,11 @@ namespace beam::wallet
     {
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
+        bool hasInputs = m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins, m_SubTxID);
+        bool hasOutputs = m_Tx.GetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::AssetID, m_AssetId, m_SubTxID);
 
-         if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
+        if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
         {
             // adjust min height, this allows create transaction when node is out of sync
             auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
@@ -406,7 +329,11 @@ namespace beam::wallet
 
         CheckMinimumFee();
 
-        return m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+        m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+        m_Tx.GetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
+        m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
+
+        return hasInputs || hasOutputs; 
     }
 
     bool BaseTxBuilder::GetInputs()
@@ -428,36 +355,171 @@ namespace beam::wallet
         return hasInputs || hasOutputs;
     }
 
-    void BaseTxBuilder::SignPartial()
+    bool BaseTxBuilder::SignSender(bool initial)
     {
-        // create signature
-        Point::Native totalPublicExcess = GetPublicExcess();
-        totalPublicExcess += m_PeerPublicExcess;
-        m_Kernel->m_Commitment = totalPublicExcess;
+        try
+        {
+            Point::Native totalPublicExcess = GetPublicExcess();
+            totalPublicExcess += m_PeerPublicExcess;
 
-        KernelParameters kernelParameters;
-        kernelParameters.fee = m_Fee;
-        kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
-        kernelParameters.commitment = totalPublicExcess;
+            if (!initial)
+            {
+                assert(m_Kernel);
+                m_Kernel->m_Commitment = totalPublicExcess;
+                m_Kernel->UpdateID();
 
-		if (m_Kernel->m_pHashLock)
-		{
-			*(m_Kernel->m_pHashLock->m_IsImage ? kernelParameters.lockImage : kernelParameters.lockPreImage) = m_Kernel->m_pHashLock->m_Value;
-		}
+                if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if (m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID)
+                 && m_Tx.GetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID))
+                {
+                    return false;
+                }
+            }
 
-		m_Kernel->UpdateID();
+            Point::Native publicNonce = GetPublicNonce();
+            publicNonce += m_PeerPublicNonce;
 
-        m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_AssetId, m_Offset, m_NonceSlot, kernelParameters, GetPublicNonce() + m_PeerPublicNonce);
-        StoreKernelID();
+            KernelParameters kernelParameters;
+            kernelParameters.fee = m_Fee;
+            kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
+            kernelParameters.commitment = totalPublicExcess;
+            kernelParameters.publicNonce = publicNonce;
+
+            if (!initial)
+            {
+                if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation2, kernelParameters.paymentProofSignature, m_SubTxID)) //
+                {
+                    if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, kernelParameters.peerID)
+                        || !m_Tx.GetParameter(TxParameterID::MySecureWalletID, kernelParameters.myID))
+                    {
+                        throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                    }
+                }
+                else if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation, kernelParameters.paymentProofSignature, m_SubTxID))
+                {
+                    WalletID myWalletID, peerWalletID;
+                    if (!m_Tx.GetParameter(TxParameterID::PeerID, peerWalletID)
+                        || !m_Tx.GetParameter(TxParameterID::MyID, myWalletID))
+                    {
+                        throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                    }
+                    kernelParameters.peerID = peerWalletID.m_Pk;
+                    kernelParameters.myID = myWalletID.m_Pk;
+                }
+                else
+                {
+                    kernelParameters.peerID = Zero;
+                    kernelParameters.myID = Zero;
+                }
+            }
+
+            DoAsync<SenderSignature>([=](auto&& r, auto&& ex)
+                {
+                    m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, initial, move(r), move(ex));
+                },
+                [=](SenderSignature&& signature)
+                {
+                    if (initial)
+                    {
+                        StoreAndLoad(TxParameterID::PublicNonce, signature.m_KernelSignature.m_NoncePub, m_PublicNonce);
+                        StoreAndLoad(TxParameterID::PublicExcess, signature.m_KernelCommitment, m_PublicExcess);
+                    }
+                    else
+                    {
+                        StoreAndLoad(TxParameterID::PartialSignature, signature.m_KernelSignature.m_k, m_PartialSignature);
+                        m_Offset = signature.m_Offset;
+                        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+                        StoreKernelID();
+                    }
+                }, __LINE__);
+            return true; // async
+        }
+        catch (const InvalidPaymentProofException&)
+        {
+            throw TransactionFailedException(!initial, TxFailureReason::NoPaymentProof);
+        }
+        catch (const KeyKeeperException&)
+        {
+            throw TransactionFailedException(!initial, TxFailureReason::FailedToCreateMultiSig);
+        }
+    }
+
+    bool BaseTxBuilder::SignReceiver()
+    {
+        try
+        {
+            if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
+            {
+                return false;
+            }
+            KernelParameters kernelParameters;
+            kernelParameters.fee = m_Fee;
+            kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
+            kernelParameters.commitment = m_PeerPublicExcess;
+            kernelParameters.publicNonce = m_PeerPublicNonce;
+
+            uint64_t addressID = 0;
+            if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, kernelParameters.peerID))
+            {
+                // old sender
+            }
+            else if (!m_Tx.GetParameter(TxParameterID::MyAddressID, addressID))
+            {
+                throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+            }
+        
+            DoAsync<ReceiverSignature>([=](auto&& r, auto&& ex)
+                {
+                    m_Tx.GetKeyKeeper()->SignReceiver(m_InputCoins
+                        , m_OutputCoins
+                        , m_AssetId
+                        , kernelParameters
+                        , addressID
+                        , move(r)
+                        , move(ex));
+                },
+                [=](ReceiverSignature&& signature)
+                {
+                    StoreAndLoad(TxParameterID::PartialSignature, signature.m_KernelSignature.m_k, m_PartialSignature);
+                    if (!m_PublicNonce.Import(signature.m_KernelSignature.m_NoncePub)
+                        || !m_PublicExcess.Import(signature.m_KernelCommitment))
+                    {
+                        throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
+                    }
+        
+                    m_PublicNonce -= m_PeerPublicNonce;
+                    m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
+                    m_PublicExcess -= m_PeerPublicExcess;
+                    m_Tx.SetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
+                    m_Offset = signature.m_Offset;
+                    m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+                    if (addressID)
+                    {
+                        m_Tx.SetParameter(TxParameterID::PaymentConfirmation2, signature.m_PaymentProofSignature);
+                    }
+                    StoreKernelID();
+                }, __LINE__);
+            return true;
+        }
+        catch (const KeyKeeperException&)
+        {
+            throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
+        }
     }
 
     void BaseTxBuilder::FinalizeSignature()
     {
+        assert(m_Kernel);
         // final signature
         m_Kernel->m_Signature.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
         m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
 
-        StoreKernelID();
         m_Tx.SetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID);
     }
 
@@ -606,6 +668,11 @@ namespace beam::wallet
     void BaseTxBuilder::StoreKernelID()
     {
         assert(m_Kernel);
+        Point::Native totalPublicExcess = GetPublicExcess();
+        totalPublicExcess += m_PeerPublicExcess;
+        m_Kernel->m_Commitment = totalPublicExcess;
+
+        m_Kernel->UpdateID();
         m_Tx.SetParameter(TxParameterID::KernelID, m_Kernel->m_Internal.m_ID, m_SubTxID);
     }
 

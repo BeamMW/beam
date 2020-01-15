@@ -179,15 +179,6 @@ namespace beam::wallet
         return Context::get().G * GetSharedBlindingFactor();
     }
 
-    ECC::Point::Native LockTxBuilder::GetPublicExcess() const
-    {
-        // create shared commitment
-        Point::Native pt = GetPublicSharedBlindingFactor();
-        AmountBig::AddTo(pt, GetAmount());
-        pt = -pt;
-        return BaseTxBuilder::GetPublicExcess() + pt;
-    }
-
     const ECC::RangeProof::CreatorParams& LockTxBuilder::GetProofCreatorParams(bool isBeamOwner)
     {
         if (!m_CreatorParams.is_initialized())

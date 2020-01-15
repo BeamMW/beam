@@ -16,10 +16,10 @@
 
 #include "wallet/core/private_key_keeper.h"
 #include "wallet/core/variables_db.h"
+#include <utility>
 
 namespace beam::wallet
 {
-
     //
     // Private key keeper in local storage implementation
     //
@@ -31,25 +31,50 @@ namespace beam::wallet
         virtual ~LocalPrivateKeyKeeper();
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
+        void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID assetID, Callback<PublicKeysEx>&&, ExceptionCallback&&) override;
         void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) override;
-        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, AssetID, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&) override;
+        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, AssetID assetId, Callback<OutputsEx>&&, ExceptionCallback&&) override;
 
-        size_t AllocateNonceSlot() override;
+        void SignReceiver(const std::vector<Key::IDV>& inputs
+                        , const std::vector<Key::IDV>& outputs
+                        , AssetID assetId
+                        , const KernelParameters& kernelParamerters
+                        , const WalletIDKey& walletIDkey
+                        , Callback<ReceiverSignature>&&, ExceptionCallback&&) override;
+        void SignSender(const std::vector<Key::IDV>& inputs
+                      , const std::vector<Key::IDV>& outputs
+                      , AssetID assetId
+                      , size_t nonceSlot
+                      , const KernelParameters& kernelParamerters
+                      , bool initial
+                      , Callback<SenderSignature>&&, ExceptionCallback&&) override;
+
+
+        size_t AllocateNonceSlotSync() override;
 
         PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
-        std::pair<PublicKeys, ECC::Scalar::Native> GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID) override;
+        PublicKeysEx GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID) override;
 
         ECC::Point GeneratePublicKeySync(const Key::IDV& id) override;
         ECC::Point GenerateCoinKeySync(const Key::IDV& id, AssetID) override;
         Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
-        std::pair<Outputs, ECC::Scalar::Native> GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID) override;
+        OutputsEx GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID) override;
 
         //RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
         ECC::Point GenerateNonceSync(size_t slot) override;
         ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const ECC::Point::Native& publicNonce) override;
 
-        boost::optional<ReceiverSignature> SignReceiver(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce) override;
-        boost::optional<SenderSignature> SignSender(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point& publicNonce, bool initial) override;
+        ReceiverSignature SignReceiverSync(const std::vector<Key::IDV>& inputs
+                                     , const std::vector<Key::IDV>& outputs
+                                     , AssetID
+                                     , const KernelParameters& kernelParamerters
+                                     , const WalletIDKey& walletIDkey) override;
+        SenderSignature SignSenderSync(const std::vector<Key::IDV>& inputs
+                                 , const std::vector<Key::IDV>& outputs
+                                 , AssetID
+                                 , size_t nonceSlot
+                                 , const KernelParameters& kernelParamerters
+                                 , bool initial) override;
 
         Key::IKdf::Ptr get_SbbsKdf() const override;
 
@@ -71,6 +96,70 @@ namespace beam::wallet
         int64_t CalculateValue(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs) const;
         void LoadNonceSeeds();
         void SaveNonceSeeds();
+
+        struct KeyPair
+        {
+            ECC::Scalar::Native m_PrivateKey;
+            PeerID m_PublicKey;
+        };
+        KeyPair GetWalletID(const WalletIDKey& walletKeyID) const;
+
+
+        template <typename Func, typename ...Args>
+        auto MakeAsyncFunc(Func&& func, Args... args)
+        {
+            return [this, func, args...]() mutable
+            {
+                return (this->*func)(std::forward<Args>(args)...);
+            };
+        }
+
+        template <typename Result, typename Func>
+        void DoAsync(Func&& asyncFunc, Callback<Result>&& resultCallback, ExceptionCallback&& exceptionCallback)
+        {
+            try
+            {
+                resultCallback(asyncFunc());
+            }
+            catch (...)
+            {
+                exceptionCallback(std::current_exception());
+            }
+        }
+
+        template <typename Result, typename Func>
+        void DoThreadAsync(Func&& asyncFunc, Callback<Result>&& resultCallback, ExceptionCallback&& exceptionCallback)
+        {
+            using namespace std;
+            auto thisHolder = shared_from_this();
+            shared_ptr<Result> result = make_shared<Result>();
+            shared_ptr<exception_ptr> storedException = make_shared<exception_ptr>();
+            shared_ptr<future<void>> futureHolder = std::make_shared<future<void>>();
+            *futureHolder = do_thread_async(
+                [thisHolder, asyncFunc, result, storedException]()
+                {
+                    try
+                    {
+                        *result = asyncFunc();
+                    }
+                    catch (...)
+                    {
+                        *storedException = current_exception();
+                    }
+                },
+                [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
+                {
+                    if (*storedException)
+                    {
+                        exceptionCallback(move(*storedException));
+                    }
+                    else
+                    {
+                        resultCallback(move(*result));
+                    }
+                    futureHolder.reset();
+                });
+        }
 
     private:
         IVariablesDB::Ptr m_Variables;

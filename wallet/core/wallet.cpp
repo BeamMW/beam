@@ -892,12 +892,15 @@ namespace beam::wallet
         std::unordered_set<BaseTransaction::Ptr> txSet;
         txSet.swap(m_TransactionsToUpdate);
 
-        AsyncContextHolder async(*this);
-        for (auto it = txSet.begin(); txSet.end() != it; it++)
+        if (!txSet.empty())
         {
-            BaseTransaction::Ptr pTx = *it;
-            if (m_ActiveTransactions.find(pTx->GetTxID()) != m_ActiveTransactions.end())
-                pTx->Update();
+            AsyncContextHolder async(*this);
+            for (auto it = txSet.begin(); txSet.end() != it; it++)
+            {
+                BaseTransaction::Ptr pTx = *it;
+                if (m_ActiveTransactions.find(pTx->GetTxID()) != m_ActiveTransactions.end())
+                    pTx->Update();
+            }
         }
     }
 

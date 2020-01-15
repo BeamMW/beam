@@ -8,9 +8,12 @@ Dialog {
 	id: control
 
 	property var settingsViewModel: {
-		function checkWalletPassword() {
-			console.log("settingsViewModel::checkWalletPassword undefined");
-		}
+		return {
+			checkWalletPassword: function() {
+				console.log("settingsViewModel::checkWalletPassword undefined");
+				return false;
+			}
+		};
 	}
 	property string dialogTitle: "title"
 	property string dialogMessage: "message"

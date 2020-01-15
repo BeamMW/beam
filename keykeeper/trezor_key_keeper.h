@@ -37,9 +37,9 @@ namespace beam::wallet
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
         void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, AssetID, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&) override;
+        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, AssetID, Callback<OutputsEx>&&, ExceptionCallback&&) override;
 
-        size_t AllocateNonceSlot() override;
+        size_t AllocateNonceSlotSync() override;
         PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
         std::pair<PublicKeys, ECC::Scalar::Native> GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID) override;
 

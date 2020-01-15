@@ -139,11 +139,11 @@ namespace beam::wallet
         auto sharedBuilder = m_TxBuilder;
         BaseTxBuilder& builder = *sharedBuilder;
 
-        bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
+        builder.GetPeerInputsAndOutputs();
 
         // Check if we already have signed kernel
         if ((isSender && !builder.LoadKernel())
-         || (!isSender && !builder.HasKernelID()))
+         || (!isSender && (!builder.HasKernelID() || txState == State::Initial)))
         {
             // We don't need key keeper initialized to go on beyond this point
             if (!m_KeyKeeper)
@@ -171,6 +171,7 @@ namespace beam::wallet
 
                     builder.SelectInputs();
                     builder.AddChange();
+                    builder.GenerateNonce();
                 }
 
                 if (isSelfTx || !isSender)
@@ -188,8 +189,6 @@ namespace beam::wallet
                         }
                     }
                 }
-
-                builder.GenerateOffset();
             }
 
             if (builder.CreateInputs())
@@ -214,13 +213,14 @@ namespace beam::wallet
                 }
             }
 
-            builder.GenerateNonce();
-
             if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
             {
                 assert(IsInitiator());
                 if (txState == State::Initial)
                 {
+                    if (builder.SignSender(true))
+                        return;
+
                     SendInvitation(builder, isSender);
                     SetState(State::Invitation);
                 }
@@ -235,7 +235,6 @@ namespace beam::wallet
             }
 
             builder.CreateKernel();
-            builder.SignPartial();
 
             if (!isSelfTx && !builder.GetPeerSignature())
             {
@@ -244,8 +243,11 @@ namespace beam::wallet
                     // invited participant
                     assert(!IsInitiator());
 
+                    if (builder.SignReceiver())
+                        return;
+
                     UpdateTxDescription(TxStatus::Registering);
-                    ConfirmInvitation(builder, !hasPeersInputsAndOutputs);
+                    ConfirmInvitation(builder);
 
                     uint32_t nVer = 0;
                     if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
@@ -269,6 +271,17 @@ namespace beam::wallet
                 }
             }
 
+            if (!isSelfTx)
+            {
+                if (builder.SignSender(false))
+                    return;
+            }
+            else
+            {
+                if (builder.SignReceiver())
+                    return;
+            }
+
             if (IsInitiator() && !builder.IsPeerSignatureValid())
             {
                 OnFailed(TxFailureReason::InvalidPeerSignature, true);
@@ -278,62 +291,37 @@ namespace beam::wallet
             if (!isSelfTx && isSender && IsInitiator())
             {
                 // verify peer payment confirmation
-
-                PaymentConfirmation pc;
-                WalletID widPeer, widMy;
-                bool bSuccess =
-                    GetParameter(TxParameterID::PeerID, widPeer) &&
-                    GetParameter(TxParameterID::MyID, widMy) &&
-                    GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
-                    GetParameter(TxParameterID::Amount, pc.m_Value) &&
-                    GetParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
-
-                if (bSuccess)
+                Signature sig;
+                if (!GetParameter(TxParameterID::PaymentConfirmation2, sig))
                 {
-                    pc.m_Sender = widMy.m_Pk;
-                    bSuccess = pc.IsValid(widPeer.m_Pk);
-                }
+                    PaymentConfirmation pc;
+                    WalletID widPeer, widMy;
+                    bool bSuccess =
+                        GetParameter(TxParameterID::PeerID, widPeer) &&
+                        GetParameter(TxParameterID::MyID, widMy) &&
+                        GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
+                        GetParameter(TxParameterID::Amount, pc.m_Value) &&
+                        GetParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
 
-                if (!bSuccess)
-                {
-                    //if (!get_PeerVersion())
-                    //{
-                    //    // older wallets don't support it. Check if unsigned payments are ok
-                    //    uint8_t nRequired = 0;
-                    //    storage::getVar(*m_WalletDB, storage::g_szPaymentProofRequired, nRequired);
-                    //
-                    //    if (!nRequired)
-                    //        bSuccess = true;
-                    //}
+                    if (bSuccess)
+                    {
+                        pc.m_Sender = widMy.m_Pk;
+                        bSuccess = pc.IsValid(widPeer.m_Pk);
+                    }
 
-                    //if (!bSuccess)
-                    //{
+                    if (!bSuccess)
+                    {
                         OnFailed(TxFailureReason::NoPaymentProof);
                         return;
-                    //}
+                    }
                 }
             }
-
             builder.FinalizeSignature();
         }
 
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
         {
-            if (!isSelfTx && (!hasPeersInputsAndOutputs || IsInitiator()))
-            {
-                if (txState == State::Invitation)
-                {
-                    UpdateTxDescription(TxStatus::Registering);
-                    ConfirmTransaction(builder, !hasPeersInputsAndOutputs);
-                    SetState(State::PeerConfirmation);
-                }
-                if (!hasPeersInputsAndOutputs)
-                {
-                    return;
-                }
-            }
-
             if (CheckExpired())
             {
                 return;
@@ -405,7 +393,7 @@ namespace beam::wallet
         }
     }
 
-    void SimpleTransaction::ConfirmInvitation(const BaseTxBuilder& builder, bool sendUtxos)
+    void SimpleTransaction::ConfirmInvitation(const BaseTxBuilder& builder)
     {
         LOG_INFO() << GetTxID() << " Transaction accepted. Kernel: " << builder.GetKernelIDString();
         SetTxParameter msg;
@@ -414,64 +402,49 @@ namespace beam::wallet
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
             .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
-            .AddParameter(TxParameterID::PeerMaxHeight, builder.GetMaxHeight());
-        if (sendUtxos)
-        {
-            msg.AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
+            .AddParameter(TxParameterID::PeerMaxHeight, builder.GetMaxHeight())
+            .AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
             .AddParameter(TxParameterID::PeerOutputs, builder.GetOutputs())
             .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
-        }
 
         assert(!IsSelfTx());
         if (!GetMandatoryParameter<bool>(TxParameterID::IsSender))
         {
-            PaymentConfirmation pc;
-            WalletID widPeer, widMy;
-            bool bSuccess =
-                GetParameter(TxParameterID::PeerID, widPeer) &&
-                GetParameter(TxParameterID::MyID, widMy) &&
-                GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
-                GetParameter(TxParameterID::Amount, pc.m_Value);
-
-            if (bSuccess)
+            Signature paymentProofSignature;
+            if (GetParameter(TxParameterID::PaymentConfirmation2, paymentProofSignature))
             {
-                pc.m_Sender = widPeer.m_Pk;
+                msg.AddParameter(TxParameterID::PaymentConfirmation2, paymentProofSignature);
+            }
+            else
+            {
+                PaymentConfirmation pc;
+                WalletID widPeer, widMy;
+                bool bSuccess =
+                    GetParameter(TxParameterID::PeerID, widPeer) &&
+                    GetParameter(TxParameterID::MyID, widMy) &&
+                    GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
+                    GetParameter(TxParameterID::Amount, pc.m_Value);
 
-                auto waddr = m_WalletDB->getAddress(widMy);
-                if (waddr && waddr->isOwn())
+                if (bSuccess)
                 {
-                    Scalar::Native sk;
-                    
-                    m_KeyKeeper->get_SbbsKdf()->DeriveKey(sk, Key::ID(waddr->m_OwnID, Key::Type::Bbs));
+                    pc.m_Sender = widPeer.m_Pk;
 
-                    proto::Sk2Pk(widMy.m_Pk, sk);
+                    auto waddr = m_WalletDB->getAddress(widMy);
+                    if (waddr && waddr->isOwn())
+                    {
+                        Scalar::Native sk;
 
-                    pc.Sign(sk);
-                    msg.AddParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
+                        m_KeyKeeper->get_SbbsKdf()->DeriveKey(sk, Key::ID(waddr->m_OwnID, Key::Type::Bbs));
+
+                        proto::Sk2Pk(widMy.m_Pk, sk);
+
+                        pc.Sign(sk);
+                        msg.AddParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
+                    }
                 }
             }
         }
 
-        SendTxParameters(move(msg));
-    }
-
-    void SimpleTransaction::ConfirmTransaction(const BaseTxBuilder& builder, bool sendUtxos)
-    {
-        uint32_t nVer = 0;
-        if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
-        {
-            // we skip this step for new tx flow
-            return;
-        }
-        LOG_INFO() << GetTxID() << " Peer signature is valid. Kernel: " << builder.GetKernelIDString();
-        SetTxParameter msg;
-        msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.GetPartialSignature()));
-        if (sendUtxos)
-        {
-            msg.AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
-                .AddParameter(TxParameterID::PeerOutputs, builder.GetOutputs())
-                .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
-        }
         SendTxParameters(move(msg));
     }
 

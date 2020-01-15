@@ -245,6 +245,7 @@ deploy the key at the node you trust completely."*/
                     connectionStatus:         modelData.connectionStatus
                     connectionErrorMsg:       modelData.connectionErrorMsg 
                     getAddressesElectrum:     modelData.getAddressesElectrum
+                    mainSettingsViewModel:    viewModel
 
                     //
                     // Node
@@ -885,9 +886,6 @@ deploy the key at the node you trust completely."*/
                                     //: settings tab, general section, ask password to send, confirm password dialog, message
                                     //% "Password verification is required to change that setting"
                                     confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-message");
-                                    //: confirm password dialog, ok button
-				                    //% "Proceed"
-                                    confirmPasswordDialog.okButtonText = qsTrId("general-proceed")
                                     confirmPasswordDialog.okButtonIcon = "qrc:/assets/icon-done.svg"
                                     confirmPasswordDialog.onDialogAccepted = onDialogAccepted;
                                     confirmPasswordDialog.onDialogRejected = onDialogRejected;
