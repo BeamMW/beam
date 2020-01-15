@@ -23,7 +23,7 @@
 #include "wallet/core/secstring.h"
 #ifdef BEAM_LASER_SUPPORT
 #include "wallet/laser/mediator.h"
-#endif
+#endif  // BEAM_LASER_SUPPORT
 #include "wallet/core/strings_resources.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/electrum.h"

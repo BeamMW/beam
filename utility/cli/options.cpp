@@ -237,21 +237,21 @@ namespace beam
         // laser
 #ifdef BEAM_LASER_SUPPORT
         const char* LASER = "laser";
-        const char* LASER_OPEN = "open";
-        const char* LASER_TRANSFER = "transfer";
-        const char* LASER_WAIT = "wait_incoming";
-        const char* LASER_SERVE = "serve";
-        const char* LASER_LIST = "list";
-        const char* LASER_CLOSE = "close";
-        const char* LASER_DELETE = "delete";
-        const char* LASER_AMOUNT_MY = "a_my";
-        const char* LASER_AMOUNT_TARGET = "a_trg";
-        const char* LASER_TARGET_ADDR = "laser_target";
-        const char* LASER_FEE = "lfee";
+        const char* LASER_OPEN = "laser_open";
+        const char* LASER_TRANSFER = "laser_send";
+        const char* LASER_WAIT = "laser_receive";
+        const char* LASER_SERVE = "laser_listen";
+        const char* LASER_LIST = "laser_channels";
+        const char* LASER_CLOSE = "laser_drop";
+        const char* LASER_DELETE = "laser_delete";
+        const char* LASER_AMOUNT_MY = "laser_my_locked_amount";
+        const char* LASER_AMOUNT_TARGET = "laser_remote_locked_amount";
+        const char* LASER_TARGET_ADDR = "laser_address";
+        const char* LASER_FEE = "laser_fee";
         const char* LASER_LOCK_TIME = "laser_lock_time";
-        const char* LASER_CHANNEL_ID = "channel";
+        const char* LASER_CHANNEL_ID = "laser_channels";
         const char* LASER_ALL = "all,a";
-        const char* LASER_CLOSE_GRACEFUL = "graceful_close";
+        const char* LASER_CLOSE_GRACEFUL = "laser_close";
 #endif  // BEAM_LASER_SUPPORT
 
         // wallet api
