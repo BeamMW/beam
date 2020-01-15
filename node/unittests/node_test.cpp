@@ -643,6 +643,37 @@ namespace beam
 		verify_test(db.AssetDelete(4) == 1);
 		verify_test(db.AssetDelete(1) == 0);
 
+		// StreamMmr, test cache
+		struct MyMmr
+			:public NodeDB::StreamMmr
+		{
+			using StreamMmr::StreamMmr;
+			uint32_t m_Total = 0;
+			uint32_t m_Miss = 0;
+
+			virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
+			{
+				Cast::NotConst(this)->m_Total++;
+				if (!CacheFind(hv, pos))
+				{
+					Cast::NotConst(this)->m_Miss++;
+					StreamMmr::LoadElement(hv, pos);
+				}
+			}
+		};
+
+		MyMmr myMmr(db, NodeDB::StreamType::ShieldedMmr, true);
+
+		for (uint32_t i = 0; i < 40; i++)
+		{
+			Merkle::Hash hv = i;
+			myMmr.Append(hv);
+			myMmr.get_Hash(hv);
+		}
+
+		// in a 'friendly' scenario, where we only add and calculate root - cache must be 100% effective
+		verify_test(!myMmr.m_Miss);
+
 		tr.Commit();
 	}
 
