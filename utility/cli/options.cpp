@@ -351,7 +351,7 @@ namespace beam
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
-            (cli::TX_HISTORY, "print transacrions' history in info command")
+            (cli::TX_HISTORY, "print transactions' history in info command")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for new own address")
