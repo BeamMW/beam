@@ -1512,7 +1512,8 @@ bitte überprüfen Sie Ihre Einstellungen und versuchen Sie es erneut.</translat
     </message>
     <message id="wallet-receive-copy-token">
         <source>copy swap token</source>
-        <translation>kopiere Transaktions-Token</translation>
+        <oldsource>copy token</oldsource>
+        <translation type="unfinished">kopiere Transaktions-Token</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
@@ -2062,6 +2063,18 @@ deploy the key at the node you trust completely.</translation>
     <message id="settings-general-no-require-pwd-to-spend-confirm-pwd-title">
         <source>Ask password on every Send</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if unchecked</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-use-token">
+        <source>Use identity token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source>Your receive token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-regular-copy-token">
+        <source>copy token</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

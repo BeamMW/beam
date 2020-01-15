@@ -3286,6 +3286,13 @@ namespace beam::wallet
             newAddress.m_OwnID = walletDB.AllocateKidRange(1);
             newAddress.m_walletID = generateWalletIDFromIndex(keyKeeper, newAddress.m_OwnID);
 
+
+            // TODO: temporary
+            Key::ID kid(newAddress.m_OwnID, Key::Type::WalletID);
+            ECC::Scalar::Native sk;
+            walletDB.get_MasterKdf()->DeriveKey(sk, kid);
+            beam::proto::Sk2Pk(newAddress.m_Identity, sk);
+
             return newAddress;
         }
 

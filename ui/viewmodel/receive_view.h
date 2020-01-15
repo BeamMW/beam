@@ -27,6 +27,7 @@ class ReceiveViewModel: public QObject
     Q_PROPERTY(QString  receiverAddressQR  READ getReceiverAddressQR                             NOTIFY  receiverAddressChanged)
     Q_PROPERTY(QString  transactionToken   READ getTransactionToken   WRITE  setTranasctionToken NOTIFY  transactionTokenChanged)
     Q_PROPERTY(bool     commentValid       READ getCommentValid                                  NOTIFY  commentValidChanged)
+    Q_PROPERTY(bool     hasIdentity        READ getHasIdentity        WRITE  setHasIdentity      NOTIFY  hasIdentityChanged)
 
 public:
     ReceiveViewModel();
@@ -40,6 +41,7 @@ signals:
     void transactionTokenChanged();
     void newAddressFailed();
     void commentValidChanged();
+    void hasIdentityChanged();
 
 public:
     Q_INVOKABLE void generateNewAddress();
@@ -63,6 +65,9 @@ private:
 
     bool getCommentValid() const;
 
+    bool getHasIdentity() const;
+    void setHasIdentity(bool value);
+
     void updateTransactionToken();
 
 private slots:
@@ -75,6 +80,7 @@ private:
     QString      _addressComment;
     QString      _token;
     beam::wallet::WalletAddress _receiverAddress;
+    bool         _hasIdentity;
 
     std::unique_ptr<QR> _qr;
     WalletModel& _walletModel;
