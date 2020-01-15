@@ -1858,6 +1858,26 @@ struct NodeProcessor::BlockInterpretCtx
 	// rollback data
 	ByteBuffer* m_pRollback = nullptr;
 
+	struct Ser
+		:public Serializer
+	{
+		typedef uintBigFor<uint32_t>::Type Marker;
+
+		BlockInterpretCtx& m_This;
+		size_t m_Pos;
+
+		Ser(BlockInterpretCtx&);
+		~Ser();
+	};
+
+	struct Der
+		:public Deserializer
+	{
+		Der(BlockInterpretCtx&);
+	private:
+		void SetBwd(ByteBuffer&, uint32_t nPortion);
+	};
+
 	struct BlobItem
 		:public boost::intrusive::set_base_hook<>
 	{
@@ -2533,8 +2553,6 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 		return true;
 
 	assert(!bic.m_ValidateOnly);
-	assert(bic.m_pRollback);
-	ByteBuffer& rb = *bic.m_pRollback;
 
 	if (bic.m_Fwd)
 	{
@@ -2543,25 +2561,16 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 		ai.m_Owner = krn.m_Owner;
 		InternalAssetAdd(ai);
 
-		// Save AssetID
-		uintBigFor<AssetID>::Type nID = ai.m_ID;
-		size_t n = rb.size();
-		rb.resize(n + nID.nBytes);
-		memcpy(&rb.front() + n, nID.m_pData, nID.nBytes);
+		BlockInterpretCtx::Ser ser(bic);
+		ser & ai.m_ID;
 	}
 	else
 	{
-		// Read AssetID
-		uintBigFor<AssetID>::Type nID;
-
-		if (rb.size() < nID.nBytes)
-			OnCorrupted();
-		size_t n = rb.size() - nID.nBytes;
-		memcpy(nID.m_pData, &rb.front() + n, nID.nBytes);
-		rb.resize(n);
+		BlockInterpretCtx::Der der(bic);
 
 		AssetID nVal;
-		nID.Export(nVal);
+		der & nVal;
+
 		InternalAssetDel(nVal);
 	}
 
@@ -3189,6 +3198,49 @@ void NodeProcessor::BlockInterpretCtx::BlobSet::Add(const Blob& key)
 	memcpy(pItem + 1, key.p, key.n);
 
 	insert(*pItem);
+}
+
+NodeProcessor::BlockInterpretCtx::Ser::Ser(BlockInterpretCtx& bic)
+	:m_This(bic)
+{
+	assert(bic.m_pRollback);
+	m_Pos = bic.m_pRollback->size();
+	swap_buf(*bic.m_pRollback);
+}
+
+NodeProcessor::BlockInterpretCtx::Ser::~Ser()
+{
+	if (!std::uncaught_exceptions())
+	{
+		Marker mk = static_cast<uint32_t>(buffer().second - m_Pos);
+		*this & mk;
+	}
+	swap_buf(*m_This.m_pRollback);
+}
+
+NodeProcessor::BlockInterpretCtx::Der::Der(BlockInterpretCtx& bic)
+{
+	assert(bic.m_pRollback);
+	ByteBuffer& buf = *bic.m_pRollback; // alias
+
+	Ser::Marker mk;
+	SetBwd(buf, mk.nBytes);
+	*this & mk;
+
+	uint32_t n;
+	mk.Export(n);
+	SetBwd(buf, n);
+}
+
+void NodeProcessor::BlockInterpretCtx::Der::SetBwd(ByteBuffer& buf, uint32_t nPortion)
+{
+	if (buf.size() < nPortion)
+		OnCorrupted();
+
+	size_t nVal = buf.size() - nPortion;
+	reset(&buf.front() + nVal, nPortion);
+
+	buf.resize(nVal); // it's safe to call resize() while the buffer is being used, coz std::vector does NOT reallocate on shrink
 }
 
 bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
