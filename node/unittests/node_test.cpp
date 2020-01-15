@@ -1758,6 +1758,7 @@ namespace beam
 				{
 					TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
 					pKrn->m_Height.m_Min = h + 1;
+					pKrn->m_Fee = fee;
 
 					ShieldedTxo::Viewer viewer;
 					viewer.FromOwner(*m_Wallet.m_pKdf);
@@ -1791,9 +1792,6 @@ namespace beam
 					msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 					m_Wallet.UpdateOffset(*msgTx.m_Transaction, op.m_k, true);
 				}
-
-				m_Wallet.MakeTxKernel(*msgTx.m_Transaction, fee, h);
-
 
 				msgTx.m_Transaction->Normalize();
 
