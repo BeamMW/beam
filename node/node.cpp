@@ -3130,6 +3130,37 @@ void Node::Peer::OnMsg(proto::GetProofShieldedInp&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
+{
+    proto::ProofAsset msgOut;
+
+    Processor& p = m_This.m_Processor;
+    if (!p.IsFastSync())
+    {
+        AssetInfo::Full ai;
+        ai.m_ID = msg.m_Min;
+        ai.m_Owner = msg.m_Owner;
+        if (p.get_DB().AssetFindByOwner(ai))
+        {
+            msgOut.m_Info = std::move(ai);
+
+            p.m_Mmr.m_Assets.get_Proof(msgOut.m_Proof, msgOut.m_Info.m_ID - 1);
+
+            struct MyProofBuilder
+                :public NodeProcessor::ProofBuilder
+            {
+                using ProofBuilder::ProofBuilder;
+                virtual bool get_Assets(Merkle::Hash&) override { return false; }
+            };
+
+            MyProofBuilder pb(p, msgOut.m_Proof);
+            pb.GenerateProof();
+        }
+    }
+
+    Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 {
 	proto::ShieldedList msgOut;

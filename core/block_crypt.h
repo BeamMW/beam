@@ -234,13 +234,21 @@ namespace beam
 			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
 		};
 
-		struct Full
-			:public Base
+		struct Data
 		{
 			AmountBig::Type m_Value;
 			PeerID m_Owner;
-			// metadata?
 
+			ByteBuffer m_Metadata;
+			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
+
+			void Reset();
+		};
+
+		struct Full
+			:public Base
+			,public Data
+		{
 			void get_Hash(ECC::Hash::Value&) const;
 		};
 	};
@@ -406,7 +414,8 @@ namespace beam
 	macro(2, AssetEmit) \
 	macro(3, ShieldedOutput) \
 	macro(4, ShieldedInput) \
-	macro(5, AssetControl)
+	macro(5, AssetCreate) \
+	macro(6, AssetDestroy)
 
 #define THE_MACRO(id, name) struct TxKernel##name;
 	BeamKernelsAll(THE_MACRO)
@@ -537,7 +546,7 @@ namespace beam
 		void CopyFrom(const TxKernelNonStd&);
 	};
 
-	struct TxKernelAssetBase
+	struct TxKernelAssetControl
 		:public TxKernelNonStd
 	{
 		PeerID m_Owner;
@@ -549,13 +558,13 @@ namespace beam
 
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:
-		void CopyFrom(const TxKernelAssetBase&);
+		void CopyFrom(const TxKernelAssetControl&);
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelAssetEmit
-		:public TxKernelAssetBase
+		:public TxKernelAssetControl
 	{
 		typedef std::unique_ptr<TxKernelAssetEmit> Ptr;
 
@@ -571,20 +580,29 @@ namespace beam
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
 
-	struct TxKernelAssetControl
-		:public TxKernelAssetBase
+	struct TxKernelAssetCreate
+		:public TxKernelAssetControl
 	{
-		typedef std::unique_ptr<TxKernelAssetControl> Ptr;
+		typedef std::unique_ptr<TxKernelAssetCreate> Ptr;
 
-		struct Flags {
-			static const uint32_t Add = 1;
-			static const uint32_t Remove = 2;
-		};
+		ByteBuffer m_MetaData;
 
-		uint32_t m_Flags;
-		TxKernelAssetControl() :m_Flags(0) {}
+		virtual ~TxKernelAssetCreate() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
+	protected:
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+	};
 
-		virtual ~TxKernelAssetControl() {}
+	struct TxKernelAssetDestroy
+		:public TxKernelAssetControl
+	{
+		typedef std::unique_ptr<TxKernelAssetDestroy> Ptr;
+
+		AssetID m_AssetID;
+
+		virtual ~TxKernelAssetDestroy() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
@@ -802,7 +820,7 @@ namespace beam
 
 				// The state Definition is defined as Hash[ History | Live ]
 				// Before Fork2: Live = Utxos
-				// Past Fork2: Live = Hash[ Utxos | Shielded ]
+				// Past Fork2: Live = Hash[ Utxos | Hash[Shielded | Assets] ]
 
 				bool get_Definition(Merkle::Hash&);
 				void GenerateProof(); // same as above, except it's used for proof generation, and the resulting hash is not evaluated
@@ -811,6 +829,7 @@ namespace beam
 				virtual bool get_Live(Merkle::Hash&);
 				virtual bool get_Utxos(Merkle::Hash&);
 				virtual bool get_Shielded(Merkle::Hash&);
+				virtual bool get_Assets(Merkle::Hash&);
 			};
 
 			struct Sequence
@@ -857,6 +876,7 @@ namespace beam
 				bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
 				bool IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp&, const Merkle::Proof&) const;
 				bool IsValidProofShieldedInp(const ShieldedTxo::DescriptionInp&, const Merkle::Proof&) const;
+				bool IsValidProofAsset(const AssetInfo::Full&, const Merkle::Proof&) const;
 
 				int cmp(const Full&) const;
 				COMPARISON_VIA_CMP

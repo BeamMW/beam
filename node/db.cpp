@@ -96,6 +96,7 @@ namespace beam {
 #define TblAssets_ID			"ID"
 #define TblAssets_Owner			"Owner"
 #define TblAssets_Value			"Value"
+#define TblAssets_Data			"MetaData"
 
 NodeDB::NodeDB()
 	:m_pDb(NULL)
@@ -500,6 +501,7 @@ void NodeDB::CreateTables20()
 	ExecQuick("CREATE TABLE [" TblAssets "] ("
 		"[" TblAssets_ID			"] INTEGER NOT NULL PRIMARY KEY,"
 		"[" TblAssets_Owner			"] BLOB,"
+		"[" TblAssets_Data			"] BLOB,"
 		"[" TblAssets_Value			"] BLOB)");
 
 	ExecQuick("CREATE INDEX [Idx" TblAssets "Own] ON [" TblAssets "] ([" TblAssets_Owner "])");
@@ -2177,13 +2179,19 @@ NodeDB::StreamMmr::StreamMmr(NodeDB& db, StreamType::Enum eType, bool bStoreH0)
 
 void NodeDB::StreamMmr::Append(const Merkle::Hash& hv)
 {
-	m_DB.StreamResize(m_eType, get_TotalHashes(m_Count + 1, m_StoreH0) * sizeof(Merkle::Hash), get_TotalHashes(m_Count, m_StoreH0) * sizeof(Merkle::Hash));
-	Mmr::Append(hv);
+	uint64_t n = m_Count;
+	ResizeTo(n + 1);
+	Mmr::Replace(n, hv);
 }
 
 void NodeDB::StreamMmr::ShrinkTo(uint64_t nCount)
 {
 	assert(m_Count >= nCount);
+	ResizeTo(nCount);
+}
+
+void NodeDB::StreamMmr::ResizeTo(uint64_t nCount)
+{
 	m_DB.StreamResize(m_eType, get_TotalHashes(nCount, m_StoreH0) * sizeof(Merkle::Hash), get_TotalHashes(m_Count, m_StoreH0) * sizeof(Merkle::Hash));
 	m_Count = nCount;
 }
@@ -2231,7 +2239,7 @@ void NodeDB::StreamMmr::CacheAdd(const Merkle::Hash& hv, const Merkle::Position&
 	{
 		CacheEntry& ce = m_pCache[pos.H];
 
-		if ((m_LastOut.m_Pos.H != pos.H) || (m_LastOut.m_Pos.X != ce.m_X))
+		if ((ce.m_X != pos.X) && (ce.m_X != static_cast<uint64_t>(-1)))
 		{
 			m_LastOut.m_Pos.X = ce.m_X;
 			m_LastOut.m_Pos.H = pos.H;
@@ -2403,24 +2411,17 @@ void NodeDB::UniqueDeleteStrict(const Blob& key)
 
 const AssetID NodeDB::s_AssetEmpty0 = uint64_t(1) << 62;
 
-bool NodeDB::IsAssetPresent(AssetID id, const PeerID& own)
-{
-	Recordset rs(*this, Query::AssetFindBoth, "SELECT NULL FROM " TblAssets " WHERE " TblAssets_ID "=? AND " TblAssets_Owner "=?");
-	rs.put(0, id);
-	rs.put(1, own);
-	return rs.Step();
-}
-
 bool NodeDB::AssetFindByOwner(AssetInfo::Full& ai)
 {
-	Recordset rs(*this, Query::AssetFindOwner, "SELECT " TblAssets_ID "," TblAssets_Value " FROM " TblAssets " WHERE " TblAssets_Owner "=? AND " TblAssets_ID ">=? ORDER BY " TblAssets_ID " ASC LIMIT 1");
+	Recordset rs(*this, Query::AssetFindOwner, "SELECT " TblAssets_ID "," TblAssets_Data "," TblAssets_Value " FROM " TblAssets " WHERE " TblAssets_Owner "=? AND " TblAssets_ID ">=? ORDER BY " TblAssets_ID " ASC LIMIT 1");
 	rs.put_As(0, ai.m_Owner);
 	rs.put(1, ai.m_ID);
 	if (!rs.Step())
 		return false;
 
 	rs.get(0, ai.m_ID);
-	rs.get_As(1, ai.m_Value);
+	rs.get(1, ai.m_Metadata);
+	rs.get_As(2, ai.m_Value);
 	return true;
 }
 
@@ -2434,13 +2435,14 @@ void NodeDB::AssetDeleteRaw(AssetID id)
 
 void NodeDB::AssetInsertRaw(AssetID id, const AssetInfo::Full* pAi)
 {
-	Recordset rs(*this, Query::AssetAdd, "INSERT INTO " TblAssets "(" TblAssets_ID "," TblAssets_Owner "," TblAssets_Value ") VALUES(?,?,?)");
+	Recordset rs(*this, Query::AssetAdd, "INSERT INTO " TblAssets "(" TblAssets_ID "," TblAssets_Owner "," TblAssets_Data "," TblAssets_Value ") VALUES(?,?,?,?)");
 	rs.put(0, id);
 
 	if (pAi)
 	{
 		rs.put(1, pAi->m_Owner);
-		rs.put_As(2, pAi->m_Value);
+		rs.put(2, Blob(pAi->m_Metadata));
+		rs.put_As(3, pAi->m_Value);
 	}
 
 	rs.Step();
@@ -2464,7 +2466,7 @@ AssetID NodeDB::AssetFindMinFree(AssetID nMin)
 void NodeDB::AssetAdd(AssetInfo::Full& ai)
 {
 	// find free index
-	ai.m_ID = AssetFindMinFree(s_AssetEmpty0);
+	ai.m_ID = AssetFindMinFree(ai.m_ID + s_AssetEmpty0);
 	if (ai.m_ID)
 	{
 		assert(ai.m_ID >= s_AssetEmpty0);
@@ -2505,12 +2507,17 @@ AssetID NodeDB::AssetDelete(AssetID id)
 	return nCount;
 }
 
-void NodeDB::AssetGetValue(AssetID id, AmountBig::Type& val)
+bool NodeDB::AssetGetSafe(AssetInfo::Full& ai)
 {
-	Recordset rs(*this, Query::AssetGetVal, "SELECT " TblAssets_Value " FROM " TblAssets " WHERE " TblAssets_ID "=?");
-	rs.put(0, id);
-	rs.StepStrict();
-	rs.get_As(0, val);
+	Recordset rs(*this, Query::AssetGet, "SELECT " TblAssets_Value "," TblAssets_Owner "," TblAssets_Data " FROM " TblAssets " WHERE " TblAssets_ID "=?");
+	rs.put(0, ai.m_ID);
+	if (!rs.Step())
+		return false;
+
+	rs.get_As(0, ai.m_Value);
+	rs.get_As(1, ai.m_Owner);
+	rs.get(2, ai.m_Metadata);
+	return true;
 }
 
 void NodeDB::AssetSetValue(AssetID id, const AmountBig::Type& val)

@@ -74,6 +74,9 @@ class NodeProcessor
 	void Recognize(const TxKernelShieldedInput&, Height);
 	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
 
+	void InternalAssetAdd(AssetInfo::Full&);
+	void InternalAssetDel(AssetID);
+
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 
 #define THE_MACRO(id, name) bool HandleKernel(const TxKernel##name&, BlockInterpretCtx&);
@@ -264,6 +267,7 @@ public:
 		virtual bool get_History(Merkle::Hash&) override;
 		virtual bool get_Utxos(Merkle::Hash&) override;
 		virtual bool get_Shielded(Merkle::Hash&) override;
+		virtual bool get_Assets(Merkle::Hash&) override;
 	};
 
 	struct ProofBuilder
@@ -462,6 +466,7 @@ public:
 		Mmr(NodeDB&);
 		NodeDB::StatesMmr m_States;
 		NodeDB::StreamMmr m_Shielded;
+		NodeDB::StreamMmr m_Assets;
 
 	} m_Mmr;
 

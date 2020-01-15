@@ -90,6 +90,10 @@ namespace proto {
 #define BeamNodeMsg_GetProofShieldedInp(macro) \
     macro(ECC::Point, SpendPk)
 
+#define BeamNodeMsg_GetProofAsset(macro) \
+    macro(PeerID, Owner) \
+    macro(AssetID, Min)
+
 #define BeamNodeMsg_GetShieldedList(macro) \
     macro(TxoID, Id0) \
 	macro(uint32_t, Count)
@@ -116,6 +120,10 @@ namespace proto {
 
 #define BeamNodeMsg_ProofShieldedInp(macro) \
     macro(Height, Height) \
+    macro(Merkle::Proof, Proof)
+
+#define BeamNodeMsg_ProofAsset(macro) \
+    macro(AssetInfo::Full, Info) \
     macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ShieldedList(macro) \
@@ -259,8 +267,10 @@ namespace proto {
     macro(0x27, BodyPack) \
     macro(0x28, GetProofShieldedOutp) \
     macro(0x20, GetProofShieldedInp) \
+    macro(0x35, GetProofAsset) \
     macro(0x29, ProofShieldedOutp) \
     macro(0x21, ProofShieldedInp) \
+    macro(0x36, ProofAsset) \
     macro(0x2a, GetShieldedList) \
     macro(0x2b, ShieldedList) \
     /* onwer-relevant */ \
@@ -416,6 +426,8 @@ namespace proto {
     inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
     inline void ZeroInit(TxKernel::LongProof& x) { ZeroObject(x.m_State); }
 	inline void ZeroInit(BodyBuffers&) { }
+    inline void ZeroInit(AssetInfo::Data& x) { x.Reset(); }
+    inline void ZeroInit(AssetInfo::Full& x) { x.Reset(); }
 
     template <typename T> struct InitArg {
         typedef const T& TArg;

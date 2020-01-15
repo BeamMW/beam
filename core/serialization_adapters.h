@@ -822,7 +822,7 @@ namespace detail
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
-				(output.m_AssetID ? 0 : 0x20) |
+				(output.m_AssetID ? 0x20 : 0) |
 				(output.m_RecoveryOnly ? 0x40 : 0) |
 				(nFlags2 ? 0x80 : 0);
 
@@ -1188,9 +1188,9 @@ namespace detail
 			}
         }
 
-        /// beam::TxKernelAssetBase serialization
+        /// beam::TxKernelAssetControl serialization
 		template<typename Archive>
-        static Archive& saveBase(Archive& ar, const beam::TxKernelAssetBase& val)
+        static Archive& saveBase(Archive& ar, const beam::TxKernelAssetControl& val)
         {
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
@@ -1212,7 +1212,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static void load0Base(Archive& ar, beam::TxKernelAssetBase& val, uint32_t nRecursion)
+        static void load0Base(Archive& ar, beam::TxKernelAssetControl& val, uint32_t nRecursion)
         {
 			uint32_t nFlags;
 			ar
@@ -1236,32 +1236,52 @@ namespace detail
 		template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxKernelAssetEmit& val)
         {
-			saveBase(ar, Cast::Down<beam::TxKernelAssetBase>(val));
-			ar & val.m_Value;
+			saveBase(ar, val);
+			ar
+				& val.m_AssetID
+				& val.m_Value;
             return ar;
         }
 
         template<typename Archive>
         static void load0(Archive& ar, beam::TxKernelAssetEmit& val, uint32_t nRecursion)
         {
-			load0Base(ar, Cast::Down<beam::TxKernelAssetBase>(val), nRecursion);
-			ar & val.m_Value;
+			load0Base(ar, val, nRecursion);
+			ar
+				& val.m_AssetID
+				& val.m_Value;
 		}
 
-		/// beam::TxKernelAssetControl serialization
+		/// beam::TxKernelAssetCreate serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernelAssetControl& val)
+		static Archive& save(Archive& ar, const beam::TxKernelAssetCreate& val)
 		{
-			saveBase(ar, Cast::Down<beam::TxKernelAssetBase>(val));
-			ar & val.m_Flags;
+			saveBase(ar, val);
+			ar & val.m_MetaData;
 			return ar;
 		}
 
 		template<typename Archive>
-		static void load0(Archive& ar, beam::TxKernelAssetControl& val, uint32_t nRecursion)
+		static void load0(Archive& ar, beam::TxKernelAssetCreate& val, uint32_t nRecursion)
 		{
-			load0Base(ar, Cast::Down<beam::TxKernelAssetBase>(val), nRecursion);
-			ar & val.m_Flags;
+			load0Base(ar, val, nRecursion);
+			ar & val.m_MetaData;
+		}
+
+		/// beam::TxKernelAssetDestroy serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernelAssetDestroy& val)
+		{
+			saveBase(ar, val);
+			ar & val.m_AssetID;
+			return ar;
+		}
+
+		template<typename Archive>
+		static void load0(Archive& ar, beam::TxKernelAssetDestroy& val, uint32_t nRecursion)
+		{
+			load0Base(ar, val, nRecursion);
+			ar & val.m_AssetID;
 		}
 
         /// beam::TxKernelShieldedOutput serialization
@@ -1562,6 +1582,44 @@ namespace detail
 			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Prefix>(v));
 			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Element>(v));
 
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::AssetInfo::Data& v)
+		{
+			ar
+				& v.m_Owner
+				& v.m_Value
+				& v.m_Metadata;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::AssetInfo::Data& v)
+		{
+			ar
+				& v.m_Owner
+				& v.m_Value
+				& v.m_Metadata;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::AssetInfo::Full& v)
+		{
+			ar
+				& v.m_ID
+				& Cast::Down<beam::AssetInfo::Data>(v);
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::AssetInfo::Full& v)
+		{
+			ar
+				& v.m_ID
+				& Cast::Down<beam::AssetInfo::Data>(v);
 			return ar;
 		}
 
