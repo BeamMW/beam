@@ -2357,6 +2357,15 @@ void TestLelantus()
 	proof.m_Cfg = cfg;
 	beam::Lelantus::Prover p(lst, proof);
 
+	beam::Sigma::Prover::UserData ud1, ud2;
+	for (size_t i = 0; i < _countof(ud1.m_pS); i++)
+	{
+		do
+			SetRandom(ud1.m_pS[i].m_Value);
+		while (!ud1.m_pS[i].IsValid());
+	}
+	p.m_pUserData = &ud1;
+
 	p.m_Witness.V.m_V = 100500;
 	p.m_Witness.V.m_R = 4U;
 	p.m_Witness.V.m_R_Output = 756U;
@@ -2380,6 +2389,16 @@ void TestLelantus()
 	p.Generate(Zero, oracle);
 
 	printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
+
+	{
+		Oracle o2;
+		Hash::Value hv0;
+		proof.Expose0(o2, hv0);
+		ud2.Recover(o2, proof, Zero);
+
+		for (size_t i = 0; i < _countof(ud1.m_pS); i++)
+			verify_test(ud1.m_pS[i] == ud2.m_pS[i]);
+	}
 
 	typedef InnerProduct::BatchContextEx<4> MyBatch;
 
