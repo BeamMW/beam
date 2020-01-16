@@ -3138,7 +3138,6 @@ void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
     if (!p.IsFastSync())
     {
         AssetInfo::Full ai;
-        ai.m_ID = msg.m_Min;
         ai.m_Owner = msg.m_Owner;
         if (p.get_DB().AssetFindByOwner(ai))
         {

@@ -2549,6 +2549,12 @@ void NodeProcessor::InternalAssetDel(AssetID nAssetID)
 
 bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
 {
+	if (bic.m_Fwd && !bic.m_AlreadyValidated)
+	{
+		if (m_DB.AssetFindByOwner(krn.m_Owner))
+			return false;
+	}
+
 	if (!bic.m_UpdateMmrs)
 		return true;
 
