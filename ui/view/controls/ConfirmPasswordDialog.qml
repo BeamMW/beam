@@ -7,9 +7,21 @@ import Beam.Wallet 1.0
 Dialog {
 	id: control
 
-	SettingsViewModel {id: viewModel}
+	property var settingsViewModel: {
+		return {
+			checkWalletPassword: function() {
+				console.log("settingsViewModel::checkWalletPassword undefined");
+				return false;
+			}
+		};
+	}
 	property string dialogTitle: "title"
 	property string dialogMessage: "message"
+	property alias okButtonText: okButton.text
+	property alias okButtonIcon: okButton.icon.source
+	property alias cancelButtonText: cancelButton.text
+	property alias cancelButtonIcon: cancelButton.icon.source
+	property alias pwd: pwd.text
 	property bool showError: false
 	property var onDialogAccepted: function() {
 		console.log("Accepted");
@@ -18,10 +30,12 @@ Dialog {
 		console.log("Rejected");
 	}
 	property var onPwdEntered: function(password) {
-		if (viewModel.checkWalletPassword(password)) {
+		if (settingsViewModel.checkWalletPassword(password)) {
 			accept();
 		} else {
 			showError = true;
+			pwd.selectAll();
+			pwd.focus = true;
 		}
 	}
 
@@ -115,6 +129,7 @@ Dialog {
 			Layout.alignment: Qt.AlignHCenter
 
 			CustomButton {
+				id: cancelButton
 				Layout.preferredHeight: 38
 				//% "Cancel"
 				text: qsTrId("general-cancel")
@@ -123,6 +138,7 @@ Dialog {
 			}
 
 			PrimaryButton {
+				id: okButton
 				Layout.preferredHeight: 38
 				//: confirm password dialog, ok button
 				//% "Proceed"

@@ -6,7 +6,14 @@ import Beam.Wallet 1.0
 Dialog {
 	id: control
 
-	SettingsViewModel {id: viewModel}
+	property var settingsViewModel: {
+		function checkWalletPassword() {
+			console.log("settingsViewModel::checkWalletPassword undefined");
+		}
+		function changeWalletPassword() {
+			console.log("settingsViewModel::changeWalletPassword undefined");
+		}
+	}
 
 	modal: true
 
@@ -157,14 +164,14 @@ Dialog {
 						//% "New password doesn't match the confirm password"
 						error.text = qsTrId("change-pwd-confirm-fail");
 					}
-					else if(!viewModel.checkWalletPassword(oldPass.text))
+					else if(!settingsViewModel.checkWalletPassword(oldPass.text))
 					{
 						//% "The old password you have entered is incorrect"
 						error.text = qsTrId("change-pwd-old-fail");
 					}
 					else
 					{
-						viewModel.changeWalletPassword(newPass.text)
+						settingsViewModel.changeWalletPassword(newPass.text)
 						control.close()
 					}
 				}

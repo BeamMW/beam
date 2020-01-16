@@ -156,6 +156,9 @@ namespace ECC
 		bool operator == (Zero_) const;
         bool operator != (Zero_) const;
 
+		bool operator == (const Native&) const;
+		bool operator == (const Point&) const;
+
 		Native& operator = (Zero_);
 		Native& operator = (Minus);
 		Native& operator = (Plus);
@@ -550,22 +553,6 @@ namespace ECC
 
 	} // namespace Generator
 
-	struct Signature::MultiSig
-	{
-		Scalar::Native	m_Nonce;	// specific signer
-		Point::Native	m_NoncePub;	// sum of all co-signers
-
-		//	NOTE: Schnorr's multisig should be used carefully. If done naively it has the following potential weaknesses:
-		//	1. Key cancellation. (The attacker may exclude you and actually create a signature for its private key).
-		//		This isn't a problem for our case, but should be taken into consideration if used in other schemes.
-		// 2. Private Key leak. If the same message signed with the same key but co-signers use different nonces (altering the challenge) - there's a potential for key leak. 
-		//		This is indeed the case if the nonce is generated from the secret key and the message only.
-		//		In order to prevent this the signer **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
-
-		void SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const;
-	};
-
-
 	class Hash::Processor
 		:private secp256k1_sha256_t
 	{
@@ -609,6 +596,9 @@ namespace ECC
 
 		template <typename T>
 		Processor& operator << (const T& t) { Write(t); return *this; }
+
+		template <typename T>
+		Processor& Serialize(const T&);
 
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
@@ -753,6 +743,21 @@ namespace ECC
 		void GenerateChildParallel(Key::IPKdf&, const Hash::Value&); // generate a subkey compatible with the appropriate HKdfPub
 	};
 
+	struct SignatureBase::Config
+	{
+		uint32_t m_nG; // num of generators
+		uint32_t m_nKeys; // num of keys
+
+		struct Generator
+		{
+			const MultiMac::Prepared* m_pGenPrep;
+			const ECC::Generator::Obscured* m_pGen;
+			uint32_t m_nBatchIdx;
+		};
+
+		const Generator* m_pG;
+	};
+
 	struct Context
 	{
 		static const Context& get();
@@ -784,6 +789,19 @@ namespace ECC
 			Point::Compact m_Compensation;
 
 		} m_Casual;
+
+		struct Sig
+		{
+			SignatureBase::Config::Generator m_GenG;
+			SignatureBase::Config::Generator m_pGenGJ[2];
+			SignatureBase::Config::Generator m_pGenGH[2];
+
+			SignatureBase::Config m_CfgG1; // regular
+			SignatureBase::Config m_CfgGJ1; // Generalized G+J
+			SignatureBase::Config m_CfgG2; // G, 2 keys
+			SignatureBase::Config m_CfgGH2; // Generalized G+H, 2 keys
+
+		} m_Sig;
 
 		Hash::Value m_hvChecksum; // all the generators and signature version. In case we change seed strings or formula
 
@@ -893,6 +911,9 @@ namespace ECC
 		template <typename T>
 		Oracle& operator << (const T& t) { m_hp << t; return *this; }
 
+		template <typename T>
+		Oracle& Serialize(const T& t) { m_hp.Serialize(t); return *this; }
+
 		void operator >> (Scalar::Native&);
 		void operator >> (Hash::Value&);
 	};
@@ -908,6 +929,7 @@ namespace ECC
 		void Init(const uintBig& seedSk);
 
 		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
-		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1&) const;
+		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
+		void AddInfo2(Scalar::Native& taux, const ChallengeSet&) const;
 	};
 }

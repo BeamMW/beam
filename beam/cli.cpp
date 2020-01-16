@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/wallet_network.h"
+#include "wallet/core/wallet_network.h"
 #include "core/common.h"
 
 #include "node/node.h"
@@ -317,7 +317,10 @@ int main_impl(int argc, char* argv[])
 					}
 
 					if (vm.count(cli::CHECKDB))
-						node.m_Cfg.m_ProcessorParams.m_CheckIntegrityAndVacuum = vm[cli::CHECKDB].as<bool>();
+						node.m_Cfg.m_ProcessorParams.m_CheckIntegrity = vm[cli::CHECKDB].as<bool>();
+
+					if (vm.count(cli::VACUUM))
+						node.m_Cfg.m_ProcessorParams.m_Vacuum = vm[cli::VACUUM].as<bool>();
 
 					if (vm.count(cli::RESET_ID))
 						node.m_Cfg.m_ProcessorParams.m_ResetSelfID = vm[cli::RESET_ID].as<bool>();
@@ -338,6 +341,9 @@ int main_impl(int argc, char* argv[])
 					}
 
 					node.Initialize(stratumServer.get());
+
+					if (vm[cli::PRINT_TXO].as<bool>())
+						node.PrintTxos();
 
 					if (vm.count(cli::GENERATE_RECOVERY_PATH))
 					{

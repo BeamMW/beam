@@ -20,26 +20,28 @@ class QR;
 class ReceiveViewModel: public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString  amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive  NOTIFY  amountToReceiveChanged)
+    Q_PROPERTY(QString  amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive  NOTIFY  amountReceiveChanged)
     Q_PROPERTY(int      addressExpires     READ getAddressExpires     WRITE  setAddressExpires   NOTIFY  addressExpiresChanged)
     Q_PROPERTY(QString  addressComment     READ getAddressComment     WRITE  setAddressComment   NOTIFY  addressCommentChanged)
     Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                               NOTIFY  receiverAddressChanged)
     Q_PROPERTY(QString  receiverAddressQR  READ getReceiverAddressQR                             NOTIFY  receiverAddressChanged)
     Q_PROPERTY(QString  transactionToken   READ getTransactionToken   WRITE  setTranasctionToken NOTIFY  transactionTokenChanged)
     Q_PROPERTY(bool     commentValid       READ getCommentValid                                  NOTIFY  commentValidChanged)
+    Q_PROPERTY(bool     hasIdentity        READ getHasIdentity        WRITE  setHasIdentity      NOTIFY  hasIdentityChanged)
 
 public:
     ReceiveViewModel();
     ~ReceiveViewModel() override;
 
 signals:
-    void amountToReceiveChanged();
+    void amountReceiveChanged();
     void addressExpiresChanged();
     void receiverAddressChanged();
     void addressCommentChanged();
     void transactionTokenChanged();
     void newAddressFailed();
     void commentValidChanged();
+    void hasIdentityChanged();
 
 public:
     Q_INVOKABLE void generateNewAddress();
@@ -63,6 +65,9 @@ private:
 
     bool getCommentValid() const;
 
+    bool getHasIdentity() const;
+    void setHasIdentity(bool value);
+
     void updateTransactionToken();
 
 private slots:
@@ -79,4 +84,5 @@ private:
     std::unique_ptr<QR> _qr;
     WalletModel& _walletModel;
     beam::wallet::TxParameters _txParameters;
+    bool         _hasIdentity;
 };

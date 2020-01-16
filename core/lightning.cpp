@@ -13,27 +13,10 @@
 // limitations under the License.
 
 #include "lightning.h"
+#include "lightning_codes.h"
 
 namespace beam {
 namespace Lightning {
-
-struct Channel::Codes
-	:public Negotiator::Codes
-{
-	static const uint32_t Control0 = 1024 << 16;
-
-	static const uint32_t Revision = Control0 + 3;
-
-	static const uint32_t Fee = Control0 + 11; // all txs
-	static const uint32_t H0 = Control0 + 12;
-	static const uint32_t H1 = Control0 + 13;
-	static const uint32_t HLock = Control0 + 14;
-
-	static const uint32_t ValueMy = Control0 + 21;
-	static const uint32_t ValueYours = Control0 + 22;
-	static const uint32_t ValueTansfer = Control0 + 25;
-	static const uint32_t CloseGraceful = Control0 + 31;
-};
 
 struct Channel::MuSigLocator
 	:public proto::FlyClient::RequestUtxo
@@ -134,8 +117,8 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 				return;
 			}
 
-				dataIn.Get(hr0.m_Min, Channel::Codes::H0);
-				dataIn.Get(hr0.m_Max, Channel::Codes::H1);
+			dataIn.Get(hr0.m_Min, Codes::H0);
+			dataIn.Get(hr0.m_Max, Codes::H1);
 
 			// TODO - ask permissions to open a channel with those conditions
 
@@ -661,7 +644,7 @@ void Channel::CreatePunishmentTx()
 
 	tx.m_vKernels.resize(1);
 	TxKernel::Ptr& pKrn = tx.m_vKernels.back();
-	pKrn.reset(new TxKernel);
+	pKrn.reset(new TxKernelStd);
 
 //	pKrn->m_Height.m_Min = m_State.m_Close.m_hPhase1; // not mandatory
 	pKrn->m_Fee = m_Params.m_Fee;
@@ -671,11 +654,7 @@ void Channel::CreatePunishmentTx()
 	offs += k;
 	k = -k;
 
-	pKrn->m_Commitment = ECC::Context::get().G * k;
-
-	ECC::Hash::Value hv;
-	pKrn->get_ID(hv);
-	pKrn->m_Signature.Sign(hv, k);
+	Cast::Up<TxKernelStd>(*pKrn).Sign(k);
 
 	tx.m_Offset = offs;
 
@@ -863,7 +842,7 @@ void Channel::DataUpdate::get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const
 	if (tx.m_vKernels.empty())
 		hv = Zero; //?!
 	else
-		tx.m_vKernels.front()->get_ID(hv);
+		hv = tx.m_vKernels.front()->m_Internal.m_ID;
 }
 
 void Channel::DataUpdate::CheckStdType()
@@ -886,8 +865,8 @@ bool Channel::Open(Amount nMy, Amount nOther, const HeightRange& hr0)
 	dataOut.Set(m_Params.m_Fee, Codes::Fee);
 	dataOut.Set(nMy, Codes::ValueMy);
 	dataOut.Set(nOther, Codes::ValueYours);
-	dataOut.Set(hr0.m_Min, Channel::Codes::H0);
-	dataOut.Set(hr0.m_Max, Channel::Codes::H1);
+	dataOut.Set(hr0.m_Min, Codes::H0);
+	dataOut.Set(hr0.m_Max, Codes::H1);
 
 	UpdateNegotiator(dataIn, dataOut);
 

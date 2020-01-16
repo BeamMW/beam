@@ -6,7 +6,8 @@ import "."
 
 ConfirmationDialog {
     property string externalUrl
-    property var onOkClicked: null
+    property var onOkClicked: function () {}
+    property var onCancelClicked: function () {}
     //% "Open"
     okButtonText: qsTrId("open-external-open")
     okButtonIconSource: "qrc:/assets/icon-external-link-black.svg"
@@ -46,9 +47,11 @@ ConfirmationDialog {
     }
 
     onAccepted: {
-        if (onOkClicked && (typeof onOkClicked === "function")) {
-            onOkClicked();
-        }
+        onOkClicked();
         Qt.openUrlExternally(externalUrl);
+    }
+
+    onRejected: {
+        onCancelClicked();
     }
 }

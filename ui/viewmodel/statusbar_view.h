@@ -20,11 +20,12 @@
 class StatusbarViewModel : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(bool isOnline READ getIsOnline NOTIFY isOnlineChanged)
-    Q_PROPERTY(bool isFailedStatus READ getIsFailedStatus NOTIFY isFailedStatusChanged)
-    Q_PROPERTY(bool isSyncInProgress READ getIsSyncInProgress NOTIFY isSyncInProgressChanged)
-    Q_PROPERTY(int nodeSyncProgress READ getNodeSyncProgress NOTIFY nodeSyncProgressChanged)
-    Q_PROPERTY(QString branchName READ getBranchName CONSTANT)
+    Q_PROPERTY(bool isOnline                READ getIsOnline            NOTIFY isOnlineChanged)
+    Q_PROPERTY(bool isFailedStatus          READ getIsFailedStatus      NOTIFY isFailedStatusChanged)
+    Q_PROPERTY(bool isSyncInProgress        READ getIsSyncInProgress    NOTIFY isSyncInProgressChanged)
+    Q_PROPERTY(bool isConnectionTrusted     READ getIsConnectionTrusted NOTIFY isConnectionTrustedChanged)
+    Q_PROPERTY(int nodeSyncProgress         READ getNodeSyncProgress    NOTIFY nodeSyncProgressChanged)
+    Q_PROPERTY(QString branchName           READ getBranchName          CONSTANT)
     Q_PROPERTY(QString walletStatusErrorMsg READ getWalletStatusErrorMsg NOTIFY statusErrorChanged)
 
 public:
@@ -34,6 +35,7 @@ public:
     bool getIsOnline() const;
     bool getIsFailedStatus() const;
     bool getIsSyncInProgress() const;
+    bool getIsConnectionTrusted() const;
     int getNodeSyncProgress() const;
     QString getBranchName() const;
     QString getWalletStatusErrorMsg() const;
@@ -41,6 +43,7 @@ public:
     void setIsOnline(bool value);
     void setIsFailedStatus(bool value);
     void setIsSyncInProgress(bool value);
+    void setIsConnectionTrusted(bool value);
     void setNodeSyncProgress(int value);
     void setWalletStatusErrorMsg(const QString& value);
 
@@ -56,6 +59,7 @@ signals:
     void isOnlineChanged();
     void isFailedStatusChanged();
     void isSyncInProgressChanged();
+    void isConnectionTrustedChanged();
     void nodeSyncProgressChanged();
     void statusErrorChanged();
 
@@ -65,6 +69,7 @@ private:
     bool m_isOnline;
     bool m_isSyncInProgress;
     bool m_isFailedStatus;
+    bool m_isConnectionTrusted;
     int m_nodeSyncProgress;
 
     int m_nodeDone;

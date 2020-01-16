@@ -67,7 +67,15 @@ struct KeyKeeper
         }
 #endif
 
-        return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::Key::IDV>(kidv), createCoinKey));
+        if (createCoinKey)
+        {
+            // TODO:ASSETS implement non-zero ID for assets
+            return to_base64(_impl->GenerateCoinKeySync(from_base64<ECC::Key::IDV>(kidv), Zero));
+        }
+        else
+        {
+            return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::Key::IDV>(kidv)));
+        }
     }
 
     std::string GetOwnerKey(const std::string& pass) const
@@ -86,9 +94,9 @@ struct KeyKeeper
         return ks.m_sRes;
     }
 
-    size_t AllocateNonceSlot()
+    size_t AllocateNonceSlotSync()
     {
-        return _impl->AllocateNonceSlot();
+        return _impl->AllocateNonceSlotSync();
     }
 
     std::string GenerateNonce(size_t slot)
@@ -173,7 +181,8 @@ struct KeyKeeper
 
                     for (const auto& output : outputCoins)
                     {
-                        if (commitment.Import(_impl->GeneratePublicKeySync(output, true)))
+                        // TODO:ASSETS implement
+                        if (commitment.Import(_impl->GenerateCoinKeySync(output, Zero)))
                         {
                             publicExcess += commitment;
                         }
@@ -182,7 +191,8 @@ struct KeyKeeper
                     publicExcess = -publicExcess;
                     for (const auto& input : inputCoins)
                     {
-                        if (commitment.Import(_impl->GeneratePublicKeySync(input, true)))
+                        // TODO:ASSETS implement
+                        if (commitment.Import(_impl->GenerateCoinKeySync(input, Zero)))
                         {
                             publicExcess += commitment;
                         }
@@ -206,7 +216,7 @@ struct KeyKeeper
 
             ECC::Point::Native peerPublicNonce = Zero;
             ECC::Point::Native publicNonce;
-            uint8_t nonceSlot = (uint8_t)_impl->AllocateNonceSlot();
+            uint8_t nonceSlot = (uint8_t)_impl->AllocateNonceSlotSync();
             publicNonce.Import(_impl->GenerateNonceSync(nonceSlot));
 
             ECC::Signature signature;
@@ -228,6 +238,7 @@ struct KeyKeeper
         auto sign = _impl->SignSync(
             from_base64<std::vector<Key::IDV>>(inputs), 
             from_base64<std::vector<Key::IDV>>(outputs),
+            Zero,
             offsetNative,
             nonceSlot,
             from_base64<KernelParameters>(kernelParameters),
@@ -263,7 +274,7 @@ EMSCRIPTEN_BINDINGS()
         .constructor<const std::string&>()
         .function("generatePublicKey",      &KeyKeeper::GeneratePublicKey)
         .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
-        .function("allocateNonceSlot",      &KeyKeeper::AllocateNonceSlot)
+        .function("allocateNonceSlot",      &KeyKeeper::AllocateNonceSlotSync)
         .function("generateNonce",          &KeyKeeper::GenerateNonce)
         .function("generateOutput",         &KeyKeeper::GenerateOutput)
         .function("sign",                   &KeyKeeper::Sign)

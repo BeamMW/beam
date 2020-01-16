@@ -15,18 +15,10 @@
 #include "lelantus.h"
 
 namespace beam {
-namespace Lelantus {
 
 using namespace ECC;
 
-
-void SpendKey::ToSerial(Scalar::Native& serial, const Point& pk)
-{
-	Oracle()
-		<< "L.Spend"
-		<< pk
-		>> serial;
-}
+namespace Sigma {
 
 ///////////////////////////
 // Calculate "standard" vector commitments of M+1 elements
@@ -186,8 +178,6 @@ uint32_t Cfg::get_F() const
 void Proof::Part1::Expose(Oracle& oracle) const
 {
 	oracle
-		<< m_SpendPk
-		<< m_Nonce
 		<< m_A
 		<< m_B
 		<< m_C
@@ -197,7 +187,7 @@ void Proof::Part1::Expose(Oracle& oracle) const
 		oracle << m_vG[k];
 }
 
-bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output& outp, Scalar::Native* pKs) const
+bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Native* pKs, Scalar::Native& kBias) const
 {
 	const uint32_t N = m_Cfg.get_N();
 	if (!N)
@@ -255,12 +245,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	mctx.m_Pitch = m_Cfg.n - 1;
 
 	m_Part1.Expose(oracle);
-	oracle << outp.m_Commitment;
 	oracle >> mctx.x;
-
-	Scalar::Native x2, x3;
-	oracle >> x2; // spend proof challenge
-	oracle >> x3; // output proof challenge
 
 	// recover pF0
 	auto itF = m_Part2.m_vF.begin();
@@ -322,19 +307,6 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	// final calculation
 	bc.EquationBegin();
 
-	if (!bc.AddCasual(m_Part1.m_Nonce, bc.m_Multiplier, true))
-		return false;
-
-	if (!bc.AddCasual(m_Part1.m_SpendPk, x2))
-		return false;
-
-	bc.AddCasual(outp.m_Pt, x3);
-
-	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_ProofG);
-	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Part2.m_ProofH);
-
-	bc.EquationBegin();
-
 	// G
 	Scalar::Native xPwr = -bc.m_Multiplier;
 	for (uint32_t j = 0; j < m_Cfg.M; j++)
@@ -352,11 +324,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 
 	mctx.FillKs(bc.m_Multiplier, m_Cfg.M);
 
-	SpendKey::ToSerial(xPwr, m_Part1.m_SpendPk);
-
-	Point::Native ptBias = outp.m_Pt;
-	ptBias += Context::get().J * xPwr;
-	bc.AddCasual(ptBias, -mctx.m_kBias, true);
+	kBias = -mctx.m_kBias;
 
 	// compare with target
 	bc.m_Multiplier = -bc.m_Multiplier;
@@ -392,10 +360,6 @@ void Prover::InitNonces(const uintBig& seed)
 
 		pA += m_Proof.m_Cfg.n;
 	}
-
-	nonceGen
-		>> m_vBuf[Idx::rNonceG]
-		>> m_vBuf[Idx::rNonceH];
 }
 
 void Prover::CalculateP()
@@ -537,7 +501,7 @@ void Prover::ExtractABCD()
 	}
 }
 
-void Prover::ExtractG(const Point::Native& ptOut)
+void Prover::ExtractG(const Point::Native& ptBias)
 {
 	const uint32_t nSizeNaggle = 128;
 	MultiMac_WithBufs<nSizeNaggle, 1> mm;
@@ -547,10 +511,6 @@ void Prover::ExtractG(const Point::Native& ptOut)
 
 	const uint32_t N = m_Proof.m_Cfg.get_N();
 	assert(N);
-
-	Point::Native ptBias = ptOut;
-	ptBias += Context::get().J * m_vBuf[Idx::Serial];
-	ptBias = -ptBias;
 
 	Scalar::Native pBias[Cfg::Max::M];
 	for (uint32_t k = 0; k < m_Proof.m_Cfg.M; k++)
@@ -585,7 +545,7 @@ void Prover::ExtractG(const Point::Native& ptOut)
 
 	mm.Reset();
 	mm.m_ppPrepared[0] = &Context::get().m_Ipp.G_;
-	mm.m_pCasual[0].Init(ptBias);
+	mm.m_pCasual[0].Init(-ptBias);
 	mm.m_Prepared = 1;
 	mm.m_Casual = 1;
 
@@ -611,10 +571,8 @@ void Prover::ExtractBlinded(Scalar& out, const Scalar::Native& sk, const Scalar:
 
 void Prover::ExtractPart2(Oracle& oracle)
 {
-	Scalar::Native x1, x2, x3;
+	Scalar::Native x1;
 	oracle >> x1;
-	oracle >> x2; // spend proof challenge
-	oracle >> x3; // output proof challenge
 
 	ExtractBlinded(m_Proof.m_Part2.m_zA, m_vBuf[Idx::rB], x1, m_vBuf[Idx::rA]);
 	ExtractBlinded(m_Proof.m_Part2.m_zC, m_vBuf[Idx::rC], x1, m_vBuf[Idx::rD]);
@@ -627,22 +585,8 @@ void Prover::ExtractPart2(Oracle& oracle)
 		xPwr *= x1;
 	}
 
-	Scalar::Native dR = m_Witness.V.m_R - m_Witness.V.m_R_Output;
-	Scalar::Native kG = m_vBuf[Idx::rNonceG]; // blinding
-	Scalar::Native kH = m_vBuf[Idx::rNonceH]; // blinding
-
-	kG += x2 * m_Witness.V.m_SpendSk;
-	kG += x3 * m_Witness.V.m_R_Output;
-	kH += x3 * Scalar::Native(m_Witness.V.m_V);
-
-	kG = -kG;
-	m_Proof.m_Part2.m_ProofG = kG;
-
-	kH = -kH;
-	m_Proof.m_Part2.m_ProofH = kH;
-
 	zR = -zR;
-	zR += dR * xPwr;
+	zR += m_Witness.V.m_R * xPwr;
 	m_Proof.m_Part2.m_zR = zR;
 
 	uint32_t nL_Reduced = m_Witness.V.m_L;
@@ -667,13 +611,10 @@ void Prover::ExtractPart2(Oracle& oracle)
 	}
 }
 
-void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
+void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native& ptBias)
 {
 	// Since this is a heavy proof, do it in 'fast' mode. Use 'secure' mode only for the most sensitive part - the SpendSk
 	Mode::Scope scope(Mode::Fast);
-
-	outp.m_Pt = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
-	outp.m_Commitment = outp.m_Pt;
 
 	const uint32_t N = m_Proof.m_Cfg.get_N();
 	assert(N);
@@ -687,29 +628,115 @@ void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
 	m_a = m_Tau + m_Proof.m_Cfg.M;
 	m_p = m_a + m_Proof.m_Cfg.M * m_Proof.m_Cfg.n;
 
-	m_Proof.m_Part1.m_SpendPk = Context::get().G * m_Witness.V.m_SpendSk;
-	SpendKey::ToSerial(m_vBuf[Idx::Serial], m_Proof.m_Part1.m_SpendPk);
-
 	InitNonces(seed);
 	ExtractABCD();
 	CalculateP();
-	ExtractG(outp.m_Pt);
-
-	{
-		// SpendSk is protected by rNonceG. This is where 'secure' mode is needed
-		Mode::Scope scope2(Mode::Secure);
-
-		Point::Native pt = Context::get().G * m_vBuf[Idx::rNonceG];
-		pt += Context::get().H_Big * m_vBuf[Idx::rNonceH];
-		m_Proof.m_Part1.m_Nonce = pt;
-	}
+	ExtractG(ptBias);
 
 	m_Proof.m_Part1.Expose(oracle);
-	oracle << outp.m_Commitment;
-
 	ExtractPart2(oracle);
 }
 
+
+
+} // namespace Sigma
+
+namespace Lelantus {
+
+void SpendKey::ToSerial(Scalar::Native& serial, const Point& pk)
+{
+	Oracle()
+		<< "L.Spend"
+		<< pk
+		>> serial;
+}
+
+void Proof::Expose0(Oracle& oracle, Hash::Value& hv) const
+{
+	oracle
+		<< m_Commitment
+		<< m_SpendPk
+		>> hv;
+}
+
+bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Native* pKs) const
+{
+	Mode::Scope scope(Mode::Fast);
+
+	Point::Native comm, spendPk;
+	if (!comm.Import(m_Commitment) ||
+		!spendPk.Import(m_SpendPk))
+		return false;
+
+	// Little optimization:
+	// The m_Commitment is needed both in the m_Signature verification (to prove it's of the form k*G + v*H), and to subtract as a bias.
+	Scalar::Native kComm;
+	{
+		Hash::Value hv;
+		Expose0(oracle, hv);
+
+		Oracle o2;
+		m_Signature.Expose(o2, hv);
+
+		bc.EquationBegin();
+
+		Scalar::Native e;
+
+		o2 >> kComm;
+		kComm *= bc.m_Multiplier;
+		// defer the evaluation of comm
+		o2 >> e;
+		bc.AddCasual(spendPk, e);
+
+		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Signature.m_pK[0]);
+		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Signature.m_pK[1]);
+
+		if (!bc.AddCasual(m_Signature.m_NoncePub, bc.m_Multiplier, true))
+			return false;
+	}
+
+	Scalar::Native kBias, kSer;
+	if (!Sigma::Proof::IsValid(bc, oracle, pKs, kBias))
+		return false;
+
+	bc.AddCasual(comm, kBias + kComm, true); // the deferred part from m_Signature, plus the needed bias
+
+	SpendKey::ToSerial(kSer, m_SpendPk);
+	kSer *= kBias;
+	bc.AddPreparedM(InnerProduct::BatchContext::s_Idx_J, kSer);
+
+	return true;
+}
+
+void Prover::Generate(const uintBig& seed, Oracle& oracle)
+{
+	Point::Native ptBias = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
+	m_Proof.m_Commitment = ptBias;
+	m_Proof.m_SpendPk = Context::get().G * m_Witness.V.m_SpendSk;
+
+	Hash::Value hv;
+	m_Proof.Expose0(oracle, hv);
+
+	Scalar::Native pSk[4], pRes[2];
+
+	pSk[0] = m_Witness.V.m_R_Output;
+	pSk[1] = m_Witness.V.m_V;
+	pSk[2] = m_Witness.V.m_SpendSk;
+	assert(pSk[3] == Zero);
+
+	m_Proof.m_Signature.Sign(Context::get().m_Sig.m_CfgGH2, hv, m_Proof.m_Signature.m_pK, pSk, pRes);
+
+	Scalar::Native kSer;
+	SpendKey::ToSerial(kSer, m_Proof.m_SpendPk);
+	ptBias += Context::get().J * kSer;
+
+	Sigma::Prover spr(m_List, m_Proof);
+	spr.m_Witness.V.m_L = m_Witness.V.m_L;
+	spr.m_Witness.V.m_R = m_Witness.V.m_R;
+	spr.m_Witness.V.m_R -= m_Witness.V.m_R_Output;
+
+	spr.Generate(seed, oracle, ptBias);
+}
 
 
 } // namespace Lelantus

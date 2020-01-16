@@ -423,7 +423,7 @@ bool MultiTx::BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& 
 	return true; // ok
 }
 
-bool MultiTx::ReadKrn(TxKernel& krn, ECC::Hash::Value& hv)
+bool MultiTx::ReadKrn(TxKernelStd& krn)
 {
 	Get(krn.m_Height.m_Min, Codes::KrnH0);
 	Get(krn.m_Height.m_Max, Codes::KrnH1);
@@ -433,14 +433,14 @@ bool MultiTx::ReadKrn(TxKernel& krn, ECC::Hash::Value& hv)
 	Get(hLock, Codes::KrnLockHeight);
 	if (hLock)
 	{
-		krn.m_pRelativeLock.reset(new TxKernel::RelativeLock);
+		krn.m_pRelativeLock.reset(new TxKernelStd::RelativeLock);
 		krn.m_pRelativeLock->m_LockHeight = hLock;
 
 		if (!Get(krn.m_pRelativeLock->m_ID, Codes::KrnLockID))
 			return false;
 	}
 
-	krn.get_Hash(hv);
+	krn.UpdateID();
 	return true;
 }
 
@@ -451,7 +451,7 @@ uint32_t MultiTx::Update2()
 		return 0;
 
 	ECC::Oracle oracle;
-	ECC::Scalar::Native skKrn;
+	ECC::Scalar::Native skKrn, nonceKrn;
 
 	{
 		ECC::NoLeak<ECC::uintBig> nnc;
@@ -466,10 +466,8 @@ uint32_t MultiTx::Update2()
 	}
 
 
-	ECC::Signature::MultiSig msigKrn;
-
 	oracle >> skKrn;
-	oracle >> msigKrn.m_Nonce;
+	oracle >> nonceKrn;
 
 	uint32_t iRole = 0;
 	Get(iRole, Codes::Role);
@@ -481,14 +479,14 @@ uint32_t MultiTx::Update2()
 
 	if (!iRole)
 	{
-		TxKernel krn;
+		TxKernelStd krn;
 
 		if (RaiseTo(1))
 		{
 			krn.m_Commitment = ECC::Context::get().G * skKrn;
 			Send(krn.m_Commitment, Codes::KrnCommitment);
 
-			krn.m_Signature.m_NoncePub = ECC::Context::get().G * msigKrn.m_Nonce;
+			krn.m_Signature.m_NoncePub = ECC::Context::get().G * nonceKrn;
 			Send(krn.m_Signature.m_NoncePub, Codes::KrnNonce);
 		}
 
@@ -497,39 +495,32 @@ uint32_t MultiTx::Update2()
 			!Get(krn.m_Signature.m_k, Codes::KrnSig))
 			return 0;
 
-		// finalize signature
-		ECC::Scalar::Native k;
-		if (!msigKrn.m_NoncePub.Import(krn.m_Signature.m_NoncePub))
-			return Status::Error;
-
-		ECC::Hash::Value hv;
-		if (!ReadKrn(krn, hv))
+		if (!ReadKrn(krn))
 			return 0;
 
-		msigKrn.SignPartial(k, hv, skKrn);
+		ECC::Scalar::Native k = krn.m_Signature.m_k;
 
-		k += ECC::Scalar::Native(krn.m_Signature.m_k);
+		krn.m_Signature.SignPartial(krn.m_Internal.m_ID, skKrn, nonceKrn);
+		k += krn.m_Signature.m_k;
 		krn.m_Signature.m_k = k;
 
+
 		ECC::Point::Native comm;
-		AmountBig::Type fee(Zero);
-		if (!krn.IsValid(hScheme, fee, comm))
+		if (!krn.IsValid(hScheme, comm))
 			return Status::Error;
 
-		assert(fee == AmountBig::Type(krn.m_Fee));
-
-		tx.m_vKernels.emplace_back(new TxKernel);
-		*tx.m_vKernels.back() = krn;
+		tx.m_vKernels.emplace_back();
+		krn.Clone(tx.m_vKernels.back());
 
 		if (RaiseTo(2))
-			Set(hv, Codes::KernelID);
+			Set(krn.m_Internal.m_ID, Codes::KernelID);
 
 	}
 	else
 	{
 		if (m_Pos < 1)
 		{
-			TxKernel krn;
+			TxKernelStd krn;
 
 			if (!Get(krn.m_Commitment, Codes::KrnCommitment) ||
 				!Get(krn.m_Signature.m_NoncePub, Codes::KrnNonce))
@@ -541,9 +532,8 @@ uint32_t MultiTx::Update2()
 			if (!comm.Import(krn.m_Signature.m_NoncePub))
 				return Status::Error;
 
-			comm += ECC::Context::get().G * msigKrn.m_Nonce;
-			msigKrn.m_NoncePub = comm;
-			krn.m_Signature.m_NoncePub = msigKrn.m_NoncePub;
+			comm += ECC::Context::get().G * nonceKrn;
+			krn.m_Signature.m_NoncePub = comm;
 
 			if (!comm.Import(krn.m_Commitment))
 				return Status::Error;
@@ -551,14 +541,10 @@ uint32_t MultiTx::Update2()
 			comm += ECC::Context::get().G * skKrn;
 			krn.m_Commitment = comm;
 
-			ECC::Hash::Value hv;
-			if (!ReadKrn(krn, hv))
+			if (!ReadKrn(krn))
 				return 0;
 
-			ECC::Scalar::Native k;
-			msigKrn.SignPartial(k, hv, skKrn);
-
-			krn.m_Signature.m_k = k; // incomplete yet
+			krn.m_Signature.SignPartial(krn.m_Internal.m_ID, skKrn, nonceKrn);
 
 			BEAM_VERIFY(RaiseTo(1));
 
@@ -566,7 +552,7 @@ uint32_t MultiTx::Update2()
 			Send(krn.m_Signature.m_NoncePub, Codes::KrnNonce);
 			Send(krn.m_Signature.m_k, Codes::KrnSig);
 
-			Set(hv, Codes::KernelID);
+			Set(krn.m_Internal.m_ID, Codes::KernelID);
 		}
 	}
 

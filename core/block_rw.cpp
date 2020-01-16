@@ -33,7 +33,8 @@ namespace beam
 		for (; m_pUtxoOut; NextUtxoOut())
 			ssc & *m_pUtxoOut;
 		for (; m_pKernel; NextKernel())
-			ssc & *m_pKernel;
+			// a little bit inaccurate, assuming worst-case
+			yas::detail::SaveKrn(ssc, *m_pKernel, false);
 
 		return ssc.m_Counter.m_Value;
 	}

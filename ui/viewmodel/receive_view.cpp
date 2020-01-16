@@ -30,6 +30,7 @@ ReceiveViewModel::ReceiveViewModel()
     , _addressExpires(AddressExpires)
     , _qr(std::make_unique<QR>())
     , _walletModel(*AppModel::getInstance().getWallet())
+    , _hasIdentity(false)
 {
     connect(_qr.get(), &QR::qrDataChanged, this, &ReceiveViewModel::onReceiverQRChanged);
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveViewModel::onGeneratedNewAddress);
@@ -64,7 +65,7 @@ void ReceiveViewModel::setAmountToReceive(QString value)
     {
         _amountToReceiveGrothes = amount;
         _qr->setAmount(_amountToReceiveGrothes);
-        emit amountToReceiveChanged();
+        emit amountReceiveChanged();
         updateTransactionToken();
     }
 }
@@ -142,6 +143,22 @@ void ReceiveViewModel::setAddressComment(const QString& value)
     }
 }
 
+
+bool ReceiveViewModel::getHasIdentity() const
+{
+    return _hasIdentity;
+}
+
+void ReceiveViewModel::setHasIdentity(bool value)
+{
+    if (_hasIdentity != value)
+    {
+        _hasIdentity = value;
+        emit hasIdentityChanged();
+        updateTransactionToken();
+    }
+}
+
 void ReceiveViewModel::saveAddress()
 {
     using namespace beam::wallet;
@@ -158,5 +175,9 @@ void ReceiveViewModel::updateTransactionToken()
     _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, _amountToReceiveGrothes);
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
     _txParameters.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+    if (_hasIdentity)
+    {
+        _txParameters.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, _receiverAddress.m_Identity);
+    }
     setTranasctionToken(QString::fromStdString(std::to_string(_txParameters)));
 }

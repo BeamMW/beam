@@ -49,7 +49,7 @@
 #include "viewmodel/helpers/list_model.h"
 #include "viewmodel/helpers/sortfilterproxymodel.h"
 #include "viewmodel/helpers/token_bootstrap_manager.h"
-#include "wallet/wallet_db.h"
+#include "wallet/core/wallet_db.h"
 #include "utility/log_rotation.h"
 #include "core/ecc_native.h"
 #include "utility/cli/options.h"

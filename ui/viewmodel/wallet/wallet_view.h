@@ -17,7 +17,7 @@
 #include <QQmlListProperty>
 #include <QQueue>
 #include <QString>
-#include "wallet/bitcoin/client.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
 #include "model/wallet_model.h"
 #include "model/settings.h"
 #include "viewmodel/messages_view.h"

@@ -22,7 +22,7 @@
 #include <QTimer>
 #include <QThread>
 
-#include "wallet/wallet_db.h"
+#include "wallet/core/wallet_db.h"
 #include "mnemonic/mnemonic.h"
 
 #include "messages_view.h"

@@ -200,7 +200,7 @@ namespace beam
 	{
 		uint32_t nTips = 0;
 
-		NodeDB::WalkerState ws(db);
+		NodeDB::WalkerState ws;
 
 		if (bFunctional)
 			db.EnumFunctionalTips(ws);
@@ -281,6 +281,9 @@ namespace beam
 			s.m_Kernels = Zero;
 		}
 
+		Merkle::Hash peer, peer2;
+		memset(peer.m_pData, 0x66, peer.nBytes);
+
 		uint64_t pRows[hMax];
 
 		// insert states in random order
@@ -288,7 +291,7 @@ namespace beam
 		{
 			for (uint32_t h = h1; h < hMax; h += nOrd)
 			{
-				pRows[h] = db.InsertState(vStates[h]);
+				pRows[h] = db.InsertState(vStates[h], peer);
 				db.assert_valid();
 
 				if (h)
@@ -300,10 +303,9 @@ namespace beam
 		}
 
 		Blob bBodyP("body", 4), bBodyE("abc", 3);
-		Merkle::Hash peer, peer2;
-		memset(peer.m_pData, 0x66, peer.nBytes);
 
-		db.SetStateBlock(pRows[0], bBodyP, bBodyE);
+		db.SetStateBlock(pRows[0], bBodyP, bBodyE, peer);
+		db.set_Peer(pRows[0], nullptr);
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
 		db.set_Peer(pRows[0], &peer);
@@ -314,13 +316,13 @@ namespace beam
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
 		ByteBuffer bbBodyP, bbBodyE;
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, nullptr);
 
 		//db.DelStateBlockPP(pRows[0]);
 		//db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
 
 		db.DelStateBlockAll(pRows[0]);
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, nullptr);
 
 		tr.Commit();
 		tr.Start(db);
@@ -332,7 +334,7 @@ namespace beam
 		Block::SystemState::Full s = vStates[hFork0];
 		s.m_Definition.Inc(); // alter
 
-		uint64_t r0 = db.InsertState(s);
+		uint64_t r0 = db.InsertState(s, peer);
 
 		verify_test(CountTips(db, false) == 2);
 
@@ -350,7 +352,7 @@ namespace beam
 		s.m_Height++;
 		s.m_ChainWork = s.m_Height;
 
-		uint64_t rowLast1 = db.InsertState(s);
+		uint64_t rowLast1 = db.InsertState(s, peer);
 
 		NodeDB::StateID sid;
 		verify_test(CountTips(db, false, &sid) == 2);
@@ -367,37 +369,9 @@ namespace beam
 		tr.Commit();
 		tr.Start(db);
 
-		// test proofs
 		NodeDB::StateID sid2;
 		verify_test(CountTips(db, false, &sid2) == 2);
 		verify_test(sid2.m_Height == hMax-1 + Rules::HeightGenesis);
-
-		do
-		{
-			if (sid2.m_Height + 1 < hMax + Rules::HeightGenesis)
-			{
-				Merkle::Hash hv;
-				db.get_PredictedStatesHash(hv, sid2);
-				Merkle::Interpret(hv, hvZero, true);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Rules::HeightGenesis].m_Definition);
-			}
-
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Rules::HeightGenesis].m_Definition;
-
-			for (Height h = Rules::HeightGenesis; h < sid2.m_Height; h++)
-			{
-				Merkle::ProofBuilderStd bld;
-				db.get_Proof(bld, sid2, h);
-
-				Merkle::Hash hv;
-				vStates[h - Rules::HeightGenesis].get_Hash(hv);
-				Merkle::Interpret(hv, bld.m_Proof);
-				Merkle::Interpret(hv, hvZero, true);
-
-				verify_test(hvRoot == hv);
-			}
-
-		} while (db.get_Prev(sid2));
 
 		while (db.get_Prev(sid))
 			;
@@ -411,10 +385,44 @@ namespace beam
 		db.assert_valid();
 		verify_test(CountTips(db, true) == 2);
 
-		for (sid.m_Height = Rules::HeightGenesis; sid.m_Height <= hMax; sid.m_Height++)
+		// test cursor and StatesMmr
+		NodeDB::StatesMmr smmr(db);
+		Merkle::Hash hvRoot(Zero);
+
+		for (sid.m_Height = Rules::HeightGenesis; sid.m_Height < hMax + Rules::HeightGenesis; sid.m_Height++)
 		{
 			sid.m_Row = pRows[sid.m_Height - Rules::HeightGenesis];
 			db.MoveFwd(sid);
+			
+			Merkle::Hash hv;
+			if (sid.m_Height < Rules::HeightGenesis + 50) // skip it for big heights, coz it's quadratic
+			{
+				for (Height h = Rules::HeightGenesis; h < sid.m_Height; h++)
+				{
+					Merkle::ProofBuilderStd bld;
+					smmr.get_Proof(bld, smmr.H2I(h));
+
+					vStates[h - Rules::HeightGenesis].get_Hash(hv);
+					Merkle::Interpret(hv, bld.m_Proof);
+					verify_test(hvRoot == hv);
+				}
+			}
+
+			const Block::SystemState::Full& sTop = vStates[sid.m_Height - Rules::HeightGenesis];
+
+			hv = hvRoot;
+			Merkle::Interpret(hv, hvZero, true);
+			verify_test(hv == sTop.m_Definition);
+
+			sTop.get_Hash(hv);
+			smmr.get_PredictedHash(hvRoot, hv);
+
+			smmr.Append(hv);
+
+			smmr.get_Hash(hv);
+			verify_test(hv == hvRoot);
+
+
 		}
 
 		tr.Commit();
@@ -463,7 +471,7 @@ namespace beam
 			db.PeerIns(d);
 		}
 
-		NodeDB::WalkerPeer wlkp(db);
+		NodeDB::WalkerPeer wlkp;
 		for (db.EnumPeers(wlkp); wlkp.MoveNext(); )
 			;
 
@@ -486,7 +494,7 @@ namespace beam
 			db.BbsIns(dBbs);
 		}
 
-		NodeDB::WalkerBbs wlkbbs(db);
+		NodeDB::WalkerBbs wlkbbs;
 		wlkbbs.m_Data = dBbs;
 		verify_test(db.BbsFind(wlkbbs));
 
@@ -560,7 +568,8 @@ namespace beam
 		verify_test(db.FindKernel(bBodyP) == 0);
 
 		// Shielded
-		db.ShieldedResize(16 * 1024 * 3 + 5);
+		TxoID nShielded = 16 * 1024 * 3 + 5;
+		db.ShieldedResize(nShielded, 0);
 
 		StoragePts pts;
 		pts.Init();
@@ -575,8 +584,95 @@ namespace beam
 		db.ShieldedRead(16 * 1024 * 2 -2, pts.m_pArr, _countof(pts.m_pArr));
 		verify_test(pts.IsValid(0, _countof(pts.m_pArr), 0));
 
-		db.ShieldedResize(1);
-		db.ShieldedResize(0);
+		db.ShieldedResize(1, nShielded);
+		db.ShieldedResize(0, 1);
+
+		ECC::uintBig k1 = 223U;
+		Blob val(nullptr, 0);
+
+		verify_test(db.UniqueInsertSafe(k1, &val));
+		db.UniqueDeleteStrict(k1);
+		verify_test(db.UniqueInsertSafe(k1, nullptr));
+		verify_test(!db.UniqueInsertSafe(k1, nullptr));
+
+
+		// Assets
+		AssetInfo::Full ai1, ai2;
+		ZeroObject(ai1);
+
+		for (uint32_t i = 1; i <= 5; i++)
+		{
+			ai1.m_ID = 0;
+			db.AssetAdd(ai1);
+			verify_test(ai1.m_ID == i);
+		}
+
+		verify_test(db.AssetDelete(5) == 4); // should shrink
+		verify_test(db.AssetDelete(3) == 4); // should retain the same size
+
+		ai2.m_ID = 3;
+		verify_test(!db.AssetGetSafe(ai2));
+		ai2.m_ID = 2;
+		verify_test(db.AssetGetSafe(ai2));
+		verify_test(ai2.m_Owner == ai1.m_Owner);
+
+		ai1.m_Owner.Inc();
+		ai1.m_Owner.Negate();
+		ai1.m_ID = 0;
+		db.AssetAdd(ai1);
+		verify_test(ai1.m_ID == 3);
+
+		AmountBig::Type assetVal1, assetVal2 = 1U;
+		ai2.m_ID = 3;
+		verify_test(db.AssetGetSafe(ai2));
+		verify_test(ai2.m_Value == Zero);
+
+		assetVal2 = 334U;
+		db.AssetSetValue(3, assetVal2);
+
+		verify_test(db.AssetGetSafe(ai2));
+		verify_test(ai2.m_Value == assetVal2);
+
+		ai1.m_ID = 1;
+		verify_test(db.AssetFindByOwner(ai1));
+		verify_test(ai1.m_ID == 3);
+		verify_test(ai1.m_Value == assetVal2);
+
+		verify_test(db.AssetDelete(2) == 4);
+		verify_test(db.AssetDelete(3) == 4);
+		verify_test(db.AssetDelete(4) == 1);
+		verify_test(db.AssetDelete(1) == 0);
+
+		// StreamMmr, test cache
+		struct MyMmr
+			:public NodeDB::StreamMmr
+		{
+			using StreamMmr::StreamMmr;
+			uint32_t m_Total = 0;
+			uint32_t m_Miss = 0;
+
+			virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
+			{
+				Cast::NotConst(this)->m_Total++;
+				if (!CacheFind(hv, pos))
+				{
+					Cast::NotConst(this)->m_Miss++;
+					StreamMmr::LoadElement(hv, pos);
+				}
+			}
+		};
+
+		MyMmr myMmr(db, NodeDB::StreamType::ShieldedMmr, true);
+
+		for (uint32_t i = 0; i < 40; i++)
+		{
+			Merkle::Hash hv = i;
+			myMmr.Append(hv);
+			myMmr.get_Hash(hv);
+		}
+
+		// in a 'friendly' scenario, where we only add and calculate root - cache must be 100% effective
+		verify_test(!myMmr.m_Miss);
 
 		tr.Commit();
 	}
@@ -642,7 +738,9 @@ namespace beam
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
 		UtxoQueue m_MyUtxos;
 
-		const MyUtxo* AddMyUtxo(const Key::IDV& kidv)
+		bool m_AutoAddTxOutputs = true; // assume tx outputs are always ok, and add them to the m_MyUtxos
+
+		const MyUtxo* AddMyUtxo(const Key::IDV& kidv, Height hMaturity)
 		{
 			if (!kidv.m_Value)
 				return NULL;
@@ -650,10 +748,15 @@ namespace beam
 			MyUtxo utxo;
 			utxo.m_Kidv = kidv;
 
+			return &m_MyUtxos.insert(std::make_pair(hMaturity, utxo))->second;
+		}
+
+		const MyUtxo* AddMyUtxo(const Key::IDV& kidv)
+		{
 			Height h = kidv.m_Idx; // this is our convention
 			h += (Key::Type::Coinbase == kidv.m_Type) ? Rules::get().Maturity.Coinbase : Rules::get().Maturity.Std;
 
-			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
+			return AddMyUtxo(kidv, h);
 		}
 
 		struct MyKernel
@@ -664,33 +767,30 @@ namespace beam
 			Height m_Height = 0;
 			Merkle::Hash m_hvRelLock = Zero;
 
-			void Export(TxKernel& krn) const
+			void Export(TxKernelStd& krn) const
 			{
 				krn.m_Fee = m_Fee;
-				krn.m_Commitment = ECC::Point::Native(ECC::Context::get().G * m_k);
+				krn.m_Height.m_Min = m_Height + 1;
 
 				if (m_bUseHashlock)
 				{
-					krn.m_pHashLock.reset(new TxKernel::HashLock); // why not?
-					ECC::Hash::Processor() << m_Fee << m_k >> krn.m_pHashLock->m_Preimage;
+					krn.m_pHashLock.reset(new TxKernelStd::HashLock); // why not?
+					ECC::Hash::Processor() << m_Fee << m_k >> krn.m_pHashLock->m_Value;
 				}
 
 				if (!(m_hvRelLock == Zero))
 				{
-					krn.m_pRelativeLock.reset(new TxKernel::RelativeLock);
+					krn.m_pRelativeLock.reset(new TxKernelStd::RelativeLock);
 					krn.m_pRelativeLock->m_ID = m_hvRelLock;
 					krn.m_pRelativeLock->m_LockHeight = 1;
 				}
 
-				ECC::Hash::Value hv;
-				krn.get_Hash(hv);
-				krn.m_Signature.Sign(hv, m_k);
-
+				krn.Sign(m_k);
 			}
 
-			void Export(TxKernel::Ptr& pKrn) const
+			void Export(TxKernelStd::Ptr& pKrn) const
 			{
-				pKrn.reset(new TxKernel);
+				pKrn.reset(new TxKernelStd);
 				Export(*pKrn);
 			}
 		};
@@ -760,7 +860,7 @@ namespace beam
 
 			m_pKdf->DeriveKey(mk.m_k, Key::ID(++m_nRunningIndex, Key::Type::Kernel));
 
-			TxKernel::Ptr pKrn;
+			TxKernelStd::Ptr pKrn;
 			mk.Export(pKrn);
 
 			tx.m_vKernels.push_back(std::move(pKrn));
@@ -782,7 +882,9 @@ namespace beam
 				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
 
 				ToOutput(utxoOut, tx, h, hIncubation);
-				m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
+
+				if (m_AutoAddTxOutputs)
+					m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
 			}
 
 			tx.Normalize();
@@ -839,7 +941,6 @@ namespace beam
 				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
 
 				verify_test(np.ValidateTxContext(*pTx, hr, false));
-				verify_test(np.ValidateTxWrtHeight(*pTx, hr));
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
@@ -984,8 +1085,8 @@ namespace beam
 			np.m_Horizon = horz;
 
 			NodeProcessor::StartParams sp;
-			sp.m_CheckIntegrityAndVacuum = true;
-			sp.m_ResetCursor = true;
+			sp.m_CheckIntegrity = true;
+			sp.m_Vacuum = true;
 			np.Initialize(g_sz, sp);
 		}
 
@@ -1505,20 +1606,32 @@ namespace beam
 
 			std::vector<Block::SystemState::Full> m_vStates;
 
-			std::set<ECC::Point> m_UtxosConfirmed;
+			std::set<ECC::Point> m_UtxosBeingSpent;
 			std::list<ECC::Point> m_queProofsExpected;
 			std::list<uint32_t> m_queProofsStateExpected;
 			std::list<uint32_t> m_queProofsKrnExpected;
 			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
 			uint32_t m_nRecoveryPending = 0;
-			AssetID m_AssetEmitted = Zero;
-			bool m_bCustomAssetRecognized = false;
 
+			struct
+			{
+				Height m_hCreated = 0;
+				bool m_Emitted = false;
+				ByteBuffer m_MetaData;
+				ECC::Scalar::Native m_skOwner;
+				AssetID m_ID = 0; // set after successful creation + proof
+				bool m_Recognized = false;
+
+			} m_Assets;
+
+			Height m_hUtxoEvts = 0;
+			bool m_bUtxoEvtsPending = false;
 
 			MyClient(const Key::IKdf::Ptr& pKdf)
 			{
 				m_Wallet.m_pKdf = pKdf;
+				m_Wallet.m_AutoAddTxOutputs = false;
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
@@ -1589,6 +1702,12 @@ namespace beam
 				io::Reactor::get_Current().stop();
 			}
 
+			void OnBeingSpent(const proto::NewTransaction& msg)
+			{
+				for (size_t i = 0; i < msg.m_Transaction->m_vInputs.size(); i++)
+					m_UtxosBeingSpent.insert(msg.m_Transaction->m_vInputs[i]->m_Commitment);
+			}
+
 			struct Shielded
 			{
 				Height m_Sent = 0;
@@ -1602,7 +1721,10 @@ namespace beam
 				Amount m_Value;
 				ECC::Scalar::Native m_sk;
 				ECC::Scalar::Native m_skSpendKey;
-				ECC::Point m_Commitment;
+				ECC::Point m_SerialPub;
+				ECC::Point m_SpendPk;
+				PeerID m_Sender = 165U;
+				ECC::uintBig m_Message = 243U;
 
 				ECC::Hash::Value m_SpendKernelID;
 				bool m_SpendConfirmed = false;
@@ -1634,42 +1756,42 @@ namespace beam
 				assert(msgTx.m_Transaction);
 
 				{
-					Output::Ptr pOut(new Output);
+					TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
+					pKrn->m_Height.m_Min = h + 1;
+					pKrn->m_Fee = fee;
 
-					Output::Shielded::Viewer viewer;
+					ShieldedTxo::Viewer viewer;
 					viewer.FromOwner(*m_Wallet.m_pKdf);
 
-					Output::Shielded::PublicGen gen;
-					gen.m_pGen = viewer.m_pGen;
-					gen.m_pSer = viewer.m_pSer;
-					gen.m_Owner = 12U; // whatever
+					ShieldedTxo::Data::SerialParams sp;
+					sp.Generate(pKrn->m_Txo.m_Serial, viewer, 13U);
 
-					ECC::Hash::Value nonce;
-					nonce = 13U; // whatever
+					pKrn->UpdateMsg();
+					ECC::Oracle oracle;
+					oracle << pKrn->m_Msg;
 
-					Output::Shielded::Data d;
-					d.m_hScheme = h + 1;
-					d.m_Value = m_Shielded.m_Value;
-					d.Generate(*pOut, gen, nonce);
+					ShieldedTxo::Data::OutputParams op;
+					op.m_Sender = m_Shielded.m_Sender;
+					op.m_Message = m_Shielded.m_Message;
+					op.m_Value = m_Shielded.m_Value;
+					op.Generate(pKrn->m_Txo, oracle, viewer, 18U);
 
-					m_Shielded.m_sk = d.m_kOutG;
-					m_Shielded.m_sk += d.m_kSerG;
-					m_Shielded.m_Commitment = pOut->m_pShielded->m_SerialPub;
+					pKrn->MsgToID();
+
+					m_Shielded.m_sk = sp.m_pK[0];
+					m_Shielded.m_sk += op.m_k;
+					m_Shielded.m_SerialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
 
 					Key::IKdf::Ptr pSerPrivate;
-					Output::Shielded::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
-
-					d.GetSpendKey(m_Shielded.m_skSpendKey, *pSerPrivate);
+					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
+					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sp.m_SerialPreimage);
 
 					ECC::Point::Native pt;
-					verify_test(pOut->IsValid(h + 1, pt));
+					verify_test(pKrn->IsValid(h + 1, pt));
 
-					msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
-					m_Wallet.UpdateOffset(*msgTx.m_Transaction, d.m_kOutG, true);
+					msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+					m_Wallet.UpdateOffset(*msgTx.m_Transaction, op.m_k, true);
 				}
-
-				m_Wallet.MakeTxKernel(*msgTx.m_Transaction, fee, h);
-
 
 				msgTx.m_Transaction->Normalize();
 
@@ -1680,6 +1802,7 @@ namespace beam
 				verify_test(isTxValid);
 
 				msgTx.m_Fluff = true;
+				OnBeingSpent(msgTx);
 				Send(msgTx);
 
 				return true;
@@ -1700,11 +1823,12 @@ namespace beam
 				ECC::Scalar::Native sk;
 				ECC::SetRandom(sk);
 
-				Input::Ptr pInp(new Input);
-				pInp->m_Commitment = ECC::Commitment(sk, m_Shielded.m_Value);
-				pInp->m_pSpendProof.reset(new Input::SpendProof);
-				pInp->m_pSpendProof->m_WindowEnd = nWnd1;
-				pInp->m_pSpendProof->m_Cfg = m_Shielded.m_Cfg;
+				Height h = m_vStates.back().m_Height;
+
+				TxKernelShieldedInput::Ptr pKrn(new TxKernelShieldedInput);
+				pKrn->m_Height.m_Min = h + 1;
+				pKrn->m_WindowEnd = nWnd1;
+				pKrn->m_SpendProof.m_Cfg = m_Shielded.m_Cfg;
 
 				Lelantus::CmListVec lst;
 
@@ -1724,48 +1848,64 @@ namespace beam
 					std::copy(msg.m_Items.begin(), msg.m_Items.end(), lst.m_vec.end() - msg.m_Items.size());
 				}
 
-				Lelantus::Prover p(lst, *pInp->m_pSpendProof);
+				Lelantus::Prover p(lst, pKrn->m_SpendProof);
 				p.m_Witness.V.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
 				p.m_Witness.V.m_R = m_Shielded.m_sk;
 				p.m_Witness.V.m_R_Output = sk;
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
 				p.m_Witness.V.m_V = m_Shielded.m_Value;
 
-				Lelantus::Proof::Output outp;
+				pKrn->UpdateMsg();
+
 				ECC::Oracle o1;
-				p.Generate(outp, Zero, o1);
+				o1 << pKrn->m_Msg;
+				p.Generate(Zero, o1);
+
+				pKrn->MsgToID();
 
 				{
 					// test
 				}
 
-				Amount fee = 100;
-				fee += Transaction::FeeSettings().m_ShieldedOutput;
+				m_Shielded.m_SpendPk = pKrn->m_SpendProof.m_SpendPk;
 
-				msgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
+				Amount fee = 100;
+				fee += Transaction::FeeSettings().m_ShieldedInput;
+
+				msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msgTx.m_Transaction, sk, false);
 
-				Height h = m_vStates.back().m_Height;
-				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h + 1, 0, m_Shielded.m_Value, fee);
+				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h, 0, m_Shielded.m_Value, fee);
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
 				ctx.m_Height.m_Min = h + 1;
 				verify_test(msgTx.m_Transaction->IsValid(ctx));
 
-				verify_test(msgTx.m_Transaction->m_vKernels.size() == 1);
-				msgTx.m_Transaction->m_vKernels.front()->get_ID(m_Shielded.m_SpendKernelID);
+				for (size_t i = 0; i < msgTx.m_Transaction->m_vKernels.size(); i++)
+				{
+					const TxKernel& krn = *msgTx.m_Transaction->m_vKernels[i];
+					if (krn.get_Subtype() == TxKernel::Subtype::Std)
+						m_Shielded.m_SpendKernelID = krn.m_Internal.m_ID;
+				}
 
 				msgTx.m_Fluff = true;
+				OnBeingSpent(msgTx);
 				Send(msgTx);
 			}
 
-			virtual void OnMsg(proto::ProofShieldedTxo&& msg) override
+			virtual void OnMsg(proto::ProofShieldedOutp&& msg) override
 			{
 				if (msg.m_Proof.empty())
 					return;
 
-				verify_test(m_vStates.back().IsValidProofShieldedTxo(m_Shielded.m_Commitment, msg.m_ID, msg.m_Proof));
+				ShieldedTxo::DescriptionOutp d;
+				d.m_ID = msg.m_ID;
+				d.m_Height = msg.m_Height;
+				d.m_SerialPub = m_Shielded.m_SerialPub;
+				d.m_Commitment = msg.m_Commitment;
+
+				verify_test(m_vStates.back().IsValidProofShieldedOutp(d, msg.m_Proof));
 				m_Shielded.m_Confirmed = msg.m_ID;
 
 				m_Shielded.m_N = m_Shielded.m_Cfg.get_N();
@@ -1778,33 +1918,66 @@ namespace beam
 				Send(msgOut);
 			}
 
-			bool OnNotAchieved(bool bFin, const char* sz)
+			virtual void OnMsg(proto::ProofShieldedInp&& msg) override
 			{
-				if (bFin)
-					fail_test(sz);
-				return false;
+				if (msg.m_Proof.empty())
+					return;
+
+				ShieldedTxo::DescriptionInp d;
+				d.m_Height = msg.m_Height;
+				d.m_SpendPk = m_Shielded.m_SpendPk;
+
+				verify_test(m_vStates.back().IsValidProofShieldedInp(d, msg.m_Proof));
 			}
+
+			virtual void OnMsg(proto::ProofAsset&& msg) override
+			{
+				verify_test(m_Assets.m_hCreated && !m_Assets.m_ID);
+
+				if (msg.m_Proof.empty())
+					return;
+
+				verify_test(msg.m_Info.m_Metadata == m_Assets.m_MetaData);
+
+				verify_test(m_vStates.back().IsValidProofAsset(msg.m_Info, msg.m_Proof));
+
+				m_Assets.m_ID = msg.m_Info.m_ID;
+				verify_test(m_Assets.m_ID);
+			}
+
+			struct AchievementTester
+			{
+				bool m_AllDone = true;
+				const bool m_Fin;
+
+				AchievementTester(bool bFin) :m_Fin(bFin) {}
+
+				void Test(bool bAchieved, const char* sz)
+				{
+					if (!bAchieved)
+					{
+						m_AllDone = false;
+						if (m_Fin)
+							fail_test(sz);
+					}
+				}
+			};
+
 
 			bool TestAllDone(bool bFin)
 			{
-				if (!IsHeightReached())
-					return OnNotAchieved(bFin, "Blockchain height didn't reach target");
-				if (!IsAllProofsReceived())
-					return OnNotAchieved(bFin, "some proofs missing");
-				if (!IsAllBbsReceived())
-					return OnNotAchieved(bFin, "some BBS messages missing");
-				if (!IsAllRecoveryReceived())
-					return OnNotAchieved(bFin, "some recovery messages missing");
-				//if (!m_bCustomAssetRecognized)
-				//	return OnNotAchieved(bFin, "CA not recognized");
-				if (!m_Shielded.m_SpendConfirmed)
-					return OnNotAchieved(bFin, "Shielded spend not confirmed");
-				if (!m_Shielded.m_EvtAdd)
-					return OnNotAchieved(bFin, "Shielded Add event didn't arrive");
-				if (!m_Shielded.m_EvtSpend)
-					return OnNotAchieved(bFin, "Shielded Spend event didn't arrive");
+				AchievementTester t(bFin);
+				t.Test(IsHeightReached(), "Blockchain height didn't reach target");
+				t.Test(IsAllProofsReceived(), "some proofs missing");
+				t.Test(IsAllBbsReceived(), "some BBS messages missing");
+				t.Test(IsAllRecoveryReceived(), "some recovery messages missing");
+				t.Test(m_Assets.m_ID != 0, "CA not created");
+				t.Test(m_Assets.m_Recognized, "CA output not recognized");
+				t.Test(m_Shielded.m_SpendConfirmed, "Shielded spend not confirmed");
+				t.Test(m_Shielded.m_EvtAdd, "Shielded Add event didn't arrive");
+				t.Test(m_Shielded.m_EvtSpend, "Shielded Spend event didn't arrive");
 
-				return true; // all achieved
+				return t.m_AllDone;
 			}
 
 			virtual void OnMsg(proto::NewTip&& msg) override
@@ -1829,11 +2002,18 @@ namespace beam
 
 				if (!m_Shielded.m_Withdrew && m_Shielded.m_Sent && (msg.m_Description.m_Height - m_Shielded.m_Sent >= 5))
 				{
-					proto::GetProofShieldedTxo msgOut;
-					msgOut.m_Commitment = m_Shielded.m_Commitment;
+					proto::GetProofShieldedOutp msgOut;
+					msgOut.m_SerialPub = m_Shielded.m_SerialPub;
 					Send(msgOut);
 
 					m_Shielded.m_Withdrew = true;
+				}
+
+				if (m_Assets.m_hCreated && (msg.m_Description.m_Height == m_Assets.m_hCreated + 3))
+				{
+					proto::GetProofAsset msgOut;
+					proto::Sk2Pk(msgOut.m_Owner, m_Assets.m_skOwner);
+					Send(msgOut);
 				}
 
 				proto::BbsMsg msgBbs;
@@ -1844,9 +2024,6 @@ namespace beam
 				Send(msgBbs);
 
 				m_nBbsMsgsPending++;
-
-				// assume we've mined this
-				m_Wallet.AddMyUtxo(Key::IDV(Rules::get_Emission(msg.m_Description.m_Height), msg.m_Description.m_Height, Key::Type::Coinbase));
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
@@ -1877,27 +2054,29 @@ namespace beam
 					ECC::Scalar::Native sk;
 					m_Wallet.ToCommtiment(utxo, msgOut2.m_Utxo, sk);
 
-					Send(msgOut2);
-
-					m_queProofsExpected.push_back(msgOut2.m_Utxo);
+					if (m_UtxosBeingSpent.find(msgOut2.m_Utxo) == m_UtxosBeingSpent.end())
+					{
+						Send(msgOut2);
+						m_queProofsExpected.push_back(msgOut2.m_Utxo);
+					}
 				}
 
 				for (uint32_t i = 0; i < m_Wallet.m_MyKernels.size(); i++)
 				{
 					const MiniWallet::MyKernel mk = m_Wallet.m_MyKernels[i];
 
-					TxKernel krn;
+					TxKernelStd krn;
 					mk.Export(krn);
 
 					proto::GetProofKernel2 msgOut2;
-					krn.get_ID(msgOut2.m_ID);
+					msgOut2.m_ID = krn.m_Internal.m_ID;
 					msgOut2.m_Fetch = true;
 					Send(msgOut2);
 
 					m_queProofsKrnExpected.push_back(i);
 
 					proto::GetProofKernel msgOut3;
-					krn.get_ID(msgOut3.m_ID);
+					msgOut3.m_ID = krn.m_Internal.m_ID;
 					Send(msgOut3);
 
 					m_queProofsKrnExpected.push_back(i);
@@ -1910,7 +2089,11 @@ namespace beam
 				}
 
 				proto::NewTransaction msgTx;
-				while (true)
+				msgTx.m_Fluff = true; // currently - DISABLE dandelion. In this test blocks are assembled fast, and there's a (small) lag between the 2 nodes
+				// sometimes a stem node, which is slightly behind, receives a tx whose m_Height.m_Min is already larger.
+				// TODO: re-enable Dandelion once we take care of this (put slightly lower kernel height, wait a little longer for inputs to spend, don't send txs near the forks).
+
+				for (int i = 0; i < 2; i++) // don't send too many txs, it's too heavy for the test
 				{
 					Amount val = m_Wallet.MakeTxInput(msgTx.m_Transaction, msg.m_Description.m_Height);
 					if (!val)
@@ -1918,50 +2101,21 @@ namespace beam
 
 					assert(msgTx.m_Transaction);
 
-					bool bEmitAsset = (m_AssetEmitted == Zero);
+					MaybeCreateAsset(msgTx, val);
+					MaybeEmitAsset(msgTx, val);
 
-					if (bEmitAsset)
-					{
-						Key::IDV kidv(Zero);
-						kidv.m_Value = val;
-
-						ECC::Scalar::Native skAsset, skOut;
-						ECC::SetRandom(skAsset);
-						proto::Sk2Pk(m_AssetEmitted, skAsset);
-
-						TxKernel::Ptr pKrn(new TxKernel);
-						pKrn->m_Commitment.m_X = m_AssetEmitted;
-						pKrn->m_Commitment.m_Y = 0;
-						pKrn->m_AssetEmission = kidv.m_Value;
-						pKrn->Sign(skAsset);
-
-						Output::Ptr pOutp(new Output);
-						pOutp->m_AssetID = m_AssetEmitted;
-						pOutp->Create(msg.m_Description.m_Height + 1, skOut, *m_Wallet.m_pKdf, kidv, *m_Wallet.m_pKdf);
-
-						msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
-						m_Wallet.UpdateOffset(*msgTx.m_Transaction, skOut, true);
-
-						msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-						m_Wallet.UpdateOffset(*msgTx.m_Transaction, skAsset, true);
-
-						msgTx.m_Transaction->Normalize();
-					}
-
-					if (!(bEmitAsset && Rules::get().CA.Deposit))
-						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
+					m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
 					Transaction::Context::Params pars;
 					Transaction::Context ctx(pars);
 					ctx.m_Height.m_Min = msg.m_Description.m_Height + 1;
 					verify_test(msgTx.m_Transaction->IsValid(ctx));
 
+					OnBeingSpent(msgTx);
 					Send(msgTx);
 				}
 
-				proto::GetUtxoEvents msgEvt;
-				Send(msgEvt);
-				m_nRecoveryPending++;
+				MaybeAskUtxoEvents();
 
 				if (!(msg.m_Description.m_Height % 4))
 				{
@@ -1970,6 +2124,106 @@ namespace beam
 					SendLogin();
 				}
 
+			}
+
+			bool MaybeCreateAsset(proto::NewTransaction& msg, Amount& val)
+			{
+				if (m_Assets.m_hCreated)
+					return false;
+
+				const Amount nFee = 330;
+				Amount nLock = Rules::get().CA.DepositForList;
+				if (val < nLock + nFee)
+					return false;
+
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (s.m_Height + 1 < Rules::get().pForks[2].m_Height)
+					return false;
+
+				val -= nLock + nFee;
+
+				ECC::Scalar::Native sk;
+				ECC::SetRandom(sk);
+				ECC::SetRandom(m_Assets.m_skOwner);
+
+				static const char szMyData[] = "My cool metadata!";
+				m_Assets.m_MetaData.resize(sizeof(szMyData) - 1);
+				memcpy(&m_Assets.m_MetaData.front(), szMyData, sizeof(szMyData) - 1);
+
+				TxKernelAssetCreate::Ptr pKrn(new TxKernelAssetCreate);
+				pKrn->m_Fee = nFee;
+				pKrn->m_Height.m_Min = s.m_Height + 1;
+				proto::Sk2Pk(pKrn->m_Owner, m_Assets.m_skOwner);
+				pKrn->m_MetaData = m_Assets.m_MetaData;
+				pKrn->Sign(sk, m_Assets.m_skOwner);
+
+				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+
+				m_Assets.m_hCreated = s.m_Height;
+
+				return true;
+			}
+
+			bool MaybeEmitAsset(proto::NewTransaction& msg, Amount& val)
+			{
+				if (m_Assets.m_Emitted)
+					return false;
+
+				const Amount nFee = 300;
+				if (!m_Assets.m_ID || (val < nFee))
+					return false;
+
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (s.m_Height + 1 < Rules::get().pForks[2].m_Height)
+					return false;
+
+				val -= nFee;
+
+				Key::IDV kidv(Zero);
+				kidv.m_Value = 100500;
+
+				ECC::Scalar::Native sk, skOut;
+				ECC::SetRandom(sk);
+
+				TxKernelAssetEmit::Ptr pKrn(new TxKernelAssetEmit);
+				proto::Sk2Pk(pKrn->m_Owner, m_Assets.m_skOwner);
+				pKrn->m_AssetID = m_Assets.m_ID;
+				pKrn->m_Fee = nFee;
+				pKrn->m_Value = kidv.m_Value;
+				pKrn->m_Height.m_Min = s.m_Height + 1;
+				pKrn->Sign(sk, m_Assets.m_skOwner);
+
+				Output::Ptr pOutp(new Output);
+				pOutp->m_AssetID = m_Assets.m_ID;
+				pOutp->Create(s.m_Height + 1, skOut, *m_Wallet.m_pKdf, kidv, *m_Wallet.m_pKdf);
+
+				msg.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, skOut, true);
+
+				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+
+				m_Assets.m_Emitted = true;
+
+				return true;
+			}
+
+			void MaybeAskUtxoEvents()
+			{
+				if (m_bUtxoEvtsPending || m_vStates.empty())
+					return;
+
+				assert(m_hUtxoEvts <= m_vStates.back().m_Height);
+				if (m_hUtxoEvts == m_vStates.back().m_Height)
+					return;
+				
+				proto::GetUtxoEvents msg;
+				msg.m_HeightMin = m_hUtxoEvts + 1;
+				Send(msg);
+
+				m_bUtxoEvtsPending = true;
+				m_nRecoveryPending++;
 			}
 
 			bool m_MiningFinalization = false;
@@ -2008,18 +2262,10 @@ namespace beam
 				{
 					const ECC::Point& comm = m_queProofsExpected.front();
 
-					auto it = m_UtxosConfirmed.find(comm);
+					verify_test(!msg.m_Proofs.empty());
 
-					if (msg.m_Proofs.empty())
-						verify_test(m_UtxosConfirmed.end() == it);
-					else
-					{
-						for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
-							verify_test(m_vStates.back().IsValidProofUtxo(comm, msg.m_Proofs[j]));
-
-						if (m_UtxosConfirmed.end() == it)
-							m_UtxosConfirmed.insert(comm);
-					}
+					for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
+						verify_test(m_vStates.back().IsValidProofUtxo(comm, msg.m_Proofs[j]));
 
 					m_queProofsExpected.pop_front();
 				}
@@ -2037,12 +2283,10 @@ namespace beam
 					{
 						verify_test(msg.m_Kernel);
 
-						AmountBig::Type fee;
 						ECC::Point::Native exc;
-						verify_test(msg.m_Kernel->IsValid(msg.m_Height, fee, exc));
+						verify_test(msg.m_Kernel->IsValid(msg.m_Height, exc));
 
-						Merkle::Hash hv;
-						msg.m_Kernel->get_ID(hv);
+						Merkle::Hash hv = msg.m_Kernel->m_Internal.m_ID;
 						Merkle::Interpret(hv, msg.m_Proof);
 
 						verify_test(msg.m_Height <= m_vStates.size());
@@ -2065,14 +2309,18 @@ namespace beam
 
 					if (!msg.m_Proof.empty())
 					{
-						TxKernel krn;
+						TxKernelStd krn;
 						mk.Export(krn);
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 
-						krn.get_ID(m_Wallet.m_hvKrnRel);
-
-						if (!m_Shielded.m_SpendConfirmed && (m_Wallet.m_hvKrnRel == m_Shielded.m_SpendKernelID))
+						if (!m_Shielded.m_SpendConfirmed && (krn.m_Internal.m_ID == m_Shielded.m_SpendKernelID))
+						{
 							m_Shielded.m_SpendConfirmed = true;
+
+							proto::GetProofShieldedInp msgOut;
+							msgOut.m_SpendPk = m_Shielded.m_SpendPk;
+							Send(msgOut);
+						}
 					}
 				}
 				else
@@ -2092,20 +2340,31 @@ namespace beam
 				verify_test(m_nRecoveryPending);
 				m_nRecoveryPending--;
 
-				verify_test(!msg.m_Events.empty());
+				verify_test(m_bUtxoEvtsPending);
+				m_bUtxoEvtsPending = false;
 
 				for (size_t i = 0; i < msg.m_Events.size(); i++)
 				{
 					const proto::UtxoEvent& evt = msg.m_Events[i];
 
-					if (!(evt.m_AssetID == Zero))
+					AssetID nAssetID;
+					evt.m_AssetID.Export(nAssetID);
+					if (nAssetID)
 					{
-						verify_test(evt.m_AssetID == m_AssetEmitted);
-						m_bCustomAssetRecognized = true;
+						verify_test(nAssetID == m_Assets.m_ID);
+						m_Assets.m_Recognized = true;
 					}
 
 					if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
 					{
+						Key::ID::Packed kid;
+						kid = evt.m_Kidv;
+						proto::UtxoEvent::Shielded s;
+						evt.m_ShieldedDelta.Get(kid, evt.m_Buf1, s);
+
+						verify_test(s.m_Sender == m_Shielded.m_Sender);
+						verify_test(s.m_Message == m_Shielded.m_Message);
+
 						if (proto::UtxoEvent::Flags::Add & evt.m_Flags)
 							m_Shielded.m_EvtAdd = true;
 						else
@@ -2115,10 +2374,22 @@ namespace beam
 					{
 						ECC::Scalar::Native sk;
 						ECC::Point comm;
-						SwitchCommitment(&evt.m_AssetID).Create(sk, comm, *m_Wallet.m_pKdf, evt.m_Kidv);
+						SwitchCommitment(nAssetID).Create(sk, comm, *m_Wallet.m_pKdf, evt.m_Kidv);
 						verify_test(comm == evt.m_Commitment);
+
+						if (!nAssetID && (proto::UtxoEvent::Flags::Add & evt.m_Flags))
+							m_Wallet.AddMyUtxo(evt.m_Kidv, evt.m_Maturity);
 					}
 				}
+
+				verify_test(!m_vStates.empty());
+
+				m_hUtxoEvts = (msg.m_Events.size() < proto::UtxoEvent::s_Max) ?
+					m_vStates.back().m_Height :
+					msg.m_Events.back().m_Height;
+
+				MaybeAskUtxoEvents();
+
 			}
 
 			virtual void OnMsg(proto::GetBlockFinalization&& msg) override
@@ -2530,8 +2801,11 @@ namespace beam
 
 int main()
 {
+	bool bClientProtoOnly = false;
+
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
-	beam::PrintEmissionSchedule();
+	if (!bClientProtoOnly)
+		beam::PrintEmissionSchedule();
 
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
@@ -2547,8 +2821,11 @@ int main()
 
 	beam::PrepareTreasury();
 
-	beam::TestHalving();
-	beam::TestChainworkProof();
+	if (!bClientProtoOnly)
+	{
+		beam::TestHalving();
+		beam::TestChainworkProof();
+	}
 
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files
@@ -2558,44 +2835,48 @@ int main()
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
 
-	printf("NodeDB test...\n");
-	fflush(stdout);
-
-	beam::TestNodeDB();
-	beam::DeleteFile(beam::g_sz);
-
+	if (!bClientProtoOnly)
 	{
-		printf("NodeProcessor test1...\n");
+		printf("NodeDB test...\n");
 		fflush(stdout);
 
-
-		std::vector<beam::BlockPlus::Ptr> blockChain;
-		beam::TestNodeProcessor1(blockChain);
-		beam::DeleteFile(beam::g_sz);
-		beam::DeleteFile(beam::g_sz2);
-
-		printf("NodeProcessor test2...\n");
-		fflush(stdout);
-
-		beam::TestNodeProcessor2(blockChain);
+		beam::TestNodeDB();
 		beam::DeleteFile(beam::g_sz);
 
-		printf("NodeProcessor test3...\n");
+		{
+			printf("NodeProcessor test1...\n");
+			fflush(stdout);
+
+
+			std::vector<beam::BlockPlus::Ptr> blockChain;
+			beam::TestNodeProcessor1(blockChain);
+			beam::DeleteFile(beam::g_sz);
+			beam::DeleteFile(beam::g_sz2);
+
+			printf("NodeProcessor test2...\n");
+			fflush(stdout);
+
+			beam::TestNodeProcessor2(blockChain);
+			beam::DeleteFile(beam::g_sz);
+
+			printf("NodeProcessor test3...\n");
+			fflush(stdout);
+
+			beam::TestNodeProcessor3(blockChain);
+			beam::DeleteFile(beam::g_sz);
+			beam::DeleteFile(beam::g_sz2);
+		}
+
+		printf("NodeX2 concurrent test...\n");
 		fflush(stdout);
 
-		beam::TestNodeProcessor3(blockChain);
+		beam::TestNodeConversation();
 		beam::DeleteFile(beam::g_sz);
 		beam::DeleteFile(beam::g_sz2);
 	}
 
-	printf("NodeX2 concurrent test...\n");
-	fflush(stdout);
-
-	beam::TestNodeConversation();
-	beam::DeleteFile(beam::g_sz);
-	beam::DeleteFile(beam::g_sz2);
-
 	beam::Rules::get().pForks[2].m_Height = 17;
+	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
 	beam::Rules::get().UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");

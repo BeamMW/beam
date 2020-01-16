@@ -13,12 +13,13 @@
 // limitations under the License.
 
 #include "local_private_key_keeper.h"
+#include "utility/logger.h"
 
 namespace beam::wallet
 {
     using namespace ECC;
     using namespace std;
-
+    
     namespace
     {
         const char* LOCAL_NONCE_SEEDS = "NonceSeeds";
@@ -40,50 +41,52 @@ namespace beam::wallet
 
     void LocalPrivateKeyKeeper::GeneratePublicKeys(const vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
-        try
-        {
-            resultCallback(GeneratePublicKeysSync(ids, createCoinKey));
-        }
-        catch (const exception& ex)
-        {
-            exceptionCallback(ex);
-        }
+        DoAsync([=]() { return GeneratePublicKeysSync(ids, createCoinKey); }, move(resultCallback), move(exceptionCallback));
+    }
+
+    void LocalPrivateKeyKeeper::GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID assetID, Callback<PublicKeysEx>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    {
+        DoAsync([=]() { return GeneratePublicKeysSyncEx(ids, createCoinKey, assetID); }, move(resultCallback), move(exceptionCallback));
     }
 
     void LocalPrivateKeyKeeper::GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
-        auto thisHolder = shared_from_this();
-        shared_ptr<Outputs> result = make_shared<Outputs>();
-        shared_ptr<exception> storedException;
-        shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
-        *futureHolder = do_thread_async(
-            [thisHolder, this, schemeHeight, ids, result, storedException]()
-            {
-                try
-                {
-                    *result = GenerateOutputsSync(schemeHeight, ids);
-                }
-                catch (const exception& ex)
-                {
-                    *storedException = ex;
-                }
-            },
-            [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
-            {
-                if (storedException)
-                {
-                    exceptionCallback(*storedException);
-                }
-                else
-                {
-                    resultCallback(move(*result));
-                }
-                futureHolder.reset();
-            });
-
+        DoThreadAsync([=]() { return GenerateOutputsSync(schemeHeight, ids); }, std::move(resultCallback), std::move(exceptionCallback));
     }
 
-    size_t LocalPrivateKeyKeeper::AllocateNonceSlot()
+    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, AssetID assetId, Callback<OutputsEx>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    {
+        DoThreadAsync([=]() { return GenerateOutputsSyncEx(schemeHeight, ids, assetId); }, std::move(resultCallback), std::move(exceptionCallback));
+    }
+
+    void LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs
+                                           , const std::vector<Key::IDV>& outputs
+                                           , AssetID assetId
+                                           , const KernelParameters& kernelParameters
+                                           , const WalletIDKey& walletIDkey
+                                           , Callback<ReceiverSignature>&& resultCallback
+                                           , ExceptionCallback&& exceptionCallback)
+    {
+        DoAsync([=]() { return SignReceiverSync(inputs, outputs, assetId, kernelParameters, walletIDkey); }, move(resultCallback), move(exceptionCallback));
+    }
+
+    void LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs
+                                         , const std::vector<Key::IDV>& outputs
+                                         , AssetID assetId
+                                         , size_t nonceSlot
+                                         , const KernelParameters& kernelParameters
+                                         , bool initial
+                                         , Callback<SenderSignature>&& resultCallback
+                                         , ExceptionCallback&& exceptionCallback)
+    {
+        DoAsync([=]() { return SignSenderSync(inputs, outputs, assetId, nonceSlot, kernelParameters, initial); }, move(resultCallback), move(exceptionCallback));
+    }
+
+
+    ////////
+
+
+    size_t LocalPrivateKeyKeeper::AllocateNonceSlotSync()
     {
         ++m_NonceSlotLast %= kMaxNonces;
 
@@ -129,20 +132,60 @@ namespace beam::wallet
         return result;
     }
 
-    ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey)
+    IPrivateKeyKeeper::PublicKeysEx LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID assetId)
+    {
+        PublicKeys resKeys;
+        Scalar::Native resOffset;
+        Scalar::Native secretKey;
+        resKeys.reserve(ids.size());
+        if (createCoinKey)
+        {
+            for (const auto& coinID : ids)
+            {
+                if(coinID.isAsset())
+                {
+                    Point &publicKey = resKeys.emplace_back();
+                    SwitchCommitment(assetId).Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
+                    resOffset += secretKey;
+                }
+                else
+                {
+                    Point &publicKey = resKeys.emplace_back();
+                    SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
+                    resOffset += secretKey;
+                }
+            }
+        }
+        else
+        {
+            for (const auto& keyID : ids)
+            {
+                assert(!keyID.isAsset()); // TODO:ASSET
+                Point& publicKey = resKeys.emplace_back();
+                m_MasterKdf->DeriveKey(secretKey, keyID);
+                publicKey = Context::get().G * secretKey;
+                resOffset += secretKey;
+            }
+        }
+        return std::make_pair(std::move(resKeys), std::move(resOffset));
+    }
+
+    ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id)
     {
         Scalar::Native secretKey;
         Point publicKey;
 
-        if (createCoinKey)
-        {
-            SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(id), id);
-        }
-        else
-        {
-            m_MasterKdf->DeriveKey(secretKey, id);
-            publicKey = Context::get().G * secretKey;
-        }
+        m_MasterKdf->DeriveKey(secretKey, id);
+        publicKey = Context::get().G * secretKey;
+
+        return publicKey;
+    }
+
+    ECC::Point LocalPrivateKeyKeeper::GenerateCoinKeySync(const Key::IDV& id, AssetID assetId)
+    {
+        Scalar::Native secretKey;
+        Point publicKey;
+        SwitchCommitment(assetId).Create(secretKey, publicKey, *GetChildKdf(id), id);
         return publicKey;
     }
 
@@ -160,34 +203,273 @@ namespace beam::wallet
         return result;
     }
 
+    IPrivateKeyKeeper::OutputsEx LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID assetId)
+    {
+        Outputs resOuts;
+        Scalar::Native resOffset;
+        Scalar::Native secretKey;
+        Point commitment;
+        resOuts.reserve(ids.size());
+
+        for (const auto& coinID : ids)
+        {
+            auto& output = resOuts.emplace_back(make_unique<Output>());
+            if (coinID.isAsset())
+            {
+                output->m_AssetID = assetId;
+            }
+            output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID), coinID, *m_MasterKdf);
+            resOffset += -secretKey;
+        }
+
+        return std::make_pair(std::move(resOuts), std::move(resOffset));
+    }
+
     ECC::Point LocalPrivateKeyKeeper::GenerateNonceSync(size_t slot)
     {
         Point::Native result = Context::get().G * GetNonce(slot);
         return result;
     }
 
-    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const Point::Native& publicNonce)
+    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetId, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const Point::Native& publicNonce)
     {
-        auto excess = GetExcess(inputs, outputs, offset);
+        auto excess = GetExcess(inputs, outputs, assetId, offset);
 
-        TxKernel kernel;
-        kernel.m_Commitment = kernelParamerters.commitment;
-        kernel.m_Fee = kernelParamerters.fee;
-        kernel.m_Height = kernelParamerters.height;
-        if (kernelParamerters.hashLock)
+        TxKernelStd kernel;
+        kernel.m_Commitment = kernelParameters.commitment;
+        kernel.m_Fee = kernelParameters.fee;
+        kernel.m_Height = kernelParameters.height;
+        if (kernelParameters.lockImage || kernelParameters.lockPreImage)
         {
-            kernel.m_pHashLock = make_unique<TxKernel::HashLock>(*kernelParamerters.hashLock);
+            kernel.m_pHashLock = make_unique<TxKernelStd::HashLock>();
+
+			if (kernelParameters.lockPreImage)
+				kernel.m_pHashLock->m_Value = *kernelParameters.lockPreImage;
+			else
+			{
+				kernel.m_pHashLock->m_Value = *kernelParameters.lockImage;
+				kernel.m_pHashLock->m_IsImage = true;
+			}
         }
-        Merkle::Hash message;
-        kernel.get_Hash(message, kernelParamerters.lockImage ? &*kernelParamerters.lockImage : nullptr);
+		kernel.UpdateID();
+        const Merkle::Hash& message = kernel.m_Internal.m_ID;
 
-        ECC::Signature::MultiSig multiSig;
-        ECC::Scalar::Native partialSignature;
-        multiSig.m_NoncePub = publicNonce;
-        multiSig.m_Nonce = GetNonce(nonceSlot);
-        multiSig.SignPartial(partialSignature, message, excess);
+        Scalar::Native nonce = GetNonce(nonceSlot);
 
-        return Scalar(partialSignature);
+        // TODO: Fix this!!!
+        // If the following line is uncommented - swap_test hangs!
+        //ECC::GenRandom(m_Nonces[nonceSlot].V); // Invalidate slot immediately after using it (to make it similar to HW wallet)!
+
+		kernel.m_Signature.m_NoncePub = publicNonce;
+		kernel.m_Signature.SignPartial(message, excess, nonce);
+
+		return kernel.m_Signature.m_k;
+    }
+
+    ReceiverSignature LocalPrivateKeyKeeper::SignReceiverSync(const std::vector<Key::IDV>& inputs
+                                                        , const std::vector<Key::IDV>& outputs
+                                                        , AssetID assetID
+                                                        , const KernelParameters& kernelParameters
+                                                        , const WalletIDKey& walletIDkey)
+    {
+        ReceiverSignature res;
+        auto value = CalculateValue(inputs, outputs);
+        if (value > 0 && !inputs.empty() && 
+            (Amount(value) == kernelParameters.fee // self tx
+                || outputs.empty())) // spending shared utxo
+        {
+            value = 0;
+        }
+        else if (value >= 0)
+        {
+            throw KeyKeeperException("Receover failed to sign tx. We are not receiving");
+        }
+       
+        auto excess = GetExcess(inputs, outputs, assetID, Zero);
+        Amount val = -value;
+
+        Scalar::Native kKrn, kNonce;
+        
+        ECC::Hash::Value hv;
+        Hash::Processor()
+            << kernelParameters.fee
+            << kernelParameters.height.m_Min
+            << kernelParameters.height.m_Max
+            << kernelParameters.commitment
+            << kernelParameters.publicNonce
+            << kernelParameters.peerID
+            << excess
+            << val >> hv;
+
+        NonceGenerator ng("hw-wlt-rcv");
+        ng << hv;
+
+        ng >> kKrn;
+        ng >> kNonce; 
+
+        Point::Native commitment;
+        if (!commitment.Import(kernelParameters.commitment))
+        {
+            throw InvalidParametersException();
+        }
+        
+        Point::Native temp;
+        temp = Context::get().G * kKrn; // public kernel commitment
+        commitment += temp;
+        
+
+        TxKernelStd kernel;
+        kernel.m_Commitment = commitment;
+        kernel.m_Fee = kernelParameters.fee;
+        kernel.m_Height = kernelParameters.height;
+        if (kernelParameters.lockImage || kernelParameters.lockPreImage)
+        {
+            kernel.m_pHashLock = make_unique<TxKernelStd::HashLock>();
+        
+            if (kernelParameters.lockPreImage)
+                kernel.m_pHashLock->m_Value = *kernelParameters.lockPreImage;
+            else
+            {
+                kernel.m_pHashLock->m_Value = *kernelParameters.lockImage;
+                kernel.m_pHashLock->m_IsImage = true;
+            }
+        }
+        kernel.UpdateID();
+        const Merkle::Hash& message = kernel.m_Internal.m_ID;
+        temp = Context::get().G * kNonce; // public receiver nonce, we don't need slots here since we sign transaction only once
+        Point::Native pt;
+        if (!pt.Import(kernelParameters.publicNonce))
+        {
+            throw InvalidParametersException();
+        }
+
+        res.m_KernelCommitment = kernel.m_Commitment;
+        res.m_KernelSignature.m_NoncePub = pt + temp;
+        res.m_KernelSignature.SignPartial(message, kKrn, kNonce);
+        kKrn = -kKrn;
+        excess += kKrn;
+        res.m_Offset = excess;
+
+        if (walletIDkey)
+        {
+            PaymentConfirmation pc;
+            pc.m_KernelID = kernel.m_Internal.m_ID;
+            pc.m_Sender = kernelParameters.peerID;
+            pc.m_Value = val;
+
+            auto keyPair = GetWalletID(walletIDkey);
+
+            pc.Sign(keyPair.m_PrivateKey);
+
+            res.m_PaymentProofSignature = pc.m_Signature;
+        }
+        
+        return res;
+    }
+
+    SenderSignature LocalPrivateKeyKeeper::SignSenderSync(const std::vector<Key::IDV>& inputs
+                                                    , const std::vector<Key::IDV>& outputs
+                                                    , AssetID assetID
+                                                    , size_t nonceSlot
+                                                    , const KernelParameters& kernelParameters
+                                                    , bool initial)
+    {
+        SenderSignature res;
+        auto value = CalculateValue(inputs, outputs);
+
+        value -= kernelParameters.fee;
+
+        if (value < 0)
+        {
+            throw KeyKeeperException("Sender failed to sign tx. We are not sending");
+        }
+
+        auto excess = GetExcess(inputs, outputs, assetID, Zero);
+
+        Scalar::Native kKrn;
+        ECC::Hash::Value hv;
+        Hash::Processor()
+            << kernelParameters.fee
+            << kernelParameters.height.m_Min
+            // << kernelParameters.height.m_Max
+            //<< kernelParameters.peerID 
+            << excess
+            << Amount(value) >> hv;
+
+        NonceGenerator ng("hw-wlt-snd");
+        ng << hv;
+
+        ng >> kKrn;
+
+        Point::Native commitment;
+        commitment = Context::get().G * kKrn; // public kernel commitment
+
+        Scalar::Native nonce = GetNonce(nonceSlot);
+        Point::Native myPublicNonce;
+        myPublicNonce = Context::get().G * nonce;
+        if (initial)
+        {
+            res.m_KernelCommitment = commitment;
+            res.m_KernelSignature.m_NoncePub = myPublicNonce;
+            return res;
+        }
+
+        TxKernelStd kernel;
+        kernel.m_Commitment = kernelParameters.commitment;
+        kernel.m_Fee = kernelParameters.fee;
+        kernel.m_Height = kernelParameters.height;
+        if (kernelParameters.lockImage || kernelParameters.lockPreImage)
+        {
+            kernel.m_pHashLock = make_unique<TxKernelStd::HashLock>();
+
+            if (kernelParameters.lockPreImage)
+                kernel.m_pHashLock->m_Value = *kernelParameters.lockPreImage;
+            else
+            {
+                kernel.m_pHashLock->m_Value = *kernelParameters.lockImage;
+                kernel.m_pHashLock->m_IsImage = true;
+            }
+        }
+        kernel.UpdateID();
+        const Merkle::Hash& message = kernel.m_Internal.m_ID;
+
+        // TODO: temporal solution
+        if (kernelParameters.myID != Zero && kernelParameters.peerID != Zero)
+        {
+            ////////////////////////
+            // Verify peer signature
+            PaymentConfirmation pc;
+            pc.m_KernelID = message;
+            pc.m_Value = Amount(value);
+            pc.m_Sender = kernelParameters.myID;
+            pc.m_Signature = kernelParameters.paymentProofSignature;
+
+            if (!pc.IsValid(kernelParameters.peerID))
+            {
+                throw InvalidPaymentProofException();
+            }
+        }
+        
+        /////////////////////////
+        // Ask for user permission!
+        //
+        // ...
+
+        if (!commitment.Import(kernelParameters.commitment))
+        {
+            throw InvalidParametersException();
+        }
+
+        ECC::GenRandom(m_Nonces[nonceSlot].V); // Invalidate slot immediately after using it (to make it similar to HW wallet)!
+
+        res.m_KernelSignature.m_NoncePub = kernelParameters.publicNonce;
+        res.m_KernelSignature.SignPartial(message, kKrn, nonce);
+
+        kKrn = -kKrn;
+        excess += kKrn;
+        res.m_Offset = excess;
+
+        return res;
     }
 
     Key::IKdf::Ptr LocalPrivateKeyKeeper::get_SbbsKdf()
@@ -227,6 +509,16 @@ namespace beam::wallet
         m_Variables->setVarRaw(LOCAL_NONCE_SEEDS, buffer.data(), buffer.size());
     }
 
+
+    LocalPrivateKeyKeeper::KeyPair LocalPrivateKeyKeeper::GetWalletID(const WalletIDKey& walletKeyID) const
+    {
+        Key::ID kid(walletKeyID, Key::Type::WalletID);
+        LocalPrivateKeyKeeper::KeyPair res;
+        m_MasterKdf->DeriveKey(res.m_PrivateKey, kid);
+        beam::proto::Sk2Pk(res.m_PublicKey, res.m_PrivateKey);
+        return res;
+    }
+
     ////
 
     Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(const Key::IDV& kidv) const
@@ -238,29 +530,73 @@ namespace beam::wallet
     {
         const auto& randomValue = m_Nonces[slot].V;
 
-        NoLeak<Scalar::Native> nonce;
-        m_MasterKdf->DeriveKey(nonce.V, randomValue);
-        return nonce.V;
+        Scalar::Native nonce;
+        m_MasterKdf->DeriveKey(nonce, randomValue);
+
+        return nonce;
     }
 
-    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset) const
+    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetId, const ECC::Scalar::Native& offset) const
     {
         // Excess = Sum(input blinfing factors) - Sum(output blinfing factors) - offset
         Point commitment;
         Scalar::Native blindingFactor;
         Scalar::Native excess = offset;
+
         for (const auto& coinID : outputs)
         {
-            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            SwitchCommitment(coinID.isAsset() ? assetId : 0).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
             excess += blindingFactor;
         }
         excess = -excess;
+        for (const auto& coinID : inputs)
+        {
+            SwitchCommitment(coinID.isAsset() ? assetId : 0).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            excess += blindingFactor;
+        }
+
+        return excess;
+    }
+
+    int64_t LocalPrivateKeyKeeper::CalculateValue(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs) const
+    {
+        int64_t value = 0;
+        for (const auto& coinID : outputs)
+        {
+            value += coinID.m_Value;
+        }
+
+        value = -value;
 
         for (const auto& coinID : inputs)
         {
-            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
-            excess += blindingFactor;
+            value += coinID.m_Value;
         }
-        return excess;
+
+        return value;
+    }
+
+    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx)
+    {
+        ECC::Scalar::Native kernelSk;
+        m_MasterKdf->DeriveKey(kernelSk, Key::ID(assetOwnerIdx, Key::Type::Kernel, assetOwnerIdx));
+        kernel.Sign(kernelSk, GetAssetOwnerKeypair(assetOwnerIdx).second);
+        return -kernelSk;
+    }
+
+    std::pair<PeerID, ECC::Scalar::Native> LocalPrivateKeyKeeper::GetAssetOwnerKeypair(Key::Index assetOwnerIdx)
+    {
+        Scalar::Native skAssetOwnerSk;
+        m_MasterKdf->DeriveKey(skAssetOwnerSk, beam::Key::ID(assetOwnerIdx, beam::Key::Type::Asset));
+
+        beam::PeerID assetOwnerId;
+        beam::proto::Sk2Pk(assetOwnerId, skAssetOwnerSk);
+
+        return std::make_pair(assetOwnerId, std::move(skAssetOwnerSk));
+    }
+
+    PeerID LocalPrivateKeyKeeper::GetAssetOwnerID(Key::Index assetOwnerIdx)
+    {
+        return GetAssetOwnerKeypair(assetOwnerIdx).first;
     }
 }

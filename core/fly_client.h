@@ -90,6 +90,7 @@ namespace proto {
 
 		struct INetwork
 		{
+			using Ptr = std::shared_ptr<INetwork>;
 			virtual ~INetwork() {}
 
 			virtual void Connect() = 0;
@@ -103,6 +104,7 @@ namespace proto {
 		struct NetworkStd
 			:public INetwork
 		{
+			using Ptr = std::shared_ptr<NetworkStd>;
 			FlyClient& m_Client;
 
 			NetworkStd(FlyClient& fc) :m_Client(fc) {}

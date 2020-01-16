@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "keykeeper/private_key_keeper.h"
+#include "wallet/core/private_key_keeper.h"
 #include "hw_wallet.h"
 
 namespace beam::wallet
@@ -37,12 +37,22 @@ namespace beam::wallet
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
         void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        size_t AllocateNonceSlot() override;
+        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, AssetID, Callback<OutputsEx>&&, ExceptionCallback&&) override;
+
+        size_t AllocateNonceSlotSync() override;
         PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
-        ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override;
+        std::pair<PublicKeys, ECC::Scalar::Native> GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID) override;
+
+        ECC::Point GeneratePublicKeySync(const Key::IDV& id) override;
+        ECC::Point GenerateCoinKeySync(const Key::IDV& id, AssetID) override;
         Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
+        std::pair<Outputs, ECC::Scalar::Native> GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID) override;
+
         ECC::Point GenerateNonceSync(size_t slot) override;
-        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) override;
+        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) override;
+
+        ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx) override;
+        PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override;
 
     private:
         beam::HWWallet m_hwWallet;

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.13)
 
 set(CORE_SRC
     uintBig.cpp
@@ -21,6 +21,7 @@ set(CORE_SRC
     peer_manager.cpp
     fly_client.cpp
     treasury.cpp
+    shielded.cpp
 # ~etc
 )
 

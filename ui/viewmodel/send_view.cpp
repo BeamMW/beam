@@ -13,7 +13,9 @@
 // limitations under the License.
 #include "send_view.h"
 #include "model/app_model.h"
-#include "wallet/common.h"
+#include "wallet/core/common.h"
+#include "wallet/core/simple_transaction.h"
+
 #include "ui_helpers.h"
 #include "qml_globals.h"
 #include <QLocale>
@@ -165,6 +167,11 @@ QString SendViewModel::getTotalUTXO() const
     return beamui::AmountToUIString(calcTotalAmount() + _changeGrothes);
 }
 
+QString SendViewModel::getMaxAvailable() const
+{
+    return beamui::AmountToUIString(_walletModel.getAvailable() - _feeGrothes);
+}
+
 bool SendViewModel::canSend() const
 {
     return !QMLGlobals::isSwapToken(_receiverTA) && getRreceiverTAValid()
@@ -185,6 +192,12 @@ void SendViewModel::sendMoney()
             .SetParameter(beam::wallet::TxParameterID::Amount,  _sendAmountGrothes)
             .SetParameter(beam::wallet::TxParameterID::Fee,     _feeGrothes)
             .SetParameter(beam::wallet::TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
+
+        auto identity = _txParameters.GetParameter<beam::PeerID>(beam::wallet::TxParameterID::PeerSecureWalletID);
+        if (identity)
+        {
+            p.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *identity);
+        }
 
         _walletModel.getAsync()->startTransaction(std::move(p));
     }

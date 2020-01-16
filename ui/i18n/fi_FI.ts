@@ -306,15 +306,10 @@
         <extracomment>settings tab, version label</extracomment>
         <translation>Versio</translation>
     </message>
-    <message id="settings-remote-node-ip-port">
-        <source>ip:port</source>
-        <extracomment>settings tab, node section, address label</extracomment>
-        <translation>IP:portti</translation>
-    </message>
     <message id="settings-local-node-run-checkbox">
-        <source>Run local node</source>
+        <source>Run integrated node</source>
         <extracomment>settings tab, node section, run node label</extracomment>
-        <translation>Käytä laitteen omaa palvelinta (local node)</translation>
+        <translation type="unfinished">Run integrated node</translation>
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
@@ -545,10 +540,6 @@
         <source>Receive</source>
         <translation>Vastaanota</translation>
     </message>
-    <message id="wallet-receive-my-addr-label">
-        <source>My address (auto-generated)</source>
-        <translation>Oma osoite (generoitu automaattisesti)</translation>
-    </message>
     <message id="wallet-receive-expires-label">
         <source>Expires in</source>
         <translation>Vanhentuu</translation>
@@ -578,8 +569,9 @@
         <translation>Määritä yhteystieto tai tapahtuman tunniste</translation>
     </message>
     <message id="send-amount-label">
-        <source>Transaction amount</source>
-        <translation>Summa</translation>
+        <source>Send</source>
+        <oldsource>Transaction amount</oldsource>
+        <translation type="unfinished">Summa</translation>
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
@@ -776,7 +768,7 @@
         <translation>Lompakon käynnistäminen epäonnistui. Ole hyvä ja tarkista tallennuskansion sijainti</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Synching with blockchain</source>
+        <source>Syncing with blockchain</source>
         <translation>Synkronoidaan lohkoketjun kanssa</translation>
     </message>
     <message id="loading-view-scaning-utxo">
@@ -807,59 +799,59 @@
         <source>Wallet is not connected to the node</source>
         <translation>Lompakkoa ei ole yhdistetty palvelimeen (node)</translation>
     </message>
-    <message id="tx-failture-undefined">
+    <message id="tx-failure-undefined">
         <source>Unexpected reason, please send wallet logs to Beam support</source>
         <translation>Odottamaton virheen syy, ole hyvä ja lähetä lompakon lokitiedostot Beam-tukeen (palvelu englanniksi)</translation>
     </message>
-    <message id="tx-failture-cancelled">
+    <message id="tx-failure-cancelled">
         <source>Transaction cancelled</source>
         <translation>Maksutapahtuma peruutettu</translation>
     </message>
-    <message id="tx-failture-receiver-signature-invalid">
+    <message id="tx-failure-receiver-signature-invalid">
         <source>Receiver signature in not valid, please send wallet logs to Beam support</source>
         <translation>Saajan allekirjoitus ei ole pätevä, ole hyvä ja lähetä lompakon lokitiedostot Beam-tukeen (palvelu englanniksi)</translation>
     </message>
-    <message id="tx-failture-not-registered-in-blockchain">
+    <message id="tx-failure-not-registered-in-blockchain">
         <source>Failed to register transaction with the blockchain, see node logs for details</source>
         <translation>Virhe rekisteröitäessä maksutapahtumaa lohkoketjuun, tarkista palvelimen lokitiedostot (node logs)</translation>
     </message>
-    <message id="tx-failture-not-valid">
+    <message id="tx-failure-not-valid">
         <source>Transaction is not valid, please send wallet logs to Beam support</source>
         <translation>Maksutapahtuma ei ole pätevä, ole hyvä ja lähetä lompakon lokitiedostot Beam-tukeen (palvelu englanniksi)</translation>
     </message>
-    <message id="tx-failture-kernel-invalid">
+    <message id="tx-failure-kernel-invalid">
         <source>Invalid kernel proof provided</source>
         <translation>Kernel-varmennus virheellinen</translation>
     </message>
-    <message id="tx-failture-parameters-not-sended">
+    <message id="tx-failure-parameters-not-sended">
         <source>Failed to send Transaction parameters</source>
         <translation>Maksutapahtuman parametrien lähettäminen epäonnistui</translation>
     </message>
-    <message id="tx-failture-no-inputs">
+    <message id="tx-failure-no-inputs">
         <source>No inputs</source>
         <translation>Ei sisääntuloja (input)</translation>
     </message>
-    <message id="tx-failture-addr-expired">
+    <message id="tx-failure-addr-expired">
         <source>Address is expired</source>
         <translation>Osoite on vanhentunut</translation>
     </message>
-    <message id="tx-failture-parameters-not-readed">
+    <message id="tx-failure-parameters-not-readed">
         <source>Failed to get transaction parameters</source>
         <translation>Maksutapahtuman parametrien vastaanottaminen epäonnistui</translation>
     </message>
-    <message id="tx-failture-time-out">
+    <message id="tx-failure-time-out">
         <source>Transaction timed out</source>
         <translation>Maksutapahtuma aikakatkaistiin</translation>
     </message>
-    <message id="tx-failture-not-signed-by-receiver">
+    <message id="tx-failure-not-signed-by-receiver">
         <source>Payment not signed by the receiver, please send wallet logs to Beam support</source>
         <translation>Saaja ei allekirjoittanut maksutapahtumaa, ole hyvä ja lähetä lompakon lokitiedostot Beam-tukeen (palvelu englanniksi)</translation>
     </message>
-    <message id="tx-failture-max-height-to-high">
+    <message id="tx-failure-max-height-to-high">
         <source>Kernel maximum height is too high</source>
         <translation>Virhe: Kernel maximum height is too high</translation>
     </message>
-    <message id="tx-failture-invalid-state">
+    <message id="tx-failure-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>Tapahtuman tila on virheellinen</translation>
     </message>
@@ -1140,14 +1132,15 @@
         <translation>Luomispäivämäärä</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
-        <source>Don’t ask password on every Send</source>
-        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
+        <source>Don&apos;t ask password on every Send</source>
+        <oldsource>Don’t ask password on every Send</oldsource>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if checked</extracomment>
         <translation>Älä kysy salasanaa ennen lähettämistä</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
-        <translation>Muuttaaksesi asetuksia sinun tulee antaa salasanasi</translation>
+        <translation>Muuttaaksesi asetuksia sinun tulee tunnistautua salasanalla</translation>
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
@@ -1165,52 +1158,52 @@
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
         <translation>Älä käytä samaa seed phrasea usealla laitteella, sillä saldosi ja tapahtumasi eivät synkronoidu.</translation>
     </message>
-    <message id="tx-failture-subtx-failed">
+    <message id="tx-failure-subtx-failed">
         <source>Subtransaction has failed</source>
         <translation>Alitransaktio epäonnistui</translation>
     </message>
-    <message id="tx-failture-invalid-contract-amount">
+    <message id="tx-failure-invalid-contract-amount">
         <source>Contract&apos;s amount is not valid</source>
         <translation>Sopimuksen summa on virheellinen</translation>
     </message>
-    <message id="tx-failture-invalid-sidechain-contract">
+    <message id="tx-failure-invalid-sidechain-contract">
         <source>Side chain has invalid contract</source>
         <translation>Sivuketjun sopimus on pätemätön</translation>
     </message>
-    <message id="tx-failture-sidechain-internal-error">
+    <message id="tx-failure-sidechain-internal-error">
         <source>Side chain bridge has internal error</source>
         <translation>Sivuketjun sillassa on sisäinen virhe</translation>
     </message>
-    <message id="tx-failture-sidechain-network-error">
+    <message id="tx-failure-sidechain-network-error">
         <source>Side chain bridge has network error</source>
         <translation>Sivuketjun sillassa on yhteysvirhe</translation>
     </message>
-    <message id="tx-failture-invalid-sidechain-response-format">
+    <message id="tx-failure-invalid-sidechain-response-format">
         <source>Side chain bridge has response format error</source>
         <translation>Sivuketjun sillassa on vastausmuodon virhe</translation>
     </message>
-    <message id="tx-failture-invalid-side-chain-credentials">
+    <message id="tx-failure-invalid-side-chain-credentials">
         <source>Invalid credentials of Side chain</source>
         <translation>Sivuketjun pääsytiedot virheelliset</translation>
     </message>
-    <message id="tx-failture-not-enough-time-btc-lock">
+    <message id="tx-failure-not-enough-time-btc-lock">
         <source>Not enough time to finish btc lock transaction</source>
         <translation>Aika loppui kesken BTC:n lukitsemissiirron suorittamiseksi</translation>
     </message>
-    <message id="tx-failture-create-multisig">
+    <message id="tx-failure-create-multisig">
         <source>Failed to create multi-signature</source>
         <translation>Moniallekirjoituksen luonti epäonnistui</translation>
     </message>
-    <message id="tx-failture-fee-too-small">
+    <message id="tx-failure-fee-too-small">
         <source>Fee is too small</source>
         <translation>Siirtomaksu on liian pieni</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
+        <source>min</source>
         <translation>min</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
+        <source>sec</source>
         <translation>s</translation>
     </message>
     <message id="loading-view-estimate-time">
@@ -1271,12 +1264,9 @@ Update your settings and try again.</source>
         <translation>Tee swap-tarjous</translation>
     </message>
     <message id="wallet-receive-addr-message">
-        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
-        <translation>Lähetä tämä osoite siirron suorittajalle turvallista viestintävälinettä käyttäen tai skannaa QR-koodi</translation>
-    </message>
-    <message id="wallet-receive-copy-address">
-        <source>Copy transaction address</source>
-        <translation>Kopioi osoite</translation>
+        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <oldsource>Send this address to the sender over an external secure channel or scan the QR code</oldsource>
+        <translation type="unfinished">Lähetä tämä osoite siirron suorittajalle turvallista viestintävälinettä käyttäen tai skannaa QR-koodi</translation>
     </message>
     <message id="receive-amount-swap-label">
         <source>Receive amount</source>
@@ -1289,10 +1279,6 @@ Update your settings and try again.</source>
     <message id="wallet-receive-offer-expires-label">
         <source>Offer expiration time</source>
         <translation>Tarjouksen vanhentumisaika</translation>
-    </message>
-    <message id="wallet-receive-expires-12">
-        <source>12 hours</source>
-        <translation>12 tuntia</translation>
     </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
@@ -1380,11 +1366,12 @@ please review your settings and try again</source>
         <translation>Rakennetaan uudelleen lompakon tietoja</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
+        <source>h</source>
         <translation>t</translation>
     </message>
     <message id="loading-view-net-problems">
-        <source>It may take longer then usual. Please, check your network.</source>
+        <source>It may take longer than usual. Please, check your network.</source>
+        <oldsource>It may take longer then usual. Please, check your network.</oldsource>
         <translation>Tämä voi kestää kauemmin kuin tavallisesti. Tarkista verkkoyhteytesi.</translation>
     </message>
     <message id="atomic-swap-title">
@@ -1402,18 +1389,6 @@ please review your settings and try again</source>
     <message id="atomic-swap-transactions-tab">
         <source>Transactions</source>
         <translation>Tapahtumat</translation>
-    </message>
-    <message id="atomic-swap-receive-beam">
-        <source>Receive BEAM</source>
-        <translation>Vastaanota BEAM</translation>
-    </message>
-    <message id="atomic-swap-send-beam">
-        <source>Send BEAM</source>
-        <translation>Lähetä BEAM</translation>
-    </message>
-    <message id="atomic-swap-only-my-offers">
-        <source>Only my offers</source>
-        <translation>Vain omat tarjoukset</translation>
     </message>
     <message id="atomic-swap-fit-current-balance">
         <source>Fit my current balance</source>
@@ -1529,7 +1504,8 @@ please review your settings and try again</source>
     </message>
     <message id="wallet-receive-copy-token">
         <source>copy swap token</source>
-        <translation>kopioi tapahtuman tunniste</translation>
+        <oldsource>Copy transaction token</oldsource>
+        <translation type="unfinished">kopioi tapahtuman tunniste</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
@@ -1725,10 +1701,6 @@ Please try again later or create an offer yourself.</source>
         <source>Qtum electrum</source>
         <translation>Qtum Electrum</translation>
     </message>
-    <message id="invalid-rate-min">
-        <source>Rate cannot be less than %1</source>
-        <translation>Vaihtomaksu ei voi olla alle %1</translation>
-    </message>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</source>
@@ -1746,7 +1718,7 @@ Please check the swap token and try again.</source>
         <source>Error</source>
         <translation>Virhe</translation>
     </message>
-    <message id="swap-tx-failture-refunded">
+    <message id="swap-tx-failure-refunded">
         <source>Refunded</source>
         <translation>Palautettu</translation>
     </message>
@@ -1859,8 +1831,9 @@ Please check the swap token and try again.</source>
         <translation>Kirjoita lompakkosi salasana nollataksesi seed phrasen</translation>
     </message>
     <message id="wallet-receive-swap-your-token">
-        <source>Your swap token:</source>
-        <translation>Sinun swap-tunniste:</translation>
+        <source>Your swap token</source>
+        <oldsource>Your swap token:</oldsource>
+        <translation>Swap-tunnisteesi</translation>
     </message>
     <message id="send-swap-confirmation-title">
         <source>Confirm atomic swap</source>
@@ -1868,6 +1841,8 @@ Please check the swap token and try again.</source>
     </message>
     <message id="send-swap-sconfirmation-online-time">
         <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
+        <oldsource>Keep your wallet online. The swap normally takes about 1 hour
+to complete.</oldsource>
         <translation>Pidä lompakkosi yhdistettynä. Swap-tapahtuma kestää normaalisti noin 1 tunnin.</translation>
     </message>
     <message id="beam-transaction-fee">
@@ -1888,58 +1863,230 @@ Please check the swap token and try again.</source>
     </message>
     <message id="swap-tx-state-initial">
         <source>If nobody accepts the offer in %1, the offer will be automatically canceled</source>
-        <oldsource>if nobody accepts the offer in %1, the offer will be automatically canceled</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Jos kukaan ei hyväksy tarjousta %1 kuluessa, tarjous peruutetaan automaattisesti</translation>
     </message>
     <message id="swap-tx-state-in-progress-normal">
-        <source>The swap is expected to complete in %1 at most</source>
-        <translation type="unfinished"></translation>
+        <source>The swap is expected to complete in %1 at most.</source>
+        <oldsource>The swap is expected to complete in %1 at most</oldsource>
+        <translation>Swap-tapahtuman arvioitu suoritusaika on korkeintaan %1.</translation>
     </message>
     <message id="swap-tx-state-in-progress-refunding">
-        <source>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</source>
-        <oldsource>The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)</oldsource>
-        <translation type="unfinished"></translation>
+        <source>Swap failed: the refund of your %2 will start in %1. The refund duration depends on the transaction fee you specified for %2.</source>
+        <oldsource>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</oldsource>
+        <translation>Swap epäonnistui: palautusprosessi (%2) alkaa hetken kuluttua (%1). Palautusprosessin kesto riippuu siirtomaksusta, jonka määrittelit arvolle %2.</translation>
     </message>
     <message id="atomic-swap-tx-cancel">
         <source>Cancel atomic swap</source>
-        <translation type="unfinished"></translation>
+        <translation>Peruuta atomic swap</translation>
     </message>
     <message id="atomic-swap-tx-cancel-text">
         <source>Are you sure you want to cancel?</source>
         <oldsource>Are you sure you want to cancel atomic swap transaction?</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Haluatko varmasti peruuttaa?</translation>
     </message>
     <message id="atomic-swap-tx-yes-button">
         <source>yes</source>
-        <translation type="unfinished"></translation>
+        <translation>kyllä</translation>
     </message>
     <message id="atomic-swap-no-button">
         <source>no</source>
-        <translation type="unfinished"></translation>
+        <translation>ei</translation>
     </message>
     <message id="swap-tx-state-refunding">
-        <source>Refunding</source>
-        <translation type="unfinished"></translation>
+        <source>Swap failed, the money is being released back to your wallet</source>
+        <oldsource>Refunding</oldsource>
+        <translation>Swap epäonnistui. Summa palautetaan lompakkoosi</translation>
     </message>
     <message id="wallet-txs-status-waiting-peer">
-        <source>waiting for peer</source>
-        <translation type="unfinished"></translation>
+        <source>waiting for counterparty</source>
+        <oldsource>waiting for peer</oldsource>
+        <translation>odotetaan vastapuolta</translation>
     </message>
     <message id="send-swap-fee-warning">
         <source> Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled.</source>
-        <translation type="unfinished"></translation>
+        <translation> Kun vastapuoli hyväksyy tarjouksen, siirtomaksu (%1) veloitetaan siitä huolimatta, vaikka tarjous peruutettaisiin.</translation>
     </message>
     <message id="app-close-title">
         <source>Beam wallet close</source>
-        <translation type="unfinished"></translation>
+        <translation>Sulje Beam-lompakko</translation>
     </message>
     <message id="app-close-text">
         <source>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</source>
-        <translation type="unfinished"></translation>
+        <translation>Sinulla on aktiivisia tapahtumia (%1 kpl), jotka voivat epäonnistua, jos lompakon yhteys katkeaa. Oletko varma, että haluat sulkea lompakon?</translation>
     </message>
     <message id="wallet-export-tx-history">
         <source>Export transactions history</source>
         <extracomment>transactions history screen, export button tooltip and open file dialog</extracomment>
+        <translation>Vie tapahtumahistoria</translation>
+    </message>
+    <message id="atomic-swap-my-offers-tab">
+        <source>My offers</source>
+        <translation>Omat tarjoukset</translation>
+    </message>
+    <message id="addresses-delete-warning-title">
+        <source>Delete address</source>
+        <translation>Poista osoite</translation>
+    </message>
+    <message id="addresses-delete-warning-text">
+        <source>There is active transaction that uses this address, therefore the address cannot be deleted.</source>
+        <translation>Sinulla on aktiivinen tapahtuma, joka käyttää tätä osoitetta. Siksi tätä osoitetta ei voida poistaa.</translation>
+    </message>
+    <message id="general-fee-total">
+        <source>%1 Transaction fee (est)</source>
+        <translation>Vaihtomaksu %1 (arvio)</translation>
+    </message>
+    <message id="settings-fee-rate-note">
+        <source>Remember to validate the expected fee rate for the blockchain (as it varies with time).</source>
+        <translation>Muista tarkistaa vaihtomaksu, sillä se vaihtelee ajoittain.</translation>
+    </message>
+    <message id="addresses-edit-warning-title">
+        <source>Edit address</source>
+        <translation>Muokkaa osoitetta</translation>
+    </message>
+    <message id="addresses-edit-warning-text">
+        <source>There is active transaction that uses this address, therefore the address expiration cannot be changed.</source>
+        <translation>Sinulla on aktiivinen tapahtuma, joka käyttää tätä osoitetta. Siksi tämän osoitteen voimassaoloaikaa ei voida muuttaa.</translation>
+    </message>
+    <message id="select-server-automatically">
+        <source>Select server automatically</source>
+        <translation>Valitse palvelin automaattisesti</translation>
+    </message>
+    <message id="settings-swap-seed-segwit-warning">
+        <source>Segwit seed phrase is not supported yet.</source>
+        <translation>Segwit -seed phrasea ei tueta tällä hetkellä.</translation>
+    </message>
+    <message id="settings-swap-seed-invali-warning">
+        <source>Invalid seed phrase. Please check again and resubmit.</source>
+        <translation>Virheellinen seed phrase. Yritä uudelleen.</translation>
+    </message>
+    <message id="swap-details-tx-fee-estimated">
+        <source>%1 Estimated transaction fee</source>
+        <translation>Arvioitu vaihtomaksu %1</translation>
+    </message>
+    <message id="wallet-receive-expires-15m">
+        <source>15 minutes</source>
+        <translation>15 minuuttia</translation>
+    </message>
+    <message id="wallet-receive-expires-30m">
+        <source>30 minutes</source>
+        <translation>30 minuuttia</translation>
+    </message>
+    <message id="wallet-receive-expires-1">
+        <source>1 hour</source>
+        <translation>1 tunti</translation>
+    </message>
+    <message id="wallet-receive-expires-2">
+        <source>2 hours</source>
+        <translation>2 tuntia</translation>
+    </message>
+    <message id="accept-swap-token">
+        <source>Your swap token</source>
+        <translation>Swap-tunnisteesi</translation>
+    </message>
+    <message id="settings-show-owner-key-title">
+        <source>Owner key</source>
+        <extracomment>settings tab, show owner key dialog title</extracomment>
+        <translation>Omistusavain</translation>
+    </message>
+    <message id="settings-show-owner-key-message">
+        <source>Please notice, that knowing your owner key allows to
+know all your funds (UTXO). Make sure that you
+deploy the key at the node you trust completely.</source>
+        <extracomment>settings tab, show owner key message</extracomment>
+        <translation>Huomioithan, että omistusavain antaa mahdollisuuden
+nähdä koko saldosi (UTXO). Varmista, että sijoitat
+avaimen palvelimeen (node), johon luotat täysin.</translation>
+    </message>
+    <message id="general-tab">
+        <source>General</source>
+        <translation>Yleiset</translation>
+    </message>
+    <message id="settings-remote-node-address">
+        <source>Remote node address</source>
+        <extracomment>settings tab, node section, address label</extracomment>
+        <translation>Etäpalvelimen (node) osoite</translation>
+    </message>
+    <message id="settings-general-require-pwd-to-show-owner-key">
+        <source>Show owner key</source>
+        <extracomment>settings tab, general section, Show owner key button and dialog title</extracomment>
+        <translation>Näytä omistusavain</translation>
+    </message>
+    <message id="settings-general-require-pwd-to-show-owner-key-message">
+        <source>Password verification is required to see the owner key</source>
+        <extracomment>settings tab, general section, ask password to Show owner key, message</extracomment>
+        <translation>Nähdäksesi omistusavaimen sinun tulee tunnistautua salasanalla</translation>
+    </message>
+    <message id="swap-tx-state-in-progress-negotiation">
+        <source>If the other side will not sign the transaction in %1, the offer will be canceled automatically.</source>
+        <translation>Tarjous peruutetaan automaattisesti, jos vastapuoli ei hyväksy tapahtumaa seuraavan ajan kuluessa: %1.</translation>
+    </message>
+    <message id="swap-invalid-credentials-error">
+        <source>Invalid credentials</source>
+        <translation>Virheelliset kirjautumistiedot</translation>
+    </message>
+    <message id="swap-connection-error">
+        <source>Cannot connect to node</source>
+        <translation>Palvelimeen (node) ei saada yhteyttä</translation>
+    </message>
+    <message id="swap-invalid-genesis-block-error">
+        <source>Invalid genesis block</source>
+        <translation>Virheellinen alkulohko</translation>
+    </message>
+    <message id="tx-state-initial-sender">
+        <source>If the receiver won&apos;t get online in %1, the transaction will be canceled automatically</source>
+        <translation>Tapahtuma peruutetaan automaattisesti, jos saaja ei yhdistä lompakkoa verkkoon seuraavan ajan sisällä: %1</translation>
+    </message>
+    <message id="tx-state-initial-receiver">
+        <source>If the sender won&apos;t get online in %1, the transaction will be canceled automatically</source>
+        <translation>Tapahtuma peruutetaan automaattisesti, jos lähettäjä ei yhdistä lompakkoa verkkoon seuraavan ajan sisällä: %1</translation>
+    </message>
+    <message id="tx-state-in-progress-normal">
+        <source>The transaction is usually expected to complete in a few minutes.</source>
+        <translation>Tapahtuma kestää tavallisesti muutaman minuutin, ennen kuin se on valmis.</translation>
+    </message>
+    <message id="tx-state-in-progress-long">
+        <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
+        <translation>Tapahtumassa kestää kauemmin kuin tavallisesti. Jos tapahtuma ei onnistu, se peruutetaan automaattisesti seuraavassa ajassa: %1</translation>
+    </message>
+    <message id="amount-input-add-all">
+        <source>add all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-general-no-require-pwd-to-spend-confirm-pwd-title">
+        <source>Ask password on every Send</source>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if unchecked</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source>Your receive token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-regular-copy-token">
+        <source>Copy transaction token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-kernel-min-height">
+        <source>Kernel&apos;s min height is unacceptable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-loopback">
+        <source>Not a loopback transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-key-keeper-no-initialized">
+        <source>Key keeper is not initialized</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-invalid-asset-id">
+        <source>No valid asset id/asset idx</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-invalid-asset-amount">
+        <source>Cannot consume more than MAX_INT64 asset groth in one transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-invalid-data-for-payment-proof">
+        <source>Some mandatory data for payment proof is missing</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

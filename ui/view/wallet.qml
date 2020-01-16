@@ -59,6 +59,7 @@ Item {
         id: tokenDuplicateChecker
         onAccepted: {
             walletStackView.pop();
+            main.openSwapActiveTransactionsList()
         }
         Connections {
             target: tokenDuplicateChecker.model
@@ -70,7 +71,7 @@ Item {
                 walletStackView.pop();
                 walletStackView.push(Qt.createComponent("send_swap.qml"),
                                      {
-                                         "onAccepted": onAccepted,
+                                         "onAccepted": tokenDuplicateChecker.onAccepted,
                                          "onClosed": onClosed
                                      });
                 walletStackView.currentItem.setToken(token);
@@ -357,6 +358,7 @@ Item {
                         hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
                         isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
                         rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
+                        stateDetails:       txRolesMap && txRolesMap.stateDetails ? txRolesMap.stateDetails : ""
                         searchFilter:       searchBox.text
                         hideFiltered:       rowItem.hideFiltered
 
@@ -670,11 +672,9 @@ Item {
     }
 
     Component.onDestruction: {
-        console.log("Component.onDestruction");
         var item = walletStackView.currentItem;
         if (item && item.saveAddress && typeof item.saveAddress == "function") {
             item.saveAddress();
-            console.log("saveAddress");
         }
     }
 }

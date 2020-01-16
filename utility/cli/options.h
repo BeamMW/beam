@@ -16,7 +16,7 @@
 
 #include <boost/program_options.hpp>
 #include "utility/logger.h"
-#include "wallet/secstring.h"
+#include "wallet/core/secstring.h"
 
 namespace beam
 {
@@ -46,6 +46,7 @@ namespace beam
         extern const char* SHOW_SWAP_SETTINGS;
         extern const char* ELECTRUM_SEED;
         extern const char* GENERATE_ELECTRUM_SEED;
+        extern const char* SELECT_SERVER_AUTOMATICALLY;
         extern const char* ELECTRUM_ADDR;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
@@ -62,7 +63,9 @@ namespace beam
         extern const char* TREASURY_BLOCK;
         extern const char* RESET_ID;
         extern const char* ERASE_ID;
+        extern const char* PRINT_TXO;
         extern const char* CHECKDB;
+        extern const char* VACUUM;
         extern const char* CRASH;
         extern const char* INIT;
         extern const char* RESTORE;
@@ -134,6 +137,25 @@ namespace beam
         extern const char* EXPIRATION_TIME_24H;
         extern const char* EXPIRATION_TIME_NEVER;
         extern const char* EXPIRATION_TIME_NOW;
+        // laser
+#ifdef BEAM_LASER_SUPPORT
+        extern const char* LASER;
+        extern const char* LASER_OPEN;
+        extern const char* LASER_TRANSFER;
+        extern const char* LASER_WAIT;
+        extern const char* LASER_SERVE;
+        extern const char* LASER_LIST;
+        extern const char* LASER_CLOSE;
+        extern const char* LASER_DELETE;
+        extern const char* LASER_AMOUNT_MY;
+        extern const char* LASER_AMOUNT_TARGET;
+        extern const char* LASER_TARGET_ADDR;
+        extern const char* LASER_FEE;
+        extern const char* LASER_LOCK_TIME;
+        extern const char* LASER_CHANNEL_ID;
+        extern const char* LASER_ALL;
+        extern const char* LASER_CLOSE_GRACEFUL;
+#endif  // BEAM_LASER_SUPPORT
 
         // wallet api
         extern const char* API_USE_HTTP;
@@ -154,6 +176,12 @@ namespace beam
 
         // ui
         extern const char* APPDATA_PATH;
+
+        // assets
+        extern const char* ASSET_ISSUE;
+        extern const char* ASSET_CONSUME;
+        extern const char* ASSET_INDEX;
+        extern const char* ASSET_ID;
 
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;

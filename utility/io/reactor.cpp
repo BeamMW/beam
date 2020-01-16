@@ -647,6 +647,10 @@ Result Reactor::tcp_connect(
     return res;
 }
 
+/**
+ *  According to Tor specs SOCKS5 BIND command is not supported.
+ *  That is why bind is not mplemented here.
+ */
 Result Reactor::tcp_connect_with_proxy(
     Address destAddr,
     Address proxyAddr,
@@ -655,8 +659,7 @@ Result Reactor::tcp_connect_with_proxy(
     int timeoutMsec,
     bool tlsConnect
 ) {
-    // TODO: proxy connection timeout calculation
-    // TODO: proxy implement proxy bind request
+    // TODO: clarify proxy connection timeout calculation
     assert(callback);
     assert(!destAddr.empty());
     assert(!proxyAddr.empty());

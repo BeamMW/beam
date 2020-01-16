@@ -49,7 +49,7 @@ TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, con
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
 	p->m_Threshold.m_Height	= ctx.m_Height;
-	p->m_Profit.m_Fee = ctx.m_Fee;
+	p->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
 	p->m_Profit.SetSize(*p->m_pValue);
 	p->m_Tx.m_Key = key;
 
@@ -206,7 +206,7 @@ void TxPool::Stem::InsertKrn(Element& x)
 	for (size_t i = 0; i < x.m_vKrn.size(); i++)
 	{
 		Element::Kernel& n = x.m_vKrn[i];
-		tx.m_vKernels[i]->get_ID(n.m_hv);
+		n.m_pKrn = tx.m_vKernels[i].get();
 		m_setKrns.insert(n);
 		n.m_pThis = &x;
 	}

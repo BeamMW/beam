@@ -18,6 +18,7 @@
 #include "utility/io/timer.h"
 #include "core/proto.h"
 #include "core/block_crypt.h"
+#include "core/shielded.h"
 #include "core/peer_manager.h"
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/set.hpp>
@@ -162,7 +163,7 @@ struct Node
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
 
-		Output::Shielded::Viewer m_ShieldedViewer; // derived from owner
+		ShieldedTxo::Viewer m_ShieldedViewer; // derived from owner
 
 	} m_Keys;
 
@@ -193,6 +194,7 @@ struct Node
 	bool m_PostStartSynced = false;
 
 	bool GenerateRecoveryInfo(const char*);
+	void PrintTxos();
 
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
 
@@ -208,7 +210,7 @@ private:
 		void OnRolledBack() override;
 		void OnModified() override;
 		Key::IPKdf* get_ViewerKey() override;
-		const Output::Shielded::Viewer* get_ViewerShieldedKey() override;
+		const ShieldedTxo::Viewer* get_ViewerShieldedKey() override;
 		void OnUtxoEvent(const UtxoEvent::Value&, Height) override;
 		void OnDummy(const Key::ID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
@@ -255,6 +257,7 @@ private:
 		bool BuildCwp();
 
 		void GenerateProofStateStrict(Merkle::HardProof&, Height);
+		void GenerateProofShielded(Merkle::Proof&, const uintBigFor<TxoID>::Type& mmrIdx);
 
 		bool m_bFlushPending = false;
 		io::Timer::Ptr m_pFlushTimer;
@@ -564,7 +567,9 @@ private:
 		virtual void OnMsg(proto::GetProofKernel&&) override;
 		virtual void OnMsg(proto::GetProofKernel2&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
-		virtual void OnMsg(proto::GetProofShieldedTxo&&) override;
+		virtual void OnMsg(proto::GetProofShieldedOutp&&) override;
+		virtual void OnMsg(proto::GetProofShieldedInp&&) override;
+		virtual void OnMsg(proto::GetProofAsset&&) override;
 		virtual void OnMsg(proto::GetShieldedList&&) override;
 		virtual void OnMsg(proto::GetProofChainWork&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;

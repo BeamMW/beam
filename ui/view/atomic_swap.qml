@@ -12,6 +12,8 @@ Item {
     Layout.fillWidth: true
     Layout.fillHeight: true
 
+    property bool shouldShowActiveTransactions: false
+
     SwapOffersViewModel {
         id: viewModel
     }
@@ -31,7 +33,7 @@ Item {
 
     ConfirmationDialog {
         id:                     cancelOfferDialog
-        property var txId:      undefined
+        property var txId: undefined
         width:                  460
         //% "Cancel offer"
         title:                  qsTrId("atomic-swap-cancel")
@@ -110,6 +112,13 @@ Item {
             Layout.fillHeight: true
             spacing: 0
             state: "offers"
+
+            Component.onCompleted: {
+                if (offersViewRoot.shouldShowActiveTransactions) {
+                    atomicSwapLayout.state = "transactions";
+                    transactionsTab.state = "filterInProgressTransactions";
+                }
+            }
 
             // callbacks for send views
             function onAccepted() {
@@ -333,6 +342,21 @@ Item {
                 }
 
                 TxFilter {
+                    id: myOffersTabSelector
+                    Layout.alignment: Qt.AlignTop
+                    Layout.leftMargin: 40
+                    //% "My offers"
+                    label: qsTrId("atomic-swap-my-offers-tab")
+                    onClicked: atomicSwapLayout.state = "myoffers"
+                    showLed: false
+                    font {
+                        pixelSize: 14
+                        letterSpacing: 4
+                        capitalization: Font.AllUppercase
+                    }
+                }
+
+                TxFilter {
                     id: transactionsTabSelector
                     Layout.alignment: Qt.AlignTop
                     Layout.leftMargin: 40
@@ -359,10 +383,19 @@ Item {
                     PropertyChanges { target: transactionsTab; visible: false }
                 },
                 State {
+                    name: "myoffers"
+                    PropertyChanges { target: myOffersTabSelector; state: "active" }
+                    PropertyChanges { target: activeOffersTab; visible: true }
+                    PropertyChanges { target: transactionsTab; visible: false }
+                    PropertyChanges { target: offersTable; showOnlyMyOffers: true }
+                },
+                State {
                     name: "transactions"
                     PropertyChanges { target: transactionsTabSelector; state: "active" }
                     PropertyChanges { target: activeOffersTab; visible: false }
                     PropertyChanges { target: transactionsTab; visible: true }
+                    PropertyChanges { target: offersTable; showOnlyMyOffers: false }
+                    
                 }
             ]
             
@@ -379,60 +412,11 @@ Item {
 
                     RowLayout {
                         spacing: 0
-
-                        SFText {
-                            Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
-                            font.pixelSize: 14
-                            color: sendReceiveBeamSwitch.checked
-                                ? Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
-                                : Style.active
-                            //% "Receive BEAM"
-                            text: qsTrId("atomic-swap-receive-beam")
-                            MouseArea {
-                                anchors.fill: parent
-                                acceptedButtons: Qt.LeftButton
-                                onClicked: {
-                                    sendReceiveBeamSwitch.checked = !sendReceiveBeamSwitch.checked;
-                                }
-                            }
-                        }
-
-                        CustomSwitch {
-                            id: sendReceiveBeamSwitch
-                            alwaysGreen: true
-                            Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
-                        }
-
-                        SFText {
-                            Layout.alignment:  Qt.AlignHCenter | Qt.AlignLeft
-                            Layout.leftMargin: 10
-                            font.pixelSize: 14
-                            color: sendReceiveBeamSwitch.checked
-                                ? Style.active
-                                : Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
-                            //% "Send BEAM"
-                            text: qsTrId("atomic-swap-send-beam")
-                            MouseArea {
-                                anchors.fill: parent
-                                acceptedButtons: Qt.LeftButton
-                                onClicked: {
-                                    sendReceiveBeamSwitch.checked = !sendReceiveBeamSwitch.checked;
-                                }
-                            }
-                        }
-
-                        CustomCheckBox {
-                            id: checkboxOnlyMyOffers
-                            Layout.alignment:  Qt.AlignHCenter
-                            Layout.leftMargin: 60
-                            //% "Only my offers"
-                            text:           qsTrId("atomic-swap-only-my-offers")
-                        }
-
+                        Layout.minimumHeight: 20
+                        Layout.maximumHeight: 20
                         CustomCheckBox {
                             id: checkboxFitBalance
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
-                            Layout.leftMargin: 60
                             //% "Fit my current balance"
                             text: qsTrId("atomic-swap-fit-current-balance")
                         }
@@ -450,23 +434,26 @@ Item {
                             //% "Currency"
                             text: qsTrId("atomic-swap-currency")
                         }
-                    
+
                         CustomComboBox {
                             id: coinSelector
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignRight
-                            height: 32
-                            Layout.minimumWidth: 70
-                            Layout.maximumWidth: 80
+                            Layout.minimumWidth: 120
+                            Layout.maximumWidth: 130
 
                             fontPixelSize: 14
                             fontLetterSpacing: 0.47
                             color: Style.content_main
-                            model: ["BTC", "LTC", "QTUM"]
-                        }                        
-                        Binding {
-                            target:   viewModel
-                            property: "selectedCoin"
-                            value:    coinSelector.currentIndex
+                            textRole: 'text'
+                            model: ListModel {
+                                    ListElement{text: "ALL"; pair: ""}
+                                    ListElement{text: "BEAM->BTC"; pair: "beambtc"}
+                                    ListElement{text: "BEAM->LTC"; pair: "beamltc"}
+                                    ListElement{text: "BEAM->QTUM"; pair: "beamqtum"}
+                                    ListElement{text: "BTC->BEAM"; pair: "btcbeam"}
+                                    ListElement{text: "LTC->BEAM"; pair: "ltcbeam"}
+                                    ListElement{text: "QTUM->BEAM"; pair: "qtumbeam"}
+                                }
                         }
                     }   // RowLayout
 
@@ -526,21 +513,17 @@ Please try again later or create an offer yourself."
                                 : Qt.AscendingOrder;
                         }
 
+                        property var showOnlyMyOffers : false
+
                         model: SortFilterProxyModel {
                             id: proxyModel
                             source: SortFilterProxyModel {
-                                source: SortFilterProxyModel {
-                                    // filter all offers by selected coin
-                                    source: checkboxFitBalance.checked
-                                        ? viewModel.allOffersFitBalance
-                                        : viewModel.allOffers                                
-                                    filterRole: "swapCoin"
-                                    filterString: getCoinName(viewModel.selectedCoin)
-                                    filterSyntax: SortFilterProxyModel.Wildcard
-                                    filterCaseSensitivity: Qt.CaseInsensitive
-                                }
-                                filterRole: "isSendBeam"
-                                filterString: sendReceiveBeamSwitch.checked ? "false" : "true"
+                                // filter all offers by selected coin
+                                source: checkboxFitBalance.checked
+                                    ? viewModel.allOffersFitBalance
+                                    : viewModel.allOffers
+                                filterRole: "pair"
+                                filterString: coinSelector.model.get(coinSelector.currentIndex).pair
                                 filterSyntax: SortFilterProxyModel.Wildcard
                                 filterCaseSensitivity: Qt.CaseInsensitive
                             }
@@ -550,7 +533,7 @@ Please try again later or create an offer yourself."
                             sortRole: offersTable.getColumn(offersTable.sortIndicatorColumn).role + "Sort"
 
                             filterRole: "isOwnOffer"
-                            filterString: checkboxOnlyMyOffers.checked ? "true" : "*"
+                            filterString: offersTable.showOnlyMyOffers ? "true" : "*"
                             filterSyntax: SortFilterProxyModel.Wildcard
                             filterCaseSensitivity: Qt.CaseInsensitive
                         }
@@ -584,8 +567,7 @@ Please try again later or create an offer yourself."
                                 width: parent.width
                                 height: offersTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isSendBeam")
-                                property var isOwnOffer: offersTable.model.getRoleValue(styleData.row, "isOwnOffer")
+                                property var isSendBeam: !!model && model.isSendBeam
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -593,9 +575,9 @@ Please try again later or create an offer yourself."
                                 anchors.topMargin: 18
 
                                 RowLayout {
-                                    layoutDirection: Qt.RightToLeft
                                     spacing: -4
                                     SvgImage {
+                                        z: 1
                                         sourceSize: Qt.size(20, 20)
                                         source: isSendBeam
                                             ? "qrc:/assets/icon-beam.svg"
@@ -658,7 +640,7 @@ Please try again later or create an offer yourself."
                             movable: false
                             resizable: false
                             delegate: TableItem {
-                                text: Utils.number2Locale(styleData.value)
+                                text: Utils.uiStringToLocale(styleData.value)
                             }
                         }
 
@@ -682,13 +664,15 @@ Please try again later or create an offer yourself."
                                 Item {
                                     Layout.fillWidth : true
                                     Layout.fillHeight : true
-                                    property var isOwnOffer: offersTable.model.getRoleValue(styleData.row, "isOwnOffer")
+                                    property var isOwnOffer: !!model && model.isOwnOffer
 
                                     SFText {
-                                        anchors.right: parent.right
+                                        anchors.fill: parent
                                         anchors.verticalCenter: parent.verticalCenter
+                                        anchors.leftMargin:  20
                                         anchors.rightMargin: 20
 
+                                        verticalAlignment:   Text.AlignVCenter
                                         font.pixelSize: 14
                                         color: isOwnOffer ? Style.swapCurrencyStateIndicator : Style.active
                                         text: isOwnOffer
@@ -814,37 +798,38 @@ Please try again later or create an offer yourself."
                             rowInModel: styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
                             rowHeight: transactionsTable.rowHeight
                             backgroundColor: styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
-                            property var myModel: parent.model
+                            property var  myModel:     parent.model
 
                             delegate: SwapTransactionDetails {
-                                        width: transactionsTable.width
+                                    width: transactionsTable.width
 
-                                        property var txRolesMap: myModel
-                                        txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
-                                        fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
-                                        feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
-                                        comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
-                                        swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
-                                        isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
-                                        isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
-                                        isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
-                                        swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
-                                        swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
-                                        swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
-                                        swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
-                                        swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
-                                        swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
-                                        beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
-                                        beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
-                                        beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
-                                        stateDetails:                   txRolesMap && txRolesMap.swapState ? txRolesMap.swapState : ""
-                                        failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
-                                        
-                                        onTextCopied: function (text) {
-                                            BeamGlobals.copyToClipboard(text);
-                                        }
+                                    property var txRolesMap: myModel
+                                    txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
+                                    fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
+                                    swapCoinFeeRate:                txRolesMap && txRolesMap.swapCoinFeeRate ? txRolesMap.swapCoinFeeRate : ""
+                                    swapCoinFee:                    txRolesMap && txRolesMap.swapCoinFee ? txRolesMap.swapCoinFee : ""
+                                    comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
+                                    swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
+                                    isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
+                                    isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
+                                    isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
+                                    swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
+                                    swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
+                                    swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
+                                    swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
+                                    swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
+                                    swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
+                                    beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
+                                    beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
+                                    beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
+                                    stateDetails:                   txRolesMap && txRolesMap.stateDetails ? txRolesMap.stateDetails : ""
+                                    failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
+                                    
+                                    onTextCopied: function (text) {
+                                        BeamGlobals.copyToClipboard(text);
                                     }
                                 }
+                            }
 
                         itemDelegate: Item {
                             Item {
@@ -870,7 +855,7 @@ Please try again later or create an offer yourself."
                                 width: parent.width
                                 height: transactionsTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: transactionsTable.model.getRoleValue(styleData.row, "isBeamSideSwap")
+                                property var isSendBeam: !!model && model.isBeamSideSwap
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -878,15 +863,15 @@ Please try again later or create an offer yourself."
                                 anchors.topMargin: 18
 
                                 RowLayout {
-                                    layoutDirection: Qt.RightToLeft
                                     spacing: -4
                                     SvgImage {
+                                        z: 1
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
+                                        source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
                                     }
                                     SvgImage {
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
+                                        source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
                                     }
                                 }
                             }
@@ -1184,7 +1169,7 @@ Please try again later or create an offer yourself."
     function getStatusText(value) {
 
         switch(value) {
-            //% "waiting for peer"
+            //% "waiting for counterparty"
             case "pending": return qsTrId("wallet-txs-status-waiting-peer");
             //% "in progress"
             case "in progress": return qsTrId("wallet-txs-status-in-progress");

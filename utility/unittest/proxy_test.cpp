@@ -143,7 +143,7 @@ void proxy_test() {
 
 	// Connection timeout testcase
 	{
-		uint32_t connTO = 2000;
+		int connTO = 2000;
 		auto timeStart = std::time(nullptr);
 		reactor->tcp_connect_with_proxy(
 			destAddr,

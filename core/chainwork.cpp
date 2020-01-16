@@ -153,7 +153,7 @@ namespace beam
 		if (m_Heading.m_vElements.empty())
 			return false; // illegal
 
-		Block::SystemState::Full s;
+		SystemState::Full s;
 		bool bFirst = true;
 
 		for (size_t i = m_Heading.m_vElements.size(); ; )
@@ -163,12 +163,12 @@ namespace beam
 			if (!bFirst)
 				s.NextPrefix();
 
-			Cast::Down<Block::SystemState::Sequence::Element>(s) = m_Heading.m_vElements[i];
+			Cast::Down<SystemState::Sequence::Element>(s) = m_Heading.m_vElements[i];
 
 			if (bFirst)
 			{
 				bFirst = false;
-				Cast::Down<Block::SystemState::Sequence::Prefix>(s) = m_Heading.m_Prefix;
+				Cast::Down<SystemState::Sequence::Prefix>(s) = m_Heading.m_Prefix;
 			}
 			else
 				s.m_ChainWork += s.m_PoW.m_Difficulty;
@@ -191,7 +191,7 @@ namespace beam
 			std::vector<SystemState::Full>& m_Trg;
 			Walker(std::vector<SystemState::Full>& trg) :m_Trg(trg) {}
 
-			virtual bool OnState(const Block::SystemState::Full& s, bool bIsTip) override
+			virtual bool OnState(const SystemState::Full& s, bool bIsTip) override
 			{
 				m_Trg.push_back(s);
 				return true;
@@ -254,7 +254,7 @@ namespace beam
 		}
 	}
 
-	bool Block::ChainWorkProof::IsValid(Block::SystemState::Full* pTip /* = NULL */) const
+	bool Block::ChainWorkProof::IsValid(SystemState::Full* pTip /* = NULL */) const
 	{
 		size_t iState, iHash;
 		return
@@ -295,7 +295,7 @@ namespace beam
 				:public IStateWalker
 			{
 				size_t m_Count;
-				Block::SystemState::Sequence::Prefix* m_pTrg;
+				SystemState::Sequence::Prefix* m_pTrg;
 
 				virtual bool OnState(const SystemState::Full& s, bool bIsTip) override
 				{
@@ -333,7 +333,7 @@ namespace beam
 		return Crop(*this);
 	}
 
-	bool Block::ChainWorkProof::IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, Block::SystemState::Full* pTip) const
+	bool Block::ChainWorkProof::IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, SystemState::Full* pTip) const
 	{
 		if (m_Heading.m_vElements.empty())
 			return false;
@@ -341,7 +341,7 @@ namespace beam
 		struct StateVerifier
 			:public IStateWalker
 		{
-			Block::SystemState::Full m_Tip;
+			SystemState::Full m_Tip;
 
 			virtual bool OnState(const SystemState::Full& s, bool bIsTip) override
 			{
@@ -359,9 +359,11 @@ namespace beam
 		if (!EnumStates(wlk))
 			return false;
 
-		Block::SystemState::Full& s = wlk.m_Tip; // alias
+		SystemState::Full& s = wlk.m_Tip; // alias
 
-		struct MyVerifier :public Merkle::MultiProof::Verifier
+		struct MyVerifier
+			:public Merkle::MultiProof::Verifier
+			,public SystemState::Evaluator
 		{
 			const ChainWorkProof& m_This;
 			Merkle::Hash m_hvRootDefinition;
@@ -370,16 +372,33 @@ namespace beam
 				,m_This(x)
 			{}
 
-			virtual bool IsRootValid(const Merkle::Hash& hv)
+			const Merkle::Hash* m_pHist;
+
+			virtual bool get_History(Merkle::Hash& hv) override {
+				hv = *m_pHist;
+				return true;
+			}
+			virtual bool get_Live(Merkle::Hash& hv) override {
+				hv = m_This.m_hvRootLive;
+				return true;
+			}
+
+
+			virtual bool IsRootValid(const Merkle::Hash& hv) override
 			{
+				// Use the standard Evaluator.
+				m_pHist = &hv;
 				Merkle::Hash hvDef;
-				Merkle::Interpret(hvDef, hv, m_This.m_hvRootLive);
-				return hvDef == m_hvRootDefinition;
+				return
+					get_Definition(hvDef) &&
+					!m_Failed &&
+					(hvDef == m_hvRootDefinition);
 			}
 		};
 
 		MyVerifier ver(*this, s.m_Height - Rules::HeightGenesis);
 		ver.m_hvRootDefinition = s.m_Definition;
+		ver.m_Height = s.m_Height;
 
 		Sampler samp(s, lowerBound);
 		if (samp.m_Begin >= samp.m_End) // overflow attack?

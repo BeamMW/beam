@@ -17,7 +17,7 @@
 namespace
 {
 
-QString getStatusText(const QString& status)
+QString getStatusTextTranslated(const QString& status)
 {
     if (status == "pending")
     {
@@ -34,17 +34,17 @@ QString getStatusText(const QString& status)
         //% "waiting for receiver"
         return qtTrId("wallet-txs-status-waiting-receiver");
     }
-    else if (status == "receiving" || status == "sending")
+    else if (status == "in progress")
     {
         //% "in progress"
         return qtTrId("wallet-txs-status-in-progress");
     }
-    else if (status == "completed")
+    else if (status == "sent to own address")
     {
         //% "sent to own address"
         return qtTrId("wallet-txs-status-own-sent");
     }
-    else if (status == "self sending")
+    else if (status == "sending to own address")
     {
         //% "sending to own address"
         return qtTrId("wallet-txs-status-own-sending");
@@ -121,7 +121,8 @@ auto TxObjectList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::IsExpired), "isExpired" },
         { static_cast<int>(Roles::HasPaymentProof), "hasPaymentProof" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" },
-        { static_cast<int>(Roles::Search), "search" }
+        { static_cast<int>(Roles::Search), "search" },
+        { static_cast<int>(Roles::StateDetails), "stateDetails" }
     };
     return roles;
 }
@@ -167,7 +168,7 @@ auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
 
         case Roles::Status:
         case Roles::StatusSort:
-            return getStatusText(value->getStatus());
+            return getStatusTextTranslated(value->getStatus());
 
         case Roles::Fee:
             return value->getFee();
@@ -233,6 +234,8 @@ auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
             r.append(value->getComment());
             return r;
         }
+        case Roles::StateDetails:
+            return value->getStateDetails();
 
         default:
             return QVariant();

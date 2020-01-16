@@ -16,6 +16,7 @@
 #include <chrono>
 #include <sstream>
 #include "block_crypt.h"
+#include "serialization_adapters.h"
 
 namespace beam
 {
@@ -100,6 +101,25 @@ namespace beam
 	}
 
 	/////////////
+	// TxStats
+	void TxStats::Reset()
+	{
+		ZeroObject(*this);
+	}
+
+	void TxStats::operator += (const TxStats& s)
+	{
+		m_Fee				+= s.m_Fee;
+		m_Coinbase			+= s.m_Coinbase;
+
+		m_Kernels			+= s.m_Kernels;
+		m_Inputs			+= s.m_Inputs;
+		m_Outputs			+= s.m_Outputs;
+		m_InputsShielded	+= s.m_InputsShielded;
+		m_OutputsShielded	+= s.m_OutputsShielded;
+	}
+
+	/////////////
 	// Input
 	int TxElement::cmp(const TxElement& v) const
 	{
@@ -111,22 +131,11 @@ namespace beam
 	{
 		Cast::Down<TxElement>(*this) = v;
 		m_Internal = v.m_Internal;
-		ClonePtr(m_pSpendProof, v.m_pSpendProof);
 	}
 
-	int Input::cmp(const Input& v) const
+	void Input::AddStats(TxStats& s) const
 	{
-		// make sure shielded are after MW
-		CMP_MEMBER_PTR(m_pSpendProof)
-
-		return Cast::Down<TxElement>(*this).cmp(v);
-	}
-
-	int Input::SpendProof::cmp(const SpendProof& v) const
-	{
-		CMP_MEMBER(m_Part1.m_SpendPk)
-		// ignore rest of the members
-		return 0;
+		s.m_Inputs++;
 	}
 
 	/////////////
@@ -152,28 +161,10 @@ namespace beam
 
 	/////////////
 	// SwitchCommitment
-	SwitchCommitment::SwitchCommitment(const AssetID* pAssetID /* = nullptr */)
+	SwitchCommitment::SwitchCommitment(const AssetID nAssetID /* = 0 */)
 	{
-		if (pAssetID && !(*pAssetID == Zero))
-		{
-			ECC::Oracle oracle;
-			oracle
-				<< "a-id"
-				<< *pAssetID;
-
-			ECC::Point pt;
-			pt.m_Y = 0;
-
-			do
-			{
-				oracle
-					<< "a-gen"
-					>> pt.m_X;
-			}
-			while (!m_hGen.ImportNnz(pt));
-		}
-		else
-			m_hGen = Zero;
+		if (nAssetID)
+			AssetInfo::Base(nAssetID).get_Generator(m_hGen);
 	}
 
 	void SwitchCommitment::get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J)
@@ -278,7 +269,7 @@ namespace beam
 		if (!comm.Import(m_Commitment))
 			return false;
 
-		SwitchCommitment sc(&m_AssetID);
+		SwitchCommitment sc(m_AssetID);
 
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
@@ -291,19 +282,10 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			if (m_pShielded)
-			{
-				if (hScheme < Rules::get().pForks[2].m_Height)
-					return false; // not supported in this version
-
-				if (!m_pShielded->IsValid())
-					return false;
-			}
-
 			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen);
 		}
 
-		if (!m_pPublic || m_pShielded)
+		if (!m_pPublic)
 			return false;
 
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
@@ -321,39 +303,10 @@ namespace beam
 		m_AssetID = v.m_AssetID;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
-		ClonePtr(m_pShielded, v.m_pShielded);
-	}
-
-	void Output::Shielded::get_Hash(ECC::Hash::Value& hv) const
-	{
-		ECC::Hash::Processor()
-			<< "Out-S"
-			<< m_SerialPub
-			>> hv;
-	}
-
-	bool Output::Shielded::IsValid() const
-	{
-		ECC::Point::Native comm;
-		if (!comm.Import(m_SerialPub))
-			return false;
-
-		ECC::Hash::Value hv;
-		get_Hash(hv);
-		return m_Signature.IsValid(hv, comm, &m_kSer);
-	}
-
-	int Output::Shielded::cmp(const Shielded& v) const
-	{
-		// enough to compare the commitment, since duplicates are not allowed
-		return m_SerialPub.cmp(v.m_SerialPub);
 	}
 
 	int Output::cmp(const Output& v) const
 	{
-		// make sure shielded are after MW
-		CMP_MEMBER_PTR(m_pShielded)
-
 		{
 			int n = Cast::Down<TxElement>(*this).cmp(v);
 			if (n)
@@ -363,16 +316,24 @@ namespace beam
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER(m_RecoveryOnly)
 		CMP_MEMBER(m_Incubation)
-		CMP_MEMBER_EX(m_AssetID)
+		CMP_MEMBER(m_AssetID)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
 
 		return 0;
 	}
 
+	void Output::AddStats(TxStats& s) const
+	{
+		s.m_Outputs++;
+
+		if (m_Coinbase && m_pPublic)
+			s.m_Coinbase += uintBigFrom(m_pPublic->m_Value);
+	}
+
 	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
-		SwitchCommitment sc(&m_AssetID);
+		SwitchCommitment sc(m_AssetID);
 		sc.Create(sk, m_Commitment, coinKdf, kidv);
 
 		ECC::Oracle oracle;
@@ -413,23 +374,6 @@ namespace beam
 		{
 			oracle << m_Commitment;
 		}
-
-		uint8_t nFlags = m_pShielded ? 1 : 0;
-		if (nFlags)
-		{
-			oracle << nFlags;
-
-			if (m_pShielded)
-			{
-				// include all the fields, in case they will become meaningful for recognition
-				oracle
-					<< m_pShielded->m_SerialPub
-					<< m_pShielded->m_Signature.m_NoncePub
-					<< m_pShielded->m_Signature.m_k
-					<< m_pShielded->m_kSer;
-			}
-		}
-
 	}
 
 	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, Key::IDV& kidv) const
@@ -461,7 +405,7 @@ namespace beam
 		if (!comm2.Import(m_Commitment))
 			return false;
 
-		SwitchCommitment(&m_AssetID).Recover(comm, coinKdf, kidv);
+		SwitchCommitment(m_AssetID).Recover(comm, coinKdf, kidv);
 
 		comm = -comm;
 		comm += comm2;
@@ -484,327 +428,58 @@ namespace beam
 	}
 
 	/////////////
-	// Shielded keygen
-	struct Output::Shielded::Data::HashTxt
-	{
-		ECC::Hash::Processor m_Processor;
-		ECC::Hash::Value m_hv;
-
-		template <uint32_t n>
-		HashTxt(const char(&sz)[n])
-		{
-			m_Processor
-				<< "Output.Shielded."
-				<< sz;
-		}
-
-		template <typename T>
-		HashTxt& operator << (const T& t) { m_Processor << t; return *this; }
-
-		void operator >> (ECC::Hash::Value& hv)
-		{
-			m_Processor >> m_hv;
-			hv = m_hv;
-		}
-
-		operator const ECC::Hash::Value& ()
-		{
-			m_Processor >> m_hv;
-			return m_hv;
-		}
-	};
-
-	void Output::Shielded::Viewer::FromOwner(Key::IPKdf& key)
-	{
-		ECC::Scalar::Native sk;
-		key.DerivePKey(sk, Data::HashTxt("Own.Gen"));
-		ECC::NoLeak<ECC::Scalar> s;
-		s.V = sk;
-
-		ECC::HKdf::Create(m_pGen, s.V.m_Value);
-
-		GenerateSerSrc(s.V.m_Value, key);
-
-		m_pSer.reset(new ECC::HKdfPub);
-		Cast::Up<ECC::HKdfPub>(*m_pSer).GenerateChildParallel(key, s.V.m_Value);
-	}
-
-	void Output::Shielded::Viewer::GenerateSerSrc(ECC::Hash::Value& res, Key::IPKdf& key)
-	{
-		ECC::Scalar::Native sk;
-		key.DerivePKey(sk, Data::HashTxt("Own.Ser"));
-
-		static_assert(sizeof(res) == sizeof(ECC::Scalar));
-		((ECC::Scalar&) res) = sk;
-	}
-
-	void Output::Shielded::Viewer::GenerateSerPrivate(Key::IKdf::Ptr& pOut, Key::IKdf& key)
-	{
-		ECC::NoLeak<ECC::Hash::Value> hv;
-		GenerateSerSrc(hv.V, key);
-
-		pOut.reset(new ECC::HKdf);
-		Cast::Up<ECC::HKdf>(*pOut).GenerateChildParallel(key, hv.V);
-	}
-
-	void Output::Shielded::Data::DoubleBlindedCommitment(ECC::Point::Native& res, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ)
-	{
-		res = ECC::Context::get().G * kG;
-		res += ECC::Context::get().J * kJ;
-	}
-
-	void Output::Shielded::PublicGen::get_OwnerNonce(ECC::Hash::Value& hv, const ECC::Scalar::Native& sk) const
-	{
-		Data::HashTxt("Owner") << sk >> hv;
-	}
-
-	bool Output::Shielded::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1)
-	{
-		// Import/Export seems to be the same complexity
-		ECC::Point pt2;
-		pt0.Export(pt2);
-		return pt2 == pt1;
-	}
-
-	bool Output::Shielded::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1)
-	{
-		ECC::Point::Native pt = -pt0;
-		pt += pt1;
-		return pt == Zero;
-	}
-
-	void Output::Shielded::Data::GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ)
-	{
-		gen.DerivePKey(nG, HashTxt("nG") << ptShared);
-		gen.DerivePKey(nJ, HashTxt("nJ") << ptShared);
-	}
-
-	void Output::Shielded::Data::ToSk(Key::IPKdf& gen)
-	{
-		gen.DerivePKey(m_kOutG, HashTxt("sG") << m_kSerG);
-	}
-
-	void Output::Shielded::Data::GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value& res) const
-	{
-		ECC::Scalar::Native k;
-		gen.DerivePKey(k, HashTxt("seed") << m_kOutG);
-		ECC::Hash::Processor() << k >> res;
-	}
-
-	void Output::Shielded::Data::GetDH(ECC::Hash::Value& res, const ECC::Point& pt)
-	{
-		HashTxt("DH") << pt >> res;
-	}
-
-	void Output::Shielded::Data::GenerateS(Shielded& s, const PublicGen& gen, const ECC::Hash::Value& nonce)
-	{
-		ECC::Scalar::Native kJ, nG, nJ, e;
-
-		gen.m_pSer->DerivePKey(m_kSerG, HashTxt("kG") << nonce);
-		GetSerial(kJ, *gen.m_pSer);
-		ToSk(*gen.m_pGen);
-
-		ECC::Point::Native pt, pt1;
-		DoubleBlindedCommitment(pt, m_kSerG, kJ);
-
-		s.m_SerialPub = pt;
-
-		// DH
-		ECC::Hash::Value hv;
-		GetDH(hv, s.m_SerialPub);
-
-		gen.m_pGen->DerivePKeyG(pt, hv);
-		gen.m_pGen->DerivePKeyJ(pt1, hv);
-
-		pt = pt * m_kSerG;
-		pt += pt1 * kJ; // shared point
-
-		GenerateS1(*gen.m_pGen, pt, nG, nJ);
-
-		// generalized Schnorr's sig
-		Data::DoubleBlindedCommitment(pt, nG, nJ);
-		s.m_Signature.m_NoncePub = pt;
-
-		s.get_Hash(hv);
-		s.m_Signature.get_Challenge(e, hv);
-
-		kJ *= e;
-		kJ += nJ;
-		s.m_kSer = -kJ;
-
-		kJ = m_kSerG * e;
-		kJ += nG;
-		s.m_Signature.m_k = -kJ;
-	}
-
-	void Output::Shielded::Data::Generate(Output& outp, const PublicGen& gen, const ECC::Hash::Value& nonce)
-	{
-		outp.m_pShielded.reset(new Shielded);
-		GenerateS(*outp.m_pShielded, gen, nonce);
-		GenerateO(outp, gen);
-	}
-
-	void Output::Shielded::Data::GenerateO(Output& outp, const PublicGen& gen)
-	{
-		assert(outp.m_pShielded);
-
-		ECC::Hash::Value bpNonce;
-		gen.get_OwnerNonce(bpNonce, m_kOutG);
-
-		ECC::Point::Native pt = ECC::Commitment(m_kOutG, m_Value);
-		outp.m_Commitment = pt;
-
-		assert(m_hScheme >= Rules::get().pForks[2].m_Height);
-		ECC::Oracle oracle;
-		outp.Prepare(oracle, m_hScheme);
-
-		ECC::RangeProof::CreatorParams cp;
-		GetOutputSeed(*gen.m_pGen, cp.m_Seed.V);
-
-		ZeroObject(cp.m_Kidv);
-		cp.m_Kidv.set_Subkey(0);
-		cp.m_Kidv.m_Value = m_Value;
-
-		outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
-		outp.m_pConfidential->Create(m_kOutG, cp, oracle);
-	}
-
-	void Output::Shielded::Data::GetSerialPreimage(ECC::Hash::Value& res) const
-	{
-		ECC::NoLeak<ECC::Scalar> sk;
-		sk.V = m_kSerG;
-		HashTxt("kG-ser") << sk.V.m_Value >> res;
-	}
-
-	void Output::Shielded::Data::GetSerial(ECC::Scalar::Native& kJ, Key::IPKdf& ser) const
-	{
-		ECC::Point::Native pt;
-		GetSpendPKey(pt, ser);
-		Lelantus::SpendKey::ToSerial(kJ, pt);
-	}
-
-	void Output::Shielded::Data::GetSpendPKey(ECC::Point::Native& pt, Key::IPKdf& ser) const
-	{
-		ECC::Hash::Value hv;
-		GetSerialPreimage(hv);
-		ser.DerivePKeyG(pt, hv);
-	}
-
-	void Output::Shielded::Data::GetSpendKey(ECC::Scalar::Native& sk, Key::IKdf& ser) const
-	{
-		ECC::Hash::Value hv;
-		GetSerialPreimage(hv);
-		ser.DeriveKey(sk, hv);
-	}
-
-	bool Output::Shielded::Data::Recover(const Output& outp, const Viewer& v)
-	{
-		if (!outp.m_pConfidential || !outp.m_pShielded)
-			return false; // ?!
-
-		const Shielded& s = *outp.m_pShielded;
-
-		ECC::Point::Native ptSer;
-		if (!ptSer.Import(s.m_SerialPub))
-			return false;
-
-		ECC::Hash::Value hv;
-		GetDH(hv, s.m_SerialPub);
-
-		ECC::Scalar::Native kJ, nG, nJ;
-		v.m_pGen->DeriveKey(kJ, hv);
-
-		ECC::Point::Native pt = ptSer * kJ; // shared point
-		GenerateS1(*v.m_pGen, pt, nG, nJ);
-
-		DoubleBlindedCommitment(pt, nG, nJ);
-		if (!IsEqual(pt, s.m_Signature.m_NoncePub))
-			return false;
-
-		m_kSerG = s.m_Signature.m_k;
-		m_kSerG += nG;
-
-		kJ = s.m_kSer;
-		kJ += nJ;
-
-		s.get_Hash(hv);
-		s.m_Signature.get_Challenge(nJ, hv);
-		nJ.Inv();
-		nJ = -nJ;
-
-		m_kSerG *= nJ;
-		kJ *= nJ;
-
-		DoubleBlindedCommitment(pt, m_kSerG, kJ);
-		if (!IsEqual(ptSer, pt))
-			return false;
-
-		GetSerial(nJ, *v.m_pSer);
-		if (!(nJ == kJ))
-			return false;
-
-		// looks good!
-		ToSk(*v.m_pGen);
-
-		ECC::RangeProof::CreatorParams cp;
-		GetOutputSeed(*v.m_pGen, cp.m_Seed.V);
-
-		assert(m_hScheme >= Rules::get().pForks[2].m_Height);
-		ECC::Oracle oracle;
-		outp.Prepare(oracle, m_hScheme);
-
-		if (!outp.m_pConfidential->Recover(oracle, cp))
-			return false; // oops?
-
-		m_Value = cp.m_Kidv.m_Value;
-
-		pt = ECC::Commitment(m_kOutG, m_Value);
-		return IsEqual(pt, outp.m_Commitment);
-	}
-
-	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const
+	const ECC::Hash::Value& TxKernelStd::HashLock::get_Image(ECC::Hash::Value& hv) const
 	{
-		if (pScheme)
-		{
-			if ((*pScheme < Rules::get().pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
-				return false; // unsupported for that version
-		}
+		if (m_IsImage)
+			return m_Value;
 
-		if (pParent)
-		{
-			if (!m_CanEmbed && pScheme && (*pScheme >= Rules::get().pForks[1].m_Height)) // for older version embedding is implicitly allowed (though unlikely to be used)
-				return false;
+		ECC::Hash::Processor() << m_Value >> hv;
+		return hv;
+	}
 
-			// nested kernel restrictions
-			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
-				(m_Height.m_Max < pParent->m_Height.m_Max))
-				return false; // parent Height range must be contained in ours.
+	void TxKernel::HashBase(ECC::Hash::Processor& hp) const
+	{
+		hp	<< m_Fee
+			<< m_Height.m_Min
+			<< m_Height.m_Max;
+	}
+
+	void TxKernel::HashNested(ECC::Hash::Processor& hp) const
+	{
+		for (auto it = m_vNested.begin(); ; it++)
+		{
+			bool bBreak = (m_vNested.end() == it);
+			hp << bBreak;
+
+			if (bBreak)
+				break;
+
+			TxKernel& v = *(*it);
+			v.UpdateID();
+
+			hp << v.m_Internal.m_ID;
 		}
+	}
+
+	void TxKernelStd::UpdateID()
+	{
+		ECC::Hash::Processor hp;
+		HashBase(hp);
 
 		uint8_t nFlags =
-			((m_pHashLock || pLockImage) ? 1 : 0) |
+			(m_pHashLock ? 1 : 0) |
 			(m_pRelativeLock ? 2 : 0) |
 			(m_CanEmbed ? 4 : 0);
 
-		ECC::Hash::Processor hp;
-		hp	<< m_Fee
-			<< m_Height.m_Min
-			<< m_Height.m_Max
-			<< m_Commitment
-			<< Amount(m_AssetEmission)
+		hp	<< m_Commitment
+			<< Amount(0) // former m_AssetEmission
 			<< nFlags;
 
-		if (m_pHashLock || pLockImage)
+		if (m_pHashLock)
 		{
-			if (!pLockImage)
-			{
-				ECC::Hash::Processor() << m_pHashLock->m_Preimage >> hv;
-				pLockImage = &hv;
-			}
-
-			hp << *pLockImage;
+			ECC::Hash::Value hv;
+			hp << m_pHashLock->get_Image(hv);
 		}
 
 		if (m_pRelativeLock)
@@ -814,129 +489,148 @@ namespace beam
 				<< m_pRelativeLock->m_LockHeight;
 		}
 
-		ECC::Point::Native ptExcNested;
-		if (pExcess)
-			ptExcNested = Zero;
+		HashNested(hp);
+		hp >> m_Internal.m_ID;
+	}
 
-		const TxKernel* p0Krn = NULL;
-		for (auto it = m_vNested.begin(); ; it++)
+	bool TxKernel::IsValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm) const
+	{
+		const Rules& r = Rules::get(); // alias
+		if ((hScheme < r.pForks[1].m_Height) && m_CanEmbed)
+			return false; // unsupported for that version
+
+		if (pParent)
 		{
-			bool bBreak = (m_vNested.end() == it);
-			hp << bBreak;
-
-			if (bBreak)
-				break;
-
-			const TxKernel& v = *(*it);
-			if (p0Krn && (*p0Krn > v))
-				return false;
-			p0Krn = &v;
-
-			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : nullptr, this, nullptr, pScheme))
+			if (!m_CanEmbed)
 				return false;
 
-			hp << hv;
+			// nested kernel restrictions
+			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
+				(m_Height.m_Max < pParent->m_Height.m_Max))
+				return false; // parent Height range must be contained in ours.
+		}
+		else
+		{
+			if ((hScheme >= r.pForks[2].m_Height) && (m_Height.m_Min < r.pForks[2].m_Height))
+				// Starting from Fork2 non-embedded kernels must have appropriate min height
+				return false;
 		}
 
-		hp >> hv;
-
-		if (pExcess)
+		if (!m_vNested.empty())
 		{
-			ECC::Point::Native pt;
-			if (!pt.ImportNnz(m_Commitment))
-				return false;
+			ECC::Point::Native excNested(Zero);
 
-			ptExcNested = -ptExcNested;
-			ptExcNested += pt;
-
-			if (!m_Signature.IsValid(hv, ptExcNested))
-				return false;
-
-			*pExcess += pt;
-
-			if (m_AssetEmission)
+			const TxKernel* p0Krn = nullptr;
+			for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
 			{
-				if (!Rules::get().CA.Enabled)
+				const TxKernel& v = *(*it);
+
+				// sort for nested kernels is not important. But for 'historical' reasons it's enforced up to Fork2
+				// Remove this code once Fork2 is reached iff no multiple nested kernels
+				if ((hScheme < r.pForks[2].m_Height) && p0Krn && (*p0Krn > v))
 					return false;
+				p0Krn = &v;
 
-				if (pParent || !m_vNested.empty())
-					return false; // Ban complex cases. Emission kernels must be simple
-
-				const AssetID& aid = m_Commitment.m_X;
-				if (aid == Zero)
-				{
-					assert(false); // Currently zero kernels are not allowed, but if we change this eventually - this will allow attacker to emit default asset (i.e. Beams).
-					// hence - extra verification
+				if (!v.IsValid(hScheme, excNested, this))
 					return false;
-				}
-
-				SwitchCommitment sc(&aid);
-				assert(ECC::Tag::IsCustom(&sc.m_hGen));
-
-				sc.m_hGen = -sc.m_hGen;
-
-				if (Rules::get().CA.Deposit)
-					sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
-
-				// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
-				Amount val;
-				if (m_AssetEmission > 0)
-					val = m_AssetEmission;
-				else
-				{
-					val = -m_AssetEmission;
-					sc.m_hGen = -sc.m_hGen;
-				}
-
-				ECC::Tag::AddValue(*pExcess, &sc.m_hGen, val);
 			}
-		}
 
-		if (pFee)
-			*pFee += uintBigFrom(m_Fee);
+			if (hScheme < r.pForks[2].m_Height)
+			{
+				// Prior to Fork2 the parent commitment was supposed to include the nested. But nested kernels are unlikely to be seen up to Fork2.
+				// Remove this code once Fork2 is reached iff no such kernels exist
+				if (!pComm)
+					return false;
+				excNested = -excNested;
+				(*pComm) += excNested;
+			}
+			else
+				exc += excNested;
+		}
 
 		return true;
 	}
 
-	size_t TxKernel::get_TotalCount() const
+#define THE_MACRO(id, name) \
+	TxKernel::Subtype::Enum TxKernel##name::get_Subtype() const \
+	{ \
+		return Subtype::name; \
+	}
+
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
+
+	bool TxKernelStd::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		size_t ret = 1;
+		const Rules& r = Rules::get(); // alias
+		if ((hScheme < r.pForks[1].m_Height) && m_pRelativeLock)
+			return false; // unsupported for that version
+
+		ECC::Point::Native pt;
+		if (!pt.ImportNnz(m_Commitment))
+			return false;
+
+		exc += pt;
+
+		if (!IsValidBase(hScheme, exc, pParent, &pt))
+			return false;
+
+		if (!m_Signature.IsValid(m_Internal.m_ID, pt))
+			return false;
+
+		return true;
+	}
+
+	void TxKernel::AddStats(TxStats& s) const
+	{
+		s.m_Kernels++;
+		s.m_Fee += uintBigFrom(m_Fee);
 
 		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
-			ret += (*it)->get_TotalCount();
-
-		return ret;
-	}
-
-	void TxKernel::get_Hash(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
-	{
-		Traverse(out, nullptr, nullptr, nullptr, pLockImage, nullptr);
-	}
-
-	bool TxKernel::IsValid(Height hScheme, AmountBig::Type& fee, ECC::Point::Native& exc) const
-	{
-		ECC::Hash::Value hv;
-		return Traverse(hv, &fee, &exc, nullptr, nullptr, &hScheme);
-	}
-
-	void TxKernel::get_ID(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
-	{
-		get_Hash(out, pLockImage);
+			(*it)->AddStats(s);
 	}
 
 	int TxKernel::cmp(const TxKernel& v) const
 	{
+		const Rules& r = Rules::get();
+		bool b2Me = (m_Height.m_Min >= r.pForks[2].m_Height);
+		bool b2Other = (v.m_Height.m_Min >= r.pForks[2].m_Height);
+
+		if (b2Me)
 		{
-			int n = Cast::Down<TxElement>(*this).cmp(v);
-			if (n)
-				return n;
+			if (!b2Other)
+				return 1;
+
+			CMP_MEMBER_EX(m_Internal.m_ID)
+		}
+		else
+		{
+			if (b2Other)
+				return -1;
 		}
 
+		Subtype::Enum t0 = get_Subtype();
+		Subtype::Enum t1 = v.get_Subtype();
+		CMP_SIMPLE(t0, t1)
+
+		return cmp_Subtype(v);
+	}
+
+	int TxKernel::cmp_Subtype(const TxKernel&) const
+	{
+		return 0;
+	}
+
+	int TxKernelStd::cmp_Subtype(const TxKernel& v_) const
+	{
+		const TxKernelStd& v = Cast::Up<TxKernelStd>(v_);
+
+		CMP_MEMBER_EX(m_Commitment)
 		CMP_MEMBER_EX(m_Signature)
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
 		CMP_MEMBER(m_Height.m_Max)
-		CMP_MEMBER(m_AssetEmission)
 
 		auto it0 = m_vNested.begin();
 		auto it1 = v.m_vNested.begin();
@@ -960,42 +654,372 @@ namespace beam
 		return 0;
 	}
 
-	int TxKernel::HashLock::cmp(const HashLock& v) const
+	int TxKernelStd::HashLock::cmp(const HashLock& v) const
 	{
-		CMP_MEMBER_EX(m_Preimage)
+		CMP_MEMBER_EX(m_Value)
 		return 0;
 	}
 
-	int TxKernel::RelativeLock::cmp(const RelativeLock& v) const
+	int TxKernelStd::RelativeLock::cmp(const RelativeLock& v) const
 	{
 		CMP_MEMBER_EX(m_ID)
 		CMP_MEMBER(m_LockHeight)
 		return 0;
 	}
 
-	void TxKernel::Sign(const ECC::Scalar::Native& sk)
+	void TxKernelStd::Sign(const ECC::Scalar::Native& sk)
 	{
-		m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
-
-		ECC::Hash::Value hv;
-		get_Hash(hv);
-		m_Signature.Sign(hv, sk);
+		m_Commitment = ECC::Context::get().G * sk;
+		UpdateID();
+		m_Signature.Sign(m_Internal.m_ID, sk);
 	}
 
-	void TxKernel::operator = (const TxKernel& v)
+	void TxKernel::CopyFrom(const TxKernel& v)
 	{
-		Cast::Down<TxElement>(*this) = v;
-		m_Signature = v.m_Signature;
+		m_Internal = v.m_Internal;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
-		m_AssetEmission = v.m_AssetEmission;
-		ClonePtr(m_pHashLock, v.m_pHashLock);
-		ClonePtr(m_pRelativeLock, v.m_pRelativeLock);
+		m_CanEmbed = v.m_CanEmbed;
 
 		m_vNested.resize(v.m_vNested.size());
 
 		for (size_t i = 0; i < v.m_vNested.size(); i++)
-			ClonePtr(m_vNested[i], v.m_vNested[i]);
+			v.m_vNested[i]->Clone(m_vNested[i]);
+	}
+
+	void TxKernelStd::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelStd);
+		TxKernelStd& v = Cast::Up<TxKernelStd>(*p);
+
+		v.CopyFrom(*this);
+		v.m_Commitment = m_Commitment;
+		v.m_Signature = m_Signature;
+		ClonePtr(v.m_pHashLock, m_pHashLock);
+		ClonePtr(v.m_pRelativeLock, m_pRelativeLock);
+	}
+
+	bool TxKernel::IWalker::Process(const std::vector<TxKernel::Ptr>& v)
+	{
+		for (size_t i = 0; i < v.size(); i++)
+			if (!Process(*v[i]))
+				return false;
+		return true;
+	}
+
+	bool TxKernel::IWalker::Process(const TxKernel& krn)
+	{
+		return
+			Process(krn.m_vNested) &&
+			OnKrn(krn);
+	}
+
+	void TxKernelNonStd::UpdateID()
+	{
+		UpdateMsg();
+		MsgToID();
+	}
+
+	void TxKernelNonStd::UpdateMsg()
+	{
+		ECC::Hash::Processor hp;
+
+		HashBase(hp);
+
+		ECC::Point comm(Zero);
+		comm.m_Y = 1; // invalid point
+
+		hp
+			<< comm
+			<< static_cast<uint32_t>(get_Subtype());
+
+		HashNested(hp);
+		HashSelfForMsg(hp);
+
+		hp >> m_Msg;
+	}
+
+	void TxKernelNonStd::MsgToID()
+	{
+		ECC::Hash::Processor hp;
+		hp << m_Msg;
+		HashSelfForID(hp);
+		hp >> m_Internal.m_ID;
+	}
+
+	void TxKernelNonStd::CopyFrom(const TxKernelNonStd& v)
+	{
+		TxKernel::CopyFrom(v);
+		m_Msg = v.m_Msg;
+	}
+
+	/////////////
+	// TxKernelAssetControl
+	void TxKernelAssetControl::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		hp
+			<< m_Commitment
+			<< m_Owner;
+	}
+
+	void TxKernelAssetControl::HashSelfForID(ECC::Hash::Processor& hp) const
+	{
+		hp.Serialize(m_Signature);
+	}
+
+	bool TxKernelAssetControl::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!IsValidBase(hScheme, exc, pParent))
+			return false;
+
+		const Rules& r = Rules::get(); // alias
+		if ((hScheme < r.pForks[2].m_Height) || !r.CA.Enabled)
+			return false; // unsupported for that version
+
+		ECC::Point::Native pPt[2];
+		if (!pPt[0].ImportNnz(m_Commitment))
+			return false;
+
+		exc += pPt[0];
+
+		if (m_Owner == Zero)
+			return false;
+
+		ECC::Point pkOwner;
+		pkOwner.m_X = m_Owner;
+		pkOwner.m_Y = 0;
+		if (!pPt[1].Import(pkOwner))
+			return false;
+
+		// prover must prove knowledge of excess AND m_AssetID sk
+		return m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt);
+	}
+
+	void TxKernelAssetControl::CopyFrom(const TxKernelAssetControl& v)
+	{
+		TxKernelNonStd::CopyFrom(v);
+		m_Commitment = v.m_Commitment;
+		m_Signature = v.m_Signature;
+		m_Owner = v.m_Owner;
+	}
+
+	void TxKernelAssetControl::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
+	{
+		m_Commitment = ECC::Context::get().G * sk;
+		UpdateMsg();
+
+		ECC::Scalar::Native pSk[2] = { sk, skAsset };
+		ECC::Scalar::Native res;
+		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pSk, &res);
+
+		MsgToID();
+	}
+
+	/////////////
+	// TxKernelAssetEmit
+	void TxKernelAssetEmit::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelAssetControl::HashSelfForMsg(hp);
+		hp
+			<< m_AssetID
+			<< Amount(m_Value);
+	}
+
+	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
+			return false;
+
+		if (!m_Value || !m_AssetID)
+			return false;
+
+		SwitchCommitment sc(m_AssetID);
+		assert(ECC::Tag::IsCustom(&sc.m_hGen));
+
+		// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
+		Amount val;
+		if (m_Value > 0)
+		{
+			val = m_Value;
+			sc.m_hGen = -sc.m_hGen;
+		}
+		else
+		{
+			val = -m_Value;
+		}
+
+		ECC::Tag::AddValue(exc, &sc.m_hGen, val);
+
+		return true;
+	}
+
+	void TxKernelAssetEmit::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelAssetEmit);
+		TxKernelAssetEmit& v = Cast::Up<TxKernelAssetEmit>(*p);
+
+		v.CopyFrom(*this);
+		v.m_AssetID = m_AssetID;
+		v.m_Value = m_Value;
+	}
+
+	/////////////
+	// TxKernelAssetCreate
+	bool TxKernelAssetCreate::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
+			return false;
+
+		if (m_MetaData.size() > AssetInfo::Data::s_MetadataMaxSize)
+			return false;
+
+		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
+		exc += pt;
+
+		return true;
+	}
+
+	void TxKernelAssetCreate::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelAssetCreate);
+		TxKernelAssetCreate& v = Cast::Up<TxKernelAssetCreate>(*p);
+
+		v.CopyFrom(*this);
+		v.m_MetaData = m_MetaData;
+	}
+
+	void TxKernelAssetCreate::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelAssetControl::HashSelfForMsg(hp);
+		hp
+			<< m_MetaData.size()
+			<< Blob(m_MetaData);
+	}
+
+	/////////////
+	// TxKernelAssetDestroy
+	void TxKernelAssetDestroy::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelAssetControl::HashSelfForMsg(hp);
+		hp << m_AssetID;
+	}
+
+	bool TxKernelAssetDestroy::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
+			return false;
+
+		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
+
+		pt = -pt;
+		exc += pt;
+
+		return true;
+	}
+
+	void TxKernelAssetDestroy::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelAssetDestroy);
+		TxKernelAssetDestroy& v = Cast::Up<TxKernelAssetDestroy>(*p);
+
+		v.CopyFrom(*this);
+		v.m_AssetID = m_AssetID;
+	}
+
+	/////////////
+	// TxKernelShieldedOutput
+	bool TxKernelShieldedOutput::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!IsValidBase(hScheme, exc, pParent))
+			return false;
+
+		const Rules& r = Rules::get(); // alias
+		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
+			return false; // unsupported for that version
+
+		ECC::Oracle oracle;
+		oracle << m_Msg;
+
+		ECC::Point::Native comm, ser;
+		if (!m_Txo.IsValid(oracle, comm, ser))
+			return false;
+
+		exc += comm;
+		return true;
+	}
+
+	void TxKernelShieldedOutput::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+	}
+
+	void TxKernelShieldedOutput::HashSelfForID(ECC::Hash::Processor& hp) const
+	{
+		hp.Serialize(m_Txo.m_RangeProof);
+	}
+
+	void TxKernelShieldedOutput::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelShieldedOutput);
+		TxKernelShieldedOutput& v = Cast::Up<TxKernelShieldedOutput>(*p);
+
+		v.CopyFrom(*this);
+		v.m_Txo = m_Txo;
+	}
+
+	void TxKernelShieldedOutput::AddStats(TxStats& s) const
+	{
+		TxKernelNonStd::AddStats(s);
+		s.m_Outputs++;
+		s.m_OutputsShielded++;
+	}
+
+	/////////////
+	// TxKernelShieldedInput
+	bool TxKernelShieldedInput::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!IsValidBase(hScheme, exc, pParent))
+			return false;
+
+		const Rules& r = Rules::get(); // alias
+		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
+			return false; // unsupported for that version
+
+		ECC::Point ptNeg = m_SpendProof.m_Commitment;
+		ptNeg.m_Y = !ptNeg.m_Y; // probably faster than negating the result
+
+		ECC::Point::Native comm;
+		if (!comm.ImportNnz(ptNeg))
+			return false;
+
+		exc += comm;
+		return true; // Spend proof verification is not done here
+	}
+
+	void TxKernelShieldedInput::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		hp << m_WindowEnd;
+	}
+
+	void TxKernelShieldedInput::HashSelfForID(ECC::Hash::Processor& hp) const
+	{
+		hp.Serialize(m_SpendProof);
+	}
+
+	void TxKernelShieldedInput::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelShieldedInput);
+		TxKernelShieldedInput& v = Cast::Up<TxKernelShieldedInput>(*p);
+
+		v.CopyFrom(*this);
+		v.m_WindowEnd = m_WindowEnd;
+		v.m_SpendProof = m_SpendProof;
+	}
+
+	void TxKernelShieldedInput::AddStats(TxStats& s) const
+	{
+		TxKernelNonStd::AddStats(s);
+		s.m_Inputs++;
+		s.m_InputsShielded++;
 	}
 
 	/////////////
@@ -1010,18 +1034,18 @@ namespace beam
 
 	Amount Transaction::FeeSettings::Calculate(const Transaction& t) const
 	{
-		size_t nKernels = 0;
-		for (size_t i = 0; i < t.m_vKernels.size(); i++)
-			nKernels += t.m_vKernels[i]->get_TotalCount();
+		TxStats s;
+		t.get_Reader().AddStats(s);
+		return Calculate(s);
+	}
 
-		uint32_t nIns, nOuts;
-		t.get_Reader().CalculateShielded(nIns, nOuts);
-
+	Amount Transaction::FeeSettings::Calculate(const TxStats& s) const
+	{
 		return
-			m_Output * t.m_vOutputs.size() +
-			m_Kernel * nKernels +
-			m_ShieldedInput * nIns +
-			m_ShieldedOutput * nOuts;
+			m_Output * s.m_Outputs +
+			m_Kernel * s.m_Kernels +
+			m_ShieldedInput * s.m_InputsShielded +
+			m_ShieldedOutput * s.m_OutputsShielded;
 	}
 
 	template <class T>
@@ -1137,30 +1161,26 @@ namespace beam
 
 	bool Transaction::IsValid(Context& ctx) const
 	{
-		return
-			ctx.ValidateAndSummarize(*this, get_Reader()) &&
-			ctx.IsValidTransaction();
+	    // Please do not rewrite to a shorter form.
+	    // It is easy to debug/set breakpoints when code is like below
+		if(!ctx.ValidateAndSummarize(*this, get_Reader()))
+        {
+		    return false;
+        }
+
+		if(!ctx.IsValidTransaction())
+        {
+		    return false;
+        }
+		
+		return true;
 	}
 
 	void Transaction::get_Key(KeyType& key) const
 	{
-		if (m_Offset.m_Value == Zero)
-		{
-			// proper transactions must contain non-trivial offset, and this should be enough to identify it with sufficient probability
-			// However in case it's not specified - construct the key from contents
-			key = Zero;
-
-			for (size_t i = 0; i < m_vInputs.size(); i++)
-				key ^= m_vInputs[i]->m_Commitment.m_X;
-
-			for (size_t i = 0; i < m_vOutputs.size(); i++)
-				key ^= m_vOutputs[i]->m_Commitment.m_X;
-
-			for (size_t i = 0; i < m_vKernels.size(); i++)
-				key ^= m_vKernels[i]->m_Commitment.m_X;
-		}
-		else
-			key = m_Offset.m_Value;
+		// proper transactions must contain non-trivial offset, and this should be enough to identify it with sufficient probability
+		// In case it's not specified - just ignore the collisions (means, part of those txs would not propagate)
+		key = m_Offset.m_Value;
 	}
 
 	template <typename T>
@@ -1203,21 +1223,18 @@ namespace beam
 		COMPARE_TYPE(m_pKernel, NextKernel)
 	}
 
-	void TxBase::IReader::CalculateShielded(uint32_t& nIns, uint32_t& nOuts)
+	void TxBase::IReader::AddStats(TxStats& s)
 	{
 		Reset();
 
-		for (nIns = 0; m_pUtxoIn; NextUtxoIn())
-		{
-			if (m_pUtxoIn->m_pSpendProof)
-				nIns++;
-		}
+		for (; m_pUtxoIn; NextUtxoIn())
+			m_pUtxoIn->AddStats(s);
 
-		for (nOuts = 0; m_pUtxoOut; NextUtxoOut())
-		{
-			if (m_pUtxoOut->m_pShielded)
-				nOuts++;
-		}
+		for (; m_pUtxoOut; NextUtxoOut())
+			m_pUtxoOut->AddStats(s);
+
+		for (; m_pKernel; NextKernel())
+			m_pKernel->AddStats(s);
 	}
 
 	void TxVectors::Reader::Clone(Ptr& pOut)
@@ -1261,7 +1278,8 @@ namespace beam
 
 	void TxVectors::Writer::Write(const TxKernel& v)
 	{
-		PushVectorPtr(m_E.m_vKernels, v);
+		m_E.m_vKernels.emplace_back();
+		v.Clone(m_E.m_vKernels.back());
 	}
 
 	/////////////
@@ -1300,6 +1318,13 @@ namespace beam
 			}
 		}
 
+		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen)
+        {
+            ECC::Mode::Scope scope(ECC::Mode::Fast);
+            ECC::Scalar s;
+            s.m_Value = x;
+			res += hGen * s;
+        }
 	} // namespace AmountBig
 
 
@@ -1446,8 +1471,8 @@ namespace beam
 			<< MaxBodySize
 			<< FakePoW
 			<< AllowPublicUtxos
-			<< CA.Enabled
-			<< CA.Deposit
+			<< false // deprecated CA.Enabled
+			<< true // deprecated CA.Deposit
 			<< DA.Target_s
 			<< DA.MaxAhead_s
 			<< DA.WindowWork
@@ -1477,11 +1502,14 @@ namespace beam
 		oracle
 			<< "fork2"
 			<< pForks[2].m_Height
+			<< MaxKernelValidityDH
 			<< Shielded.Enabled
 			<< uint32_t(1) // our current strategy w.r.t. allowed anonymity set in shielded inputs
 			<< Shielded.NMax
 			<< Shielded.NMin
 			<< Shielded.MaxWindowBacklog
+			<< CA.Enabled
+			<< CA.DepositForList
 			// out
 			>> pForks[2].m_Hash;
 	}
@@ -1591,6 +1619,12 @@ namespace beam
 			<< m_TimeStamp
 			<< m_PoW.m_Difficulty.m_Packed;
 
+		// Starting from Fork2: add Rules cfg. Make it harder to tamper using headers mined on different cfg
+		const Rules& r = Rules::get();
+		size_t iFork = r.FindFork(m_Height);
+		if (iFork >= 2)
+			hp << r.pForks[iFork].m_Hash;
+
 		if (bTotal)
 		{
 			hp
@@ -1648,41 +1682,209 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofUtxoInternal(Merkle::Hash& hv, const Merkle::Proof& p) const
+	bool Block::SystemState::Evaluator::get_Definition(Merkle::Hash& hv)
 	{
-		// verify known part. Last node (history) should be at left
-		if (p.empty() || p.back().first)
-			return false;
-
-		Merkle::Interpret(hv, p);
-		return hv == m_Definition;
+		Merkle::Hash hvHist;
+		return Interpret(hv, hvHist, get_History(hvHist), hv, get_Live(hv));
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
+	void Block::SystemState::Evaluator::GenerateProof()
 	{
+		Merkle::Hash hvDummy;
+		get_Definition(hvDummy);
+	}
+
+	bool Block::SystemState::Evaluator::get_Live(Merkle::Hash& hv)
+	{
+		bool bUtxo = get_Utxos(hv);
+
+		if (m_Height < Rules::get().pForks[2].m_Height)
+			return bUtxo;
+
+		Merkle::Hash hvShielded, hvAssets;
+
+		bool bShieldedAndAssets = Interpret(hvShielded, hvShielded, get_Shielded(hvShielded), hvAssets, get_Assets(hvAssets));
+		return Interpret(hv, hv, bUtxo, hvShielded, bShieldedAndAssets);
+	}
+
+	bool Block::SystemState::Evaluator::get_History(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	bool Block::SystemState::Evaluator::get_Utxos(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	bool Block::SystemState::Evaluator::get_Shielded(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	bool Block::SystemState::Evaluator::get_Assets(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	void ShieldedTxo::DescriptionOutp::get_Hash(Merkle::Hash& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "stxo-out"
+			<< m_ID
+			<< m_Height
+			<< m_SerialPub
+			<< m_Commitment
+			>> hv;
+	}
+
+	void ShieldedTxo::DescriptionInp::get_Hash(Merkle::Hash& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "stxo-in"
+			<< m_Height
+			<< m_SpendPk
+			>> hv;
+	}
+
+	struct Block::SystemState::Full::ProofVerifierHard
+		:public Merkle::HardVerifier
+		,public Evaluator
+	{
+		using HardVerifier::HardVerifier;
+
+		bool Verify(const Full& s, uint64_t iIdx, uint64_t nCount)
+		{
+			if (!InterpretMmr(iIdx, nCount))
+				return false;
+
+			m_Height = s.m_Height;
+			m_Verifier = true;
+
+			GenerateProof();
+
+			return
+				IsEnd() &&
+				(m_hv == s.m_Definition);
+		}
+
+		virtual void OnProof(Merkle::Hash&, bool bOnRight) override
+		{
+			InterpretOnce(!bOnRight);
+		}
+	};
+
+	struct Block::SystemState::Full::ProofVerifier
+		:public Evaluator
+	{
+		size_t m_Hashes = 0;
+		const Merkle::Node* m_pNode = nullptr;
+
+		bool VerifyKnownPartOrder(const Full& s, const Merkle::Proof& proof)
+		{
+			// deduce and verify the hashing direction of the last part
+			m_Height = s.m_Height;
+			m_Verifier = true;
+
+			// Phase 1: count known elements
+			GenerateProof();
+
+			if (m_Hashes > proof.size())
+				return false;
+			if (!m_Hashes)
+				return true; // nothing to check
+
+			// Phase 2: verify order
+			m_pNode = &proof.back() - (m_Hashes - 1);
+
+			GenerateProof();
+			return !m_Failed;
+		}
+
+		bool Verify(const Full& s, Merkle::Hash& hv, const Merkle::Proof& proof)
+		{
+			if (!VerifyKnownPartOrder(s, proof))
+				return false;
+
+			Merkle::Interpret(hv, proof);
+			return hv == s.m_Definition;
+		}
+
+		virtual void OnProof(Merkle::Hash&, bool bOnRight) override
+		{
+			if (m_pNode)
+			{
+				if (m_pNode->first == bOnRight)
+					m_Failed = true;
+
+				m_pNode++;
+			}
+			else
+				m_Hashes++;
+		}
+	};
+
+	bool Block::SystemState::Full::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
+	{
+		struct MyVerifier
+			:public ProofVerifier
+		{
+			virtual bool get_Utxos(Merkle::Hash&) override {
+				return true;
+			}
+		} v;
+
 		Merkle::Hash hv;
 		p.m_State.get_ID(hv, comm);
 
-		return IsValidProofUtxoInternal(hv, p.m_Proof);
+		return v.Verify(*this, hv, p.m_Proof);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofShieldedTxo(const ECC::Point& comm, TxoID id, const Merkle::Proof& p) const
+	bool Block::SystemState::Full::IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp& d, const Merkle::Proof& p) const
 	{
 		Merkle::Hash hv;
+		d.get_Hash(hv);
+		return IsValidProofShielded(hv, p);
+	}
 
-		Input inp;
-		inp.m_Commitment = comm;
-		inp.m_Internal.m_ID = id;
-		inp.get_ShieldedID(hv);
+	bool Block::SystemState::Full::IsValidProofShieldedInp(const ShieldedTxo::DescriptionInp& d, const Merkle::Proof& p) const
+	{
+		Merkle::Hash hv;
+		d.get_Hash(hv);
+		return IsValidProofShielded(hv, p);
+	}
 
-		return IsValidProofUtxoInternal(hv, p);
+	bool Block::SystemState::Full::IsValidProofShielded(Merkle::Hash& hv, const Merkle::Proof& p) const
+	{
+		struct MyVerifier
+			:public ProofVerifier
+		{
+			virtual bool get_Shielded(Merkle::Hash&) override {
+				return true;
+			}
+		} v;
+
+		return v.Verify(*this, hv, p);
+	}
+
+	bool Block::SystemState::Full::IsValidProofAsset(const AssetInfo::Full& ai, const Merkle::Proof& p) const
+	{
+		struct MyVerifier
+			:public ProofVerifier
+		{
+			virtual bool get_Assets(Merkle::Hash&) override {
+				return true;
+			}
+		} v;
+
+		Merkle::Hash hv;
+		ai.get_Hash(hv);
+		return v.Verify(*this, hv, p);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const
 	{
-		Merkle::Hash hv;
-		krn.get_ID(hv);
-		return IsValidProofKernel(hv, proof);
+		return IsValidProofKernel(krn.m_Internal.m_ID, proof);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof& proof) const
@@ -1711,49 +1913,20 @@ namespace beam
 		if ((id.m_Height < Rules::HeightGenesis) || (id.m_Height >= m_Height))
 			return false;
 
-		struct Verifier
-			:public Merkle::Mmr
-			,public Merkle::IProofBuilder
+		struct MyVerifier
+			:public ProofVerifierHard
 		{
-			Merkle::Hash m_hv;
+			using ProofVerifierHard::ProofVerifierHard;
 
-			Merkle::HardProof::const_iterator m_itPos;
-			Merkle::HardProof::const_iterator m_itEnd;
-
-			bool InterpretOnce(bool bOnRight)
-			{
-				if (m_itPos == m_itEnd)
-					return false;
-
-				Merkle::Interpret(m_hv, *m_itPos++, bOnRight);
+			virtual bool get_History(Merkle::Hash& hv) override {
+				hv = m_hv;
 				return true;
 			}
-
-			virtual bool AppendNode(const Merkle::Node& n, const Merkle::Position&) override
-			{
-				return InterpretOnce(n.first);
-			}
-
-			virtual void LoadElement(Merkle::Hash&, const Merkle::Position&) const override {}
-			virtual void SaveElement(const Merkle::Hash&, const Merkle::Position&) override {}
 		};
 
-		Verifier vmmr;
-		vmmr.m_hv = id.m_Hash;
-		vmmr.m_itPos = proof.begin();
-		vmmr.m_itEnd = proof.end();
-
-		vmmr.m_Count = m_Height - Rules::HeightGenesis;
-		if (!vmmr.get_Proof(vmmr, id.m_Height - Rules::HeightGenesis))
-			return false;
-
-		if (!vmmr.InterpretOnce(true))
-			return false;
-		
-		if (vmmr.m_itPos != vmmr.m_itEnd)
-			return false;
-
-		return vmmr.m_hv == m_Definition;
+		MyVerifier hver(proof);
+		hver.m_hv = id.m_Hash;
+		return hver.Verify(*this, id.m_Height - Rules::HeightGenesis, m_Height - Rules::HeightGenesis);
 	}
 
 	void Block::BodyBase::ZeroInit()
@@ -1774,8 +1947,6 @@ namespace beam
 			return false;
 
 		TxBase::Context::Params pars;
-		pars.m_bBlockMode = true;
-
 		TxBase::Context ctx(pars);
 		ctx.m_Height = hr;
 
@@ -1894,11 +2065,11 @@ namespace beam
 			m_Offset += sk;
 		}
 
-		pKrn.reset(new TxKernel);
+		pKrn.reset(new TxKernelStd);
 		pKrn->m_Height.m_Min = m_Height; // make it similar to others
 
 		m_Coin.DeriveKey(sk, Key::ID(m_Height, Key::Type::Kernel2, m_SubIdx));
-		pKrn->Sign(sk);
+		Cast::Up<TxKernelStd>(*pKrn).Sign(sk);
 		m_Offset += sk;
 	}
 
@@ -1963,6 +2134,56 @@ namespace beam
 	{
 		uint32_t ret = GetTime_ms();
 		return ret ? ret : 1;
+	}
+
+	/////////////
+	// AssetInfo
+	void AssetInfo::Base::get_Generator(ECC::Point::Native& res, ECC::Point::Storage& res_s) const
+	{
+		assert(m_ID);
+
+		ECC::Point pt;
+		pt.m_Y = 0;
+
+		ECC::Oracle oracle;
+		oracle
+			<< "B.Asset.Gen.V1"
+			<< m_ID;
+
+		do
+			oracle >> pt.m_X;
+		while (!res.ImportNnz(pt, &res_s));
+	}
+
+	void AssetInfo::Base::get_Generator(ECC::Point::Native& res) const
+	{
+		ECC::Point::Storage res_s;
+		get_Generator(res, res_s);
+	}
+
+	void AssetInfo::Base::get_Generator(ECC::Point::Storage& res_s) const
+	{
+		ECC::Point::Native res;
+		get_Generator(res, res_s);
+	}
+
+	void AssetInfo::Data::Reset()
+	{
+		m_Value = Zero;
+		m_Owner = Zero;
+		m_Metadata.clear();
+	}
+
+	void AssetInfo::Full::get_Hash(ECC::Hash::Value& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "B.Asset.V1"
+			<< m_ID
+			<< m_Value
+			<< m_Owner
+			<< m_Metadata.size()
+			<< Blob(m_Metadata)
+			>> hv;
 	}
 
 } // namespace beam

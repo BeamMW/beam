@@ -19,9 +19,9 @@
 #include "messages.h"
 #include "node_model.h"
 #include "helpers.h"
-#include "wallet/secstring.h"
-#include "keykeeper/private_key_keeper.h"
-#include "wallet/bitcoin/bridge_holder.h"
+#include "wallet/core/secstring.h"
+#include "wallet/core/private_key_keeper.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
 #include <memory>
 
 class AppModel final: public QObject
@@ -73,6 +73,7 @@ private:
     void InitQtumClient();
     void onWalledOpened(const beam::SecString& pass);
     void backupDB(const std::string& dbFilePath);
+    void restoreDBFromBackup(const std::string& dbFilePath);
     void generateDefaultAddress();
 
 private:
@@ -96,4 +97,5 @@ private:
     Connections m_nsc; // [n]ode [s]tarting [c]onnections
     Connections m_walletConnections;
     static AppModel* s_instance;
+    std::string m_walletDBBackupPath;
 };

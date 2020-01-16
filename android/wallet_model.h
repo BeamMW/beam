@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "wallet/wallet_client.h"
+#include "wallet/client/wallet_client.h"
 
 class WalletModel
     : public beam::wallet::WalletClient

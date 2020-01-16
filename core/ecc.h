@@ -136,6 +136,8 @@ namespace ECC
 		Point& operator = (const Point&);
 		Point& operator = (const Commitment&);
 
+		bool operator == (const Native&) const;
+
 		struct Storage; // affine form, platform-independent.
 		struct Compact; // affine form, platform-dependent. For internal tables
 	};
@@ -153,26 +155,61 @@ namespace ECC
 
 	typedef beam::Amount Amount;
 
-	struct Signature
+	struct SignatureBase
 	{
+		//	Generalized Schnorr's signature. Very flexible.
+		//	1. Multiple generators
+		//	2. Multiple keys
+		//		This is different from multi-signature. Rather than proving sum of keys the prover must prove each key separately
+		//		It is verified by generating multiple challenges, and comparing vs multiple known pubkeys (each of which can be a linear combination of multiple generators)
+		// 
+		//	NOTE: Schnorr's multi-signature should be used carefully. If done naively it has the following potential weaknesses:
+		//	1. Key cancellation. (The attacker may exclude you and actually create a signature for its private key).
+		//		This isn't a problem for our case, but should be taken into consideration if used in other schemes.
+		//	2. Private Key leak. If the same message signed with the same key but co-signers use different nonces (altering the challenge) - there's a potential for key leak. 
+		//		This is indeed the case if the nonce is generated from the secret key and the message only.
+		//		In order to prevent this the signer **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
+
 		Point m_NoncePub;
+
+		void Expose(Oracle&, const Hash::Value& msg) const;
+		void get_Challenge(Scalar::Native&, const Hash::Value& msg) const; // suitable for 1 key (otherwise multiple challenges should be generated)
+
+		struct Config;
+
+		bool IsValid(const Config&, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk) const;
+		bool IsValidPartial(const Config&, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const;
+
+		void Sign(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes);
+		void SignRaw(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes) const;
+		void SignPartial(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, const Scalar::Native* pNonce, Scalar::Native* pRes) const;
+		void SetNoncePub(const Config&, const Scalar::Native* pNonce);
+	};
+
+
+	struct Signature
+		:public SignatureBase
+	{
+		static const Config& get_Config();
+
 		Scalar m_k;
 
-		bool IsValid(const Hash::Value& msg, const Point::Native& pk, const Scalar* pSer = nullptr) const;
-		bool IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk, const Scalar* pSer = nullptr) const;
+		bool IsValid(const Hash::Value& msg, const Point::Native& pk) const;
+		bool IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk) const;
 
 		// simple signature
 		void Sign(const Hash::Value& msg, const Scalar::Native& sk);
-
-		// multi-signature
-		struct MultiSig;
+		void SignPartial(const Hash::Value& msg, const Scalar::Native& sk, const Scalar::Native& nonce);
 
 		int cmp(const Signature&) const;
 		COMPARISON_VIA_CMP
+	};
 
-		void get_Challenge(Scalar::Native&, const Hash::Value& msg) const;
-	private:
-		static void get_Challenge(Scalar::Native&, const Point&, const Hash::Value& msg);
+	template <uint32_t nG>
+	struct SignatureGeneralized
+		:public SignatureBase
+	{
+		Scalar m_pK[nG];
 	};
 
 	struct Key
@@ -186,17 +223,20 @@ namespace ECC
 			Type(uint32_t x) :FourCC(x) {}
 
 			// definitions for common types, that are used in several places. But values can be arbitrary, not only for this list
-			static const uint32_t Comission = FOURCC_FROM(fees);
-			static const uint32_t Coinbase  = FOURCC_FROM(mine);
-			static const uint32_t Regular   = FOURCC_FROM(norm);
-			static const uint32_t Change    = FOURCC_FROM(chng);
-			static const uint32_t Kernel    = FOURCC_FROM(kern); // tests only
-			static const uint32_t Kernel2   = FOURCC_FROM(kerM); // used by the miner
-			static const uint32_t Identity  = FOURCC_FROM(iden); // Node-Wallet auth
-			static const uint32_t ChildKey  = FOURCC_FROM(SubK);
-			static const uint32_t Bbs       = FOURCC_FROM(BbsM);
-			static const uint32_t Decoy     = FOURCC_FROM(dcoy);
-			static const uint32_t Treasury  = FOURCC_FROM(Tres);
+			static const uint32_t Comission   = FOURCC_FROM(fees);
+			static const uint32_t Coinbase    = FOURCC_FROM(mine);
+			static const uint32_t Regular     = FOURCC_FROM(norm);
+			static const uint32_t Change      = FOURCC_FROM(chng);
+			static const uint32_t Kernel      = FOURCC_FROM(kern); // tests only
+			static const uint32_t Kernel2     = FOURCC_FROM(kerM); // used by the miner
+			static const uint32_t ProtoID     = FOURCC_FROM(iden); // Node-Wallet auth
+			static const uint32_t WalletID    = FOURCC_FROM(tRid); // Wallet ID (historically used for treasury)
+			static const uint32_t ChildKey    = FOURCC_FROM(SubK);
+			static const uint32_t Bbs         = FOURCC_FROM(BbsM);
+			static const uint32_t Decoy       = FOURCC_FROM(dcoy);
+			static const uint32_t Treasury    = FOURCC_FROM(Tres);
+			static const uint32_t Asset       = FOURCC_FROM(Asst);
+			static const uint32_t AssetChange = FOURCC_FROM(Achg);
 		};
 
 		struct ID
@@ -228,6 +268,7 @@ namespace ECC
 #pragma pack (pop)
 
 			void operator = (const Packed&);
+			bool isAsset() const;
 
 			int cmp(const ID&) const;
 			COMPARISON_VIA_CMP
@@ -374,6 +415,7 @@ namespace ECC
 		struct Challenges;
 		bool IsValid(BatchContext&, Challenges&, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
+		struct CalculatorBase;
 	private:
 		struct Calculator;
 
@@ -391,6 +433,12 @@ namespace ECC
 			Key::IDV m_Kidv;
 
 			struct Padded;
+
+			// more params to embed/recover, optional
+			const uintBig* m_pSeedSk = nullptr; // set only when recovering
+			Scalar::Native* m_pSk; // set only when recovering
+
+			Scalar::Native* m_pExtra = nullptr; // 2 more scalars can be embedded
 		};
 
 		struct Confidential
@@ -462,9 +510,8 @@ namespace ECC
             static void GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle);
 
 		private:
-			struct ChallengeSet0;
-			struct ChallengeSet1;
-			struct ChallengeSet2;
+			struct ChallengeSet;
+			struct Vectors;
 			static void CalcA(Point&, const Scalar::Native& alpha, Amount v);
 		};
 

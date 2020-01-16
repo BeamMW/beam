@@ -907,7 +907,7 @@ Key::IPKdf* Node::Processor::get_ViewerKey()
 	return get_ParentObj().m_Keys.m_pOwner.get();
 }
 
-const Output::Shielded::Viewer* Node::Processor::get_ViewerShieldedKey()
+const ShieldedTxo::Viewer* Node::Processor::get_ViewerShieldedKey()
 {
 	return get_ParentObj().m_Keys.m_pOwner ?
 		&get_ParentObj().m_Keys.m_ShieldedViewer :
@@ -1159,7 +1159,7 @@ bool Node::Bbs::IsInLimits() const
 void Node::Bbs::Cleanup()
 {
 	NodeDB& db = get_ParentObj().m_Processor.get_DB();
-	NodeDB::WalkerBbsTimeLen wlk(db);
+	NodeDB::WalkerBbsTimeLen wlk;
 
 	Timestamp ts = getTimestamp() - get_ParentObj().m_Cfg.m_Bbs.m_MessageTimeout_s;
 
@@ -1779,7 +1779,7 @@ void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 		{
 			sid.m_Height = msg.m_Top.m_Height;
 
-			NodeDB::WalkerSystemState wlk(db);
+			NodeDB::WalkerSystemState wlk;
 			for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
 			{
 				if (msgOut.m_vElements.empty())
@@ -2165,9 +2165,9 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
 	{
 		Transaction::FeeSettings feeSettings;
-		AmountBig::Type fees = feeSettings.Calculate(tx);
+		AmountBig::Type fees = feeSettings.Calculate(ctx.m_Stats);
 
-		if (ctx.m_Fee < fees)
+		if (ctx.m_Stats.m_Fee < fees)
 			return proto::TxStatus::LowFee;
 	}
 
@@ -2201,11 +2201,9 @@ void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyT
     for (size_t i = 0; i < tx.m_vKernels.size(); i++)
     {
         const TxKernel& krn = *tx.m_vKernels[i];
-        Merkle::Hash hv;
-        krn.get_ID(hv);
 
 		char sz[Merkle::Hash::nTxtLen + 1];
-		hv.Print(sz);
+		krn.m_Internal.m_ID.Print(sz);
 
         os << "\n\tK: " << sz << " Fee=" << krn.m_Fee;
     }
@@ -2224,12 +2222,8 @@ void Node::LogTxStem(const Transaction& tx, const char* szTxt)
 
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 	{
-		const TxKernel& krn = *tx.m_vKernels[i];
-		Merkle::Hash hv;
-		krn.get_ID(hv);
-
 		char sz[Merkle::Hash::nTxtLen + 1];
-		hv.Print(sz);
+		tx.m_vKernels[i]->m_Internal.m_ID.Print(sz);
 
 		os << "\n\tK: " << sz;
 	}
@@ -2271,7 +2265,9 @@ uint32_t Node::RandomUInt32(uint32_t threshold)
 
 uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
-	if (ptx->m_vInputs.empty() || ptx->m_vKernels.empty()) {
+	TxStats s;
+	ptx->get_Reader().AddStats(s);
+	if (!s.m_Inputs || !s.m_Kernels) {
 		// stupid compiler insists on parentheses here!
 		return proto::TxStatus::TooSmall;
 	}
@@ -2287,7 +2283,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         const TxKernel& krn = *ptx->m_vKernels[i];
 
         TxPool::Stem::Element::Kernel key;
-        krn.get_ID(key.m_hv);
+		key.m_pKrn = &krn;
 
         TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
         if (m_Dandelion.m_setKrns.end() == it)
@@ -2345,7 +2341,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         std::unique_ptr<TxPool::Stem::Element> pGuard(new TxPool::Stem::Element);
         pGuard->m_bAggregating = false;
         pGuard->m_Time.m_Value = 0;
-        pGuard->m_Profit.m_Fee = ctx.m_Fee;
+        pGuard->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
         pGuard->m_Profit.SetSize(*ptx);
         pGuard->m_pValue.swap(ptx);
 		pGuard->m_Height = ctx.m_Height;
@@ -2361,16 +2357,8 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
 	bool bDontAggregate =
 		(pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
+		(ctx.m_Stats.m_InputsShielded || ctx.m_Stats.m_OutputsShielded) || // contains shielded elements
 		!m_Keys.m_pMiner; // can't manage decoys
-
-	if (!bDontAggregate)
-	{
-		uint32_t nIns, nOuts;
-		pDup->m_pValue->get_Reader().CalculateShielded(nIns, nOuts);
-
-		if (nIns || nOuts)
-			bDontAggregate = true;
-	}
 
     if (bDontAggregate)
         OnTransactionAggregated(*pDup);
@@ -2636,19 +2624,21 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	Transaction::Context ctx(pars);
     if (pElem)
     {
-		if (!pElem->m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1))
-			return false;
+		bool bValid = pElem->m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
 
-        ctx.m_Fee = pElem->m_Profit.m_Fee;
+        ctx.m_Stats.m_Fee = pElem->m_Profit.m_Fee;
 		ctx.m_Height = pElem->m_Height;
         m_Dandelion.Delete(*pElem);
-    }
+
+		if (!bValid)
+			return false;
+	}
     else
     {
         for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
         {
             TxPool::Stem::Element::Kernel key;
-            ptx->m_vKernels[i]->get_ID(key.m_hv);
+			key.m_pKrn = ptx->m_vKernels[i].get();
 
             TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
             if (m_Dandelion.m_setKrns.end() != it)
@@ -2854,7 +2844,7 @@ void Node::Peer::BroadcastBbs()
 	size_t nExtra = 0;
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-	NodeDB::WalkerBbsLite wlk(db);
+	NodeDB::WalkerBbsLite wlk;
 
 	wlk.m_ID = m_CursorBbs;
 	for (db.EnumAllBbsSeq(wlk); wlk.MoveNext(); )
@@ -2960,11 +2950,20 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height 
     assert(h < m_Cursor.m_Sid.m_Height);
 
     Merkle::ProofBuilderHard bld;
-    get_DB().get_Proof(bld, m_Cursor.m_Sid, h);
+
+    m_Mmr.m_States.get_Proof(bld, m_Mmr.m_States.H2I(h));
+
     proof.swap(bld.m_Proof);
 
-    proof.resize(proof.size() + 1);
-    get_Utxos().get_Hash(proof.back());
+    struct MyProofBuilder
+        :public ProofBuilderHard
+    {
+        using ProofBuilderHard::ProofBuilderHard;
+        virtual bool get_History(Merkle::Hash&) override { return false; }
+    };
+
+    MyProofBuilder pb(*this, proof);
+    pb.GenerateProof();
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
@@ -3002,8 +3001,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
     struct Traveler :public UtxoTree::ITraveler
     {
         proto::ProofUtxo m_Msg;
-        UtxoTree* m_pTree;
-        Merkle::Hash m_hvHistory;
+        NodeProcessor& m_Proc;
 
         virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
@@ -3011,27 +3009,33 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
             UtxoTree::Key::Data d;
             d = v.m_Key;
 
-            m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
-            Input::Proof& ret = m_Msg.m_Proofs.back();
+            Input::Proof& ret = m_Msg.m_Proofs.emplace_back();
 
             ret.m_State.m_Count = v.get_Count();
             ret.m_State.m_Maturity = d.m_Maturity;
-            m_pTree->get_Proof(ret.m_Proof, *m_pCu);
+            m_Proc.get_Utxos().get_Proof(ret.m_Proof, *m_pCu);
 
-            ret.m_Proof.resize(ret.m_Proof.size() + 1);
-            ret.m_Proof.back().first = false;
-            ret.m_Proof.back().second = m_hvHistory;
+            struct MyProofBuilder
+                :public NodeProcessor::ProofBuilder
+            {
+                using ProofBuilder::ProofBuilder;
+                virtual bool get_Utxos(Merkle::Hash&) override { return false; }
+            };
+
+            MyProofBuilder pb(m_Proc, ret.m_Proof);
+            pb.GenerateProof();
 
             return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
         }
-    } t;
+
+        Traveler(NodeProcessor& np) :m_Proc(np) {}
+    };
 
 	Processor& p = m_This.m_Processor;
+    Traveler t(p);
+
 	if (!p.IsFastSync())
 	{
-		t.m_pTree = &p.get_Utxos();
-		t.m_hvHistory = p.m_Cursor.m_History;
-
 		UtxoTree::Cursor cu;
 		t.m_pCu = &cu;
 
@@ -3048,42 +3052,113 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		t.m_pBound[0] = kMin.V.m_pData;
 		t.m_pBound[1] = kMax.V.m_pData;
 
-		t.m_pTree->Traverse(t);
+        p.get_Utxos().Traverse(t);
 	}
 
     Send(t.m_Msg);
 }
 
-void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
+void Node::Processor::GenerateProofShielded(Merkle::Proof& p, const uintBigFor<TxoID>::Type& mmrIdx)
 {
-	proto::ProofShieldedTxo msgOut;
+    TxoID nIdx;
+    mmrIdx.Export(nIdx);
+
+    m_Mmr.m_Shielded.get_Proof(p, nIdx);
+
+    struct MyProofBuilder
+        :public NodeProcessor::ProofBuilder
+    {
+        using ProofBuilder::ProofBuilder;
+        virtual bool get_Shielded(Merkle::Hash&) override { return false; }
+    };
+
+    MyProofBuilder pb(*this, p);
+    pb.GenerateProof();
+}
+
+void Node::Peer::OnMsg(proto::GetProofShieldedOutp&& msg)
+{
+    if (msg.m_SerialPub.m_Y > 1)
+        ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
+
+    proto::ProofShieldedOutp msgOut;
 
 	Processor& p = m_This.m_Processor;
-	if (!p.IsFastSync())
+    if (!p.IsFastSync())
 	{
-		UtxoTree::Key key;
-		key.SetShielded(msg.m_Commitment, true);
+        NodeDB::Recordset rs;
+        Blob blob(&msg.m_SerialPub, sizeof(msg.m_SerialPub));
+        if (p.get_DB().UniqueFind(blob, rs))
+        {
+            const NodeProcessor::ShieldedOutpPacked& sop = rs.get_As<NodeProcessor::ShieldedOutpPacked>(0); // Note: will throw CorruptionException if of wrong size
 
-		UtxoTree::Cursor cu;
-		bool bCreate = false;
+            sop.m_Height.Export(msgOut.m_Height);
+            sop.m_TxoID.Export(msgOut.m_ID);
+            msgOut.m_Commitment = sop.m_Commitment;
 
-		const UtxoTree::MyLeaf* pLeaf = p.get_Utxos().Find(cu, key, bCreate);
-		if (pLeaf)
-		{
-			const UtxoTree::MyLeaf& v = *pLeaf;
-			UtxoTree::Key::Data d;
-			d = v.m_Key;
-
-			msgOut.m_ID = pLeaf->m_ID;
-			p.get_Utxos().get_Proof(msgOut.m_Proof, cu);
-
-			msgOut.m_Proof.emplace_back();
-			msgOut.m_Proof.back().first = false;
-			msgOut.m_Proof.back().second = p.m_Cursor.m_History;
-		}
+            p.GenerateProofShielded(msgOut.m_Proof, sop.m_MmrIndex);
+        }
 	}
 
 	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetProofShieldedInp&& msg)
+{
+    if (msg.m_SpendPk.m_Y > 1)
+        ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
+
+    proto::ProofShieldedInp msgOut;
+
+    Processor& p = m_This.m_Processor;
+    if (!p.IsFastSync())
+    {
+        NodeDB::Recordset rs;
+
+        msg.m_SpendPk.m_Y |= 2;
+        Blob blob(&msg.m_SpendPk, sizeof(msg.m_SpendPk));
+        if (p.get_DB().UniqueFind(blob, rs))
+        {
+            const NodeProcessor::ShieldedInpPacked& sip = rs.get_As<NodeProcessor::ShieldedInpPacked>(0); // Note: will throw CorruptionException if of wrong size
+
+            sip.m_Height.Export(msgOut.m_Height);
+
+            p.GenerateProofShielded(msgOut.m_Proof, sip.m_MmrIndex);
+        }
+    }
+
+    Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
+{
+    proto::ProofAsset msgOut;
+
+    Processor& p = m_This.m_Processor;
+    if (!p.IsFastSync())
+    {
+        AssetInfo::Full ai;
+        ai.m_ID = msg.m_Min;
+        ai.m_Owner = msg.m_Owner;
+        if (p.get_DB().AssetFindByOwner(ai))
+        {
+            msgOut.m_Info = std::move(ai);
+
+            p.m_Mmr.m_Assets.get_Proof(msgOut.m_Proof, msgOut.m_Info.m_ID - 1);
+
+            struct MyProofBuilder
+                :public NodeProcessor::ProofBuilder
+            {
+                using ProofBuilder::ProofBuilder;
+                virtual bool get_Assets(Merkle::Hash&) override { return false; }
+            };
+
+            MyProofBuilder pb(p, msgOut.m_Proof);
+            pb.GenerateProof();
+        }
+    }
+
+    Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
@@ -3091,12 +3166,12 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 	proto::ShieldedList msgOut;
 
 	Processor& p = m_This.m_Processor;
-	if ((msg.m_Id0 < p.m_Extra.m_Shielded) && msg.m_Count)
+	if ((msg.m_Id0 < p.m_Mmr.m_Shielded.m_Count) && msg.m_Count)
 	{
 		if (msg.m_Count > Lelantus::Cfg::Max::N)
 			msg.m_Count = Lelantus::Cfg::Max::N;
 
-		TxoID n = p.m_Extra.m_Shielded - msg.m_Id0;
+		TxoID n = p.m_Mmr.m_Shielded.m_Count - msg.m_Id0;
 
 		if (msg.m_Count > n)
 			msg.m_Count = static_cast<uint32_t>(n);
@@ -3120,7 +3195,10 @@ bool Node::Processor::BuildCwp()
         :public Block::ChainWorkProof::ISource
     {
         Processor& m_Proc;
-        Source(Processor& proc) :m_Proc(proc) {}
+
+        Source(Processor& proc)
+            :m_Proc(proc)
+        {}
 
         virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
         {
@@ -3130,15 +3208,16 @@ bool Node::Processor::BuildCwp()
 
         virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
         {
-            const NodeDB::StateID& sid = m_Proc.m_Cursor.m_Sid;
-            m_Proc.get_DB().get_Proof(bld, sid, h);
+            m_Proc.m_Mmr.m_States.get_Proof(bld, m_Proc.m_Mmr.m_States.H2I(h));
         }
     };
 
     Source src(*this);
 
     m_Cwp.Create(src, m_Cursor.m_Full);
-    get_Utxos().get_Hash(m_Cwp.m_hvRootLive);
+
+    Evaluator ev(*this);
+    ev.get_Live(m_Cwp.m_hvRootLive);
 
     return true;
 }
@@ -3205,7 +3284,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
         return; // don't allow too much out-of-order messages
 
     NodeDB& db = m_This.m_Processor.get_DB();
-    NodeDB::WalkerBbs wlk(db);
+    NodeDB::WalkerBbs wlk;
 
     wlk.m_Data.m_Channel = msg.m_Channel;
     wlk.m_Data.m_TimePosted = msg.m_TimePosted;
@@ -3291,7 +3370,7 @@ void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 		ThrowUnexpected();
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-    NodeDB::WalkerBbs wlk(db);
+    NodeDB::WalkerBbs wlk;
 
     wlk.m_Data.m_Key = msg.m_Key;
     if (!db.BbsFind(wlk))
@@ -3346,7 +3425,7 @@ void Node::Peer::BroadcastBbs(Bbs::Subscription& s)
 		return;
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-	NodeDB::WalkerBbs wlk(db);
+	NodeDB::WalkerBbs wlk;
 
 	wlk.m_Data.m_Channel = s.m_Peer.m_Channel;
 	wlk.m_ID = s.m_Cursor;
@@ -3378,7 +3457,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
     {
 		Processor& p = m_This.m_Processor;
 		NodeDB& db = p.get_DB();
-        NodeDB::WalkerEvent wlk(db);
+        NodeDB::WalkerEvent wlk;
 
         Height hLast = 0;
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
@@ -3410,7 +3489,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
             res.m_Flags = evt.m_Flags;
 
 			if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
-				res.m_Shielded = Cast::Up<UE::ValueS>(evt).m_Shielded;
+				res.m_ShieldedDelta = Cast::Up<UE::ValueS>(evt).m_ShieldedDelta;
 		}
     }
     else
@@ -3450,18 +3529,17 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
         // verify that all the outputs correspond to our viewer's Kdf (in case our comm was hacked this'd prevent mining for someone else)
         // and do the overall validation
         TxBase::Context::Params pars;
-		pars.m_bBlockMode = true;
 		TxBase::Context ctx(pars);
 		ctx.m_Height = m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
         if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
             ThrowUnexpected();
 
-        if (ctx.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
+        if (ctx.m_Stats.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
             ThrowUnexpected();
 
         ctx.m_Sigma = -ctx.m_Sigma;
-        ctx.m_Coinbase += AmountBig::Type(x.m_Fees);
-        AmountBig::AddTo(ctx.m_Sigma, ctx.m_Coinbase);
+        ctx.m_Stats.m_Coinbase += AmountBig::Type(x.m_Fees);
+        AmountBig::AddTo(ctx.m_Sigma, ctx.m_Stats.m_Coinbase);
 
         if (!(ctx.m_Sigma == Zero))
             ThrowUnexpected();
@@ -4099,7 +4177,7 @@ void Node::PeerMan::Initialize()
     m_pTimerFlush->start(cfg.m_Timeout.m_PeersDbFlush_ms, true, [this]() { OnFlush(); });
 
     {
-        NodeDB::WalkerPeer wlk(get_ParentObj().m_Processor.get_DB());
+        NodeDB::WalkerPeer wlk;
         for (get_ParentObj().m_Processor.get_DB().EnumPeers(wlk); wlk.MoveNext(); )
         {
             if (wlk.m_Data.m_ID == get_ParentObj().m_MyPublicID)
@@ -4227,7 +4305,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
 		void OnUtxo(const UtxoTree::Key::Data& d, TxoID id)
 		{
-			NodeDB::WalkerTxo wlk(*m_pDB);
+			NodeDB::WalkerTxo wlk;
 			m_pDB->TxoGetValue(wlk, id);
 
 			Deserializer der;
@@ -4268,6 +4346,74 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	}
 
 	return true;
+}
+
+void Node::PrintTxos()
+{
+    if (!m_Keys.m_pOwner)
+    {
+        LOG_INFO() << "Owner key not specified";
+        return;
+    }
+
+    ECC::Point pt;
+    PeerID& pid = pt.m_X; // alias
+
+    {
+        Key::ID kid(Zero);
+        kid.m_Type = ECC::Key::Type::WalletID;
+        kid.get_Hash(pid);
+
+        ECC::Point::Native ptN;
+        m_Keys.m_pOwner->DerivePKeyG(ptN, pid);
+        pt = ptN;
+    }
+
+    std::ostringstream os;
+    os << "Printing Txo movement for Key=" << pid << std::endl;
+
+    if (m_Processor.IsFastSync())
+        os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
+
+    if (m_Processor.m_Extra.m_TxoHi >= Rules::HeightGenesis)
+        os << "Note: Cut-through up to Height=" << m_Processor.m_Extra.m_TxoHi << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
+
+    NodeDB::WalkerEvent wlk;
+    for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
+    {
+        typedef NodeProcessor::UtxoEvent UE;
+
+        if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
+            continue; // although shouldn't happen
+        const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
+
+        if ((proto::UtxoEvent::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
+            continue; // although shouldn't happen
+
+        Height hMaturity;
+        Amount val;
+        evt.m_Maturity.Export(hMaturity);
+        evt.m_Kidv.m_Value.Export(val);
+
+        os
+            << "\tHeight=" << wlk.m_Height << ", "
+            << ((proto::UtxoEvent::Flags::Add & evt.m_Flags) ? "Add" : "Spend")
+            << ", Value=" << val
+            << ", Maturity=" << hMaturity;
+
+        if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+        {
+            proto::UtxoEvent::Shielded ues;
+            Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kidv, evt.m_Buf1, ues);
+            TxoID id;
+            ues.m_ID.Export(id);
+            os << ", Shielded TxoID=" << id;
+        }
+
+        os << std::endl;
+    }
+
+    LOG_INFO() << os.str();
 }
 
 } // namespace beam
