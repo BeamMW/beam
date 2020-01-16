@@ -92,13 +92,13 @@ namespace beam::wallet
             });
     }
 
-    void TrezorKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&)
+    void TrezorKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, AssetID, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&)
     {
         // TODO:ASSETS implement
         assert(false);
     }
 
-    size_t TrezorKeyKeeper::AllocateNonceSlot()
+    size_t TrezorKeyKeeper::AllocateNonceSlotSync()
     {
         m_latestSlot++;
         m_hwWallet.generateNonceSync((uint8_t)m_latestSlot);
@@ -119,7 +119,7 @@ namespace beam::wallet
         return result;
     }
 
-    std::pair<IPrivateKeyKeeper::PublicKeys, ECC::Scalar::Native> TrezorKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID)
+    std::pair<IPrivateKeyKeeper::PublicKeys, ECC::Scalar::Native> TrezorKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID)
     {
         // TODO:ASSETS implement
         assert(false);
@@ -131,7 +131,7 @@ namespace beam::wallet
         return m_hwWallet.generateKeySync(id, false);
     }
 
-    ECC::Point GenerateCoinKeySync(const Key::IDV& id, const AssetID& assetId)
+    ECC::Point GenerateCoinKeySync(const Key::IDV& id, AssetID)
     {
         // TODO:ASSETS implement
         assert(assetId == Zero);
@@ -155,7 +155,7 @@ namespace beam::wallet
         return outputs;
     }
 
-    std::pair<IPrivateKeyKeeper::Outputs, ECC::Scalar::Native> TrezorKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId)
+    std::pair<IPrivateKeyKeeper::Outputs, ECC::Scalar::Native> TrezorKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID)
     {
         // TODO:ASSETS implement
         assert(false);
@@ -168,10 +168,10 @@ namespace beam::wallet
         return m_hwWallet.getNoncePublicSync((uint8_t)slot);
     }
 
-    ECC::Scalar TrezorKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetID, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce)
+    ECC::Scalar TrezorKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce)
     {
         // TODO:ASSETS implement
-        assert(assetID == Zero);
+        assert(assetId == 0);
         HWWallet::TxData txData;
         txData.fee = kernelParamerters.fee;
         txData.height = kernelParamerters.height;
@@ -198,17 +198,17 @@ namespace beam::wallet
         m_handlers.push_back(handler);
     }
 
-    ECC::Scalar::Native TrezorKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx)
+    ECC::Scalar::Native TrezorKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx)
     {
         // TODO:ASSETS implement
         assert(false);
         return ECC::Scalar::Native();
     }
 
-    ECC::Scalar::Native TrezorKeyKeeper::GetAssetID() override
+    PeerID TrezorKeyKeeper::GetAssetOwnerID() override
     {
         // TODO:ASSETS implement
         assert(false);
-        return ECC::Scalar::Native();
+        return Zero;
     }
 }

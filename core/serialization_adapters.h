@@ -644,18 +644,18 @@ namespace detail
 			ar
 				& v.m_Cfg.n
 				& v.m_Cfg.M
-				& v.m_Part1.m_Commitment.m_X
-				& v.m_Part1.m_SpendPk.m_X
+				& v.m_Commitment.m_X
+				& v.m_SpendPk.m_X
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
 				& v.m_Part1.m_C.m_X
 				& v.m_Part1.m_D.m_X
-				& v.m_Part1.m_Nonce.m_X
+				& v.m_Signature.m_NoncePub.m_X
 				& v.m_Part2.m_zA
 				& v.m_Part2.m_zC
 				& v.m_Part2.m_zR
-				& v.m_Part2.m_ProofG
-				& v.m_Part2.m_ProofH;
+				& v.m_Signature.m_pK[0]
+				& v.m_Signature.m_pK[1];
 
 			assert(v.m_Part1.m_vG.size() >= v.m_Cfg.M);
 			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
@@ -663,13 +663,13 @@ namespace detail
 
 			MultibitVar<Archive> mb(ar);
 
-			mb.put(v.m_Part1.m_Commitment.m_Y);
-			mb.put(v.m_Part1.m_SpendPk.m_Y);
+			mb.put(v.m_Commitment.m_Y);
+			mb.put(v.m_SpendPk.m_Y);
 			mb.put(v.m_Part1.m_A.m_Y);
 			mb.put(v.m_Part1.m_B.m_Y);
 			mb.put(v.m_Part1.m_C.m_Y);
 			mb.put(v.m_Part1.m_D.m_Y);
-			mb.put(v.m_Part1.m_Nonce.m_Y);
+			mb.put(v.m_Signature.m_NoncePub.m_Y);
 
 			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
 				mb.put(v.m_Part1.m_vG[i].m_Y);
@@ -691,18 +691,18 @@ namespace detail
 			ar
 				& v.m_Cfg.n
 				& v.m_Cfg.M
-				& v.m_Part1.m_Commitment.m_X
-				& v.m_Part1.m_SpendPk.m_X
+				& v.m_Commitment.m_X
+				& v.m_SpendPk.m_X
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
 				& v.m_Part1.m_C.m_X
 				& v.m_Part1.m_D.m_X
-				& v.m_Part1.m_Nonce.m_X
+				& v.m_Signature.m_NoncePub.m_X
 				& v.m_Part2.m_zA
 				& v.m_Part2.m_zC
 				& v.m_Part2.m_zR
-				& v.m_Part2.m_ProofG
-				& v.m_Part2.m_ProofH;
+				& v.m_Signature.m_pK[0]
+				& v.m_Signature.m_pK[1];
 
 			if (!v.m_Cfg.get_N())
 				throw std::runtime_error("L/Cfg");
@@ -713,13 +713,13 @@ namespace detail
 
 			MultibitVar<Archive> mb(ar);
 
-			mb.get(v.m_Part1.m_Commitment.m_Y);
-			mb.get(v.m_Part1.m_SpendPk.m_Y);
+			mb.get(v.m_Commitment.m_Y);
+			mb.get(v.m_SpendPk.m_Y);
 			mb.get(v.m_Part1.m_A.m_Y);
 			mb.get(v.m_Part1.m_B.m_Y);
 			mb.get(v.m_Part1.m_C.m_Y);
 			mb.get(v.m_Part1.m_D.m_Y);
-			mb.get(v.m_Part1.m_Nonce.m_Y);
+			mb.get(v.m_Signature.m_NoncePub.m_Y);
 
 			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
 				mb.get(v.m_Part1.m_vG[i].m_Y);
@@ -822,7 +822,7 @@ namespace detail
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
-				((output.m_AssetID == beam::Zero) ? 0 : 0x20) |
+				(output.m_AssetID ? 0x20 : 0) |
 				(output.m_RecoveryOnly ? 0x40 : 0) |
 				(nFlags2 ? 0x80 : 0);
 
@@ -875,7 +875,7 @@ namespace detail
 			if (0x20 & nFlags)
 				ar & output.m_AssetID;
 			else
-				output.m_AssetID = beam::Zero;
+				output.m_AssetID = 0;
 
 			if (0x80 & nFlags)
 			{
@@ -1188,10 +1188,9 @@ namespace detail
 			}
         }
 
-
-        /// beam::TxKernelAssetEmit serialization
+        /// beam::TxKernelAssetControl serialization
 		template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernelAssetEmit& val)
+        static Archive& saveBase(Archive& ar, const beam::TxKernelAssetControl& val)
         {
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
@@ -1204,8 +1203,7 @@ namespace detail
 				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_pK[0]
-				& val.m_AssetID
-				& val.m_Value;
+				& val.m_Owner;
 
 			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
 			ImplTxKernel::save_Nested(ar, val);
@@ -1214,7 +1212,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static void load0(Archive& ar, beam::TxKernelAssetEmit& val, uint32_t nRecursion)
+        static void load0Base(Archive& ar, beam::TxKernelAssetControl& val, uint32_t nRecursion)
         {
 			uint32_t nFlags;
 			ar
@@ -1222,8 +1220,7 @@ namespace detail
 				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_pK[0]
-				& val.m_AssetID
-				& val.m_Value;
+				& val.m_Owner;
 
 			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
 			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
@@ -1234,6 +1231,58 @@ namespace detail
 			if (0x20 & nFlags)
 				val.m_CanEmbed = true;
         }
+
+        /// beam::TxKernelAssetEmit serialization
+		template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxKernelAssetEmit& val)
+        {
+			saveBase(ar, val);
+			ar
+				& val.m_AssetID
+				& val.m_Value;
+            return ar;
+        }
+
+        template<typename Archive>
+        static void load0(Archive& ar, beam::TxKernelAssetEmit& val, uint32_t nRecursion)
+        {
+			load0Base(ar, val, nRecursion);
+			ar
+				& val.m_AssetID
+				& val.m_Value;
+		}
+
+		/// beam::TxKernelAssetCreate serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernelAssetCreate& val)
+		{
+			saveBase(ar, val);
+			ar & val.m_MetaData;
+			return ar;
+		}
+
+		template<typename Archive>
+		static void load0(Archive& ar, beam::TxKernelAssetCreate& val, uint32_t nRecursion)
+		{
+			load0Base(ar, val, nRecursion);
+			ar & val.m_MetaData;
+		}
+
+		/// beam::TxKernelAssetDestroy serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernelAssetDestroy& val)
+		{
+			saveBase(ar, val);
+			ar & val.m_AssetID;
+			return ar;
+		}
+
+		template<typename Archive>
+		static void load0(Archive& ar, beam::TxKernelAssetDestroy& val, uint32_t nRecursion)
+		{
+			load0Base(ar, val, nRecursion);
+			ar & val.m_AssetID;
+		}
 
         /// beam::TxKernelShieldedOutput serialization
 		template<typename Archive>
@@ -1533,6 +1582,44 @@ namespace detail
 			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Prefix>(v));
 			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Element>(v));
 
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::AssetInfo::Data& v)
+		{
+			ar
+				& v.m_Owner
+				& v.m_Value
+				& v.m_Metadata;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::AssetInfo::Data& v)
+		{
+			ar
+				& v.m_Owner
+				& v.m_Value
+				& v.m_Metadata;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::AssetInfo::Full& v)
+		{
+			ar
+				& v.m_ID
+				& Cast::Down<beam::AssetInfo::Data>(v);
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::AssetInfo::Full& v)
+		{
+			ar
+				& v.m_ID
+				& Cast::Down<beam::AssetInfo::Data>(v);
 			return ar;
 		}
 

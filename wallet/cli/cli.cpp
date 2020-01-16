@@ -23,7 +23,7 @@
 #include "wallet/core/secstring.h"
 #ifdef BEAM_LASER_SUPPORT
 #include "wallet/laser/mediator.h"
-#endif
+#endif  // BEAM_LASER_SUPPORT
 #include "wallet/core/strings_resources.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/electrum.h"
@@ -548,7 +548,7 @@ namespace
     {
         const unsigned kWidth = 26;
         cout << boost::format(kWalletAssetSummaryFormat)
-             % totals.AssetId.str()
+             % totals.AssetId
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, kAmountASSET, kAmountAGROTH))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, kAmountASSET, kAmountAGROTH))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, kAmountASSET, kAmountAGROTH))
@@ -659,7 +659,7 @@ namespace
         {
             auto txHistory = walletDB->getTxHistory();
             txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [](const auto& tx) {
-                return tx.m_assetId != Zero;
+                return tx.m_assetId != 0;
             }), txHistory.end());
 
             if (txHistory.empty())
@@ -749,7 +749,7 @@ namespace
         //
         for(auto it: totalsCalc.allTotals) {
             const auto assetId = it.second.AssetId;
-            if (assetId != Zero) {
+            if (assetId != 0) {
                 cout << endl;
                 ShowAssetInfo(it.second);
                 ShowAssetCoins(walletDB, it.second.AssetId, kASSET, kAGROTH);
@@ -976,16 +976,7 @@ namespace
             return true;
         }
 
-        const auto hexstr = vm[cli::ASSET_ID].as<string>();
-        const auto buffer = from_hex(hexstr);
-        if (buffer.size() != sizeof(assetId))
-        {
-            return false;
-        }
-
-        beam::Blob blob(buffer);
-        assetId = blob;
-
+        assetId = vm[cli::ASSET_ID].as<AssetID>();
         return true;
     }
 
@@ -1414,7 +1405,7 @@ namespace
 
         bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
-        AssetID assetId = Zero;
+        AssetID assetId = 0;
         Amount amount = 0;
         Amount fee = 0;
         WalletID receiverWalletID(Zero);
@@ -1424,7 +1415,7 @@ namespace
             return boost::none;
         }
 
-        if (assetId != Zero)
+        if (assetId)
         {
             throw std::runtime_error(kErrorCantSwapAsset);
         }
@@ -1985,9 +1976,6 @@ namespace
     {
         array<uint8_t, 6> columnWidths{ { 32, 10, 10, 10, 10, 8 } };
 
-        Block::SystemState::ID id;
-        walletDB->getSystemStateID(id);
-
         // chId | aMy | aTrg | state | fee | locktime
         cout << boost::format(kLaserChannelListTableHead)
              % boost::io::group(left, setw(columnWidths[0]), kLaserChannelListChannelId)
@@ -2011,7 +1999,6 @@ namespace
                 % boost::io::group(left, setw(columnWidths[5]), std::get<LaserFields::LASER_LOCK_HEIGHT>(ch))
                 << std::endl;
         }
-        cout << boost::format(kLaserCurrentState) % id << std::endl;
     }
 
     bool LaserClose(const unique_ptr<laser::Mediator>& laser,
@@ -2155,7 +2142,8 @@ namespace
                         .SetParameter(TxParameterID::Amount, amount)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
-                        .SetParameter(TxParameterID::AssetIdx, Key::Index(aidx));
+                        .SetParameter(TxParameterID::AssetOwnerIdx, Key::Index(aidx))
+                        .SetParameter(TxParameterID::MyID, WalletID(Zero));
 
         return wallet.StartTransaction(params);
     }
@@ -2567,7 +2555,7 @@ int main_impl(int argc, char* argv[])
 
                     /// HERE!!
                     io::Address receiverAddr;
-                    AssetID assetId = Zero;
+                    AssetID assetId = 0;
                     Amount amount = 0;
                     Amount fee = 0;
                     WalletID receiverWalletID(Zero);

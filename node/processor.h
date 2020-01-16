@@ -61,19 +61,21 @@ class NodeProcessor
 	template <typename T>
 	void HandleElementVecBwd(const T& vec, BlockInterpretCtx&, size_t n);
 
-	bool HandleBlock(const NodeDB::StateID&, MultiblockContext&);
+	bool HandleBlock(const NodeDB::StateID&, const Block::SystemState::Full&, MultiblockContext&);
 	bool HandleValidatedTx(const TxVectors::Full&, BlockInterpretCtx&);
 	bool HandleValidatedBlock(const Block::Body&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
-	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, Height, Key::IPKdf&);
 	void Recognize(const TxVectors::Eternal&, Height, const ShieldedTxo::Viewer*);
 	void Recognize(const TxKernelShieldedInput&, Height);
 	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
+
+	void InternalAssetAdd(AssetInfo::Full&);
+	void InternalAssetDel(AssetID);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 
@@ -96,12 +98,10 @@ class NodeProcessor
 	TxoID get_TxosBefore(Height);
 	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 
-	void InitCursor();
+	void InitCursor(bool bMovingUp);
 	bool InitUtxoMapping(const char*, bool bForceReset);
 	void InitializeUtxos(const char*);
 	static void OnCorrupted();
-	void get_Definition(Merkle::Hash&, bool bForNextState);
-	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
@@ -160,7 +160,6 @@ class NodeProcessor
 public:
 
 	struct StartParams {
-		bool m_ResetCursor = false;
 		bool m_CheckIntegrity = false;
 		bool m_Vacuum = false;
 		bool m_ResetSelfID = false;
@@ -172,6 +171,7 @@ public:
 
 	static void get_UtxoMappingPath(std::string&, const char*);
 
+	NodeProcessor();
 	virtual ~NodeProcessor();
 
 	struct Horizon {
@@ -212,11 +212,12 @@ public:
 	{
 		TxoID m_TxosTreasury;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
-		TxoID m_Shielded;
 
 		Height m_Fossil; // from here and down - no original blocks
 		Height m_TxoLo;
 		Height m_TxoHi;
+
+		TxoID m_ShieldedOutputs;
 
 	} m_Extra;
 
@@ -256,6 +257,46 @@ public:
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
+
+	struct Evaluator
+		:public Block::SystemState::Evaluator
+	{
+		NodeProcessor& m_Proc;
+		Evaluator(NodeProcessor&);
+
+		virtual bool get_History(Merkle::Hash&) override;
+		virtual bool get_Utxos(Merkle::Hash&) override;
+		virtual bool get_Shielded(Merkle::Hash&) override;
+		virtual bool get_Assets(Merkle::Hash&) override;
+	};
+
+	struct ProofBuilder
+		:public Evaluator
+	{
+		Merkle::Proof& m_Proof;
+		ProofBuilder(NodeProcessor& p, Merkle::Proof& proof)
+			:Evaluator(p)
+			,m_Proof(proof)
+		{
+		}
+
+	protected:
+		virtual void OnProof(Merkle::Hash&, bool);
+	};
+
+	struct ProofBuilderHard
+		:public Evaluator
+	{
+		Merkle::HardProof& m_Proof;
+		ProofBuilderHard(NodeProcessor& p, Merkle::HardProof& proof)
+			:Evaluator(p)
+			,m_Proof(proof)
+		{
+		}
+
+	protected:
+		virtual void OnProof(Merkle::Hash&, bool);
+	};
 
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
 
@@ -309,7 +350,7 @@ public:
 
 	bool ValidateTxContext(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
-	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
+	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob&);
 
 	bool IsShieldedInPool(const Transaction&);
 	bool IsShieldedInPool(const TxKernelShieldedInput&);
@@ -383,22 +424,51 @@ public:
 		struct Value {
 			ECC::Key::IDV::Packed m_Kidv;
 			uintBigFor<Height>::Type m_Maturity;
-			AssetID m_AssetID;
+			uintBigFor<AssetID>::Type m_AssetID;
+			proto::UtxoEvent::AuxBuf1 m_Buf1;
 			uint8_t m_Flags;
 		};
 
 		struct ValueS
 			:public Value
 		{
-			proto::UtxoEvent::Shielded m_Shielded;
+			proto::UtxoEvent::ShieldedDelta m_ShieldedDelta;
 		};
 	};
+
+	struct ShieldedBase
+	{
+		uintBigFor<TxoID>::Type m_MmrIndex;
+		uintBigFor<Height>::Type m_Height;
+	};
+
+	struct ShieldedOutpPacked
+		:public ShieldedBase
+	{
+		ECC::Point m_Commitment;
+		uintBigFor<TxoID>::Type m_TxoID;
+	};
+
+	struct ShieldedInpPacked
+		:public ShieldedBase
+	{
+	};
+
 #pragma pack (pop)
 
 	virtual void OnUtxoEvent(const UtxoEvent::Value&, Height) {}
 	virtual void OnDummy(const Key::ID&, Height) {}
 
 	static bool IsDummy(const Key::IDV&);
+
+	struct Mmr
+	{
+		Mmr(NodeDB&);
+		NodeDB::StatesMmr m_States;
+		NodeDB::StreamMmr m_Shielded;
+		NodeDB::StreamMmr m_Assets;
+
+	} m_Mmr;
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);

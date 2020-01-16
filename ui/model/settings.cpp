@@ -186,8 +186,11 @@ bool WalletSettings::isAllowedBeamMWLinks() const
 
 void WalletSettings::setAllowedBeamMWLinks(bool value)
 {
-    Lock lock(m_mutex);
-    m_data.setValue(kIsAlowedBeamMWLink, value);
+    {
+        Lock lock(m_mutex);
+        m_data.setValue(kIsAlowedBeamMWLink, value);
+    }
+    emit beamMWLinksChanged();
 }
 
 bool WalletSettings::showSwapBetaWarning()

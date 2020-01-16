@@ -800,9 +800,16 @@ SettingsViewModel::SettingsViewModel()
     , m_supportedLanguages(WalletSettings::getSupportedLanguages())
 {
     undoChanges();
+
+    m_lockTimeout = m_settings.getLockTimeout();
+    m_isPasswordReqiredToSpendMoney = m_settings.isPasswordReqiredToSpendMoney();
+    m_isAllowedBeamMWLinks = m_settings.isAllowedBeamMWLinks();
+    m_currentLanguageIndex = m_supportedLanguages.indexOf(m_settings.getLanguageName());
+
     connect(&AppModel::getInstance().getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
     connect(&AppModel::getInstance().getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
     connect(AppModel::getInstance().getWallet().get(), SIGNAL(addressChecked(const QString&, bool)), SLOT(onAddressChecked(const QString&, bool)));
+    connect(&m_settings, SIGNAL(beamMWLinksChanged()), SIGNAL(beamMWLinksPermissionChanged()));
 
     m_timerId = startTimer(CHECK_INTERVAL);
 }
@@ -958,8 +965,9 @@ void SettingsViewModel::setPasswordReqiredToSpendMoney(bool value)
     }
 }
 
-bool SettingsViewModel::isAllowedBeamMWLinks() const
+bool SettingsViewModel::isAllowedBeamMWLinks()
 {
+    m_isAllowedBeamMWLinks = m_settings.isAllowedBeamMWLinks();
     return m_isAllowedBeamMWLinks;
 }
 
@@ -967,9 +975,7 @@ void SettingsViewModel::allowBeamMWLinks(bool value)
 {
     if (value != m_isAllowedBeamMWLinks)
     {
-        m_isAllowedBeamMWLinks = value;
-        m_settings.setAllowedBeamMWLinks(m_isAllowedBeamMWLinks);
-        emit beamMWLinksAllowed();
+        m_settings.setAllowedBeamMWLinks(value);
     }
 }
 
@@ -1106,11 +1112,7 @@ void SettingsViewModel::undoChanges()
 
     setLocalNodeRun(m_settings.getRunLocalNode());
     setLocalNodePort(formatPort(m_settings.getLocalNodePort()));
-    setLockTimeout(m_settings.getLockTimeout());
     setLocalNodePeers(m_settings.getLocalNodePeers());
-    setPasswordReqiredToSpendMoney(m_settings.isPasswordReqiredToSpendMoney());
-    allowBeamMWLinks(m_settings.isAllowedBeamMWLinks());
-    setCurrentLanguageIndex(m_supportedLanguages.indexOf(m_settings.getLanguageName()));
 }
 
 void SettingsViewModel::reportProblem()

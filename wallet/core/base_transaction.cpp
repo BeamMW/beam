@@ -78,7 +78,7 @@ namespace beam::wallet
         return m_Reason;
     }
 
-    const uint32_t BaseTransaction::s_ProtoVersion = 3;
+    const uint32_t BaseTransaction::s_ProtoVersion = 4;
 
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
@@ -117,11 +117,14 @@ namespace beam::wallet
     {
         if (!m_EventToUpdate)
         {
+            GetAsyncAcontext().OnAsyncStarted();
             m_EventToUpdate = io::AsyncEvent::create(io::Reactor::get_Current(), [this, weak = this->weak_from_this()]()
             { 
-                if (auto l = weak.lock())
+                auto eventHolder = m_EventToUpdate;
+                if (auto tx = weak.lock())
                 {
                     Update();
+                    GetAsyncAcontext().OnAsyncFinished();
                 }
             });
             m_EventToUpdate->post();
@@ -367,7 +370,12 @@ namespace beam::wallet
         WalletID peerID;
         if (GetParameter(TxParameterID::MyID, msg.m_From)
             && GetParameter(TxParameterID::PeerID, peerID))
-        {
+        { 
+            PeerID secureWalletID = Zero;
+            if (GetParameter(TxParameterID::MySecureWalletID, secureWalletID))
+            {
+                msg.AddParameter(TxParameterID::PeerSecureWalletID, secureWalletID);
+            }
             GetGateway().send_tx_params(peerID, msg);
             return true;
         }

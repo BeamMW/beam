@@ -20,27 +20,12 @@ namespace beam {
 		struct State
 		{
 			Block::SystemState::Full m_Hdr;
-			std::unique_ptr<uint8_t[]> m_pMmrData;
 		};
 
 		std::vector<State> m_vStates;
 		Merkle::Hash m_hvLive;
 
-		struct DMmr
-			:public Merkle::DistributedMmr
-		{
-			virtual const void* get_NodeData(Key key) const
-			{
-				return get_ParentObj().m_vStates[key].m_pMmrData.get();
-			}
-
-			virtual void get_NodeHash(Merkle::Hash& hv, Key key) const
-			{
-				get_ParentObj().m_vStates[key].m_Hdr.get_Hash(hv);
-			}
-
-			IMPLEMENT_GET_PARENT_OBJ(MiniBlockChain, m_Mmr)
-		} m_Mmr;
+		Merkle::FixedMmr m_Mmr;
 
 		struct Source
 			:public Block::ChainWorkProof::ISource
@@ -95,9 +80,8 @@ namespace beam {
 				s.m_Hdr.NextPrefix();
                 s.m_Hdr.m_TimeStamp = getTimestamp();
 
-				uint32_t nSize = m_Mmr.get_NodeSize(i - 1);
-				s0.m_pMmrData.reset(new uint8_t[nSize]);
-				m_Mmr.Append(i - 1, s0.m_pMmrData.get(), s.m_Hdr.m_Prev);
+				m_Mmr.Resize(i);
+				m_Mmr.Append(s.m_Hdr.m_Prev);
 			}
 			else
 			{

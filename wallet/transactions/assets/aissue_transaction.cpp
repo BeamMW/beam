@@ -98,13 +98,13 @@ namespace beam::wallet
             {
                 if (_issue)
                 {
-                    LOG_INFO() << GetTxID() << " Generating asset with index " << builder.GetAssetIdx()
-                               << " and asset id " << builder.GetAssetId().str() << ". Amount: " << PrintableAmount(builder.GetAmountBeam(), false, kASSET, kAGROTH);
+                    LOG_INFO() << GetTxID() << " Generating asset with owner index " << builder.GetAssetOwnerIdx()
+                               << " and asset id " << builder.GetAssetId() << ". Amount: " << PrintableAmount(builder.GetAmountBeam(), false, kASSET, kAGROTH);
                     LOG_INFO() << GetTxID() << " Please remember your assset index. You won't be able to consume the asset or generate additional coins without it";
                 }
                 else
                 {
-                    LOG_INFO() << GetTxID() << " Consuming asset with index " << builder.GetAssetIdx() << " and asset id " << builder.GetAssetId().str()
+                    LOG_INFO() << GetTxID() << " Consuming asset with index " << builder.GetAssetOwnerIdx() << " and asset id " << builder.GetAssetId()
                                << ". Amount: " << PrintableAmount(builder.GetAmountAsset(), false, kASSET, kAGROTH);
                 }
 
@@ -225,7 +225,7 @@ namespace beam::wallet
         case TxParameterID::Status:
         case TxParameterID::TransactionType:
         case TxParameterID::KernelID:
-        case TxParameterID::AssetIdx:
+        case TxParameterID::AssetOwnerIdx:
             return true;
         default:
             return false;

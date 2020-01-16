@@ -62,6 +62,8 @@ ColumnLayout {
     property bool     resetAmount:  true
     property var      amountInput:  ainput
     property bool     showTotalFee: false
+    property bool     showAddAll:   false
+    property string   maxAvailable: Utils.maxAmount
 
     SFText {
         font.pixelSize:   14
@@ -137,6 +139,52 @@ ColumnLayout {
             onActivated: {
                 if (multi) control.currency = index
                 if (resetAmount) control.amount = 0
+            }
+        }
+
+        RowLayout {
+            id:                  addAllButton
+            Layout.alignment:    Qt.AlignBottom
+            Layout.bottomMargin: 7
+            Layout.leftMargin:   25
+            visible:             control.showAddAll
+
+            function addAll(){
+                if (parseFloat(maxAvailable)) {
+                    ainput.focus = true;
+                    ainput.text = maxAvailable;
+                }
+            }
+
+            SvgImage {
+                Layout.maximumHeight: 16
+                Layout.maximumWidth:  16
+                source: "qrc:/assets/icon-send-blue-copy-2.svg"
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        addAllButton.addAll();
+                    }
+                }
+            }
+
+            SFText {
+                font.pixelSize:   14
+                font.styleName:   "Bold";
+                font.weight:      Font.Bold
+                color:            control.color
+                //% "add all"
+                text:             qsTrId("amount-input-add-all")
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        addAllButton.addAll();
+                    }
+                }
             }
         }
     }

@@ -43,14 +43,6 @@ Rectangle {
         modal: true
     }
 
-    OpenExternalLinkConfirmation {
-        id: externalLinkConfirmation
-    }
-
-    SettingsViewModel {
-        id: settingsViewModel
-    }
-
     function onClosing (close) {
         if (viewModel.unsafeTxCount > 0) {
             close.accepted = false;
@@ -209,12 +201,14 @@ Rectangle {
 
             onClickedChanged: {
                 if (clicked) {
+                    var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
+                    var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
+                    var externalLinkConfirmation = component.createObject(main);
                     Utils.openExternal(
                         "https://www.beam.mw/#exchanges",
                         settingsViewModel,
                         externalLinkConfirmation,
                         function () {
-                            console.log("onFinish");
                             whereToBuyControl.clicked = false;
                         });
                 }

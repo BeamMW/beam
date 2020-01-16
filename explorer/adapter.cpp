@@ -191,7 +191,7 @@ private:
 
     bool extract_row(Height height, uint64_t& row, uint64_t* prevRow) {
         NodeDB& db = _nodeBackend.get_DB();
-        NodeDB::WalkerState ws(db);
+        NodeDB::WalkerState ws;
         db.EnumStatesAt(ws, height);
         while (true) {
             if (!ws.MoveNext()) {

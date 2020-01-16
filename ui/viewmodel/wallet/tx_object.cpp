@@ -204,55 +204,67 @@ QString TxObject::getTransactionID() const
 
 QString TxObject::getReasonString(beam::wallet::TxFailureReason reason) const
 {
-    const std::array<QString,24> reasons = {
+    const std::array<QString,30> reasons = {
         //% "Unexpected reason, please send wallet logs to Beam support"
-        qtTrId("tx-failture-undefined"),
+        qtTrId("tx-failure-undefined"),
         //% "Transaction cancelled"
-        qtTrId("tx-failture-cancelled"),
+        qtTrId("tx-failure-cancelled"),
         //% "Receiver signature in not valid, please send wallet logs to Beam support"
-        qtTrId("tx-failture-receiver-signature-invalid"),
+        qtTrId("tx-failure-receiver-signature-invalid"),
         //% "Failed to register transaction with the blockchain, see node logs for details"
-        qtTrId("tx-failture-not-registered-in-blockchain"),
+        qtTrId("tx-failure-not-registered-in-blockchain"),
         //% "Transaction is not valid, please send wallet logs to Beam support"
-        qtTrId("tx-failture-not-valid"),
+        qtTrId("tx-failure-not-valid"),
         //% "Invalid kernel proof provided"
-        qtTrId("tx-failture-kernel-invalid"),
+        qtTrId("tx-failure-kernel-invalid"),
         //% "Failed to send Transaction parameters"
-        qtTrId("tx-failture-parameters-not-sended"),
+        qtTrId("tx-failure-parameters-not-sended"),
         //% "No inputs"
-        qtTrId("tx-failture-no-inputs"),
+        qtTrId("tx-failure-no-inputs"),
         //% "Address is expired"
-        qtTrId("tx-failture-addr-expired"),
+        qtTrId("tx-failure-addr-expired"),
         //% "Failed to get transaction parameters"
-        qtTrId("tx-failture-parameters-not-readed"),
+        qtTrId("tx-failure-parameters-not-readed"),
         //% "Transaction timed out"
-        qtTrId("tx-failture-time-out"),
+        qtTrId("tx-failure-time-out"),
         //% "Payment not signed by the receiver, please send wallet logs to Beam support"
-        qtTrId("tx-failture-not-signed-by-receiver"),
+        qtTrId("tx-failure-not-signed-by-receiver"),
         //% "Kernel maximum height is too high"
-        qtTrId("tx-failture-max-height-to-high"),
+        qtTrId("tx-failure-max-height-to-high"),
         //% "Transaction has invalid state"
-        qtTrId("tx-failture-invalid-state"),
+        qtTrId("tx-failure-invalid-state"),
         //% "Subtransaction has failed"
-        qtTrId("tx-failture-subtx-failed"),
+        qtTrId("tx-failure-subtx-failed"),
         //% "Contract's amount is not valid"
-        qtTrId("tx-failture-invalid-contract-amount"),
+        qtTrId("tx-failure-invalid-contract-amount"),
         //% "Side chain has invalid contract"
-        qtTrId("tx-failture-invalid-sidechain-contract"),
+        qtTrId("tx-failure-invalid-sidechain-contract"),
         //% "Side chain bridge has internal error"
-        qtTrId("tx-failture-sidechain-internal-error"),
+        qtTrId("tx-failure-sidechain-internal-error"),
         //% "Side chain bridge has network error"
-        qtTrId("tx-failture-sidechain-network-error"),
+        qtTrId("tx-failure-sidechain-network-error"),
         //% "Side chain bridge has response format error"
-        qtTrId("tx-failture-invalid-sidechain-response-format"),
+        qtTrId("tx-failure-invalid-sidechain-response-format"),
         //% "Invalid credentials of Side chain"
-        qtTrId("tx-failture-invalid-side-chain-credentials"),
+        qtTrId("tx-failure-invalid-side-chain-credentials"),
         //% "Not enough time to finish btc lock transaction"
-        qtTrId("tx-failture-not-enough-time-btc-lock"),
+        qtTrId("tx-failure-not-enough-time-btc-lock"),
         //% "Failed to create multi-signature"
-        qtTrId("tx-failture-create-multisig"),
+        qtTrId("tx-failure-create-multisig"),
         //% "Fee is too small"
-        qtTrId("tx-failture-fee-too-small")
+        qtTrId("tx-failure-fee-too-small"),
+        //% "Kernel's min height is unacceptable"
+        qtTrId("tx-failure-kernel-min-height"),
+        //% "Not a loopback transaction"
+        qtTrId("tx-failure-loopback"),
+        //% "Key keeper is not initialized"
+        qtTrId("tx-failure-key-keeper-no-initialized"),
+        //% "No valid asset id/asset idx"
+        qtTrId("tx-failure-invalid-asset-id"),
+        //% "Cannot consume more than MAX_INT64 asset groth in one transaction"
+        qtTrId("tx-failure-invalid-asset-amount"),
+        //% "Some mandatory data for payment proof is missing"
+        qtTrId("tx-failure-invalid-data-for-payment-proof")
     };
     assert(reasons.size() > static_cast<size_t>(reason));
     return reasons[reason];

@@ -692,6 +692,30 @@ namespace ECC {
         return !(operator == (v));
     }
 
+	bool Point::Native::operator == (const Native& v) const
+	{
+		Native val = -v;
+		val += *this;
+		return val == Zero;
+	}
+
+	bool Point::Native::operator == (const Point& v) const
+	{
+		// There's a fast way to compare the X coordinate (without normalizing the gej).
+		// But there is no known way to check the oddity of the Y coordinate
+		// Hence - we'll do the normalization.
+
+		// Import/Export seems to be the same complexity
+		ECC::Point v2;
+		Export(v2);
+		return v2 == v;
+	}
+
+	bool Point::operator == (const Native& pt) const
+	{
+		return pt == *this;
+	}
+
 	Point::Native& Point::Native::operator = (Minus v)
 	{
 		secp256k1_gej_neg(this, &v.x);
@@ -1770,6 +1794,12 @@ namespace ECC {
 		ctx.m_Sig.m_pGenGJ[1].m_pGenPrep = &ctx.m_Ipp.J_;
 		ctx.m_Sig.m_pGenGJ[1].m_nBatchIdx = InnerProduct::BatchContext::s_Idx_J;
 
+		ctx.m_Sig.m_pGenGH[0] = ctx.m_Sig.m_GenG;
+
+		ctx.m_Sig.m_pGenGH[1].m_pGen = &ctx.H_Big;
+		ctx.m_Sig.m_pGenGH[1].m_pGenPrep = &ctx.m_Ipp.H_;
+		ctx.m_Sig.m_pGenGH[1].m_nBatchIdx = InnerProduct::BatchContext::s_Idx_H;
+
 		ctx.m_Sig.m_CfgGJ1.m_nKeys = 1;
 		ctx.m_Sig.m_CfgGJ1.m_nG = 2;
 		ctx.m_Sig.m_CfgGJ1.m_pG = ctx.m_Sig.m_pGenGJ;
@@ -1777,6 +1807,10 @@ namespace ECC {
 		ctx.m_Sig.m_CfgG2.m_nKeys = 2;
 		ctx.m_Sig.m_CfgG2.m_nG = 1;
 		ctx.m_Sig.m_CfgG2.m_pG = &ctx.m_Sig.m_GenG;
+
+		ctx.m_Sig.m_CfgGH2.m_nKeys = 2;
+		ctx.m_Sig.m_CfgGH2.m_nG = 2;
+		ctx.m_Sig.m_CfgGH2.m_pG = ctx.m_Sig.m_pGenGH;
 
 #ifndef NDEBUG
 		g_bContextInitialized = true;

@@ -26,6 +26,8 @@ namespace Merkle {
 	struct Position {
 		uint8_t H;
 		uint64_t X;
+
+		static const uint8_t HMax = sizeof(X) * 8;
 	};
 
 	struct IProofBuilder {
@@ -56,6 +58,20 @@ namespace Merkle {
 		}
 	};
 
+	struct HardVerifier
+	{
+		Hash m_hv;
+
+		HardProof::const_iterator m_itPos;
+		HardProof::const_iterator m_itEnd;
+
+		HardVerifier(const HardProof& p);
+
+		bool IsEnd() const;
+		bool InterpretOnce(bool bOnRight);
+		bool InterpretMmr(uint64_t iIdx, uint64_t nCount);
+	};
+
 	void Interpret(Hash&, const Proof&);
 	void Interpret(Hash&, const Node&);
 	void Interpret(Hash&, const Hash& hLeft, const Hash& hRight);
@@ -67,6 +83,7 @@ namespace Merkle {
 		Mmr() :m_Count(0) {}
 
 		void Append(const Hash&);
+		void Replace(uint64_t n, const Hash&);
 
 		void get_Hash(Hash&) const;
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
@@ -75,10 +92,23 @@ namespace Merkle {
 		void get_Proof(Proof&, uint64_t i) const;
 
 	protected:
+		bool get_ProofInternal(IProofBuilder&, uint64_t i, bool bIgnoreHashes) const;
 		bool get_HashForRange(Hash&, uint64_t n0, uint64_t n) const;
 
 		virtual void LoadElement(Hash&, const Position&) const = 0;
 		virtual void SaveElement(const Hash&, const Position&) = 0;
+	};
+
+	// Doesn't store elements. Used only to deduce proof path
+	struct PathCaclulator
+		:public Mmr
+		,private IProofBuilder
+	{
+		bool InterpretPath(uint64_t i);
+
+	protected:
+		virtual void LoadElement(Hash&, const Position&) const override;
+		virtual void SaveElement(const Hash&, const Position&) override;
 	};
 
 	struct DistributedMmr
@@ -126,18 +156,27 @@ namespace Merkle {
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
 	};
 
-	// A variant where the max number of elements is known in advance. All hashes are stored in a flat array.
-	class FixedMmmr
+	// All hashes are stored in a 'flat' stream/array in a 'diagonal' form.
+	// bStoreH0 specifies if hashes at H=0 should be stored (or omitted)
+	class FlatMmr
 		:public Mmr
 	{
+	public:
+		static uint64_t Pos2Idx(const Position& pos, bool bStoreH0);
+		static uint64_t get_TotalHashes(uint64_t nCount, bool bStoreH0);
+	};
+
+	// A variant where the max number of elements is known in advance. All hashes are stored in a flat array.
+	class FixedMmr
+		:public FlatMmr
+	{
 		std::vector<Hash> m_vHashes;
-		uint64_t m_Total;
 
 		uint64_t Pos2Idx(const Position& pos) const;
 
 	public:
-		FixedMmmr(uint64_t nTotal = 0) { Reset(nTotal); }
-		void Reset(uint64_t nTotal);
+		FixedMmr(uint64_t nTotal = 0) { Resize(nTotal); }
+		void Resize(uint64_t nTotal);
 	protected:
 		// Mmr
 		virtual void LoadElement(Hash& hv, const Position& pos) const override;
@@ -197,8 +236,7 @@ namespace Merkle {
 		};
 
 		class Verifier
-			:private IProofBuilder
-			,private Mmr
+			:private PathCaclulator
 		{
 			struct MyNode {
 				Hash m_hv; // correct value at this position
@@ -211,8 +249,6 @@ namespace Merkle {
 			std::vector<MyNode> m_vLastRev;
 
 			virtual bool AppendNode(const Node& n, const Position& pos) override;
-			virtual void LoadElement(Hash&, const Position&) const override {}
-			virtual void SaveElement(const Hash&, const Position&) override {}
 
 			virtual bool IsRootValid(const Hash&) = 0;
 
@@ -227,6 +263,23 @@ namespace Merkle {
 			// for cropping
 			Iterator get_Pos() const { return m_itPos; }
 		};
+	};
+
+	// Helper class for arbitrary (custom) tree
+	// Can be used to get the root hash, build a proof, and verification (deduce number of nodes and their direction)
+	struct IEvaluator
+	{
+		bool m_Verifier = false; // verification mode
+		bool m_Failed = false;
+
+		// each of the node evaluating functions returns true if the resulting hash is valid (if it's not - this doesnt' necessarily means an error, this may be  proof build/verification instead)
+		// For children it should call Interpret()
+
+	protected:
+		bool Interpret(Hash& hv, Hash& hvL, bool bL, Hash& hvR, bool bR);
+		virtual void OnProof(Hash&, bool);
+
+		bool OnNotImpl();
 	};
 
 } // namespace Merkle

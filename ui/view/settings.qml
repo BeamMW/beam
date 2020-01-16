@@ -23,11 +23,13 @@ ColumnLayout {
     }
 
     ChangePasswordDialog {
-        id: changePasswordDialog        
+        id: changePasswordDialog
+        settingsViewModel: viewModel    
     }
 
     ConfirmPasswordDialog {
         id: confirmPasswordDialog
+        settingsViewModel: viewModel 
     }
 
     ConfirmationDialog {
@@ -243,6 +245,7 @@ deploy the key at the node you trust completely."*/
                     connectionStatus:         modelData.connectionStatus
                     connectionErrorMsg:       modelData.connectionErrorMsg 
                     getAddressesElectrum:     modelData.getAddressesElectrum
+                    mainSettingsViewModel:    viewModel
 
                     //
                     // Node
@@ -675,9 +678,8 @@ deploy the key at the node you trust completely."*/
                     //: settings tab, general section, Show owner key button and dialog title
                     //% "Show owner key"
                     text: qsTrId("settings-general-require-pwd-to-show-owner-key")
-                    enabled: viewModel.localNodeRun && viewModel.isLocalNodeRunning
                     palette.button: Style.background_second
-                    palette.buttonText : viewModel.localNodeRun ? Style.content_main : Style.content_disabled
+                    palette.buttonText : Style.content_main
                     onClicked: {
                         //: settings tab, general section, Show owner key button and dialog title
                         //% "Show owner key"
@@ -874,15 +876,16 @@ deploy the key at the node you trust completely."*/
                                     checked = !checked;
                                 }
                                 onClicked: {
-                                    //: settings tab, general section, ask password to send, confirm password dialog, title
-                                    //% "Don't ask password on every Send"
-                                    confirmPasswordDialog.dialogTitle = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-title");
+                                    confirmPasswordDialog.dialogTitle = viewModel.isPasswordReqiredToSpendMoney
+                                        //: settings tab, general section, ask password to send, confirm password dialog, title if checked
+                                        //% "Don't ask password on every Send"
+                                        ? qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-title")
+                                        //: settings tab, general section, ask password to send, confirm password dialog, title if unchecked
+                                        //% "Ask password on every Send"
+                                        : qsTrId("settings-general-no-require-pwd-to-spend-confirm-pwd-title");
                                     //: settings tab, general section, ask password to send, confirm password dialog, message
                                     //% "Password verification is required to change that setting"
                                     confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-message");
-                                    //: confirm password dialog, ok button
-				                    //% "Proceed"
-                                    confirmPasswordDialog.okButtonText = qsTrId("general-proceed")
                                     confirmPasswordDialog.okButtonIcon = "qrc:/assets/icon-done.svg"
                                     confirmPasswordDialog.onDialogAccepted = onDialogAccepted;
                                     confirmPasswordDialog.onDialogRejected = onDialogRejected;
