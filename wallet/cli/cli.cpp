@@ -1976,9 +1976,6 @@ namespace
     {
         array<uint8_t, 6> columnWidths{ { 32, 10, 10, 10, 10, 8 } };
 
-        Block::SystemState::ID id;
-        walletDB->getSystemStateID(id);
-
         // chId | aMy | aTrg | state | fee | locktime
         cout << boost::format(kLaserChannelListTableHead)
              % boost::io::group(left, setw(columnWidths[0]), kLaserChannelListChannelId)
@@ -2002,7 +1999,6 @@ namespace
                 % boost::io::group(left, setw(columnWidths[5]), std::get<LaserFields::LASER_LOCK_HEIGHT>(ch))
                 << std::endl;
         }
-        cout << boost::format(kLaserCurrentState) % id << std::endl;
     }
 
     bool LaserClose(const unique_ptr<laser::Mediator>& laser,
