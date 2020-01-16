@@ -2413,19 +2413,24 @@ void NodeDB::UniqueDeleteStrict(const Blob& key)
 
 const AssetID NodeDB::s_AssetEmpty0 = uint64_t(1) << 62;
 
-bool NodeDB::AssetFindByOwner(AssetInfo::Full& ai)
+AssetID NodeDB::AssetFindByOwner(const PeerID& owner)
 {
-	Recordset rs(*this, Query::AssetFindOwner, "SELECT " TblAssets_ID "," TblAssets_Data "," TblAssets_Value "," TblAssets_LockHeight " FROM " TblAssets " WHERE " TblAssets_Owner "=? AND " TblAssets_ID ">=? ORDER BY " TblAssets_ID " ASC LIMIT 1");
-	rs.put_As(0, ai.m_Owner);
-	rs.put(1, ai.m_ID);
+	Recordset rs(*this, Query::AssetFindOwner, "SELECT " TblAssets_ID " FROM " TblAssets " WHERE " TblAssets_Owner "=?");
+	rs.put_As(0, owner);
 	if (!rs.Step())
 		return false;
 
-	rs.get(0, ai.m_ID);
-	rs.get(1, ai.m_Metadata);
-	rs.get_As(2, ai.m_Value);
-	rs.get(3, ai.m_LockHeight);
-	return true;
+	AssetID ret;
+	rs.get(0, ret);
+	return ret;
+}
+
+bool NodeDB::AssetFindByOwner(AssetInfo::Full& ai)
+{
+	ai.m_ID = AssetFindByOwner(ai.m_Owner);
+	return
+		ai.m_ID &&
+		AssetGetSafe(ai);
 }
 
 void NodeDB::AssetDeleteRaw(AssetID id)

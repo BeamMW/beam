@@ -571,7 +571,8 @@ public:
 	void UniqueDeleteStrict(const Blob& key);
 
 	void AssetAdd(AssetInfo::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
-	bool AssetFindByOwner(AssetInfo::Full&); // set ID to min threshold as well
+	AssetID AssetFindByOwner(const PeerID&);
+	bool AssetFindByOwner(AssetInfo::Full&); // must set Owner
 	AssetID AssetDelete(AssetID); // returns remaining assets count (including the unused)
 	bool AssetGetSafe(AssetInfo::Full&); // must set ID before invocation
 	void AssetSetValue(AssetID, const AmountBig::Type&, Height hLockHeight);
