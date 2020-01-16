@@ -54,18 +54,22 @@ namespace beam::wallet::lelantus
             ShieldedTxo::Viewer viewer;
             viewer.FromOwner(*m_Tx.GetWalletDB()->get_MasterKdf());
 
+            ECC::uintBig serialNonce;
+            ECC::GenRandom(serialNonce);
             ShieldedTxo::Data::SerialParams sp;
-            sp.Generate(pKrn->m_Txo.m_Serial, viewer, 13U);
+            sp.Generate(pKrn->m_Txo.m_Serial, viewer, serialNonce);
 
             pKrn->UpdateMsg();
             ECC::Oracle oracle;
             oracle << pKrn->m_Msg;
 
+            ECC::uintBig outputNonce;
+            ECC::GenRandom(outputNonce);
             ShieldedTxo::Data::OutputParams op;
             op.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
             //op.m_Message = m_Shielded.m_Message;
             op.m_Value = GetAmount();
-            op.Generate(pKrn->m_Txo, oracle, viewer, 18U);
+            op.Generate(pKrn->m_Txo, oracle, viewer, outputNonce);
 
             pKrn->MsgToID();
 

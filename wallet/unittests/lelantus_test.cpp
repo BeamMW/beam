@@ -38,6 +38,32 @@ WALLET_TEST_INIT
 namespace
 {
     const AmountList kDefaultTestAmounts = { 5000, 2000, 1000, 9000 };
+
+    void InitOwnNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver* observer, Key::IPKdf::Ptr ownerKey, uint16_t port = 32125, uint32_t powSolveTime = 1000, const std::string& path = "mytest.db", const std::vector<io::Address>& peers = {}, bool miningNode = true)
+    {
+        node.m_Keys.m_pOwner = ownerKey;
+        node.m_Cfg.m_Treasury = binaryTreasury;
+        ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
+
+        boost::filesystem::remove(path);
+        node.m_Cfg.m_sPathLocal = path;
+        node.m_Cfg.m_Listen.port(port);
+        node.m_Cfg.m_Listen.ip(INADDR_ANY);
+        node.m_Cfg.m_MiningThreads = miningNode ? 1 : 0;
+        node.m_Cfg.m_VerificationThreads = 1;
+        node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = powSolveTime;
+        node.m_Cfg.m_Connect = peers;
+
+        node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
+        node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
+        //Rules::get().Maturity.Coinbase = 1;
+        Rules::get().FakePoW = true;
+
+        node.m_Cfg.m_Observer = observer;
+        Rules::get().UpdateChecksum();
+        node.Initialize();
+        node.m_PostStartSynced = true;
+    }
 }
 
 void TestSimpleTx()
@@ -47,7 +73,7 @@ void TestSimpleTx()
 
     auto completeAction = [&mainReactor](auto)
     {
-        mainReactor->stop();
+        //mainReactor->stop();
     };
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
@@ -58,7 +84,6 @@ void TestSimpleTx()
     sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(creator));
 
     Node node;
-
     NodeObserver observer([&]()
     {
         auto cursor = node.get_Processor().m_Cursor;
@@ -76,37 +101,27 @@ void TestSimpleTx()
 
             sender.m_Wallet.StartTransaction(parameters);
         }
-        /*auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height == fork1Height + 5)
+        else if (cursor.m_Sid.m_Height == 30)
         {
-            auto currentHeight = cursor.m_Sid.m_Height;
-            bool isBeamSide = !isBeamOwnerStart;
-            auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
-                currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, isBeamSide);
+            wallet::TxParameters parameters(GenerateTxID());
 
-            if (useSecureIDs)
-            {
-                parameters.SetParameter(TxParameterID::MySecureWalletID, isBeamOwnerStart ? receiver.m_SecureWalletID : sender.m_SecureWalletID);
-            }
+            parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
+                .SetParameter(TxParameterID::Amount, 7800)
+                .SetParameter(TxParameterID::Fee, 1200)
+                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                .SetParameter(TxParameterID::CreateTime, getTimestamp());
 
-            TestWalletRig* initiator = &sender;
-            TestWalletRig* acceptor = &receiver;
-            if (isBeamOwnerStart)
-            {
-                std::swap(initiator, acceptor);
-            }
-
-            initiator->m_Wallet.StartTransaction(parameters);
-            auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, feeRate);
-            if (useSecureIDs)
-            {
-                acceptParams.SetParameter(TxParameterID::MySecureWalletID, acceptor->m_SecureWalletID);
-            }
-            txID = acceptor->m_Wallet.StartTransaction(acceptParams);
-        }*/
+            sender.m_Wallet.StartTransaction(parameters);
+        }
+        else if (cursor.m_Sid.m_Height == 40)
+        {
+            mainReactor->stop();
+        }
     });
 
-    InitNodeToTest(node, binaryTreasury, &observer, 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 }

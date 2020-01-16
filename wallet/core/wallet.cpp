@@ -666,8 +666,18 @@ namespace beam::wallet
         {
             auto& event = v[i];
 
+            if (proto::UtxoEvent::Flags::Shielded & event.m_Flags)
+            {
+                Key::ID::Packed kid;
+                kid = event.m_Kidv;
+                proto::UtxoEvent::Shielded shielded;
+                event.m_ShieldedDelta.Get(kid, event.m_Buf1, shielded);
+
+                // TODO(alex.starun): save shielded output to DB
+                LOG_DEBUG() << "Shielded output, ID: " << shielded.m_ID;
+            }
             // filter-out false positives
-            if (commitmentFunc)
+            else if (commitmentFunc)
             {
                 AssetID assetId;
                 event.m_AssetID.Export(assetId);
