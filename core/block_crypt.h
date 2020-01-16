@@ -137,6 +137,7 @@ namespace beam
 		struct {
 			bool Enabled = false;
 			Amount DepositForList = Coin * 1000;
+			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
 		} CA;
 
 		uint32_t MaxRollback = 1440; // 1 day roughly
@@ -238,7 +239,7 @@ namespace beam
 		{
 			AmountBig::Type m_Value;
 			PeerID m_Owner;
-
+			Height m_LockHeight; // relevant only when m_Value is 0. Otherwise set to 0
 			ByteBuffer m_Metadata;
 			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
 

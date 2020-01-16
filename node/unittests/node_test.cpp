@@ -628,10 +628,11 @@ namespace beam
 		verify_test(ai2.m_Value == Zero);
 
 		assetVal2 = 334U;
-		db.AssetSetValue(3, assetVal2);
+		db.AssetSetValue(3, assetVal2, 18);
 
 		verify_test(db.AssetGetSafe(ai2));
 		verify_test(ai2.m_Value == assetVal2);
+		verify_test(ai2.m_LockHeight == 18);
 
 		ai1.m_ID = 1;
 		verify_test(db.AssetFindByOwner(ai1));

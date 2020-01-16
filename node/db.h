@@ -574,7 +574,7 @@ public:
 	bool AssetFindByOwner(AssetInfo::Full&); // set ID to min threshold as well
 	AssetID AssetDelete(AssetID); // returns remaining assets count (including the unused)
 	bool AssetGetSafe(AssetInfo::Full&); // must set ID before invocation
-	void AssetSetValue(AssetID, const AmountBig::Type&);
+	void AssetSetValue(AssetID, const AmountBig::Type&, Height hLockHeight);
 
 private:
 

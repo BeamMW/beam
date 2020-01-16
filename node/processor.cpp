@@ -2559,6 +2559,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 		AssetInfo::Full ai;
 		ai.m_ID = 0; // auto
 		ai.m_Owner = krn.m_Owner;
+		ai.m_LockHeight = bic.m_Height + Rules::get().CA.LockPeriod;
 
 		TemporarySwap<ByteBuffer> ts(Cast::NotConst(krn).m_MetaData, ai.m_Metadata);
 
@@ -2595,13 +2596,18 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 		if (ai.m_Value != Zero)
 			return false;
 
+		if (ai.m_LockHeight > bic.m_Height)
+			return false;
+
 		if (bic.m_UpdateMmrs)
 		{
 			// looks good
 			InternalAssetDel(krn.m_AssetID);
 
 			BlockInterpretCtx::Ser ser(bic);
-			ser & ai.m_Metadata;
+			ser
+				& ai.m_Metadata
+				& ai.m_LockHeight;
 		}
 	}
 	else
@@ -2613,7 +2619,9 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 			ai.m_Owner = krn.m_Owner;
 
 			BlockInterpretCtx::Der der(bic);
-			der & ai.m_Metadata;
+			der
+				& ai.m_Metadata
+				& ai.m_LockHeight;
 
 			InternalAssetAdd(ai);
 
@@ -2670,7 +2678,22 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 
 	if (bic.m_UpdateMmrs)
 	{
-		m_DB.AssetSetValue(ai.m_ID, ai.m_Value);
+		if (bic.m_Fwd)
+		{
+			BlockInterpretCtx::Ser ser(bic);
+			ser & ai.m_LockHeight;
+
+			ai.m_LockHeight = (ai.m_Value == Zero) ?
+				(bic.m_Height + Rules::get().CA.LockPeriod) :
+				0;
+		}
+		else
+		{
+			BlockInterpretCtx::Der der(bic);
+			der & ai.m_LockHeight;
+		}
+
+		m_DB.AssetSetValue(ai.m_ID, ai.m_Value, ai.m_LockHeight);
 
 		Merkle::Hash hv;
 		ai.get_Hash(hv);

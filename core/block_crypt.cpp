@@ -1510,6 +1510,7 @@ namespace beam
 			<< Shielded.MaxWindowBacklog
 			<< CA.Enabled
 			<< CA.DepositForList
+			<< CA.LockPeriod
 			// out
 			>> pForks[2].m_Hash;
 	}
@@ -2171,6 +2172,7 @@ namespace beam
 	{
 		m_Value = Zero;
 		m_Owner = Zero;
+		m_LockHeight = 0;
 		m_Metadata.clear();
 	}
 
@@ -2181,6 +2183,7 @@ namespace beam
 			<< m_ID
 			<< m_Value
 			<< m_Owner
+			<< m_LockHeight
 			<< m_Metadata.size()
 			<< Blob(m_Metadata)
 			>> hv;

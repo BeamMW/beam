@@ -1591,6 +1591,7 @@ namespace detail
 			ar
 				& v.m_Owner
 				& v.m_Value
+				& v.m_LockHeight
 				& v.m_Metadata;
 			return ar;
 		}
@@ -1601,6 +1602,7 @@ namespace detail
 			ar
 				& v.m_Owner
 				& v.m_Value
+				& v.m_LockHeight
 				& v.m_Metadata;
 			return ar;
 		}
