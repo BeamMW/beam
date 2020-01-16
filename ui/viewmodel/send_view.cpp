@@ -193,6 +193,12 @@ void SendViewModel::sendMoney()
             .SetParameter(beam::wallet::TxParameterID::Fee,     _feeGrothes)
             .SetParameter(beam::wallet::TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
 
+        auto identity = _txParameters.GetParameter<beam::PeerID>(beam::wallet::TxParameterID::PeerSecureWalletID);
+        if (identity)
+        {
+            p.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *identity);
+        }
+
         _walletModel.getAsync()->startTransaction(std::move(p));
     }
 }

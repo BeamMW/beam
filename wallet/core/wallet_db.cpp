@@ -2333,6 +2333,10 @@ namespace beam::wallet
             WalletAddress address = {};
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
+            if (address.isOwn())
+            {
+                address.m_Identity = storage::generateIdentityFromIndex(*this, address.m_OwnID);
+            }
             insertAddressToCache(id, address);
             return address;
         }
@@ -2354,7 +2358,10 @@ namespace beam::wallet
             auto& a = res.emplace_back();
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
-
+            if (a.isOwn())
+            {
+                a.m_Identity = storage::generateIdentityFromIndex(*this, a.m_OwnID);
+            }
             if (a.isOwn() != own)
                 res.pop_back(); // akward, but ok
         }
@@ -3285,8 +3292,19 @@ namespace beam::wallet
             newAddress.m_createTime = beam::getTimestamp();
             newAddress.m_OwnID = walletDB.AllocateKidRange(1);
             newAddress.m_walletID = generateWalletIDFromIndex(keyKeeper, newAddress.m_OwnID);
+            newAddress.m_Identity = generateIdentityFromIndex(walletDB, newAddress.m_OwnID);
 
             return newAddress;
+        }
+
+        PeerID generateIdentityFromIndex(const IWalletDB& walletDB, uint64_t ownID)
+        {
+            Key::ID kid(ownID, Key::Type::WalletID);
+            ECC::Hash::Value hv;
+            kid.get_Hash(hv);
+            ECC::Point::Native pt;
+            walletDB.get_OwnerKdf()->DerivePKeyG(pt, hv);
+            return ECC::Point(pt).m_X;
         }
 
         WalletID generateWalletIDFromIndex(IPrivateKeyKeeper::Ptr keyKeeper, uint64_t ownID)

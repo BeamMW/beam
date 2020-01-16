@@ -393,7 +393,7 @@ namespace beam::wallet
 
             if (!initial)
             {
-                if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation2, kernelParameters.paymentProofSignature, m_SubTxID)) //
+                if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation2, kernelParameters.paymentProofSignature, m_SubTxID)) 
                 {
                     if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, kernelParameters.peerID)
                         || !m_Tx.GetParameter(TxParameterID::MySecureWalletID, kernelParameters.myID))
