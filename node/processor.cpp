@@ -1882,9 +1882,13 @@ struct NodeProcessor::BlockInterpretCtx
 		:public boost::intrusive::set_base_hook<>
 	{
 		uint32_t m_Size;
-#pragma warning (disable: 4200) // 0-sized array
+#ifdef _MSC_VER
+#	pragma warning (disable: 4200) // 0-sized array
+#endif // _MSC_VER
 		uint8_t m_pBuf[0]; // var size
-#pragma warning (default: 4200)
+#ifdef _MSC_VER
+#	pragma warning (default: 4200)
+#endif // _MSC_VER
 
 		Blob ToBlob() const
 		{
