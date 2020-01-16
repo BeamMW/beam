@@ -510,7 +510,7 @@ namespace
                         .SetParameter(TxParameterID::Amount, data.value)
                         .SetParameter(TxParameterID::Fee, data.fee)
                         .SetParameter(TxParameterID::PreselectedCoins, coins)
-                        .SetParameter(TxParameterID::AssetIdx, data.index));
+                        .SetParameter(TxParameterID::AssetOwnerIdx, data.index));
 
                     doResponse(id, Issue::Response{ txId });
                 }

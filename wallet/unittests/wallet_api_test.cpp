@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <iostream>
+#include <core/block_crypt.h>
 
 #include "test_helpers.h"
 
@@ -798,6 +799,11 @@ int main()
             "address" : "wagagel"
         }
     }));
+
+    //
+    // EXPLICITLY ENABLE Confidential assets to perform tests
+    //
+    Rules::get().CA.Enabled = true;
 
     // Invalid asset index
     testInvalidIssueJsonRpc(JSON_CODE(
