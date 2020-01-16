@@ -33,7 +33,7 @@
 
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
-#include "wallet/transactions/assets/aissue_transaction.h"
+#include "wallet/transactions/assets/assets_register.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
@@ -2124,15 +2124,6 @@ namespace
     }
 #endif  // BEAM_LASER_SUPPORT
 
-    void RegisterAssetCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
-    {
-        auto crIssue = std::make_shared<AssetIssueTransaction::Creator>(true);
-        wallet.RegisterTransactionType(TxType::AssetIssue, std::static_pointer_cast<BaseTransaction::Creator>(crIssue));
-
-        auto crConsume = std::make_shared<AssetIssueTransaction::Creator>(false);
-        wallet.RegisterTransactionType(TxType::AssetConsume, std::static_pointer_cast<BaseTransaction::Creator>(crConsume));
-    }
-
     TxID IssueConsumeAsset(bool issue, const po::variables_map& vm, Wallet& wallet)
     {
         if(!vm.count(cli::ASSET_INDEX))
@@ -2160,12 +2151,11 @@ namespace
             throw std::runtime_error(kErrorFeeToLow);
         }
 
-        auto params = CreateTransactionParameters(issue ? TxType::AssetIssue : TxType::AssetConsume, GenerateTxID())
+        auto params = CreateTransactionParameters(issue ? TxType::AssetIssue : TxType::AssetConsume)
                         .SetParameter(TxParameterID::Amount, amount)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
-                        .SetParameter(TxParameterID::AssetIdx, Key::Index(aidx))
-                        .SetParameter(TxParameterID::MyID, WalletID(Zero));
+                        .SetParameter(TxParameterID::AssetIdx, Key::Index(aidx));
 
         return wallet.StartTransaction(params);
     }
@@ -2622,7 +2612,7 @@ int main_impl(int argc, char* argv[])
                         wallet::AsyncContextHolder holder(wallet);
 
                         TryToRegisterSwapTxCreators(wallet, walletDB);
-                        RegisterAssetCreators(wallet, walletDB);
+                        RegisterAssetCreators(wallet);
                         wallet.ResumeAllTransactions();
 
                         if (!coldWallet)

@@ -38,8 +38,9 @@ namespace beam::wallet
         return txID;
     }
 
-    TxParameters CreateTransactionParameters(TxType type, const TxID& txID)
+    TxParameters CreateTransactionParameters(TxType type, const boost::optional<TxID>& oTxId)
     {
+        const auto txID = oTxId ? *oTxId : GenerateTxID();
         return TxParameters(txID)
             .SetParameter(TxParameterID::TransactionType, type)
             .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)

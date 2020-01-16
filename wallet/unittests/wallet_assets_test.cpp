@@ -115,7 +115,7 @@ void TestAssets() {
     helpers::StopWatch sw;
     sw.start();
 
-    auto issueTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetIssue, GenerateTxID())
+    auto issueTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetIssue)
                 .SetParameter(TxParameterID::Amount,   issueAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
                 .SetParameter(TxParameterID::AssetIdx, Key::Index(assetIdx))
@@ -168,7 +168,7 @@ void TestAssets() {
     LOG_INFO() << "\nTesting assets consume...";
 
     sw.start();
-    const auto consumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume, GenerateTxID())
+    const auto consumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
                 .SetParameter(TxParameterID::Amount,   consumeAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
                 .SetParameter(TxParameterID::AssetIdx, Key::Index(assetIdx))
@@ -341,7 +341,7 @@ void TestAssets() {
     const auto srBeamChange    = 0;
 
     sw.start();
-    const auto srConsumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume, GenerateTxID())
+    const auto srConsumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
                 .SetParameter(TxParameterID::Amount,   srConsumeAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
                 .SetParameter(TxParameterID::AssetIdx, Key::Index(assetIdx))
@@ -537,7 +537,7 @@ void TestAssets() {
     const auto nonOwnedBeamChange    = 0;
 
     sw.start();
-    const auto nonOwnedConsumeTxId = receiver.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume, GenerateTxID())
+    const auto nonOwnedConsumeTxId = receiver.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
                 .SetParameter(TxParameterID::Amount,   nonOwnedConsumeAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
                 .SetParameter(TxParameterID::AssetIdx, Key::Index(assetIdx))
@@ -647,7 +647,7 @@ void TestAssets() {
     const auto recvBeamChange    = 0;
 
     sw.start();
-    const auto recvConsumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume, GenerateTxID())
+    const auto recvConsumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
                 .SetParameter(TxParameterID::Amount,   recvConsumeAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
                 .SetParameter(TxParameterID::AssetIdx, Key::Index(assetIdx))

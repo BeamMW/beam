@@ -21,6 +21,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <map>
+#include <core/block_crypt.h>
 
 #include "utility/cli/options.h"
 #include "utility/helpers.h"
@@ -464,6 +465,54 @@ namespace
                         .SetParameter(TxParameterID::Message, message));
 
                     doResponse(id, Send::Response{ txId });
+                }
+                catch(...)
+                {
+                    doError(id, ApiError::InternalErrorJsonRpc, "Transaction could not be created. Please look at logs.");
+                }
+            }
+
+            void onMessage(const JsonRpcId& id, const Issue& data) override
+            {
+                LOG_DEBUG() << "Issue(id = " << id << " amount = " << data.value << " fee = " << data.fee;
+
+                try
+                {
+                    CoinIDList coins;
+
+                    if (data.session)
+                    {
+                        if((coins = _walletDB->getLockedCoins(*data.session)).empty())
+                        {
+                            doError(id, ApiError::InternalErrorJsonRpc, "Requested session is empty.");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        coins = data.coins ? *data.coins : CoinIDList();
+                    }
+
+                    auto minimumFee = std::max(wallet::GetMinimumFee(2), DefaultFee);
+                    if (data.fee < minimumFee)
+                    {
+                        doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
+                        return;
+                    }
+
+                    if (data.txId && _walletDB->getTx(*data.txId))
+                    {
+                        doTxAlreadyExistsError(id);
+                        return;
+                    }
+
+                    const auto txId = _wallet.StartTransaction(CreateTransactionParameters(TxType::AssetIssue, data.txId)
+                        .SetParameter(TxParameterID::Amount, data.value)
+                        .SetParameter(TxParameterID::Fee, data.fee)
+                        .SetParameter(TxParameterID::PreselectedCoins, coins)
+                        .SetParameter(TxParameterID::AssetIdx, data.index));
+
+                    doResponse(id, Issue::Response{ txId });
                 }
                 catch(...)
                 {
