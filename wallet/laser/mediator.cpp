@@ -229,6 +229,11 @@ void Mediator::WaitIncoming(Amount aMy, Amount fee, Height locktime)
     LOG_DEBUG() << "LASER WAIT IN subscribed: " << ch;
 }
 
+WalletID Mediator::getWaitingWalletID() const
+{
+    return m_myInAddr.m_walletID;
+}
+
 bool Mediator::Serve(const std::vector<std::string>& channelIDsStr)
 {
     uint64_t count = 0;

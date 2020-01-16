@@ -60,6 +60,8 @@ public:
     void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
 
     void WaitIncoming(Amount aMy, Amount fee, Height locktime);
+    WalletID getWaitingWalletID() const;
+    
     void OpenChannel(Amount aMy,
                      Amount aTrg,
                      Amount fee,
