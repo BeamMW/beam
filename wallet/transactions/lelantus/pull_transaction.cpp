@@ -53,4 +53,4 @@ namespace beam::wallet::lelantus
     {
 
     }
-}
+} // namespace beam::wallet::lelantus

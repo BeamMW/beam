@@ -46,4 +46,4 @@ namespace beam::wallet::lelantus
         bool IsInSafety() const override;
         void UpdateImpl() override;
     };
-}
+} // namespace beam::wallet::lelantus

@@ -18,6 +18,8 @@
 
 namespace beam::wallet::lelantus
 {
+    class PushTxBuilder;
+
     class PushTransaction : public BaseTransaction
     {
     public:
@@ -45,5 +47,8 @@ namespace beam::wallet::lelantus
         TxType GetType() const override;
         bool IsInSafety() const override;
         void UpdateImpl() override;
+
+    private:
+        std::shared_ptr<PushTxBuilder> m_TxBuilder;
     };
-}
+} // namespace beam::wallet::lelantus

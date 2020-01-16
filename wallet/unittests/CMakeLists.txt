@@ -19,7 +19,7 @@ if (BEAM_ATOMIC_SWAP_SUPPORT)
 endif()
 
 if (BEAM_LELANTUS_SUPPORT)
-    add_test_snippet(lelantus_test lelantus wallet)
+    add_test_snippet(lelantus_test lelantus wallet node)
 endif()
 
 

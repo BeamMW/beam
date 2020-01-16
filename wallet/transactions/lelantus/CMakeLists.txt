@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.13)
 set(LELANTUS_SRC
     push_transaction.cpp
     pull_transaction.cpp
+    push_tx_builder.cpp
 )
 
 add_library(lelantus STATIC ${LELANTUS_SRC})
