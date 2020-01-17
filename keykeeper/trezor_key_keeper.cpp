@@ -37,7 +37,7 @@ namespace beam::wallet
 
     }
 
-    Key::IKdf::Ptr TrezorKeyKeeper::get_SbbsKdf()
+    Key::IKdf::Ptr TrezorKeyKeeper::get_SbbsKdf() const
     {
         // !TODO: temporary solution to init SBBS KDF with commitment
         // also, we could store SBBS Kdf in the WalletDB

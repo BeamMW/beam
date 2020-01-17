@@ -76,7 +76,7 @@ namespace beam::wallet
                                  , const KernelParameters& kernelParamerters
                                  , bool initial) override;
 
-        Key::IKdf::Ptr get_SbbsKdf() override;
+        Key::IKdf::Ptr get_SbbsKdf() const override;
 
         void subscribe(Handler::Ptr handler) override {}
 

@@ -56,7 +56,7 @@ struct KeyKeeper
         _impl = std::make_shared<LocalPrivateKeyKeeper>(vars, _kdf);
     }
 
-    std::string GeneratePublicKey(const std::string& kidv, bool createCoinKey) const
+    std::string GeneratePublicKey(const std::string& kidv) const
     {
 #if defined(PRINT_TEST_DATA)
         {
@@ -67,15 +67,21 @@ struct KeyKeeper
         }
 #endif
 
-        if (createCoinKey)
+        return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::Key::IDV>(kidv)));
+    }
+
+    std::string GenerateCoinKey(const std::string& kidv, beam::AssetID assetID) const
+    {
+#if defined(PRINT_TEST_DATA)
         {
-            // TODO:ASSETS implement non-zero ID for assets
-            return to_base64(_impl->GenerateCoinKeySync(from_base64<ECC::Key::IDV>(kidv), Zero));
+            std::cout
+                << "ECC::Key::IDV(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0) -> data:application/octet-stream;base64,"
+                << to_base64(ECC::Key::IDV(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0))
+                << std::endl;
         }
-        else
-        {
-            return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::Key::IDV>(kidv)));
-        }
+#endif
+
+        return to_base64(_impl->GenerateCoinKeySync(from_base64<ECC::Key::IDV>(kidv), assetID));
     }
 
     std::string GetOwnerKey(const std::string& pass) const
@@ -273,6 +279,7 @@ EMSCRIPTEN_BINDINGS()
     class_<KeyKeeper>("KeyKeeper")
         .constructor<const std::string&>()
         .function("generatePublicKey",      &KeyKeeper::GeneratePublicKey)
+        .function("generateCoinKey",        &KeyKeeper::GenerateCoinKey)
         .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
         .function("allocateNonceSlot",      &KeyKeeper::AllocateNonceSlotSync)
         .function("generateNonce",          &KeyKeeper::GenerateNonce)

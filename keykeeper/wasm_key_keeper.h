@@ -16,6 +16,7 @@
 
 #include "core/block_rw.h"
 #include "3rdparty/utilstrencodings.h"
+#include "wallet/core/private_key_keeper.h"
 
 namespace beam::wallet
 {
@@ -38,13 +39,7 @@ namespace beam::wallet
         ByteBuffer buffer;
         {
             Serializer s;
-            s   
-                & obj.height.m_Min
-                & obj.height.m_Max
-                & obj.fee
-                & obj.commitment
-                & obj.lockImage
-                & obj.hashLock;
+            s& obj;
             s.swap_buf(buffer);
         }
 
@@ -77,13 +72,7 @@ namespace beam::wallet
             Deserializer d;
             d.reset(data.data(), data.size());
 
-            d   
-                & obj.height.m_Min
-                & obj.height.m_Max
-                & obj.fee
-                & obj.commitment
-                & obj.lockImage
-                & obj.hashLock;
+            d& obj;
         }
 
         return obj;

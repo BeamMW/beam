@@ -31,8 +31,9 @@
 
 #include "p2p/line_protocol.h"
 
-#include "wallet/wallet_db.h"
-#include "wallet/wallet_network.h"
+#include "wallet/core/wallet_db.h"
+#include "wallet/core/wallet_network.h"
+#include "wallet/core/simple_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
 
 #include <boost/beast/core.hpp>
@@ -1013,12 +1014,12 @@ namespace
             {}
             virtual ~WasmKeyKeeperProxy(){}
 
-            Key::IKdf::Ptr get_SbbsKdf() override
+            Key::IKdf::Ptr get_SbbsKdf() const override
             {
                 if (!_sbbsKdf)
                 {
                     // !TODO: temporary solution to init SBBS KDF with commitment
-                    auto pk = GeneratePublicKeySync(ECC::Key::IDV(0, 0, Key::Type::Regular), true);
+                    auto pk = GenerateCoinKeySyncConst(ECC::Key::IDV(0, 0, Key::Type::Regular), 0);
 
                     ECC::HKdf::Create(_sbbsKdf, pk.m_X);
                 }
@@ -1037,6 +1038,11 @@ namespace
                 assert(!"not implemented.");
             }
 
+            void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID assetID, Callback<PublicKeysEx>&&, ExceptionCallback&&) override
+            {
+                assert(!"not implemented.");
+            }
+
             void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override
             {
                 using namespace std;
@@ -1045,7 +1051,33 @@ namespace
                 resultCallback(GenerateOutputsSync(schemeHeight, ids));
             }
 
-            size_t AllocateNonceSlot() override
+            void GenerateOutputsEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID assetId, Callback<OutputsEx>&&, ExceptionCallback&&) override
+            {
+                assert(!"not implemented.");
+            }
+
+            void SignReceiver(const std::vector<Key::IDV>& inputs
+                , const std::vector<Key::IDV>& outputs
+                , AssetID assetId
+                , const KernelParameters& kernelParamerters
+                , const WalletIDKey& walletIDkey
+                , Callback<ReceiverSignature>&&, ExceptionCallback&&) override
+            {
+                assert(!"not implemented.");
+            }
+
+            void SignSender(const std::vector<Key::IDV>& inputs
+                , const std::vector<Key::IDV>& outputs
+                , AssetID assetId
+                , size_t nonceSlot
+                , const KernelParameters& kernelParamerters
+                , bool initial
+                , Callback<SenderSignature>&&, ExceptionCallback&&) override
+            {
+                assert(!"not implemented.");
+            }
+
+            size_t AllocateNonceSlotSync() override
             {
                 json msg = 
                 {
@@ -1073,13 +1105,44 @@ namespace
                 for (const auto& idv : ids)
                 {
                     ECC::Point& publicKey = result.emplace_back();
-                    publicKey = GeneratePublicKeySync(idv, createCoinKey);
+                    if (createCoinKey)
+                    {
+                        publicKey = GenerateCoinKeySync(idv, 0);
+                    }
+                    else
+                    {
+                        publicKey = GeneratePublicKeySync(idv);
+                    }
                 }
 
                 return result;
             }
 
-            ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override
+            PublicKeysEx GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID assetID) override
+            {
+                // !TODO: must be implemented as separate method, too many websocket calls
+
+                PublicKeysEx result;
+               /* result.reserve(ids.size());
+
+                for (const auto& idv : ids)
+                {
+                    ECC::Point& publicKey = result.emplace_back();
+                    if (createCoinKey)
+                    {
+                        publicKey = GenerateCoinKeySync(idv, assetID);
+                    }
+                    else
+                    {
+                        publicKey = GeneratePublicKeySync(idv);
+                    }
+                }*/
+
+                assert(!"not implemented.");
+                return result;
+            }
+
+            ECC::Point GeneratePublicKeySync(const Key::IDV& id) override
             {
                 json msg = 
                 {
@@ -1088,8 +1151,7 @@ namespace
                     {"method", "generate_key"},
                     {"params", 
                     {
-                        {"id", to_base64(id)},
-                        {"create_coin_key", createCoinKey}
+                        {"id", to_base64(id)}
                     }}
                 };
 
@@ -1099,6 +1161,36 @@ namespace
                 {
                     pk = from_base64<ECC::Point>(msg["result"]);
                 });
+
+                return pk;
+            }
+
+            ECC::Point GenerateCoinKeySync(const Key::IDV& id, beam::AssetID assetID) override
+            {
+                return GenerateCoinKeySyncConst(id, assetID);
+            }
+
+            // HACK
+            ECC::Point GenerateCoinKeySyncConst(const Key::IDV& id, beam::AssetID assetID) const
+            {
+                json msg =
+                {
+                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {"id", 0},
+                    {"method", "generate_key"},
+                    {"params",
+                    {
+                        {"id", to_base64(id)},
+                        {"asset_id", assetID}
+                    }}
+                };
+
+                ECC::Point pk;
+
+                _s.call_keykeeper_method(msg, [&pk](const json& msg)
+                    {
+                        pk = from_base64<ECC::Point>(msg["result"]);
+                    });
 
                 return pk;
             }
@@ -1135,6 +1227,12 @@ namespace
                 return outputs;
             }
 
+            OutputsEx GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID assetId) override
+            {
+                assert(!"not implemented.");
+                return {};
+            }
+
             ECC::Point GenerateNonceSync(size_t slot) override
             {
                 json msg = 
@@ -1158,7 +1256,7 @@ namespace
                 return nonce;
             }
 
-            ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offsetNative, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonceNative) override
+            ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetID, const ECC::Scalar::Native& offsetNative, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonceNative) override
             {
                 ECC::Scalar offset;
                 offsetNative.Export(offset);
@@ -1192,8 +1290,40 @@ namespace
                 return sign;
             }
 
+            ReceiverSignature SignReceiverSync(const std::vector<Key::IDV>& inputs
+                , const std::vector<Key::IDV>& outputs
+                , AssetID assetId
+                , const KernelParameters& kernelParamerters
+                , const WalletIDKey& walletIDkey) override
+            {
+                assert(!"not implemented.");
+                return ReceiverSignature{};
+            }
+            SenderSignature SignSenderSync(const std::vector<Key::IDV>& inputs
+                , const std::vector<Key::IDV>& outputs
+                , AssetID assetId
+                , size_t nonceSlot
+                , const KernelParameters& kernelParamerters
+                , bool initial) override
+            {
+                assert(!"not implemented.");
+                return {};
+            }
+
+            ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx) override
+            {
+                assert(!"not implemented.");
+                return {};
+            }
+
+            PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override
+            {
+                assert(!"not implemented.");
+                return {};
+            }
+
         private:
-            Key::IKdf::Ptr _sbbsKdf;
+            mutable Key::IKdf::Ptr _sbbsKdf;
         };
         
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
@@ -1630,7 +1760,8 @@ namespace
                     response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
                 }
 
-                storage::Totals totals(*_walletDB);
+                storage::Totals allTotals(*_walletDB);
+                const auto& totals = allTotals.GetTotals(Zero);
 
                 response.available = totals.Avail;
                 response.receiving = totals.Incoming;
@@ -1836,7 +1967,6 @@ namespace
             public ApiConnectionHandler
         {
             websocket::stream<tcp::socket> ws_;
-            boost::asio::strand<boost::asio::io_context::executor_type> strand_;
             boost::beast::multi_buffer buffer_;
             io::Timer::Ptr _readTimer;
             bool systemIsBusy = false;
@@ -1847,7 +1977,6 @@ namespace
             session(tcp::socket socket, io::Reactor::Ptr reactor)
                 : ApiConnection(this, reactor, *this)
                 , ws_(std::move(socket))
-                , strand_(ws_.get_executor())
                 , _readTimer(io::Timer::create(*reactor))
             {
                 
@@ -1865,7 +1994,7 @@ namespace
                 // Accept the websocket handshake
                 ws_.async_accept(
                     boost::asio::bind_executor(
-                        strand_,
+                        ws_.get_executor(),
                         std::bind(
                             &session::on_accept,
                             shared_from_this(),
@@ -1896,7 +2025,7 @@ namespace
                 ws_.async_read(
                     buffer_,
                     boost::asio::bind_executor(
-                        strand_,
+                        ws_.get_executor(),
                         std::bind(
                             &session::on_read,
                             shared_from_this(),
@@ -1939,7 +2068,7 @@ namespace
                 ws_.async_write(
                     boost::asio::buffer(contents),//buffer_.data(),
                     boost::asio::bind_executor(
-                        strand_,
+                        ws_.get_executor(),
                         std::bind(
                             &session::on_write,
                             shared_from_this(),
@@ -1971,7 +2100,7 @@ namespace
                 ws_.async_write(
                     boost::asio::buffer(contents),
                     boost::asio::bind_executor(
-                        strand_,
+                        ws_.get_executor(),
                         std::bind(
                             &session::on_keykeeper_write,
                             shared_from_this(),

@@ -31,7 +31,7 @@ namespace beam::wallet
             DeviceNotConnected() : std::runtime_error("") {}
         };
 
-        Key::IKdf::Ptr get_SbbsKdf() override;
+        Key::IKdf::Ptr get_SbbsKdf() const override;
         void subscribe(Handler::Ptr handler) override;
 
     private:
@@ -56,7 +56,7 @@ namespace beam::wallet
 
     private:
         beam::HWWallet m_hwWallet;
-        Key::IKdf::Ptr m_sbbsKdf;
+        mutable Key::IKdf::Ptr m_sbbsKdf;
 
         size_t m_latestSlot;
 

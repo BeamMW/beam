@@ -16,7 +16,7 @@
 
 #include <boost/optional.hpp>
 
-#include "wallet/wallet.h"
+#include "wallet/core/wallet.h"
 #include "nlohmann/json.hpp"
 
 namespace beam::wallet

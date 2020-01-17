@@ -15,7 +15,7 @@
             var keykeeper = new Module.KeyKeeper(phrase);
 
             {
-                var pk = keykeeper.generatePublicKey("j25vcm2HA5SIAQ==", true);
+                var pk = keykeeper.generateCoinKey("j25vcm2HA5SIAQ==", 0);
 
                 console.log('public key is: data:application/octet-stream;base64,' + pk)
                 console.log('ownerKey is: data:application/octet-stream;base64,' + keykeeper.getOwnerKey('123'));

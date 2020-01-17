@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 	<title>Beam Wallet Client</title>
@@ -490,7 +490,8 @@
 				
 				var handlers = 
 				{
-					generate_key: 			() => sendKeykeeperResult(data.id, keykeeper.generatePublicKey(data.params.id, data.params.create_coin_key)),
+					generate_key: 			() => sendKeykeeperResult(data.id, keykeeper.generatePublicKey(data.params.id)),
+					generate_coin_key:		() => sendKeykeeperResult(data.id, keykeeper.generateCoinKey(data.params.id, data.params.asset_id)),
 					allocate_nonce_slot: 	() => sendKeykeeperResult(data.id, keykeeper.allocateNonceSlot()),
 					generate_output: 		() => sendKeykeeperResult(data.id, keykeeper.generateOutput(data.params.scheme, data.params.id)),
 					generate_nonce: 		() => sendKeykeeperResult(data.id, keykeeper.generateNonce(data.params.slot)),

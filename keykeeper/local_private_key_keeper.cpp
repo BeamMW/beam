@@ -472,7 +472,7 @@ namespace beam::wallet
         return res;
     }
 
-    Key::IKdf::Ptr LocalPrivateKeyKeeper::get_SbbsKdf()
+    Key::IKdf::Ptr LocalPrivateKeyKeeper::get_SbbsKdf() const
     {
         return m_MasterKdf;
     }
