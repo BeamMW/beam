@@ -336,6 +336,11 @@ namespace beam::wallet
         return m_TxID < x.m_TxID;
     }
 
+    bool Wallet::MyRequestShieldedList::operator < (const MyRequestShieldedList& x) const
+    {
+        return false;
+    }
+
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
         uint32_t n = get_ParentObj().SyncRemains();
@@ -413,6 +418,21 @@ namespace beam::wallet
         for (auto& endpoint : m_MessageEndpoints)
         {
             endpoint->Send(peerID, msg);
+        }
+    }
+
+    // Implementation of the INegotiatorGateway::get_shielded_list
+    void Wallet::get_shielded_list(TxoID startIndex, uint32_t count, ShieldedListCallback&& callback)
+    {
+        MyRequestShieldedList::Ptr pVal(new MyRequestShieldedList);
+        pVal->m_callback = callback;
+
+        pVal->m_Msg.m_Id0 = startIndex;
+        pVal->m_Msg.m_Count = count;
+
+        if (PostReqUnique(*pVal))
+        {
+            LOG_INFO() << " Get shielded list, start_index = " << startIndex << ", count = " << count;
         }
     }
 
@@ -589,7 +609,7 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestShieldedList& r)
     {
-        // TODO(alex.starun): implement this
+        r.m_callback(r.m_Msg.m_Id0, r.m_Msg.m_Count, r.m_Res.m_Items);
     }
 
     void Wallet::OnRequestComplete(MyRequestProofShieldedInp& r)
