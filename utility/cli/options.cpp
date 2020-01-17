@@ -242,14 +242,14 @@ namespace beam
         const char* LASER_WAIT = "laser_receive";
         const char* LASER_SERVE = "laser_listen";
         const char* LASER_LIST = "laser_channels_list";
-        const char* LASER_CLOSE = "laser_drop";
+        const char* LASER_DROP = "laser_drop";
         const char* LASER_DELETE = "laser_delete";
         const char* LASER_AMOUNT_MY = "laser_my_locked_amount";
         const char* LASER_AMOUNT_TARGET = "laser_remote_locked_amount";
         const char* LASER_TARGET_ADDR = "laser_address";
         const char* LASER_FEE = "laser_fee";
         const char* LASER_LOCK_TIME = "laser_lock_time";
-        const char* LASER_CHANNEL_ID = "laser_channels";
+        const char* LASER_CHANNEL_ID = "laser_channel";
         const char* LASER_ALL = "all,a";
         const char* LASER_CLOSE_GRACEFUL = "laser_close";
 #endif  // BEAM_LASER_SUPPORT
@@ -426,13 +426,13 @@ namespace beam
 #ifdef BEAM_LASER_SUPPORT
         po::options_description lazer_options("Lightning options");
         lazer_options.add_options()
+            (cli::LASER_LIST, "view all opened lightning channel")
+            (cli::LASER_WAIT, "wait for open incomming lightning channel")
             (cli::LASER_OPEN, "open lightning channel")
             (cli::LASER_TRANSFER, "send to lightning channel")
-            (cli::LASER_WAIT, "wait for open incomming lightning channel")
-            (cli::LASER_LIST, "view all opened lightning channel")
-            (cli::LASER_SERVE, po::value<string>()->implicit_value("all"), "listen lightning channels --serve [chID1, ..., chIDN]")
-            (cli::LASER_CLOSE, po::value<string>()->implicit_value(""), ("close opened lightning channel --close <chID1, ..., chIDN> [" + std::string(cli::LASER_ALL) + "]").c_str())
-            (cli::LASER_DELETE, po::value<string>(), "delete laser channel --delete <chID1, ..., chIDN>")
+            (cli::LASER_SERVE, po::value<string>()->implicit_value("all"), "listen lightning channels --laser_listen [chID1, ..., chIDN]")
+            (cli::LASER_DROP, po::value<string>()->implicit_value(""), ("drop opened lightning channel --laser_drop <chID1, ..., chIDN> [" + std::string(cli::LASER_ALL) + "]").c_str())
+            (cli::LASER_DELETE, po::value<string>(), "delete laser channel --laser_delete <chID1, ..., chIDN>")
             (cli::LASER_AMOUNT_MY, po::value<Positive<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_AMOUNT_TARGET, po::value<Positive<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_TARGET_ADDR, po::value<string>(), "address of laser receiver")

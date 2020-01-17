@@ -500,7 +500,7 @@ void Channel::Subscribe()
     BbsChannel ch;
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, m_bbsTimestamp, m_upReceiver.get());
-    LOG_INFO() << "beam::wallet::laser::Channel subscribed: " << ch;
+    LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " subscribes to BBS channel: " << ch;
 }
 
 void Channel::Unsubscribe()
@@ -508,7 +508,8 @@ void Channel::Unsubscribe()
     BbsChannel ch;
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, 0, nullptr);
-    LOG_INFO() << "beam::wallet::laser::Channel unsubscribed: " << ch;
+    LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " unsubscribed from BBS channel: " << ch;
+    
 }
 
 bool Channel::TransferInternal(

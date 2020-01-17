@@ -1746,6 +1746,7 @@ namespace
         Action onClosed = Action();
         Action onUpdateStarted = Action();
         Action onUpdateFinished = Action();
+        Action onCloseFailed = Action();
 
         void OnOpened(const laser::ChannelIDPtr& chID) override
         {
@@ -1758,6 +1759,10 @@ namespace
         void OnClosed(const laser::ChannelIDPtr& chID) override
         {
             if (onClosed) onClosed(chID);
+        }
+        void OnCloseFailed(const laser::ChannelIDPtr& chID) override
+        {
+            if (onCloseFailed) onCloseFailed(chID);
         }
         void OnUpdateStarted(const laser::ChannelIDPtr& chID) override
         {
@@ -1774,9 +1779,10 @@ namespace
                          Amount* aTrg,
                          Amount* fee,
                          WalletID* receiverWalletID,
-                         Height* locktime)
+                         Height* locktime,
+                         bool skipReceiverWalletID = false)
     {
-        if (!vm.count(cli::LASER_TARGET_ADDR))
+        if (!skipReceiverWalletID && !vm.count(cli::LASER_TARGET_ADDR))
         {
             LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
@@ -1784,7 +1790,13 @@ namespace
 
         if (!vm.count(cli::LASER_AMOUNT_MY))
         {
-            LOG_ERROR() << kErrorAmountMissing;
+            LOG_ERROR() << kLaserErrorMyAmountMissing;
+            return false;
+        }
+
+        if (!vm.count(cli::LASER_AMOUNT_TARGET))
+        {
+            LOG_ERROR() << kLaserErrorTrgAmountMissing;
             return false;
         }
 
@@ -1793,17 +1805,19 @@ namespace
         auto myAmount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
         myAmount *= Rules::Coin;
         *aMy = static_cast<ECC::Amount>(std::round(myAmount));
-        if (*aMy == 0)
+        if (*aMy == 0)  // po::value<Positive<double>>()
         {
             LOG_ERROR() << kErrorZeroAmount;
             return false;
         }
 
-        if (vm.count(cli::LASER_AMOUNT_TARGET))
+        auto trgAmount = vm[cli::LASER_AMOUNT_TARGET].as<Positive<double>>().value;
+        trgAmount *= Rules::Coin;
+        *aTrg = static_cast<ECC::Amount>(std::round(trgAmount));
+        if (*aTrg == 0)  // po::value<Positive<double>>()
         {
-            auto trgAmount = vm[cli::LASER_AMOUNT_TARGET].as<Positive<double>>().value;
-            trgAmount *= Rules::Coin;
-            *aTrg = static_cast<ECC::Amount>(std::round(trgAmount));
+            LOG_ERROR() << kErrorZeroAmount;
+            return false;
         }
 
         if (vm.count(cli::LASER_FEE))
@@ -1899,34 +1913,19 @@ namespace
     bool LaserWait(const unique_ptr<laser::Mediator>& laser,
                    const po::variables_map& vm)
     {
-        Amount fee = cli::kMinimumFee, amountMy = 0;
-        if (vm.count(cli::LASER_AMOUNT_MY))
-        {
-            auto amount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
-            amount *= Rules::Coin;
-            amountMy = static_cast<ECC::Amount>(std::round(amount));
-        }
-        else
-        {
-            LOG_INFO() << kLaserAmountZero;
-        }
-        if (vm.count(cli::LASER_FEE))
-        {
-            fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
-            if (fee < cli::kMinimumFee)
-            {
-                LOG_ERROR() << kErrorFeeToLow;
-                return false;
-            }
-        }
-
+        io::Address receiverAddr;
+        Amount aMy = 0, aTrg = 0, fee = cli::kMinimumFee;
+        WalletID receiverWalletID(Zero);
         Height locktime = kDefaultTxLifetime;
-        if (vm.count(cli::LASER_LOCK_TIME))
+
+        if (!LoadLaserParams(
+                vm, &aMy, &aTrg, &fee, &receiverWalletID, &locktime, true))
         {
-            locktime = vm[cli::LASER_LOCK_TIME].as<Positive<uint32_t>>().value;
+            LOG_ERROR() << kLaserErrorParamsRead;
+            return false;
         }
 
-        laser->WaitIncoming(amountMy, fee, locktime);
+        laser->WaitIncoming(aMy, aTrg, fee, locktime);
         return true;
     }
 
@@ -1956,7 +1955,7 @@ namespace
             return false;
         }
 
-        bool gracefulClose = vm.count(cli::LASER_CLOSE_GRACEFUL) != 0;
+        // bool gracefulClose = vm.count(cli::LASER_CLOSE_GRACEFUL) != 0;
 
         auto myAmount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
         myAmount *= Rules::Coin;
@@ -1969,7 +1968,7 @@ namespace
 
         auto chIdStr = vm[cli::LASER_CHANNEL_ID].as<string>();
 
-        return laser->Transfer(amount, chIdStr, gracefulClose);  
+        return laser->Transfer(amount, chIdStr, false);  
     }
 
     void LaserShowChannels(const IWalletDB::Ptr& walletDB)
@@ -2001,11 +2000,11 @@ namespace
         }
     }
 
-    bool LaserClose(const unique_ptr<laser::Mediator>& laser,
-                    const IWalletDB::Ptr& walletDB,
-                    const po::variables_map& vm)
+    bool LaserDrop(const unique_ptr<laser::Mediator>& laser,
+                   const IWalletDB::Ptr& walletDB,
+                   const po::variables_map& vm)
     {
-        auto chIDsStr = vm[cli::LASER_CLOSE].as<string>();
+        auto chIDsStr = vm[cli::LASER_DROP].as<string>();
         bool loadAll = vm.count(cli::LASER_ALL);
         auto channelIDsStr = LoadLaserChannelsIds(walletDB, chIDsStr, loadAll);
 
@@ -2013,6 +2012,12 @@ namespace
         {
             return laser->Close(channelIDsStr);
         }
+        return false;
+    }
+
+    bool LaserClose()
+    {
+        LOG_ERROR() << "LaserClose not implemented";
         return false;
     }
 
@@ -2091,9 +2096,15 @@ namespace
             };
             return LaserTransfer(laser, vm);
         }
-        else if (vm.count(cli::LASER_CLOSE))
+        else if (vm.count(cli::LASER_DROP))
         {
-            return LaserClose(laser, walletDB, vm);
+            observer->onCloseFailed = [walletDB] (
+                    const laser::ChannelIDPtr& chID) {
+                io::Reactor::get_Current().stop();
+                LOG_ERROR() << boost::format(kLaserMessageCloseFailed)
+                            % to_hex(chID->m_pData, chID->nBytes);
+            };
+            return LaserDrop(laser, walletDB, vm);
         }
         else if (vm.count(cli::LASER_DELETE))
         {
