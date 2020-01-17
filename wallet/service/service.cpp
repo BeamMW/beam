@@ -2130,7 +2130,7 @@ namespace
                 {
                     std::ostringstream os;
 
-# if (BOOST_VERSION/100 % 1000) >= 71
+# if (BOOST_VERSION/100 % 1000) >= 70
                     os << boost::beast::make_printable(buffer_.data());
 # else
                     os << boost::beast::buffers(buffer_.data());
