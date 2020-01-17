@@ -605,6 +605,7 @@ namespace beam::wallet
     struct INegotiatorGateway : IAsyncContext
     {
         using ShieldedListCallback = std::function<void(TxoID, uint32_t, proto::ShieldedList&&)>;
+        using ProofShildedOutputCallback = std::function<void(proto::ProofShieldedOutp)>;
         virtual ~INegotiatorGateway() {}
         virtual void on_tx_completed(const TxID& ) = 0;
         virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
@@ -614,6 +615,7 @@ namespace beam::wallet
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
         virtual void send_tx_params(const WalletID& peerID, const SetTxParameter&) = 0;
         virtual void get_shielded_list(TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) = 0;
+        virtual void get_proof_shielded_output(ECC::Point serialPublic, ProofShildedOutputCallback&& callback) {};
         virtual void UpdateOnNextTip(const TxID&) = 0;
     };
 

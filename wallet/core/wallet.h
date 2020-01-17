@@ -154,6 +154,7 @@ namespace beam::wallet
         bool get_tip(Block::SystemState::Full& state) const override;
         void send_tx_params(const WalletID& peerID, const SetTxParameter&) override;
         void get_shielded_list(TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) override;
+        void get_proof_shielded_output(ECC::Point serialPublic, ProofShildedOutputCallback&& callback) override;
         void register_tx(const TxID& txId, Transaction::Ptr, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
 
@@ -247,6 +248,7 @@ namespace beam::wallet
             {
                 TxID m_TxID;
                 SubTxID m_SubTxID = kDefaultSubTxID;
+                ProofShildedOutputCallback m_callback;
             };
             struct ShieldedList
             {

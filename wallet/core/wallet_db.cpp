@@ -2058,6 +2058,24 @@ namespace beam::wallet
         }
     }
 
+    std::map<TxoID, TestShieldedCoin> WalletDB::getTestShieldedCoins() const
+    {
+        return m_ShieldedCoins;
+    }
+
+    void WalletDB::saveTestShieldedCoin(const TestShieldedCoin& shieldedCoin)
+    {
+        auto iter = m_ShieldedCoins.find(shieldedCoin.m_ID);
+        if (iter != m_ShieldedCoins.end())
+        {
+            iter->second = shieldedCoin;
+        }
+        else
+        {
+            m_ShieldedCoins.emplace(shieldedCoin.m_ID, shieldedCoin);
+        }
+    }
+
     vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const
     {
         // TODO this is temporary solution

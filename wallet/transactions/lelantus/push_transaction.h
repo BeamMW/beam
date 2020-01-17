@@ -37,6 +37,14 @@ namespace beam::wallet::lelantus
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
         };
 
+        struct TestShieldedCoinDetails
+        {
+            Amount m_Value;
+            ECC::Scalar::Native m_sk;
+            ECC::Scalar::Native m_skSpendKey;
+            ECC::Point m_SerialPub;
+        };
+
     public:
         PushTransaction(INegotiatorGateway& gateway
             , IWalletDB::Ptr walletDB
@@ -50,5 +58,7 @@ namespace beam::wallet::lelantus
 
     private:
         std::shared_ptr<PushTxBuilder> m_TxBuilder;
+        TestShieldedCoinDetails m_shieldedDetails;
+        bool m_waitingShieldedProof = true;
     };
 } // namespace beam::wallet::lelantus

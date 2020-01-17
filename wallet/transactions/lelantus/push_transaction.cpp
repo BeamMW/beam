@@ -90,7 +90,78 @@ namespace beam::wallet::lelantus
             // TODO check expired
 
             // Construct transaction
-            auto transaction = m_TxBuilder->CreateTransaction();
+            //auto transaction = m_TxBuilder->CreateTransaction();
+            auto transaction = std::make_shared<Transaction>();
+
+            {               
+                transaction->m_vInputs = GetMandatoryParameter<std::vector<Input::Ptr>>(TxParameterID::Inputs);
+                //transaction->m_Offset = m_Offset;
+                {
+                    ECC::Scalar::Native offset = Zero;
+
+                    for (auto id : m_TxBuilder->GetInputCoins())
+                    {
+                        ECC::Scalar::Native k;
+                        ECC::Point comm;
+                        SwitchCommitment().Create(k, comm, *GetWalletDB()->get_MasterKdf(), id);
+
+                        offset += k;
+                    }
+
+                    transaction->m_Offset = offset;
+                }
+
+                {
+                    TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
+                    pKrn->m_Height.m_Min = GetWalletDB()->getCurrentHeight();
+                    pKrn->m_Fee = m_TxBuilder->GetFee();
+
+                    ShieldedTxo::Viewer viewer;
+                    viewer.FromOwner(*GetWalletDB()->get_MasterKdf());
+
+                    ECC::uintBig serialNonce;
+                    ECC::GenRandom(serialNonce);
+                    ShieldedTxo::Data::SerialParams sp;
+                    sp.Generate(pKrn->m_Txo.m_Serial, viewer, serialNonce);
+
+                    pKrn->UpdateMsg();
+                    ECC::Oracle oracle;
+                    oracle << pKrn->m_Msg;
+
+                    ECC::uintBig outputNonce;
+                    ECC::GenRandom(outputNonce);
+                    ShieldedTxo::Data::OutputParams op;
+                    op.m_Sender = GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
+                    //op.m_Message = m_Shielded.m_Message;
+                    op.m_Value = m_TxBuilder->GetAmount();
+                    op.Generate(pKrn->m_Txo, oracle, viewer, outputNonce);
+
+                    pKrn->MsgToID();
+
+                    m_shieldedDetails.m_sk = sp.m_pK[0];
+                    m_shieldedDetails.m_sk += op.m_k;
+                    m_shieldedDetails.m_SerialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
+
+                    Key::IKdf::Ptr pSerPrivate;
+                    ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_WalletDB->get_MasterKdf());
+                    pSerPrivate->DeriveKey(m_shieldedDetails.m_skSpendKey, sp.m_SerialPreimage);
+
+                    //ECC::Point::Native pt;
+                    //pKrn->UpdateID();
+                    SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
+
+                    ECC::Point::Native pt;
+                    assert(pKrn->IsValid(GetWalletDB()->getCurrentHeight(), pt));
+
+                    transaction->m_vKernels.push_back(std::move(pKrn));
+
+                    ECC::Scalar::Native offset = transaction->m_Offset;
+                    offset -= op.m_k;
+                    transaction->m_Offset = offset;
+                }
+
+                transaction->Normalize();
+            }
 
             // Verify final transaction
             TxBase::Context::Params pars;
@@ -130,47 +201,30 @@ namespace beam::wallet::lelantus
             return;
         }
 
+        // getProofShieldedOutp
+        if (m_waitingShieldedProof)
+        {
+            GetGateway().get_proof_shielded_output(m_shieldedDetails.m_SerialPub, [this](proto::ProofShieldedOutp proof)
+                {
+                    if (m_waitingShieldedProof)
+                    {
+                        m_waitingShieldedProof = false;
+                        // save shielded output to DB
+                        wallet::TestShieldedCoin coin;
+                        coin.m_createTxId = GetTxID();
+                        coin.m_ID = proof.m_ID;
+                        coin.m_IsCreatedByViewer = false;
+                        coin.m_skSpendKey = m_shieldedDetails.m_skSpendKey;
+
+                        GetWalletDB()->saveTestShieldedCoin(coin);
+                    }
+                    UpdateAsync();
+                });
+            return;
+        }
+
         SetCompletedTxCoinStatuses(hProof);
 
         CompleteTx();
-
-        // create kernel
-        //{
-        //    TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
-        //    pKrn->m_Height.m_Min = m_WalletDB->getCurrentHeight();
-
-        //    ShieldedTxo::Viewer viewer;
-        //    viewer.FromOwner(*m_WalletDB->get_MasterKdf());
-
-        //    ShieldedTxo::Data::SerialParams sp;
-        //    sp.Generate(pKrn->m_Txo.m_Serial, viewer, 13U);
-
-        //    pKrn->UpdateMsg();
-        //    ECC::Oracle oracle;
-        //    oracle << pKrn->m_Msg;
-
-        //    ShieldedTxo::Data::OutputParams op;
-        //    op.m_Sender = GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
-        //    //op.m_Message = m_Shielded.m_Message;
-        //    op.m_Value = GetMandatoryParameter<Amount>(TxParameterID::Amount);
-        //    op.Generate(pKrn->m_Txo, oracle, viewer, 18U);
-
-        //    pKrn->MsgToID();
-
-        //    //m_Shielded.m_sk = sp.m_pK[0];
-        //    //m_Shielded.m_sk += op.m_k;
-        //    //m_Shielded.m_SerialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
-
-        //    /*Key::IKdf::Ptr pSerPrivate;
-        //    ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_WalletDB->get_MasterKdf());
-        //    pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sp.m_SerialPreimage);
-
-        //    ECC::Point::Native pt;*/
-
-        //    ECC::Point::Native pt;
-        //    assert(pKrn->IsValid(m_WalletDB->getCurrentHeight(), pt));
-
-        //    //msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-        //}
     }
 } // namespace beam::wallet::lelantus

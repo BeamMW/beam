@@ -436,6 +436,19 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::get_proof_shielded_output(ECC::Point serialPublic, ProofShildedOutputCallback&& callback)
+    {
+        MyRequestProofShieldedOutp::Ptr pVal(new MyRequestProofShieldedOutp);
+        pVal->m_callback = callback;
+
+        pVal->m_Msg.m_SerialPub = serialPublic;
+
+        if (PostReqUnique(*pVal))
+        {
+            LOG_INFO() << " Get proof of shielded output.";
+        }
+    }
+
     // Implementation of the INegotiatorGateway::UpdateOnNextTip
     void Wallet::UpdateOnNextTip(const TxID& txID)
     {
@@ -609,6 +622,7 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestShieldedList& r)
     {
+        // TODO: validate callback
         r.m_callback(r.m_Msg.m_Id0, r.m_Msg.m_Count, r.m_Res.m_Items);
     }
 
@@ -619,7 +633,8 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestProofShieldedOutp& r)
     {
-        // TODO(alex.starun): implement this
+        // TODO: validate callback
+        r.m_callback(r.m_Res);
     }
 
     void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
