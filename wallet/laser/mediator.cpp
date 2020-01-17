@@ -369,8 +369,7 @@ void Mediator::RemoveObserver(Observer* observer)
         std::remove(m_observers.begin(), m_observers.end(), observer));
 }
 
-bool Mediator::Transfer(
-    Amount amount, const std::string& channelIDStr, bool gracefulClose)
+bool Mediator::Transfer(Amount amount, const std::string& channelIDStr)
 {
     auto chId = RestoreChannel(channelIDStr);
 
@@ -379,8 +378,8 @@ bool Mediator::Transfer(
         if (ch && ch->get_State() == beam::Lightning::Channel::State::Open)
         {
             ch->Subscribe();
-            m_actionsQueue.emplace_back([this, amount, chId, gracefulClose] () {
-                TransferInternal(amount, chId, gracefulClose);
+            m_actionsQueue.emplace_back([this, amount, chId] () {
+                TransferInternal(amount, chId);
             });
             
             LOG_DEBUG() << "Transfer: " << PrintableAmount(amount, true)
@@ -488,21 +487,35 @@ void Mediator::OpenInternal(const ChannelIDPtr& chID)
     m_readyForForgetChannels.push_back(chID);
 }
 
-void Mediator::TransferInternal(
-        Amount amount, const ChannelIDPtr& chID, bool gracefulClose)
+void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
 {
     auto& ch = m_channels[chID];
-    if (ch && ch->Transfer(amount, gracefulClose))
+    
+    if (ch)
     {
-        LOG_INFO() << "Transfer: " << PrintableAmount(amount, true)
+        auto chAmount = ch->get_amountCurrentMy();
+        if (chAmount < amount)
+        {
+            LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
+                        << " to channel: " << to_hex(chID->m_pData, chID->nBytes)
+                        << " failed\n"
+                        << "My current channel balance is: "
+                        << PrintableAmount(chAmount, true);
+        }
+        else if (ch->Transfer(amount))
+        {
+            LOG_INFO() << "Transfer: " << PrintableAmount(amount, true)
                    << " to channel: " << to_hex(chID->m_pData, chID->nBytes)
                    << " started";
-        return;
+            return;
+        }
+        else
+        {
+            LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
+                        << " to channel: " << to_hex(chID->m_pData, chID->nBytes)
+                        << " failed";
+        }   
     }
-
-    LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
-                << " to channel: " << to_hex(chID->m_pData, chID->nBytes)
-                << " failed";
     for (auto observer : m_observers)
     {
         observer->OnUpdateFinished(chID);

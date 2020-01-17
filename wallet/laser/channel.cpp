@@ -464,8 +464,8 @@ void Channel::LogNewState()
         break;
     case beam::Lightning::Channel::State::Open:
         os << "Open. Last Revision: " << m_vUpdates.size()
-           << ". Balance: " << m_vUpdates.back()->m_Outp.m_Value << " / "
-           << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
+           << ". My balance: " << m_vUpdates.back()->m_Outp.m_Value
+           << " / Total balance: " << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
         break;
     case beam::Lightning::Channel::State::Updating:
         os << "Updating (creating newer Revision)";

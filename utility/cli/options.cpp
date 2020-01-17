@@ -429,7 +429,7 @@ namespace beam
             (cli::LASER_LIST, "view all opened lightning channel")
             (cli::LASER_WAIT, "wait for open incomming lightning channel")
             (cli::LASER_OPEN, "open lightning channel")
-            (cli::LASER_TRANSFER, "send to lightning channel")
+            (cli::LASER_TRANSFER, po::value<Positive<double>>(), "send to lightning channel")
             (cli::LASER_SERVE, po::value<string>()->implicit_value("all"), "listen lightning channels --laser_listen [chID1, ..., chIDN]")
             (cli::LASER_DROP, po::value<string>()->implicit_value(""), ("drop opened lightning channel --laser_drop <chID1, ..., chIDN> [" + std::string(cli::LASER_ALL) + "]").c_str())
             (cli::LASER_DELETE, po::value<string>(), "delete laser channel --laser_delete <chID1, ..., chIDN>")

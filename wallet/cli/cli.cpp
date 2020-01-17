@@ -1782,11 +1782,15 @@ namespace
                          Height* locktime,
                          bool skipReceiverWalletID = false)
     {
-        if (!skipReceiverWalletID && !vm.count(cli::LASER_TARGET_ADDR))
+        if (!skipReceiverWalletID)
         {
-            LOG_ERROR() << kErrorReceiverAddrMissing;
-            return false;
-        }
+            if (!vm.count(cli::LASER_TARGET_ADDR))
+            {
+                LOG_ERROR() << kErrorReceiverAddrMissing;
+                return false;
+            }
+            receiverWalletID->FromHex(vm[cli::LASER_TARGET_ADDR].as<string>());
+        }    
 
         if (!vm.count(cli::LASER_AMOUNT_MY))
         {
@@ -1799,8 +1803,6 @@ namespace
             LOG_ERROR() << kLaserErrorTrgAmountMissing;
             return false;
         }
-
-        receiverWalletID->FromHex(vm[cli::LASER_TARGET_ADDR].as<string>());
 
         auto myAmount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
         myAmount *= Rules::Coin;
@@ -1943,21 +1945,13 @@ namespace
     bool LaserTransfer(const unique_ptr<laser::Mediator>& laser,
                        const po::variables_map& vm)
     {
-        if (!vm.count(cli::LASER_AMOUNT_MY))
-        {
-            LOG_ERROR() << kErrorAmountMissing;
-            return false;
-        }
-
         if (!vm.count(cli::LASER_CHANNEL_ID))
         {
             LOG_ERROR() << kLaserErrorChannelIdMissing;
             return false;
         }
 
-        // bool gracefulClose = vm.count(cli::LASER_CLOSE_GRACEFUL) != 0;
-
-        auto myAmount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
+        auto myAmount = vm[cli::LASER_TRANSFER].as<Positive<double>>().value;
         myAmount *= Rules::Coin;
         Amount amount = static_cast<ECC::Amount>(std::round(myAmount));
         if (!amount)
@@ -1968,7 +1962,7 @@ namespace
 
         auto chIdStr = vm[cli::LASER_CHANNEL_ID].as<string>();
 
-        return laser->Transfer(amount, chIdStr, false);  
+        return laser->Transfer(amount, chIdStr);  
     }
 
     void LaserShowChannels(const IWalletDB::Ptr& walletDB)
