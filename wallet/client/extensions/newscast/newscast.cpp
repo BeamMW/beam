@@ -63,9 +63,9 @@ namespace beam::wallet
 
     void Newscast::notifySubscribers(NewsMessage msg) const
     {
-        for (auto sub : m_subscribers)
+        for (const auto sub : m_subscribers)
         {
-            sub->onNewsUpdate(msg);
+                sub->onNewsUpdate(msg);
         }
     }
 

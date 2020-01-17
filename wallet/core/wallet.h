@@ -78,11 +78,8 @@ namespace beam::wallet
     // Interface for wallet message consumer
     struct IWalletMessageConsumer
     {
-        using Ptr = std::shared_ptr<IWalletMessageConsumer>;
-
         // Callback for receiving notifications on SBBS messages
         virtual void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) = 0;
-
     };
 
     // Interface for sending wallet to wallet messages
@@ -101,6 +98,7 @@ namespace beam::wallet
         , public IWalletMessageConsumer
     {
     public:
+        using Ptr = std::shared_ptr<Wallet>;
 
         // Type definitions for callback functors
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;

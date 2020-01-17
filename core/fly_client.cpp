@@ -96,7 +96,7 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
         m_This.m_Client.OnOwnedNode(m_NodeID, false);
 
     if (Flags::ReportedConnected & m_Flags)
-        m_This.OnNodeConnected(m_iIndex, false);
+        m_This.OnNodeConnected(false);
 
     while (!m_lst.empty())
     {
@@ -113,7 +113,7 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
     if (!(Flags::ReportedConnected & m_Flags))
     {
         m_Flags |= Flags::ReportedConnected;
-        m_This.OnNodeConnected(m_iIndex, true);
+        m_This.OnNodeConnected(true);
     }
 }
 
@@ -124,7 +124,7 @@ void FlyClient::NetworkStd::Connection::SetupLogin(Login& msg)
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
 {
-    m_This.OnConnectionFailed(m_iIndex, dr);
+    m_This.OnConnectionFailed(dr);
 	ResetAll();
     SetTimer(m_This.m_Cfg.m_ReconnectTimeout_ms);
 }

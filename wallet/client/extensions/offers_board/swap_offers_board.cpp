@@ -295,9 +295,9 @@ namespace beam::wallet
 
     void SwapOffersBoard::notifySubscribers(ChangeAction action, const std::vector<SwapOffer>& offers) const
     {
-        for (auto sub : m_subscribers)
+        for (const auto sub : m_subscribers)
         {
-            sub->onSwapOffersChanged(action, std::vector<SwapOffer>{offers});
+                sub->onSwapOffersChanged(action, std::vector<SwapOffer>{offers});
         }
     }
 

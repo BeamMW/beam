@@ -237,8 +237,8 @@ namespace proto {
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
 
 			// more events
-			virtual void OnNodeConnected(size_t iNodeIdx, bool) {}
-			virtual void OnConnectionFailed(size_t iNodeIdx, const NodeConnection::DisconnectReason&) {}
+			virtual void OnNodeConnected(bool) {}
+			virtual void OnConnectionFailed(const NodeConnection::DisconnectReason&) {}
 		};
 	};
 

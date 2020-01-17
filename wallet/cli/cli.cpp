@@ -1681,7 +1681,7 @@ namespace
     {
     public:
         CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
-        void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
+        void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
         {
             LOG_ERROR() << kErrorConnectionFailed;
         };

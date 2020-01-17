@@ -613,6 +613,25 @@ namespace beam::wallet
     };
 
     uint64_t get_RandomID();
+
+    template<typename Observer, typename Notifier>
+    struct ScopedSubscriber
+    {
+        ScopedSubscriber(Observer* observer, const std::shared_ptr<Notifier>& notifier)
+            : m_observer(observer)
+            , m_notifier(notifier)
+        {
+            m_notifier->Subscribe(m_observer);
+        }
+
+        ~ScopedSubscriber()
+        {
+            m_notifier->Unsubscribe(m_observer);
+        }
+    private:
+        Observer* m_observer;
+        std::shared_ptr<Notifier> m_notifier;
+    };
 }  // beam::wallet
 
 namespace beam

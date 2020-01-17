@@ -23,28 +23,33 @@ namespace beam::wallet
     class NodeNetwork final: public proto::FlyClient::NetworkStd
     {
     public:
-        NodeNetwork(proto::FlyClient& fc, INodeConnectionObserver& observer, const std::string& nodeAddress)
+        using Ptr = std::shared_ptr<NodeNetwork>;
+
+        NodeNetwork(proto::FlyClient& fc, const std::string& nodeAddress)
             : proto::FlyClient::NetworkStd(fc)
-            , m_observer(observer)
-            , m_nodeAddrStr(nodeAddress)
+            , m_nodeAddress(nodeAddress)
         {
         }
 
         void tryToConnect();
 
+        void Subscribe(INodeConnectionObserver* observer);
+        void Unsubscribe(INodeConnectionObserver* observer);
+
+        std::string getNodeAddress() const;
+        bool setNodeAddress(const std::string&);
+
     private:
-        void OnNodeConnected(size_t, bool bConnected) override;
-        void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override;
-
-        INodeConnectionObserver& m_observer;
-    public:
-        std::string m_nodeAddrStr;
-
-        io::Timer::Ptr m_timer;
-        uint8_t m_attemptToConnect = 0;
-
+        void OnNodeConnected(bool bConnected) override;
+        void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override;
+        
         const uint8_t MAX_ATTEMPT_TO_CONNECT = 5;
         const uint16_t RECONNECTION_TIMEOUT = 1000;
+        io::Timer::Ptr m_timer;
+        uint8_t m_attemptToConnect = 0;
+        std::vector<INodeConnectionObserver*> m_observers;
+        std::string m_nodeAddress;
+
     };
 
 } // namespace beam::wallet

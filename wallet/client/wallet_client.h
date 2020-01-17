@@ -22,6 +22,7 @@
 #include "wallet/core/private_key_keeper.h"
 #include "wallet_model_async.h"
 #include "wallet/client/extensions/offers_board/swap_offers_observer.h"
+#include "wallet/client/changes_collector.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif
@@ -73,8 +74,8 @@ namespace beam::wallet
         bool isConnectionTrusted() const;
 
         /// INodeConnectionObserver implementation
-        void nodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
-        void nodeConnectedStatusChanged(bool isNodeConnected) override;
+        void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
+        void onNodeConnectedStatusChanged(bool isNodeConnected) override;
 
     protected:
         // Call this before derived class is destructed to ensure
@@ -167,168 +168,11 @@ namespace beam::wallet
         bool isConnected() const;
     private:
 
-        template<typename T, typename KeyFunc>
-        class ChangesCollector
-        {
-            using FlushFunc = std::function<void(ChangeAction, const std::vector<T>&)>;
-            
-            struct Comparator
-            {
-                bool operator()(const T& left, const T& right) const
-                {
-                    return KeyFunc()(left) < KeyFunc()(right);
-                }
-            };
-
-            using ItemsList = std::set<T, Comparator>;
-        public:
-            ChangesCollector(size_t bufferSize, io::Reactor::Ptr reactor, FlushFunc&& flushFunc)
-                : m_BufferSize(bufferSize)
-                , m_FlushTimer(io::Timer::create(*reactor))
-                , m_FlushFunc(std::move(flushFunc))
-            {
-            }
-
-            void CollectItems(ChangeAction action, const std::vector<T>& items)
-            {
-                if (action == ChangeAction::Reset)
-                {
-                    m_NewItems.clear();
-                    m_UpdatedItems.clear();
-                    m_RemovedItems.clear();
-                    m_FlushFunc(action, items);
-                    return;
-                }
-
-                for (const auto& item : items)
-                {
-                    CollectItem(action, item);
-                }
-            }
-
-            void Flush()
-            {
-                Flush(ChangeAction::Added, m_NewItems);
-                Flush(ChangeAction::Updated, m_UpdatedItems);
-                Flush(ChangeAction::Removed, m_RemovedItems);
-            }
-
-        private:
-
-            void CollectItem(ChangeAction action, const T& item)
-            {
-                m_FlushTimer->cancel();
-                m_FlushTimer->start(100, false, [this]() { Flush(); });
-                switch (action)
-                {
-                case ChangeAction::Added:
-                    AddItem(item);
-                    break;
-                case ChangeAction::Updated:
-                    UpdateItem(item);
-                    break;
-                case ChangeAction::Removed:
-                    RemoveItem(item);
-                    break;
-                default:
-                    break;
-                }
-
-                if (GetChangesCount() > m_BufferSize)
-                {
-                    Flush();
-                }
-            }
-
-            void Flush(ChangeAction action, ItemsList& items)
-            {
-                if (!items.empty())
-                {
-                    m_FlushFunc(action, std::vector<T>(items.begin(), items.end()));
-                    items.clear();
-                }
-            }
-
-            size_t GetChangesCount() const
-            {
-                return m_NewItems.size() + m_UpdatedItems.size() + m_RemovedItems.size();
-            }
-
-            void AddItem(const T& item)
-            {
-                // if it was removed do nothing
-                if (m_RemovedItems.find(item) != m_RemovedItems.end())
-                {
-                    return;
-                }
-                m_NewItems.insert(item);
-            }
-
-            void UpdateItem(const T& item)
-            {
-                // if it was removed do nothing
-                if (m_RemovedItems.find(item) != m_RemovedItems.end())
-                {
-                    return;
-                }
-                // if it is not in new add it to updated
-                auto it = m_NewItems.find(item);
-                if (it == m_NewItems.end())
-                {
-                    auto p = m_UpdatedItems.insert(item);
-                    if (p.second == false)
-                    {
-                        UpdateItemValue(item, p.first, m_UpdatedItems);
-                    }
-                }
-                else
-                {
-                    UpdateItemValue(item, it, m_NewItems);
-                }
-            }
-
-            void RemoveItem(const T& item)
-            {
-                // if it is in new erase it
-                if (auto it = m_NewItems.find(item); it != m_NewItems.end())
-                {
-                    m_NewItems.erase(it);
-                    return;
-                }
-                // else if it is in updated remove and add to removed
-                if (auto it = m_UpdatedItems.find(item); it != m_UpdatedItems.end())
-                {
-                    m_UpdatedItems.erase(it);
-                }
-                // add to removed
-                m_RemovedItems.insert(item);
-            }
-
-            void UpdateItemValue(const T& item, typename ItemsList::iterator& it, ItemsList& items)
-            {
-                // MacOS doesn't support 'extract'
-                //auto node = items.extract(it);
-                //node.value() = item;
-                //items.insert(std::move(node));
-                items.erase(it);
-                items.insert(item);
-            }
-
-        private:
-            size_t m_BufferSize;
-            io::Timer::Ptr m_FlushTimer;
-            FlushFunc m_FlushFunc;
-
-            ItemsList m_NewItems;
-            ItemsList m_UpdatedItems;
-            ItemsList m_RemovedItems;
-        };
-
         std::shared_ptr<std::thread> m_thread;
         IWalletDB::Ptr m_walletDB;
         io::Reactor::Ptr m_reactor;
         IWalletModelAsync::Ptr m_async;
-        std::weak_ptr<proto::FlyClient::INetwork> m_nodeNetwork;
+        std::weak_ptr<NodeNetwork> m_nodeNetwork;
         std::weak_ptr<IWalletMessageEndpoint> m_walletNetwork;
         std::weak_ptr<Wallet> m_wallet;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

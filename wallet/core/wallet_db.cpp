@@ -2820,7 +2820,7 @@ namespace beam::wallet
         if (items.empty() && action != ChangeAction::Reset)
             return;
 
-        for (auto sub : m_subscribers)
+        for (const auto sub : m_subscribers)
         {
             sub->onCoinsChanged(action, items);
         }
@@ -2831,7 +2831,7 @@ namespace beam::wallet
         if (items.empty() && action != ChangeAction::Reset)
             return;
 
-        for (auto sub : m_subscribers)
+        for (const auto sub : m_subscribers)
         {
             sub->onTransactionChanged(action, items);
         }
@@ -2839,7 +2839,7 @@ namespace beam::wallet
 
     void WalletDB::notifySystemStateChanged(const Block::SystemState::ID& stateID)
     {
-        for (auto sub : m_subscribers) sub->onSystemStateChanged(stateID);
+        for (const auto sub : m_subscribers) sub->onSystemStateChanged(stateID);
     }
 
     void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
@@ -2847,7 +2847,7 @@ namespace beam::wallet
         if (items.empty() && action != ChangeAction::Reset)
             return;
 
-        for (auto sub : m_subscribers)
+        for (const auto sub : m_subscribers)
         {
             sub->onAddressChanged(action, items);
         }

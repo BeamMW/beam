@@ -36,12 +36,15 @@ namespace beam::wallet
             proto::NodeConnection::DisconnectReason reason;
             reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
             reason.m_IoError = io::EC_HOST_RESOLVED_ERROR;
-            m_observer.nodeConnectionFailed(reason);
+            for (const auto observer : m_observers)
+            {
+                    observer->onNodeConnectionFailed(reason);
+            }
         }
 
         m_timer->start(RECONNECTION_TIMEOUT, false, [this]() {
             io::Address nodeAddr;
-            if (nodeAddr.resolve(m_nodeAddrStr.c_str()))
+            if (nodeAddr.resolve(m_nodeAddress.c_str()))
             {
                 m_Cfg.m_vNodes.push_back(nodeAddr);
                 Connect();
@@ -53,14 +56,62 @@ namespace beam::wallet
         });
     }
 
-    void NodeNetwork::OnNodeConnected(size_t, bool bConnected)
+    void NodeNetwork::OnNodeConnected(bool bConnected)
     {
-        m_observer.nodeConnectedStatusChanged(bConnected);
+        for (const auto observer : m_observers)
+        {
+            observer->onNodeConnectedStatusChanged(bConnected);
+        }
     }
 
-    void NodeNetwork::OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason)
+    void NodeNetwork::OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
     {
-        m_observer.nodeConnectionFailed(reason);
+        for (const auto observer : m_observers)
+        {
+            observer->onNodeConnectionFailed(reason);
+        }
+    }
+
+    std::string NodeNetwork::getNodeAddress() const
+    {
+        return m_nodeAddress;
+    }
+
+    bool NodeNetwork::setNodeAddress(const std::string& nodeAddr)
+    {
+        io::Address address;
+
+        if (address.resolve(nodeAddr.c_str()))
+        {
+            Disconnect();
+
+            m_Cfg.m_vNodes.clear();
+            m_Cfg.m_vNodes.push_back(address);
+
+            Connect();
+
+            m_nodeAddress = nodeAddr;
+            return true;
+        }
+        return false;
+    }
+
+    void NodeNetwork::Subscribe(INodeConnectionObserver* observer)
+    {
+        auto it = std::find(std::cbegin(m_observers),
+                            std::cend(m_observers),
+                            observer);
+        assert(it == m_observers.end());
+        if (it == m_observers.end()) m_observers.push_back(observer);
+    }
+
+    void NodeNetwork::Unsubscribe(INodeConnectionObserver* observer)
+    {
+        auto it = std::find(std::cbegin(m_observers),
+                            std::cend(m_observers),
+                            observer);
+        assert(it != m_observers.end());
+        m_observers.erase(it);
     }
     
 } // namespace beam::wallet

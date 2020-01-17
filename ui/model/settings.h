@@ -44,7 +44,6 @@ public:
     bool showSwapBetaWarning();
     void setShowSwapBetaWarning(bool value);
 
-    void initModel(WalletModel::Ptr model);
 #if defined(BEAM_HW_WALLET)
     std::string getTrezorWalletStorage() const;
 #endif

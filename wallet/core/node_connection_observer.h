@@ -21,8 +21,8 @@ namespace beam::wallet
     /// Interface for node network connection status observation
     struct INodeConnectionObserver
     {
-        virtual void nodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) = 0;
-        virtual void nodeConnectedStatusChanged(bool isNodeConnected) = 0;
+        virtual void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) = 0;
+        virtual void onNodeConnectedStatusChanged(bool isNodeConnected) = 0;
     };
     
 } // namespace beam::wallet

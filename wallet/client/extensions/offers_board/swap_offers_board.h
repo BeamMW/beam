@@ -36,6 +36,8 @@ namespace beam::wallet
           public IWalletDbObserver
     {
     public:
+        using Ptr = std::shared_ptr<SwapOffersBoard>;
+
         SwapOffersBoard(FlyClient::INetwork&,
                         IWalletMessageEndpoint&,
                         OfferBoardProtocolHandler&);

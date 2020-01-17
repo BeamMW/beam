@@ -154,7 +154,7 @@ namespace beam::wallet
                 AbortUtxoEvents();
         }
 
-        for (auto sub : m_subscribers)
+        for (const auto sub : m_subscribers)
         {
             sub->onOwnedNode(id, bUp);
         }
@@ -901,7 +901,7 @@ namespace beam::wallet
     void Wallet::notifySyncProgress()
     {
         uint32_t n = SyncRemains();
-        for (auto sub : m_subscribers)
+        for (const auto sub : m_subscribers)
         {
             sub->onSyncProgress(m_LastSyncTotal - n, m_LastSyncTotal);
         }

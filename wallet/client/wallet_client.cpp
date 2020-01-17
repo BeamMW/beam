@@ -22,29 +22,10 @@ using namespace std;
 
 namespace
 {
-    using namespace beam;
-    using namespace beam::wallet;
+using namespace beam;
+using namespace beam::wallet;
 
-    const size_t kCollectorBufferSize = 50;
-
-template<typename Observer, typename Notifier>
-struct ScopedSubscriber
-{
-    ScopedSubscriber(Observer* observer, const std::shared_ptr<Notifier>& notifier)
-        : m_observer(observer)
-        , m_notifier(notifier)
-    {
-        m_notifier->Subscribe(m_observer);
-    }
-
-    ~ScopedSubscriber()
-    {
-        m_notifier->Unsubscribe(m_observer);
-    }
-private:
-    Observer * m_observer;
-    std::shared_ptr<Notifier> m_notifier;
-};
+const size_t kCollectorBufferSize = 50;
 
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
@@ -279,8 +260,6 @@ namespace beam::wallet
 					io::Reactor::Scope scope(*m_reactor);
 					io::Reactor::GracefulIntHandler gih(*m_reactor);
 
-					std::unique_ptr<WalletSubscriber> wallet_subscriber;
-
                     static const unsigned LOG_ROTATION_PERIOD_SEC = 3 * 3600; // 3 hours
                     static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
                     LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
@@ -300,30 +279,30 @@ namespace beam::wallet
 
                     updateClientState();
 
-                    auto nodeNetwork = make_shared<NodeNetwork>(*wallet, static_cast<INodeConnectionObserver&>(*this), m_nodeAddrStr);
+                    auto nodeNetwork = make_shared<NodeNetwork>(*wallet, m_nodeAddrStr);
                     m_nodeNetwork = nodeNetwork;
+
+                    using NodeNetworkSubscriber = ScopedSubscriber<INodeConnectionObserver, NodeNetwork>;
+                    auto nodeNetworkSubscriber = std::make_unique<NodeNetworkSubscriber>(static_cast<INodeConnectionObserver*>(this), nodeNetwork);
 
                     auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB, m_keyKeeper);
                     m_walletNetwork = walletNetwork;
                     wallet->SetNodeEndpoint(nodeNetwork);
                     wallet->AddMessageEndpoint(walletNetwork);
 
-                    wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
+                    auto wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                    using WalletDbSubscriber = ScopedSubscriber<wallet::IWalletDbObserver, wallet::IWalletDB>;
-                    using SwapOffersBoardSubscriber = ScopedSubscriber<wallet::ISwapOffersObserver, wallet::SwapOffersBoard>;
-
-                    std::unique_ptr<WalletDbSubscriber> walletDbSubscriber;
-                    std::unique_ptr<SwapOffersBoardSubscriber> swapOffersBoardSubscriber;
-
                     OfferBoardProtocolHandler protocolHandler(m_keyKeeper->get_SbbsKdf(), m_walletDB);
 
                     auto offersBulletinBoard = make_shared<SwapOffersBoard>(*nodeNetwork, *walletNetwork, protocolHandler);
                     m_offersBulletinBoard = offersBulletinBoard;
 
-                    walletDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);
-                    swapOffersBoardSubscriber = make_unique<SwapOffersBoardSubscriber>(static_cast<ISwapOffersObserver*>(this), offersBulletinBoard);
+                    using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
+                    using SwapOffersBoardSubscriber = ScopedSubscriber<ISwapOffersObserver, SwapOffersBoard>;
+
+                    auto walletDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);
+                    auto swapOffersBoardSubscriber = make_unique<SwapOffersBoardSubscriber>(static_cast<ISwapOffersObserver*>(this), offersBulletinBoard);
 #endif
 
                     nodeNetwork->tryToConnect();
@@ -335,6 +314,7 @@ namespace beam::wallet
                     assert(walletNetwork.use_count() == 1);
                     walletNetwork.reset();
 
+                    nodeNetworkSubscriber.reset();
                     assert(nodeNetwork.use_count() == 1);
                     nodeNetwork.reset();
                 }
@@ -557,9 +537,10 @@ namespace beam::wallet
     void WalletClient::syncWithNode()
     {
         assert(!m_nodeNetwork.expired());
-        auto s = m_nodeNetwork.lock();
-        if (s)
+        if (auto s = m_nodeNetwork.lock())
+        {
             s->Connect();
+        }
     }
 
     void WalletClient::calcChange(Amount&& amount)
@@ -744,28 +725,15 @@ namespace beam::wallet
 
     void WalletClient::setNodeAddress(const std::string& addr)
     {
-        io::Address nodeAddr;
-
-        if (nodeAddr.resolve(addr.c_str()))
+        assert(!m_nodeNetwork.expired());
+        auto s = m_nodeNetwork.lock();
+        if (s)
         {
-            m_nodeAddrStr = addr;
-
-            assert(!m_nodeNetwork.expired());
-            auto s = m_nodeNetwork.lock();
-            if (s)
+            if (!(s->setNodeAddress(addr)))
             {
-                s->Disconnect();
-
-                static_cast<proto::FlyClient::NetworkStd&>(*s).m_Cfg.m_vNodes.clear();
-                static_cast<proto::FlyClient::NetworkStd&>(*s).m_Cfg.m_vNodes.push_back(nodeAddr);
-
-                s->Connect();
+                LOG_ERROR() << "Unable to resolve node address: " << addr;
+                onWalletError(ErrorType::HostResolvedError);
             }
-        }
-        else
-        {
-            LOG_ERROR() << "Unable to resolve node address: " << addr;
-            onWalletError(ErrorType::HostResolvedError);
         }
     }
 
@@ -895,7 +863,7 @@ namespace beam::wallet
         return utxos;
     }
 
-    void WalletClient::nodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
+    void WalletClient::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
     {
         // reason -> ErrorType
         if (proto::NodeConnection::DisconnectReason::ProcessingExc == reason.m_Type)
@@ -915,7 +883,7 @@ namespace beam::wallet
         LOG_ERROR() << "Unprocessed error: " << reason;
     }
 
-    void WalletClient::nodeConnectedStatusChanged(bool isNodeConnected)
+    void WalletClient::onNodeConnectedStatusChanged(bool isNodeConnected)
     {
         if (isNodeConnected)
         {
