@@ -3462,6 +3462,7 @@ namespace beam::wallet
                     }
 
                     LOG_INFO() << "The address [" << jsonAddress[Fields::WalletID] << "] has NOT been imported. Wrong address.";
+                    return false;
                 }
                 return true;
             }
