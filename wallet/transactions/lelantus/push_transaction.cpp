@@ -215,7 +215,7 @@ namespace beam::wallet::lelantus
                         coin.m_ID = proof.m_ID;
                         coin.m_IsCreatedByViewer = false;
                         coin.m_skSpendKey = m_shieldedDetails.m_skSpendKey;
-
+                        coin.m_sk = m_shieldedDetails.m_sk;
                         GetWalletDB()->saveTestShieldedCoin(coin);
                     }
                     UpdateAsync();

@@ -16,6 +16,7 @@
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/wallet.h"
 #include "wallet/transactions/lelantus/push_transaction.h"
+#include "wallet/transactions/lelantus/pull_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/simple_transaction.h"
 #include "core/unittest/mini_blockchain.h"
@@ -80,8 +81,11 @@ void TestSimpleTx()
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
     TestWalletRig sender("sender", senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
-    auto creator = std::make_shared<lelantus::PushTransaction::Creator>();
-    sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(creator));
+    auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>();
+    sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pushTxCreator));
+
+    auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
+    sender.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pullTxCreator));
 
     Node node;
     NodeObserver observer([&]()
@@ -116,6 +120,22 @@ void TestSimpleTx()
             sender.m_Wallet.StartTransaction(parameters);
         }
         else if (cursor.m_Sid.m_Height == 40)
+        {
+            wallet::TxParameters parameters(GenerateTxID());
+
+            parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
+                .SetParameter(TxParameterID::Amount, 2600)
+                .SetParameter(TxParameterID::Fee, 1200)
+                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                .SetParameter(TxParameterID::WindowBegin, 0U)
+                .SetParameter(TxParameterID::ShieldedOutputId, 0U)
+                .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+            sender.m_Wallet.StartTransaction(parameters);
+        }
+        else if (cursor.m_Sid.m_Height == 50)
         {
             mainReactor->stop();
         }

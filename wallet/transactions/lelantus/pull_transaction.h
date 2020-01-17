@@ -18,6 +18,8 @@
 
 namespace beam::wallet::lelantus
 {
+    class PullTxBuilder;
+
     class PullTransaction : public BaseTransaction
     {
     public:
@@ -45,5 +47,11 @@ namespace beam::wallet::lelantus
         TxType GetType() const override;
         bool IsInSafety() const override;
         void UpdateImpl() override;
+
+        bool GetShieldedList();
+
+    private:
+        std::shared_ptr<PullTxBuilder> m_TxBuilder;
+        std::vector<ECC::Point::Storage> m_shieldedList;
     };
 } // namespace beam::wallet::lelantus

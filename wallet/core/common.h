@@ -255,6 +255,10 @@ namespace beam::wallet
         PeerLockImage = 115,
         AssetOwnerIdx = 116,
 
+        // Lelantus
+        ShieldedOutputId = 117,
+        WindowBegin = 118,
+
         // private parameters
         PrivateFirstParam = 128,
 
