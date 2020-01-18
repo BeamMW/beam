@@ -1882,11 +1882,18 @@ struct NodeProcessor::BlockInterpretCtx
 		:public boost::intrusive::set_base_hook<>
 	{
 		uint32_t m_Size;
+#ifdef _MSC_VER
+#	pragma warning (disable: 4200) // 0-sized array
+#endif // _MSC_VER
+		uint8_t m_pBuf[0]; // var size
+#ifdef _MSC_VER
+#	pragma warning (default: 4200)
+#endif // _MSC_VER
 
 		Blob ToBlob() const
 		{
 			Blob x;
-			x.p = this + 1;
+			x.p = m_pBuf;
 			x.n = m_Size;
 			return x;
 		}
@@ -3206,7 +3213,7 @@ void NodeProcessor::BlockInterpretCtx::BlobSet::Add(const Blob& key)
 {
 	BlobItem* pItem = new (key.n) BlobItem;
 	pItem->m_Size = key.n;
-	memcpy(pItem + 1, key.p, key.n);
+	memcpy(pItem->m_pBuf, key.p, key.n);
 
 	insert(*pItem);
 }
