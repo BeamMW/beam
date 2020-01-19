@@ -89,8 +89,8 @@ namespace beam::wallet
             return false;
         }
 
-        const auto& [commitments, commitmentsOffset] = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_assetId);
-        m_Offset += commitmentsOffset;
+        const auto& commitments = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_assetId);
+        //m_Offset += commitmentsOffset;
         m_Inputs.reserve(commitments.size());
         for (const auto& commitment : commitments)
         {
@@ -371,14 +371,14 @@ namespace beam::wallet
             return false;
         }
 
-        DoAsync<IPrivateKeyKeeper::OutputsEx>([this](auto&& r, auto&& ex)
+        DoAsync<IPrivateKeyKeeper::Outputs>([this](auto&& r, auto&& ex)
             {
                 m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_assetId, move(r), move(ex));
             },
-            [this](IPrivateKeyKeeper::OutputsEx&& resOutputs)
+            [this](IPrivateKeyKeeper::Outputs&& resOutputs)
             {
-                m_Outputs = std::move(resOutputs.first);
-                m_Offset += resOutputs.second;
+                m_Outputs = std::move(resOutputs);
+                //m_Offset += resOutputs.second;
                 m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
             });
         return true; // true if async

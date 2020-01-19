@@ -155,7 +155,7 @@ namespace beam::wallet
         return outputs;
     }
 
-    std::pair<IPrivateKeyKeeper::Outputs, ECC::Scalar::Native> TrezorKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID)
+    IPrivateKeyKeeper::Outputs TrezorKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID)
     {
         // TODO:ASSETS implement
         assert(false);

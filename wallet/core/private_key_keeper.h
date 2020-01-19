@@ -91,15 +91,13 @@ namespace beam::wallet
         using ExceptionCallback = Callback<std::exception_ptr>;
         
         using PublicKeys = std::vector<ECC::Point>;
-        using PublicKeysEx = std::pair<PublicKeys, ECC::Scalar::Native>;
         using RangeProofs = std::vector<std::unique_ptr<ECC::RangeProof::Confidential>>;
         using Outputs = std::vector<Output::Ptr>;
-        using OutputsEx = std::pair<Outputs, ECC::Scalar::Native>;
 
         virtual void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
-        virtual void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetID, Callback<PublicKeysEx>&&, ExceptionCallback&&) = 0;
+        virtual void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetID, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
         virtual void GenerateOutputs(Height schemeHeigh, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) = 0;
-        virtual void GenerateOutputsEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID assetId, Callback<OutputsEx>&&, ExceptionCallback&&) = 0;
+        virtual void GenerateOutputsEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID assetId, Callback<Outputs>&&, ExceptionCallback&&) = 0;
 
         virtual void SignReceiver(const std::vector<Key::IDV>& inputs
                                 , const std::vector<Key::IDV>& outputs
@@ -119,12 +117,12 @@ namespace beam::wallet
         // sync part for integration test
         virtual size_t AllocateNonceSlotSync() = 0;
         virtual PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) = 0;
-        virtual PublicKeysEx GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetID) = 0;
+        virtual PublicKeys GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetID) = 0;
 
         virtual ECC::Point GeneratePublicKeySync(const Key::IDV& id) = 0;
         virtual ECC::Point GenerateCoinKeySync(const Key::IDV& id, Asset::ID) = 0;
         virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
-        virtual OutputsEx GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID assetId) = 0;
+        virtual Outputs GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID assetId) = 0;
 
         virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
         virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, Asset::ID assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) = 0;

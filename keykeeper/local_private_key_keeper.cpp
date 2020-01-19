@@ -44,7 +44,7 @@ namespace beam::wallet
         DoAsync([=]() { return GeneratePublicKeysSync(ids, createCoinKey); }, move(resultCallback), move(exceptionCallback));
     }
 
-    void LocalPrivateKeyKeeper::GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetID, Callback<PublicKeysEx>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetID, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
         DoAsync([=]() { return GeneratePublicKeysSyncEx(ids, createCoinKey, assetID); }, move(resultCallback), move(exceptionCallback));
     }
@@ -54,7 +54,7 @@ namespace beam::wallet
         DoThreadAsync([=]() { return GenerateOutputsSync(schemeHeight, ids); }, std::move(resultCallback), std::move(exceptionCallback));
     }
 
-    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, Asset::ID assetId, Callback<OutputsEx>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, Asset::ID assetId, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
         DoThreadAsync([=]() { return GenerateOutputsSyncEx(schemeHeight, ids, assetId); }, std::move(resultCallback), std::move(exceptionCallback));
     }
@@ -132,10 +132,9 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::PublicKeysEx LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetId)
+    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetId)
     {
         PublicKeys resKeys;
-        Scalar::Native resOffset;
         Scalar::Native secretKey;
         resKeys.reserve(ids.size());
         if (createCoinKey)
@@ -146,13 +145,11 @@ namespace beam::wallet
                 {
                     Point &publicKey = resKeys.emplace_back();
                     SwitchCommitment(assetId).Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
-                    resOffset += secretKey;
                 }
                 else
                 {
                     Point &publicKey = resKeys.emplace_back();
                     SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
-                    resOffset += secretKey;
                 }
             }
         }
@@ -164,10 +161,9 @@ namespace beam::wallet
                 Point& publicKey = resKeys.emplace_back();
                 m_MasterKdf->DeriveKey(secretKey, keyID);
                 publicKey = Context::get().G * secretKey;
-                resOffset += secretKey;
             }
         }
-        return std::make_pair(std::move(resKeys), std::move(resOffset));
+        return std::move(resKeys);
     }
 
     ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id)
@@ -203,10 +199,9 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::OutputsEx LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID assetId)
+    IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID assetId)
     {
         Outputs resOuts;
-        Scalar::Native resOffset;
         Scalar::Native secretKey;
         Point commitment;
         resOuts.reserve(ids.size());
@@ -215,10 +210,9 @@ namespace beam::wallet
         {
             auto& output = resOuts.emplace_back(make_unique<Output>());
             output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID), CoinID(coinID, assetId), *m_MasterKdf);
-            resOffset += -secretKey;
         }
 
-        return std::make_pair(std::move(resOuts), std::move(resOffset));
+        return std::move(resOuts);
     }
 
     ECC::Point LocalPrivateKeyKeeper::GenerateNonceSync(size_t slot)

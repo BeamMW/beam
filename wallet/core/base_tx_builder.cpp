@@ -172,13 +172,13 @@ namespace beam::wallet
             return false;
         }
 
-        DoAsync<IPrivateKeyKeeper::OutputsEx>([this](auto&& r, auto&& ex)
+        DoAsync<IPrivateKeyKeeper::Outputs>([this](auto&& r, auto&& ex)
             {
                 m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId, move(r), move(ex));
             },
-            [this](IPrivateKeyKeeper::OutputsEx&& resOutputs)
+            [this](IPrivateKeyKeeper::Outputs&& resOutputs)
             {
-                m_Outputs = std::move(resOutputs.first);
+                m_Outputs = std::move(resOutputs);
                 FinalizeOutputs();
             }, __LINE__);
         return true;// true if async
@@ -199,14 +199,14 @@ namespace beam::wallet
         {
             return false;
         }
-        DoAsync<IPrivateKeyKeeper::PublicKeysEx>([this](auto&& r, auto&& ex)
+        DoAsync<IPrivateKeyKeeper::PublicKeys>([this](auto&& r, auto&& ex)
             {
                 m_Tx.GetKeyKeeper()->GeneratePublicKeysEx(m_InputCoins, true, m_AssetId, move(r), move(ex));
             },
-            [this](IPrivateKeyKeeper::PublicKeysEx&& commitments)
+            [this](IPrivateKeyKeeper::PublicKeys&& commitments)
             {
-                m_Inputs.reserve(commitments.first.size());
-                for (const auto& commitment : commitments.first)
+                m_Inputs.reserve(commitments.size());
+                for (const auto& commitment : commitments)
                 {
                     auto& input = m_Inputs.emplace_back(make_unique<Input>());
                     input->m_Commitment = commitment;
