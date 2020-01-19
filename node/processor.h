@@ -74,8 +74,8 @@ class NodeProcessor
 	void Recognize(const TxKernelShieldedInput&, Height);
 	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
 
-	void InternalAssetAdd(AssetInfo::Full&);
-	void InternalAssetDel(AssetID);
+	void InternalAssetAdd(Asset::Full&);
+	void InternalAssetDel(Asset::ID);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 
@@ -424,7 +424,7 @@ public:
 		struct Value {
 			ECC::Key::IDV::Packed m_Kidv;
 			uintBigFor<Height>::Type m_Maturity;
-			uintBigFor<AssetID>::Type m_AssetID;
+			uintBigFor<Asset::ID>::Type m_AssetID;
 			proto::UtxoEvent::AuxBuf1 m_Buf1;
 			uint8_t m_Flags;
 		};

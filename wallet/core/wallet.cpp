@@ -622,16 +622,16 @@ namespace beam::wallet
     {
         std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 
-        function<Point(const Key::IDV&, AssetID assetId)> commitmentFunc;
+        function<Point(const Key::IDV&, Asset::ID assetId)> commitmentFunc;
         if (m_KeyKeeper)
         {
-            commitmentFunc = [this](const auto& kidv, AssetID assetId) {
+            commitmentFunc = [this](const auto& kidv, Asset::ID assetId) {
                 return m_KeyKeeper->GenerateCoinKeySync(kidv, assetId);
             };
         }
         else if (auto ownerKdf = m_WalletDB->get_OwnerKdf(); ownerKdf)
         {
-            commitmentFunc = [ownerKdf](const auto& kidv, AssetID assetId)
+            commitmentFunc = [ownerKdf](const auto& kidv, Asset::ID assetId)
             {
                 Point::Native pt;
                 SwitchCommitment sw(assetId);
@@ -649,7 +649,7 @@ namespace beam::wallet
             // filter-out false positives
             if (commitmentFunc)
             {
-                AssetID assetId;
+                Asset::ID assetId;
                 event.m_AssetID.Export(assetId);
 
                 Point commitment = commitmentFunc(event.m_Kidv, assetId);

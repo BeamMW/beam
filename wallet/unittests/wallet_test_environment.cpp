@@ -64,7 +64,7 @@ public:
         return m_pKdf;
     }
 
-    std::vector<Coin> selectCoins(ECC::Amount amount, AssetID assetId) override
+    std::vector<Coin> selectCoins(ECC::Amount amount, Asset::ID assetId) override
     {
         std::vector<Coin> res;
         ECC::Amount t = 0;

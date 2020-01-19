@@ -729,7 +729,7 @@ void TestRangeProof(bool bCustomTag)
 	cp.m_Kidv.m_Value = 345000;
 
 
-	beam::AssetInfo::Base aib;
+	beam::Asset::Base aib;
 	aib.m_ID = bCustomTag ? 14 : 0;
 
 	AssetTag tag;
@@ -1212,7 +1212,7 @@ struct TransactionMaker
 			kG += Context::get().G * m_k;
 		}
 
-		void AddInput(beam::Transaction& t, Amount val, Key::IKdf& kdf, beam::AssetID nAssetID = 0, bool is_trezor_debug = false)
+		void AddInput(beam::Transaction& t, Amount val, Key::IKdf& kdf, beam::Asset::ID nAssetID = 0, bool is_trezor_debug = false)
 		{
 			std::unique_ptr<beam::Input> pInp(new beam::Input);
 
@@ -1229,7 +1229,7 @@ struct TransactionMaker
 			m_k += k;
 		}
 
-		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf, beam::AssetID nAssetID = 0, bool is_trezor_debug = false)
+		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf, beam::Asset::ID nAssetID = 0, bool is_trezor_debug = false)
 		{
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
 
@@ -1322,7 +1322,7 @@ struct TransactionMaker
 		{
 			// emit some asset
 			Scalar::Native sk, skAsset;
-			beam::AssetID nAssetID = 17;
+			beam::Asset::ID nAssetID = 17;
 			Amount valAsset = 4431;
 			beam::PeerID pkAsset;
 
@@ -2542,7 +2542,7 @@ void TestAssetEmission()
 
 	beam::PeerID assetOwner;
 	beam::proto::Sk2Pk(assetOwner, skAssetSk);
-	beam::AssetID nAssetID = 24;
+	beam::Asset::ID nAssetID = 24;
 
 
 	beam::Transaction tx;

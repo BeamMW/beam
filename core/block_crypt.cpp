@@ -161,10 +161,10 @@ namespace beam
 
 	/////////////
 	// SwitchCommitment
-	SwitchCommitment::SwitchCommitment(const AssetID nAssetID /* = 0 */)
+	SwitchCommitment::SwitchCommitment(const Asset::ID nAssetID /* = 0 */)
 	{
 		if (nAssetID)
-			AssetInfo::Base(nAssetID).get_Generator(m_hGen);
+			Asset::Base(nAssetID).get_Generator(m_hGen);
 	}
 
 	void SwitchCommitment::get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J)
@@ -870,7 +870,7 @@ namespace beam
 		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
 			return false;
 
-		if (m_MetaData.size() > AssetInfo::Data::s_MetadataMaxSize)
+		if (m_MetaData.size() > Asset::Info::s_MetadataMaxSize)
 			return false;
 
 		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
@@ -1868,7 +1868,7 @@ namespace beam
 		return v.Verify(*this, hv, p);
 	}
 
-	bool Block::SystemState::Full::IsValidProofAsset(const AssetInfo::Full& ai, const Merkle::Proof& p) const
+	bool Block::SystemState::Full::IsValidProofAsset(const Asset::Full& ai, const Merkle::Proof& p) const
 	{
 		struct MyVerifier
 			:public ProofVerifier
@@ -2138,8 +2138,8 @@ namespace beam
 	}
 
 	/////////////
-	// AssetInfo
-	void AssetInfo::Base::get_Generator(ECC::Point::Native& res, ECC::Point::Storage& res_s) const
+	// Asset
+	void Asset::Base::get_Generator(ECC::Point::Native& res, ECC::Point::Storage& res_s) const
 	{
 		assert(m_ID);
 
@@ -2156,19 +2156,19 @@ namespace beam
 		while (!res.ImportNnz(pt, &res_s));
 	}
 
-	void AssetInfo::Base::get_Generator(ECC::Point::Native& res) const
+	void Asset::Base::get_Generator(ECC::Point::Native& res) const
 	{
 		ECC::Point::Storage res_s;
 		get_Generator(res, res_s);
 	}
 
-	void AssetInfo::Base::get_Generator(ECC::Point::Storage& res_s) const
+	void Asset::Base::get_Generator(ECC::Point::Storage& res_s) const
 	{
 		ECC::Point::Native res;
 		get_Generator(res, res_s);
 	}
 
-	void AssetInfo::Data::Reset()
+	void Asset::Info::Reset()
 	{
 		m_Value = Zero;
 		m_Owner = Zero;
@@ -2176,7 +2176,7 @@ namespace beam
 		m_Metadata.clear();
 	}
 
-	void AssetInfo::Full::get_Hash(ECC::Hash::Value& hv) const
+	void Asset::Full::get_Hash(ECC::Hash::Value& hv) const
 	{
 		ECC::Hash::Processor()
 			<< "B.Asset.V1"

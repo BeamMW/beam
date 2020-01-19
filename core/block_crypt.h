@@ -28,7 +28,6 @@ namespace beam
 	typedef ECC::Hash::Value PeerID;
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
-	typedef uint64_t AssetID; // 1-based asset index. 0 is reserved for default asset (Beam)
 	typedef uint64_t TxoID;
 
 	using ECC::Key;
@@ -98,6 +97,39 @@ namespace beam
 		COMPARISON_VIA_CMP
 	};
 
+	struct Asset
+	{
+		typedef uint64_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
+
+		struct Base
+		{
+			ID m_ID;
+
+			Base(ID id = 0) :m_ID(id) {}
+
+			void get_Generator(ECC::Point::Native&) const;
+			void get_Generator(ECC::Point::Storage&) const;
+			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
+		};
+
+		struct Info
+		{
+			AmountBig::Type m_Value;
+			PeerID m_Owner;
+			Height m_LockHeight; // relevant only when m_Value is 0. Otherwise set to 0
+			ByteBuffer m_Metadata;
+			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
+
+			void Reset();
+		};
+
+		struct Full
+			:public Base
+			,public Info
+		{
+			void get_Hash(ECC::Hash::Value&) const;
+		};
+	};
 	struct Rules
 	{
 		Rules();
@@ -197,7 +229,7 @@ namespace beam
 	public:
 
 	    ECC::Point::Native m_hGen;
-		SwitchCommitment(AssetID = 0);
+		SwitchCommitment(Asset::ID = 0);
 
 		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&) const;
 		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const Key::IDV&) const;
@@ -220,38 +252,6 @@ namespace beam
 
 		void Reset();
 		void operator += (const TxStats&);
-	};
-
-	struct AssetInfo
-	{
-		struct Base
-		{
-			AssetID m_ID;
-
-			Base(AssetID id = 0) :m_ID(id) {}
-
-			void get_Generator(ECC::Point::Native&) const;
-			void get_Generator(ECC::Point::Storage&) const;
-			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
-		};
-
-		struct Data
-		{
-			AmountBig::Type m_Value;
-			PeerID m_Owner;
-			Height m_LockHeight; // relevant only when m_Value is 0. Otherwise set to 0
-			ByteBuffer m_Metadata;
-			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
-
-			void Reset();
-		};
-
-		struct Full
-			:public Base
-			,public Data
-		{
-			void get_Hash(ECC::Hash::Value&) const;
-		};
 	};
 
 	struct TxElement
@@ -328,7 +328,7 @@ namespace beam
 		bool		m_Coinbase;
 		bool		m_RecoveryOnly;
 		Height		m_Incubation; // # of blocks before it's mature
-		AssetID		m_AssetID;
+		Asset::ID	m_AssetID;
 
 		Output()
 			:m_Coinbase(false)
@@ -569,7 +569,7 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelAssetEmit> Ptr;
 
-		AssetID m_AssetID;
+		Asset::ID m_AssetID;
 		AmountSigned m_Value;
 		TxKernelAssetEmit() :m_Value(0) {}
 
@@ -601,7 +601,7 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelAssetDestroy> Ptr;
 
-		AssetID m_AssetID;
+		Asset::ID m_AssetID;
 
 		virtual ~TxKernelAssetDestroy() {}
 		virtual Subtype::Enum get_Subtype() const override;
@@ -877,7 +877,7 @@ namespace beam
 				bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
 				bool IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp&, const Merkle::Proof&) const;
 				bool IsValidProofShieldedInp(const ShieldedTxo::DescriptionInp&, const Merkle::Proof&) const;
-				bool IsValidProofAsset(const AssetInfo::Full&, const Merkle::Proof&) const;
+				bool IsValidProofAsset(const Asset::Full&, const Merkle::Proof&) const;
 
 				int cmp(const Full&) const;
 				COMPARISON_VIA_CMP

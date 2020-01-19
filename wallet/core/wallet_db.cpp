@@ -738,7 +738,7 @@ namespace beam::wallet
         const int DbVersion10 = 10;
     }
 
-    Coin::Coin(Amount amount /* = 0 */, Key::Type keyType /* = Key::Type::Regular */, AssetID assetId /* = 0 */)
+    Coin::Coin(Amount amount /* = 0 */, Key::Type keyType /* = Key::Type::Regular */, Asset::ID assetId /* = 0 */)
         : m_status{ Status::Unavailable }
         , m_maturity{ MaxHeight }
         , m_confirmHeight{ MaxHeight }
@@ -770,7 +770,7 @@ namespace beam::wallet
         return m_ID.isAsset();
     }
 
-    bool Coin::isAsset(AssetID assetId) const
+    bool Coin::isAsset(Asset::ID assetId) const
     {
         return isAsset() && m_assetId == assetId;
     }
@@ -1506,7 +1506,7 @@ namespace beam::wallet
         return m_OwnerKdf;
     }
 
-    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid, AssetID assetId)
+    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid, Asset::ID assetId)
     {
         ECC::Point commitment;
         ECC::Scalar::Native sk;
@@ -1574,7 +1574,7 @@ namespace beam::wallet
 		return true;
 	}
 
-    vector<Coin> WalletDB::selectCoins(Amount amount, AssetID assetId)
+    vector<Coin> WalletDB::selectCoins(Amount amount, Asset::ID assetId)
     {
         vector<Coin> coins, coinsSel;
         Block::SystemState::ID stateID = {};
@@ -1762,7 +1762,7 @@ namespace beam::wallet
         return updatedCoins;
     }
 
-    Coin WalletDB::generateNewCoin(Amount amount, AssetID assetId)
+    Coin WalletDB::generateNewCoin(Amount amount, Asset::ID assetId)
     {
         Coin coin(amount, assetId == 0 ? Key::Type::Regular : Key::Type::Asset, assetId);
         coin.m_ID.m_Idx = get_RandomID();
@@ -3188,7 +3188,7 @@ namespace beam::wallet
 
         void Totals::Init(IWalletDB& walletDB)
         {
-            auto getTotalsRef = [this](AssetID assetId) -> AssetTotals& {
+            auto getTotalsRef = [this](Asset::ID assetId) -> AssetTotals& {
                 if (allTotals.find(assetId) == allTotals.end()) {
                     allTotals[assetId] = AssetTotals();
                     allTotals[assetId].AssetId = assetId;
@@ -3275,7 +3275,7 @@ namespace beam::wallet
             });
         }
 
-        Totals::AssetTotals Totals::GetTotals(AssetID assetId) const
+        Totals::AssetTotals Totals::GetTotals(Asset::ID assetId) const
         {
             if(allTotals.find(assetId) == allTotals.end())
             {

@@ -1586,7 +1586,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::AssetInfo::Data& v)
+		static Archive& save(Archive& ar, const beam::Asset::Info& v)
 		{
 			ar
 				& v.m_Owner
@@ -1597,7 +1597,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::AssetInfo::Data& v)
+		static Archive& load(Archive& ar, beam::Asset::Info& v)
 		{
 			ar
 				& v.m_Owner
@@ -1608,20 +1608,20 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::AssetInfo::Full& v)
+		static Archive& save(Archive& ar, const beam::Asset::Full& v)
 		{
 			ar
 				& v.m_ID
-				& Cast::Down<beam::AssetInfo::Data>(v);
+				& Cast::Down<beam::Asset::Info>(v);
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::AssetInfo::Full& v)
+		static Archive& load(Archive& ar, beam::Asset::Full& v)
 		{
 			ar
 				& v.m_ID
-				& Cast::Down<beam::AssetInfo::Data>(v);
+				& Cast::Down<beam::Asset::Info>(v);
 			return ar;
 		}
 

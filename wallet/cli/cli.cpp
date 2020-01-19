@@ -555,7 +555,7 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, kAmountASSET, kAmountAGROTH));
     }
 
-    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, AssetID assetId, const char* coin, const char* groth)
+    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId, const char* coin, const char* groth)
     {
         const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
         cout << boost::format(kCoinsTableHeadFormat)
@@ -587,7 +587,7 @@ namespace
         cout << std::endl;
     }
 
-    void ShowAssetTxs(const IWalletDB::Ptr& walletDB, AssetID assetId, const char* coin, const char* groth)
+    void ShowAssetTxs(const IWalletDB::Ptr& walletDB, Asset::ID assetId, const char* coin, const char* groth)
     {
         auto txHistory = walletDB->getTxHistory(TxType::AssetIssue);
         auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
@@ -968,7 +968,7 @@ namespace
         return coinIDs;
     }
 
-    bool ReadAssetId(const po::variables_map& vm, AssetID& assetId)
+    bool ReadAssetId(const po::variables_map& vm, Asset::ID& assetId)
     {
         if(!vm.count(cli::ASSET_ID))
         {
@@ -976,11 +976,11 @@ namespace
             return true;
         }
 
-        assetId = vm[cli::ASSET_ID].as<AssetID>();
+        assetId = vm[cli::ASSET_ID].as<Asset::ID>();
         return true;
     }
 
-    bool LoadBaseParamsForTX(const po::variables_map& vm, AssetID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
+    bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
     {
         if (!skipReceiverWalletID)
         {
@@ -1405,7 +1405,7 @@ namespace
 
         bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
-        AssetID assetId = 0;
+        Asset::ID assetId = 0;
         Amount amount = 0;
         Amount fee = 0;
         WalletID receiverWalletID(Zero);
@@ -2555,7 +2555,7 @@ int main_impl(int argc, char* argv[])
 
                     /// HERE!!
                     io::Address receiverAddr;
-                    AssetID assetId = 0;
+                    Asset::ID assetId = 0;
                     Amount amount = 0;
                     Amount fee = 0;
                     WalletID receiverWalletID(Zero);

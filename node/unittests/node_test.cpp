@@ -597,7 +597,7 @@ namespace beam
 
 
 		// Assets
-		AssetInfo::Full ai1, ai2;
+		Asset::Full ai1, ai2;
 		ZeroObject(ai1);
 
 		for (uint32_t i = 1; i <= 5; i++)
@@ -1621,7 +1621,7 @@ namespace beam
 				bool m_Emitted = false;
 				ByteBuffer m_MetaData;
 				ECC::Scalar::Native m_skOwner;
-				AssetID m_ID = 0; // set after successful creation + proof
+				Asset::ID m_ID = 0; // set after successful creation + proof
 				bool m_Recognized = false;
 
 			} m_Assets;
@@ -2348,7 +2348,7 @@ namespace beam
 				{
 					const proto::UtxoEvent& evt = msg.m_Events[i];
 
-					AssetID nAssetID;
+					Asset::ID nAssetID;
 					evt.m_AssetID.Export(nAssetID);
 					if (nAssetID)
 					{

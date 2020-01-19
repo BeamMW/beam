@@ -49,7 +49,7 @@ namespace beam::wallet
         bool     CreateOutputs();
         Key::Index GetAssetOwnerIdx() const;
         PeerID  GetAssetOwnerId() const;
-        AssetID  GetAssetId() const;
+        Asset::ID  GetAssetId() const;
 
         //
         // Blockchain stuff
@@ -95,7 +95,7 @@ namespace beam::wallet
         IPrivateKeyKeeper::Ptr m_keyKeeper;
         SubTxID m_SubTxID;
 
-        beam::AssetID m_assetId;
+        beam::Asset::ID m_assetId;
         beam::Key::Index m_assetOwnerIdx;
         beam::PeerID m_assetOwnerId;
 

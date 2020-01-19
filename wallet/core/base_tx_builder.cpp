@@ -279,7 +279,7 @@ namespace beam::wallet
         return m_PublicNonce;
     }
 
-    AssetID BaseTxBuilder::GetAssetId() const
+    Asset::ID BaseTxBuilder::GetAssetId() const
     {
         return m_AssetId;
     }

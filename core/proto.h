@@ -122,7 +122,7 @@ namespace proto {
     macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ProofAsset(macro) \
-    macro(AssetInfo::Full, Info) \
+    macro(Asset::Full, Info) \
     macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ShieldedList(macro) \
@@ -325,7 +325,7 @@ namespace proto {
 	{
 		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
-        typedef uintBig_t<ECC::uintBig::nBytes - sizeof(AssetID)> AuxBuf1;
+        typedef uintBig_t<ECC::uintBig::nBytes - sizeof(Asset::ID)> AuxBuf1;
 
 #pragma pack(push, 1)
 		struct Shielded
@@ -351,7 +351,7 @@ namespace proto {
 		Key::IDV m_Kidv;
 		ShieldedDelta m_ShieldedDelta;
 		ECC::Point m_Commitment;
-        uintBigFor<AssetID>::Type m_AssetID;
+        uintBigFor<Asset::ID>::Type m_AssetID;
 
         AuxBuf1 m_Buf1; // for hystorical reasons
 
@@ -425,8 +425,8 @@ namespace proto {
     inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
     inline void ZeroInit(TxKernel::LongProof& x) { ZeroObject(x.m_State); }
 	inline void ZeroInit(BodyBuffers&) { }
-    inline void ZeroInit(AssetInfo::Data& x) { x.Reset(); }
-    inline void ZeroInit(AssetInfo::Full& x) { x.Reset(); }
+    inline void ZeroInit(Asset::Info& x) { x.Reset(); }
+    inline void ZeroInit(Asset::Full& x) { x.Reset(); }
 
     template <typename T> struct InitArg {
         typedef const T& TArg;

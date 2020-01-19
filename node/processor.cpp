@@ -1717,7 +1717,7 @@ void NodeProcessor::TxoToNaked(uint8_t* pBuf, Blob& v)
 		return;
 	}
 
-	// complex case - the UTXO has either AssetID or Incubation period. Utxo must be re-read
+	// complex case - the UTXO has either Asset::ID or Incubation period. Utxo must be re-read
 	Deserializer der;
 	der.reset(pSrc, v.n);
 
@@ -2523,7 +2523,7 @@ bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
 	return true;
 }
 
-void NodeProcessor::InternalAssetAdd(AssetInfo::Full& ai)
+void NodeProcessor::InternalAssetAdd(Asset::Full& ai)
 {
 	ai.m_Value = Zero;
 	m_DB.AssetAdd(ai);
@@ -2540,9 +2540,9 @@ void NodeProcessor::InternalAssetAdd(AssetInfo::Full& ai)
 	m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
 }
 
-void NodeProcessor::InternalAssetDel(AssetID nAssetID)
+void NodeProcessor::InternalAssetDel(Asset::ID nAssetID)
 {
-	AssetID nCount = m_DB.AssetDelete(nAssetID);
+	Asset::ID nCount = m_DB.AssetDelete(nAssetID);
 
 	assert(nCount <= m_Mmr.m_Assets.m_Count);
 	if (nCount < m_Mmr.m_Assets.m_Count)
@@ -2569,7 +2569,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 
 	if (bic.m_Fwd)
 	{
-		AssetInfo::Full ai;
+		Asset::Full ai;
 		ai.m_ID = 0; // auto
 		ai.m_Owner = krn.m_Owner;
 		ai.m_LockHeight = bic.m_Height + Rules::get().CA.LockPeriod;
@@ -2585,7 +2585,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 	{
 		BlockInterpretCtx::Der der(bic);
 
-		AssetID nVal;
+		Asset::ID nVal;
 		der & nVal;
 
 		InternalAssetDel(nVal);
@@ -2598,7 +2598,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 {
 	if (bic.m_Fwd)
 	{
-		AssetInfo::Full ai;
+		Asset::Full ai;
 		ai.m_ID = krn.m_AssetID;
 		if (!m_DB.AssetGetSafe(ai))
 			return false;
@@ -2627,7 +2627,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 	{
 		if (bic.m_UpdateMmrs)
 		{
-			AssetInfo::Full ai;
+			Asset::Full ai;
 			ai.m_ID = krn.m_AssetID;
 			ai.m_Owner = krn.m_Owner;
 
@@ -2653,7 +2653,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 	if (!bic.m_Fwd && !bic.m_UpdateMmrs)
 		return true;
 
-	AssetInfo::Full ai;
+	Asset::Full ai;
 	ai.m_ID = krn.m_AssetID;
 	if (!m_DB.AssetGetSafe(ai))
 		return false;
@@ -4320,7 +4320,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 
 	// For every output:
 	//	if SpendHeight > hHi1 (or null) then fully transfer
-	//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, AssetID)
+	//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, Asset::ID)
 	//	Otherwise - don't transfer
 
 	// For every input (commitment only):
@@ -4442,7 +4442,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 			break;
 
 		//	if SpendHeight > hHi1 (or null) then fully transfer
-		//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, AssetID)
+		//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, Asset::ID)
 		//	Otherwise - don't transfer
 
 		if (wlk.m_SpendHeight <= hLo1)

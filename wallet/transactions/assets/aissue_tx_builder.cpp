@@ -74,7 +74,7 @@ namespace beam::wallet
         m_assetOwnerIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetOwnerIdx);
         m_assetOwnerId  = m_keyKeeper->GetAssetOwnerID(m_assetOwnerIdx);
 
-        m_assetId = m_Tx.GetMandatoryParameter<AssetID>(TxParameterID::AssetID, m_SubTxID);
+        m_assetId = m_Tx.GetMandatoryParameter<Asset::ID>(TxParameterID::AssetID, m_SubTxID);
 
         if (m_assetOwnerIdx == 0 || m_assetId == 0)
         {
@@ -235,7 +235,7 @@ namespace beam::wallet
         return m_assetOwnerId;
      }
 
-     AssetID AssetIssueTxBuilder::GetAssetId() const
+     Asset::ID AssetIssueTxBuilder::GetAssetId() const
      {
          return m_assetId;
      }

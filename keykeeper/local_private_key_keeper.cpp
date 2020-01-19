@@ -44,7 +44,7 @@ namespace beam::wallet
         DoAsync([=]() { return GeneratePublicKeysSync(ids, createCoinKey); }, move(resultCallback), move(exceptionCallback));
     }
 
-    void LocalPrivateKeyKeeper::GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID assetID, Callback<PublicKeysEx>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetID, Callback<PublicKeysEx>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
         DoAsync([=]() { return GeneratePublicKeysSyncEx(ids, createCoinKey, assetID); }, move(resultCallback), move(exceptionCallback));
     }
@@ -54,14 +54,14 @@ namespace beam::wallet
         DoThreadAsync([=]() { return GenerateOutputsSync(schemeHeight, ids); }, std::move(resultCallback), std::move(exceptionCallback));
     }
 
-    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, AssetID assetId, Callback<OutputsEx>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, Asset::ID assetId, Callback<OutputsEx>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
         DoThreadAsync([=]() { return GenerateOutputsSyncEx(schemeHeight, ids, assetId); }, std::move(resultCallback), std::move(exceptionCallback));
     }
 
     void LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs
                                            , const std::vector<Key::IDV>& outputs
-                                           , AssetID assetId
+                                           , Asset::ID assetId
                                            , const KernelParameters& kernelParameters
                                            , const WalletIDKey& walletIDkey
                                            , Callback<ReceiverSignature>&& resultCallback
@@ -72,7 +72,7 @@ namespace beam::wallet
 
     void LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs
                                          , const std::vector<Key::IDV>& outputs
-                                         , AssetID assetId
+                                         , Asset::ID assetId
                                          , size_t nonceSlot
                                          , const KernelParameters& kernelParameters
                                          , bool initial
@@ -132,7 +132,7 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::PublicKeysEx LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID assetId)
+    IPrivateKeyKeeper::PublicKeysEx LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetId)
     {
         PublicKeys resKeys;
         Scalar::Native resOffset;
@@ -181,7 +181,7 @@ namespace beam::wallet
         return publicKey;
     }
 
-    ECC::Point LocalPrivateKeyKeeper::GenerateCoinKeySync(const Key::IDV& id, AssetID assetId)
+    ECC::Point LocalPrivateKeyKeeper::GenerateCoinKeySync(const Key::IDV& id, Asset::ID assetId)
     {
         Scalar::Native secretKey;
         Point publicKey;
@@ -203,7 +203,7 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::OutputsEx LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID assetId)
+    IPrivateKeyKeeper::OutputsEx LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID assetId)
     {
         Outputs resOuts;
         Scalar::Native resOffset;
@@ -231,7 +231,7 @@ namespace beam::wallet
         return result;
     }
 
-    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetId, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const Point::Native& publicNonce)
+    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, Asset::ID assetId, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const Point::Native& publicNonce)
     {
         auto excess = GetExcess(inputs, outputs, assetId, offset);
 
@@ -268,7 +268,7 @@ namespace beam::wallet
 
     ReceiverSignature LocalPrivateKeyKeeper::SignReceiverSync(const std::vector<Key::IDV>& inputs
                                                         , const std::vector<Key::IDV>& outputs
-                                                        , AssetID assetID
+                                                        , Asset::ID assetID
                                                         , const KernelParameters& kernelParameters
                                                         , const WalletIDKey& walletIDkey)
     {
@@ -369,7 +369,7 @@ namespace beam::wallet
 
     SenderSignature LocalPrivateKeyKeeper::SignSenderSync(const std::vector<Key::IDV>& inputs
                                                     , const std::vector<Key::IDV>& outputs
-                                                    , AssetID assetID
+                                                    , Asset::ID assetID
                                                     , size_t nonceSlot
                                                     , const KernelParameters& kernelParameters
                                                     , bool initial)
@@ -536,7 +536,7 @@ namespace beam::wallet
         return nonce;
     }
 
-    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetId, const ECC::Scalar::Native& offset) const
+    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, Asset::ID assetId, const ECC::Scalar::Native& offset) const
     {
         // Excess = Sum(input blinfing factors) - Sum(output blinfing factors) - offset
         Point commitment;

@@ -570,12 +570,12 @@ public:
 	bool UniqueFind(const Blob& key, Recordset&);
 	void UniqueDeleteStrict(const Blob& key);
 
-	void AssetAdd(AssetInfo::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
-	AssetID AssetFindByOwner(const PeerID&);
-	bool AssetFindByOwner(AssetInfo::Full&); // must set Owner
-	AssetID AssetDelete(AssetID); // returns remaining assets count (including the unused)
-	bool AssetGetSafe(AssetInfo::Full&); // must set ID before invocation
-	void AssetSetValue(AssetID, const AmountBig::Type&, Height hLockHeight);
+	void AssetAdd(Asset::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
+	Asset::ID AssetFindByOwner(const PeerID&);
+	bool AssetFindByOwner(Asset::Full&); // must set Owner
+	Asset::ID AssetDelete(Asset::ID); // returns remaining assets count (including the unused)
+	bool AssetGetSafe(Asset::Full&); // must set ID before invocation
+	void AssetSetValue(Asset::ID, const AmountBig::Type&, Height hLockHeight);
 
 private:
 
@@ -631,10 +631,10 @@ private:
 
 	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
 
-	static const AssetID s_AssetEmpty0;
-	void AssetInsertRaw(AssetID, const AssetInfo::Full*);
-	void AssetDeleteRaw(AssetID);
-	AssetID AssetFindMinFree(AssetID nMin);
+	static const Asset::ID s_AssetEmpty0;
+	void AssetInsertRaw(Asset::ID, const Asset::Full*);
+	void AssetDeleteRaw(Asset::ID);
+	Asset::ID AssetFindMinFree(Asset::ID nMin);
 };
 
 
