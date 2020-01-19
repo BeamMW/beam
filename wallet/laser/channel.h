@@ -67,7 +67,7 @@ public:
     Amount SelectInputs(
             std::vector<CoinID>& vInp, Amount valRequired, Asset::ID nAssetID) override;
     void SendPeer(Negotiator::Storage::Map&& dataOut) override;
-    void OnCoin(const CoinID& kidv,
+    void OnCoin(const CoinID&,
                 Height h,
                 CoinState eState,
                 bool bReverse) override;

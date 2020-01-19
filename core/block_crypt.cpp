@@ -440,7 +440,7 @@ namespace beam
 		if (bSuccess)
 		{
 			// Skip further verification, assuming no need to fully reconstruct the commitment
-			cid = cp.m_Kidv;
+			Cast::Down<Key::IDV>(cid) = cp.m_Kidv;
 			cid.m_AssetID = m_AssetID;
 		}
 

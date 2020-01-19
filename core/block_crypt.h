@@ -229,13 +229,6 @@ namespace beam
 		CoinID(Zero_) :Key::IDV(Zero) {}
 		CoinID(Amount v, uint64_t nIdx, Key::Type type, Key::Index nSubIdx = 0) :Key::IDV(v, nIdx, type, nSubIdx) {}
 
-		// legacy c'tor. Remove it when everything is ported
-		CoinID(const Key::IDV& kidv, Asset::ID aid = 0)
-			:Key::IDV(kidv)
-		{
-			m_AssetID = aid;
-		}
-
 		void get_Hash(ECC::Hash::Value&) const;
 
 		int cmp(const CoinID&) const;

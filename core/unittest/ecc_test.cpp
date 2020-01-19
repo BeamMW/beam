@@ -1032,7 +1032,7 @@ void TestMultiSigOutput()
     Scalar::Native blindingFactorB;
 
 	CoinID cid;
-	cid = creatorParamsB.m_Kidv;
+	Cast::Down<Key::IDV>(cid) = creatorParamsB.m_Kidv;
 	CoinID::Worker wrk(cid);
 
     wrk.Create(blindingFactorA, *pKdf_A);
