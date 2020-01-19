@@ -287,7 +287,7 @@ namespace beam::wallet
         virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
 
         // Returns the Child Key Derivative Function (operates on secret keys)
-		beam::Key::IKdf::Ptr get_ChildKdf(const Key::IDV&) const;
+		beam::Key::IKdf::Ptr get_ChildKdf(const CoinID&) const;
 
         // Returns the Owner Key Derivative Function (operates on public keys)
         virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const = 0;

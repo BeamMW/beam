@@ -133,11 +133,11 @@ Amount Channel::SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asse
     auto coins = m_rHolder.getWalletDB()->selectCoins(valRequired, nAssetID);
     vInp.reserve(coins.size());
     std::transform(coins.begin(), coins.end(), std::back_inserter(vInp),
-                   [&nDone] (const Coin& coin) -> Key::IDV
+                   [&nDone] (const Coin& coin) -> CoinID
                     {
-                        auto idv = coin.m_ID;
-                        nDone += idv.m_Value;
-                        return idv;
+                        const CoinID& cid = coin.m_ID;
+                        nDone += cid.m_Value;
+                        return cid;
                     });
     return nDone;
 }
@@ -390,9 +390,9 @@ void Channel::UpdateRestorePoint()
     ser & m_pOpen->m_hvKernel0;
     ser & m_pOpen->m_hOpened;
     ser & m_pOpen->m_vInp.size();
-    for (auto& inp : m_pOpen->m_vInp)
+    for (const CoinID& cid : m_pOpen->m_vInp)
     {
-        ser & inp;
+        ser & cid;
     }
     ser & m_pOpen->m_cidChange;
 
@@ -547,9 +547,9 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
         m_pOpen->m_vInp.reserve(vInpSize);
         for (size_t i = 0; i < vInpSize; ++i)
         {
-            Key::IDV idv;
-            der & idv;
-            m_pOpen->m_vInp.push_back(idv);
+            CoinID cid;
+            der & cid;
+            m_pOpen->m_vInp.push_back(cid);
         }
         der & m_pOpen->m_cidChange;
 

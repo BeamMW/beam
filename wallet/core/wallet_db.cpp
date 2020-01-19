@@ -1494,9 +1494,9 @@ namespace beam::wallet
         return m_useTrezor ? nullptr : m_pKdf;
     }
 
-	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const Key::IDV& kidv) const
+	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const CoinID& cid) const
 	{
-		return MasterKey::get_Child(get_MasterKdf(), kidv);
+		return MasterKey::get_Child(get_MasterKdf(), cid);
 	}
 
     beam::Key::IPKdf::Ptr WalletDB::get_OwnerKdf() const

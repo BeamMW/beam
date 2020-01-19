@@ -266,7 +266,7 @@ namespace beam::wallet
         Amount preselAmountBeam  = 0;
         Amount preselAmountAsset = 0;
 
-        auto isAssetCoin = [](const Coin& coin) {
+        auto isAssetCoin = [this](const Coin& coin) {
             return coin.m_ID.m_AssetID == m_assetId;
         };
 
