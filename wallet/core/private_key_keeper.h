@@ -29,6 +29,8 @@ namespace beam::wallet
         ECC::Signature paymentProofSignature;
         PeerID peerID = Zero;
         PeerID myID;
+
+        SERIALIZE(height.m_Min, height.m_Max, fee, commitment, publicNonce, lockImage, lockPreImage, paymentProofSignature, peerID, myID)
     };
 
     struct ReceiverSignature
