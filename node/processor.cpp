@@ -2366,22 +2366,22 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 
 void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 {
-	Key::IDV kidv;
-	if (!x.Recover(h, keyViewer, kidv))
+	CoinID cid;
+	if (!x.Recover(h, keyViewer, cid))
 		return;
 
 	// filter-out dummies
-	if (IsDummy(kidv))
+	if (IsDummy(cid))
 	{
-		OnDummy(kidv, h);
+		OnDummy(cid, h);
 		return;
 	}
 
 	// bingo!
 	UtxoEvent::Value evt;
-	evt.m_Kidv = kidv;
+	evt.m_Kidv = cid;
 	evt.m_Flags = proto::UtxoEvent::Flags::Add;
-	evt.m_AssetID = x.m_AssetID;
+	evt.m_AssetID = cid.m_AssetID;
 	evt.m_Buf1 = Zero;
 
 	evt.m_Maturity = x.get_MinMaturity(h);
@@ -2408,19 +2408,19 @@ void NodeProcessor::RescanOwnedTxos()
 		{
 		}
 
-		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp, const Key::IDV& kidv) override
+		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp, const CoinID& cid) override
 		{
-			if (IsDummy(kidv))
+			if (IsDummy(cid))
 			{
-				m_This.OnDummy(kidv, hCreate);
+				m_This.OnDummy(cid, hCreate);
 				return true;
 			}
 
 			UtxoEvent::Value evt;
-			evt.m_Kidv = kidv;
+			evt.m_Kidv = cid;
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
 			evt.m_Flags = proto::UtxoEvent::Flags::Add;
-			evt.m_AssetID = outp.m_AssetID;
+			evt.m_AssetID = cid.m_AssetID;
 			evt.m_Buf1 = Zero;
 
 			const UtxoEvent::Key& key = outp.m_Commitment;
@@ -2492,9 +2492,12 @@ void NodeProcessor::RescanOwnedTxos()
 	}
 }
 
-bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
+bool NodeProcessor::IsDummy(const CoinID&  cid)
 {
-	return !kidv.m_Value && (Key::Type::Decoy == kidv.m_Type);
+	return
+		!cid.m_Value &&
+		!cid.m_AssetID &&
+		(Key::Type::Decoy == cid.m_Type);
 }
 
 bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
@@ -4247,11 +4250,11 @@ bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, 
 
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
-	Key::IDV kidv;
-	if (!outp.Recover(hCreate, m_Key, kidv))
+	CoinID cid;
+	if (!outp.Recover(hCreate, m_Key, cid))
 		return true;
 
-	return OnTxo(wlk, hCreate, outp, kidv);
+	return OnTxo(wlk, hCreate, outp, cid);
 }
 
 bool NodeProcessor::ITxoWalker_UnspentNaked::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate)

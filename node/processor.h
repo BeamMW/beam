@@ -406,7 +406,7 @@ public:
 		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
-		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV&) = 0;
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&) = 0;
 	};
 
 	struct ITxoWalker_UnspentNaked
@@ -457,9 +457,9 @@ public:
 #pragma pack (pop)
 
 	virtual void OnUtxoEvent(const UtxoEvent::Value&, Height) {}
-	virtual void OnDummy(const Key::ID&, Height) {}
+	virtual void OnDummy(const CoinID&, Height) {}
 
-	static bool IsDummy(const Key::IDV&);
+	static bool IsDummy(const CoinID&);
 
 	struct Mmr
 	{

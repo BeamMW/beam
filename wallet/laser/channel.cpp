@@ -125,12 +125,12 @@ proto::FlyClient::INetwork& Channel::get_Net()
     return m_rHolder.get_Net();
 }
 
-Amount Channel::SelectInputs(std::vector<Key::IDV>& vInp, Amount valRequired)
+Amount Channel::SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asset::ID nAssetID)
 {
     assert(vInp.empty());
 
     Amount nDone = 0;
-    auto coins = m_rHolder.getWalletDB()->selectCoins(valRequired, Zero);
+    auto coins = m_rHolder.getWalletDB()->selectCoins(valRequired, nAssetID);
     vInp.reserve(coins.size());
     std::transform(coins.begin(), coins.end(), std::back_inserter(vInp),
                    [&nDone] (const Coin& coin) -> Key::IDV
@@ -147,10 +147,10 @@ void Channel::get_Kdf(Key::IKdf::Ptr& pKdf)
     pKdf = m_rHolder.getWalletDB()->get_MasterKdf();
 }
 
-void Channel::AllocTxoID(Key::IDV& kidv)
+void Channel::AllocTxoID(CoinID& cid)
 {
-    kidv.set_Subkey(0);
-    kidv.m_Idx = get_RandomID();
+    cid.set_Subkey(0);
+    cid.m_Idx = get_RandomID();
 }
 
 void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
@@ -193,17 +193,18 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
 	}
 }
 
-void Channel::OnCoin(const ECC::Key::IDV& kidv,
+void Channel::OnCoin(const CoinID& cid,
                      Height h,
                      CoinState eState,
                      bool bReverse)
 {
     auto pWalletDB = m_rHolder.getWalletDB();
-    auto coins = pWalletDB->getCoinsByID(std::vector<ECC::Key::IDV>({kidv}));
+    auto coins = pWalletDB->getCoinsByID(std::vector<ECC::Key::IDV>({cid}));
     if (coins.empty())
     {
         auto& coin = coins.emplace_back();
-        coin.m_ID = kidv;
+        coin.m_ID = cid;
+        coin.m_assetId = cid.m_AssetID;
         coin.m_maturity = m_pOpen && m_pOpen->m_hOpened
             ? m_Params.m_hLockTime + m_pOpen->m_hOpened
             : m_Params.m_hLockTime + h;
@@ -277,7 +278,7 @@ void Channel::OnCoin(const ECC::Key::IDV& kidv,
     }
 
     pWalletDB->saveCoins(coins);
-    LOG_INFO() << "Coin " << kidv.m_Value << " " << szStatus;
+    LOG_INFO() << "Coin " << cid << " " << szStatus;
 }
 
 const ChannelIDPtr& Channel::get_chID() const
@@ -394,7 +395,7 @@ void Channel::UpdateRestorePoint()
     {
         ser & inp;
     }
-    ser & m_pOpen->m_kidvChange;
+    ser & m_pOpen->m_cidChange;
 
     ser & m_vUpdates.size();
     for (auto& upd : m_vUpdates)
@@ -427,7 +428,7 @@ void Channel::UpdateRestorePoint()
     if (!m_vUpdates.empty())
     {
         const auto& lastUpdate = m_vUpdates.back();
-        m_aCurMy = lastUpdate->m_Outp.m_Value;           
+        m_aCurMy = lastUpdate->m_Outp.m_Value;
         auto total = lastUpdate->m_msMy.m_Value;
         if (!m_gracefulClose)
         {
@@ -551,7 +552,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
             der & idv;
             m_pOpen->m_vInp.push_back(idv);
         }
-        der & m_pOpen->m_kidvChange;
+        der & m_pOpen->m_cidChange;
 
         size_t vUpdatesSize = 0;
         der & vUpdatesSize;

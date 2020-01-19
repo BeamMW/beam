@@ -214,11 +214,7 @@ namespace beam::wallet
         for (const auto& coinID : ids)
         {
             auto& output = resOuts.emplace_back(make_unique<Output>());
-            if (coinID.isAsset())
-            {
-                output->m_AssetID = assetId;
-            }
-            output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID), coinID, *m_MasterKdf);
+            output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID), CoinID(coinID, assetId), *m_MasterKdf);
             resOffset += -secretKey;
         }
 

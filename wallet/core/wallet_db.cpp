@@ -1538,22 +1538,19 @@ namespace beam::wallet
 			if (!prog.OnProgress(nTotal - nRemaining, nTotal))
 				return false;
 
-			Key::IDV kidv;
-			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, kidv))
+			CoinID cid;
+			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, cid))
 				continue;
 
-			if (!kidv.m_Value && (Key::Type::Decoy == kidv.m_Type))
-				continue; // filter-out decoys
-
-			ECC::Point&& comm = calcCommitment(kidv, x.m_Output.m_AssetID);
+			ECC::Point&& comm = calcCommitment(cid, cid.m_AssetID);
 			if (!(comm == x.m_Output.m_Commitment))
 				continue;
 
 			Coin c;
-			c.m_ID = kidv;
+			c.m_ID = cid;
 			findCoin(c); // in case it exists already - fill its parameters
 
-			c.m_assetId = x.m_Output.m_AssetID;
+			c.m_assetId = cid.m_AssetID;
 			c.m_maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
 			c.m_confirmHeight = x.m_CreateHeight;
 

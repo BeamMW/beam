@@ -810,6 +810,25 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::Output serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::CoinID& v)
+		{
+			ar
+				& Cast::Down<beam::Key::IDV>(v)
+				& v.m_AssetID;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::CoinID& v)
+		{
+			ar
+				& Cast::Down<beam::Key::IDV>(v)
+				& v.m_AssetID;
+			return ar;
+		}
+
         /// beam::Output serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)

@@ -129,6 +129,9 @@ int IS_EQUAL_HEX(const char *hex_str, const uint8_t *bytes, size_t str_size)
 }
 
 namespace ECC {
+
+typedef beam::CoinID CoinID;
+
 void Test_SetUintBig(uintBig& uintbig, int value)
 {
 	memset(uintbig.m_pData, value, uintbig.nBytes);
@@ -681,18 +684,19 @@ void TestCommitments()
 	{
 		uint8_t nScheme = iCycle ? Key::IDV::Scheme::V1 : Key::IDV::Scheme::V0;
 
-		Key::IDV kidv(100500, 15, Key::Type::Regular, 7, nScheme);
+		CoinID cid(100500, 15, Key::Type::Regular);
+		cid.set_Subkey(7, nScheme);
 
 		Scalar::Native sk;
 		Point::Native comm;
-		beam::SwitchCommitment().Create(sk, comm, kdf, kidv);
+		beam::SwitchCommitment().Create(sk, comm, kdf, cid);
 
-		sigma = Commitment(sk, kidv.m_Value);
+		sigma = Commitment(sk, cid.m_Value);
 		sigma = -sigma;
 		sigma += comm;
 		verify_test(sigma == Zero);
 
-		beam::SwitchCommitment().Recover(sigma, kdf, kidv);
+		beam::SwitchCommitment().Recover(sigma, kdf, cid);
 		sigma = -sigma;
 		sigma += comm;
 		verify_test(sigma == Zero);
@@ -975,11 +979,14 @@ void TestRangeProof(bool bCustomTag)
 	SetRandom(seed);
 	kdf.Generate(seed);
 
+	CoinID cid(20300, 1, Key::Type::Regular);
+	cid.m_AssetID = aib.m_ID;
+
 	{
+
 		beam::Output outp;
-		outp.m_AssetID = aib.m_ID;
 		outp.m_Coinbase = true; // others may be disallowed
-		outp.Create(g_hFork, sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf, true);
+		outp.Create(g_hFork, sk, kdf, cid, kdf, true);
 		verify_test(outp.IsValid(g_hFork, comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 
@@ -988,8 +995,7 @@ void TestRangeProof(bool bCustomTag)
 	}
 	{
 		beam::Output outp;
-		outp.m_AssetID = aib.m_ID;
-		outp.Create(g_hFork, sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf);
+		outp.Create(g_hFork, sk, kdf, cid, kdf);
 		verify_test(outp.IsValid(g_hFork, comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 
@@ -1025,8 +1031,11 @@ void TestMultiSigOutput()
     Scalar::Native blindingFactorA;
     Scalar::Native blindingFactorB;
     beam::SwitchCommitment switchCommitment;
-    switchCommitment.Create(blindingFactorA, *pKdf_A, creatorParamsB.m_Kidv);
-    switchCommitment.Create(blindingFactorB, *pKdf_B, creatorParamsB.m_Kidv);
+
+	CoinID cid;
+	cid = creatorParamsB.m_Kidv;
+    switchCommitment.Create(blindingFactorA, *pKdf_A, cid);
+    switchCommitment.Create(blindingFactorB, *pKdf_B, cid);
 
     // seed from RangeProof::Confidential::Create
     uintBig seedA;
@@ -1105,13 +1114,12 @@ void TestMultiSigOutput()
     std::unique_ptr<beam::Input> pInput(new beam::Input);
 
     // create test coin
-    Key::IDV kidv;
-    SetRandomOrd(kidv.m_Idx);
-    kidv.m_Type = Key::Type::Regular;
-	kidv.set_Subkey(0);
-    kidv.m_Value = amount;
+    SetRandomOrd(cid.m_Idx);
+	cid.m_Type = Key::Type::Regular;
+	cid.set_Subkey(0);
+	cid.m_Value = amount;
     Scalar::Native k;
-    beam::SwitchCommitment().Create(k, pInput->m_Commitment, *pKdf_A, kidv);
+    beam::SwitchCommitment().Create(k, pInput->m_Commitment, *pKdf_A, cid);
     offset = k;
 
     // output
@@ -1216,14 +1224,14 @@ struct TransactionMaker
 		{
 			std::unique_ptr<beam::Input> pInp(new beam::Input);
 
-			Key::IDV kidv;
-			SetRandomOrd(kidv.m_Idx, is_trezor_debug);
-			kidv.m_Type = Key::Type::Regular;
-			kidv.set_Subkey(0);
-			kidv.m_Value = val;
+			CoinID cid;
+			SetRandomOrd(cid.m_Idx, is_trezor_debug);
+			cid.m_Type = Key::Type::Regular;
+			cid.set_Subkey(0);
+			cid.m_Value = val;
 
 			Scalar::Native k;
-			beam::SwitchCommitment(nAssetID).Create(k, pInp->m_Commitment, kdf, kidv);
+			beam::SwitchCommitment(nAssetID).Create(k, pInp->m_Commitment, kdf, cid);
 
 			t.m_vInputs.push_back(std::move(pInp));
 			m_k += k;
@@ -1235,19 +1243,19 @@ struct TransactionMaker
 
 			Scalar::Native k;
 
-			Key::IDV kidv;
-			SetRandomOrd(kidv.m_Idx, is_trezor_debug);
-			kidv.m_Type = Key::Type::Regular;
-			kidv.set_Subkey(0);
-			kidv.m_Value = val;
+			CoinID cid;
+			SetRandomOrd(cid.m_Idx, is_trezor_debug);
+			cid.m_Type = Key::Type::Regular;
+			cid.set_Subkey(0);
+			cid.m_Value = val;
+			cid.m_AssetID = nAssetID;
 
-			pOut->m_AssetID = nAssetID;
-			pOut->Create(g_hFork, k, kdf, kidv, kdf);
+			pOut->Create(g_hFork, k, kdf, cid, kdf);
 
 			// test recovery
-			Key::IDV kidv2;
-			verify_test(pOut->Recover(g_hFork, kdf, kidv2));
-			verify_test(kidv == kidv2);
+			CoinID cid2;
+			verify_test(pOut->Recover(g_hFork, kdf, cid2));
+			verify_test(cid == cid2);
 
 			t.m_vOutputs.push_back(std::move(pOut));
 
@@ -1449,20 +1457,20 @@ struct IHWWallet
 
 	struct TransactionInOuts
 	{
-		const Key::IDV* m_pInputs;
-		const Key::IDV* m_pOutputs;
+		const CoinID* m_pInputs;
+		const CoinID* m_pOutputs;
 		uint32_t m_Inputs;
 		uint32_t m_Outputs;
 	};
 
 	virtual void SummarizeCommitment(Point::Native& res, const TransactionInOuts&) = 0;
 
-	void CreateInput(beam::Input& res, const Key::IDV& kidv)
+	void CreateInput(beam::Input& res, const CoinID& cid)
 	{
 		TransactionInOuts tx;
 		tx.m_Outputs = 0;
 		tx.m_Inputs = 1;
-		tx.m_pInputs = &kidv;
+		tx.m_pInputs = &cid;
 
 		Point::Native pt(Zero);
 		SummarizeCommitment(pt, tx);
@@ -1470,7 +1478,7 @@ struct IHWWallet
 		res.m_Commitment = pt;
 	}
 
-	virtual void CreateOutput(beam::Output&, const Key::IDV&) = 0;
+	virtual void CreateOutput(beam::Output&, const CoinID&) = 0;
 
 	struct TransactionData
 		:public TransactionInOuts
@@ -1547,12 +1555,12 @@ struct HWWalletEmulator
 	typedef int64_t AmountSigned;
 
 	// Add the blinding factor and value of a specific TXO
-	void SummarizeOnce(Scalar::Native& res, AmountSigned& dVal, const Key::IDV& kidv)
+	void SummarizeOnce(Scalar::Native& res, AmountSigned& dVal, const CoinID& cid)
 	{
 		Scalar::Native sk;
-		beam::SwitchCommitment().Create(sk, *m_pKdf, kidv);
+		beam::SwitchCommitment().Create(sk, *m_pKdf, cid);
 		res += sk;
-		dVal += kidv.m_Value;
+		dVal += cid.m_Value; // TODO - asset type!
 	}
 
 	// Summarize blinding factors and values of several in/out TXOs
@@ -1590,10 +1598,10 @@ struct HWWalletEmulator
 			res += Context::get().H * Amount(dVal);
 	}
 
-	virtual void CreateOutput(beam::Output& outp, const Key::IDV& kidv)  override
+	virtual void CreateOutput(beam::Output& outp, const CoinID& cid)  override
 	{
 		Scalar::Native sk;
-		outp.Create(g_hFork, sk, *m_pKdf, kidv, *m_pKdf);
+		outp.Create(g_hFork, sk, *m_pKdf, cid, *m_pKdf);
 	}
 
 	virtual bool SignTransactionRcv(TransactionData& tx) override
@@ -1755,10 +1763,10 @@ struct HWWalletEmulator
 
 	void GetWalletIDInternal(beam::PeerID& res, Scalar::Native& sk)
 	{
-		Key::IDV kidv(Zero);
-		kidv.m_Type = Key::Type::WalletID;
+		Key::ID kid(Zero);
+		kid.m_Type = Key::Type::WalletID;
 
-		m_pKdf->DeriveKey(sk, kidv);
+		m_pKdf->DeriveKey(sk, kid);
 
 		beam::proto::Sk2Pk(res, sk);
 	}
@@ -1778,22 +1786,22 @@ struct MyWallet
 	uint32_t m_iSlot; // slot selected for the transaction
 	uint64_t m_nLastCoinIndex = 0;
 
-	std::vector<Key::IDV> m_vIns;
-	std::vector<Key::IDV> m_vOuts;
+	std::vector<CoinID> m_vIns;
+	std::vector<CoinID> m_vOuts;
 
 	Amount m_Balance = 0; // in - out. Does not include fee
 
 	void AddInp(beam::TxVectors::Perishable& txp, Amount val)
 	{
 #if TREZOR_DEBUG == 1
-		Key::IDV kidv(val, 0, Key::Type::Regular);
+		CoinID cid(val, 0, Key::Type::Regular);
 #else
-		Key::IDV kidv(val, ++m_nLastCoinIndex, Key::Type::Regular);
+		CoinID cid(val, ++m_nLastCoinIndex, Key::Type::Regular);
 #endif
-		m_vIns.push_back(kidv);
+		m_vIns.push_back(cid);
 
 		beam::Input::Ptr pInp(new beam::Input);
-		m_HW.CreateInput(*pInp, kidv);
+		m_HW.CreateInput(*pInp, cid);
 
 		txp.m_vInputs.push_back(std::move(pInp));
 		m_Balance += val;
@@ -1802,14 +1810,14 @@ struct MyWallet
 	void AddOutp(beam::TxVectors::Perishable& txp, Amount val)
 	{
 #if TREZOR_DEBUG == 1
-		Key::IDV kidv(val, 0, Key::Type::Regular);
+		CoinID cid(val, 0, Key::Type::Regular);
 #else
-		Key::IDV kidv(val, ++m_nLastCoinIndex, Key::Type::Regular);
+		CoinID cid(val, ++m_nLastCoinIndex, Key::Type::Regular);
 #endif
-		m_vOuts.push_back(kidv);
+		m_vOuts.push_back(cid);
 
 		beam::Output::Ptr pOutp(new beam::Output);
-		m_HW.CreateOutput(*pOutp, kidv);
+		m_HW.CreateOutput(*pOutp, cid);
 
 		txp.m_vOutputs.push_back(std::move(pOutp));
 		m_Balance -= val;
@@ -2529,9 +2537,9 @@ void TestAssetEmission()
 {
 	const beam::Height hScheme = g_hFork;
 
-	beam::Key::IDV kidvInpBeam (170, 12, beam::Key::Type::Regular);
-	beam::Key::IDV kidvInpAsset(53,  15, beam::Key::Type::Asset);
-	beam::Key::IDV kidvOutBeam (70,  25, beam::Key::Type::Regular);
+	CoinID cidInpBeam (170, 12, beam::Key::Type::Regular);
+	CoinID cidInpAsset(53,  15, beam::Key::Type::Asset);
+	CoinID cidOutBeam (70,  25, beam::Key::Type::Regular);
 	const beam::Amount fee = 100;
 
 	beam::Key::IKdf::Ptr pKdf;
@@ -2548,17 +2556,17 @@ void TestAssetEmission()
 	beam::Transaction tx;
 
 	beam::Input::Ptr pInp(new beam::Input);
-	beam::SwitchCommitment().Create(sk, pInp->m_Commitment, *pKdf, kidvInpBeam);
+	beam::SwitchCommitment().Create(sk, pInp->m_Commitment, *pKdf, cidInpBeam);
 	tx.m_vInputs.push_back(std::move(pInp));
 	kOffset += sk;
 
 	beam::Input::Ptr pInpAsset(new beam::Input);
-	beam::SwitchCommitment(nAssetID).Create(sk, pInpAsset->m_Commitment, *pKdf, kidvInpAsset);
+	beam::SwitchCommitment(nAssetID).Create(sk, pInpAsset->m_Commitment, *pKdf, cidInpAsset);
 	tx.m_vInputs.push_back(std::move(pInpAsset));
 	kOffset += sk;
 
 	beam::Output::Ptr pOutp(new beam::Output);
-	pOutp->Create(hScheme, sk, *pKdf, kidvOutBeam, *pKdf);
+	pOutp->Create(hScheme, sk, *pKdf, cidOutBeam, *pKdf);
 	tx.m_vOutputs.push_back(std::move(pOutp));
 	kOffset += -sk;
 
@@ -2575,7 +2583,7 @@ void TestAssetEmission()
 	pKdf->DeriveKey(sk, beam::Key::ID(73123, beam::Key::Type::Kernel));
 	pKrnAsset->m_AssetID = nAssetID;
 	pKrnAsset->m_Owner = assetOwner;
-	pKrnAsset->m_Value = -static_cast<beam::AmountSigned>(kidvInpAsset.m_Value);
+	pKrnAsset->m_Value = -static_cast<beam::AmountSigned>(cidInpAsset.m_Value);
 	pKrnAsset->m_Height.m_Min = hScheme;
 	pKrnAsset->Sign(sk, skAssetSk);
 	tx.m_vKernels.push_back(std::move(pKrnAsset));

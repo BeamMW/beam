@@ -63,11 +63,11 @@ public:
     Height get_Tip() const override;
     proto::FlyClient::INetwork& get_Net() override;
     void get_Kdf(Key::IKdf::Ptr&) override;
-    void AllocTxoID(Key::IDV&) override;
+    void AllocTxoID(CoinID&) override;
     Amount SelectInputs(
-            std::vector<Key::IDV>& vInp, Amount valRequired) override;
+            std::vector<CoinID>& vInp, Amount valRequired, Asset::ID nAssetID) override;
     void SendPeer(Negotiator::Storage::Map&& dataOut) override;
-    void OnCoin(const ECC::Key::IDV& kidv,
+    void OnCoin(const CoinID& kidv,
                 Height h,
                 CoinState eState,
                 bool bReverse) override;

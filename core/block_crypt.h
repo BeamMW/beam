@@ -220,21 +220,44 @@ namespace beam
 		bool IsForkHeightsConsistent() const;
 	};
 
+	struct CoinID
+		:public Key::IDV
+	{
+		Asset::ID m_AssetID = 0;
+
+		CoinID() {}
+		CoinID(Zero_) :Key::IDV(Zero) {}
+		CoinID(Amount v, uint64_t nIdx, Key::Type type, Key::Index nSubIdx = 0) :Key::IDV(v, nIdx, type, nSubIdx) {}
+
+		// legacy c'tor. Remove it when everything is ported
+		CoinID(const Key::IDV& kidv, Asset::ID aid = 0)
+			:Key::IDV(kidv)
+		{
+			m_AssetID = aid;
+		}
+
+		void get_Hash(ECC::Hash::Value&) const;
+
+		int cmp(const CoinID&) const;
+		COMPARISON_VIA_CMP
+	};
+
+	std::ostream& operator << (std::ostream&, const CoinID&);
+
 	class SwitchCommitment
 	{
 		static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
-		void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const;
+		void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf, const CoinID&) const;
 		void AddValue(ECC::Point::Native& comm, Amount) const;
-		static void get_Hash(ECC::Hash::Value&, const Key::IDV&);
 	public:
 
 	    ECC::Point::Native m_hGen;
 		SwitchCommitment(Asset::ID = 0);
 
-		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&) const;
-		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const Key::IDV&) const;
-		void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf&, const Key::IDV&) const;
-		void Recover(ECC::Point::Native& comm, Key::IPKdf&, const Key::IDV&) const;
+		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const CoinID&) const;
+		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const CoinID&) const;
+		void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf&, const CoinID&) const;
+		void Recover(ECC::Point::Native& comm, Key::IPKdf&, const CoinID&) const;
 	};
 
 	struct TxStats
@@ -344,10 +367,10 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
-		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
+		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, bool bPublic = false);
 
-		bool Recover(Height hScheme, Key::IPKdf& tagKdf, Key::IDV&) const;
-		bool VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV&) const;
+		bool Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID&) const;
+		bool VerifyRecovered(Key::IPKdf& coinKdf, const CoinID&) const;
 
 		bool IsValid(Height hScheme, ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden

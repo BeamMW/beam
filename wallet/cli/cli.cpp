@@ -344,7 +344,7 @@ namespace
             for (size_t i = 0; i < vCoins.size(); i++)
             {
                 const Treasury::Data::Coin& coin = vCoins[i];
-                cout << boost::format(kTreasuryRecoveredCoin) % coin.m_Kidv % coin.m_Incubation << std::endl;
+                cout << boost::format(kTreasuryRecoveredCoin) % coin.m_Cid % coin.m_Incubation << std::endl;
 
             }
         }
