@@ -527,6 +527,7 @@ namespace beam::wallet
         proto::UtxoEvent evt;
         evt.m_Flags = proto::UtxoEvent::Flags::Add;
         evt.m_Kidv = r.m_CoinID;
+        evt.m_AssetID = r.m_CoinID.m_AssetID;
         evt.m_Maturity = proof.m_State.m_Maturity;
         evt.m_Height = evt.m_Maturity; // we don't know the real height, but it'll be used for logging only. For standard outputs maturity and height are the same
 
@@ -626,7 +627,7 @@ namespace beam::wallet
         if (m_KeyKeeper)
         {
             commitmentFunc = [this](const CoinID& cid) {
-                return m_KeyKeeper->GenerateCoinKeySync(cid, cid.m_AssetID);
+                return m_KeyKeeper->GenerateCoinKeySync(cid);
             };
         }
         else if (auto ownerKdf = m_WalletDB->get_OwnerKdf(); ownerKdf)
@@ -708,14 +709,13 @@ namespace beam::wallet
             return; // not supported atm
 
         Coin c;
-        c.m_ID = evt.m_Kidv;
-        evt.m_AssetID.Export(c.m_assetId);
+        evt.get_Cid(c.m_ID);
 
         bool bExists = m_WalletDB->findCoin(c);
         c.m_maturity = evt.m_Maturity;
 
 		bool bAdd = 0 != (proto::UtxoEvent::Flags::Add & evt.m_Flags);
-        LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + to_string(c.m_assetId) : "")
+        LOG_INFO() << "CoinID: " << c.m_ID
                    << " Maturity=" << evt.m_Maturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << evt.m_Height;
 
         if (bAdd)
@@ -732,8 +732,7 @@ namespace beam::wallet
                 {
                     c.m_status = Coin::Status::Outgoing;
                     c.m_spentTxId = txid;
-                    LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + to_string(c.m_assetId) : "")
-                               << " marked as Outgoing";
+                    LOG_INFO() << "CoinID: " << c.m_ID << " marked as Outgoing";
                 }
             }
         }
@@ -840,7 +839,7 @@ namespace beam::wallet
             return;
         }
 
-        pReq->m_Msg.m_Utxo = m_KeyKeeper->GenerateCoinKeySync(coin.m_ID, coin.m_assetId);
+        pReq->m_Msg.m_Utxo = m_KeyKeeper->GenerateCoinKeySync(coin.m_ID);
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
         PostReqUnique(*pReq);

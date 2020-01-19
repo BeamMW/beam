@@ -69,7 +69,7 @@ namespace beam::wallet
         std::string toStringID() const;
         Amount getAmount() const;
 
-        typedef Key::IDV ID; // unique identifier for the coin (including value), can be used to create blinding factor 
+        typedef CoinID ID; // unique identifier for the coin
         ID m_ID;
 
         Status m_status;        // current status of the coin
@@ -83,7 +83,6 @@ namespace beam::wallet
         boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
         
         uint64_t m_sessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
-        Asset::ID m_assetId; // Which asset coin represents, Zero is BEAM
 
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
         Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed

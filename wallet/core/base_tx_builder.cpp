@@ -174,7 +174,7 @@ namespace beam::wallet
 
         DoAsync<IPrivateKeyKeeper::Outputs>([this](auto&& r, auto&& ex)
             {
-                m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId, move(r), move(ex));
+                m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins, move(r), move(ex));
             },
             [this](IPrivateKeyKeeper::Outputs&& resOutputs)
             {
@@ -201,7 +201,7 @@ namespace beam::wallet
         }
         DoAsync<IPrivateKeyKeeper::PublicKeys>([this](auto&& r, auto&& ex)
             {
-                m_Tx.GetKeyKeeper()->GeneratePublicKeysEx(m_InputCoins, true, m_AssetId, move(r), move(ex));
+                m_Tx.GetKeyKeeper()->GeneratePublicKeys(m_InputCoins, true, move(r), move(ex));
             },
             [this](IPrivateKeyKeeper::PublicKeys&& commitments)
             {
@@ -421,7 +421,7 @@ namespace beam::wallet
 
             DoAsync<SenderSignature>([=](auto&& r, auto&& ex)
                 {
-                    m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, initial, move(r), move(ex));
+                    m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_NonceSlot, kernelParameters, initial, move(r), move(ex));
                 },
                 [=](SenderSignature&& signature)
                 {
@@ -478,7 +478,6 @@ namespace beam::wallet
                 {
                     m_Tx.GetKeyKeeper()->SignReceiver(m_InputCoins
                         , m_OutputCoins
-                        , m_AssetId
                         , kernelParameters
                         , addressID
                         , move(r)

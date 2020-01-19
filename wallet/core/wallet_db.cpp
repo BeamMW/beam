@@ -33,7 +33,8 @@
     each(Type,           ID.m_Type,     INTEGER NOT NULL, obj) sep \
     each(SubKey,         ID.m_SubIdx,   INTEGER NOT NULL, obj) sep \
     each(Number,         ID.m_Idx,      INTEGER NOT NULL, obj) sep \
-    each(amount,         ID.m_Value,    INTEGER NOT NULL, obj) \
+    each(amount,         ID.m_Value,    INTEGER NOT NULL, obj) sep \
+    each(assetId,        ID.m_AssetID,  INTEGER, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
     each(maturity,       maturity,      INTEGER NOT NULL, obj) sep \
@@ -41,8 +42,7 @@
     each(spentHeight,    spentHeight,   INTEGER, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
     each(spentTxId,      spentTxId,     BLOB, obj) sep \
-    each(sessionId,      sessionId,     INTEGER NOT NULL, obj) sep \
-    each(assetId,        assetId,       BLOB, obj)
+    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
@@ -744,12 +744,12 @@ namespace beam::wallet
         , m_confirmHeight{ MaxHeight }
         , m_spentHeight{ MaxHeight }
         , m_sessionId(EmptyCoinSession)
-        , m_assetId(assetId)
     {
         m_ID = Zero;
         m_ID.m_Value = amount;
         m_ID.m_Type = keyType;
-        assert((m_ID.isAsset() && m_assetId != 0) || (!m_ID.isAsset() && m_assetId == 0));
+        m_ID.m_AssetID = assetId;
+        assert((m_ID.isAsset() && m_ID.m_AssetID) || (!m_ID.isAsset() && !m_ID.m_AssetID));
     }
 
     bool Coin::isReward() const
@@ -766,13 +766,13 @@ namespace beam::wallet
 
     bool Coin::isAsset() const
     {
-        assert((m_ID.isAsset() && m_assetId != 0) || (!m_ID.isAsset() && m_assetId == 0));
-        return m_ID.isAsset();
+        assert((m_ID.isAsset() && m_ID.m_AssetID) || (!m_ID.isAsset() && !m_ID.m_AssetID));
+        return m_ID.m_AssetID != 0;
     }
 
     bool Coin::isAsset(Asset::ID assetId) const
     {
-        return isAsset() && m_assetId == assetId;
+        return isAsset() && (m_ID.m_AssetID == assetId);
     }
 
     bool Coin::IsMaturityValid() const
@@ -843,7 +843,7 @@ namespace beam::wallet
             uint8_t* p = reinterpret_cast<uint8_t*>(&packed) + sizeof(Coin::ID::Packed) - byteBuffer.size();
             copy_n(byteBuffer.begin(), byteBuffer.size(), p);
             Coin::ID id;
-            id = packed;
+            Cast::Down<Key::IDV>(id) = packed; // TODO: assets
             return id;
         }
         return boost::optional<Coin::ID>();
@@ -1550,7 +1550,6 @@ namespace beam::wallet
 			c.m_ID = cid;
 			findCoin(c); // in case it exists already - fill its parameters
 
-			c.m_assetId = cid.m_AssetID;
 			c.m_maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
 			c.m_confirmHeight = x.m_CreateHeight;
 
@@ -1590,7 +1589,7 @@ namespace beam::wallet
                 storage::DeduceStatus(*this, coin, stateID.m_Height);
                 if (Coin::Status::Available != coin.m_status)
                     coins.pop_back();
-                else if (coin.m_assetId != assetId)
+                else if (coin.m_ID.m_AssetID != assetId)
                     coins.pop_back();
                 else
                 {
@@ -3195,7 +3194,7 @@ namespace beam::wallet
 
             walletDB.visitCoins([getTotalsRef] (const Coin& c) -> bool
             {
-                auto& totals = getTotalsRef(c.m_assetId);
+                auto& totals = getTotalsRef(c.m_ID.m_AssetID);
                 const Amount& value = c.m_ID.m_Value; // alias
 
                 switch (c.m_status)

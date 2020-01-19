@@ -70,7 +70,7 @@ public:
         ECC::Amount t = 0;
         for (auto& c : m_coins)
         {
-            if (c.m_assetId != assetId) continue;
+            if (c.m_ID.m_AssetID != assetId) continue;
             t += c.m_ID.m_Value;
             c.m_status = Coin::Outgoing;
             res.push_back(c);
@@ -1320,7 +1320,6 @@ ByteBuffer createTreasury(IWalletDB::Ptr db, const AmountList& amounts = { 5, 2,
             {
                 Coin coin;
                 coin.m_ID = cid;
-                coin.m_assetId = cid.m_AssetID;
                 coin.m_maturity = treasuryCoin.m_pOutput->m_Incubation;
                 coin.m_confirmHeight = treasuryCoin.m_pOutput->m_Incubation;
                 db->saveCoin(coin);

@@ -199,12 +199,11 @@ void Channel::OnCoin(const CoinID& cid,
                      bool bReverse)
 {
     auto pWalletDB = m_rHolder.getWalletDB();
-    auto coins = pWalletDB->getCoinsByID(std::vector<ECC::Key::IDV>({cid}));
+    auto coins = pWalletDB->getCoinsByID(std::vector<CoinID>({cid}));
     if (coins.empty())
     {
         auto& coin = coins.emplace_back();
         coin.m_ID = cid;
-        coin.m_assetId = cid.m_AssetID;
         coin.m_maturity = m_pOpen && m_pOpen->m_hOpened
             ? m_Params.m_hLockTime + m_pOpen->m_hOpened
             : m_Params.m_hLockTime + h;

@@ -39,47 +39,35 @@ namespace beam::wallet
     }
 
 
-    void LocalPrivateKeyKeeper::GeneratePublicKeys(const vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GeneratePublicKeys(const vector<CoinID>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
         DoAsync([=]() { return GeneratePublicKeysSync(ids, createCoinKey); }, move(resultCallback), move(exceptionCallback));
     }
 
-    void LocalPrivateKeyKeeper::GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetID, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
-    {
-        DoAsync([=]() { return GeneratePublicKeysSyncEx(ids, createCoinKey, assetID); }, move(resultCallback), move(exceptionCallback));
-    }
-
-    void LocalPrivateKeyKeeper::GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GenerateOutputs(Height schemeHeight, const std::vector<CoinID>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
         DoThreadAsync([=]() { return GenerateOutputsSync(schemeHeight, ids); }, std::move(resultCallback), std::move(exceptionCallback));
     }
 
-    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, Asset::ID assetId, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
-    {
-        DoThreadAsync([=]() { return GenerateOutputsSyncEx(schemeHeight, ids, assetId); }, std::move(resultCallback), std::move(exceptionCallback));
-    }
-
-    void LocalPrivateKeyKeeper::SignReceiver(const std::vector<Key::IDV>& inputs
-                                           , const std::vector<Key::IDV>& outputs
-                                           , Asset::ID assetId
+    void LocalPrivateKeyKeeper::SignReceiver(const std::vector<CoinID>& inputs
+                                           , const std::vector<CoinID>& outputs
                                            , const KernelParameters& kernelParameters
                                            , const WalletIDKey& walletIDkey
                                            , Callback<ReceiverSignature>&& resultCallback
                                            , ExceptionCallback&& exceptionCallback)
     {
-        DoAsync([=]() { return SignReceiverSync(inputs, outputs, assetId, kernelParameters, walletIDkey); }, move(resultCallback), move(exceptionCallback));
+        DoAsync([=]() { return SignReceiverSync(inputs, outputs, kernelParameters, walletIDkey); }, move(resultCallback), move(exceptionCallback));
     }
 
-    void LocalPrivateKeyKeeper::SignSender(const std::vector<Key::IDV>& inputs
-                                         , const std::vector<Key::IDV>& outputs
-                                         , Asset::ID assetId
+    void LocalPrivateKeyKeeper::SignSender(const std::vector<CoinID>& inputs
+                                         , const std::vector<CoinID>& outputs
                                          , size_t nonceSlot
                                          , const KernelParameters& kernelParameters
                                          , bool initial
                                          , Callback<SenderSignature>&& resultCallback
                                          , ExceptionCallback&& exceptionCallback)
     {
-        DoAsync([=]() { return SignSenderSync(inputs, outputs, assetId, nonceSlot, kernelParameters, initial); }, move(resultCallback), move(exceptionCallback));
+        DoAsync([=]() { return SignSenderSync(inputs, outputs, nonceSlot, kernelParameters, initial); }, move(resultCallback), move(exceptionCallback));
     }
 
 
@@ -107,7 +95,7 @@ namespace beam::wallet
 
     ////
 
-    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey)
+    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GeneratePublicKeysSync(const std::vector<CoinID>& ids, bool createCoinKey)
     {
         PublicKeys result;
         Scalar::Native secretKey;
@@ -117,7 +105,7 @@ namespace beam::wallet
             for (const auto& coinID : ids)
             {
                 Point& publicKey = result.emplace_back();
-                SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
+                SwitchCommitment(coinID.m_AssetID).Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
             }
         }
         else
@@ -132,64 +120,29 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetId)
-    {
-        PublicKeys resKeys;
-        Scalar::Native secretKey;
-        resKeys.reserve(ids.size());
-        if (createCoinKey)
-        {
-            for (const auto& coinID : ids)
-            {
-                if(coinID.isAsset())
-                {
-                    Point &publicKey = resKeys.emplace_back();
-                    SwitchCommitment(assetId).Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
-                }
-                else
-                {
-                    Point &publicKey = resKeys.emplace_back();
-                    SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
-                }
-            }
-        }
-        else
-        {
-            for (const auto& keyID : ids)
-            {
-                assert(!keyID.isAsset()); // TODO:ASSET
-                Point& publicKey = resKeys.emplace_back();
-                m_MasterKdf->DeriveKey(secretKey, keyID);
-                publicKey = Context::get().G * secretKey;
-            }
-        }
-        return std::move(resKeys);
-    }
-
-    ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id)
+    ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const ECC::uintBig& val)
     {
         Scalar::Native secretKey;
         Point publicKey;
 
-        m_MasterKdf->DeriveKey(secretKey, id);
+        m_MasterKdf->DeriveKey(secretKey, val);
         publicKey = Context::get().G * secretKey;
 
         return publicKey;
     }
 
-    ECC::Point LocalPrivateKeyKeeper::GenerateCoinKeySync(const Key::IDV& id, Asset::ID assetId)
+    ECC::Point LocalPrivateKeyKeeper::GenerateCoinKeySync(const CoinID& id)
     {
         Scalar::Native secretKey;
         Point publicKey;
-        SwitchCommitment(assetId).Create(secretKey, publicKey, *GetChildKdf(id), id);
+        SwitchCommitment(id.m_AssetID).Create(secretKey, publicKey, *GetChildKdf(id), id);
         return publicKey;
     }
 
-    IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
+    IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSync(Height schemeHeigh, const std::vector<CoinID>& ids)
     {
         Outputs result;
         Scalar::Native secretKey;
-        Point commitment;
         result.reserve(ids.size());
         for (const auto& coinID : ids)
         {
@@ -199,31 +152,14 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID assetId)
-    {
-        Outputs resOuts;
-        Scalar::Native secretKey;
-        Point commitment;
-        resOuts.reserve(ids.size());
-
-        for (const auto& coinID : ids)
-        {
-            auto& output = resOuts.emplace_back(make_unique<Output>());
-            output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID), CoinID(coinID, assetId), *m_MasterKdf);
-        }
-
-        return std::move(resOuts);
-    }
-
     ECC::Point LocalPrivateKeyKeeper::GenerateNonceSync(size_t slot)
     {
         Point::Native result = Context::get().G * GetNonce(slot);
         return result;
     }
 
-    ReceiverSignature LocalPrivateKeyKeeper::SignReceiverSync(const std::vector<Key::IDV>& inputs
-                                                        , const std::vector<Key::IDV>& outputs
-                                                        , Asset::ID assetID
+    ReceiverSignature LocalPrivateKeyKeeper::SignReceiverSync(const std::vector<CoinID>& inputs
+                                                        , const std::vector<CoinID>& outputs
                                                         , const KernelParameters& kernelParameters
                                                         , const WalletIDKey& walletIDkey)
     {
@@ -240,7 +176,7 @@ namespace beam::wallet
             throw KeyKeeperException("Receover failed to sign tx. We are not receiving");
         }
        
-        auto excess = GetExcess(inputs, outputs, assetID, Zero);
+        auto excess = GetExcess(inputs, outputs, Zero);
         Amount val = -value;
 
         Scalar::Native kKrn, kNonce;
@@ -322,9 +258,8 @@ namespace beam::wallet
         return res;
     }
 
-    SenderSignature LocalPrivateKeyKeeper::SignSenderSync(const std::vector<Key::IDV>& inputs
-                                                    , const std::vector<Key::IDV>& outputs
-                                                    , Asset::ID assetID
+    SenderSignature LocalPrivateKeyKeeper::SignSenderSync(const std::vector<CoinID>& inputs
+                                                    , const std::vector<CoinID>& outputs
                                                     , size_t nonceSlot
                                                     , const KernelParameters& kernelParameters
                                                     , bool initial)
@@ -339,7 +274,7 @@ namespace beam::wallet
             throw KeyKeeperException("Sender failed to sign tx. We are not sending");
         }
 
-        auto excess = GetExcess(inputs, outputs, assetID, Zero);
+        auto excess = GetExcess(inputs, outputs, Zero);
 
         Scalar::Native kKrn;
         ECC::Hash::Value hv;
@@ -476,9 +411,9 @@ namespace beam::wallet
 
     ////
 
-    Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(const Key::IDV& kidv) const
+    Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(const CoinID& cid) const
     {
-        return MasterKey::get_Child(m_MasterKdf, kidv);
+        return MasterKey::get_Child(m_MasterKdf, cid);
     }
 
     Scalar::Native LocalPrivateKeyKeeper::GetNonce(size_t slot)
@@ -491,7 +426,7 @@ namespace beam::wallet
         return nonce;
     }
 
-    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, Asset::ID assetId, const ECC::Scalar::Native& offset) const
+    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<CoinID>& inputs, const std::vector<CoinID>& outputs, const ECC::Scalar::Native& offset) const
     {
         // Excess = Sum(input blinfing factors) - Sum(output blinfing factors) - offset
         Point commitment;
@@ -500,21 +435,23 @@ namespace beam::wallet
 
         for (const auto& coinID : outputs)
         {
-            SwitchCommitment(coinID.isAsset() ? assetId : 0).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            SwitchCommitment(coinID.m_AssetID).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
             excess += blindingFactor;
         }
         excess = -excess;
         for (const auto& coinID : inputs)
         {
-            SwitchCommitment(coinID.isAsset() ? assetId : 0).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            SwitchCommitment(coinID.m_AssetID).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
             excess += blindingFactor;
         }
 
         return excess;
     }
 
-    int64_t LocalPrivateKeyKeeper::CalculateValue(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs) const
+    int64_t LocalPrivateKeyKeeper::CalculateValue(const std::vector<CoinID>& inputs, const std::vector<CoinID>& outputs) const
     {
+        // TODO: sum different assets separately!
+
         int64_t value = 0;
         for (const auto& coinID : outputs)
         {

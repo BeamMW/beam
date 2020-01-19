@@ -35,18 +35,15 @@ namespace beam::wallet
         void subscribe(Handler::Ptr handler) override;
 
     private:
-        void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, Asset::ID, Callback<Outputs>&&, ExceptionCallback&&) override;
+        void GeneratePublicKeys(const std::vector<CoinID>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
+        void GenerateOutputs(Height schemeHeight, const std::vector<CoinID>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
 
         size_t AllocateNonceSlotSync() override;
-        PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
-        PublicKeys GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID) override;
+        PublicKeys GeneratePublicKeysSync(const std::vector<CoinID>& ids, bool createCoinKey) override;
 
-        ECC::Point GeneratePublicKeySync(const Key::IDV& id) override;
-        ECC::Point GenerateCoinKeySync(const Key::IDV& id, Asset::ID) override;
-        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
-        Outputs GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID) override;
+        ECC::Point GeneratePublicKeySync(const ECC::uintBig& id) override;
+        ECC::Point GenerateCoinKeySync(const CoinID& id) override;
+        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<CoinID>& ids) override;
 
         ECC::Point GenerateNonceSync(size_t slot) override;
 

@@ -94,20 +94,16 @@ namespace beam::wallet
         using RangeProofs = std::vector<std::unique_ptr<ECC::RangeProof::Confidential>>;
         using Outputs = std::vector<Output::Ptr>;
 
-        virtual void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
-        virtual void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetID, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
-        virtual void GenerateOutputs(Height schemeHeigh, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) = 0;
-        virtual void GenerateOutputsEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID assetId, Callback<Outputs>&&, ExceptionCallback&&) = 0;
+        virtual void GeneratePublicKeys(const std::vector<CoinID>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
+        virtual void GenerateOutputs(Height schemeHeigh, const std::vector<CoinID>& ids, Callback<Outputs>&&, ExceptionCallback&&) = 0;
 
-        virtual void SignReceiver(const std::vector<Key::IDV>& inputs
-                                , const std::vector<Key::IDV>& outputs
-                                , Asset::ID assetId
+        virtual void SignReceiver(const std::vector<CoinID>& inputs
+                                , const std::vector<CoinID>& outputs
                                 , const KernelParameters& kernelParamerters
                                 , const WalletIDKey& walletIDkey
                                 , Callback<ReceiverSignature>&&, ExceptionCallback&&) = 0;
-        virtual void SignSender(const std::vector<Key::IDV>& inputs
-                              , const std::vector<Key::IDV>& outputs
-                              , Asset::ID assetId
+        virtual void SignSender(const std::vector<CoinID>& inputs
+                              , const std::vector<CoinID>& outputs
                               , size_t nonceSlot
                               , const KernelParameters& kernelParamerters
                               , bool initial
@@ -116,25 +112,20 @@ namespace beam::wallet
 
         // sync part for integration test
         virtual size_t AllocateNonceSlotSync() = 0;
-        virtual PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) = 0;
-        virtual PublicKeys GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID assetID) = 0;
+        virtual PublicKeys GeneratePublicKeysSync(const std::vector<CoinID>& ids, bool createCoinKey) = 0;
 
-        virtual ECC::Point GeneratePublicKeySync(const Key::IDV& id) = 0;
-        virtual ECC::Point GenerateCoinKeySync(const Key::IDV& id, Asset::ID) = 0;
-        virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
-        virtual Outputs GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID assetId) = 0;
+        virtual ECC::Point GeneratePublicKeySync(const ECC::uintBig& id) = 0;
+        virtual ECC::Point GenerateCoinKeySync(const CoinID&) = 0;
+        virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<CoinID>& ids) = 0;
 
         virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
-        virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, Asset::ID assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) = 0;
 
-        virtual ReceiverSignature SignReceiverSync(const std::vector<Key::IDV>& inputs
-                                             , const std::vector<Key::IDV>& outputs
-                                             , Asset::ID assetId
+        virtual ReceiverSignature SignReceiverSync(const std::vector<CoinID>& inputs
+                                             , const std::vector<CoinID>& outputs
                                              , const KernelParameters& kernelParamerters
                                              , const WalletIDKey& walletIDkey) = 0;
-        virtual SenderSignature SignSenderSync(const std::vector<Key::IDV>& inputs
-                                         , const std::vector<Key::IDV>& outputs
-                                         , Asset::ID assetId
+        virtual SenderSignature SignSenderSync(const std::vector<CoinID>& inputs
+                                         , const std::vector<CoinID>& outputs
                                          , size_t nonceSlot
                                          , const KernelParameters& kernelParamerters
                                          , bool initial) = 0;

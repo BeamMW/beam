@@ -569,7 +569,7 @@ namespace
 
         walletDB->visitCoins([&columnWidths, &assetId](const Coin& c)->bool
         {
-            if (c.m_assetId == assetId) {
+            if (c.m_ID.m_AssetID == assetId) {
                 cout << boost::format(kCoinsTableFormat)
                         % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
                         % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
