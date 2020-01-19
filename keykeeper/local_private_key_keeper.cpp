@@ -221,41 +221,6 @@ namespace beam::wallet
         return result;
     }
 
-    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, Asset::ID assetId, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const Point::Native& publicNonce)
-    {
-        auto excess = GetExcess(inputs, outputs, assetId, offset);
-
-        TxKernelStd kernel;
-        kernel.m_Commitment = kernelParameters.commitment;
-        kernel.m_Fee = kernelParameters.fee;
-        kernel.m_Height = kernelParameters.height;
-        if (kernelParameters.lockImage || kernelParameters.lockPreImage)
-        {
-            kernel.m_pHashLock = make_unique<TxKernelStd::HashLock>();
-
-			if (kernelParameters.lockPreImage)
-				kernel.m_pHashLock->m_Value = *kernelParameters.lockPreImage;
-			else
-			{
-				kernel.m_pHashLock->m_Value = *kernelParameters.lockImage;
-				kernel.m_pHashLock->m_IsImage = true;
-			}
-        }
-		kernel.UpdateID();
-        const Merkle::Hash& message = kernel.m_Internal.m_ID;
-
-        Scalar::Native nonce = GetNonce(nonceSlot);
-
-        // TODO: Fix this!!!
-        // If the following line is uncommented - swap_test hangs!
-        //ECC::GenRandom(m_Nonces[nonceSlot].V); // Invalidate slot immediately after using it (to make it similar to HW wallet)!
-
-		kernel.m_Signature.m_NoncePub = publicNonce;
-		kernel.m_Signature.SignPartial(message, excess, nonce);
-
-		return kernel.m_Signature.m_k;
-    }
-
     ReceiverSignature LocalPrivateKeyKeeper::SignReceiverSync(const std::vector<Key::IDV>& inputs
                                                         , const std::vector<Key::IDV>& outputs
                                                         , Asset::ID assetID

@@ -60,9 +60,7 @@ namespace beam::wallet
         Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
         Outputs GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID) override;
 
-        //RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
         ECC::Point GenerateNonceSync(size_t slot) override;
-        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, Asset::ID, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const ECC::Point::Native& publicNonce) override;
 
         ReceiverSignature SignReceiverSync(const std::vector<Key::IDV>& inputs
                                      , const std::vector<Key::IDV>& outputs
