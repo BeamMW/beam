@@ -659,17 +659,17 @@ void Channel::CreatePunishmentTx()
 	tx.m_Offset = offs;
 
 	d.m_Type = DataUpdate::Type::Punishment;
-/*
-	{
-		// test
-		TxBase::Context::Params pars;
-		TxBase::Context ctx(pars);
-		ctx.m_Height.m_Min = m_State.m_Close.m_hPhase1;
 
-		bool bb = tx.IsValid(ctx);
-		bb = bb;
-	}
-*/
+	//{
+	//	// test
+	//	TxBase::Context::Params pars;
+	//	TxBase::Context ctx(pars);
+	//	ctx.m_Height.m_Min = m_State.m_Close.m_hPhase1;
+
+	//	bool bb = tx.IsValid(ctx);
+	//	bb = bb;
+	//}
+
 }
 
 void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
