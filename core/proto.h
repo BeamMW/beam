@@ -365,6 +365,8 @@ namespace proto {
 
 		uint8_t m_Flags;
 
+        void get_Cid(CoinID&) const;
+
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{

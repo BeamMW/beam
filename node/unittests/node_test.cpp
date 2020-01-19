@@ -2376,8 +2376,7 @@ namespace beam
 					else
 					{
 						CoinID cid;
-						cid = evt.m_Kidv;
-						evt.m_AssetID.Export(cid.m_AssetID);
+						evt.get_Cid(cid);
 
 						ECC::Scalar::Native sk;
 						ECC::Point comm;

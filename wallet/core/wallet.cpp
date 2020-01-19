@@ -622,21 +622,21 @@ namespace beam::wallet
     {
         std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 
-        function<Point(const Key::IDV&, Asset::ID assetId)> commitmentFunc;
+        function<Point(const CoinID& cid)> commitmentFunc;
         if (m_KeyKeeper)
         {
-            commitmentFunc = [this](const auto& kidv, Asset::ID assetId) {
-                return m_KeyKeeper->GenerateCoinKeySync(kidv, assetId);
+            commitmentFunc = [this](const CoinID& cid) {
+                return m_KeyKeeper->GenerateCoinKeySync(cid, cid.m_AssetID);
             };
         }
         else if (auto ownerKdf = m_WalletDB->get_OwnerKdf(); ownerKdf)
         {
-            commitmentFunc = [ownerKdf](const auto& kidv, Asset::ID assetId)
+            commitmentFunc = [ownerKdf](const CoinID& cid)
             {
                 Point::Native pt;
-                SwitchCommitment sw(assetId);
+                SwitchCommitment sw(cid.m_AssetID);
 
-                sw.Recover(pt, *ownerKdf, kidv);
+                sw.Recover(pt, *ownerKdf, cid);
                 Point commitment = pt;
                 return commitment;
             };
@@ -649,20 +649,20 @@ namespace beam::wallet
             // filter-out false positives
             if (commitmentFunc)
             {
-                Asset::ID assetId;
-                event.m_AssetID.Export(assetId);
+                CoinID cid;
+                event.get_Cid(cid);
 
-                Point commitment = commitmentFunc(event.m_Kidv, assetId);
+                Point commitment = commitmentFunc(cid);
                 if (commitment == event.m_Commitment)
                     ProcessUtxoEvent(event);
                 else
                 {
                     // Is it BB2.1?
-                    if (event.m_Kidv.IsBb21Possible())
+                    if (cid.IsBb21Possible())
                     {
-                        event.m_Kidv.set_WorkaroundBb21();
+                        cid.set_WorkaroundBb21();
 
-                        commitment = commitmentFunc(event.m_Kidv, assetId);
+                        commitment = commitmentFunc(cid);
                         if (commitment == event.m_Commitment)
                             ProcessUtxoEvent(event);
                     }
@@ -704,6 +704,9 @@ namespace beam::wallet
 
     void Wallet::ProcessUtxoEvent(const proto::UtxoEvent& evt)
     {
+        if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+            return; // not supported atm
+
         Coin c;
         c.m_ID = evt.m_Kidv;
         evt.m_AssetID.Export(c.m_assetId);
