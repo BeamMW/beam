@@ -2540,7 +2540,7 @@ void TestAssetEmission()
 	const beam::Height hScheme = g_hFork;
 
 	CoinID cidInpBeam (170, 12, beam::Key::Type::Regular);
-	CoinID cidInpAsset(53,  15, beam::Key::Type::Asset);
+	CoinID cidInpAsset(53,  15, beam::Key::Type::Regular);
 	CoinID cidOutBeam (70,  25, beam::Key::Type::Regular);
 	const beam::Amount fee = 100;
 

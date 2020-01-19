@@ -267,7 +267,7 @@ namespace beam::wallet
         Amount preselAmountAsset = 0;
 
         auto isAssetCoin = [](const Coin& coin) {
-            return coin.m_ID.m_Type == Key::Type::Asset || coin.m_ID.m_Type == Key::Type::AssetChange;
+            return coin.m_ID.m_AssetID == m_assetId;
         };
 
         if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselIDs, m_SubTxID))
@@ -334,7 +334,7 @@ namespace beam::wallet
 
     void AssetIssueTxBuilder::GenerateAssetCoin(Amount amount, bool change)
     {
-        Coin newUtxo(amount, change ? Key::Type::AssetChange : Key::Type::Asset, m_assetId);
+        Coin newUtxo(amount, Key::Type::Regular, m_assetId);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);

@@ -69,8 +69,13 @@ namespace beam::wallet
             coins = m_Tx.GetWalletDB()->getCoinsByID(preselectedCoinIDs);
             for (auto& coin : coins)
             {
-                if (coin.isAsset()) preselAmountAsset += coin.getAmount();
-                else preselAmountBeam += coin.getAmount();
+                if (!coin.isAsset())
+                    preselAmountBeam += coin.getAmount();
+                else
+                {
+                    if (coin.isAsset(m_AssetId))
+                        preselAmountAsset += coin.getAmount();
+                }
                 coin.m_spentTxId = m_Tx.GetTxID();
             }
             m_Tx.GetWalletDB()->saveCoins(coins);
@@ -144,7 +149,7 @@ namespace beam::wallet
         Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount, m_AssetId);
         if (change)
         {
-            newUtxo.m_ID.m_Type = Key::Type::AssetChange;
+            newUtxo.m_ID.m_Type = Key::Type::Change;
         }
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);

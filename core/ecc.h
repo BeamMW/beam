@@ -236,7 +236,6 @@ namespace ECC
 			static const uint32_t Decoy       = FOURCC_FROM(dcoy);
 			static const uint32_t Treasury    = FOURCC_FROM(Tres);
 			static const uint32_t Asset       = FOURCC_FROM(Asst);
-			static const uint32_t AssetChange = FOURCC_FROM(Achg);
 		};
 
 		struct ID
@@ -268,7 +267,6 @@ namespace ECC
 #pragma pack (pop)
 
 			void operator = (const Packed&);
-			bool isAsset() const;
 
 			int cmp(const ID&) const;
 			COMPARISON_VIA_CMP

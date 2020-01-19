@@ -749,7 +749,6 @@ namespace beam::wallet
         m_ID.m_Value = amount;
         m_ID.m_Type = keyType;
         m_ID.m_AssetID = assetId;
-        assert((m_ID.isAsset() && m_ID.m_AssetID) || (!m_ID.isAsset() && !m_ID.m_AssetID));
     }
 
     bool Coin::isReward() const
@@ -766,7 +765,6 @@ namespace beam::wallet
 
     bool Coin::isAsset() const
     {
-        assert((m_ID.isAsset() && m_ID.m_AssetID) || (!m_ID.isAsset() && !m_ID.m_AssetID));
         return m_ID.m_AssetID != 0;
     }
 
@@ -1760,7 +1758,7 @@ namespace beam::wallet
 
     Coin WalletDB::generateNewCoin(Amount amount, Asset::ID assetId)
     {
-        Coin coin(amount, assetId == 0 ? Key::Type::Regular : Key::Type::Asset, assetId);
+        Coin coin(amount, Key::Type::Regular, assetId);
         coin.m_ID.m_Idx = get_RandomID();
 
         // check for collisions
@@ -3227,12 +3225,6 @@ namespace beam::wallet
                     totals.Incoming += value;
                     if (c.m_ID.m_Type == Key::Type::Change)
                     {
-                        assert(!c.isAsset());
-                        totals.ReceivingChange += value;
-                    }
-                    else if(c.m_ID.m_Type == Key::Type::AssetChange)
-                    {
-                        assert(c.isAsset());
                         totals.ReceivingChange += value;
                     }
                     else

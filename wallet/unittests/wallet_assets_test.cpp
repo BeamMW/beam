@@ -155,7 +155,7 @@ void TestAssets() {
     WALLET_CHECK(issueCoins[1].m_status     == Coin::Available);
     WALLET_CHECK(issueCoins[1].m_createTxId == issueTx.m_txId);
     WALLET_CHECK(issueCoins[1].getAmount()  == issueChange);
-    WALLET_CHECK(issueCoins[2].m_ID.m_Type  == Key::Type::Asset);
+    WALLET_CHECK(issueCoins[2].m_ID.m_Type  == Key::Type::Regular);
     WALLET_CHECK(issueCoins[2].m_status     == Coin::Available);
     WALLET_CHECK(issueCoins[2].m_ID.m_Value == issueAmount);
     WALLET_CHECK(issueCoins[2].m_createTxId == issueTx.m_txId);
@@ -209,13 +209,13 @@ void TestAssets() {
     WALLET_CHECK(consumeCoins[1].m_spentTxId  == consumeTx.m_txId);
     WALLET_CHECK(consumeCoins[1].getAmount()  == issueChange);
     // This is our asset, we spend it during consume
-    WALLET_CHECK(consumeCoins[2].m_ID.m_Type  == Key::Type::Asset);
+    WALLET_CHECK(consumeCoins[2].m_ID.m_Type  == Key::Type::Regular);
     WALLET_CHECK(consumeCoins[2].m_status     == Coin::Consumed);
     WALLET_CHECK(consumeCoins[2].m_ID.m_Value == issueAmount);
     WALLET_CHECK(consumeCoins[2].m_createTxId == issueTx.m_txId);
     WALLET_CHECK(consumeCoins[2].m_spentTxId  == consumeTx.m_txId);
     // This asset change coin, we do not convert all available assets
-    WALLET_CHECK(consumeCoins[3].m_ID.m_Type  == Key::Type::AssetChange);
+    WALLET_CHECK(consumeCoins[3].m_ID.m_Type  == Key::Type::Change);
     WALLET_CHECK(consumeCoins[3].m_status     == Coin::Available);
     WALLET_CHECK(consumeCoins[3].m_ID.m_Value == consumeAssetChange);
     WALLET_CHECK(consumeCoins[3].m_createTxId == consumeTx.m_txId);
@@ -307,7 +307,7 @@ void TestAssets() {
     WALLET_CHECK(selfSendCoins.size() == consumeCoins.size() + 2);
 
     // This asset change coin generated before and we've just usded it to send to self
-    WALLET_CHECK(selfSendCoins[3].m_ID.m_Type  == Key::Type::AssetChange);
+    WALLET_CHECK(selfSendCoins[3].m_ID.m_Type  == Key::Type::Change);
     WALLET_CHECK(selfSendCoins[3].m_status     == Coin::Spent);
     WALLET_CHECK(selfSendCoins[3].m_ID.m_Value == selfSendAmount);
     WALLET_CHECK(selfSendCoins[3].m_createTxId == consumeTx.m_txId);
@@ -324,7 +324,7 @@ void TestAssets() {
     WALLET_CHECK(selfSendCoins[5].m_ID.m_Value == selfSendBeamChange);
     WALLET_CHECK(selfSendCoins[5].m_createTxId == selfSendTx.m_txId);
     // This is our incoming Asset Coin
-    WALLET_CHECK(selfSendCoins[6].m_ID.m_Type  == Key::Type::Asset);
+    WALLET_CHECK(selfSendCoins[6].m_ID.m_Type  == Key::Type::Regular);
     WALLET_CHECK(selfSendCoins[6].m_status     == Coin::Available);
     WALLET_CHECK(selfSendCoins[6].m_ID.m_Value == selfSendAmount);
     WALLET_CHECK(selfSendCoins[6].m_createTxId == selfSendTx.m_txId);
@@ -381,13 +381,13 @@ void TestAssets() {
     WALLET_CHECK(srConsumeCoins[5].m_createTxId == selfSendTx.m_txId);
     WALLET_CHECK(srConsumeCoins[5].m_spentTxId == srConsumeTx.m_txId);
     // This is our asset source
-    WALLET_CHECK(srConsumeCoins[6].m_ID.m_Type  == Key::Type::Asset);
+    WALLET_CHECK(srConsumeCoins[6].m_ID.m_Type  == Key::Type::Regular);
     WALLET_CHECK(srConsumeCoins[6].m_status     == Coin::Consumed);
     WALLET_CHECK(srConsumeCoins[6].m_ID.m_Value == selfSendAmount);
     WALLET_CHECK(srConsumeCoins[6].m_createTxId == selfSendTx.m_txId);
     WALLET_CHECK(srConsumeCoins[6].m_spentTxId == srConsumeTx.m_txId);
     // This is our asset change
-    WALLET_CHECK(srConsumeCoins[7].m_ID.m_Type  == Key::Type::AssetChange);
+    WALLET_CHECK(srConsumeCoins[7].m_ID.m_Type  == Key::Type::Change);
     WALLET_CHECK(srConsumeCoins[7].m_status     == Coin::Available);
     WALLET_CHECK(srConsumeCoins[7].m_ID.m_Value == srAssetChange);
     WALLET_CHECK(srConsumeCoins[7].m_createTxId == srConsumeTx.m_txId);
@@ -489,7 +489,7 @@ void TestAssets() {
     WALLET_CHECK(send3rpCoins.size() == srConsumeCoins.size() + 1);
 
     // This is spent asset
-    WALLET_CHECK(send3rpCoins[7].m_ID.m_Type  == Key::Type::AssetChange);
+    WALLET_CHECK(send3rpCoins[7].m_ID.m_Type  == Key::Type::Change);
     WALLET_CHECK(send3rpCoins[7].m_status     == Coin::Spent);
     WALLET_CHECK(send3rpCoins[7].getAmount()  == send3rpAmount);
     WALLET_CHECK(send3rpCoins[7].m_createTxId == srConsumeTx.m_txId);
@@ -515,7 +515,7 @@ void TestAssets() {
     //
     const auto send3rpRcvCoins = getAllRcvCoins();
     WALLET_CHECK(send3rpRcvCoins.size() == 1);
-    WALLET_CHECK(send3rpRcvCoins[0].m_ID.m_Type  == Key::Type::Asset);
+    WALLET_CHECK(send3rpRcvCoins[0].m_ID.m_Type  == Key::Type::Regular);
     WALLET_CHECK(send3rpRcvCoins[0].m_status     == Coin::Available);
     WALLET_CHECK(send3rpRcvCoins[0].getAmount()  == send3rpTx.m_amount);
     WALLET_CHECK(send3rpRcvCoins[0].m_createTxId == send3rpTx.m_txId);
@@ -617,7 +617,7 @@ void TestAssets() {
     const auto recv3rpRCoins = getAllRcvCoins();
     WALLET_CHECK(recv3rpRCoins.size() == rcvCoins.size());
     WALLET_CHECK(recv3rpRCoins.size() == 2);
-    WALLET_CHECK(recv3rpRCoins[0].m_ID.m_Type == Key::Type::Asset);
+    WALLET_CHECK(recv3rpRCoins[0].m_ID.m_Type == Key::Type::Regular);
     WALLET_CHECK(recv3rpRCoins[0].m_status    == Coin::Spent);
     WALLET_CHECK(recv3rpRCoins[1].m_ID.m_Type == Key::Type::Coinbase);
     WALLET_CHECK(recv3rpRCoins[1].m_status    == Coin::Spent);
@@ -630,7 +630,7 @@ void TestAssets() {
     WALLET_CHECK(recv3rpCoins.size() == send3rpCoins.size() +  1);
     WALLET_CHECK(recv3rpCoins.size() == 11);
     // This is our incoming asseet
-    WALLET_CHECK(recv3rpCoins[10].m_ID.m_Type  == Key::Type::Asset);
+    WALLET_CHECK(recv3rpCoins[10].m_ID.m_Type  == Key::Type::Regular);
     WALLET_CHECK(recv3rpCoins[10].m_status     == Coin::Available);
     WALLET_CHECK(recv3rpCoins[10].getAmount()  == recv3rpAmount);
     WALLET_CHECK(recv3rpCoins[10].m_createTxId == recv3rpRTx.m_txId);
@@ -687,7 +687,7 @@ void TestAssets() {
     WALLET_CHECK(recvConsumeCoins[9].m_createTxId == send3rpTx.m_txId);
     WALLET_CHECK(recvConsumeCoins[9].m_spentTxId  == recvConsumeTx.m_txId);
     // Spent asset
-    WALLET_CHECK(recvConsumeCoins[10].m_ID.m_Type  == Key::Type::Asset);
+    WALLET_CHECK(recvConsumeCoins[10].m_ID.m_Type  == Key::Type::Regular);
     WALLET_CHECK(recvConsumeCoins[10].m_status     == Coin::Consumed);
     WALLET_CHECK(recvConsumeCoins[10].getAmount()  == recvConsumeAmount);
     WALLET_CHECK(recvConsumeCoins[10].m_createTxId == recv3rpRTx.m_txId);
