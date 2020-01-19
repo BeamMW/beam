@@ -1506,11 +1506,11 @@ namespace beam::wallet
         return m_OwnerKdf;
     }
 
-    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid, Asset::ID assetId)
+    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid)
     {
         ECC::Point commitment;
         ECC::Scalar::Native sk;
-        SwitchCommitment(assetId).Create(sk, commitment, *get_ChildKdf(cid), cid);
+        CoinID::Worker(cid).Create(sk, commitment, *get_ChildKdf(cid));
         return commitment;
     }
 
@@ -1542,7 +1542,7 @@ namespace beam::wallet
 			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, cid))
 				continue;
 
-			ECC::Point&& comm = calcCommitment(cid, cid.m_AssetID);
+			ECC::Point&& comm = calcCommitment(cid);
 			if (!(comm == x.m_Output.m_Commitment))
 				continue;
 

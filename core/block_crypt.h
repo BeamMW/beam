@@ -240,25 +240,37 @@ namespace beam
 
 		int cmp(const CoinID&) const;
 		COMPARISON_VIA_CMP
+
+		struct Generator
+		{
+			ECC::Point::Native m_hGen;
+			Generator(Asset::ID);
+			void AddValue(ECC::Point::Native& comm, Amount) const;
+		};
+
+		class Worker
+			:public Generator
+		{
+			static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
+			void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf) const;
+
+		public:
+			const CoinID& m_Cid;
+
+			Worker(const CoinID&);
+
+			void AddValue(ECC::Point::Native& comm) const;
+
+			void Create(ECC::Scalar::Native& sk, Key::IKdf&) const;
+			void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&) const;
+			void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf&) const;
+
+			void Recover(ECC::Point::Native& comm, Key::IPKdf&) const;
+			void Recover(ECC::Point::Native& pkG_in_res_out, const ECC::Point::Native& pkJ) const;
+		};
 	};
 
 	std::ostream& operator << (std::ostream&, const CoinID&);
-
-	class SwitchCommitment
-	{
-		static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
-		void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf, const CoinID&) const;
-		void AddValue(ECC::Point::Native& comm, Amount) const;
-	public:
-
-	    ECC::Point::Native m_hGen;
-		SwitchCommitment(Asset::ID = 0);
-
-		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const CoinID&) const;
-		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const CoinID&) const;
-		void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf&, const CoinID&) const;
-		void Recover(ECC::Point::Native& comm, Key::IPKdf&, const CoinID&) const;
-	};
 
 	struct TxStats
 	{

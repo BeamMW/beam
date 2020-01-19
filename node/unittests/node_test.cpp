@@ -722,7 +722,7 @@ namespace beam
 
 		void ToCommtiment(const MyUtxo& utxo, ECC::Point& comm, ECC::Scalar::Native& k) const
 		{
-			SwitchCommitment().Create(k, comm, *m_pKdf, utxo.m_Cid);
+			CoinID::Worker(utxo.m_Cid).Create(k, comm, *m_pKdf);
 		}
 
 		void ToInput(const MyUtxo& utxo, Transaction& tx) const
@@ -2380,7 +2380,7 @@ namespace beam
 
 						ECC::Scalar::Native sk;
 						ECC::Point comm;
-						SwitchCommitment(nAssetID).Create(sk, comm, *m_Wallet.m_pKdf, cid);
+						CoinID::Worker(cid).Create(sk, comm, *m_Wallet.m_pKdf);
 						verify_test(comm == evt.m_Commitment);
 
 						if (!cid.m_AssetID && (proto::UtxoEvent::Flags::Add & evt.m_Flags))

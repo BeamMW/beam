@@ -105,7 +105,7 @@ namespace beam::wallet
             for (const auto& coinID : ids)
             {
                 Point& publicKey = result.emplace_back();
-                SwitchCommitment(coinID.m_AssetID).Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
+                CoinID::Worker(coinID).Create(secretKey, publicKey, *GetChildKdf(coinID));
             }
         }
         else
@@ -135,7 +135,7 @@ namespace beam::wallet
     {
         Scalar::Native secretKey;
         Point publicKey;
-        SwitchCommitment(id.m_AssetID).Create(secretKey, publicKey, *GetChildKdf(id), id);
+        CoinID::Worker(id).Create(secretKey, publicKey, *GetChildKdf(id));
         return publicKey;
     }
 
@@ -435,13 +435,13 @@ namespace beam::wallet
 
         for (const auto& coinID : outputs)
         {
-            SwitchCommitment(coinID.m_AssetID).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            CoinID::Worker(coinID).Create(blindingFactor, commitment, *GetChildKdf(coinID));
             excess += blindingFactor;
         }
         excess = -excess;
         for (const auto& coinID : inputs)
         {
-            SwitchCommitment(coinID.m_AssetID).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            CoinID::Worker(coinID).Create(blindingFactor, commitment, *GetChildKdf(coinID));
             excess += blindingFactor;
         }
 

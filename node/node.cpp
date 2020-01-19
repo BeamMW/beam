@@ -2544,7 +2544,7 @@ bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 
 	// bounds
 	ECC::Point comm;
-	SwitchCommitment().Create(sk, comm, *pKdf, cid);
+	CoinID::Worker(cid).Create(sk, comm, *pKdf);
 
 	if (!m_Processor.ValidateInputs(comm))
 		return false;

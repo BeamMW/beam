@@ -238,9 +238,7 @@ uint32_t Multisig::Update2()
 		!Get(hScheme, Codes::Scheme))
 		return 0;
 
-	ECC::Point::Native gen;
-	if (cid.m_AssetID)
-		Asset::Base(cid.m_AssetID).get_Generator(gen);
+	CoinID::Worker wrk(cid);
 
 	Output outp;
 	if (Get(outp.m_Commitment, Codes::Commitment))
@@ -255,7 +253,7 @@ uint32_t Multisig::Update2()
 
 		comm += pt;
 
-		ECC::Tag::AddValue(comm, &gen, cid.m_Value);
+		wrk.AddValue(comm);
 
 		outp.m_Commitment = comm;
 
@@ -283,7 +281,7 @@ uint32_t Multisig::Update2()
 	bp.m_Part2 = p2;
 
 	o2 = oracle;
-	if (!bp.CoSign(nonces, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2, &gen))
+	if (!bp.CoSign(nonces, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2, &wrk.m_hGen))
 		return Status::Error;
 
 	uint32_t nShareRes = 0;
@@ -353,9 +351,8 @@ void Multisig::QueryVar(std::string& s, uint32_t code)
 
 void MultiTx::CalcInput(const CoinID& cid, ECC::Scalar::Native& offs, ECC::Point& comm)
 {
-	SwitchCommitment sc;
 	ECC::Scalar::Native sk;
-	sc.Create(sk, comm, *m_pKdf, cid);
+	CoinID::Worker(cid).Create(sk, comm, *m_pKdf);
 	offs += sk;
 }
 
@@ -1141,14 +1138,7 @@ uint32_t ChannelUpdate::Update2()
 
 				pt += ECC::Context::get().G * sk;
 
-				if (cid.m_AssetID)
-				{
-					ECC::Point::Native gen;
-					Asset::Base(cid.m_AssetID).get_Generator(gen);
-					pt += gen * cid.m_Value;
-				}
-				else
-					pt += ECC::Context::get().H * cid.m_Value;
+				CoinID::Worker(cid).AddValue(pt);
 
 				if (!(pt == Zero))
 					return Status::Error;

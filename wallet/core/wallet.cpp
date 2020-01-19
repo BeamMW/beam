@@ -635,9 +635,8 @@ namespace beam::wallet
             commitmentFunc = [ownerKdf](const CoinID& cid)
             {
                 Point::Native pt;
-                SwitchCommitment sw(cid.m_AssetID);
+                CoinID::Worker(cid).Recover(pt, *ownerKdf);
 
-                sw.Recover(pt, *ownerKdf, cid);
                 Point commitment = pt;
                 return commitment;
             };

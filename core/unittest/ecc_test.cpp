@@ -689,14 +689,14 @@ void TestCommitments()
 
 		Scalar::Native sk;
 		Point::Native comm;
-		beam::SwitchCommitment().Create(sk, comm, kdf, cid);
+		CoinID::Worker(cid).Create(sk, comm, kdf);
 
 		sigma = Commitment(sk, cid.m_Value);
 		sigma = -sigma;
 		sigma += comm;
 		verify_test(sigma == Zero);
 
-		beam::SwitchCommitment().Recover(sigma, kdf, cid);
+		CoinID::Worker(cid).Recover(sigma, kdf);
 		sigma = -sigma;
 		sigma += comm;
 		verify_test(sigma == Zero);
@@ -713,12 +713,14 @@ void WriteSizeSerialized(const char* sz, const T& t)
 }
 
 struct AssetTag
+	:public CoinID::Generator
 {
-	Point::Native m_hGen;
+	using Generator::Generator;
+
 	void Commit(Point::Native& out, const Scalar::Native& sk, Amount v)
 	{
 		out = Context::get().G * sk;
-		Tag::AddValue(out, &m_hGen, v);
+		AddValue(out, v);
 	}
 };
 
@@ -736,9 +738,7 @@ void TestRangeProof(bool bCustomTag)
 	beam::Asset::Base aib;
 	aib.m_ID = bCustomTag ? 14 : 0;
 
-	AssetTag tag;
-	if (bCustomTag)
-		aib.get_Generator(tag.m_hGen);
+	AssetTag tag(aib.m_ID);
 
 	Scalar::Native sk;
 	SetRandom(sk);
@@ -1030,12 +1030,13 @@ void TestMultiSigOutput()
     // blindingFactor = sk + sk1
     Scalar::Native blindingFactorA;
     Scalar::Native blindingFactorB;
-    beam::SwitchCommitment switchCommitment;
 
 	CoinID cid;
 	cid = creatorParamsB.m_Kidv;
-    switchCommitment.Create(blindingFactorA, *pKdf_A, cid);
-    switchCommitment.Create(blindingFactorB, *pKdf_B, cid);
+	CoinID::Worker wrk(cid);
+
+    wrk.Create(blindingFactorA, *pKdf_A);
+    wrk.Create(blindingFactorB, *pKdf_B);
 
     // seed from RangeProof::Confidential::Create
     uintBig seedA;
@@ -1119,7 +1120,7 @@ void TestMultiSigOutput()
 	cid.set_Subkey(0);
 	cid.m_Value = amount;
     Scalar::Native k;
-    beam::SwitchCommitment().Create(k, pInput->m_Commitment, *pKdf_A, cid);
+    CoinID::Worker(cid).Create(k, pInput->m_Commitment, *pKdf_A);
     offset = k;
 
     // output
@@ -1229,9 +1230,10 @@ struct TransactionMaker
 			cid.m_Type = Key::Type::Regular;
 			cid.set_Subkey(0);
 			cid.m_Value = val;
+			cid.m_AssetID = nAssetID;
 
 			Scalar::Native k;
-			beam::SwitchCommitment(nAssetID).Create(k, pInp->m_Commitment, kdf, cid);
+			CoinID::Worker(cid).Create(k, pInp->m_Commitment, kdf);
 
 			t.m_vInputs.push_back(std::move(pInp));
 			m_k += k;
@@ -1558,7 +1560,7 @@ struct HWWalletEmulator
 	void SummarizeOnce(Scalar::Native& res, AmountSigned& dVal, const CoinID& cid)
 	{
 		Scalar::Native sk;
-		beam::SwitchCommitment().Create(sk, *m_pKdf, cid);
+		CoinID::Worker(cid).Create(sk, *m_pKdf);
 		res += sk;
 		dVal += cid.m_Value; // TODO - asset type!
 	}
@@ -2552,16 +2554,17 @@ void TestAssetEmission()
 	beam::proto::Sk2Pk(assetOwner, skAssetSk);
 	beam::Asset::ID nAssetID = 24;
 
+	cidInpAsset.m_AssetID = nAssetID;
 
 	beam::Transaction tx;
 
 	beam::Input::Ptr pInp(new beam::Input);
-	beam::SwitchCommitment().Create(sk, pInp->m_Commitment, *pKdf, cidInpBeam);
+	CoinID::Worker(cidInpBeam).Create(sk, pInp->m_Commitment, *pKdf);
 	tx.m_vInputs.push_back(std::move(pInp));
 	kOffset += sk;
 
 	beam::Input::Ptr pInpAsset(new beam::Input);
-	beam::SwitchCommitment(nAssetID).Create(sk, pInpAsset->m_Commitment, *pKdf, cidInpAsset);
+	CoinID::Worker(cidInpAsset).Create(sk, pInpAsset->m_Commitment, *pKdf);
 	tx.m_vInputs.push_back(std::move(pInpAsset));
 	kOffset += sk;
 
