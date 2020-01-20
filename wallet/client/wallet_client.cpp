@@ -205,7 +205,7 @@ namespace beam::wallet
         , m_async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *m_reactor) }
         , m_connectedNodesCount(0)
         , m_trustedConnectionCount(0)
-        , m_nodeAddrStr(nodeAddr)
+        , m_initialNodeAddrStr(nodeAddr)
         , m_keyKeeper(keyKeeper)
         , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAllUtxoChanged(action, items); })
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
@@ -279,7 +279,7 @@ namespace beam::wallet
 
                     updateClientState();
 
-                    auto nodeNetwork = make_shared<NodeNetwork>(*wallet, m_nodeAddrStr);
+                    auto nodeNetwork = make_shared<NodeNetwork>(*wallet, m_initialNodeAddrStr);
                     m_nodeNetwork = nodeNetwork;
 
                     using NodeNetworkSubscriber = ScopedSubscriber<INodeConnectionObserver, NodeNetwork>;
@@ -336,7 +336,14 @@ namespace beam::wallet
 
     std::string WalletClient::getNodeAddress() const
     {
-        return m_nodeAddrStr;
+        if (auto s = m_nodeNetwork.lock())
+        {
+            return s->getNodeAddress();
+        }
+        else
+        {
+            return m_initialNodeAddrStr;
+        }
     }
 
     std::string WalletClient::exportOwnerKey(const beam::SecString& pass) const
@@ -725,11 +732,22 @@ namespace beam::wallet
 
     void WalletClient::setNodeAddress(const std::string& addr)
     {
-        assert(!m_nodeNetwork.expired());
-        auto s = m_nodeNetwork.lock();
-        if (s)
+        if (auto s = m_nodeNetwork.lock())
         {
             if (!(s->setNodeAddress(addr)))
+            {
+                LOG_ERROR() << "Unable to resolve node address: " << addr;
+                onWalletError(ErrorType::HostResolvedError);
+            }
+        }
+        else
+        {
+            io::Address address;
+            if (address.resolve(addr.c_str()))
+            {
+                m_initialNodeAddrStr = addr;
+            }
+            else
             {
                 LOG_ERROR() << "Unable to resolve node address: " << addr;
                 onWalletError(ErrorType::HostResolvedError);

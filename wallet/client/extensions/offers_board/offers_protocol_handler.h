@@ -28,8 +28,8 @@ namespace beam::wallet
 
     public:
 
-        // TODO: split to message creator with access to KDF and walletDB and 
-        // message parser without access
+        // TODO: with time possible to split to message creator with access to storage (KDF and walletDB)
+        // and message parser without access
 
         /**
          *  Create message with swap offer according to protocol.

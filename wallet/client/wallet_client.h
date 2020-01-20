@@ -181,7 +181,7 @@ namespace beam::wallet
         uint32_t m_connectedNodesCount;
         uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;
-        std::string m_nodeAddrStr;
+        std::string m_initialNodeAddrStr;
         IPrivateKeyKeeper::Ptr m_keyKeeper;
 
         struct CoinKey

@@ -195,8 +195,11 @@ namespace beam::wallet
         else
         {
             // Case: updateOffer() had been called before offer appeared on board.
-            // Here we don't know if offer exists in network at all. So board doesn't send any update to network.
-            // Board stores incomplete offer to notify network when original Pending offer will be received from network.
+            // Here we don't know if offer exists in bbs network at all.
+            // That's why board doesn't send any update to network.
+            // Instead board stores incomplete offer in cache and
+            // will notify network about offer status change only
+            // on receivng original 'pending-status' offer from network.
             SwapOffer incompleteOffer(offerTxID);
             incompleteOffer.m_status = newStatus;
             m_offersCache[offerTxID] = incompleteOffer;
