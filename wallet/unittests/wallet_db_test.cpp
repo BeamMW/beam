@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "wallet/wallet_db.h"
+#include "wallet/base_transaction.h"
 #include <assert.h>
 #include "test_helpers.h"
 #include "utility/test_helpers.h"
