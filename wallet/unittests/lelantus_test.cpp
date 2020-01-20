@@ -72,9 +72,14 @@ void TestSimpleTx()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    auto completeAction = [&mainReactor](auto)
+    int completedCount = 4;
+    auto completeAction = [&mainReactor, &completedCount](auto)
     {
-        //mainReactor->stop();
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+        }
     };
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
@@ -153,6 +158,7 @@ void TestSimpleTx()
         }
         else if (cursor.m_Sid.m_Height == 70)
         {
+            WALLET_CHECK(completedCount == 0);
             mainReactor->stop();
         }
     });
