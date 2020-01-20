@@ -60,7 +60,7 @@ namespace beam::wallet
         auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
         if (!peerID)
         {
-            throw InvalidTransactionParametersException();
+            throw InvalidTransactionParametersException("");
         }
         auto receiverAddr = m_WalletDB->getAddress(*peerID);
         if (receiverAddr)

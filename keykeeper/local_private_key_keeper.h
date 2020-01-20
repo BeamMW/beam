@@ -84,7 +84,7 @@ namespace beam::wallet
         // Assets
         //
         PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override;
-        ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx) override;
+        ECC::Scalar::Native SignAssetKernel(TxKernelAssetControl& kernel, Key::Index assetOwnerIdx) override;
 
     private:
         // pair<asset public (asset id), asset private>

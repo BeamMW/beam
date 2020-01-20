@@ -576,7 +576,7 @@ namespace beam::wallet
         return value;
     }
 
-    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx)
+    ECC::Scalar::Native LocalPrivateKeyKeeper::SignAssetKernel(TxKernelAssetControl& kernel, Key::Index assetOwnerIdx)
     {
         ECC::Scalar::Native kernelSk;
         m_MasterKdf->DeriveKey(kernelSk, Key::ID(assetOwnerIdx, Key::Type::Kernel, assetOwnerIdx));

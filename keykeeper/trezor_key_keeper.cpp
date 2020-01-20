@@ -198,7 +198,7 @@ namespace beam::wallet
         m_handlers.push_back(handler);
     }
 
-    ECC::Scalar::Native TrezorKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx)
+    ECC::Scalar::Native TrezorKeyKeeper::SignAssetKernel(TxKernelAssetControl& kernel, Key::Index assetOwnerIdx)
     {
         // TODO:ASSETS implement
         assert(false);

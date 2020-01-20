@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "aissue_transaction.h"
+#include "aregister_transaction.h"
 #include "aissue_tx_builder.h"
 #include "core/block_crypt.h"
 #include "utility/logger.h"
@@ -21,17 +21,17 @@
 
 namespace beam::wallet
 {
-    AssetIssueTransaction::Creator::Creator(bool issue)
-        : _issue(issue)
+    AssetRegisterTransaction::Creator::Creator(bool reg)
+        : _register(reg)
     {
     }
 
-    BaseTransaction::Ptr AssetIssueTransaction::Creator::Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const TxID& txID)
+    BaseTransaction::Ptr AssetRegisterTransaction::Creator::Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const TxID& txID)
     {
-        return BaseTransaction::Ptr(new AssetIssueTransaction(_issue, gateway, walletDB, keyKeeper, txID));
+        return BaseTransaction::Ptr(new AssetRegisterTransaction(_register, gateway, walletDB, keyKeeper, txID));
     }
 
-    TxParameters AssetIssueTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
+    TxParameters AssetRegisterTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
     {
         if(params.GetParameter<WalletID>(TxParameterID::PeerID))
         {
@@ -58,19 +58,20 @@ namespace beam::wallet
         TxParameters result{params};
         result.SetParameter(TxParameterID::IsSelfTx, true);
         result.SetParameter(TxParameterID::MyID, WalletID(Zero)); // Mandatory parameter
+
         return result;
     }
 
-    AssetIssueTransaction::AssetIssueTransaction(bool issue, INegotiatorGateway& gateway
+    AssetRegisterTransaction::AssetRegisterTransaction(bool reg, INegotiatorGateway& gateway
                                         , IWalletDB::Ptr walletDB
                                         , IPrivateKeyKeeper::Ptr keyKeeper
                                         , const TxID& txID)
         : BaseTransaction{ gateway, std::move(walletDB), std::move(keyKeeper), txID}
-        , _issue(issue)
+        , _register(reg)
     {
     }
 
-    void AssetIssueTransaction::UpdateImpl()
+    void AssetRegisterTransaction::UpdateImpl()
     {
         if (!IsLoopbackTransaction())
         {
@@ -90,32 +91,30 @@ namespace beam::wallet
         }
 
         auto sharedBuilder = m_TxBuilder;
-        AssetIssueTxBuilder& builder = *sharedBuilder;
+        AssetRegisterTxBuilder& builder = *sharedBuilder;
 
         if (!builder.LoadKernel())
         {
             if (!builder.GetInitialTxParams() && GetState() == State::Initial)
             {
-                if (_issue)
+                if (_register)
                 {
-                    LOG_INFO() << GetTxID() << " Generating asset with owner index " << builder.GetAssetOwnerIdx()
-                               << " and asset id " << builder.GetAssetId() << ". Amount: " << PrintableAmount(builder.GetAmountBeam(), false, kASSET, kAGROTH);
-                    LOG_INFO() << GetTxID() << " Please remember your assset index. You won't be able to consume the asset or generate additional coins without it";
+                    LOG_INFO() << GetTxID() << " Registering asset with the owner index " << builder.GetAssetOwnerIdx();
+                    LOG_INFO() << GetTxID() << " Please remember your owner assset index. You won't be able to unregister the asset, consume it  or generate additional coins without the owner index";
                 }
                 else
                 {
-                    LOG_INFO() << GetTxID() << " Consuming asset with index " << builder.GetAssetOwnerIdx() << " and asset id " << builder.GetAssetId()
-                               << ". Amount: " << PrintableAmount(builder.GetAmountAsset(), false, kASSET, kAGROTH);
+                    LOG_INFO() << GetTxID() << " Unregistering asset with the owner index " << builder.GetAssetOwnerIdx();
                 }
 
                 builder.SelectInputs();
                 builder.AddChange();
 
-                for (const auto& amount : builder.GetAmountList())
-                {
-                    if (_issue) builder.GenerateAssetCoin(amount, false);
-                    else builder.GenerateBeamCoin(amount, false);
-                }
+                //for (const auto& amount : builder.GetAmountList())
+                //{
+                //    if (_register) builder.GenerateAssetCoin(amount, false);
+                //    else builder.GenerateBeamCoin(amount, false);
+                //}
 
                 UpdateTxDescription(TxStatus::InProgress);
             }
@@ -208,16 +207,17 @@ namespace beam::wallet
         CompleteTx();
     }
 
-    bool AssetIssueTransaction::IsLoopbackTransaction() const
+    bool AssetRegisterTransaction::IsLoopbackTransaction() const
     {
-        return GetMandatoryParameter<bool>(TxParameterID::IsSender) && IsInitiator();
+        const bool result = GetMandatoryParameter<bool>(TxParameterID::IsSender) && IsInitiator();
+        assert(result || !"Should be loopback");
+        return result;
     }
 
-    bool AssetIssueTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
+    bool AssetRegisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
     {
         switch (paramID)
         {
-        case TxParameterID::Amount:
         case TxParameterID::Fee:
         case TxParameterID::MinHeight:
         case TxParameterID::CreateTime:
@@ -232,28 +232,28 @@ namespace beam::wallet
         }
     }
 
-    TxType AssetIssueTransaction::GetType() const
+    TxType AssetRegisterTransaction::GetType() const
     {
-        return _issue ? TxType::AssetIssue : TxType::AssetConsume;
+        return _register ? TxType::AssetReg : TxType::AssetUnreg;
     }
 
-    AssetIssueTransaction::State AssetIssueTransaction::GetState() const
+    AssetRegisterTransaction::State AssetRegisterTransaction::GetState() const
     {
         State state = State::Initial;
         GetParameter(TxParameterID::State, state);
         return state;
     }
 
-    bool AssetIssueTransaction::CreateTxBuilder()
+    bool AssetRegisterTransaction::CreateTxBuilder()
     {
         if (!m_TxBuilder)
         {
-            m_TxBuilder = std::make_shared<AssetIssueTxBuilder>(_issue, *this, kDefaultSubTxID, m_KeyKeeper);
+            m_TxBuilder = std::make_shared<AssetRegisterTxBuilder>(_register, *this, kDefaultSubTxID, m_KeyKeeper);
         }
         return true;
     }
 
-    bool AssetIssueTransaction::IsInSafety() const
+    bool AssetRegisterTransaction::IsInSafety() const
     {
         State txState = GetState();
         return txState == State::KernelConfirmation;

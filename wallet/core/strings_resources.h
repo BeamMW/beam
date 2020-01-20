@@ -45,6 +45,8 @@ namespace beam
     extern const char kTxStatusSentToOwn[];
     extern const char kTxStatusIssued[];
     extern const char kTxStatusConsumed[];
+    extern const char kTxStatusRegistered[];
+    extern const char kTxStatusUnregistered[];
     extern const char kTxStatusExpired[];
     // Errors
     extern const char kErrorUnknownCoinStatus[];

@@ -30,6 +30,8 @@ namespace beam::wallet
         AtomicSwap,
         AssetIssue,
         AssetConsume,
+        AssetReg,
+        AssetUnreg,
         ALL
     };
 

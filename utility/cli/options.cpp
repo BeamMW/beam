@@ -275,10 +275,12 @@ namespace beam
         const char* APPDATA_PATH = "appdata";
 
         // assets
-        const char* ASSET_ISSUE   = "issue";
-        const char* ASSET_CONSUME = "consume";
-        const char* ASSET_INDEX   = "asset_idx";
-        const char* ASSET_ID      = "asset_id";
+        const char* ASSET_ISSUE       = "issue";
+        const char* ASSET_CONSUME     = "consume";
+        const char* ASSET_REGISTER    = "reg";
+        const char* ASSET_UNREGISTER  = "unreg";
+        const char* ASSET_INDEX       = "asset_idx";
+        const char* ASSET_ID          = "asset_id";
 
         // Defaults
         const Amount kMinimumFee = 100;
