@@ -66,10 +66,10 @@ public:
                      Amount fee,
                      const WalletID& receiverWalletID,
                      Height locktime);
-    bool Serve(const std::vector<std::string>& channelIDsStr);
-    bool Transfer(Amount amount, const std::string& channelIDStr);
-    bool Close(const std::vector<std::string>& channelIDsStr);
-    void Delete(const std::vector<std::string>& channelIDsStr);
+    bool Serve(const std::vector<std::string>& channelIDs);
+    bool Transfer(Amount amount, const std::string& channelID);
+    bool Close(const std::vector<std::string>& channelIDs);
+    void Delete(const std::vector<std::string>& channelIDs);
     size_t getChannelsCount() const;
 
     void AddObserver(Observer* observer);
@@ -83,8 +83,8 @@ private:
     void TransferInternal(Amount amount, const ChannelIDPtr& chID);
     void CloseInternal(const ChannelIDPtr& chID);
     void ForgetChannel(const ChannelIDPtr& chID);
-    ChannelIDPtr RestoreChannel(const std::string& channelIDStr);
-    bool RestoreChannelInternal(const ChannelIDPtr& chID);
+    ChannelIDPtr RestoreChannel(const std::string& channelID);
+    bool RestoreChannelInternal(const ChannelIDPtr& p_channelID);
     void UpdateChannels();
     void UpdateChannelExterior(const std::unique_ptr<Channel>& ch);
     bool ValidateTip();

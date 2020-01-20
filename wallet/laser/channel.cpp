@@ -19,7 +19,7 @@ namespace beam::wallet::laser
 {
 
 // static
-ChannelIDPtr Channel::ChIdFromString(const std::string& chIdStr)
+ChannelIDPtr Channel::ChannelIdFromString(const std::string& chIdStr)
 {
     bool isValid = false;
     auto buffer = from_hex(chIdStr, &isValid);

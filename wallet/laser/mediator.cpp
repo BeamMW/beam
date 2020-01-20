@@ -230,21 +230,21 @@ void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime
     LOG_DEBUG() << "LASER WAIT IN subscribed: " << ch;
 }
 
-bool Mediator::Serve(const std::vector<std::string>& channelIDsStr)
+bool Mediator::Serve(const std::vector<std::string>& channelIDs)
 {
     uint64_t count = 0;
-    for (const auto& channelIDStr: channelIDsStr)
+    for (const auto& channelID: channelIDs)
     {
-        LOG_DEBUG() << "Channel: " << channelIDStr << " restore process started";
-        auto chId = RestoreChannel(channelIDStr);
-        if (chId)
+        LOG_DEBUG() << "Channel: " << channelID << " restore process started";
+        auto p_channelID = RestoreChannel(channelID);
+        if (p_channelID)
         {
-            LOG_DEBUG() << "Channel: " << channelIDStr
+            LOG_DEBUG() << "Channel: " << channelID
                         << " restore process finished";
-            auto& ch = m_channels[chId];
-            if (ch && CanBeHandled(ch->get_State()))
+            auto& channel = m_channels[p_channelID];
+            if (channel && CanBeHandled(channel->get_State()))
             {
-                ch->Subscribe();
+                channel->Subscribe();
                 ++count;
             }
         }
@@ -280,24 +280,24 @@ void Mediator::OpenChannel(Amount aMy,
     });
 }
 
-bool Mediator::Close(const std::vector<std::string>& channelIDsStr)
+bool Mediator::Close(const std::vector<std::string>& channelIDs)
 {
     size_t count = 0;
-    for (const auto& channelIDStr: channelIDsStr)
+    for (const auto& channelID: channelIDs)
     {
-        auto chId = RestoreChannel(channelIDStr);
+        auto p_channelID = RestoreChannel(channelID);
 
-        if (chId) {
-            auto& ch = m_channels[chId];
-            if (ch)
+        if (p_channelID) {
+            auto& channel = m_channels[p_channelID];
+            if (channel)
             {
-                ch->Subscribe();
-                m_actionsQueue.emplace_back([this, chId] () {
-                    CloseInternal(chId);
+                channel->Subscribe();
+                m_actionsQueue.emplace_back([this, p_channelID] () {
+                    CloseInternal(p_channelID);
                 });
                 
                 LOG_DEBUG() << "Closing channel: "
-                            << to_hex(chId->m_pData, chId->nBytes)
+                            << to_hex(p_channelID->m_pData, p_channelID->nBytes)
                             << " is sceduled";
                 ++count;
                 continue;
@@ -308,39 +308,39 @@ bool Mediator::Close(const std::vector<std::string>& channelIDsStr)
     return count != 0;
 }
 
-void Mediator::Delete(const std::vector<std::string>& channelIDsStr)
+void Mediator::Delete(const std::vector<std::string>& channelIDs)
 {
-    for (const auto& chIdStr: channelIDsStr)
+    for (const auto& channelID: channelIDs)
     {
-        auto chId = Channel::ChIdFromString(chIdStr);
-        if (!chId)
+        auto p_channelID = Channel::ChannelIdFromString(channelID);
+        if (!p_channelID)
         {
             LOG_ERROR() << "Incorrect channel ID format: "
-                        << chIdStr;
+                        << channelID;
             continue;
         }
         TLaserChannelEntity chDBEntity;
-        if (m_pWalletDB->getLaserChannel(chId, &chDBEntity) &&
-            *chId == std::get<LaserFields::LASER_CH_ID>(chDBEntity) &&
+        if (m_pWalletDB->getLaserChannel(p_channelID, &chDBEntity) &&
+            *p_channelID == std::get<LaserFields::LASER_CH_ID>(chDBEntity) &&
             CanBeDeleted(std::get<LaserFields::LASER_STATE>(chDBEntity)))
         {
-            if (m_pWalletDB->removeLaserChannel(chId))
+            if (m_pWalletDB->removeLaserChannel(p_channelID))
             {
                 LOG_INFO() << "Channel: "
-                            << to_hex(chId->m_pData, chId->nBytes)
+                            << to_hex(p_channelID->m_pData, p_channelID->nBytes)
                             << " deleted";
             }
             else
             {
                 LOG_INFO() << "Channel: "
-                            << to_hex(chId->m_pData, chId->nBytes)
+                            << to_hex(p_channelID->m_pData, p_channelID->nBytes)
                             << " not deleted";
             }
         }
         else
         {
             LOG_ERROR() << "Channel: "
-                        << to_hex(chId->m_pData, chId->nBytes)
+                        << to_hex(p_channelID->m_pData, p_channelID->nBytes)
                         << " not found or not closed";
         }
     }
@@ -369,27 +369,43 @@ void Mediator::RemoveObserver(Observer* observer)
         std::remove(m_observers.begin(), m_observers.end(), observer));
 }
 
-bool Mediator::Transfer(Amount amount, const std::string& channelIDStr)
+bool Mediator::Transfer(Amount amount, const std::string& channelID)
 {
-    auto chId = RestoreChannel(channelIDStr);
+    auto p_channelID = RestoreChannel(channelID);
 
-    if (chId) {
-        auto& ch = m_channels[chId];
-        if (ch && ch->get_State() == beam::Lightning::Channel::State::Open)
+    if (p_channelID) {
+        auto& channel = m_channels[p_channelID];
+        auto myChannelAmount = channel->get_amountCurrentMy();
+        if (myChannelAmount < amount)
         {
-            ch->Subscribe();
-            m_actionsQueue.emplace_back([this, amount, chId] () {
-                TransferInternal(amount, chId);
+            LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
+                        << " to channel: "
+                        << to_hex(p_channelID->m_pData, p_channelID->nBytes)
+                        << " failed\n"
+                        << "My current channel balance is: "
+                        << PrintableAmount(myChannelAmount, true);
+            return false;
+        }
+
+        if (channel && channel->get_State() ==
+            beam::Lightning::Channel::State::Open)
+        {
+            channel->Subscribe();
+            m_actionsQueue.emplace_back([this, amount, p_channelID] () {
+                TransferInternal(amount, p_channelID);
             });
             
             LOG_DEBUG() << "Transfer: " << PrintableAmount(amount, true)
                         << " to channel: "
-                        << to_hex(chId->m_pData, chId->nBytes)
+                        << to_hex(p_channelID->m_pData, p_channelID->nBytes)
                         << " is sceduled";
             return true;
         }
     }
-    LOG_DEBUG() << "Channel restored with error";
+
+    LOG_DEBUG() << "Channel "
+                << to_hex(p_channelID->m_pData, p_channelID->nBytes)
+                << "restored with error";
     return false;
 }
 
@@ -490,32 +506,21 @@ void Mediator::OpenInternal(const ChannelIDPtr& chID)
 void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
 {
     auto& ch = m_channels[chID];
-    
-    if (ch)
+
+    if (ch && ch->Transfer(amount))
     {
-        auto chAmount = ch->get_amountCurrentMy();
-        if (chAmount < amount)
-        {
-            LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
-                        << " to channel: " << to_hex(chID->m_pData, chID->nBytes)
-                        << " failed\n"
-                        << "My current channel balance is: "
-                        << PrintableAmount(chAmount, true);
-        }
-        else if (ch->Transfer(amount))
-        {
-            LOG_INFO() << "Transfer: " << PrintableAmount(amount, true)
-                   << " to channel: " << to_hex(chID->m_pData, chID->nBytes)
-                   << " started";
-            return;
-        }
-        else
-        {
-            LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
-                        << " to channel: " << to_hex(chID->m_pData, chID->nBytes)
-                        << " failed";
-        }   
+        LOG_INFO() << "Transfer: " << PrintableAmount(amount, true)
+                << " to channel: " << to_hex(chID->m_pData, chID->nBytes)
+                << " started";
+        return;
     }
+    else
+    {
+        LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
+                    << " to channel: " << to_hex(chID->m_pData, chID->nBytes)
+                    << " failed";
+    }   
+    
     for (auto observer : m_observers)
     {
         observer->OnUpdateFinished(chID);
@@ -570,25 +575,24 @@ void Mediator::ForgetChannel(const ChannelIDPtr& chID)
     }
 }
 
-ChannelIDPtr Mediator::RestoreChannel(const std::string& channelIDStr)
+ChannelIDPtr Mediator::RestoreChannel(const std::string& channelID)
 {
-    auto chId = Channel::ChIdFromString(channelIDStr);
-    if (!chId)
+    auto p_channelID = Channel::ChannelIdFromString(channelID);
+    if (!p_channelID)
     {
-        LOG_ERROR() << "Incorrect channel ID format: "
-                    << channelIDStr;
+        LOG_ERROR() << "Incorrect channel ID format: " << channelID;
         return nullptr;
     }
 
     bool isConnected = false;
     for (const auto& it : m_channels)
     {
-        isConnected = *(it.first) == *chId;
+        isConnected = *(it.first) == *p_channelID;
         if (isConnected)
         {
-            chId = it.first;
+            p_channelID = it.first;
             LOG_INFO() << "Channel "
-                       << to_hex(chId->m_pData , chId->nBytes)
+                       << to_hex(p_channelID->m_pData , p_channelID->nBytes)
                        << " already connected";
             break;
         }
@@ -596,20 +600,20 @@ ChannelIDPtr Mediator::RestoreChannel(const std::string& channelIDStr)
 
     if (!isConnected)
     {
-        if (!RestoreChannelInternal(chId))
+        if (!RestoreChannelInternal(p_channelID))
         {
             return nullptr;
         }
     }
 
-    return chId;
+    return p_channelID;
 }
 
-bool Mediator::RestoreChannelInternal(const ChannelIDPtr& chID)
+bool Mediator::RestoreChannelInternal(const ChannelIDPtr& p_channelID)
 {
     TLaserChannelEntity chDBEntity;
-    if (m_pWalletDB->getLaserChannel(chID, &chDBEntity) &&
-        *chID == std::get<LaserFields::LASER_CH_ID>(chDBEntity))
+    if (m_pWalletDB->getLaserChannel(p_channelID, &chDBEntity) &&
+        *p_channelID == std::get<LaserFields::LASER_CH_ID>(chDBEntity))
     {
         auto& myWID = std::get<LaserFields::LASER_MY_WID>(chDBEntity);
         auto myAddr = m_pWalletDB->getAddress(myWID, true);
@@ -622,20 +626,20 @@ bool Mediator::RestoreChannelInternal(const ChannelIDPtr& chID)
         auto state = std::get<LaserFields::LASER_STATE>(chDBEntity);
         if (CanBeLoaded(state))
         {
-            m_channels[chID] = std::make_unique<Channel>(
-                *this, chID, *myAddr, chDBEntity);
+            m_channels[p_channelID] = std::make_unique<Channel>(
+                *this, p_channelID, *myAddr, chDBEntity);
             return true;
         }
         else
         {
             LOG_DEBUG() << "Channel "
-                        << to_hex(chID->m_pData , chID->nBytes)
+                        << to_hex(p_channelID->m_pData , p_channelID->nBytes)
                         << " was closed or opened with failure";
             return false;
         }
     }
     LOG_INFO() << "Channel "
-               << to_hex(chID->m_pData , chID->nBytes)
+               << to_hex(p_channelID->m_pData , p_channelID->nBytes)
                << " not saved in DB";
     return false;
 }

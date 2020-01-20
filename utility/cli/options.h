@@ -147,14 +147,14 @@ namespace beam
         extern const char* LASER_LIST;
         extern const char* LASER_DROP;
         extern const char* LASER_DELETE;
+        extern const char* LASER_CLOSE_GRACEFUL;
+
         extern const char* LASER_AMOUNT_MY;
         extern const char* LASER_AMOUNT_TARGET;
         extern const char* LASER_TARGET_ADDR;
         extern const char* LASER_FEE;
         extern const char* LASER_LOCK_TIME;
         extern const char* LASER_CHANNEL_ID;
-        extern const char* LASER_ALL;
-        extern const char* LASER_CLOSE_GRACEFUL;
 #endif  // BEAM_LASER_SUPPORT
 
         // wallet api
@@ -222,6 +222,16 @@ namespace beam
     };
 
     template <typename T>
+    struct NonnegativeFloatingPoint {
+        static_assert(std::is_floating_point<T>::value, "NonnegativeFloatingPoint<T> requires floating_point type.");
+
+        NonnegativeFloatingPoint() {}
+        explicit NonnegativeFloatingPoint(const T& v) : value(v) {}
+
+        T value = 0;
+    };
+
+    template <typename T>
     struct Positive {
         static_assert(std::is_arithmetic<T>::value, "Positive<T> requires numerical type.");
 
@@ -257,6 +267,13 @@ namespace beam
     }
 
     template<typename T>
+    std::ostream& operator<<(std::ostream& os, const NonnegativeFloatingPoint<T>& v)
+    {
+        os << v.value;
+        return os;
+    }
+
+    template<typename T>
     std::ostream& operator<<(std::ostream& os, const Positive<T>& v)
     {
         os << v.value;
@@ -277,6 +294,27 @@ namespace beam
         try
         {
             v = Nonnegative<T>(boost::lexical_cast<T>(s));
+        }
+        catch (const boost::bad_lexical_cast&)
+        {
+            throw po::invalid_option_value(s);
+        }
+    }
+
+        template <typename T>
+    void validate(boost::any& v, const std::vector<std::string>& values, NonnegativeFloatingPoint<T>*, int)
+    {
+        po::validators::check_first_occurrence(v);
+
+        const std::string& s = po::validators::get_single_string(values);
+
+        if (!s.empty() && s[0] == '-') {
+            throw NonnegativeOptionException();
+        }
+
+        try
+        {
+            v = NonnegativeFloatingPoint<T>(boost::lexical_cast<T>(s));
         }
         catch (const boost::bad_lexical_cast&)
         {

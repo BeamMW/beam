@@ -244,14 +244,14 @@ namespace beam
         const char* LASER_LIST = "laser_channels_list";
         const char* LASER_DROP = "laser_drop";
         const char* LASER_DELETE = "laser_delete";
+        const char* LASER_CLOSE_GRACEFUL = "laser_close";
+
         const char* LASER_AMOUNT_MY = "laser_my_locked_amount";
         const char* LASER_AMOUNT_TARGET = "laser_remote_locked_amount";
         const char* LASER_TARGET_ADDR = "laser_address";
         const char* LASER_FEE = "laser_fee";
         const char* LASER_LOCK_TIME = "laser_lock_time";
-        const char* LASER_CHANNEL_ID = "laser_channel";
-        const char* LASER_ALL = "all,a";
-        const char* LASER_CLOSE_GRACEFUL = "laser_close";
+        const char* LASER_CHANNEL_ID = "laser_channel";        
 #endif  // BEAM_LASER_SUPPORT
 
         // wallet api
@@ -424,22 +424,23 @@ namespace beam
             (cli::ASSET_ID, po::value<string>(), "asset id");
 
 #ifdef BEAM_LASER_SUPPORT
-        po::options_description lazer_options("Lightning options");
+        po::options_description lazer_options("Laser options");
         lazer_options.add_options()
             (cli::LASER_LIST, "view all opened lightning channel")
             (cli::LASER_WAIT, "wait for open incomming lightning channel")
             (cli::LASER_OPEN, "open lightning channel")
             (cli::LASER_TRANSFER, po::value<Positive<double>>(), "send to lightning channel")
-            (cli::LASER_SERVE, po::value<string>()->implicit_value("all"), "listen lightning channels --laser_listen [chID1, ..., chIDN]")
-            (cli::LASER_DROP, po::value<string>()->implicit_value(""), ("drop opened lightning channel --laser_drop <chID1, ..., chIDN> [" + std::string(cli::LASER_ALL) + "]").c_str())
+            (cli::LASER_SERVE, po::value<string>()->implicit_value(""), "listen lightning channels --laser_listen [chID1, ..., chIDN]")
+            (cli::LASER_DROP, po::value<string>()->implicit_value(""), "drop opened lightning channel --laser_drop <chID1, ..., chIDN>")
             (cli::LASER_DELETE, po::value<string>(), "delete laser channel --laser_delete <chID1, ..., chIDN>")
-            (cli::LASER_AMOUNT_MY, po::value<Positive<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")
-            (cli::LASER_AMOUNT_TARGET, po::value<Positive<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
+
+            (cli::LASER_AMOUNT_MY, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::LASER_AMOUNT_TARGET, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_TARGET_ADDR, po::value<string>(), "address of laser receiver")
-            (cli::LASER_FEE, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::LASER_FEE, po::value<Nonnegative<Amount>>(), "fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::LASER_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks beam transaction")
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID")
-            (cli::LASER_ALL, "all channels")
+
             (cli::LASER_CLOSE_GRACEFUL, "graceful close flag");
 #endif  // BEAM_LASER_SUPPORT
 
