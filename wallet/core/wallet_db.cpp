@@ -801,11 +801,25 @@ namespace beam::wallet
         return !(other == *this);
     }
 
+#pragma pack (push, 1)
+    struct CoinIDPacked
+    {
+        // for historical reasons - make AssetID 1st member to keep bkwd compatibility
+        // during serialization/deserialization leading zeroes are trimmed
+        uintBigFor<Asset::ID>::Type m_AssetID;
+        Key::IDV::Packed m_Kidv;
+    };
+#pragma pack (pop)
+
     string Coin::toStringID() const
     {
-        ID::Packed packed;
-        packed = m_ID;
+        CoinIDPacked packed;
+        packed.m_Kidv = m_ID;
 
+        if (!m_ID.m_AssetID)
+            return to_hex(&packed.m_Kidv, sizeof(packed.m_Kidv));
+
+        packed.m_AssetID = m_ID.m_AssetID;
         return to_hex(&packed, sizeof(packed));
     }
 
@@ -834,14 +848,15 @@ namespace beam::wallet
     {
         bool isValid = false;
         auto byteBuffer = from_hex(str, &isValid);
-        if (isValid && byteBuffer.size() <= sizeof(Coin::ID::Packed))
+        if (isValid && byteBuffer.size() <= sizeof(CoinIDPacked))
         {
-            Coin::ID::Packed packed;
+            CoinIDPacked packed;
             ZeroObject(packed);
-            uint8_t* p = reinterpret_cast<uint8_t*>(&packed) + sizeof(Coin::ID::Packed) - byteBuffer.size();
+            uint8_t* p = reinterpret_cast<uint8_t*>(&packed) + sizeof(CoinIDPacked) - byteBuffer.size();
             copy_n(byteBuffer.begin(), byteBuffer.size(), p);
             Coin::ID id;
-            Cast::Down<Key::IDV>(id) = packed; // TODO: assets
+            Cast::Down<Key::IDV>(id) = packed.m_Kidv;
+            packed.m_AssetID.Export(id.m_AssetID);
             return id;
         }
         return boost::optional<Coin::ID>();
