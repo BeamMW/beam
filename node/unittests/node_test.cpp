@@ -1722,7 +1722,9 @@ namespace beam
 				Lelantus::Cfg m_Cfg;
 
 				Amount m_Value;
-				ECC::Scalar::Native m_sk;
+				ECC::Scalar m_kSerG; // blinding factor of the serial part
+				ECC::Scalar m_kOutG; // blinding factor of the serial part
+				ECC::Scalar::Native m_sk; // total blinding factor of the shielded element
 				ECC::Scalar::Native m_skSpendKey;
 				ECC::Point m_SerialPub;
 				ECC::Point m_SpendPk;
@@ -1780,6 +1782,9 @@ namespace beam
 					op.Generate(pKrn->m_Txo, oracle, viewer, 18U);
 
 					pKrn->MsgToID();
+
+					m_Shielded.m_kSerG = sp.m_pK[0];
+					m_Shielded.m_kOutG = op.m_k;
 
 					m_Shielded.m_sk = sp.m_pK[0];
 					m_Shielded.m_sk += op.m_k;
@@ -2367,6 +2372,11 @@ namespace beam
 
 						verify_test(s.m_Sender == m_Shielded.m_Sender);
 						verify_test(s.m_Message == m_Shielded.m_Message);
+						verify_test(s.m_IsCreatedByViewer);
+						verify_test(s.m_ID == uintBigFrom(TxoID(0)));
+
+						verify_test(s.m_kSerG == m_Shielded.m_kSerG);
+						verify_test(s.m_kOutG == m_Shielded.m_kOutG);
 
 						if (proto::UtxoEvent::Flags::Add & evt.m_Flags)
 							m_Shielded.m_EvtAdd = true;
@@ -2807,7 +2817,7 @@ namespace beam
 
 int main()
 {
-	bool bClientProtoOnly = false;
+	bool bClientProtoOnly = true;
 
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 	if (!bClientProtoOnly)
