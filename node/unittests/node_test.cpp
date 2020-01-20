@@ -1794,6 +1794,8 @@ namespace beam
 					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
 					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sp.m_SerialPreimage);
 
+					m_Shielded.m_SpendPk = ECC::Context::get().G * m_Shielded.m_skSpendKey;
+
 					ECC::Point::Native pt;
 					verify_test(pKrn->IsValid(h + 1, pt));
 
@@ -1875,7 +1877,7 @@ namespace beam
 					// test
 				}
 
-				m_Shielded.m_SpendPk = pKrn->m_SpendProof.m_SpendPk;
+				verify_test(m_Shielded.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 
 				Amount fee = 100;
 				fee += Transaction::FeeSettings().m_ShieldedInput;
@@ -2378,6 +2380,16 @@ namespace beam
 						verify_test(s.m_kSerG == m_Shielded.m_kSerG);
 						verify_test(s.m_kOutG == m_Shielded.m_kOutG);
 
+						// Recover the full data
+						ShieldedTxo::Viewer viewer;
+						viewer.FromOwner(*m_Wallet.m_pKdf);
+
+						ShieldedTxo::Data::SerialParams sp;
+						sp.m_pK[0] = s.m_kSerG;
+						sp.m_IsCreatedByViewer = s.m_IsCreatedByViewer;
+						sp.Restore(viewer);
+						verify_test(sp.m_SpendPk == m_Shielded.m_SpendPk);
+						
 						if (proto::UtxoEvent::Flags::Add & evt.m_Flags)
 							m_Shielded.m_EvtAdd = true;
 						else

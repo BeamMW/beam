@@ -227,6 +227,11 @@ namespace beam
 		return false;
 	}
 
+	void ShieldedTxo::Data::SerialParams::Restore(const Viewer& v)
+	{
+		set_FromkG(*v.m_pGen, m_IsCreatedByViewer ? v.m_pGen.get() : nullptr, *v.m_pSer);
+	}
+
 	/////////////
 	// OutputParams
 	void ShieldedTxo::Data::OutputParams::get_DH(ECC::Hash::Value& res, const ShieldedTxo& txo)
