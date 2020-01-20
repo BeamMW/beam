@@ -3042,14 +3042,14 @@ namespace beam::wallet
                         !wid.IsValid())
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
-                        continue;
+                        return false;
                     }
 
                     auto waddr = db.getAddress(wid);
                     if (waddr && (waddr->m_OwnID == 0 || wid != generateWalletIDFromIndex(keyKeeper, waddr->m_OwnID)))
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid address parameter";
-                        continue;
+                        return false;
                     }
 
                     auto addressIt = paramsMap.find(TxParameterID::MyAddressID);
@@ -3057,9 +3057,9 @@ namespace beam::wallet
                         wid != generateWalletIDFromIndex(keyKeeper, myAddrId)))
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid MyAddressID parameter";
-                        continue;
+                        return false;
                     }
-                    
+
                     if (!waddr && addressIt == paramsMap.end())
                     {
                         LOG_WARNING() << "Transaction " << txPair.first << ". Cannot check imported address";
@@ -3075,7 +3075,6 @@ namespace beam::wallet
                             true);
                     }
                     LOG_INFO() << "Transaction " << txPair.first << " was imported.";
-
                 }
                 return true;
             }
