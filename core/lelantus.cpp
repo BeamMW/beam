@@ -336,9 +336,46 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Nati
 
 ///////////////////////////
 // Prover
+struct Prover::NonceGen :public NonceGenerator
+{
+	NonceGen() :NonceGenerator("lel0") {}
+};
+
+
+void Prover::UserData::Recover(Oracle& oracle, const Proof& p, const uintBig& seed)
+{
+	Scalar::Native rA, rB, rC, rD, x;
+
+	NonceGen nonceGen;
+	nonceGen
+		<< seed
+		>> rA
+		>> rB
+		>> rC
+		>> rD;
+
+	p.m_Part1.Expose(oracle);
+	oracle >> x;
+
+	RecoverOnce(m_pS[0], p.m_Part2.m_zA, rA, rB, x);
+	RecoverOnce(m_pS[1], p.m_Part2.m_zC, rD, rC, x);
+}
+
+void Prover::UserData::RecoverOnce(ECC::Scalar& out, const ECC::Scalar& res, ECC::Scalar::Native& a0, ECC::Scalar::Native& a1, const ECC::Scalar::Native& x)
+{
+	a1 *= x;
+	a0 += a1; // this is the value that would be without extra
+
+	a0 = -a0;
+	a1 = res;
+	a1 += a0;
+
+	out = a1;
+}
+
 void Prover::InitNonces(const uintBig& seed)
 {
-	NonceGenerator nonceGen("lel0");
+	NonceGen nonceGen;
 	nonceGen << seed;
 
 	nonceGen
@@ -346,6 +383,12 @@ void Prover::InitNonces(const uintBig& seed)
 		>> m_vBuf[Idx::rB]
 		>> m_vBuf[Idx::rC]
 		>> m_vBuf[Idx::rD];
+
+	if (m_pUserData)
+	{
+		m_vBuf[Idx::rA] += m_pUserData->m_pS[0];
+		m_vBuf[Idx::rD] += m_pUserData->m_pS[1];
+	}
 
 	Scalar::Native* pA = m_a;
 	for (uint32_t j = 0; j < m_Proof.m_Cfg.M; j++)
@@ -734,6 +777,7 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle)
 	spr.m_Witness.V.m_L = m_Witness.V.m_L;
 	spr.m_Witness.V.m_R = m_Witness.V.m_R;
 	spr.m_Witness.V.m_R -= m_Witness.V.m_R_Output;
+	spr.m_pUserData = m_pUserData;
 
 	spr.Generate(seed, oracle, ptBias);
 }

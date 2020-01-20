@@ -64,13 +64,13 @@ public:
         return m_pKdf;
     }
 
-    std::vector<Coin> selectCoins(ECC::Amount amount, AssetID assetId) override
+    std::vector<Coin> selectCoins(ECC::Amount amount, Asset::ID assetId) override
     {
         std::vector<Coin> res;
         ECC::Amount t = 0;
         for (auto& c : m_coins)
         {
-            if (c.m_assetId != assetId) continue;
+            if (c.m_ID.m_AssetID != assetId) continue;
             t += c.m_ID.m_Value;
             c.m_status = Coin::Outgoing;
             res.push_back(c);
@@ -1315,11 +1315,11 @@ ByteBuffer createTreasury(IWalletDB::Ptr db, const AmountList& amounts = { 5, 2,
     {
         for (const auto& treasuryCoin : group.m_vCoins)
         {
-            Key::IDV kidv;
-            if (treasuryCoin.m_pOutput->Recover(0, *db->get_MasterKdf(), kidv))
+            CoinID cid;
+            if (treasuryCoin.m_pOutput->Recover(0, *db->get_MasterKdf(), cid))
             {
                 Coin coin;
-                coin.m_ID = kidv;
+                coin.m_ID = cid;
                 coin.m_maturity = treasuryCoin.m_pOutput->m_Incubation;
                 coin.m_confirmHeight = treasuryCoin.m_pOutput->m_Incubation;
                 db->saveCoin(coin);

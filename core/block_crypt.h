@@ -28,7 +28,6 @@ namespace beam
 	typedef ECC::Hash::Value PeerID;
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
-	typedef uint64_t AssetID; // 1-based asset index. 0 is reserved for default asset (Beam)
 	typedef uint64_t TxoID;
 
 	using ECC::Key;
@@ -98,6 +97,39 @@ namespace beam
 		COMPARISON_VIA_CMP
 	};
 
+	struct Asset
+	{
+		typedef uint64_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
+
+		struct Base
+		{
+			ID m_ID;
+
+			Base(ID id = 0) :m_ID(id) {}
+
+			void get_Generator(ECC::Point::Native&) const;
+			void get_Generator(ECC::Point::Storage&) const;
+			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
+		};
+
+		struct Info
+		{
+			AmountBig::Type m_Value;
+			PeerID m_Owner;
+			Height m_LockHeight; // relevant only when m_Value is 0. Otherwise set to 0
+			ByteBuffer m_Metadata;
+			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
+
+			void Reset();
+		};
+
+		struct Full
+			:public Base
+			,public Info
+		{
+			void get_Hash(ECC::Hash::Value&) const;
+		};
+	};
 	struct Rules
 	{
 		Rules();
@@ -137,6 +169,7 @@ namespace beam
 		struct {
 			bool Enabled = false;
 			Amount DepositForList = Coin * 1000;
+			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
 		} CA;
 
 		uint32_t MaxRollback = 1440; // 1 day roughly
@@ -187,22 +220,50 @@ namespace beam
 		bool IsForkHeightsConsistent() const;
 	};
 
-	class SwitchCommitment
+	struct CoinID
+		:public Key::IDV
 	{
-		static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
-		void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const;
-		void AddValue(ECC::Point::Native& comm, Amount) const;
-		static void get_Hash(ECC::Hash::Value&, const Key::IDV&);
-	public:
+		Asset::ID m_AssetID = 0;
 
-	    ECC::Point::Native m_hGen;
-		SwitchCommitment(AssetID = 0);
+		CoinID() {}
+		CoinID(Zero_) :Key::IDV(Zero) {}
+		CoinID(Amount v, uint64_t nIdx, Key::Type type, Key::Index nSubIdx = 0) :Key::IDV(v, nIdx, type, nSubIdx) {}
 
-		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&) const;
-		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const Key::IDV&) const;
-		void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf&, const Key::IDV&) const;
-		void Recover(ECC::Point::Native& comm, Key::IPKdf&, const Key::IDV&) const;
+		void get_Hash(ECC::Hash::Value&) const;
+
+		int cmp(const CoinID&) const;
+		COMPARISON_VIA_CMP
+
+		struct Generator
+		{
+			ECC::Point::Native m_hGen;
+			Generator(Asset::ID);
+			void AddValue(ECC::Point::Native& comm, Amount) const;
+		};
+
+		class Worker
+			:public Generator
+		{
+			static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
+			void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf) const;
+
+		public:
+			const CoinID& m_Cid;
+
+			Worker(const CoinID&);
+
+			void AddValue(ECC::Point::Native& comm) const;
+
+			void Create(ECC::Scalar::Native& sk, Key::IKdf&) const;
+			void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&) const;
+			void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf&) const;
+
+			void Recover(ECC::Point::Native& comm, Key::IPKdf&) const;
+			void Recover(ECC::Point::Native& pkG_in_res_out, const ECC::Point::Native& pkJ) const;
+		};
 	};
+
+	std::ostream& operator << (std::ostream&, const CoinID&);
 
 	struct TxStats
 	{
@@ -219,38 +280,6 @@ namespace beam
 
 		void Reset();
 		void operator += (const TxStats&);
-	};
-
-	struct AssetInfo
-	{
-		struct Base
-		{
-			AssetID m_ID;
-
-			Base(AssetID id = 0) :m_ID(id) {}
-
-			void get_Generator(ECC::Point::Native&) const;
-			void get_Generator(ECC::Point::Storage&) const;
-			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
-		};
-
-		struct Data
-		{
-			AmountBig::Type m_Value;
-			PeerID m_Owner;
-
-			ByteBuffer m_Metadata;
-			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
-
-			void Reset();
-		};
-
-		struct Full
-			:public Base
-			,public Data
-		{
-			void get_Hash(ECC::Hash::Value&) const;
-		};
 	};
 
 	struct TxElement
@@ -327,7 +356,7 @@ namespace beam
 		bool		m_Coinbase;
 		bool		m_RecoveryOnly;
 		Height		m_Incubation; // # of blocks before it's mature
-		AssetID		m_AssetID;
+		Asset::ID	m_AssetID;
 
 		Output()
 			:m_Coinbase(false)
@@ -343,10 +372,10 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
-		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
+		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, bool bPublic = false);
 
-		bool Recover(Height hScheme, Key::IPKdf& tagKdf, Key::IDV&) const;
-		bool VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV&) const;
+		bool Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID&) const;
+		bool VerifyRecovered(Key::IPKdf& coinKdf, const CoinID&) const;
 
 		bool IsValid(Height hScheme, ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
@@ -568,7 +597,7 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelAssetEmit> Ptr;
 
-		AssetID m_AssetID;
+		Asset::ID m_AssetID;
 		AmountSigned m_Value;
 		TxKernelAssetEmit() :m_Value(0) {}
 
@@ -600,7 +629,7 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelAssetDestroy> Ptr;
 
-		AssetID m_AssetID;
+		Asset::ID m_AssetID;
 
 		virtual ~TxKernelAssetDestroy() {}
 		virtual Subtype::Enum get_Subtype() const override;
@@ -876,7 +905,7 @@ namespace beam
 				bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
 				bool IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp&, const Merkle::Proof&) const;
 				bool IsValidProofShieldedInp(const ShieldedTxo::DescriptionInp&, const Merkle::Proof&) const;
-				bool IsValidProofAsset(const AssetInfo::Full&, const Merkle::Proof&) const;
+				bool IsValidProofAsset(const Asset::Full&, const Merkle::Proof&) const;
 
 				int cmp(const Full&) const;
 				COMPARISON_VIA_CMP

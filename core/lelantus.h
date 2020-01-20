@@ -113,6 +113,8 @@ namespace Sigma {
 
 	public:
 
+		struct NonceGen;
+
 		Prover(CmList& lst, Proof& proof)
 			:m_List(lst)
 			,m_Proof(proof)
@@ -126,6 +128,17 @@ namespace Sigma {
 			ECC::Scalar::Native m_R;
 		};
 		ECC::NoLeak<Witness> m_Witness;
+
+		class UserData
+		{
+			static void RecoverOnce(ECC::Scalar& out, const ECC::Scalar& res, ECC::Scalar::Native& a0, ECC::Scalar::Native& a1, const ECC::Scalar::Native& x);
+		public:
+
+			ECC::Scalar m_pS[2];
+			void Recover(ECC::Oracle& oracle, const Proof&, const ECC::uintBig& seed);
+		};
+
+		const UserData* m_pUserData = nullptr;
 
 		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle, const ECC::Point::Native& ptBias);
 
@@ -176,6 +189,8 @@ namespace Lelantus
 			ECC::Scalar::Native m_SpendSk;
 		};
 		ECC::NoLeak<Witness> m_Witness;
+
+		Sigma::Prover::UserData* m_pUserData = nullptr;
 
 		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle);
 

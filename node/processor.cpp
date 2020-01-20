@@ -1717,7 +1717,7 @@ void NodeProcessor::TxoToNaked(uint8_t* pBuf, Blob& v)
 		return;
 	}
 
-	// complex case - the UTXO has either AssetID or Incubation period. Utxo must be re-read
+	// complex case - the UTXO has either Asset::ID or Incubation period. Utxo must be re-read
 	Deserializer der;
 	der.reset(pSrc, v.n);
 
@@ -2366,22 +2366,22 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 
 void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 {
-	Key::IDV kidv;
-	if (!x.Recover(h, keyViewer, kidv))
+	CoinID cid;
+	if (!x.Recover(h, keyViewer, cid))
 		return;
 
 	// filter-out dummies
-	if (IsDummy(kidv))
+	if (IsDummy(cid))
 	{
-		OnDummy(kidv, h);
+		OnDummy(cid, h);
 		return;
 	}
 
 	// bingo!
 	UtxoEvent::Value evt;
-	evt.m_Kidv = kidv;
+	evt.m_Kidv = cid;
 	evt.m_Flags = proto::UtxoEvent::Flags::Add;
-	evt.m_AssetID = x.m_AssetID;
+	evt.m_AssetID = cid.m_AssetID;
 	evt.m_Buf1 = Zero;
 
 	evt.m_Maturity = x.get_MinMaturity(h);
@@ -2408,19 +2408,19 @@ void NodeProcessor::RescanOwnedTxos()
 		{
 		}
 
-		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp, const Key::IDV& kidv) override
+		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp, const CoinID& cid) override
 		{
-			if (IsDummy(kidv))
+			if (IsDummy(cid))
 			{
-				m_This.OnDummy(kidv, hCreate);
+				m_This.OnDummy(cid, hCreate);
 				return true;
 			}
 
 			UtxoEvent::Value evt;
-			evt.m_Kidv = kidv;
+			evt.m_Kidv = cid;
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
 			evt.m_Flags = proto::UtxoEvent::Flags::Add;
-			evt.m_AssetID = outp.m_AssetID;
+			evt.m_AssetID = cid.m_AssetID;
 			evt.m_Buf1 = Zero;
 
 			const UtxoEvent::Key& key = outp.m_Commitment;
@@ -2492,9 +2492,12 @@ void NodeProcessor::RescanOwnedTxos()
 	}
 }
 
-bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
+bool NodeProcessor::IsDummy(const CoinID&  cid)
 {
-	return !kidv.m_Value && (Key::Type::Decoy == kidv.m_Type);
+	return
+		!cid.m_Value &&
+		!cid.m_AssetID &&
+		(Key::Type::Decoy == cid.m_Type);
 }
 
 bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
@@ -2523,7 +2526,7 @@ bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
 	return true;
 }
 
-void NodeProcessor::InternalAssetAdd(AssetInfo::Full& ai)
+void NodeProcessor::InternalAssetAdd(Asset::Full& ai)
 {
 	ai.m_Value = Zero;
 	m_DB.AssetAdd(ai);
@@ -2540,9 +2543,9 @@ void NodeProcessor::InternalAssetAdd(AssetInfo::Full& ai)
 	m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
 }
 
-void NodeProcessor::InternalAssetDel(AssetID nAssetID)
+void NodeProcessor::InternalAssetDel(Asset::ID nAssetID)
 {
-	AssetID nCount = m_DB.AssetDelete(nAssetID);
+	Asset::ID nCount = m_DB.AssetDelete(nAssetID);
 
 	assert(nCount <= m_Mmr.m_Assets.m_Count);
 	if (nCount < m_Mmr.m_Assets.m_Count)
@@ -2556,6 +2559,12 @@ void NodeProcessor::InternalAssetDel(AssetID nAssetID)
 
 bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
 {
+	if (bic.m_Fwd && !bic.m_AlreadyValidated)
+	{
+		if (m_DB.AssetFindByOwner(krn.m_Owner))
+			return false;
+	}
+
 	if (!bic.m_UpdateMmrs)
 		return true;
 
@@ -2563,9 +2572,10 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 
 	if (bic.m_Fwd)
 	{
-		AssetInfo::Full ai;
+		Asset::Full ai;
 		ai.m_ID = 0; // auto
 		ai.m_Owner = krn.m_Owner;
+		ai.m_LockHeight = bic.m_Height + Rules::get().CA.LockPeriod;
 
 		TemporarySwap<ByteBuffer> ts(Cast::NotConst(krn).m_MetaData, ai.m_Metadata);
 
@@ -2578,7 +2588,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 	{
 		BlockInterpretCtx::Der der(bic);
 
-		AssetID nVal;
+		Asset::ID nVal;
 		der & nVal;
 
 		InternalAssetDel(nVal);
@@ -2591,7 +2601,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 {
 	if (bic.m_Fwd)
 	{
-		AssetInfo::Full ai;
+		Asset::Full ai;
 		ai.m_ID = krn.m_AssetID;
 		if (!m_DB.AssetGetSafe(ai))
 			return false;
@@ -2602,25 +2612,32 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 		if (ai.m_Value != Zero)
 			return false;
 
+		if (ai.m_LockHeight > bic.m_Height)
+			return false;
+
 		if (bic.m_UpdateMmrs)
 		{
 			// looks good
 			InternalAssetDel(krn.m_AssetID);
 
 			BlockInterpretCtx::Ser ser(bic);
-			ser & ai.m_Metadata;
+			ser
+				& ai.m_Metadata
+				& ai.m_LockHeight;
 		}
 	}
 	else
 	{
 		if (bic.m_UpdateMmrs)
 		{
-			AssetInfo::Full ai;
+			Asset::Full ai;
 			ai.m_ID = krn.m_AssetID;
 			ai.m_Owner = krn.m_Owner;
 
 			BlockInterpretCtx::Der der(bic);
-			der & ai.m_Metadata;
+			der
+				& ai.m_Metadata
+				& ai.m_LockHeight;
 
 			InternalAssetAdd(ai);
 
@@ -2639,7 +2656,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 	if (!bic.m_Fwd && !bic.m_UpdateMmrs)
 		return true;
 
-	AssetInfo::Full ai;
+	Asset::Full ai;
 	ai.m_ID = krn.m_AssetID;
 	if (!m_DB.AssetGetSafe(ai))
 		return false;
@@ -2677,7 +2694,22 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 
 	if (bic.m_UpdateMmrs)
 	{
-		m_DB.AssetSetValue(ai.m_ID, ai.m_Value);
+		if (bic.m_Fwd)
+		{
+			BlockInterpretCtx::Ser ser(bic);
+			ser & ai.m_LockHeight;
+
+			ai.m_LockHeight = (ai.m_Value == Zero) ?
+				(bic.m_Height + Rules::get().CA.LockPeriod) :
+				0;
+		}
+		else
+		{
+			BlockInterpretCtx::Der der(bic);
+			der & ai.m_LockHeight;
+		}
+
+		m_DB.AssetSetValue(ai.m_ID, ai.m_Value, ai.m_LockHeight);
 
 		Merkle::Hash hv;
 		ai.get_Hash(hv);
@@ -4218,11 +4250,11 @@ bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, 
 
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
-	Key::IDV kidv;
-	if (!outp.Recover(hCreate, m_Key, kidv))
+	CoinID cid;
+	if (!outp.Recover(hCreate, m_Key, cid))
 		return true;
 
-	return OnTxo(wlk, hCreate, outp, kidv);
+	return OnTxo(wlk, hCreate, outp, cid);
 }
 
 bool NodeProcessor::ITxoWalker_UnspentNaked::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate)
@@ -4291,7 +4323,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 
 	// For every output:
 	//	if SpendHeight > hHi1 (or null) then fully transfer
-	//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, AssetID)
+	//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, Asset::ID)
 	//	Otherwise - don't transfer
 
 	// For every input (commitment only):
@@ -4413,7 +4445,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 			break;
 
 		//	if SpendHeight > hHi1 (or null) then fully transfer
-		//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, AssetID)
+		//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, Asset::ID)
 		//	Otherwise - don't transfer
 
 		if (wlk.m_SpendHeight <= hLo1)

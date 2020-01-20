@@ -352,7 +352,7 @@ namespace
             for (size_t i = 0; i < vCoins.size(); i++)
             {
                 const Treasury::Data::Coin& coin = vCoins[i];
-                cout << boost::format(kTreasuryRecoveredCoin) % coin.m_Kidv % coin.m_Incubation << std::endl;
+                cout << boost::format(kTreasuryRecoveredCoin) % coin.m_Cid % coin.m_Incubation << std::endl;
 
             }
         }
@@ -563,7 +563,7 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, kAmountASSET, kAmountAGROTH));
     }
 
-    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, AssetID assetId, const char* coin, const char* groth)
+    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId, const char* coin, const char* groth)
     {
         const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
         cout << boost::format(kCoinsTableHeadFormat)
@@ -577,7 +577,7 @@ namespace
 
         walletDB->visitCoins([&columnWidths, &assetId](const Coin& c)->bool
         {
-            if (c.m_assetId == assetId) {
+            if (c.m_ID.m_AssetID == assetId) {
                 cout << boost::format(kCoinsTableFormat)
                         % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
                         % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
@@ -595,7 +595,7 @@ namespace
         cout << std::endl;
     }
 
-    void ShowAssetTxs(const IWalletDB::Ptr& walletDB, AssetID assetId, const char* coin, const char* groth)
+    void ShowAssetTxs(const IWalletDB::Ptr& walletDB, Asset::ID assetId, const char* coin, const char* groth)
     {
         auto txHistory = walletDB->getTxHistory(TxType::AssetReg);
         auto txIssue   = walletDB->getTxHistory(TxType::AssetIssue);
@@ -981,7 +981,7 @@ namespace
         return coinIDs;
     }
 
-    bool ReadAssetId(const po::variables_map& vm, AssetID& assetId)
+    bool ReadAssetId(const po::variables_map& vm, Asset::ID& assetId)
     {
         if(!vm.count(cli::ASSET_ID))
         {
@@ -989,11 +989,11 @@ namespace
             return true;
         }
 
-        assetId = vm[cli::ASSET_ID].as<AssetID>();
+        assetId = vm[cli::ASSET_ID].as<Asset::ID>();
         return true;
     }
 
-    bool LoadBaseParamsForTX(const po::variables_map& vm, AssetID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
+    bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
     {
         if (!skipReceiverWalletID)
         {
@@ -1418,7 +1418,7 @@ namespace
 
         bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
-        AssetID assetId = 0;
+        Asset::ID assetId = 0;
         Amount amount = 0;
         Amount fee = 0;
         WalletID receiverWalletID(Zero);
@@ -2593,7 +2593,7 @@ int main_impl(int argc, char* argv[])
 
                     /// HERE!!
                     io::Address receiverAddr;
-                    AssetID assetId = 0;
+                    Asset::ID assetId = 0;
                     Amount amount = 0;
                     Amount fee = 0;
                     WalletID receiverWalletID(Zero);

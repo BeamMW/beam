@@ -130,8 +130,7 @@ namespace beam::wallet
             m_Tx.SetParameter(TxParameterID::InputCoins, sharedInputs, static_cast<SubTxID>(SubTxIndex::BEAM_REFUND_TX));
 
             // blindingFactor = sk + sk1
-            beam::SwitchCommitment switchCommitment;
-            switchCommitment.Create(m_SharedBlindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(m_SharedCoin.m_ID), m_SharedCoin.m_ID);
+            CoinID::Worker(m_SharedCoin.m_ID).Create(m_SharedBlindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(m_SharedCoin.m_ID));
             m_Tx.SetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, m_SubTxID);
 
             Oracle oracle;

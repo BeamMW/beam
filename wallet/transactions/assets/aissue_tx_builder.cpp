@@ -74,7 +74,7 @@ namespace beam::wallet
         m_assetOwnerIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetOwnerIdx);
         m_assetOwnerId  = m_keyKeeper->GetAssetOwnerID(m_assetOwnerIdx);
 
-        m_assetId = m_Tx.GetMandatoryParameter<AssetID>(TxParameterID::AssetID, m_SubTxID);
+        m_assetId = m_Tx.GetMandatoryParameter<Asset::ID>(TxParameterID::AssetID, m_SubTxID);
 
         if (m_assetOwnerIdx == 0 || m_assetId == 0)
         {
@@ -89,8 +89,8 @@ namespace beam::wallet
             return false;
         }
 
-        const auto& [commitments, commitmentsOffset] = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_assetId);
-        m_Offset += commitmentsOffset;
+        const auto& commitments = m_Tx.GetKeyKeeper()->GeneratePublicKeysSync(m_InputCoins, true);
+        //m_Offset += commitmentsOffset;
         m_Inputs.reserve(commitments.size());
         for (const auto& commitment : commitments)
         {
@@ -235,7 +235,7 @@ namespace beam::wallet
         return m_assetOwnerId;
      }
 
-     AssetID AssetIssueTxBuilder::GetAssetId() const
+     Asset::ID AssetIssueTxBuilder::GetAssetId() const
      {
          return m_assetId;
      }
@@ -266,8 +266,8 @@ namespace beam::wallet
         Amount preselAmountBeam  = 0;
         Amount preselAmountAsset = 0;
 
-        auto isAssetCoin = [](const Coin& coin) {
-            return coin.m_ID.m_Type == Key::Type::Asset || coin.m_ID.m_Type == Key::Type::AssetChange;
+        auto isAssetCoin = [this](const Coin& coin) {
+            return coin.m_ID.m_AssetID == m_assetId;
         };
 
         if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselIDs, m_SubTxID))
@@ -334,7 +334,7 @@ namespace beam::wallet
 
     void AssetIssueTxBuilder::GenerateAssetCoin(Amount amount, bool change)
     {
-        Coin newUtxo(amount, change ? Key::Type::AssetChange : Key::Type::Asset, m_assetId);
+        Coin newUtxo(amount, Key::Type::Regular, m_assetId);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
@@ -371,14 +371,14 @@ namespace beam::wallet
             return false;
         }
 
-        DoAsync<IPrivateKeyKeeper::OutputsEx>([this](auto&& r, auto&& ex)
+        DoAsync<IPrivateKeyKeeper::Outputs>([this](auto&& r, auto&& ex)
             {
-                m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_assetId, move(r), move(ex));
+                m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins, move(r), move(ex));
             },
-            [this](IPrivateKeyKeeper::OutputsEx&& resOutputs)
+            [this](IPrivateKeyKeeper::Outputs&& resOutputs)
             {
-                m_Outputs = std::move(resOutputs.first);
-                m_Offset += resOutputs.second;
+                m_Outputs = std::move(resOutputs);
+                //m_Offset += resOutputs.second;
                 m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
             });
         return true; // true if async

@@ -163,10 +163,11 @@ namespace beam::wallet
             if (!cid.is_string())
                 throw jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coin ID in the coins array must be a string.", id };
 
-            auto coinId = Coin::FromString(cid);
+            std::string sCid = cid;
+            auto coinId = Coin::FromString(sCid);
             if (!coinId)
             {
-                const auto errmsg = std::string("Invalid 'coin ID' parameter: ") + std::string(cid);
+                const auto errmsg = std::string("Invalid 'coin ID' parameter: ") + std::string(sCid);
                 throw jsonrpc_exception{ApiError::InvalidParamsJsonRpc, errmsg, id};
             }
 

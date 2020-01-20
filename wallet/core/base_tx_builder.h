@@ -42,7 +42,7 @@ namespace beam::wallet
         void GenerateNonce();
         virtual ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
-        AssetID GetAssetId() const;
+        Asset::ID GetAssetId() const;
         bool GetInitialTxParams();
         bool GetInputs();
         bool GetOutputs();
@@ -127,7 +127,7 @@ namespace beam::wallet
         SubTxID m_SubTxID;
 
         // input
-        AssetID m_AssetId;
+        Asset::ID m_AssetId;
         AmountList m_AmountList;
         Amount m_Fee;
         Amount m_ChangeBeam;
