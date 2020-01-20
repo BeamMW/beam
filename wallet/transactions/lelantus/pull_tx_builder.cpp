@@ -62,7 +62,7 @@ namespace beam::wallet::lelantus
             ECC::Scalar::Native offset = Zero;
 
             ECC::Point comm;
-            SwitchCommitment().Create(outputSk, comm, *m_Tx.GetWalletDB()->get_MasterKdf(), m_OutputCoins[0]);
+            CoinID::Worker(m_OutputCoins[0]).Create(outputSk, comm, *m_Tx.GetWalletDB()->get_MasterKdf());
 
             offset = -outputSk;
 
