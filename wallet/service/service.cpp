@@ -1019,7 +1019,7 @@ namespace
                 if (!_sbbsKdf)
                 {
                     // !TODO: temporary solution to init SBBS KDF with commitment
-                    auto pk = GenerateCoinKeySyncConst(ECC::Key::IDV(0, 0, Key::Type::Regular), 0);
+                    auto pk = GenerateCoinKeySyncConst(CoinID(0, 0, Key::Type::Regular));
 
                     ECC::HKdf::Create(_sbbsKdf, pk.m_X);
                 }
@@ -1033,17 +1033,12 @@ namespace
             }
 
         private:
-            void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override
+            void GeneratePublicKeys(const std::vector<CoinID>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override
             {
                 assert(!"not implemented.");
             }
 
-            void GeneratePublicKeysEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID assetID, Callback<PublicKeysEx>&&, ExceptionCallback&&) override
-            {
-                assert(!"not implemented.");
-            }
-
-            void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override
+            void GenerateOutputs(Height schemeHeight, const std::vector<CoinID>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override
             {
                 using namespace std;
 
@@ -1051,14 +1046,8 @@ namespace
                 resultCallback(GenerateOutputsSync(schemeHeight, ids));
             }
 
-            void GenerateOutputsEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID assetId, Callback<OutputsEx>&&, ExceptionCallback&&) override
-            {
-                assert(!"not implemented.");
-            }
-
-            void SignReceiver(const std::vector<Key::IDV>& inputs
-                , const std::vector<Key::IDV>& outputs
-                , AssetID assetId
+            void SignReceiver(const std::vector<CoinID>& inputs
+                , const std::vector<CoinID>& outputs
                 , const KernelParameters& kernelParamerters
                 , const WalletIDKey& walletIDkey
                 , Callback<ReceiverSignature>&&, ExceptionCallback&&) override
@@ -1066,9 +1055,8 @@ namespace
                 assert(!"not implemented.");
             }
 
-            void SignSender(const std::vector<Key::IDV>& inputs
-                , const std::vector<Key::IDV>& outputs
-                , AssetID assetId
+            void SignSender(const std::vector<CoinID>& inputs
+                , const std::vector<CoinID>& outputs
                 , size_t nonceSlot
                 , const KernelParameters& kernelParamerters
                 , bool initial
@@ -1095,54 +1083,32 @@ namespace
                 return slot;
             }
 
-            PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
+            PublicKeys GeneratePublicKeysSync(const std::vector<CoinID>& ids, bool createCoinKey) override
             {
                 // !TODO: must be implemented as separate method, too many websocket calls
 
                 PublicKeys result;
                 result.reserve(ids.size());
 
-                for (const auto& idv : ids)
+                for (const auto& cid : ids)
                 {
                     ECC::Point& publicKey = result.emplace_back();
                     if (createCoinKey)
                     {
-                        publicKey = GenerateCoinKeySync(idv, 0);
+                        publicKey = GenerateCoinKeySync(cid);
                     }
                     else
                     {
-                        publicKey = GeneratePublicKeySync(idv);
+                        ECC::Hash::Value hv;
+                        cid.get_Hash(hv);
+                        publicKey = GeneratePublicKeySync(hv);
                     }
                 }
 
                 return result;
             }
 
-            PublicKeysEx GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID assetID) override
-            {
-                // !TODO: must be implemented as separate method, too many websocket calls
-
-                PublicKeysEx result;
-               /* result.reserve(ids.size());
-
-                for (const auto& idv : ids)
-                {
-                    ECC::Point& publicKey = result.emplace_back();
-                    if (createCoinKey)
-                    {
-                        publicKey = GenerateCoinKeySync(idv, assetID);
-                    }
-                    else
-                    {
-                        publicKey = GeneratePublicKeySync(idv);
-                    }
-                }*/
-
-                assert(!"not implemented.");
-                return result;
-            }
-
-            ECC::Point GeneratePublicKeySync(const Key::IDV& id) override
+            ECC::Point GeneratePublicKeySync(const ECC::uintBig& id) override
             {
                 json msg = 
                 {
@@ -1165,13 +1131,13 @@ namespace
                 return pk;
             }
 
-            ECC::Point GenerateCoinKeySync(const Key::IDV& id, beam::AssetID assetID) override
+            ECC::Point GenerateCoinKeySync(const CoinID& id) override
             {
-                return GenerateCoinKeySyncConst(id, assetID);
+                return GenerateCoinKeySyncConst(id);
             }
 
             // HACK
-            ECC::Point GenerateCoinKeySyncConst(const Key::IDV& id, beam::AssetID assetID) const
+            ECC::Point GenerateCoinKeySyncConst(const CoinID& id) const
             {
                 json msg =
                 {
@@ -1180,8 +1146,7 @@ namespace
                     {"method", "generate_key"},
                     {"params",
                     {
-                        {"id", to_base64(id)},
-                        {"asset_id", assetID}
+                        {"id", to_base64(id)}
                     }}
                 };
 
@@ -1195,14 +1160,14 @@ namespace
                 return pk;
             }
 
-            Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override
+            Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<CoinID>& ids) override
             {
                 // !TODO: must be implemented as separate method, too many websocket calls
 
                 Outputs outputs;
                 outputs.reserve(ids.size());
 
-                for (const auto& kidv : ids)
+                for (const auto& cid : ids)
                 {
                     auto& output = outputs.emplace_back(std::make_unique<Output>());
 
@@ -1214,7 +1179,7 @@ namespace
                         {"params", 
                         {
                             {"scheme", to_base64(schemeHeigh)},
-                            {"id", to_base64(kidv)}
+                            {"id", to_base64(cid)}
                         }}
                     };
 
@@ -1225,12 +1190,6 @@ namespace
                 }
 
                 return outputs;
-            }
-
-            OutputsEx GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID assetId) override
-            {
-                assert(!"not implemented.");
-                return {};
             }
 
             ECC::Point GenerateNonceSync(size_t slot) override
@@ -1255,8 +1214,8 @@ namespace
 
                 return nonce;
             }
-
-            ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetID, const ECC::Scalar::Native& offsetNative, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonceNative) override
+/*
+            ECC::Scalar SignSync(const std::vector<CoinID>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offsetNative, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonceNative) override
             {
                 ECC::Scalar offset;
                 offsetNative.Export(offset);
@@ -1289,19 +1248,17 @@ namespace
 
                 return sign;
             }
-
-            ReceiverSignature SignReceiverSync(const std::vector<Key::IDV>& inputs
-                , const std::vector<Key::IDV>& outputs
-                , AssetID assetId
+*/
+            ReceiverSignature SignReceiverSync(const std::vector<CoinID>& inputs
+                , const std::vector<CoinID>& outputs
                 , const KernelParameters& kernelParamerters
                 , const WalletIDKey& walletIDkey) override
             {
                 assert(!"not implemented.");
                 return ReceiverSignature{};
             }
-            SenderSignature SignSenderSync(const std::vector<Key::IDV>& inputs
-                , const std::vector<Key::IDV>& outputs
-                , AssetID assetId
+            SenderSignature SignSenderSync(const std::vector<CoinID>& inputs
+                , const std::vector<CoinID>& outputs
                 , size_t nonceSlot
                 , const KernelParameters& kernelParamerters
                 , bool initial) override
