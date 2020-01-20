@@ -421,12 +421,12 @@ size_t Channel::SelectWithdrawalPath()
 	return iPath;
 }
 
-Channel::DataUpdate& Channel::CreateUpdatePoint(uint32_t iRole, const Key::IDV& msA, const Key::IDV& msB, const Key::IDV& outp)
+Channel::DataUpdate& Channel::CreateUpdatePoint(uint32_t iRole, const CoinID& msA, const CoinID& msB, const CoinID& outp)
 {
 	m_vUpdates.push_back(std::unique_ptr<DataUpdate>(new DataUpdate));
 	DataUpdate& d = *m_vUpdates.back();
 
-	const Key::IDV* pArr[] = { &msA, &msB };
+	const CoinID* pArr[] = { &msA, &msB };
 
 	d.m_Type = DataUpdate::Type::None;
 	d.m_msMy = *pArr[iRole];
@@ -624,20 +624,23 @@ void Channel::CreatePunishmentTx()
 
 	assert(tx.m_vInputs.size() == 1); // msig0
 
+	ECC::Hash::Value hv;
+	d.m_msPeer.get_Hash(hv);
+
 	ECC::Scalar::Native offs, k;
-	pKdf->DeriveKey(offs, d.m_msPeer); // our part
+	pKdf->DeriveKey(offs, hv); // our part
 	offs += ECC::Scalar::Native(d1.m_PeerKey); // peer part
 
-	Key::IDV& kidvOut = d.m_Outp;
-	kidvOut.m_Value = d.m_msPeer.m_Value - m_Params.m_Fee;
-	kidvOut.m_Type = Key::Type::Regular;
-	AllocTxoID(kidvOut);
+	CoinID& cidOut = d.m_Outp;
+	cidOut.m_Value = d.m_msPeer.m_Value - m_Params.m_Fee;
+	cidOut.m_Type = Key::Type::Regular;
+	AllocTxoID(cidOut);
 
 	tx.m_vOutputs.resize(1);
 	Output::Ptr& pOutp = tx.m_vOutputs.back();
 	pOutp.reset(new Output);
 
-	pOutp->Create(Rules::get().pForks[1].m_Height, k, *pKdf, kidvOut, *pKdf);
+	pOutp->Create(Rules::get().pForks[1].m_Height, k, *pKdf, cidOut, *pKdf);
 
 	k = -k;
 	offs += k;
@@ -659,17 +662,17 @@ void Channel::CreatePunishmentTx()
 	tx.m_Offset = offs;
 
 	d.m_Type = DataUpdate::Type::Punishment;
-/*
-	{
-		// test
-		TxBase::Context::Params pars;
-		TxBase::Context ctx(pars);
-		ctx.m_Height.m_Min = m_State.m_Close.m_hPhase1;
 
-		bool bb = tx.IsValid(ctx);
-		bb = bb;
-	}
-*/
+	//{
+	//	// test
+	//	TxBase::Context::Params pars;
+	//	TxBase::Context ctx(pars);
+	//	ctx.m_Height.m_Min = m_State.m_Close.m_hPhase1;
+
+	//	bool bb = tx.IsValid(ctx);
+	//	bb = bb;
+	//}
+
 }
 
 void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
@@ -909,10 +912,10 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 	if (iRole)
 		nMyFee = m_Params.m_Fee - nMyFee; // in case it's odd
 
-	std::vector<Key::IDV> vIn;
+	std::vector<CoinID> vIn;
 	Amount nRequired = nMy + nMyFee * 3; // fee to create msig0, plus 2-stage withdrawal
 
-	Amount nChange = SelectInputs(vIn, nRequired);
+	Amount nChange = SelectInputs(vIn, nRequired, 0);
 	if (nChange < nRequired)
 		return false;
 	nChange -= (nMy + nMyFee * 3);
@@ -925,24 +928,24 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 	get_Kdf(p->m_Inst.m_pKdf);
 
 
-	std::vector<ECC::Key::IDV> vChg, vOut;
+	std::vector<CoinID> vChg, vOut;
 
 	if (nChange)
 	{
-		Key::IDV& kidv = vChg.emplace_back();
-		kidv.m_Value = nChange;
-		kidv.m_Type = Key::Type::Change;
-		AllocTxoID(kidv);
+		CoinID& cid = vChg.emplace_back();
+		cid.m_Value = nChange;
+		cid.m_Type = Key::Type::Change;
+		AllocTxoID(cid);
 	}
 
 	{
-		Key::IDV& kidv = vOut.emplace_back();
-		kidv.m_Value = nMy;
-		kidv.m_Type = Key::Type::Regular;
-		AllocTxoID(kidv);
+		CoinID& cid = vOut.emplace_back();
+		cid.m_Value = nMy;
+		cid.m_Type = Key::Type::Regular;
+		AllocTxoID(cid);
 	}
 
-	ECC::Key::IDV ms0, msA, msB;
+	CoinID ms0, msA, msB;
 	ms0.m_Value = nMy + nOther + m_Params.m_Fee * 2;
 	msA.m_Value = msB.m_Value = ms0.m_Value - m_Params.m_Fee;
 	ms0.m_Type = msA.m_Type = msB.m_Type = FOURCC_FROM(MuSg);
@@ -982,9 +985,9 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 	m_pOpen->m_vInp = std::move(vIn);
 
 	if (vChg.empty())
-		ZeroObject(m_pOpen->m_kidvChange);
+		ZeroObject(m_pOpen->m_cidChange);
 	else
-		m_pOpen->m_kidvChange = vChg.front();
+		m_pOpen->m_cidChange = vChg.front();
 
 	CreateUpdatePoint(iRole, msA, msB, vOut.front());
 
@@ -1005,11 +1008,11 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGracefu
 	if (iRole)
 		nMyFee = m_Params.m_Fee - nMyFee; // in case it's odd
 
-	std::vector<ECC::Key::IDV> vOut;
+	std::vector<CoinID> vOut;
 
-	Key::IDV& kidv = vOut.emplace_back();
-	kidv.m_Value = nMyNew;
-	kidv.m_Type = Key::Type::Regular;
+	CoinID& cid = vOut.emplace_back();
+	cid.m_Value = nMyNew;
+	cid.m_Type = Key::Type::Regular;
 
 	if (bCloseGraceful)
 	{
@@ -1021,19 +1024,19 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGracefu
 		n.m_pStorage = &p->m_Data;
 		get_Kdf(n.m_pKdf);
 
-		kidv.m_Value += nMyFee;
-		AllocTxoID(kidv);
+		cid.m_Value += nMyFee;
+		AllocTxoID(cid);
 
 		n.Set(iRole, Codes::Role);
 		n.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
 
 
-		n.Set(m_pOpen->m_ms0, MultiTx::Codes::InpMsKidv);
+		n.Set(m_pOpen->m_ms0, MultiTx::Codes::InpMsCid);
 		n.Set(m_pOpen->m_Comm0, MultiTx::Codes::InpMsCommitment);
-		n.Set(vOut, MultiTx::Codes::OutpKidvs);
+		n.Set(vOut, MultiTx::Codes::OutpCids);
 		n.Set(m_Params.m_Fee, MultiTx::Codes::KrnFee);
 
-		ECC::Key::IDV msDummy(Zero);
+		CoinID msDummy(Zero);
 		msDummy.m_Value = m_pOpen->m_ms0.m_Value - m_Params.m_Fee;
 		CreateUpdatePoint(iRole, msDummy, msDummy, vOut.front());
 	}
@@ -1046,9 +1049,9 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGracefu
 		p->m_Inst.m_pStorage = &p->m_Data;
 		get_Kdf(p->m_Inst.m_pKdf);
 
-		AllocTxoID(kidv);
+		AllocTxoID(cid);
 
-		ECC::Key::IDV msA, msB;
+		CoinID msA, msB;
 		msA.m_Value = msB.m_Value = m_pOpen->m_ms0.m_Value - m_Params.m_Fee;
 		msA.m_Type = msB.m_Type = FOURCC_FROM(MuSg);
 
@@ -1121,7 +1124,7 @@ void Channel::Forget()
 	ZeroObject(m_State);
 }
 
-void Channel::OnCoin(const std::vector<Key::IDV>& v, Height h, CoinState e, bool bReverse)
+void Channel::OnCoin(const std::vector<CoinID>& v, Height h, CoinState e, bool bReverse)
 {
 	for (size_t i = 0; i < v.size(); i++)
 		OnCoin(v[i], h, e, bReverse);
@@ -1133,8 +1136,8 @@ void Channel::OnInpCoinsChanged()
 
 	OnCoin(m_pOpen->m_vInp, m_pOpen->m_hOpened, CoinState::Spent, !m_pOpen->m_hOpened);
 
-	if (m_pOpen->m_kidvChange.m_Value)
-		OnCoin(m_pOpen->m_kidvChange, m_pOpen->m_hOpened, CoinState::Confirmed, !m_pOpen->m_hOpened);
+	if (m_pOpen->m_cidChange.m_Value)
+		OnCoin(m_pOpen->m_cidChange, m_pOpen->m_hOpened, CoinState::Confirmed, !m_pOpen->m_hOpened);
 }
 
 void Channel::SendPeerInternal(Storage::Map& dataOut)

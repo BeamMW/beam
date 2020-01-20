@@ -1660,7 +1660,7 @@ namespace
         Coin::ID outputID = Coin::ID(3, 11, Key::Type::Regular);
 
         auto input = make_unique<Input>();
-        input->m_Commitment = sender.m_KeyKeeper->GenerateCoinKeySync(inputID, 0);
+        input->m_Commitment = sender.m_KeyKeeper->GenerateCoinKeySync(inputID);
         auto outputs = receiver.m_KeyKeeper->GenerateOutputsSync(1, { outputID });
 
         KernelParameters kernelParams;
@@ -1673,22 +1673,22 @@ namespace
         // sender
         auto nonceSlot = sender.m_KeyKeeper->AllocateNonceSlotSync();
         SenderSignature senderSignature;
-        WALLET_CHECK_NO_THROW(senderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, Zero, nonceSlot, kernelParams, true));
+        WALLET_CHECK_NO_THROW(senderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, nonceSlot, kernelParams, true));
         
         kernelParams.commitment = senderSignature.m_KernelCommitment;
         kernelParams.publicNonce = senderSignature.m_KernelSignature.m_NoncePub;
         kernelParams.peerID = sender.m_SecureWalletID;
         ReceiverSignature receiverSignature;
-        WALLET_CHECK_NO_THROW(receiverSignature = receiver.m_KeyKeeper->SignReceiverSync({}, { outputID }, Zero, kernelParams, receiver.m_OwnID));
+        WALLET_CHECK_NO_THROW(receiverSignature = receiver.m_KeyKeeper->SignReceiverSync({}, { outputID }, kernelParams, receiver.m_OwnID));
         
         kernelParams.commitment = receiverSignature.m_KernelCommitment;
         kernelParams.paymentProofSignature = receiverSignature.m_PaymentProofSignature;
         kernelParams.publicNonce = receiverSignature.m_KernelSignature.m_NoncePub;
 
         SenderSignature finalSenderSignature;
-        WALLET_CHECK_THROW(finalSenderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, Zero, nonceSlot, kernelParams, false));
+        WALLET_CHECK_THROW(finalSenderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, nonceSlot, kernelParams, false));
         kernelParams.peerID = receiver.m_SecureWalletID;
-        WALLET_CHECK_NO_THROW(finalSenderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, Zero, nonceSlot, kernelParams, false));
+        WALLET_CHECK_NO_THROW(finalSenderSignature = sender.m_KeyKeeper->SignSenderSync({ inputID }, {}, nonceSlot, kernelParams, false));
         Point publicNonce = finalSenderSignature.m_KernelSignature.m_NoncePub;
         Scalar::Native signature = finalSenderSignature.m_KernelSignature.m_k;
         Scalar::Native pt = receiverSignature.m_KernelSignature.m_k;
@@ -1913,21 +1913,21 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 	return true;
 }
 
-Amount SetKidvs(beam::Negotiator::IBase& neg, const Amount* p, size_t n, uint32_t code, uint32_t i0 = 0)
+Amount SetCids(beam::Negotiator::IBase& neg, const Amount* p, size_t n, uint32_t code, uint32_t i0 = 0)
 {
-	std::vector<Key::IDV> vec;
+	std::vector<CoinID> vec;
 	vec.resize(n);
 	Amount sum = 0;
 
 	for (size_t i = 0; i < n; i++)
 	{
-		Key::IDV& kidv = vec[i];
-		kidv = Zero;
+		CoinID& cid = vec[i];
+		cid = Zero;
 
-		kidv.m_Type = Key::Type::Regular;
-		kidv.m_Idx = i0 + static_cast<uint32_t>(i);
+		cid.m_Type = Key::Type::Regular;
+		cid.m_Idx = i0 + static_cast<uint32_t>(i);
 
-		kidv.m_Value = p[i];
+        cid.m_Value = p[i];
 		sum += p[i];
 	}
 
@@ -1960,11 +1960,11 @@ void TestNegotiation()
 
 		v.m_pStorage = pS1 + i;
 
-		Key::IDV kidv(Zero);
-		kidv.m_Value = valMSig;
-		kidv.m_Idx = 500;
-		kidv.m_Type = FOURCC_FROM(msg2);
-		v.Set(kidv, Multisig::Codes::Kidv);
+		CoinID cid(Zero);
+		cid.m_Value = valMSig;
+		cid.m_Idx = 500;
+		cid.m_Type = FOURCC_FROM(msg2);
+		v.Set(cid, Multisig::Codes::Cid);
 
 		v.Set(uint32_t(1), Multisig::Codes::ShareResult);
 	}
@@ -1990,22 +1990,22 @@ void TestNegotiation()
 
 	Amount fee = valMSig;
 
-	fee += SetKidvs(pT2[0], pIn0, _countof(pIn0), MultiTx::Codes::InpKidvs);
-	fee -= SetKidvs(pT2[0], pOut0, _countof(pOut0), MultiTx::Codes::OutpKidvs, 700);
+	fee += SetCids(pT2[0], pIn0, _countof(pIn0), MultiTx::Codes::InpCids);
+	fee -= SetCids(pT2[0], pOut0, _countof(pOut0), MultiTx::Codes::OutpCids, 700);
 
-	fee += SetKidvs(pT2[1], pIn1, _countof(pIn1), MultiTx::Codes::InpKidvs);
-	fee -= SetKidvs(pT2[1], pOut1, _countof(pOut1), MultiTx::Codes::OutpKidvs, 500);
+	fee += SetCids(pT2[1], pIn1, _countof(pIn1), MultiTx::Codes::InpCids);
+	fee -= SetCids(pT2[1], pOut1, _countof(pOut1), MultiTx::Codes::OutpCids, 500);
 
 	for (size_t i = 0; i < _countof(pT2); i++)
 	{
 		IBase& v = pT2[i];
 		v.Set(fee, MultiTx::Codes::KrnFee);
 
-		Key::IDV kidv(Zero);
-		kidv.m_Value = valMSig;
-		kidv.m_Idx = 500;
-		kidv.m_Type = FOURCC_FROM(msg2);
-		v.Set(kidv, MultiTx::Codes::InpMsKidv);
+		CoinID cid(Zero);
+		cid.m_Value = valMSig;
+		cid.m_Idx = 500;
+		cid.m_Type = FOURCC_FROM(msg2);
+		v.Set(cid, MultiTx::Codes::InpMsCid);
 
 		uint32_t idxTrg = MultiTx::Codes::InpMsCommitment;
 		uint32_t idxSrc = Multisig::Codes::Commitment;
@@ -2027,19 +2027,19 @@ void TestNegotiation()
 		WithdrawTx::Worker wrk(v);
 
 		// new multisig
-		Key::IDV ms0(Zero);
+		CoinID ms0(Zero);
 		ms0.m_Value = valMSig;
 		ms0.m_Idx = 500;
 		ms0.m_Type = FOURCC_FROM(msg2);
 
-		Key::IDV ms1 = ms0;
+		CoinID ms1 = ms0;
 		ms1.m_Idx = 800;
 
 		ECC::Point comm0;
 		WALLET_CHECK(pT1[i].Get(comm0, Multisig::Codes::Commitment));
 
 
-		std::vector<Key::IDV> vec;
+		std::vector<CoinID> vec;
 		vec.resize(1, Zero);
 		vec[0].m_Idx = 315;
 		vec[0].m_Type = Key::Type::Regular;
@@ -2055,8 +2055,8 @@ void TestNegotiation()
 
 	struct ChannelData
 	{
-		Key::IDV m_msMy;
-		Key::IDV m_msPeer;
+		CoinID m_msMy;
+        CoinID m_msPeer;
 		ECC::Point m_CommPeer;
 	};
 
@@ -2075,7 +2075,7 @@ void TestNegotiation()
 		Amount half = valMSig / 2;
 		Amount nMyValue = i ? half : (valMSig - half);
 
-		std::vector<Key::IDV> vIn, vOutWd;
+		std::vector<CoinID> vIn, vOutWd;
 		vIn.resize(1, Zero);
 		vIn[0].m_Idx = 215;
 		vIn[0].m_Type = Key::Type::Regular;
@@ -2086,14 +2086,14 @@ void TestNegotiation()
 		vOutWd[0].m_Type = Key::Type::Regular;
 		vOutWd[0].m_Value = nMyValue;
 
-		Key::IDV ms0(Zero);
+		CoinID ms0(Zero);
 		ms0.m_Value = valMSig;
 		ms0.m_Type = FOURCC_FROM(msg2);
 		ms0.m_Idx = 220;
 
-		Key::IDV msA = ms0;
+		CoinID msA = ms0;
 		msA.m_Idx++;
-		Key::IDV msB = msA;
+		CoinID msB = msA;
 		msB.m_Idx++;
 
 		v.Setup(true, &vIn, nullptr, &ms0, MultiTx::KernelParam(), &msA, &msB, &vOutWd, cpWd);
@@ -2134,20 +2134,20 @@ void TestNegotiation()
 		Amount nPart = valMSig / 3;
 		Amount nMyValue = i ? nPart : (valMSig - nPart);
 
-		Key::IDV ms0;
+		CoinID ms0;
 		ECC::Point comm0;
 		{
 			ChannelOpen::Worker wrk2(pT4[i]);
 			pT4[i].m_MSig.Get(comm0, Multisig::Codes::Commitment);
-			pT4[i].m_MSig.Get(ms0, Multisig::Codes::Kidv);
+			pT4[i].m_MSig.Get(ms0, Multisig::Codes::Cid);
 		}
 
-		Key::IDV msA = ms0;
+        CoinID msA = ms0;
 		msA.m_Idx += 15;
-		Key::IDV msB = msA;
+		CoinID msB = msA;
 		msB.m_Idx++;
 
-		std::vector<Key::IDV> vOutWd;
+		std::vector<CoinID> vOutWd;
 		vOutWd.resize(1, Zero);
 		vOutWd[0].m_Idx = 216;
 		vOutWd[0].m_Type = Key::Type::Regular;

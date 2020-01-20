@@ -241,7 +241,7 @@ namespace beam
         const char* LASER_TRANSFER = "laser_send";
         const char* LASER_WAIT = "laser_receive";
         const char* LASER_SERVE = "laser_listen";
-        const char* LASER_LIST = "laser_channels";
+        const char* LASER_LIST = "laser_channels_list";
         const char* LASER_CLOSE = "laser_drop";
         const char* LASER_DELETE = "laser_delete";
         const char* LASER_AMOUNT_MY = "laser_my_locked_amount";

@@ -204,7 +204,7 @@ QString TxObject::getTransactionID() const
 
 QString TxObject::getReasonString(beam::wallet::TxFailureReason reason) const
 {
-    const std::array<QString,24> reasons = {
+    const std::array<QString,30> reasons = {
         //% "Unexpected reason, please send wallet logs to Beam support"
         qtTrId("tx-failure-undefined"),
         //% "Transaction cancelled"
@@ -252,7 +252,19 @@ QString TxObject::getReasonString(beam::wallet::TxFailureReason reason) const
         //% "Failed to create multi-signature"
         qtTrId("tx-failure-create-multisig"),
         //% "Fee is too small"
-        qtTrId("tx-failure-fee-too-small")
+        qtTrId("tx-failure-fee-too-small"),
+        //% "Kernel's min height is unacceptable"
+        qtTrId("tx-failure-kernel-min-height"),
+        //% "Not a loopback transaction"
+        qtTrId("tx-failure-loopback"),
+        //% "Key keeper is not initialized"
+        qtTrId("tx-failure-key-keeper-no-initialized"),
+        //% "No valid asset id/asset idx"
+        qtTrId("tx-failure-invalid-asset-id"),
+        //% "Cannot consume more than MAX_INT64 asset groth in one transaction"
+        qtTrId("tx-failure-invalid-asset-amount"),
+        //% "Some mandatory data for payment proof is missing"
+        qtTrId("tx-failure-invalid-data-for-payment-proof")
     };
     assert(reasons.size() > static_cast<size_t>(reason));
     return reasons[reason];

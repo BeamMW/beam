@@ -595,8 +595,22 @@ namespace beam::wallet
                     saveAddress(senderAddress, true); // should update the wallet_network
                 
                     parameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
+                    if (auto peerID = parameters.GetParameter(TxParameterID::PeerSecureWalletID); peerID)
+                    {
+                        parameters.SetParameter(TxParameterID::MySecureWalletID, senderAddress.m_Identity);
+                    }
                 }
-
+                else
+                {
+                    if (auto peerID = parameters.GetParameter(TxParameterID::PeerSecureWalletID); peerID)
+                    {
+                        auto address = m_walletDB->getAddress(*myID);
+                        if (address) 
+                        {
+                            parameters.SetParameter(TxParameterID::MySecureWalletID, address->m_Identity);
+                        }
+                    }
+                }
                 s->StartTransaction(parameters);
             }
 

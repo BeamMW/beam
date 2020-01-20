@@ -918,27 +918,28 @@ void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
 {
 	if (get_ParentObj().m_Cfg.m_LogUtxos)
 	{
-		ECC::Key::IDV kidv;
-		kidv = evt.m_Kidv;
+		CoinID cid;
+		Cast::Down<Key::IDV>(cid) = evt.m_Kidv;
+        evt.m_AssetID.Export(cid.m_AssetID);
 
 		Height hMaturity;
 		evt.m_Maturity.Export(hMaturity);
 
-		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << hMaturity << ", Flags=" << static_cast<uint32_t>(evt.m_Flags) << ", Height=" << h;
+		LOG_INFO() << "Utxo " << cid << ", Maturity=" << hMaturity << ", Flags=" << static_cast<uint32_t>(evt.m_Flags) << ", Height=" << h;
 	}
 }
 
-void Node::Processor::OnDummy(const Key::ID& kid, Height)
+void Node::Processor::OnDummy(const CoinID& cid, Height)
 {
 	NodeDB& db = get_DB();
-	if (db.GetDummyHeight(kid) != MaxHeight)
+	if (db.GetDummyHeight(cid) != MaxHeight)
 		return;
 
 	// recovered
 	Height h = get_ParentObj().SampleDummySpentHeight();
 	h += get_ParentObj().m_Cfg.m_Dandelion.m_DummyLifetimeHi * 2; // add some factor, to make sure the original creator node will spent it before us (if it's still running)
 
-	db.InsertDummy(h, kid);
+	db.InsertDummy(h, cid);
 }
 
 void Node::Processor::InitializeUtxosProgress(uint64_t done, uint64_t total)
@@ -2478,23 +2479,23 @@ void Node::AddDummyInputs(Transaction& tx)
 
     while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
     {
-		Key::IDV kidv;
-        Height h = m_Processor.get_DB().GetLowestDummy(kidv);
+		CoinID cid(Zero);
+        Height h = m_Processor.get_DB().GetLowestDummy(cid);
         if (h > m_Processor.m_Cursor.m_ID.m_Height)
             break;
 
 		bModified = true;
-		kidv.m_Value = 0;
+        cid.m_Value = 0;
 
-		if (AddDummyInputEx(tx, kidv))
+		if (AddDummyInputEx(tx, cid))
 		{
 			/// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
-			m_Processor.get_DB().SetDummyHeight(kidv, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
+			m_Processor.get_DB().SetDummyHeight(cid, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
 		}
 		else
 		{
 			// spent
-			m_Processor.get_DB().DeleteDummy(kidv);
+			m_Processor.get_DB().DeleteDummy(cid);
 		}
     }
 
@@ -2505,29 +2506,29 @@ void Node::AddDummyInputs(Transaction& tx)
     }
 }
 
-bool Node::AddDummyInputEx(Transaction& tx, const Key::IDV& kidv)
+bool Node::AddDummyInputEx(Transaction& tx, const CoinID& cid)
 {
-	if (AddDummyInputRaw(tx, kidv))
+	if (AddDummyInputRaw(tx, cid))
 		return true;
 
 	// try workaround
-	if (!kidv.IsBb21Possible())
+	if (!cid.IsBb21Possible())
 		return false;
 
-	Key::IDV kidv2 = kidv;
-	kidv2.set_WorkaroundBb21();
-	return AddDummyInputRaw(tx, kidv2);
+	CoinID cid2 = cid;
+	cid2.set_WorkaroundBb21();
+	return AddDummyInputRaw(tx, cid2);
 
 }
 
-bool Node::AddDummyInputRaw(Transaction& tx, const Key::IDV& kidv)
+bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 {
 	assert(m_Keys.m_pMiner);
 
 	Key::IKdf::Ptr pChild;
 	Key::IKdf* pKdf = nullptr;
 
-	if (kidv.get_Subkey() == m_Keys.m_nMinerSubIndex)
+	if (cid.get_Subkey() == m_Keys.m_nMinerSubIndex)
 		pKdf = m_Keys.m_pMiner.get();
 	else
 	{
@@ -2535,7 +2536,7 @@ bool Node::AddDummyInputRaw(Transaction& tx, const Key::IDV& kidv)
 		if (m_Keys.m_nMinerSubIndex)
 			return false;
 
-		pChild = MasterKey::get_Child(m_Keys.m_pMiner, kidv);
+		pChild = MasterKey::get_Child(m_Keys.m_pMiner, cid);
 		pKdf = pChild.get();
 	}
 
@@ -2543,7 +2544,7 @@ bool Node::AddDummyInputRaw(Transaction& tx, const Key::IDV& kidv)
 
 	// bounds
 	ECC::Point comm;
-	SwitchCommitment().Create(sk, comm, *pKdf, kidv);
+	CoinID::Worker(cid).Create(sk, comm, *pKdf);
 
 	if (!m_Processor.ValidateInputs(comm))
 		return false;
@@ -2570,14 +2571,14 @@ void Node::AddDummyOutputs(Transaction& tx)
 
     while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
     {
-		Key::IDV kidv(Zero);
-		kidv.m_Type = Key::Type::Decoy;
-		kidv.set_Subkey(m_Keys.m_nMinerSubIndex);
+		CoinID cid(Zero);
+		cid.m_Type = Key::Type::Decoy;
+        cid.set_Subkey(m_Keys.m_nMinerSubIndex);
 
 		while (true)
 		{
-			NextNonce().ExportWord<0>(kidv.m_Idx);
-			if (MaxHeight == db.GetDummyHeight(kidv))
+			NextNonce().ExportWord<0>(cid.m_Idx);
+			if (MaxHeight == db.GetDummyHeight(cid))
 				break;
 		}
 
@@ -2585,10 +2586,10 @@ void Node::AddDummyOutputs(Transaction& tx)
 
         Output::Ptr pOutput(new Output);
         ECC::Scalar::Native sk;
-        pOutput->Create(m_Processor.m_Cursor.m_ID.m_Height + 1, sk, *m_Keys.m_pMiner, kidv, *m_Keys.m_pOwner);
+        pOutput->Create(m_Processor.m_Cursor.m_ID.m_Height + 1, sk, *m_Keys.m_pMiner, cid, *m_Keys.m_pOwner);
 
 		Height h = SampleDummySpentHeight();
-        db.InsertDummy(h, kidv);
+        db.InsertDummy(h, cid);
 
         tx.m_vOutputs.push_back(std::move(pOutput));
 
@@ -3137,8 +3138,7 @@ void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
     Processor& p = m_This.m_Processor;
     if (!p.IsFastSync())
     {
-        AssetInfo::Full ai;
-        ai.m_ID = msg.m_Min;
+        Asset::Full ai;
         ai.m_Owner = msg.m_Owner;
         if (p.get_DB().AssetFindByOwner(ai))
         {
@@ -3166,12 +3166,12 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 	proto::ShieldedList msgOut;
 
 	Processor& p = m_This.m_Processor;
-	if ((msg.m_Id0 < p.m_Mmr.m_Shielded.m_Count) && msg.m_Count)
+	if ((msg.m_Id0 < p.m_Extra.m_ShieldedOutputs) && msg.m_Count)
 	{
 		if (msg.m_Count > Lelantus::Cfg::Max::N)
 			msg.m_Count = Lelantus::Cfg::Max::N;
 
-		TxoID n = p.m_Mmr.m_Shielded.m_Count - msg.m_Id0;
+		TxoID n = p.m_Extra.m_ShieldedOutputs - msg.m_Id0;
 
 		if (msg.m_Count > n)
 			msg.m_Count = static_cast<uint32_t>(n);
@@ -3549,8 +3549,8 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 
         for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
         {
-            Key::IDV kidv;
-            if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1, *m_This.m_Keys.m_pOwner, kidv))
+            CoinID cid;
+            if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1, *m_This.m_Keys.m_pOwner, cid))
                 ThrowUnexpected();
         }
 

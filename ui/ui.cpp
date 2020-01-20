@@ -158,7 +158,8 @@ int main (int argc, char* argv[])
 
         if (vm.count(cli::APPDATA_PATH))
         {
-            appDataDir = QString::fromStdString(vm[cli::APPDATA_PATH].as<string>());
+            const auto newPath = QString::fromStdString(vm[cli::APPDATA_PATH].as<string>());
+            appDataDir.setPath(newPath);
         }
 
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);

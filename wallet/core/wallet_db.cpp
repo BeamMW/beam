@@ -33,7 +33,8 @@
     each(Type,           ID.m_Type,     INTEGER NOT NULL, obj) sep \
     each(SubKey,         ID.m_SubIdx,   INTEGER NOT NULL, obj) sep \
     each(Number,         ID.m_Idx,      INTEGER NOT NULL, obj) sep \
-    each(amount,         ID.m_Value,    INTEGER NOT NULL, obj) \
+    each(amount,         ID.m_Value,    INTEGER NOT NULL, obj) sep \
+    each(assetId,        ID.m_AssetID,  INTEGER, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
     each(maturity,       maturity,      INTEGER NOT NULL, obj) sep \
@@ -41,8 +42,7 @@
     each(spentHeight,    spentHeight,   INTEGER, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
     each(spentTxId,      spentTxId,     BLOB, obj) sep \
-    each(sessionId,      sessionId,     INTEGER NOT NULL, obj) sep \
-    each(assetId,        assetId,       BLOB, obj)
+    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
@@ -738,18 +738,17 @@ namespace beam::wallet
         const int DbVersion10 = 10;
     }
 
-    Coin::Coin(Amount amount /* = 0 */, Key::Type keyType /* = Key::Type::Regular */, AssetID assetId /* = 0 */)
+    Coin::Coin(Amount amount /* = 0 */, Key::Type keyType /* = Key::Type::Regular */, Asset::ID assetId /* = 0 */)
         : m_status{ Status::Unavailable }
         , m_maturity{ MaxHeight }
         , m_confirmHeight{ MaxHeight }
         , m_spentHeight{ MaxHeight }
         , m_sessionId(EmptyCoinSession)
-        , m_assetId(assetId)
     {
         m_ID = Zero;
         m_ID.m_Value = amount;
         m_ID.m_Type = keyType;
-        assert((m_ID.isAsset() && m_assetId != 0) || (!m_ID.isAsset() && m_assetId == 0));
+        m_ID.m_AssetID = assetId;
     }
 
     bool Coin::isReward() const
@@ -766,13 +765,12 @@ namespace beam::wallet
 
     bool Coin::isAsset() const
     {
-        assert((m_ID.isAsset() && m_assetId != 0) || (!m_ID.isAsset() && m_assetId == 0));
-        return m_ID.isAsset();
+        return m_ID.m_AssetID != 0;
     }
 
-    bool Coin::isAsset(AssetID assetId) const
+    bool Coin::isAsset(Asset::ID assetId) const
     {
-        return isAsset() && m_assetId == assetId;
+        return isAsset() && (m_ID.m_AssetID == assetId);
     }
 
     bool Coin::IsMaturityValid() const
@@ -843,7 +841,7 @@ namespace beam::wallet
             uint8_t* p = reinterpret_cast<uint8_t*>(&packed) + sizeof(Coin::ID::Packed) - byteBuffer.size();
             copy_n(byteBuffer.begin(), byteBuffer.size(), p);
             Coin::ID id;
-            id = packed;
+            Cast::Down<Key::IDV>(id) = packed; // TODO: assets
             return id;
         }
         return boost::optional<Coin::ID>();
@@ -1109,8 +1107,7 @@ namespace beam::wallet
         return Ptr();
     }
 
-#if defined(BEAM_HW_WALLET)
-    IWalletDB::Ptr WalletDB::initWithTrezor(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
+    IWalletDB::Ptr WalletDB::initWithOwnerKey(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
     {
         if (!isInitialized(path))
         {
@@ -1146,6 +1143,12 @@ namespace beam::wallet
         LOG_ERROR() << path << " already exists.";
 
         return Ptr();
+    }
+
+#if defined(BEAM_HW_WALLET)
+    IWalletDB::Ptr WalletDB::initWithTrezor(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
+    {
+        return initWithOwnerKey(path, ownerKey, password, reactor);
     }
 #endif
 
@@ -1496,9 +1499,9 @@ namespace beam::wallet
         return m_useTrezor ? nullptr : m_pKdf;
     }
 
-	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const Key::IDV& kidv) const
+	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const CoinID& cid) const
 	{
-		return MasterKey::get_Child(get_MasterKdf(), kidv);
+		return MasterKey::get_Child(get_MasterKdf(), cid);
 	}
 
     beam::Key::IPKdf::Ptr WalletDB::get_OwnerKdf() const
@@ -1506,11 +1509,11 @@ namespace beam::wallet
         return m_OwnerKdf;
     }
 
-    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid, AssetID assetId)
+    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid)
     {
         ECC::Point commitment;
         ECC::Scalar::Native sk;
-        SwitchCommitment(assetId).Create(sk, commitment, *get_ChildKdf(cid), cid);
+        CoinID::Worker(cid).Create(sk, commitment, *get_ChildKdf(cid));
         return commitment;
     }
 
@@ -1538,22 +1541,18 @@ namespace beam::wallet
 			if (!prog.OnProgress(nTotal - nRemaining, nTotal))
 				return false;
 
-			Key::IDV kidv;
-			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, kidv))
+			CoinID cid;
+			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, cid))
 				continue;
 
-			if (!kidv.m_Value && (Key::Type::Decoy == kidv.m_Type))
-				continue; // filter-out decoys
-
-			ECC::Point&& comm = calcCommitment(kidv, x.m_Output.m_AssetID);
+			ECC::Point&& comm = calcCommitment(cid);
 			if (!(comm == x.m_Output.m_Commitment))
 				continue;
 
 			Coin c;
-			c.m_ID = kidv;
+			c.m_ID = cid;
 			findCoin(c); // in case it exists already - fill its parameters
 
-			c.m_assetId = x.m_Output.m_AssetID;
 			c.m_maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
 			c.m_confirmHeight = x.m_CreateHeight;
 
@@ -1574,7 +1573,7 @@ namespace beam::wallet
 		return true;
 	}
 
-    vector<Coin> WalletDB::selectCoins(Amount amount, AssetID assetId)
+    vector<Coin> WalletDB::selectCoins(Amount amount, Asset::ID assetId)
     {
         vector<Coin> coins, coinsSel;
         Block::SystemState::ID stateID = {};
@@ -1593,7 +1592,7 @@ namespace beam::wallet
                 storage::DeduceStatus(*this, coin, stateID.m_Height);
                 if (Coin::Status::Available != coin.m_status)
                     coins.pop_back();
-                else if (coin.m_assetId != assetId)
+                else if (coin.m_ID.m_AssetID != assetId)
                     coins.pop_back();
                 else
                 {
@@ -1762,9 +1761,9 @@ namespace beam::wallet
         return updatedCoins;
     }
 
-    Coin WalletDB::generateNewCoin(Amount amount, AssetID assetId)
+    Coin WalletDB::generateNewCoin(Amount amount, Asset::ID assetId)
     {
-        Coin coin(amount, assetId == 0 ? Key::Type::Regular : Key::Type::Asset, assetId);
+        Coin coin(amount, Key::Type::Regular, assetId);
         coin.m_ID.m_Idx = get_RandomID();
 
         // check for collisions
@@ -2351,6 +2350,10 @@ namespace beam::wallet
             WalletAddress address = {};
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
+            if (address.isOwn())
+            {
+                address.m_Identity = storage::generateIdentityFromIndex(*this, address.m_OwnID);
+            }
             insertAddressToCache(id, address);
             return address;
         }
@@ -2372,7 +2375,10 @@ namespace beam::wallet
             auto& a = res.emplace_back();
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
-
+            if (a.isOwn())
+            {
+                a.m_Identity = storage::generateIdentityFromIndex(*this, a.m_OwnID);
+            }
             if (a.isOwn() != own)
                 res.pop_back(); // akward, but ok
         }
@@ -3199,7 +3205,7 @@ namespace beam::wallet
 
         void Totals::Init(IWalletDB& walletDB)
         {
-            auto getTotalsRef = [this](AssetID assetId) -> AssetTotals& {
+            auto getTotalsRef = [this](Asset::ID assetId) -> AssetTotals& {
                 if (allTotals.find(assetId) == allTotals.end()) {
                     allTotals[assetId] = AssetTotals();
                     allTotals[assetId].AssetId = assetId;
@@ -3209,7 +3215,7 @@ namespace beam::wallet
 
             walletDB.visitCoins([getTotalsRef] (const Coin& c) -> bool
             {
-                auto& totals = getTotalsRef(c.m_assetId);
+                auto& totals = getTotalsRef(c.m_ID.m_AssetID);
                 const Amount& value = c.m_ID.m_Value; // alias
 
                 switch (c.m_status)
@@ -3242,12 +3248,6 @@ namespace beam::wallet
                     totals.Incoming += value;
                     if (c.m_ID.m_Type == Key::Type::Change)
                     {
-                        assert(!c.isAsset());
-                        totals.ReceivingChange += value;
-                    }
-                    else if(c.m_ID.m_Type == Key::Type::AssetChange)
-                    {
-                        assert(c.isAsset());
                         totals.ReceivingChange += value;
                     }
                     else
@@ -3286,7 +3286,7 @@ namespace beam::wallet
             });
         }
 
-        Totals::AssetTotals Totals::GetTotals(AssetID assetId) const
+        Totals::AssetTotals Totals::GetTotals(Asset::ID assetId) const
         {
             if(allTotals.find(assetId) == allTotals.end())
             {
@@ -3303,8 +3303,19 @@ namespace beam::wallet
             newAddress.m_createTime = beam::getTimestamp();
             newAddress.m_OwnID = walletDB.AllocateKidRange(1);
             newAddress.m_walletID = generateWalletIDFromIndex(keyKeeper, newAddress.m_OwnID);
+            newAddress.m_Identity = generateIdentityFromIndex(walletDB, newAddress.m_OwnID);
 
             return newAddress;
+        }
+
+        PeerID generateIdentityFromIndex(const IWalletDB& walletDB, uint64_t ownID)
+        {
+            Key::ID kid(ownID, Key::Type::WalletID);
+            ECC::Hash::Value hv;
+            kid.get_Hash(hv);
+            ECC::Point::Native pt;
+            walletDB.get_OwnerKdf()->DerivePKeyG(pt, hv);
+            return ECC::Point(pt).m_X;
         }
 
         WalletID generateWalletIDFromIndex(IPrivateKeyKeeper::Ptr keyKeeper, uint64_t ownID)
@@ -3462,6 +3473,7 @@ namespace beam::wallet
                     }
 
                     LOG_INFO() << "The address [" << jsonAddress[Fields::WalletID] << "] has NOT been imported. Wrong address.";
+                    return false;
                 }
                 return true;
             }
@@ -3509,21 +3521,21 @@ namespace beam::wallet
                     if(itype == paramsMap.end())
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. No txtype parameter";
-                        continue;
+                        return false;
                     }
 
                     TxType txtype = TxType::Simple;
                     if (!fromByteBuffer(itype->second.m_value, txtype))
                     {
-                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Failed to read txtype parameter";
-                        continue;
+                        LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Failed to read txtype parameter";
+                        return false;
                     }
 
                     WalletID wid;
                     if (auto idIt = paramsMap.find(TxParameterID::MyID); idIt == paramsMap.end() || !wid.FromBuf(idIt->second.m_value))
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
-                        continue;
+                        return false;
                     }
 
                     if(txtype == TxType::AssetConsume || txtype == TxType::AssetIssue)
@@ -3532,21 +3544,21 @@ namespace beam::wallet
                         if (wid != Zero)
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Nonzero MyID for asset issue/consume";
-                            continue;
+                            return false;
                         }
                     } else
                     {
                         if (!wid.IsValid())
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
-                            continue;
+                            return false;
                         }
 
                         auto waddr = db.getAddress(wid);
                         if (waddr && (!waddr->isOwn() || wid != generateWalletIDFromIndex(keyKeeper, waddr->m_OwnID)))
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid address parameter";
-                            continue;
+                            return false;
                         }
 
                         uint64_t myAddrId = 0;
@@ -3555,7 +3567,7 @@ namespace beam::wallet
                                                              wid != generateWalletIDFromIndex(keyKeeper, myAddrId)))
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid MyAddressID parameter";
-                            continue;
+                            return false;
                         }
 
                         if (!waddr && addressIt == paramsMap.end())
