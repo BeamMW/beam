@@ -104,7 +104,8 @@ namespace beam::wallet::lelantus
             ECC::SetRandom(inputSk);
 
             assert(shieldedIndex < windowEnd && shieldedIndex >= startIndex);
-            uint32_t l = static_cast<uint32_t>(cfg.get_N() - (shieldedIndex - startIndex) - 1);
+            //uint32_t l = static_cast<uint32_t>(cfg.get_N() - (shieldedIndex - startIndex) - 2);
+            uint32_t l = static_cast<uint32_t>(lst.m_vec.size() - shieldedList.size() + (shieldedIndex - startIndex));
             Lelantus::Prover p(lst, pKrn->m_SpendProof);
             //p.m_Witness.V.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
             p.m_Witness.V.m_L = l;

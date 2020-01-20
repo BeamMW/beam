@@ -105,21 +105,37 @@ void TestSimpleTx()
 
             sender.m_Wallet.StartTransaction(parameters);
         }
-        //else if (cursor.m_Sid.m_Height == 30)
-        //{
-        //    wallet::TxParameters parameters(GenerateTxID());
+        else if (cursor.m_Sid.m_Height == 30)
+        {
+            wallet::TxParameters parameters(GenerateTxID());
 
-        //    parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
-        //        .SetParameter(TxParameterID::Amount, 7800)
-        //        .SetParameter(TxParameterID::Fee, 1200)
-        //        .SetParameter(TxParameterID::MyID, sender.m_WalletID)
-        //        .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
-        //        .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
-        //        .SetParameter(TxParameterID::CreateTime, getTimestamp());
+            parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
+                .SetParameter(TxParameterID::Amount, 7800)
+                .SetParameter(TxParameterID::Fee, 1200)
+                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                .SetParameter(TxParameterID::CreateTime, getTimestamp());
 
-        //    sender.m_Wallet.StartTransaction(parameters);
-        //}
+            sender.m_Wallet.StartTransaction(parameters);
+        }
         else if (cursor.m_Sid.m_Height == 40)
+        {
+            wallet::TxParameters parameters(GenerateTxID());
+
+            parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
+                .SetParameter(TxParameterID::Amount, 6600)
+                .SetParameter(TxParameterID::Fee, 1200)
+                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                .SetParameter(TxParameterID::WindowBegin, 0U)
+                .SetParameter(TxParameterID::ShieldedOutputId, 1U)
+                .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+            sender.m_Wallet.StartTransaction(parameters);
+        }
+        else if (cursor.m_Sid.m_Height == 50)
         {
             wallet::TxParameters parameters(GenerateTxID());
 
@@ -135,7 +151,7 @@ void TestSimpleTx()
 
             sender.m_Wallet.StartTransaction(parameters);
         }
-        else if (cursor.m_Sid.m_Height == 50)
+        else if (cursor.m_Sid.m_Height == 70)
         {
             mainReactor->stop();
         }
