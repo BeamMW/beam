@@ -56,7 +56,7 @@ struct KeyKeeper
         _impl = std::make_shared<LocalPrivateKeyKeeper>(vars, _kdf);
     }
 
-    std::string GeneratePublicKey(const std::string& kidv) const
+    std::string GeneratePublicKey(const std::string& id) const
     {
 #if defined(PRINT_TEST_DATA)
         {
@@ -67,10 +67,10 @@ struct KeyKeeper
         }
 #endif
 
-        return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::Key::IDV>(kidv)));
+        return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::uintBig>(id)));
     }
 
-    std::string GenerateCoinKey(const std::string& kidv, beam::AssetID assetID) const
+    std::string GenerateCoinKey(const std::string& sCid) const
     {
 #if defined(PRINT_TEST_DATA)
         {
@@ -81,7 +81,7 @@ struct KeyKeeper
         }
 #endif
 
-        return to_base64(_impl->GenerateCoinKeySync(from_base64<ECC::Key::IDV>(kidv), assetID));
+        return to_base64(_impl->GenerateCoinKeySync(from_base64<CoinID>(sCid)));
     }
 
     std::string GetOwnerKey(const std::string& pass) const
@@ -110,7 +110,7 @@ struct KeyKeeper
         return to_base64(_impl->GenerateNonceSync(slot));
     }
 
-    std::string GenerateOutput(const std::string& schemeHeigh, const std::string& kidv)
+    std::string GenerateOutput(const std::string& schemeHeigh, const std::string& cid)
     {
 #if defined(PRINT_TEST_DATA)
         {
@@ -122,7 +122,7 @@ struct KeyKeeper
         }
 #endif
         // TODO: switch to generate vector<> instead single output
-        auto outputs = _impl->GenerateOutputsSync(from_base64<Height>(schemeHeigh), {from_base64<ECC::Key::IDV>(kidv)});
+        auto outputs = _impl->GenerateOutputsSync(from_base64<Height>(schemeHeigh), {from_base64<CoinID>(cid)});
 
         return to_base64(outputs[0]);
     }
@@ -241,14 +241,16 @@ struct KeyKeeper
         ECC::Point::Native publicNonceNative;
         publicNonceNative.Import(from_base64<ECC::Point>(publicNonce));
 
-        auto sign = _impl->SignSync(
-            from_base64<std::vector<Key::IDV>>(inputs), 
-            from_base64<std::vector<Key::IDV>>(outputs),
-            Zero,
-            offsetNative,
-            nonceSlot,
-            from_base64<KernelParameters>(kernelParameters),
-            publicNonceNative);
+        //auto sign = _impl->SignSync(
+        //    from_base64<std::vector<Key::IDV>>(inputs), 
+        //    from_base64<std::vector<Key::IDV>>(outputs),
+        //    Zero,
+        //    offsetNative,
+        //    nonceSlot,
+        //    from_base64<KernelParameters>(kernelParameters),
+        //    publicNonceNative);
+
+        ECC::Scalar sign(Zero); // dummy
 
         return to_base64(sign);
     }
