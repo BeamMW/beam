@@ -138,7 +138,7 @@ int main()
     laserFirst->SetNetwork(CreateNetwork(*laserFirst));
     laserSecond->SetNetwork(CreateNetwork(*laserSecond));
 
-    laserFirst->WaitIncoming(10000, 100, 42);
+    laserFirst->WaitIncoming(10000, 20000, 100, 42);
 
     mainReactor->run();
 
