@@ -24,3 +24,5 @@ if (NOT ANDROID AND NOT IOS)
     add_subdirectory(unittests)
 
 endif()
+
+add_subdirectory(service)

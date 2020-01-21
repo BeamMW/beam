@@ -38,6 +38,7 @@ public:
         virtual void OnOpened(const ChannelIDPtr& chID) {};
         virtual void OnOpenFailed(const ChannelIDPtr& chID) {};
         virtual void OnClosed(const ChannelIDPtr& chID) {};
+        virtual void OnCloseFailed(const ChannelIDPtr& chID) {};
         virtual void OnUpdateStarted(const ChannelIDPtr& chID) {}; 
         virtual void OnUpdateFinished(const ChannelIDPtr& chID) {}; 
     };
@@ -59,7 +60,7 @@ public:
     
     void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
 
-    void WaitIncoming(Amount aMy, Amount fee, Height locktime);
+    void WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime);
     WalletID getWaitingWalletID() const;
     
     void OpenChannel(Amount aMy,
@@ -67,10 +68,11 @@ public:
                      Amount fee,
                      const WalletID& receiverWalletID,
                      Height locktime);
-    bool Serve(const std::vector<std::string>& channelIDsStr);
-    bool Transfer(Amount amount, const std::string& channelIDStr, bool gracefulClose);
-    bool Close(const std::vector<std::string>& channelIDsStr);
-    void Delete(const std::vector<std::string>& channelIDsStr);
+    bool Serve(const std::vector<std::string>& channelIDs);
+    bool Transfer(Amount amount, const std::string& channelID);
+    bool Close(const std::vector<std::string>& channelIDs);
+    bool GracefulClose(const std::vector<std::string>& channelIDs);
+    void Delete(const std::vector<std::string>& channelIDs);
     size_t getChannelsCount() const;
 
     void AddObserver(Observer* observer);
@@ -81,16 +83,15 @@ private:
     void OnIncoming(const ChannelIDPtr& chID,
                     Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID);
-    void TransferInternal(
-        Amount amount, const ChannelIDPtr& chID, bool gracefulClose);
+    void TransferInternal(Amount amount, const ChannelIDPtr& chID);
     void CloseInternal(const ChannelIDPtr& chID);
     void ForgetChannel(const ChannelIDPtr& chID);
-    ChannelIDPtr RestoreChannel(const std::string& channelIDStr);
-    bool RestoreChannelInternal(const ChannelIDPtr& chID);
+    ChannelIDPtr RestoreChannel(const std::string& channelID);
+    bool RestoreChannelInternal(const ChannelIDPtr& p_channelID);
     void UpdateChannels();
-    void UpdateChannelExterior(const std::unique_ptr<Channel>& ch);
+    void UpdateChannelExterior(const std::unique_ptr<Channel>& channel);
     bool ValidateTip();
-    void PrepareToForget(const std::unique_ptr<Channel>& ch);
+    void PrepareToForget(const std::unique_ptr<Channel>& channel);
 
     IWalletDB::Ptr m_pWalletDB;
     IPrivateKeyKeeper::Ptr m_keyKeeper;
@@ -98,6 +99,7 @@ private:
 
     std::unique_ptr<Receiver> m_pInputReceiver;
     Amount m_myInAllowed = 0;
+    Amount m_trgInAllowed = 0;
     Amount m_feeAllowed = 0;
     Height m_locktimeAllowed = kDefaultTxLifetime;
     WalletAddress m_myInAddr;

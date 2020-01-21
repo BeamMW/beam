@@ -65,45 +65,45 @@ ColumnLayout {
             Layout.preferredWidth: parent.width * 0.65 - parent.spacing / 2
             Layout.alignment:      Qt.AlignTop
 
+            ////
+            //// My Address
+            ////
+            //SFText {
+            //    font.pixelSize: 14
+            //    font.styleName: "Bold"; font.weight: Font.Bold
+            //    color: Style.content_main
+            //    //% "My address (auto-generated)"
+            //    text: qsTrId("wallet-receive-my-addr-label")
+            //}
             //
-            // My Address
+            //SFTextInput {
+            //    id:               myAddressID
+            //    Layout.fillWidth: true
+            //    font.pixelSize:   14
+            //    color:            Style.content_disabled
+            //    readOnly:         true
+            //    activeFocusOnTab: false
+            //    text:             viewModel.receiverAddress
+            //}
             //
-            SFText {
-                font.pixelSize: 14
-                font.styleName: "Bold"; font.weight: Font.Bold
-                color: Style.content_main
-                //% "My address (auto-generated)"
-                text: qsTrId("wallet-receive-my-addr-label")
-            }
-
-            SFTextInput {
-                id:               myAddressID
-                Layout.fillWidth: true
-                font.pixelSize:   14
-                color:            Style.content_disabled
-                readOnly:         true
-                activeFocusOnTab: false
-                text:             viewModel.receiverAddress
-            }
-
-            CustomCheckBox {
-                id:         useIDCheckBox
-                //% "Use identity token"
-                text:       qsTrId("wallet-receive-use-token")
-                checked:    viewModel.hasIdentity
-            }
-
-            Binding {
-                target:   viewModel
-                property: "hasIdentity"
-                value:    useIDCheckBox.checked
-            }
+            //CustomCheckBox {
+            //    id:         useIDCheckBox
+            //    //% "Use identity token"
+            //    text:       qsTrId("wallet-receive-use-token")
+            //    checked:    viewModel.hasIdentity
+            //}
+            //
+            //Binding {
+            //    target:   viewModel
+            //    property: "hasIdentity"
+            //    value:    useIDCheckBox.checked
+            //}
 
             //
             // Amount
             //
             AmountInput {
-                Layout.topMargin: 35
+                //Layout.topMargin: 35
                 //% "Receive amount (optional)"
                 title:            qsTrId("receive-amount-label")
                 id:               receiveAmountInput
@@ -223,35 +223,19 @@ ColumnLayout {
         }
     }
 
-    SFText {
-        Layout.alignment: Qt.AlignHCenter
-        Layout.topMargin: 30
-        font.pixelSize:   14
-        color:            Style.content_main
-        //% "Send this address to the sender over an external secure channel or scan the QR code"
-        text: qsTrId("wallet-receive-addr-message")
-    }
-
-    SFText {
-        Layout.alignment:      Qt.AlignHCenter
-        Layout.preferredWidth: 470
-        Layout.maximumHeight:  40
-        Layout.topMargin:      30
-        font.pixelSize:        14
-        color:                 Style.content_disabled
-        wrapMode:              Text.WordWrap
-        horizontalAlignment:   Text.AlignHCenter
-        leftPadding:           15
-        rightPadding:          15
-        //% "For the transaction to complete, you should get online during the 12 hours after Beams are sent."
-        text: qsTrId("wallet-receive-text-online-time")
-    }
+    //SFText {
+    //    Layout.alignment: Qt.AlignHCenter
+    //    Layout.topMargin: 30
+    //    font.pixelSize:   14
+    //    color:            Style.content_main
+    //    //% "Send this address to the sender over an external secure channel or scan the QR code"
+    //    text: qsTrId("wallet-receive-addr-message")
+    //}
 
     ColumnLayout {
         Layout.fillWidth: true
         Layout.topMargin: 30
         Layout.alignment: Qt.AlignHCenter
-        visible:          useIDCheckBox.checked
         Row {
             Layout.alignment: Qt.AlignHCenter
             SFText {
@@ -285,6 +269,7 @@ ColumnLayout {
             id:      tokenRow
             visible: false
             Layout.topMargin: 10
+            Layout.alignment: Qt.AlignHCenter
             SFLabel {
                 horizontalAlignment: Text.AlignHCenter
                 width:               392
@@ -303,10 +288,25 @@ ColumnLayout {
                 horizontalAlignment: Text.AlignHCenter
                 font.pixelSize:   14
                 color:            Style.content_main
-                //% "Send this token to the sender over a secure external channel"
-                text: qsTrId("wallet-swap-token-message")
+                //% "Send this token to the sender over an external secure channel or scan the QR code"
+                text: qsTrId("wallet-receive-addr-message")
             }
         }
+    }
+
+    SFText {
+        Layout.alignment:      Qt.AlignHCenter
+        Layout.preferredWidth: 470
+        Layout.maximumHeight:  40
+        Layout.topMargin:      30
+        font.pixelSize:        14
+        color:                 Style.content_disabled
+        wrapMode:              Text.WordWrap
+        horizontalAlignment:   Text.AlignHCenter
+        leftPadding:           15
+        rightPadding:          15
+        //% "For the transaction to complete, you should get online during the 12 hours after Beams are sent."
+        text: qsTrId("wallet-receive-text-online-time")
     }
 
     Row {
@@ -326,34 +326,18 @@ ColumnLayout {
         }
 
         CustomButton {
-            //% "Copy transaction address"
-            text:               qsTrId("wallet-receive-copy-address")
+            //% "Copy transaction token"
+            text:               qsTrId("wallet-receive-regular-copy-token")
             palette.buttonText: Style.content_opposite
             icon.color:         Style.content_opposite
             palette.button:     Style.active
             icon.source:        "qrc:/assets/icon-copy.svg"
             onClicked:          {
-                BeamGlobals.copyToClipboard(viewModel.receiverAddress);
-                receiveView.saveAddress();
-                onClosed();
-            }
-            enabled:            receiveView.isValid()
-        }
-
-        CustomButton {
-            //% "copy token"
-            text:                qsTrId("wallet-receive-regular-copy-token")
-            palette.buttonText:  Style.content_opposite
-            icon.color:          Style.content_opposite
-            palette.button:      Style.passive
-            icon.source:         "qrc:/assets/icon-copy.svg"
-            enabled:             receiveView.isValid()
-            visible:             useIDCheckBox.checked
-            onClicked: {
                 BeamGlobals.copyToClipboard(viewModel.transactionToken);
                 receiveView.saveAddress();
                 onClosed();
             }
+            enabled:            receiveView.isValid()
         }
     }
 

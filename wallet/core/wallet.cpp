@@ -523,14 +523,8 @@ namespace beam::wallet
             return; // Right now nothing is concluded from empty proofs
 
         const auto& proof = r.m_Res.m_Proofs.front(); // Currently - no handling for multiple coins for the same commitment.
-
-        proto::UtxoEvent evt;
-        evt.m_Flags = proto::UtxoEvent::Flags::Add;
-        evt.m_Kidv = r.m_CoinID;
-        evt.m_Maturity = proof.m_State.m_Maturity;
-        evt.m_Height = evt.m_Maturity; // we don't know the real height, but it'll be used for logging only. For standard outputs maturity and height are the same
-
-        ProcessUtxoEvent(evt); // uniform processing for all confirmed utxos
+        // we don't know the real height, but it'll be used for logging only. For standard outputs maturity and height are the same
+        ProcessUtxoEvent(r.m_CoinID, proof.m_State.m_Maturity, proof.m_State.m_Maturity, true);
     }
 
     void Wallet::OnRequestComplete(MyRequestKernel& r)
@@ -622,21 +616,20 @@ namespace beam::wallet
     {
         std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 
-        function<Point(const Key::IDV&, AssetID assetId)> commitmentFunc;
+        function<Point(const CoinID& cid)> commitmentFunc;
         if (m_KeyKeeper)
         {
-            commitmentFunc = [this](const auto& kidv, AssetID assetId) {
-                return m_KeyKeeper->GenerateCoinKeySync(kidv, assetId);
+            commitmentFunc = [this](const CoinID& cid) {
+                return m_KeyKeeper->GenerateCoinKeySync(cid);
             };
         }
         else if (auto ownerKdf = m_WalletDB->get_OwnerKdf(); ownerKdf)
         {
-            commitmentFunc = [ownerKdf](const auto& kidv, AssetID assetId)
+            commitmentFunc = [ownerKdf](const CoinID& cid)
             {
                 Point::Native pt;
-                SwitchCommitment sw(assetId);
+                CoinID::Worker(cid).Recover(pt, *ownerKdf);
 
-                sw.Recover(pt, *ownerKdf, kidv);
                 Point commitment = pt;
                 return commitment;
             };
@@ -646,27 +639,30 @@ namespace beam::wallet
         {
             auto& event = v[i];
 
+            if (proto::UtxoEvent::Flags::Shielded & event.m_Flags)
+                continue; // not supported atm
+
             // filter-out false positives
             if (commitmentFunc)
             {
-                AssetID assetId;
-                event.m_AssetID.Export(assetId);
+                CoinID cid;
+                event.get_Cid(cid);
 
-                Point commitment = commitmentFunc(event.m_Kidv, assetId);
-                if (commitment == event.m_Commitment)
-                    ProcessUtxoEvent(event);
-                else
+                Point commitment = commitmentFunc(cid);
+                if (commitment != event.m_Commitment)
                 {
-                    // Is it BB2.1?
-                    if (event.m_Kidv.IsBb21Possible())
-                    {
-                        event.m_Kidv.set_WorkaroundBb21();
+                    if (!cid.IsBb21Possible())
+                        continue;
 
-                        commitment = commitmentFunc(event.m_Kidv, assetId);
-                        if (commitment == event.m_Commitment)
-                            ProcessUtxoEvent(event);
-                    }
+                    cid.set_WorkaroundBb21();
+
+                    commitment = commitmentFunc(cid);
+                    if (commitment != event.m_Commitment)
+                        continue;
                 }
+
+                bool bAdd = 0 != (proto::UtxoEvent::Flags::Add & event.m_Flags);
+                ProcessUtxoEvent(cid, event.m_Height, event.m_Maturity, bAdd);
             }
         }
 
@@ -702,22 +698,19 @@ namespace beam::wallet
         return h;
     }
 
-    void Wallet::ProcessUtxoEvent(const proto::UtxoEvent& evt)
+    void Wallet::ProcessUtxoEvent(const CoinID& cid, Height h, Height hMaturity, bool bAdd)
     {
         Coin c;
-        c.m_ID = evt.m_Kidv;
-        evt.m_AssetID.Export(c.m_assetId);
+        c.m_ID = cid;
 
         bool bExists = m_WalletDB->findCoin(c);
-        c.m_maturity = evt.m_Maturity;
+        c.m_maturity = hMaturity;
 
-		bool bAdd = 0 != (proto::UtxoEvent::Flags::Add & evt.m_Flags);
-        LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + to_string(c.m_assetId) : "")
-                   << " Maturity=" << evt.m_Maturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << evt.m_Height;
+        LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << hMaturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << h;
 
         if (bAdd)
         {
-            c.m_confirmHeight = std::min(c.m_confirmHeight, evt.m_Height); // in case of std utxo proofs - the event height may be bigger than actual utxo height
+            c.m_confirmHeight = std::min(c.m_confirmHeight, h); // in case of std utxo proofs - the event height may be bigger than actual utxo height
 
             // Check if this Coin participates in any active transaction
             // if it does and mark it as outgoing (bug: ux_504)
@@ -729,8 +722,7 @@ namespace beam::wallet
                 {
                     c.m_status = Coin::Status::Outgoing;
                     c.m_spentTxId = txid;
-                    LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + to_string(c.m_assetId) : "")
-                               << " marked as Outgoing";
+                    LOG_INFO() << "CoinID: " << c.m_ID << " marked as Outgoing";
                 }
             }
         }
@@ -739,7 +731,7 @@ namespace beam::wallet
             if (!bExists)
                 return; // should alert!
 
-            c.m_spentHeight = std::min(c.m_spentHeight, evt.m_Height); // reported spend height may be bigger than it actuall was (in case of macroblocks)
+            c.m_spentHeight = std::min(c.m_spentHeight, h); // reported spend height may be bigger than it actuall was (in case of macroblocks)
         }
 
         m_WalletDB->saveCoin(c);
@@ -837,7 +829,7 @@ namespace beam::wallet
             return;
         }
 
-        pReq->m_Msg.m_Utxo = m_KeyKeeper->GenerateCoinKeySync(coin.m_ID, coin.m_assetId);
+        pReq->m_Msg.m_Utxo = m_KeyKeeper->GenerateCoinKeySync(coin.m_ID);
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
         PostReqUnique(*pReq);

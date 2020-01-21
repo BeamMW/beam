@@ -23,6 +23,8 @@
 
 namespace beam::wallet::laser
 {
+const Height kMaxRolbackHeight = 8;
+
 class Channel : public Lightning::Channel, public ILaserChannelEntity
 {
 public:
@@ -32,7 +34,7 @@ public:
         static const uint32_t MyWid = Control0 + 31;
     };
 
-    static ChannelIDPtr ChIdFromString(const std::string& chIdStr);
+    static ChannelIDPtr ChannelIdFromString(const std::string& chIdStr);
 
     Channel(IChannelHolder& holder,
             const WalletAddress& myAddr,
@@ -63,11 +65,11 @@ public:
     Height get_Tip() const override;
     proto::FlyClient::INetwork& get_Net() override;
     void get_Kdf(Key::IKdf::Ptr&) override;
-    void AllocTxoID(Key::IDV&) override;
+    void AllocTxoID(CoinID&) override;
     Amount SelectInputs(
-            std::vector<Key::IDV>& vInp, Amount valRequired) override;
+            std::vector<CoinID>& vInp, Amount valRequired, Asset::ID nAssetID) override;
     void SendPeer(Negotiator::Storage::Map&& dataOut) override;
-    void OnCoin(const ECC::Key::IDV& kidv,
+    void OnCoin(const CoinID&,
                 Height h,
                 CoinState eState,
                 bool bReverse) override;

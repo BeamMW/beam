@@ -244,7 +244,6 @@ namespace beam::wallet
         FailureReason = 92,
 
         PaymentConfirmation = 99,
-        PaymentConfirmation2 = 100, // uses wallet ID to sign payment proof
 
         PeerSharedBulletProofMSig = 108,
         PeerSharedBulletProofPart2 = 109,
@@ -475,7 +474,7 @@ namespace beam::wallet
             , TxType txType = TxType::Simple
             , Amount amount = 0
             , Amount fee =0
-            , AssetID assetId = 0
+            , Asset::ID assetId = 0
             , Height minHeight = 0
             , const WalletID & peerId = Zero
             , const WalletID& myId = Zero
@@ -518,7 +517,7 @@ namespace beam::wallet
         Amount m_fee = 0;
         Amount m_changeBeam = 0;
         Amount m_changeAsset = 0;
-        AssetID m_assetId = 0;
+        Asset::ID m_assetId = 0;
         Key::Index m_assetOwnerIdx = 0;
         Height m_minHeight = 0;
         WalletID m_peerId = Zero;

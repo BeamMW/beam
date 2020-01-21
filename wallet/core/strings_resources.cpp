@@ -236,8 +236,10 @@ namespace beam
     const char kLaserClosed[] = "Closed";
     const char kLaserUnknown[] = "Unknown";
     const char kLaserErrorParamsRead[] = "Can't read lightning params";
-    const char kLaserAmountZero[] = "My amount is 0.";
+    const char kLaserErrorMyAmountMissing[] = "My amount is missing.";
+    const char kLaserErrorTrgAmountMissing[] = "Remote side amount is missing.";
     const char kLaserErrorChannelIdMissing[] = "channel ID is missing";
+    const char kLaserErrorLockTimeMissing[] = "Lock time is missing.";
     const char kLaserChannelListTableHead[] = "Laser Channels:\n\n%1%|%2%|%3%|%4%|%5%|%6%";
     const char kLaserChannelListChannelId[] = "chId";
     const char kLaserChannelListAMy[] = "aMy";
@@ -249,7 +251,8 @@ namespace beam
     const char kLaserErrorOpenFailed[] = "Open failed : %1%";
     const char kLaserMessageClosed[] = "Closed : %1%";
     const char kLaserMessageChannelServed[] = "Channel: %1% served";
-    const char kLaserMessageUpdateFinished[] = "Update finished : %1%";
+    const char kLaserMessageUpdateFinished[] = "Update finished: %1%";
+    const char kLaserMessageCloseFailed[] = "Close failed: %1%";
 
     const char kLaserCurrentState[] = "Current state is %1%";
 #endif  // BEAM_LASER_SUPPORT

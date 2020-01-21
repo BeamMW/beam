@@ -69,8 +69,13 @@ namespace beam::wallet
             coins = m_Tx.GetWalletDB()->getCoinsByID(preselectedCoinIDs);
             for (auto& coin : coins)
             {
-                if (coin.isAsset()) preselAmountAsset += coin.getAmount();
-                else preselAmountBeam += coin.getAmount();
+                if (!coin.isAsset())
+                    preselAmountBeam += coin.getAmount();
+                else
+                {
+                    if (coin.isAsset(m_AssetId))
+                        preselAmountAsset += coin.getAmount();
+                }
                 coin.m_spentTxId = m_Tx.GetTxID();
             }
             m_Tx.GetWalletDB()->saveCoins(coins);
@@ -144,7 +149,7 @@ namespace beam::wallet
         Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount, m_AssetId);
         if (change)
         {
-            newUtxo.m_ID.m_Type = Key::Type::AssetChange;
+            newUtxo.m_ID.m_Type = Key::Type::Change;
         }
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
@@ -172,13 +177,13 @@ namespace beam::wallet
             return false;
         }
 
-        DoAsync<IPrivateKeyKeeper::OutputsEx>([this](auto&& r, auto&& ex)
+        DoAsync<IPrivateKeyKeeper::Outputs>([this](auto&& r, auto&& ex)
             {
-                m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId, move(r), move(ex));
+                m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins, move(r), move(ex));
             },
-            [this](IPrivateKeyKeeper::OutputsEx&& resOutputs)
+            [this](IPrivateKeyKeeper::Outputs&& resOutputs)
             {
-                m_Outputs = std::move(resOutputs.first);
+                m_Outputs = std::move(resOutputs);
                 FinalizeOutputs();
             }, __LINE__);
         return true;// true if async
@@ -199,14 +204,14 @@ namespace beam::wallet
         {
             return false;
         }
-        DoAsync<IPrivateKeyKeeper::PublicKeysEx>([this](auto&& r, auto&& ex)
+        DoAsync<IPrivateKeyKeeper::PublicKeys>([this](auto&& r, auto&& ex)
             {
-                m_Tx.GetKeyKeeper()->GeneratePublicKeysEx(m_InputCoins, true, m_AssetId, move(r), move(ex));
+                m_Tx.GetKeyKeeper()->GeneratePublicKeys(m_InputCoins, true, move(r), move(ex));
             },
-            [this](IPrivateKeyKeeper::PublicKeysEx&& commitments)
+            [this](IPrivateKeyKeeper::PublicKeys&& commitments)
             {
-                m_Inputs.reserve(commitments.first.size());
-                for (const auto& commitment : commitments.first)
+                m_Inputs.reserve(commitments.size());
+                for (const auto& commitment : commitments)
                 {
                     auto& input = m_Inputs.emplace_back(make_unique<Input>());
                     input->m_Commitment = commitment;
@@ -279,7 +284,7 @@ namespace beam::wallet
         return m_PublicNonce;
     }
 
-    AssetID BaseTxBuilder::GetAssetId() const
+    Asset::ID BaseTxBuilder::GetAssetId() const
     {
         return m_AssetId;
     }
@@ -393,24 +398,20 @@ namespace beam::wallet
 
             if (!initial)
             {
-                if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation2, kernelParameters.paymentProofSignature, m_SubTxID)) 
+                if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation, kernelParameters.paymentProofSignature, m_SubTxID))
                 {
                     if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, kernelParameters.peerID)
                         || !m_Tx.GetParameter(TxParameterID::MySecureWalletID, kernelParameters.myID))
                     {
-                        throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                        WalletID myWalletID, peerWalletID;
+                        if (!m_Tx.GetParameter(TxParameterID::PeerID, peerWalletID)
+                            || !m_Tx.GetParameter(TxParameterID::MyID, myWalletID))
+                        {
+                            throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                        }
+                        kernelParameters.peerID = peerWalletID.m_Pk;
+                        kernelParameters.myID = myWalletID.m_Pk;
                     }
-                }
-                else if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation, kernelParameters.paymentProofSignature, m_SubTxID))
-                {
-                    WalletID myWalletID, peerWalletID;
-                    if (!m_Tx.GetParameter(TxParameterID::PeerID, peerWalletID)
-                        || !m_Tx.GetParameter(TxParameterID::MyID, myWalletID))
-                    {
-                        throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
-                    }
-                    kernelParameters.peerID = peerWalletID.m_Pk;
-                    kernelParameters.myID = myWalletID.m_Pk;
                 }
                 else
                 {
@@ -421,7 +422,7 @@ namespace beam::wallet
 
             DoAsync<SenderSignature>([=](auto&& r, auto&& ex)
                 {
-                    m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_AssetId, m_NonceSlot, kernelParameters, initial, move(r), move(ex));
+                    m_Tx.GetKeyKeeper()->SignSender(m_InputCoins, m_OutputCoins, m_NonceSlot, kernelParameters, initial, move(r), move(ex));
                 },
                 [=](SenderSignature&& signature)
                 {
@@ -478,7 +479,6 @@ namespace beam::wallet
                 {
                     m_Tx.GetKeyKeeper()->SignReceiver(m_InputCoins
                         , m_OutputCoins
-                        , m_AssetId
                         , kernelParameters
                         , addressID
                         , move(r)
@@ -501,7 +501,7 @@ namespace beam::wallet
                     m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
                     if (addressID)
                     {
-                        m_Tx.SetParameter(TxParameterID::PaymentConfirmation2, signature.m_PaymentProofSignature);
+                        m_Tx.SetParameter(TxParameterID::PaymentConfirmation, signature.m_PaymentProofSignature);
                     }
                     StoreKernelID();
                 }, __LINE__);

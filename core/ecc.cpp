@@ -1918,11 +1918,6 @@ namespace ECC {
 		return 0;
 	}
 
-	bool Key::ID::isAsset() const
-	{
-	    return m_Type == Key::Type::Asset || m_Type == Key::Type::AssetChange;
-	}
-
 	int Key::IDV::cmp(const IDV& x) const
 	{
 		int n = ID::cmp(x);

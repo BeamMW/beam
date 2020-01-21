@@ -27,7 +27,7 @@
 namespace beam::wallet
 {
     TxID GenerateTxID();
-    TxParameters CreateTransactionParameters(TxType type, const TxID& txID);
+    TxParameters CreateTransactionParameters(TxType type, const boost::optional<TxID>& oTxId = boost::optional<TxID>());
     //
     // Interface for all possible transaction types in active state
     //
@@ -83,7 +83,7 @@ namespace beam::wallet
 
             virtual ~Creator() = default;
             
-            // Ñreates new instance of transaction (virtual constructor)
+            // ï¿½reates new instance of transaction (virtual constructor)
             virtual BaseTransaction::Ptr Create(INegotiatorGateway& gateway, WalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&) = 0;
             
             // Allows to add any additional user's checks and enhancements of parameters. Should throw exceptions if something is wrong

@@ -810,6 +810,25 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::Output serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::CoinID& v)
+		{
+			ar
+				& Cast::Down<beam::Key::IDV>(v)
+				& v.m_AssetID;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::CoinID& v)
+		{
+			ar
+				& Cast::Down<beam::Key::IDV>(v)
+				& v.m_AssetID;
+			return ar;
+		}
+
         /// beam::Output serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
@@ -1586,40 +1605,42 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::AssetInfo::Data& v)
+		static Archive& save(Archive& ar, const beam::Asset::Info& v)
 		{
 			ar
 				& v.m_Owner
 				& v.m_Value
+				& v.m_LockHeight
 				& v.m_Metadata;
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::AssetInfo::Data& v)
+		static Archive& load(Archive& ar, beam::Asset::Info& v)
 		{
 			ar
 				& v.m_Owner
 				& v.m_Value
+				& v.m_LockHeight
 				& v.m_Metadata;
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::AssetInfo::Full& v)
+		static Archive& save(Archive& ar, const beam::Asset::Full& v)
 		{
 			ar
 				& v.m_ID
-				& Cast::Down<beam::AssetInfo::Data>(v);
+				& Cast::Down<beam::Asset::Info>(v);
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::AssetInfo::Full& v)
+		static Archive& load(Archive& ar, beam::Asset::Full& v)
 		{
 			ar
 				& v.m_ID
-				& Cast::Down<beam::AssetInfo::Data>(v);
+				& Cast::Down<beam::Asset::Info>(v);
 			return ar;
 		}
 

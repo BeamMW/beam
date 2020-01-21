@@ -156,25 +156,22 @@ namespace beam::wallet
         CoinIDList coins;
 
         if (!params["coins"].is_array() || params["coins"].size() <= 0)
-            throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "Invalid 'coins' parameter.", id };
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coins parameter must be an array of strings (coin IDs).", id };
 
         for (const auto& cid : params["coins"])
         {
-            bool done = false;
+            if (!cid.is_string())
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coin ID in the coins array must be a string.", id };
 
-            if (cid.is_string())
+            std::string sCid = cid;
+            auto coinId = Coin::FromString(sCid);
+            if (!coinId)
             {
-                auto coinId = Coin::FromString(cid);
-
-                if (coinId)
-                {
-                    coins.push_back(*coinId);
-                    done = true;
-                }
+                const auto errmsg = std::string("Invalid 'coin ID' parameter: ") + std::string(sCid);
+                throw jsonrpc_exception{ApiError::InvalidParamsJsonRpc, errmsg, id};
             }
 
-            if (!done)
-                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "Invalid 'coin ID' parameter.", id };
+            coins.push_back(*coinId);
         }
 
         return coins;
@@ -184,7 +181,7 @@ namespace beam::wallet
     {
         uint64_t session = 0;
 
-        if (params["session"] > 0)
+        if (params["session"].is_number_unsigned() && params["session"] > 0)
         {
             session = params["session"];
         }
@@ -206,6 +203,9 @@ namespace beam::wallet
 
         if (existsJsonParam(params, "txId"))
         {
+            if (!params["txId"].is_string())
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Transaction ID must be a hex string.", id };
+
             TxID txIdDst;
             auto txIdSrc = from_hex(params["txId"]);
 
@@ -352,6 +352,45 @@ namespace beam::wallet
         std::copy_n(txId.begin(), txDelete.txId.size(), txDelete.txId.begin());
 
         _handler.onMessage(id, txDelete);
+    }
+
+    void WalletApi::onIssueMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "value", id);
+        if (!Rules::get().CA.Enabled)
+            throw jsonrpc_exception{ ApiError::NotSupported, "Confidential assets are not supported in this version.", id };
+
+        if (!params["value"].is_number_unsigned() || params["value"] == 0)
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Value must be non zero 64bit unsigned integer.", id };
+
+        Issue issue;
+        issue.value = params["value"];
+
+        auto ind = params["index"];
+        if (!params["index"].is_number_unsigned() || params["index"] == 0)
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Index must be non zero 64bit unsigned integer.", id };
+
+        issue.index = Key::Index (params["index"]);
+
+        if (existsJsonParam(params, "coins"))
+        {
+            issue.coins = readCoinsParameter(id, params);
+        }
+        else if (existsJsonParam(params, "session"))
+        {
+            issue.session = readSessionParameter(id, params);
+        }
+
+        if (existsJsonParam(params, "fee"))
+        {
+            if(!params["fee"].is_number_unsigned() || params["fee"] == 0)
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Fee must be non zero 64bit unsigned integer.", id };
+
+            issue.fee = params["fee"];
+        }
+
+        issue.txId = readTxIdParameter(id, params);
+        _handler.onMessage(id, issue);
     }
 
     void WalletApi::onGetUtxoMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -560,6 +599,20 @@ namespace beam::wallet
             {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", 
+                {
+                    {"txId", txIDToString(res.txId)}
+                }
+            }
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const Issue::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result",
                 {
                     {"txId", txIDToString(res.txId)}
                 }
