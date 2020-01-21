@@ -3786,9 +3786,18 @@ namespace beam::wallet
             PaymentInfo pi;
             uint64_t nAddrOwnID;
 
-            bool bSuccess =
-                storage::getTxParameter(walletDB, txID, TxParameterID::PeerID, pi.m_Receiver) &&
-                storage::getTxParameter(walletDB, txID, TxParameterID::MyID, pi.m_Sender) &&
+            bool bSuccess = 
+                (
+                    (
+                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerSecureWalletID, pi.m_Receiver) &&  // payment proiof using wallet ID
+                        storage::getTxParameter(walletDB, txID, TxParameterID::MySecureWalletID, pi.m_Sender)
+                    ) ||
+                    (
+                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerID, pi.m_Receiver) && // payment proof using SBBS address
+                        storage::getTxParameter(walletDB, txID, TxParameterID::MyID, pi.m_Sender)
+                    )
+                )
+                &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::KernelID, pi.m_KernelID) &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::Amount, pi.m_Amount) &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::PaymentConfirmation, pi.m_Signature) &&

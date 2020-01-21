@@ -30,7 +30,7 @@ ReceiveViewModel::ReceiveViewModel()
     , _addressExpires(AddressExpires)
     , _qr(std::make_unique<QR>())
     , _walletModel(*AppModel::getInstance().getWallet())
-    , _hasIdentity(false)
+    , _hasIdentity(true)
 {
     connect(_qr.get(), &QR::qrDataChanged, this, &ReceiveViewModel::onReceiverQRChanged);
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveViewModel::onGeneratedNewAddress);

@@ -244,7 +244,6 @@ namespace beam::wallet
         FailureReason = 92,
 
         PaymentConfirmation = 99,
-        PaymentConfirmation2 = 100, // uses wallet ID to sign payment proof
 
         PeerSharedBulletProofMSig = 108,
         PeerSharedBulletProofPart2 = 109,
