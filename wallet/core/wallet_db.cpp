@@ -3789,8 +3789,8 @@ namespace beam::wallet
             bool bSuccess = 
                 (
                     (
-                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerSecureWalletID, pi.m_Receiver) &&  // payment proiof using wallet ID
-                        storage::getTxParameter(walletDB, txID, TxParameterID::MySecureWalletID, pi.m_Sender)
+                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerSecureWalletID, pi.m_Receiver.m_Pk) &&  // payment proiof using wallet ID
+                        storage::getTxParameter(walletDB, txID, TxParameterID::MySecureWalletID, pi.m_Sender.m_Pk)
                     ) ||
                     (
                         storage::getTxParameter(walletDB, txID, TxParameterID::PeerID, pi.m_Receiver) && // payment proof using SBBS address
