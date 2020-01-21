@@ -21,53 +21,46 @@
 
 namespace beam::wallet
 {
-    AssetRegisterTransaction::Creator::Creator(bool reg)
-        : _register(reg)
-    {
-    }
-
     BaseTransaction::Ptr AssetRegisterTransaction::Creator::Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const TxID& txID)
     {
-        return BaseTransaction::Ptr(new AssetRegisterTransaction(_register, gateway, walletDB, keyKeeper, txID));
+        return BaseTransaction::Ptr(new AssetRegisterTransaction(gateway, walletDB, keyKeeper, txID));
     }
 
     TxParameters AssetRegisterTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
     {
         if(params.GetParameter<WalletID>(TxParameterID::PeerID))
         {
-            throw InvalidTransactionParametersException("");
+            throw InvalidTransactionParametersException("Asset registration: unexpected PeerID");
         }
 
         if(params.GetParameter<WalletID>(TxParameterID::MyID))
         {
-            throw InvalidTransactionParametersException("");
+            throw InvalidTransactionParametersException("Asset registration: unexpected MyID");
         }
 
         const auto isSenderO = params.GetParameter<bool>(TxParameterID::IsSender);
         if (!isSenderO || !isSenderO.get())
         {
-            throw InvalidTransactionParametersException("");
+            throw InvalidTransactionParametersException("Asset registration: non-sender transaction");
         }
 
         const auto isInitiatorO = params.GetParameter<bool>(TxParameterID::IsInitiator);
         if (!isInitiatorO || !isInitiatorO.get())
         {
-            throw InvalidTransactionParametersException("");
+            throw InvalidTransactionParametersException("Asset registration: non-initiator transaction");
         }
 
         TxParameters result{params};
         result.SetParameter(TxParameterID::IsSelfTx, true);
         result.SetParameter(TxParameterID::MyID, WalletID(Zero)); // Mandatory parameter
-
         return result;
     }
 
-    AssetRegisterTransaction::AssetRegisterTransaction(bool reg, INegotiatorGateway& gateway
+    AssetRegisterTransaction::AssetRegisterTransaction(INegotiatorGateway& gateway
                                         , IWalletDB::Ptr walletDB
                                         , IPrivateKeyKeeper::Ptr keyKeeper
                                         , const TxID& txID)
         : BaseTransaction{ gateway, std::move(walletDB), std::move(keyKeeper), txID}
-        , _register(reg)
     {
     }
 
@@ -85,42 +78,22 @@ namespace beam::wallet
             return;
         }
 
-        if(!CreateTxBuilder())
-        {
-            return;
-        }
-
-        auto sharedBuilder = m_TxBuilder;
-        AssetRegisterTxBuilder& builder = *sharedBuilder;
-
+        auto& builder = GetTxBuilder();
         if (!builder.LoadKernel())
         {
-            if (!builder.GetInitialTxParams() && GetState() == State::Initial)
-            {
-                if (_register)
-                {
-                    LOG_INFO() << GetTxID() << " Registering asset with the owner index " << builder.GetAssetOwnerIdx();
-                    LOG_INFO() << GetTxID() << " Please remember your owner assset index. You won't be able to unregister the asset, consume it  or generate additional coins without the owner index";
-                }
-                else
-                {
-                    LOG_INFO() << GetTxID() << " Unregistering asset with the owner index " << builder.GetAssetOwnerIdx();
-                }
-
-                builder.SelectInputs();
-                builder.AddChange();
-
-                //for (const auto& amount : builder.GetAmountList())
-                //{
-                //    if (_register) builder.GenerateAssetCoin(amount, false);
-                //    else builder.GenerateBeamCoin(amount, false);
-                //}
-
-                UpdateTxDescription(TxStatus::InProgress);
-            }
-
             if (GetState() == State::Initial)
             {
+                if (!builder.GetInitialTxParams())
+                {
+                    LOG_INFO() << GetTxID() << " Registering asset with the owner index " << builder.GetAssetOwnerIdx() << ". Cost is " << PrintableAmount(builder.GetAmountBeam(), false, kASSET, kAGROTH);
+                    LOG_INFO() << GetTxID() << " Please remember your owner assset index. You won't be able to unregister the asset, consume it  or generate additional coins without the owner index";
+
+                    builder.SelectInputs();
+                    builder.AddChange();
+
+                    UpdateTxDescription(TxStatus::InProgress);
+                }
+
                 SetState(State::MakingInputs);
                 if (builder.CreateInputs())
                 {
@@ -140,24 +113,26 @@ namespace beam::wallet
             if(GetState() == State::MakingOutputs)
             {
                 SetState(State::MakingKernels);
-                builder.CreateKernel();
-                builder.SignKernel();
+                if(builder.MakeKernel())
+                {
+                    return;
+                }
             }
         }
 
-        uint8_t nRegistered = proto::TxStatus::Unspecified;
-        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
+        auto registered = proto::TxStatus::Unspecified;
+        if (!GetParameter(TxParameterID::TransactionRegistered, registered))
         {
             if (CheckExpired())
             {
                 return;
             }
 
-            // Construct & verify transaction
             auto transaction = builder.CreateTransaction();
             TxBase::Context::Params params;
 			TxBase::Context ctx(params);
 			ctx.m_Height.m_Min = builder.GetMinHeight();
+
 			if (!transaction->IsValid(ctx))
             {
                 OnFailed(TxFailureReason::InvalidTransaction, true);
@@ -169,7 +144,7 @@ namespace beam::wallet
             return;
         }
 
-        if (proto::TxStatus::Ok != nRegistered)
+        if (proto::TxStatus::Ok != registered)
         {
             OnFailed(TxFailureReason::FailedToRegister, true);
             return;
@@ -187,19 +162,14 @@ namespace beam::wallet
         std::vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
-            bool bIn = (coin.m_createTxId == m_ID);
-            bool bOut = (coin.m_spentTxId == m_ID);
-            if (bIn || bOut)
+            if (coin.m_createTxId == m_ID)
             {
-                if (bIn)
-                {
-                    coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
-                    coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
-                }
-                if (bOut)
-                {
-                    coin.m_spentHeight = std::min(coin.m_spentHeight, hProof);
-                }
+                coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
+                coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
+            }
+            if (coin.m_spentTxId == m_ID)
+            {
+                coin.m_spentHeight = std::min(coin.m_spentHeight, hProof);
             }
         }
 
@@ -209,9 +179,7 @@ namespace beam::wallet
 
     bool AssetRegisterTransaction::IsLoopbackTransaction() const
     {
-        const bool result = GetMandatoryParameter<bool>(TxParameterID::IsSender) && IsInitiator();
-        assert(result || !"Should be loopback");
-        return result;
+        return GetMandatoryParameter<bool>(TxParameterID::IsSender) && IsInitiator();
     }
 
     bool AssetRegisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
@@ -234,7 +202,7 @@ namespace beam::wallet
 
     TxType AssetRegisterTransaction::GetType() const
     {
-        return _register ? TxType::AssetReg : TxType::AssetUnreg;
+        return TxType::AssetReg;
     }
 
     AssetRegisterTransaction::State AssetRegisterTransaction::GetState() const
@@ -244,13 +212,13 @@ namespace beam::wallet
         return state;
     }
 
-    bool AssetRegisterTransaction::CreateTxBuilder()
+    AssetRegisterTxBuilder& AssetRegisterTransaction::GetTxBuilder()
     {
-        if (!m_TxBuilder)
+        if (!_builder)
         {
-            m_TxBuilder = std::make_shared<AssetRegisterTxBuilder>(_register, *this, kDefaultSubTxID, m_KeyKeeper);
+            _builder = std::make_shared<AssetRegisterTxBuilder>(*this, kDefaultSubTxID);
         }
-        return true;
+        return *_builder;
     }
 
     bool AssetRegisterTransaction::IsInSafety() const

@@ -33,24 +33,21 @@ namespace beam::wallet
         class Creator : public BaseTransaction::Creator
         {
         public:
-            explicit Creator(bool reg);
-
+            Creator() = default;
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const TxID& txID) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& p) override;
-
-            bool _register;
         };
 
     private:
-        AssetRegisterTransaction(bool issue, INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const TxID& txID);
+        AssetRegisterTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const TxID& txID);
         TxType GetType() const override;
         bool IsInSafety() const override;
 
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         bool IsLoopbackTransaction() const;
-        bool CreateTxBuilder();
+        AssetRegisterTxBuilder& GetTxBuilder();
 
         enum State : uint8_t
         {
@@ -61,11 +58,9 @@ namespace beam::wallet
             Registration,
             KernelConfirmation
         };
-
         State GetState() const;
 
     private:
-        std::shared_ptr<AssetRegisterTxBuilder> m_TxBuilder;
-        bool _register;
+        std::shared_ptr<AssetRegisterTxBuilder> _builder;
     };
 }

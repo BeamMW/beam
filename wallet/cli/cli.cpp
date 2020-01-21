@@ -61,6 +61,7 @@
 #include <iomanip>
 #include <iterator>
 #include <future>
+#include <core/block_crypt.h>
 
 using namespace std;
 using namespace beam;
@@ -2177,6 +2178,7 @@ namespace
         }
 
         auto params = CreateTransactionParameters(reg ? TxType::AssetReg : TxType::AssetUnreg)
+                        .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
                         .SetParameter(TxParameterID::AssetOwnerIdx, Key::Index(aidx));

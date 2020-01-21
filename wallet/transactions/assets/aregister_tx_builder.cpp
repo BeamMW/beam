@@ -16,35 +16,44 @@
 #include "utility/logger.h"
 #include "wallet/core/strings_resources.h"
 #include <numeric>
+#include <core/block_crypt.h>
 
 namespace beam::wallet
 {
     using namespace ECC;
     using namespace std;
 
-    AssetRegisterTxBuilder::AssetRegisterTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, IPrivateKeyKeeper::Ptr keyKeeper)
+    AssetRegisterTxBuilder::AssetRegisterTxBuilder(BaseTransaction& tx, SubTxID subTxID)
         : m_Tx{tx}
-        , m_keyKeeper(std::move(keyKeeper))
         , m_SubTxID(subTxID)
         , m_assetOwnerIdx(0)
-        , m_assetOwnerId(Zero)
-        , m_issue(issue)
         , m_Fee(0)
         , m_ChangeBeam(0)
+        , m_AmountList{0}
         , m_MinHeight(0)
         , m_MaxHeight(MaxHeight)
         , m_Offset(Zero)
     {
-        if (!m_keyKeeper.get())
+        if (!m_Tx.GetKeyKeeper())
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoKeyKeeper);
         }
 
-        m_Fee            =  m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, m_SubTxID);
-        m_assetOwnerIdx  =  m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetOwnerIdx);
-        m_assetOwnerId   =  m_keyKeeper->GetAssetOwnerID(m_assetOwnerIdx);
+        if (!m_Tx.GetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID))
+        {
+            const auto amount = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount, m_SubTxID);
+            if (amount < Rules::get().CA.DepositForList)
+            {
+                throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::RegisterAmountTooSmall);
+            }
+            m_AmountList = AmountList{amount};
+            m_Tx.SetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID);
+        }
 
-        if (m_assetOwnerIdx == 0 || m_assetOwnerId == Zero)
+        m_Fee = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, m_SubTxID);
+        m_assetOwnerIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetOwnerIdx);
+
+        if (m_assetOwnerIdx == 0)
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
         }
@@ -57,17 +66,22 @@ namespace beam::wallet
             return false;
         }
 
-        const auto& [commitments, commitmentsOffset] = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, Zero);
-        m_Offset += commitmentsOffset;
-        m_Inputs.reserve(commitments.size());
-        for (const auto& commitment : commitments)
-        {
-            auto& input = m_Inputs.emplace_back(make_unique<Input>());
-            input->m_Commitment = commitment;
-        }
+        DoAsync<IPrivateKeyKeeper::PublicKeys>([this](auto&& res, auto&& ex)
+            {
+                m_Tx.GetKeyKeeper()->GeneratePublicKeys(m_InputCoins, true, move(res), move(ex));
+            },
+            [this](IPrivateKeyKeeper::PublicKeys&& commitments)
+            {
+                m_Inputs.reserve(commitments.size());
+                for (const auto& commitment : commitments)
+                {
+                    auto& input = m_Inputs.emplace_back(make_unique<Input>());
+                    input->m_Commitment = commitment;
+                }
+               m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
+            });
 
-        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
-        return false; // true if async operation has run
+        return true;
     }
 
     bool AssetRegisterTxBuilder::GetInitialTxParams()
@@ -97,7 +111,7 @@ namespace beam::wallet
 
     bool AssetRegisterTxBuilder::LoadKernel()
     {
-        if (m_Tx.GetParameter(TxParameterID::Kernel, m_regKernel, m_SubTxID))
+        if (m_Tx.GetParameter(TxParameterID::Kernel, m_kernel, m_SubTxID))
         {
             GetInitialTxParams();
             return true;
@@ -108,25 +122,25 @@ namespace beam::wallet
     Transaction::Ptr AssetRegisterTxBuilder::CreateTransaction()
     {
         // Don't display in log infinite max height
-        if (m_regKernel->m_Height.m_Max == MaxHeight)
+        if (m_kernel->m_Height.m_Max == MaxHeight)
         {
             LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
                 << " Transaction created. Kernel: " << GetKernelIDString()
-                << ", min height: " << m_regKernel->m_Height.m_Min;
+                << ", min height: " << m_kernel->m_Height.m_Min;
         }
         else
         {
             LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
                 << " Transaction created. Kernel: " << GetKernelIDString()
-                << ", min height: " << m_regKernel->m_Height.m_Min
-                << ", max height: " << m_regKernel->m_Height.m_Max;
+                << ", min height: " << m_kernel->m_Height.m_Min
+                << ", max height: " << m_kernel->m_Height.m_Max;
         }
 
         auto tx = make_shared<Transaction>();
 
         tx->m_vInputs  = std::move(m_Inputs);
         tx->m_vOutputs = std::move(m_Outputs);
-        tx->m_vKernels.push_back(std::move(m_regKernel));
+        tx->m_vKernels.push_back(std::move(m_kernel));
 
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
         tx->m_Offset = m_Offset;
@@ -140,6 +154,16 @@ namespace beam::wallet
 #endif
 
         return tx;
+    }
+
+    Amount AssetRegisterTxBuilder::GetAmountBeam() const
+    {
+        return std::accumulate(m_AmountList.begin(), m_AmountList.end(), 0ULL);
+    }
+
+    const AmountList& AssetRegisterTxBuilder::GetAmountList() const
+    {
+        return m_AmountList;
     }
 
     Height AssetRegisterTxBuilder::GetMinHeight() const
@@ -177,11 +201,6 @@ namespace beam::wallet
         return m_assetOwnerIdx;
     }
 
-     PeerID AssetRegisterTxBuilder::GetAssetOwnerId() const
-     {
-        return m_assetOwnerId;
-     }
-
     string AssetRegisterTxBuilder::GetKernelIDString() const {
         Merkle::Hash kernelID;
         m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
@@ -202,81 +221,10 @@ namespace beam::wallet
 
     void AssetRegisterTxBuilder::SelectInputs()
     {
-        /*CoinIDList preselIDs;
-        vector<Coin> coins;
-
-        Amount preselAmountBeam  = 0;
-        Amount preselAmountAsset = 0;
-
-        auto isAssetCoin = [](const Coin& coin) {
-            return coin.m_ID.m_Type == Key::Type::Asset || coin.m_ID.m_Type == Key::Type::AssetChange;
-        };
-
-        if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselIDs, m_SubTxID))
-        {
-            if (!preselIDs.empty())
-            {
-                coins = m_Tx.GetWalletDB()->getCoinsByID(preselIDs);
-                for (auto &coin : coins)
-                {
-                    isAssetCoin(coin) ? preselAmountAsset += coin.getAmount() : preselAmountBeam += coin.getAmount();
-                    coin.m_spentTxId = m_Tx.GetTxID();
-                }
-                m_Tx.GetWalletDB()->saveCoins(coins);
-            }
-        }
-
-        Amount amountBeamWithFee = GetAmountBeam() + m_Fee;
-        if (preselAmountBeam < amountBeamWithFee)
-        {
-            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountBeamWithFee - preselAmountBeam, Zero);
-            if (selectedCoins.empty())
-            {
-                storage::Totals totals(*m_Tx.GetWalletDB());
-                const auto& beamTotals = totals.GetTotals(Zero);
-                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(beamTotals.Avail);
-                throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
-            }
-            copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
-        }
-
-        Amount amountAsset = GetAmountAsset();
-        if (preselAmountAsset < amountAsset)
-        {
-            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountAsset - preselAmountAsset, m_assetId);
-            if (selectedCoins.empty())
-            {
-                storage::Totals totals(*m_Tx.GetWalletDB());
-                const auto& assetTotals(totals.GetTotals(m_assetId));
-                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(assetTotals.Avail, false, kAmountASSET, kAmountAGROTH);
-                throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
-            }
-            copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
-        }
-
-        m_InputCoins.reserve(coins.size());
-        Amount totalBeam = 0;
-        Amount totalAsset = 0;
-
-        for (auto& coin : coins)
-        {
-            coin.m_spentTxId = m_Tx.GetTxID();
-            isAssetCoin(coin) ? totalAsset += coin.m_ID.m_Value : totalBeam += coin.m_ID.m_Value;
-            m_InputCoins.push_back(coin.m_ID);
-        }
-
-        m_ChangeBeam  = totalBeam  - amountBeamWithFee;
-        m_ChangeAsset = totalAsset - amountAsset;
-
-        m_Tx.SetParameter(TxParameterID::ChangeBeam,  m_ChangeBeam,  false, m_SubTxID);
-        m_Tx.SetParameter(TxParameterID::ChangeAsset, m_ChangeAsset, false, m_SubTxID);
-        m_Tx.SetParameter(TxParameterID::InputCoins,  m_InputCoins,  false, m_SubTxID);
-        m_Tx.GetWalletDB()->saveCoins(coins);
-        */
         CoinIDList preselIDs;
         vector<Coin> coins;
 
-        Amount preselAmountBeam  = 0;
+        Amount preselAmount  = 0;
         if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselIDs, m_SubTxID))
         {
             if (!preselIDs.empty())
@@ -284,22 +232,24 @@ namespace beam::wallet
                 coins = m_Tx.GetWalletDB()->getCoinsByID(preselIDs);
                 for (auto &coin : coins)
                 {
-                    preselAmountBeam += coin.getAmount();
+                    preselAmount += coin.getAmount();
                     coin.m_spentTxId = m_Tx.GetTxID();
                 }
                 m_Tx.GetWalletDB()->saveCoins(coins);
             }
         }
 
-        Amount amountBeamWithFee = m_Fee + Rules::get().CA.DepositForList;
-        if (preselAmountBeam < amountBeamWithFee)
+        Amount amountWithFee = m_Fee + GetAmountBeam();
+        if (preselAmount < amountWithFee)
         {
-            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountBeamWithFee - preselAmountBeam, Zero);
+            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountWithFee - preselAmount, Zero);
             if (selectedCoins.empty())
             {
                 storage::Totals totals(*m_Tx.GetWalletDB());
                 const auto& beamTotals = totals.GetTotals(Zero);
-                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(beamTotals.Avail);
+                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
+                            << "Yout need " << PrintableAmount(amountWithFee) << " for deposit and fees"
+                            << " but have only " << PrintableAmount(beamTotals.Avail);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
             copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
@@ -314,7 +264,7 @@ namespace beam::wallet
             m_InputCoins.push_back(coin.m_ID);
         }
 
-        m_ChangeBeam  = totalBeam  - amountBeamWithFee;
+        m_ChangeBeam  = totalBeam  - amountWithFee;
         m_Tx.SetParameter(TxParameterID::ChangeBeam,  m_ChangeBeam,  false, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::InputCoins,  m_InputCoins,  false, m_SubTxID);
         m_Tx.GetWalletDB()->saveCoins(coins);
@@ -342,57 +292,65 @@ namespace beam::wallet
 
         if (GetOutputCoins().empty())
         {
-            // Output coins should be generated already
+            assert(!"Otput coins should be generated already");
             return false;
         }
 
-        DoAsync<IPrivateKeyKeeper::OutputsEx>([this](auto&& r, auto&& ex)
+        DoAsync<IPrivateKeyKeeper::Outputs>([this](auto&& res, auto&& ex)
             {
-                m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, Zero, move(r), move(ex));
+                m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins, move(res), move(ex));
             },
-            [this](IPrivateKeyKeeper::OutputsEx&& resOutputs)
+            [this](IPrivateKeyKeeper::Outputs&& outputs)
             {
-                m_Outputs = std::move(resOutputs.first);
-                m_Offset += resOutputs.second;
+                m_Outputs = std::move(outputs);
                 m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
             });
+
         return true; // true if async
     }
 
     const Merkle::Hash& AssetRegisterTxBuilder::GetKernelID() const
     {
-        if (!m_KernelID)
+        if (!m_kernelID)
         {
             Merkle::Hash kernelID;
             if (m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID))
             {
-                m_KernelID = kernelID;
+                m_kernelID = kernelID;
             }
             else
             {
                 assert(!"KernelID is not stored");
             }
         }
-        return *m_KernelID;
+        return *m_kernelID;
     }
 
-    void AssetRegisterTxBuilder::CreateKernel()
+    bool AssetRegisterTxBuilder::MakeKernel()
     {
-        m_regKernel = make_unique<TxKernelAssetCreate>();
-        m_regKernel->m_Fee          = m_Fee;
-        m_regKernel->m_Height.m_Min = GetMinHeight();
-        m_regKernel->m_Height.m_Max = m_MaxHeight;
-        m_regKernel->m_Commitment   = Zero;
-        m_regKernel->m_Owner        = m_assetOwnerId;
-    }
+        if (!m_kernel)
+        {
+            m_kernel = make_unique<TxKernelAssetCreate>();
+            m_kernel->m_Fee = m_Fee;
+            m_kernel->m_Height.m_Min = GetMinHeight();
+            m_kernel->m_Height.m_Max = m_MaxHeight;
+            m_kernel->m_Commitment = Zero;
 
-    void AssetRegisterTxBuilder::SignKernel()
-    {
-        m_Offset += m_keyKeeper->SignAssetKernel(*m_regKernel, m_assetOwnerIdx);
+            DoAsync<ECC::Scalar::Native>([this](auto&& res, auto&& ex)
+            {
+                m_Tx.GetKeyKeeper()->SignAssetKernel(m_InputCoins, m_OutputCoins, m_Fee, m_assetOwnerIdx, *m_kernel, move(res), move(ex));
+            },
+            [this](ECC::Scalar::Native&& offset)
+            {
+                m_Offset = offset;
+                m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
 
-        const Merkle::Hash& kernelID = m_regKernel->m_Internal.m_ID;
-        m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
-        m_Tx.SetParameter(TxParameterID::Kernel, m_regKernel, m_SubTxID);
+                const Merkle::Hash& kernelID = m_kernel->m_Internal.m_ID;
+                m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
+                m_Tx.SetParameter(TxParameterID::Kernel, m_kernel, m_SubTxID);
+            });
+            return true;
+        }
+        return false;
     }
 }
-

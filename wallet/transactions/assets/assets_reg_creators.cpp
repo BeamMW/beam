@@ -20,11 +20,11 @@ namespace beam::wallet
 {
     void RegisterAssetCreators(Wallet& wallet)
     {
-        auto crReg = std::make_shared<AssetRegisterTransaction::Creator>(true);
+        auto crReg = std::make_shared<AssetRegisterTransaction::Creator>();
         wallet.RegisterTransactionType(TxType::AssetReg, std::static_pointer_cast<BaseTransaction::Creator>(crReg));
 
-        auto crUnreg = std::make_shared<AssetRegisterTransaction::Creator>(false);
-        wallet.RegisterTransactionType(TxType::AssetUnreg, std::static_pointer_cast<BaseTransaction::Creator>(crUnreg));
+        //auto crUnreg = std::make_shared<AssetRegisterTransaction::Creator>(false);
+        //wallet.RegisterTransactionType(TxType::AssetUnreg, std::static_pointer_cast<BaseTransaction::Creator>(crUnreg));
 
         auto crIssue = std::make_shared<AssetIssueTransaction::Creator>(true);
         wallet.RegisterTransactionType(TxType::AssetIssue, std::static_pointer_cast<BaseTransaction::Creator>(crIssue));

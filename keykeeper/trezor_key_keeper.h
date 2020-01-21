@@ -47,7 +47,20 @@ namespace beam::wallet
 
         ECC::Point GenerateNonceSync(size_t slot) override;
 
-        ECC::Scalar::Native SignAssetKernel(TxKernelAssetControl& kernel, Key::Index assetOwnerIdx) override;
+        void SignAssetKernel(const std::vector<CoinID>& inputs,
+                const std::vector<CoinID>& outputs,
+                Amount fee,
+                Key::Index assetOwnerIdx,
+                TxKernelAssetControl& kernel,
+                Callback<ECC::Scalar::Native>&&,
+                ExceptionCallback&&) override;
+
+        ECC::Scalar::Native SignAssetKernelSync(const std::vector<CoinID>& inputs,
+                const std::vector<CoinID>& outputs,
+                TxKernelAssetControl& kernel,
+                Amount fee,
+                Key::Index assetOwnerIdx) override;
+
         PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override;
 
     private:
