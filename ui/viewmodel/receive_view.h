@@ -80,9 +80,9 @@ private:
     QString      _addressComment;
     QString      _token;
     beam::wallet::WalletAddress _receiverAddress;
+    WalletModel& _walletModel;
     bool         _hasIdentity;
 
     std::unique_ptr<QR> _qr;
-    WalletModel& _walletModel;
     beam::wallet::TxParameters _txParameters;
 };
