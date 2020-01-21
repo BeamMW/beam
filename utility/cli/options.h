@@ -183,6 +183,10 @@ namespace beam
         extern const char* ASSET_INDEX;
         extern const char* ASSET_ID;
 
+        // newscaster
+        extern const char* BBS_MESSAGE;
+        extern const char* PRIVATE_KEY;
+
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;
     }

@@ -280,6 +280,10 @@ namespace beam
         const char* ASSET_INDEX   = "asset_idx";
         const char* ASSET_ID      = "asset_id";
 
+        // newscaster
+        const char* BBS_MESSAGE = "message";
+        const char* PRIVATE_KEY = "key";
+
         // Defaults
         const Amount kMinimumFee = 100;
     }
