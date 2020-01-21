@@ -2009,12 +2009,23 @@ namespace
         {
             return laser->Close(channelIDs);
         }
+
+        LOG_ERROR() << "Channel IDs missing";
         return false;
     }
 
-    bool LaserClose()
+    bool LaserClose(const unique_ptr<laser::Mediator>& laser,
+                    const po::variables_map& vm)
     {
-        LOG_ERROR() << "LaserClose not implemented";
+        auto channelIDsStr = vm[cli::LASER_CLOSE_GRACEFUL].as<string>();
+        auto channelIDs = ParseLaserChannelsIdsFromStr(channelIDsStr);
+        
+        if (!channelIDs.empty())
+        {
+            return laser->GracefulClose(channelIDs);
+        }
+
+        LOG_ERROR() << "Channel IDs missing";
         return false;
     }
 
@@ -2112,7 +2123,7 @@ namespace
         }
         else if (vm.count(cli::LASER_CLOSE_GRACEFUL))
         {
-            return LaserClose();
+            return LaserClose(laser, vm);
         }
 
         return false;

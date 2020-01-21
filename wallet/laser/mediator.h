@@ -69,6 +69,7 @@ public:
     bool Serve(const std::vector<std::string>& channelIDs);
     bool Transfer(Amount amount, const std::string& channelID);
     bool Close(const std::vector<std::string>& channelIDs);
+    bool GracefulClose(const std::vector<std::string>& channelIDs);
     void Delete(const std::vector<std::string>& channelIDs);
     size_t getChannelsCount() const;
 
@@ -86,9 +87,9 @@ private:
     ChannelIDPtr RestoreChannel(const std::string& channelID);
     bool RestoreChannelInternal(const ChannelIDPtr& p_channelID);
     void UpdateChannels();
-    void UpdateChannelExterior(const std::unique_ptr<Channel>& ch);
+    void UpdateChannelExterior(const std::unique_ptr<Channel>& channel);
     bool ValidateTip();
-    void PrepareToForget(const std::unique_ptr<Channel>& ch);
+    void PrepareToForget(const std::unique_ptr<Channel>& channel);
 
     IWalletDB::Ptr m_pWalletDB;
     IPrivateKeyKeeper::Ptr m_keyKeeper;

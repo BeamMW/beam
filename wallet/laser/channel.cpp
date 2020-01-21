@@ -486,7 +486,7 @@ void Channel::LogNewState()
         }
         break;
     case beam::Lightning::Channel::State::Closed:
-        os << "Closed. Waiting for 8 confirmations before forgetting";
+        os << "Closed. Waiting for " << kMaxRolbackHeight <<" confirmations before forgetting";
         break;
     default:
         return;

@@ -424,24 +424,25 @@ namespace beam
             (cli::ASSET_ID, po::value<string>(), "asset id");
 
 #ifdef BEAM_LASER_SUPPORT
-        po::options_description lazer_options("Laser options");
-        lazer_options.add_options()
+        po::options_description laser_commands("Laser commands");
+        laser_commands.add_options()
             (cli::LASER_LIST, "view all opened lightning channel")
-            (cli::LASER_WAIT, "wait for open incomming lightning channel")
-            (cli::LASER_OPEN, "open lightning channel")
-            (cli::LASER_TRANSFER, po::value<Positive<double>>(), "send to lightning channel")
-            (cli::LASER_SERVE, po::value<string>()->implicit_value(""), "listen lightning channels --laser_listen [chID1, ..., chIDN]")
-            (cli::LASER_DROP, po::value<string>()->implicit_value(""), "drop opened lightning channel --laser_drop <chID1, ..., chIDN>")
-            (cli::LASER_DELETE, po::value<string>(), "delete laser channel --laser_delete <chID1, ..., chIDN>")
+            (cli::LASER_WAIT, "wait for open incomming lightning channel\n--laser_my_locked_amount <amount in beam>\n--laser_remote_locked_amount <amount in beam>\n--laser_fee <amount in groth>\n--laser_lock_time <blocks count before can close>")
+            (cli::LASER_OPEN, "open lightning channel\n--laser_my_locked_amount <amount in beam>\n--laser_remote_locked_amount <amount in beam>\n--laser_fee <amount in groth>\n--laser_lock_time <blocks count before can close>")
+            (cli::LASER_SERVE, po::value<string>()->implicit_value(""), "listen lightning channels\narg: [channel ID1, ..., channel IDN]\narg can be unspecified")
+            (cli::LASER_TRANSFER, po::value<Positive<double>>(), "send to lightning channel\narg: <amount in beam>\n--laser_channel <channel ID>")
+            (cli::LASER_CLOSE_GRACEFUL, po::value<string>()->implicit_value(""), "close opened lightning channel. Use before lock time is up, only if other side is online\narg: <channel ID1, ..., channel IDN>\narg must be specified")
+            (cli::LASER_DROP, po::value<string>()->implicit_value(""), "drop opened lightning channel. Use after lock time is up or if other side is offline\narg: <channel ID1, ..., channel IDN>\narg must be specified")
+            (cli::LASER_DELETE, po::value<string>()->implicit_value(""), "delete closed laser channel from data base\narg: <channel ID1, ..., channel IDN>\narg must be specified");
 
+        po::options_description laser_options("Laser options");
+        laser_options.add_options()
             (cli::LASER_AMOUNT_MY, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_AMOUNT_TARGET, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_TARGET_ADDR, po::value<string>(), "address of laser receiver")
             (cli::LASER_FEE, po::value<Nonnegative<Amount>>(), "fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::LASER_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks beam transaction")
-            (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID")
-
-            (cli::LASER_CLOSE_GRACEFUL, "graceful close flag");
+            (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 #endif  // BEAM_LASER_SUPPORT
 
         po::options_description options{ "Allowed options" };
@@ -468,8 +469,10 @@ namespace beam
             if(Rules::get().CA.Enabled) visible_options.add(wallet_assets_options);
 
 #ifdef BEAM_LASER_SUPPORT
-            options.add(lazer_options);
-            visible_options.add(lazer_options);
+            options.add(laser_commands);
+            options.add(laser_options);
+            visible_options.add(laser_commands);
+            visible_options.add(laser_options);
 #endif  // BEAM_LASER_SUPPORT
         }
         if (flags & UI_OPTIONS)
