@@ -236,7 +236,7 @@ namespace
 
             auto [keyLoaded, msgSigned] = keyDistributionTable[i];
 
-            if (res.has_value())
+            if (res)
             {
                 cout << "Case: " << res->m_content << endl;
                 // Only messages with signed with correct keys have to pass validation.
@@ -277,7 +277,7 @@ namespace
 
             boost::optional<NewsMessage> res;
             WALLET_CHECK_NO_THROW(res = parser.parseMessage(data));
-            WALLET_CHECK(!res.has_value());
+            WALLET_CHECK(!res);
         }
         {
             cout << "Case: no keys loaded, correct message" << endl;
@@ -290,18 +290,18 @@ namespace
 
             boost::optional<NewsMessage> res;
             WALLET_CHECK_NO_THROW(res = parser.parseMessage(data));
-            WALLET_CHECK(!res.has_value());
+            WALLET_CHECK(!res);
 
             cout << "Case: key loaded, correct message" << endl;
             WALLET_CHECK_NO_THROW(parser.setPublisherKeys({pk}));
             WALLET_CHECK_NO_THROW(res = parser.parseMessage(data));
-            WALLET_CHECK(res.has_value());
+            WALLET_CHECK(res);
             WALLET_CHECK(*res == news);
             
             cout << "Case: keys cleared" << endl;
 
             WALLET_CHECK_NO_THROW(parser.setPublisherKeys({}));
-            WALLET_CHECK(!parser.parseMessage(data).has_value());
+            WALLET_CHECK(!parser.parseMessage(data));
         }
         {
             cout << "Case: new key loaded" << endl;
@@ -315,7 +315,7 @@ namespace
             WALLET_CHECK_NO_THROW(parser.setPublisherKeys({pk}));
             boost::optional<NewsMessage> res;
             WALLET_CHECK_NO_THROW(res = parser.parseMessage(data));
-            WALLET_CHECK(res.has_value());
+            WALLET_CHECK(res);
             WALLET_CHECK(*res == news);
         }
         cout << "Test end" << endl;

@@ -36,7 +36,7 @@ namespace beam::wallet
     {
         auto news = m_parser.parseMessage(msg.m_Message);
 
-        if (news.has_value())
+        if (news)
         {
             // TODO polymorphic parsing
             notifySubscribers(*news);

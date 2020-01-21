@@ -185,14 +185,14 @@ namespace
             boost::optional<SwapOffer> res;
             ByteBuffer emptyBuf;
             WALLET_CHECK_NO_THROW(res = handler.parseMessage(emptyBuf));
-            WALLET_CHECK(!res.has_value());
+            WALLET_CHECK(!res);
         }
         {
             cout << "Case: message header too short" << endl;
             boost::optional<SwapOffer> res;
             ByteBuffer data(beam::MsgHeader::SIZE - 2, 't');
             WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res.has_value());
+            WALLET_CHECK(!res);
         }
         {
             cout << "Case: message contain only header" << endl;
@@ -202,7 +202,7 @@ namespace
             header.write(data.data());
             boost::optional<SwapOffer> res;
             WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res.has_value());
+            WALLET_CHECK(!res);
         }
         {
             cout << "Case: unsupported version" << endl;
@@ -212,7 +212,7 @@ namespace
             header.write(data.data());
             boost::optional<SwapOffer> res;
             WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res.has_value());
+            WALLET_CHECK(!res);
         }
         {
             cout << "Case: wrong length" << endl;
@@ -222,7 +222,7 @@ namespace
             header.write(data.data());
             boost::optional<SwapOffer> res;
             WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res.has_value());
+            WALLET_CHECK(!res);
         }
         {
             cout << "Case: wrong message type" << endl;
@@ -232,7 +232,7 @@ namespace
             header.write(data.data());
             boost::optional<SwapOffer> res;
             WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res.has_value());
+            WALLET_CHECK(!res);
         }
         {
             cout << "Case: wrong body length" << endl;
@@ -243,7 +243,7 @@ namespace
             header.write(data.data());
             boost::optional<SwapOffer> res;
             WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res.has_value());
+            WALLET_CHECK(!res);
         }
 
         cout << "Test end" << endl;
@@ -272,7 +272,7 @@ namespace
             
             boost::optional<SwapOffer> res;
             WALLET_CHECK_NO_THROW(res = protocolHandler.parseMessage(finalMessage));
-            WALLET_CHECK(!res.has_value());
+            WALLET_CHECK(!res);
         }
         {
             std::cout << "Case: parsing message with invalid public key" << endl;
@@ -289,7 +289,7 @@ namespace
 
             boost::optional<SwapOffer> res;
             WALLET_CHECK_NO_THROW(res = protocolHandler.parseMessage(finalMessage));
-            WALLET_CHECK(!res.has_value());
+            WALLET_CHECK(!res);
         }
         {
             std::cout << "Case: parsing correct message" << endl;
@@ -302,7 +302,7 @@ namespace
 
             boost::optional<SwapOffer> res;
             WALLET_CHECK_NO_THROW(res = protocolHandler.parseMessage(finalMessage));
-            WALLET_CHECK(res.has_value());
+            WALLET_CHECK(res);
             WALLET_CHECK(*res == offer);
         }
         {
@@ -313,11 +313,11 @@ namespace
 
             boost::optional<ByteBuffer> msg;
             WALLET_CHECK_NO_THROW(msg = protocolHandler.createMessage(offer, offer.m_publisherId));
-            WALLET_CHECK(msg.has_value());
+            WALLET_CHECK(msg);
 
             boost::optional<SwapOffer> res;
             WALLET_CHECK_NO_THROW(res = protocolHandler.parseMessage(*msg));
-            WALLET_CHECK(res.has_value());
+            WALLET_CHECK(res);
             WALLET_CHECK(*res == offer);
         }
 
