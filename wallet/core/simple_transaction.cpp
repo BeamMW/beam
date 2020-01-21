@@ -152,12 +152,37 @@ namespace beam::wallet
                 return;
             }
 
+            uint64_t nAddrOwnID;
+            if (!GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
+            {
+                WalletID wid;
+                if (GetParameter(TxParameterID::MyID, wid))
+                {
+                    auto waddr = m_WalletDB->getAddress(wid);
+                    if (waddr && waddr->isOwn())
+                    {
+                        SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
+                        SetParameter(TxParameterID::MySecureWalletID, waddr->m_Identity);
+                    }
+                }
+            }
+
             if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
                 const auto isAsset = builder.GetAssetId() != 0;
-                LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
+                PeerID myWalletID, peerWalletID;
+                bool hasID = GetParameter<PeerID>(TxParameterID::MySecureWalletID, myWalletID)
+                    && GetParameter<PeerID>(TxParameterID::PeerSecureWalletID, peerWalletID);
+                stringstream ss;
+                ss << GetTxID() << (isSender ? " Sending " : " Receiving ")
                     << PrintableAmount(builder.GetAmount(), false,isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")
                     << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
+
+                if (hasID)
+                {
+                    ss << " my ID: " << myWalletID << ", peer ID: " << peerWalletID;
+                }
+                LOG_INFO() << ss.str();
 
                 UpdateTxDescription(TxStatus::InProgress);
 
@@ -199,18 +224,6 @@ namespace beam::wallet
             if (builder.CreateOutputs())
             {
                 return;
-            }
-
-            uint64_t nAddrOwnID;
-            if (!GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
-            {
-                WalletID wid;
-                if (GetParameter(TxParameterID::MyID, wid))
-                {
-                    auto waddr = m_WalletDB->getAddress(wid);
-                    if (waddr && waddr->isOwn())
-                        SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
-                }
             }
 
             if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
