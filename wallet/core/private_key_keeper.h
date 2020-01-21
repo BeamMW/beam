@@ -141,4 +141,66 @@ namespace beam::wallet
         virtual ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx) = 0;
         virtual PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) = 0;
     };
+
+    struct IPrivateKeyKeeper2
+    {
+        typedef std::shared_ptr<IPrivateKeyKeeper2> Ptr;
+
+        struct Status
+        {
+            typedef int Type;
+
+            static const Type Success = 0;
+            static const Type InProgress = -1;
+            static const Type Unspecified = 1;
+        };
+
+        struct Handler
+        {
+            typedef std::shared_ptr<Handler> Ptr;
+
+            virtual ~Handler() {}
+            virtual void OnDone(Status::Type) = 0;
+        };
+
+        struct Method
+        {
+            struct get_KeyImage {
+                ECC::uintBig m_Hash;
+                uint32_t m_iGen; // G, J, H
+                ECC::Point::Native m_Result;
+            };
+
+            struct get_NumSlots {
+                uint32_t m_Count;
+            };
+
+            struct get_SlotImage {
+                uint32_t m_iSlot;
+                uint32_t m_iGen; // G, J, H
+                ECC::Point::Native m_Result;
+            };
+        };
+
+#define KEY_KEEPER_METHODS(macro) \
+		macro(get_KeyImage) \
+		macro(get_NumSlots) \
+		macro(get_SlotImage) \
+
+
+#define THE_MACRO(method) \
+			virtual Status::Type InvokeSync(Method::method&); \
+			virtual void InvokeAsync(Method::method&, const Handler::Ptr&);
+
+        KEY_KEEPER_METHODS(THE_MACRO)
+#undef THE_MACRO
+
+        virtual ~IPrivateKeyKeeper2() {}
+
+    private:
+        struct HandlerSync;
+
+        template <typename TMethod>
+        Status::Type InvokeSyncInternal(TMethod& m);
+    };
 }
