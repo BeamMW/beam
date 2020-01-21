@@ -353,9 +353,14 @@ bool Mediator::GracefulClose(const std::vector<std::string>& channelIDs)
                 get_History().get_Tip(tip);
                 Height channelLockHeight = channel->get_LockHeight();
 
-                tip.m_Height <= channelLockHeight
-                    ? channel->Transfer(0, true)
-                    : CloseInternal(p_channelID);
+                if(tip.m_Height <= channelLockHeight)
+                {
+                    channel->Transfer(0, true);
+                }
+                else
+                {
+                    CloseInternal(p_channelID);
+                }
             });
             LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
         }
@@ -363,9 +368,14 @@ bool Mediator::GracefulClose(const std::vector<std::string>& channelIDs)
         {
             Height channelLockHeight = channel->get_LockHeight();
 
-            tip.m_Height <= channelLockHeight
-                ? channel->Transfer(0, true)
-                : CloseInternal(p_channelID);
+            if(tip.m_Height <= channelLockHeight)
+            {
+                channel->Transfer(0, true);
+            }
+            else
+            {
+                CloseInternal(p_channelID);
+            }
         }
         ++count;
     }
