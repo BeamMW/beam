@@ -3486,6 +3486,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 
             res.m_Commitment = *reinterpret_cast<const ECC::Point*>(wlk.m_Key.p);
             res.m_AssetID = evt.m_AssetID;
+            res.m_Buf1 = evt.m_Buf1;
             res.m_Flags = evt.m_Flags;
 
 			if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)

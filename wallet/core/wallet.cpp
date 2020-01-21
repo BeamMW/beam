@@ -561,15 +561,8 @@ namespace beam::wallet
             return; // Right now nothing is concluded from empty proofs
 
         const auto& proof = r.m_Res.m_Proofs.front(); // Currently - no handling for multiple coins for the same commitment.
-
-        proto::UtxoEvent evt;
-        evt.m_Flags = proto::UtxoEvent::Flags::Add;
-        evt.m_Kidv = r.m_CoinID;
-        evt.m_AssetID = r.m_CoinID.m_AssetID;
-        evt.m_Maturity = proof.m_State.m_Maturity;
-        evt.m_Height = evt.m_Maturity; // we don't know the real height, but it'll be used for logging only. For standard outputs maturity and height are the same
-
-        ProcessUtxoEvent(evt); // uniform processing for all confirmed utxos
+        // we don't know the real height, but it'll be used for logging only. For standard outputs maturity and height are the same
+        ProcessUtxoEvent(r.m_CoinID, proof.m_State.m_Maturity, proof.m_State.m_Maturity, true);
     }
 
     void Wallet::OnRequestComplete(MyRequestKernel& r)
@@ -718,20 +711,20 @@ namespace beam::wallet
                 event.get_Cid(cid);
 
                 Point commitment = commitmentFunc(cid);
-                if (commitment == event.m_Commitment)
-                    ProcessUtxoEvent(event);
-                else
+                if (commitment != event.m_Commitment)
                 {
-                    // Is it BB2.1?
-                    if (cid.IsBb21Possible())
-                    {
-                        cid.set_WorkaroundBb21();
+                    if (!cid.IsBb21Possible())
+                        continue;
 
-                        commitment = commitmentFunc(cid);
-                        if (commitment == event.m_Commitment)
-                            ProcessUtxoEvent(event);
-                    }
+                    cid.set_WorkaroundBb21();
+
+                    commitment = commitmentFunc(cid);
+                    if (commitment != event.m_Commitment)
+                        continue;
                 }
+
+                bool bAdd = 0 != (proto::UtxoEvent::Flags::Add & event.m_Flags);
+                ProcessUtxoEvent(cid, event.m_Height, event.m_Maturity, bAdd);
             }
         }
 
@@ -767,24 +760,19 @@ namespace beam::wallet
         return h;
     }
 
-    void Wallet::ProcessUtxoEvent(const proto::UtxoEvent& evt)
+    void Wallet::ProcessUtxoEvent(const CoinID& cid, Height h, Height hMaturity, bool bAdd)
     {
-        if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
-            return; // not supported atm
-
         Coin c;
-        evt.get_Cid(c.m_ID);
+        c.m_ID = cid;
 
         bool bExists = m_WalletDB->findCoin(c);
-        c.m_maturity = evt.m_Maturity;
+        c.m_maturity = hMaturity;
 
-		bool bAdd = 0 != (proto::UtxoEvent::Flags::Add & evt.m_Flags);
-        LOG_INFO() << "CoinID: " << c.m_ID
-                   << " Maturity=" << evt.m_Maturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << evt.m_Height;
+        LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << hMaturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << h;
 
         if (bAdd)
         {
-            c.m_confirmHeight = std::min(c.m_confirmHeight, evt.m_Height); // in case of std utxo proofs - the event height may be bigger than actual utxo height
+            c.m_confirmHeight = std::min(c.m_confirmHeight, h); // in case of std utxo proofs - the event height may be bigger than actual utxo height
 
             // Check if this Coin participates in any active transaction
             // if it does and mark it as outgoing (bug: ux_504)
@@ -805,7 +793,7 @@ namespace beam::wallet
             if (!bExists)
                 return; // should alert!
 
-            c.m_spentHeight = std::min(c.m_spentHeight, evt.m_Height); // reported spend height may be bigger than it actuall was (in case of macroblocks)
+            c.m_spentHeight = std::min(c.m_spentHeight, h); // reported spend height may be bigger than it actuall was (in case of macroblocks)
         }
 
         m_WalletDB->saveCoin(c);
