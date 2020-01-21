@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <iostream>
+#include <core/block_crypt.h>
 
 #include "test_helpers.h"
 
@@ -312,6 +313,62 @@ namespace
         WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
+    }
+
+    void testInvalidIssueJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const Issue& data) override
+            {
+                WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+    }
+
+    void testIssueJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid issue api json!!!");
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const Issue& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.index > 0);
+                WALLET_CHECK(data.value > 0);
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            Issue::Response status;
+
+            api.getResponse(12345, status, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 12345);
+        }
     }
 
     void testStatusJsonRpc(const std::string& msg)
@@ -740,6 +797,165 @@ int main()
             "value" : 12342342,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "wagagel"
+        }
+    }));
+
+    //
+    // EXPLICITLY ENABLE Confidential assets to perform tests
+    //
+    Rules::get().CA.Enabled = true;
+
+    // Invalid asset index
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "session" : 15,
+            "value" : 12342342,
+            "index": -1
+        }
+    }));
+
+    // Invalid negative value (amount)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "session" : 15,
+            "value" : -1
+        }
+    }));
+
+    // Invalid zero value (amount)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "session" : 15,
+            "value" : 0
+        }
+    }));
+
+    // Invalid too big value (amount)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "session" : 15,
+            "value" : 1234234200000000000000000000000
+        }
+    }));
+
+    // Invalid fee
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "session" : 15,
+            "value" : 100,
+            "fee": 0
+        }
+    }));
+
+    // Bad coins (string instead of array)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "session" : 15,
+            "value" : 12342342,
+            "coins": "blah"
+        }
+    }));
+
+    // Bad coins (int instead of string id)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "session" : 15,
+            "value" : 12342342,
+            "coins": [22]
+        }
+    }));
+
+    // Bad session
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "value" : 12342342,
+            "session": "blah"
+        }
+    }));
+
+    // Bad txId (not a hex string)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "session": 15,
+            "value" : 12342342,
+            "txId": 22
+        }
+    }));
+
+    // Bad txId string
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "session": 15,
+            "value" : 12342342,
+            "txId": "22"
+        }
+    }));
+
+    testIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "value" : 12342342
         }
     }));
 

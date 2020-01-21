@@ -92,7 +92,7 @@ namespace beam::wallet
             });
     }
 
-    void TrezorKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, AssetID, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&)
+    void TrezorKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, Asset::ID, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&)
     {
         // TODO:ASSETS implement
         assert(false);
@@ -119,7 +119,7 @@ namespace beam::wallet
         return result;
     }
 
-    std::pair<IPrivateKeyKeeper::PublicKeys, ECC::Scalar::Native> TrezorKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, AssetID)
+    std::pair<IPrivateKeyKeeper::PublicKeys, ECC::Scalar::Native> TrezorKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID)
     {
         // TODO:ASSETS implement
         assert(false);
@@ -131,7 +131,7 @@ namespace beam::wallet
         return m_hwWallet.generateKeySync(id, false);
     }
 
-    ECC::Point GenerateCoinKeySync(const Key::IDV& id, AssetID)
+    ECC::Point GenerateCoinKeySync(const Key::IDV& id, Asset::ID)
     {
         // TODO:ASSETS implement
         assert(assetId == Zero);
@@ -155,7 +155,7 @@ namespace beam::wallet
         return outputs;
     }
 
-    std::pair<IPrivateKeyKeeper::Outputs, ECC::Scalar::Native> TrezorKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, AssetID)
+    IPrivateKeyKeeper::Outputs TrezorKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID)
     {
         // TODO:ASSETS implement
         assert(false);
@@ -168,7 +168,7 @@ namespace beam::wallet
         return m_hwWallet.getNoncePublicSync((uint8_t)slot);
     }
 
-    ECC::Scalar TrezorKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, AssetID assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce)
+    ECC::Scalar TrezorKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, Asset::ID assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce)
     {
         // TODO:ASSETS implement
         assert(assetId == 0);

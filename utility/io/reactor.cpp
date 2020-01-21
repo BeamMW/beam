@@ -443,6 +443,15 @@ void Reactor::run() {
     _proxyConnector->destroy_connect_timer_if_needed();
 }
 
+void Reactor::run_once() {
+    if (!_loop.data) {
+        LOG_DEBUG() << "loop wasn't initialized";
+        return;
+    }
+    
+    uv_run(&_loop, UV_RUN_ONCE);
+}
+
 void Reactor::stop() {
     int errorCode = uv_async_send(&_stopEvent);
     if (errorCode != 0) {

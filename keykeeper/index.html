@@ -5,35 +5,39 @@
 
         Module().then(function(Module) 
         {
-            var wordList = new Module.WordList();
-                ['copy', 'vendor', 'shallow', 'raven', 'coffee', 'appear', 'book', 'blast', 'lock', 'exchange', 'farm', 'glue'].forEach((word) => wordList.push_back(word));
+            var phrase = Module.KeyKeeper.GeneratePhrase()
+            
+            console.log('seed phrase is: ', phrase);
+            console.log("IsAllowedWord('hurdle') -", Module.KeyKeeper.IsAllowedWord('hurdle'))
+            console.log("IsValidPhrase()", Module.KeyKeeper.IsValidPhrase(phrase))
+            console.log('world list size is', phrase.split(' ').length)
 
-                var keykeeper = new Module.KeyKeeper(wordList);
+            var keykeeper = new Module.KeyKeeper(phrase);
 
-                {
-                    var pk = keykeeper.generatePublicKey("j25vcm2HA5SIAQ==", true);
+            {
+                var pk = keykeeper.generateCoinKey("j25vcm2HA5SIAQ==", 0);
 
-                    console.log('public key is: data:application/octet-stream;base64,' + pk)
-                    console.log('ownerKey is: data:application/octet-stream;base64,' + keykeeper.getOwnerKey('123'));
+                console.log('public key is: data:application/octet-stream;base64,' + pk)
+                console.log('ownerKey is: data:application/octet-stream;base64,' + keykeeper.getOwnerKey('123'));
 
-                    var slot = keykeeper.allocateNonceSlot();
-                    console.log('allocated nonce slot: ' + slot);
+                var slot = keykeeper.allocateNonceSlot();
+                console.log('allocated nonce slot: ' + slot);
 
-                    var nonce = keykeeper.generateNonce(slot);
-                    console.log('generated nonce: data:application/octet-stream;base64,' + nonce);
+                var nonce = keykeeper.generateNonce(slot);
+                console.log('generated nonce: data:application/octet-stream;base64,' + nonce);
 
-                    var output = keykeeper.generateOutput('A5SIAQ==', 'j25vcm2HA5SIAQ==');
-                    console.log('output is: data:application/octet-stream;base64,' + output)
+                var output = keykeeper.generateOutput('A5SIAQ==', 'j25vcm2HA5SIAQ==');
+                console.log('output is: data:application/octet-stream;base64,' + output)
 
-                    var sign = keykeeper.sign("gYBub3JtBAAAAAGo", 
-                        "goBub3JtBAAAAAGQgG5vcm0EAAAAAZg=", 
-                        "n4IJkOJI4RBuB+vSsRVv9eLrQYj/T63RKbuGQkPr9iQ=", 
-                        0, 
-                        "AqhhAmxrgJRDD8A004NtNAHW5OS1ejp71FSYb3+cZgdMFaQYoFTcAA==", 
-                        "xfxiHFSO5kaPrJ3YmG2v9E2RC6g25Py2eGxhQ85G1T0B");
+                // var sign = keykeeper.sign("gYBub3JtBAAAAAGo", 
+                //     "goBub3JtBAAAAAGQgG5vcm0EAAAAAZg=", 
+                //     "n4IJkOJI4RBuB+vSsRVv9eLrQYj/T63RKbuGQkPr9iQ=", 
+                //     0, 
+                //     "AqhhAmxrgJRDD8A004NtNAHW5OS1ejp71FSYb3+cZgdMFaQYoFTcAA==", 
+                //     "xfxiHFSO5kaPrJ3YmG2v9E2RC6g25Py2eGxhQ85G1T0B");
 
-                    console.log('sign is: data:application/octet-stream;base64,' + sign)
-                }
+                // console.log('sign is: data:application/octet-stream;base64,' + sign)
+            }
         })
     </script>
 </html>

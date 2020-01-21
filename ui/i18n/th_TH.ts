@@ -540,10 +540,6 @@
         <source>Receive</source>
         <translation>รับ</translation>
     </message>
-    <message id="wallet-receive-my-addr-label">
-        <source>My address (auto-generated)</source>
-        <translation>ที่อยู่ (สร้างอัตโนัติ)</translation>
-    </message>
     <message id="wallet-receive-expires-label">
         <source>Expires in</source>
         <translation>หมดอายุใน</translation>
@@ -1268,12 +1264,9 @@ Update your settings and try again.</source>
         <translation>สร้างข้อเสนอการแลกเปลี่ยน</translation>
     </message>
     <message id="wallet-receive-addr-message">
-        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
-        <translation>นำที่อยู่นี้ไปให้ผู้ที่จะโอนในช่องทางอื่นหรือสแกน QR Code</translation>
-    </message>
-    <message id="wallet-receive-copy-address">
-        <source>Copy transaction address</source>
-        <translation>คัดลอกที่อยู่ธุรกรรม</translation>
+        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <oldsource>Send this address to the sender over an external secure channel or scan the QR code</oldsource>
+        <translation type="unfinished">นำที่อยู่นี้ไปให้ผู้ที่จะโอนในช่องทางอื่นหรือสแกน QR Code</translation>
     </message>
     <message id="receive-amount-swap-label">
         <source>Receive amount</source>
@@ -1511,7 +1504,7 @@ please review your settings and try again</source>
     </message>
     <message id="wallet-receive-copy-token">
         <source>copy swap token</source>
-        <oldsource>copy token</oldsource>
+        <oldsource>Copy transaction token</oldsource>
         <translation type="unfinished">คัดลอกโทเค็นธุรกรรม</translation>
     </message>
     <message id="wallet-model-device-not-connected">
@@ -2066,16 +2059,36 @@ deploy the key at the node you trust completely.</translation>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if unchecked</extracomment>
         <translation type="unfinished"></translation>
     </message>
-    <message id="wallet-receive-use-token">
-        <source>Use identity token</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="wallet-receive-your-token">
         <source>Your receive token</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-regular-copy-token">
-        <source>copy token</source>
+        <source>Copy transaction token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-kernel-min-height">
+        <source>Kernel&apos;s min height is unacceptable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-loopback">
+        <source>Not a loopback transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-key-keeper-no-initialized">
+        <source>Key keeper is not initialized</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-invalid-asset-id">
+        <source>No valid asset id/asset idx</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-invalid-asset-amount">
+        <source>Cannot consume more than MAX_INT64 asset groth in one transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-invalid-data-for-payment-proof">
+        <source>Some mandatory data for payment proof is missing</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

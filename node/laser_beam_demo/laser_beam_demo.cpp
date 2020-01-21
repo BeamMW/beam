@@ -72,7 +72,7 @@ struct Client
 	WalletID m_Wid;
 	ECC::Scalar::Native m_skBbs;
 
-	typedef std::map<Key::IDV, Height> CoinMap;
+	typedef std::map<CoinID, Height> CoinMap;
 	CoinMap m_Coins;
 
 	uint64_t m_nNextCoinID = 100500;
@@ -170,14 +170,15 @@ struct Client
 		virtual proto::FlyClient::INetwork& get_Net() override { return m_This.m_Conn; }
 		virtual void get_Kdf(ECC::Key::IKdf::Ptr& pKdf) override { pKdf = m_This.m_pKdf; }
 
-		virtual void AllocTxoID(ECC::Key::IDV& kidv) override
+		virtual void AllocTxoID(CoinID& cid) override
 		{
-			kidv.set_Subkey(0);
-			kidv.m_Idx = m_This.m_nNextCoinID++;
+			cid.set_Subkey(0);
+			cid.m_Idx = m_This.m_nNextCoinID++;
 		}
 
-		virtual Amount SelectInputs(std::vector<ECC::Key::IDV>& vInp, Amount valRequired) override
+		virtual Amount SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asset::ID nAssetID) override
 		{
+			assert(!nAssetID);
 			assert(vInp.empty());
 			Height h = m_This.get_TipHeight();
 			Amount nDone = 0;
@@ -231,7 +232,7 @@ struct Client
 			m_This.Send(*this, ser);
 		}
 
-		virtual void OnCoin(const ECC::Key::IDV& kidv, Height h, CoinState eState, bool bReverse) override
+		virtual void OnCoin(const CoinID& cid, Height h, CoinState eState, bool bReverse) override
 		{
 			const char* szStatus = "";
 
@@ -240,25 +241,25 @@ struct Client
 			case CoinState::Locked:
 				szStatus = bReverse ? "Unlocked" : "Locked";
 				if (bReverse)
-					m_This.m_Coins[kidv] = h;
+					m_This.m_Coins[cid] = h;
 				else
-					m_This.m_Coins.erase(kidv);
+					m_This.m_Coins.erase(cid);
 				break;
 
 			case CoinState::Spent:
 				szStatus = bReverse ? "Unspent" : "Spent";
 				if (bReverse)
-					m_This.m_Coins[kidv] = h;
+					m_This.m_Coins[cid] = h;
 				else
-					m_This.m_Coins.erase(kidv);
+					m_This.m_Coins.erase(cid);
 				break;
 
 			case CoinState::Confirmed:
 				szStatus = bReverse ? "Unconfirmed" : "Confirmed";
 				if (bReverse)
-					m_This.m_Coins.erase(kidv);
+					m_This.m_Coins.erase(cid);
 				else
-					m_This.m_Coins[kidv] = h;
+					m_This.m_Coins[cid] = h;
 				break;
 
 
@@ -266,7 +267,7 @@ struct Client
 				break;
 			}
 
-			std::cout << m_This.m_sName << "Coin " << kidv.m_Value << " " << szStatus << std::endl;
+			std::cout << m_This.m_sName << "Coin " << cid.m_Value << " " << szStatus << std::endl;
 		}
 
 		void Close()
@@ -561,9 +562,9 @@ void TestDirector::MakeTreasury()
 			for (size_t iC = 0; iC < g.m_vCoins.size(); iC++)
 			{
 				const Treasury::Response::Group::Coin& coin = g.m_vCoins[iC];
-				Key::IDV kidv;
-				if (coin.m_pOutput->Recover(0, *m_pC[i].m_pKdf, kidv))
-					m_pC[i].m_Coins[kidv] = coin.m_pOutput->m_Incubation;
+				CoinID cid;
+				if (coin.m_pOutput->Recover(0, *m_pC[i].m_pKdf, cid))
+					m_pC[i].m_Coins[cid] = coin.m_pOutput->m_Incubation;
 			}
 		}
 	}

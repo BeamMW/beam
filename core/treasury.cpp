@@ -179,12 +179,12 @@ namespace beam
 			c.m_pOutput.reset(new Output);
 			c.m_pOutput->m_Incubation = c0.m_Incubation;
 
-			Key::IDV kidv(Zero);
-			kidv.m_Idx = nIndex++;
-			kidv.m_Type = Key::Type::Treasury;
-			kidv.m_Value = c0.m_Value;
+			CoinID cid(Zero);
+			cid.m_Idx = nIndex++;
+			cid.m_Type = Key::Type::Treasury;
+			cid.m_Value = c0.m_Value;
 
-			c.m_pOutput->Create(Rules::HeightGenesis - 1, sk, kdf, kidv, kdf);
+			c.m_pOutput->Create(Rules::HeightGenesis - 1, sk, kdf, cid, kdf);
 			offset += sk;
 
 			Hash::Value hv;
@@ -533,12 +533,12 @@ namespace beam
 			for (size_t iO = 0; iO < g.m_Data.m_vOutputs.size(); iO++)
 			{
 				const Output& outp = *g.m_Data.m_vOutputs[iO];
-				Key::IDV kidv;
-				if (outp.Recover(Rules::HeightGenesis - 1, kdf, kidv))
+				CoinID cid;
+				if (outp.Recover(Rules::HeightGenesis - 1, kdf, cid))
 				{
 					out.emplace_back();
 					out.back().m_Incubation = outp.m_Incubation;
-					out.back().m_Kidv = kidv;
+					out.back().m_Cid = cid;
 				}
 			}
 		}
@@ -553,7 +553,7 @@ namespace beam
 		if (m_Incubation + x.m_Incubation)
 			return 1;
 
-		return m_Kidv.cmp(x.m_Kidv);
+		return m_Cid.cmp(x.m_Cid);
 	}
 
 } // namespace beam

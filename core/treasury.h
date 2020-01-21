@@ -190,7 +190,7 @@ namespace beam
 			struct Coin
 			{
 				Height m_Incubation;
-				Key::IDV m_Kidv;
+				CoinID m_Cid;
 
 				int cmp(const Coin&) const;
 				COMPARISON_VIA_CMP
