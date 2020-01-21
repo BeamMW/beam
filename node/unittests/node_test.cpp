@@ -1722,7 +1722,9 @@ namespace beam
 				Lelantus::Cfg m_Cfg;
 
 				Amount m_Value;
-				ECC::Scalar::Native m_sk;
+				ECC::Scalar m_kSerG; // blinding factor of the serial part
+				ECC::Scalar m_kOutG; // blinding factor of the serial part
+				ECC::Scalar::Native m_sk; // total blinding factor of the shielded element
 				ECC::Scalar::Native m_skSpendKey;
 				ECC::Point m_SerialPub;
 				ECC::Point m_SpendPk;
@@ -1781,6 +1783,9 @@ namespace beam
 
 					pKrn->MsgToID();
 
+					m_Shielded.m_kSerG = sp.m_pK[0];
+					m_Shielded.m_kOutG = op.m_k;
+
 					m_Shielded.m_sk = sp.m_pK[0];
 					m_Shielded.m_sk += op.m_k;
 					m_Shielded.m_SerialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
@@ -1788,6 +1793,8 @@ namespace beam
 					Key::IKdf::Ptr pSerPrivate;
 					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
 					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sp.m_SerialPreimage);
+
+					m_Shielded.m_SpendPk = ECC::Context::get().G * m_Shielded.m_skSpendKey;
 
 					ECC::Point::Native pt;
 					verify_test(pKrn->IsValid(h + 1, pt));
@@ -1870,7 +1877,7 @@ namespace beam
 					// test
 				}
 
-				m_Shielded.m_SpendPk = pKrn->m_SpendProof.m_SpendPk;
+				verify_test(m_Shielded.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 
 				Amount fee = 100;
 				fee += Transaction::FeeSettings().m_ShieldedInput;
@@ -2367,7 +2374,22 @@ namespace beam
 
 						verify_test(s.m_Sender == m_Shielded.m_Sender);
 						verify_test(s.m_Message == m_Shielded.m_Message);
+						verify_test(s.m_IsCreatedByViewer);
+						verify_test(s.m_ID == uintBigFrom(TxoID(0)));
 
+						verify_test(s.m_kSerG == m_Shielded.m_kSerG);
+						verify_test(s.m_kOutG == m_Shielded.m_kOutG);
+
+						// Recover the full data
+						ShieldedTxo::Viewer viewer;
+						viewer.FromOwner(*m_Wallet.m_pKdf);
+
+						ShieldedTxo::Data::SerialParams sp;
+						sp.m_pK[0] = s.m_kSerG;
+						sp.m_IsCreatedByViewer = s.m_IsCreatedByViewer;
+						sp.Restore(viewer);
+						verify_test(sp.m_SpendPk == m_Shielded.m_SpendPk);
+						
 						if (proto::UtxoEvent::Flags::Add & evt.m_Flags)
 							m_Shielded.m_EvtAdd = true;
 						else
@@ -2807,7 +2829,7 @@ namespace beam
 
 int main()
 {
-	bool bClientProtoOnly = false;
+	bool bClientProtoOnly = true;
 
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 	if (!bClientProtoOnly)

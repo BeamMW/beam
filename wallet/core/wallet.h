@@ -186,7 +186,7 @@ namespace beam::wallet
         void saveKnownState();
         void RequestUtxoEvents();
         void AbortUtxoEvents();
-        void ProcessUtxoEvent(const proto::UtxoEvent&);
+        void ProcessUtxoEvent(const CoinID&, Height h, Height hMaturity, bool bAdd);
         void SetUtxoEventsHeight(Height);
         Height GetUtxoEventsHeightNext();
 

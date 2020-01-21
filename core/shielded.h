@@ -56,6 +56,8 @@ namespace beam
 
 			bool Recover(const Serial&, const Viewer&);
 
+			void Restore(const Viewer&); // must set kG and m_IsCreatedByViewer before calling
+
 		protected:
 			void GenerateInternal(Serial&, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
 			void Export(Serial&, Key::IPKdf& gen, Key::IPKdf& ser) const;

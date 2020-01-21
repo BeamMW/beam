@@ -152,12 +152,37 @@ namespace beam::wallet
                 return;
             }
 
+            uint64_t nAddrOwnID;
+            if (!GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
+            {
+                WalletID wid;
+                if (GetParameter(TxParameterID::MyID, wid))
+                {
+                    auto waddr = m_WalletDB->getAddress(wid);
+                    if (waddr && waddr->isOwn())
+                    {
+                        SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
+                        SetParameter(TxParameterID::MySecureWalletID, waddr->m_Identity);
+                    }
+                }
+            }
+
             if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
                 const auto isAsset = builder.GetAssetId() != 0;
-                LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
+                PeerID myWalletID, peerWalletID;
+                bool hasID = GetParameter<PeerID>(TxParameterID::MySecureWalletID, myWalletID)
+                    && GetParameter<PeerID>(TxParameterID::PeerSecureWalletID, peerWalletID);
+                stringstream ss;
+                ss << GetTxID() << (isSender ? " Sending " : " Receiving ")
                     << PrintableAmount(builder.GetAmount(), false,isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")
                     << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
+
+                if (hasID)
+                {
+                    ss << " my ID: " << myWalletID << ", peer ID: " << peerWalletID;
+                }
+                LOG_INFO() << ss.str();
 
                 UpdateTxDescription(TxStatus::InProgress);
 
@@ -199,18 +224,6 @@ namespace beam::wallet
             if (builder.CreateOutputs())
             {
                 return;
-            }
-
-            uint64_t nAddrOwnID;
-            if (!GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
-            {
-                WalletID wid;
-                if (GetParameter(TxParameterID::MyID, wid))
-                {
-                    auto waddr = m_WalletDB->getAddress(wid);
-                    if (waddr && waddr->isOwn())
-                        SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
-                }
             }
 
             if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
@@ -288,34 +301,6 @@ namespace beam::wallet
                 return;
             }
 
-            if (!isSelfTx && isSender && IsInitiator())
-            {
-                // verify peer payment confirmation
-                Signature sig;
-                if (!GetParameter(TxParameterID::PaymentConfirmation2, sig))
-                {
-                    PaymentConfirmation pc;
-                    WalletID widPeer, widMy;
-                    bool bSuccess =
-                        GetParameter(TxParameterID::PeerID, widPeer) &&
-                        GetParameter(TxParameterID::MyID, widMy) &&
-                        GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
-                        GetParameter(TxParameterID::Amount, pc.m_Value) &&
-                        GetParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
-
-                    if (bSuccess)
-                    {
-                        pc.m_Sender = widMy.m_Pk;
-                        bSuccess = pc.IsValid(widPeer.m_Pk);
-                    }
-
-                    if (!bSuccess)
-                    {
-                        OnFailed(TxFailureReason::NoPaymentProof);
-                        return;
-                    }
-                }
-            }
             builder.FinalizeSignature();
         }
 
@@ -411,9 +396,9 @@ namespace beam::wallet
         if (!GetMandatoryParameter<bool>(TxParameterID::IsSender))
         {
             Signature paymentProofSignature;
-            if (GetParameter(TxParameterID::PaymentConfirmation2, paymentProofSignature))
+            if (GetParameter(TxParameterID::PaymentConfirmation, paymentProofSignature))
             {
-                msg.AddParameter(TxParameterID::PaymentConfirmation2, paymentProofSignature);
+                msg.AddParameter(TxParameterID::PaymentConfirmation, paymentProofSignature);
             }
             else
             {
