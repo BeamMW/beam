@@ -3848,10 +3848,16 @@ namespace beam::wallet
                << "\"Transaction fee, BEAM\"" << ","
                << "Transaction ID" << ","
                << "Kernel ID" << "," 
-               << "Comment" << std::endl;
+               << "Comment" << "," 
+               << "Payment proof" << std::endl;
 
             for (const auto& tx : db.getTxHistory())
             {
+                string strProof;
+                auto proof = storage::ExportPaymentProof(db, tx.m_txId);
+                strProof.resize(proof.size() * 2);
+                beam::to_hex(strProof.data(), proof.data(), proof.size());
+
                 ss << (tx.m_sender ? "Send BEAM" : "Receive BEAM") << ","
                    << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","
                    << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","
@@ -3861,7 +3867,8 @@ namespace beam::wallet
                    << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","
                    << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","
                    << std::to_string(tx.m_kernelID) << ","
-                   << std::string { tx.m_message.begin(), tx.m_message.end() } << std::endl;
+                   << std::string { tx.m_message.begin(), tx.m_message.end() } << ","
+                   << strProof << std::endl;
             }
             return ss.str();
         }
