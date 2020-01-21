@@ -159,20 +159,16 @@ namespace beam::wallet::lelantus
                     op.m_Value = m_TxBuilder->GetAmount();
                     op.Generate(pKrn->m_Txo, oracle, viewer, outputNonce);
 
-                    pKrn->MsgToID();
-
-                    m_shieldedDetails.m_sk = sp.m_pK[0];
-                    m_shieldedDetails.m_sk += op.m_k;
+                    m_shieldedDetails.m_skSerialG = sp.m_pK[0];
+                    m_shieldedDetails.m_skOutputG = op.m_k;
                     m_shieldedDetails.m_SerialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
+                    m_shieldedDetails.m_IsCreatedByViewer = sp.m_IsCreatedByViewer;
 
-                    Key::IKdf::Ptr pSerPrivate;
-                    ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_WalletDB->get_MasterKdf());
-                    pSerPrivate->DeriveKey(m_shieldedDetails.m_skSpendKey, sp.m_SerialPreimage);
-
-                    //ECC::Point::Native pt;
-                    //pKrn->UpdateID();
+                    // save KernelID
+                    pKrn->MsgToID();
                     SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
 
+                    // verify TxKernelShieldedOutput
                     ECC::Point::Native pt;
                     assert(pKrn->IsValid(GetWalletDB()->getCurrentHeight(), pt));
 
@@ -182,7 +178,6 @@ namespace beam::wallet::lelantus
                     offset -= op.m_k;
                     transaction->m_Offset = offset;
                 }
-
                 transaction->Normalize();
             }
 
@@ -232,14 +227,16 @@ namespace beam::wallet::lelantus
                     if (m_waitingShieldedProof)
                     {
                         m_waitingShieldedProof = false;
+
                         // save shielded output to DB
-                        wallet::TestShieldedCoin coin;
+                        wallet::ShieldedCoin coin;
                         coin.m_createTxId = GetTxID();
                         coin.m_ID = proof.m_ID;
-                        coin.m_IsCreatedByViewer = false;
-                        coin.m_skSpendKey = m_shieldedDetails.m_skSpendKey;
-                        coin.m_sk = m_shieldedDetails.m_sk;
-                        GetWalletDB()->saveTestShieldedCoin(coin);
+                        coin.m_IsCreatedByViewer = m_shieldedDetails.m_IsCreatedByViewer;
+                        coin.m_skOutputG = m_shieldedDetails.m_skOutputG;
+                        coin.m_skSerialG = m_shieldedDetails.m_skSerialG;
+
+                        GetWalletDB()->saveShieldedCoin(coin);
                     }
                     UpdateAsync();
                 });

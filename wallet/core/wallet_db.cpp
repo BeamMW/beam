@@ -2072,12 +2072,22 @@ namespace beam::wallet
         }
     }
 
-    std::map<TxoID, TestShieldedCoin> WalletDB::getTestShieldedCoins() const
+    std::map<TxoID, ShieldedCoin> WalletDB::getShieldedCoins() const
     {
         return m_ShieldedCoins;
     }
 
-    void WalletDB::saveTestShieldedCoin(const TestShieldedCoin& shieldedCoin)
+    boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(TxoID id) const
+    {
+        auto iter = m_ShieldedCoins.find(id);
+        if (iter != m_ShieldedCoins.end())
+        {
+            return iter->second;
+        }
+        return {};
+    }
+
+    void WalletDB::saveShieldedCoin(const ShieldedCoin& shieldedCoin)
     {
         auto iter = m_ShieldedCoins.find(shieldedCoin.m_ID);
         if (iter != m_ShieldedCoins.end())

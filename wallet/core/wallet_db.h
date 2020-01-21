@@ -206,22 +206,17 @@ namespace beam::wallet
         ByteBuffer m_Message;
     };
 
-    // TODO: remove after tests of lelantus
-    struct TestShieldedCoin
+    struct ShieldedCoin
     {
-        ECC::Scalar::Native m_sk;
-        ECC::Scalar::Native m_skSpendKey;
-        TxoID m_ID;
-
-        boost::optional<TxID> m_createTxId;
-        boost::optional<TxID> m_spentTxId;
-
         ECC::Scalar m_skSerialG;
         ECC::Scalar m_skOutputG;
         PeerID m_Sender;
         ECC::uintBig m_Message;
-        // uintBigFor<TxoID>::Type m_ID;
-        uint8_t m_IsCreatedByViewer;
+        TxoID m_ID = 0;
+        bool m_IsCreatedByViewer = false;
+
+        boost::optional<TxID> m_createTxId;
+        boost::optional<TxID> m_spentTxId;
     };
 
     // Notifications for all collection changes
@@ -366,10 +361,10 @@ namespace beam::wallet
         // Rollback UTXO set to known height (used in rollback scenario)
         virtual void rollbackConfirmedUtxo(Height minHeight) = 0;
 
-        // TODO: remove after tests of lelantus
         // Shielded coins
-        virtual std::map<TxoID, TestShieldedCoin> getTestShieldedCoins() const = 0;
-        virtual void saveTestShieldedCoin(const TestShieldedCoin& shieldedCoin) = 0;
+        virtual std::map<TxoID, ShieldedCoin> getShieldedCoins() const = 0;
+        virtual boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const = 0;
+        virtual void saveShieldedCoin(const ShieldedCoin& shieldedCoin) = 0;
 
         // /////////////////////////////////////////////
         // Transaction management
@@ -479,8 +474,9 @@ namespace beam::wallet
         void rollbackConfirmedUtxo(Height minHeight) override;
 
         // TODO: remove after tests of lelantus
-        std::map<TxoID, TestShieldedCoin> getTestShieldedCoins() const override;
-        void saveTestShieldedCoin(const TestShieldedCoin& shieldedCoin) override;
+        std::map<TxoID, ShieldedCoin> getShieldedCoins() const override;
+        boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const override;
+        void saveShieldedCoin(const ShieldedCoin& shieldedCoin) override;
 
         std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;
         boost::optional<TxDescription> getTx(const TxID& txId) const override;
@@ -589,7 +585,7 @@ namespace beam::wallet
         bool m_useTrezor = false;
 
         // TODO: remove after tests of lelantus
-        std::map<TxoID, TestShieldedCoin> m_ShieldedCoins;
+        std::map<TxoID, ShieldedCoin> m_ShieldedCoins;
     };
 
     namespace storage

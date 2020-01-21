@@ -21,6 +21,27 @@
 
 namespace beam::wallet::lelantus
 {
+    namespace
+    {
+        ECC::Scalar::Native RestoreSkSpendKey(Key::IKdf::Ptr pKdf, const ShieldedCoin& shieldedCoin)
+        {
+            ShieldedTxo::Viewer viewer;
+            viewer.FromOwner(*pKdf);
+
+            ShieldedTxo::Data::SerialParams serialParams;
+            serialParams.m_pK[0] = shieldedCoin.m_skSerialG;
+            serialParams.m_IsCreatedByViewer = shieldedCoin.m_IsCreatedByViewer;
+            serialParams.Restore(viewer);
+
+            ECC::Scalar::Native skSpendKey;
+            Key::IKdf::Ptr pSerialPrivate;
+            ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pKdf);
+            pSerialPrivate->DeriveKey(skSpendKey, serialParams.m_SerialPreimage);
+
+            return skSpendKey;
+        }
+    }
+
     BaseTransaction::Ptr PullTransaction::Creator::Create(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
         , IPrivateKeyKeeper::Ptr keyKeeper
@@ -89,25 +110,23 @@ namespace beam::wallet::lelantus
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
         {
             // TODO check expired
-
             TxoID shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
-
-            auto shieldedCoins = m_WalletDB->getTestShieldedCoins();
+            auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedId);
             
-            if (shieldedCoins.find(shieldedId) == shieldedCoins.end())
+            if (!shieldedCoin)
             {
                 OnFailed(TxFailureReason::NoInputs);
                 return;
             }
 
-            auto shieldedCoin = shieldedCoins[shieldedId];
-            // TODO fill in parameters
-            ECC::Scalar::Native witnessSk = shieldedCoin.m_sk;
-            ECC::Scalar::Native spendKey = shieldedCoin.m_skSpendKey;
+            ECC::Scalar::Native witnessSk = shieldedCoin->m_skSerialG;
+            witnessSk += shieldedCoin->m_skOutputG;
+
+            ECC::Scalar::Native skSpendKey = RestoreSkSpendKey(GetWalletDB()->get_MasterKdf(), *shieldedCoin);
             TxoID windowBegin = GetMandatoryParameter<TxoID>(TxParameterID::WindowBegin);
 
             // Construct transaction
-            auto transaction = m_TxBuilder->CreateTransaction(m_shieldedList, windowBegin, shieldedId, witnessSk, spendKey);
+            auto transaction = m_TxBuilder->CreateTransaction(m_shieldedList, windowBegin, shieldedId, witnessSk, skSpendKey);
 
             // Verify final transaction
             TxBase::Context::Params pars;
@@ -118,6 +137,8 @@ namespace beam::wallet::lelantus
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return;
             }
+
+            // register TX
             GetGateway().register_tx(GetTxID(), transaction);
             //SetState(State::Registration);
             return;
@@ -138,6 +159,7 @@ namespace beam::wallet::lelantus
             return;
         }
 
+        // get Kernel proof
         Height hProof = 0;
         GetParameter(TxParameterID::KernelProofHeight, hProof);
         if (!hProof)
