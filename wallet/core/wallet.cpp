@@ -422,10 +422,11 @@ namespace beam::wallet
     }
 
     // Implementation of the INegotiatorGateway::get_shielded_list
-    void Wallet::get_shielded_list(TxoID startIndex, uint32_t count, ShieldedListCallback&& callback)
+    void Wallet::get_shielded_list(const TxID& txId, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback)
     {
         MyRequestShieldedList::Ptr pVal(new MyRequestShieldedList);
         pVal->m_callback = callback;
+        pVal->m_TxID = txId;
 
         pVal->m_Msg.m_Id0 = startIndex;
         pVal->m_Msg.m_Count = count;
@@ -436,10 +437,11 @@ namespace beam::wallet
         }
     }
 
-    void Wallet::get_proof_shielded_output(ECC::Point serialPublic, ProofShildedOutputCallback&& callback)
+    void Wallet::get_proof_shielded_output(const TxID& txId, ECC::Point serialPublic, ProofShildedOutputCallback&& callback)
     {
         MyRequestProofShieldedOutp::Ptr pVal(new MyRequestProofShieldedOutp);
         pVal->m_callback = callback;
+        pVal->m_TxID = txId;
 
         pVal->m_Msg.m_SerialPub = serialPublic;
 

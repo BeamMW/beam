@@ -95,6 +95,14 @@ namespace beam::wallet::lelantus
 
             {               
                 transaction->m_vInputs = GetMandatoryParameter<std::vector<Input::Ptr>>(TxParameterID::Inputs);
+
+                {
+                    std::vector<Output::Ptr> outputs;
+                    if (GetParameter(TxParameterID::Outputs, outputs))
+                    {
+                        transaction->m_vOutputs = std::move(outputs);
+                    }
+                }
                 //transaction->m_Offset = m_Offset;
                 {
                     ECC::Scalar::Native offset = Zero;
@@ -106,6 +114,21 @@ namespace beam::wallet::lelantus
                         CoinID::Worker(id).Create(k, comm, *GetWalletDB()->get_MasterKdf());
 
                         offset += k;
+                    }
+
+                    transaction->m_Offset = offset;
+                }
+
+                {
+                    ECC::Scalar::Native offset = transaction->m_Offset;
+
+                    for (auto id : m_TxBuilder->GetOutputCoins())
+                    {
+                        ECC::Scalar::Native k;
+                        ECC::Point comm;
+                        CoinID::Worker(id).Create(k, comm, *GetWalletDB()->get_MasterKdf());
+
+                        offset -= k;
                     }
 
                     transaction->m_Offset = offset;
@@ -204,7 +227,7 @@ namespace beam::wallet::lelantus
         // getProofShieldedOutp
         if (m_waitingShieldedProof)
         {
-            GetGateway().get_proof_shielded_output(m_shieldedDetails.m_SerialPub, [this](proto::ProofShieldedOutp proof)
+            GetGateway().get_proof_shielded_output(GetTxID(), m_shieldedDetails.m_SerialPub, [this](proto::ProofShieldedOutp proof)
                 {
                     if (m_waitingShieldedProof)
                     {

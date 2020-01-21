@@ -618,8 +618,8 @@ namespace beam::wallet
         virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
         virtual void send_tx_params(const WalletID& peerID, const SetTxParameter&) = 0;
-        virtual void get_shielded_list(TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) = 0;
-        virtual void get_proof_shielded_output(ECC::Point serialPublic, ProofShildedOutputCallback&& callback) {};
+        virtual void get_shielded_list(const TxID&, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) = 0;
+        virtual void get_proof_shielded_output(const TxID&, ECC::Point serialPublic, ProofShildedOutputCallback&& callback) {};
         virtual void UpdateOnNextTip(const TxID&) = 0;
     };
 
