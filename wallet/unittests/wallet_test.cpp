@@ -2174,6 +2174,22 @@ void TestNegotiation()
 	}
 }
 
+void TestKeyKeeper()
+{
+    Key::IKdf::Ptr pKdf;
+    ECC::HKdf::Create(pKdf, 12345U);
+
+    IPrivateKeyKeeper2::Ptr pKk(new LocalPrivateKeyKeeper2(pKdf));
+    Cast::Up<LocalPrivateKeyKeeper2>(*pKk).m_State.m_hvLast = 334U;
+    Cast::Up<LocalPrivateKeyKeeper2>(*pKk).m_State.Generate();
+
+    IPrivateKeyKeeper2::Method::get_KeyImage m;
+    m.m_Hash = Zero;
+    m.m_iGen = 0;
+    pKk->InvokeSync(m);
+
+}
+
 
 #if defined(BEAM_HW_WALLET)
 
@@ -2438,6 +2454,8 @@ int main()
     Rules::get().UpdateChecksum();
 
     storage::HookErrors();
+
+    TestKeyKeeper();
 
     TestConvertions();
     TestTxParameters();

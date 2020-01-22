@@ -528,4 +528,87 @@ namespace beam::wallet
     {
         return GetAssetOwnerKeypair(assetOwnerIdx).first;
     }
+
+
+
+    /////////////////////////
+    // LocalPrivateKeyKeeper2
+    LocalPrivateKeyKeeper2::LocalPrivateKeyKeeper2(const ECC::Key::IKdf::Ptr& pKdf)
+        :m_pKdf(pKdf)
+    {
+    }
+
+    void LocalPrivateKeyKeeper2::State::Generate()
+    {
+        for (uint32_t i = 0; i < s_Slots; i++)
+            Regenerate(i);
+    }
+
+    void LocalPrivateKeyKeeper2::State::Regenerate(uint32_t iSlot)
+    {
+        while (true)
+        {
+            ECC::Hash::Processor() << m_hvLast >> m_hvLast;
+
+            static_assert(sizeof(ECC::Scalar) == sizeof(m_hvLast));
+            ECC::Scalar& s = reinterpret_cast<ECC::Scalar&>(m_hvLast);
+
+            if (!m_pSlot[iSlot].Import(s))
+                break;
+        }
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::ToImage(ECC::Point::Native& res, uint32_t iGen, const ECC::Scalar::Native& sk)
+    {
+        const ECC::Generator::Obscured* pGen;
+
+        switch (iGen)
+        {
+        case 0: pGen = &ECC::Context::get().G; break;
+        case 1: pGen = &ECC::Context::get().J; break;
+        case 2: pGen = &ECC::Context::get().H_Big; break;
+        default:
+            return Status::Unspecified;
+        }
+
+        res = (*pGen) * sk;
+        return Status::Success;
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_KeyImage& x)
+    {
+        ECC::Scalar::Native sk;
+        m_pKdf->DeriveKey(sk, x.m_Hash);
+
+        return ToImage(x.m_Result, x.m_iGen, sk);
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_NumSlots& x)
+    {
+        x.m_Count = s_Slots;
+        return Status::Success;
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_SlotImage& x)
+    {
+        if (x.m_iSlot >= s_Slots)
+            return Status::Unspecified;
+
+        return ToImage(x.m_Result, x.m_iGen, m_State.m_pSlot[x.m_iSlot]);
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateOutput& x)
+    {
+        return Status::NotImplemented;
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::SignReceiver& x)
+    {
+        return Status::NotImplemented;
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::SignSender& x)
+    {
+        return Status::NotImplemented;
+    }
 }

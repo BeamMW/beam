@@ -168,6 +168,8 @@ namespace beam::wallet
             static const Type Success = 0;
             static const Type InProgress = -1;
             static const Type Unspecified = 1;
+            static const Type UserAbort = 2;
+            static const Type NotImplemented = 3;
         };
 
         struct Handler
@@ -195,12 +197,52 @@ namespace beam::wallet
                 uint32_t m_iGen; // G, J, H
                 ECC::Point::Native m_Result;
             };
+
+            struct CreateOutput {
+                Height m_hScheme; // scheme prior to Fork1 isn't supported for trustless wallet
+                CoinID m_Cid; // weak schemes (V0, BB21) isn't supported for trustless wallet
+                Output m_Result; // explicit incubation period isn't supported for trustless wallet
+            };
+
+            struct KernelCommon
+            {
+                beam::HeightRange m_Height;
+                beam::Amount m_Fee;
+                ECC::Point m_Commitment;
+                ECC::Point m_PublicNonce;
+            };
+
+            struct TxCommon
+            {
+                std::vector<CoinID> m_vInputs;
+                std::vector<CoinID> m_vOutputs;
+                KernelCommon m_KernelParams;
+            };
+
+            struct KernelMutual :public KernelCommon
+            {
+                // for mutually-constructed kernel
+                PeerID m_Peer;
+                ECC::Signature m_PaymentProofSignature;
+            };
+
+            struct SignReceiver :public TxCommon {
+                WalletIDKey m_walletIDkey;
+            };
+
+            struct SignSender :public TxCommon {
+                uint32_t m_nonceSlot;
+                bool m_initial;
+            };
         };
 
 #define KEY_KEEPER_METHODS(macro) \
 		macro(get_KeyImage) \
 		macro(get_NumSlots) \
 		macro(get_SlotImage) \
+		macro(CreateOutput) \
+		macro(SignReceiver) \
+		macro(SignSender) \
 
 
 #define THE_MACRO(method) \
