@@ -342,9 +342,8 @@ bool Mediator::GracefulClose(const std::string& channelID)
         m_actionsQueue.emplace_back([this, &channel, p_channelID] () {
             Block::SystemState::Full tip;
             get_History().get_Tip(tip);
-            Height channelLockHeight = channel->get_LockHeight();
 
-            if (tip.m_Height <= channelLockHeight)
+            if (tip.m_Height <= channel->get_LockHeight())
             {
                 channel->Transfer(0, true);
             }
@@ -357,9 +356,7 @@ bool Mediator::GracefulClose(const std::string& channelID)
     }
     else
     {
-        Height channelLockHeight = channel->get_LockHeight();
-
-        if (tip.m_Height <= channelLockHeight)
+        if (tip.m_Height <= channel->get_LockHeight())
         {
             channel->Transfer(0, true);
         }
