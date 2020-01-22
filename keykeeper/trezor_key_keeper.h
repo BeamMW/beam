@@ -57,9 +57,9 @@ namespace beam::wallet
 
         ECC::Scalar::Native SignAssetKernelSync(const std::vector<CoinID>& inputs,
                 const std::vector<CoinID>& outputs,
-                TxKernelAssetControl& kernel,
                 Amount fee,
-                Key::Index assetOwnerIdx) override;
+                Key::Index assetOwnerIdx,
+                TxKernelAssetControl& kernel) override;
 
         PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override;
 
