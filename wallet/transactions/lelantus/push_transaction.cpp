@@ -92,102 +92,7 @@ namespace beam::wallet::lelantus
             // TODO check expired
 
             // Construct transaction
-            //auto transaction = m_TxBuilder->CreateTransaction();
-            auto transaction = std::make_shared<Transaction>();
-
-            {               
-                transaction->m_vInputs = GetMandatoryParameter<std::vector<Input::Ptr>>(TxParameterID::Inputs);
-
-                {
-                    std::vector<Output::Ptr> outputs;
-                    if (GetParameter(TxParameterID::Outputs, outputs))
-                    {
-                        transaction->m_vOutputs = std::move(outputs);
-                    }
-                }
-                //transaction->m_Offset = m_Offset;
-                {
-                    ECC::Scalar::Native offset = Zero;
-
-                    for (auto id : m_TxBuilder->GetInputCoins())
-                    {
-                        ECC::Scalar::Native k;
-                        ECC::Point comm;
-                        CoinID::Worker(id).Create(k, comm, *GetWalletDB()->get_MasterKdf());
-
-                        offset += k;
-                    }
-
-                    transaction->m_Offset = offset;
-                }
-
-                {
-                    ECC::Scalar::Native offset = transaction->m_Offset;
-
-                    for (auto id : m_TxBuilder->GetOutputCoins())
-                    {
-                        ECC::Scalar::Native k;
-                        ECC::Point comm;
-                        CoinID::Worker(id).Create(k, comm, *GetWalletDB()->get_MasterKdf());
-
-                        offset -= k;
-                    }
-
-                    transaction->m_Offset = offset;
-                }
-
-                {
-                    TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
-                    pKrn->m_Height.m_Min = GetWalletDB()->getCurrentHeight();
-                    pKrn->m_Fee = m_TxBuilder->GetFee();
-
-                    ShieldedTxo::Viewer viewer;
-                    viewer.FromOwner(*GetWalletDB()->get_MasterKdf());
-
-                    ECC::uintBig serialNonce;
-                    ECC::GenRandom(serialNonce);
-                    ShieldedTxo::Data::SerialParams sp;
-                    sp.Generate(pKrn->m_Txo.m_Serial, viewer, serialNonce);
-
-                    pKrn->UpdateMsg();
-                    ECC::Oracle oracle;
-                    oracle << pKrn->m_Msg;
-
-                    ECC::uintBig outputNonce;
-                    ECC::GenRandom(outputNonce);
-                    ShieldedTxo::Data::OutputParams op;
-                    op.m_Sender = GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
-                    //op.m_Message = m_Shielded.m_Message;
-                    op.m_Value = m_TxBuilder->GetAmount();
-                    op.Generate(pKrn->m_Txo, oracle, viewer, outputNonce);
-
-                    // save shielded Coin
-                    ShieldedCoin shieldedCoin;
-                    shieldedCoin.m_value = m_TxBuilder->GetAmount();
-                    shieldedCoin.m_createTxId = GetTxID();
-                    shieldedCoin.m_skSerialG = sp.m_pK[0];
-                    shieldedCoin.m_skOutputG = op.m_k;
-                    shieldedCoin.m_serialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
-                    shieldedCoin.m_IsCreatedByViewer = sp.m_IsCreatedByViewer;
-
-                    SetParameter(TxParameterID::ShieldedCoin, shieldedCoin);
-
-                    // save KernelID
-                    pKrn->MsgToID();
-                    SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
-
-                    // verify TxKernelShieldedOutput
-                    ECC::Point::Native pt;
-                    assert(pKrn->IsValid(GetWalletDB()->getCurrentHeight(), pt));
-
-                    transaction->m_vKernels.push_back(std::move(pKrn));
-
-                    ECC::Scalar::Native offset = transaction->m_Offset;
-                    offset -= op.m_k;
-                    transaction->m_Offset = offset;
-                }
-                transaction->Normalize();
-            }
+            auto transaction = m_TxBuilder->CreateTransaction();
 
             // Verify final transaction
             TxBase::Context::Params pars;
@@ -198,6 +103,7 @@ namespace beam::wallet::lelantus
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return;
             }
+
             GetGateway().register_tx(GetTxID(), transaction);
             //SetState(State::Registration);
             return;
