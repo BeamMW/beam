@@ -82,4 +82,139 @@ namespace beam::wallet
 	KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
 
+	////////////////////////////////
+	// ThreadedPrivateKeyKeeper
+	void ThreadedPrivateKeyKeeper::TaskList::Pop(Task::Ptr& p)
+	{
+		assert(!empty());
+		Task& t = front();
+
+		erase(TaskList::s_iterator_to(t));
+		p.reset(&t);
+	}
+
+	bool ThreadedPrivateKeyKeeper::TaskList::Push(Task::Ptr& p) // returns if was empty
+	{
+		bool b = empty();
+		push_back(*p.release());
+		return b;
+	}
+
+	void ThreadedPrivateKeyKeeper::TaskList::Clear()
+	{
+		while (!empty())
+		{
+			Task::Ptr p;
+			Pop(p);
+		}
+	}
+
+	void ThreadedPrivateKeyKeeper::PushIn(Task::Ptr& p)
+	{
+		std::unique_lock<std::mutex> scope(m_MutexIn);
+
+		if (m_queIn.Push(p))
+			m_NewIn.notify_one();
+	}
+
+	void ThreadedPrivateKeyKeeper::Thread()
+	{
+		while (true)
+		{
+			Task::Ptr pTask;
+
+			{
+				std::unique_lock<std::mutex> scope(m_MutexIn);
+				while (true)
+				{
+					if (!m_Run)
+						return;
+
+					if (!m_queIn.empty())
+					{
+						m_queIn.Pop(pTask);
+						break;
+					}
+
+					m_NewIn.wait(scope);
+				}
+			}
+
+			assert(pTask);
+			pTask->Exec(*m_pKeyKeeper);
+
+			{
+				std::unique_lock<std::mutex> scope(m_MutexOut);
+
+				if (m_queOut.Push(pTask))
+					m_pNewOut->post();
+			}
+		}
+	}
+
+	void ThreadedPrivateKeyKeeper::OnNewOut()
+	{
+		// protect this obj from destruction from the handler invocation
+		TaskList que;
+		{
+			std::unique_lock<std::mutex> scope(m_MutexOut);
+			m_queOut.swap(que);
+		}
+
+		while (!que.empty())
+		{
+			Task::Ptr pTask;
+			que.Pop(pTask);
+			pTask->m_pHandler->OnDone(pTask->m_Status);
+		}
+	}
+
+	ThreadedPrivateKeyKeeper::ThreadedPrivateKeyKeeper(const IPrivateKeyKeeper2::Ptr& p)
+		:m_pKeyKeeper(p)
+	{
+		io::AsyncEvent::Callback cb = [this]() { OnNewOut(); };
+		m_pNewOut = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
+
+		m_Thread = std::thread(&ThreadedPrivateKeyKeeper::Thread, this);
+	}
+
+	ThreadedPrivateKeyKeeper::~ThreadedPrivateKeyKeeper()
+	{
+		if (m_Thread.joinable())
+		{
+			{
+				std::unique_lock<std::mutex> scope(m_MutexIn);
+				m_Run = false;
+				m_NewIn.notify_one();
+			}
+			m_Thread.join();
+		}
+	}
+
+	template <typename TMethod>
+	void ThreadedPrivateKeyKeeper::InvokeAsyncInternal(TMethod& m, const Handler::Ptr& pHandler)
+	{
+		struct MyTask :public Task {
+			TMethod* m_pM;
+			virtual void Exec(IPrivateKeyKeeper2& k) override { m_Status = k.InvokeSync(*m_pM); }
+		};
+
+		Task::Ptr pTask(new MyTask);
+		pTask->m_pHandler = pHandler;
+		Cast::Up<MyTask>(*pTask).m_pM = &m;
+
+		PushIn(pTask);
+	}
+
+#define THE_MACRO(method) \
+	void ThreadedPrivateKeyKeeper::InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) \
+	{ \
+		InvokeAsyncInternal<Method::method>(m, pHandler); \
+	}
+
+	KEY_KEEPER_METHODS(THE_MACRO)
+#undef THE_MACRO
+
+
+
 } // namespace beam::wallet

@@ -15,6 +15,7 @@
 #pragma once
 
 #include "common.h"
+#include <boost/intrusive/list.hpp>
 
 namespace beam::wallet
 {
@@ -217,4 +218,67 @@ namespace beam::wallet
         template <typename TMethod>
         Status::Type InvokeSyncInternal(TMethod& m);
     };
+
+
+	class ThreadedPrivateKeyKeeper
+		:public IPrivateKeyKeeper2
+	{
+        IPrivateKeyKeeper2::Ptr m_pKeyKeeper;
+
+		std::thread m_Thread;
+		bool m_Run = true;
+
+		std::mutex m_MutexIn;
+		std::condition_variable m_NewIn;
+
+		std::mutex m_MutexOut;
+		io::AsyncEvent::Ptr m_pNewOut;
+
+
+        struct Task
+            :public boost::intrusive::list_base_hook<>
+        {
+            typedef std::unique_ptr<Task> Ptr;
+
+            Handler::Ptr m_pHandler;
+            Status::Type m_Status;
+
+            virtual ~Task() {}
+            virtual void Exec(IPrivateKeyKeeper2&) = 0;
+        };
+
+		struct TaskList
+			:public boost::intrusive::list<Task>
+		{
+            void Pop(Task::Ptr&);
+            bool Push(Task::Ptr&); // returns if was empty
+            void Clear();
+
+			~TaskList() { Clear(); }
+		};
+
+		TaskList m_queIn;
+		TaskList m_queOut;
+
+        void PushIn(Task::Ptr& p);
+
+        void Thread();
+        void OnNewOut();
+
+    public:
+
+        ThreadedPrivateKeyKeeper(const IPrivateKeyKeeper2::Ptr& p);
+        ~ThreadedPrivateKeyKeeper();
+
+		template <typename TMethod>
+        void InvokeAsyncInternal(TMethod& m, const Handler::Ptr& pHandler);
+
+#define THE_MACRO(method) \
+		virtual void InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) override;
+
+		KEY_KEEPER_METHODS(THE_MACRO)
+#undef THE_MACRO
+
+	};
+
 }
