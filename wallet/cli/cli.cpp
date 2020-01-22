@@ -30,7 +30,7 @@
 
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
-#include "wallet/transactions/assets/assets_register.h"
+#include "wallet/transactions/assets/assets_reg_creators.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
@@ -63,6 +63,7 @@
 #include <iomanip>
 #include <iterator>
 #include <future>
+#include <core/block_crypt.h>
 
 using namespace std;
 using namespace beam;
@@ -109,11 +110,19 @@ namespace beam
             {
                 return kTxStatusIssued;
             }
-            if (tx.m_txType == TxType::AssetConsume)
+            else if (tx.m_txType == TxType::AssetConsume)
             {
                 return kTxStatusConsumed;
             }
-            if (tx.m_selfTx)
+            else if (tx.m_txType == TxType::AssetReg)
+            {
+                return kTxStatusRegistered;
+            }
+            else if (tx.m_txType == TxType::AssetUnreg)
+            {
+                return kTxStatusUnregistered;
+            }
+            else if (tx.m_selfTx)
             {
                 return kTxStatusSentToOwn;
             }
@@ -591,11 +600,15 @@ namespace
 
     void ShowAssetTxs(const IWalletDB::Ptr& walletDB, Asset::ID assetId, const char* coin, const char* groth)
     {
-        auto txHistory = walletDB->getTxHistory(TxType::AssetIssue);
+        auto txHistory = walletDB->getTxHistory(TxType::AssetReg);
+        auto txIssue   = walletDB->getTxHistory(TxType::AssetIssue);
         auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
         auto txSimple  = walletDB->getTxHistory(TxType::Simple);
+        auto txUnreg   = walletDB->getTxHistory(TxType::AssetUnreg);
+        txHistory.insert(txHistory.end(), txIssue.begin(), txIssue.end());
         txHistory.insert(txHistory.end(), txConsume.begin(), txConsume.end());
         txHistory.insert(txHistory.end(), txSimple.begin(), txSimple.end());
+        txHistory.insert(txHistory.end(), txUnreg.begin(), txUnreg.end());
 
         txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [&assetId](const auto& tx) {
             return tx.m_assetId != assetId;
@@ -620,7 +633,8 @@ namespace
                      << std::endl;
 
             for (auto& tx : txHistory) {
-                auto direction = tx.m_selfTx || tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume ?
+                auto direction = tx.m_selfTx || tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume ||
+                                 tx.m_txType == TxType::AssetReg || tx.m_txType == beam::wallet::TxType::AssetUnreg ?
                                  kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut : kTxDirectionIn);
                 cout << boost::format(kTxHistoryTableFormat)
                         % boost::io::group(left, setw(columnWidths[0]),  format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
@@ -1769,8 +1783,32 @@ namespace
                         .SetParameter(TxParameterID::Amount, amount)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
-                        .SetParameter(TxParameterID::AssetOwnerIdx, Key::Index(aidx))
-                        .SetParameter(TxParameterID::MyID, WalletID(Zero));
+                        .SetParameter(TxParameterID::AssetOwnerIdx, Key::Index(aidx));
+
+        return wallet.StartTransaction(params);
+    }
+
+    TxID RegUnregAsset(bool reg, const po::variables_map& vm, Wallet& wallet)
+    {
+        if(!vm.count(cli::ASSET_INDEX))
+        {
+            throw std::runtime_error(kErrorAssetIdxRequired);
+        }
+
+        const auto aidx = vm[cli::ASSET_INDEX].as<Positive<uint32_t>>().value;
+
+        auto fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
+        if (fee < cli::kMinimumFee)
+        {
+            LOG_ERROR() << "Test: " << kErrorFeeToLow;
+            throw std::runtime_error(kErrorFeeToLow);
+        }
+
+        auto params = CreateTransactionParameters(reg ? TxType::AssetReg : TxType::AssetUnreg)
+                        .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
+                        .SetParameter(TxParameterID::Fee, fee)
+                        .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
+                        .SetParameter(TxParameterID::AssetOwnerIdx, Key::Index(aidx));
 
         return wallet.StartTransaction(params);
     }
@@ -1903,7 +1941,9 @@ int main_impl(int argc, char* argv[])
                             cli::LASER,
 #endif  // BEAM_LASER_SUPPORT
                             cli::ASSET_ISSUE,
-                            cli::ASSET_CONSUME
+                            cli::ASSET_CONSUME,
+                            cli::ASSET_REGISTER,
+                            cli::ASSET_UNREGISTER
                         };
 
                         if (find(begin(commands), end(commands), command) == end(commands))
@@ -2308,6 +2348,16 @@ int main_impl(int argc, char* argv[])
                             currentTxID = IssueConsumeAsset(false, vm, wallet);
                         }
 
+                        if (command == cli::ASSET_REGISTER)
+                        {
+                            currentTxID = RegUnregAsset(true, vm, wallet);
+                        }
+
+                        if (command == cli::ASSET_UNREGISTER)
+                        {
+                            currentTxID = RegUnregAsset(false, vm, wallet);
+                        }
+
                         if (isTxInitiator)
                         {
                             WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
@@ -2411,6 +2461,7 @@ int main_impl(int argc, char* argv[])
         }
         catch (const std::runtime_error& e)
         {
+            LOG_ERROR() << "Err";
             LOG_ERROR() << e.what();
         }
     }

@@ -3535,7 +3535,10 @@ namespace beam::wallet
                         return false;
                     }
 
-                    if(txtype == TxType::AssetConsume || txtype == TxType::AssetIssue)
+                    if(txtype == TxType::AssetConsume ||
+                       txtype == TxType::AssetIssue ||
+                       txtype == TxType::AssetReg ||
+                       txtype == TxType::AssetUnreg)
                     {
                         // Should be Zero for assets issue & consume
                         if (wid != Zero)

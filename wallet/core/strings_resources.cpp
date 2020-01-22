@@ -47,6 +47,8 @@ namespace beam
     const char kTxStatusExpired[] = "expired";
     const char kTxStatusConsumed[] = "asset consumed";
     const char kTxStatusIssued[] = "asset issued";
+    const char kTxStatusRegistered[] = "asset registred";
+    const char kTxStatusUnregistered[] = "asset unregistred";
 
     // Errors
     const char kErrorUnknownCoinStatus[] = "Unknown coin status";

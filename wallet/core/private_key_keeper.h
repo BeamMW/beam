@@ -138,7 +138,21 @@ namespace beam::wallet
         //
         // For assets
         //
-        virtual ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx) = 0;
+        virtual void SignAssetKernel(const std::vector<CoinID>& inputs,
+                    const std::vector<CoinID>& outputs,
+                    Amount fee,
+                    Key::Index assetOwnerIdx,
+                    TxKernelAssetControl& kernel,
+                    Callback<ECC::Scalar::Native>&&,
+                    ExceptionCallback&&) = 0;
+
+        virtual ECC::Scalar::Native SignAssetKernelSync(const std::vector<CoinID>& inputs,
+                    const std::vector<CoinID>& outputs,
+                    Amount fee,
+                    Key::Index assetOwnerIdx,
+                    TxKernelAssetControl& kernel
+                ) = 0;
+
         virtual PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) = 0;
     };
 }

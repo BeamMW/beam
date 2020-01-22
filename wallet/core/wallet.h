@@ -55,8 +55,8 @@ namespace beam::wallet
     class InvalidTransactionParametersException : public std::runtime_error
     {
     public:
-        InvalidTransactionParametersException()
-            : std::runtime_error("")
+        explicit InvalidTransactionParametersException(const char* message)
+            : std::runtime_error(message)
         {
         }
     };
