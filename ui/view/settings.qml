@@ -637,8 +637,6 @@ deploy the key at the node you trust completely."*/
                                 icon.source: "qrc:/assets/icon-cancel-white.svg"
                                 enabled: {
                                     viewModel.isChanged
-                                    && nodeAddress.acceptableInput
-                                    && localNodePort.acceptableInput
                                 }
                                 onClicked: viewModel.undoChanges()
                             }
@@ -662,6 +660,7 @@ deploy the key at the node you trust completely."*/
                                     viewModel.isChanged
                                     && nodeAddress.acceptableInput
                                     && localNodePort.acceptableInput
+                                    && remoteNodePort.acceptableInput
                                     && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : viewModel.isValidNodeAddress)
                                 }
                                 onClicked: viewModel.applyChanges()
