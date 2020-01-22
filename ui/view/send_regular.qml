@@ -76,6 +76,7 @@ ColumnLayout {
                 color:           Style.content_main
                 //% "Transaction token or contact"
                 text:            qsTrId("send-send-to-label")
+                bottomPadding:   26
             }
 
             SFTextInput {
@@ -125,6 +126,7 @@ ColumnLayout {
                 color:            Style.content_main
                 //% "Comment"
                 text:             qsTrId("general-comment")
+                topPadding:    5
             }
 
             SFTextInput {
