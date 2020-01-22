@@ -2,7 +2,17 @@ cmake_minimum_required(VERSION 3.13)
 
 set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
-add_executable(${TARGET_NAME} cli.cpp)
+set(CLI_SRC
+    cli.cpp
+)
+if(BEAM_LASER_SUPPORT)
+    set(CLI_SRC
+        ${CLI_SRC}
+        laser.cpp
+    )
+endif()
+
+add_executable(${TARGET_NAME} ${CLI_SRC})
 
 if(LINUX)
     target_link_libraries(${TARGET_NAME}
