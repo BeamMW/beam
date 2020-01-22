@@ -101,7 +101,7 @@ namespace beam::wallet::lelantus
             shieldedCoin.m_skSerialG = sp.m_pK[0];
             shieldedCoin.m_skOutputG = op.m_k;
             shieldedCoin.m_serialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
-            shieldedCoin.m_IsCreatedByViewer = sp.m_IsCreatedByViewer;
+            shieldedCoin.m_isCreatedByViewer = sp.m_IsCreatedByViewer;
 
             m_Tx.SetParameter(TxParameterID::ShieldedCoin, shieldedCoin);
 

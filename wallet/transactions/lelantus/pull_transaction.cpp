@@ -30,7 +30,7 @@ namespace beam::wallet::lelantus
 
             ShieldedTxo::Data::SerialParams serialParams;
             serialParams.m_pK[0] = shieldedCoin.m_skSerialG;
-            serialParams.m_IsCreatedByViewer = shieldedCoin.m_IsCreatedByViewer;
+            serialParams.m_IsCreatedByViewer = shieldedCoin.m_isCreatedByViewer;
             serialParams.Restore(viewer);
 
             ECC::Scalar::Native skSpendKey;

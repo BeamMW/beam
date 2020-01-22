@@ -698,13 +698,7 @@ namespace beam::wallet
 
             if (proto::UtxoEvent::Flags::Shielded & event.m_Flags)
             {
-                Key::ID::Packed kid;
-                kid = event.m_Kidv;
-                proto::UtxoEvent::Shielded shielded;
-                event.m_ShieldedDelta.Get(kid, event.m_Buf1, shielded);
-
-                // TODO(alex.starun): save shielded output to DB
-                LOG_DEBUG() << "Shielded output, ID: " << shielded.m_ID;
+                ProcessShieldedUtxoEvent(event);
             }
             // filter-out false positives
             else if (commitmentFunc)
@@ -799,6 +793,46 @@ namespace beam::wallet
         }
 
         m_WalletDB->saveCoin(c);
+    }
+
+    void Wallet::ProcessShieldedUtxoEvent(const proto::UtxoEvent& event)
+    {
+        proto::UtxoEvent::Shielded shielded;
+        {
+            Key::ID::Packed kid;
+            kid = event.m_Kidv;
+            event.m_ShieldedDelta.Get(kid, event.m_Buf1, shielded);
+        }
+        TxoID shieldedID = 0;
+        shielded.m_ID.Export(shieldedID);
+
+        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedID);
+        if (!shieldedCoin)
+        {
+            shieldedCoin = ShieldedCoin{};
+        }
+
+        shieldedCoin->m_skSerialG = shielded.m_kSerG;
+        shieldedCoin->m_skOutputG = shielded.m_kOutG;
+        shieldedCoin->m_sender = shielded.m_Sender;
+        shieldedCoin->m_message = shielded.m_Message;
+        shieldedCoin->m_ID = shieldedID;
+        shieldedCoin->m_isCreatedByViewer = shielded.m_IsCreatedByViewer;
+        shieldedCoin->m_value = event.m_Kidv.m_Value;
+
+        bool isAdd = 0 != (proto::UtxoEvent::Flags::Add & event.m_Flags);
+        if (isAdd)
+        {
+            shieldedCoin->m_confirmHeight = std::min(shieldedCoin->m_confirmHeight, event.m_Height);
+        }
+        else
+        {
+            shieldedCoin->m_spentHeight = std::min(shieldedCoin->m_spentHeight, event.m_Height);
+        }
+
+        m_WalletDB->saveShieldedCoin(*shieldedCoin);
+
+        LOG_INFO() << "Shielded output, ID: " << shielded.m_ID << (isAdd ? " Confirmed" : " Spent") << ", Height=" << event.m_Height;
     }
 
     void Wallet::OnRolledBack()
