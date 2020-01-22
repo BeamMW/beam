@@ -398,24 +398,20 @@ namespace beam::wallet
 
             if (!initial)
             {
-                if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation2, kernelParameters.paymentProofSignature, m_SubTxID)) 
+                if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation, kernelParameters.paymentProofSignature, m_SubTxID))
                 {
                     if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, kernelParameters.peerID)
                         || !m_Tx.GetParameter(TxParameterID::MySecureWalletID, kernelParameters.myID))
                     {
-                        throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                        WalletID myWalletID, peerWalletID;
+                        if (!m_Tx.GetParameter(TxParameterID::PeerID, peerWalletID)
+                            || !m_Tx.GetParameter(TxParameterID::MyID, myWalletID))
+                        {
+                            throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                        }
+                        kernelParameters.peerID = peerWalletID.m_Pk;
+                        kernelParameters.myID = myWalletID.m_Pk;
                     }
-                }
-                else if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation, kernelParameters.paymentProofSignature, m_SubTxID))
-                {
-                    WalletID myWalletID, peerWalletID;
-                    if (!m_Tx.GetParameter(TxParameterID::PeerID, peerWalletID)
-                        || !m_Tx.GetParameter(TxParameterID::MyID, myWalletID))
-                    {
-                        throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
-                    }
-                    kernelParameters.peerID = peerWalletID.m_Pk;
-                    kernelParameters.myID = myWalletID.m_Pk;
                 }
                 else
                 {
@@ -505,7 +501,7 @@ namespace beam::wallet
                     m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
                     if (addressID)
                     {
-                        m_Tx.SetParameter(TxParameterID::PaymentConfirmation2, signature.m_PaymentProofSignature);
+                        m_Tx.SetParameter(TxParameterID::PaymentConfirmation, signature.m_PaymentProofSignature);
                     }
                     StoreKernelID();
                 }, __LINE__);

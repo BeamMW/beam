@@ -3535,7 +3535,10 @@ namespace beam::wallet
                         return false;
                     }
 
-                    if(txtype == TxType::AssetConsume || txtype == TxType::AssetIssue)
+                    if(txtype == TxType::AssetConsume ||
+                       txtype == TxType::AssetIssue ||
+                       txtype == TxType::AssetReg ||
+                       txtype == TxType::AssetUnreg)
                     {
                         // Should be Zero for assets issue & consume
                         if (wid != Zero)
@@ -3786,9 +3789,18 @@ namespace beam::wallet
             PaymentInfo pi;
             uint64_t nAddrOwnID;
 
-            bool bSuccess =
-                storage::getTxParameter(walletDB, txID, TxParameterID::PeerID, pi.m_Receiver) &&
-                storage::getTxParameter(walletDB, txID, TxParameterID::MyID, pi.m_Sender) &&
+            bool bSuccess = 
+                (
+                    (
+                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerSecureWalletID, pi.m_Receiver.m_Pk) &&  // payment proiof using wallet ID
+                        storage::getTxParameter(walletDB, txID, TxParameterID::MySecureWalletID, pi.m_Sender.m_Pk)
+                    ) ||
+                    (
+                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerID, pi.m_Receiver) && // payment proof using SBBS address
+                        storage::getTxParameter(walletDB, txID, TxParameterID::MyID, pi.m_Sender)
+                    )
+                )
+                &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::KernelID, pi.m_KernelID) &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::Amount, pi.m_Amount) &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::PaymentConfirmation, pi.m_Signature) &&
@@ -3839,10 +3851,16 @@ namespace beam::wallet
                << "\"Transaction fee, BEAM\"" << ","
                << "Transaction ID" << ","
                << "Kernel ID" << "," 
-               << "Comment" << std::endl;
+               << "Comment" << "," 
+               << "Payment proof" << std::endl;
 
             for (const auto& tx : db.getTxHistory())
             {
+                string strProof;
+                auto proof = storage::ExportPaymentProof(db, tx.m_txId);
+                strProof.resize(proof.size() * 2);
+                beam::to_hex(strProof.data(), proof.data(), proof.size());
+
                 ss << (tx.m_sender ? "Send BEAM" : "Receive BEAM") << ","
                    << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","
                    << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","
@@ -3852,7 +3870,8 @@ namespace beam::wallet
                    << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","
                    << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","
                    << std::to_string(tx.m_kernelID) << ","
-                   << std::string { tx.m_message.begin(), tx.m_message.end() } << std::endl;
+                   << std::string { tx.m_message.begin(), tx.m_message.end() } << ","
+                   << strProof << std::endl;
             }
             return ss.str();
         }

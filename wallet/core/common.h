@@ -30,6 +30,8 @@ namespace beam::wallet
         AtomicSwap,
         AssetIssue,
         AssetConsume,
+        AssetReg,
+        AssetUnreg,
         ALL
     };
 
@@ -141,8 +143,9 @@ namespace beam::wallet
     MACRO(NotLoopback,                   25, "Not a loopback transaction") \
     MACRO(NoKeyKeeper,                   26, "Key keeper is not initialized") \
     MACRO(NoAssetId,                     27, "No valid asset id/asset idx") \
-    MACRO(ConsumeAmountTooBig,           28, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
-    MACRO(NotEnoughDataForProof,         29, "Some mandatory data for payment proof is missing") \
+    MACRO(RegisterAmountTooSmall,        28, "Asset registration fee is too small") \
+    MACRO(ConsumeAmountTooBig,           29, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
+    MACRO(NotEnoughDataForProof,         30, "Some mandatory data for payment proof is missing") \
 
     enum TxFailureReason : int32_t
     {
@@ -244,7 +247,6 @@ namespace beam::wallet
         FailureReason = 92,
 
         PaymentConfirmation = 99,
-        PaymentConfirmation2 = 100, // uses wallet ID to sign payment proof
 
         PeerSharedBulletProofMSig = 108,
         PeerSharedBulletProofPart2 = 109,

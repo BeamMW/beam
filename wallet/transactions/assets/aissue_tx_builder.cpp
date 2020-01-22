@@ -429,7 +429,7 @@ namespace beam::wallet
 
     void AssetIssueTxBuilder::SignKernel()
     {
-        m_Offset += m_keyKeeper->SignEmissionKernel(*m_Kernel, m_assetOwnerIdx);
+        m_Offset += m_keyKeeper->SignAssetKernelSync(m_InputCoins, m_OutputCoins, m_Fee, m_assetOwnerIdx, *m_Kernel);
 
         const Merkle::Hash& kernelID = m_Kernel->m_Internal.m_ID;
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);

@@ -242,16 +242,16 @@ namespace beam
         const char* LASER_WAIT = "laser_receive";
         const char* LASER_SERVE = "laser_listen";
         const char* LASER_LIST = "laser_channels_list";
-        const char* LASER_CLOSE = "laser_drop";
+        const char* LASER_DROP = "laser_drop";
         const char* LASER_DELETE = "laser_delete";
+        const char* LASER_CLOSE_GRACEFUL = "laser_close";
+
         const char* LASER_AMOUNT_MY = "laser_my_locked_amount";
         const char* LASER_AMOUNT_TARGET = "laser_remote_locked_amount";
         const char* LASER_TARGET_ADDR = "laser_address";
         const char* LASER_FEE = "laser_fee";
         const char* LASER_LOCK_TIME = "laser_lock_time";
-        const char* LASER_CHANNEL_ID = "laser_channels";
-        const char* LASER_ALL = "all,a";
-        const char* LASER_CLOSE_GRACEFUL = "laser_close";
+        const char* LASER_CHANNEL_ID = "laser_channel";        
 #endif  // BEAM_LASER_SUPPORT
 
         // wallet api
@@ -275,10 +275,12 @@ namespace beam
         const char* APPDATA_PATH = "appdata";
 
         // assets
-        const char* ASSET_ISSUE   = "issue";
-        const char* ASSET_CONSUME = "consume";
-        const char* ASSET_INDEX   = "asset_idx";
-        const char* ASSET_ID      = "asset_id";
+        const char* ASSET_ISSUE       = "issue";
+        const char* ASSET_CONSUME     = "consume";
+        const char* ASSET_REGISTER    = "reg";
+        const char* ASSET_UNREGISTER  = "unreg";
+        const char* ASSET_INDEX       = "asset_idx";
+        const char* ASSET_ID          = "asset_id";
 
         // Defaults
         const Amount kMinimumFee = 100;
@@ -424,23 +426,25 @@ namespace beam
             (cli::ASSET_ID, po::value<string>(), "asset id");
 
 #ifdef BEAM_LASER_SUPPORT
-        po::options_description lazer_options("Lightning options");
-        lazer_options.add_options()
-            (cli::LASER_OPEN, "open lightning channel")
-            (cli::LASER_TRANSFER, "send to lightning channel")
-            (cli::LASER_WAIT, "wait for open incomming lightning channel")
+        po::options_description laser_commands("Laser commands");
+        laser_commands.add_options()
             (cli::LASER_LIST, "view all opened lightning channel")
-            (cli::LASER_SERVE, po::value<string>()->implicit_value("all"), "listen lightning channels --serve [chID1, ..., chIDN]")
-            (cli::LASER_CLOSE, po::value<string>()->implicit_value(""), ("close opened lightning channel --close <chID1, ..., chIDN> [" + std::string(cli::LASER_ALL) + "]").c_str())
-            (cli::LASER_DELETE, po::value<string>(), "delete laser channel --delete <chID1, ..., chIDN>")
-            (cli::LASER_AMOUNT_MY, po::value<Positive<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")
-            (cli::LASER_AMOUNT_TARGET, po::value<Positive<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::LASER_WAIT, "wait for open incomming lightning channel\n--laser_my_locked_amount <amount in beam>\n--laser_remote_locked_amount <amount in beam>\n--laser_fee <amount in groth>\n--laser_lock_time <blocks count before can close>")
+            (cli::LASER_OPEN, "open lightning channel\n--laser_my_locked_amount <amount in beam>\n--laser_remote_locked_amount <amount in beam>\n--laser_fee <amount in groth>\n--laser_lock_time <blocks count before can close>")
+            (cli::LASER_SERVE, po::value<string>()->implicit_value(""), "listen lightning channels\narg: [channel ID1, ..., channel IDN]\narg can be unspecified")
+            (cli::LASER_TRANSFER, po::value<Positive<double>>(), "send to lightning channel\narg: <amount in beam>\n--laser_channel <channel ID>")
+            (cli::LASER_CLOSE_GRACEFUL, po::value<string>()->implicit_value(""), "close opened lightning channel. Use before lock time is up, only if other side is online\narg: <channel ID1, ..., channel IDN>\narg must be specified")
+            (cli::LASER_DROP, po::value<string>()->implicit_value(""), "drop opened lightning channel. Use after lock time is up or if other side is offline\narg: <channel ID1, ..., channel IDN>\narg must be specified")
+            (cli::LASER_DELETE, po::value<string>()->implicit_value(""), "delete closed laser channel from data base\narg: <channel ID1, ..., channel IDN>\narg must be specified");
+
+        po::options_description laser_options("Laser options");
+        laser_options.add_options()
+            (cli::LASER_AMOUNT_MY, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::LASER_AMOUNT_TARGET, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_TARGET_ADDR, po::value<string>(), "address of laser receiver")
-            (cli::LASER_FEE, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::LASER_FEE, po::value<Nonnegative<Amount>>(), "fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::LASER_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks beam transaction")
-            (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID")
-            (cli::LASER_ALL, "all channels")
-            (cli::LASER_CLOSE_GRACEFUL, "graceful close flag");
+            (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 #endif  // BEAM_LASER_SUPPORT
 
         po::options_description options{ "Allowed options" };
@@ -467,8 +471,10 @@ namespace beam
             if(Rules::get().CA.Enabled) visible_options.add(wallet_assets_options);
 
 #ifdef BEAM_LASER_SUPPORT
-            options.add(lazer_options);
-            visible_options.add(lazer_options);
+            options.add(laser_commands);
+            options.add(laser_options);
+            visible_options.add(laser_commands);
+            visible_options.add(laser_options);
 #endif  // BEAM_LASER_SUPPORT
         }
         if (flags & UI_OPTIONS)

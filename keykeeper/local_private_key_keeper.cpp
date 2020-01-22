@@ -468,12 +468,49 @@ namespace beam::wallet
         return value;
     }
 
-    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx)
+    void LocalPrivateKeyKeeper::SignAssetKernel(const std::vector<CoinID>& inputs,
+                const std::vector<CoinID>& outputs,
+                Amount fee,
+                Key::Index assetOwnerIdx,
+                TxKernelAssetControl& kernel,
+                Callback<ECC::Scalar::Native>&& resultCallback,
+                ExceptionCallback&& exceptionCallback)
     {
+         DoAsync([&]()
+            {
+                return SignAssetKernelSync(inputs, outputs, fee, assetOwnerIdx, kernel);
+            },
+            move(resultCallback),
+            move(exceptionCallback)
+         );
+    }
+
+    ECC::Scalar::Native LocalPrivateKeyKeeper::SignAssetKernelSync(const std::vector<CoinID>& inputs,
+            const std::vector<CoinID>& outputs,
+            Amount fee,
+            Key::Index assetOwnerIdx,
+            TxKernelAssetControl& kernel)
+    {
+        auto value = CalculateValue(inputs, outputs);
+        value -= fee;
+
+        if (value < 0)
+        {
+            throw KeyKeeperException("Failed to sign asset kernel. Input amount is not enough");
+        }
+
+        const auto& keypair = GetAssetOwnerKeypair(assetOwnerIdx);
+        kernel.m_Owner = keypair.first;
+
         ECC::Scalar::Native kernelSk;
         m_MasterKdf->DeriveKey(kernelSk, Key::ID(assetOwnerIdx, Key::Type::Kernel, assetOwnerIdx));
-        kernel.Sign(kernelSk, GetAssetOwnerKeypair(assetOwnerIdx).second);
-        return -kernelSk;
+        kernel.Sign(kernelSk, keypair.second);
+
+        kernelSk = -kernelSk;
+        auto excess = GetExcess(inputs, outputs, Zero);
+        excess += kernelSk;
+
+        return excess;
     }
 
     std::pair<PeerID, ECC::Scalar::Native> LocalPrivateKeyKeeper::GetAssetOwnerKeypair(Key::Index assetOwnerIdx)

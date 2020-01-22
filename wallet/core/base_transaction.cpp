@@ -371,8 +371,9 @@ namespace beam::wallet
         if (GetParameter(TxParameterID::MyID, msg.m_From)
             && GetParameter(TxParameterID::PeerID, peerID))
         { 
-            PeerID secureWalletID = Zero;
-            if (GetParameter(TxParameterID::MySecureWalletID, secureWalletID))
+            PeerID secureWalletID = Zero, peerWalletID = Zero;
+            if (GetParameter(TxParameterID::MySecureWalletID, secureWalletID) 
+             && GetParameter(TxParameterID::PeerSecureWalletID, peerWalletID))
             {
                 msg.AddParameter(TxParameterID::PeerSecureWalletID, secureWalletID);
             }
