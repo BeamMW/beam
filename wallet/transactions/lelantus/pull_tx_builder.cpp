@@ -16,31 +16,6 @@
 
 #include "core/shielded.h"
 
-namespace ECC {
-
-    void GenerateRandom(void* p, uint32_t n)
-    {
-        for (uint32_t i = 0; i < n; i++)
-            ((uint8_t*)p)[i] = (uint8_t)rand();
-    }
-
-    void SetRandom(uintBig& x)
-    {
-        GenerateRandom(x.m_pData, x.nBytes);
-    }
-
-    void SetRandom(Scalar::Native& x)
-    {
-        Scalar s;
-        while (true)
-        {
-            SetRandom(s.m_Value);
-            if (!x.Import(s))
-                break;
-        }
-    }
-}
-
 
 namespace beam::wallet::lelantus
 {
@@ -100,8 +75,9 @@ namespace beam::wallet::lelantus
                 std::copy(shieldedList.begin(), shieldedList.end(), lst.m_vec.end() - shieldedList.size());
             }
 
-            ECC::Scalar::Native inputSk;
-            ECC::SetRandom(inputSk);
+            ECC::Scalar::Native inputSk = Zero;
+            // TODO: need to generate "protected" random and get blinding factor through IPrivateKeyKeeper
+            inputSk.GenRandomNnz();
 
             assert(shieldedIndex < windowEnd && shieldedIndex >= startIndex);
             //uint32_t l = static_cast<uint32_t>(cfg.get_N() - (shieldedIndex - startIndex) - 2);
