@@ -70,6 +70,8 @@ namespace beam::wallet::lelantus
 
         if (!m_TxBuilder->GetInitialTxParams())
         {
+            UpdateTxDescription(TxStatus::InProgress);
+
             m_TxBuilder->SelectInputs();
             m_TxBuilder->AddChange();
         }

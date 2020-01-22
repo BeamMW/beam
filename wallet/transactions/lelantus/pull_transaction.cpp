@@ -95,6 +95,8 @@ namespace beam::wallet::lelantus
 
         if (!m_TxBuilder->GetInitialTxParams())
         {
+            UpdateTxDescription(TxStatus::InProgress);
+
             for (const auto& amount : m_TxBuilder->GetAmountList())
             {
                 m_TxBuilder->GenerateBeamCoin(amount, false);

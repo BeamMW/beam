@@ -173,18 +173,18 @@ void TestManyTransactons()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    int completedCount = 2;
-    auto completeAction = [&mainReactor, &completedCount](auto)
+    //int completedCount = 2;
+    auto completeAction = [&mainReactor/*, &completedCount*/](auto)
     {
-        --completedCount;
+        /*--completedCount;
         if (completedCount == 0)
         {
             mainReactor->stop();
-        }
+        }*/
     };
 
-    //const size_t kAmount = 1024;
-    const size_t kAmount = 2;
+    const size_t kAmount = 4000;
+    //const size_t kAmount = 2;
     Amount kNominalCoin = 5000;
     AmountList testAmount;
 
@@ -194,8 +194,8 @@ void TestManyTransactons()
     }
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
-    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
-    //auto binaryTreasury = createTreasury(senderWalletDB, testAmount);
+    //auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+    auto binaryTreasury = createTreasury(senderWalletDB, testAmount);
     TestWalletRig sender("sender", senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
     auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>();
@@ -210,7 +210,7 @@ void TestManyTransactons()
         auto cursor = node.get_Processor().m_Cursor;
         if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
         {
-            for (size_t i = 0; i < kAmount; i++)
+            for (size_t i = 0; i < 500; i++)
             {
                 wallet::TxParameters parameters(GenerateTxID());
 
@@ -224,7 +224,11 @@ void TestManyTransactons()
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
-            /*{
+        }
+        else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 4)
+        {
+            for (size_t i = 0; i < 500; i++)
+            {
                 wallet::TxParameters parameters(GenerateTxID());
 
                 parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
@@ -236,12 +240,16 @@ void TestManyTransactons()
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
 
                 sender.m_Wallet.StartTransaction(parameters);
-            }*/
-            /*{
+            }
+        }
+        else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 5)
+        {
+            for (size_t i = 0; i < 500; i++)
+            {
                 wallet::TxParameters parameters(GenerateTxID());
 
                 parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
-                    .SetParameter(TxParameterID::Amount, 7800)
+                    .SetParameter(TxParameterID::Amount, 3800)
                     .SetParameter(TxParameterID::Fee, 1200)
                     .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
@@ -249,71 +257,28 @@ void TestManyTransactons()
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
 
                 sender.m_Wallet.StartTransaction(parameters);
-            }*/
+            }
         }
-        /*else if (cursor.m_Sid.m_Height == 25)
+        else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 6)
         {
-            wallet::TxParameters parameters(GenerateTxID());
+            for (size_t i = 0; i < 500; i++)
+            {
+                wallet::TxParameters parameters(GenerateTxID());
 
-            parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
-                .SetParameter(TxParameterID::Amount, 3800)
-                .SetParameter(TxParameterID::Fee, 1200)
-                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
-                .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
-                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
-                .SetParameter(TxParameterID::CreateTime, getTimestamp());
+                parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
+                    .SetParameter(TxParameterID::Amount, 3800)
+                    .SetParameter(TxParameterID::Fee, 1200)
+                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                    .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                    .SetParameter(TxParameterID::CreateTime, getTimestamp());
 
-            sender.m_Wallet.StartTransaction(parameters);
-        }*/
-        /*else if (cursor.m_Sid.m_Height == 30)
-        {
-            wallet::TxParameters parameters(GenerateTxID());
-
-            parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
-                .SetParameter(TxParameterID::Amount, 7800)
-                .SetParameter(TxParameterID::Fee, 1200)
-                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
-                .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
-                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
-                .SetParameter(TxParameterID::CreateTime, getTimestamp());
-
-            sender.m_Wallet.StartTransaction(parameters);
+                sender.m_Wallet.StartTransaction(parameters);
+            }
         }
-        else if (cursor.m_Sid.m_Height == 40)
+        else if (cursor.m_Sid.m_Height == 150)
         {
-            wallet::TxParameters parameters(GenerateTxID());
-
-            parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
-                .SetParameter(TxParameterID::Amount, 6600)
-                .SetParameter(TxParameterID::Fee, 1200)
-                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
-                .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
-                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
-                .SetParameter(TxParameterID::WindowBegin, 0U)
-                .SetParameter(TxParameterID::ShieldedOutputId, 1U)
-                .SetParameter(TxParameterID::CreateTime, getTimestamp());
-
-            sender.m_Wallet.StartTransaction(parameters);
-        }
-        else if (cursor.m_Sid.m_Height == 50)
-        {
-            wallet::TxParameters parameters(GenerateTxID());
-
-            parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
-                .SetParameter(TxParameterID::Amount, 2600)
-                .SetParameter(TxParameterID::Fee, 1200)
-                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
-                .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
-                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
-                .SetParameter(TxParameterID::WindowBegin, 0U)
-                .SetParameter(TxParameterID::ShieldedOutputId, 0U)
-                .SetParameter(TxParameterID::CreateTime, getTimestamp());
-
-            sender.m_Wallet.StartTransaction(parameters);
-        }*/
-        else if (cursor.m_Sid.m_Height == 70)
-        {
-            WALLET_CHECK(completedCount == 0);
+            //WALLET_CHECK(completedCount == 0);
             mainReactor->stop();
         }
     });
