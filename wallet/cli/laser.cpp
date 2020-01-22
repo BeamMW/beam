@@ -74,7 +74,6 @@ void LaserObserver::OnUpdateFinished(const laser::ChannelIDPtr& chID)
     }
     LOG_DEBUG() << boost::format(kLaserMessageUpdateFinished)
                 % to_hex(chID->m_pData, chID->nBytes);
-    LaserShow(m_walletDB);
 }
 
 bool LoadLaserParams(const po::variables_map& vm,
