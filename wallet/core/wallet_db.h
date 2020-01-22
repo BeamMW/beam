@@ -210,13 +210,24 @@ namespace beam::wallet
     {
         ECC::Scalar m_skSerialG;
         ECC::Scalar m_skOutputG;
+
+        // TODO: remove
+        ECC::Point m_serialPub;
+
         PeerID m_Sender;
         ECC::uintBig m_Message;
         TxoID m_ID = 0;
         bool m_IsCreatedByViewer = false;
 
-        boost::optional<TxID> m_createTxId;
-        boost::optional<TxID> m_spentTxId;
+        Amount m_value = 0;
+        Height m_confirmHeight = 0;  // height at which the coin was confirmed (appeared in the chain)
+        Height m_spentHeight = 0;    // height at which the coin was spent
+
+        boost::optional<TxID> m_createTxId;  // id of the transaction which created the UTXO
+        boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
+
+        SERIALIZE(m_skSerialG, m_skOutputG, m_serialPub, m_Sender, m_Message, m_ID, m_IsCreatedByViewer, m_value,
+            m_confirmHeight, m_spentHeight, m_createTxId, m_spentTxId);
     };
 
     // Notifications for all collection changes

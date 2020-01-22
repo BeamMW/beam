@@ -161,10 +161,16 @@ namespace beam::wallet::lelantus
                     op.m_Value = m_TxBuilder->GetAmount();
                     op.Generate(pKrn->m_Txo, oracle, viewer, outputNonce);
 
-                    m_shieldedDetails.m_skSerialG = sp.m_pK[0];
-                    m_shieldedDetails.m_skOutputG = op.m_k;
-                    m_shieldedDetails.m_SerialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
-                    m_shieldedDetails.m_IsCreatedByViewer = sp.m_IsCreatedByViewer;
+                    // save shielded Coin
+                    ShieldedCoin shieldedCoin;
+                    shieldedCoin.m_value = m_TxBuilder->GetAmount();
+                    shieldedCoin.m_createTxId = GetTxID();
+                    shieldedCoin.m_skSerialG = sp.m_pK[0];
+                    shieldedCoin.m_skOutputG = op.m_k;
+                    shieldedCoin.m_serialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
+                    shieldedCoin.m_IsCreatedByViewer = sp.m_IsCreatedByViewer;
+
+                    SetParameter(TxParameterID::ShieldedCoin, shieldedCoin);
 
                     // save KernelID
                     pKrn->MsgToID();
@@ -224,20 +230,19 @@ namespace beam::wallet::lelantus
         // getProofShieldedOutp
         if (m_waitingShieldedProof)
         {
-            GetGateway().get_proof_shielded_output(GetTxID(), m_shieldedDetails.m_SerialPub, [this](proto::ProofShieldedOutp proof)
+            auto shieldedCoin = GetMandatoryParameter<ShieldedCoin>(TxParameterID::ShieldedCoin);
+
+            GetGateway().get_proof_shielded_output(GetTxID(), shieldedCoin.m_serialPub, [this](proto::ProofShieldedOutp proof)
                 {
                     if (m_waitingShieldedProof)
                     {
                         m_waitingShieldedProof = false;
 
-                        // save shielded output to DB
-                        wallet::ShieldedCoin coin;
-                        coin.m_createTxId = GetTxID();
+                        // update shielded output
+                        auto coin = GetMandatoryParameter<ShieldedCoin>(TxParameterID::ShieldedCoin);
                         coin.m_ID = proof.m_ID;
-                        coin.m_IsCreatedByViewer = m_shieldedDetails.m_IsCreatedByViewer;
-                        coin.m_skOutputG = m_shieldedDetails.m_skOutputG;
-                        coin.m_skSerialG = m_shieldedDetails.m_skSerialG;
 
+                        // save shielded output to DB
                         GetWalletDB()->saveShieldedCoin(coin);
                     }
                     UpdateAsync();
