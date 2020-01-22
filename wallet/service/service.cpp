@@ -1286,7 +1286,6 @@ namespace
                 ExceptionCallback&&) override
             {
                 assert(!"not implemented.");
-                return {};
             }
 
             PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override

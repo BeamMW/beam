@@ -212,9 +212,9 @@ namespace beam::wallet
 
     ECC::Scalar::Native TrezorKeyKeeper::SignAssetKernelSync(const std::vector<CoinID>& inputs,
                 const std::vector<CoinID>& outputs,
-                TxKernelAssetControl& kernel,
                 Amount fee,
-                Key::Index assetOwnerIdx)
+                Key::Index assetOwnerIdx,
+                TxKernelAssetControl& kernel)
     {
         // TODO:ASSETS implement
         assert("!Not implemented");
