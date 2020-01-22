@@ -34,6 +34,9 @@ namespace beam::wallet
         void setPublisherKeys(const std::vector<PublicKey>& keys);
         boost::optional<NewsMessage> parseMessage(const ByteBuffer&) const;
 
+        /// Convert public key from HEX string representation to the internal type
+        static PublicKey stringToPublicKey(const std::string keyHexString);
+
     private:
         static constexpr uint8_t MsgType = 1;
         static constexpr uint8_t m_protocolVersion = 1;

@@ -1560,13 +1560,15 @@ namespace
         void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) override {}
         void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) override {};
         void onAddresses(bool own, const std::vector<WalletAddress>& addresses) override {};
-        void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override {};
         void onGeneratedNewAddress(const WalletAddress& walletAddr) override {};
         void onSwapParamsLoaded(const beam::ByteBuffer& params) override {};
         void onNewAddressFailed() override {};
         void onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID) override {};
         void onNodeConnectionChanged(bool isNodeConnected) override {};
         void onWalletError(ErrorType error) override {}
+
+        void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override {};
+        void onNewsUpdate(const NewsMessage& msg) override {};
 
         void FailedToStartWallet() override {};
         void onSendMoneyVerified() override {};

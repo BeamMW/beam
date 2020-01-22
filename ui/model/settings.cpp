@@ -47,6 +47,9 @@ namespace
 
     const char* kDefaultLocale = "en_US";
 
+    const char* kNewscastActive = "newscast/active";
+    const char* kNewscastPublicKey = "newscast/pubKey";
+
     const std::map<QString, QString> kSupportedLangs { 
         { "zh_CN", "Chinese Simplified"},
         { "en_US", "English" },
@@ -341,6 +344,52 @@ void WalletSettings::setLocaleByLanguageName(const QString& language)
         m_data.setValue(kLocaleName, locale);
     }
     emit localeChanged();
+}
+
+bool WalletSettings::isNewscastActive() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(kNewscastActive, false).toBool();
+}
+
+void WalletSettings::setNewscastActive(bool isActive)
+{
+    if (isActive != isNewscastActive())
+    {
+        auto walletModel = AppModel::getInstance().getWallet();
+        if (walletModel)
+        {
+            // walletModel->getAsync()->setNewscastActive(isActive);
+        }
+        {
+            Lock lock(m_mutex);
+            m_data.setValue(kNewscastActive, isActive);
+        }
+        emit newscastSettingsChanged();
+    }
+}
+
+std::string WalletSettings::getNewscastKey() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(kNewscastPublicKey).toString().toStdString();
+}
+
+void WalletSettings::setNewscastKey(std::string keyHex)
+{
+    if (keyHex != getNewscastKey())
+    {
+        auto walletModel = AppModel::getInstance().getWallet();
+        if (walletModel)
+        {
+            // walletModel->getAsync()->setNewscastKey(keyHex);
+        }
+        {
+            Lock lock(m_mutex);
+            m_data.setValue(kNewscastPublicKey, keyHex);
+        }
+        emit newscastSettingsChanged();
+    }
 }
 
 // static

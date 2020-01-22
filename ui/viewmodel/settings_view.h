@@ -236,6 +236,9 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(bool     isValidNodeAddress      READ isValidNodeAddress         NOTIFY validNodeAddressChanged)
 
     Q_PROPERTY(QList<QObject*> swapCoinSettingsList     READ getSwapCoinSettings    CONSTANT)
+    
+    Q_PROPERTY(bool     isNewscastActive    READ isNewscastActive   WRITE setNewscastActive NOTIFY newscastSettingsChanged)
+    Q_PROPERTY(QString  newscastKey         READ getNewscastKey     WRITE setNewscastKey    NOTIFY newscastSettingsChanged)
 
 public:
 
@@ -272,6 +275,11 @@ public:
     bool isChanged() const;
 
     const QList<QObject*>& getSwapCoinSettings();
+
+    bool isNewscastActive() const;
+    void setNewscastActive(bool isActive);
+    QString getNewscastKey() const;
+    void setNewscastKey(QString);
 
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
@@ -326,6 +334,9 @@ private:
     QStringList m_supportedLanguages;
     int m_currentLanguageIndex;
     int m_timerId;
+
+    bool m_isNewscastActive;
+    QString m_newscastKey;
 
     const int CHECK_INTERVAL = 1000;
 };

@@ -12,7 +12,6 @@ ColumnLayout {
     Layout.fillWidth: true
     state: "general"
     property string linkStyle: "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>"
-    property bool swapMode:  false
 
     SettingsViewModel {
         id: viewModel
@@ -197,27 +196,42 @@ deploy the key at the node you trust completely."*/
             onClicked: settingsView.state = "swap"
             capitalization: Font.AllUppercase
         }
+
+        TxFilter {
+            id: newsSettingsTab
+            Layout.alignment: Qt.AlignVCenter
+            //% "News"
+            label: qsTrId("general-news")
+            onClicked: settingsView.state = "news"
+            capitalization: Font.AllUppercase
+        }
     }
 
     states: [
         State {
             name: "general"
             PropertyChanges { target: generalSettingsTab; state: "active" }
-            PropertyChanges { target: settingsView; swapMode: false }
+            PropertyChanges { target: swapSettings; visible: false }
+            PropertyChanges { target: swapSettings; visible: false }
         },
         State {
             name: "swap"
             PropertyChanges { target: swapSettingsTab; state: "active" }
             PropertyChanges { target: settingsView; swapMode: true }
+        },
+        State {
+            name: "news"
+            PropertyChanges { target: newsSettingsTab; state: "active" }
+            PropertyChanges { target: settingsView; swapMode: false }
         }
     ]
 
     ScrollView {
+        id: swapSettings
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.bottomMargin: 10
         clip: true
-        visible: swapMode
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
@@ -367,11 +381,11 @@ deploy the key at the node you trust completely."*/
     }
 
     ScrollView {
+        id: generalSettings
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.bottomMargin: 10
         clip: true
-        visible: !swapMode
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
@@ -1036,6 +1050,50 @@ deploy the key at the node you trust completely."*/
                             palette.button: Style.background_button
                             onClicked: viewModel.reportProblem()
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    ScrollView {
+        id: newsSettings
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.bottomMargin: 10
+        clip: true
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+
+        ColumnLayout {
+            id:               newsLayout
+            width:            mainColumn.width
+
+            RowLayout {
+                visible: viewModel.localNodeRun
+
+                SFText {
+                    Layout.fillWidth: true;
+                    //% "PublisherKey"
+                    text: qsTrId("settings-newscast-publisher-key")
+                    color: Style.content_secondary
+                    font.pixelSize: 14
+                }
+
+
+                SFTextInput {
+                    id: newscastKeyInput
+                    Layout.fillWidth: true;
+                    Layout.alignment: Qt.AlignRight
+                    activeFocusOnTab: true
+                    font.pixelSize: 14
+                    color: Style.content_main
+                    text: viewModel.newscastKey
+                    // validator: RegExpValidator {regExp: /^([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/g}
+                    Binding {
+                        target: viewModel
+                        property: "newscastKey"
+                        value: newscastKeyInput.text
                     }
                 }
             }

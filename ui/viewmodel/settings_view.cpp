@@ -1147,3 +1147,23 @@ const QList<QObject*>& SettingsViewModel::getSwapCoinSettings()
     }
     return m_swapSettings;
 }
+
+bool SettingsViewModel::isNewscastActive() const
+{
+
+}
+
+void SettingsViewModel::setNewscastActive(bool isActive);
+{
+
+}
+
+QString SettingsViewModel::getNewscastKey() const
+{
+
+}
+
+void SettingsViewModel::setNewscastKey(QString)
+{
+
+}

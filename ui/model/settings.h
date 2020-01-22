@@ -67,6 +67,12 @@ public:
     QString getLanguageName() const;
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
+
+    bool isNewscastActive() const;
+    void setNewscastActive(bool isActive);
+    std::string getNewscastKey() const;
+    void setNewscastKey(std::string keyHex);
+
     static void openFolder(const QString& path);
 
 public:
@@ -90,6 +96,7 @@ signals:
     void localNodeSynchronizedChanged();
     void localeChanged();
     void beamMWLinksChanged();
+    void newscastSettingsChanged();
 
 private:
     QSettings m_data;

@@ -17,6 +17,7 @@
 #include "utility/log_rotation.h"
 #include "core/block_rw.h"
 #include "keykeeper/trezor_key_keeper.h"
+#include "wallet/client/extensions/newscast/newscast.h"
 
 using namespace std;
 
@@ -251,9 +252,9 @@ namespace beam::wallet
         onPostFunctionToClientContext(move(func));
     }
 
-    void WalletClient::start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
+    void WalletClient::start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators, std::string newsPublisherKey)
     {
-        m_thread = std::make_shared<std::thread>([this, txCreators]()
+        m_thread = std::make_shared<std::thread>([this, txCreators, newsPublisherKey]()
             {
                 try
                 {
@@ -304,6 +305,13 @@ namespace beam::wallet
                     auto walletDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);
                     auto swapOffersBoardSubscriber = make_unique<SwapOffersBoardSubscriber>(static_cast<ISwapOffersObserver*>(this), offersBulletinBoard);
 #endif
+                    auto newscastParser = make_shared<NewscastProtocolParser>();
+                    newscastParser->setPublisherKeys( { NewscastProtocolParser::stringToPublicKey(newsPublisherKey) } );
+                    m_newscastParser = newscastParser;
+                    auto newscast = make_shared<Newscast>(*nodeNetwork, *newscastParser);
+                    m_newscast = newscast;
+                    using NewsSubscriber = ScopedSubscriber<INewsObserver, Newscast>;
+                    auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(this), newscast);
 
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){

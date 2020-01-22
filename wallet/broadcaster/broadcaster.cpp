@@ -102,7 +102,7 @@ int main_impl(int argc, char* argv[])
     namespace po = boost::program_options;
 
     const auto path = boost::filesystem::system_complete("./logs");
-    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "bbs_", path.string());
+    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "broadcast_", path.string());
 
     try
     {
@@ -250,23 +250,33 @@ int main_impl(int argc, char* argv[])
         {
             std::shared_ptr<IWalletMessageEndpoint> messageEndpoint(wnet);
             auto [pk, sk] = deriveKeypair(keyKeeper, 666);
-            LOG_INFO() << "PubKey: " << pk;
-            LOG_INFO() << "PrivateKey: " << sk;
+            auto pkByteBuffer = toByteBuffer(pk);
+            auto skByteBuffer = toByteBuffer(sk);
+            LOG_INFO() << "PubKey: " << to_hex(pkByteBuffer.data(), pkByteBuffer.size());
+            LOG_INFO() << "PrivateKey: " << to_hex(skByteBuffer.data(), skByteBuffer.size());
+            ECC::Scalar scalar;
+            sk.Export(scalar);
+            auto skNativeByteBuffer = toByteBuffer(scalar);
+            LOG_INFO() << "scalar: " << to_hex(skNativeByteBuffer.data(), skNativeByteBuffer.size());
 
             {
                 // private key import test
                 bool resultIsKeyStrValid = true;
-                ByteBuffer privateKey = from_hex(options.privateKey, &resultIsKeyStrValid);
-                ECC::uintBig bigInteger(Blob(privateKey.data(), static_cast<uint32_t>(privateKey.size())));
+                ByteBuffer privKeyBuff = from_hex(options.privateKey, &resultIsKeyStrValid);
+
+                Blob privKeyBlob(privKeyBuff.data(), static_cast<uint32_t>(privKeyBuff.size()));
+                ECC::uintBig privKeyUintBig(privKeyBlob);
                 // ECC::uintBig bigInteger(privateKey);
-                LOG_INFO() << "bigInteger: " << bigInteger;
-                ECC::Scalar scalar;
-                scalar.m_Value = bigInteger;
-                LOG_INFO() << "scalar: " << scalar;
+                LOG_INFO() << "privKeyUintBig: " << privKeyUintBig;
+
+                ECC::Scalar privKeyScalar;
+                privKeyScalar.m_Value = privKeyUintBig;
+                LOG_INFO() << "privKeyScalar: " << privKeyScalar;
+
                 ECC::Scalar::Native native;
-                if (scalar.IsValid())
+                if (privKeyScalar.IsValid())
                 {
-                    native.Import(scalar); // on overflow auto-normalizes and returns true
+                    native.Import(privKeyScalar); // on overflow auto-normalizes and returns true
                 }
                 else
                 {
@@ -274,7 +284,8 @@ int main_impl(int argc, char* argv[])
                     return -1;
                 }
 
-                LOG_INFO() << "PrivateKey: " << native;
+                auto resultSkNativeByteBuffer = toByteBuffer(native);
+                LOG_INFO() << "PrivateKey: " << to_hex(resultSkNativeByteBuffer.data(), resultSkNativeByteBuffer.size());
             }
 
             ByteBuffer message = createNewscastMessage(options.bbsMessage, sk);

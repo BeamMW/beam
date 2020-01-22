@@ -26,6 +26,8 @@
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif
+#include "wallet/client/extensions/newscast/news_observer.h"
+#include "wallet/client/extensions/newscast/newscast_protocol_parser.h"
 
 #include <thread>
 #include <atomic>
@@ -58,12 +60,13 @@ namespace beam::wallet
         , private IWalletDB::IRecoveryProgress
         , private IPrivateKeyKeeper::Handler
         , private INodeConnectionObserver
+        , private INewsObserver
     {
     public:
         WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper);
         virtual ~WalletClient();
 
-        void start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
+        void start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr, std::string newsPublisherKey = "");
 
         IWalletModelAsync::Ptr getAsync();
         std::string getNodeAddress() const;
@@ -178,6 +181,9 @@ namespace beam::wallet
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
 #endif
+        std::weak_ptr<proto::FlyClient::IBbsReceiver> m_newscast;
+        std::weak_ptr<NewscastProtocolParser> m_newscastParser;
+
         uint32_t m_connectedNodesCount;
         uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;
