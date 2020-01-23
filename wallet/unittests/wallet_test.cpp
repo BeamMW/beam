@@ -2181,7 +2181,14 @@ void TestKeyKeeper()
         IPrivateKeyKeeper2::Ptr m_pKk;
         WalletIDKey m_KeyID;
         PeerID m_ID;
+    };
 
+    struct MyKeeKeeper
+        :public LocalPrivateKeyKeeperStd
+    {
+        using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
+
+        virtual bool IsTrustless() override { return true; }
     };
 
     Peer pPeer[2];
@@ -2192,9 +2199,9 @@ void TestKeyKeeper()
         HKdf::Create(pKdf, 12345U + i); // random kdf
 
         Peer& p = pPeer[i];
-        p.m_pKk = std::make_shared<LocalPrivateKeyKeeper2>(pKdf);
-        Cast::Up<LocalPrivateKeyKeeper2>(*p.m_pKk).m_State.m_hvLast = 334U + i;
-        Cast::Up<LocalPrivateKeyKeeper2>(*p.m_pKk).m_State.Generate();
+        p.m_pKk = std::make_shared<MyKeeKeeper>(pKdf);
+        Cast::Up<MyKeeKeeper>(*p.m_pKk).m_State.m_hvLast = 334U + i;
+        Cast::Up<MyKeeKeeper>(*p.m_pKk).m_State.Generate();
 
         p.m_KeyID = 14 + i;
 

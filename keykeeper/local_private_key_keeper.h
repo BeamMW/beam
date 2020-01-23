@@ -182,8 +182,6 @@ namespace beam::wallet
     class LocalPrivateKeyKeeper2
         : public IPrivateKeyKeeper2
     {
-        ECC::Key::IKdf::Ptr m_pKdf;
-
         static Status::Type ToImage(ECC::Point::Native& res, uint32_t iGen, const ECC::Scalar::Native& sk);
 
         struct Aggregation
@@ -204,11 +202,39 @@ namespace beam::wallet
 
     public:
 
+        LocalPrivateKeyKeeper2(const ECC::Key::IKdf::Ptr&);
+
+#define THE_MACRO(method) \
+        virtual Status::Type InvokeSync(Method::method& m) override;
+
+        KEY_KEEPER_METHODS(THE_MACRO)
+#undef THE_MACRO
+
+    protected:
+
+        ECC::Key::IKdf::Ptr m_pKdf;
+
+        // make nonce generation abstract, to enable testing the code with predefined nonces
+        virtual uint32_t get_NumSlots() = 0;
+        virtual void get_Nonce(ECC::Scalar::Native&, uint32_t) = 0;
+        virtual void Regenerate(uint32_t) = 0;
+
+        // user interaction emulation
+        virtual bool IsTrustless() { return false; }
+        virtual Status::Type ConfirmSpend(Amount, Asset::ID, const PeerID&) { return Status::Success; }
+
+    };
+
+    class LocalPrivateKeyKeeperStd
+        : public LocalPrivateKeyKeeper2
+    {
+    public:
+
         static const uint32_t s_Slots = 64;
 
         struct State
         {
-            ECC::Scalar::Native m_pSlot[s_Slots];
+            ECC::Hash::Value m_pSlot[s_Slots];
             ECC::Hash::Value m_hvLast;
 
             void Generate(); // must set m_hvLast before calling
@@ -216,18 +242,13 @@ namespace beam::wallet
 
         } m_State;
 
-        LocalPrivateKeyKeeper2(const ECC::Key::IKdf::Ptr&);
-
-#define THE_MACRO(method) \
-		virtual Status::Type InvokeSync(Method::method& m) override;
-
-        KEY_KEEPER_METHODS(THE_MACRO)
-#undef THE_MACRO
+        using LocalPrivateKeyKeeper2::LocalPrivateKeyKeeper2;
 
     protected:
 
-        virtual bool IsTrustless() { return true; }
+        virtual uint32_t get_NumSlots() override;
+        virtual void get_Nonce(ECC::Scalar::Native&, uint32_t) override;
+        virtual void Regenerate(uint32_t) override;
 
     };
-
 }

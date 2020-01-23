@@ -538,26 +538,6 @@ namespace beam::wallet
     {
     }
 
-    void LocalPrivateKeyKeeper2::State::Generate()
-    {
-        for (uint32_t i = 0; i < s_Slots; i++)
-            Regenerate(i);
-    }
-
-    void LocalPrivateKeyKeeper2::State::Regenerate(uint32_t iSlot)
-    {
-        while (true)
-        {
-            Hash::Processor() << m_hvLast >> m_hvLast;
-
-            static_assert(sizeof(Scalar) == sizeof(m_hvLast));
-            Scalar& s = reinterpret_cast<Scalar&>(m_hvLast);
-
-            if (!m_pSlot[iSlot].Import(s))
-                break;
-        }
-    }
-
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::ToImage(Point::Native& res, uint32_t iGen, const Scalar::Native& sk)
     {
         const Generator::Obscured* pGen;
@@ -665,7 +645,7 @@ namespace beam::wallet
 
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_NumSlots& x)
     {
-        x.m_Count = s_Slots;
+        x.m_Count = get_NumSlots();
         return Status::Success;
     }
 
@@ -801,10 +781,11 @@ namespace beam::wallet
             aggr.m_ValAsset = aggr.m_Val - x.m_KernelParams.m_Fee;
         }
 
-        if (x.m_nonceSlot >= s_Slots)
+        if (x.m_nonceSlot >= get_NumSlots())
             return Status::Unspecified;
 
-        Scalar::Native& kNonce = m_State.m_pSlot[x.m_nonceSlot];
+        Scalar::Native kNonce;
+        get_Nonce(kNonce, x.m_nonceSlot);
 
         // during negotiation kernel height can be adjusted. Commit however to other values
         Hash::Value hv;
@@ -839,8 +820,9 @@ namespace beam::wallet
                 if (x.m_Peer == Zero)
                     return Status::UserAbort; // user should not approve anonymous payment
 
-                // TODO: ask user!
-                // ...
+                Status::Type res = ConfirmSpend(aggr.m_ValAsset, aggr.m_AssetID, x.m_Peer);
+                if (Status::Success != res)
+                    return res;
             }
 
             x.m_UserAgreement = hv;
@@ -884,11 +866,10 @@ namespace beam::wallet
                 return Status::Unspecified;
         }
 
-        Scalar::Native kNonce0 = kNonce; // copy
-        m_State.Regenerate(x.m_nonceSlot);
+        Regenerate(x.m_nonceSlot);
 
         Scalar::Native kSig = x.m_KernelParams.m_Signature.m_k;
-        x.m_KernelParams.m_Signature.SignPartial(msg, kKrn, kNonce0);
+        x.m_KernelParams.m_Signature.SignPartial(msg, kKrn, kNonce);
         kSig += x.m_KernelParams.m_Signature.m_k;
         x.m_KernelParams.m_Signature.m_k = kSig;
 
@@ -896,4 +877,36 @@ namespace beam::wallet
 
         return Status::Success;
     }
-}
+
+    /////////////////////////
+    // LocalPrivateKeyKeeperStd
+    void LocalPrivateKeyKeeperStd::State::Generate()
+    {
+        for (uint32_t i = 0; i < s_Slots; i++)
+            Regenerate(i);
+    }
+
+    uint32_t LocalPrivateKeyKeeperStd::get_NumSlots()
+    {
+        return s_Slots;
+    }
+
+    void LocalPrivateKeyKeeperStd::get_Nonce(ECC::Scalar::Native& ret, uint32_t iSlot)
+    {
+        assert(iSlot < s_Slots);
+        m_pKdf->DeriveKey(ret, m_State.m_pSlot[iSlot]);
+    }
+
+    void LocalPrivateKeyKeeperStd::State::Regenerate(uint32_t iSlot)
+    {
+        assert(iSlot < s_Slots);
+        Hash::Processor() << m_hvLast >> m_hvLast;
+        m_pSlot[iSlot] = m_hvLast;
+    }
+
+    void LocalPrivateKeyKeeperStd::Regenerate(uint32_t iSlot)
+    {
+        m_State.Regenerate(iSlot);
+    }
+
+} // namespace beam::wallet
