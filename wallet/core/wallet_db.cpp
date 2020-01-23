@@ -3857,7 +3857,7 @@ namespace beam::wallet
             for (const auto& tx : db.getTxHistory())
             {
                 string strProof;
-                if (tx.m_status == TxStatus::Completed)
+                if (tx.m_status == TxStatus::Completed && tx.m_sender)
                 {
                     auto proof = storage::ExportPaymentProof(db, tx.m_txId);
                     strProof.resize(proof.size() * 2);
