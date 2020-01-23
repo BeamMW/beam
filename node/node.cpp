@@ -2536,7 +2536,7 @@ bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 		if (m_Keys.m_nMinerSubIndex)
 			return false;
 
-		pChild = MasterKey::get_Child(m_Keys.m_pMiner, cid);
+		pChild = cid.get_ChildKdf(m_Keys.m_pMiner);
 		pKdf = pChild.get();
 	}
 

@@ -35,7 +35,6 @@ namespace beam
 	namespace MasterKey
 	{
 		Key::IKdf::Ptr get_Child(Key::IKdf&, Key::Index);
-		Key::IKdf::Ptr get_Child(const Key::IKdf::Ptr&, const Key::IDV&);
 	}
 
 	Timestamp getTimestamp();
@@ -230,6 +229,9 @@ namespace beam
 		CoinID(Amount v, uint64_t nIdx, Key::Type type, Key::Index nSubIdx = 0) :Key::IDV(v, nIdx, type, nSubIdx) {}
 
 		void get_Hash(ECC::Hash::Value&) const;
+
+		bool get_ChildKdfIndex(Key::Index&) const; // returns false if chils is not needed
+		Key::IKdf::Ptr get_ChildKdf(const Key::IKdf::Ptr& pMasterKdf) const;
 
 		int cmp(const CoinID&) const;
 		COMPARISON_VIA_CMP

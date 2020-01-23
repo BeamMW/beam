@@ -1516,7 +1516,7 @@ namespace beam::wallet
 
 	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const CoinID& cid) const
 	{
-		return MasterKey::get_Child(get_MasterKdf(), cid);
+		return cid.get_ChildKdf(get_MasterKdf());
 	}
 
     beam::Key::IPKdf::Ptr WalletDB::get_OwnerKdf() const

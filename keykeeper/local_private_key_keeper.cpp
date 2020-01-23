@@ -413,7 +413,7 @@ namespace beam::wallet
 
     Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(const CoinID& cid) const
     {
-        return MasterKey::get_Child(m_MasterKdf, cid);
+        return cid.get_ChildKdf(m_MasterKdf);
     }
 
     Scalar::Native LocalPrivateKeyKeeper::GetNonce(size_t slot)
