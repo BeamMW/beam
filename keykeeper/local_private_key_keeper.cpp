@@ -642,25 +642,24 @@ namespace beam::wallet
             else
                 aggr.m_ValBig += val;
 
-            CoinID::Worker(cid).Create(sk, *m_pKdf);
+            CoinID::Worker(cid).Create(sk, *cid.get_ChildKdf(m_pKdf));
             aggr.m_sk += sk;
         }
 
         return true;
     }
 
-    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_MasterKey& x)
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_Kdf& x)
     {
-        if (IsTrustless())
-            return Status::UserAbort;
+        Key::IKdf::Ptr pKdf = x.m_Root ?
+            m_pKdf :
+            MasterKey::get_Child(*m_pKdf, x.m_iChild);
 
-        x.m_pKdf = m_pKdf;
-        return Status::Success;
-    }
+        x.m_pPKdf = pKdf;
 
-    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_OwnerKey& x)
-    {
-        x.m_pKdf = m_pKdf;
+        if (!IsTrustless())
+            x.m_pKdf = pKdf;
+
         return Status::Success;
     }
 
@@ -682,7 +681,7 @@ namespace beam::wallet
         }
 
         Scalar::Native sk;
-        x.m_Result.Create(x.m_hScheme, sk, *m_pKdf, x.m_Cid, *m_pKdf);
+        x.m_Result.Create(x.m_hScheme, sk, *x.m_Cid.get_ChildKdf(m_pKdf), x.m_Cid, *m_pKdf);
 
         return Status::Success;
     }

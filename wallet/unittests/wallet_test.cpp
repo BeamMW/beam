@@ -2199,14 +2199,17 @@ void TestKeyKeeper()
         p.m_KeyID = 14 + i;
 
         // get ID
-        IPrivateKeyKeeper2::Method::get_OwnerKey m;
+        IPrivateKeyKeeper2::Method::get_Kdf m;
+        m.m_Root = true;
         WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
+        WALLET_CHECK(!m.m_pKdf); // we're testing in trustless mode
+        WALLET_CHECK(m.m_pPKdf);
 
         Hash::Value hv;
         Key::ID(p.m_KeyID, Key::Type::WalletID).get_Hash(hv);
 
         Point::Native ptN;
-        m.m_pKdf->DerivePKeyG(ptN, hv);
+        m.m_pPKdf->DerivePKeyG(ptN, hv);
 
         Point pt = ptN;
         p.m_ID = pt.m_X;
@@ -2224,7 +2227,7 @@ void TestKeyKeeper()
     mS.m_KernelParams.m_Fee = 315;
     mS.m_KernelParams.m_Height.m_Min = Rules::get().pForks[1].m_Height + 19;
     mS.m_KernelParams.m_Height.m_Max = mS.m_KernelParams.m_Height.m_Min + 700;
-    mS.m_vInputs.push_back(CoinID(515, 2342, Key::Type::Regular));
+    mS.m_vInputs.push_back(CoinID(515, 2342, Key::Type::Regular, 11));
     mS.m_vOutputs.push_back(CoinID(70, 2343, Key::Type::Change));
 
     WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == s.m_pKk->InvokeSync(mS));
@@ -2235,7 +2238,9 @@ void TestKeyKeeper()
     mR.m_Peer = s.m_ID;
     mR.m_MyID = r.m_KeyID;
     mR.m_KernelParams = mS.m_KernelParams;
-    mR.m_vOutputs.push_back(CoinID(130, 2344, Key::Type::Regular));
+    mR.m_vInputs.push_back(CoinID(3, 2344, Key::Type::Regular));
+    mR.m_vOutputs.push_back(CoinID(125, 2345, Key::Type::Regular));
+    mR.m_vOutputs.push_back(CoinID(8, 2346, Key::Type::Regular, 6));
 
     // adjust kernel height a little
     mR.m_KernelParams.m_Height.m_Min += 2;
@@ -2265,9 +2270,6 @@ void TestKeyKeeper()
     {
         Peer& p = pPeer[i];
 
-        IPrivateKeyKeeper2::Method::get_OwnerKey mKey;
-        WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(mKey));
-
         const IPrivateKeyKeeper2::Method::InOuts& io = i ?
             Cast::Down<IPrivateKeyKeeper2::Method::InOuts>(mR) :
             Cast::Down<IPrivateKeyKeeper2::Method::InOuts>(mS);
@@ -2276,9 +2278,13 @@ void TestKeyKeeper()
         {
             const CoinID& cid = io.m_vInputs[j];
 
+            IPrivateKeyKeeper2::Method::get_Kdf mKey;
+            mKey.m_Root = !cid.get_ChildKdfIndex(mKey.m_iChild);
+            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(mKey));
+
             // build input commitment
             Point::Native comm;
-            CoinID::Worker(cid).Recover(comm, *mKey.m_pKdf);
+            CoinID::Worker(cid).Recover(comm, *mKey.m_pPKdf);
 
             tx.m_vInputs.emplace_back();
             tx.m_vInputs.back().reset(new Input);

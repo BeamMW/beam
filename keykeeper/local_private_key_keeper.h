@@ -226,7 +226,7 @@ namespace beam::wallet
 
     protected:
 
-        virtual bool IsTrustless() { return false; }
+        virtual bool IsTrustless() { return true; }
 
     };
 

@@ -182,12 +182,13 @@ namespace beam::wallet
 
         struct Method
         {
-            struct get_MasterKey {
-                Key::IKdf::Ptr m_pKdf; // only for trusted host
-            };
+            struct get_Kdf
+            {
+                Key::Index m_iChild;
+                bool m_Root; // if true the m_iChild is ignored
 
-            struct get_OwnerKey {
-                Key::IPKdf::Ptr m_pKdf;
+                Key::IKdf::Ptr m_pKdf; // only for trusted host
+                Key::IPKdf::Ptr m_pPKdf;
             };
 
             struct get_NumSlots {
@@ -241,8 +242,7 @@ namespace beam::wallet
         };
 
 #define KEY_KEEPER_METHODS(macro) \
-		macro(get_MasterKey) \
-		macro(get_OwnerKey) \
+		macro(get_Kdf) \
 		macro(get_NumSlots) \
 		macro(CreateOutput) \
 		macro(SignReceiver) \
