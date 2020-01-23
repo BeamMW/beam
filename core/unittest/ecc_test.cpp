@@ -2066,7 +2066,7 @@ void TestKdf()
 	ks1.SetPassword(sPass);
 	ks1.m_sMeta = "hello, World!";
 
-	ks1.Export(skdf);
+	ks1.ExportS(skdf);
 	HKdf skdf2;
 	ks1.m_sMeta.clear();
 	ks1.SetPassword(sPass);
@@ -2074,7 +2074,7 @@ void TestKdf()
 
 	verify_test(skdf2.IsSame(skdf));
 
-	ks1.Export(pkdf);
+	ks1.ExportP(pkdf);
 	HKdfPub pkdf2;
 	verify_test(ks1.Import(pkdf2));
 	verify_test(pkdf2.IsSame(pkdf));

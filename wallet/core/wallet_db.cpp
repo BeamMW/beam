@@ -1098,15 +1098,13 @@ namespace beam::wallet
                 // store owner key (public)
                 {
                     Key::IKdf::Ptr pKey = walletDB->get_MasterKdf();
-                    const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
 
-                    auto publicKdf = make_shared<ECC::HKdfPub>();
-                    publicKdf->GenerateFrom(kdf);
                     ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
-                    publicKdf->Export(packedOwnerKey.V);
+                    assert(pKey->ExportP(nullptr) == sizeof(packedOwnerKey));
+                    pKey->ExportP(&packedOwnerKey);
 
                     storage::setVar(*walletDB, OwnerKey, packedOwnerKey.V);
-                    walletDB->m_OwnerKdf = publicKdf;
+                    walletDB->m_OwnerKdf = pKey;
                 }
 
                 storage::setVar(*walletDB, Version, DbVersion);

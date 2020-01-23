@@ -869,13 +869,12 @@ namespace
             return -1;
         }
 		Key::IKdf::Ptr pKey = MasterKey::get_Child(*walletDB->get_MasterKdf(), subKey);
-        const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
 
         KeyString ks;
         ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
         ks.m_sMeta = std::to_string(subKey);
 
-        ks.Export(kdf);
+        ks.ExportS(*pKey);
         cout << boost::format(kSubKeyInfo) % subKey % ks.m_sRes << std::endl;
 
         return 0;
@@ -883,17 +882,13 @@ namespace
 
     int ExportOwnerKey(const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
     {
-        Key::IKdf::Ptr pKey = walletDB->get_MasterKdf();
-        const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
+        Key::IPKdf::Ptr pKey = walletDB->get_OwnerKdf();
 
         KeyString ks;
         ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
         ks.m_sMeta = std::to_string(0);
 
-        ECC::HKdfPub pkdf;
-        pkdf.GenerateFrom(kdf);
-
-        ks.Export(pkdf);
+        ks.ExportP(*pKey);
         cout << boost::format(kOwnerKeyInfo) % ks.m_sRes << std::endl;
 
         return 0;

@@ -428,17 +428,13 @@ namespace beam::wallet
 
     std::string WalletClient::exportOwnerKey(const beam::SecString& pass) const
     {
-        Key::IKdf::Ptr pKey = m_walletDB->get_MasterKdf();
-        const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
+        Key::IPKdf::Ptr pOwner = m_walletDB->get_OwnerKdf();
 
         KeyString ks;
         ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
         ks.m_sMeta = std::to_string(0);
 
-        ECC::HKdfPub pkdf;
-        pkdf.GenerateFrom(kdf);
-
-        ks.Export(pkdf);
+        ks.ExportP(*pOwner);
 
         return ks.m_sRes;
     }
