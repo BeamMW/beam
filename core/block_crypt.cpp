@@ -226,7 +226,11 @@ namespace beam
 					<< m_Value;
 
 				if (m_AssetID)
-					hp << m_AssetID;
+				{
+					hp
+						<< "asset"
+						<< m_AssetID;
+				}
 
 				hp >> hv;
 			}

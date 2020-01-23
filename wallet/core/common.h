@@ -647,6 +647,7 @@ namespace beam::wallet
     {
         // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
         Amount m_Value;
+        Asset::ID m_AssetID = 0;
         ECC::Hash::Value m_KernelID;
         PeerID m_Sender;
 
