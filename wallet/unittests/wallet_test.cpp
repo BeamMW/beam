@@ -2176,18 +2176,143 @@ void TestNegotiation()
 
 void TestKeyKeeper()
 {
-    Key::IKdf::Ptr pKdf;
-    ECC::HKdf::Create(pKdf, 12345U);
+    struct Peer
+    {
+        IPrivateKeyKeeper2::Ptr m_pKk;
+        WalletIDKey m_KeyID;
+        PeerID m_ID;
 
-    IPrivateKeyKeeper2::Ptr pKk(new LocalPrivateKeyKeeper2(pKdf));
-    Cast::Up<LocalPrivateKeyKeeper2>(*pKk).m_State.m_hvLast = 334U;
-    Cast::Up<LocalPrivateKeyKeeper2>(*pKk).m_State.Generate();
+    };
 
-    IPrivateKeyKeeper2::Method::get_KeyImage m;
-    m.m_Hash = Zero;
-    m.m_iGen = 0;
-    pKk->InvokeSync(m);
+    Peer pPeer[2];
 
+    for (size_t i = 0; i < _countof(pPeer); i++)
+    {
+        Key::IKdf::Ptr pKdf;
+        HKdf::Create(pKdf, 12345U + i); // random kdf
+
+        Peer& p = pPeer[i];
+        p.m_pKk = std::make_shared<LocalPrivateKeyKeeper2>(pKdf);
+        Cast::Up<LocalPrivateKeyKeeper2>(*p.m_pKk).m_State.m_hvLast = 334U + i;
+        Cast::Up<LocalPrivateKeyKeeper2>(*p.m_pKk).m_State.Generate();
+
+        p.m_KeyID = 14 + i;
+
+        // get ID
+        IPrivateKeyKeeper2::Method::get_KeyImage m;
+        Key::ID(p.m_KeyID, Key::Type::WalletID).get_Hash(m.m_Hash);
+        m.m_iGen = 0;
+
+        WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
+
+        Point pt = m.m_Result;
+        p.m_ID = pt.m_X;
+    }
+
+    Peer& s = pPeer[0];
+    Peer& r = pPeer[1];
+
+    // 1st sender invocation
+    IPrivateKeyKeeper2::Method::SignSender mS;
+    ZeroObject(mS); // not so good coz it contains vectors. nevermind, it's a test
+    mS.m_Peer = r.m_ID;
+    mS.m_MyID = s.m_KeyID;
+    mS.m_nonceSlot = 12;
+    mS.m_KernelParams.m_Fee = 315;
+    mS.m_KernelParams.m_Height.m_Min = Rules::get().pForks[1].m_Height + 19;
+    mS.m_KernelParams.m_Height.m_Max = mS.m_KernelParams.m_Height.m_Min + 700;
+    mS.m_vInputs.push_back(CoinID(515, 2342, Key::Type::Regular));
+    mS.m_vOutputs.push_back(CoinID(70, 2343, Key::Type::Change));
+
+    WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == s.m_pKk->InvokeSync(mS));
+
+    // Receiver invocation
+    IPrivateKeyKeeper2::Method::SignReceiver mR;
+    ZeroObject(mR);
+    mR.m_Peer = s.m_ID;
+    mR.m_MyID = r.m_KeyID;
+    mR.m_KernelParams = mS.m_KernelParams;
+    mR.m_vOutputs.push_back(CoinID(130, 2344, Key::Type::Regular));
+
+    // adjust kernel height a little
+    mR.m_KernelParams.m_Height.m_Min += 2;
+    mR.m_KernelParams.m_Height.m_Max += 3;
+
+    WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == r.m_pKk->InvokeSync(mR));
+
+    // 2nd sender invocation
+    mS.m_KernelParams = mR.m_KernelParams;
+    mS.m_kOffset = mR.m_kOffset;
+    mS.m_PaymentProofSignature = mR.m_PaymentProofSignature;
+
+    WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == s.m_pKk->InvokeSync(mS));
+
+    TxKernelStd::Ptr pKrn(new TxKernelStd);
+    mS.m_KernelParams.To(*pKrn);
+    pKrn->UpdateID();
+
+    Height hScheme = pKrn->m_Height.m_Min;
+    Point::Native exc;
+    WALLET_CHECK(pKrn->IsValid(hScheme, exc));
+
+    // build the whole tx
+    Transaction tx;
+
+    for (size_t i = 0; i < _countof(pPeer); i++)
+    {
+        Peer& p = pPeer[i];
+
+        const IPrivateKeyKeeper2::Method::InOuts& io = i ?
+            Cast::Down<IPrivateKeyKeeper2::Method::InOuts>(mR) :
+            Cast::Down<IPrivateKeyKeeper2::Method::InOuts>(mS);
+
+        for (size_t j = 0; j < io.m_vInputs.size(); j++)
+        {
+            const CoinID& cid = io.m_vInputs[j];
+
+            // build input commitment
+            // This can be done either using Key::IPKdf (owner key), or from sk images.
+            // The following is the demostration of the 2nd way.
+
+            IPrivateKeyKeeper2::Method::get_KeyImage m;
+            cid.get_Hash(m.m_Hash);
+            m.m_iGen = 0;
+            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
+
+            Point::Native pk = m.m_Result;
+
+            m.m_iGen = 1;
+            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
+
+            CoinID::Worker(cid).Recover(pk, m.m_Result);
+
+            tx.m_vInputs.emplace_back();
+            tx.m_vInputs.back().reset(new Input);
+            tx.m_vInputs.back()->m_Commitment = pk;
+        }
+
+        for (size_t j = 0; j < io.m_vOutputs.size(); j++)
+        {
+            IPrivateKeyKeeper2::Method::CreateOutput m;
+            m.m_Cid = io.m_vOutputs[j];
+            m.m_hScheme = hScheme;
+            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
+
+            tx.m_vOutputs.emplace_back();
+            tx.m_vOutputs.back().reset(new Output);
+
+            *tx.m_vOutputs.back() = std::move(m.m_Result);
+        }
+    }
+
+    tx.m_vKernels.push_back(std::move(pKrn));
+    tx.m_Offset = mS.m_kOffset;
+    tx.Normalize();
+
+    Transaction::Context::Params pars;
+    Transaction::Context ctx(pars);
+    ctx.m_Height.m_Min = hScheme;
+    WALLET_CHECK(tx.IsValid(ctx));
 }
 
 

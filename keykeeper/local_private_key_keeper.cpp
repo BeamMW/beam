@@ -533,7 +533,7 @@ namespace beam::wallet
 
     /////////////////////////
     // LocalPrivateKeyKeeper2
-    LocalPrivateKeyKeeper2::LocalPrivateKeyKeeper2(const ECC::Key::IKdf::Ptr& pKdf)
+    LocalPrivateKeyKeeper2::LocalPrivateKeyKeeper2(const Key::IKdf::Ptr& pKdf)
         :m_pKdf(pKdf)
     {
     }
@@ -548,25 +548,25 @@ namespace beam::wallet
     {
         while (true)
         {
-            ECC::Hash::Processor() << m_hvLast >> m_hvLast;
+            Hash::Processor() << m_hvLast >> m_hvLast;
 
-            static_assert(sizeof(ECC::Scalar) == sizeof(m_hvLast));
-            ECC::Scalar& s = reinterpret_cast<ECC::Scalar&>(m_hvLast);
+            static_assert(sizeof(Scalar) == sizeof(m_hvLast));
+            Scalar& s = reinterpret_cast<Scalar&>(m_hvLast);
 
             if (!m_pSlot[iSlot].Import(s))
                 break;
         }
     }
 
-    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::ToImage(ECC::Point::Native& res, uint32_t iGen, const ECC::Scalar::Native& sk)
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::ToImage(Point::Native& res, uint32_t iGen, const Scalar::Native& sk)
     {
-        const ECC::Generator::Obscured* pGen;
+        const Generator::Obscured* pGen;
 
         switch (iGen)
         {
-        case 0: pGen = &ECC::Context::get().G; break;
-        case 1: pGen = &ECC::Context::get().J; break;
-        case 2: pGen = &ECC::Context::get().H_Big; break;
+        case 0: pGen = &Context::get().G; break;
+        case 1: pGen = &Context::get().J; break;
+        case 2: pGen = &Context::get().H_Big; break;
         default:
             return Status::Unspecified;
         }
@@ -575,9 +575,83 @@ namespace beam::wallet
         return Status::Success;
     }
 
+    bool LocalPrivateKeyKeeper2::Aggregate(Aggregation& aggr, const Method::TxCommon& tx, bool bSending)
+    {
+        if (tx.m_KernelParams.m_Height.m_Min < Rules::get().pForks[1].m_Height)
+            return false; // disallow weak scheme
+
+        aggr.m_AssetID = 0;
+        aggr.m_ValBig = Zero;
+        aggr.m_ValBigAsset = Zero;
+
+        if (!Aggregate(aggr, tx.m_vInputs, false))
+            return false;
+
+        aggr.m_sk = -aggr.m_sk;
+        aggr.m_ValBig.Negate();
+        aggr.m_ValBigAsset.Negate();
+
+        if (!Aggregate(aggr, tx.m_vOutputs, true))
+            return false;
+
+        if (bSending)
+        {
+            aggr.m_ValBig.Negate();
+            aggr.m_ValBigAsset.Negate();
+        }
+
+        if (AmountBig::get_Hi(aggr.m_ValBig) || AmountBig::get_Hi(aggr.m_ValBigAsset))
+            return false; // overflow or incorrect balance (snd/rcv)
+
+        aggr.m_Val = AmountBig::get_Lo(aggr.m_ValBig);
+        aggr.m_ValAsset = AmountBig::get_Lo(aggr.m_ValBigAsset);
+        return true;
+    }
+
+    bool LocalPrivateKeyKeeper2::Aggregate(Aggregation& aggr, const std::vector<CoinID>& v, bool bOuts)
+    {
+        Scalar::Native sk;
+        for (size_t i = 0; i < v.size(); i++)
+        {
+            const CoinID& cid = v[i];
+
+            if (cid.get_Scheme() < Key::IDV::Scheme::V1)
+            {
+                // disallow weak scheme
+                if (bOuts)
+                    return false; // no reason to create new weak outputs
+
+                if (IsTrustless())
+                    return false;
+            }
+
+            uintBigFor<Amount>::Type val = cid.m_Value;
+
+            if (cid.m_AssetID)
+            {
+                if (aggr.m_AssetID)
+                {
+                    if (aggr.m_AssetID != cid.m_AssetID)
+                        return false;
+                }
+                else
+                    aggr.m_AssetID = cid.m_AssetID;
+
+                aggr.m_ValBigAsset += val;
+            }
+            else
+                aggr.m_ValBig += val;
+
+            CoinID::Worker(cid).Create(sk, *m_pKdf);
+            aggr.m_sk += sk;
+        }
+
+        return true;
+    }
+
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_KeyImage& x)
     {
-        ECC::Scalar::Native sk;
+        Scalar::Native sk;
         m_pKdf->DeriveKey(sk, x.m_Hash);
 
         return ToImage(x.m_Result, x.m_iGen, sk);
@@ -599,16 +673,229 @@ namespace beam::wallet
 
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateOutput& x)
     {
-        return Status::NotImplemented;
+        if (x.m_Result.m_Coinbase || x.m_Result.m_pPublic || x.m_Result.m_RecoveryOnly || (x.m_hScheme < Rules::get().pForks[1].m_Height))
+            return Status::Unspecified; // not allowed
+
+        if (x.m_Result.m_Incubation || (x.m_Cid.get_Scheme() < Key::IDV::Scheme::V1))
+        {
+            if (IsTrustless())
+                return Status::UserAbort; // or maybe ask user
+        }
+
+        Scalar::Native sk;
+        x.m_Result.Create(x.m_hScheme, sk, *m_pKdf, x.m_Cid, *m_pKdf);
+
+        return Status::Success;
+    }
+
+    void LocalPrivateKeyKeeper2::UpdateOffset(Method::TxCommon& tx, const Scalar::Native& kDiff, const Scalar::Native& kKrn)
+    {
+        Scalar::Native k = kDiff + kKrn;
+        k = -k;
+        tx.m_kOffset += k;
     }
 
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::SignReceiver& x)
     {
-        return Status::NotImplemented;
+        Aggregation aggr;
+        if (!Aggregate(aggr, x, false))
+            return Status::Unspecified;
+
+        if (aggr.m_Val)
+        {
+            if (aggr.m_AssetID)
+                return Status::Unspecified; // can't receive both
+
+            aggr.m_ValAsset = aggr.m_Val;
+        }
+        else
+        {
+            if (!aggr.m_ValAsset)
+                return Status::Unspecified; // should receive at least something
+        }
+
+        Scalar::Native kKrn, kNonce;
+
+        // Hash *ALL* the parameters (maybe just hash-serialize the whole request)
+        Hash::Value hv;
+        Hash::Processor()
+            << x.m_KernelParams.m_Fee
+            << x.m_KernelParams.m_Height.m_Min
+            << x.m_KernelParams.m_Height.m_Max
+            << x.m_KernelParams.m_Commitment
+            << x.m_KernelParams.m_Signature.m_NoncePub
+            << x.m_Peer
+            << x.m_MyID
+            << aggr.m_sk
+            << aggr.m_ValAsset
+            << aggr.m_AssetID
+            >> hv;
+
+        NonceGenerator ng("hw-wlt-rcv");
+        ng << hv;
+        ng >> kKrn;
+        ng >> kNonce;
+
+        Point::Native commitment;
+        if (!commitment.Import(x.m_KernelParams.m_Commitment))
+            return Status::Unspecified;
+
+        Point::Native temp;
+        temp = Context::get().G * kKrn; // public kernel commitment
+        commitment += temp;
+        x.m_KernelParams.m_Commitment = commitment;
+
+
+        if (!commitment.Import(x.m_KernelParams.m_Signature.m_NoncePub))
+            return Status::Unspecified;
+
+        temp = Context::get().G * kNonce;
+        commitment += temp;
+        x.m_KernelParams.m_Signature.m_NoncePub = commitment;
+
+        TxKernelStd krn;
+        x.m_KernelParams.To(krn);
+        krn.UpdateID();
+        const Merkle::Hash& msg = krn.m_Internal.m_ID;
+
+        x.m_KernelParams.m_Signature.SignPartial(msg, kKrn, kNonce);
+        UpdateOffset(x, aggr.m_sk, kKrn);
+
+        if (x.m_MyID)
+        {
+            PaymentConfirmation pc;
+            pc.m_KernelID = krn.m_Internal.m_ID;
+            pc.m_Sender = x.m_Peer;
+            pc.m_Value = aggr.m_ValAsset;
+            pc.m_AssetID = aggr.m_AssetID;
+
+            m_pKdf->DeriveKey(kKrn, Key::ID(x.m_MyID, Key::Type::WalletID));
+
+            PeerID wid;
+            beam::proto::Sk2Pk(wid, kKrn);
+            pc.Sign(kKrn);
+
+            x.m_PaymentProofSignature = pc.m_Signature;
+        }
+
+        return Status::Success;
     }
 
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::SignSender& x)
     {
-        return Status::NotImplemented;
+        Aggregation aggr;
+        if (!Aggregate(aggr, x, true))
+            return Status::Unspecified;
+
+        if (aggr.m_AssetID)
+        {
+            if (!aggr.m_ValAsset)
+                return Status::Unspecified;
+
+            if (aggr.m_Val != x.m_KernelParams.m_Fee)
+                return Status::Unspecified; // all beams must be consumed by the fee
+        }
+        else
+        {
+            if (aggr.m_Val <= x.m_KernelParams.m_Fee)
+                return Status::Unspecified;
+
+            aggr.m_ValAsset = aggr.m_Val - x.m_KernelParams.m_Fee;
+        }
+
+        if (x.m_nonceSlot >= s_Slots)
+            return Status::Unspecified;
+
+        Scalar::Native& kNonce = m_State.m_pSlot[x.m_nonceSlot];
+
+        // during negotiation kernel height can be adjusted. Commit however to other values
+        Hash::Value hv;
+        Hash::Processor()
+            << x.m_KernelParams.m_Fee
+            << x.m_Peer
+            << x.m_MyID
+            << aggr.m_sk
+            << (Amount) aggr.m_ValAsset
+            << aggr.m_AssetID
+            << kNonce
+            >> hv;
+
+        Scalar::Native kKrn;
+
+        NonceGenerator ng("hw-wlt-snd");
+        ng << hv;
+        ng >> kKrn;
+
+        Hash::Processor()
+            << "tx.token"
+            << kKrn
+            >> hv;
+
+        if (hv == Zero)
+            hv = 1U;
+
+        if (x.m_UserAgreement == Zero)
+        {
+            if (IsTrustless())
+            {
+                if (x.m_Peer == Zero)
+                    return Status::UserAbort; // user should not approve anonymous payment
+
+                // TODO: ask user!
+                // ...
+            }
+
+            x.m_UserAgreement = hv;
+
+            Point::Native commitment = Context::get().G * kKrn;
+            x.m_KernelParams.m_Commitment = commitment;
+
+            commitment = Context::get().G * kNonce;
+            x.m_KernelParams.m_Signature.m_NoncePub = commitment;
+
+            return Status::Success;
+        }
+
+        if (x.m_UserAgreement != hv)
+            return Status::Unspecified; // incorrect user agreement token
+
+        TxKernelStd krn;
+        x.m_KernelParams.To(krn);
+        krn.UpdateID();
+        const Merkle::Hash& msg = krn.m_Internal.m_ID;
+
+        if (x.m_Peer != Zero)
+        {
+            PaymentConfirmation pc;
+            pc.m_KernelID = krn.m_Internal.m_ID;
+            pc.m_Value = aggr.m_ValAsset;
+            pc.m_AssetID = aggr.m_AssetID;
+
+            if (x.m_MyID)
+            {
+                Scalar::Native skId;
+                m_pKdf->DeriveKey(skId, Key::ID(x.m_MyID, Key::Type::WalletID));
+
+                beam::proto::Sk2Pk(pc.m_Sender, skId);
+            }
+            else
+                pc.m_Sender = Zero;
+
+            pc.m_Signature = x.m_PaymentProofSignature;
+            if (!pc.IsValid(x.m_Peer))
+                return Status::Unspecified;
+        }
+
+        Scalar::Native kNonce0 = kNonce; // copy
+        m_State.Regenerate(x.m_nonceSlot);
+
+        Scalar::Native kSig = x.m_KernelParams.m_Signature.m_k;
+        x.m_KernelParams.m_Signature.SignPartial(msg, kKrn, kNonce0);
+        kSig += x.m_KernelParams.m_Signature.m_k;
+        x.m_KernelParams.m_Signature.m_k = kSig;
+
+        UpdateOffset(x, aggr.m_sk, kKrn);
+
+        return Status::Success;
     }
 }

@@ -209,30 +209,38 @@ namespace beam::wallet
                 beam::HeightRange m_Height;
                 beam::Amount m_Fee;
                 ECC::Point m_Commitment;
-                ECC::Point m_PublicNonce;
+                ECC::Signature m_Signature;
+
+                void To(TxKernelStd&) const;
+                void From(const TxKernelStd&);
             };
 
-            struct TxCommon
+            struct InOuts
             {
                 std::vector<CoinID> m_vInputs;
                 std::vector<CoinID> m_vOutputs;
-                KernelCommon m_KernelParams;
             };
 
-            struct KernelMutual :public KernelCommon
+            struct TxCommon :public InOuts
+            {
+                KernelCommon m_KernelParams;
+                ECC::Scalar::Native m_kOffset;
+            };
+
+            struct TxMutual :public TxCommon
             {
                 // for mutually-constructed kernel
                 PeerID m_Peer;
+                WalletIDKey m_MyID;
                 ECC::Signature m_PaymentProofSignature;
             };
 
-            struct SignReceiver :public TxCommon {
-                WalletIDKey m_walletIDkey;
+            struct SignReceiver :public TxMutual {
             };
 
-            struct SignSender :public TxCommon {
+            struct SignSender :public TxMutual {
                 uint32_t m_nonceSlot;
-                bool m_initial;
+                ECC::Hash::Value m_UserAgreement; // set to Zero on 1st invocation
             };
         };
 

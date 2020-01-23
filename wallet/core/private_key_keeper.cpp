@@ -83,6 +83,24 @@ namespace beam::wallet
 #undef THE_MACRO
 
 	////////////////////////////////
+	// misc
+	void IPrivateKeyKeeper2::Method::KernelCommon::To(TxKernelStd& krn) const
+	{
+		krn.m_Commitment = m_Commitment;
+		krn.m_Fee = m_Fee;
+		krn.m_Height = m_Height;
+		krn.m_Signature = m_Signature;
+	}
+
+	void IPrivateKeyKeeper2::Method::KernelCommon::From(const TxKernelStd& krn)
+	{
+		m_Commitment = krn.m_Commitment;
+		m_Fee = krn.m_Fee;
+		m_Height = krn.m_Height;
+		m_Signature = krn.m_Signature;
+	}
+
+	////////////////////////////////
 	// ThreadedPrivateKeyKeeper
 	void ThreadedPrivateKeyKeeper::TaskList::Pop(Task::Ptr& p)
 	{
