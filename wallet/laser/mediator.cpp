@@ -241,28 +241,28 @@ void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime
     LOG_DEBUG() << "LASER WAIT IN subscribed: " << ch;
 }
 
-bool Mediator::Serve(const std::vector<std::string>& channelIDs)
+bool Mediator::Serve(const std::string& channelID)
 {
-    uint64_t count = 0;
-    for (const auto& channelID: channelIDs)
+    LOG_DEBUG() << "Channel: " << channelID << " restore process started";
+    auto p_channelID = RestoreChannel(channelID);
+
+    if (!p_channelID)
     {
-        LOG_DEBUG() << "Channel: " << channelID << " restore process started";
-        auto p_channelID = RestoreChannel(channelID);
-        if (p_channelID)
-        {
-            LOG_DEBUG() << "Channel: " << channelID
-                        << " restore process finished";
-            auto& channel = m_channels[p_channelID];
-            if (channel && CanBeHandled(channel->get_State()))
-            {
-                channel->Subscribe();
-                ++count;
-            }
-        }
+        LOG_DEBUG() << "Channel: " << channelID << " restore failed";
+        return false;
     }
-    LOG_INFO() << "Listen: " << count
-               << (count == 1 ? " channel" : " channels");
-    return count != 0;
+
+
+    LOG_DEBUG() << "Channel: " << channelID << " restore process finished";
+    auto& channel = m_channels[p_channelID];
+    if (channel && CanBeHandled(channel->get_State()))
+    {
+        channel->Subscribe();
+        return true;
+    }
+
+    LOG_DEBUG() << "Channel: " << channelID << " is inactive";
+    return false;
 }
 
 void Mediator::OpenChannel(Amount aMy,
@@ -291,84 +291,59 @@ void Mediator::OpenChannel(Amount aMy,
     });
 }
 
-bool Mediator::Close(const std::vector<std::string>& channelIDs)
+bool Mediator::Close(const std::string& channelID)
 {
-    size_t count = 0;
-    for (const auto& channelID: channelIDs)
+    auto p_channelID = RestoreChannel(channelID);
+    if (!p_channelID)
     {
-        auto p_channelID = RestoreChannel(channelID);
-        if (p_channelID)
-        {
-            LOG_DEBUG() << "Channel " << channelID << " restored with error";
-            continue;
-        }
-
-        auto& channel = m_channels[p_channelID];
-        if (!channel)
-        {
-            LOG_DEBUG() << "Channel " << channelID << " unexpected error";
-            continue;
-        }
-
-        channel->Subscribe();
-        m_actionsQueue.emplace_back([this, p_channelID] () {
-            CloseInternal(p_channelID);
-        });
-        
-        LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
-        ++count;
+        LOG_DEBUG() << "Channel " << channelID << " restored with error";
+        return false;
     }
 
-    return count != 0;
+    auto& channel = m_channels[p_channelID];
+    if (!channel)
+    {
+        LOG_DEBUG() << "Channel " << channelID << " unexpected error";
+        return false;
+    }
+
+    channel->Subscribe();
+    m_actionsQueue.emplace_back([this, p_channelID] () {
+        CloseInternal(p_channelID);
+    });
+    
+    LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
+    return true;
 }
 
-bool Mediator::GracefulClose(const std::vector<std::string>& channelIDs)
+bool Mediator::GracefulClose(const std::string& channelID)
 {
-    size_t count = 0;
-    for (const auto& channelID: channelIDs)
+    auto p_channelID = RestoreChannel(channelID);
+    if (!p_channelID)
     {
-        auto p_channelID = RestoreChannel(channelID);
-        if (!p_channelID)
-        {
-            LOG_DEBUG() << "Channel " << channelID << " restored with error";
-            continue;
-        }
+        LOG_DEBUG() << "Channel " << channelID << " restored with error";
+        return false;
+    }
 
-        auto& channel = m_channels[p_channelID];
-        if (!channel)
-        {
-            LOG_DEBUG() << "Channel " << channelID << " unexpected error";
-            continue;
-        }
+    auto& channel = m_channels[p_channelID];
+    if (!channel)
+    {
+        LOG_DEBUG() << "Channel " << channelID << " unexpected error";
+        return false;
+    }
 
-        channel->Subscribe();
+    channel->Subscribe();
 
-        Block::SystemState::Full tip;
-        get_History().get_Tip(tip);
+    Block::SystemState::Full tip;
+    get_History().get_Tip(tip);
 
-        if (IsOutOfSync(tip.m_TimeStamp))
-        {
-            m_actionsQueue.emplace_back([this, &channel, p_channelID] () {
-                Block::SystemState::Full tip;
-                get_History().get_Tip(tip);
-                Height channelLockHeight = channel->get_LockHeight();
+    if (IsOutOfSync(tip.m_TimeStamp))
+    {
+        m_actionsQueue.emplace_back([this, &channel, p_channelID] () {
+            Block::SystemState::Full tip;
+            get_History().get_Tip(tip);
 
-                if(tip.m_Height <= channelLockHeight)
-                {
-                    channel->Transfer(0, true);
-                }
-                else
-                {
-                    CloseInternal(p_channelID);
-                }
-            });
-            LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
-        }
-        else
-        {
-            Height channelLockHeight = channel->get_LockHeight();
-
-            if(tip.m_Height <= channelLockHeight)
+            if (tip.m_Height <= channel->get_LockHeight())
             {
                 channel->Transfer(0, true);
             }
@@ -376,43 +351,54 @@ bool Mediator::GracefulClose(const std::vector<std::string>& channelIDs)
             {
                 CloseInternal(p_channelID);
             }
-        }
-        ++count;
+        });
+        LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
     }
-    
-    return count != 0;
-}
-
-void Mediator::Delete(const std::vector<std::string>& channelIDs)
-{
-    for (const auto& channelID: channelIDs)
+    else
     {
-        auto p_channelID = Channel::ChannelIdFromString(channelID);
-        if (!p_channelID)
+        if (tip.m_Height <= channel->get_LockHeight())
         {
-            LOG_ERROR() << "Incorrect channel ID format: " << channelID;
-            continue;
-        }
-        TLaserChannelEntity chDBEntity;
-        if (m_pWalletDB->getLaserChannel(p_channelID, &chDBEntity) &&
-            *p_channelID == std::get<LaserFields::LASER_CH_ID>(chDBEntity) &&
-            CanBeDeleted(std::get<LaserFields::LASER_STATE>(chDBEntity)))
-        {
-            if (m_pWalletDB->removeLaserChannel(p_channelID))
-            {
-                LOG_INFO() << "Channel: " << channelID << " deleted";
-            }
-            else
-            {
-                LOG_INFO() << "Channel: " << channelID << " not deleted";
-            }
+            channel->Transfer(0, true);
         }
         else
         {
-            LOG_ERROR() << "Channel: " << channelID
-                        << " not found or not closed";
+            CloseInternal(p_channelID);
         }
     }
+
+    return true;
+}
+
+bool Mediator::Delete(const std::string& channelID)
+{
+    auto p_channelID = Channel::ChannelIdFromString(channelID);
+    if (!p_channelID)
+    {
+        LOG_ERROR() << "Incorrect channel ID format: " << channelID;
+        return false;
+    }
+
+    TLaserChannelEntity chDBEntity;
+    if (!m_pWalletDB->getLaserChannel(p_channelID, &chDBEntity))
+    {
+        LOG_ERROR() << "Not found channel with ID: " << channelID;
+        return false;
+    }
+
+    if (!CanBeDeleted(std::get<LaserFields::LASER_STATE>(chDBEntity)))
+    {
+        LOG_ERROR() << "Channel: " << channelID << " in active state now";
+        return false;
+    }
+
+    if (m_pWalletDB->removeLaserChannel(p_channelID))
+    {
+        LOG_INFO() << "Channel: " << channelID << " deleted";
+        return true;
+    }
+
+    LOG_INFO() << "Channel: " << channelID << " not deleted";
+    return false;
 }
 
 size_t Mediator::getChannelsCount() const
@@ -428,6 +414,7 @@ size_t Mediator::getChannelsCount() const
 
 void Mediator::AddObserver(Observer* observer)
 {
+    observer->m_observable = this;
     m_observers.push_back(observer);
 }
 

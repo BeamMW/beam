@@ -3857,9 +3857,12 @@ namespace beam::wallet
             for (const auto& tx : db.getTxHistory())
             {
                 string strProof;
-                auto proof = storage::ExportPaymentProof(db, tx.m_txId);
-                strProof.resize(proof.size() * 2);
-                beam::to_hex(strProof.data(), proof.data(), proof.size());
+                if (tx.m_status == TxStatus::Completed)
+                {
+                    auto proof = storage::ExportPaymentProof(db, tx.m_txId);
+                    strProof.resize(proof.size() * 2);
+                    beam::to_hex(strProof.data(), proof.data(), proof.size());
+                }
 
                 ss << (tx.m_sender ? "Send BEAM" : "Receive BEAM") << ","
                    << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","
