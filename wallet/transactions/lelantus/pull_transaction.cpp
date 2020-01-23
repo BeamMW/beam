@@ -21,27 +21,6 @@
 
 namespace beam::wallet::lelantus
 {
-    namespace
-    {
-        ECC::Scalar::Native RestoreSkSpendKey(Key::IKdf::Ptr pKdf, const ShieldedCoin& shieldedCoin)
-        {
-            ShieldedTxo::Viewer viewer;
-            viewer.FromOwner(*pKdf);
-
-            ShieldedTxo::Data::SerialParams serialParams;
-            serialParams.m_pK[0] = shieldedCoin.m_skSerialG;
-            serialParams.m_IsCreatedByViewer = shieldedCoin.m_isCreatedByViewer;
-            serialParams.Restore(viewer);
-
-            ECC::Scalar::Native skSpendKey;
-            Key::IKdf::Ptr pSerialPrivate;
-            ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pKdf);
-            pSerialPrivate->DeriveKey(skSpendKey, serialParams.m_SerialPreimage);
-
-            return skSpendKey;
-        }
-    }
-
     BaseTransaction::Ptr PullTransaction::Creator::Create(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
         , IPrivateKeyKeeper::Ptr keyKeeper
@@ -112,23 +91,9 @@ namespace beam::wallet::lelantus
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
         {
             // TODO check expired
-            TxoID shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
-            auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedId);
-            
-            if (!shieldedCoin)
-            {
-                OnFailed(TxFailureReason::NoInputs);
-                return;
-            }
-
-            ECC::Scalar::Native witnessSk = shieldedCoin->m_skSerialG;
-            witnessSk += shieldedCoin->m_skOutputG;
-
-            ECC::Scalar::Native skSpendKey = RestoreSkSpendKey(GetWalletDB()->get_MasterKdf(), *shieldedCoin);
-            TxoID windowBegin = GetMandatoryParameter<TxoID>(TxParameterID::WindowBegin);
 
             // Construct transaction
-            auto transaction = m_TxBuilder->CreateTransaction(m_shieldedList, windowBegin, shieldedId, witnessSk, skSpendKey);
+            auto transaction = m_TxBuilder->CreateTransaction(m_shieldedList);
 
             // Verify final transaction
             TxBase::Context::Params pars;
