@@ -451,12 +451,12 @@ namespace beam
 #endif  // BEAM_LASER_SUPPORT
 
         po::options_description lelantus_options("Lelantus options");
-        po::options_description visible_lelantus_options(swap_options);
-        visible_swap_options.add_options()
+        po::options_description visible_lelantus_options(lelantus_options);
+        visible_lelantus_options.add_options()
             (cli::INSERT_TO_POOL, "insert utxos to shielded pool")
             (cli::EXTRACT_FROM_POOL, "extract shielded utxo from shielded pool");
 
-        lelantus_options.add_options()            
+        lelantus_options.add_options()
             (cli::SHIELDED_UTXOS, "show shielded utxo in pool")
             (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded utxo id")
             (cli::WINDOW_BEGIN, po::value<Nonnegative<TxoID>>(), "window begin");
