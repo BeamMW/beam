@@ -168,7 +168,7 @@ ColumnLayout {
 
             AmountInput {
                 //% "Send"
-                title:            qsTrId("send-amount-label")
+                title:            qsTrId("send-title")
                 id:               sendAmountInput
                 amount:           viewModel.sendAmount
                 hasFee:           true
@@ -229,7 +229,7 @@ ColumnLayout {
                     Layout.leftMargin: 25
                     font.pixelSize:    14
                     color:             Style.content_secondary
-                    //% "Transaction amount"
+                    //% "Send"
                     text:              qsTrId("send-amount-label") + ":"
                 }
 
