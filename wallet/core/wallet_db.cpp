@@ -1514,22 +1514,9 @@ namespace beam::wallet
         return m_useTrezor ? nullptr : m_pKdf;
     }
 
-	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const CoinID& cid) const
-	{
-		return cid.get_ChildKdf(get_MasterKdf());
-	}
-
     beam::Key::IPKdf::Ptr WalletDB::get_OwnerKdf() const
     {
         return m_OwnerKdf;
-    }
-
-    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid)
-    {
-        ECC::Point commitment;
-        ECC::Scalar::Native sk;
-        CoinID::Worker(cid).Create(sk, commitment, *get_ChildKdf(cid));
-        return commitment;
     }
 
 	void IWalletDB::ImportRecovery(const std::string& path)
@@ -1544,7 +1531,8 @@ namespace beam::wallet
 		rp.Open(path.c_str());
 		uint64_t nTotal = rp.m_Stream.get_Remaining();
 
-		beam::Key::IPKdf::Ptr pOwner = get_MasterKdf();
+		beam::Key::IPKdf::Ptr pOwner = get_OwnerKdf();
+        beam::Key::IKdf::Ptr pMasterKdf = get_MasterKdf();
 
 		while (true)
 		{
@@ -1560,8 +1548,11 @@ namespace beam::wallet
 			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, cid))
 				continue;
 
-			ECC::Point&& comm = calcCommitment(cid);
-			if (!(comm == x.m_Output.m_Commitment))
+
+            ECC::Point::Native commN;
+            CoinID::Worker(cid).Recover(commN, *cid.get_ChildKdf(pMasterKdf));
+
+			if (!(commN == x.m_Output.m_Commitment))
 				continue;
 
 			Coin c;

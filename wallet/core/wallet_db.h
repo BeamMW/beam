@@ -286,14 +286,8 @@ namespace beam::wallet
         // Returns the Master Key Derivative Function (operates on secret keys)
         virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
 
-        // Returns the Child Key Derivative Function (operates on secret keys)
-		beam::Key::IKdf::Ptr get_ChildKdf(const CoinID&) const;
-
         // Returns the Owner Key Derivative Function (operates on public keys)
         virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const = 0;
-
-        // Calculates blinding factor and commitment of specifc Coin::ID
-        ECC::Point calcCommitment(const Coin::ID&);
 
 		// import blockchain recovery data (all at once)
 		// should be used only upon creation on 'clean' wallet. Throws exception on error
