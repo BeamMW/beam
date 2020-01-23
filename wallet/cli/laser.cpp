@@ -41,7 +41,6 @@ void LaserObserver::OnOpenFailed(const laser::ChannelIDPtr& chID)
     LOG_DEBUG() << boost::format(kLaserErrorOpenFailed)
                     % to_hex(chID->m_pData, chID->nBytes);
     io::Reactor::get_Current().stop();
-    LaserShow(m_walletDB);
 }
 
 void LaserObserver::OnClosed(const laser::ChannelIDPtr& chID)
