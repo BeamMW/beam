@@ -182,20 +182,16 @@ namespace beam::wallet
 
         struct Method
         {
-            struct get_KeyImage {
-                ECC::uintBig m_Hash;
-                uint32_t m_iGen; // G, J, H
-                ECC::Point::Native m_Result;
+            struct get_MasterKey {
+                Key::IKdf::Ptr m_pKdf; // only for trusted host
+            };
+
+            struct get_OwnerKey {
+                Key::IPKdf::Ptr m_pKdf;
             };
 
             struct get_NumSlots {
                 uint32_t m_Count;
-            };
-
-            struct get_SlotImage {
-                uint32_t m_iSlot;
-                uint32_t m_iGen; // G, J, H
-                ECC::Point::Native m_Result;
             };
 
             struct CreateOutput {
@@ -245,9 +241,9 @@ namespace beam::wallet
         };
 
 #define KEY_KEEPER_METHODS(macro) \
-		macro(get_KeyImage) \
+		macro(get_MasterKey) \
+		macro(get_OwnerKey) \
 		macro(get_NumSlots) \
-		macro(get_SlotImage) \
 		macro(CreateOutput) \
 		macro(SignReceiver) \
 		macro(SignSender) \

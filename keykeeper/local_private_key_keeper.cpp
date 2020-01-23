@@ -649,26 +649,25 @@ namespace beam::wallet
         return true;
     }
 
-    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_KeyImage& x)
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_MasterKey& x)
     {
-        Scalar::Native sk;
-        m_pKdf->DeriveKey(sk, x.m_Hash);
+        if (IsTrustless())
+            return Status::UserAbort;
 
-        return ToImage(x.m_Result, x.m_iGen, sk);
+        x.m_pKdf = m_pKdf;
+        return Status::Success;
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_OwnerKey& x)
+    {
+        x.m_pKdf = m_pKdf;
+        return Status::Success;
     }
 
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_NumSlots& x)
     {
         x.m_Count = s_Slots;
         return Status::Success;
-    }
-
-    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_SlotImage& x)
-    {
-        if (x.m_iSlot >= s_Slots)
-            return Status::Unspecified;
-
-        return ToImage(x.m_Result, x.m_iGen, m_State.m_pSlot[x.m_iSlot]);
     }
 
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateOutput& x)

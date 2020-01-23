@@ -2199,13 +2199,16 @@ void TestKeyKeeper()
         p.m_KeyID = 14 + i;
 
         // get ID
-        IPrivateKeyKeeper2::Method::get_KeyImage m;
-        Key::ID(p.m_KeyID, Key::Type::WalletID).get_Hash(m.m_Hash);
-        m.m_iGen = 0;
-
+        IPrivateKeyKeeper2::Method::get_OwnerKey m;
         WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
 
-        Point pt = m.m_Result;
+        Hash::Value hv;
+        Key::ID(p.m_KeyID, Key::Type::WalletID).get_Hash(hv);
+
+        Point::Native ptN;
+        m.m_pKdf->DerivePKeyG(ptN, hv);
+
+        Point pt = ptN;
         p.m_ID = pt.m_X;
     }
 
@@ -2262,6 +2265,9 @@ void TestKeyKeeper()
     {
         Peer& p = pPeer[i];
 
+        IPrivateKeyKeeper2::Method::get_OwnerKey mKey;
+        WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(mKey));
+
         const IPrivateKeyKeeper2::Method::InOuts& io = i ?
             Cast::Down<IPrivateKeyKeeper2::Method::InOuts>(mR) :
             Cast::Down<IPrivateKeyKeeper2::Method::InOuts>(mS);
@@ -2271,24 +2277,12 @@ void TestKeyKeeper()
             const CoinID& cid = io.m_vInputs[j];
 
             // build input commitment
-            // This can be done either using Key::IPKdf (owner key), or from sk images.
-            // The following is the demostration of the 2nd way.
-
-            IPrivateKeyKeeper2::Method::get_KeyImage m;
-            cid.get_Hash(m.m_Hash);
-            m.m_iGen = 0;
-            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
-
-            Point::Native pk = m.m_Result;
-
-            m.m_iGen = 1;
-            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
-
-            CoinID::Worker(cid).Recover(pk, m.m_Result);
+            Point::Native comm;
+            CoinID::Worker(cid).Recover(comm, *mKey.m_pKdf);
 
             tx.m_vInputs.emplace_back();
             tx.m_vInputs.back().reset(new Input);
-            tx.m_vInputs.back()->m_Commitment = pk;
+            tx.m_vInputs.back()->m_Commitment = comm;
         }
 
         for (size_t j = 0; j < io.m_vOutputs.size(); j++)
