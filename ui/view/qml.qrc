@@ -42,10 +42,7 @@
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>
-        <file>dashboard.qml</file>
         <file>wallet.qml</file>
-        <file>notification.qml</file>
-        <file>info.qml</file>
         <file>settings.qml</file>
         <file>addresses.qml</file>
         <file>utxo.qml</file>

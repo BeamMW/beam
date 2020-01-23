@@ -283,7 +283,7 @@ void WalletModel::onPostFunctionToClientContext(MessageFunction&& func)
 
 void WalletModel::onNewsUpdate(const NewsMessage& msg)
 {
-    // emit messageReceived();
+    emit newscastUpdate(QString::fromStdString(msg.m_content));
 }
 
 beam::Amount WalletModel::getAvailable() const

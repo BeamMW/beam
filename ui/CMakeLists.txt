@@ -130,10 +130,6 @@ set(UI_SRC
     viewmodel/utxo/utxo_view_type.h
     viewmodel/main_view.h
     viewmodel/main_view.cpp
-    viewmodel/dashboard_view.h
-    viewmodel/dashboard_view.cpp
-    viewmodel/notifications_view.h
-    viewmodel/notifications_view.cpp
     viewmodel/help_view.h
     viewmodel/help_view.cpp
     viewmodel/settings_view.h

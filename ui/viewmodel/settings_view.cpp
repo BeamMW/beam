@@ -1150,7 +1150,7 @@ const QList<QObject*>& SettingsViewModel::getSwapCoinSettings()
 
 bool SettingsViewModel::isNewsPropChanged() const
 {
-    return m_newsKey == m_settings.getNewscastKey();
+    return m_newsKey != m_settings.getNewscastKey();
 }
 
 QString SettingsViewModel::getNewsKey() const

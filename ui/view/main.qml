@@ -89,13 +89,10 @@ Rectangle {
     }
 
     property var contentItems : [
-		//"dashboard",
 		"wallet", 
         "atomic_swap",
 		"addresses", 
 		"utxo",
-		//"notification", 
-		//"info",
 		"settings"]
     property int selectedItem
 
@@ -332,6 +329,13 @@ Rectangle {
             trezor_popup.message = error
             trezor_popup.open()
 
+        }
+
+        onShowUpdateNotification: function(messageString) {
+            console.log("News messageString: " + messageString);
+            trezor_popup = Qt.createComponent("popup_message.qml").createObject(main)
+            trezor_popup.message = messageString
+            trezor_popup.open()
         }
     }
 

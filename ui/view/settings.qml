@@ -1089,12 +1089,13 @@ deploy the key at the node you trust completely."*/
                     font.pixelSize: 14
                     color: Style.content_main
                     text: viewModel.newsKey
-                    // validator: RegExpValidator {regExp: /^([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/g}
+                    validator: RegExpValidator {regExp: /^[a-fA-F0-9]+$/}   // TODO limit to 64 symbols
                     Binding {
                         target: viewModel
                         property: "newsKey"
                         value: newscastKeyInput.text
                     }
+                    Component.onCompleted: console.log("key text: " + viewModel.newsKey)
                 }
             }
 
