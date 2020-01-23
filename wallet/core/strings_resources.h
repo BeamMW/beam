@@ -244,4 +244,8 @@ namespace beam
 
     extern const char kLaserCurrentState[];
 #endif  // BEAM_LASER_SUPPORT
+
+    // lelantus
+    extern const char kErrorShieldedIDMissing[];
+    extern const char kErrorWindowBeginMissing[];
 }

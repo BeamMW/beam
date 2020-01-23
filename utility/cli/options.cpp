@@ -280,6 +280,13 @@ namespace beam
         const char* ASSET_INDEX   = "asset_idx";
         const char* ASSET_ID      = "asset_id";
 
+        // lelantus
+        const char* INSERT_TO_POOL = "insert_to_pool";
+        const char* EXTRACT_FROM_POOL = "extract_from_pool";
+        const char* SHIELDED_UTXOS = "shielded_utxos";
+        const char* SHIELDED_ID = "shielded_id";
+        const char* WINDOW_BEGIN = "window_begin";
+
         // Defaults
         const Amount kMinimumFee = 100;
     }
@@ -443,6 +450,22 @@ namespace beam
             (cli::LASER_CLOSE_GRACEFUL, "graceful close flag");
 #endif  // BEAM_LASER_SUPPORT
 
+        po::options_description lelantus_options("Lelantus options");
+        po::options_description visible_lelantus_options(swap_options);
+        visible_swap_options.add_options()
+            (cli::INSERT_TO_POOL, "insert utxos to shielded pool")
+            (cli::EXTRACT_FROM_POOL, "extract shielded utxo from shielded pool");
+
+        lelantus_options.add_options()            
+            (cli::SHIELDED_UTXOS, "show shielded utxo in pool")
+            (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded utxo id")
+            (cli::WINDOW_BEGIN, po::value<Nonnegative<TxoID>>(), "window begin");
+
+        for (auto opt : lelantus_options.options())
+        {
+            visible_lelantus_options.add(opt);
+        }
+
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
         if (flags & GENERAL_OPTIONS)
@@ -461,9 +484,11 @@ namespace beam
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
+            options.add(lelantus_options);
             if(Rules::get().CA.Enabled) options.add(wallet_assets_options);
             visible_options.add(wallet_options);
             visible_options.add(visible_swap_options);
+            visible_options.add(visible_lelantus_options);
             if(Rules::get().CA.Enabled) visible_options.add(wallet_assets_options);
 
 #ifdef BEAM_LASER_SUPPORT

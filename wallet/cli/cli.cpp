@@ -744,6 +744,11 @@ namespace
             }
         }
 
+        if (vm.count(cli::SHIELDED_UTXOS))
+        {
+            // TODO should implement
+        }
+
         //
         // Show info about assets
         //
@@ -980,18 +985,8 @@ namespace
         return true;
     }
 
-    bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
+    bool ReadAmount(const po::variables_map& vm, Amount& amount)
     {
-        if (!skipReceiverWalletID)
-        {
-            if (vm.count(cli::RECEIVER_ADDR) == 0)
-            {
-                LOG_ERROR() << kErrorReceiverAddrMissing;
-                return false;
-            }
-            receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
-        }
-
         if (vm.count(cli::AMOUNT) == 0)
         {
             LOG_ERROR() << kErrorAmountMissing;
@@ -1014,10 +1009,66 @@ namespace
             return false;
         }
 
+        return true;
+    }
+
+    bool ReadFee(const po::variables_map& vm, Amount& fee, bool checkFee)
+    {
         fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
         if (checkFee && fee < cli::kMinimumFee)
         {
             LOG_ERROR() << kErrorFeeToLow;
+            return false;
+        }
+
+        return true;
+    }
+
+    bool ReadShieldedId(const po::variables_map& vm, TxoID& id)
+    {
+        if (vm.count(cli::SHIELDED_ID) == 0)
+        {
+            LOG_ERROR() << kErrorShieldedIDMissing;
+            return false;
+        }
+
+        id = vm[cli::SHIELDED_ID].as<Nonnegative<TxoID>>().value;
+
+        return true;
+    }
+
+    bool ReadWindowBegin(const po::variables_map& vm, TxoID& windowBegin)
+    {
+        if (vm.count(cli::WINDOW_BEGIN) == 0)
+        {
+            LOG_ERROR() << kErrorWindowBeginMissing;
+            return false;
+        }
+
+        windowBegin = vm[cli::WINDOW_BEGIN].as<Nonnegative<TxoID>>().value;
+
+        return true;
+    }
+
+    bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
+    {
+        if (!skipReceiverWalletID)
+        {
+            if (vm.count(cli::RECEIVER_ADDR) == 0)
+            {
+                LOG_ERROR() << kErrorReceiverAddrMissing;
+                return false;
+            }
+            receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
+        }
+
+        if (!ReadAmount(vm, amount))
+        {
+            return false;
+        }
+
+        if (!ReadFee(vm, fee, checkFee))
+        {
             return false;
         }
 
@@ -2276,7 +2327,9 @@ int main_impl(int argc, char* argv[])
                             cli::LASER,
 #endif  // BEAM_LASER_SUPPORT
                             cli::ASSET_ISSUE,
-                            cli::ASSET_CONSUME
+                            cli::ASSET_CONSUME,
+                            cli::INSERT_TO_POOL,
+                            cli::EXTRACT_FROM_POOL
                         };
 
                         if (find(begin(commands), end(commands), command) == end(commands))
@@ -2652,6 +2705,48 @@ int main_impl(int argc, char* argv[])
                         if (command == cli::ASSET_CONSUME)
                         {
                             currentTxID = IssueConsumeAsset(false, vm, wallet);
+                        }
+
+                        if (command == cli::INSERT_TO_POOL)
+                        {
+                            if (!ReadAmount(vm, amount) || !ReadFee(vm, fee, true))
+                            {
+                                return -1;
+                            }
+
+                            currentTxID = wallet.StartTransaction(TxParameters(GenerateTxID())
+                                .SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
+                                .SetParameter(TxParameterID::Amount, amount)
+                                .SetParameter(TxParameterID::Fee, fee)
+                                // TODO check this param 
+                                //.SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                                .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                                .SetParameter(TxParameterID::CreateTime, getTimestamp()));
+                        }
+
+                        if (command == cli::EXTRACT_FROM_POOL)
+                        {
+                            TxoID windowBegin;
+                            TxoID shieldedId;
+
+                            if (!ReadFee(vm, fee, true) || !ReadShieldedId(vm, shieldedId) || !ReadWindowBegin(vm, windowBegin))
+                            {
+                                return -1;
+                            }
+
+                            currentTxID = wallet.StartTransaction(TxParameters(GenerateTxID())
+                                .SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
+                                // TODO check this param
+                                .SetParameter(TxParameterID::Amount, amount)
+                                .SetParameter(TxParameterID::Fee, fee)
+                                // TODO check this param 
+                                //.SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                                .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                                .SetParameter(TxParameterID::WindowBegin, windowBegin)
+                                .SetParameter(TxParameterID::ShieldedOutputId, shieldedId)
+                                .SetParameter(TxParameterID::CreateTime, getTimestamp()));
                         }
 
                         if (isTxInitiator)

@@ -183,6 +183,13 @@ namespace beam
         extern const char* ASSET_INDEX;
         extern const char* ASSET_ID;
 
+        // lelantus
+        extern const char* INSERT_TO_POOL;
+        extern const char* EXTRACT_FROM_POOL;
+        extern const char* SHIELDED_UTXOS;
+        extern const char* SHIELDED_ID;
+        extern const char* WINDOW_BEGIN;
+
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;
     }

@@ -253,4 +253,8 @@ namespace beam
 
     const char kLaserCurrentState[] = "Current state is %1%";
 #endif  // BEAM_LASER_SUPPORT
+
+    // lelantus
+    const char kErrorShieldedIDMissing[] = "shielded id is missing";
+    const char kErrorWindowBeginMissing[] = "window begin is missing";
 }
