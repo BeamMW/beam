@@ -669,14 +669,14 @@ namespace
             else
             {
                 const array<uint8_t, 6> columnWidths{{20, 17, 26, 21, 33, 65}};
-            cout << boost::format(kTxHistoryTableHead)
-                 % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
-                 % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
-                 % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
-                 % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
-                 % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
-                 % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
-                 << std::endl;
+                cout << boost::format(kTxHistoryTableHead)
+                    % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
+                    % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
+                    % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
+                    % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
+                    % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
+                    % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
+                    << std::endl;
 
                 for (auto &tx : txHistory) {
                 cout << boost::format(kTxHistoryTableFormat)
@@ -705,32 +705,32 @@ namespace
             else
             {
                 const array<uint8_t, 6> columnWidths{{20, 26, 18, 15, 23, 33}};
-            cout << boost::format(kTxHistoryTableHead)
-                 % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
-                 % boost::io::group(right, setw(columnWidths[1]), kTxHistoryColumnAmount)
-                 % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnSwapAmount)
-                 % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnSwapType)
-                 % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnStatus)
-                 % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnId)
-                 << std::endl;
+                cout << boost::format(kTxHistoryTableHead)
+                     % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
+                     % boost::io::group(right, setw(columnWidths[1]), kTxHistoryColumnAmount)
+                     % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnSwapAmount)
+                     % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnSwapType)
+                     % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnStatus)
+                     % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnId)
+                     << std::endl;
 
                 for (auto &tx : txHistory) {
-                Amount swapAmount = 0;
-                    storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
-                                            wallet::TxParameterID::AtomicSwapAmount, swapAmount);
-                bool isBeamSide = false;
-                    storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
-                                            wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+                    Amount swapAmount = 0;
+                        storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
+                                                wallet::TxParameterID::AtomicSwapAmount, swapAmount);
+                    bool isBeamSide = false;
+                        storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
+                                                wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
 
-                AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
-                    storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
-                                            wallet::TxParameterID::AtomicSwapCoin, swapCoin);
+                    AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
+                        storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
+                                                wallet::TxParameterID::AtomicSwapCoin, swapCoin);
 
-                stringstream ss;
-                    ss << (isBeamSide ? kBEAM : to_string(swapCoin)) << " <--> "
-                       << (!isBeamSide ? kBEAM : to_string(swapCoin));
+                    stringstream ss;
+                        ss << (isBeamSide ? kBEAM : to_string(swapCoin)) << " <--> "
+                           << (!isBeamSide ? kBEAM : to_string(swapCoin));
 
-                cout << boost::format(kSwapTxHistoryTableFormat)
+                    cout << boost::format(kSwapTxHistoryTableFormat)
                             % boost::io::group(left, setw(columnWidths[0]),
                                                format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
                             % boost::io::group(right, setw(columnWidths[1]),
@@ -740,13 +740,32 @@ namespace
                      % boost::io::group(left, setw(columnWidths[4]), getSwapTxStatus(walletDB, tx))
                      % boost::io::group(left, setw(columnWidths[5]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
                      << std::endl;
-            }
+                }
             }
         }
 
         if (vm.count(cli::SHIELDED_UTXOS))
         {
             // TODO should implement
+            const array<uint8_t, 6> columnWidths{ { 49, 14, 14} };
+            cout << boost::format(kCoinsTableHeadFormat)
+                % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
+                % boost::io::group(right, setw(columnWidths[1]), kBEAM)
+                % boost::io::group(right, setw(columnWidths[2]), kGROTH)
+                << std::endl;
+
+            auto shieldedCoins = walletDB->getShieldedCoins();
+
+            for (const auto& c : shieldedCoins)
+            {
+                cout << boost::format(kCoinsTableFormat)
+                    % boost::io::group(left, setw(columnWidths[0]), std::to_string(c.first))
+                    % boost::io::group(right, setw(columnWidths[1]), c.second.m_value / Rules::Coin)
+                    % boost::io::group(right, setw(columnWidths[2]), c.second.m_value % Rules::Coin)
+                    << std::endl;
+            }
+
+            cout << std::endl;
         }
 
         //
