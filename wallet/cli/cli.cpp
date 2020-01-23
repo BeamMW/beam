@@ -680,33 +680,33 @@ namespace
 
             if (txHistory.empty())
             {
-                cout << kTxHistoryEmpty << endl;
+            cout << kTxHistoryEmpty << endl;
             }
             else
             {
-                const array<uint8_t, 6> columnWidths{{20, 17, 26, 21, 33, 65}};
+            const array<uint8_t, 6> columnWidths{ {20, 17, 26, 21, 33, 65} };
             cout << boost::format(kTxHistoryTableHead)
-                 % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
-                 % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
-                 % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
-                 % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
-                 % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
-                 % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
-                 << std::endl;
+                % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
+                % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
+                % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
+                % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
+                % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
+                % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
+                << std::endl;
 
-                for (auto &tx : txHistory) {
+            for (auto& tx : txHistory) {
                 cout << boost::format(kTxHistoryTableFormat)
-                            % boost::io::group(left, setw(columnWidths[0]),
-                                               format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
-                            % boost::io::group(left, setw(columnWidths[1]),
-                                               (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut
-                                                                                              : kTxDirectionIn)))
-                            % boost::io::group(right, setw(columnWidths[2]),
-                                               to_string(PrintableAmount(tx.m_amount, true)))
-                     % boost::io::group(left, setw(columnWidths[3]), getTxStatus(tx))
-                     % boost::io::group(left, setw(columnWidths[4]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
-                     % boost::io::group(left, setw(columnWidths[5]), to_string(tx.m_kernelID))
-                     << std::endl;
+                    % boost::io::group(left, setw(columnWidths[0]),
+                        format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                    % boost::io::group(left, setw(columnWidths[1]),
+                    (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut
+                        : kTxDirectionIn)))
+                    % boost::io::group(right, setw(columnWidths[2]),
+                        to_string(PrintableAmount(tx.m_amount, true)))
+                    % boost::io::group(left, setw(columnWidths[3]), getTxStatus(tx))
+                    % boost::io::group(left, setw(columnWidths[4]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                    % boost::io::group(left, setw(columnWidths[5]), to_string(tx.m_kernelID))
+                    << std::endl;
             }
             }
         }
@@ -720,57 +720,57 @@ namespace
             }
             else
             {
-                const array<uint8_t, 6> columnWidths{{20, 26, 18, 15, 23, 33}};
-            cout << boost::format(kTxHistoryTableHead)
-                 % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
-                 % boost::io::group(right, setw(columnWidths[1]), kTxHistoryColumnAmount)
-                 % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnSwapAmount)
-                 % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnSwapType)
-                 % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnStatus)
-                 % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnId)
-                 << std::endl;
+                const array<uint8_t, 6> columnWidths{ {20, 26, 18, 15, 23, 33} };
+                cout << boost::format(kTxHistoryTableHead)
+                    % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
+                    % boost::io::group(right, setw(columnWidths[1]), kTxHistoryColumnAmount)
+                    % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnSwapAmount)
+                    % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnSwapType)
+                    % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnStatus)
+                    % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnId)
+                    << std::endl;
 
-                for (auto &tx : txHistory) {
-                Amount swapAmount = 0;
+                for (auto& tx : txHistory) {
+                    Amount swapAmount = 0;
                     storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
-                                            wallet::TxParameterID::AtomicSwapAmount, swapAmount);
-                bool isBeamSide = false;
+                        wallet::TxParameterID::AtomicSwapAmount, swapAmount);
+                    bool isBeamSide = false;
                     storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
-                                            wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+                        wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
 
-                AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
+                    AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
                     storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
-                                            wallet::TxParameterID::AtomicSwapCoin, swapCoin);
+                        wallet::TxParameterID::AtomicSwapCoin, swapCoin);
 
-                stringstream ss;
+                    stringstream ss;
                     ss << (isBeamSide ? kBEAM : to_string(swapCoin)) << " <--> "
-                       << (!isBeamSide ? kBEAM : to_string(swapCoin));
+                        << (!isBeamSide ? kBEAM : to_string(swapCoin));
 
-                cout << boost::format(kSwapTxHistoryTableFormat)
-                            % boost::io::group(left, setw(columnWidths[0]),
-                                               format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
-                            % boost::io::group(right, setw(columnWidths[1]),
-                                               to_string(PrintableAmount(tx.m_amount, true)))
-                     % boost::io::group(right, setw(columnWidths[2]), swapAmount)
-                     % boost::io::group(right, setw(columnWidths[3]), ss.str())
-                     % boost::io::group(left, setw(columnWidths[4]), getSwapTxStatus(walletDB, tx))
-                     % boost::io::group(left, setw(columnWidths[5]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
-                     << std::endl;
-            }
+                    cout << boost::format(kSwapTxHistoryTableFormat)
+                        % boost::io::group(left, setw(columnWidths[0]),
+                            format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                        % boost::io::group(right, setw(columnWidths[1]),
+                            to_string(PrintableAmount(tx.m_amount, true)))
+                        % boost::io::group(right, setw(columnWidths[2]), swapAmount)
+                        % boost::io::group(right, setw(columnWidths[3]), ss.str())
+                        % boost::io::group(left, setw(columnWidths[4]), getSwapTxStatus(walletDB, tx))
+                        % boost::io::group(left, setw(columnWidths[5]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                        << std::endl;
+                }
             }
         }
 
         //
         // Show info about assets
         //
-        for(auto it: totalsCalc.allTotals) {
+        for (auto it : totalsCalc.allTotals) {
             const auto assetId = it.second.AssetId;
             if (assetId != 0) {
                 cout << endl;
                 ShowAssetInfo(it.second);
                 ShowAssetCoins(walletDB, it.second.AssetId, kASSET, kAGROTH);
                 if (vm.count(cli::TX_HISTORY))
-        {
+                {
                     ShowAssetTxs(walletDB, it.second.AssetId, kASSET, kAGROTH);
                 }
             }
@@ -779,28 +779,44 @@ namespace
         return 0;
     }
 
+    boost::optional<TxID> GetTxID(const po::variables_map& vm)
+    {
+        boost::optional<TxID> res;
+        auto txIdStr = vm[cli::TX_ID].as<string>();
+        if (txIdStr.empty())
+        {
+            LOG_ERROR() << kErrorTxIdParamReqired;
+            return res;
+        }
+        
+        auto txIdVec = from_hex(txIdStr);
+        
+        if (txIdVec.size() >= 16)
+        {
+            res.emplace();
+            std::copy_n(txIdVec.begin(), 16, res->begin());
+        }
+        return res;
+    }
+
     int TxDetails(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
-        auto txIdStr = vm[cli::TX_ID].as<string>();
-        if (txIdStr.empty()) {
-            LOG_ERROR() << kErrorTxIdParamReqired;
+        auto txId = GetTxID(vm);
+        if (!txId)
+        {
             return -1;
         }
-        auto txIdVec = from_hex(txIdStr);
-        TxID txId;
-        if (txIdVec.size() >= 16)
-            std::copy_n(txIdVec.begin(), 16, txId.begin());
 
-        auto tx = walletDB->getTx(txId);
+        auto tx = walletDB->getTx(*txId);
         if (!tx)
         {
-            LOG_ERROR() << boost::format(kErrorTxWithIdNotFound) % txIdStr;
+            LOG_ERROR() << boost::format(kErrorTxWithIdNotFound) % vm[cli::TX_ID].as<string>();
             return -1;
         }
 
         LOG_INFO()
             << boost::format(kTxDetailsFormat)
-                % storage::TxDetailsInfo(walletDB, txId) % getTxStatus(*tx) 
+                % storage::TxDetailsInfo(walletDB, *txId) % getTxStatus(*tx) 
             << (tx->m_status == TxStatus::Failed
                     ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason)
                     : boost::format(""));
@@ -810,12 +826,13 @@ namespace
 
     int ExportPaymentProof(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
-        auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
-        TxID txId;
-        if (txIdVec.size() >= 16)
-            std::copy_n(txIdVec.begin(), 16, txId.begin());
+        auto txId = GetTxID(vm);
+        if (!txId)
+        {
+            return -1;
+        }
 
-        auto tx = walletDB->getTx(txId);
+        auto tx = walletDB->getTx(*txId);
         if (!tx)
         {
             LOG_ERROR() << kErrorPpExportFailed;
@@ -832,7 +849,7 @@ namespace
             return -1;
         }
 
-        auto res = storage::ExportPaymentProof(*walletDB, txId);
+        auto res = storage::ExportPaymentProof(*walletDB, *txId);
         if (!res.empty())
         {
             std::string sTxt;
@@ -2373,18 +2390,20 @@ int main_impl(int argc, char* argv[])
                         bool deleteTx = (command == cli::DELETE_TX);
                         if (command == cli::CANCEL_TX || deleteTx)
                         {
-                            auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
-                            TxID txId;
-                            std::copy_n(txIdVec.begin(), 16, txId.begin());
-                            auto tx = walletDB->getTx(txId);
+                            auto txId = GetTxID(vm);
+                            if (!txId)
+                            {
+                                return -1;
+                            }
 
+                            auto tx = walletDB->getTx(*txId);
                             if (tx)
                             {
                                 if (deleteTx)
                                 {
                                     if (tx->canDelete())
                                     {
-                                        wallet.DeleteTransaction(txId);
+                                        wallet.DeleteTransaction(*txId);
                                         return 0;
                                     }
                                     else
@@ -2395,10 +2414,10 @@ int main_impl(int argc, char* argv[])
                                 }
                                 else
                                 {
-                                    if (wallet.CanCancelTransaction(txId))
+                                    if (wallet.CanCancelTransaction(*txId))
                                     {
-                                        currentTxID = txId;
-                                        wallet.CancelTransaction(txId);
+                                        currentTxID = *txId;
+                                        wallet.CancelTransaction(*txId);
                                     }
                                     else
                                     {
