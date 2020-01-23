@@ -2285,13 +2285,9 @@ void TestKeyKeeper()
         {
             const CoinID& cid = io.m_vInputs[j];
 
-            IPrivateKeyKeeper2::Method::get_Kdf mKey;
-            mKey.m_Root = !cid.get_ChildKdfIndex(mKey.m_iChild);
-            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(mKey));
-
             // build input commitment
             Point::Native comm;
-            CoinID::Worker(cid).Recover(comm, *mKey.m_pPKdf);
+            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->get_Commitment(comm, cid));
 
             tx.m_vInputs.emplace_back();
             tx.m_vInputs.back().reset(new Input);

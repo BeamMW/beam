@@ -82,6 +82,22 @@ namespace beam::wallet
 	KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
 
+	IPrivateKeyKeeper2::Status::Type IPrivateKeyKeeper2::get_Commitment(ECC::Point::Native& res, const CoinID& cid)
+	{
+		Method::get_Kdf m;
+		m.From(cid);
+
+		Status::Type ret = InvokeSync(m);
+		if (Status::Success != ret)
+			return ret;
+
+		if (!m.m_pPKdf)
+			return Status::UserAbort; // although should not happen, PKdf must always be returned
+
+		CoinID::Worker(cid).Recover(res, *m.m_pPKdf);
+		return Status::Success;
+	}
+
 	////////////////////////////////
 	// misc
 	void IPrivateKeyKeeper2::Method::KernelCommon::To(TxKernelStd& krn) const
@@ -98,6 +114,11 @@ namespace beam::wallet
 		m_Fee = krn.m_Fee;
 		m_Height = krn.m_Height;
 		m_Signature = krn.m_Signature;
+	}
+
+	void IPrivateKeyKeeper2::Method::get_Kdf::From(const CoinID& cid)
+	{
+		m_Root = !cid.get_ChildKdfIndex(m_iChild);
 	}
 
 	////////////////////////////////
