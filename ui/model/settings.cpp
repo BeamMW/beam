@@ -365,30 +365,30 @@ void WalletSettings::setNewscastActive(bool isActive)
             Lock lock(m_mutex);
             m_data.setValue(kNewscastActive, isActive);
         }
-        emit newscastSettingsChanged();
+        // emit newscastSettingsChanged();
     }
 }
 
-std::string WalletSettings::getNewscastKey() const
+QString WalletSettings::getNewscastKey() const
 {
     Lock lock(m_mutex);
-    return m_data.value(kNewscastPublicKey).toString().toStdString();
+    return m_data.value(kNewscastPublicKey).toString();
 }
 
-void WalletSettings::setNewscastKey(std::string keyHex)
+void WalletSettings::setNewscastKey(QString keyHex)
 {
     if (keyHex != getNewscastKey())
     {
         auto walletModel = AppModel::getInstance().getWallet();
         if (walletModel)
         {
-            // walletModel->getAsync()->setNewscastKey(keyHex);
+            walletModel->getAsync()->setNewscastKey(keyHex.toStdString());
         }
         {
             Lock lock(m_mutex);
             m_data.setValue(kNewscastPublicKey, keyHex);
         }
-        emit newscastSettingsChanged();
+        // emit newscastSettingsChanged();
     }
 }
 

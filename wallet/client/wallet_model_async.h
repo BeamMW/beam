@@ -65,6 +65,8 @@ namespace beam::wallet
         virtual void exportDataToJson() = 0;
         virtual void exportTxHistoryToCsv() = 0;
 
+        virtual void setNewscastKey(const std::string& publisherKey) = 0;
+
         virtual ~IWalletModelAsync() {}
     };
 }

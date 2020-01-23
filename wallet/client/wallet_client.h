@@ -21,8 +21,8 @@
 #include "wallet/core/node_network.h"
 #include "wallet/core/private_key_keeper.h"
 #include "wallet_model_async.h"
-#include "wallet/client/extensions/offers_board/swap_offers_observer.h"
 #include "wallet/client/changes_collector.h"
+#include "wallet/client/extensions/offers_board/swap_offers_observer.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif
@@ -158,6 +158,7 @@ namespace beam::wallet
         void importDataFromJson(const std::string& data) override;
         void exportDataToJson() override;
         void exportTxHistoryToCsv() override;
+        void setNewscastKey(const std::string& publisherKey) override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;

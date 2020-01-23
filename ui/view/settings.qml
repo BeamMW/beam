@@ -211,18 +211,23 @@ deploy the key at the node you trust completely."*/
         State {
             name: "general"
             PropertyChanges { target: generalSettingsTab; state: "active" }
-            PropertyChanges { target: swapSettings; visible: false }
-            PropertyChanges { target: swapSettings; visible: false }
+            PropertyChanges { target: generalSettings;  visible: true }
+            PropertyChanges { target: swapSettings;     visible: false }
+            PropertyChanges { target: newsSettings;     visible: false }
         },
         State {
             name: "swap"
             PropertyChanges { target: swapSettingsTab; state: "active" }
-            PropertyChanges { target: settingsView; swapMode: true }
+            PropertyChanges { target: generalSettings;  visible: false }
+            PropertyChanges { target: swapSettings;     visible: true }
+            PropertyChanges { target: newsSettings;     visible: false }
         },
         State {
             name: "news"
             PropertyChanges { target: newsSettingsTab; state: "active" }
-            PropertyChanges { target: settingsView; swapMode: false }
+            PropertyChanges { target: generalSettings;  visible: false }
+            PropertyChanges { target: swapSettings;     visible: false }
+            PropertyChanges { target: newsSettings;     visible: true }
         }
     ]
 
@@ -1060,17 +1065,13 @@ deploy the key at the node you trust completely."*/
         id: newsSettings
         Layout.fillWidth: true
         Layout.fillHeight: true
-        Layout.bottomMargin: 10
         clip: true
-        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-        ScrollBar.vertical.policy: ScrollBar.AlwaysOff
 
         ColumnLayout {
             id:               newsLayout
             width:            mainColumn.width
 
             RowLayout {
-                visible: viewModel.localNodeRun
 
                 SFText {
                     Layout.fillWidth: true;
@@ -1080,7 +1081,6 @@ deploy the key at the node you trust completely."*/
                     font.pixelSize: 14
                 }
 
-
                 SFTextInput {
                     id: newscastKeyInput
                     Layout.fillWidth: true;
@@ -1088,13 +1088,37 @@ deploy the key at the node you trust completely."*/
                     activeFocusOnTab: true
                     font.pixelSize: 14
                     color: Style.content_main
-                    text: viewModel.newscastKey
+                    text: viewModel.newsKey
                     // validator: RegExpValidator {regExp: /^([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/g}
                     Binding {
                         target: viewModel
-                        property: "newscastKey"
+                        property: "newsKey"
                         value: newscastKeyInput.text
                     }
+                }
+            }
+
+            RowLayout {
+
+                CustomButton {
+                    //% "Cancel"
+                    text: qsTrId("general-cancel")
+                    icon.source: "qrc:/assets/icon-cancel-white.svg"
+                    enabled: viewModel.isNewsPropChanged
+                    onClicked: viewModel.undoNewsChanges()
+                }
+
+                Item {
+                    Layout.maximumWidth: 30
+                    Layout.fillWidth: true
+                }
+
+                PrimaryButton {
+                    //% "Apply"
+                    text: qsTrId("settings-apply")
+                    icon.source: "qrc:/assets/icon-done.svg"
+                    enabled: viewModel.isNewsPropChanged
+                    onClicked: viewModel.applyNewsChanges()
                 }
             }
         }

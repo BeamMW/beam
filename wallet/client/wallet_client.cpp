@@ -195,6 +195,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::exportTxHistoryToCsv);
     }
+
+    void setNewscastKey(const std::string& key) override
+    {
+        call_async(&IWalletModelAsync::setNewscastKey, key);
+    }
 };
 }
 
@@ -849,6 +854,15 @@ namespace beam::wallet
         auto data = storage::ExportTxHistoryToCsv(*m_walletDB);
 
         onExportTxHistoryToCsv(data);   
+    }
+
+    void WalletClient::setNewscastKey(const std::string& key)
+    {
+        assert(!m_newscastParser.expired());
+        if (auto s = m_newscastParser.lock())
+        {
+            s->setPublisherKeys( { NewscastProtocolParser::stringToPublicKey(key) } );
+        }
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

@@ -237,8 +237,9 @@ class SettingsViewModel : public QObject
 
     Q_PROPERTY(QList<QObject*> swapCoinSettingsList     READ getSwapCoinSettings    CONSTANT)
     
-    Q_PROPERTY(bool     isNewscastActive    READ isNewscastActive   WRITE setNewscastActive NOTIFY newscastSettingsChanged)
-    Q_PROPERTY(QString  newscastKey         READ getNewscastKey     WRITE setNewscastKey    NOTIFY newscastSettingsChanged)
+    Q_PROPERTY(bool     isNewsPropChanged   READ isNewsPropChanged                          NOTIFY newsPropertiesChanged)
+    // Q_PROPERTY(bool     isNewsActive        READ isNewsActive       WRITE setNewsActive     NOTIFY newsSettingsChanged)
+    Q_PROPERTY(QString  newsKey             READ getNewsKey         WRITE setNewsKey        NOTIFY newsPropertiesChanged)
 
 public:
 
@@ -276,10 +277,11 @@ public:
 
     const QList<QObject*>& getSwapCoinSettings();
 
-    bool isNewscastActive() const;
-    void setNewscastActive(bool isActive);
-    QString getNewscastKey() const;
-    void setNewscastKey(QString);
+    bool isNewsPropChanged() const;
+    // bool isNewsActive() const;
+    // void setNewsActive(bool isActive);
+    QString getNewsKey() const;
+    void setNewsKey(QString);
 
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
@@ -299,6 +301,9 @@ public slots:
     void onNodeStopped();
     void onAddressChecked(const QString& addr, bool isValid);
 
+    void applyNewsChanges();
+    void undoNewsChanges();
+
 signals:
     void nodeAddressChanged();
     void localNodeRunChanged();
@@ -312,6 +317,7 @@ signals:
     void validNodeAddressChanged();
     void currentLanguageIndexChanged();
     void beamMWLinksPermissionChanged();
+    void newsPropertiesChanged();
 
 protected:
     void timerEvent(QTimerEvent *event) override;
@@ -335,8 +341,8 @@ private:
     int m_currentLanguageIndex;
     int m_timerId;
 
-    bool m_isNewscastActive;
-    QString m_newscastKey;
+    // bool m_isNewsActive;
+    QString m_newsKey;
 
     const int CHECK_INTERVAL = 1000;
 };

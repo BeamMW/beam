@@ -266,7 +266,7 @@ void AppModel::startWallet()
 
     additionalTxCreators->emplace(TxType::AtomicSwap, swapTransactionCreator);
 
-    m_wallet->start(additionalTxCreators, m_settings.getNewscastKey());
+    m_wallet->start(additionalTxCreators, m_settings.getNewscastKey().toStdString());
 }
 
 void AppModel::applySettingsChanges()

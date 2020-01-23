@@ -70,8 +70,8 @@ public:
 
     bool isNewscastActive() const;
     void setNewscastActive(bool isActive);
-    std::string getNewscastKey() const;
-    void setNewscastKey(std::string keyHex);
+    QString getNewscastKey() const;
+    void setNewscastKey(QString keyHex);
 
     static void openFolder(const QString& path);
 
@@ -96,7 +96,7 @@ signals:
     void localNodeSynchronizedChanged();
     void localeChanged();
     void beamMWLinksChanged();
-    void newscastSettingsChanged();
+    // void newscastSettingsChanged();
 
 private:
     QSettings m_data;
