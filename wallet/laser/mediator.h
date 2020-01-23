@@ -35,15 +35,19 @@ public:
     class Observer
     {
     public:
+        virtual ~Observer() {};
         virtual void OnOpened(const ChannelIDPtr& chID) {};
         virtual void OnOpenFailed(const ChannelIDPtr& chID) {};
         virtual void OnClosed(const ChannelIDPtr& chID) {};
         virtual void OnCloseFailed(const ChannelIDPtr& chID) {};
         virtual void OnUpdateStarted(const ChannelIDPtr& chID) {}; 
-        virtual void OnUpdateFinished(const ChannelIDPtr& chID) {}; 
+        virtual void OnUpdateFinished(const ChannelIDPtr& chID) {};
+    protected:
+        friend class Mediator;
+        Mediator* m_observable;
     };
-    explicit Mediator(const IWalletDB::Ptr& walletDB,
-                      const IPrivateKeyKeeper::Ptr& keyKeeper);
+    Mediator(const IWalletDB::Ptr& walletDB,
+             const IPrivateKeyKeeper::Ptr& keyKeeper);
     ~Mediator();
     // proto::FlyClient
     void OnNewTip() override;
@@ -68,11 +72,11 @@ public:
                      Amount fee,
                      const WalletID& receiverWalletID,
                      Height locktime);
-    bool Serve(const std::vector<std::string>& channelIDs);
+    bool Serve(const std::string& channelID);
     bool Transfer(Amount amount, const std::string& channelID);
-    bool Close(const std::vector<std::string>& channelIDs);
-    bool GracefulClose(const std::vector<std::string>& channelIDs);
-    void Delete(const std::vector<std::string>& channelIDs);
+    bool Close(const std::string& channelID);
+    bool GracefulClose(const std::string& channelID);
+    bool Delete(const std::string& channelID);
     size_t getChannelsCount() const;
 
     void AddObserver(Observer* observer);
@@ -92,6 +96,7 @@ private:
     void UpdateChannelExterior(const std::unique_ptr<Channel>& channel);
     bool ValidateTip();
     void PrepareToForget(const std::unique_ptr<Channel>& channel);
+    bool IsEnoughCoinsAvailable(Amount required);
 
     IWalletDB::Ptr m_pWalletDB;
     IPrivateKeyKeeper::Ptr m_keyKeeper;

@@ -139,6 +139,8 @@ Amount Channel::SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asse
                         nDone += cid.m_Value;
                         return cid;
                     });
+    LOG_DEBUG() << "Amount selected: " << PrintableAmount(nDone, true) << " "
+                << "Amount required: " << PrintableAmount(nDone, valRequired);
     return nDone;
 }
 

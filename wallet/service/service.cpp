@@ -1267,10 +1267,25 @@ namespace
                 return {};
             }
 
-            ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, Key::Index assetOwnerIdx) override
+            ECC::Scalar::Native SignAssetKernelSync(const std::vector<CoinID>& inputs,
+                const std::vector<CoinID>& outputs,
+                Amount fee,
+                Key::Index assetOwnerIdx,
+                TxKernelAssetControl& kernel) override
             {
                 assert(!"not implemented.");
                 return {};
+            }
+
+            void SignAssetKernel(const std::vector<CoinID>& inputs,
+                const std::vector<CoinID>& outputs,
+                Amount fee,
+                Key::Index assetOwnerIdx,
+                TxKernelAssetControl& kernel,
+                Callback<ECC::Scalar::Native>&&,
+                ExceptionCallback&&) override
+            {
+                assert(!"not implemented.");
             }
 
             PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override
