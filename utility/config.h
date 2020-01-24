@@ -75,7 +75,8 @@ public:
         return _values.count(key) == 1;
     }
 
-    template <typename T> const T& get(const std::string& key, const T& defValue=T()) const {
+    template <typename T> const T& get(const std::string& key, const T& def=T()) const {
+        static const auto defValue = def;
         auto it = _values.find(key);
         if (it == _values.end()) return defValue;
         const T* value = any_cast<T>(&it->second);
