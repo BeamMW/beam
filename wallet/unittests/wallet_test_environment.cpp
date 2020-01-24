@@ -407,7 +407,6 @@ struct TestWalletRig
     enum Type
     {
         Regular,
-        ColdWallet,
         RegularWithoutPoWBbs,
         Offline
     };
@@ -415,7 +414,7 @@ struct TestWalletRig
     TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
         : m_WalletDB{ walletDB }
         , m_KeyKeeper(make_shared<LocalPrivateKeyKeeper>(m_WalletDB, m_WalletDB->get_MasterKdf()))
-        , m_Wallet{ m_WalletDB, m_KeyKeeper, move(action),( type == Type::ColdWallet) ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
+        , m_Wallet{ m_WalletDB, m_KeyKeeper, move(action), Wallet::UpdateCompletedAction() }
     {
 
         if (auto kdf = m_WalletDB->get_MasterKdf(); kdf) // can create secrets
@@ -440,12 +439,6 @@ struct TestWalletRig
 
         switch (type)
         {
-        case Type::ColdWallet:
-            {
-                m_messageEndpoint = make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB, m_KeyKeeper);
-                break;
-            }
-
         case Type::Regular:
             {
                 auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);

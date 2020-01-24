@@ -512,31 +512,4 @@ namespace beam::wallet {
             break;
         }
     }
-
-    /////////////////////////////////
-    ColdWalletMessageEndpoint::ColdWalletMessageEndpoint(IWalletMessageConsumer& wallet, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
-        : BaseMessageEndpoint(wallet, walletDB, keyKeeper)
-        , m_WalletDB(walletDB)
-    {
-        Subscribe();
-
-        {
-            auto messages = m_WalletDB->getIncomingWalletMessages();
-            for (auto& message : messages)
-            {
-                ProcessMessage(message.m_Channel, message.m_Message);
-                m_WalletDB->deleteIncomingWalletMessage(message.m_ID);
-            }
-        }
-    }
-
-    ColdWalletMessageEndpoint::~ColdWalletMessageEndpoint()
-    {
-        Unsubscribe();
-    }
-
-    void ColdWalletMessageEndpoint::SendRawMessage(const WalletID& peerID, const ByteBuffer& msg)
-    {
-        m_WalletDB->saveWalletMessage(OutgoingWalletMessage{ 0, peerID, msg });
-    }
 }

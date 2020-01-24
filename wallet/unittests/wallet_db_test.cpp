@@ -1300,41 +1300,6 @@ void TestWalletMessages()
     }
 }
 
-void TestColdWallet()
-{
-    ECC::NoLeak<ECC::Hash::Value> seed;
-    ECC::NoLeak<ECC::Hash::Value> testSeed;
-    testSeed.V = 10283UL;
-    // create database with one file
-    {
-        auto db = createSqliteWalletDB();
-        WALLET_CHECK(db->getPrivateVarRaw("WalletSeed", &seed.V, sizeof(ECC::Hash::Value)));
-        WALLET_CHECK(seed.V == testSeed.V);
-    }
-    boost::filesystem::rename("wallet.db", "wallet.db_");
-    // create database with two files
-    {
-        ECC::NoLeak<ECC::Hash::Value> seed2;
-        auto db = createSqliteWalletDB(true);
-        WALLET_CHECK(db->getPrivateVarRaw("WalletSeed", &seed2.V, sizeof(ECC::Hash::Value)));
-        WALLET_CHECK(seed2.V == testSeed.V);
-    }
-    boost::filesystem::rename("wallet.db_", "wallet.db");
-    // open database with repacesed file
-    {
-        ECC::NoLeak<ECC::Hash::Value> seed2;
-        auto db = WalletDB::open("wallet.db", string("pass123"), io::Reactor::get_Current().shared_from_this());
-        WALLET_CHECK(db->getPrivateVarRaw("WalletSeed", &seed2.V, sizeof(ECC::Hash::Value)));
-        WALLET_CHECK(seed2.V == testSeed.V);
-    }
-    WALLET_CHECK(boost::filesystem::remove("wallet.db.private"));
-    {
-        ECC::NoLeak<ECC::Hash::Value> seed2;
-        auto db = WalletDB::open("wallet.db", string("pass123"), io::Reactor::get_Current().shared_from_this());
-        WALLET_CHECK(!db->getPrivateVarRaw("WalletSeed", &seed2.V, sizeof(ECC::Hash::Value)));
-    }
-}
-
 }
 
 int main() 
@@ -1364,7 +1329,6 @@ int main()
     TestExportImportTx();
     TestTxParameters();
     TestWalletMessages();
-    TestColdWallet();
 
 
     return WALLET_CHECK_RESULT;

@@ -82,7 +82,6 @@ namespace beam
     extern const char kErrorSwapWalletPwdNotProvided[];
     extern const char kErrorCommandNotSpecified[];
     extern const char kErrorCommandUnknown[];
-    extern const char kErrorCantRestoreColdWallet[];
     extern const char kErrorWalletNotInitialized[];
     extern const char kErrorWalletAlreadyInitialized[];
     extern const char kErrorWalletPwdNotProvided[];

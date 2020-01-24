@@ -1965,14 +1965,6 @@ int main_impl(int argc, char* argv[])
                     LOG_INFO() << boost::format(kVersionInfo) % PROJECT_VERSION % BRANCH_NAME;
                     LOG_INFO() << boost::format(kRulesSignatureInfo) % Rules::get().get_SignatureStr();
 
-                    bool coldWallet = vm.count(cli::COLD_WALLET) > 0;
-
-                    if (coldWallet && command == cli::RESTORE)
-                    {
-                        LOG_ERROR() << kErrorCantRestoreColdWallet;
-                        return -1;
-                    }
-
                     BOOST_ASSERT(vm.count(cli::WALLET_STORAGE) > 0);
                     auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
 
@@ -2028,7 +2020,7 @@ int main_impl(int argc, char* argv[])
                             LOG_ERROR() << kErrorSeedPhraseFail;
                             return -1;
                         }
-                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
+                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor);
                         if (walletDB)
                         {
                             IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
@@ -2283,23 +2275,14 @@ int main_impl(int argc, char* argv[])
                         io::Reactor::get_Current().stop();
                     };
 
-                    auto onColdWalletUpdateCompleted = [] ()
-                    {
-                        io::Reactor::get_Current().stop();
-                    };
-
                     auto txCompletedAction = is_server
                         ? Wallet::TxCompletedAction()
                         : onTxCompleteAction;
 
-                    auto updateCompletedAction = !coldWallet
-                        ? Wallet::UpdateCompletedAction()
-                        : onColdWalletUpdateCompleted;
-
                     Wallet wallet{ walletDB,
                                    keyKeeper,
                                    std::move(txCompletedAction),
-                                   std::move(updateCompletedAction) };
+                                   Wallet::UpdateCompletedAction() };
                     {
                         wallet::AsyncContextHolder holder(wallet);
 
@@ -2307,21 +2290,13 @@ int main_impl(int argc, char* argv[])
                         RegisterAssetCreators(wallet);
                         wallet.ResumeAllTransactions();
 
-                        if (!coldWallet)
+                        auto nnet = CreateNetwork(wallet, vm);
+                        if (!nnet)
                         {
-                            auto nnet = CreateNetwork(wallet, vm);
-                            if (!nnet)
-                            {
-                                return -1;
-                            }
-                            wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
-                            wallet.SetNodeEndpoint(nnet);
+                            return -1;
                         }
-                        else
-                        {
-                            wallet.AddMessageEndpoint(
-                                make_shared<ColdWalletMessageEndpoint>(wallet, walletDB, keyKeeper));
-                        }
+                        wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
+                        wallet.SetNodeEndpoint(nnet);
 
                         if (command == cli::SWAP_INIT)
                         {

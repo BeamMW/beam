@@ -134,16 +134,4 @@ namespace beam::wallet
         void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
     };
-
-    class ColdWalletMessageEndpoint
-        : public BaseMessageEndpoint
-    {
-    public:
-        ColdWalletMessageEndpoint(IWalletMessageConsumer& wallet, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper);
-        ~ColdWalletMessageEndpoint();
-    private:
-        void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override;
-    private:
-        IWalletDB::Ptr m_WalletDB;
-    };
 }

@@ -218,7 +218,6 @@ namespace beam
         const char* GENERATE_RECOVERY_PATH = "generate_recovery";
         const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
         const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
-        const char* COLD_WALLET = "cold_wallet";
         const char* SWAP_INIT = "swap_init";
         const char* SWAP_ACCEPT = "swap_accept";
         const char* SWAP_TOKEN = "swap_token";
@@ -365,7 +364,6 @@ namespace beam
             (cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
-            (cli::COLD_WALLET, "used to init cold wallet")
             (cli::IGNORE_DICTIONARY, "ignore dictionaty while validating seed phrase")
 #ifdef BEAM_LASER_SUPPORT
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|laser]")
