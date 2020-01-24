@@ -44,6 +44,10 @@
 #include "utility/string_helpers.h"
 #include "version.h"
 
+//lelantus
+#include "wallet/transactions/lelantus/pull_transaction.h"
+#include "wallet/transactions/lelantus/push_transaction.h"
+
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
 #endif
@@ -1738,6 +1742,15 @@ namespace
         }
     }
 
+    void RegisterLelantusTxCreators(Wallet& wallet)
+    {
+        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>();
+        auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
+
+        wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pushTxCreator));
+        wallet.RegisterTransactionType(TxType::PullTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pullTxCreator));
+    }
+
     struct CliNodeConnection final : public proto::FlyClient::NetworkStd
     {
     public:
@@ -2672,6 +2685,7 @@ int main_impl(int argc, char* argv[])
                         wallet::AsyncContextHolder holder(wallet);
 
                         TryToRegisterSwapTxCreators(wallet, walletDB);
+                        RegisterLelantusTxCreators(wallet);
                         RegisterAssetCreators(wallet);
                         wallet.ResumeAllTransactions();
 
@@ -2732,13 +2746,14 @@ int main_impl(int argc, char* argv[])
                             {
                                 return -1;
                             }
+                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
 
                             currentTxID = wallet.StartTransaction(TxParameters(GenerateTxID())
                                 .SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
                                 .SetParameter(TxParameterID::Amount, amount)
                                 .SetParameter(TxParameterID::Fee, fee)
                                 // TODO check this param 
-                                //.SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                                .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                                 .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                                 .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                                 .SetParameter(TxParameterID::CreateTime, getTimestamp()));
@@ -2754,13 +2769,15 @@ int main_impl(int argc, char* argv[])
                                 return -1;
                             }
 
+                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
+
                             currentTxID = wallet.StartTransaction(TxParameters(GenerateTxID())
                                 .SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
                                 // TODO check this param
                                 .SetParameter(TxParameterID::Amount, amount)
                                 .SetParameter(TxParameterID::Fee, fee)
                                 // TODO check this param 
-                                //.SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                                .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                                 .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                                 .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                                 .SetParameter(TxParameterID::WindowBegin, windowBegin)
