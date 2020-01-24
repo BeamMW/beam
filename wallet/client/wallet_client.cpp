@@ -257,7 +257,7 @@ namespace beam::wallet
         onPostFunctionToClientContext(move(func));
     }
 
-    void WalletClient::start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators, std::string newsPublisherKey)
+    void WalletClient::start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators, const std::string& newsPublisherKey)
     {
         m_thread = std::make_shared<std::thread>([this, txCreators, newsPublisherKey]()
             {
@@ -311,7 +311,11 @@ namespace beam::wallet
                     auto swapOffersBoardSubscriber = make_unique<SwapOffersBoardSubscriber>(static_cast<ISwapOffersObserver*>(this), offersBulletinBoard);
 #endif
                     auto newscastParser = make_shared<NewscastProtocolParser>();
-                    newscastParser->setPublisherKeys( { NewscastProtocolParser::stringToPublicKey(newsPublisherKey) } );
+                    auto key = NewscastProtocolParser::stringToPublicKey(newsPublisherKey);
+                    if (key)
+                    {
+                        newscastParser->setPublisherKeys( { *key } );
+                    }
                     m_newscastParser = newscastParser;
                     auto newscast = make_shared<Newscast>(*nodeNetwork, *newscastParser);
                     m_newscast = newscast;
@@ -856,12 +860,17 @@ namespace beam::wallet
         onExportTxHistoryToCsv(data);   
     }
 
-    void WalletClient::setNewscastKey(const std::string& key)
+    void WalletClient::setNewscastKey(const std::string& keyString)
     {
+        auto key = NewscastProtocolParser::stringToPublicKey(keyString);
+        if (!key)
+        {
+            return;
+        }
         assert(!m_newscastParser.expired());
         if (auto s = m_newscastParser.lock())
         {
-            s->setPublisherKeys( { NewscastProtocolParser::stringToPublicKey(key) } );
+            s->setPublisherKeys( { *key } );
         }
     }
 

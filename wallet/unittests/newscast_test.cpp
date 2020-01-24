@@ -30,6 +30,7 @@ WALLET_TEST_INIT
 #include "mock_bbs_network.cpp"
 
 #include "wallet/client/extensions/newscast/newscast.h"
+#include "wallet/client/extensions/newscast/newscast_protocol_builder.h"
 
 #include <tuple>
 
@@ -386,6 +387,44 @@ namespace
         cout << "Test end" << endl;
     }
 
+    void TestStringToKeyConvertation()
+    {
+        cout << endl << "Test string to key convertation" << endl;
+
+        {
+            ECC::uintBig referencePubKey = {
+                0xdb, 0x61, 0x7c, 0xed, 0xb1, 0x75, 0x43, 0x37,
+                0x5b, 0x60, 0x20, 0x36, 0xab, 0x22, 0x3b, 0x67,
+                0xb0, 0x6f, 0x86, 0x48, 0xde, 0x2b, 0xb0, 0x4d,
+                0xe0, 0x47, 0xf4, 0x85, 0xe7, 0xa9, 0xda, 0xec
+            };
+            auto pubKey = NewscastProtocolParser::stringToPublicKey("db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec");
+            WALLET_CHECK(pubKey && *pubKey == referencePubKey);
+        }
+        {
+            ECC::uintBig referencePrivateKey = {
+                0xf7, 0x0c, 0x36, 0xf2, 0xd8, 0x34, 0x2b, 0x66,
+                0xe3, 0x08, 0x1e, 0xa4, 0xd8, 0x75, 0x43, 0x56,
+                0x6d, 0x6a, 0xd2, 0x42, 0xc6, 0xe6, 0x1d, 0xbf,
+                0x92, 0x6d, 0x57, 0xff, 0x42, 0xde, 0x0c, 0x59
+            };
+            ECC::Scalar refKey;
+            refKey.m_Value = referencePrivateKey;
+            ECC::Scalar::Native nativeKey;
+            nativeKey.Import(refKey);
+            auto pubKey = NewscastProtocolBuilder::stringToPrivateKey("f70c36f2d8342b66e3081ea4d87543566d6ad242c6e61dbf926d57ff42de0c59");
+            WALLET_CHECK(pubKey && *pubKey == nativeKey);
+        }
+    }
+
+    void TestProtocolBuilder()
+    {
+        cout << endl << "Test NewscastProtocolBuilder" << endl;
+        /// Create message signed with private key
+        // static ByteBuffer createMessage(const NewsMessage& content, const PrivateKey& key);
+    }
+
+
 } // namespace
 
 int main()
@@ -399,6 +438,8 @@ int main()
     TestSignatureVerification();
     TestPublisherKeysLoading();
     TestNewscastObservers();
+    TestStringToKeyConvertation();
+    TestProtocolBuilder();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

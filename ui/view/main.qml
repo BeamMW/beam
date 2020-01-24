@@ -43,6 +43,20 @@ Rectangle {
         modal: true
     }
 
+    ConfirmationDialog {
+        id:                     updateAvailableNotification
+        //% "New update available   "
+        title: qsTrId("swap-beta-title")
+        //% "open web-site"
+        okButtonText:           qsTrId("swap-alert-confirm-button")
+        okButtonIconSource:     "qrc:/assets/icon-done.svg"
+        //% "cancel"
+        cancelButtonText:       qsTrId("atomic-swap-no-button")
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-16.svg"
+        width: 470
+        // text:                   qsTrId("swap-beta-message")
+    }
+
     function onClosing (close) {
         if (viewModel.unsafeTxCount > 0) {
             close.accepted = false;
@@ -333,9 +347,8 @@ Rectangle {
 
         onShowUpdateNotification: function(messageString) {
             console.log("News messageString: " + messageString);
-            trezor_popup = Qt.createComponent("popup_message.qml").createObject(main)
-            trezor_popup.message = messageString
-            trezor_popup.open()
+            updateAvailableNotification.text = messageString;
+            updateAvailableNotification.open();
         }
     }
 

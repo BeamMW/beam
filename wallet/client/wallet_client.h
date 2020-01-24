@@ -66,7 +66,7 @@ namespace beam::wallet
         WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper);
         virtual ~WalletClient();
 
-        void start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr, std::string newsPublisherKey = "");
+        void start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr, const std::string& newsPublisherKey = "");
 
         IWalletModelAsync::Ptr getAsync();
         std::string getNodeAddress() const;

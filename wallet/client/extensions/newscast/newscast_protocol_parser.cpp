@@ -18,10 +18,14 @@
 
 namespace beam::wallet
 {
-    NewscastProtocolParser::PublicKey NewscastProtocolParser::stringToPublicKey(const std::string& keyHexString)
+    boost::optional<NewscastProtocolParser::PublicKey> NewscastProtocolParser::stringToPublicKey(const std::string& keyHexString)
     {
         bool isKeyStringValid = true;
         ByteBuffer keyArray = from_hex(keyHexString, /*out*/ &isKeyStringValid);
+        if (!isKeyStringValid)
+        {
+            return boost::none;
+        }
         
         size_t keySize = keyArray.size();
         assert(keySize <= UINT32_MAX);

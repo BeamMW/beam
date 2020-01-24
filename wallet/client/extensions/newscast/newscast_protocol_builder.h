@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,33 +15,29 @@
 #pragma once
 
 #include "news_message.h"
-#include "core/block_crypt.h"
+#include "core/ecc_native.h"
 
 #include "boost/optional.hpp"
 
 namespace beam::wallet
 {
     /**
-     *  Validate message signatures according to publisher keys.
+     *  Build newscast protocol messages.
      */
-    class NewscastProtocolParser
+    class NewscastProtocolBuilder
     {
-        using PublicKey = PeerID;
+        using PrivateKey = ECC::Scalar::Native;
 
     public:
-        NewscastProtocolParser() {};
+        /// Convert private key from HEX string representation to the internal type
+        static boost::optional<PrivateKey> stringToPrivateKey(const std::string& keyHexString);
 
-        void setPublisherKeys(const std::vector<PublicKey>& keys);
-        boost::optional<NewsMessage> parseMessage(const ByteBuffer&) const;
-
-        /// Convert public key from HEX string representation to the internal type
-        static boost::optional<PublicKey> stringToPublicKey(const std::string& keyHexString);
+        /// Create message signed with private key
+        static ByteBuffer createMessage(const NewsMessage& content, const PrivateKey& key);
 
     private:
         static constexpr uint8_t MsgType = 1;
         static constexpr uint8_t m_protocolVersion = 1;
-        
-        std::vector<PeerID> m_publisherKeys;       /// publisher keys to validate messages
     };
 
 } // namespace beam::wallet

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "offers_protocol_handler.h"
-#include "p2p/protocol_base.h"          // MsgHeader
+#include "p2p/protocol_base.h"
 #include "utility/logger.h"
 
 namespace beam::wallet

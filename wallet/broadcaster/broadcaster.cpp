@@ -20,11 +20,10 @@
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 
-#include "core/ecc.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/wallet_network.h"
+#include "wallet/client/extensions/newscast/newscast_protocol_builder.h"
 #include "wallet/client/extensions/newscast/newscast.h"
-
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
 #endif
@@ -32,62 +31,12 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 
-#include <future>
-
 using namespace beam;
 using namespace beam::wallet;
 
 static const unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
 
-using PrivateKey = ECC::Scalar::Native;
-using PublicKey = PeerID;
-
-/**
- *  Derive key pair with specified @keyIndex
- */
-std::tuple<PublicKey, PrivateKey> deriveKeypair(IPrivateKeyKeeper::Ptr keyKeeper, uint64_t keyIndex)
-{
-    PrivateKey sk;
-    PublicKey pk;
-    keyKeeper->get_SbbsKdf()->DeriveKey(sk, ECC::Key::ID(keyIndex, Key::Type::Bbs));
-    proto::Sk2Pk(pk, sk);
-    return std::make_tuple(pk, sk);
-}
-
-/**
- *  Create message according to Newscast protocol
- */
-ByteBuffer makeMsg(const ByteBuffer& msgRaw, const ByteBuffer& signatureRaw)
-{
-    ByteBuffer fullMsg(MsgHeader::SIZE);
-    size_t rawBodySize = msgRaw.size() + signatureRaw.size();
-    assert(rawBodySize <= UINT32_MAX);
-
-    MsgHeader header(0, 0, 1, 1, static_cast<uint32_t>(rawBodySize));
-    header.write(fullMsg.data());
-
-    std::copy(  std::begin(msgRaw),
-                std::end(msgRaw),
-                std::back_inserter(fullMsg));
-    std::copy(  std::begin(signatureRaw),
-                std::end(signatureRaw),
-                std::back_inserter(fullMsg));
-
-    return fullMsg;
-}
-
-/**
- *  Sign data and create PDU
- */
-ByteBuffer createNewscastMessage(std::string msg, PrivateKey sk)
-{
-    ByteBuffer message = toByteBuffer(msg);
-    SignatureHandler signHandler;
-    signHandler.m_data = message;
-    signHandler.Sign(sk);
-    ByteBuffer signature = toByteBuffer(signHandler.m_Signature);
-    return makeMsg(message, signature);
-}
+io::Reactor::Ptr reactor;
 
 WalletID channelToWalletID(BbsChannel channel)
 {
@@ -119,7 +68,7 @@ int main_impl(int argc, char* argv[])
 
         io::Address nodeAddress;
         IWalletDB::Ptr walletDB;
-        io::Reactor::Ptr reactor = io::Reactor::create();
+        reactor = io::Reactor::create();
 
         {
             po::options_description desc("Beam BBS general options");
@@ -168,7 +117,7 @@ int main_impl(int argc, char* argv[])
             getRulesOptions(vm);
 
             Rules::get().UpdateChecksum();
-            LOG_INFO() << "Beam BBS utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
+            LOG_INFO() << "BBS broadcasting utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             
             if (vm.count(cli::NODE_ADDR) == 0)
@@ -247,50 +196,18 @@ int main_impl(int argc, char* argv[])
 		wallet.AddMessageEndpoint(wnet);
         wallet.SetNodeEndpoint(nnet);
 
+        std::shared_ptr<IWalletMessageEndpoint> messageEndpoint(wnet);
+
+        auto optionalKey = NewscastProtocolBuilder::stringToPrivateKey(options.privateKey);
+        if (!optionalKey)
         {
-            std::shared_ptr<IWalletMessageEndpoint> messageEndpoint(wnet);
-            auto [pk, sk] = deriveKeypair(keyKeeper, 666);
-            auto pkByteBuffer = toByteBuffer(pk);
-            auto skByteBuffer = toByteBuffer(sk);
-            LOG_INFO() << "PubKey: " << to_hex(pkByteBuffer.data(), pkByteBuffer.size());
-            LOG_INFO() << "PrivateKey: " << to_hex(skByteBuffer.data(), skByteBuffer.size());
-            ECC::Scalar scalar;
-            sk.Export(scalar);
-            auto skNativeByteBuffer = toByteBuffer(scalar);
-            LOG_INFO() << "scalar: " << to_hex(skNativeByteBuffer.data(), skNativeByteBuffer.size());
-
-            {
-                // private key import test
-                bool resultIsKeyStrValid = true;
-                ByteBuffer privKeyBuff = from_hex(options.privateKey, &resultIsKeyStrValid);
-
-                Blob privKeyBlob(privKeyBuff.data(), static_cast<uint32_t>(privKeyBuff.size()));
-                ECC::uintBig privKeyUintBig(privKeyBlob);
-                // ECC::uintBig bigInteger(privateKey);
-                LOG_INFO() << "privKeyUintBig: " << privKeyUintBig;
-
-                ECC::Scalar privKeyScalar;
-                privKeyScalar.m_Value = privKeyUintBig;
-                LOG_INFO() << "privKeyScalar: " << privKeyScalar;
-
-                ECC::Scalar::Native native;
-                if (privKeyScalar.IsValid())
-                {
-                    native.Import(privKeyScalar); // on overflow auto-normalizes and returns true
-                }
-                else
-                {
-                    LOG_ERROR() << "the private key is invalid";
-                    return -1;
-                }
-
-                auto resultSkNativeByteBuffer = toByteBuffer(native);
-                LOG_INFO() << "PrivateKey: " << to_hex(resultSkNativeByteBuffer.data(), resultSkNativeByteBuffer.size());
-            }
-
-            ByteBuffer message = createNewscastMessage(options.bbsMessage, sk);
-            messageEndpoint->SendRawMessage(channelToWalletID(Newscast::BbsChannelsOffset), message);
+            LOG_ERROR() << "Invalid private key.";
+            return -1;
         }
+
+        NewsMessage newsMsg = {options.bbsMessage};
+        ByteBuffer message = NewscastProtocolBuilder::createMessage(newsMsg, *optionalKey);
+        messageEndpoint->SendRawMessage(channelToWalletID(Newscast::BbsChannelsOffset), message);
 
         io::Reactor::get_Current().run();
 
