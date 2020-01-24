@@ -147,6 +147,8 @@ namespace beam::wallet
     MACRO(RegisterAmountTooSmall,        28, "Asset registration fee is too small") \
     MACRO(ConsumeAmountTooBig,           29, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
     MACRO(NotEnoughDataForProof,         30, "Some mandatory data for payment proof is missing") \
+    MACRO(NoMasterKey,                   31, "Master key is needed for this transaction, but unavailable") \
+    MACRO(KeyKeeperError,                32, "Key keeper malfunctioned") \
 
     enum TxFailureReason : int32_t
     {

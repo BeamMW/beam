@@ -483,7 +483,7 @@ ECC::Scalar::Native Mediator::get_skBbs(const ChannelIDPtr& chID)
     {    
         PeerID peerID;
         ECC::Scalar::Native sk;
-        m_pWalletDB->get_MasterKdf()->DeriveKey(
+        m_pWalletDB->get_SbbsKdf()->DeriveKey(
             sk, Key::ID(addr.m_OwnID, Key::Type::Bbs));
         proto::Sk2Pk(peerID, sk);
         return wid.m_Pk == peerID ? sk : Zero;        

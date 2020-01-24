@@ -868,7 +868,15 @@ namespace
             cout << kErrorSubkeyNotSpecified << endl;
             return -1;
         }
-		Key::IKdf::Ptr pKey = MasterKey::get_Child(*walletDB->get_MasterKdf(), subKey);
+
+        Key::IKdf::Ptr pMaster = walletDB->get_MasterKdf();
+        if (!pMaster)
+        {
+            cout << "Miner key not accessible" << endl;
+            return -1;
+        }
+
+		Key::IKdf::Ptr pKey = MasterKey::get_Child(*pMaster, subKey);
 
         KeyString ks;
         ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));

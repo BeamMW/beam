@@ -109,12 +109,14 @@ namespace beam::wallet
 		m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
 
         // add output
-        Scalar::Native blindingFactor;
+        IPrivateKeyKeeper2::Method::CreateOutput m;
+        m.m_hScheme = minHeight;
+        m.m_Cid = outputCoin.m_ID;
+        if (m_Tx.GetWalletDB()->get_KeyKeeper()->InvokeSync(m) != IPrivateKeyKeeper2::Status::Success)
+            throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
+
         Output::Ptr output = std::make_unique<Output>();
-
-        Key::IKdf::Ptr pMasterKdf = m_Tx.GetWalletDB()->get_MasterKdf();
-
-        output->Create(minHeight, blindingFactor, *outputCoin.m_ID.get_ChildKdf(pMasterKdf), outputCoin.m_ID, *pMasterKdf);
+        *output = std::move(m.m_Result);
 
         m_Outputs.push_back(std::move(output));
         m_OutputCoins.push_back(outputCoin.m_ID);

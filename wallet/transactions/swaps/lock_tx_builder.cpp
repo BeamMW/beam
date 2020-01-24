@@ -131,6 +131,9 @@ namespace beam::wallet
 
             // blindingFactor = sk + sk1
             Key::IKdf::Ptr pMasterKdf = m_Tx.GetWalletDB()->get_MasterKdf();
+            if (!pMasterKdf)
+                throw TransactionFailedException(true, TxFailureReason::NoMasterKey);
+
             CoinID::Worker(m_SharedCoin.m_ID).Create(m_SharedBlindingFactor, *m_SharedCoin.m_ID.get_ChildKdf(pMasterKdf));
             m_Tx.SetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, m_SubTxID);
 
