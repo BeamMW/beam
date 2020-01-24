@@ -17,13 +17,12 @@
 #include "wallet/laser/mediator.h"
 #include "utility/common.h"
 
-#include <boost/program_options.hpp>
+#include "utility/cli/options.h"
 #include <functional>
 #include <memory>
 
 namespace beam::wallet
 {
-    namespace po = boost::program_options;
     using MediatorPtr = std::unique_ptr<laser::Mediator>;
     class LaserObserver : public laser::Mediator::Observer
     {

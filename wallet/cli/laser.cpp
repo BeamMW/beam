@@ -14,7 +14,6 @@
 
 #include "laser.h"
 #include "wallet/core/strings_resources.h"
-#include "utility/cli/options.h"
 
 #include <boost/format.hpp>
 #include <iomanip>
