@@ -551,6 +551,18 @@ namespace beam::wallet
                 throwIfError(ret, _db);
             }
 
+            void bind(int col, const ECC::Scalar& scalar)
+            {
+                const auto& b = _buffers.emplace_back(toByteBuffer(scalar));
+                bind(col, b);
+            }
+
+            void bind(int col, const ECC::Point& point)
+            {
+                const auto& b = _buffers.emplace_back(toByteBuffer(point));
+                bind(col, b);
+            }
+
             bool step()
             {
                 int n = _walletDB ? sqlite3_total_changes(_db) : 0;
@@ -640,6 +652,20 @@ namespace beam::wallet
                 }
             }
 
+            void get(int col, ECC::Scalar& scalar)
+            {
+                ByteBuffer b;
+                get(col, b);
+                fromByteBuffer(b, scalar);
+            }
+
+            void get(int col, ECC::Point& point)
+            {
+                ByteBuffer b;
+                get(col, b);
+                fromByteBuffer(b, point);
+            }
+
             template<uint32_t nBytes_>
             void get(int col, uintBig_t<nBytes_>& data)
             {
@@ -693,6 +719,7 @@ namespace beam::wallet
             WalletDB* _walletDB;
             sqlite3 * _db;
             sqlite3_stmt* _stm;
+            std::vector<ByteBuffer> _buffers;
         };
 
         struct Transaction
@@ -2107,32 +2134,13 @@ namespace beam::wallet
     std::vector<ShieldedCoin> WalletDB::getShieldedCoins() const
     {
         sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY ID;");
-
         std::vector<ShieldedCoin> coins;
 
         while (stm.step())
         {
             auto& coin = coins.emplace_back();
             int colIdx = 0;
-            ByteBuffer skSerialBuffer;
-            ByteBuffer skOutputBuffer;
-            ByteBuffer serialPubBuffer;
-
-            stm.get(colIdx++, skSerialBuffer);
-            fromByteBuffer(skSerialBuffer, coin.m_skSerialG);
-            stm.get(colIdx++, skOutputBuffer);
-            fromByteBuffer(skOutputBuffer, coin.m_skOutputG);
-            stm.get(colIdx++, serialPubBuffer);
-            fromByteBuffer(serialPubBuffer, coin.m_serialPub);
-            stm.get(colIdx++, coin.m_sender);
-            stm.get(colIdx++, coin.m_message);
-            stm.get(colIdx++, coin.m_ID);
-            stm.get(colIdx++, coin.m_isCreatedByViewer);
-            stm.get(colIdx++, coin.m_value);
-            stm.get(colIdx++, coin.m_confirmHeight);
-            stm.get(colIdx++, coin.m_spentHeight);
-            stm.get(colIdx++, coin.m_createTxId);
-            stm.get(colIdx++, coin.m_spentTxId);
+            ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
         }
 
         return coins;
@@ -2147,25 +2155,7 @@ namespace beam::wallet
         {
             ShieldedCoin coin;
             int colIdx = 0;
-            ByteBuffer skSerialBuffer;
-            ByteBuffer skOutputBuffer;
-            ByteBuffer serialPubBuffer;
-
-            stm.get(colIdx++, skSerialBuffer);
-            fromByteBuffer(skSerialBuffer, coin.m_skSerialG);
-            stm.get(colIdx++, skOutputBuffer);
-            fromByteBuffer(skOutputBuffer, coin.m_skOutputG);
-            stm.get(colIdx++, serialPubBuffer);
-            fromByteBuffer(serialPubBuffer, coin.m_serialPub);
-            stm.get(colIdx++, coin.m_sender);
-            stm.get(colIdx++, coin.m_message);
-            stm.get(colIdx++, coin.m_ID);
-            stm.get(colIdx++, coin.m_isCreatedByViewer);
-            stm.get(colIdx++, coin.m_value);
-            stm.get(colIdx++, coin.m_confirmHeight);
-            stm.get(colIdx++, coin.m_spentHeight);
-            stm.get(colIdx++, coin.m_createTxId);
-            stm.get(colIdx++, coin.m_spentTxId);
+            ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
             return coin;
         }
 
@@ -2182,22 +2172,8 @@ namespace beam::wallet
         const char* req = "INSERT INTO " SHIELDED_COINS_NAME " (" ENUM_SHIELDED_COIN_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_SHIELDED_COIN_FIELDS(BIND_LIST, COMMA, ) ");";
         sqlite::Statement stm(this, req);
         int colIdx = 0;
-
-        ByteBuffer skSerialBuffer = toByteBuffer(coin.m_skSerialG);
-        stm.bind(++colIdx, skSerialBuffer);
-        ByteBuffer skOutputBuffer = toByteBuffer(coin.m_skOutputG);
-        stm.bind(++colIdx, skOutputBuffer);
-        ByteBuffer serialPubBuffer = toByteBuffer(coin.m_serialPub);
-        stm.bind(++colIdx, serialPubBuffer);
-        stm.bind(++colIdx, coin.m_sender);
-        stm.bind(++colIdx, coin.m_message);
-        stm.bind(++colIdx, coin.m_ID);
-        stm.bind(++colIdx, coin.m_isCreatedByViewer);
-        stm.bind(++colIdx, coin.m_value);
-        stm.bind(++colIdx, coin.m_confirmHeight);
-        stm.bind(++colIdx, coin.m_spentHeight);
-        stm.bind(++colIdx, coin.m_createTxId);
-        stm.bind(++colIdx, coin.m_spentTxId);
+       
+        ENUM_SHIELDED_COIN_FIELDS(STM_BIND_LIST, NOSEP, coin);
         stm.step();
     }
 
@@ -2207,22 +2183,8 @@ namespace beam::wallet
         sqlite::Statement stm(this, req);
         int colIdx = 0;
 
-        ByteBuffer skSerialBuffer = toByteBuffer(coin.m_skSerialG);
-        stm.bind(++colIdx, skSerialBuffer);
-        ByteBuffer skOutputBuffer = toByteBuffer(coin.m_skOutputG);
-        stm.bind(++colIdx, skOutputBuffer);
-        ByteBuffer serialPubBuffer = toByteBuffer(coin.m_serialPub);
-        stm.bind(++colIdx, serialPubBuffer);
-        stm.bind(++colIdx, coin.m_sender);
-        stm.bind(++colIdx, coin.m_message);
-        stm.bind(++colIdx, coin.m_ID);
-        stm.bind(++colIdx, coin.m_isCreatedByViewer);
-        stm.bind(++colIdx, coin.m_value);
-        stm.bind(++colIdx, coin.m_confirmHeight);
-        stm.bind(++colIdx, coin.m_spentHeight);
-        stm.bind(++colIdx, coin.m_createTxId);
-        stm.bind(++colIdx, coin.m_spentTxId);
-        stm.bind(++colIdx, skSerialBuffer);
+        ENUM_SHIELDED_COIN_FIELDS(STM_BIND_LIST, NOSEP, coin);
+        stm.bind(++colIdx, coin.m_skSerialG);
         stm.step();
 
         return sqlite3_changes(_db) > 0;
