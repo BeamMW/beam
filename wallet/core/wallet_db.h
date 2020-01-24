@@ -416,7 +416,6 @@ namespace beam::wallet
 
         WalletDB(sqlite3* db, io::Reactor::Ptr reactor);
         WalletDB(sqlite3* db, io::Reactor::Ptr reactor, sqlite3* sdb);
-        WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, sqlite3* sdb);
         ~WalletDB();
 
         beam::Key::IKdf::Ptr get_MasterKdf() const override;
@@ -499,6 +498,8 @@ namespace beam::wallet
         void deleteIncomingWalletMessage(uint64_t id) override;
 
     private:
+        static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, io::Reactor::Ptr reactor, bool separateDBForPrivateData = false);
+        void storeOwnerKey();
         static void createTables(sqlite3* db, sqlite3* privateDb);
         void removeCoinImpl(const Coin::ID& cid);
         void notifyCoinsChanged(ChangeAction action, const std::vector<Coin>& items);

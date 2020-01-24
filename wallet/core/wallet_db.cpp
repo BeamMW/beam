@@ -1067,95 +1067,79 @@ namespace beam::wallet
         CreateLaserTables(db);
     }
 
-    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
+    std::shared_ptr<WalletDB>  WalletDB::initBase(const string& path, const SecString& password, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
     {
-        if (!isInitialized(path))
+        if (isInitialized(path))
         {
-            sqlite3* db = nullptr;
-            {
-                int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
-                throwIfError(ret, db);
-            }
-
-            sqlite3* sdb = db;
-
-            if (separateDBForPrivateData)
-            {
-                int ret = sqlite3_open_v2((path+".private").c_str(), &sdb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
-                throwIfError(ret, sdb);
-                enterKey(sdb, password);
-            }
-
-            enterKey(db, password);
-            auto walletDB = make_shared<WalletDB>(db, secretKey, reactor, sdb);
-
-            createTables(walletDB->_db, walletDB->m_PrivateDB);
-
-            {
-                // store master key
-                walletDB->setPrivateVarRaw(WalletSeed, &secretKey.V, sizeof(secretKey.V));
-
-                // store owner key (public)
-                {
-                    Key::IKdf::Ptr pKey = walletDB->get_MasterKdf();
-
-                    ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
-                    assert(pKey->ExportP(nullptr) == sizeof(packedOwnerKey));
-                    pKey->ExportP(&packedOwnerKey);
-
-                    storage::setVar(*walletDB, OwnerKey, packedOwnerKey.V);
-                    walletDB->m_OwnerKdf = pKey;
-                }
-
-                storage::setVar(*walletDB, Version, DbVersion);
-            }
-
-            walletDB->flushDB();
-
-            return static_pointer_cast<IWalletDB>(walletDB);
+            LOG_ERROR() << path << " already exists.";
+            return nullptr;
         }
 
-        LOG_ERROR() << path << " already exists.";
+        sqlite3* db = nullptr;
+        {
+            int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
+            throwIfError(ret, db);
+        }
 
-        return Ptr();
+        sqlite3* sdb = db;
+
+        if (separateDBForPrivateData)
+        {
+            int ret = sqlite3_open_v2((path+".private").c_str(), &sdb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
+            throwIfError(ret, sdb);
+            enterKey(sdb, password);
+        }
+
+        enterKey(db, password);
+        auto walletDB = make_shared<WalletDB>(db, reactor, sdb);
+
+        createTables(walletDB->_db, walletDB->m_PrivateDB);
+
+        storage::setVar(*walletDB, Version, DbVersion);
+
+        return walletDB;
+
+    }
+
+    void WalletDB::storeOwnerKey()
+    {
+        ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
+        assert(m_pKdf->ExportP(nullptr) == sizeof(packedOwnerKey));
+        m_pKdf->ExportP(&packedOwnerKey);
+
+        storage::setVar(*this, OwnerKey, packedOwnerKey.V);
+    }
+
+    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
+    {
+        std::shared_ptr<WalletDB> walletDB = initBase(path, password, reactor, separateDBForPrivateData);
+        if (walletDB)
+        {
+            ECC::HKdf::Create(walletDB->m_pKdf, secretKey.V);
+            walletDB->m_OwnerKdf = walletDB->m_pKdf;
+
+            walletDB->setPrivateVarRaw(WalletSeed, &secretKey.V, sizeof(secretKey.V)); // store master key
+            walletDB->storeOwnerKey(); // store owner key (public)
+
+            walletDB->flushDB();
+        }
+
+        return walletDB;
     }
 
     IWalletDB::Ptr WalletDB::initWithOwnerKey(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
     {
-        if (!isInitialized(path))
+        std::shared_ptr<WalletDB> walletDB = initBase(path, password, reactor, false);
+        if (walletDB)
         {
-            sqlite3* db = nullptr;
-            {
-                int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
-                throwIfError(ret, db);
-            }
+            walletDB->m_OwnerKdf = ownerKey;
 
-            enterKey(db, password);
-            auto walletDB = make_shared<WalletDB>(db, reactor);
-
-            createTables(walletDB->_db, walletDB->m_PrivateDB);
-
-            {
-                // store owner key (public)
-                {
-                    ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
-                    ownerKey->Export(packedOwnerKey.V);
-
-                    storage::setVar(*walletDB, OwnerKey, packedOwnerKey.V);
-                    walletDB->m_OwnerKdf = ownerKey;
-                }
-
-                storage::setVar(*walletDB, Version, DbVersion);
-            }
+            walletDB->storeOwnerKey();
 
             walletDB->flushDB();
-
-            return static_pointer_cast<IWalletDB>(walletDB);
         }
 
-        LOG_ERROR() << path << " already exists.";
-
-        return Ptr();
+        return walletDB;
     }
 
 #if defined(BEAM_HW_WALLET)
@@ -1472,12 +1456,6 @@ namespace beam::wallet
             TxParameterID::IsSender }
     {
 
-    }
-
-    WalletDB::WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, sqlite3* sdb)
-        : WalletDB(db, reactor, sdb)
-    {
-        ECC::HKdf::Create(m_pKdf, secretKey.V);
     }
 
     WalletDB::~WalletDB()
