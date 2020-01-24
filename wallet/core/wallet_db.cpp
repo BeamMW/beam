@@ -1104,8 +1104,8 @@ namespace beam::wallet
     void WalletDB::storeOwnerKey()
     {
         ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
-        assert(m_pKdf->ExportP(nullptr) == sizeof(packedOwnerKey));
-        m_pKdf->ExportP(&packedOwnerKey);
+        assert(m_OwnerKdf->ExportP(nullptr) == sizeof(packedOwnerKey));
+        m_OwnerKdf->ExportP(&packedOwnerKey);
 
         storage::setVar(*this, OwnerKey, packedOwnerKey.V);
     }
