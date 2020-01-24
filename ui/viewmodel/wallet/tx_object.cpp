@@ -204,7 +204,7 @@ QString TxObject::getTransactionID() const
 
 QString TxObject::getReasonString(beam::wallet::TxFailureReason reason) const
 {
-    const std::array<QString,30> reasons = {
+    const std::array<QString,31> reasons = {
         //% "Unexpected reason, please send wallet logs to Beam support"
         qtTrId("tx-failure-undefined"),
         //% "Transaction cancelled"

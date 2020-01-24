@@ -250,9 +250,9 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
     return walletDB;
 }
 
-IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const AmountList& amounts = {5, 2, 1, 9})
+IWalletDB::Ptr createSenderWalletDBWithSeed(const std::string& fileName, bool generateSeed, bool separateDBForPrivateData = false, const AmountList& amounts = {5, 2, 1, 9})
 {
-    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, false);
+    auto db = createSqliteWalletDB(fileName, separateDBForPrivateData, generateSeed);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
     for (auto amount : amounts)
     {
@@ -260,6 +260,11 @@ IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const
         db->storeCoin(coin);
     }
     return db;
+}
+
+IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const AmountList& amounts = { 5, 2, 1, 9 })
+{
+    return createSenderWalletDBWithSeed(SenderWalletDB, false, separateDBForPrivateData, amounts);
 }
 
 IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false)
@@ -495,6 +500,7 @@ struct TestWalletRig
             m_Wallet.AddMessageEndpoint(m_messageEndpoint);
         }
     }
+
 
     vector<Coin> GetCoins()
     {

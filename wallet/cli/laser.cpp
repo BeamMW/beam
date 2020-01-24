@@ -14,10 +14,14 @@
 
 #include "laser.h"
 #include "wallet/core/strings_resources.h"
-#include "utility/cli/options.h"
 
 #include <boost/format.hpp>
 #include <iomanip>
+
+using namespace std;
+
+namespace beam::wallet
+{
 
 LaserObserver::LaserObserver(const IWalletDB::Ptr& walletDB,
                              const po::variables_map& vm)
@@ -198,7 +202,7 @@ const char* LaserChannelStateStr(int state)
     }
 }
 
-bool LaserOpen(const unique_ptr<laser::Mediator>& laser,
+bool LaserOpen(const MediatorPtr& laser,
                const po::variables_map& vm)
 {
     io::Address receiverAddr;
@@ -217,7 +221,7 @@ bool LaserOpen(const unique_ptr<laser::Mediator>& laser,
     return true;
 }
 
-bool LaserWait(const unique_ptr<laser::Mediator>& laser,
+bool LaserWait(const MediatorPtr& laser,
                const po::variables_map& vm)
 {
     io::Address receiverAddr;
@@ -236,7 +240,7 @@ bool LaserWait(const unique_ptr<laser::Mediator>& laser,
     return true;
 }
 
-bool LaserServe(const unique_ptr<laser::Mediator>& laser,
+bool LaserServe(const MediatorPtr& laser,
                 const IWalletDB::Ptr& walletDB,
                 const po::variables_map& vm)
 {
@@ -262,7 +266,7 @@ bool LaserServe(const unique_ptr<laser::Mediator>& laser,
     return count != 0;
 }
 
-bool LaserTransfer(const unique_ptr<laser::Mediator>& laser,
+bool LaserTransfer(const MediatorPtr& laser,
                    const po::variables_map& vm)
 {
     if (!vm.count(cli::LASER_CHANNEL_ID))
@@ -321,7 +325,7 @@ void LaserShow(const IWalletDB::Ptr& walletDB)
     }
 }
 
-bool LaserDrop(const unique_ptr<laser::Mediator>& laser,
+bool LaserDrop(const MediatorPtr& laser,
                const po::variables_map& vm)
 {
     auto channelIDsStr = vm[cli::LASER_DROP].as<string>();
@@ -344,7 +348,7 @@ bool LaserDrop(const unique_ptr<laser::Mediator>& laser,
     return count != 0;
 }
 
-bool LaserClose(const unique_ptr<laser::Mediator>& laser,
+bool LaserClose(const MediatorPtr& laser,
                 const po::variables_map& vm)
 {
     auto channelIDsStr = vm[cli::LASER_CLOSE_GRACEFUL].as<string>();
@@ -367,7 +371,7 @@ bool LaserClose(const unique_ptr<laser::Mediator>& laser,
     return count != 0;
 }
 
-bool LaserDelete(const unique_ptr<laser::Mediator>& laser,
+bool LaserDelete(const MediatorPtr& laser,
                  const po::variables_map& vm)
 {
     auto channelIDsStr = vm[cli::LASER_DELETE].as<string>();
@@ -390,7 +394,7 @@ bool LaserDelete(const unique_ptr<laser::Mediator>& laser,
     return count != 0;
 }
 
-bool ProcessLaser(const unique_ptr<laser::Mediator>& laser,
+bool ProcessLaser(const MediatorPtr& laser,
                   const IWalletDB::Ptr& walletDB,
                   const po::variables_map& vm)
 {
@@ -420,4 +424,6 @@ bool ProcessLaser(const unique_ptr<laser::Mediator>& laser,
     }
 
     return false;
+}
+
 }
