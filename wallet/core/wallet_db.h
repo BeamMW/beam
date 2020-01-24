@@ -374,7 +374,9 @@ namespace beam::wallet
 
         // Shielded coins
         virtual std::vector<ShieldedCoin> getShieldedCoins() const = 0;
+        virtual boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const = 0;
+        virtual boost::optional<ShieldedCoin> getShieldedCoin(const ECC::Scalar& skSerial) const = 0;
         virtual void saveShieldedCoin(const ShieldedCoin& shieldedCoin) = 0;
 
         // /////////////////////////////////////////////
@@ -485,7 +487,9 @@ namespace beam::wallet
         void rollbackConfirmedUtxo(Height minHeight) override;
 
         std::vector<ShieldedCoin> getShieldedCoins() const override;
+        boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const override;
+        boost::optional<ShieldedCoin> getShieldedCoin(const ECC::Scalar& skSerial) const override;
         void saveShieldedCoin(const ShieldedCoin& shieldedCoin) override;
 
         std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;

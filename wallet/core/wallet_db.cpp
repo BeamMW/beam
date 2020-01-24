@@ -2146,6 +2146,22 @@ namespace beam::wallet
         return coins;
     }
 
+    boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(const TxID& txId) const
+    {
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE createTxId=?1 OR spentTxId=?1;");
+        stm.bind(1, txId);
+
+        if (stm.step())
+        {
+            ShieldedCoin coin;
+            int colIdx = 0;
+            ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+            return coin;
+        }
+
+        return {};
+    }
+
     boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(TxoID id) const
     {
         sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE ID = ?;");
@@ -2159,6 +2175,21 @@ namespace beam::wallet
             return coin;
         }
 
+        return {};
+    }
+
+    boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(const ECC::Scalar& skSerial) const
+    {
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE skSerialG = ?;");
+        stm.bind(1, skSerial);
+
+        if (stm.step())
+        {
+            ShieldedCoin coin;
+            int colIdx = 0;
+            ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+            return coin;
+        }
         return {};
     }
 

@@ -145,11 +145,13 @@ namespace beam::wallet::lelantus
                         m_waitingShieldedProof = false;
 
                         // update shielded output
-                        auto coin = GetMandatoryParameter<ShieldedCoin>(TxParameterID::ShieldedCoin);
-                        coin.m_ID = proof.m_ID;
+                        auto coin = GetWalletDB()->getShieldedCoin(GetTxID());
+                        assert(coin);
+
+                        coin->m_ID = proof.m_ID;
 
                         // save shielded output to DB
-                        GetWalletDB()->saveShieldedCoin(coin);
+                        GetWalletDB()->saveShieldedCoin(*coin);
                     }
                     UpdateAsync();
                 });

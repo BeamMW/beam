@@ -102,7 +102,10 @@ namespace beam::wallet::lelantus
             shieldedCoin.m_skOutputG = op.m_k;
             shieldedCoin.m_serialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
             shieldedCoin.m_isCreatedByViewer = sp.m_IsCreatedByViewer;
+            shieldedCoin.m_sender = op.m_Sender;
+            shieldedCoin.m_message = op.m_Message;
 
+            m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);
             m_Tx.SetParameter(TxParameterID::ShieldedCoin, shieldedCoin);
 
             // save KernelID

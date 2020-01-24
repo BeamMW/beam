@@ -806,7 +806,7 @@ namespace beam::wallet
         TxoID shieldedID = 0;
         shielded.m_ID.Export(shieldedID);
 
-        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedID);
+        auto shieldedCoin = m_WalletDB->getShieldedCoin(shielded.m_kSerG);
         if (!shieldedCoin)
         {
             shieldedCoin = ShieldedCoin{};
