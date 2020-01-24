@@ -73,6 +73,7 @@
 #define LASER_ADDRESSES_NAME "LaserAddresses"
 #define LASER_OPEN_STATES_NAME "LaserOpenStates"
 #define LASER_UPDATES_NAME "LaserUpdates"
+#define SHIELDED_COINS_NAME "ShieldedCoins"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -132,6 +133,22 @@
     each(data,             data,             BLOB, obj)
 
 #define LASER_CHANNEL_FIELDS ENUM_LASER_CHANNEL_FIELDS(LIST, COMMA, )
+
+#define ENUM_SHIELDED_COIN_FIELDS(each, sep, obj) \
+    each(skSerialG,             skSerialG,            BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(skOutputG,             skOutputG,            BLOB NOT NULL, obj) sep \
+    each(serialPub,             serialPub,            BLOB, obj) sep \
+    each(sender,                sender,               BLOB, obj) sep \
+    each(message,               message,              BLOB, obj) sep \
+    each(ID,                    ID,                   INTEGER NOT NULL, obj) sep \
+    each(isCreatedByViewer,     isCreatedByViewer,    BOOLEAN, obj) sep \
+    each(value,                 value,                INTEGER NOT NULL, obj) sep \
+    each(confirmHeight,         confirmHeight,        INTEGER, obj) sep \
+    each(spentHeight,           spentHeight,          INTEGER, obj) sep \
+    each(createTxId,            createTxId,           BLOB, obj) sep \
+    each(spentTxId,             spentTxId,            BLOB, obj)
+
+#define SHIELDED_COIN_FIELDS ENUM_SHIELDED_COIN_FIELDS(LIST, COMMA, )
 
 namespace std
 {
@@ -728,7 +745,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion = 17;
+        const int DbVersion = 18;
+        const int DbVersion17 = 17;
         const int DbVersion16 = 16;
         const int DbVersion15 = 15;
         const int DbVersion14 = 14;
@@ -957,6 +975,13 @@ namespace beam::wallet
             LOG_INFO() << "Create laser tables";
         }
 
+        void CreateShieldedCoinsTable(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " SHIELDED_COINS_NAME " (" ENUM_SHIELDED_COIN_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
         {
             int ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE, nullptr);
@@ -1065,6 +1090,7 @@ namespace beam::wallet
         CreateTxParamsTable(db);
         CreateStatesTable(db);
         CreateLaserTables(db);
+        CreateShieldedCoinsTable(db);
     }
 
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
@@ -1379,6 +1405,12 @@ namespace beam::wallet
                 {
                     LOG_INFO() << "Converting DB from format 16...";
                     CreateLaserTables(walletDB->_db);
+                    // no break;   
+                }
+                case DbVersion17:
+                {
+                    LOG_INFO() << "Converting DB from format 17...";
+                    CreateShieldedCoinsTable(walletDB->_db);
                     // no break;   
                 }
 
@@ -2072,32 +2104,134 @@ namespace beam::wallet
         }
     }
 
-    std::map<TxoID, ShieldedCoin> WalletDB::getShieldedCoins() const
+    std::vector<ShieldedCoin> WalletDB::getShieldedCoins() const
     {
-        return m_ShieldedCoins;
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY ID;");
+
+        std::vector<ShieldedCoin> coins;
+
+        while (stm.step())
+        {
+            auto& coin = coins.emplace_back();
+            int colIdx = 0;
+            ByteBuffer skSerialBuffer;
+            ByteBuffer skOutputBuffer;
+            ByteBuffer serialPubBuffer;
+
+            stm.get(colIdx++, skSerialBuffer);
+            fromByteBuffer(skSerialBuffer, coin.m_skSerialG);
+            stm.get(colIdx++, skOutputBuffer);
+            fromByteBuffer(skOutputBuffer, coin.m_skOutputG);
+            stm.get(colIdx++, serialPubBuffer);
+            fromByteBuffer(serialPubBuffer, coin.m_serialPub);
+            stm.get(colIdx++, coin.m_sender);
+            stm.get(colIdx++, coin.m_message);
+            stm.get(colIdx++, coin.m_ID);
+            stm.get(colIdx++, coin.m_isCreatedByViewer);
+            stm.get(colIdx++, coin.m_value);
+            stm.get(colIdx++, coin.m_confirmHeight);
+            stm.get(colIdx++, coin.m_spentHeight);
+            stm.get(colIdx++, coin.m_createTxId);
+            stm.get(colIdx++, coin.m_spentTxId);
+        }
+
+        return coins;
     }
 
     boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(TxoID id) const
     {
-        auto iter = m_ShieldedCoins.find(id);
-        if (iter != m_ShieldedCoins.end())
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE ID = ?;");
+        stm.bind(1, id);
+
+        if (stm.step())
         {
-            return iter->second;
+            ShieldedCoin coin;
+            int colIdx = 0;
+            ByteBuffer skSerialBuffer;
+            ByteBuffer skOutputBuffer;
+            ByteBuffer serialPubBuffer;
+
+            stm.get(colIdx++, skSerialBuffer);
+            fromByteBuffer(skSerialBuffer, coin.m_skSerialG);
+            stm.get(colIdx++, skOutputBuffer);
+            fromByteBuffer(skOutputBuffer, coin.m_skOutputG);
+            stm.get(colIdx++, serialPubBuffer);
+            fromByteBuffer(serialPubBuffer, coin.m_serialPub);
+            stm.get(colIdx++, coin.m_sender);
+            stm.get(colIdx++, coin.m_message);
+            stm.get(colIdx++, coin.m_ID);
+            stm.get(colIdx++, coin.m_isCreatedByViewer);
+            stm.get(colIdx++, coin.m_value);
+            stm.get(colIdx++, coin.m_confirmHeight);
+            stm.get(colIdx++, coin.m_spentHeight);
+            stm.get(colIdx++, coin.m_createTxId);
+            stm.get(colIdx++, coin.m_spentTxId);
+            return coin;
         }
+
         return {};
     }
 
     void WalletDB::saveShieldedCoin(const ShieldedCoin& shieldedCoin)
     {
-        auto iter = m_ShieldedCoins.find(shieldedCoin.m_ID);
-        if (iter != m_ShieldedCoins.end())
-        {
-            iter->second = shieldedCoin;
-        }
-        else
-        {
-            m_ShieldedCoins.emplace(shieldedCoin.m_ID, shieldedCoin);
-        }
+        saveShieldedCoinRaw(shieldedCoin);
+    }
+
+    void WalletDB::insertShieldedCoinRaw(const ShieldedCoin& coin)
+    {
+        const char* req = "INSERT INTO " SHIELDED_COINS_NAME " (" ENUM_SHIELDED_COIN_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_SHIELDED_COIN_FIELDS(BIND_LIST, COMMA, ) ");";
+        sqlite::Statement stm(this, req);
+        int colIdx = 0;
+
+        ByteBuffer skSerialBuffer = toByteBuffer(coin.m_skSerialG);
+        stm.bind(++colIdx, skSerialBuffer);
+        ByteBuffer skOutputBuffer = toByteBuffer(coin.m_skOutputG);
+        stm.bind(++colIdx, skOutputBuffer);
+        ByteBuffer serialPubBuffer = toByteBuffer(coin.m_serialPub);
+        stm.bind(++colIdx, serialPubBuffer);
+        stm.bind(++colIdx, coin.m_sender);
+        stm.bind(++colIdx, coin.m_message);
+        stm.bind(++colIdx, coin.m_ID);
+        stm.bind(++colIdx, coin.m_isCreatedByViewer);
+        stm.bind(++colIdx, coin.m_value);
+        stm.bind(++colIdx, coin.m_confirmHeight);
+        stm.bind(++colIdx, coin.m_spentHeight);
+        stm.bind(++colIdx, coin.m_createTxId);
+        stm.bind(++colIdx, coin.m_spentTxId);
+        stm.step();
+    }
+
+    bool WalletDB::updateShieldedCoinRaw(const ShieldedCoin& coin)
+    {
+        const char* req = "UPDATE " SHIELDED_COINS_NAME " SET " ENUM_SHIELDED_COIN_FIELDS(SET_LIST, COMMA, ) "WHERE skSerialG = ?;";
+        sqlite::Statement stm(this, req);
+        int colIdx = 0;
+
+        ByteBuffer skSerialBuffer = toByteBuffer(coin.m_skSerialG);
+        stm.bind(++colIdx, skSerialBuffer);
+        ByteBuffer skOutputBuffer = toByteBuffer(coin.m_skOutputG);
+        stm.bind(++colIdx, skOutputBuffer);
+        ByteBuffer serialPubBuffer = toByteBuffer(coin.m_serialPub);
+        stm.bind(++colIdx, serialPubBuffer);
+        stm.bind(++colIdx, coin.m_sender);
+        stm.bind(++colIdx, coin.m_message);
+        stm.bind(++colIdx, coin.m_ID);
+        stm.bind(++colIdx, coin.m_isCreatedByViewer);
+        stm.bind(++colIdx, coin.m_value);
+        stm.bind(++colIdx, coin.m_confirmHeight);
+        stm.bind(++colIdx, coin.m_spentHeight);
+        stm.bind(++colIdx, coin.m_createTxId);
+        stm.bind(++colIdx, coin.m_spentTxId);
+        stm.bind(++colIdx, skSerialBuffer);
+        stm.step();
+
+        return sqlite3_changes(_db) > 0;
+    }
+
+    void WalletDB::saveShieldedCoinRaw(const ShieldedCoin& coin)
+    {
+        if (!updateShieldedCoinRaw(coin))
+            insertShieldedCoinRaw(coin);
     }
 
     vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const

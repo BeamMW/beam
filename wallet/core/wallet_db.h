@@ -373,7 +373,7 @@ namespace beam::wallet
         virtual void rollbackConfirmedUtxo(Height minHeight) = 0;
 
         // Shielded coins
-        virtual std::map<TxoID, ShieldedCoin> getShieldedCoins() const = 0;
+        virtual std::vector<ShieldedCoin> getShieldedCoins() const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const = 0;
         virtual void saveShieldedCoin(const ShieldedCoin& shieldedCoin) = 0;
 
@@ -484,8 +484,7 @@ namespace beam::wallet
         Height getCurrentHeight() const override;
         void rollbackConfirmedUtxo(Height minHeight) override;
 
-        // TODO: remove after tests of lelantus
-        std::map<TxoID, ShieldedCoin> getShieldedCoins() const override;
+        std::vector<ShieldedCoin> getShieldedCoins() const override;
         boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const override;
         void saveShieldedCoin(const ShieldedCoin& shieldedCoin) override;
 
@@ -551,6 +550,11 @@ namespace beam::wallet
         void saveCoinRaw(const Coin&);
         std::vector<Coin> getCoinsByRowIDs(const std::vector<int>& rowIDs) const;
         std::vector<Coin> getUpdatedCoins(const std::vector<Coin>& coins) const;
+
+        bool updateShieldedCoinRaw(const ShieldedCoin& coin);
+        void insertShieldedCoinRaw(const ShieldedCoin& coin);
+        void saveShieldedCoinRaw(const ShieldedCoin& coin);
+
         // ////////////////////////////////////////
         // Cache for optimized access for database fields
         using ParameterCache = std::map<TxID, std::map<SubTxID, std::map<TxParameterID, boost::optional<ByteBuffer>>>>;
@@ -594,9 +598,6 @@ namespace beam::wallet
         mutable std::map<WalletID, boost::optional<WalletAddress>> m_AddressesCache;
 
         bool m_useTrezor = false;
-
-        // TODO: remove after tests of lelantus
-        std::map<TxoID, ShieldedCoin> m_ShieldedCoins;
     };
 
     namespace storage

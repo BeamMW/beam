@@ -759,9 +759,9 @@ namespace
             for (const auto& c : shieldedCoins)
             {
                 cout << boost::format(kCoinsTableFormat)
-                    % boost::io::group(left, setw(columnWidths[0]), std::to_string(c.first))
-                    % boost::io::group(right, setw(columnWidths[1]), c.second.m_value / Rules::Coin)
-                    % boost::io::group(right, setw(columnWidths[2]), c.second.m_value % Rules::Coin)
+                    % boost::io::group(left, setw(columnWidths[0]), std::to_string(c.m_ID))
+                    % boost::io::group(right, setw(columnWidths[1]), c.m_value / Rules::Coin)
+                    % boost::io::group(right, setw(columnWidths[2]), c.m_value % Rules::Coin)
                     << std::endl;
             }
 
