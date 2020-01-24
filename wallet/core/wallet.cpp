@@ -20,6 +20,7 @@
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "simple_transaction.h"
+#include "strings_resources.h"
 
 #include <algorithm>
 #include <random>
@@ -321,6 +322,11 @@ namespace beam::wallet
         return m_TxID < x.m_TxID;
     }
 
+    bool Wallet::MyRequestAsset::operator < (const MyRequestAsset& x) const
+    {
+        return m_TxID < x.m_TxID;
+    }
+
     bool Wallet::MyRequestTransaction::operator < (const MyRequestTransaction& x) const
     {
         return m_TxID < x.m_TxID;
@@ -372,6 +378,20 @@ namespace beam::wallet
 
             if (PostReqUnique(*pVal))
                 LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for kernel: " << pVal->m_Msg.m_ID;
+        }
+    }
+
+    void Wallet::confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID)
+    {
+        if (auto it = m_ActiveTransactions.find(txID); it != m_ActiveTransactions.end())
+        {
+            MyRequestAsset::Ptr pVal(new MyRequestAsset);
+            pVal->m_TxID = txID;
+            pVal->m_SubTxID = subTxID;
+            pVal->m_Msg.m_Owner = ownerID;
+
+            if (PostReqUnique(*pVal))
+                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with owner index:" << ownerIdx;
         }
     }
 
@@ -550,6 +570,47 @@ namespace beam::wallet
             Block::SystemState::Full sTip;
             get_tip(sTip);
             tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
+            UpdateOnNextTip(tx);
+        }
+    }
+
+    void Wallet::OnRequestComplete(MyRequestAsset& req)
+    {
+        const auto it = m_ActiveTransactions.find(req.m_TxID);
+        if (m_ActiveTransactions.end() == it)
+        {
+            return;
+        }
+
+        auto tx = it->second;
+        if (!req.m_Res.m_Proof.empty())
+        {
+            //TODO:ASSETS may be store full asset info
+            if (tx->SetParameter(TxParameterID::AssetID, req.m_Res.m_Info.m_ID))
+            {
+                if (tx->GetType() == TxType::AssetReg)
+                {
+                    auto oidx = tx->GetMandatoryParameter<Key::Index>(TxParameterID::AssetOwnerIdx);
+                    const auto& info = req.m_Res.m_Info;
+                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset with owner index " << oidx << " successfully registered";
+                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset owner index: "  << oidx;
+                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset ID: "           << info.m_ID;
+                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Issued amount: "      << PrintableAmount(AmountBig::get_Lo(info.m_Value), false, kAmountASSET, kAmountAGROTH);
+                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Metadata size: "      << info.m_Metadata.size() << " bytes";
+                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Lock Height: "        << info.m_LockHeight;
+                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Please remember your asset's Owner Index && Asset ID. You wont be able to control/send/receive your asset without this info";
+                }
+                AsyncContextHolder holder(*this);
+                tx->Update();
+            }
+            else
+            {
+                // should never happen
+                assert(!"failed to set AssetID");
+            }
+        }
+        else
+        {
             UpdateOnNextTip(tx);
         }
     }

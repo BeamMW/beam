@@ -150,6 +150,7 @@ namespace beam::wallet
 
         void confirm_outputs(const std::vector<Coin>&) override;
         void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
+        void confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID) override;
         void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         bool get_tip(Block::SystemState::Full& state) const override;
         void send_tx_params(const WalletID& peerID, const SetTxParameter&) override;
@@ -238,6 +239,11 @@ namespace beam::wallet
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct Kernel2
+            {
+                TxID m_TxID;
+                SubTxID m_SubTxID = kDefaultSubTxID;
+            };
+            struct Asset
             {
                 TxID m_TxID;
                 SubTxID m_SubTxID = kDefaultSubTxID;

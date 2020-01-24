@@ -80,10 +80,10 @@ namespace beam::wallet
                 Amount fee,
                 Key::Index assetOwnerIdx,
                 TxKernelAssetControl& kernel,
-                Callback<ECC::Scalar::Native>&&,
+                Callback<AssetSignature>&&,
                 ExceptionCallback&&) override;
 
-        ECC::Scalar::Native SignAssetKernelSync(const std::vector<CoinID>& inputs,
+        AssetSignature SignAssetKernelSync(const std::vector<CoinID>& inputs,
                 const std::vector<CoinID>& outputs,
                 Amount fee,
                 Key::Index assetOwnerIdx,

@@ -86,7 +86,6 @@ namespace beam::wallet
                 if (!builder.GetInitialTxParams())
                 {
                     LOG_INFO() << GetTxID() << " Registering asset with the owner index " << builder.GetAssetOwnerIdx() << ". Cost is " << PrintableAmount(builder.GetAmountBeam(), false, kASSET, kAGROTH);
-                    LOG_INFO() << GetTxID() << " Please remember your owner assset index. You won't be able to unregister the asset, consume it  or generate additional coins without the owner index";
 
                     builder.SelectInputs();
                     builder.AddChange();
@@ -156,6 +155,22 @@ namespace beam::wallet
         {
             SetState(State::KernelConfirmation);
             ConfirmKernel(builder.GetKernelID());
+            return;
+        }
+
+        Asset::ID assetID = Zero;
+        GetParameter(TxParameterID::AssetID, assetID);
+        if (assetID == Zero)
+        {
+            if (_builder->GetAssetOwnerId() == Zero)
+            {
+                // If happens something went really wrong. Normally should never happen
+                OnFailed(TxFailureReason::NoAssetId, true);
+                return;
+            }
+
+            SetState(State::AssetConfirmation);
+            GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerIdx(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
             return;
         }
 

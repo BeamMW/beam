@@ -84,14 +84,7 @@ namespace beam::wallet
             return;
         }
 
-        if(!CreateTxBuilder())
-        {
-            return;
-        }
-
-        auto sharedBuilder = m_TxBuilder;
-        AssetIssueTxBuilder& builder = *sharedBuilder;
-
+        auto& builder = GetTxBuilder();
         if (!builder.LoadKernel())
         {
             if (!builder.GetInitialTxParams() && GetState() == State::Initial)
@@ -244,13 +237,13 @@ namespace beam::wallet
         return state;
     }
 
-    bool AssetIssueTransaction::CreateTxBuilder()
+    AssetIssueTxBuilder& AssetIssueTransaction::GetTxBuilder()
     {
-        if (!m_TxBuilder)
+        if (!_builder)
         {
-            m_TxBuilder = std::make_shared<AssetIssueTxBuilder>(_issue, *this, kDefaultSubTxID, m_KeyKeeper);
+            _builder = std::make_shared<AssetIssueTxBuilder>(_issue, *this, kDefaultSubTxID);
         }
-        return true;
+        return *_builder;
     }
 
     bool AssetIssueTransaction::IsInSafety() const

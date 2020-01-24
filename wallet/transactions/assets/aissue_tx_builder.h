@@ -27,7 +27,7 @@ namespace beam::wallet
         //
         // Transaction
         //
-        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, IPrivateKeyKeeper::Ptr keyKeeper);
+        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID);
 
         bool GetInitialTxParams();
         virtual Transaction::Ptr CreateTransaction();
@@ -48,7 +48,6 @@ namespace beam::wallet
         bool     CreateInputs();
         bool     CreateOutputs();
         Key::Index GetAssetOwnerIdx() const;
-        PeerID  GetAssetOwnerId() const;
         Asset::ID  GetAssetId() const;
 
         //
@@ -63,8 +62,6 @@ namespace beam::wallet
         Height GetMinHeight() const;
 
     protected:
-
-
         template <typename Result, typename Func, typename ContinueFunc>
         void DoAsync(Func&& asyncFunc, ContinueFunc&& continueFunc)
         {
@@ -82,7 +79,7 @@ namespace beam::wallet
                 [thisHolder, this, txHolder](std::exception_ptr ex)
                 {
                     m_Tx.GetAsyncAcontext().OnAsyncFinished();
-                    std::rethrow_exception(ex);
+                    std::rethrow_exception(std::move(ex));
                 });
         }
 
@@ -92,12 +89,10 @@ namespace beam::wallet
 
     private:
         BaseTransaction& m_Tx;
-        IPrivateKeyKeeper::Ptr m_keyKeeper;
         SubTxID m_SubTxID;
 
-        beam::Asset::ID m_assetId;
+        beam::Asset::ID  m_assetId;
         beam::Key::Index m_assetOwnerIdx;
-        beam::PeerID m_assetOwnerId;
 
         bool       m_issue;
         AmountList m_AmountList;

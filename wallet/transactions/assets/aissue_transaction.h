@@ -50,7 +50,7 @@ namespace beam::wallet
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         bool IsLoopbackTransaction() const;
-        bool CreateTxBuilder();
+        AssetIssueTxBuilder& GetTxBuilder();
 
         enum State : uint8_t
         {
@@ -61,11 +61,10 @@ namespace beam::wallet
             Registration,
             KernelConfirmation
         };
-
         State GetState() const;
 
     private:
-        std::shared_ptr<AssetIssueTxBuilder> m_TxBuilder;
+        std::shared_ptr<AssetIssueTxBuilder> _builder;
         bool _issue;
     };
 }

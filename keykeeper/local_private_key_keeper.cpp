@@ -473,7 +473,7 @@ namespace beam::wallet
                 Amount fee,
                 Key::Index assetOwnerIdx,
                 TxKernelAssetControl& kernel,
-                Callback<ECC::Scalar::Native>&& resultCallback,
+                Callback<AssetSignature>&& resultCallback,
                 ExceptionCallback&& exceptionCallback)
     {
          DoAsync([&]()
@@ -485,7 +485,7 @@ namespace beam::wallet
          );
     }
 
-    ECC::Scalar::Native LocalPrivateKeyKeeper::SignAssetKernelSync(const std::vector<CoinID>& inputs,
+    AssetSignature LocalPrivateKeyKeeper::SignAssetKernelSync(const std::vector<CoinID>& inputs,
             const std::vector<CoinID>& outputs,
             Amount fee,
             Key::Index assetOwnerIdx,
@@ -510,7 +510,10 @@ namespace beam::wallet
         auto excess = GetExcess(inputs, outputs, Zero);
         excess += kernelSk;
 
-        return excess;
+        AssetSignature result;
+        result.m_Offset = excess;
+        result.m_AssetOwnerId = keypair.first;
+        return result;
     }
 
     std::pair<PeerID, ECC::Scalar::Native> LocalPrivateKeyKeeper::GetAssetOwnerKeypair(Key::Index assetOwnerIdx)

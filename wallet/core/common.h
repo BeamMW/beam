@@ -143,7 +143,7 @@ namespace beam::wallet
     MACRO(MinHeightIsUnacceptable,       24, "Kernel's min height is unacceptable") \
     MACRO(NotLoopback,                   25, "Not a loopback transaction") \
     MACRO(NoKeyKeeper,                   26, "Key keeper is not initialized") \
-    MACRO(NoAssetId,                     27, "No valid asset id/asset idx") \
+    MACRO(NoAssetId,                     27, "No valid asset owner id/asset owner idx") \
     MACRO(RegisterAmountTooSmall,        28, "Asset registration fee is too small") \
     MACRO(ConsumeAmountTooBig,           29, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
     MACRO(NotEnoughDataForProof,         30, "Some mandatory data for payment proof is missing") \
@@ -610,6 +610,7 @@ namespace beam::wallet
         virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_outputs(const std::vector<Coin>&) = 0;
         virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual void confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
         virtual void send_tx_params(const WalletID& peerID, const SetTxParameter&) = 0;

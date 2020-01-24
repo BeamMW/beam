@@ -48,6 +48,12 @@ namespace beam::wallet
         ECC::Point m_KernelCommitment;
     };
 
+    struct AssetSignature
+    {
+        PeerID m_AssetOwnerId = 0UL;
+        ECC::Scalar m_Offset;
+    };
+
     using WalletIDKey = uint64_t;
 
     class KeyKeeperException : public std::runtime_error
@@ -143,10 +149,10 @@ namespace beam::wallet
                     Amount fee,
                     Key::Index assetOwnerIdx,
                     TxKernelAssetControl& kernel,
-                    Callback<ECC::Scalar::Native>&&,
+                    Callback<AssetSignature>&&,
                     ExceptionCallback&&) = 0;
 
-        virtual ECC::Scalar::Native SignAssetKernelSync(const std::vector<CoinID>& inputs,
+        virtual AssetSignature SignAssetKernelSync(const std::vector<CoinID>& inputs,
                     const std::vector<CoinID>& outputs,
                     Amount fee,
                     Key::Index assetOwnerIdx,

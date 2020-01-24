@@ -44,13 +44,10 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, IPrivateKeyKeeper::Ptr keyKeeper)
+    AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID)
         : m_Tx{tx}
-        , m_keyKeeper(std::move(keyKeeper))
         , m_SubTxID(subTxID)
-        , m_assetId(0)
         , m_assetOwnerIdx(0)
-        , m_assetOwnerId(Zero)
         , m_issue(issue)
         , m_AmountList{0}
         , m_Fee(0)
@@ -58,9 +55,8 @@ namespace beam::wallet
         , m_ChangeAsset(0)
         , m_MinHeight(0)
         , m_MaxHeight(MaxHeight)
-        , m_Offset(Zero)
     {
-        if (!m_keyKeeper.get())
+        if (!m_Tx.GetKeyKeeper())
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoKeyKeeper);
         }
@@ -72,10 +68,7 @@ namespace beam::wallet
         }
 
         m_assetOwnerIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetOwnerIdx);
-        m_assetOwnerId  = m_keyKeeper->GetAssetOwnerID(m_assetOwnerIdx);
-
         m_assetId = m_Tx.GetMandatoryParameter<Asset::ID>(TxParameterID::AssetID, m_SubTxID);
-
         if (m_assetOwnerIdx == 0 || m_assetId == 0)
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
@@ -229,11 +222,6 @@ namespace beam::wallet
     {
         return m_assetOwnerIdx;
     }
-
-     PeerID AssetIssueTxBuilder::GetAssetOwnerId() const
-     {
-        return m_assetOwnerId;
-     }
 
      Asset::ID AssetIssueTxBuilder::GetAssetId() const
      {
@@ -429,7 +417,8 @@ namespace beam::wallet
 
     void AssetIssueTxBuilder::SignKernel()
     {
-        m_Offset += m_keyKeeper->SignAssetKernelSync(m_InputCoins, m_OutputCoins, m_Fee, m_assetOwnerIdx, *m_Kernel);
+        const auto signature = m_Tx.GetKeyKeeper()->SignAssetKernelSync(m_InputCoins, m_OutputCoins, m_Fee, m_assetOwnerIdx, *m_Kernel);
+        m_Offset += signature.m_Offset;
 
         const Merkle::Hash& kernelID = m_Kernel->m_Internal.m_ID;
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);

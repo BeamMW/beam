@@ -30,7 +30,8 @@ namespace proto {
 		macro(Kernel2,		GetProofKernel2,	ProofKernel2) \
 		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
 		macro(Transaction,	NewTransaction,		Status) \
-		macro(BbsMsg,		BbsMsg,				Pong)
+		macro(BbsMsg,		BbsMsg,				Pong) \
+		macro(Asset,		GetProofAsset,		ProofAsset)
 
 		class Request
 		{

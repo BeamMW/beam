@@ -27,6 +27,7 @@ namespace beam::wallet
         : m_Tx{tx}
         , m_SubTxID(subTxID)
         , m_assetOwnerIdx(0)
+        , m_assetOwnerId(0UL)
         , m_Fee(0)
         , m_ChangeBeam(0)
         , m_AmountList{0}
@@ -201,6 +202,12 @@ namespace beam::wallet
         return m_assetOwnerIdx;
     }
 
+    PeerID AssetRegisterTxBuilder::GetAssetOwnerId() const
+    {
+        assert(m_assetOwnerId != Zero || !"Asset owner id is still zero");
+        return m_assetOwnerId;
+    }
+
     string AssetRegisterTxBuilder::GetKernelIDString() const {
         Merkle::Hash kernelID;
         m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
@@ -336,19 +343,21 @@ namespace beam::wallet
             m_kernel->m_Height.m_Max = m_MaxHeight;
             m_kernel->m_Commitment = Zero;
 
-            DoAsync<ECC::Scalar::Native>([this](auto&& res, auto&& ex)
+            DoAsync<AssetSignature>([this](auto&& res, auto&& ex)
             {
                 m_Tx.GetKeyKeeper()->SignAssetKernel(m_InputCoins, m_OutputCoins, m_Fee, m_assetOwnerIdx, *m_kernel, move(res), move(ex));
             },
-            [this](ECC::Scalar::Native&& offset)
+            [this](AssetSignature&& signature)
             {
-                m_Offset = offset;
+                m_Offset = signature.m_Offset;
+                m_assetOwnerId = signature.m_AssetOwnerId;
                 m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
 
                 const Merkle::Hash& kernelID = m_kernel->m_Internal.m_ID;
                 m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
                 m_Tx.SetParameter(TxParameterID::Kernel, m_kernel, m_SubTxID);
             });
+
             return true;
         }
         return false;

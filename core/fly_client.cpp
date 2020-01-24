@@ -716,6 +716,21 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestKernel2& req)
     return (Flags::Node & m_Flags) && IsAtTip();
 }
 
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestAsset& req)
+{
+    if (req.m_Msg.m_Owner != req.m_Res.m_Info.m_Owner)
+        ThrowUnexpected();
+
+    if (!req.m_Res.m_Proof.empty())
+        if (!m_Tip.IsValidProofAsset(req.m_Res.m_Info, req.m_Res.m_Proof))
+            ThrowUnexpected();
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestAsset& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel2& req)
 {
     if (req.m_Res.m_Kernel)
