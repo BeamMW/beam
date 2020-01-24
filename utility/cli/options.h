@@ -34,6 +34,7 @@ namespace beam
         extern const char* STORAGE;
         extern const char* WALLET_STORAGE;
         extern const char* MINING_THREADS;
+        extern const char* POW_SOLVE_TIME;
         extern const char* VERIFICATION_THREADS;
         extern const char* NONCEPREFIX_DIGITS;
         extern const char* NODE_PEER;
