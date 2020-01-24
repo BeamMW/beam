@@ -292,6 +292,8 @@ namespace beam::wallet
 		// should be used only upon creation on 'clean' wallet. Throws exception on error
 		void ImportRecovery(const std::string& path);
 
+        bool IsRecoveredMatch(CoinID&, const ECC::Point& comm);
+
 		struct IRecoveryProgress
 		{
 			virtual bool OnProgress(uint64_t done, uint64_t total) { return true; } // return false to stop recovery

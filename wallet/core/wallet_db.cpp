@@ -1605,6 +1605,24 @@ namespace beam::wallet
         return m_pKeyKeeper;
     }
 
+    bool IWalletDB::IsRecoveredMatch(CoinID& cid, const ECC::Point& comm)
+    {
+        IPrivateKeyKeeper2::Ptr pKeyKeeper = get_KeyKeeper();
+        
+        ECC::Point::Native comm2;
+        pKeyKeeper->get_Commitment(comm2, cid);
+        if (comm2 == comm)
+            return true;
+
+        if (!cid.IsBb21Possible())
+            return false;
+
+        cid.set_WorkaroundBb21();
+
+        pKeyKeeper->get_Commitment(comm2, cid);
+        return (comm2 == comm);
+    }
+
 	void IWalletDB::ImportRecovery(const std::string& path)
 	{
 		IRecoveryProgress prog;
@@ -1617,8 +1635,7 @@ namespace beam::wallet
 		rp.Open(path.c_str());
 		uint64_t nTotal = rp.m_Stream.get_Remaining();
 
-		beam::Key::IPKdf::Ptr pOwner = get_OwnerKdf();
-        beam::Key::IKdf::Ptr pMasterKdf = get_MasterKdf();
+        Key::IPKdf::Ptr pOwner = get_OwnerKdf();
 
 		while (true)
 		{
@@ -1634,11 +1651,7 @@ namespace beam::wallet
 			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, cid))
 				continue;
 
-
-            ECC::Point::Native commN;
-            CoinID::Worker(cid).Recover(commN, *cid.get_ChildKdf(pMasterKdf));
-
-			if (!(commN == x.m_Output.m_Commitment))
+            if (!IsRecoveredMatch(cid, x.m_Output.m_Commitment))
 				continue;
 
 			Coin c;

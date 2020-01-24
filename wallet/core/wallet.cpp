@@ -616,25 +616,6 @@ namespace beam::wallet
     {
         std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 
-        function<Point(const CoinID& cid)> commitmentFunc;
-        if (m_KeyKeeper)
-        {
-            commitmentFunc = [this](const CoinID& cid) {
-                return m_KeyKeeper->GenerateCoinKeySync(cid);
-            };
-        }
-        else if (auto ownerKdf = m_WalletDB->get_OwnerKdf(); ownerKdf)
-        {
-            commitmentFunc = [ownerKdf](const CoinID& cid)
-            {
-                Point::Native pt;
-                CoinID::Worker(cid).Recover(pt, *ownerKdf);
-
-                Point commitment = pt;
-                return commitment;
-            };
-        }
-
         for (size_t i = 0; i < v.size(); i++)
         {
             auto& event = v[i];
@@ -643,27 +624,14 @@ namespace beam::wallet
                 continue; // not supported atm
 
             // filter-out false positives
-            if (commitmentFunc)
-            {
-                CoinID cid;
-                event.get_Cid(cid);
+            CoinID cid;
+            event.get_Cid(cid);
 
-                Point commitment = commitmentFunc(cid);
-                if (commitment != event.m_Commitment)
-                {
-                    if (!cid.IsBb21Possible())
-                        continue;
+            if (!m_WalletDB->IsRecoveredMatch(cid, event.m_Commitment))
+                continue;
 
-                    cid.set_WorkaroundBb21();
-
-                    commitment = commitmentFunc(cid);
-                    if (commitment != event.m_Commitment)
-                        continue;
-                }
-
-                bool bAdd = 0 != (proto::UtxoEvent::Flags::Add & event.m_Flags);
-                ProcessUtxoEvent(cid, event.m_Height, event.m_Maturity, bAdd);
-            }
+            bool bAdd = 0 != (proto::UtxoEvent::Flags::Add & event.m_Flags);
+            ProcessUtxoEvent(cid, event.m_Height, event.m_Maturity, bAdd);
         }
 
         if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
