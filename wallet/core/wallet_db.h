@@ -283,11 +283,10 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<IWalletDB>;
         virtual ~IWalletDB() {}
 
-        // Returns the Master Key Derivative Function (operates on secret keys)
-        virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
-
-        // Returns the Owner Key Derivative Function (operates on public keys)
-        virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const = 0;
+        virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0; // Returns the Master Key ONLY if possible. Won't be available with HW wallet.
+        virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const = 0; // Returns the Owner Key. Must succeed.
+        virtual beam::Key::IKdf::Ptr get_SbbsKdf() const = 0; // Must succeed
+        virtual IPrivateKeyKeeper2::Ptr get_KeyKeeper() const = 0; // Must succeed
 
 		// import blockchain recovery data (all at once)
 		// should be used only upon creation on 'clean' wallet. Throws exception on error
@@ -407,19 +406,20 @@ namespace beam::wallet
     {
     public:
         static bool isInitialized(const std::string& path);
-#if defined(BEAM_HW_WALLET)
-        static Ptr initWithTrezor(const std::string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor);
-#endif
-        static Ptr initWithOwnerKey(const std::string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor);
         static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData = false);
-        static Ptr open(const std::string& path, const SecString& password, io::Reactor::Ptr reactor, bool useTrezor = false);
+        static Ptr init(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, io::Reactor::Ptr reactor, bool separateDBForPrivateData = false);
+        static Ptr open(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, io::Reactor::Ptr reactor);
+        static Ptr open(const std::string& path, const SecString& password, io::Reactor::Ptr reactor);
 
         WalletDB(sqlite3* db, io::Reactor::Ptr reactor);
         WalletDB(sqlite3* db, io::Reactor::Ptr reactor, sqlite3* sdb);
         ~WalletDB();
 
-        beam::Key::IKdf::Ptr get_MasterKdf() const override;
-        beam::Key::IPKdf::Ptr get_OwnerKdf() const override;
+        virtual beam::Key::IKdf::Ptr get_MasterKdf() const override;
+        virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const override;
+        virtual beam::Key::IKdf::Ptr get_SbbsKdf() const override;
+        virtual IPrivateKeyKeeper2::Ptr get_KeyKeeper() const override;
+
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
 
@@ -498,8 +498,10 @@ namespace beam::wallet
         void deleteIncomingWalletMessage(uint64_t id) override;
 
     private:
-        static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, io::Reactor::Ptr reactor, bool separateDBForPrivateData = false);
+        static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, io::Reactor::Ptr reactor, bool separateDBForPrivateData);
         void storeOwnerKey();
+        void FromMaster();
+        void FromKeyKeeper();
         static void createTables(sqlite3* db, sqlite3* privateDb);
         void removeCoinImpl(const Coin::ID& cid);
         void notifyCoinsChanged(ChangeAction action, const std::vector<Coin>& items);
@@ -532,8 +534,10 @@ namespace beam::wallet
         sqlite3* _db;
         sqlite3* m_PrivateDB;
         io::Reactor::Ptr m_Reactor;
-        Key::IKdf::Ptr m_pKdf;
-        Key::IPKdf::Ptr m_OwnerKdf;
+        Key::IKdf::Ptr m_pKdfMaster;
+        Key::IPKdf::Ptr m_pKdfOwner;
+        Key::IKdf::Ptr m_pKdfSbbs;
+        IPrivateKeyKeeper2::Ptr m_pKeyKeeper;
         io::Timer::Ptr m_FlushTimer;
         bool m_IsFlushPending;
         std::unique_ptr<sqlite::Transaction> m_DbTransaction;
@@ -555,7 +559,8 @@ namespace beam::wallet
         mutable ParameterCache m_TxParametersCache;
         mutable std::map<WalletID, boost::optional<WalletAddress>> m_AddressesCache;
 
-        bool m_useTrezor = false;
+        struct LocalKeyKeeper;
+        LocalKeyKeeper* m_pLocalKeyKeeper = nullptr;
     };
 
     namespace storage

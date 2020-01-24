@@ -1775,7 +1775,7 @@ namespace
                 if(ks.Import(*ownerKdf))
                 {
                     auto dbName = generateUid();
-                    IWalletDB::Ptr walletDB = WalletDB::initWithOwnerKey(dbName + ".db", ownerKdf, SecString(data.pass), _reactor);
+                    IWalletDB::Ptr walletDB = WalletDB::init(dbName + ".db", SecString(data.pass), /*_keyKeeper*/nullptr, _reactor);
 
                     if(walletDB)
                     {

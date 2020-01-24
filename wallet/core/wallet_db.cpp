@@ -23,6 +23,7 @@
 #include <boost/filesystem.hpp>
 #include "nlohmann/json.hpp"
 #include "utility/std_extension.h"
+#include "keykeeper/local_private_key_keeper.h"
 
 #define NOSEP
 #define COMMA ", "
@@ -1104,10 +1105,91 @@ namespace beam::wallet
     void WalletDB::storeOwnerKey()
     {
         ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
-        assert(m_OwnerKdf->ExportP(nullptr) == sizeof(packedOwnerKey));
-        m_OwnerKdf->ExportP(&packedOwnerKey);
+        assert(m_pKdfOwner->ExportP(nullptr) == sizeof(packedOwnerKey));
+        m_pKdfOwner->ExportP(&packedOwnerKey);
 
         storage::setVar(*this, OwnerKey, packedOwnerKey.V);
+    }
+
+    struct WalletDB::LocalKeyKeeper
+        :public LocalPrivateKeyKeeperStd
+    {
+        WalletDB* m_pOwner;
+
+        using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
+
+        virtual void Regenerate(uint32_t iSlot) override
+        {
+            LocalPrivateKeyKeeperStd::Regenerate(iSlot);
+            SaveSlot(iSlot);
+            SaveLast();
+        }
+
+        void SaveSlot(uint32_t iSlot)
+        {
+            // TODO - save it!
+        }
+
+        void SaveLast()
+        {
+            // TODO
+        }
+    };
+
+    void WalletDB::FromMaster()
+    {
+        assert(m_pKdfMaster);
+        m_pKdfOwner = m_pKdfMaster;
+        m_pKdfSbbs = m_pKdfMaster;
+
+        if (!m_pKeyKeeper)
+        {
+            m_pKeyKeeper = std::make_shared<LocalKeyKeeper>(m_pKdfMaster);
+            m_pLocalKeyKeeper = &Cast::Up<LocalKeyKeeper>(*m_pKeyKeeper);
+            m_pLocalKeyKeeper->m_pOwner = this; // weak link
+        }
+    }
+
+    void WalletDB::FromKeyKeeper()
+    {
+        assert(!m_pKdfMaster);
+
+        if (!m_pKeyKeeper)
+            throw std::runtime_error("Key keeper required");
+
+        IPrivateKeyKeeper2::Method::get_Kdf m;
+        m.m_Root = true;
+        m_pKeyKeeper->InvokeSync(m);
+
+        if (m.m_pKdf)
+        {
+            // trusted mode.
+            m_pKdfMaster = std::move(m.m_pKdf);
+            FromMaster();
+            return;
+        }
+
+        if (!m.m_pPKdf)
+            throw std::runtime_error("can't get owner key");
+
+        m_pKdfOwner = std::move(m.m_pPKdf);
+
+        // trustless mode. create SBBS Kdf from a child PKdf. It won't be directly accessible from the owner key
+        m.m_Root = false;
+        m.m_iChild = Key::Index(-1); // definitely won't collude with a coin child Kdf (for coins high byte is reserved for scheme)
+
+        m_pKeyKeeper->InvokeSync(m);
+
+        if (!m.m_pPKdf)
+            throw std::runtime_error("can't get sbbs key");
+
+        ECC::Scalar::Native sk;
+        m.m_pPKdf->DerivePKey(sk, Zero);
+
+        ECC::NoLeak<ECC::Scalar> s;
+        s.V = sk;
+
+        ECC::HKdf::Create(m_pKdfSbbs, s.V.m_Value);
     }
 
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
@@ -1115,10 +1197,35 @@ namespace beam::wallet
         std::shared_ptr<WalletDB> walletDB = initBase(path, password, reactor, separateDBForPrivateData);
         if (walletDB)
         {
-            ECC::HKdf::Create(walletDB->m_pKdf, secretKey.V);
-            walletDB->m_OwnerKdf = walletDB->m_pKdf;
+            ECC::HKdf::Create(walletDB->m_pKdfMaster, secretKey.V);
+            walletDB->FromMaster();
 
             walletDB->setPrivateVarRaw(WalletSeed, &secretKey.V, sizeof(secretKey.V)); // store master key
+            walletDB->storeOwnerKey(); // store owner key (public)
+
+            LocalKeyKeeper& lkk = *walletDB->m_pLocalKeyKeeper; // alias
+
+            ECC::GenRandom(lkk.m_State.m_hvLast);
+            lkk.m_State.Generate();
+
+            lkk.SaveLast();
+            for (uint32_t i = 0; i < lkk.s_Slots; i++)
+                lkk.SaveSlot(i);
+
+            walletDB->flushDB();
+        }
+
+        return walletDB;
+    }
+
+    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr& pKeyKeeper, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
+    {
+        std::shared_ptr<WalletDB> walletDB = initBase(path, password, reactor, separateDBForPrivateData);
+        if (walletDB)
+        {
+            walletDB->m_pKeyKeeper = pKeyKeeper;
+            walletDB->FromKeyKeeper();
+
             walletDB->storeOwnerKey(); // store owner key (public)
 
             walletDB->flushDB();
@@ -1127,29 +1234,12 @@ namespace beam::wallet
         return walletDB;
     }
 
-    IWalletDB::Ptr WalletDB::initWithOwnerKey(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
+    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, io::Reactor::Ptr reactor)
     {
-        std::shared_ptr<WalletDB> walletDB = initBase(path, password, reactor, false);
-        if (walletDB)
-        {
-            walletDB->m_OwnerKdf = ownerKey;
-
-            walletDB->storeOwnerKey();
-
-            walletDB->flushDB();
-        }
-
-        return walletDB;
+        return open(path, password, nullptr, reactor);
     }
 
-#if defined(BEAM_HW_WALLET)
-    IWalletDB::Ptr WalletDB::initWithTrezor(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
-    {
-        return initWithOwnerKey(path, ownerKey, password, reactor);
-    }
-#endif
-
-    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, io::Reactor::Ptr reactor, bool useTrezor)
+    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr& pKeyKeeper, io::Reactor::Ptr reactor)
     {
         if (!isInitialized(path))
         {
@@ -1413,27 +1503,31 @@ namespace beam::wallet
             ECC::NoLeak<ECC::Hash::Value> seed;
             if (walletDB->getPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V)))
             {
-                ECC::HKdf::Create(walletDB->m_pKdf, seed.V);
-                walletDB->m_OwnerKdf = walletDB->m_pKdf;
+                ECC::HKdf::Create(walletDB->m_pKdfMaster, seed.V);
+                walletDB->FromMaster();
             }
             else
             {
+                walletDB->m_pKeyKeeper = pKeyKeeper;
+                walletDB->FromKeyKeeper();
+
+                // consistency check. Make sure there's an agreement w.r.t. stored owner key
                 ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
                 if (storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V))
                 {
-                    auto publicKdf = make_shared<ECC::HKdfPub>();
-                    if (!publicKdf->Import(packedOwnerKey.V))
-                    {
-                        LOG_ERROR() << "Failed to load owner key";
-                        return Ptr();
-                    }
-                    walletDB->m_OwnerKdf = publicKdf;
+                    ECC::NoLeak<ECC::HKdfPub::Packed> keyCurrent;
+                    walletDB->m_pKdfOwner->ExportP(&keyCurrent);
+
+                    if (memcmp(&packedOwnerKey, &keyCurrent, sizeof(keyCurrent)))
+                        throw std::runtime_error("Key keeper is different");
                 }
+                else
+                    walletDB->storeOwnerKey();
+
 
             }
         }
 
-        walletDB->m_useTrezor = useTrezor;
         return static_pointer_cast<IWalletDB>(walletDB);
     }
 
@@ -1462,6 +1556,12 @@ namespace beam::wallet
     {
         if (_db)
         {
+            if (m_pLocalKeyKeeper)
+            {
+                assert(this == m_pLocalKeyKeeper->m_pOwner);
+                m_pLocalKeyKeeper->m_pOwner = nullptr;
+            }
+
             if (m_DbTransaction)
             {
                 try
@@ -1487,12 +1587,22 @@ namespace beam::wallet
 
     Key::IKdf::Ptr WalletDB::get_MasterKdf() const
     {
-        return m_useTrezor ? nullptr : m_pKdf;
+        return m_pKdfMaster;
     }
 
-    beam::Key::IPKdf::Ptr WalletDB::get_OwnerKdf() const
+    Key::IPKdf::Ptr WalletDB::get_OwnerKdf() const
     {
-        return m_OwnerKdf;
+        return m_pKdfOwner;
+    }
+
+    Key::IKdf::Ptr WalletDB::get_SbbsKdf() const
+    {
+        return m_pKdfSbbs;
+    }
+
+    IPrivateKeyKeeper2::Ptr WalletDB::get_KeyKeeper() const
+    {
+        return m_pKeyKeeper;
     }
 
 	void IWalletDB::ImportRecovery(const std::string& path)
