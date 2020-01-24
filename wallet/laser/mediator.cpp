@@ -199,11 +199,11 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
                     << to_hex(inChID->m_pData , inChID->nBytes);
         return;
     }
-    auto& ch = it->second;
+    auto& channel = it->second;
 
-    ch->OnPeerData(dataIn);
-    ch->LogNewState();
-    UpdateChannelExterior(ch);
+    channel->OnPeerData(dataIn);
+    channel->LogNewState();
+    UpdateChannelExterior(channel);
 }
 
 bool  Mediator::Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob)
@@ -246,10 +246,18 @@ void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime
         WalletAddress::ExpirationStatus::Never,
         false);
 
-    BbsChannel ch;
-    m_myInAddr.m_walletID.m_Channel.Export(ch);
-    m_pConnection->BbsSubscribe(ch, getTimestamp(), m_pInputReceiver.get());
-    LOG_DEBUG() << "LASER WAIT IN subscribed: " << ch;
+    Subscribe();
+}
+
+void Mediator::StopWaiting()
+{
+    Unsubscribe();
+    m_myInAllowed = 0;
+    m_trgInAllowed = 0;
+    m_feeAllowed = 0;
+    m_locktimeAllowed = 0;
+    m_pInputReceiver.reset();
+    m_myInAddr.m_walletID = Zero;
 }
 
 WalletID Mediator::getWaitingWalletID() const
@@ -439,6 +447,11 @@ size_t Mediator::getChannelsCount() const
     });
 }
 
+const std::unique_ptr<Channel>& Mediator::getChannel(const ChannelIDPtr& p_channelID)
+{
+    return m_channels[p_channelID];
+}
+
 void Mediator::AddObserver(Observer* observer)
 {
     observer->m_observable = this;
@@ -448,8 +461,8 @@ void Mediator::AddObserver(Observer* observer)
 void Mediator::RemoveObserver(Observer* observer)
 {
     m_observers.erase(
-        m_observers.begin(),
-        std::remove(m_observers.begin(), m_observers.end(), observer));
+        std::remove(m_observers.begin(), m_observers.end(), observer),
+        m_observers.end());
 }
 
 bool Mediator::Transfer(Amount amount, const std::string& channelID)
@@ -561,10 +574,7 @@ void Mediator::OnIncoming(const ChannelIDPtr& chID,
         return;
     }          
 
-    BbsChannel ch;
-    m_myInAddr.m_walletID.m_Channel.Export(ch);
-    m_pConnection->BbsSubscribe(ch, 0, nullptr);
-    LOG_DEBUG() << "LASER WAIT IN unsubscribed: " << ch;
+    Unsubscribe();
 
     auto channel = std::make_unique<Channel>(
         *this, chID, m_myInAddr, trgWid, fee, aMy, aTrg, locktime);
@@ -862,6 +872,22 @@ bool Mediator::IsEnoughCoinsAvailable(Amount required)
     const auto& totals = totalsCalc.GetTotals(Zero);
 
     return totals.Avail >= required; 
+}
+
+void Mediator::Subscribe()
+{
+    BbsChannel ch;
+    m_myInAddr.m_walletID.m_Channel.Export(ch);
+    m_pConnection->BbsSubscribe(ch, getTimestamp(), m_pInputReceiver.get());
+    LOG_DEBUG() << "LASER WAIT IN subscribed: " << ch;
+}
+
+void Mediator::Unsubscribe()
+{
+    BbsChannel ch;
+    m_myInAddr.m_walletID.m_Channel.Export(ch);
+    m_pConnection->BbsSubscribe(ch, 0, nullptr);
+    LOG_DEBUG() << "LASER WAIT IN unsubscribed: " << ch;
 }
 
 }  // namespace beam::wallet::laser

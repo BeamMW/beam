@@ -65,6 +65,7 @@ public:
     void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
 
     void WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime);
+    void StopWaiting();
     WalletID getWaitingWalletID() const;
     
     void OpenChannel(Amount aMy,
@@ -78,6 +79,7 @@ public:
     bool GracefulClose(const std::string& channelID);
     bool Delete(const std::string& channelID);
     size_t getChannelsCount() const;
+    const std::unique_ptr<Channel>& getChannel(const ChannelIDPtr& p_channelID);
 
     void AddObserver(Observer* observer);
     void RemoveObserver(Observer* observer);
@@ -97,6 +99,8 @@ private:
     bool ValidateTip();
     void PrepareToForget(const std::unique_ptr<Channel>& channel);
     bool IsEnoughCoinsAvailable(Amount required);
+    void Subscribe();
+    void Unsubscribe();
 
     IWalletDB::Ptr m_pWalletDB;
     IPrivateKeyKeeper::Ptr m_keyKeeper;
