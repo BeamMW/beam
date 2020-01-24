@@ -69,7 +69,7 @@ IWalletDB::Ptr createSqliteWalletDB(bool separatePrivateDB = false)
     }
     ECC::NoLeak<ECC::uintBig> seed;
     seed.V = 10283UL;
-    auto walletDB = WalletDB::init(dbName, string("pass123"), seed, io::Reactor::get_Current().shared_from_this(), separatePrivateDB);
+    auto walletDB = WalletDB::init(dbName, string("pass123"), seed, separatePrivateDB);
     beam::Block::SystemState::ID id = { };
     id.m_Height = 134;
     walletDB->setSystemStateID(id);

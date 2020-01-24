@@ -246,7 +246,7 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
         seed.V = Zero;
     }
                
-    auto walletDB = WalletDB::init(path, DBPassword, seed, io::Reactor::get_Current().shared_from_this(), separateDBForPrivateData);
+    auto walletDB = WalletDB::init(path, DBPassword, seed, separateDBForPrivateData);
     return walletDB;
 }
 

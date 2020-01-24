@@ -408,13 +408,13 @@ namespace beam::wallet
     {
     public:
         static bool isInitialized(const std::string& path);
-        static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData = false);
-        static Ptr init(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, io::Reactor::Ptr reactor, bool separateDBForPrivateData = false);
-        static Ptr open(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, io::Reactor::Ptr reactor);
-        static Ptr open(const std::string& path, const SecString& password, io::Reactor::Ptr reactor);
+        static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData = false);
+        static Ptr init(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, bool separateDBForPrivateData = false);
+        static Ptr open(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&);
+        static Ptr open(const std::string& path, const SecString& password);
 
-        WalletDB(sqlite3* db, io::Reactor::Ptr reactor);
-        WalletDB(sqlite3* db, io::Reactor::Ptr reactor, sqlite3* sdb);
+        WalletDB(sqlite3* db);
+        WalletDB(sqlite3* db, sqlite3* sdb);
         ~WalletDB();
 
         virtual beam::Key::IKdf::Ptr get_MasterKdf() const override;
@@ -500,7 +500,7 @@ namespace beam::wallet
         void deleteIncomingWalletMessage(uint64_t id) override;
 
     private:
-        static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, io::Reactor::Ptr reactor, bool separateDBForPrivateData);
+        static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);
         void storeOwnerKey();
         void FromMaster();
         void FromKeyKeeper();
@@ -535,7 +535,6 @@ namespace beam::wallet
         friend struct sqlite::Statement;
         sqlite3* _db;
         sqlite3* m_PrivateDB;
-        io::Reactor::Ptr m_Reactor;
         Key::IKdf::Ptr m_pKdfMaster;
         Key::IPKdf::Ptr m_pKdfOwner;
         Key::IKdf::Ptr m_pKdfSbbs;

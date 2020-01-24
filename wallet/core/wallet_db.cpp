@@ -1068,7 +1068,7 @@ namespace beam::wallet
         CreateLaserTables(db);
     }
 
-    std::shared_ptr<WalletDB>  WalletDB::initBase(const string& path, const SecString& password, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
+    std::shared_ptr<WalletDB>  WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
     {
         if (isInitialized(path))
         {
@@ -1092,7 +1092,7 @@ namespace beam::wallet
         }
 
         enterKey(db, password);
-        auto walletDB = make_shared<WalletDB>(db, reactor, sdb);
+        auto walletDB = make_shared<WalletDB>(db, sdb);
 
         createTables(walletDB->_db, walletDB->m_PrivateDB);
 
@@ -1192,9 +1192,9 @@ namespace beam::wallet
         ECC::HKdf::Create(m_pKdfSbbs, s.V.m_Value);
     }
 
-    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
+    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData)
     {
-        std::shared_ptr<WalletDB> walletDB = initBase(path, password, reactor, separateDBForPrivateData);
+        std::shared_ptr<WalletDB> walletDB = initBase(path, password, separateDBForPrivateData);
         if (walletDB)
         {
             ECC::HKdf::Create(walletDB->m_pKdfMaster, secretKey.V);
@@ -1218,9 +1218,9 @@ namespace beam::wallet
         return walletDB;
     }
 
-    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr& pKeyKeeper, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
+    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr& pKeyKeeper, bool separateDBForPrivateData)
     {
-        std::shared_ptr<WalletDB> walletDB = initBase(path, password, reactor, separateDBForPrivateData);
+        std::shared_ptr<WalletDB> walletDB = initBase(path, password, separateDBForPrivateData);
         if (walletDB)
         {
             walletDB->m_pKeyKeeper = pKeyKeeper;
@@ -1234,12 +1234,12 @@ namespace beam::wallet
         return walletDB;
     }
 
-    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, io::Reactor::Ptr reactor)
+    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password)
     {
-        return open(path, password, nullptr, reactor);
+        return open(path, password, nullptr);
     }
 
-    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr& pKeyKeeper, io::Reactor::Ptr reactor)
+    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr& pKeyKeeper)
     {
         if (!isInitialized(path))
         {
@@ -1257,7 +1257,7 @@ namespace beam::wallet
             OpenAndMigrateIfNeeded(privatePath, &sdb, password);
         }
 
-        auto walletDB = make_shared<WalletDB>(db, reactor, sdb);
+        auto walletDB = make_shared<WalletDB>(db, sdb);
         {
             int ret = sqlite3_busy_timeout(walletDB->_db, BusyTimeoutMs);
             throwIfError(ret, walletDB->_db);
@@ -1531,16 +1531,15 @@ namespace beam::wallet
         return static_pointer_cast<IWalletDB>(walletDB);
     }
 
-    WalletDB::WalletDB(sqlite3* db, io::Reactor::Ptr reactor)
-        : WalletDB(db, reactor, db)
+    WalletDB::WalletDB(sqlite3* db)
+        : WalletDB(db, db)
     {
 
     }
 
-    WalletDB::WalletDB(sqlite3* db, io::Reactor::Ptr reactor, sqlite3* sdb)
+    WalletDB::WalletDB(sqlite3* db, sqlite3* sdb)
         : _db(db)
         , m_PrivateDB(sdb)
-        , m_Reactor(reactor)
         , m_IsFlushPending(false)
         , m_mandatoryTxParams{
             TxParameterID::TransactionType,
@@ -2901,7 +2900,7 @@ namespace beam::wallet
         {
             if (!m_FlushTimer)
             {
-                m_FlushTimer = io::Timer::create(*m_Reactor);
+                m_FlushTimer = io::Timer::create(io::Reactor::get_Current());
             }
             m_FlushTimer->start(50, false, BIND_THIS_MEMFN(onFlushTimer));
             m_IsFlushPending = true;

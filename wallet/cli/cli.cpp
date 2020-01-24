@@ -2020,7 +2020,7 @@ int main_impl(int argc, char* argv[])
                             LOG_ERROR() << kErrorSeedPhraseFail;
                             return -1;
                         }
-                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor);
+                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed);
                         if (walletDB)
                         {
                             IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
@@ -2036,7 +2036,7 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
-                    auto walletDB = WalletDB::open(walletPath, pass, reactor);
+                    auto walletDB = WalletDB::open(walletPath, pass);
                     IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
                     const auto& currHeight = walletDB->getCurrentHeight();

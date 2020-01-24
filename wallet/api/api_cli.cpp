@@ -1151,7 +1151,7 @@ int main(int argc, char* argv[])
                 return -1;
             }
 
-            walletDB = WalletDB::open(options.walletPath, pass, reactor);
+            walletDB = WalletDB::open(options.walletPath, pass);
 
             LOG_INFO() << "wallet sucessfully opened...";
         }

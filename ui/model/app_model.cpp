@@ -108,7 +108,7 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
     const auto dbFilePath = m_settings.getWalletStorage();
     backupDB(dbFilePath);
 
-    m_db = WalletDB::init(dbFilePath, pass, seed.hash(), m_walletReactor);
+    m_db = WalletDB::init(dbFilePath, pass, seed.hash());
     if (!m_db) return false;
 
     m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db, m_db->get_MasterKdf());
@@ -125,7 +125,7 @@ bool AppModel::createTrezorWallet(std::shared_ptr<ECC::HKdfPub> ownerKey, const 
     const auto dbFilePath = m_settings.getTrezorWalletStorage();
     backupDB(dbFilePath);
 
-    m_db = WalletDB::initWithTrezor(dbFilePath, ownerKey, pass, m_walletReactor);
+    m_db = WalletDB::initWithTrezor(dbFilePath, ownerKey, pass);
     if (!m_db) return false;
 
     m_keyKeeper = std::make_shared<TrezorKeyKeeper>();
@@ -145,13 +145,13 @@ bool AppModel::openWallet(const beam::SecString& pass)
     {
         if (WalletDB::isInitialized(m_settings.getWalletStorage()))
         {
-            m_db = WalletDB::open(m_settings.getWalletStorage(), pass, m_walletReactor);
+            m_db = WalletDB::open(m_settings.getWalletStorage(), pass);
             m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db, m_db->get_MasterKdf());
         }
 #if defined(BEAM_HW_WALLET)
         else if (WalletDB::isInitialized(m_settings.getTrezorWalletStorage()))
         {
-            m_db = WalletDB::open(m_settings.getTrezorWalletStorage(), pass, m_walletReactor, true);
+            m_db = WalletDB::open(m_settings.getTrezorWalletStorage(), pass, true);
             m_keyKeeper = std::make_shared<TrezorKeyKeeper>();
         }
 #endif

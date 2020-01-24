@@ -1775,7 +1775,7 @@ namespace
                 if(ks.Import(*ownerKdf))
                 {
                     auto dbName = generateUid();
-                    IWalletDB::Ptr walletDB = WalletDB::init(dbName + ".db", SecString(data.pass), /*_keyKeeper*/nullptr, _reactor);
+                    IWalletDB::Ptr walletDB = WalletDB::init(dbName + ".db", SecString(data.pass), /*_keyKeeper*/nullptr);
 
                     if(walletDB)
                     {
@@ -1800,7 +1800,7 @@ namespace
 
                 _walletDB = WalletsMap.count(data.id)
                     ? WalletsMap[data.id]
-                    : WalletDB::open(data.id + ".db", SecString(data.pass), _reactor);
+                    : WalletDB::open(data.id + ".db", SecString(data.pass));
 
                 if(!_walletDB)
                 {
