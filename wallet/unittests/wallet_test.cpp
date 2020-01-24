@@ -1073,7 +1073,6 @@ namespace
 
     }
 
-
     void TestColdWalletReceiving()
     {
         cout << "\nTesting cold wallet receiving...\n";
@@ -1545,6 +1544,7 @@ namespace
             }
         }
     }
+  
     struct TestWalletClient : public WalletClient
     {
         TestWalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper)
@@ -1822,6 +1822,101 @@ namespace
         WALLET_CHECK(stx->m_status == rtx->m_status);
         WALLET_CHECK(stx->m_sender == true);
         WALLET_CHECK(rtx->m_sender == false);
+    }
+
+    void TestMultiUserWallet()
+    {
+        cout << "\nTesting mulituser wallet...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+        const size_t UserCount = 10;
+
+        size_t completedCount = UserCount * 2;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 2;
+            }
+        };
+
+        TestNode node;
+
+        auto serviceDB = createSenderWalletDB();
+
+        
+        std::vector <std::unique_ptr<TestWalletRig>> wallets;
+
+        wallets.reserve(UserCount);
+        
+        for (size_t i = 0; i < UserCount; ++i)
+        {
+            stringstream ss;
+            ss << "sender_" << i << ".db";
+            auto t = make_unique<TestWalletRig>("sender", createSenderWalletDBWithSeed(ss.str(), true), f, TestWalletRig::Type::Regular, false, 0);
+            wallets.push_back(move(t));
+        }
+        
+        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+
+ //       WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
+ //       WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
+ //       WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
+
+        for (auto& w : wallets)
+        {
+            auto& sender = *w;
+            auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                .SetParameter(TxParameterID::MySecureWalletID, sender.m_SecureWalletID)
+                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                .SetParameter(TxParameterID::PeerSecureWalletID, receiver.m_SecureWalletID)
+                .SetParameter(TxParameterID::Amount, Amount(4))
+                .SetParameter(TxParameterID::Fee, Amount(2))
+                .SetParameter(TxParameterID::Lifetime, Height(200))
+                .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
+
+        }
+        
+        mainReactor->run();
+
+        vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+        WALLET_CHECK(newReceiverCoins.size() == UserCount);
+        for (auto& coin : newReceiverCoins)
+        {
+            WALLET_CHECK(coin.m_ID.m_Value == 4);
+            WALLET_CHECK(coin.m_status == Coin::Available);
+            WALLET_CHECK(coin.m_ID.m_Type == Key::Type::Regular);
+        }
+
+        for (auto& w : wallets)
+        {
+            auto& sender = *w;
+            // check coins
+            vector<Coin> newSenderCoins = sender.GetCoins();
+
+            WALLET_CHECK(newSenderCoins.size() == 4);
+
+            WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
+            WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+            WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
+
+            WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+            WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+            WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
+
+            WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
+            WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
+            WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+
+            WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
+            WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+            WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
+        }
     }
 }
 
@@ -2445,6 +2540,8 @@ int main()
     //TestClient();
     TestWalletID();
     TestSendingWithWalletID();
+
+    TestMultiUserWallet();
 
     TestNegotiation();
    
