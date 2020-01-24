@@ -2089,5 +2089,10 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
         <source>Some mandatory data for payment proof is missing</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="general-invalid-port">
+        <source>Port is mandatory</source>
+        <extracomment>settings tab, node section, port error label</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
