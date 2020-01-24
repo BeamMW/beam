@@ -2106,7 +2106,14 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::TREASURY)
                     {
-                        return HandleTreasury(vm, *walletDB->get_MasterKdf());
+                        Key::IKdf::Ptr pMaster = walletDB->get_MasterKdf();
+                        if (!pMaster)
+                        {
+                            cout << "Can't handle treasury without master key" << endl;
+                            return -1;
+                        }
+
+                        return HandleTreasury(vm, *pMaster);
                     }
 
                     if (command == cli::INFO)
