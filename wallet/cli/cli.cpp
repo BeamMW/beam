@@ -21,9 +21,6 @@
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/secstring.h"
-#ifdef BEAM_LASER_SUPPORT
-#include "wallet/laser/mediator.h"
-#endif  // BEAM_LASER_SUPPORT
 #include "wallet/core/strings_resources.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/electrum.h"
@@ -51,6 +48,11 @@
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 #include "utility/helpers.h"
+
+#ifdef BEAM_LASER_SUPPORT
+#include "laser.h"
+#include "wallet/laser/mediator.h"
+#endif  // BEAM_LASER_SUPPORT
 
 #include <boost/assert.hpp> 
 #include <boost/program_options.hpp>
@@ -142,7 +144,7 @@ namespace beam
 
         return wallet::getSwapTxStatus(state);
     }
-}
+}  // namespace beam
 namespace
 {
     void ResolveWID(PeerID& res, const std::string& s)
@@ -678,33 +680,33 @@ namespace
 
             if (txHistory.empty())
             {
-                cout << kTxHistoryEmpty << endl;
+            cout << kTxHistoryEmpty << endl;
             }
             else
             {
-                const array<uint8_t, 6> columnWidths{{20, 17, 26, 21, 33, 65}};
+            const array<uint8_t, 6> columnWidths{ {20, 17, 26, 21, 33, 65} };
             cout << boost::format(kTxHistoryTableHead)
-                 % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
-                 % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
-                 % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
-                 % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
-                 % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
-                 % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
-                 << std::endl;
+                % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
+                % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
+                % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
+                % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
+                % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
+                % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
+                << std::endl;
 
-                for (auto &tx : txHistory) {
+            for (auto& tx : txHistory) {
                 cout << boost::format(kTxHistoryTableFormat)
-                            % boost::io::group(left, setw(columnWidths[0]),
-                                               format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
-                            % boost::io::group(left, setw(columnWidths[1]),
-                                               (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut
-                                                                                              : kTxDirectionIn)))
-                            % boost::io::group(right, setw(columnWidths[2]),
-                                               to_string(PrintableAmount(tx.m_amount, true)))
-                     % boost::io::group(left, setw(columnWidths[3]), getTxStatus(tx))
-                     % boost::io::group(left, setw(columnWidths[4]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
-                     % boost::io::group(left, setw(columnWidths[5]), to_string(tx.m_kernelID))
-                     << std::endl;
+                    % boost::io::group(left, setw(columnWidths[0]),
+                        format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                    % boost::io::group(left, setw(columnWidths[1]),
+                    (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut
+                        : kTxDirectionIn)))
+                    % boost::io::group(right, setw(columnWidths[2]),
+                        to_string(PrintableAmount(tx.m_amount, true)))
+                    % boost::io::group(left, setw(columnWidths[3]), getTxStatus(tx))
+                    % boost::io::group(left, setw(columnWidths[4]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                    % boost::io::group(left, setw(columnWidths[5]), to_string(tx.m_kernelID))
+                    << std::endl;
             }
             }
         }
@@ -718,57 +720,57 @@ namespace
             }
             else
             {
-                const array<uint8_t, 6> columnWidths{{20, 26, 18, 15, 23, 33}};
-            cout << boost::format(kTxHistoryTableHead)
-                 % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
-                 % boost::io::group(right, setw(columnWidths[1]), kTxHistoryColumnAmount)
-                 % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnSwapAmount)
-                 % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnSwapType)
-                 % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnStatus)
-                 % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnId)
-                 << std::endl;
+                const array<uint8_t, 6> columnWidths{ {20, 26, 18, 15, 23, 33} };
+                cout << boost::format(kTxHistoryTableHead)
+                    % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
+                    % boost::io::group(right, setw(columnWidths[1]), kTxHistoryColumnAmount)
+                    % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnSwapAmount)
+                    % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnSwapType)
+                    % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnStatus)
+                    % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnId)
+                    << std::endl;
 
-                for (auto &tx : txHistory) {
-                Amount swapAmount = 0;
+                for (auto& tx : txHistory) {
+                    Amount swapAmount = 0;
                     storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
-                                            wallet::TxParameterID::AtomicSwapAmount, swapAmount);
-                bool isBeamSide = false;
+                        wallet::TxParameterID::AtomicSwapAmount, swapAmount);
+                    bool isBeamSide = false;
                     storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
-                                            wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+                        wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
 
-                AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
+                    AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
                     storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
-                                            wallet::TxParameterID::AtomicSwapCoin, swapCoin);
+                        wallet::TxParameterID::AtomicSwapCoin, swapCoin);
 
-                stringstream ss;
+                    stringstream ss;
                     ss << (isBeamSide ? kBEAM : to_string(swapCoin)) << " <--> "
-                       << (!isBeamSide ? kBEAM : to_string(swapCoin));
+                        << (!isBeamSide ? kBEAM : to_string(swapCoin));
 
-                cout << boost::format(kSwapTxHistoryTableFormat)
-                            % boost::io::group(left, setw(columnWidths[0]),
-                                               format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
-                            % boost::io::group(right, setw(columnWidths[1]),
-                                               to_string(PrintableAmount(tx.m_amount, true)))
-                     % boost::io::group(right, setw(columnWidths[2]), swapAmount)
-                     % boost::io::group(right, setw(columnWidths[3]), ss.str())
-                     % boost::io::group(left, setw(columnWidths[4]), getSwapTxStatus(walletDB, tx))
-                     % boost::io::group(left, setw(columnWidths[5]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
-                     << std::endl;
-            }
+                    cout << boost::format(kSwapTxHistoryTableFormat)
+                        % boost::io::group(left, setw(columnWidths[0]),
+                            format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                        % boost::io::group(right, setw(columnWidths[1]),
+                            to_string(PrintableAmount(tx.m_amount, true)))
+                        % boost::io::group(right, setw(columnWidths[2]), swapAmount)
+                        % boost::io::group(right, setw(columnWidths[3]), ss.str())
+                        % boost::io::group(left, setw(columnWidths[4]), getSwapTxStatus(walletDB, tx))
+                        % boost::io::group(left, setw(columnWidths[5]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                        << std::endl;
+                }
             }
         }
 
         //
         // Show info about assets
         //
-        for(auto it: totalsCalc.allTotals) {
+        for (auto it : totalsCalc.allTotals) {
             const auto assetId = it.second.AssetId;
             if (assetId != 0) {
                 cout << endl;
                 ShowAssetInfo(it.second);
                 ShowAssetCoins(walletDB, it.second.AssetId, kASSET, kAGROTH);
                 if (vm.count(cli::TX_HISTORY))
-        {
+                {
                     ShowAssetTxs(walletDB, it.second.AssetId, kASSET, kAGROTH);
                 }
             }
@@ -777,28 +779,44 @@ namespace
         return 0;
     }
 
+    boost::optional<TxID> GetTxID(const po::variables_map& vm)
+    {
+        boost::optional<TxID> res;
+        auto txIdStr = vm[cli::TX_ID].as<string>();
+        if (txIdStr.empty())
+        {
+            LOG_ERROR() << kErrorTxIdParamReqired;
+            return res;
+        }
+        
+        auto txIdVec = from_hex(txIdStr);
+        
+        if (txIdVec.size() >= 16)
+        {
+            res.emplace();
+            std::copy_n(txIdVec.begin(), 16, res->begin());
+        }
+        return res;
+    }
+
     int TxDetails(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
-        auto txIdStr = vm[cli::TX_ID].as<string>();
-        if (txIdStr.empty()) {
-            LOG_ERROR() << kErrorTxIdParamReqired;
+        auto txId = GetTxID(vm);
+        if (!txId)
+        {
             return -1;
         }
-        auto txIdVec = from_hex(txIdStr);
-        TxID txId;
-        if (txIdVec.size() >= 16)
-            std::copy_n(txIdVec.begin(), 16, txId.begin());
 
-        auto tx = walletDB->getTx(txId);
+        auto tx = walletDB->getTx(*txId);
         if (!tx)
         {
-            LOG_ERROR() << boost::format(kErrorTxWithIdNotFound) % txIdStr;
+            LOG_ERROR() << boost::format(kErrorTxWithIdNotFound) % vm[cli::TX_ID].as<string>();
             return -1;
         }
 
         LOG_INFO()
             << boost::format(kTxDetailsFormat)
-                % storage::TxDetailsInfo(walletDB, txId) % getTxStatus(*tx) 
+                % storage::TxDetailsInfo(walletDB, *txId) % getTxStatus(*tx) 
             << (tx->m_status == TxStatus::Failed
                     ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason)
                     : boost::format(""));
@@ -808,12 +826,13 @@ namespace
 
     int ExportPaymentProof(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
-        auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
-        TxID txId;
-        if (txIdVec.size() >= 16)
-            std::copy_n(txIdVec.begin(), 16, txId.begin());
+        auto txId = GetTxID(vm);
+        if (!txId)
+        {
+            return -1;
+        }
 
-        auto tx = walletDB->getTx(txId);
+        auto tx = walletDB->getTx(*txId);
         if (!tx)
         {
             LOG_ERROR() << kErrorPpExportFailed;
@@ -830,7 +849,7 @@ namespace
             return -1;
         }
 
-        auto res = storage::ExportPaymentProof(*walletDB, txId);
+        auto res = storage::ExportPaymentProof(*walletDB, *txId);
         if (!res.empty())
         {
             std::string sTxt;
@@ -1750,400 +1769,6 @@ namespace
         return nnet;
     }
 
-#ifdef BEAM_LASER_SUPPORT
-    class LaserObserver : public laser::Mediator::Observer
-    {
-    public:
-        using Action = std::function<void(const laser::ChannelIDPtr& chID)>;
-        Action onOpened = Action();
-        Action onOpenFailed = Action();
-        Action onClosed = Action();
-        Action onUpdateStarted = Action();
-        Action onUpdateFinished = Action();
-        Action onCloseFailed = Action();
-
-        void OnOpened(const laser::ChannelIDPtr& chID) override
-        {
-            if (onOpened) onOpened(chID);
-        }
-        void OnOpenFailed(const laser::ChannelIDPtr& chID) override
-        {
-            if (onOpenFailed) onOpenFailed(chID);
-        }
-        void OnClosed(const laser::ChannelIDPtr& chID) override
-        {
-            if (onClosed) onClosed(chID);
-        }
-        void OnCloseFailed(const laser::ChannelIDPtr& chID) override
-        {
-            if (onCloseFailed) onCloseFailed(chID);
-        }
-        void OnUpdateStarted(const laser::ChannelIDPtr& chID) override
-        {
-            if (onUpdateStarted) onUpdateStarted(chID);
-        } 
-        void OnUpdateFinished(const laser::ChannelIDPtr& chID) override
-        {
-            if (onUpdateFinished) onUpdateFinished(chID);
-        } 
-    };
-
-    bool LoadLaserParams(const po::variables_map& vm,
-                         Amount* aMy,
-                         Amount* aTrg,
-                         Amount* fee,
-                         WalletID* receiverWalletID,
-                         Height* locktime,
-                         bool skipReceiverWalletID = false)
-    {
-        if (!skipReceiverWalletID)
-        {
-            if (!vm.count(cli::LASER_TARGET_ADDR))
-            {
-                LOG_ERROR() << kErrorReceiverAddrMissing;
-                return false;
-            }
-            receiverWalletID->FromHex(vm[cli::LASER_TARGET_ADDR].as<string>());
-        }    
-
-        if (!vm.count(cli::LASER_AMOUNT_MY))
-        {
-            LOG_ERROR() << kLaserErrorMyAmountMissing;
-            return false;
-        }
-
-        if (!vm.count(cli::LASER_AMOUNT_TARGET))
-        {
-            LOG_ERROR() << kLaserErrorTrgAmountMissing;
-            return false;
-        }
-
-        if (!vm.count(cli::LASER_LOCK_TIME))
-        {
-            LOG_ERROR() << kLaserErrorLockTimeMissing;
-            return false;
-        }
-
-        auto myAmount = vm[cli::LASER_AMOUNT_MY].as<NonnegativeFloatingPoint<double>>().value;
-        myAmount *= Rules::Coin;
-        *aMy = static_cast<ECC::Amount>(std::round(myAmount));
-
-        auto trgAmount = vm[cli::LASER_AMOUNT_TARGET].as<NonnegativeFloatingPoint<double>>().value;
-        trgAmount *= Rules::Coin;
-        *aTrg = static_cast<ECC::Amount>(std::round(trgAmount));
-
-        if (*aMy == 0 && *aTrg == 0)
-        {
-            LOG_ERROR() << "My amount and Remote side amount are Zero";
-            return false;
-        }
-
-        if (vm.count(cli::LASER_FEE))
-        {
-            *fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
-            if (*fee < cli::kMinimumFee)
-            {
-                LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 groth.";
-                return false;
-            }
-        }
-        else
-        {
-            LOG_INFO() << "\"--" << cli::LASER_FEE << "\" param is not specified, using default fee = " << kMinFeeInGroth;
-            *fee = kMinFeeInGroth;
-        }
-        
-        *locktime = vm[cli::LASER_LOCK_TIME].as<Positive<uint32_t>>().value;
-
-        return true;
-    }
-
-    std::vector<std::string> LoadLaserChannelsIdsFromDB(
-        const IWalletDB::Ptr& walletDB)
-    {
-        std::vector<std::string> channelIDs;
-        auto chDBEntities = walletDB->loadLaserChannels();
-        channelIDs.reserve(chDBEntities.size());
-        for (auto& ch : chDBEntities)
-        {
-            const auto& chID = std::get<LaserFields::LASER_CH_ID>(ch);
-            channelIDs.emplace_back(
-                beam::to_hex(chID.m_pData, chID.nBytes));
-        }
-
-        return channelIDs;
-    }
-
-    std::vector<std::string> ParseLaserChannelsIdsFromStr(
-        const std::string& chIDsStr)
-    {
-        std::vector<std::string> channelIDs;
-        std::stringstream ss(chIDsStr);
-        std::string chId;
-        while (std::getline(ss, chId, ','))
-            channelIDs.push_back(chId);
-
-        return channelIDs;
-    }
-
-    const char* LaserChannelStateStr(int state)
-    {
-        switch(state)
-        {
-        case Lightning::Channel::State::None:
-        case Lightning::Channel::State::Opening0:
-        case Lightning::Channel::State::Opening1:
-        case Lightning::Channel::State::Opening2:
-            return kLaserOpening;
-        case Lightning::Channel::State::OpenFailed:
-            return kLaserOpenFailed;
-        case Lightning::Channel::State::Open:
-            return kLaserOpen;
-        case Lightning::Channel::State::Updating:
-            return kLaserUpdating;
-        case Lightning::Channel::State::Closing1:
-        case Lightning::Channel::State::Closing2:
-            return kLaserClosing;
-        case Lightning::Channel::State::Closed:
-            return kLaserClosed;
-        default:
-            return kLaserUnknown;
-        }
-    }
-
-    bool LaserOpen(const unique_ptr<laser::Mediator>& laser,
-                   const po::variables_map& vm)
-    {
-        io::Address receiverAddr;
-        Amount aMy = 0, aTrg = 0, fee = cli::kMinimumFee;
-        WalletID receiverWalletID(Zero);
-        Height locktime = kDefaultTxLifetime;
-
-        if (!LoadLaserParams(
-                vm, &aMy, &aTrg, &fee, &receiverWalletID, &locktime))
-        {
-            LOG_ERROR() << kLaserErrorParamsRead;
-            return false;
-        }
-
-        laser->OpenChannel(aMy, aTrg, fee, receiverWalletID, locktime);
-        return true;
-    }
-    
-    bool LaserWait(const unique_ptr<laser::Mediator>& laser,
-                   const po::variables_map& vm)
-    {
-        io::Address receiverAddr;
-        Amount aMy = 0, aTrg = 0, fee = cli::kMinimumFee;
-        WalletID receiverWalletID(Zero);
-        Height locktime = kDefaultTxLifetime;
-
-        if (!LoadLaserParams(
-                vm, &aMy, &aTrg, &fee, &receiverWalletID, &locktime, true))
-        {
-            LOG_ERROR() << kLaserErrorParamsRead;
-            return false;
-        }
-
-        laser->WaitIncoming(aMy, aTrg, fee, locktime);
-        return true;
-    }
-
-    bool LaserServe(const unique_ptr<laser::Mediator>& laser,
-                    const IWalletDB::Ptr& walletDB,
-                    const po::variables_map& vm)
-    {
-        auto channelIDsStr = vm[cli::LASER_SERVE].as<string>();
-        auto channelIDs = channelIDsStr.empty()
-            ? LoadLaserChannelsIdsFromDB(walletDB)
-            : ParseLaserChannelsIdsFromStr(channelIDsStr);
-
-        return laser->Serve(channelIDs);
-    }
-
-    bool LaserTransfer(const unique_ptr<laser::Mediator>& laser,
-                       const po::variables_map& vm)
-    {
-        if (!vm.count(cli::LASER_CHANNEL_ID))
-        {
-            LOG_ERROR() << kLaserErrorChannelIdMissing;
-            return false;
-        }
-
-        auto myAmount = vm[cli::LASER_TRANSFER].as<Positive<double>>().value;
-        myAmount *= Rules::Coin;
-        Amount amount = static_cast<ECC::Amount>(std::round(myAmount));
-        if (!amount)
-        {
-            LOG_ERROR() << kErrorZeroAmount;
-            return false;
-        }
-
-        auto chIdStr = vm[cli::LASER_CHANNEL_ID].as<string>();
-
-        return laser->Transfer(amount, chIdStr);  
-    }
-
-    void LaserShowChannels(const IWalletDB::Ptr& walletDB)
-    {
-        array<uint8_t, 6> columnWidths{ { 32, 10, 10, 10, 10, 8 } };
-
-        // chId | aMy | aTrg | state | fee | locktime
-        cout << boost::format(kLaserChannelListTableHead)
-             % boost::io::group(left, setw(columnWidths[0]), kLaserChannelListChannelId)
-             % boost::io::group(left, setw(columnWidths[1]), kLaserChannelListAMy)
-             % boost::io::group(left, setw(columnWidths[2]), kLaserChannelListATrg)
-             % boost::io::group(left, setw(columnWidths[3]), kLaserChannelListState)
-             % boost::io::group(left, setw(columnWidths[4]), kLaserChannelListFee)
-             % boost::io::group(left, setw(columnWidths[5]), kLaserChannelListLocktime)
-             << std::endl;
-
-        for (auto& ch : walletDB->loadLaserChannels())
-        {
-            const auto& chID = std::get<LaserFields::LASER_CH_ID>(ch);
-
-            cout << boost::format(kLaserChannelTableBody)
-                % boost::io::group(left, setw(columnWidths[0]), beam::to_hex(chID.m_pData, chID.nBytes))
-                % boost::io::group(left, setw(columnWidths[1]), to_string(PrintableAmount(std::get<LaserFields::LASER_AMOUNT_CURRENT_MY>(ch), true)))
-                % boost::io::group(left, setw(columnWidths[2]), to_string(PrintableAmount(std::get<LaserFields::LASER_AMOUNT_CURRENT_TRG>(ch), true)))
-                % boost::io::group(left, setw(columnWidths[3]), LaserChannelStateStr(std::get<LaserFields::LASER_STATE>(ch)))
-                % boost::io::group(left, setw(columnWidths[4]), to_string(PrintableAmount(std::get<LaserFields::LASER_FEE>(ch), true)))
-                % boost::io::group(left, setw(columnWidths[5]), std::get<LaserFields::LASER_LOCK_HEIGHT>(ch))
-                << std::endl;
-        }
-    }
-
-    bool LaserDrop(const unique_ptr<laser::Mediator>& laser,
-                   const po::variables_map& vm)
-    {
-        auto channelIDsStr = vm[cli::LASER_DROP].as<string>();
-        auto channelIDs = ParseLaserChannelsIdsFromStr(channelIDsStr);
-
-        if (!channelIDs.empty())
-        {
-            return laser->Close(channelIDs);
-        }
-
-        LOG_ERROR() << "Channel IDs missing";
-        return false;
-    }
-
-    bool LaserClose(const unique_ptr<laser::Mediator>& laser,
-                    const po::variables_map& vm)
-    {
-        auto channelIDsStr = vm[cli::LASER_CLOSE_GRACEFUL].as<string>();
-        auto channelIDs = ParseLaserChannelsIdsFromStr(channelIDsStr);
-        
-        if (!channelIDs.empty())
-        {
-            return laser->GracefulClose(channelIDs);
-        }
-
-        LOG_ERROR() << "Channel IDs missing";
-        return false;
-    }
-
-    void LaserDeleteChannel(const unique_ptr<laser::Mediator>& laser,
-                            const po::variables_map& vm)
-    {
-        auto channelIDsStr = vm[cli::LASER_DELETE].as<string>();
-        auto channelIDs = ParseLaserChannelsIdsFromStr(channelIDsStr);
-
-        if (!channelIDs.empty())
-        {
-            laser->Delete(channelIDs);
-        }
-    }
-
-    bool ProcessLaser(const unique_ptr<laser::Mediator>& laser,
-                      const IWalletDB::Ptr& walletDB,
-                      const po::variables_map& vm,
-                      LaserObserver* observer)
-    {
-        observer->onOpenFailed = [walletDB] (const laser::ChannelIDPtr& chID) {
-            LOG_DEBUG() << boost::format(kLaserErrorOpenFailed)
-                        % to_hex(chID->m_pData, chID->nBytes);
-            io::Reactor::get_Current().stop();
-            LaserShowChannels(walletDB);
-        };
-        observer->onClosed = [&laser, walletDB] (
-                const laser::ChannelIDPtr& chID) {
-            if (!laser->getChannelsCount())
-            {
-                io::Reactor::get_Current().stop();
-            }
-            LOG_DEBUG() << boost::format(kLaserMessageClosed)
-                        % to_hex(chID->m_pData, chID->nBytes);
-            LaserShowChannels(walletDB); 
-        };
-        if (vm.count(cli::LASER_OPEN))
-        {
-            observer->onOpened = [walletDB] (const laser::ChannelIDPtr& chID) {
-                io::Reactor::get_Current().stop();
-                LaserShowChannels(walletDB);
-            };
-            return LaserOpen(laser, vm);
-        }
-        else if (vm.count(cli::LASER_WAIT))
-        {
-            observer->onOpened = [walletDB] (const laser::ChannelIDPtr& chID) {
-                LOG_INFO() << boost::format(kLaserMessageChannelServed)
-                           % to_hex(chID->m_pData, chID->nBytes);
-                LaserShowChannels(walletDB); 
-            };
-            return LaserWait(laser, vm);
-        }
-        else if (vm.count(cli::LASER_SERVE))
-        {
-            observer->onUpdateFinished = [walletDB] (
-                    const laser::ChannelIDPtr& chID) {
-                LOG_DEBUG() << boost::format(kLaserMessageUpdateFinished)
-                            % to_hex(chID->m_pData, chID->nBytes);
-                LaserShowChannels(walletDB);
-            };
-            return LaserServe(laser, walletDB, vm);
-        }
-        else if (vm.count(cli::LASER_TRANSFER))
-        {
-            observer->onUpdateFinished = [walletDB] (
-                    const laser::ChannelIDPtr& chID) {
-                io::Reactor::get_Current().stop();
-                LOG_DEBUG() << boost::format(kLaserMessageUpdateFinished)
-                            % to_hex(chID->m_pData, chID->nBytes);
-                LaserShowChannels(walletDB);
-            };
-            return LaserTransfer(laser, vm);
-        }
-        else if (vm.count(cli::LASER_DROP))
-        {
-            observer->onCloseFailed = [walletDB] (
-                    const laser::ChannelIDPtr& chID) {
-                io::Reactor::get_Current().stop();
-                LOG_ERROR() << boost::format(kLaserMessageCloseFailed)
-                            % to_hex(chID->m_pData, chID->nBytes);
-            };
-            return LaserDrop(laser, vm);
-        }
-        else if (vm.count(cli::LASER_DELETE))
-        {
-            LaserDeleteChannel(laser, vm);
-            LaserShowChannels(walletDB);
-            return false;
-        }
-        else if (vm.count(cli::LASER_LIST))
-        {
-            LaserShowChannels(walletDB);
-            return false;
-        }
-        else if (vm.count(cli::LASER_CLOSE_GRACEFUL))
-        {
-            return LaserClose(laser, vm);
-        }
-
-        return false;
-    }
-#endif  // BEAM_LASER_SUPPORT
-
     TxID IssueConsumeAsset(bool issue, const po::variables_map& vm, Wallet& wallet)
     {
         if(!vm.count(cli::ASSET_INDEX))
@@ -2204,7 +1829,7 @@ namespace
 
         return wallet.StartTransaction(params);
     }
-}
+}  // namespace
 
 io::Reactor::Ptr reactor;
 
@@ -2603,15 +2228,39 @@ int main_impl(int argc, char* argv[])
                         auto laser =
                             std::make_unique<laser::Mediator>(walletDB, keyKeeper);
 
-                        LaserObserver laserObserver;
-                        laser->AddObserver(&laserObserver);
-                        laser->SetNetwork(CreateNetwork(*laser, vm));
+                        if (vm.count(cli::LASER_LIST))
+                        {
+                            LaserShow(walletDB);
+                            return 0;
+                        }
 
-                        if (ProcessLaser(laser, walletDB, vm, &laserObserver))
+                        if (vm.count(cli::LASER_DELETE))
+                        {
+                            if (LaserDelete(laser, vm))
+                            {
+                                LaserShow(walletDB);
+                                return 0;
+                            }
+                            return -1;
+                        }
+
+                        auto nnet = CreateNetwork(*laser, vm);
+                        if (!nnet)
+                        {
+                            return -1;
+                        }
+                        laser->SetNetwork(nnet);
+
+                        LaserObserver laserObserver(walletDB, vm);
+                        laser->AddObserver(&laserObserver);
+
+                        if (ProcessLaser(laser, walletDB, vm))
                         {
                             io::Reactor::get_Current().run();
+                            return 0;
                         }
-                        return 0;
+
+                        return -1;                        
                     }
 #endif  // BEAM_LASER_SUPPORT
 
@@ -2741,18 +2390,20 @@ int main_impl(int argc, char* argv[])
                         bool deleteTx = (command == cli::DELETE_TX);
                         if (command == cli::CANCEL_TX || deleteTx)
                         {
-                            auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
-                            TxID txId;
-                            std::copy_n(txIdVec.begin(), 16, txId.begin());
-                            auto tx = walletDB->getTx(txId);
+                            auto txId = GetTxID(vm);
+                            if (!txId)
+                            {
+                                return -1;
+                            }
 
+                            auto tx = walletDB->getTx(*txId);
                             if (tx)
                             {
                                 if (deleteTx)
                                 {
                                     if (tx->canDelete())
                                     {
-                                        wallet.DeleteTransaction(txId);
+                                        wallet.DeleteTransaction(*txId);
                                         return 0;
                                     }
                                     else
@@ -2763,10 +2414,10 @@ int main_impl(int argc, char* argv[])
                                 }
                                 else
                                 {
-                                    if (wallet.CanCancelTransaction(txId))
+                                    if (wallet.CanCancelTransaction(*txId))
                                     {
-                                        currentTxID = txId;
-                                        wallet.CancelTransaction(txId);
+                                        currentTxID = *txId;
+                                        wallet.CancelTransaction(*txId);
                                     }
                                     else
                                     {

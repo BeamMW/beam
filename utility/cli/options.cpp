@@ -353,7 +353,7 @@ namespace beam
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
-            (cli::TX_HISTORY, "print transacrions' history in info command")
+            (cli::TX_HISTORY, "print transactions' history in info command")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for new own address")
@@ -429,13 +429,13 @@ namespace beam
         po::options_description laser_commands("Laser commands");
         laser_commands.add_options()
             (cli::LASER_LIST, "view all opened lightning channel")
-            (cli::LASER_WAIT, "wait for open incomming lightning channel\n--laser_my_locked_amount <amount in beam>\n--laser_remote_locked_amount <amount in beam>\n--laser_fee <amount in groth>\n--laser_lock_time <blocks count before can close>")
-            (cli::LASER_OPEN, "open lightning channel\n--laser_my_locked_amount <amount in beam>\n--laser_remote_locked_amount <amount in beam>\n--laser_fee <amount in groth>\n--laser_lock_time <blocks count before can close>")
-            (cli::LASER_SERVE, po::value<string>()->implicit_value(""), "listen lightning channels\narg: [channel ID1, ..., channel IDN]\narg can be unspecified")
-            (cli::LASER_TRANSFER, po::value<Positive<double>>(), "send to lightning channel\narg: <amount in beam>\n--laser_channel <channel ID>")
-            (cli::LASER_CLOSE_GRACEFUL, po::value<string>()->implicit_value(""), "close opened lightning channel. Use before lock time is up, only if other side is online\narg: <channel ID1, ..., channel IDN>\narg must be specified")
-            (cli::LASER_DROP, po::value<string>()->implicit_value(""), "drop opened lightning channel. Use after lock time is up or if other side is offline\narg: <channel ID1, ..., channel IDN>\narg must be specified")
-            (cli::LASER_DELETE, po::value<string>()->implicit_value(""), "delete closed laser channel from data base\narg: <channel ID1, ..., channel IDN>\narg must be specified");
+            (cli::LASER_WAIT, "wait for open incomming lightning channel")
+            (cli::LASER_OPEN, "open lightning channel")
+            (cli::LASER_SERVE, po::value<string>()->implicit_value(""), "listen lightning channels")
+            (cli::LASER_TRANSFER, po::value<Positive<double>>(), "send to lightning channel")
+            (cli::LASER_CLOSE_GRACEFUL, po::value<string>()->implicit_value(""), "close opened lightning channel. Use before lock time is up, only if other side is online")
+            (cli::LASER_DROP, po::value<string>()->implicit_value(""), "drop opened lightning channel. Use after lock time is up or if other side is offline")
+            (cli::LASER_DELETE, po::value<string>()->implicit_value(""), "delete closed laser channel from data base");
 
         po::options_description laser_options("Laser options");
         laser_options.add_options()

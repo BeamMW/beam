@@ -76,6 +76,7 @@ ColumnLayout {
                 color:           Style.content_main
                 //% "Transaction token or contact"
                 text:            qsTrId("send-send-to-label")
+                bottomPadding:   26
             }
 
             SFTextInput {
@@ -125,6 +126,7 @@ ColumnLayout {
                 color:            Style.content_main
                 //% "Comment"
                 text:             qsTrId("general-comment")
+                topPadding:    5
             }
 
             SFTextInput {
@@ -166,7 +168,7 @@ ColumnLayout {
 
             AmountInput {
                 //% "Send"
-                title:            qsTrId("send-amount-label")
+                title:            qsTrId("send-title")
                 id:               sendAmountInput
                 amount:           viewModel.sendAmount
                 hasFee:           true
@@ -227,7 +229,7 @@ ColumnLayout {
                     Layout.leftMargin: 25
                     font.pixelSize:    14
                     color:             Style.content_secondary
-                    //% "Transaction amount"
+                    //% "Send"
                     text:              qsTrId("send-amount-label") + ":"
                 }
 

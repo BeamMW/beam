@@ -207,7 +207,6 @@ RowLayout {
         }
 
         Item {
-            Layout.fillWidth: true
             Layout.preferredHeight: 16
             visible: parent.canOpenInBlockchainExplorer(root.status) && root.isFieldVisible()
         }
