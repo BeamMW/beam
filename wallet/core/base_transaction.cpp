@@ -369,7 +369,15 @@ namespace beam::wallet
     void BaseTransaction::TestKeyKeeperRet(IPrivateKeyKeeper2::Status::Type n)
     {
         if (IPrivateKeyKeeper2::Status::Success != n)
-            throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
+            throw TransactionFailedException(true, KeyKeeperErrorToFailureReason(n));
+    }
+
+    TxFailureReason BaseTransaction::KeyKeeperErrorToFailureReason(IPrivateKeyKeeper2::Status::Type n)
+    {
+        if (IPrivateKeyKeeper2::Status::UserAbort == n)
+            return TxFailureReason::KeyKeeperUserAbort;
+
+        return TxFailureReason::KeyKeeperError;
     }
 
     IAsyncContext& BaseTransaction::GetAsyncAcontext() const

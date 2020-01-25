@@ -152,6 +152,7 @@ namespace beam::wallet
         IPrivateKeyKeeper::Ptr GetKeyKeeper();
         IPrivateKeyKeeper2::Ptr get_KeyKeeperStrict(); // throws TxFailureReason::NoKeyKeeper if no key keeper (read-only mode)
         static void TestKeyKeeperRet(IPrivateKeyKeeper2::Status::Type); // throws TxFailureReason::KeyKeeperError on error
+        static TxFailureReason KeyKeeperErrorToFailureReason(IPrivateKeyKeeper2::Status::Type);
         IAsyncContext& GetAsyncAcontext() const;
         bool IsInitiator() const;
         uint32_t get_PeerVersion() const;
