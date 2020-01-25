@@ -34,12 +34,12 @@ namespace beam::wallet {
 
     ///////////////////////////
 
-    BaseMessageEndpoint::BaseMessageEndpoint(IWalletMessageConsumer& w, const IWalletDB::Ptr& pWalletDB, IPrivateKeyKeeper::Ptr keyKeeper)
+    BaseMessageEndpoint::BaseMessageEndpoint(IWalletMessageConsumer& w, const IWalletDB::Ptr& pWalletDB)
         : m_Wallet(w)
         , m_WalletDB(pWalletDB)
         , m_AddressExpirationTimer(io::Timer::create(io::Reactor::get_Current()))
-        , m_keyKeeper(keyKeeper)
     {
+        m_pKdfSbbs = pWalletDB->get_SbbsKdf();
 
     }
 
@@ -77,9 +77,9 @@ namespace beam::wallet {
                 break; // as well
 
 
-            if (!m_keyKeeper->get_SbbsKdf())
+            if (!m_pKdfSbbs)
             {
-                // public wallet
+                // read-only wallet
                 m_WalletDB->saveIncomingWalletMessage(channel, msg);
                 OnIncomingMessage();
                 return;
@@ -118,6 +118,9 @@ namespace beam::wallet {
 
     void BaseMessageEndpoint::AddOwnAddress(const WalletAddress& address)
     {
+        if (!m_pKdfSbbs)
+            return;
+
         Addr::Wid key;
         key.m_OwnID = address.m_OwnID;
 
@@ -130,12 +133,7 @@ namespace beam::wallet {
             pAddr->m_ExpirationTime = address.getExpirationTime();
             pAddr->m_Wid.m_OwnID = address.m_OwnID;
 
-            if (m_keyKeeper->get_SbbsKdf())
-            {
-                m_keyKeeper->get_SbbsKdf()->DeriveKey(pAddr->m_sk, Key::ID(address.m_OwnID, Key::Type::Bbs));
-
-                proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
-            }
+            m_WalletDB->get_SbbsPeerID(pAddr->m_sk, pAddr->m_Pk, address.m_OwnID);
 
             pAddr->m_Channel.m_Value = channel_from_wallet_id(address.m_walletID);
 
@@ -197,6 +195,9 @@ namespace beam::wallet {
 
     void BaseMessageEndpoint::Send(const WalletID& peerID, const SetTxParameter& msg)
     {
+        if (!m_pKdfSbbs)
+            return;
+
         Serializer ser;
         ser& msg;
         SerializeBuffer sb = ser.buffer();
@@ -205,7 +206,7 @@ namespace beam::wallet {
         ECC::GenRandom(hvRandom.V);
 
         ECC::Scalar::Native nonce;
-        m_keyKeeper->get_SbbsKdf()->DeriveKey(nonce, hvRandom.V);
+        m_pKdfSbbs->DeriveKey(nonce, hvRandom.V);
 
         ByteBuffer encryptedMessage;
         if (proto::Bbs::Encrypt(encryptedMessage, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
@@ -227,6 +228,9 @@ namespace beam::wallet {
      */
     void BaseMessageEndpoint::SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version)
     {
+        if (!m_pKdfSbbs)
+            return;
+
         SwapOfferConfirmation confirmation;
 
         auto waddr = m_WalletDB->getAddress(wid);
@@ -235,7 +239,7 @@ namespace beam::wallet {
         {
             ECC::Scalar::Native sk;
             
-            m_keyKeeper->get_SbbsKdf()->DeriveKey(sk, ECC::Key::ID(waddr->m_OwnID, Key::Type::Bbs));
+            m_pKdfSbbs->DeriveKey(sk, ECC::Key::ID(waddr->m_OwnID, Key::Type::Bbs));
             PeerID generatedPk;
             proto::Sk2Pk(generatedPk, sk);
 
@@ -279,8 +283,8 @@ namespace beam::wallet {
 
     ///////////////////////////
 
-    WalletNetworkViaBbs::WalletNetworkViaBbs(IWalletMessageConsumer& w, shared_ptr<proto::FlyClient::INetwork> net, const IWalletDB::Ptr& pWalletDB, IPrivateKeyKeeper::Ptr keyKeeper)
-        : BaseMessageEndpoint(w, pWalletDB, keyKeeper)
+    WalletNetworkViaBbs::WalletNetworkViaBbs(IWalletMessageConsumer& w, shared_ptr<proto::FlyClient::INetwork> net, const IWalletDB::Ptr& pWalletDB)
+        : BaseMessageEndpoint(w, pWalletDB)
         , m_NodeEndpoint(net)
 		, m_WalletDB(pWalletDB)
 	{

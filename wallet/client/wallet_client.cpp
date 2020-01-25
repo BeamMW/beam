@@ -372,7 +372,7 @@ namespace beam::wallet
                     auto nodeNetwork = make_shared<NodeNetwork>(*wallet, *this, m_nodeAddrStr);
                     m_nodeNetwork = nodeNetwork;
 
-                    auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB, m_keyKeeper);
+                    auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
                     m_walletNetwork = walletNetwork;
                     wallet->SetNodeEndpoint(nodeNetwork);
                     wallet->AddMessageEndpoint(walletNetwork);

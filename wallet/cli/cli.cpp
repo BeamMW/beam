@@ -2295,7 +2295,7 @@ int main_impl(int argc, char* argv[])
                         {
                             return -1;
                         }
-                        wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
+                        wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
                         wallet.SetNodeEndpoint(nnet);
 
                         if (command == cli::SWAP_INIT)

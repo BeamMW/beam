@@ -14,6 +14,7 @@
 
 #include "http/http_client.h"
 #include "core/treasury.h"
+#include "keykeeper/local_private_key_keeper.h"
 #include <tuple>
 
 using namespace beam;
@@ -335,8 +336,8 @@ public:
 class OneTimeBbsEndpoint : public WalletNetworkViaBbs
 {
 public:
-    OneTimeBbsEndpoint(IWalletMessageConsumer& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
-        : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB, keyKeeper)
+    OneTimeBbsEndpoint(IWalletMessageConsumer& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB)
+        : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB)
     {
 
     }
@@ -448,11 +449,11 @@ struct TestWalletRig
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    m_messageEndpoint = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+                    m_messageEndpoint = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB);
                 }
                 else
                 {
-                    m_messageEndpoint = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+                    m_messageEndpoint = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB);
                 }
                 m_Wallet.SetNodeEndpoint(nodeEndpoint);
                 break;
@@ -465,14 +466,14 @@ struct TestWalletRig
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    auto tmp = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+                    auto tmp = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB);
 
                     tmp->m_MineOutgoing = false;
                     m_messageEndpoint = tmp;
                 }
                 else
                 {
-                    auto tmp = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+                    auto tmp = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB);
 
                     tmp->m_MineOutgoing = false;
                     m_messageEndpoint = tmp;

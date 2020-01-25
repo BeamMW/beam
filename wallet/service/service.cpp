@@ -1842,7 +1842,7 @@ namespace
                 nnet->m_Cfg.m_vNodes.push_back(node_addr);
                 nnet->Connect();
 
-                auto wnet = std::make_shared<WalletNetworkViaBbs>(*_wallet, nnet, _walletDB, _keyKeeper);
+                auto wnet = std::make_shared<WalletNetworkViaBbs>(*_wallet, nnet, _walletDB);
                 _wallet->AddMessageEndpoint(wnet);
                 _wallet->SetNodeEndpoint(nnet);
 

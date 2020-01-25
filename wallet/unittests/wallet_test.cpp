@@ -728,7 +728,7 @@ namespace
                 auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(receiver.m_Wallet);
                 nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
                 nodeEndpoint->Connect();
-                receiver.m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(receiver.m_Wallet, nodeEndpoint, receiver.m_WalletDB, receiver.m_KeyKeeper));
+                receiver.m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(receiver.m_Wallet, nodeEndpoint, receiver.m_WalletDB));
                 receiver.m_Wallet.SetNodeEndpoint(nodeEndpoint);
             }
         };
@@ -998,9 +998,9 @@ namespace
         struct MyFlyClient : public proto::FlyClient
             , public IWalletMessageConsumer
         {
-            MyFlyClient(IWalletDB::Ptr db, const WalletID& receiverID, IPrivateKeyKeeper::Ptr keyKeeper)
+            MyFlyClient(IWalletDB::Ptr db, const WalletID& receiverID)
                 : m_Nnet(make_shared<proto::FlyClient::NetworkStd>(*this))
-                , m_Bbs(*this, m_Nnet, db, keyKeeper)
+                , m_Bbs(*this, m_Nnet, db)
                 , m_ReceiverID(receiverID)
             {
                 WalletAddress wa;
@@ -1048,8 +1048,8 @@ namespace
 
         struct SenderFlyClient : public MyFlyClient
         {
-            SenderFlyClient(IWalletDB::Ptr db, const WalletID& receiverID, IPrivateKeyKeeper::Ptr keyKeeper)
-                : MyFlyClient(db, receiverID, keyKeeper)
+            SenderFlyClient(IWalletDB::Ptr db, const WalletID& receiverID)
+                : MyFlyClient(db, receiverID)
                 , m_Timer(io::Timer::create(io::Reactor::get_Current()))
             {
             }
@@ -1095,8 +1095,8 @@ namespace
 
         struct ReceiverFlyClient : public MyFlyClient
         {
-            ReceiverFlyClient(IWalletDB::Ptr db, const WalletID& receiverID, IPrivateKeyKeeper::Ptr keyKeeper)
-                : MyFlyClient(db, receiverID, keyKeeper)
+            ReceiverFlyClient(IWalletDB::Ptr db, const WalletID& receiverID)
+                : MyFlyClient(db, receiverID)
             {
                 
             }
@@ -1133,11 +1133,11 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB(), [](auto) {});
 
         auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db, db->get_MasterKdf());
-        SenderFlyClient flyClient(db, receiver.m_WalletID, senderKeyKeeper);
+        SenderFlyClient flyClient(db, receiver.m_WalletID);
         flyClient.Connect(senderNodeAddress);
 
         auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiver.m_WalletDB, receiver.m_WalletDB->get_MasterKdf());
-        ReceiverFlyClient flyClinet2(receiver.m_WalletDB, flyClient.m_WalletID, receiverKeyKeeper);
+        ReceiverFlyClient flyClinet2(receiver.m_WalletDB, flyClient.m_WalletID);
         flyClinet2.Connect(receiverNodeAddress);
 
         mainReactor->run();
