@@ -1136,6 +1136,12 @@ namespace beam::wallet
         }
     };
 
+    void WalletDB::FromMaster(const ECC::uintBig& seed)
+    {
+        ECC::HKdf::Create(m_pKdfMaster, seed);
+        FromMaster();
+    }
+
     void WalletDB::FromMaster()
     {
         assert(m_pKdfMaster);
@@ -1197,8 +1203,7 @@ namespace beam::wallet
         std::shared_ptr<WalletDB> walletDB = initBase(path, password, separateDBForPrivateData);
         if (walletDB)
         {
-            ECC::HKdf::Create(walletDB->m_pKdfMaster, secretKey.V);
-            walletDB->FromMaster();
+            walletDB->FromMaster(secretKey.V);
 
             walletDB->setPrivateVarRaw(WalletSeed, &secretKey.V, sizeof(secretKey.V)); // store master key
             walletDB->storeOwnerKey(); // store owner key (public)
@@ -1503,27 +1508,37 @@ namespace beam::wallet
             ECC::NoLeak<ECC::Hash::Value> seed;
             if (walletDB->getPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V)))
             {
-                ECC::HKdf::Create(walletDB->m_pKdfMaster, seed.V);
-                walletDB->FromMaster();
+                walletDB->FromMaster(seed.V);
             }
             else
             {
-                walletDB->m_pKeyKeeper = pKeyKeeper;
-                walletDB->FromKeyKeeper();
-
-                // consistency check. Make sure there's an agreement w.r.t. stored owner key
                 ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
-                if (storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V))
-                {
-                    ECC::NoLeak<ECC::HKdfPub::Packed> keyCurrent;
-                    walletDB->m_pKdfOwner->ExportP(&keyCurrent);
+                bool bHadOwnerKey = storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V);
 
-                    if (memcmp(&packedOwnerKey, &keyCurrent, sizeof(keyCurrent)))
-                        throw std::runtime_error("Key keeper is different");
+                if (pKeyKeeper || !bHadOwnerKey)
+                {
+                    walletDB->m_pKeyKeeper = pKeyKeeper;
+                    walletDB->FromKeyKeeper();
+
+                    if (bHadOwnerKey)
+                    {
+                        // consistency check. Make sure there's an agreement w.r.t. stored owner key
+                        ECC::NoLeak<ECC::HKdfPub::Packed> keyCurrent;
+                        walletDB->m_pKdfOwner->ExportP(&keyCurrent);
+
+                        if (memcmp(&packedOwnerKey, &keyCurrent, sizeof(keyCurrent)))
+                            throw std::runtime_error("Key keeper is different");
+                    }
+                    else
+                        walletDB->storeOwnerKey();
                 }
                 else
-                    walletDB->storeOwnerKey();
-
+                {
+                    assert(bHadOwnerKey);
+                    // Read-only wallet.
+                    walletDB->m_pKdfOwner = std::make_shared<ECC::HKdfPub>();
+                    Cast::Up<ECC::HKdfPub>(*walletDB->m_pKdfOwner).Import(packedOwnerKey.V);
+                }
 
             }
         }

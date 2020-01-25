@@ -515,6 +515,7 @@ namespace beam::wallet
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);
         void storeOwnerKey();
         void FromMaster();
+        void FromMaster(const ECC::uintBig&);
         void FromKeyKeeper();
         static void createTables(sqlite3* db, sqlite3* privateDb);
         void removeCoinImpl(const Coin::ID& cid);
