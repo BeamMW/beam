@@ -725,7 +725,7 @@ namespace beam::wallet
         };
 
         std::string ExportDataToJson(const IWalletDB& db);
-        bool ImportDataFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const char* data, size_t size);
+        bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size);
 
         std::string TxDetailsInfo(const IWalletDB::Ptr& db, const TxID& txID);
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);

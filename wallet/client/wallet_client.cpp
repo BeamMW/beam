@@ -918,7 +918,7 @@ namespace beam::wallet
 
     void WalletClient::importDataFromJson(const std::string& data)
     {
-        auto isOk = storage::ImportDataFromJson(*m_walletDB, m_keyKeeper, data.data(), data.size());
+        auto isOk = storage::ImportDataFromJson(*m_walletDB, data.data(), data.size());
 
         onImportDataFromJson(isOk);
     }

@@ -3541,7 +3541,7 @@ namespace beam::wallet
                 const string Value = "Value";
             }
             
-            bool ImportAddressesFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj, const string& nodeName)
+            bool ImportAddressesFromJson(IWalletDB& db, const json& obj, const string& nodeName)
             {
                 if (obj.find(nodeName) == obj.end())
                 {
@@ -3587,17 +3587,17 @@ namespace beam::wallet
                 return true;
             }
 
-            bool ImportAddressesFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj)
+            bool ImportAddressesFromJson(IWalletDB& db, const json& obj)
             {
-                return ImportAddressesFromJson(db, keyKeeper, obj, Fields::OwnAddresses);
+                return ImportAddressesFromJson(db, obj, Fields::OwnAddresses);
             }
 
-            bool ImportContactsFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj)
+            bool ImportContactsFromJson(IWalletDB& db, const json& obj)
             {
-                return ImportAddressesFromJson(db, keyKeeper, obj, Fields::Contacts);
+                return ImportAddressesFromJson(db, obj, Fields::Contacts);
             }
 
-            bool ImportTransactionsFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj)
+            bool ImportTransactionsFromJson(IWalletDB& db, const json& obj)
             {
                 if (obj.find(Fields::TransactionParameters) == obj.end())
                 {
@@ -3799,14 +3799,14 @@ namespace beam::wallet
             return res.dump();
         }
 
-        bool ImportDataFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const char* data, size_t size)
+        bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size)
         {
             try
             {
                 json obj = json::parse(data, data + size);
-                return ImportAddressesFromJson(db, keyKeeper, obj) 
-                    && ImportContactsFromJson(db, keyKeeper, obj)
-                    && ImportTransactionsFromJson(db, keyKeeper, obj);
+                return ImportAddressesFromJson(db, obj) 
+                    && ImportContactsFromJson(db, obj)
+                    && ImportTransactionsFromJson(db, obj);
             }
             catch (const nlohmann::detail::exception& e)
             {

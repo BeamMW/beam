@@ -46,8 +46,7 @@ public:
         friend class Mediator;
         Mediator* m_observable;
     };
-    Mediator(const IWalletDB::Ptr& walletDB,
-             const IPrivateKeyKeeper::Ptr& keyKeeper);
+    Mediator(const IWalletDB::Ptr& walletDB);
     ~Mediator();
     // proto::FlyClient
     void OnNewTip() override;
@@ -96,7 +95,6 @@ private:
     void PrepareToForget(const std::unique_ptr<Channel>& channel);
 
     IWalletDB::Ptr m_pWalletDB;
-    IPrivateKeyKeeper::Ptr m_keyKeeper;
     proto::FlyClient::INetwork::Ptr m_pConnection;
 
     std::unique_ptr<Receiver> m_pInputReceiver;

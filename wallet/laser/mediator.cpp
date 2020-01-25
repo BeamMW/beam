@@ -81,10 +81,8 @@ inline bool CanBeLoaded(int state)
 
 namespace beam::wallet::laser
 {
-Mediator::Mediator(const IWalletDB::Ptr& walletDB,
-                   const IPrivateKeyKeeper::Ptr& keyKeeper)
+Mediator::Mediator(const IWalletDB::Ptr& walletDB)
     : m_pWalletDB(walletDB)
-    , m_keyKeeper(keyKeeper)
 {
     m_myInAddr.m_walletID = Zero;
 }
@@ -231,7 +229,6 @@ void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime
     m_myInAddr = GenerateNewAddress(
         m_pWalletDB,
         "laser_in",
-        m_keyKeeper,
         WalletAddress::ExpirationStatus::Never,
         false);
 
@@ -274,7 +271,6 @@ void Mediator::OpenChannel(Amount aMy,
     auto myOutAddr = GenerateNewAddress(
             m_pWalletDB,
             "laser_out",
-            m_keyKeeper,
             WalletAddress::ExpirationStatus::Never,
             false);        
 
