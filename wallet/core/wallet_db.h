@@ -408,6 +408,9 @@ namespace beam::wallet
         virtual std::vector<IncomingWalletMessage> getIncomingWalletMessages() const = 0;
         virtual uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) = 0;
         virtual void deleteIncomingWalletMessage(uint64_t id) = 0;
+
+       private:
+           bool get_CommitmentSafe(ECC::Point& comm, const CoinID&, IPrivateKeyKeeper2*);
     };
 
     namespace sqlite
