@@ -180,7 +180,7 @@ namespace beam::wallet
 
 
     class LocalPrivateKeyKeeper2
-        : public IPrivateKeyKeeper2
+        : public PrivateKeyKeeper_AsyncNotify
     {
         static Status::Type ToImage(ECC::Point::Native& res, uint32_t iGen, const ECC::Scalar::Native& sk);
 
