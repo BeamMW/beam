@@ -160,6 +160,9 @@ namespace beam::wallet
         void UpdateAsync();
         void UpdateOnNextTip();
         INegotiatorGateway& GetGateway() const;
+
+        virtual void OnFailed(TxFailureReason reason, bool notify = false);
+
     protected:
         
         virtual bool CheckExpired();
@@ -169,8 +172,6 @@ namespace beam::wallet
         virtual void RollbackTx();
         virtual void NotifyFailure(TxFailureReason);
         void UpdateTxDescription(TxStatus s);
-
-        virtual void OnFailed(TxFailureReason reason, bool notify = false);
 
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;

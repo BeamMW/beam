@@ -81,6 +81,23 @@ namespace beam::wallet
 
     protected:
 
+        struct KeyKeeperHandler
+            :public IPrivateKeyKeeper2::Handler
+        {
+            std::weak_ptr<BaseTxBuilder> m_pBuilder;
+            bool* m_pLink;
+
+            KeyKeeperHandler(BaseTxBuilder&, bool& bLink);
+            ~KeyKeeperHandler();
+
+            virtual void OnDone(IPrivateKeyKeeper2::Status::Type) override;
+
+            virtual void OnSuccess(BaseTxBuilder&) = 0;
+            virtual void OnFailed(BaseTxBuilder&, IPrivateKeyKeeper2::Status::Type);
+
+            void Detach(BaseTxBuilder&);
+            void OnAllDone(BaseTxBuilder&);
+        };
 
         template <typename Result, typename Func, typename ContinueFunc>
         void DoAsync(Func&& asyncFunc, ContinueFunc&& continueFunc, int line)

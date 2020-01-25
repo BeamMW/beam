@@ -32,6 +32,64 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
+    BaseTxBuilder::KeyKeeperHandler::KeyKeeperHandler(BaseTxBuilder& b, bool& bLink)
+    {
+        m_pBuilder = b.shared_from_this();
+
+        m_pLink = &bLink;
+        assert(!bLink);
+        bLink = true;
+    }
+
+    BaseTxBuilder::KeyKeeperHandler::~KeyKeeperHandler()
+    {
+        if (m_pLink)
+        {
+            std::shared_ptr<BaseTxBuilder> pBld = m_pBuilder.lock();
+            if (pBld)
+                Detach(*pBld);
+        }
+    }
+
+    void BaseTxBuilder::KeyKeeperHandler::Detach(BaseTxBuilder&)
+    {
+        if (m_pLink)
+        {
+            assert(*m_pLink);
+            *m_pLink = false;
+            m_pLink = nullptr;
+        }
+    }
+
+    void BaseTxBuilder::KeyKeeperHandler::OnDone(IPrivateKeyKeeper2::Status::Type n)
+    {
+        if (m_pLink)
+        {
+            std::shared_ptr<BaseTxBuilder> pBld = m_pBuilder.lock();
+            if (pBld)
+            {
+                if (IPrivateKeyKeeper2::Status::Success == n)
+                    OnSuccess(*pBld);
+                else
+                    OnFailed(*pBld, n);
+            }
+            else
+                m_pLink = nullptr;
+        }
+    }
+
+    void BaseTxBuilder::KeyKeeperHandler::OnFailed(BaseTxBuilder& b, IPrivateKeyKeeper2::Status::Type n)
+    {
+        Detach(b);
+        b.m_Tx.OnFailed(BaseTransaction::KeyKeeperErrorToFailureReason(n), true);
+    }
+
+    void BaseTxBuilder::KeyKeeperHandler::OnAllDone(BaseTxBuilder& b)
+    {
+        Detach(b);
+        b.m_Tx.Update(); // may complete transaction
+    }
+
     BaseTxBuilder::BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList, Amount fee)
         : m_Tx{ tx }
         , m_SubTxID(subTxID)
