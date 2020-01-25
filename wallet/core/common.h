@@ -149,6 +149,7 @@ namespace beam::wallet
     MACRO(NotEnoughDataForProof,         30, "Some mandatory data for payment proof is missing") \
     MACRO(NoMasterKey,                   31, "Master key is needed for this transaction, but unavailable") \
     MACRO(KeyKeeperError,                32, "Key keeper malfunctioned") \
+    MACRO(KeyKeeperUserAbort,            33, "Aborted by the user") \
 
     enum TxFailureReason : int32_t
     {
