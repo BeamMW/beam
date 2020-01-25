@@ -71,17 +71,7 @@ namespace beam::wallet
 #undef THE_MACRO
 
 	////////////////////////////////
-	// Asynchronous methods implemented via synchronous
-#define THE_MACRO(method) \
-	void IPrivateKeyKeeper2::InvokeAsync(Method::method& m, const Handler::Ptr& p) \
-	{ \
-		Status::Type res = InvokeSync(m); \
-		p->OnDone(res); \
-	}
-
-	KEY_KEEPER_METHODS(THE_MACRO)
-#undef THE_MACRO
-
+	// misc
 	IPrivateKeyKeeper2::Status::Type IPrivateKeyKeeper2::get_Commitment(ECC::Point::Native& res, const CoinID& cid)
 	{
 		Method::get_Kdf m;
@@ -98,8 +88,6 @@ namespace beam::wallet
 		return Status::Success;
 	}
 
-	////////////////////////////////
-	// misc
 	void IPrivateKeyKeeper2::Method::KernelCommon::To(TxKernelStd& krn) const
 	{
 		krn.m_Commitment = m_Commitment;
@@ -122,8 +110,8 @@ namespace beam::wallet
 	}
 
 	////////////////////////////////
-	// ThreadedPrivateKeyKeeper
-	void ThreadedPrivateKeyKeeper::TaskList::Pop(Task::Ptr& p)
+	// PrivateKeyKeeper_AsyncNotify
+	void PrivateKeyKeeper_AsyncNotify::TaskList::Pop(Task::Ptr& p)
 	{
 		assert(!empty());
 		Task& t = front();
@@ -132,14 +120,14 @@ namespace beam::wallet
 		p.reset(&t);
 	}
 
-	bool ThreadedPrivateKeyKeeper::TaskList::Push(Task::Ptr& p) // returns if was empty
+	bool PrivateKeyKeeper_AsyncNotify::TaskList::Push(Task::Ptr& p) // returns if was empty
 	{
 		bool b = empty();
 		push_back(*p.release());
 		return b;
 	}
 
-	void ThreadedPrivateKeyKeeper::TaskList::Clear()
+	void PrivateKeyKeeper_AsyncNotify::TaskList::Clear()
 	{
 		while (!empty())
 		{
@@ -148,6 +136,64 @@ namespace beam::wallet
 		}
 	}
 
+	void PrivateKeyKeeper_AsyncNotify::EnsureEvtOut()
+	{
+		if (!m_pNewOut)
+		{
+			io::AsyncEvent::Callback cb = [this]() { OnNewOut(); };
+			m_pNewOut = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
+		}
+	}
+
+	void PrivateKeyKeeper_AsyncNotify::PushOut(Task::Ptr& pTask)
+	{
+		if (m_queOut.Push(pTask))
+		{
+			EnsureEvtOut();
+			m_pNewOut->post();
+		}
+	}
+
+	void PrivateKeyKeeper_AsyncNotify::PushOut(Status::Type n, const Handler::Ptr& pHandler)
+	{
+		Task::Ptr pTask(new Task);
+		pTask->m_Status = n;
+		pTask->m_pHandler = pHandler;
+		PushOut(pTask);
+	}
+
+	void PrivateKeyKeeper_AsyncNotify::OnNewOut()
+	{
+		// protect this obj from destruction from the handler invocation
+		TaskList que;
+		m_queOut.swap(que);
+		CallNewOut(que);
+	}
+
+	void PrivateKeyKeeper_AsyncNotify::CallNewOut(TaskList& que)
+	{
+		while (!que.empty())
+		{
+			Task::Ptr pTask;
+			que.Pop(pTask);
+			pTask->m_pHandler->OnDone(pTask->m_Status);
+		}
+	}
+
+	////////////////////////////////
+	// Asynchronous methods implemented via synchronous
+#define THE_MACRO(method) \
+	void PrivateKeyKeeper_AsyncNotify::InvokeAsync(Method::method& m, const Handler::Ptr& p) \
+	{ \
+		Status::Type res = InvokeSync(m); \
+		PushOut(res, p); \
+	}
+
+	KEY_KEEPER_METHODS(THE_MACRO)
+#undef THE_MACRO
+
+	////////////////////////////////
+	// ThreadedPrivateKeyKeeper
 	void ThreadedPrivateKeyKeeper::PushIn(Task::Ptr& p)
 	{
 		std::unique_lock<std::mutex> scope(m_MutexIn);
@@ -180,7 +226,7 @@ namespace beam::wallet
 			}
 
 			assert(pTask);
-			pTask->Exec(*m_pKeyKeeper);
+			Cast::Up<Task>(*pTask).Exec(*m_pKeyKeeper);
 
 			{
 				std::unique_lock<std::mutex> scope(m_MutexOut);
@@ -194,26 +240,19 @@ namespace beam::wallet
 	void ThreadedPrivateKeyKeeper::OnNewOut()
 	{
 		// protect this obj from destruction from the handler invocation
-		TaskList que;
+		TaskList que; 
 		{
 			std::unique_lock<std::mutex> scope(m_MutexOut);
 			m_queOut.swap(que);
 		}
 
-		while (!que.empty())
-		{
-			Task::Ptr pTask;
-			que.Pop(pTask);
-			pTask->m_pHandler->OnDone(pTask->m_Status);
-		}
+		CallNewOut(que);
 	}
 
 	ThreadedPrivateKeyKeeper::ThreadedPrivateKeyKeeper(const IPrivateKeyKeeper2::Ptr& p)
 		:m_pKeyKeeper(p)
 	{
-		io::AsyncEvent::Callback cb = [this]() { OnNewOut(); };
-		m_pNewOut = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
-
+		EnsureEvtOut();
 		m_Thread = std::thread(&ThreadedPrivateKeyKeeper::Thread, this);
 	}
 

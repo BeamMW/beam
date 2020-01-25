@@ -259,7 +259,7 @@ namespace beam::wallet
 
 #define THE_MACRO(method) \
 			virtual Status::Type InvokeSync(Method::method&); \
-			virtual void InvokeAsync(Method::method&, const Handler::Ptr&);
+			virtual void InvokeAsync(Method::method&, const Handler::Ptr&) = 0;
 
         KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
@@ -277,20 +277,12 @@ namespace beam::wallet
     };
 
 
-	class ThreadedPrivateKeyKeeper
+	class PrivateKeyKeeper_AsyncNotify // by default emulates async calls by synchronous, and then asynchronously posts completion status
 		:public IPrivateKeyKeeper2
 	{
-        IPrivateKeyKeeper2::Ptr m_pKeyKeeper;
+    protected:
 
-		std::thread m_Thread;
-		bool m_Run = true;
-
-		std::mutex m_MutexIn;
-		std::condition_variable m_NewIn;
-
-		std::mutex m_MutexOut;
 		io::AsyncEvent::Ptr m_pNewOut;
-
 
         struct Task
             :public boost::intrusive::list_base_hook<>
@@ -300,8 +292,7 @@ namespace beam::wallet
             Handler::Ptr m_pHandler;
             Status::Type m_Status;
 
-            virtual ~Task() {}
-            virtual void Exec(IPrivateKeyKeeper2&) = 0;
+            virtual ~Task() {} // necessary for derived classes, that may add arbitrary data memebers
         };
 
 		struct TaskList
@@ -317,10 +308,48 @@ namespace beam::wallet
 		TaskList m_queIn;
 		TaskList m_queOut;
 
-        void PushIn(Task::Ptr& p);
+        void EnsureEvtOut();
+        void PushOut(Task::Ptr& p);
+        void PushOut(Status::Type, const Handler::Ptr&);
+        
+        virtual void OnNewOut();
+        static void CallNewOut(TaskList&);
 
+    public:
+
+#define THE_MACRO(method) \
+		virtual void InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) override;
+
+		KEY_KEEPER_METHODS(THE_MACRO)
+#undef THE_MACRO
+
+	};
+
+	class ThreadedPrivateKeyKeeper
+		:public PrivateKeyKeeper_AsyncNotify
+	{
+        IPrivateKeyKeeper2::Ptr m_pKeyKeeper;
+
+		std::thread m_Thread;
+		bool m_Run = true;
+
+		std::mutex m_MutexIn;
+		std::condition_variable m_NewIn;
+
+		std::mutex m_MutexOut;
+
+        struct Task
+            :public PrivateKeyKeeper_AsyncNotify::Task
+        {
+            virtual void Exec(IPrivateKeyKeeper2&) = 0;
+        };
+
+		TaskList m_queIn;
+
+        void PushIn(Task::Ptr& p);
         void Thread();
-        void OnNewOut();
+
+        virtual void OnNewOut() override;
 
     public:
 
