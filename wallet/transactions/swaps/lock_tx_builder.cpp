@@ -22,6 +22,7 @@ namespace beam::wallet
     LockTxBuilder::LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee)
         : BaseTxBuilder(tx, SubTxIndex::BEAM_LOCK_TX, { amount }, fee)
     {
+        ZeroObject(m_SharedProof); // zero-init it to prevent errors during serialization
     }
 
     Height LockTxBuilder::GetMaxHeight() const
