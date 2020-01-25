@@ -418,10 +418,7 @@ namespace beam::wallet
                     if (waddr && waddr->isOwn())
                     {
                         Scalar::Native sk;
-
-                        m_KeyKeeper->get_SbbsKdf()->DeriveKey(sk, Key::ID(waddr->m_OwnID, Key::Type::Bbs));
-
-                        proto::Sk2Pk(widMy.m_Pk, sk);
+                        m_WalletDB->get_SbbsPeerID(sk, widMy.m_Pk, waddr->m_OwnID);
 
                         pc.Sign(sk);
                         msg.AddParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);

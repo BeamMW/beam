@@ -238,10 +238,8 @@ namespace beam::wallet {
         if (waddr && waddr->isOwn())
         {
             ECC::Scalar::Native sk;
-            
-            m_pKdfSbbs->DeriveKey(sk, ECC::Key::ID(waddr->m_OwnID, Key::Type::Bbs));
             PeerID generatedPk;
-            proto::Sk2Pk(generatedPk, sk);
+            m_WalletDB->get_SbbsPeerID(sk, generatedPk, waddr->m_OwnID);
 
             confirmation.m_offerData = msg;
             confirmation.Sign(sk);
