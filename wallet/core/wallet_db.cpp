@@ -1677,6 +1677,61 @@ namespace beam::wallet
 		return true;
 	}
 
+    void IWalletDB::get_SbbsPeerID(ECC::Scalar::Native& sk, PeerID& pid, uint64_t ownID)
+    {
+        Key::IKdf::Ptr pKdfSbbs = get_SbbsKdf();
+        if (!pKdfSbbs)
+            throw CannotGenerateSecretException();
+
+        ECC::Hash::Value hv;
+        Key::ID(ownID, Key::Type::Bbs).get_Hash(hv);
+
+        pKdfSbbs->DeriveKey(sk, hv);
+        proto::Sk2Pk(pid, sk);
+    }
+
+    void IWalletDB::get_SbbsWalletID(ECC::Scalar::Native& sk, WalletID& wid, uint64_t ownID)
+    {
+        get_SbbsPeerID(sk, wid.m_Pk, ownID);
+
+        // derive the channel from the address
+        BbsChannel ch;
+        wid.m_Pk.ExportWord<0>(ch);
+        ch %= proto::Bbs::s_MaxChannels;
+
+        wid.m_Channel = ch;
+    }
+
+    void IWalletDB::get_SbbsWalletID(WalletID& wid, uint64_t ownID)
+    {
+        ECC::Scalar::Native sk;
+        get_SbbsWalletID(sk, wid, ownID);
+    }
+
+    bool IWalletDB::ValidateSbbsWalletID(const WalletID& wid, uint64_t ownID)
+    {
+        WalletID wid2;
+        get_SbbsWalletID(wid2, ownID);
+        return wid == wid2;
+    }
+
+    void IWalletDB::createAddress(WalletAddress& addr)
+    {
+        addr.m_createTime = beam::getTimestamp();
+        addr.m_OwnID = AllocateKidRange(1);
+        get_SbbsWalletID(addr.m_walletID, addr.m_OwnID);
+        get_Identity(addr.m_Identity, addr.m_OwnID);
+    }
+
+    void IWalletDB::get_Identity(PeerID& pid, uint64_t ownID) const
+    {
+        ECC::Hash::Value hv;
+        Key::ID(ownID, Key::Type::WalletID).get_Hash(hv);
+        ECC::Point::Native pt;
+        get_OwnerKdf()->DerivePKeyG(pt, hv);
+        pid = ECC::Point(pt).m_X;
+    }
+
     vector<Coin> WalletDB::selectCoins(Amount amount, Asset::ID assetId)
     {
         vector<Coin> coins, coinsSel;
@@ -2437,9 +2492,8 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
             if (address.isOwn())
-            {
-                address.m_Identity = storage::generateIdentityFromIndex(*this, address.m_OwnID);
-            }
+                get_Identity(address.m_Identity, address.m_OwnID);
+
             insertAddressToCache(id, address);
             return address;
         }
@@ -2462,9 +2516,8 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
             if (a.isOwn())
-            {
-                a.m_Identity = storage::generateIdentityFromIndex(*this, a.m_OwnID);
-            }
+                get_Identity(a.m_Identity, a.m_OwnID);
+
             if (a.isOwn() != own)
                 res.pop_back(); // akward, but ok
         }
@@ -3383,51 +3436,6 @@ namespace beam::wallet
             return allTotals[assetId];
         }
 
-        WalletAddress createAddress(IWalletDB& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
-        {
-            WalletAddress newAddress;
-            newAddress.m_createTime = beam::getTimestamp();
-            newAddress.m_OwnID = walletDB.AllocateKidRange(1);
-            newAddress.m_walletID = generateWalletIDFromIndex(keyKeeper, newAddress.m_OwnID);
-            newAddress.m_Identity = generateIdentityFromIndex(walletDB, newAddress.m_OwnID);
-
-            return newAddress;
-        }
-
-        PeerID generateIdentityFromIndex(const IWalletDB& walletDB, uint64_t ownID)
-        {
-            Key::ID kid(ownID, Key::Type::WalletID);
-            ECC::Hash::Value hv;
-            kid.get_Hash(hv);
-            ECC::Point::Native pt;
-            walletDB.get_OwnerKdf()->DerivePKeyG(pt, hv);
-            return ECC::Point(pt).m_X;
-        }
-
-        WalletID generateWalletIDFromIndex(IPrivateKeyKeeper::Ptr keyKeeper, uint64_t ownID)
-        {
-            if (!keyKeeper->get_SbbsKdf())
-            {
-                throw CannotGenerateSecretException();
-            }
-            WalletID walletID(Zero);
-
-            ECC::Scalar::Native sk;
-
-            keyKeeper->get_SbbsKdf()->DeriveKey(sk, Key::ID(ownID, Key::Type::Bbs));
-
-            proto::Sk2Pk(walletID.m_Pk, sk);
-
-            // derive the channel from the address
-            BbsChannel ch;
-            walletID.m_Pk.ExportWord<0>(ch);
-            ch %= proto::Bbs::s_MaxChannels;
-
-            walletID.m_Channel = ch;
-
-            return walletID;
-        }
-
         void DeduceStatus(const IWalletDB& walletDB, Coin& c, Height hTop)
         {
             c.m_status = GetCoinStatus(walletDB, c, hTop);
@@ -3531,7 +3539,7 @@ namespace beam::wallet
                     if (address.m_walletID.FromHex(jsonAddress[Fields::WalletID]))
                     {
                         address.m_OwnID = jsonAddress[Fields::Index];
-                        if (!address.isOwn() || address.m_walletID == generateWalletIDFromIndex(keyKeeper, address.m_OwnID))
+                        if (!address.isOwn() || db.ValidateSbbsWalletID(address.m_walletID, address.m_OwnID))
                         {
                             //{ "SubIndex", 0 },
                             address.m_label = jsonAddress[Fields::Label];
@@ -3644,7 +3652,7 @@ namespace beam::wallet
                         }
 
                         auto waddr = db.getAddress(wid);
-                        if (waddr && (!waddr->isOwn() || wid != generateWalletIDFromIndex(keyKeeper, waddr->m_OwnID)))
+                        if (waddr && (!waddr->isOwn() || !db.ValidateSbbsWalletID(wid, waddr->m_OwnID)))
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid address parameter";
                             return false;
@@ -3653,7 +3661,7 @@ namespace beam::wallet
                         uint64_t myAddrId = 0;
                         auto addressIt = paramsMap.find(TxParameterID::MyAddressID);
                         if (addressIt != paramsMap.end() && (!fromByteBuffer(addressIt->second.m_value, myAddrId) ||
-                                                             wid != generateWalletIDFromIndex(keyKeeper, myAddrId)))
+                            !db.ValidateSbbsWalletID(wid, myAddrId)))
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid MyAddressID parameter";
                             return false;

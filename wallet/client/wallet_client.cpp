@@ -503,7 +503,8 @@ namespace beam::wallet
             auto s = m_wallet.lock();
             if (s)
             {
-                WalletAddress senderAddress = storage::createAddress(*m_walletDB, m_keyKeeper);
+                WalletAddress senderAddress;
+                m_walletDB->createAddress(senderAddress);
                 saveAddress(senderAddress, true); // should update the wallet_network
 
                 ByteBuffer message(comment.begin(), comment.end());
@@ -587,7 +588,8 @@ namespace beam::wallet
                 auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
                 if (!myID)
                 {
-                    WalletAddress senderAddress = storage::createAddress(*m_walletDB, m_keyKeeper);
+                    WalletAddress senderAddress;
+                    m_walletDB->createAddress(senderAddress);
                     saveAddress(senderAddress, true); // should update the wallet_network
                 
                     parameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
@@ -749,7 +751,8 @@ namespace beam::wallet
     {
         try
         {
-            WalletAddress address = storage::createAddress(*m_walletDB, m_keyKeeper);
+            WalletAddress address;
+            m_walletDB->createAddress(address);
 
             onGeneratedNewAddress(address);
         }

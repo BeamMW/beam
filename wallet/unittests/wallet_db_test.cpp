@@ -623,7 +623,7 @@ void TestAddresses()
     a.m_createTime = beam::getTimestamp();
     a.m_duration = 23;
     a.m_OwnID = 44;
-    a.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, a.m_OwnID);
+    db->get_SbbsWalletID(a.m_walletID, a.m_OwnID);
 
     db->saveAddress(a);
 
@@ -633,7 +633,7 @@ void TestAddresses()
     c.m_createTime = beam::getTimestamp();
     c.m_duration = 23;
     c.m_OwnID = 0;
-    c.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, 32);
+    db->get_SbbsWalletID(c.m_walletID, 32);
 
     db->saveAddress(c);
 
@@ -715,7 +715,7 @@ void TestExportImportTx()
 
     WalletAddress wa;
     wa.m_OwnID = (*walletDB).AllocateKidRange(1);
-    wa.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, wa.m_OwnID);
+    walletDB->get_SbbsWalletID(wa.m_walletID, wa.m_OwnID);
     TxDescription tr = { { {4, 5, 6, 7, 65} } };
     tr.m_amount = 52;
     tr.m_createTime = 45613;
@@ -736,7 +736,7 @@ void TestExportImportTx()
 
     WalletAddress wa2;
     wa2.m_OwnID = (*walletDB).AllocateKidRange(1);
-    wa2.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, wa2.m_OwnID);
+    walletDB->get_SbbsWalletID(wa2.m_walletID, wa2.m_OwnID);
     TxDescription tr2 = { { {7, 8, 9, 13} } };
     tr2.m_amount = 71;
     tr2.m_minHeight = 285;

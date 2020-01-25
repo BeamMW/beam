@@ -282,7 +282,8 @@ namespace
 
         {
             std::cout << "Case: invalid signature" << endl;
-            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+            WalletAddress wa;
+            senderWalletDB->createAddress(wa);
             SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
             const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
             ECC::Scalar::Native sk;
@@ -316,9 +317,11 @@ namespace
         }
         {
             std::cout << "Case: invalid public key" << endl;
-            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+            WalletAddress wa;
+            senderWalletDB->createAddress(wa);
             SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
-            WalletAddress newAddr = storage::createAddress(*senderWalletDB, keyKeeper);
+            WalletAddress newAddr;
+            senderWalletDB->createAddress(newAddr);
             offer.m_publisherId = newAddr.m_walletID;   // changed public key to new random
             const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
             ECC::Scalar::Native sk;
@@ -351,7 +354,8 @@ namespace
         }
         {
             std::cout << "Case: correct message" << endl;
-            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+            WalletAddress wa;
+            senderWalletDB->createAddress(wa);
             SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
             const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
             ECC::Scalar::Native sk;
@@ -399,7 +403,8 @@ namespace
         WALLET_CHECK(Alice.getOffersList().size() == 0);
 
         TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+        WalletAddress wa;
+        senderWalletDB->createAddress(wa);
         senderWalletDB->saveAddress(wa);
         SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
         
@@ -475,7 +480,8 @@ namespace
         WALLET_CHECK(Cory.getOffersList().size() == 0);
 
         TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+        WalletAddress wa;
+        senderWalletDB->createAddress(wa);
         senderWalletDB->saveAddress(wa);
         SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
         
@@ -614,7 +620,8 @@ namespace
         SwapOffersBoard Bob(mockNetwork, mockNetwork);
 
         TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+        WalletAddress wa;
+        senderWalletDB->createAddress(wa);
         senderWalletDB->saveAddress(wa);
         SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
 
@@ -752,7 +759,8 @@ namespace
         SwapOffersBoard Bob(mockNetwork, mockNetwork);
 
         TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+        WalletAddress wa;
+        senderWalletDB->createAddress(wa);
         senderWalletDB->saveAddress(wa);
         SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
 

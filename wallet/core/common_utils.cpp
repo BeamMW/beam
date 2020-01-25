@@ -27,7 +27,8 @@ namespace beam::wallet
             WalletAddress::ExpirationStatus expirationStatus,
             bool saveRequired)
     {
-        WalletAddress address = storage::createAddress(*walletDB, keyKeeper);
+        WalletAddress address;
+        walletDB->createAddress(address);
 
         address.setExpiration(expirationStatus);
         address.m_label = label;

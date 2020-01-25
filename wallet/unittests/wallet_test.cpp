@@ -68,12 +68,13 @@ namespace
         io::Reactor::Scope scope(*mainReactor);
         auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiverWalletDB, receiverWalletDB->get_MasterKdf());
 
-        WalletAddress wa = storage::createAddress(*receiverWalletDB, receiverKeyKeeper);
+        WalletAddress wa;
+        receiverWalletDB->createAddress(wa);
         receiverWalletDB->saveAddress(wa);
         WalletID receiver_id = wa.m_walletID;
 
         auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        wa = storage::createAddress(*senderWalletDB, senderKeyKeeper);
+        senderWalletDB->createAddress(wa);
         senderWalletDB->saveAddress(wa);
         WalletID sender_id = wa.m_walletID;
 
@@ -1002,7 +1003,8 @@ namespace
                 , m_Bbs(*this, m_Nnet, db, keyKeeper)
                 , m_ReceiverID(receiverID)
             {
-                WalletAddress wa = storage::createAddress(*db, keyKeeper);
+                WalletAddress wa;
+                db->createAddress(wa);
                 db->saveAddress(wa);
                 m_WalletID = wa.m_walletID;
             }
@@ -1408,7 +1410,7 @@ namespace
         client.start();
         auto timer = io::Timer::create(*mainReactor);
         
-        auto startEvent = io::AsyncEvent::create(*mainReactor, [&timer, mainReactor, &client, keyKeeper]()
+        auto startEvent = io::AsyncEvent::create(*mainReactor, [&timer, mainReactor, &client, db]()
             {
                 
                 {
@@ -1421,7 +1423,7 @@ namespace
                         addr.m_createTime = beam::getTimestamp();
                         addr.m_duration = std::rand();
                         addr.m_OwnID = std::rand();
-                        addr.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, 32);
+                        db->get_SbbsWalletID(addr.m_walletID, 32);
                     }
 
                     for (auto& addr : newAddresses)

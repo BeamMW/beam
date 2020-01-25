@@ -98,7 +98,8 @@ void AppModel::restoreDBFromBackup(const std::string& dbFilePath)
 void AppModel::generateDefaultAddress()
 {
     // generate default address
-    WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
+    WalletAddress address;
+    m_db->createAddress(address);
     address.m_label = "default";
     m_db->saveAddress(address);
 }

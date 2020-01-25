@@ -419,7 +419,8 @@ struct TestWalletRig
 
         if (auto kdf = m_WalletDB->get_MasterKdf(); kdf) // can create secrets
         {
-            WalletAddress wa = storage::createAddress(*m_WalletDB, m_KeyKeeper);
+            WalletAddress wa;
+            m_WalletDB->createAddress(wa);
             m_WalletDB->saveAddress(wa);
             m_WalletID = wa.m_walletID;
             m_OwnID = wa.m_OwnID;

@@ -310,7 +310,8 @@ namespace
             {
                 LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-                WalletAddress address = storage::createAddress(*_walletDB, _keyKeeper);
+                WalletAddress address;
+                _walletDB->createAddress(address);
                 FillAddressData(data, address);
 
                 _walletDB->saveAddress(address);
@@ -418,7 +419,8 @@ namespace
                     }
                     else
                     {
-                        WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
+                        WalletAddress senderAddress;
+                        _walletDB->createAddress(senderAddress);
                         _walletDB->saveAddress(senderAddress);
 
                         from = senderAddress.m_walletID;     
@@ -554,7 +556,8 @@ namespace
                 LOG_DEBUG() << "], fee = " << data.fee;
                 try
                 {
-                     WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
+                    WalletAddress senderAddress;
+                    _walletDB->createAddress(senderAddress);
                     _walletDB->saveAddress(senderAddress);
 
                     auto minimumFee = std::max(wallet::GetMinimumFee(data.coins.size() + 1), DefaultFee); // +1 extra output for change 

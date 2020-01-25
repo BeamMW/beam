@@ -96,13 +96,13 @@ namespace beam::wallet
     // Used for SBBS Address management in the wallet
     struct WalletAddress
     {
-        WalletID m_walletID;
+        WalletID m_walletID; // derived from SBBS
         std::string m_label;
         std::string m_category;
         Timestamp m_createTime;
         uint64_t  m_duration;   // if equals to "AddressNeverExpires" then address never expires
         uint64_t  m_OwnID;      // set for own address
-        PeerID    m_Identity;   
+        PeerID    m_Identity; // derived from master. May be different from m_walletID
         
         WalletAddress();
         bool operator == (const WalletAddress& other) const;
@@ -283,16 +283,28 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<IWalletDB>;
         virtual ~IWalletDB() {}
 
-        virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0; // Returns the Master Key ONLY if possible. Won't be available with HW wallet.
-        virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const = 0; // Returns the Owner Key. Must succeed.
-        virtual beam::Key::IKdf::Ptr get_SbbsKdf() const = 0; // Must succeed
-        virtual IPrivateKeyKeeper2::Ptr get_KeyKeeper() const = 0; // Must succeed
+        // Those are the possible wallet modes:
+        // 1. Wallet with seed. All the keys are available.
+        // 2. Wallet with KeyKeeper in a trustless mode. Master key is inaccessible, only "simple" transactions are supported.
+        // 3. Read-only wallet. Only owner key is accessible. Can't build txs, no sbbs communication. Only UTXO movements are visible.
+
+        virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0; // Available in (1)
+        virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const = 0; // Always available
+        virtual beam::Key::IKdf::Ptr get_SbbsKdf() const = 0; // Unavailable in (3)
+        virtual IPrivateKeyKeeper2::Ptr get_KeyKeeper() const = 0; // Unavailable in (3)
 
 		// import blockchain recovery data (all at once)
 		// should be used only upon creation on 'clean' wallet. Throws exception on error
 		void ImportRecovery(const std::string& path);
 
         bool IsRecoveredMatch(CoinID&, const ECC::Point& comm);
+
+        void get_SbbsPeerID(ECC::Scalar::Native&, PeerID&, uint64_t ownID);
+        void get_SbbsWalletID(ECC::Scalar::Native&, WalletID&, uint64_t ownID);
+        void get_SbbsWalletID(WalletID&, uint64_t ownID);
+        bool ValidateSbbsWalletID(const WalletID&, uint64_t ownID);
+        void createAddress(WalletAddress&);
+        void get_Identity(PeerID&, uint64_t ownID) const;
 
 		struct IRecoveryProgress
 		{
@@ -636,9 +648,6 @@ namespace beam::wallet
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
 
         bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, WalletAddress::ExpirationStatus status);
-        WalletAddress createAddress(IWalletDB& walletDB, IPrivateKeyKeeper::Ptr keyKeeper);
-        PeerID generateIdentityFromIndex(const IWalletDB& walletDB, uint64_t ownID);
-        WalletID generateWalletIDFromIndex(IPrivateKeyKeeper::Ptr keyKeeper, uint64_t ownID);
 
         Coin::Status GetCoinStatus(const IWalletDB&, const Coin&, Height hTop);
         void DeduceStatus(const IWalletDB&, Coin&, Height hTop);

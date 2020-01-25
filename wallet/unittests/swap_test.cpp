@@ -1296,7 +1296,8 @@ void ExpireByResponseTime(bool isBeamSide)
 
     auto db = createReceiverWalletDB();
     auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db, db->get_MasterKdf());
-    WalletAddress receiverWalletAddress = storage::createAddress(*db, keyKeeper);
+    WalletAddress receiverWalletAddress;
+    db->createAddress(receiverWalletAddress);
     WalletID receiverWalletID = receiverWalletAddress.m_walletID;
 
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
@@ -1636,7 +1637,8 @@ void TestIgnoringThirdPeer()
             if (txState == wallet::AtomicSwapTransaction::State::BuildingBeamLockTX)
             {
                 // create new address
-                WalletAddress newAddress = storage::createAddress(*sender->m_WalletDB, sender->m_KeyKeeper);
+                WalletAddress newAddress;
+                sender->m_WalletDB->createAddress(newAddress);
                 sender->m_WalletDB->saveAddress(newAddress);
 
                 // send msg from new address
