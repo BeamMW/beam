@@ -654,17 +654,20 @@ namespace beam::wallet
 
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateOutput& x)
     {
-        if (x.m_Result.m_Coinbase || x.m_Result.m_pPublic || x.m_Result.m_RecoveryOnly || (x.m_hScheme < Rules::get().pForks[1].m_Height))
-            return Status::Unspecified; // not allowed
-
-        if (x.m_Result.m_Incubation || (x.m_Cid.get_Scheme() < Key::IDV::Scheme::V1))
+        if (IsTrustless())
         {
-            if (IsTrustless())
-                return Status::UserAbort; // or maybe ask user
+            // disallow weak paramters
+            if (x.m_hScheme < Rules::get().pForks[1].m_Height)
+                return Status::Unspecified; // blinding factor can be tampered without user permission
+
+            if (x.m_Cid.get_Scheme() < Key::IDV::Scheme::V1)
+                return Status::UserAbort; // value can be tampered without user permission
         }
 
+        x.m_pResult.reset(new Output);
+
         Scalar::Native sk;
-        x.m_Result.Create(x.m_hScheme, sk, *x.m_Cid.get_ChildKdf(m_pKdf), x.m_Cid, *m_pKdf);
+        x.m_pResult->Create(x.m_hScheme, sk, *x.m_Cid.get_ChildKdf(m_pKdf), x.m_Cid, *m_pKdf);
 
         return Status::Success;
     }

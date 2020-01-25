@@ -115,10 +115,7 @@ namespace beam::wallet
 
         m_Tx.TestKeyKeeperRet(m_Tx.get_KeyKeeperStrict()->InvokeSync(m));
 
-        Output::Ptr output = std::make_unique<Output>();
-        *output = std::move(m.m_Result);
-
-        m_Outputs.push_back(std::move(output));
+        m_Outputs.push_back(std::move(m.m_pResult));
         m_OutputCoins.push_back(outputCoin.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
     }

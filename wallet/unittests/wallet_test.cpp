@@ -2201,10 +2201,7 @@ void TestKeyKeeper()
             m.m_hScheme = hScheme;
             WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
 
-            tx.m_vOutputs.emplace_back();
-            tx.m_vOutputs.back().reset(new Output);
-
-            *tx.m_vOutputs.back() = std::move(m.m_Result);
+            tx.m_vOutputs.push_back(std::move(m.m_pResult));
         }
     }
 

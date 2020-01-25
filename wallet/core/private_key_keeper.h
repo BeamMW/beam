@@ -206,7 +206,7 @@ namespace beam::wallet
             struct CreateOutput {
                 Height m_hScheme; // scheme prior to Fork1 isn't supported for trustless wallet
                 CoinID m_Cid; // weak schemes (V0, BB21) isn't supported for trustless wallet
-                Output m_Result; // explicit incubation period isn't supported for trustless wallet
+                Output::Ptr m_pResult;
             };
 
             struct KernelCommon
