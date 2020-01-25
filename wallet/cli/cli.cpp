@@ -462,7 +462,7 @@ namespace
             return -1;
         }
         
-        GenerateNewAddress(walletDB, comment);
+        GenerateNewAddress(walletDB, comment, expirationStatus);
         return 0;
     }
 
