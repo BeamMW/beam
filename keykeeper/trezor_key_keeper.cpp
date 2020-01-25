@@ -203,14 +203,14 @@ namespace beam::wallet
                 Amount fee,
                 Key::Index assetOwnerIdx,
                 TxKernelAssetControl& kernel,
-                Callback<ECC::Scalar::Native>&&,
+                Callback<AssetSignature>&&,
                 ExceptionCallback&&)
     {
         // TODO:ASSETS implement
         assert("!Not implemented");
     }
 
-    ECC::Scalar::Native TrezorKeyKeeper::SignAssetKernelSync(const std::vector<CoinID>& inputs,
+    AssetSignature TrezorKeyKeeper::SignAssetKernelSync(const std::vector<CoinID>& inputs,
                 const std::vector<CoinID>& outputs,
                 Amount fee,
                 Key::Index assetOwnerIdx,
@@ -218,7 +218,7 @@ namespace beam::wallet
     {
         // TODO:ASSETS implement
         assert("!Not implemented");
-        return ECC::Scalar::Native();
+        return AssetSignature {};
     }
 
     PeerID TrezorKeyKeeper::GetAssetOwnerID() override

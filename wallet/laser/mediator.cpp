@@ -224,6 +224,17 @@ void Mediator::SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net)
 
 void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime)
 {
+    if (!IsEnoughCoinsAvailable(aMy + fee))
+    {
+        LOG_ERROR() << "Your available amount less then required.";
+        auto zeroID = std::make_shared<ChannelID>(Zero);
+        for (auto observer : m_observers)
+        {
+            observer->OnOpenFailed(zeroID);
+        }
+        return;
+    }
+
     m_myInAllowed = aMy;
     m_trgInAllowed = aTrg;
     m_feeAllowed = fee;
@@ -272,6 +283,17 @@ void Mediator::OpenChannel(Amount aMy,
                            const WalletID& receiverWalletID,
                            Height locktime)
 {
+    if (!IsEnoughCoinsAvailable(aMy + fee))
+    {
+        LOG_ERROR() << "Your available amount less then required.";
+        auto zeroID = std::make_shared<ChannelID>(Zero);
+        for (auto observer : m_observers)
+        {
+            observer->OnOpenFailed(zeroID);
+        }
+        return;
+    }
+
     auto myOutAddr = GenerateNewAddress(
             m_pWalletDB,
             "laser_out",
@@ -824,6 +846,14 @@ void Mediator::PrepareToForget(const std::unique_ptr<Channel>& channel)
         channel->UpdateRestorePoint();
         m_pWalletDB->saveLaserChannel(*channel);
     }
+}
+
+bool Mediator::IsEnoughCoinsAvailable(Amount required)
+{
+    storage::Totals totalsCalc(*m_pWalletDB);
+    const auto& totals = totalsCalc.GetTotals(Zero);
+
+    return totals.Avail >= required; 
 }
 
 }  // namespace beam::wallet::laser

@@ -56,7 +56,8 @@ namespace beam::wallet
             MakingOutputs,
             MakingKernels,
             Registration,
-            KernelConfirmation
+            KernelConfirmation,
+            AssetConfirmation
         };
         State GetState() const;
 

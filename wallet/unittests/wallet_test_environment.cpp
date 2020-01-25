@@ -31,6 +31,7 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override {}
     void confirm_outputs(const std::vector<Coin>&) override {}
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
+    void confirm_asset(const TxID&, const Key::Index, const PeerID&, SubTxID subTxID) override {}
     void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
     void send_tx_params(const WalletID& peerID, const wallet::SetTxParameter&) override {}
@@ -251,9 +252,9 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
     return walletDB;
 }
 
-IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const AmountList& amounts = {5, 2, 1, 9})
+IWalletDB::Ptr createSenderWalletDBWithSeed(const std::string& fileName, bool generateSeed, bool separateDBForPrivateData = false, const AmountList& amounts = {5, 2, 1, 9})
 {
-    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, false);
+    auto db = createSqliteWalletDB(fileName, separateDBForPrivateData, generateSeed);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
     for (auto amount : amounts)
     {
@@ -261,6 +262,11 @@ IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const
         db->storeCoin(coin);
     }
     return db;
+}
+
+IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const AmountList& amounts = { 5, 2, 1, 9 })
+{
+    return createSenderWalletDBWithSeed(SenderWalletDB, false, separateDBForPrivateData, amounts);
 }
 
 IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false)
@@ -490,6 +496,7 @@ struct TestWalletRig
             m_Wallet.AddMessageEndpoint(m_messageEndpoint);
         }
     }
+
 
     vector<Coin> GetCoins()
     {
@@ -781,6 +788,7 @@ struct TestBlockchain
         }
     }
 
+
     void AddKernel(const TxKernel& krn)
     {
         if (m_vBlockKernels.size() <= m_mcm.m_vStates.size())
@@ -899,6 +907,13 @@ struct TestNodeNetwork
         {
             proto::FlyClient::RequestKernel2& v = static_cast<proto::FlyClient::RequestKernel2&>(r);
             m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
+        }
+        break;
+
+        case Request::Type::Asset:
+        {
+            //proto::FlyClient::RequestAsset& v = static_cast<proto::FlyClient::RequestAsset&>(r);
+            //m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
         }
         break;
 

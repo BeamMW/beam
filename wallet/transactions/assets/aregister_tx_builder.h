@@ -42,7 +42,9 @@ namespace beam::wallet
         void GenerateBeamCoin(Amount amount, bool change);
         bool CreateInputs();
         bool CreateOutputs();
+
         Key::Index GetAssetOwnerIdx() const;
+        PeerID GetAssetOwnerId() const;
 
         //
         // Blockchain stuff
@@ -70,10 +72,10 @@ namespace beam::wallet
                     m_Tx.UpdateAsync(); // may complete transaction
                     m_Tx.GetAsyncAcontext().OnAsyncFinished();
                 },
-                [thisHolder, this, txHolder](const std::exception_ptr& ex)
+                [thisHolder, this, txHolder](std::exception_ptr ex)
                 {
                     m_Tx.GetAsyncAcontext().OnAsyncFinished();
-                    std::rethrow_exception(ex);
+                    std::rethrow_exception(std::move(ex));
                 });
         }
 
@@ -86,6 +88,8 @@ namespace beam::wallet
         SubTxID m_SubTxID;
 
         beam::Key::Index m_assetOwnerIdx;
+        PeerID m_assetOwnerId;
+
         Amount     m_Fee;
         Amount     m_ChangeBeam;
         AmountList m_AmountList;

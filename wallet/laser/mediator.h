@@ -93,6 +93,7 @@ private:
     void UpdateChannelExterior(const std::unique_ptr<Channel>& channel);
     bool ValidateTip();
     void PrepareToForget(const std::unique_ptr<Channel>& channel);
+    bool IsEnoughCoinsAvailable(Amount required);
 
     IWalletDB::Ptr m_pWalletDB;
     proto::FlyClient::INetwork::Ptr m_pConnection;

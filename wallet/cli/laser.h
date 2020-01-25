@@ -17,59 +17,58 @@
 #include "wallet/laser/mediator.h"
 #include "utility/common.h"
 
-#include <boost/program_options.hpp>
+#include "utility/cli/options.h"
 #include <functional>
 #include <memory>
 
-using namespace beam;
-using namespace beam::wallet;
-using namespace std;
-namespace po = boost::program_options;
-
-class LaserObserver : public laser::Mediator::Observer
+namespace beam::wallet
 {
-public:
-    LaserObserver(const IWalletDB::Ptr& walletDB, const po::variables_map& vm);
-    void OnOpened(const laser::ChannelIDPtr& chID) override;
-    void OnOpenFailed(const laser::ChannelIDPtr& chID) override;
-    void OnClosed(const laser::ChannelIDPtr& chID) override;
-    void OnCloseFailed(const laser::ChannelIDPtr& chID) override;
-    void OnUpdateStarted(const laser::ChannelIDPtr& chID) override;
-    void OnUpdateFinished(const laser::ChannelIDPtr& chID) override;
-private:
-    const IWalletDB::Ptr& m_walletDB;
-    const po::variables_map& m_vm;
-};
+    using MediatorPtr = std::unique_ptr<laser::Mediator>;
+    class LaserObserver : public laser::Mediator::Observer
+    {
+    public:
+        LaserObserver(const IWalletDB::Ptr& walletDB, const po::variables_map& vm);
+        void OnOpened(const laser::ChannelIDPtr& chID) override;
+        void OnOpenFailed(const laser::ChannelIDPtr& chID) override;
+        void OnClosed(const laser::ChannelIDPtr& chID) override;
+        void OnCloseFailed(const laser::ChannelIDPtr& chID) override;
+        void OnUpdateStarted(const laser::ChannelIDPtr& chID) override;
+        void OnUpdateFinished(const laser::ChannelIDPtr& chID) override;
+    private:
+        const IWalletDB::Ptr& m_walletDB;
+        const po::variables_map& m_vm;
+    };
 
-bool LoadLaserParams(const po::variables_map& vm,
-                    Amount* aMy,
-                    Amount* aTrg,
-                    Amount* fee,
-                    WalletID* receiverWalletID,
-                    Height* locktime,
-                    bool skipReceiverWalletID = false);
-std::vector<std::string> LoadLaserChannelsIdsFromDB(
-        const IWalletDB::Ptr& walletDB);
-std::vector<std::string> ParseLaserChannelsIdsFromStr(
-        const std::string& chIDsStr);
-const char* LaserChannelStateStr(int state);
-bool LaserOpen(const unique_ptr<laser::Mediator>& laser,
-               const po::variables_map& vm);  
-bool LaserWait(const unique_ptr<laser::Mediator>& laser,
-               const po::variables_map& vm);
-bool LaserServe(const unique_ptr<laser::Mediator>& laser,
-                const IWalletDB::Ptr& walletDB,
-                const po::variables_map& vm);
-bool LaserTransfer(const unique_ptr<laser::Mediator>& laser,
+    bool LoadLaserParams(const po::variables_map& vm,
+                         Amount* aMy,
+                         Amount* aTrg,
+                         Amount* fee,
+                         WalletID* receiverWalletID,
+                         Height* locktime,
+                         bool skipReceiverWalletID = false);
+    std::vector<std::string> LoadLaserChannelsIdsFromDB(const IWalletDB::Ptr& walletDB);
+    std::vector<std::string> ParseLaserChannelsIdsFromStr(const std::string& chIDsStr);
+    const char* LaserChannelStateStr(int state);
+    bool LaserOpen(const MediatorPtr& laser,
                    const po::variables_map& vm);
-void LaserShow(const IWalletDB::Ptr& walletDB);
-bool LaserDrop(const unique_ptr<laser::Mediator>& laser,
-               const po::variables_map& vm);
-bool LaserClose(const unique_ptr<laser::Mediator>& laser,
-                const po::variables_map& vm);
-bool LaserDelete(const unique_ptr<laser::Mediator>& laser,
-                 const po::variables_map& vm);
+    bool LaserWait(const MediatorPtr& laser,
+                   const po::variables_map& vm);
+    bool LaserServe(const MediatorPtr& laser,
+                    const IWalletDB::Ptr& walletDB,
+                    const po::variables_map& vm);
+    bool LaserTransfer(const MediatorPtr& laser,
+                       const po::variables_map& vm);
+    void LaserShow(const IWalletDB::Ptr& walletDB);
+    bool LaserDrop(const MediatorPtr& laser,
+                   const po::variables_map& vm);
+    bool LaserClose(const MediatorPtr& laser,
+                    const po::variables_map& vm);
+    bool LaserDelete(const MediatorPtr& laser,
+                     const po::variables_map& vm);
 
-bool ProcessLaser(const unique_ptr<laser::Mediator>& laser,
-                  const IWalletDB::Ptr& walletDB,
-                  const po::variables_map& vm);
+    bool ProcessLaser(const MediatorPtr& laser,
+                      const IWalletDB::Ptr& walletDB,
+                      const po::variables_map& vm);
+}
+
+
