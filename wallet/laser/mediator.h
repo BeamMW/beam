@@ -80,7 +80,7 @@ public:
     void RemoveObserver(Observer* observer);
 
 private:
-    ECC::Scalar::Native get_skBbs(const ChannelIDPtr& chID);
+    bool get_skBbs(ECC::Scalar::Native&, const ChannelIDPtr& chID);
     void OnIncoming(const ChannelIDPtr& chID,
                     Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID);

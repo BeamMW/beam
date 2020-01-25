@@ -206,7 +206,11 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
 
 bool  Mediator::Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob)
 {
-    if (!proto::Bbs::Decrypt(pMsg, blob->n, get_skBbs(chID)))
+    ECC::Scalar::Native sk;
+    if (!get_skBbs(sk, chID))
+        return false;
+
+    if (!proto::Bbs::Decrypt(pMsg, blob->n, sk))
 		return false;
 
 	blob->p = pMsg;
@@ -471,20 +475,17 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
     return false;
 }
 
-ECC::Scalar::Native Mediator::get_skBbs(const ChannelIDPtr& chID)
+bool Mediator::get_skBbs(ECC::Scalar::Native& sk, const ChannelIDPtr& chID)
 {
     auto& addr = chID ? m_channels[chID]->get_myAddr() : m_myInAddr;
     auto& wid = addr.m_walletID;
-    if (wid != Zero)
-    {    
-        PeerID peerID;
-        ECC::Scalar::Native sk;
-        m_pWalletDB->get_SbbsKdf()->DeriveKey(
-            sk, Key::ID(addr.m_OwnID, Key::Type::Bbs));
-        proto::Sk2Pk(peerID, sk);
-        return wid.m_Pk == peerID ? sk : Zero;        
-    }
-    return Zero;
+    if (wid == Zero)
+        return false;
+
+    PeerID peerID;
+    m_pWalletDB->get_SbbsPeerID(sk, peerID, addr.m_OwnID);
+
+    return wid.m_Pk == peerID;
 }
 
 void Mediator::OnIncoming(const ChannelIDPtr& chID,
