@@ -357,6 +357,21 @@ namespace beam::wallet
         return m_KeyKeeper;
     }
 
+    IPrivateKeyKeeper2::Ptr BaseTransaction::get_KeyKeeperStrict()
+    {
+        IPrivateKeyKeeper2::Ptr ret = m_WalletDB->get_KeyKeeper();
+        if (!ret)
+            throw TransactionFailedException(true, TxFailureReason::NoKeyKeeper);
+
+        return ret;
+    }
+
+    void BaseTransaction::TestKeyKeeperRet(IPrivateKeyKeeper2::Status::Type n)
+    {
+        if (IPrivateKeyKeeper2::Status::Success != n)
+            throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
+    }
+
     IAsyncContext& BaseTransaction::GetAsyncAcontext() const
     {
         return GetGateway();

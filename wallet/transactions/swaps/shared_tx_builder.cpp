@@ -112,8 +112,8 @@ namespace beam::wallet
         IPrivateKeyKeeper2::Method::CreateOutput m;
         m.m_hScheme = minHeight;
         m.m_Cid = outputCoin.m_ID;
-        if (m_Tx.GetWalletDB()->get_KeyKeeper()->InvokeSync(m) != IPrivateKeyKeeper2::Status::Success)
-            throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
+
+        m_Tx.TestKeyKeeperRet(m_Tx.get_KeyKeeperStrict()->InvokeSync(m));
 
         Output::Ptr output = std::make_unique<Output>();
         *output = std::move(m.m_Result);
