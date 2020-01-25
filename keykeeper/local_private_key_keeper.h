@@ -221,7 +221,7 @@ namespace beam::wallet
 
         // user interaction emulation
         virtual bool IsTrustless() { return false; }
-        virtual Status::Type ConfirmSpend(Amount, Asset::ID, const PeerID&) { return Status::Success; }
+        virtual Status::Type ConfirmSpend(Amount, Asset::ID, const PeerID&, const TxKernel&, bool bFinal) { return Status::Success; }
 
     };
 

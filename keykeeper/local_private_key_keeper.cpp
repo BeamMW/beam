@@ -560,7 +560,17 @@ namespace beam::wallet
 
     bool LocalPrivateKeyKeeper2::Aggregate(Aggregation& aggr, const Method::TxCommon& tx, bool bSending)
     {
-        if (tx.m_KernelParams.m_Height.m_Min < Rules::get().pForks[1].m_Height)
+        if (!tx.m_pKernel)
+            return false;
+        TxKernelStd& krn = *tx.m_pKernel;
+
+        if (krn.m_CanEmbed ||
+            krn.m_pHashLock ||
+            krn.m_pRelativeLock ||
+            !krn.m_vNested.empty())
+            return false; // non-trivial kernels should not be supported
+
+        if (krn.m_Height.m_Min < Rules::get().pForks[1].m_Height)
             return false; // disallow weak scheme
 
         aggr.m_AssetID = 0;
@@ -698,16 +708,18 @@ namespace beam::wallet
                 return Status::Unspecified; // should receive at least something
         }
 
+        assert(x.m_pKernel);
+        TxKernelStd& krn = *x.m_pKernel;
+
         Scalar::Native kKrn, kNonce;
 
-        // Hash *ALL* the parameters (maybe just hash-serialize the whole request)
-        Hash::Value hv;
+        // Hash *ALL* the parameters, make the context unique
+        krn.UpdateID();
+        Hash::Value& hv = krn.m_Internal.m_ID; // alias
+
         Hash::Processor()
-            << x.m_KernelParams.m_Fee
-            << x.m_KernelParams.m_Height.m_Min
-            << x.m_KernelParams.m_Height.m_Max
-            << x.m_KernelParams.m_Commitment
-            << x.m_KernelParams.m_Signature.m_NoncePub
+            << krn.m_Internal.m_ID
+            << krn.m_Signature.m_NoncePub
             << x.m_Peer
             << x.m_MyID
             << aggr.m_sk
@@ -721,34 +733,30 @@ namespace beam::wallet
         ng >> kNonce;
 
         Point::Native commitment;
-        if (!commitment.Import(x.m_KernelParams.m_Commitment))
+        if (!commitment.Import(krn.m_Commitment))
             return Status::Unspecified;
 
         Point::Native temp;
         temp = Context::get().G * kKrn; // public kernel commitment
         commitment += temp;
-        x.m_KernelParams.m_Commitment = commitment;
+        krn.m_Commitment = commitment;
 
-
-        if (!commitment.Import(x.m_KernelParams.m_Signature.m_NoncePub))
+        if (!commitment.Import(krn.m_Signature.m_NoncePub))
             return Status::Unspecified;
 
         temp = Context::get().G * kNonce;
         commitment += temp;
-        x.m_KernelParams.m_Signature.m_NoncePub = commitment;
+        krn.m_Signature.m_NoncePub = commitment;
 
-        TxKernelStd krn;
-        x.m_KernelParams.To(krn);
         krn.UpdateID();
-        const Merkle::Hash& msg = krn.m_Internal.m_ID;
 
-        x.m_KernelParams.m_Signature.SignPartial(msg, kKrn, kNonce);
+        krn.m_Signature.SignPartial(hv, kKrn, kNonce);
         UpdateOffset(x, aggr.m_sk, kKrn);
 
         if (x.m_MyID)
         {
             PaymentConfirmation pc;
-            pc.m_KernelID = krn.m_Internal.m_ID;
+            pc.m_KernelID = hv;
             pc.m_Sender = x.m_Peer;
             pc.m_Value = aggr.m_ValAsset;
             pc.m_AssetID = aggr.m_AssetID;
@@ -771,20 +779,23 @@ namespace beam::wallet
         if (!Aggregate(aggr, x, true))
             return Status::Unspecified;
 
+        assert(x.m_pKernel);
+        TxKernelStd& krn = *x.m_pKernel;
+
         if (aggr.m_AssetID)
         {
             if (!aggr.m_ValAsset)
                 return Status::Unspecified;
 
-            if (aggr.m_Val != x.m_KernelParams.m_Fee)
+            if (aggr.m_Val != krn.m_Fee)
                 return Status::Unspecified; // all beams must be consumed by the fee
         }
         else
         {
-            if (aggr.m_Val <= x.m_KernelParams.m_Fee)
+            if (aggr.m_Val <= krn.m_Fee)
                 return Status::Unspecified;
 
-            aggr.m_ValAsset = aggr.m_Val - x.m_KernelParams.m_Fee;
+            aggr.m_ValAsset = aggr.m_Val - krn.m_Fee;
         }
 
         if (x.m_nonceSlot >= get_NumSlots())
@@ -793,10 +804,10 @@ namespace beam::wallet
         Scalar::Native kNonce;
         get_Nonce(kNonce, x.m_nonceSlot);
 
-        // during negotiation kernel height can be adjusted. Commit however to other values
-        Hash::Value hv;
+        // during negotiation kernel height and commitment are adjusted. We should only commit to the Fee
+        Hash::Value& hv = krn.m_Internal.m_ID; // alias. Just reuse this variable
         Hash::Processor()
-            << x.m_KernelParams.m_Fee
+            << krn.m_Fee
             << x.m_Peer
             << x.m_MyID
             << aggr.m_sk
@@ -826,7 +837,7 @@ namespace beam::wallet
                 if (x.m_Peer == Zero)
                     return Status::UserAbort; // user should not approve anonymous payment
 
-                Status::Type res = ConfirmSpend(aggr.m_ValAsset, aggr.m_AssetID, x.m_Peer);
+                Status::Type res = ConfirmSpend(aggr.m_ValAsset, aggr.m_AssetID, x.m_Peer, krn, false);
                 if (Status::Success != res)
                     return res;
             }
@@ -834,10 +845,10 @@ namespace beam::wallet
             x.m_UserAgreement = hv;
 
             Point::Native commitment = Context::get().G * kKrn;
-            x.m_KernelParams.m_Commitment = commitment;
+            krn.m_Commitment = commitment;
 
             commitment = Context::get().G * kNonce;
-            x.m_KernelParams.m_Signature.m_NoncePub = commitment;
+            krn.m_Signature.m_NoncePub = commitment;
 
             return Status::Success;
         }
@@ -845,10 +856,7 @@ namespace beam::wallet
         if (x.m_UserAgreement != hv)
             return Status::Unspecified; // incorrect user agreement token
 
-        TxKernelStd krn;
-        x.m_KernelParams.To(krn);
         krn.UpdateID();
-        const Merkle::Hash& msg = krn.m_Internal.m_ID;
 
         if (x.m_Peer != Zero)
         {
@@ -872,12 +880,17 @@ namespace beam::wallet
                 return Status::Unspecified;
         }
 
+        // 2nd user confirmation request. Now the kernel is complete, its ID can be calculated
+        Status::Type res = ConfirmSpend(aggr.m_ValAsset, aggr.m_AssetID, x.m_Peer, krn, true);
+        if (Status::Success != res)
+            return res;
+
         Regenerate(x.m_nonceSlot);
 
-        Scalar::Native kSig = x.m_KernelParams.m_Signature.m_k;
-        x.m_KernelParams.m_Signature.SignPartial(msg, kKrn, kNonce);
-        kSig += x.m_KernelParams.m_Signature.m_k;
-        x.m_KernelParams.m_Signature.m_k = kSig;
+        Scalar::Native kSig = krn.m_Signature.m_k;
+        krn.m_Signature.SignPartial(hv, kKrn, kNonce);
+        kSig += krn.m_Signature.m_k;
+        krn.m_Signature.m_k = kSig;
 
         UpdateOffset(x, aggr.m_sk, kKrn);
 

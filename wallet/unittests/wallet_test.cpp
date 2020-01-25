@@ -2131,9 +2131,10 @@ void TestKeyKeeper()
     mS.m_Peer = r.m_ID;
     mS.m_MyID = s.m_KeyID;
     mS.m_nonceSlot = 12;
-    mS.m_KernelParams.m_Fee = 315;
-    mS.m_KernelParams.m_Height.m_Min = Rules::get().pForks[1].m_Height + 19;
-    mS.m_KernelParams.m_Height.m_Max = mS.m_KernelParams.m_Height.m_Min + 700;
+    mS.m_pKernel.reset(new TxKernelStd);
+    mS.m_pKernel->m_Fee = 315;
+    mS.m_pKernel->m_Height.m_Min = Rules::get().pForks[1].m_Height + 19;
+    mS.m_pKernel->m_Height.m_Max = mS.m_pKernel->m_Height.m_Min + 700;
     mS.m_vInputs.push_back(CoinID(515, 2342, Key::Type::Regular, 11));
     mS.m_vOutputs.push_back(CoinID(70, 2343, Key::Type::Change));
 
@@ -2144,26 +2145,25 @@ void TestKeyKeeper()
     ZeroObject(mR);
     mR.m_Peer = s.m_ID;
     mR.m_MyID = r.m_KeyID;
-    mR.m_KernelParams = mS.m_KernelParams;
+    mR.m_pKernel = std::move(mS.m_pKernel);
     mR.m_vInputs.push_back(CoinID(3, 2344, Key::Type::Regular));
     mR.m_vOutputs.push_back(CoinID(125, 2345, Key::Type::Regular));
     mR.m_vOutputs.push_back(CoinID(8, 2346, Key::Type::Regular, 6));
 
     // adjust kernel height a little
-    mR.m_KernelParams.m_Height.m_Min += 2;
-    mR.m_KernelParams.m_Height.m_Max += 3;
+    mR.m_pKernel->m_Height.m_Min += 2;
+    mR.m_pKernel->m_Height.m_Max += 3;
 
     WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == r.m_pKk->InvokeSync(mR));
 
     // 2nd sender invocation
-    mS.m_KernelParams = mR.m_KernelParams;
+    mS.m_pKernel = std::move(mR.m_pKernel);
     mS.m_kOffset = mR.m_kOffset;
     mS.m_PaymentProofSignature = mR.m_PaymentProofSignature;
 
     WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == s.m_pKk->InvokeSync(mS));
 
-    TxKernelStd::Ptr pKrn(new TxKernelStd);
-    mS.m_KernelParams.To(*pKrn);
+    TxKernelStd::Ptr pKrn = std::move(mS.m_pKernel);
     pKrn->UpdateID();
 
     Height hScheme = pKrn->m_Height.m_Min;

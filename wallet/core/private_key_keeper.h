@@ -209,17 +209,6 @@ namespace beam::wallet
                 Output::Ptr m_pResult;
             };
 
-            struct KernelCommon
-            {
-                beam::HeightRange m_Height;
-                beam::Amount m_Fee;
-                ECC::Point m_Commitment;
-                ECC::Signature m_Signature;
-
-                void To(TxKernelStd&) const;
-                void From(const TxKernelStd&);
-            };
-
             struct InOuts
             {
                 std::vector<CoinID> m_vInputs;
@@ -228,7 +217,7 @@ namespace beam::wallet
 
             struct TxCommon :public InOuts
             {
-                KernelCommon m_KernelParams;
+                TxKernelStd::Ptr m_pKernel;
                 ECC::Scalar::Native m_kOffset;
             };
 
