@@ -69,7 +69,11 @@ namespace beam::wallet
             if (pBld)
             {
                 if (IPrivateKeyKeeper2::Status::Success == n)
+                {
+                    ITransaction::Ptr pGuard(pBld->m_Tx.shared_from_this()); // extra ref on transaction object.
+                    // Otherwise it can crash in Update() -> CompleteTx(), which will remove its ptr from live tx map
                     OnSuccess(*pBld);
+                }
                 else
                     OnFailed(*pBld, n);
             }
