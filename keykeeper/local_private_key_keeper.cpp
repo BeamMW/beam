@@ -838,13 +838,11 @@ namespace beam::wallet
 
         Aggregation::Values& vals = aggr.m_Ins; // alias
 
-        if (x.m_NonConventional)
+        if (!x.m_NonConventional)
         {
             if (x.m_Peer == Zero)
                 return Status::UserAbort; // conventional transfers must always be signed
-        }
-        else
-        {
+
             if (!vals.Subtract(aggr.m_Outs))
                 return Status::Unspecified; // not sending
 
