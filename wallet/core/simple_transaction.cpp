@@ -216,15 +216,10 @@ namespace beam::wallet
                 }
             }
 
-            if (builder.CreateInputs())
-            {
+            bool bI = builder.CreateInputs();
+            bool bO = builder.CreateOutputs();
+            if (bI || bO)
                 return;
-            }
-
-            if (builder.CreateOutputs())
-            {
-                return;
-            }
 
             if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
             {

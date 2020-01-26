@@ -177,5 +177,8 @@ namespace beam::wallet
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
         io::AsyncEvent::Ptr m_AsyncCompletedEvent;
+
+        bool m_CreatingInputs = false;
+        bool m_CreatingOutputs = false;
     };
 }

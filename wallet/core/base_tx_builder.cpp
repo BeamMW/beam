@@ -230,20 +230,55 @@ namespace beam::wallet
 
     bool BaseTxBuilder::CreateOutputs()
     {
-        if (GetOutputs() || GetOutputCoins().empty())
+        if (GetOutputs() || m_OutputCoins.empty())
         {
             return false;
         }
 
-        DoAsync<IPrivateKeyKeeper::Outputs>([this](auto&& r, auto&& ex)
+        if (m_CreatingOutputs)
+            return true; // already in progress
+
+        struct MyHandler
+            :public KeyKeeperHandler
+        {
+            using KeyKeeperHandler::KeyKeeperHandler;
+
+            std::vector<IPrivateKeyKeeper2::Method::CreateOutput> m_vCalls;
+            std::vector<Output::Ptr> m_Outputs;
+
+            virtual ~MyHandler() {} // auto
+
+            virtual void OnSuccess(BaseTxBuilder& b) override
             {
-                m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins, move(r), move(ex));
-            },
-            [this](IPrivateKeyKeeper::Outputs&& resOutputs)
-            {
-                m_Outputs = std::move(resOutputs);
-                FinalizeOutputs();
-            }, __LINE__);
+                size_t iDone = m_Outputs.size();
+                assert(iDone < m_vCalls.size());
+                assert(m_vCalls[iDone].m_pResult);
+
+                m_Outputs.push_back(std::move(m_vCalls[iDone].m_pResult));
+
+                if (m_Outputs.size() == m_vCalls.size())
+                {
+                    // all done
+                    b.m_Outputs = std::move(m_Outputs);
+                    b.FinalizeOutputs();
+                    OnAllDone(b);
+                }
+            }
+        };
+
+        KeyKeeperHandler::Ptr pHandler = std::make_shared<MyHandler>(*this, m_CreatingOutputs);
+        MyHandler& x = Cast::Up<MyHandler>(*pHandler);
+
+        x.m_vCalls.resize(m_OutputCoins.size());
+        x.m_Outputs.reserve(m_OutputCoins.size());
+        for (size_t i = 0; i < m_OutputCoins.size(); i++)
+        {
+            x.m_vCalls[i].m_hScheme = m_MinHeight;
+            x.m_vCalls[i].m_Cid = m_OutputCoins[i];
+
+            m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_vCalls[i], pHandler);
+        }
+
         return true;// true if async
     }
 
@@ -262,22 +297,67 @@ namespace beam::wallet
         {
             return false;
         }
-        DoAsync<IPrivateKeyKeeper::PublicKeys>([this](auto&& r, auto&& ex)
-            {
-                m_Tx.GetKeyKeeper()->GeneratePublicKeys(m_InputCoins, true, move(r), move(ex));
-            },
-            [this](IPrivateKeyKeeper::PublicKeys&& commitments)
-            {
-                m_Inputs.reserve(commitments.size());
-                for (const auto& commitment : commitments)
-                {
-                    auto& input = m_Inputs.emplace_back(make_unique<Input>());
-                    input->m_Commitment = commitment;
-                }
-                FinalizeInputs();
-            }, __LINE__);
 
-        return true; // true if async operation has run
+        if (m_CreatingInputs)
+            return true; // already in progress
+
+        struct MyHandler
+            :public KeyKeeperHandler
+        {
+            using KeyKeeperHandler::KeyKeeperHandler;
+
+            struct CoinPars :public IPrivateKeyKeeper2::Method::get_Kdf {
+                CoinID m_Cid;
+            };
+
+            std::vector<CoinPars> m_vCalls;
+            std::vector<Input::Ptr> m_Inputs;
+
+            virtual ~MyHandler() {} // auto
+
+            virtual void OnSuccess(BaseTxBuilder& b) override
+            {
+                size_t iDone = m_Inputs.size();
+                assert(iDone < m_vCalls.size());
+                CoinPars& c = m_vCalls[iDone];
+
+                if (!c.m_pPKdf)
+                {
+                    OnFailed(b, IPrivateKeyKeeper2::Status::Unspecified); // although shouldn't happen
+                    return;
+                }
+
+                Point::Native comm;
+                CoinID::Worker(c.m_Cid).Recover(comm, *c.m_pPKdf);
+
+                m_Inputs.emplace_back();
+                m_Inputs.back().reset(new Input);
+                m_Inputs.back()->m_Commitment = comm;
+
+                if (m_Inputs.size() == m_vCalls.size())
+                {
+                    // all done
+                    b.m_Inputs = std::move(m_Inputs);
+                    b.FinalizeInputs();
+                    OnAllDone(b);
+                }
+            }
+        };
+
+        KeyKeeperHandler::Ptr pHandler = std::make_shared<MyHandler>(*this, m_CreatingInputs);
+        MyHandler& x = Cast::Up<MyHandler>(*pHandler);
+
+        x.m_vCalls.resize(m_InputCoins.size());
+        x.m_Inputs.reserve(m_InputCoins.size());
+        for (size_t i = 0; i < m_InputCoins.size(); i++)
+        {
+            MyHandler::CoinPars& c = x.m_vCalls[i];
+            c.m_Cid = m_InputCoins[i];
+            c.m_Root = !c.m_Cid.get_ChildKdfIndex(c.m_iChild);
+            m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_vCalls[i], pHandler);
+        }
+
+        return true;// true if async
     }
 
     void BaseTxBuilder::FinalizeInputs()
