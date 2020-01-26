@@ -595,64 +595,96 @@ namespace beam::wallet
 
     bool BaseTxBuilder::SignReceiver()
     {
-        try
-        {
-            if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
-            {
-                return false;
-            }
-            KernelParameters kernelParameters;
-            kernelParameters.fee = m_Fee;
-            kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
-            kernelParameters.commitment = m_PeerPublicExcess;
-            kernelParameters.publicNonce = m_PeerPublicNonce;
+        return SignReceiver(false);
+    }
 
-            uint64_t addressID = 0;
-            if (!m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, kernelParameters.peerID))
-            {
-                // old sender
-            }
-            else if (!m_Tx.GetParameter(TxParameterID::MyAddressID, addressID))
-            {
-                throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
-            }
-        
-            DoAsync<ReceiverSignature>([=](auto&& r, auto&& ex)
-                {
-                    m_Tx.GetKeyKeeper()->SignReceiver(m_InputCoins
-                        , m_OutputCoins
-                        , kernelParameters
-                        , addressID
-                        , move(r)
-                        , move(ex));
-                },
-                [=](ReceiverSignature&& signature)
-                {
-                    StoreAndLoad(TxParameterID::PartialSignature, signature.m_KernelSignature.m_k, m_PartialSignature);
-                    if (!m_PublicNonce.Import(signature.m_KernelSignature.m_NoncePub)
-                        || !m_PublicExcess.Import(signature.m_KernelCommitment))
-                    {
-                        throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
-                    }
-        
-                    m_PublicNonce -= m_PeerPublicNonce;
-                    m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
-                    m_PublicExcess -= m_PeerPublicExcess;
-                    m_Tx.SetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
-                    m_Offset = signature.m_Offset;
-                    m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
-                    if (addressID)
-                    {
-                        m_Tx.SetParameter(TxParameterID::PaymentConfirmation, signature.m_PaymentProofSignature);
-                    }
-                    StoreKernelID();
-                }, __LINE__);
+    bool BaseTxBuilder::SignSplit()
+    {
+        return SignReceiver(true);
+    }
+
+    bool BaseTxBuilder::SignReceiver(bool bFromYourself)
+    {
+        if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
+            return false;
+
+        if (m_Signing)
             return true;
-        }
-        catch (const KeyKeeperException&)
+
+        struct MyHandler
+            :public KeyKeeperHandler
         {
-            throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
+            using KeyKeeperHandler::KeyKeeperHandler;
+
+            IPrivateKeyKeeper2::Method::SignReceiver m_Method;
+
+            virtual ~MyHandler() {} // auto
+
+            virtual void OnSuccess(BaseTxBuilder& b) override
+            {
+                TxKernelStd& krn = *m_Method.m_pKernel;
+
+                b.StoreAndLoad(TxParameterID::PartialSignature, krn.m_Signature.m_k, b.m_PartialSignature);
+
+                b.m_PublicNonce.Import(krn.m_Signature.m_NoncePub);
+                b.m_PublicNonce -= b.m_PeerPublicNonce;
+                b.m_Tx.SetParameter(TxParameterID::PublicNonce, b.m_PublicNonce, b.m_SubTxID);
+
+                b.m_PublicExcess.Import(krn.m_Commitment);
+                b.m_PublicExcess -= b.m_PeerPublicExcess;
+                b.m_Tx.SetParameter(TxParameterID::PublicExcess, b.m_PublicExcess, b.m_SubTxID);
+
+                b.m_Offset = m_Method.m_kOffset;
+                b.m_Tx.SetParameter(TxParameterID::Offset, b.m_Offset, b.m_SubTxID);
+
+                if (m_Method.m_MyID)
+                    b.m_Tx.SetParameter(TxParameterID::PaymentConfirmation, m_Method.m_PaymentProofSignature);
+
+                b.StoreKernelID();
+
+                OnAllDone(b);
+            }
+        };
+
+        KeyKeeperHandler::Ptr pHandler = std::make_shared<MyHandler>(*this, m_Signing);
+        MyHandler& x = Cast::Up<MyHandler>(*pHandler);
+        IPrivateKeyKeeper2::Method::SignReceiver& m = x.m_Method;
+
+        m.m_vInputs = m_InputCoins;
+        m.m_vOutputs = m_OutputCoins;
+        m.m_pKernel.reset(new TxKernelStd);
+
+        TxKernelStd& krn = *m.m_pKernel;
+        krn.m_Fee = m_Fee;
+        krn.m_Commitment = m_PeerPublicExcess;
+        krn.m_Height = { GetMinHeight(), GetMaxHeight() };
+
+        m.m_Peer = Zero;
+        m.m_MyID = 0;
+
+        if (bFromYourself)
+        {
+            // for historical reasons split is treated as "receive" tx.
+            // However for IPrivateKeyKeeper2 it's not the same, coz in this "receive" the user actually looses the fee.
+            IPrivateKeyKeeper2::Method::TxCommon& tx = x.m_Method; // downcast
+            IPrivateKeyKeeper2::Method::SignSplit& txSplit = Cast::Up<IPrivateKeyKeeper2::Method::SignSplit>(tx);
+            static_assert(sizeof(tx) == sizeof(txSplit));
+
+            m_Tx.get_KeyKeeperStrict()->InvokeAsync(txSplit, pHandler);
         }
+        else
+        {
+            m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, m.m_Peer);
+
+            if (m.m_Peer != Zero)
+                m_Tx.GetParameter(TxParameterID::MyAddressID, m.m_MyID);
+
+            krn.m_Signature.m_NoncePub = m_PeerPublicNonce;
+
+            m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
+        }
+
+        return true;
     }
 
     void BaseTxBuilder::FinalizeSignature()

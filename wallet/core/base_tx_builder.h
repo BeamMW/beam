@@ -54,7 +54,9 @@ namespace beam::wallet
         void FinalizeInputs();
         virtual Transaction::Ptr CreateTransaction();
         bool SignSender(bool initial);
+        bool SignReceiver(bool bFromYourself);
         bool SignReceiver();
+        bool SignSplit();
         bool IsPeerSignatureValid() const;
 
         Amount GetAmount() const;
@@ -180,5 +182,6 @@ namespace beam::wallet
 
         bool m_CreatingInputs = false;
         bool m_CreatingOutputs = false;
+        bool m_Signing = false;
     };
 }
