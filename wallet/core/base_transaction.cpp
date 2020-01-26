@@ -327,6 +327,10 @@ namespace beam::wallet
         GetGateway().on_tx_completed(GetTxID());
     }
 
+    void BaseTransaction::FreeResources()
+    {
+    }
+
     void BaseTransaction::NotifyFailure(TxFailureReason reason)
     {
         TxStatus s = TxStatus::Failed;

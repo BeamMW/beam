@@ -290,6 +290,7 @@ namespace beam::wallet
         if (it != m_ActiveTransactions.end())
         {
             pGuard.swap(it->second);
+            pGuard->FreeResources();
             m_ActiveTransactions.erase(it);
         }
 

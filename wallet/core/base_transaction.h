@@ -161,6 +161,7 @@ namespace beam::wallet
         void UpdateOnNextTip();
         INegotiatorGateway& GetGateway() const;
 
+        virtual void FreeResources();
         virtual void OnFailed(TxFailureReason reason, bool notify = false);
 
     protected:
