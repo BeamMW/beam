@@ -490,7 +490,7 @@ namespace beam::wallet
         return hasInputs || hasOutputs;
     }
 
-    bool BaseTxBuilder::SignSender(bool initial)
+    bool BaseTxBuilder::SignSender(bool initial, bool bIsConventional)
     {
         if (m_Signing)
             return true;
@@ -562,31 +562,42 @@ namespace beam::wallet
         m.m_vOutputs = m_OutputCoins;
         m.m_pKernel.reset(new TxKernelStd);
         m.m_Slot = m_Tx.GetSlotSafe(true);
+        m.m_NonConventional = !bIsConventional;
 
         TxKernelStd& krn = *m.m_pKernel;
         krn.m_Fee = m_Fee;
         krn.m_Height = { GetMinHeight(), GetMaxHeight() };
 
-        if (m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, m.m_Peer) &&
-            m_Tx.GetParameter(TxParameterID::MySecureWalletID, m.m_MyID))
+        if (bIsConventional)
         {
-            // newer scheme
-            m.m_MyIDKey = m_Tx.GetMandatoryParameter<WalletIDKey>(TxParameterID::MyAddressID, m_SubTxID);
+            if (m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, m.m_Peer) &&
+                m_Tx.GetParameter(TxParameterID::MySecureWalletID, m.m_MyID))
+            {
+                // newer scheme
+                m.m_MyIDKey = m_Tx.GetMandatoryParameter<WalletIDKey>(TxParameterID::MyAddressID, m_SubTxID);
+            }
+            else
+            {
+                // legacy. Will fail for trustless key keeper.
+                m.m_MyIDKey = 0;
+
+                WalletID widMy, widPeer;
+                if (!m_Tx.GetParameter(TxParameterID::PeerID, widPeer) ||
+                    !m_Tx.GetParameter(TxParameterID::MyID, widMy))
+                {
+                    throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                }
+
+                m.m_Peer = widPeer.m_Pk;
+                m.m_MyID = widMy.m_Pk;
+            }
         }
         else
         {
-            // legacy. Will fail for trustless key keeper.
+            // probably part of lock tx. Won't pass in trustless mode
             m.m_MyIDKey = 0;
-
-            WalletID widMy, widPeer;
-            if (!m_Tx.GetParameter(TxParameterID::PeerID, widPeer) ||
-                !m_Tx.GetParameter(TxParameterID::MyID, widMy))
-            {
-                throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
-            }
-
-            m.m_Peer = widPeer.m_Pk;
-            m.m_MyID = widMy.m_Pk;
+            m.m_MyID = Zero;
+            m.m_Peer = Zero;
         }
 
         ZeroObject(m.m_PaymentProofSignature);
@@ -615,17 +626,17 @@ namespace beam::wallet
         return true;
     }
 
-    bool BaseTxBuilder::SignReceiver()
+    bool BaseTxBuilder::SignReceiver(bool bIsConventional)
     {
-        return SignReceiver(false);
+        return SignReceiverOrSplit(false, bIsConventional);
     }
 
     bool BaseTxBuilder::SignSplit()
     {
-        return SignReceiver(true);
+        return SignReceiverOrSplit(true, true);
     }
 
-    bool BaseTxBuilder::SignReceiver(bool bFromYourself)
+    bool BaseTxBuilder::SignReceiverOrSplit(bool bFromYourself, bool bIsConventional)
     {
         if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
             return false;
@@ -680,6 +691,7 @@ namespace beam::wallet
         krn.m_Fee = m_Fee;
         krn.m_Height = { GetMinHeight(), GetMaxHeight() };
 
+        m.m_NonConventional = !bIsConventional;
         m.m_Peer = Zero;
         m.m_MyIDKey = 0;
 

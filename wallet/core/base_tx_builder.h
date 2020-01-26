@@ -53,8 +53,8 @@ namespace beam::wallet
         bool CreateInputs();
         void FinalizeInputs();
         virtual Transaction::Ptr CreateTransaction();
-        bool SignSender(bool initial);
-        bool SignReceiver();
+        bool SignSender(bool initial, bool bIsConventional = true);
+        bool SignReceiver(bool bIsConventional = true);
         bool SignSplit();
         bool IsPeerSignatureValid() const;
 
@@ -133,7 +133,7 @@ namespace beam::wallet
     private:
         Amount GetMinimumFee() const;
         void CheckMinimumFee();
-        bool SignReceiverOrSplit(bool bFromYourself);
+        bool SignReceiverOrSplit(bool bFromYourself, bool bIsConventional);
 
         template<typename T1, typename T2>
         void StoreAndLoad(TxParameterID parameterID, const T1& source, T2& dest)
