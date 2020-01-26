@@ -66,6 +66,7 @@ namespace beam::wallet
     }
 
     class LockTxBuilder;
+    class SharedTxBuilder;
 
     class AtomicSwapTransaction : public BaseTransaction
     {
@@ -210,6 +211,9 @@ namespace beam::wallet
 
         Transaction::Ptr m_LockTx;
         Transaction::Ptr m_WithdrawTx;
+
+        std::shared_ptr<LockTxBuilder> m_pLockBuiler;
+        std::shared_ptr<SharedTxBuilder> m_pSharedBuiler;
 
         WrapperSecondSide m_secondSide;
     };

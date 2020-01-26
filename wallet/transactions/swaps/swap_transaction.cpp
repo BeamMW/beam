@@ -1009,7 +1009,10 @@ namespace beam::wallet
             // else receiver don't have invitation from Beam side
             return lockTxState;
         }
-        auto lockTxBuilder = std::make_shared<LockTxBuilder>(*this, GetAmount(), fee);
+
+        if (!m_pLockBuiler)
+            m_pLockBuiler = std::make_shared<LockTxBuilder>(*this, GetAmount(), fee);
+        LockTxBuilder* lockTxBuilder = m_pLockBuiler.get();
 
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
         {
@@ -1020,14 +1023,10 @@ namespace beam::wallet
             }
         }
 
-        if (lockTxBuilder->CreateInputs())
-        {
+        bool bI = lockTxBuilder->CreateInputs();
+        bool bO = (isBeamOwner && lockTxBuilder->CreateOutputs());
+        if (bI || bO)
             return lockTxState;
-        }
-        if (isBeamOwner && lockTxBuilder->CreateOutputs())
-        {
-            return lockTxState;
-        }
 
         lockTxBuilder->GenerateNonce();
         lockTxBuilder->LoadSharedParameters();
@@ -1148,7 +1147,9 @@ namespace beam::wallet
             SetParameter(TxParameterID::Amount, withdrawAmount, subTxID);
         }
 
-        auto builder = std::make_shared<SharedTxBuilder>( *this, subTxID, withdrawAmount, withdrawFee );
+        if (!m_pSharedBuiler)
+            m_pSharedBuiler = std::make_shared<SharedTxBuilder>(*this, subTxID, withdrawAmount, withdrawFee);
+        SharedTxBuilder* builder = m_pSharedBuiler.get();
 
         if (!builder->GetSharedParameters())
         {
