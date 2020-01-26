@@ -202,9 +202,9 @@ namespace beam::wallet
         ECC::Key::IKdf::Ptr m_pKdf;
 
         // make nonce generation abstract, to enable testing the code with predefined nonces
-        virtual uint32_t get_NumSlots() = 0;
-        virtual void get_Nonce(ECC::Scalar::Native&, uint32_t) = 0;
-        virtual void Regenerate(uint32_t) = 0;
+        virtual Slot::Type get_NumSlots() = 0;
+        virtual void get_Nonce(ECC::Scalar::Native&, Slot::Type) = 0;
+        virtual void Regenerate(Slot::Type) = 0;
 
         // user interaction emulation
         virtual bool IsTrustless() { return false; }
@@ -217,7 +217,7 @@ namespace beam::wallet
     {
     public:
 
-        static const uint32_t s_Slots = 64;
+        static const Slot::Type s_Slots = 64;
 
         struct State
         {
@@ -225,7 +225,7 @@ namespace beam::wallet
             ECC::Hash::Value m_hvLast;
 
             void Generate(); // must set m_hvLast before calling
-            void Regenerate(uint32_t iSlot);
+            void Regenerate(Slot::Type);
 
         } m_State;
 
@@ -233,9 +233,9 @@ namespace beam::wallet
 
     protected:
 
-        virtual uint32_t get_NumSlots() override;
-        virtual void get_Nonce(ECC::Scalar::Native&, uint32_t) override;
-        virtual void Regenerate(uint32_t) override;
+        virtual Slot::Type get_NumSlots() override;
+        virtual void get_Nonce(ECC::Scalar::Native&, Slot::Type) override;
+        virtual void Regenerate(Slot::Type) override;
 
     };
 }

@@ -840,7 +840,7 @@ namespace beam::wallet
             vals.m_Asset = vals.m_Beam - krn.m_Fee;
         }
 
-        if (x.m_nonceSlot >= get_NumSlots())
+        if (x.m_Slot >= get_NumSlots())
             return Status::Unspecified;
 
         Scalar::Native kNonce;
@@ -857,7 +857,7 @@ namespace beam::wallet
                 return false;
         }
 
-        get_Nonce(kNonce, x.m_nonceSlot);
+        get_Nonce(kNonce, x.m_Slot);
 
         // during negotiation kernel height and commitment are adjusted. We should only commit to the Fee
         Hash::Value& hv = krn.m_Internal.m_ID; // alias. Just reuse this variable
@@ -930,7 +930,7 @@ namespace beam::wallet
         if (Status::Success != res)
             return res;
 
-        Regenerate(x.m_nonceSlot);
+        Regenerate(x.m_Slot);
 
         Scalar::Native kSig = krn.m_Signature.m_k;
         krn.m_Signature.SignPartial(hv, kKrn, kNonce);
@@ -996,29 +996,29 @@ namespace beam::wallet
     // LocalPrivateKeyKeeperStd
     void LocalPrivateKeyKeeperStd::State::Generate()
     {
-        for (uint32_t i = 0; i < s_Slots; i++)
+        for (Slot::Type i = 0; i < s_Slots; i++)
             Regenerate(i);
     }
 
-    uint32_t LocalPrivateKeyKeeperStd::get_NumSlots()
+    IPrivateKeyKeeper2::Slot::Type LocalPrivateKeyKeeperStd::get_NumSlots()
     {
         return s_Slots;
     }
 
-    void LocalPrivateKeyKeeperStd::get_Nonce(ECC::Scalar::Native& ret, uint32_t iSlot)
+    void LocalPrivateKeyKeeperStd::get_Nonce(ECC::Scalar::Native& ret, Slot::Type iSlot)
     {
         assert(iSlot < s_Slots);
         m_pKdf->DeriveKey(ret, m_State.m_pSlot[iSlot]);
     }
 
-    void LocalPrivateKeyKeeperStd::State::Regenerate(uint32_t iSlot)
+    void LocalPrivateKeyKeeperStd::State::Regenerate(Slot::Type iSlot)
     {
         assert(iSlot < s_Slots);
         Hash::Processor() << m_hvLast >> m_hvLast;
         m_pSlot[iSlot] = m_hvLast;
     }
 
-    void LocalPrivateKeyKeeperStd::Regenerate(uint32_t iSlot)
+    void LocalPrivateKeyKeeperStd::Regenerate(Slot::Type iSlot)
     {
         m_State.Regenerate(iSlot);
     }

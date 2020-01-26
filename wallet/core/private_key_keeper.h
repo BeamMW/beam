@@ -167,6 +167,12 @@ namespace beam::wallet
     {
         typedef std::shared_ptr<IPrivateKeyKeeper2> Ptr;
 
+        struct Slot
+        {
+            typedef uint32_t Type;
+            static const Type Invalid = static_cast<Type>(-1);
+        };
+
         struct Status
         {
             typedef int Type;
@@ -200,7 +206,7 @@ namespace beam::wallet
             };
 
             struct get_NumSlots {
-                uint32_t m_Count;
+                Slot::Type m_Count;
             };
 
             struct CreateOutput {
@@ -233,7 +239,7 @@ namespace beam::wallet
             };
 
             struct SignSender :public TxMutual {
-                uint32_t m_nonceSlot;
+                Slot::Type m_Slot;
                 ECC::Hash::Value m_UserAgreement; // set to Zero on 1st invocation
                 PeerID m_MyID; // set in legacy mode (where it was sbbs pubkey) instead of m_MyIDKey. Otherwise it'll be set automatically.
             };

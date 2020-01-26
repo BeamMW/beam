@@ -2130,7 +2130,7 @@ void TestKeyKeeper()
     ZeroObject(mS); // not so good coz it contains vectors. nevermind, it's a test
     mS.m_Peer = r.m_ID;
     mS.m_MyIDKey = s.m_KeyID;
-    mS.m_nonceSlot = 12;
+    mS.m_Slot = 12;
     mS.m_pKernel.reset(new TxKernelStd);
     mS.m_pKernel->m_Fee = 315;
     mS.m_pKernel->m_Height.m_Min = Rules::get().pForks[1].m_Height + 19;
