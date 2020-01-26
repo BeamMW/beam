@@ -160,7 +160,6 @@ namespace beam::wallet
 
         std::vector<Coin::ID> m_InputCoins;
         std::vector<Coin::ID> m_OutputCoins;
-        size_t m_NonceSlot = 0;
         ECC::Point::Native m_PublicNonce;
         ECC::Point::Native m_PublicExcess;
 

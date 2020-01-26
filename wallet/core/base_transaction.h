@@ -161,6 +161,9 @@ namespace beam::wallet
         void UpdateOnNextTip();
         INegotiatorGateway& GetGateway() const;
 
+        IPrivateKeyKeeper2::Slot::Type GetSlotSafe(bool bAllocateIfAbsent);
+        void FreeSlotSafe();
+
         virtual void FreeResources();
         virtual void OnFailed(TxFailureReason reason, bool notify = false);
 

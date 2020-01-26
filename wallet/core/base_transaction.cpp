@@ -327,8 +327,35 @@ namespace beam::wallet
         GetGateway().on_tx_completed(GetTxID());
     }
 
+    IPrivateKeyKeeper2::Slot::Type BaseTransaction::GetSlotSafe(bool bAllocateIfAbsent)
+    {
+        IPrivateKeyKeeper2::Slot::Type iSlot = IPrivateKeyKeeper2::Slot::Invalid;
+        GetParameter(TxParameterID::NonceSlot, iSlot);
+
+        if (bAllocateIfAbsent && (IPrivateKeyKeeper2::Slot::Invalid == iSlot))
+        {
+            iSlot = m_WalletDB->SlotAllocate();
+            SetParameter(TxParameterID::NonceSlot, iSlot);
+        }
+
+        return iSlot;
+    }
+
+    void BaseTransaction::FreeSlotSafe()
+    {
+        IPrivateKeyKeeper2::Slot::Type iSlot = GetSlotSafe(false);
+        if (IPrivateKeyKeeper2::Slot::Invalid != iSlot)
+        {
+            m_WalletDB->SlotFree(iSlot);
+            SetParameter(TxParameterID::NonceSlot, IPrivateKeyKeeper2::Slot::Invalid);
+        }
+
+
+    }
+
     void BaseTransaction::FreeResources()
     {
+        FreeSlotSafe(); // if was used
     }
 
     void BaseTransaction::NotifyFailure(TxFailureReason reason)

@@ -401,19 +401,7 @@ namespace beam::wallet
 
     void BaseTxBuilder::GenerateNonce()
     {
-        // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
-        if (!m_Tx.GetParameter(TxParameterID::NonceSlot, m_NonceSlot, m_SubTxID))
-        {
-            m_NonceSlot = m_Tx.GetKeyKeeper()->AllocateNonceSlotSync();
-            m_Tx.SetParameter(TxParameterID::NonceSlot, m_NonceSlot, false, m_SubTxID);
-        }
-        
-        if (!m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID))
-        {
-            auto pt = m_Tx.GetKeyKeeper()->GenerateNonceSync(m_NonceSlot);
-            m_PublicNonce.Import(pt);
-            m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce, false, m_SubTxID);
-        }
+        m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID); // don't care if absent, it shouldn't be used before call to SignXXXX
     }
 
     Point::Native BaseTxBuilder::GetPublicExcess() const
@@ -557,6 +545,8 @@ namespace beam::wallet
                     b.m_Offset = m_Method.m_kOffset;
                     b.m_Tx.SetParameter(TxParameterID::Offset, b.m_Offset, b.m_SubTxID);
                     b.StoreKernelID();
+
+                    b.m_Tx.FreeSlotSafe(); // release it ASAP
                 }
 
                 OnAllDone(b);
@@ -571,7 +561,7 @@ namespace beam::wallet
         m.m_vInputs = m_InputCoins;
         m.m_vOutputs = m_OutputCoins;
         m.m_pKernel.reset(new TxKernelStd);
-        m.m_nonceSlot = static_cast<uint32_t>(m_NonceSlot); // TODO
+        m.m_Slot = m_Tx.GetSlotSafe(true);
 
         TxKernelStd& krn = *m.m_pKernel;
         krn.m_Fee = m_Fee;
