@@ -272,6 +272,8 @@ namespace beam::wallet
 
         Offset = 140,
 
+        UserConfirmationToken = 143,
+
         ChangeAsset = 149,
         ChangeBeam = 150,
         Status = 151,
