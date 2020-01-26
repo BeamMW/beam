@@ -236,6 +236,11 @@ namespace beam::wallet
                 uint32_t m_nonceSlot;
                 ECC::Hash::Value m_UserAgreement; // set to Zero on 1st invocation
             };
+
+            struct SignSplit :public TxCommon {
+                // send funds to yourself. in/out difference must be equal to fee
+            };
+
         };
 
 #define KEY_KEEPER_METHODS(macro) \
@@ -244,6 +249,7 @@ namespace beam::wallet
 		macro(CreateOutput) \
 		macro(SignReceiver) \
 		macro(SignSender) \
+		macro(SignSplit) \
 
 
 #define THE_MACRO(method) \

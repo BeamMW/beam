@@ -939,6 +939,56 @@ namespace beam::wallet
         return Status::Success;
     }
 
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::SignSplit& x)
+    {
+        Aggregation aggr(*this);
+        if (!aggr.Aggregate(x))
+            return Status::Unspecified;
+
+        Aggregation::Values& vals = aggr.m_Ins; // alias
+        if (!vals.Subtract(aggr.m_Outs))
+            return Status::Unspecified; // not spending
+
+        assert(x.m_pKernel);
+        TxKernelStd& krn = *x.m_pKernel;
+
+        if (vals.m_Asset || vals.m_Beam != krn.m_Fee)
+            return Status::Unspecified; // some funds are missing!
+
+        Scalar::Native kKrn, kNonce;
+
+        Hash::Value& hv = krn.m_Internal.m_ID; // alias
+
+        Hash::Processor()
+            << krn.m_Height.m_Min
+            << krn.m_Height.m_Max
+            << krn.m_Fee
+            << aggr.m_sk
+            >> hv;
+
+        NonceGenerator ng("hw-wlt-split");
+        ng << hv;
+        ng >> kKrn;
+        ng >> kNonce;
+
+        Point::Native commitment = Context::get().G * kKrn; // public kernel commitment
+        krn.m_Commitment = commitment;
+
+        commitment = Context::get().G * kNonce;
+        krn.m_Signature.m_NoncePub = commitment;
+
+        krn.UpdateID();
+
+        Status::Type res = ConfirmSpend(0, 0, Zero, krn, true);
+        if (Status::Success != res)
+            return res;
+
+        krn.m_Signature.SignPartial(hv, kKrn, kNonce);
+        UpdateOffset(x, aggr.m_sk, kKrn);
+
+        return Status::Success;
+    }
+
     /////////////////////////
     // LocalPrivateKeyKeeperStd
     void LocalPrivateKeyKeeperStd::State::Generate()
