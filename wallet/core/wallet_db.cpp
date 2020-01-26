@@ -1114,27 +1114,48 @@ namespace beam::wallet
     struct WalletDB::LocalKeyKeeper
         :public LocalPrivateKeyKeeperStd
     {
-        WalletDB* m_pOwner;
-
         using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
 
-        virtual void Regenerate(uint32_t iSlot) override
+        struct UsedSlots
         {
-            LocalPrivateKeyKeeperStd::Regenerate(iSlot);
-            SaveSlot(iSlot);
-            SaveLast();
-        }
+            static const char s_szDbName[];
 
-        void SaveSlot(uint32_t iSlot)
-        {
-            // TODO - save it!
-        }
+            IPrivateKeyKeeper2::Slot::Type m_Count;
+            ECC::Hash::Value m_hvLast;
 
-        void SaveLast()
-        {
-            // TODO
-        }
+            typedef std::map<IPrivateKeyKeeper2::Slot::Type, ECC::Hash::Value> UsedMap;
+            UsedMap m_Used;
+
+            template <typename Archive>
+            void serialize(Archive& ar)
+            {
+                ar
+                    & m_Count
+                    & m_hvLast
+                    & m_Used;
+            }
+
+            void Load(WalletDB& db)
+            {
+                ByteBuffer buf;
+                db.getBlob(s_szDbName, buf);
+
+                Deserializer der;
+                der.reset(buf);
+                der & *this;
+            }
+
+            void Save(WalletDB& db)
+            {
+                Serializer ser;
+                ser & *this;
+
+                db.setVarRaw(s_szDbName, ser.buffer().first, ser.buffer().second);
+            }
+        };
     };
+
+    const char WalletDB::LocalKeyKeeper::UsedSlots::s_szDbName[] = "KeyKeeperSlots";
 
     void WalletDB::FromMaster(const ECC::uintBig& seed)
     {
@@ -1152,7 +1173,6 @@ namespace beam::wallet
         {
             m_pKeyKeeper = std::make_shared<LocalKeyKeeper>(m_pKdfMaster);
             m_pLocalKeyKeeper = &Cast::Up<LocalKeyKeeper>(*m_pKeyKeeper);
-            m_pLocalKeyKeeper->m_pOwner = this; // weak link
         }
     }
 
@@ -1213,9 +1233,10 @@ namespace beam::wallet
             ECC::GenRandom(lkk.m_State.m_hvLast);
             lkk.m_State.Generate();
 
-            lkk.SaveLast();
-            for (uint32_t i = 0; i < lkk.s_Slots; i++)
-                lkk.SaveSlot(i);
+            LocalKeyKeeper::UsedSlots us;
+            us.m_Count = lkk.s_Slots;
+            us.m_hvLast = lkk.m_State.m_hvLast;
+            us.Save(*walletDB);
 
             walletDB->flushDB();
         }
@@ -1232,6 +1253,16 @@ namespace beam::wallet
             walletDB->FromKeyKeeper();
 
             walletDB->storeOwnerKey(); // store owner key (public)
+
+            IPrivateKeyKeeper2::Method::get_NumSlots m;
+            m.m_Count = 0;
+            if ((IPrivateKeyKeeper2::Status::Success != pKeyKeeper->InvokeSync(m)) || !m.m_Count)
+                throw std::runtime_error("key keeper no slots");
+
+            LocalKeyKeeper::UsedSlots us;
+            us.m_Count = m.m_Count;
+            us.m_hvLast = Zero;
+            us.Save(*walletDB);
 
             walletDB->flushDB();
         }
@@ -1570,12 +1601,6 @@ namespace beam::wallet
     {
         if (_db)
         {
-            if (m_pLocalKeyKeeper)
-            {
-                assert(this == m_pLocalKeyKeeper->m_pOwner);
-                m_pLocalKeyKeeper->m_pOwner = nullptr;
-            }
-
             if (m_DbTransaction)
             {
                 try
@@ -1617,6 +1642,64 @@ namespace beam::wallet
     IPrivateKeyKeeper2::Ptr WalletDB::get_KeyKeeper() const
     {
         return m_pKeyKeeper;
+    }
+
+    IPrivateKeyKeeper2::Slot::Type WalletDB::SlotAllocate()
+    {
+        IPrivateKeyKeeper2::Slot::Type iSlot = IPrivateKeyKeeper2::Slot::Invalid;
+
+        if (m_pKeyKeeper)
+        {
+            LocalKeyKeeper::UsedSlots us;
+            us.Load(*this);
+
+            assert(us.m_Used.size() <= us.m_Count);
+            if (us.m_Used.size() < us.m_Count)
+            {
+                if (us.m_Used.empty())
+                    iSlot = 0;
+                else
+                {
+                    iSlot = us.m_Used.rbegin()->first + 1;
+                    if (iSlot >= us.m_Count)
+                    {
+                        // find free from the beginning
+                        iSlot = 0;
+                        for (LocalKeyKeeper::UsedSlots::UsedMap::iterator it = us.m_Used.begin(); it->first == iSlot; it++)
+                            iSlot++;
+                    }
+                }
+
+                ECC::Hash::Value& hv = us.m_Used[iSlot];
+                if (m_pLocalKeyKeeper)
+                    hv = m_pLocalKeyKeeper->m_State.m_pSlot[iSlot];
+                else
+                    hv = Zero;
+            }
+
+            if (m_pLocalKeyKeeper)
+                us.m_hvLast = m_pLocalKeyKeeper->m_State.m_hvLast;
+            us.Save(*this);
+        }
+
+        return iSlot;
+    }
+
+    void WalletDB::SlotFree(IPrivateKeyKeeper2::Slot::Type iSlot)
+    {
+        if (m_pKeyKeeper && (IPrivateKeyKeeper2::Slot::Invalid != iSlot))
+        {
+            LocalKeyKeeper::UsedSlots us;
+            us.Load(*this);
+
+            LocalKeyKeeper::UsedSlots::UsedMap::iterator it = us.m_Used.find(iSlot);
+            if (us.m_Used.end() != it)
+                us.m_Used.erase(it);
+
+            if (m_pLocalKeyKeeper)
+                us.m_hvLast = m_pLocalKeyKeeper->m_State.m_hvLast;
+            us.Save(*this);
+        }
     }
 
     bool IWalletDB::get_CommitmentSafe(ECC::Point& comm, const CoinID& cid, IPrivateKeyKeeper2* pKeyKeeper)

@@ -293,6 +293,9 @@ namespace beam::wallet
         virtual beam::Key::IKdf::Ptr get_SbbsKdf() const = 0; // Unavailable in (3)
         virtual IPrivateKeyKeeper2::Ptr get_KeyKeeper() const = 0; // Unavailable in (3)
 
+        virtual IPrivateKeyKeeper2::Slot::Type SlotAllocate() = 0;
+        virtual void SlotFree(IPrivateKeyKeeper2::Slot::Type) = 0;
+
 		// import blockchain recovery data (all at once)
 		// should be used only upon creation on 'clean' wallet. Throws exception on error
 		void ImportRecovery(const std::string& path);
@@ -436,6 +439,9 @@ namespace beam::wallet
         virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const override;
         virtual beam::Key::IKdf::Ptr get_SbbsKdf() const override;
         virtual IPrivateKeyKeeper2::Ptr get_KeyKeeper() const override;
+
+        virtual uint32_t SlotAllocate() override;
+        virtual void SlotFree(uint32_t) override;
 
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
