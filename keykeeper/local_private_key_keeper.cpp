@@ -558,7 +558,49 @@ namespace beam::wallet
         return Status::Success;
     }
 
-    bool LocalPrivateKeyKeeper2::Aggregate(Aggregation& aggr, const Method::TxCommon& tx, bool bSending)
+    struct LocalPrivateKeyKeeper2::Aggregation
+    {
+        LocalPrivateKeyKeeper2& m_This;
+        Aggregation(LocalPrivateKeyKeeper2& v) :m_This(v) {}
+
+        ECC::Scalar::Native m_sk;
+        Asset::ID m_AssetID;
+
+        static bool Add(Amount& trg, Amount val)
+        {
+            trg += val;
+            return (trg >= val); // test for overflow
+        }
+
+        static bool Sub(Amount& trg, Amount val)
+        {
+            if (trg < val)
+                return false;
+            trg -= val;
+            return true;
+        }
+
+        struct Values
+        {
+            Amount m_Beam;
+            Amount m_Asset;
+
+            bool Subtract(const Values& v)
+            {
+                return
+                    Sub(m_Beam, v.m_Beam) &&
+                    Sub(m_Asset, v.m_Asset);
+            }
+        };
+
+        Values m_Ins;
+        Values m_Outs;
+
+        bool Aggregate(const Method::TxCommon&);
+        bool Aggregate(const std::vector<CoinID>&, bool bOuts);
+    };
+
+    bool LocalPrivateKeyKeeper2::Aggregation::Aggregate(const Method::TxCommon& tx)
     {
         if (!tx.m_pKernel)
             return false;
@@ -570,39 +612,27 @@ namespace beam::wallet
             !krn.m_vNested.empty())
             return false; // non-trivial kernels should not be supported
 
-        if (krn.m_Height.m_Min < Rules::get().pForks[1].m_Height)
+        if ((krn.m_Height.m_Min < Rules::get().pForks[1].m_Height) && m_This.IsTrustless())
             return false; // disallow weak scheme
 
-        aggr.m_AssetID = 0;
-        aggr.m_ValBig = Zero;
-        aggr.m_ValBigAsset = Zero;
+        m_AssetID = 0;
 
-        if (!Aggregate(aggr, tx.m_vInputs, false))
+        if (!Aggregate(tx.m_vInputs, false))
             return false;
 
-        aggr.m_sk = -aggr.m_sk;
-        aggr.m_ValBig.Negate();
-        aggr.m_ValBigAsset.Negate();
+        m_sk = -m_sk;
 
-        if (!Aggregate(aggr, tx.m_vOutputs, true))
+        if (!Aggregate(tx.m_vOutputs, true))
             return false;
 
-        if (bSending)
-        {
-            aggr.m_ValBig.Negate();
-            aggr.m_ValBigAsset.Negate();
-        }
-
-        if (AmountBig::get_Hi(aggr.m_ValBig) || AmountBig::get_Hi(aggr.m_ValBigAsset))
-            return false; // overflow or incorrect balance (snd/rcv)
-
-        aggr.m_Val = AmountBig::get_Lo(aggr.m_ValBig);
-        aggr.m_ValAsset = AmountBig::get_Lo(aggr.m_ValBigAsset);
         return true;
     }
 
-    bool LocalPrivateKeyKeeper2::Aggregate(Aggregation& aggr, const std::vector<CoinID>& v, bool bOuts)
+    bool LocalPrivateKeyKeeper2::Aggregation::Aggregate(const std::vector<CoinID>& v, bool bOuts)
     {
+        Values& vals = bOuts ? m_Outs : m_Ins;
+        ZeroObject(vals);
+
         Scalar::Native sk;
         for (size_t i = 0; i < v.size(); i++)
         {
@@ -614,29 +644,31 @@ namespace beam::wallet
                 if (bOuts)
                     return false; // no reason to create new weak outputs
 
-                if (IsTrustless())
+                if (m_This.IsTrustless())
                     return false;
             }
 
-            uintBigFor<Amount>::Type val = cid.m_Value;
-
+            bool bAdded = false;
             if (cid.m_AssetID)
             {
-                if (aggr.m_AssetID)
+                if (m_AssetID)
                 {
-                    if (aggr.m_AssetID != cid.m_AssetID)
-                        return false;
+                    if (m_AssetID != cid.m_AssetID)
+                        return false; // mixed assets are not allowed in a single tx
                 }
                 else
-                    aggr.m_AssetID = cid.m_AssetID;
+                    m_AssetID = cid.m_AssetID;
 
-                aggr.m_ValBigAsset += val;
+                bAdded = Add(vals.m_Asset, cid.m_Value);
             }
             else
-                aggr.m_ValBig += val;
+                bAdded = Add(vals.m_Beam, cid.m_Value);
 
-            CoinID::Worker(cid).Create(sk, *cid.get_ChildKdf(m_pKdf));
-            aggr.m_sk += sk;
+            if (!bAdded)
+                return false; // overflow
+
+            CoinID::Worker(cid).Create(sk, *cid.get_ChildKdf(m_This.m_pKdf));
+            m_sk += sk;
         }
 
         return true;
@@ -691,20 +723,25 @@ namespace beam::wallet
 
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::SignReceiver& x)
     {
-        Aggregation aggr;
-        if (!Aggregate(aggr, x, false))
+        Aggregation aggr(*this);
+        if (!aggr.Aggregate(x))
             return Status::Unspecified;
 
-        if (aggr.m_Val)
+        Aggregation::Values& vals = aggr.m_Outs; // alias
+
+        if (!vals.Subtract(aggr.m_Ins))
+            return Status::Unspecified; // not receiving
+
+        if (vals.m_Beam)
         {
             if (aggr.m_AssetID)
                 return Status::Unspecified; // can't receive both
 
-            aggr.m_ValAsset = aggr.m_Val;
+            vals.m_Asset = vals.m_Beam;
         }
         else
         {
-            if (!aggr.m_ValAsset)
+            if (!vals.m_Asset)
                 return Status::Unspecified; // should receive at least something
         }
 
@@ -723,7 +760,7 @@ namespace beam::wallet
             << x.m_Peer
             << x.m_MyID
             << aggr.m_sk
-            << aggr.m_ValAsset
+            << vals.m_Asset
             << aggr.m_AssetID
             >> hv;
 
@@ -758,7 +795,7 @@ namespace beam::wallet
             PaymentConfirmation pc;
             pc.m_KernelID = hv;
             pc.m_Sender = x.m_Peer;
-            pc.m_Value = aggr.m_ValAsset;
+            pc.m_Value = vals.m_Asset;
             pc.m_AssetID = aggr.m_AssetID;
 
             m_pKdf->DeriveKey(kKrn, Key::ID(x.m_MyID, Key::Type::WalletID));
@@ -775,27 +812,32 @@ namespace beam::wallet
 
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::SignSender& x)
     {
-        Aggregation aggr;
-        if (!Aggregate(aggr, x, true))
+        Aggregation aggr(*this);
+        if (!aggr.Aggregate(x))
             return Status::Unspecified;
 
         assert(x.m_pKernel);
         TxKernelStd& krn = *x.m_pKernel;
 
+        Aggregation::Values& vals = aggr.m_Ins; // alias
+
+        if (!vals.Subtract(aggr.m_Outs))
+            return Status::Unspecified; // not sending
+
         if (aggr.m_AssetID)
         {
-            if (!aggr.m_ValAsset)
-                return Status::Unspecified;
+            if (!vals.m_Asset)
+                return Status::Unspecified; // asset involved, but no net transfer
 
-            if (aggr.m_Val != krn.m_Fee)
+            if (vals.m_Beam != krn.m_Fee)
                 return Status::Unspecified; // all beams must be consumed by the fee
         }
         else
         {
-            if (aggr.m_Val <= krn.m_Fee)
+            if (vals.m_Beam <= krn.m_Fee)
                 return Status::Unspecified;
 
-            aggr.m_ValAsset = aggr.m_Val - krn.m_Fee;
+            vals.m_Asset = vals.m_Beam - krn.m_Fee;
         }
 
         if (x.m_nonceSlot >= get_NumSlots())
@@ -811,7 +853,7 @@ namespace beam::wallet
             << x.m_Peer
             << x.m_MyID
             << aggr.m_sk
-            << (Amount) aggr.m_ValAsset
+            << vals.m_Asset
             << aggr.m_AssetID
             << kNonce
             >> hv;
@@ -837,7 +879,7 @@ namespace beam::wallet
                 if (x.m_Peer == Zero)
                     return Status::UserAbort; // user should not approve anonymous payment
 
-                Status::Type res = ConfirmSpend(aggr.m_ValAsset, aggr.m_AssetID, x.m_Peer, krn, false);
+                Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, false);
                 if (Status::Success != res)
                     return res;
             }
@@ -862,7 +904,7 @@ namespace beam::wallet
         {
             PaymentConfirmation pc;
             pc.m_KernelID = krn.m_Internal.m_ID;
-            pc.m_Value = aggr.m_ValAsset;
+            pc.m_Value = vals.m_Asset;
             pc.m_AssetID = aggr.m_AssetID;
 
             if (x.m_MyID)
@@ -881,7 +923,7 @@ namespace beam::wallet
         }
 
         // 2nd user confirmation request. Now the kernel is complete, its ID can be calculated
-        Status::Type res = ConfirmSpend(aggr.m_ValAsset, aggr.m_AssetID, x.m_Peer, krn, true);
+        Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, true);
         if (Status::Success != res)
             return res;
 

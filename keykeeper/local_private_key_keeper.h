@@ -183,22 +183,9 @@ namespace beam::wallet
         : public PrivateKeyKeeper_AsyncNotify
     {
         static Status::Type ToImage(ECC::Point::Native& res, uint32_t iGen, const ECC::Scalar::Native& sk);
-
-        struct Aggregation
-        {
-            ECC::Scalar::Native m_sk;
-            AmountBig::Type m_ValBig;
-            AmountBig::Type m_ValBigAsset;
-            Asset::ID m_AssetID;
-
-            Amount m_Val;
-            Amount m_ValAsset;
-        };
-
-        bool Aggregate(Aggregation&, const Method::TxCommon&, bool bSending);
-        bool Aggregate(Aggregation&, const std::vector<CoinID>&, bool bOuts);
-
         static void UpdateOffset(Method::TxCommon&, const ECC::Scalar::Native& kDiff, const ECC::Scalar::Native& kKrn);
+
+        struct Aggregation;
 
     public:
 
