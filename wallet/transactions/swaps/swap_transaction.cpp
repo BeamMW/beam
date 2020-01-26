@@ -1035,7 +1035,7 @@ namespace beam::wallet
         {
             if (lockTxState == SubTxState::Initial && isBeamOwner)
             {
-                if (lockTxBuilder->SignSender(true))
+                if (lockTxBuilder->SignSender(true, false))
                     return lockTxState;
                 SendLockTxInvitation(*lockTxBuilder);
                 SetState(SubTxState::Invitation, SubTxIndex::BEAM_LOCK_TX);
@@ -1049,12 +1049,12 @@ namespace beam::wallet
 
         if (isBeamOwner)
         {
-            if (lockTxBuilder->SignSender(false))
+            if (lockTxBuilder->SignSender(false, false))
                 return lockTxState;
         }
         else
         {
-            if (lockTxBuilder->SignReceiver())
+            if (lockTxBuilder->SignReceiver(false))
                 return lockTxState;
         }
 
@@ -1147,7 +1147,7 @@ namespace beam::wallet
             SetParameter(TxParameterID::Amount, withdrawAmount, subTxID);
         }
 
-        if (!m_pSharedBuiler)
+        if (!m_pSharedBuiler || (m_pSharedBuiler->GetSubTxID() != subTxID))
             m_pSharedBuiler = std::make_shared<SharedTxBuilder>(*this, subTxID, withdrawAmount, withdrawFee);
         SharedTxBuilder* builder = m_pSharedBuiler.get();
 
@@ -1182,7 +1182,7 @@ namespace beam::wallet
         {
             if (subTxState == SubTxState::Initial && isTxOwner)
             {
-                if (builder->SignSender(true))
+                if (builder->SignSender(true, false))
                     return subTxState;
                 SendSharedTxInvitation(*builder);
                 SetState(SubTxState::Invitation, subTxID);
@@ -1196,7 +1196,7 @@ namespace beam::wallet
         {
             if (subTxState == SubTxState::Initial && !isTxOwner)
             {
-                if (builder->SignReceiver())
+                if (builder->SignReceiver(false))
                     return subTxState;
                 // invited participant
                 ConfirmSharedTxInvitation(*builder);
@@ -1210,7 +1210,7 @@ namespace beam::wallet
             return subTxState;
         }
 
-        if (builder->SignSender(false))
+        if (builder->SignSender(false, false))
             return subTxState;
 
         if (subTxID == SubTxIndex::BEAM_REDEEM_TX)
@@ -1578,7 +1578,7 @@ namespace beam::wallet
         builder.GetPeerPublicExcessAndNonce();
         builder.GenerateNonce();
         builder.CreateKernel();
-        if (builder.SignSender(false))
+        if (builder.SignSender(false, false))
             return;
 
         Scalar::Native peerSignature = GetMandatoryParameter<Scalar::Native>(TxParameterID::PeerSignature, subTxID);
