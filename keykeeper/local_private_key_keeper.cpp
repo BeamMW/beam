@@ -565,6 +565,7 @@ namespace beam::wallet
 
         ECC::Scalar::Native m_sk;
         Asset::ID m_AssetID;
+        bool m_NonConventional;
 
         static bool Add(Amount& trg, Amount val)
         {
@@ -606,14 +607,23 @@ namespace beam::wallet
             return false;
         TxKernelStd& krn = *tx.m_pKernel;
 
-        if (krn.m_CanEmbed ||
-            krn.m_pHashLock ||
-            krn.m_pRelativeLock ||
-            !krn.m_vNested.empty())
-            return false; // non-trivial kernels should not be supported
+        m_NonConventional = tx.m_NonConventional;
+        if (m_NonConventional)
+        {
+            if (m_This.IsTrustless())
+                return false;
+        }
+        else
+        {
+            if (krn.m_CanEmbed ||
+                krn.m_pHashLock ||
+                krn.m_pRelativeLock ||
+                !krn.m_vNested.empty())
+                return false; // non-trivial kernels should not be supported
 
-        if ((krn.m_Height.m_Min < Rules::get().pForks[1].m_Height) && m_This.IsTrustless())
-            return false; // disallow weak scheme
+            if ((krn.m_Height.m_Min < Rules::get().pForks[1].m_Height) && m_This.IsTrustless())
+                return false; // disallow weak scheme
+        }
 
         m_AssetID = 0;
 
@@ -637,6 +647,12 @@ namespace beam::wallet
         for (size_t i = 0; i < v.size(); i++)
         {
             const CoinID& cid = v[i];
+
+            CoinID::Worker(cid).Create(sk, *cid.get_ChildKdf(m_This.m_pKdf));
+            m_sk += sk;
+
+            if (m_NonConventional)
+                continue; // ignore values
 
             if (cid.get_Scheme() < Key::IDV::Scheme::V1)
             {
@@ -666,9 +682,6 @@ namespace beam::wallet
 
             if (!bAdded)
                 return false; // overflow
-
-            CoinID::Worker(cid).Create(sk, *cid.get_ChildKdf(m_This.m_pKdf));
-            m_sk += sk;
         }
 
         return true;
@@ -729,20 +742,23 @@ namespace beam::wallet
 
         Aggregation::Values& vals = aggr.m_Outs; // alias
 
-        if (!vals.Subtract(aggr.m_Ins))
-            return Status::Unspecified; // not receiving
-
-        if (vals.m_Beam)
+        if (!x.m_NonConventional)
         {
-            if (aggr.m_AssetID)
-                return Status::Unspecified; // can't receive both
+            if (!vals.Subtract(aggr.m_Ins))
+                return Status::Unspecified; // not receiving
 
-            vals.m_Asset = vals.m_Beam;
-        }
-        else
-        {
-            if (!vals.m_Asset)
-                return Status::Unspecified; // should receive at least something
+            if (vals.m_Beam)
+            {
+                if (aggr.m_AssetID)
+                    return Status::Unspecified; // can't receive both
+
+                vals.m_Asset = vals.m_Beam;
+            }
+            else
+            {
+                if (!vals.m_Asset)
+                    return Status::Unspecified; // should receive at least something
+            }
         }
 
         assert(x.m_pKernel);
@@ -757,6 +773,7 @@ namespace beam::wallet
         Hash::Processor()
             << krn.m_Internal.m_ID
             << krn.m_Signature.m_NoncePub
+            << x.m_NonConventional
             << x.m_Peer
             << x.m_MyIDKey
             << aggr.m_sk
@@ -790,7 +807,7 @@ namespace beam::wallet
         krn.m_Signature.SignPartial(hv, kKrn, kNonce);
         UpdateOffset(x, aggr.m_sk, kKrn);
 
-        if (x.m_MyIDKey)
+        if (x.m_MyIDKey && !x.m_NonConventional)
         {
             PaymentConfirmation pc;
             pc.m_KernelID = hv;
@@ -821,23 +838,31 @@ namespace beam::wallet
 
         Aggregation::Values& vals = aggr.m_Ins; // alias
 
-        if (!vals.Subtract(aggr.m_Outs))
-            return Status::Unspecified; // not sending
-
-        if (aggr.m_AssetID)
+        if (x.m_NonConventional)
         {
-            if (!vals.m_Asset)
-                return Status::Unspecified; // asset involved, but no net transfer
-
-            if (vals.m_Beam != krn.m_Fee)
-                return Status::Unspecified; // all beams must be consumed by the fee
+            if (x.m_Peer == Zero)
+                return Status::UserAbort; // conventional transfers must always be signed
         }
         else
         {
-            if (vals.m_Beam <= krn.m_Fee)
-                return Status::Unspecified;
+            if (!vals.Subtract(aggr.m_Outs))
+                return Status::Unspecified; // not sending
 
-            vals.m_Asset = vals.m_Beam - krn.m_Fee;
+            if (aggr.m_AssetID)
+            {
+                if (!vals.m_Asset)
+                    return Status::Unspecified; // asset involved, but no net transfer
+
+                if (vals.m_Beam != krn.m_Fee)
+                    return Status::Unspecified; // all beams must be consumed by the fee
+            }
+            else
+            {
+                if (vals.m_Beam <= krn.m_Fee)
+                    return Status::Unspecified;
+
+                vals.m_Asset = vals.m_Beam - krn.m_Fee;
+            }
         }
 
         if (x.m_Slot >= get_NumSlots())
@@ -865,6 +890,7 @@ namespace beam::wallet
             << krn.m_Fee
             << x.m_Peer
             << x.m_MyID
+            << x.m_NonConventional
             << aggr.m_sk
             << vals.m_Asset
             << aggr.m_AssetID
@@ -889,9 +915,6 @@ namespace beam::wallet
         {
             if (IsTrustless())
             {
-                if (x.m_Peer == Zero)
-                    return Status::UserAbort; // user should not approve anonymous payment
-
                 Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, false);
                 if (Status::Success != res)
                     return res;
@@ -913,7 +936,7 @@ namespace beam::wallet
 
         krn.UpdateID();
 
-        if (x.m_Peer != Zero)
+        if ((x.m_Peer != Zero) && !x.m_NonConventional)
         {
             PaymentConfirmation pc;
             pc.m_KernelID = krn.m_Internal.m_ID;
@@ -925,10 +948,13 @@ namespace beam::wallet
                 return Status::Unspecified;
         }
 
-        // 2nd user confirmation request. Now the kernel is complete, its ID can be calculated
-        Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, true);
-        if (Status::Success != res)
-            return res;
+        if (IsTrustless())
+        {
+            // 2nd user confirmation request. Now the kernel is complete, its ID can be calculated
+            Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, true);
+            if (Status::Success != res)
+                return res;
+        }
 
         Regenerate(x.m_Slot);
 

@@ -225,6 +225,9 @@ namespace beam::wallet
             {
                 TxKernelStd::Ptr m_pKernel;
                 ECC::Scalar::Native m_kOffset;
+
+                bool m_NonConventional = false; // trusted mode only. Needed for synthetic txs, such as multisig, lock, swap and etc.
+                // Balance doesn't have to match send/receive semantics, payment confirmation is neither generated nor verified
             };
 
             struct TxMutual :public TxCommon
