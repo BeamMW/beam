@@ -637,7 +637,7 @@ namespace beam::wallet
                 b.m_Offset = m_Method.m_kOffset;
                 b.m_Tx.SetParameter(TxParameterID::Offset, b.m_Offset, b.m_SubTxID);
 
-                if (m_Method.m_MyID)
+                if (m_Method.m_MyIDKey)
                     b.m_Tx.SetParameter(TxParameterID::PaymentConfirmation, m_Method.m_PaymentProofSignature);
 
                 b.StoreKernelID();
@@ -656,11 +656,10 @@ namespace beam::wallet
 
         TxKernelStd& krn = *m.m_pKernel;
         krn.m_Fee = m_Fee;
-        krn.m_Commitment = m_PeerPublicExcess;
         krn.m_Height = { GetMinHeight(), GetMaxHeight() };
 
         m.m_Peer = Zero;
-        m.m_MyID = 0;
+        m.m_MyIDKey = 0;
 
         if (bFromYourself)
         {
@@ -677,8 +676,9 @@ namespace beam::wallet
             m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, m.m_Peer);
 
             if (m.m_Peer != Zero)
-                m_Tx.GetParameter(TxParameterID::MyAddressID, m.m_MyID);
+                m_Tx.GetParameter(TxParameterID::MyAddressID, m.m_MyIDKey);
 
+            krn.m_Commitment = m_PeerPublicExcess;
             krn.m_Signature.m_NoncePub = m_PeerPublicNonce;
 
             m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);

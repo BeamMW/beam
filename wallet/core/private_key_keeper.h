@@ -225,7 +225,7 @@ namespace beam::wallet
             {
                 // for mutually-constructed kernel
                 PeerID m_Peer;
-                WalletIDKey m_MyID;
+                WalletIDKey m_MyIDKey; // Must set for trustless wallet
                 ECC::Signature m_PaymentProofSignature;
             };
 
@@ -235,6 +235,7 @@ namespace beam::wallet
             struct SignSender :public TxMutual {
                 uint32_t m_nonceSlot;
                 ECC::Hash::Value m_UserAgreement; // set to Zero on 1st invocation
+                PeerID m_MyID; // set in legacy mode (where it was sbbs pubkey) instead of m_MyIDKey. Otherwise it'll be set automatically.
             };
 
             struct SignSplit :public TxCommon {

@@ -758,7 +758,7 @@ namespace beam::wallet
             << krn.m_Internal.m_ID
             << krn.m_Signature.m_NoncePub
             << x.m_Peer
-            << x.m_MyID
+            << x.m_MyIDKey
             << aggr.m_sk
             << vals.m_Asset
             << aggr.m_AssetID
@@ -790,7 +790,7 @@ namespace beam::wallet
         krn.m_Signature.SignPartial(hv, kKrn, kNonce);
         UpdateOffset(x, aggr.m_sk, kKrn);
 
-        if (x.m_MyID)
+        if (x.m_MyIDKey)
         {
             PaymentConfirmation pc;
             pc.m_KernelID = hv;
@@ -798,7 +798,7 @@ namespace beam::wallet
             pc.m_Value = vals.m_Asset;
             pc.m_AssetID = aggr.m_AssetID;
 
-            m_pKdf->DeriveKey(kKrn, Key::ID(x.m_MyID, Key::Type::WalletID));
+            m_pKdf->DeriveKey(kKrn, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
 
             PeerID wid;
             beam::proto::Sk2Pk(wid, kKrn);
@@ -844,6 +844,19 @@ namespace beam::wallet
             return Status::Unspecified;
 
         Scalar::Native kNonce;
+
+        if (x.m_MyIDKey)
+        {
+            m_pKdf->DeriveKey(kNonce, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
+            beam::proto::Sk2Pk(x.m_MyID, kNonce);
+        }
+        else
+        {
+            // legacy. We need to verify the payment proof vs externally-specified our ID (usually SBBS address)
+            if (IsTrustless())
+                return false;
+        }
+
         get_Nonce(kNonce, x.m_nonceSlot);
 
         // during negotiation kernel height and commitment are adjusted. We should only commit to the Fee
@@ -906,17 +919,7 @@ namespace beam::wallet
             pc.m_KernelID = krn.m_Internal.m_ID;
             pc.m_Value = vals.m_Asset;
             pc.m_AssetID = aggr.m_AssetID;
-
-            if (x.m_MyID)
-            {
-                Scalar::Native skId;
-                m_pKdf->DeriveKey(skId, Key::ID(x.m_MyID, Key::Type::WalletID));
-
-                beam::proto::Sk2Pk(pc.m_Sender, skId);
-            }
-            else
-                pc.m_Sender = Zero;
-
+            pc.m_Sender = x.m_MyID;
             pc.m_Signature = x.m_PaymentProofSignature;
             if (!pc.IsValid(x.m_Peer))
                 return Status::Unspecified;

@@ -2129,7 +2129,7 @@ void TestKeyKeeper()
     IPrivateKeyKeeper2::Method::SignSender mS;
     ZeroObject(mS); // not so good coz it contains vectors. nevermind, it's a test
     mS.m_Peer = r.m_ID;
-    mS.m_MyID = s.m_KeyID;
+    mS.m_MyIDKey = s.m_KeyID;
     mS.m_nonceSlot = 12;
     mS.m_pKernel.reset(new TxKernelStd);
     mS.m_pKernel->m_Fee = 315;
@@ -2144,7 +2144,7 @@ void TestKeyKeeper()
     IPrivateKeyKeeper2::Method::SignReceiver mR;
     ZeroObject(mR);
     mR.m_Peer = s.m_ID;
-    mR.m_MyID = r.m_KeyID;
+    mR.m_MyIDKey = r.m_KeyID;
     mR.m_pKernel = std::move(mS.m_pKernel);
     mR.m_vInputs.push_back(CoinID(3, 2344, Key::Type::Regular));
     mR.m_vOutputs.push_back(CoinID(125, 2345, Key::Type::Regular));
