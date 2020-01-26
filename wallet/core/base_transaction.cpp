@@ -397,6 +397,15 @@ namespace beam::wallet
         return ret;
     }
 
+    Key::IKdf::Ptr BaseTransaction::get_MasterKdfStrict()
+    {
+        Key::IKdf::Ptr ret = m_WalletDB->get_MasterKdf();
+        if (!ret)
+            throw TransactionFailedException(true, TxFailureReason::NoMasterKey);
+
+        return ret;
+    }
+
     void BaseTransaction::TestKeyKeeperRet(IPrivateKeyKeeper2::Status::Type n)
     {
         if (IPrivateKeyKeeper2::Status::Success != n)
