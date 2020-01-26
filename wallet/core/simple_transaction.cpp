@@ -286,7 +286,7 @@ namespace beam::wallet
             }
             else
             {
-                if (builder.SignReceiver(isSelfTx))
+                if (builder.SignSplit())
                     return;
             }
 
