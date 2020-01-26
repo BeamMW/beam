@@ -170,7 +170,7 @@ namespace beam::wallet
         struct Slot
         {
             typedef uint32_t Type;
-            static const Type Invalid = static_cast<Type>(-1);
+            static const Type Invalid;
         };
 
         struct Status

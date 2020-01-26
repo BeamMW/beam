@@ -93,6 +93,8 @@ namespace beam::wallet
 		m_Root = !cid.get_ChildKdfIndex(m_iChild);
 	}
 
+	const IPrivateKeyKeeper2::Slot::Type IPrivateKeyKeeper2::Slot::Invalid = static_cast<Type>(-1);
+
 	////////////////////////////////
 	// PrivateKeyKeeper_AsyncNotify
 	void PrivateKeyKeeper_AsyncNotify::TaskList::Pop(Task::Ptr& p)
