@@ -1138,11 +1138,12 @@ namespace beam::wallet
             void Load(WalletDB& db)
             {
                 ByteBuffer buf;
-                db.getBlob(s_szDbName, buf);
-
-                Deserializer der;
-                der.reset(buf);
-                der & *this;
+                if (db.getBlob(s_szDbName, buf))
+                {
+                    Deserializer der;
+                    der.reset(buf);
+                    der & *this;
+                }
             }
 
             void Save(WalletDB& db)

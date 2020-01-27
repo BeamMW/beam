@@ -1093,6 +1093,19 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
+        if (auto peerID = parameters.GetParameter(TxParameterID::PeerSecureWalletID); peerID)
+        {
+            auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
+            if (myID)
+            {
+                auto address = m_WalletDB->getAddress(*myID);
+                if (address)
+                {
+                    completedParameters.SetParameter(TxParameterID::MySecureWalletID, address->m_Identity);
+                }
+            }
+        }
+
         auto newTx = it->second->Create(*this, m_WalletDB, *parameters.GetTxID());
         ApplyTransactionParameters(newTx, completedParameters.Pack(), true);
         return newTx;

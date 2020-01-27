@@ -1014,16 +1014,42 @@ namespace
         return true;
     }
 
+    bool LoadReceiverParams(const po::variables_map& vm, TxParameters& receiverParams)
+    {
+        if (vm.count(cli::RECEIVER_ADDR) == 0)
+        {
+            LOG_ERROR() << kErrorReceiverAddrMissing;
+            return false;
+        }
+        auto receverAddrOrToken = vm[cli::RECEIVER_ADDR].as<string>();
+        auto params = ParseParameters(receverAddrOrToken);
+        if (!params)
+        {
+            LOG_ERROR() << kErrorReceiverAddrMissing;
+            return false;
+        }
+
+        if (auto peerID = params->GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); peerID)
+        {
+            receiverParams.SetParameter(beam::wallet::TxParameterID::PeerID, *peerID);
+        }
+        if (auto peerID = params->GetParameter<PeerID>(beam::wallet::TxParameterID::PeerSecureWalletID); peerID)
+        {
+            receiverParams.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *peerID);
+        }
+        return true;
+    }
+
     bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
     {
         if (!skipReceiverWalletID)
         {
-            if (vm.count(cli::RECEIVER_ADDR) == 0)
+            TxParameters params;
+            if (!LoadReceiverParams(vm, params))
             {
-                LOG_ERROR() << kErrorReceiverAddrMissing;
                 return false;
             }
-            receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
+            receiverWalletID = *params.GetParameter<WalletID>(TxParameterID::PeerID);
         }
 
         if (vm.count(cli::AMOUNT) == 0)
@@ -2261,7 +2287,6 @@ int main_impl(int argc, char* argv[])
                     }
 #endif  // BEAM_LASER_SUPPORT
 
-                    /// HERE!!
                     io::Address receiverAddr;
                     Asset::ID assetId = 0;
                     Amount amount = 0;
@@ -2357,13 +2382,14 @@ int main_impl(int argc, char* argv[])
                         if (isTxInitiator)
                         {
                             WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-                            currentTxID = wallet.StartTransaction(CreateSimpleTransactionParameters()
-                                .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
-                                .SetParameter(TxParameterID::PeerID, receiverWalletID)
-                                .SetParameter(TxParameterID::Amount, amount)
-                                .SetParameter(TxParameterID::Fee, fee)
-                                .SetParameter(TxParameterID::AssetID, assetId)
-                                .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm)));
+                            auto params = CreateSimpleTransactionParameters();
+                            LoadReceiverParams(vm, params);
+                            params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
+                                  .SetParameter(TxParameterID::Amount, amount)
+                                  .SetParameter(TxParameterID::Fee, fee)
+                                  .SetParameter(TxParameterID::AssetID, assetId)
+                                  .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
+                            currentTxID = wallet.StartTransaction(params);
                         }
 
                         bool deleteTx = (command == cli::DELETE_TX);
