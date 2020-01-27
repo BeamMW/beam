@@ -662,6 +662,15 @@ namespace
         if (vm.count(cli::TX_HISTORY))
         {
             auto txHistory = walletDB->getTxHistory();
+
+            if (vm.count(cli::SHIELDED_TX_HISTORY))
+            {
+                auto pushTxHistory = walletDB->getTxHistory(TxType::PushTransaction);
+                auto pullTxHistory = walletDB->getTxHistory(TxType::PullTransaction);
+                txHistory.insert(txHistory.end(), pushTxHistory.begin(), pushTxHistory.end());
+                txHistory.insert(txHistory.end(), pullTxHistory.begin(), pullTxHistory.end());
+            }
+
             txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [](const auto& tx) {
                 return tx.m_assetId != 0;
             }), txHistory.end());
@@ -2764,6 +2773,7 @@ int main_impl(int argc, char* argv[])
 
                             currentTxID = wallet.StartTransaction(TxParameters(GenerateTxID())
                                 .SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
+                                .SetParameter(TxParameterID::IsSender, true)
                                 .SetParameter(TxParameterID::Amount, amount)
                                 .SetParameter(TxParameterID::Fee, fee)
                                 // TODO check this param 
@@ -2787,6 +2797,7 @@ int main_impl(int argc, char* argv[])
 
                             currentTxID = wallet.StartTransaction(TxParameters(GenerateTxID())
                                 .SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
+                                .SetParameter(TxParameterID::IsSender, false)
                                 // TODO check this param
                                 .SetParameter(TxParameterID::Amount, amount)
                                 .SetParameter(TxParameterID::Fee, fee)

@@ -287,6 +287,7 @@ namespace beam
         const char* SHIELDED_UTXOS = "shielded_utxos";
         const char* SHIELDED_ID = "shielded_id";
         const char* WINDOW_BEGIN = "window_begin";
+        const char* SHIELDED_TX_HISTORY = "shielded_tx_history";
 
         // Defaults
         const Amount kMinimumFee = 100;
@@ -461,7 +462,8 @@ namespace beam
         lelantus_options.add_options()
             (cli::SHIELDED_UTXOS, "show shielded utxo in pool")
             (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded utxo id")
-            (cli::WINDOW_BEGIN, po::value<Nonnegative<TxoID>>(), "window begin");
+            (cli::WINDOW_BEGIN, po::value<Nonnegative<TxoID>>(), "window begin")
+            (cli::SHIELDED_TX_HISTORY, "show lelantus tx history");
 
         for (auto opt : lelantus_options.options())
         {

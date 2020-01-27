@@ -101,6 +101,7 @@ void TestSimpleTx()
             wallet::TxParameters parameters(GenerateTxID());
 
             parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
+                .SetParameter(TxParameterID::IsSender, true)
                 .SetParameter(TxParameterID::Amount, 3800)
                 .SetParameter(TxParameterID::Fee, 1200)
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
@@ -115,6 +116,7 @@ void TestSimpleTx()
             wallet::TxParameters parameters(GenerateTxID());
 
             parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
+                .SetParameter(TxParameterID::IsSender, true)
                 .SetParameter(TxParameterID::Amount, 7800)
                 .SetParameter(TxParameterID::Fee, 1200)
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
@@ -129,6 +131,7 @@ void TestSimpleTx()
             wallet::TxParameters parameters(GenerateTxID());
 
             parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
+                .SetParameter(TxParameterID::IsSender, false)
                 .SetParameter(TxParameterID::Amount, 6600)
                 .SetParameter(TxParameterID::Fee, 1200)
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
@@ -145,6 +148,7 @@ void TestSimpleTx()
             wallet::TxParameters parameters(GenerateTxID());
 
             parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
+                .SetParameter(TxParameterID::IsSender, false)
                 .SetParameter(TxParameterID::Amount, 2600)
                 .SetParameter(TxParameterID::Fee, 1200)
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
