@@ -178,7 +178,7 @@ void TestManyTransactons()
     io::Reactor::Scope scope(*mainReactor);
 
     //int completedCount = 2;
-    auto completeAction = [&mainReactor/*, &completedCount*/](auto)
+    auto completeAction = [/*&mainReactor, &completedCount*/](auto)
     {
         /*--completedCount;
         if (completedCount == 0)
