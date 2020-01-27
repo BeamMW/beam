@@ -43,20 +43,6 @@ Rectangle {
         modal: true
     }
 
-    ConfirmationDialog {
-        id:                     updateAvailableNotification
-        //% "New update available   "
-        title: qsTrId("swap-beta-title")
-        //% "open web-site"
-        okButtonText:           qsTrId("swap-alert-confirm-button")
-        okButtonIconSource:     "qrc:/assets/icon-done.svg"
-        //% "cancel"
-        cancelButtonText:       qsTrId("atomic-swap-no-button")
-        cancelButtonIconSource: "qrc:/assets/icon-cancel-16.svg"
-        width: 470
-        // text:                   qsTrId("swap-beta-message")
-    }
-
     function onClosing (close) {
         if (viewModel.unsafeTxCount > 0) {
             close.accepted = false;
@@ -345,10 +331,12 @@ Rectangle {
 
         }
 
-        onShowUpdateNotification: function(messageString) {
-            console.log("News messageString: " + messageString);
-            updateAvailableNotification.text = messageString;
-            updateAvailableNotification.open();
+        onShowUpdateNotification: function(version) {
+            console.log("News received. Message: " + version);
+            var dialog = Qt.createComponent("controls/UpdateNotificationPopup.qml").createObject(main);
+            dialog.externalUrl = "https://www.beam.mw/downloads";
+            dialog.version = version;
+            dialog.open();
         }
     }
 

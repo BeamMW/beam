@@ -207,6 +207,7 @@
         <file>assets/atomic-empty-state.svg</file>
         <file>assets/icon-trusted-node-status.svg</file>
         <file>controls/OpenExternalLinkConfirmation.qml</file>
+        <file>controls/UpdateNotificationPopup.qml</file>
         <file>controls/SeedInput.qml</file>
         <file>utils.js</file>
         <file>qmldir</file>
