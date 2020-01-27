@@ -380,7 +380,11 @@ bool Mediator::GracefulClose(const std::string& channelID)
 
             if (tip.m_Height <= channel->get_LockHeight())
             {
-                channel->Transfer(0, true);
+                if (channel->Transfer(0, true))
+                    for (auto observer : m_observers)
+                    {
+                        observer->OnClosed(p_channelID);
+                    }
             }
             else
             {
@@ -393,7 +397,11 @@ bool Mediator::GracefulClose(const std::string& channelID)
         {
         if (tip.m_Height <= channel->get_LockHeight())
         {
-            channel->Transfer(0, true);
+            if (channel->Transfer(0, true))
+                for (auto observer : m_observers)
+                {
+                    observer->OnClosed(p_channelID);
+                }
         }
         else
         {
@@ -648,6 +656,7 @@ void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
     
     for (auto observer : m_observers)
     {
+        observer->OnTransferFailed(chID);
         observer->OnUpdateFinished(chID);
     }
 }
@@ -716,7 +725,7 @@ ChannelIDPtr Mediator::RestoreChannel(const std::string& channelID)
         if (isConnected)
         {
             p_channelID = it.first;
-            LOG_INFO() << "Channel " << channelID << " already connected";
+            LOG_DEBUG() << "Channel " << channelID << " already connected";
             break;
         }
     }
@@ -807,7 +816,8 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
         channel->UpdateRestorePoint();
         m_pWalletDB->saveLaserChannel(*channel);
         
-        if (state == Lightning::Channel::State::Open)
+        if (lastState != Lightning::Channel::State::Updating &&
+            state == Lightning::Channel::State::Open)
         {
             for (auto observer : m_observers)
             {

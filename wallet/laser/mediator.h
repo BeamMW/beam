@@ -42,6 +42,7 @@ public:
         virtual void OnCloseFailed(const ChannelIDPtr& chID) {};
         virtual void OnUpdateStarted(const ChannelIDPtr& chID) {}; 
         virtual void OnUpdateFinished(const ChannelIDPtr& chID) {};
+        virtual void OnTransferFailed(const ChannelIDPtr& chID) {};
     protected:
         friend class Mediator;
         Mediator* m_observable;

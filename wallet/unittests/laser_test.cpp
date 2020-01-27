@@ -36,15 +36,17 @@ using namespace std;
 
 namespace {
 
+const Height kMaxTestHeight = 254;
+
 struct LaserObserver : public laser::Mediator::Observer
 {
     using Action = std::function<void(const laser::ChannelIDPtr& chID)>;
     Action onOpened = Action();
     Action onOpenFailed = Action();
     Action onClosed = Action();
-    Action onUpdateStarted = Action();
     Action onUpdateFinished = Action();
     Action onCloseFailed = Action();
+    Action onTransferFailed = Action();
     void OnOpened(const laser::ChannelIDPtr& chID) override
     {
         onOpened(chID);
@@ -61,13 +63,13 @@ struct LaserObserver : public laser::Mediator::Observer
     {
         onCloseFailed(chID);
     }
-    void OnUpdateStarted(const laser::ChannelIDPtr& chID) override
-    {
-        onUpdateStarted(chID);
-    } 
     void OnUpdateFinished(const laser::ChannelIDPtr& chID) override
     {
         onUpdateFinished(chID);
+    }
+    void OnTransferFailed(const laser::ChannelIDPtr& chID) override
+    {
+        onTransferFailed(chID);
     }
 } observer_1, observer_2;
 
@@ -88,8 +90,8 @@ void ResetObservers()
     observer_1.onOpenFailed = observer_2.onOpenFailed = LaserObserver::Action();
     observer_1.onClosed = observer_2.onClosed = LaserObserver::Action();
     observer_1.onCloseFailed = observer_2.onCloseFailed = LaserObserver::Action();
-    observer_1.onUpdateStarted = observer_2.onUpdateStarted = LaserObserver::Action();
     observer_1.onUpdateFinished = observer_2.onUpdateFinished = LaserObserver::Action();
+    observer_1.onTransferFailed = observer_2.onTransferFailed = LaserObserver::Action();
 }
 
 }  // namespace
@@ -116,12 +118,12 @@ int main()
     const AmountList amounts = {100000000, 100000000, 100000000, 100000000};
     for (auto amount : amounts)
     {
-        Coin coin = CreateAvailCoin(amount, 7);
+        Coin coin = CreateAvailCoin(amount, 3);
         wdbFirst->storeCoin(coin);
     }
     for (auto amount : amounts)
     {
-        Coin coin = CreateAvailCoin(amount, 10);
+        Coin coin = CreateAvailCoin(amount, 7);
         wdbSecond->storeCoin(coin);
     }
 
@@ -137,11 +139,82 @@ int main()
     struct CheckResults {
         storage::Totals::AssetTotals totals_1, totals_1_a, totals_2, totals_2_a;
         laser::ChannelIDPtr channel_1 = nullptr, channel_2 = nullptr;
-        bool test3Success = false;
+        struct Test1 {
+            Height height = kMaxTestHeight;
+            bool firstFailed = false;
+            bool secondFailed = false;
+        } test1;
+        struct Test2 {
+            Height height = kMaxTestHeight;
+            bool secondFailed = false;
+        } test2;
+        struct Test3 {
+            Height height = kMaxTestHeight;
+        } test3;
+        struct Test4 {
+            Height height = kMaxTestHeight;
+        } test4;
+        struct Test5 {
+            Height height = kMaxTestHeight;
+            bool firstSendSuccess = false;
+            bool secondReceiveSuccess = false;
+        } test5;
+        struct Test6 {
+            Height height = kMaxTestHeight;
+            bool secondSendSuccess = false;
+            bool firstReceiveSuccess = false;
+        } test6;
+        struct Test7 {
+            Height height = kMaxTestHeight;
+            bool transferStarted = false;
+            bool transferFailed = false;
+        } test7;
+        struct Test8 {
+            Height height = kMaxTestHeight;
+            bool firstClosed = false;
+            bool secondClosed = false;
+        } test8;
+        struct Test9 {
+            Height height = kMaxTestHeight;
+        } test9;
+        struct Test10 {
+            Height height = kMaxTestHeight;
+        } test10;
+        struct Test11 {
+            Height height = kMaxTestHeight;
+        } test11;
+        struct Test12 {
+            Height height = kMaxTestHeight;
+            bool firstClosed = false;
+            bool secondClosed = false;
+        } test12;
+        struct Test13 {
+            Height height = kMaxTestHeight;
+        } test13;
+        struct Test14 {
+            Height height = kMaxTestHeight;
+            bool firstClosed = false;
+            bool secondClosed = false;
+        } test14;
     } resultsForCheck;
 
-    auto newBlockFunc = [&laserFirst, &laserSecond, &resultsForCheck] (Height height)
+    auto newBlockFunc = [
+        &laserFirst,
+        &laserSecond,
+        &resultsForCheck,
+        wdbFirst,
+        wdbSecond,
+        keyKeeperFirst,
+        keyKeeperSecond
+    ] (Height height)
     {
+        if (height == kMaxTestHeight)
+        {
+            ResetObservers();
+            io::Reactor::get_Current().stop();
+            return;
+        }
+
         if (height == 2)
         {
             LOG_INFO() << "Test 1: both sides open without coins";
@@ -151,9 +224,16 @@ int main()
                 {
                     WALLET_CHECK(false);
                 };
-            observer_1.onOpenFailed = observer_2.onOpenFailed =
-                [] (const laser::ChannelIDPtr& chID)
+            observer_1.onOpenFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
                 {
+                    resultsForCheck.test1.firstFailed = true;
+                    WALLET_CHECK(true);
+                };
+           observer_2.onOpenFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    resultsForCheck.test1.secondFailed = true;
                     WALLET_CHECK(true);
                 };
 
@@ -161,16 +241,20 @@ int main()
             auto firstWalletID = laserFirst->getWaitingWalletID();
             laserSecond->OpenChannel(100000000, 100000000, 100, firstWalletID, 10);
         }
-        if (height == 4)
+        if (height >= 3 &&
+            resultsForCheck.test1.firstFailed &&
+            resultsForCheck.test1.secondFailed &&
+            resultsForCheck.test1.height == kMaxTestHeight)
         {
+            resultsForCheck.test1.height = height;
             laserFirst->StopWaiting();
-            ResetObservers();
+            ResetObservers();  
         }
-        if (height == 8)
+        if (height == resultsForCheck.test1.height + 1)
         {
             LOG_INFO() << "Test 2: second side open without coins";
             observer_1.onOpened =
-                [] (const laser::ChannelIDPtr& chID)
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 2: first side opened";
                     WALLET_CHECK(true);
@@ -189,9 +273,10 @@ int main()
                     WALLET_CHECK(false);
                 };
             observer_2.onOpenFailed =
-                [] (const laser::ChannelIDPtr& chID)
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 2: second side open failed";
+                    resultsForCheck.test2.secondFailed = true;
                     WALLET_CHECK(true);
                 };
 
@@ -199,12 +284,16 @@ int main()
             auto firstWalletID = laserFirst->getWaitingWalletID();
             laserSecond->OpenChannel(100000000, 100000000, 100, firstWalletID, 10);
         }
-        if (height == 10)
+        if (height > resultsForCheck.test1.height + 1 &&
+            height > 7 &&
+            resultsForCheck.test2.secondFailed &&
+            resultsForCheck.test2.height == kMaxTestHeight)
         {
+            resultsForCheck.test2.height = height;
             laserFirst->StopWaiting();
             ResetObservers();
         }
-        if (height == 11)
+        if (height == resultsForCheck.test2.height + 1)
         {
             storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
             resultsForCheck.totals_1= totalsCalc_1.GetTotals(Zero);
@@ -239,13 +328,17 @@ int main()
             auto firstWalletID = laserFirst->getWaitingWalletID();
             laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 10);
         }
-        if (height >= 13 && height <= 25 &&
+        if (height > resultsForCheck.test2.height + 1 &&
             resultsForCheck.channel_1 &&
             resultsForCheck.channel_2 &&
-            !resultsForCheck.test3Success)
+            resultsForCheck.test3.height == kMaxTestHeight)
         {
-            resultsForCheck.test3Success = true;
-            LOG_INFO() << "Test 3: check balance";
+            resultsForCheck.test3.height = height;
+            ResetObservers();
+        }
+        if (height == resultsForCheck.test3.height + 1)
+        {
+            LOG_INFO() << "Test 4: check balance";
 
             storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
             resultsForCheck.totals_1_a = totalsCalc_1.GetTotals(Zero);
@@ -269,9 +362,354 @@ int main()
             WALLET_CHECK(
                     resultsForCheck.totals_2.Unspent ==
                     resultsForCheck.totals_2_a.Unspent + channelSecond->get_amountMy() + nFeeSecond * 3);
+            
+            resultsForCheck.test4.height = height;
         }
-        if (height == 26)
+        if (height == resultsForCheck.test4.height + 1)
         {
+            ResetObservers();
+
+            auto channel2Str = to_hex(resultsForCheck.channel_2->m_pData,
+                                      resultsForCheck.channel_2->nBytes);
+
+            LOG_INFO() << "Test 5: first send to second, amount more then locked in channel";
+            WALLET_CHECK(!laserFirst->Transfer(1000000000, channel2Str));
+
+            LOG_INFO() << "Test 5: first send to second";
+            observer_1.onUpdateFinished =
+                [&resultsForCheck, &laserFirst] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 5: first updated";
+                    const auto& channelFirst = laserFirst->getChannel(resultsForCheck.channel_1);
+                    resultsForCheck.test5.firstSendSuccess = 
+                        channelFirst->get_amountCurrentMy() + 10000 == channelFirst->get_amountMy();
+                    WALLET_CHECK(resultsForCheck.test5.firstSendSuccess);
+                };
+            observer_2.onUpdateFinished =
+                [&resultsForCheck, &laserSecond] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 5: second updated";
+                    const auto& channelSecond = laserSecond->getChannel(resultsForCheck.channel_2);
+                    resultsForCheck.test5.secondReceiveSuccess = 
+                        channelSecond->get_amountCurrentMy() - 10000 == channelSecond->get_amountMy();
+                    WALLET_CHECK(resultsForCheck.test5.secondReceiveSuccess);
+                };
+            WALLET_CHECK(laserFirst->Transfer(10000, channel2Str));
+        }
+        if (height > resultsForCheck.test4.height + 1 &&
+            resultsForCheck.test5.firstSendSuccess &&
+            resultsForCheck.test5.secondReceiveSuccess &&
+            resultsForCheck.test5.height == kMaxTestHeight)
+        {
+            resultsForCheck.test5.height = height;
+            ResetObservers();
+        }
+        if (height == resultsForCheck.test5.height + 1)
+        {
+            LOG_INFO() << "Test 6: second send to first";
+
+            auto channel2Str = to_hex(resultsForCheck.channel_2->m_pData,
+                                      resultsForCheck.channel_2->nBytes);
+
+            observer_1.onUpdateFinished =
+                [&resultsForCheck, &laserFirst] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 6: first updated";
+                    const auto& channelFirst = laserFirst->getChannel(resultsForCheck.channel_1);
+                    resultsForCheck.test6.firstReceiveSuccess =
+                        channelFirst->get_amountCurrentMy() - 10000 == channelFirst->get_amountMy();
+                    WALLET_CHECK(resultsForCheck.test6.firstReceiveSuccess);
+                };
+            observer_2.onUpdateFinished =
+                [&resultsForCheck, &laserSecond] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 6: second updated";
+                    const auto& channelSecond = laserSecond->getChannel(resultsForCheck.channel_2);
+                    resultsForCheck.test6.secondSendSuccess =
+                        channelSecond->get_amountCurrentMy() + 10000 == channelSecond->get_amountMy();
+                    WALLET_CHECK(resultsForCheck.test6.secondSendSuccess);
+                };
+            WALLET_CHECK(laserSecond->Transfer(20000, channel2Str));
+        }
+        if (height > resultsForCheck.test5.height + 1 &&
+            resultsForCheck.test6.secondSendSuccess &&
+            resultsForCheck.test6.firstReceiveSuccess &&
+            resultsForCheck.test6.height == kMaxTestHeight)
+        {
+            resultsForCheck.test6.height = height;
+            ResetObservers();
+        }
+        if (height >= resultsForCheck.test3.height + 15 &&  // 15 block after open
+            height > resultsForCheck.test6.height &&
+            !resultsForCheck.test7.transferStarted)  
+        {
+            LOG_INFO() << "Test 7: first send to second, after lock height reached";
+
+            resultsForCheck.test7.transferStarted = true;
+
+            auto channel2Str = to_hex(resultsForCheck.channel_2->m_pData,
+                                      resultsForCheck.channel_2->nBytes);
+            observer_1.onTransferFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 7: transfer failed";
+                    resultsForCheck.test7.transferFailed = true;
+                    WALLET_CHECK(resultsForCheck.test7.transferFailed);
+                };
+            observer_1.onUpdateFinished =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 7: first updated";
+                    WALLET_CHECK(resultsForCheck.test7.transferFailed);
+                };
+
+            WALLET_CHECK(laserFirst->Transfer(10000, channel2Str));
+        }
+        if (height > resultsForCheck.test3.height + 15 &&
+            height > resultsForCheck.test6.height + 1 &&
+            resultsForCheck.test7.transferFailed &&
+            resultsForCheck.test7.height == kMaxTestHeight)
+        {
+            resultsForCheck.test7.height = height;
+            ResetObservers();
+        }
+        if (height == resultsForCheck.test7.height + 1)
+        {
+            LOG_INFO() << "Test 8: close by first, after lock height reached";
+
+            auto channel2Str = to_hex(resultsForCheck.channel_2->m_pData,
+                                      resultsForCheck.channel_2->nBytes);
+
+            observer_1.onClosed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 8: first closed";
+                    resultsForCheck.test8.firstClosed = true;
+                    WALLET_CHECK(resultsForCheck.test8.firstClosed);
+                };
+            observer_1.onCloseFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 8: first -> close failed";
+                    WALLET_CHECK(false);
+                };
+            observer_2.onClosed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 8: second closed";
+                    resultsForCheck.test8.secondClosed = true;
+                    WALLET_CHECK(resultsForCheck.test8.secondClosed);
+                };
+            observer_2.onCloseFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 8: second -> close failed";
+                    WALLET_CHECK(false);
+                };
+            WALLET_CHECK(laserFirst->Close(channel2Str));
+        }
+        if (height > resultsForCheck.test7.height + 1 &&
+            resultsForCheck.test8.firstClosed &&
+            resultsForCheck.test8.secondClosed &&
+            resultsForCheck.test8.height == kMaxTestHeight)
+        {
+            resultsForCheck.test8.height = height;
+            ResetObservers();
+        }
+        if (height == resultsForCheck.test8.height + 1)
+        {
+            LOG_INFO() << "Test 9: open with coins";
+
+            resultsForCheck.channel_1 = nullptr;
+            resultsForCheck.channel_2 = nullptr;
+
+            observer_1.onOpened =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 9: first opened";
+                    resultsForCheck.channel_1 = chID;
+                    WALLET_CHECK(true);
+                };
+            observer_2.onOpened =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 9: second opened";
+                    resultsForCheck.channel_2 = chID;
+                    WALLET_CHECK(true);
+                };
+            observer_1.onOpenFailed = observer_2.onOpenFailed =
+                [] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 9: open failed";
+                    WALLET_CHECK(false);
+                };
+
+            laserFirst->WaitIncoming(100000000, 100000000, 101, 10);
+            auto firstWalletID = laserFirst->getWaitingWalletID();
+            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 10);
+        }
+        if (height > resultsForCheck.test8.height + 1 &&
+            resultsForCheck.channel_1 &&
+            resultsForCheck.channel_2 &&
+            resultsForCheck.test9.height == kMaxTestHeight)
+        {
+            resultsForCheck.test9.height = height;
+            ResetObservers();
+        }
+        if (height == resultsForCheck.test9.height + 1)
+        {
+            LOG_INFO() << "Test 10: recreate first";
+
+            laserFirst.reset(new laser::Mediator(wdbFirst, keyKeeperFirst));
+            laserFirst->AddObserver(&observer_1);
+            laserFirst->SetNetwork(CreateNetwork(*laserFirst));
+
+            auto channel1Str = to_hex(resultsForCheck.channel_1->m_pData,
+                                      resultsForCheck.channel_1->nBytes);
+            WALLET_CHECK(laserFirst->Serve(channel1Str));
+
+            resultsForCheck.test10.height = height;
+        }
+        if (height == resultsForCheck.test10.height + 1)
+        {
+            LOG_INFO() << "Test 11: recreate second";
+
+            laserSecond.reset(new laser::Mediator(wdbSecond, keyKeeperSecond));
+            laserSecond->AddObserver(&observer_2);
+            laserSecond->SetNetwork(CreateNetwork(*laserSecond));
+
+            auto channel2Str = to_hex(resultsForCheck.channel_2->m_pData,
+                                      resultsForCheck.channel_2->nBytes);
+            WALLET_CHECK(laserSecond->Serve(channel2Str));
+
+            resultsForCheck.test11.height = height;
+        }
+        if (height == resultsForCheck.test11.height + 1)
+        {
+            LOG_INFO() << "Test 12: close by first, before lock height reached";
+
+            auto channel2Str = to_hex(resultsForCheck.channel_2->m_pData,
+                               resultsForCheck.channel_2->nBytes);
+
+            observer_1.onClosed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 12: first closed";
+                    resultsForCheck.test12.firstClosed = true;
+                    WALLET_CHECK(resultsForCheck.test12.firstClosed);
+                };
+            observer_1.onCloseFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 12: first -> close failed";
+                    WALLET_CHECK(false);
+                };
+            observer_2.onClosed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 12: second closed";
+                    resultsForCheck.test12.secondClosed = true;
+                    WALLET_CHECK(resultsForCheck.test12.secondClosed);
+                };
+            observer_2.onCloseFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 12: second -> close failed";
+                    WALLET_CHECK(false);
+                };
+            WALLET_CHECK(laserSecond->Close(channel2Str));
+        }
+        if (height > resultsForCheck.test11.height + 1 &&
+            resultsForCheck.test12.firstClosed &&
+            resultsForCheck.test12.secondClosed &&
+            resultsForCheck.test12.height == kMaxTestHeight)
+        {
+            resultsForCheck.test12.height = height;
+            ResetObservers();
+        }
+        if (height == resultsForCheck.test12.height + 1)
+        {
+            LOG_INFO() << "Test 13: open with coins";
+
+            resultsForCheck.channel_1 = nullptr;
+            resultsForCheck.channel_2 = nullptr;
+
+            observer_1.onOpened =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 13: first opened";
+                    resultsForCheck.channel_1 = chID;
+                    WALLET_CHECK(true);
+                };
+            observer_2.onOpened =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 13: second opened";
+                    resultsForCheck.channel_2 = chID;
+                    WALLET_CHECK(true);
+                };
+            observer_1.onOpenFailed = observer_2.onOpenFailed =
+                [] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 13: open failed";
+                    WALLET_CHECK(false);
+                };
+
+            laserFirst->WaitIncoming(100000000, 100000000, 101, 10);
+            auto firstWalletID = laserFirst->getWaitingWalletID();
+            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 10);
+        }
+        if (height > resultsForCheck.test12.height + 1 &&
+            resultsForCheck.channel_1 &&
+            resultsForCheck.channel_2 &&
+            resultsForCheck.test13.height == kMaxTestHeight)
+        {
+            resultsForCheck.test13.height = height;
+            ResetObservers();
+        }
+        if (height == resultsForCheck.test13.height + 1)
+        {
+            LOG_INFO() << "Test 14: close graceful by first, before lock height reached";
+
+            auto channel2Str = to_hex(resultsForCheck.channel_2->m_pData,
+                                      resultsForCheck.channel_2->nBytes);
+
+            observer_1.onClosed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 14: first closed";
+                    resultsForCheck.test14.firstClosed = true;
+                    WALLET_CHECK(resultsForCheck.test14.firstClosed);
+                };
+            observer_1.onCloseFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 14: first -> close failed";
+                    WALLET_CHECK(false);
+                };
+            observer_2.onClosed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 14: second closed";
+                    resultsForCheck.test14.secondClosed = true;
+                    WALLET_CHECK(resultsForCheck.test14.secondClosed);
+                };
+            observer_2.onCloseFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 14: second -> close failed";
+                    WALLET_CHECK(false);
+                };
+            WALLET_CHECK(laserFirst->GracefulClose(channel2Str));
+        }
+        if (height > resultsForCheck.test13.height + 1 &&
+            resultsForCheck.test14.firstClosed &&
+            resultsForCheck.test14.secondClosed &&
+            resultsForCheck.test14.height == kMaxTestHeight)
+        {
+            resultsForCheck.test14.height = height;
+            ResetObservers();
+
             ResetObservers();
             io::Reactor::get_Current().stop();
         }
