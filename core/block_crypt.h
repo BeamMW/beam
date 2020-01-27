@@ -115,7 +115,7 @@ namespace beam
 		{
 			AmountBig::Type m_Value;
 			PeerID m_Owner;
-			Height m_LockHeight; // relevant only when m_Value is 0. Otherwise set to 0
+			Height m_LockHeight; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
 			ByteBuffer m_Metadata;
 			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
 
