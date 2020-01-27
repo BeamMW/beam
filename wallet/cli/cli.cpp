@@ -751,21 +751,35 @@ namespace
         if (vm.count(cli::SHIELDED_UTXOS))
         {
             // TODO should implement
-            const array<uint8_t, 6> columnWidths{ { 49, 14, 14} };
-            cout << boost::format(kCoinsTableHeadFormat)
+            const char kShieldedCoinsTableHeadFormat[] = "  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
+            const char kShieldedCreateTxID[] = "createTxID";
+            const char kShieldedSpentTxID[] = "spentTxID";
+            const char kShieldedConfirmHeight[] = "confirmHeight";
+            const char kShieldedSpentHeight[] = "spentHeight";
+
+            const array<uint8_t, 7> columnWidths{ { 4, 14, 14, 32, 32, 14, 14} };
+            cout << boost::format(kShieldedCoinsTableHeadFormat)
                 % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
                 % boost::io::group(right, setw(columnWidths[1]), kBEAM)
                 % boost::io::group(right, setw(columnWidths[2]), kGROTH)
+                % boost::io::group(right, setw(columnWidths[3]), kShieldedCreateTxID)
+                % boost::io::group(right, setw(columnWidths[4]), kShieldedSpentTxID)
+                % boost::io::group(right, setw(columnWidths[5]), kShieldedConfirmHeight)
+                % boost::io::group(right, setw(columnWidths[6]), kShieldedSpentHeight)
                 << std::endl;
 
             auto shieldedCoins = walletDB->getShieldedCoins();
 
             for (const auto& c : shieldedCoins)
             {
-                cout << boost::format(kCoinsTableFormat)
+                cout << boost::format(kShieldedCoinsTableHeadFormat)
                     % boost::io::group(left, setw(columnWidths[0]), std::to_string(c.m_ID))
                     % boost::io::group(right, setw(columnWidths[1]), c.m_value / Rules::Coin)
                     % boost::io::group(right, setw(columnWidths[2]), c.m_value % Rules::Coin)
+                    % boost::io::group(left, setw(columnWidths[3]), c.m_createTxId ? to_hex(c.m_createTxId->data(), c.m_createTxId->size()) : "")
+                    % boost::io::group(left, setw(columnWidths[4]), c.m_spentTxId ? to_hex(c.m_spentTxId->data(), c.m_spentTxId->size()) : "")
+                    % boost::io::group(left, setw(columnWidths[5]), (c.m_confirmHeight != MaxHeight) ? std::to_string(c.m_confirmHeight) : "--")
+                    % boost::io::group(left, setw(columnWidths[6]), (c.m_spentHeight != MaxHeight) ? std::to_string(c.m_spentHeight) : "--")
                     << std::endl;
             }
 
