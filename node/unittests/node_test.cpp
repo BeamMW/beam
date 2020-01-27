@@ -1780,7 +1780,7 @@ namespace beam
 					op.m_Sender = m_Shielded.m_Sender;
 					op.m_Message = m_Shielded.m_Message;
 					op.m_Value = m_Shielded.m_Value;
-					op.Generate(pKrn->m_Txo, oracle, viewer, 18U);
+					op.Generate(pKrn->m_Txo, sp.m_SharedSecret, oracle, viewer);
 
 					pKrn->MsgToID();
 
