@@ -1820,7 +1820,7 @@ namespace
 
                 _walletDB->Subscribe(this);
 
-                _wallet = std::make_unique<Wallet>( _walletDB, _keyKeeper );
+                _wallet = std::make_unique<Wallet>( _walletDB );
                 _wallet->ResumeAllTransactions();
 
                 auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*_wallet);

@@ -141,10 +141,9 @@ namespace beam::wallet
 
     BaseTransaction::Ptr AtomicSwapTransaction::Creator::Create(INegotiatorGateway& gateway
                                                               , IWalletDB::Ptr walletDB
-                                                              , IPrivateKeyKeeper::Ptr keyKeeper
                                                               , const TxID& txID)
     {
-        return BaseTransaction::Ptr(new AtomicSwapTransaction(gateway, walletDB, keyKeeper, txID, *this));
+        return BaseTransaction::Ptr(new AtomicSwapTransaction(gateway, walletDB, txID, *this));
     }
 
     SecondSide::Ptr AtomicSwapTransaction::Creator::GetSecondSide(BaseTransaction& tx)
@@ -176,10 +175,9 @@ namespace beam::wallet
 
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
                                                , IWalletDB::Ptr walletDB
-                                               , IPrivateKeyKeeper::Ptr keyKeeper
                                                , const TxID& txID
                                                , ISecondSideProvider& secondSideProvider)
-        : BaseTransaction(gateway, walletDB, keyKeeper, txID)
+        : BaseTransaction(gateway, walletDB, txID)
         , m_secondSide(secondSideProvider, *this)
     {
     }

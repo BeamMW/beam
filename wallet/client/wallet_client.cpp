@@ -285,7 +285,7 @@ namespace beam::wallet
                     static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
                     LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 
-                    auto wallet = make_shared<Wallet>(m_walletDB, m_keyKeeper);
+                    auto wallet = make_shared<Wallet>(m_walletDB);
                     m_wallet = wallet;
 
                     if (txCreators)

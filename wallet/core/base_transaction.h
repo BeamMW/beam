@@ -84,7 +84,7 @@ namespace beam::wallet
             virtual ~Creator() = default;
             
             // �reates new instance of transaction (virtual constructor)
-            virtual BaseTransaction::Ptr Create(INegotiatorGateway& gateway, WalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&) = 0;
+            virtual BaseTransaction::Ptr Create(INegotiatorGateway& gateway, WalletDB::Ptr, const TxID&) = 0;
             
             // Allows to add any additional user's checks and enhancements of parameters. Should throw exceptions if something is wrong
             virtual TxParameters CheckAndCompleteParameters(const TxParameters& p) { return p; } // TODO: find better solution without redundant copies
@@ -92,7 +92,6 @@ namespace beam::wallet
 
         BaseTransaction(INegotiatorGateway& gateway
                       , IWalletDB::Ptr walletDB
-                      , IPrivateKeyKeeper::Ptr keyKeeper
                       , const TxID& txID);
         virtual ~BaseTransaction(){}
 
@@ -149,7 +148,6 @@ namespace beam::wallet
         }
 
         IWalletDB::Ptr GetWalletDB();
-        IPrivateKeyKeeper::Ptr GetKeyKeeper();
         IPrivateKeyKeeper2::Ptr get_KeyKeeperStrict(); // throws TxFailureReason::NoKeyKeeper if no key keeper (read-only mode)
         Key::IKdf::Ptr get_MasterKdfStrict(); // throws TxFailureReason::NoMasterKey if no master key
         static void TestKeyKeeperRet(IPrivateKeyKeeper2::Status::Type); // throws TxFailureReason::KeyKeeperError on error
@@ -187,7 +185,6 @@ namespace beam::wallet
 
         INegotiatorGateway& m_Gateway;
         IWalletDB::Ptr m_WalletDB;
-        IPrivateKeyKeeper::Ptr m_KeyKeeper;
 
         TxID m_ID;
         mutable boost::optional<bool> m_IsInitiator;

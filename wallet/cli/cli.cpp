@@ -2050,7 +2050,6 @@ int main_impl(int argc, char* argv[])
                     }
 
                     auto walletDB = WalletDB::open(walletPath, pass);
-                    IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
                     const auto& currHeight = walletDB->getCurrentHeight();
                     const auto& fork1Height = Rules::get().pForks[1].m_Height;
@@ -2293,7 +2292,6 @@ int main_impl(int argc, char* argv[])
                         : onTxCompleteAction;
 
                     Wallet wallet{ walletDB,
-                                   keyKeeper,
                                    std::move(txCompletedAction),
                                    Wallet::UpdateCompletedAction() };
                     {

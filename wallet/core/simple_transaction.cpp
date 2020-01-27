@@ -49,10 +49,9 @@ namespace beam::wallet
 
     BaseTransaction::Ptr SimpleTransaction::Creator::Create(INegotiatorGateway& gateway
                                                           , IWalletDB::Ptr walletDB
-                                                          , IPrivateKeyKeeper::Ptr keyKeeper
                                                           , const TxID& txID)
     {
-        return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, keyKeeper, txID));
+        return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, txID));
     }
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -103,9 +102,8 @@ namespace beam::wallet
 
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
                                        , IWalletDB::Ptr walletDB
-                                       , IPrivateKeyKeeper::Ptr keyKeeper
                                        , const TxID& txID)
-        : BaseTransaction{ gateway, walletDB, keyKeeper, txID }
+        : BaseTransaction{ gateway, walletDB, txID }
     {
 
     }
@@ -146,7 +144,7 @@ namespace beam::wallet
          || (!isSender && (!builder.HasKernelID() || txState == State::Initial)))
         {
             // We don't need key keeper initialized to go on beyond this point
-            if (!m_KeyKeeper)
+            if (!m_WalletDB->get_KeyKeeper())
             {
                 // public wallet
                 return;

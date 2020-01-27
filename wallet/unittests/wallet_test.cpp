@@ -66,14 +66,12 @@ namespace
 
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
-        auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiverWalletDB, receiverWalletDB->get_MasterKdf());
 
         WalletAddress wa;
         receiverWalletDB->createAddress(wa);
         receiverWalletDB->saveAddress(wa);
         WalletID receiver_id = wa.m_walletID;
 
-        auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         senderWalletDB->createAddress(wa);
         senderWalletDB->saveAddress(wa);
         WalletID sender_id = wa.m_walletID;
@@ -87,8 +85,8 @@ namespace
 
         TestNodeNetwork::Shared tnns;
 
-        Wallet sender(senderWalletDB, senderKeyKeeper, f);
-        Wallet receiver(receiverWalletDB, receiverKeyKeeper, f);
+        Wallet sender(senderWalletDB, f);
+        Wallet receiver(receiverWalletDB, f);
 
         auto twn = make_shared<TestWalletNetwork>();
         auto netNodeS = make_shared<TestNodeNetwork>(tnns, sender);
@@ -808,7 +806,7 @@ namespace
         TxID txID = wallet::GenerateTxID();
         SimpleTransaction::Creator simpleCreator(sender.m_WalletDB);
         BaseTransaction::Creator& creator = simpleCreator;
-        auto tx = creator.Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+        auto tx = creator.Create(gateway, sender.m_WalletDB, txID);
 
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
@@ -870,7 +868,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = txCreator.Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+            auto tx = txCreator.Create(gateway, sender.m_WalletDB, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -909,7 +907,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = txCreator.Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+            auto tx = txCreator.Create(gateway, sender.m_WalletDB, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -1132,11 +1130,9 @@ namespace
 
         TestWalletRig receiver("receiver", createReceiverWalletDB(), [](auto) {});
 
-        auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db, db->get_MasterKdf());
         SenderFlyClient flyClient(db, receiver.m_WalletID);
         flyClient.Connect(senderNodeAddress);
 
-        auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiver.m_WalletDB, receiver.m_WalletDB->get_MasterKdf());
         ReceiverFlyClient flyClinet2(receiver.m_WalletDB, flyClient.m_WalletID);
         flyClinet2.Connect(receiverNodeAddress);
 

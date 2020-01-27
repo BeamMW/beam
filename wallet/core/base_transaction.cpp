@@ -82,11 +82,9 @@ namespace beam::wallet
 
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
-        , IPrivateKeyKeeper::Ptr keyKeeper
         , const TxID& txID)
         : m_Gateway{ gateway }
         , m_WalletDB{ walletDB }
-        , m_KeyKeeper{ keyKeeper }
         , m_ID{ txID }
     {
         assert(walletDB);
@@ -181,11 +179,6 @@ namespace beam::wallet
         {
             if (s == TxStatus::InProgress)
             {
-                if (!m_KeyKeeper)
-                {
-                    // cannot create encrypted message
-                    return;
-                }
                 // notify about cancellation if we have started negotiations
                 NotifyFailure(TxFailureReason::Canceled);
 
@@ -381,11 +374,6 @@ namespace beam::wallet
     IWalletDB::Ptr BaseTransaction::GetWalletDB()
     {
         return m_WalletDB;
-    }
-
-    IPrivateKeyKeeper::Ptr BaseTransaction::GetKeyKeeper()
-    {
-        return m_KeyKeeper;
     }
 
     IPrivateKeyKeeper2::Ptr BaseTransaction::get_KeyKeeperStrict()

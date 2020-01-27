@@ -1165,8 +1165,7 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
 
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-        Wallet wallet{ walletDB, keyKeeper };
+        Wallet wallet{ walletDB };
 
         wallet.ResumeAllTransactions();
 

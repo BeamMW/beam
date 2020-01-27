@@ -135,7 +135,6 @@ namespace beam::wallet
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway
                                       , IWalletDB::Ptr walletDB
-                                      , IPrivateKeyKeeper::Ptr keyKeeper
                                       , const TxID& txID) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
 
@@ -147,7 +146,6 @@ namespace beam::wallet
 
         AtomicSwapTransaction(INegotiatorGateway& gateway
                             , WalletDB::Ptr walletDB
-                            , IPrivateKeyKeeper::Ptr keyKeeper
                             , const TxID& txID
                             , ISecondSideProvider& secondSideProvider);
 

@@ -95,13 +95,12 @@ namespace beam::wallet
 
     const char Wallet::s_szNextUtxoEvt[] = "NextUtxoEvent";
 
-    Wallet::Wallet(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
+    Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
         , m_TxCompletedAction{ move(action) }
         , m_UpdateCompleted{ move(updateCompleted) }
         , m_LastSyncTotal(0)
         , m_OwnedNodesOnline(0)
-        , m_KeyKeeper(keyKeeper)
     {
         assert(walletDB);
         // the only default type of transaction
@@ -853,13 +852,12 @@ namespace beam::wallet
         MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
         pReq->m_CoinID = coin.m_ID;
 
-        if (!m_KeyKeeper)
+        if (!m_WalletDB->get_CommitmentSafe(pReq->m_Msg.m_Utxo, coin.m_ID))
         {
             LOG_WARNING() << "You cannot get utxo commitment without private key";
             return;
         }
 
-        pReq->m_Msg.m_Utxo = m_KeyKeeper->GenerateCoinKeySync(coin.m_ID);
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
         PostReqUnique(*pReq);
@@ -1063,7 +1061,7 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(*this, m_WalletDB, m_KeyKeeper, id);
+        return it->second->Create(*this, m_WalletDB, id);
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const SetTxParameter& msg)
@@ -1075,7 +1073,7 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(*this, m_WalletDB, m_KeyKeeper, msg.m_TxID);
+        return it->second->Create(*this, m_WalletDB, msg.m_TxID);
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const TxParameters& parameters)
@@ -1095,7 +1093,7 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
-        auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, *parameters.GetTxID());
+        auto newTx = it->second->Create(*this, m_WalletDB, *parameters.GetTxID());
         ApplyTransactionParameters(newTx, completedParameters.Pack(), true);
         return newTx;
     }

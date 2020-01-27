@@ -26,9 +26,9 @@ namespace beam::wallet
     {
     }
 
-    BaseTransaction::Ptr AssetIssueTransaction::Creator::Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const TxID& txID)
+    BaseTransaction::Ptr AssetIssueTransaction::Creator::Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
     {
-        return BaseTransaction::Ptr(new AssetIssueTransaction(_issue, gateway, walletDB, keyKeeper, txID));
+        return BaseTransaction::Ptr(new AssetIssueTransaction(_issue, gateway, walletDB, txID));
     }
 
     TxParameters AssetIssueTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
@@ -63,9 +63,8 @@ namespace beam::wallet
 
     AssetIssueTransaction::AssetIssueTransaction(bool issue, INegotiatorGateway& gateway
                                         , IWalletDB::Ptr walletDB
-                                        , IPrivateKeyKeeper::Ptr keyKeeper
                                         , const TxID& txID)
-        : BaseTransaction{ gateway, std::move(walletDB), std::move(keyKeeper), txID}
+        : BaseTransaction{ gateway, std::move(walletDB), txID}
         , _issue(issue)
     {
     }
@@ -75,12 +74,6 @@ namespace beam::wallet
         if (!IsLoopbackTransaction())
         {
             OnFailed(TxFailureReason::NotLoopback, true);
-            return;
-        }
-
-        if (!m_KeyKeeper)
-        {
-            OnFailed(TxFailureReason::NoKeyKeeper, true);
             return;
         }
 
