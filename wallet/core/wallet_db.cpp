@@ -1721,6 +1721,11 @@ namespace beam::wallet
         return true;
     }
 
+    bool IWalletDB::get_CommitmentSafe(ECC::Point& comm, const CoinID& cid)
+    {
+        return get_CommitmentSafe(comm, cid, get_KeyKeeper().get());
+    }
+
     bool IWalletDB::IsRecoveredMatch(CoinID& cid, const ECC::Point& comm)
     {
         IPrivateKeyKeeper2::Ptr pKeyKeeper = get_KeyKeeper();

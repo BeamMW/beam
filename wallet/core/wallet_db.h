@@ -301,6 +301,7 @@ namespace beam::wallet
 		void ImportRecovery(const std::string& path);
 
         bool IsRecoveredMatch(CoinID&, const ECC::Point& comm);
+        bool get_CommitmentSafe(ECC::Point& comm, const CoinID&);
 
         void get_SbbsPeerID(ECC::Scalar::Native&, PeerID&, uint64_t ownID);
         void get_SbbsWalletID(ECC::Scalar::Native&, WalletID&, uint64_t ownID);
