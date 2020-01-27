@@ -231,7 +231,7 @@ namespace beam
 
 	void ShieldedTxo::Data::SerialParams::Restore(const Viewer& v)
 	{
-		set_FromkG(*v.m_pGen, m_IsCreatedByViewer ? v.m_pGen.get() : nullptr, *v.m_pSer);
+		set_PreimageFromkG(*v.m_pGen, m_IsCreatedByViewer ? v.m_pGen.get() : nullptr, *v.m_pSer);
 	}
 
 	/////////////
@@ -320,6 +320,27 @@ namespace beam
 
 		if (nOverflow)
 			x += ECC::Scalar::s_Order;
+	}
+
+	/////////////
+	// Params (both)
+	void ShieldedTxo::Data::Params::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	{
+		m_Serial.Generate(txo.m_Serial, gen, nonce);
+		m_Output.Generate(txo, m_Serial.m_SharedSecret, oracle, gen);
+	}
+
+	void ShieldedTxo::Data::Params::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v, const ECC::Hash::Value& nonce)
+	{
+		m_Serial.Generate(txo.m_Serial, v, nonce);
+		m_Output.Generate(txo, m_Serial.m_SharedSecret, oracle, v);
+	}
+
+	bool ShieldedTxo::Data::Params::Recover(const ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v)
+	{
+		return
+			m_Serial.Recover(txo.m_Serial, v) &&
+			m_Output.Recover(txo, m_Serial.m_SharedSecret, oracle, v);
 	}
 
 	/////////////

@@ -1722,15 +1722,10 @@ namespace beam
 
 				Lelantus::Cfg m_Cfg;
 
-				Amount m_Value;
-				ECC::Scalar m_kSerG; // blinding factor of the serial part
-				ECC::Scalar m_kOutG; // blinding factor of the serial part
-				ECC::Scalar::Native m_sk; // total blinding factor of the shielded element
+				ShieldedTxo::Data::Params m_Params;
+
 				ECC::Scalar::Native m_skSpendKey;
 				ECC::Point m_SerialPub;
-				ECC::Point m_SpendPk;
-				PeerID m_Sender = 165U;
-				ECC::uintBig m_Message = 243U;
 
 				ECC::Hash::Value m_SpendKernelID;
 				bool m_SpendConfirmed = false;
@@ -1748,14 +1743,17 @@ namespace beam
 
 				proto::NewTransaction msgTx;
 
-				m_Shielded.m_Value = m_Wallet.MakeTxInput(msgTx.m_Transaction, h);
-				if (!m_Shielded.m_Value)
+				ShieldedTxo::Data::Params& sdp = m_Shielded.m_Params; // alias
+
+				sdp.m_Output.m_Value = m_Wallet.MakeTxInput(msgTx.m_Transaction, h);
+				if (!sdp.m_Output.m_Value)
 					return false;
 
 				Amount fee = 100;
 				fee += Transaction::FeeSettings().m_ShieldedOutput;
 
-				m_Shielded.m_Value -= fee;
+				sdp.m_Output.m_Value -= fee;
+
 				m_Shielded.m_Cfg.n = 4;
 				m_Shielded.m_Cfg.M = 6; // 4K
 
@@ -1769,39 +1767,27 @@ namespace beam
 					ShieldedTxo::Viewer viewer;
 					viewer.FromOwner(*m_Wallet.m_pKdf);
 
-					ShieldedTxo::Data::SerialParams sp;
-					sp.Generate(pKrn->m_Txo.m_Serial, viewer, 13U);
-
 					pKrn->UpdateMsg();
 					ECC::Oracle oracle;
 					oracle << pKrn->m_Msg;
 
-					ShieldedTxo::Data::OutputParams op;
-					op.m_Sender = m_Shielded.m_Sender;
-					op.m_Message = m_Shielded.m_Message;
-					op.m_Value = m_Shielded.m_Value;
-					op.Generate(pKrn->m_Txo, sp.m_SharedSecret, oracle, viewer);
+					sdp.m_Output.m_Sender = 165U;
+					sdp.m_Output.m_Message = 243U;
+					sdp.Generate(pKrn->m_Txo, oracle, viewer, 13U);
 
 					pKrn->MsgToID();
 
-					m_Shielded.m_kSerG = sp.m_pK[0];
-					m_Shielded.m_kOutG = op.m_k;
-
-					m_Shielded.m_sk = sp.m_pK[0];
-					m_Shielded.m_sk += op.m_k;
 					m_Shielded.m_SerialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
 
 					Key::IKdf::Ptr pSerPrivate;
 					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
-					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sp.m_SerialPreimage);
-
-					m_Shielded.m_SpendPk = ECC::Context::get().G * m_Shielded.m_skSpendKey;
+					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sdp.m_Serial.m_SerialPreimage);
 
 					ECC::Point::Native pt;
 					verify_test(pKrn->IsValid(h + 1, pt));
 
 					msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-					m_Wallet.UpdateOffset(*msgTx.m_Transaction, op.m_k, true);
+					m_Wallet.UpdateOffset(*msgTx.m_Transaction, sdp.m_Output.m_k, true);
 				}
 
 				msgTx.m_Transaction->Normalize();
@@ -1861,10 +1847,10 @@ namespace beam
 
 				Lelantus::Prover p(lst, pKrn->m_SpendProof);
 				p.m_Witness.V.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
-				p.m_Witness.V.m_R = m_Shielded.m_sk;
+				p.m_Witness.V.m_R = m_Shielded.m_Params.m_Serial.m_pK[0] + m_Shielded.m_Params.m_Output.m_k; // total blinding factor of the shielded element
 				p.m_Witness.V.m_R_Output = sk;
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
-				p.m_Witness.V.m_V = m_Shielded.m_Value;
+				p.m_Witness.V.m_V = m_Shielded.m_Params.m_Output.m_Value;
 
 				pKrn->UpdateMsg();
 
@@ -1878,7 +1864,7 @@ namespace beam
 					// test
 				}
 
-				verify_test(m_Shielded.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
+				verify_test(m_Shielded.m_Params.m_Serial.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 
 				Amount fee = 100;
 				fee += Transaction::FeeSettings().m_ShieldedInput;
@@ -1886,7 +1872,7 @@ namespace beam
 				msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msgTx.m_Transaction, sk, false);
 
-				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h, 0, m_Shielded.m_Value, fee);
+				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h, 0, m_Shielded.m_Params.m_Output.m_Value, fee);
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
@@ -1936,7 +1922,7 @@ namespace beam
 
 				ShieldedTxo::DescriptionInp d;
 				d.m_Height = msg.m_Height;
-				d.m_SpendPk = m_Shielded.m_SpendPk;
+				d.m_SpendPk = m_Shielded.m_Params.m_Serial.m_SpendPk;
 
 				verify_test(m_vStates.back().IsValidProofShieldedInp(d, msg.m_Proof));
 			}
@@ -2329,7 +2315,7 @@ namespace beam
 							m_Shielded.m_SpendConfirmed = true;
 
 							proto::GetProofShieldedInp msgOut;
-							msgOut.m_SpendPk = m_Shielded.m_SpendPk;
+							msgOut.m_SpendPk = m_Shielded.m_Params.m_Serial.m_SpendPk;
 							Send(msgOut);
 						}
 					}
@@ -2368,28 +2354,34 @@ namespace beam
 
 					if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
 					{
+						// Restore all the relevent data
 						Key::ID::Packed kid;
 						kid = evt.m_Kidv;
 						proto::UtxoEvent::Shielded s;
 						evt.m_ShieldedDelta.Get(kid, evt.m_Buf1, s);
 
-						verify_test(s.m_Sender == m_Shielded.m_Sender);
-						verify_test(s.m_Message == m_Shielded.m_Message);
-						verify_test(s.m_IsCreatedByViewer);
 						verify_test(s.m_ID == uintBigFrom(TxoID(0)));
 
-						verify_test(s.m_kSerG == m_Shielded.m_kSerG);
-						verify_test(s.m_kOutG == m_Shielded.m_kOutG);
+						// Output parameters are fully recovered
+						verify_test(m_Shielded.m_Params.m_Output.m_Sender == s.m_Sender);
+						verify_test(m_Shielded.m_Params.m_Output.m_Message == s.m_Message);
+						verify_test(m_Shielded.m_Params.m_Output.m_Value == evt.m_Kidv.m_Value);
+						verify_test(m_Shielded.m_Params.m_Output.m_k == s.m_kOutG);
 
-						// Recover the full data
+						// Shielded parameters: recovered only the part that is sufficient to spend it
 						ShieldedTxo::Viewer viewer;
 						viewer.FromOwner(*m_Wallet.m_pKdf);
 
 						ShieldedTxo::Data::SerialParams sp;
 						sp.m_pK[0] = s.m_kSerG;
 						sp.m_IsCreatedByViewer = s.m_IsCreatedByViewer;
-						sp.Restore(viewer);
-						verify_test(sp.m_SpendPk == m_Shielded.m_SpendPk);
+						sp.Restore(viewer); // restores only what is necessary for spend
+
+						verify_test(m_Shielded.m_Params.m_Serial.m_IsCreatedByViewer == sp.m_IsCreatedByViewer);
+						verify_test(m_Shielded.m_Params.m_Serial.m_pK[0] == sp.m_pK[0]);
+						verify_test(m_Shielded.m_Params.m_Serial.m_SerialPreimage == sp.m_SerialPreimage);
+
+						// Recover the full data
 						
 						if (proto::UtxoEvent::Flags::Add & evt.m_Flags)
 							m_Shielded.m_EvtAdd = true;

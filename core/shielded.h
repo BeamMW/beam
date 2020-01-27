@@ -85,6 +85,16 @@ namespace beam
 			static void Scalar2Msg(ECC::uintBig&, const ECC::Scalar::Native&, uint32_t);
 		};
 
+		struct Params
+		{
+			SerialParams m_Serial;
+			OutputParams m_Output;
+
+			void Generate(ShieldedTxo&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce);
+			void Generate(ShieldedTxo&, ECC::Oracle&, const Viewer&, const ECC::Hash::Value& nonce);
+			bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
+		};
+
 		struct HashTxt;
 	};
 
