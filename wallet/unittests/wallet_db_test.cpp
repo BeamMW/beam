@@ -615,8 +615,6 @@ void TestAddresses()
     addresses = db->getAddresses(false);
     WALLET_CHECK(addresses.empty());
 
-    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db, db->get_MasterKdf());
-
     WalletAddress a = {};
     a.m_label = "test label";
     a.m_category = "test category";
@@ -711,7 +709,6 @@ void TestExportImportTx()
 {
     cout << "\nWallet database transactions export/import test\n";
     auto walletDB = createSqliteWalletDB();
-    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
     WalletAddress wa;
     wa.m_OwnID = (*walletDB).AllocateKidRange(1);

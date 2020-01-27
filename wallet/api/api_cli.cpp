@@ -233,7 +233,6 @@ namespace
                 , _wallet(wallet)
                 , _api(*this, acl)
                 , _wnet(wnet)
-                , _keyKeeper(std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf()))
             {
                 _walletDB->Subscribe(this);
             }
@@ -798,7 +797,6 @@ namespace
             Wallet& _wallet;
             WalletApi _api;
             IWalletMessageEndpoint& _wnet;
-            IPrivateKeyKeeper::Ptr _keyKeeper;
         };
 
         class TcpApiConnection : public ApiConnection
