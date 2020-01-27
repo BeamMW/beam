@@ -572,7 +572,6 @@ public:
 
 	void AssetAdd(Asset::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
 	Asset::ID AssetFindByOwner(const PeerID&);
-	bool AssetFindByOwner(Asset::Full&); // must set Owner
 	Asset::ID AssetDelete(Asset::ID); // returns remaining assets count (including the unused)
 	bool AssetGetSafe(Asset::Full&); // must set ID before invocation
 	void AssetSetValue(Asset::ID, const AmountBig::Type&, Height hLockHeight);

@@ -2425,14 +2425,6 @@ Asset::ID NodeDB::AssetFindByOwner(const PeerID& owner)
 	return ret;
 }
 
-bool NodeDB::AssetFindByOwner(Asset::Full& ai)
-{
-	ai.m_ID = AssetFindByOwner(ai.m_Owner);
-	return
-		ai.m_ID &&
-		AssetGetSafe(ai);
-}
-
 void NodeDB::AssetDeleteRaw(Asset::ID id)
 {
 	Recordset rs(*this, Query::AssetDel, "DELETE FROM " TblAssets " WHERE " TblAssets_ID "=?");

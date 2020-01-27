@@ -3139,8 +3139,11 @@ void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
     if (!p.IsFastSync())
     {
         Asset::Full ai;
-        ai.m_Owner = msg.m_Owner;
-        if (p.get_DB().AssetFindByOwner(ai))
+        ai.m_ID = msg.m_AssetID ?
+            msg.m_AssetID :
+            p.get_DB().AssetFindByOwner(msg.m_Owner);
+
+        if  (ai.m_ID && p.get_DB().AssetGetSafe(ai))
         {
             msgOut.m_Info = std::move(ai);
 

@@ -91,6 +91,7 @@ namespace proto {
     macro(ECC::Point, SpendPk)
 
 #define BeamNodeMsg_GetProofAsset(macro) \
+    macro(Asset::ID, AssetID) \
     macro(PeerID, Owner)
 
 #define BeamNodeMsg_GetShieldedList(macro) \

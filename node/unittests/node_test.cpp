@@ -634,9 +634,10 @@ namespace beam
 		verify_test(ai2.m_Value == assetVal2);
 		verify_test(ai2.m_LockHeight == 18);
 
-		ai1.m_ID = 1;
-		verify_test(db.AssetFindByOwner(ai1));
+		ai1.m_ID = db.AssetFindByOwner(ai1.m_Owner);
 		verify_test(ai1.m_ID == 3);
+		ai1.m_Value = Zero;
+		verify_test(db.AssetGetSafe(ai1));
 		verify_test(ai1.m_Value == assetVal2);
 
 		verify_test(db.AssetDelete(2) == 4);
