@@ -2785,10 +2785,16 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::EXTRACT_FROM_POOL)
                         {
-                            TxoID windowBegin;
-                            TxoID shieldedId;
+                            TxoID windowBegin = 0;
+                            TxoID shieldedId = 0;
 
                             if (!ReadFee(vm, fee, true) || !ReadShieldedId(vm, shieldedId) || !ReadWindowBegin(vm, windowBegin))
+                            {
+                                return -1;
+                            }
+
+                            auto shieldedCoin = walletDB->getShieldedCoin(shieldedId);
+                            if (!shieldedCoin || shieldedCoin->m_value <= fee)
                             {
                                 return -1;
                             }
@@ -2799,7 +2805,7 @@ int main_impl(int argc, char* argv[])
                                 .SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
                                 .SetParameter(TxParameterID::IsSender, false)
                                 // TODO check this param
-                                .SetParameter(TxParameterID::Amount, amount)
+                                .SetParameter(TxParameterID::Amount, shieldedCoin->m_value - fee)
                                 .SetParameter(TxParameterID::Fee, fee)
                                 // TODO check this param 
                                 .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
