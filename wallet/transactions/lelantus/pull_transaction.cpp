@@ -136,6 +136,16 @@ namespace beam::wallet::lelantus
             return;
         }
 
+        {
+            // update "m_spentHeight" for shieldedCoin
+            auto shieldedCoinModified = GetWalletDB()->getShieldedCoin(GetTxID());
+            if (shieldedCoinModified)
+            {
+                shieldedCoinModified->m_spentHeight = std::min(shieldedCoinModified->m_spentHeight, hProof);
+                GetWalletDB()->saveShieldedCoin(shieldedCoinModified.get());
+            }
+        }
+
         SetCompletedTxCoinStatuses(hProof);
 
         CompleteTx();

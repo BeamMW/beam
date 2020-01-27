@@ -123,6 +123,10 @@ namespace beam::wallet::lelantus
                 p.m_Witness.V.m_R_Output = inputSk;
                 p.m_Witness.V.m_SpendSk = skSpendKey;
                 p.m_Witness.V.m_V = GetAmount() + GetFee();
+
+                // update "m_spentTxId" for shieldedCoin
+                shieldedCoin->m_spentTxId = m_Tx.GetTxID();
+                m_Tx.GetWalletDB()->saveShieldedCoin(*shieldedCoin);
             }
             pKrn->UpdateMsg();
 
