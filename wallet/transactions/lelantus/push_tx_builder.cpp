@@ -21,7 +21,6 @@ namespace beam::wallet::lelantus
     PushTxBuilder::PushTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee)
         : BaseTxBuilder(tx, subTxID, amount, fee)
     {
-
     }
 
     Transaction::Ptr PushTxBuilder::CreateTransaction()
@@ -38,7 +37,7 @@ namespace beam::wallet::lelantus
                 transaction->m_vOutputs = std::move(outputs);
             }
         }
-        //transaction->m_Offset = m_Offset;
+
         {
             ECC::Scalar::Native offset = Zero;
 
@@ -90,7 +89,8 @@ namespace beam::wallet::lelantus
             ECC::GenRandom(outputNonce);
             ShieldedTxo::Data::OutputParams op;
             op.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
-            //op.m_Message = m_Shielded.m_Message;
+            // TODO: add ShieldedMessage if needed
+            // op.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
             op.m_Value = GetAmount();
             op.Generate(pKrn->m_Txo, oracle, viewer, outputNonce);
 
@@ -100,21 +100,16 @@ namespace beam::wallet::lelantus
             shieldedCoin.m_createTxId = m_Tx.GetTxID();
             shieldedCoin.m_skSerialG = sp.m_pK[0];
             shieldedCoin.m_skOutputG = op.m_k;
-            shieldedCoin.m_serialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
             shieldedCoin.m_isCreatedByViewer = sp.m_IsCreatedByViewer;
             shieldedCoin.m_sender = op.m_Sender;
             shieldedCoin.m_message = op.m_Message;
 
             m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);
-            m_Tx.SetParameter(TxParameterID::ShieldedCoin, shieldedCoin);
+            m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, pKrn->m_Txo.m_Serial.m_SerialPub);
 
             // save KernelID
             pKrn->MsgToID();
             m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
-
-            // verify TxKernelShieldedOutput
-            ECC::Point::Native pt;
-            assert(pKrn->IsValid(m_Tx.GetWalletDB()->getCurrentHeight(), pt));
 
             transaction->m_vKernels.push_back(std::move(pKrn));
 

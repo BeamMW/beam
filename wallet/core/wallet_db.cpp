@@ -137,7 +137,6 @@
 #define ENUM_SHIELDED_COIN_FIELDS(each, sep, obj) \
     each(skSerialG,             skSerialG,            BLOB NOT NULL PRIMARY KEY, obj) sep \
     each(skOutputG,             skOutputG,            BLOB NOT NULL, obj) sep \
-    each(serialPub,             serialPub,            BLOB, obj) sep \
     each(sender,                sender,               BLOB, obj) sep \
     each(message,               message,              BLOB, obj) sep \
     each(ID,                    ID,                   INTEGER NOT NULL, obj) sep \

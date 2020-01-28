@@ -305,7 +305,7 @@ namespace beam::wallet
 
         InternalFailureReason = 210,
     
-        ShieldedCoin = 220,
+        ShieldedSerialPub = 220,
 
         State = 255
 

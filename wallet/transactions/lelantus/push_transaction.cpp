@@ -56,7 +56,6 @@ namespace beam::wallet::lelantus
 
     void PushTransaction::UpdateImpl()
     {
-        //State txState = GetState();
         AmountList amoutList;
         if (!GetParameter(TxParameterID::AmountList, amoutList))
         {
@@ -89,7 +88,11 @@ namespace beam::wallet::lelantus
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
         {
-            // TODO check expired
+            // TODO: check 
+            if (CheckExpired())
+            {
+                return;
+            }
 
             // Construct transaction
             auto transaction = m_TxBuilder->CreateTransaction();
@@ -105,7 +108,6 @@ namespace beam::wallet::lelantus
             }
 
             GetGateway().register_tx(GetTxID(), transaction);
-            //SetState(State::Registration);
             return;
         }
 
@@ -128,7 +130,6 @@ namespace beam::wallet::lelantus
         GetParameter(TxParameterID::KernelProofHeight, hProof);
         if (!hProof)
         {
-            //SetState(State::KernelConfirmation);
             ConfirmKernel(m_TxBuilder->GetKernelID());
             return;
         }
@@ -136,10 +137,15 @@ namespace beam::wallet::lelantus
         // getProofShieldedOutp
         if (m_waitingShieldedProof)
         {
-            auto shieldedCoin = GetMandatoryParameter<ShieldedCoin>(TxParameterID::ShieldedCoin);
+            ECC::Point serialPub = GetMandatoryParameter<ECC::Point>(TxParameterID::ShieldedSerialPub);
 
-            GetGateway().get_proof_shielded_output(GetTxID(), shieldedCoin.m_serialPub, [this](proto::ProofShieldedOutp proof)
+            GetGateway().get_proof_shielded_output(GetTxID(), serialPub, [this, weak = this->weak_from_this()](proto::ProofShieldedOutp proof)
                 {
+                    if (weak.expired())
+                    {
+                        return;
+                    }
+
                     if (m_waitingShieldedProof)
                     {
                         m_waitingShieldedProof = false;

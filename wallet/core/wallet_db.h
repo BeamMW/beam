@@ -211,9 +211,6 @@ namespace beam::wallet
         ECC::Scalar m_skSerialG;
         ECC::Scalar m_skOutputG;
 
-        // TODO: remove
-        ECC::Point m_serialPub;
-
         PeerID m_sender;
         ECC::uintBig m_message;
         TxoID m_ID = 0;
@@ -225,9 +222,6 @@ namespace beam::wallet
 
         boost::optional<TxID> m_createTxId;  // id of the transaction which created the UTXO
         boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
-
-        SERIALIZE(m_skSerialG, m_skOutputG, m_serialPub, m_sender, m_message, m_ID, m_isCreatedByViewer, m_value,
-            m_confirmHeight, m_spentHeight, m_createTxId, m_spentTxId);
     };
 
     // Notifications for all collection changes
