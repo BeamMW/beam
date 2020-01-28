@@ -74,7 +74,6 @@ private:
     void onWalledOpened(const beam::SecString& pass);
     void backupDB(const std::string& dbFilePath);
     void restoreDBFromBackup(const std::string& dbFilePath);
-    void generateDefaultAddress();
 
 private:
     // SwapCoinClientModels must be destroyed after WalletModel

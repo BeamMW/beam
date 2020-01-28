@@ -2109,6 +2109,21 @@ namespace ECC {
 		out = m_PkJ * sk;
 	}
 
+	uint32_t HKdf::ExportP(void* p) const
+	{
+		HKdfPub pkdf;
+		if (p)
+			pkdf.GenerateFrom(*this);
+		return pkdf.ExportP(p);
+	}
+
+	uint32_t HKdf::ExportS(void* p) const
+	{
+		if (p)
+			Export(*reinterpret_cast<Packed*>(p));
+		return sizeof(Packed);
+	}
+
 	void HKdf::Export(Packed& v) const
 	{
 		v.m_Secret = m_Generator.m_Secret.V;
@@ -2119,6 +2134,13 @@ namespace ECC {
 	{
 		m_Generator.m_Secret.V = v.m_Secret;
 		return !m_kCoFactor.Import(v.m_kCoFactor);
+	}
+
+	uint32_t HKdfPub::ExportP(void* p) const
+	{
+		if (p)
+			Export(*reinterpret_cast<Packed*>(p));
+		return sizeof(Packed);
 	}
 
 	void HKdfPub::Export(Packed& v) const

@@ -2066,7 +2066,7 @@ void TestKdf()
 	ks1.SetPassword(sPass);
 	ks1.m_sMeta = "hello, World!";
 
-	ks1.Export(skdf);
+	ks1.ExportS(skdf);
 	HKdf skdf2;
 	ks1.m_sMeta.clear();
 	ks1.SetPassword(sPass);
@@ -2074,7 +2074,7 @@ void TestKdf()
 
 	verify_test(skdf2.IsSame(skdf));
 
-	ks1.Export(pkdf);
+	ks1.ExportP(pkdf);
 	HKdfPub pkdf2;
 	verify_test(ks1.Import(pkdf2));
 	verify_test(pkdf2.IsSame(pkdf));
@@ -2491,6 +2491,7 @@ void TestLelantusKeys()
 	verify_test(txo.m_Serial.IsValid(pt));
 	verify_test(sprs2.Recover(txo.m_Serial, viewer));
 	verify_test(sprs2.m_IsCreatedByViewer);
+	verify_test(sprs2.m_SharedSecret == sprs.m_SharedSecret);
 
 	// make sure we get the appropriate private spend key
 	Scalar::Native kSpend;
@@ -2504,27 +2505,27 @@ void TestLelantusKeys()
 	oprs.m_Message = Scalar::s_Order;
 	{
 		Oracle oracle;
-		oprs.Generate(txo, oracle, gen, 115U);
+		oprs.Generate(txo, sprs.m_SharedSecret, oracle, gen);
 	}
 	{
 		Oracle oracle;
-		verify_test(oprs2.Recover(txo, oracle, viewer));
+		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle, viewer));
 		verify_test(oprs.m_Sender == oprs2.m_Sender);
 		verify_test(oprs.m_Message == oprs2.m_Message);
 	}
 
-	oprs.m_Sender.Negate(); // won't fin ECC::Scalar, special handling should be done
+	oprs.m_Sender.Negate(); // won't fit ECC::Scalar, special handling should be done
 	oprs.m_Message.Negate();
 	oprs.m_Message.Inc();
 	oprs.m_Message.Negate(); // should be 1 less than the order
 
 	{
 		Oracle oracle;
-		oprs.Generate(txo, oracle, gen, 115U);
+		oprs.Generate(txo, sprs.m_SharedSecret, oracle, gen);
 	}
 	{
 		Oracle oracle;
-		verify_test(oprs2.Recover(txo, oracle, viewer));
+		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle, viewer));
 		verify_test(oprs.m_Sender == oprs2.m_Sender);
 		verify_test(oprs.m_Message == oprs2.m_Message);
 	}

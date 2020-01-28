@@ -1267,14 +1267,14 @@ namespace
                 return {};
             }
 
-            ECC::Scalar::Native SignAssetKernelSync(const std::vector<CoinID>& inputs,
+            AssetSignature SignAssetKernelSync(const std::vector<CoinID>& inputs,
                 const std::vector<CoinID>& outputs,
                 Amount fee,
                 Key::Index assetOwnerIdx,
                 TxKernelAssetControl& kernel) override
             {
                 assert(!"not implemented.");
-                return {};
+                return AssetSignature{};
             }
 
             void SignAssetKernel(const std::vector<CoinID>& inputs,
@@ -1282,10 +1282,11 @@ namespace
                 Amount fee,
                 Key::Index assetOwnerIdx,
                 TxKernelAssetControl& kernel,
-                Callback<ECC::Scalar::Native>&&,
+                Callback<AssetSignature>&&,
                 ExceptionCallback&&) override
             {
                 assert(!"not implemented.");
+                return;
             }
 
             PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override
@@ -1395,7 +1396,8 @@ namespace
             {
                 LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-                WalletAddress address = storage::createAddress(*_walletDB, _keyKeeper);
+                WalletAddress address;
+                _walletDB->createAddress(address);
                 FillAddressData(data, address);
 
                 _walletDB->saveAddress(address);
@@ -1503,7 +1505,8 @@ namespace
                     }
                     else
                     {
-                        WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
+                        WalletAddress senderAddress;
+                        _walletDB->createAddress(senderAddress);
                         _walletDB->saveAddress(senderAddress);
 
                         from = senderAddress.m_walletID;     
@@ -1591,7 +1594,8 @@ namespace
                 LOG_DEBUG() << "], fee = " << data.fee;
                 try
                 {
-                     WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
+                    WalletAddress senderAddress;
+                    _walletDB->createAddress(senderAddress);
                     _walletDB->saveAddress(senderAddress);
 
                     auto minimumFee = std::max(wallet::GetMinimumFee(data.coins.size() + 1), DefaultFee); // +1 extra output for change 
@@ -1775,14 +1779,15 @@ namespace
                 if(ks.Import(*ownerKdf))
                 {
                     auto dbName = generateUid();
-                    IWalletDB::Ptr walletDB = WalletDB::initWithOwnerKey(dbName + ".db", ownerKdf, SecString(data.pass), _reactor);
+                    IWalletDB::Ptr walletDB = WalletDB::init(dbName + ".db", SecString(data.pass), /*_keyKeeper*/nullptr);
 
                     if(walletDB)
                     {
                         walletDB->Subscribe(this);
 
                         // generate default address
-                        WalletAddress address = storage::createAddress(*walletDB, _keyKeeper);
+                        WalletAddress address;
+                        walletDB->createAddress(address);
                         address.m_label = "default";
                         walletDB->saveAddress(address);
 
@@ -1800,7 +1805,7 @@ namespace
 
                 _walletDB = WalletsMap.count(data.id)
                     ? WalletsMap[data.id]
-                    : WalletDB::open(data.id + ".db", SecString(data.pass), _reactor);
+                    : WalletDB::open(data.id + ".db", SecString(data.pass));
 
                 if(!_walletDB)
                 {
@@ -1815,7 +1820,7 @@ namespace
 
                 _walletDB->Subscribe(this);
 
-                _wallet = std::make_unique<Wallet>( _walletDB, _keyKeeper );
+                _wallet = std::make_unique<Wallet>( _walletDB );
                 _wallet->ResumeAllTransactions();
 
                 auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*_wallet);
@@ -1838,7 +1843,7 @@ namespace
                 nnet->m_Cfg.m_vNodes.push_back(node_addr);
                 nnet->Connect();
 
-                auto wnet = std::make_shared<WalletNetworkViaBbs>(*_wallet, nnet, _walletDB, _keyKeeper);
+                auto wnet = std::make_shared<WalletNetworkViaBbs>(*_wallet, nnet, _walletDB);
                 _wallet->AddMessageEndpoint(wnet);
                 _wallet->SetNodeEndpoint(nnet);
 

@@ -47,8 +47,7 @@ public:
         friend class Mediator;
         Mediator* m_observable;
     };
-    Mediator(const IWalletDB::Ptr& walletDB,
-             const IPrivateKeyKeeper::Ptr& keyKeeper);
+    Mediator(const IWalletDB::Ptr& walletDB);
     ~Mediator();
     // proto::FlyClient
     void OnNewTip() override;
@@ -86,7 +85,7 @@ public:
     void RemoveObserver(Observer* observer);
 
 private:
-    ECC::Scalar::Native get_skBbs(const ChannelIDPtr& chID);
+    bool get_skBbs(ECC::Scalar::Native&, const ChannelIDPtr& chID);
     void OnIncoming(const ChannelIDPtr& chID,
                     Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID);
@@ -104,7 +103,6 @@ private:
     void Unsubscribe();
 
     IWalletDB::Ptr m_pWalletDB;
-    IPrivateKeyKeeper::Ptr m_keyKeeper;
     proto::FlyClient::INetwork::Ptr m_pConnection;
 
     std::unique_ptr<Receiver> m_pInputReceiver;

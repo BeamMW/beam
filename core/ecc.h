@@ -351,6 +351,8 @@ namespace ECC
 			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) = 0;
 
 			bool IsSame(IPKdf&);
+
+			virtual uint32_t ExportP(void*) const { return 0; } // returns the size, ptr is optional
 		};
 
 		struct IKdf
@@ -363,6 +365,8 @@ namespace ECC
 
 			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
 			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
+
+			virtual uint32_t ExportS(void*) const { return 0; } // returns the size, ptr is optional
 		};
 	};
 

@@ -42,7 +42,9 @@ namespace beam::wallet
         void GenerateBeamCoin(Amount amount, bool change);
         bool CreateInputs();
         bool CreateOutputs();
+
         Key::Index GetAssetOwnerIdx() const;
+        PeerID GetAssetOwnerId() const;
 
         //
         // Blockchain stuff
@@ -56,27 +58,6 @@ namespace beam::wallet
 
     protected:
 
-        template <typename Result, typename Func, typename ContinueFunc>
-        void DoAsync(Func&& asyncFunc, ContinueFunc&& continueFunc)
-        {
-            auto thisHolder = shared_from_this();
-            auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
-            m_Tx.GetAsyncAcontext().OnAsyncStarted();
-
-            asyncFunc(
-                [thisHolder, this, txHolder, continueFunc](Result&& res)
-                {
-                    continueFunc(std::move(res));
-                    m_Tx.UpdateAsync(); // may complete transaction
-                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
-                },
-                [thisHolder, this, txHolder](const std::exception_ptr& ex)
-                {
-                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
-                    std::rethrow_exception(ex);
-                });
-        }
-
     private:
         const CoinIDList& GetInputCoins() const;
         const CoinIDList& GetOutputCoins() const;
@@ -86,6 +67,8 @@ namespace beam::wallet
         SubTxID m_SubTxID;
 
         beam::Key::Index m_assetOwnerIdx;
+        PeerID m_assetOwnerId;
+
         Amount     m_Fee;
         Amount     m_ChangeBeam;
         AmountList m_AmountList;

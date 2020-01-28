@@ -66,6 +66,7 @@ namespace beam::wallet
     }
 
     class LockTxBuilder;
+    class SharedTxBuilder;
 
     class AtomicSwapTransaction : public BaseTransaction
     {
@@ -134,7 +135,6 @@ namespace beam::wallet
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway
                                       , IWalletDB::Ptr walletDB
-                                      , IPrivateKeyKeeper::Ptr keyKeeper
                                       , const TxID& txID) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
 
@@ -146,7 +146,6 @@ namespace beam::wallet
 
         AtomicSwapTransaction(INegotiatorGateway& gateway
                             , WalletDB::Ptr walletDB
-                            , IPrivateKeyKeeper::Ptr keyKeeper
                             , const TxID& txID
                             , ISecondSideProvider& secondSideProvider);
 
@@ -210,6 +209,9 @@ namespace beam::wallet
 
         Transaction::Ptr m_LockTx;
         Transaction::Ptr m_WithdrawTx;
+
+        std::shared_ptr<LockTxBuilder> m_pLockBuiler;
+        std::shared_ptr<SharedTxBuilder> m_pSharedBuiler;
 
         WrapperSecondSide m_secondSide;
     };

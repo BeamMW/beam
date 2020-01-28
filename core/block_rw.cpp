@@ -186,17 +186,19 @@ namespace beam
 
 	/////////////
 	// KeyString
-	void KeyString::Export(const ECC::HKdf& v)
+	void KeyString::ExportS(const Key::IKdf& v)
 	{
 		ECC::NoLeak<ECC::HKdf::Packed> p;
-		v.Export(p.V);
+		assert(v.ExportS(nullptr) == sizeof(p));
+		v.ExportS(&p);
 		Export(&p.V, sizeof(p.V), 's');
 	}
 
-	void KeyString::Export(const ECC::HKdfPub& v)
+	void KeyString::ExportP(const Key::IPKdf& v)
 	{
 		ECC::NoLeak<ECC::HKdfPub::Packed> p;
-		v.Export(p.V);
+		assert(v.ExportP(nullptr) == sizeof(p));
+		v.ExportP(&p);
 		Export(&p.V, sizeof(p.V), 'P');
 	}
 

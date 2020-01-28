@@ -23,8 +23,6 @@ namespace beam
 		Key::IPKdf::Ptr m_pGen;
 		Key::IPKdf::Ptr m_pSer;
 
-		ECC::Point::Native m_ptImgH; // co-factor multiplied by H
-
 		void FromViewer(const Viewer&);
 	};
 
@@ -46,6 +44,7 @@ namespace beam
 		{
 			ECC::Scalar::Native m_pK[2]; // kG, kJ
 
+			ECC::Hash::Value m_SharedSecret;
 			ECC::Hash::Value m_SerialPreimage;
 			ECC::Point m_SpendPk;
 
@@ -60,12 +59,12 @@ namespace beam
 
 		protected:
 			void GenerateInternal(Serial&, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
-			void Export(Serial&, Key::IPKdf& gen, Key::IPKdf& ser) const;
 			void set_PreimageFromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
 			void set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
+			void set_SharedSecret(const ECC::Point::Native&);
 			static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native*);
 			static void get_DH(ECC::Hash::Value&, const Serial&);
-			static void get_Nonces(Key::IPKdf& gen, const ECC::Point::Native& ptShared, ECC::Scalar::Native*);
+			void get_Nonces(Key::IPKdf& gen, ECC::Scalar::Native*) const;
 		};
 
 		struct OutputParams
@@ -75,16 +74,25 @@ namespace beam
 			PeerID m_Sender;
 			ECC::uintBig m_Message;
 
+			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const PublicGen&);
+			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const Viewer&);
+			bool Recover(const ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const Viewer&);
+
+		protected:
+			void GenerateInternal(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, Key::IPKdf& gen);
+			static void get_Seed(ECC::uintBig&, const ECC::Hash::Value& hvShared);
+			static uint32_t Msg2Scalar(ECC::Scalar::Native&, const ECC::uintBig&);
+			static void Scalar2Msg(ECC::uintBig&, const ECC::Scalar::Native&, uint32_t);
+		};
+
+		struct Params
+		{
+			SerialParams m_Serial;
+			OutputParams m_Output;
+
 			void Generate(ShieldedTxo&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce);
 			void Generate(ShieldedTxo&, ECC::Oracle&, const Viewer&, const ECC::Hash::Value& nonce);
 			bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
-
-		protected:
-			void GenerateInternal(ShieldedTxo&, ECC::Oracle&, Key::IPKdf& gen, Key::IKdf* pGenPriv, const ECC::Point::Native* pImgH, const ECC::Hash::Value& nonce);
-			static void get_DH(ECC::Hash::Value&, const ShieldedTxo&);
-			static void get_Seed(ECC::uintBig&, const ECC::Point::Native&);
-			static uint32_t Msg2Scalar(ECC::Scalar::Native&, const ECC::uintBig&);
-			static void Scalar2Msg(ECC::uintBig&, const ECC::Scalar::Native&, uint32_t);
 		};
 
 		struct HashTxt;

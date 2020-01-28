@@ -27,7 +27,7 @@ namespace beam::wallet
         //
         // Transaction
         //
-        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, IPrivateKeyKeeper::Ptr keyKeeper);
+        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID);
 
         bool GetInitialTxParams();
         virtual Transaction::Ptr CreateTransaction();
@@ -48,7 +48,6 @@ namespace beam::wallet
         bool     CreateInputs();
         bool     CreateOutputs();
         Key::Index GetAssetOwnerIdx() const;
-        PeerID  GetAssetOwnerId() const;
         Asset::ID  GetAssetId() const;
 
         //
@@ -62,42 +61,16 @@ namespace beam::wallet
         std::string GetKernelIDString() const;
         Height GetMinHeight() const;
 
-    protected:
-
-
-        template <typename Result, typename Func, typename ContinueFunc>
-        void DoAsync(Func&& asyncFunc, ContinueFunc&& continueFunc)
-        {
-            auto thisHolder = shared_from_this();
-            auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
-            m_Tx.GetAsyncAcontext().OnAsyncStarted();
-
-            asyncFunc(
-                [thisHolder, this, txHolder, continueFunc](Result&& res)
-                {
-                    continueFunc(std::move(res));
-                    m_Tx.UpdateAsync(); // may complete transaction
-                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
-                },
-                [thisHolder, this, txHolder](std::exception_ptr ex)
-                {
-                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
-                    std::rethrow_exception(ex);
-                });
-        }
-
     private:
         const CoinIDList& GetInputCoins() const;
         const CoinIDList& GetOutputCoins() const;
 
     private:
         BaseTransaction& m_Tx;
-        IPrivateKeyKeeper::Ptr m_keyKeeper;
         SubTxID m_SubTxID;
 
-        beam::Asset::ID m_assetId;
+        beam::Asset::ID  m_assetId;
         beam::Key::Index m_assetOwnerIdx;
-        beam::PeerID m_assetOwnerId;
 
         bool       m_issue;
         AmountList m_AmountList;

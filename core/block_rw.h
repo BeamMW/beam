@@ -24,8 +24,8 @@ namespace beam
 		std::string m_sMeta;
 		ECC::NoLeak<Merkle::Hash> m_hvSecret;
 
-		void Export(const ECC::HKdf&);
-		void Export(const ECC::HKdfPub&);
+		void ExportS(const Key::IKdf&);
+		void ExportP(const Key::IPKdf&);
 		bool Import(ECC::HKdf&);
 		bool Import(ECC::HKdfPub&);
 		void SetPassword(const std::string&);

@@ -86,16 +86,11 @@ struct KeyKeeper
 
     std::string GetOwnerKey(const std::string& pass) const
     {
-        const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*_kdf);
-
         beam::KeyString ks;
         ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
         ks.m_sMeta = std::to_string(0);
 
-        ECC::HKdfPub pkdf;
-        pkdf.GenerateFrom(kdf);
-
-        ks.Export(pkdf);
+        ks.ExportP(*_kdf);
 
         return ks.m_sRes;
     }

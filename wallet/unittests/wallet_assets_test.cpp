@@ -241,7 +241,7 @@ void TestAssets() {
         sw.start();
         const auto exported = storage::ExportDataToJson(*walletDB);
         WALLET_CHECK(!exported.empty());
-        const auto ires = storage::ImportDataFromJson(*importDB, sender.m_KeyKeeper, exported.c_str(), exported.size());
+        const auto ires = storage::ImportDataFromJson(*importDB, exported.c_str(), exported.size());
         WALLET_CHECK(ires != false);
         sw.stop();
         LOG_INFO() << "Serialize elapsed time: " << sw.milliseconds() << "ms";

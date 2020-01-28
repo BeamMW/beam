@@ -84,7 +84,6 @@ namespace beam
     const char kErrorSwapWalletPwdNotProvided[] = "Please, provide password for swap wallet.";
     const char kErrorCommandNotSpecified[] = "command parameter not specified.";
     const char kErrorCommandUnknown[] = "unknown command: \'%1%\'";
-    const char kErrorCantRestoreColdWallet[] = "Restoring cold wallet. You have to replace generated 'wallet.db' with your existing 'wallet.db' file.";
     const char kErrorWalletNotInitialized[] = "Please initialize your wallet first... \nExample: beam-wallet --command=init";
     const char kErrorWalletAlreadyInitialized[] = "Your wallet is already initialized.";
     const char kErrorWalletPwdNotProvided[] = "Please, provide password for the wallet.";

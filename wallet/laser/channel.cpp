@@ -147,6 +147,8 @@ Amount Channel::SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asse
 void Channel::get_Kdf(Key::IKdf::Ptr& pKdf)
 {
     pKdf = m_rHolder.getWalletDB()->get_MasterKdf();
+    if (!pKdf)
+        throw std::runtime_error("master key inaccessible");
 }
 
 void Channel::AllocTxoID(CoinID& cid)

@@ -17,6 +17,8 @@ target_sources(wallet
         wallet_db.cpp
         base58.cpp
         bbs_miner.cpp
+    PUBLIC
+        private_key_keeper.cpp
 )
 
 target_link_libraries(wallet 

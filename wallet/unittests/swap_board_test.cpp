@@ -23,7 +23,6 @@
 #include "wallet/core/common.h"
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/wallet_network.h"
-#include "keykeeper/local_private_key_keeper.h"
 
 // for wallet_test_environment.cpp
 #include "core/unittest/mini_blockchain.h"
@@ -78,8 +77,8 @@ namespace
     class MockNetwork : public BaseMessageEndpoint, public FlyClient::INetwork
     {
     public:
-        MockNetwork(IWalletMessageConsumer& wallet, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
-            : BaseMessageEndpoint(wallet, walletDB, keyKeeper)
+        MockNetwork(IWalletMessageConsumer& wallet, const IWalletDB::Ptr& walletDB)
+            : BaseMessageEndpoint(wallet, walletDB)
         {};
 
         // INetwork
@@ -161,8 +160,7 @@ namespace
 
         MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB);
 
         SwapOffersBoard Alice(mockNetwork, mockNetwork);
         size_t countOffers = 0;
@@ -270,8 +268,7 @@ namespace
 
         MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB);
 
         SwapOffersBoard Alice(mockNetwork, mockNetwork);
         WALLET_CHECK(Alice.getOffersList().size() == 0);
@@ -282,7 +279,8 @@ namespace
 
         {
             std::cout << "Case: invalid signature" << endl;
-            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+            WalletAddress wa;
+            senderWalletDB->createAddress(wa);
             SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
             const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
             ECC::Scalar::Native sk;
@@ -316,9 +314,11 @@ namespace
         }
         {
             std::cout << "Case: invalid public key" << endl;
-            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+            WalletAddress wa;
+            senderWalletDB->createAddress(wa);
             SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
-            WalletAddress newAddr = storage::createAddress(*senderWalletDB, keyKeeper);
+            WalletAddress newAddr;
+            senderWalletDB->createAddress(newAddr);
             offer.m_publisherId = newAddr.m_walletID;   // changed public key to new random
             const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
             ECC::Scalar::Native sk;
@@ -351,7 +351,8 @@ namespace
         }
         {
             std::cout << "Case: correct message" << endl;
-            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+            WalletAddress wa;
+            senderWalletDB->createAddress(wa);
             SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
             const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
             ECC::Scalar::Native sk;
@@ -392,14 +393,14 @@ namespace
 
         MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB);
 
         SwapOffersBoard Alice(mockNetwork, mockNetwork);
         WALLET_CHECK(Alice.getOffersList().size() == 0);
 
         TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+        WalletAddress wa;
+        senderWalletDB->createAddress(wa);
         senderWalletDB->saveAddress(wa);
         SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
         
@@ -463,8 +464,7 @@ namespace
 
         MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB);
 
         SwapOffersBoard Alice(mockNetwork, mockNetwork);
         SwapOffersBoard Bob(mockNetwork, mockNetwork);
@@ -475,7 +475,8 @@ namespace
         WALLET_CHECK(Cory.getOffersList().size() == 0);
 
         TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+        WalletAddress wa;
+        senderWalletDB->createAddress(wa);
         senderWalletDB->saveAddress(wa);
         SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
         
@@ -607,14 +608,14 @@ namespace
 
         MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB);
 
         SwapOffersBoard Alice(mockNetwork, mockNetwork);
         SwapOffersBoard Bob(mockNetwork, mockNetwork);
 
         TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+        WalletAddress wa;
+        senderWalletDB->createAddress(wa);
         senderWalletDB->saveAddress(wa);
         SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
 
@@ -745,14 +746,14 @@ namespace
 
         MockWallet mockWalletWallet;
         auto senderWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB);
 
         SwapOffersBoard Alice(mockNetwork, mockNetwork);
         SwapOffersBoard Bob(mockNetwork, mockNetwork);
 
         TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+        WalletAddress wa;
+        senderWalletDB->createAddress(wa);
         senderWalletDB->saveAddress(wa);
         SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
 

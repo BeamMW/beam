@@ -147,18 +147,6 @@ namespace beam
 		return pRes;
 	}
 
-	Key::IKdf::Ptr MasterKey::get_Child(const Key::IKdf::Ptr& pKdf, const Key::IDV& kidv)
-	{
-		Key::Index iSubkey = kidv.get_Subkey();
-		if (!iSubkey)
-			return pKdf; // by convention: scheme V0, Subkey=0 - is a master key
-
-		if (Key::IDV::Scheme::BB21 == kidv.get_Scheme())
-			return pKdf; // BB2.1 workaround
-
-		return get_Child(*pKdf, iSubkey);
-	}
-
 	/////////////
 	// CoinID
 	CoinID::Generator::Generator(Asset::ID aid)
@@ -176,6 +164,28 @@ namespace beam
 		:Generator(cid.m_AssetID)
 		,m_Cid(cid)
 	{
+	}
+
+	bool CoinID::get_ChildKdfIndex(Key::Index& idx) const
+	{
+		Key::Index iSubkey = get_Subkey();
+		if (!iSubkey)
+			return false; // by convention: up to latest scheme, Subkey=0 - is a master key
+
+		if (Scheme::BB21 == get_Scheme())
+			return false; // BB2.1 workaround
+
+		idx = iSubkey;
+		return true;
+	}
+
+	Key::IKdf::Ptr CoinID::get_ChildKdf(const Key::IKdf::Ptr& pMasterKdf) const
+	{
+		Key::Index iIdx;
+		if (!get_ChildKdfIndex(iIdx))
+			return pMasterKdf;
+
+		return MasterKey::get_Child(*pMasterKdf, iIdx);
 	}
 
 	void CoinID::Worker::get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J)
@@ -226,7 +236,11 @@ namespace beam
 					<< m_Value;
 
 				if (m_AssetID)
-					hp << m_AssetID;
+				{
+					hp
+						<< "asset"
+						<< m_AssetID;
+				}
 
 				hp >> hv;
 			}
