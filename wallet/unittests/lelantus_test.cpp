@@ -187,15 +187,9 @@ void TestManyTransactons()
         }
     };
 
-    const size_t kAmount = 2000;
-    //const size_t kAmount = 2;
-    Amount kNominalCoin = 5000;
-    AmountList testAmount;
-
-    for (size_t i = 0; i < kAmount; i++)
-    {
-        testAmount.push_back(kNominalCoin);
-    }
+    constexpr size_t kAmount = 2000;
+    constexpr Amount kNominalCoin = 5000;
+    AmountList testAmount(kAmount, kNominalCoin);
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
     //auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
@@ -305,7 +299,7 @@ int main()
 
     TestSimpleTx();
 
-    TestManyTransactons();
+    /*TestManyTransactons();*/
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
