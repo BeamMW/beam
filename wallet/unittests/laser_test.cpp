@@ -324,9 +324,9 @@ int main()
                     WALLET_CHECK(false);
                 };
 
-            laserFirst->WaitIncoming(100000000, 100000000, 101, 10);
+            laserFirst->WaitIncoming(100000000, 100000000, 101, 27);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 10);
+            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 27);
         }
         if (height > resultsForCheck.test2.height + 1 &&
             resultsForCheck.channel_1 &&
@@ -439,7 +439,7 @@ int main()
             resultsForCheck.test6.height = height;
             ResetObservers();
         }
-        if (height >= resultsForCheck.test3.height + 15 &&  // 15 block after open
+        if (height >= resultsForCheck.test3.height + 35 &&  // 15 block after open
             height > resultsForCheck.test6.height &&
             !resultsForCheck.test7.transferStarted)  
         {
