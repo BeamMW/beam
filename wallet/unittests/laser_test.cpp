@@ -36,6 +36,9 @@ using namespace std;
 namespace {
 
 const Height kMaxTestHeight = 254;
+const Height kChannelLockTime = 42;
+const Amount kTransferFirst = 10000;
+const Amount kTransferSecond = 2000;
 
 struct LaserObserver : public laser::Mediator::Observer
 {
@@ -146,24 +149,27 @@ int main()
         } test2;
         struct Test3 {
             Height height = kMaxTestHeight;
+            Height unlockHeight = kMaxTestHeight;
         } test3;
         struct Test4 {
             Height height = kMaxTestHeight;
         } test4;
         struct Test5 {
             Height height = kMaxTestHeight;
-            bool firstSendSuccess = false;
-            bool secondReceiveSuccess = false;
+            bool firstCompleted = false;
+            bool secondCompleted = false;
         } test5;
         struct Test6 {
             Height height = kMaxTestHeight;
-            bool secondSendSuccess = false;
-            bool firstReceiveSuccess = false;
+            bool firstCompleted = false;
+            bool secondCompleted = false;
+            bool testInProgress = false;
+            int count = 0;
         } test6;
         struct Test7 {
             Height height = kMaxTestHeight;
             bool transferStarted = false;
-            bool transferFailed = false;
+            bool transferFinished = false;
         } test7;
         struct Test8 {
             Height height = kMaxTestHeight;
@@ -318,9 +324,9 @@ int main()
                     WALLET_CHECK(false);
                 };
 
-            laserFirst->WaitIncoming(100000000, 100000000, 101, 27);
+            laserFirst->WaitIncoming(100000000, 100000000, 101, kChannelLockTime);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 27);
+            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, kChannelLockTime);
         }
         if (height > resultsForCheck.test2.height + 1 &&
             resultsForCheck.channel_1 &&
@@ -328,6 +334,9 @@ int main()
             resultsForCheck.test3.height == kMaxTestHeight)
         {
             resultsForCheck.test3.height = height;
+
+            const auto& channelFirst = laserFirst->getChannel(resultsForCheck.channel_1);
+            resultsForCheck.test3.unlockHeight = channelFirst->get_LockHeight();
             ResetObservers();
         }
         if (height == resultsForCheck.test3.height + 1)
@@ -361,6 +370,15 @@ int main()
         }
         if (height == resultsForCheck.test4.height + 1)
         {
+            if (height >= resultsForCheck.test3.unlockHeight)
+            {
+                LOG_INFO() << "Test 5: skip";
+                resultsForCheck.test5.firstCompleted = true;
+                resultsForCheck.test5.secondCompleted = true;
+                WALLET_CHECK(false);
+                return;
+            }
+
             ResetObservers();
 
             auto channel2Str = to_hex(resultsForCheck.channel_2->m_pData,
@@ -374,67 +392,110 @@ int main()
                 [&resultsForCheck, &laserFirst] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 5: first updated";
+                    if (resultsForCheck.test5.firstCompleted) return;
+                    resultsForCheck.test5.firstCompleted = true;
                     const auto& channelFirst = laserFirst->getChannel(resultsForCheck.channel_1);
-                    resultsForCheck.test5.firstSendSuccess = 
-                        channelFirst->get_amountCurrentMy() + 10000 == channelFirst->get_amountMy();
-                    WALLET_CHECK(resultsForCheck.test5.firstSendSuccess);
+                    WALLET_CHECK(channelFirst->get_amountCurrentMy() == channelFirst->get_amountMy() - kTransferFirst);
+                };
+            observer_1.onTransferFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 5: first transfer failed";
+                    resultsForCheck.test5.firstCompleted = true;
                 };
             observer_2.onUpdateFinished =
                 [&resultsForCheck, &laserSecond] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 5: second updated";
+                    if (resultsForCheck.test5.secondCompleted) return;
+                    resultsForCheck.test5.secondCompleted = true;
                     const auto& channelSecond = laserSecond->getChannel(resultsForCheck.channel_2);
-                    resultsForCheck.test5.secondReceiveSuccess = 
-                        channelSecond->get_amountCurrentMy() - 10000 == channelSecond->get_amountMy();
-                    WALLET_CHECK(resultsForCheck.test5.secondReceiveSuccess);
+                    WALLET_CHECK(channelSecond->get_amountCurrentMy() == channelSecond->get_amountMy() + kTransferFirst);
                 };
-            WALLET_CHECK(laserFirst->Transfer(10000, channel2Str));
+            observer_2.onTransferFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                LOG_INFO() << "Test 5: second transfer failed";
+                    resultsForCheck.test5.secondCompleted = true;
+                };
+            WALLET_CHECK(laserFirst->Transfer(kTransferFirst, channel2Str));
         }
         if (height > resultsForCheck.test4.height + 1 &&
-            resultsForCheck.test5.firstSendSuccess &&
-            resultsForCheck.test5.secondReceiveSuccess &&
+            resultsForCheck.test5.firstCompleted &&
+            resultsForCheck.test5.secondCompleted &&
             resultsForCheck.test5.height == kMaxTestHeight)
         {
             resultsForCheck.test5.height = height;
             ResetObservers();
         }
-        if (height == resultsForCheck.test5.height + 1)
+        if (height >= resultsForCheck.test5.height + 1 &&
+            height < resultsForCheck.test3.unlockHeight &&
+            !resultsForCheck.test6.testInProgress)
         {
+            if (height >= resultsForCheck.test3.unlockHeight)
+            {
+                LOG_INFO() << "Test 6: skip";
+                resultsForCheck.test6.firstCompleted = true;
+                resultsForCheck.test6.secondCompleted = true;
+                WALLET_CHECK(false);
+                return;
+            }
+
             LOG_INFO() << "Test 6: second send to first";
 
+            resultsForCheck.test6.testInProgress = true;
             auto channel2Str = to_hex(resultsForCheck.channel_2->m_pData,
                                       resultsForCheck.channel_2->nBytes);
+            ++resultsForCheck.test6.count;
 
             observer_1.onUpdateFinished =
                 [&resultsForCheck, &laserFirst] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 6: first updated";
+                    if (resultsForCheck.test6.firstCompleted) return;
+                    resultsForCheck.test6.firstCompleted = true;
                     const auto& channelFirst = laserFirst->getChannel(resultsForCheck.channel_1);
-                    resultsForCheck.test6.firstReceiveSuccess =
-                        channelFirst->get_amountCurrentMy() - 10000 == channelFirst->get_amountMy();
-                    WALLET_CHECK(resultsForCheck.test6.firstReceiveSuccess);
+                    WALLET_CHECK(channelFirst->get_amountCurrentMy() == 
+                                 channelFirst->get_amountMy() - kTransferFirst + resultsForCheck.test6.count * kTransferSecond);
+                };
+            observer_1.onTransferFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                    LOG_INFO() << "Test 6: first transfer failed";
+                    resultsForCheck.test6.firstCompleted = true;
                 };
             observer_2.onUpdateFinished =
                 [&resultsForCheck, &laserSecond] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 6: second updated";
+                    if (resultsForCheck.test6.secondCompleted) return;
+                    resultsForCheck.test6.secondCompleted = true;
                     const auto& channelSecond = laserSecond->getChannel(resultsForCheck.channel_2);
-                    resultsForCheck.test6.secondSendSuccess =
-                        channelSecond->get_amountCurrentMy() + 10000 == channelSecond->get_amountMy();
-                    WALLET_CHECK(resultsForCheck.test6.secondSendSuccess);
+                    WALLET_CHECK(channelSecond->get_amountCurrentMy() ==
+                                 channelSecond->get_amountMy() + kTransferFirst - resultsForCheck.test6.count * kTransferSecond);
                 };
-            WALLET_CHECK(laserSecond->Transfer(20000, channel2Str));
+            observer_2.onTransferFailed =
+                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                {
+                LOG_INFO() << "Test 6: second transfer failed";
+                    resultsForCheck.test6.secondCompleted = true;
+                };
+            WALLET_CHECK(laserSecond->Transfer(kTransferSecond, channel2Str));
         }
         if (height > resultsForCheck.test5.height + 1 &&
-            resultsForCheck.test6.secondSendSuccess &&
-            resultsForCheck.test6.firstReceiveSuccess &&
-            resultsForCheck.test6.height == kMaxTestHeight)
+            resultsForCheck.test6.firstCompleted &&
+            resultsForCheck.test6.secondCompleted)
         {
+            resultsForCheck.test6.firstCompleted = false;
+            resultsForCheck.test6.secondCompleted = false;
+            resultsForCheck.test6.testInProgress = false;
             resultsForCheck.test6.height = height;
             ResetObservers();
+
+            LOG_INFO() << "Test 6: finished " << resultsForCheck.test6.count << " times";
         }
-        if (height >= resultsForCheck.test3.height + 35 &&  // 15 block after open
-            height > resultsForCheck.test6.height &&
+        if (height >= resultsForCheck.test3.unlockHeight &&
+            !resultsForCheck.test6.testInProgress &&
             !resultsForCheck.test7.transferStarted)  
         {
             LOG_INFO() << "Test 7: first send to second, after lock height reached";
@@ -447,21 +508,25 @@ int main()
                 [&resultsForCheck] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 7: transfer failed";
-                    resultsForCheck.test7.transferFailed = true;
-                    WALLET_CHECK(resultsForCheck.test7.transferFailed);
+                    resultsForCheck.test7.transferFinished = true;
+                    WALLET_CHECK(resultsForCheck.test7.transferFinished);
                 };
             observer_1.onUpdateFinished =
                 [&resultsForCheck] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 7: first updated";
-                    WALLET_CHECK(resultsForCheck.test7.transferFailed);
+                    if (!resultsForCheck.test7.transferFinished)
+                    {
+                        resultsForCheck.test7.transferFinished = true;
+                        WALLET_CHECK(false);
+                    }
                 };
 
             WALLET_CHECK(laserFirst->Transfer(10000, channel2Str));
         }
-        if (height > resultsForCheck.test3.height + 15 &&
+        if (height > resultsForCheck.test3.unlockHeight &&
             height > resultsForCheck.test6.height + 1 &&
-            resultsForCheck.test7.transferFailed &&
+            resultsForCheck.test7.transferFinished &&
             resultsForCheck.test7.height == kMaxTestHeight)
         {
             resultsForCheck.test7.height = height;
