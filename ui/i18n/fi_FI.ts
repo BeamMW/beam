@@ -2094,5 +2094,17 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
         <extracomment>settings tab, node section, port error label</extracomment>
         <translation type="unfinished"></translation>
     </message>
+    <message id="tx-failure-there-is-no-master-key">
+        <source>Master key is needed for this transaction, but unavailable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-keeper-malfunctioned">
+        <source>Key keeper malfunctioned</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-aborted-by-user">
+        <source>Aborted by the user</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
