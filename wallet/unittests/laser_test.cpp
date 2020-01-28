@@ -428,19 +428,10 @@ int main()
             resultsForCheck.test5.height = height;
             ResetObservers();
         }
-        if (height >= resultsForCheck.test5.height + 1 &&
+        if (height > resultsForCheck.test5.height &&
             height < resultsForCheck.test3.unlockHeight &&
             !resultsForCheck.test6.testInProgress)
         {
-            if (height >= resultsForCheck.test3.unlockHeight)
-            {
-                LOG_INFO() << "Test 6: skip";
-                resultsForCheck.test6.firstCompleted = true;
-                resultsForCheck.test6.secondCompleted = true;
-                WALLET_CHECK(false);
-                return;
-            }
-
             LOG_INFO() << "Test 6: second send to first";
 
             resultsForCheck.test6.testInProgress = true;

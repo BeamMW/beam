@@ -480,7 +480,7 @@ void Channel::LogNewState()
     case beam::Lightning::Channel::State::Closing2:
         {
             os << "Closing2 (Phase-1 withdrawal detected). Revision: "
-               << m_State.m_Close.m_iPath << ". Initiated by " 
+               << m_State.m_Close.m_iPath + 1 << ". Initiated by " 
                << (m_State.m_Close.m_Initiator ? "me" : "peer");
             if (DataUpdate::Type::Punishment == 
                 m_vUpdates[m_State.m_Close.m_iPath]->m_Type)

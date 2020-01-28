@@ -626,7 +626,7 @@ void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
     get_History().get_Tip(tip);
     Height channelLockHeight = ch->get_LockHeight();
 
-    if (tip.m_Height <= channelLockHeight)
+    if (tip.m_Height + 1 < channelLockHeight)
     {
         if (ch->Transfer(amount))
         {
@@ -646,7 +646,7 @@ void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
     {
         LOG_ERROR() << "You can't transfer: " << PrintableAmount(amount, true)
                     << " to channel: " << channelIdStr;
-        LOG_ERROR() << "Current height: " << tip.m_Height
+        LOG_ERROR() << "Current height: " << tip.m_Height + 1
                     << " overtop channel lock height: " << channelLockHeight;
     }
        
