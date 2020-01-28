@@ -1729,6 +1729,8 @@ namespace
 
         boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
         
+        // !TODO: token generation should be in one place (I see second one in receive_swap_view.cpp)
+
         // delete local parameters from token
         if (isBeamSide)
         {

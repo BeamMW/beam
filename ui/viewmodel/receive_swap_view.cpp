@@ -420,6 +420,7 @@ void ReceiveSwapViewModel::startListen()
     if (!_addressComment.isEmpty())
     {
         std::string localComment = _addressComment.toStdString();
+
         txParameters.SetParameter(TxParameterID::Message, beam::ByteBuffer(localComment.begin(), localComment.end()));
     }
 
@@ -467,6 +468,8 @@ void ReceiveSwapViewModel::updateTransactionToken()
     emit enoughChanged();
     emit isSendFeeOKChanged();
     emit isReceiveFeeOKChanged();
+
+    // !TODO: token generation should be in one place (I see second one in cli.cpp)
     _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _walletModel.getCurrentHeight());
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 

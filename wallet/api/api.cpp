@@ -697,7 +697,15 @@ namespace beam::wallet
 
     void WalletApi::getResponse(const JsonRpcId& id, const CreateOffer::Response& res, json& msg)
     {
-        msg = getNotImplError(id);
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", 
+            {
+                {"token", res.token}
+            }}
+        };
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const PublishOffer::Response& res, json& msg)

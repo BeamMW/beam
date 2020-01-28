@@ -42,6 +42,7 @@
 #include "wallet/core/simple_transaction.h"
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+#include "wallet/transactions/swaps/utils.h"
 #include "wallet/transactions/swaps/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
@@ -836,7 +837,37 @@ namespace
 
             void onMessage(const JsonRpcId& id, const CreateOffer& data) override
             {
+                int blockCount = 60 / 2; // OfferExpires30min
+
+                bool isBeamSide = true;
+                AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
+                Amount beamAmount = 1000500;
+                Amount swapAmount = 1000500;
+                std::string comment = "hello";
+
+                /////////////
+
+                WalletAddress address = storage::createAddress(*_walletDB, _keyKeeper);
+                address.m_label = comment;
+                address.m_duration = WalletAddress::AddressExpiration24h;
+
+                beam::wallet::TxParameters txParameters(beam::wallet::CreateSwapParameters()
+                    .SetParameter(beam::wallet::TxParameterID::IsInitiator, true)
+                    .SetParameter(beam::wallet::TxParameterID::MinHeight, _walletDB->getCurrentHeight())
+                    .SetParameter(beam::wallet::TxParameterID::PeerResponseTime, blockCount)
+                    .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide)
+                    .SetParameter(beam::wallet::TxParameterID::Amount, beamAmount)
+                    .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, swapCoin)
+                    .SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, swapAmount)
+                    .SetParameter(beam::wallet::TxParameterID::PeerID, address.m_walletID)
+                    .SetParameter(beam::wallet::TxParameterID::IsSender, isBeamSide));
+
+                //_walletDB->saveAddress(address);
+
+// start transaction listen here
+
                 CreateOffer::Response res;
+                res.token = std::to_string(txParameters);
                 doResponse(id, res);
             }
 

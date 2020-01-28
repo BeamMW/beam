@@ -90,9 +90,12 @@ namespace beam::wallet
 
     struct CreateOffer
     {
+        
+
         struct Response
         {
-
+            TxID txid;
+            std::string token;
         };
     };
 
