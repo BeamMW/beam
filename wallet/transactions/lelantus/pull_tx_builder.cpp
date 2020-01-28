@@ -74,7 +74,8 @@ namespace beam::wallet::lelantus
             TxKernelShieldedInput::Ptr pKrn(new TxKernelShieldedInput);
 
             pKrn->m_Fee = GetFee();
-            pKrn->m_Height.m_Min = m_Tx.GetWalletDB()->getCurrentHeight();
+            pKrn->m_Height.m_Min = GetMinHeight();
+            pKrn->m_Height.m_Max = GetMaxHeight();
             pKrn->m_WindowEnd = windowEnd;
             pKrn->m_SpendProof.m_Cfg = cfg;
 
@@ -106,7 +107,7 @@ namespace beam::wallet::lelantus
             assert(shieldedId < windowEnd && shieldedId >= startIndex);
             //uint32_t l = static_cast<uint32_t>(cfg.get_N() - (shieldedIndex - startIndex) - 2);
             uint32_t l = static_cast<uint32_t>(lst.m_vec.size() - shieldedList.size() + (shieldedId - startIndex));
-            Lelantus::Prover p(lst, pKrn->m_SpendProof);
+            Lelantus::Prover prover(lst, pKrn->m_SpendProof);
             {
                 auto shieldedCoin = m_Tx.GetWalletDB()->getShieldedCoin(shieldedId);
                 if (!shieldedCoin)
@@ -118,12 +119,11 @@ namespace beam::wallet::lelantus
                 ECC::Scalar::Native witnessSk = shieldedCoin->m_skSerialG;
                 witnessSk += shieldedCoin->m_skOutputG;
 
-                //p.m_Witness.V.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
-                p.m_Witness.V.m_L = l;
-                p.m_Witness.V.m_R = witnessSk;
-                p.m_Witness.V.m_R_Output = inputSk;
-                p.m_Witness.V.m_SpendSk = skSpendKey;
-                p.m_Witness.V.m_V = GetAmount() + GetFee();
+                prover.m_Witness.V.m_L = l;
+                prover.m_Witness.V.m_R = witnessSk;
+                prover.m_Witness.V.m_R_Output = inputSk;
+                prover.m_Witness.V.m_SpendSk = skSpendKey;
+                prover.m_Witness.V.m_V = GetAmount() + GetFee();
 
                 // update "m_spentTxId" for shieldedCoin
                 shieldedCoin->m_spentTxId = m_Tx.GetTxID();
@@ -131,30 +131,22 @@ namespace beam::wallet::lelantus
             }
             pKrn->UpdateMsg();
 
-            ECC::Oracle o1;
-            o1 << pKrn->m_Msg;
-            p.Generate(Zero, o1);
+            ECC::Oracle oracle;
+            oracle << pKrn->m_Msg;
+            prover.Generate(Zero, oracle);
 
             {
                 ECC::InnerProduct::BatchContextEx<4> bc;
                 std::vector<ECC::Scalar::Native> vKs;
                 vKs.resize(cfg.get_N());
-                ECC::Oracle o2;
-                if (!p.m_Proof.IsValid(bc, o2, &vKs.front()))
+                ECC::Oracle oracle1;
+                if (!prover.m_Proof.IsValid(bc, oracle1, &vKs.front()))
                 {
-                    return nullptr;
+                    throw TransactionFailedException(false, TxFailureReason::InvalidTransaction);
                 }
             }
 
             pKrn->MsgToID();
-
-            //m_Shielded.m_SpendPk = pKrn->m_SpendProof.m_SpendPk;
-            ECC::Point::Native pt;
-            if (!pKrn->IsValid(m_Tx.GetWalletDB()->getCurrentHeight(), pt))
-            {
-                return nullptr;
-            }
-            
             m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
 
             transaction->m_vKernels.push_back(std::move(pKrn));

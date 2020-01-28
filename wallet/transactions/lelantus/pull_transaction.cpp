@@ -90,7 +90,10 @@ namespace beam::wallet::lelantus
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
         {
-            // TODO check expired
+            if (CheckExpired())
+            {
+                return;
+            }
 
             // Construct transaction
             auto transaction = m_TxBuilder->CreateTransaction(m_shieldedList);
@@ -107,7 +110,6 @@ namespace beam::wallet::lelantus
 
             // register TX
             GetGateway().register_tx(GetTxID(), transaction);
-            //SetState(State::Registration);
             return;
         }
 
@@ -131,23 +133,19 @@ namespace beam::wallet::lelantus
         GetParameter(TxParameterID::KernelProofHeight, hProof);
         if (!hProof)
         {
-            //SetState(State::KernelConfirmation);
             ConfirmKernel(m_TxBuilder->GetKernelID());
             return;
         }
 
+        // update "m_spentHeight" for shieldedCoin
+        auto shieldedCoinModified = GetWalletDB()->getShieldedCoin(GetTxID());
+        if (shieldedCoinModified)
         {
-            // update "m_spentHeight" for shieldedCoin
-            auto shieldedCoinModified = GetWalletDB()->getShieldedCoin(GetTxID());
-            if (shieldedCoinModified)
-            {
-                shieldedCoinModified->m_spentHeight = std::min(shieldedCoinModified->m_spentHeight, hProof);
-                GetWalletDB()->saveShieldedCoin(shieldedCoinModified.get());
-            }
+            shieldedCoinModified->m_spentHeight = std::min(shieldedCoinModified->m_spentHeight, hProof);
+            GetWalletDB()->saveShieldedCoin(shieldedCoinModified.get());
         }
 
         SetCompletedTxCoinStatuses(hProof);
-
         CompleteTx();
     }
 
@@ -158,11 +156,13 @@ namespace beam::wallet::lelantus
             TxoID windowBegin = GetMandatoryParameter<TxoID>(TxParameterID::WindowBegin);
             uint32_t windowSize = Lelantus::Cfg().get_N();
             
-            m_Gateway.get_shielded_list(GetTxID(), windowBegin, windowSize, [&](TxoID, uint32_t, proto::ShieldedList&& msg)
+            GetGateway().get_shielded_list(GetTxID(), windowBegin, windowSize, [this, weak = this->weak_from_this()](TxoID, uint32_t, proto::ShieldedList&& msg)
             {
-                // TODO check this object
-                m_shieldedList.swap(msg.m_Items);
-                UpdateAsync();
+                if (!weak.expired())
+                {
+                    m_shieldedList.swap(msg.m_Items);
+                    UpdateAsync();
+                }
             });
             return false;
         }

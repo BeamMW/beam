@@ -88,7 +88,6 @@ namespace beam::wallet::lelantus
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
         {
-            // TODO: check 
             if (CheckExpired())
             {
                 return;

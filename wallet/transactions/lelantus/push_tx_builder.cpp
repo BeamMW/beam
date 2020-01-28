@@ -70,7 +70,8 @@ namespace beam::wallet::lelantus
 
         {
             TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
-            pKrn->m_Height.m_Min = m_Tx.GetWalletDB()->getCurrentHeight();
+            pKrn->m_Height.m_Min = GetMinHeight();
+            pKrn->m_Height.m_Max = GetMaxHeight();
             pKrn->m_Fee = GetFee();
 
             ShieldedTxo::Viewer viewer;
