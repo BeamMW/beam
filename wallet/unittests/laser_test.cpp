@@ -18,7 +18,6 @@
 
 #include <boost/filesystem.hpp>
 #include "utility/logger.h"
-#include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
 #include "wallet/laser/mediator.h"
@@ -127,11 +126,8 @@ int main()
         wdbSecond->storeCoin(coin);
     }
 
-    auto keyKeeperFirst = make_shared<LocalPrivateKeyKeeper>(wdbFirst, wdbFirst->get_MasterKdf());
-    auto keyKeeperSecond = make_shared<LocalPrivateKeyKeeper>(wdbSecond, wdbSecond->get_MasterKdf());
-
-    auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, keyKeeperFirst);
-    auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, keyKeeperSecond);
+    auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst);
+    auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond);
 
     laserFirst->AddObserver(&observer_1);
     laserSecond->AddObserver(&observer_2);
@@ -203,9 +199,7 @@ int main()
         &laserSecond,
         &resultsForCheck,
         wdbFirst,
-        wdbSecond,
-        keyKeeperFirst,
-        keyKeeperSecond
+        wdbSecond
     ] (Height height)
     {
         if (height == kMaxTestHeight)
@@ -560,7 +554,7 @@ int main()
         {
             LOG_INFO() << "Test 10: recreate first";
 
-            laserFirst.reset(new laser::Mediator(wdbFirst, keyKeeperFirst));
+            laserFirst.reset(new laser::Mediator(wdbFirst));
             laserFirst->AddObserver(&observer_1);
             laserFirst->SetNetwork(CreateNetwork(*laserFirst));
 
@@ -574,7 +568,7 @@ int main()
         {
             LOG_INFO() << "Test 11: recreate second";
 
-            laserSecond.reset(new laser::Mediator(wdbSecond, keyKeeperSecond));
+            laserSecond.reset(new laser::Mediator(wdbSecond));
             laserSecond->AddObserver(&observer_2);
             laserSecond->SetNetwork(CreateNetwork(*laserSecond));
 
