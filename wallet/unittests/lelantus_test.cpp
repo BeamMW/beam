@@ -177,17 +177,17 @@ void TestManyTransactons()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    //int completedCount = 2;
-    auto completeAction = [/*&mainReactor, &completedCount*/](auto)
+    int completedCount = 2000;
+    auto completeAction = [&mainReactor, &completedCount](auto)
     {
-        /*--completedCount;
+        --completedCount;
         if (completedCount == 0)
         {
             mainReactor->stop();
-        }*/
+        }
     };
 
-    const size_t kAmount = 4000;
+    const size_t kAmount = 2000;
     //const size_t kAmount = 2;
     Amount kNominalCoin = 5000;
     AmountList testAmount;
@@ -305,7 +305,7 @@ int main()
 
     TestSimpleTx();
 
-    //TestManyTransactons();
+    TestManyTransactons();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
