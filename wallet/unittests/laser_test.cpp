@@ -41,11 +41,11 @@ const Height kMaxTestHeight = 254;
 struct LaserObserver : public laser::Mediator::Observer
 {
     using Action = std::function<void(const laser::ChannelIDPtr& chID)>;
-    Action onOpened = Action();
-    Action onOpenFailed = Action();
-    Action onClosed = Action();
-    Action onUpdateFinished = Action();
-    Action onCloseFailed = Action();
+    Action onOpened = [] (const laser::ChannelIDPtr& chID) {};
+    Action onOpenFailed = [] (const laser::ChannelIDPtr& chID) {};
+    Action onClosed = [] (const laser::ChannelIDPtr& chID) {};
+    Action onUpdateFinished = [] (const laser::ChannelIDPtr& chID) {};
+    Action onCloseFailed = [] (const laser::ChannelIDPtr& chID) {};
     Action onTransferFailed = Action();
     void OnOpened(const laser::ChannelIDPtr& chID) override
     {
@@ -86,12 +86,12 @@ proto::FlyClient::NetworkStd::Ptr CreateNetwork(proto::FlyClient& fc)
 
 void ResetObservers()
 {
-    observer_1.onOpened = observer_2.onOpened = LaserObserver::Action();
-    observer_1.onOpenFailed = observer_2.onOpenFailed = LaserObserver::Action();
-    observer_1.onClosed = observer_2.onClosed = LaserObserver::Action();
-    observer_1.onCloseFailed = observer_2.onCloseFailed = LaserObserver::Action();
-    observer_1.onUpdateFinished = observer_2.onUpdateFinished = LaserObserver::Action();
-    observer_1.onTransferFailed = observer_2.onTransferFailed = LaserObserver::Action();
+    observer_1.onOpened = observer_2.onOpened = [] (const laser::ChannelIDPtr& chID) {};
+    observer_1.onOpenFailed = observer_2.onOpenFailed = [] (const laser::ChannelIDPtr& chID) {};
+    observer_1.onClosed = observer_2.onClosed = [] (const laser::ChannelIDPtr& chID) {};
+    observer_1.onCloseFailed = observer_2.onCloseFailed = [] (const laser::ChannelIDPtr& chID) {};
+    observer_1.onUpdateFinished = observer_2.onUpdateFinished = [] (const laser::ChannelIDPtr& chID) {};
+    observer_1.onTransferFailed = observer_2.onTransferFailed = [] (const laser::ChannelIDPtr& chID) {};
 }
 
 }  // namespace
