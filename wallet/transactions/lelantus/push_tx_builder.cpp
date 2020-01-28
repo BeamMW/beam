@@ -46,7 +46,7 @@ namespace beam::wallet::lelantus
             {
                 ECC::Scalar::Native k;
                 ECC::Point comm;
-                CoinID::Worker(id).Create(k, comm, *m_Tx.GetWalletDB()->get_MasterKdf());
+                CoinID::Worker(id).Create(k, comm, *m_Tx.GetWalletDB()->get_ChildKdf(id));
 
                 offset += k;
             }
@@ -61,7 +61,7 @@ namespace beam::wallet::lelantus
             {
                 ECC::Scalar::Native k;
                 ECC::Point comm;
-                CoinID::Worker(id).Create(k, comm, *m_Tx.GetWalletDB()->get_MasterKdf());
+                CoinID::Worker(id).Create(k, comm, *m_Tx.GetWalletDB()->get_ChildKdf(id));
 
                 offset -= k;
             }
