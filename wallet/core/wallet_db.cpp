@@ -1073,7 +1073,7 @@ namespace beam::wallet
         if (isInitialized(path))
         {
             LOG_ERROR() << path << " already exists.";
-            return nullptr;
+            throw DatabaseException("");
         }
 
         sqlite3* db = nullptr;
@@ -3349,8 +3349,6 @@ namespace beam::wallet
 
     namespace storage
     {
-        const char g_szPaymentProofRequired[] = "payment_proof_required";
-
         bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ECC::Point::Native& value)
         {
             ECC::Point pt;
