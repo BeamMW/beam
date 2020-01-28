@@ -254,7 +254,7 @@ int main()
         {
             LOG_INFO() << "Test 2: second side open without coins";
             observer_1.onOpened =
-                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                [] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 2: first side opened";
                     WALLET_CHECK(true);
@@ -488,7 +488,7 @@ int main()
                     WALLET_CHECK(resultsForCheck.test8.firstClosed);
                 };
             observer_1.onCloseFailed =
-                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                [] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 8: first -> close failed";
                     WALLET_CHECK(false);
@@ -501,7 +501,7 @@ int main()
                     WALLET_CHECK(resultsForCheck.test8.secondClosed);
                 };
             observer_2.onCloseFailed =
-                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                [] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 8: second -> close failed";
                     WALLET_CHECK(false);
@@ -599,7 +599,7 @@ int main()
                     WALLET_CHECK(resultsForCheck.test12.firstClosed);
                 };
             observer_1.onCloseFailed =
-                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                [] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 12: first -> close failed";
                     WALLET_CHECK(false);
@@ -612,7 +612,7 @@ int main()
                     WALLET_CHECK(resultsForCheck.test12.secondClosed);
                 };
             observer_2.onCloseFailed =
-                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                [] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 12: second -> close failed";
                     WALLET_CHECK(false);
@@ -682,7 +682,7 @@ int main()
                     WALLET_CHECK(resultsForCheck.test14.firstClosed);
                 };
             observer_1.onCloseFailed =
-                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                [] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 14: first -> close failed";
                     WALLET_CHECK(false);
@@ -695,7 +695,7 @@ int main()
                     WALLET_CHECK(resultsForCheck.test14.secondClosed);
                 };
             observer_2.onCloseFailed =
-                [&resultsForCheck] (const laser::ChannelIDPtr& chID)
+                [] (const laser::ChannelIDPtr& chID)
                 {
                     LOG_INFO() << "Test 14: second -> close failed";
                     WALLET_CHECK(false);
