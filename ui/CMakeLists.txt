@@ -128,6 +128,7 @@ set(UI_SRC
     viewmodel/utxo/utxo_view.cpp
     viewmodel/utxo/utxo_view_status.h
     viewmodel/utxo/utxo_view_type.h
+    viewmodel/newscast/news_settings.cpp
     viewmodel/main_view.h
     viewmodel/main_view.cpp
     viewmodel/help_view.h

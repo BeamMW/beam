@@ -798,6 +798,7 @@ SettingsViewModel::SettingsViewModel()
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
     , m_supportedLanguages(WalletSettings::getSupportedLanguages())
+    , m_newscastSettings(AppModel::getInstance().getSettings())
 {
     undoChanges();
 
@@ -1148,28 +1149,7 @@ const QList<QObject*>& SettingsViewModel::getSwapCoinSettings()
     return m_swapSettings;
 }
 
-bool SettingsViewModel::isNewsPropChanged() const
+QObject* SettingsViewModel::getNewscastSettings()
 {
-    return m_newsKey != m_settings.getNewscastKey();
-}
-
-QString SettingsViewModel::getNewsKey() const
-{
-    return m_newsKey;
-}
-
-void SettingsViewModel::setNewsKey(QString key)
-{
-    m_newsKey = key;
-    emit newsPropertiesChanged();
-}
-
-void SettingsViewModel::applyNewsChanges()
-{
-    m_settings.setNewscastKey(m_newsKey);
-}
-
-void SettingsViewModel::undoNewsChanges()
-{
-    setNewsKey(m_settings.getNewscastKey());
+    return &m_newscastSettings;
 }

@@ -68,8 +68,10 @@ public:
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
 
-    bool isNewscastActive() const;
-    void setNewscastActive(bool isActive);
+    bool isUpdatesPushActive() const;
+    void setUpdatesPushActive(bool isActive);
+    bool isExcRatesActive() const;
+    void setExcRatesActive(bool isActive);
     QString getNewscastKey() const;
     void setNewscastKey(QString keyHex);
 

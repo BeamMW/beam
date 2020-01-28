@@ -21,6 +21,7 @@
 #include "model/settings.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/client.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/settings.h"
+#include "ui/viewmodel/newscast/news_settings.h"
 
 class SwapCoinClientModel;
 
@@ -235,12 +236,9 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString  currentLanguage         READ getCurrentLanguage         WRITE setCurrentLanguage)
     Q_PROPERTY(bool     isValidNodeAddress      READ isValidNodeAddress         NOTIFY validNodeAddressChanged)
 
-    Q_PROPERTY(QList<QObject*> swapCoinSettingsList     READ getSwapCoinSettings    CONSTANT)
+    Q_PROPERTY(QList<QObject*> swapCoinSettingsList READ getSwapCoinSettings    CONSTANT)
+    Q_PROPERTY(QObject* newscastSettings        READ getNewscastSettings        CONSTANT)
     
-    Q_PROPERTY(bool     isNewsPropChanged   READ isNewsPropChanged                          NOTIFY newsPropertiesChanged)
-    // Q_PROPERTY(bool     isNewsActive        READ isNewsActive       WRITE setNewsActive     NOTIFY newsSettingsChanged)
-    Q_PROPERTY(QString  newsKey             READ getNewsKey         WRITE setNewsKey        NOTIFY newsPropertiesChanged)
-
 public:
 
     SettingsViewModel();
@@ -276,12 +274,7 @@ public:
     bool isChanged() const;
 
     const QList<QObject*>& getSwapCoinSettings();
-
-    bool isNewsPropChanged() const;
-    // bool isNewsActive() const;
-    // void setNewsActive(bool isActive);
-    QString getNewsKey() const;
-    void setNewsKey(QString);
+    QObject* getNewscastSettings();
 
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
@@ -301,9 +294,6 @@ public slots:
     void onNodeStopped();
     void onAddressChecked(const QString& addr, bool isValid);
 
-    void applyNewsChanges();
-    void undoNewsChanges();
-
 signals:
     void nodeAddressChanged();
     void localNodeRunChanged();
@@ -317,7 +307,6 @@ signals:
     void validNodeAddressChanged();
     void currentLanguageIndexChanged();
     void beamMWLinksPermissionChanged();
-    void newsPropertiesChanged();
 
 protected:
     void timerEvent(QTimerEvent *event) override;
@@ -325,6 +314,7 @@ protected:
 private:
     WalletSettings& m_settings;
     QList<QObject*> m_swapSettings;
+    NewscastSettings m_newscastSettings;
 
     QString m_nodeAddress;
     bool m_localNodeRun;
@@ -340,9 +330,6 @@ private:
     QStringList m_supportedLanguages;
     int m_currentLanguageIndex;
     int m_timerId;
-
-    // bool m_isNewsActive;
-    QString m_newsKey;
 
     const int CHECK_INTERVAL = 1000;
 };

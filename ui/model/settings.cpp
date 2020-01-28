@@ -47,8 +47,9 @@ namespace
 
     const char* kDefaultLocale = "en_US";
 
-    const char* kNewscastActive = "newscast/active";
-    const char* kNewscastPublicKey = "newscast/pubKey";
+    const char* kNewscastPublicKey = "newscast/publisher_key";
+    const char* kUpdatesPushActive = "newscast/updates_push_active";
+    const char* kExcRatesActive = "newscast/exchange_rates_active";
 
     const std::map<QString, QString> kSupportedLangs { 
         { "zh_CN", "Chinese Simplified"},
@@ -346,26 +347,33 @@ void WalletSettings::setLocaleByLanguageName(const QString& language)
     emit localeChanged();
 }
 
-bool WalletSettings::isNewscastActive() const
+bool WalletSettings::isUpdatesPushActive() const
 {
     Lock lock(m_mutex);
-    return m_data.value(kNewscastActive, false).toBool();
+    return m_data.value(kUpdatesPushActive, false).toBool();
 }
 
-void WalletSettings::setNewscastActive(bool isActive)
+void WalletSettings::setUpdatesPushActive(bool isActive)
 {
-    if (isActive != isNewscastActive())
+    if (isActive != isUpdatesPushActive())
     {
-        auto walletModel = AppModel::getInstance().getWallet();
-        if (walletModel)
-        {
-            // walletModel->getAsync()->setNewscastActive(isActive);
-        }
-        {
-            Lock lock(m_mutex);
-            m_data.setValue(kNewscastActive, isActive);
-        }
-        // emit newscastSettingsChanged();
+        Lock lock(m_mutex);
+        m_data.setValue(kUpdatesPushActive, isActive);
+    }
+}
+
+bool WalletSettings::isExcRatesActive() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(kExcRatesActive, false).toBool();
+}
+
+void WalletSettings::setExcRatesActive(bool isActive)
+{
+    if (isActive != isExcRatesActive())
+    {
+        Lock lock(m_mutex);
+        m_data.setValue(kExcRatesActive, isActive);
     }
 }
 
@@ -388,7 +396,6 @@ void WalletSettings::setNewscastKey(QString keyHex)
             Lock lock(m_mutex);
             m_data.setValue(kNewscastPublicKey, keyHex);
         }
-        // emit newscastSettingsChanged();
     }
 }
 

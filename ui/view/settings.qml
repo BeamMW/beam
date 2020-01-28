@@ -1067,59 +1067,96 @@ deploy the key at the node you trust completely."*/
         Layout.fillHeight: true
         clip: true
 
-        ColumnLayout {
-            id:               newsLayout
-            width:            mainColumn.width
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            
+            Rectangle {
+                Layout.fillWidth: true
+                radius: 10
+                color: Style.background_second
 
-            RowLayout {
-
-                SFText {
-                    Layout.fillWidth: true;
-                    //% "PublisherKey"
-                    text: qsTrId("settings-newscast-publisher-key")
-                    color: Style.content_secondary
-                    font.pixelSize: 14
-                }
-
-                SFTextInput {
-                    id: newscastKeyInput
-                    Layout.fillWidth: true;
-                    Layout.alignment: Qt.AlignRight
-                    activeFocusOnTab: true
-                    font.pixelSize: 14
-                    color: Style.content_main
-                    text: viewModel.newsKey
-                    validator: RegExpValidator {regExp: /^[a-fA-F0-9]+$/}   // TODO limit to 64 symbols
-                    Binding {
-                        target: viewModel
-                        property: "newsKey"
-                        value: newscastKeyInput.text
+                ColumnLayout {
+                    id: newsLayout
+                    width: 600
+                    
+                    CustomSwitch {
+                        id: updateNotificationSwitch
+                        Layout.fillWidth: true
+                        //% "Wallet update push notifications"
+                        text: qsTrId("settings-update-notification-switch")
+                        font.pixelSize: 14
+                        checked: viewModel.newscastSettings.isUpdatesPushActive
+                        Binding {
+                            target: viewModel.newscastSettings
+                            property: "isUpdatesPushActive"
+                            value: updateNotificationSwitch.checked
+                        }
                     }
-                    Component.onCompleted: console.log("key text: " + viewModel.newsKey)
-                }
-            }
 
-            RowLayout {
+                    CustomSwitch {
+                        id: exchangeRateSwitch
+                        Layout.fillWidth: true
+                        //% "Exchange rates"
+                        text: qsTrId("settings-exchange-rate-switch")
+                        font.pixelSize: 14
+                        checked: viewModel.newscastSettings.isExcRatesActive
+                        Binding {
+                            target: viewModel.newscastSettings
+                            property: "isExcRatesActive"
+                            value: exchangeRateSwitch.checked
+                        }
+                    }
 
-                CustomButton {
-                    //% "Cancel"
-                    text: qsTrId("general-cancel")
-                    icon.source: "qrc:/assets/icon-cancel-white.svg"
-                    enabled: viewModel.isNewsPropChanged
-                    onClicked: viewModel.undoNewsChanges()
-                }
+                    RowLayout {
+                        SFText {
+                            Layout.fillWidth: true;
+                            //% "Publisher key"
+                            text: qsTrId("settings-newscast-publisher-key")
+                            color: Style.content_secondary
+                            font.pixelSize: 14
+                        }
 
-                Item {
-                    Layout.maximumWidth: 30
-                    Layout.fillWidth: true
-                }
+                        SFTextInput {
+                            id: publisherKeyInput
+                            Layout.fillWidth: true;
+                            Layout.alignment: Qt.AlignLeft
+                            activeFocusOnTab: true
+                            font.pixelSize: 14
+                            color: Style.content_main
+                            validator: RegExpValidator {regExp: /^[a-fA-F0-9]+$/}   // TODO limit to 64 symbols
+                            text: viewModel.newscastSettings.publisherKey
+                            Binding {
+                                target: viewModel.newscastSettings
+                                property: "publisherKey"
+                                value: publisherKeyInput.text
+                            }
+                        }
+                    }
 
-                PrimaryButton {
-                    //% "Apply"
-                    text: qsTrId("settings-apply")
-                    icon.source: "qrc:/assets/icon-done.svg"
-                    enabled: viewModel.isNewsPropChanged
-                    onClicked: viewModel.applyNewsChanges()
+                    RowLayout {
+
+                        CustomButton {
+                            //% "Cancel"
+                            text: qsTrId("general-cancel")
+                            icon.source: "qrc:/assets/icon-cancel-white.svg"
+                            enabled: viewModel.newscastSettings.isSettingsChanged
+                            onClicked: viewModel.newscastSettings.restore()
+                        }
+
+                        Item {
+                            Layout.maximumWidth: 30
+                            Layout.fillWidth: true
+                        }
+
+                        PrimaryButton {
+                            //% "Apply"
+                            text: qsTrId("settings-apply")
+                            icon.source: "qrc:/assets/icon-done.svg"
+                            enabled: viewModel.newscastSettings.isSettingsChanged
+                            onClicked: viewModel.newscastSettings.apply()
+                        }
+                    }
                 }
             }
         }

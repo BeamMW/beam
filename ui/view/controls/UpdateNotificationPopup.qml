@@ -37,8 +37,8 @@ ConfirmationDialog {
             SFText {
                 width:          parent.width
                 topPadding:     15
-                leftPadding:    20
-                rightPadding:   20
+                leftPadding:    25
+                rightPadding:   25
                 font.pixelSize: 14
                 color:          Style.content_main
                 wrapMode:       Text.Wrap
@@ -49,14 +49,14 @@ ConfirmationDialog {
             SFText {
                 width:          parent.width
                 topPadding:     15
-                leftPadding:    20
-                rightPadding:   20
+                leftPadding:    25
+                rightPadding:   25
                 font.pixelSize: 14
                 color:          Style.content_main
                 wrapMode:       Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
                 //% "Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version."
-                //% "This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime."
+                //% "This action will expose your IP to the web server. To avoid it, choose 'Cancel'. You can change your choice in app setting anytime."
                 text:           qsTrId("update-notification-text")
             }
         }
