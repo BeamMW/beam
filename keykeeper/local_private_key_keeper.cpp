@@ -654,7 +654,7 @@ namespace beam::wallet
             if (m_NonConventional)
                 continue; // ignore values
 
-            if (cid.get_Scheme() < Key::IDV::Scheme::V1)
+            if (cid.get_Scheme() < CoinID::Scheme::V1)
             {
                 // disallow weak scheme
                 if (bOuts)
@@ -715,7 +715,7 @@ namespace beam::wallet
             if (x.m_hScheme < Rules::get().pForks[1].m_Height)
                 return Status::Unspecified; // blinding factor can be tampered without user permission
 
-            if (x.m_Cid.get_Scheme() < Key::IDV::Scheme::V1)
+            if (x.m_Cid.get_Scheme() < CoinID::Scheme::V1)
                 return Status::UserAbort; // value can be tampered without user permission
         }
 

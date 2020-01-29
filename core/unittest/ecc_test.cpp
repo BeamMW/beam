@@ -683,7 +683,7 @@ void TestCommitments()
 
 	for (uint8_t iCycle = 0; iCycle < 2; iCycle++)
 	{
-		uint8_t nScheme = iCycle ? Key::IDV::Scheme::V1 : Key::IDV::Scheme::V0;
+		uint8_t nScheme = iCycle ? CoinID::Scheme::V1 : CoinID::Scheme::V0;
 
 		CoinID cid(100500, 15, Key::Type::Regular);
 		cid.set_Subkey(7, nScheme);

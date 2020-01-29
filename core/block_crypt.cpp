@@ -214,14 +214,14 @@ namespace beam
 	void CoinID::get_Hash(ECC::Hash::Value& hv) const
 	{
 		Key::Index nScheme = get_Scheme();
-		if (nScheme > Key::IDV::Scheme::V0)
+		if (nScheme > Scheme::V0)
 		{
-			if (Key::IDV::Scheme::BB21 == nScheme)
+			if (Scheme::BB21 == nScheme)
 			{
 				// BB2.1 workaround
-				Key::IDV kidv2 = *this;
-				kidv2.set_Subkey(get_Subkey(), Key::IDV::Scheme::V0);
-				kidv2.get_Hash(hv);
+				CoinID cid2 = *this;
+				cid2.set_Subkey(get_Subkey(), Scheme::V0);
+				cid2.get_Hash(hv);
 			}
 			else
 			{

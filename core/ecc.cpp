@@ -110,17 +110,6 @@ namespace ECC {
         return operator << (s, point);
     }
 
-	std::ostream& operator << (std::ostream& s, const Key::IDV& x)
-	{
-		s
-			<< "Key=" << x.m_Type
-			<< "-" << x.get_Scheme()
-			<< ":" << x.get_Subkey()
-			<< ":" << x.m_Idx
-			<< ", Value=" << x.m_Value;
-		return s;
-	}
-
 	void GenRandom(void* p, uint32_t nSize)
 	{
 		// checkpoint?

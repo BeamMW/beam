@@ -223,11 +223,56 @@ namespace beam
 	struct CoinID
 		:public Key::IDV
 	{
+		struct Scheme
+		{
+			static const uint8_t V0 = 0;
+			static const uint8_t V1 = 1;
+			static const uint8_t BB21 = 2; // worakround for BB.2.1
+
+			static const uint32_t s_SubKeyBits = 24;
+			static const Key::Index s_SubKeyMask = (static_cast<Key::Index>(1) << s_SubKeyBits) - 1;
+		};
+
 		Asset::ID m_AssetID = 0;
 
 		CoinID() {}
-		CoinID(Zero_) :Key::IDV(Zero) {}
-		CoinID(Amount v, uint64_t nIdx, Key::Type type, Key::Index nSubIdx = 0) :Key::IDV(v, nIdx, type, nSubIdx) {}
+		CoinID(Zero_)
+			:IDV(Zero)
+		{
+			set_Subkey(0);
+		}
+
+		CoinID(Amount v, uint64_t nIdx, Key::Type type, Key::Index nSubIdx = 0)
+			:IDV(nIdx, type)
+		{
+			m_Value = v;
+			set_Subkey(nSubIdx, Scheme::V1);
+		}
+
+		Key::Index get_Scheme() const
+		{
+			return m_SubIdx >> Scheme::s_SubKeyBits;
+		}
+
+		Key::Index get_Subkey() const
+		{
+			return m_SubIdx & Scheme::s_SubKeyMask;
+		}
+
+		void set_Subkey(Key::Index nSubIdx, Key::Index nScheme = Scheme::V1)
+		{
+			m_SubIdx = (nSubIdx & Scheme::s_SubKeyMask) | (nScheme << Scheme::s_SubKeyBits);
+		}
+
+		bool IsBb21Possible() const
+		{
+			return m_SubIdx && (Scheme::V0 == get_Scheme());
+		}
+
+		void set_WorkaroundBb21()
+		{
+			set_Subkey(get_Subkey(), Scheme::BB21);
+		}
 
 		void get_Hash(ECC::Hash::Value&) const;
 
