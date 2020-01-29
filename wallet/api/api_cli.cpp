@@ -847,7 +847,8 @@ namespace
 
                 /////////////
 
-                WalletAddress address = storage::createAddress(*_walletDB, _keyKeeper);
+                WalletAddress address;
+                _walletDB->createAddress(address);
                 address.m_label = comment;
                 address.m_duration = WalletAddress::AddressExpiration24h;
 
