@@ -57,7 +57,8 @@ public:
 			UtxoStamp,
 			ShieldedOutputs,
 			ShieldedInputs,
-			AssetsCount, // The last element is guaranteed to be used.
+			AssetsCount, // Including unused. The last element is guaranteed to be used.
+			AssetsCountUsed, // num of 'live' assets
 		};
 	};
 

@@ -1854,6 +1854,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
+	Asset::ID m_AssetsUsed = Asset::s_MaxCount + 1;
 
 	// rollback data
 	ByteBuffer* m_pRollback = nullptr;
@@ -1932,6 +1933,8 @@ struct NodeProcessor::BlockInterpretCtx
 		,m_Fwd(bFwd)
 	{
 	}
+
+	void EnsureAssetsUsed(NodeDB&);
 };
 
 bool NodeProcessor::HandleTreasury(const Blob& blob)
@@ -2559,10 +2562,25 @@ void NodeProcessor::InternalAssetDel(Asset::ID nAssetID)
 
 bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
 {
-	if (bic.m_Fwd && !bic.m_AlreadyValidated)
+	if (!bic.m_AlreadyValidated)
 	{
-		if (m_DB.AssetFindByOwner(krn.m_Owner))
-			return false;
+		bic.EnsureAssetsUsed(m_DB);
+
+		if (bic.m_Fwd)
+		{
+			if (m_DB.AssetFindByOwner(krn.m_Owner))
+				return false;
+
+			if (bic.m_AssetsUsed >= Asset::s_MaxCount)
+				return false;
+
+			bic.m_AssetsUsed++;
+		}
+		else
+		{
+			assert(bic.m_AssetsUsed);
+			bic.m_AssetsUsed--;
+		}
 	}
 
 	if (!bic.m_UpdateMmrs)
@@ -2599,6 +2617,9 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 
 bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
 {
+	if (!bic.m_AlreadyValidated)
+		bic.EnsureAssetsUsed(m_DB);
+
 	if (bic.m_Fwd)
 	{
 		Asset::Full ai;
@@ -2606,14 +2627,20 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 		if (!m_DB.AssetGetSafe(ai))
 			return false;
 
-		if (ai.m_Owner != krn.m_Owner)
-			return false;
+		if (!bic.m_AlreadyValidated)
+		{
+			if (ai.m_Owner != krn.m_Owner)
+				return false;
 
-		if (ai.m_Value != Zero)
-			return false;
+			if (ai.m_Value != Zero)
+				return false;
 
-		if (ai.m_LockHeight + Rules::get().CA.LockPeriod > bic.m_Height)
-			return false;
+			if (ai.m_LockHeight + Rules::get().CA.LockPeriod > bic.m_Height)
+				return false;
+
+			assert(bic.m_AssetsUsed);
+			bic.m_AssetsUsed--;
+		}
 
 		if (bic.m_UpdateMmrs)
 		{
@@ -2643,6 +2670,12 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 
 			if (ai.m_ID != krn.m_AssetID)
 				OnCorrupted();
+		}
+
+		if (!bic.m_AlreadyValidated)
+		{
+			bic.m_AssetsUsed++;
+			assert(bic.m_AssetsUsed <= Asset::s_MaxCount);
 		}
 	}
 
@@ -3213,6 +3246,12 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 	}
 
 	return true;
+}
+
+void NodeProcessor::BlockInterpretCtx::EnsureAssetsUsed(NodeDB& db)
+{
+	if (m_AssetsUsed == Asset::s_MaxCount + 1)
+		m_AssetsUsed = static_cast<Asset::ID>(db.ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
 }
 
 NodeProcessor::BlockInterpretCtx::BlobSet::~BlobSet()

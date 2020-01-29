@@ -2486,6 +2486,8 @@ void NodeDB::AssetAdd(Asset::Full& ai)
 	}
 
 	AssetInsertRaw(ai.m_ID, &ai);
+
+	ParamIntSet(ParamID::AssetsCountUsed, ParamIntGetDef(ParamID::AssetsCountUsed) + 1);
 }
 
 Asset::ID NodeDB::AssetDelete(Asset::ID id)
@@ -2509,6 +2511,8 @@ Asset::ID NodeDB::AssetDelete(Asset::ID id)
 	}
 	else
 		AssetInsertRaw(id + s_AssetEmpty0, nullptr);
+
+	ParamIntSet(ParamID::AssetsCountUsed, ParamIntGetDef(ParamID::AssetsCountUsed) - 1);
 
 	return nCount;
 }

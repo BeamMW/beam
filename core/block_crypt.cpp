@@ -1576,6 +1576,7 @@ namespace beam
 			<< CA.Enabled
 			<< CA.DepositForList
 			<< CA.LockPeriod
+			<< Asset::ID(Asset::s_MaxCount)
 			// out
 			>> pForks[2].m_Hash;
 	}
