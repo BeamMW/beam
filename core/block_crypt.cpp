@@ -1438,6 +1438,9 @@ namespace beam
 
 	Rules::Rules()
 	{
+		CA.m_ProofCfg.n = 4;
+		CA.m_ProofCfg.M = 3; // 64 elements
+
 		TreasuryChecksum = {
 			0xcf, 0x9c, 0xc2, 0xdf, 0x67, 0xa2, 0x24, 0x19,
 			0x2d, 0x2f, 0x88, 0xda, 0x20, 0x20, 0x00, 0xac,
@@ -1607,6 +1610,8 @@ namespace beam
 			<< CA.Enabled
 			<< CA.DepositForList
 			<< CA.LockPeriod
+			<< CA.m_ProofCfg.n
+			<< CA.m_ProofCfg.M
 			<< Asset::ID(Asset::s_MaxCount)
 			// out
 			>> pForks[2].m_Hash;
@@ -2284,6 +2289,123 @@ namespace beam
 			<< m_Metadata.size()
 			<< Blob(m_Metadata)
 			>> hv;
+	}
+
+	const ECC::Point::Compact& Asset::Proof::get_H()
+	{
+		return ECC::Context::get().m_Ipp.H_.m_Fast.m_pPt[0];
+	}
+
+	bool Asset::Proof::CmList::get_At(ECC::Point::Storage& pt_s, uint32_t iIdx)
+	{
+		Asset::ID id = m_Begin + iIdx;
+		if (id)
+			Base(id).get_Generator(pt_s);
+		else
+		{
+			secp256k1_ge ge;
+			get_H().Assign(ge);
+			pt_s.FromNnz(ge);
+		}
+
+		return true;
+	}
+
+	void Asset::Proof::Create(Asset::ID aid, const ECC::Scalar::Native& skGen)
+	{
+		ECC::Point::Native gen;
+		if (aid)
+			Base(aid).get_Generator(gen);
+		else
+			get_H().Assign(gen, true);
+
+		Create(aid, skGen, gen);
+	}
+
+	void Asset::Proof::Create(Asset::ID aid, const ECC::Scalar::Native& skGen, const ECC::Point::Native& gen)
+	{
+		ECC::Point::Native pt = ECC::Context::get().G * skGen;
+		pt = pt + gen;
+		m_hGen = pt;
+
+		uint32_t nPos = SetBegin(aid, skGen);
+
+		CmList lst;
+		lst.m_Begin = m_Begin;
+
+		Sigma::Prover prover(lst, Rules::get().CA.m_ProofCfg, *this);
+		prover.m_Witness.V.m_L = nPos;
+		prover.m_Witness.V.m_R = -skGen;
+
+		ECC::Hash::Value hvSeed;
+		ECC::Hash::Processor()
+			<< "asset-pr-gen"
+			<< skGen
+			>> hvSeed;
+
+		ECC::Oracle oracle;
+		prover.Generate(hvSeed, oracle, pt);
+	}
+
+	uint32_t Asset::Proof::SetBegin(Asset::ID aid, const ECC::Scalar::Native& skGen)
+	{
+		// Randomize m_Begin
+		uint32_t N = Rules::get().CA.m_ProofCfg.get_N();
+		assert(N);
+
+		ECC::Hash::Value hv;
+		ECC::Hash::Processor() << skGen >> hv;
+
+		uint32_t nPos;
+		hv.ExportWord<0>(nPos);
+		nPos %= N; // the position of this element in the list
+
+		if (aid > nPos)
+		{
+			// TODO: don't exceed the max current asset count, for this we must query it
+			m_Begin = aid - nPos;
+		}
+		else
+		{
+			m_Begin = 0;
+			nPos = aid;
+		}
+
+		assert(m_Begin + nPos == aid);
+		return nPos;
+	}
+
+	bool Asset::Proof::IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const
+	{
+		ECC::Oracle oracle;
+		ECC::Scalar::Native kBias;
+		if (!Cast::Down<Sigma::Proof>(*this).IsValid(bc, oracle, Rules::get().CA.m_ProofCfg, pKs, kBias))
+			return false;
+
+		return bc.AddCasual(m_hGen, kBias, true); // the deferred part from m_Signature, plus the needed bias
+	}
+
+	bool Asset::Proof::IsValid() const
+	{
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		ECC::InnerProduct::BatchContextEx<1> bc;
+		std::vector<ECC::Scalar::Native> vKs;
+
+		const Sigma::Cfg& cfg = Rules::get().CA.m_ProofCfg;
+		uint32_t N = cfg.get_N();
+		assert(N);
+		vKs.resize(N);
+
+		if (!IsValid(bc, &vKs.front()))
+			return false;
+
+		CmList lst;
+		lst.m_Begin = m_Begin;
+
+		lst.Calculate(bc.m_Sum, 0, N, &vKs.front());
+
+		return bc.Flush();
 	}
 
 } // namespace beam

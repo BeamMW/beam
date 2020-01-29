@@ -129,6 +129,29 @@ namespace beam
 		{
 			void get_Hash(ECC::Hash::Value&) const;
 		};
+
+		struct Proof
+			:public Sigma::Proof
+		{
+			Asset::ID m_Begin; // 1st element
+			ECC::Point m_hGen;
+
+			bool IsValid() const; // for testing only, in real-world cases batch verification should be used!
+			bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const;
+			void Create(Asset::ID, const ECC::Scalar::Native& skGen, const ECC::Point::Native& gen);
+			void Create(Asset::ID, const ECC::Scalar::Native& skGen);
+
+			struct CmList
+				:public Sigma::CmList
+			{
+				Asset::ID m_Begin;
+				virtual bool get_At(ECC::Point::Storage&, uint32_t iIdx) override;
+			};
+
+		private:
+			uint32_t SetBegin(Asset::ID, const ECC::Scalar::Native& skGen);
+			static const ECC::Point::Compact& get_H();
+		};
 	};
 	struct Rules
 	{
@@ -170,6 +193,7 @@ namespace beam
 			bool Enabled = false;
 			Amount DepositForList = Coin * 1000;
 			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
+			Sigma::Cfg m_ProofCfg;
 		} CA;
 
 		uint32_t MaxRollback = 1440; // 1 day roughly

@@ -2542,6 +2542,22 @@ void TestLelantusKeys()
 	}
 }
 
+void TestAssetProof()
+{
+	ECC::Scalar::Native skGen;
+	SetRandom(skGen);
+
+	beam::Asset::Proof proof;
+	proof.Create(100500, skGen);
+	verify_test(proof.IsValid());
+
+	proof.Create(1, skGen);
+	verify_test(proof.IsValid());
+
+	proof.Create(0, skGen);
+	verify_test(proof.IsValid());
+}
+
 void TestAssetEmission()
 {
 	const beam::Height hScheme = g_hFork;
@@ -2706,6 +2722,7 @@ void TestAll()
 	TestRandom();
 	TestFourCC();
 	TestTreasury();
+	TestAssetProof();
 	TestAssetEmission();
 	TestLelantus();
 	TestLelantusKeys();
