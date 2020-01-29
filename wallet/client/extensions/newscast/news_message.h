@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,19 +16,32 @@
 
 #include "utility/serialize.h"
 
+#include "utility/common.h"
+#include "wallet/core/common.h"
+
 namespace beam::wallet
 {
     /**
-     *  Message item broadcasted using news channels
+     *  Data object broadcasted using news channels
      */
     struct NewsMessage
     {
-        std::string m_content;
-        SERIALIZE(m_content);
+        enum class Type : uint32_t
+        {
+            WalletUpdateNotification,
+            ExchangeRates,
+            Unknown
+        };
+
+        Type m_type = Type::Unknown;
+        ByteBuffer m_content;
+
+        SERIALIZE(m_type, m_content);
 
         bool operator==(const NewsMessage& other) const
         {
-            return m_content == other.m_content;
+            return m_type == other.m_type
+                && m_content == other.m_content;
         };
         
         bool operator!=(const NewsMessage& other) const
@@ -37,6 +50,32 @@ namespace beam::wallet
         };
     };
 
-    
+    struct ExchangeRates
+    {
+        Timestamp m_time;
+        // std::vector<curr,rateDecimal>
+    };
 
+    class NewsMessageHandler
+    {
+    public:
+
+        static std::string extractUpdateVersion(const NewsMessage& msg)
+        {
+            if (msg.m_type == NewsMessage::Type::WalletUpdateNotification)
+            {
+                std::string res;
+                if (fromByteBuffer(msg.m_content, res)) return res;
+            }
+            return std::string();
+        };
+
+        static NewsMessage packUpdateVersion(std::string newUpdateVersion)
+        {
+            return NewsMessage {
+                    NewsMessage::Type::WalletUpdateNotification,
+                    toByteBuffer(newUpdateVersion)
+                };
+        };
+    };
 } // namespace beam::wallet

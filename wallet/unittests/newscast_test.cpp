@@ -109,6 +109,15 @@ namespace
     }
 
     /**
+     * Create NewsMessage with specified string
+     */
+    NewsMessage createNewsMessage(std::string testString)
+    {
+        NewsMessage res = { NewsMessage::Type::ExchangeRates, toByteBuffer(testString) };
+        return res;
+    }
+
+    /**
      *  Test NewscastProtocolParser for stress conditions.
      */
     void TestProtocolParserStress()
@@ -217,7 +226,7 @@ namespace
 
             if (to_load) publisherKeys.push_back(pubKey);
 
-            NewsMessage msg = { std::to_string(i) };
+            NewsMessage msg = createNewsMessage(std::to_string(i));
 
             SignatureHandler signature;
             signature.m_data = toByteBuffer(msg);
@@ -239,11 +248,10 @@ namespace
 
             if (res)
             {
-                cout << "Case: " << res->m_content << endl;
                 // Only messages with signed with correct keys have to pass validation.
                 WALLET_CHECK(keyLoaded && msgSigned);
                 // Check content
-                NewsMessage referenceMsg = { std::to_string(i) };
+                NewsMessage referenceMsg = createNewsMessage(std::to_string(i));
                 WALLET_CHECK(referenceMsg == *res);
             }
             else
@@ -252,7 +260,6 @@ namespace
                 // key not loaded to parser or message not correctly signed
                 // are the reasons to fail parsers validation.
             }
-            
         }
         cout << "Test end" << endl;
     }
@@ -270,7 +277,7 @@ namespace
         {
             cout << "Case: no keys loaded, not signed message" << endl;
 
-            const NewsMessage news = { "not signed message" };
+            const NewsMessage news = createNewsMessage("not signed message");
             ByteBuffer msgRaw = toByteBuffer(news);
             SignatureHandler signatureHandler;
             signatureHandler.m_data = msgRaw;
@@ -283,7 +290,7 @@ namespace
         {
             cout << "Case: no keys loaded, correct message" << endl;
 
-            const NewsMessage news = { "correct message" };
+            const NewsMessage news = createNewsMessage("correct message");
             ByteBuffer msgRaw = toByteBuffer(news);
 
             const auto& [pk, signatureRaw] = signData(msgRaw, 123, senderWalletDB);
@@ -307,7 +314,7 @@ namespace
         {
             cout << "Case: new key loaded" << endl;
 
-            const NewsMessage news = { "test message" };
+            const NewsMessage news = createNewsMessage("test message");
             ByteBuffer msgRaw = toByteBuffer(news);
 
             const auto& [pk, signatureRaw] = signData(msgRaw, 159, senderWalletDB);
@@ -332,7 +339,7 @@ namespace
         auto senderWalletDB = createSenderWalletDB();
         
         int notificationCount = 0;
-        const NewsMessage news = { "test message" };
+        const NewsMessage news = { NewsMessage::Type::WalletUpdateNotification, toByteBuffer("test message") };
         MockNewsObserver testObserver(
             // void onNewsUpdate(const NewsMessage& msg)
             [&notificationCount, &news]
@@ -420,6 +427,7 @@ namespace
     void TestProtocolBuilder()
     {
         cout << endl << "Test NewscastProtocolBuilder" << endl;
+        // TODO Newscast test
         /// Create message signed with private key
         // static ByteBuffer createMessage(const NewsMessage& content, const PrivateKey& key);
     }

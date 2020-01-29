@@ -15,6 +15,8 @@ Rectangle {
 
 	MainViewModel {id: viewModel}
 
+    UpdateInfoProvider {id: updateInfoProvider}
+
     ConfirmationDialog {
         id:                     closeDialog
         //% "Beam wallet close"
@@ -330,7 +332,10 @@ Rectangle {
             trezor_popup.open()
 
         }
+    }
 
+    Connections {
+        target: updateInfoProvider
         onShowUpdateNotification: function(version) {
             console.log("News received. Message: " + version);
             var dialog = Qt.createComponent("controls/UpdateNotificationPopup.qml").createObject(main);

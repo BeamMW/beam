@@ -78,7 +78,8 @@ signals:
     void showTrezorError(const QString& error);
 #endif
     void txHistoryExportedToCsv(const QString& data);
-    void newscastUpdate(const QString& msg);
+    void newAppVersion(const QString& msg);
+    void exchangeRatesUpdate(const QString& msg);
 
 private:
     void onStatus(const beam::wallet::WalletStatus& status) override;

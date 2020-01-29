@@ -205,7 +205,7 @@ int main_impl(int argc, char* argv[])
             return -1;
         }
 
-        NewsMessage newsMsg = {options.bbsMessage};
+        NewsMessage newsMsg = NewsMessageHandler::packUpdateVersion(options.bbsMessage);
         ByteBuffer message = NewscastProtocolBuilder::createMessage(newsMsg, *optionalKey);
         messageEndpoint->SendRawMessage(channelToWalletID(Newscast::BbsChannelsOffset), message);
 

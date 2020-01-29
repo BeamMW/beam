@@ -129,6 +129,8 @@ set(UI_SRC
     viewmodel/utxo/utxo_view_status.h
     viewmodel/utxo/utxo_view_type.h
     viewmodel/newscast/news_settings.cpp
+    viewmodel/newscast/update_info_provider.cpp
+    viewmodel/newscast/exchange_rate_provider.cpp
     viewmodel/main_view.h
     viewmodel/main_view.cpp
     viewmodel/help_view.h

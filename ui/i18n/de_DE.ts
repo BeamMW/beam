@@ -2059,5 +2059,41 @@ deploy the key at the node you trust completely.</translation>
         <source>add all</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="update-open-url-button">
+        <source>open web-site</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-cancel-button">
+        <source>cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-notification-title">
+        <source>New update available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-notification-message">
+        <source>Update %1 is available to download. You can update later from Settings.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-notification-text">
+        <source>Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version.This action will expose your IP to the web server. To avoid it, choose &apos;Cancel&apos;. You can change your choice in app setting anytime.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-news">
+        <source>News</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-update-notification-switch">
+        <source>Wallet update push notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-exchange-rate-switch">
+        <source>Exchange rates</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-newscast-publisher-key">
+        <source>Publisher key</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

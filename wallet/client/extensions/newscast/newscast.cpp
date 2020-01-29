@@ -34,12 +34,18 @@ namespace beam::wallet
 
     void Newscast::OnMsg(proto::BbsMsg &&msg)
     {
-        auto news = m_parser.parseMessage(msg.m_Message);
-
-        if (news)
+        try
         {
-            // TODO polymorphic parsing
-            notifySubscribers(*news);
+            auto news = m_parser.parseMessage(msg.m_Message);
+
+            if (news)
+            {
+                notifySubscribers(*news);
+            }
+        }
+        catch(...)
+        {
+            LOG_WARNING() << "news message processing exception";
         }
     }
 

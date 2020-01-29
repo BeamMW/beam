@@ -283,7 +283,21 @@ void WalletModel::onPostFunctionToClientContext(MessageFunction&& func)
 
 void WalletModel::onNewsUpdate(const NewsMessage& msg)
 {
-    emit newscastUpdate(QString::fromStdString(msg.m_content));
+    switch (msg.m_type)
+    {
+    case NewsMessage::Type::WalletUpdateNotification:
+        {
+            std::string str = NewsMessageHandler::extractUpdateVersion(msg);
+            emit newAppVersion(QString::fromStdString(str));
+            break;
+        }
+
+    case NewsMessage::Type::ExchangeRates:
+        break;
+    
+    default:
+        break;
+    }
 }
 
 beam::Amount WalletModel::getAvailable() const

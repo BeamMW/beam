@@ -43,7 +43,6 @@ MainViewModel::MainViewModel()
     connect(&m_settings, SIGNAL(lockTimeoutChanged()), this, SLOT(onLockTimeoutChanged()));
     connect(walletPtr, SIGNAL(stateIDChanged()), SIGNAL(unsafeTxCountChanged()));
     connect(walletPtr, SIGNAL(transactionsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)), SIGNAL(unsafeTxCountChanged()));
-    connect(walletPtr, SIGNAL(newscastUpdate(const QString&)), SIGNAL(showUpdateNotification(const QString&)));
 #if defined(BEAM_HW_WALLET)
     connect(walletPtr, SIGNAL(showTrezorMessage()), this, SIGNAL(showTrezorMessage()));
     connect(walletPtr, SIGNAL(hideTrezorMessage()), this, SIGNAL(hideTrezorMessage()));
