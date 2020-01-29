@@ -399,8 +399,14 @@ public:
 	bool EnumTxos(ITxoWalker&);
 	bool EnumTxos(ITxoWalker&, const HeightRange&);
 
-	struct ITxoRecover
+	struct ITxoWalker_Unspent
 		:public ITxoWalker
+	{
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
+	};
+
+	struct ITxoRecover
+		:public ITxoWalker_Unspent
 	{
 		Key::IPKdf& m_Key;
 		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}

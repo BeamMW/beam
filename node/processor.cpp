@@ -4293,6 +4293,8 @@ bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, 
 
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
+	assert(MaxHeight == wlk.m_SpendHeight);
+
 	CoinID cid;
 	if (!outp.Recover(hCreate, m_Key, cid))
 		return true;
@@ -4306,16 +4308,17 @@ bool NodeProcessor::ITxoWalker_UnspentNaked::OnTxo(const NodeDB::WalkerTxo& wlk,
 		return true;
 
 	uint8_t pNaked[s_TxoNakedMax];
-	Blob val = wlk.m_Value;
-	TxoToNaked(pNaked, val); // save allocation and deserialization of sig
+	TxoToNaked(pNaked, Cast::NotConst(wlk).m_Value); // save allocation and deserialization of sig
 
-	Deserializer der;
-	der.reset(val.p, val.n);
+	return ITxoWalker::OnTxo(wlk, hCreate);
+}
 
-	Output outp;
-	der & outp;
+bool NodeProcessor::ITxoWalker_Unspent::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate)
+{
+	if (wlk.m_SpendHeight != MaxHeight)
+		return true;
 
-	return Cast::Down<ITxoWalker>(*this).OnTxo(wlk, hCreate, outp);
+	return ITxoWalker::OnTxo(wlk, hCreate);
 }
 
 void NodeProcessor::InitializeUtxos()
