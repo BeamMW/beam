@@ -302,10 +302,10 @@ namespace detail
         template<typename Archive, uint32_t nG>
         static Archive& load(Archive& ar, ECC::SignatureGeneralized<nG>& val)
         {
-			ar& val.m_NoncePub;
+			ar & val.m_NoncePub;
 
 			for (uint32_t i = 0; i < nG; i++)
-				ar& val.m_pK[i];
+				ar & val.m_pK[i];
 
 			return ar;
 		}
@@ -595,6 +595,7 @@ namespace detail
             return ar;
         }
 
+		/// Sigma proof serialization
 		template<typename Archive>
 		class MultibitVar
 		{
@@ -636,43 +637,24 @@ namespace detail
 			}
 		};
 
+		/// beam::Sigma::Proof
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Lelantus::Proof& v)
+		static Archive& save(Archive& ar, const beam::Sigma::Proof& v)
 		{
 			ar
 				& v.m_Cfg.n
 				& v.m_Cfg.M
-				& v.m_Commitment.m_X
-				& v.m_SpendPk.m_X
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
 				& v.m_Part1.m_C.m_X
 				& v.m_Part1.m_D.m_X
-				& v.m_Signature.m_NoncePub.m_X
 				& v.m_Part2.m_zA
 				& v.m_Part2.m_zC
-				& v.m_Part2.m_zR
-				& v.m_Signature.m_pK[0]
-				& v.m_Signature.m_pK[1];
+				& v.m_Part2.m_zR;
 
 			assert(v.m_Part1.m_vG.size() >= v.m_Cfg.M);
 			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
 				ar & v.m_Part1.m_vG[i].m_X;
-
-			MultibitVar<Archive> mb(ar);
-
-			mb.put(v.m_Commitment.m_Y);
-			mb.put(v.m_SpendPk.m_Y);
-			mb.put(v.m_Part1.m_A.m_Y);
-			mb.put(v.m_Part1.m_B.m_Y);
-			mb.put(v.m_Part1.m_C.m_Y);
-			mb.put(v.m_Part1.m_D.m_Y);
-			mb.put(v.m_Signature.m_NoncePub.m_Y);
-
-			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
-				mb.put(v.m_Part1.m_vG[i].m_Y);
-
-			mb.Flush();
 
 			uint32_t nSizeF = v.m_Cfg.get_F();
 			assert(v.m_Part2.m_vF.size() >= nSizeF);
@@ -684,23 +666,18 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Lelantus::Proof& v)
+		static Archive& load(Archive& ar, beam::Sigma::Proof& v)
 		{
 			ar
 				& v.m_Cfg.n
 				& v.m_Cfg.M
-				& v.m_Commitment.m_X
-				& v.m_SpendPk.m_X
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
 				& v.m_Part1.m_C.m_X
 				& v.m_Part1.m_D.m_X
-				& v.m_Signature.m_NoncePub.m_X
 				& v.m_Part2.m_zA
 				& v.m_Part2.m_zC
-				& v.m_Part2.m_zR
-				& v.m_Signature.m_pK[0]
-				& v.m_Signature.m_pK[1];
+				& v.m_Part2.m_zR;
 
 			if (!v.m_Cfg.get_N())
 				throw std::runtime_error("L/Cfg");
@@ -709,24 +686,83 @@ namespace detail
 			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
 				ar & v.m_Part1.m_vG[i].m_X;
 
-			MultibitVar<Archive> mb(ar);
-
-			mb.get(v.m_Commitment.m_Y);
-			mb.get(v.m_SpendPk.m_Y);
-			mb.get(v.m_Part1.m_A.m_Y);
-			mb.get(v.m_Part1.m_B.m_Y);
-			mb.get(v.m_Part1.m_C.m_Y);
-			mb.get(v.m_Part1.m_D.m_Y);
-			mb.get(v.m_Signature.m_NoncePub.m_Y);
-
-			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
-				mb.get(v.m_Part1.m_vG[i].m_Y);
-
 			uint32_t nSizeF = v.m_Cfg.get_F();
 			v.m_Part2.m_vF.resize(nSizeF);
 
 			for (uint32_t i = 0; i < nSizeF; i++)
 				ar & v.m_Part2.m_vF[i];
+
+			return ar;
+		}
+		template<typename Archive>
+		static void saveBits(MultibitVar<Archive>& mb, const beam::Sigma::Proof& v)
+		{
+			mb.put(v.m_Part1.m_A.m_Y);
+			mb.put(v.m_Part1.m_B.m_Y);
+			mb.put(v.m_Part1.m_C.m_Y);
+			mb.put(v.m_Part1.m_D.m_Y);
+
+			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
+				mb.put(v.m_Part1.m_vG[i].m_Y);
+		}
+
+		template<typename Archive>
+		static void loadBits(MultibitVar<Archive>& mb, beam::Sigma::Proof& v)
+		{
+			mb.get(v.m_Part1.m_A.m_Y);
+			mb.get(v.m_Part1.m_B.m_Y);
+			mb.get(v.m_Part1.m_C.m_Y);
+			mb.get(v.m_Part1.m_D.m_Y);
+
+			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
+				mb.get(v.m_Part1.m_vG[i].m_Y);
+		}
+
+		/// beam::Lelantus::Proof
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Lelantus::Proof& v)
+		{
+			save(ar, Cast::Down<beam::Sigma::Proof>(v));
+
+			ar
+				& v.m_Commitment.m_X
+				& v.m_SpendPk.m_X
+				& v.m_Signature.m_NoncePub.m_X
+				& v.m_Signature.m_pK[0]
+				& v.m_Signature.m_pK[1];
+
+			MultibitVar<Archive> mb(ar);
+
+			saveBits(mb, Cast::Down<beam::Sigma::Proof>(v));
+
+			mb.put(v.m_Commitment.m_Y);
+			mb.put(v.m_SpendPk.m_Y);
+			mb.put(v.m_Signature.m_NoncePub.m_Y);
+
+			mb.Flush();
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Lelantus::Proof& v)
+		{
+			load(ar, Cast::Down<beam::Sigma::Proof>(v));
+
+			ar
+				& v.m_Commitment.m_X
+				& v.m_SpendPk.m_X
+				& v.m_Signature.m_NoncePub.m_X
+				& v.m_Signature.m_pK[0]
+				& v.m_Signature.m_pK[1];
+
+			MultibitVar<Archive> mb(ar);
+
+			loadBits(mb, Cast::Down<beam::Sigma::Proof>(v));
+
+			mb.get(v.m_Commitment.m_Y);
+			mb.get(v.m_SpendPk.m_Y);
+			mb.get(v.m_Signature.m_NoncePub.m_Y);
 
 			return ar;
 		}
