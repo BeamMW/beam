@@ -1222,6 +1222,19 @@ namespace beam::wallet
         ECC::HKdf::Create(m_pKdfSbbs, s.V.m_Value);
     }
 
+    void WalletDB::UpdateLocalSlots()
+    {
+        LocalKeyKeeper& lkk = *m_pLocalKeyKeeper; // alias
+
+        ECC::GenRandom(lkk.m_State.m_hvLast);
+        lkk.m_State.Generate();
+
+        LocalKeyKeeper::UsedSlots us;
+        us.m_Count = lkk.s_Slots;
+        us.m_hvLast = lkk.m_State.m_hvLast;
+        us.Save(*this);
+    }
+
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData)
     {
         std::shared_ptr<WalletDB> walletDB = initBase(path, password, separateDBForPrivateData);
@@ -1232,15 +1245,7 @@ namespace beam::wallet
             walletDB->setPrivateVarRaw(WalletSeed, &secretKey.V, sizeof(secretKey.V)); // store master key
             walletDB->storeOwnerKey(); // store owner key (public)
 
-            LocalKeyKeeper& lkk = *walletDB->m_pLocalKeyKeeper; // alias
-
-            ECC::GenRandom(lkk.m_State.m_hvLast);
-            lkk.m_State.Generate();
-
-            LocalKeyKeeper::UsedSlots us;
-            us.m_Count = lkk.s_Slots;
-            us.m_hvLast = lkk.m_State.m_hvLast;
-            us.Save(*walletDB);
+            walletDB->UpdateLocalSlots();
 
             walletDB->flushDB();
         }
@@ -1544,6 +1549,13 @@ namespace beam::wallet
             if (walletDB->getPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V)))
             {
                 walletDB->FromMaster(seed.V);
+
+                LocalKeyKeeper::UsedSlots us;
+                us.Load(*walletDB);
+                if (us.m_Count == 0) // old wallet
+                {
+                    walletDB->UpdateLocalSlots(); // to update old wallets which should use local key keeper
+                }
             }
             else
             {
@@ -1657,7 +1669,7 @@ namespace beam::wallet
             LocalKeyKeeper::UsedSlots us;
             us.Load(*this);
 
-            assert(us.m_Used.size() <= us.m_Count);
+            assert(us.m_Used.size() <= us.m_Count && us.m_Count > 0);
             if (us.m_Used.size() < us.m_Count)
             {
                 if (us.m_Used.empty())

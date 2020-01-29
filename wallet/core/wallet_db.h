@@ -527,6 +527,7 @@ namespace beam::wallet
         void FromMaster();
         void FromMaster(const ECC::uintBig&);
         void FromKeyKeeper();
+        void UpdateLocalSlots();
         static void createTables(sqlite3* db, sqlite3* privateDb);
         void removeCoinImpl(const Coin::ID& cid);
         void notifyCoinsChanged(ChangeAction action, const std::vector<Coin>& items);
