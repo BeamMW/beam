@@ -2078,7 +2078,8 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-failure-invalid-asset-id">
-        <source>No valid asset id/asset idx</source>
+        <source>No valid asset owner id/asset owner idx</source>
+        <oldsource>No valid asset id/asset idx</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-failure-invalid-asset-amount">
@@ -2104,6 +2105,10 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
     </message>
     <message id="tx-failure-aborted-by-user">
         <source>Aborted by the user</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-asset-small-fee">
+        <source></source>
         <translation type="unfinished"></translation>
     </message>
 </context>
