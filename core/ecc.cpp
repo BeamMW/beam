@@ -2428,10 +2428,10 @@ namespace ECC {
 
 		void Public::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle)
 		{
-			m_Value = cp.m_Kidv.m_Value;
+			m_Value = cp.m_Value;
 			assert(m_Value >= s_MinimumValue);
 
-			m_Recovery.m_Kid = cp.m_Kidv;
+			cp.BlobSave(reinterpret_cast<uint8_t*>(&m_Recovery.m_Kid), sizeof(m_Recovery.m_Kid));
 			XCryptKid(m_Recovery.m_Kid, cp, m_Recovery.m_Checksum);
 
 			Hash::Value hv;
@@ -2449,8 +2449,10 @@ namespace ECC {
 			if (!(m_Recovery.m_Checksum == hvChecksum))
 				return false;
 
-			Cast::Down<Key::ID>(cp.m_Kidv) = kid;
-			cp.m_Kidv.m_Value = m_Value;
+			if (!cp.BlobRecover(reinterpret_cast<const uint8_t*>(&kid), sizeof(kid)))
+				return false;
+
+			cp.m_Value = m_Value;
 			return true;
 		}
 

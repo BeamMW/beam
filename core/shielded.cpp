@@ -256,8 +256,7 @@ namespace beam
 		gen.DerivePKey(m_k, HashTxt("kG-O") << hvShared << m_Value); // doesn't have to be hvShared, any nonce is ok.
 
 		ECC::RangeProof::CreatorParams cp;
-		ZeroObject(cp.m_Kidv);
-		cp.m_Kidv.m_Value = m_Value;
+		cp.m_Value = m_Value;
 
 		ECC::Point::Native pt = ECC::Commitment(m_k, m_Value);
 		txo.m_Commitment = pt;
@@ -265,11 +264,12 @@ namespace beam
 		ECC::Scalar::Native pExtra[2];
 		cp.m_pExtra = pExtra;
 
-		uint32_t iOverflow =
+		uint8_t iOverflow =
 			Msg2Scalar(pExtra[0], m_Sender) |
 			(Msg2Scalar(pExtra[1], m_Message) << 1);
 
-		cp.m_Kidv.set_Subkey(iOverflow);
+		cp.m_Blob.p = &iOverflow;
+		cp.m_Blob.n = sizeof(iOverflow);
 
 		get_Seed(cp.m_Seed.V, hvShared);
 
@@ -288,17 +288,19 @@ namespace beam
 		cp.m_pSk = &m_k;
 		cp.m_pExtra = pExtra;
 
+		uint8_t nFlags;
+		cp.m_Blob.p = &nFlags;
+		cp.m_Blob.n = sizeof(nFlags);
+
 		txo.Prepare(oracle);
 		if (!txo.m_RangeProof.Recover(oracle, cp))
 			return false;
 
-		m_Value = cp.m_Kidv.m_Value;
+		m_Value = cp.m_Value;
 
 		ECC::Point::Native pt = ECC::Commitment(m_k, m_Value);
 		if (!(pt == txo.m_Commitment))
 			return false;
-
-		uint32_t nFlags = cp.m_Kidv.get_Subkey();
 
 		Scalar2Msg(m_Sender, pExtra[0], 1 & nFlags);
 		Scalar2Msg(m_Message, pExtra[1], 2 & nFlags);
@@ -306,7 +308,7 @@ namespace beam
 		return true;
 	}
 
-	uint32_t ShieldedTxo::Data::OutputParams::Msg2Scalar(ECC::Scalar::Native& s, const ECC::uintBig& x)
+	uint8_t ShieldedTxo::Data::OutputParams::Msg2Scalar(ECC::Scalar::Native& s, const ECC::uintBig& x)
 	{
 		static_assert(sizeof(x) == sizeof(ECC::Scalar));
 		s = reinterpret_cast<const ECC::Scalar&>(x);

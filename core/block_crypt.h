@@ -391,6 +391,9 @@ namespace beam
 
 		static void GenerateSeedKid(ECC::uintBig&, const ECC::Point& comm, Key::IPKdf&);
 		void Prepare(ECC::Oracle&, Height hScheme) const;
+
+	private:
+		struct PackedKA; // Key::ID + Asset::ID
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }

@@ -261,8 +261,7 @@ uint32_t Multisig::Update2()
 	}
 
 	ECC::RangeProof::CreatorParams cp;
-	cp.m_Kidv = Zero;
-	cp.m_Kidv.m_Value = cid.m_Value;
+	cp.m_Value = cid.m_Value;
 
 	uint32_t iRole = 0;
 	Get(iRole, Codes::Role);

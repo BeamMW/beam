@@ -432,9 +432,13 @@ namespace ECC
 		struct CreatorParams
 		{
 			NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
-			Key::IDV m_Kidv;
+			Amount m_Value;
+			beam::Blob m_Blob = beam::Blob(nullptr, 0); // max size is limited, together with m_Value should not exceed Scalar
 
-			struct Padded;
+			void BlobSave(uint8_t* p, size_t) const;
+			bool BlobRecover(const uint8_t* p, size_t);
+
+			struct Packed;
 
 			// more params to embed/recover, optional
 			const uintBig* m_pSeedSk = nullptr; // set only when recovering
