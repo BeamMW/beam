@@ -1618,7 +1618,7 @@ Height NodeProcessor::RaiseFossil(Height hTrg)
 
 	}
 
-	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, NULL);
+	m_DB.ParamIntSet(NodeDB::ParamID::FossilHeight, m_Extra.m_Fossil);
 	return hRet;
 }
 
@@ -1657,7 +1657,7 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 	}
 
 	m_Extra.m_TxoLo = hTrg;
-	m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &m_Extra.m_TxoLo, NULL);
+	m_DB.ParamIntSet(NodeDB::ParamID::HeightTxoLo, m_Extra.m_TxoLo);
 
 	return hRet;
 }
@@ -1694,7 +1694,7 @@ Height NodeProcessor::RaiseTxoHi(Height hTrg)
 		}
 	}
 
-	m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &m_Extra.m_TxoHi, NULL);
+	m_DB.ParamIntSet(NodeDB::ParamID::HeightTxoHi, m_Extra.m_TxoHi);
 
 	return hRet;
 }
@@ -2806,7 +2806,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 	}
 
 	if (bic.m_StoreShieldedOutput)
-		m_DB.ParamSet(NodeDB::ParamID::ShieldedOutputs, &m_Extra.m_ShieldedOutputs, nullptr);
+		m_DB.ParamIntSet(NodeDB::ParamID::ShieldedOutputs, m_Extra.m_ShieldedOutputs);
 
 	return true;
 }
@@ -2877,7 +2877,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 		assert(bic.m_UpdateMmrs); // otherwise the following formula will be wrong
 
 		TxoID nShieldedInputs = m_Mmr.m_Shielded.m_Count - m_Extra.m_ShieldedOutputs;
-		m_DB.ParamSet(NodeDB::ParamID::ShieldedInputs, &nShieldedInputs, nullptr);
+		m_DB.ParamIntSet(NodeDB::ParamID::ShieldedInputs, nShieldedInputs);
 	}
 
 

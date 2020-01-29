@@ -653,7 +653,7 @@ void Node::MaybeGenerateRecovery()
 
 	if (bOk) {
 		LOG_INFO() << "Recovery generation done";
-		m_Processor.get_DB().ParamSet(NodeDB::ParamID::LastRecoveryHeight, &h1, nullptr);
+		m_Processor.get_DB().ParamIntSet(NodeDB::ParamID::LastRecoveryHeight, h1);
 	} else
 	{
 		LOG_INFO() << "Recovery generation failed";
