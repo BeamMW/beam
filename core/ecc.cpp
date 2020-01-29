@@ -1895,19 +1895,6 @@ namespace ECC {
 		return 0;
 	}
 
-	int Key::IDV::cmp(const IDV& x) const
-	{
-		int n = ID::cmp(x);
-		if (n)
-			return n;
-
-		if (m_Value < x.m_Value)
-			return -1;
-		if (m_Value > x.m_Value)
-			return 1;
-		return 0;
-	}
-
 	/////////////////////
 	// NonceGenerator
 	void NonceGenerator::Reset()

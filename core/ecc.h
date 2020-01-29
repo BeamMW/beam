@@ -272,17 +272,6 @@ namespace ECC
 			COMPARISON_VIA_CMP
 		};
 
-		struct IDV
-			:public ID
-		{
-			using ID::ID;
-
-			Amount m_Value;
-
-			int cmp(const IDV&) const;
-			COMPARISON_VIA_CMP
-		};
-
 		struct IPKdf
 		{
 			typedef std::shared_ptr<IPKdf> Ptr;

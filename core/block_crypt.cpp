@@ -203,12 +203,14 @@ namespace beam
 
 	int CoinID::cmp(const CoinID& v) const
 	{
-		if (m_AssetID > v.m_AssetID)
-			return 1;
-		if (m_AssetID < v.m_AssetID)
-			return -1;
+		int n = ID::cmp(v);
+		if (n)
+			return n;
 
-		return Cast::Down<Key::IDV>(*this).cmp(v);
+		CMP_MEMBER(m_Value)
+		CMP_MEMBER(m_AssetID)
+
+		return 0;
 	}
 
 	void CoinID::get_Hash(ECC::Hash::Value& hv) const

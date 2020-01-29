@@ -221,7 +221,7 @@ namespace beam
 	};
 
 	struct CoinID
-		:public Key::IDV
+		:public Key::ID
 	{
 		struct Scheme
 		{
@@ -233,19 +233,22 @@ namespace beam
 			static const Key::Index s_SubKeyMask = (static_cast<Key::Index>(1) << s_SubKeyBits) - 1;
 		};
 
+		Amount m_Value;
+
 		Asset::ID m_AssetID = 0;
 
 		CoinID() {}
 		CoinID(Zero_)
-			:IDV(Zero)
+			:ID(Zero)
+			,m_Value(0)
 		{
 			set_Subkey(0);
 		}
 
 		CoinID(Amount v, uint64_t nIdx, Key::Type type, Key::Index nSubIdx = 0)
-			:IDV(nIdx, type)
+			:ID(nIdx, type)
+			,m_Value(v)
 		{
-			m_Value = v;
 			set_Subkey(nSubIdx, Scheme::V1);
 		}
 
