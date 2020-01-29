@@ -813,7 +813,8 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::CoinID& v)
 		{
 			ar
-				& Cast::Down<beam::Key::IDV>(v)
+				& Cast::Down<beam::Key::ID>(v)
+				& v.m_Value
 				& v.m_AssetID;
 			return ar;
 		}
@@ -822,7 +823,8 @@ namespace detail
 		static Archive& load(Archive& ar, beam::CoinID& v)
 		{
 			ar
-				& Cast::Down<beam::Key::IDV>(v)
+				& Cast::Down<beam::Key::ID>(v)
+				& v.m_Value
 				& v.m_AssetID;
 			return ar;
 		}
