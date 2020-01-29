@@ -201,18 +201,6 @@ namespace beam
 		Generator::AddValue(comm, m_Cid.m_Value);
 	}
 
-	int CoinID::cmp(const CoinID& v) const
-	{
-		int n = ID::cmp(v);
-		if (n)
-			return n;
-
-		CMP_MEMBER(m_Value)
-		CMP_MEMBER(m_AssetID)
-
-		return 0;
-	}
-
 	void CoinID::get_Hash(ECC::Hash::Value& hv) const
 	{
 		Key::Index nScheme = get_Scheme();

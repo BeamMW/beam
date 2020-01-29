@@ -282,9 +282,6 @@ namespace beam
 		bool get_ChildKdfIndex(Key::Index&) const; // returns false if chils is not needed
 		Key::IKdf::Ptr get_ChildKdf(const Key::IKdf::Ptr& pMasterKdf) const;
 
-		int cmp(const CoinID&) const;
-		COMPARISON_VIA_CMP
-
 		struct Generator
 		{
 			ECC::Point::Native m_hGen;

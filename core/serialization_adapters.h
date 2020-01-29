@@ -808,7 +808,7 @@ namespace detail
 			return ar;
 		}
 
-		/// beam::Output serialization
+		/// beam::CoinID serialization
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::CoinID& v)
 		{
