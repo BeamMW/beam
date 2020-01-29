@@ -279,17 +279,6 @@ namespace ECC
 
 			Amount m_Value;
 
-#pragma pack (push, 1)
-			struct Packed
-				:public ID::Packed
-			{
-				beam::uintBigFor<Amount>::Type m_Value;
-				void operator = (const IDV&);
-			};
-#pragma pack (pop)
-
-			void operator = (const Packed&);
-
 			int cmp(const IDV&) const;
 			COMPARISON_VIA_CMP
 		};

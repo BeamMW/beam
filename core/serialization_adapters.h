@@ -241,27 +241,25 @@ namespace detail
             return ar;
         }
 
-		/// ECC::Key::IDV serialization
+		/// ECC::Key::ID serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const ECC::Key::IDV& kidv)
+		static Archive& save(Archive& ar, const ECC::Key::ID& kid)
 		{
 			ar
-				& kidv.m_Idx
-				& kidv.m_Type
-				& kidv.m_SubIdx
-				& kidv.m_Value;
+				& kid.m_Idx
+				& kid.m_Type
+				& kid.m_SubIdx;
 
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, ECC::Key::IDV& kidv)
+		static Archive& load(Archive& ar, ECC::Key::ID& kid)
 		{
 			ar
-				& kidv.m_Idx
-				& kidv.m_Type
-				& kidv.m_SubIdx
-				& kidv.m_Value;
+				& kid.m_Idx
+				& kid.m_Type
+				& kid.m_SubIdx;
 
 			return ar;
 		}

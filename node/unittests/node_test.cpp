@@ -2356,7 +2356,7 @@ namespace beam
 					{
 						// Restore all the relevent data
 						Key::ID::Packed kid;
-						kid = evt.m_Kidv;
+						kid = evt.m_Kid;
 						proto::UtxoEvent::Shielded s;
 						evt.m_ShieldedDelta.Get(kid, evt.m_Buf1, s);
 
@@ -2365,7 +2365,7 @@ namespace beam
 						// Output parameters are fully recovered
 						verify_test(m_Shielded.m_Params.m_Output.m_Sender == s.m_Sender);
 						verify_test(m_Shielded.m_Params.m_Output.m_Message == s.m_Message);
-						verify_test(m_Shielded.m_Params.m_Output.m_Value == evt.m_Kidv.m_Value);
+						verify_test(m_Shielded.m_Params.m_Output.m_Value == evt.m_Value);
 						verify_test(m_Shielded.m_Params.m_Output.m_k == s.m_kOutG);
 
 						// Shielded parameters: recovered only the part that is sufficient to spend it

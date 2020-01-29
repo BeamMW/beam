@@ -2351,8 +2351,8 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 	ues.m_kOutG = op.m_k;
 
 	UtxoEvent::ValueS evt;
-	evt.m_Kidv.m_Value = op.m_Value;
-	evt.m_ShieldedDelta.Set(evt.m_Kidv, evt.m_Buf1, ues);
+	evt.m_Value = op.m_Value;
+	evt.m_ShieldedDelta.Set(evt.m_Kid, evt.m_Buf1, ues);
 	evt.m_AssetID = 0U;
 	evt.m_Maturity = h;
 
@@ -2382,7 +2382,8 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 
 	// bingo!
 	UtxoEvent::Value evt;
-	evt.m_Kidv = cid;
+	evt.m_Kid = cid;
+	evt.m_Value = cid.m_Value;
 	evt.m_Flags = proto::UtxoEvent::Flags::Add;
 	evt.m_AssetID = cid.m_AssetID;
 	evt.m_Buf1 = Zero;
@@ -2420,7 +2421,8 @@ void NodeProcessor::RescanOwnedTxos()
 			}
 
 			UtxoEvent::Value evt;
-			evt.m_Kidv = cid;
+			evt.m_Kid = cid;
+			evt.m_Value = cid.m_Value;
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
 			evt.m_Flags = proto::UtxoEvent::Flags::Add;
 			evt.m_AssetID = cid.m_AssetID;

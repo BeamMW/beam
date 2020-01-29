@@ -1859,18 +1859,6 @@ namespace ECC {
 		m_SubIdx = x.m_SubIdx;
 	}
 
-	void Key::IDV::operator = (const Packed& x)
-	{
-		ID::operator = (x);
-		x.m_Value.Export(m_Value);
-	}
-
-	void Key::IDV::Packed::operator = (const IDV& x)
-	{
-		ID::Packed::operator = (x);
-		m_Value = x.m_Value;
-	}
-
 	void Key::IKdf::DeriveKey(Scalar::Native& out, const Key::ID& kid)
 	{
 		Hash::Value hv; // the key hash is not secret

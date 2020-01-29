@@ -808,17 +808,19 @@ namespace beam::wallet
         // for historical reasons - make AssetID 1st member to keep bkwd compatibility
         // during serialization/deserialization leading zeroes are trimmed
         uintBigFor<Asset::ID>::Type m_AssetID;
-        Key::IDV::Packed m_Kidv;
+        Key::ID::Packed m_Kid;
+        uintBigFor<Amount>::Type m_Value;
     };
 #pragma pack (pop)
 
     string Coin::toStringID() const
     {
         CoinIDPacked packed;
-        packed.m_Kidv = m_ID;
+        packed.m_Kid = m_ID;
+        packed.m_Value = m_ID.m_Value;
 
         if (!m_ID.m_AssetID)
-            return to_hex(&packed.m_Kidv, sizeof(packed.m_Kidv));
+            return to_hex(&packed.m_Kid, sizeof(packed) - sizeof(packed.m_AssetID));
 
         packed.m_AssetID = m_ID.m_AssetID;
         return to_hex(&packed, sizeof(packed));
@@ -856,7 +858,8 @@ namespace beam::wallet
             uint8_t* p = reinterpret_cast<uint8_t*>(&packed) + sizeof(CoinIDPacked) - byteBuffer.size();
             copy_n(byteBuffer.begin(), byteBuffer.size(), p);
             Coin::ID id;
-            Cast::Down<Key::IDV>(id) = packed.m_Kidv;
+            Cast::Down<Key::ID>(id) = packed.m_Kid;
+            packed.m_Value.Export(id.m_Value);
             packed.m_AssetID.Export(id.m_AssetID);
             return id;
         }

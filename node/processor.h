@@ -428,7 +428,8 @@ public:
 		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
 
 		struct Value {
-			ECC::Key::IDV::Packed m_Kidv;
+			ECC::Key::ID::Packed m_Kid;
+			uintBigFor<Amount>::Type m_Value;
 			uintBigFor<Height>::Type m_Maturity;
 			uintBigFor<Asset::ID>::Type m_AssetID;
 			proto::UtxoEvent::AuxBuf1 m_Buf1;
