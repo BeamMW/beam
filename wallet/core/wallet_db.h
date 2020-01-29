@@ -563,6 +563,7 @@ namespace beam::wallet
         Key::IPKdf::Ptr m_pKdfOwner;
         Key::IKdf::Ptr m_pKdfSbbs;
         IPrivateKeyKeeper2::Ptr m_pKeyKeeper;
+        IPrivateKeyKeeper2::Slot::Type m_KeyKeeperSlots = 0; // cache it
         io::Timer::Ptr m_FlushTimer;
         bool m_IsFlushPending;
         std::unique_ptr<sqlite::Transaction> m_DbTransaction;

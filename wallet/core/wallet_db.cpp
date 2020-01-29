@@ -1123,19 +1123,13 @@ namespace beam::wallet
         {
             static const char s_szDbName[];
 
-            IPrivateKeyKeeper2::Slot::Type m_Count;
-            ECC::Hash::Value m_hvLast;
-
             typedef std::map<IPrivateKeyKeeper2::Slot::Type, ECC::Hash::Value> UsedMap;
             UsedMap m_Used;
 
             template <typename Archive>
             void serialize(Archive& ar)
             {
-                ar
-                    & m_Count
-                    & m_hvLast
-                    & m_Used;
+                ar & m_Used;
             }
 
             void Load(WalletDB& db)
@@ -1178,6 +1172,8 @@ namespace beam::wallet
             m_pKeyKeeper = std::make_shared<LocalKeyKeeper>(m_pKdfMaster);
             m_pLocalKeyKeeper = &Cast::Up<LocalKeyKeeper>(*m_pKeyKeeper);
         }
+
+        UpdateLocalSlots();
     }
 
     void WalletDB::FromKeyKeeper()
@@ -1220,19 +1216,53 @@ namespace beam::wallet
         s.V = sk;
 
         ECC::HKdf::Create(m_pKdfSbbs, s.V.m_Value);
+
+        UpdateLocalSlots();
+
     }
 
     void WalletDB::UpdateLocalSlots()
     {
-        LocalKeyKeeper& lkk = *m_pLocalKeyKeeper; // alias
+        assert(m_pKeyKeeper);
 
-        ECC::GenRandom(lkk.m_State.m_hvLast);
-        lkk.m_State.Generate();
+        IPrivateKeyKeeper2::Method::get_NumSlots m = { 0 };
+        m.m_Count = 0;
+        if ((IPrivateKeyKeeper2::Status::Success != m_pKeyKeeper->InvokeSync(m)) || !m.m_Count)
+            throw std::runtime_error("key keeper no slots");
+
+        m_KeyKeeperSlots = m.m_Count;
 
         LocalKeyKeeper::UsedSlots us;
-        us.m_Count = lkk.s_Slots;
-        us.m_hvLast = lkk.m_State.m_hvLast;
-        us.Save(*this);
+        bool bKeep = false;
+
+        try
+        {
+            us.Load(*this);
+            if (us.m_Used.empty() || (us.m_Used.rbegin()->first < m.m_Count))
+                bKeep = true;
+        }
+        catch (...)
+        {
+        }
+
+        if (!bKeep)
+        {
+            us.m_Used.clear();
+            us.Save(*this);
+        }
+
+        if (m_pLocalKeyKeeper)
+        {
+            ECC::GenRandom(m_pLocalKeyKeeper->m_State.m_hvLast);
+            m_pLocalKeyKeeper->m_State.Generate();
+
+            if (bKeep)
+            {
+                // restore used slots
+                for (LocalKeyKeeper::UsedSlots::UsedMap::value_type val : us.m_Used)
+                    m_pLocalKeyKeeper->m_State.m_pSlot[val.first] = val.second;
+            }
+        }
     }
 
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData)
@@ -1244,8 +1274,6 @@ namespace beam::wallet
 
             walletDB->setPrivateVarRaw(WalletSeed, &secretKey.V, sizeof(secretKey.V)); // store master key
             walletDB->storeOwnerKey(); // store owner key (public)
-
-            walletDB->UpdateLocalSlots();
 
             walletDB->flushDB();
         }
@@ -1262,16 +1290,6 @@ namespace beam::wallet
             walletDB->FromKeyKeeper();
 
             walletDB->storeOwnerKey(); // store owner key (public)
-
-            IPrivateKeyKeeper2::Method::get_NumSlots m;
-            m.m_Count = 0;
-            if ((IPrivateKeyKeeper2::Status::Success != pKeyKeeper->InvokeSync(m)) || !m.m_Count)
-                throw std::runtime_error("key keeper no slots");
-
-            LocalKeyKeeper::UsedSlots us;
-            us.m_Count = m.m_Count;
-            us.m_hvLast = Zero;
-            us.Save(*walletDB);
 
             walletDB->flushDB();
         }
@@ -1549,13 +1567,6 @@ namespace beam::wallet
             if (walletDB->getPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V)))
             {
                 walletDB->FromMaster(seed.V);
-
-                LocalKeyKeeper::UsedSlots us;
-                us.Load(*walletDB);
-                if (us.m_Count == 0) // old wallet
-                {
-                    walletDB->UpdateLocalSlots(); // to update old wallets which should use local key keeper
-                }
             }
             else
             {
@@ -1669,15 +1680,15 @@ namespace beam::wallet
             LocalKeyKeeper::UsedSlots us;
             us.Load(*this);
 
-            assert(us.m_Used.size() <= us.m_Count && us.m_Count > 0);
-            if (us.m_Used.size() < us.m_Count)
+            assert(us.m_Used.size() <= m_KeyKeeperSlots);
+            if (us.m_Used.size() < m_KeyKeeperSlots)
             {
                 if (us.m_Used.empty())
                     iSlot = 0;
                 else
                 {
                     iSlot = us.m_Used.rbegin()->first + 1;
-                    if (iSlot >= us.m_Count)
+                    if (iSlot >= m_KeyKeeperSlots)
                     {
                         // find free from the beginning
                         iSlot = 0;
@@ -1693,8 +1704,6 @@ namespace beam::wallet
                     hv = Zero;
             }
 
-            if (m_pLocalKeyKeeper)
-                us.m_hvLast = m_pLocalKeyKeeper->m_State.m_hvLast;
             us.Save(*this);
         }
 
@@ -1710,11 +1719,10 @@ namespace beam::wallet
 
             LocalKeyKeeper::UsedSlots::UsedMap::iterator it = us.m_Used.find(iSlot);
             if (us.m_Used.end() != it)
+            {
                 us.m_Used.erase(it);
-
-            if (m_pLocalKeyKeeper)
-                us.m_hvLast = m_pLocalKeyKeeper->m_State.m_hvLast;
-            us.Save(*this);
+                us.Save(*this);
+            }
         }
     }
 
