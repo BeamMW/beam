@@ -817,18 +817,22 @@ namespace ECC {
 		m_Batch.m_Size++;
 	}
 
+	void Point::Compact::Assign(secp256k1_ge& ge) const
+	{
+		secp256k1_ge_from_storage(&ge, this);
+	}
+
 	void Point::Compact::Assign(Point::Native& p, bool bSet) const
 	{
 		NoLeak<secp256k1_ge> ge;
-
-		secp256k1_ge_from_storage(&ge.V, this);
+		Assign(ge.V);
 
 		if (bSet)
 			secp256k1_gej_set_ge(&p.get_Raw(), &ge.V);
 		else
 		{
 			if (Mode::Secure == ECC::g_Mode)
-			secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge.V);
+				secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge.V);
 			else
 				secp256k1_gej_add_ge_var(&p.get_Raw(), &p.get_Raw(), &ge.V, nullptr);
 		}
