@@ -78,13 +78,13 @@ namespace beam
         extern const char* MINER_KEY;
         extern const char* BBS_ENABLE;
         extern const char* NEW_ADDRESS;
+        extern const char* GET_TOKEN;
         extern const char* CANCEL_TX;
         extern const char* DELETE_TX;
         extern const char* TX_DETAILS;
         extern const char* PAYMENT_PROOF_EXPORT;
         extern const char* PAYMENT_PROOF_VERIFY;
         extern const char* PAYMENT_PROOF_DATA;
-        extern const char* PAYMENT_PROOF_REQUIRED;
         extern const char* SEND;
         extern const char* INFO;
         extern const char* NEW_ADDRESS_COMMENT;
@@ -121,7 +121,6 @@ namespace beam
 		extern const char* GENERATE_RECOVERY_PATH;
 		extern const char* RECOVERY_AUTO_PATH;
 		extern const char* RECOVERY_AUTO_PERIOD;
-        extern const char* COLD_WALLET;
         extern const char* SWAP_INIT;
         extern const char* SWAP_ACCEPT;
         extern const char* SWAP_TOKEN;

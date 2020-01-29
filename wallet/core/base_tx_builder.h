@@ -53,8 +53,9 @@ namespace beam::wallet
         bool CreateInputs();
         void FinalizeInputs();
         virtual Transaction::Ptr CreateTransaction();
-        bool SignSender(bool initial);
-        bool SignReceiver();
+        bool SignSender(bool initial, bool bIsConventional = true);
+        bool SignReceiver(bool bIsConventional = true);
+        bool SignSplit();
         bool IsPeerSignatureValid() const;
 
         Amount GetAmount() const;
@@ -81,40 +82,28 @@ namespace beam::wallet
 
     protected:
 
-
-        template <typename Result, typename Func, typename ContinueFunc>
-        void DoAsync(Func&& asyncFunc, ContinueFunc&& continueFunc, int line)
+        struct KeyKeeperHandler
+            :public IPrivateKeyKeeper2::Handler
         {
-            if (auto it = m_Exceptions.find(line); it != m_Exceptions.end())
-            {
-                auto ex = it->second;
-                m_Exceptions.erase(it);
-                std::rethrow_exception(ex);
-            }
-            auto thisHolder = shared_from_this();
-            auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
-            m_Tx.GetAsyncAcontext().OnAsyncStarted();
+            std::weak_ptr<BaseTxBuilder> m_pBuilder;
+            bool* m_pLink;
 
-            asyncFunc(
-                [thisHolder, this, txHolder, continueFunc](Result&& res)
-                {
-                    continueFunc(std::move(res));
-                    m_Tx.UpdateAsync(); // may complete transaction
-                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
-                },
-                [thisHolder, this, line, txHolder](std::exception_ptr ex)
-                {
-                    m_Exceptions.emplace(line, ex);
-                    m_Tx.UpdateAsync();
-                    m_Tx.GetAsyncAcontext().OnAsyncFinished();
-                });
-        }
+            KeyKeeperHandler(BaseTxBuilder&, bool& bLink);
+            ~KeyKeeperHandler();
 
-        std::map<int, std::exception_ptr> m_Exceptions;
+            virtual void OnDone(IPrivateKeyKeeper2::Status::Type) override;
+
+            virtual void OnSuccess(BaseTxBuilder&) = 0;
+            virtual void OnFailed(BaseTxBuilder&, IPrivateKeyKeeper2::Status::Type);
+
+            void Detach(BaseTxBuilder&);
+            void OnAllDone(BaseTxBuilder&);
+        };
 
     private:
         Amount GetMinimumFee() const;
         void CheckMinimumFee();
+        bool SignReceiverOrSplit(bool bFromYourself, bool bIsConventional);
 
         template<typename T1, typename T2>
         void StoreAndLoad(TxParameterID parameterID, const T1& source, T2& dest)
@@ -141,7 +130,6 @@ namespace beam::wallet
 
         std::vector<Coin::ID> m_InputCoins;
         std::vector<Coin::ID> m_OutputCoins;
-        size_t m_NonceSlot = 0;
         ECC::Point::Native m_PublicNonce;
         ECC::Point::Native m_PublicExcess;
 
@@ -160,5 +148,9 @@ namespace beam::wallet
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
         io::AsyncEvent::Ptr m_AsyncCompletedEvent;
+
+        bool m_CreatingInputs = false;
+        bool m_CreatingOutputs = false;
+        bool m_Signing = false;
     };
 }

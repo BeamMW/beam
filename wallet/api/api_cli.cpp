@@ -233,7 +233,6 @@ namespace
                 , _wallet(wallet)
                 , _api(*this, acl)
                 , _wnet(wnet)
-                , _keyKeeper(std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf()))
             {
                 _walletDB->Subscribe(this);
             }
@@ -310,7 +309,8 @@ namespace
             {
                 LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-                WalletAddress address = storage::createAddress(*_walletDB, _keyKeeper);
+                WalletAddress address;
+                _walletDB->createAddress(address);
                 FillAddressData(data, address);
 
                 _walletDB->saveAddress(address);
@@ -418,7 +418,8 @@ namespace
                     }
                     else
                     {
-                        WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
+                        WalletAddress senderAddress;
+                        _walletDB->createAddress(senderAddress);
                         _walletDB->saveAddress(senderAddress);
 
                         from = senderAddress.m_walletID;     
@@ -554,7 +555,8 @@ namespace
                 LOG_DEBUG() << "], fee = " << data.fee;
                 try
                 {
-                     WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
+                    WalletAddress senderAddress;
+                    _walletDB->createAddress(senderAddress);
                     _walletDB->saveAddress(senderAddress);
 
                     auto minimumFee = std::max(wallet::GetMinimumFee(data.coins.size() + 1), DefaultFee); // +1 extra output for change 
@@ -795,7 +797,6 @@ namespace
             Wallet& _wallet;
             WalletApi _api;
             IWalletMessageEndpoint& _wnet;
-            IPrivateKeyKeeper::Ptr _keyKeeper;
         };
 
         class TcpApiConnection : public ApiConnection
@@ -1151,7 +1152,7 @@ int main(int argc, char* argv[])
                 return -1;
             }
 
-            walletDB = WalletDB::open(options.walletPath, pass, reactor);
+            walletDB = WalletDB::open(options.walletPath, pass);
 
             LOG_INFO() << "wallet sucessfully opened...";
         }
@@ -1162,8 +1163,7 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
 
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-        Wallet wallet{ walletDB, keyKeeper };
+        Wallet wallet{ walletDB };
 
         wallet.ResumeAllTransactions();
 
@@ -1187,7 +1187,7 @@ int main(int argc, char* argv[])
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();
 
-        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper);
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB);
 		wallet.AddMessageEndpoint(wnet);
         wallet.SetNodeEndpoint(nnet);
 

@@ -147,6 +147,9 @@ namespace beam::wallet
     MACRO(RegisterAmountTooSmall,        28, "Asset registration fee is too small") \
     MACRO(ConsumeAmountTooBig,           29, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
     MACRO(NotEnoughDataForProof,         30, "Some mandatory data for payment proof is missing") \
+    MACRO(NoMasterKey,                   31, "Master key is needed for this transaction, but unavailable") \
+    MACRO(KeyKeeperError,                32, "Key keeper malfunctioned") \
+    MACRO(KeyKeeperUserAbort,            33, "Aborted by the user") \
 
     enum TxFailureReason : int32_t
     {
@@ -268,6 +271,8 @@ namespace beam::wallet
         PeerResponseHeight = 134,
 
         Offset = 140,
+
+        UserConfirmationToken = 143,
 
         ChangeAsset = 149,
         ChangeBeam = 150,
@@ -649,6 +654,7 @@ namespace beam::wallet
     {
         // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
         Amount m_Value;
+        Asset::ID m_AssetID = 0;
         ECC::Hash::Value m_KernelID;
         PeerID m_Sender;
 

@@ -56,10 +56,7 @@ namespace beam::wallet
         , m_MinHeight(0)
         , m_MaxHeight(MaxHeight)
     {
-        if (!m_Tx.GetKeyKeeper())
-        {
-            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoKeyKeeper);
-        }
+        m_Tx.get_MasterKdfStrict(); // test
 
         m_Fee = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, m_SubTxID);
         if (!m_Tx.GetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID))
@@ -82,13 +79,18 @@ namespace beam::wallet
             return false;
         }
 
-        const auto& commitments = m_Tx.GetKeyKeeper()->GeneratePublicKeysSync(m_InputCoins, true);
-        //m_Offset += commitmentsOffset;
-        m_Inputs.reserve(commitments.size());
-        for (const auto& commitment : commitments)
+        Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
+
+        m_Inputs.reserve(m_InputCoins.size());
+        for (const CoinID& cid : m_InputCoins)
         {
-            auto& input = m_Inputs.emplace_back(make_unique<Input>());
-            input->m_Commitment = commitment;
+            m_Inputs.emplace_back();
+            m_Inputs.back().reset(new Input);
+
+            ECC::Scalar::Native sk;
+            CoinID::Worker(cid).Create(sk, m_Inputs.back()->m_Commitment, *cid.get_ChildKdf(pMasterKdf));
+
+            m_Offset += sk;
         }
 
         m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
@@ -359,17 +361,22 @@ namespace beam::wallet
             return false;
         }
 
-        DoAsync<IPrivateKeyKeeper::Outputs>([this](auto&& r, auto&& ex)
-            {
-                m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins, move(r), move(ex));
-            },
-            [this](IPrivateKeyKeeper::Outputs&& resOutputs)
-            {
-                m_Outputs = std::move(resOutputs);
-                //m_Offset += resOutputs.second;
-                m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
-            });
-        return true; // true if async
+        Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
+
+        m_Outputs.reserve(m_OutputCoins.size());
+        for (const CoinID& cid : m_OutputCoins)
+        {
+            m_Outputs.emplace_back();
+            m_Outputs.back().reset(new Output);
+
+            Scalar::Native sk;
+            m_Outputs.back()->Create(m_MinHeight, sk, *cid.get_ChildKdf(pMasterKdf), cid, *pMasterKdf);
+            sk = -sk;
+            m_Offset += sk;
+        }
+        m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
+
+        return false; // completed sync
     }
 
     const Merkle::Hash& AssetIssueTxBuilder::GetKernelID() const
@@ -417,8 +424,26 @@ namespace beam::wallet
 
     void AssetIssueTxBuilder::SignKernel()
     {
-        const auto signature = m_Tx.GetKeyKeeper()->SignAssetKernelSync(m_InputCoins, m_OutputCoins, m_Fee, m_assetOwnerIdx, *m_Kernel);
-        m_Offset += signature.m_Offset;
+        Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
+
+        m_Kernel->m_Commitment = Zero;
+        m_Kernel->UpdateMsg(); // use it as a seed for the next
+
+        ECC::Hash::Processor()
+            << m_Offset // indentifies all the in/outs
+            << m_Kernel->m_Msg
+            >> m_Kernel->m_Msg; // result
+
+        ECC::Scalar::Native skKrn, skAssetOwner;
+        pMasterKdf->DeriveKey(skKrn, m_Kernel->m_Msg);
+        pMasterKdf->DeriveKey(skAssetOwner, Key::ID(m_assetOwnerIdx, Key::Type::Asset));
+
+        proto::Sk2Pk(m_Kernel->m_Owner, skAssetOwner);
+
+        m_Kernel->Sign(skKrn, skAssetOwner);
+
+        skKrn = -skKrn;
+        m_Offset += skKrn;
 
         const Merkle::Hash& kernelID = m_Kernel->m_Internal.m_ID;
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);

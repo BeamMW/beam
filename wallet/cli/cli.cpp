@@ -147,6 +147,8 @@ namespace beam
 }  // namespace beam
 namespace
 {
+    SecString GetPassword(const po::variables_map& vm);
+
     void ResolveWID(PeerID& res, const std::string& s)
     {
         bool bValid = true;
@@ -180,8 +182,36 @@ namespace
         arc & x;
     }
 
-    int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
+    IWalletDB::Ptr OpenDataBase(const po::variables_map& vm, const SecString& pass)
     {
+        BOOST_ASSERT(vm.count(cli::WALLET_STORAGE) > 0);
+        auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
+
+        if (!WalletDB::isInitialized(walletPath))
+        {
+            throw std::runtime_error(kErrorWalletNotInitialized);
+        }
+
+        auto walletDB = WalletDB::open(walletPath, pass);
+        LOG_INFO() << kWalletOpenedMessage;
+        return walletDB;
+    }
+
+    IWalletDB::Ptr OpenDataBase(const po::variables_map& vm)
+    {
+        return OpenDataBase(vm, GetPassword(vm));
+    }
+
+    int HandleTreasury(const po::variables_map& vm)
+    {
+        auto walletDB = OpenDataBase(vm);
+        Key::IKdf::Ptr pMaster = walletDB->get_MasterKdf();
+        if (!pMaster)
+        {
+            cout << "Can't handle treasury without master key" << endl;
+            return -1;
+        }
+        Key::IKdf& kdf = *pMaster;
         PeerID wid;
         Scalar::Native sk;
         Treasury::get_ID(kdf, wid, sk);
@@ -388,7 +418,7 @@ namespace
         cout << options << std::endl;
     }
 
-    int ChangeAddressExpiration(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    int ChangeAddressExpiration(const po::variables_map& vm)
     {
         string address = vm[cli::WALLET_ADDR].as<string>();
         string expiration = vm[cli::EXPIRATION_TIME].as<string>();
@@ -421,6 +451,7 @@ namespace
             return -1;
         }
 
+        auto walletDB = OpenDataBase(vm);
         if (storage::changeAddressExpiration(*walletDB, walletID, expirationStatus))
         {
             if (allAddresses)
@@ -436,9 +467,8 @@ namespace
         return -1;
     }
 
-    int CreateNewAddress(const po::variables_map& vm,
+    bool CreateNewAddress(const po::variables_map& vm,
                          const IWalletDB::Ptr& walletDB,
-                         IPrivateKeyKeeper::Ptr keyKeeper,
                          const std::string& defaultComment = "")
     {
         auto comment = defaultComment.empty() 
@@ -460,10 +490,117 @@ namespace
             LOG_ERROR() << boost::format(kErrorAddrExprTimeInvalid) 
                         % cli::EXPIRATION_TIME
                         % expiration;
+            return false;
+        }
+        
+        GenerateNewAddress(walletDB, comment, expirationStatus);
+        return true;
+    }
+
+    bool LoadReceiverParams(const po::variables_map& , TxParameters& );
+    bool ReadWalletSeed(NoLeak<uintBig>& walletSeed, const po::variables_map& vm, bool generateNew);
+
+    SecString GetPassword(const po::variables_map& vm)
+    {
+        SecString pass;
+        if (!beam::read_wallet_pass(pass, vm))
+        {
+            throw std::runtime_error(kErrorWalletPwdNotProvided);
+        }
+        return pass;
+    }
+
+    int InitDataBase(const po::variables_map& vm, bool generateNewSeed)
+    {
+        BOOST_ASSERT(vm.count(cli::WALLET_STORAGE) > 0);
+        auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
+
+        if (WalletDB::isInitialized(walletPath))
+        {
+            bool isDirectory = false;
+#ifdef WIN32
+            isDirectory = boost::filesystem::is_directory(Utf8toUtf16(walletPath.c_str()));
+#else
+            isDirectory = boost::filesystem::is_directory(walletPath);
+#endif
+
+            if (isDirectory)
+            {
+                walletPath.append("/wallet.db");
+            }
+            else
+            {
+                LOG_ERROR() << kErrorWalletAlreadyInitialized;
+                return -1;
+            }
+        }
+
+        LOG_INFO() << kStartMessage;
+
+        SecString pass = GetPassword(vm);
+
+        if (vm.count(cli::PASS) == 0 && !beam::confirm_wallet_pass(pass))
+        {
+            LOG_ERROR() << kErrorWalletPwdNotMatch;
+            return -1;
+        }
+
+        NoLeak<uintBig> walletSeed;
+        walletSeed.V = Zero;
+        if (!ReadWalletSeed(walletSeed, vm, generateNewSeed))
+        {
+            LOG_ERROR() << kErrorSeedPhraseFail;
             return -1;
         }
         
-        GenerateNewAddress(walletDB, comment, keyKeeper, expirationStatus);
+        auto walletDB = WalletDB::init(walletPath, pass, walletSeed);
+        if (walletDB)
+        {
+            LOG_INFO() << kWalletCreatedMessage;
+            CreateNewAddress(vm, walletDB, kDefaultAddrLabel);
+            return 0;
+        }
+        LOG_ERROR() << kErrorWalletNotCreated;
+        return -1;
+    }
+
+    int InitWallet(const po::variables_map& vm)
+    {
+        return InitDataBase(vm, true);
+    }
+
+    int RestoreWallet(const po::variables_map& vm)
+    {
+        return InitDataBase(vm, false);
+    }
+
+    int GetToken(const po::variables_map& vm)
+    {
+        TxParameters params;
+        if (!LoadReceiverParams(vm, params))
+        {
+            return -1;
+        }
+
+  //      if (!params.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID))
+        {
+            auto walletID = params.GetParameter<WalletID>(TxParameterID::PeerID);
+            if (!walletID)
+            {
+                LOG_ERROR() << "Cannot generate token, there is no address";
+                return -1;
+            }
+            auto walletDB = OpenDataBase(vm);
+            auto address = walletDB->getAddress(*walletID);
+            if (!address)
+            {
+                LOG_ERROR() << "Cannot generate token, there is no address";
+                return -1;
+            }
+            params.SetParameter(TxParameterID::PeerSecureWalletID, address->m_Identity);
+        }
+
+        LOG_INFO() << "token:\t" << to_string(params);
         return 0;
     }
 
@@ -478,6 +615,12 @@ namespace
         }
         cout << kSeedPhraseGeneratedMessage << endl;
         return phrase;
+    }
+
+    int GeneratePhrase(const po::variables_map& vm)
+    {
+        GeneratePhrase();
+        return 0;
     }
 
     bool ReadWalletSeed(NoLeak<uintBig>& walletSeed, const po::variables_map& vm, bool generateNew)
@@ -515,8 +658,9 @@ namespace
         return true;
     }
 
-    int ShowAddressList(const IWalletDB::Ptr& walletDB)
+    int ShowAddressList(const po::variables_map& vm)
     {
+        auto walletDB = OpenDataBase(vm);
         auto addresses = walletDB->getAddresses(true);
         array<uint8_t, 5> columnWidths{ { 20, 70, 8, 20, 21 } };
 
@@ -648,8 +792,9 @@ namespace
         }
     }
 
-    int ShowWalletInfo(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    int ShowWalletInfo(const po::variables_map& vm)
     {
+        auto walletDB = OpenDataBase(vm);
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
         storage::Totals totalsCalc(*walletDB);
@@ -799,14 +944,14 @@ namespace
         return res;
     }
 
-    int TxDetails(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    int TxDetails(const po::variables_map& vm)
     {
         auto txId = GetTxID(vm);
         if (!txId)
         {
             return -1;
         }
-
+        auto walletDB = OpenDataBase(vm);
         auto tx = walletDB->getTx(*txId);
         if (!tx)
         {
@@ -824,7 +969,7 @@ namespace
         return 0;
     }
 
-    int ExportPaymentProof(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    int ExportPaymentProof(const po::variables_map& vm)
     {
         auto txId = GetTxID(vm);
         if (!txId)
@@ -832,6 +977,7 @@ namespace
             return -1;
         }
 
+        auto walletDB = OpenDataBase(vm);
         auto tx = walletDB->getTx(*txId);
         if (!tx)
         {
@@ -877,40 +1023,49 @@ namespace
         return 0;
     }
 
-    int ExportMinerKey(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
+    int ExportMinerKey(const po::variables_map& vm)
     {
+        auto pass = GetPassword(vm);
+        auto walletDB = OpenDataBase(vm, pass);
+
         uint32_t subKey = vm[cli::KEY_SUBKEY].as<Nonnegative<uint32_t>>().value;
         if (subKey < 1)
         {
             cout << kErrorSubkeyNotSpecified << endl;
             return -1;
         }
-		Key::IKdf::Ptr pKey = MasterKey::get_Child(*walletDB->get_MasterKdf(), subKey);
-        const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
+
+        Key::IKdf::Ptr pMaster = walletDB->get_MasterKdf();
+        if (!pMaster)
+        {
+            cout << "Miner key not accessible" << endl;
+            return -1;
+        }
+
+		Key::IKdf::Ptr pKey = MasterKey::get_Child(*pMaster, subKey);
 
         KeyString ks;
         ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
         ks.m_sMeta = std::to_string(subKey);
 
-        ks.Export(kdf);
+        ks.ExportS(*pKey);
         cout << boost::format(kSubKeyInfo) % subKey % ks.m_sRes << std::endl;
 
         return 0;
     }
 
-    int ExportOwnerKey(const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
+    int ExportOwnerKey(const po::variables_map& vm)
     {
-        Key::IKdf::Ptr pKey = walletDB->get_MasterKdf();
-        const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
+        auto pass = GetPassword(vm);
+        auto walletDB = OpenDataBase(vm, pass);
+
+        Key::IPKdf::Ptr pKey = walletDB->get_OwnerKdf();
 
         KeyString ks;
         ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
         ks.m_sMeta = std::to_string(0);
 
-        ECC::HKdfPub pkdf;
-        pkdf.GenerateFrom(kdf);
-
-        ks.Export(pkdf);
+        ks.ExportP(*pKey);
         cout << boost::format(kOwnerKeyInfo) % ks.m_sRes << std::endl;
 
         return 0;
@@ -952,13 +1107,14 @@ namespace
         return false;
     }
 
-    int ExportWalletData(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    int ExportWalletData(const po::variables_map& vm)
     {
+        auto walletDB = OpenDataBase(vm);
         auto s = storage::ExportDataToJson(*walletDB);
         return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::IMPORT_EXPORT_PATH].as<string>()) ? 0 : -1;
     }
 
-    int ImportWalletData(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    int ImportWalletData(const po::variables_map& vm)
     {
         ByteBuffer buffer;
         if (vm[cli::IMPORT_EXPORT_PATH].defaulted())
@@ -974,9 +1130,10 @@ namespace
                         % path;
             return -1;
         }
+
+        auto walletDB = OpenDataBase(vm);
         const char* p = (char*)(&buffer[0]);
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-        return storage::ImportDataFromJson(*walletDB, keyKeeper, p, buffer.size()) ? 0 : -1;
+        return storage::ImportDataFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
     }
 
     CoinIDList GetPreselectedCoinIDs(const po::variables_map& vm)
@@ -1013,16 +1170,42 @@ namespace
         return true;
     }
 
+    bool LoadReceiverParams(const po::variables_map& vm, TxParameters& receiverParams)
+    {
+        if (vm.count(cli::RECEIVER_ADDR) == 0)
+        {
+            LOG_ERROR() << kErrorReceiverAddrMissing;
+            return false;
+        }
+        auto receverAddrOrToken = vm[cli::RECEIVER_ADDR].as<string>();
+        auto params = ParseParameters(receverAddrOrToken);
+        if (!params)
+        {
+            LOG_ERROR() << kErrorReceiverAddrMissing;
+            return false;
+        }
+        TxParameters& p = *params;
+        if (auto peerID = p.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); peerID)
+        {
+            receiverParams.SetParameter(beam::wallet::TxParameterID::PeerID, *peerID);
+        }
+        if (auto peerID = p.GetParameter<PeerID>(beam::wallet::TxParameterID::PeerSecureWalletID); peerID)
+        {
+            receiverParams.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *peerID);
+        }
+        return true;
+    }
+
     bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
     {
         if (!skipReceiverWalletID)
         {
-            if (vm.count(cli::RECEIVER_ADDR) == 0)
+            TxParameters params;
+            if (!LoadReceiverParams(vm, params))
             {
-                LOG_ERROR() << kErrorReceiverAddrMissing;
                 return false;
             }
-            receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
+            receiverWalletID = *params.GetParameter<WalletID>(TxParameterID::PeerID);
         }
 
         if (vm.count(cli::AMOUNT) == 0)
@@ -1357,7 +1540,82 @@ namespace
         return false;
     }
 
-    boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper, Wallet& wallet, bool checkFee)
+    int SetSwapSettings(const po::variables_map& vm)
+    {
+        if (vm.count(cli::SWAP_COIN) > 0)
+        {
+            auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
+            auto walletDB = OpenDataBase(vm);
+            if (HasActiveSwapTx(walletDB, swapCoin))
+            {
+                LOG_ERROR() << "You cannot change settings while you have transactions in progress. Please wait untill transactions are completed and try again.";
+                return -1;
+            }
+
+            switch (swapCoin)
+            {
+            case beam::wallet::AtomicSwapCoin::Bitcoin:
+            {
+                return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>(vm, walletDB);
+            }
+            case beam::wallet::AtomicSwapCoin::Litecoin:
+            {
+                return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>(vm, walletDB);
+            }
+            case beam::wallet::AtomicSwapCoin::Qtum:
+            {
+                return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>(vm, walletDB);
+            }
+            default:
+            {
+                throw std::runtime_error("Unsupported coin for swap");
+                break;
+            }
+            }
+            return 0;
+        }
+
+        LOG_ERROR() << "swap_coin should be specified";
+        return -1;
+    }
+
+    int ShowSwapSettings(const po::variables_map& vm)
+    {
+        if (vm.count(cli::SWAP_COIN) > 0)
+        {
+            auto walletDB = OpenDataBase(vm);
+            auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
+            switch (swapCoin)
+            {
+            case beam::wallet::AtomicSwapCoin::Bitcoin:
+            {
+                ShowSwapSettings<bitcoin::SettingsProvider>(walletDB, "bitcoin");
+                break;
+            }
+            case beam::wallet::AtomicSwapCoin::Litecoin:
+            {
+                ShowSwapSettings<litecoin::SettingsProvider>(walletDB, "litecoin");
+                break;
+            }
+            case beam::wallet::AtomicSwapCoin::Qtum:
+            {
+                ShowSwapSettings<qtum::SettingsProvider>(walletDB, "qtum");
+                break;
+            }
+            default:
+            {
+                throw std::runtime_error("Unsupported coin for swap");
+                break;
+            }
+            }
+            return 0;
+        }
+
+        LOG_ERROR() << "swap_coin should be specified";
+        return -1;
+    }
+
+    boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Wallet& wallet, bool checkFee)
     {
         if (vm.count(cli::SWAP_AMOUNT) == 0)
         {
@@ -1463,7 +1721,7 @@ namespace
             throw std::runtime_error(kErrorSwapAmountTooLow);
         }
 
-        WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
+        WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
         // TODO:SWAP use async callbacks or IWalletObserver?
         Height minHeight = walletDB->getCurrentHeight();
@@ -1501,7 +1759,7 @@ namespace
         return currentTxID;
     }
 
-    boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper, Wallet& wallet, bool checkFee)
+    boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Wallet& wallet, bool checkFee)
     {
         if (vm.count(cli::SWAP_TOKEN) == 0)
         {
@@ -1615,7 +1873,7 @@ namespace
         }
 
         // on accepting
-        WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
+        WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
         Amount fee = cli::kMinimumFee;
         swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
@@ -1829,6 +2087,293 @@ namespace
 
         return wallet.StartTransaction(params);
     }
+
+#ifdef BEAM_LASER_SUPPORT
+
+    int HandleLaser(const po::variables_map& vm)
+    {
+        auto walletDB = OpenDataBase(vm);
+        auto laser =
+            std::make_unique<laser::Mediator>(walletDB);
+
+        if (vm.count(cli::LASER_LIST))
+        {
+            LaserShow(walletDB);
+            return 0;
+        }
+
+        if (vm.count(cli::LASER_DELETE))
+        {
+            if (LaserDelete(laser, vm))
+            {
+                LaserShow(walletDB);
+                return 0;
+            }
+            return -1;
+        }
+
+        auto nnet = CreateNetwork(*laser, vm);
+        if (!nnet)
+        {
+            return -1;
+        }
+        laser->SetNetwork(nnet);
+
+        LaserObserver laserObserver(walletDB, vm);
+        laser->AddObserver(&laserObserver);
+
+        if (ProcessLaser(laser, walletDB, vm))
+        {
+            io::Reactor::get_Current().run();
+            return 0;
+        }
+
+        return -1;
+    }
+
+#endif  // BEAM_LASER_SUPPORT
+
+    int DoWalletFunc(const po::variables_map& vm, std::function<int (const po::variables_map&, Wallet&, IWalletDB::Ptr, boost::optional<TxID>&, bool)> func)
+    {
+        auto walletDB = OpenDataBase(vm);
+
+        LOG_INFO() << kStartMessage;
+
+        const auto& currHeight = walletDB->getCurrentHeight();
+        const auto& fork1Height = Rules::get().pForks[1].m_Height;
+        const bool isFork1 = currHeight >= fork1Height;
+
+        bool isServer = vm[cli::COMMAND].as<string>() == cli::LISTEN || vm.count(cli::LISTEN);
+
+        boost::optional<TxID> currentTxID;
+        auto onTxCompleteAction = [&currentTxID](const TxID& txID)
+        {
+            if (currentTxID.is_initialized() &&
+                currentTxID.get() != txID)
+            {
+                return;
+            }
+            io::Reactor::get_Current().stop();
+        };
+
+        auto txCompletedAction = isServer
+            ? Wallet::TxCompletedAction()
+            : onTxCompleteAction;
+
+        Wallet wallet{ walletDB,
+                       std::move(txCompletedAction),
+                       Wallet::UpdateCompletedAction() };
+        {
+            wallet::AsyncContextHolder holder(wallet);
+
+            TryToRegisterSwapTxCreators(wallet, walletDB);
+            RegisterAssetCreators(wallet);
+            wallet.ResumeAllTransactions();
+
+            auto nnet = CreateNetwork(wallet, vm);
+            if (!nnet)
+            {
+                return -1;
+            }
+            wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
+            wallet.SetNodeEndpoint(nnet);
+
+            int res = func(vm, wallet, walletDB, currentTxID, isFork1);
+            if (res != 0)
+            {
+                return res;
+            }
+        }
+        io::Reactor::get_Current().run();
+        return 0;
+    }
+
+    int Send(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                io::Address receiverAddr;
+                Asset::ID assetId = 0;
+                Amount amount = 0;
+                Amount fee = 0;
+                WalletID receiverWalletID(Zero);
+
+                if (!LoadBaseParamsForTX(vm, assetId, amount, fee, receiverWalletID, isFork1))
+                {
+                    return -1;
+                }
+                WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+                auto params = CreateSimpleTransactionParameters();
+                LoadReceiverParams(vm, params);
+                params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
+                    .SetParameter(TxParameterID::Amount, amount)
+                    .SetParameter(TxParameterID::Fee, fee)
+                    .SetParameter(TxParameterID::AssetID, assetId)
+                    .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
+                currentTxID = wallet.StartTransaction(params);
+
+                return 0;
+            });
+    }
+
+    int Listen(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                return 0;
+            });
+    }
+    
+    int Rescan(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                wallet.Rescan();
+                return 0;
+            });
+    }
+
+    int CreateNewAddress(const po::variables_map& vm)
+    {
+        auto walletDB = OpenDataBase(vm);
+        if (!CreateNewAddress(vm, walletDB))
+        {
+            return -1;
+        }
+
+        if (!vm.count(cli::LISTEN))
+        {
+            return 0;
+        }
+
+        return Listen(vm);
+    }
+
+    int DeleteTransaction(const po::variables_map& vm)
+    {
+        auto txId = GetTxID(vm);
+        if (!txId)
+        {
+            return -1;
+        }
+
+        return DoWalletFunc(vm, [&txId](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                auto tx = walletDB->getTx(*txId);
+                if (tx)
+                {
+                    if (tx->canDelete())
+                    {
+                        wallet.DeleteTransaction(*txId);
+                        return 0;
+                    }
+                    LOG_ERROR() << kErrorTxStatusInvalid;
+                    return -1;
+                }
+
+                LOG_ERROR() << kErrorTxIdUnknown;
+                return -1;
+            });
+    }
+
+    int CancelTransaction(const po::variables_map& vm)
+    {
+        auto txId = GetTxID(vm);
+        if (!txId)
+        {
+            return -1;
+        }
+
+        return DoWalletFunc(vm, [&txId](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                auto tx = walletDB->getTx(*txId);
+                if (tx)
+                {
+                    if (wallet.CanCancelTransaction(*txId))
+                    {
+                        currentTxID = *txId;
+                        wallet.CancelTransaction(*txId);
+                        return 0;
+                    }
+                    
+                    LOG_ERROR() << kErrorCancelTxInInvalidStatus << (tx->m_txType == wallet::TxType::AtomicSwap ? beam::getSwapTxStatus(walletDB, *tx) : beam::getTxStatus(*tx));
+                    return -1;
+                }
+                LOG_ERROR() << kErrorTxIdUnknown;
+                return -1;
+            });
+    }
+
+    int InitSwap(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                if (!wallet.IsWalletInSync())
+                {
+                    return -1;
+                }
+
+                currentTxID = InitSwap(vm, walletDB, wallet, isFork1);
+                if (!currentTxID)
+                {
+                    return -1;
+                }
+
+                return 0;
+            });
+    }
+
+    int AcceptSwap(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                currentTxID = AcceptSwap(vm, walletDB, wallet, isFork1);
+                if (!currentTxID)
+                {
+                    return -1;
+                }
+                return 0;
+            });
+    }
+
+    int IssueAsset(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                currentTxID = IssueConsumeAsset(true, vm, wallet);
+                return 0;
+            });
+    }
+
+    int ConsumeAsset(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                currentTxID = IssueConsumeAsset(false, vm, wallet);
+                return 0;
+            });
+    }
+
+    int RegisterAsset(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                currentTxID = RegUnregAsset(true, vm, wallet);
+                return 0;
+            });
+    }
+
+    int UnregisterAsset(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                currentTxID = RegUnregAsset(false, vm, wallet);
+                return 0;
+            });
+    }
+
+    
+
 }  // namespace
 
 io::Reactor::Ptr reactor;
@@ -1917,529 +2462,63 @@ int main_impl(int argc, char* argv[])
 
                 LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, logCleanupPeriod);
 
+                if (vm.count(cli::COMMAND) == 0)
                 {
-                    if (vm.count(cli::COMMAND) == 0)
-                    {
-                        LOG_ERROR() << kErrorCommandNotSpecified;
-                        printHelp(visibleOptions);
-                        return 0;
-                    }
-
-                    auto command = vm[cli::COMMAND].as<string>();
-
-                    {
-                        const string commands[] =
-                        {
-                            cli::INIT,
-                            cli::RESTORE,
-                            cli::SEND,
-                            cli::LISTEN,
-                            cli::TREASURY,
-                            cli::INFO,
-                            cli::EXPORT_MINER_KEY,
-                            cli::EXPORT_OWNER_KEY,
-                            cli::NEW_ADDRESS,
-                            cli::CANCEL_TX,
-                            cli::DELETE_TX,
-                            cli::CHANGE_ADDRESS_EXPIRATION,
-                            cli::TX_DETAILS,
-                            cli::PAYMENT_PROOF_EXPORT,
-                            cli::PAYMENT_PROOF_VERIFY,
-                            cli::GENERATE_PHRASE,
-                            cli::WALLET_ADDRESS_LIST,
-                            cli::WALLET_RESCAN,
-                            cli::IMPORT_DATA,
-                            cli::EXPORT_DATA,
-                            cli::SWAP_INIT,
-                            cli::SWAP_ACCEPT,
-                            cli::SET_SWAP_SETTINGS,
-                            cli::SHOW_SWAP_SETTINGS,
-#ifdef BEAM_LASER_SUPPORT
-                            cli::LASER,
-#endif  // BEAM_LASER_SUPPORT
-                            cli::ASSET_ISSUE,
-                            cli::ASSET_CONSUME,
-                            cli::ASSET_REGISTER,
-                            cli::ASSET_UNREGISTER
-                        };
-
-                        if (find(begin(commands), end(commands), command) == end(commands))
-                        {
-                            LOG_ERROR() << boost::format(kErrorCommandUnknown) % command;
-                            return -1;
-                        }
-                    }
-
-                    if (command == cli::GENERATE_PHRASE)
-                    {
-                        GeneratePhrase();
-                        return 0;
-                    }
-
-                    LOG_INFO() << boost::format(kVersionInfo) % PROJECT_VERSION % BRANCH_NAME;
-                    LOG_INFO() << boost::format(kRulesSignatureInfo) % Rules::get().get_SignatureStr();
-
-                    bool coldWallet = vm.count(cli::COLD_WALLET) > 0;
-
-                    if (coldWallet && command == cli::RESTORE)
-                    {
-                        LOG_ERROR() << kErrorCantRestoreColdWallet;
-                        return -1;
-                    }
-
-                    BOOST_ASSERT(vm.count(cli::WALLET_STORAGE) > 0);
-                    auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
-
-                    if (!WalletDB::isInitialized(walletPath) && (command != cli::INIT && command != cli::RESTORE))
-                    {
-                        LOG_ERROR() << kErrorWalletNotInitialized;
-                        return -1;
-                    }
-                    else if (WalletDB::isInitialized(walletPath) && (command == cli::INIT || command == cli::RESTORE))
-                    {
-                        bool isDirectory = false;
-                        #ifdef WIN32
-                                isDirectory = boost::filesystem::is_directory(Utf8toUtf16(walletPath.c_str()));
-                        #else
-                                isDirectory = boost::filesystem::is_directory(walletPath);
-                        #endif
-
-                        if (isDirectory)
-                        {
-                            walletPath.append("/wallet.db");
-                        }
-                        else
-                        {
-                            LOG_ERROR() << kErrorWalletAlreadyInitialized;
-                            return -1;
-                        }                  
-                    }
-
-                    LOG_INFO() << kStartMessage;
-
-                    SecString pass;
-                    if (!beam::read_wallet_pass(pass, vm))
-                    {
-                        LOG_ERROR() << kErrorWalletPwdNotProvided;
-                        return -1;
-                    }
-
-                    if ((command == cli::INIT || command == cli::RESTORE) && vm.count(cli::PASS) == 0)
-                    {
-                        if (!beam::confirm_wallet_pass(pass))
-                        {
-                            LOG_ERROR() << kErrorWalletPwdNotMatch;
-                            return -1;
-                        }
-                    }
-
-                    if (command == cli::INIT || command == cli::RESTORE)
-                    {
-                        NoLeak<uintBig> walletSeed;
-                        walletSeed.V = Zero;
-                        if (!ReadWalletSeed(walletSeed, vm, command == cli::INIT))
-                        {
-                            LOG_ERROR() << kErrorSeedPhraseFail;
-                            return -1;
-                        }
-                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
-                        if (walletDB)
-                        {
-                            IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-                            LOG_INFO() << kWalletCreatedMessage;
-                            CreateNewAddress(vm, walletDB,
-                                             keyKeeper, kDefaultAddrLabel);
-                            return 0;
-                        }
-                        else
-                        {
-                            LOG_ERROR() << kErrorWalletNotCreated;
-                            return -1;
-                        }
-                    }
-
-                    auto walletDB = WalletDB::open(walletPath, pass, reactor);
-                    IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-
-                    const auto& currHeight = walletDB->getCurrentHeight();
-                    const auto& fork1Height = Rules::get().pForks[1].m_Height;
-                    const bool isFork1 = currHeight >= fork1Height;
-
-                    if (command == cli::CHANGE_ADDRESS_EXPIRATION)
-                    {
-                        return ChangeAddressExpiration(vm, walletDB);
-                    }
-
-                    if (command == cli::EXPORT_MINER_KEY)
-                    {
-                        return ExportMinerKey(vm, walletDB, pass);
-                    }
-
-                    if (command == cli::EXPORT_OWNER_KEY)
-                    {
-                        return ExportOwnerKey(walletDB, pass);
-                    }
-
-                    if (command == cli::EXPORT_DATA)
-                    {
-                        return ExportWalletData(vm, walletDB);
-                    }
-
-                    if (command == cli::IMPORT_DATA)
-                    {
-                        return ImportWalletData(vm, walletDB);
-                    }
-
-                    {
-                        const auto& var = vm[cli::PAYMENT_PROOF_REQUIRED];
-                        if (!var.empty())
-                        {
-                            bool b = var.as<bool>();
-                            uint8_t n = b ? 1 : 0;
-                            storage::setVar(*walletDB, storage::g_szPaymentProofRequired, n);
-
-                            cout << boost::format(kPpRequired) % static_cast<uint32_t>(n) << std::endl;
-                            return 0;
-                        }
-                    }
-
-                    if (command == cli::NEW_ADDRESS)
-                    {
-                        if (!CreateNewAddress(vm, walletDB, keyKeeper))
-                        {
-                            return -1;
-                        }
-
-                        if (!vm.count(cli::LISTEN))
-                        {
-                            return 0;
-                        }
-                    }
-
-                    LOG_INFO() << kWalletOpenedMessage;
-
-                    if (command == cli::TREASURY)
-                    {
-                        return HandleTreasury(vm, *walletDB->get_MasterKdf());
-                    }
-
-                    if (command == cli::INFO)
-                    {
-                        return ShowWalletInfo(walletDB, vm);
-                    }
-
-                    if (command == cli::TX_DETAILS)
-                    {
-                        return TxDetails(walletDB, vm);
-                    }
-
-                    if (command == cli::PAYMENT_PROOF_EXPORT)
-                    {
-                        return ExportPaymentProof(walletDB, vm);
-                    }
-
-                    if (command == cli::PAYMENT_PROOF_VERIFY)
-                    {
-                        return VerifyPaymentProof(vm);
-                    }
-
-                    if (command == cli::WALLET_ADDRESS_LIST)
-                    {
-                        return ShowAddressList(walletDB);
-                    }
-
-                    if (command == cli::SET_SWAP_SETTINGS)
-                    {
-                        if (vm.count(cli::SWAP_COIN) > 0)
-                        {
-                            auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
-
-                            if (HasActiveSwapTx(walletDB, swapCoin))
-                            {
-                                LOG_ERROR() << "You cannot change settings while you have transactions in progress. Please wait untill transactions are completed and try again.";
-                                return -1;
-                            }
-
-                            switch (swapCoin)
-                            {
-                            case beam::wallet::AtomicSwapCoin::Bitcoin:
-                            {
-                                return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>(vm, walletDB);
-                            }
-                            case beam::wallet::AtomicSwapCoin::Litecoin:
-                            {
-                                return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>(vm, walletDB);
-                            }
-                            case beam::wallet::AtomicSwapCoin::Qtum:
-                            {
-                                return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>(vm, walletDB);
-                            }
-                            default:
-                            {
-                                throw std::runtime_error("Unsupported coin for swap");
-                                break;
-                            }
-                            }
-                            return 0;
-                        }
-
-                        LOG_ERROR() << "swap_coin should be specified";
-                        return -1;
-                    }
-
-                    if (command == cli::SHOW_SWAP_SETTINGS)
-                    {
-                        if (vm.count(cli::SWAP_COIN) > 0)
-                        {
-                            auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
-                            switch (swapCoin)
-                            {
-                            case beam::wallet::AtomicSwapCoin::Bitcoin:
-                            {
-                                ShowSwapSettings<bitcoin::SettingsProvider>(walletDB, "bitcoin");
-                                break;
-                            }
-                            case beam::wallet::AtomicSwapCoin::Litecoin:
-                            {
-                                ShowSwapSettings<litecoin::SettingsProvider>(walletDB, "litecoin");
-                                break;
-                            }
-                            case beam::wallet::AtomicSwapCoin::Qtum:
-                            {
-                                ShowSwapSettings<qtum::SettingsProvider>(walletDB, "qtum");
-                                break;
-                            }
-                            default:
-                            {
-                                throw std::runtime_error("Unsupported coin for swap");
-                                break;
-                            }
-                            }
-                            return 0;
-                        }
-
-                        LOG_ERROR() << "swap_coin should be specified";
-                        return -1;
-                    }
-
-#ifdef BEAM_LASER_SUPPORT
-                    if (command == cli::LASER || vm.count(cli::LASER))
-                    {
-                        auto laser =
-                            std::make_unique<laser::Mediator>(walletDB, keyKeeper);
-
-                        if (vm.count(cli::LASER_LIST))
-                        {
-                            LaserShow(walletDB);
-                            return 0;
-                        }
-
-                        if (vm.count(cli::LASER_DELETE))
-                        {
-                            if (LaserDelete(laser, vm))
-                            {
-                                LaserShow(walletDB);
-                                return 0;
-                            }
-                            return -1;
-                        }
-
-                        auto nnet = CreateNetwork(*laser, vm);
-                        if (!nnet)
-                        {
-                            return -1;
-                        }
-                        laser->SetNetwork(nnet);
-
-                        LaserObserver laserObserver(walletDB, vm);
-                        laser->AddObserver(&laserObserver);
-
-                        if (ProcessLaser(laser, walletDB, vm))
-                        {
-                            io::Reactor::get_Current().run();
-                            return 0;
-                        }
-
-                        return -1;                        
-                    }
-#endif  // BEAM_LASER_SUPPORT
-
-                    /// HERE!!
-                    io::Address receiverAddr;
-                    Asset::ID assetId = 0;
-                    Amount amount = 0;
-                    Amount fee = 0;
-                    WalletID receiverWalletID(Zero);
-                    bool isTxInitiator = (command == cli::SEND);
-                    if (isTxInitiator && !LoadBaseParamsForTX(vm, assetId, amount, fee, receiverWalletID, isFork1))
-                    {
-                        return -1;
-                    }
-
-                    bool is_server =
-                        command == cli::LISTEN || vm.count(cli::LISTEN);
-                   
-                    boost::optional<TxID> currentTxID;
-                    auto onTxCompleteAction = [&currentTxID](const TxID& txID)
-                    {
-                        if (currentTxID.is_initialized() &&
-                            currentTxID.get() != txID)
-                        {
-                            return;
-                        }
-                        io::Reactor::get_Current().stop();
-                    };
-
-                    auto onColdWalletUpdateCompleted = [] ()
-                    {
-                        io::Reactor::get_Current().stop();
-                    };
-
-                    auto txCompletedAction = is_server
-                        ? Wallet::TxCompletedAction()
-                        : onTxCompleteAction;
-
-                    auto updateCompletedAction = !coldWallet
-                        ? Wallet::UpdateCompletedAction()
-                        : onColdWalletUpdateCompleted;
-
-                    Wallet wallet{ walletDB,
-                                   keyKeeper,
-                                   std::move(txCompletedAction),
-                                   std::move(updateCompletedAction) };
-                    {
-                        wallet::AsyncContextHolder holder(wallet);
-
-                        TryToRegisterSwapTxCreators(wallet, walletDB);
-                        RegisterAssetCreators(wallet);
-                        wallet.ResumeAllTransactions();
-
-                        if (!coldWallet)
-                        {
-                            auto nnet = CreateNetwork(wallet, vm);
-                            if (!nnet)
-                            {
-                                return -1;
-                            }
-                            wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
-                            wallet.SetNodeEndpoint(nnet);
-                        }
-                        else
-                        {
-                            wallet.AddMessageEndpoint(
-                                make_shared<ColdWalletMessageEndpoint>(wallet, walletDB, keyKeeper));
-                        }
-
-                        if (command == cli::SWAP_INIT)
-                        {
-                            if (!wallet.IsWalletInSync())
-                            {
-                                return -1;
-                            }
-
-                            currentTxID = InitSwap(vm, walletDB, keyKeeper, wallet, isFork1);
-                            if (!currentTxID)
-                            {
-                                return -1;
-                            }
-
-                            return 0;
-                        }
-
-                        if (command == cli::SWAP_ACCEPT)
-                        {
-                            currentTxID = AcceptSwap(vm, walletDB, keyKeeper, wallet, isFork1);
-                            if (!currentTxID)
-                            {
-                                return -1;
-                            }
-                        }
-
-                        if (command == cli::ASSET_ISSUE)
-                        {
-                            currentTxID = IssueConsumeAsset(true, vm, wallet);
-                        }
-
-                        if (command == cli::ASSET_CONSUME)
-                        {
-                            currentTxID = IssueConsumeAsset(false, vm, wallet);
-                        }
-
-                        if (command == cli::ASSET_REGISTER)
-                        {
-                            currentTxID = RegUnregAsset(true, vm, wallet);
-                        }
-
-                        if (command == cli::ASSET_UNREGISTER)
-                        {
-                            currentTxID = RegUnregAsset(false, vm, wallet);
-                        }
-
-                        if (isTxInitiator)
-                        {
-                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
-                            currentTxID = wallet.StartTransaction(CreateSimpleTransactionParameters()
-                                .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
-                                .SetParameter(TxParameterID::PeerID, receiverWalletID)
-                                .SetParameter(TxParameterID::Amount, amount)
-                                .SetParameter(TxParameterID::Fee, fee)
-                                .SetParameter(TxParameterID::AssetID, assetId)
-                                .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm)));
-                        }
-
-                        bool deleteTx = (command == cli::DELETE_TX);
-                        if (command == cli::CANCEL_TX || deleteTx)
-                        {
-                            auto txId = GetTxID(vm);
-                            if (!txId)
-                            {
-                                return -1;
-                            }
-
-                            auto tx = walletDB->getTx(*txId);
-                            if (tx)
-                            {
-                                if (deleteTx)
-                                {
-                                    if (tx->canDelete())
-                                    {
-                                        wallet.DeleteTransaction(*txId);
-                                        return 0;
-                                    }
-                                    else
-                                    {
-                                        LOG_ERROR() << kErrorTxStatusInvalid;
-                                        return -1;
-                                    }
-                                }
-                                else
-                                {
-                                    if (wallet.CanCancelTransaction(*txId))
-                                    {
-                                        currentTxID = *txId;
-                                        wallet.CancelTransaction(*txId);
-                                    }
-                                    else
-                                    {
-                                        LOG_ERROR() << kErrorCancelTxInInvalidStatus << (tx->m_txType == wallet::TxType::AtomicSwap ? beam::getSwapTxStatus(walletDB, *tx) : beam::getTxStatus(*tx));
-                                        return -1;
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                LOG_ERROR() << kErrorTxIdUnknown;
-                                return -1;
-                            }
-                        }
-
-                        if (command == cli::WALLET_RESCAN)
-                        {
-                            wallet.Rescan();
-                        }
-                    }
-                    io::Reactor::get_Current().run();
+                    LOG_ERROR() << kErrorCommandNotSpecified;
+                    printHelp(visibleOptions);
+                    return 0;
                 }
+
+                auto command = vm[cli::COMMAND].as<string>();
+
+                using CommandFunc = int (*)(const po::variables_map&);
+                const std::pair<string, CommandFunc> commands[] =
+                {
+                    {cli::INIT,               InitWallet},
+                    {cli::RESTORE,            RestoreWallet},
+                    {cli::SEND,               Send},
+                    {cli::LISTEN,             Listen},
+                    {cli::TREASURY,           HandleTreasury},
+                    {cli::INFO,               ShowWalletInfo},
+                    {cli::EXPORT_MINER_KEY,   ExportMinerKey},
+                    {cli::EXPORT_OWNER_KEY,   ExportOwnerKey},
+                    {cli::NEW_ADDRESS,        CreateNewAddress},
+                    {cli::CANCEL_TX,          CancelTransaction},
+                    {cli::DELETE_TX,          DeleteTransaction},
+                    {cli::CHANGE_ADDRESS_EXPIRATION, ChangeAddressExpiration},
+                    {cli::TX_DETAILS,         TxDetails},
+                    {cli::PAYMENT_PROOF_EXPORT, ExportPaymentProof},
+                    {cli::PAYMENT_PROOF_VERIFY, VerifyPaymentProof},
+                    {cli::GENERATE_PHRASE,      GeneratePhrase},
+                    {cli::WALLET_ADDRESS_LIST,  ShowAddressList},
+                    {cli::WALLET_RESCAN,        Rescan},
+                    {cli::IMPORT_DATA,          ImportWalletData},
+                    {cli::EXPORT_DATA,          ExportWalletData},
+                    {cli::SWAP_INIT,            InitSwap},
+                    {cli::SWAP_ACCEPT,          AcceptSwap},
+                    {cli::SET_SWAP_SETTINGS,    SetSwapSettings},
+                    {cli::SHOW_SWAP_SETTINGS,   ShowSwapSettings},
+                    {cli::GET_TOKEN,            GetToken},
+#ifdef BEAM_LASER_SUPPORT   
+                    {cli::LASER,                HandleLaser},
+#endif  // BEAM_LASER_SUPPORT
+                    {cli::ASSET_ISSUE,          IssueAsset},
+                    {cli::ASSET_CONSUME,        ConsumeAsset},
+                    {cli::ASSET_REGISTER,       RegisterAsset},
+                    {cli::ASSET_UNREGISTER,     UnregisterAsset}
+                };
+
+                auto cit = find_if(begin(commands), end(commands), [&command](auto& p) {return p.first == command; });
+                if (cit == end(commands))
+                {
+                    LOG_ERROR() << boost::format(kErrorCommandUnknown) % command;
+                    return -1;
+                }
+
+                LOG_INFO() << boost::format(kVersionInfo) % PROJECT_VERSION % BRANCH_NAME;
+                LOG_INFO() << boost::format(kRulesSignatureInfo) % Rules::get().get_SignatureStr();
+                        
+                return cit->second(vm);
             }
         }
         catch (const AddressExpiredException&)
@@ -2480,7 +2559,6 @@ int main_impl(int argc, char* argv[])
         }
         catch (const std::runtime_error& e)
         {
-            LOG_ERROR() << "Err";
             LOG_ERROR() << e.what();
         }
     }

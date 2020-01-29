@@ -49,10 +49,9 @@ namespace beam::wallet
 
     BaseTransaction::Ptr SimpleTransaction::Creator::Create(INegotiatorGateway& gateway
                                                           , IWalletDB::Ptr walletDB
-                                                          , IPrivateKeyKeeper::Ptr keyKeeper
                                                           , const TxID& txID)
     {
-        return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, keyKeeper, txID));
+        return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, txID));
     }
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -103,9 +102,8 @@ namespace beam::wallet
 
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
                                        , IWalletDB::Ptr walletDB
-                                       , IPrivateKeyKeeper::Ptr keyKeeper
                                        , const TxID& txID)
-        : BaseTransaction{ gateway, walletDB, keyKeeper, txID }
+        : BaseTransaction{ gateway, walletDB, txID }
     {
 
     }
@@ -146,7 +144,7 @@ namespace beam::wallet
          || (!isSender && (!builder.HasKernelID() || txState == State::Initial)))
         {
             // We don't need key keeper initialized to go on beyond this point
-            if (!m_KeyKeeper)
+            if (!m_WalletDB->get_KeyKeeper())
             {
                 // public wallet
                 return;
@@ -216,15 +214,10 @@ namespace beam::wallet
                 }
             }
 
-            if (builder.CreateInputs())
-            {
+            bool bI = builder.CreateInputs();
+            bool bO = builder.CreateOutputs();
+            if (bI || bO)
                 return;
-            }
-
-            if (builder.CreateOutputs())
-            {
-                return;
-            }
 
             if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
             {
@@ -291,7 +284,7 @@ namespace beam::wallet
             }
             else
             {
-                if (builder.SignReceiver())
+                if (builder.SignSplit())
                     return;
             }
 
@@ -418,10 +411,7 @@ namespace beam::wallet
                     if (waddr && waddr->isOwn())
                     {
                         Scalar::Native sk;
-
-                        m_KeyKeeper->get_SbbsKdf()->DeriveKey(sk, Key::ID(waddr->m_OwnID, Key::Type::Bbs));
-
-                        proto::Sk2Pk(widMy.m_Pk, sk);
+                        m_WalletDB->get_SbbsPeerID(sk, widMy.m_Pk, waddr->m_OwnID);
 
                         pc.Sign(sk);
                         msg.AddParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);

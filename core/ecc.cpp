@@ -110,17 +110,6 @@ namespace ECC {
         return operator << (s, point);
     }
 
-	std::ostream& operator << (std::ostream& s, const Key::IDV& x)
-	{
-		s
-			<< "Key=" << x.m_Type
-			<< "-" << x.get_Scheme()
-			<< ":" << x.get_Subkey()
-			<< ":" << x.m_Idx
-			<< ", Value=" << x.m_Value;
-		return s;
-	}
-
 	void GenRandom(void* p, uint32_t nSize)
 	{
 		// checkpoint?
@@ -1870,18 +1859,6 @@ namespace ECC {
 		m_SubIdx = x.m_SubIdx;
 	}
 
-	void Key::IDV::operator = (const Packed& x)
-	{
-		ID::operator = (x);
-		x.m_Value.Export(m_Value);
-	}
-
-	void Key::IDV::Packed::operator = (const IDV& x)
-	{
-		ID::Packed::operator = (x);
-		m_Value = x.m_Value;
-	}
-
 	void Key::IKdf::DeriveKey(Scalar::Native& out, const Key::ID& kid)
 	{
 		Hash::Value hv; // the key hash is not secret
@@ -1914,19 +1891,6 @@ namespace ECC {
 		if (m_Idx < x.m_Idx)
 			return -1;
 		if (m_Idx > x.m_Idx)
-			return 1;
-		return 0;
-	}
-
-	int Key::IDV::cmp(const IDV& x) const
-	{
-		int n = ID::cmp(x);
-		if (n)
-			return n;
-
-		if (m_Value < x.m_Value)
-			return -1;
-		if (m_Value > x.m_Value)
 			return 1;
 		return 0;
 	}
@@ -2109,6 +2073,21 @@ namespace ECC {
 		out = m_PkJ * sk;
 	}
 
+	uint32_t HKdf::ExportP(void* p) const
+	{
+		HKdfPub pkdf;
+		if (p)
+			pkdf.GenerateFrom(*this);
+		return pkdf.ExportP(p);
+	}
+
+	uint32_t HKdf::ExportS(void* p) const
+	{
+		if (p)
+			Export(*reinterpret_cast<Packed*>(p));
+		return sizeof(Packed);
+	}
+
 	void HKdf::Export(Packed& v) const
 	{
 		v.m_Secret = m_Generator.m_Secret.V;
@@ -2119,6 +2098,13 @@ namespace ECC {
 	{
 		m_Generator.m_Secret.V = v.m_Secret;
 		return !m_kCoFactor.Import(v.m_kCoFactor);
+	}
+
+	uint32_t HKdfPub::ExportP(void* p) const
+	{
+		if (p)
+			Export(*reinterpret_cast<Packed*>(p));
+		return sizeof(Packed);
 	}
 
 	void HKdfPub::Export(Packed& v) const
@@ -2406,10 +2392,10 @@ namespace ECC {
 
 		void Public::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle)
 		{
-			m_Value = cp.m_Kidv.m_Value;
+			m_Value = cp.m_Value;
 			assert(m_Value >= s_MinimumValue);
 
-			m_Recovery.m_Kid = cp.m_Kidv;
+			cp.BlobSave(reinterpret_cast<uint8_t*>(&m_Recovery.m_Kid), sizeof(m_Recovery.m_Kid));
 			XCryptKid(m_Recovery.m_Kid, cp, m_Recovery.m_Checksum);
 
 			Hash::Value hv;
@@ -2427,8 +2413,10 @@ namespace ECC {
 			if (!(m_Recovery.m_Checksum == hvChecksum))
 				return false;
 
-			Cast::Down<Key::ID>(cp.m_Kidv) = kid;
-			cp.m_Kidv.m_Value = m_Value;
+			if (!cp.BlobRecover(reinterpret_cast<const uint8_t*>(&kid), sizeof(kid)))
+				return false;
+
+			cp.m_Value = m_Value;
 			return true;
 		}
 

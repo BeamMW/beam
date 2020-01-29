@@ -52,7 +52,6 @@ namespace beam::wallet
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway
                                       , IWalletDB::Ptr walletDB
-                                      , IPrivateKeyKeeper::Ptr keyKeeper
                                       , const TxID& txID) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
         private:
@@ -61,7 +60,6 @@ namespace beam::wallet
     private:
         SimpleTransaction(INegotiatorGateway& gateway
                         , IWalletDB::Ptr walletDB
-                        , IPrivateKeyKeeper::Ptr keyKeeper
                         , const TxID& txID);
     private:
         TxType GetType() const override;

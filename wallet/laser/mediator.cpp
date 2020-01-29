@@ -81,10 +81,8 @@ inline bool CanBeLoaded(int state)
 
 namespace beam::wallet::laser
 {
-Mediator::Mediator(const IWalletDB::Ptr& walletDB,
-                   const IPrivateKeyKeeper::Ptr& keyKeeper)
+Mediator::Mediator(const IWalletDB::Ptr& walletDB)
     : m_pWalletDB(walletDB)
-    , m_keyKeeper(keyKeeper)
 {
     m_myInAddr.m_walletID = Zero;
 }
@@ -199,16 +197,20 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
                     << to_hex(inChID->m_pData , inChID->nBytes);
         return;
     }
-    auto& ch = it->second;
+    auto& channel = it->second;
 
-    ch->OnPeerData(dataIn);
-    ch->LogNewState();
-    UpdateChannelExterior(ch);
+    channel->OnPeerData(dataIn);
+    channel->LogNewState();
+    UpdateChannelExterior(channel);
 }
 
 bool  Mediator::Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob)
 {
-    if (!proto::Bbs::Decrypt(pMsg, blob->n, get_skBbs(chID)))
+    ECC::Scalar::Native sk;
+    if (!get_skBbs(sk, chID))
+        return false;
+
+    if (!proto::Bbs::Decrypt(pMsg, blob->n, sk))
 		return false;
 
 	blob->p = pMsg;
@@ -242,14 +244,26 @@ void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime
     m_myInAddr = GenerateNewAddress(
         m_pWalletDB,
         "laser_in",
-        m_keyKeeper,
         WalletAddress::ExpirationStatus::Never,
         false);
 
-    BbsChannel ch;
-    m_myInAddr.m_walletID.m_Channel.Export(ch);
-    m_pConnection->BbsSubscribe(ch, getTimestamp(), m_pInputReceiver.get());
-    LOG_DEBUG() << "LASER WAIT IN subscribed: " << ch;
+    Subscribe();
+}
+
+void Mediator::StopWaiting()
+{
+    Unsubscribe();
+    m_myInAllowed = 0;
+    m_trgInAllowed = 0;
+    m_feeAllowed = 0;
+    m_locktimeAllowed = 0;
+    m_pInputReceiver.reset();
+    m_myInAddr.m_walletID = Zero;
+}
+
+WalletID Mediator::getWaitingWalletID() const
+{
+    return m_myInAddr.m_walletID;
 }
 
 bool Mediator::Serve(const std::string& channelID)
@@ -296,7 +310,6 @@ void Mediator::OpenChannel(Amount aMy,
     auto myOutAddr = GenerateNewAddress(
             m_pWalletDB,
             "laser_out",
-            m_keyKeeper,
             WalletAddress::ExpirationStatus::Never,
             false);        
 
@@ -315,72 +328,80 @@ void Mediator::OpenChannel(Amount aMy,
 
 bool Mediator::Close(const std::string& channelID)
 {
-    auto p_channelID = RestoreChannel(channelID);
+        auto p_channelID = RestoreChannel(channelID);
     if (!p_channelID)
-    {
-        LOG_DEBUG() << "Channel " << channelID << " restored with error";
+        {
+            LOG_DEBUG() << "Channel " << channelID << " restored with error";
         return false;
-    }
+        }
 
-    auto& channel = m_channels[p_channelID];
-    if (!channel)
-    {
-        LOG_DEBUG() << "Channel " << channelID << " unexpected error";
+        auto& channel = m_channels[p_channelID];
+        if (!channel)
+        {
+            LOG_DEBUG() << "Channel " << channelID << " unexpected error";
         return false;
-    }
+        }
 
-    channel->Subscribe();
-    m_actionsQueue.emplace_back([this, p_channelID] () {
-        CloseInternal(p_channelID);
-    });
-    
-    LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
+        channel->Subscribe();
+        m_actionsQueue.emplace_back([this, p_channelID] () {
+            CloseInternal(p_channelID);
+        });
+        
+        LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
     return true;
 }
 
 bool Mediator::GracefulClose(const std::string& channelID)
 {
-    auto p_channelID = RestoreChannel(channelID);
-    if (!p_channelID)
-    {
-        LOG_DEBUG() << "Channel " << channelID << " restored with error";
+        auto p_channelID = RestoreChannel(channelID);
+        if (!p_channelID)
+        {
+            LOG_DEBUG() << "Channel " << channelID << " restored with error";
         return false;
-    }
+        }
 
-    auto& channel = m_channels[p_channelID];
-    if (!channel)
-    {
-        LOG_DEBUG() << "Channel " << channelID << " unexpected error";
+        auto& channel = m_channels[p_channelID];
+        if (!channel)
+        {
+            LOG_DEBUG() << "Channel " << channelID << " unexpected error";
         return false;
-    }
+        }
 
-    channel->Subscribe();
+        channel->Subscribe();
 
-    Block::SystemState::Full tip;
-    get_History().get_Tip(tip);
+        Block::SystemState::Full tip;
+        get_History().get_Tip(tip);
 
-    if (IsOutOfSync(tip.m_TimeStamp))
-    {
-        m_actionsQueue.emplace_back([this, &channel, p_channelID] () {
-            Block::SystemState::Full tip;
-            get_History().get_Tip(tip);
+        if (IsOutOfSync(tip.m_TimeStamp))
+        {
+            m_actionsQueue.emplace_back([this, &channel, p_channelID] () {
+                Block::SystemState::Full tip;
+                get_History().get_Tip(tip);
 
             if (tip.m_Height <= channel->get_LockHeight())
             {
-                channel->Transfer(0, true);
+                if (channel->Transfer(0, true))
+                    for (auto observer : m_observers)
+                    {
+                        observer->OnClosed(p_channelID);
+                    }
             }
             else
             {
                 CloseInternal(p_channelID);
             }
-        });
-        LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
-    }
-    else
-    {
+            });
+            LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
+        }
+        else
+        {
         if (tip.m_Height <= channel->get_LockHeight())
         {
-            channel->Transfer(0, true);
+            if (channel->Transfer(0, true))
+                for (auto observer : m_observers)
+                {
+                    observer->OnClosed(p_channelID);
+                }
         }
         else
         {
@@ -393,14 +414,14 @@ bool Mediator::GracefulClose(const std::string& channelID)
 
 bool Mediator::Delete(const std::string& channelID)
 {
-    auto p_channelID = Channel::ChannelIdFromString(channelID);
-    if (!p_channelID)
-    {
-        LOG_ERROR() << "Incorrect channel ID format: " << channelID;
+        auto p_channelID = Channel::ChannelIdFromString(channelID);
+        if (!p_channelID)
+        {
+            LOG_ERROR() << "Incorrect channel ID format: " << channelID;
         return false;
-    }
+        }
 
-    TLaserChannelEntity chDBEntity;
+        TLaserChannelEntity chDBEntity;
     if (!m_pWalletDB->getLaserChannel(p_channelID, &chDBEntity))
     {
         LOG_ERROR() << "Not found channel with ID: " << channelID;
@@ -408,18 +429,18 @@ bool Mediator::Delete(const std::string& channelID)
     }
 
     if (!CanBeDeleted(std::get<LaserFields::LASER_STATE>(chDBEntity)))
-    {
+        {
         LOG_ERROR() << "Channel: " << channelID << " in active state now";
         return false;
     }
 
-    if (m_pWalletDB->removeLaserChannel(p_channelID))
-    {
-        LOG_INFO() << "Channel: " << channelID << " deleted";
+            if (m_pWalletDB->removeLaserChannel(p_channelID))
+            {
+                LOG_INFO() << "Channel: " << channelID << " deleted";
         return true;
-    }
+            }
 
-    LOG_INFO() << "Channel: " << channelID << " not deleted";
+                LOG_INFO() << "Channel: " << channelID << " not deleted";
     return false;
 }
 
@@ -434,6 +455,11 @@ size_t Mediator::getChannelsCount() const
     });
 }
 
+const std::unique_ptr<Channel>& Mediator::getChannel(const ChannelIDPtr& p_channelID)
+{
+    return m_channels[p_channelID];
+}
+
 void Mediator::AddObserver(Observer* observer)
 {
     observer->m_observable = this;
@@ -443,8 +469,8 @@ void Mediator::AddObserver(Observer* observer)
 void Mediator::RemoveObserver(Observer* observer)
 {
     m_observers.erase(
-        m_observers.begin(),
-        std::remove(m_observers.begin(), m_observers.end(), observer));
+        std::remove(m_observers.begin(), m_observers.end(), observer),
+        m_observers.end());
 }
 
 bool Mediator::Transfer(Amount amount, const std::string& channelID)
@@ -497,20 +523,17 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
     return false;
 }
 
-ECC::Scalar::Native Mediator::get_skBbs(const ChannelIDPtr& chID)
+bool Mediator::get_skBbs(ECC::Scalar::Native& sk, const ChannelIDPtr& chID)
 {
     auto& addr = chID ? m_channels[chID]->get_myAddr() : m_myInAddr;
     auto& wid = addr.m_walletID;
-    if (wid != Zero)
-    {    
-        PeerID peerID;
-        ECC::Scalar::Native sk;
-        m_pWalletDB->get_MasterKdf()->DeriveKey(
-            sk, Key::ID(addr.m_OwnID, Key::Type::Bbs));
-        proto::Sk2Pk(peerID, sk);
-        return wid.m_Pk == peerID ? sk : Zero;        
-    }
-    return Zero;
+    if (wid == Zero)
+        return false;
+
+    PeerID peerID;
+    m_pWalletDB->get_SbbsPeerID(sk, peerID, addr.m_OwnID);
+
+    return wid.m_Pk == peerID;
 }
 
 void Mediator::OnIncoming(const ChannelIDPtr& chID,
@@ -556,10 +579,7 @@ void Mediator::OnIncoming(const ChannelIDPtr& chID,
         return;
     }          
 
-    BbsChannel ch;
-    m_myInAddr.m_walletID.m_Channel.Export(ch);
-    m_pConnection->BbsSubscribe(ch, 0, nullptr);
-    LOG_DEBUG() << "LASER WAIT IN unsubscribed: " << ch;
+    Unsubscribe();
 
     auto channel = std::make_unique<Channel>(
         *this, chID, m_myInAddr, trgWid, fee, aMy, aTrg, locktime);
@@ -606,7 +626,7 @@ void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
     get_History().get_Tip(tip);
     Height channelLockHeight = ch->get_LockHeight();
 
-    if (tip.m_Height <= channelLockHeight)
+    if (tip.m_Height + 1 < channelLockHeight)
     {
         if (ch->Transfer(amount))
         {
@@ -626,13 +646,14 @@ void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
     {
         LOG_ERROR() << "You can't transfer: " << PrintableAmount(amount, true)
                     << " to channel: " << channelIdStr;
-        LOG_ERROR() << "Current height: " << tip.m_Height
+        LOG_ERROR() << "Current height: " << tip.m_Height + 1
                     << " overtop channel lock height: " << channelLockHeight;
     }
        
     
     for (auto observer : m_observers)
     {
+        observer->OnTransferFailed(chID);
         observer->OnUpdateFinished(chID);
     }
 }
@@ -701,7 +722,7 @@ ChannelIDPtr Mediator::RestoreChannel(const std::string& channelID)
         if (isConnected)
         {
             p_channelID = it.first;
-            LOG_INFO() << "Channel " << channelID << " already connected";
+            LOG_DEBUG() << "Channel " << channelID << " already connected";
             break;
         }
     }
@@ -792,7 +813,8 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
         channel->UpdateRestorePoint();
         m_pWalletDB->saveLaserChannel(*channel);
         
-        if (state == Lightning::Channel::State::Open)
+        if (lastState != Lightning::Channel::State::Updating &&
+            state == Lightning::Channel::State::Open)
         {
             for (auto observer : m_observers)
             {
@@ -857,6 +879,22 @@ bool Mediator::IsEnoughCoinsAvailable(Amount required)
     const auto& totals = totalsCalc.GetTotals(Zero);
 
     return totals.Avail >= required; 
+}
+
+void Mediator::Subscribe()
+{
+    BbsChannel ch;
+    m_myInAddr.m_walletID.m_Channel.Export(ch);
+    m_pConnection->BbsSubscribe(ch, getTimestamp(), m_pInputReceiver.get());
+    LOG_DEBUG() << "LASER WAIT IN subscribed: " << ch;
+}
+
+void Mediator::Unsubscribe()
+{
+    BbsChannel ch;
+    m_myInAddr.m_walletID.m_Channel.Export(ch);
+    m_pConnection->BbsSubscribe(ch, 0, nullptr);
+    LOG_DEBUG() << "LASER WAIT IN unsubscribed: " << ch;
 }
 
 }  // namespace beam::wallet::laser

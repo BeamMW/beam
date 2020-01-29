@@ -42,12 +42,12 @@ public:
         virtual void OnCloseFailed(const ChannelIDPtr& chID) {};
         virtual void OnUpdateStarted(const ChannelIDPtr& chID) {}; 
         virtual void OnUpdateFinished(const ChannelIDPtr& chID) {};
+        virtual void OnTransferFailed(const ChannelIDPtr& chID) {};
     protected:
         friend class Mediator;
         Mediator* m_observable;
     };
-    Mediator(const IWalletDB::Ptr& walletDB,
-             const IPrivateKeyKeeper::Ptr& keyKeeper);
+    Mediator(const IWalletDB::Ptr& walletDB);
     ~Mediator();
     // proto::FlyClient
     void OnNewTip() override;
@@ -65,6 +65,9 @@ public:
     void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
 
     void WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime);
+    void StopWaiting();
+    WalletID getWaitingWalletID() const;
+    
     void OpenChannel(Amount aMy,
                      Amount aTrg,
                      Amount fee,
@@ -76,12 +79,13 @@ public:
     bool GracefulClose(const std::string& channelID);
     bool Delete(const std::string& channelID);
     size_t getChannelsCount() const;
+    const std::unique_ptr<Channel>& getChannel(const ChannelIDPtr& p_channelID);
 
     void AddObserver(Observer* observer);
     void RemoveObserver(Observer* observer);
 
 private:
-    ECC::Scalar::Native get_skBbs(const ChannelIDPtr& chID);
+    bool get_skBbs(ECC::Scalar::Native&, const ChannelIDPtr& chID);
     void OnIncoming(const ChannelIDPtr& chID,
                     Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID);
@@ -95,9 +99,10 @@ private:
     bool ValidateTip();
     void PrepareToForget(const std::unique_ptr<Channel>& channel);
     bool IsEnoughCoinsAvailable(Amount required);
+    void Subscribe();
+    void Unsubscribe();
 
     IWalletDB::Ptr m_pWalletDB;
-    IPrivateKeyKeeper::Ptr m_keyKeeper;
     proto::FlyClient::INetwork::Ptr m_pConnection;
 
     std::unique_ptr<Receiver> m_pInputReceiver;

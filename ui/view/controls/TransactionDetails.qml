@@ -107,7 +107,6 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: getHighlitedText(root.receiveAddress)
             onCopyText: textCopied(root.receiveAddress)
@@ -146,7 +145,7 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            wrapMode: Text.Wrap
+            wrapMode: Text.WrapAnywhere 
             text: getHighlitedText(root.comment)
             font.styleName: "Italic"
             elide: Text.ElideRight
@@ -194,7 +193,7 @@ RowLayout {
             onCopyText: textCopied(root.kernelID)
             visible: isTextFieldVisible(root.kernelID)
         }
-
+        
         function canOpenInBlockchainExplorer(status) {
             switch(status) {
                 case "completed":
@@ -205,7 +204,7 @@ RowLayout {
                     return false;
             }
         }
-
+        
         Item {
             Layout.preferredHeight: 16
             visible: parent.canOpenInBlockchainExplorer(root.status) && root.isFieldVisible()
@@ -214,7 +213,7 @@ RowLayout {
             Layout.preferredWidth: openInExplorer.width + 10 + openInExplorerIcon.width
             Layout.preferredHeight: 16
             visible: parent.canOpenInBlockchainExplorer(root.status) && root.isFieldVisible()
-
+        
             SFText {
                 id: openInExplorer
                 font.pixelSize: 14
@@ -243,7 +242,7 @@ RowLayout {
                 hoverEnabled: true
             }
         }
-
+        
         RowLayout {
             Layout.columnSpan: 2
             Layout.fillWidth: true
@@ -264,7 +263,7 @@ RowLayout {
                 onCopyText: textCopied(text)
             }
         }
-
+        
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
@@ -299,7 +298,7 @@ RowLayout {
         columnSpacing: 44
         rowSpacing: 14
         visible: !root.isIncome && root.isFieldVisible() && root.hasPaymentProof && !root.isSelfTx
-
+    
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true

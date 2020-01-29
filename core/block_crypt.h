@@ -35,7 +35,6 @@ namespace beam
 	namespace MasterKey
 	{
 		Key::IKdf::Ptr get_Child(Key::IKdf&, Key::Index);
-		Key::IKdf::Ptr get_Child(const Key::IKdf::Ptr&, const Key::IDV&);
 	}
 
 	Timestamp getTimestamp();
@@ -99,7 +98,8 @@ namespace beam
 
 	struct Asset
 	{
-		typedef uint64_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
+		typedef uint32_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
+		static const ID s_MaxCount = uint32_t(1) << 30; // 1 billion. Of course practically it'll be very much smaller
 
 		struct Base
 		{
@@ -116,7 +116,7 @@ namespace beam
 		{
 			AmountBig::Type m_Value;
 			PeerID m_Owner;
-			Height m_LockHeight; // relevant only when m_Value is 0. Otherwise set to 0
+			Height m_LockHeight; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
 			ByteBuffer m_Metadata;
 			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
 
@@ -221,18 +221,66 @@ namespace beam
 	};
 
 	struct CoinID
-		:public Key::IDV
+		:public Key::ID
 	{
+		struct Scheme
+		{
+			static const uint8_t V0 = 0;
+			static const uint8_t V1 = 1;
+			static const uint8_t BB21 = 2; // worakround for BB.2.1
+
+			static const uint32_t s_SubKeyBits = 24;
+			static const Key::Index s_SubKeyMask = (static_cast<Key::Index>(1) << s_SubKeyBits) - 1;
+		};
+
+		Amount m_Value;
+
 		Asset::ID m_AssetID = 0;
 
 		CoinID() {}
-		CoinID(Zero_) :Key::IDV(Zero) {}
-		CoinID(Amount v, uint64_t nIdx, Key::Type type, Key::Index nSubIdx = 0) :Key::IDV(v, nIdx, type, nSubIdx) {}
+		CoinID(Zero_)
+			:ID(Zero)
+			,m_Value(0)
+		{
+			set_Subkey(0);
+		}
+
+		CoinID(Amount v, uint64_t nIdx, Key::Type type, Key::Index nSubIdx = 0)
+			:ID(nIdx, type)
+			,m_Value(v)
+		{
+			set_Subkey(nSubIdx, Scheme::V1);
+		}
+
+		Key::Index get_Scheme() const
+		{
+			return m_SubIdx >> Scheme::s_SubKeyBits;
+		}
+
+		Key::Index get_Subkey() const
+		{
+			return m_SubIdx & Scheme::s_SubKeyMask;
+		}
+
+		void set_Subkey(Key::Index nSubIdx, Key::Index nScheme = Scheme::V1)
+		{
+			m_SubIdx = (nSubIdx & Scheme::s_SubKeyMask) | (nScheme << Scheme::s_SubKeyBits);
+		}
+
+		bool IsBb21Possible() const
+		{
+			return m_SubIdx && (Scheme::V0 == get_Scheme());
+		}
+
+		void set_WorkaroundBb21()
+		{
+			set_Subkey(get_Subkey(), Scheme::BB21);
+		}
 
 		void get_Hash(ECC::Hash::Value&) const;
 
-		int cmp(const CoinID&) const;
-		COMPARISON_VIA_CMP
+		bool get_ChildKdfIndex(Key::Index&) const; // returns false if chils is not needed
+		Key::IKdf::Ptr get_ChildKdf(const Key::IKdf::Ptr& pMasterKdf) const;
 
 		struct Generator
 		{
@@ -388,6 +436,9 @@ namespace beam
 
 		static void GenerateSeedKid(ECC::uintBig&, const ECC::Point& comm, Key::IPKdf&);
 		void Prepare(ECC::Oracle&, Height hScheme) const;
+
+	private:
+		struct PackedKA; // Key::ID + Asset::ID
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }

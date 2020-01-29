@@ -147,6 +147,8 @@ Amount Channel::SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asse
 void Channel::get_Kdf(Key::IKdf::Ptr& pKdf)
 {
     pKdf = m_rHolder.getWalletDB()->get_MasterKdf();
+    if (!pKdf)
+        throw std::runtime_error("master key inaccessible");
 }
 
 void Channel::AllocTxoID(CoinID& cid)
@@ -478,7 +480,7 @@ void Channel::LogNewState()
     case beam::Lightning::Channel::State::Closing2:
         {
             os << "Closing2 (Phase-1 withdrawal detected). Revision: "
-               << m_State.m_Close.m_iPath << ". Initiated by " 
+               << m_State.m_Close.m_iPath + 1 << ". Initiated by " 
                << (m_State.m_Close.m_Initiator ? "me" : "peer");
             if (DataUpdate::Type::Punishment == 
                 m_vUpdates[m_State.m_Close.m_iPath]->m_Type)

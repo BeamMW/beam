@@ -147,18 +147,6 @@ namespace beam
 		return pRes;
 	}
 
-	Key::IKdf::Ptr MasterKey::get_Child(const Key::IKdf::Ptr& pKdf, const Key::IDV& kidv)
-	{
-		Key::Index iSubkey = kidv.get_Subkey();
-		if (!iSubkey)
-			return pKdf; // by convention: scheme V0, Subkey=0 - is a master key
-
-		if (Key::IDV::Scheme::BB21 == kidv.get_Scheme())
-			return pKdf; // BB2.1 workaround
-
-		return get_Child(*pKdf, iSubkey);
-	}
-
 	/////////////
 	// CoinID
 	CoinID::Generator::Generator(Asset::ID aid)
@@ -178,6 +166,28 @@ namespace beam
 	{
 	}
 
+	bool CoinID::get_ChildKdfIndex(Key::Index& idx) const
+	{
+		Key::Index iSubkey = get_Subkey();
+		if (!iSubkey)
+			return false; // by convention: up to latest scheme, Subkey=0 - is a master key
+
+		if (Scheme::BB21 == get_Scheme())
+			return false; // BB2.1 workaround
+
+		idx = iSubkey;
+		return true;
+	}
+
+	Key::IKdf::Ptr CoinID::get_ChildKdf(const Key::IKdf::Ptr& pMasterKdf) const
+	{
+		Key::Index iIdx;
+		if (!get_ChildKdfIndex(iIdx))
+			return pMasterKdf;
+
+		return MasterKey::get_Child(*pMasterKdf, iIdx);
+	}
+
 	void CoinID::Worker::get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J)
 	{
 		ECC::Oracle()
@@ -191,27 +201,17 @@ namespace beam
 		Generator::AddValue(comm, m_Cid.m_Value);
 	}
 
-	int CoinID::cmp(const CoinID& v) const
-	{
-		if (m_AssetID > v.m_AssetID)
-			return 1;
-		if (m_AssetID < v.m_AssetID)
-			return -1;
-
-		return Cast::Down<Key::IDV>(*this).cmp(v);
-	}
-
 	void CoinID::get_Hash(ECC::Hash::Value& hv) const
 	{
 		Key::Index nScheme = get_Scheme();
-		if (nScheme > Key::IDV::Scheme::V0)
+		if (nScheme > Scheme::V0)
 		{
-			if (Key::IDV::Scheme::BB21 == nScheme)
+			if (Scheme::BB21 == nScheme)
 			{
 				// BB2.1 workaround
-				Key::IDV kidv2 = *this;
-				kidv2.set_Subkey(get_Subkey(), Key::IDV::Scheme::V0);
-				kidv2.get_Hash(hv);
+				CoinID cid2 = *this;
+				cid2.set_Subkey(get_Subkey(), Scheme::V0);
+				cid2.get_Hash(hv);
 			}
 			else
 			{
@@ -226,7 +226,11 @@ namespace beam
 					<< m_Value;
 
 				if (m_AssetID)
-					hp << m_AssetID;
+				{
+					hp
+						<< "asset"
+						<< m_AssetID;
+				}
 
 				hp >> hv;
 			}
@@ -378,6 +382,12 @@ namespace beam
 			s.m_Coinbase += uintBigFrom(m_pPublic->m_Value);
 	}
 
+	struct Output::PackedKA
+	{
+		Key::ID::Packed m_Kid;
+		uintBigFor<Asset::ID>::Type m_AssetID;
+	};
+
 	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const CoinID& cid, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
 		m_AssetID = cid.m_AssetID;
@@ -388,17 +398,28 @@ namespace beam
 		Prepare(oracle, hScheme);
 
 		ECC::RangeProof::CreatorParams cp;
-		cp.m_Kidv = cid;
+		cp.m_Value = cid.m_Value;
 		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
 		if (bPublic || m_Coinbase)
 		{
+			Key::ID::Packed kid;
+			cp.m_Blob.p = &kid;
+			cp.m_Blob.n = sizeof(kid);
+			kid = cid;
+
 			m_pPublic.reset(new ECC::RangeProof::Public);
 			m_pPublic->m_Value = cid.m_Value;
 			m_pPublic->Create(sk, cp, oracle);
 		}
 		else
 		{
+			PackedKA kida;
+			cp.m_Blob.p = &kida;
+			cp.m_Blob.n = sizeof(kida);
+			kida.m_Kid = cid;
+			kida.m_AssetID = cid.m_AssetID;
+
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
 			m_pConfidential->Create(sk, cp, oracle, &wrk.m_hGen);
 		}
@@ -432,19 +453,43 @@ namespace beam
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
 
-		bool bSuccess =
-			m_pConfidential ? m_pConfidential->Recover(oracle, cp) :
-			m_pPublic ? m_pPublic->Recover(cp) :
-			false;
-
-		if (bSuccess)
+		if (m_pConfidential)
 		{
-			// Skip further verification, assuming no need to fully reconstruct the commitment
-			Cast::Down<Key::IDV>(cid) = cp.m_Kidv;
-			cid.m_AssetID = m_AssetID;
+			PackedKA kida;
+			cp.m_Blob.p = &kida;
+			cp.m_Blob.n = sizeof(kida);
+
+			if (!m_pConfidential->Recover(oracle, cp))
+				return false;
+
+			Cast::Down<Key::ID>(cid) = kida.m_Kid;
+
+			kida.m_AssetID.Export(cid.m_AssetID);
+			if (cid.m_AssetID != m_AssetID) // this is temporary, until we hide the asset type
+				return false;
+		}
+		else
+		{
+			if (!m_pPublic)
+				return false;
+
+			Key::ID::Packed kid;
+			cp.m_Blob.p = &kid;
+			cp.m_Blob.n = sizeof(kid);
+
+			if (!m_pPublic->Recover(cp))
+				return false;
+
+			Cast::Down<Key::ID>(cid) = kid;
+			cid.m_AssetID = 0;
 		}
 
-		return bSuccess;
+
+		// Skip further verification, assuming no need to fully reconstruct the commitment
+		cid.m_Value = cp.m_Value;
+		cid.m_AssetID = m_AssetID;
+
+		return true;
 	}
 
 	bool Output::VerifyRecovered(Key::IPKdf& coinKdf, const CoinID& cid) const
@@ -1562,6 +1607,7 @@ namespace beam
 			<< CA.Enabled
 			<< CA.DepositForList
 			<< CA.LockPeriod
+			<< Asset::ID(Asset::s_MaxCount)
 			// out
 			>> pForks[2].m_Hash;
 	}

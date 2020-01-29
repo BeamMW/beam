@@ -57,7 +57,8 @@ public:
 			UtxoStamp,
 			ShieldedOutputs,
 			ShieldedInputs,
-			AssetsCount, // The last element is guaranteed to be used.
+			AssetsCount, // Including unused. The last element is guaranteed to be used.
+			AssetsCountUsed, // num of 'live' assets
 		};
 	};
 
@@ -275,7 +276,8 @@ public:
 	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
 	bool ParamGet(uint32_t ID, uint64_t*, Blob*, ByteBuffer* = NULL);
 
-	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
+	uint64_t ParamIntGetDef(uint32_t ID, uint64_t def = 0);
+	void ParamIntSet(uint32_t ID, uint64_t val);
 
 	uint64_t InsertState(const Block::SystemState::Full&, const PeerID&); // Fails if state already exists
 
@@ -572,7 +574,6 @@ public:
 
 	void AssetAdd(Asset::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
 	Asset::ID AssetFindByOwner(const PeerID&);
-	bool AssetFindByOwner(Asset::Full&); // must set Owner
 	Asset::ID AssetDelete(Asset::ID); // returns remaining assets count (including the unused)
 	bool AssetGetSafe(Asset::Full&); // must set ID before invocation
 	void AssetSetValue(Asset::ID, const AmountBig::Type&, Height hLockHeight);

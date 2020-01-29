@@ -653,7 +653,7 @@ void Node::MaybeGenerateRecovery()
 
 	if (bOk) {
 		LOG_INFO() << "Recovery generation done";
-		m_Processor.get_DB().ParamSet(NodeDB::ParamID::LastRecoveryHeight, &h1, nullptr);
+		m_Processor.get_DB().ParamIntSet(NodeDB::ParamID::LastRecoveryHeight, h1);
 	} else
 	{
 		LOG_INFO() << "Recovery generation failed";
@@ -919,7 +919,8 @@ void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
 	if (get_ParentObj().m_Cfg.m_LogUtxos)
 	{
 		CoinID cid;
-		Cast::Down<Key::IDV>(cid) = evt.m_Kidv;
+		Cast::Down<Key::ID>(cid) = evt.m_Kid;
+        evt.m_Value.Export(cid.m_Value);
         evt.m_AssetID.Export(cid.m_AssetID);
 
 		Height hMaturity;
@@ -2536,7 +2537,7 @@ bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 		if (m_Keys.m_nMinerSubIndex)
 			return false;
 
-		pChild = MasterKey::get_Child(m_Keys.m_pMiner, cid);
+		pChild = cid.get_ChildKdf(m_Keys.m_pMiner);
 		pKdf = pChild.get();
 	}
 
@@ -3139,8 +3140,11 @@ void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
     if (!p.IsFastSync())
     {
         Asset::Full ai;
-        ai.m_Owner = msg.m_Owner;
-        if (p.get_DB().AssetFindByOwner(ai))
+        ai.m_ID = msg.m_AssetID ?
+            msg.m_AssetID :
+            p.get_DB().AssetFindByOwner(msg.m_Owner);
+
+        if  (ai.m_ID && p.get_DB().AssetGetSafe(ai))
         {
             msgOut.m_Info = std::move(ai);
 
@@ -3481,7 +3485,8 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
             proto::UtxoEvent& res = msgOut.m_Events.back();
 
             res.m_Height = wlk.m_Height;
-            res.m_Kidv = evt.m_Kidv;
+            res.m_Kid = evt.m_Kid;
+            evt.m_Value.Export(res.m_Value);
             evt.m_Maturity.Export(res.m_Maturity);
 
             res.m_Commitment = *reinterpret_cast<const ECC::Point*>(wlk.m_Key.p);
@@ -4394,7 +4399,7 @@ void Node::PrintTxos()
         Height hMaturity;
         Amount val;
         evt.m_Maturity.Export(hMaturity);
-        evt.m_Kidv.m_Value.Export(val);
+        evt.m_Value.Export(val);
 
         os
             << "\tHeight=" << wlk.m_Height << ", "
@@ -4405,7 +4410,7 @@ void Node::PrintTxos()
         if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
         {
             proto::UtxoEvent::Shielded ues;
-            Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kidv, evt.m_Buf1, ues);
+            Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kid, evt.m_Buf1, ues);
             TxoID id;
             ues.m_ID.Export(id);
             os << ", Shielded TxoID=" << id;
