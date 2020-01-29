@@ -55,12 +55,12 @@ namespace Sigma {
 
 		uint32_t get_N() const; // n^M if parameters are sane, 0 otherwise
 		uint32_t get_F() const; // M * (n - 1)
+
+		void Expose(ECC::Oracle& oracle) const;
 	};
 
 	struct Proof
 	{
-		Cfg m_Cfg;
-
 		struct Part1
 		{
 			ECC::Point m_A, m_B, m_C, m_D;
@@ -76,12 +76,13 @@ namespace Sigma {
 			std::vector<ECC::Scalar> m_vF;
 		} m_Part2;
 
-		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs, ECC::Scalar::Native& kBias) const;
+		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, const Cfg&, ECC::Scalar::Native* pKs, ECC::Scalar::Native& kBias) const;
 	};
 
 	class Prover
 	{
 		CmList& m_List;
+		const Cfg& m_Cfg;
 
 		std::unique_ptr<ECC::Scalar::Native[]> m_vBuf; // all the needed data as one array
 
@@ -115,8 +116,9 @@ namespace Sigma {
 
 		struct NonceGen;
 
-		Prover(CmList& lst, Proof& proof)
+		Prover(CmList& lst, const Cfg& cfg, Proof& proof)
 			:m_List(lst)
+			,m_Cfg(cfg)
 			,m_Proof(proof)
 		{
 		}
@@ -161,6 +163,8 @@ namespace Lelantus
 	struct Proof
 		:public Sigma::Proof
 	{
+		Cfg m_Cfg;
+
 		ECC::Point m_Commitment;
 		ECC::Point m_SpendPk;
 		void Expose0(ECC::Oracle& oracle, ECC::Hash::Value&) const;

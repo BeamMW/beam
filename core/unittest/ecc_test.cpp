@@ -2408,6 +2408,7 @@ void TestLelantus()
 	{
 		Oracle o2;
 		Hash::Value hv0;
+		proof.m_Cfg.Expose(o2);
 		proof.Expose0(o2, hv0);
 		ud2.Recover(o2, proof, Zero);
 

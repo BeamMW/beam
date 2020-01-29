@@ -639,11 +639,9 @@ namespace detail
 
 		/// beam::Sigma::Proof
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Sigma::Proof& v)
+		static Archive& save(Archive& ar, const beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
 		{
 			ar
-				& v.m_Cfg.n
-				& v.m_Cfg.M
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
 				& v.m_Part1.m_C.m_X
@@ -652,11 +650,11 @@ namespace detail
 				& v.m_Part2.m_zC
 				& v.m_Part2.m_zR;
 
-			assert(v.m_Part1.m_vG.size() >= v.m_Cfg.M);
-			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
+			assert(v.m_Part1.m_vG.size() >= cfg.M);
+			for (uint32_t i = 0; i < cfg.M; i++)
 				ar & v.m_Part1.m_vG[i].m_X;
 
-			uint32_t nSizeF = v.m_Cfg.get_F();
+			uint32_t nSizeF = cfg.get_F();
 			assert(v.m_Part2.m_vF.size() >= nSizeF);
 
 			for (uint32_t i = 0; i < nSizeF; i++)
@@ -666,11 +664,9 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Sigma::Proof& v)
+		static Archive& load(Archive& ar, beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
 		{
 			ar
-				& v.m_Cfg.n
-				& v.m_Cfg.M
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
 				& v.m_Part1.m_C.m_X
@@ -679,14 +675,14 @@ namespace detail
 				& v.m_Part2.m_zC
 				& v.m_Part2.m_zR;
 
-			if (!v.m_Cfg.get_N())
-				throw std::runtime_error("L/Cfg");
+			if (!cfg.get_N())
+				throw std::runtime_error("Sigma/Cfg");
 
-			v.m_Part1.m_vG.resize(v.m_Cfg.M);
-			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
+			v.m_Part1.m_vG.resize(cfg.M);
+			for (uint32_t i = 0; i < cfg.M; i++)
 				ar & v.m_Part1.m_vG[i].m_X;
 
-			uint32_t nSizeF = v.m_Cfg.get_F();
+			uint32_t nSizeF = cfg.get_F();
 			v.m_Part2.m_vF.resize(nSizeF);
 
 			for (uint32_t i = 0; i < nSizeF; i++)
@@ -695,26 +691,26 @@ namespace detail
 			return ar;
 		}
 		template<typename Archive>
-		static void saveBits(MultibitVar<Archive>& mb, const beam::Sigma::Proof& v)
+		static void saveBits(MultibitVar<Archive>& mb, const beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
 		{
 			mb.put(v.m_Part1.m_A.m_Y);
 			mb.put(v.m_Part1.m_B.m_Y);
 			mb.put(v.m_Part1.m_C.m_Y);
 			mb.put(v.m_Part1.m_D.m_Y);
 
-			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
+			for (uint32_t i = 0; i < cfg.M; i++)
 				mb.put(v.m_Part1.m_vG[i].m_Y);
 		}
 
 		template<typename Archive>
-		static void loadBits(MultibitVar<Archive>& mb, beam::Sigma::Proof& v)
+		static void loadBits(MultibitVar<Archive>& mb, beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
 		{
 			mb.get(v.m_Part1.m_A.m_Y);
 			mb.get(v.m_Part1.m_B.m_Y);
 			mb.get(v.m_Part1.m_C.m_Y);
 			mb.get(v.m_Part1.m_D.m_Y);
 
-			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
+			for (uint32_t i = 0; i < cfg.M; i++)
 				mb.get(v.m_Part1.m_vG[i].m_Y);
 		}
 
@@ -722,18 +718,20 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Lelantus::Proof& v)
 		{
-			save(ar, Cast::Down<beam::Sigma::Proof>(v));
-
 			ar
+				& v.m_Cfg.n
+				& v.m_Cfg.M
 				& v.m_Commitment.m_X
 				& v.m_SpendPk.m_X
 				& v.m_Signature.m_NoncePub.m_X
 				& v.m_Signature.m_pK[0]
 				& v.m_Signature.m_pK[1];
 
+			save(ar, Cast::Down<beam::Sigma::Proof>(v), v.m_Cfg);
+
 			MultibitVar<Archive> mb(ar);
 
-			saveBits(mb, Cast::Down<beam::Sigma::Proof>(v));
+			saveBits(mb, Cast::Down<beam::Sigma::Proof>(v), v.m_Cfg);
 
 			mb.put(v.m_Commitment.m_Y);
 			mb.put(v.m_SpendPk.m_Y);
@@ -747,18 +745,20 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Lelantus::Proof& v)
 		{
-			load(ar, Cast::Down<beam::Sigma::Proof>(v));
-
 			ar
+				& v.m_Cfg.n
+				& v.m_Cfg.M
 				& v.m_Commitment.m_X
 				& v.m_SpendPk.m_X
 				& v.m_Signature.m_NoncePub.m_X
 				& v.m_Signature.m_pK[0]
 				& v.m_Signature.m_pK[1];
 
+			load(ar, Cast::Down<beam::Sigma::Proof>(v), v.m_Cfg);
+
 			MultibitVar<Archive> mb(ar);
 
-			loadBits(mb, Cast::Down<beam::Sigma::Proof>(v));
+			loadBits(mb, Cast::Down<beam::Sigma::Proof>(v), v.m_Cfg);
 
 			mb.get(v.m_Commitment.m_Y);
 			mb.get(v.m_SpendPk.m_Y);
