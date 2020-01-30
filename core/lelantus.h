@@ -171,7 +171,7 @@ namespace Lelantus
 
 		ECC::SignatureGeneralized<2> m_Signature;
 
-		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs) const;
+		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs, const ECC::Point::Native* pHGen = nullptr) const;
 	};
 
 	class Prover
@@ -196,7 +196,7 @@ namespace Lelantus
 
 		Sigma::Prover::UserData* m_pUserData = nullptr;
 
-		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle);
+		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle, const ECC::Point::Native* pHGen = nullptr);
 
 		// result
 		Proof& m_Proof;

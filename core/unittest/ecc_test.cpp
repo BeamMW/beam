@@ -2357,14 +2357,27 @@ void TestTreasury()
 	}
 }
 
-void TestLelantus()
+void TestLelantus(bool bWithAsset)
 {
 	beam::Lelantus::Cfg cfg; // default
+
+	if (bWithAsset)
+	{
+		// set other parameters. Test small set (make it run faster)
+		cfg.n = 3;
+		cfg.M = 4; // 3^4 = 81
+	}
+
 	const uint32_t N = cfg.get_N();
-	printf("Lelantus [n, M, N] = [%u, %u, %u]\n", cfg.n, cfg.M, N);
+	if (!bWithAsset)
+		printf("Lelantus [n, M, N] = [%u, %u, %u]\n", cfg.n, cfg.M, N);
 
 	beam::Lelantus::CmListVec lst;
 	lst.m_vec.resize(N);
+
+	Point::Native hGen;
+	if (bWithAsset)
+		beam::Asset::Base(35).get_Generator(hGen);
 
 	Point::Native rnd;
 	SetRandom(rnd);
@@ -2388,7 +2401,7 @@ void TestLelantus()
 	p.m_Witness.V.m_V = 100500;
 	p.m_Witness.V.m_R = 4U;
 	p.m_Witness.V.m_R_Output = 756U;
-	p.m_Witness.V.m_L = 333;
+	p.m_Witness.V.m_L = 333 % N;
 	SetRandom(p.m_Witness.V.m_SpendSk);
 
 	Point::Native pt = Context::get().G * p.m_Witness.V.m_SpendSk;
@@ -2396,8 +2409,8 @@ void TestLelantus()
 	Scalar::Native ser;
 	beam::Lelantus::SpendKey::ToSerial(ser, pt_);
 
-
-	pt = Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
+	pt = Context::get().G * p.m_Witness.V.m_R;
+	Tag::AddValue(pt, &hGen, p.m_Witness.V.m_V);
 	pt += Context::get().J * ser;
 	pt.Export(lst.m_vec[p.m_Witness.V.m_L]);
 
@@ -2405,9 +2418,10 @@ void TestLelantus()
 
 	uint32_t t = beam::GetTime_ms();
 
-	p.Generate(Zero, oracle);
+	p.Generate(Zero, oracle, &hGen);
 
-	printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
+	if (!bWithAsset)
+		printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
 
 	{
 		Oracle o2;
@@ -2434,7 +2448,8 @@ void TestLelantus()
 		der_.reset(ser_.buffer().first, ser_.buffer().second);
 		der_ & proof;
 
-		printf("\tProof size = %u\n", (uint32_t)ser_.buffer().second);
+		if (!bWithAsset)
+			printf("\tProof size = %u\n", (uint32_t)ser_.buffer().second);
 	}
 	MyBatch bc;
 
@@ -2454,7 +2469,7 @@ void TestLelantus()
 		for (uint32_t i = 0; i < nCycles; i++)
 		{
 			Oracle o2;
-			if (!proof.IsValid(bc, o2, &vKs.front()))
+			if (!proof.IsValid(bc, o2, &vKs.front(), &hGen))
 				bSuccess = false;
 		}
 
@@ -2463,7 +2478,8 @@ void TestLelantus()
 		if (!bc.Flush())
 			bSuccess = false;
 
-		printf("\tVerify time %u overlapping proofs = %u ms\n", nCycles, beam::GetTime_ms() - t);
+		if (!bWithAsset)
+			printf("\tVerify time %u overlapping proofs = %u ms\n", nCycles, beam::GetTime_ms() - t);
 	}
 
 	verify_test(bSuccess);
@@ -2730,7 +2746,8 @@ void TestAll()
 	TestTreasury();
 	TestAssetProof();
 	TestAssetEmission();
-	TestLelantus();
+	TestLelantus(false);
+	TestLelantus(true);
 	TestLelantusKeys();
 }
 

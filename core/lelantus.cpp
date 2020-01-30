@@ -368,7 +368,7 @@ void Prover::UserData::Recover(Oracle& oracle, const Proof& p, const uintBig& se
 	RecoverOnce(m_pS[1], p.m_Part2.m_zC, rD, rC, x);
 }
 
-void Prover::UserData::RecoverOnce(ECC::Scalar& out, const ECC::Scalar& res, ECC::Scalar::Native& a0, ECC::Scalar::Native& a1, const ECC::Scalar::Native& x)
+void Prover::UserData::RecoverOnce(Scalar& out, const Scalar& res, Scalar::Native& a0, Scalar::Native& a1, const Scalar::Native& x)
 {
 	a1 *= x;
 	a0 += a1; // this is the value that would be without extra
@@ -709,7 +709,7 @@ void Proof::Expose0(Oracle& oracle, Hash::Value& hv) const
 		>> hv;
 }
 
-bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Native* pKs) const
+bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Native* pKs, const Point::Native* pHGen) const
 {
 	Mode::Scope scope(Mode::Fast);
 
@@ -741,7 +741,11 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Nati
 		bc.AddCasual(spendPk, e);
 
 		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Signature.m_pK[0]);
-		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Signature.m_pK[1]);
+
+		if (Tag::IsCustom(pHGen))
+			bc.AddCasual(*pHGen, m_Signature.m_pK[1]);
+		else
+			bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Signature.m_pK[1]);
 
 		if (!bc.AddCasual(m_Signature.m_NoncePub, bc.m_Multiplier, true))
 			return false;
@@ -760,9 +764,10 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Nati
 	return true;
 }
 
-void Prover::Generate(const uintBig& seed, Oracle& oracle)
+void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native* pHGen)
 {
-	Point::Native ptBias = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
+	Point::Native ptBias = Context::get().G * m_Witness.V.m_R_Output;
+	Tag::AddValue(ptBias, pHGen, m_Witness.V.m_V);
 	m_Proof.m_Commitment = ptBias;
 	m_Proof.m_SpendPk = Context::get().G * m_Witness.V.m_SpendSk;
 
@@ -778,7 +783,18 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle)
 	pSk[2] = m_Witness.V.m_SpendSk;
 	assert(pSk[3] == Zero);
 
-	m_Proof.m_Signature.Sign(Context::get().m_Sig.m_CfgGH2, hv, m_Proof.m_Signature.m_pK, pSk, pRes);
+	if (ECC::Tag::IsCustom(pHGen))
+	{
+		m_Proof.m_Signature.CreateNonces(Context::get().m_Sig.m_CfgGH2, hv, pSk, pRes);
+
+		ECC::Point::Native ptNonce = ECC::Context::get().G * pRes[0];
+		ptNonce += (*pHGen) * pRes[1];
+		m_Proof.m_Signature.m_NoncePub = ptNonce;
+
+		m_Proof.m_Signature.SignRaw(Context::get().m_Sig.m_CfgGH2, hv, m_Proof.m_Signature.m_pK, pSk, pRes);
+	}
+	else
+		m_Proof.m_Signature.Sign(Context::get().m_Sig.m_CfgGH2, hv, m_Proof.m_Signature.m_pK, pSk, pRes);
 
 	Scalar::Native kSer;
 	SpendKey::ToSerial(kSer, m_Proof.m_SpendPk);
