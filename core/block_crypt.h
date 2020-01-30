@@ -140,6 +140,9 @@ namespace beam
 			bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const;
 			void Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID, const ECC::Point::Native& gen);
 			void Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID);
+			void Create(ECC::Point::Native& genBlinded, const ECC::Scalar::Native& skGen, Asset::ID, const ECC::Point::Native& gen);
+
+			static void ModifySk(ECC::Scalar::Native& skInOut, const ECC::Scalar::Native& skGen, Amount val);
 
 			struct CmList
 				:public Sigma::CmList

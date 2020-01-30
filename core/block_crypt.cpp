@@ -2356,8 +2356,17 @@ namespace beam
 	{
 		ECC::Scalar::Native skGen;
 		get_skGen(skGen, skInOut, val, aid);
+		Create(genBlinded, skGen, aid, gen);
+		ModifySk(skInOut, skGen, val);
+	}
 
-		genBlinded = gen;
+	void Asset::Proof::Create(ECC::Point::Native& genBlinded, const ECC::Scalar::Native& skGen, Asset::ID aid, const ECC::Point::Native& gen)
+	{
+		if (aid)
+			genBlinded = gen;
+		else
+			get_H().Assign(genBlinded, true); // not always specified explicitly for aid==0
+
 		genBlinded += ECC::Context::get().G * skGen;
 		m_hGen = genBlinded;
 
@@ -2378,11 +2387,14 @@ namespace beam
 
 		ECC::Oracle oracle;
 		prover.Generate(hvSeed, oracle, genBlinded);
+	}
 
+	void Asset::Proof::ModifySk(ECC::Scalar::Native& skInOut, const ECC::Scalar::Native& skGen, Amount val)
+	{
 		// modify the blinding factor, to keep the original commitment
-		skGen *= val;
-		skGen = -skGen;
-		skInOut += skGen;
+		ECC::Scalar::Native k = skGen* val;
+		k = -k;
+		skInOut += k;
 	}
 
 	uint32_t Asset::Proof::SetBegin(Asset::ID aid, const ECC::Scalar::Native& skGen)
