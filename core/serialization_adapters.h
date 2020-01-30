@@ -767,6 +767,46 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::Asset::Proof
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Asset::Proof& v)
+		{
+			ar
+				& v.m_Begin
+				& v.m_hGen.m_X;
+
+			const beam::Sigma::Cfg& cfg = beam::Rules::get().CA.m_ProofCfg;
+			save(ar, Cast::Down<beam::Sigma::Proof>(v), cfg);
+
+			MultibitVar<Archive> mb(ar);
+
+			saveBits(mb, Cast::Down<beam::Sigma::Proof>(v), cfg);
+
+			mb.put(v.m_hGen.m_Y);
+
+			mb.Flush();
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Asset::Proof& v)
+		{
+			ar
+				& v.m_Begin
+				& v.m_hGen.m_X;
+
+			const beam::Sigma::Cfg& cfg = beam::Rules::get().CA.m_ProofCfg;
+			load(ar, Cast::Down<beam::Sigma::Proof>(v), cfg);
+
+			MultibitVar<Archive> mb(ar);
+
+			loadBits(mb, Cast::Down<beam::Sigma::Proof>(v), cfg);
+
+			mb.get(v.m_hGen.m_Y);
+
+			return ar;
+		}
 		/// beam::ShieldedTxo::Serial serialization
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::ShieldedTxo::Serial& x)
