@@ -406,20 +406,8 @@ namespace beam
 		ECC::Scalar::Native skSign = sk;
 		if (cid.m_AssetID)
 		{
-			ECC::Scalar::Native skGen;
-
-			ECC::NoLeak<ECC::Scalar> k;
-			k.V = sk;
-
-			ECC::NonceGenerator nonceGen("out-sk-asset");
-			nonceGen << k.V.m_Value;
-			nonceGen >> skGen;
-
 			m_pAsset = std::make_unique<Asset::Proof>();
-			m_pAsset->Create(wrk.m_hGen, cid.m_AssetID, skGen, wrk.m_hGen);
-
-			skGen *= cid.m_Value;
-			skSign += -skGen;
+			m_pAsset->Create(wrk.m_hGen, skSign, cid.m_Value, cid.m_AssetID, wrk.m_hGen);
 		}
 
 		ECC::Oracle oracle;
@@ -2335,7 +2323,7 @@ namespace beam
 		return true;
 	}
 
-	void Asset::Proof::Create(ECC::Point::Native& genBlinded, Asset::ID aid, const ECC::Scalar::Native& skGen)
+	void Asset::Proof::Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid)
 	{
 		ECC::Point::Native gen;
 		if (aid)
@@ -2343,11 +2331,32 @@ namespace beam
 		else
 			get_H().Assign(gen, true);
 
-		Create(genBlinded, aid, skGen, gen);
+		Create(genBlinded, skInOut, val, aid, gen);
 	}
 
-	void Asset::Proof::Create(ECC::Point::Native& genBlinded, Asset::ID aid, const ECC::Scalar::Native& skGen, const ECC::Point::Native& gen)
+	void Asset::Proof::get_skGen(ECC::Scalar::Native& skGen, const ECC::Scalar::Native& sk, Amount val, Asset::ID aid)
 	{
+		ECC::NonceGenerator nonceGen("out-sk-asset");
+
+		ECC::NoLeak<ECC::Scalar> k;
+		k.V = sk;
+		nonceGen << k.V.m_Value;
+
+		ECC::Hash::Processor()
+			<< aid
+			<< val
+			>> k.V.m_Value;
+
+		nonceGen
+			<< k.V.m_Value
+			>> skGen; // blinding factor for generator
+	}
+
+	void Asset::Proof::Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Point::Native& gen)
+	{
+		ECC::Scalar::Native skGen;
+		get_skGen(skGen, skInOut, val, aid);
+
 		genBlinded = gen;
 		genBlinded += ECC::Context::get().G * skGen;
 		m_hGen = genBlinded;
@@ -2369,6 +2378,11 @@ namespace beam
 
 		ECC::Oracle oracle;
 		prover.Generate(hvSeed, oracle, genBlinded);
+
+		// modify the blinding factor, to keep the original commitment
+		skGen *= val;
+		skGen = -skGen;
+		skInOut += skGen;
 	}
 
 	uint32_t Asset::Proof::SetBegin(Asset::ID aid, const ECC::Scalar::Native& skGen)

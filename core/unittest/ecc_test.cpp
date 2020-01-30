@@ -2564,19 +2564,21 @@ void TestLelantusKeys()
 
 void TestAssetProof()
 {
-	ECC::Scalar::Native skGen;
-	SetRandom(skGen);
+	ECC::Scalar::Native sk;
+	SetRandom(sk);
+
+	Amount val = 400;
 
 	Point::Native genBlinded;
 
 	beam::Asset::Proof proof;
-	proof.Create(genBlinded, 100500, skGen);
+	proof.Create(genBlinded, sk, val, 100500);
 	verify_test(proof.IsValid());
 
-	proof.Create(genBlinded, 1, skGen);
+	proof.Create(genBlinded, sk, val, 1);
 	verify_test(proof.IsValid());
 
-	proof.Create(genBlinded, 0, skGen);
+	proof.Create(genBlinded, sk, val, 0);
 	verify_test(proof.IsValid());
 }
 
