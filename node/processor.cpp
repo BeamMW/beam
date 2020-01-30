@@ -1707,7 +1707,7 @@ void NodeProcessor::TxoToNaked(uint8_t* pBuf, Blob& v)
 	const uint8_t* pSrc = reinterpret_cast<const uint8_t*>(v.p);
 	v.p = pBuf;
 
-	if (!(0x30 & pSrc[0]))
+	if (!(0x10 & pSrc[0]))
 	{
 		// simple case - just remove some flags and truncate.
 		memcpy(pBuf, pSrc, s_TxoNakedMin);
@@ -1717,7 +1717,7 @@ void NodeProcessor::TxoToNaked(uint8_t* pBuf, Blob& v)
 		return;
 	}
 
-	// complex case - the UTXO has either Asset proof or Incubation period. Utxo must be re-read
+	// complex case - the UTXO has Incubation period. Utxo must be re-read
 	Deserializer der;
 	der.reset(pSrc, v.n);
 
