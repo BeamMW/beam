@@ -390,11 +390,13 @@ namespace beam
 			s.m_Coinbase += uintBigFrom(m_pPublic->m_Value);
 	}
 
+#pragma pack (push, 1)
 	struct Output::PackedKA
 	{
 		Key::ID::Packed m_Kid;
 		uintBigFor<Asset::ID>::Type m_AssetID;
 	};
+#pragma pack (pop)
 
 	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const CoinID& cid, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
