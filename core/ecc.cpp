@@ -2267,7 +2267,7 @@ namespace ECC {
 		m_NoncePub = pubNonce;
 	}
 
-	void SignatureBase::Sign(const Config& cfg, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes)
+	void SignatureBase::CreateNonces(const Config& cfg, const Hash::Value& msg, const Scalar::Native* pSk, Scalar::Native* pRes)
 	{
 		NonceGenerator nonceGen("beam-Schnorr");
 
@@ -2287,9 +2287,12 @@ namespace ECC {
 
 		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
 			nonceGen >> pRes[iG];
+	}
 
+	void SignatureBase::Sign(const Config& cfg, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes)
+	{
+		CreateNonces(cfg, msg, pSk, pRes);
 		SetNoncePub(cfg, pRes);
-
 		SignRaw(cfg, msg, pK, pSk, pRes);
 	}
 

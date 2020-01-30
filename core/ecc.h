@@ -183,6 +183,7 @@ namespace ECC
 		void Sign(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes);
 		void SignRaw(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes) const;
 		void SignPartial(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, const Scalar::Native* pNonce, Scalar::Native* pRes) const;
+		void CreateNonces(const Config&, const Hash::Value& msg, const Scalar::Native* pSk, Scalar::Native* pRes);
 		void SetNoncePub(const Config&, const Scalar::Native* pNonce);
 	};
 
