@@ -428,13 +428,11 @@ namespace beam
 		bool		m_Coinbase;
 		bool		m_RecoveryOnly;
 		Height		m_Incubation; // # of blocks before it's mature
-		Asset::ID	m_AssetID;
 
 		Output()
 			:m_Coinbase(false)
 			,m_RecoveryOnly(false)
 			,m_Incubation(0)
-			,m_AssetID(0)
 		{
 		}
 
@@ -443,6 +441,7 @@ namespace beam
 		// one of the following *must* be specified
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
+		std::unique_ptr<Asset::Proof>					m_pAsset;
 
 		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, bool bPublic = false);
 

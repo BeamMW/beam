@@ -1717,7 +1717,7 @@ void NodeProcessor::TxoToNaked(uint8_t* pBuf, Blob& v)
 		return;
 	}
 
-	// complex case - the UTXO has either Asset::ID or Incubation period. Utxo must be re-read
+	// complex case - the UTXO has either Asset proof or Incubation period. Utxo must be re-read
 	Deserializer der;
 	der.reset(pSrc, v.n);
 
@@ -1726,7 +1726,7 @@ void NodeProcessor::TxoToNaked(uint8_t* pBuf, Blob& v)
 
 	outp.m_pConfidential.reset();
 	outp.m_pPublic.reset();
-	outp.m_AssetID = 0;
+	outp.m_pAsset.reset();
 
 	StaticBufferSerializer<s_TxoNakedMax> ser;
 	ser & outp;

@@ -917,7 +917,7 @@ namespace detail
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
-				(output.m_AssetID ? 0x20 : 0) |
+				(output.m_pAsset ? 0x20 : 0) |
 				(output.m_RecoveryOnly ? 0x40 : 0) |
 				(nFlags2 ? 0x80 : 0);
 
@@ -934,8 +934,8 @@ namespace detail
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
 
-			if (0x20 & nFlags)
-				ar & output.m_AssetID;
+			if ((0x20 & nFlags) && !output.m_RecoveryOnly)
+				ar & *output.m_pAsset;
 
             return ar;
         }
@@ -967,10 +967,12 @@ namespace detail
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
 
-			if (0x20 & nFlags)
-				ar & output.m_AssetID;
-			else
-				output.m_AssetID = 0;
+			if ((0x20 & nFlags) && !output.m_RecoveryOnly)
+			{
+				output.m_pAsset = std::make_unique<beam::Asset::Proof>();
+				ar & *output.m_pAsset;
+
+			}
 
 			if (0x80 & nFlags)
 			{

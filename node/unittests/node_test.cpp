@@ -713,9 +713,12 @@ namespace beam
 		{
 			ECC::Scalar::Native k;
 
+			bool bPublic = !utxo.m_Cid.m_AssetID; // confidential transactions will be too slow for test in debug mode.
+			// But public don't support assets
+
 			Output::Ptr pOut(new Output);
 			pOut->m_Incubation = hIncubation;
-			pOut->Create(h + 1, k, *m_pKdf, utxo.m_Cid, *m_pKdf, true); // confidential transactions will be too slow for test in debug mode.
+			pOut->Create(h + 1, k, *m_pKdf, utxo.m_Cid, *m_pKdf, bPublic);
 
 			tx.m_vOutputs.push_back(std::move(pOut));
 			UpdateOffset(tx, k, true);

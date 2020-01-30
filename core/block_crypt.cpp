@@ -320,7 +320,15 @@ namespace beam
 		if (!comm.Import(m_Commitment))
 			return false;
 
-		CoinID::Generator g(m_AssetID);
+		ECC::Point::Native hGen;
+		if (m_pAsset)
+		{
+			if (!m_pAsset->IsValid())
+				return false; // TODO - defer, batch-verify
+
+			if (!hGen.ImportNnz(m_pAsset->m_hGen))
+				return false;
+		}
 
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
@@ -333,7 +341,7 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(comm, oracle, &g.m_hGen);
+			return m_pConfidential->IsValid(comm, oracle, &hGen);
 		}
 
 		if (!m_pPublic)
@@ -342,7 +350,7 @@ namespace beam
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
 			return false;
 
-		return m_pPublic->IsValid(comm, oracle, &g.m_hGen);
+		return m_pPublic->IsValid(comm, oracle, &hGen);
 	}
 
 	void Output::operator = (const Output& v)
@@ -351,9 +359,9 @@ namespace beam
 		m_Coinbase = v.m_Coinbase;
 		m_RecoveryOnly = v.m_RecoveryOnly;
 		m_Incubation = v.m_Incubation;
-		m_AssetID = v.m_AssetID;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
+		ClonePtr(m_pAsset, v.m_pAsset);
 	}
 
 	int Output::cmp(const Output& v) const
@@ -367,9 +375,9 @@ namespace beam
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER(m_RecoveryOnly)
 		CMP_MEMBER(m_Incubation)
-		CMP_MEMBER(m_AssetID)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
+		//CMP_MEMBER_PTR(m_pAsset)
 
 		return 0;
 	}
@@ -390,9 +398,27 @@ namespace beam
 
 	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const CoinID& cid, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
-		m_AssetID = cid.m_AssetID;
 		CoinID::Worker wrk(cid);
 		wrk.Create(sk, m_Commitment, coinKdf);
+
+		ECC::Scalar::Native skSign = sk;
+		if (cid.m_AssetID)
+		{
+			ECC::Scalar::Native skGen;
+
+			ECC::NoLeak<ECC::Scalar> k;
+			k.V = sk;
+
+			ECC::NonceGenerator nonceGen("out-sk-asset");
+			nonceGen << k.V.m_Value;
+			nonceGen >> skGen;
+
+			m_pAsset = std::make_unique<Asset::Proof>();
+			m_pAsset->Create(wrk.m_hGen, cid.m_AssetID, skGen, wrk.m_hGen);
+
+			skGen *= cid.m_Value;
+			skSign += -skGen;
+		}
 
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
@@ -410,7 +436,7 @@ namespace beam
 
 			m_pPublic.reset(new ECC::RangeProof::Public);
 			m_pPublic->m_Value = cid.m_Value;
-			m_pPublic->Create(sk, cp, oracle);
+			m_pPublic->Create(skSign, cp, oracle);
 		}
 		else
 		{
@@ -421,7 +447,7 @@ namespace beam
 			kida.m_AssetID = cid.m_AssetID;
 
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-			m_pConfidential->Create(sk, cp, oracle, &wrk.m_hGen);
+			m_pConfidential->Create(skSign, cp, oracle, &wrk.m_hGen);
 		}
 	}
 
@@ -465,8 +491,6 @@ namespace beam
 			Cast::Down<Key::ID>(cid) = kida.m_Kid;
 
 			kida.m_AssetID.Export(cid.m_AssetID);
-			if (cid.m_AssetID != m_AssetID) // this is temporary, until we hide the asset type
-				return false;
 		}
 		else
 		{
@@ -481,13 +505,12 @@ namespace beam
 				return false;
 
 			Cast::Down<Key::ID>(cid) = kid;
-			cid.m_AssetID = 0;
+			cid.m_AssetID = 0; // can't be recovered atm
 		}
 
 
 		// Skip further verification, assuming no need to fully reconstruct the commitment
 		cid.m_Value = cp.m_Value;
-		cid.m_AssetID = m_AssetID;
 
 		return true;
 	}
@@ -501,7 +524,6 @@ namespace beam
 		if (!comm2.Import(m_Commitment))
 			return false;
 
-		assert(m_AssetID == cid.m_AssetID);
 		CoinID::Worker(cid).Recover(comm, coinKdf);
 
 		comm = -comm;
