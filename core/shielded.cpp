@@ -71,10 +71,7 @@ namespace beam
 		m_RangeProof = v.m_RangeProof;
 
 		if (v.m_pAsset)
-		{
-			m_pAsset = std::make_unique<Asset::Proof>();
-			*m_pAsset = *v.m_pAsset;
-		}
+			v.m_pAsset->Clone(m_pAsset);
 		else
 			m_pAsset.reset();
 	}
