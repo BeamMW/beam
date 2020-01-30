@@ -66,7 +66,7 @@ public:
                 MsgObject m;
                 des.reset(data, size);
                 if (!des.deserialize(m) || des.bytes_left() > 0) {
-                    errorHandler.on_protocol_error(fromStream, message_corrupted);
+                    errorHandler.on_protocol_error(fromStream, ProtocolError::message_corrupted);
                     return false;
                 }
                 return (static_cast<MsgHandler*>(msgHandler)->*MessageFn)(fromStream, std::move(m));

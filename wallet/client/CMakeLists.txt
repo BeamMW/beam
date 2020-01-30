@@ -5,6 +5,7 @@ target_sources(wallet_client
     PRIVATE
         wallet_client.h
         wallet_client.cpp
+        extensions/broadcast_router.cpp
         extensions/offers_board/swap_offer.cpp
         extensions/offers_board/swap_offer_token.cpp
         extensions/offers_board/offers_protocol_handler.cpp

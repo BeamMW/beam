@@ -196,7 +196,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
 
     // handles deserialization errors, may optionally notify the logic about that
     void on_protocol_error(uint64_t fromStream, ProtocolError error) override {
-        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << error << ")";
+        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << static_cast<int32_t>(error) << ")";
     }
 
     // handles network errors, may optionally notify the logic about that

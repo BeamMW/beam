@@ -21,7 +21,7 @@ bool ProtocolBase::on_new_message(uint64_t fromStream, MsgType type, const void*
     OnRawMessage callback = _dispatchTable[type].callback;
     if (!callback) {
         LOG_WARNING() << "Unexpected msg type " << int(type);
-        _errorHandler.on_protocol_error(fromStream, msg_type_error);
+        _errorHandler.on_protocol_error(fromStream, ProtocolError::msg_type_error);
         return false;
     }
     LOG_VERBOSE() << __FUNCTION__ << TRACE(int(type));
