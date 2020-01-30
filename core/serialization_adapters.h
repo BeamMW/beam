@@ -850,7 +850,8 @@ namespace detail
 			uint32_t nFlags =
 				(val.m_Commitment.m_Y ? 1 : 0) |
 				(val.m_Serial.m_SerialPub.m_Y ? 2 : 0) |
-				(val.m_Serial.m_Signature.m_NoncePub.m_Y ? 4 : 0);
+				(val.m_Serial.m_Signature.m_NoncePub.m_Y ? 4 : 0) |
+				(val.m_pAsset ? 8 : 0);
 
 			ar
 				& nFlags
@@ -860,6 +861,9 @@ namespace detail
 				& val.m_Serial.m_Signature.m_NoncePub
 				& val.m_Serial.m_Signature.m_pK[0]
 				& val.m_Serial.m_Signature.m_pK[1];
+
+			if (val.m_pAsset)
+				ar & *val.m_pAsset;
 
             return ar;
         }
@@ -880,6 +884,12 @@ namespace detail
 			val.m_Commitment.m_Y = (1 & nFlags);
 			val.m_Serial.m_SerialPub.m_Y = ((2 & nFlags) != 0);
 			val.m_Serial.m_Signature.m_NoncePub.m_Y = ((4 & nFlags) != 0);
+
+			if (8 & nFlags)
+			{
+				val.m_pAsset = std::make_unique<beam::Asset::Proof>();
+				ar & *val.m_pAsset;
+			}
 
 			return ar;
 		}

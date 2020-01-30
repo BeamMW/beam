@@ -50,8 +50,33 @@ namespace beam
 		if (!(m_Serial.IsValid(ser) && comm.Import(m_Commitment)))
 			return false;
 
+		ECC::Point::Native hGen;
+		if (m_pAsset)
+		{
+			if (!m_pAsset->IsValid())
+				return false;
+
+			if (!hGen.Import(m_pAsset->m_hGen))
+				return false;
+		}
+
 		Prepare(oracle);
-		return m_RangeProof.IsValid(comm, oracle);
+		return m_RangeProof.IsValid(comm, oracle, &hGen);
+	}
+
+	void ShieldedTxo::operator = (const ShieldedTxo& v)
+	{
+		m_Serial = v.m_Serial;
+		m_Commitment = v.m_Commitment;
+		m_RangeProof = v.m_RangeProof;
+
+		if (v.m_pAsset)
+		{
+			m_pAsset = std::make_unique<Asset::Proof>();
+			*m_pAsset = *v.m_pAsset;
+		}
+		else
+			m_pAsset.reset();
 	}
 
 	/////////////
@@ -251,6 +276,19 @@ namespace beam
 		GenerateInternal(txo, hvShared, oracle, *v.m_pGen);
 	}
 
+	void ShieldedTxo::Data::OutputParams::get_skGen(ECC::Scalar::Native& skGen, const ECC::Hash::Value& hvShared, Key::IPKdf& gen) const
+	{
+		gen.DerivePKey(skGen, HashTxt("skG-O") << hvShared << m_Value << m_AssetID);
+	}
+
+#pragma pack (push, 1)
+	struct ShieldedTxo::Data::OutputParams::Packed
+	{
+		uintBigFor<Asset::ID>::Type m_Asset;
+		uint8_t m_Flags;
+	};
+#pragma pack (pop)
+
 	void ShieldedTxo::Data::OutputParams::GenerateInternal(ShieldedTxo& txo, const ECC::Hash::Value& hvShared, ECC::Oracle& oracle, Key::IPKdf& gen)
 	{
 		gen.DerivePKey(m_k, HashTxt("kG-O") << hvShared << m_Value); // doesn't have to be hvShared, any nonce is ok.
@@ -258,23 +296,42 @@ namespace beam
 		ECC::RangeProof::CreatorParams cp;
 		cp.m_Value = m_Value;
 
-		ECC::Point::Native pt = ECC::Commitment(m_k, m_Value);
+		CoinID::Generator g(m_AssetID);
+
+		ECC::Point::Native pt = ECC::Context::get().G * m_k;
+		g.AddValue(pt, m_Value);
 		txo.m_Commitment = pt;
 
 		ECC::Scalar::Native pExtra[2];
 		cp.m_pExtra = pExtra;
 
-		uint8_t iOverflow =
+		Packed p;
+		p.m_Asset = m_AssetID;
+		p.m_Flags =
 			Msg2Scalar(pExtra[0], m_Sender) |
 			(Msg2Scalar(pExtra[1], m_Message) << 1);
 
-		cp.m_Blob.p = &iOverflow;
-		cp.m_Blob.n = sizeof(iOverflow);
+		cp.m_Blob.p = &p;
+		cp.m_Blob.n = sizeof(p);
+
+		ECC::Scalar::Native skSign = m_k;
+		if (m_AssetID)
+		{
+			ECC::Scalar::Native skGen;
+			get_skGen(skGen, hvShared, gen);
+
+			txo.m_pAsset = std::make_unique<Asset::Proof>();
+			txo.m_pAsset->Create(g.m_hGen, skGen, m_AssetID, g.m_hGen);
+
+			Asset::Proof::ModifySk(skSign, skGen, m_Value);
+		}
+		else
+			txo.m_pAsset.reset();
 
 		get_Seed(cp.m_Seed.V, hvShared);
 
 		txo.Prepare(oracle);
-		txo.m_RangeProof.CoSign(cp.m_Seed.V, m_k, cp, oracle, ECC::RangeProof::Confidential::Phase::SinglePass);
+		txo.m_RangeProof.CoSign(cp.m_Seed.V, skSign, cp, oracle, ECC::RangeProof::Confidential::Phase::SinglePass, &g.m_hGen);
 	}
 
 	bool ShieldedTxo::Data::OutputParams::Recover(const ShieldedTxo& txo, const ECC::Hash::Value& hvShared, ECC::Oracle& oracle, const Viewer& v)
@@ -288,22 +345,36 @@ namespace beam
 		cp.m_pSk = &m_k;
 		cp.m_pExtra = pExtra;
 
-		uint8_t nFlags;
-		cp.m_Blob.p = &nFlags;
-		cp.m_Blob.n = sizeof(nFlags);
+		Packed p;
+		cp.m_Blob.p = &p;
+		cp.m_Blob.n = sizeof(p);
 
 		txo.Prepare(oracle);
 		if (!txo.m_RangeProof.Recover(oracle, cp))
 			return false;
 
 		m_Value = cp.m_Value;
+		p.m_Asset.Export(m_AssetID);
 
-		ECC::Point::Native pt = ECC::Commitment(m_k, m_Value);
+		CoinID::Generator g(m_AssetID);
+
+		if (m_AssetID)
+		{
+			ECC::Scalar::Native skGen;
+			get_skGen(skGen, hvShared, *v.m_pGen);
+
+			skGen = -skGen;
+			Asset::Proof::ModifySk(m_k, skGen, m_Value);
+		}
+
+		ECC::Point::Native pt = ECC::Context::get().G * m_k;
+		ECC::Tag::AddValue(pt, &g.m_hGen, m_Value);
 		if (!(pt == txo.m_Commitment))
 			return false;
 
-		Scalar2Msg(m_Sender, pExtra[0], 1 & nFlags);
-		Scalar2Msg(m_Message, pExtra[1], 2 & nFlags);
+
+		Scalar2Msg(m_Sender, pExtra[0], 1 & p.m_Flags);
+		Scalar2Msg(m_Message, pExtra[1], 2 & p.m_Flags);
 
 		return true;
 	}

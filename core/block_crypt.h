@@ -506,10 +506,13 @@ namespace beam
 
 		ECC::Point m_Commitment;
 		ECC::RangeProof::Confidential m_RangeProof;
+		std::unique_ptr<Asset::Proof> m_pAsset;
 		Serial m_Serial;
 
 		void Prepare(ECC::Oracle&) const;
 		bool IsValid(ECC::Oracle&, ECC::Point::Native& comm, ECC::Point::Native& ser) const;
+
+		void operator = (const ShieldedTxo&); // clone
 
 		struct PublicGen;
 		struct Viewer;

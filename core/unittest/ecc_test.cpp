@@ -2529,6 +2529,29 @@ void TestLelantusKeys()
 	oprs.m_Sender = 1U;
 	oprs.m_Value = 3002U;
 	oprs.m_Message = Scalar::s_Order;
+	oprs.m_AssetID = 18;
+	{
+		Oracle oracle;
+		oprs.Generate(txo, sprs.m_SharedSecret, oracle, gen);
+	}
+	{
+		Oracle oracle;
+		verify_test(txo.IsValid(oracle, pt, pt));
+	}
+	{
+		Oracle oracle;
+		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle, viewer));
+		verify_test(oprs.m_AssetID == oprs2.m_AssetID);
+		verify_test(oprs.m_Sender == oprs2.m_Sender);
+		verify_test(oprs.m_Message == oprs2.m_Message);
+	}
+
+	oprs.m_Sender.Negate(); // won't fit ECC::Scalar, special handling should be done
+	oprs.m_Message.Negate();
+	oprs.m_Message.Inc();
+	oprs.m_Message.Negate(); // should be 1 less than the order
+	oprs.m_AssetID = 0;
+
 	{
 		Oracle oracle;
 		oprs.Generate(txo, sprs.m_SharedSecret, oracle, gen);
@@ -2538,21 +2561,6 @@ void TestLelantusKeys()
 		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle, viewer));
 		verify_test(oprs.m_Sender == oprs2.m_Sender);
 		verify_test(oprs.m_Message == oprs2.m_Message);
-	}
-
-	oprs.m_Sender.Negate(); // won't fit ECC::Scalar, special handling should be done
-	oprs.m_Message.Negate();
-	oprs.m_Message.Inc();
-	oprs.m_Message.Negate(); // should be 1 less than the order
-
-	{
-		Oracle oracle;
-		oprs.Generate(txo, sprs.m_SharedSecret, oracle, gen);
-	}
-	{
-		Oracle oracle;
-		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle, viewer));
-		verify_test(oprs.m_Sender == oprs2.m_Sender);
 		verify_test(oprs.m_Message == oprs2.m_Message);
 	}
 
