@@ -2414,6 +2414,18 @@ void TestLelantus(bool bWithAsset)
 	pt += Context::get().J * ser;
 	pt.Export(lst.m_vec[p.m_Witness.V.m_L]);
 
+	if (bWithAsset)
+	{
+		// add blinding to the asset
+		Scalar::Native skGen = 77345U;
+		hGen = hGen + Context::get().G * skGen;
+
+		skGen *= p.m_Witness.V.m_V;
+
+		p.m_Witness.V.m_R_Adj = p.m_Witness.V.m_R_Output;
+		p.m_Witness.V.m_R_Adj += -skGen;
+	}
+
 	Oracle oracle;
 
 	uint32_t t = beam::GetTime_ms();

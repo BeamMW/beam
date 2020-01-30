@@ -766,7 +766,10 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Nati
 
 void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native* pHGen)
 {
-	Point::Native ptBias = Context::get().G * m_Witness.V.m_R_Output;
+	const Scalar::Native& sk = ECC::Tag::IsCustom(pHGen) ?
+		m_Witness.V.m_R_Adj :
+		m_Witness.V.m_R_Output;
+	Point::Native ptBias = Context::get().G * sk;
 	Tag::AddValue(ptBias, pHGen, m_Witness.V.m_V);
 	m_Proof.m_Commitment = ptBias;
 	m_Proof.m_SpendPk = Context::get().G * m_Witness.V.m_SpendSk;
@@ -778,7 +781,7 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native* 
 
 	Scalar::Native pSk[4], pRes[2];
 
-	pSk[0] = m_Witness.V.m_R_Output;
+	pSk[0] = sk;
 	pSk[1] = m_Witness.V.m_V;
 	pSk[2] = m_Witness.V.m_SpendSk;
 	assert(pSk[3] == Zero);

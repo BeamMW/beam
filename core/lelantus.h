@@ -189,7 +189,8 @@ namespace Lelantus
 			:public Sigma::Prover::Witness
 		{
 			Amount m_V;
-			ECC::Scalar::Native m_R_Output;
+			ECC::Scalar::Native m_R_Output; // 'true' blinding factor of the being-spent output
+			ECC::Scalar::Native m_R_Adj; // Assets: effective blinding factor (includes the blinding factor of the generator multiplied by value).
 			ECC::Scalar::Native m_SpendSk;
 		};
 		ECC::NoLeak<Witness> m_Witness;
