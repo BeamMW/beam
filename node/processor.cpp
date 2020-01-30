@@ -896,9 +896,19 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	vKs.resize(N);
 	memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * N);
 
+	ECC::Point::Native hGen;
+	if (krn.m_pAsset)
+	{
+		if (!krn.m_pAsset->IsValid())
+			return false;
+
+		if (!hGen.Import(krn.m_pAsset->m_hGen))
+			return false;
+	}
+
 	ECC::Oracle oracle;
 	oracle << krn.m_Msg;
-	if (!x.IsValid(bc, oracle, &vKs.front()))
+	if (!x.IsValid(bc, oracle, &vKs.front(), &hGen))
 		return false;
 
 	TxoID id1 = krn.m_WindowEnd;

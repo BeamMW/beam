@@ -748,6 +748,7 @@ namespace beam
 
 		TxoID m_WindowEnd; // ID of the 1st element outside the window
 		Lelantus::Proof m_SpendProof;
+		Asset::Proof::Ptr m_pAsset;
 
 		virtual ~TxKernelShieldedInput() {}
 		virtual Subtype::Enum get_Subtype() const override;

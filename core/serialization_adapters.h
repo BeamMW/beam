@@ -1431,6 +1431,7 @@ namespace detail
 		{
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
+				(val.m_pAsset ? 1 : 0) |
 				(val.m_CanEmbed ? 0x80 : 0);
 
 			ar
@@ -1440,6 +1441,9 @@ namespace detail
 
 			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
 			ImplTxKernel::save_Nested(ar, val);
+
+			if (val.m_pAsset)
+				savePtr(ar, val.m_pAsset);
 
 			return ar;
 		}
@@ -1458,6 +1462,9 @@ namespace detail
 
 			if (0x80 & nFlags)
 				val.m_CanEmbed = true;
+
+			if (1 & nFlags)
+				loadPtr(ar, val.m_pAsset);
 		}
 
         /// beam::Transaction serialization

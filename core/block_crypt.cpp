@@ -1121,6 +1121,11 @@ namespace beam
 		v.CopyFrom(*this);
 		v.m_WindowEnd = m_WindowEnd;
 		v.m_SpendProof = m_SpendProof;
+
+		if (m_pAsset)
+			m_pAsset->Clone(v.m_pAsset);
+		else
+			v.m_pAsset.reset();
 	}
 
 	void TxKernelShieldedInput::AddStats(TxStats& s) const
