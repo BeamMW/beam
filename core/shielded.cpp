@@ -358,7 +358,7 @@ namespace beam
 
 		CoinID::Generator g(m_AssetID);
 
-		if (m_AssetID)
+		if (txo.m_pAsset)
 		{
 			ECC::Scalar::Native skGen;
 			get_skGen(skGen, hvShared, *v.m_pGen);
