@@ -2458,4 +2458,10 @@ namespace beam
 		return bc.Flush();
 	}
 
+	void Asset::Proof::Clone(Ptr& p) const
+	{
+		p = std::make_unique<Proof>();
+		*p = *this;
+	}
+
 } // namespace beam

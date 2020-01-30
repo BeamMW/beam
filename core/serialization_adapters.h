@@ -148,6 +148,20 @@ namespace detail
     template<std::size_t F, typename T>
     struct serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, T>
     {
+		template< typename Archive, typename T>
+		static void savePtr(Archive& ar, const std::unique_ptr<T>& pPtr)
+		{
+			save(ar, *pPtr);
+		}
+
+		template< typename Archive, typename T>
+		static void loadPtr(Archive& ar, std::unique_ptr<T>& pPtr)
+		{
+			pPtr = std::make_unique<T>();
+			ar & *pPtr;
+		}
+
+
 
         ///////////////////////////////////////////////////////////
         /// ECC serialization adapters
@@ -863,7 +877,7 @@ namespace detail
 				& val.m_Serial.m_Signature.m_pK[1];
 
 			if (val.m_pAsset)
-				ar & *val.m_pAsset;
+				savePtr(ar, val.m_pAsset);
 
             return ar;
         }
@@ -886,10 +900,7 @@ namespace detail
 			val.m_Serial.m_Signature.m_NoncePub.m_Y = ((4 & nFlags) != 0);
 
 			if (8 & nFlags)
-			{
-				val.m_pAsset = std::make_unique<beam::Asset::Proof>();
-				ar & *val.m_pAsset;
-			}
+				loadPtr(ar, val.m_pAsset);
 
 			return ar;
 		}
@@ -945,7 +956,7 @@ namespace detail
 				ar & output.m_Incubation;
 
 			if ((0x20 & nFlags) && !output.m_RecoveryOnly)
-				ar & *output.m_pAsset;
+				savePtr(ar, output.m_pAsset);
 
             return ar;
         }
@@ -978,11 +989,7 @@ namespace detail
 				ar & output.m_Incubation;
 
 			if ((0x20 & nFlags) && !output.m_RecoveryOnly)
-			{
-				output.m_pAsset = std::make_unique<beam::Asset::Proof>();
-				ar & *output.m_pAsset;
-
-			}
+				loadPtr(ar, output.m_pAsset);
 
 			if (0x80 & nFlags)
 			{
@@ -1242,7 +1249,7 @@ namespace detail
 			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
 
 			if (0x20 & nFlags)
-				ar & *val.m_pHashLock;
+				savePtr(ar, val.m_pHashLock);
 
 			ImplTxKernel::save_Nested(ar, val);
 
@@ -1251,7 +1258,7 @@ namespace detail
 				ar & nFlags2;
 
 				if (2 & nFlags2)
-					ar & *val.m_pRelativeLock;
+					savePtr(ar, val.m_pRelativeLock);
 			}
             return ar;
         }
@@ -1272,10 +1279,7 @@ namespace detail
 			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
 
 			if (0x20 & nFlags)
-			{
-				val.m_pHashLock.reset(new beam::TxKernelStd::HashLock);
-				ar & *val.m_pHashLock;
-			}
+				loadPtr(ar, val.m_pHashLock);
 
 			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
 
@@ -1285,10 +1289,7 @@ namespace detail
 				ar & nFlags2;
 
 				if (2 & nFlags2)
-				{
-					val.m_pRelativeLock.reset(new beam::TxKernelStd::RelativeLock);
-					ar & *val.m_pRelativeLock;
-				}
+					loadPtr(ar, val.m_pRelativeLock);
 
 				if (4 & nFlags2)
 					val.m_CanEmbed = true;
@@ -1485,7 +1486,7 @@ namespace detail
 			ar & beam::uintBigFrom(nSize);
 
 			for (uint32_t i = 0; i < nSize; i++)
-				ar & *v[i];
+				savePtr(ar, v[i]);
 		}
 
 		template <typename Archive, typename TPtr>
@@ -1500,10 +1501,7 @@ namespace detail
 			v.resize(nSize);
 
 			for (size_t i = 0; i < v.size(); i++)
-			{
-				v[i].reset(new typename TPtr::element_type);
-				ar & *v[i];
-			}
+				loadPtr(ar, v[i]);
 		}
 
         template<typename Archive>

@@ -133,6 +133,8 @@ namespace beam
 		struct Proof
 			:public Sigma::Proof
 		{
+			typedef std::unique_ptr<Proof> Ptr;
+
 			Asset::ID m_Begin; // 1st element
 			ECC::Point m_hGen;
 
@@ -150,6 +152,8 @@ namespace beam
 				Asset::ID m_Begin;
 				virtual bool get_At(ECC::Point::Storage&, uint32_t iIdx) override;
 			};
+
+			void Clone(Ptr&) const;
 
 		private:
 			uint32_t SetBegin(Asset::ID, const ECC::Scalar::Native& skGen);
@@ -445,7 +449,7 @@ namespace beam
 		// one of the following *must* be specified
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
-		std::unique_ptr<Asset::Proof>					m_pAsset;
+		Asset::Proof::Ptr								m_pAsset;
 
 		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, bool bPublic = false);
 
@@ -506,7 +510,7 @@ namespace beam
 
 		ECC::Point m_Commitment;
 		ECC::RangeProof::Confidential m_RangeProof;
-		std::unique_ptr<Asset::Proof> m_pAsset;
+		Asset::Proof::Ptr m_pAsset;
 		Serial m_Serial;
 
 		void Prepare(ECC::Oracle&) const;
