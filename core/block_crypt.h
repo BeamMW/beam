@@ -138,8 +138,8 @@ namespace beam
 
 			bool IsValid() const; // for testing only, in real-world cases batch verification should be used!
 			bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const;
-			void Create(Asset::ID, const ECC::Scalar::Native& skGen, const ECC::Point::Native& gen);
-			void Create(Asset::ID, const ECC::Scalar::Native& skGen);
+			void Create(ECC::Point::Native& genBlinded, Asset::ID, const ECC::Scalar::Native& skGen, const ECC::Point::Native& gen);
+			void Create(ECC::Point::Native& genBlinded, Asset::ID, const ECC::Scalar::Native& skGen);
 
 			struct CmList
 				:public Sigma::CmList

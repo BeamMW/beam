@@ -2311,7 +2311,7 @@ namespace beam
 		return true;
 	}
 
-	void Asset::Proof::Create(Asset::ID aid, const ECC::Scalar::Native& skGen)
+	void Asset::Proof::Create(ECC::Point::Native& genBlinded, Asset::ID aid, const ECC::Scalar::Native& skGen)
 	{
 		ECC::Point::Native gen;
 		if (aid)
@@ -2319,14 +2319,14 @@ namespace beam
 		else
 			get_H().Assign(gen, true);
 
-		Create(aid, skGen, gen);
+		Create(genBlinded, aid, skGen, gen);
 	}
 
-	void Asset::Proof::Create(Asset::ID aid, const ECC::Scalar::Native& skGen, const ECC::Point::Native& gen)
+	void Asset::Proof::Create(ECC::Point::Native& genBlinded, Asset::ID aid, const ECC::Scalar::Native& skGen, const ECC::Point::Native& gen)
 	{
-		ECC::Point::Native pt = ECC::Context::get().G * skGen;
-		pt = pt + gen;
-		m_hGen = pt;
+		genBlinded = gen;
+		genBlinded += ECC::Context::get().G * skGen;
+		m_hGen = genBlinded;
 
 		uint32_t nPos = SetBegin(aid, skGen);
 
@@ -2344,7 +2344,7 @@ namespace beam
 			>> hvSeed;
 
 		ECC::Oracle oracle;
-		prover.Generate(hvSeed, oracle, pt);
+		prover.Generate(hvSeed, oracle, genBlinded);
 	}
 
 	uint32_t Asset::Proof::SetBegin(Asset::ID aid, const ECC::Scalar::Native& skGen)
