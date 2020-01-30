@@ -1855,11 +1855,20 @@ namespace beam
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
 				p.m_Witness.V.m_V = m_Shielded.m_Params.m_Output.m_Value;
 
+				ECC::Point::Native hGen;
+
+				{
+					// not necessary for beams, just a demonstration of assets support
+					pKrn->m_pAsset = std::make_unique<Asset::Proof>();
+					p.m_Witness.V.m_R_Adj = p.m_Witness.V.m_R_Output;
+					pKrn->m_pAsset->Create(hGen, p.m_Witness.V.m_R_Adj, m_Shielded.m_Params.m_Output.m_Value, 0, hGen);
+				}
+
 				pKrn->UpdateMsg();
 
 				ECC::Oracle o1;
 				o1 << pKrn->m_Msg;
-				p.Generate(Zero, o1);
+				p.Generate(Zero, o1, &hGen);
 
 				pKrn->MsgToID();
 
