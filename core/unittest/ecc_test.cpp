@@ -1012,6 +1012,10 @@ void TestRangeProof(bool bCustomTag)
 
 		outp.m_RecoveryOnly = true;
 		WriteSizeSerialized("Out-UTXO-Confidential-RecoveryOnly", outp);
+
+		CoinID cid2;
+		verify_test(outp.Recover(g_hFork, kdf, cid2));
+		verify_test(cid == cid2);
 	}
 
 	WriteSizeSerialized("In-Utxo", beam::Input());
@@ -2547,14 +2551,16 @@ void TestAssetProof()
 	ECC::Scalar::Native skGen;
 	SetRandom(skGen);
 
+	Point::Native genBlinded;
+
 	beam::Asset::Proof proof;
-	proof.Create(100500, skGen);
+	proof.Create(genBlinded, 100500, skGen);
 	verify_test(proof.IsValid());
 
-	proof.Create(1, skGen);
+	proof.Create(genBlinded, 1, skGen);
 	verify_test(proof.IsValid());
 
-	proof.Create(0, skGen);
+	proof.Create(genBlinded, 0, skGen);
 	verify_test(proof.IsValid());
 }
 
