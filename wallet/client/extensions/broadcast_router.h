@@ -53,7 +53,7 @@ namespace beam
         static constexpr uint8_t m_protocol_version_0 = 0;
         static constexpr uint8_t m_protocol_version_1 = 0;
         static constexpr uint8_t m_protocol_version_2 = 1;
-        static constexpr size_t m_maxMessageTypes = 2;
+        static constexpr size_t m_maxMessageTypes = 3;
         static constexpr size_t m_defaultMessageSize = 200; // TODO: experimentally check
 
         /// replace with usual array

@@ -18,8 +18,8 @@
 #include "swap_offers_observer.h"
 #include "offers_protocol_handler.h"
 
+#include "wallet/client/extensions/broadcast_router.h"
 #include "wallet/core/wallet.h"
-#include "utility/logger.h"
 #include "utility/std_extension.h"
 
 #include <unordered_map>
@@ -32,21 +32,19 @@ namespace beam::wallet
      *  Implementation of public swap offers bulletin board using not crypted BBS broadcasting.
      */
     class SwapOffersBoard
-        : public FlyClient::IBbsReceiver,
+        : public IBroadcastListener,
           public IWalletDbObserver
     {
     public:
         using Ptr = std::shared_ptr<SwapOffersBoard>;
 
-        SwapOffersBoard(FlyClient::INetwork&,
-                        IWalletMessageEndpoint&,
-                        OfferBoardProtocolHandler&);
+        SwapOffersBoard(BroadcastRouter&, IWalletMessageEndpoint&, OfferBoardProtocolHandler&);
 
         /**
-         *  FlyClient::IBbsReceiver implementation
-         *  Executed to catch BBS messages received on subscribed channels
+         *  IBroadcastListener implementation
+         *  Processes broadcast messages
          */
-        virtual void OnMsg(proto::BbsMsg&& msg) override;
+        virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
         /**
          *  IWalletDbObserver implementation
          *  Watches for swap transaction status changes to update linked offers on board
@@ -64,8 +62,8 @@ namespace beam::wallet
         void Unsubscribe(ISwapOffersObserver* observer);
 
     private:
-		FlyClient::INetwork& m_network;                     /// source of incoming BBS messages
-        IWalletMessageEndpoint& m_messageEndpoint;          /// destination of outgoing BBS messages
+		BroadcastRouter& m_broadcastRouter;                 /// source of incoming messages
+        IWalletMessageEndpoint& m_messageEndpoint;          /// destination of outgoing messages
         OfferBoardProtocolHandler& m_protocolHandler;       /// handles message creating and parsing
 
         static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;

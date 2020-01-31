@@ -18,7 +18,7 @@
 #include "news_observer.h"
 #include "newscast_protocol_parser.h"
 
-#include "wallet/core/wallet.h"
+#include "wallet/client/extensions/broadcast_router.h"
 
 using namespace beam::proto;
 
@@ -28,30 +28,27 @@ namespace beam::wallet
      *  Implementation of public news channels reader via bulletin board system (BBS).
      */
     class Newscast
-        : public FlyClient::IBbsReceiver
+        : public IBroadcastListener
     {
     public:
-        Newscast(FlyClient::INetwork& network, NewscastProtocolParser& parser);
+        Newscast(BroadcastRouter&, NewscastProtocolParser&);
 
         /**
-         *  FlyClient::IBbsReceiver implementation
-         *  Executed to process BBS messages received on subscribed channels
+         *  IBroadcastListener implementation
+         *  Processes broadcast messages
          */
-        virtual void OnMsg(proto::BbsMsg&& msg) override;
+        virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
         
         // INewsObserver interface
         void Subscribe(INewsObserver* observer);
         void Unsubscribe(INewsObserver* observer);
 
         static constexpr BbsChannel BbsChannelsOffset = Bbs::s_MaxWalletChannels + 1024u;
-
+        
     private:
-		FlyClient::INetwork& m_network;                     /// source of incoming BBS messages
+		BroadcastRouter& m_broadcastRouter;                 /// source of incoming messages
         NewscastProtocolParser& m_parser;                   /// news protocol parser
         std::vector<INewsObserver*> m_subscribers;          /// fresh news subscribers
-
-        static const std::set<BbsChannel> m_channels;
-        Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
 
         void notifySubscribers(NewsMessage msg) const;
     };

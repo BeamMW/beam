@@ -334,8 +334,9 @@ namespace
         cout << endl << "Test Newscast observers" << endl;
 
         MockBbsNetwork network;
+        BroadcastRouter broadcastRouter(network);
         NewscastProtocolParser parser;
-        Newscast newsEndpoint(network, parser);
+        Newscast newsEndpoint(broadcastRouter, parser);
         auto senderWalletDB = createSenderWalletDB();
         
         int notificationCount = 0;

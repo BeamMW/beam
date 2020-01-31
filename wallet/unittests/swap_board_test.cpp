@@ -45,6 +45,7 @@ namespace
 {
     using PrivateKey = ECC::Scalar::Native;
     using PublicKey = PeerID;
+
     /**
      *  Class to test correct notification of SwapOffersBoard observers
      */
@@ -61,6 +62,21 @@ namespace
         }
 
         CheckerFunction m_testChecker;
+    };
+
+    struct MockBroadcastListener : public IBroadcastListener
+    {
+        using OnMessage = function<void(ByteBuffer&)>;
+
+        MockBroadcastListener(OnMessage func) : m_callback(func) {};
+
+        virtual bool onMessage(uint64_t unused, ByteBuffer&& msg) override
+        {
+            m_callback(msg);
+            return true;
+        };
+
+        OnMessage m_callback;
     };
 
     // Generate random TxID
@@ -171,80 +187,117 @@ namespace
         return fullMsg;
     }
 
-    void TestProtocolHandlerParsing()
+    void TestProtocolHandling()
     {
         cout << endl << "Test protocol handler parser stress" << endl;
 
         auto senderWalletDB = createSenderWalletDB();
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        OfferBoardProtocolHandler handler(keyKeeper->get_SbbsKdf(), senderWalletDB);
+        
+        MockBbsNetwork mockNetwork;
+        BroadcastRouter broadcastRouter(mockNetwork);
 
+        uint32_t correctMessagesCount = 0;
+        MockBroadcastListener testListener(
+            [&correctMessagesCount]
+            (ByteBuffer& msg)
+            {
+                ++correctMessagesCount;
+            });
+
+        broadcastRouter.registerListener(BroadcastRouter::ContentType::SwapOffers, &testListener);
+
+        WalletID dummyWid;
+        dummyWid.m_Channel = proto::Bbs::s_MaxWalletChannels;
         {
             cout << "Case: empty message" << endl;
             boost::optional<SwapOffer> res;
             ByteBuffer emptyBuf;
-            WALLET_CHECK_NO_THROW(res = handler.parseMessage(emptyBuf));
-            WALLET_CHECK(!res);
+
+            WALLET_CHECK_NO_THROW(
+                mockNetwork.SendRawMessage(dummyWid, emptyBuf)
+            );
+            WALLET_CHECK(correctMessagesCount == 0);
         }
         {
             cout << "Case: message header too short" << endl;
             boost::optional<SwapOffer> res;
             ByteBuffer data(beam::MsgHeader::SIZE - 2, 't');
-            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res);
+
+            WALLET_CHECK_NO_THROW(
+                mockNetwork.SendRawMessage(dummyWid, data)
+            );
+            WALLET_CHECK(correctMessagesCount == 0);
         }
         {
             cout << "Case: message contain only header" << endl;
-            ByteBuffer data;
-            data.reserve(MsgHeader::SIZE);
-            MsgHeader header(0,0,1,0,0);            
+            ByteBuffer data(MsgHeader::SIZE, 0);
+            MsgHeader header(0,0,1,0,0);
             header.write(data.data());
-            boost::optional<SwapOffer> res;
-            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res);
+                        
+            WALLET_CHECK_NO_THROW(
+                mockNetwork.SendRawMessage(dummyWid, data)
+            );
+            WALLET_CHECK(correctMessagesCount == 0);
         }
         {
             cout << "Case: unsupported version" << endl;
-            ByteBuffer data;
-            data.reserve(MsgHeader::SIZE);
+            ByteBuffer data(MsgHeader::SIZE, 0);
             MsgHeader header(1,2,3,0,0);
             header.write(data.data());
-            boost::optional<SwapOffer> res;
-            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res);
+            
+            WALLET_CHECK_NO_THROW(
+                mockNetwork.SendRawMessage(dummyWid, data)
+            );
+            WALLET_CHECK(correctMessagesCount == 0);
         }
         {
             cout << "Case: wrong length" << endl;
-            ByteBuffer data;
-            data.reserve(MsgHeader::SIZE);
+            ByteBuffer data(MsgHeader::SIZE, 0);
             MsgHeader header(0,0,1,0,5);
             header.write(data.data());
-            boost::optional<SwapOffer> res;
-            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res);
+            
+            WALLET_CHECK_NO_THROW(
+                mockNetwork.SendRawMessage(dummyWid, data)
+            );
+            WALLET_CHECK(correctMessagesCount == 0);
         }
         {
             cout << "Case: wrong message type" << endl;
-            ByteBuffer data;
-            data.reserve(MsgHeader::SIZE);
+            ByteBuffer data(MsgHeader::SIZE, 0);
             MsgHeader header(0,0,1,123,0);
             header.write(data.data());
-            boost::optional<SwapOffer> res;
-            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res);
+            
+            WALLET_CHECK_NO_THROW(
+                mockNetwork.SendRawMessage(dummyWid, data)
+            );
+            WALLET_CHECK(correctMessagesCount == 0);
         }
         {
             cout << "Case: wrong body length" << endl;
-            ByteBuffer data;
             uint32_t bodyLength = 6;
-            data.reserve(MsgHeader::SIZE + bodyLength);
+            ByteBuffer data(MsgHeader::SIZE + bodyLength, 0);
             MsgHeader header(0,0,1,0,bodyLength);
             header.write(data.data());
-            boost::optional<SwapOffer> res;
-            WALLET_CHECK_NO_THROW(res = handler.parseMessage(data));
-            WALLET_CHECK(!res);
+            
+            WALLET_CHECK_NO_THROW(
+                mockNetwork.SendRawMessage(dummyWid, data)
+            );
+            WALLET_CHECK(correctMessagesCount == 0);
         }
+        {
+            cout << "Case: correct message" << endl;
+            ByteBuffer data = makeMsg({1,2,3}, {4,5,6});
+
+            // TODO: fix problem with object deserialization in Router
+
+            WALLET_CHECK_NO_THROW(
+                mockNetwork.SendRawMessage(dummyWid, data)
+            );
+            WALLET_CHECK(correctMessagesCount == 1);
+        }
+        broadcastRouter.unregisterListener(BroadcastRouter::ContentType::SwapOffers);
 
         cout << "Test end" << endl;
     }
@@ -256,6 +309,7 @@ namespace
         auto senderWalletDB = createSenderWalletDB();
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+
         OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
 
         {
@@ -332,8 +386,9 @@ namespace
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         MockBbsNetwork mockNetwork;
+        BroadcastRouter broadcastRouter(mockNetwork);
         OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
-        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
+        SwapOffersBoard Alice(broadcastRouter, mockNetwork, protocolHandler);
 
         WALLET_CHECK(Alice.getOffersList().size() == 0);
 
@@ -401,11 +456,12 @@ namespace
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         MockBbsNetwork mockNetwork;
+        BroadcastRouter broadcastRouter(mockNetwork);
         OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
 
-        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
-        SwapOffersBoard Bob(mockNetwork, mockNetwork, protocolHandler);
-        SwapOffersBoard Cory(mockNetwork, mockNetwork, protocolHandler);
+        SwapOffersBoard Alice(broadcastRouter, mockNetwork, protocolHandler);
+        SwapOffersBoard Bob(broadcastRouter, mockNetwork, protocolHandler);
+        SwapOffersBoard Cory(broadcastRouter, mockNetwork, protocolHandler);
 
         WALLET_CHECK(Alice.getOffersList().size() == 0);
         WALLET_CHECK(Bob.getOffersList().size() == 0);
@@ -551,10 +607,11 @@ namespace
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         MockBbsNetwork mockNetwork;
+        BroadcastRouter broadcastRouter(mockNetwork);
         OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
 
-        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
-        SwapOffersBoard Bob(mockNetwork, mockNetwork, protocolHandler);
+        SwapOffersBoard Alice(broadcastRouter, mockNetwork, protocolHandler);
+        SwapOffersBoard Bob(broadcastRouter, mockNetwork, protocolHandler);
 
         SwapOffer correctOffer;
         std::tie(correctOffer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);
@@ -689,10 +746,11 @@ namespace
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         MockBbsNetwork mockNetwork;
+        BroadcastRouter broadcastRouter(mockNetwork);
         OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
 
-        SwapOffersBoard Alice(mockNetwork, mockNetwork, protocolHandler);
-        SwapOffersBoard Bob(mockNetwork, mockNetwork, protocolHandler);
+        SwapOffersBoard Alice(broadcastRouter, mockNetwork, protocolHandler);
+        SwapOffersBoard Bob(broadcastRouter, mockNetwork, protocolHandler);
 
         SwapOffer correctOffer;
         std::tie(correctOffer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);
@@ -749,8 +807,10 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    TestProtocolHandlerParsing();
-    TestProtocolHandlerSignature();
+    // TODO refact tests with protocol
+    TestProtocolHandling();
+    // TestProtocolHandlerSignature();
+
     TestMandatoryParameters();
     TestCommunication();
     TestLinkedTransactionChanges();

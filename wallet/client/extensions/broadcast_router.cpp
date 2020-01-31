@@ -33,7 +33,7 @@ const std::map<BroadcastRouter::ContentType, MsgType> BroadcastRouter::m_message
 {
     { BroadcastRouter::ContentType::SwapOffers, MsgType(0) },
     { BroadcastRouter::ContentType::SoftwareUpdates, MsgType(1) },
-    { BroadcastRouter::ContentType::ExchangeRates, MsgType(1) }
+    { BroadcastRouter::ContentType::ExchangeRates, MsgType(2) }
 };
 
 std::vector<BbsChannel> BroadcastRouter::getBbsChannels(ContentType type)
@@ -59,7 +59,7 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork)
                  m_protocol_version_2,
                  m_maxMessageTypes,
                  *this,
-                 0)     // TODO: serializer is not used
+                 MsgHeader::SIZE+1)   // TODO: serializer is not used
     , m_msgReader(m_protocol,
                   0,    // uint64_t streamId
                   m_defaultMessageSize)
@@ -75,7 +75,7 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork)
 void BroadcastRouter::registerListener(ContentType type, IBroadcastListener* listener)
 {
     auto it = m_listeners.find(type);
-    assert(it != std::cend(m_listeners));
+    assert(it == std::cend(m_listeners));
 
     auto msgType = getMsgType(type);
 
@@ -96,7 +96,7 @@ void BroadcastRouter::registerListener(ContentType type, IBroadcastListener* lis
 void BroadcastRouter::unregisterListener(ContentType type)
 {
     auto it = m_listeners.find(type);
-    assert(it == std::cend(m_listeners));
+    assert(it != std::cend(m_listeners));
 
     m_msgReader.disable_msg_type(getMsgType(type));
     m_listeners.erase(it);
@@ -111,6 +111,7 @@ void BroadcastRouter::OnMsg(proto::BbsMsg&& bbsMsg)
     const void * data = bbsMsg.m_Message.data();
     size_t size = bbsMsg.m_Message.size();
 
+    m_msgReader.reset();    // Here MsgReader used in stateless mode. State from previous message can cause error.
     m_msgReader.new_data_from_stream(io::EC_OK, data, size);
 }
 

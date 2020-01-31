@@ -23,6 +23,7 @@
 #include "wallet_model_async.h"
 #include "wallet/client/changes_collector.h"
 #include "wallet/client/extensions/offers_board/swap_offers_observer.h"
+#include "wallet/client/extensions/broadcast_router.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif
@@ -179,10 +180,11 @@ namespace beam::wallet
         std::weak_ptr<NodeNetwork> m_nodeNetwork;
         std::weak_ptr<IWalletMessageEndpoint> m_walletNetwork;
         std::weak_ptr<Wallet> m_wallet;
+        std::weak_ptr<BroadcastRouter> m_broadcastRouter;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
 #endif
-        std::weak_ptr<proto::FlyClient::IBbsReceiver> m_newscast;
+        std::weak_ptr<IBroadcastListener> m_newscast;
         std::weak_ptr<NewscastProtocolParser> m_newscastParser;
 
         uint32_t m_connectedNodesCount;

@@ -38,9 +38,6 @@ namespace beam::wallet
         static boost::optional<PublicKey> stringToPublicKey(const std::string& keyHexString);
 
     private:
-        static constexpr uint8_t MsgType = 1;
-        static constexpr uint8_t m_protocolVersion = 1;
-        
         std::vector<PeerID> m_publisherKeys;       /// publisher keys to validate messages
     };
 

@@ -298,10 +298,13 @@ namespace beam::wallet
 
                     auto wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
+                    auto bbsRouter = make_shared<BroadcastRouter>(*nodeNetwork);
+                    m_broadcastRouter = bbsRouter;
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
                     OfferBoardProtocolHandler protocolHandler(m_keyKeeper->get_SbbsKdf(), m_walletDB);
 
-                    auto offersBulletinBoard = make_shared<SwapOffersBoard>(*nodeNetwork, *walletNetwork, protocolHandler);
+                    auto offersBulletinBoard = make_shared<SwapOffersBoard>(*bbsRouter, *walletNetwork, protocolHandler);
                     m_offersBulletinBoard = offersBulletinBoard;
 
                     using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
@@ -317,7 +320,7 @@ namespace beam::wallet
                         newscastParser->setPublisherKeys( { *key } );
                     }
                     m_newscastParser = newscastParser;
-                    auto newscast = make_shared<Newscast>(*nodeNetwork, *newscastParser);
+                    auto newscast = make_shared<Newscast>(*bbsRouter, *newscastParser);
                     m_newscast = newscast;
                     using NewsSubscriber = ScopedSubscriber<INewsObserver, Newscast>;
                     auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(this), newscast);

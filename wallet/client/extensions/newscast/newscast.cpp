@@ -17,35 +17,30 @@
 
 namespace beam::wallet
 {
-    Newscast::Newscast(FlyClient::INetwork& network, NewscastProtocolParser& parser)
-        : m_network(network),
+    Newscast::Newscast(BroadcastRouter& broadcastRouter, NewscastProtocolParser& parser)
+        : m_broadcastRouter(broadcastRouter),
           m_parser(parser)
     {
-        for (auto channel : m_channels)
-        {
-            m_network.BbsSubscribe(channel, m_lastTimestamp, this);
-        }
+        m_broadcastRouter.registerListener(BroadcastRouter::ContentType::ExchangeRates, this);
+        m_broadcastRouter.registerListener(BroadcastRouter::ContentType::SoftwareUpdates, this);
     }
 
-    const std::set<BbsChannel> Newscast::m_channels =
-    {
-        BbsChannelsOffset,
-    };
-
-    void Newscast::OnMsg(proto::BbsMsg &&msg)
+    bool Newscast::onMessage(uint64_t unused, ByteBuffer&& msg)
     {
         try
         {
-            auto news = m_parser.parseMessage(msg.m_Message);
+            auto news = m_parser.parseMessage(msg);
 
             if (news)
             {
                 notifySubscribers(*news);
             }
+            return true;
         }
         catch(...)
         {
             LOG_WARNING() << "news message processing exception";
+            return false;
         }
     }
 

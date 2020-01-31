@@ -14,28 +14,24 @@
 
 #include "swap_offers_board.h"
 
-#include "p2p/protocol_base.h"
+#include "utility/logger.h"
 
 namespace beam::wallet
 {
     /**
-     *  @network            incoming bbs source
-     *  @messageEndpoint    outgoing bbs destination
+     *  @broadcastRouter    incoming messages source
+     *  @messageEndpoint    outgoing messages destination
      *  @protocolHandler    offer board protocol handler
      */
-    SwapOffersBoard::SwapOffersBoard(FlyClient::INetwork& network,
+    SwapOffersBoard::SwapOffersBoard(BroadcastRouter& broadcastRouter,
                                      IWalletMessageEndpoint& messageEndpoint,
                                      OfferBoardProtocolHandler& protocolHandler)
-        :   m_network(network),
+        :   m_broadcastRouter(broadcastRouter),
             m_messageEndpoint(messageEndpoint),
             m_protocolHandler(protocolHandler)
     {
-        for (auto channel : m_channelsMap)
-        {
-            m_network.BbsSubscribe(channel.second, m_lastTimestamp, this);
-        }
+        m_broadcastRouter.registerListener(BroadcastRouter::ContentType::SwapOffers, this);
     }
-
     const std::map<AtomicSwapCoin, BbsChannel> SwapOffersBoard::m_channelsMap =
     {
         {AtomicSwapCoin::Bitcoin, proto::Bbs::s_MaxWalletChannels},
@@ -43,15 +39,15 @@ namespace beam::wallet
         {AtomicSwapCoin::Qtum, proto::Bbs::s_MaxWalletChannels + 2}
     };
 
-    void SwapOffersBoard::OnMsg(proto::BbsMsg &&msg)
+    bool SwapOffersBoard::onMessage(uint64_t unused, ByteBuffer&& msg)
     {
-        auto newOffer = m_protocolHandler.parseMessage(msg.m_Message);
-        if (!newOffer) return;
+        auto newOffer = m_protocolHandler.parseMessage(msg);
+        if (!newOffer) return false;
 
         if (newOffer->m_coin >= AtomicSwapCoin::Unknown || newOffer->m_status > SwapOfferStatus::Failed)
         {
             LOG_WARNING() << "offer board message is invalid";
-            return;
+            return false;
         }
 
         auto it = m_offersCache.find(newOffer->m_txId);
@@ -100,6 +96,7 @@ namespace beam::wallet
                 }
             }
         }
+        return true;
     }
 
     /**

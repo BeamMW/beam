@@ -64,28 +64,14 @@ namespace beam::wallet
     };
 
     boost::optional<SwapOffer> OfferBoardProtocolHandler::parseMessage(const ByteBuffer& msg) const
-    {
-        if (msg.empty() || msg.size() < MsgHeader::SIZE)
-            return boost::none;
-
+    {        
         SwapOfferToken token;
         SwapOfferConfirmation confirmation;
 
         try
         {
-            MsgHeader header(msg.data());
-            if (header.V0 != 0 ||
-                header.V1 != 0 ||
-                header.V2 != m_protocolVersion ||
-                header.type != m_msgType)
-            {
-                LOG_WARNING() << "offer board message version unsupported";
-                return boost::none;
-            }
-
-            // message body
             Deserializer d;
-            d.reset(msg.data() + header.SIZE, header.size);
+            d.reset(msg.data(), msg.size());
             d & token;
             d & confirmation.m_Signature;
         }

@@ -45,25 +45,12 @@ namespace beam::wallet
 
     boost::optional<NewsMessage> NewscastProtocolParser::parseMessage(const ByteBuffer& msg) const
     {
-        if (msg.empty() || msg.size() < MsgHeader::SIZE) return boost::none;
-        
         NewsMessage freshNews;
         SignatureHandler signValidator;
         try
         {
-            MsgHeader header(msg.data());
-            if (header.V0 != 0 ||
-                header.V1 != 0 ||
-                header.V2 != m_protocolVersion ||
-                header.type != MsgType)
-            {
-                LOG_WARNING() << "news message version unsupported";
-                return boost::none;
-            }
-
-            // message body
             Deserializer d;
-            d.reset(msg.data() + header.SIZE, header.size);
+            d.reset(msg.data(), msg.size());
             d & freshNews;
             d & signValidator.m_Signature;
         }
