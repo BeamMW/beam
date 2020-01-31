@@ -721,7 +721,7 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 	}
 }
 
-struct NodeProcessor::MultiShieldedContext
+struct NodeProcessor::MultiSigmaContext
 {
 	static const uint32_t s_Chunk = 0x400;
 
@@ -749,38 +749,37 @@ struct NodeProcessor::MultiShieldedContext
 	void Add(TxoID id0, uint32_t nCount, const ECC::Scalar::Native*);
 	void ClearLocked();
 
-	~MultiShieldedContext()
+	~MultiSigmaContext()
 	{
 		ClearLocked();
 	}
 
 	void Calculate(ECC::Point::Native&, NodeProcessor&);
-	bool IsValid(const TxVectors::Eternal&, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal);
 
 private:
 
 	struct MyTask;
 
 	void DeleteRaw(Node&);
-	Lelantus::CmListVec m_Lst;
 	std::vector<ECC::Point::Native> m_vRes;
 
-	bool IsValid(const TxKernelShieldedInput&, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
+	virtual Sigma::CmList& get_List() = 0;
+	virtual void PrepareList(NodeProcessor&, const Node&) = 0;
 };
 
-void NodeProcessor::MultiShieldedContext::ClearLocked()
+void NodeProcessor::MultiSigmaContext::ClearLocked()
 {
 	while (!m_Set.empty())
 		DeleteRaw(m_Set.begin()->get_ParentObj());
 }
 
-void NodeProcessor::MultiShieldedContext::DeleteRaw(Node& n)
+void NodeProcessor::MultiSigmaContext::DeleteRaw(Node& n)
 {
 	m_Set.erase(Node::IDSet::s_iterator_to(n.m_ID));
 	delete &n;
 }
 
-void NodeProcessor::MultiShieldedContext::Add(TxoID id0, uint32_t nCount, const ECC::Scalar::Native* pS)
+void NodeProcessor::MultiSigmaContext::Add(TxoID id0, uint32_t nCount, const ECC::Scalar::Native* pS)
 {
 	uint32_t nOffset = static_cast<uint32_t>(id0 % s_Chunk);
 
@@ -826,10 +825,10 @@ void NodeProcessor::MultiShieldedContext::Add(TxoID id0, uint32_t nCount, const 
 	}
 }
 
-struct NodeProcessor::MultiShieldedContext::MyTask
+struct NodeProcessor::MultiSigmaContext::MyTask
 	:public NodeProcessor::Task
 {
-	MultiShieldedContext* m_pThis;
+	MultiSigmaContext* m_pThis;
 	const ECC::Scalar::Native* m_pS;
 	uint32_t m_iIdx;
 	uint32_t m_i0;
@@ -842,11 +841,11 @@ struct NodeProcessor::MultiShieldedContext::MyTask
 		ECC::Point::Native& val = m_pThis->m_vRes[m_iIdx];
 		val = Zero;
 
-		m_pThis->m_Lst.Calculate(val, m_i0, m_nCount, m_pS);
+		m_pThis->get_List().Calculate(val, m_i0, m_nCount, m_pS);
 	}
 };
 
-void NodeProcessor::MultiShieldedContext::Calculate(ECC::Point::Native& res, NodeProcessor& np)
+void NodeProcessor::MultiSigmaContext::Calculate(ECC::Point::Native& res, NodeProcessor& np)
 {
 	Task::Processor& tp = np.get_TaskProcessor();
 	uint32_t nThreads = tp.get_Threads();
@@ -858,9 +857,7 @@ void NodeProcessor::MultiShieldedContext::Calculate(ECC::Point::Native& res, Nod
 		assert(n.m_Max <= s_Chunk);
 
 		m_vRes.resize(nThreads);
-		m_Lst.m_vec.resize(s_Chunk); // will allocate if empty
-
-		np.get_DB().ShieldedRead(n.m_ID.m_Value + n.m_Min, &m_Lst.m_vec.front() + n.m_Min, n.m_Max - n.m_Min);
+		PrepareList(np, n);
 
 		for (uint32_t i = 0; i < nThreads; i++)
 		{
@@ -886,6 +883,28 @@ void NodeProcessor::MultiShieldedContext::Calculate(ECC::Point::Native& res, Nod
 	}
 }
 
+struct NodeProcessor::MultiShieldedContext
+	:public NodeProcessor::MultiSigmaContext
+{
+	bool IsValid(const TxVectors::Eternal&, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal);
+private:
+
+	Sigma::CmListVec m_Lst;
+
+	bool IsValid(const TxKernelShieldedInput&, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
+
+	virtual Sigma::CmList& get_List() override
+	{
+		return m_Lst;
+	}
+
+	virtual void PrepareList(NodeProcessor& np, const Node& n) override
+	{
+		m_Lst.m_vec.resize(s_Chunk); // will allocate if empty
+		np.get_DB().ShieldedRead(n.m_ID.m_Value + n.m_Min, &m_Lst.m_vec.front() + n.m_Min, n.m_Max - n.m_Min);
+	}
+};
+
 bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
 {
 	const Lelantus::Proof& x = krn.m_SpendProof;
@@ -897,8 +916,8 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * N);
 
 	ECC::Point::Native hGen;
-	if (krn.m_pAsset && !krn.m_pAsset->IsValid(hGen))
-		return false;
+	if (krn.m_pAsset)
+		BEAM_VERIFY(hGen.Import(krn.m_pAsset->m_hGen)); // must already be tested in krn.IsValid();
 
 	ECC::Oracle oracle;
 	oracle << krn.m_Msg;

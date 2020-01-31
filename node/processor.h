@@ -39,6 +39,7 @@ class NodeProcessor
 	size_t m_nSizeUtxoComission;
 
 	struct MultiblockContext;
+	struct MultiSigmaContext;
 	struct MultiShieldedContext;
 
 	void RollbackTo(Height);
