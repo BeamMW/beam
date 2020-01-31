@@ -557,6 +557,7 @@ namespace beam::wallet
         void onPrepareToModify();
     private:
         friend struct sqlite::Statement;
+        bool m_Initialized = false;
         sqlite3* _db;
         sqlite3* m_PrivateDB;
         Key::IKdf::Ptr m_pKdfMaster;

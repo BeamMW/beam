@@ -1276,6 +1276,7 @@ namespace beam::wallet
             walletDB->storeOwnerKey(); // store owner key (public)
 
             walletDB->flushDB();
+            walletDB->m_Initialized = true;
         }
 
         return walletDB;
@@ -1292,6 +1293,7 @@ namespace beam::wallet
             walletDB->storeOwnerKey(); // store owner key (public)
 
             walletDB->flushDB();
+            walletDB->m_Initialized = true;
         }
 
         return walletDB;
@@ -1600,7 +1602,7 @@ namespace beam::wallet
 
             }
         }
-
+        walletDB->m_Initialized = true;
         return static_pointer_cast<IWalletDB>(walletDB);
     }
 
@@ -3100,7 +3102,11 @@ namespace beam::wallet
 
     void WalletDB::onModified()
     {
-        if (!m_IsFlushPending)
+        if (!m_Initialized) // wallet db is opening or initializing, there could be no reactor to run timer
+        {
+            onFlushTimer();
+        }
+        else if (!m_IsFlushPending)
         {
             if (!m_FlushTimer)
             {
