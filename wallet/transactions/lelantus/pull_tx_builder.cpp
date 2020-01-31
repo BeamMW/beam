@@ -61,7 +61,7 @@ namespace beam::wallet::lelantus
 
             ECC::Point comm;
             const CoinID& id = m_OutputCoins[0];
-            CoinID::Worker(id).Create(outputSk, comm, *m_Tx.GetWalletDB()->get_ChildKdf(id));
+            CoinID::Worker(id).Create(outputSk, comm, *id.get_ChildKdf(m_Tx.get_MasterKdfStrict()));
 
             offset = -outputSk;
 

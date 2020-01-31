@@ -831,7 +831,7 @@ namespace beam::wallet
         proto::UtxoEvent::Shielded shielded;
         {
             Key::ID::Packed kid;
-            kid = event.m_Kidv;
+            kid = event.m_Kid;
             event.m_ShieldedDelta.Get(kid, event.m_Buf1, shielded);
         }
         TxoID shieldedID = 0;
@@ -849,7 +849,7 @@ namespace beam::wallet
         shieldedCoin->m_message = shielded.m_Message;
         shieldedCoin->m_ID = shieldedID;
         shieldedCoin->m_isCreatedByViewer = shielded.m_IsCreatedByViewer;
-        shieldedCoin->m_value = event.m_Kidv.m_Value;
+        shieldedCoin->m_value = event.m_Value;
 
         bool isAdd = 0 != (proto::UtxoEvent::Flags::Add & event.m_Flags);
         if (isAdd)

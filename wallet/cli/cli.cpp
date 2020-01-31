@@ -2483,11 +2483,13 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
+                Amount amount = 0;
+                Amount fee = 0;
                 if (!ReadAmount(vm, amount) || !ReadFee(vm, fee, true))
                 {
                     return -1;
                 }
-                WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
+                WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
                 currentTxID = wallet.StartTransaction(TxParameters(GenerateTxID())
                     .SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
@@ -2510,6 +2512,7 @@ namespace
             {
                 TxoID windowBegin = 0;
                 TxoID shieldedId = 0;
+                Amount fee = 0;
 
                 if (!ReadFee(vm, fee, true) || !ReadShieldedId(vm, shieldedId) || !ReadWindowBegin(vm, windowBegin))
                 {
@@ -2522,7 +2525,7 @@ namespace
                     return -1;
                 }
 
-                WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
+                WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
                 currentTxID = wallet.StartTransaction(TxParameters(GenerateTxID())
                     .SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
@@ -2537,6 +2540,8 @@ namespace
                     .SetParameter(TxParameterID::WindowBegin, windowBegin)
                     .SetParameter(TxParameterID::ShieldedOutputId, shieldedId)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp()));
+
+                return 0;
             });
     }
 

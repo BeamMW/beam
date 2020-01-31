@@ -38,6 +38,7 @@ namespace beam::wallet::lelantus
             }
         }
 
+        Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
         {
             ECC::Scalar::Native offset = Zero;
 
@@ -45,7 +46,7 @@ namespace beam::wallet::lelantus
             {
                 ECC::Scalar::Native k;
                 ECC::Point comm;
-                CoinID::Worker(id).Create(k, comm, *m_Tx.GetWalletDB()->get_ChildKdf(id));
+                CoinID::Worker(id).Create(k, comm, *id.get_ChildKdf(pMasterKdf));
 
                 offset += k;
             }
@@ -60,7 +61,7 @@ namespace beam::wallet::lelantus
             {
                 ECC::Scalar::Native k;
                 ECC::Point comm;
-                CoinID::Worker(id).Create(k, comm, *m_Tx.GetWalletDB()->get_ChildKdf(id));
+                CoinID::Worker(id).Create(k, comm, *id.get_ChildKdf(pMasterKdf));
 
                 offset -= k;
             }
@@ -77,10 +78,11 @@ namespace beam::wallet::lelantus
             ShieldedTxo::Viewer viewer;
             viewer.FromOwner(*m_Tx.GetWalletDB()->get_MasterKdf());
 
+            ShieldedTxo::Data::Params sdp;
             ECC::uintBig serialNonce;
             ECC::GenRandom(serialNonce);
-            ShieldedTxo::Data::SerialParams sp;
-            sp.Generate(pKrn->m_Txo.m_Serial, viewer, serialNonce);
+
+            sdp.m_Serial.Generate(pKrn->m_Txo.m_Serial, viewer, serialNonce);
 
             pKrn->UpdateMsg();
             ECC::Oracle oracle;
@@ -88,22 +90,22 @@ namespace beam::wallet::lelantus
 
             ECC::uintBig outputNonce;
             ECC::GenRandom(outputNonce);
-            ShieldedTxo::Data::OutputParams op;
-            op.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
+
+            sdp.m_Output.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
             // TODO: add ShieldedMessage if needed
             // op.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
-            op.m_Value = GetAmount();
-            op.Generate(pKrn->m_Txo, oracle, viewer, outputNonce);
+            sdp.m_Output.m_Value = GetAmount();
+            sdp.Generate(pKrn->m_Txo, oracle, viewer, outputNonce);
 
             // save shielded Coin
             ShieldedCoin shieldedCoin;
             shieldedCoin.m_value = GetAmount();
             shieldedCoin.m_createTxId = m_Tx.GetTxID();
-            shieldedCoin.m_skSerialG = sp.m_pK[0];
-            shieldedCoin.m_skOutputG = op.m_k;
-            shieldedCoin.m_isCreatedByViewer = sp.m_IsCreatedByViewer;
-            shieldedCoin.m_sender = op.m_Sender;
-            shieldedCoin.m_message = op.m_Message;
+            shieldedCoin.m_skSerialG = sdp.m_Serial.m_pK[0];
+            shieldedCoin.m_skOutputG = sdp.m_Output.m_k;
+            shieldedCoin.m_isCreatedByViewer = sdp.m_Serial.m_IsCreatedByViewer;
+            shieldedCoin.m_sender = sdp.m_Output.m_Sender;
+            shieldedCoin.m_message = sdp.m_Output.m_Message;
 
             m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);
             m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, pKrn->m_Txo.m_Serial.m_SerialPub);
@@ -115,7 +117,7 @@ namespace beam::wallet::lelantus
             transaction->m_vKernels.push_back(std::move(pKrn));
 
             ECC::Scalar::Native offset = transaction->m_Offset;
-            offset -= op.m_k;
+            offset -= sdp.m_Output.m_k;
             transaction->m_Offset = offset;
         }
 

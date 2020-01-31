@@ -31,7 +31,6 @@ namespace beam::wallet::lelantus
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway
                                         , IWalletDB::Ptr walletDB
-                                        , IPrivateKeyKeeper::Ptr keyKeeper
                                         , const TxID& txID) override;
 
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
@@ -40,7 +39,6 @@ namespace beam::wallet::lelantus
     public:
         PullTransaction(INegotiatorGateway& gateway
                         , IWalletDB::Ptr walletDB
-                        , IPrivateKeyKeeper::Ptr keyKeeper
                         , const TxID& txID);
 
     private:
