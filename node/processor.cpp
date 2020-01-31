@@ -897,14 +897,8 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * N);
 
 	ECC::Point::Native hGen;
-	if (krn.m_pAsset)
-	{
-		if (!krn.m_pAsset->IsValid())
-			return false;
-
-		if (!hGen.Import(krn.m_pAsset->m_hGen))
-			return false;
-	}
+	if (krn.m_pAsset && !krn.m_pAsset->IsValid(hGen))
+		return false;
 
 	ECC::Oracle oracle;
 	oracle << krn.m_Msg;

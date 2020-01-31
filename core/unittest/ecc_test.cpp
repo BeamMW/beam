@@ -2584,7 +2584,7 @@ void TestLelantusKeys()
 
 void TestAssetProof()
 {
-	ECC::Scalar::Native sk;
+	Scalar::Native sk;
 	SetRandom(sk);
 
 	Amount val = 400;
@@ -2593,13 +2593,13 @@ void TestAssetProof()
 
 	beam::Asset::Proof proof;
 	proof.Create(genBlinded, sk, val, 100500);
-	verify_test(proof.IsValid());
+	verify_test(proof.IsValid(genBlinded));
 
 	proof.Create(genBlinded, sk, val, 1);
-	verify_test(proof.IsValid());
+	verify_test(proof.IsValid(genBlinded));
 
 	proof.Create(genBlinded, sk, val, 0);
-	verify_test(proof.IsValid());
+	verify_test(proof.IsValid(genBlinded));
 }
 
 void TestAssetEmission()

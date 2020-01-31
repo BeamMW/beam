@@ -138,8 +138,8 @@ namespace beam
 			Asset::ID m_Begin; // 1st element
 			ECC::Point m_hGen;
 
-			bool IsValid() const; // for testing only, in real-world cases batch verification should be used!
-			bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const;
+			bool IsValid(ECC::Point::Native& hGen) const; // for testing only, in real-world cases batch verification should be used!
+			bool IsValid(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const;
 			void Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID, const ECC::Point::Native& gen);
 			void Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID);
 			void Create(ECC::Point::Native& genBlinded, const ECC::Scalar::Native& skGen, Asset::ID, const ECC::Point::Native& gen);

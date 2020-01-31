@@ -321,14 +321,8 @@ namespace beam
 			return false;
 
 		ECC::Point::Native hGen;
-		if (m_pAsset)
-		{
-			if (!m_pAsset->IsValid())
-				return false; // TODO - defer, batch-verify
-
-			if (!hGen.ImportNnz(m_pAsset->m_hGen))
-				return false;
-		}
+		if (m_pAsset && !m_pAsset->IsValid(hGen))
+			return false;
 
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
@@ -2430,17 +2424,21 @@ namespace beam
 		return nPos;
 	}
 
-	bool Asset::Proof::IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const
+	bool Asset::Proof::IsValid(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const
 	{
 		ECC::Oracle oracle;
 		ECC::Scalar::Native kBias;
 		if (!Cast::Down<Sigma::Proof>(*this).IsValid(bc, oracle, Rules::get().CA.m_ProofCfg, pKs, kBias))
 			return false;
 
-		return bc.AddCasual(m_hGen, kBias, true); // the deferred part from m_Signature, plus the needed bias
+		if (!hGen.ImportNnz(m_hGen))
+			return false;
+
+		bc.AddCasual(hGen, kBias, true); // the deferred part from m_Signature, plus the needed bias
+		return true;
 	}
 
-	bool Asset::Proof::IsValid() const
+	bool Asset::Proof::IsValid(ECC::Point::Native& hGen) const
 	{
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
@@ -2452,7 +2450,7 @@ namespace beam
 		assert(N);
 		vKs.resize(N);
 
-		if (!IsValid(bc, &vKs.front()))
+		if (!IsValid(hGen, bc, &vKs.front()))
 			return false;
 
 		CmList lst;

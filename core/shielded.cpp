@@ -51,14 +51,8 @@ namespace beam
 			return false;
 
 		ECC::Point::Native hGen;
-		if (m_pAsset)
-		{
-			if (!m_pAsset->IsValid())
-				return false;
-
-			if (!hGen.Import(m_pAsset->m_hGen))
-				return false;
-		}
+		if (m_pAsset && !m_pAsset->IsValid(hGen))
+			return false;
 
 		Prepare(oracle);
 		return m_RangeProof.IsValid(comm, oracle, &hGen);
