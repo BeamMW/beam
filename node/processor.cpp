@@ -969,6 +969,57 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 	return wlk.Process(txve.m_vKernels);
 }
 
+struct NodeProcessor::MultiAssetContext
+	:public NodeProcessor::MultiSigmaContext
+{
+	struct BatchCtx
+		:public Asset::Proof::BatchContext
+	{
+		MultiAssetContext& m_Ctx;
+		BatchCtx(MultiAssetContext& ctx) :m_Ctx(ctx) {}
+
+		std::vector<ECC::Scalar::Native> m_vKs;
+
+		virtual bool IsValid(ECC::Point::Native& hGen, const Asset::Proof&) override;
+	};
+
+private:
+
+	Asset::Proof::CmList m_Lst;
+
+	virtual Sigma::CmList& get_List() override
+	{
+		return m_Lst;
+	}
+
+	virtual void PrepareList(NodeProcessor& np, const Node& n) override
+	{
+		static_assert(sizeof(n.m_ID.m_Value) >= sizeof(m_Lst.m_Begin));
+
+		// TODO: maybe cache it in DB
+		m_Lst.m_Begin = static_cast<Asset::ID>(n.m_ID.m_Value);
+	}
+};
+
+bool NodeProcessor::MultiAssetContext::BatchCtx::IsValid(ECC::Point::Native& hGen, const Asset::Proof& p)
+{
+	assert(ECC::InnerProduct::BatchContext::s_pInstance);
+	ECC::InnerProduct::BatchContext& bc = *ECC::InnerProduct::BatchContext::s_pInstance;
+
+	const Sigma::Cfg& cfg = Rules::get().CA.m_ProofCfg;
+	uint32_t N = cfg.get_N();
+	assert(N);
+
+	m_vKs.resize(N); // will allocate if empty
+	memset0(&m_vKs.front(), sizeof(ECC::Scalar::Native) * N);
+
+	if (!p.IsValid(hGen, bc, &m_vKs.front()))
+		return false;
+
+	m_Ctx.Add(p.m_Begin, N, &m_vKs.front());
+	return true;
+}
+
 struct NodeProcessor::MultiblockContext
 {
 	NodeProcessor& m_This;
@@ -1017,6 +1068,7 @@ struct NodeProcessor::MultiblockContext
 	ECC::Point::Native m_Sigma;
 
 	MultiShieldedContext m_Msc;
+	MultiAssetContext m_Mac;
 
 	size_t m_SizePending = 0;
 	bool m_bFail = false;
@@ -1119,6 +1171,7 @@ struct NodeProcessor::MultiblockContext
 			m_bBatchDirty = false;
 
 			m_Msc.Calculate(ptBatchSigma, m_This);
+			m_Mac.Calculate(ptBatchSigma, m_This);
 
 			if (!(ptBatchSigma == Zero))
 			{
@@ -1290,6 +1343,9 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	beam::TxBase txbDummy;
 	if (bSparse)
 		txbDummy.m_Offset = Zero;
+
+	MultiAssetContext::BatchCtx bcAssets(m_Mbc.m_Mac);
+	Asset::Proof::BatchContext::Scope scopeAssets(bcAssets);
 
 	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
 

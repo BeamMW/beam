@@ -41,6 +41,7 @@ class NodeProcessor
 	struct MultiblockContext;
 	struct MultiSigmaContext;
 	struct MultiShieldedContext;
+	struct MultiAssetContext;
 
 	void RollbackTo(Height);
 	Height PruneOld();

@@ -155,6 +155,26 @@ namespace beam
 
 			void Clone(Ptr&) const;
 
+			struct BatchContext
+			{
+				static thread_local BatchContext* s_pInstance;
+
+				struct Scope
+				{
+					BatchContext* m_pPrev;
+
+					Scope(BatchContext& bc) {
+						m_pPrev = s_pInstance;
+						s_pInstance = &bc;
+					}
+					~Scope() {
+						s_pInstance = m_pPrev;
+					}
+				};
+
+				virtual bool IsValid(ECC::Point::Native& hGen, const Proof&) = 0;
+			};
+
 		private:
 			uint32_t SetBegin(Asset::ID, const ECC::Scalar::Native& skGen);
 			static const ECC::Point::Compact& get_H();

@@ -2443,6 +2443,9 @@ namespace beam
 
 	bool Asset::Proof::IsValid(ECC::Point::Native& hGen) const
 	{
+		if (BatchContext::s_pInstance)
+			return BatchContext::s_pInstance->IsValid(hGen, *this);
+
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
 		ECC::InnerProduct::BatchContextEx<1> bc;
@@ -2469,5 +2472,7 @@ namespace beam
 		p = std::make_unique<Proof>();
 		*p = *this;
 	}
+
+	thread_local Asset::Proof::BatchContext* Asset::Proof::BatchContext::s_pInstance = nullptr;
 
 } // namespace beam
