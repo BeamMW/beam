@@ -126,13 +126,7 @@ void SendSwapViewModel::setToken(const QString& value)
 
 bool SendSwapViewModel::getTokenValid() const
 {
-    if (QMLGlobals::isSwapToken(_token))
-    {
-        // TODO:SWAP check if token is valid
-        return true;
-    }
-
-    return false;
+    return QMLGlobals::isSwapToken(_token);
 }
 
 bool SendSwapViewModel::getParametersValid() const

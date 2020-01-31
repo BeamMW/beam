@@ -105,16 +105,6 @@ namespace beam::wallet
         Registering
     };
 
-    enum class SwapOfferStatus : uint32_t
-    {
-        Pending,
-        InProgress,
-        Completed,
-        Canceled,
-        Expired,
-        Failed
-    };
-
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
     MACRO(Unknown,                       0, "Unknown reason") \
     MACRO(Canceled,                      1, "Transaction was cancelled") \
@@ -418,60 +408,6 @@ namespace beam::wallet
         PackedTxParameters m_Parameters;
     };    
 
-    enum class AtomicSwapCoin : int32_t // explicit signed type for serialization backward compatibility
-    {
-        Bitcoin,
-        Litecoin,
-        Qtum,
-        Unknown
-    };
-
-    AtomicSwapCoin from_string(const std::string& value);
-
-    struct SwapOffer : public TxParameters
-    {
-        SwapOffer() = default;
-        SwapOffer(const boost::optional<TxID>& txID)
-            : TxParameters(txID) {};
-        SwapOffer(const TxID& txId, SwapOfferStatus status, WalletID publisherId, AtomicSwapCoin coin)
-            : TxParameters(txId),
-              m_txId(txId),
-              m_status(status),
-              m_publisherId(publisherId),
-              m_coin(coin) {};
-
-        /**
-         * Used to set m_Parameters on default constructed SwapOffer
-         */
-        void SetTxParameters(const PackedTxParameters&);
-
-        TxID m_txId = {};
-        SwapOfferStatus m_status = SwapOfferStatus::Pending;
-        WalletID m_publisherId = {};
-        AtomicSwapCoin m_coin = AtomicSwapCoin::Unknown;
-    };
-
-    class SwapOfferToken
-    {
-    public:
-        SwapOfferToken() = default;
-        SwapOfferToken(const SwapOffer& offer)
-            : m_TxID(offer.m_txId),
-              m_status(offer.m_status),
-              m_publisherId(offer.m_publisherId),
-              m_coin(offer.m_coin),
-              m_Parameters(offer.Pack()) {};
-        
-        SwapOffer Unpack() const;
-        SERIALIZE(m_TxID, m_status, m_publisherId, m_coin, m_Parameters);
-    private:
-        boost::optional<TxID> m_TxID;
-        boost::optional<SwapOfferStatus> m_status;
-        boost::optional<WalletID> m_publisherId;
-        boost::optional<AtomicSwapCoin> m_coin;
-        PackedTxParameters m_Parameters;
-    };
-
     boost::optional<TxParameters> ParseParameters(const std::string& text);
 
     // Specifies key transaction parameters for interaction with Wallet Clients
@@ -670,6 +606,25 @@ namespace beam::wallet
     };
 
     uint64_t get_RandomID();
+
+    template<typename Observer, typename Notifier>
+    struct ScopedSubscriber
+    {
+        ScopedSubscriber(Observer* observer, const std::shared_ptr<Notifier>& notifier)
+            : m_observer(observer)
+            , m_notifier(notifier)
+        {
+            m_notifier->Subscribe(m_observer);
+        }
+
+        ~ScopedSubscriber()
+        {
+            m_notifier->Unsubscribe(m_observer);
+        }
+    private:
+        Observer * m_observer;
+        std::shared_ptr<Notifier> m_notifier;
+    };
 }  // beam::wallet
 
 namespace beam
@@ -682,8 +637,6 @@ namespace std
 {
     string to_string(const beam::wallet::WalletID&);
     string to_string(const beam::Merkle::Hash& hash);
-    string to_string(beam::wallet::AtomicSwapCoin value);
-    string to_string(beam::wallet::SwapOfferStatus status);
     string to_string(const beam::wallet::PrintableAmount& amount);
     string to_string(const beam::wallet::TxParameters&);
 }

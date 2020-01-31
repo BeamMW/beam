@@ -129,7 +129,11 @@ namespace
         virtual void closeConnection(uint64_t id) = 0;
     };
 
-    class WalletApiServer : public IWalletApiServer
+    class WalletApiServer 
+        : public IWalletApiServer
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        , ISwapOffersObserver
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
     {
     public:
         WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::Reactor& reactor, 
@@ -153,13 +157,24 @@ namespace
         }
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+        using WalletDbSubscriber = ScopedSubscriber<wallet::IWalletDbObserver, wallet::IWalletDB>;
+        using SwapOffersBoardSubscriber = ScopedSubscriber<wallet::ISwapOffersObserver, wallet::SwapOffersBoard>;
         void initSwapOffers(proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
         {
             _offersBulletinBoard = std::make_shared<SwapOffersBoard>(nnet, wnet);
+            _walletDbSubscriber = std::make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(_offersBulletinBoard.get()), _walletDB);
+            _swapOffersBoardSubscriber = std::make_unique<SwapOffersBoardSubscriber>(static_cast<ISwapOffersObserver*>(this), _offersBulletinBoard);
+        }
+
+        void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers)
+        {
+
         }
     private:
     
         std::shared_ptr<SwapOffersBoard> _offersBulletinBoard;
+        std::unique_ptr<WalletDbSubscriber> _walletDbSubscriber;
+        std::unique_ptr<SwapOffersBoardSubscriber> _swapOffersBoardSubscriber;
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
     protected:
@@ -402,7 +417,6 @@ namespace
             void onMessage(const JsonRpcId& id, const AddrList& data) override
             {
                 LOG_DEBUG() << "AddrList(id = " << id << ")";
-
                 doResponse(id, AddrList::Response{ _walletDB->getAddresses(data.own) });
             }
 
@@ -832,7 +846,34 @@ namespace
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
             void onMessage(const JsonRpcId& id, const OffersList& data) override
             {
-                doResponse(id, OffersList::Response{_swapOffersBoard.getOffersList()});
+                Block::SystemState::ID stateID = {};
+                _walletDB->getSystemStateID(stateID);
+                
+                auto offers = _swapOffersBoard.getOffersList();
+                auto swapTxs = _walletDB->getTxHistory(TxType::AtomicSwap);
+                offers.reserve(offers.size() + swapTxs.size());
+                for (const auto& tx : swapTxs)
+                {
+                    SwapOffer offer(tx);
+
+                    const auto it = std::find_if(
+                        offers.begin(),
+                        offers.end(),
+                        [&offer] (const SwapOffer& offerFromBoard) {
+                            return offer.m_txId == offerFromBoard.m_txId;
+                        });
+
+                    if (it == offers.end())
+                        offers.push_back(offer);
+                }
+
+                doResponse(
+                    id,
+                    OffersList::Response{
+                        offers,
+                        _walletDB->getAddresses(true),
+                        stateID.m_Height
+                        });
             }
 
             void onMessage(const JsonRpcId& id, const CreateOffer& data) override
@@ -892,8 +933,18 @@ namespace
 
             void onMessage(const JsonRpcId& id, const OfferStatus& data) override
             {
-                OfferStatus::Response res;
-                doResponse(id, res);
+                Block::SystemState::ID stateID = {};
+                _walletDB->getSystemStateID(stateID);
+
+                // TODO(zavarza)
+
+                doResponse(id,
+                           OfferStatus::Response{
+                               data.offer,
+                               data.incomingToken,
+                               _walletDB->getAddresses(true),
+                               stateID.m_Height
+                           });
             }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
         protected:

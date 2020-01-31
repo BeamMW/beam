@@ -1,0 +1,51 @@
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "wallet_status",
+    "params": {}
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "swap_offers_list",
+    "params": {}
+}
+
+###
+
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "swap_offer_status",
+    "params": {
+        "token": "6xfFqUcknqpAmmKFTuubDo3LsKhPq29eP2gMwEbLgjgsdM7jmrBvPJJUv4VbtmuSEUng2YbXex3euTeMqXJuotSwpCaLof3S8dsSqHG7tnzb2bCtS67qGuYavJ79bnfD3DeWuifZwWkkEAeSDdGSHyGwr1bBMWrjbon8Ba8"
+    }
+}
+
+###
+
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "tx_list",
+    "params": {}
+}
+
+###

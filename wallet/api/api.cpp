@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "api.h"
+#include "wallet/api/api.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/transactions/swaps/swap_offer_token.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include "nlohmann/json.hpp"
 
@@ -25,11 +28,95 @@ namespace beam::wallet
 
     namespace
     {
-        std::string txIDToString(const TxID& txId)
+    std::string txIDToString(const TxID& txId)
+    {
+        return to_hex(txId.data(), txId.size());
+    }
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    std::string swapOfferStatusToString(const SwapOfferStatus& status)
+    {
+        switch(status)
         {
-            return to_hex(txId.data(), txId.size());
+        case SwapOfferStatus::Canceled : return "canceled";
+        case SwapOfferStatus::Completed : return "completed";
+        case SwapOfferStatus::Expired : return "expired";
+        case SwapOfferStatus::Failed : return "failed";
+        case SwapOfferStatus::InProgress : return "in progress";
+        case SwapOfferStatus::Pending : return "pending";
+        default : return "unknown";
         }
     }
+
+    json OfferToJson(const SwapOffer& offer,
+                     const std::vector<WalletAddress>& myAddresses,
+                     const Height& systemHeight)
+    {
+        const auto& publisherId = offer.m_publisherId; 
+        const auto& it = std::find_if(
+            myAddresses.begin(), myAddresses.end(),
+            [&publisherId] (const WalletAddress& wa) {
+                return wa.m_walletID == publisherId;
+            });
+
+        bool isOwnOffer = it != myAddresses.end();
+        bool isSendBeamOffer =
+            isOwnOffer ? !offer.isBeamSide() : offer.isBeamSide();
+
+        Amount send =
+            isSendBeamOffer ? offer.amountBeam() : offer.amountSwapCoin();
+        Amount receive =
+            isSendBeamOffer ? offer.amountSwapCoin() : offer.amountBeam();
+        
+        std::string sendCurrency =
+            isSendBeamOffer ? "BEAM" : std::to_string(offer.swapCoinType());
+        std::string sreceiveCurrency =
+            isSendBeamOffer ? std::to_string(offer.swapCoinType()) : "BEAM";
+
+        auto peerResponseTime = offer.peerResponseHeight();
+        auto minHeight = offer.minHeight();
+
+        Timestamp expiresTime = getTimestamp();
+        if (systemHeight && peerResponseTime && minHeight)
+        {
+            auto expiresHeight = minHeight + peerResponseTime;
+            auto currentDateTime = getTimestamp();
+
+            expiresTime = systemHeight <= expiresHeight
+                ? currentDateTime + (expiresHeight - systemHeight) * 60
+                : currentDateTime - (systemHeight - expiresHeight) * 60;
+        }
+
+        auto createTimeStr = format_timestamp(kTimeStampFormat3x3,
+                                            offer.timeCreated() * 1000,
+                                            false);
+        auto expiresTimeStr = format_timestamp(kTimeStampFormat3x3,
+                                            expiresTime * 1000,
+                                            false);
+        
+        json result {
+            {"status", offer.m_status},
+            {"status_string", swapOfferStatusToString(offer.m_status)},
+            {"tx_id", txIDToString(offer.m_txId)},
+            {"send_amount", send},
+            {"send_currency", sendCurrency},
+            {"receive_amount", receive},
+            {"receive_currency", sreceiveCurrency},
+            {"is_my_offer", isOwnOffer},
+            {"time_created", createTimeStr},
+            {"time_expired", expiresTimeStr},
+        };
+
+        if (offer.m_status == SwapOfferStatus::Pending)
+        {
+            result["token"] = std::to_string(offer);
+        }
+
+        return result;
+    }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+    }  // namespace
 
     struct jsonrpc_exception
     {
@@ -528,7 +615,22 @@ namespace beam::wallet
 
     void WalletApi::onOfferStatusMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
-        OfferStatus data;
+        checkJsonParam(params, "token", id);
+        const auto& token = params["token"];
+
+        if (!SwapOfferToken::isValid(token))
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parameter 'token' not valid.", id };
+
+        
+        auto parameters = beam::wallet::ParseParameters(token);
+        if (!parameters)
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parse Parameters from 'token' failed.", id };
+
+        SwapOffer offer;
+        offer.SetTxParameters(parameters->Pack());
+           
+
+        OfferStatus data{token, offer};
         _handler.onMessage(id, data);
     }
 #endif
@@ -687,11 +789,8 @@ namespace beam::wallet
 
         for (auto& offer : res.list)
         {
-            msg["result"].push_back(
-            {
-                {"status", offer.m_status},
-                {"tx_id", txIDToString(offer.m_txId)},
-            });
+             msg["result"].push_back(
+                OfferToJson(offer, res.addrList, res.systemHeight));
         }
     }
 
@@ -725,7 +824,13 @@ namespace beam::wallet
 
     void WalletApi::getResponse(const JsonRpcId& id, const OfferStatus::Response& res, json& msg)
     {
-        msg = getNotImplError(id);
+        msg = 
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", OfferToJson(res.offer, res.addrList, res.systemHeight)}
+        };
+        // TODO(zavarza)
     }
 
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -1000,4 +1105,4 @@ namespace beam::wallet
 
         return "unknown error.";
     }
-}
+}  // namespace beam::wallet

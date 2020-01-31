@@ -17,6 +17,9 @@
 #include <boost/optional.hpp>
 
 #include "wallet/core/wallet.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/transactions/swaps/swap_offer.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #include "nlohmann/json.hpp"
 
 namespace beam::wallet
@@ -55,9 +58,9 @@ namespace beam::wallet
     macro(AcceptOffer,      "swap_accept_offer",    API_WRITE_ACCESS)   \
     macro(CancelOffer,      "swap_cancel_offer",    API_WRITE_ACCESS)   \
     macro(OfferStatus,      "swap_offer_status",    API_READ_ACCESS)
-#else
+#else  // !BEAM_ATOMIC_SWAP_SUPPORT
 #define SWAP_OFFER_API_METHODS(macro)
-#endif
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #define WALLET_API_METHODS(macro) \
     macro(CreateAddress,    "create_address",   API_WRITE_ACCESS)   \
@@ -85,13 +88,13 @@ namespace beam::wallet
         struct Response
         {
             std::vector<SwapOffer> list;
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
         };
     };
 
     struct CreateOffer
     {
-        
-
         struct Response
         {
             TxID txid;
@@ -119,18 +122,25 @@ namespace beam::wallet
     {
         struct Response
         {
-
+            boost::optional<SwapOffer> offer;
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
         };
     };
 
     struct OfferStatus
     {
+        std::string incomingToken;
+        SwapOffer offer;
         struct Response
         {
-
+            SwapOffer offer;
+            std::string incomingToken;
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
         };
     };
-#endif
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     struct AddressData
     {

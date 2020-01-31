@@ -27,25 +27,6 @@ namespace
 
     const size_t kCollectorBufferSize = 50;
 
-template<typename Observer, typename Notifier>
-struct ScopedSubscriber
-{
-    ScopedSubscriber(Observer* observer, const std::shared_ptr<Notifier>& notifier)
-        : m_observer(observer)
-        , m_notifier(notifier)
-    {
-        m_notifier->Subscribe(m_observer);
-    }
-
-    ~ScopedSubscriber()
-    {
-        m_notifier->Unsubscribe(m_observer);
-    }
-private:
-    Observer * m_observer;
-    std::shared_ptr<Notifier> m_notifier;
-};
-
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -697,7 +678,7 @@ namespace beam::wallet
         m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
 
-#endif
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     void WalletClient::cancelTx(const TxID& id)
     {

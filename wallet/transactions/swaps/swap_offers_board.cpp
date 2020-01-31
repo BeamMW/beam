@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "swap_offers_board.h"
+#include "wallet/transactions/swaps/swap_offers_board.h"
 
+#include "wallet/transactions/swaps/swap_offer_token.h"
+#include "wallet/transactions/swaps/swap_offer.h"
 #include "p2p/protocol_base.h"
 
 namespace beam::wallet
-{
+{   
     SwapOffersBoard::SwapOffersBoard(FlyClient::INetwork& network, IWalletMessageEndpoint& messageEndpoint)
         :   m_network(network),
             m_messageEndpoint(messageEndpoint)
@@ -159,9 +161,9 @@ namespace beam::wallet
     {
         auto peerResponseTime = offer.GetParameter<Height>(TxParameterID::PeerResponseTime);
         auto minHeight = offer.GetParameter<Height>(TxParameterID::MinHeight);
-            if (peerResponseTime && minHeight)
-            {
-                auto expiresHeight = *minHeight + *peerResponseTime;
+        if (peerResponseTime && minHeight)
+        {
+            auto expiresHeight = *minHeight + *peerResponseTime;
             return expiresHeight <= m_currentHeight;
         }
         else return true;
@@ -247,6 +249,14 @@ namespace beam::wallet
 
         return offers;
     }
+
+    // TODO(zavarza)
+    // auto SwapOffersBoard::getOffer(const TxID& txId) const -> boost::optional<SwapOffer>
+    // {
+    //     const auto& it = m_offersCache.find(txId);
+    //     if (it != m_offersCache.end()) return {it->second};
+    //     return {};
+    // }
 
     auto SwapOffersBoard::getChannel(AtomicSwapCoin coin) const -> BbsChannel
     {

@@ -15,6 +15,7 @@
 #pragma once
 
 #include "wallet/core/wallet.h"
+#include "wallet/transactions/swaps/common.h"
 #include "utility/logger.h"
 #include "utility/std_extension.h"
 
@@ -22,6 +23,8 @@
 
 namespace beam::wallet
 {
+    struct ISwapOffersObserver;
+    struct SwapOffer;
     using namespace beam::proto;
 
     /**
@@ -50,6 +53,8 @@ namespace beam::wallet
         virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
 
         auto getOffersList() const -> std::vector<SwapOffer>;
+        // TODO(zavarza)
+        // auto getOffer(const TxID& txId) const -> boost::optional<SwapOffer>;
         void publishOffer(const SwapOffer& offer) const;
 
         void Subscribe(ISwapOffersObserver* observer);

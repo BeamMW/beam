@@ -21,8 +21,9 @@
 #include "wallet/core/private_key_keeper.h"
 #include "wallet_model_async.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/transactions/swaps/swap_offer.h"
 #include "wallet/transactions/swaps/swap_offers_board.h"
-#endif
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include <thread>
 #include <atomic>
@@ -50,7 +51,9 @@ namespace beam::wallet
 
     class WalletClient
         : private IWalletObserver
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         , private ISwapOffersObserver
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         , private IWalletModelAsync
         , private IWalletDB::IRecoveryProgress
         , private IPrivateKeyKeeper::Handler
@@ -128,7 +131,7 @@ namespace beam::wallet
         void publishSwapOffer(const SwapOffer& offer) override;
         void loadSwapParams() override;
         void storeSwapParams(const beam::ByteBuffer& params) override;
-#endif
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
@@ -328,7 +331,7 @@ namespace beam::wallet
         std::weak_ptr<Wallet> m_wallet;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
-#endif
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         uint32_t m_connectedNodesCount;
         uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;

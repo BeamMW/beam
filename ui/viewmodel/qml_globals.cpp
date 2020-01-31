@@ -22,6 +22,7 @@
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_side.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin_side.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum_side.h"
+#include "wallet/transactions/swaps/swap_offer_token.h"
 #include "utility/string_helpers.h"
 
 #include <boost/algorithm/string.hpp>
@@ -115,15 +116,7 @@ bool QMLGlobals::isTransactionToken(const QString& text)
 
 bool QMLGlobals::isSwapToken(const QString& text)
 {
-    if (text.isEmpty()) return false;
-    
-    auto params = beam::wallet::ParseParameters(text.toStdString());
-    if (!params)
-    {
-        return false;
-    }
-    auto type = params->GetParameter<beam::wallet::TxType>(beam::wallet::TxParameterID::TransactionType);
-    return type && *type == beam::wallet::TxType::AtomicSwap;
+    return beam::wallet::SwapOfferToken::isValid(text.toStdString());
 }
 
 QString QMLGlobals::getLocaleName()

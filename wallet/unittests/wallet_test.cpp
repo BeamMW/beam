@@ -22,6 +22,9 @@
 #include "wallet/core/secstring.h"
 #include "wallet/core/base58.h"
 #include "wallet/client/wallet_client.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/transactions/swaps/swap_offer.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #include "utility/test_helpers.h"
 #include "core/radixtree.h"
 #include "core/unittest/mini_blockchain.h"
@@ -1366,7 +1369,10 @@ namespace
         void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) override {}
         void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) override {};
         void onAddresses(bool own, const std::vector<WalletAddress>& addresses) override {};
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override {};
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        
         void onGeneratedNewAddress(const WalletAddress& walletAddr) override {};
         void onSwapParamsLoaded(const beam::ByteBuffer& params) override {};
         void onNewAddressFailed() override {};
