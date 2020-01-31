@@ -19,6 +19,39 @@
 namespace beam
 {
 
+/// TODO review BBS channels mapping before fork
+const std::map<BroadcastRouter::ContentType, std::vector<BbsChannel>> BroadcastRouter::m_bbsChannelsMapping =
+{
+    { BroadcastRouter::ContentType::SwapOffers,         { proto::Bbs::s_MaxWalletChannels,
+                                                                  proto::Bbs::s_MaxWalletChannels + 1,
+                                                                  proto::Bbs::s_MaxWalletChannels + 2 } },
+    { BroadcastRouter::ContentType::SoftwareUpdates,    { proto::Bbs::s_MaxWalletChannels + 1024u } },
+    { BroadcastRouter::ContentType::ExchangeRates,      { proto::Bbs::s_MaxWalletChannels + 1024u } }
+};
+
+const std::map<BroadcastRouter::ContentType, MsgType> BroadcastRouter::m_messageTypeMapping =
+{
+    { BroadcastRouter::ContentType::SwapOffers, MsgType(0) },
+    { BroadcastRouter::ContentType::SoftwareUpdates, MsgType(1) },
+    { BroadcastRouter::ContentType::ExchangeRates, MsgType(1) }
+};
+
+std::vector<BbsChannel> BroadcastRouter::getBbsChannels(ContentType type)
+{
+    auto it = m_bbsChannelsMapping.find(type);
+    assert(it != std::cend(m_bbsChannelsMapping));
+
+    return it->second;
+}
+
+MsgType BroadcastRouter::getMsgType(ContentType type)
+{
+    auto it = m_messageTypeMapping.find(type);
+    assert(it != std::cend(m_messageTypeMapping));
+
+    return it->second;
+}
+
 BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork)
     : m_bbsNetwork(bbsNetwork)
     , m_protocol(m_protocol_version_0,
@@ -35,23 +68,6 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork)
     m_msgReader.disable_all_msg_types();
 }
 
-/// TODO review BBS channels mapping before fork
-const std::map<BroadcastRouter::ContentType, std::vector<BbsChannel>> BroadcastRouter::m_bbsChannelsMapping =
-{
-    { BroadcastRouter::ContentType::SwapOffers,         { proto::Bbs::s_MaxWalletChannels,
-                                                                  proto::Bbs::s_MaxWalletChannels + 1,
-                                                                  proto::Bbs::s_MaxWalletChannels + 2 } },
-    { BroadcastRouter::ContentType::SoftwareUpdates,    { proto::Bbs::s_MaxWalletChannels + 1024u } },
-    { BroadcastRouter::ContentType::ExchangeRates,      { proto::Bbs::s_MaxWalletChannels + 1024u } }
-};
-
-const std::map<BroadcastRouter::ContentType, MsgType> BroadcastRouter::m_messageTypeMapping =
-{
-    { BroadcastRouter::ContentType::SwapOffers, 0 },
-    { BroadcastRouter::ContentType::SoftwareUpdates, 1 },
-    { BroadcastRouter::ContentType::ExchangeRates, 1 },
-};
-
 /**
  *  ContentType used like key because Protocol has only ability to add message handler,
  *  but MsgReader able both enable and disable message types.
@@ -59,18 +75,17 @@ const std::map<BroadcastRouter::ContentType, MsgType> BroadcastRouter::m_message
 void BroadcastRouter::registerListener(ContentType type, IBroadcastListener* listener)
 {
     auto it = m_listeners.find(type);
-    if (it != std::cend(m_listeners)) return;
+    assert(it != std::cend(m_listeners));
 
-    auto msgType = m_messageTypeMapping.find(type);
-    assert(msgType != std::cend(m_messageTypeMapping));
+    auto msgType = getMsgType(type);
 
     m_protocol.add_message_handler< IBroadcastListener,
                                     ByteBuffer,
                                     &IBroadcastListener::onMessage >
-                                    (*msgType, listener, 0, 1024*1024*10);
-    m_msgReader.enable_msg_type(*msgType);
+                                    (msgType, listener, 0, 1024*1024*10);
+    m_msgReader.enable_msg_type(msgType);
     
-    for (BbsChannel channel : m_bbsChannelsMapping[type])
+    for (BbsChannel channel : getBbsChannels(type))
     {
         m_bbsNetwork.BbsSubscribe(channel, m_lastTimestamp, this);
     }
@@ -81,13 +96,9 @@ void BroadcastRouter::registerListener(ContentType type, IBroadcastListener* lis
 void BroadcastRouter::unregisterListener(ContentType type)
 {
     auto it = m_listeners.find(type);
-    if (it == std::cend(m_listeners)) return;
+    assert(it == std::cend(m_listeners));
 
-    auto msgType = m_messageTypeMapping.find(type);
-    assert(msgType != std::cend(m_messageTypeMapping));
-
-    m_msgReader.disable_msg_type(*msgType);
-
+    m_msgReader.disable_msg_type(getMsgType(type));
     m_listeners.erase(it);
 }
 
@@ -95,15 +106,15 @@ void BroadcastRouter::unregisterListener(ContentType type)
  *  Dispatches BBS message data to MsgReader.
  *  MsgReader use Protocol to process data and finally passes to the message handler.
  */
-void BroadcastRouter::OnMsg(proto::BbsMsg&& bbsMsg) override
+void BroadcastRouter::OnMsg(proto::BbsMsg&& bbsMsg)
 {
     const void * data = bbsMsg.m_Message.data();
     size_t size = bbsMsg.m_Message.size();
 
-    m_msgReader.new_data_from_stream(EC_OK, data, size);
+    m_msgReader.new_data_from_stream(io::EC_OK, data, size);
 }
 
-virtual void BroadcastRouter::on_protocol_error(uint64_t fromStream, ProtocolError error) override
+void BroadcastRouter::on_protocol_error(uint64_t fromStream, ProtocolError error)
 {
     std::string description; 
     switch (error)
@@ -113,35 +124,35 @@ virtual void BroadcastRouter::on_protocol_error(uint64_t fromStream, ProtocolErr
             break;
 
         case ProtocolError::version_error:
-            description = "wrong protocol version (first 3 bytes)"
+            description = "wrong protocol version (first 3 bytes)";
             break;
 
         case ProtocolError::msg_type_error:
-            description = "msg type is not handled by this protocol"
+            description = "msg type is not handled by this protocol";
             break;
 
         case ProtocolError::msg_size_error:
-            description = "msg size out of allowed range"
+            description = "msg size out of allowed range";
             break;
 
         case ProtocolError::message_corrupted:
-            description = "deserialization error"
+            description = "deserialization error";
             break;
 
         case ProtocolError::unexpected_msg_type:
-            description = "receiving of msg type disabled for this stream"
+            description = "receiving of msg type disabled for this stream";
             break;
         
         default:
-            description = "receiving of msg type disabled for this stream"
+            description = "receiving of msg type disabled for this stream";
             break;
     }
     LOG_WARNING() << "BbsMessagesRouter error: " << description;
 }
 
-virtual void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override
-{   /// unused
+/// unused
+void BroadcastRouter::on_connection_error(uint64_t fromStream, io::ErrorCode errorCode)
+{
 }
-
 
 } // namespace beam

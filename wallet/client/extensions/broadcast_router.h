@@ -60,6 +60,9 @@ namespace beam
         static const std::map<ContentType, std::vector<BbsChannel>> m_bbsChannelsMapping;
         static const std::map<ContentType, MsgType> m_messageTypeMapping;
 
+        std::vector<BbsChannel> getBbsChannels(ContentType);
+        MsgType getMsgType(ContentType);
+
         proto::FlyClient::INetwork& m_bbsNetwork;
 
         // TODO: create own MsgReader for each listening BBS channel
