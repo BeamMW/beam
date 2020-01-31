@@ -148,16 +148,16 @@ namespace detail
     template<std::size_t F, typename T>
     struct serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, T>
     {
-		template< typename Archive, typename T>
-		static void savePtr(Archive& ar, const std::unique_ptr<T>& pPtr)
+		template< typename Archive, typename T2>
+		static void savePtr(Archive& ar, const std::unique_ptr<T2>& pPtr)
 		{
 			save(ar, *pPtr);
 		}
 
-		template< typename Archive, typename T>
-		static void loadPtr(Archive& ar, std::unique_ptr<T>& pPtr)
+		template< typename Archive, typename T2>
+		static void loadPtr(Archive& ar, std::unique_ptr<T2>& pPtr)
 		{
-			pPtr = std::make_unique<T>();
+			pPtr = std::make_unique<T2>();
 			ar & *pPtr;
 		}
 
