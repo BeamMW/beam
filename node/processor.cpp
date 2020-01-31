@@ -3538,6 +3538,8 @@ void NodeProcessor::RollbackTo(Height h)
 		BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height, false);
 		bic.m_StoreShieldedOutput = true;
 		bic.m_pRollback = &bbR;
+		bic.m_ShieldedIns = static_cast<uint32_t>(-1); // suppress assertion
+		bic.m_ShieldedOuts = static_cast<uint32_t>(-1);
 		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
 		assert(bbR.empty());
 	}
