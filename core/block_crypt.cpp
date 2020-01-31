@@ -1090,6 +1090,9 @@ namespace beam
 		ptNeg.m_Y = !ptNeg.m_Y; // probably faster than negating the result
 
 		ECC::Point::Native comm;
+		if (m_pAsset && !m_pAsset->IsValid(comm))
+			return false;
+
 		if (!comm.ImportNnz(ptNeg))
 			return false;
 
