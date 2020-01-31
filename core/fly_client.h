@@ -33,7 +33,8 @@ namespace proto {
 		macro(ShieldedList,      GetShieldedList,      ShieldedList) \
 		macro(ProofShieldedInp,  GetProofShieldedInp,  ProofShieldedInp) \
 		macro(ProofShieldedOutp, GetProofShieldedOutp, ProofShieldedOutp) \
-		macro(BbsMsg,            BbsMsg,               Pong)
+		macro(BbsMsg,            BbsMsg,               Pong) \
+		macro(Asset,             GetProofAsset,        ProofAsset)
 
 		class Request
 		{

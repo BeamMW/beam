@@ -82,11 +82,9 @@ namespace beam::wallet
 
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
-        , IPrivateKeyKeeper::Ptr keyKeeper
         , const TxID& txID)
         : m_Gateway{ gateway }
         , m_WalletDB{ walletDB }
-        , m_KeyKeeper{ keyKeeper }
         , m_ID{ txID }
     {
         assert(walletDB);
@@ -181,11 +179,6 @@ namespace beam::wallet
         {
             if (s == TxStatus::InProgress)
             {
-                if (!m_KeyKeeper)
-                {
-                    // cannot create encrypted message
-                    return;
-                }
                 // notify about cancellation if we have started negotiations
                 NotifyFailure(TxFailureReason::Canceled);
 
@@ -327,6 +320,37 @@ namespace beam::wallet
         GetGateway().on_tx_completed(GetTxID());
     }
 
+    IPrivateKeyKeeper2::Slot::Type BaseTransaction::GetSlotSafe(bool bAllocateIfAbsent)
+    {
+        IPrivateKeyKeeper2::Slot::Type iSlot = IPrivateKeyKeeper2::Slot::Invalid;
+        GetParameter(TxParameterID::NonceSlot, iSlot);
+
+        if (bAllocateIfAbsent && (IPrivateKeyKeeper2::Slot::Invalid == iSlot))
+        {
+            iSlot = m_WalletDB->SlotAllocate();
+            SetParameter(TxParameterID::NonceSlot, iSlot);
+        }
+
+        return iSlot;
+    }
+
+    void BaseTransaction::FreeSlotSafe()
+    {
+        IPrivateKeyKeeper2::Slot::Type iSlot = GetSlotSafe(false);
+        if (IPrivateKeyKeeper2::Slot::Invalid != iSlot)
+        {
+            m_WalletDB->SlotFree(iSlot);
+            SetParameter(TxParameterID::NonceSlot, IPrivateKeyKeeper2::Slot::Invalid);
+        }
+
+
+    }
+
+    void BaseTransaction::FreeResources()
+    {
+        FreeSlotSafe(); // if was used
+    }
+
     void BaseTransaction::NotifyFailure(TxFailureReason reason)
     {
         TxStatus s = TxStatus::Failed;
@@ -352,9 +376,36 @@ namespace beam::wallet
         return m_WalletDB;
     }
 
-    IPrivateKeyKeeper::Ptr BaseTransaction::GetKeyKeeper()
+    IPrivateKeyKeeper2::Ptr BaseTransaction::get_KeyKeeperStrict()
     {
-        return m_KeyKeeper;
+        IPrivateKeyKeeper2::Ptr ret = m_WalletDB->get_KeyKeeper();
+        if (!ret)
+            throw TransactionFailedException(true, TxFailureReason::NoKeyKeeper);
+
+        return ret;
+    }
+
+    Key::IKdf::Ptr BaseTransaction::get_MasterKdfStrict()
+    {
+        Key::IKdf::Ptr ret = m_WalletDB->get_MasterKdf();
+        if (!ret)
+            throw TransactionFailedException(true, TxFailureReason::NoMasterKey);
+
+        return ret;
+    }
+
+    void BaseTransaction::TestKeyKeeperRet(IPrivateKeyKeeper2::Status::Type n)
+    {
+        if (IPrivateKeyKeeper2::Status::Success != n)
+            throw TransactionFailedException(true, KeyKeeperErrorToFailureReason(n));
+    }
+
+    TxFailureReason BaseTransaction::KeyKeeperErrorToFailureReason(IPrivateKeyKeeper2::Status::Type n)
+    {
+        if (IPrivateKeyKeeper2::Status::UserAbort == n)
+            return TxFailureReason::KeyKeeperUserAbort;
+
+        return TxFailureReason::KeyKeeperError;
     }
 
     IAsyncContext& BaseTransaction::GetAsyncAcontext() const
@@ -371,8 +422,9 @@ namespace beam::wallet
         if (GetParameter(TxParameterID::MyID, msg.m_From)
             && GetParameter(TxParameterID::PeerID, peerID))
         { 
-            PeerID secureWalletID = Zero;
-            if (GetParameter(TxParameterID::MySecureWalletID, secureWalletID))
+            PeerID secureWalletID = Zero, peerWalletID = Zero;
+            if (GetParameter(TxParameterID::MySecureWalletID, secureWalletID) 
+             && GetParameter(TxParameterID::PeerSecureWalletID, peerWalletID))
             {
                 msg.AddParameter(TxParameterID::PeerSecureWalletID, secureWalletID);
             }

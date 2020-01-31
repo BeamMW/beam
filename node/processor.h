@@ -39,7 +39,9 @@ class NodeProcessor
 	size_t m_nSizeUtxoComission;
 
 	struct MultiblockContext;
+	struct MultiSigmaContext;
 	struct MultiShieldedContext;
+	struct MultiAssetContext;
 
 	void RollbackTo(Height);
 	Height PruneOld();
@@ -399,8 +401,14 @@ public:
 	bool EnumTxos(ITxoWalker&);
 	bool EnumTxos(ITxoWalker&, const HeightRange&);
 
-	struct ITxoRecover
+	struct ITxoWalker_Unspent
 		:public ITxoWalker
+	{
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
+	};
+
+	struct ITxoRecover
+		:public ITxoWalker_Unspent
 	{
 		Key::IPKdf& m_Key;
 		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
@@ -422,7 +430,8 @@ public:
 		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
 
 		struct Value {
-			ECC::Key::IDV::Packed m_Kidv;
+			ECC::Key::ID::Packed m_Kid;
+			uintBigFor<Amount>::Type m_Value;
 			uintBigFor<Height>::Type m_Maturity;
 			uintBigFor<Asset::ID>::Type m_AssetID;
 			proto::UtxoEvent::AuxBuf1 m_Buf1;

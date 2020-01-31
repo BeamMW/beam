@@ -124,6 +124,7 @@ namespace ECC
 		:public secp256k1_ge_storage
 	{
 		struct Converter;
+		void Assign(secp256k1_ge&) const;
 		void Assign(Point::Native&, bool bSet) const;
 	};
 
@@ -683,8 +684,10 @@ namespace ECC
 		virtual ~HKdf();
 		// IPKdf
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		virtual uint32_t ExportP(void*) const override;
 		// IKdf
 		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
+		virtual uint32_t ExportS(void*) const override;
 
 #pragma pack (push, 1)
 		struct Packed
@@ -724,6 +727,7 @@ namespace ECC
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
 		virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
 		virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
+		virtual uint32_t ExportP(void*) const override;
 
 #pragma pack (push, 1)
 		struct Packed

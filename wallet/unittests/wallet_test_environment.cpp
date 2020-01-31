@@ -14,6 +14,7 @@
 
 #include "http/http_client.h"
 #include "core/treasury.h"
+#include "keykeeper/local_private_key_keeper.h"
 #include <tuple>
 
 using namespace beam;
@@ -30,6 +31,7 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override {}
     void confirm_outputs(const std::vector<Coin>&) override {}
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
+    void confirm_asset(const TxID&, const Key::Index, const PeerID&, SubTxID subTxID) override {}
     void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
     void send_tx_params(const WalletID& peerID, const wallet::SetTxParameter&) override {}
@@ -247,13 +249,13 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
         seed.V = Zero;
     }
                
-    auto walletDB = WalletDB::init(path, DBPassword, seed, io::Reactor::get_Current().shared_from_this(), separateDBForPrivateData);
+    auto walletDB = WalletDB::init(path, DBPassword, seed, separateDBForPrivateData);
     return walletDB;
 }
 
-IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const AmountList& amounts = {5, 2, 1, 9})
+IWalletDB::Ptr createSenderWalletDBWithSeed(const std::string& fileName, bool generateSeed, bool separateDBForPrivateData = false, const AmountList& amounts = {5, 2, 1, 9})
 {
-    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, false);
+    auto db = createSqliteWalletDB(fileName, separateDBForPrivateData, generateSeed);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
     for (auto amount : amounts)
     {
@@ -261,6 +263,11 @@ IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const
         db->storeCoin(coin);
     }
     return db;
+}
+
+IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const AmountList& amounts = { 5, 2, 1, 9 })
+{
+    return createSenderWalletDBWithSeed(SenderWalletDB, false, separateDBForPrivateData, amounts);
 }
 
 IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false)
@@ -336,8 +343,8 @@ public:
 class OneTimeBbsEndpoint : public WalletNetworkViaBbs
 {
 public:
-    OneTimeBbsEndpoint(IWalletMessageConsumer& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
-        : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB, keyKeeper)
+    OneTimeBbsEndpoint(IWalletMessageConsumer& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB)
+        : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB)
     {
 
     }
@@ -352,8 +359,8 @@ private:
 class TestWallet : public Wallet
 {
 public:
-    TestWallet(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction())
-        : Wallet{ walletDB, keyKeeper, std::move(action), std::move(updateCompleted)}
+    TestWallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction())
+        : Wallet{ walletDB, std::move(action), std::move(updateCompleted)}
         , m_FlushTimer{ io::Timer::create(io::Reactor::get_Current()) }
     {
 
@@ -408,7 +415,6 @@ struct TestWalletRig
     enum Type
     {
         Regular,
-        ColdWallet,
         RegularWithoutPoWBbs,
         Offline
     };
@@ -416,12 +422,13 @@ struct TestWalletRig
     TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
         : m_WalletDB{ walletDB }
         , m_KeyKeeper(make_shared<LocalPrivateKeyKeeper>(m_WalletDB, m_WalletDB->get_MasterKdf()))
-        , m_Wallet{ m_WalletDB, m_KeyKeeper, move(action),( type == Type::ColdWallet) ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
+        , m_Wallet{ m_WalletDB, move(action), Wallet::UpdateCompletedAction() }
     {
 
         if (auto kdf = m_WalletDB->get_MasterKdf(); kdf) // can create secrets
         {
-            WalletAddress wa = storage::createAddress(*m_WalletDB, m_KeyKeeper);
+            WalletAddress wa;
+            m_WalletDB->createAddress(wa);
             m_WalletDB->saveAddress(wa);
             m_WalletID = wa.m_walletID;
             m_OwnID = wa.m_OwnID;
@@ -441,12 +448,6 @@ struct TestWalletRig
 
         switch (type)
         {
-        case Type::ColdWallet:
-            {
-                m_messageEndpoint = make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB, m_KeyKeeper);
-                break;
-            }
-
         case Type::Regular:
             {
                 auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
@@ -455,11 +456,11 @@ struct TestWalletRig
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    m_messageEndpoint = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+                    m_messageEndpoint = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB);
                 }
                 else
                 {
-                    m_messageEndpoint = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+                    m_messageEndpoint = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB);
                 }
                 m_Wallet.SetNodeEndpoint(nodeEndpoint);
                 break;
@@ -472,14 +473,14 @@ struct TestWalletRig
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    auto tmp = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+                    auto tmp = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB);
 
                     tmp->m_MineOutgoing = false;
                     m_messageEndpoint = tmp;
                 }
                 else
                 {
-                    auto tmp = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+                    auto tmp = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB);
 
                     tmp->m_MineOutgoing = false;
                     m_messageEndpoint = tmp;
@@ -496,6 +497,7 @@ struct TestWalletRig
             m_Wallet.AddMessageEndpoint(m_messageEndpoint);
         }
     }
+
 
     vector<Coin> GetCoins()
     {
@@ -787,6 +789,7 @@ struct TestBlockchain
         }
     }
 
+
     void AddKernel(const TxKernel& krn)
     {
         if (m_vBlockKernels.size() <= m_mcm.m_vStates.size())
@@ -905,6 +908,13 @@ struct TestNodeNetwork
         {
             proto::FlyClient::RequestKernel2& v = static_cast<proto::FlyClient::RequestKernel2&>(r);
             m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
+        }
+        break;
+
+        case Request::Type::Asset:
+        {
+            //proto::FlyClient::RequestAsset& v = static_cast<proto::FlyClient::RequestAsset&>(r);
+            //m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
         }
         break;
 
@@ -1256,7 +1266,7 @@ public:
         WALLET_CHECK(txHistory.size() == totalTxCount);
         for (const auto& tx : txHistory)
         {
-            WALLET_CHECK(tx.m_status == TxStatus::Completed);
+            WALLET_CHECK(tx.m_status == wallet::TxStatus::Completed);
         }
     }
 

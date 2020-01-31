@@ -21,13 +21,10 @@
 namespace beam::wallet
 {
     class BaseTransaction;
-    class AssetIssueTxBuilder: public std::enable_shared_from_this<AssetIssueTxBuilder>
+    class AssetRegisterTxBuilder: public std::enable_shared_from_this<AssetRegisterTxBuilder>
     {
     public:
-        //
-        // Transaction
-        //
-        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID);
+        AssetRegisterTxBuilder(BaseTransaction& tx, SubTxID subTxID);
 
         bool GetInitialTxParams();
         virtual Transaction::Ptr CreateTransaction();
@@ -35,31 +32,31 @@ namespace beam::wallet
         //
         // Coins, amounts & fees
         //
-        Amount   GetFee() const;
-        Amount   GetAmountBeam() const;
-        Amount   GetAmountAsset() const;
-        const    AmountList& GetAmountList() const;
-        void     AddChange();
-        void     SelectInputs();
-        bool     GetInputs();
-        bool     GetOutputs();
-        void     GenerateAssetCoin(Amount amount, bool change);
-        void     GenerateBeamCoin(Amount amount, bool change);
-        bool     CreateInputs();
-        bool     CreateOutputs();
+        Amount GetFee() const;
+        Amount GetAmountBeam() const;
+        const AmountList& GetAmountList() const;
+        void AddChange();
+        void SelectInputs();
+        bool GetInputs();
+        bool GetOutputs();
+        void GenerateBeamCoin(Amount amount, bool change);
+        bool CreateInputs();
+        bool CreateOutputs();
+
         Key::Index GetAssetOwnerIdx() const;
-        Asset::ID  GetAssetId() const;
+        PeerID GetAssetOwnerId() const;
 
         //
         // Blockchain stuff
         //
         const Merkle::Hash& GetKernelID() const;
         bool LoadKernel();
-        void CreateKernel();
-        void SignKernel();
+        bool MakeKernel();
 
         std::string GetKernelIDString() const;
         Height GetMinHeight() const;
+
+    protected:
 
     private:
         const CoinIDList& GetInputCoins() const;
@@ -69,14 +66,12 @@ namespace beam::wallet
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
 
-        beam::Asset::ID  m_assetId;
         beam::Key::Index m_assetOwnerIdx;
+        PeerID m_assetOwnerId;
 
-        bool       m_issue;
-        AmountList m_AmountList;
         Amount     m_Fee;
         Amount     m_ChangeBeam;
-        Amount     m_ChangeAsset;
+        AmountList m_AmountList;
         Height     m_MinHeight;
         Height     m_MaxHeight;
 
@@ -89,7 +84,7 @@ namespace beam::wallet
         // Blockchain stuff
         //
         ECC::Scalar::Native m_Offset;
-        TxKernelAssetEmit::Ptr m_Kernel;
-        mutable boost::optional<Merkle::Hash> m_KernelID;
+        TxKernelAssetCreate::Ptr m_kernel;
+        mutable boost::optional<Merkle::Hash> m_kernelID;
     };
 }

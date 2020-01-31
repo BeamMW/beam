@@ -23,6 +23,7 @@
 #include <boost/filesystem.hpp>
 #include "nlohmann/json.hpp"
 #include "utility/std_extension.h"
+#include "keykeeper/local_private_key_keeper.h"
 
 #define NOSEP
 #define COMMA ", "
@@ -851,17 +852,19 @@ namespace beam::wallet
         // for historical reasons - make AssetID 1st member to keep bkwd compatibility
         // during serialization/deserialization leading zeroes are trimmed
         uintBigFor<Asset::ID>::Type m_AssetID;
-        Key::IDV::Packed m_Kidv;
+        Key::ID::Packed m_Kid;
+        uintBigFor<Amount>::Type m_Value;
     };
 #pragma pack (pop)
 
     string Coin::toStringID() const
     {
         CoinIDPacked packed;
-        packed.m_Kidv = m_ID;
+        packed.m_Kid = m_ID;
+        packed.m_Value = m_ID.m_Value;
 
         if (!m_ID.m_AssetID)
-            return to_hex(&packed.m_Kidv, sizeof(packed.m_Kidv));
+            return to_hex(&packed.m_Kid, sizeof(packed) - sizeof(packed.m_AssetID));
 
         packed.m_AssetID = m_ID.m_AssetID;
         return to_hex(&packed, sizeof(packed));
@@ -899,7 +902,8 @@ namespace beam::wallet
             uint8_t* p = reinterpret_cast<uint8_t*>(&packed) + sizeof(CoinIDPacked) - byteBuffer.size();
             copy_n(byteBuffer.begin(), byteBuffer.size(), p);
             Coin::ID id;
-            Cast::Down<Key::IDV>(id) = packed.m_Kidv;
+            Cast::Down<Key::ID>(id) = packed.m_Kid;
+            packed.m_Value.Export(id.m_Value);
             packed.m_AssetID.Export(id.m_AssetID);
             return id;
         }
@@ -1119,107 +1123,240 @@ namespace beam::wallet
         CreateShieldedCoinsTable(db);
     }
 
-    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
+    std::shared_ptr<WalletDB>  WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
     {
-        if (!isInitialized(path))
+        if (isInitialized(path))
         {
-            sqlite3* db = nullptr;
-            {
-                int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
-                throwIfError(ret, db);
-            }
-
-            sqlite3* sdb = db;
-
-            if (separateDBForPrivateData)
-            {
-                int ret = sqlite3_open_v2((path+".private").c_str(), &sdb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
-                throwIfError(ret, sdb);
-                enterKey(sdb, password);
-            }
-
-            enterKey(db, password);
-            auto walletDB = make_shared<WalletDB>(db, secretKey, reactor, sdb);
-
-            createTables(walletDB->_db, walletDB->m_PrivateDB);
-
-            {
-                // store master key
-                walletDB->setPrivateVarRaw(WalletSeed, &secretKey.V, sizeof(secretKey.V));
-
-                // store owner key (public)
-                {
-                    Key::IKdf::Ptr pKey = walletDB->get_MasterKdf();
-                    const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
-
-                    auto publicKdf = make_shared<ECC::HKdfPub>();
-                    publicKdf->GenerateFrom(kdf);
-                    ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
-                    publicKdf->Export(packedOwnerKey.V);
-
-                    storage::setVar(*walletDB, OwnerKey, packedOwnerKey.V);
-                    walletDB->m_OwnerKdf = publicKdf;
-                }
-
-                storage::setVar(*walletDB, Version, DbVersion);
-            }
-
-            walletDB->flushDB();
-
-            return static_pointer_cast<IWalletDB>(walletDB);
+            LOG_ERROR() << path << " already exists.";
+            throw DatabaseException("");
         }
 
-        LOG_ERROR() << path << " already exists.";
-
-        return Ptr();
-    }
-
-    IWalletDB::Ptr WalletDB::initWithOwnerKey(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
-    {
-        if (!isInitialized(path))
+        sqlite3* db = nullptr;
         {
-            sqlite3* db = nullptr;
-            {
-                int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
-                throwIfError(ret, db);
-            }
-
-            enterKey(db, password);
-            auto walletDB = make_shared<WalletDB>(db, reactor);
-
-            createTables(walletDB->_db, walletDB->m_PrivateDB);
-
-            {
-                // store owner key (public)
-                {
-                    ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
-                    ownerKey->Export(packedOwnerKey.V);
-
-                    storage::setVar(*walletDB, OwnerKey, packedOwnerKey.V);
-                    walletDB->m_OwnerKdf = ownerKey;
-                }
-
-                storage::setVar(*walletDB, Version, DbVersion);
-            }
-
-            walletDB->flushDB();
-
-            return static_pointer_cast<IWalletDB>(walletDB);
+            int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
+            throwIfError(ret, db);
         }
 
-        LOG_ERROR() << path << " already exists.";
+        sqlite3* sdb = db;
 
-        return Ptr();
+        if (separateDBForPrivateData)
+        {
+            int ret = sqlite3_open_v2((path+".private").c_str(), &sdb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
+            throwIfError(ret, sdb);
+            enterKey(sdb, password);
+        }
+
+        enterKey(db, password);
+        auto walletDB = make_shared<WalletDB>(db, sdb);
+
+        createTables(walletDB->_db, walletDB->m_PrivateDB);
+
+        storage::setVar(*walletDB, Version, DbVersion);
+
+        return walletDB;
+
     }
 
-#if defined(BEAM_HW_WALLET)
-    IWalletDB::Ptr WalletDB::initWithTrezor(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
+    void WalletDB::storeOwnerKey()
     {
-        return initWithOwnerKey(path, ownerKey, password, reactor);
-    }
-#endif
+        ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
+        assert(m_pKdfOwner->ExportP(nullptr) == sizeof(packedOwnerKey));
+        m_pKdfOwner->ExportP(&packedOwnerKey);
 
-    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, io::Reactor::Ptr reactor, bool useTrezor)
+        storage::setVar(*this, OwnerKey, packedOwnerKey.V);
+    }
+
+    struct WalletDB::LocalKeyKeeper
+        :public LocalPrivateKeyKeeperStd
+    {
+        using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
+
+        struct UsedSlots
+        {
+            static const char s_szDbName[];
+
+            typedef std::map<IPrivateKeyKeeper2::Slot::Type, ECC::Hash::Value> UsedMap;
+            UsedMap m_Used;
+
+            template <typename Archive>
+            void serialize(Archive& ar)
+            {
+                ar & m_Used;
+            }
+
+            void Load(WalletDB& db)
+            {
+                ByteBuffer buf;
+                if (db.getBlob(s_szDbName, buf))
+                {
+                    Deserializer der;
+                    der.reset(buf);
+                    der & *this;
+                }
+            }
+
+            void Save(WalletDB& db)
+            {
+                Serializer ser;
+                ser & *this;
+
+                db.setVarRaw(s_szDbName, ser.buffer().first, ser.buffer().second);
+            }
+        };
+    };
+
+    const char WalletDB::LocalKeyKeeper::UsedSlots::s_szDbName[] = "KeyKeeperSlots";
+
+    void WalletDB::FromMaster(const ECC::uintBig& seed)
+    {
+        ECC::HKdf::Create(m_pKdfMaster, seed);
+        FromMaster();
+    }
+
+    void WalletDB::FromMaster()
+    {
+        assert(m_pKdfMaster);
+        m_pKdfOwner = m_pKdfMaster;
+        m_pKdfSbbs = m_pKdfMaster;
+
+        if (!m_pKeyKeeper)
+        {
+            m_pKeyKeeper = std::make_shared<LocalKeyKeeper>(m_pKdfMaster);
+            m_pLocalKeyKeeper = &Cast::Up<LocalKeyKeeper>(*m_pKeyKeeper);
+        }
+
+        UpdateLocalSlots();
+    }
+
+    void WalletDB::FromKeyKeeper()
+    {
+        assert(!m_pKdfMaster);
+
+        if (!m_pKeyKeeper)
+            throw std::runtime_error("Key keeper required");
+
+        IPrivateKeyKeeper2::Method::get_Kdf m;
+        m.m_Root = true;
+        m_pKeyKeeper->InvokeSync(m);
+
+        if (m.m_pKdf)
+        {
+            // trusted mode.
+            m_pKdfMaster = std::move(m.m_pKdf);
+            FromMaster();
+            return;
+        }
+
+        if (!m.m_pPKdf)
+            throw std::runtime_error("can't get owner key");
+
+        m_pKdfOwner = std::move(m.m_pPKdf);
+
+        // trustless mode. create SBBS Kdf from a child PKdf. It won't be directly accessible from the owner key
+        m.m_Root = false;
+        m.m_iChild = Key::Index(-1); // definitely won't collude with a coin child Kdf (for coins high byte is reserved for scheme)
+
+        m_pKeyKeeper->InvokeSync(m);
+
+        if (!m.m_pPKdf)
+            throw std::runtime_error("can't get sbbs key");
+
+        ECC::Scalar::Native sk;
+        m.m_pPKdf->DerivePKey(sk, Zero);
+
+        ECC::NoLeak<ECC::Scalar> s;
+        s.V = sk;
+
+        ECC::HKdf::Create(m_pKdfSbbs, s.V.m_Value);
+
+        UpdateLocalSlots();
+
+    }
+
+    void WalletDB::UpdateLocalSlots()
+    {
+        assert(m_pKeyKeeper);
+
+        IPrivateKeyKeeper2::Method::get_NumSlots m = { 0 };
+        m.m_Count = 0;
+        if ((IPrivateKeyKeeper2::Status::Success != m_pKeyKeeper->InvokeSync(m)) || !m.m_Count)
+            throw std::runtime_error("key keeper no slots");
+
+        m_KeyKeeperSlots = m.m_Count;
+
+        LocalKeyKeeper::UsedSlots us;
+        bool bKeep = false;
+
+        try
+        {
+            us.Load(*this);
+            if (us.m_Used.empty() || (us.m_Used.rbegin()->first < m.m_Count))
+                bKeep = true;
+        }
+        catch (...)
+        {
+        }
+
+        if (!bKeep)
+        {
+            us.m_Used.clear();
+            us.Save(*this);
+        }
+
+        if (m_pLocalKeyKeeper)
+        {
+            ECC::GenRandom(m_pLocalKeyKeeper->m_State.m_hvLast);
+            m_pLocalKeyKeeper->m_State.Generate();
+
+            if (bKeep)
+            {
+                // restore used slots
+                for (LocalKeyKeeper::UsedSlots::UsedMap::value_type val : us.m_Used)
+                    m_pLocalKeyKeeper->m_State.m_pSlot[val.first] = val.second;
+            }
+        }
+    }
+
+    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData)
+    {
+        std::shared_ptr<WalletDB> walletDB = initBase(path, password, separateDBForPrivateData);
+        if (walletDB)
+        {
+            walletDB->FromMaster(secretKey.V);
+
+            walletDB->setPrivateVarRaw(WalletSeed, &secretKey.V, sizeof(secretKey.V)); // store master key
+            walletDB->storeOwnerKey(); // store owner key (public)
+
+            walletDB->flushDB();
+            walletDB->m_Initialized = true;
+        }
+
+        return walletDB;
+    }
+
+    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr& pKeyKeeper, bool separateDBForPrivateData)
+    {
+        std::shared_ptr<WalletDB> walletDB = initBase(path, password, separateDBForPrivateData);
+        if (walletDB)
+        {
+            walletDB->m_pKeyKeeper = pKeyKeeper;
+            walletDB->FromKeyKeeper();
+
+            walletDB->storeOwnerKey(); // store owner key (public)
+
+            walletDB->flushDB();
+            walletDB->m_Initialized = true;
+        }
+
+        return walletDB;
+    }
+
+    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password)
+    {
+        return open(path, password, nullptr);
+    }
+
+    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr& pKeyKeeper)
     {
         if (!isInitialized(path))
         {
@@ -1237,7 +1374,7 @@ namespace beam::wallet
             OpenAndMigrateIfNeeded(privatePath, &sdb, password);
         }
 
-        auto walletDB = make_shared<WalletDB>(db, reactor, sdb);
+        auto walletDB = make_shared<WalletDB>(db, sdb);
         {
             int ret = sqlite3_busy_timeout(walletDB->_db, BusyTimeoutMs);
             throwIfError(ret, walletDB->_db);
@@ -1489,40 +1626,53 @@ namespace beam::wallet
             ECC::NoLeak<ECC::Hash::Value> seed;
             if (walletDB->getPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V)))
             {
-                ECC::HKdf::Create(walletDB->m_pKdf, seed.V);
-                walletDB->m_OwnerKdf = walletDB->m_pKdf;
+                walletDB->FromMaster(seed.V);
             }
             else
             {
                 ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
-                if (storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V))
+                bool bHadOwnerKey = storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V);
+
+                if (pKeyKeeper || !bHadOwnerKey)
                 {
-                    auto publicKdf = make_shared<ECC::HKdfPub>();
-                    if (!publicKdf->Import(packedOwnerKey.V))
+                    walletDB->m_pKeyKeeper = pKeyKeeper;
+                    walletDB->FromKeyKeeper();
+
+                    if (bHadOwnerKey)
                     {
-                        LOG_ERROR() << "Failed to load owner key";
-                        return Ptr();
+                        // consistency check. Make sure there's an agreement w.r.t. stored owner key
+                        ECC::NoLeak<ECC::HKdfPub::Packed> keyCurrent;
+                        walletDB->m_pKdfOwner->ExportP(&keyCurrent);
+
+                        if (memcmp(&packedOwnerKey, &keyCurrent, sizeof(keyCurrent)))
+                            throw std::runtime_error("Key keeper is different");
                     }
-                    walletDB->m_OwnerKdf = publicKdf;
+                    else
+                        walletDB->storeOwnerKey();
+                }
+                else
+                {
+                    assert(bHadOwnerKey);
+                    // Read-only wallet.
+                    walletDB->m_pKdfOwner = std::make_shared<ECC::HKdfPub>();
+                    Cast::Up<ECC::HKdfPub>(*walletDB->m_pKdfOwner).Import(packedOwnerKey.V);
                 }
 
             }
         }
-
-        walletDB->m_useTrezor = useTrezor;
+        walletDB->m_Initialized = true;
         return static_pointer_cast<IWalletDB>(walletDB);
     }
 
-    WalletDB::WalletDB(sqlite3* db, io::Reactor::Ptr reactor)
-        : WalletDB(db, reactor, db)
+    WalletDB::WalletDB(sqlite3* db)
+        : WalletDB(db, db)
     {
 
     }
 
-    WalletDB::WalletDB(sqlite3* db, io::Reactor::Ptr reactor, sqlite3* sdb)
+    WalletDB::WalletDB(sqlite3* db, sqlite3* sdb)
         : _db(db)
         , m_PrivateDB(sdb)
-        , m_Reactor(reactor)
         , m_IsFlushPending(false)
         , m_mandatoryTxParams{
             TxParameterID::TransactionType,
@@ -1532,12 +1682,6 @@ namespace beam::wallet
             TxParameterID::IsSender }
     {
 
-    }
-
-    WalletDB::WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, sqlite3* sdb)
-        : WalletDB(db, reactor, sdb)
-    {
-        ECC::HKdf::Create(m_pKdf, secretKey.V);
     }
 
     WalletDB::~WalletDB()
@@ -1569,25 +1713,124 @@ namespace beam::wallet
 
     Key::IKdf::Ptr WalletDB::get_MasterKdf() const
     {
-        return m_useTrezor ? nullptr : m_pKdf;
+        return m_pKdfMaster;
     }
 
-	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const CoinID& cid) const
-	{
-		return MasterKey::get_Child(get_MasterKdf(), cid);
-	}
-
-    beam::Key::IPKdf::Ptr WalletDB::get_OwnerKdf() const
+    Key::IPKdf::Ptr WalletDB::get_OwnerKdf() const
     {
-        return m_OwnerKdf;
+        return m_pKdfOwner;
     }
 
-    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid)
+    Key::IKdf::Ptr WalletDB::get_SbbsKdf() const
     {
-        ECC::Point commitment;
-        ECC::Scalar::Native sk;
-        CoinID::Worker(cid).Create(sk, commitment, *get_ChildKdf(cid));
-        return commitment;
+        return m_pKdfSbbs;
+    }
+
+    IPrivateKeyKeeper2::Ptr WalletDB::get_KeyKeeper() const
+    {
+        return m_pKeyKeeper;
+    }
+
+    IPrivateKeyKeeper2::Slot::Type WalletDB::SlotAllocate()
+    {
+        IPrivateKeyKeeper2::Slot::Type iSlot = IPrivateKeyKeeper2::Slot::Invalid;
+
+        if (m_pKeyKeeper)
+        {
+            LocalKeyKeeper::UsedSlots us;
+            us.Load(*this);
+
+            assert(us.m_Used.size() <= m_KeyKeeperSlots);
+            if (us.m_Used.size() < m_KeyKeeperSlots)
+            {
+                if (us.m_Used.empty())
+                    iSlot = 0;
+                else
+                {
+                    iSlot = us.m_Used.rbegin()->first + 1;
+                    if (iSlot >= m_KeyKeeperSlots)
+                    {
+                        // find free from the beginning
+                        iSlot = 0;
+                        for (LocalKeyKeeper::UsedSlots::UsedMap::iterator it = us.m_Used.begin(); it->first == iSlot; it++)
+                            iSlot++;
+                    }
+                }
+
+                ECC::Hash::Value& hv = us.m_Used[iSlot];
+                if (m_pLocalKeyKeeper)
+                    hv = m_pLocalKeyKeeper->m_State.m_pSlot[iSlot];
+                else
+                    hv = Zero;
+            }
+
+            us.Save(*this);
+        }
+
+        return iSlot;
+    }
+
+    void WalletDB::SlotFree(IPrivateKeyKeeper2::Slot::Type iSlot)
+    {
+        if (m_pKeyKeeper && (IPrivateKeyKeeper2::Slot::Invalid != iSlot))
+        {
+            LocalKeyKeeper::UsedSlots us;
+            us.Load(*this);
+
+            LocalKeyKeeper::UsedSlots::UsedMap::iterator it = us.m_Used.find(iSlot);
+            if (us.m_Used.end() != it)
+            {
+                us.m_Used.erase(it);
+                us.Save(*this);
+            }
+        }
+    }
+
+    bool IWalletDB::get_CommitmentSafe(ECC::Point& comm, const CoinID& cid, IPrivateKeyKeeper2* pKeyKeeper)
+    {
+        ECC::Point::Native comm2;
+        if (!pKeyKeeper || (IPrivateKeyKeeper2::Status::Success != pKeyKeeper->get_Commitment(comm2, cid)))
+        {
+            Key::Index idx;
+            if (cid.get_ChildKdfIndex(idx))
+                return false; // child kdf is required
+
+            Key::IPKdf::Ptr pOwner = get_OwnerKdf();
+            assert(pOwner); // must always be available
+
+            CoinID::Worker(cid).Recover(comm2, *pOwner);
+        }
+
+        comm = comm2;
+        return true;
+    }
+
+    bool IWalletDB::get_CommitmentSafe(ECC::Point& comm, const CoinID& cid)
+    {
+        return get_CommitmentSafe(comm, cid, get_KeyKeeper().get());
+    }
+
+    bool IWalletDB::IsRecoveredMatch(CoinID& cid, const ECC::Point& comm)
+    {
+        IPrivateKeyKeeper2::Ptr pKeyKeeper = get_KeyKeeper();
+        
+        ECC::Point comm2;
+        if (!get_CommitmentSafe(comm2, cid, pKeyKeeper.get()))
+        {
+            assert(!pKeyKeeper); // read-only mode
+            return true; // Currently we skip this 2nd-stage validation in read-only wallet for UTXOs generated by the child kdf (such as miner key).
+        }
+
+        if (comm2 == comm)
+            return true;
+
+        if (!cid.IsBb21Possible())
+            return false;
+
+        cid.set_WorkaroundBb21();
+
+        get_CommitmentSafe(comm2, cid, pKeyKeeper.get());
+        return (comm2 == comm);
     }
 
 	void IWalletDB::ImportRecovery(const std::string& path)
@@ -1602,7 +1845,7 @@ namespace beam::wallet
 		rp.Open(path.c_str());
 		uint64_t nTotal = rp.m_Stream.get_Remaining();
 
-		beam::Key::IPKdf::Ptr pOwner = get_MasterKdf();
+        Key::IPKdf::Ptr pOwner = get_OwnerKdf();
 
 		while (true)
 		{
@@ -1618,8 +1861,7 @@ namespace beam::wallet
 			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, cid))
 				continue;
 
-			ECC::Point&& comm = calcCommitment(cid);
-			if (!(comm == x.m_Output.m_Commitment))
+            if (!IsRecoveredMatch(cid, x.m_Output.m_Commitment))
 				continue;
 
 			Coin c;
@@ -1645,6 +1887,61 @@ namespace beam::wallet
 
 		return true;
 	}
+
+    void IWalletDB::get_SbbsPeerID(ECC::Scalar::Native& sk, PeerID& pid, uint64_t ownID)
+    {
+        Key::IKdf::Ptr pKdfSbbs = get_SbbsKdf();
+        if (!pKdfSbbs)
+            throw CannotGenerateSecretException();
+
+        ECC::Hash::Value hv;
+        Key::ID(ownID, Key::Type::Bbs).get_Hash(hv);
+
+        pKdfSbbs->DeriveKey(sk, hv);
+        proto::Sk2Pk(pid, sk);
+    }
+
+    void IWalletDB::get_SbbsWalletID(ECC::Scalar::Native& sk, WalletID& wid, uint64_t ownID)
+    {
+        get_SbbsPeerID(sk, wid.m_Pk, ownID);
+
+        // derive the channel from the address
+        BbsChannel ch;
+        wid.m_Pk.ExportWord<0>(ch);
+        ch %= proto::Bbs::s_MaxChannels;
+
+        wid.m_Channel = ch;
+    }
+
+    void IWalletDB::get_SbbsWalletID(WalletID& wid, uint64_t ownID)
+    {
+        ECC::Scalar::Native sk;
+        get_SbbsWalletID(sk, wid, ownID);
+    }
+
+    bool IWalletDB::ValidateSbbsWalletID(const WalletID& wid, uint64_t ownID)
+    {
+        WalletID wid2;
+        get_SbbsWalletID(wid2, ownID);
+        return wid == wid2;
+    }
+
+    void IWalletDB::createAddress(WalletAddress& addr)
+    {
+        addr.m_createTime = beam::getTimestamp();
+        addr.m_OwnID = AllocateKidRange(1);
+        get_SbbsWalletID(addr.m_walletID, addr.m_OwnID);
+        get_Identity(addr.m_Identity, addr.m_OwnID);
+    }
+
+    void IWalletDB::get_Identity(PeerID& pid, uint64_t ownID) const
+    {
+        ECC::Hash::Value hv;
+        Key::ID(ownID, Key::Type::WalletID).get_Hash(hv);
+        ECC::Point::Native pt;
+        get_OwnerKdf()->DerivePKeyG(pt, hv);
+        pid = ECC::Point(pt).m_X;
+    }
 
     vector<Coin> WalletDB::selectCoins(Amount amount, Asset::ID assetId)
     {
@@ -2502,9 +2799,8 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
             if (address.isOwn())
-            {
-                address.m_Identity = storage::generateIdentityFromIndex(*this, address.m_OwnID);
-            }
+                get_Identity(address.m_Identity, address.m_OwnID);
+
             insertAddressToCache(id, address);
             return address;
         }
@@ -2527,9 +2823,8 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
             if (a.isOwn())
-            {
-                a.m_Identity = storage::generateIdentityFromIndex(*this, a.m_OwnID);
-            }
+                get_Identity(a.m_Identity, a.m_OwnID);
+
             if (a.isOwn() != own)
                 res.pop_back(); // akward, but ok
         }
@@ -2961,11 +3256,15 @@ namespace beam::wallet
 
     void WalletDB::onModified()
     {
-        if (!m_IsFlushPending)
+        if (!m_Initialized) // wallet db is opening or initializing, there could be no reactor to run timer
+        {
+            onFlushTimer();
+        }
+        else if (!m_IsFlushPending)
         {
             if (!m_FlushTimer)
             {
-                m_FlushTimer = io::Timer::create(*m_Reactor);
+                m_FlushTimer = io::Timer::create(io::Reactor::get_Current());
             }
             m_FlushTimer->start(50, false, BIND_THIS_MEMFN(onFlushTimer));
             m_IsFlushPending = true;
@@ -3233,8 +3532,6 @@ namespace beam::wallet
 
     namespace storage
     {
-        const char g_szPaymentProofRequired[] = "payment_proof_required";
-
         bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ECC::Point::Native& value)
         {
             ECC::Point pt;
@@ -3448,51 +3745,6 @@ namespace beam::wallet
             return allTotals[assetId];
         }
 
-        WalletAddress createAddress(IWalletDB& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
-        {
-            WalletAddress newAddress;
-            newAddress.m_createTime = beam::getTimestamp();
-            newAddress.m_OwnID = walletDB.AllocateKidRange(1);
-            newAddress.m_walletID = generateWalletIDFromIndex(keyKeeper, newAddress.m_OwnID);
-            newAddress.m_Identity = generateIdentityFromIndex(walletDB, newAddress.m_OwnID);
-
-            return newAddress;
-        }
-
-        PeerID generateIdentityFromIndex(const IWalletDB& walletDB, uint64_t ownID)
-        {
-            Key::ID kid(ownID, Key::Type::WalletID);
-            ECC::Hash::Value hv;
-            kid.get_Hash(hv);
-            ECC::Point::Native pt;
-            walletDB.get_OwnerKdf()->DerivePKeyG(pt, hv);
-            return ECC::Point(pt).m_X;
-        }
-
-        WalletID generateWalletIDFromIndex(IPrivateKeyKeeper::Ptr keyKeeper, uint64_t ownID)
-        {
-            if (!keyKeeper->get_SbbsKdf())
-            {
-                throw CannotGenerateSecretException();
-            }
-            WalletID walletID(Zero);
-
-            ECC::Scalar::Native sk;
-
-            keyKeeper->get_SbbsKdf()->DeriveKey(sk, Key::ID(ownID, Key::Type::Bbs));
-
-            proto::Sk2Pk(walletID.m_Pk, sk);
-
-            // derive the channel from the address
-            BbsChannel ch;
-            walletID.m_Pk.ExportWord<0>(ch);
-            ch %= proto::Bbs::s_MaxChannels;
-
-            walletID.m_Channel = ch;
-
-            return walletID;
-        }
-
         void DeduceStatus(const IWalletDB& walletDB, Coin& c, Height hTop)
         {
             c.m_status = GetCoinStatus(walletDB, c, hTop);
@@ -3583,7 +3835,7 @@ namespace beam::wallet
                 const string Value = "Value";
             }
             
-            bool ImportAddressesFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj, const string& nodeName)
+            bool ImportAddressesFromJson(IWalletDB& db, const json& obj, const string& nodeName)
             {
                 if (obj.find(nodeName) == obj.end())
                 {
@@ -3596,7 +3848,7 @@ namespace beam::wallet
                     if (address.m_walletID.FromHex(jsonAddress[Fields::WalletID]))
                     {
                         address.m_OwnID = jsonAddress[Fields::Index];
-                        if (!address.isOwn() || address.m_walletID == generateWalletIDFromIndex(keyKeeper, address.m_OwnID))
+                        if (!address.isOwn() || db.ValidateSbbsWalletID(address.m_walletID, address.m_OwnID))
                         {
                             //{ "SubIndex", 0 },
                             address.m_label = jsonAddress[Fields::Label];
@@ -3629,17 +3881,17 @@ namespace beam::wallet
                 return true;
             }
 
-            bool ImportAddressesFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj)
+            bool ImportAddressesFromJson(IWalletDB& db, const json& obj)
             {
-                return ImportAddressesFromJson(db, keyKeeper, obj, Fields::OwnAddresses);
+                return ImportAddressesFromJson(db, obj, Fields::OwnAddresses);
             }
 
-            bool ImportContactsFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj)
+            bool ImportContactsFromJson(IWalletDB& db, const json& obj)
             {
-                return ImportAddressesFromJson(db, keyKeeper, obj, Fields::Contacts);
+                return ImportAddressesFromJson(db, obj, Fields::Contacts);
             }
 
-            bool ImportTransactionsFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj)
+            bool ImportTransactionsFromJson(IWalletDB& db, const json& obj)
             {
                 if (obj.find(Fields::TransactionParameters) == obj.end())
                 {
@@ -3689,7 +3941,10 @@ namespace beam::wallet
                         return false;
                     }
 
-                    if(txtype == TxType::AssetConsume || txtype == TxType::AssetIssue)
+                    if(txtype == TxType::AssetConsume ||
+                       txtype == TxType::AssetIssue ||
+                       txtype == TxType::AssetReg ||
+                       txtype == TxType::AssetUnreg)
                     {
                         // Should be Zero for assets issue & consume
                         if (wid != Zero)
@@ -3706,7 +3961,7 @@ namespace beam::wallet
                         }
 
                         auto waddr = db.getAddress(wid);
-                        if (waddr && (!waddr->isOwn() || wid != generateWalletIDFromIndex(keyKeeper, waddr->m_OwnID)))
+                        if (waddr && (!waddr->isOwn() || !db.ValidateSbbsWalletID(wid, waddr->m_OwnID)))
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid address parameter";
                             return false;
@@ -3715,7 +3970,7 @@ namespace beam::wallet
                         uint64_t myAddrId = 0;
                         auto addressIt = paramsMap.find(TxParameterID::MyAddressID);
                         if (addressIt != paramsMap.end() && (!fromByteBuffer(addressIt->second.m_value, myAddrId) ||
-                                                             wid != generateWalletIDFromIndex(keyKeeper, myAddrId)))
+                            !db.ValidateSbbsWalletID(wid, myAddrId)))
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid MyAddressID parameter";
                             return false;
@@ -3838,14 +4093,14 @@ namespace beam::wallet
             return res.dump();
         }
 
-        bool ImportDataFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const char* data, size_t size)
+        bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size)
         {
             try
             {
                 json obj = json::parse(data, data + size);
-                return ImportAddressesFromJson(db, keyKeeper, obj) 
-                    && ImportContactsFromJson(db, keyKeeper, obj)
-                    && ImportTransactionsFromJson(db, keyKeeper, obj);
+                return ImportAddressesFromJson(db, obj) 
+                    && ImportContactsFromJson(db, obj)
+                    && ImportTransactionsFromJson(db, obj);
             }
             catch (const nlohmann::detail::exception& e)
             {
@@ -3940,9 +4195,18 @@ namespace beam::wallet
             PaymentInfo pi;
             uint64_t nAddrOwnID;
 
-            bool bSuccess =
-                storage::getTxParameter(walletDB, txID, TxParameterID::PeerID, pi.m_Receiver) &&
-                storage::getTxParameter(walletDB, txID, TxParameterID::MyID, pi.m_Sender) &&
+            bool bSuccess = 
+                (
+                    (
+                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerSecureWalletID, pi.m_Receiver.m_Pk) &&  // payment proiof using wallet ID
+                        storage::getTxParameter(walletDB, txID, TxParameterID::MySecureWalletID, pi.m_Sender.m_Pk)
+                    ) ||
+                    (
+                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerID, pi.m_Receiver) && // payment proof using SBBS address
+                        storage::getTxParameter(walletDB, txID, TxParameterID::MyID, pi.m_Sender)
+                    )
+                )
+                &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::KernelID, pi.m_KernelID) &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::Amount, pi.m_Amount) &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::PaymentConfirmation, pi.m_Signature) &&
@@ -3993,10 +4257,21 @@ namespace beam::wallet
                << "\"Transaction fee, BEAM\"" << ","
                << "Transaction ID" << ","
                << "Kernel ID" << "," 
-               << "Comment" << std::endl;
+               << "Comment" << "," 
+               << "Payment proof" << std::endl;
 
             for (const auto& tx : db.getTxHistory())
             {
+                string strProof;
+                if (tx.m_status == TxStatus::Completed &&
+                    tx.m_sender &&
+                    !tx.m_selfTx)
+                {
+                    auto proof = storage::ExportPaymentProof(db, tx.m_txId);
+                    strProof.resize(proof.size() * 2);
+                    beam::to_hex(strProof.data(), proof.data(), proof.size());
+                }
+
                 ss << (tx.m_sender ? "Send BEAM" : "Receive BEAM") << ","
                    << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","
                    << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","
@@ -4006,7 +4281,8 @@ namespace beam::wallet
                    << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","
                    << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","
                    << std::to_string(tx.m_kernelID) << ","
-                   << std::string { tx.m_message.begin(), tx.m_message.end() } << std::endl;
+                   << std::string { tx.m_message.begin(), tx.m_message.end() } << ","
+                   << strProof << std::endl;
             }
             return ss.str();
         }

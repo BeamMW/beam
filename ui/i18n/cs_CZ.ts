@@ -2078,7 +2078,8 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-failure-invalid-asset-id">
-        <source>No valid asset id/asset idx</source>
+        <source>No valid asset owner id/asset owner idx</source>
+        <oldsource>No valid asset id/asset idx</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-failure-invalid-asset-amount">
@@ -2087,6 +2088,27 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
     </message>
     <message id="tx-failure-invalid-data-for-payment-proof">
         <source>Some mandatory data for payment proof is missing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-invalid-port">
+        <source>Port is mandatory</source>
+        <extracomment>settings tab, node section, port error label</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-there-is-no-master-key">
+        <source>Master key is needed for this transaction, but unavailable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-keeper-malfunctioned">
+        <source>Key keeper malfunctioned</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-aborted-by-user">
+        <source>Aborted by the user</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-asset-small-fee">
+        <source></source>
         <translation type="unfinished"></translation>
     </message>
 </context>

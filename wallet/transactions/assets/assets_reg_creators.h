@@ -18,5 +18,4 @@
 namespace beam::wallet
 {
     void RegisterAssetCreators(Wallet& wallet);
-    TxParameters CreateAssetTransactionParameters(bool issue, const TxID& txID);
 }

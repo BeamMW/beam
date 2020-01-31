@@ -270,12 +270,21 @@ namespace beam::wallet
 
     void PaymentConfirmation::get_Hash(Hash::Value& hv) const
     {
-        Hash::Processor()
+        Hash::Processor hp;
+        hp
             << "PaymentConfirmation"
             << m_KernelID
             << m_Sender
-            << m_Value
-            >> hv;
+            << m_Value;
+
+        if (m_AssetID)
+        {
+            hp
+                << "asset"
+                << m_AssetID;
+        }
+
+        hp >> hv;
     }
 
     void SwapOfferConfirmation::get_Hash(Hash::Value& hv) const

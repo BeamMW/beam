@@ -21,36 +21,33 @@
 #include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
-#include "aissue_tx_builder.h"
+#include "aregister_tx_builder.h"
 
 namespace beam::wallet
 {
     class BaseTxBuilder;
 
-    class AssetIssueTransaction : public BaseTransaction
+    class AssetRegisterTransaction : public BaseTransaction
     {
     public:
         class Creator : public BaseTransaction::Creator
         {
         public:
-            explicit Creator(bool issue);
-
+            Creator() = default;
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& p) override;
-
-            bool _issue;
         };
 
     private:
-        AssetIssueTransaction(bool issue, INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID);
+        AssetRegisterTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID);
         TxType GetType() const override;
         bool IsInSafety() const override;
 
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         bool IsLoopbackTransaction() const;
-        AssetIssueTxBuilder& GetTxBuilder();
+        AssetRegisterTxBuilder& GetTxBuilder();
 
         enum State : uint8_t
         {
@@ -59,12 +56,12 @@ namespace beam::wallet
             MakingOutputs,
             MakingKernels,
             Registration,
-            KernelConfirmation
+            KernelConfirmation,
+            AssetConfirmation
         };
         State GetState() const;
 
     private:
-        std::shared_ptr<AssetIssueTxBuilder> _builder;
-        bool _issue;
+        std::shared_ptr<AssetRegisterTxBuilder> _builder;
     };
 }

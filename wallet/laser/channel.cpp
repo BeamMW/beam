@@ -19,7 +19,7 @@ namespace beam::wallet::laser
 {
 
 // static
-ChannelIDPtr Channel::ChIdFromString(const std::string& chIdStr)
+ChannelIDPtr Channel::ChannelIdFromString(const std::string& chIdStr)
 {
     bool isValid = false;
     auto buffer = from_hex(chIdStr, &isValid);
@@ -139,12 +139,16 @@ Amount Channel::SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asse
                         nDone += cid.m_Value;
                         return cid;
                     });
+    LOG_DEBUG() << "Amount selected: " << PrintableAmount(nDone, true) << " "
+                << "Amount required: " << PrintableAmount(nDone, valRequired);
     return nDone;
 }
 
 void Channel::get_Kdf(Key::IKdf::Ptr& pKdf)
 {
     pKdf = m_rHolder.getWalletDB()->get_MasterKdf();
+    if (!pKdf)
+        throw std::runtime_error("master key inaccessible");
 }
 
 void Channel::AllocTxoID(CoinID& cid)
@@ -464,8 +468,8 @@ void Channel::LogNewState()
         break;
     case beam::Lightning::Channel::State::Open:
         os << "Open. Last Revision: " << m_vUpdates.size()
-           << ". Balance: " << m_vUpdates.back()->m_Outp.m_Value << " / "
-           << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
+           << ". My balance: " << m_vUpdates.back()->m_Outp.m_Value
+           << " / Total balance: " << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
         break;
     case beam::Lightning::Channel::State::Updating:
         os << "Updating (creating newer Revision)";
@@ -476,7 +480,7 @@ void Channel::LogNewState()
     case beam::Lightning::Channel::State::Closing2:
         {
             os << "Closing2 (Phase-1 withdrawal detected). Revision: "
-               << m_State.m_Close.m_iPath << ". Initiated by " 
+               << m_State.m_Close.m_iPath + 1 << ". Initiated by " 
                << (m_State.m_Close.m_Initiator ? "me" : "peer");
             if (DataUpdate::Type::Punishment == 
                 m_vUpdates[m_State.m_Close.m_iPath]->m_Type)
@@ -486,7 +490,7 @@ void Channel::LogNewState()
         }
         break;
     case beam::Lightning::Channel::State::Closed:
-        os << "Closed. Waiting for 8 confirmations before forgetting";
+        os << "Closed. Waiting for " << kMaxRolbackHeight <<" confirmations before forgetting";
         break;
     default:
         return;
@@ -500,7 +504,7 @@ void Channel::Subscribe()
     BbsChannel ch;
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, m_bbsTimestamp, m_upReceiver.get());
-    LOG_INFO() << "beam::wallet::laser::Channel subscribed: " << ch;
+    LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " subscribes to BBS channel: " << ch;
 }
 
 void Channel::Unsubscribe()
@@ -508,7 +512,8 @@ void Channel::Unsubscribe()
     BbsChannel ch;
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, 0, nullptr);
-    LOG_INFO() << "beam::wallet::laser::Channel unsubscribed: " << ch;
+    LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " unsubscribed from BBS channel: " << ch;
+    
 }
 
 bool Channel::TransferInternal(

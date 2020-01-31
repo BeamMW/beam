@@ -183,6 +183,7 @@ namespace ECC
 		void Sign(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes);
 		void SignRaw(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes) const;
 		void SignPartial(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, const Scalar::Native* pNonce, Scalar::Native* pRes) const;
+		void CreateNonces(const Config&, const Hash::Value& msg, const Scalar::Native* pSk, Scalar::Native* pRes);
 		void SetNoncePub(const Config&, const Scalar::Native* pNonce);
 	};
 
@@ -272,76 +273,6 @@ namespace ECC
 			COMPARISON_VIA_CMP
 		};
 
-		struct IDV
-			:public ID
-		{
-			struct Scheme
-			{
-				static const uint8_t V0 = 0;
-				static const uint8_t V1 = 1;
-				static const uint8_t BB21 = 2; // worakround for BB.2.1
-
-				static const uint32_t s_SubKeyBits = 24;
-				static const Index s_SubKeyMask = (static_cast<Index>(1) << s_SubKeyBits) - 1;
-			};
-
-
-			Amount m_Value;
-			IDV() {}
-			IDV(Zero_)
-				:ID(Zero)
-				,m_Value(0)
-			{
-				set_Subkey(0);
-			}
-
-			IDV(Amount v, uint64_t nIdx, Type type, Index nSubIdx = 0, Index nScheme = Scheme::V1)
-				:ID(nIdx, type)
-				,m_Value(v)
-			{
-				set_Subkey(nSubIdx, nScheme);
-			}
-
-			Index get_Scheme() const
-			{
-				return m_SubIdx >> Scheme::s_SubKeyBits;
-			}
-
-			Index get_Subkey() const
-			{
-				return m_SubIdx & Scheme::s_SubKeyMask;
-			}
-
-			void set_Subkey(Index nSubIdx, Index nScheme = Scheme::V1)
-			{
-				m_SubIdx = (nSubIdx & Scheme::s_SubKeyMask) | (nScheme << Scheme::s_SubKeyBits);
-			}
-
-#pragma pack (push, 1)
-			struct Packed
-				:public ID::Packed
-			{
-				beam::uintBigFor<Amount>::Type m_Value;
-				void operator = (const IDV&);
-			};
-#pragma pack (pop)
-
-			void operator = (const Packed&);
-
-			bool IsBb21Possible() const
-			{
-				return m_SubIdx && (Scheme::V0 == get_Scheme());
-			}
-
-			void set_WorkaroundBb21()
-			{
-				set_Subkey(get_Subkey(), Scheme::BB21);
-			}
-
-			int cmp(const IDV&) const;
-			COMPARISON_VIA_CMP
-		};
-
 		struct IPKdf
 		{
 			typedef std::shared_ptr<IPKdf> Ptr;
@@ -351,6 +282,8 @@ namespace ECC
 			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) = 0;
 
 			bool IsSame(IPKdf&);
+
+			virtual uint32_t ExportP(void*) const { return 0; } // returns the size, ptr is optional
 		};
 
 		struct IKdf
@@ -363,10 +296,10 @@ namespace ECC
 
 			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
 			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
+
+			virtual uint32_t ExportS(void*) const { return 0; } // returns the size, ptr is optional
 		};
 	};
-
-	std::ostream& operator << (std::ostream&, const Key::IDV&);
 
 	struct InnerProduct
 	{
@@ -428,9 +361,13 @@ namespace ECC
 		struct CreatorParams
 		{
 			NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
-			Key::IDV m_Kidv;
+			Amount m_Value;
+			beam::Blob m_Blob = beam::Blob(nullptr, 0); // max size is limited, together with m_Value should not exceed Scalar
 
-			struct Padded;
+			void BlobSave(uint8_t* p, size_t) const;
+			bool BlobRecover(const uint8_t* p, size_t);
+
+			struct Packed;
 
 			// more params to embed/recover, optional
 			const uintBig* m_pSeedSk = nullptr; // set only when recovering

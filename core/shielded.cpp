@@ -50,8 +50,24 @@ namespace beam
 		if (!(m_Serial.IsValid(ser) && comm.Import(m_Commitment)))
 			return false;
 
+		ECC::Point::Native hGen;
+		if (m_pAsset && !m_pAsset->IsValid(hGen))
+			return false;
+
 		Prepare(oracle);
-		return m_RangeProof.IsValid(comm, oracle);
+		return m_RangeProof.IsValid(comm, oracle, &hGen);
+	}
+
+	void ShieldedTxo::operator = (const ShieldedTxo& v)
+	{
+		m_Serial = v.m_Serial;
+		m_Commitment = v.m_Commitment;
+		m_RangeProof = v.m_RangeProof;
+
+		if (v.m_pAsset)
+			v.m_pAsset->Clone(m_pAsset);
+		else
+			m_pAsset.reset();
 	}
 
 	/////////////
@@ -140,22 +156,17 @@ namespace beam
 		HashTxt("DH") << s.m_SerialPub >> res;
 	}
 
-	void ShieldedTxo::Data::SerialParams::get_Nonces(Key::IPKdf& gen, const ECC::Point::Native& pt, ECC::Scalar::Native* pN)
+	void ShieldedTxo::Data::SerialParams::get_Nonces(Key::IPKdf& gen, ECC::Scalar::Native* pN) const
 	{
-		ECC::Point ptShared = pt;
-		gen.DerivePKey(pN[0], HashTxt("nG") << ptShared);
-		gen.DerivePKey(pN[1], HashTxt("nJ") << ptShared);
+		gen.DerivePKey(pN[0], HashTxt("nG") << m_SharedSecret);
+		gen.DerivePKey(pN[1], HashTxt("nJ") << m_SharedSecret);
 	}
 
 	void ShieldedTxo::Data::SerialParams::GenerateInternal(Serial& s, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
 	{
 		gen.DerivePKey(m_pK[0], HashTxt("kG") << nonce);
 		set_FromkG(gen, pGenPriv, ser);
-		Export(s, gen, ser);
-	}
 
-	void ShieldedTxo::Data::SerialParams::Export(Serial& s, Key::IPKdf& gen, Key::IPKdf& ser) const
-	{
 		ECC::Point::Native pt, pt1;
 		DoubleBlindedCommitment(pt, m_pK);
 		s.m_SerialPub = pt;
@@ -168,14 +179,20 @@ namespace beam
 
 		pt = pt * m_pK[0];
 		pt += pt1 * m_pK[1]; // shared point
+		set_SharedSecret(pt);
 
 		ECC::Scalar::Native pN[2];
-		get_Nonces(gen, pt, pN);
+		get_Nonces(gen, pN);
 
 		// generalized Schnorr's sig
 		s.get_Hash(hv);
 		s.m_Signature.SetNoncePub(ECC::Context::get().m_Sig.m_CfgGJ1, pN);
 		s.m_Signature.SignRaw(ECC::Context::get().m_Sig.m_CfgGJ1, hv, s.m_Signature.m_pK, m_pK, pN);
+	}
+
+	void ShieldedTxo::Data::SerialParams::set_SharedSecret(const ECC::Point::Native& pt)
+	{
+		HashTxt("sp-sec") << pt >> m_SharedSecret;
 	}
 
 	bool ShieldedTxo::Data::SerialParams::Recover(const Serial& s, const Viewer& v)
@@ -193,9 +210,10 @@ namespace beam
 		v.m_pGen->DeriveKey(k, hv);
 
 		pt = pt * k; // shared point
+		set_SharedSecret(pt);
 
 		ECC::Scalar::Native pN[2];
-		get_Nonces(*v.m_pGen, pt, pN);
+		get_Nonces(*v.m_pGen, pN);
 
 		DoubleBlindedCommitment(pt, pN);
 		if (!(pt == s.m_Signature.m_NoncePub))
@@ -229,91 +247,88 @@ namespace beam
 
 	void ShieldedTxo::Data::SerialParams::Restore(const Viewer& v)
 	{
-		set_FromkG(*v.m_pGen, m_IsCreatedByViewer ? v.m_pGen.get() : nullptr, *v.m_pSer);
+		set_PreimageFromkG(*v.m_pGen, m_IsCreatedByViewer ? v.m_pGen.get() : nullptr, *v.m_pSer);
 	}
 
 	/////////////
 	// OutputParams
-	void ShieldedTxo::Data::OutputParams::get_DH(ECC::Hash::Value& res, const ShieldedTxo& txo)
+	void ShieldedTxo::Data::OutputParams::get_Seed(ECC::uintBig& res, const ECC::Hash::Value& hvShared)
 	{
-		HashTxt("DH-o") << txo.m_Commitment >> res;
+		HashTxt("bp-s") << hvShared >> res;
 	}
 
-	void ShieldedTxo::Data::OutputParams::get_Seed(ECC::uintBig& res, const ECC::Point::Native& pt)
+	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, const ECC::Hash::Value& hvShared, ECC::Oracle& oracle, const PublicGen& gen)
 	{
-		HashTxt("bp-s") << pt >> res;
+		GenerateInternal(txo, hvShared, oracle, *gen.m_pGen);
 	}
 
-	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, const ECC::Hash::Value& hvShared, ECC::Oracle& oracle, const Viewer& v)
 	{
-		GenerateInternal(txo, oracle, *gen.m_pGen, nullptr, &gen.m_ptImgH, nonce);
+		GenerateInternal(txo, hvShared, oracle, *v.m_pGen);
 	}
 
-	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v, const ECC::Hash::Value& nonce)
+	void ShieldedTxo::Data::OutputParams::get_skGen(ECC::Scalar::Native& skGen, const ECC::Hash::Value& hvShared, Key::IPKdf& gen) const
 	{
-		GenerateInternal(txo, oracle, *v.m_pGen, v.m_pGen.get(), nullptr, nonce);
+		gen.DerivePKey(skGen, HashTxt("skG-O") << hvShared << m_Value << m_AssetID);
 	}
 
-	void ShieldedTxo::Data::OutputParams::GenerateInternal(ShieldedTxo& txo, ECC::Oracle& oracle, Key::IPKdf& gen, Key::IKdf* pGenPriv, const ECC::Point::Native* pImgH, const ECC::Hash::Value& nonce)
+#pragma pack (push, 1)
+	struct ShieldedTxo::Data::OutputParams::Packed
 	{
-		gen.DerivePKey(m_k, HashTxt("kG-O") << nonce);
+		uintBigFor<Asset::ID>::Type m_Asset;
+		uint8_t m_Flags;
+	};
+#pragma pack (pop)
+
+	void ShieldedTxo::Data::OutputParams::GenerateInternal(ShieldedTxo& txo, const ECC::Hash::Value& hvShared, ECC::Oracle& oracle, Key::IPKdf& gen)
+	{
+		gen.DerivePKey(m_k, HashTxt("kG-O") << hvShared << m_Value); // doesn't have to be hvShared, any nonce is ok.
 
 		ECC::RangeProof::CreatorParams cp;
-		ZeroObject(cp.m_Kidv);
-		cp.m_Kidv.m_Value = m_Value;
+		cp.m_Value = m_Value;
 
-		ECC::Point::Native pt = ECC::Commitment(m_k, m_Value);
+		CoinID::Generator g(m_AssetID);
+
+		ECC::Point::Native pt = ECC::Context::get().G * m_k;
+		g.AddValue(pt, m_Value);
 		txo.m_Commitment = pt;
-
-		ECC::Hash::Value hv;
-		get_DH(hv, txo);
 
 		ECC::Scalar::Native pExtra[2];
 		cp.m_pExtra = pExtra;
-		ECC::Scalar::Native& k = pExtra[0]; // alias
 
-		if (pGenPriv)
-		{
-			pGenPriv->DeriveKey(k, hv);
-			pt = pt * k; // shared point
-		}
-		else
-		{
-			gen.DerivePKeyG(pt, hv);
-
-			gen.DerivePKey(k, hv);
-			k *= m_Value;
-
-			pt = pt * m_k;
-			pt += (*pImgH) * k; // shared point
-		}
-
-		uint32_t iOverflow =
+		Packed p;
+		p.m_Asset = m_AssetID;
+		p.m_Flags =
 			Msg2Scalar(pExtra[0], m_Sender) |
 			(Msg2Scalar(pExtra[1], m_Message) << 1);
 
-		cp.m_Kidv.set_Subkey(iOverflow);
+		cp.m_Blob.p = &p;
+		cp.m_Blob.n = sizeof(p);
 
-		get_Seed(cp.m_Seed.V, pt);
+		ECC::Scalar::Native skSign = m_k;
+		if (m_AssetID)
+		{
+			ECC::Scalar::Native skGen;
+			get_skGen(skGen, hvShared, gen);
+
+			txo.m_pAsset = std::make_unique<Asset::Proof>();
+			txo.m_pAsset->Create(g.m_hGen, skGen, m_AssetID, g.m_hGen);
+
+			Asset::Proof::ModifySk(skSign, skGen, m_Value);
+		}
+		else
+			txo.m_pAsset.reset();
+
+		get_Seed(cp.m_Seed.V, hvShared);
 
 		txo.Prepare(oracle);
-		txo.m_RangeProof.CoSign(cp.m_Seed.V, m_k, cp, oracle, ECC::RangeProof::Confidential::Phase::SinglePass);
+		txo.m_RangeProof.CoSign(cp.m_Seed.V, skSign, cp, oracle, ECC::RangeProof::Confidential::Phase::SinglePass, &g.m_hGen);
 	}
 
-	bool ShieldedTxo::Data::OutputParams::Recover(const ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v)
+	bool ShieldedTxo::Data::OutputParams::Recover(const ShieldedTxo& txo, const ECC::Hash::Value& hvShared, ECC::Oracle& oracle, const Viewer& v)
 	{
-		ECC::Point::Native pt;
-		if (!pt.Import(txo.m_Commitment))
-			return false;
-
-		ECC::Hash::Value hv;
-		get_DH(hv, txo);
-		v.m_pGen->DeriveKey(m_k, hv);
-
-		pt = pt * m_k; // shared point
-
 		ECC::RangeProof::CreatorParams cp;
-		get_Seed(cp.m_Seed.V, pt);
+		get_Seed(cp.m_Seed.V, hvShared);
 
 		ECC::Scalar::Native pExtra[2];
 
@@ -321,25 +336,41 @@ namespace beam
 		cp.m_pSk = &m_k;
 		cp.m_pExtra = pExtra;
 
+		Packed p;
+		cp.m_Blob.p = &p;
+		cp.m_Blob.n = sizeof(p);
+
 		txo.Prepare(oracle);
 		if (!txo.m_RangeProof.Recover(oracle, cp))
 			return false;
 
-		m_Value = cp.m_Kidv.m_Value;
+		m_Value = cp.m_Value;
+		p.m_Asset.Export(m_AssetID);
 
-		pt = ECC::Commitment(m_k, m_Value);
+		CoinID::Generator g(m_AssetID);
+
+		if (txo.m_pAsset)
+		{
+			ECC::Scalar::Native skGen;
+			get_skGen(skGen, hvShared, *v.m_pGen);
+
+			skGen = -skGen;
+			Asset::Proof::ModifySk(m_k, skGen, m_Value);
+		}
+
+		ECC::Point::Native pt = ECC::Context::get().G * m_k;
+		ECC::Tag::AddValue(pt, &g.m_hGen, m_Value);
 		if (!(pt == txo.m_Commitment))
 			return false;
 
-		uint32_t nFlags = cp.m_Kidv.get_Subkey();
 
-		Scalar2Msg(m_Sender, pExtra[0], 1 & nFlags);
-		Scalar2Msg(m_Message, pExtra[1], 2 & nFlags);
+		Scalar2Msg(m_Sender, pExtra[0], 1 & p.m_Flags);
+		Scalar2Msg(m_Message, pExtra[1], 2 & p.m_Flags);
 
 		return true;
 	}
 
-	uint32_t ShieldedTxo::Data::OutputParams::Msg2Scalar(ECC::Scalar::Native& s, const ECC::uintBig& x)
+	uint8_t ShieldedTxo::Data::OutputParams::Msg2Scalar(ECC::Scalar::Native& s, const ECC::uintBig& x)
 	{
 		static_assert(sizeof(x) == sizeof(ECC::Scalar));
 		s = reinterpret_cast<const ECC::Scalar&>(x);
@@ -353,6 +384,27 @@ namespace beam
 
 		if (nOverflow)
 			x += ECC::Scalar::s_Order;
+	}
+
+	/////////////
+	// Params (both)
+	void ShieldedTxo::Data::Params::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	{
+		m_Serial.Generate(txo.m_Serial, gen, nonce);
+		m_Output.Generate(txo, m_Serial.m_SharedSecret, oracle, gen);
+	}
+
+	void ShieldedTxo::Data::Params::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v, const ECC::Hash::Value& nonce)
+	{
+		m_Serial.Generate(txo.m_Serial, v, nonce);
+		m_Output.Generate(txo, m_Serial.m_SharedSecret, oracle, v);
+	}
+
+	bool ShieldedTxo::Data::Params::Recover(const ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v)
+	{
+		return
+			m_Serial.Recover(txo.m_Serial, v) &&
+			m_Output.Recover(txo, m_Serial.m_SharedSecret, oracle, v);
 	}
 
 	/////////////
@@ -394,16 +446,6 @@ namespace beam
 	{
 		m_pSer = v.m_pSer;
 		m_pGen = v.m_pGen;
-
-		// extract co-factor
-		ECC::Scalar::Native k0, k1;
-		v.m_pGen->DerivePKey(k0, 0U);
-		v.m_pGen->DeriveKey(k1, 0U);
-
-		k0.Inv();
-		k1 *= k0; // co-factor
-
-		m_ptImgH = ECC::Context::get().H_Big * k1;
 	}
 
 } // namespace beam

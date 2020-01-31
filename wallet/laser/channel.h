@@ -23,6 +23,8 @@
 
 namespace beam::wallet::laser
 {
+const Height kMaxRolbackHeight = 8;
+
 class Channel : public Lightning::Channel, public ILaserChannelEntity
 {
 public:
@@ -32,7 +34,7 @@ public:
         static const uint32_t MyWid = Control0 + 31;
     };
 
-    static ChannelIDPtr ChIdFromString(const std::string& chIdStr);
+    static ChannelIDPtr ChannelIdFromString(const std::string& chIdStr);
 
     Channel(IChannelHolder& holder,
             const WalletAddress& myAddr,

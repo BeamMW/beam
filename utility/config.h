@@ -75,15 +75,15 @@ public:
         return _values.count(key) == 1;
     }
 
-    template <typename T> const T& get(const std::string& key, const T& defValue=T()) const {
+    template <typename T> T get(const std::string& key, const T& defValue =T ()) const {
         auto it = _values.find(key);
         if (it == _values.end()) return defValue;
         const T* value = any_cast<T>(&it->second);
         return value ? *value : defValue;
     }
 
-    const std::string& get_string(const std::string& key, const std::string& defValue=std::string()) const {
-        return get<std::string>(key);
+    std::string get_string(const std::string& key, const std::string& defValue=std::string()) const {
+        return get<std::string>(key, defValue);
     }
 
     int get_int(
@@ -102,11 +102,11 @@ public:
         return get<Int>(key, -1);
     }
 
-    const IntList& get_int_list(const std::string& key) const {
+    IntList get_int_list(const std::string& key) const {
         return get<IntList>(key);
     }
 
-    const BoolList& get_bool_list(const std::string& key) const {
+    BoolList get_bool_list(const std::string& key) const {
         return get<BoolList>(key);
     }
 

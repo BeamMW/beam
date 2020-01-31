@@ -91,6 +91,7 @@ namespace proto {
     macro(ECC::Point, SpendPk)
 
 #define BeamNodeMsg_GetProofAsset(macro) \
+    macro(Asset::ID, AssetID) \
     macro(PeerID, Owner)
 
 #define BeamNodeMsg_GetShieldedList(macro) \
@@ -348,7 +349,8 @@ namespace proto {
 
 #pragma pack(pop)
 
-		Key::IDV m_Kidv;
+		Key::ID m_Kid;
+        Amount m_Value;
 		ShieldedDelta m_ShieldedDelta;
 		ECC::Point m_Commitment;
         uintBigFor<Asset::ID>::Type m_AssetID;
@@ -372,8 +374,9 @@ namespace proto {
 		{
 			ar
 				& m_Commitment
-				& m_Kidv
-				& m_AssetID
+				& m_Kid
+                & m_Value
+                & m_AssetID
                 & m_Buf1
 				& m_Height
 				& m_Maturity

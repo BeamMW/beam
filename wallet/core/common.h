@@ -30,6 +30,8 @@ namespace beam::wallet
         AtomicSwap,
         AssetIssue,
         AssetConsume,
+        AssetReg,
+        AssetUnreg,
         PushTransaction,
         PullTransaction,
         ALL
@@ -43,6 +45,7 @@ namespace beam::wallet
 
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
+    constexpr Amount kMinFeeInGroth = 100;
 
 #pragma pack (push, 1)
     struct WalletID
@@ -142,9 +145,13 @@ namespace beam::wallet
     MACRO(MinHeightIsUnacceptable,       24, "Kernel's min height is unacceptable") \
     MACRO(NotLoopback,                   25, "Not a loopback transaction") \
     MACRO(NoKeyKeeper,                   26, "Key keeper is not initialized") \
-    MACRO(NoAssetId,                     27, "No valid asset id/asset idx") \
-    MACRO(ConsumeAmountTooBig,           28, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
-    MACRO(NotEnoughDataForProof,         29, "Some mandatory data for payment proof is missing") \
+    MACRO(NoAssetId,                     27, "No valid asset owner id/asset owner idx") \
+    MACRO(RegisterAmountTooSmall,        28, "Asset registration fee is too small") \
+    MACRO(ConsumeAmountTooBig,           29, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
+    MACRO(NotEnoughDataForProof,         30, "Some mandatory data for payment proof is missing") \
+    MACRO(NoMasterKey,                   31, "Master key is needed for this transaction, but unavailable") \
+    MACRO(KeyKeeperError,                32, "Key keeper malfunctioned") \
+    MACRO(KeyKeeperUserAbort,            33, "Aborted by the user") \
 
     enum TxFailureReason : int32_t
     {
@@ -246,7 +253,6 @@ namespace beam::wallet
         FailureReason = 92,
 
         PaymentConfirmation = 99,
-        PaymentConfirmation2 = 100, // uses wallet ID to sign payment proof
 
         PeerSharedBulletProofMSig = 108,
         PeerSharedBulletProofPart2 = 109,
@@ -271,6 +277,8 @@ namespace beam::wallet
         PeerResponseHeight = 134,
 
         Offset = 140,
+
+        UserConfirmationToken = 143,
 
         ChangeAsset = 149,
         ChangeBeam = 150,
@@ -617,6 +625,7 @@ namespace beam::wallet
         virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_outputs(const std::vector<Coin>&) = 0;
         virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual void confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
         virtual void send_tx_params(const WalletID& peerID, const SetTxParameter&) = 0;
@@ -657,6 +666,7 @@ namespace beam::wallet
     {
         // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
         Amount m_Value;
+        Asset::ID m_AssetID = 0;
         ECC::Hash::Value m_KernelID;
         PeerID m_Sender;
 
