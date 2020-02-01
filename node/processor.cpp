@@ -4374,10 +4374,16 @@ bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, 
 	return false;
 }
 
+bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate)
+{
+	if (TxoIsNaked(wlk.m_Value))
+		return true;
+
+	return ITxoWalker::OnTxo(wlk, hCreate);
+}
+
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
-	assert(MaxHeight == wlk.m_SpendHeight);
-
 	CoinID cid;
 	if (!outp.Recover(hCreate, m_Key, cid))
 		return true;
