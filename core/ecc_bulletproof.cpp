@@ -693,25 +693,29 @@ namespace ECC {
 	void RangeProof::CreatorParams::BlobSave(uint8_t* p, size_t n) const
 	{
 		assert(m_Blob.n <= n);
-		memcpy(p, m_Blob.p, m_Blob.n);
-		memset0(p + m_Blob.n, n - m_Blob.n);
+		size_t nPad = n - m_Blob.n;
+
+		memset0(p, nPad);
+		memcpy(p + nPad, m_Blob.p, m_Blob.n);
 	}
 
 	bool RangeProof::CreatorParams::BlobRecover(const uint8_t* p, size_t n)
 	{
 		assert(m_Blob.n <= n);
-		if (!memis0(p + m_Blob.n, n - m_Blob.n))
+		size_t nPad = n - m_Blob.n;
+
+		if (!memis0(p, nPad))
 			return false;
 
-		memcpy(Cast::NotConst(m_Blob.p), p, m_Blob.n);
+		memcpy(Cast::NotConst(m_Blob.p), p + nPad, m_Blob.n);
 		return true;
 	}
 
 #pragma pack (push, 1)
 	struct RangeProof::CreatorParams::Packed
 	{
-		beam::uintBigFor<Amount>::Type m_Value;
 		uint8_t m_pUser[sizeof(Scalar) - sizeof(Amount)];
+		beam::uintBigFor<Amount>::Type m_Value; // for historical reasons: value should be here!
 	};
 #pragma pack (pop)
 

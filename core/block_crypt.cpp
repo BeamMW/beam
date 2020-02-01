@@ -387,8 +387,8 @@ namespace beam
 #pragma pack (push, 1)
 	struct Output::PackedKA
 	{
-		Key::ID::Packed m_Kid;
 		uintBigFor<Asset::ID>::Type m_AssetID;
+		Key::ID::Packed m_Kid; // for historical reasons: Key::ID should be last. All new data should be added above.
 	};
 #pragma pack (pop)
 
