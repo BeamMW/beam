@@ -64,7 +64,7 @@ namespace beam::wallet
 
     bool AssetRegisterTxBuilder::CreateInputs()
     {
-        if (GetInputs() || GetInputCoins().empty())
+        if (GetInputs() || m_InputCoins.empty())
         {
             return false;
         }
@@ -164,24 +164,12 @@ namespace beam::wallet
         return m_MinHeight;
     }
 
-    const std::vector<Coin::ID>& AssetRegisterTxBuilder::GetInputCoins() const
-    {
-        return m_InputCoins;
-    }
-
-    const std::vector<Coin::ID>& AssetRegisterTxBuilder::GetOutputCoins() const
-    {
-        return m_OutputCoins;
-    }
-
     void AssetRegisterTxBuilder::AddChange()
     {
         if (m_ChangeBeam)
         {
             GenerateBeamCoin(m_ChangeBeam, true);
         }
-
-         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
     }
 
     Amount AssetRegisterTxBuilder::GetFee() const
@@ -273,17 +261,19 @@ namespace beam::wallet
     {
         Coin newUtxo(amount, change ? Key::Type::Change : Key::Type::Regular);
         newUtxo.m_createTxId = m_Tx.GetTxID();
+
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
-        LOG_INFO() << m_Tx.GetTxID() << " Creating BEAM coin" << (change ? " (change):" : ":")
-                   << PrintableAmount(amount)
-                   << ", id " << newUtxo.toStringID();
+
+        LOG_INFO() << m_Tx.GetTxID()
+                   << " Creating BEAM coin" << (change ? " (change):" : ":")
+                   << PrintableAmount(amount) << ", id " << newUtxo.toStringID();
     }
 
     bool AssetRegisterTxBuilder::CreateOutputs()
     {
-        if (GetOutputs() || GetOutputCoins().empty())
+        if (GetOutputs() || m_OutputCoins.empty())
         {
             // if we already have outputs or there are no outputs, nothing to do here
             return false;

@@ -2269,7 +2269,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
 	TxStats s;
 	ptx->get_Reader().AddStats(s);
-	if (!s.m_Inputs || !s.m_Kernels) {
+	if (!(s.m_Inputs + s.m_Outputs) || !s.m_Kernels) {
 		// stupid compiler insists on parentheses here!
 		return proto::TxStatus::TooSmall;
 	}
@@ -2277,7 +2277,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
     bool bTested = false;
-    TxPool::Stem::Element* pDup = NULL;
+    TxPool::Stem::Element* pDup = nullptr;
 
     // find match by kernels
     for (size_t i = 0; i < ptx->m_vKernels.size(); i++)

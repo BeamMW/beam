@@ -77,9 +77,11 @@ namespace beam::wallet
         {
             if (GetState() == State::Initial)
             {
-                LOG_INFO() << GetTxID() << " Unregistering asset with the owner index " << builder.GetAssetOwnerIdx() << ". Refund amount is " << PrintableAmount(builder.GetAmountBeam(), false);
-                UpdateTxDescription(TxStatus::InProgress);
+                LOG_INFO() << GetTxID() << " Unregistering asset with the owner index "
+                           << builder.GetAssetOwnerIdx()
+                           << ". Refund amount is " << PrintableAmount(Rules::get().CA.DepositForList, false);
 
+                UpdateTxDescription(TxStatus::InProgress);
                 SetState(State::AssetCheck);
                 ConfirmAsset();
                 return;
@@ -110,7 +112,15 @@ namespace beam::wallet
                     return;
                 }
 
-                // Asset must be zero
+                // Asset ID must be valid
+                if (info.m_ID == 0)
+                {
+                    OnFailed(TxFailureReason::NoAssetId, true);
+                    return;
+                }
+                SetParameter(TxParameterID::AssetID, info.m_ID);
+
+                // Asset value must be zero
                 if (info.m_Value != Zero)
                 {
                     OnFailed(TxFailureReason::AssetInUse, true);
@@ -121,38 +131,22 @@ namespace beam::wallet
                 Block::SystemState::Full tip;
                 GetTip(tip);
 
-                /*
                 const auto maxRollback = Rules::get().MaxRollback;
                 auto rollHeight = tip.m_Height >= maxRollback ? tip.m_Height - maxRollback : 0;
-                if (info.m_LockHeight == 0 || info.m_LockHeight >= rollHeight)
+                if (info.m_LockHeight == 0 || info.m_LockHeight > rollHeight)
                 {
                     OnFailed(TxFailureReason::AssetLocked, true);
                     return;
                 }
-                 */
             }
-
-            //OnFailed(TxFailureReason::Canceled, true);
-            //return;
 
             if (GetState() == State::AssetCheck)
             {
-                // TODO:ASSETS check lock height
-                if (!builder.GetInitialTxParams())
+                if(!builder.GetInitialTxParams())
                 {
-                    builder.SelectInputCoins();
-                    builder.AddChange();
+                    builder.AddRefund();
                 }
 
-                SetState(State::MakingInputs);
-                if (builder.CreateInputs())
-                {
-                    return;
-                }
-            }
-
-            if (GetState() == State::MakingInputs)
-            {
                 SetState(State::MakingOutputs);
                 if (builder.CreateOutputs())
                 {
@@ -209,6 +203,7 @@ namespace beam::wallet
             return;
         }
 
+        SetState(State::Finalizing);
         std::vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
@@ -217,9 +212,9 @@ namespace beam::wallet
                 coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
                 coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
             }
-            if (coin.m_spentTxId == m_ID)
+            else
             {
-                coin.m_spentHeight = std::min(coin.m_spentHeight, hProof);
+                assert(!"Unexpected coins");
             }
         }
 
@@ -279,6 +274,6 @@ namespace beam::wallet
     bool AssetUnregisterTransaction::IsInSafety() const
     {
         State txState = GetState();
-        return txState == State::KernelConfirmation;
+        return txState >= State::KernelConfirmation;
     }
 }

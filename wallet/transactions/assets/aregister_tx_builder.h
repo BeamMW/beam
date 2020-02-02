@@ -56,12 +56,6 @@ namespace beam::wallet
         std::string GetKernelIDString() const;
         Height GetMinHeight() const;
 
-    protected:
-
-    private:
-        const CoinIDList& GetInputCoins() const;
-        const CoinIDList& GetOutputCoins() const;
-
     private:
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;

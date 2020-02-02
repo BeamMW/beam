@@ -263,6 +263,6 @@ namespace beam::wallet
     bool AssetRegisterTransaction::IsInSafety() const
     {
         State txState = GetState();
-        return txState == State::KernelConfirmation;
+        return txState >= State::KernelConfirmation;
     }
 }
