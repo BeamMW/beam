@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "aregister_transaction.h"
+#include "aunregister_transaction.h"
 #include "aissue_tx_builder.h"
 #include "core/block_crypt.h"
 #include "utility/logger.h"
@@ -21,12 +21,13 @@
 
 namespace beam::wallet
 {
-    BaseTransaction::Ptr AssetRegisterTransaction::Creator::Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
+    BaseTransaction::Ptr AssetUnregisterTransaction::Creator::Create(INegotiatorGateway& gateway,
+            IWalletDB::Ptr walletDB, const TxID& txID)
     {
-        return BaseTransaction::Ptr(new AssetRegisterTransaction(gateway, walletDB, txID));
+        return BaseTransaction::Ptr(new AssetUnregisterTransaction(gateway, walletDB, txID));
     }
 
-    TxParameters AssetRegisterTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
+    TxParameters AssetUnregisterTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
     {
         if(params.GetParameter<WalletID>(TxParameterID::PeerID))
         {
@@ -56,12 +57,14 @@ namespace beam::wallet
         return result;
     }
 
-    AssetRegisterTransaction::AssetRegisterTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
-        : BaseTransaction{gateway, std::move(walletDB), txID}
+    AssetUnregisterTransaction::AssetUnregisterTransaction(INegotiatorGateway& gateway
+                                        , IWalletDB::Ptr walletDB
+                                        , const TxID& txID)
+        : BaseTransaction{ gateway, std::move(walletDB), txID}
     {
     }
 
-    void AssetRegisterTransaction::UpdateImpl()
+    void AssetUnregisterTransaction::UpdateImpl()
     {
         if (!IsLoopbackTransaction())
         {
@@ -74,19 +77,73 @@ namespace beam::wallet
         {
             if (GetState() == State::Initial)
             {
-                LOG_INFO() << GetTxID() << " Registering asset with the owner index " << builder.GetAssetOwnerIdx()
-                           << ". Cost is " << PrintableAmount(builder.GetAmountBeam(), false);
+                LOG_INFO() << GetTxID() << " Unregistering asset with the owner index " << builder.GetAssetOwnerIdx() << ". Refund amount is " << PrintableAmount(builder.GetAmountBeam(), false);
+                UpdateTxDescription(TxStatus::InProgress);
 
+                SetState(State::AssetCheck);
+                ConfirmAsset();
+                return;
+            }
+
+            if (GetState() == State::AssetCheck)
+            {
+                Height auHeight = 0;
+                GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
+                if(auHeight)
+                {
+                    OnFailed(TxFailureReason::AssetConfirmFailed);
+                    return;
+                }
+
+                Height acHeight = 0;
+                GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
+                if (!acHeight)
+                {
+                    ConfirmAsset();
+                    return;
+                }
+
+                Asset::Full info;
+                if (!GetParameter(TxParameterID::AssetFullInfo, info) || !info.IsValid())
+                {
+                    OnFailed(TxFailureReason::NoAssetInfo, true);
+                    return;
+                }
+
+                // Asset must be zero
+                if (info.m_Value != Zero)
+                {
+                    OnFailed(TxFailureReason::AssetInUse, true);
+                    return;
+                }
+
+                // Rollback should be not possible to the height prio the latest use
+                Block::SystemState::Full tip;
+                GetTip(tip);
+
+                /*
+                const auto maxRollback = Rules::get().MaxRollback;
+                auto rollHeight = tip.m_Height >= maxRollback ? tip.m_Height - maxRollback : 0;
+                if (info.m_LockHeight == 0 || info.m_LockHeight >= rollHeight)
+                {
+                    OnFailed(TxFailureReason::AssetLocked, true);
+                    return;
+                }
+                 */
+            }
+
+            //OnFailed(TxFailureReason::Canceled, true);
+            //return;
+
+            if (GetState() == State::AssetCheck)
+            {
+                // TODO:ASSETS check lock height
                 if (!builder.GetInitialTxParams())
                 {
                     builder.SelectInputCoins();
                     builder.AddChange();
-                    UpdateTxDescription(TxStatus::InProgress);
                 }
-            }
 
-            if (GetState() == State::Initial)
-            {
                 SetState(State::MakingInputs);
                 if (builder.CreateInputs())
                 {
@@ -103,10 +160,10 @@ namespace beam::wallet
                 }
             }
 
-            if(GetState() == State::MakingOutputs)
+            if (GetState() == State::MakingOutputs)
             {
                 SetState(State::MakingKernels);
-                if (builder.MakeKernel())
+                if(builder.MakeKernel())
                 {
                     return;
                 }
@@ -143,52 +200,26 @@ namespace beam::wallet
             return;
         }
 
-        Height kpHeight = 0;
-        GetParameter(TxParameterID::KernelProofHeight, kpHeight);
-        if (!kpHeight)
+        Height hProof = 0;
+        GetParameter(TxParameterID::KernelProofHeight, hProof);
+        if (!hProof)
         {
             SetState(State::KernelConfirmation);
             ConfirmKernel(builder.GetKernelID());
             return;
         }
 
-        if (GetState() == State::KernelConfirmation)
-        {
-            LOG_INFO() << GetTxID() << " Asset with owner index " << _builder->GetAssetOwnerIdx() << " successfully registered";
-            SetState(State::AssetConfirmation);
-            ConfirmAsset();
-            return;
-        }
-
-        if (GetState() == State::AssetConfirmation)
-        {
-            Height auHeight = 0;
-            GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-            if (auHeight)
-            {
-                OnFailed(TxFailureReason::AssetConfirmFailed);
-                return;
-            }
-
-            Height acHeight = 0;
-            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-            if (!acHeight)
-            {
-                ConfirmAsset();
-                return;
-            }
-        }
-
-        SetState(State::Finalizing);
         std::vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
-            if (coin.m_createTxId == m_ID) {
-                coin.m_confirmHeight = std::min(coin.m_confirmHeight, kpHeight);
-                coin.m_maturity = kpHeight + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
+            if (coin.m_createTxId == m_ID)
+            {
+                coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
+                coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
             }
-            if (coin.m_spentTxId == m_ID) {
-                coin.m_spentHeight = std::min(coin.m_spentHeight, kpHeight);
+            if (coin.m_spentTxId == m_ID)
+            {
+                coin.m_spentHeight = std::min(coin.m_spentHeight, hProof);
             }
         }
 
@@ -196,32 +227,17 @@ namespace beam::wallet
         CompleteTx();
     }
 
-    void AssetRegisterTransaction::ConfirmAsset()
+    void AssetUnregisterTransaction::ConfirmAsset()
     {
         GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerIdx(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
     }
 
-    bool AssetRegisterTransaction::Rollback(Height height)
-    {
-        bool rthis = false;
-        Height cheight(0);
-        if (GetParameter(TxParameterID::AssetConfirmedHeight, cheight) && (cheight > height))
-        {
-            SetParameter(TxParameterID::AssetConfirmedHeight, Height(0));
-            SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0));
-            SetParameter(TxParameterID::AssetFullInfo, Asset::Full());
-            rthis = true;
-        }
-        const bool rsuper = super::Rollback(height);
-        return rthis || rsuper;
-    }
-
-    bool AssetRegisterTransaction::IsLoopbackTransaction() const
+    bool AssetUnregisterTransaction::IsLoopbackTransaction() const
     {
         return GetMandatoryParameter<bool>(TxParameterID::IsSender) && IsInitiator();
     }
 
-    bool AssetRegisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
+    bool AssetUnregisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
     {
         switch (paramID)
         {
@@ -239,28 +255,28 @@ namespace beam::wallet
         }
     }
 
-    TxType AssetRegisterTransaction::GetType() const
+    TxType AssetUnregisterTransaction::GetType() const
     {
-        return TxType::AssetReg;
+        return TxType::AssetUnreg;
     }
 
-    AssetRegisterTransaction::State AssetRegisterTransaction::GetState() const
+    AssetUnregisterTransaction::State AssetUnregisterTransaction::GetState() const
     {
         State state = State::Initial;
         GetParameter(TxParameterID::State, state);
         return state;
     }
 
-    AssetRegisterTxBuilder& AssetRegisterTransaction::GetTxBuilder()
+    AssetUnregisterTxBuilder& AssetUnregisterTransaction::GetTxBuilder()
     {
         if (!_builder)
         {
-            _builder = std::make_shared<AssetRegisterTxBuilder>(*this, kDefaultSubTxID);
+            _builder = std::make_shared<AssetUnregisterTxBuilder>(*this, kDefaultSubTxID);
         }
         return *_builder;
     }
 
-    bool AssetRegisterTransaction::IsInSafety() const
+    bool AssetUnregisterTransaction::IsInSafety() const
     {
         State txState = GetState();
         return txState == State::KernelConfirmation;

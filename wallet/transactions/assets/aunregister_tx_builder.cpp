@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "aregister_tx_builder.h"
+#include "aunregister_tx_builder.h"
 #include "assets_kdf_utils.h"
 #include "utility/logger.h"
 #include "wallet/core/strings_resources.h"
@@ -23,7 +23,7 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    AssetRegisterTxBuilder::AssetRegisterTxBuilder(BaseTransaction& tx, SubTxID subTxID)
+    AssetUnregisterTxBuilder::AssetUnregisterTxBuilder(BaseTransaction& tx, SubTxID subTxID)
         : m_Tx{tx}
         , m_SubTxID(subTxID)
         , m_assetOwnerIdx(0)
@@ -62,7 +62,7 @@ namespace beam::wallet
         }
     }
 
-    bool AssetRegisterTxBuilder::CreateInputs()
+    bool AssetUnregisterTxBuilder::CreateInputs()
     {
         if (GetInputs() || GetInputCoins().empty())
         {
@@ -73,15 +73,16 @@ namespace beam::wallet
         m_Inputs = GenerateAssetInputs(masterKdf, m_InputCoins);
         m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
 
-        return false; // completed sync
+        return false;
     }
 
-    bool AssetRegisterTxBuilder::GetInitialTxParams()
+    bool AssetUnregisterTxBuilder::GetInitialTxParams()
     {
+        // TODO:ASSETS remove all inputs and pay fee from refunded amount
         m_Tx.GetParameter(TxParameterID::Inputs,     m_Inputs,      m_SubTxID);
         m_Tx.GetParameter(TxParameterID::Outputs,    m_Outputs,     m_SubTxID);
         bool hasICoins = m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins,  m_SubTxID);
-        bool hasOCoins =  m_Tx.GetParameter(TxParameterID::OutputCoins,m_OutputCoins, m_SubTxID);
+        bool hasOCoins = m_Tx.GetParameter(TxParameterID::OutputCoins,m_OutputCoins, m_SubTxID);
 
         if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
         {
@@ -102,7 +103,7 @@ namespace beam::wallet
         return hasICoins || hasOCoins;
     }
 
-    bool AssetRegisterTxBuilder::LoadKernel()
+    bool AssetUnregisterTxBuilder::LoadKernel()
     {
         if (m_Tx.GetParameter(TxParameterID::Kernel, m_kernel, m_SubTxID))
         {
@@ -112,7 +113,7 @@ namespace beam::wallet
         return false;
     }
 
-    Transaction::Ptr AssetRegisterTxBuilder::CreateTransaction()
+    Transaction::Ptr AssetUnregisterTxBuilder::CreateTransaction()
     {
         // Don't display in log infinite max height
         if (m_kernel->m_Height.m_Max == MaxHeight)
@@ -149,32 +150,32 @@ namespace beam::wallet
         return tx;
     }
 
-    Amount AssetRegisterTxBuilder::GetAmountBeam() const
+    Amount AssetUnregisterTxBuilder::GetAmountBeam() const
     {
         return std::accumulate(m_AmountList.begin(), m_AmountList.end(), 0ULL);
     }
 
-    const AmountList& AssetRegisterTxBuilder::GetAmountList() const
+    const AmountList& AssetUnregisterTxBuilder::GetAmountList() const
     {
         return m_AmountList;
     }
 
-    Height AssetRegisterTxBuilder::GetMinHeight() const
+    Height AssetUnregisterTxBuilder::GetMinHeight() const
     {
         return m_MinHeight;
     }
 
-    const std::vector<Coin::ID>& AssetRegisterTxBuilder::GetInputCoins() const
+    const std::vector<Coin::ID>& AssetUnregisterTxBuilder::GetInputCoins() const
     {
         return m_InputCoins;
     }
 
-    const std::vector<Coin::ID>& AssetRegisterTxBuilder::GetOutputCoins() const
+    const std::vector<Coin::ID>& AssetUnregisterTxBuilder::GetOutputCoins() const
     {
         return m_OutputCoins;
     }
 
-    void AssetRegisterTxBuilder::AddChange()
+    void AssetUnregisterTxBuilder::AddChange()
     {
         if (m_ChangeBeam)
         {
@@ -184,23 +185,23 @@ namespace beam::wallet
          m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
     }
 
-    Amount AssetRegisterTxBuilder::GetFee() const
+    Amount AssetUnregisterTxBuilder::GetFee() const
     {
         return m_Fee;
     }
 
-    Key::Index AssetRegisterTxBuilder::GetAssetOwnerIdx() const
+    Key::Index AssetUnregisterTxBuilder::GetAssetOwnerIdx() const
     {
         return m_assetOwnerIdx;
     }
 
-    PeerID AssetRegisterTxBuilder::GetAssetOwnerId() const
+    PeerID AssetUnregisterTxBuilder::GetAssetOwnerId() const
     {
         assert(m_assetOwnerId != Zero || !"Asset owner id is still zero");
         return m_assetOwnerId;
     }
 
-    string AssetRegisterTxBuilder::GetKernelIDString() const {
+    string AssetUnregisterTxBuilder::GetKernelIDString() const {
         Merkle::Hash kernelID;
         m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
         char sz[Merkle::Hash::nTxtLen + 1];
@@ -208,17 +209,17 @@ namespace beam::wallet
         return string(sz);
     }
 
-    bool AssetRegisterTxBuilder::GetInputs()
+    bool AssetUnregisterTxBuilder::GetInputs()
     {
         return m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs, m_SubTxID);
     }
 
-    bool AssetRegisterTxBuilder::GetOutputs()
+    bool AssetUnregisterTxBuilder::GetOutputs()
     {
         return m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs, m_SubTxID);
     }
 
-    void AssetRegisterTxBuilder::SelectInputCoins()
+    void AssetUnregisterTxBuilder::SelectInputCoins()
     {
         CoinIDList preselIDs;
         vector<Coin> coins;
@@ -269,7 +270,7 @@ namespace beam::wallet
         m_Tx.GetWalletDB()->saveCoins(coins);
     }
 
-    void AssetRegisterTxBuilder::GenerateBeamCoin(Amount amount, bool change)
+    void AssetUnregisterTxBuilder::GenerateBeamCoin(Amount amount, bool change)
     {
         Coin newUtxo(amount, change ? Key::Type::Change : Key::Type::Regular);
         newUtxo.m_createTxId = m_Tx.GetTxID();
@@ -281,7 +282,7 @@ namespace beam::wallet
                    << ", id " << newUtxo.toStringID();
     }
 
-    bool AssetRegisterTxBuilder::CreateOutputs()
+    bool AssetUnregisterTxBuilder::CreateOutputs()
     {
         if (GetOutputs() || GetOutputCoins().empty())
         {
@@ -293,10 +294,10 @@ namespace beam::wallet
         m_Outputs = GenerateAssetOutputs(masterKdf, m_MinHeight, m_OutputCoins);
         m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
 
-        return false; // completed sync
+        return false;
     }
 
-    const Merkle::Hash& AssetRegisterTxBuilder::GetKernelID() const
+    const Merkle::Hash& AssetUnregisterTxBuilder::GetKernelID() const
     {
         if (!m_kernelID)
         {
@@ -313,9 +314,9 @@ namespace beam::wallet
         return *m_kernelID;
     }
 
-    bool AssetRegisterTxBuilder::MakeKernel()
+    bool AssetUnregisterTxBuilder::MakeKernel()
     {
-        if (m_kernel) return false; // already created
+        if (m_kernel) return false;
 
         m_kernel = make_unique<TxKernelAssetCreate>();
         m_kernel->m_Fee = m_Fee;

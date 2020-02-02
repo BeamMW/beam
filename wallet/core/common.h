@@ -144,12 +144,16 @@ namespace beam::wallet
     MACRO(NotLoopback,                   25, "Not a loopback transaction") \
     MACRO(NoKeyKeeper,                   26, "Key keeper is not initialized") \
     MACRO(NoAssetId,                     27, "No valid asset owner id/asset owner idx") \
-    MACRO(RegisterAmountTooSmall,        28, "Asset registration fee is too small") \
-    MACRO(ConsumeAmountTooBig,           29, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
-    MACRO(NotEnoughDataForProof,         30, "Some mandatory data for payment proof is missing") \
-    MACRO(NoMasterKey,                   31, "Master key is needed for this transaction, but unavailable") \
-    MACRO(KeyKeeperError,                32, "Key keeper malfunctioned") \
-    MACRO(KeyKeeperUserAbort,            33, "Aborted by the user") \
+    MACRO(NoAssetInfo,                   28, "No asset info or asset info is not valid") \
+    MACRO(AssetConfirmFailed,            29, "Failed to receive asset confirmation") \
+    MACRO(AssetInUse,                    30, "Asset is still in use (issued amount > 0)") \
+    MACRO(AssetLocked,                   31, "Asset is still locked") \
+    MACRO(RegisterAmountTooSmall,        32, "Asset registration fee is too small") \
+    MACRO(ConsumeAmountTooBig,           33, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
+    MACRO(NotEnoughDataForProof,         34, "Some mandatory data for payment proof is missing") \
+    MACRO(NoMasterKey,                   35, "Master key is needed for this transaction, but unavailable") \
+    MACRO(KeyKeeperError,                36, "Key keeper malfunctioned") \
+    MACRO(KeyKeeperUserAbort,            37, "Aborted by the user")
 
     enum TxFailureReason : int32_t
     {
@@ -269,6 +273,9 @@ namespace beam::wallet
 
         KernelUnconfirmedHeight = 133,
         PeerResponseHeight = 134,
+        AssetConfirmedHeight = 135, // This is NOT the same as ProofHeight for kernel!
+        AssetUnconfirmedHeight = 136,
+        AssetFullInfo = 137,
 
         Offset = 140,
 

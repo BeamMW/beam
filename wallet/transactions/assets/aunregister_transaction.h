@@ -21,15 +21,14 @@
 #include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
-#include "aregister_tx_builder.h"
+#include "aunregister_tx_builder.h"
 
 namespace beam::wallet
 {
     class BaseTxBuilder;
 
-    class AssetRegisterTransaction : public BaseTransaction
+    class AssetUnregisterTransaction : public BaseTransaction
     {
-        typedef BaseTransaction super;
     public:
         class Creator : public BaseTransaction::Creator
         {
@@ -41,31 +40,30 @@ namespace beam::wallet
         };
 
     private:
-        AssetRegisterTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID);
+        AssetUnregisterTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID);
         TxType GetType() const override;
         bool IsInSafety() const override;
 
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
-        bool Rollback(Height height) override;
         bool IsLoopbackTransaction() const;
         void ConfirmAsset();
-        AssetRegisterTxBuilder& GetTxBuilder();
+        AssetUnregisterTxBuilder& GetTxBuilder();
 
         enum State : uint8_t
         {
             Initial,
+            AssetCheck,
             MakingInputs,
             MakingOutputs,
             MakingKernels,
             Registration,
             KernelConfirmation,
-            AssetConfirmation,
             Finalizing
         };
         State GetState() const;
 
     private:
-        std::shared_ptr<AssetRegisterTxBuilder> _builder;
+        std::shared_ptr<AssetUnregisterTxBuilder> _builder;
     };
 }
