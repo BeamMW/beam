@@ -1686,45 +1686,33 @@ bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const pr
 	}
 
 	struct MyTask
-		:public Executor::TaskAsync
+		:public Executor::TaskSync
 	{
 		const Block::SystemState::Full* m_pV;
-		size_t m_Count;
-		bool* m_pValid;
+		uint32_t m_Count;
+		bool m_Valid;
 
 		virtual ~MyTask() {}
 
-		virtual void Exec(Executor::Context&) override
+		virtual void Exec(Executor::Context& ctx) override
 		{
-			for (size_t i = 0; i < m_Count; i++)
-				if (!m_pV[i].IsValid())
-					*m_pValid = false;
+            uint32_t i0, nCount;
+            ctx.get_Portion(i0, nCount, m_Count);
+
+			for (; i0 < nCount; i0++)
+				if (!m_pV[i0].IsValid())
+					m_Valid = false;
 		}
 	};
 
-    Executor& ex = m_Processor.m_ExecutorMT;
-	uint32_t nThreads = ex.get_Threads();
+    MyTask t;
+    t.m_pV = &v.front();
+    t.m_Count = static_cast<uint32_t>(v.size());
+    t.m_Valid = true;
 
-	const Block::SystemState::Full* pV = &v.front();
-	size_t nCount = v.size();
-	bool bValid = true;
+    m_Processor.m_ExecutorMT.ExecAll(t);
 
-	for (; nThreads; nThreads--)
-	{
-		std::unique_ptr<MyTask> pTask(new MyTask);
-		pTask->m_pValid = &bValid;
-		pTask->m_pV = pV;
-		pTask->m_Count = nCount / nThreads;
-
-		pV += pTask->m_Count;
-		nCount -= pTask->m_Count;
-
-		ex.Push(std::move(pTask));
-	}
-
-	ex.Flush();
-
-	return bValid;
+	return t.m_Valid;
 }
 
 void Node::Peer::OnMsg(proto::HdrPack&& msg)

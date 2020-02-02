@@ -109,6 +109,31 @@ namespace beam
 
 	///////////////////////
 	// Executor
+	void Executor::Context::get_Portion(uint32_t& i0, uint32_t& nCount, uint32_t nTotal)
+	{
+		uint32_t nThreads = m_pThis->get_Threads();
+		assert(m_iThread < nThreads);
+
+		if (nTotal)
+		{
+			i0 = get_Pos(nTotal, m_iThread, nThreads);
+			nCount = get_Pos(nTotal, m_iThread + 1, nThreads) - i0;
+		}
+		else
+		{
+			i0 = 0;
+			nCount = 0;
+		}
+	}
+
+	uint32_t Executor::Context::get_Pos(uint32_t nTotal, uint32_t iThread, uint32_t nThreads)
+	{
+		uint64_t val = nTotal;
+		val *= iThread;
+		val /= nThreads;
+		return static_cast<uint32_t>(val);
+	}
+
 	void ExecutorMT::InitSafe()
 	{
 		if (!m_vThreads.empty())

@@ -24,9 +24,14 @@ namespace beam
 	struct Executor
 	{
 		// Per-thread context, which tasks may access
-		struct Context {
+		struct Context
+		{
 			Executor* m_pThis;
 			uint32_t m_iThread;
+
+			void get_Portion(uint32_t& i0, uint32_t& nCount, uint32_t nTotal);
+		private:
+			static uint32_t get_Pos(uint32_t nTotal, uint32_t iThread, uint32_t nThreads);
 		};
 
 		struct TaskSync {

@@ -826,22 +826,22 @@ void NodeProcessor::MultiSigmaContext::Add(TxoID id0, uint32_t nCount, const ECC
 }
 
 struct NodeProcessor::MultiSigmaContext::MyTask
-	:public Executor::TaskAsync
+	:public Executor::TaskSync
 {
 	MultiSigmaContext* m_pThis;
-	const ECC::Scalar::Native* m_pS;
-	uint32_t m_iIdx;
-	uint32_t m_i0;
-	uint32_t m_nCount;
+	const Node* m_pNode;
+	//const ECC::Scalar::Native* m_pS;
 
-	virtual ~MyTask() {}
-
-	virtual void Exec(Executor::Context&) override
+	virtual void Exec(Executor::Context& ctx) override
 	{
-		ECC::Point::Native& val = m_pThis->m_vRes[m_iIdx];
+		ECC::Point::Native& val = m_pThis->m_vRes[ctx.m_iThread];
 		val = Zero;
 
-		m_pThis->get_List().Calculate(val, m_i0, m_nCount, m_pS);
+		uint32_t i0, nCount;
+		ctx.get_Portion(i0, nCount, m_pNode->m_Max - m_pNode->m_Min);
+		i0 += m_pNode->m_Min;
+
+		m_pThis->get_List().Calculate(val, i0, nCount, m_pNode->m_pS);
 	}
 };
 
@@ -859,22 +859,11 @@ void NodeProcessor::MultiSigmaContext::Calculate(ECC::Point::Native& res, NodePr
 		m_vRes.resize(nThreads);
 		PrepareList(np, n);
 
-		for (uint32_t i = 0; i < nThreads; i++)
-		{
-			uint32_t nCount = (n.m_Max - n.m_Min) / (nThreads - i);
+		MyTask t;
+		t.m_pThis = this;
+		t.m_pNode = &n;
 
-			std::unique_ptr<MyTask> pTask(new MyTask);
-			pTask->m_pThis = this;
-			pTask->m_pS = n.m_pS;
-			pTask->m_iIdx = i;
-			pTask->m_i0 = n.m_Min;
-			pTask->m_nCount = nCount;
-			ex.Push(std::move(pTask));
-
-			n.m_Min += nCount;
-		}
-
-		ex.Flush();
+		ex.ExecAll(t);
 
 		for (uint32_t i = 0; i < nThreads; i++)
 			res += m_vRes[i];
