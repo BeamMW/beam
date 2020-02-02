@@ -39,7 +39,9 @@ class NodeProcessor
 	size_t m_nSizeUtxoComission;
 
 	struct MultiblockContext;
+	struct MultiSigmaContext;
 	struct MultiShieldedContext;
+	struct MultiAssetContext;
 
 	void RollbackTo(Height);
 	Height PruneOld();
@@ -406,11 +408,12 @@ public:
 	};
 
 	struct ITxoRecover
-		:public ITxoWalker_Unspent
+		:public ITxoWalker
 	{
 		Key::IPKdf& m_Key;
 		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
 
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&) = 0;
 	};

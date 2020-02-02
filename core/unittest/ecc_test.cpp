@@ -1012,6 +1012,10 @@ void TestRangeProof(bool bCustomTag)
 
 		outp.m_RecoveryOnly = true;
 		WriteSizeSerialized("Out-UTXO-Confidential-RecoveryOnly", outp);
+
+		CoinID cid2;
+		verify_test(outp.Recover(g_hFork, kdf, cid2));
+		verify_test(cid == cid2);
 	}
 
 	WriteSizeSerialized("In-Utxo", beam::Input());
@@ -2353,14 +2357,27 @@ void TestTreasury()
 	}
 }
 
-void TestLelantus()
+void TestLelantus(bool bWithAsset)
 {
 	beam::Lelantus::Cfg cfg; // default
+
+	if (bWithAsset)
+	{
+		// set other parameters. Test small set (make it run faster)
+		cfg.n = 3;
+		cfg.M = 4; // 3^4 = 81
+	}
+
 	const uint32_t N = cfg.get_N();
-	printf("Lelantus [n, M, N] = [%u, %u, %u]\n", cfg.n, cfg.M, N);
+	if (!bWithAsset)
+		printf("Lelantus [n, M, N] = [%u, %u, %u]\n", cfg.n, cfg.M, N);
 
 	beam::Lelantus::CmListVec lst;
 	lst.m_vec.resize(N);
+
+	Point::Native hGen;
+	if (bWithAsset)
+		beam::Asset::Base(35).get_Generator(hGen);
 
 	Point::Native rnd;
 	SetRandom(rnd);
@@ -2384,7 +2401,7 @@ void TestLelantus()
 	p.m_Witness.V.m_V = 100500;
 	p.m_Witness.V.m_R = 4U;
 	p.m_Witness.V.m_R_Output = 756U;
-	p.m_Witness.V.m_L = 333;
+	p.m_Witness.V.m_L = 333 % N;
 	SetRandom(p.m_Witness.V.m_SpendSk);
 
 	Point::Native pt = Context::get().G * p.m_Witness.V.m_SpendSk;
@@ -2392,22 +2409,36 @@ void TestLelantus()
 	Scalar::Native ser;
 	beam::Lelantus::SpendKey::ToSerial(ser, pt_);
 
-
-	pt = Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
+	pt = Context::get().G * p.m_Witness.V.m_R;
+	Tag::AddValue(pt, &hGen, p.m_Witness.V.m_V);
 	pt += Context::get().J * ser;
 	pt.Export(lst.m_vec[p.m_Witness.V.m_L]);
+
+	if (bWithAsset)
+	{
+		// add blinding to the asset
+		Scalar::Native skGen = 77345U;
+		hGen = hGen + Context::get().G * skGen;
+
+		skGen *= p.m_Witness.V.m_V;
+
+		p.m_Witness.V.m_R_Adj = p.m_Witness.V.m_R_Output;
+		p.m_Witness.V.m_R_Adj += -skGen;
+	}
 
 	Oracle oracle;
 
 	uint32_t t = beam::GetTime_ms();
 
-	p.Generate(Zero, oracle);
+	p.Generate(Zero, oracle, &hGen);
 
-	printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
+	if (!bWithAsset)
+		printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
 
 	{
 		Oracle o2;
 		Hash::Value hv0;
+		proof.m_Cfg.Expose(o2);
 		proof.Expose0(o2, hv0);
 		ud2.Recover(o2, proof, Zero);
 
@@ -2429,7 +2460,8 @@ void TestLelantus()
 		der_.reset(ser_.buffer().first, ser_.buffer().second);
 		der_ & proof;
 
-		printf("\tProof size = %u\n", (uint32_t)ser_.buffer().second);
+		if (!bWithAsset)
+			printf("\tProof size = %u\n", (uint32_t)ser_.buffer().second);
 	}
 	MyBatch bc;
 
@@ -2449,7 +2481,7 @@ void TestLelantus()
 		for (uint32_t i = 0; i < nCycles; i++)
 		{
 			Oracle o2;
-			if (!proof.IsValid(bc, o2, &vKs.front()))
+			if (!proof.IsValid(bc, o2, &vKs.front(), &hGen))
 				bSuccess = false;
 		}
 
@@ -2458,7 +2490,8 @@ void TestLelantus()
 		if (!bc.Flush())
 			bSuccess = false;
 
-		printf("\tVerify time %u overlapping proofs = %u ms\n", nCycles, beam::GetTime_ms() - t);
+		if (!bWithAsset)
+			printf("\tVerify time %u overlapping proofs = %u ms\n", nCycles, beam::GetTime_ms() - t);
 	}
 
 	verify_test(bSuccess);
@@ -2508,13 +2541,19 @@ void TestLelantusKeys()
 	oprs.m_Sender = 1U;
 	oprs.m_Value = 3002U;
 	oprs.m_Message = Scalar::s_Order;
+	oprs.m_AssetID = 18;
 	{
 		Oracle oracle;
 		oprs.Generate(txo, sprs.m_SharedSecret, oracle, gen);
 	}
 	{
 		Oracle oracle;
+		verify_test(txo.IsValid(oracle, pt, pt));
+	}
+	{
+		Oracle oracle;
 		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle, viewer));
+		verify_test(oprs.m_AssetID == oprs2.m_AssetID);
 		verify_test(oprs.m_Sender == oprs2.m_Sender);
 		verify_test(oprs.m_Message == oprs2.m_Message);
 	}
@@ -2523,6 +2562,7 @@ void TestLelantusKeys()
 	oprs.m_Message.Negate();
 	oprs.m_Message.Inc();
 	oprs.m_Message.Negate(); // should be 1 less than the order
+	oprs.m_AssetID = 0;
 
 	{
 		Oracle oracle;
@@ -2533,12 +2573,33 @@ void TestLelantusKeys()
 		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle, viewer));
 		verify_test(oprs.m_Sender == oprs2.m_Sender);
 		verify_test(oprs.m_Message == oprs2.m_Message);
+		verify_test(oprs.m_Message == oprs2.m_Message);
 	}
 
 	{
 		Oracle oracle;
 		verify_test(txo.IsValid(oracle, pt, pt));
 	}
+}
+
+void TestAssetProof()
+{
+	Scalar::Native sk;
+	SetRandom(sk);
+
+	Amount val = 400;
+
+	Point::Native genBlinded;
+
+	beam::Asset::Proof proof;
+	proof.Create(genBlinded, sk, val, 100500);
+	verify_test(proof.IsValid(genBlinded));
+
+	proof.Create(genBlinded, sk, val, 1);
+	verify_test(proof.IsValid(genBlinded));
+
+	proof.Create(genBlinded, sk, val, 0);
+	verify_test(proof.IsValid(genBlinded));
 }
 
 void TestAssetEmission()
@@ -2705,8 +2766,10 @@ void TestAll()
 	TestRandom();
 	TestFourCC();
 	TestTreasury();
+	TestAssetProof();
 	TestAssetEmission();
-	TestLelantus();
+	TestLelantus(false);
+	TestLelantus(true);
 	TestLelantusKeys();
 }
 

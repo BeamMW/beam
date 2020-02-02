@@ -527,6 +527,7 @@ namespace beam::wallet
         void FromMaster();
         void FromMaster(const ECC::uintBig&);
         void FromKeyKeeper();
+        void UpdateLocalSlots();
         static void createTables(sqlite3* db, sqlite3* privateDb);
         void removeCoinImpl(const Coin::ID& cid);
         void notifyCoinsChanged(ChangeAction action, const std::vector<Coin>& items);
@@ -556,12 +557,14 @@ namespace beam::wallet
         void onPrepareToModify();
     private:
         friend struct sqlite::Statement;
+        bool m_Initialized = false;
         sqlite3* _db;
         sqlite3* m_PrivateDB;
         Key::IKdf::Ptr m_pKdfMaster;
         Key::IPKdf::Ptr m_pKdfOwner;
         Key::IKdf::Ptr m_pKdfSbbs;
         IPrivateKeyKeeper2::Ptr m_pKeyKeeper;
+        IPrivateKeyKeeper2::Slot::Type m_KeyKeeperSlots = 0; // cache it
         io::Timer::Ptr m_FlushTimer;
         bool m_IsFlushPending;
         std::unique_ptr<sqlite::Transaction> m_DbTransaction;

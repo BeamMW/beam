@@ -817,18 +817,22 @@ namespace ECC {
 		m_Batch.m_Size++;
 	}
 
+	void Point::Compact::Assign(secp256k1_ge& ge) const
+	{
+		secp256k1_ge_from_storage(&ge, this);
+	}
+
 	void Point::Compact::Assign(Point::Native& p, bool bSet) const
 	{
 		NoLeak<secp256k1_ge> ge;
-
-		secp256k1_ge_from_storage(&ge.V, this);
+		Assign(ge.V);
 
 		if (bSet)
 			secp256k1_gej_set_ge(&p.get_Raw(), &ge.V);
 		else
 		{
 			if (Mode::Secure == ECC::g_Mode)
-			secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge.V);
+				secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge.V);
 			else
 				secp256k1_gej_add_ge_var(&p.get_Raw(), &p.get_Raw(), &ge.V, nullptr);
 		}
@@ -2263,7 +2267,7 @@ namespace ECC {
 		m_NoncePub = pubNonce;
 	}
 
-	void SignatureBase::Sign(const Config& cfg, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes)
+	void SignatureBase::CreateNonces(const Config& cfg, const Hash::Value& msg, const Scalar::Native* pSk, Scalar::Native* pRes)
 	{
 		NonceGenerator nonceGen("beam-Schnorr");
 
@@ -2283,9 +2287,12 @@ namespace ECC {
 
 		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
 			nonceGen >> pRes[iG];
+	}
 
+	void SignatureBase::Sign(const Config& cfg, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes)
+	{
+		CreateNonces(cfg, msg, pSk, pRes);
 		SetNoncePub(cfg, pRes);
-
 		SignRaw(cfg, msg, pK, pSk, pRes);
 	}
 

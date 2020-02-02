@@ -78,7 +78,7 @@ namespace beam::wallet
     // Interface for swap bulletin board observer. 
     struct ISwapOffersObserver
     {
-        virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) = 0;
+        virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) {};
     };
 
     // Interface for wallet message consumer
