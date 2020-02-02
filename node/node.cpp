@@ -1698,6 +1698,7 @@ bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const pr
 		{
             uint32_t i0, nCount;
             ctx.get_Portion(i0, nCount, m_Count);
+            nCount += i0;
 
 			for (; i0 < nCount; i0++)
 				if (!m_pV[i0].IsValid())
