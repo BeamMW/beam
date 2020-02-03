@@ -125,7 +125,6 @@ namespace beam
 		{
 			ByteBuffer m_Value;
 			void get_Hash(ECC::Hash::Value&) const; // used to derive the owner key
-			void get_Hash(ECC::Hash::Processor&) const;
 		};
 
 		struct Info
@@ -1283,7 +1282,12 @@ namespace beam
 	};
 }
 
-inline ECC::Hash::Processor& operator << (ECC::Hash::Processor& hp, const beam::PeerID& pid)
-{
+inline ECC::Hash::Processor& operator << (ECC::Hash::Processor& hp, const beam::PeerID& pid) {
 	return hp << Cast::Down<ECC::Hash::Value>(pid);
+}
+
+inline ECC::Hash::Processor& operator << (ECC::Hash::Processor& hp, const beam::Asset::Metadata& md) {
+	return hp
+		<< md.m_Value.size()
+		<< beam::Blob(md.m_Value);
 }
