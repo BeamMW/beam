@@ -2532,6 +2532,17 @@ bool NodeDB::AssetGetSafe(Asset::Full& ai)
 	return true;
 }
 
+bool NodeDB::AssetGetNext(Asset::Full& ai)
+{
+	assert(ai.m_ID < Asset::s_MaxCount);
+
+	ai.m_ID = AssetFindMinFree(ai.m_ID + 1);
+	if (ai.m_ID > Asset::s_MaxCount)
+		return false;
+
+	return AssetGetSafe(ai);
+}
+
 void NodeDB::AssetSetValue(Asset::ID id, const AmountBig::Type& val, Height hLockHeight)
 {
 	Recordset rs(*this, Query::AssetSetVal, "UPDATE " TblAssets " SET " TblAssets_Value "=?," TblAssets_LockHeight "=? WHERE " TblAssets_ID "=?");
