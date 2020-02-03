@@ -108,6 +108,8 @@ namespace Sigma {
 		void CalculateP();
 		void ExtractABCD();
 		void ExtractG(const ECC::Point::Native& ptOut);
+		struct GB;
+		void ExtractG_Part(GB*, uint32_t i0, uint32_t i1);
 		void ExtractPart2(ECC::Oracle&);
 
 		static void ExtractBlinded(ECC::Scalar& out, const ECC::Scalar::Native& sk, const ECC::Scalar::Native& challenge, const ECC::Scalar::Native& nonce);

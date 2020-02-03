@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "lelantus.h"
+#include "../utility/executor.h"
 
 namespace beam {
 
@@ -551,61 +552,130 @@ void Prover::ExtractABCD()
 	}
 }
 
-void Prover::ExtractG(const Point::Native& ptBias)
+struct Prover::GB
 {
+	Point::Native m_G;
+	Scalar::Native m_kBias;
+};
+
+void Prover::ExtractG_Part(GB* pGB, uint32_t i0, uint32_t i1)
+{
+	for (uint32_t k = 0; k < m_Cfg.M; k++)
+	{
+		GB& gb = pGB[k];
+		gb.m_G = Zero;
+		gb.m_kBias = Zero;
+	}
+
 	const uint32_t nSizeNaggle = 128;
 	MultiMac_WithBufs<nSizeNaggle, 1> mm;
 
-	uint32_t iPos = 0;
-	Point::Native pG[Cfg::Max::M], comm, comm2;
+	Point::Native comm;
 
 	const uint32_t N = m_Cfg.get_N();
 	assert(N);
 
-	Scalar::Native pBias[Cfg::Max::M];
-	for (uint32_t k = 0; k < m_Cfg.M; k++)
-		pBias[k] = Zero;
-
-	while (true)
+	while (i0 < i1)
 	{
-		m_List.Import(mm, iPos, std::min(nSizeNaggle, N - iPos));
+		m_List.Import(mm, i0, std::min(nSizeNaggle, i1 - i0));
 		mm.m_ReuseFlag = MultiMac::Reuse::Generate;
 
 		Scalar::Native* pP = m_p;
 		for (uint32_t k = 0; k < m_Cfg.M; k++)
 		{
-			mm.m_pKCasual = pP + iPos;
+			GB& gb = pGB[k];
+
+			mm.m_pKCasual = pP + i0;
 
 			for (uint32_t i = 0; i < static_cast<uint32_t>(mm.m_Casual); i++)
-				pBias[k] += pP[iPos + i];
+				gb.m_kBias += pP[i0 + i];
 
 			mm.Calculate(comm);
-			pG[k] += comm;
+			gb.m_G += comm;
 
 			mm.m_ReuseFlag = MultiMac::Reuse::UseGenerated;
 
 			pP += N;
 		}
 
-		iPos += mm.m_Casual;
+		i0 += mm.m_Casual;
 
-		if ((N == iPos) || (static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle))
+		if (static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle)
 			break;
 	}
+}
 
+void Prover::ExtractG(const Point::Native& ptBias)
+{
+	struct MyTask
+		:public Executor::TaskSync
+	{
+		Prover* m_pThis;
+
+		std::vector<GB> m_vGB;
+
+		virtual void Exec(Executor::Context& ctx) override
+		{
+			const Cfg& cfg = m_pThis->m_Cfg;
+			const uint32_t N = cfg.get_N();
+
+			uint32_t i0, nCount;
+			ctx.get_Portion(i0, nCount, N);
+
+			ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+			m_pThis->ExtractG_Part(&m_vGB.front() + cfg.M * ctx.m_iThread, i0, i0 + nCount);
+		}
+
+	} t;
+
+	uint32_t nThreads = Executor::s_pInstance ? Executor::s_pInstance->get_Threads() : 1;
+	t.m_vGB.resize(nThreads * m_Cfg.M);
+	t.m_pThis = this;
+
+	if (Executor::s_pInstance)
+	{
+		Executor::s_pInstance->ExecAll(t);
+
+		for (uint32_t i = 1; i < nThreads; i++)
+		{
+			uint32_t n = m_Cfg.M * i;
+
+			for (uint32_t k = 0; k < m_Cfg.M; k++)
+			{
+				GB& dst = t.m_vGB[k];
+				const GB& src = t.m_vGB[k + n];
+
+				dst.m_G += src.m_G;
+				dst.m_kBias += src.m_kBias;
+			}
+		}
+	}
+	else
+	{
+		const uint32_t N = m_Cfg.get_N();
+		assert(N);
+		ExtractG_Part(&t.m_vGB.front(), 0, N);
+	}
+
+
+	MultiMac_WithBufs<1, 1> mm;
 	mm.Reset();
 	mm.m_ppPrepared[0] = &Context::get().m_Ipp.G_;
 	mm.m_pCasual[0].Init(-ptBias);
 	mm.m_Prepared = 1;
 	mm.m_Casual = 1;
 
+	ECC::Point::Native comm;
 	for (uint32_t k = 0; k < m_Cfg.M; k++)
 	{
+		GB& gb = t.m_vGB[k];
+
 		mm.m_pKPrep[0] = m_Tau[k]; // don't set it by pointer, the calculation in secure mode overwrites it!
-		mm.m_pKCasual = pBias + k;
+		mm.m_pKCasual = &gb.m_kBias;
 		mm.Calculate(comm);
 
-		comm += pG[k];
+		comm += gb.m_G;
 
 		m_Proof.m_Part1.m_vG[k] = comm;
 	}
