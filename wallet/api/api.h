@@ -95,6 +95,13 @@ namespace beam::wallet
 
     struct CreateOffer
     {
+        Amount send;
+        Amount receive;
+        AtomicSwapCoin swapCoin;
+        bool isBeamSide;
+        Amount beemFee;
+        Amount swapFee;
+        uint32_t offerExpiresMin;
         struct Response
         {
             TxID txid;

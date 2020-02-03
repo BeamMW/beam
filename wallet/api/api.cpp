@@ -15,6 +15,9 @@
 #include "wallet/api/api.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/swap_offer_token.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_side.h"
+#include "wallet/transactions/swaps/bridges/litecoin/litecoin_side.h"
+#include "wallet/transactions/swaps/bridges/qtum/qtum_side.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include "nlohmann/json.hpp"
@@ -22,108 +25,128 @@
 using json = nlohmann::json;
 
 namespace beam::wallet
+{    
+namespace
 {
-    static const char JsonRpcHrd[] = "jsonrpc";
-    static const char JsonRpcVerHrd[] = "2.0";
+static const char JsonRpcHrd[] = "jsonrpc";
+static const char JsonRpcVerHrd[] = "2.0";
 
-    namespace
+struct jsonrpc_exception
+{
+    ApiError code;
+    std::string data;
+    JsonRpcId id;
+};
+
+std::string txIDToString(const TxID& txId)
+{
+    return to_hex(txId.data(), txId.size());
+}
+
+static json getNotImplError(const JsonRpcId& id)
+{
+    return json
     {
-    std::string txIDToString(const TxID& txId)
-    {
-        return to_hex(txId.data(), txId.size());
-    }
+        {JsonRpcHrd, JsonRpcVerHrd},
+        {"id", id},
+        {"error",
+            {
+                {"code", ApiError::InternalErrorJsonRpc},
+                {"message", "Not implemented yet!"},
+            }
+        }
+    };
+}
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    std::string swapOfferStatusToString(const SwapOfferStatus& status)
+void throwIncorrectCurrencyError(const std::string& name, const JsonRpcId& id)
+{
+    throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "wrong currency message here.", id };
+}
+
+std::string swapOfferStatusToString(const SwapOfferStatus& status)
+{
+    switch(status)
     {
-        switch(status)
-        {
-        case SwapOfferStatus::Canceled : return "canceled";
-        case SwapOfferStatus::Completed : return "completed";
-        case SwapOfferStatus::Expired : return "expired";
-        case SwapOfferStatus::Failed : return "failed";
-        case SwapOfferStatus::InProgress : return "in progress";
-        case SwapOfferStatus::Pending : return "pending";
-        default : return "unknown";
-        }
+    case SwapOfferStatus::Canceled : return "canceled";
+    case SwapOfferStatus::Completed : return "completed";
+    case SwapOfferStatus::Expired : return "expired";
+    case SwapOfferStatus::Failed : return "failed";
+    case SwapOfferStatus::InProgress : return "in progress";
+    case SwapOfferStatus::Pending : return "pending";
+    default : return "unknown";
+    }
+}
+
+json OfferToJson(const SwapOffer& offer,
+                    const std::vector<WalletAddress>& myAddresses,
+                    const Height& systemHeight)
+{
+    const auto& publisherId = offer.m_publisherId; 
+    const auto& it = std::find_if(
+        myAddresses.begin(), myAddresses.end(),
+        [&publisherId] (const WalletAddress& wa) {
+            return wa.m_walletID == publisherId;
+        });
+
+    bool isOwnOffer = it != myAddresses.end();
+    bool isSendBeamOffer =
+        isOwnOffer ? !offer.isBeamSide() : offer.isBeamSide();
+
+    Amount send =
+        isSendBeamOffer ? offer.amountBeam() : offer.amountSwapCoin();
+    Amount receive =
+        isSendBeamOffer ? offer.amountSwapCoin() : offer.amountBeam();
+    
+    std::string sendCurrency =
+        isSendBeamOffer ? "BEAM" : std::to_string(offer.swapCoinType());
+    std::string sreceiveCurrency =
+        isSendBeamOffer ? std::to_string(offer.swapCoinType()) : "BEAM";
+
+    auto peerResponseTime = offer.peerResponseHeight();
+    auto minHeight = offer.minHeight();
+
+    Timestamp expiresTime = getTimestamp();
+    if (systemHeight && peerResponseTime && minHeight)
+    {
+        auto expiresHeight = minHeight + peerResponseTime;
+        auto currentDateTime = getTimestamp();
+
+        expiresTime = systemHeight <= expiresHeight
+            ? currentDateTime + (expiresHeight - systemHeight) * 60
+            : currentDateTime - (systemHeight - expiresHeight) * 60;
     }
 
-    json OfferToJson(const SwapOffer& offer,
-                     const std::vector<WalletAddress>& myAddresses,
-                     const Height& systemHeight)
+    auto createTimeStr = format_timestamp(kTimeStampFormat3x3,
+                                        offer.timeCreated() * 1000,
+                                        false);
+    auto expiresTimeStr = format_timestamp(kTimeStampFormat3x3,
+                                        expiresTime * 1000,
+                                        false);
+    
+    json result {
+        {"status", offer.m_status},
+        {"status_string", swapOfferStatusToString(offer.m_status)},
+        {"tx_id", txIDToString(offer.m_txId)},
+        {"send_amount", send},
+        {"send_currency", sendCurrency},
+        {"receive_amount", receive},
+        {"receive_currency", sreceiveCurrency},
+        {"is_my_offer", isOwnOffer},
+        {"time_created", createTimeStr},
+        {"time_expired", expiresTimeStr},
+    };
+
+    if (offer.m_status == SwapOfferStatus::Pending)
     {
-        const auto& publisherId = offer.m_publisherId; 
-        const auto& it = std::find_if(
-            myAddresses.begin(), myAddresses.end(),
-            [&publisherId] (const WalletAddress& wa) {
-                return wa.m_walletID == publisherId;
-            });
-
-        bool isOwnOffer = it != myAddresses.end();
-        bool isSendBeamOffer =
-            isOwnOffer ? !offer.isBeamSide() : offer.isBeamSide();
-
-        Amount send =
-            isSendBeamOffer ? offer.amountBeam() : offer.amountSwapCoin();
-        Amount receive =
-            isSendBeamOffer ? offer.amountSwapCoin() : offer.amountBeam();
-        
-        std::string sendCurrency =
-            isSendBeamOffer ? "BEAM" : std::to_string(offer.swapCoinType());
-        std::string sreceiveCurrency =
-            isSendBeamOffer ? std::to_string(offer.swapCoinType()) : "BEAM";
-
-        auto peerResponseTime = offer.peerResponseHeight();
-        auto minHeight = offer.minHeight();
-
-        Timestamp expiresTime = getTimestamp();
-        if (systemHeight && peerResponseTime && minHeight)
-        {
-            auto expiresHeight = minHeight + peerResponseTime;
-            auto currentDateTime = getTimestamp();
-
-            expiresTime = systemHeight <= expiresHeight
-                ? currentDateTime + (expiresHeight - systemHeight) * 60
-                : currentDateTime - (systemHeight - expiresHeight) * 60;
-        }
-
-        auto createTimeStr = format_timestamp(kTimeStampFormat3x3,
-                                            offer.timeCreated() * 1000,
-                                            false);
-        auto expiresTimeStr = format_timestamp(kTimeStampFormat3x3,
-                                            expiresTime * 1000,
-                                            false);
-        
-        json result {
-            {"status", offer.m_status},
-            {"status_string", swapOfferStatusToString(offer.m_status)},
-            {"tx_id", txIDToString(offer.m_txId)},
-            {"send_amount", send},
-            {"send_currency", sendCurrency},
-            {"receive_amount", receive},
-            {"receive_currency", sreceiveCurrency},
-            {"is_my_offer", isOwnOffer},
-            {"time_created", createTimeStr},
-            {"time_expired", expiresTimeStr},
-        };
-
-        if (offer.m_status == SwapOfferStatus::Pending)
-        {
-            result["token"] = std::to_string(offer);
-        }
-
-        return result;
+        result["token"] = std::to_string(offer);
     }
+
+    return result;
+}
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-    }  // namespace
-
-    struct jsonrpc_exception
-    {
-        ApiError code;
-        std::string data;
-        JsonRpcId id;
-    };
+}  // namespace
 
     std::string getJsonString(const char* data, size_t size)
     {
@@ -592,6 +615,150 @@ namespace beam::wallet
     void WalletApi::onCreateOfferMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         CreateOffer data;
+
+        checkJsonParam(params, "send_amount", id);
+        if (!params["send_amount"].is_number_unsigned() ||
+            params["send_amount"] == 0)
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "\'send_amount\' must be non zero 64bit unsigned integer.",
+                id
+            };
+        data.send = params["send_amount"];
+        
+        AtomicSwapCoin sendCoin = AtomicSwapCoin::Unknown;
+        checkJsonParam(params, "send_currency", id);
+        if (params["send_currency"].is_string())
+        {
+            sendCoin = from_string(params["send_currency"]);
+        }
+        else
+        {
+            throwIncorrectCurrencyError("send_currency", id);
+        }
+        if (sendCoin == AtomicSwapCoin::Unknown &&
+            params["send_currency"] != "beam")
+        {
+            throwIncorrectCurrencyError("receive_currency", id);
+        }
+
+        checkJsonParam(params, "receive_amount", id);
+        if (!params["receive_amount"].is_number_unsigned() ||
+            params["receive_amount"] == 0)
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "\'receive_amount\' must be non zero 64bit unsigned integer.",
+                id
+            };
+        data.receive = params["receive_amount"];
+        
+        AtomicSwapCoin receiveCoin = AtomicSwapCoin::Unknown;
+        checkJsonParam(params, "receive_currency", id);
+        if (params["receive_currency"].is_string())
+        {
+            receiveCoin = from_string(params["receive_currency"]);
+        }
+        else
+        {
+            throwIncorrectCurrencyError("receive_currency", id);
+        }
+        if (receiveCoin == AtomicSwapCoin::Unknown &&
+            params["receive_currency"] != "beam")
+        {
+            throwIncorrectCurrencyError("receive_currency", id);
+        }
+
+        if (params["receive_currency"] != "beam" &&
+            params["send_currency"] != "beam")
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "\'receive_currency\' or \'send_currency\' must be 'beam'.",
+                id
+            };
+        }
+
+        if (sendCoin == receiveCoin)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "\'receive_currency\' and \'send_currency\' must be not same.",
+                id
+            };
+        }
+
+        data.isBeamSide = sendCoin == AtomicSwapCoin::Unknown;
+        data.swapCoin = data.isBeamSide
+            ? receiveCoin
+            : sendCoin;
+
+        checkJsonParam(params, "beam_fee", id);
+        if (!params["beam_fee"].is_number_unsigned() ||
+            params["beam_fee"] == 0)
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "\'beam_fee\' must be non zero 64bit unsigned integer.",
+                id
+            };
+        data.beemFee = params["beam_fee"];
+
+        std::string swapCoinFeeParamName = data.isBeamSide
+            ? params["receive_currency"]
+            : params["send_currency"];
+        swapCoinFeeParamName += "_fee_rate";
+
+        checkJsonParam(params, swapCoinFeeParamName, id);
+        if (!params[swapCoinFeeParamName].is_number_unsigned() ||
+            params[swapCoinFeeParamName] == 0)
+        {
+            auto message =
+                swapCoinFeeParamName +
+                " must be non zero 64bit unsigned integer.";
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                message,
+                id
+            };
+        }
+
+        Amount swapFeeRate = params[swapCoinFeeParamName];
+        switch(data.swapCoin)
+        {
+            case AtomicSwapCoin::Bitcoin:
+                data.swapFee = BitcoinSide::CalcTotalFee(swapFeeRate);
+                break;
+            case AtomicSwapCoin::Litecoin:
+                data.swapFee = LitecoinSide::CalcTotalFee(swapFeeRate);
+                break;
+            case AtomicSwapCoin::Qtum:
+                data.swapFee = QtumSide::CalcTotalFee(swapFeeRate);
+                break;
+            default:
+                throw jsonrpc_exception
+                {
+                    ApiError::InvalidJsonRpc,
+                    "swap coin undefined",
+                    id
+                };
+        }
+
+        checkJsonParam(params, "offer_expires", id);
+        if (!params["offer_expires"].is_number_unsigned() ||
+            params["offer_expires"] == 0)
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "\'offer_expires\' must be non zero 64bit unsigned integer.",
+                id
+            };
+        data.offerExpiresMin = params["offer_expires"];
+        
         _handler.onMessage(id, data);
     }
 
@@ -761,23 +928,7 @@ namespace beam::wallet
         };
     }
 
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-
-    static json getNotImplError(const JsonRpcId& id)
-    {
-        return json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"error",
-                {
-                    {"code", ApiError::InternalErrorJsonRpc},
-                    {"message", "Not implemented yet!"},
-                }
-            }
-        };
-    }
-    
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)    
     void WalletApi::getResponse(const JsonRpcId& id, const OffersList::Response& res, json& msg)
     {
         msg = 

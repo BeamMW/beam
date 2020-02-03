@@ -879,38 +879,40 @@ private:
 
         void onMessage(const JsonRpcId& id, const CreateOffer& data) override
         {
-            int blockCount = 60 / 2; // OfferExpires30min
+            // int blockCount = 60 / 2; // OfferExpires30min
 
-            bool isBeamSide = true;
-            AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
-            Amount beamAmount = 1000500;
-            Amount swapAmount = 1000500;
-            std::string comment = "hello";
+            // bool isBeamSide = true;
+            // AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
+            // Amount beamAmount = 1000500;
+            // Amount swapAmount = 1000500;
+            // std::string comment = "hello";
 
-            /////////////
+            // /////////////
 
-            WalletAddress address;
-            _walletDB->createAddress(address);
-            address.m_label = comment;
-            address.m_duration = WalletAddress::AddressExpiration24h;
+            // WalletAddress address;
+            // _walletDB->createAddress(address);
+            // address.m_label = comment;
+            // address.m_duration = WalletAddress::AddressExpiration24h;
 
-            beam::wallet::TxParameters txParameters(beam::wallet::CreateSwapParameters()
-                .SetParameter(beam::wallet::TxParameterID::IsInitiator, true)
-                .SetParameter(beam::wallet::TxParameterID::MinHeight, _walletDB->getCurrentHeight())
-                .SetParameter(beam::wallet::TxParameterID::PeerResponseTime, blockCount)
-                .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide)
-                .SetParameter(beam::wallet::TxParameterID::Amount, beamAmount)
-                .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, swapCoin)
-                .SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, swapAmount)
-                .SetParameter(beam::wallet::TxParameterID::PeerID, address.m_walletID)
-                .SetParameter(beam::wallet::TxParameterID::IsSender, isBeamSide));
+            // beam::wallet::TxParameters txParameters(beam::wallet::CreateSwapParameters()
+            //     .SetParameter(beam::wallet::TxParameterID::IsInitiator, true)
+            //     .SetParameter(beam::wallet::TxParameterID::MinHeight, _walletDB->getCurrentHeight())
+            //     .SetParameter(beam::wallet::TxParameterID::PeerResponseTime, blockCount)
+            //     .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide)
+            //     .SetParameter(beam::wallet::TxParameterID::Amount, beamAmount)
+            //     .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, swapCoin)
+            //     .SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, swapAmount)
+            //     .SetParameter(beam::wallet::TxParameterID::PeerID, address.m_walletID)
+            //     .SetParameter(beam::wallet::TxParameterID::IsSender, isBeamSide));
 
             //_walletDB->saveAddress(address);
 
 // start transaction listen here
 
             CreateOffer::Response res;
-            res.token = std::to_string(txParameters);
+            // res.txid = Zero;
+            // res.token = std::to_string(txParameters);
+            res.token = "123";
             doResponse(id, res);
         }
 

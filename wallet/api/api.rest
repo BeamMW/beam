@@ -22,6 +22,25 @@ content-type: application/json-rpc
 
 ###
 
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "swap_create_offer",
+    "params": {
+        "send_amount": 10000,
+        "send_currency": "beam",
+        "receive_amount": 20000,
+        "receive_currency": "btc",
+        "beam_fee": 100,
+        "btc_fee_rate": 90000,
+        "offer_expires": 15
+    }
+}
+
+###
 
 POST http://127.0.0.1:10000/api/wallet HTTP/1.1
 content-type: application/json-rpc
@@ -36,7 +55,6 @@ content-type: application/json-rpc
 }
 
 ###
-
 
 POST http://127.0.0.1:10000/api/wallet HTTP/1.1
 content-type: application/json-rpc
