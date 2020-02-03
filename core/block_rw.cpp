@@ -429,6 +429,7 @@ namespace beam
 		};
 
 		Verifier v(*this);
+		v.m_Height = m_Tip.m_Height;
 
 		Merkle::Hash hv;
 		v.get_Live(hv);
