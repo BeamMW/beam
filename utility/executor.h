@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include <condition_variable>
+#include <thread>
 #include <boost/intrusive/list.hpp>
 
 namespace beam
