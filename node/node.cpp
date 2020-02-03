@@ -4196,6 +4196,56 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	{
 		ctx.m_Writer.Open(szPath, m_Processor.m_Cwp);
 		m_Processor.get_Utxos().Traverse(ctx);
+
+        Height h = Rules::get().pForks[2].m_Height;
+
+        if (m_Processor.m_Cursor.m_ID.m_Height >= h)
+        {
+            MySerializer ser(ctx.m_Writer.m_Stream);
+            ser & MaxHeight; // terminator
+
+            // shielded in/outs
+            struct MyKrnWalker
+                :public NodeProcessor::KrnWalkerShielded
+            {
+                MySerializer& m_Ser;
+                MyKrnWalker(MySerializer& ser) :m_Ser(ser) {}
+
+                virtual bool OnKrnEx(const TxKernelShieldedInput& krn) override
+                {
+                    m_Ser & m_Height;
+                    m_Ser & false;
+                    m_Ser & krn.m_SpendProof.m_SpendPk;
+                    return true;
+                }
+
+                virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
+                {
+                    Cast::NotConst(krn).m_Txo.m_pAsset.reset(); // not needed for recovery atm
+
+                    m_Ser & m_Height;
+                    m_Ser & true;
+                    m_Ser & krn.m_Txo;
+                    m_Ser & krn.m_Msg;
+                    return true;
+                }
+
+            } wlk(ser);
+
+            m_Processor.EnumKernels(wlk, HeightRange(h, m_Processor.m_Cursor.m_ID.m_Height));
+
+            ser & MaxHeight; // terminator
+
+            // assets
+            Asset::Full ai;
+            ai.m_ID = 0;
+
+            while (m_Processor.get_DB().AssetGetNext(ai))
+                ser & ai;
+
+            ser & (Asset::s_MaxCount + 1); // terminator
+        }
+
 	}
 	catch (const std::exception& ex)
 	{

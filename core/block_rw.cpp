@@ -341,6 +341,8 @@ namespace beam
 		uint64_t m_Total;
 
 		UtxoTree::Compact m_UtxoTree;
+		Merkle::CompactMmr m_Shielded;
+		Merkle::CompactMmr m_Assets;
 
 		Context(IParser& p)
 			:m_Parser(p)
@@ -351,6 +353,8 @@ namespace beam
 		void Open(const char*);
 		bool Proceed();
 		bool ProceedUtxos();
+		bool ProceedShielded();
+		bool ProceedAssets();
 		void Finalyze();
 
 		bool OnProgress() {
@@ -409,6 +413,18 @@ namespace beam
 				m_This.m_UtxoTree.Flush(hv);
 				return true;
 			}
+
+			virtual bool get_Shielded(Merkle::Hash& hv) override
+			{
+				m_This.m_Shielded.get_Hash(hv);
+				return true;
+			}
+
+			virtual bool get_Assets(Merkle::Hash& hv) override
+			{
+				m_This.m_Assets.get_Hash(hv);
+				return true;
+			}
 		};
 
 		Verifier v(*this);
@@ -437,6 +453,15 @@ namespace beam
 		if (!ProceedUtxos())
 			return false;
 
+		if (m_Tip.m_Height >= Rules::get().pForks[2].m_Height)
+		{
+			if (!ProceedShielded())
+				return false;
+
+			if (!ProceedAssets())
+				return false;
+		}
+
 		Finalyze();
 		return true;
 	}
@@ -450,6 +475,9 @@ namespace beam
 
 			Height h;
 			m_Der & h;
+
+			if (MaxHeight == h)
+				break;
 
 			Output outp;
 			m_Der & outp;
@@ -471,8 +499,88 @@ namespace beam
 				return false;
 		}
 
+		return true;
+	}
 
-		return true; // all done
+	bool RecoveryInfo::IParser::Context::ProceedShielded()
+	{
+		TxoID nOuts = 0;
+
+		while (true)
+		{
+			Height h;
+			m_Der & h;
+
+			if (MaxHeight == h)
+				break;
+
+			bool bIsOutp = true;
+			m_Der & bIsOutp;
+
+			Merkle::Hash hv;
+
+			if (bIsOutp)
+			{
+				ShieldedTxo txo;
+				m_Der & txo;
+				m_Der & hv;
+
+				ShieldedTxo::DescriptionOutp dOutp;
+				dOutp.m_Commitment = txo.m_Commitment;
+				dOutp.m_SerialPub = txo.m_Serial.m_SerialPub;
+				dOutp.m_ID = nOuts++;
+				dOutp.m_Height = h;
+
+				if (!m_Parser.OnShieldedOut(dOutp, txo, hv))
+					return false;
+
+				dOutp.get_Hash(hv);
+			}
+			else
+			{
+				ShieldedTxo::DescriptionInp dInp;
+				m_Der & dInp.m_SpendPk;
+				dInp.m_Height = h;
+
+				if (!m_Parser.OnShieldedIn(dInp))
+					return false;
+
+				dInp.get_Hash(hv);
+			}
+
+			m_Shielded.Append(hv);
+
+			if (!OnProgress())
+				return false;
+		}
+
+		return true;
+	}
+
+	bool RecoveryInfo::IParser::Context::ProceedAssets()
+	{
+		while (true)
+		{
+			Asset::Full ai;
+			m_Der & ai.m_ID;
+
+			if (ai.m_ID > Asset::s_MaxCount)
+				break;
+
+			m_Der & Cast::Down<Asset::Info>(ai);
+
+			Merkle::Hash hv;
+			ai.get_Hash(hv);
+			m_Assets.Append(hv);
+
+			if (!m_Parser.OnAsset(ai))
+				return false;
+
+			if (!OnProgress())
+				return false;
+		}
+		
+		return true;
 	}
 
 } // namespace beam

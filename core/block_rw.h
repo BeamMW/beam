@@ -55,6 +55,9 @@ namespace beam
 			virtual bool OnProgress(uint64_t nPos, uint64_t nTotal) { return true; }
 			virtual bool OnStates(std::vector<Block::SystemState::Full>&) { return true; }
 			virtual bool OnUtxo(Height, const Output&) { return true; }
+			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& , const ShieldedTxo&, const ECC::Hash::Value& hvMsg) { return true; }
+			virtual bool OnShieldedIn(const ShieldedTxo::DescriptionInp&) { return true; }
+			virtual bool OnAsset(Asset::Full&) { return true; }
 
 			bool Proceed(const char*);
 

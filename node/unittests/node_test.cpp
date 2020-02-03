@@ -2932,10 +2932,16 @@ int main()
 		beam::Node node;
 		node.m_Cfg.m_sPathLocal = beam::g_sz;
 		node.Initialize();
+
+		node.GenerateRecoveryInfo(beam::g_sz3);
+
+		beam::RecoveryInfo::IParser p;
+		p.Proceed(beam::g_sz3); // check we can rebuild the Live consistently with shielded and assets
 	}
 
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
+	beam::DeleteFile(beam::g_sz3);
 
 	printf("Node <---> FlyClient test...\n");
 	fflush(stdout);
