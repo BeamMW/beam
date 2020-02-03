@@ -142,16 +142,21 @@ namespace beam::wallet
     MACRO(NotEnoughTimeToFinishBtcTx,    21, "Not enough time to finish btc lock transaction") \
     MACRO(FailedToCreateMultiSig,        22, "Failed to create multi-signature") \
     MACRO(FeeIsTooSmall,                 23, "Fee is too small") \
-    MACRO(MinHeightIsUnacceptable,       24, "Kernel's min height is unacceptable") \
-    MACRO(NotLoopback,                   25, "Not a loopback transaction") \
-    MACRO(NoKeyKeeper,                   26, "Key keeper is not initialized") \
-    MACRO(NoAssetId,                     27, "No valid asset owner id/asset owner idx") \
-    MACRO(RegisterAmountTooSmall,        28, "Asset registration fee is too small") \
-    MACRO(ConsumeAmountTooBig,           29, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
-    MACRO(NotEnoughDataForProof,         30, "Some mandatory data for payment proof is missing") \
-    MACRO(NoMasterKey,                   31, "Master key is needed for this transaction, but unavailable") \
-    MACRO(KeyKeeperError,                32, "Key keeper malfunctioned") \
-    MACRO(KeyKeeperUserAbort,            33, "Aborted by the user") \
+    MACRO(FeeIsTooLarge,                 24, "Fee is too large") \
+    MACRO(MinHeightIsUnacceptable,       25, "Kernel's min height is unacceptable") \
+    MACRO(NotLoopback,                   26, "Not a loopback transaction") \
+    MACRO(NoKeyKeeper,                   27, "Key keeper is not initialized") \
+    MACRO(NoAssetId,                     28, "No valid asset owner id/asset owner idx") \
+    MACRO(NoAssetInfo,                   29, "No asset info or asset info is not valid") \
+    MACRO(AssetConfirmFailed,            30, "Failed to receive asset confirmation") \
+    MACRO(AssetInUse,                    31, "Asset is still in use (issued amount > 0)") \
+    MACRO(AssetLocked,                   32, "Asset is still locked") \
+    MACRO(RegisterAmountTooSmall,        33, "Asset registration fee is too small") \
+    MACRO(ConsumeAmountTooBig,           34, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
+    MACRO(NotEnoughDataForProof,         35, "Some mandatory data for payment proof is missing") \
+    MACRO(NoMasterKey,                   36, "Master key is needed for this transaction, but unavailable") \
+    MACRO(KeyKeeperError,                37, "Key keeper malfunctioned") \
+    MACRO(KeyKeeperUserAbort,            38, "Aborted by the user")
 
     enum TxFailureReason : int32_t
     {
@@ -275,6 +280,9 @@ namespace beam::wallet
 
         KernelUnconfirmedHeight = 133,
         PeerResponseHeight = 134,
+        AssetConfirmedHeight = 135, // This is NOT the same as ProofHeight for kernel!
+        AssetUnconfirmedHeight = 136,
+        AssetFullInfo = 137,
 
         Offset = 140,
 

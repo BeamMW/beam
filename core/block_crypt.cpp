@@ -17,6 +17,7 @@
 #include <sstream>
 #include "block_crypt.h"
 #include "serialization_adapters.h"
+#include "logger.h"
 
 namespace beam
 {
@@ -387,8 +388,8 @@ namespace beam
 #pragma pack (push, 1)
 	struct Output::PackedKA
 	{
-		Key::ID::Packed m_Kid;
 		uintBigFor<Asset::ID>::Type m_AssetID;
+		Key::ID::Packed m_Kid; // for historical reasons: Key::ID should be last. All new data should be added above.
 	};
 #pragma pack (pop)
 
@@ -2291,6 +2292,16 @@ namespace beam
 		m_LockHeight = 0;
 		m_Metadata.clear();
 	}
+
+	bool Asset::Info::IsEmpty() const
+	{
+	    return m_Value == Zero && m_Owner == Zero && m_LockHeight == Zero && m_Metadata.size() == 0;
+	}
+
+	bool Asset::Info::IsValid() const
+    {
+	    return m_Owner != Zero && m_LockHeight != Zero;
+    }
 
 	void Asset::Full::get_Hash(ECC::Hash::Value& hv) const
 	{

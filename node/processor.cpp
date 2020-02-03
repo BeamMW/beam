@@ -826,29 +826,29 @@ void NodeProcessor::MultiSigmaContext::Add(TxoID id0, uint32_t nCount, const ECC
 }
 
 struct NodeProcessor::MultiSigmaContext::MyTask
-	:public NodeProcessor::Task
+	:public Executor::TaskSync
 {
 	MultiSigmaContext* m_pThis;
-	const ECC::Scalar::Native* m_pS;
-	uint32_t m_iIdx;
-	uint32_t m_i0;
-	uint32_t m_nCount;
+	const Node* m_pNode;
+	//const ECC::Scalar::Native* m_pS;
 
-	virtual ~MyTask() {}
-
-	virtual void Exec() override
+	virtual void Exec(Executor::Context& ctx) override
 	{
-		ECC::Point::Native& val = m_pThis->m_vRes[m_iIdx];
+		ECC::Point::Native& val = m_pThis->m_vRes[ctx.m_iThread];
 		val = Zero;
 
-		m_pThis->get_List().Calculate(val, m_i0, m_nCount, m_pS);
+		uint32_t i0, nCount;
+		ctx.get_Portion(i0, nCount, m_pNode->m_Max - m_pNode->m_Min);
+		i0 += m_pNode->m_Min;
+
+		m_pThis->get_List().Calculate(val, i0, nCount, m_pNode->m_pS);
 	}
 };
 
 void NodeProcessor::MultiSigmaContext::Calculate(ECC::Point::Native& res, NodeProcessor& np)
 {
-	Task::Processor& tp = np.get_TaskProcessor();
-	uint32_t nThreads = tp.get_Threads();
+	Executor& ex = np.get_Executor();
+	uint32_t nThreads = ex.get_Threads();
 
 	while (!m_Set.empty())
 	{
@@ -859,22 +859,11 @@ void NodeProcessor::MultiSigmaContext::Calculate(ECC::Point::Native& res, NodePr
 		m_vRes.resize(nThreads);
 		PrepareList(np, n);
 
-		for (uint32_t i = 0; i < nThreads; i++)
-		{
-			uint32_t nCount = (n.m_Max - n.m_Min) / (nThreads - i);
+		MyTask t;
+		t.m_pThis = this;
+		t.m_pNode = &n;
 
-			std::unique_ptr<MyTask> pTask(new MyTask);
-			pTask->m_pThis = this;
-			pTask->m_pS = n.m_pS;
-			pTask->m_iIdx = i;
-			pTask->m_i0 = n.m_Min;
-			pTask->m_nCount = nCount;
-			tp.Push(std::move(pTask));
-
-			n.m_Min += nCount;
-		}
-
-		tp.Flush(0);
+		ex.ExecAll(t);
 
 		for (uint32_t i = 0; i < nThreads; i++)
 			res += m_vRes[i];
@@ -1045,13 +1034,13 @@ struct NodeProcessor::MultiblockContext
 
 	~MultiblockContext()
 	{
-		m_This.get_TaskProcessor().Flush(0);
+		m_This.get_Executor().Flush();
 
 		if (m_bBatchDirty)
 		{
-			// make sure we don't leave batch context is an invalid state
-			struct Task0 :public Task {
-				virtual void Exec() override
+			// make sure we don't leave batch context in an invalid state
+			struct Task0 :public Executor::TaskSync {
+				virtual void Exec(Executor::Context&) override
 				{
 					ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
 					if (pBc)
@@ -1060,7 +1049,7 @@ struct NodeProcessor::MultiblockContext
 			};
 
 			Task0 t;
-			m_This.get_TaskProcessor().ExecAll(t);
+			m_This.get_Executor().ExecAll(t);
 		}
 	}
 
@@ -1075,9 +1064,9 @@ struct NodeProcessor::MultiblockContext
 	bool m_bBatchDirty = false;
 
 	struct MyTask
-		:public NodeProcessor::Task
+		:public Executor::TaskAsync
 	{
-		virtual void Exec() override;
+		virtual void Exec(Executor::Context&) override;
 		virtual ~MyTask() {}
 
 		struct Shared
@@ -1134,19 +1123,19 @@ struct NodeProcessor::MultiblockContext
 		if (m_bFail || m_InProgress.IsEmpty())
 			return;
 
-		Task::Processor& tp = m_This.get_TaskProcessor();
-		tp.Flush(0);
+		Executor& ex = m_This.get_Executor();
+		ex.Flush();
 
 		if (m_bFail)
 			return;
 
 		if (m_bBatchDirty)
 		{
-			struct Task1 :public Task
+			struct Task1 :public Executor::TaskSync
 			{
 				MultiblockContext* m_pMbc;
 				ECC::Point::Native* m_pBatchSigma;
-				virtual void Exec() override
+				virtual void Exec(Executor::Context&) override
 				{
 					ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
 					if (pBc && !pBc->Flush())
@@ -1166,7 +1155,7 @@ struct NodeProcessor::MultiblockContext
 			Task1 t;
 			t.m_pMbc = this;
 			t.m_pBatchSigma = &ptBatchSigma;
-			m_This.get_TaskProcessor().ExecAll(t);
+			ex.ExecAll(t);
 			assert(!m_bFail);
 			m_bBatchDirty = false;
 
@@ -1247,7 +1236,7 @@ struct NodeProcessor::MultiblockContext
 
 		const size_t nSizeMax = 1024 * 1024 * 10; // fair enough
 
-		Task::Processor& tp = m_This.get_TaskProcessor();
+		Executor& ex = m_This.get_Executor();
 		for (uint32_t nTasks = static_cast<uint32_t>(-1); ; )
 		{
 			{
@@ -1260,7 +1249,7 @@ struct NodeProcessor::MultiblockContext
 			}
 
 			assert(nTasks);
-			nTasks = tp.Flush(nTasks - 1);
+			nTasks = ex.Flush(nTasks - 1);
 		}
 
 		m_InProgress.m_Max++;
@@ -1270,25 +1259,25 @@ struct NodeProcessor::MultiblockContext
 
 		pShared->m_Pars.m_bAllowUnsignedOutputs = !bFull;
 		pShared->m_Pars.m_pAbort = &m_bFail;
-		pShared->m_Pars.m_nVerifiers = tp.get_Threads();
+		pShared->m_Pars.m_nVerifiers = ex.get_Threads();
 
 		PushTasks(pShared, pShared->m_Pars);
 	}
 
 	void PushTasks(const MyTask::Shared::Ptr& pShared, TxBase::Context::Params& pars)
 	{
-		Task::Processor& tp = m_This.get_TaskProcessor();
+		Executor& ex = m_This.get_Executor();
 		m_bBatchDirty = true;
 
 		pars.m_pAbort = &m_bFail;
-		pars.m_nVerifiers = tp.get_Threads();
+		pars.m_nVerifiers = ex.get_Threads();
 
 		for (uint32_t i = 0; i < pars.m_nVerifiers; i++)
 		{
 			std::unique_ptr<MyTask> pTask(new MyTask);
 			pTask->m_pShared = pShared;
 			pTask->m_iVerifier = i;
-			tp.Push(std::move(pTask));
+			ex.Push(std::move(pTask));
 		}
 	}
 
@@ -1327,7 +1316,7 @@ struct NodeProcessor::MultiblockContext
 	}
 };
 
-void NodeProcessor::MultiblockContext::MyTask::Exec()
+void NodeProcessor::MultiblockContext::MyTask::Exec(Executor::Context&)
 {
 	m_pShared->Exec(m_iVerifier);
 }
@@ -4198,24 +4187,37 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	return nSize <= Rules::get().MaxBodySize;
 }
 
-uint32_t NodeProcessor::Task::Processor::get_Threads()
+Executor& NodeProcessor::get_Executor()
+{
+	if (!m_pExecSync)
+	{
+		m_pExecSync = std::make_unique<MyExecutor>();
+		m_pExecSync->m_Ctx.m_pThis = m_pExecSync.get();
+		m_pExecSync->m_Ctx.m_iThread = 0;
+	}
+
+	return *m_pExecSync;
+}
+
+uint32_t NodeProcessor::MyExecutor::get_Threads()
 {
 	return 1;
 }
 
-void NodeProcessor::Task::Processor::Push(Task::Ptr&& pTask)
+void NodeProcessor::MyExecutor::Push(TaskAsync::Ptr&& pTask)
 {
-	pTask->Exec();
+	ExecAll(*pTask);
 }
 
-uint32_t NodeProcessor::Task::Processor::Flush(uint32_t)
+uint32_t NodeProcessor::MyExecutor::Flush(uint32_t)
 {
 	return 0;
 }
 
-void NodeProcessor::Task::Processor::ExecAll(Task& t)
+void NodeProcessor::MyExecutor::ExecAll(TaskSync& t)
 {
-	t.Exec();
+	ECC::InnerProduct::BatchContext::Scope scope(m_Ctx.m_BatchCtx);
+	t.Exec(m_Ctx);
 }
 
 bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r)
@@ -4374,10 +4376,16 @@ bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, 
 	return false;
 }
 
+bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate)
+{
+	if (TxoIsNaked(wlk.m_Value))
+		return true;
+
+	return ITxoWalker::OnTxo(wlk, hCreate);
+}
+
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
-	assert(MaxHeight == wlk.m_SpendHeight);
-
 	CoinID cid;
 	if (!outp.Recover(hCreate, m_Key, cid))
 		return true;

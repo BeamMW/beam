@@ -21,10 +21,10 @@
 namespace beam::wallet
 {
     class BaseTransaction;
-    class AssetRegisterTxBuilder: public std::enable_shared_from_this<AssetRegisterTxBuilder>
+    class AssetUnregisterTxBuilder: public std::enable_shared_from_this<AssetUnregisterTxBuilder>
     {
     public:
-        AssetRegisterTxBuilder(BaseTransaction& tx, SubTxID subTxID);
+        AssetUnregisterTxBuilder(BaseTransaction& tx, SubTxID subTxID);
 
         bool GetInitialTxParams();
         virtual Transaction::Ptr CreateTransaction();
@@ -33,14 +33,9 @@ namespace beam::wallet
         // Coins, amounts & fees
         //
         Amount GetFee() const;
-        Amount GetAmountBeam() const;
-        const AmountList& GetAmountList() const;
-        void AddChange();
-        void SelectInputCoins();
-        bool GetInputs();
         bool GetOutputs();
+        void AddRefund();
         void GenerateBeamCoin(Amount amount, bool change);
-        bool CreateInputs();
         bool CreateOutputs();
 
         Key::Index GetAssetOwnerIdx() const;
@@ -64,21 +59,17 @@ namespace beam::wallet
         PeerID m_assetOwnerId;
 
         Amount     m_Fee;
-        Amount     m_ChangeBeam;
-        AmountList m_AmountList;
         Height     m_MinHeight;
         Height     m_MaxHeight;
 
-        std::vector<Input::Ptr>  m_Inputs;
         std::vector<Output::Ptr> m_Outputs;
-        CoinIDList m_InputCoins;
         CoinIDList m_OutputCoins;
 
         //
         // Blockchain stuff
         //
         ECC::Scalar::Native m_Offset;
-        TxKernelAssetCreate::Ptr m_kernel;
+        TxKernelAssetDestroy::Ptr m_kernel;
         mutable boost::optional<Merkle::Hash> m_kernelID;
     };
 }

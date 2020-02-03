@@ -66,8 +66,8 @@ namespace beam::wallet
         , m_Notify{ notify }
         , m_Reason{ reason }
     {
-
     }
+
     bool TransactionFailedException::ShouldNofify() const
     {
         return m_Notify;

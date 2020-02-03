@@ -689,7 +689,7 @@ void Node::Processor::OnRolledBack()
 		pObserver->OnRolledBack(m_Cursor.m_ID);
 }
 
-uint32_t Node::Processor::TaskProcessor::get_Threads()
+uint32_t Node::Processor::MyExecutorMT::get_Threads()
 {
 	Config& cfg = get_ParentObj().get_ParentObj().m_Cfg; // alias
 
@@ -701,154 +701,13 @@ uint32_t Node::Processor::TaskProcessor::get_Threads()
 	return std::max(nThreads, 1U);
 }
 
-void Node::Processor::TaskProcessor::InitSafe()
+void Node::Processor::MyExecutorMT::RunThread(uint32_t iThread)
 {
-	if (!m_vThreads.empty())
-		return;
+    MyExecutor::MyContext ctx;
+    ctx.m_iThread = iThread;
+    ECC::InnerProduct::BatchContext::Scope scope(ctx.m_BatchCtx);
 
-	m_Run = true;
-	m_pCtl = nullptr;
-	m_InProgress = 0;
-	m_FlushTarget = static_cast<uint32_t>(-1);
-
-	uint32_t nThreads = get_Threads();
-	m_vThreads.resize(nThreads);
-
-	for (uint32_t i = 0; i < nThreads; i++)
-		m_vThreads[i] = std::thread(&TaskProcessor::Thread, this, i);
-}
-
-void Node::Processor::TaskProcessor::Push(Task::Ptr&& pTask)
-{
-	assert(pTask);
-	InitSafe();
-
-	std::unique_lock<std::mutex> scope(m_Mutex);
-
-	m_queTasks.push_back(std::move(pTask));
-	m_InProgress++;
-
-	m_NewTask.notify_one();
-}
-
-uint32_t Node::Processor::TaskProcessor::Flush(uint32_t nMaxTasks)
-{
-	InitSafe();
-
-	std::unique_lock<std::mutex> scope(m_Mutex);
-	FlushLocked(scope, nMaxTasks);
-
-	return m_InProgress;
-}
-
-void Node::Processor::TaskProcessor::FlushLocked(std::unique_lock<std::mutex>& scope, uint32_t nMaxTasks)
-{
-	m_FlushTarget = nMaxTasks;
-
-	while (m_InProgress > nMaxTasks)
-		m_Flushed.wait(scope);
-
-	m_FlushTarget = static_cast<uint32_t>(-1);
-}
-
-void Node::Processor::TaskProcessor::ExecAll(Task& t)
-{
-	InitSafe();
-
-	std::unique_lock<std::mutex> scope(m_Mutex);
-	FlushLocked(scope, 0);
-
-	assert(!m_pCtl && !m_InProgress);
-	m_pCtl = &t;
-	m_InProgress = get_Threads();
-
-	m_NewTask.notify_all();
-
-	FlushLocked(scope, 0);
-	assert(!m_pCtl);
-}
-
-void Node::Processor::TaskProcessor::Stop()
-{
-	if (m_vThreads.empty())
-		return;
-
-	{
-		std::unique_lock<std::mutex> scope(m_Mutex);
-		m_Run = false;
-		m_NewTask.notify_all();
-	}
-
-	for (size_t i = 0; i < m_vThreads.size(); i++)
-		if (m_vThreads[i].joinable())
-			m_vThreads[i].join();
-
-	m_vThreads.clear();
-	m_queTasks.clear();
-}
-
-void Node::Processor::TaskProcessor::Thread(uint32_t)
-{
-	std::unique_ptr<MyBatch> p(new MyBatch);
-	MyBatch::Scope scopeBatch(*p);
-
-	while (true)
-	{
-		Task::Ptr pGuard;
-		Task* pTask;
-
-		{
-			std::unique_lock<std::mutex> scope(m_Mutex);
-			while (true)
-			{
-				if (!m_Run)
-					return;
-
-				if (!m_queTasks.empty())
-				{
-					pGuard = std::move(m_queTasks.front());
-					pTask = pGuard.get();
-					m_queTasks.pop_front();
-					break;
-				}
-
-				if (m_pCtl)
-				{
-					pTask = m_pCtl;
-					break;
-				}
-
-				m_NewTask.wait(scope);
-			}
-		}
-
-		assert(pTask && m_InProgress);
-		pTask->Exec();
-
-		std::unique_lock<std::mutex> scope(m_Mutex);
-
-		assert(m_InProgress);
-		m_InProgress--;
-
-		if (pGuard)
-		{
-			// standard task
-			if (m_InProgress == m_FlushTarget)
-				m_Flushed.notify_one();
-		}
-		else
-		{
-			// control task
-			if (m_InProgress)
-				m_Flushed.wait(scope); // make sure we give other threads opportuinty to execute the control task
-			else
-			{
-				m_pCtl = nullptr;
-				m_Flushed.notify_all();
-			}
-		}
-
-	}
+    RunThreadCtx(ctx);
 }
 
 void Node::Processor::OnModified()
@@ -887,7 +746,7 @@ void Node::Processor::OnGoUpTimer()
 
 void Node::Processor::Stop()
 {
-    m_TaskProcessor.Stop();
+    m_ExecutorMT.Stop();
     m_bGoUpPending = false;
     m_bFlushPending = false;
 
@@ -1827,45 +1686,34 @@ bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const pr
 	}
 
 	struct MyTask
-		:public NodeProcessor::Task
+		:public Executor::TaskSync
 	{
 		const Block::SystemState::Full* m_pV;
-		size_t m_Count;
-		bool* m_pValid;
+		uint32_t m_Count;
+		bool m_Valid;
 
 		virtual ~MyTask() {}
 
-		virtual void Exec() override
+		virtual void Exec(Executor::Context& ctx) override
 		{
-			for (size_t i = 0; i < m_Count; i++)
-				if (!m_pV[i].IsValid())
-					*m_pValid = false;
+            uint32_t i0, nCount;
+            ctx.get_Portion(i0, nCount, m_Count);
+            nCount += i0;
+
+			for (; i0 < nCount; i0++)
+				if (!m_pV[i0].IsValid())
+					m_Valid = false;
 		}
 	};
 
-	Processor::Task::Processor& tp = m_Processor.m_TaskProcessor;
-	uint32_t nThreads = tp.get_Threads();
+    MyTask t;
+    t.m_pV = &v.front();
+    t.m_Count = static_cast<uint32_t>(v.size());
+    t.m_Valid = true;
 
-	const Block::SystemState::Full* pV = &v.front();
-	size_t nCount = v.size();
-	bool bValid = true;
+    m_Processor.m_ExecutorMT.ExecAll(t);
 
-	for (; nThreads; nThreads--)
-	{
-		std::unique_ptr<MyTask> pTask(new MyTask);
-		pTask->m_pValid = &bValid;
-		pTask->m_pV = pV;
-		pTask->m_Count = nCount / nThreads;
-
-		pV += pTask->m_Count;
-		nCount -= pTask->m_Count;
-
-		tp.Push(std::move(pTask));
-	}
-
-	tp.Flush(0);
-
-	return bValid;
+	return t.m_Valid;
 }
 
 void Node::Peer::OnMsg(proto::HdrPack&& msg)
@@ -2269,7 +2117,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
 	TxStats s;
 	ptx->get_Reader().AddStats(s);
-	if (!s.m_Inputs || !s.m_Kernels) {
+	if (!(s.m_Inputs + s.m_Outputs) || !s.m_Kernels) {
 		// stupid compiler insists on parentheses here!
 		return proto::TxStatus::TooSmall;
 	}
@@ -2277,7 +2125,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
     bool bTested = false;
-    TxPool::Stem::Element* pDup = NULL;
+    TxPool::Stem::Element* pDup = nullptr;
 
     // find match by kernels
     for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
