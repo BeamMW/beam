@@ -927,7 +927,7 @@ namespace beam
 		m_Owner = v.m_Owner;
 	}
 
-	void TxKernelAssetControl::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
+	void TxKernelAssetControl::Sign_(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
 	{
 		m_Commitment = ECC::Context::get().G * sk;
 		UpdateMsg();
@@ -937,6 +937,16 @@ namespace beam
 		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pSk, &res);
 
 		MsgToID();
+	}
+
+	void TxKernelAssetControl::Sign(const ECC::Scalar::Native& sk, Key::IKdf& kdf, const Asset::Metadata& md)
+	{
+		ECC::Scalar::Native skAsset;
+		kdf.DeriveKey(skAsset, md.m_Hash);
+
+		m_Owner.FromSk(skAsset);
+
+		Sign_(sk, skAsset);
 	}
 
 	/////////////
@@ -1014,7 +1024,12 @@ namespace beam
 	void TxKernelAssetCreate::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
 		TxKernelAssetControl::HashSelfForMsg(hp);
-		hp << m_MetaData;
+		hp << m_MetaData.m_Hash;
+	}
+
+	void TxKernelAssetCreate::Sign(const ECC::Scalar::Native& sk, Key::IKdf& kdf)
+	{
+		TxKernelAssetControl::Sign(sk, kdf, m_MetaData);
 	}
 
 	/////////////
@@ -2308,7 +2323,7 @@ namespace beam
 		m_Value = Zero;
 		m_Owner = Zero;
 		m_LockHeight = 0;
-		m_Metadata.m_Value.clear();
+		m_Metadata.Reset();
 	}
 
 	bool Asset::Info::IsEmpty() const
@@ -2329,16 +2344,44 @@ namespace beam
 			<< m_Value
 			<< m_Owner
 			<< m_LockHeight
-			<< m_Metadata
+			<< m_Metadata.m_Hash
 			>> hv;
 	}
 
-	void Asset::Metadata::get_Hash(ECC::Hash::Value& hv) const
+	void Asset::Metadata::Reset()
 	{
-		ECC::Hash::Processor()
-			<< "B.AssetMeta"
-			<< *this
-			>> hv;
+		m_Value.clear();
+		UpdateHash();
+	}
+
+	void Asset::Metadata::UpdateHash()
+	{
+		if (m_Value.empty())
+		{
+			m_Hash = Zero;
+		}
+		else
+		{
+			ECC::Hash::Processor()
+				<< "B.AssetMeta"
+				<< m_Value.size()
+				<< Blob(m_Value)
+				>> m_Hash;
+		}
+	}
+
+	void Asset::Metadata::get_Owner(PeerID& res, Key::IPKdf& pkdf) const
+	{
+		ECC::Point::Native pt;
+		pkdf.DerivePKeyG(pt, m_Hash);
+		res.Import(pt);
+	}
+
+	bool Asset::Info::Recognize(Key::IPKdf& pkdf) const
+	{
+		PeerID pid;
+		m_Metadata.get_Owner(pid, pkdf);
+		return pid == m_Owner;
 	}
 
 	const ECC::Point::Compact& Asset::Proof::get_H()

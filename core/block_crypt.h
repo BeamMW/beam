@@ -124,7 +124,11 @@ namespace beam
 		struct Metadata
 		{
 			ByteBuffer m_Value;
-			void get_Hash(ECC::Hash::Value&) const; // used to derive the owner key
+			ECC::Hash::Value m_Hash; // not serialized
+
+			void Reset();
+			void UpdateHash(); // called automatically during deserialization
+			void get_Owner(PeerID&, Key::IPKdf&) const;
 		};
 
 		struct Info
@@ -138,6 +142,7 @@ namespace beam
 			void Reset();
 			bool IsEmpty() const;
 			bool IsValid() const;
+			bool Recognize(Key::IPKdf&) const;
 		};
 
 		struct Full
@@ -706,7 +711,8 @@ namespace beam
 		ECC::Point m_Commitment;	// aggregated, including nested kernels
 		ECC::SignatureGeneralized<1> m_Signature;
 
-		void Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset); // suitable for aux kernels, created by single party
+		void Sign_(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset);
+		void Sign(const ECC::Scalar::Native& sk, Key::IKdf&, const Asset::Metadata&);
 
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:
@@ -738,6 +744,8 @@ namespace beam
 		typedef std::unique_ptr<TxKernelAssetCreate> Ptr;
 
 		Asset::Metadata m_MetaData;
+
+		void Sign(const ECC::Scalar::Native& sk, Key::IKdf&);
 
 		virtual ~TxKernelAssetCreate() {}
 		virtual Subtype::Enum get_Subtype() const override;
@@ -1284,10 +1292,4 @@ namespace beam
 
 inline ECC::Hash::Processor& operator << (ECC::Hash::Processor& hp, const beam::PeerID& pid) {
 	return hp << Cast::Down<ECC::Hash::Value>(pid);
-}
-
-inline ECC::Hash::Processor& operator << (ECC::Hash::Processor& hp, const beam::Asset::Metadata& md) {
-	return hp
-		<< md.m_Value.size()
-		<< beam::Blob(md.m_Value);
 }

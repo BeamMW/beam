@@ -2656,6 +2656,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 		ai.m_Owner = krn.m_Owner;
 		ai.m_LockHeight = bic.m_Height;
 
+		ai.m_Metadata.m_Hash = krn.m_MetaData.m_Hash;
 		TemporarySwap<ByteBuffer> ts(Cast::NotConst(krn).m_MetaData.m_Value, ai.m_Metadata.m_Value);
 
 		InternalAssetAdd(ai);

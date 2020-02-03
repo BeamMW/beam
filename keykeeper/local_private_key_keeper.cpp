@@ -504,7 +504,7 @@ namespace beam::wallet
 
         ECC::Scalar::Native kernelSk;
         m_MasterKdf->DeriveKey(kernelSk, Key::ID(assetOwnerIdx, Key::Type::Kernel, assetOwnerIdx));
-        kernel.Sign(kernelSk, keypair.second);
+        kernel.Sign_(kernelSk, keypair.second);
 
         kernelSk = -kernelSk;
         auto excess = GetExcess(inputs, outputs, Zero);

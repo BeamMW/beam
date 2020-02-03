@@ -1341,25 +1341,25 @@ struct TransactionMaker
 		if (bEmitCustomTag)
 		{
 			// emit some asset
-			Scalar::Native sk, skAsset;
+			beam::Asset::Metadata md;
+			md.m_Value.assign({ 1, 2, 3, 4, 5 });
+			md.UpdateHash();
+
+			Scalar::Native sk;
 			beam::Asset::ID nAssetID = 17;
 			Amount valAsset = 4431;
-			beam::PeerID pkAsset;
-
+			
 			SetRandom(sk, is_trezor_debug); // excess
-			SetRandom(skAsset, is_trezor_debug); // asset sk
-			pkAsset.FromSk(skAsset);
 
 			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, nAssetID, is_trezor_debug); // output UTXO to consume the created asset
 
 			beam::TxKernelAssetEmit::Ptr pKrnEmission(new beam::TxKernelAssetEmit);
 			pKrnEmission->m_Height.m_Min = g_hFork;
 			pKrnEmission->m_CanEmbed = bNested;
-			pKrnEmission->m_Owner = pkAsset;
 			pKrnEmission->m_AssetID = nAssetID;
 			pKrnEmission->m_Value = valAsset;
 
-			pKrnEmission->Sign(sk, skAsset);
+			pKrnEmission->Sign(sk, m_Kdf, md);
 
 			lstTrg.push_back(std::move(pKrnEmission));
 
@@ -2650,12 +2650,12 @@ void TestAssetEmission()
 	beam::Key::IKdf::Ptr pKdf;
 	HKdf::Create(pKdf, Zero);
 
-	Scalar::Native skAssetSk, sk, kOffset(Zero);
-	pKdf->DeriveKey(skAssetSk, beam::Key::ID(1231231, beam::Key::Type::Asset));
+	Scalar::Native sk, kOffset(Zero);
 
-	beam::PeerID assetOwner;
-	assetOwner.FromSk(skAssetSk);
 	beam::Asset::ID nAssetID = 24;
+	beam::Asset::Metadata md;
+	md.m_Value.assign({ 'a', 'b', '2' });
+	md.UpdateHash();
 
 	cidInpAsset.m_AssetID = nAssetID;
 
@@ -2688,10 +2688,9 @@ void TestAssetEmission()
 	beam::TxKernelAssetEmit::Ptr pKrnAsset(new beam::TxKernelAssetEmit);
 	pKdf->DeriveKey(sk, beam::Key::ID(73123, beam::Key::Type::Kernel));
 	pKrnAsset->m_AssetID = nAssetID;
-	pKrnAsset->m_Owner = assetOwner;
 	pKrnAsset->m_Value = -static_cast<beam::AmountSigned>(cidInpAsset.m_Value);
 	pKrnAsset->m_Height.m_Min = hScheme;
-	pKrnAsset->Sign(sk, skAssetSk);
+	pKrnAsset->Sign(sk, *pKdf, md);
 	tx.m_vKernels.push_back(std::move(pKrnAsset));
 	kOffset += -sk;
 

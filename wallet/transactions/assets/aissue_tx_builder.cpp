@@ -441,7 +441,7 @@ namespace beam::wallet
 
         m_Kernel->m_Owner.FromSk(skAssetOwner);
 
-        m_Kernel->Sign(skKrn, skAssetOwner);
+        m_Kernel->Sign_(skKrn, skAssetOwner);
 
         skKrn = -skKrn;
         m_Offset += skKrn;

@@ -1628,8 +1628,8 @@ namespace beam
 			{
 				Height m_hCreated = 0;
 				bool m_Emitted = false;
-				ByteBuffer m_MetaData;
-				ECC::Scalar::Native m_skOwner;
+				Asset::Metadata m_Metadata;
+				PeerID m_Owner;
 				Asset::ID m_ID = 0; // set after successful creation + proof
 				bool m_Recognized = false;
 
@@ -1949,7 +1949,8 @@ namespace beam
 				if (msg.m_Proof.empty())
 					return;
 
-				verify_test(msg.m_Info.m_Metadata.m_Value == m_Assets.m_MetaData);
+				verify_test(msg.m_Info.m_Metadata.m_Value == m_Assets.m_Metadata.m_Value);
+				verify_test(msg.m_Info.m_Metadata.m_Hash == m_Assets.m_Metadata.m_Hash);
 
 				verify_test(m_vStates.back().IsValidProofAsset(msg.m_Info, msg.m_Proof));
 
@@ -2024,7 +2025,7 @@ namespace beam
 				if (m_Assets.m_hCreated && (msg.m_Description.m_Height == m_Assets.m_hCreated + 3))
 				{
 					proto::GetProofAsset msgOut;
-					msgOut.m_Owner.FromSk(m_Assets.m_skOwner);
+					msgOut.m_Owner = m_Assets.m_Owner;
 					Send(msgOut);
 				}
 
@@ -2156,18 +2157,19 @@ namespace beam
 
 				ECC::Scalar::Native sk;
 				ECC::SetRandom(sk);
-				ECC::SetRandom(m_Assets.m_skOwner);
 
 				static const char szMyData[] = "My cool metadata!";
-				m_Assets.m_MetaData.resize(sizeof(szMyData) - 1);
-				memcpy(&m_Assets.m_MetaData.front(), szMyData, sizeof(szMyData) - 1);
+				m_Assets.m_Metadata.m_Value.resize(sizeof(szMyData) - 1);
+				memcpy(&m_Assets.m_Metadata.m_Value.front(), szMyData, sizeof(szMyData) - 1);
+				m_Assets.m_Metadata.UpdateHash();
 
 				TxKernelAssetCreate::Ptr pKrn(new TxKernelAssetCreate);
 				pKrn->m_Fee = nFee;
 				pKrn->m_Height.m_Min = s.m_Height + 1;
-				pKrn->m_Owner.FromSk(m_Assets.m_skOwner);
-				pKrn->m_MetaData.m_Value = m_Assets.m_MetaData;
-				pKrn->Sign(sk, m_Assets.m_skOwner);
+				pKrn->m_MetaData = m_Assets.m_Metadata;
+				pKrn->Sign(sk, *m_Wallet.m_pKdf);
+
+				m_Assets.m_Owner = pKrn->m_Owner;
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
@@ -2200,12 +2202,11 @@ namespace beam
 				ECC::SetRandom(sk);
 
 				TxKernelAssetEmit::Ptr pKrn(new TxKernelAssetEmit);
-				pKrn->m_Owner.FromSk(m_Assets.m_skOwner);
 				pKrn->m_AssetID = m_Assets.m_ID;
 				pKrn->m_Fee = nFee;
 				pKrn->m_Value = cid.m_Value;
 				pKrn->m_Height.m_Min = s.m_Height + 1;
-				pKrn->Sign(sk, m_Assets.m_skOwner);
+				pKrn->Sign(sk, *m_Wallet.m_pKdf, m_Assets.m_Metadata);
 
 				Output::Ptr pOutp(new Output);
 				pOutp->Create(s.m_Height + 1, skOut, *m_Wallet.m_pKdf, cid, *m_Wallet.m_pKdf);
@@ -2554,7 +2555,7 @@ namespace beam
 
 		verify_test(wlk.m_Recovered);
 
-		// Test recovery info. Check if shielded in/outs can re recognized
+		// Test recovery info. Check if shielded in/outs and assets can re recognized
 		node.GenerateRecoveryInfo(beam::g_sz3);
 
 		struct MyParser
@@ -2562,6 +2563,7 @@ namespace beam
 		{
 			uint32_t m_Spent = 0;
 			uint32_t m_Utxos = 0;
+			uint32_t m_Assets = 0;
 
 			typedef std::set<ECC::Point> PkSet;
 			PkSet m_SpendKeys;
@@ -2585,6 +2587,13 @@ namespace beam
 					m_Spent++;
 				return true;
 			}
+
+			virtual bool OnAssetRecognized(Asset::Full&) override
+			{
+				m_Assets++;
+				return true;
+			}
+
 		};
 
 		MyParser p;
@@ -2596,7 +2605,7 @@ namespace beam
 
 		p.Proceed(beam::g_sz3); // check we can rebuild the Live consistently with shielded and assets
 
-		verify_test((p.m_SpendKeys.size() == 1) && (p.m_Spent == 1) && p.m_Utxos);
+		verify_test((p.m_SpendKeys.size() == 1) && (p.m_Spent == 1) && p.m_Utxos && p.m_Assets);
 
 	}
 

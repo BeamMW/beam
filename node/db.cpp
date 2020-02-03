@@ -2529,6 +2529,8 @@ bool NodeDB::AssetGetSafe(Asset::Full& ai)
 	rs.get(2, ai.m_Metadata.m_Value);
 	rs.get(3, ai.m_LockHeight);
 
+	ai.m_Metadata.UpdateHash();
+
 	return true;
 }
 

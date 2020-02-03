@@ -1707,7 +1707,8 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Asset::Metadata& v)
 		{
-			ar& v.m_Value;
+			ar & v.m_Value;
+			v.UpdateHash();
 			return ar;
 		}
 

@@ -616,4 +616,12 @@ namespace beam
 		return true;
 	}
 
+	bool RecoveryInfo::IRecognizer::OnAsset(Asset::Full& ai)
+	{
+		if (m_pOwner && ai.Recognize(*m_pOwner))
+			return OnAssetRecognized(ai);
+
+		return true;
+	}
+
 } // namespace beam
