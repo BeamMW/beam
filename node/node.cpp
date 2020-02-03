@@ -4134,6 +4134,8 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	if (!m_Processor.BuildCwp())
 		return false; // no info yet
 
+    typedef yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> MySerializer;
+
 	struct MyTraveler
 		:public RadixTree::ITraveler
 	{
@@ -4165,8 +4167,11 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			Deserializer der;
 			der.reset(wlk.m_Value.p, wlk.m_Value.n);
 
-			RecoveryInfo::Entry val;
-			der & val.m_Output;
+            Output outp;
+			der & outp;
+
+            assert(outp.m_Commitment == d.m_Commitment);
+            outp.m_RecoveryOnly = true;
 
 			// 2 ways to discover the UTXO create height: either directly by looking its TxoID in States table, or reverse-engineer it from Maturity
 			// Since currently maturity delta is independent of current height (not a function of height, not changed in current forks) - we prefer the 2nd method, which is faster.
@@ -4176,12 +4181,11 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			//val.m_CreateHeight = sid.m_Height;
 			//assert(val.m_Output.get_MinMaturity(val.m_CreateHeight) == d.m_Maturity);
 
-			val.m_CreateHeight = d.m_Maturity - val.m_Output.get_MinMaturity(0);
+			Height hCreateHeight = d.m_Maturity - outp.get_MinMaturity(0);
 
-			assert(val.m_Output.m_Commitment == d.m_Commitment);
-			val.m_Output.m_RecoveryOnly = true;
-
-			m_Writer.Write(val);
+            MySerializer ser(m_Writer.m_Stream);
+            ser & hCreateHeight;
+            ser & outp;
 		}
 	};
 
