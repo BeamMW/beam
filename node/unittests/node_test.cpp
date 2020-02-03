@@ -2880,7 +2880,7 @@ namespace beam
 
 }
 
-int main()
+void TestAll()
 {
 	bool bClientProtoOnly = false;
 
@@ -2988,6 +2988,19 @@ int main()
 
 	beam::TestFlyClient();
 	beam::DeleteFile(beam::g_sz);
+}
+
+int main()
+{
+	try
+	{
+		TestAll();
+	}
+	catch (const std::exception & ex)
+	{
+		printf("Expression: %s\n", ex.what());
+		g_TestsFailed++;
+	}
 
 	return g_TestsFailed ? -1 : 0;
 }
