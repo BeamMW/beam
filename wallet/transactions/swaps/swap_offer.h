@@ -51,7 +51,7 @@ struct SwapOffer : public TxParameters
 // Interface for swap bulletin board observer. 
 struct ISwapOffersObserver
 {
-    virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) = 0;
+    virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) {};
 };
 
 }  // namespace beam::wallet

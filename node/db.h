@@ -57,7 +57,8 @@ public:
 			UtxoStamp,
 			ShieldedOutputs,
 			ShieldedInputs,
-			AssetsCount, // The last element is guaranteed to be used.
+			AssetsCount, // Including unused. The last element is guaranteed to be used.
+			AssetsCountUsed, // num of 'live' assets
 		};
 	};
 
@@ -275,7 +276,8 @@ public:
 	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
 	bool ParamGet(uint32_t ID, uint64_t*, Blob*, ByteBuffer* = NULL);
 
-	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
+	uint64_t ParamIntGetDef(uint32_t ID, uint64_t def = 0);
+	void ParamIntSet(uint32_t ID, uint64_t val);
 
 	uint64_t InsertState(const Block::SystemState::Full&, const PeerID&); // Fails if state already exists
 

@@ -349,7 +349,8 @@ namespace proto {
 
 #pragma pack(pop)
 
-		Key::IDV m_Kidv;
+		Key::ID m_Kid;
+        Amount m_Value;
 		ShieldedDelta m_ShieldedDelta;
 		ECC::Point m_Commitment;
         uintBigFor<Asset::ID>::Type m_AssetID;
@@ -373,8 +374,9 @@ namespace proto {
 		{
 			ar
 				& m_Commitment
-				& m_Kidv
-				& m_AssetID
+				& m_Kid
+                & m_Value
+                & m_AssetID
                 & m_Buf1
 				& m_Height
 				& m_Maturity
@@ -462,7 +464,7 @@ namespace proto {
 		static const uint8_t Unspecified = 0;
 		static const uint8_t Ok = 0x1;
 		// advanced codes
-		static const uint8_t TooSmall = 0x2; // doesn't contain minimal elements: at least 1 input and 1 kernel
+		static const uint8_t TooSmall = 0x2; // doesn't contain minimal elements: at least 1 input and 1 kernel OR 1 output and 1 kernel
 		static const uint8_t Obscured = 0x3; // partial overlap with another tx. Dropped due to potential collision (not necessarily an error)
 
 		static const uint8_t Invalid = 0x10; // context-free validation failed

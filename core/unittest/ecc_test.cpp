@@ -22,6 +22,7 @@
 #include "../aes.h"
 #include "../proto.h"
 #include "../lelantus.h"
+#include "../../utility/executor.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -149,7 +150,8 @@ void Test_GenerateNonRandom(void* p, uint32_t n, uint8_t value)
 		((uint8_t*) p)[i] = value;
 }
 
-void SetRandom(uintBig& x, bool is_trezor_debug = false)
+template <uint32_t nBytes>
+void SetRandom(beam::uintBig_t<nBytes>& x, bool is_trezor_debug = false)
 {
     if (is_trezor_debug)
         Test_GenerateNonRandom(x.m_pData, x.nBytes, 3);
@@ -682,7 +684,7 @@ void TestCommitments()
 
 	for (uint8_t iCycle = 0; iCycle < 2; iCycle++)
 	{
-		uint8_t nScheme = iCycle ? Key::IDV::Scheme::V1 : Key::IDV::Scheme::V0;
+		uint8_t nScheme = iCycle ? CoinID::Scheme::V1 : CoinID::Scheme::V0;
 
 		CoinID cid(100500, 15, Key::Type::Regular);
 		cid.set_Subkey(7, nScheme);
@@ -727,13 +729,13 @@ struct AssetTag
 void TestRangeProof(bool bCustomTag)
 {
 	RangeProof::CreatorParams cp;
-	SetRandomOrd(cp.m_Kidv.m_Idx);
-	SetRandomOrd(cp.m_Kidv.m_Type);
-	SetRandomOrd(cp.m_Kidv.m_SubIdx);
-	cp.m_Kidv.set_Subkey(cp.m_Kidv.m_SubIdx);
-	SetRandom(cp.m_Seed.V);
-	cp.m_Kidv.m_Value = 345000;
 
+	beam::uintBig_t<sizeof(Key::ID::Packed)> up0, up1;
+	SetRandom(up0);
+	cp.m_Blob = up0;
+
+	SetRandom(cp.m_Seed.V);
+	cp.m_Value = 345000;
 
 	beam::Asset::Base aib;
 	aib.m_ID = bCustomTag ? 14 : 0;
@@ -747,7 +749,7 @@ void TestRangeProof(bool bCustomTag)
 	{
 		Oracle oracle;
 		rp.Create(sk, cp, oracle);
-		verify_test(rp.m_Value == cp.m_Kidv.m_Value);
+		verify_test(rp.m_Value == cp.m_Value);
 	}
 
 	Point::Native comm;
@@ -761,9 +763,11 @@ void TestRangeProof(bool bCustomTag)
 	{
 		RangeProof::CreatorParams cp2;
 		cp2.m_Seed = cp.m_Seed;
+		cp2.m_Blob = up1;
 
 		verify_test(rp.Recover(cp2));
-		verify_test(cp.m_Kidv == cp2.m_Kidv);
+		verify_test(cp.m_Value == cp2.m_Value);
+		verify_test(up0 == up1);
 
 		// leave only data needed for recovery
 		RangeProof::Public rp2;
@@ -772,7 +776,8 @@ void TestRangeProof(bool bCustomTag)
 		rp2.m_Value = rp.m_Value;
 
 		verify_test(rp2.Recover(cp2));
-		verify_test(cp.m_Kidv == cp2.m_Kidv);
+		verify_test(cp.m_Value == cp2.m_Value);
+		verify_test(up0 == up1);
 	}
 
 	// tamper value
@@ -823,9 +828,13 @@ void TestRangeProof(bool bCustomTag)
 	verify_test(sig.IsValid(comm, dot, mod));
 
 	RangeProof::Confidential bp;
-	cp.m_Kidv.m_Value = 23110;
+	cp.m_Value = 23110;
 
-	tag.Commit(comm, sk, cp.m_Kidv.m_Value);
+	beam::uintBig_t<sizeof(Scalar) - sizeof(Amount) - 1> uc0, uc1;
+	SetRandom(uc0);
+	cp.m_Blob = uc0;
+
+	tag.Commit(comm, sk, cp.m_Value);
 
 	{
 		Oracle oracle;
@@ -839,9 +848,10 @@ void TestRangeProof(bool bCustomTag)
 		Oracle oracle;
 		RangeProof::CreatorParams cp2;
 		cp2.m_Seed = cp.m_Seed;
+		cp2.m_Blob = uc1;
 
 		verify_test(bp.Recover(oracle, cp2));
-		verify_test(cp.m_Kidv == cp2.m_Kidv);
+		verify_test(uc0 == uc1);
 
 		// leave only data needed for recovery
 		RangeProof::Confidential bp2 = bp;
@@ -852,7 +862,7 @@ void TestRangeProof(bool bCustomTag)
 
 		oracle = Oracle();
 		verify_test(bp2.Recover(oracle, cp2));
-		verify_test(cp.m_Kidv == cp2.m_Kidv);
+		verify_test(uc0 == uc1);
 	}
 
 	// Bulletproof with extra data embedded
@@ -875,12 +885,14 @@ void TestRangeProof(bool bCustomTag)
 		Scalar::Native pExVer[2];
 
 		RangeProof::CreatorParams cp2;
+		cp2.m_Blob = uc1;
 		cp2.m_Seed = cp.m_Seed;
 		cp2.m_pSeedSk = &seedSk;
 		cp2.m_pSk = &sk2;
 		cp2.m_pExtra = pExVer;
 
 		verify_test(bp.Recover(oracle, cp2));
+		verify_test(uc0 == uc1);
 		verify_test(sk == sk2);
 		verify_test((pEx[0] == pExVer[0]) && (pEx[1] == pExVer[1]));
 	}
@@ -893,9 +905,9 @@ void TestRangeProof(bool bCustomTag)
 	}
 
 	SetRandom(sk);
-	cp.m_Kidv.m_Value = 7223110;
+	cp.m_Value = 7223110;
 	SetRandom(cp.m_Seed.V); // another seed for this bulletproof
-	tag.Commit(comm, sk, cp.m_Kidv.m_Value);
+	tag.Commit(comm, sk, cp.m_Value);
 
 	{
 		Oracle oracle;
@@ -923,7 +935,7 @@ void TestRangeProof(bool bCustomTag)
 		ZeroObject(p2);
 
 		comm = Zero;
-		Tag::AddValue(comm, &tag.m_hGen, cp.m_Kidv.m_Value);
+		Tag::AddValue(comm, &tag.m_hGen, cp.m_Value);
 
 		RangeProof::Confidential::MultiSig msig;
 
@@ -1001,6 +1013,10 @@ void TestRangeProof(bool bCustomTag)
 
 		outp.m_RecoveryOnly = true;
 		WriteSizeSerialized("Out-UTXO-Confidential-RecoveryOnly", outp);
+
+		CoinID cid2;
+		verify_test(outp.Recover(g_hFork, kdf, cid2));
+		verify_test(cid == cid2);
 	}
 
 	WriteSizeSerialized("In-Utxo", beam::Input());
@@ -1018,21 +1034,13 @@ void TestMultiSigOutput()
     beam::Key::IKdf::Ptr pKdf_B;
     SetRandom(pKdf_B);
     SetRandom(pKdf_A);
-    // need only for last side - proof creator
-    RangeProof::CreatorParams creatorParamsB;
-    SetRandomOrd(creatorParamsB.m_Kidv.m_Idx);
-    creatorParamsB.m_Kidv.m_Type = Key::Type::Regular;
-    creatorParamsB.m_Kidv.m_Value = amount;
-    SetRandomOrd(creatorParamsB.m_Kidv.m_SubIdx);
-	creatorParamsB.m_Kidv.set_Subkey(creatorParamsB.m_Kidv.m_SubIdx);
 
     // multi-signed bulletproof
     // blindingFactor = sk + sk1
     Scalar::Native blindingFactorA;
     Scalar::Native blindingFactorB;
 
-	CoinID cid;
-	Cast::Down<Key::IDV>(cid) = creatorParamsB.m_Kidv;
+	CoinID cid(amount, 0, Key::Type::Regular);
 	CoinID::Worker wrk(cid);
 
     wrk.Create(blindingFactorA, *pKdf_A);
@@ -1058,7 +1066,9 @@ void TestMultiSigOutput()
 	outp.Prepare(o0, g_hFork);
 
     // from Output::get_SeedKid    
-    beam::Output::GenerateSeedKid(creatorParamsB.m_Seed.V, outp.m_Commitment, *pKdf_B);
+	RangeProof::CreatorParams cp;
+	cp.m_Value = cid.m_Value;
+	beam::Output::GenerateSeedKid(cp.m_Seed.V, outp.m_Commitment, *pKdf_B);
 
     // 1st cycle. peers produce Part2
     RangeProof::Confidential::Part2 p2;
@@ -1074,7 +1084,7 @@ void TestMultiSigOutput()
 		RangeProof::Confidential bulletproof;
 		bulletproof.m_Part2 = p2;
 
-        verify_test(bulletproof.CoSign(seedB, blindingFactorB, creatorParamsB, oracle, RangeProof::Confidential::Phase::Step2)); // add last p2, produce msig
+        verify_test(bulletproof.CoSign(seedB, blindingFactorB, cp, oracle, RangeProof::Confidential::Phase::Step2)); // add last p2, produce msig
 
 		multiSig.m_Part1 = bulletproof.m_Part1;
 		multiSig.m_Part2 = bulletproof.m_Part2;
@@ -1099,7 +1109,7 @@ void TestMultiSigOutput()
 		outp.m_pConfidential->m_Part3 = p3;
 
 		Oracle oracle(o0);
-		verify_test(outp.m_pConfidential->CoSign(seedB, blindingFactorB, creatorParamsB, oracle, RangeProof::Confidential::Phase::Finalize));
+		verify_test(outp.m_pConfidential->CoSign(seedB, blindingFactorB, cp, oracle, RangeProof::Confidential::Phase::Finalize));
     }
 
     {
@@ -2348,14 +2358,27 @@ void TestTreasury()
 	}
 }
 
-void TestLelantus()
+void TestLelantus(bool bWithAsset)
 {
 	beam::Lelantus::Cfg cfg; // default
+
+	if (bWithAsset)
+	{
+		// set other parameters. Test small set (make it run faster)
+		cfg.n = 3;
+		cfg.M = 4; // 3^4 = 81
+	}
+
 	const uint32_t N = cfg.get_N();
-	printf("Lelantus [n, M, N] = [%u, %u, %u]\n", cfg.n, cfg.M, N);
+	if (!bWithAsset)
+		printf("Lelantus [n, M, N] = [%u, %u, %u]\n", cfg.n, cfg.M, N);
 
 	beam::Lelantus::CmListVec lst;
 	lst.m_vec.resize(N);
+
+	Point::Native hGen;
+	if (bWithAsset)
+		beam::Asset::Base(35).get_Generator(hGen);
 
 	Point::Native rnd;
 	SetRandom(rnd);
@@ -2379,7 +2402,7 @@ void TestLelantus()
 	p.m_Witness.V.m_V = 100500;
 	p.m_Witness.V.m_R = 4U;
 	p.m_Witness.V.m_R_Output = 756U;
-	p.m_Witness.V.m_L = 333;
+	p.m_Witness.V.m_L = 333 % N;
 	SetRandom(p.m_Witness.V.m_SpendSk);
 
 	Point::Native pt = Context::get().G * p.m_Witness.V.m_SpendSk;
@@ -2387,22 +2410,70 @@ void TestLelantus()
 	Scalar::Native ser;
 	beam::Lelantus::SpendKey::ToSerial(ser, pt_);
 
-
-	pt = Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
+	pt = Context::get().G * p.m_Witness.V.m_R;
+	Tag::AddValue(pt, &hGen, p.m_Witness.V.m_V);
 	pt += Context::get().J * ser;
 	pt.Export(lst.m_vec[p.m_Witness.V.m_L]);
 
-	Oracle oracle;
+	if (bWithAsset)
+	{
+		// add blinding to the asset
+		Scalar::Native skGen = 77345U;
+		hGen = hGen + Context::get().G * skGen;
 
-	uint32_t t = beam::GetTime_ms();
+		skGen *= p.m_Witness.V.m_V;
 
-	p.Generate(Zero, oracle);
+		p.m_Witness.V.m_R_Adj = p.m_Witness.V.m_R_Output;
+		p.m_Witness.V.m_R_Adj += -skGen;
+	}
 
-	printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
+	std::vector<Point> vG;
+
+	for (uint32_t iCycle = 0; iCycle < 3; iCycle++)
+	{
+		struct MyExec
+			:public beam::ExecutorMT
+		{
+			uint32_t m_Threads;
+
+			virtual uint32_t get_Threads() override { return m_Threads; }
+
+			virtual void RunThread(uint32_t iThread) override
+			{
+				ExecutorMT::Context ctx;
+				ctx.m_iThread = iThread;
+				RunThreadCtx(ctx);
+			}
+		} ex;
+
+		ex.m_Threads = 1 << iCycle;
+
+		beam::Executor::Scope scope(ex);
+
+		uint32_t t = beam::GetTime_ms();
+
+		Oracle oracle;
+		p.Generate(Zero, oracle, &hGen);
+
+		if (!bWithAsset)
+			printf("\tProof time = %u ms, Threads=%u\n", beam::GetTime_ms() - t, ex.m_Threads);
+
+		if (iCycle)
+		{
+			// verify the result is the same (doesn't depend on thread num)
+			verify_test(proof.m_Part1.m_vG == vG);
+		}
+		else
+		{
+			vG.swap(proof.m_Part1.m_vG);
+		}
+	}
+
 
 	{
 		Oracle o2;
 		Hash::Value hv0;
+		proof.m_Cfg.Expose(o2);
 		proof.Expose0(o2, hv0);
 		ud2.Recover(o2, proof, Zero);
 
@@ -2424,8 +2495,10 @@ void TestLelantus()
 		der_.reset(ser_.buffer().first, ser_.buffer().second);
 		der_ & proof;
 
-		printf("\tProof size = %u\n", (uint32_t)ser_.buffer().second);
+		if (!bWithAsset)
+			printf("\tProof size = %u\n", (uint32_t)ser_.buffer().second);
 	}
+
 	MyBatch bc;
 
 	std::vector<Scalar::Native> vKs;
@@ -2439,12 +2512,12 @@ void TestLelantus()
 
 		memset0(&vKs.front(), sizeof(Scalar::Native) * vKs.size());
 
-		t = beam::GetTime_ms();
+		uint32_t t = beam::GetTime_ms();
 
 		for (uint32_t i = 0; i < nCycles; i++)
 		{
 			Oracle o2;
-			if (!proof.IsValid(bc, o2, &vKs.front()))
+			if (!proof.IsValid(bc, o2, &vKs.front(), &hGen))
 				bSuccess = false;
 		}
 
@@ -2453,7 +2526,8 @@ void TestLelantus()
 		if (!bc.Flush())
 			bSuccess = false;
 
-		printf("\tVerify time %u overlapping proofs = %u ms\n", nCycles, beam::GetTime_ms() - t);
+		if (!bWithAsset)
+			printf("\tVerify time %u overlapping proofs = %u ms\n", nCycles, beam::GetTime_ms() - t);
 	}
 
 	verify_test(bSuccess);
@@ -2503,13 +2577,19 @@ void TestLelantusKeys()
 	oprs.m_Sender = 1U;
 	oprs.m_Value = 3002U;
 	oprs.m_Message = Scalar::s_Order;
+	oprs.m_AssetID = 18;
 	{
 		Oracle oracle;
 		oprs.Generate(txo, sprs.m_SharedSecret, oracle, gen);
 	}
 	{
 		Oracle oracle;
+		verify_test(txo.IsValid(oracle, pt, pt));
+	}
+	{
+		Oracle oracle;
 		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle, viewer));
+		verify_test(oprs.m_AssetID == oprs2.m_AssetID);
 		verify_test(oprs.m_Sender == oprs2.m_Sender);
 		verify_test(oprs.m_Message == oprs2.m_Message);
 	}
@@ -2518,6 +2598,7 @@ void TestLelantusKeys()
 	oprs.m_Message.Negate();
 	oprs.m_Message.Inc();
 	oprs.m_Message.Negate(); // should be 1 less than the order
+	oprs.m_AssetID = 0;
 
 	{
 		Oracle oracle;
@@ -2528,12 +2609,33 @@ void TestLelantusKeys()
 		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle, viewer));
 		verify_test(oprs.m_Sender == oprs2.m_Sender);
 		verify_test(oprs.m_Message == oprs2.m_Message);
+		verify_test(oprs.m_Message == oprs2.m_Message);
 	}
 
 	{
 		Oracle oracle;
 		verify_test(txo.IsValid(oracle, pt, pt));
 	}
+}
+
+void TestAssetProof()
+{
+	Scalar::Native sk;
+	SetRandom(sk);
+
+	Amount val = 400;
+
+	Point::Native genBlinded;
+
+	beam::Asset::Proof proof;
+	proof.Create(genBlinded, sk, val, 100500);
+	verify_test(proof.IsValid(genBlinded));
+
+	proof.Create(genBlinded, sk, val, 1);
+	verify_test(proof.IsValid(genBlinded));
+
+	proof.Create(genBlinded, sk, val, 0);
+	verify_test(proof.IsValid(genBlinded));
 }
 
 void TestAssetEmission()
@@ -2700,8 +2802,10 @@ void TestAll()
 	TestRandom();
 	TestFourCC();
 	TestTreasury();
+	TestAssetProof();
 	TestAssetEmission();
-	TestLelantus();
+	TestLelantus(false);
+	TestLelantus(true);
 	TestLelantusKeys();
 }
 
@@ -3076,9 +3180,8 @@ void RunBenchmark()
 
 	RangeProof::Confidential bp;
 	RangeProof::CreatorParams cp;
-	ZeroObject(cp.m_Kidv);
 	SetRandom(cp.m_Seed.V);
-	cp.m_Kidv.m_Value = 23110;
+	cp.m_Value = 23110;
 
 	{
 		BenchmarkMeter bm("BulletProof.Sign");
@@ -3094,7 +3197,7 @@ void RunBenchmark()
 		} while (bm.ShouldContinue());
 	}
 
-	Point::Native comm = Commitment(k1, cp.m_Kidv.m_Value);
+	Point::Native comm = Commitment(k1, cp.m_Value);
 
 	{
 		BenchmarkMeter bm("BulletProof.Verify");

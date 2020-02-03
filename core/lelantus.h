@@ -55,12 +55,12 @@ namespace Sigma {
 
 		uint32_t get_N() const; // n^M if parameters are sane, 0 otherwise
 		uint32_t get_F() const; // M * (n - 1)
+
+		void Expose(ECC::Oracle& oracle) const;
 	};
 
 	struct Proof
 	{
-		Cfg m_Cfg;
-
 		struct Part1
 		{
 			ECC::Point m_A, m_B, m_C, m_D;
@@ -76,12 +76,13 @@ namespace Sigma {
 			std::vector<ECC::Scalar> m_vF;
 		} m_Part2;
 
-		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs, ECC::Scalar::Native& kBias) const;
+		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, const Cfg&, ECC::Scalar::Native* pKs, ECC::Scalar::Native& kBias) const;
 	};
 
 	class Prover
 	{
 		CmList& m_List;
+		const Cfg& m_Cfg;
 
 		std::unique_ptr<ECC::Scalar::Native[]> m_vBuf; // all the needed data as one array
 
@@ -107,6 +108,8 @@ namespace Sigma {
 		void CalculateP();
 		void ExtractABCD();
 		void ExtractG(const ECC::Point::Native& ptOut);
+		struct GB;
+		void ExtractG_Part(GB*, uint32_t i0, uint32_t i1);
 		void ExtractPart2(ECC::Oracle&);
 
 		static void ExtractBlinded(ECC::Scalar& out, const ECC::Scalar::Native& sk, const ECC::Scalar::Native& challenge, const ECC::Scalar::Native& nonce);
@@ -115,8 +118,9 @@ namespace Sigma {
 
 		struct NonceGen;
 
-		Prover(CmList& lst, Proof& proof)
+		Prover(CmList& lst, const Cfg& cfg, Proof& proof)
 			:m_List(lst)
+			,m_Cfg(cfg)
 			,m_Proof(proof)
 		{
 		}
@@ -161,13 +165,15 @@ namespace Lelantus
 	struct Proof
 		:public Sigma::Proof
 	{
+		Cfg m_Cfg;
+
 		ECC::Point m_Commitment;
 		ECC::Point m_SpendPk;
 		void Expose0(ECC::Oracle& oracle, ECC::Hash::Value&) const;
 
 		ECC::SignatureGeneralized<2> m_Signature;
 
-		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs) const;
+		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs, const ECC::Point::Native* pHGen = nullptr) const;
 	};
 
 	class Prover
@@ -185,14 +191,15 @@ namespace Lelantus
 			:public Sigma::Prover::Witness
 		{
 			Amount m_V;
-			ECC::Scalar::Native m_R_Output;
+			ECC::Scalar::Native m_R_Output; // 'true' blinding factor of the being-spent output
+			ECC::Scalar::Native m_R_Adj; // Assets: effective blinding factor (includes the blinding factor of the generator multiplied by value).
 			ECC::Scalar::Native m_SpendSk;
 		};
 		ECC::NoLeak<Witness> m_Witness;
 
 		Sigma::Prover::UserData* m_pUserData = nullptr;
 
-		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle);
+		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle, const ECC::Point::Native* pHGen = nullptr);
 
 		// result
 		Proof& m_Proof;

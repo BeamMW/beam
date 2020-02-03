@@ -994,7 +994,8 @@ void UtxoEvent::get_Cid(CoinID& cid) const
 {
     assert(!(Flags::Shielded & m_Flags));
 
-    Cast::Down<Key::IDV>(cid) = m_Kidv;
+    Cast::Down<Key::ID>(cid) = m_Kid;
+    cid.m_Value = m_Value;
     m_AssetID.Export(cid.m_AssetID);
 }
 

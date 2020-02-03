@@ -163,7 +163,7 @@ namespace
         WALLET_CHECK(txHistory[0].m_amount == 24);
         WALLET_CHECK(txHistory[0].m_changeBeam == 14);
         WALLET_CHECK(txHistory[0].m_fee == 2);
-        WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
+        WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
 
         // check coins
         vector<Coin> newSenderCoins;
@@ -269,7 +269,7 @@ namespace
 
         WALLET_CHECK(stx->m_txId == rtx->m_txId);
         WALLET_CHECK(stx->m_amount == rtx->m_amount);
-        WALLET_CHECK(stx->m_status == TxStatus::Completed);
+        WALLET_CHECK(stx->m_status == wallet::TxStatus::Completed);
         WALLET_CHECK(stx->m_fee == rtx->m_fee);
         WALLET_CHECK(stx->m_message == rtx->m_message);
         WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
@@ -305,7 +305,7 @@ namespace
             rtx = receiver.m_WalletDB->getTx(txId);
             WALLET_CHECK(rtx.is_initialized());
 
-            WALLET_CHECK(rtx->m_status == TxStatus::Completed);
+            WALLET_CHECK(rtx->m_status == wallet::TxStatus::Completed);
             WALLET_CHECK(rtx->m_sender == false);
         }
 
@@ -378,7 +378,7 @@ namespace
 
         WALLET_CHECK(stx->m_txId == rtx->m_txId);
         WALLET_CHECK(stx->m_amount == rtx->m_amount);
-        WALLET_CHECK(stx->m_status == TxStatus::Completed);
+        WALLET_CHECK(stx->m_status == wallet::TxStatus::Completed);
         WALLET_CHECK(stx->m_message == rtx->m_message);
         WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
         WALLET_CHECK(stx->m_status == rtx->m_status);
@@ -420,7 +420,7 @@ namespace
         WALLET_CHECK(!rtx.is_initialized());
 
         WALLET_CHECK(stx->m_amount == 6);
-        WALLET_CHECK(stx->m_status == TxStatus::Failed);
+        WALLET_CHECK(stx->m_status == wallet::TxStatus::Failed);
         WALLET_CHECK(stx->m_sender == true);
         WALLET_CHECK(stx->m_failureReason == TxFailureReason::NoInputs);
     }
@@ -546,7 +546,7 @@ namespace
         WALLET_CHECK(txHistory[0].m_amount == 36);
         WALLET_CHECK(txHistory[0].m_changeBeam == 2);
         WALLET_CHECK(txHistory[0].m_fee == 2);
-        WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
+        WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
 
         // check coins
         vector<Coin> newSenderCoins;
@@ -638,7 +638,7 @@ namespace
             WALLET_CHECK(txHistory[0].m_amount == 36);
             WALLET_CHECK(txHistory[0].m_changeBeam == 0);
             WALLET_CHECK(txHistory[0].m_fee == 2);
-            WALLET_CHECK(txHistory[0].m_status == TxStatus::Failed);
+            WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Failed);
         }
         
 
@@ -656,7 +656,7 @@ namespace
             WALLET_CHECK(tx.m_amount == 36);
             WALLET_CHECK(tx.m_changeBeam == 0);
             WALLET_CHECK(tx.m_fee == 42);
-            WALLET_CHECK(tx.m_status == TxStatus::Failed);
+            WALLET_CHECK(tx.m_status == wallet::TxStatus::Failed);
         }
 
         // another attempt
@@ -673,7 +673,7 @@ namespace
             WALLET_CHECK(tx->m_amount == 36);
             WALLET_CHECK(tx->m_changeBeam == 14);
             WALLET_CHECK(tx->m_fee == 50);
-            WALLET_CHECK(tx->m_status == TxStatus::Completed);
+            WALLET_CHECK(tx->m_status == wallet::TxStatus::Completed);
         }
 
         // check coins
@@ -762,11 +762,11 @@ namespace
 
             auto sh = sender.m_WalletDB->getTxHistory();
             WALLET_CHECK(sh.size() == 1);
-            WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
+            WALLET_CHECK(sh[0].m_status == wallet::TxStatus::Failed);
             WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::TransactionExpired);
             auto rh = receiver.m_WalletDB->getTxHistory();
             WALLET_CHECK(rh.size() == 1);
-            WALLET_CHECK(rh[0].m_status == TxStatus::Failed);
+            WALLET_CHECK(rh[0].m_status == wallet::TxStatus::Failed);
             WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
         }
 
@@ -788,11 +788,11 @@ namespace
             auto sh = sender.m_WalletDB->getTxHistory();
             WALLET_CHECK(sh.size() == 2);
             auto sit = find_if(sh.begin(), sh.end(), [&txId](const auto& t) {return t.m_txId == txId; });
-            WALLET_CHECK(sit->m_status == TxStatus::Completed);
+            WALLET_CHECK(sit->m_status == wallet::TxStatus::Completed);
             auto rh = receiver.m_WalletDB->getTxHistory();
             WALLET_CHECK(rh.size() == 2);
             auto rit = find_if(rh.begin(), rh.end(), [&txId](const auto& t) {return t.m_txId == txId; });
-            WALLET_CHECK(rit->m_status == TxStatus::Completed);
+            WALLET_CHECK(rit->m_status == wallet::TxStatus::Completed);
         }
     }
 
@@ -830,7 +830,7 @@ namespace
         txDescription.m_message = {};
         txDescription.m_createTime = getTimestamp();
         txDescription.m_sender = true;
-        txDescription.m_status = TxStatus::Pending;
+        txDescription.m_status = wallet::TxStatus::Pending;
         txDescription.m_selfTx = false;
         sender.m_WalletDB->saveTx(txDescription);
         
@@ -888,7 +888,7 @@ namespace
             txDescription.m_message = {};
             txDescription.m_createTime = getTimestamp();
             txDescription.m_sender = true;
-            txDescription.m_status = TxStatus::Pending;
+            txDescription.m_status = wallet::TxStatus::Pending;
             txDescription.m_selfTx = false;
             sender.m_WalletDB->saveTx(txDescription);
 
@@ -896,7 +896,7 @@ namespace
 
             auto result = sender.m_WalletDB->getTx(txID);
 
-            WALLET_CHECK(result->m_status == TxStatus::Failed);
+            WALLET_CHECK(result->m_status == wallet::TxStatus::Failed);
         }
 
         // process unknown exception
@@ -927,7 +927,7 @@ namespace
             txDescription.m_message = {};
             txDescription.m_createTime = getTimestamp();
             txDescription.m_sender = true;
-            txDescription.m_status = TxStatus::Pending;
+            txDescription.m_status = wallet::TxStatus::Pending;
             txDescription.m_selfTx = false;
             sender.m_WalletDB->saveTx(txDescription);
 
@@ -935,7 +935,7 @@ namespace
 
             auto result = sender.m_WalletDB->getTx(txID);
 
-            WALLET_CHECK(result->m_status == TxStatus::Failed);
+            WALLET_CHECK(result->m_status == wallet::TxStatus::Failed);
         }
     }
 
@@ -1224,7 +1224,7 @@ namespace
         WALLET_CHECK(transactions.size() == Count + 1);
         for (const auto& t : transactions)
         {
-            WALLET_CHECK(t.m_status == TxStatus::Completed);
+            WALLET_CHECK(t.m_status == wallet::TxStatus::Completed);
         }
     }
 
@@ -1361,44 +1361,10 @@ namespace
             stopReactor();
         }
 
-
-        void onStatus(const WalletStatus& status) override {}
-        void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) override {};
-        void onSyncProgressUpdated(int done, int total) override {};
-        void onChangeCalculated(Amount change) override {};
-        void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) override {}
-        void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) override {};
-        void onAddresses(bool own, const std::vector<WalletAddress>& addresses) override {};
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-        void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override {};
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-        
-        void onGeneratedNewAddress(const WalletAddress& walletAddr) override {};
-        void onSwapParamsLoaded(const beam::ByteBuffer& params) override {};
-        void onNewAddressFailed() override {};
-        void onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID) override {};
-        void onNodeConnectionChanged(bool isNodeConnected) override {};
-        void onWalletError(ErrorType error) override {}
-
-        void FailedToStartWallet() override {};
-        void onSendMoneyVerified() override {};
-        void onCantSendToExpired() override {};
-        void onPaymentProofExported(const TxID& txID, const ByteBuffer& proof) override {}
-        void onCoinsByTx(const std::vector<Coin>& coins) override {}
-        void onAddressChecked(const std::string& addr, bool isValid) override {}
-        void onImportRecoveryProgress(uint64_t done, uint64_t total) override {}
-        void onNoDeviceConnected() override {}
-        void onImportDataFromJson(bool isOk) override {}
-        void onExportDataToJson(const std::string& data) override {}
-        void onPostFunctionToClientContext(MessageFunction&& func) override {}
-        void onExportTxHistoryToCsv(const std::string& data) override {}
-
         ///
         void onShowKeyKeeperMessage() override {}
         void onHideKeyKeeperMessage() override {}
         void onShowKeyKeeperError(const std::string&) override {}
-
-
     };
 
     void TestClient()
@@ -1415,8 +1381,6 @@ namespace
         
         auto startEvent = io::AsyncEvent::create(*mainReactor, [&timer, mainReactor, &client, db]()
             {
-                
-                {
                     std::vector<WalletAddress> newAddresses;
                     newAddresses.resize(50);
                     for (auto& addr : newAddresses)
@@ -1434,7 +1398,6 @@ namespace
                         client.getAsync()->saveAddress(addr, true);
                     }
                     timer->start(1500, false, [mainReactor]() { mainReactor->stop(); });
-                }
             });
         startEvent->post();
 
@@ -1570,7 +1533,7 @@ namespace
         //auto stx1 = sender.m_WalletDB->getTx(txId1);
         //WALLET_CHECK(stx1);
         //
-        //WALLET_CHECK(stx1->m_status == TxStatus::Failed);
+        //WALLET_CHECK(stx1->m_status == wallet::TxStatus::Failed);
 
         auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
@@ -1622,7 +1585,7 @@ namespace
 
         WALLET_CHECK(stx->m_txId == rtx->m_txId);
         WALLET_CHECK(stx->m_amount == rtx->m_amount);
-        WALLET_CHECK(stx->m_status == TxStatus::Completed);
+        WALLET_CHECK(stx->m_status == wallet::TxStatus::Completed);
         WALLET_CHECK(stx->m_fee == rtx->m_fee);
         WALLET_CHECK(stx->m_message == rtx->m_message);
         WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
@@ -1799,7 +1762,7 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 		if (!status)
 			continue;
 
-		if (Status::Success != status)
+		if (Negotiator::Status::Success != status)
 		{
 			cout << "\t" << chThis << " Failed!" << std::endl;
 			return false; // fail
@@ -2487,7 +2450,7 @@ int main()
     TestConvertions();
     TestTxParameters();
 
-    //TestClient();
+    TestClient();
     TestWalletID();
     TestSendingWithWalletID();
 

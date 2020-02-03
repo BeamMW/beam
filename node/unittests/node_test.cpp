@@ -713,9 +713,12 @@ namespace beam
 		{
 			ECC::Scalar::Native k;
 
+			bool bPublic = !utxo.m_Cid.m_AssetID; // confidential transactions will be too slow for test in debug mode.
+			// But public don't support assets
+
 			Output::Ptr pOut(new Output);
 			pOut->m_Incubation = hIncubation;
-			pOut->Create(h + 1, k, *m_pKdf, utxo.m_Cid, *m_pKdf, true); // confidential transactions will be too slow for test in debug mode.
+			pOut->Create(h + 1, k, *m_pKdf, utxo.m_Cid, *m_pKdf, bPublic);
 
 			tx.m_vOutputs.push_back(std::move(pOut));
 			UpdateOffset(tx, k, true);
@@ -1852,11 +1855,20 @@ namespace beam
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
 				p.m_Witness.V.m_V = m_Shielded.m_Params.m_Output.m_Value;
 
+				ECC::Point::Native hGen;
+
+				{
+					// not necessary for beams, just a demonstration of assets support
+					pKrn->m_pAsset = std::make_unique<Asset::Proof>();
+					p.m_Witness.V.m_R_Adj = p.m_Witness.V.m_R_Output;
+					pKrn->m_pAsset->Create(hGen, p.m_Witness.V.m_R_Adj, m_Shielded.m_Params.m_Output.m_Value, 0, hGen);
+				}
+
 				pKrn->UpdateMsg();
 
 				ECC::Oracle o1;
 				o1 << pKrn->m_Msg;
-				p.Generate(Zero, o1);
+				p.Generate(Zero, o1, &hGen);
 
 				pKrn->MsgToID();
 
@@ -2356,7 +2368,7 @@ namespace beam
 					{
 						// Restore all the relevent data
 						Key::ID::Packed kid;
-						kid = evt.m_Kidv;
+						kid = evt.m_Kid;
 						proto::UtxoEvent::Shielded s;
 						evt.m_ShieldedDelta.Get(kid, evt.m_Buf1, s);
 
@@ -2365,7 +2377,7 @@ namespace beam
 						// Output parameters are fully recovered
 						verify_test(m_Shielded.m_Params.m_Output.m_Sender == s.m_Sender);
 						verify_test(m_Shielded.m_Params.m_Output.m_Message == s.m_Message);
-						verify_test(m_Shielded.m_Params.m_Output.m_Value == evt.m_Kidv.m_Value);
+						verify_test(m_Shielded.m_Params.m_Output.m_Value == evt.m_Value);
 						verify_test(m_Shielded.m_Params.m_Output.m_k == s.m_kOutG);
 
 						// Shielded parameters: recovered only the part that is sufficient to spend it

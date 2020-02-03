@@ -70,6 +70,7 @@ namespace beam
 		struct OutputParams
 		{
 			Amount m_Value;
+			Asset::ID m_AssetID = 0;
 			ECC::Scalar::Native m_k;
 			PeerID m_Sender;
 			ECC::uintBig m_Message;
@@ -81,8 +82,11 @@ namespace beam
 		protected:
 			void GenerateInternal(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, Key::IPKdf& gen);
 			static void get_Seed(ECC::uintBig&, const ECC::Hash::Value& hvShared);
-			static uint32_t Msg2Scalar(ECC::Scalar::Native&, const ECC::uintBig&);
+			static uint8_t Msg2Scalar(ECC::Scalar::Native&, const ECC::uintBig&);
 			static void Scalar2Msg(ECC::uintBig&, const ECC::Scalar::Native&, uint32_t);
+			void get_skGen(ECC::Scalar::Native&, const ECC::Hash::Value& hvShared, Key::IPKdf& gen) const;
+
+			struct Packed;
 		};
 
 		struct Params

@@ -17,6 +17,7 @@
 #include <sstream>
 #include "block_crypt.h"
 #include "serialization_adapters.h"
+#include "logger.h"
 
 namespace beam
 {
@@ -201,27 +202,17 @@ namespace beam
 		Generator::AddValue(comm, m_Cid.m_Value);
 	}
 
-	int CoinID::cmp(const CoinID& v) const
-	{
-		if (m_AssetID > v.m_AssetID)
-			return 1;
-		if (m_AssetID < v.m_AssetID)
-			return -1;
-
-		return Cast::Down<Key::IDV>(*this).cmp(v);
-	}
-
 	void CoinID::get_Hash(ECC::Hash::Value& hv) const
 	{
 		Key::Index nScheme = get_Scheme();
-		if (nScheme > Key::IDV::Scheme::V0)
+		if (nScheme > Scheme::V0)
 		{
-			if (Key::IDV::Scheme::BB21 == nScheme)
+			if (Scheme::BB21 == nScheme)
 			{
 				// BB2.1 workaround
-				Key::IDV kidv2 = *this;
-				kidv2.set_Subkey(get_Subkey(), Key::IDV::Scheme::V0);
-				kidv2.get_Hash(hv);
+				CoinID cid2 = *this;
+				cid2.set_Subkey(get_Subkey(), Scheme::V0);
+				cid2.get_Hash(hv);
 			}
 			else
 			{
@@ -330,7 +321,9 @@ namespace beam
 		if (!comm.Import(m_Commitment))
 			return false;
 
-		CoinID::Generator g(m_AssetID);
+		ECC::Point::Native hGen;
+		if (m_pAsset && !m_pAsset->IsValid(hGen))
+			return false;
 
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
@@ -343,7 +336,7 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(comm, oracle, &g.m_hGen);
+			return m_pConfidential->IsValid(comm, oracle, &hGen);
 		}
 
 		if (!m_pPublic)
@@ -352,7 +345,7 @@ namespace beam
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
 			return false;
 
-		return m_pPublic->IsValid(comm, oracle, &g.m_hGen);
+		return m_pPublic->IsValid(comm, oracle, &hGen);
 	}
 
 	void Output::operator = (const Output& v)
@@ -361,9 +354,9 @@ namespace beam
 		m_Coinbase = v.m_Coinbase;
 		m_RecoveryOnly = v.m_RecoveryOnly;
 		m_Incubation = v.m_Incubation;
-		m_AssetID = v.m_AssetID;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
+		ClonePtr(m_pAsset, v.m_pAsset);
 	}
 
 	int Output::cmp(const Output& v) const
@@ -377,9 +370,9 @@ namespace beam
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER(m_RecoveryOnly)
 		CMP_MEMBER(m_Incubation)
-		CMP_MEMBER(m_AssetID)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
+		//CMP_MEMBER_PTR(m_pAsset)
 
 		return 0;
 	}
@@ -392,29 +385,54 @@ namespace beam
 			s.m_Coinbase += uintBigFrom(m_pPublic->m_Value);
 	}
 
+#pragma pack (push, 1)
+	struct Output::PackedKA
+	{
+		uintBigFor<Asset::ID>::Type m_AssetID;
+		Key::ID::Packed m_Kid; // for historical reasons: Key::ID should be last. All new data should be added above.
+	};
+#pragma pack (pop)
+
 	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const CoinID& cid, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
-		m_AssetID = cid.m_AssetID;
 		CoinID::Worker wrk(cid);
 		wrk.Create(sk, m_Commitment, coinKdf);
+
+		ECC::Scalar::Native skSign = sk;
+		if (cid.m_AssetID)
+		{
+			m_pAsset = std::make_unique<Asset::Proof>();
+			m_pAsset->Create(wrk.m_hGen, skSign, cid.m_Value, cid.m_AssetID, wrk.m_hGen);
+		}
 
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
 
 		ECC::RangeProof::CreatorParams cp;
-		cp.m_Kidv = cid;
+		cp.m_Value = cid.m_Value;
 		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
 		if (bPublic || m_Coinbase)
 		{
+			Key::ID::Packed kid;
+			cp.m_Blob.p = &kid;
+			cp.m_Blob.n = sizeof(kid);
+			kid = cid;
+
 			m_pPublic.reset(new ECC::RangeProof::Public);
 			m_pPublic->m_Value = cid.m_Value;
-			m_pPublic->Create(sk, cp, oracle);
+			m_pPublic->Create(skSign, cp, oracle);
 		}
 		else
 		{
+			PackedKA kida;
+			cp.m_Blob.p = &kida;
+			cp.m_Blob.n = sizeof(kida);
+			kida.m_Kid = cid;
+			kida.m_AssetID = cid.m_AssetID;
+
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-			m_pConfidential->Create(sk, cp, oracle, &wrk.m_hGen);
+			m_pConfidential->Create(skSign, cp, oracle, &wrk.m_hGen);
 		}
 	}
 
@@ -446,19 +464,40 @@ namespace beam
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
 
-		bool bSuccess =
-			m_pConfidential ? m_pConfidential->Recover(oracle, cp) :
-			m_pPublic ? m_pPublic->Recover(cp) :
-			false;
-
-		if (bSuccess)
+		if (m_pConfidential)
 		{
-			// Skip further verification, assuming no need to fully reconstruct the commitment
-			Cast::Down<Key::IDV>(cid) = cp.m_Kidv;
-			cid.m_AssetID = m_AssetID;
+			PackedKA kida;
+			cp.m_Blob.p = &kida;
+			cp.m_Blob.n = sizeof(kida);
+
+			if (!m_pConfidential->Recover(oracle, cp))
+				return false;
+
+			Cast::Down<Key::ID>(cid) = kida.m_Kid;
+
+			kida.m_AssetID.Export(cid.m_AssetID);
+		}
+		else
+		{
+			if (!m_pPublic)
+				return false;
+
+			Key::ID::Packed kid;
+			cp.m_Blob.p = &kid;
+			cp.m_Blob.n = sizeof(kid);
+
+			if (!m_pPublic->Recover(cp))
+				return false;
+
+			Cast::Down<Key::ID>(cid) = kid;
+			cid.m_AssetID = 0; // can't be recovered atm
 		}
 
-		return bSuccess;
+
+		// Skip further verification, assuming no need to fully reconstruct the commitment
+		cid.m_Value = cp.m_Value;
+
+		return true;
 	}
 
 	bool Output::VerifyRecovered(Key::IPKdf& coinKdf, const CoinID& cid) const
@@ -470,7 +509,6 @@ namespace beam
 		if (!comm2.Import(m_Commitment))
 			return false;
 
-		assert(m_AssetID == cid.m_AssetID);
 		CoinID::Worker(cid).Recover(comm, coinKdf);
 
 		comm = -comm;
@@ -1053,6 +1091,9 @@ namespace beam
 		ptNeg.m_Y = !ptNeg.m_Y; // probably faster than negating the result
 
 		ECC::Point::Native comm;
+		if (m_pAsset && !m_pAsset->IsValid(comm))
+			return false;
+
 		if (!comm.ImportNnz(ptNeg))
 			return false;
 
@@ -1078,6 +1119,11 @@ namespace beam
 		v.CopyFrom(*this);
 		v.m_WindowEnd = m_WindowEnd;
 		v.m_SpendProof = m_SpendProof;
+
+		if (m_pAsset)
+			m_pAsset->Clone(v.m_pAsset);
+		else
+			v.m_pAsset.reset();
 	}
 
 	void TxKernelShieldedInput::AddStats(TxStats& s) const
@@ -1407,6 +1453,9 @@ namespace beam
 
 	Rules::Rules()
 	{
+		CA.m_ProofCfg.n = 4;
+		CA.m_ProofCfg.M = 3; // 64 elements
+
 		TreasuryChecksum = {
 			0xcf, 0x9c, 0xc2, 0xdf, 0x67, 0xa2, 0x24, 0x19,
 			0x2d, 0x2f, 0x88, 0xda, 0x20, 0x20, 0x00, 0xac,
@@ -1576,6 +1625,9 @@ namespace beam
 			<< CA.Enabled
 			<< CA.DepositForList
 			<< CA.LockPeriod
+			<< CA.m_ProofCfg.n
+			<< CA.m_ProofCfg.M
+			<< Asset::ID(Asset::s_MaxCount)
 			// out
 			>> pForks[2].m_Hash;
 	}
@@ -2241,6 +2293,16 @@ namespace beam
 		m_Metadata.clear();
 	}
 
+	bool Asset::Info::IsEmpty() const
+	{
+	    return m_Value == Zero && m_Owner == Zero && m_LockHeight == Zero && m_Metadata.size() == 0;
+	}
+
+	bool Asset::Info::IsValid() const
+    {
+	    return m_Owner != Zero && m_LockHeight != Zero;
+    }
+
 	void Asset::Full::get_Hash(ECC::Hash::Value& hv) const
 	{
 		ECC::Hash::Processor()
@@ -2253,5 +2315,175 @@ namespace beam
 			<< Blob(m_Metadata)
 			>> hv;
 	}
+
+	const ECC::Point::Compact& Asset::Proof::get_H()
+	{
+		return ECC::Context::get().m_Ipp.H_.m_Fast.m_pPt[0];
+	}
+
+	bool Asset::Proof::CmList::get_At(ECC::Point::Storage& pt_s, uint32_t iIdx)
+	{
+		Asset::ID id = m_Begin + iIdx;
+		if (id)
+			Base(id).get_Generator(pt_s);
+		else
+		{
+			secp256k1_ge ge;
+			get_H().Assign(ge);
+			pt_s.FromNnz(ge);
+		}
+
+		return true;
+	}
+
+	void Asset::Proof::Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid)
+	{
+		ECC::Point::Native gen;
+		if (aid)
+			Base(aid).get_Generator(gen);
+		else
+			get_H().Assign(gen, true);
+
+		Create(genBlinded, skInOut, val, aid, gen);
+	}
+
+	void Asset::Proof::get_skGen(ECC::Scalar::Native& skGen, const ECC::Scalar::Native& sk, Amount val, Asset::ID aid)
+	{
+		ECC::NonceGenerator nonceGen("out-sk-asset");
+
+		ECC::NoLeak<ECC::Scalar> k;
+		k.V = sk;
+		nonceGen << k.V.m_Value;
+
+		ECC::Hash::Processor()
+			<< aid
+			<< val
+			>> k.V.m_Value;
+
+		nonceGen
+			<< k.V.m_Value
+			>> skGen; // blinding factor for generator
+	}
+
+	void Asset::Proof::Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Point::Native& gen)
+	{
+		ECC::Scalar::Native skGen;
+		get_skGen(skGen, skInOut, val, aid);
+		Create(genBlinded, skGen, aid, gen);
+		ModifySk(skInOut, skGen, val);
+	}
+
+	void Asset::Proof::Create(ECC::Point::Native& genBlinded, const ECC::Scalar::Native& skGen, Asset::ID aid, const ECC::Point::Native& gen)
+	{
+		if (aid)
+			genBlinded = gen;
+		else
+			get_H().Assign(genBlinded, true); // not always specified explicitly for aid==0
+
+		genBlinded += ECC::Context::get().G * skGen;
+		m_hGen = genBlinded;
+
+		uint32_t nPos = SetBegin(aid, skGen);
+
+		CmList lst;
+		lst.m_Begin = m_Begin;
+
+		Sigma::Prover prover(lst, Rules::get().CA.m_ProofCfg, *this);
+		prover.m_Witness.V.m_L = nPos;
+		prover.m_Witness.V.m_R = -skGen;
+
+		ECC::Hash::Value hvSeed;
+		ECC::Hash::Processor()
+			<< "asset-pr-gen"
+			<< skGen
+			>> hvSeed;
+
+		ECC::Oracle oracle;
+		prover.Generate(hvSeed, oracle, genBlinded);
+	}
+
+	void Asset::Proof::ModifySk(ECC::Scalar::Native& skInOut, const ECC::Scalar::Native& skGen, Amount val)
+	{
+		// modify the blinding factor, to keep the original commitment
+		ECC::Scalar::Native k = skGen* val;
+		k = -k;
+		skInOut += k;
+	}
+
+	uint32_t Asset::Proof::SetBegin(Asset::ID aid, const ECC::Scalar::Native& skGen)
+	{
+		// Randomize m_Begin
+		uint32_t N = Rules::get().CA.m_ProofCfg.get_N();
+		assert(N);
+
+		ECC::Hash::Value hv;
+		ECC::Hash::Processor() << skGen >> hv;
+
+		uint32_t nPos;
+		hv.ExportWord<0>(nPos);
+		nPos %= N; // the position of this element in the list
+
+		if (aid > nPos)
+		{
+			// TODO: don't exceed the max current asset count, for this we must query it
+			m_Begin = aid - nPos;
+		}
+		else
+		{
+			m_Begin = 0;
+			nPos = aid;
+		}
+
+		assert(m_Begin + nPos == aid);
+		return nPos;
+	}
+
+	bool Asset::Proof::IsValid(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const
+	{
+		ECC::Oracle oracle;
+		ECC::Scalar::Native kBias;
+		if (!Cast::Down<Sigma::Proof>(*this).IsValid(bc, oracle, Rules::get().CA.m_ProofCfg, pKs, kBias))
+			return false;
+
+		if (!hGen.ImportNnz(m_hGen))
+			return false;
+
+		bc.AddCasual(hGen, kBias, true); // the deferred part from m_Signature, plus the needed bias
+		return true;
+	}
+
+	bool Asset::Proof::IsValid(ECC::Point::Native& hGen) const
+	{
+		if (BatchContext::s_pInstance)
+			return BatchContext::s_pInstance->IsValid(hGen, *this);
+
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		ECC::InnerProduct::BatchContextEx<1> bc;
+		std::vector<ECC::Scalar::Native> vKs;
+
+		const Sigma::Cfg& cfg = Rules::get().CA.m_ProofCfg;
+		uint32_t N = cfg.get_N();
+		assert(N);
+		vKs.resize(N);
+
+		if (!IsValid(hGen, bc, &vKs.front()))
+			return false;
+
+		CmList lst;
+		lst.m_Begin = m_Begin;
+
+		lst.Calculate(bc.m_Sum, 0, N, &vKs.front());
+
+		return bc.Flush();
+	}
+
+	void Asset::Proof::Clone(Ptr& p) const
+	{
+		p = std::make_unique<Proof>();
+		*p = *this;
+	}
+
+	thread_local Asset::Proof::BatchContext* Asset::Proof::BatchContext::s_pInstance = nullptr;
 
 } // namespace beam

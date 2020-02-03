@@ -14,7 +14,7 @@ target_link_libraries(wallet_client
 
 target_compile_features(wallet_client PUBLIC cxx_std_17)
 if(BEAM_ATOMIC_SWAP_SUPPORT)
-    target_compile_definitions(wallet_client PRIVATE BEAM_ATOMIC_SWAP_SUPPORT)
+    target_compile_definitions(wallet_client PUBLIC BEAM_ATOMIC_SWAP_SUPPORT)
     target_link_libraries(wallet_client PRIVATE swap)
 endif()
 

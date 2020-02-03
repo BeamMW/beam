@@ -609,7 +609,7 @@ namespace ECC {
 	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, const Point::Native* pHGen /* = nullptr */)
 	{
 		NoLeak<uintBig> seedSk;
-        GenerateSeed(seedSk.V, sk, cp.m_Kidv.m_Value, oracle);
+        GenerateSeed(seedSk.V, sk, cp.m_Value, oracle);
         BEAM_VERIFY(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass, pHGen));
 	}
 
@@ -635,15 +635,6 @@ namespace ECC {
 		void Init2(const Part2&, Oracle&);
 		void SetZZ();
 	};
-
-#pragma pack (push, 1)
-	struct RangeProof::CreatorParams::Padded
-	{
-		uint8_t m_Padding[sizeof(Scalar) - sizeof(Key::IDV::Packed)];
-		Key::IDV::Packed V;
-	};
-
-#pragma pack (pop)
 
 	struct RangeProof::Confidential::Vectors
 	{
@@ -699,6 +690,35 @@ namespace ECC {
 		}
 	};
 
+	void RangeProof::CreatorParams::BlobSave(uint8_t* p, size_t n) const
+	{
+		assert(m_Blob.n <= n);
+		size_t nPad = n - m_Blob.n;
+
+		memset0(p, nPad);
+		memcpy(p + nPad, m_Blob.p, m_Blob.n);
+	}
+
+	bool RangeProof::CreatorParams::BlobRecover(const uint8_t* p, size_t n)
+	{
+		assert(m_Blob.n <= n);
+		size_t nPad = n - m_Blob.n;
+
+		if (!memis0(p, nPad))
+			return false;
+
+		memcpy(Cast::NotConst(m_Blob.p), p + nPad, m_Blob.n);
+		return true;
+	}
+
+#pragma pack (push, 1)
+	struct RangeProof::CreatorParams::Packed
+	{
+		uint8_t m_pUser[sizeof(Scalar) - sizeof(Amount)];
+		beam::uintBigFor<Amount>::Type m_Value; // for historical reasons: value should be here!
+	};
+#pragma pack (pop)
+
 	bool RangeProof::Confidential::CoSign(const Nonces& nonces, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, const Point::Native* pHGen /* = nullptr */)
 	{
 		NonceGeneratorBp nonceGen(cp.m_Seed.V);
@@ -708,17 +728,17 @@ namespace ECC {
 		nonceGen >> alpha;
 
 		// embed extra params into alpha
-		static_assert(sizeof(Key::IDV::Packed) < sizeof(Scalar), "");
-		static_assert(sizeof(CreatorParams::Padded) == sizeof(Scalar), "");
-		NoLeak<CreatorParams::Padded> pad;
-		ZeroObject(pad.V.m_Padding);
-		pad.V.V = cp.m_Kidv;
+		NoLeak<CreatorParams::Packed> cpp;
+		cpp.V.m_Value = cp.m_Value;
 
-        BEAM_VERIFY(!ro.Import((Scalar&) pad.V)); // if overflow - the params won't be recovered properly, there may be ambiguity
+		cp.BlobSave(cpp.V.m_pUser, sizeof(cpp.V.m_pUser));
+
+		static_assert(sizeof(cpp) == sizeof(Scalar));
+        BEAM_VERIFY(!ro.Import((Scalar&) cpp.V)); // if overflow - the params won't be recovered properly, there may be ambiguity
 
 		alpha += ro;
 
-		CalcA(m_Part1.m_A, alpha, cp.m_Kidv.m_Value);
+		CalcA(m_Part1.m_A, alpha, cp.m_Value);
 
 		// S = G*ro + vec(sL)*vec(G) + vec(sR)*vec(H)
 		nonceGen >> ro;
@@ -766,7 +786,7 @@ namespace ECC {
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			uint32_t bit = 1 & (cp.m_Kidv.m_Value >> i);
+			uint32_t bit = 1 & (cp.m_Value >> i);
 
 
 			const Scalar::Native& lx = vecs.m_pS[0][i];
@@ -869,7 +889,7 @@ namespace ECC {
 
 		// construct vectors l,r, use buffers pS
 		// P - m_Mu*G
-		vecs.ToLR(cs, cp.m_Kidv.m_Value);
+		vecs.ToLR(cs, cp.m_Value);
 
 		Scalar::Native& yInv = alpha; // alias
 		yInv.SetInv(cs.y);
@@ -929,21 +949,21 @@ namespace ECC {
 		params = -params;
 		params += m_Mu;
 
-		CreatorParams::Padded pad;
-		static_assert(sizeof(CreatorParams::Padded) == sizeof(Scalar), "");
-		((Scalar&) pad) = params;
+		CreatorParams::Packed cpp;
+		static_assert(sizeof(cpp) == sizeof(Scalar));
+		((Scalar&) cpp) = params;
 
-		if (!memis0(pad.m_Padding, sizeof(pad.m_Padding)))
+		if (!cp.BlobRecover(cpp.m_pUser, sizeof(cpp.m_pUser)))
 			return false;
 
-		cp.m_Kidv = pad.V;
+		cpp.m_Value.Export(cp.m_Value);
 
-		// by now the probability of false positive if 2^-64 (padding is 8 bytes)
+		// by now the probability of false positive if 2^-64 (padding is 8 bytes typically)
 		// Calculate m_Part1.m_A, which depends on alpha and the value.
 
 		alpha_minus_params += params; // just alpha
 		Point ptA;
-		CalcA(ptA, alpha_minus_params, cp.m_Kidv.m_Value);
+		CalcA(ptA, alpha_minus_params, cp.m_Value);
 
 		if (ptA != m_Part1.m_A)
 			return false; // the probability of false positive should be negligible
@@ -979,7 +999,7 @@ namespace ECC {
 			vecs.Set(nonceGen);
 			vecs.Set(cs);
 
-			vecs.ToLR(cs, cp.m_Kidv.m_Value);
+			vecs.ToLR(cs, cp.m_Value);
 
 			InnerProduct::CalculatorBase c;
 			c.m_ppSrc[0] = vecs.m_pS[0];

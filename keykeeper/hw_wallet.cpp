@@ -209,7 +209,7 @@ namespace beam
         callback(result);
     }
 
-    void HWWallet::generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Point> callback) const
+    void HWWallet::generateKey(const ECC::CoinID& cid, bool isCoinKey, Result<ECC::Point> callback) const
     {
         assert(isConnected());
 
@@ -219,7 +219,7 @@ namespace beam
 
         auto trezor = getTrezor(m_client);
 
-        trezor->call_BeamGenerateKey(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
+        trezor->call_BeamGenerateKey(cid.m_Idx, cid.m_Type, cid.m_SubIdx, cid.m_Value, isCoinKey, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
             {
                 result.m_X = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().c_str(), 32);
                 result.m_Y = child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).y();
@@ -231,7 +231,7 @@ namespace beam
         callback(result);
     }
 
-    void HWWallet::generateRangeProof(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::RangeProof::Confidential> callback) const
+    void HWWallet::generateRangeProof(const CoinID& cid, bool isCoinKey, Result<ECC::RangeProof::Confidential> callback) const
     {
         assert(isConnected());
 
@@ -241,7 +241,7 @@ namespace beam
 
         auto trezor = getTrezor(m_client);
 
-        trezor->call_BeamGenerateRangeproof(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
+        trezor->call_BeamGenerateRangeproof(cid.m_Idx, cid.m_Type, cid.m_SubIdx, cid.m_Value, isCoinKey, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
             {
                 const uint8_t* rp_raw = reinterpret_cast<const uint8_t*>(child_cast<Message, hw::trezor::messages::beam::BeamRangeproofData>(msg).data().c_str());
                 rangeproof_confidential_packed_t rp;
@@ -291,7 +291,7 @@ namespace beam
         callback(result);
     }
 
-    void HWWallet::signTransaction(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const TxData& tx, Result<ECC::Scalar> callback) const
+    void HWWallet::signTransaction(const std::vector<CoinID>& inputs, const std::vector<CoinID>& outputs, const TxData& tx, Result<ECC::Scalar> callback) const
     {
         assert(isConnected());
 
@@ -387,11 +387,11 @@ namespace beam
         return result;
     }
 
-    ECC::Point HWWallet::generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const
+    ECC::Point HWWallet::generateKeySync(const CoinID& cid, bool isCoinKey) const
     {
         ECC::Point result;
 
-        generateKey(idv, isCoinKey, [&result](const ECC::Point& key)
+        generateKey(cid, isCoinKey, [&result](const ECC::Point& key)
         {
             result = key;
         });
@@ -399,11 +399,11 @@ namespace beam
         return result;
     }
 
-    ECC::RangeProof::Confidential HWWallet::generateRangeProofSync(const ECC::Key::IDV& idv, bool isCoinKey) const
+    ECC::RangeProof::Confidential HWWallet::generateRangeProofSync(const CoinID& cid, bool isCoinKey) const
     {
         ECC::RangeProof::Confidential result;
 
-        generateRangeProof(idv, isCoinKey, [&result](const ECC::RangeProof::Confidential& key)
+        generateRangeProof(cid, isCoinKey, [&result](const ECC::RangeProof::Confidential& key)
         {
             result = key;
         });
@@ -411,7 +411,7 @@ namespace beam
         return result;
     }
 
-    ECC::Scalar HWWallet::signTransactionSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const TxData& tx) const
+    ECC::Scalar HWWallet::signTransactionSync(const std::vector<CoinID>& inputs, const std::vector<CoinID>& outputs, const TxData& tx) const
     {
         ECC::Scalar result;
 

@@ -341,7 +341,7 @@ void NodeDB::Open(const char* szPath)
 	if (bCreate)
 	{
 		Create();
-		ParamSet(ParamID::DbVer, &nVersionTop, NULL);
+		ParamIntSet(ParamID::DbVer, nVersionTop);
 	}
 	else
 	{
@@ -367,7 +367,7 @@ void NodeDB::Open(const char* szPath)
 			LOG_INFO() << "DB migrate from" << 20;
 			MigrateFrom20();
 
-			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
+			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
 
 		case nVersionTop:
@@ -648,6 +648,11 @@ void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
 	}
 }
 
+void NodeDB::ParamIntSet(uint32_t ID, uint64_t val)
+{
+	ParamSet(ID, &val, nullptr);
+}
+
 bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1, ByteBuffer* p2 /* = NULL */)
 {
 	Recordset rs(*this, Query::ParamGet, "SELECT " TblParams_Int "," TblParams_Blob " FROM " TblParams " WHERE " TblParams_ID "=?");
@@ -671,7 +676,7 @@ bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1, ByteBuffer* p2 /* = N
 	return true;
 }
 
-uint64_t NodeDB::ParamIntGetDef(int ID, uint64_t def /* = 0 */)
+uint64_t NodeDB::ParamIntGetDef(uint32_t ID, uint64_t def /* = 0 */)
 {
 	ParamGet(ID, &def, NULL);
 	return def;
@@ -1684,8 +1689,8 @@ bool NodeDB::get_Cursor(StateID& sid)
 
 void NodeDB::put_Cursor(const StateID& sid)
 {
-	ParamSet(ParamID::CursorRow, &sid.m_Row, NULL);
-	ParamSet(ParamID::CursorHeight, &sid.m_Height, NULL);
+	ParamIntSet(ParamID::CursorRow, sid.m_Row);
+	ParamIntSet(ParamID::CursorHeight, sid.m_Height);
 }
 
 void NodeDB::StateID::SetNull()
@@ -2411,7 +2416,7 @@ void NodeDB::UniqueDeleteStrict(const Blob& key)
 	TestChanged1Row();
 }
 
-const Asset::ID NodeDB::s_AssetEmpty0 = uint64_t(1) << 62;
+const Asset::ID NodeDB::s_AssetEmpty0 = Asset::s_MaxCount;
 
 Asset::ID NodeDB::AssetFindByOwner(const PeerID& owner)
 {
@@ -2470,24 +2475,26 @@ void NodeDB::AssetAdd(Asset::Full& ai)
 	ai.m_ID = AssetFindMinFree(ai.m_ID + s_AssetEmpty0);
 	if (ai.m_ID)
 	{
-		assert(ai.m_ID >= s_AssetEmpty0);
+		assert(ai.m_ID > s_AssetEmpty0);
 		AssetDeleteRaw(ai.m_ID);
 		ai.m_ID -= s_AssetEmpty0;
 	}
 	else
 	{
-		ai.m_ID = ParamIntGetDef(ParamID::AssetsCount) + 1;
-		ParamSet(ParamID::AssetsCount, &ai.m_ID, nullptr);
+		ai.m_ID = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AssetsCount) + 1);
+		ParamIntSet(ParamID::AssetsCount, ai.m_ID);
 	}
 
 	AssetInsertRaw(ai.m_ID, &ai);
+
+	ParamIntSet(ParamID::AssetsCountUsed, ParamIntGetDef(ParamID::AssetsCountUsed) + 1);
 }
 
 Asset::ID NodeDB::AssetDelete(Asset::ID id)
 {
 	AssetDeleteRaw(id);
 
-	Asset::ID nCount = ParamIntGetDef(ParamID::AssetsCount);
+	Asset::ID nCount = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AssetsCount));
 	if (nCount == id)
 	{
 		// last erased.
@@ -2500,10 +2507,12 @@ Asset::ID NodeDB::AssetDelete(Asset::ID id)
 			AssetDeleteRaw(id);
 		}
 
-		ParamSet(ParamID::AssetsCount, &nCount, nullptr);
+		ParamIntSet(ParamID::AssetsCount, nCount);
 	}
 	else
 		AssetInsertRaw(id + s_AssetEmpty0, nullptr);
+
+	ParamIntSet(ParamID::AssetsCountUsed, ParamIntGetDef(ParamID::AssetsCountUsed) - 1);
 
 	return nCount;
 }

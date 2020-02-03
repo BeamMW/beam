@@ -17,6 +17,7 @@
 #include "../core/radixtree.h"
 #include "../core/proto.h"
 #include "../utility/dvector.h"
+#include "../utility/executor.h"
 #include "db.h"
 #include "txpool.h"
 
@@ -39,7 +40,9 @@ class NodeProcessor
 	size_t m_nSizeUtxoComission;
 
 	struct MultiblockContext;
+	struct MultiSigmaContext;
 	struct MultiShieldedContext;
+	struct MultiAssetContext;
 
 	void RollbackTo(Height);
 	Height PruneOld();
@@ -320,24 +323,26 @@ public:
 	virtual void OnModified() {}
 	virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {}
 
-	// parallel context-free execution
-	struct Task
+	struct MyExecutor
+		:public Executor
 	{
-		typedef std::unique_ptr<Task> Ptr;
-		virtual void Exec() = 0;
-        virtual ~Task() {};
-
-		struct Processor
+		struct MyContext
+			:public Context
 		{
-			virtual uint32_t get_Threads();
-			virtual void Push(Task::Ptr&&);
-			virtual uint32_t Flush(uint32_t nMaxTasks);
-			virtual void ExecAll(Task&);
+			ECC::InnerProduct::BatchContextEx<4> m_BatchCtx; // seems to be ok, for larger batches difference is marginal
 		};
+
+		MyContext m_Ctx;
+
+		virtual uint32_t get_Threads();
+		virtual void Push(TaskAsync::Ptr&&);
+		virtual uint32_t Flush(uint32_t nMaxTasks);
+		virtual void ExecAll(TaskSync&);
 	};
 
-	Task::Processor m_SyncProcessor;
-	virtual Task::Processor& get_TaskProcessor() { return m_SyncProcessor; }
+	std::unique_ptr<MyExecutor> m_pExecSync;
+
+	virtual Executor& get_Executor();
 
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
 
@@ -399,12 +404,19 @@ public:
 	bool EnumTxos(ITxoWalker&);
 	bool EnumTxos(ITxoWalker&, const HeightRange&);
 
+	struct ITxoWalker_Unspent
+		:public ITxoWalker
+	{
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
+	};
+
 	struct ITxoRecover
 		:public ITxoWalker
 	{
 		Key::IPKdf& m_Key;
 		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
 
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&) = 0;
 	};
@@ -422,7 +434,8 @@ public:
 		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
 
 		struct Value {
-			ECC::Key::IDV::Packed m_Kidv;
+			ECC::Key::ID::Packed m_Kid;
+			uintBigFor<Amount>::Type m_Value;
 			uintBigFor<Height>::Type m_Maturity;
 			uintBigFor<Asset::ID>::Type m_AssetID;
 			proto::UtxoEvent::AuxBuf1 m_Buf1;

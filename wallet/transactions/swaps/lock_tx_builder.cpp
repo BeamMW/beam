@@ -186,8 +186,7 @@ namespace beam::wallet
         if (!m_CreatorParams.is_initialized())
         {
             ECC::RangeProof::CreatorParams creatorParams;
-            creatorParams.m_Kidv = Zero;
-            creatorParams.m_Kidv.m_Value = m_SharedCoin.m_ID.m_Value;
+            creatorParams.m_Value = m_SharedCoin.m_ID.m_Value;
 
             auto publicSharedBlindingFactor = GetPublicSharedBlindingFactor();
             auto peerPublicSharedBlindingFactor = m_Tx.GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicSharedBlindingFactor, m_SubTxID);

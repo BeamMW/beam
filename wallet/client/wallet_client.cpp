@@ -677,7 +677,6 @@ namespace beam::wallet
     {
         m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
-
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     void WalletClient::cancelTx(const TxID& id)

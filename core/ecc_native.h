@@ -124,6 +124,7 @@ namespace ECC
 		:public secp256k1_ge_storage
 	{
 		struct Converter;
+		void Assign(secp256k1_ge&) const;
 		void Assign(Point::Native&, bool bSet) const;
 	};
 

@@ -1265,7 +1265,7 @@ public:
         WALLET_CHECK(txHistory.size() == totalTxCount);
         for (const auto& tx : txHistory)
         {
-            WALLET_CHECK(tx.m_status == TxStatus::Completed);
+            WALLET_CHECK(tx.m_status == wallet::TxStatus::Completed);
         }
     }
 
