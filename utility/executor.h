@@ -23,6 +23,21 @@ namespace beam
 	// parallel context-free execution
 	struct Executor
 	{
+		static thread_local Executor* s_pInstance;
+
+		struct Scope
+		{
+			Executor* m_pPrev;
+
+			Scope(Executor& ex) {
+				m_pPrev = s_pInstance;
+				s_pInstance = &ex;
+			}
+			~Scope() {
+				s_pInstance = m_pPrev;
+			}
+		};
+
 		// Per-thread context, which tasks may access
 		struct Context
 		{

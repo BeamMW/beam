@@ -109,6 +109,8 @@ namespace beam
 
 	///////////////////////
 	// Executor
+	thread_local Executor* Executor::s_pInstance = nullptr;
+
 	void Executor::Context::get_Portion(uint32_t& i0, uint32_t& nCount, uint32_t nTotal)
 	{
 		uint32_t nThreads = m_pThis->get_Threads();
