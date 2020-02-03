@@ -994,9 +994,7 @@ namespace beam
 	void TxKernelAssetCreate::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
 		TxKernelAssetControl::HashSelfForMsg(hp);
-		hp
-			<< m_MetaData.m_Value.size()
-			<< Blob(m_MetaData.m_Value);
+		m_MetaData.get_Hash(hp);
 	}
 
 	/////////////
@@ -2305,15 +2303,32 @@ namespace beam
 
 	void Asset::Full::get_Hash(ECC::Hash::Value& hv) const
 	{
-		ECC::Hash::Processor()
+		ECC::Hash::Processor hp;
+		hp
 			<< "B.Asset.V1"
 			<< m_ID
 			<< m_Value
 			<< m_Owner
-			<< m_LockHeight
-			<< m_Metadata.m_Value.size()
-			<< Blob(m_Metadata.m_Value)
-			>> hv;
+			<< m_LockHeight;
+
+		m_Metadata.get_Hash(hp);
+
+		hp >> hv;
+	}
+
+	void Asset::Metadata::get_Hash(ECC::Hash::Processor& hp) const
+	{
+		hp
+			<< m_Value.size()
+			<< Blob(m_Value);
+	}
+
+	void Asset::Metadata::get_Hash(ECC::Hash::Value& hv) const
+	{
+		ECC::Hash::Processor hp;
+		hp << "B.AssetOwner";
+		get_Hash(hp);
+		hp >> hv;
 	}
 
 	const ECC::Point::Compact& Asset::Proof::get_H()

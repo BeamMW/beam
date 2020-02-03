@@ -115,6 +115,8 @@ namespace beam
 		struct Metadata
 		{
 			ByteBuffer m_Value;
+			void get_Hash(ECC::Hash::Value&) const; // used to derive the owner key
+			void get_Hash(ECC::Hash::Processor&) const;
 		};
 
 		struct Info
