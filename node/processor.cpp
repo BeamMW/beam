@@ -2279,6 +2279,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 			wlkKrn.Process(block.m_vKernels);
 			assert(m_Extra.m_ShieldedOutputs == nOuts);
+			nOuts; // supporess unused var warning in release
 		}
 
 		Serializer ser;
@@ -2548,6 +2549,7 @@ void NodeProcessor::RescanOwnedTxos()
 			EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));
 
 			assert(m_Extra.m_ShieldedOutputs == nOuts);
+			nOuts; // supporess unused var warning in release
 		}
 
 		LOG_INFO() << "Shielded scan complete";
