@@ -973,7 +973,7 @@ namespace beam
 		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
 			return false;
 
-		if (m_MetaData.size() > Asset::Info::s_MetadataMaxSize)
+		if (m_MetaData.m_Value.size() > Asset::Info::s_MetadataMaxSize)
 			return false;
 
 		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
@@ -995,8 +995,8 @@ namespace beam
 	{
 		TxKernelAssetControl::HashSelfForMsg(hp);
 		hp
-			<< m_MetaData.size()
-			<< Blob(m_MetaData);
+			<< m_MetaData.m_Value.size()
+			<< Blob(m_MetaData.m_Value);
 	}
 
 	/////////////
@@ -2290,12 +2290,12 @@ namespace beam
 		m_Value = Zero;
 		m_Owner = Zero;
 		m_LockHeight = 0;
-		m_Metadata.clear();
+		m_Metadata.m_Value.clear();
 	}
 
 	bool Asset::Info::IsEmpty() const
 	{
-	    return m_Value == Zero && m_Owner == Zero && m_LockHeight == Zero && m_Metadata.size() == 0;
+	    return m_Value == Zero && m_Owner == Zero && m_LockHeight == Zero && m_Metadata.m_Value.empty();
 	}
 
 	bool Asset::Info::IsValid() const
@@ -2311,8 +2311,8 @@ namespace beam
 			<< m_Value
 			<< m_Owner
 			<< m_LockHeight
-			<< m_Metadata.size()
-			<< Blob(m_Metadata)
+			<< m_Metadata.m_Value.size()
+			<< Blob(m_Metadata.m_Value)
 			>> hv;
 	}
 

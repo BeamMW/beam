@@ -2446,7 +2446,7 @@ void NodeDB::AssetInsertRaw(Asset::ID id, const Asset::Full* pAi)
 	if (pAi)
 	{
 		rs.put(1, pAi->m_Owner);
-		rs.put(2, Blob(pAi->m_Metadata));
+		rs.put(2, Blob(pAi->m_Metadata.m_Value));
 		rs.put_As(3, pAi->m_Value);
 		rs.put(4, pAi->m_LockHeight);
 	}
@@ -2526,7 +2526,7 @@ bool NodeDB::AssetGetSafe(Asset::Full& ai)
 
 	rs.get_As(0, ai.m_Value);
 	rs.get_As(1, ai.m_Owner);
-	rs.get(2, ai.m_Metadata);
+	rs.get(2, ai.m_Metadata.m_Value);
 	rs.get(3, ai.m_LockHeight);
 
 	return true;

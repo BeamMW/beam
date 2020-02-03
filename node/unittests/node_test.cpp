@@ -1949,7 +1949,7 @@ namespace beam
 				if (msg.m_Proof.empty())
 					return;
 
-				verify_test(msg.m_Info.m_Metadata == m_Assets.m_MetaData);
+				verify_test(msg.m_Info.m_Metadata.m_Value == m_Assets.m_MetaData);
 
 				verify_test(m_vStates.back().IsValidProofAsset(msg.m_Info, msg.m_Proof));
 
@@ -2166,7 +2166,7 @@ namespace beam
 				pKrn->m_Fee = nFee;
 				pKrn->m_Height.m_Min = s.m_Height + 1;
 				proto::Sk2Pk(pKrn->m_Owner, m_Assets.m_skOwner);
-				pKrn->m_MetaData = m_Assets.m_MetaData;
+				pKrn->m_MetaData.m_Value = m_Assets.m_MetaData;
 				pKrn->Sign(sk, m_Assets.m_skOwner);
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));

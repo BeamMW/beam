@@ -112,12 +112,17 @@ namespace beam
 			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
 		};
 
+		struct Metadata
+		{
+			ByteBuffer m_Value;
+		};
+
 		struct Info
 		{
 			AmountBig::Type m_Value = Zero;
 			PeerID m_Owner = Zero;
 			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
-			ByteBuffer m_Metadata;
+			Metadata m_Metadata;
 			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
 
 			void Reset();
@@ -722,7 +727,7 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelAssetCreate> Ptr;
 
-		ByteBuffer m_MetaData;
+		Asset::Metadata m_MetaData;
 
 		virtual ~TxKernelAssetCreate() {}
 		virtual Subtype::Enum get_Subtype() const override;
