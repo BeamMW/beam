@@ -23,60 +23,60 @@
 
 namespace beam::wallet
 {
-    struct ISwapOffersObserver;
-    struct SwapOffer;
-    using namespace beam::proto;
+struct ISwapOffersObserver;
+struct SwapOffer;
+using namespace beam::proto;
 
+/**
+ *  Implementation of public swap offers bulletin board using not crypted BBS broadcasting.
+ */
+class SwapOffersBoard
+    : public FlyClient::IBbsReceiver
+    , public IWalletDbObserver
+{
+public:
+    SwapOffersBoard(FlyClient::INetwork& network, IWalletMessageEndpoint& messageEndpoint);
+    virtual ~SwapOffersBoard();
     /**
-     *  Implementation of public swap offers bulletin board using not crypted BBS broadcasting.
+     *  FlyClient::IBbsReceiver implementation
+     *  Executed to catch BBS messages received on subscribed channels
      */
-    class SwapOffersBoard
-        : public FlyClient::IBbsReceiver,
-          public IWalletDbObserver
-    {
-    public:
-        SwapOffersBoard(FlyClient::INetwork& network, IWalletMessageEndpoint& messageEndpoint);
+    virtual void OnMsg(proto::BbsMsg&& msg) override;
+    /**
+     *  IWalletDbObserver implementation
+     *  Watches for swap transaction status changes to update linked offers on board
+     */
+    virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
+    /**
+     *  Watches for system state to remove stuck expired offers from board
+     */
+    virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
 
-        /**
-         *  FlyClient::IBbsReceiver implementation
-         *  Executed to catch BBS messages received on subscribed channels
-         */
-        virtual void OnMsg(proto::BbsMsg&& msg) override;
-        /**
-         *  IWalletDbObserver implementation
-         *  Watches for swap transaction status changes to update linked offers on board
-         */
-        virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
-        /**
-         *  Watches for system state to remove stuck expired offers from board
-         */
-        virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
+    auto getOffersList() const -> std::vector<SwapOffer>;
+    // TODO(zavarza)
+    // auto getOffer(const TxID& txId) const -> boost::optional<SwapOffer>;
+    void publishOffer(const SwapOffer& offer) const;
 
-        auto getOffersList() const -> std::vector<SwapOffer>;
-        // TODO(zavarza)
-        // auto getOffer(const TxID& txId) const -> boost::optional<SwapOffer>;
-        void publishOffer(const SwapOffer& offer) const;
+    void Subscribe(ISwapOffersObserver* observer);
+    void Unsubscribe(ISwapOffersObserver* observer);
 
-        void Subscribe(ISwapOffersObserver* observer);
-        void Unsubscribe(ISwapOffersObserver* observer);
+private:
+    FlyClient::INetwork& m_network;                     /// source of incoming BBS messages
+    std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
+    IWalletMessageEndpoint& m_messageEndpoint;          /// destination of outgoing BBS messages
 
-    private:
-		FlyClient::INetwork& m_network;                     /// source of incoming BBS messages
-        std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
-        IWalletMessageEndpoint& m_messageEndpoint;          /// destination of outgoing BBS messages
+    static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
+    static constexpr uint8_t m_protocolVersion = 1;
+    Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
+    Height m_currentHeight = 0;
+    std::unordered_map<TxID, SwapOffer> m_offersCache;
 
-        static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
-        static constexpr uint8_t m_protocolVersion = 1;
-        Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
-        Height m_currentHeight = 0;
-        std::unordered_map<TxID, SwapOffer> m_offersCache;
+    auto getChannel(AtomicSwapCoin coin) const -> BbsChannel;
+    bool isOfferExpired(const SwapOffer& offer) const;
+    void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
+    void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);
+    void notifySubscribers(ChangeAction action, const std::vector<SwapOffer>& offers) const;
 
-        auto getChannel(AtomicSwapCoin coin) const -> BbsChannel;
-        bool isOfferExpired(const SwapOffer& offer) const;
-        void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
-        void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);
-        void notifySubscribers(ChangeAction action, const std::vector<SwapOffer>& offers) const;
-
-    };
+};
 
 } // namespace beam::wallet
