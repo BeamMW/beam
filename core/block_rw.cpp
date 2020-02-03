@@ -369,7 +369,8 @@ namespace beam
 	void RecoveryInfo::Writer::Write(const Entry& x)
 	{
 		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> ser(m_Stream);
-		ser & x;
+		ser & x.m_CreateHeight;
+		ser & x.m_Output;
 	}
 
 	bool RecoveryInfo::Reader::Read(Entry& x)
@@ -378,7 +379,8 @@ namespace beam
 			return false;
 
 		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> der(m_Stream);
-		der & x;
+		der & x.m_CreateHeight;
+		der & x.m_Output;
 
 		UtxoTree::Key::Data d;
 		d.m_Commitment = x.m_Output.m_Commitment;
@@ -395,11 +397,57 @@ namespace beam
 
 	void RecoveryInfo::Reader::Finalyze()
 	{
+		struct Verifier
+			:public Block::SystemState::Evaluator
+		{
+			Reader& m_This;
+			Verifier(Reader& r) :m_This(r) {}
+
+			virtual bool get_Utxos(Merkle::Hash& hv) override
+			{
+				m_This.m_UtxoTree.Flush(hv);
+				return true;
+			}
+		};
+
+		Verifier v(*this);
+
 		Merkle::Hash hv;
-		m_UtxoTree.Flush(hv);
+		v.get_Live(hv);
 
 		if (!(m_Cwp.m_hvRootLive == hv))
-			throw std::runtime_error("UTXO hash mismatch");
+			throw std::runtime_error("Recovery Live hash mismatch");
+	}
+
+	bool RecoveryInfo::IParser::Proceed(const char* sz)
+	{
+		Reader rp;
+		rp.Open(sz);
+
+		std::vector<Block::SystemState::Full> vec;
+		rp.m_Cwp.UnpackStates(vec);
+		if (!OnStates(vec))
+			return false;
+
+		uint64_t nTotal = rp.m_Stream.get_Remaining();
+
+		while (true)
+		{
+			RecoveryInfo::Entry x;
+			if (!rp.Read(x))
+				break;
+
+			if (!OnUtxo(x))
+				return false;
+
+			uint64_t nRemaining = rp.m_Stream.get_Remaining();
+			if (!OnProgress(nTotal - nRemaining, nTotal))
+				return false;
+		}
+
+		rp.Finalyze(); // final verification
+
+		return true; // all done
 	}
 
 } // namespace beam

@@ -1783,51 +1783,64 @@ namespace beam::wallet
 
 	bool IWalletDB::ImportRecovery(const std::string& path, IRecoveryProgress& prog)
 	{
-		beam::RecoveryInfo::Reader rp;
-		rp.Open(path.c_str());
-		uint64_t nTotal = rp.m_Stream.get_Remaining();
+        struct MyParser
+            :public RecoveryInfo::IParser
+        {
+            IWalletDB& m_This;
+            IRecoveryProgress& m_Progr;
+            Key::IPKdf::Ptr m_pOwner;
 
-        Key::IPKdf::Ptr pOwner = get_OwnerKdf();
+            MyParser(IWalletDB& db, IRecoveryProgress& progr)
+                :m_This(db)
+                ,m_Progr(progr)
+            {
+            }
 
-		while (true)
-		{
-			RecoveryInfo::Entry x;
-			if (!rp.Read(x))
-				break;
+            virtual bool OnProgress(uint64_t nPos, uint64_t nTotal) override
+            {
+                return m_Progr.OnProgress(nPos, nTotal);
+            }
 
-			uint64_t nRemaining = rp.m_Stream.get_Remaining();
-			if (!prog.OnProgress(nTotal - nRemaining, nTotal))
-				return false;
+            virtual bool OnStates(std::vector<Block::SystemState::Full>& vec) override
+            {
+                if (!vec.empty())
+                    m_This.get_History().AddStates(&vec.front(), vec.size());
 
-			CoinID cid;
-			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, cid))
-				continue;
+                return true;
+            }
 
-            if (!IsRecoveredMatch(cid, x.m_Output.m_Commitment))
-				continue;
+            virtual bool OnUtxo(const RecoveryInfo::Entry& x) override
+            {
+                Recognize(x);
+                return true;
+            }
 
-			Coin c;
-			c.m_ID = cid;
-			findCoin(c); // in case it exists already - fill its parameters
+            void Recognize(const RecoveryInfo::Entry& x)
+            {
+                CoinID cid;
+                if (!x.m_Output.Recover(x.m_CreateHeight, *m_pOwner, cid))
+                    return;
 
-			c.m_maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
-			c.m_confirmHeight = x.m_CreateHeight;
+                if (!m_This.IsRecoveredMatch(cid, x.m_Output.m_Commitment))
+                    return;
 
-			LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << c.m_maturity << " Recovered";
+                Coin c;
+                c.m_ID = cid;
+                m_This.findCoin(c); // in case it exists already - fill its parameters
 
-			saveCoin(c);
-		}
+                c.m_maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
+                c.m_confirmHeight = x.m_CreateHeight;
 
-		rp.Finalyze(); // final verification
+                LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << c.m_maturity << " Recovered";
 
-		// add states to history
-		std::vector<Block::SystemState::Full> vec;
-		rp.m_Cwp.UnpackStates(vec);
+                m_This.saveCoin(c);
+            }
+        };
 
-		if (!vec.empty())
-			get_History().AddStates(&vec.front(), vec.size());
+        MyParser p(*this, prog);
+        p.m_pOwner = get_OwnerKdf();
 
-		return true;
+        return p.Proceed(path.c_str());
 	}
 
     void IWalletDB::get_SbbsPeerID(ECC::Scalar::Native& sk, PeerID& pid, uint64_t ownID)

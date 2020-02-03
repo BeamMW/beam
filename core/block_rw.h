@@ -46,14 +46,6 @@ namespace beam
 		{
 			Height m_CreateHeight;
 			Output m_Output; // recovery-only piece
-
-			template <typename Archive>
-			void serialize(Archive& ar)
-			{
-				ar
-					& m_CreateHeight
-					& m_Output;
-			}
 		};
 
 		struct Writer
@@ -77,6 +69,16 @@ namespace beam
 			UtxoTree::Compact m_UtxoTree;
 
 			static void ThrowRulesMismatch();
+		};
+
+		struct IParser
+		{
+			// each of the following returns false to abort
+			virtual bool OnProgress(uint64_t nPos, uint64_t nTotal) { return true; }
+			virtual bool OnStates(std::vector<Block::SystemState::Full>&) { return true; }
+			virtual bool OnUtxo(const Entry&) { return true; }
+
+			bool Proceed(const char*);
 		};
 	};
 
