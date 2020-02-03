@@ -1348,7 +1348,7 @@ struct TransactionMaker
 
 			SetRandom(sk, is_trezor_debug); // excess
 			SetRandom(skAsset, is_trezor_debug); // asset sk
-			beam::proto::Sk2Pk(pkAsset, skAsset);
+			pkAsset.FromSk(skAsset);
 
 			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, nAssetID, is_trezor_debug); // output UTXO to consume the created asset
 
@@ -1443,7 +1443,7 @@ struct PaymentConfirmation
 	bool IsValid(const Signature& s, const beam::PeerID& pid) const
 	{
 		Point::Native pk;
-		if (!beam::proto::ImportPeerID(pk, pid))
+		if (!pid.Export(pk))
 			return false;
 
 		Hash::Value hv;
@@ -1780,7 +1780,7 @@ struct HWWalletEmulator
 
 		m_pKdf->DeriveKey(sk, kid);
 
-		beam::proto::Sk2Pk(res, sk);
+		res.FromSk(sk);
 	}
 
 	virtual void GetWalletID(beam::PeerID& res) override
@@ -2110,7 +2110,7 @@ void TestBbs()
 	beam::PeerID publicAddr;
 
 	SetRandom(privateAddr);
-	beam::proto::Sk2Pk(publicAddr, privateAddr);
+	publicAddr.FromSk(privateAddr);
 
 	const char szMsg[] = "Hello, World!";
 
@@ -2654,7 +2654,7 @@ void TestAssetEmission()
 	pKdf->DeriveKey(skAssetSk, beam::Key::ID(1231231, beam::Key::Type::Asset));
 
 	beam::PeerID assetOwner;
-	beam::proto::Sk2Pk(assetOwner, skAssetSk);
+	assetOwner.FromSk(skAssetSk);
 	beam::Asset::ID nAssetID = 24;
 
 	cidInpAsset.m_AssetID = nAssetID;

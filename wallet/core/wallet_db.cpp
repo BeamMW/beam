@@ -1844,7 +1844,7 @@ namespace beam::wallet
         Key::ID(ownID, Key::Type::Bbs).get_Hash(hv);
 
         pKdfSbbs->DeriveKey(sk, hv);
-        proto::Sk2Pk(pid, sk);
+        pid.FromSk(sk);
     }
 
     void IWalletDB::get_SbbsWalletID(ECC::Scalar::Native& sk, WalletID& wid, uint64_t ownID)

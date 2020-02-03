@@ -201,7 +201,7 @@ namespace proto {
     macro(Timestamp, TimeFrom)
 
 #define BeamNodeMsg_SChannelInitiate(macro) \
-    macro(ECC::uintBig, NoncePub)
+    macro(PeerID, NoncePub)
 
 #define BeamNodeMsg_SChannelReady(macro)
 
@@ -419,7 +419,8 @@ namespace proto {
     template <typename T>
     inline void ZeroInit(std::unique_ptr<T>&) { }
     template <uint32_t nBytes_>
-    inline void ZeroInit(uintBig_t<nBytes_>& x) { x = ECC::Zero; }
+    inline void ZeroInit(uintBig_t<nBytes_>& x) { x = Zero; }
+    inline void ZeroInit(PeerID& x) { x = Zero; }
     inline void ZeroInit(io::Address& x) { }
     inline void ZeroInit(ByteBuffer&) { }
     inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
@@ -516,7 +517,7 @@ namespace proto {
         AES::StreamCipher m_CipherOut;
 
         ECC::Scalar::Native m_MyNonce;
-        ECC::uintBig m_RemoteNonce;
+        PeerID m_RemoteNonce;
         ECC::Hash::Mac m_HMac;
 
         struct Mode {
@@ -543,9 +544,6 @@ namespace proto {
 
         void Encrypt(SerializedMsg&, MsgSerializer&);
     };
-
-    void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
-    bool ImportPeerID(ECC::Point::Native&, const PeerID&);
 
     struct INodeMsgHandler
         :public IErrorHandler

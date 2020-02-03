@@ -25,7 +25,16 @@ namespace beam
 
 	const Height MaxHeight = std::numeric_limits<Height>::max();
 
-	typedef ECC::Hash::Value PeerID;
+	struct PeerID :public ECC::uintBig
+	{
+		using ECC::uintBig::uintBig;
+		using ECC::uintBig::operator =;
+
+		bool Export(ECC::Point::Native&) const;
+		bool Import(const ECC::Point::Native&); // returns if the sign is preserved
+		void FromSk(ECC::Scalar::Native&); // will negate the scalar iff necessary
+	};
+
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
 	typedef uint64_t TxoID;
@@ -1272,4 +1281,9 @@ namespace beam
 		void ZeroInit();
 		bool EnumStatesHeadingOnly(IStateWalker&) const; // skip arbitrary
 	};
+}
+
+inline ECC::Hash::Processor& operator << (ECC::Hash::Processor& hp, const beam::PeerID& pid)
+{
+	return hp << Cast::Down<ECC::Hash::Value>(pid);
 }

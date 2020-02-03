@@ -21,6 +21,30 @@
 
 namespace beam
 {
+	/////////////
+	// PeerID
+	bool PeerID::Export(ECC::Point::Native& pt) const
+	{
+		ECC::Point pk;
+		pk.m_X = Cast::Down<ECC::uintBig>(*this);
+		pk.m_Y = 0;
+
+		return pt.Import(pk);
+	}
+
+	bool PeerID::Import(const ECC::Point::Native& pt)
+	{
+		ECC::Point pk = pt;
+		*this = pk.m_X;
+		return !pk.m_Y;
+	}
+
+	void PeerID::FromSk(ECC::Scalar::Native& sk)
+	{
+		ECC::Point::Native pt = ECC::Context::get().G * sk;
+		if (!Import(pt))
+			sk = -sk;
+	}
 
 	/////////////
 	// HeightRange
@@ -889,10 +913,7 @@ namespace beam
 		if (m_Owner == Zero)
 			return false;
 
-		ECC::Point pkOwner;
-		pkOwner.m_X = m_Owner;
-		pkOwner.m_Y = 0;
-		if (!pPt[1].Import(pkOwner))
+		if (!m_Owner.Export(pPt[1]))
 			return false;
 
 		// prover must prove knowledge of excess AND m_AssetID sk

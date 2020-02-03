@@ -969,7 +969,7 @@ void Node::InitIDs()
     else
         m_MyPrivateID = s.V;
 
-    proto::Sk2Pk(m_MyPublicID, m_MyPrivateID);
+    m_MyPublicID.FromSk(m_MyPrivateID);
 }
 
 void Node::RefreshOwnedUtxos()
@@ -4264,8 +4264,7 @@ void Node::PrintTxos()
         return;
     }
 
-    ECC::Point pt;
-    PeerID& pid = pt.m_X; // alias
+    PeerID pid;
 
     {
         Key::ID kid(Zero);
@@ -4274,7 +4273,7 @@ void Node::PrintTxos()
 
         ECC::Point::Native ptN;
         m_Keys.m_pOwner->DerivePKeyG(ptN, pid);
-        pt = ptN;
+        pid.Import(ptN);
     }
 
     std::ostringstream os;

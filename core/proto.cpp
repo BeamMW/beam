@@ -150,20 +150,12 @@ void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const 
     c.m_nBuf = 0;
 }
 
-bool ImportPeerID(ECC::Point::Native& res, const PeerID& pid)
-{
-    ECC::Point pt;
-    pt.m_X = pid;
-    pt.m_Y = 0;
-
-    return res.ImportNnz(pt);
-}
-
 bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& remotePublic, AES::Encoder& enc, ECC::Hash::Mac& hmac, AES::StreamCipher* pCipherOut, AES::StreamCipher* pCipherIn)
 {
     // Diffie-Hellman
     ECC::Point::Native p;
-    ImportPeerID(p, remotePublic);
+    if (!remotePublic.Export(p))
+        return false;
 
     ECC::Point::Native ptSecret = p * myPrivate;
 
@@ -181,7 +173,7 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
     if (pCipherIn)
     {
         PeerID myPublic;
-        Sk2Pk(myPublic, Cast::NotConst(myPrivate)); // my private must have been already normalized. Should not be modified.
+        myPublic.FromSk(Cast::NotConst(myPrivate)); // my private must have been already normalized. Should not be modified.
         InitCipherIV(*pCipherIn, hvSecret.V, myPublic);
     }
 
@@ -196,19 +188,11 @@ void ProtocolPlus::InitCipher()
         NodeConnection::ThrowUnexpected();
 }
 
-void Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
-{
-    ECC::Point pt = ECC::Point::Native(ECC::Context::get().G * sk);
-    if (pt.m_Y)
-        sk = -sk;
-
-    res = pt.m_X;
-}
 
 bool Bbs::Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void* p, uint32_t n)
 {
     PeerID myPublic;
-    Sk2Pk(myPublic, nonce);
+    myPublic.FromSk(nonce);
 
     AES::Encoder enc;
     AES::StreamCipher cOut;
@@ -600,7 +584,7 @@ void NodeConnection::SecureConnect()
         ThrowUnexpected("SChannel not supported");
 
     SChannelInitiate msg;
-    Sk2Pk(msg.m_NoncePub, m_Protocol.m_MyNonce);
+    msg.m_NoncePub.FromSk(m_Protocol.m_MyNonce);
     Send(msg);
 }
 
@@ -790,7 +774,7 @@ void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
 
     Authentication msgOut;
     msgOut.m_IDType = nIDType;
-    Sk2Pk(msgOut.m_ID, sk);
+    msgOut.m_ID.FromSk(sk);
     msgOut.m_Sig.Sign(hv, sk);
 
     Send(msgOut);
@@ -802,9 +786,9 @@ void NodeConnection::HashAddNonce(ECC::Hash::Processor& hp, bool bRemote)
         hp << m_Protocol.m_RemoteNonce;
     else
     {
-        ECC::Hash::Value hv;
-        Sk2Pk(hv, m_Protocol.m_MyNonce);
-        hp << hv;
+        PeerID pid;
+        pid.FromSk(m_Protocol.m_MyNonce);
+        hp << pid;
     }
 }
 
@@ -916,12 +900,8 @@ void NodeConnection::OnMsg(Authentication&& msg)
     ECC::Hash::Value hv;
     hp >> hv;
 
-    ECC::Point pt;
-    pt.m_X = msg.m_ID;
-    pt.m_Y = 0;
-
     ECC::Point::Native p;
-    if (!p.Import(pt))
+    if (!msg.m_ID.Export(p))
         ThrowUnexpected();
 
     if (!msg.m_Sig.IsValid(hv, p))

@@ -281,7 +281,7 @@ namespace beam
 			s.m_Kernels = Zero;
 		}
 
-		Merkle::Hash peer, peer2;
+		PeerID peer, peer2;
 		memset(peer.m_pData, 0x66, peer.nBytes);
 
 		uint64_t pRows[hMax];
@@ -2024,7 +2024,7 @@ namespace beam
 				if (m_Assets.m_hCreated && (msg.m_Description.m_Height == m_Assets.m_hCreated + 3))
 				{
 					proto::GetProofAsset msgOut;
-					proto::Sk2Pk(msgOut.m_Owner, m_Assets.m_skOwner);
+					msgOut.m_Owner.FromSk(m_Assets.m_skOwner);
 					Send(msgOut);
 				}
 
@@ -2165,7 +2165,7 @@ namespace beam
 				TxKernelAssetCreate::Ptr pKrn(new TxKernelAssetCreate);
 				pKrn->m_Fee = nFee;
 				pKrn->m_Height.m_Min = s.m_Height + 1;
-				proto::Sk2Pk(pKrn->m_Owner, m_Assets.m_skOwner);
+				pKrn->m_Owner.FromSk(m_Assets.m_skOwner);
 				pKrn->m_MetaData.m_Value = m_Assets.m_MetaData;
 				pKrn->Sign(sk, m_Assets.m_skOwner);
 
@@ -2200,7 +2200,7 @@ namespace beam
 				ECC::SetRandom(sk);
 
 				TxKernelAssetEmit::Ptr pKrn(new TxKernelAssetEmit);
-				proto::Sk2Pk(pKrn->m_Owner, m_Assets.m_skOwner);
+				pKrn->m_Owner.FromSk(m_Assets.m_skOwner);
 				pKrn->m_AssetID = m_Assets.m_ID;
 				pKrn->m_Fee = nFee;
 				pKrn->m_Value = cid.m_Value;

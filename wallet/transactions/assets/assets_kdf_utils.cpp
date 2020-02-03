@@ -22,7 +22,7 @@ namespace beam::wallet {
             masterKdf->DeriveKey(skAssetOwnerSk, beam::Key::ID(assetOwnerIdx, beam::Key::Type::Asset));
 
             beam::PeerID assetOwnerId;
-            beam::proto::Sk2Pk(assetOwnerId, skAssetOwnerSk);
+            assetOwnerId.FromSk(skAssetOwnerSk);
 
             return std::make_pair(assetOwnerId, std::move(skAssetOwnerSk));
         }

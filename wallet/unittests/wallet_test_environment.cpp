@@ -434,7 +434,7 @@ struct TestWalletRig
             Key::ID kid(m_OwnID, Key::Type::WalletID);
             Scalar::Native sk;
             kdf->DeriveKey(sk, kid);
-            proto::Sk2Pk(m_SecureWalletID, sk);
+            m_SecureWalletID.FromSk(sk);
         }
         else
         {

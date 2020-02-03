@@ -405,7 +405,7 @@ namespace beam::wallet
         Key::ID kid(walletKeyID, Key::Type::WalletID);
         LocalPrivateKeyKeeper::KeyPair res;
         m_MasterKdf->DeriveKey(res.m_PrivateKey, kid);
-        beam::proto::Sk2Pk(res.m_PublicKey, res.m_PrivateKey);
+        res.m_PublicKey.FromSk(res.m_PrivateKey);
         return res;
     }
 
@@ -522,7 +522,7 @@ namespace beam::wallet
         m_MasterKdf->DeriveKey(skAssetOwnerSk, beam::Key::ID(assetOwnerIdx, beam::Key::Type::Asset));
 
         beam::PeerID assetOwnerId;
-        beam::proto::Sk2Pk(assetOwnerId, skAssetOwnerSk);
+        assetOwnerId.FromSk(skAssetOwnerSk);
 
         return std::make_pair(assetOwnerId, std::move(skAssetOwnerSk));
     }
@@ -818,7 +818,7 @@ namespace beam::wallet
             m_pKdf->DeriveKey(kKrn, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
 
             PeerID wid;
-            beam::proto::Sk2Pk(wid, kKrn);
+            wid.FromSk(kKrn);
             pc.Sign(kKrn);
 
             x.m_PaymentProofSignature = pc.m_Signature;
@@ -871,7 +871,7 @@ namespace beam::wallet
         if (x.m_MyIDKey)
         {
             m_pKdf->DeriveKey(kNonce, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
-            beam::proto::Sk2Pk(x.m_MyID, kNonce);
+            x.m_MyID.FromSk(kNonce);
         }
         else
         {
