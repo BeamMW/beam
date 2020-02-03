@@ -1809,27 +1809,27 @@ namespace beam::wallet
                 return true;
             }
 
-            virtual bool OnUtxo(const RecoveryInfo::Entry& x) override
+            virtual bool OnUtxo(Height h, const Output& outp) override
             {
-                Recognize(x);
+                Recognize(h, outp);
                 return true;
             }
 
-            void Recognize(const RecoveryInfo::Entry& x)
+            void Recognize(Height h, const Output& outp)
             {
                 CoinID cid;
-                if (!x.m_Output.Recover(x.m_CreateHeight, *m_pOwner, cid))
+                if (!outp.Recover(h, *m_pOwner, cid))
                     return;
 
-                if (!m_This.IsRecoveredMatch(cid, x.m_Output.m_Commitment))
+                if (!m_This.IsRecoveredMatch(cid, outp.m_Commitment))
                     return;
 
                 Coin c;
                 c.m_ID = cid;
                 m_This.findCoin(c); // in case it exists already - fill its parameters
 
-                c.m_maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
-                c.m_confirmHeight = x.m_CreateHeight;
+                c.m_maturity = outp.get_MinMaturity(h);
+                c.m_confirmHeight = h;
 
                 LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << c.m_maturity << " Recovered";
 

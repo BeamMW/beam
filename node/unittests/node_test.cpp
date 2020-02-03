@@ -1547,30 +1547,33 @@ namespace beam
 
 		node.GenerateRecoveryInfo(g_sz3);
 
-		RecoveryInfo::Reader rp;
-
-		Block::SystemState::Full sTip;
-		rp.Open(g_sz3);
-
-		uint32_t nUnrecognized = 0;
-		while (true)
+		struct MyParser :public RecoveryInfo::IParser
 		{
-			RecoveryInfo::Entry x;
-			if (!rp.Read(x))
-				break;
+			Key::IPKdf::Ptr m_pOwner1;
+			Key::IPKdf::Ptr m_pOwner2;
+			uint32_t m_nUnrecognized = 0;
 
-			CoinID cid;
-			bool b1 = x.m_Output.Recover(x.m_CreateHeight, *node.m_Keys.m_pOwner, cid);
-			bool b2 = x.m_Output.Recover(x.m_CreateHeight, *node2.m_Keys.m_pOwner, cid);
-			if (!(b1 || b2))
+			virtual bool OnUtxo(Height h, const Output& outp) override
 			{
-				verify_test(!x.m_CreateHeight); // treasury
-				nUnrecognized++;
-				verify_test(nUnrecognized <= 1);
-			}
-		}
+				verify_test(outp.m_RecoveryOnly);
 
-		rp.Finalyze(); // final verification
+				CoinID cid;
+				bool b1 = outp.Recover(h, *m_pOwner1, cid);
+				bool b2 = outp.Recover(h, *m_pOwner2, cid);
+				if (!(b1 || b2))
+				{
+					verify_test(!h); // treasury
+					m_nUnrecognized++;
+					verify_test(m_nUnrecognized <= 1);
+				}
+
+				return true;
+			}
+		} parser;
+		parser.m_pOwner1 = node.m_Keys.m_pOwner;
+		parser.m_pOwner2 = node2.m_Keys.m_pOwner;
+
+		verify_test(parser.Proceed(g_sz3));
 
 		DeleteFile(g_sz3);
 	}

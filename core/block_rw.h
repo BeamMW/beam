@@ -42,33 +42,11 @@ namespace beam
 	// Full recovery info. Includes ChainWorkProof, and all the UTXO set which hash should correspond to the tip commitment
 	struct RecoveryInfo
 	{
-		struct Entry
-		{
-			Height m_CreateHeight;
-			Output m_Output; // recovery-only piece
-		};
-
 		struct Writer
 		{
 			std::FStream m_Stream;
 
 			void Open(const char*, const Block::ChainWorkProof&);
-			void Write(const Entry&);
-		};
-
-		struct Reader
-		{
-			std::FStream m_Stream;
-			Block::ChainWorkProof m_Cwp;
-			Block::SystemState::Full m_Tip;
-
-			void Open(const char*);
-			bool Read(Entry&);
-			void Finalyze();
-
-			UtxoTree::Compact m_UtxoTree;
-
-			static void ThrowRulesMismatch();
 		};
 
 		struct IParser
@@ -76,9 +54,11 @@ namespace beam
 			// each of the following returns false to abort
 			virtual bool OnProgress(uint64_t nPos, uint64_t nTotal) { return true; }
 			virtual bool OnStates(std::vector<Block::SystemState::Full>&) { return true; }
-			virtual bool OnUtxo(const Entry&) { return true; }
+			virtual bool OnUtxo(Height, const Output&) { return true; }
 
 			bool Proceed(const char*);
+
+			struct Context;
 		};
 	};
 

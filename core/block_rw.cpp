@@ -308,11 +308,6 @@ namespace beam
 
 	/////////////
 	// RecoveryInfo
-	void RecoveryInfo::Reader::ThrowRulesMismatch()
-	{
-		throw std::runtime_error("Rules mismatch");
-	}
-
 	void RecoveryInfo::Writer::Open(const char* sz, const Block::ChainWorkProof& cwp)
 	{
 		m_Stream.Open(sz, false, true);
@@ -336,13 +331,48 @@ namespace beam
 		ser & cwp;
 	}
 
-	void RecoveryInfo::Reader::Open(const char* sz)
+	struct RecoveryInfo::IParser::Context
+	{
+		IParser& m_Parser;
+		std::FStream m_Stream;
+		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> m_Der;
+		Block::ChainWorkProof m_Cwp;
+		Block::SystemState::Full m_Tip;
+		uint64_t m_Total;
+
+		UtxoTree::Compact m_UtxoTree;
+
+		Context(IParser& p)
+			:m_Parser(p)
+			,m_Der(m_Stream)
+		{
+		}
+
+		void Open(const char*);
+		bool Proceed();
+		bool ProceedUtxos();
+		void Finalyze();
+
+		bool OnProgress() {
+			return m_Parser.OnProgress(m_Total - m_Stream.get_Remaining(), m_Total);
+		}
+
+		static void ThrowRulesMismatch() {
+			throw std::runtime_error("Rules mismatch");
+		}
+
+		static void ThrowBadData() {
+			throw std::runtime_error("Data inconsistent");
+		}
+	};
+
+	void RecoveryInfo::RecoveryInfo::IParser::Context::Open(const char* sz)
 	{
 		m_Stream.Open(sz, true, true);
-		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> der(m_Stream);
+		m_Total = m_Stream.get_Remaining();
 
 		uint32_t nForks = 0;
-		der & nForks;
+		m_Der & nForks;
 
 		const Rules& r = Rules::get();
 		if (nForks > _countof(r.pForks))
@@ -351,57 +381,28 @@ namespace beam
 		for (uint32_t iFork = 0; iFork < nForks; iFork++)
 		{
 			ECC::Hash::Value hv;
-			der & hv;
+			m_Der & hv;
 
 			if (hv != r.pForks[iFork].m_Hash)
 				ThrowRulesMismatch();
 		}
 
-		der & m_Cwp;
+		m_Der & m_Cwp;
 
 		if (!m_Cwp.IsValid(&m_Tip))
-			throw std::runtime_error("CWP error");
+			ThrowBadData();
 
 		if ((nForks < _countof(r.pForks)) && (m_Tip.m_Height >= r.pForks[nForks].m_Height))
 			ThrowRulesMismatch();
 	}
 
-	void RecoveryInfo::Writer::Write(const Entry& x)
-	{
-		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> ser(m_Stream);
-		ser & x.m_CreateHeight;
-		ser & x.m_Output;
-	}
-
-	bool RecoveryInfo::Reader::Read(Entry& x)
-	{
-		if (!m_Stream.get_Remaining())
-			return false;
-
-		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> der(m_Stream);
-		der & x.m_CreateHeight;
-		der & x.m_Output;
-
-		UtxoTree::Key::Data d;
-		d.m_Commitment = x.m_Output.m_Commitment;
-		d.m_Maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
-
-		UtxoTree::Key key;
-		key = d;
-
-		if (!m_UtxoTree.Add(key))
-			throw std::runtime_error("UTXO order mismatch");
-
-		return true;
-	}
-
-	void RecoveryInfo::Reader::Finalyze()
+	void RecoveryInfo::RecoveryInfo::IParser::Context::Finalyze()
 	{
 		struct Verifier
 			:public Block::SystemState::Evaluator
 		{
-			Reader& m_This;
-			Verifier(Reader& r) :m_This(r) {}
+			Context& m_This;
+			Verifier(Context& ctx) :m_This(ctx) {}
 
 			virtual bool get_Utxos(Merkle::Hash& hv) override
 			{
@@ -416,36 +417,60 @@ namespace beam
 		v.get_Live(hv);
 
 		if (!(m_Cwp.m_hvRootLive == hv))
-			throw std::runtime_error("Recovery Live hash mismatch");
+			ThrowBadData();
 	}
 
 	bool RecoveryInfo::IParser::Proceed(const char* sz)
 	{
-		Reader rp;
-		rp.Open(sz);
+		Context ctx(*this);
+		ctx.Open(sz);
+		return ctx.Proceed();
+	}
 
+	bool RecoveryInfo::IParser::Context::Proceed()
+	{
 		std::vector<Block::SystemState::Full> vec;
-		rp.m_Cwp.UnpackStates(vec);
-		if (!OnStates(vec))
+		m_Cwp.UnpackStates(vec);
+		if (!m_Parser.OnStates(vec))
 			return false;
 
-		uint64_t nTotal = rp.m_Stream.get_Remaining();
+		if (!ProceedUtxos())
+			return false;
 
+		Finalyze();
+		return true;
+	}
+
+	bool RecoveryInfo::IParser::Context::ProceedUtxos()
+	{
 		while (true)
 		{
-			RecoveryInfo::Entry x;
-			if (!rp.Read(x))
-				break;
+			if (!m_Stream.get_Remaining())
+				break; // old-style terminator
 
-			if (!OnUtxo(x))
+			Height h;
+			m_Der & h;
+
+			Output outp;
+			m_Der & outp;
+
+			UtxoTree::Key::Data d;
+			d.m_Commitment = outp.m_Commitment;
+			d.m_Maturity = outp.get_MinMaturity(h);
+
+			UtxoTree::Key key;
+			key = d;
+
+			if (!m_UtxoTree.Add(key))
+				ThrowBadData();
+
+			if (!m_Parser.OnUtxo(h, outp))
 				return false;
 
-			uint64_t nRemaining = rp.m_Stream.get_Remaining();
-			if (!OnProgress(nTotal - nRemaining, nTotal))
+			if (!OnProgress())
 				return false;
 		}
 
-		rp.Finalyze(); // final verification
 
 		return true; // all done
 	}
