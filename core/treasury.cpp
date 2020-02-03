@@ -354,7 +354,7 @@ namespace beam
 
 		// finally verify the signature
 		Point::Native pk;
-		if (!r.m_WalletID.Export(pk))
+		if (!r.m_WalletID.ExportNnz(pk))
 			return false;
 
 		Hash::Value hv;

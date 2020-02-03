@@ -1443,7 +1443,7 @@ struct PaymentConfirmation
 	bool IsValid(const Signature& s, const beam::PeerID& pid) const
 	{
 		Point::Native pk;
-		if (!pid.Export(pk))
+		if (!pid.ExportNnz(pk))
 			return false;
 
 		Hash::Value hv;

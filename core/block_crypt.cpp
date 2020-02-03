@@ -23,13 +23,13 @@ namespace beam
 {
 	/////////////
 	// PeerID
-	bool PeerID::Export(ECC::Point::Native& pt) const
+	bool PeerID::ExportNnz(ECC::Point::Native& pt) const
 	{
 		ECC::Point pk;
 		pk.m_X = Cast::Down<ECC::uintBig>(*this);
 		pk.m_Y = 0;
 
-		return pt.Import(pk);
+		return pt.ImportNnz(pk);
 	}
 
 	bool PeerID::Import(const ECC::Point::Native& pt)
@@ -910,11 +910,10 @@ namespace beam
 
 		exc += pPt[0];
 
-		if (m_Owner == Zero)
+		if (!m_Owner.ExportNnz(pPt[1]))
 			return false;
 
-		if (!m_Owner.Export(pPt[1]))
-			return false;
+		assert(m_Owner != Zero); // the above ensures this
 
 		// prover must prove knowledge of excess AND m_AssetID sk
 		return m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt);

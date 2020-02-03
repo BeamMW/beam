@@ -30,7 +30,7 @@ namespace beam
 		using ECC::uintBig::uintBig;
 		using ECC::uintBig::operator =;
 
-		bool Export(ECC::Point::Native&) const;
+		bool ExportNnz(ECC::Point::Native&) const;
 		bool Import(const ECC::Point::Native&); // returns if the sign is preserved
 		void FromSk(ECC::Scalar::Native&); // will negate the scalar iff necessary
 	};

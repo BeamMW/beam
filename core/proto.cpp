@@ -154,7 +154,7 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
 {
     // Diffie-Hellman
     ECC::Point::Native p;
-    if (!remotePublic.Export(p))
+    if (!remotePublic.ExportNnz(p))
         return false;
 
     ECC::Point::Native ptSecret = p * myPrivate;
@@ -901,7 +901,7 @@ void NodeConnection::OnMsg(Authentication&& msg)
     hp >> hv;
 
     ECC::Point::Native p;
-    if (!msg.m_ID.Export(p))
+    if (!msg.m_ID.ExportNnz(p))
         ThrowUnexpected();
 
     if (!msg.m_Sig.IsValid(hv, p))
