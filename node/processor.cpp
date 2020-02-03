@@ -2269,9 +2269,17 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 				Recognize(*block.m_vOutputs[i], sid.m_Height, *pKey);
 		}
 
-		const ShieldedTxo::Viewer* pKeyShielded = get_ViewerShieldedKey();
-		m_Extra.m_ShieldedOutputs -= bic.m_ShieldedOuts;
-		Recognize(block, sid.m_Height, pKeyShielded);
+		if (get_ViewerShieldedKey())
+		{
+			KrnWalkerRecognize wlkKrn(*this);
+			wlkKrn.m_Height = sid.m_Height;
+
+			TxoID nOuts = m_Extra.m_ShieldedOutputs;
+			m_Extra.m_ShieldedOutputs -= bic.m_ShieldedOuts;
+
+			wlkKrn.Process(block.m_vKernels);
+			assert(m_Extra.m_ShieldedOutputs == nOuts);
+		}
 
 		Serializer ser;
 		bbP.clear();
@@ -2356,38 +2364,21 @@ void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
 	OnUtxoEvent(evt, h);
 }
 
-void NodeProcessor::Recognize(const TxVectors::Eternal& txve, Height h, const ShieldedTxo::Viewer* pKeyShielded)
+bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 {
-	struct Walker
-		:public TxKernel::IWalker
+	switch (krn.get_Subtype())
 	{
-		NodeProcessor* m_pThis;
-		Height m_Height;
-		const ShieldedTxo::Viewer* m_pKeyShielded;
+	case TxKernel::Subtype::ShieldedInput:
+		m_Proc.Recognize(Cast::Up<TxKernelShieldedInput>(krn), m_Height);
+		break;
+	case TxKernel::Subtype::ShieldedOutput:
+		m_Proc.Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height, m_Proc.get_ViewerShieldedKey());
+		break;
+	default:
+		break; // suppress warning
+	}
 
-		virtual bool OnKrn(const TxKernel& krn) override
-		{
-			switch (krn.get_Subtype())
-			{
-			case TxKernel::Subtype::ShieldedInput:
-				m_pThis->Recognize(Cast::Up<TxKernelShieldedInput>(krn), m_Height);
-				break;
-			case TxKernel::Subtype::ShieldedOutput:
-				m_pThis->Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height, m_pKeyShielded);
-				break;
-			default:
-				break; // suppress warning
-			}
-
-			return true;
-		}
-	} wlk;
-
-	wlk.m_pThis = this;
-	wlk.m_Height = h;
-	wlk.m_pKeyShielded = pKeyShielded;
-
-	wlk.Process(txve.m_vKernels);
+	return true;
 }
 
 void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const ShieldedTxo::Viewer* pKeyShielded)
@@ -2531,8 +2522,7 @@ void NodeProcessor::RescanOwnedTxos()
 		LOG_INFO() << "Owned Txos reset";
 	}
 
-	const ShieldedTxo::Viewer* pKeyShielded = get_ViewerShieldedKey();
-	if (pKeyShielded)
+	if (get_ViewerShieldedKey())
 	{
 		LOG_INFO() << "Rescanning shielded Txos...";
 
@@ -2540,25 +2530,13 @@ void NodeProcessor::RescanOwnedTxos()
 		Height h0 = Rules::get().pForks[2].m_Height;
 		if (m_Cursor.m_Sid.m_Height >= h0)
 		{
-			ByteBuffer bbE;
-			TxVectors::Eternal txve;
-
+			TxoID nOuts = m_Extra.m_ShieldedOutputs;
 			m_Extra.m_ShieldedOutputs = 0;
 
-			while (true)
-			{
-				uint64_t row = FindActiveAtStrict(h0);
-				m_DB.GetStateBlock(row, nullptr, &bbE, nullptr);
+			KrnWalkerRecognize wlkKrn(*this);
+			EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));
 
-				Deserializer der;
-				der.reset(bbE);
-				der & txve;
-
-				Recognize(txve, h0, pKeyShielded);
-
-				if (++h0 > m_Cursor.m_Sid.m_Height)
-					break;
-			}
+			assert(m_Extra.m_ShieldedOutputs == nOuts);
 		}
 
 		LOG_INFO() << "Shielded scan complete";
@@ -4353,6 +4331,33 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 		}
 
 		if (!wlkTxo.OnTxo(wlk, h))
+			return false;
+	}
+
+	return true;
+}
+
+bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
+{
+	if (hr.IsEmpty())
+		return true;
+	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
+
+	ByteBuffer bbE;
+	TxVectors::Eternal txve;
+
+	m_Extra.m_ShieldedOutputs = 0;
+
+	for (wlkKrn.m_Height = hr.m_Min; wlkKrn.m_Height <= hr.m_Max; wlkKrn.m_Height++)
+	{
+		uint64_t row = FindActiveAtStrict(wlkKrn.m_Height);
+		m_DB.GetStateBlock(row, nullptr, &bbE, nullptr);
+
+		Deserializer der;
+		der.reset(bbE);
+		der & txve;
+
+		if (!wlkKrn.Process(txve.m_vKernels))
 			return false;
 	}
 

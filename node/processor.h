@@ -73,7 +73,6 @@ class NodeProcessor
 
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, Height, Key::IPKdf&);
-	void Recognize(const TxVectors::Eternal&, Height, const ShieldedTxo::Viewer*);
 	void Recognize(const TxKernelShieldedInput&, Height);
 	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
 
@@ -425,6 +424,22 @@ public:
 		:public ITxoWalker
 	{
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
+	};
+
+	struct IKrnWalker
+		:public TxKernel::IWalker
+	{
+		Height m_Height;
+	};
+
+	bool EnumKernels(IKrnWalker&, const HeightRange&);
+
+	struct KrnWalkerRecognize
+		:public IKrnWalker
+	{
+		NodeProcessor& m_Proc;
+		KrnWalkerRecognize(NodeProcessor& p) :m_Proc(p) {}
+		virtual bool OnKrn(const TxKernel& krn) override;
 	};
 
 #pragma pack (push, 1)
