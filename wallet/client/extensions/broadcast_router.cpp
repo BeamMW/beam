@@ -63,7 +63,7 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork)
     , m_msgReader(m_protocol,
                   0,    // uint64_t streamId
                   m_defaultMessageSize)
-    , m_lastTimestamp(getTimestamp() - 12*60*60)
+    , m_lastTimestamp(getTimestamp() - m_bbsTimeWindow)
 {
     m_msgReader.disable_all_msg_types();
 }
@@ -79,10 +79,16 @@ void BroadcastRouter::registerListener(ContentType type, IBroadcastListener* lis
 
     auto msgType = getMsgType(type);
 
-    m_protocol.add_message_handler< IBroadcastListener,
-                                    ByteBuffer,
-                                    &IBroadcastListener::onMessage >
-                                    (msgType, listener, 0, 1024*1024*10);
+    // m_protocol.add_message_handler< IBroadcastListener,
+    //                                 ByteBuffer,
+    //                                 &IBroadcastListener::onMessage > (msgType, listener, m_minMessageSize, m_maxMessageSize);
+
+    // for SwapOffer serializer isn't used
+    m_protocol.add_message_handler_wo_deserializer
+        < IBroadcastListener,
+          &IBroadcastListener::onMessage >
+        (msgType, listener, m_minMessageSize, m_maxMessageSize);
+
     m_msgReader.enable_msg_type(msgType);
     
     for (BbsChannel channel : getBbsChannels(type))

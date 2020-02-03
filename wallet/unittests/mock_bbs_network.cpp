@@ -37,9 +37,9 @@ public:
     virtual void Connect() override {};
     virtual void Disconnect() override {};
     virtual void PostRequestInternal(FlyClient::Request&) override {};
-    virtual void BbsSubscribe(BbsChannel channel, Timestamp ts, FlyClient::IBbsReceiver* callback) override
+    virtual void BbsSubscribe(BbsChannel channel, Timestamp ts, FlyClient::IBbsReceiver* subscriber) override
     {
-        m_subscriptions[channel].push_back(std::make_pair(callback, ts));
+        m_subscriptions[channel].push_back(std::make_pair(subscriber, ts));
     };
 
     // IWalletMessageEndpoint

@@ -7,6 +7,7 @@ add_test_snippet(wallet_db_test wallet)
 add_test_snippet(wallet_api_test wallet_api_proto)
 add_test_snippet(wallet_assets_test core node wallet pow assets)
 add_test_snippet(newscast_test wallet_client node)
+add_test_snippet(broadcast_router_test wallet_client node)
 
 if(BEAM_HW_WALLET)
     target_compile_definitions(wallet_test PRIVATE BEAM_HW_WALLET)

@@ -54,9 +54,11 @@ namespace beam
         static constexpr uint8_t m_protocol_version_1 = 0;
         static constexpr uint8_t m_protocol_version_2 = 1;
         static constexpr size_t m_maxMessageTypes = 3;
-        static constexpr size_t m_defaultMessageSize = 200; // TODO: experimentally check
+        static constexpr size_t m_defaultMessageSize = 200;         // TODO: experimentally check
+        static constexpr size_t m_minMessageSize = 1;               // TODO: experimentally check
+        static constexpr size_t m_maxMessageSize = 1024*1024*10;    // TODO: experimentally check
+        static constexpr uint32_t m_bbsTimeWindow = 12*60*60;       // BBS message lifetime is 12 hours
 
-        /// replace with usual array
         static const std::map<ContentType, std::vector<BbsChannel>> m_bbsChannelsMapping;
         static const std::map<ContentType, MsgType> m_messageTypeMapping;
 
@@ -65,7 +67,7 @@ namespace beam
 
         proto::FlyClient::INetwork& m_bbsNetwork;
 
-        // TODO: create own MsgReader for each listening BBS channel
+        // TODO: create own MsgReader for each listener
 
         Protocol m_protocol;
         MsgReader m_msgReader;

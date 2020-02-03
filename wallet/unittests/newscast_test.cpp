@@ -118,68 +118,6 @@ namespace
     }
 
     /**
-     *  Test NewscastProtocolParser for stress conditions.
-     */
-    void TestProtocolParserStress()
-    {
-        cout << endl << "Test protocol parser stress" << endl;
-        
-        NewscastProtocolParser parser;
-        {
-            cout << "Case: empty message" << endl;
-            ByteBuffer emptyBuf;
-            WALLET_CHECK_NO_THROW(parser.parseMessage(emptyBuf));
-        }        
-        {
-            cout << "Case: message header too short" << endl;
-            ByteBuffer data(beam::MsgHeader::SIZE - 2, 't');
-            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
-        }
-        {
-            cout << "Case: message contain only header" << endl;
-            ByteBuffer data;
-            data.reserve(MsgHeader::SIZE);
-            MsgHeader header(0,0,1,1,0);
-            header.write(data.data());
-            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
-        }
-        {
-            cout << "Case: unsupported version" << endl;
-            ByteBuffer data;
-            data.reserve(MsgHeader::SIZE);
-            MsgHeader header(0,0,2,1,0);
-            header.write(data.data());
-            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
-        }
-        {
-            cout << "Case: wrong length" << endl;
-            ByteBuffer data;
-            data.reserve(MsgHeader::SIZE);
-            MsgHeader header(0,0,1,1,5);
-            header.write(data.data());
-            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
-        }
-        {
-            cout << "Case: wrong message type" << endl;
-            ByteBuffer data;
-            data.reserve(MsgHeader::SIZE);
-            MsgHeader header(0,0,1,123,0);
-            header.write(data.data());
-            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
-        }
-        {
-            cout << "Case: wrong body length" << endl;
-            ByteBuffer data;
-            uint32_t bodyLength = 6;
-            data.reserve(MsgHeader::SIZE + bodyLength);
-            MsgHeader header(0,0,1,1,bodyLength);
-            header.write(data.data());
-            WALLET_CHECK_NO_THROW(parser.parseMessage(data));
-        }
-        cout << "Test end" << endl;
-    }
-
-    /**
      *  Tests:
      *  - only correctly signed with PrivateKey messageas are accepted
      *  - publishers PublicKeys are correcly accepted
@@ -433,7 +371,6 @@ namespace
         // static ByteBuffer createMessage(const NewsMessage& content, const PrivateKey& key);
     }
 
-
 } // namespace
 
 int main()
@@ -443,12 +380,11 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    TestProtocolParserStress();
     TestSignatureVerification();
     TestPublisherKeysLoading();
     TestNewscastObservers();
     TestStringToKeyConvertation();
-    TestProtocolBuilder();
+    // TestProtocolBuilder();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
