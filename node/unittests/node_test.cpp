@@ -2882,7 +2882,7 @@ namespace beam
 
 void TestAll()
 {
-	bool bClientProtoOnly = false;
+	bool bClientProtoOnly = true;
 
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 	if (!bClientProtoOnly)

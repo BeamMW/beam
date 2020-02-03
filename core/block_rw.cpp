@@ -395,7 +395,8 @@ namespace beam
 		m_Der & m_Cwp;
 
 		if (!m_Cwp.IsValid(&m_Tip))
-			ThrowBadData();
+			//ThrowBadData();
+			throw std::runtime_error("bad CWP");
 
 		if ((nForks < _countof(r.pForks)) && (m_Tip.m_Height >= r.pForks[nForks].m_Height))
 			ThrowRulesMismatch();
@@ -434,7 +435,8 @@ namespace beam
 		v.get_Live(hv);
 
 		if (!(m_Cwp.m_hvRootLive == hv))
-			ThrowBadData();
+			//ThrowBadData();
+			throw std::runtime_error("Bad RootLive");
 	}
 
 	bool RecoveryInfo::IParser::Proceed(const char* sz)
@@ -491,7 +493,8 @@ namespace beam
 			key = d;
 
 			if (!m_UtxoTree.Add(key))
-				ThrowBadData();
+				//ThrowBadData();
+				throw std::runtime_error("Bad UTXO order");
 
 			if (!m_Parser.OnUtxo(h, outp))
 				return false;
