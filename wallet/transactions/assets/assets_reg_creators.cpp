@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "assets_reg_creators.h"
 #include "aregister_transaction.h"
+#include "aunregister_transaction.h"
 #include "aissue_transaction.h"
 #include "wallet/core/base_transaction.h"
 
@@ -23,8 +24,8 @@ namespace beam::wallet
         auto crReg = std::make_shared<AssetRegisterTransaction::Creator>();
         wallet.RegisterTransactionType(TxType::AssetReg, std::static_pointer_cast<BaseTransaction::Creator>(crReg));
 
-        //auto crUnreg = std::make_shared<AssetRegisterTransaction::Creator>(false);
-        //wallet.RegisterTransactionType(TxType::AssetUnreg, std::static_pointer_cast<BaseTransaction::Creator>(crUnreg));
+        auto crUnreg = std::make_shared<AssetUnregisterTransaction::Creator>();
+        wallet.RegisterTransactionType(TxType::AssetUnreg, std::static_pointer_cast<BaseTransaction::Creator>(crUnreg));
 
         auto crIssue = std::make_shared<AssetIssueTransaction::Creator>(true);
         wallet.RegisterTransactionType(TxType::AssetIssue, std::static_pointer_cast<BaseTransaction::Creator>(crIssue));

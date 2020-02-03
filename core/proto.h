@@ -464,7 +464,7 @@ namespace proto {
 		static const uint8_t Unspecified = 0;
 		static const uint8_t Ok = 0x1;
 		// advanced codes
-		static const uint8_t TooSmall = 0x2; // doesn't contain minimal elements: at least 1 input and 1 kernel
+		static const uint8_t TooSmall = 0x2; // doesn't contain minimal elements: at least 1 input and 1 kernel OR 1 output and 1 kernel
 		static const uint8_t Obscured = 0x3; // partial overlap with another tx. Dropped due to potential collision (not necessarily an error)
 
 		static const uint8_t Invalid = 0x10; // context-free validation failed
