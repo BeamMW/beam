@@ -2364,20 +2364,31 @@ void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
 	OnUtxoEvent(evt, h);
 }
 
-bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
+bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
 {
 	switch (krn.get_Subtype())
 	{
 	case TxKernel::Subtype::ShieldedInput:
-		m_Proc.Recognize(Cast::Up<TxKernelShieldedInput>(krn), m_Height);
-		break;
+		return OnKrnEx(Cast::Up<TxKernelShieldedInput>(krn));
 	case TxKernel::Subtype::ShieldedOutput:
-		m_Proc.Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height, m_Proc.get_ViewerShieldedKey());
-		break;
+		return OnKrnEx(Cast::Up<TxKernelShieldedOutput>(krn));
+
 	default:
 		break; // suppress warning
 	}
 
+	return true;
+}
+
+bool NodeProcessor::KrnWalkerRecognize::OnKrnEx(const TxKernelShieldedInput& krn)
+{
+	m_Proc.Recognize(krn, m_Height);
+	return true;
+}
+
+bool NodeProcessor::KrnWalkerRecognize::OnKrnEx(const TxKernelShieldedOutput& krn)
+{
+	m_Proc.Recognize(krn, m_Height, m_Proc.get_ViewerShieldedKey());
 	return true;
 }
 

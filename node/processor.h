@@ -434,12 +434,22 @@ public:
 
 	bool EnumKernels(IKrnWalker&, const HeightRange&);
 
-	struct KrnWalkerRecognize
+	struct KrnWalkerShielded
 		:public IKrnWalker
+	{
+		virtual bool OnKrn(const TxKernel& krn) override;
+		virtual bool OnKrnEx(const TxKernelShieldedInput&) { return true; }
+		virtual bool OnKrnEx(const TxKernelShieldedOutput&) { return true; }
+	};
+
+	struct KrnWalkerRecognize
+		:public KrnWalkerShielded
 	{
 		NodeProcessor& m_Proc;
 		KrnWalkerRecognize(NodeProcessor& p) :m_Proc(p) {}
-		virtual bool OnKrn(const TxKernel& krn) override;
+
+		virtual bool OnKrnEx(const TxKernelShieldedInput&) override;
+		virtual bool OnKrnEx(const TxKernelShieldedOutput&) override;
 	};
 
 #pragma pack (push, 1)
