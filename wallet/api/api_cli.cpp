@@ -845,16 +845,15 @@ private:
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
         void onMessage(const JsonRpcId& id, const OffersList& data) override
-        {
-            Block::SystemState::ID stateID = {};
-            _walletDB->getSystemStateID(stateID);
-            
+        {           
             auto offers = _swapOffersBoard.getOffersList();
             auto swapTxs = _walletDB->getTxHistory(TxType::AtomicSwap);
             offers.reserve(offers.size() + swapTxs.size());
             for (const auto& tx : swapTxs)
             {
                 SwapOffer offer(tx);
+
+                if (offer.m_status != SwapOfferStatus::Pending) continue;
 
                 const auto it = std::find_if(
                     offers.begin(),
@@ -867,6 +866,8 @@ private:
                     offers.push_back(offer);
             }
 
+            Block::SystemState::ID stateID = {};
+            _walletDB->getSystemStateID(stateID);
             doResponse(
                 id,
                 OffersList::Response{
