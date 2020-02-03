@@ -22,6 +22,7 @@
 #include "../aes.h"
 #include "../proto.h"
 #include "../lelantus.h"
+#include "../../utility/executor.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -2426,14 +2427,48 @@ void TestLelantus(bool bWithAsset)
 		p.m_Witness.V.m_R_Adj += -skGen;
 	}
 
-	Oracle oracle;
+	std::vector<Point> vG;
 
-	uint32_t t = beam::GetTime_ms();
+	for (uint32_t iCycle = 0; iCycle < 3; iCycle++)
+	{
+		struct MyExec
+			:public beam::ExecutorMT
+		{
+			uint32_t m_Threads;
 
-	p.Generate(Zero, oracle, &hGen);
+			virtual uint32_t get_Threads() override { return m_Threads; }
 
-	if (!bWithAsset)
-		printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
+			virtual void RunThread(uint32_t iThread) override
+			{
+				ExecutorMT::Context ctx;
+				ctx.m_iThread = iThread;
+				RunThreadCtx(ctx);
+			}
+		} ex;
+
+		ex.m_Threads = 1 << iCycle;
+
+		beam::Executor::Scope scope(ex);
+
+		uint32_t t = beam::GetTime_ms();
+
+		Oracle oracle;
+		p.Generate(Zero, oracle, &hGen);
+
+		if (!bWithAsset)
+			printf("\tProof time = %u ms, Threads=%u\n", beam::GetTime_ms() - t, ex.m_Threads);
+
+		if (iCycle)
+		{
+			// verify the result is the same (doesn't depend on thread num)
+			verify_test(proof.m_Part1.m_vG == vG);
+		}
+		else
+		{
+			vG.swap(proof.m_Part1.m_vG);
+		}
+	}
+
 
 	{
 		Oracle o2;
@@ -2463,6 +2498,7 @@ void TestLelantus(bool bWithAsset)
 		if (!bWithAsset)
 			printf("\tProof size = %u\n", (uint32_t)ser_.buffer().second);
 	}
+
 	MyBatch bc;
 
 	std::vector<Scalar::Native> vKs;
@@ -2476,7 +2512,7 @@ void TestLelantus(bool bWithAsset)
 
 		memset0(&vKs.front(), sizeof(Scalar::Native) * vKs.size());
 
-		t = beam::GetTime_ms();
+		uint32_t t = beam::GetTime_ms();
 
 		for (uint32_t i = 0; i < nCycles; i++)
 		{
