@@ -63,6 +63,19 @@ namespace beam
 
 			struct Context;
 		};
+
+		struct IRecognizer
+			:public IParser
+		{
+			Key::IPKdf::Ptr m_pOwner;
+			const ShieldedTxo::Viewer* m_pViewer = nullptr;
+
+			virtual bool OnUtxo(Height, const Output&) override;
+			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo&, const ECC::Hash::Value& hvMsg) override;
+
+			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&) { return true; }
+			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo::DataParams&) { return true; }
+		};
 	};
 
 }

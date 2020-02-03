@@ -16,7 +16,8 @@
 #include "block_rw.h"
 #include "utility/serialize.h"
 #include "utilstrencodings.h"
-#include "core/serialization_adapters.h"
+#include "serialization_adapters.h"
+#include "shielded.h"
 #include "aes.h"
 #include "pkcs5_pbkdf2.h"
 #include "radixtree.h"
@@ -580,6 +581,37 @@ namespace beam
 				return false;
 		}
 		
+		return true;
+	}
+
+	bool RecoveryInfo::IRecognizer::OnUtxo(Height h, const Output& outp)
+	{
+		if (m_pOwner)
+		{
+			CoinID cid;
+			if (outp.Recover(h, *m_pOwner, cid))
+				return OnUtxoRecognized(h, outp, cid);
+		}
+
+		return true;
+	}
+
+	bool RecoveryInfo::IRecognizer::OnShieldedOut(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo& txo, const ECC::Hash::Value& hvMsg)
+	{
+		if (m_pViewer)
+		{
+			ShieldedTxo::DataParams pars;
+
+			if (pars.m_Serial.Recover(txo.m_Serial, *m_pViewer))
+			{
+				ECC::Oracle oracle;
+				oracle << hvMsg;
+
+				if (pars.m_Output.Recover(txo, pars.m_Serial.m_SharedSecret, oracle, *m_pViewer))
+					return OnShieldedOutRecognized(dout, pars);
+			}
+		}
+
 		return true;
 	}
 

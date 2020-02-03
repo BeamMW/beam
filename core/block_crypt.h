@@ -543,6 +543,7 @@ namespace beam
 		struct PublicGen;
 		struct Viewer;
 		struct Data;
+		struct DataParams; // just a fwd-declaration of Data::Params
 	};
 
 #define BeamKernelsAll(macro) \

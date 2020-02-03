@@ -2553,6 +2553,51 @@ namespace beam
 		node.get_Processor().RescanOwnedTxos();
 
 		verify_test(wlk.m_Recovered);
+
+		// Test recovery info. Check if shielded in/outs can re recognized
+		node.GenerateRecoveryInfo(beam::g_sz3);
+
+		struct MyParser
+			:public beam::RecoveryInfo::IRecognizer
+		{
+			uint32_t m_Spent = 0;
+			uint32_t m_Utxos = 0;
+
+			typedef std::set<ECC::Point> PkSet;
+			PkSet m_SpendKeys;
+
+			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&) override
+			{
+				m_Utxos++;
+				return true;
+			}
+
+			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars) override
+			{
+				verify_test(m_SpendKeys.end() == m_SpendKeys.find(pars.m_Serial.m_SpendPk));
+				m_SpendKeys.insert(pars.m_Serial.m_SpendPk);
+				return true;
+			}
+
+			virtual bool OnShieldedIn(const ShieldedTxo::DescriptionInp& din) override
+			{
+				if (m_SpendKeys.end() != m_SpendKeys.find(din.m_SpendPk))
+					m_Spent++;
+				return true;
+			}
+		};
+
+		MyParser p;
+		p.m_pOwner = cl.m_Wallet.m_pKdf;
+
+		ShieldedTxo::Viewer viewer;
+		viewer.FromOwner(*p.m_pOwner);
+		p.m_pViewer = &viewer;
+
+		p.Proceed(beam::g_sz3); // check we can rebuild the Live consistently with shielded and assets
+
+		verify_test((p.m_SpendKeys.size() == 1) && (p.m_Spent == 1) && p.m_Utxos);
+
 	}
 
 
@@ -2932,11 +2977,6 @@ int main()
 		beam::Node node;
 		node.m_Cfg.m_sPathLocal = beam::g_sz;
 		node.Initialize();
-
-		node.GenerateRecoveryInfo(beam::g_sz3);
-
-		beam::RecoveryInfo::IParser p;
-		p.Proceed(beam::g_sz3); // check we can rebuild the Live consistently with shielded and assets
 	}
 
 	beam::DeleteFile(beam::g_sz);

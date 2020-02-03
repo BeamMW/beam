@@ -1784,11 +1784,10 @@ namespace beam::wallet
 	bool IWalletDB::ImportRecovery(const std::string& path, IRecoveryProgress& prog)
 	{
         struct MyParser
-            :public RecoveryInfo::IParser
+            :public RecoveryInfo::IRecognizer
         {
             IWalletDB& m_This;
             IRecoveryProgress& m_Progr;
-            Key::IPKdf::Ptr m_pOwner;
 
             MyParser(IWalletDB& db, IRecoveryProgress& progr)
                 :m_This(db)
@@ -1809,31 +1808,23 @@ namespace beam::wallet
                 return true;
             }
 
-            virtual bool OnUtxo(Height h, const Output& outp) override
+            virtual bool OnUtxoRecognized(Height h, const Output& outp, CoinID& cid) override
             {
-                Recognize(h, outp);
+                if (m_This.IsRecoveredMatch(cid, outp.m_Commitment))
+                {
+                    Coin c;
+                    c.m_ID = cid;
+                    m_This.findCoin(c); // in case it exists already - fill its parameters
+
+                    c.m_maturity = outp.get_MinMaturity(h);
+                    c.m_confirmHeight = h;
+
+                    LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << c.m_maturity << " Recovered";
+
+                    m_This.saveCoin(c);
+                }
+
                 return true;
-            }
-
-            void Recognize(Height h, const Output& outp)
-            {
-                CoinID cid;
-                if (!outp.Recover(h, *m_pOwner, cid))
-                    return;
-
-                if (!m_This.IsRecoveredMatch(cid, outp.m_Commitment))
-                    return;
-
-                Coin c;
-                c.m_ID = cid;
-                m_This.findCoin(c); // in case it exists already - fill its parameters
-
-                c.m_maturity = outp.get_MinMaturity(h);
-                c.m_confirmHeight = h;
-
-                LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << c.m_maturity << " Recovered";
-
-                m_This.saveCoin(c);
             }
         };
 

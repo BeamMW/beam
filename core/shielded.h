@@ -102,4 +102,6 @@ namespace beam
 		struct HashTxt;
 	};
 
+	struct ShieldedTxo::DataParams :public ShieldedTxo::Data::Params {};
+
 } // namespace beam
