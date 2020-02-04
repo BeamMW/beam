@@ -213,8 +213,11 @@ namespace proto {
 #define BeamNodeMsg_GetEvents(macro) \
     macro(Height, HeightMin)
 
+#define BeamNodeMsg_EventsLegacy(macro) \
+    macro(std::vector<Event::Legacy>, Events)
+
 #define BeamNodeMsg_Events(macro) \
-    macro(std::vector<Event>, Events)
+    macro(ByteBuffer, Events)
 
 #define BeamNodeMsg_GetBlockFinalization(macro) \
     macro(Height, Height) \
@@ -275,7 +278,8 @@ namespace proto {
     macro(0x2b, ShieldedList) \
     /* onwer-relevant */ \
     macro(0x2c, GetEvents) \
-    macro(0x2d, Events) \
+    macro(0x2d, EventsLegacy) \
+    macro(0x34, Events) \
     macro(0x2e, GetBlockFinalization) \
     macro(0x2f, BlockFinalization) \
     /* tx broadcast and replication */ \
@@ -322,70 +326,121 @@ namespace proto {
 
 	static const uint32_t g_HdrPackMaxSize = 2048; // about 400K
 
-	struct Event
-	{
-		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
+    struct Event
+    {
+        static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
-        typedef uintBig_t<ECC::uintBig::nBytes - sizeof(Asset::ID)> AuxBuf1;
+#define BeamEventsAll(macro) \
+        macro(1, Utxo) \
+        macro(2, Shielded)
 
-#pragma pack(push, 1)
-		struct Shielded
-		{
-            ECC::Scalar m_kSerG;
-            ECC::Scalar m_kOutG;
-            PeerID m_Sender;
-            ECC::uintBig m_Message;
-            uintBigFor<TxoID>::Type m_ID;
-            uint8_t m_IsCreatedByViewer;
-		};
+#define BeamEvent_Utxo(macro) \
+        macro(uint8_t, Flags) \
+        macro(CoinID, Cid) \
+        macro(ECC::Point, Commitment) \
+        macro(Height, Maturity)
 
-        struct ShieldedDelta
-        {
-            uint8_t m_pBuf[sizeof(Shielded) - sizeof(Key::ID::Packed) - AuxBuf1::nBytes];
+#define BeamEvent_Shielded(macro) \
+        macro(uint8_t, Flags) \
+        macro(TxoID, ID) \
+        macro(Amount, Value) \
+        macro(Asset::ID, AssetID) \
+        macro(ECC::Scalar, kSerG) \
+        macro(ECC::Scalar, kOutG) \
+        macro(PeerID, Sender) \
+        macro(ECC::uintBig, Message)
 
-            void Set(Key::ID::Packed&, AuxBuf1&, const Shielded&);
-            void Get(const Key::ID::Packed&, const AuxBuf1&, Shielded&) const;
+        struct Type {
+            enum Enum {
+#define THE_MACRO(id, name) name = id,
+                BeamEventsAll(THE_MACRO)
+#undef THE_MACRO
+            };
         };
 
-#pragma pack(pop)
+        struct Flags {
+            static const uint8_t Add = 1; // otherwise it's spend
+            static const uint8_t CreatedByViewer = 2; // releveant for shielded
+        };
 
-		Key::ID m_Kid;
-        Amount m_Value;
-		ShieldedDelta m_ShieldedDelta;
-		ECC::Point m_Commitment;
-        uintBigFor<Asset::ID>::Type m_AssetID;
+        struct Base
+        {
+            virtual ~Base() {}
+            virtual Type::Enum get_Type() const = 0;
+            virtual void Dump(std::ostringstream&) const = 0;
+        };
 
-        AuxBuf1 m_Buf1; // for hystorical reasons
+#define THE_MACRO_DECL(type, name) type m_##name;
+#define THE_MACRO_SER(type, name) ar & m_##name;
 
-		Height m_Height;
-		Height m_Maturity;
+#define THE_MACRO(id, name) \
+        struct name \
+            :public Base \
+        { \
+            static const Type::Enum s_Type = Type::name; \
+ \
+            virtual Type::Enum get_Type() const override { return s_Type; } \
+            virtual ~name() {} \
+            virtual void Dump(std::ostringstream&) const; \
+ \
+            BeamEvent_##name(THE_MACRO_DECL) \
+ \
+            template <typename Archive> \
+            void serialize(Archive& ar) \
+            { \
+                BeamEvent_##name(THE_MACRO_SER) \
+            } \
+        };
 
-		struct Flags {
-			static const uint8_t Add = 1; // otherwise it's spend
-			static const uint8_t Shielded = 2;
-		};
+        BeamEventsAll(THE_MACRO)
 
-		uint8_t m_Flags;
+#undef THE_MACRO
+#undef THE_MACRO_SER
+#undef THE_MACRO_DECL
 
-        void get_Cid(CoinID&) const;
 
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_Commitment
-				& m_Kid
-                & m_Value
-                & m_AssetID
-                & m_Buf1
-				& m_Height
-				& m_Maturity
-				& m_Flags;
+        struct IParser
+        {
+            void ProceedOnce(Deserializer&);
+            void ProceedOnce(const Blob&);
+            virtual void OnEvent(Base&) {}
+        };
 
-			if (Flags::Shielded & m_Flags)
-				ar & m_ShieldedDelta.m_pBuf;
-		}
-	};
+        struct IGroupParser
+            :public IParser
+        {
+            Height m_Height;
+            uint32_t Proceed(const Blob&);
+        };
+
+        // remove the following after Fork2
+        struct Legacy
+        {
+            Key::ID m_Kid;
+            Amount m_Value;
+            ECC::Point m_Commitment;
+
+            Height m_Height;
+            Height m_Maturity;
+
+            uint8_t m_Flags;
+
+            template <typename Archive>
+            void serialize(Archive& ar)
+            {
+                ECC::uintBig dummy(Zero);
+                ar
+                    & m_Commitment
+                    & m_Kid
+                    & m_Value
+                    & dummy
+                    & m_Height
+                    & m_Maturity
+                    & m_Flags;
+            }
+        };
+
+    };
 
 	struct BodyBuffers
 	{

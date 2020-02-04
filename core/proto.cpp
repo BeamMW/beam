@@ -952,31 +952,61 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 
 /////////////////////////
 // Event
-void Event::ShieldedDelta::Set(Key::ID::Packed& kid, AuxBuf1& buf1, const Shielded& s)
+void Event::IParser::ProceedOnce(Deserializer& der)
 {
-    const uint8_t* p = reinterpret_cast<const uint8_t*>(&s);
-    static_assert(sizeof(s) == sizeof(kid) + AuxBuf1::nBytes + sizeof(m_pBuf));
-	memcpy(&kid, p, sizeof(kid));
-	memcpy(buf1.m_pData, p + sizeof(kid), buf1.nBytes);
-    memcpy(m_pBuf, p + sizeof(kid) + buf1.nBytes, sizeof(m_pBuf));
+    Type::Enum eType;
+    der & eType;
+
+    switch (eType)
+    {
+#define THE_MACRO(id, name) \
+    case Type::name: \
+        { \
+            name evt; \
+            der & evt; \
+            OnEvent(evt); \
+        } \
+        break;
+
+        BeamEventsAll(THE_MACRO)
+#undef THE_MACRO
+
+    default:
+        throw std::runtime_error("Unk proto/Event");
+    }
 }
 
-void Event::ShieldedDelta::Get(const Key::ID::Packed& kid, const AuxBuf1& buf1, Shielded& s) const
+void Event::IParser::ProceedOnce(const Blob& blob)
 {
-    uint8_t* p = reinterpret_cast<uint8_t*>(&s);
-
-    memcpy(p, &kid, sizeof(kid));
-    memcpy(p + sizeof(kid), buf1.m_pData, buf1.nBytes);
-    memcpy(p + sizeof(kid) + buf1.nBytes, m_pBuf, sizeof(m_pBuf));
+    Deserializer der;
+    der.reset(blob.p, blob.n);
+    ProceedOnce(der);
 }
 
-void Event::get_Cid(CoinID& cid) const
+uint32_t Event::IGroupParser::Proceed(const Blob& blob)
 {
-    assert(!(Flags::Shielded & m_Flags));
+    uint32_t nCount = 0;
+    Deserializer der;
 
-    Cast::Down<Key::ID>(cid) = m_Kid;
-    cid.m_Value = m_Value;
-    m_AssetID.Export(cid.m_AssetID);
+    for (der.reset(blob.p, blob.n); der.bytes_left(); nCount++)
+    {
+        der & m_Height;
+        ProceedOnce(der);
+    }
+
+    return nCount;
+}
+
+void Event::Utxo::Dump(std::ostringstream& os) const
+{
+    char ch = (Flags::Add & m_Flags) ? '+' : '-';
+    os << ch << "Utxo " << m_Cid << ", Maturity=" << m_Maturity;
+}
+
+void Event::Shielded::Dump(std::ostringstream& os) const
+{
+    char ch = (Flags::Add & m_Flags) ? '+' : '-';
+    os << ch << "Shielded Value=" << m_Value << ", TxoID=" << m_ID << ", Sender=" << m_Sender;
 }
 
 } // namespace proto

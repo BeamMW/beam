@@ -211,7 +211,7 @@ private:
 		void OnModified() override;
 		Key::IPKdf* get_ViewerKey() override;
 		const ShieldedTxo::Viewer* get_ViewerShieldedKey() override;
-		void OnEvent(const Event::Value&, Height) override;
+		void OnEvent(Height, const proto::Event::Base&) override;
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		void Stop();

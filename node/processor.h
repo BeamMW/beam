@@ -453,25 +453,14 @@ public:
 	};
 
 #pragma pack (push, 1)
-	struct Event
+	struct EventKey
 	{
-		typedef ECC::Point Key;
-		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
+		// make sure we always distinguish different events by their keys
+		typedef ECC::Point Utxo;
+		typedef ECC::Point Shielded;
 
-		struct Value {
-			ECC::Key::ID::Packed m_Kid;
-			uintBigFor<Amount>::Type m_Value;
-			uintBigFor<Height>::Type m_Maturity;
-			uintBigFor<Asset::ID>::Type m_AssetID;
-			proto::Event::AuxBuf1 m_Buf1;
-			uint8_t m_Flags;
-		};
-
-		struct ValueS
-			:public Value
-		{
-			proto::Event::ShieldedDelta m_ShieldedDelta;
-		};
+		// Utxo and Shielded use the same key type, hence the following flag (OR-ed with Y coordinate) makes the difference
+		static const uint8_t s_FlagShielded = 2;
 	};
 
 	struct ShieldedBase
@@ -494,7 +483,7 @@ public:
 
 #pragma pack (pop)
 
-	virtual void OnEvent(const Event::Value&, Height) {}
+	virtual void OnEvent(Height, const proto::Event::Base&) {}
 	virtual void OnDummy(const CoinID&, Height) {}
 
 	static bool IsDummy(const CoinID&);
@@ -513,6 +502,12 @@ private:
 	void GenerateNewHdr(BlockContext&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
+
+	template <typename TKey, typename TEvt>
+	bool FindEvent(const TKey&, TEvt&);
+
+	template <typename TKey, typename TEvt>
+	void AddEvent(Height, const TKey&, const TEvt&);
 };
 
 struct LogSid

@@ -691,27 +691,32 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestEvents& r)
     {
-        std::vector<proto::Event>& v = r.m_Res.m_Events;
-
-        for (size_t i = 0; i < v.size(); i++)
+        struct MyParser
+            :public proto::Event::IGroupParser
         {
-            auto& event = v[i];
+            Wallet& m_This;
+            MyParser(Wallet& x) :m_This(x) {}
 
-            if (proto::Event::Flags::Shielded & event.m_Flags)
-                continue; // not supported atm
+            virtual void OnEvent(proto::Event::Base& evt_) override
+            {
+                if (proto::Event::Type::Utxo != evt_.get_Type())
+                    return;
 
-            // filter-out false positives
-            CoinID cid;
-            event.get_Cid(cid);
+                proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
 
-            if (!m_WalletDB->IsRecoveredMatch(cid, event.m_Commitment))
-                continue;
+                // filter-out false positives
 
-            bool bAdd = 0 != (proto::Event::Flags::Add & event.m_Flags);
-            ProcessEventUtxo(cid, event.m_Height, event.m_Maturity, bAdd);
-        }
+                if (!m_This.m_WalletDB->IsRecoveredMatch(evt.m_Cid, evt.m_Commitment))
+                    return;
 
-        if (r.m_Res.m_Events.size() < proto::Event::s_Max)
+                bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
+                m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd);
+            }
+        } p(*this);
+        
+        uint32_t nCount = p.Proceed(r.m_Res.m_Events);
+
+        if (nCount < proto::Event::s_Max)
         {
             Block::SystemState::Full sTip;
             m_WalletDB->get_History().get_Tip(sTip);
@@ -720,7 +725,7 @@ namespace beam::wallet
         }
         else
         {
-            SetEventsHeight(r.m_Res.m_Events.back().m_Height);
+            SetEventsHeight(p.m_Height);
             RequestEvents(); // maybe more events pending
         }
     }

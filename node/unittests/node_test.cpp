@@ -1635,8 +1635,8 @@ namespace beam
 
 			} m_Assets;
 
-			Height m_hUtxoEvts = 0;
-			bool m_bUtxoEvtsPending = false;
+			Height m_hEvts = 0;
+			bool m_bEvtsPending = false;
 
 			MyClient(const Key::IKdf::Ptr& pKdf)
 			{
@@ -2224,18 +2224,18 @@ namespace beam
 
 			void MaybeAskEvents()
 			{
-				if (m_bUtxoEvtsPending || m_vStates.empty())
+				if (m_bEvtsPending || m_vStates.empty())
 					return;
 
-				assert(m_hUtxoEvts <= m_vStates.back().m_Height);
-				if (m_hUtxoEvts == m_vStates.back().m_Height)
+				assert(m_hEvts <= m_vStates.back().m_Height);
+				if (m_hEvts == m_vStates.back().m_Height)
 					return;
 				
 				proto::GetEvents msg;
-				msg.m_HeightMin = m_hUtxoEvts + 1;
+				msg.m_HeightMin = m_hEvts + 1;
 				Send(msg);
 
-				m_bUtxoEvtsPending = true;
+				m_bEvtsPending = true;
 				m_nRecoveryPending++;
 			}
 
@@ -2353,77 +2353,83 @@ namespace beam
 				verify_test(m_nRecoveryPending);
 				m_nRecoveryPending--;
 
-				verify_test(m_bUtxoEvtsPending);
-				m_bUtxoEvtsPending = false;
+				verify_test(m_bEvtsPending);
+				m_bEvtsPending = false;
 
-				for (size_t i = 0; i < msg.m_Events.size(); i++)
+				Height hTip = m_vStates.empty() ? 0 : m_vStates.back().m_Height;
+
+				struct MyParser :public proto::Event::IGroupParser
 				{
-					const proto::Event& evt = msg.m_Events[i];
+					MyClient& m_This;
+					MyParser(MyClient& x) :m_This(x) {}
 
-					Asset::ID nAssetID;
-					evt.m_AssetID.Export(nAssetID);
-					if (nAssetID)
+					virtual void OnEvent(proto::Event::Base& evt) override
 					{
-						verify_test(nAssetID == m_Assets.m_ID);
-						m_Assets.m_Recognized = true;
+						if (proto::Event::Type::Utxo == evt.get_Type())
+							return OnEventType(Cast::Up<proto::Event::Utxo>(evt));
+
+						if (proto::Event::Type::Shielded == evt.get_Type())
+							return OnEventType(Cast::Up<proto::Event::Shielded>(evt));
 					}
 
-					if (proto::Event::Flags::Shielded & evt.m_Flags)
+					void OnEventType(proto::Event::Utxo& evt)
+					{
+						ECC::Scalar::Native sk;
+						ECC::Point comm;
+						CoinID::Worker(evt.m_Cid).Create(sk, comm, *m_This.m_Wallet.m_pKdf);
+						verify_test(comm == evt.m_Commitment);
+
+						if (evt.m_Cid.m_AssetID)
+						{
+							verify_test(evt.m_Cid.m_AssetID == m_This.m_Assets.m_ID);
+							m_This.m_Assets.m_Recognized = true;
+						}
+						else
+						{
+							if (proto::Event::Flags::Add & evt.m_Flags)
+								m_This.m_Wallet.AddMyUtxo(evt.m_Cid, evt.m_Maturity);
+						}
+					}
+
+					void OnEventType(proto::Event::Shielded& evt)
 					{
 						// Restore all the relevent data
-						Key::ID::Packed kid;
-						kid = evt.m_Kid;
-						proto::Event::Shielded s;
-						evt.m_ShieldedDelta.Get(kid, evt.m_Buf1, s);
-
-						verify_test(s.m_ID == uintBigFrom(TxoID(0)));
+						verify_test(evt.m_ID == 0);
 
 						// Output parameters are fully recovered
-						verify_test(m_Shielded.m_Params.m_Output.m_Sender == s.m_Sender);
-						verify_test(m_Shielded.m_Params.m_Output.m_Message == s.m_Message);
-						verify_test(m_Shielded.m_Params.m_Output.m_Value == evt.m_Value);
-						verify_test(m_Shielded.m_Params.m_Output.m_k == s.m_kOutG);
+						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Sender == evt.m_Sender);
+						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Message == evt.m_Message);
+						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Value == evt.m_Value);
+						verify_test(m_This.m_Shielded.m_Params.m_Output.m_AssetID == evt.m_AssetID);
+						verify_test(m_This.m_Shielded.m_Params.m_Output.m_k == evt.m_kOutG);
+						
 
 						// Shielded parameters: recovered only the part that is sufficient to spend it
 						ShieldedTxo::Viewer viewer;
-						viewer.FromOwner(*m_Wallet.m_pKdf);
+						viewer.FromOwner(*m_This.m_Wallet.m_pKdf);
 
 						ShieldedTxo::Data::SerialParams sp;
-						sp.m_pK[0] = s.m_kSerG;
-						sp.m_IsCreatedByViewer = s.m_IsCreatedByViewer;
+						sp.m_pK[0] = evt.m_kSerG;
+						sp.m_IsCreatedByViewer = 0 != (proto::Event::Flags::CreatedByViewer & evt.m_Flags);
 						sp.Restore(viewer); // restores only what is necessary for spend
 
-						verify_test(m_Shielded.m_Params.m_Serial.m_IsCreatedByViewer == sp.m_IsCreatedByViewer);
-						verify_test(m_Shielded.m_Params.m_Serial.m_pK[0] == sp.m_pK[0]);
-						verify_test(m_Shielded.m_Params.m_Serial.m_SerialPreimage == sp.m_SerialPreimage);
+						verify_test(m_This.m_Shielded.m_Params.m_Serial.m_IsCreatedByViewer == sp.m_IsCreatedByViewer);
+						verify_test(m_This.m_Shielded.m_Params.m_Serial.m_pK[0] == sp.m_pK[0]);
+						verify_test(m_This.m_Shielded.m_Params.m_Serial.m_SerialPreimage == sp.m_SerialPreimage);
 
 						// Recover the full data
-						
+
 						if (proto::Event::Flags::Add & evt.m_Flags)
-							m_Shielded.m_EvtAdd = true;
+							m_This.m_Shielded.m_EvtAdd = true;
 						else
-							m_Shielded.m_EvtSpend = true;
+							m_This.m_Shielded.m_EvtSpend = true;
 					}
-					else
-					{
-						CoinID cid;
-						evt.get_Cid(cid);
 
-						ECC::Scalar::Native sk;
-						ECC::Point comm;
-						CoinID::Worker(cid).Create(sk, comm, *m_Wallet.m_pKdf);
-						verify_test(comm == evt.m_Commitment);
+				} p(*this);
 
-						if (!cid.m_AssetID && (proto::Event::Flags::Add & evt.m_Flags))
-							m_Wallet.AddMyUtxo(cid, evt.m_Maturity);
-					}
-				}
+				uint32_t nCount = p.Proceed(msg.m_Events);
 
-				verify_test(!m_vStates.empty());
-
-				m_hUtxoEvts = (msg.m_Events.size() < proto::Event::s_Max) ?
-					m_vStates.back().m_Height :
-					msg.m_Events.back().m_Height;
+				m_hEvts = (nCount < proto::Event::s_Max) ? hTip : p.m_Height;
 
 				MaybeAskEvents();
 

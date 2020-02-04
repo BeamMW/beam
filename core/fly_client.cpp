@@ -752,17 +752,6 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestEvents& req)
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestEvents& req)
 {
-    // make sure height order is obeyed
-    Height hPrev = req.m_Msg.m_HeightMin;
-
-    for (size_t i = 0; i < req.m_Res.m_Events.size(); i++)
-    {
-        const Event& evt = req.m_Res.m_Events[i];
-        if ((evt.m_Height < hPrev) || (evt.m_Height > m_Tip.m_Height))
-            ThrowUnexpected();
-
-        hPrev = evt.m_Height;
-    }
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)

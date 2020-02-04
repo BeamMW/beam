@@ -773,19 +773,15 @@ const ShieldedTxo::Viewer* Node::Processor::get_ViewerShieldedKey()
 		nullptr;
 }
 
-void Node::Processor::OnEvent(const Event::Value& evt, Height h)
+void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)
 {
 	if (get_ParentObj().m_Cfg.m_LogEvents)
 	{
-		CoinID cid;
-		Cast::Down<Key::ID>(cid) = evt.m_Kid;
-        evt.m_Value.Export(cid.m_Value);
-        evt.m_AssetID.Export(cid.m_AssetID);
+        std::ostringstream os;
+        os << "Event Height=" << h << ", ";
+        evt.Dump(os);
 
-		Height hMaturity;
-		evt.m_Maturity.Export(hMaturity);
-
-		LOG_INFO() << "Utxo " << cid << ", Maturity=" << hMaturity << ", Flags=" << static_cast<uint32_t>(evt.m_Flags) << ", Height=" << h;
+        LOG_INFO() << os.str();
 	}
 }
 
@@ -3312,39 +3308,25 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
         NodeDB::WalkerEvent wlk;
 
         Height hLast = 0;
+        uint32_t nCount = 0;
+
+        Serializer ser;
+
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
         {
-            typedef NodeProcessor::Event UE;
-
-            if ((msgOut.m_Events.size() >= proto::Event::s_Max) && (wlk.m_Height != hLast))
+            if ((nCount >= proto::Event::s_Max) && (wlk.m_Height != hLast))
                 break;
 
 			if (p.IsFastSync() && (wlk.m_Height > p.m_SyncData.m_h0))
 				break;
 
-            if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
-                continue; // although shouldn't happen
-            const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
+            ser & wlk.m_Height;
+            ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);
 
-			if ((proto::Event::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
-				continue; // although shouldn't happen
-
-            msgOut.m_Events.emplace_back();
-            proto::Event& res = msgOut.m_Events.back();
-
-            res.m_Height = wlk.m_Height;
-            res.m_Kid = evt.m_Kid;
-            evt.m_Value.Export(res.m_Value);
-            evt.m_Maturity.Export(res.m_Maturity);
-
-            res.m_Commitment = *reinterpret_cast<const ECC::Point*>(wlk.m_Key.p);
-            res.m_AssetID = evt.m_AssetID;
-            res.m_Buf1 = evt.m_Buf1;
-            res.m_Flags = evt.m_Flags;
-
-			if (proto::Event::Flags::Shielded & evt.m_Flags)
-				res.m_ShieldedDelta = Cast::Up<UE::ValueS>(evt).m_ShieldedDelta;
+            nCount++;
 		}
+
+        ser.swap_buf(msgOut.m_Events);
     }
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
@@ -4277,7 +4259,7 @@ void Node::PrintTxos()
     }
 
     std::ostringstream os;
-    os << "Printing Txo movement for Key=" << pid << std::endl;
+    os << "Printing Events for Key=" << pid << std::endl;
 
     if (m_Processor.IsFastSync())
         os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
@@ -4288,35 +4270,19 @@ void Node::PrintTxos()
     NodeDB::WalkerEvent wlk;
     for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
     {
-        typedef NodeProcessor::Event UE;
-
-        if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
-            continue; // although shouldn't happen
-        const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
-
-        if ((proto::Event::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
-            continue; // although shouldn't happen
-
-        Height hMaturity;
-        Amount val;
-        evt.m_Maturity.Export(hMaturity);
-        evt.m_Value.Export(val);
-
-        os
-            << "\tHeight=" << wlk.m_Height << ", "
-            << ((proto::Event::Flags::Add & evt.m_Flags) ? "Add" : "Spend")
-            << ", Value=" << val
-            << ", Maturity=" << hMaturity;
-
-        if (proto::Event::Flags::Shielded & evt.m_Flags)
+        struct MyParser :public proto::Event::IParser
         {
-            proto::Event::Shielded ues;
-            Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kid, evt.m_Buf1, ues);
-            TxoID id;
-            ues.m_ID.Export(id);
-            os << ", Shielded TxoID=" << id;
-        }
+            std::ostringstream& m_os;
+            MyParser(std::ostringstream& os) :m_os(os) {}
 
+            virtual void OnEvent(proto::Event::Base& x) override {
+                x.Dump(m_os);
+            }
+
+        } p(os);
+
+        os << "\tHeight=" << wlk.m_Height << ", ";
+        p.ProceedOnce(wlk.m_Body);
         os << std::endl;
     }
 
