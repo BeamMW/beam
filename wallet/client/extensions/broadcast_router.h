@@ -31,7 +31,7 @@ namespace beam
     public:
         BroadcastRouter(proto::FlyClient::INetwork&);
 
-        // needed to map Listeners and BBS channels
+        // needed to map Listeners to message types
         enum class ContentType
         {
             SwapOffers,
@@ -59,10 +59,9 @@ namespace beam
         static constexpr size_t m_maxMessageSize = 1024*1024*10;    // TODO: experimentally check
         static constexpr uint32_t m_bbsTimeWindow = 12*60*60;       // BBS message lifetime is 12 hours
 
-        static const std::map<ContentType, std::vector<BbsChannel>> m_bbsChannelsMapping;
+        static const std::vector<BbsChannel> m_bbsChannelsList;
         static const std::map<ContentType, MsgType> m_messageTypeMapping;
 
-        std::vector<BbsChannel> getBbsChannels(ContentType);
         MsgType getMsgType(ContentType);
 
         proto::FlyClient::INetwork& m_bbsNetwork;

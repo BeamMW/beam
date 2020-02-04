@@ -19,14 +19,13 @@
 namespace beam
 {
 
-/// TODO review BBS channels mapping before fork
-const std::map<BroadcastRouter::ContentType, std::vector<BbsChannel>> BroadcastRouter::m_bbsChannelsMapping =
+/// TODO review BBS channels mapping before next fork
+const std::vector<BbsChannel> BroadcastRouter::m_bbsChannelsList =
 {
-    { BroadcastRouter::ContentType::SwapOffers,         { proto::Bbs::s_MaxWalletChannels,
-                                                                  proto::Bbs::s_MaxWalletChannels + 1,
-                                                                  proto::Bbs::s_MaxWalletChannels + 2 } },
-    { BroadcastRouter::ContentType::SoftwareUpdates,    { proto::Bbs::s_MaxWalletChannels + 1024u } },
-    { BroadcastRouter::ContentType::ExchangeRates,      { proto::Bbs::s_MaxWalletChannels + 1024u } }
+    proto::Bbs::s_MaxWalletChannels,
+    proto::Bbs::s_MaxWalletChannels + 1,
+    proto::Bbs::s_MaxWalletChannels + 2,
+    proto::Bbs::s_MaxWalletChannels + 1024u
 };
 
 const std::map<BroadcastRouter::ContentType, MsgType> BroadcastRouter::m_messageTypeMapping =
@@ -35,14 +34,6 @@ const std::map<BroadcastRouter::ContentType, MsgType> BroadcastRouter::m_message
     { BroadcastRouter::ContentType::SoftwareUpdates, MsgType(1) },
     { BroadcastRouter::ContentType::ExchangeRates, MsgType(2) }
 };
-
-std::vector<BbsChannel> BroadcastRouter::getBbsChannels(ContentType type)
-{
-    auto it = m_bbsChannelsMapping.find(type);
-    assert(it != std::cend(m_bbsChannelsMapping));
-
-    return it->second;
-}
 
 MsgType BroadcastRouter::getMsgType(ContentType type)
 {
@@ -59,23 +50,27 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork)
                  m_protocol_version_2,
                  m_maxMessageTypes,
                  *this,
-                 MsgHeader::SIZE+1)   // TODO: serializer is not used
+                 MsgHeader::SIZE+1)     // TODO: serializer is not used
     , m_msgReader(m_protocol,
-                  0,    // uint64_t streamId
+                  0,                    // uint64_t streamId
                   m_defaultMessageSize)
     , m_lastTimestamp(getTimestamp() - m_bbsTimeWindow)
 {
     m_msgReader.disable_all_msg_types();
+    for (const auto& channel : m_bbsChannelsList)
+    {
+        m_bbsNetwork.BbsSubscribe(channel, m_lastTimestamp, this);
+    }
 }
 
 /**
- *  ContentType used like key because Protocol has only ability to add message handler,
- *  but MsgReader able both enable and disable message types.
+ *  Only one listener of each type can be registered.
  */
 void BroadcastRouter::registerListener(ContentType type, IBroadcastListener* listener)
 {
     auto it = m_listeners.find(type);
     assert(it == std::cend(m_listeners));
+    m_listeners[type] = listener;
 
     auto msgType = getMsgType(type);
 
@@ -90,22 +85,15 @@ void BroadcastRouter::registerListener(ContentType type, IBroadcastListener* lis
         (msgType, listener, m_minMessageSize, m_maxMessageSize);
 
     m_msgReader.enable_msg_type(msgType);
-    
-    for (BbsChannel channel : getBbsChannels(type))
-    {
-        m_bbsNetwork.BbsSubscribe(channel, m_lastTimestamp, this);
-    }
-
-    m_listeners[type] = listener;
 }
 
 void BroadcastRouter::unregisterListener(ContentType type)
 {
     auto it = m_listeners.find(type);
     assert(it != std::cend(m_listeners));
+    m_listeners.erase(it);
 
     m_msgReader.disable_msg_type(getMsgType(type));
-    m_listeners.erase(it);
 }
 
 /**

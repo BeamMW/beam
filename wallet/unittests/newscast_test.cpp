@@ -91,22 +91,37 @@ namespace
      */
     ByteBuffer makeMsg(const ByteBuffer& msgRaw, const ByteBuffer& signatureRaw)
     {
-        ByteBuffer fullMsg(MsgHeader::SIZE);
-        size_t rawBodySize = msgRaw.size() + signatureRaw.size();
-        assert(rawBodySize <= UINT32_MAX);
+        size_t sz = msgRaw.size() + signatureRaw.size();
+        ByteBuffer msg(sz);
+        assert(sz <= UINT32_MAX);
 
-        MsgHeader header(0, 0, 1, 1, static_cast<uint32_t>(rawBodySize));
-        header.write(fullMsg.data());
-
-        std::copy(  std::begin(msgRaw),
-                    std::end(msgRaw),
-                    std::back_inserter(fullMsg));
+        auto it = std::copy(std::begin(msgRaw),
+                            std::end(msgRaw),
+                            std::begin(msg));
         std::copy(  std::begin(signatureRaw),
                     std::end(signatureRaw),
-                    std::back_inserter(fullMsg));
+                    it);
 
-        return fullMsg;
+        return msg;
     }
+
+    /**
+     *  Create message with Protocol header according to Newscast protocol
+     */
+    ByteBuffer addProtocolHeader(const ByteBuffer& content, BroadcastRouter::ContentType type)
+    {
+        ByteBuffer msg(MsgHeader::SIZE + content.size());
+        MsgHeader header(0, // V0
+                         0, // V1
+                         1, // V2
+                         static_cast<uint8_t>(type),
+                         static_cast<uint8_t>(content.size()));
+        header.write(msg.data());
+        std::copy(std::cbegin(content),
+                  std::cend(content),
+                  std::begin(msg) + MsgHeader::SIZE);
+        return msg;
+    };
 
     /**
      * Create NewsMessage with specified string
@@ -280,11 +295,10 @@ namespace
         int notificationCount = 0;
         const NewsMessage news = { NewsMessage::Type::WalletUpdateNotification, toByteBuffer("test message") };
         MockNewsObserver testObserver(
-            // void onNewsUpdate(const NewsMessage& msg)
             [&notificationCount, &news]
-            (const NewsMessage& receivedNews)
+            (const NewsMessage& msg)    // void onNewsUpdate(const NewsMessage& msg)
             {
-                WALLET_CHECK(news == receivedNews);
+                WALLET_CHECK(news == msg);
                 ++notificationCount;
             });
 
@@ -293,7 +307,7 @@ namespace
 
         ByteBuffer msgRaw = toByteBuffer(news);
         const auto& [pk, signatureRaw] = signData(msgRaw, 321, senderWalletDB);
-        ByteBuffer data = makeMsg(msgRaw, signatureRaw);
+        ByteBuffer data = addProtocolHeader(makeMsg(msgRaw, signatureRaw), BroadcastRouter::ContentType::SoftwareUpdates);
 
         {
             PublicKey pk2, pk3;
@@ -325,7 +339,7 @@ namespace
             // sign the same message with other key
             ByteBuffer newSignatureRaw;
             std::tie(std::ignore, newSignatureRaw) = signData(msgRaw, 322, senderWalletDB);
-            data = makeMsg(msgRaw, newSignatureRaw);
+            data = addProtocolHeader(makeMsg(msgRaw, newSignatureRaw), BroadcastRouter::ContentType::SoftwareUpdates);
 
             network.SendRawMessage(channel, data);
             WALLET_CHECK(notificationCount == 2);
