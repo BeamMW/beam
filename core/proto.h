@@ -305,7 +305,8 @@ namespace proto {
         static const uint32_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
         static const uint32_t Extension2             = 0x20; // Supports large HdrPack, BlockPack with parameters
         static const uint32_t Extension3             = 0x40; // Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
-	    static const uint32_t Recognized             = 0x7f;
+        static const uint32_t Extension4             = 0x80; // Supports proto::Events (replaces proto::EventsLegacy)
+	    static const uint32_t Recognized             = 0xff;
 
 
 		static const uint32_t ExtensionsBeforeHF1 =
@@ -314,7 +315,8 @@ namespace proto {
 			Extension3;
 
 		static const uint32_t ExtensionsAll =
-			ExtensionsBeforeHF1;
+			ExtensionsBeforeHF1 |
+            Extension4;
 	};
 
     struct IDType
