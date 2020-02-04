@@ -951,16 +951,9 @@ void NodeConnection::OnMsg(EventsLegacy&& msg)
     for (size_t i = 0; i < msg.m_Events.size(); i++)
     {
         const proto::Event::Legacy& evt0 = msg.m_Events[i];
+
         proto::Event::Utxo evt1;
-
-        evt1.m_Flags = evt0.m_Flags ? proto::Event::Flags::Add : 0;
-
-        Cast::Down<Key::ID>(evt1.m_Cid) = evt0.m_Kid;
-        evt1.m_Cid.m_Value = evt0.m_Value;
-        evt1.m_Cid.m_AssetID = 0;
-
-        evt1.m_Commitment = evt0.m_Commitment;
-        evt1.m_Maturity = evt0.m_Maturity;
+        evt0.Export(evt1);
 
         ser & evt0.m_Height;
         ser & evt1.s_Type;
@@ -1037,6 +1030,29 @@ void Event::Shielded::Dump(std::ostringstream& os) const
 {
     char ch = (Flags::Add & m_Flags) ? '+' : '-';
     os << ch << "Shielded Value=" << m_Value << ", TxoID=" << m_ID << ", Sender=" << m_Sender;
+}
+
+void Event::Legacy::Import(const Utxo& evt)
+{
+    m_Flags = evt.m_Flags ? proto::Event::Flags::Add : 0;
+
+    m_Kid = evt.m_Cid;
+    m_Value = evt.m_Cid.m_Value;
+
+    m_Commitment = evt.m_Commitment;
+    m_Maturity = evt.m_Maturity;
+}
+
+void Event::Legacy::Export(Utxo& evt) const
+{
+    evt.m_Flags = m_Flags ? proto::Event::Flags::Add : 0;
+
+    Cast::Down<Key::ID>(evt.m_Cid) = m_Kid;
+    evt.m_Cid.m_Value = m_Value;
+    evt.m_Cid.m_AssetID = 0;
+
+    evt.m_Commitment = m_Commitment;
+    evt.m_Maturity = m_Maturity;
 }
 
 } // namespace proto

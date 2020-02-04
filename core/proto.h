@@ -438,6 +438,9 @@ namespace proto {
                     & m_Maturity
                     & m_Flags;
             }
+
+            void Import(const Utxo&);
+            void Export(Utxo&) const;
         };
 
     };
