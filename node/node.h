@@ -73,7 +73,7 @@ struct Node
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 
-		bool m_LogUtxos = false; // may be insecure. Off by default.
+		bool m_LogEvents = false; // may be insecure. Off by default.
 		bool m_LogTxStem = true;
 		bool m_LogTxFluff = true;
 

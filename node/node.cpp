@@ -775,7 +775,7 @@ const ShieldedTxo::Viewer* Node::Processor::get_ViewerShieldedKey()
 
 void Node::Processor::OnEvent(const Event::Value& evt, Height h)
 {
-	if (get_ParentObj().m_Cfg.m_LogUtxos)
+	if (get_ParentObj().m_Cfg.m_LogEvents)
 	{
 		CoinID cid;
 		Cast::Down<Key::ID>(cid) = evt.m_Kid;
