@@ -2342,15 +2342,27 @@ bool NodeProcessor::FindEvent(const TKey& key, TEvt& evt)
 	return true;
 }
 
-template <typename TKey, typename TEvt>
-void NodeProcessor::AddEvent(Height h, const TKey& key, const TEvt& evt)
+template <typename TEvt>
+void NodeProcessor::AddEventInternal(Height h, const TEvt& evt, const Blob& key)
 {
 	Serializer ser;
 	ser & TEvt::s_Type;
 	ser & evt;
 
-	m_DB.InsertEvent(h, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), Blob(&key, sizeof(key)));
+	m_DB.InsertEvent(h, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), key);
 	OnEvent(h, evt);
+}
+
+template <typename TEvt, typename TKey>
+void NodeProcessor::AddEvent(Height h, const TEvt& evt, const TKey& key)
+{
+	AddEventInternal(h, evt, Blob(&key, sizeof(key)));
+}
+
+template <typename TEvt>
+void NodeProcessor::AddEvent(Height h, const TEvt& evt)
+{
+	AddEventInternal(h, evt, Blob(nullptr, 0));
 }
 
 void NodeProcessor::Recognize(const Input& x, Height h)
@@ -2366,7 +2378,7 @@ void NodeProcessor::Recognize(const Input& x, Height h)
 
 	evt.m_Flags &= ~proto::Event::Flags::Add;
 
-	AddEvent(h, key, evt);
+	AddEvent(h, evt);
 }
 
 void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
@@ -2380,7 +2392,7 @@ void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
 
 	evt.m_Flags &= ~proto::Event::Flags::Add;
 
-	AddEvent(h, key, evt);
+	AddEvent(h, evt);
 }
 
 bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
@@ -2446,7 +2458,7 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 	EventKey::Shielded key = sp.m_SpendPk;
 	key.m_Y |= EventKey::s_FlagShielded;
 
-	AddEvent(h, key, evt);
+	AddEvent(h, evt, key);
 }
 
 void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
@@ -2470,7 +2482,7 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 	evt.m_Maturity = x.get_MinMaturity(h);
 
 	const EventKey::Utxo& key = x.m_Commitment;
-	AddEvent(h, key, evt);
+	AddEvent(h, evt, key);
 }
 
 void NodeProcessor::RescanOwnedTxos()
@@ -2505,7 +2517,7 @@ void NodeProcessor::RescanOwnedTxos()
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
 
 			const EventKey::Utxo& key = outp.m_Commitment;
-			m_This.AddEvent(hCreate, key, evt);
+			m_This.AddEvent(hCreate, evt, key);
 
 			m_Total++;
 
@@ -2514,7 +2526,7 @@ void NodeProcessor::RescanOwnedTxos()
 			else
 			{
 				evt.m_Flags = 0;
-				m_This.AddEvent(wlk.m_SpendHeight, key, evt);
+				m_This.AddEvent(wlk.m_SpendHeight, evt);
 			}
 
 			return true;

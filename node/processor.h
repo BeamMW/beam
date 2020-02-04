@@ -506,8 +506,14 @@ private:
 	template <typename TKey, typename TEvt>
 	bool FindEvent(const TKey&, TEvt&);
 
-	template <typename TKey, typename TEvt>
-	void AddEvent(Height, const TKey&, const TEvt&);
+	template <typename TEvt, typename TKey>
+	void AddEvent(Height, const TEvt&, const TKey&);
+
+	template <typename TEvt>
+	void AddEvent(Height, const TEvt&);
+
+	template <typename TEvt>
+	void AddEventInternal(Height, const TEvt&, const Blob& key);
 };
 
 struct LogSid

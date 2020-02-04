@@ -1729,8 +1729,7 @@ void NodeDB::InsertEvent(Height h, const Blob& b, const Blob& key)
 	Recordset rs(*this, Query::EventIns, "INSERT INTO " TblEvents "(" TblEvents_Height "," TblEvents_Body "," TblEvents_Key ") VALUES (?,?,?)");
 	rs.put(0, h);
 	rs.put(1, b);
-	if (key.n)
-		rs.put(2, key);
+	rs.put(2, key);
 	rs.Step();
 	TestChanged1Row();
 }
