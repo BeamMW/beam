@@ -2596,7 +2596,7 @@ void Node::Peer::OnLogin(proto::Login&& msg)
 		Send(msgOut);
 	}
 
-    m_LoginFlags = static_cast<uint8_t>(msg.m_Flags);
+    m_LoginFlags = msg.m_Flags;
 
 	if (b != ShouldFinalizeMining()) {
 		// stupid compiler insists on parentheses!

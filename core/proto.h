@@ -298,22 +298,22 @@ namespace proto {
 
 
     struct LoginFlags {
-        static const uint8_t SpreadingTransactions  = 0x1; // I'm spreading txs, please send
-        static const uint8_t Bbs                    = 0x2; // I'm spreading bbs messages
-        static const uint8_t SendPeers              = 0x4; // Please send me periodically peers recommendations
-        static const uint8_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
-        static const uint8_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
-        static const uint8_t Extension2             = 0x20; // Supports large HdrPack, BlockPack with parameters
-        static const uint8_t Extension3             = 0x40; // Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
-	    static const uint8_t Recognized             = 0x7f;
+        static const uint32_t SpreadingTransactions  = 0x1; // I'm spreading txs, please send
+        static const uint32_t Bbs                    = 0x2; // I'm spreading bbs messages
+        static const uint32_t SendPeers              = 0x4; // Please send me periodically peers recommendations
+        static const uint32_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
+        static const uint32_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
+        static const uint32_t Extension2             = 0x20; // Supports large HdrPack, BlockPack with parameters
+        static const uint32_t Extension3             = 0x40; // Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
+	    static const uint32_t Recognized             = 0x7f;
 
 
-		static const uint8_t ExtensionsBeforeHF1 =
+		static const uint32_t ExtensionsBeforeHF1 =
 			Extension1 |
 			Extension2 |
 			Extension3;
 
-		static const uint8_t ExtensionsAll =
+		static const uint32_t ExtensionsAll =
 			ExtensionsBeforeHF1;
 	};
 

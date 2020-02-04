@@ -194,7 +194,7 @@ namespace proto {
 				void AssignRequest(RequestNode&);
 
 				bool IsAtTip() const;
-				uint8_t m_LoginFlags;
+				uint32_t m_LoginFlags;
 				uint8_t m_Flags;
 
 				struct Flags {

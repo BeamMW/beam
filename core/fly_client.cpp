@@ -247,7 +247,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
 
 void FlyClient::NetworkStd::Connection::OnLogin(Login&& msg)
 {
-    m_LoginFlags = static_cast<uint8_t>(msg.m_Flags);
+    m_LoginFlags = msg.m_Flags;
     AssignRequests();
 
     if (LoginFlags::Bbs & m_LoginFlags)
