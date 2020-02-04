@@ -17,7 +17,6 @@
 #include <sstream>
 #include "block_crypt.h"
 #include "serialization_adapters.h"
-#include "logger.h"
 
 namespace beam
 {
