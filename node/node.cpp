@@ -773,7 +773,7 @@ const ShieldedTxo::Viewer* Node::Processor::get_ViewerShieldedKey()
 		nullptr;
 }
 
-void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
+void Node::Processor::OnEvent(const Event::Value& evt, Height h)
 {
 	if (get_ParentObj().m_Cfg.m_LogUtxos)
 	{
@@ -3301,9 +3301,9 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 	BroadcastBbs();
 }
 
-void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
+void Node::Peer::OnMsg(proto::GetEvents&& msg)
 {
-    proto::UtxoEvents msgOut;
+    proto::Events msgOut;
 
     if (Flags::Viewer & m_Flags)
     {
@@ -3314,9 +3314,9 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
         Height hLast = 0;
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
         {
-            typedef NodeProcessor::UtxoEvent UE;
+            typedef NodeProcessor::Event UE;
 
-            if ((msgOut.m_Events.size() >= proto::UtxoEvent::s_Max) && (wlk.m_Height != hLast))
+            if ((msgOut.m_Events.size() >= proto::Event::s_Max) && (wlk.m_Height != hLast))
                 break;
 
 			if (p.IsFastSync() && (wlk.m_Height > p.m_SyncData.m_h0))
@@ -3326,11 +3326,11 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
                 continue; // although shouldn't happen
             const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
 
-			if ((proto::UtxoEvent::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
+			if ((proto::Event::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
 				continue; // although shouldn't happen
 
             msgOut.m_Events.emplace_back();
-            proto::UtxoEvent& res = msgOut.m_Events.back();
+            proto::Event& res = msgOut.m_Events.back();
 
             res.m_Height = wlk.m_Height;
             res.m_Kid = evt.m_Kid;
@@ -3342,7 +3342,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
             res.m_Buf1 = evt.m_Buf1;
             res.m_Flags = evt.m_Flags;
 
-			if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+			if (proto::Event::Flags::Shielded & evt.m_Flags)
 				res.m_ShieldedDelta = Cast::Up<UE::ValueS>(evt).m_ShieldedDelta;
 		}
     }
@@ -4288,13 +4288,13 @@ void Node::PrintTxos()
     NodeDB::WalkerEvent wlk;
     for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
     {
-        typedef NodeProcessor::UtxoEvent UE;
+        typedef NodeProcessor::Event UE;
 
         if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
             continue; // although shouldn't happen
         const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
 
-        if ((proto::UtxoEvent::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
+        if ((proto::Event::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
             continue; // although shouldn't happen
 
         Height hMaturity;
@@ -4304,13 +4304,13 @@ void Node::PrintTxos()
 
         os
             << "\tHeight=" << wlk.m_Height << ", "
-            << ((proto::UtxoEvent::Flags::Add & evt.m_Flags) ? "Add" : "Spend")
+            << ((proto::Event::Flags::Add & evt.m_Flags) ? "Add" : "Spend")
             << ", Value=" << val
             << ", Maturity=" << hMaturity;
 
-        if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+        if (proto::Event::Flags::Shielded & evt.m_Flags)
         {
-            proto::UtxoEvent::Shielded ues;
+            proto::Event::Shielded ues;
             Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kid, evt.m_Buf1, ues);
             TxoID id;
             ues.m_ID.Export(id);

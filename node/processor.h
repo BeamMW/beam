@@ -453,7 +453,7 @@ public:
 	};
 
 #pragma pack (push, 1)
-	struct UtxoEvent
+	struct Event
 	{
 		typedef ECC::Point Key;
 		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
@@ -463,14 +463,14 @@ public:
 			uintBigFor<Amount>::Type m_Value;
 			uintBigFor<Height>::Type m_Maturity;
 			uintBigFor<Asset::ID>::Type m_AssetID;
-			proto::UtxoEvent::AuxBuf1 m_Buf1;
+			proto::Event::AuxBuf1 m_Buf1;
 			uint8_t m_Flags;
 		};
 
 		struct ValueS
 			:public Value
 		{
-			proto::UtxoEvent::ShieldedDelta m_ShieldedDelta;
+			proto::Event::ShieldedDelta m_ShieldedDelta;
 		};
 	};
 
@@ -494,7 +494,7 @@ public:
 
 #pragma pack (pop)
 
-	virtual void OnUtxoEvent(const UtxoEvent::Value&, Height) {}
+	virtual void OnEvent(const Event::Value&, Height) {}
 	virtual void OnDummy(const CoinID&, Height) {}
 
 	static bool IsDummy(const CoinID&);

@@ -2128,7 +2128,7 @@ namespace beam
 					Send(msgTx);
 				}
 
-				MaybeAskUtxoEvents();
+				MaybeAskEvents();
 
 				if (!(msg.m_Description.m_Height % 4))
 				{
@@ -2222,7 +2222,7 @@ namespace beam
 				return true;
 			}
 
-			void MaybeAskUtxoEvents()
+			void MaybeAskEvents()
 			{
 				if (m_bUtxoEvtsPending || m_vStates.empty())
 					return;
@@ -2231,7 +2231,7 @@ namespace beam
 				if (m_hUtxoEvts == m_vStates.back().m_Height)
 					return;
 				
-				proto::GetUtxoEvents msg;
+				proto::GetEvents msg;
 				msg.m_HeightMin = m_hUtxoEvts + 1;
 				Send(msg);
 
@@ -2348,7 +2348,7 @@ namespace beam
 				m_nChainWorkProofsPending--;
 			}
 
-			virtual void OnMsg(proto::UtxoEvents&& msg) override
+			virtual void OnMsg(proto::Events&& msg) override
 			{
 				verify_test(m_nRecoveryPending);
 				m_nRecoveryPending--;
@@ -2358,7 +2358,7 @@ namespace beam
 
 				for (size_t i = 0; i < msg.m_Events.size(); i++)
 				{
-					const proto::UtxoEvent& evt = msg.m_Events[i];
+					const proto::Event& evt = msg.m_Events[i];
 
 					Asset::ID nAssetID;
 					evt.m_AssetID.Export(nAssetID);
@@ -2368,12 +2368,12 @@ namespace beam
 						m_Assets.m_Recognized = true;
 					}
 
-					if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+					if (proto::Event::Flags::Shielded & evt.m_Flags)
 					{
 						// Restore all the relevent data
 						Key::ID::Packed kid;
 						kid = evt.m_Kid;
-						proto::UtxoEvent::Shielded s;
+						proto::Event::Shielded s;
 						evt.m_ShieldedDelta.Get(kid, evt.m_Buf1, s);
 
 						verify_test(s.m_ID == uintBigFrom(TxoID(0)));
@@ -2399,7 +2399,7 @@ namespace beam
 
 						// Recover the full data
 						
-						if (proto::UtxoEvent::Flags::Add & evt.m_Flags)
+						if (proto::Event::Flags::Add & evt.m_Flags)
 							m_Shielded.m_EvtAdd = true;
 						else
 							m_Shielded.m_EvtSpend = true;
@@ -2414,18 +2414,18 @@ namespace beam
 						CoinID::Worker(cid).Create(sk, comm, *m_Wallet.m_pKdf);
 						verify_test(comm == evt.m_Commitment);
 
-						if (!cid.m_AssetID && (proto::UtxoEvent::Flags::Add & evt.m_Flags))
+						if (!cid.m_AssetID && (proto::Event::Flags::Add & evt.m_Flags))
 							m_Wallet.AddMyUtxo(cid, evt.m_Maturity);
 					}
 				}
 
 				verify_test(!m_vStates.empty());
 
-				m_hUtxoEvts = (msg.m_Events.size() < proto::UtxoEvent::s_Max) ?
+				m_hUtxoEvts = (msg.m_Events.size() < proto::Event::s_Max) ?
 					m_vStates.back().m_Height :
 					msg.m_Events.back().m_Height;
 
-				MaybeAskUtxoEvents();
+				MaybeAskEvents();
 
 			}
 

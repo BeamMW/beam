@@ -2321,15 +2321,15 @@ void NodeProcessor::Recognize(const Input& x, Height h)
 {
 	NodeDB::WalkerEvent wlk;
 
-	const UtxoEvent::Key& key = x.m_Commitment;
+	const Event::Key& key = x.m_Commitment;
 	m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
 	if (!wlk.MoveNext())
 		return;
 
-	if (wlk.m_Body.n < sizeof(UtxoEvent::Value))
+	if (wlk.m_Body.n < sizeof(Event::Value))
 		OnCorrupted();
 
-	UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
+	Event::Value evt = *reinterpret_cast<const Event::Value*>(wlk.m_Body.p); // copy
 
 	assert(x.m_Internal.m_Maturity); // must've already been validated
 	evt.m_Maturity = x.m_Internal.m_Maturity; // in case of duplicated utxo this is necessary
@@ -2337,7 +2337,7 @@ void NodeProcessor::Recognize(const Input& x, Height h)
 	evt.m_Flags = 0;
 
 	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-	OnUtxoEvent(evt, h);
+	OnEvent(evt, h);
 }
 
 void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
@@ -2345,24 +2345,24 @@ void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
 	NodeDB::WalkerEvent wlk;
 
 	ECC::Point pt = x.m_SpendProof.m_SpendPk;
-	static_assert(proto::UtxoEvent::Flags::Shielded != 1); // 1 is used in the point itself
-	pt.m_Y |= proto::UtxoEvent::Flags::Shielded;
+	static_assert(proto::Event::Flags::Shielded != 1); // 1 is used in the point itself
+	pt.m_Y |= proto::Event::Flags::Shielded;
 
-	const UtxoEvent::Key& key = pt;
+	const Event::Key& key = pt;
 
 	m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
 	if (!wlk.MoveNext())
 		return;
 
-	if (wlk.m_Body.n < sizeof(UtxoEvent::ValueS))
+	if (wlk.m_Body.n < sizeof(Event::ValueS))
 		OnCorrupted();
 
-	UtxoEvent::ValueS evt = *reinterpret_cast<const UtxoEvent::ValueS*>(wlk.m_Body.p); // copy
+	Event::ValueS evt = *reinterpret_cast<const Event::ValueS*>(wlk.m_Body.p); // copy
 
-	evt.m_Flags &= ~proto::UtxoEvent::Flags::Add;
+	evt.m_Flags &= ~proto::Event::Flags::Add;
 
 	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-	OnUtxoEvent(evt, h);
+	OnEvent(evt, h);
 }
 
 bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
@@ -2413,7 +2413,7 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 	if (!op.Recover(txo, sp.m_SharedSecret, oracle, *pKeyShielded))
 		return;
 
-	proto::UtxoEvent::Shielded ues;
+	proto::Event::Shielded ues;
 	ues.m_ID = nID;
 	ues.m_Sender = op.m_Sender;
 	ues.m_Message = op.m_Message;
@@ -2421,21 +2421,21 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 	ues.m_kSerG = sp.m_pK[0];
 	ues.m_kOutG = op.m_k;
 
-	UtxoEvent::ValueS evt;
+	Event::ValueS evt;
 	evt.m_Value = op.m_Value;
 	evt.m_ShieldedDelta.Set(evt.m_Kid, evt.m_Buf1, ues);
 	evt.m_AssetID = 0U;
 	evt.m_Maturity = h;
 
 	evt.m_Flags =
-		proto::UtxoEvent::Flags::Add |
-		proto::UtxoEvent::Flags::Shielded;
+		proto::Event::Flags::Add |
+		proto::Event::Flags::Shielded;
 
-	UtxoEvent::Key key = sp.m_SpendPk;
-	key.m_Y |= proto::UtxoEvent::Flags::Shielded;
+	Event::Key key = sp.m_SpendPk;
+	key.m_Y |= proto::Event::Flags::Shielded;
 
 	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-	OnUtxoEvent(evt, h);
+	OnEvent(evt, h);
 }
 
 void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
@@ -2452,18 +2452,18 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 	}
 
 	// bingo!
-	UtxoEvent::Value evt;
+	Event::Value evt;
 	evt.m_Kid = cid;
 	evt.m_Value = cid.m_Value;
-	evt.m_Flags = proto::UtxoEvent::Flags::Add;
+	evt.m_Flags = proto::Event::Flags::Add;
 	evt.m_AssetID = cid.m_AssetID;
 	evt.m_Buf1 = Zero;
 
 	evt.m_Maturity = x.get_MinMaturity(h);
 
-	const UtxoEvent::Key& key = x.m_Commitment;
+	const Event::Key& key = x.m_Commitment;
 	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-	OnUtxoEvent(evt, h);
+	OnEvent(evt, h);
 }
 
 void NodeProcessor::RescanOwnedTxos()
@@ -2491,18 +2491,18 @@ void NodeProcessor::RescanOwnedTxos()
 				return true;
 			}
 
-			UtxoEvent::Value evt;
+			Event::Value evt;
 			evt.m_Kid = cid;
 			evt.m_Value = cid.m_Value;
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
-			evt.m_Flags = proto::UtxoEvent::Flags::Add;
+			evt.m_Flags = proto::Event::Flags::Add;
 			evt.m_AssetID = cid.m_AssetID;
 			evt.m_Buf1 = Zero;
 
-			const UtxoEvent::Key& key = outp.m_Commitment;
+			const Event::Key& key = outp.m_Commitment;
 
 			m_This.get_DB().InsertEvent(hCreate, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-			m_This.OnUtxoEvent(evt, hCreate);
+			m_This.OnEvent(evt, hCreate);
 
 			m_Total++;
 
@@ -2512,7 +2512,7 @@ void NodeProcessor::RescanOwnedTxos()
 			{
 				evt.m_Flags = 0;
 				m_This.get_DB().InsertEvent(wlk.m_SpendHeight, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-				m_This.OnUtxoEvent(evt, wlk.m_SpendHeight);
+				m_This.OnEvent(evt, wlk.m_SpendHeight);
 			}
 
 			return true;

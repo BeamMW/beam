@@ -28,7 +28,7 @@ namespace proto {
 		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
 		macro(Kernel2,		GetProofKernel2,	ProofKernel2) \
-		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
+		macro(Events,		GetEvents,			Events) \
 		macro(Transaction,	NewTransaction,		Status) \
 		macro(BbsMsg,		BbsMsg,				Pong) \
 		macro(Asset,		GetProofAsset,		ProofAsset)

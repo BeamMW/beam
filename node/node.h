@@ -211,7 +211,7 @@ private:
 		void OnModified() override;
 		Key::IPKdf* get_ViewerKey() override;
 		const ShieldedTxo::Viewer* get_ViewerShieldedKey() override;
-		void OnUtxoEvent(const UtxoEvent::Value&, Height) override;
+		void OnEvent(const Event::Value&, Height) override;
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		void Stop();
@@ -557,7 +557,7 @@ private:
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
 		virtual void OnMsg(proto::BbsResetSync&&) override;
-		virtual void OnMsg(proto::GetUtxoEvents&&) override;
+		virtual void OnMsg(proto::GetEvents&&) override;
 		virtual void OnMsg(proto::BlockFinalization&&) override;
 	};
 

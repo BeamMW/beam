@@ -93,7 +93,7 @@ namespace beam::wallet
             walletID.IsValid();
     }
 
-    const char Wallet::s_szNextUtxoEvt[] = "NextUtxoEvent";
+    const char Wallet::s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
 
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
@@ -145,13 +145,13 @@ namespace beam::wallet
         if (bUp)
         {
             if (!m_OwnedNodesOnline++) // on first connection to the node
-                RequestUtxoEvents(); // maybe time to refresh UTXOs
+                RequestEvents(); // maybe time to refresh UTXOs
         }
         else
         {
             assert(m_OwnedNodesOnline); // check that m_OwnedNodesOnline is positive number
             if (!--m_OwnedNodesOnline)
-                AbortUtxoEvents();
+                AbortEvents();
         }
 
         for (auto sub : m_subscribers)
@@ -192,8 +192,8 @@ namespace beam::wallet
         // Restore Incoming coins of active transactions
         m_WalletDB->saveCoins(ocoins);
 
-        storage::setVar(*m_WalletDB, s_szNextUtxoEvt, 0);
-        RequestUtxoEvents();
+        storage::setVar(*m_WalletDB, s_szNextEvt, 0);
+        RequestEvents();
     }
 
     void Wallet::RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator)
@@ -332,7 +332,7 @@ namespace beam::wallet
         return m_TxID < x.m_TxID;
     }
 
-    bool Wallet::MyRequestUtxoEvents::operator < (const MyRequestUtxoEvents& x) const
+    bool Wallet::MyRequestEvents::operator < (const MyRequestEvents& x) const
     {
         return false;
     }
@@ -544,7 +544,7 @@ namespace beam::wallet
 
         const auto& proof = r.m_Res.m_Proofs.front(); // Currently - no handling for multiple coins for the same commitment.
         // we don't know the real height, but it'll be used for logging only. For standard outputs maturity and height are the same
-        ProcessUtxoEvent(r.m_CoinID, proof.m_State.m_Maturity, proof.m_State.m_Maturity, true);
+        ProcessEventUtxo(r.m_CoinID, proof.m_State.m_Maturity, proof.m_State.m_Maturity, true);
     }
 
     void Wallet::OnRequestComplete(MyRequestKernel& r)
@@ -658,7 +658,7 @@ namespace beam::wallet
         assert(false);
     }
 
-    void Wallet::RequestUtxoEvents()
+    void Wallet::RequestEvents()
     {
         if (!m_OwnedNodesOnline)
             return;
@@ -666,38 +666,38 @@ namespace beam::wallet
         Block::SystemState::Full sTip;
         m_WalletDB->get_History().get_Tip(sTip);
 
-        Height h = GetUtxoEventsHeightNext();
+        Height h = GetEventsHeightNext();
         assert(h <= sTip.m_Height + 1);
         if (h > sTip.m_Height)
             return;
 
-        if (!m_PendingUtxoEvents.empty())
+        if (!m_PendingEvents.empty())
         {
-            if (m_PendingUtxoEvents.begin()->m_Msg.m_HeightMin == h)
+            if (m_PendingEvents.begin()->m_Msg.m_HeightMin == h)
                 return; // already pending
-            DeleteReq(*m_PendingUtxoEvents.begin());
+            DeleteReq(*m_PendingEvents.begin());
         }
 
-        MyRequestUtxoEvents::Ptr pReq(new MyRequestUtxoEvents);
+        MyRequestEvents::Ptr pReq(new MyRequestEvents);
         pReq->m_Msg.m_HeightMin = h;
         PostReqUnique(*pReq);
     }
 
-    void Wallet::AbortUtxoEvents()
+    void Wallet::AbortEvents()
     {
-        if (!m_PendingUtxoEvents.empty())
-            DeleteReq(*m_PendingUtxoEvents.begin());
+        if (!m_PendingEvents.empty())
+            DeleteReq(*m_PendingEvents.begin());
     }
 
-    void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
+    void Wallet::OnRequestComplete(MyRequestEvents& r)
     {
-        std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
+        std::vector<proto::Event>& v = r.m_Res.m_Events;
 
         for (size_t i = 0; i < v.size(); i++)
         {
             auto& event = v[i];
 
-            if (proto::UtxoEvent::Flags::Shielded & event.m_Flags)
+            if (proto::Event::Flags::Shielded & event.m_Flags)
                 continue; // not supported atm
 
             // filter-out false positives
@@ -707,35 +707,35 @@ namespace beam::wallet
             if (!m_WalletDB->IsRecoveredMatch(cid, event.m_Commitment))
                 continue;
 
-            bool bAdd = 0 != (proto::UtxoEvent::Flags::Add & event.m_Flags);
-            ProcessUtxoEvent(cid, event.m_Height, event.m_Maturity, bAdd);
+            bool bAdd = 0 != (proto::Event::Flags::Add & event.m_Flags);
+            ProcessEventUtxo(cid, event.m_Height, event.m_Maturity, bAdd);
         }
 
-        if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
+        if (r.m_Res.m_Events.size() < proto::Event::s_Max)
         {
             Block::SystemState::Full sTip;
             m_WalletDB->get_History().get_Tip(sTip);
 
-            SetUtxoEventsHeight(sTip.m_Height);
+            SetEventsHeight(sTip.m_Height);
         }
         else
         {
-            SetUtxoEventsHeight(r.m_Res.m_Events.back().m_Height);
-            RequestUtxoEvents(); // maybe more events pending
+            SetEventsHeight(r.m_Res.m_Events.back().m_Height);
+            RequestEvents(); // maybe more events pending
         }
     }
 
-    void Wallet::SetUtxoEventsHeight(Height h)
+    void Wallet::SetEventsHeight(Height h)
     {
         uintBigFor<Height>::Type var;
         var = h + 1; // we're actually saving the next
-        storage::setVar(*m_WalletDB, s_szNextUtxoEvt, var);
+        storage::setVar(*m_WalletDB, s_szNextEvt, var);
     }
 
-    Height Wallet::GetUtxoEventsHeightNext()
+    Height Wallet::GetEventsHeightNext()
     {
         uintBigFor<Height>::Type var;
-        if (!storage::getVar(*m_WalletDB, s_szNextUtxoEvt, var))
+        if (!storage::getVar(*m_WalletDB, s_szNextEvt, var))
             return 0;
 
         Height h;
@@ -743,7 +743,7 @@ namespace beam::wallet
         return h;
     }
 
-    void Wallet::ProcessUtxoEvent(const CoinID& cid, Height h, Height hMaturity, bool bAdd)
+    void Wallet::ProcessEventUtxo(const CoinID& cid, Height h, Height hMaturity, bool bAdd)
     {
         Coin c;
         c.m_ID = cid;
@@ -823,9 +823,9 @@ namespace beam::wallet
             }
         }
 
-        Height h = GetUtxoEventsHeightNext();
+        Height h = GetEventsHeightNext();
         if (h > sTip.m_Height + 1)
-            SetUtxoEventsHeight(sTip.m_Height);
+            SetEventsHeight(sTip.m_Height);
     }
 
     void Wallet::OnNewTip()
@@ -841,7 +841,7 @@ namespace beam::wallet
         sTip.get_ID(id);
         LOG_INFO() << "Sync up to " << id;
 
-        RequestUtxoEvents();
+        RequestEvents();
 
         for (auto& tx : m_NextTipTransactionToUpdate)
         {

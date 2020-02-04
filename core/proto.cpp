@@ -951,8 +951,8 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 }
 
 /////////////////////////
-// UtxoEvent
-void UtxoEvent::ShieldedDelta::Set(Key::ID::Packed& kid, AuxBuf1& buf1, const Shielded& s)
+// Event
+void Event::ShieldedDelta::Set(Key::ID::Packed& kid, AuxBuf1& buf1, const Shielded& s)
 {
     const uint8_t* p = reinterpret_cast<const uint8_t*>(&s);
     static_assert(sizeof(s) == sizeof(kid) + AuxBuf1::nBytes + sizeof(m_pBuf));
@@ -961,7 +961,7 @@ void UtxoEvent::ShieldedDelta::Set(Key::ID::Packed& kid, AuxBuf1& buf1, const Sh
     memcpy(m_pBuf, p + sizeof(kid) + buf1.nBytes, sizeof(m_pBuf));
 }
 
-void UtxoEvent::ShieldedDelta::Get(const Key::ID::Packed& kid, const AuxBuf1& buf1, Shielded& s) const
+void Event::ShieldedDelta::Get(const Key::ID::Packed& kid, const AuxBuf1& buf1, Shielded& s) const
 {
     uint8_t* p = reinterpret_cast<uint8_t*>(&s);
 
@@ -970,7 +970,7 @@ void UtxoEvent::ShieldedDelta::Get(const Key::ID::Packed& kid, const AuxBuf1& bu
     memcpy(p + sizeof(kid) + buf1.nBytes, m_pBuf, sizeof(m_pBuf));
 }
 
-void UtxoEvent::get_Cid(CoinID& cid) const
+void Event::get_Cid(CoinID& cid) const
 {
     assert(!(Flags::Shielded & m_Flags));
 

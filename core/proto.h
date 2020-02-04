@@ -210,11 +210,11 @@ namespace proto {
     macro(uint8_t, IDType) \
     macro(ECC::Signature, Sig)
 
-#define BeamNodeMsg_GetUtxoEvents(macro) \
+#define BeamNodeMsg_GetEvents(macro) \
     macro(Height, HeightMin)
 
-#define BeamNodeMsg_UtxoEvents(macro) \
-    macro(std::vector<UtxoEvent>, Events)
+#define BeamNodeMsg_Events(macro) \
+    macro(std::vector<Event>, Events)
 
 #define BeamNodeMsg_GetBlockFinalization(macro) \
     macro(Height, Height) \
@@ -274,8 +274,8 @@ namespace proto {
     macro(0x2a, GetShieldedList) \
     macro(0x2b, ShieldedList) \
     /* onwer-relevant */ \
-    macro(0x2c, GetUtxoEvents) \
-    macro(0x2d, UtxoEvents) \
+    macro(0x2c, GetEvents) \
+    macro(0x2d, Events) \
     macro(0x2e, GetBlockFinalization) \
     macro(0x2f, BlockFinalization) \
     /* tx broadcast and replication */ \
@@ -322,7 +322,7 @@ namespace proto {
 
 	static const uint32_t g_HdrPackMaxSize = 2048; // about 400K
 
-	struct UtxoEvent
+	struct Event
 	{
 		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
@@ -382,7 +382,7 @@ namespace proto {
 				& m_Maturity
 				& m_Flags;
 
-			if (beam::proto::UtxoEvent::Flags::Shielded & m_Flags)
+			if (Flags::Shielded & m_Flags)
 				ar & m_ShieldedDelta.m_pBuf;
 		}
 	};
