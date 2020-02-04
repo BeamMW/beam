@@ -42,10 +42,14 @@ namespace
         OnMessage m_callback;
     };
 
-    ByteBuffer CreateMsg(const ByteBuffer& content)
+    ByteBuffer CreateMsg(const ByteBuffer& content, BroadcastRouter::ContentType type)
     {
         ByteBuffer msg(MsgHeader::SIZE);
-        MsgHeader header(0,0,1,0,static_cast<uint8_t>(content.size()));
+        MsgHeader header(0, // V0
+                         0, // V1
+                         1, // V2
+                         static_cast<uint8_t>(type),
+                         static_cast<uint8_t>(content.size()));
         header.write(msg.data());
         std::copy(std::cbegin(content),
                   std::cend(content),
@@ -71,7 +75,8 @@ namespace
                 WALLET_CHECK(msg == testContent);
             });
 
-        broadcastRouter.registerListener(BroadcastRouter::ContentType::SwapOffers, &testListener);
+        auto testContentType = BroadcastRouter::ContentType::SwapOffers;
+        broadcastRouter.registerListener(testContentType, &testListener);
 
         WalletID dummyWid;
         dummyWid.m_Channel = proto::Bbs::s_MaxWalletChannels;
@@ -141,12 +146,13 @@ namespace
         {
             cout << "Case: correct message" << endl;
 
+            auto msg = CreateMsg(testContent, testContentType);
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, CreateMsg(testContent))
+                mockNetwork.SendRawMessage(dummyWid, msg)
             );
             WALLET_CHECK(correctMessagesCount == 1);
         }
-        broadcastRouter.unregisterListener(BroadcastRouter::ContentType::SwapOffers);
+        broadcastRouter.unregisterListener(testContentType);
 
         cout << "Test end" << endl;
     }
@@ -158,7 +164,12 @@ namespace
         MockBbsNetwork mockNetwork;
         BroadcastRouter broadcastRouterA(mockNetwork);
         BroadcastRouter broadcastRouterB(mockNetwork);
-        BroadcastRouter broadcastRouterC(mockNetwork);
+
+        // Mock network handles just one subscriber per BBS channel.
+        // Also router handles just one subscriber per ContentType.
+        // When this constraint will be put off more router could be added to test.
+
+        // BroadcastRouter broadcastRouterC(mockNetwork);
 
         {
             std::cout << "Case: create, dispatch and check message" << endl;
@@ -167,9 +178,9 @@ namespace
 
             ByteBuffer testSampleA = {'s','w','a','p'};
             ByteBuffer testSampleB = {'u','p','d','a','t','e'};
-            ByteBuffer testSampleC = {'r','a','t','e'};
+            // ByteBuffer testSampleC = {'r','a','t','e'};
             MockBroadcastListener testListener(
-                [&executed, &testSampleA, testSampleB, testSampleC]
+                [&executed, &testSampleA, testSampleB/*, testSampleC*/]
                 (ByteBuffer& msg)
                 {
                     ++executed;
@@ -181,9 +192,9 @@ namespace
                     case 2:
                         WALLET_CHECK(msg == testSampleB);
                         break;
-                    case 3:
-                        WALLET_CHECK(msg == testSampleC);
-                        break;
+                    // case 3:
+                    //     WALLET_CHECK(msg == testSampleC);
+                    //     break;
                     default:
                         WALLET_CHECK(false);
                         break;
@@ -192,16 +203,18 @@ namespace
 
             broadcastRouterA.registerListener(BroadcastRouter::ContentType::SwapOffers, &testListener);
             broadcastRouterB.registerListener(BroadcastRouter::ContentType::SoftwareUpdates, &testListener);
-            broadcastRouterC.registerListener(BroadcastRouter::ContentType::ExchangeRates, &testListener);
+            // broadcastRouterC.registerListener(BroadcastRouter::ContentType::ExchangeRates, &testListener);
 
             WalletID dummyWid;
             dummyWid.m_Channel = proto::Bbs::s_MaxWalletChannels;
-            mockNetwork.SendRawMessage(dummyWid, CreateMsg(testSampleA));
+            auto msgA = CreateMsg(testSampleA, BroadcastRouter::ContentType::SwapOffers);
+            mockNetwork.SendRawMessage(dummyWid, msgA);
             dummyWid.m_Channel = proto::Bbs::s_MaxWalletChannels + 1024u;
-            mockNetwork.SendRawMessage(dummyWid, CreateMsg(testSampleB));
-            mockNetwork.SendRawMessage(dummyWid, CreateMsg(testSampleC));
+            auto msgB = CreateMsg(testSampleB, BroadcastRouter::ContentType::SoftwareUpdates);
+            mockNetwork.SendRawMessage(dummyWid, msgB);
+            // mockNetwork.SendRawMessage(dummyWid, CreateMsg(testSampleC));
 
-            WALLET_CHECK(executed == 3);
+            WALLET_CHECK(executed == 2);
         }
 
         cout << "Test end" << endl;
@@ -218,7 +231,7 @@ int main()
     io::Reactor::Scope scope(*mainReactor);
 
     TestProtocolParsing();
-    // TestRoutersIntegration(); // TODO
+    TestRoutersIntegration();
     
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
