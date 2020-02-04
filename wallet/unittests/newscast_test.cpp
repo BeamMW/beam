@@ -303,7 +303,7 @@ namespace
             });
 
         WalletID channel;   // only channel is used in WalletID structure
-        channel.m_Channel = Newscast::BbsChannelsOffset;
+        channel.m_Channel = Bbs::s_BroadcastChannel;
 
         ByteBuffer msgRaw = toByteBuffer(news);
         const auto& [pk, signatureRaw] = signData(msgRaw, 321, senderWalletDB);

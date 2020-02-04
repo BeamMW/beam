@@ -67,7 +67,6 @@ namespace beam::wallet
         OfferBoardProtocolHandler& m_protocolHandler;       /// handles message creating and parsing
 
         static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
-        Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
         Height m_currentHeight = 0;
         std::unordered_map<TxID, SwapOffer> m_offersCache;
         std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes

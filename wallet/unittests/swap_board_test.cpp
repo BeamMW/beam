@@ -281,7 +281,7 @@ namespace
             WALLET_CHECK(msg);
 
             WalletID dummyWid;
-            dummyWid.m_Channel = proto::Bbs::s_MaxWalletChannels;
+            dummyWid.m_Channel = proto::Bbs::s_BtcSwapOffersChannel;
             mockNetwork.SendRawMessage(dummyWid, *msg);
 
             WALLET_CHECK(executed);

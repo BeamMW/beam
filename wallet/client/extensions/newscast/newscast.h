@@ -42,8 +42,6 @@ namespace beam::wallet
         // INewsObserver interface
         void Subscribe(INewsObserver* observer);
         void Unsubscribe(INewsObserver* observer);
-
-        static constexpr BbsChannel BbsChannelsOffset = Bbs::s_MaxWalletChannels + 1024u;
         
     private:
 		BroadcastRouter& m_broadcastRouter;                 /// source of incoming messages

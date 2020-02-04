@@ -180,12 +180,13 @@ namespace beam::wallet
         std::weak_ptr<NodeNetwork> m_nodeNetwork;
         std::weak_ptr<IWalletMessageEndpoint> m_walletNetwork;
         std::weak_ptr<Wallet> m_wallet;
+        // broadcasting via BBS
         std::weak_ptr<BroadcastRouter> m_broadcastRouter;
+        std::weak_ptr<IBroadcastListener> m_newscast;
+        std::weak_ptr<NewscastProtocolParser> m_newscastParser;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
 #endif
-        std::weak_ptr<IBroadcastListener> m_newscast;
-        std::weak_ptr<NewscastProtocolParser> m_newscastParser;
 
         uint32_t m_connectedNodesCount;
         uint32_t m_trustedConnectionCount;

@@ -79,7 +79,7 @@ namespace
         broadcastRouter.registerListener(testContentType, &testListener);
 
         WalletID dummyWid;
-        dummyWid.m_Channel = proto::Bbs::s_MaxWalletChannels;
+        dummyWid.m_Channel = proto::Bbs::s_BtcSwapOffersChannel;
         {
             cout << "Case: empty message" << endl;
             ByteBuffer emptyBuf;
@@ -206,10 +206,10 @@ namespace
             // broadcastRouterC.registerListener(BroadcastRouter::ContentType::ExchangeRates, &testListener);
 
             WalletID dummyWid;
-            dummyWid.m_Channel = proto::Bbs::s_MaxWalletChannels;
+            dummyWid.m_Channel = proto::Bbs::s_BtcSwapOffersChannel;
             auto msgA = CreateMsg(testSampleA, BroadcastRouter::ContentType::SwapOffers);
             mockNetwork.SendRawMessage(dummyWid, msgA);
-            dummyWid.m_Channel = proto::Bbs::s_MaxWalletChannels + 1024u;
+            dummyWid.m_Channel = proto::Bbs::s_BroadcastChannel;
             auto msgB = CreateMsg(testSampleB, BroadcastRouter::ContentType::SoftwareUpdates);
             mockNetwork.SendRawMessage(dummyWid, msgB);
             // mockNetwork.SendRawMessage(dummyWid, CreateMsg(testSampleC));

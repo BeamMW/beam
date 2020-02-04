@@ -22,10 +22,10 @@ namespace beam
 /// TODO review BBS channels mapping before next fork
 const std::vector<BbsChannel> BroadcastRouter::m_bbsChannelsList =
 {
-    proto::Bbs::s_MaxWalletChannels,
-    proto::Bbs::s_MaxWalletChannels + 1,
-    proto::Bbs::s_MaxWalletChannels + 2,
-    proto::Bbs::s_MaxWalletChannels + 1024u
+    proto::Bbs::s_BtcSwapOffersChannel,
+    proto::Bbs::s_LtcSwapOffersChannel,
+    proto::Bbs::s_QtumSwapOffersChannel,
+    proto::Bbs::s_BroadcastChannel
 };
 
 const std::map<BroadcastRouter::ContentType, MsgType> BroadcastRouter::m_messageTypeMapping =
@@ -74,11 +74,8 @@ void BroadcastRouter::registerListener(ContentType type, IBroadcastListener* lis
 
     auto msgType = getMsgType(type);
 
-    // m_protocol.add_message_handler< IBroadcastListener,
-    //                                 ByteBuffer,
-    //                                 &IBroadcastListener::onMessage > (msgType, listener, m_minMessageSize, m_maxMessageSize);
-
-    // for SwapOffer serializer isn't used
+    // For SwapOffer and Broadcast MsgReader serializer is not used.
+    // Otherwise Router will need to know about top layer abstractions.
     m_protocol.add_message_handler_wo_deserializer
         < IBroadcastListener,
           &IBroadcastListener::onMessage >
