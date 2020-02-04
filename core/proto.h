@@ -693,6 +693,7 @@ namespace proto {
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login0&&) override;
 		virtual void OnMsg(Login&&) override;
+        virtual void OnMsg(EventsLegacy&&) override; // auto-convert
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 

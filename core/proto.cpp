@@ -943,6 +943,36 @@ void NodeConnection::OnMsg(Time&& msg)
 	}
 }
 
+void NodeConnection::OnMsg(EventsLegacy&& msg)
+{
+    // in-place convert. Remove this after Fork2
+    Serializer ser;
+
+    for (size_t i = 0; i < msg.m_Events.size(); i++)
+    {
+        const proto::Event::Legacy& evt0 = msg.m_Events[i];
+        proto::Event::Utxo evt1;
+
+        evt1.m_Flags = evt0.m_Flags ? proto::Event::Flags::Add : 0;
+
+        Cast::Down<Key::ID>(evt1.m_Cid) = evt0.m_Kid;
+        evt1.m_Cid.m_Value = evt0.m_Value;
+        evt1.m_Cid.m_AssetID = 0;
+
+        evt1.m_Commitment = evt0.m_Commitment;
+        evt1.m_Maturity = evt0.m_Maturity;
+
+        ser & evt0.m_Height;
+        ser & evt1.s_Type;
+        ser & evt1;
+    }
+
+    Events msgOut;
+    ser.swap_buf(msgOut.m_Events);
+
+    Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msgOut));
+}
+
 /////////////////////////
 // NodeConnection::Server
 void NodeConnection::Server::Listen(const io::Address& addr)
