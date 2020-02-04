@@ -66,6 +66,7 @@ namespace beam
 		virtual void Push(TaskAsync::Ptr&&) = 0;
 		virtual uint32_t Flush(uint32_t nMaxTasks = 0) = 0;
 		virtual void ExecAll(TaskSync&) = 0;
+		virtual ~Executor() = default;
 	};
 
 	// standard multi-threaded executor. All threads are created with default stack and priority
