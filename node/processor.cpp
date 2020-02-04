@@ -2443,9 +2443,6 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 	if (sp.m_IsCreatedByViewer)
 		evt.m_Flags |= proto::Event::Flags::CreatedByViewer;
 
-	Serializer ser;
-	ser & evt;
-
 	EventKey::Shielded key = sp.m_SpendPk;
 	key.m_Y |= EventKey::s_FlagShielded;
 
