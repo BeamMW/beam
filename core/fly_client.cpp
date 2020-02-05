@@ -537,7 +537,7 @@ void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr
         {
             const Connection& c = *it;
             if (c.m_pSync)
-                c.m_pSync->m_LowHeight = std::min(c.m_pSync->m_LowHeight, w.m_LowErase - 1);
+                std::setmin(c.m_pSync->m_LowHeight, w.m_LowErase - 1);
         }
 
         m_This.m_Client.OnRolledBack();

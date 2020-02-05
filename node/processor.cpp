@@ -810,7 +810,7 @@ void NodeProcessor::MultiSigmaContext::Add(TxoID id0, uint32_t nCount, const ECC
 		}
 		else
 		{
-			n.m_Min = std::min(n.m_Min, nOffset);
+			std::setmin(n.m_Min, nOffset);
 			std::setmax(n.m_Max, nOffset + nPortion);
 		}
 
@@ -3822,7 +3822,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	}
 
 	// apply "emergency" threshold
-	dtSrc_s = std::min(dtSrc_s, dtTrg_s * 2);
+	std::setmin(dtSrc_s, dtTrg_s * 2);
 	std::setmax(dtSrc_s, dtTrg_s / 2);
 
 

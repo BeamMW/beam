@@ -38,10 +38,10 @@ bool Node::SyncStatus::operator == (const SyncStatus& x) const
 
 void Node::SyncStatus::ToRelative(Height hDone0)
 {
-	hDone0 = std::min(hDone0, m_Done); // prevent overflow (though should not happen)
+	std::setmin(hDone0, m_Done); // prevent overflow (though should not happen)
 
 	assert(m_Total); // never 0, accounts at least for treasury
-	hDone0 = std::min(hDone0, m_Total - 1); // prevent "indefinite" situation where sync status is 0/0
+	std::setmin(hDone0, m_Total - 1); // prevent "indefinite" situation where sync status is 0/0
 
 	m_Done -= hDone0;
 	m_Total -= hDone0;
@@ -420,7 +420,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 		if (nPackSize > dh)
 			nPackSize = (uint32_t) dh;
 
-		nPackSize = std::min(nPackSize, proto::g_HdrPackMaxSize - m_nTasksPackHdr);
+		std::setmin(nPackSize, proto::g_HdrPackMaxSize - m_nTasksPackHdr);
 
         proto::GetHdrPack msg;
         msg.m_Top = t.m_Key.first;
@@ -1627,7 +1627,7 @@ void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 	if (msg.m_Count)
 	{
 		// don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
-		msg.m_Count = std::min(msg.m_Count, proto::g_HdrPackMaxSize);
+		std::setmin(msg.m_Count, proto::g_HdrPackMaxSize);
 
 		NodeDB& db = m_This.m_Processor.get_DB();
 

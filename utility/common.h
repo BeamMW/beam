@@ -264,4 +264,10 @@ namespace std
 		if (a < b)
 			a = b;
 	}
+
+	template <typename TDst, typename TSrc>
+	inline void setmin(TDst& a, TSrc b) {
+		if (a > b)
+			a = b;
+	}
 }

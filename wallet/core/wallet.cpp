@@ -760,7 +760,7 @@ namespace beam::wallet
 
         if (bAdd)
         {
-            c.m_confirmHeight = std::min(c.m_confirmHeight, h); // in case of std utxo proofs - the event height may be bigger than actual utxo height
+            std::setmin(c.m_confirmHeight, h); // in case of std utxo proofs - the event height may be bigger than actual utxo height
 
             // Check if this Coin participates in any active transaction
             // if it does and mark it as outgoing (bug: ux_504)
@@ -781,7 +781,7 @@ namespace beam::wallet
             if (!bExists)
                 return; // should alert!
 
-            c.m_spentHeight = std::min(c.m_spentHeight, h); // reported spend height may be bigger than it actuall was (in case of macroblocks)
+            std::setmin(c.m_spentHeight, h); // reported spend height may be bigger than it actuall was (in case of macroblocks)
         }
 
         m_WalletDB->saveCoin(c);
