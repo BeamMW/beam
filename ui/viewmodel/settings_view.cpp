@@ -794,11 +794,11 @@ void SwapCoinSettingsItem::applyNodeAddressElectrum(const QString& address)
 
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance().getSettings()}
+    , m_newscastSettings(AppModel::getInstance().getSettings())
     , m_isValidNodeAddress{true}
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
     , m_supportedLanguages(WalletSettings::getSupportedLanguages())
-    , m_newscastSettings(AppModel::getInstance().getSettings())
 {
     undoChanges();
 
