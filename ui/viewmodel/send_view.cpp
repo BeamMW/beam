@@ -64,7 +64,7 @@ void SendViewModel::setComment(const QString& value)
 
 QString SendViewModel::getSendAmount() const
 {
-    LOG_INFO() << "ret Send amount grothes: " << _sendAmountGrothes << " 2ui: " << beamui::AmountToUIString(_sendAmountGrothes).toStdString();
+    LOG_DEBUG() << "ret Send amount grothes: " << _sendAmountGrothes << " 2ui: " << beamui::AmountToUIString(_sendAmountGrothes).toStdString();
     return beamui::AmountToUIString(_sendAmountGrothes);
 }
 
@@ -74,7 +74,7 @@ void SendViewModel::setSendAmount(QString value)
     if (amount != _sendAmountGrothes)
     {
         _sendAmountGrothes = amount;
-        LOG_INFO() << "Send amount: " << _sendAmountGrothes << " Coins: " << (long double)_sendAmountGrothes / beam::Rules::Coin;
+        LOG_DEBUG() << "Send amount: " << _sendAmountGrothes << " Coins: " << (long double)_sendAmountGrothes / beam::Rules::Coin;
         _walletModel.getAsync()->calcChange(calcTotalAmount());
         emit sendAmountChanged();
         emit canSendChanged();
@@ -169,7 +169,8 @@ QString SendViewModel::getTotalUTXO() const
 
 QString SendViewModel::getMaxAvailable() const
 {
-    return beamui::AmountToUIString(_walletModel.getAvailable() - _feeGrothes);
+    auto available = _walletModel.getAvailable();
+    return beamui::AmountToUIString(available ? available - _feeGrothes : 0);
 }
 
 bool SendViewModel::canSend() const
