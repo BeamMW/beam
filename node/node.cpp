@@ -2119,6 +2119,10 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 		return proto::TxStatus::TooSmall;
 	}
 
+    if ((s.m_InputsShielded > Rules::get().Shielded.MaxIns) || (s.m_OutputsShielded > Rules::get().Shielded.MaxOuts)) {
+        return proto::TxStatus::LimitExceeded;
+    }
+
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
     bool bTested = false;
