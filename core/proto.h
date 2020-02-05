@@ -536,10 +536,11 @@ namespace proto {
 		static const uint8_t Obscured = 0x3; // partial overlap with another tx. Dropped due to potential collision (not necessarily an error)
 
 		static const uint8_t Invalid = 0x10; // context-free validation failed
-		static const uint8_t InvalidContext = 0x11; // invalid in context (bad inputs, maturity or time lock problems)
+		static const uint8_t InvalidContext = 0x11; // invalid in context (kernel timelock, relative timelock violation, etc.)
 		static const uint8_t LowFee = 0x12; // fee below minimum
 
 		static const uint8_t LimitExceeded = 0x13; // block limit exceeded (tx too large, too many shielded ins/outs, etc.)
+		static const uint8_t InvalidInput = 0x14; // non-existing or non-matured inputs referenced
 	};
 
 

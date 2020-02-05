@@ -3922,7 +3922,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 				break;
 
 		if (!ValidateInputs(v.m_Commitment, nCount))
-			return proto::TxStatus::InvalidContext; // some input UTXOs are missing
+			return proto::TxStatus::InvalidInput; // some input UTXOs are missing
 	}
 
 	// Ensure kernels are ok
@@ -3948,12 +3948,12 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 			MultiShieldedContext msc;
 
 			if (!msc.IsValid(tx, bc, 0, 1))
-				return proto::TxStatus::InvalidContext;
+				return proto::TxStatus::InvalidInput;
 
 			msc.Calculate(bc.m_Sum, *this);
 
 			if (!bc.Flush())
-				return proto::TxStatus::InvalidContext;
+				return proto::TxStatus::InvalidInput;
 		}
 
 		assert(bic.m_ShieldedOuts <= Rules::get().Shielded.MaxOuts);
