@@ -379,7 +379,7 @@ public:
 	};
 
 	void EnumEvents(WalkerEvent&, Height hMin);
-	void FindEvents(WalkerEvent&, const Blob& key);
+	void FindEvents(WalkerEvent&, const Blob& key); // in case of duplication the most recently added comes first
 
 	struct WalkerPeer
 	{
