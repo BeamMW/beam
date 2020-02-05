@@ -2269,7 +2269,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 				Recognize(*block.m_vOutputs[i], sid.m_Height, *pKey);
 		}
 
-		if (get_ViewerShieldedKey())
+		if (pKey || get_ViewerShieldedKey())
 		{
 			KrnWalkerRecognize wlkKrn(*this);
 			wlkKrn.m_Height = sid.m_Height;
@@ -2411,15 +2411,34 @@ bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
 	return true;
 }
 
-bool NodeProcessor::KrnWalkerRecognize::OnKrnEx(const TxKernelShieldedInput& krn)
+bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 {
-	m_Proc.Recognize(krn, m_Height);
-	return true;
-}
+	switch (krn.get_Subtype())
+	{
+	case TxKernel::Subtype::ShieldedInput:
+		m_Proc.Recognize(Cast::Up<TxKernelShieldedInput>(krn), m_Height);
+		break;
 
-bool NodeProcessor::KrnWalkerRecognize::OnKrnEx(const TxKernelShieldedOutput& krn)
-{
-	m_Proc.Recognize(krn, m_Height, m_Proc.get_ViewerShieldedKey());
+	case TxKernel::Subtype::ShieldedOutput:
+		m_Proc.Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height, m_Proc.get_ViewerShieldedKey());
+		break;
+
+	case TxKernel::Subtype::AssetCreate:
+		m_Proc.Recognize(Cast::Up<TxKernelAssetCreate>(krn), m_Height, m_Proc.get_ViewerKey());
+		break;
+
+	case TxKernel::Subtype::AssetDestroy:
+		m_Proc.Recognize(Cast::Up<TxKernelAssetDestroy>(krn), m_Height);
+		break;
+
+	case TxKernel::Subtype::AssetEmit:
+		m_Proc.Recognize(Cast::Up<TxKernelAssetEmit>(krn), m_Height);
+		break;
+
+	default:
+		break; // suppress warning
+	}
+
 	return true;
 }
 
@@ -2485,6 +2504,17 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 	AddEvent(h, evt, key);
 }
 
+void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, Key::IPKdf* pOwner)
+{
+}
+
+void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h)
+{
+
+void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h)
+{
+}
+
 void NodeProcessor::RescanOwnedTxos()
 {
 	m_DB.DeleteEventsFrom(Rules::HeightGenesis - 1);
@@ -2548,7 +2578,7 @@ void NodeProcessor::RescanOwnedTxos()
 		LOG_INFO() << "Owned Txos reset";
 	}
 
-	if (get_ViewerShieldedKey())
+	if (pKey || get_ViewerShieldedKey())
 	{
 		LOG_INFO() << "Rescanning shielded Txos...";
 

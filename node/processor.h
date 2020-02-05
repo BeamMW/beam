@@ -75,6 +75,9 @@ class NodeProcessor
 	void Recognize(const Output&, Height, Key::IPKdf&);
 	void Recognize(const TxKernelShieldedInput&, Height);
 	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
+	void Recognize(const TxKernelAssetCreate&, Height, Key::IPKdf*);
+	void Recognize(const TxKernelAssetDestroy&, Height);
+	void Recognize(const TxKernelAssetEmit&, Height);
 
 	void InternalAssetAdd(Asset::Full&);
 	void InternalAssetDel(Asset::ID);
@@ -443,13 +446,12 @@ public:
 	};
 
 	struct KrnWalkerRecognize
-		:public KrnWalkerShielded
+		:public IKrnWalker
 	{
 		NodeProcessor& m_Proc;
 		KrnWalkerRecognize(NodeProcessor& p) :m_Proc(p) {}
 
-		virtual bool OnKrnEx(const TxKernelShieldedInput&) override;
-		virtual bool OnKrnEx(const TxKernelShieldedOutput&) override;
+		virtual bool OnKrn(const TxKernel& krn) override;
 	};
 
 #pragma pack (push, 1)
