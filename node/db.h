@@ -379,7 +379,7 @@ public:
 	};
 
 	void EnumEvents(WalkerEvent&, Height hMin);
-	void FindEvents(WalkerEvent&, const Blob& key);
+	void FindEvents(WalkerEvent&, const Blob& key); // in case of duplication the most recently added comes first
 
 	struct WalkerPeer
 	{
@@ -577,6 +577,7 @@ public:
 	Asset::ID AssetDelete(Asset::ID); // returns remaining assets count (including the unused)
 	bool AssetGetSafe(Asset::Full&); // must set ID before invocation
 	void AssetSetValue(Asset::ID, const AmountBig::Type&, Height hLockHeight);
+	bool AssetGetNext(Asset::Full&); // for enum
 
 private:
 

@@ -439,9 +439,9 @@ namespace beam::wallet
         pMasterKdf->DeriveKey(skKrn, m_Kernel->m_Msg);
         pMasterKdf->DeriveKey(skAssetOwner, Key::ID(m_assetOwnerIdx, Key::Type::Asset));
 
-        proto::Sk2Pk(m_Kernel->m_Owner, skAssetOwner);
+        m_Kernel->m_Owner.FromSk(skAssetOwner);
 
-        m_Kernel->Sign(skKrn, skAssetOwner);
+        m_Kernel->Sign_(skKrn, skAssetOwner);
 
         skKrn = -skKrn;
         m_Offset += skKrn;

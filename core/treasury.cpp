@@ -162,7 +162,7 @@ namespace beam
 		kid.m_Type = ECC::Key::Type::WalletID;
 
 		kdf.DeriveKey(sk, kid);
-		proto::Sk2Pk(pid, sk);
+		pid.FromSk(sk);
 	}
 
 	void Treasury::Response::Group::Create(const Request::Group& g, Key::IKdf& kdf, uint64_t& nIndex)
@@ -354,7 +354,7 @@ namespace beam
 
 		// finally verify the signature
 		Point::Native pk;
-		if (!proto::ImportPeerID(pk, r.m_WalletID))
+		if (!r.m_WalletID.ExportNnz(pk))
 			return false;
 
 		Hash::Value hv;

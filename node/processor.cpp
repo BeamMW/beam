@@ -2269,9 +2269,18 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 				Recognize(*block.m_vOutputs[i], sid.m_Height, *pKey);
 		}
 
-		const ShieldedTxo::Viewer* pKeyShielded = get_ViewerShieldedKey();
-		m_Extra.m_ShieldedOutputs -= bic.m_ShieldedOuts;
-		Recognize(block, sid.m_Height, pKeyShielded);
+		if (pKey || get_ViewerShieldedKey())
+		{
+			KrnWalkerRecognize wlkKrn(*this);
+			wlkKrn.m_Height = sid.m_Height;
+
+			TxoID nOuts = m_Extra.m_ShieldedOutputs;
+			m_Extra.m_ShieldedOutputs -= bic.m_ShieldedOuts;
+
+			wlkKrn.Process(block.m_vKernels);
+			assert(m_Extra.m_ShieldedOutputs == nOuts);
+			nOuts; // supporess unused var warning in release
+		}
 
 		Serializer ser;
 		bbP.clear();
@@ -2308,86 +2317,129 @@ void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
 	offs = s;
 }
 
-void NodeProcessor::Recognize(const Input& x, Height h)
+template <typename TKey, typename TEvt>
+bool NodeProcessor::FindEvent(const TKey& key, TEvt& evt)
 {
 	NodeDB::WalkerEvent wlk;
+	m_DB.FindEvents(wlk, Blob(&key, sizeof(key)));
 
-	const UtxoEvent::Key& key = x.m_Commitment;
-	m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
-	if (!wlk.MoveNext())
+	Deserializer der;
+	while (true)
+	{
+		if (!wlk.MoveNext())
+			return false;
+
+		proto::Event::Type::Enum eType;
+		der.reset(wlk.m_Body.p, wlk.m_Body.n);
+		der & eType;
+
+		if (TEvt::s_Type == eType)
+			break;
+	}
+
+	der & evt;
+
+	return true;
+}
+
+template <typename TEvt>
+void NodeProcessor::AddEventInternal(Height h, const TEvt& evt, const Blob& key)
+{
+	Serializer ser;
+	ser & TEvt::s_Type;
+	ser & evt;
+
+	m_DB.InsertEvent(h, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), key);
+	OnEvent(h, evt);
+}
+
+template <typename TEvt, typename TKey>
+void NodeProcessor::AddEvent(Height h, const TEvt& evt, const TKey& key)
+{
+	AddEventInternal(h, evt, Blob(&key, sizeof(key)));
+}
+
+template <typename TEvt>
+void NodeProcessor::AddEvent(Height h, const TEvt& evt)
+{
+	AddEventInternal(h, evt, Blob(nullptr, 0));
+}
+
+void NodeProcessor::Recognize(const Input& x, Height h)
+{
+	const EventKey::Utxo& key = x.m_Commitment;
+	proto::Event::Utxo evt;
+
+	if (!FindEvent(key, evt))
 		return;
-
-	if (wlk.m_Body.n < sizeof(UtxoEvent::Value))
-		OnCorrupted();
-
-	UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
 
 	assert(x.m_Internal.m_Maturity); // must've already been validated
 	evt.m_Maturity = x.m_Internal.m_Maturity; // in case of duplicated utxo this is necessary
 
-	evt.m_Flags = 0;
+	evt.m_Flags &= ~proto::Event::Flags::Add;
 
-	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-	OnUtxoEvent(evt, h);
+	AddEvent(h, evt);
 }
 
 void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
 {
-	NodeDB::WalkerEvent wlk;
+	EventKey::Shielded key = x.m_SpendProof.m_SpendPk;
+	key.m_Y |= EventKey::s_FlagShielded;
 
-	ECC::Point pt = x.m_SpendProof.m_SpendPk;
-	static_assert(proto::UtxoEvent::Flags::Shielded != 1); // 1 is used in the point itself
-	pt.m_Y |= proto::UtxoEvent::Flags::Shielded;
-
-	const UtxoEvent::Key& key = pt;
-
-	m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
-	if (!wlk.MoveNext())
+	proto::Event::Shielded evt;
+	if (!FindEvent(key, evt))
 		return;
 
-	if (wlk.m_Body.n < sizeof(UtxoEvent::ValueS))
-		OnCorrupted();
+	evt.m_Flags &= ~proto::Event::Flags::Add;
 
-	UtxoEvent::ValueS evt = *reinterpret_cast<const UtxoEvent::ValueS*>(wlk.m_Body.p); // copy
-
-	evt.m_Flags &= ~proto::UtxoEvent::Flags::Add;
-
-	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-	OnUtxoEvent(evt, h);
+	AddEvent(h, evt);
 }
 
-void NodeProcessor::Recognize(const TxVectors::Eternal& txve, Height h, const ShieldedTxo::Viewer* pKeyShielded)
+bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
 {
-	struct Walker
-		:public TxKernel::IWalker
+	switch (krn.get_Subtype())
 	{
-		NodeProcessor* m_pThis;
-		Height m_Height;
-		const ShieldedTxo::Viewer* m_pKeyShielded;
+	case TxKernel::Subtype::ShieldedInput:
+		return OnKrnEx(Cast::Up<TxKernelShieldedInput>(krn));
+	case TxKernel::Subtype::ShieldedOutput:
+		return OnKrnEx(Cast::Up<TxKernelShieldedOutput>(krn));
 
-		virtual bool OnKrn(const TxKernel& krn) override
-		{
-			switch (krn.get_Subtype())
-			{
-			case TxKernel::Subtype::ShieldedInput:
-				m_pThis->Recognize(Cast::Up<TxKernelShieldedInput>(krn), m_Height);
-				break;
-			case TxKernel::Subtype::ShieldedOutput:
-				m_pThis->Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height, m_pKeyShielded);
-				break;
-			default:
-				break; // suppress warning
-			}
+	default:
+		break; // suppress warning
+	}
 
-			return true;
-		}
-	} wlk;
+	return true;
+}
 
-	wlk.m_pThis = this;
-	wlk.m_Height = h;
-	wlk.m_pKeyShielded = pKeyShielded;
+bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
+{
+	switch (krn.get_Subtype())
+	{
+	case TxKernel::Subtype::ShieldedInput:
+		m_Proc.Recognize(Cast::Up<TxKernelShieldedInput>(krn), m_Height);
+		break;
 
-	wlk.Process(txve.m_vKernels);
+	case TxKernel::Subtype::ShieldedOutput:
+		m_Proc.Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height, m_Proc.get_ViewerShieldedKey());
+		break;
+
+	case TxKernel::Subtype::AssetCreate:
+		m_Proc.Recognize(Cast::Up<TxKernelAssetCreate>(krn), m_Height, m_Proc.get_ViewerKey());
+		break;
+
+	case TxKernel::Subtype::AssetDestroy:
+		m_Proc.Recognize(Cast::Up<TxKernelAssetDestroy>(krn), m_Height);
+		break;
+
+	case TxKernel::Subtype::AssetEmit:
+		m_Proc.Recognize(Cast::Up<TxKernelAssetEmit>(krn), m_Height);
+		break;
+
+	default:
+		break; // suppress warning
+	}
+
+	return true;
 }
 
 void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const ShieldedTxo::Viewer* pKeyShielded)
@@ -2410,29 +2462,22 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 	if (!op.Recover(txo, sp.m_SharedSecret, oracle, *pKeyShielded))
 		return;
 
-	proto::UtxoEvent::Shielded ues;
-	ues.m_ID = nID;
-	ues.m_Sender = op.m_Sender;
-	ues.m_Message = op.m_Message;
-	ues.m_IsCreatedByViewer = sp.m_IsCreatedByViewer;
-	ues.m_kSerG = sp.m_pK[0];
-	ues.m_kOutG = op.m_k;
-
-	UtxoEvent::ValueS evt;
+	proto::Event::Shielded evt;
+	evt.m_ID = nID;
 	evt.m_Value = op.m_Value;
-	evt.m_ShieldedDelta.Set(evt.m_Kid, evt.m_Buf1, ues);
-	evt.m_AssetID = 0U;
-	evt.m_Maturity = h;
+	evt.m_AssetID = op.m_AssetID;
+	evt.m_Sender = op.m_Sender;
+	evt.m_Message = op.m_Message;
+	evt.m_kSerG = sp.m_pK[0];
+	evt.m_kOutG = op.m_k;
+	evt.m_Flags = proto::Event::Flags::Add;
+	if (sp.m_IsCreatedByViewer)
+		evt.m_Flags |= proto::Event::Flags::CreatedByViewer;
 
-	evt.m_Flags =
-		proto::UtxoEvent::Flags::Add |
-		proto::UtxoEvent::Flags::Shielded;
+	EventKey::Shielded key = sp.m_SpendPk;
+	key.m_Y |= EventKey::s_FlagShielded;
 
-	UtxoEvent::Key key = sp.m_SpendPk;
-	key.m_Y |= proto::UtxoEvent::Flags::Shielded;
-
-	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-	OnUtxoEvent(evt, h);
+	AddEvent(h, evt, key);
 }
 
 void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
@@ -2449,18 +2494,56 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 	}
 
 	// bingo!
-	UtxoEvent::Value evt;
-	evt.m_Kid = cid;
-	evt.m_Value = cid.m_Value;
-	evt.m_Flags = proto::UtxoEvent::Flags::Add;
-	evt.m_AssetID = cid.m_AssetID;
-	evt.m_Buf1 = Zero;
-
+	proto::Event::Utxo evt;
+	evt.m_Flags = proto::Event::Flags::Add;
+	evt.m_Cid = cid;
+	evt.m_Commitment = x.m_Commitment;
 	evt.m_Maturity = x.get_MinMaturity(h);
 
-	const UtxoEvent::Key& key = x.m_Commitment;
-	m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-	OnUtxoEvent(evt, h);
+	const EventKey::Utxo& key = x.m_Commitment;
+	AddEvent(h, evt, key);
+}
+
+void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, Key::IPKdf* pOwner)
+{
+	if (!pOwner)
+		return;
+
+	EventKey::AssetCtl key;
+	v.m_MetaData.get_Owner(key, *pOwner);
+	if (key != v.m_Owner)
+		return;
+
+	// recognized!
+	proto::Event::AssetCtl evt;
+
+	evt.m_EmissionChange = 0; // no change upon creation
+	evt.m_Flags = proto::Event::Flags::Add;
+
+	TemporarySwap<ByteBuffer> ts(Cast::NotConst(v).m_MetaData.m_Value, evt.m_Metadata.m_Value);
+
+	AddEvent(h, evt, key);
+}
+
+void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h)
+{
+	proto::Event::AssetCtl evt;
+	if (!FindEvent(v.m_Owner, evt))
+		return;
+
+	evt.m_Flags = 0;
+	evt.m_EmissionChange = v.m_Value;
+	AddEvent(h, evt);
+}
+
+void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h)
+{
+	proto::Event::AssetCtl evt;
+	if (!FindEvent(v.m_Owner, evt))
+		return;
+
+	evt.m_Flags = proto::Event::Flags::Delete;
+	AddEvent(h, evt);
 }
 
 void NodeProcessor::RescanOwnedTxos()
@@ -2488,18 +2571,14 @@ void NodeProcessor::RescanOwnedTxos()
 				return true;
 			}
 
-			UtxoEvent::Value evt;
-			evt.m_Kid = cid;
-			evt.m_Value = cid.m_Value;
+			proto::Event::Utxo evt;
+			evt.m_Flags = proto::Event::Flags::Add;
+			evt.m_Cid = cid;
+			evt.m_Commitment = outp.m_Commitment;
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
-			evt.m_Flags = proto::UtxoEvent::Flags::Add;
-			evt.m_AssetID = cid.m_AssetID;
-			evt.m_Buf1 = Zero;
 
-			const UtxoEvent::Key& key = outp.m_Commitment;
-
-			m_This.get_DB().InsertEvent(hCreate, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-			m_This.OnUtxoEvent(evt, hCreate);
+			const EventKey::Utxo& key = outp.m_Commitment;
+			m_This.AddEvent(hCreate, evt, key);
 
 			m_Total++;
 
@@ -2508,8 +2587,7 @@ void NodeProcessor::RescanOwnedTxos()
 			else
 			{
 				evt.m_Flags = 0;
-				m_This.get_DB().InsertEvent(wlk.m_SpendHeight, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-				m_This.OnUtxoEvent(evt, wlk.m_SpendHeight);
+				m_This.AddEvent(wlk.m_SpendHeight, evt);
 			}
 
 			return true;
@@ -2531,8 +2609,7 @@ void NodeProcessor::RescanOwnedTxos()
 		LOG_INFO() << "Owned Txos reset";
 	}
 
-	const ShieldedTxo::Viewer* pKeyShielded = get_ViewerShieldedKey();
-	if (pKeyShielded)
+	if (pKey || get_ViewerShieldedKey())
 	{
 		LOG_INFO() << "Rescanning shielded Txos...";
 
@@ -2540,25 +2617,14 @@ void NodeProcessor::RescanOwnedTxos()
 		Height h0 = Rules::get().pForks[2].m_Height;
 		if (m_Cursor.m_Sid.m_Height >= h0)
 		{
-			ByteBuffer bbE;
-			TxVectors::Eternal txve;
-
+			TxoID nOuts = m_Extra.m_ShieldedOutputs;
 			m_Extra.m_ShieldedOutputs = 0;
 
-			while (true)
-			{
-				uint64_t row = FindActiveAtStrict(h0);
-				m_DB.GetStateBlock(row, nullptr, &bbE, nullptr);
+			KrnWalkerRecognize wlkKrn(*this);
+			EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));
 
-				Deserializer der;
-				der.reset(bbE);
-				der & txve;
-
-				Recognize(txve, h0, pKeyShielded);
-
-				if (++h0 > m_Cursor.m_Sid.m_Height)
-					break;
-			}
+			assert(m_Extra.m_ShieldedOutputs == nOuts);
+			nOuts; // supporess unused var warning in release
 		}
 
 		LOG_INFO() << "Shielded scan complete";
@@ -2665,7 +2731,8 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 		ai.m_Owner = krn.m_Owner;
 		ai.m_LockHeight = bic.m_Height;
 
-		TemporarySwap<ByteBuffer> ts(Cast::NotConst(krn).m_MetaData, ai.m_Metadata);
+		ai.m_Metadata.m_Hash = krn.m_MetaData.m_Hash;
+		TemporarySwap<ByteBuffer> ts(Cast::NotConst(krn).m_MetaData.m_Value, ai.m_Metadata.m_Value);
 
 		InternalAssetAdd(ai);
 
@@ -4353,6 +4420,33 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 		}
 
 		if (!wlkTxo.OnTxo(wlk, h))
+			return false;
+	}
+
+	return true;
+}
+
+bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
+{
+	if (hr.IsEmpty())
+		return true;
+	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
+
+	ByteBuffer bbE;
+	TxVectors::Eternal txve;
+
+	m_Extra.m_ShieldedOutputs = 0;
+
+	for (wlkKrn.m_Height = hr.m_Min; wlkKrn.m_Height <= hr.m_Max; wlkKrn.m_Height++)
+	{
+		uint64_t row = FindActiveAtStrict(wlkKrn.m_Height);
+		m_DB.GetStateBlock(row, nullptr, &bbE, nullptr);
+
+		Deserializer der;
+		der.reset(bbE);
+		der & txve;
+
+		if (!wlkKrn.Process(txve.m_vKernels))
 			return false;
 	}
 

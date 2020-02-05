@@ -73,7 +73,7 @@ struct Node
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 
-		bool m_LogUtxos = false; // may be insecure. Off by default.
+		bool m_LogEvents = false; // may be insecure. Off by default.
 		bool m_LogTxStem = true;
 		bool m_LogTxFluff = true;
 
@@ -211,7 +211,7 @@ private:
 		void OnModified() override;
 		Key::IPKdf* get_ViewerKey() override;
 		const ShieldedTxo::Viewer* get_ViewerShieldedKey() override;
-		void OnUtxoEvent(const UtxoEvent::Value&, Height) override;
+		void OnEvent(Height, const proto::Event::Base&) override;
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		void Stop();
@@ -473,7 +473,7 @@ private:
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Block::SystemState::Full m_Tip;
-		uint8_t m_LoginFlags;
+		uint32_t m_LoginFlags;
 
 		uint64_t m_CursorBbs;
 		TxPool::Fluff::Element* m_pCursorTx;
@@ -557,7 +557,7 @@ private:
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
 		virtual void OnMsg(proto::BbsResetSync&&) override;
-		virtual void OnMsg(proto::GetUtxoEvents&&) override;
+		virtual void OnMsg(proto::GetEvents&&) override;
 		virtual void OnMsg(proto::BlockFinalization&&) override;
 	};
 

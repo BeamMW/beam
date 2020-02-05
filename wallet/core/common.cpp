@@ -141,7 +141,7 @@ namespace beam::wallet
     bool WalletID::IsValid() const
     {
         Point::Native p;
-        return proto::ImportPeerID(p, m_Pk);
+        return m_Pk.ExportNnz(p);
     }
 
     ByteBuffer toByteBuffer(const ECC::Point::Native& value)
@@ -202,7 +202,7 @@ namespace beam::wallet
     bool ConfirmationBase::IsValid(const PeerID& pid) const
     {
         Point::Native pk;
-        if (!proto::ImportPeerID(pk, pid))
+        if (!pid.ExportNnz(pk))
             return false;
 
         Hash::Value hv;
