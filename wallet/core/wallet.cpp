@@ -695,7 +695,6 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestShieldedList& r)
     {
-        // TODO: validate callback
         r.m_callback(r.m_Msg.m_Id0, r.m_Msg.m_Count, r.m_Res.m_Items);
     }
 
@@ -706,8 +705,10 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestProofShieldedOutp& r)
     {
-        // TODO: validate callback
-        r.m_callback(r.m_Res);
+        if (!r.m_Res.m_Proof.empty())
+        {
+            r.m_callback(r.m_Res);
+        }
     }
 
     void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
