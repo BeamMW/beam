@@ -377,7 +377,7 @@ namespace beam::wallet {
 		auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
 		if (m_BbsTimestamps.end() != itBbs)
         {
-			itBbs->second = std::max(itBbs->second, msg.m_TimePosted);
+			std::setmax(itBbs->second, msg.m_TimePosted);
         }
 		else
         {

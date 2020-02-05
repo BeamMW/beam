@@ -59,12 +59,12 @@ void NodeProcessor::Horizon::SetStdFastSync()
 
 void NodeProcessor::Horizon::Normalize()
 {
-	m_Branching = std::max(m_Branching, Height(1));
+	std::setmax(m_Branching, 1);
 
 	Height r = Rules::get().MaxRollback;
 
-	m_Sync.Hi = std::max(m_Sync.Hi, std::max(r, m_Branching));
-	m_Sync.Lo = std::max(m_Sync.Lo, m_Sync.Hi);
+	std::setmax(m_Sync.Hi, std::max(r, m_Branching));
+	std::setmax(m_Sync.Lo, m_Sync.Hi);
 
 	// Some nodes in production have a bug: if (Sync.Lo == Sync.Hi) - the last generated block that they send may be incorrect
 	// Workaround: make sure (Sync.Lo > Sync.Hi), at least by 1
@@ -74,8 +74,8 @@ void NodeProcessor::Horizon::Normalize()
 		m_Sync.Lo++;
 
 	// though not required, we prefer m_Local to be no less than m_Sync
-	m_Local.Hi = std::max(m_Local.Hi, m_Sync.Hi);
-	m_Local.Lo = std::max(m_Local.Lo, std::max(m_Local.Hi, m_Sync.Lo));
+	std::setmax(m_Local.Hi, m_Sync.Hi);
+	std::setmax(m_Local.Lo, std::max(m_Local.Hi, m_Sync.Lo));
 }
 
 void NodeProcessor::Initialize(const char* szPath)
@@ -590,7 +590,7 @@ void NodeProcessor::EnumCongestions()
 			if (pMaxTarget->m_Height > m_Horizon.m_Sync.Lo)
 				m_SyncData.m_TxoLo = pMaxTarget->m_Height - m_Horizon.m_Sync.Lo;
 
-			m_SyncData.m_TxoLo = std::max(m_SyncData.m_TxoLo, m_Extra.m_TxoLo);
+			std::setmax(m_SyncData.m_TxoLo, m_Extra.m_TxoLo);
 		}
 
 		// check if the target should be moved fwd
@@ -703,7 +703,7 @@ Height NodeProcessor::get_LowestReturnHeight() const
 	if (h0 > hMaxRollback)
 	{
 		h0 -= hMaxRollback;
-		hRet = std::max(hRet, h0);
+		std::setmax(hRet, h0);
 	}
 
 	return hRet;
@@ -811,7 +811,7 @@ void NodeProcessor::MultiSigmaContext::Add(TxoID id0, uint32_t nCount, const ECC
 		else
 		{
 			n.m_Min = std::min(n.m_Min, nOffset);
-			n.m_Max = std::max(n.m_Max, nOffset + nPortion);
+			std::setmax(n.m_Max, nOffset + nPortion);
 		}
 
 		ECC::Scalar::Native* pT = n.m_pS + nOffset;
@@ -3823,7 +3823,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 
 	// apply "emergency" threshold
 	dtSrc_s = std::min(dtSrc_s, dtTrg_s * 2);
-	dtSrc_s = std::max(dtSrc_s, dtTrg_s / 2);
+	std::setmax(dtSrc_s, dtTrg_s / 2);
 
 
 	Difficulty::Raw& dWrk = thw0.second.second;
@@ -4173,7 +4173,7 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
-	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
+	std::setmax(bc.m_Hdr.m_TimeStamp, tm);
 }
 
 NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey, Key::IKdf& coin, Key::IPKdf& tag)
@@ -4582,12 +4582,12 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 	//	if CreateHeight <= h0 then transfer
 	//	Otherwise - don't transfer
 
-	hHi1 = std::max(hHi1, sid.m_Height); // valid block can't spend its own output. Hence this means full block should be transferred
+	std::setmax(hHi1, sid.m_Height); // valid block can't spend its own output. Hence this means full block should be transferred
 
 	if (m_Extra.m_TxoHi > hHi1)
 		return false;
 
-	hLo1 = std::max(hLo1, sid.m_Height - 1);
+	std::setmax(hLo1, sid.m_Height - 1);
 	if (m_Extra.m_TxoLo > hLo1)
 		return false;
 

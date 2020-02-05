@@ -111,18 +111,18 @@ void Node::UpdateSyncStatusRaw()
 		{
 			assert(t.m_Key.first.m_Height);
 			// all the blocks up to this had been dloaded
-			hTotal = std::max(hTotal, t.m_sidTrg.m_Height);
-			hDoneHdrs = std::max(hDoneHdrs, t.m_sidTrg.m_Height);
-			hDoneBlocks = std::max(hDoneBlocks, t.m_Key.first.m_Height - 1);
+			std::setmax(hTotal, t.m_sidTrg.m_Height);
+			std::setmax(hDoneHdrs, t.m_sidTrg.m_Height);
+			std::setmax(hDoneBlocks, t.m_Key.first.m_Height - 1);
 		}
 		else
 		{
 			if (!t.m_pOwner)
 				continue; // don't account for unowned
 
-			hTotal = std::max(hTotal, t.m_sidTrg.m_Height);
+			std::setmax(hTotal, t.m_sidTrg.m_Height);
 			if (t.m_sidTrg.m_Height > t.m_Key.first.m_Height)
-				hDoneHdrs = std::max(hDoneHdrs, m_Processor.m_Cursor.m_ID.m_Height + t.m_sidTrg.m_Height - t.m_Key.first.m_Height);
+				std::setmax(hDoneHdrs, m_Processor.m_Cursor.m_ID.m_Height + t.m_sidTrg.m_Height - t.m_Key.first.m_Height);
 		}
 	}
 
@@ -136,8 +136,8 @@ void Node::UpdateSyncStatusRaw()
 	}
 
 	// corrections
-	hDoneHdrs = std::max(hDoneHdrs, hDoneBlocks);
-	hTotal = std::max(hTotal, hDoneHdrs);
+	std::setmax(hDoneHdrs, hDoneBlocks);
+	std::setmax(hTotal, hDoneHdrs);
 
 	// consider the timestamp of the tip, upon successful sync it should not be too far in the past
 	if (m_Processor.m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
@@ -158,7 +158,7 @@ void Node::UpdateSyncStatusRaw()
 
 			const uint32_t& trg_s = Rules::get().DA.Target_s;
 			if (trg_s)
-				hTotal = std::max(hTotal, m_Processor.m_Cursor.m_ID.m_Height + ts1_s / trg_s);
+				std::setmax(hTotal, m_Processor.m_Cursor.m_ID.m_Height + ts1_s / trg_s);
 		}
 
 	}
@@ -3155,7 +3155,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
     uint64_t id = db.BbsIns(wlk.m_Data);
     m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
 
-	m_This.m_Bbs.m_HighestPosted_s = std::max(m_This.m_Bbs.m_HighestPosted_s, msg.m_TimePosted);
+	std::setmax(m_This.m_Bbs.m_HighestPosted_s, msg.m_TimePosted);
 	m_This.m_Bbs.m_Totals.m_Count++;
 	m_This.m_Bbs.m_Totals.m_Size += wlk.m_Data.m_Message.n;
 
