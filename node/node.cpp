@@ -3022,8 +3022,7 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 	Processor& p = m_This.m_Processor;
 	if ((msg.m_Id0 < p.m_Extra.m_ShieldedOutputs) && msg.m_Count)
 	{
-		if (msg.m_Count > Lelantus::Cfg::Max::N)
-			msg.m_Count = Lelantus::Cfg::Max::N;
+        std::setmin(msg.m_Count, Rules::get().Shielded.NMax * 2); // no reason to ask for more
 
 		TxoID n = p.m_Extra.m_ShieldedOutputs - msg.m_Id0;
 
