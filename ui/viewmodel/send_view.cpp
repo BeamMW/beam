@@ -170,7 +170,8 @@ QString SendViewModel::getTotalUTXO() const
 QString SendViewModel::getMaxAvailable() const
 {
     auto available = _walletModel.getAvailable();
-    return beamui::AmountToUIString(available ? available - _feeGrothes : 0);
+    return beamui::AmountToUIString(
+        available > _feeGrothes ? available - _feeGrothes : 0);
 }
 
 bool SendViewModel::canSend() const
