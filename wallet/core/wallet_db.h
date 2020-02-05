@@ -215,6 +215,7 @@ namespace beam::wallet
         ECC::uintBig m_message;
         TxoID m_ID = 0;
         bool m_isCreatedByViewer = false;
+        Asset::ID m_assetID = 0;
 
         Amount m_value = 0;
         Height m_confirmHeight = MaxHeight;  // height at which the coin was confirmed (appeared in the chain)

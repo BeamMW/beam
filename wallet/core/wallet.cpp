@@ -870,6 +870,7 @@ namespace beam::wallet
         shieldedCoin->m_message = shieldedEvt.m_Message;
         shieldedCoin->m_ID = shieldedEvt.m_ID;
         shieldedCoin->m_isCreatedByViewer = 0 != (proto::Event::Flags::CreatedByViewer & shieldedEvt.m_Flags);
+        shieldedCoin->m_assetID = shieldedEvt.m_AssetID;
         shieldedCoin->m_value = shieldedEvt.m_Value;
 
         bool isAdd = 0 != (proto::Event::Flags::Add & shieldedEvt.m_Flags);

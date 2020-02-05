@@ -142,6 +142,7 @@
     each(message,               message,              BLOB, obj) sep \
     each(ID,                    ID,                   INTEGER NOT NULL, obj) sep \
     each(isCreatedByViewer,     isCreatedByViewer,    BOOLEAN, obj) sep \
+    each(assetID,               assetID,              INTEGER, obj) sep \
     each(value,                 value,                INTEGER NOT NULL, obj) sep \
     each(confirmHeight,         confirmHeight,        INTEGER, obj) sep \
     each(spentHeight,           spentHeight,          INTEGER, obj) sep \
