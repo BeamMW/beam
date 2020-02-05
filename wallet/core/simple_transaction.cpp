@@ -322,7 +322,8 @@ namespace beam::wallet
             return;
         }
         
-        if (proto::TxStatus::InvalidContext == nRegistered) // we have to ensure that this transaction hasn't already added to blockchain)
+
+        if (proto::TxStatus::Ok != nRegistered) // we have to ensure that this transaction hasn't already added to blockchain)
         {
             Height lastUnconfirmedHeight = 0;
             if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
@@ -330,11 +331,6 @@ namespace beam::wallet
                 OnFailed(TxFailureReason::FailedToRegister, true);
                 return;
             }
-        }
-        else if (proto::TxStatus::Ok != nRegistered )
-        {
-            OnFailed(TxFailureReason::FailedToRegister, true);
-            return;
         }
 
         Height hProof = 0;
