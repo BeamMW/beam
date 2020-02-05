@@ -91,8 +91,8 @@ public:
         return ret;
     }
     bool findCoin(Coin& coin) override { return false; }
-    std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
-    std::vector<Coin> getCoinsByID(const CoinIDList& ids) override { return {}; };
+    std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override { return {}; };
+    std::vector<Coin> getCoinsByID(const CoinIDList& ids) const override { return {}; };
     void storeCoin(Coin&) override {}
     void storeCoins(std::vector<Coin>&) override {}
     void saveCoin(const Coin&) override {}
