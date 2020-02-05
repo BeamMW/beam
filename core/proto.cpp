@@ -734,11 +734,8 @@ void NodeConnection::OnLoginInternal(Height hScheme, Login&& msg)
 	{
 		const uint32_t nMask = LoginFlags::ExtensionsAll;
 		uint32_t nFlags2 = nMask & msg.m_Flags;
-		if (nFlags2 != nMask)
-		{
+		if (nFlags2 != nMask) {
 			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << nFlags2;
-
-			hScheme = std::min(hScheme, Rules::get().pForks[1].m_Height - 1); // doesn't support extensions - must be before the 1st fork
 		}
 	}
 
