@@ -73,7 +73,6 @@ class NodeProcessor
 
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, Height, Key::IPKdf&);
-	void Recognize(const TxVectors::Eternal&, Height, const ShieldedTxo::Viewer*);
 	void Recognize(const TxKernelShieldedInput&, Height);
 	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
 
@@ -427,26 +426,41 @@ public:
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
 	};
 
-#pragma pack (push, 1)
-	struct UtxoEvent
+	struct IKrnWalker
+		:public TxKernel::IWalker
 	{
-		typedef ECC::Point Key;
-		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
+		Height m_Height;
+	};
 
-		struct Value {
-			ECC::Key::ID::Packed m_Kid;
-			uintBigFor<Amount>::Type m_Value;
-			uintBigFor<Height>::Type m_Maturity;
-			uintBigFor<Asset::ID>::Type m_AssetID;
-			proto::UtxoEvent::AuxBuf1 m_Buf1;
-			uint8_t m_Flags;
-		};
+	bool EnumKernels(IKrnWalker&, const HeightRange&);
 
-		struct ValueS
-			:public Value
-		{
-			proto::UtxoEvent::ShieldedDelta m_ShieldedDelta;
-		};
+	struct KrnWalkerShielded
+		:public IKrnWalker
+	{
+		virtual bool OnKrn(const TxKernel& krn) override;
+		virtual bool OnKrnEx(const TxKernelShieldedInput&) { return true; }
+		virtual bool OnKrnEx(const TxKernelShieldedOutput&) { return true; }
+	};
+
+	struct KrnWalkerRecognize
+		:public KrnWalkerShielded
+	{
+		NodeProcessor& m_Proc;
+		KrnWalkerRecognize(NodeProcessor& p) :m_Proc(p) {}
+
+		virtual bool OnKrnEx(const TxKernelShieldedInput&) override;
+		virtual bool OnKrnEx(const TxKernelShieldedOutput&) override;
+	};
+
+#pragma pack (push, 1)
+	struct EventKey
+	{
+		// make sure we always distinguish different events by their keys
+		typedef ECC::Point Utxo;
+		typedef ECC::Point Shielded;
+
+		// Utxo and Shielded use the same key type, hence the following flag (OR-ed with Y coordinate) makes the difference
+		static const uint8_t s_FlagShielded = 2;
 	};
 
 	struct ShieldedBase
@@ -469,7 +483,7 @@ public:
 
 #pragma pack (pop)
 
-	virtual void OnUtxoEvent(const UtxoEvent::Value&, Height) {}
+	virtual void OnEvent(Height, const proto::Event::Base&) {}
 	virtual void OnDummy(const CoinID&, Height) {}
 
 	static bool IsDummy(const CoinID&);
@@ -488,6 +502,18 @@ private:
 	void GenerateNewHdr(BlockContext&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
+
+	template <typename TKey, typename TEvt>
+	bool FindEvent(const TKey&, TEvt&);
+
+	template <typename TEvt, typename TKey>
+	void AddEvent(Height, const TEvt&, const TKey&);
+
+	template <typename TEvt>
+	void AddEvent(Height, const TEvt&);
+
+	template <typename TEvt>
+	void AddEventInternal(Height, const TEvt&, const Blob& key);
 };
 
 struct LogSid

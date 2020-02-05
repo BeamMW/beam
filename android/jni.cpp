@@ -262,7 +262,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getDictionary)(JNIEnv *env, jo
     int i = 0;
     for (auto& word : language::en)
     {
-        jstring str = env->NewStringUTF(word.c_str());
+        jstring str = env->NewStringUTF(word);
         env->SetObjectArrayElement(dictionary, i++, str);
         env->DeleteLocalRef(str);
     }

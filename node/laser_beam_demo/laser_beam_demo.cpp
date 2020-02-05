@@ -466,7 +466,7 @@ void Client::Initialize()
 	val.Export(kid.m_Idx);
 
 	m_pKdf->DeriveKey(m_skBbs, kid);
-	proto::Sk2Pk(m_Wid.m_Pk, m_skBbs);
+	m_Wid.m_Pk.FromSk(m_skBbs);
 
 	BbsChannel ch;
 	m_Wid.m_Pk.ExportWord<0>(ch);

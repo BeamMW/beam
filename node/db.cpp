@@ -1729,8 +1729,7 @@ void NodeDB::InsertEvent(Height h, const Blob& b, const Blob& key)
 	Recordset rs(*this, Query::EventIns, "INSERT INTO " TblEvents "(" TblEvents_Height "," TblEvents_Body "," TblEvents_Key ") VALUES (?,?,?)");
 	rs.put(0, h);
 	rs.put(1, b);
-	if (key.n)
-		rs.put(2, key);
+	rs.put(2, key);
 	rs.Step();
 	TestChanged1Row();
 }
@@ -2446,7 +2445,7 @@ void NodeDB::AssetInsertRaw(Asset::ID id, const Asset::Full* pAi)
 	if (pAi)
 	{
 		rs.put(1, pAi->m_Owner);
-		rs.put(2, Blob(pAi->m_Metadata));
+		rs.put(2, Blob(pAi->m_Metadata.m_Value));
 		rs.put_As(3, pAi->m_Value);
 		rs.put(4, pAi->m_LockHeight);
 	}
@@ -2526,10 +2525,23 @@ bool NodeDB::AssetGetSafe(Asset::Full& ai)
 
 	rs.get_As(0, ai.m_Value);
 	rs.get_As(1, ai.m_Owner);
-	rs.get(2, ai.m_Metadata);
+	rs.get(2, ai.m_Metadata.m_Value);
 	rs.get(3, ai.m_LockHeight);
 
+	ai.m_Metadata.UpdateHash();
+
 	return true;
+}
+
+bool NodeDB::AssetGetNext(Asset::Full& ai)
+{
+	assert(ai.m_ID < Asset::s_MaxCount);
+
+	ai.m_ID = AssetFindMinFree(ai.m_ID + 1);
+	if (ai.m_ID > Asset::s_MaxCount)
+		return false;
+
+	return AssetGetSafe(ai);
 }
 
 void NodeDB::AssetSetValue(Asset::ID id, const AmountBig::Type& val, Height hLockHeight)

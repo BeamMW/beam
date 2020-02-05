@@ -773,19 +773,15 @@ const ShieldedTxo::Viewer* Node::Processor::get_ViewerShieldedKey()
 		nullptr;
 }
 
-void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
+void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)
 {
-	if (get_ParentObj().m_Cfg.m_LogUtxos)
+	if (get_ParentObj().m_Cfg.m_LogEvents)
 	{
-		CoinID cid;
-		Cast::Down<Key::ID>(cid) = evt.m_Kid;
-        evt.m_Value.Export(cid.m_Value);
-        evt.m_AssetID.Export(cid.m_AssetID);
+        std::ostringstream os;
+        os << "Event Height=" << h << ", ";
+        evt.Dump(os);
 
-		Height hMaturity;
-		evt.m_Maturity.Export(hMaturity);
-
-		LOG_INFO() << "Utxo " << cid << ", Maturity=" << hMaturity << ", Flags=" << static_cast<uint32_t>(evt.m_Flags) << ", Height=" << h;
+        LOG_INFO() << os.str();
 	}
 }
 
@@ -969,12 +965,13 @@ void Node::InitIDs()
     else
         m_MyPrivateID = s.V;
 
-    proto::Sk2Pk(m_MyPublicID, m_MyPrivateID);
+    m_MyPublicID.FromSk(m_MyPrivateID);
 }
 
 void Node::RefreshOwnedUtxos()
 {
 	ECC::Hash::Processor hp;
+    hp << uint32_t(1); // change this whenever we change the format of the saved events
 
 	ECC::Hash::Value hv0, hv1(Zero);
 
@@ -2600,7 +2597,7 @@ void Node::Peer::OnLogin(proto::Login&& msg)
 		Send(msgOut);
 	}
 
-    m_LoginFlags = static_cast<uint8_t>(msg.m_Flags);
+    m_LoginFlags = msg.m_Flags;
 
 	if (b != ShouldFinalizeMining()) {
 		// stupid compiler insists on parentheses!
@@ -3301,9 +3298,9 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 	BroadcastBbs();
 }
 
-void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
+void Node::Peer::OnMsg(proto::GetEvents&& msg)
 {
-    proto::UtxoEvents msgOut;
+    proto::Events msgOut;
 
     if (Flags::Viewer & m_Flags)
     {
@@ -3312,44 +3309,60 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
         NodeDB::WalkerEvent wlk;
 
         Height hLast = 0;
+        uint32_t nCount = 0;
+
+        Serializer ser;
+
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
         {
-            typedef NodeProcessor::UtxoEvent UE;
-
-            if ((msgOut.m_Events.size() >= proto::UtxoEvent::s_Max) && (wlk.m_Height != hLast))
+            if ((nCount >= proto::Event::s_Max) && (wlk.m_Height != hLast))
                 break;
 
 			if (p.IsFastSync() && (wlk.m_Height > p.m_SyncData.m_h0))
 				break;
 
-            if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
-                continue; // although shouldn't happen
-            const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
+            ser & wlk.m_Height;
+            ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);
 
-			if ((proto::UtxoEvent::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
-				continue; // although shouldn't happen
-
-            msgOut.m_Events.emplace_back();
-            proto::UtxoEvent& res = msgOut.m_Events.back();
-
-            res.m_Height = wlk.m_Height;
-            res.m_Kid = evt.m_Kid;
-            evt.m_Value.Export(res.m_Value);
-            evt.m_Maturity.Export(res.m_Maturity);
-
-            res.m_Commitment = *reinterpret_cast<const ECC::Point*>(wlk.m_Key.p);
-            res.m_AssetID = evt.m_AssetID;
-            res.m_Buf1 = evt.m_Buf1;
-            res.m_Flags = evt.m_Flags;
-
-			if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
-				res.m_ShieldedDelta = Cast::Up<UE::ValueS>(evt).m_ShieldedDelta;
+            nCount++;
 		}
+
+        ser.swap_buf(msgOut.m_Events);
     }
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
 
-    Send(msgOut);
+    if (proto::LoginFlags::Extension4 & m_LoginFlags)
+    {
+        Send(msgOut);
+    }
+    else
+    {
+        // legacy client
+        struct MyParser
+            :public proto::Event::IGroupParser
+        {
+            proto::EventsLegacy m_msgOut;
+
+            virtual void OnEvent(proto::Event::Base& evt_) override
+            {
+                if (proto::Event::Type::Utxo != evt_.get_Type())
+                    return; // ignore
+                proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
+
+                m_msgOut.m_Events.emplace_back();
+                proto::Event::Legacy& evt1 = m_msgOut.m_Events.back();
+
+                evt1.Import(evt);
+                evt1.m_Height = m_Height;
+            }
+
+        } parser;
+
+        parser.Proceed(msgOut.m_Events);
+
+        Send(parser.m_msgOut);
+    }
 }
 
 void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
@@ -4134,6 +4147,8 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	if (!m_Processor.BuildCwp())
 		return false; // no info yet
 
+    typedef yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> MySerializer;
+
 	struct MyTraveler
 		:public RadixTree::ITraveler
 	{
@@ -4165,8 +4180,11 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			Deserializer der;
 			der.reset(wlk.m_Value.p, wlk.m_Value.n);
 
-			RecoveryInfo::Entry val;
-			der & val.m_Output;
+            Output outp;
+			der & outp;
+
+            assert(outp.m_Commitment == d.m_Commitment);
+            outp.m_RecoveryOnly = true;
 
 			// 2 ways to discover the UTXO create height: either directly by looking its TxoID in States table, or reverse-engineer it from Maturity
 			// Since currently maturity delta is independent of current height (not a function of height, not changed in current forks) - we prefer the 2nd method, which is faster.
@@ -4176,12 +4194,11 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			//val.m_CreateHeight = sid.m_Height;
 			//assert(val.m_Output.get_MinMaturity(val.m_CreateHeight) == d.m_Maturity);
 
-			val.m_CreateHeight = d.m_Maturity - val.m_Output.get_MinMaturity(0);
+			Height hCreateHeight = d.m_Maturity - outp.get_MinMaturity(0);
 
-			assert(val.m_Output.m_Commitment == d.m_Commitment);
-			val.m_Output.m_RecoveryOnly = true;
-
-			m_Writer.Write(val);
+            MySerializer ser(m_Writer.m_Stream);
+            ser & hCreateHeight;
+            ser & outp;
 		}
 	};
 
@@ -4192,6 +4209,56 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	{
 		ctx.m_Writer.Open(szPath, m_Processor.m_Cwp);
 		m_Processor.get_Utxos().Traverse(ctx);
+
+        Height h = Rules::get().pForks[2].m_Height;
+
+        if (m_Processor.m_Cursor.m_ID.m_Height >= h)
+        {
+            MySerializer ser(ctx.m_Writer.m_Stream);
+            ser & MaxHeight; // terminator
+
+            // shielded in/outs
+            struct MyKrnWalker
+                :public NodeProcessor::KrnWalkerShielded
+            {
+                MySerializer& m_Ser;
+                MyKrnWalker(MySerializer& ser) :m_Ser(ser) {}
+
+                virtual bool OnKrnEx(const TxKernelShieldedInput& krn) override
+                {
+                    m_Ser & m_Height;
+                    m_Ser & false;
+                    m_Ser & krn.m_SpendProof.m_SpendPk;
+                    return true;
+                }
+
+                virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
+                {
+                    Cast::NotConst(krn).m_Txo.m_pAsset.reset(); // not needed for recovery atm
+
+                    m_Ser & m_Height;
+                    m_Ser & true;
+                    m_Ser & krn.m_Txo;
+                    m_Ser & krn.m_Msg;
+                    return true;
+                }
+
+            } wlk(ser);
+
+            m_Processor.EnumKernels(wlk, HeightRange(h, m_Processor.m_Cursor.m_ID.m_Height));
+
+            ser & MaxHeight; // terminator
+
+            // assets
+            Asset::Full ai;
+            ai.m_ID = 0;
+
+            while (m_Processor.get_DB().AssetGetNext(ai))
+                ser & ai;
+
+            ser & (Asset::s_MaxCount + 1); // terminator
+        }
+
 	}
 	catch (const std::exception& ex)
 	{
@@ -4210,8 +4277,7 @@ void Node::PrintTxos()
         return;
     }
 
-    ECC::Point pt;
-    PeerID& pid = pt.m_X; // alias
+    PeerID pid;
 
     {
         Key::ID kid(Zero);
@@ -4220,11 +4286,11 @@ void Node::PrintTxos()
 
         ECC::Point::Native ptN;
         m_Keys.m_pOwner->DerivePKeyG(ptN, pid);
-        pt = ptN;
+        pid.Import(ptN);
     }
 
     std::ostringstream os;
-    os << "Printing Txo movement for Key=" << pid << std::endl;
+    os << "Printing Events for Key=" << pid << std::endl;
 
     if (m_Processor.IsFastSync())
         os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
@@ -4235,35 +4301,19 @@ void Node::PrintTxos()
     NodeDB::WalkerEvent wlk;
     for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
     {
-        typedef NodeProcessor::UtxoEvent UE;
-
-        if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
-            continue; // although shouldn't happen
-        const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
-
-        if ((proto::UtxoEvent::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
-            continue; // although shouldn't happen
-
-        Height hMaturity;
-        Amount val;
-        evt.m_Maturity.Export(hMaturity);
-        evt.m_Value.Export(val);
-
-        os
-            << "\tHeight=" << wlk.m_Height << ", "
-            << ((proto::UtxoEvent::Flags::Add & evt.m_Flags) ? "Add" : "Spend")
-            << ", Value=" << val
-            << ", Maturity=" << hMaturity;
-
-        if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+        struct MyParser :public proto::Event::IParser
         {
-            proto::UtxoEvent::Shielded ues;
-            Cast::Up<UE::ValueS>(evt).m_ShieldedDelta.Get(evt.m_Kid, evt.m_Buf1, ues);
-            TxoID id;
-            ues.m_ID.Export(id);
-            os << ", Shielded TxoID=" << id;
-        }
+            std::ostringstream& m_os;
+            MyParser(std::ostringstream& os) :m_os(os) {}
 
+            virtual void OnEvent(proto::Event::Base& x) override {
+                x.Dump(m_os);
+            }
+
+        } p(os);
+
+        os << "\tHeight=" << wlk.m_Height << ", ";
+        p.ProceedOnce(wlk.m_Body);
         os << std::endl;
     }
 

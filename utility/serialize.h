@@ -101,6 +101,11 @@ public:
 
     void swap_buf(std::vector<uint8_t>& v) { _os.m_vec.swap(v); }
 
+    void WriteRaw(const void* p, size_t n)
+    {
+        _oa.write(p, n);
+    }
+
 private:
     using Ostream = detail::SerializeOstream;
 

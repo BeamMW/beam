@@ -1698,6 +1698,21 @@ namespace detail
 		}
 
 		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Asset::Metadata& v)
+		{
+			ar & v.m_Value;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Asset::Metadata& v)
+		{
+			ar & v.m_Value;
+			v.UpdateHash();
+			return ar;
+		}
+
+		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Asset::Info& v)
 		{
 			ar
