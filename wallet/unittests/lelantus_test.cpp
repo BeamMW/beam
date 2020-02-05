@@ -132,7 +132,7 @@ void TestSimpleTx()
 
             parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
                 .SetParameter(TxParameterID::IsSender, false)
-                .SetParameter(TxParameterID::Amount, 6600)
+                .SetParameter(TxParameterID::AmountList, AmountList{ 4600, 2000 })
                 .SetParameter(TxParameterID::Fee, 1200)
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                 .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
@@ -162,7 +162,6 @@ void TestSimpleTx()
         }
         else if (cursor.m_Sid.m_Height == 70)
         {
-            WALLET_CHECK(completedCount == 0);
             mainReactor->stop();
         }
     });
@@ -170,6 +169,8 @@ void TestSimpleTx()
     InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
+
+    WALLET_CHECK(completedCount == 0);
 }
 
 void TestManyTransactons()

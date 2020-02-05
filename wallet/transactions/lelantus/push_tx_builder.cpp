@@ -44,11 +44,9 @@ namespace beam::wallet::lelantus
 
             for (auto id : GetInputCoins())
             {
-                ECC::Scalar::Native k;
-                ECC::Point comm;
-                CoinID::Worker(id).Create(k, comm, *id.get_ChildKdf(pMasterKdf));
-
-                offset += k;
+                ECC::Scalar::Native sk;
+                CoinID::Worker(id).Create(sk, *id.get_ChildKdf(pMasterKdf));
+                offset += sk;
             }
 
             transaction->m_Offset = offset;
@@ -59,11 +57,9 @@ namespace beam::wallet::lelantus
 
             for (auto id : GetOutputCoins())
             {
-                ECC::Scalar::Native k;
-                ECC::Point comm;
-                CoinID::Worker(id).Create(k, comm, *id.get_ChildKdf(pMasterKdf));
-
-                offset -= k;
+                ECC::Scalar::Native sk;
+                CoinID::Worker(id).Create(sk, *id.get_ChildKdf(pMasterKdf));
+                offset -= sk;
             }
 
             transaction->m_Offset = offset;

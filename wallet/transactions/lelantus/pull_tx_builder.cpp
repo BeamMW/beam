@@ -55,15 +55,15 @@ namespace beam::wallet::lelantus
 
         transaction->m_vOutputs = move(m_Outputs);
 
-        ECC::Scalar::Native outputSk;
         {
             ECC::Scalar::Native offset = Zero;
 
-            ECC::Point comm;
-            const CoinID& id = m_OutputCoins[0];
-            CoinID::Worker(id).Create(outputSk, comm, *id.get_ChildKdf(m_Tx.get_MasterKdfStrict()));
-
-            offset = -outputSk;
+            for (const auto& id : m_OutputCoins)
+            {
+                ECC::Scalar::Native outputSk;
+                CoinID::Worker(id).Create(outputSk, *id.get_ChildKdf(m_Tx.get_MasterKdfStrict()));
+                offset -= outputSk;
+            }
 
             transaction->m_Offset = offset;
         }
