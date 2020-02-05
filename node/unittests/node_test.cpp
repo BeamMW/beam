@@ -1633,6 +1633,9 @@ namespace beam
 				Asset::ID m_ID = 0; // set after successful creation + proof
 				bool m_Recognized = false;
 
+				bool m_EvtCreated = false;
+				bool m_EvtEmitted = false;
+
 			} m_Assets;
 
 			Height m_hEvts = 0;
@@ -1986,6 +1989,8 @@ namespace beam
 				t.Test(IsAllRecoveryReceived(), "some recovery messages missing");
 				t.Test(m_Assets.m_ID != 0, "CA not created");
 				t.Test(m_Assets.m_Recognized, "CA output not recognized");
+				t.Test(m_Assets.m_EvtCreated, "CA creation not recognized by node");
+				t.Test(m_Assets.m_EvtEmitted, "CA emission not recognized by node");
 				t.Test(m_Shielded.m_SpendConfirmed, "Shielded spend not confirmed");
 				t.Test(m_Shielded.m_EvtAdd, "Shielded Add event didn't arrive");
 				t.Test(m_Shielded.m_EvtSpend, "Shielded Spend event didn't arrive");
@@ -2370,6 +2375,9 @@ namespace beam
 
 						if (proto::Event::Type::Shielded == evt.get_Type())
 							return OnEventType(Cast::Up<proto::Event::Shielded>(evt));
+
+						if (proto::Event::Type::AssetCtl == evt.get_Type())
+							return OnEventType(Cast::Up<proto::Event::AssetCtl>(evt));
 					}
 
 					void OnEventType(proto::Event::Utxo& evt)
@@ -2423,6 +2431,18 @@ namespace beam
 							m_This.m_Shielded.m_EvtAdd = true;
 						else
 							m_This.m_Shielded.m_EvtSpend = true;
+					}
+
+					void OnEventType(proto::Event::AssetCtl& evt)
+					{
+						if (proto::Event::Flags::Add & evt.m_Flags)
+						{
+							verify_test(!m_This.m_Assets.m_EvtCreated);
+							m_This.m_Assets.m_EvtCreated = true;
+						}
+
+						if (evt.m_EmissionChange)
+							m_This.m_Assets.m_EvtEmitted = true;
 					}
 
 				} p(*this);

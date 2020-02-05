@@ -1032,6 +1032,19 @@ void Event::Shielded::Dump(std::ostringstream& os) const
     os << ch << "Shielded Value=" << m_Value << ", TxoID=" << m_ID << ", Sender=" << m_Sender;
 }
 
+void Event::AssetCtl::Dump(std::ostringstream& os) const
+{
+    if (Flags::Add & m_Flags)
+        os << '+';
+    if (Flags::Delete & m_Flags)
+        os << '-';
+
+    os << "Asset MetaHash=" << m_Metadata.m_Hash;
+
+    if (m_EmissionChange)
+        os << ", Emit " << m_EmissionChange;
+}
+
 void Event::Legacy::Import(const Utxo& evt)
 {
     m_Flags = evt.m_Flags ? proto::Event::Flags::Add : 0;

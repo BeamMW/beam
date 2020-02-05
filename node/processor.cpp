@@ -2506,13 +2506,44 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 
 void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, Key::IPKdf* pOwner)
 {
+	if (!pOwner)
+		return;
+
+	EventKey::AssetCtl key;
+	v.m_MetaData.get_Owner(key, *pOwner);
+	if (key != v.m_Owner)
+		return;
+
+	// recognized!
+	proto::Event::AssetCtl evt;
+
+	evt.m_EmissionChange = 0; // no change upon creation
+	evt.m_Flags = proto::Event::Flags::Add;
+
+	TemporarySwap<ByteBuffer> ts(Cast::NotConst(v).m_MetaData.m_Value, evt.m_Metadata.m_Value);
+
+	AddEvent(h, evt, key);
 }
 
 void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h)
 {
+	proto::Event::AssetCtl evt;
+	if (!FindEvent(v.m_Owner, evt))
+		return;
+
+	evt.m_Flags = 0;
+	evt.m_EmissionChange = v.m_Value;
+	AddEvent(h, evt);
+}
 
 void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h)
 {
+	proto::Event::AssetCtl evt;
+	if (!FindEvent(v.m_Owner, evt))
+		return;
+
+	evt.m_Flags = proto::Event::Flags::Delete;
+	AddEvent(h, evt);
 }
 
 void NodeProcessor::RescanOwnedTxos()

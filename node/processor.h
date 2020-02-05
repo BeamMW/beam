@@ -461,6 +461,8 @@ public:
 		typedef ECC::Point Utxo;
 		typedef ECC::Point Shielded;
 
+		typedef PeerID AssetCtl;
+
 		// Utxo and Shielded use the same key type, hence the following flag (OR-ed with Y coordinate) makes the difference
 		static const uint8_t s_FlagShielded = 2;
 	};
