@@ -1919,6 +1919,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_SaveKid = true;
 	bool m_UpdateMmrs = true;
 	bool m_StoreShieldedOutput = false;
+	bool m_LimitExceeded = false;
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
@@ -2902,7 +2903,10 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 	if (bic.m_Fwd)
 	{
 		if (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts)
+		{
+			bic.m_LimitExceeded = true;
 			return false;
+		}
 
 		if (bic.m_ValidateOnly)
 		{
@@ -2992,7 +2996,10 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 		if (!bic.m_AlreadyValidated)
 		{
 			if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
+			{
+				bic.m_LimitExceeded = true;
 				return false;
+			}
 
 			if (!IsShieldedInPool(krn))
 				return false; // references invalid pool window
@@ -3895,12 +3902,12 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& hr, bool bShieldedTested)
+uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested)
 {
 	Height h = m_Cursor.m_ID.m_Height + 1;
 
 	if (!hr.IsInRange(h))
-		return false;
+		return proto::TxStatus::InvalidContext;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 
@@ -3915,7 +3922,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 				break;
 
 		if (!ValidateInputs(v.m_Commitment, nCount))
-			return false; // some input UTXOs are missing
+			return proto::TxStatus::InvalidContext; // some input UTXOs are missing
 	}
 
 	// Ensure kernels are ok
@@ -3929,7 +3936,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 
 	size_t n = 0;
 	if (!HandleElementVecFwd(tx.m_vKernels, bic, n))
-		return false;
+		return bic.m_LimitExceeded ? proto::TxStatus::LimitExceeded : proto::TxStatus::InvalidContext;
 
 	if (!bShieldedTested)
 	{
@@ -3941,18 +3948,18 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 			MultiShieldedContext msc;
 
 			if (!msc.IsValid(tx, bc, 0, 1))
-				return false;
+				return proto::TxStatus::InvalidContext;
 
 			msc.Calculate(bc.m_Sum, *this);
 
 			if (!bc.Flush())
-				return false;
+				return proto::TxStatus::InvalidContext;
 		}
 
 		assert(bic.m_ShieldedOuts <= Rules::get().Shielded.MaxOuts);
 	}
 
-	return true;
+	return proto::TxStatus::Ok;
 }
 
 bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /* = 1 */)
@@ -4089,16 +4096,29 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		Transaction& tx = *x.m_pValue;
 
-		if (x.m_Threshold.m_Height.IsInRange(bic.m_Height) && HandleValidatedTx(tx, bic))
+		bool bDelete = !x.m_Threshold.m_Height.IsInRange(bic.m_Height);
+		if (!bDelete)
 		{
-			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
+			assert(!bic.m_LimitExceeded);
+			if (HandleValidatedTx(tx, bic))
+			{
+				TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 
-			bc.m_Fees = feesNext;
-			ssc.m_Counter.m_Value = nSizeNext;
-			offset += ECC::Scalar::Native(tx.m_Offset);
-			++nTxNum;
+				bc.m_Fees = feesNext;
+				ssc.m_Counter.m_Value = nSizeNext;
+				offset += ECC::Scalar::Native(tx.m_Offset);
+				++nTxNum;
+			}
+			else
+			{
+				if (bic.m_LimitExceeded)
+					bic.m_LimitExceeded = false; // don't delete it, leave it for the next block
+				else
+					bDelete = true;
+			}
 		}
-		else
+
+		if (bDelete)
 			bc.m_TxPool.Delete(x); // isn't available in this context
 	}
 

@@ -556,7 +556,7 @@ void Node::Processor::DeleteOutdated()
 			continue;
 		Transaction& tx = *x.m_pValue;
 
-		if (!ValidateTxContext(tx, x.m_Threshold.m_Height, true))
+		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Threshold.m_Height, true))
 			txp.Delete(x);
 	}
 }
@@ -2006,8 +2006,9 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
 		return proto::TxStatus::Invalid;
 
-	if (!m_Processor.ValidateTxContext(tx, ctx.m_Height, false))
-		return proto::TxStatus::InvalidContext;
+    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false);
+	if (proto::TxStatus::Ok != nCode)
+		return nCode;
 
 	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
 	{
@@ -2569,7 +2570,7 @@ void Node::Dandelion::OnTimedOut(Element& x)
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
 {
-    return get_ParentObj().m_Processor.ValidateTxContext(tx, hr, true);
+    return proto::TxStatus::Ok == get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true);
 }
 
 void Node::Peer::OnLogin(proto::Login&& msg)
