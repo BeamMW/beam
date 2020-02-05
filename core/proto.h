@@ -379,11 +379,11 @@ namespace proto {
         struct name \
             :public Base \
         { \
-            static const Type::Enum s_Type = Type::name; \
+            inline static const Type::Enum s_Type = Type::name; \
  \
-            virtual Type::Enum get_Type() const override { return s_Type; } \
+            Type::Enum get_Type() const override { return s_Type; } \
             virtual ~name() {} \
-            virtual void Dump(std::ostringstream&) const; \
+            void Dump(std::ostringstream&) const override; \
  \
             BeamEvent_##name(THE_MACRO_DECL) \
  \
