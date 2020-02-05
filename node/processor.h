@@ -75,6 +75,9 @@ class NodeProcessor
 	void Recognize(const Output&, Height, Key::IPKdf&);
 	void Recognize(const TxKernelShieldedInput&, Height);
 	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
+	void Recognize(const TxKernelAssetCreate&, Height, Key::IPKdf*);
+	void Recognize(const TxKernelAssetDestroy&, Height);
+	void Recognize(const TxKernelAssetEmit&, Height);
 
 	void InternalAssetAdd(Asset::Full&);
 	void InternalAssetDel(Asset::ID);
@@ -443,13 +446,12 @@ public:
 	};
 
 	struct KrnWalkerRecognize
-		:public KrnWalkerShielded
+		:public IKrnWalker
 	{
 		NodeProcessor& m_Proc;
 		KrnWalkerRecognize(NodeProcessor& p) :m_Proc(p) {}
 
-		virtual bool OnKrnEx(const TxKernelShieldedInput&) override;
-		virtual bool OnKrnEx(const TxKernelShieldedOutput&) override;
+		virtual bool OnKrn(const TxKernel& krn) override;
 	};
 
 #pragma pack (push, 1)
@@ -458,6 +460,8 @@ public:
 		// make sure we always distinguish different events by their keys
 		typedef ECC::Point Utxo;
 		typedef ECC::Point Shielded;
+
+		typedef PeerID AssetCtl;
 
 		// Utxo and Shielded use the same key type, hence the following flag (OR-ed with Y coordinate) makes the difference
 		static const uint8_t s_FlagShielded = 2;

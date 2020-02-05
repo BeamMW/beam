@@ -328,9 +328,9 @@ namespace beam::wallet
         virtual std::vector<Coin> selectCoins(Amount amount, Asset::ID) = 0;
 
         // Some getters to get lists of coins by some input parameters
-        virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
-        virtual std::vector<Coin> getCoinsByTx(const TxID& txId) = 0;
-        virtual std::vector<Coin> getCoinsByID(const CoinIDList& ids) = 0;
+        virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const = 0;
+        virtual std::vector<Coin> getCoinsByTx(const TxID& txId) const = 0;
+        virtual std::vector<Coin> getCoinsByID(const CoinIDList& ids) const = 0;
 
         // Generates a new valid coin with specific amount. In order to save it into the database you have to call save() method
         virtual Coin generateNewCoin(Amount amount, Asset::ID) = 0;
@@ -447,9 +447,9 @@ namespace beam::wallet
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
 
-        std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
-        std::vector<Coin> getCoinsByTx(const TxID& txId) override;
-        std::vector<Coin> getCoinsByID(const CoinIDList& ids) override;
+        std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override;
+        std::vector<Coin> getCoinsByTx(const TxID& txId) const override;
+        std::vector<Coin> getCoinsByID(const CoinIDList& ids) const override;
         Coin generateNewCoin(Amount amount, Asset::ID) override;
         void storeCoin(Coin& coin) override;
         void storeCoins(std::vector<Coin>&) override;

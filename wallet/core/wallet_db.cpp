@@ -1932,7 +1932,7 @@ namespace beam::wallet
         return coinsSel;
     }
 
-    std::vector<Coin> WalletDB::getCoinsCreatedByTx(const TxID& txId)
+    std::vector<Coin> WalletDB::getCoinsCreatedByTx(const TxID& txId) const
     {
         // select all coins for TxID
         sqlite::Statement stm(this, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createTxID=?1 ORDER BY amount DESC;");
@@ -1950,7 +1950,7 @@ namespace beam::wallet
         return coins;
     }
 
-    std::vector<Coin> WalletDB::getCoinsByTx(const TxID& txId)
+    std::vector<Coin> WalletDB::getCoinsByTx(const TxID& txId) const
     {
         sqlite::Statement stm(this, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createTxID=?1 OR spentTxID=?1;");
         stm.bind(1, txId);
@@ -1967,7 +1967,7 @@ namespace beam::wallet
         return coins;
     }
 
-    vector<Coin> WalletDB::getCoinsByID(const CoinIDList& ids)
+    vector<Coin> WalletDB::getCoinsByID(const CoinIDList& ids) const
     {
         vector<Coin> coins;
         coins.reserve(ids.size());
