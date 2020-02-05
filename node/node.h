@@ -559,6 +559,7 @@ private:
 		virtual void OnMsg(proto::BbsResetSync&&) override;
 		virtual void OnMsg(proto::GetEvents&&) override;
 		virtual void OnMsg(proto::BlockFinalization&&) override;
+		virtual void OnMsg(proto::GetStateSummary&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

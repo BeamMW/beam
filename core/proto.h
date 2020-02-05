@@ -226,6 +226,18 @@ namespace proto {
 #define BeamNodeMsg_BlockFinalization(macro) \
     macro(Transaction::Ptr, Value)
 
+#define BeamNodeMsg_GetStateSummary(macro)
+
+#define BeamNodeMsg_StateSummary(macro) \
+    macro(Height, TxoLo) /* if 0 - this is the archieve Node */ \
+    macro(TxoID, Kernels) /* not supported atm */ \
+    macro(TxoID, Txos) /* Total num of outputs interpreted by this Node. Would be total num of outputs if TxoLo == 0.  */ \
+    macro(TxoID, Utxos) /* not supported atm */ \
+    macro(TxoID, ShieldedOuts) \
+    macro(TxoID, ShieldedIns) \
+    macro(Asset::ID, AssetsMax) \
+    macro(Asset::ID, AssetsActive) \
+
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
     macro(0x00, Login0) \
@@ -295,6 +307,8 @@ namespace proto {
     /* macro(0x3d, BbsPickChannelResV0) Deprecated */ \
     macro(0x3e, BbsResetSync) \
     macro(0x3f, BbsMsg) \
+    macro(0x45, GetStateSummary) \
+    macro(0x46, StateSummary) \
 
 
     struct LoginFlags {

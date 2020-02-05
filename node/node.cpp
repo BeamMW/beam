@@ -3455,6 +3455,21 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
     m_This.m_Miner.StartMining(std::move(pTask));
 }
 
+void Node::Peer::OnMsg(proto::GetStateSummary&& msg)
+{
+    Processor& p = m_This.m_Processor;
+
+    proto::StateSummary msgOut;
+    msgOut.m_TxoLo = p.m_Extra.m_TxoLo;
+    msgOut.m_Txos = p.m_Extra.m_Txos - p.m_Cursor.m_ID.m_Height; // by convention after each block there's an artificial gap in Txo counting
+    msgOut.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
+    msgOut.m_ShieldedIns = p.m_Mmr.m_Shielded.m_Count - p.m_Extra.m_ShieldedOutputs;
+    msgOut.m_AssetsMax = static_cast<Asset::ID>(p.m_Mmr.m_Assets.m_Count);
+    msgOut.m_AssetsActive = static_cast<Asset::ID>(p.get_DB().ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
+
+    Send(msgOut);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
     if (newStream)
