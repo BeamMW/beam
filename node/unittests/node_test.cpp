@@ -1811,6 +1811,8 @@ namespace beam
 				OnBeingSpent(msgTx);
 				Send(msgTx);
 
+				printf("Created shielded output\n");
+
 				return true;
 			}
 
@@ -1914,6 +1916,8 @@ namespace beam
 				if (msg.m_Proof.empty())
 					return;
 
+				printf("Shielded output confirmed\n");
+
 				ShieldedTxo::DescriptionOutp d;
 				d.m_ID = msg.m_ID;
 				d.m_Height = msg.m_Height;
@@ -1937,6 +1941,8 @@ namespace beam
 			{
 				if (msg.m_Proof.empty())
 					return;
+
+				printf("Shielded input confirmed\n");
 
 				ShieldedTxo::DescriptionInp d;
 				d.m_Height = msg.m_Height;
@@ -2023,6 +2029,8 @@ namespace beam
 					proto::GetProofShieldedOutp msgOut;
 					msgOut.m_SerialPub = m_Shielded.m_SerialPub;
 					Send(msgOut);
+
+					printf("Waiting for shielded output proof...\n");
 
 					m_Shielded.m_Withdrew = true;
 				}
@@ -2180,6 +2188,7 @@ namespace beam
 				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
 
 				m_Assets.m_hCreated = s.m_Height;
+				printf("Creating asset...\n");
 
 				return true;
 			}
@@ -2223,6 +2232,7 @@ namespace beam
 				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
 
 				m_Assets.m_Emitted = true;
+				printf("Emitting asset...\n");
 
 				return true;
 			}
@@ -2338,6 +2348,9 @@ namespace beam
 							proto::GetProofShieldedInp msgOut;
 							msgOut.m_SpendPk = m_Shielded.m_Params.m_Serial.m_SpendPk;
 							Send(msgOut);
+
+							printf("Waiting for shielded input proof...\n");
+
 						}
 					}
 				}
@@ -2373,6 +2386,12 @@ namespace beam
 						if (proto::Event::Type::Utxo == evt.get_Type())
 							return OnEventType(Cast::Up<proto::Event::Utxo>(evt));
 
+						// log non-UTXO events
+						std::ostringstream os;
+						os << "Evt H=" << m_Height << ", ";
+						evt.Dump(os);
+						printf("%s\n", os.str().c_str());
+
 						if (proto::Event::Type::Shielded == evt.get_Type())
 							return OnEventType(Cast::Up<proto::Event::Shielded>(evt));
 
@@ -2390,7 +2409,11 @@ namespace beam
 						if (evt.m_Cid.m_AssetID)
 						{
 							verify_test(evt.m_Cid.m_AssetID == m_This.m_Assets.m_ID);
-							m_This.m_Assets.m_Recognized = true;
+							if (!m_This.m_Assets.m_Recognized)
+							{
+								m_This.m_Assets.m_Recognized = true;
+								printf("Asset UTXO recognized\n");
+							}
 						}
 						else
 						{
@@ -2533,8 +2556,6 @@ namespace beam
 
 				verify_test(m_pOtherClient->m_nBbsMsgsPending);
 				m_pOtherClient->m_nBbsMsgsPending--;
-
-				printf("Got BBS msg=%u\n", m_MsgCount);
 			}
 		};
 
@@ -2633,6 +2654,8 @@ namespace beam
 
 		verify_test((p.m_SpendKeys.size() == 1) && (p.m_Spent == 1) && p.m_Utxos && p.m_Assets);
 
+		auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+		node.PrintTxos();
 	}
 
 
