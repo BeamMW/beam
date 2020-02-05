@@ -31,7 +31,7 @@ namespace beam::wallet
         assert(keySize <= UINT32_MAX);
         Blob keyBlob(keyArray.data(), static_cast<uint32_t>(keySize));
 
-        return ECC::uintBig(keyBlob);
+        return boost::optional<PeerID>(ECC::uintBig(keyBlob));
     }
 
     void NewscastProtocolParser::setPublisherKeys(const std::vector<PublicKey>& keys)
