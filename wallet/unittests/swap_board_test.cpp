@@ -22,7 +22,6 @@
 #include "wallet/core/common.h"
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/wallet_network.h"
-#include "keykeeper/local_private_key_keeper.h"
 
 // for wallet_test_environment.cpp
 #include "core/unittest/mini_blockchain.h"
@@ -127,7 +126,8 @@ namespace
      */
     std::tuple<SwapOffer, uint64_t> generateTestOffer(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
     {
-        WalletAddress wa = storage::createAddress(*walletDB, keyKeeper);
+        WalletAddress wa;
+        walletDB->createAddress(wa);
         walletDB->saveAddress(wa);
         TxID txID = generateTxID();
         const auto offer = createOffer( txID,
@@ -145,7 +145,7 @@ namespace
         PrivateKey sk;
         PublicKey pk;
         walletDB->get_MasterKdf()->DeriveKey(sk, ECC::Key::ID(keyIndex, Key::Type::Bbs));
-        proto::Sk2Pk(pk, sk);
+        pk.FromSk(sk);
         return std::make_tuple(pk, sk);
     }
     
@@ -216,7 +216,8 @@ namespace
             auto [offer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
 
             // changed public key another
-            WalletAddress anotherAddress = storage::createAddress(*senderWalletDB, keyKeeper);
+            WalletAddress anotherAddress;
+            senderWalletDB->createAddress(anotherAddress);
             offer.m_publisherId = anotherAddress.m_walletID;
 
             const ByteBuffer msgRaw = toByteBuffer(SwapOfferToken(offer));

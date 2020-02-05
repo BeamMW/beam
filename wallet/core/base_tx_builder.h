@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include "wallet_db.h"
+#include "base_transaction.h"
 
 #include <condition_variable>
 #include <boost/optional.hpp>
@@ -23,13 +24,12 @@
 
 namespace beam::wallet
 {
-    class BaseTransaction;
 
     class BaseTxBuilder : public std::enable_shared_from_this<BaseTxBuilder>
     {
     public:
         BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
-
+        virtual ~BaseTxBuilder() = default;
         void SelectInputs();
         void AddChange();
         void GenerateAssetCoin(Amount amount, bool change);
@@ -39,11 +39,10 @@ namespace beam::wallet
         bool LoadKernel();
         bool HasKernelID() const;
         void CreateKernel();
-        void GenerateOffset();
         void GenerateNonce();
         virtual ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
-        AssetID GetAssetId() const;
+        Asset::ID GetAssetId() const;
         bool GetInitialTxParams();
         bool GetInputs();
         bool GetOutputs();
@@ -54,7 +53,9 @@ namespace beam::wallet
         bool CreateInputs();
         void FinalizeInputs();
         virtual Transaction::Ptr CreateTransaction();
-        void SignPartial();
+        bool SignSender(bool initial, bool bIsConventional = true);
+        bool SignReceiver(bool bIsConventional = true);
+        bool SignSplit();
         bool IsPeerSignatureValid() const;
 
         Amount GetAmount() const;
@@ -78,15 +79,44 @@ namespace beam::wallet
 
         const std::vector<Coin::ID>& GetInputCoins() const;
         const std::vector<Coin::ID>& GetOutputCoins() const;
+
+    protected:
+
+        struct KeyKeeperHandler
+            :public IPrivateKeyKeeper2::Handler
+        {
+            std::weak_ptr<BaseTxBuilder> m_pBuilder;
+            bool* m_pLink;
+
+            KeyKeeperHandler(BaseTxBuilder&, bool& bLink);
+            ~KeyKeeperHandler();
+
+            virtual void OnDone(IPrivateKeyKeeper2::Status::Type) override;
+
+            virtual void OnSuccess(BaseTxBuilder&) = 0;
+            virtual void OnFailed(BaseTxBuilder&, IPrivateKeyKeeper2::Status::Type);
+
+            void Detach(BaseTxBuilder&);
+            void OnAllDone(BaseTxBuilder&);
+        };
+
     private:
         Amount GetMinimumFee() const;
         void CheckMinimumFee();
+        bool SignReceiverOrSplit(bool bFromYourself, bool bIsConventional);
+
+        template<typename T1, typename T2>
+        void StoreAndLoad(TxParameterID parameterID, const T1& source, T2& dest)
+        {
+            m_Tx.SetParameter(parameterID, source, m_SubTxID);
+            m_Tx.GetParameter(parameterID, dest, m_SubTxID);
+        }
     protected:
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
 
         // input
-        AssetID m_AssetId;
+        Asset::ID m_AssetId;
         AmountList m_AmountList;
         Amount m_Fee;
         Amount m_ChangeBeam;
@@ -100,8 +130,8 @@ namespace beam::wallet
 
         std::vector<Coin::ID> m_InputCoins;
         std::vector<Coin::ID> m_OutputCoins;
-        size_t m_NonceSlot = 0;
         ECC::Point::Native m_PublicNonce;
+        ECC::Point::Native m_PublicExcess;
 
         // peer values
         ECC::Scalar::Native m_PartialSignature;
@@ -118,5 +148,9 @@ namespace beam::wallet
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
         io::AsyncEvent::Ptr m_AsyncCompletedEvent;
+
+        bool m_CreatingInputs = false;
+        bool m_CreatingOutputs = false;
+        bool m_Signing = false;
     };
 }

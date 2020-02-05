@@ -22,6 +22,8 @@ namespace beam
 	{
 		Key::IPKdf::Ptr m_pGen;
 		Key::IPKdf::Ptr m_pSer;
+
+		void FromViewer(const Viewer&);
 	};
 
 	struct ShieldedTxo::Viewer
@@ -38,35 +40,68 @@ namespace beam
 
 	struct ShieldedTxo::Data
 	{
-		ECC::Scalar::Native m_kSerG; // blinding factor for the serial
-		ECC::Scalar::Native m_kOutG; // blinding factor for the Output
-		Amount m_Value;
-		Height m_hScheme = 0; // must set
+		struct SerialParams
+		{
+			ECC::Scalar::Native m_pK[2]; // kG, kJ
 
-		// Generates Shielded from nonce
-		// Sets both m_kOutG and m_kSerG
-		void GenerateS(Serial&, const PublicGen&, const ECC::Hash::Value& nonce);
-		void GenerateO(ShieldedTxo&, ECC::Oracle&, const PublicGen&); // generate UTXO from m_kOutG
-		void Generate(ShieldedTxo&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce); // generate everything nonce
+			ECC::Hash::Value m_SharedSecret;
+			ECC::Hash::Value m_SerialPreimage;
+			ECC::Point m_SpendPk;
 
-		bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
+			bool m_IsCreatedByViewer;
+
+			void Generate(Serial&, const PublicGen&, const ECC::Hash::Value& nonce);
+			void Generate(Serial&, const Viewer&, const ECC::Hash::Value& nonce);
+
+			bool Recover(const Serial&, const Viewer&);
+
+			void Restore(const Viewer&); // must set kG and m_IsCreatedByViewer before calling
+
+		protected:
+			void GenerateInternal(Serial&, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
+			void set_PreimageFromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
+			void set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
+			void set_SharedSecret(const ECC::Point::Native&);
+			static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native*);
+			static void get_DH(ECC::Hash::Value&, const Serial&);
+			void get_Nonces(Key::IPKdf& gen, ECC::Scalar::Native*) const;
+		};
+
+		struct OutputParams
+		{
+			Amount m_Value;
+			Asset::ID m_AssetID = 0;
+			ECC::Scalar::Native m_k;
+			PeerID m_Sender;
+			ECC::uintBig m_Message;
+
+			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const PublicGen&);
+			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const Viewer&);
+			bool Recover(const ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const Viewer&);
+
+		protected:
+			void GenerateInternal(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, Key::IPKdf& gen);
+			static void get_Seed(ECC::uintBig&, const ECC::Hash::Value& hvShared);
+			static uint8_t Msg2Scalar(ECC::Scalar::Native&, const ECC::uintBig&);
+			static void Scalar2Msg(ECC::uintBig&, const ECC::Scalar::Native&, uint32_t);
+			void get_skGen(ECC::Scalar::Native&, const ECC::Hash::Value& hvShared, Key::IPKdf& gen) const;
+
+			struct Packed;
+		};
+
+		struct Params
+		{
+			SerialParams m_Serial;
+			OutputParams m_Output;
+
+			void Generate(ShieldedTxo&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce);
+			void Generate(ShieldedTxo&, ECC::Oracle&, const Viewer&, const ECC::Hash::Value& nonce);
+			bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
+		};
 
 		struct HashTxt;
-
-		void GetSpendKey(ECC::Scalar::Native&, Key::IKdf& ser) const;
-		void GetSpendPKey(ECC::Point::Native&, Key::IPKdf& ser) const;
-
-		void GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value&) const;
-
-	private:
-		static void GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ);
-		void GetSerialPreimage(ECC::Hash::Value& res) const;
-		void GetSerial(ECC::Scalar::Native& kJ, Key::IPKdf& ser) const;
-		void ToSk(Key::IPKdf& gen);
-		static void GetDH(ECC::Hash::Value&, const ECC::Point&);
-		static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ);
-		static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1);
-		static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1);
 	};
+
+	struct ShieldedTxo::DataParams :public ShieldedTxo::Data::Params {};
 
 } // namespace beam

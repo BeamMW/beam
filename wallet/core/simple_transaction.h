@@ -52,7 +52,6 @@ namespace beam::wallet
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway
                                       , IWalletDB::Ptr walletDB
-                                      , IPrivateKeyKeeper::Ptr keyKeeper
                                       , const TxID& txID) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
         private:
@@ -61,7 +60,6 @@ namespace beam::wallet
     private:
         SimpleTransaction(INegotiatorGateway& gateway
                         , IWalletDB::Ptr walletDB
-                        , IPrivateKeyKeeper::Ptr keyKeeper
                         , const TxID& txID);
     private:
         TxType GetType() const override;
@@ -69,8 +67,7 @@ namespace beam::wallet
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         void SendInvitation(const BaseTxBuilder& builder, bool isSender);
-        void ConfirmInvitation(const BaseTxBuilder& builder, bool sendUtxos);
-        void ConfirmTransaction(const BaseTxBuilder& builder, bool sendUtxos);
+        void ConfirmInvitation(const BaseTxBuilder& builder);
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;
         State GetState() const;

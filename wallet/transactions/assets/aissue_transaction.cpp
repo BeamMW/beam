@@ -26,33 +26,33 @@ namespace beam::wallet
     {
     }
 
-    BaseTransaction::Ptr AssetIssueTransaction::Creator::Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const TxID& txID)
+    BaseTransaction::Ptr AssetIssueTransaction::Creator::Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
     {
-        return BaseTransaction::Ptr(new AssetIssueTransaction(_issue, gateway, walletDB, keyKeeper, txID));
+        return BaseTransaction::Ptr(new AssetIssueTransaction(_issue, gateway, walletDB, txID));
     }
 
     TxParameters AssetIssueTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
     {
         if(params.GetParameter<WalletID>(TxParameterID::PeerID))
         {
-            throw InvalidTransactionParametersException();
+            throw InvalidTransactionParametersException("");
         }
 
         if(params.GetParameter<WalletID>(TxParameterID::MyID))
         {
-            throw InvalidTransactionParametersException();
+            throw InvalidTransactionParametersException("");
         }
 
         const auto isSenderO = params.GetParameter<bool>(TxParameterID::IsSender);
         if (!isSenderO || !isSenderO.get())
         {
-            throw InvalidTransactionParametersException();
+            throw InvalidTransactionParametersException("");
         }
 
         const auto isInitiatorO = params.GetParameter<bool>(TxParameterID::IsInitiator);
         if (!isInitiatorO || !isInitiatorO.get())
         {
-            throw InvalidTransactionParametersException();
+            throw InvalidTransactionParametersException("");
         }
 
         TxParameters result{params};
@@ -63,9 +63,8 @@ namespace beam::wallet
 
     AssetIssueTransaction::AssetIssueTransaction(bool issue, INegotiatorGateway& gateway
                                         , IWalletDB::Ptr walletDB
-                                        , IPrivateKeyKeeper::Ptr keyKeeper
                                         , const TxID& txID)
-        : BaseTransaction{ gateway, std::move(walletDB), std::move(keyKeeper), txID}
+        : BaseTransaction{ gateway, std::move(walletDB), txID}
         , _issue(issue)
     {
     }
@@ -78,33 +77,20 @@ namespace beam::wallet
             return;
         }
 
-        if (!m_KeyKeeper)
-        {
-            OnFailed(TxFailureReason::NoKeyKeeper, true);
-            return;
-        }
-
-        if(!CreateTxBuilder())
-        {
-            return;
-        }
-
-        auto sharedBuilder = m_TxBuilder;
-        AssetIssueTxBuilder& builder = *sharedBuilder;
-
+        auto& builder = GetTxBuilder();
         if (!builder.LoadKernel())
         {
             if (!builder.GetInitialTxParams() && GetState() == State::Initial)
             {
                 if (_issue)
                 {
-                    LOG_INFO() << GetTxID() << " Generating asset with index " << builder.GetAssetIdx()
-                               << " and asset id " << builder.GetAssetId().str() << ". Amount: " << PrintableAmount(builder.GetAmountBeam(), false, kASSET, kAGROTH);
+                    LOG_INFO() << GetTxID() << " Generating asset with owner index " << builder.GetAssetOwnerIdx()
+                               << " and asset id " << builder.GetAssetId() << ". Amount: " << PrintableAmount(builder.GetAmountBeam(), false, kASSET, kAGROTH);
                     LOG_INFO() << GetTxID() << " Please remember your assset index. You won't be able to consume the asset or generate additional coins without it";
                 }
                 else
                 {
-                    LOG_INFO() << GetTxID() << " Consuming asset with index " << builder.GetAssetIdx() << " and asset id " << builder.GetAssetId().str()
+                    LOG_INFO() << GetTxID() << " Consuming asset with index " << builder.GetAssetOwnerIdx() << " and asset id " << builder.GetAssetId()
                                << ". Amount: " << PrintableAmount(builder.GetAmountAsset(), false, kASSET, kAGROTH);
                 }
 
@@ -225,7 +211,7 @@ namespace beam::wallet
         case TxParameterID::Status:
         case TxParameterID::TransactionType:
         case TxParameterID::KernelID:
-        case TxParameterID::AssetIdx:
+        case TxParameterID::AssetOwnerIdx:
             return true;
         default:
             return false;
@@ -244,19 +230,13 @@ namespace beam::wallet
         return state;
     }
 
-    bool AssetIssueTransaction::CreateTxBuilder()
+    AssetIssueTxBuilder& AssetIssueTransaction::GetTxBuilder()
     {
-        if (!m_TxBuilder)
+        if (!_builder)
         {
-            AmountList amountList;
-            if (!GetParameter(TxParameterID::AmountList, amountList))
-            {
-                amountList = AmountList{GetMandatoryParameter<Amount>(TxParameterID::Amount)};
-            }
-
-            m_TxBuilder = std::make_shared<AssetIssueTxBuilder>(_issue, *this, kDefaultSubTxID, m_KeyKeeper);
+            _builder = std::make_shared<AssetIssueTxBuilder>(_issue, *this, kDefaultSubTxID);
         }
-        return true;
+        return *_builder;
     }
 
     bool AssetIssueTransaction::IsInSafety() const

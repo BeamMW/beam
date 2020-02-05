@@ -540,10 +540,6 @@
         <source>Receive</source>
         <translation>Erhalten</translation>
     </message>
-    <message id="wallet-receive-my-addr-label">
-        <source>My address (auto-generated)</source>
-        <translation>Meine Adresse (automatisch generiert)</translation>
-    </message>
     <message id="wallet-receive-expires-label">
         <source>Expires in</source>
         <translation>Läuft ab in</translation>
@@ -1138,7 +1134,7 @@
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
         <source>Don&apos;t ask password on every Send</source>
         <oldsource>Don’t ask password on every Send</oldsource>
-        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if checked</extracomment>
         <translation type="unfinished">Don&apos;t ask password on every Send</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
@@ -1268,12 +1264,9 @@ Update your settings and try again.</source>
         <translation>Swap-Angebot erstellen</translation>
     </message>
     <message id="wallet-receive-addr-message">
-        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
-        <translation>Senden Sie diese Adresse über einen sicheren externen Kanal an den Absender oder scannen Sie den QR-Code</translation>
-    </message>
-    <message id="wallet-receive-copy-address">
-        <source>Copy transaction address</source>
-        <translation>Transaktionsadresse kopieren</translation>
+        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <oldsource>Send this address to the sender over an external secure channel or scan the QR code</oldsource>
+        <translation type="unfinished">Senden Sie diese Adresse über einen sicheren externen Kanal an den Absender oder scannen Sie den QR-Code</translation>
     </message>
     <message id="receive-amount-swap-label">
         <source>Receive amount</source>
@@ -1512,7 +1505,8 @@ bitte überprüfen Sie Ihre Einstellungen und versuchen Sie es erneut.</translat
     </message>
     <message id="wallet-receive-copy-token">
         <source>copy swap token</source>
-        <translation>kopiere Transaktions-Token</translation>
+        <oldsource>Copy transaction token</oldsource>
+        <translation type="unfinished">kopiere Transaktions-Token</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
@@ -2059,40 +2053,63 @@ deploy the key at the node you trust completely.</translation>
         <source>add all</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="update-open-url-button">
-        <source>open web-site</source>
+    <message id="settings-general-no-require-pwd-to-spend-confirm-pwd-title">
+        <source>Ask password on every Send</source>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if unchecked</extracomment>
         <translation type="unfinished"></translation>
     </message>
-    <message id="update-cancel-button">
-        <source>cancel</source>
+    <message id="wallet-receive-your-token">
+        <source>Your receive token</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="update-notification-title">
-        <source>New update available</source>
+    <message id="wallet-receive-regular-copy-token">
+        <source>Copy transaction token</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="update-notification-message">
-        <source>Update %1 is available to download. You can update later from Settings.</source>
+    <message id="tx-failure-kernel-min-height">
+        <source>Kernel&apos;s min height is unacceptable</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="update-notification-text">
-        <source>Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version.This action will expose your IP to the web server. To avoid it, choose &apos;Cancel&apos;. You can change your choice in app setting anytime.</source>
+    <message id="tx-failure-loopback">
+        <source>Not a loopback transaction</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="general-news">
-        <source>News</source>
+    <message id="tx-failure-key-keeper-no-initialized">
+        <source>Key keeper is not initialized</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="settings-update-notification-switch">
-        <source>Wallet update push notifications</source>
+    <message id="tx-failure-invalid-asset-id">
+        <source>No valid asset owner id/asset owner idx</source>
+        <oldsource>No valid asset id/asset idx</oldsource>
         <translation type="unfinished"></translation>
     </message>
-    <message id="settings-exchange-rate-switch">
-        <source>Exchange rates</source>
+    <message id="tx-failure-invalid-asset-amount">
+        <source>Cannot consume more than MAX_INT64 asset groth in one transaction</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="settings-newscast-publisher-key">
-        <source>Publisher key</source>
+    <message id="tx-failure-invalid-data-for-payment-proof">
+        <source>Some mandatory data for payment proof is missing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-invalid-port">
+        <source>Port is mandatory</source>
+        <extracomment>settings tab, node section, port error label</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-there-is-no-master-key">
+        <source>Master key is needed for this transaction, but unavailable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-keeper-malfunctioned">
+        <source>Key keeper malfunctioned</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-aborted-by-user">
+        <source>Aborted by the user</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-asset-small-fee">
+        <source></source>
         <translation type="unfinished"></translation>
     </message>
 </context>

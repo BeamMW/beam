@@ -34,7 +34,8 @@ namespace beam::wallet
     macro(-32001, InvalidTxStatus,      "Invalid TX status.")       \
     macro(-32002, UnknownApiKey,        "Unknown API key.")         \
     macro(-32003, InvalidAddress,       "Invalid address.")         \
-    macro(-32004, InvalidTxId,          "Invalid transaction ID.")
+    macro(-32004, InvalidTxId,          "Invalid transaction ID.")  \
+    macro(-32005, NotSupported,         "Feature is not supported")
 
     enum ApiError
     {
@@ -53,6 +54,7 @@ namespace beam::wallet
     macro(AddrList,         "addr_list",        API_READ_ACCESS)    \
     macro(ValidateAddress,  "validate_address", API_READ_ACCESS)    \
     macro(Send,             "tx_send",          API_WRITE_ACCESS)   \
+    macro(Issue,            "tx_issue",         API_WRITE_ACCESS)   \
     macro(Status,           "tx_status",        API_READ_ACCESS)    \
     macro(Split,            "tx_split",         API_WRITE_ACCESS)   \
     macro(TxCancel,         "tx_cancel",        API_WRITE_ACCESS)   \
@@ -125,6 +127,21 @@ namespace beam::wallet
         boost::optional<TxID> txId;
         WalletID address;
         std::string comment;
+
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
+    struct Issue
+    {
+        Amount value;
+        Amount fee = DefaultFee;
+        Key::Index index;
+        boost::optional<CoinIDList> coins;
+        boost::optional<uint64_t> session;
+        boost::optional<TxID> txId;
 
         struct Response
         {

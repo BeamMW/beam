@@ -44,12 +44,10 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, IPrivateKeyKeeper::Ptr keyKeeper)
+    AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID)
         : m_Tx{tx}
-        , m_keyKeeper(std::move(keyKeeper))
         , m_SubTxID(subTxID)
-        , m_assetId(Zero)
-        , m_assetIdx(0)
+        , m_assetOwnerIdx(0)
         , m_issue(issue)
         , m_AmountList{0}
         , m_Fee(0)
@@ -57,12 +55,8 @@ namespace beam::wallet
         , m_ChangeAsset(0)
         , m_MinHeight(0)
         , m_MaxHeight(MaxHeight)
-        , m_Offset(Zero)
     {
-        if (!m_keyKeeper.get())
-        {
-            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoKeyKeeper);
-        }
+        m_Tx.get_MasterKdfStrict(); // test
 
         m_Fee = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, m_SubTxID);
         if (!m_Tx.GetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID))
@@ -70,10 +64,9 @@ namespace beam::wallet
             m_AmountList = AmountList{m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount, m_SubTxID)};
         }
 
-        m_assetIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetIdx);
-        m_assetId  = m_keyKeeper->GetAssetID(m_assetIdx);
-        m_Tx.SetParameter(TxParameterID::AssetID, m_assetId, m_SubTxID);
-        if (m_assetIdx == 0 || m_assetId == Zero)
+        m_assetOwnerIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetOwnerIdx);
+        m_assetId = m_Tx.GetMandatoryParameter<Asset::ID>(TxParameterID::AssetID, m_SubTxID);
+        if (m_assetOwnerIdx == 0 || m_assetId == 0)
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
         }
@@ -86,13 +79,18 @@ namespace beam::wallet
             return false;
         }
 
-        const auto& [commitments, commitmentsOffset] = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_assetId);
-        m_Offset += commitmentsOffset;
-        m_Inputs.reserve(commitments.size());
-        for (const auto& commitment : commitments)
+        Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
+
+        m_Inputs.reserve(m_InputCoins.size());
+        for (const CoinID& cid : m_InputCoins)
         {
-            auto& input = m_Inputs.emplace_back(make_unique<Input>());
-            input->m_Commitment = commitment;
+            m_Inputs.emplace_back();
+            m_Inputs.back().reset(new Input);
+
+            ECC::Scalar::Native sk;
+            CoinID::Worker(cid).Create(sk, m_Inputs.back()->m_Commitment, *cid.get_ChildKdf(pMasterKdf));
+
+            m_Offset += sk;
         }
 
         m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
@@ -104,8 +102,8 @@ namespace beam::wallet
         m_Tx.GetParameter(TxParameterID::ChangeAsset,m_ChangeAsset, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::Inputs,     m_Inputs,      m_SubTxID);
         m_Tx.GetParameter(TxParameterID::Outputs,    m_Outputs,     m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins,  m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::OutputCoins,m_OutputCoins, m_SubTxID);
+        bool hasICoins = m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins,  m_SubTxID);
+        bool hasOCoins = m_Tx.GetParameter(TxParameterID::OutputCoins,m_OutputCoins, m_SubTxID);
 
         if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
         {
@@ -122,7 +120,8 @@ namespace beam::wallet
             m_Tx.SetParameter(TxParameterID::MaxHeight, m_MaxHeight, m_SubTxID);
         }
 
-        return m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+        m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
+        return hasICoins || hasOCoins;
     }
 
     bool AssetIssueTxBuilder::LoadKernel()
@@ -222,14 +221,14 @@ namespace beam::wallet
         return m_Fee;
     }
 
-    uint32_t AssetIssueTxBuilder::GetAssetIdx() const
+    Key::Index AssetIssueTxBuilder::GetAssetOwnerIdx() const
     {
-        return m_assetIdx;
+        return m_assetOwnerIdx;
     }
 
-     AssetID AssetIssueTxBuilder::GetAssetId() const
+     Asset::ID AssetIssueTxBuilder::GetAssetId() const
      {
-        return m_assetId;
+         return m_assetId;
      }
 
     string AssetIssueTxBuilder::GetKernelIDString() const {
@@ -258,8 +257,8 @@ namespace beam::wallet
         Amount preselAmountBeam  = 0;
         Amount preselAmountAsset = 0;
 
-        auto isAssetCoin = [](const Coin& coin) {
-            return coin.m_ID.m_Type == Key::Type::Asset || coin.m_ID.m_Type == Key::Type::AssetChange;
+        auto isAssetCoin = [this](const Coin& coin) {
+            return coin.m_ID.m_AssetID == m_assetId;
         };
 
         if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselIDs, m_SubTxID))
@@ -326,14 +325,14 @@ namespace beam::wallet
 
     void AssetIssueTxBuilder::GenerateAssetCoin(Amount amount, bool change)
     {
-        Coin newUtxo(amount, change ? Key::Type::AssetChange : Key::Type::Asset, m_assetId);
+        Coin newUtxo(amount, Key::Type::Regular, m_assetId);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
         LOG_INFO() << m_Tx.GetTxID() << " Creating ASSET coin" << (change ? " (change):" : ":")
                    << PrintableAmount(amount, false, kAmountASSET, kAmountAGROTH)
-                   << ", asset id " << m_assetId.str()
+                   << ", asset id " << m_assetId
                    << ", id " << newUtxo.toStringID();
     }
 
@@ -363,25 +362,22 @@ namespace beam::wallet
             return false;
         }
 
-        auto thisHolder = shared_from_this();
-        auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
-        m_Tx.GetAsyncAcontext().OnAsyncStarted();
+        Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
 
-        m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_assetId,
-            [thisHolder, this, txHolder](IPrivateKeyKeeper::Outputs&& resOutputs, auto&& resOffset)
-            {
-                m_Outputs = std::move(resOutputs);
-                m_Offset += resOffset;
-                m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
-                m_Tx.Update(); // may complete transaction
-                m_Tx.GetAsyncAcontext().OnAsyncFinished();
-            },
-            [thisHolder, this, txHolder](const exception&)
-            {
-                m_Tx.GetAsyncAcontext().OnAsyncFinished();
-            });
+        m_Outputs.reserve(m_OutputCoins.size());
+        for (const CoinID& cid : m_OutputCoins)
+        {
+            m_Outputs.emplace_back();
+            m_Outputs.back().reset(new Output);
 
-        return true; // true if async
+            Scalar::Native sk;
+            m_Outputs.back()->Create(m_MinHeight, sk, *cid.get_ChildKdf(pMasterKdf), cid, *pMasterKdf);
+            sk = -sk;
+            m_Offset += sk;
+        }
+        m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
+
+        return false; // completed sync
     }
 
     const Merkle::Hash& AssetIssueTxBuilder::GetKernelID() const
@@ -429,7 +425,26 @@ namespace beam::wallet
 
     void AssetIssueTxBuilder::SignKernel()
     {
-        m_Offset += m_keyKeeper->SignEmissionKernel(*m_Kernel, m_assetIdx);
+        Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
+
+        m_Kernel->m_Commitment = Zero;
+        m_Kernel->UpdateMsg(); // use it as a seed for the next
+
+        ECC::Hash::Processor()
+            << m_Offset // indentifies all the in/outs
+            << m_Kernel->m_Msg
+            >> m_Kernel->m_Msg; // result
+
+        ECC::Scalar::Native skKrn, skAssetOwner;
+        pMasterKdf->DeriveKey(skKrn, m_Kernel->m_Msg);
+        pMasterKdf->DeriveKey(skAssetOwner, Key::ID(m_assetOwnerIdx, Key::Type::Asset));
+
+        m_Kernel->m_Owner.FromSk(skAssetOwner);
+
+        m_Kernel->Sign_(skKrn, skAssetOwner);
+
+        skKrn = -skKrn;
+        m_Offset += skKrn;
 
         const Merkle::Hash& kernelID = m_Kernel->m_Internal.m_ID;
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);

@@ -22,6 +22,7 @@ namespace beam::wallet
     LockTxBuilder::LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee)
         : BaseTxBuilder(tx, SubTxIndex::BEAM_LOCK_TX, { amount }, fee)
     {
+        ZeroObject(m_SharedProof); // zero-init it to prevent errors during serialization
     }
 
     Height LockTxBuilder::GetMaxHeight() const
@@ -130,8 +131,9 @@ namespace beam::wallet
             m_Tx.SetParameter(TxParameterID::InputCoins, sharedInputs, static_cast<SubTxID>(SubTxIndex::BEAM_REFUND_TX));
 
             // blindingFactor = sk + sk1
-            beam::SwitchCommitment switchCommitment;
-            switchCommitment.Create(m_SharedBlindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(m_SharedCoin.m_ID), m_SharedCoin.m_ID);
+            Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
+
+            CoinID::Worker(m_SharedCoin.m_ID).Create(m_SharedBlindingFactor, *m_SharedCoin.m_ID.get_ChildKdf(pMasterKdf));
             m_Tx.SetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, m_SubTxID);
 
             Oracle oracle;
@@ -179,22 +181,12 @@ namespace beam::wallet
         return Context::get().G * GetSharedBlindingFactor();
     }
 
-    ECC::Point::Native LockTxBuilder::GetPublicExcess() const
-    {
-        // create shared commitment
-        Point::Native pt = GetPublicSharedBlindingFactor();
-        AmountBig::AddTo(pt, GetAmount());
-        pt = -pt;
-        return BaseTxBuilder::GetPublicExcess() + pt;
-    }
-
     const ECC::RangeProof::CreatorParams& LockTxBuilder::GetProofCreatorParams(bool isBeamOwner)
     {
         if (!m_CreatorParams.is_initialized())
         {
             ECC::RangeProof::CreatorParams creatorParams;
-            creatorParams.m_Kidv = Zero;
-            creatorParams.m_Kidv.m_Value = m_SharedCoin.m_ID.m_Value;
+            creatorParams.m_Value = m_SharedCoin.m_ID.m_Value;
 
             auto publicSharedBlindingFactor = GetPublicSharedBlindingFactor();
             auto peerPublicSharedBlindingFactor = m_Tx.GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicSharedBlindingFactor, m_SubTxID);

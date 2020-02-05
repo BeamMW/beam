@@ -83,6 +83,7 @@ namespace Merkle {
 		Mmr() :m_Count(0) {}
 
 		void Append(const Hash&);
+		void Replace(uint64_t n, const Hash&);
 
 		void get_Hash(Hash&) const;
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
@@ -170,13 +171,12 @@ namespace Merkle {
 		:public FlatMmr
 	{
 		std::vector<Hash> m_vHashes;
-		uint64_t m_Total;
 
 		uint64_t Pos2Idx(const Position& pos) const;
 
 	public:
-		FixedMmr(uint64_t nTotal = 0) { Reset(nTotal); }
-		void Reset(uint64_t nTotal);
+		FixedMmr(uint64_t nTotal = 0) { Resize(nTotal); }
+		void Resize(uint64_t nTotal);
 	protected:
 		// Mmr
 		virtual void LoadElement(Hash& hv, const Position& pos) const override;
@@ -263,6 +263,23 @@ namespace Merkle {
 			// for cropping
 			Iterator get_Pos() const { return m_itPos; }
 		};
+	};
+
+	// Helper class for arbitrary (custom) tree
+	// Can be used to get the root hash, build a proof, and verification (deduce number of nodes and their direction)
+	struct IEvaluator
+	{
+		bool m_Verifier = false; // verification mode
+		bool m_Failed = false;
+
+		// each of the node evaluating functions returns true if the resulting hash is valid (if it's not - this doesnt' necessarily means an error, this may be  proof build/verification instead)
+		// For children it should call Interpret()
+
+	protected:
+		bool Interpret(Hash& hv, Hash& hvL, bool bL, Hash& hvR, bool bR);
+		virtual void OnProof(Hash&, bool);
+
+		bool OnNotImpl();
 	};
 
 } // namespace Merkle

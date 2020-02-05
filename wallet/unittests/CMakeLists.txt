@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 add_definitions( -DSQLITE_HAS_CODEC )
 
-add_test_snippet(wallet_test wallet node mnemonic swap wallet wallet_client)
+add_test_snippet(wallet_test wallet node mnemonic wallet wallet_client)
 add_test_snippet(wallet_db_test wallet)
 add_test_snippet(wallet_api_test wallet_api_proto)
 add_test_snippet(wallet_assets_test core node wallet pow assets)
@@ -20,6 +20,9 @@ if (BEAM_ATOMIC_SWAP_SUPPORT)
     add_test_snippet(electrum_test swap)
 endif()
 
+if (BEAM_LASER_SUPPORT)
+    add_test_snippet(laser_test node laser)
+endif()
 
 #add_executable(offline offline.cpp)
 #target_link_libraries(offline node wallet)

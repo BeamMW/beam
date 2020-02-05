@@ -24,8 +24,8 @@ namespace beam
 		std::string m_sMeta;
 		ECC::NoLeak<Merkle::Hash> m_hvSecret;
 
-		void Export(const ECC::HKdf&);
-		void Export(const ECC::HKdfPub&);
+		void ExportS(const Key::IKdf&);
+		void ExportP(const Key::IPKdf&);
 		bool Import(ECC::HKdf&);
 		bool Import(ECC::HKdfPub&);
 		void SetPassword(const std::string&);
@@ -42,41 +42,41 @@ namespace beam
 	// Full recovery info. Includes ChainWorkProof, and all the UTXO set which hash should correspond to the tip commitment
 	struct RecoveryInfo
 	{
-		struct Entry
-		{
-			Height m_CreateHeight;
-			Output m_Output; // recovery-only piece
-
-			template <typename Archive>
-			void serialize(Archive& ar)
-			{
-				ar
-					& m_CreateHeight
-					& m_Output;
-			}
-		};
-
 		struct Writer
 		{
 			std::FStream m_Stream;
 
 			void Open(const char*, const Block::ChainWorkProof&);
-			void Write(const Entry&);
 		};
 
-		struct Reader
+		struct IParser
 		{
-			std::FStream m_Stream;
-			Block::ChainWorkProof m_Cwp;
-			Block::SystemState::Full m_Tip;
+			// each of the following returns false to abort
+			virtual bool OnProgress(uint64_t nPos, uint64_t nTotal) { return true; }
+			virtual bool OnStates(std::vector<Block::SystemState::Full>&) { return true; }
+			virtual bool OnUtxo(Height, const Output&) { return true; }
+			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& , const ShieldedTxo&, const ECC::Hash::Value& hvMsg) { return true; }
+			virtual bool OnShieldedIn(const ShieldedTxo::DescriptionInp&) { return true; }
+			virtual bool OnAsset(Asset::Full&) { return true; }
 
-			void Open(const char*);
-			bool Read(Entry&);
-			void Finalyze();
+			bool Proceed(const char*);
 
-			UtxoTree::Compact m_UtxoTree;
+			struct Context;
+		};
 
-			static void ThrowRulesMismatch();
+		struct IRecognizer
+			:public IParser
+		{
+			Key::IPKdf::Ptr m_pOwner;
+			const ShieldedTxo::Viewer* m_pViewer = nullptr;
+
+			virtual bool OnUtxo(Height, const Output&) override;
+			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo&, const ECC::Hash::Value& hvMsg) override;
+			virtual bool OnAsset(Asset::Full&) override;
+
+			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&) { return true; }
+			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo::DataParams&) { return true; }
+			virtual bool OnAssetRecognized(Asset::Full&) { return true; }
 		};
 	};
 

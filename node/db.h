@@ -55,7 +55,10 @@ public:
 			SyncData,
 			LastRecoveryHeight,
 			UtxoStamp,
-			ShieldedPoolSize,
+			ShieldedOutputs,
+			ShieldedInputs,
+			AssetsCount, // Including unused. The last element is guaranteed to be used.
+			AssetsCountUsed, // num of 'live' assets
 		};
 	};
 
@@ -113,6 +116,7 @@ public:
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlockPP,
+			StateDelBlockPPR,
 			StateDelBlockAll,
 			EventIns,
 			EventDel,
@@ -157,6 +161,13 @@ public:
 			UniqueFind,
 			UniqueDel,
 
+			AssetFindOwner,
+			AssetFindMin,
+			AssetAdd,
+			AssetDel,
+			AssetGet,
+			AssetSetVal,
+
 			Dbg0,
 			Dbg1,
 			Dbg2,
@@ -174,6 +185,7 @@ public:
 			StatesMmr,
 			Shielded,
 			ShieldedMmr,
+			AssetsMmr,
 
 			count
 		};
@@ -264,7 +276,8 @@ public:
 	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
 	bool ParamGet(uint32_t ID, uint64_t*, Blob*, ByteBuffer* = NULL);
 
-	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
+	uint64_t ParamIntGetDef(uint32_t ID, uint64_t def = 0);
+	void ParamIntSet(uint32_t ID, uint64_t val);
 
 	uint64_t InsertState(const Block::SystemState::Full&, const PeerID&); // Fails if state already exists
 
@@ -288,12 +301,13 @@ public:
 	bool get_StateExtra(uint64_t rowid, ECC::Scalar&, ByteBuffer* = nullptr);
 	TxoID get_StateTxos(uint64_t rowid);
 
-	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob*);
+	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob* pExtra, const Blob* pRB);
 
 	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE, const PeerID&);
-	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE);
-	void DelStateBlockPP(uint64_t rowid); // delete perishable, peer. Keep eternal, extra, txos
-	void DelStateBlockAll(uint64_t rowid); // delete perishable, peer, eternal, extra, txos
+	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRB);
+	void DelStateBlockPP(uint64_t rowid); // delete perishable, peer. Keep eternal, extra, txos, rollback
+	void DelStateBlockPPR(uint64_t rowid); // delete perishable, rollback, peer. Keep eternal, extra, txos
+	void DelStateBlockAll(uint64_t rowid); // delete perishable, peer, eternal, extra, txos, rollback
 
 	struct StateID {
 		uint64_t m_Row;
@@ -511,6 +525,7 @@ public:
 
 		void Append(const Merkle::Hash&);
 		void ShrinkTo(uint64_t nCount);
+		void ResizeTo(uint64_t nCount);
 
 	protected:
 		// Mmr
@@ -556,6 +571,13 @@ public:
 	bool UniqueInsertSafe(const Blob& key, const Blob* pVal); // returns false if not unique (and doesn't update the value)
 	bool UniqueFind(const Blob& key, Recordset&);
 	void UniqueDeleteStrict(const Blob& key);
+
+	void AssetAdd(Asset::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
+	Asset::ID AssetFindByOwner(const PeerID&);
+	Asset::ID AssetDelete(Asset::ID); // returns remaining assets count (including the unused)
+	bool AssetGetSafe(Asset::Full&); // must set ID before invocation
+	void AssetSetValue(Asset::ID, const AmountBig::Type&, Height hLockHeight);
+	bool AssetGetNext(Asset::Full&); // for enum
 
 private:
 
@@ -610,6 +632,11 @@ private:
 	void StreamResize(StreamType::Enum, uint64_t n, uint64_t n0);
 
 	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
+
+	static const Asset::ID s_AssetEmpty0;
+	void AssetInsertRaw(Asset::ID, const Asset::Full*);
+	void AssetDeleteRaw(Asset::ID);
+	Asset::ID AssetFindMinFree(Asset::ID nMin);
 };
 
 

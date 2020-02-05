@@ -150,20 +150,12 @@ void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const 
     c.m_nBuf = 0;
 }
 
-bool ImportPeerID(ECC::Point::Native& res, const PeerID& pid)
-{
-    ECC::Point pt;
-    pt.m_X = pid;
-    pt.m_Y = 0;
-
-    return res.ImportNnz(pt);
-}
-
 bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& remotePublic, AES::Encoder& enc, ECC::Hash::Mac& hmac, AES::StreamCipher* pCipherOut, AES::StreamCipher* pCipherIn)
 {
     // Diffie-Hellman
     ECC::Point::Native p;
-    ImportPeerID(p, remotePublic);
+    if (!remotePublic.ExportNnz(p))
+        return false;
 
     ECC::Point::Native ptSecret = p * myPrivate;
 
@@ -181,7 +173,7 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
     if (pCipherIn)
     {
         PeerID myPublic;
-        Sk2Pk(myPublic, Cast::NotConst(myPrivate)); // my private must have been already normalized. Should not be modified.
+        myPublic.FromSk(Cast::NotConst(myPrivate)); // my private must have been already normalized. Should not be modified.
         InitCipherIV(*pCipherIn, hvSecret.V, myPublic);
     }
 
@@ -196,19 +188,11 @@ void ProtocolPlus::InitCipher()
         NodeConnection::ThrowUnexpected();
 }
 
-void Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
-{
-    ECC::Point pt = ECC::Point::Native(ECC::Context::get().G * sk);
-    if (pt.m_Y)
-        sk = -sk;
-
-    res = pt.m_X;
-}
 
 bool Bbs::Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void* p, uint32_t n)
 {
     PeerID myPublic;
-    Sk2Pk(myPublic, nonce);
+    myPublic.FromSk(nonce);
 
     AES::Encoder enc;
     AES::StreamCipher cOut;
@@ -600,7 +584,7 @@ void NodeConnection::SecureConnect()
         ThrowUnexpected("SChannel not supported");
 
     SChannelInitiate msg;
-    Sk2Pk(msg.m_NoncePub, m_Protocol.m_MyNonce);
+    msg.m_NoncePub.FromSk(m_Protocol.m_MyNonce);
     Send(msg);
 }
 
@@ -790,7 +774,7 @@ void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
 
     Authentication msgOut;
     msgOut.m_IDType = nIDType;
-    Sk2Pk(msgOut.m_ID, sk);
+    msgOut.m_ID.FromSk(sk);
     msgOut.m_Sig.Sign(hv, sk);
 
     Send(msgOut);
@@ -802,9 +786,9 @@ void NodeConnection::HashAddNonce(ECC::Hash::Processor& hp, bool bRemote)
         hp << m_Protocol.m_RemoteNonce;
     else
     {
-        ECC::Hash::Value hv;
-        Sk2Pk(hv, m_Protocol.m_MyNonce);
-        hp << hv;
+        PeerID pid;
+        pid.FromSk(m_Protocol.m_MyNonce);
+        hp << pid;
     }
 }
 
@@ -916,12 +900,8 @@ void NodeConnection::OnMsg(Authentication&& msg)
     ECC::Hash::Value hv;
     hp >> hv;
 
-    ECC::Point pt;
-    pt.m_X = msg.m_ID;
-    pt.m_Y = 0;
-
     ECC::Point::Native p;
-    if (!p.Import(pt))
+    if (!msg.m_ID.ExportNnz(p))
         ThrowUnexpected();
 
     if (!msg.m_Sig.IsValid(hv, p))
@@ -963,6 +943,29 @@ void NodeConnection::OnMsg(Time&& msg)
 	}
 }
 
+void NodeConnection::OnMsg(EventsLegacy&& msg)
+{
+    // in-place convert. Remove this after Fork2
+    Serializer ser;
+
+    for (size_t i = 0; i < msg.m_Events.size(); i++)
+    {
+        const proto::Event::Legacy& evt0 = msg.m_Events[i];
+
+        proto::Event::Utxo evt1;
+        evt0.Export(evt1);
+
+        ser & evt0.m_Height;
+        ser & evt1.s_Type;
+        ser & evt1;
+    }
+
+    Events msgOut;
+    ser.swap_buf(msgOut.m_Events);
+
+    Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msgOut));
+}
+
 /////////////////////////
 // NodeConnection::Server
 void NodeConnection::Server::Listen(const io::Address& addr)
@@ -971,25 +974,86 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 }
 
 /////////////////////////
-// UtxoEvent
-void UtxoEvent::Shielded::Set(Key::ID::Packed& kid, const ECC::Scalar& k, TxoID id)
+// Event
+void Event::IParser::ProceedOnce(Deserializer& der)
 {
-	memcpy(&kid, k.m_Value.m_pData, sizeof(kid));
-	memcpy(m_pBuf, k.m_Value.m_pData + sizeof(kid), sizeof(k.m_Value) - sizeof(kid));
+    Type::Enum eType;
+    der & eType;
 
-	*((uintBigFor<TxoID>::Type*) (m_pBuf + sizeof(k.m_Value) - sizeof(kid))) = id;
+    switch (eType)
+    {
+#define THE_MACRO(id, name) \
+    case Type::name: \
+        { \
+            name evt; \
+            der & evt; \
+            OnEvent(evt); \
+        } \
+        break;
+
+        BeamEventsAll(THE_MACRO)
+#undef THE_MACRO
+
+    default:
+        throw std::runtime_error("Unk proto/Event");
+    }
 }
 
-TxoID UtxoEvent::Shielded::Get(const Key::ID::Packed& kid, ECC::Scalar& k) const
+void Event::IParser::ProceedOnce(const Blob& blob)
 {
-	memcpy(k.m_Value.m_pData, &kid, sizeof(kid));
-	memcpy(k.m_Value.m_pData + sizeof(kid), m_pBuf, sizeof(k.m_Value) - sizeof(kid));
-
-	TxoID ret;
-	((uintBigFor<TxoID>::Type*) (m_pBuf + sizeof(k.m_Value) - sizeof(kid)))->Export(ret);
-	return ret;
+    Deserializer der;
+    der.reset(blob.p, blob.n);
+    ProceedOnce(der);
 }
 
+uint32_t Event::IGroupParser::Proceed(const Blob& blob)
+{
+    uint32_t nCount = 0;
+    Deserializer der;
+
+    for (der.reset(blob.p, blob.n); der.bytes_left(); nCount++)
+    {
+        der & m_Height;
+        ProceedOnce(der);
+    }
+
+    return nCount;
+}
+
+void Event::Utxo::Dump(std::ostringstream& os) const
+{
+    char ch = (Flags::Add & m_Flags) ? '+' : '-';
+    os << ch << "Utxo " << m_Cid << ", Maturity=" << m_Maturity;
+}
+
+void Event::Shielded::Dump(std::ostringstream& os) const
+{
+    char ch = (Flags::Add & m_Flags) ? '+' : '-';
+    os << ch << "Shielded Value=" << m_Value << ", TxoID=" << m_ID << ", Sender=" << m_Sender;
+}
+
+void Event::Legacy::Import(const Utxo& evt)
+{
+    m_Flags = evt.m_Flags ? proto::Event::Flags::Add : 0;
+
+    m_Kid = evt.m_Cid;
+    m_Value = evt.m_Cid.m_Value;
+
+    m_Commitment = evt.m_Commitment;
+    m_Maturity = evt.m_Maturity;
+}
+
+void Event::Legacy::Export(Utxo& evt) const
+{
+    evt.m_Flags = m_Flags ? proto::Event::Flags::Add : 0;
+
+    Cast::Down<Key::ID>(evt.m_Cid) = m_Kid;
+    evt.m_Cid.m_Value = m_Value;
+    evt.m_Cid.m_AssetID = 0;
+
+    evt.m_Commitment = m_Commitment;
+    evt.m_Maturity = m_Maturity;
+}
 
 } // namespace proto
 } // namespace beam

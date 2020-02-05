@@ -28,9 +28,10 @@ namespace proto {
 		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
 		macro(Kernel2,		GetProofKernel2,	ProofKernel2) \
-		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
+		macro(Events,		GetEvents,			Events) \
 		macro(Transaction,	NewTransaction,		Status) \
-		macro(BbsMsg,		BbsMsg,				Pong)
+		macro(BbsMsg,		BbsMsg,				Pong) \
+		macro(Asset,		GetProofAsset,		ProofAsset)
 
 		class Request
 		{
@@ -193,7 +194,7 @@ namespace proto {
 				void AssignRequest(RequestNode&);
 
 				bool IsAtTip() const;
-				uint8_t m_LoginFlags;
+				uint32_t m_LoginFlags;
 				uint8_t m_Flags;
 
 				struct Flags {

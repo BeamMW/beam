@@ -12,11 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-
-#include "wallet/core/wallet.h"
+#include "block_crypt.h"
+#include "wallet/core/wallet_db.h"
 
 namespace beam::wallet
 {
-    void RegisterAssetCreators(Wallet& wallet);
-    TxParameters CreateAssetTransactionParameters(bool issue, const TxID& txID);
+    beam::PeerID GetAssetOwnerID(const Key::IKdf::Ptr& masterKdf, Key::Index ownerIndex);
+
+    std::vector<Input::Ptr> GenerateAssetInputs(const Key::IKdf::Ptr& masterKdf, const wallet::CoinIDList& coins);
+
+    std::vector<Output::Ptr> GenerateAssetOutputs(const Key::IKdf::Ptr& masterKdf, Height minHeight, const CoinIDList& coins);
+
+    ECC::Scalar::Native SignAssetKernel(const Key::IKdf::Ptr& masterKdf,
+            const CoinIDList& inputs,
+            const CoinIDList& outputs,
+            Key::Index assetOwnerIdx,
+            TxKernelAssetControl& kernel);
 }

@@ -124,6 +124,7 @@ namespace ECC
 		:public secp256k1_ge_storage
 	{
 		struct Converter;
+		void Assign(secp256k1_ge&) const;
 		void Assign(Point::Native&, bool bSet) const;
 	};
 
@@ -155,6 +156,9 @@ namespace ECC
 
 		bool operator == (Zero_) const;
         bool operator != (Zero_) const;
+
+		bool operator == (const Native&) const;
+		bool operator == (const Point&) const;
 
 		Native& operator = (Zero_);
 		Native& operator = (Minus);
@@ -680,8 +684,10 @@ namespace ECC
 		virtual ~HKdf();
 		// IPKdf
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		virtual uint32_t ExportP(void*) const override;
 		// IKdf
 		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
+		virtual uint32_t ExportS(void*) const override;
 
 #pragma pack (push, 1)
 		struct Packed
@@ -721,6 +727,7 @@ namespace ECC
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
 		virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
 		virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
+		virtual uint32_t ExportP(void*) const override;
 
 #pragma pack (push, 1)
 		struct Packed
@@ -926,6 +933,7 @@ namespace ECC
 		void Init(const uintBig& seedSk);
 
 		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
-		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1&) const;
+		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
+		void AddInfo2(Scalar::Native& taux, const ChallengeSet&) const;
 	};
 }

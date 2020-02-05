@@ -84,8 +84,15 @@ namespace proto {
     macro(ECC::Point, Utxo) \
     macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
-#define BeamNodeMsg_GetProofShieldedTxo(macro) \
+#define BeamNodeMsg_GetProofShieldedOutp(macro) \
     macro(ECC::Point, SerialPub)
+
+#define BeamNodeMsg_GetProofShieldedInp(macro) \
+    macro(ECC::Point, SpendPk)
+
+#define BeamNodeMsg_GetProofAsset(macro) \
+    macro(Asset::ID, AssetID) \
+    macro(PeerID, Owner)
 
 #define BeamNodeMsg_GetShieldedList(macro) \
     macro(TxoID, Id0) \
@@ -105,11 +112,19 @@ namespace proto {
 #define BeamNodeMsg_ProofUtxo(macro) \
     macro(std::vector<Input::Proof>, Proofs)
 
-#define BeamNodeMsg_ProofShieldedTxo(macro) \
+#define BeamNodeMsg_ProofShieldedOutp(macro) \
     macro(ECC::Point, Commitment) \
     macro(TxoID, ID) \
-    macro(TxoID, Total) \
-    macro(Merkle::HardProof, Proof)
+    macro(Height, Height) \
+    macro(Merkle::Proof, Proof)
+
+#define BeamNodeMsg_ProofShieldedInp(macro) \
+    macro(Height, Height) \
+    macro(Merkle::Proof, Proof)
+
+#define BeamNodeMsg_ProofAsset(macro) \
+    macro(Asset::Full, Info) \
+    macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ShieldedList(macro) \
     macro(std::vector<ECC::Point::Storage>, Items)
@@ -186,7 +201,7 @@ namespace proto {
     macro(Timestamp, TimeFrom)
 
 #define BeamNodeMsg_SChannelInitiate(macro) \
-    macro(ECC::uintBig, NoncePub)
+    macro(PeerID, NoncePub)
 
 #define BeamNodeMsg_SChannelReady(macro)
 
@@ -195,11 +210,14 @@ namespace proto {
     macro(uint8_t, IDType) \
     macro(ECC::Signature, Sig)
 
-#define BeamNodeMsg_GetUtxoEvents(macro) \
+#define BeamNodeMsg_GetEvents(macro) \
     macro(Height, HeightMin)
 
-#define BeamNodeMsg_UtxoEvents(macro) \
-    macro(std::vector<UtxoEvent>, Events)
+#define BeamNodeMsg_EventsLegacy(macro) \
+    macro(std::vector<Event::Legacy>, Events)
+
+#define BeamNodeMsg_Events(macro) \
+    macro(ByteBuffer, Events)
 
 #define BeamNodeMsg_GetBlockFinalization(macro) \
     macro(Height, Height) \
@@ -250,13 +268,18 @@ namespace proto {
     macro(0x25, ProofKernel2) \
     macro(0x26, GetBodyPack) \
     macro(0x27, BodyPack) \
-    macro(0x28, GetProofShieldedTxo) \
-    macro(0x29, ProofShieldedTxo) \
+    macro(0x28, GetProofShieldedOutp) \
+    macro(0x20, GetProofShieldedInp) \
+    macro(0x35, GetProofAsset) \
+    macro(0x29, ProofShieldedOutp) \
+    macro(0x21, ProofShieldedInp) \
+    macro(0x36, ProofAsset) \
     macro(0x2a, GetShieldedList) \
     macro(0x2b, ShieldedList) \
     /* onwer-relevant */ \
-    macro(0x2c, GetUtxoEvents) \
-    macro(0x2d, UtxoEvents) \
+    macro(0x2c, GetEvents) \
+    macro(0x2d, EventsLegacy) \
+    macro(0x34, Events) \
     macro(0x2e, GetBlockFinalization) \
     macro(0x2f, BlockFinalization) \
     /* tx broadcast and replication */ \
@@ -275,23 +298,25 @@ namespace proto {
 
 
     struct LoginFlags {
-        static const uint8_t SpreadingTransactions  = 0x1; // I'm spreading txs, please send
-        static const uint8_t Bbs                    = 0x2; // I'm spreading bbs messages
-        static const uint8_t SendPeers              = 0x4; // Please send me periodically peers recommendations
-        static const uint8_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
-        static const uint8_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
-        static const uint8_t Extension2             = 0x20; // Supports large HdrPack, BlockPack with parameters
-        static const uint8_t Extension3             = 0x40; // Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
-	    static const uint8_t Recognized             = 0x7f;
+        static const uint32_t SpreadingTransactions  = 0x1; // I'm spreading txs, please send
+        static const uint32_t Bbs                    = 0x2; // I'm spreading bbs messages
+        static const uint32_t SendPeers              = 0x4; // Please send me periodically peers recommendations
+        static const uint32_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
+        static const uint32_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
+        static const uint32_t Extension2             = 0x20; // Supports large HdrPack, BlockPack with parameters
+        static const uint32_t Extension3             = 0x40; // Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
+        static const uint32_t Extension4             = 0x80; // Supports proto::Events (replaces proto::EventsLegacy)
+	    static const uint32_t Recognized             = 0xff;
 
 
-		static const uint8_t ExtensionsBeforeHF1 =
+		static const uint32_t ExtensionsBeforeHF1 =
 			Extension1 |
 			Extension2 |
 			Extension3;
 
-		static const uint8_t ExtensionsAll =
-			ExtensionsBeforeHF1;
+		static const uint32_t ExtensionsAll =
+			ExtensionsBeforeHF1 |
+            Extension4;
 	};
 
     struct IDType
@@ -303,48 +328,124 @@ namespace proto {
 
 	static const uint32_t g_HdrPackMaxSize = 2048; // about 400K
 
-	struct UtxoEvent
-	{
-		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
+    struct Event
+    {
+        static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
-		struct Shielded
-		{
-			uint8_t m_pBuf[sizeof(ECC::Scalar) - sizeof(Key::ID) + sizeof(TxoID)]; // remaining part of ID for shielded outputs. Not used for non-shielded
+#define BeamEventsAll(macro) \
+        macro(1, Utxo) \
+        macro(2, Shielded)
 
-			void Set(Key::ID::Packed&, const ECC::Scalar&, TxoID);
-			TxoID Get(const Key::ID::Packed&, ECC::Scalar&) const;
-		};
+#define BeamEvent_Utxo(macro) \
+        macro(uint8_t, Flags) \
+        macro(CoinID, Cid) \
+        macro(ECC::Point, Commitment) \
+        macro(Height, Maturity)
 
-		Key::IDV m_Kidv;
-		Shielded m_Shielded;
-		ECC::Point m_Commitment;
-		AssetID m_AssetID;
+#define BeamEvent_Shielded(macro) \
+        macro(uint8_t, Flags) \
+        macro(TxoID, ID) \
+        macro(Amount, Value) \
+        macro(Asset::ID, AssetID) \
+        macro(ECC::Scalar, kSerG) \
+        macro(ECC::Scalar, kOutG) \
+        macro(PeerID, Sender) \
+        macro(ECC::uintBig, Message)
 
-		Height m_Height;
-		Height m_Maturity;
+        struct Type {
+            enum Enum {
+#define THE_MACRO(id, name) name = id,
+                BeamEventsAll(THE_MACRO)
+#undef THE_MACRO
+            };
+        };
 
-		struct Flags {
-			static const uint8_t Add = 1; // otherwise it's spend
-			static const uint8_t Shielded = 2;
-		};
+        struct Flags {
+            static const uint8_t Add = 1; // otherwise it's spend
+            static const uint8_t CreatedByViewer = 2; // releveant for shielded
+        };
 
-		uint8_t m_Flags;
+        struct Base
+        {
+            virtual ~Base() {}
+            virtual Type::Enum get_Type() const = 0;
+            virtual void Dump(std::ostringstream&) const = 0;
+        };
 
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_Commitment
-				& m_Kidv
-				& m_AssetID
-				& m_Height
-				& m_Maturity
-				& m_Flags;
+#define THE_MACRO_DECL(type, name) type m_##name;
+#define THE_MACRO_SER(type, name) ar & m_##name;
 
-			if (beam::proto::UtxoEvent::Flags::Shielded & m_Flags)
-				ar & m_Shielded.m_pBuf;
-		}
-	};
+#define THE_MACRO(id, name) \
+        struct name \
+            :public Base \
+        { \
+            static const Type::Enum s_Type = Type::name; \
+ \
+            virtual Type::Enum get_Type() const override { return s_Type; } \
+            virtual ~name() {} \
+            virtual void Dump(std::ostringstream&) const; \
+ \
+            BeamEvent_##name(THE_MACRO_DECL) \
+ \
+            template <typename Archive> \
+            void serialize(Archive& ar) \
+            { \
+                BeamEvent_##name(THE_MACRO_SER) \
+            } \
+        };
+
+        BeamEventsAll(THE_MACRO)
+
+#undef THE_MACRO
+#undef THE_MACRO_SER
+#undef THE_MACRO_DECL
+
+
+        struct IParser
+        {
+            void ProceedOnce(Deserializer&);
+            void ProceedOnce(const Blob&);
+            virtual void OnEvent(Base&) {}
+        };
+
+        struct IGroupParser
+            :public IParser
+        {
+            Height m_Height;
+            uint32_t Proceed(const Blob&);
+        };
+
+        // remove the following after Fork2
+        struct Legacy
+        {
+            Key::ID m_Kid;
+            Amount m_Value;
+            ECC::Point m_Commitment;
+
+            Height m_Height;
+            Height m_Maturity;
+
+            uint8_t m_Flags;
+
+            template <typename Archive>
+            void serialize(Archive& ar)
+            {
+                ECC::uintBig dummy(Zero);
+                ar
+                    & m_Commitment
+                    & m_Kid
+                    & m_Value
+                    & dummy
+                    & m_Height
+                    & m_Maturity
+                    & m_Flags;
+            }
+
+            void Import(const Utxo&);
+            void Export(Utxo&) const;
+        };
+
+    };
 
 	struct BodyBuffers
 	{
@@ -378,7 +479,8 @@ namespace proto {
     template <typename T>
     inline void ZeroInit(std::unique_ptr<T>&) { }
     template <uint32_t nBytes_>
-    inline void ZeroInit(uintBig_t<nBytes_>& x) { x = ECC::Zero; }
+    inline void ZeroInit(uintBig_t<nBytes_>& x) { x = Zero; }
+    inline void ZeroInit(PeerID& x) { x = Zero; }
     inline void ZeroInit(io::Address& x) { }
     inline void ZeroInit(ByteBuffer&) { }
     inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
@@ -389,6 +491,8 @@ namespace proto {
     inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
     inline void ZeroInit(TxKernel::LongProof& x) { ZeroObject(x.m_State); }
 	inline void ZeroInit(BodyBuffers&) { }
+    inline void ZeroInit(Asset::Info& x) { x.Reset(); }
+    inline void ZeroInit(Asset::Full& x) { x.Reset(); }
 
     template <typename T> struct InitArg {
         typedef const T& TArg;
@@ -427,7 +531,7 @@ namespace proto {
 		static const uint8_t Unspecified = 0;
 		static const uint8_t Ok = 0x1;
 		// advanced codes
-		static const uint8_t TooSmall = 0x2; // doesn't contain minimal elements: at least 1 input and 1 kernel
+		static const uint8_t TooSmall = 0x2; // doesn't contain minimal elements: at least 1 input and 1 kernel OR 1 output and 1 kernel
 		static const uint8_t Obscured = 0x3; // partial overlap with another tx. Dropped due to potential collision (not necessarily an error)
 
 		static const uint8_t Invalid = 0x10; // context-free validation failed
@@ -479,7 +583,7 @@ namespace proto {
         AES::StreamCipher m_CipherOut;
 
         ECC::Scalar::Native m_MyNonce;
-        ECC::uintBig m_RemoteNonce;
+        PeerID m_RemoteNonce;
         ECC::Hash::Mac m_HMac;
 
         struct Mode {
@@ -506,9 +610,6 @@ namespace proto {
 
         void Encrypt(SerializedMsg&, MsgSerializer&);
     };
-
-    void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
-    bool ImportPeerID(ECC::Point::Native&, const PeerID&);
 
     struct INodeMsgHandler
         :public IErrorHandler
@@ -603,6 +704,7 @@ namespace proto {
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login0&&) override;
 		virtual void OnMsg(Login&&) override;
+        virtual void OnMsg(EventsLegacy&&) override; // auto-convert
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 

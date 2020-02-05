@@ -45,6 +45,8 @@ namespace beam
     extern const char kTxStatusSentToOwn[];
     extern const char kTxStatusIssued[];
     extern const char kTxStatusConsumed[];
+    extern const char kTxStatusRegistered[];
+    extern const char kTxStatusUnregistered[];
     extern const char kTxStatusExpired[];
     // Errors
     extern const char kErrorUnknownCoinStatus[];
@@ -80,7 +82,6 @@ namespace beam
     extern const char kErrorSwapWalletPwdNotProvided[];
     extern const char kErrorCommandNotSpecified[];
     extern const char kErrorCommandUnknown[];
-    extern const char kErrorCantRestoreColdWallet[];
     extern const char kErrorWalletNotInitialized[];
     extern const char kErrorWalletAlreadyInitialized[];
     extern const char kErrorWalletPwdNotProvided[];
@@ -227,8 +228,10 @@ namespace beam
     extern const char kLaserClosed[];
     extern const char kLaserUnknown[];
     extern const char kLaserErrorParamsRead[];
-    extern const char kLaserAmountZero[];
+    extern const char kLaserErrorMyAmountMissing[];
+    extern const char kLaserErrorTrgAmountMissing[];
     extern const char kLaserErrorChannelIdMissing[];
+    extern const char kLaserErrorLockTimeMissing[];
     extern const char kLaserChannelListTableHead[];
     extern const char kLaserChannelListChannelId[];
     extern const char kLaserChannelListAMy[];
@@ -241,6 +244,7 @@ namespace beam
     extern const char kLaserMessageClosed[];
     extern const char kLaserMessageChannelServed[];
     extern const char kLaserMessageUpdateFinished[];
+    extern const char kLaserMessageCloseFailed[];
 
     extern const char kLaserCurrentState[];
 #endif  // BEAM_LASER_SUPPORT

@@ -100,11 +100,12 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
     }
 
     auto reactor = io::Reactor::create();
+    io::Reactor::Scope scope(*reactor);
+
     auto walletDB = WalletDB::init(
         appData + "/" WALLET_FILENAME,
         pass,
-        seed.hash(),
-        reactor
+        seed.hash()
     );
 
     if(walletDB)
@@ -125,7 +126,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         }
         
         // generate default address
-        WalletAddress address = storage::createAddress(*walletDB, keyKeeper);
+        WalletAddress address;
+        walletDB->createAddress(address);
         address.m_label = "default";
         walletDB->saveAddress(address);
         
@@ -189,7 +191,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
     string pass = JString(env, passStr).value();
     auto reactor = io::Reactor::create();
-    auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass, reactor);
+    io::Reactor::Scope scope(*reactor);
+    auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass);
     auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
     if(walletDB)
@@ -238,7 +241,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getDictionary)(JNIEnv *env, jo
     int i = 0;
     for (auto& word : language::en)
     {
-        jstring str = env->NewStringUTF(word.c_str());
+        jstring str = env->NewStringUTF(word);
         env->SetObjectArrayElement(dictionary, i++, str);
         env->DeleteLocalRef(str);
     }

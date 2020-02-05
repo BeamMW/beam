@@ -270,7 +270,7 @@ namespace beam::wallet
                     static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
                     LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 
-                    auto wallet = make_shared<Wallet>(m_walletDB, m_keyKeeper);
+                    auto wallet = make_shared<Wallet>(m_walletDB);
                     m_wallet = wallet;
 
                     if (txCreators)
@@ -291,7 +291,7 @@ namespace beam::wallet
                     using NodeNetworkSubscriber = ScopedSubscriber<INodeConnectionObserver, NodeNetwork>;
                     auto nodeNetworkSubscriber = std::make_unique<NodeNetworkSubscriber>(static_cast<INodeConnectionObserver*>(this), nodeNetwork);
 
-                    auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB, m_keyKeeper);
+                    auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
                     m_walletNetwork = walletNetwork;
                     wallet->SetNodeEndpoint(nodeNetwork);
                     wallet->AddMessageEndpoint(walletNetwork);
@@ -368,17 +368,13 @@ namespace beam::wallet
 
     std::string WalletClient::exportOwnerKey(const beam::SecString& pass) const
     {
-        Key::IKdf::Ptr pKey = m_walletDB->get_MasterKdf();
-        const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
+        Key::IPKdf::Ptr pOwner = m_walletDB->get_OwnerKdf();
 
         KeyString ks;
         ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
         ks.m_sMeta = std::to_string(0);
 
-        ECC::HKdfPub pkdf;
-        pkdf.GenerateFrom(kdf);
-
-        ks.Export(pkdf);
+        ks.ExportP(*pOwner);
 
         return ks.m_sRes;
     }
@@ -447,7 +443,8 @@ namespace beam::wallet
             auto s = m_wallet.lock();
             if (s)
             {
-                WalletAddress senderAddress = storage::createAddress(*m_walletDB, m_keyKeeper);
+                WalletAddress senderAddress;
+                m_walletDB->createAddress(senderAddress);
                 saveAddress(senderAddress, true); // should update the wallet_network
 
                 ByteBuffer message(comment.begin(), comment.end());
@@ -531,12 +528,12 @@ namespace beam::wallet
                 auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
                 if (!myID)
                 {
-                    WalletAddress senderAddress = storage::createAddress(*m_walletDB, m_keyKeeper);
+                    WalletAddress senderAddress;
+                    m_walletDB->createAddress(senderAddress);
                     saveAddress(senderAddress, true); // should update the wallet_network
                 
                     parameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
                 }
-
                 s->StartTransaction(parameters);
             }
 
@@ -680,7 +677,8 @@ namespace beam::wallet
     {
         try
         {
-            WalletAddress address = storage::createAddress(*m_walletDB, m_keyKeeper);
+            WalletAddress address;
+            m_walletDB->createAddress(address);
 
             onGeneratedNewAddress(address);
         }
@@ -844,7 +842,7 @@ namespace beam::wallet
 
     void WalletClient::importDataFromJson(const std::string& data)
     {
-        auto isOk = storage::ImportDataFromJson(*m_walletDB, m_keyKeeper, data.data(), data.size());
+        auto isOk = storage::ImportDataFromJson(*m_walletDB, data.data(), data.size());
 
         onImportDataFromJson(isOk);
     }

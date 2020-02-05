@@ -21,6 +21,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <map>
+#include <core/block_crypt.h>
 
 #include "utility/cli/options.h"
 #include "utility/helpers.h"
@@ -232,7 +233,6 @@ namespace
                 , _wallet(wallet)
                 , _api(*this, acl)
                 , _wnet(wnet)
-                , _keyKeeper(std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf()))
             {
                 _walletDB->Subscribe(this);
             }
@@ -309,7 +309,8 @@ namespace
             {
                 LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-                WalletAddress address = storage::createAddress(*_walletDB, _keyKeeper);
+                WalletAddress address;
+                _walletDB->createAddress(address);
                 FillAddressData(data, address);
 
                 _walletDB->saveAddress(address);
@@ -417,7 +418,8 @@ namespace
                     }
                     else
                     {
-                        WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
+                        WalletAddress senderAddress;
+                        _walletDB->createAddress(senderAddress);
                         _walletDB->saveAddress(senderAddress);
 
                         from = senderAddress.m_walletID;     
@@ -471,6 +473,54 @@ namespace
                 }
             }
 
+            void onMessage(const JsonRpcId& id, const Issue& data) override
+            {
+                LOG_DEBUG() << "Issue(id = " << id << " amount = " << data.value << " fee = " << data.fee;
+
+                try
+                {
+                    CoinIDList coins;
+
+                    if (data.session)
+                    {
+                        if((coins = _walletDB->getLockedCoins(*data.session)).empty())
+                        {
+                            doError(id, ApiError::InternalErrorJsonRpc, "Requested session is empty.");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        coins = data.coins ? *data.coins : CoinIDList();
+                    }
+
+                    auto minimumFee = std::max(wallet::GetMinimumFee(2), DefaultFee);
+                    if (data.fee < minimumFee)
+                    {
+                        doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
+                        return;
+                    }
+
+                    if (data.txId && _walletDB->getTx(*data.txId))
+                    {
+                        doTxAlreadyExistsError(id);
+                        return;
+                    }
+
+                    const auto txId = _wallet.StartTransaction(CreateTransactionParameters(TxType::AssetIssue, data.txId)
+                        .SetParameter(TxParameterID::Amount, data.value)
+                        .SetParameter(TxParameterID::Fee, data.fee)
+                        .SetParameter(TxParameterID::PreselectedCoins, coins)
+                        .SetParameter(TxParameterID::AssetOwnerIdx, data.index));
+
+                    doResponse(id, Issue::Response{ txId });
+                }
+                catch(...)
+                {
+                    doError(id, ApiError::InternalErrorJsonRpc, "Transaction could not be created. Please look at logs.");
+                }
+            }
+
             void onMessage(const JsonRpcId& id, const Status& data) override
             {
                 LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
@@ -505,7 +555,8 @@ namespace
                 LOG_DEBUG() << "], fee = " << data.fee;
                 try
                 {
-                     WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
+                    WalletAddress senderAddress;
+                    _walletDB->createAddress(senderAddress);
                     _walletDB->saveAddress(senderAddress);
 
                     auto minimumFee = std::max(wallet::GetMinimumFee(data.coins.size() + 1), DefaultFee); // +1 extra output for change 
@@ -746,7 +797,6 @@ namespace
             Wallet& _wallet;
             WalletApi _api;
             IWalletMessageEndpoint& _wnet;
-            IPrivateKeyKeeper::Ptr _keyKeeper;
         };
 
         class TcpApiConnection : public ApiConnection
@@ -1102,7 +1152,7 @@ int main(int argc, char* argv[])
                 return -1;
             }
 
-            walletDB = WalletDB::open(options.walletPath, pass, reactor);
+            walletDB = WalletDB::open(options.walletPath, pass);
 
             LOG_INFO() << "wallet sucessfully opened...";
         }
@@ -1113,8 +1163,7 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
 
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-        Wallet wallet{ walletDB, keyKeeper };
+        Wallet wallet{ walletDB };
 
         wallet.ResumeAllTransactions();
 
@@ -1138,7 +1187,7 @@ int main(int argc, char* argv[])
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();
 
-        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper);
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB);
 		wallet.AddMessageEndpoint(wnet);
         wallet.SetNodeEndpoint(nnet);
 

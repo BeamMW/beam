@@ -42,6 +42,7 @@ ConfirmationDialog {
             }
             if (!BeamGlobals.isPasswordValid(requirePasswordInput.text)) {
                 requirePasswordInput.forceActiveFocus(Qt.TabFocusReason);
+                requirePasswordInput.selectAll();
                 requirePasswordError.text = qsTrId("general-pwd-invalid");
                 return;
             }

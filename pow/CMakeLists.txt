@@ -24,6 +24,7 @@ target_link_libraries(pow
     PRIVATE
         Boost::boost
         blake2b
+        core
 )
 
 add_library(external_pow STATIC

@@ -27,7 +27,7 @@ namespace beam::wallet
         //
         // Transaction
         //
-        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, IPrivateKeyKeeper::Ptr keyKeeper);
+        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID);
 
         bool GetInitialTxParams();
         virtual Transaction::Ptr CreateTransaction();
@@ -47,8 +47,8 @@ namespace beam::wallet
         void     GenerateBeamCoin(Amount amount, bool change);
         bool     CreateInputs();
         bool     CreateOutputs();
-        uint32_t GetAssetIdx() const;
-        AssetID  GetAssetId() const;
+        Key::Index GetAssetOwnerIdx() const;
+        Asset::ID  GetAssetId() const;
 
         //
         // Blockchain stuff
@@ -67,11 +67,10 @@ namespace beam::wallet
 
     private:
         BaseTransaction& m_Tx;
-        IPrivateKeyKeeper::Ptr m_keyKeeper;
         SubTxID m_SubTxID;
 
-        beam::AssetID m_assetId;
-        uint32_t      m_assetIdx;
+        beam::Asset::ID  m_assetId;
+        beam::Key::Index m_assetOwnerIdx;
 
         bool       m_issue;
         AmountList m_AmountList;

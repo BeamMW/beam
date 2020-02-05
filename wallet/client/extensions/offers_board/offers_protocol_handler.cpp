@@ -33,7 +33,7 @@ namespace beam::wallet
             PrivateKey sk;
             PublicKey pk;
             m_sbbsKdf->DeriveKey(sk, ECC::Key::ID(waddr->m_OwnID, Key::Type::Bbs));
-            proto::Sk2Pk(pk, sk);
+            pk.FromSk(sk);
 
             // Sign data with private key
             SwapOfferConfirmation confirmationBuilder;

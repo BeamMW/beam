@@ -78,13 +78,13 @@ namespace beam
         extern const char* MINER_KEY;
         extern const char* BBS_ENABLE;
         extern const char* NEW_ADDRESS;
+        extern const char* GET_TOKEN;
         extern const char* CANCEL_TX;
         extern const char* DELETE_TX;
         extern const char* TX_DETAILS;
         extern const char* PAYMENT_PROOF_EXPORT;
         extern const char* PAYMENT_PROOF_VERIFY;
         extern const char* PAYMENT_PROOF_DATA;
-        extern const char* PAYMENT_PROOF_REQUIRED;
         extern const char* SEND;
         extern const char* INFO;
         extern const char* NEW_ADDRESS_COMMENT;
@@ -121,7 +121,6 @@ namespace beam
 		extern const char* GENERATE_RECOVERY_PATH;
 		extern const char* RECOVERY_AUTO_PATH;
 		extern const char* RECOVERY_AUTO_PERIOD;
-        extern const char* COLD_WALLET;
         extern const char* SWAP_INIT;
         extern const char* SWAP_ACCEPT;
         extern const char* SWAP_TOKEN;
@@ -145,16 +144,16 @@ namespace beam
         extern const char* LASER_WAIT;
         extern const char* LASER_SERVE;
         extern const char* LASER_LIST;
-        extern const char* LASER_CLOSE;
+        extern const char* LASER_DROP;
         extern const char* LASER_DELETE;
+        extern const char* LASER_CLOSE_GRACEFUL;
+
         extern const char* LASER_AMOUNT_MY;
         extern const char* LASER_AMOUNT_TARGET;
         extern const char* LASER_TARGET_ADDR;
         extern const char* LASER_FEE;
         extern const char* LASER_LOCK_TIME;
         extern const char* LASER_CHANNEL_ID;
-        extern const char* LASER_ALL;
-        extern const char* LASER_CLOSE_GRACEFUL;
 #endif  // BEAM_LASER_SUPPORT
 
         // wallet api
@@ -180,6 +179,8 @@ namespace beam
         // assets
         extern const char* ASSET_ISSUE;
         extern const char* ASSET_CONSUME;
+        extern const char* ASSET_REGISTER;
+        extern const char* ASSET_UNREGISTER;
         extern const char* ASSET_INDEX;
         extern const char* ASSET_ID;
 
@@ -226,6 +227,16 @@ namespace beam
     };
 
     template <typename T>
+    struct NonnegativeFloatingPoint {
+        static_assert(std::is_floating_point<T>::value, "NonnegativeFloatingPoint<T> requires floating_point type.");
+
+        NonnegativeFloatingPoint() {}
+        explicit NonnegativeFloatingPoint(const T& v) : value(v) {}
+
+        T value = 0;
+    };
+
+    template <typename T>
     struct Positive {
         static_assert(std::is_arithmetic<T>::value, "Positive<T> requires numerical type.");
 
@@ -261,6 +272,13 @@ namespace beam
     }
 
     template<typename T>
+    std::ostream& operator<<(std::ostream& os, const NonnegativeFloatingPoint<T>& v)
+    {
+        os << v.value;
+        return os;
+    }
+
+    template<typename T>
     std::ostream& operator<<(std::ostream& os, const Positive<T>& v)
     {
         os << v.value;
@@ -281,6 +299,27 @@ namespace beam
         try
         {
             v = Nonnegative<T>(boost::lexical_cast<T>(s));
+        }
+        catch (const boost::bad_lexical_cast&)
+        {
+            throw po::invalid_option_value(s);
+        }
+    }
+
+        template <typename T>
+    void validate(boost::any& v, const std::vector<std::string>& values, NonnegativeFloatingPoint<T>*, int)
+    {
+        po::validators::check_first_occurrence(v);
+
+        const std::string& s = po::validators::get_single_string(values);
+
+        if (!s.empty() && s[0] == '-') {
+            throw NonnegativeOptionException();
+        }
+
+        try
+        {
+            v = NonnegativeFloatingPoint<T>(boost::lexical_cast<T>(s));
         }
         catch (const boost::bad_lexical_cast&)
         {

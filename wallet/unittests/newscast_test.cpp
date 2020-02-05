@@ -68,7 +68,7 @@ namespace
         PrivateKey sk;
         PublicKey pk;
         walletDB->get_MasterKdf()->DeriveKey(sk, ECC::Key::ID(keyIndex, Key::Type::Bbs));
-        proto::Sk2Pk(pk, sk);
+        pk.FromSk(sk);
         return std::make_tuple(pk, sk);
     }
 

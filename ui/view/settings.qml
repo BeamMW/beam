@@ -264,6 +264,7 @@ deploy the key at the node you trust completely."*/
                     connectionStatus:         modelData.connectionStatus
                     connectionErrorMsg:       modelData.connectionErrorMsg 
                     getAddressesElectrum:     modelData.getAddressesElectrum
+                    mainSettingsViewModel:    viewModel
 
                     //
                     // Node
@@ -453,21 +454,40 @@ deploy the key at the node you trust completely."*/
                                 font.pixelSize: 14
                             }
 
-
-                            SFTextInput {
-                                id: localNodePort
-                                Layout.fillWidth: true;
+                            ColumnLayout {
+                                Layout.fillWidth: true
                                 Layout.preferredWidth: 7
-                                Layout.alignment: Qt.AlignRight
-                                activeFocusOnTab: true
-                                font.pixelSize: 14
-                                color: Style.content_main
-                                text: viewModel.localNodePort
-                                validator: RegExpValidator {regExp: /^([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/g}
-                                Binding {
-                                    target: viewModel
-                                    property: "localNodePort"
-                                    value: localNodePort.text
+                                Layout.alignment: Qt.AlignTop
+                                spacing: 0
+
+                                SFTextInput {
+                                    id: localNodePort
+                                    Layout.fillWidth: true;
+                                    Layout.preferredWidth: 7
+                                    Layout.alignment: Qt.AlignRight
+                                    activeFocusOnTab: true
+                                    font.pixelSize: 14
+                                    color: Style.content_main
+                                    text: viewModel.localNodePort
+                                    validator: RegExpValidator {regExp: /^([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/g}
+                                    Binding {
+                                        target: viewModel
+                                        property: "localNodePort"
+                                        value: localNodePort.text
+                                    }
+                                }
+                                Item {
+                                    id: localNodePortError
+                                    Layout.fillWidth: true
+
+                                    SFText {
+                                        color:          Style.validator_error
+                                        font.pixelSize: 12
+                                        font.italic:    true
+  
+                                        text:           qsTrId("general-invalid-port")
+                                        visible:        !localNodePort.acceptableInput
+                                    }
                                 }
                             }
                         }
@@ -535,20 +555,41 @@ deploy the key at the node you trust completely."*/
                                 font.pixelSize: 14
                             }
                             
-                            SFTextInput {
-                                id: remoteNodePort
+                            ColumnLayout
+                            {
                                 Layout.fillWidth: true
                                 Layout.preferredWidth: 7
-                                Layout.alignment: Qt.AlignRight
-                                activeFocusOnTab: true
-                                font.pixelSize: 14
-                                color: Style.content_main
-                                text: viewModel.remoteNodePort
-                                validator: RegExpValidator {regExp: /^([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/g}
-                                Binding {
-                                    target: viewModel
-                                    property: "remoteNodePort"
-                                    value: remoteNodePort.text
+                                Layout.alignment: Qt.AlignTop
+                                spacing: 0
+                                
+                                SFTextInput {
+                                    id: remoteNodePort
+                                    Layout.fillWidth: true
+                                    activeFocusOnTab: true
+                                    font.pixelSize: 14
+                                    color: Style.content_main
+                                    text: viewModel.remoteNodePort
+                                    validator: RegExpValidator {regExp: /^([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/g}
+                                    Binding {
+                                        target: viewModel
+                                        property: "remoteNodePort"
+                                        value: remoteNodePort.text
+                                    }
+                                }
+
+                                Item {
+                                    id: nodePortError
+                                    Layout.fillWidth: true
+
+                                    SFText {
+                                        color:          Style.validator_error
+                                        font.pixelSize: 12
+                                        font.italic:    true
+                                        //: settings tab, node section, port error label
+                                        //% "Port is mandatory"
+                                        text:           qsTrId("general-invalid-port")
+                                        visible:        !remoteNodePort.acceptableInput
+                                    }
                                 }
                             }
                             Item {
@@ -655,8 +696,6 @@ deploy the key at the node you trust completely."*/
                                 icon.source: "qrc:/assets/icon-cancel-white.svg"
                                 enabled: {
                                     viewModel.isChanged
-                                    && nodeAddress.acceptableInput
-                                    && localNodePort.acceptableInput
                                 }
                                 onClicked: viewModel.undoChanges()
                             }
@@ -678,9 +717,8 @@ deploy the key at the node you trust completely."*/
                                 icon.source: "qrc:/assets/icon-done.svg"
                                 enabled: {
                                     viewModel.isChanged
-                                    && nodeAddress.acceptableInput
-                                    && localNodePort.acceptableInput
-                                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : viewModel.isValidNodeAddress)
+                                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) && localNodePort.acceptableInput 
+                                                                : viewModel.isValidNodeAddress && nodeAddress.acceptableInput && remoteNodePort.acceptableInput)
                                 }
                                 onClicked: viewModel.applyChanges()
                             }
@@ -894,15 +932,16 @@ deploy the key at the node you trust completely."*/
                                     checked = !checked;
                                 }
                                 onClicked: {
-                                    //: settings tab, general section, ask password to send, confirm password dialog, title
-                                    //% "Don't ask password on every Send"
-                                    confirmPasswordDialog.dialogTitle = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-title");
+                                    confirmPasswordDialog.dialogTitle = viewModel.isPasswordReqiredToSpendMoney
+                                        //: settings tab, general section, ask password to send, confirm password dialog, title if checked
+                                        //% "Don't ask password on every Send"
+                                        ? qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-title")
+                                        //: settings tab, general section, ask password to send, confirm password dialog, title if unchecked
+                                        //% "Ask password on every Send"
+                                        : qsTrId("settings-general-no-require-pwd-to-spend-confirm-pwd-title");
                                     //: settings tab, general section, ask password to send, confirm password dialog, message
                                     //% "Password verification is required to change that setting"
                                     confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-message");
-                                    //: confirm password dialog, ok button
-				                    //% "Proceed"
-                                    confirmPasswordDialog.okButtonText = qsTrId("general-proceed")
                                     confirmPasswordDialog.okButtonIcon = "qrc:/assets/icon-done.svg"
                                     confirmPasswordDialog.onDialogAccepted = onDialogAccepted;
                                     confirmPasswordDialog.onDialogRejected = onDialogRejected;

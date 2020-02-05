@@ -247,7 +247,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
 
 void FlyClient::NetworkStd::Connection::OnLogin(Login&& msg)
 {
-    m_LoginFlags = static_cast<uint8_t>(msg.m_Flags);
+    m_LoginFlags = msg.m_Flags;
     AssignRequests();
 
     if (LoginFlags::Bbs & m_LoginFlags)
@@ -716,6 +716,22 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestKernel2& req)
     return (Flags::Node & m_Flags) && IsAtTip();
 }
 
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestAsset& req)
+{
+    if (req.m_Res.m_Info.m_Owner != Zero)
+        if (req.m_Msg.m_Owner != req.m_Res.m_Info.m_Owner)
+            ThrowUnexpected();
+
+    if (!req.m_Res.m_Proof.empty())
+        if (!m_Tip.IsValidProofAsset(req.m_Res.m_Info, req.m_Res.m_Proof))
+            ThrowUnexpected();
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestAsset& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel2& req)
 {
     if (req.m_Res.m_Kernel)
@@ -729,24 +745,13 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel2& req)
     }
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestUtxoEvents& req)
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestEvents& req)
 {
     return (Flags::Owned & m_Flags) && IsAtTip();
 }
 
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestUtxoEvents& req)
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestEvents& req)
 {
-    // make sure height order is obeyed
-    Height hPrev = req.m_Msg.m_HeightMin;
-
-    for (size_t i = 0; i < req.m_Res.m_Events.size(); i++)
-    {
-        const UtxoEvent& evt = req.m_Res.m_Events[i];
-        if ((evt.m_Height < hPrev) || (evt.m_Height > m_Tip.m_Height))
-            ThrowUnexpected();
-
-        hPrev = evt.m_Height;
-    }
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)

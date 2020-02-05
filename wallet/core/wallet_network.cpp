@@ -34,12 +34,12 @@ namespace beam::wallet {
 
     ///////////////////////////
 
-    BaseMessageEndpoint::BaseMessageEndpoint(IWalletMessageConsumer& w, const IWalletDB::Ptr& pWalletDB, IPrivateKeyKeeper::Ptr keyKeeper)
+    BaseMessageEndpoint::BaseMessageEndpoint(IWalletMessageConsumer& w, const IWalletDB::Ptr& pWalletDB)
         : m_Wallet(w)
         , m_WalletDB(pWalletDB)
         , m_AddressExpirationTimer(io::Timer::create(io::Reactor::get_Current()))
-        , m_keyKeeper(keyKeeper)
     {
+        m_pKdfSbbs = pWalletDB->get_SbbsKdf();
 
     }
 
@@ -77,9 +77,9 @@ namespace beam::wallet {
                 break; // as well
 
 
-            if (!m_keyKeeper->get_SbbsKdf())
+            if (!m_pKdfSbbs)
             {
-                // public wallet
+                // read-only wallet
                 m_WalletDB->saveIncomingWalletMessage(channel, msg);
                 OnIncomingMessage();
                 return;
@@ -118,6 +118,9 @@ namespace beam::wallet {
 
     void BaseMessageEndpoint::AddOwnAddress(const WalletAddress& address)
     {
+        if (!m_pKdfSbbs)
+            return;
+
         Addr::Wid key;
         key.m_OwnID = address.m_OwnID;
 
@@ -130,12 +133,7 @@ namespace beam::wallet {
             pAddr->m_ExpirationTime = address.getExpirationTime();
             pAddr->m_Wid.m_OwnID = address.m_OwnID;
 
-            if (m_keyKeeper->get_SbbsKdf())
-            {
-                m_keyKeeper->get_SbbsKdf()->DeriveKey(pAddr->m_sk, Key::ID(address.m_OwnID, Key::Type::Bbs));
-
-                proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
-            }
+            m_WalletDB->get_SbbsPeerID(pAddr->m_sk, pAddr->m_Pk, address.m_OwnID);
 
             pAddr->m_Channel.m_Value = channel_from_wallet_id(address.m_walletID);
 
@@ -197,6 +195,9 @@ namespace beam::wallet {
 
     void BaseMessageEndpoint::Send(const WalletID& peerID, const SetTxParameter& msg)
     {
+        if (!m_pKdfSbbs)
+            return;
+
         Serializer ser;
         ser& msg;
         SerializeBuffer sb = ser.buffer();
@@ -205,7 +206,7 @@ namespace beam::wallet {
         ECC::GenRandom(hvRandom.V);
 
         ECC::Scalar::Native nonce;
-        m_keyKeeper->get_SbbsKdf()->DeriveKey(nonce, hvRandom.V);
+        m_pKdfSbbs->DeriveKey(nonce, hvRandom.V);
 
         ByteBuffer encryptedMessage;
         if (proto::Bbs::Encrypt(encryptedMessage, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
@@ -237,8 +238,8 @@ namespace beam::wallet {
 
     ///////////////////////////
 
-    WalletNetworkViaBbs::WalletNetworkViaBbs(IWalletMessageConsumer& w, shared_ptr<proto::FlyClient::INetwork> net, const IWalletDB::Ptr& pWalletDB, IPrivateKeyKeeper::Ptr keyKeeper)
-        : BaseMessageEndpoint(w, pWalletDB, keyKeeper)
+    WalletNetworkViaBbs::WalletNetworkViaBbs(IWalletMessageConsumer& w, shared_ptr<proto::FlyClient::INetwork> net, const IWalletDB::Ptr& pWalletDB)
+        : BaseMessageEndpoint(w, pWalletDB)
         , m_NodeEndpoint(net)
 		, m_WalletDB(pWalletDB)
 	{
@@ -469,32 +470,5 @@ namespace beam::wallet {
             assert(false && "invalid address change action");
             break;
         }
-    }
-
-    /////////////////////////////////
-    ColdWalletMessageEndpoint::ColdWalletMessageEndpoint(IWalletMessageConsumer& wallet, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
-        : BaseMessageEndpoint(wallet, walletDB, keyKeeper)
-        , m_WalletDB(walletDB)
-    {
-        Subscribe();
-
-        {
-            auto messages = m_WalletDB->getIncomingWalletMessages();
-            for (auto& message : messages)
-            {
-                ProcessMessage(message.m_Channel, message.m_Message);
-                m_WalletDB->deleteIncomingWalletMessage(message.m_ID);
-            }
-        }
-    }
-
-    ColdWalletMessageEndpoint::~ColdWalletMessageEndpoint()
-    {
-        Unsubscribe();
-    }
-
-    void ColdWalletMessageEndpoint::SendRawMessage(const WalletID& peerID, const ByteBuffer& msg)
-    {
-        m_WalletDB->saveWalletMessage(OutgoingWalletMessage{ 0, peerID, msg });
     }
 }

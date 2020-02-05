@@ -19,7 +19,7 @@ namespace beam::wallet::laser
 {
 
 // static
-ChannelIDPtr Channel::ChIdFromString(const std::string& chIdStr)
+ChannelIDPtr Channel::ChannelIdFromString(const std::string& chIdStr)
 {
     bool isValid = false;
     auto buffer = from_hex(chIdStr, &isValid);
@@ -125,32 +125,36 @@ proto::FlyClient::INetwork& Channel::get_Net()
     return m_rHolder.get_Net();
 }
 
-Amount Channel::SelectInputs(std::vector<Key::IDV>& vInp, Amount valRequired)
+Amount Channel::SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asset::ID nAssetID)
 {
     assert(vInp.empty());
 
     Amount nDone = 0;
-    auto coins = m_rHolder.getWalletDB()->selectCoins(valRequired, Zero);
+    auto coins = m_rHolder.getWalletDB()->selectCoins(valRequired, nAssetID);
     vInp.reserve(coins.size());
     std::transform(coins.begin(), coins.end(), std::back_inserter(vInp),
-                   [&nDone] (const Coin& coin) -> Key::IDV
+                   [&nDone] (const Coin& coin) -> CoinID
                     {
-                        auto idv = coin.m_ID;
-                        nDone += idv.m_Value;
-                        return idv;
+                        const CoinID& cid = coin.m_ID;
+                        nDone += cid.m_Value;
+                        return cid;
                     });
+    LOG_DEBUG() << "Amount selected: " << PrintableAmount(nDone, true) << " "
+                << "Amount required: " << PrintableAmount(nDone, valRequired);
     return nDone;
 }
 
 void Channel::get_Kdf(Key::IKdf::Ptr& pKdf)
 {
     pKdf = m_rHolder.getWalletDB()->get_MasterKdf();
+    if (!pKdf)
+        throw std::runtime_error("master key inaccessible");
 }
 
-void Channel::AllocTxoID(Key::IDV& kidv)
+void Channel::AllocTxoID(CoinID& cid)
 {
-    kidv.set_Subkey(0);
-    kidv.m_Idx = get_RandomID();
+    cid.set_Subkey(0);
+    cid.m_Idx = get_RandomID();
 }
 
 void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
@@ -193,17 +197,17 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
 	}
 }
 
-void Channel::OnCoin(const ECC::Key::IDV& kidv,
+void Channel::OnCoin(const CoinID& cid,
                      Height h,
                      CoinState eState,
                      bool bReverse)
 {
     auto pWalletDB = m_rHolder.getWalletDB();
-    auto coins = pWalletDB->getCoinsByID(std::vector<ECC::Key::IDV>({kidv}));
+    auto coins = pWalletDB->getCoinsByID(std::vector<CoinID>({cid}));
     if (coins.empty())
     {
         auto& coin = coins.emplace_back();
-        coin.m_ID = kidv;
+        coin.m_ID = cid;
         coin.m_maturity = m_pOpen && m_pOpen->m_hOpened
             ? m_Params.m_hLockTime + m_pOpen->m_hOpened
             : m_Params.m_hLockTime + h;
@@ -277,7 +281,7 @@ void Channel::OnCoin(const ECC::Key::IDV& kidv,
     }
 
     pWalletDB->saveCoins(coins);
-    LOG_INFO() << "Coin " << kidv.m_Value << " " << szStatus;
+    LOG_INFO() << "Coin " << cid << " " << szStatus;
 }
 
 const ChannelIDPtr& Channel::get_chID() const
@@ -390,11 +394,11 @@ void Channel::UpdateRestorePoint()
     ser & m_pOpen->m_hvKernel0;
     ser & m_pOpen->m_hOpened;
     ser & m_pOpen->m_vInp.size();
-    for (auto& inp : m_pOpen->m_vInp)
+    for (const CoinID& cid : m_pOpen->m_vInp)
     {
-        ser & inp;
+        ser & cid;
     }
-    ser & m_pOpen->m_kidvChange;
+    ser & m_pOpen->m_cidChange;
 
     ser & m_vUpdates.size();
     for (auto& upd : m_vUpdates)
@@ -427,7 +431,7 @@ void Channel::UpdateRestorePoint()
     if (!m_vUpdates.empty())
     {
         const auto& lastUpdate = m_vUpdates.back();
-        m_aCurMy = lastUpdate->m_Outp.m_Value;           
+        m_aCurMy = lastUpdate->m_Outp.m_Value;
         auto total = lastUpdate->m_msMy.m_Value;
         if (!m_gracefulClose)
         {
@@ -464,8 +468,8 @@ void Channel::LogNewState()
         break;
     case beam::Lightning::Channel::State::Open:
         os << "Open. Last Revision: " << m_vUpdates.size()
-           << ". Balance: " << m_vUpdates.back()->m_Outp.m_Value << " / "
-           << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
+           << ". My balance: " << m_vUpdates.back()->m_Outp.m_Value
+           << " / Total balance: " << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
         break;
     case beam::Lightning::Channel::State::Updating:
         os << "Updating (creating newer Revision)";
@@ -476,7 +480,7 @@ void Channel::LogNewState()
     case beam::Lightning::Channel::State::Closing2:
         {
             os << "Closing2 (Phase-1 withdrawal detected). Revision: "
-               << m_State.m_Close.m_iPath << ". Initiated by " 
+               << m_State.m_Close.m_iPath + 1 << ". Initiated by " 
                << (m_State.m_Close.m_Initiator ? "me" : "peer");
             if (DataUpdate::Type::Punishment == 
                 m_vUpdates[m_State.m_Close.m_iPath]->m_Type)
@@ -486,7 +490,7 @@ void Channel::LogNewState()
         }
         break;
     case beam::Lightning::Channel::State::Closed:
-        os << "Closed. Waiting for 8 confirmations before forgetting";
+        os << "Closed. Waiting for " << kMaxRolbackHeight <<" confirmations before forgetting";
         break;
     default:
         return;
@@ -500,7 +504,7 @@ void Channel::Subscribe()
     BbsChannel ch;
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, m_bbsTimestamp, m_upReceiver.get());
-    LOG_INFO() << "beam::wallet::laser::Channel subscribed: " << ch;
+    LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " subscribes to BBS channel: " << ch;
 }
 
 void Channel::Unsubscribe()
@@ -508,7 +512,8 @@ void Channel::Unsubscribe()
     BbsChannel ch;
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, 0, nullptr);
-    LOG_INFO() << "beam::wallet::laser::Channel unsubscribed: " << ch;
+    LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " unsubscribed from BBS channel: " << ch;
+    
 }
 
 bool Channel::TransferInternal(
@@ -547,11 +552,11 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
         m_pOpen->m_vInp.reserve(vInpSize);
         for (size_t i = 0; i < vInpSize; ++i)
         {
-            Key::IDV idv;
-            der & idv;
-            m_pOpen->m_vInp.push_back(idv);
+            CoinID cid;
+            der & cid;
+            m_pOpen->m_vInp.push_back(cid);
         }
-        der & m_pOpen->m_kidvChange;
+        der & m_pOpen->m_cidChange;
 
         size_t vUpdatesSize = 0;
         der & vUpdatesSize;

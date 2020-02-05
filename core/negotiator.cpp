@@ -119,6 +119,12 @@ bool IBase::Router::Read(uint32_t code, Blob& blob)
 
 /////////////////////
 // IBase
+void IBase::DeriveKey(ECC::Scalar::Native& sk, const CoinID& cid) const
+{
+	ECC::Hash::Value hv;
+	cid.get_Hash(hv);
+	m_pKdf->DeriveKey(sk, hv);
+}
 
 bool IBase::RaiseTo(uint32_t pos)
 {
@@ -210,12 +216,12 @@ uint32_t Multisig::Update2()
 		Send(p2, Codes::BpPart2);
 	}
 
-	ECC::Key::IDV kidv;
-	if (!Get(kidv, Codes::Kidv))
+	CoinID cid;
+	if (!Get(cid, Codes::Cid))
 		return 0;
 
 	ECC::Scalar::Native sk;
-	m_pKdf->DeriveKey(sk, kidv);
+	DeriveKey(sk, cid);
 
 	ECC::Point::Native comm = ECC::Context::get().G * sk;
 
@@ -232,6 +238,8 @@ uint32_t Multisig::Update2()
 		!Get(hScheme, Codes::Scheme))
 		return 0;
 
+	CoinID::Worker wrk(cid);
+
 	Output outp;
 	if (Get(outp.m_Commitment, Codes::Commitment))
 	{
@@ -244,15 +252,16 @@ uint32_t Multisig::Update2()
 			return Status::Error;
 
 		comm += pt;
-		comm += ECC::Context::get().H * kidv.m_Value;
+
+		wrk.AddValue(comm);
+
 		outp.m_Commitment = comm;
 
 		Set(outp.m_Commitment, Codes::Commitment);
 	}
 
 	ECC::RangeProof::CreatorParams cp;
-	cp.m_Kidv = Zero;
-	cp.m_Kidv.m_Value = kidv.m_Value;
+	cp.m_Value = cid.m_Value;
 
 	uint32_t iRole = 0;
 	Get(iRole, Codes::Role);
@@ -271,7 +280,7 @@ uint32_t Multisig::Update2()
 	bp.m_Part2 = p2;
 
 	o2 = oracle;
-	if (!bp.CoSign(nonces, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2))
+	if (!bp.CoSign(nonces, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2, &wrk.m_hGen))
 		return Status::Error;
 
 	uint32_t nShareRes = 0;
@@ -339,18 +348,17 @@ void Multisig::QueryVar(std::string& s, uint32_t code)
 /////////////////////
 // MultiTx
 
-void MultiTx::CalcInput(const Key::IDV& kidv, ECC::Scalar::Native& offs, ECC::Point& comm)
+void MultiTx::CalcInput(const CoinID& cid, ECC::Scalar::Native& offs, ECC::Point& comm)
 {
-	SwitchCommitment sc;
 	ECC::Scalar::Native sk;
-	sc.Create(sk, comm, *m_pKdf, kidv);
+	CoinID::Worker(cid).Create(sk, comm, *m_pKdf);
 	offs += sk;
 }
 
-void MultiTx::CalcMSig(const Key::IDV& kidv, ECC::Scalar::Native& offs)
+void MultiTx::CalcMSig(const CoinID& cid, ECC::Scalar::Native& offs)
 {
 	ECC::Scalar::Native sk;
-	m_pKdf->DeriveKey(sk, kidv);
+	DeriveKey(sk, cid);
 	offs += sk;
 }
 
@@ -370,18 +378,18 @@ bool MultiTx::BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& 
 	ECC::Scalar::Native sk;
 
 	// inputs
-	std::vector<Key::IDV> vec;
-	if (Get(vec, Codes::InpKidvs))
+	std::vector<CoinID> vec;
+	if (Get(vec, Codes::InpCids))
 	{
 		for (size_t i = 0; i < vec.size(); i++)
 			CalcInput(vec[i], offs, PushInput(tx));
 		vec.clear();
 	}
 
-	Key::IDV kidvMsig;
-	if (Get(kidvMsig, Codes::InpMsKidv))
+	CoinID cidMsig;
+	if (Get(cidMsig, Codes::InpMsCid))
 	{
-		CalcMSig(kidvMsig, offs);
+		CalcMSig(cidMsig, offs);
 
 		if (bIsSender)
 		{
@@ -394,7 +402,7 @@ bool MultiTx::BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& 
 
 	// outputs
 	offs = -offs;
-	if (Get(vec, Codes::OutpKidvs))
+	if (Get(vec, Codes::OutpCids))
 	{
 		for (size_t i = 0; i < vec.size(); i++)
 		{
@@ -405,9 +413,9 @@ bool MultiTx::BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& 
 		vec.clear();
 	}
 
-	if (Get(kidvMsig, Codes::OutpMsKidv))
+	if (Get(cidMsig, Codes::OutpMsCid))
 	{
-		CalcMSig(kidvMsig, offs);
+		CalcMSig(cidMsig, offs);
 
 		if (bIsSender)
 		{
@@ -588,8 +596,8 @@ uint32_t MultiTx::Update2()
 	if (nRestrict)
 	{
 		// The only input should be the shared MuSig
-		Key::IDV kidvMsig;
-		if ((iRole > 0) && Get(kidvMsig, Codes::InpMsKidv))
+		CoinID cidMsig;
+		if ((iRole > 0) && Get(cidMsig, Codes::InpMsCid))
 		{
 			if (txPeer.m_vInputs.size() != 1)
 				return Status::Error;
@@ -619,8 +627,8 @@ uint32_t MultiTx::Update2()
 		{
 			nMaxKernels++; // peer should add it
 
-			Key::IDV kidvMsig;
-			if (Get(kidvMsig, Codes::OutpMsKidv))
+			CoinID cidMsig;
+			if (Get(cidMsig, Codes::OutpMsCid))
 				nMaxPeerOutputs++; // the peer is supposed to add it
 		}
 
@@ -673,8 +681,8 @@ bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
 {
 	switch (code)
 	{
-	case MultiTx::Codes::OutpMsKidv:
-		return m_pS->Read(Multisig::Codes::Kidv + Offset(m_iChannel - 1), blob);
+	case MultiTx::Codes::OutpMsCid:
+		return m_pS->Read(Multisig::Codes::Cid + Offset(m_iChannel - 1), blob);
 
 	case MultiTx::Codes::OutpMsTxo:
 		return m_pS->Read(Multisig::Codes::OutputTxo + Offset(m_iChannel - 1), blob);
@@ -703,8 +711,8 @@ bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
 {
 	switch (code)
 	{
-	case MultiTx::Codes::InpMsKidv:
-		return m_pS->Read(Multisig::Codes::Kidv + Offset(m_iChannel - 2), blob);
+	case MultiTx::Codes::InpMsCid:
+		return m_pS->Read(Multisig::Codes::Cid + Offset(m_iChannel - 2), blob);
 
 	case MultiTx::Codes::InpMsCommitment:
 		return m_pS->Read(Multisig::Codes::Commitment + Offset(m_iChannel - 2), blob);
@@ -722,24 +730,24 @@ bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
 }
 
 void WithdrawTx::Setup(bool bSet,
-	Key::IDV* pMsig1,
-	Key::IDV* pMsig0,
+	CoinID* pMsig1,
+	CoinID* pMsig0,
 	ECC::Point* pComm0,
-	std::vector<Key::IDV>* pOuts,
+	std::vector<CoinID>* pOuts,
 	const CommonParam& cp)
 {
 	m_MSig.m_pKdf = m_pKdf;
 	m_Tx1.m_pKdf = m_pKdf;
 	m_Tx2.m_pKdf = m_pKdf;
 
-	m_MSig.SetGet(bSet, pMsig1, Multisig::Codes::Kidv);
-	m_Tx1.SetGet(bSet, pMsig0, MultiTx::Codes::InpMsKidv);
+	m_MSig.SetGet(bSet, pMsig1, Multisig::Codes::Cid);
+	m_Tx1.SetGet(bSet, pMsig0, MultiTx::Codes::InpMsCid);
 	m_Tx1.SetGet(bSet, pComm0, MultiTx::Codes::InpMsCommitment);
 	m_Tx1.SetGet(bSet, cp.m_Krn1.m_pH0, MultiTx::Codes::KrnH0);
 	m_Tx1.SetGet(bSet, cp.m_Krn1.m_pH1, MultiTx::Codes::KrnH1);
 	m_Tx1.SetGet(bSet, cp.m_Krn1.m_pFee, MultiTx::Codes::KrnFee);
 	m_Tx2.SetGet(bSet, cp.m_Krn2.m_pFee, MultiTx::Codes::KrnFee);
-	m_Tx2.SetGet(bSet, pOuts, MultiTx::Codes::OutpKidvs);
+	m_Tx2.SetGet(bSet, pOuts, MultiTx::Codes::OutpCids);
 	m_Tx2.SetGet(bSet, cp.m_Krn2.m_pLock, MultiTx::Codes::KrnLockHeight);
 }
 
@@ -846,12 +854,12 @@ bool ChannelWithdrawal::SB::Read(uint32_t code, Blob& blob)
 		}
 		return ReadOneU(blob);
 
-	case MultiTx::Codes::InpMsKidv + (2 << 16):
+	case MultiTx::Codes::InpMsCid + (2 << 16):
 	case MultiTx::Codes::InpMsCommitment + (2 << 16) :
 	case MultiTx::Codes::KrnFee + (2 << 16) :
 	case MultiTx::Codes::KrnH0 + (2 << 16) :
 	case MultiTx::Codes::KrnH1 + (2 << 16) :
-	case MultiTx::Codes::OutpKidvs + (3 << 16) :
+	case MultiTx::Codes::OutpCids + (3 << 16) :
 	case MultiTx::Codes::KrnFee + (3 << 16) :
 	case MultiTx::Codes::KrnLockHeight + (3 << 16) :
 		// use parameters from SA
@@ -878,8 +886,8 @@ bool ChannelOpen::Worker::S1::Read(uint32_t code, Blob& blob)
 {
 	switch (code)
 	{
-	case MultiTx::Codes::OutpMsKidv:
-		return m_pS->Read(Multisig::Codes::Kidv + Offset(m_iChannel - 1), blob);
+	case MultiTx::Codes::OutpMsCid:
+		return m_pS->Read(Multisig::Codes::Cid + Offset(m_iChannel - 1), blob);
 
 	case MultiTx::Codes::OutpMsTxo:
 		return m_pS->Read(Multisig::Codes::OutputTxo + Offset(m_iChannel - 1), blob);
@@ -906,8 +914,8 @@ bool ChannelOpen::Worker::SA::Read(uint32_t code, Blob& blob)
 {
 	switch (code)
 	{
-	case MultiTx::Codes::InpMsKidv + (2 << 16):
-		return m_pS->Read(Multisig::Codes::Kidv + Offset(m_iChannel - 2), blob);
+	case MultiTx::Codes::InpMsCid + (2 << 16):
+		return m_pS->Read(Multisig::Codes::Cid + Offset(m_iChannel - 2), blob);
 
 	case MultiTx::Codes::InpMsCommitment + (2 << 16):
 		return m_pS->Read(Multisig::Codes::Commitment + Offset(m_iChannel - 2), blob);
@@ -920,8 +928,8 @@ bool ChannelOpen::Worker::SB::Read(uint32_t code, Blob& blob)
 {
 	switch (code)
 	{
-	case MultiTx::Codes::InpMsKidv + (2 << 16):
-		return m_pS->Read(Multisig::Codes::Kidv + Offset(m_iChannel - 2 - WithdrawTx::s_Channels), blob);
+	case MultiTx::Codes::InpMsCid + (2 << 16):
+		return m_pS->Read(Multisig::Codes::Cid + Offset(m_iChannel - 2 - WithdrawTx::s_Channels), blob);
 
 	case MultiTx::Codes::InpMsCommitment + (2 << 16):
 		return m_pS->Read(Multisig::Codes::Commitment + Offset(m_iChannel - 2 - WithdrawTx::s_Channels), blob);
@@ -931,13 +939,13 @@ bool ChannelOpen::Worker::SB::Read(uint32_t code, Blob& blob)
 }
 
 void ChannelOpen::Setup(bool bSet,
-	std::vector<Key::IDV>* pInps,
-	std::vector<Key::IDV>* pOutsChange,
-	Key::IDV* pMsig0,
+	std::vector<CoinID>* pInps,
+	std::vector<CoinID>* pOutsChange,
+	CoinID* pMsig0,
 	const MultiTx::KernelParam& krn1,
-	Key::IDV* pMsig1A,
-	Key::IDV* pMsig1B,
-	std::vector<Key::IDV>* pOutsWd,
+	CoinID* pMsig1A,
+	CoinID* pMsig1B,
+	std::vector<CoinID>* pOutsWd,
 	const WithdrawTx::CommonParam& cp)
 {
 	m_MSig.m_pKdf = m_pKdf;
@@ -945,9 +953,9 @@ void ChannelOpen::Setup(bool bSet,
 	m_WdA.m_pKdf = m_pKdf;
 	m_WdB.m_pKdf = m_pKdf;
 
-	m_MSig.SetGet(bSet, pMsig0, Multisig::Codes::Kidv);
-	m_Tx0.SetGet(bSet, pInps, MultiTx::Codes::InpKidvs);
-	m_Tx0.SetGet(bSet, pOutsChange, MultiTx::Codes::OutpKidvs);
+	m_MSig.SetGet(bSet, pMsig0, Multisig::Codes::Cid);
+	m_Tx0.SetGet(bSet, pInps, MultiTx::Codes::InpCids);
+	m_Tx0.SetGet(bSet, pOutsChange, MultiTx::Codes::OutpCids);
 	m_Tx0.SetGet(bSet, krn1.m_pH0, MultiTx::Codes::KrnH0);
 	m_Tx0.SetGet(bSet, krn1.m_pH1, MultiTx::Codes::KrnH1);
 	m_Tx0.SetGet(bSet, krn1.m_pFee, MultiTx::Codes::KrnFee);
@@ -1049,14 +1057,14 @@ ChannelUpdate::Worker::Worker(ChannelUpdate& x)
 }
 
 void ChannelUpdate::Setup(bool bSet,
-	Key::IDV* pMsig0,
+	CoinID* pMsig0,
 	ECC::Point* pComm0,
-	Key::IDV* pMsig1A,
-	Key::IDV* pMsig1B,
-	std::vector<Key::IDV>* pOutsWd,
+	CoinID* pMsig1A,
+	CoinID* pMsig1B,
+	std::vector<CoinID>* pOutsWd,
 	const WithdrawTx::CommonParam& cp,
-	Key::IDV* pMsigPrevMy,
-	Key::IDV* pMsigPrevPeer,
+	CoinID* pMsigPrevMy,
+	CoinID* pMsigPrevPeer,
 	ECC::Point* pCommPrevPeer)
 {
 	m_WdA.m_pKdf = m_pKdf;
@@ -1065,8 +1073,8 @@ void ChannelUpdate::Setup(bool bSet,
 	m_WdA.Setup(bSet, pMsig1A, pMsig0, pComm0, pOutsWd, cp);
 	m_WdB.Setup(bSet, pMsig1B, nullptr, nullptr, nullptr, WithdrawTx::CommonParam());
 
-	SetGet(bSet, pMsigPrevMy, Codes::KidvPrev);
-	SetGet(bSet, pMsigPrevPeer, Codes::KidvPrevPeer);
+	SetGet(bSet, pMsigPrevMy, Codes::CidPrev);
+	SetGet(bSet, pMsigPrevPeer, Codes::CidPrevPeer);
 	SetGet(bSet, pCommPrevPeer, Codes::CommitmentPrevPeer);
 }
 
@@ -1092,11 +1100,11 @@ uint32_t ChannelUpdate::Update2()
 	if ((Status::Success == statusMy) && (m_Pos < 1))
 	{
 		// send my previous blinding factor
-		Key::IDV kidv;
-		if (Get(kidv, Codes::KidvPrev))
+		CoinID cid;
+		if (Get(cid, Codes::CidPrev))
 		{
 			ECC::Scalar::Native sk;
-			m_pKdf->DeriveKey(sk, kidv);
+			DeriveKey(sk, cid);
 			k = sk; // not secret anymore
 
 			RaiseTo(1);
@@ -1113,13 +1121,13 @@ uint32_t ChannelUpdate::Update2()
 		bGotPeerKey = Get(k, Codes::PeerKey);
 		if (!bGotPeerKey && Get(k, Codes::PeerBlindingFactor))
 		{
-			Key::IDV kidv;
+			CoinID cid;
 			ECC::Point comm;
-			if (Get(kidv, Codes::KidvPrevPeer) && Get(comm, Codes::CommitmentPrevPeer))
+			if (Get(cid, Codes::CidPrevPeer) && Get(comm, Codes::CommitmentPrevPeer))
 			{
 				// verify it
 				ECC::Scalar::Native sk;
-				m_pKdf->DeriveKey(sk, kidv);
+				DeriveKey(sk, cid);
 
 				sk += ECC::Scalar::Native(k);
 
@@ -1127,7 +1135,9 @@ uint32_t ChannelUpdate::Update2()
 				ECC::Point::Native pt;
 				pt.Import(comm); // don't care
 
-				pt += ECC::Commitment(sk, kidv.m_Value);
+				pt += ECC::Context::get().G * sk;
+
+				CoinID::Worker(cid).AddValue(pt);
 
 				if (!(pt == Zero))
 					return Status::Error;

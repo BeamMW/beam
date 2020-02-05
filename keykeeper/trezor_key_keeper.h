@@ -35,24 +35,33 @@ namespace beam::wallet
         void subscribe(Handler::Ptr handler) override;
 
     private:
-        void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&) override;
+        void GeneratePublicKeys(const std::vector<CoinID>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
+        void GenerateOutputs(Height schemeHeight, const std::vector<CoinID>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
 
-        size_t AllocateNonceSlot() override;
-        PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
-        std::pair<PublicKeys, ECC::Scalar::Native> GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID) override;
+        size_t AllocateNonceSlotSync() override;
+        PublicKeys GeneratePublicKeysSync(const std::vector<CoinID>& ids, bool createCoinKey) override;
 
-        ECC::Point GeneratePublicKeySync(const Key::IDV& id) override;
-        ECC::Point GenerateCoinKeySync(const Key::IDV& id, const AssetID& assetId) override;
-        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
-        std::pair<Outputs, ECC::Scalar::Native> GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId) override;
+        ECC::Point GeneratePublicKeySync(const ECC::uintBig& id) override;
+        ECC::Point GenerateCoinKeySync(const CoinID& id) override;
+        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<CoinID>& ids) override;
 
         ECC::Point GenerateNonceSync(size_t slot) override;
-        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) override;
 
-        ECC::Scalar::Native SignEmissionKernel(TxKernelAssetEmit& kernel, uint32_t assetIdx) override;
-        AssetID GetAssetID(uint32_t assetIdx) override;
+        void SignAssetKernel(const std::vector<CoinID>& inputs,
+                const std::vector<CoinID>& outputs,
+                Amount fee,
+                Key::Index assetOwnerIdx,
+                TxKernelAssetControl& kernel,
+                Callback<AssetSignature>&&,
+                ExceptionCallback&&) override;
+
+        AssetSignature SignAssetKernelSync(const std::vector<CoinID>& inputs,
+                const std::vector<CoinID>& outputs,
+                Amount fee,
+                Key::Index assetOwnerIdx,
+                TxKernelAssetControl& kernel) override;
+
+        PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override;
 
     private:
         beam::HWWallet m_hwWallet;

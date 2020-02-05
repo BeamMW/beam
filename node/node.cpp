@@ -653,7 +653,7 @@ void Node::MaybeGenerateRecovery()
 
 	if (bOk) {
 		LOG_INFO() << "Recovery generation done";
-		m_Processor.get_DB().ParamSet(NodeDB::ParamID::LastRecoveryHeight, &h1, nullptr);
+		m_Processor.get_DB().ParamIntSet(NodeDB::ParamID::LastRecoveryHeight, h1);
 	} else
 	{
 		LOG_INFO() << "Recovery generation failed";
@@ -689,7 +689,7 @@ void Node::Processor::OnRolledBack()
 		pObserver->OnRolledBack(m_Cursor.m_ID);
 }
 
-uint32_t Node::Processor::TaskProcessor::get_Threads()
+uint32_t Node::Processor::MyExecutorMT::get_Threads()
 {
 	Config& cfg = get_ParentObj().get_ParentObj().m_Cfg; // alias
 
@@ -701,154 +701,13 @@ uint32_t Node::Processor::TaskProcessor::get_Threads()
 	return std::max(nThreads, 1U);
 }
 
-void Node::Processor::TaskProcessor::InitSafe()
+void Node::Processor::MyExecutorMT::RunThread(uint32_t iThread)
 {
-	if (!m_vThreads.empty())
-		return;
+    MyExecutor::MyContext ctx;
+    ctx.m_iThread = iThread;
+    ECC::InnerProduct::BatchContext::Scope scope(ctx.m_BatchCtx);
 
-	m_Run = true;
-	m_pCtl = nullptr;
-	m_InProgress = 0;
-	m_FlushTarget = static_cast<uint32_t>(-1);
-
-	uint32_t nThreads = get_Threads();
-	m_vThreads.resize(nThreads);
-
-	for (uint32_t i = 0; i < nThreads; i++)
-		m_vThreads[i] = std::thread(&TaskProcessor::Thread, this, i);
-}
-
-void Node::Processor::TaskProcessor::Push(Task::Ptr&& pTask)
-{
-	assert(pTask);
-	InitSafe();
-
-	std::unique_lock<std::mutex> scope(m_Mutex);
-
-	m_queTasks.push_back(std::move(pTask));
-	m_InProgress++;
-
-	m_NewTask.notify_one();
-}
-
-uint32_t Node::Processor::TaskProcessor::Flush(uint32_t nMaxTasks)
-{
-	InitSafe();
-
-	std::unique_lock<std::mutex> scope(m_Mutex);
-	FlushLocked(scope, nMaxTasks);
-
-	return m_InProgress;
-}
-
-void Node::Processor::TaskProcessor::FlushLocked(std::unique_lock<std::mutex>& scope, uint32_t nMaxTasks)
-{
-	m_FlushTarget = nMaxTasks;
-
-	while (m_InProgress > nMaxTasks)
-		m_Flushed.wait(scope);
-
-	m_FlushTarget = static_cast<uint32_t>(-1);
-}
-
-void Node::Processor::TaskProcessor::ExecAll(Task& t)
-{
-	InitSafe();
-
-	std::unique_lock<std::mutex> scope(m_Mutex);
-	FlushLocked(scope, 0);
-
-	assert(!m_pCtl && !m_InProgress);
-	m_pCtl = &t;
-	m_InProgress = get_Threads();
-
-	m_NewTask.notify_all();
-
-	FlushLocked(scope, 0);
-	assert(!m_pCtl);
-}
-
-void Node::Processor::TaskProcessor::Stop()
-{
-	if (m_vThreads.empty())
-		return;
-
-	{
-		std::unique_lock<std::mutex> scope(m_Mutex);
-		m_Run = false;
-		m_NewTask.notify_all();
-	}
-
-	for (size_t i = 0; i < m_vThreads.size(); i++)
-		if (m_vThreads[i].joinable())
-			m_vThreads[i].join();
-
-	m_vThreads.clear();
-	m_queTasks.clear();
-}
-
-void Node::Processor::TaskProcessor::Thread(uint32_t)
-{
-	std::unique_ptr<MyBatch> p(new MyBatch);
-	MyBatch::Scope scopeBatch(*p);
-
-	while (true)
-	{
-		Task::Ptr pGuard;
-		Task* pTask;
-
-		{
-			std::unique_lock<std::mutex> scope(m_Mutex);
-			while (true)
-			{
-				if (!m_Run)
-					return;
-
-				if (!m_queTasks.empty())
-				{
-					pGuard = std::move(m_queTasks.front());
-					pTask = pGuard.get();
-					m_queTasks.pop_front();
-					break;
-				}
-
-				if (m_pCtl)
-				{
-					pTask = m_pCtl;
-					break;
-				}
-
-				m_NewTask.wait(scope);
-			}
-		}
-
-		assert(pTask && m_InProgress);
-		pTask->Exec();
-
-		std::unique_lock<std::mutex> scope(m_Mutex);
-
-		assert(m_InProgress);
-		m_InProgress--;
-
-		if (pGuard)
-		{
-			// standard task
-			if (m_InProgress == m_FlushTarget)
-				m_Flushed.notify_one();
-		}
-		else
-		{
-			// control task
-			if (m_InProgress)
-				m_Flushed.wait(scope); // make sure we give other threads opportuinty to execute the control task
-			else
-			{
-				m_pCtl = nullptr;
-				m_Flushed.notify_all();
-			}
-		}
-
-	}
+    RunThreadCtx(ctx);
 }
 
 void Node::Processor::OnModified()
@@ -887,7 +746,7 @@ void Node::Processor::OnGoUpTimer()
 
 void Node::Processor::Stop()
 {
-    m_TaskProcessor.Stop();
+    m_ExecutorMT.Stop();
     m_bGoUpPending = false;
     m_bFlushPending = false;
 
@@ -914,31 +773,29 @@ const ShieldedTxo::Viewer* Node::Processor::get_ViewerShieldedKey()
 		nullptr;
 }
 
-void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
+void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)
 {
-	if (get_ParentObj().m_Cfg.m_LogUtxos)
+	if (get_ParentObj().m_Cfg.m_LogEvents)
 	{
-		ECC::Key::IDV kidv;
-		kidv = evt.m_Kidv;
+        std::ostringstream os;
+        os << "Event Height=" << h << ", ";
+        evt.Dump(os);
 
-		Height hMaturity;
-		evt.m_Maturity.Export(hMaturity);
-
-		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << hMaturity << ", Flags=" << static_cast<uint32_t>(evt.m_Flags) << ", Height=" << h;
+        LOG_INFO() << os.str();
 	}
 }
 
-void Node::Processor::OnDummy(const Key::ID& kid, Height)
+void Node::Processor::OnDummy(const CoinID& cid, Height)
 {
 	NodeDB& db = get_DB();
-	if (db.GetDummyHeight(kid) != MaxHeight)
+	if (db.GetDummyHeight(cid) != MaxHeight)
 		return;
 
 	// recovered
 	Height h = get_ParentObj().SampleDummySpentHeight();
 	h += get_ParentObj().m_Cfg.m_Dandelion.m_DummyLifetimeHi * 2; // add some factor, to make sure the original creator node will spent it before us (if it's still running)
 
-	db.InsertDummy(h, kid);
+	db.InsertDummy(h, cid);
 }
 
 void Node::Processor::InitializeUtxosProgress(uint64_t done, uint64_t total)
@@ -1108,12 +965,13 @@ void Node::InitIDs()
     else
         m_MyPrivateID = s.V;
 
-    proto::Sk2Pk(m_MyPublicID, m_MyPrivateID);
+    m_MyPublicID.FromSk(m_MyPrivateID);
 }
 
 void Node::RefreshOwnedUtxos()
 {
 	ECC::Hash::Processor hp;
+    hp << uint32_t(1); // change this whenever we change the format of the saved events
 
 	ECC::Hash::Value hv0, hv1(Zero);
 
@@ -1825,45 +1683,34 @@ bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const pr
 	}
 
 	struct MyTask
-		:public NodeProcessor::Task
+		:public Executor::TaskSync
 	{
 		const Block::SystemState::Full* m_pV;
-		size_t m_Count;
-		bool* m_pValid;
+		uint32_t m_Count;
+		bool m_Valid;
 
 		virtual ~MyTask() {}
 
-		virtual void Exec() override
+		virtual void Exec(Executor::Context& ctx) override
 		{
-			for (size_t i = 0; i < m_Count; i++)
-				if (!m_pV[i].IsValid())
-					*m_pValid = false;
+            uint32_t i0, nCount;
+            ctx.get_Portion(i0, nCount, m_Count);
+            nCount += i0;
+
+			for (; i0 < nCount; i0++)
+				if (!m_pV[i0].IsValid())
+					m_Valid = false;
 		}
 	};
 
-	Processor::Task::Processor& tp = m_Processor.m_TaskProcessor;
-	uint32_t nThreads = tp.get_Threads();
+    MyTask t;
+    t.m_pV = &v.front();
+    t.m_Count = static_cast<uint32_t>(v.size());
+    t.m_Valid = true;
 
-	const Block::SystemState::Full* pV = &v.front();
-	size_t nCount = v.size();
-	bool bValid = true;
+    m_Processor.m_ExecutorMT.ExecAll(t);
 
-	for (; nThreads; nThreads--)
-	{
-		std::unique_ptr<MyTask> pTask(new MyTask);
-		pTask->m_pValid = &bValid;
-		pTask->m_pV = pV;
-		pTask->m_Count = nCount / nThreads;
-
-		pV += pTask->m_Count;
-		nCount -= pTask->m_Count;
-
-		tp.Push(std::move(pTask));
-	}
-
-	tp.Flush(0);
-
-	return bValid;
+	return t.m_Valid;
 }
 
 void Node::Peer::OnMsg(proto::HdrPack&& msg)
@@ -2267,7 +2114,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
 	TxStats s;
 	ptx->get_Reader().AddStats(s);
-	if (!s.m_Inputs || !s.m_Kernels) {
+	if (!(s.m_Inputs + s.m_Outputs) || !s.m_Kernels) {
 		// stupid compiler insists on parentheses here!
 		return proto::TxStatus::TooSmall;
 	}
@@ -2275,7 +2122,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
     bool bTested = false;
-    TxPool::Stem::Element* pDup = NULL;
+    TxPool::Stem::Element* pDup = nullptr;
 
     // find match by kernels
     for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
@@ -2478,23 +2325,23 @@ void Node::AddDummyInputs(Transaction& tx)
 
     while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
     {
-		Key::IDV kidv;
-        Height h = m_Processor.get_DB().GetLowestDummy(kidv);
+		CoinID cid(Zero);
+        Height h = m_Processor.get_DB().GetLowestDummy(cid);
         if (h > m_Processor.m_Cursor.m_ID.m_Height)
             break;
 
 		bModified = true;
-		kidv.m_Value = 0;
+        cid.m_Value = 0;
 
-		if (AddDummyInputEx(tx, kidv))
+		if (AddDummyInputEx(tx, cid))
 		{
 			/// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
-			m_Processor.get_DB().SetDummyHeight(kidv, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
+			m_Processor.get_DB().SetDummyHeight(cid, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
 		}
 		else
 		{
 			// spent
-			m_Processor.get_DB().DeleteDummy(kidv);
+			m_Processor.get_DB().DeleteDummy(cid);
 		}
     }
 
@@ -2505,29 +2352,29 @@ void Node::AddDummyInputs(Transaction& tx)
     }
 }
 
-bool Node::AddDummyInputEx(Transaction& tx, const Key::IDV& kidv)
+bool Node::AddDummyInputEx(Transaction& tx, const CoinID& cid)
 {
-	if (AddDummyInputRaw(tx, kidv))
+	if (AddDummyInputRaw(tx, cid))
 		return true;
 
 	// try workaround
-	if (!kidv.IsBb21Possible())
+	if (!cid.IsBb21Possible())
 		return false;
 
-	Key::IDV kidv2 = kidv;
-	kidv2.set_WorkaroundBb21();
-	return AddDummyInputRaw(tx, kidv2);
+	CoinID cid2 = cid;
+	cid2.set_WorkaroundBb21();
+	return AddDummyInputRaw(tx, cid2);
 
 }
 
-bool Node::AddDummyInputRaw(Transaction& tx, const Key::IDV& kidv)
+bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 {
 	assert(m_Keys.m_pMiner);
 
 	Key::IKdf::Ptr pChild;
 	Key::IKdf* pKdf = nullptr;
 
-	if (kidv.get_Subkey() == m_Keys.m_nMinerSubIndex)
+	if (cid.get_Subkey() == m_Keys.m_nMinerSubIndex)
 		pKdf = m_Keys.m_pMiner.get();
 	else
 	{
@@ -2535,7 +2382,7 @@ bool Node::AddDummyInputRaw(Transaction& tx, const Key::IDV& kidv)
 		if (m_Keys.m_nMinerSubIndex)
 			return false;
 
-		pChild = MasterKey::get_Child(m_Keys.m_pMiner, kidv);
+		pChild = cid.get_ChildKdf(m_Keys.m_pMiner);
 		pKdf = pChild.get();
 	}
 
@@ -2543,7 +2390,7 @@ bool Node::AddDummyInputRaw(Transaction& tx, const Key::IDV& kidv)
 
 	// bounds
 	ECC::Point comm;
-	SwitchCommitment().Create(sk, comm, *pKdf, kidv);
+	CoinID::Worker(cid).Create(sk, comm, *pKdf);
 
 	if (!m_Processor.ValidateInputs(comm))
 		return false;
@@ -2570,14 +2417,14 @@ void Node::AddDummyOutputs(Transaction& tx)
 
     while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
     {
-		Key::IDV kidv(Zero);
-		kidv.m_Type = Key::Type::Decoy;
-		kidv.set_Subkey(m_Keys.m_nMinerSubIndex);
+		CoinID cid(Zero);
+		cid.m_Type = Key::Type::Decoy;
+        cid.set_Subkey(m_Keys.m_nMinerSubIndex);
 
 		while (true)
 		{
-			NextNonce().ExportWord<0>(kidv.m_Idx);
-			if (MaxHeight == db.GetDummyHeight(kidv))
+			NextNonce().ExportWord<0>(cid.m_Idx);
+			if (MaxHeight == db.GetDummyHeight(cid))
 				break;
 		}
 
@@ -2585,10 +2432,10 @@ void Node::AddDummyOutputs(Transaction& tx)
 
         Output::Ptr pOutput(new Output);
         ECC::Scalar::Native sk;
-        pOutput->Create(m_Processor.m_Cursor.m_ID.m_Height + 1, sk, *m_Keys.m_pMiner, kidv, *m_Keys.m_pOwner);
+        pOutput->Create(m_Processor.m_Cursor.m_ID.m_Height + 1, sk, *m_Keys.m_pMiner, cid, *m_Keys.m_pOwner);
 
 		Height h = SampleDummySpentHeight();
-        db.InsertDummy(h, kidv);
+        db.InsertDummy(h, cid);
 
         tx.m_vOutputs.push_back(std::move(pOutput));
 
@@ -2750,7 +2597,7 @@ void Node::Peer::OnLogin(proto::Login&& msg)
 		Send(msgOut);
 	}
 
-    m_LoginFlags = static_cast<uint8_t>(msg.m_Flags);
+    m_LoginFlags = msg.m_Flags;
 
 	if (b != ShouldFinalizeMining()) {
 		// stupid compiler insists on parentheses!
@@ -2951,12 +2798,19 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height 
 
     Merkle::ProofBuilderHard bld;
 
-    m_StatesMmr.get_Proof(bld, m_StatesMmr.H2I(h));
+    m_Mmr.m_States.get_Proof(bld, m_Mmr.m_States.H2I(h));
 
     proof.swap(bld.m_Proof);
 
-    proof.emplace_back();
-    get_UtxoHash(proof.back(), false);
+    struct MyProofBuilder
+        :public ProofBuilderHard
+    {
+        using ProofBuilderHard::ProofBuilderHard;
+        virtual bool get_History(Merkle::Hash&) override { return false; }
+    };
+
+    MyProofBuilder pb(*this, proof);
+    pb.GenerateProof();
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
@@ -3008,19 +2862,15 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
             ret.m_State.m_Maturity = d.m_Maturity;
             m_Proc.get_Utxos().get_Proof(ret.m_Proof, *m_pCu);
 
-            if (m_Proc.m_Cursor.m_ID.m_Height >= Rules::get().pForks[2].m_Height)
+            struct MyProofBuilder
+                :public NodeProcessor::ProofBuilder
             {
-                Merkle::Hash hv2;
-                m_Proc.m_ShieldedMmr.get_Hash(hv2);
+                using ProofBuilder::ProofBuilder;
+                virtual bool get_Utxos(Merkle::Hash&) override { return false; }
+            };
 
-                ret.m_Proof.emplace_back();
-                ret.m_Proof.back().first = true;
-                ret.m_Proof.back().second = hv2;
-            }
-
-            ret.m_Proof.emplace_back();
-            ret.m_Proof.back().first = false;
-            ret.m_Proof.back().second = m_Proc.m_Cursor.m_History;
+            MyProofBuilder pb(m_Proc, ret.m_Proof);
+            pb.GenerateProof();
 
             return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
         }
@@ -3055,41 +2905,109 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
     Send(t.m_Msg);
 }
 
-void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
+void Node::Processor::GenerateProofShielded(Merkle::Proof& p, const uintBigFor<TxoID>::Type& mmrIdx)
 {
-	proto::ProofShieldedTxo msgOut;
+    TxoID nIdx;
+    mmrIdx.Export(nIdx);
+
+    m_Mmr.m_Shielded.get_Proof(p, nIdx);
+
+    struct MyProofBuilder
+        :public NodeProcessor::ProofBuilder
+    {
+        using ProofBuilder::ProofBuilder;
+        virtual bool get_Shielded(Merkle::Hash&) override { return false; }
+    };
+
+    MyProofBuilder pb(*this, p);
+    pb.GenerateProof();
+}
+
+void Node::Peer::OnMsg(proto::GetProofShieldedOutp&& msg)
+{
+    if (msg.m_SerialPub.m_Y > 1)
+        ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
+
+    proto::ProofShieldedOutp msgOut;
 
 	Processor& p = m_This.m_Processor;
-    msgOut.m_Total = p.m_ShieldedMmr.m_Count;
-
     if (!p.IsFastSync())
 	{
-        if (msg.m_SerialPub.m_Y > 1)
-            ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
-
         NodeDB::Recordset rs;
         Blob blob(&msg.m_SerialPub, sizeof(msg.m_SerialPub));
         if (p.get_DB().UniqueFind(blob, rs))
         {
             const NodeProcessor::ShieldedOutpPacked& sop = rs.get_As<NodeProcessor::ShieldedOutpPacked>(0); // Note: will throw CorruptionException if of wrong size
 
-            msgOut.m_Commitment = sop.m_Commitment;
+            sop.m_Height.Export(msgOut.m_Height);
             sop.m_TxoID.Export(msgOut.m_ID);
+            msgOut.m_Commitment = sop.m_Commitment;
 
-            Merkle::ProofBuilderHard bld;
-            p.m_ShieldedMmr.get_Proof(bld, msgOut.m_ID);
-
-            msgOut.m_Proof.swap(bld.m_Proof);
-
-            msgOut.m_Proof.emplace_back();
-            p.get_Utxos().get_Hash(msgOut.m_Proof.back());
-
-            msgOut.m_Proof.emplace_back();
-            msgOut.m_Proof.back() = p.m_Cursor.m_History;
+            p.GenerateProofShielded(msgOut.m_Proof, sop.m_MmrIndex);
         }
 	}
 
 	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetProofShieldedInp&& msg)
+{
+    if (msg.m_SpendPk.m_Y > 1)
+        ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
+
+    proto::ProofShieldedInp msgOut;
+
+    Processor& p = m_This.m_Processor;
+    if (!p.IsFastSync())
+    {
+        NodeDB::Recordset rs;
+
+        msg.m_SpendPk.m_Y |= 2;
+        Blob blob(&msg.m_SpendPk, sizeof(msg.m_SpendPk));
+        if (p.get_DB().UniqueFind(blob, rs))
+        {
+            const NodeProcessor::ShieldedInpPacked& sip = rs.get_As<NodeProcessor::ShieldedInpPacked>(0); // Note: will throw CorruptionException if of wrong size
+
+            sip.m_Height.Export(msgOut.m_Height);
+
+            p.GenerateProofShielded(msgOut.m_Proof, sip.m_MmrIndex);
+        }
+    }
+
+    Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
+{
+    proto::ProofAsset msgOut;
+
+    Processor& p = m_This.m_Processor;
+    if (!p.IsFastSync())
+    {
+        Asset::Full ai;
+        ai.m_ID = msg.m_AssetID ?
+            msg.m_AssetID :
+            p.get_DB().AssetFindByOwner(msg.m_Owner);
+
+        if  (ai.m_ID && p.get_DB().AssetGetSafe(ai))
+        {
+            msgOut.m_Info = std::move(ai);
+
+            p.m_Mmr.m_Assets.get_Proof(msgOut.m_Proof, msgOut.m_Info.m_ID - 1);
+
+            struct MyProofBuilder
+                :public NodeProcessor::ProofBuilder
+            {
+                using ProofBuilder::ProofBuilder;
+                virtual bool get_Assets(Merkle::Hash&) override { return false; }
+            };
+
+            MyProofBuilder pb(p, msgOut.m_Proof);
+            pb.GenerateProof();
+        }
+    }
+
+    Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
@@ -3097,12 +3015,12 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 	proto::ShieldedList msgOut;
 
 	Processor& p = m_This.m_Processor;
-	if ((msg.m_Id0 < p.m_ShieldedMmr.m_Count) && msg.m_Count)
+	if ((msg.m_Id0 < p.m_Extra.m_ShieldedOutputs) && msg.m_Count)
 	{
 		if (msg.m_Count > Lelantus::Cfg::Max::N)
 			msg.m_Count = Lelantus::Cfg::Max::N;
 
-		TxoID n = p.m_ShieldedMmr.m_Count - msg.m_Id0;
+		TxoID n = p.m_Extra.m_ShieldedOutputs - msg.m_Id0;
 
 		if (msg.m_Count > n)
 			msg.m_Count = static_cast<uint32_t>(n);
@@ -3139,14 +3057,16 @@ bool Node::Processor::BuildCwp()
 
         virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
         {
-            m_Proc.m_StatesMmr.get_Proof(bld, m_Proc.m_StatesMmr.H2I(h));
+            m_Proc.m_Mmr.m_States.get_Proof(bld, m_Proc.m_Mmr.m_States.H2I(h));
         }
     };
 
     Source src(*this);
 
     m_Cwp.Create(src, m_Cursor.m_Full);
-    get_UtxoHash(m_Cwp.m_hvRootLive, false);
+
+    Evaluator ev(*this);
+    ev.get_Live(m_Cwp.m_hvRootLive);
 
     return true;
 }
@@ -3378,9 +3298,9 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 	BroadcastBbs();
 }
 
-void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
+void Node::Peer::OnMsg(proto::GetEvents&& msg)
 {
-    proto::UtxoEvents msgOut;
+    proto::Events msgOut;
 
     if (Flags::Viewer & m_Flags)
     {
@@ -3389,42 +3309,60 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
         NodeDB::WalkerEvent wlk;
 
         Height hLast = 0;
+        uint32_t nCount = 0;
+
+        Serializer ser;
+
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
         {
-            typedef NodeProcessor::UtxoEvent UE;
-
-            if ((msgOut.m_Events.size() >= proto::UtxoEvent::s_Max) && (wlk.m_Height != hLast))
+            if ((nCount >= proto::Event::s_Max) && (wlk.m_Height != hLast))
                 break;
 
 			if (p.IsFastSync() && (wlk.m_Height > p.m_SyncData.m_h0))
 				break;
 
-            if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
-                continue; // although shouldn't happen
-            const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
+            ser & wlk.m_Height;
+            ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);
 
-			if ((proto::UtxoEvent::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
-				continue; // although shouldn't happen
-
-            msgOut.m_Events.emplace_back();
-            proto::UtxoEvent& res = msgOut.m_Events.back();
-
-            res.m_Height = wlk.m_Height;
-            res.m_Kidv = evt.m_Kidv;
-            evt.m_Maturity.Export(res.m_Maturity);
-
-            res.m_Commitment = *reinterpret_cast<const ECC::Point*>(wlk.m_Key.p);
-            res.m_AssetID = evt.m_AssetID;
-            res.m_Flags = evt.m_Flags;
-
-			if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
-				res.m_Shielded = Cast::Up<UE::ValueS>(evt).m_Shielded;
+            nCount++;
 		}
+
+        ser.swap_buf(msgOut.m_Events);
     }
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
 
-    Send(msgOut);
+    if (proto::LoginFlags::Extension4 & m_LoginFlags)
+    {
+        Send(msgOut);
+    }
+    else
+    {
+        // legacy client
+        struct MyParser
+            :public proto::Event::IGroupParser
+        {
+            proto::EventsLegacy m_msgOut;
+
+            virtual void OnEvent(proto::Event::Base& evt_) override
+            {
+                if (proto::Event::Type::Utxo != evt_.get_Type())
+                    return; // ignore
+                proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
+
+                m_msgOut.m_Events.emplace_back();
+                proto::Event::Legacy& evt1 = m_msgOut.m_Events.back();
+
+                evt1.Import(evt);
+                evt1.m_Height = m_Height;
+            }
+
+        } parser;
+
+        parser.Proceed(msgOut.m_Events);
+
+        Send(parser.m_msgOut);
+    }
 }
 
 void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
@@ -3478,8 +3416,8 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 
         for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
         {
-            Key::IDV kidv;
-            if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1, *m_This.m_Keys.m_pOwner, kidv))
+            CoinID cid;
+            if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1, *m_This.m_Keys.m_pOwner, cid))
                 ThrowUnexpected();
         }
 
@@ -4209,6 +4147,8 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	if (!m_Processor.BuildCwp())
 		return false; // no info yet
 
+    typedef yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> MySerializer;
+
 	struct MyTraveler
 		:public RadixTree::ITraveler
 	{
@@ -4240,8 +4180,11 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			Deserializer der;
 			der.reset(wlk.m_Value.p, wlk.m_Value.n);
 
-			RecoveryInfo::Entry val;
-			der & val.m_Output;
+            Output outp;
+			der & outp;
+
+            assert(outp.m_Commitment == d.m_Commitment);
+            outp.m_RecoveryOnly = true;
 
 			// 2 ways to discover the UTXO create height: either directly by looking its TxoID in States table, or reverse-engineer it from Maturity
 			// Since currently maturity delta is independent of current height (not a function of height, not changed in current forks) - we prefer the 2nd method, which is faster.
@@ -4251,12 +4194,11 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			//val.m_CreateHeight = sid.m_Height;
 			//assert(val.m_Output.get_MinMaturity(val.m_CreateHeight) == d.m_Maturity);
 
-			val.m_CreateHeight = d.m_Maturity - val.m_Output.get_MinMaturity(0);
+			Height hCreateHeight = d.m_Maturity - outp.get_MinMaturity(0);
 
-			assert(val.m_Output.m_Commitment == d.m_Commitment);
-			val.m_Output.m_RecoveryOnly = true;
-
-			m_Writer.Write(val);
+            MySerializer ser(m_Writer.m_Stream);
+            ser & hCreateHeight;
+            ser & outp;
 		}
 	};
 
@@ -4267,6 +4209,56 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	{
 		ctx.m_Writer.Open(szPath, m_Processor.m_Cwp);
 		m_Processor.get_Utxos().Traverse(ctx);
+
+        Height h = Rules::get().pForks[2].m_Height;
+
+        if (m_Processor.m_Cursor.m_ID.m_Height >= h)
+        {
+            MySerializer ser(ctx.m_Writer.m_Stream);
+            ser & MaxHeight; // terminator
+
+            // shielded in/outs
+            struct MyKrnWalker
+                :public NodeProcessor::KrnWalkerShielded
+            {
+                MySerializer& m_Ser;
+                MyKrnWalker(MySerializer& ser) :m_Ser(ser) {}
+
+                virtual bool OnKrnEx(const TxKernelShieldedInput& krn) override
+                {
+                    m_Ser & m_Height;
+                    m_Ser & false;
+                    m_Ser & krn.m_SpendProof.m_SpendPk;
+                    return true;
+                }
+
+                virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
+                {
+                    Cast::NotConst(krn).m_Txo.m_pAsset.reset(); // not needed for recovery atm
+
+                    m_Ser & m_Height;
+                    m_Ser & true;
+                    m_Ser & krn.m_Txo;
+                    m_Ser & krn.m_Msg;
+                    return true;
+                }
+
+            } wlk(ser);
+
+            m_Processor.EnumKernels(wlk, HeightRange(h, m_Processor.m_Cursor.m_ID.m_Height));
+
+            ser & MaxHeight; // terminator
+
+            // assets
+            Asset::Full ai;
+            ai.m_ID = 0;
+
+            while (m_Processor.get_DB().AssetGetNext(ai))
+                ser & ai;
+
+            ser & (Asset::s_MaxCount + 1); // terminator
+        }
+
 	}
 	catch (const std::exception& ex)
 	{
@@ -4285,8 +4277,7 @@ void Node::PrintTxos()
         return;
     }
 
-    ECC::Point pt;
-    PeerID& pid = pt.m_X; // alias
+    PeerID pid;
 
     {
         Key::ID kid(Zero);
@@ -4295,11 +4286,11 @@ void Node::PrintTxos()
 
         ECC::Point::Native ptN;
         m_Keys.m_pOwner->DerivePKeyG(ptN, pid);
-        pt = ptN;
+        pid.Import(ptN);
     }
 
     std::ostringstream os;
-    os << "Printing Txo movement for Key=" << pid << std::endl;
+    os << "Printing Events for Key=" << pid << std::endl;
 
     if (m_Processor.IsFastSync())
         os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
@@ -4310,32 +4301,19 @@ void Node::PrintTxos()
     NodeDB::WalkerEvent wlk;
     for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
     {
-        typedef NodeProcessor::UtxoEvent UE;
-
-        if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
-            continue; // although shouldn't happen
-        const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
-
-        if ((proto::UtxoEvent::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
-            continue; // although shouldn't happen
-
-        Height hMaturity;
-        Amount val;
-        evt.m_Maturity.Export(hMaturity);
-        evt.m_Kidv.m_Value.Export(val);
-
-        os
-            << "\tHeight=" << wlk.m_Height << ", "
-            << ((proto::UtxoEvent::Flags::Add & evt.m_Flags) ? "Add" : "Spend")
-            << ", Value=" << val
-            << ", Maturity=" << hMaturity;
-
-        if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+        struct MyParser :public proto::Event::IParser
         {
-            ECC::Scalar k;
-            os << ", Shielded TxoID=" << Cast::Up<UE::ValueS>(evt).m_Shielded.Get(evt.m_Kidv, k);
-        }
+            std::ostringstream& m_os;
+            MyParser(std::ostringstream& os) :m_os(os) {}
 
+            virtual void OnEvent(proto::Event::Base& x) override {
+                x.Dump(m_os);
+            }
+
+        } p(os);
+
+        os << "\tHeight=" << wlk.m_Height << ", ";
+        p.ProceedOnce(wlk.m_Body);
         os << std::endl;
     }
 

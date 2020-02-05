@@ -157,7 +157,7 @@ int main_impl(int argc, char* argv[])
                 return -1;
             }
 
-            walletDB = WalletDB::open(options.walletPath, pass, reactor);
+            walletDB = WalletDB::open(options.walletPath, pass);
 
             LOG_INFO() << "wallet sucessfully opened...";
         }
@@ -168,7 +168,7 @@ int main_impl(int argc, char* argv[])
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
 
         auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-        Wallet wallet{ walletDB, keyKeeper };
+        Wallet wallet(walletDB);
 
         wallet.ResumeAllTransactions();
 
@@ -192,7 +192,7 @@ int main_impl(int argc, char* argv[])
         nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
         nnet->Connect();
 
-        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper);
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB);
 		wallet.AddMessageEndpoint(wnet);
         wallet.SetNodeEndpoint(nnet);
 

@@ -69,7 +69,7 @@ IWalletDB::Ptr createSqliteWalletDB(bool separatePrivateDB = false)
     }
     ECC::NoLeak<ECC::uintBig> seed;
     seed.V = 10283UL;
-    auto walletDB = WalletDB::init(dbName, string("pass123"), seed, io::Reactor::get_Current().shared_from_this(), separatePrivateDB);
+    auto walletDB = WalletDB::init(dbName, string("pass123"), seed, separatePrivateDB);
     beam::Block::SystemState::ID id = { };
     id.m_Height = 134;
     walletDB->setSystemStateID(id);
@@ -615,15 +615,13 @@ void TestAddresses()
     addresses = db->getAddresses(false);
     WALLET_CHECK(addresses.empty());
 
-    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db, db->get_MasterKdf());
-
     WalletAddress a = {};
     a.m_label = "test label";
     a.m_category = "test category";
     a.m_createTime = beam::getTimestamp();
     a.m_duration = 23;
     a.m_OwnID = 44;
-    a.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, a.m_OwnID);
+    db->get_SbbsWalletID(a.m_walletID, a.m_OwnID);
 
     db->saveAddress(a);
 
@@ -633,7 +631,7 @@ void TestAddresses()
     c.m_createTime = beam::getTimestamp();
     c.m_duration = 23;
     c.m_OwnID = 0;
-    c.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, 32);
+    db->get_SbbsWalletID(c.m_walletID, 32);
 
     db->saveAddress(c);
 
@@ -681,7 +679,7 @@ void TestAddresses()
     a2 = db->getAddress(a.m_walletID);
     WALLET_CHECK(!a2.is_initialized());
 
-    WALLET_CHECK(storage::ImportDataFromJson(*db, keyKeeper, &exported[0], exported.size()));
+    WALLET_CHECK(storage::ImportDataFromJson(*db, &exported[0], exported.size()));
     {
         auto a3 = db->getAddress(a.m_walletID);
         WALLET_CHECK(a3.is_initialized());
@@ -695,7 +693,7 @@ void TestAddresses()
     }
 
     // check double import
-    WALLET_CHECK(storage::ImportDataFromJson(*db, keyKeeper, &exported[0], exported.size()));
+    WALLET_CHECK(storage::ImportDataFromJson(*db, &exported[0], exported.size()));
     {
         auto a3 = db->getAddress(a.m_walletID);
         WALLET_CHECK(a3.is_initialized());
@@ -711,11 +709,10 @@ void TestExportImportTx()
 {
     cout << "\nWallet database transactions export/import test\n";
     auto walletDB = createSqliteWalletDB();
-    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
     WalletAddress wa;
     wa.m_OwnID = (*walletDB).AllocateKidRange(1);
-    wa.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, wa.m_OwnID);
+    walletDB->get_SbbsWalletID(wa.m_walletID, wa.m_OwnID);
     TxDescription tr = { { {4, 5, 6, 7, 65} } };
     tr.m_amount = 52;
     tr.m_createTime = 45613;
@@ -736,7 +733,7 @@ void TestExportImportTx()
 
     WalletAddress wa2;
     wa2.m_OwnID = (*walletDB).AllocateKidRange(1);
-    wa2.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, wa2.m_OwnID);
+    walletDB->get_SbbsWalletID(wa2.m_walletID, wa2.m_OwnID);
     TxDescription tr2 = { { {7, 8, 9, 13} } };
     tr2.m_amount = 71;
     tr2.m_minHeight = 285;
@@ -751,7 +748,7 @@ void TestExportImportTx()
     auto exported = storage::ExportDataToJson(*walletDB);
     walletDB->deleteTx(tr.m_txId);
     WALLET_CHECK(walletDB->getTxHistory().size() == 1);
-    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, keyKeeper, &exported[0], exported.size()));
+    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, &exported[0], exported.size()));
     auto _tr = walletDB->getTx(tr.m_txId);
     WALLET_CHECK(_tr.is_initialized());
     WALLET_CHECK(_tr.value().m_createTime == tr.m_createTime);
@@ -768,7 +765,7 @@ void TestExportImportTx()
     exported = storage::ExportDataToJson(*walletDB);
     walletDB->deleteTx(tr2.m_txId);
     WALLET_CHECK(walletDB->getTxHistory().size() == 1);
-    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, keyKeeper, &exported[0], exported.size()));
+    WALLET_CHECK(!storage::ImportDataFromJson(*walletDB, &exported[0], exported.size()));
     WALLET_CHECK(walletDB->getTxHistory().size() == 1);
     _tr = walletDB->getTx(tr2.m_txId);
     WALLET_CHECK(!_tr.is_initialized());
@@ -795,7 +792,7 @@ void TestExportImportTx()
     exported = storage::ExportDataToJson(*walletDB);
     walletDB->deleteTx(tx3ID);
     WALLET_CHECK(walletDB->getTxHistory().size() == 1);
-    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, keyKeeper, &exported[0], exported.size()));
+    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, &exported[0], exported.size()));
     WALLET_CHECK(walletDB->getTxHistory().size() == 1);
     _tr = walletDB->getTx(tx3ID);
     WALLET_CHECK(!_tr.is_initialized());
@@ -1300,41 +1297,6 @@ void TestWalletMessages()
     }
 }
 
-void TestColdWallet()
-{
-    ECC::NoLeak<ECC::Hash::Value> seed;
-    ECC::NoLeak<ECC::Hash::Value> testSeed;
-    testSeed.V = 10283UL;
-    // create database with one file
-    {
-        auto db = createSqliteWalletDB();
-        WALLET_CHECK(db->getPrivateVarRaw("WalletSeed", &seed.V, sizeof(ECC::Hash::Value)));
-        WALLET_CHECK(seed.V == testSeed.V);
-    }
-    boost::filesystem::rename("wallet.db", "wallet.db_");
-    // create database with two files
-    {
-        ECC::NoLeak<ECC::Hash::Value> seed2;
-        auto db = createSqliteWalletDB(true);
-        WALLET_CHECK(db->getPrivateVarRaw("WalletSeed", &seed2.V, sizeof(ECC::Hash::Value)));
-        WALLET_CHECK(seed2.V == testSeed.V);
-    }
-    boost::filesystem::rename("wallet.db_", "wallet.db");
-    // open database with repacesed file
-    {
-        ECC::NoLeak<ECC::Hash::Value> seed2;
-        auto db = WalletDB::open("wallet.db", string("pass123"), io::Reactor::get_Current().shared_from_this());
-        WALLET_CHECK(db->getPrivateVarRaw("WalletSeed", &seed2.V, sizeof(ECC::Hash::Value)));
-        WALLET_CHECK(seed2.V == testSeed.V);
-    }
-    WALLET_CHECK(boost::filesystem::remove("wallet.db.private"));
-    {
-        ECC::NoLeak<ECC::Hash::Value> seed2;
-        auto db = WalletDB::open("wallet.db", string("pass123"), io::Reactor::get_Current().shared_from_this());
-        WALLET_CHECK(!db->getPrivateVarRaw("WalletSeed", &seed2.V, sizeof(ECC::Hash::Value)));
-    }
-}
-
 }
 
 int main() 
@@ -1364,7 +1326,6 @@ int main()
     TestExportImportTx();
     TestTxParameters();
     TestWalletMessages();
-    TestColdWallet();
 
 
     return WALLET_CHECK_RESULT;

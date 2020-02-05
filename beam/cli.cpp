@@ -237,7 +237,7 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_MiningThreads = 0; // by default disabled
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 
-					node.m_Cfg.m_LogUtxos = vm[cli::LOG_UTXOS].as<bool>();
+					node.m_Cfg.m_LogEvents = vm[cli::LOG_UTXOS].as<bool>();
 
 					std::string sKeyOwner;
 					get_parametr_with_deprecated_synonym(vm, cli::OWNER_KEY, cli::KEY_OWNER, &sKeyOwner);

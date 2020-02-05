@@ -14,8 +14,10 @@
 
 #include "local_private_key_keeper.h"
 #include "mnemonic/mnemonic.h"
-#include "core/block_rw.h"
-#include "3rdparty/utilstrencodings.h"
+#include "wasm_key_keeper.h"
+
+#include <boost/algorithm/string.hpp>
+#include "utility/string_helpers.cpp"
 
 #include <emscripten/bind.h>
 
@@ -25,83 +27,17 @@ using namespace beam::wallet;
 
 // #define PRINT_TEST_DATA 1
 
-namespace
-{
-    template <typename T>
-    std::string to_base64(const T& obj)
-    {
-        ByteBuffer buffer;
-        {
-            Serializer s;
-            s & obj;
-            s.swap_buf(buffer);
-        }
-
-        return EncodeBase64(buffer.data(), buffer.size());
-    }
-
-    template <>
-    std::string to_base64(const KernelParameters& obj)
-    {
-        ByteBuffer buffer;
-        {
-            Serializer s;
-            s   
-                & obj.height.m_Min
-                & obj.height.m_Max
-                & obj.fee
-                & obj.commitment;
-            s.swap_buf(buffer);
-        }
-
-        return EncodeBase64(buffer.data(), buffer.size());
-    }
-
-    template <typename T>
-    T&& from_base64(const std::string& base64)
-    {
-        T obj;
-        {
-            auto data = DecodeBase64(base64.data());
-
-            Deserializer d;
-            d.reset(data.data(), data.size());
-
-            d & obj;
-        }
-
-        return std::move(obj);
-    }
-
-    template <>
-    KernelParameters&& from_base64(const std::string& base64)
-    {
-        KernelParameters obj;
-        {
-            auto data = DecodeBase64(base64.data());
-
-            Deserializer d;
-            d.reset(data.data(), data.size());
-
-            d   
-                & obj.height.m_Min
-                & obj.height.m_Max
-                & obj.fee
-                & obj.commitment;
-        }
-
-        return std::move(obj);
-    }
-};
-
 struct KeyKeeper
 {
-    KeyKeeper(const beam::WordList& words)
+    KeyKeeper(const std::string& words)
     {
         static_assert(sizeof(uint64_t) == sizeof(unsigned long long));
 
-        ECC::NoLeak<ECC::uintBig> seed;
-        auto buf = beam::decodeMnemonic(words);
+        if(!IsValidPhrase(words))
+            throw "Invalid seed phrase";
+
+        ECC::NoLeak<ECC::uintBig> seed;       
+        auto buf = beam::decodeMnemonic(string_helpers::split(words, ' '));
         ECC::Hash::Processor() << beam::Blob(buf.data(), (uint32_t)buf.size()) >> seed.V;
         ECC::HKdf::Create(_kdf, seed.V);
 
@@ -120,7 +56,7 @@ struct KeyKeeper
         _impl = std::make_shared<LocalPrivateKeyKeeper>(vars, _kdf);
     }
 
-    std::string GeneratePublicKey(const std::string& kidv, bool createCoinKey) const
+    std::string GeneratePublicKey(const std::string& id) const
     {
 #if defined(PRINT_TEST_DATA)
         {
@@ -131,36 +67,37 @@ struct KeyKeeper
         }
 #endif
 
-        if (createCoinKey)
+        return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::uintBig>(id)));
+    }
+
+    std::string GenerateCoinKey(const std::string& sCid) const
+    {
+#if defined(PRINT_TEST_DATA)
         {
-            // TODO:ASSETS implement non-zero ID for assets
-            return to_base64(_impl->GenerateCoinKeySync(from_base64<ECC::Key::IDV>(kidv), Zero));
+            std::cout
+                << "ECC::Key::IDV(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0) -> data:application/octet-stream;base64,"
+                << to_base64(ECC::Key::IDV(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0))
+                << std::endl;
         }
-        else
-        {
-            return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::Key::IDV>(kidv)));
-        }
+#endif
+
+        return to_base64(_impl->GenerateCoinKeySync(from_base64<CoinID>(sCid)));
     }
 
     std::string GetOwnerKey(const std::string& pass) const
     {
-        const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*_kdf);
-
         beam::KeyString ks;
         ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
         ks.m_sMeta = std::to_string(0);
 
-        ECC::HKdfPub pkdf;
-        pkdf.GenerateFrom(kdf);
-
-        ks.Export(pkdf);
+        ks.ExportP(*_kdf);
 
         return ks.m_sRes;
     }
 
-    size_t AllocateNonceSlot()
+    size_t AllocateNonceSlotSync()
     {
-        return _impl->AllocateNonceSlot();
+        return _impl->AllocateNonceSlotSync();
     }
 
     std::string GenerateNonce(size_t slot)
@@ -168,7 +105,7 @@ struct KeyKeeper
         return to_base64(_impl->GenerateNonceSync(slot));
     }
 
-    std::string GenerateOutput(const std::string& schemeHeigh, const std::string& kidv)
+    std::string GenerateOutput(const std::string& schemeHeigh, const std::string& cid)
     {
 #if defined(PRINT_TEST_DATA)
         {
@@ -180,7 +117,7 @@ struct KeyKeeper
         }
 #endif
         // TODO: switch to generate vector<> instead single output
-        auto outputs = _impl->GenerateOutputsSync(from_base64<Height>(schemeHeigh), {from_base64<ECC::Key::IDV>(kidv)});
+        auto outputs = _impl->GenerateOutputsSync(from_base64<Height>(schemeHeigh), {from_base64<CoinID>(cid)});
 
         return to_base64(outputs[0]);
     }
@@ -280,7 +217,7 @@ struct KeyKeeper
 
             ECC::Point::Native peerPublicNonce = Zero;
             ECC::Point::Native publicNonce;
-            uint8_t nonceSlot = (uint8_t)_impl->AllocateNonceSlot();
+            uint8_t nonceSlot = (uint8_t)_impl->AllocateNonceSlotSync();
             publicNonce.Import(_impl->GenerateNonceSync(nonceSlot));
 
             ECC::Signature signature;
@@ -299,16 +236,33 @@ struct KeyKeeper
         ECC::Point::Native publicNonceNative;
         publicNonceNative.Import(from_base64<ECC::Point>(publicNonce));
 
-        auto sign = _impl->SignSync(
-            from_base64<std::vector<Key::IDV>>(inputs), 
-            from_base64<std::vector<Key::IDV>>(outputs),
-            Zero,
-            offsetNative,
-            nonceSlot,
-            from_base64<KernelParameters>(kernelParameters),
-            publicNonceNative);
+        //auto sign = _impl->SignSync(
+        //    from_base64<std::vector<Key::IDV>>(inputs), 
+        //    from_base64<std::vector<Key::IDV>>(outputs),
+        //    Zero,
+        //    offsetNative,
+        //    nonceSlot,
+        //    from_base64<KernelParameters>(kernelParameters),
+        //    publicNonceNative);
+
+        ECC::Scalar sign(Zero); // dummy
 
         return to_base64(sign);
+    }
+
+    static std::string GeneratePhrase()
+    {
+        return boost::join(createMnemonic(getEntropy(), language::en), " ");
+    }
+
+    static bool IsAllowedWord(const std::string& word)
+    {
+        return isAllowedWord(word, language::en);
+    }
+
+    static bool IsValidPhrase(const std::string& words)
+    {
+        return isValidMnemonic(string_helpers::split(words, ' '), language::en);
     }
 
 private:
@@ -319,16 +273,18 @@ private:
 // Binding code
 EMSCRIPTEN_BINDINGS() 
 {
-    register_vector<std::string>("WordList");
-
     class_<KeyKeeper>("KeyKeeper")
-        .constructor<const beam::WordList&>()
-        .function("generatePublicKey",  &KeyKeeper::GeneratePublicKey)
-        .function("getOwnerKey",        &KeyKeeper::GetOwnerKey)
-        .function("allocateNonceSlot",  &KeyKeeper::AllocateNonceSlot)
-        .function("generateNonce",      &KeyKeeper::GenerateNonce)
-        .function("generateOutput",     &KeyKeeper::GenerateOutput)
-        .function("sign",               &KeyKeeper::Sign)
+        .constructor<const std::string&>()
+        .function("generatePublicKey",      &KeyKeeper::GeneratePublicKey)
+        .function("generateCoinKey",        &KeyKeeper::GenerateCoinKey)
+        .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
+        .function("allocateNonceSlot",      &KeyKeeper::AllocateNonceSlotSync)
+        .function("generateNonce",          &KeyKeeper::GenerateNonce)
+        .function("generateOutput",         &KeyKeeper::GenerateOutput)
+        .function("sign",                   &KeyKeeper::Sign)
+        .class_function("GeneratePhrase",   &KeyKeeper::GeneratePhrase)
+        .class_function("IsAllowedWord",    &KeyKeeper::IsAllowedWord)
+        .class_function("IsValidPhrase",    &KeyKeeper::IsValidPhrase)
         // .function("func", &KeyKeeper::func)
         // .property("prop", &KeyKeeper::getProp, &KeyKeeper::setProp)
         // .class_function("StaticFunc", &KeyKeeper::StaticFunc)

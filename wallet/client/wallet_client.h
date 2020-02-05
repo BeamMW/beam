@@ -91,31 +91,36 @@ namespace beam::wallet
         // use this function to post function call to client's main loop
         void postFunctionToClientContext(MessageFunction&& func);
 
-        virtual void onStatus(const WalletStatus& status) = 0;
-        virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) = 0;
-        virtual void onSyncProgressUpdated(int done, int total) = 0;
-        virtual void onChangeCalculated(Amount change) = 0;
-        virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) = 0;
-        virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) = 0;
-        virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) = 0;
-        virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) = 0;
-        virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) = 0;
-        virtual void onNewAddressFailed() = 0;
-        virtual void onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID) = 0;
-        virtual void onNodeConnectionChanged(bool isNodeConnected) = 0;
-        virtual void onWalletError(ErrorType error) = 0;
-        virtual void FailedToStartWallet() = 0;
-        virtual void onSendMoneyVerified() = 0;
-        virtual void onCantSendToExpired() = 0;
-        virtual void onPaymentProofExported(const TxID& txID, const ByteBuffer& proof) = 0;
-        virtual void onCoinsByTx(const std::vector<Coin>& coins) = 0;
-        virtual void onAddressChecked(const std::string& addr, bool isValid) = 0;
-        virtual void onImportRecoveryProgress(uint64_t done, uint64_t total) = 0;
-        virtual void onNoDeviceConnected() = 0;
-        virtual void onImportDataFromJson(bool isOk) = 0;
-        virtual void onExportDataToJson(const std::string& data) = 0;
-        virtual void onPostFunctionToClientContext(MessageFunction&& func) = 0;
-        virtual void onExportTxHistoryToCsv(const std::string& data) = 0;
+        // Callbacks
+        virtual void onStatus(const WalletStatus& status) {}
+        virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
+        virtual void onSyncProgressUpdated(int done, int total) {}
+        virtual void onChangeCalculated(Amount change) {}
+        virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
+        virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
+        virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) {}
+        virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
+        virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
+        virtual void onNewAddressFailed() {}
+        virtual void onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID) {}
+        virtual void onNodeConnectionChanged(bool isNodeConnected) {}
+        virtual void onWalletError(ErrorType error) {}
+        virtual void FailedToStartWallet() {}
+        virtual void onSendMoneyVerified() {}
+        virtual void onCantSendToExpired() {}
+        virtual void onPaymentProofExported(const TxID& txID, const ByteBuffer& proof) {}
+        virtual void onCoinsByTx(const std::vector<Coin>& coins) {}
+        virtual void onAddressChecked(const std::string& addr, bool isValid) {}
+        virtual void onImportRecoveryProgress(uint64_t done, uint64_t total) {}
+        virtual void onNoDeviceConnected() {}
+        virtual void onImportDataFromJson(bool isOk) {}
+        virtual void onExportDataToJson(const std::string& data) {}
+        virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
+        virtual void onExportTxHistoryToCsv(const std::string& data) {}
+        virtual void onNewsUpdate(const NewsMessage& msg) {};
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        virtual void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) {}
+#endif
 
     private:
 
@@ -215,7 +220,7 @@ namespace beam::wallet
         };
         ChangesCollector <TxDescription, TransactionKey> m_TransactionChangesCollector;
         
-        // these variables is accessible from UI thread
+        // these variables are accessible from UI thread
         size_t m_unsafeActiveTxCount = 0;
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;

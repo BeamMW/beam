@@ -178,7 +178,7 @@ namespace beam::wallet
     bool WalletID::IsValid() const
     {
         Point::Native p;
-        return proto::ImportPeerID(p, m_Pk);
+        return m_Pk.ExportNnz(p);
     }
 
     AtomicSwapCoin from_string(const std::string& value)
@@ -251,7 +251,7 @@ namespace beam::wallet
     bool ConfirmationBase::IsValid(const PeerID& pid) const
     {
         Point::Native pk;
-        if (!proto::ImportPeerID(pk, pid))
+        if (!pid.ExportNnz(pk))
             return false;
 
         Hash::Value hv;
@@ -270,12 +270,21 @@ namespace beam::wallet
 
     void PaymentConfirmation::get_Hash(Hash::Value& hv) const
     {
-        Hash::Processor()
+        Hash::Processor hp;
+        hp
             << "PaymentConfirmation"
             << m_KernelID
             << m_Sender
-            << m_Value
-            >> hv;
+            << m_Value;
+
+        if (m_AssetID)
+        {
+            hp
+                << "asset"
+                << m_AssetID;
+        }
+
+        hp >> hv;
     }
 
     void SwapOfferConfirmation::get_Hash(Hash::Value& hv) const

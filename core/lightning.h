@@ -84,7 +84,7 @@ namespace Lightning {
 		struct DataOpen
 		{
 			ECC::Point m_Comm0;
-			Key::IDV m_ms0; // my part of msig0
+			CoinID m_ms0; // my part of msig0
 			// opening tx
 			HeightRange m_hrLimit;
 			Transaction m_txOpen; // Set iff Role==0.
@@ -92,16 +92,16 @@ namespace Lightning {
 			// confirmation
 			Height m_hOpened;
 			// initial funds
-			std::vector<Key::IDV> m_vInp;
-			Key::IDV m_kidvChange;
+			std::vector<CoinID> m_vInp;
+			CoinID m_cidChange;
 		};
 
 		struct DataUpdate
 			:public ChannelUpdate::Result
 		{
-			Key::IDV m_msMy; // my part of msigN for my withdrawal
-			Key::IDV m_msPeer; // my part of msigN for peer withdrawal
-			Key::IDV m_Outp; // phase2 output
+			CoinID m_msMy; // my part of msigN for my withdrawal
+			CoinID m_msPeer; // my part of msigN for peer withdrawal
+			CoinID m_Outp; // phase2 output
 
 			enum struct Type
 			{
@@ -186,8 +186,8 @@ namespace Lightning {
 		virtual Height get_Tip() const = 0;
 		virtual proto::FlyClient::INetwork& get_Net() = 0;
 		virtual void get_Kdf(Key::IKdf::Ptr&) = 0;
-		virtual void AllocTxoID(Key::IDV&) = 0; // Type and Value are fixed. Should adjust ID and SubIdx
-		virtual Amount SelectInputs(std::vector<Key::IDV>& vInp, Amount valRequired) { return 0; }
+		virtual void AllocTxoID(CoinID&) = 0; // Type, Asset and Value are fixed. Should adjust ID and SubIdx
+		virtual Amount SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asset::ID) { return 0; }
 		virtual void SendPeer(Storage::Map&& dataOut) = 0;
 
 		enum struct CoinState {
@@ -196,9 +196,9 @@ namespace Lightning {
 			Spent,
 		};
 
-		virtual void OnCoin(const Key::IDV&, Height, CoinState, bool bReverse) {}
+		virtual void OnCoin(const CoinID&, Height, CoinState, bool bReverse) {}
 
-		void OnCoin(const std::vector<Key::IDV>&, Height, CoinState, bool bReverse);
+		void OnCoin(const std::vector<CoinID>&, Height, CoinState, bool bReverse);
 
 		virtual size_t SelectWithdrawalPath(); // By default selects the most recent available withdrawal. Override to try to use outdated (fraudulent) revisions, for testing.
 	
@@ -207,7 +207,7 @@ namespace Lightning {
 
 
 	private:
-		DataUpdate& CreateUpdatePoint(uint32_t iRole, const Key::IDV& msA, const Key::IDV& msB, const Key::IDV& outp);
+		DataUpdate& CreateUpdatePoint(uint32_t iRole, const CoinID& msA, const CoinID& msB, const CoinID& outp);
 		bool OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
 		void UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut);
 		void SendPeerInternal(Storage::Map&);

@@ -37,7 +37,7 @@ namespace beam {
 #define TblStates_CountNext		"CountNext"
 #define TblStates_CountNextF	"CountNextFunctional"
 #define TblStates_PoW			"PoW"
-#define TblStates_Mmr			"Mmr" // deprecated
+#define TblStates_Rollback		"Mmr" // For historical reasons it was used for states MMR. Not it's a rollback data
 #define TblStates_BodyP			"Perishable"
 #define TblStates_BodyE			"Ethernal"
 #define TblStates_Peer			"Peer"
@@ -91,6 +91,13 @@ namespace beam {
 #define TblUnique				"UniqueStorage"
 #define TblUnique_Key			"Key"
 #define TblUnique_Value			"Value"
+
+#define TblAssets				"Assets"
+#define TblAssets_ID			"ID"
+#define TblAssets_Owner			"Owner"
+#define TblAssets_Value			"Value"
+#define TblAssets_Data			"MetaData"
+#define TblAssets_LockHeight	"LockHeight"
 
 NodeDB::NodeDB()
 	:m_pDb(NULL)
@@ -327,10 +334,6 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion17 = 17; // before UTXO image
-	const uint64_t nVersion18 = 18; // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
-	const uint64_t nVersion19 = 19; // before Shielded shards
-	const uint64_t nVersion20 = 20; // Deprecated Shielded table created.
 	const uint64_t nVersionTop = 21;
 
 	Transaction t(*this);
@@ -338,40 +341,40 @@ void NodeDB::Open(const char* szPath)
 	if (bCreate)
 	{
 		Create();
-		ParamSet(ParamID::DbVer, &nVersionTop, NULL);
+		ParamIntSet(ParamID::DbVer, nVersionTop);
 	}
 	else
 	{
 		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
 		switch (nVer)
 		{
-		case nVersion17:
+		case 17: // before UTXO image
 			// no break;
 
-		case nVersion18:
+		case 18: // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
 
-			LOG_INFO() << "DB migrate from" << nVersion18;
+			LOG_INFO() << "DB migrate from" << 18;
 			MigrateFrom18();
 			// no break;
 
-		case nVersion19:
+		case 19: // before Shielded shards
 			// ignore
 			// no break;
 
-		case nVersion20:
+		case 20: // Deprecated Shielded table created.
 			CreateTables20();
 
-			LOG_INFO() << "DB migrate from" << nVersion20;
+			LOG_INFO() << "DB migrate from" << 20;
 			MigrateFrom20();
 
-			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
+			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
 
 		case nVersionTop:
 			break;
 
 		default:
-			if (nVer < nVersion17)
+			if (nVer < nVersionTop)
 				throw NodeDBUpgradeException("Node upgrade is not supported. Please, remove node.db and tempmb files");
 
 			if (nVer > nVersionTop)
@@ -411,6 +414,7 @@ void NodeDB::Create()
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
 		"[" TblStates_CountNextF	"] INTEGER NOT NULL,"
 		"[" TblStates_PoW			"] BLOB,"
+		"[" TblStates_Rollback		"] BLOB,"
 		"[" TblStates_BodyP			"] BLOB,"
 		"[" TblStates_BodyE			"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
@@ -494,6 +498,15 @@ void NodeDB::CreateTables20()
 	ExecQuick("CREATE TABLE [" TblUnique "] ("
 		"[" TblUnique_Key			"] BLOB NOT NULL PRIMARY KEY,"
 		"[" TblUnique_Value			"] BLOB) WITHOUT ROWID");
+
+	ExecQuick("CREATE TABLE [" TblAssets "] ("
+		"[" TblAssets_ID			"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblAssets_Owner			"] BLOB,"
+		"[" TblAssets_Data			"] BLOB,"
+		"[" TblAssets_LockHeight	"] INTEGER,"
+		"[" TblAssets_Value			"] BLOB)");
+
+	ExecQuick("CREATE INDEX [Idx" TblAssets "Own] ON [" TblAssets "] ([" TblAssets_Owner "])");
 }
 
 void NodeDB::Vacuum()
@@ -635,6 +648,11 @@ void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
 	}
 }
 
+void NodeDB::ParamIntSet(uint32_t ID, uint64_t val)
+{
+	ParamSet(ID, &val, nullptr);
+}
+
 bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1, ByteBuffer* p2 /* = NULL */)
 {
 	Recordset rs(*this, Query::ParamGet, "SELECT " TblParams_Int "," TblParams_Blob " FROM " TblParams " WHERE " TblParams_ID "=?");
@@ -658,7 +676,7 @@ bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1, ByteBuffer* p2 /* = N
 	return true;
 }
 
-uint64_t NodeDB::ParamIntGetDef(int ID, uint64_t def /* = 0 */)
+uint64_t NodeDB::ParamIntGetDef(uint32_t ID, uint64_t def /* = 0 */)
 {
 	ParamGet(ID, &def, NULL);
 	return def;
@@ -1315,14 +1333,16 @@ bool NodeDB::StateInput::IsLess(const StateInput& x1, const StateInput& x2)
 	return pt1 < pt2;
 }
 
-void NodeDB::set_StateTxosAndExtra(uint64_t rowid, const TxoID* pId, const Blob* pExtra)
+void NodeDB::set_StateTxosAndExtra(uint64_t rowid, const TxoID* pId, const Blob* pExtra, const Blob* pRB)
 {
-	Recordset rs(*this, Query::StateSetTxosAndExtra, "UPDATE " TblStates " SET " TblStates_Txos "=?," TblStates_Extra "=? WHERE rowid=?");
+	Recordset rs(*this, Query::StateSetTxosAndExtra, "UPDATE " TblStates " SET " TblStates_Txos "=?," TblStates_Extra "=?," TblStates_Rollback "=? WHERE rowid=?");
 	if (pId)
 		rs.put(0, *pId);
 	if (pExtra)
 		rs.put(1, *pExtra);
-	rs.put(2, rowid);
+	if (pRB)
+		rs.put(2, *pRB);
+	rs.put(3, rowid);
 	rs.Step();
 	TestChanged1Row();
 }
@@ -1370,9 +1390,9 @@ void NodeDB::SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE,
 	TestChanged1Row();
 }
 
-void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE)
+void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRB)
 {
-	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_BodyP "," TblStates_BodyE " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_BodyP "," TblStates_BodyE "," TblStates_Rollback " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 	rs.StepStrict();
 
@@ -1380,6 +1400,8 @@ void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE)
 		rs.get(0, *pP);
 	if (pE && !rs.IsNull(1))
 		rs.get(1, *pE);
+	if (pRB && !rs.IsNull(2))
+		rs.get(2, *pRB);
 }
 
 void NodeDB::DelStateBlockPP(uint64_t rowid)
@@ -1390,10 +1412,18 @@ void NodeDB::DelStateBlockPP(uint64_t rowid)
 	TestChanged1Row();
 }
 
+void NodeDB::DelStateBlockPPR(uint64_t rowid)
+{
+	Recordset rs(*this, Query::StateDelBlockPPR, "UPDATE " TblStates " SET " TblStates_BodyP "=NULL," TblStates_Rollback "=NULL," TblStates_Peer "=NULL WHERE rowid=?");
+	rs.put(0, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
 void NodeDB::DelStateBlockAll(uint64_t rowid)
 {
-	Recordset rs(*this, Query::StateDelBlockAll , "UPDATE " TblStates
-		" SET " TblStates_BodyP "=NULL," TblStates_BodyE "=NULL," TblStates_Peer "=NULL," TblStates_Extra "=NULL," TblStates_Txos "=NULL WHERE rowid=?");
+	Recordset rs(*this, Query::StateDelBlockAll, "UPDATE " TblStates
+		" SET " TblStates_BodyP "=NULL," TblStates_BodyE "=NULL," TblStates_Rollback "=NULL," TblStates_Peer "=NULL," TblStates_Extra "=NULL," TblStates_Txos "=NULL WHERE rowid=?");
 	rs.put(0, rowid);
 	rs.Step();
 	TestChanged1Row();
@@ -1659,8 +1689,8 @@ bool NodeDB::get_Cursor(StateID& sid)
 
 void NodeDB::put_Cursor(const StateID& sid)
 {
-	ParamSet(ParamID::CursorRow, &sid.m_Row, NULL);
-	ParamSet(ParamID::CursorHeight, &sid.m_Height, NULL);
+	ParamIntSet(ParamID::CursorRow, sid.m_Row);
+	ParamIntSet(ParamID::CursorHeight, sid.m_Height);
 }
 
 void NodeDB::StateID::SetNull()
@@ -1699,8 +1729,7 @@ void NodeDB::InsertEvent(Height h, const Blob& b, const Blob& key)
 	Recordset rs(*this, Query::EventIns, "INSERT INTO " TblEvents "(" TblEvents_Height "," TblEvents_Body "," TblEvents_Key ") VALUES (?,?,?)");
 	rs.put(0, h);
 	rs.put(1, b);
-	if (key.n)
-		rs.put(2, key);
+	rs.put(2, key);
 	rs.Step();
 	TestChanged1Row();
 }
@@ -2156,13 +2185,19 @@ NodeDB::StreamMmr::StreamMmr(NodeDB& db, StreamType::Enum eType, bool bStoreH0)
 
 void NodeDB::StreamMmr::Append(const Merkle::Hash& hv)
 {
-	m_DB.StreamResize(m_eType, get_TotalHashes(m_Count + 1, m_StoreH0) * sizeof(Merkle::Hash), get_TotalHashes(m_Count, m_StoreH0) * sizeof(Merkle::Hash));
-	Mmr::Append(hv);
+	uint64_t n = m_Count;
+	ResizeTo(n + 1);
+	Mmr::Replace(n, hv);
 }
 
 void NodeDB::StreamMmr::ShrinkTo(uint64_t nCount)
 {
 	assert(m_Count >= nCount);
+	ResizeTo(nCount);
+}
+
+void NodeDB::StreamMmr::ResizeTo(uint64_t nCount)
+{
 	m_DB.StreamResize(m_eType, get_TotalHashes(nCount, m_StoreH0) * sizeof(Merkle::Hash), get_TotalHashes(m_Count, m_StoreH0) * sizeof(Merkle::Hash));
 	m_Count = nCount;
 }
@@ -2210,7 +2245,7 @@ void NodeDB::StreamMmr::CacheAdd(const Merkle::Hash& hv, const Merkle::Position&
 	{
 		CacheEntry& ce = m_pCache[pos.H];
 
-		if ((m_LastOut.m_Pos.H != pos.H) || (m_LastOut.m_Pos.X != ce.m_X))
+		if ((ce.m_X != pos.X) && (ce.m_X != static_cast<uint64_t>(-1)))
 		{
 			m_LastOut.m_Pos.X = ce.m_X;
 			m_LastOut.m_Pos.H = pos.H;
@@ -2380,6 +2415,145 @@ void NodeDB::UniqueDeleteStrict(const Blob& key)
 	TestChanged1Row();
 }
 
+const Asset::ID NodeDB::s_AssetEmpty0 = Asset::s_MaxCount;
+
+Asset::ID NodeDB::AssetFindByOwner(const PeerID& owner)
+{
+	Recordset rs(*this, Query::AssetFindOwner, "SELECT " TblAssets_ID " FROM " TblAssets " WHERE " TblAssets_Owner "=?");
+	rs.put_As(0, owner);
+	if (!rs.Step())
+		return false;
+
+	Asset::ID ret;
+	rs.get(0, ret);
+	return ret;
+}
+
+void NodeDB::AssetDeleteRaw(Asset::ID id)
+{
+	Recordset rs(*this, Query::AssetDel, "DELETE FROM " TblAssets " WHERE " TblAssets_ID "=?");
+	rs.put(0, id);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::AssetInsertRaw(Asset::ID id, const Asset::Full* pAi)
+{
+	Recordset rs(*this, Query::AssetAdd, "INSERT INTO " TblAssets "(" TblAssets_ID "," TblAssets_Owner "," TblAssets_Data "," TblAssets_Value "," TblAssets_LockHeight ") VALUES(?,?,?,?,?)");
+	rs.put(0, id);
+
+	if (pAi)
+	{
+		rs.put(1, pAi->m_Owner);
+		rs.put(2, Blob(pAi->m_Metadata.m_Value));
+		rs.put_As(3, pAi->m_Value);
+		rs.put(4, pAi->m_LockHeight);
+	}
+
+	rs.Step();
+	TestChanged1Row();
+}
+
+Asset::ID NodeDB::AssetFindMinFree(Asset::ID nMin)
+{
+	// find free index
+	Recordset rs(*this, Query::AssetFindMin, "SELECT " TblAssets_ID " FROM " TblAssets " WHERE " TblAssets_ID ">=? ORDER BY " TblAssets_ID " ASC LIMIT 1");
+	rs.put(0, nMin);
+
+	if (!rs.Step())
+		return 0;
+
+	Asset::ID ret;
+	rs.get(0, ret);
+	return ret;
+}
+
+void NodeDB::AssetAdd(Asset::Full& ai)
+{
+	// find free index
+	ai.m_ID = AssetFindMinFree(ai.m_ID + s_AssetEmpty0);
+	if (ai.m_ID)
+	{
+		assert(ai.m_ID > s_AssetEmpty0);
+		AssetDeleteRaw(ai.m_ID);
+		ai.m_ID -= s_AssetEmpty0;
+	}
+	else
+	{
+		ai.m_ID = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AssetsCount) + 1);
+		ParamIntSet(ParamID::AssetsCount, ai.m_ID);
+	}
+
+	AssetInsertRaw(ai.m_ID, &ai);
+
+	ParamIntSet(ParamID::AssetsCountUsed, ParamIntGetDef(ParamID::AssetsCountUsed) + 1);
+}
+
+Asset::ID NodeDB::AssetDelete(Asset::ID id)
+{
+	AssetDeleteRaw(id);
+
+	Asset::ID nCount = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AssetsCount));
+	if (nCount == id)
+	{
+		// last erased.
+		while (--nCount)
+		{
+			id = nCount + s_AssetEmpty0;
+			if (!AssetFindMinFree(id))
+				break;
+
+			AssetDeleteRaw(id);
+		}
+
+		ParamIntSet(ParamID::AssetsCount, nCount);
+	}
+	else
+		AssetInsertRaw(id + s_AssetEmpty0, nullptr);
+
+	ParamIntSet(ParamID::AssetsCountUsed, ParamIntGetDef(ParamID::AssetsCountUsed) - 1);
+
+	return nCount;
+}
+
+bool NodeDB::AssetGetSafe(Asset::Full& ai)
+{
+	Recordset rs(*this, Query::AssetGet, "SELECT " TblAssets_Value "," TblAssets_Owner "," TblAssets_Data "," TblAssets_LockHeight " FROM " TblAssets " WHERE " TblAssets_ID "=?");
+	rs.put(0, ai.m_ID);
+	if (!rs.Step())
+		return false;
+
+	rs.get_As(0, ai.m_Value);
+	rs.get_As(1, ai.m_Owner);
+	rs.get(2, ai.m_Metadata.m_Value);
+	rs.get(3, ai.m_LockHeight);
+
+	ai.m_Metadata.UpdateHash();
+
+	return true;
+}
+
+bool NodeDB::AssetGetNext(Asset::Full& ai)
+{
+	assert(ai.m_ID < Asset::s_MaxCount);
+
+	ai.m_ID = AssetFindMinFree(ai.m_ID + 1);
+	if (ai.m_ID > Asset::s_MaxCount)
+		return false;
+
+	return AssetGetSafe(ai);
+}
+
+void NodeDB::AssetSetValue(Asset::ID id, const AmountBig::Type& val, Height hLockHeight)
+{
+	Recordset rs(*this, Query::AssetSetVal, "UPDATE " TblAssets " SET " TblAssets_Value "=?," TblAssets_LockHeight "=? WHERE " TblAssets_ID "=?");
+	rs.put_As(0, val);
+	rs.put(1, hLockHeight);
+	rs.put(2, id);
+	rs.Step();
+	TestChanged1Row();
+}
+
 void NodeDB::MigrateFrom18()
 {
 	{
@@ -2451,8 +2625,7 @@ void NodeDB::MigrateFrom20()
 {
 	LOG_INFO() << "Rebuilding states MMR...";
 
-	// sqlite doesn't support drop column. Hence - just reset its value
-	ExecQuick("UPDATE " TblStates " SET " TblStates_Mmr "=NULL");
+	ExecQuick("UPDATE " TblStates " SET " TblStates_Rollback "=NULL"); // was used for states MMR. Prepare it for the new use
 
 	StateID sid;
 	get_Cursor(sid);

@@ -55,13 +55,6 @@ namespace beam::wallet
             && m_Tx.GetParameter(TxParameterID::PeerPublicSharedBlindingFactor, m_PeerPublicSharedBlindingFactor, SubTxIndex::BEAM_LOCK_TX);
     }
 
-    ECC::Point::Native SharedTxBuilder::GetPublicExcess() const
-    {
-        // correct public blinding excess
-        Point::Native pt = m_PeerPublicSharedBlindingFactor;
-        pt = -pt;
-        return BaseTxBuilder::GetPublicExcess() + pt;
-    }
 
     void SharedTxBuilder::InitTx(bool isTxOwner)
     {
@@ -80,7 +73,6 @@ namespace beam::wallet
         {
             InitInput();
         }
-        GenerateOffset();
     }
 
     void SharedTxBuilder::InitInput()
@@ -117,11 +109,13 @@ namespace beam::wallet
 		m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
 
         // add output
-        Scalar::Native blindingFactor;
-        Output::Ptr output = std::make_unique<Output>();
-        output->Create(minHeight, blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(outputCoin.m_ID), outputCoin.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
+        IPrivateKeyKeeper2::Method::CreateOutput m;
+        m.m_hScheme = minHeight;
+        m.m_Cid = outputCoin.m_ID;
 
-        m_Outputs.push_back(std::move(output));
+        m_Tx.TestKeyKeeperRet(m_Tx.get_KeyKeeperStrict()->InvokeSync(m));
+
+        m_Outputs.push_back(std::move(m.m_pResult));
         m_OutputCoins.push_back(outputCoin.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
     }
