@@ -17,8 +17,8 @@
 #include "swap_offer.h"
 #include "swap_offers_observer.h"
 #include "offers_protocol_handler.h"
+#include "wallet/client/extensions/broadcast.h"
 
-#include "wallet/client/extensions/broadcast_router.h"
 #include "wallet/core/wallet.h"
 #include "utility/std_extension.h"
 
@@ -38,13 +38,14 @@ namespace beam::wallet
     public:
         using Ptr = std::shared_ptr<SwapOffersBoard>;
 
-        SwapOffersBoard(BroadcastRouter&, IWalletMessageEndpoint&, OfferBoardProtocolHandler&);
+        SwapOffersBoard(IBroadcastMessagesGateway&, OfferBoardProtocolHandler&);
 
         /**
          *  IBroadcastListener implementation
          *  Processes broadcast messages
          */
         virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
+        
         /**
          *  IWalletDbObserver implementation
          *  Watches for swap transaction status changes to update linked offers on board
@@ -62,16 +63,13 @@ namespace beam::wallet
         void Unsubscribe(ISwapOffersObserver* observer);
 
     private:
-		BroadcastRouter& m_broadcastRouter;                 /// source of incoming messages
-        IWalletMessageEndpoint& m_messageEndpoint;          /// destination of outgoing messages
+		IBroadcastMessagesGateway& m_broadcastGateway;
         OfferBoardProtocolHandler& m_protocolHandler;       /// handles message creating and parsing
 
-        static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
         Height m_currentHeight = 0;
         std::unordered_map<TxID, SwapOffer> m_offersCache;
         std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
 
-        auto getChannel(AtomicSwapCoin coin) const -> BbsChannel;
         bool isOfferExpired(const SwapOffer& offer) const;
         void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
         void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);

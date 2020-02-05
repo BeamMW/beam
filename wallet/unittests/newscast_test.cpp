@@ -29,6 +29,7 @@ WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 #include "mock_bbs_network.cpp"
 
+#include "wallet/client/extensions/broadcast_router.h"
 #include "wallet/client/extensions/newscast/newscast.h"
 #include "wallet/client/extensions/newscast/newscast_protocol_builder.h"
 
@@ -108,7 +109,7 @@ namespace
     /**
      *  Create message with Protocol header according to Newscast protocol
      */
-    ByteBuffer addProtocolHeader(const ByteBuffer& content, BroadcastRouter::ContentType type)
+    ByteBuffer addProtocolHeader(const ByteBuffer& content, BroadcastContentType type)
     {
         ByteBuffer msg(MsgHeader::SIZE + content.size());
         MsgHeader header(0, // V0
@@ -287,7 +288,7 @@ namespace
         cout << endl << "Test Newscast observers" << endl;
 
         MockBbsNetwork network;
-        BroadcastRouter broadcastRouter(network);
+        BroadcastRouter broadcastRouter(network, network);
         NewscastProtocolParser parser;
         Newscast newsEndpoint(broadcastRouter, parser);
         auto senderWalletDB = createSenderWalletDB();
@@ -302,12 +303,9 @@ namespace
                 ++notificationCount;
             });
 
-        WalletID channel;   // only channel is used in WalletID structure
-        channel.m_Channel = Bbs::s_BroadcastChannel;
-
         ByteBuffer msgRaw = toByteBuffer(news);
         const auto& [pk, signatureRaw] = signData(msgRaw, 321, senderWalletDB);
-        ByteBuffer data = addProtocolHeader(makeMsg(msgRaw, signatureRaw), BroadcastRouter::ContentType::SoftwareUpdates);
+        ByteBuffer data = addProtocolHeader(makeMsg(msgRaw, signatureRaw), BroadcastContentType::SoftwareUpdates);
 
         {
             PublicKey pk2, pk3;
@@ -319,19 +317,19 @@ namespace
         {
             cout << "Case: subscribed on valid message" << endl;
             newsEndpoint.Subscribe(&testObserver);
-            network.SendRawMessage(channel, data);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, data);
             WALLET_CHECK(notificationCount == 1);
         }
         {
             cout << "Case: unsubscribed on valid message" << endl;
             newsEndpoint.Unsubscribe(&testObserver);
-            network.SendRawMessage(channel, data);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, data);
             WALLET_CHECK(notificationCount == 1);
         }
         {
             cout << "Case: subscribed back" << endl;
             newsEndpoint.Subscribe(&testObserver);
-            network.SendRawMessage(channel, data);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, data);
             WALLET_CHECK(notificationCount == 2);
         }
         {
@@ -339,9 +337,9 @@ namespace
             // sign the same message with other key
             ByteBuffer newSignatureRaw;
             std::tie(std::ignore, newSignatureRaw) = signData(msgRaw, 322, senderWalletDB);
-            data = addProtocolHeader(makeMsg(msgRaw, newSignatureRaw), BroadcastRouter::ContentType::SoftwareUpdates);
+            data = addProtocolHeader(makeMsg(msgRaw, newSignatureRaw), BroadcastContentType::SoftwareUpdates);
 
-            network.SendRawMessage(channel, data);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, data);
             WALLET_CHECK(notificationCount == 2);
         }
         cout << "Test end" << endl;

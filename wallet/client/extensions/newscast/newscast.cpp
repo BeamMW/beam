@@ -17,12 +17,12 @@
 
 namespace beam::wallet
 {
-    Newscast::Newscast(BroadcastRouter& broadcastRouter, NewscastProtocolParser& parser)
-        : m_broadcastRouter(broadcastRouter),
+    Newscast::Newscast(IBroadcastMessagesGateway& broadcastGateway, NewscastProtocolParser& parser)
+        : m_broadcastGateway(broadcastGateway),
           m_parser(parser)
     {
-        m_broadcastRouter.registerListener(BroadcastRouter::ContentType::ExchangeRates, this);
-        m_broadcastRouter.registerListener(BroadcastRouter::ContentType::SoftwareUpdates, this);
+        m_broadcastGateway.registerListener(BroadcastContentType::ExchangeRates, this);
+        m_broadcastGateway.registerListener(BroadcastContentType::SoftwareUpdates, this);
     }
 
     bool Newscast::onMessage(uint64_t unused, ByteBuffer&& msg)

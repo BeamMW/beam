@@ -34,6 +34,7 @@ WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 #include "mock_bbs_network.cpp"
 
+#include "wallet/client/extensions/broadcast_router.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 
 using namespace beam;
@@ -256,7 +257,7 @@ namespace
 
         OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
         MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouter(mockNetwork);
+        BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
 
         {
             std::cout << "Case: create, dispatch and parse offer" << endl;
@@ -275,15 +276,13 @@ namespace
                     WALLET_CHECK(*res == offer);
                     executed = true;
                 });
-            broadcastRouter.registerListener(BroadcastRouter::ContentType::SwapOffers, &testListener);
+            broadcastRouter.registerListener(BroadcastContentType::SwapOffers, &testListener);
 
             boost::optional<ByteBuffer> msg;
             WALLET_CHECK_NO_THROW(msg = protocolHandler.createMessage(offer, offer.m_publisherId));
             WALLET_CHECK(msg);
 
-            WalletID dummyWid;
-            dummyWid.m_Channel = proto::Bbs::s_BtcSwapOffersChannel;
-            mockNetwork.SendRawMessage(dummyWid, *msg);
+            broadcastRouter.sendMessage(BroadcastContentType::SwapOffers, *msg);
 
             WALLET_CHECK(executed);
         }
@@ -299,9 +298,9 @@ namespace
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouter(mockNetwork);
+        BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
         OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
-        SwapOffersBoard Alice(broadcastRouter, mockNetwork, protocolHandler);
+        SwapOffersBoard Alice(broadcastRouter, protocolHandler);
 
         WALLET_CHECK(Alice.getOffersList().size() == 0);
 
@@ -370,13 +369,13 @@ namespace
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
         MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouterA(mockNetwork);
-        BroadcastRouter broadcastRouterB(mockNetwork);
-        BroadcastRouter broadcastRouterC(mockNetwork);
+        BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
+        BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
+        BroadcastRouter broadcastRouterC(mockNetwork, mockNetwork);
 
-        SwapOffersBoard Alice(broadcastRouterA, mockNetwork, protocolHandler);
-        SwapOffersBoard Bob(broadcastRouterB, mockNetwork, protocolHandler);
-        SwapOffersBoard Cory(broadcastRouterC, mockNetwork, protocolHandler);
+        SwapOffersBoard Alice(broadcastRouterA, protocolHandler);
+        SwapOffersBoard Bob(broadcastRouterB, protocolHandler);
+        SwapOffersBoard Cory(broadcastRouterC, protocolHandler);
 
         WALLET_CHECK(Alice.getOffersList().size() == 0);
         WALLET_CHECK(Bob.getOffersList().size() == 0);
@@ -523,11 +522,11 @@ namespace
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
         MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouterA(mockNetwork);
-        BroadcastRouter broadcastRouterB(mockNetwork);
+        BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
+        BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
 
-        SwapOffersBoard Alice(broadcastRouterA, mockNetwork, protocolHandler);
-        SwapOffersBoard Bob(broadcastRouterB, mockNetwork, protocolHandler);
+        SwapOffersBoard Alice(broadcastRouterA, protocolHandler);
+        SwapOffersBoard Bob(broadcastRouterB, protocolHandler);
 
         SwapOffer correctOffer;
         std::tie(correctOffer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);
@@ -663,11 +662,11 @@ namespace
             make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
         MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouterA(mockNetwork);
-        BroadcastRouter broadcastRouterB(mockNetwork);
+        BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
+        BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
 
-        SwapOffersBoard Alice(broadcastRouterA, mockNetwork, protocolHandler);
-        SwapOffersBoard Bob(broadcastRouterB, mockNetwork, protocolHandler);
+        SwapOffersBoard Alice(broadcastRouterA, protocolHandler);
+        SwapOffersBoard Bob(broadcastRouterB, protocolHandler);
 
         SwapOffer correctOffer;
         std::tie(correctOffer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);

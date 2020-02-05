@@ -18,8 +18,22 @@
 
 namespace beam
 {
+    enum class BroadcastContentType
+    {
+        SwapOffers,
+        SoftwareUpdates,
+        ExchangeRates
+    };
+
     struct IBroadcastListener
     {
         virtual bool onMessage(uint64_t, ByteBuffer&&) = 0;
+    };
+
+    struct IBroadcastMessagesGateway
+    {
+        virtual void registerListener(BroadcastContentType, IBroadcastListener*) = 0;
+        virtual void unregisterListener(BroadcastContentType) = 0;
+        virtual void sendMessage(BroadcastContentType type, const ByteBuffer&) = 0;
     };
 }

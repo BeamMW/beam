@@ -19,8 +19,7 @@
 namespace beam
 {
 
-/// TODO review BBS channels mapping before next fork
-const std::vector<BbsChannel> BroadcastRouter::m_bbsChannelsList =
+const std::vector<BbsChannel> BroadcastRouter::m_incomingBbsChannels =
 {
     proto::Bbs::s_BtcSwapOffersChannel,
     proto::Bbs::s_LtcSwapOffersChannel,
@@ -28,23 +27,49 @@ const std::vector<BbsChannel> BroadcastRouter::m_bbsChannelsList =
     proto::Bbs::s_BroadcastChannel
 };
 
-const std::map<BroadcastRouter::ContentType, MsgType> BroadcastRouter::m_messageTypeMapping =
+const std::map<BroadcastContentType, BbsChannel> BroadcastRouter::m_outgoingBbsChannelsMap =
 {
-    { BroadcastRouter::ContentType::SwapOffers, MsgType(0) },
-    { BroadcastRouter::ContentType::SoftwareUpdates, MsgType(1) },
-    { BroadcastRouter::ContentType::ExchangeRates, MsgType(2) }
+    { BroadcastContentType::SwapOffers, proto::Bbs::s_BtcSwapOffersChannel },
+    { BroadcastContentType::SoftwareUpdates, proto::Bbs::s_BroadcastChannel },
+    { BroadcastContentType::ExchangeRates, proto::Bbs::s_BroadcastChannel }
 };
 
-MsgType BroadcastRouter::getMsgType(ContentType type)
+const std::map<BroadcastContentType, MsgType> BroadcastRouter::m_messageTypeMap =
 {
-    auto it = m_messageTypeMapping.find(type);
-    assert(it != std::cend(m_messageTypeMapping));
+    { BroadcastContentType::SwapOffers, MsgType(0) },
+    { BroadcastContentType::SoftwareUpdates, MsgType(1) },
+    { BroadcastContentType::ExchangeRates, MsgType(2) }
+};
+
+/**
+ *  Get protocol MsgType for specified content type
+ */
+MsgType BroadcastRouter::getMsgType(BroadcastContentType type)
+{
+    auto it = m_messageTypeMap.find(type);
+    assert(it != std::cend(m_messageTypeMap));
 
     return it->second;
 }
 
-BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork)
+/**
+ *  Get BBS channel number to route outgoing message
+ */
+BbsChannel BroadcastRouter::getBbsChannel(BroadcastContentType type)
+{
+    auto it = m_outgoingBbsChannelsMap.find(type);
+    assert(it != std::cend(m_outgoingBbsChannelsMap));
+
+    return it->second;
+}
+
+/**
+ *  @bbsNetwork         used as incoming broadcast messages source
+ *  @bbsEndpoint        transport for outgoing broadcast messages
+ */
+BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork, wallet::IWalletMessageEndpoint& bbsEndpoint)
     : m_bbsNetwork(bbsNetwork)
+    , m_bbsMessageEndpoint(bbsEndpoint)
     , m_protocol(m_protocol_version_0,
                  m_protocol_version_1,
                  m_protocol_version_2,
@@ -57,16 +82,17 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork)
     , m_lastTimestamp(getTimestamp() - m_bbsTimeWindow)
 {
     m_msgReader.disable_all_msg_types();
-    for (const auto& channel : m_bbsChannelsList)
+
+    for (const auto& ch : m_incomingBbsChannels)
     {
-        m_bbsNetwork.BbsSubscribe(channel, m_lastTimestamp, this);
+        m_bbsNetwork.BbsSubscribe(ch, m_lastTimestamp, this);
     }
 }
 
 /**
  *  Only one listener of each type can be registered.
  */
-void BroadcastRouter::registerListener(ContentType type, IBroadcastListener* listener)
+void BroadcastRouter::registerListener(BroadcastContentType type, IBroadcastListener* listener)
 {
     auto it = m_listeners.find(type);
     assert(it == std::cend(m_listeners));
@@ -84,13 +110,20 @@ void BroadcastRouter::registerListener(ContentType type, IBroadcastListener* lis
     m_msgReader.enable_msg_type(msgType);
 }
 
-void BroadcastRouter::unregisterListener(ContentType type)
+void BroadcastRouter::unregisterListener(BroadcastContentType type)
 {
     auto it = m_listeners.find(type);
     assert(it != std::cend(m_listeners));
     m_listeners.erase(it);
 
     m_msgReader.disable_msg_type(getMsgType(type));
+}
+
+void BroadcastRouter::sendMessage(BroadcastContentType type, const ByteBuffer& msg)
+{
+    wallet::WalletID dummyWId;
+    dummyWId.m_Channel = getBbsChannel(type);
+    m_bbsMessageEndpoint.SendRawMessage(dummyWId, msg);
 }
 
 /**
@@ -139,7 +172,7 @@ void BroadcastRouter::on_protocol_error(uint64_t fromStream, ProtocolError error
             description = "receiving of msg type disabled for this stream";
             break;
     }
-    LOG_WARNING() << "BbsMessagesRouter error: " << description;
+    LOG_WARNING() << "BroadcastRouter error: " << description;
 }
 
 /// unused

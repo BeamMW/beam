@@ -42,7 +42,7 @@ namespace
         OnMessage m_callback;
     };
 
-    ByteBuffer CreateMsg(const ByteBuffer& content, BroadcastRouter::ContentType type)
+    ByteBuffer CreateMsg(const ByteBuffer& content, BroadcastContentType type)
     {
         ByteBuffer msg(MsgHeader::SIZE);
         MsgHeader header(0, // V0
@@ -62,7 +62,7 @@ namespace
         cout << endl << "Test protocol parser stress" << endl;
 
         MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouter(mockNetwork);
+        BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
         
         ByteBuffer testContent({'t','e','s','t'});
 
@@ -75,7 +75,7 @@ namespace
                 WALLET_CHECK(msg == testContent);
             });
 
-        auto testContentType = BroadcastRouter::ContentType::SwapOffers;
+        auto testContentType = BroadcastContentType::SwapOffers;
         broadcastRouter.registerListener(testContentType, &testListener);
 
         WalletID dummyWid;
@@ -162,14 +162,14 @@ namespace
         cout << endl << "Test routers integration" << endl;
 
         MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouterA(mockNetwork);
-        BroadcastRouter broadcastRouterB(mockNetwork);
+        BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
+        BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
 
         // Mock network handles just one subscriber per BBS channel.
-        // Also router handles just one subscriber per ContentType.
+        // Also router handles just one subscriber per BroadcastContentType.
         // When this constraint will be put off more router could be added to test.
 
-        // BroadcastRouter broadcastRouterC(mockNetwork);
+        // BroadcastRouter broadcastRouterC(mockNetwork, mockNetwork);
 
         {
             std::cout << "Case: create, dispatch and check message" << endl;
@@ -201,16 +201,16 @@ namespace
                     }
                 });
 
-            broadcastRouterA.registerListener(BroadcastRouter::ContentType::SwapOffers, &testListener);
-            broadcastRouterB.registerListener(BroadcastRouter::ContentType::SoftwareUpdates, &testListener);
-            // broadcastRouterC.registerListener(BroadcastRouter::ContentType::ExchangeRates, &testListener);
+            broadcastRouterA.registerListener(BroadcastContentType::SwapOffers, &testListener);
+            broadcastRouterB.registerListener(BroadcastContentType::SoftwareUpdates, &testListener);
+            // broadcastRouterC.registerListener(BroadcastContentType::ExchangeRates, &testListener);
 
             WalletID dummyWid;
             dummyWid.m_Channel = proto::Bbs::s_BtcSwapOffersChannel;
-            auto msgA = CreateMsg(testSampleA, BroadcastRouter::ContentType::SwapOffers);
+            auto msgA = CreateMsg(testSampleA, BroadcastContentType::SwapOffers);
             mockNetwork.SendRawMessage(dummyWid, msgA);
             dummyWid.m_Channel = proto::Bbs::s_BroadcastChannel;
-            auto msgB = CreateMsg(testSampleB, BroadcastRouter::ContentType::SoftwareUpdates);
+            auto msgB = CreateMsg(testSampleB, BroadcastContentType::SoftwareUpdates);
             mockNetwork.SendRawMessage(dummyWid, msgB);
             // mockNetwork.SendRawMessage(dummyWid, CreateMsg(testSampleC));
 

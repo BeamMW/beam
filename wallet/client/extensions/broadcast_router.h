@@ -19,28 +19,24 @@
 
 #include "core/block_crypt.h"   // BbsChannel
 #include "core/fly_client.h"    // INetwork
+#include "wallet/core/wallet.h" // IWalletMessageEndpoint
 
-#include "broadcast_listener.h"
+#include "broadcast.h"
 
 namespace beam
 {
     class BroadcastRouter
-        : public IErrorHandler  /// Error handling for Protocol
+        : public IBroadcastMessagesGateway
+        , IErrorHandler  // Error handling for Protocol
         , proto::FlyClient::IBbsReceiver
     {
     public:
-        BroadcastRouter(proto::FlyClient::INetwork&);
+        BroadcastRouter(proto::FlyClient::INetwork&, wallet::IWalletMessageEndpoint&);
 
-        // needed to map Listeners to message types
-        enum class ContentType
-        {
-            SwapOffers,
-            SoftwareUpdates,
-            ExchangeRates
-        };
-
-        void registerListener(ContentType, IBroadcastListener*);
-        void unregisterListener(ContentType);
+        // IBroadcastMessagesGateway
+        void registerListener(BroadcastContentType, IBroadcastListener*);
+        void unregisterListener(BroadcastContentType);
+        void sendMessage(BroadcastContentType type, const ByteBuffer&);
 
         // IBbsReceiver
         virtual void OnMsg(proto::BbsMsg&&) override;
@@ -59,20 +55,22 @@ namespace beam
         static constexpr size_t m_maxMessageSize = 1024*1024*10;    // TODO: experimentally check
         static constexpr uint32_t m_bbsTimeWindow = 12*60*60;       // BBS message lifetime is 12 hours
 
-        static const std::vector<BbsChannel> m_bbsChannelsList;
-        static const std::map<ContentType, MsgType> m_messageTypeMapping;
+        static const std::vector<BbsChannel> m_incomingBbsChannels;
+        static const std::map<BroadcastContentType, BbsChannel> m_outgoingBbsChannelsMap;
+        static const std::map<BroadcastContentType, MsgType> m_messageTypeMap;
 
-        MsgType getMsgType(ContentType);
+        MsgType getMsgType(BroadcastContentType);
+        BbsChannel getBbsChannel(BroadcastContentType);
 
         proto::FlyClient::INetwork& m_bbsNetwork;
+        wallet::IWalletMessageEndpoint& m_bbsMessageEndpoint;
 
-        // TODO: create own MsgReader for each listener
+        // TODO: think about the creation of own MsgReader for each BBS channel
 
         Protocol m_protocol;
         MsgReader m_msgReader;
         Timestamp m_lastTimestamp;
-        std::map<ContentType, IBroadcastListener*> m_listeners;
-
+        std::map<BroadcastContentType, IBroadcastListener*> m_listeners;
     };
 
 } // namespace beam

@@ -23,21 +23,13 @@ namespace beam::wallet
      *  @messageEndpoint    outgoing messages destination
      *  @protocolHandler    offer board protocol handler
      */
-    SwapOffersBoard::SwapOffersBoard(BroadcastRouter& broadcastRouter,
-                                     IWalletMessageEndpoint& messageEndpoint,
+    SwapOffersBoard::SwapOffersBoard(IBroadcastMessagesGateway& broadcastGateway,
                                      OfferBoardProtocolHandler& protocolHandler)
-        :   m_broadcastRouter(broadcastRouter),
-            m_messageEndpoint(messageEndpoint),
+        :   m_broadcastGateway(broadcastGateway),
             m_protocolHandler(protocolHandler)
     {
-        m_broadcastRouter.registerListener(BroadcastRouter::ContentType::SwapOffers, this);
+        broadcastGateway.registerListener(BroadcastContentType::SwapOffers, this);
     }
-    const std::map<AtomicSwapCoin, BbsChannel> SwapOffersBoard::m_channelsMap =
-    {
-        {AtomicSwapCoin::Bitcoin, proto::Bbs::s_BtcSwapOffersChannel},
-        {AtomicSwapCoin::Litecoin, proto::Bbs::s_LtcSwapOffersChannel},
-        {AtomicSwapCoin::Qtum, proto::Bbs::s_QtumSwapOffersChannel}
-    };
 
     bool SwapOffersBoard::onMessage(uint64_t unused, ByteBuffer&& msg)
     {
@@ -219,13 +211,6 @@ namespace beam::wallet
         return offers;
     }
 
-    auto SwapOffersBoard::getChannel(AtomicSwapCoin coin) const -> BbsChannel
-    {
-        auto it = m_channelsMap.find(coin);
-        assert(it != std::cend(m_channelsMap));
-        return it->second;
-    }
-
     void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
     {
         auto swapCoin = offer.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
@@ -255,9 +240,7 @@ namespace beam::wallet
             LOG_WARNING() << offer.m_txId << " Offer has foreign Pk and will not be published.\n\t";
             return;
         }
-        WalletID dummyWId;
-        dummyWId.m_Channel = getChannel(*swapCoin);
-        m_messageEndpoint.SendRawMessage(dummyWId, *message);
+        m_broadcastGateway.sendMessage(BroadcastContentType::SwapOffers, *message);
     }
 
     /**
@@ -272,9 +255,7 @@ namespace beam::wallet
             LOG_WARNING() << offerID << " Offer has foreign Pk and will not be updated.\n\t";
             return;
         }
-        WalletID dummyWId;
-        dummyWId.m_Channel = getChannel(coin);
-        m_messageEndpoint.SendRawMessage(dummyWId, *message);
+        m_broadcastGateway.sendMessage(BroadcastContentType::SwapOffers, *message);
     }
     
     void SwapOffersBoard::Subscribe(ISwapOffersObserver* observer)

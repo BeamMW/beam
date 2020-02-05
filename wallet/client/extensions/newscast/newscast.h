@@ -17,8 +17,7 @@
 #include "news_message.h"
 #include "news_observer.h"
 #include "newscast_protocol_parser.h"
-
-#include "wallet/client/extensions/broadcast_router.h"
+#include "wallet/client/extensions/broadcast.h"
 
 using namespace beam::proto;
 
@@ -31,7 +30,7 @@ namespace beam::wallet
         : public IBroadcastListener
     {
     public:
-        Newscast(BroadcastRouter&, NewscastProtocolParser&);
+        Newscast(IBroadcastMessagesGateway&, NewscastProtocolParser&);
 
         /**
          *  IBroadcastListener implementation
@@ -44,7 +43,7 @@ namespace beam::wallet
         void Unsubscribe(INewsObserver* observer);
         
     private:
-		BroadcastRouter& m_broadcastRouter;                 /// source of incoming messages
+		IBroadcastMessagesGateway& m_broadcastGateway;
         NewscastProtocolParser& m_parser;                   /// news protocol parser
         std::vector<INewsObserver*> m_subscribers;          /// fresh news subscribers
 
