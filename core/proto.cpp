@@ -734,11 +734,8 @@ void NodeConnection::OnLoginInternal(Height hScheme, Login&& msg)
 	{
 		const uint32_t nMask = LoginFlags::ExtensionsAll;
 		uint32_t nFlags2 = nMask & msg.m_Flags;
-		if (nFlags2 != nMask)
-		{
+		if (nFlags2 != nMask) {
 			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << nFlags2;
-
-			hScheme = std::min(hScheme, Rules::get().pForks[1].m_Height - 1); // doesn't support extensions - must be before the 1st fork
 		}
 	}
 
@@ -1030,6 +1027,19 @@ void Event::Shielded::Dump(std::ostringstream& os) const
 {
     char ch = (Flags::Add & m_Flags) ? '+' : '-';
     os << ch << "Shielded Value=" << m_Value << ", TxoID=" << m_ID << ", Sender=" << m_Sender;
+}
+
+void Event::AssetCtl::Dump(std::ostringstream& os) const
+{
+    if (Flags::Add & m_Flags)
+        os << '+';
+    if (Flags::Delete & m_Flags)
+        os << '-';
+
+    os << "Asset MetaHash=" << m_Metadata.m_Hash;
+
+    if (m_EmissionChange)
+        os << ", Emit " << m_EmissionChange;
 }
 
 void Event::Legacy::Import(const Utxo& evt)

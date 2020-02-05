@@ -334,7 +334,8 @@ namespace proto {
 
 #define BeamEventsAll(macro) \
         macro(1, Utxo) \
-        macro(2, Shielded)
+        macro(2, Shielded) \
+        macro(3, AssetCtl)
 
 #define BeamEvent_Utxo(macro) \
         macro(uint8_t, Flags) \
@@ -352,6 +353,11 @@ namespace proto {
         macro(PeerID, Sender) \
         macro(ECC::uintBig, Message)
 
+#define BeamEvent_AssetCtl(macro) \
+        macro(uint8_t, Flags) \
+        macro(Asset::Metadata, Metadata) \
+        macro(AmountSigned, EmissionChange)
+
         struct Type {
             enum Enum {
 #define THE_MACRO(id, name) name = id,
@@ -363,6 +369,7 @@ namespace proto {
         struct Flags {
             static const uint8_t Add = 1; // otherwise it's spend
             static const uint8_t CreatedByViewer = 2; // releveant for shielded
+            static const uint8_t Delete = 2; // releveant for asset
         };
 
         struct Base
@@ -379,11 +386,11 @@ namespace proto {
         struct name \
             :public Base \
         { \
-            static const Type::Enum s_Type = Type::name; \
+            inline static const Type::Enum s_Type = Type::name; \
  \
-            virtual Type::Enum get_Type() const override { return s_Type; } \
+            Type::Enum get_Type() const override { return s_Type; } \
             virtual ~name() {} \
-            virtual void Dump(std::ostringstream&) const; \
+            void Dump(std::ostringstream&) const override; \
  \
             BeamEvent_##name(THE_MACRO_DECL) \
  \
