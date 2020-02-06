@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "aissue_tx_builder.h"
+#include "assets_kdf_utils.h"
 #include "core/block_crypt.h"
 #include "utility/logger.h"
 #include "wallet/core/strings_resources.h"
@@ -19,35 +20,15 @@
 
 namespace beam::wallet
 {
-    void GenerateRandom(void* p, uint32_t n)
-    {
-        for (uint32_t i = 0; i < n; i++)
-            ((uint8_t*) p)[i] = (uint8_t) rand();
-    }
-
-    void SetRandom(ECC::uintBig& x)
-    {
-        GenerateRandom(x.m_pData, x.nBytes);
-    }
-
-    void SetRandom(ECC::Scalar::Native& x)
-    {
-        ECC::Scalar s;
-        while (true)
-        {
-            SetRandom(s.m_Value);
-            if (!x.Import(s))
-                break;
-        }
-    }
-
     using namespace ECC;
     using namespace std;
 
     AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID)
         : m_Tx{tx}
         , m_SubTxID(subTxID)
+        , m_assetId(Asset::s_InvalidID)
         , m_assetOwnerIdx(0)
+        , m_assetOwnerId(0UL)
         , m_issue(issue)
         , m_AmountList{0}
         , m_Fee(0)
@@ -56,7 +37,7 @@ namespace beam::wallet
         , m_MinHeight(0)
         , m_MaxHeight(MaxHeight)
     {
-        m_Tx.get_MasterKdfStrict(); // test
+        auto masterKdf = m_Tx.get_MasterKdfStrict(); // can throw
 
         m_Fee = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, m_SubTxID);
         if (!m_Tx.GetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID))
@@ -66,35 +47,16 @@ namespace beam::wallet
 
         m_assetOwnerIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetOwnerIdx);
         m_assetId = m_Tx.GetMandatoryParameter<Asset::ID>(TxParameterID::AssetID, m_SubTxID);
-        if (m_assetOwnerIdx == 0 || m_assetId == 0)
+        if (m_assetOwnerIdx == 0 || m_assetId == Asset::s_InvalidID)
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
         }
-    }
 
-    bool AssetIssueTxBuilder::CreateInputs()
-    {
-        if (GetInputs() || GetInputCoins().empty())
+        m_assetOwnerId = GetAssetOwnerID(masterKdf, m_assetOwnerIdx);
+        if (m_assetOwnerId == Zero)
         {
-            return false;
+            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
         }
-
-        Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
-
-        m_Inputs.reserve(m_InputCoins.size());
-        for (const CoinID& cid : m_InputCoins)
-        {
-            m_Inputs.emplace_back();
-            m_Inputs.back().reset(new Input);
-
-            ECC::Scalar::Native sk;
-            CoinID::Worker(cid).Create(sk, m_Inputs.back()->m_Commitment, *cid.get_ChildKdf(pMasterKdf));
-
-            m_Offset += sk;
-        }
-
-        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
-        return false; // true if async operation has run
     }
 
     bool AssetIssueTxBuilder::GetInitialTxParams()
@@ -122,6 +84,31 @@ namespace beam::wallet
 
         m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
         return hasICoins || hasOCoins;
+    }
+
+    bool AssetIssueTxBuilder::CreateInputs()
+    {
+        if (GetInputs() || GetInputCoins().empty())
+        {
+            return false;
+        }
+
+        Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
+
+        m_Inputs.reserve(m_InputCoins.size());
+        for (const CoinID& cid : m_InputCoins)
+        {
+            m_Inputs.emplace_back();
+            m_Inputs.back().reset(new Input);
+
+            ECC::Scalar::Native sk;
+            CoinID::Worker(cid).Create(sk, m_Inputs.back()->m_Commitment, *cid.get_ChildKdf(pMasterKdf));
+
+            m_Offset += sk;
+        }
+
+        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
+        return false; // true if async operation has run
     }
 
     bool AssetIssueTxBuilder::LoadKernel()
@@ -171,9 +158,9 @@ namespace beam::wallet
         return tx;
     }
 
-    Amount AssetIssueTxBuilder::GetAmountBeam() const
+    Amount AssetIssueTxBuilder::GetTransactionAmount() const
     {
-        return m_issue ? std::accumulate(m_AmountList.begin(), m_AmountList.end(), 0ULL) : 0;
+        return std::accumulate(m_AmountList.begin(), m_AmountList.end(), 0ULL);
     }
 
     Amount AssetIssueTxBuilder::GetAmountAsset() const
@@ -231,6 +218,11 @@ namespace beam::wallet
          return m_assetId;
      }
 
+     PeerID AssetIssueTxBuilder::GetAssetOwnerId() const
+     {
+        return m_assetOwnerId;
+     }
+
     string AssetIssueTxBuilder::GetKernelIDString() const {
         Merkle::Hash kernelID;
         m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
@@ -249,7 +241,7 @@ namespace beam::wallet
         return m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs, m_SubTxID);
     }
 
-    void AssetIssueTxBuilder::SelectInputs()
+    void AssetIssueTxBuilder::SelectInputCoins()
     {
         CoinIDList preselIDs;
         vector<Coin> coins;
@@ -257,7 +249,7 @@ namespace beam::wallet
         Amount preselAmountBeam  = 0;
         Amount preselAmountAsset = 0;
 
-        auto isAssetCoin = [this](const Coin& coin) {
+        auto isAssetCoin = [this] (const Coin& coin) {
             return coin.m_ID.m_AssetID == m_assetId;
         };
 
@@ -275,7 +267,7 @@ namespace beam::wallet
             }
         }
 
-        Amount amountBeamWithFee = GetAmountBeam() + m_Fee;
+        Amount amountBeamWithFee = m_Fee; // for issue/consue BEAMs are only used for fees
         if (preselAmountBeam < amountBeamWithFee)
         {
             auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountBeamWithFee - preselAmountBeam, Zero);
@@ -398,57 +390,36 @@ namespace beam::wallet
         return *m_KernelID;
     }
 
-    void AssetIssueTxBuilder::CreateKernel()
+    bool AssetIssueTxBuilder::MakeKernel()
     {
         static_assert(std::is_same<decltype(m_Kernel->m_Value), int64_t>::value,
-                      "If this fails please update value in the ConsumeAmountTooBig's message and typecheck in this assert");
+                      "If this fails please update value in the ICAmountTooBig's message and typecheck in this assert");
 
-        assert(!m_Kernel);
-        if (!m_issue)
+        // Note, m_Kernel is still nullptr, do not don't anything except typecheks here
+        if (GetTransactionAmount() > (Amount)std::numeric_limits<decltype(m_Kernel->m_Value)>::max())
         {
-            // Note, m_Kernel is still nullptr, do not don't anything except typecheks here
-            // This should never happen, nobody would ever have so much asset/beams, but just in case
-            if (GetAmountAsset() > (Amount)std::numeric_limits<decltype(m_Kernel->m_Value)>::max())
-            {
-                throw TransactionFailedException(!m_Tx.IsInitiator(), ConsumeAmountTooBig);
-            }
+            throw TransactionFailedException(!m_Tx.IsInitiator(), ICAmountTooBig);
         }
 
+        assert(!m_Kernel);
         m_Kernel = make_unique<TxKernelAssetEmit>();
         m_Kernel->m_Fee          = m_Fee;
         m_Kernel->m_Height.m_Min = GetMinHeight();
         m_Kernel->m_Height.m_Max = m_MaxHeight;
         m_Kernel->m_Commitment   = Zero;
         m_Kernel->m_AssetID      = m_assetId;
-        m_Kernel->m_Value = m_issue ? GetAmountBeam() : -static_cast<AmountSigned>(GetAmountAsset());
-    }
+        m_Kernel->m_Owner        = m_assetOwnerId;
+        m_Kernel->m_Value        = m_issue ? GetTransactionAmount() : -static_cast<AmountSigned>(GetTransactionAmount());
 
-    void AssetIssueTxBuilder::SignKernel()
-    {
-        Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
-
-        m_Kernel->m_Commitment = Zero;
-        m_Kernel->UpdateMsg(); // use it as a seed for the next
-
-        ECC::Hash::Processor()
-            << m_Offset // indentifies all the in/outs
-            << m_Kernel->m_Msg
-            >> m_Kernel->m_Msg; // result
-
-        ECC::Scalar::Native skKrn, skAssetOwner;
-        pMasterKdf->DeriveKey(skKrn, m_Kernel->m_Msg);
-        pMasterKdf->DeriveKey(skAssetOwner, Key::ID(m_assetOwnerIdx, Key::Type::Asset));
-
-        proto::Sk2Pk(m_Kernel->m_Owner, skAssetOwner);
-
-        m_Kernel->Sign(skKrn, skAssetOwner);
-
-        skKrn = -skKrn;
-        m_Offset += skKrn;
-
+        auto masterKdf = m_Tx.get_MasterKdfStrict();
+        m_Offset = SignAssetKernel(masterKdf, m_InputCoins, m_OutputCoins, m_assetOwnerIdx, *m_Kernel);
         const Merkle::Hash& kernelID = m_Kernel->m_Internal.m_ID;
+
+        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID);
+
+        return false; // completed sync
     }
 }
 

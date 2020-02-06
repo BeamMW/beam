@@ -199,6 +199,7 @@ namespace beam::wallet
 
                 if (isSelfTx || !isSender)
                 {
+                    // TODO:ASSETS check if we need separate methods for Beam & Asset coins
                     // create receiver utxo
                     for (const auto& amount : builder.GetAmountList())
                     {

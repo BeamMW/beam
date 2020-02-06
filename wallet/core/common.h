@@ -32,6 +32,7 @@ namespace beam::wallet
         AssetConsume,
         AssetReg,
         AssetUnreg,
+        AssetInfo,
         ALL
     };
 
@@ -146,15 +147,17 @@ namespace beam::wallet
     MACRO(NoKeyKeeper,                   27, "Key keeper is not initialized") \
     MACRO(NoAssetId,                     28, "No valid asset owner id/asset owner idx") \
     MACRO(NoAssetInfo,                   29, "No asset info or asset info is not valid") \
-    MACRO(AssetConfirmFailed,            30, "Failed to receive asset confirmation") \
-    MACRO(AssetInUse,                    31, "Asset is still in use (issued amount > 0)") \
-    MACRO(AssetLocked,                   32, "Asset is still locked") \
-    MACRO(RegisterAmountTooSmall,        33, "Asset registration fee is too small") \
-    MACRO(ConsumeAmountTooBig,           34, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
-    MACRO(NotEnoughDataForProof,         35, "Some mandatory data for payment proof is missing") \
-    MACRO(NoMasterKey,                   36, "Master key is needed for this transaction, but unavailable") \
-    MACRO(KeyKeeperError,                37, "Key keeper malfunctioned") \
-    MACRO(KeyKeeperUserAbort,            38, "Aborted by the user")
+    MACRO(NoAssetMeta,                   30, "No asset metadata or asset metadata is not valid") \
+    MACRO(InvalidAssetId,                31, "Invalid asset id") \
+    MACRO(AssetConfirmFailed,            32, "Failed to receive asset confirmation") \
+    MACRO(AssetInUse,                    33, "Asset is still in use (issued amount > 0)") \
+    MACRO(AssetLocked,                   34, "Asset is still locked") \
+    MACRO(RegisterAmountTooSmall,        35, "Asset registration fee is too small") \
+    MACRO(ICAmountTooBig,                36, "Cannot issue/consume more than MAX_INT64 asset groth in one transaction") \
+    MACRO(NotEnoughDataForProof,         37, "Some mandatory data for payment proof is missing") \
+    MACRO(NoMasterKey,                   38, "Master key is needed for this transaction, but unavailable") \
+    MACRO(KeyKeeperError,                39, "Key keeper malfunctioned") \
+    MACRO(KeyKeeperUserAbort,            40, "Aborted by the user")
 
     enum TxFailureReason : int32_t
     {
@@ -263,6 +266,7 @@ namespace beam::wallet
 
         PeerLockImage = 115,
         AssetOwnerIdx = 116,
+        AssetMetadata = 117,
 
         // private parameters
         PrivateFirstParam = 128,
@@ -491,7 +495,7 @@ namespace beam::wallet
             , TxType txType = TxType::Simple
             , Amount amount = 0
             , Amount fee =0
-            , Asset::ID assetId = 0
+            , Asset::ID assetId = Asset::s_InvalidID
             , Height minHeight = 0
             , const WalletID & peerId = Zero
             , const WalletID& myId = Zero
@@ -534,7 +538,7 @@ namespace beam::wallet
         Amount m_fee = 0;
         Amount m_changeBeam = 0;
         Amount m_changeAsset = 0;
-        Asset::ID m_assetId = 0;
+        Asset::ID m_assetId = Asset::s_InvalidID;
         Key::Index m_assetOwnerIdx = 0;
         Height m_minHeight = 0;
         WalletID m_peerId = Zero;
@@ -624,6 +628,7 @@ namespace beam::wallet
         virtual void confirm_outputs(const std::vector<Coin>&) = 0;
         virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
         virtual void send_tx_params(const WalletID& peerID, const SetTxParameter&) = 0;
@@ -662,7 +667,7 @@ namespace beam::wallet
     {
         // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
         Amount m_Value;
-        Asset::ID m_AssetID = 0;
+        Asset::ID m_AssetID = Asset::s_InvalidID;
         ECC::Hash::Value m_KernelID;
         PeerID m_Sender;
 

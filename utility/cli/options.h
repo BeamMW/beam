@@ -179,10 +179,12 @@ namespace beam
         // assets
         extern const char* ASSET_ISSUE;
         extern const char* ASSET_CONSUME;
+        extern const char* ASSET_INFO;
         extern const char* ASSET_REGISTER;
         extern const char* ASSET_UNREGISTER;
         extern const char* ASSET_INDEX;
         extern const char* ASSET_ID;
+        extern const char* METADATA;
 
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;

@@ -60,7 +60,7 @@ namespace beam::wallet
             count
         };
 
-        explicit Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular, Asset::ID assetId = 0);
+        explicit Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular, Asset::ID assetId = Asset::s_InvalidID);
         bool operator==(const Coin&) const;
         bool operator!=(const Coin&) const;
         bool isReward() const;
@@ -402,7 +402,6 @@ namespace beam::wallet
         virtual Block::SystemState::IHistory& get_History() = 0;
         virtual void ShrinkHistory() = 0;
 
-        
         // ///////////////////////////////
         // Message management
         virtual std::vector<OutgoingWalletMessage> getWalletMessages() const = 0;
@@ -412,6 +411,10 @@ namespace beam::wallet
         virtual std::vector<IncomingWalletMessage> getIncomingWalletMessages() const = 0;
         virtual uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) = 0;
         virtual void deleteIncomingWalletMessage(uint64_t id) = 0;
+
+        // Assets management
+        virtual void saveAsset(const Asset::Full& info, Height refreshHeight = 0) = 0;
+        virtual boost::optional<Asset::Full> findAsset(Asset::ID) = 0;
 
        private:
            bool get_CommitmentSafe(ECC::Point& comm, const CoinID&, IPrivateKeyKeeper2*);
@@ -520,6 +523,9 @@ namespace beam::wallet
         std::vector<IncomingWalletMessage> getIncomingWalletMessages() const override;
         uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) override;
         void deleteIncomingWalletMessage(uint64_t id) override;
+
+        void saveAsset(const Asset::Full& info, Height refreshHeight = 0) override;
+        boost::optional<Asset::Full> findAsset(Asset::ID) override;
 
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);
@@ -668,7 +674,7 @@ namespace beam::wallet
         struct Totals
         {
             struct AssetTotals {
-                Asset::ID AssetId = 0;
+                Asset::ID AssetId = Asset::s_InvalidID;
                 Amount  Avail = 0;
                 Amount  Maturing = 0;
                 Amount  Incoming = 0;

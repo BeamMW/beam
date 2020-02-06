@@ -9,6 +9,7 @@ target_sources(assets
         aregister_transaction.cpp
         aunregister_tx_builder.cpp
         aunregister_transaction.cpp
+        ainfo_transaction.cpp
         assets_reg_creators.cpp
         assets_kdf_utils.cpp
 )

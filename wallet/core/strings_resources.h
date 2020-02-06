@@ -47,6 +47,7 @@ namespace beam
     extern const char kTxStatusConsumed[];
     extern const char kTxStatusRegistered[];
     extern const char kTxStatusUnregistered[];
+    extern const char kTxStatusInfoProvided[];
     extern const char kTxStatusExpired[];
     // Errors
     extern const char kErrorUnknownCoinStatus[];
@@ -215,8 +216,9 @@ namespace beam
     extern const char kPpRequired[];
 
     // Assets
-    extern const char kInvalidAssetID[];
     extern const char kErrorAssetIdxRequired[];
+    extern const char kErrorAssetIdRequired[];
+    extern const char kErrorAssetMetadataRequired[];
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT

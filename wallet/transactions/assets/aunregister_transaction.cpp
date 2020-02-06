@@ -79,7 +79,8 @@ namespace beam::wallet
             {
                 LOG_INFO() << GetTxID() << " Unregistering asset with the owner index "
                            << builder.GetAssetOwnerIdx()
-                           << ". Refund amount is " << PrintableAmount(Rules::get().CA.DepositForList, false);
+                           << ". Refund amount is " << PrintableAmount(Rules::get().CA.DepositForList, false)
+                           << " saving " << PrintableAmount(builder.GetFee(), false) << " transaction fee";
 
                 UpdateTxDescription(TxStatus::InProgress);
                 SetState(State::AssetCheck);
