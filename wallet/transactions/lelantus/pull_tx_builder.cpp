@@ -70,7 +70,7 @@ namespace beam::wallet::lelantus
 
         {
             TxoID windowEnd = startIndex + shieldedList.size();
-            Lelantus::Cfg cfg;
+            Lelantus::Cfg cfg = m_Tx.GetMandatoryParameter<Lelantus::Cfg>(TxParameterID::ShieldedInputCfg);
             TxKernelShieldedInput::Ptr pKrn(new TxKernelShieldedInput);
 
             pKrn->m_Fee = GetFee();

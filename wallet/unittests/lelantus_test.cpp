@@ -40,6 +40,22 @@ namespace
 {
     const AmountList kDefaultTestAmounts = { 5000, 2000, 1000, 9000 };
 
+    class ScopedGlobalRules
+    {
+    public:
+        ScopedGlobalRules()
+        {
+            m_rules = Rules::get();
+        }
+
+        ~ScopedGlobalRules()
+        {
+            Rules::get() = m_rules;
+        }
+    private:
+        Rules m_rules;
+    };
+
     void InitOwnNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver* observer, Key::IPKdf::Ptr ownerKey, uint16_t port = 32125, uint32_t powSolveTime = 1000, const std::string& path = "mytest.db", const std::vector<io::Address>& peers = {}, bool miningNode = true)
     {
         node.m_Keys.m_pOwner = ownerKey;
@@ -138,6 +154,7 @@ void TestSimpleTx()
                 .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                 .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                 .SetParameter(TxParameterID::WindowBegin, 0U)
+                .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{})
                 .SetParameter(TxParameterID::ShieldedOutputId, 1U)
                 .SetParameter(TxParameterID::CreateTime, getTimestamp());
 
@@ -155,6 +172,7 @@ void TestSimpleTx()
                 .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                 .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                 .SetParameter(TxParameterID::WindowBegin, 0U)
+                .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{})
                 .SetParameter(TxParameterID::ShieldedOutputId, 0U)
                 .SetParameter(TxParameterID::CreateTime, getTimestamp());
 
@@ -287,6 +305,115 @@ void TestManyTransactons()
     mainReactor->run();
 }
 
+void TestShortWindow()
+{
+    // save defaults
+    ScopedGlobalRules rules;
+
+    constexpr uint32_t kShieldedNMax = 64;
+    constexpr uint32_t kShieldedNMin = 16;
+    Rules::get().Shielded.NMax = kShieldedNMax;
+    Rules::get().Shielded.NMin = kShieldedNMin;
+    Rules::get().Shielded.MaxWindowBacklog = kShieldedNMax;
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    constexpr size_t kCount = 300;
+    constexpr size_t kSplitTxCount = 1;
+    constexpr size_t kExtractShieldedTxCount = 1;
+
+    int completedCount = kSplitTxCount + kCount + kExtractShieldedTxCount;
+    auto completeAction = [&mainReactor, &completedCount](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+        }
+    };
+
+    constexpr Amount kCoinAmount = 4000;
+    constexpr Amount kFee = 2000;
+    constexpr Amount kNominalCoin = kCoinAmount + kFee;
+    AmountList testAmount(kCount, kNominalCoin);
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+    // Coin for split TX
+    auto binaryTreasury = createTreasury(senderWalletDB, { (kCount + 1) * kNominalCoin });
+    TestWalletRig sender("sender", senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>();
+    sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pushTxCreator));
+
+    auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
+    sender.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pullTxCreator));
+
+    Node node;
+    NodeObserver observer([&]()
+        {
+            auto cursor = node.get_Processor().m_Cursor;
+            // create 300(kCount) coins(split TX)
+            if (cursor.m_Sid.m_Height == 3)
+            {
+                auto splitTxParameters = CreateSplitTransactionParameters(sender.m_WalletID, testAmount)
+                    .SetParameter(TxParameterID::Fee, Amount(kNominalCoin));
+
+                sender.m_Wallet.StartTransaction(splitTxParameters);
+            }
+            // insert 300(kCount) coins to shielded pool
+            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            {
+                for (size_t i = 0; i < kCount; i++)
+                {
+                    wallet::TxParameters parameters(GenerateTxID());
+
+                    parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
+                        .SetParameter(TxParameterID::Amount, kCoinAmount)
+                        .SetParameter(TxParameterID::Fee, kFee)
+                        .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                        .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                        .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                        .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+                    sender.m_Wallet.StartTransaction(parameters);
+                }
+            }
+            // extract one of first shielded UTXO
+            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 15)
+            {
+                wallet::TxParameters parameters(GenerateTxID());
+
+                parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
+                    .SetParameter(TxParameterID::IsSender, false)
+                    .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
+                    .SetParameter(TxParameterID::Fee, kFee)
+                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                    .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                    .SetParameter(TxParameterID::WindowBegin, 0U)
+                    .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{4, 3})
+                    .SetParameter(TxParameterID::ShieldedOutputId, 5U)
+                    .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+                sender.m_Wallet.StartTransaction(parameters);
+            }
+            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 30)
+            {
+                mainReactor->stop();
+            }
+        });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    auto txHistory = sender.m_WalletDB->getTxHistory(TxType::PullTransaction);
+
+    WALLET_CHECK(txHistory.size() == 1 && txHistory[0].m_status == TxStatus::Failed);
+    WALLET_CHECK(completedCount == 0);
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -301,6 +428,8 @@ int main()
     TestSimpleTx();
 
     /*TestManyTransactons();*/
+
+    TestShortWindow();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

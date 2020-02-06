@@ -2538,6 +2538,7 @@ namespace
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::WindowBegin, windowBegin)
+                    .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{})
                     .SetParameter(TxParameterID::ShieldedOutputId, shieldedId)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp()));
 
