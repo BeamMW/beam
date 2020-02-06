@@ -500,6 +500,135 @@ namespace
         WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
     }
 
+    void TestBbsDecrypt()
+    {
+        constexpr size_t AddressNum = 10000;
+        constexpr size_t MessageSize = 1024;
+        constexpr size_t ChannelsNum = 1;
+        constexpr size_t MessageNum = 10;
+        struct Address
+        {
+            ECC::Scalar::Native m_sk;
+            PeerID m_pk;
+        };
+
+        std::vector<Address> addresses;
+        addresses.reserve(AddressNum);
+
+        ECC::Key::IKdf::Ptr kdf, senderKdf;
+        ECC::HKdf::Create(kdf, unsigned(123));
+        ECC::HKdf::Create(senderKdf, unsigned(3256));
+
+        for (size_t i = 1; i < AddressNum +1; ++i)
+        {
+            ECC::Hash::Value v;
+            ECC::Hash::Processor() << i >> v;
+            auto& address = addresses.emplace_back();
+            kdf->DeriveKey(address.m_sk, v);
+            address.m_pk.FromSk(address.m_sk);
+        }
+
+        ByteBuffer message;
+        message.reserve(MessageSize);
+        std::generate_n(std::back_inserter(message), MessageSize, []() { return static_cast<uint8_t>(std::rand() % 255); });
+
+        {
+            cout << "Good messages...\n";
+            std::vector<ByteBuffer> messages;
+            messages.reserve(MessageNum);
+
+            for (const auto& addr : addresses)
+            {
+                ECC::NoLeak<ECC::Hash::Value> hvRandom;
+                ECC::GenRandom(hvRandom.V);
+
+                ECC::Scalar::Native nonce;
+                senderKdf->DeriveKey(nonce, hvRandom.V);
+
+                ByteBuffer& encryptedMessage = messages.emplace_back();
+                WALLET_CHECK(proto::Bbs::Encrypt(encryptedMessage, addr.m_pk, nonce, &message[0], static_cast<uint32_t>(message.size())));
+            }
+ 
+            cout << "starting...\n";
+            helpers::StopWatch sw;
+            sw.start();
+            for (size_t m = 0; m < MessageNum; ++m)
+            {
+                for (size_t c = 0; c < ChannelsNum; ++c)
+                {
+                    //bool decrypted = false;
+                    for (const auto& addr : addresses)
+                    {
+                        ByteBuffer buf = messages[m]; // duplicate
+                        uint8_t* pMsg = &buf.front();
+                        uint32_t nSize = static_cast<uint32_t>(buf.size());
+                        if (proto::Bbs::Decrypt(pMsg, nSize, addr.m_sk))
+                        {
+                         //   decrypted = true;
+                            break;
+                        }
+                    }
+                    //WALLET_CHECK(decrypted);
+                }
+            }
+            sw.stop();
+
+            cout << "SBBS elapsed time: " << sw.milliseconds() 
+                 << " ms\nAddress num: " << AddressNum 
+                 << "\nMessage count: " << MessageNum
+                 << "\nMessage size: " << MessageSize 
+                 << " bytes\nChannels num: " << ChannelsNum << '\n';
+        }
+
+        {
+            cout << "Bad messages...\n";
+
+            ECC::Hash::Value v;
+            ECC::Hash::Processor() << unsigned(2) << unsigned(63) >> v;
+            Address otherAddress;
+            kdf->DeriveKey(otherAddress.m_sk, v);
+            otherAddress.m_pk.FromSk(otherAddress.m_sk);
+
+            std::vector<ByteBuffer> messages;
+            messages.reserve(MessageNum);
+
+            for (size_t m = 0; m < MessageNum; ++m)
+            {
+                ECC::NoLeak<ECC::Hash::Value> hvRandom;
+                ECC::GenRandom(hvRandom.V);
+
+                ECC::Scalar::Native nonce;
+                senderKdf->DeriveKey(nonce, hvRandom.V);
+
+                ByteBuffer& encryptedMessage = messages.emplace_back();
+                WALLET_CHECK(proto::Bbs::Encrypt(encryptedMessage, otherAddress.m_pk, nonce, &message[0], static_cast<uint32_t>(message.size())));
+            }
+
+            helpers::StopWatch sw;
+            sw.start();
+            for (size_t m = 0; m < MessageNum; ++m)
+            {
+                for (size_t c = 0; c < ChannelsNum; ++c)
+                {
+                    for (const auto& addr : addresses)
+                    {
+                        ByteBuffer buf = messages[m]; // duplicate
+                        uint8_t* pMsg = &buf.front();
+                        uint32_t nSize = static_cast<uint32_t>(buf.size());
+                        WALLET_CHECK(!proto::Bbs::Decrypt(pMsg, nSize, addr.m_sk));
+                    }
+                }
+            }
+            sw.stop();
+
+            cout << "SBBS elapsed time: " << sw.milliseconds()
+                 << " ms\nAddress num: " << AddressNum
+                 << "\nMessage count: " << MessageNum
+                 << "\nMessage size: " << MessageSize
+                 << " bytes\nChannels num: " << ChannelsNum << '\n';
+        }
+    }
+
     void TestSplitTransaction()
     {
         cout << "\nTesting split Tx...\n";
@@ -2443,6 +2572,8 @@ int main()
     storage::HookErrors();
 
     TestKeyKeeper();
+
+    //TestBbsDecrypt();
 
     TestConvertions();
     TestTxParameters();
