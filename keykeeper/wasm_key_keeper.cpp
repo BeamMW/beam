@@ -44,7 +44,7 @@ struct KeyKeeper
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status" : status}
+            {"status", status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
@@ -63,7 +63,7 @@ struct KeyKeeper
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status" : status}
+            {"status", status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
@@ -71,7 +71,7 @@ struct KeyKeeper
             ByteBuffer buf(sizeof(ECC::HKdfPub::Packed), 0);
             method.m_pPKdf->ExportP(&buf[0]);
 
-            res.push_back({ "count": method.m_Count });
+            res.push_back({ "count", method.m_Count });
         }
         return res.dump();
     }
@@ -86,7 +86,7 @@ struct KeyKeeper
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status" : status}
+            {"status", status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
@@ -94,7 +94,7 @@ struct KeyKeeper
             ByteBuffer buf(sizeof(ECC::HKdfPub::Packed), 0);
             method.m_pPKdf->ExportP(&buf[0]);
 
-            res.push_back({ "result": to_base64(method.m_pResult) });
+            res.push_back({ "result", to_base64(method.m_pResult) });
         }
         return res.dump();
     }
@@ -118,14 +118,14 @@ struct KeyKeeper
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status" : status}
+            {"status", status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ "offset": to_base64(method.m_kOffset) });
-            res.push_back({ "payment_proof_sig": to_base64(method.m_PaymentProofSignature) });
-            res.push_back({ "sig": to_base64(method.m_pKernel->m_Signature) });
+            res.push_back({ "offset", to_base64(method.m_kOffset) });
+            res.push_back({ "payment_proof_sig", to_base64(method.m_PaymentProofSignature) });
+            res.push_back({ "sig", to_base64(method.m_pKernel->m_Signature) });
         }
         return res.dump();
     }
@@ -161,18 +161,17 @@ struct KeyKeeper
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
 
-            res.push_back({ "sig": to_base64(method.m_pKernel->m_Signature) });
+            res.push_back({ "sig", to_base64(method.m_pKernel->m_Signature) });
 
 
             if (userAgreement.empty())
             {
-                res.push_back({ "agreement": to_base64(method.m_UserAgreement) });
-                x.m_UserAgreement = from_base64<ECC::Hash::Value>(msg["agreement"]);
+                res.push_back({ "agreement", to_base64(method.m_UserAgreement) });,
             }
             else
             {
-                res.push_back({ "offset": to_base64(method.m_kOffset) });
-                res.push_back({ "payment_proof_sig": to_base64(method.m_PaymentProofSignature) });
+                res.push_back({ "offset", to_base64(method.m_kOffset) });
+                res.push_back({ "payment_proof_sig", to_base64(method.m_PaymentProofSignature) });
             }
         }
         return res.dump();
@@ -193,13 +192,13 @@ struct KeyKeeper
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status" : status}
+            {"status", status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ "offset": to_base64(method.m_kOffset) });
-            res.push_back({ "sig": to_base64(method.m_pKernel->m_Signature) });
+            res.push_back({ "offset", to_base64(method.m_kOffset) });
+            res.push_back({ "sig", to_base64(method.m_pKernel->m_Signature) });
         }
         return res.dump();
     }
@@ -220,7 +219,7 @@ struct KeyKeeper
     }
 
     // TODO: move to common place
-    static ECC::Key::IKdf CreateKdfFromSeed(const std::string& phrase)
+    static ECC::Key::IKdf::Ptr CreateKdfFromSeed(const std::string& phrase)
     {
         if (!IsValidPhrase(words))
             throw "Invalid seed phrase";
@@ -234,8 +233,6 @@ struct KeyKeeper
     }
 
 private:
-    Key::IKdf::Ptr _kdf;
-    IPrivateKeyKeeper::Ptr _impl;
     LocalPrivateKeyKeeperStd _impl2;
 };
 
@@ -257,13 +254,6 @@ EMSCRIPTEN_BINDINGS()
         KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
 
-        .function("generatePublicKey",      &KeyKeeper::GeneratePublicKey)
-        .function("generateCoinKey",        &KeyKeeper::GenerateCoinKey)
-        .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
-        .function("allocateNonceSlot",      &KeyKeeper::AllocateNonceSlotSync)
-        .function("generateNonce",          &KeyKeeper::GenerateNonce)
-        .function("generateOutput",         &KeyKeeper::GenerateOutput)
-        .function("sign",                   &KeyKeeper::Sign)
         .class_function("GeneratePhrase",   &KeyKeeper::GeneratePhrase)
         .class_function("IsAllowedWord",    &KeyKeeper::IsAllowedWord)
         .class_function("IsValidPhrase",    &KeyKeeper::IsValidPhrase)
