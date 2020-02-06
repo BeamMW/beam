@@ -117,7 +117,7 @@ struct KeyKeeper
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ "offset", to_base64(method.m_kOffset) });
+            res.push_back({ "offset", to_base64(ECC::Scalar(method.m_kOffset)) });
             res.push_back({ "payment_proof_sig", to_base64(method.m_PaymentProofSignature) });
             res.push_back({ "sig", to_base64(method.m_pKernel->m_Signature) });
         }
@@ -162,7 +162,7 @@ struct KeyKeeper
             }
             else
             {
-                res.push_back({ "offset", to_base64(method.m_kOffset) });
+                res.push_back({ "offset", to_base64(ECC::Scalar(method.m_kOffset)) });
                 res.push_back({ "payment_proof_sig", to_base64(method.m_PaymentProofSignature) });
             }
         }
@@ -189,7 +189,7 @@ struct KeyKeeper
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ "offset", to_base64(method.m_kOffset) });
+            res.push_back({ "offset", to_base64(ECC::Scalar(method.m_kOffset)) });
             res.push_back({ "sig", to_base64(method.m_pKernel->m_Signature) });
         }
         return res.dump();

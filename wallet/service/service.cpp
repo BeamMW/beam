@@ -1159,7 +1159,8 @@ namespace
                             }
                             else
                             {
-                                x.m_kOffset = from_base64<ECC::Scalar>(msg["offset"]);
+                                auto offset = from_base64<ECC::Scalar>(msg["offset"]);
+                                x.m_kOffset.Import(offset);
                                 x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
                             }
                         }
