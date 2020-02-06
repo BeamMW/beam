@@ -747,8 +747,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 18;
-        const int DbVersion17 = 17;
+        const int DbVersion   = 17;
+        //const int DbVersion17 = 17;
         const int DbVersion16 = 16;
         const int DbVersion15 = 15;
         const int DbVersion14 = 14;
@@ -1097,7 +1097,7 @@ namespace beam::wallet
         CreateTxParamsTable(db);
         CreateStatesTable(db);
         CreateLaserTables(db);
-        CreateAssetsTable(db);
+        //CreateAssetsTable(db);
     }
 
     std::shared_ptr<WalletDB>  WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -1545,10 +1545,10 @@ namespace beam::wallet
                     LOG_INFO() << "Converting DB from format 16...";
                     CreateLaserTables(walletDB->_db);
                     // no break;
-                case DbVersion17:
+                /*case DbVersion17:
                     LOG_INFO() << "Converting DB from format 17...";
                     CreateAssetsTable(walletDB->_db);
-                    // no break;
+                    // no break;*/
 
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
@@ -2803,7 +2803,7 @@ namespace beam::wallet
         stm.bind(2, info.m_Value);
         stm.bind(3, info.m_Owner);
         stm.bind(4, info.m_LockHeight);
-        stm.bind(5, info.m_Metadata);
+        stm.bind(5, info.m_Metadata.m_Value);
         stm.bind(6, refreshHeight ? refreshHeight : getCurrentHeight());
         stm.bind(7, false);
         stm.step();
@@ -2821,7 +2821,7 @@ namespace beam::wallet
         stmFind.get(1, info.m_Value);
         stmFind.get(2, info.m_Owner);
         stmFind.get(3, info.m_LockHeight);
-        stmFind.get(4, info.m_Metadata);
+        stmFind.get(4, info.m_Metadata.m_Value);
 
         assert(info.m_ID == assetId);
         return info;

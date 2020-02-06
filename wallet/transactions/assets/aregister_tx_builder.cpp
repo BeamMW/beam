@@ -314,11 +314,11 @@ namespace beam::wallet
         if (m_kernel) return false; // already created
 
         m_kernel = make_unique<TxKernelAssetCreate>();
-        m_kernel->m_Fee          = m_Fee;
-        m_kernel->m_Height.m_Min = GetMinHeight();
-        m_kernel->m_Height.m_Max = m_MaxHeight;
-        m_kernel->m_Commitment   = Zero;
-        m_kernel->m_MetaData     = toByteBuffer(m_Metadata);
+        m_kernel->m_Fee              = m_Fee;
+        m_kernel->m_Height.m_Min     = GetMinHeight();
+        m_kernel->m_Height.m_Max     = m_MaxHeight;
+        m_kernel->m_Commitment       = Zero;
+        m_kernel->m_MetaData.m_Value = toByteBuffer(m_Metadata);
 
         auto masterKdf = m_Tx.get_MasterKdfStrict();
         m_Offset = SignAssetKernel(masterKdf, m_InputCoins, m_OutputCoins, m_assetOwnerIdx, *m_kernel);
