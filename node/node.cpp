@@ -38,10 +38,10 @@ bool Node::SyncStatus::operator == (const SyncStatus& x) const
 
 void Node::SyncStatus::ToRelative(Height hDone0)
 {
-	hDone0 = std::min(hDone0, m_Done); // prevent overflow (though should not happen)
+	std::setmin(hDone0, m_Done); // prevent overflow (though should not happen)
 
 	assert(m_Total); // never 0, accounts at least for treasury
-	hDone0 = std::min(hDone0, m_Total - 1); // prevent "indefinite" situation where sync status is 0/0
+	std::setmin(hDone0, m_Total - 1); // prevent "indefinite" situation where sync status is 0/0
 
 	m_Done -= hDone0;
 	m_Total -= hDone0;
@@ -111,18 +111,18 @@ void Node::UpdateSyncStatusRaw()
 		{
 			assert(t.m_Key.first.m_Height);
 			// all the blocks up to this had been dloaded
-			hTotal = std::max(hTotal, t.m_sidTrg.m_Height);
-			hDoneHdrs = std::max(hDoneHdrs, t.m_sidTrg.m_Height);
-			hDoneBlocks = std::max(hDoneBlocks, t.m_Key.first.m_Height - 1);
+			std::setmax(hTotal, t.m_sidTrg.m_Height);
+			std::setmax(hDoneHdrs, t.m_sidTrg.m_Height);
+			std::setmax(hDoneBlocks, t.m_Key.first.m_Height - 1);
 		}
 		else
 		{
 			if (!t.m_pOwner)
 				continue; // don't account for unowned
 
-			hTotal = std::max(hTotal, t.m_sidTrg.m_Height);
+			std::setmax(hTotal, t.m_sidTrg.m_Height);
 			if (t.m_sidTrg.m_Height > t.m_Key.first.m_Height)
-				hDoneHdrs = std::max(hDoneHdrs, m_Processor.m_Cursor.m_ID.m_Height + t.m_sidTrg.m_Height - t.m_Key.first.m_Height);
+				std::setmax(hDoneHdrs, m_Processor.m_Cursor.m_ID.m_Height + t.m_sidTrg.m_Height - t.m_Key.first.m_Height);
 		}
 	}
 
@@ -136,8 +136,8 @@ void Node::UpdateSyncStatusRaw()
 	}
 
 	// corrections
-	hDoneHdrs = std::max(hDoneHdrs, hDoneBlocks);
-	hTotal = std::max(hTotal, hDoneHdrs);
+	std::setmax(hDoneHdrs, hDoneBlocks);
+	std::setmax(hTotal, hDoneHdrs);
 
 	// consider the timestamp of the tip, upon successful sync it should not be too far in the past
 	if (m_Processor.m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
@@ -158,7 +158,7 @@ void Node::UpdateSyncStatusRaw()
 
 			const uint32_t& trg_s = Rules::get().DA.Target_s;
 			if (trg_s)
-				hTotal = std::max(hTotal, m_Processor.m_Cursor.m_ID.m_Height + ts1_s / trg_s);
+				std::setmax(hTotal, m_Processor.m_Cursor.m_ID.m_Height + ts1_s / trg_s);
 		}
 
 	}
@@ -420,7 +420,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 		if (nPackSize > dh)
 			nPackSize = (uint32_t) dh;
 
-		nPackSize = std::min(nPackSize, proto::g_HdrPackMaxSize - m_nTasksPackHdr);
+		std::setmin(nPackSize, proto::g_HdrPackMaxSize - m_nTasksPackHdr);
 
         proto::GetHdrPack msg;
         msg.m_Top = t.m_Key.first;
@@ -556,7 +556,7 @@ void Node::Processor::DeleteOutdated()
 			continue;
 		Transaction& tx = *x.m_pValue;
 
-		if (!ValidateTxContext(tx, x.m_Threshold.m_Height, true))
+		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Threshold.m_Height, true))
 			txp.Delete(x);
 	}
 }
@@ -1627,7 +1627,7 @@ void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 	if (msg.m_Count)
 	{
 		// don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
-		msg.m_Count = std::min(msg.m_Count, proto::g_HdrPackMaxSize);
+		std::setmin(msg.m_Count, proto::g_HdrPackMaxSize);
 
 		NodeDB& db = m_This.m_Processor.get_DB();
 
@@ -2006,8 +2006,9 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
 		return proto::TxStatus::Invalid;
 
-	if (!m_Processor.ValidateTxContext(tx, ctx.m_Height, false))
-		return proto::TxStatus::InvalidContext;
+    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false);
+	if (proto::TxStatus::Ok != nCode)
+		return nCode;
 
 	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
 	{
@@ -2118,6 +2119,10 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 		// stupid compiler insists on parentheses here!
 		return proto::TxStatus::TooSmall;
 	}
+
+    if ((s.m_InputsShielded > Rules::get().Shielded.MaxIns) || (s.m_OutputsShielded > Rules::get().Shielded.MaxOuts)) {
+        return proto::TxStatus::LimitExceeded;
+    }
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
@@ -2565,7 +2570,7 @@ void Node::Dandelion::OnTimedOut(Element& x)
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
 {
-    return get_ParentObj().m_Processor.ValidateTxContext(tx, hr, true);
+    return proto::TxStatus::Ok == get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true);
 }
 
 void Node::Peer::OnLogin(proto::Login&& msg)
@@ -3017,8 +3022,7 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 	Processor& p = m_This.m_Processor;
 	if ((msg.m_Id0 < p.m_Extra.m_ShieldedOutputs) && msg.m_Count)
 	{
-		if (msg.m_Count > Lelantus::Cfg::Max::N)
-			msg.m_Count = Lelantus::Cfg::Max::N;
+        std::setmin(msg.m_Count, Rules::get().Shielded.NMax * 2); // no reason to ask for more
 
 		TxoID n = p.m_Extra.m_ShieldedOutputs - msg.m_Id0;
 
@@ -3150,7 +3154,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
     uint64_t id = db.BbsIns(wlk.m_Data);
     m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
 
-	m_This.m_Bbs.m_HighestPosted_s = std::max(m_This.m_Bbs.m_HighestPosted_s, msg.m_TimePosted);
+	std::setmax(m_This.m_Bbs.m_HighestPosted_s, msg.m_TimePosted);
 	m_This.m_Bbs.m_Totals.m_Count++;
 	m_This.m_Bbs.m_Totals.m_Size += wlk.m_Data.m_Message.n;
 
@@ -3448,6 +3452,21 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
     LOG_INFO() << "Block Finalized by owner";
 
     m_This.m_Miner.StartMining(std::move(pTask));
+}
+
+void Node::Peer::OnMsg(proto::GetStateSummary&& msg)
+{
+    Processor& p = m_This.m_Processor;
+
+    proto::StateSummary msgOut;
+    msgOut.m_TxoLo = p.m_Extra.m_TxoLo;
+    msgOut.m_Txos = p.m_Extra.m_Txos - p.m_Cursor.m_ID.m_Height; // by convention after each block there's an artificial gap in Txo counting
+    msgOut.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
+    msgOut.m_ShieldedIns = p.m_Mmr.m_Shielded.m_Count - p.m_Extra.m_ShieldedOutputs;
+    msgOut.m_AssetsMax = static_cast<Asset::ID>(p.m_Mmr.m_Assets.m_Count);
+    msgOut.m_AssetsActive = static_cast<Asset::ID>(p.get_DB().ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
+
+    Send(msgOut);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)

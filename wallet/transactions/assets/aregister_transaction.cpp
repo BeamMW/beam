@@ -184,11 +184,11 @@ namespace beam::wallet
         for (auto& coin : modified)
         {
             if (coin.m_createTxId == m_ID) {
-                coin.m_confirmHeight = std::min(coin.m_confirmHeight, kpHeight);
+                std::setmin(coin.m_confirmHeight, kpHeight);
                 coin.m_maturity = kpHeight + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
             }
             if (coin.m_spentTxId == m_ID) {
-                coin.m_spentHeight = std::min(coin.m_spentHeight, kpHeight);
+                std::setmin(coin.m_spentHeight, kpHeight);
             }
         }
 

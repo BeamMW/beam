@@ -1222,7 +1222,7 @@ public:
             {
                 cout << "Latency: " << float(latency) / 1000 << " s\n";
             }
-            m_MaxLatency = max(latency, m_MaxLatency);
+            setmax(m_MaxLatency, latency);
             accessEvent->post();
         });
         accessEvent->post();

@@ -180,12 +180,12 @@ namespace beam::wallet
             {
                 if (bIn)
                 {
-                    coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
+                    std::setmin(coin.m_confirmHeight, hProof);
                     coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
                 }
                 if (bOut)
                 {
-                    coin.m_spentHeight = std::min(coin.m_spentHeight, hProof);
+                    std::setmin(coin.m_spentHeight, hProof);
                 }
             }
         }
