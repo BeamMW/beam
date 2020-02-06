@@ -3033,6 +3033,7 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 		p.get_DB().ShieldedRead(msg.m_Id0, &msgOut.m_Items.front(), msg.m_Count);
 	}
 
+    msgOut.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
 	Send(msgOut);
 }
 

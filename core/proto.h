@@ -127,6 +127,7 @@ namespace proto {
     macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ShieldedList(macro) \
+    macro(TxoID, ShieldedOuts) \
     macro(std::vector<ECC::Point::Storage>, Items)
 
 #define BeamNodeMsg_ProofState(macro) \
