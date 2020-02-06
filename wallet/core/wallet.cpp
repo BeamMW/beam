@@ -695,7 +695,7 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestShieldedList& r)
     {
-        r.m_callback(r.m_Msg.m_Id0, r.m_Msg.m_Count, r.m_Res.m_Items);
+        r.m_callback(r.m_Msg.m_Id0, r.m_Msg.m_Count, r.m_Res);
     }
 
     void Wallet::OnRequestComplete(MyRequestProofShieldedInp& r)

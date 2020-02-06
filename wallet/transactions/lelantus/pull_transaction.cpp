@@ -154,7 +154,7 @@ namespace beam::wallet::lelantus
             TxoID windowBegin = GetMandatoryParameter<TxoID>(TxParameterID::WindowBegin);
             uint32_t windowSize = Lelantus::Cfg().get_N();
             
-            GetGateway().get_shielded_list(GetTxID(), windowBegin, windowSize, [this, weak = this->weak_from_this()](TxoID, uint32_t, proto::ShieldedList&& msg)
+            GetGateway().get_shielded_list(GetTxID(), windowBegin, windowSize, [this, weak = this->weak_from_this()](TxoID, uint32_t, proto::ShieldedList& msg)
             {
                 if (!weak.expired())
                 {
