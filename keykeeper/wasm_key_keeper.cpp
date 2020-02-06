@@ -68,9 +68,6 @@ struct KeyKeeper
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            ByteBuffer buf(sizeof(ECC::HKdfPub::Packed), 0);
-            method.m_pPKdf->ExportP(&buf[0]);
-
             res.push_back({ "count", method.m_Count });
         }
         return res.dump();
@@ -81,7 +78,7 @@ struct KeyKeeper
         IPrivateKeyKeeper2::Method::CreateOutput method;
 
         method.m_hScheme = scheme;
-        method.m_Cid = from_base64(cid);
+        method.m_Cid = from_base64<CoinID>(cid);
 
         auto status = _impl2.InvokeSync(method);
         json res =
@@ -91,9 +88,6 @@ struct KeyKeeper
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            ByteBuffer buf(sizeof(ECC::HKdfPub::Packed), 0);
-            method.m_pPKdf->ExportP(&buf[0]);
-
             res.push_back({ "result", to_base64(method.m_pResult) });
         }
         return res.dump();
@@ -149,7 +143,7 @@ struct KeyKeeper
         method.m_Peer = from_base64<PeerID>(peerID);
         method.m_MyIDKey = from_base64<WalletIDKey>(myIDKey);
         method.m_Slot = slot;
-        method.m_UserAgreement = from_base64<EÑÑ::Hash::Value>(userAgreement);
+        method.m_UserAgreement = from_base64<ECC::Hash::Value>(userAgreement);
         method.m_MyID = from_base64<PeerID>(myID);
 
         auto status = _impl2.InvokeSync(method);
@@ -219,12 +213,12 @@ struct KeyKeeper
     // TODO: move to common place
     static ECC::Key::IKdf::Ptr CreateKdfFromSeed(const std::string& phrase)
     {
-        if (!IsValidPhrase(words))
+        if (!IsValidPhrase(phrase))
             throw "Invalid seed phrase";
 
         Key::IKdf::Ptr kdf;
         ECC::NoLeak<ECC::uintBig> seed;
-        auto buf = beam::decodeMnemonic(string_helpers::split(words, ' '));
+        auto buf = beam::decodeMnemonic(string_helpers::split(phrase, ' '));
         ECC::Hash::Processor() << beam::Blob(buf.data(), (uint32_t)buf.size()) >> seed.V;
         ECC::HKdf::Create(kdf, seed.V);
         return kdf;
