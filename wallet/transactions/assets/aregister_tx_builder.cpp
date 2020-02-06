@@ -319,6 +319,7 @@ namespace beam::wallet
         m_kernel->m_Height.m_Max     = m_MaxHeight;
         m_kernel->m_Commitment       = Zero;
         m_kernel->m_MetaData.m_Value = toByteBuffer(m_Metadata);
+        m_kernel->m_MetaData.UpdateHash();
 
         auto masterKdf = m_Tx.get_MasterKdfStrict();
         m_Offset = SignAssetKernel(masterKdf, m_InputCoins, m_OutputCoins, m_assetOwnerIdx, *m_kernel);

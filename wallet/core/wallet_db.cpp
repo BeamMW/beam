@@ -747,8 +747,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 17;
-        //const int DbVersion17 = 17;
+        const int DbVersion   = 18;
+        const int DbVersion17 = 17;
         const int DbVersion16 = 16;
         const int DbVersion15 = 15;
         const int DbVersion14 = 14;
@@ -1097,7 +1097,7 @@ namespace beam::wallet
         CreateTxParamsTable(db);
         CreateStatesTable(db);
         CreateLaserTables(db);
-        //CreateAssetsTable(db);
+        CreateAssetsTable(db);
     }
 
     std::shared_ptr<WalletDB>  WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -1545,11 +1545,9 @@ namespace beam::wallet
                     LOG_INFO() << "Converting DB from format 16...";
                     CreateLaserTables(walletDB->_db);
                     // no break;
-                /*case DbVersion17:
+                case DbVersion17:
                     LOG_INFO() << "Converting DB from format 17...";
                     CreateAssetsTable(walletDB->_db);
-                    // no break;*/
-
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
                 case DbVersion:
@@ -2818,12 +2816,15 @@ namespace beam::wallet
 
         Asset::Full info;
         stmFind.get(0, info.m_ID);
+        assert(info.m_ID == assetId);
+
         stmFind.get(1, info.m_Value);
         stmFind.get(2, info.m_Owner);
         stmFind.get(3, info.m_LockHeight);
-        stmFind.get(4, info.m_Metadata.m_Value);
 
-        assert(info.m_ID == assetId);
+        stmFind.get(4, info.m_Metadata.m_Value);
+        info.m_Metadata.UpdateHash();
+
         return info;
     }
 
