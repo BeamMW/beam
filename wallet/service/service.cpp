@@ -21,6 +21,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <map>
+#include <queue>
 
 #include "utility/cli/options.h"
 #include "utility/helpers.h"
@@ -1002,7 +1003,8 @@ namespace
 
         class session;
 
-        class WasmKeyKeeperProxy : public IPrivateKeyKeeper
+        class WasmKeyKeeperProxy 
+            : public PrivateKeyKeeper_AsyncNotify
             , public std::enable_shared_from_this<WasmKeyKeeperProxy>
         {
             session& _s;
@@ -1014,286 +1016,190 @@ namespace
             {}
             virtual ~WasmKeyKeeperProxy(){}
 
-            Key::IKdf::Ptr get_SbbsKdf() const override
-            {
-                if (!_sbbsKdf)
-                {
-                    // !TODO: temporary solution to init SBBS KDF with commitment
-                    auto pk = GenerateCoinKeySyncConst(CoinID(0, 0, Key::Type::Regular));
-
-                    ECC::HKdf::Create(_sbbsKdf, pk.m_X);
-                }
-                
-                return _sbbsKdf;
-            }
-
-            void subscribe(Handler::Ptr handler) override
-            {
-                assert(!"not implemented.");
-            }
-
-        private:
-            void GeneratePublicKeys(const std::vector<CoinID>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override
-            {
-                assert(!"not implemented.");
-            }
-
-            void GenerateOutputs(Height schemeHeight, const std::vector<CoinID>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override
-            {
-                using namespace std;
-
-                // TODO: this works synchronously only
-                resultCallback(GenerateOutputsSync(schemeHeight, ids));
-            }
-
-            void SignReceiver(const std::vector<CoinID>& inputs
-                , const std::vector<CoinID>& outputs
-                , const KernelParameters& kernelParamerters
-                , const WalletIDKey& walletIDkey
-                , Callback<ReceiverSignature>&&, ExceptionCallback&&) override
-            {
-                assert(!"not implemented.");
-            }
-
-            void SignSender(const std::vector<CoinID>& inputs
-                , const std::vector<CoinID>& outputs
-                , size_t nonceSlot
-                , const KernelParameters& kernelParamerters
-                , bool initial
-                , Callback<SenderSignature>&&, ExceptionCallback&&) override
-            {
-                assert(!"not implemented.");
-            }
-
-            size_t AllocateNonceSlotSync() override
-            {
-                json msg = 
-                {
-                    {JsonRpcHrd, JsonRpcVerHrd},
-                    {"id", 0},
-                    {"method", "allocate_nonce_slot"}
-                };
-
-                size_t slot = 0;
-                _s.call_keykeeper_method(msg, [&slot](const json& msg)
-                {
-                    slot = msg["result"];
-                });
-
-                return slot;
-            }
-
-            PublicKeys GeneratePublicKeysSync(const std::vector<CoinID>& ids, bool createCoinKey) override
-            {
-                // !TODO: must be implemented as separate method, too many websocket calls
-
-                PublicKeys result;
-                result.reserve(ids.size());
-
-                for (const auto& cid : ids)
-                {
-                    ECC::Point& publicKey = result.emplace_back();
-                    if (createCoinKey)
-                    {
-                        publicKey = GenerateCoinKeySync(cid);
-                    }
-                    else
-                    {
-                        ECC::Hash::Value hv;
-                        cid.get_Hash(hv);
-                        publicKey = GeneratePublicKeySync(hv);
-                    }
-                }
-
-                return result;
-            }
-
-            ECC::Point GeneratePublicKeySync(const ECC::uintBig& id) override
-            {
-                json msg = 
-                {
-                    {JsonRpcHrd, JsonRpcVerHrd},
-                    {"id", 0},
-                    {"method", "generate_key"},
-                    {"params", 
-                    {
-                        {"id", to_base64(id)}
-                    }}
-                };
-
-                ECC::Point pk;
-
-                _s.call_keykeeper_method(msg, [&pk](const json& msg)
-                {
-                    pk = from_base64<ECC::Point>(msg["result"]);
-                });
-
-                return pk;
-            }
-
-            ECC::Point GenerateCoinKeySync(const CoinID& id) override
-            {
-                return GenerateCoinKeySyncConst(id);
-            }
-
-            // HACK
-            ECC::Point GenerateCoinKeySyncConst(const CoinID& id) const
+            void InvokeAsync(Method::get_Kdf& x, const Handler::Ptr& h) override
             {
                 json msg =
                 {
                     {JsonRpcHrd, JsonRpcVerHrd},
                     {"id", 0},
-                    {"method", "generate_key"},
+                    {"method", "get_kdf"},
                     {"params",
-                    {
-                        {"id", to_base64(id)}
-                    }}
-                };
-
-                ECC::Point pk;
-
-                _s.call_keykeeper_method(msg, [&pk](const json& msg)
-                    {
-                        pk = from_base64<ECC::Point>(msg["result"]);
-                    });
-
-                return pk;
-            }
-
-            Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<CoinID>& ids) override
-            {
-                // !TODO: must be implemented as separate method, too many websocket calls
-
-                Outputs outputs;
-                outputs.reserve(ids.size());
-
-                for (const auto& cid : ids)
-                {
-                    auto& output = outputs.emplace_back(std::make_unique<Output>());
-
-                    json msg = 
-                    {
-                        {JsonRpcHrd, JsonRpcVerHrd},
-                        {"id", 0},
-                        {"method", "generate_output"},
-                        {"params", 
                         {
-                            {"scheme", to_base64(schemeHeigh)},
-                            {"id", to_base64(cid)}
-                        }}
-                    };
+                            {"root", x.m_Root},
+                            {"child_key_num", x.m_iChild}
+                        }
+                    }
+                };
 
-                    _s.call_keykeeper_method(msg, [&output](const json& msg)
+                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
-                        output = from_base64<Output::Ptr>(msg["result"]);
+                        Status::Type s = msg["status"];
+                        if (s == Status::Success)
+                        {
+                            ByteBuffer buf = from_base64<ByteBuffer>(msg["kdf_pub"]);
+                            ECC::HKdfPub::Packed* packed = reinterpret_cast<ECC::HKdfPub::Packed*>(&buf[0]);
+                        
+                            auto pubKdf = std::make_shared<ECC::HKdfPub>();
+                            pubKdf->Import(*packed);
+                            x.m_pPKdf = pubKdf;
+                        }
+                        PushOut(s, h);
                     });
-                }
-
-                return outputs;
             }
 
-            ECC::Point GenerateNonceSync(size_t slot) override
+            void InvokeAsync(Method::get_NumSlots& x, const Handler::Ptr& h) override
             {
-                json msg = 
+                json msg =
                 {
                     {JsonRpcHrd, JsonRpcVerHrd},
                     {"id", 0},
-                    {"method", "generate_nonce"},
-                    {"params", 
-                    {
-                        {"slot", slot},
-                    }}
+                    {"method", "get_slots"}
                 };
 
-                ECC::Point nonce;
-
-                _s.call_keykeeper_method(msg, [&nonce](const json& msg)
+                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                 {
-                    nonce = from_base64<ECC::Point>(msg["result"]);
+                    Status::Type s = msg["status"];
+                    if (s == Status::Success)
+                    {
+                        x.m_Count = msg["count"];
+                    }
+                    PushOut(s, h);
                 });
-
-                return nonce;
             }
-/*
-            ECC::Scalar SignSync(const std::vector<CoinID>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offsetNative, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonceNative) override
+
+            void InvokeAsync(Method::CreateOutput& x, const Handler::Ptr& h) override
             {
-                ECC::Scalar offset;
-                offsetNative.Export(offset);
-
-                ECC::Point publicNonce;
-                publicNonceNative.Export(publicNonce);
-
-                json msg = 
+                json msg =
                 {
                     {JsonRpcHrd, JsonRpcVerHrd},
                     {"id", 0},
-                    {"method", "sign"},
-                    {"params", 
-                    {
-                        {"inputs", to_base64(inputs)},
-                        {"outputs", to_base64(outputs)},
-                        {"offset", to_base64(offset)},
-                        {"slot", nonceSlot},
-                        {"kernel_parameters", to_base64(kernelParamerters)},
-                        {"public_nonce", to_base64(publicNonce)},
-                    }}
+                    {"method", "create_output"},
+                    {"params",
+                        {
+                            {"scheme", x.m_hScheme},
+                            {"id", to_base64(x.m_Cid)}
+                        }
+                    }
                 };
 
-                ECC::Scalar sign;
+                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
+                    {
+                        Status::Type s = msg["status"];
+                        if (s == Status::Success)
+                        {
+                            x.m_pResult = from_base64<Output::Ptr>(msg["result"]);
+                        }
+                        PushOut(s, h);
+                    });
+            }
 
-                _s.call_keykeeper_method(msg, [&sign](const json& msg)
+            void InvokeAsync(Method::SignReceiver& x, const Handler::Ptr& h) override
+            {
+                json msg =
                 {
-                    sign = from_base64<ECC::Scalar>(msg["result"]);
-                });
+                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {"id", 0},
+                    {"method", "sign_receiver"},
+                    {"params",
+                        {
+                            {"inputs",    to_base64(x.m_vInputs)},
+                            {"outputs",   to_base64(x.m_vOutputs)},
+                            {"kernel",    to_base64(x.m_pKernel)},
+                            {"non_conv",  x.m_NonConventional},
+                            {"peer_id",   to_base64(x.m_Peer)},
+                            {"my_id_key", to_base64(x.m_MyIDKey)}
+                        }
+                    }
+                };
 
-                return sign;
-            }
-*/
-            ReceiverSignature SignReceiverSync(const std::vector<CoinID>& inputs
-                , const std::vector<CoinID>& outputs
-                , const KernelParameters& kernelParamerters
-                , const WalletIDKey& walletIDkey) override
-            {
-                assert(!"not implemented.");
-                return ReceiverSignature{};
-            }
-            SenderSignature SignSenderSync(const std::vector<CoinID>& inputs
-                , const std::vector<CoinID>& outputs
-                , size_t nonceSlot
-                , const KernelParameters& kernelParamerters
-                , bool initial) override
-            {
-                assert(!"not implemented.");
-                return {};
-            }
-
-            AssetSignature SignAssetKernelSync(const std::vector<CoinID>& inputs,
-                const std::vector<CoinID>& outputs,
-                Amount fee,
-                Key::Index assetOwnerIdx,
-                TxKernelAssetControl& kernel) override
-            {
-                assert(!"not implemented.");
-                return AssetSignature{};
+                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
+                    {
+                        Status::Type s = msg["status"];
+                        if (s == Status::Success)
+                        {
+                            x.m_kOffset = from_base64<ECC::Scalar>(msg["offset"]);
+                            x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
+                            x.m_pKernel->m_Signature = from_base64<ECC::Signature>(msg["sig"]);
+                        }
+                        PushOut(s, h);
+                    });
             }
 
-            void SignAssetKernel(const std::vector<CoinID>& inputs,
-                const std::vector<CoinID>& outputs,
-                Amount fee,
-                Key::Index assetOwnerIdx,
-                TxKernelAssetControl& kernel,
-                Callback<AssetSignature>&&,
-                ExceptionCallback&&) override
+            void InvokeAsync(Method::SignSender& x, const Handler::Ptr& h) override
             {
-                assert(!"not implemented.");
-                return;
+                json msg =
+                {
+                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {"id", 0},
+                    {"method", "sign_sender"},
+                    {"params",
+                        {
+                            {"inputs",    to_base64(x.m_vInputs)},
+                            {"outputs",   to_base64(x.m_vOutputs)},
+                            {"kernel",    to_base64(x.m_pKernel)},
+                            {"non_conv",  x.m_NonConventional},
+                            {"peer_id",   to_base64(x.m_Peer)},
+                            {"my_id_key", to_base64(x.m_MyIDKey)},
+                            {"slot",      x.m_Slot},
+                            {"agreement", to_base64(x.m_UserAgreement)},
+                            {"my_id",     to_base64(x.m_MyID)}
+                        }
+                    }
+                };
+
+                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
+                    {
+                        Status::Type s = msg["status"];
+                        if (s == Status::Success)
+                        {
+                            x.m_pKernel->m_Signature = from_base64<ECC::Signature>(msg["sig"]);
+                            if (x.m_UserAgreement == Zero)
+                            {
+                                x.m_UserAgreement = from_base64<ECC::Hash::Value>(msg["agreement"]);
+                            }
+                            else
+                            {
+                                x.m_kOffset = from_base64<ECC::Scalar>(msg["offset"]);
+                                x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
+                            }
+                        }
+                        PushOut(s, h);
+                    });
             }
 
-            PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override
+            void InvokeAsync(Method::SignSplit& x, const Handler::Ptr& h) override
             {
-                assert(!"not implemented.");
-                return {};
+                json msg =
+                {
+                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {"id", 0},
+                    {"method", "sign_split"},
+                    {"params",
+                        {
+                            {"inputs",   to_base64(x.m_vInputs)},
+                            {"outputs",  to_base64(x.m_vOutputs)},
+                            {"kernel",   to_base64(x.m_pKernel)},
+                            {"non_conv", x.m_NonConventional}
+                        }
+                    }
+                };
+
+                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
+                    {
+                        Status::Type s = msg["status"];
+                        if (s == Status::Success)
+                        {
+                            x.m_kOffset = from_base64<ECC::Scalar>(msg["offset"]);
+                            x.m_pKernel->m_Signature = from_base64<ECC::Signature>(msg["sig"]);
+                        }
+                        PushOut(s, h);
+                    });
             }
+
+         //   void subscribe(Handler::Ptr handler) override
+         //   {
+         //       assert(!"not implemented.");
+         //   }
 
         private:
             mutable Key::IKdf::Ptr _sbbsKdf;
@@ -1779,7 +1685,7 @@ namespace
                 if(ks.Import(*ownerKdf))
                 {
                     auto dbName = generateUid();
-                    IWalletDB::Ptr walletDB = WalletDB::init(dbName + ".db", SecString(data.pass), /*_keyKeeper*/nullptr);
+                    IWalletDB::Ptr walletDB = WalletDB::init(dbName + ".db", SecString(data.pass), _keyKeeper);
 
                     if(walletDB)
                     {
@@ -1935,7 +1841,7 @@ namespace
             IWalletDB::Ptr _walletDB;
             std::unique_ptr<Wallet> _wallet;
             WalletApi _api;
-            IPrivateKeyKeeper::Ptr _keyKeeper;
+            IPrivateKeyKeeper2::Ptr _keyKeeper;
         };
 
         class session : 
@@ -2016,6 +1922,7 @@ namespace
             using KeyKeeperFunc = std::function<void(const json&)>;
 
             boost::optional<KeyKeeperFunc> _awaitingResponse;
+            std::queue<KeyKeeperFunc> _keeperCallbacks;
 
             // void
             // do_keykeeper_read(KeyKeeperFunc func)
@@ -2054,6 +1961,25 @@ namespace
 
                 while(!done)
                     reactorRunOnce();
+            }
+
+            void call_keykeeper_method_async(const json& msg, KeyKeeperFunc func)
+            {
+                std::string contents = msg.dump();
+
+                _keeperCallbacks.push(func);
+
+                ws_.text(ws_.got_text());
+                ws_.async_write(
+                    boost::asio::buffer(contents),
+                    boost::asio::bind_executor(
+                        ws_.get_executor(),
+                        std::bind(
+                            &session::on_keykeeper_write,
+                            shared_from_this(),
+                            std::placeholders::_1,
+                            std::placeholders::_2, []() {})));
+
             }
 
             void call_keykeeper_method(const json& msg, KeyKeeperFunc func)
@@ -2128,13 +2054,11 @@ namespace
 
                             if(existsJsonParam(msg, "result"))
                             {
-                                // here is Key Keeper result
-                                if(_awaitingResponse)
-                                {
-                                    (*_awaitingResponse)(msg);
-                                    _awaitingResponse.reset();
-                                }
-                                //else assert(false);
+                                if (_keeperCallbacks.empty())
+                                    return;
+
+                                _keeperCallbacks.front()(msg);
+                                _keeperCallbacks.pop();
                             }
                             else if(!systemIsBusy)
                             {
