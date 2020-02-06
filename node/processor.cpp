@@ -59,7 +59,7 @@ void NodeProcessor::Horizon::SetStdFastSync()
 
 void NodeProcessor::Horizon::Normalize()
 {
-	std::setmax(m_Branching, 1);
+	std::setmax(m_Branching, Height(1));
 
 	Height r = Rules::get().MaxRollback;
 
