@@ -17,10 +17,33 @@
 #include <sstream>
 #include "block_crypt.h"
 #include "serialization_adapters.h"
-#include "logger.h"
 
 namespace beam
 {
+	/////////////
+	// PeerID
+	bool PeerID::ExportNnz(ECC::Point::Native& pt) const
+	{
+		ECC::Point pk;
+		pk.m_X = Cast::Down<ECC::uintBig>(*this);
+		pk.m_Y = 0;
+
+		return pt.ImportNnz(pk);
+	}
+
+	bool PeerID::Import(const ECC::Point::Native& pt)
+	{
+		ECC::Point pk = pt;
+		*this = pk.m_X;
+		return !pk.m_Y;
+	}
+
+	void PeerID::FromSk(ECC::Scalar::Native& sk)
+	{
+		ECC::Point::Native pt = ECC::Context::get().G * sk;
+		if (!Import(pt))
+			sk = -sk;
+	}
 
 	/////////////
 	// HeightRange
@@ -32,8 +55,8 @@ namespace beam
 
 	void HeightRange::Intersect(const HeightRange& x)
 	{
-		m_Min = std::max(m_Min, x.m_Min);
-		m_Max = std::min(m_Max, x.m_Max);
+		std::setmax(m_Min, x.m_Min);
+		std::setmin(m_Max, x.m_Max);
 	}
 
 	bool HeightRange::IsEmpty() const
@@ -886,14 +909,10 @@ namespace beam
 
 		exc += pPt[0];
 
-		if (m_Owner == Zero)
+		if (!m_Owner.ExportNnz(pPt[1]))
 			return false;
 
-		ECC::Point pkOwner;
-		pkOwner.m_X = m_Owner;
-		pkOwner.m_Y = 0;
-		if (!pPt[1].Import(pkOwner))
-			return false;
+		assert(m_Owner != Zero); // the above ensures this
 
 		// prover must prove knowledge of excess AND m_AssetID sk
 		return m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt);
@@ -907,7 +926,7 @@ namespace beam
 		m_Owner = v.m_Owner;
 	}
 
-	void TxKernelAssetControl::Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
+	void TxKernelAssetControl::Sign_(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
 	{
 		m_Commitment = ECC::Context::get().G * sk;
 		UpdateMsg();
@@ -917,6 +936,16 @@ namespace beam
 		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pSk, &res);
 
 		MsgToID();
+	}
+
+	void TxKernelAssetControl::Sign(const ECC::Scalar::Native& sk, Key::IKdf& kdf, const Asset::Metadata& md)
+	{
+		ECC::Scalar::Native skAsset;
+		kdf.DeriveKey(skAsset, md.m_Hash);
+
+		m_Owner.FromSk(skAsset);
+
+		Sign_(sk, skAsset);
 	}
 
 	/////////////
@@ -973,7 +1002,7 @@ namespace beam
 		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
 			return false;
 
-		if (m_MetaData.size() > Asset::Info::s_MetadataMaxSize)
+		if (m_MetaData.m_Value.size() > Asset::Info::s_MetadataMaxSize)
 			return false;
 
 		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
@@ -994,9 +1023,12 @@ namespace beam
 	void TxKernelAssetCreate::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
 		TxKernelAssetControl::HashSelfForMsg(hp);
-		hp
-			<< m_MetaData.size()
-			<< Blob(m_MetaData);
+		hp << m_MetaData.m_Hash;
+	}
+
+	void TxKernelAssetCreate::Sign(const ECC::Scalar::Native& sk, Key::IKdf& kdf)
+	{
+		TxKernelAssetControl::Sign(sk, kdf, m_MetaData);
 	}
 
 	/////////////
@@ -2290,12 +2322,12 @@ namespace beam
 		m_Value = Zero;
 		m_Owner = Zero;
 		m_LockHeight = 0;
-		m_Metadata.clear();
+		m_Metadata.Reset();
 	}
 
 	bool Asset::Info::IsEmpty() const
 	{
-	    return m_Value == Zero && m_Owner == Zero && m_LockHeight == Zero && m_Metadata.size() == 0;
+	    return m_Value == Zero && m_Owner == Zero && m_LockHeight == Zero && m_Metadata.m_Value.empty();
 	}
 
 	bool Asset::Info::IsValid() const
@@ -2311,9 +2343,44 @@ namespace beam
 			<< m_Value
 			<< m_Owner
 			<< m_LockHeight
-			<< m_Metadata.size()
-			<< Blob(m_Metadata)
+			<< m_Metadata.m_Hash
 			>> hv;
+	}
+
+	void Asset::Metadata::Reset()
+	{
+		m_Value.clear();
+		UpdateHash();
+	}
+
+	void Asset::Metadata::UpdateHash()
+	{
+		if (m_Value.empty())
+		{
+			m_Hash = Zero;
+		}
+		else
+		{
+			ECC::Hash::Processor()
+				<< "B.AssetMeta"
+				<< m_Value.size()
+				<< Blob(m_Value)
+				>> m_Hash;
+		}
+	}
+
+	void Asset::Metadata::get_Owner(PeerID& res, Key::IPKdf& pkdf) const
+	{
+		ECC::Point::Native pt;
+		pkdf.DerivePKeyG(pt, m_Hash);
+		res.Import(pt);
+	}
+
+	bool Asset::Info::Recognize(Key::IPKdf& pkdf) const
+	{
+		PeerID pid;
+		m_Metadata.get_Owner(pid, pkdf);
+		return pid == m_Owner;
 	}
 
 	const ECC::Point::Compact& Asset::Proof::get_H()

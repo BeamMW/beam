@@ -210,7 +210,7 @@ namespace beam::wallet
         {
             if (coin.m_createTxId == m_ID)
             {
-                coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
+                std::setmin(coin.m_confirmHeight, hProof);
                 coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
             }
             else

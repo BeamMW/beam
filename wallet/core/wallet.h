@@ -186,11 +186,11 @@ namespace beam::wallet
         void UpdateOnSynced(BaseTransaction::Ptr tx);
         void UpdateOnNextTip(BaseTransaction::Ptr tx);
         void saveKnownState();
-        void RequestUtxoEvents();
-        void AbortUtxoEvents();
-        void ProcessUtxoEvent(const CoinID&, Height h, Height hMaturity, bool bAdd);
-        void SetUtxoEventsHeight(Height);
-        Height GetUtxoEventsHeightNext();
+        void RequestEvents();
+        void AbortEvents();
+        void ProcessEventUtxo(const CoinID&, Height h, Height hMaturity, bool bAdd);
+        void SetEventsHeight(Height);
+        Height GetEventsHeightNext();
 
         BaseTransaction::Ptr GetTransaction(const WalletID& myID, const SetTxParameter& msg);
         BaseTransaction::Ptr ConstructTransaction(const TxID& id, TxType type);
@@ -203,7 +203,7 @@ namespace beam::wallet
 
     private:
 
-        static const char s_szNextUtxoEvt[];
+        static const char s_szNextEvt[];
 
 // The following macros define
 // Wallet to Node messages (requests) to get update on blockchain state
@@ -213,7 +213,7 @@ namespace beam::wallet
 #define REQUEST_TYPES_Sync(macro) \
         macro(Utxo) \
         macro(Kernel) \
-        macro(UtxoEvents)
+        macro(Events)
 
         struct AllTasks {
 #define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };

@@ -287,7 +287,7 @@ namespace
             SwapOfferConfirmation confirmation;
             kdf->DeriveKey(sk, ECC::Key::ID(wa.m_OwnID, Key::Type::Bbs));
             PeerID generatedPk;
-            proto::Sk2Pk(generatedPk, sk);
+            generatedPk.FromSk(sk);
             confirmation.m_offerData = msg;
             confirmation.Sign(sk);
 
@@ -325,7 +325,7 @@ namespace
             SwapOfferConfirmation confirmation;
             kdf->DeriveKey(sk, ECC::Key::ID(wa.m_OwnID, Key::Type::Bbs));
             PeerID generatedPk;
-            proto::Sk2Pk(generatedPk, sk);
+            generatedPk.FromSk(sk);
             confirmation.m_offerData = msg;
             confirmation.Sign(sk);
 
@@ -359,7 +359,7 @@ namespace
             SwapOfferConfirmation confirmation;
             kdf->DeriveKey(sk, ECC::Key::ID(wa.m_OwnID, Key::Type::Bbs));
             PeerID generatedPk;
-            proto::Sk2Pk(generatedPk, sk);
+            generatedPk.FromSk(sk);
             confirmation.m_offerData = msg;
             confirmation.Sign(sk);
 

@@ -91,8 +91,8 @@ public:
         return ret;
     }
     bool findCoin(Coin& coin) override { return false; }
-    std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
-    std::vector<Coin> getCoinsByID(const CoinIDList& ids) override { return {}; };
+    std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override { return {}; };
+    std::vector<Coin> getCoinsByID(const CoinIDList& ids) const override { return {}; };
     void storeCoin(Coin&) override {}
     void storeCoins(std::vector<Coin>&) override {}
     void saveCoin(const Coin&) override {}
@@ -434,7 +434,7 @@ struct TestWalletRig
             Key::ID kid(m_OwnID, Key::Type::WalletID);
             Scalar::Native sk;
             kdf->DeriveKey(sk, kid);
-            proto::Sk2Pk(m_SecureWalletID, sk);
+            m_SecureWalletID.FromSk(sk);
         }
         else
         {
@@ -1221,7 +1221,7 @@ public:
             {
                 cout << "Latency: " << float(latency) / 1000 << " s\n";
             }
-            m_MaxLatency = max(latency, m_MaxLatency);
+            setmax(m_MaxLatency, latency);
             accessEvent->post();
         });
         accessEvent->post();

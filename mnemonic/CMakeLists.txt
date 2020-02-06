@@ -7,10 +7,6 @@ set(MNEMONIC_SRC
     mnemonic.cpp
 )
 
-if (MSVC AND (MSVC_VERSION GREATER_EQUAL 1921))
-    add_compile_options("/bigobj")
-endif()
-
 add_library(${TARGET_NAME} STATIC ${MNEMONIC_SRC})
 
 target_link_libraries(${TARGET_NAME}

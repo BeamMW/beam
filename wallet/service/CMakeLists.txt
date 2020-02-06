@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.13)
 
 set(TARGET_NAME wallet-service${BEAM_TARGET_SUFFIX})
 
@@ -19,4 +19,18 @@ target_link_libraries(${TARGET_NAME}
         utility 
         http
         cli
+)
+
+
+set(MONITOR_TARGET_NAME sbbs-monitor${BEAM_TARGET_SUFFIX})
+add_executable(${MONITOR_TARGET_NAME} monitor.cpp)
+
+target_include_directories(${MONITOR_TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+
+target_link_libraries(${MONITOR_TARGET_NAME}
+    PRIVATE
+       wallet 
+    #   utility 
+    #   http
+     #  cli
 )

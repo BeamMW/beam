@@ -73,7 +73,7 @@ struct Node
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 
-		bool m_LogUtxos = false; // may be insecure. Off by default.
+		bool m_LogEvents = false; // may be insecure. Off by default.
 		bool m_LogTxStem = true;
 		bool m_LogTxFluff = true;
 
@@ -211,46 +211,23 @@ private:
 		void OnModified() override;
 		Key::IPKdf* get_ViewerKey() override;
 		const ShieldedTxo::Viewer* get_ViewerShieldedKey() override;
-		void OnUtxoEvent(const UtxoEvent::Value&, Height) override;
+		void OnEvent(Height, const proto::Event::Base&) override;
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		void Stop();
 
-		struct TaskProcessor
-			:public Task::Processor
+		struct MyExecutorMT
+			:public ExecutorMT
 		{
 			virtual uint32_t get_Threads() override;
-			virtual void Push(Task::Ptr&&) override;
-			virtual uint32_t Flush(uint32_t nMaxTasks) override;
-			virtual void ExecAll(Task&) override;
+			virtual void RunThread(uint32_t) override;
 
-			std::mutex m_Mutex;
+			~MyExecutorMT() { Stop(); }
 
-			std::deque<Task::Ptr> m_queTasks;
-			uint32_t m_InProgress;
-			uint32_t m_FlushTarget;
-			bool m_Run;
-			Task* m_pCtl;
-			std::condition_variable m_NewTask;
-			std::condition_variable m_Flushed;
+			IMPLEMENT_GET_PARENT_OBJ(Node::Processor, m_ExecutorMT)
+		} m_ExecutorMT;
 
-			std::vector<std::thread> m_vThreads;
-
-			typedef ECC::InnerProduct::BatchContextEx<4> MyBatch; // seems to be ok, for larger batches difference is marginal
-
-			~TaskProcessor() { Stop(); }
-			void Stop();
-			void Thread(uint32_t);
-
-			IMPLEMENT_GET_PARENT_OBJ(Node::Processor, m_TaskProcessor)
-
-		private:
-			void InitSafe();
-			void FlushLocked(std::unique_lock<std::mutex>&, uint32_t nMaxTasks);
-
-		} m_TaskProcessor;
-
-		virtual Task::Processor& get_TaskProcessor() override { return m_TaskProcessor; }
+		virtual Executor& get_Executor() override { return m_ExecutorMT; }
 
 
 		Block::ChainWorkProof m_Cwp; // cached
@@ -496,7 +473,7 @@ private:
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Block::SystemState::Full m_Tip;
-		uint8_t m_LoginFlags;
+		uint32_t m_LoginFlags;
 
 		uint64_t m_CursorBbs;
 		TxPool::Fluff::Element* m_pCursorTx;
@@ -580,8 +557,9 @@ private:
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
 		virtual void OnMsg(proto::BbsResetSync&&) override;
-		virtual void OnMsg(proto::GetUtxoEvents&&) override;
+		virtual void OnMsg(proto::GetEvents&&) override;
 		virtual void OnMsg(proto::BlockFinalization&&) override;
+		virtual void OnMsg(proto::GetStateSummary&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

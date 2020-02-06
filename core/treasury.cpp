@@ -162,7 +162,7 @@ namespace beam
 		kid.m_Type = ECC::Key::Type::WalletID;
 
 		kdf.DeriveKey(sk, kid);
-		proto::Sk2Pk(pid, sk);
+		pid.FromSk(sk);
 	}
 
 	void Treasury::Response::Group::Create(const Request::Group& g, Key::IKdf& kdf, uint64_t& nIndex)
@@ -354,7 +354,7 @@ namespace beam
 
 		// finally verify the signature
 		Point::Native pk;
-		if (!proto::ImportPeerID(pk, r.m_WalletID))
+		if (!r.m_WalletID.ExportNnz(pk))
 			return false;
 
 		Hash::Value hv;
@@ -457,7 +457,7 @@ namespace beam
 			b.m_Height = MaxHeight;
 
 			for (size_t i = 0; i < g.m_Data.m_vOutputs.size(); i++)
-				b.m_Height = std::min(b.m_Height, g.m_Data.m_vOutputs[i]->m_Incubation);
+				std::setmin(b.m_Height, g.m_Data.m_vOutputs[i]->m_Incubation);
 		}
 
 		return ret;
@@ -482,7 +482,7 @@ namespace beam
 
 				Height h = MaxHeight;
 				for (size_t i = 0; i < g.m_vCoins.size(); i++)
-					h = std::min(h, g.m_vCoins[i].m_pOutput->m_Incubation);
+					std::setmin(h, g.m_vCoins[i].m_pOutput->m_Incubation);
 
 				GroupMap::iterator it = map.find(h);
 				bool bNew = (map.end() == it);

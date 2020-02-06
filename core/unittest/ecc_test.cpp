@@ -22,6 +22,7 @@
 #include "../aes.h"
 #include "../proto.h"
 #include "../lelantus.h"
+#include "../../utility/executor.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -1340,25 +1341,25 @@ struct TransactionMaker
 		if (bEmitCustomTag)
 		{
 			// emit some asset
-			Scalar::Native sk, skAsset;
+			beam::Asset::Metadata md;
+			md.m_Value.assign({ 1, 2, 3, 4, 5 });
+			md.UpdateHash();
+
+			Scalar::Native sk;
 			beam::Asset::ID nAssetID = 17;
 			Amount valAsset = 4431;
-			beam::PeerID pkAsset;
-
+			
 			SetRandom(sk, is_trezor_debug); // excess
-			SetRandom(skAsset, is_trezor_debug); // asset sk
-			beam::proto::Sk2Pk(pkAsset, skAsset);
 
 			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, nAssetID, is_trezor_debug); // output UTXO to consume the created asset
 
 			beam::TxKernelAssetEmit::Ptr pKrnEmission(new beam::TxKernelAssetEmit);
 			pKrnEmission->m_Height.m_Min = g_hFork;
 			pKrnEmission->m_CanEmbed = bNested;
-			pKrnEmission->m_Owner = pkAsset;
 			pKrnEmission->m_AssetID = nAssetID;
 			pKrnEmission->m_Value = valAsset;
 
-			pKrnEmission->Sign(sk, skAsset);
+			pKrnEmission->Sign(sk, m_Kdf, md);
 
 			lstTrg.push_back(std::move(pKrnEmission));
 
@@ -1442,7 +1443,7 @@ struct PaymentConfirmation
 	bool IsValid(const Signature& s, const beam::PeerID& pid) const
 	{
 		Point::Native pk;
-		if (!beam::proto::ImportPeerID(pk, pid))
+		if (!pid.ExportNnz(pk))
 			return false;
 
 		Hash::Value hv;
@@ -1779,7 +1780,7 @@ struct HWWalletEmulator
 
 		m_pKdf->DeriveKey(sk, kid);
 
-		beam::proto::Sk2Pk(res, sk);
+		res.FromSk(sk);
 	}
 
 	virtual void GetWalletID(beam::PeerID& res) override
@@ -2109,7 +2110,7 @@ void TestBbs()
 	beam::PeerID publicAddr;
 
 	SetRandom(privateAddr);
-	beam::proto::Sk2Pk(publicAddr, privateAddr);
+	publicAddr.FromSk(privateAddr);
 
 	const char szMsg[] = "Hello, World!";
 
@@ -2426,14 +2427,48 @@ void TestLelantus(bool bWithAsset)
 		p.m_Witness.V.m_R_Adj += -skGen;
 	}
 
-	Oracle oracle;
+	std::vector<Point> vG;
 
-	uint32_t t = beam::GetTime_ms();
+	for (uint32_t iCycle = 0; iCycle < 3; iCycle++)
+	{
+		struct MyExec
+			:public beam::ExecutorMT
+		{
+			uint32_t m_Threads;
 
-	p.Generate(Zero, oracle, &hGen);
+			virtual uint32_t get_Threads() override { return m_Threads; }
 
-	if (!bWithAsset)
-		printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
+			virtual void RunThread(uint32_t iThread) override
+			{
+				ExecutorMT::Context ctx;
+				ctx.m_iThread = iThread;
+				RunThreadCtx(ctx);
+			}
+		} ex;
+
+		ex.m_Threads = 1 << iCycle;
+
+		beam::Executor::Scope scope(ex);
+
+		uint32_t t = beam::GetTime_ms();
+
+		Oracle oracle;
+		p.Generate(Zero, oracle, &hGen);
+
+		if (!bWithAsset)
+			printf("\tProof time = %u ms, Threads=%u\n", beam::GetTime_ms() - t, ex.m_Threads);
+
+		if (iCycle)
+		{
+			// verify the result is the same (doesn't depend on thread num)
+			verify_test(proof.m_Part1.m_vG == vG);
+		}
+		else
+		{
+			vG.swap(proof.m_Part1.m_vG);
+		}
+	}
+
 
 	{
 		Oracle o2;
@@ -2463,6 +2498,7 @@ void TestLelantus(bool bWithAsset)
 		if (!bWithAsset)
 			printf("\tProof size = %u\n", (uint32_t)ser_.buffer().second);
 	}
+
 	MyBatch bc;
 
 	std::vector<Scalar::Native> vKs;
@@ -2476,7 +2512,7 @@ void TestLelantus(bool bWithAsset)
 
 		memset0(&vKs.front(), sizeof(Scalar::Native) * vKs.size());
 
-		t = beam::GetTime_ms();
+		uint32_t t = beam::GetTime_ms();
 
 		for (uint32_t i = 0; i < nCycles; i++)
 		{
@@ -2614,12 +2650,12 @@ void TestAssetEmission()
 	beam::Key::IKdf::Ptr pKdf;
 	HKdf::Create(pKdf, Zero);
 
-	Scalar::Native skAssetSk, sk, kOffset(Zero);
-	pKdf->DeriveKey(skAssetSk, beam::Key::ID(1231231, beam::Key::Type::Asset));
+	Scalar::Native sk, kOffset(Zero);
 
-	beam::PeerID assetOwner;
-	beam::proto::Sk2Pk(assetOwner, skAssetSk);
 	beam::Asset::ID nAssetID = 24;
+	beam::Asset::Metadata md;
+	md.m_Value.assign({ 'a', 'b', '2' });
+	md.UpdateHash();
 
 	cidInpAsset.m_AssetID = nAssetID;
 
@@ -2652,10 +2688,9 @@ void TestAssetEmission()
 	beam::TxKernelAssetEmit::Ptr pKrnAsset(new beam::TxKernelAssetEmit);
 	pKdf->DeriveKey(sk, beam::Key::ID(73123, beam::Key::Type::Kernel));
 	pKrnAsset->m_AssetID = nAssetID;
-	pKrnAsset->m_Owner = assetOwner;
 	pKrnAsset->m_Value = -static_cast<beam::AmountSigned>(cidInpAsset.m_Value);
 	pKrnAsset->m_Height.m_Min = hScheme;
-	pKrnAsset->Sign(sk, skAssetSk);
+	pKrnAsset->Sign(sk, *pKdf, md);
 	tx.m_vKernels.push_back(std::move(pKrnAsset));
 	kOffset += -sk;
 

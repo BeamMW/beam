@@ -22,7 +22,7 @@ namespace beam::wallet {
             masterKdf->DeriveKey(skAssetOwnerSk, beam::Key::ID(assetOwnerIdx, beam::Key::Type::Asset));
 
             beam::PeerID assetOwnerId;
-            beam::proto::Sk2Pk(assetOwnerId, skAssetOwnerSk);
+            assetOwnerId.FromSk(skAssetOwnerSk);
 
             return std::make_pair(assetOwnerId, std::move(skAssetOwnerSk));
         }
@@ -98,7 +98,7 @@ namespace beam::wallet {
 
         ECC::Scalar::Native kernelSk;
         masterKdf->DeriveKey(kernelSk, Key::ID(assetOwnerIdx, Key::Type::Kernel, assetOwnerIdx));
-        kernel.Sign(kernelSk, keypair.second);
+        kernel.Sign_(kernelSk, keypair.second);
         kernelSk = -kernelSk;
         excess += kernelSk;
 

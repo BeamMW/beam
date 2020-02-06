@@ -305,12 +305,12 @@ namespace beam::wallet {
         try 
         {
             m_WalletDB->Unsubscribe(this);
-		m_Miner.Stop();
+            m_Miner.Stop();
 
-		while (!m_PendingBbsMsgs.empty())
-			DeleteReq(m_PendingBbsMsgs.front());
+		    while (!m_PendingBbsMsgs.empty())
+			    DeleteReq(m_PendingBbsMsgs.front());
 
-        Unsubscribe();
+            Unsubscribe();
 		
 			SaveBbsTimestamps();
 		} 
@@ -377,7 +377,7 @@ namespace beam::wallet {
 		auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
 		if (m_BbsTimestamps.end() != itBbs)
         {
-			itBbs->second = std::max(itBbs->second, msg.m_TimePosted);
+			std::setmax(itBbs->second, msg.m_TimePosted);
         }
 		else
         {
@@ -493,7 +493,11 @@ namespace beam::wallet {
         case ChangeAction::Updated:
             for (const auto& address : items)
             {
-                if (!address.isExpired())
+                if (!address.isOwn())
+                {
+                    continue;
+                }
+                else if (!address.isExpired())
                 {
                     AddOwnAddress(address);
                 }

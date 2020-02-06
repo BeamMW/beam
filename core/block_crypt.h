@@ -25,7 +25,16 @@ namespace beam
 
 	const Height MaxHeight = std::numeric_limits<Height>::max();
 
-	typedef ECC::Hash::Value PeerID;
+	struct PeerID :public ECC::uintBig
+	{
+		using ECC::uintBig::uintBig;
+		using ECC::uintBig::operator =;
+
+		bool ExportNnz(ECC::Point::Native&) const;
+		bool Import(const ECC::Point::Native&); // returns if the sign is preserved
+		void FromSk(ECC::Scalar::Native&); // will negate the scalar iff necessary
+	};
+
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
 	typedef uint64_t TxoID;
@@ -113,17 +122,28 @@ namespace beam
 			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
 		};
 
+		struct Metadata
+		{
+			ByteBuffer m_Value;
+			ECC::Hash::Value m_Hash; // not serialized
+
+			void Reset();
+			void UpdateHash(); // called automatically during deserialization
+			void get_Owner(PeerID&, Key::IPKdf&) const;
+		};
+
 		struct Info
 		{
 			AmountBig::Type m_Value;
 			PeerID m_Owner = Zero;
 			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
-			ByteBuffer m_Metadata;
+			Metadata m_Metadata;
 			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
 
 			void Reset();
 			bool IsEmpty() const;
 			bool IsValid() const;
+			bool Recognize(Key::IPKdf&) const;
 		};
 
 		struct Full
@@ -544,6 +564,7 @@ namespace beam
 		struct PublicGen;
 		struct Viewer;
 		struct Data;
+		struct DataParams; // just a fwd-declaration of Data::Params
 	};
 
 #define BeamKernelsAll(macro) \
@@ -691,7 +712,8 @@ namespace beam
 		ECC::Point m_Commitment;	// aggregated, including nested kernels
 		ECC::SignatureGeneralized<1> m_Signature;
 
-		void Sign(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset); // suitable for aux kernels, created by single party
+		void Sign_(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset);
+		void Sign(const ECC::Scalar::Native& sk, Key::IKdf&, const Asset::Metadata&);
 
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:
@@ -722,7 +744,9 @@ namespace beam
 	{
 		typedef std::unique_ptr<TxKernelAssetCreate> Ptr;
 
-		ByteBuffer m_MetaData;
+		Asset::Metadata m_MetaData;
+
+		void Sign(const ECC::Scalar::Native& sk, Key::IKdf&);
 
 		virtual ~TxKernelAssetCreate() {}
 		virtual Subtype::Enum get_Subtype() const override;
@@ -1266,4 +1290,8 @@ namespace beam
 		void ZeroInit();
 		bool EnumStatesHeadingOnly(IStateWalker&) const; // skip arbitrary
 	};
+}
+
+inline ECC::Hash::Processor& operator << (ECC::Hash::Processor& hp, const beam::PeerID& pid) {
+	return hp << Cast::Down<ECC::Hash::Value>(pid);
 }
