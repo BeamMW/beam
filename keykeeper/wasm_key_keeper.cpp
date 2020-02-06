@@ -52,7 +52,7 @@ struct KeyKeeper
             ByteBuffer buf(sizeof(ECC::HKdfPub::Packed), 0);
             method.m_pPKdf->ExportP(&buf[0]);
             
-            res.push_back({ "pub_kdf": to_base64(buf) });
+            res.push_back({ "pub_kdf", to_base64(buf) });
         }
         return res.dump();
     }
@@ -108,12 +108,12 @@ struct KeyKeeper
     {
         IPrivateKeyKeeper2::Method::SignReceiver method;
 
-        method.m_vInputs = from_base64(inputs);
-        method.m_vOutputs = from_base64(outputs);
-        method.m_pKernel = from_base64(kernel);
+        method.m_vInputs = from_base64<std::vector<CoinID>>(inputs);
+        method.m_vOutputs = from_base64<std::vector<CoinID>>(outputs);
+        method.m_pKernel = from_base64<TxKernelStd::Ptr>(kernel);
         method.m_NonConventional = nonConventional;
-        method.m_Peer = from_base64(peerID);
-        method.m_MyIDKey = from_base64(myIDKey);
+        method.m_Peer = from_base64<PeerID>(peerID);
+        method.m_MyIDKey = from_base64<WalletIDKey>(myIDKey);
 
         auto status = _impl2.InvokeSync(method);
         json res =
@@ -142,31 +142,29 @@ struct KeyKeeper
     {
         IPrivateKeyKeeper2::Method::SignSender method;
 
-        method.m_vInputs = from_base64(inputs);
-        method.m_vOutputs = from_base64(outputs);
-        method.m_pKernel = from_base64(kernel);
+        method.m_vInputs = from_base64<std::vector<CoinID>>(inputs);
+        method.m_vOutputs = from_base64<std::vector<CoinID>>(outputs);
+        method.m_pKernel = from_base64<TxKernelStd::Ptr>(kernel);
         method.m_NonConventional = nonConventional;
-        method.m_Peer = from_base64(peerID);
-        method.m_MyIDKey = from_base64(myIDKey);
+        method.m_Peer = from_base64<PeerID>(peerID);
+        method.m_MyIDKey = from_base64<WalletIDKey>(myIDKey);
         method.m_Slot = slot;
-        method.m_UserAgreement = from_base64(userAgreement);
-        method.m_MyID = from_base64(myID);
+        method.m_UserAgreement = from_base64<EÑÑ::Hash::Value>(userAgreement);
+        method.m_MyID = from_base64<PeerID>(myID);
 
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status" : status}
+            {"status", status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-
             res.push_back({ "sig", to_base64(method.m_pKernel->m_Signature) });
-
 
             if (userAgreement.empty())
             {
-                res.push_back({ "agreement", to_base64(method.m_UserAgreement) });,
+                res.push_back({ "agreement", to_base64(method.m_UserAgreement) });
             }
             else
             {
@@ -184,9 +182,9 @@ struct KeyKeeper
     {
         IPrivateKeyKeeper2::Method::SignSplit method;
 
-        method.m_vInputs = from_base64(inputs);
-        method.m_vOutputs = from_base64(outputs);
-        method.m_pKernel = from_base64(kernel);
+        method.m_vInputs = from_base64<std::vector<CoinID>>(inputs);
+        method.m_vOutputs = from_base64<std::vector<CoinID>>(outputs);
+        method.m_pKernel = from_base64<TxKernelStd::Ptr>(kernel);
         method.m_NonConventional = nonConventional;
 
         auto status = _impl2.InvokeSync(method);
