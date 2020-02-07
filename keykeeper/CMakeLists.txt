@@ -49,6 +49,7 @@ if(EMSCRIPTEN)
 
             ${PROJECT_SOURCE_DIR}/../mnemonic/dictionary.cpp
             ${PROJECT_SOURCE_DIR}/../mnemonic/mnemonic.cpp
+            ${PROJECT_SOURCE_DIR}/../wallet/core/private_key_keeper.cpp
 
             ${PROJECT_SOURCE_DIR}/../3rdparty/hmac_sha512.c
             ${PROJECT_SOURCE_DIR}/../3rdparty/pkcs5_pbkdf2.c
