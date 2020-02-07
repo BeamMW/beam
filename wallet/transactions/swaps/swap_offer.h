@@ -44,7 +44,7 @@ struct SwapOffer : public TxParameters
 
     TxID m_txId = {};
     SwapOfferStatus m_status = SwapOfferStatus::Pending;
-    WalletID m_publisherId = {};
+    WalletID m_publisherId = Zero;
     mutable AtomicSwapCoin m_coin = AtomicSwapCoin::Unknown;
 };
 

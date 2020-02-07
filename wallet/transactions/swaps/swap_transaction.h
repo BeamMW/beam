@@ -22,6 +22,26 @@
 
 namespace beam::wallet
 {
+    void FillSwapTxParams(TxParameters* params,
+                          const WalletID& myID,
+                          Height minHeight,
+                          Amount amount,
+                          Amount beamFee,
+                          AtomicSwapCoin swapCoin,
+                          Amount swapAmount,
+                          Amount swapFee,
+                          bool isBeamSide = true,
+                          Height responseTime = kDefaultTxResponseTime,
+                          Height lifetime = kDefaultTxLifetime);
+
+    TxParameters MirrorSwapTxParams(const TxParameters& original);
+
+    TxParameters PrepareSwapTxParamsForTokenization(
+        const TxParameters& original);
+
+    TxParameters CreateSwapTransactionParameters(
+        const boost::optional<TxID>& oTxId = boost::none);
+
     class SecondSideFactoryNotRegisteredException : public std::runtime_error
     {
     public:

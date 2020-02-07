@@ -849,10 +849,10 @@ private:
             auto offers = _swapOffersBoard.getOffersList();
             auto swapTxs = _walletDB->getTxHistory(TxType::AtomicSwap);
             offers.reserve(offers.size() + swapTxs.size());
+            
             for (const auto& tx : swapTxs)
             {
                 SwapOffer offer(tx);
-
                 if (offer.m_status != SwapOfferStatus::Pending) continue;
 
                 const auto it = std::find_if(
@@ -866,54 +866,56 @@ private:
                     offers.push_back(offer);
             }
 
-            Block::SystemState::ID stateID = {};
-            _walletDB->getSystemStateID(stateID);
             doResponse(
                 id,
-                OffersList::Response{
-                    offers,
+                OffersList::Response
+                {
                     _walletDB->getAddresses(true),
-                    stateID.m_Height
-                    });
+                    _walletDB->getCurrentHeight(),
+                    offers,
+                });
         }
 
         void onMessage(const JsonRpcId& id, const CreateOffer& data) override
         {
-            // int blockCount = 60 / 2; // OfferExpires30min
+            auto txParameters = CreateSwapTransactionParameters();
 
-            // bool isBeamSide = true;
-            // AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
-            // Amount beamAmount = 1000500;
-            // Amount swapAmount = 1000500;
-            // std::string comment = "hello";
+            WalletAddress address;
+            _walletDB->createAddress(address);
+            if (!data.comment.empty())
+                address.m_label = data.comment;
+            address.m_duration = WalletAddress::AddressExpiration24h;
+            _walletDB->saveAddress(address);
 
-            // /////////////
+            FillSwapTxParams(
+                &txParameters,
+                address.m_walletID,
+                _walletDB->getCurrentHeight(),
+                data.beamAmount,
+                data.beamFee,
+                data.swapCoin,
+                data.swapAmount,
+                data.swapFee,
+                data.isBeamSide,
+                data.offerLifetime);
 
-            // WalletAddress address;
-            // _walletDB->createAddress(address);
-            // address.m_label = comment;
-            // address.m_duration = WalletAddress::AddressExpiration24h;
+            auto txId = _wallet.StartTransaction(txParameters);
+            LOG_DEBUG() << "transaction created: " << txId;
 
-            // beam::wallet::TxParameters txParameters(beam::wallet::CreateSwapParameters()
-            //     .SetParameter(beam::wallet::TxParameterID::IsInitiator, true)
-            //     .SetParameter(beam::wallet::TxParameterID::MinHeight, _walletDB->getCurrentHeight())
-            //     .SetParameter(beam::wallet::TxParameterID::PeerResponseTime, blockCount)
-            //     .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide)
-            //     .SetParameter(beam::wallet::TxParameterID::Amount, beamAmount)
-            //     .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, swapCoin)
-            //     .SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, swapAmount)
-            //     .SetParameter(beam::wallet::TxParameterID::PeerID, address.m_walletID)
-            //     .SetParameter(beam::wallet::TxParameterID::IsSender, isBeamSide));
+            const auto& mirroredTxParams = MirrorSwapTxParams(txParameters);
+            const auto& readyForTokenizeTxParams =
+                PrepareSwapTxParamsForTokenization(mirroredTxParams);
+            auto token = std::to_string(readyForTokenizeTxParams);
 
-            //_walletDB->saveAddress(address);
-
-// start transaction listen here
-
-            CreateOffer::Response res;
-            // res.txid = Zero;
-            // res.token = std::to_string(txParameters);
-            res.token = "123";
-            doResponse(id, res);
+            doResponse(
+                id,
+                CreateOffer::Response
+                {
+                    _walletDB->getAddresses(true),
+                    _walletDB->getCurrentHeight(),
+                    token,
+                    ""
+                });
         }
 
         void onMessage(const JsonRpcId& id, const PublishOffer& data) override
@@ -941,13 +943,15 @@ private:
 
             // TODO(zavarza)
 
-            doResponse(id,
-                        OfferStatus::Response{
-                            data.offer,
-                            data.incomingToken,
-                            _walletDB->getAddresses(true),
-                            stateID.m_Height
-                        });
+            doResponse(
+                id,
+                OfferStatus::Response
+                {
+                    data.incomingToken,
+                    _walletDB->getAddresses(true),
+                    stateID.m_Height,
+                    data.offer
+                });
         }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
     protected:
@@ -1355,6 +1359,9 @@ int main(int argc, char* argv[])
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
 
         Wallet wallet{ walletDB };
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        RegisterSwapTxCreators(wallet, walletDB);
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
         wallet.ResumeAllTransactions();
 

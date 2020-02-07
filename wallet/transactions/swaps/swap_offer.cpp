@@ -27,6 +27,7 @@ SwapOffer::SwapOffer(const TxID& txId,
       m_status(status),
       m_publisherId(publisherId),
       m_coin(coin) {}
+
 SwapOffer::SwapOffer(const TxParameters& params) 
     : TxParameters(params)
  {
@@ -69,12 +70,6 @@ SwapOffer::SwapOffer(const TxParameters& params)
         default:
             m_status = SwapOfferStatus::Pending;
         }
-    }
-
-    WalletID walletID;
-    if (GetParameter(TxParameterID::MyID, walletID))
-    {
-        m_publisherId = walletID;
     }
 
     AtomicSwapCoin coin;

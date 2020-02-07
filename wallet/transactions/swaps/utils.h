@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "swap_transaction.h"
-#include "common.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
+#include "wallet/transactions/swaps/common.h"
 
 namespace beam::wallet
 {
@@ -25,5 +25,6 @@ namespace beam::wallet
         Amount swapAmount, Amount swapFee, bool isBeamSide = true,
         Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
 
-    TxParameters CreateSwapParameters();
+    class Wallet;
+    void RegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB);
 } // namespace beam::wallet

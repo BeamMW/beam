@@ -87,25 +87,28 @@ namespace beam::wallet
     {
         struct Response
         {
-            std::vector<SwapOffer> list;
             std::vector<WalletAddress> addrList;
             Height systemHeight;
+            std::vector<SwapOffer> list;
         };
     };
 
     struct CreateOffer
     {
-        Amount send;
-        Amount receive;
-        AtomicSwapCoin swapCoin;
-        bool isBeamSide;
-        Amount beemFee;
-        Amount swapFee;
-        uint32_t offerExpiresMin;
+        Amount beamAmount = 0;
+        Amount swapAmount = 0;
+        AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
+        bool isBeamSide = true;
+        Amount beamFee = DefaultFee;
+        Amount swapFee = 0;
+        Height offerLifetime = 15;
+        std::string comment;
         struct Response
         {
-            TxID txid;
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
             std::string token;
+            std::string error;
         };
     };
 
@@ -129,9 +132,6 @@ namespace beam::wallet
     {
         struct Response
         {
-            boost::optional<SwapOffer> offer;
-            std::vector<WalletAddress> addrList;
-            Height systemHeight;
         };
     };
 
@@ -141,10 +141,10 @@ namespace beam::wallet
         SwapOffer offer;
         struct Response
         {
-            SwapOffer offer;
             std::string incomingToken;
             std::vector<WalletAddress> addrList;
             Height systemHeight;
+            SwapOffer offer;
         };
     };
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT

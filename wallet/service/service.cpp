@@ -31,6 +31,7 @@
 
 #include "p2p/line_protocol.h"
 
+#include "wallet/core/common_utils.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
@@ -69,14 +70,6 @@ namespace beam::wallet
 
     static const char JsonRpcHrd[] = "jsonrpc";
     static const char JsonRpcVerHrd[] = "2.0";
-
-    namespace
-    {
-        std::string txIDToString(const TxID& txId)
-        {
-            return to_hex(txId.data(), txId.size());
-        }
-    }
 
     struct jsonrpc_exception
     {
@@ -620,8 +613,8 @@ namespace beam::wallet
 
         for (auto& utxo : res.utxos)
         {
-            std::string createTxId = utxo.m_createTxId.is_initialized() ? txIDToString(*utxo.m_createTxId) : "";
-            std::string spentTxId = utxo.m_spentTxId.is_initialized() ? txIDToString(*utxo.m_spentTxId) : "";
+            std::string createTxId = utxo.m_createTxId.is_initialized() ? TxIDToString(*utxo.m_createTxId) : "";
+            std::string spentTxId = utxo.m_spentTxId.is_initialized() ? TxIDToString(*utxo.m_spentTxId) : "";
 
             msg["result"].push_back(
             { 
@@ -646,46 +639,10 @@ namespace beam::wallet
             {"id", id},
             {"result", 
                 {
-                    {"txId", txIDToString(res.txId)}
+                    {"txId", TxIDToString(res.txId)}
                 }
             }
         };
-    }
-
-    static void getStatusResponseJson(const TxDescription& tx, json& msg, Height kernelProofHeight, Height systemHeight)
-    {
-        msg = json
-        {
-            {"txId", txIDToString(tx.m_txId)},
-            {"status", tx.m_status},
-            {"status_string", tx.getStatusString()},
-            {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
-            {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
-            {"fee", tx.m_fee},
-            {"value", tx.m_amount},
-            {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
-            {"create_time", tx.m_createTime},            
-            {"income", !tx.m_sender}
-        };
-
-        if (kernelProofHeight > 0)
-        {
-            msg["height"] = kernelProofHeight;
-
-            if (systemHeight >= kernelProofHeight)
-            {
-                msg["confirmations"] = systemHeight - kernelProofHeight;
-            }
-        }
-
-        if (tx.m_status == TxStatus::Failed)
-        {
-            msg["failure_reason"] = wallet::GetFailureMessage(tx.m_failureReason);
-        }
-        else if (tx.m_status != TxStatus::Canceled)
-        {
-            msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
-        }
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const Status::Response& res, json& msg)
@@ -697,7 +654,7 @@ namespace beam::wallet
             {"result", {}}
         };
 
-        getStatusResponseJson(res.tx, msg["result"], res.kernelProofHeight, res.systemHeight);
+        GetStatusResponseJson(res.tx, msg["result"], res.kernelProofHeight, res.systemHeight);
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const Split::Response& res, json& msg)
@@ -746,7 +703,7 @@ namespace beam::wallet
         for (const auto& resItem : res.resultList)
         {
             json item = {};
-            getStatusResponseJson(resItem.tx, item, resItem.kernelProofHeight, resItem.systemHeight);
+            GetStatusResponseJson(resItem.tx, item, resItem.kernelProofHeight, resItem.systemHeight);
             msg["result"].push_back(item);
         }
     }
@@ -778,7 +735,7 @@ namespace beam::wallet
         {
             {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
-            {"result", txIDToString(res.txId)}
+            {"result", TxIDToString(res.txId)}
         };
     }
 

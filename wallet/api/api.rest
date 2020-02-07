@@ -30,13 +30,14 @@ content-type: application/json-rpc
     "id": 1236,
     "method": "swap_create_offer",
     "params": {
-        "send_amount": 10000,
+        "send_amount": 1000000,
         "send_currency": "beam",
-        "receive_amount": 20000,
+        "receive_amount": 2000000,
         "receive_currency": "btc",
         "beam_fee": 100,
         "btc_fee_rate": 90000,
-        "offer_expires": 15
+        "offer_expires": 30,
+        "comment": "API"
     }
 }
 
@@ -50,7 +51,7 @@ content-type: application/json-rpc
     "id": 1236,
     "method": "swap_offer_status",
     "params": {
-        "token": "6xfFqUcknqpAmmKFTuubDo3LsKhPq29eP2gMwEbLgjgsdM7jmrBvPJJUv4VbtmuSEUng2YbXex3euTeMqXJuotSwpCaLof3S8dsSqHG7tnzb2bCtS67qGuYavJ79bnfD3DeWuifZwWkkEAeSDdGSHyGwr1bBMWrjbon8Ba8"
+        "token": "upnHn8psk78oDSQvXmNjHpHLuGHVfqJRXkD8W1qnyWVCYvFDs4TFUsQHBsc3BmeofPLD7zCBzfedTRnhDM1HtCcqadNZDk3j9Hu1XRydFeKujhUnGs8P6raraaXkua9GmD1VaaYY3uRLGf9fxyeX4vjHU7vnnKGUM"
     }
 }
 
