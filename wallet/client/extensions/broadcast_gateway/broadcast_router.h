@@ -36,7 +36,7 @@ namespace beam
         // IBroadcastMsgsGateway
         void registerListener(BroadcastContentType, IBroadcastListener*);
         void unregisterListener(BroadcastContentType);
-        void sendRawMessage(BroadcastContentType type, const ByteBuffer&);
+        void sendRawMessage(BroadcastContentType type, const ByteBuffer&);  // deprecated. used in SwapOffersBoard.
         void sendMessage(BroadcastContentType type, const BroadcastMsg&);
 
         // IBbsReceiver

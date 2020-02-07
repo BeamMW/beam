@@ -117,6 +117,11 @@ void BroadcastRouter::unregisterListener(BroadcastContentType type)
     m_msgReader.disable_msg_type(getMsgType(type));
 }
 
+/**
+ *  Deprecated method.
+ *  Send without packing into common data object before serialization.
+ *  Used in SwapOffersBoard.
+ */
 void BroadcastRouter::sendRawMessage(BroadcastContentType type, const ByteBuffer& msg)
 {
     wallet::WalletID dummyWId;
@@ -199,8 +204,6 @@ void BroadcastRouter::on_protocol_error(uint64_t fromStream, ProtocolError error
 }
 
 /// unused
-void BroadcastRouter::on_connection_error(uint64_t fromStream, io::ErrorCode errorCode)
-{
-}
+void BroadcastRouter::on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) {}
 
 } // namespace beam

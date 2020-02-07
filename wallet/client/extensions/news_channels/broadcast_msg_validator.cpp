@@ -49,10 +49,9 @@ namespace beam::wallet
         SignatureHandler signValidator;
         try
         {
-            Deserializer d;
-            d.reset(in.data(), in.size());
-            d & out;
-            // TODO rewrite
+            // deserialize whole message
+            fromByteBuffer(in, out);
+            // deserialize signature
             fromByteBuffer(out.m_signature, signValidator.m_Signature);
         }
         catch(...)
