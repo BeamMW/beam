@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "wallet/client/extensions/broadcast_gateway/broadcast_msg.h"
+#include "wallet/client/extensions/broadcast_gateway/interface.h"
 
 #include "core/ecc_native.h"    // PrivateKey
 

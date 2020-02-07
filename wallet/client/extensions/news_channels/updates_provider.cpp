@@ -14,8 +14,6 @@
 
 #include "updates_provider.h"
 
-#include "wallet/client/extensions/broadcast_gateway/broadcast_msg.h"
-
 #include "utility/logger.h"
 
 namespace beam::wallet

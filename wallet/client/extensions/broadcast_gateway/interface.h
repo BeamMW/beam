@@ -15,10 +15,13 @@
 #pragma once
 
 #include "utility/common.h"
-#include "wallet/client/extensions/broadcast_gateway/broadcast_msg.h"
+#include "utility/serialize_fwd.h"
 
 namespace beam
 {
+    /**
+     *  All content providers in broadcast network have own content type
+     */
     enum class BroadcastContentType : uint32_t
     {
         SwapOffers,
@@ -26,11 +29,39 @@ namespace beam
         ExchangeRates
     };
 
+    /**
+     *  Inteface for different content providers
+     */
     struct IBroadcastListener
     {
         virtual bool onMessage(uint64_t, ByteBuffer&&) = 0;
     };
 
+    /**
+     *  Data object broadcasted over wallet network and signed with publisher private key
+     */
+    struct BroadcastMsg
+    {
+        ByteBuffer m_content;
+        ByteBuffer m_signature;
+
+        SERIALIZE(m_content, m_signature);
+
+        bool operator==(const BroadcastMsg& other) const
+        {
+            return m_content == other.m_content
+                && m_signature == other.m_signature;
+        };
+        
+        bool operator!=(const BroadcastMsg& other) const
+        {
+            return !(*this == other);
+        };
+    };
+
+    /**
+     *  Interface to access broadcasting network
+     */
     struct IBroadcastMsgsGateway
     {
         virtual void registerListener(BroadcastContentType, IBroadcastListener*) = 0;
