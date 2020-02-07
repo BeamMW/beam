@@ -58,7 +58,7 @@ if(EMSCRIPTEN)
             ${PROJECT_SOURCE_DIR}/../3rdparty/utilstrencodings.cpp
     )
 
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "--bind -s WASM=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s MODULARIZE=1")
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "--bind -s WASM=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s MODULARIZE=1 -s ASSERTIONS=1")
 else()
 
     target_link_libraries(keykeeper PRIVATE Boost::boost utility)
