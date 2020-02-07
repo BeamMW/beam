@@ -23,9 +23,9 @@
 #include "wallet_model_async.h"
 #include "wallet/client/changes_collector.h"
 #include "wallet/client/extensions/offers_board/swap_offers_observer.h"
-#include "wallet/client/extensions/broadcast.h"
-#include "wallet/client/extensions/newscast/news_observer.h"
-#include "wallet/client/extensions/newscast/newscast_protocol_parser.h"
+#include "wallet/client/extensions/broadcast_gateway/interface.h"
+#include "wallet/client/extensions/news_channels/interface.h"
+#include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif
@@ -117,7 +117,8 @@ namespace beam::wallet
         virtual void onExportDataToJson(const std::string& data) {}
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
-        virtual void onNewsUpdate(const NewsMessage& msg) {};
+        virtual void onNewWalletVersion(const VersionInfo&) {}
+        virtual void onExchangeRates(const ExchangeRates&) {}
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         virtual void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) {}
 #endif
@@ -186,9 +187,9 @@ namespace beam::wallet
         std::weak_ptr<IWalletMessageEndpoint> m_walletNetwork;
         std::weak_ptr<Wallet> m_wallet;
         // broadcasting via BBS
-        std::weak_ptr<IBroadcastMessagesGateway> m_broadcastRouter;
-        std::weak_ptr<IBroadcastListener> m_newscast;
-        std::weak_ptr<NewscastProtocolParser> m_newscastParser;
+        std::weak_ptr<IBroadcastMsgsGateway> m_broadcastRouter;
+        std::weak_ptr<IBroadcastListener> m_updatesProvider;
+        std::weak_ptr<BroadcastMsgValidator> m_broadcastValidator;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
 #endif

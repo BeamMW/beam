@@ -17,8 +17,8 @@
 #include "utility/log_rotation.h"
 #include "core/block_rw.h"
 #include "keykeeper/trezor_key_keeper.h"
-#include "wallet/client/extensions/broadcast_router.h"
-#include "wallet/client/extensions/newscast/newscast.h"
+#include "extensions/broadcast_gateway/broadcast_router.h"
+#include "extensions/news_channels/updates_provider.h"
 
 using namespace std;
 
@@ -314,17 +314,19 @@ namespace beam::wallet
                     auto walletDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);
                     auto swapOffersBoardSubscriber = make_unique<SwapOffersBoardSubscriber>(static_cast<ISwapOffersObserver*>(this), offersBulletinBoard);
 #endif
-                    auto newscastParser = make_shared<NewscastProtocolParser>();
-                    auto key = NewscastProtocolParser::stringToPublicKey(newsPublisherKey);
-                    if (key)
+                    auto broadcastValidator = make_shared<BroadcastMsgValidator>();
                     {
-                        newscastParser->setPublisherKeys( { *key } );
+                        PeerID key;
+                        if (BroadcastMsgValidator::stringToPublicKey(newsPublisherKey, key))
+                        {
+                            broadcastValidator->setPublisherKeys( { key } );
+                        }
                     }
-                    m_newscastParser = newscastParser;
-                    auto newscast = make_shared<Newscast>(*broadcastRouter, *newscastParser);
-                    m_newscast = newscast;
-                    using NewsSubscriber = ScopedSubscriber<INewsObserver, Newscast>;
-                    auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(this), newscast);
+                    m_broadcastValidator = broadcastValidator;
+                    auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
+                    m_updatesProvider = updatesProvider;
+                    using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
+                    auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(this), updatesProvider);
 
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){
@@ -864,15 +866,15 @@ namespace beam::wallet
 
     void WalletClient::setNewscastKey(const std::string& keyString)
     {
-        auto key = NewscastProtocolParser::stringToPublicKey(keyString);
-        if (!key)
+        PeerID key;
+        if (!BroadcastMsgValidator::stringToPublicKey(keyString, key))
         {
             return;
         }
-        assert(!m_newscastParser.expired());
-        if (auto s = m_newscastParser.lock())
+        assert(!m_broadcastValidator.expired());
+        if (auto s = m_broadcastValidator.lock())
         {
-            s->setPublisherKeys( { *key } );
+            s->setPublisherKeys( { key } );
         }
     }
 

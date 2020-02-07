@@ -18,7 +18,7 @@ WALLET_TEST_INIT
 #include "mock_bbs_network.cpp"
 
 // tested module
-#include "wallet/client/extensions/broadcast_router.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 
 // dependencies
 #include "boost/optional.hpp"
@@ -42,7 +42,7 @@ namespace
         OnMessage m_callback;
     };
 
-    ByteBuffer CreateMsg(const ByteBuffer& content, BroadcastContentType type)
+    ByteBuffer testMsgCreate(const ByteBuffer& content, BroadcastContentType type)
     {
         ByteBuffer msg(MsgHeader::SIZE);
         MsgHeader header(0, // V0
@@ -146,7 +146,7 @@ namespace
         {
             cout << "Case: correct message" << endl;
 
-            auto msg = CreateMsg(testContent, testContentType);
+            auto msg = testMsgCreate(testContent, testContentType);
             WALLET_CHECK_NO_THROW(
                 mockNetwork.SendRawMessage(dummyWid, msg)
             );
@@ -157,44 +157,63 @@ namespace
         cout << "Test end" << endl;
     }
 
-    void TestRoutersIntegration()
+    void TestRouter()
     {
-        cout << endl << "Test routers integration" << endl;
-
-        MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
-        BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
-
-        // Mock network handles just one subscriber per BBS channel.
-        // Also router handles just one subscriber per BroadcastContentType.
-        // When this constraint will be put off more router could be added to test.
-
-        // BroadcastRouter broadcastRouterC(mockNetwork, mockNetwork);
+        cout << endl << "Test router" << endl;
 
         {
-            std::cout << "Case: create, dispatch and check message" << endl;
+            std::cout << "Case: listening to network messages" << endl;
 
+            MockBbsNetwork mockNetwork;
+            BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
             uint32_t executed = 0;
 
-            ByteBuffer testSampleA = {'s','w','a','p'};
-            ByteBuffer testSampleB = {'u','p','d','a','t','e'};
-            // ByteBuffer testSampleC = {'r','a','t','e'};
+            const ByteBuffer testSample = {'s','w','a','p'};
             MockBroadcastListener testListener(
-                [&executed, &testSampleA, testSampleB/*, testSampleC*/]
+                [&executed, &testSample]
                 (ByteBuffer& msg)
                 {
+                    ++executed;                    
+                    WALLET_CHECK(msg == testSample);
+                });
+
+            broadcastRouter.registerListener(BroadcastContentType::SwapOffers, &testListener);
+
+            WalletID dummyWid;
+            dummyWid.m_Channel = proto::Bbs::s_BtcSwapOffersChannel;
+            auto msgA = testMsgCreate(testSample, BroadcastContentType::SwapOffers);
+            mockNetwork.SendRawMessage(dummyWid, msgA);
+
+            WALLET_CHECK(executed == 1);
+        }
+        {
+            std::cout << "Case: broadcasting messages to network" << endl;
+
+            MockBbsNetwork mockNetwork;
+            BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
+            BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
+            uint32_t executed = 0;
+            BroadcastMsg msgA = { {'m','s','g','A'}, {'s','i','g','n','A'} };
+            BroadcastMsg msgB = { {'m','s','g','B'}, {'s','i','g','n','B'} };
+
+            MockBroadcastListener testListener(
+                [&executed, &msgA, &msgB]
+                (ByteBuffer& data)
+                {
                     ++executed;
+                    BroadcastMsg msg;
+                    if (!fromByteBuffer<BroadcastMsg>(data, msg))
+                    {
+                        WALLET_CHECK(false);
+                    }
                     switch (executed)
                     {
                     case 1:
-                        WALLET_CHECK(msg == testSampleA);
+                        WALLET_CHECK(msg == msgA);
                         break;
                     case 2:
-                        WALLET_CHECK(msg == testSampleB);
+                        WALLET_CHECK(msg == msgB);
                         break;
-                    // case 3:
-                    //     WALLET_CHECK(msg == testSampleC);
-                    //     break;
                     default:
                         WALLET_CHECK(false);
                         break;
@@ -203,17 +222,9 @@ namespace
 
             broadcastRouterA.registerListener(BroadcastContentType::SwapOffers, &testListener);
             broadcastRouterB.registerListener(BroadcastContentType::SoftwareUpdates, &testListener);
-            // broadcastRouterC.registerListener(BroadcastContentType::ExchangeRates, &testListener);
 
-            WalletID dummyWid;
-            dummyWid.m_Channel = proto::Bbs::s_BtcSwapOffersChannel;
-            auto msgA = CreateMsg(testSampleA, BroadcastContentType::SwapOffers);
-            mockNetwork.SendRawMessage(dummyWid, msgA);
-            dummyWid.m_Channel = proto::Bbs::s_BroadcastChannel;
-            auto msgB = CreateMsg(testSampleB, BroadcastContentType::SoftwareUpdates);
-            mockNetwork.SendRawMessage(dummyWid, msgB);
-            // mockNetwork.SendRawMessage(dummyWid, CreateMsg(testSampleC));
-
+            broadcastRouterB.sendMessage(BroadcastContentType::SwapOffers, msgA);
+            broadcastRouterA.sendMessage(BroadcastContentType::SoftwareUpdates, msgB);
             WALLET_CHECK(executed == 2);
         }
 
@@ -231,7 +242,7 @@ int main()
     io::Reactor::Scope scope(*mainReactor);
 
     TestProtocolParsing();
-    TestRoutersIntegration();
+    TestRouter();
     
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

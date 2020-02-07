@@ -107,7 +107,8 @@ private:
     void onExportDataToJson(const std::string& data) override;
     void onExportTxHistoryToCsv(const std::string& data) override;
     void onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers) override;
-    void onNewsUpdate(const beam::wallet::NewsMessage& msg) override;
+    void onNewWalletVersion(const beam::wallet::VersionInfo&) override;
+    // void onExchangeRates(const ExchangeRates&) override;
 
     void onShowKeyKeeperMessage() override;
     void onHideKeyKeeperMessage() override;

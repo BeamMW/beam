@@ -94,14 +94,12 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork, wallet:
  */
 void BroadcastRouter::registerListener(BroadcastContentType type, IBroadcastListener* listener)
 {
-    auto it = m_listeners.find(type);
-    assert(it == std::cend(m_listeners));
+    assert(m_listeners.find(type) == std::cend(m_listeners));
     m_listeners[type] = listener;
 
     auto msgType = getMsgType(type);
 
-    // For SwapOffer and Broadcast MsgReader serializer is not used.
-    // Otherwise Router will need to know about top layer abstractions.
+    // For SwapOffers common serilization data object is not used.
     m_protocol.add_message_handler_wo_deserializer
         < IBroadcastListener,
           &IBroadcastListener::onMessage >
@@ -119,11 +117,36 @@ void BroadcastRouter::unregisterListener(BroadcastContentType type)
     m_msgReader.disable_msg_type(getMsgType(type));
 }
 
-void BroadcastRouter::sendMessage(BroadcastContentType type, const ByteBuffer& msg)
+void BroadcastRouter::sendRawMessage(BroadcastContentType type, const ByteBuffer& msg)
 {
     wallet::WalletID dummyWId;
     dummyWId.m_Channel = getBbsChannel(type);
     m_bbsMessageEndpoint.SendRawMessage(dummyWId, msg);
+}
+
+/**
+ *  Send broadcast message.
+ *  Message will be dispatched according to content type.
+ */
+void BroadcastRouter::sendMessage(BroadcastContentType type, const BroadcastMsg& msg)
+{
+    ByteBuffer content = wallet::toByteBuffer(msg);
+    size_t packSize = MsgHeader::SIZE + content.size();
+    assert(packSize <= proto::Bbs::s_MaxMsgSize);
+
+    // Prepare Protocol header
+    ByteBuffer packet(packSize);
+    MsgHeader header(0, 0, 1, getMsgType(type), static_cast<uint32_t>(content.size()));
+    header.write(packet.data());
+
+    std::copy(std::begin(content),
+              std::end(content),
+              std::begin(packet) + MsgHeader::SIZE);
+
+    // Route to BBS channel
+    wallet::WalletID dummyWId;
+    dummyWId.m_Channel = getBbsChannel(type);
+    m_bbsMessageEndpoint.SendRawMessage(dummyWId, packet);
 }
 
 /**
@@ -172,7 +195,7 @@ void BroadcastRouter::on_protocol_error(uint64_t fromStream, ProtocolError error
             description = "receiving of msg type disabled for this stream";
             break;
     }
-    LOG_WARNING() << "BroadcastRouter error: " << description;
+    LOG_DEBUG() << "BroadcastRouter error: " << description;
 }
 
 /// unused

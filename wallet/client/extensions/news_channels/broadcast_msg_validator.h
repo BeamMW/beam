@@ -14,30 +14,31 @@
 
 #pragma once
 
-#include "news_message.h"
-#include "core/ecc_native.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg.h"
 
-#include "boost/optional.hpp"
+#include "core/block_crypt.h"   // PeerID
 
 namespace beam::wallet
 {
     /**
-     *  Build newscast protocol messages.
+     *  Validate message signatures according to publisher keys.
      */
-    class NewscastProtocolBuilder
+    class BroadcastMsgValidator
     {
-        using PrivateKey = ECC::Scalar::Native;
+        using PublicKey = PeerID;
 
     public:
-        /// Convert private key from HEX string representation to the internal type
-        static boost::optional<PrivateKey> stringToPrivateKey(const std::string& keyHexString);
+        BroadcastMsgValidator() {};
 
-        /// Create message signed with private key
-        static ByteBuffer createMessage(const NewsMessage& content, const PrivateKey& key);
+        void setPublisherKeys(const std::vector<PublicKey>& keys);
+
+        bool processMessage(const ByteBuffer& in, BroadcastMsg& out) const;
+
+        /// Convert public key from HEX string representation to the internal type
+        static bool stringToPublicKey(const std::string& keyHexString, PublicKey& out);
 
     private:
-        static constexpr uint8_t MsgType = 1;
-        static constexpr uint8_t m_protocolVersion = 1;
+        std::vector<PublicKey> m_publisherKeys;       /// publisher keys to validate messages
     };
 
 } // namespace beam::wallet

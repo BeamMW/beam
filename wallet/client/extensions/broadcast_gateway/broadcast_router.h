@@ -21,22 +21,23 @@
 #include "core/fly_client.h"    // INetwork
 #include "wallet/core/wallet.h" // IWalletMessageEndpoint
 
-#include "broadcast.h"
+#include "interface.h"
 
 namespace beam
 {
     class BroadcastRouter
-        : public IBroadcastMessagesGateway
+        : public IBroadcastMsgsGateway
         , IErrorHandler  // Error handling for Protocol
         , proto::FlyClient::IBbsReceiver
     {
     public:
         BroadcastRouter(proto::FlyClient::INetwork&, wallet::IWalletMessageEndpoint&);
 
-        // IBroadcastMessagesGateway
+        // IBroadcastMsgsGateway
         void registerListener(BroadcastContentType, IBroadcastListener*);
         void unregisterListener(BroadcastContentType);
-        void sendMessage(BroadcastContentType type, const ByteBuffer&);
+        void sendRawMessage(BroadcastContentType type, const ByteBuffer&);
+        void sendMessage(BroadcastContentType type, const BroadcastMsg&);
 
         // IBbsReceiver
         virtual void OnMsg(proto::BbsMsg&&) override;

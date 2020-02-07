@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "newscast_protocol_builder.h"
+#include "broadcast_msg_creator.h"
 #include "wallet/core/common.h"
 #include "core/proto.h"
-#include "p2p/protocol_base.h"
 
 namespace beam::wallet
 {
     using PrivateKey = ECC::Scalar::Native;
 
-    boost::optional<PrivateKey> NewscastProtocolBuilder::stringToPrivateKey(const std::string& key)
+    bool BroadcastMsgCreator::stringToPrivateKey(const std::string& key, PrivateKey& out)
     {
         bool resultIsKeyStrValid = true;
         ByteBuffer keyBytes = from_hex(key, &resultIsKeyStrValid);
         if (!resultIsKeyStrValid)
         {
-            return boost::none;
+            return false;
         }
 
         Blob keyBlob(keyBytes.data(), static_cast<uint32_t>(keyBytes.size()));
@@ -35,42 +34,29 @@ namespace beam::wallet
         ECC::Scalar keyScalar;
         keyScalar.m_Value = ECC::uintBig(keyBlob);
 
-        ECC::Scalar::Native nativeKey;
         if (keyScalar.IsValid())
         {
-            nativeKey.Import(keyScalar);
+            out.Import(keyScalar);
         }
         else
         {
-            return boost::none;
+            return false;
         }
 
-        return nativeKey;
+        return true;
     }
 
-    ByteBuffer NewscastProtocolBuilder::createMessage(const NewsMessage& msg, const PrivateKey& key)
+    BroadcastMsg BroadcastMsgCreator::createSignedMessage(const ByteBuffer& content, const PrivateKey& key)
     {
-        ByteBuffer content = toByteBuffer(msg);
+        BroadcastMsg msg;
+        msg.m_content = content;
+
         SignatureHandler signHandler;
         signHandler.m_data = content;
         signHandler.Sign(key);
-        ByteBuffer signature = toByteBuffer(signHandler.m_Signature);
+        msg.m_signature = toByteBuffer(signHandler.m_Signature);
 
-        ByteBuffer fullMsg(MsgHeader::SIZE);
-        size_t rawBodySize = content.size() + signature.size();
-        assert(rawBodySize <= proto::Bbs::s_MaxMsgSize);
-
-        MsgHeader header(0, 0, 1, 1, static_cast<uint32_t>(rawBodySize));
-        header.write(fullMsg.data());
-
-        std::copy(  std::begin(content),
-                    std::end(content),
-                    std::back_inserter(fullMsg));
-        std::copy(  std::begin(signature),
-                    std::end(signature),
-                    std::back_inserter(fullMsg));
-
-        return fullMsg;
+        return msg;
     }
 
 } // namespace beam::wallet

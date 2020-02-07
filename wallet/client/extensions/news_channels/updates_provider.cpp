@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,39 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "newscast.h"
+#include "updates_provider.h"
+
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg.h"
+
 #include "utility/logger.h"
 
 namespace beam::wallet
 {
-    Newscast::Newscast(IBroadcastMessagesGateway& broadcastGateway, NewscastProtocolParser& parser)
+    AppUpdateInfoProvider::AppUpdateInfoProvider(
+        IBroadcastMsgsGateway& broadcastGateway,
+        BroadcastMsgValidator& validator)
         : m_broadcastGateway(broadcastGateway),
-          m_parser(parser)
+          m_validator(validator)
     {
-        m_broadcastGateway.registerListener(BroadcastContentType::ExchangeRates, this);
         m_broadcastGateway.registerListener(BroadcastContentType::SoftwareUpdates, this);
     }
 
-    bool Newscast::onMessage(uint64_t unused, ByteBuffer&& msg)
+    bool AppUpdateInfoProvider::onMessage(uint64_t unused, ByteBuffer&& input)
     {
         try
         {
-            auto news = m_parser.parseMessage(msg);
-
-            if (news)
+            BroadcastMsg res;
+            if (m_validator.processMessage(input, res))
             {
-                notifySubscribers(*news);
+                VersionInfo updateInfo;
+                if (fromByteBuffer(res.m_content, updateInfo))
+                {
+                    notifySubscribers(updateInfo);
+                }
             }
-            return true;
         }
         catch(...)
         {
-            LOG_WARNING() << "news message processing exception";
-            return false;
+            LOG_WARNING() << "broadcast message processing exception";
         }
+        return false;
     }
 
-    void Newscast::Subscribe(INewsObserver* observer)
+    void AppUpdateInfoProvider::Subscribe(INewsObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),
                             m_subscribers.end(),
@@ -53,7 +59,7 @@ namespace beam::wallet
         if (it == m_subscribers.end()) m_subscribers.push_back(observer);
     }
 
-    void Newscast::Unsubscribe(INewsObserver* observer)
+    void AppUpdateInfoProvider::Unsubscribe(INewsObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),
                             m_subscribers.end(),
@@ -62,11 +68,11 @@ namespace beam::wallet
         m_subscribers.erase(it);
     }
 
-    void Newscast::notifySubscribers(NewsMessage msg) const
+    void AppUpdateInfoProvider::notifySubscribers(const VersionInfo& info) const
     {
         for (const auto sub : m_subscribers)
         {
-                sub->onNewsUpdate(msg);
+            sub->onNewWalletVersion(info);
         }
     }
 

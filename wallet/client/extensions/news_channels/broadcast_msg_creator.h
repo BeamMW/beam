@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,16 +14,25 @@
 
 #pragma once
 
-#include "news_message.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg.h"
+
+#include "core/ecc_native.h"    // PrivateKey
 
 namespace beam::wallet
 {
     /**
-     *  Interface for news channels observers. 
+     *  Creates broadcast messages.
      */
-    struct INewsObserver
+    class BroadcastMsgCreator
     {
-        virtual void onNewsUpdate(const NewsMessage& msg) = 0;
+        using PrivateKey = ECC::Scalar::Native;
+
+    public:
+        /// Convert private key from HEX string representation to the internal type
+        static bool stringToPrivateKey(const std::string& keyHexString, PrivateKey& out);
+
+        /// Create message signed with private key
+        static BroadcastMsg createSignedMessage(const ByteBuffer& content, const PrivateKey& key);
     };
 
 } // namespace beam::wallet

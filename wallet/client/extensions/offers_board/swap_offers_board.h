@@ -17,7 +17,7 @@
 #include "swap_offer.h"
 #include "swap_offers_observer.h"
 #include "offers_protocol_handler.h"
-#include "wallet/client/extensions/broadcast.h"
+#include "wallet/client/extensions/broadcast_gateway/interface.h"
 
 #include "wallet/core/wallet.h"
 #include "utility/std_extension.h"
@@ -38,7 +38,7 @@ namespace beam::wallet
     public:
         using Ptr = std::shared_ptr<SwapOffersBoard>;
 
-        SwapOffersBoard(IBroadcastMessagesGateway&, OfferBoardProtocolHandler&);
+        SwapOffersBoard(IBroadcastMsgsGateway&, OfferBoardProtocolHandler&);
 
         /**
          *  IBroadcastListener implementation
@@ -63,7 +63,7 @@ namespace beam::wallet
         void Unsubscribe(ISwapOffersObserver* observer);
 
     private:
-		IBroadcastMessagesGateway& m_broadcastGateway;
+		IBroadcastMsgsGateway& m_broadcastGateway;
         OfferBoardProtocolHandler& m_protocolHandler;       /// handles message creating and parsing
 
         Height m_currentHeight = 0;

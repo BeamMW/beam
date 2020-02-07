@@ -16,14 +16,14 @@
 
 #include "version.h"
 
-
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/wallet_network.h"
-#include "wallet/client/extensions/newscast/newscast_protocol_builder.h"
-#include "wallet/client/extensions/newscast/newscast.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
+#include "wallet/client/extensions/news_channels/broadcast_msg_creator.h"
+#include "wallet/client/extensions/news_channels/interface.h"
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
 #endif
@@ -172,42 +172,44 @@ int main_impl(int argc, char* argv[])
 
         wallet.ResumeAllTransactions();
 
-        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
-        nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
+        proto::FlyClient::NetworkStd nnet(wallet);
+        nnet.m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         
-        if (nnet->m_Cfg.m_PollPeriod_ms)
+        if (nnet.m_Cfg.m_PollPeriod_ms)
         {
-            LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
-            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
-            if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+            LOG_INFO() << "Node poll period = " << nnet.m_Cfg.m_PollPeriod_ms << " ms";
+            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet.m_Cfg.m_PollPeriod_ms);
+            if (timeout_ms != nnet.m_Cfg.m_PollPeriod_ms)
             {
                 LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
             }
         }
         uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
-        if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+        if (nnet.m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
         {
             LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
         }
-        nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
-        nnet->Connect();
+        nnet.m_Cfg.m_vNodes.push_back(nodeAddress);
+        nnet.Connect();
 
-        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB);
-		wallet.AddMessageEndpoint(wnet);
-        wallet.SetNodeEndpoint(nnet);
+        WalletNetworkViaBbs wnet(wallet, std::shared_ptr<proto::FlyClient::INetwork>(&nnet), walletDB);
+		wallet.AddMessageEndpoint(std::shared_ptr<IWalletMessageEndpoint>(&wnet));
+        wallet.SetNodeEndpoint(std::shared_ptr<beam::proto::FlyClient::INetwork>(&nnet));
 
-        std::shared_ptr<IWalletMessageEndpoint> messageEndpoint(wnet);
+        BroadcastRouter broadcastRouter(nnet, wnet);
 
-        auto optionalKey = NewscastProtocolBuilder::stringToPrivateKey(options.privateKey);
-        if (!optionalKey)
+        ECC::Scalar::Native key;
+        if (!BroadcastMsgCreator::stringToPrivateKey(options.privateKey, key))
         {
             LOG_ERROR() << "Invalid private key.";
             return -1;
         }
 
-        NewsMessage newsMsg = NewsMessageHandler::packUpdateVersion(options.bbsMessage);
-        ByteBuffer message = NewscastProtocolBuilder::createMessage(newsMsg, *optionalKey);
-        messageEndpoint->SendRawMessage(channelToWalletID(Bbs::s_BroadcastChannel), message);
+        VersionInfo versionInfo;
+        versionInfo.m_application = VersionInfo::Application::DesktopWallet;
+        versionInfo.m_version = Version(1,2,3);
+        BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(versionInfo), key);
+        broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
 
         io::Reactor::get_Current().run();
 

@@ -6,14 +6,14 @@ target_sources(wallet_client
         wallet_client.h
     PRIVATE
         wallet_client.cpp
-        extensions/broadcast_router.cpp
+        extensions/broadcast_gateway/broadcast_router.cpp
+        extensions/news_channels/broadcast_msg_creator.cpp
+        extensions/news_channels/broadcast_msg_validator.cpp
+        extensions/news_channels/updates_provider.cpp
         extensions/offers_board/swap_offer.cpp
         extensions/offers_board/swap_offer_token.cpp
         extensions/offers_board/offers_protocol_handler.cpp
         extensions/offers_board/swap_offers_board.cpp
-        extensions/newscast/newscast.cpp
-        extensions/newscast/newscast_protocol_parser.cpp
-        extensions/newscast/newscast_protocol_builder.cpp
 )
 
 target_link_libraries(wallet_client 

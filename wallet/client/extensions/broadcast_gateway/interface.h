@@ -15,10 +15,11 @@
 #pragma once
 
 #include "utility/common.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg.h"
 
 namespace beam
 {
-    enum class BroadcastContentType
+    enum class BroadcastContentType : uint32_t
     {
         SwapOffers,
         SoftwareUpdates,
@@ -30,10 +31,11 @@ namespace beam
         virtual bool onMessage(uint64_t, ByteBuffer&&) = 0;
     };
 
-    struct IBroadcastMessagesGateway
+    struct IBroadcastMsgsGateway
     {
         virtual void registerListener(BroadcastContentType, IBroadcastListener*) = 0;
         virtual void unregisterListener(BroadcastContentType) = 0;
-        virtual void sendMessage(BroadcastContentType type, const ByteBuffer&) = 0;
+        virtual void sendRawMessage(BroadcastContentType type, const ByteBuffer&) = 0;
+        virtual void sendMessage(BroadcastContentType type, const BroadcastMsg&) = 0;
     };
 }

@@ -125,6 +125,11 @@ namespace std
         s.swap_buf(buffer);
         return beam::wallet::EncodeToBase58(buffer);
     }
+
+    string to_string(const beam::Version& v)
+    {
+        return v.to_string();
+    }
 }  // namespace std
 
 namespace beam
@@ -142,6 +147,49 @@ namespace beam
         os << std::to_string(amount);
         
         return os;
+    }
+
+    // Version Version::getCurrent()
+    // {
+    //     return Version
+    //     {
+    //         VERSION_MAJOR,
+    //         VERSION_MINOR,
+    //         VERSION_REVISION
+    //     };
+    // }
+
+    std::string Version::to_string() const
+    {
+        std::string major(std::to_string(m_major));
+        std::string minor(std::to_string(m_minor));
+        std::string rev(std::to_string(m_revision));
+        std::string res;
+        res.reserve(major.size() + minor.size() + rev.size());
+        res.append(major).push_back('.');
+        res.append(minor).push_back('.');
+        res.append(rev);
+        return res;
+    }
+
+    bool Version::operator==(const Version& other) const
+    {
+        return m_major == other.m_major
+            && m_minor == other.m_minor
+            && m_revision == other.m_revision;
+    }
+
+    bool Version::operator<(const Version& other) const
+    {
+        return m_major < other.m_major
+            || (m_major == other.m_major
+                && (m_minor < other.m_minor
+                    || (m_minor == other.m_minor && m_revision < other.m_revision)));
+    }
+
+    bool Version::operator!=(const Version& other) const
+    {
+        return !(*this == other);
     }
 }  // namespace beam
 

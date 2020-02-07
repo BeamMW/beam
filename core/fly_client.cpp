@@ -44,7 +44,7 @@ void FlyClient::NetworkStd::Connect()
 
         for (size_t i = 0; i < m_Cfg.m_vNodes.size(); i++)
         {
-            Connection* pConn = new Connection(*this, i);
+            Connection* pConn = new Connection(*this);
             pConn->m_Addr = m_Cfg.m_vNodes[i];
             if (m_Cfg.m_UseProxy) pConn->Connect(pConn->m_Addr, m_Cfg.m_ProxyAddr);
             else pConn->Connect(pConn->m_Addr);
@@ -58,9 +58,8 @@ void FlyClient::NetworkStd::Disconnect()
         delete &m_Connections.front();
 }
 
-FlyClient::NetworkStd::Connection::Connection(NetworkStd& x, size_t iIndex)
-    :m_iIndex(iIndex)
-    ,m_This(x)
+FlyClient::NetworkStd::Connection::Connection(NetworkStd& x)
+    : m_This(x)
 {
     m_This.m_Connections.push_back(*this);
     ResetVars();

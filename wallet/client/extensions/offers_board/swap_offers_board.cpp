@@ -23,7 +23,7 @@ namespace beam::wallet
      *  @messageEndpoint    outgoing messages destination
      *  @protocolHandler    offer board protocol handler
      */
-    SwapOffersBoard::SwapOffersBoard(IBroadcastMessagesGateway& broadcastGateway,
+    SwapOffersBoard::SwapOffersBoard(IBroadcastMsgsGateway& broadcastGateway,
                                      OfferBoardProtocolHandler& protocolHandler)
         :   m_broadcastGateway(broadcastGateway),
             m_protocolHandler(protocolHandler)
@@ -240,7 +240,7 @@ namespace beam::wallet
             LOG_WARNING() << offer.m_txId << " Offer has foreign Pk and will not be published.\n\t";
             return;
         }
-        m_broadcastGateway.sendMessage(BroadcastContentType::SwapOffers, *message);
+        m_broadcastGateway.sendRawMessage(BroadcastContentType::SwapOffers, *message);
     }
 
     /**
@@ -255,7 +255,7 @@ namespace beam::wallet
             LOG_WARNING() << offerID << " Offer has foreign Pk and will not be updated.\n\t";
             return;
         }
-        m_broadcastGateway.sendMessage(BroadcastContentType::SwapOffers, *message);
+        m_broadcastGateway.sendRawMessage(BroadcastContentType::SwapOffers, *message);
     }
     
     void SwapOffersBoard::Subscribe(ISwapOffersObserver* observer)

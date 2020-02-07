@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,27 +14,23 @@
 
 #pragma once
 
-#include "news_message.h"
-#include "news_observer.h"
-#include "newscast_protocol_parser.h"
-#include "wallet/client/extensions/broadcast.h"
-
-using namespace beam::proto;
+#include "wallet/client/extensions/broadcast_gateway/interface.h"
+#include "wallet/client/extensions/news_channels/interface.h"
+#include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
 
 namespace beam::wallet
-{
+{    
     /**
-     *  Implementation of public news channels reader via bulletin board system (BBS).
+     *  Listen for notifications about new application version
      */
-    class Newscast
+    class AppUpdateInfoProvider
         : public IBroadcastListener
     {
     public:
-        Newscast(IBroadcastMessagesGateway&, NewscastProtocolParser&);
+        AppUpdateInfoProvider(IBroadcastMsgsGateway&, BroadcastMsgValidator&);
 
         /**
-         *  IBroadcastListener implementation
-         *  Processes broadcast messages
+         *  Provides application update information from broadcast messages
          */
         virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
         
@@ -43,11 +39,11 @@ namespace beam::wallet
         void Unsubscribe(INewsObserver* observer);
         
     private:
-		IBroadcastMessagesGateway& m_broadcastGateway;
-        NewscastProtocolParser& m_parser;                   /// news protocol parser
-        std::vector<INewsObserver*> m_subscribers;          /// fresh news subscribers
+		IBroadcastMsgsGateway& m_broadcastGateway;
+        BroadcastMsgValidator& m_validator;
+        std::vector<INewsObserver*> m_subscribers;
 
-        void notifySubscribers(NewsMessage msg) const;
+        void notifySubscribers(const VersionInfo&) const;
     };
 
 } // namespace beam::wallet

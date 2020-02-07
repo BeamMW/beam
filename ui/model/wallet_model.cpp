@@ -281,22 +281,11 @@ void WalletModel::onPostFunctionToClientContext(MessageFunction&& func)
     emit functionPosted(func);
 }
 
-void WalletModel::onNewsUpdate(const NewsMessage& msg)
+void WalletModel::onNewWalletVersion(const VersionInfo& v)
 {
-    switch (msg.m_type)
+    if (v.m_application == VersionInfo::Application::DesktopWallet)
     {
-    case NewsMessage::Type::WalletUpdateNotification:
-        {
-            std::string str = NewsMessageHandler::extractUpdateVersion(msg);
-            emit newAppVersion(QString::fromStdString(str));
-            break;
-        }
-
-    case NewsMessage::Type::ExchangeRates:
-        break;
-    
-    default:
-        break;
+        emit newAppVersion(QString::fromStdString(std::to_string(v.m_version)));
     }
 }
 

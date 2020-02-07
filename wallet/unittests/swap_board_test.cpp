@@ -34,7 +34,7 @@ WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 #include "mock_bbs_network.cpp"
 
-#include "wallet/client/extensions/broadcast_router.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 
 using namespace beam;
@@ -282,7 +282,7 @@ namespace
             WALLET_CHECK_NO_THROW(msg = protocolHandler.createMessage(offer, offer.m_publisherId));
             WALLET_CHECK(msg);
 
-            broadcastRouter.sendMessage(BroadcastContentType::SwapOffers, *msg);
+            broadcastRouter.sendRawMessage(BroadcastContentType::SwapOffers, *msg);
 
             WALLET_CHECK(executed);
         }

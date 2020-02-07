@@ -17,7 +17,6 @@
 #include <QObject>
 
 #include "ui/model/app_model.h"
-#include "wallet/client/extensions/newscast/news_message.h"
 
 class UpdateInfoProvider : public QObject
 {
@@ -35,10 +34,4 @@ public slots:
 private:
     WalletModel& m_walletModel;
     WalletSettings& m_settings; /// TODO store last version user notified about
-
-    /**
-     * const unsigned VERSION_MAJOR = 4;
-     * const unsigned VERSION_MINOR = 2;
-     * const unsigned VERSION_REVISION = 7485;
-     */
 };
