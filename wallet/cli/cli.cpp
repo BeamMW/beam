@@ -2023,7 +2023,7 @@ namespace
         {
             throw std::runtime_error(kErrorAmountMissing);
         }
-        Amount cliAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
+        double cliAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
         Amount amountGroth = static_cast<ECC::Amount>(std::round(cliAmount * Rules::Coin));
         if (amountGroth == 0) /// TODO:ASSETS - check if necessary, may be Positive<> above would throw
         {

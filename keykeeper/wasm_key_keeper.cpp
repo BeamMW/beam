@@ -36,6 +36,22 @@ struct KeyKeeper
         static_assert(sizeof(uint64_t) == sizeof(unsigned long long));
     }
 
+    std::string GetOwnerKey(const std::string& pass)
+    {
+        IPrivateKeyKeeper2::Method::get_Kdf method;
+        method.m_Root = true;
+        method.m_iChild = 0;
+        _impl2.InvokeSync(method);
+
+        beam::KeyString ks;
+        ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
+        ks.m_sMeta = std::to_string(0);
+
+        ks.ExportP(*method.m_pPKdf);
+
+        return ks.m_sRes;
+    }
+
     std::string get_Kdf(bool root, Key::Index keyIndex)
     {
         IPrivateKeyKeeper2::Method::get_Kdf method;
@@ -233,13 +249,7 @@ EMSCRIPTEN_BINDINGS()
 {
     class_<KeyKeeper>("KeyKeeper")
         .constructor<const std::string&>()
-
-        .function("get_Kdf", &KeyKeeper::get_Kdf)
-        .function("get_NumSlots", &KeyKeeper::get_NumSlots)
-        .function("CreateOutput", &KeyKeeper::CreateOutput)
-        .function("SignReceiver", &KeyKeeper::SignReceiver)
-        .function("SignSender", &KeyKeeper::SignSender)
-        .function("SignSplit", &KeyKeeper::SignSplit)
+        .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
 #define THE_MACRO(method) \
         .function(#method, &KeyKeeper::method)\
 

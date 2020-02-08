@@ -50,6 +50,7 @@ if(EMSCRIPTEN)
             ${PROJECT_SOURCE_DIR}/../mnemonic/dictionary.cpp
             ${PROJECT_SOURCE_DIR}/../mnemonic/mnemonic.cpp
             ${PROJECT_SOURCE_DIR}/../wallet/core/private_key_keeper.cpp
+            ${PROJECT_SOURCE_DIR}/../wallet/core/common.cpp
 
             ${PROJECT_SOURCE_DIR}/../3rdparty/hmac_sha512.c
             ${PROJECT_SOURCE_DIR}/../3rdparty/pkcs5_pbkdf2.c
@@ -58,7 +59,7 @@ if(EMSCRIPTEN)
             ${PROJECT_SOURCE_DIR}/../3rdparty/utilstrencodings.cpp
     )
 
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "--bind -s WASM=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s MODULARIZE=1 -s ASSERTIONS=1")
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "--bind -s WASM=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s MODULARIZE=1 -s USE_BOOST_HEADERS=1")
 else()
 
     target_link_libraries(keykeeper PRIVATE Boost::boost utility)
