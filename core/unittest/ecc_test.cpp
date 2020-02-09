@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include "../ecc_native.h"
+#include "../ecc_min.h"
 #include "../block_rw.h"
 #include "../shielded.h"
 #include "../treasury.h"
@@ -551,6 +552,47 @@ void TestPoints()
 	p0 = -p0;
 	p0 += p1;
 	verify_test(p0 == Zero);
+}
+
+void TestMultiMac()
+{
+	Mode::Scope scope(Mode::Fast);
+
+	for (int i = 0; i < 50000; i++)
+	{
+		const uint32_t nBatch = 8;
+
+		uint32_t aa = sizeof(ECC_Min::MultiMac);
+		uint32_t bb = sizeof(ECC_Min::MultiMac::Casual);
+		uint32_t cc = sizeof(ECC::MultiMac::Prepared::Fast::Wnaf);
+
+		aa; bb; cc;
+
+		ECC::MultiMac_WithBufs< nBatch, 1> mm1;
+		ECC_Min::MultiMac_WithBufs<nBatch> mm2;
+
+		for (uint32_t iPt = 0; iPt < nBatch; iPt++)
+		{
+			Point::Native pt;
+			SetRandom(pt);
+
+			Scalar::Native sk;
+			SetRandom(sk);
+
+			mm1.m_pCasual[iPt].Init(pt);
+			mm1.m_pKCasual[iPt] = sk;
+			mm1.m_Casual++;
+
+			mm2.Add(pt.get_Raw(), sk.get());
+
+		}
+
+		Point::Native res1, res2;
+		mm1.Calculate(res1);
+		mm2.Calculate(res2.get_Raw());
+
+		verify_test(res1 == res2);
+	}
 }
 
 void TestSigning()
@@ -2142,6 +2184,7 @@ void TestAll()
 	TestHash();
 	TestScalars();
 	TestPoints();
+	TestMultiMac();
 	TestSigning();
 	TestCommitments();
 	TestRangeProof(false);
