@@ -1993,7 +1993,7 @@ namespace
                     {
                         _keeperCallbacks.push(std::move(func));
                     }
-                    _jsonRequests.push(std::move(msg.dump()));
+                    _jsonRequests.push(msg.dump());
                     contents = &_jsonRequests.back();
                 }
 
