@@ -34,10 +34,10 @@ namespace beam
         BroadcastRouter(proto::FlyClient::INetwork&, wallet::IWalletMessageEndpoint&);
 
         // IBroadcastMsgsGateway
-        void registerListener(BroadcastContentType, IBroadcastListener*);
-        void unregisterListener(BroadcastContentType);
-        void sendRawMessage(BroadcastContentType type, const ByteBuffer&);  // deprecated. used in SwapOffersBoard.
-        void sendMessage(BroadcastContentType type, const BroadcastMsg&);
+        void registerListener(BroadcastContentType, IBroadcastListener*) override;
+        void unregisterListener(BroadcastContentType) override;
+        void sendRawMessage(BroadcastContentType type, const ByteBuffer&) override; // deprecated. used in SwapOffersBoard.
+        void sendMessage(BroadcastContentType type, const BroadcastMsg&) override;
 
         // IBbsReceiver
         virtual void OnMsg(proto::BbsMsg&&) override;
