@@ -161,13 +161,13 @@ namespace beam
 
     std::string Version::to_string() const
     {
-        std::string major(std::to_string(m_major));
-        std::string minor(std::to_string(m_minor));
+        std::string maj(std::to_string(m_major));
+        std::string min(std::to_string(m_minor));
         std::string rev(std::to_string(m_revision));
         std::string res;
-        res.reserve(major.size() + minor.size() + rev.size());
-        res.append(major).push_back('.');
-        res.append(minor).push_back('.');
+        res.reserve(maj.size() + min.size() + rev.size());
+        res.append(maj).push_back('.');
+        res.append(min).push_back('.');
         res.append(rev);
         return res;
     }
