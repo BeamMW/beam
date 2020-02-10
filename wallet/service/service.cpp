@@ -66,7 +66,18 @@ namespace beam::wallet
 
     // !TODO: temporary solution, just to reuse already opened wallet DB
     // DB shouldn't be locked in normal case
-    static std::map<std::string, IWalletDB::Ptr> WalletsMap;
+
+    struct WalletInfo
+    {
+        std::string ownerKey;
+        IWalletDB::Ptr walletDB;
+        WalletInfo(const std::string& ownerKey, IWalletDB::Ptr walletDB)
+            : ownerKey(ownerKey)
+            , walletDB(walletDB)
+        {}
+        WalletInfo() = default;
+    };
+    static std::map<std::string, WalletInfo> WalletsMap;
 
     static const char JsonRpcHrd[] = "jsonrpc";
     static const char JsonRpcVerHrd[] = "2.0";
@@ -1090,7 +1101,7 @@ namespace
                     {"method", "create_output"},
                     {"params",
                         {
-                            {"scheme", x.m_hScheme},
+                            {"scheme", to_base64(x.m_hScheme)},
                             {"id", to_base64(x.m_Cid)}
                         }
                     }
@@ -1131,7 +1142,8 @@ namespace
                         Status::Type s = msg["status"];
                         if (s == Status::Success)
                         {
-                            x.m_kOffset = from_base64<ECC::Scalar>(msg["offset"]);
+                            auto offset = from_base64<ECC::Scalar>(msg["offset"]);
+                            x.m_kOffset.Import(offset);
                             x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
                             x.m_pKernel->m_Signature = from_base64<ECC::Signature>(msg["sig"]);
                         }
@@ -1204,7 +1216,8 @@ namespace
                         Status::Type s = msg["status"];
                         if (s == Status::Success)
                         {
-                            x.m_kOffset = from_base64<ECC::Scalar>(msg["offset"]);
+                            auto offset = from_base64<ECC::Scalar>(msg["offset"]);
+                            x.m_kOffset.Import(offset);
                             x.m_pKernel->m_Signature = from_base64<ECC::Signature>(msg["sig"]);
                         }
                         PushOut(s, h);
@@ -1699,7 +1712,7 @@ namespace
                     if(walletDB)
                     {
                         walletDB->Subscribe(this);
-
+                        WalletsMap[dbName] = WalletInfo( data.ownerKey,  walletDB);
                         // generate default address
                         WalletAddress address;
                         walletDB->createAddress(address);
@@ -1718,9 +1731,17 @@ namespace
             {
                 LOG_DEBUG() << "OpenWallet(id = " << id << ")";
 
-                _walletDB = WalletsMap.count(data.id)
-                    ? WalletsMap[data.id]
-                    : WalletDB::open(data.id + ".db", SecString(data.pass));
+                auto it = WalletsMap.find(data.id);
+
+                if (it == WalletsMap.end())
+                {
+                    doError(id, ApiError::InternalErrorJsonRpc, "Wallet does not exist.");
+                    return;
+                }
+
+                _walletDB = (it->second.walletDB)
+                    ? it->second.walletDB
+                    : WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeper(data.pass, it->second.ownerKey));
 
                 if(!_walletDB)
                 {
@@ -1728,8 +1749,7 @@ namespace
                     return;
                 }
 
-                if(!WalletsMap.count(data.id))
-                    WalletsMap[data.id] = _walletDB;
+                WalletsMap[data.id].walletDB = _walletDB;
 
                 LOG_INFO() << "wallet sucessfully opened...";
 
@@ -1846,6 +1866,22 @@ namespace
                 doResponse(id, res);
             }
 
+            IPrivateKeyKeeper2::Ptr createKeyKeeper(const std::string& pass, const std::string& ownerKey) const
+            {
+                beam::KeyString ks;
+
+                ks.SetPassword(pass);
+                ks.m_sRes = ownerKey;
+
+                std::shared_ptr<ECC::HKdfPub> ownerKdf = std::make_shared<ECC::HKdfPub>();
+
+                if (ks.Import(*ownerKdf))
+                {
+                    return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, _session, _reactor);
+                }
+                return {};
+            }
+
         protected:
             IWalletDB::Ptr _walletDB;
             std::unique_ptr<Wallet> _wallet;
@@ -1866,15 +1902,17 @@ namespace
             using KeyKeeperFunc = std::function<void(const json&)>;
             std::queue<KeyKeeperFunc> _keeperCallbacks;
             std::queue<std::string> _jsonRequests;
-
+            boost::asio::io_context& _ioc;
+            bool _reading = false;
 
         public:
             // Take ownership of the socket
             explicit
-            session(tcp::socket socket, io::Reactor::Ptr reactor)
+            session(tcp::socket socket, io::Reactor::Ptr reactor, boost::asio::io_context& ioc)
                 : ApiConnection(this, reactor, *this)
                 , ws_(std::move(socket))
                 , _newDataEvent(io::AsyncEvent::create(*reactor, [this]() { process_new_data(); }))
+                , _ioc(ioc)
             {
                 
             }
@@ -1911,6 +1949,9 @@ namespace
             void
             do_read()
             {
+                if (_reading)
+                    return;
+                _reading = true;
                 // Read a message into our buffer
                 ws_.async_read(
                     buffer_,
@@ -1929,7 +1970,7 @@ namespace
                 std::size_t bytes_transferred)
             {
                 boost::ignore_unused(bytes_transferred);
-
+                _reading = false;
                 // This indicates that the session was closed
                 if(ec == websocket::error::closed)
                     return;
@@ -1996,21 +2037,23 @@ namespace
                     _jsonRequests.push(msg.dump());
                     contents = &_jsonRequests.back();
                 }
-
-                ws_.text(ws_.got_text());
-                ws_.async_write(
-                    boost::asio::buffer(*contents),
-                    boost::asio::bind_executor(
-                        ws_.get_executor(),
-                        std::bind(
-                            &session::on_write,
-                            shared_from_this(),
-                            std::placeholders::_1,
-                            std::placeholders::_2, [this]() 
-                            {
-                                std::unique_lock<std::mutex> lock(_queueMutex);
-                                _jsonRequests.pop(); 
-                            })));
+                _ioc.post([this, contents]()
+                    {
+                        ws_.text(ws_.got_text());
+                        ws_.async_write(
+                            boost::asio::buffer(*contents),
+                            boost::asio::bind_executor(
+                                ws_.get_executor(),
+                                std::bind(
+                                    &session::on_write,
+                                    shared_from_this(),
+                                    std::placeholders::_1,
+                                    std::placeholders::_2, [this]()
+                                    {
+                                        std::unique_lock<std::mutex> lock(_queueMutex);
+                                        _jsonRequests.pop();
+                                    })));
+                    });
             }
 
             void process_new_data()
@@ -2067,6 +2110,7 @@ namespace
         // Accepts incoming connections and launches the sessions
         class listener : public std::enable_shared_from_this<listener>
         {
+            boost::asio::io_context& _ioc;
             tcp::acceptor acceptor_;
             tcp::socket socket_;
             io::Reactor::Ptr _reactor;
@@ -2074,7 +2118,8 @@ namespace
         public:
             listener(boost::asio::io_context& ioc,
                 tcp::endpoint endpoint, io::Reactor::Ptr reactor)
-                : acceptor_(ioc)
+                : _ioc(ioc)
+                , acceptor_(ioc)
                 , socket_(ioc)
                 , _reactor(reactor)
             {
@@ -2144,7 +2189,7 @@ namespace
                 else
                 {
                     // Create the session and run it
-                    auto s = std::make_shared<session>(std::move(socket_), _reactor);
+                    auto s = std::make_shared<session>(std::move(socket_), _reactor, _ioc);
                     _sessions.push_back(s);
                     s->run();
                 }

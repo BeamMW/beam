@@ -2980,9 +2980,10 @@ namespace beam::wallet
 
     void WalletDB::Subscribe(IWalletDbObserver* observer)
     {
-        assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
-
-        m_subscribers.push_back(observer);
+        if (std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end())
+        {
+            m_subscribers.push_back(observer);
+        }
     }
 
     void WalletDB::Unsubscribe(IWalletDbObserver* observer)

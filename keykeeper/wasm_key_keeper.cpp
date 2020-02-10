@@ -89,11 +89,11 @@ struct KeyKeeper
         return res.dump();
     }
 
-    std::string CreateOutput(beam::Height scheme, const std::string& cid)
+    std::string CreateOutput(const std::string& scheme, const std::string& cid)
     {
         IPrivateKeyKeeper2::Method::CreateOutput method;
 
-        method.m_hScheme = scheme;
+        method.m_hScheme = from_base64<Height>(scheme);
         method.m_Cid = from_base64<CoinID>(cid);
 
         auto status = _impl2.InvokeSync(method);
@@ -241,7 +241,14 @@ struct KeyKeeper
     }
 
 private:
-    LocalPrivateKeyKeeperStd _impl2;
+    struct MyKeeKeeper
+        : public LocalPrivateKeyKeeperStd
+    {
+        using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
+
+        bool IsTrustless() override { return true; }
+    };
+    MyKeeKeeper _impl2;
 };
 
 // Binding code

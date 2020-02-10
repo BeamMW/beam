@@ -2179,7 +2179,7 @@ void TestKeyKeeper()
     {
         using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
 
-        virtual bool IsTrustless() override { return true; }
+        bool IsTrustless() override { return true; }
     };
 
     Peer pPeer[2];
