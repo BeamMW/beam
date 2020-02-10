@@ -1991,7 +1991,7 @@ namespace
                     
                     if(data.size())
                     {
-                        LOG_DEBUG() << "data from a client:" << data;
+                       // LOG_DEBUG() << "data from a client:" << data;
                     
                         process_data_async(std::move(data));
                     }
@@ -2012,18 +2012,21 @@ namespace
                 {
                     std::unique_lock<std::mutex> lock(_queueMutex);
                     _writeQueue.pop();
-                    if (_writeQueue.empty())
-                        return;
-
-                    contents = &_writeQueue.front();
+                    if (!_writeQueue.empty())
+                    {
+                        contents = &_writeQueue.front();
+                    }
                 }
 
-                ws_.async_write(
-                    boost::asio::buffer(*contents),
-                    [this, sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                if (contents)
                 {
-                    sp->on_write(ec, bytes);
-                });
+                    ws_.async_write(
+                        boost::asio::buffer(*contents),
+                        [this, sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                    {
+                        sp->on_write(ec, bytes);
+                    });
+                }
 
                 // Do another read
                 do_read();
@@ -2048,13 +2051,14 @@ namespace
                     if (func)
                     {
                         _keeperCallbacks.push(std::move(func));
+                        LOG_DEBUG() << "data to key keeper:" << msg.dump();
                     }
                     _writeQueue.push(msg.dump());
 
                     if (_writeQueue.size() > 1)
                         return;
 
-                    contents = &_writeQueue.back();
+                    contents = &_writeQueue.front();
                 }
 
                 ws_.async_write(
@@ -2099,6 +2103,8 @@ namespace
                     {
                         if (_keeperCallbacks.empty())
                             return;
+
+                        LOG_DEBUG() << "data from key keeper:" << data;
 
                         _keeperCallbacks.front()(msg["result"]);
                         _keeperCallbacks.pop();
