@@ -878,6 +878,7 @@ private:
 
         void onMessage(const JsonRpcId& id, const CreateOffer& data) override
         {
+            // TODO(zavarza) check balance
             auto txParameters = CreateSwapTransactionParameters();
 
             WalletAddress address;
@@ -940,8 +941,37 @@ private:
 
         void onMessage(const JsonRpcId& id, const CancelOffer& data) override
         {
+            auto txParams = ParseParameters(data.token);
+            if (!txParams)
+                throw FailToParseToken();
+
+            auto txId = txParams->GetTxID();
+            if (!txId)
+                throw FailToParseToken();
+
+            auto tx = _walletDB->getTx(*txId);
+
+            if (!tx)
+                throw TxNotFound();
+
+            SwapOffer offer(*tx);
+            if (offer.m_status == SwapOfferStatus::Pending)
+            {
+                _wallet.CancelTransaction(*txId);
+                offer.m_status = SwapOfferStatus::Canceled;
+            }
+            else
+            {
+                throw CantCancelTx(offer.m_status);
+            }
+
             CancelOffer::Response res;
-            doResponse(id, res);
+            doResponse(id, CancelOffer::Response
+                {
+                    _walletDB->getAddresses(true),
+                    _walletDB->getCurrentHeight(),
+                    offer
+                });
         }
 
         void onMessage(const JsonRpcId& id, const OfferStatus& data) override

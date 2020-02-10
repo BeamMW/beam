@@ -48,10 +48,24 @@ content-type: application/json-rpc
 
 {
     "jsonrpc": "2.0",
-    "id": 1236,
+    "id": 126,
     "method": "swap_offer_status",
     "params": {
-        "token": "6xf5BNCnTjvmnXKtK79hDKEKMFUwpNLTPpM6PYtFrMs4SX7TktazTgAZ9EmMnLyvU2UEaVyDrtWdKkQgyu9ADSV9nPdrLq3NSYbXjYgtpuA6UADVW6REVmDVpcigkLnFtcQnsNCcjKpH5Ayy2dQoDshXoz1p5iHn686cB8e"
+        "token": "Jk6G34NFBZVdUhZkRAy5eetuuZ1vivQcP7PiwcKC7G4WVvY4P5X2qABegCAtCAP8WTLffaWysu8VUQCotc6UPxLLELPTJzEbZpeG9Z19UU5cHRe47p6KTgF7sE3b1EiqWMpPuR1rjtDgAKfjouksQgPg9d3DmTnDQMiD"
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 126,
+    "method": "swap_cancel_offer",
+    "params": {
+        "token": "Jk6G34NFBZVdUhZkRAy5eetuuZ1vivQcP7PiwcKC7G4WVvY4P5X2qABegCAtCAP8WTLffaWysu8VUQCotc6UPxLLELPTJzEbZpeG9Z19UU5cHRe47p6KTgF7sE3b1EiqWMpPuR1rjtDgAKfjouksQgPg9d3DmTnDQMiD"
     }
 }
 

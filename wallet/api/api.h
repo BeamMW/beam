@@ -94,6 +94,26 @@ namespace beam::wallet
 
     };
 
+    class TxNotFound : public std::runtime_error
+    {
+    public:
+        TxNotFound()
+            : std::runtime_error("")
+        {
+        }
+
+    };
+
+    class CantCancelTx : public std::runtime_error
+    {
+    public:
+        CantCancelTx(const SwapOfferStatus& status)
+            : std::runtime_error(""), _status(status)
+        {
+        }
+        SwapOfferStatus _status;
+    };
+
     struct OffersList
     {
         struct Response
@@ -140,20 +160,22 @@ namespace beam::wallet
 
     struct CancelOffer
     {
+        std::string token;
         struct Response
         {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            SwapOffer offer;
         };
     };
 
     struct OfferStatus
     {
         std::string token;
-        // SwapOffer offer;
         struct Response
         {
             std::vector<WalletAddress> addrList;
             Height systemHeight;
-            // std::string incomingToken;
             SwapOffer offer;
         };
     };

@@ -806,8 +806,49 @@ json OfferToJson(const SwapOffer& offer,
 
     void WalletApi::onCancelOfferMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
-        CancelOffer data;
-        _handler.onMessage(id, data);
+        checkJsonParam(params, "token", id);
+        const auto& token = params["token"];
+
+        if (!SwapOfferToken::isValid(token))
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "Parameter 'token' is not valid swap token.",
+                id
+            };
+
+        CancelOffer data{token};
+        try
+        {
+            _handler.onMessage(id, data);
+        }
+        catch(const FailToParseToken&)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "Parse Parameters from 'token' failed.",
+                id
+            };
+        }
+        catch(const TxNotFound&)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "Tranzaction not found.",
+                id
+            };
+        }
+        catch(const CantCancelTx& e)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "Can't cancel transaction with status: " + swapOfferStatusToString(e._status),
+                id
+            };
+        }
     }
 
     void WalletApi::onOfferStatusMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -1248,7 +1289,13 @@ json OfferToJson(const SwapOffer& offer,
 
     void WalletApi::getResponse(const JsonRpcId& id, const CancelOffer::Response& res, json& msg)
     {
-        msg = getNotImplError(id);
+        // msg = getNotImplError(id);
+        msg = 
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", OfferToJson(res.offer, res.addrList, res.systemHeight)}
+        };
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const OfferStatus::Response& res, json& msg)
@@ -1259,7 +1306,6 @@ json OfferToJson(const SwapOffer& offer,
             {"id", id},
             {"result", OfferToJson(res.offer, res.addrList, res.systemHeight)}
         };
-        // TODO(zavarza)
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
