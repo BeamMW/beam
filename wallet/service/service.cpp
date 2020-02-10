@@ -1145,7 +1145,7 @@ namespace
                             auto offset = from_base64<ECC::Scalar>(msg["offset"]);
                             x.m_kOffset.Import(offset);
                             x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
-                            x.m_pKernel->m_Signature = from_base64<ECC::Signature>(msg["sig"]);
+                            x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
                         }
                         PushOut(s, h);
                     });
@@ -1901,7 +1901,7 @@ namespace
             std::queue<std::string> _dataQueue;
             using KeyKeeperFunc = std::function<void(const json&)>;
             std::queue<KeyKeeperFunc> _keeperCallbacks;
-            std::queue<std::string> _jsonRequests;
+            std::queue<std::string> _writeQueue;
             boost::asio::io_context& _ioc;
             bool _reading = false;
 
@@ -2001,14 +2001,29 @@ namespace
             void
             on_write(
                 boost::system::error_code ec,
-                std::size_t bytes_transferred, std::function<void()> done)
+                std::size_t bytes_transferred)
             {
                 boost::ignore_unused(bytes_transferred);
 
                 if(ec)
                     return fail(ec, "write");
 
-                done();
+                std::string* contents = nullptr;
+                {
+                    std::unique_lock<std::mutex> lock(_queueMutex);
+                    _writeQueue.pop();
+                    if (_writeQueue.empty())
+                        return;
+
+                    contents = &_writeQueue.front();
+                }
+
+                ws_.async_write(
+                    boost::asio::buffer(*contents),
+                    [this, sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                {
+                    sp->on_write(ec, bytes);
+                });
 
                 // Do another read
                 do_read();
@@ -2034,25 +2049,19 @@ namespace
                     {
                         _keeperCallbacks.push(std::move(func));
                     }
-                    _jsonRequests.push(msg.dump());
-                    contents = &_jsonRequests.back();
+                    _writeQueue.push(msg.dump());
+
+                    if (_writeQueue.size() > 1)
+                        return;
+
+                    contents = &_writeQueue.back();
                 }
-                _ioc.post([this, contents]()
+
+                ws_.async_write(
+                    boost::asio::buffer(*contents),
+                    [this, sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
                     {
-                        ws_.text(ws_.got_text());
-                        ws_.async_write(
-                            boost::asio::buffer(*contents),
-                            boost::asio::bind_executor(
-                                ws_.get_executor(),
-                                std::bind(
-                                    &session::on_write,
-                                    shared_from_this(),
-                                    std::placeholders::_1,
-                                    std::placeholders::_2, [this]()
-                                    {
-                                        std::unique_lock<std::mutex> lock(_queueMutex);
-                                        _jsonRequests.pop();
-                                    })));
+                        sp->on_write(ec, bytes);
                     });
             }
 
