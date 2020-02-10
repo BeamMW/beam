@@ -20,6 +20,18 @@
 
 namespace beam::wallet
 {
+    namespace JsonFields
+    {
+        inline const char* Status = "status";
+        inline const char* Count = "count";
+        inline const char* Result = "result";
+        inline const char* Offset = "offset";
+        inline const char* PaymentProofSig = "payment_proof_sig";
+        inline const char* UserAgreement = "agreement";
+        inline const char* Kernel = "kernel";
+        inline const char* PublicKdf = "pub_kdf";
+    }
+
     template <typename T>
     std::string to_base64(const T& obj)
     {

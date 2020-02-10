@@ -1059,7 +1059,7 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
-                        Status::Type s = msg["status"];
+                        Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
                             ByteBuffer buf = from_base64<ByteBuffer>(msg["pub_kdf"]);
@@ -1084,7 +1084,7 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                 {
-                    Status::Type s = msg["status"];
+                    Status::Type s = GetStatus(msg);
                     if (s == Status::Success)
                     {
                         x.m_Count = msg["count"];
@@ -1110,7 +1110,7 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
-                        Status::Type s = msg["status"];
+                        Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
                             x.m_pResult = from_base64<Output::Ptr>(msg["result"]);
@@ -1140,13 +1140,12 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
-                        Status::Type s = msg["status"];
+                        Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
-                            auto offset = from_base64<ECC::Scalar>(msg["offset"]);
-                            x.m_kOffset.Import(offset);
-                            x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
-                            x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
+                            x.m_kOffset = GetOffset(msg);
+                            x.m_PaymentProofSignature = GetPaymentProofSignature(msg);
+                            x.m_pKernel = GetKernel(msg);
                         }
                         PushOut(s, h);
                     });
@@ -1176,19 +1175,18 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
-                        Status::Type s = msg["status"];
+                        Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
-                            x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
+                            x.m_pKernel = GetKernel(msg);
                             if (x.m_UserAgreement == Zero)
                             {
                                 x.m_UserAgreement = from_base64<ECC::Hash::Value>(msg["agreement"]);
                             }
                             else
                             {
-                                auto offset = from_base64<ECC::Scalar>(msg["offset"]);
-                                x.m_kOffset.Import(offset);
-                                x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
+                                x.m_kOffset = GetOffset(msg);
+                                x.m_PaymentProofSignature = GetPaymentProofSignature(msg);
                             }
                         }
                         PushOut(s, h);
@@ -1214,15 +1212,37 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
-                        Status::Type s = msg["status"];
+                        Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
-                            auto offset = from_base64<ECC::Scalar>(msg["offset"]);
-                            x.m_kOffset.Import(offset);
-                            x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
+                            x.m_kOffset = GetOffset(msg);
+                            x.m_pKernel = GetKernel(msg);
                         }
                         PushOut(s, h);
                     });
+            }
+
+            static Status::Type GetStatus(const json& msg)
+            {
+                return msg["status"];
+            }
+
+            static ECC::Scalar::Native GetOffset(const json& msg)
+            {
+                auto offset = from_base64<ECC::Scalar>(msg["offset"]);
+                ECC::Scalar::Native res;
+                res.Import(offset);
+                return res;
+            }
+
+            static TxKernelStd::Ptr GetKernel(const json& msg)
+            {
+                return from_base64<TxKernelStd::Ptr>(msg["kernel"]);
+            }
+
+            static ECC::Signature GetPaymentProofSignature(const json& msg)
+            {
+                return from_base64<ECC::Signature>(msg["payment_proof_sig"]);
             }
 
          //   void subscribe(Handler::Ptr handler) override
@@ -1736,14 +1756,15 @@ namespace
 
                 if (it == WalletsMap.end())
                 {
-                    doError(id, ApiError::InternalErrorJsonRpc, "Wallet does not exist.");
-                    return;
+                    _walletDB = WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeperFromDB(data.id, data.pass));
                 }
-
-                _walletDB = (it->second.walletDB)
-                    ? it->second.walletDB
-                    : WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeper(data.pass, it->second.ownerKey));
-
+                else
+                {
+                    _walletDB = (it->second.walletDB)
+                        ? it->second.walletDB
+                        : WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeper(data.pass, it->second.ownerKey));
+                }
+                
                 if(!_walletDB)
                 {
                     doError(id, ApiError::InternalErrorJsonRpc, "Wallet not opened.");
@@ -1878,9 +1899,21 @@ namespace
 
                 if (ks.Import(*ownerKdf))
                 {
-                    return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, _session, _reactor);
+                    return createKeyKeeper(ownerKdf);
                 }
                 return {};
+            }
+
+            IPrivateKeyKeeper2::Ptr createKeyKeeperFromDB(const std::string& id, const std::string& pass) const
+            {
+                auto walletDB = WalletDB::open(id + ".db", SecString(pass));
+                Key::IPKdf::Ptr pKey = walletDB->get_OwnerKdf();
+                return createKeyKeeper(pKey);
+            }
+
+            IPrivateKeyKeeper2::Ptr createKeyKeeper(Key::IPKdf::Ptr ownerKdf) const
+            {
+                return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, _session, _reactor);
             }
 
         protected:
