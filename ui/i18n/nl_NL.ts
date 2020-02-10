@@ -2109,5 +2109,21 @@ deploy the key at the node you trust completely.</source>
         <source></source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="settings-notifications-title">
+        <source>Notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-notifications-version">
+        <source>Wallet version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-notifications-news">
+        <source>News</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-notifications-tx-status">
+        <source>Transaction status</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
