@@ -53,8 +53,6 @@ public:
     virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
 
     auto getOffersList() const -> std::vector<SwapOffer>;
-    // TODO(zavarza)
-    // auto getOffer(const TxID& txId) const -> boost::optional<SwapOffer>;
     void publishOffer(const SwapOffer& offer) const;
 
     void Subscribe(ISwapOffersObserver* observer);

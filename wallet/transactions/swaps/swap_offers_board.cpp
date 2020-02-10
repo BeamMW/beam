@@ -258,14 +258,6 @@ auto SwapOffersBoard::getOffersList() const -> std::vector<SwapOffer>
     return offers;
 }
 
-// TODO(zavarza)
-// auto SwapOffersBoard::getOffer(const TxID& txId) const -> boost::optional<SwapOffer>
-// {
-//     const auto& it = m_offersCache.find(txId);
-//     if (it != m_offersCache.end()) return {it->second};
-//     return {};
-// }
-
 auto SwapOffersBoard::getChannel(AtomicSwapCoin coin) const -> BbsChannel
 {
     auto it = m_channelsMap.find(coin);

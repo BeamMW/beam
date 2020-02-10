@@ -816,19 +816,27 @@ json OfferToJson(const SwapOffer& offer,
         const auto& token = params["token"];
 
         if (!SwapOfferToken::isValid(token))
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parameter 'token' not valid.", id };
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "Parameter 'token' is not valid swap token.",
+                id
+            };
 
-        
-        auto parameters = beam::wallet::ParseParameters(token);
-        if (!parameters)
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parse Parameters from 'token' failed.", id };
-
-        SwapOffer offer;
-        offer.SetTxParameters(parameters->Pack());
-           
-
-        OfferStatus data{token, offer};
-        _handler.onMessage(id, data);
+        OfferStatus data{token};
+        try
+        {
+            _handler.onMessage(id, data);
+        }
+        catch(const FailToParseToken&)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "Parse Parameters from 'token' failed.",
+                id
+            };
+        }
     }
 #endif
 

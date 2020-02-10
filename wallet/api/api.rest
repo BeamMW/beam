@@ -51,7 +51,7 @@ content-type: application/json-rpc
     "id": 1236,
     "method": "swap_offer_status",
     "params": {
-        "token": "upnHn8psk78oDSQvXmNjHpHLuGHVfqJRXkD8W1qnyWVCYvFDs4TFUsQHBsc3BmeofPLD7zCBzfedTRnhDM1HtCcqadNZDk3j9Hu1XRydFeKujhUnGs8P6raraaXkua9GmD1VaaYY3uRLGf9fxyeX4vjHU7vnnKGUM"
+        "token": "6xf5BNCnTjvmnXKtK79hDKEKMFUwpNLTPpM6PYtFrMs4SX7TktazTgAZ9EmMnLyvU2UEaVyDrtWdKkQgyu9ADSV9nPdrLq3NSYbXjYgtpuA6UADVW6REVmDVpcigkLnFtcQnsNCcjKpH5Ayy2dQoDshXoz1p5iHn686cB8e"
     }
 }
 

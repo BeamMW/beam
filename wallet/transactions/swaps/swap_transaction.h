@@ -34,7 +34,8 @@ namespace beam::wallet
                           Height responseTime = kDefaultTxResponseTime,
                           Height lifetime = kDefaultTxLifetime);
 
-    TxParameters MirrorSwapTxParams(const TxParameters& original);
+    TxParameters MirrorSwapTxParams(const TxParameters& original,
+                                    bool isOwn = true);
 
     TxParameters PrepareSwapTxParamsForTokenization(
         const TxParameters& original);

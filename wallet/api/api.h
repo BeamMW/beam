@@ -83,6 +83,17 @@ namespace beam::wallet
     SWAP_OFFER_API_METHODS(macro)
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+
+    class FailToParseToken : public std::runtime_error
+    {
+    public:
+        FailToParseToken()
+            : std::runtime_error("")
+        {
+        }
+
+    };
+
     struct OffersList
     {
         struct Response
@@ -108,7 +119,6 @@ namespace beam::wallet
             std::vector<WalletAddress> addrList;
             Height systemHeight;
             std::string token;
-            std::string error;
         };
     };
 
@@ -137,13 +147,13 @@ namespace beam::wallet
 
     struct OfferStatus
     {
-        std::string incomingToken;
-        SwapOffer offer;
+        std::string token;
+        // SwapOffer offer;
         struct Response
         {
-            std::string incomingToken;
             std::vector<WalletAddress> addrList;
             Height systemHeight;
+            // std::string incomingToken;
             SwapOffer offer;
         };
     };

@@ -81,7 +81,8 @@ namespace beam::wallet
         params->SetParameter(TxParameterID::PeerResponseTime, responseTime);
     }
 
-    TxParameters MirrorSwapTxParams(const TxParameters& original)
+    TxParameters MirrorSwapTxParams(const TxParameters& original,
+                                    bool isOwn  /* = true */)
     {
         auto res = CreateSwapTransactionParameters(original.GetTxID());
 
@@ -95,9 +96,19 @@ namespace beam::wallet
         copyParameter<AtomicSwapCoin>(
             TxParameterID::AtomicSwapCoin, original, res);
 
-        auto myId = *original.GetParameter<WalletID>(TxParameterID::MyID);
-        res.SetParameter(TxParameterID::PeerID, myId);
-        res.DeleteParameter(TxParameterID::MyID);
+        if (isOwn)
+        {
+            auto myId = *original.GetParameter<WalletID>(TxParameterID::MyID);
+            res.SetParameter(TxParameterID::PeerID, myId);
+            res.DeleteParameter(TxParameterID::MyID);
+        }
+        else
+        {
+            auto myId = *original.GetParameter<WalletID>(TxParameterID::PeerID);
+            res.SetParameter(TxParameterID::MyID, myId);
+            res.DeleteParameter(TxParameterID::PeerID);
+        }
+        
 
         bool isInitiator =
             *original.GetParameter<bool>(TxParameterID::IsInitiator);

@@ -98,7 +98,7 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
 
 bool WalletModel::isOwnAddress(const WalletID& walletID) const
 {
-    return m_myWalletIds.find(walletID) != m_myWalletIds.end();
+    return m_myWalletIds.count(walletID);
 }
 
 bool WalletModel::isAddressWithCommentExist(const std::string& comment) const
