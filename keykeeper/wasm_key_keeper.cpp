@@ -60,7 +60,7 @@ struct KeyKeeper
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status", status}
+            {JsonFields::Status, status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
@@ -68,7 +68,7 @@ struct KeyKeeper
             ByteBuffer buf(sizeof(ECC::HKdfPub::Packed), 0);
             method.m_pPKdf->ExportP(&buf[0]);
             
-            res.push_back({ "pub_kdf", to_base64(buf) });
+            res.push_back({ JsonFields::PublicKdf, to_base64(buf) });
         }
         return res.dump();
     }
@@ -79,12 +79,12 @@ struct KeyKeeper
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status", status}
+            {JsonFields::Status, status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ "count", method.m_Count });
+            res.push_back({ JsonFields::Count, method.m_Count });
         }
         return res.dump();
     }
@@ -99,12 +99,12 @@ struct KeyKeeper
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status", status}
+            {JsonFields::Status, status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ "result", to_base64(method.m_pResult) });
+            res.push_back({ JsonFields::Result, to_base64(method.m_pResult) });
         }
         return res.dump();
     }
@@ -128,14 +128,14 @@ struct KeyKeeper
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status", status}
+            {JsonFields::Status, status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ "offset", to_base64(ECC::Scalar(method.m_kOffset)) });
-            res.push_back({ "payment_proof_sig", to_base64(method.m_PaymentProofSignature) });
-            res.push_back({ "kernel", to_base64(method.m_pKernel) });
+            res.push_back({ JsonFields::Offset, to_base64(ECC::Scalar(method.m_kOffset)) });
+            res.push_back({ JsonFields::PaymentProofSig, to_base64(method.m_PaymentProofSignature) });
+            res.push_back({ JsonFields::Kernel, to_base64(method.m_pKernel) });
         }
         return res.dump();
     }
@@ -162,24 +162,26 @@ struct KeyKeeper
         method.m_UserAgreement = from_base64<ECC::Hash::Value>(userAgreement);
         method.m_MyID = from_base64<PeerID>(myID);
 
+        bool zeroAgreement = method.m_UserAgreement == Zero;
+
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status", status}
+            {JsonFields::Status, status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ "kernel", to_base64(method.m_pKernel) });
+            res.push_back({ JsonFields::Kernel, to_base64(method.m_pKernel) });
 
-            if (userAgreement.empty())
+            if (zeroAgreement)
             {
-                res.push_back({ "agreement", to_base64(method.m_UserAgreement) });
+                res.push_back({ JsonFields::UserAgreement, to_base64(method.m_UserAgreement) });
             }
             else
             {
-                res.push_back({ "offset", to_base64(ECC::Scalar(method.m_kOffset)) });
-                res.push_back({ "payment_proof_sig", to_base64(method.m_PaymentProofSignature) });
+                res.push_back({ JsonFields::Offset, to_base64(ECC::Scalar(method.m_kOffset)) });
+                res.push_back({ JsonFields::PaymentProofSig, to_base64(method.m_PaymentProofSignature) });
             }
         }
         return res.dump();
@@ -200,13 +202,13 @@ struct KeyKeeper
         auto status = _impl2.InvokeSync(method);
         json res =
         {
-            {"status", status}
+            {JsonFields::Status, status}
         };
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ "offset", to_base64(ECC::Scalar(method.m_kOffset)) });
-            res.push_back({ "kernel", to_base64(method.m_pKernel) });
+            res.push_back({ JsonFields::Offset, to_base64(ECC::Scalar(method.m_kOffset)) });
+            res.push_back({ JsonFields::Kernel, to_base64(method.m_pKernel) });
         }
         return res.dump();
     }

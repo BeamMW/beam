@@ -71,6 +71,7 @@ namespace beam::wallet
     {
         std::string ownerKey;
         IWalletDB::Ptr walletDB;
+        
         WalletInfo(const std::string& ownerKey, IWalletDB::Ptr walletDB)
             : ownerKey(ownerKey)
             , walletDB(walletDB)
@@ -1058,7 +1059,7 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
-                        Status::Type s = msg["status"];
+                        Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
                             ByteBuffer buf = from_base64<ByteBuffer>(msg["pub_kdf"]);
@@ -1083,7 +1084,7 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                 {
-                    Status::Type s = msg["status"];
+                    Status::Type s = GetStatus(msg);
                     if (s == Status::Success)
                     {
                         x.m_Count = msg["count"];
@@ -1109,7 +1110,7 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
-                        Status::Type s = msg["status"];
+                        Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
                             x.m_pResult = from_base64<Output::Ptr>(msg["result"]);
@@ -1139,13 +1140,12 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
-                        Status::Type s = msg["status"];
+                        Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
-                            auto offset = from_base64<ECC::Scalar>(msg["offset"]);
-                            x.m_kOffset.Import(offset);
-                            x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
-                            x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
+                            x.m_kOffset = GetOffset(msg);
+                            x.m_PaymentProofSignature = GetPaymentProofSignature(msg);
+                            x.m_pKernel = GetKernel(msg);
                         }
                         PushOut(s, h);
                     });
@@ -1175,19 +1175,18 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
-                        Status::Type s = msg["status"];
+                        Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
-                            x.m_pKernel->m_Signature = from_base64<ECC::Signature>(msg["sig"]);
+                            x.m_pKernel = GetKernel(msg);
                             if (x.m_UserAgreement == Zero)
                             {
                                 x.m_UserAgreement = from_base64<ECC::Hash::Value>(msg["agreement"]);
                             }
                             else
                             {
-                                auto offset = from_base64<ECC::Scalar>(msg["offset"]);
-                                x.m_kOffset.Import(offset);
-                                x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
+                                x.m_kOffset = GetOffset(msg);
+                                x.m_PaymentProofSignature = GetPaymentProofSignature(msg);
                             }
                         }
                         PushOut(s, h);
@@ -1213,15 +1212,37 @@ namespace
 
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
-                        Status::Type s = msg["status"];
+                        Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
-                            auto offset = from_base64<ECC::Scalar>(msg["offset"]);
-                            x.m_kOffset.Import(offset);
-                            x.m_pKernel->m_Signature = from_base64<ECC::Signature>(msg["sig"]);
+                            x.m_kOffset = GetOffset(msg);
+                            x.m_pKernel = GetKernel(msg);
                         }
                         PushOut(s, h);
                     });
+            }
+
+            static Status::Type GetStatus(const json& msg)
+            {
+                return msg["status"];
+            }
+
+            static ECC::Scalar::Native GetOffset(const json& msg)
+            {
+                auto offset = from_base64<ECC::Scalar>(msg["offset"]);
+                ECC::Scalar::Native res;
+                res.Import(offset);
+                return res;
+            }
+
+            static TxKernelStd::Ptr GetKernel(const json& msg)
+            {
+                return from_base64<TxKernelStd::Ptr>(msg["kernel"]);
+            }
+
+            static ECC::Signature GetPaymentProofSignature(const json& msg)
+            {
+                return from_base64<ECC::Signature>(msg["payment_proof_sig"]);
             }
 
          //   void subscribe(Handler::Ptr handler) override
@@ -1735,14 +1756,15 @@ namespace
 
                 if (it == WalletsMap.end())
                 {
-                    doError(id, ApiError::InternalErrorJsonRpc, "Wallet does not exist.");
-                    return;
+                    _walletDB = WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeperFromDB(data.id, data.pass));
                 }
-
-                _walletDB = (it->second.walletDB)
-                    ? it->second.walletDB
-                    : WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeper(data.pass, it->second.ownerKey));
-
+                else
+                {
+                    _walletDB = (it->second.walletDB)
+                        ? it->second.walletDB
+                        : WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeper(data.pass, it->second.ownerKey));
+                }
+                
                 if(!_walletDB)
                 {
                     doError(id, ApiError::InternalErrorJsonRpc, "Wallet not opened.");
@@ -1877,9 +1899,21 @@ namespace
 
                 if (ks.Import(*ownerKdf))
                 {
-                    return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, _session, _reactor);
+                    return createKeyKeeper(ownerKdf);
                 }
                 return {};
+            }
+
+            IPrivateKeyKeeper2::Ptr createKeyKeeperFromDB(const std::string& id, const std::string& pass) const
+            {
+                auto walletDB = WalletDB::open(id + ".db", SecString(pass));
+                Key::IPKdf::Ptr pKey = walletDB->get_OwnerKdf();
+                return createKeyKeeper(pKey);
+            }
+
+            IPrivateKeyKeeper2::Ptr createKeyKeeper(Key::IPKdf::Ptr ownerKdf) const
+            {
+                return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, _session, _reactor);
             }
 
         protected:
@@ -1902,17 +1936,14 @@ namespace
             using KeyKeeperFunc = std::function<void(const json&)>;
             std::queue<KeyKeeperFunc> _keeperCallbacks;
             std::queue<std::string> _writeQueue;
-            boost::asio::io_context& _ioc;
-            bool _reading = false;
 
         public:
             // Take ownership of the socket
             explicit
-            session(tcp::socket socket, io::Reactor::Ptr reactor, boost::asio::io_context& ioc)
+            session(tcp::socket socket, io::Reactor::Ptr reactor)
                 : ApiConnection(this, reactor, *this)
                 , ws_(std::move(socket))
                 , _newDataEvent(io::AsyncEvent::create(*reactor, [this]() { process_new_data(); }))
-                , _ioc(ioc)
             {
                 
             }
@@ -1949,19 +1980,13 @@ namespace
             void
             do_read()
             {
-                if (_reading)
-                    return;
-                _reading = true;
                 // Read a message into our buffer
                 ws_.async_read(
                     buffer_,
-                    boost::asio::bind_executor(
-                        ws_.get_executor(),
-                        std::bind(
-                            &session::on_read,
-                            shared_from_this(),
-                            std::placeholders::_1,
-                            std::placeholders::_2)));
+                    [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                {
+                    sp->on_read(ec, bytes);
+                });
             }
 
             void
@@ -1970,13 +1995,13 @@ namespace
                 std::size_t bytes_transferred)
             {
                 boost::ignore_unused(bytes_transferred);
-                _reading = false;
+
                 // This indicates that the session was closed
                 if(ec == websocket::error::closed)
                     return;
 
                 if(ec)
-                    fail(ec, "read");
+                    return fail(ec, "read");
 
                 {
                     std::ostringstream os;
@@ -1991,11 +2016,13 @@ namespace
                     
                     if(data.size())
                     {
-                        LOG_DEBUG() << "data from a client:" << data;
+                       // LOG_DEBUG() << "data from a client:" << data;
                     
                         process_data_async(std::move(data));
                     }
                 }
+
+                do_read();
             }
 
             void
@@ -2012,21 +2039,21 @@ namespace
                 {
                     std::unique_lock<std::mutex> lock(_queueMutex);
                     _writeQueue.pop();
-                    if (_writeQueue.empty())
-                        return;
-
-                    contents = &_writeQueue.front();
+                    if (!_writeQueue.empty())
+                    {
+                        contents = &_writeQueue.front();
+                    }
                 }
 
-                ws_.async_write(
-                    boost::asio::buffer(*contents),
-                    [this, sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                if (contents)
                 {
-                    sp->on_write(ec, bytes);
-                });
-
-                // Do another read
-                do_read();
+                    ws_.async_write(
+                        boost::asio::buffer(*contents),
+                        [this, sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                    {
+                        sp->on_write(ec, bytes);
+                    });
+                }
             }
 
 
@@ -2048,13 +2075,14 @@ namespace
                     if (func)
                     {
                         _keeperCallbacks.push(std::move(func));
+                        LOG_DEBUG() << "data to key keeper:" << msg.dump();
                     }
                     _writeQueue.push(msg.dump());
 
                     if (_writeQueue.size() > 1)
                         return;
 
-                    contents = &_writeQueue.back();
+                    contents = &_writeQueue.front();
                 }
 
                 ws_.async_write(
@@ -2100,6 +2128,8 @@ namespace
                         if (_keeperCallbacks.empty())
                             return;
 
+                        LOG_DEBUG() << "data from key keeper:" << data;
+
                         _keeperCallbacks.front()(msg["result"]);
                         _keeperCallbacks.pop();
                     }
@@ -2119,7 +2149,6 @@ namespace
         // Accepts incoming connections and launches the sessions
         class listener : public std::enable_shared_from_this<listener>
         {
-            boost::asio::io_context& _ioc;
             tcp::acceptor acceptor_;
             tcp::socket socket_;
             io::Reactor::Ptr _reactor;
@@ -2127,8 +2156,7 @@ namespace
         public:
             listener(boost::asio::io_context& ioc,
                 tcp::endpoint endpoint, io::Reactor::Ptr reactor)
-                : _ioc(ioc)
-                , acceptor_(ioc)
+                : acceptor_(ioc)
                 , socket_(ioc)
                 , _reactor(reactor)
             {
@@ -2198,8 +2226,8 @@ namespace
                 else
                 {
                     // Create the session and run it
-                    auto s = std::make_shared<session>(std::move(socket_), _reactor, _ioc);
-                    _sessions.push_back(s);
+                    auto s = std::make_shared<session>(std::move(socket_), _reactor);
+                 //   _sessions.push_back(s);
                     s->run();
                 }
 
