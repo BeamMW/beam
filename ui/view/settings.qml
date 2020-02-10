@@ -943,6 +943,8 @@ deploy the key at the node you trust completely."*/
                                     //% "Password verification is required to change that setting"
                                     confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-message");
                                     confirmPasswordDialog.okButtonIcon = "qrc:/assets/icon-done.svg"
+                                    //% "Proceed"
+                                    confirmPasswordDialog.okButtonText = qsTrId("general-proceed");
                                     confirmPasswordDialog.onDialogAccepted = onDialogAccepted;
                                     confirmPasswordDialog.onDialogRejected = onDialogRejected;
                                     confirmPasswordDialog.open();
