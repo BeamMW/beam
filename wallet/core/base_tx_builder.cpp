@@ -97,7 +97,7 @@ namespace beam::wallet
     BaseTxBuilder::BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList, Amount fee)
         : m_Tx{ tx }
         , m_SubTxID(subTxID)
-        , m_AssetId(0)
+        , m_AssetId(Asset::s_InvalidID)
         , m_AmountList{ amountList }
         , m_Fee{ fee }
         , m_ChangeBeam{0}

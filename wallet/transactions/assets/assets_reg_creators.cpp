@@ -15,6 +15,7 @@
 #include "aregister_transaction.h"
 #include "aunregister_transaction.h"
 #include "aissue_transaction.h"
+#include "ainfo_transaction.h"
 #include "wallet/core/base_transaction.h"
 
 namespace beam::wallet
@@ -32,5 +33,8 @@ namespace beam::wallet
 
         auto crConsume = std::make_shared<AssetIssueTransaction::Creator>(false);
         wallet.RegisterTransactionType(TxType::AssetConsume, std::static_pointer_cast<BaseTransaction::Creator>(crConsume));
+
+        auto crInfo = std::make_shared<AssetInfoTransaction::Creator>();
+        wallet.RegisterTransactionType(TxType::AssetInfo, std::static_pointer_cast<BaseTransaction::Creator>(crInfo));
     }
 }

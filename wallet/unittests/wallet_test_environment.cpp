@@ -32,6 +32,7 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void confirm_outputs(const std::vector<Coin>&) override {}
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
     void confirm_asset(const TxID&, const Key::Index, const PeerID&, SubTxID subTxID) override {}
+    void confirm_asset(const TxID&, const Asset::ID, SubTxID subTxID) override {}
     void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
     void send_tx_params(const WalletID& peerID, const wallet::SetTxParameter&) override {}
@@ -1217,7 +1218,7 @@ public:
             {
                 cout << "Latency: " << float(latency) / 1000 << " s\n";
             }
-            m_MaxLatency = max(latency, m_MaxLatency);
+            setmax(m_MaxLatency, latency);
             accessEvent->post();
         });
         accessEvent->post();

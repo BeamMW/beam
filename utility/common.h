@@ -257,4 +257,17 @@ namespace std
 		char peekch() const;
 		void ungetch(char);
 	};
+
+	// for the following: receive the 2nd parameter by value, not by const reference. Otherwise could be linker error with static integral constants
+	template <typename TDst, typename TSrc>
+	inline void setmax(TDst& a, TSrc b) {
+		if (a < b)
+			a = b;
+	}
+
+	template <typename TDst, typename TSrc>
+	inline void setmin(TDst& a, TSrc b) {
+		if (a > b)
+			a = b;
+	}
 }

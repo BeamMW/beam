@@ -947,7 +947,7 @@ namespace beam
 
 				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
 
-				verify_test(np.ValidateTxContext(*pTx, hr, false));
+				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false));
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
@@ -1500,7 +1500,7 @@ namespace beam
 					n.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 					n.get_Processor().TryGoUp();
 
-					m_HeightMax = std::max(m_HeightMax, bc.m_Hdr.m_Height);
+					std::setmax(m_HeightMax, bc.m_Hdr.m_Height);
 
 					printf("Mined block Height = %u, node = %u \n", (unsigned int) bc.m_Hdr.m_Height, (unsigned int)m_iNode);
 

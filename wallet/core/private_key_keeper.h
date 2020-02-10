@@ -323,7 +323,7 @@ namespace beam::wallet
     public:
 
 #define THE_MACRO(method) \
-		virtual void InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) override;
+		void InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) override;
 
 		KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
@@ -365,7 +365,7 @@ namespace beam::wallet
         void InvokeAsyncInternal(TMethod& m, const Handler::Ptr& pHandler);
 
 #define THE_MACRO(method) \
-		virtual void InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) override;
+		void InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) override;
 
 		KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
