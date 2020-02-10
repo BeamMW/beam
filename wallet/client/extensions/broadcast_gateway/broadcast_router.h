@@ -25,6 +25,11 @@
 
 namespace beam
 {
+    /**
+     *  Dispatches broadcast messages between network and listeners.
+     *  Current implementation uses the specified scope of BBS channels as a tunnel for messages.
+     *  Encapsulates transport protocol.
+     */
     class BroadcastRouter
         : public IBroadcastMsgsGateway
         , IErrorHandler  // Error handling for Protocol

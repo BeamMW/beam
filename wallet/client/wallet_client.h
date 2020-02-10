@@ -120,7 +120,7 @@ namespace beam::wallet
         virtual void onNewWalletVersion(const VersionInfo&) override {}
         virtual void onExchangeRates(const ExchangeRates&) override {}
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-        virtual void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) {}
+        virtual void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
 #endif
 
     private:
