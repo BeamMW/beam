@@ -144,14 +144,18 @@ namespace beam::wallet
 
     struct PublishOffer
     {
+        std::string token;
         struct Response
         {
-
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            SwapOffer offer;    
         };
     };
 
     struct AcceptOffer
     {
+        std::string token;
         struct Response
         {
 

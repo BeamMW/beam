@@ -929,8 +929,36 @@ private:
 
         void onMessage(const JsonRpcId& id, const PublishOffer& data) override
         {
-            PublishOffer::Response res;
-            doResponse(id, res);
+            auto txParams = ParseParameters(data.token);
+            if (!txParams)
+                throw FailToParseToken();
+
+            auto txId = txParams->GetTxID();
+            if (!txId)
+                throw FailToParseToken();
+
+            auto tx = _walletDB->getTx(*txId);
+
+            if (!tx)
+                throw TxNotFound();
+
+            const auto& mirroredTxParams = MirrorSwapTxParams(*tx);
+            const auto& readyForTokenizeTxParams =
+                PrepareSwapTxParamsForTokenization(mirroredTxParams);
+            SwapOffer offer(readyForTokenizeTxParams);
+            if (offer.m_status == SwapOfferStatus::Pending)
+            {
+                offer.m_publisherId =
+                    *offer.GetParameter<WalletID>(TxParameterID::PeerID);
+                _swapOffersBoard.publishOffer(offer);
+            }
+
+            doResponse(id, PublishOffer::Response
+                {
+                    _walletDB->getAddresses(true),
+                    _walletDB->getCurrentHeight(),
+                    offer
+                });
         }
 
         void onMessage(const JsonRpcId& id, const AcceptOffer & data) override
@@ -965,7 +993,6 @@ private:
                 throw CantCancelTx(offer.m_status);
             }
 
-            CancelOffer::Response res;
             doResponse(id, CancelOffer::Response
                 {
                     _walletDB->getAddresses(true),

@@ -794,8 +794,31 @@ json OfferToJson(const SwapOffer& offer,
 
     void WalletApi::onPublishOfferMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
-        PublishOffer data;
-        _handler.onMessage(id, data);
+        checkJsonParam(params, "token", id);
+        const auto& token = params["token"];
+
+        if (!SwapOfferToken::isValid(token))
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "Parameter 'token' is not valid swap token.",
+                id
+            };
+
+        PublishOffer data{token};
+        try
+        {
+            _handler.onMessage(id, data);
+        }
+        catch(const FailToParseToken&)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "Parse Parameters from 'token' failed.",
+                id
+            };
+        }
     }
 
     void WalletApi::onAcceptOfferMessage(const JsonRpcId& id, const nlohmann::json& params)
