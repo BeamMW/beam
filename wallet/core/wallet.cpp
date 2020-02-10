@@ -344,7 +344,7 @@ namespace beam::wallet
 
     bool Wallet::MyRequestShieldedList::operator < (const MyRequestShieldedList& x) const
     {
-        return false;
+        return m_TxID < x.m_TxID;
     }
 
     void Wallet::RequestHandler::OnComplete(Request& r)
