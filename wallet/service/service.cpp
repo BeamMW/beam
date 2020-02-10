@@ -71,6 +71,7 @@ namespace beam::wallet
     {
         std::string ownerKey;
         IWalletDB::Ptr walletDB;
+        
         WalletInfo(const std::string& ownerKey, IWalletDB::Ptr walletDB)
             : ownerKey(ownerKey)
             , walletDB(walletDB)
@@ -1178,7 +1179,7 @@ namespace
                         Status::Type s = msg["status"];
                         if (s == Status::Success)
                         {
-                            x.m_pKernel->m_Signature = from_base64<ECC::Signature>(msg["sig"]);
+                            x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
                             if (x.m_UserAgreement == Zero)
                             {
                                 x.m_UserAgreement = from_base64<ECC::Hash::Value>(msg["agreement"]);
@@ -1218,7 +1219,7 @@ namespace
                         {
                             auto offset = from_base64<ECC::Scalar>(msg["offset"]);
                             x.m_kOffset.Import(offset);
-                            x.m_pKernel->m_Signature = from_base64<ECC::Signature>(msg["sig"]);
+                            x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
                         }
                         PushOut(s, h);
                     });
@@ -1902,17 +1903,14 @@ namespace
             using KeyKeeperFunc = std::function<void(const json&)>;
             std::queue<KeyKeeperFunc> _keeperCallbacks;
             std::queue<std::string> _writeQueue;
-            boost::asio::io_context& _ioc;
-            bool _reading = false;
 
         public:
             // Take ownership of the socket
             explicit
-            session(tcp::socket socket, io::Reactor::Ptr reactor, boost::asio::io_context& ioc)
+            session(tcp::socket socket, io::Reactor::Ptr reactor)
                 : ApiConnection(this, reactor, *this)
                 , ws_(std::move(socket))
                 , _newDataEvent(io::AsyncEvent::create(*reactor, [this]() { process_new_data(); }))
-                , _ioc(ioc)
             {
                 
             }
@@ -1949,19 +1947,13 @@ namespace
             void
             do_read()
             {
-                if (_reading)
-                    return;
-                _reading = true;
                 // Read a message into our buffer
                 ws_.async_read(
                     buffer_,
-                    boost::asio::bind_executor(
-                        ws_.get_executor(),
-                        std::bind(
-                            &session::on_read,
-                            shared_from_this(),
-                            std::placeholders::_1,
-                            std::placeholders::_2)));
+                    [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                {
+                    sp->on_read(ec, bytes);
+                });
             }
 
             void
@@ -1970,13 +1962,13 @@ namespace
                 std::size_t bytes_transferred)
             {
                 boost::ignore_unused(bytes_transferred);
-                _reading = false;
+
                 // This indicates that the session was closed
                 if(ec == websocket::error::closed)
                     return;
 
                 if(ec)
-                    fail(ec, "read");
+                    return fail(ec, "read");
 
                 {
                     std::ostringstream os;
@@ -1996,6 +1988,8 @@ namespace
                         process_data_async(std::move(data));
                     }
                 }
+
+                do_read();
             }
 
             void
@@ -2027,9 +2021,6 @@ namespace
                         sp->on_write(ec, bytes);
                     });
                 }
-
-                // Do another read
-                do_read();
             }
 
 
@@ -2125,7 +2116,6 @@ namespace
         // Accepts incoming connections and launches the sessions
         class listener : public std::enable_shared_from_this<listener>
         {
-            boost::asio::io_context& _ioc;
             tcp::acceptor acceptor_;
             tcp::socket socket_;
             io::Reactor::Ptr _reactor;
@@ -2133,8 +2123,7 @@ namespace
         public:
             listener(boost::asio::io_context& ioc,
                 tcp::endpoint endpoint, io::Reactor::Ptr reactor)
-                : _ioc(ioc)
-                , acceptor_(ioc)
+                : acceptor_(ioc)
                 , socket_(ioc)
                 , _reactor(reactor)
             {
@@ -2204,8 +2193,8 @@ namespace
                 else
                 {
                     // Create the session and run it
-                    auto s = std::make_shared<session>(std::move(socket_), _reactor, _ioc);
-                    _sessions.push_back(s);
+                    auto s = std::make_shared<session>(std::move(socket_), _reactor);
+                 //   _sessions.push_back(s);
                     s->run();
                 }
 
