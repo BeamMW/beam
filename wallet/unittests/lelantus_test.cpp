@@ -148,6 +148,7 @@ void TestSimpleTx()
 
             parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
                 .SetParameter(TxParameterID::IsSender, false)
+                .SetParameter(TxParameterID::Amount, 6600)
                 .SetParameter(TxParameterID::AmountList, AmountList{ 4600, 2000 })
                 .SetParameter(TxParameterID::Fee, 1200)
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
@@ -189,6 +190,11 @@ void TestSimpleTx()
     mainReactor->run();
 
     WALLET_CHECK(completedCount == 0);
+    auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
+    WALLET_CHECK(std::all_of(txHistory.begin(), txHistory.end(), [](const auto& tx)
+        {
+            return (tx.m_txType == TxType::PushTransaction || tx.m_txType == TxType::PullTransaction) && tx.m_status == TxStatus::Completed;
+        }));
 }
 
 void TestManyTransactons()
@@ -319,9 +325,9 @@ void TestShortWindow()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    constexpr size_t kCount = 300;
+    constexpr size_t kCount = 200;
     constexpr size_t kSplitTxCount = 1;
-    constexpr size_t kExtractShieldedTxCount = 1;
+    constexpr size_t kExtractShieldedTxCount = 4;
 
     int completedCount = kSplitTxCount + kCount + kExtractShieldedTxCount;
     auto completeAction = [&mainReactor, &completedCount](auto)
@@ -382,6 +388,60 @@ void TestShortWindow()
             // extract one of first shielded UTXO
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 15)
             {
+                {
+                    wallet::TxParameters parameters(GenerateTxID());
+
+                    parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
+                        .SetParameter(TxParameterID::IsSender, false)
+                        .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
+                        .SetParameter(TxParameterID::Fee, kFee)
+                        .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                        .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                        .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                        .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
+                        .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
+                        .SetParameter(TxParameterID::ShieldedOutputId, 40U)
+                        .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+                    sender.m_Wallet.StartTransaction(parameters);
+                }
+                {
+                    wallet::TxParameters parameters(GenerateTxID());
+
+                    parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
+                        .SetParameter(TxParameterID::IsSender, false)
+                        .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
+                        .SetParameter(TxParameterID::Fee, kFee)
+                        .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                        .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                        .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                        .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
+                        .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
+                        .SetParameter(TxParameterID::ShieldedOutputId, 42U)
+                        .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+                    sender.m_Wallet.StartTransaction(parameters);
+                }
+                {
+                    wallet::TxParameters parameters(GenerateTxID());
+
+                    parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
+                        .SetParameter(TxParameterID::IsSender, false)
+                        .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
+                        .SetParameter(TxParameterID::Fee, kFee)
+                        .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                        .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                        .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                        .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
+                        .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
+                        .SetParameter(TxParameterID::ShieldedOutputId, 43U)
+                        .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+                    sender.m_Wallet.StartTransaction(parameters);
+                }
+            }
+            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 20)
+            {
                 wallet::TxParameters parameters(GenerateTxID());
 
                 parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
@@ -391,9 +451,9 @@ void TestShortWindow()
                     .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
-                    .SetParameter(TxParameterID::WindowBegin, 0U)
-                    .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{4, 3})
-                    .SetParameter(TxParameterID::ShieldedOutputId, 5U)
+                    .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
+                    .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
+                    .SetParameter(TxParameterID::ShieldedOutputId, 62U)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
 
                 sender.m_Wallet.StartTransaction(parameters);
@@ -410,8 +470,9 @@ void TestShortWindow()
 
     auto txHistory = sender.m_WalletDB->getTxHistory(TxType::PullTransaction);
 
-    WALLET_CHECK(txHistory.size() == 1 && txHistory[0].m_status == TxStatus::Failed);
     WALLET_CHECK(completedCount == 0);
+    WALLET_CHECK(txHistory.size() == kExtractShieldedTxCount);
+    WALLET_CHECK(std::all_of(txHistory.begin(), txHistory.end(), [](const auto& tx) { return tx.m_status == TxStatus::Completed;}));
 }
 
 int main()

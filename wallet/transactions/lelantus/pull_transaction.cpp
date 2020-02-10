@@ -65,11 +65,6 @@ namespace beam::wallet::lelantus
             m_TxBuilder = std::make_shared<PullTxBuilder>(*this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
         }
 
-        if (!GetShieldedList())
-        {
-            return;
-        }
-
         if (!m_TxBuilder->GetInitialTxParams())
         {
             UpdateTxDescription(TxStatus::InProgress);
@@ -85,6 +80,11 @@ namespace beam::wallet::lelantus
             return;
         }
 
+        if (m_TxBuilder->GetShieldedList())
+        {
+            return;
+        }
+
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
         {
@@ -94,7 +94,7 @@ namespace beam::wallet::lelantus
             }
 
             // Construct transaction
-            auto transaction = m_TxBuilder->CreateTransaction(m_shieldedList);
+            auto transaction = m_TxBuilder->CreateTransaction();
 
             // Verify final transaction
             TxBase::Context::Params pars;
@@ -145,26 +145,5 @@ namespace beam::wallet::lelantus
 
         SetCompletedTxCoinStatuses(hProof);
         CompleteTx();
-    }
-
-    bool PullTransaction::GetShieldedList()
-    {
-        if (m_shieldedList.empty())
-        {
-            TxoID windowBegin = GetMandatoryParameter<TxoID>(TxParameterID::WindowBegin);
-            uint32_t windowSize = GetMandatoryParameter<Lelantus::Cfg>(TxParameterID::ShieldedInputCfg).get_N();
-            
-            GetGateway().get_shielded_list(GetTxID(), windowBegin, windowSize, [this, weak = this->weak_from_this()](TxoID, uint32_t, proto::ShieldedList& msg)
-            {
-                if (!weak.expired())
-                {
-                    m_shieldedList.swap(msg.m_Items);
-                    UpdateAsync();
-                }
-            });
-            return false;
-        }
-
-        return true;
     }
 } // namespace beam::wallet::lelantus

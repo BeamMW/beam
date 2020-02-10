@@ -50,6 +50,5 @@ namespace beam::wallet::lelantus
 
     private:
         std::shared_ptr<PullTxBuilder> m_TxBuilder;
-        std::vector<ECC::Point::Storage> m_shieldedList;
     };
 } // namespace beam::wallet::lelantus

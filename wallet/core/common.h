@@ -270,6 +270,7 @@ namespace beam::wallet
         ShieldedOutputId = 117,
         WindowBegin = 118,
         ShieldedInputCfg = 119,
+        ShieldedInputMinCfg = 120,
 
         // private parameters
         PrivateFirstParam = 128,

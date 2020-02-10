@@ -22,6 +22,11 @@ namespace beam::wallet::lelantus
     {
     public:
         PullTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
-        Transaction::Ptr CreateTransaction(const std::vector<ECC::Point::Storage>& shieldedList);
+        // true if async
+        bool GetShieldedList();
+        Transaction::Ptr CreateTransaction() override;
+    private:
+        std::vector<ECC::Point::Storage> m_shieldedList;
+        TxoID m_totalShieldedOuts = 0;
     };
 } // namespace beam::wallet::lelantus
