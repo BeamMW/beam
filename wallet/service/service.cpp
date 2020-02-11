@@ -1188,11 +1188,6 @@ namespace
                     {
                         Status::Type s = GetStatus(msg);
 
-                        if (auto it = msg.find("kernel_id"); it != msg.end())
-                        {
-                            LOG_DEBUG() << "Kernel ID: " << from_base64<Merkle::Hash>(*it);
-                        }
-                        
                         if (s == Status::Success)
                         {
                             if (x.m_UserAgreement == Zero)
@@ -2089,7 +2084,6 @@ namespace
                     if (func)
                     {
                         _keeperCallbacks.push(std::move(func));
-                        LOG_DEBUG() << "data to key keeper:" << msg.dump();
                     }
                     _writeQueue.push(msg.dump());
 
@@ -2141,8 +2135,6 @@ namespace
                     {
                         if (_keeperCallbacks.empty())
                             return;
-
-                        LOG_DEBUG() << "data from key keeper:" << data;
 
                         _keeperCallbacks.front()(msg["result"]);
                         _keeperCallbacks.pop();
@@ -2241,15 +2233,12 @@ namespace
                 {
                     // Create the session and run it
                     auto s = std::make_shared<session>(std::move(socket_), _reactor);
-                 //   _sessions.push_back(s);
                     s->run();
                 }
 
                 // Accept another connection
                 do_accept();
             }
-
-            std::vector<std::shared_ptr<session>> _sessions;
         };
 
         io::Reactor::Ptr _reactor;
