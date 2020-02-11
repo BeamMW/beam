@@ -797,6 +797,27 @@ void Test()
 		Test3().Run();
 	}
 
+	{
+		struct Test4 :public TestDirector
+		{
+			virtual void OnTip(Height h)
+			{
+				switch (h)
+				{
+				case 2:
+					std::cout << "Scenario: User A opens a channel to B" << std::endl;
+					m_pC[0].OpenChannel(m_pC[1].m_Wid, 25000, 34000);
+					break;
+
+				case 40:
+					Stop();
+					break;
+				}
+			}
+		};
+
+		Test4().Run();
+	}
 }
 
 

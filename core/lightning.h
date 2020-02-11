@@ -140,6 +140,7 @@ namespace Lightning {
 		{
 			Height m_hRevisionMaxLifeTime = 1440 * 14;
 			Height m_hLockTime = 1440; // withdrawal lock. Same for all
+			Height m_hPostLockReserve = 1440; // max height diff of 2nd-stage withdrawal, in addition to m_hLockTime. Same for all
 			Amount m_Fee = 0; // for all txs
 		} m_Params;
 

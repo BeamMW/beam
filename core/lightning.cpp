@@ -446,9 +446,21 @@ void Channel::Update()
 			ConfirmMuSig();
 	}
 
+	// auto-close if the most recent revision is going to expire soon
+	DataUpdate* pPath = SelectWithdrawalPath();
+	if (!m_State.m_Terminate)
+	{
+		const HeightRange* pHR = pPath->get_HR();
+		if (pHR && (hTip + m_Params.m_hPostLockReserve > pHR->m_Max))
+		{
+			m_State.m_Terminate = true;
+			m_pNegCtx.reset();
+		}
+	}
+
+
 	if (m_State.m_Terminate)
 	{
-		DataUpdate* pPath = SelectWithdrawalPath();
 		if (pPath)
 			SendTxNoSpam(pPath->m_tx1, hTip);
 	}
@@ -991,14 +1003,19 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 	// check params sanity
 	// hr0 lifetime - should be order of standard tx negotiation (several hours)
 	// m_hRevisionMaxLifeTime - can be long, but no longer than max kernel validity time (Rules::)
-	// m_hLockTime - 
 	if (hr0.IsEmpty())
 		return false;
 	if (hr0.m_Max - hr0.m_Min >= m_Params.m_hRevisionMaxLifeTime)
 		return false; // typically it should be much smaller
 
+	m_Params.m_hPostLockReserve = m_Params.m_hLockTime; // currently use same
+
 	Height hMaxLifeTimeWithLock = m_Params.m_hRevisionMaxLifeTime + m_Params.m_hLockTime; // this is the validity lifetime of the 2nd-stage withdrawal tx
 	if (hMaxLifeTimeWithLock < m_Params.m_hLockTime)
+		return false; // overflow
+
+	hMaxLifeTimeWithLock += m_Params.m_hPostLockReserve;
+	if (hMaxLifeTimeWithLock < m_Params.m_hPostLockReserve)
 		return false; // overflow
 
 	if (hMaxLifeTimeWithLock > Rules::get().MaxKernelValidityDH)
@@ -1093,7 +1110,7 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 void Channel::SetWithdrawParams(WithdrawTx::CommonParam& cp, const Height& h, Height& h1, Height& h2) const
 {
 	h1 = h + m_Params.m_hRevisionMaxLifeTime;
-	h2 = h1 + m_Params.m_hLockTime;
+	h2 = h1 + m_Params.m_hLockTime + m_Params.m_hPostLockReserve;
 
 	cp.m_Krn1.m_pFee = &Cast::NotConst(m_Params).m_Fee;
 	cp.m_Krn1.m_pH0 = &Cast::NotConst(h);
