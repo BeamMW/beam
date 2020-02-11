@@ -1149,30 +1149,20 @@ namespace
         return coinIDs;
     }
 
-    bool LoadReceiverParams(const po::variables_map& vm, TxParameters& receiverParams)
+    bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
     {
         if (vm.count(cli::RECEIVER_ADDR) == 0)
         {
             LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
-        auto receverAddrOrToken = vm[cli::RECEIVER_ADDR].as<string>();
-        auto params = ParseParameters(receverAddrOrToken);
-        if (!params)
+        auto receiverParams = ParseParameters(vm[cli::RECEIVER_ADDR].as<string>());
+        if (!receiverParams)
         {
             LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
-        TxParameters& p = *params;
-        if (auto peerID = p.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); peerID)
-        {
-            receiverParams.SetParameter(beam::wallet::TxParameterID::PeerID, *peerID);
-        }
-        if (auto peerID = p.GetParameter<PeerID>(beam::wallet::TxParameterID::PeerSecureWalletID); peerID)
-        {
-            receiverParams.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *peerID);
-        }
-        return true;
+        return LoadReceiverParams(*receiverParams, params);
     }
 
     bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)

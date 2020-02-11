@@ -663,7 +663,10 @@ namespace beam::wallet
         Observer* m_observer;
         std::shared_ptr<Notifier> m_notifier;
     };
-}  // beam::wallet
+ 
+    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params);
+ 
+}    // beam::wallet
 
 namespace beam
 {

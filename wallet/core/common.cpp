@@ -490,6 +490,23 @@ namespace beam::wallet
         return {};
     }
 
+    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params)
+    {
+        bool res = false;
+        const TxParameters& p = receiverParams;
+        if (auto peerID = p.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); peerID)
+        {
+            params.SetParameter(beam::wallet::TxParameterID::PeerID, *peerID);
+            res = true;
+        }
+        if (auto peerID = p.GetParameter<PeerID>(beam::wallet::TxParameterID::PeerSecureWalletID); peerID)
+        {
+            params.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *peerID);
+            res &= true;
+        }
+        return res;
+    }
+
     bool TxDescription::canResume() const
     {
         return m_status == TxStatus::Pending

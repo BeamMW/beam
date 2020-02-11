@@ -145,10 +145,10 @@ namespace beam::wallet
         Amount fee = DefaultFee;
         boost::optional<CoinIDList> coins;
         boost::optional<WalletID> from;
-        // boost::optional<uint64_t> session;
         boost::optional<TxID> txId;
         WalletID address;
         std::string comment;
+        TxParameters txParameters;
 
         struct Response
         {

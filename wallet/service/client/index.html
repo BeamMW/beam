@@ -499,7 +499,7 @@
 					get_slots:              () => sendKeykeeperResult(data.id, keykeeper.get_NumSlots()),
 					create_output:          () => sendKeykeeperResult(data.id, keykeeper.CreateOutput(data.params.scheme, data.params.id)),
                     sign_receiver:          () => sendKeykeeperResult(data.id, keykeeper.SignReceiver(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv, data.params.peer_id, data.params.my_id_key)),
-                    sign_sender:            () => sendKeykeeperResult(data.id, keykeeper.SignSender(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv, data.params.peer_id, data.params.my_id_key, data.params.slot, data.params.agreement, data.params.my_id)),
+                    sign_sender:            () => sendKeykeeperResult(data.id, keykeeper.SignSender(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv, data.params.peer_id, data.params.my_id_key, data.params.slot, data.params.agreement, data.params.my_id, data.params.payment_proof_sig)),
                     sign_split:             () => sendKeykeeperResult(data.id, keykeeper.SignSplit(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv)),
 				}
 

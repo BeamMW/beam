@@ -290,6 +290,7 @@ namespace beam::wallet
             throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
 
         Send send;
+
         send.value = params["value"];
 
         if (existsJsonParam(params, "coins"))
@@ -301,7 +302,18 @@ namespace beam::wallet
         //     send.session = readSessionParameter(id, params);
         // }
 
-        if (!send.address.FromHex(params["address"]))
+        auto txParams = ParseParameters(params["address"]);
+        if (!txParams)
+        {
+            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address or token.", id };
+        }
+        send.txParameters = *txParams;
+
+        if (auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
+        {
+            send.address = *peerID;
+        }
+        else
         {
             throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address.", id };
         }
@@ -1143,9 +1155,7 @@ namespace
                         Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
-                            x.m_kOffset = GetOffset(msg);
-                            x.m_PaymentProofSignature = GetPaymentProofSignature(msg);
-                            x.m_pKernel = GetKernel(msg);
+                            GetMutualResult(x, msg);
                         }
                         PushOut(s, h);
                     });
@@ -1168,7 +1178,8 @@ namespace
                             {"my_id_key", to_base64(x.m_MyIDKey)},
                             {"slot",      x.m_Slot},
                             {"agreement", to_base64(x.m_UserAgreement)},
-                            {"my_id",     to_base64(x.m_MyID)}
+                            {"my_id",     to_base64(x.m_MyID)},
+                            {"payment_proof_sig", to_base64(x.m_PaymentProofSignature)}
                         }
                     }
                 };
@@ -1176,17 +1187,23 @@ namespace
                 _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
                     {
                         Status::Type s = GetStatus(msg);
+
+                        if (auto it = msg.find("kernel_id"); it != msg.end())
+                        {
+                            LOG_DEBUG() << "Kernel ID: " << from_base64<Merkle::Hash>(*it);
+                        }
+                        
                         if (s == Status::Success)
                         {
-                            x.m_pKernel = GetKernel(msg);
                             if (x.m_UserAgreement == Zero)
                             {
                                 x.m_UserAgreement = from_base64<ECC::Hash::Value>(msg["agreement"]);
+                                x.m_pKernel->m_Commitment = from_base64<ECC::Point>(msg["commitment"]);
+                                x.m_pKernel->m_Signature.m_NoncePub = from_base64<ECC::Point>(msg["pub_nonce"]);
                             }
                             else
                             {
-                                x.m_kOffset = GetOffset(msg);
-                                x.m_PaymentProofSignature = GetPaymentProofSignature(msg);
+                                GetCommonResult(x, msg);
                             }
                         }
                         PushOut(s, h);
@@ -1215,34 +1232,29 @@ namespace
                         Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
-                            x.m_kOffset = GetOffset(msg);
-                            x.m_pKernel = GetKernel(msg);
+                            GetCommonResult(x, msg);
                         }
                         PushOut(s, h);
                     });
             }
 
+
+            static void GetMutualResult(Method::TxMutual& x, const json& msg)
+            {
+                x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
+                GetCommonResult(x, msg);
+            }
+
+            static void GetCommonResult(Method::TxCommon& x, const json& msg)
+            {
+                auto offset = from_base64<ECC::Scalar>(msg["offset"]);
+                x.m_kOffset.Import(offset);
+                x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
+            }
+
             static Status::Type GetStatus(const json& msg)
             {
                 return msg["status"];
-            }
-
-            static ECC::Scalar::Native GetOffset(const json& msg)
-            {
-                auto offset = from_base64<ECC::Scalar>(msg["offset"]);
-                ECC::Scalar::Native res;
-                res.Import(offset);
-                return res;
-            }
-
-            static TxKernelStd::Ptr GetKernel(const json& msg)
-            {
-                return from_base64<TxKernelStd::Ptr>(msg["kernel"]);
-            }
-
-            static ECC::Signature GetPaymentProofSignature(const json& msg)
-            {
-                return from_base64<ECC::Signature>(msg["payment_proof_sig"]);
             }
 
          //   void subscribe(Handler::Ptr handler) override
@@ -1457,7 +1469,7 @@ namespace
                         _walletDB->createAddress(senderAddress);
                         _walletDB->saveAddress(senderAddress);
 
-                        from = senderAddress.m_walletID;     
+                        from = senderAddress.m_walletID;
                     }
 
                     ByteBuffer message(data.comment.begin(), data.comment.end());
@@ -1491,14 +1503,16 @@ namespace
                         doTxAlreadyExistsError(id);
                         return;
                     }
+                    auto params = CreateSimpleTransactionParameters(data.txId);
+                    LoadReceiverParams(data.txParameters, params);
 
-                    auto txId = _wallet->StartTransaction(CreateSimpleTransactionParameters(data.txId)
-                        .SetParameter(TxParameterID::MyID, from)
-                        .SetParameter(TxParameterID::PeerID, data.address)
+                    params.SetParameter(TxParameterID::MyID, from)
                         .SetParameter(TxParameterID::Amount, data.value)
                         .SetParameter(TxParameterID::Fee, data.fee)
                         .SetParameter(TxParameterID::PreselectedCoins, coins)
-                        .SetParameter(TxParameterID::Message, message));
+                        .SetParameter(TxParameterID::Message, message);
+
+                    auto txId = _wallet->StartTransaction(params);
 
                     doResponse(id, Send::Response{ txId });
                 }
