@@ -23,8 +23,6 @@
 
 namespace beam::wallet::laser
 {
-const Height kMaxRolbackHeight = 8;
-
 class Channel : public Lightning::Channel, public ILaserChannelEntity
 {
 public:

@@ -24,8 +24,7 @@
 
 namespace
 {
-const beam::Timestamp kToleranceSeconds =
-    60 * beam::wallet::laser::kMaxRolbackHeight;
+const beam::Timestamp kToleranceSeconds = 60 * 8; // TODO: maybe use Node built-in status notifications to detect out-of-sync
 
 bool IsValidTimeStamp(beam::Timestamp currentBlockTime_s)
 {
@@ -777,7 +776,7 @@ void Mediator::UpdateChannels()
         {
             ch->LogNewState();
             PrepareToForget(ch);
-            if (!ch->IsNegotiating() && ch->IsSafeToForget(kMaxRolbackHeight))
+            if (!ch->IsNegotiating() && ch->IsSafeToForget())
             {
                 m_readyForForgetChannels.push_back(ch->get_chID());
             }

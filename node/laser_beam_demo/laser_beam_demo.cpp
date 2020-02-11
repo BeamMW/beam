@@ -123,7 +123,7 @@ struct Client
 				os << "Opening2 (Waiting channel open confirmation)";
 				break;
 			case State::OpenFailed:
-				os << "OpenFailed (Not confirmed, missed height window). Waiting for " << m_SafeForgetHeight << " confirmations before forgetting";
+				os << "OpenFailed (Not confirmed, missed height window). Waiting for " << Rules::get().MaxRollback << " confirmations before forgetting";
 				break;
 			case State::Open:
 				os << "Open. Last Revision: " << m_nRevision << ". Balance: " << m_lstUpdates.back().m_Outp.m_Value << " / " << (m_lstUpdates.back().m_msMy.m_Value - m_Params.m_Fee);
@@ -142,7 +142,7 @@ struct Client
 				}
 				break;
 			case State::Closed:
-				os << "Closed. Waiting for " << m_SafeForgetHeight << " confirmations before forgetting";
+				os << "Closed. Waiting for " << Rules::get().MaxRollback << " confirmations before forgetting";
 				break;
 			default:
 				return;
@@ -211,7 +211,6 @@ struct Client
 		};
 
 		bool m_SendMyWid = true;
-		Height m_SafeForgetHeight = 8;
 
 		virtual void SendPeer(Storage::Map&& dataOut) override
 		{
@@ -278,7 +277,7 @@ struct Client
 
 		void MaybeDelete()
 		{
-			if (!IsNegotiating() && IsSafeToForget(m_SafeForgetHeight))
+			if (!IsNegotiating() && IsSafeToForget())
 			{
 				Forget();
 				m_This.DeleteChannel(*this);
@@ -631,6 +630,7 @@ void Test()
 	Rules::get().pForks[1].m_Height = 1;
 	Rules::get().pForks[2].m_Height = 1;
 	Rules::get().FakePoW = true;
+	Rules::get().MaxRollback = 5;
 	Rules::get().UpdateChecksum();
 
 	{

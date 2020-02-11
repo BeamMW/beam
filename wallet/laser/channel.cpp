@@ -490,7 +490,7 @@ void Channel::LogNewState()
         }
         break;
     case beam::Lightning::Channel::State::Closed:
-        os << "Closed. Waiting for " << kMaxRolbackHeight <<" confirmations before forgetting";
+        os << "Closed. Waiting for " << Rules::get().MaxRollback << " confirmations before forgetting";
         break;
     default:
         return;

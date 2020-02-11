@@ -1183,10 +1183,12 @@ void Channel::Close()
 	}
 }
 
-bool Channel::IsSafeToForget(Height hMaxRollback)
+bool Channel::IsSafeToForget()
 {
 	if (!m_pOpen)
 		return true;
+
+	Height hMaxRollback = Rules::get().MaxRollback;
 
 	if (!m_pOpen->m_hOpened)
 	{

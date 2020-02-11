@@ -194,7 +194,7 @@ namespace Lightning {
 
 		void OnPeerData(Storage::Map& dataIn);
 
-		bool IsSafeToForget(Height hMaxRollback); // returns true if the channel is either closed or couldn't be opened (i.e. no chance), and it's safe w.r.t. max rollback depth.
+		bool IsSafeToForget(); // returns true if the channel is either closed or couldn't be opened (i.e. no chance), and it's safe w.r.t. max rollback depth.
 		void Forget(); // If the channel didn't open - the locked inputs will are unlocked
 
 		bool IsNegotiating() const { return m_pNegCtx != nullptr; }
