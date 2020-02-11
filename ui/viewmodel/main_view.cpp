@@ -36,15 +36,17 @@ MainViewModel::MainViewModel()
     , m_timer(this)
 {
     m_timer.setSingleShot(true);
+    
+    auto walletPtr = AppModel::getInstance().getWallet().get();
 
     connect(&m_timer, SIGNAL(timeout()), this, SLOT(lockWallet()));
     connect(&m_settings, SIGNAL(lockTimeoutChanged()), this, SLOT(onLockTimeoutChanged()));
-    connect(AppModel::getInstance().getWallet().get(), SIGNAL(stateIDChanged()), SIGNAL(unsafeTxCountChanged()));
-    connect(AppModel::getInstance().getWallet().get(), SIGNAL(transactionsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)), SIGNAL(unsafeTxCountChanged()));
+    connect(walletPtr, SIGNAL(stateIDChanged()), SIGNAL(unsafeTxCountChanged()));
+    connect(walletPtr, SIGNAL(transactionsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)), SIGNAL(unsafeTxCountChanged()));
 #if defined(BEAM_HW_WALLET)
-    connect(AppModel::getInstance().getWallet().get(), SIGNAL(showTrezorMessage()), this, SIGNAL(showTrezorMessage()));
-    connect(AppModel::getInstance().getWallet().get(), SIGNAL(hideTrezorMessage()), this, SIGNAL(hideTrezorMessage()));
-    connect(AppModel::getInstance().getWallet().get(), SIGNAL(showTrezorError(const QString&)), this, SIGNAL(showTrezorError(const QString&)));
+    connect(walletPtr, SIGNAL(showTrezorMessage()), this, SIGNAL(showTrezorMessage()));
+    connect(walletPtr, SIGNAL(hideTrezorMessage()), this, SIGNAL(hideTrezorMessage()));
+    connect(walletPtr, SIGNAL(showTrezorError(const QString&)), this, SIGNAL(showTrezorError(const QString&)));
 #endif
 
     onLockTimeoutChanged();

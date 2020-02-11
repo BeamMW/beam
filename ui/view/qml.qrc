@@ -42,10 +42,7 @@
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>
-        <file>dashboard.qml</file>
         <file>wallet.qml</file>
-        <file>notification.qml</file>
-        <file>info.qml</file>
         <file>settings.qml</file>
         <file>addresses.qml</file>
         <file>utxo.qml</file>
@@ -210,6 +207,7 @@
         <file>assets/atomic-empty-state.svg</file>
         <file>assets/icon-trusted-node-status.svg</file>
         <file>controls/OpenExternalLinkConfirmation.qml</file>
+        <file>controls/UpdateNotificationPopup.qml</file>
         <file>controls/SeedInput.qml</file>
         <file>utils.js</file>
         <file>qmldir</file>

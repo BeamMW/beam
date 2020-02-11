@@ -15,7 +15,7 @@
 #define LOG_VERBOSE_ENABLED 1
 #include "utility/logger.h"
 
-#include "api.h"
+#include "wallet/api/api.h"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -43,11 +43,9 @@
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #include "wallet/transactions/swaps/utils.h"
-#include "wallet/transactions/swaps/swap_offers_board.h"
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
-#include "keykeeper/local_private_key_keeper.h"
-
 
 #include "nlohmann/json.hpp"
 #include "version.h"
@@ -157,21 +155,35 @@ public:
     }
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-    using WalletDbSubscriber = ScopedSubscriber<wallet::IWalletDbObserver, wallet::IWalletDB>;
-    using SwapOffersBoardSubscriber = ScopedSubscriber<wallet::ISwapOffersObserver, wallet::SwapOffersBoard>;
-    void initSwapOffers(proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
+    using WalletDbSubscriber =
+        ScopedSubscriber<wallet::IWalletDbObserver, wallet::IWalletDB>;
+    using SwapOffersBoardSubscriber =
+        ScopedSubscriber<wallet::ISwapOffersObserver, wallet::SwapOffersBoard>;
+    void initSwapOffers(
+        proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
     {
-        _offersBulletinBoard = std::make_shared<SwapOffersBoard>(nnet, wnet);
-        _walletDbSubscriber = std::make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(_offersBulletinBoard.get()), _walletDB);
-        _swapOffersBoardSubscriber = std::make_unique<SwapOffersBoardSubscriber>(static_cast<ISwapOffersObserver*>(this), _offersBulletinBoard);
+        _broadcastRouter = std::make_shared<BroadcastRouter>(nnet, wnet);
+        _offerBoardProtocolHandler =
+            std::make_shared<OfferBoardProtocolHandler>(
+                _walletDB->get_SbbsKdf(), _walletDB);
+        _offersBulletinBoard = std::make_shared<SwapOffersBoard>(
+            *_broadcastRouter, *_offerBoardProtocolHandler);
+        _walletDbSubscriber = std::make_unique<WalletDbSubscriber>(
+            static_cast<IWalletDbObserver*>(
+                _offersBulletinBoard.get()), _walletDB);
+        _swapOffersBoardSubscriber =
+            std::make_unique<SwapOffersBoardSubscriber>(
+                static_cast<ISwapOffersObserver*>(this), _offersBulletinBoard);
     }
 
-    void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override
+    void onSwapOffersChanged(
+        ChangeAction action, const std::vector<SwapOffer>& offers) override
     {
 
     }
 private:
-
+    std::shared_ptr<BroadcastRouter> _broadcastRouter;
+    std::shared_ptr<OfferBoardProtocolHandler> _offerBoardProtocolHandler;
     std::shared_ptr<SwapOffersBoard> _offersBulletinBoard;
     std::unique_ptr<WalletDbSubscriber> _walletDbSubscriber;
     std::unique_ptr<SwapOffersBoardSubscriber> _swapOffersBoardSubscriber;

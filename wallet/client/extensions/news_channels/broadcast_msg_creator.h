@@ -14,28 +14,25 @@
 
 #pragma once
 
-#include "wallet/core/common.h"
-#include "wallet/transactions/swaps/common.h"
+#include "wallet/client/extensions/broadcast_gateway/interface.h"
+
+#include "core/ecc_native.h"    // PrivateKey
 
 namespace beam::wallet
 {
-struct SwapOffer;
+    /**
+     *  Creates broadcast messages.
+     */
+    class BroadcastMsgCreator
+    {
+        using PrivateKey = ECC::Scalar::Native;
 
-class SwapOfferToken
-{
-public:
-    static bool isValid(const std::string& token);
+    public:
+        /// Convert private key from HEX string representation to the internal type
+        static bool stringToPrivateKey(const std::string& keyHexString, PrivateKey& out);
 
-    SwapOfferToken() = default;
-    SwapOfferToken(const SwapOffer& offer);
-    
-    SwapOffer Unpack() const;
-    SERIALIZE(m_TxID, m_status, m_publisherId, m_coin, m_Parameters);
-private:
-    boost::optional<TxID> m_TxID;
-    boost::optional<SwapOfferStatus> m_status;
-    boost::optional<WalletID> m_publisherId;
-    boost::optional<AtomicSwapCoin> m_coin;
-    PackedTxParameters m_Parameters;
-};
-}  // namespace beam::wallet
+        /// Create message signed with private key
+        static BroadcastMsg createSignedMessage(const ByteBuffer& content, const PrivateKey& key);
+    };
+
+} // namespace beam::wallet

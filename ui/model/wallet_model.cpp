@@ -283,6 +283,14 @@ void WalletModel::onPostFunctionToClientContext(MessageFunction&& func)
     emit functionPosted(func);
 }
 
+void WalletModel::onNewWalletVersion(const VersionInfo& v)
+{
+    if (v.m_application == VersionInfo::Application::DesktopWallet)
+    {
+        emit newAppVersion(QString::fromStdString(std::to_string(v.m_version)));
+    }
+}
+
 beam::Amount WalletModel::getAvailable() const
 {
     return m_status.available;

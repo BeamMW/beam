@@ -1,4 +1,4 @@
-// Copyright 2020 The Beam Team
+// Copyright 2019 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/transactions/swaps/swap_offer_token.h"
-#include "wallet/transactions/swaps/swap_offer.h"
+#include "swap_offer_token.h"
 
 namespace beam::wallet
 {
@@ -31,13 +30,6 @@ bool SwapOfferToken::isValid(const std::string& token)
     return type && *type == TxType::AtomicSwap;
 }
 
-SwapOfferToken::SwapOfferToken(const SwapOffer& offer)
-    : m_TxID(offer.m_txId),
-      m_status(offer.m_status),
-      m_publisherId(offer.m_publisherId),
-      m_coin(offer.m_coin),
-      m_Parameters(offer.Pack()) {}
-
 SwapOffer SwapOfferToken::Unpack() const
 {
     SwapOffer result(m_TxID);
@@ -49,4 +41,10 @@ SwapOffer SwapOfferToken::Unpack() const
     if (m_coin) result.m_coin = *m_coin;
     return result;
 }
-}  // namespace beam::wallet
+
+boost::optional<WalletID> SwapOfferToken::getPublicKey() const
+{
+    return m_publisherId;
+}
+
+} // namespace beam::wallet

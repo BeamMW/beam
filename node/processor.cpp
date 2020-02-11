@@ -59,12 +59,12 @@ void NodeProcessor::Horizon::SetStdFastSync()
 
 void NodeProcessor::Horizon::Normalize()
 {
-	m_Branching = std::max(m_Branching, Height(1));
+	std::setmax(m_Branching, Height(1));
 
 	Height r = Rules::get().MaxRollback;
 
-	m_Sync.Hi = std::max(m_Sync.Hi, std::max(r, m_Branching));
-	m_Sync.Lo = std::max(m_Sync.Lo, m_Sync.Hi);
+	std::setmax(m_Sync.Hi, std::max(r, m_Branching));
+	std::setmax(m_Sync.Lo, m_Sync.Hi);
 
 	// Some nodes in production have a bug: if (Sync.Lo == Sync.Hi) - the last generated block that they send may be incorrect
 	// Workaround: make sure (Sync.Lo > Sync.Hi), at least by 1
@@ -74,8 +74,8 @@ void NodeProcessor::Horizon::Normalize()
 		m_Sync.Lo++;
 
 	// though not required, we prefer m_Local to be no less than m_Sync
-	m_Local.Hi = std::max(m_Local.Hi, m_Sync.Hi);
-	m_Local.Lo = std::max(m_Local.Lo, std::max(m_Local.Hi, m_Sync.Lo));
+	std::setmax(m_Local.Hi, m_Sync.Hi);
+	std::setmax(m_Local.Lo, std::max(m_Local.Hi, m_Sync.Lo));
 }
 
 void NodeProcessor::Initialize(const char* szPath)
@@ -590,7 +590,7 @@ void NodeProcessor::EnumCongestions()
 			if (pMaxTarget->m_Height > m_Horizon.m_Sync.Lo)
 				m_SyncData.m_TxoLo = pMaxTarget->m_Height - m_Horizon.m_Sync.Lo;
 
-			m_SyncData.m_TxoLo = std::max(m_SyncData.m_TxoLo, m_Extra.m_TxoLo);
+			std::setmax(m_SyncData.m_TxoLo, m_Extra.m_TxoLo);
 		}
 
 		// check if the target should be moved fwd
@@ -703,7 +703,7 @@ Height NodeProcessor::get_LowestReturnHeight() const
 	if (h0 > hMaxRollback)
 	{
 		h0 -= hMaxRollback;
-		hRet = std::max(hRet, h0);
+		std::setmax(hRet, h0);
 	}
 
 	return hRet;
@@ -810,8 +810,8 @@ void NodeProcessor::MultiSigmaContext::Add(TxoID id0, uint32_t nCount, const ECC
 		}
 		else
 		{
-			n.m_Min = std::min(n.m_Min, nOffset);
-			n.m_Max = std::max(n.m_Max, nOffset + nPortion);
+			std::setmin(n.m_Min, nOffset);
+			std::setmax(n.m_Max, nOffset + nPortion);
 		}
 
 		ECC::Scalar::Native* pT = n.m_pS + nOffset;
@@ -1919,6 +1919,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_SaveKid = true;
 	bool m_UpdateMmrs = true;
 	bool m_StoreShieldedOutput = false;
+	bool m_LimitExceeded = false;
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
@@ -2902,7 +2903,10 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 	if (bic.m_Fwd)
 	{
 		if (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts)
+		{
+			bic.m_LimitExceeded = true;
 			return false;
+		}
 
 		if (bic.m_ValidateOnly)
 		{
@@ -2992,7 +2996,10 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 		if (!bic.m_AlreadyValidated)
 		{
 			if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
+			{
+				bic.m_LimitExceeded = true;
 				return false;
+			}
 
 			if (!IsShieldedInPool(krn))
 				return false; // references invalid pool window
@@ -3378,7 +3385,7 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 		if (N > r.Shielded.NMax)
 			return false; // too large
 
-		if (krn.m_WindowEnd > m_Extra.m_ShieldedOutputs + r.Shielded.MaxWindowBacklog)
+		if (m_Extra.m_ShieldedOutputs > krn.m_WindowEnd + r.Shielded.MaxWindowBacklog)
 			return false; // large anonymity set is no more allowed, expired
 	}
 
@@ -3815,8 +3822,8 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	}
 
 	// apply "emergency" threshold
-	dtSrc_s = std::min(dtSrc_s, dtTrg_s * 2);
-	dtSrc_s = std::max(dtSrc_s, dtTrg_s / 2);
+	std::setmin(dtSrc_s, dtTrg_s * 2);
+	std::setmax(dtSrc_s, dtTrg_s / 2);
 
 
 	Difficulty::Raw& dWrk = thw0.second.second;
@@ -3895,12 +3902,12 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& hr, bool bShieldedTested)
+uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested)
 {
 	Height h = m_Cursor.m_ID.m_Height + 1;
 
 	if (!hr.IsInRange(h))
-		return false;
+		return proto::TxStatus::InvalidContext;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 
@@ -3915,7 +3922,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 				break;
 
 		if (!ValidateInputs(v.m_Commitment, nCount))
-			return false; // some input UTXOs are missing
+			return proto::TxStatus::InvalidInput; // some input UTXOs are missing
 	}
 
 	// Ensure kernels are ok
@@ -3929,7 +3936,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 
 	size_t n = 0;
 	if (!HandleElementVecFwd(tx.m_vKernels, bic, n))
-		return false;
+		return bic.m_LimitExceeded ? proto::TxStatus::LimitExceeded : proto::TxStatus::InvalidContext;
 
 	if (!bShieldedTested)
 	{
@@ -3941,18 +3948,18 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 			MultiShieldedContext msc;
 
 			if (!msc.IsValid(tx, bc, 0, 1))
-				return false;
+				return proto::TxStatus::InvalidInput;
 
 			msc.Calculate(bc.m_Sum, *this);
 
 			if (!bc.Flush())
-				return false;
+				return proto::TxStatus::InvalidInput;
 		}
 
 		assert(bic.m_ShieldedOuts <= Rules::get().Shielded.MaxOuts);
 	}
 
-	return true;
+	return proto::TxStatus::Ok;
 }
 
 bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /* = 1 */)
@@ -4089,16 +4096,29 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		Transaction& tx = *x.m_pValue;
 
-		if (x.m_Threshold.m_Height.IsInRange(bic.m_Height) && HandleValidatedTx(tx, bic))
+		bool bDelete = !x.m_Threshold.m_Height.IsInRange(bic.m_Height);
+		if (!bDelete)
 		{
-			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
+			assert(!bic.m_LimitExceeded);
+			if (HandleValidatedTx(tx, bic))
+			{
+				TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 
-			bc.m_Fees = feesNext;
-			ssc.m_Counter.m_Value = nSizeNext;
-			offset += ECC::Scalar::Native(tx.m_Offset);
-			++nTxNum;
+				bc.m_Fees = feesNext;
+				ssc.m_Counter.m_Value = nSizeNext;
+				offset += ECC::Scalar::Native(tx.m_Offset);
+				++nTxNum;
+			}
+			else
+			{
+				if (bic.m_LimitExceeded)
+					bic.m_LimitExceeded = false; // don't delete it, leave it for the next block
+				else
+					bDelete = true;
+			}
 		}
-		else
+
+		if (bDelete)
 			bc.m_TxPool.Delete(x); // isn't available in this context
 	}
 
@@ -4153,7 +4173,7 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
-	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
+	std::setmax(bc.m_Hdr.m_TimeStamp, tm);
 }
 
 NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey, Key::IKdf& coin, Key::IPKdf& tag)
@@ -4562,12 +4582,12 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 	//	if CreateHeight <= h0 then transfer
 	//	Otherwise - don't transfer
 
-	hHi1 = std::max(hHi1, sid.m_Height); // valid block can't spend its own output. Hence this means full block should be transferred
+	std::setmax(hHi1, sid.m_Height); // valid block can't spend its own output. Hence this means full block should be transferred
 
 	if (m_Extra.m_TxoHi > hHi1)
 		return false;
 
-	hLo1 = std::max(hLo1, sid.m_Height - 1);
+	std::setmax(hLo1, sid.m_Height - 1);
 	if (m_Extra.m_TxoLo > hLo1)
 		return false;
 

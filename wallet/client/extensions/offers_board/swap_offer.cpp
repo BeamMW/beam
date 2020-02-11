@@ -1,4 +1,4 @@
-// Copyright 2020 The Beam Team
+// Copyright 2019 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/transactions/swaps/swap_offer.h"
+#include "wallet/client/extensions/offers_board/swap_offer.h"
 
 namespace beam::wallet
 {
+
 SwapOffer::SwapOffer(const boost::optional<TxID>& txID) : TxParameters(txID) {}
 
 SwapOffer::SwapOffer(const TxID& txId,
@@ -156,4 +157,4 @@ Height SwapOffer::minHeight() const
     return minHeight;
 }
 
-}  // namespace beam::wallet
+} // namespace beam::wallet

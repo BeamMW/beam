@@ -1,4 +1,4 @@
-// Copyright 2020 The Beam Team
+// Copyright 2019 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 #pragma once
 
 #include "wallet/core/common.h"
-#include "wallet/core/wallet_db.h"
 #include "wallet/transactions/swaps/common.h"
 
 namespace beam::wallet
@@ -47,11 +46,5 @@ struct SwapOffer : public TxParameters
     WalletID m_publisherId = Zero;
     mutable AtomicSwapCoin m_coin = AtomicSwapCoin::Unknown;
 };
-
-// Interface for swap bulletin board observer. 
-struct ISwapOffersObserver
-{
-    virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) {};
-};
-
-}  // namespace beam::wallet
+    
+} // namespace beam::wallet

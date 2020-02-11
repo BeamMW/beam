@@ -470,7 +470,7 @@ void Client::Initialize()
 
 	BbsChannel ch;
 	m_Wid.m_Pk.ExportWord<0>(ch);
-	ch %= proto::Bbs::s_MaxChannels;
+	ch %= proto::Bbs::s_MaxWalletChannels;
 	m_Wid.m_Channel = ch;
 
 	//std::cout << "My address: " << to_string(wid) << std::endl;

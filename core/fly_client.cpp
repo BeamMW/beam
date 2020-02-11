@@ -44,7 +44,7 @@ void FlyClient::NetworkStd::Connect()
 
         for (size_t i = 0; i < m_Cfg.m_vNodes.size(); i++)
         {
-            Connection* pConn = new Connection(*this, i);
+            Connection* pConn = new Connection(*this);
             pConn->m_Addr = m_Cfg.m_vNodes[i];
             if (m_Cfg.m_UseProxy) pConn->Connect(pConn->m_Addr, m_Cfg.m_ProxyAddr);
             else pConn->Connect(pConn->m_Addr);
@@ -58,9 +58,8 @@ void FlyClient::NetworkStd::Disconnect()
         delete &m_Connections.front();
 }
 
-FlyClient::NetworkStd::Connection::Connection(NetworkStd& x, size_t iIndex)
-    :m_iIndex(iIndex)
-    ,m_This(x)
+FlyClient::NetworkStd::Connection::Connection(NetworkStd& x)
+    : m_This(x)
 {
     m_This.m_Connections.push_back(*this);
     ResetVars();
@@ -96,7 +95,7 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
         m_This.m_Client.OnOwnedNode(m_NodeID, false);
 
     if (Flags::ReportedConnected & m_Flags)
-        m_This.OnNodeConnected(m_iIndex, false);
+        m_This.OnNodeConnected(false);
 
     while (!m_lst.empty())
     {
@@ -113,7 +112,7 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
     if (!(Flags::ReportedConnected & m_Flags))
     {
         m_Flags |= Flags::ReportedConnected;
-        m_This.OnNodeConnected(m_iIndex, true);
+        m_This.OnNodeConnected(true);
     }
 }
 
@@ -124,7 +123,7 @@ void FlyClient::NetworkStd::Connection::SetupLogin(Login& msg)
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
 {
-    m_This.OnConnectionFailed(m_iIndex, dr);
+    m_This.OnConnectionFailed(dr);
 	ResetAll();
     SetTimer(m_This.m_Cfg.m_ReconnectTimeout_ms);
 }
@@ -537,7 +536,7 @@ void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr
         {
             const Connection& c = *it;
             if (c.m_pSync)
-                c.m_pSync->m_LowHeight = std::min(c.m_pSync->m_LowHeight, w.m_LowErase - 1);
+                std::setmin(c.m_pSync->m_LowHeight, w.m_LowErase - 1);
         }
 
         m_This.m_Client.OnRolledBack();
@@ -718,9 +717,14 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestKernel2& req)
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestAsset& req)
 {
-    if (req.m_Res.m_Info.m_Owner != Zero)
-        if (req.m_Msg.m_Owner != req.m_Res.m_Info.m_Owner)
+    if (req.m_Res.m_Info.m_Owner != Zero) // valid asset info
+    {
+        if (req.m_Msg.m_Owner != Zero && req.m_Msg.m_Owner != req.m_Res.m_Info.m_Owner)
             ThrowUnexpected();
+
+        if (req.m_Msg.m_AssetID != Asset::s_InvalidID && req.m_Msg.m_AssetID != req.m_Res.m_Info.m_ID)
+            ThrowUnexpected();
+    }
 
     if (!req.m_Res.m_Proof.empty())
         if (!m_Tip.IsValidProofAsset(req.m_Res.m_Info, req.m_Res.m_Proof))

@@ -6,8 +6,8 @@ add_library(wallet_api_proto STATIC api.cpp)
 
 target_link_libraries(wallet_api_proto
     PUBLIC 
-        wallet 
-        utility 
+        wallet_client
+        utility
         http
 )
 

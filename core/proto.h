@@ -127,6 +127,7 @@ namespace proto {
     macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ShieldedList(macro) \
+    macro(TxoID, ShieldedOuts) \
     macro(std::vector<ECC::Point::Storage>, Items)
 
 #define BeamNodeMsg_ProofState(macro) \
@@ -226,6 +227,18 @@ namespace proto {
 #define BeamNodeMsg_BlockFinalization(macro) \
     macro(Transaction::Ptr, Value)
 
+#define BeamNodeMsg_GetStateSummary(macro)
+
+#define BeamNodeMsg_StateSummary(macro) \
+    macro(Height, TxoLo) /* if 0 - this is the archieve Node */ \
+    macro(TxoID, Kernels) /* not supported atm */ \
+    macro(TxoID, Txos) /* Total num of outputs interpreted by this Node. Would be total num of outputs if TxoLo == 0.  */ \
+    macro(TxoID, Utxos) /* not supported atm */ \
+    macro(TxoID, ShieldedOuts) \
+    macro(TxoID, ShieldedIns) \
+    macro(Asset::ID, AssetsMax) \
+    macro(Asset::ID, AssetsActive) \
+
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
     macro(0x00, Login0) \
@@ -295,6 +308,8 @@ namespace proto {
     /* macro(0x3d, BbsPickChannelResV0) Deprecated */ \
     macro(0x3e, BbsResetSync) \
     macro(0x3f, BbsMsg) \
+    macro(0x45, GetStateSummary) \
+    macro(0x46, StateSummary) \
 
 
     struct LoginFlags {
@@ -515,10 +530,16 @@ namespace proto {
 	{
 		static const size_t s_MaxMsgSize = 1024 * 1024;
 
-		static const uint32_t s_MaxChannels = 1024;
+		static const uint32_t s_MaxWalletChannels = 1024;
+        // Amount of channels used with wallet to wallet bbs communication.
 		// At peak load a single block contains ~1K txs. The lifetime of a bbs message is 12-24 hours. Means the total sbbs system can contain simultaneously info about ~1 million different txs.
 		// Hence our sharding factor is 1K. Gives decent reduction of the traffic under peak loads, whereas maintains some degree of obfuscation on modest loads too.
 		// In the future it can be changed without breaking compatibility
+
+        static constexpr uint32_t s_BtcSwapOffersChannel = s_MaxWalletChannels;
+        static constexpr uint32_t s_LtcSwapOffersChannel = s_MaxWalletChannels + 1;
+        static constexpr uint32_t s_QtumSwapOffersChannel = s_MaxWalletChannels + 2;
+        static constexpr uint32_t s_BroadcastChannel = s_MaxWalletChannels + 3;
 
 		typedef uintBig_t<4> NonceType;
 
@@ -536,8 +557,11 @@ namespace proto {
 		static const uint8_t Obscured = 0x3; // partial overlap with another tx. Dropped due to potential collision (not necessarily an error)
 
 		static const uint8_t Invalid = 0x10; // context-free validation failed
-		static const uint8_t InvalidContext = 0x11; // invalid in context (bad inputs, maturity or time lock problems)
+		static const uint8_t InvalidContext = 0x11; // invalid in context (kernel timelock, relative timelock violation, etc.)
 		static const uint8_t LowFee = 0x12; // fee below minimum
+
+		static const uint8_t LimitExceeded = 0x13; // block limit exceeded (tx too large, too many shielded ins/outs, etc.)
+		static const uint8_t InvalidInput = 0x14; // non-existing or non-matured inputs referenced
 	};
 
 

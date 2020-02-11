@@ -15,7 +15,7 @@
 #include "wallet/api/api.h"
 #include "wallet/core/common_utils.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-#include "wallet/transactions/swaps/swap_offer_token.h"
+#include "wallet/client/extensions/offers_board/swap_offer_token.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_side.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin_side.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum_side.h"

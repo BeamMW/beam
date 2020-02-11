@@ -15,6 +15,8 @@ Rectangle {
 
 	MainViewModel {id: viewModel}
 
+    UpdateInfoProvider {id: updateInfoProvider}
+
     ConfirmationDialog {
         id:                     closeDialog
         //% "Beam wallet close"
@@ -89,13 +91,10 @@ Rectangle {
     }
 
     property var contentItems : [
-		//"dashboard",
 		"wallet", 
         "atomic_swap",
 		"addresses", 
 		"utxo",
-		//"notification", 
-		//"info",
 		"settings"]
     property int selectedItem
 
@@ -332,6 +331,17 @@ Rectangle {
             trezor_popup.message = error
             trezor_popup.open()
 
+        }
+    }
+
+    Connections {
+        target: updateInfoProvider
+        onShowUpdateNotification: function(version) {
+            console.log("News received. Message: " + version);
+            var dialog = Qt.createComponent("controls/UpdateNotificationPopup.qml").createObject(main);
+            dialog.externalUrl = "https://www.beam.mw/downloads";
+            dialog.version = version;
+            dialog.open();
         }
     }
 

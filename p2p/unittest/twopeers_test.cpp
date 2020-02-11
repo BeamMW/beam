@@ -52,7 +52,7 @@ struct Response {
 struct MessageHandler : IErrorHandler {
 
     void on_protocol_error(uint64_t fromStream, ProtocolError error) override {
-        cout << __FUNCTION__ << "(" << fromStream << "," << error << ")" << endl;
+        cout << __FUNCTION__ << "(" << fromStream << "," << static_cast<int32_t>(error) << ")" << endl;
 		Reactor::get_Current().stop();
     }
 

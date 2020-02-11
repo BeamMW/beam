@@ -18,7 +18,7 @@
 
 #include "wallet/core/wallet.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-#include "wallet/transactions/swaps/swap_offer.h"
+#include "wallet/client/extensions/offers_board/swap_offer.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #include "nlohmann/json.hpp"
 

@@ -44,7 +44,6 @@ public:
     bool showSwapBetaWarning();
     void setShowSwapBetaWarning(bool value);
 
-    void initModel(WalletModel::Ptr model);
 #if defined(BEAM_HW_WALLET)
     std::string getTrezorWalletStorage() const;
 #endif
@@ -68,6 +67,14 @@ public:
     QString getLanguageName() const;
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
+
+    bool isUpdatesPushActive() const;
+    void setUpdatesPushActive(bool isActive);
+    bool isExcRatesActive() const;
+    void setExcRatesActive(bool isActive);
+    QString getNewscastKey() const;
+    void setNewscastKey(QString keyHex);
+
     static void openFolder(const QString& path);
 
 public:
@@ -91,6 +98,7 @@ signals:
     void localNodeSynchronizedChanged();
     void localeChanged();
     void beamMWLinksChanged();
+    // void newscastSettingsChanged();
 
 private:
     QSettings m_data;

@@ -18,11 +18,17 @@
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
+#include "wallet/core/node_network.h"
 #include "wallet/core/private_key_keeper.h"
 #include "wallet_model_async.h"
+#include "wallet/client/changes_collector.h"
+#include "wallet/client/extensions/broadcast_gateway/interface.h"
+#include "wallet/client/extensions/news_channels/interface.h"
+#include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-#include "wallet/transactions/swaps/swap_offer.h"
-#include "wallet/transactions/swaps/swap_offers_board.h"
+#include "wallet/client/extensions/offers_board/swap_offers_observer.h"
+#include "wallet/client/extensions/offers_board/swap_offer.h"
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include <thread>
@@ -57,12 +63,14 @@ namespace beam::wallet
         , private IWalletModelAsync
         , private IWalletDB::IRecoveryProgress
         , private IPrivateKeyKeeper::Handler
+        , private INodeConnectionObserver
+        , private INewsObserver
     {
     public:
         WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper);
         virtual ~WalletClient();
 
-        void start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
+        void start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr, const std::string& newsPublisherKey = "");
 
         IWalletModelAsync::Ptr getAsync();
         std::string getNodeAddress() const;
@@ -71,6 +79,10 @@ namespace beam::wallet
         bool isFork1() const;
         size_t getUnsafeActiveTransactionsCount() const;
         bool isConnectionTrusted() const;
+
+        /// INodeConnectionObserver implementation
+        void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
+        void onNodeConnectedStatusChanged(bool isNodeConnected) override;
 
     protected:
         // Call this before derived class is destructed to ensure
@@ -108,6 +120,11 @@ namespace beam::wallet
         virtual void onExportDataToJson(const std::string& data) {}
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
+        virtual void onNewWalletVersion(const VersionInfo&) override {}
+        virtual void onExchangeRates(const ExchangeRates&) override {}
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        virtual void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
+#endif
 
     private:
 
@@ -151,6 +168,7 @@ namespace beam::wallet
         void importDataFromJson(const std::string& data) override;
         void exportDataToJson() override;
         void exportTxHistoryToCsv() override;
+        void setNewscastKey(const std::string& publisherKey) override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
@@ -158,185 +176,30 @@ namespace beam::wallet
         WalletStatus getStatus() const;
         std::vector<Coin> getUtxos() const;
 
-        void nodeConnectionFailed(const proto::NodeConnection::DisconnectReason&);
-        void nodeConnectedStatusChanged(bool isNodeConnected);
         void updateClientState();
         void updateClientTxState();
         void updateConnectionTrust(bool trustedConnected);
         bool isConnected() const;
     private:
 
-        template<typename T, typename KeyFunc>
-        class ChangesCollector
-        {
-            using FlushFunc = std::function<void(ChangeAction, const std::vector<T>&)>;
-            
-            struct Comparator
-            {
-                bool operator()(const T& left, const T& right) const
-                {
-                    return KeyFunc()(left) < KeyFunc()(right);
-                }
-            };
-
-            using ItemsList = std::set<T, Comparator>;
-        public:
-            ChangesCollector(size_t bufferSize, io::Reactor::Ptr reactor, FlushFunc&& flushFunc)
-                : m_BufferSize(bufferSize)
-                , m_FlushTimer(io::Timer::create(*reactor))
-                , m_FlushFunc(std::move(flushFunc))
-            {
-            }
-
-            void CollectItems(ChangeAction action, const std::vector<T>& items)
-            {
-                if (action == ChangeAction::Reset)
-                {
-                    m_NewItems.clear();
-                    m_UpdatedItems.clear();
-                    m_RemovedItems.clear();
-                    m_FlushFunc(action, items);
-                    return;
-                }
-
-                for (const auto& item : items)
-                {
-                    CollectItem(action, item);
-                }
-            }
-
-            void Flush()
-            {
-                Flush(ChangeAction::Added, m_NewItems);
-                Flush(ChangeAction::Updated, m_UpdatedItems);
-                Flush(ChangeAction::Removed, m_RemovedItems);
-            }
-
-        private:
-
-            void CollectItem(ChangeAction action, const T& item)
-            {
-                m_FlushTimer->cancel();
-                m_FlushTimer->start(100, false, [this]() { Flush(); });
-                switch (action)
-                {
-                case ChangeAction::Added:
-                    AddItem(item);
-                    break;
-                case ChangeAction::Updated:
-                    UpdateItem(item);
-                    break;
-                case ChangeAction::Removed:
-                    RemoveItem(item);
-                    break;
-                default:
-                    break;
-                }
-
-                if (GetChangesCount() > m_BufferSize)
-                {
-                    Flush();
-                }
-            }
-
-            void Flush(ChangeAction action, ItemsList& items)
-            {
-                if (!items.empty())
-                {
-                    m_FlushFunc(action, std::vector<T>(items.begin(), items.end()));
-                    items.clear();
-                }
-            }
-
-            size_t GetChangesCount() const
-            {
-                return m_NewItems.size() + m_UpdatedItems.size() + m_RemovedItems.size();
-            }
-
-            void AddItem(const T& item)
-            {
-                // if it was removed do nothing
-                if (m_RemovedItems.find(item) != m_RemovedItems.end())
-                {
-                    return;
-                }
-                m_NewItems.insert(item);
-            }
-
-            void UpdateItem(const T& item)
-            {
-                // if it was removed do nothing
-                if (m_RemovedItems.find(item) != m_RemovedItems.end())
-                {
-                    return;
-                }
-                // if it is not in new add it to updated
-                auto it = m_NewItems.find(item);
-                if (it == m_NewItems.end())
-                {
-                    auto p = m_UpdatedItems.insert(item);
-                    if (p.second == false)
-                    {
-                        UpdateItemValue(item, p.first, m_UpdatedItems);
-                    }
-                }
-                else
-                {
-                    UpdateItemValue(item, it, m_NewItems);
-                }
-            }
-
-            void RemoveItem(const T& item)
-            {
-                // if it is in new erase it
-                if (auto it = m_NewItems.find(item); it != m_NewItems.end())
-                {
-                    m_NewItems.erase(it);
-                    return;
-                }
-                // else if it is in updated remove and add to removed
-                if (auto it = m_UpdatedItems.find(item); it != m_UpdatedItems.end())
-                {
-                    m_UpdatedItems.erase(it);
-                }
-                // add to removed
-                m_RemovedItems.insert(item);
-            }
-
-            void UpdateItemValue(const T& item, typename ItemsList::iterator& it, ItemsList& items)
-            {
-                // MacOS doesn't support 'extract'
-                //auto node = items.extract(it);
-                //node.value() = item;
-                //items.insert(std::move(node));
-                items.erase(it);
-                items.insert(item);
-            }
-
-        private:
-            size_t m_BufferSize;
-            io::Timer::Ptr m_FlushTimer;
-            FlushFunc m_FlushFunc;
-
-            ItemsList m_NewItems;
-            ItemsList m_UpdatedItems;
-            ItemsList m_RemovedItems;
-        };
-
         std::shared_ptr<std::thread> m_thread;
         IWalletDB::Ptr m_walletDB;
         io::Reactor::Ptr m_reactor;
         IWalletModelAsync::Ptr m_async;
-        std::weak_ptr<proto::FlyClient::INetwork> m_nodeNetwork;
+        std::weak_ptr<NodeNetwork> m_nodeNetwork;
         std::weak_ptr<IWalletMessageEndpoint> m_walletNetwork;
         std::weak_ptr<Wallet> m_wallet;
+        // broadcasting via BBS
+        std::weak_ptr<IBroadcastMsgsGateway> m_broadcastRouter;
+        std::weak_ptr<IBroadcastListener> m_updatesProvider;
+        std::weak_ptr<BroadcastMsgValidator> m_broadcastValidator;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
         uint32_t m_connectedNodesCount;
         uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;
-        std::string m_nodeAddrStr;
+        std::string m_initialNodeAddrStr;
         IPrivateKeyKeeper::Ptr m_keyKeeper;
 
         struct CoinKey

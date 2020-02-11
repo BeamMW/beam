@@ -13,6 +13,7 @@ target_sources(wallet
         simple_transaction.cpp
         strings_resources.cpp
         wallet_network.cpp
+        node_network.cpp
         wallet_db.cpp
         base58.cpp
         bbs_miner.cpp

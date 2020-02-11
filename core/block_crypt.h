@@ -108,13 +108,14 @@ namespace beam
 	struct Asset
 	{
 		typedef uint32_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
-		static const ID s_MaxCount = uint32_t(1) << 30; // 1 billion. Of course practically it'll be very much smaller
+		static const ID s_MaxCount  = uint32_t(1) << 30; // 1 billion. Of course practically it'll be very much smaller
+		static const ID s_InvalidID = 0;
 
 		struct Base
 		{
 			ID m_ID;
 
-			Base(ID id = 0) :m_ID(id) {}
+			explicit Base(ID id = s_InvalidID) :m_ID(id) {}
 
 			void get_Generator(ECC::Point::Native&) const;
 			void get_Generator(ECC::Point::Storage&) const;
@@ -133,7 +134,7 @@ namespace beam
 
 		struct Info
 		{
-			AmountBig::Type m_Value = Zero;
+			AmountBig::Type m_Value;
 			PeerID m_Owner = Zero;
 			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
 			Metadata m_Metadata;
@@ -728,7 +729,7 @@ namespace beam
 
 		Asset::ID m_AssetID;
 		AmountSigned m_Value;
-		TxKernelAssetEmit() :m_Value(0) {}
+		TxKernelAssetEmit() : m_AssetID(Asset::s_InvalidID), m_Value(0) {}
 
 		virtual ~TxKernelAssetEmit() {}
 		virtual Subtype::Enum get_Subtype() const override;
@@ -761,6 +762,7 @@ namespace beam
 		typedef std::unique_ptr<TxKernelAssetDestroy> Ptr;
 
 		Asset::ID m_AssetID;
+        TxKernelAssetDestroy(): m_AssetID(Asset::s_InvalidID) {}
 
 		virtual ~TxKernelAssetDestroy() {}
 		virtual Subtype::Enum get_Subtype() const override;

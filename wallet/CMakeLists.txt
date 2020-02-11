@@ -22,6 +22,8 @@ if (NOT ANDROID AND NOT IOS)
 
     add_subdirectory(api)
 
+    add_subdirectory(broadcaster)
+
     add_subdirectory(unittests)
 
     add_subdirectory(service)

@@ -480,7 +480,7 @@ void Channel::OnRolledBack()
 		m_State.m_Close.m_hPhase2 = 0;
 	}
 
-	m_State.m_hQueryLast = std::min(m_State.m_hQueryLast, h);
+	std::setmin(m_State.m_hQueryLast, h);
 
 	if (m_State.m_hTxSentLast > h)
 		m_State.m_hTxSentLast = 0; // could be lost
@@ -550,7 +550,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 				return;
 			}
 
-			r.m_iIndex = std::min(r.m_iIndex, m_vUpdates.size());
+			std::setmin(r.m_iIndex, m_vUpdates.size());
 			while (true)
 			{
 				assert(r.m_iIndex);

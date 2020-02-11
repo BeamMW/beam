@@ -219,49 +219,6 @@ namespace beam::wallet {
         }
     }
 
-    /**
-     * Sign message with private key and send it without encryption
-     *
-     * @param msg       Message data
-     * @param channel   BBS channel to send message
-     * @param wid       Public key used in signature creation
-     */
-    void BaseMessageEndpoint::SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version)
-    {
-        if (!m_pKdfSbbs)
-            return;
-
-        SwapOfferConfirmation confirmation;
-
-        auto waddr = m_WalletDB->getAddress(wid);
-
-        if (waddr && waddr->isOwn())
-        {
-            ECC::Scalar::Native sk;
-            PeerID generatedPk;
-            m_WalletDB->get_SbbsPeerID(sk, generatedPk, waddr->m_OwnID);
-
-            confirmation.m_offerData = msg;
-            confirmation.Sign(sk);
-
-            ByteBuffer signature = toByteBuffer(confirmation.m_Signature);
-
-            size_t bodySize = msg.size() + signature.size();
-            assert(bodySize <= UINT32_MAX);
-            MsgHeader header(0, 0, version, 0, static_cast<uint32_t>(bodySize));
-
-            ByteBuffer finalMessage(header.SIZE);
-            header.write(finalMessage.data());
-            finalMessage.reserve(header.size + header.SIZE);
-            std::copy(std::begin(msg), std::end(msg), std::back_inserter(finalMessage));
-            std::copy(std::begin(signature), std::end(signature), std::back_inserter(finalMessage));
-            
-            WalletID dummyWId;
-            dummyWId.m_Channel = channel;
-            SendRawMessage(dummyWId, finalMessage);
-        }
-    }
-
     void BaseMessageEndpoint::OnAddressTimer()
     {
         vector<Addr*> addressesToDelete;
@@ -305,12 +262,12 @@ namespace beam::wallet {
         try 
         {
             m_WalletDB->Unsubscribe(this);
-		m_Miner.Stop();
+            m_Miner.Stop();
 
-		while (!m_PendingBbsMsgs.empty())
-			DeleteReq(m_PendingBbsMsgs.front());
+		    while (!m_PendingBbsMsgs.empty())
+			    DeleteReq(m_PendingBbsMsgs.front());
 
-        Unsubscribe();
+            Unsubscribe();
 		
 			SaveBbsTimestamps();
 		} 
@@ -377,7 +334,7 @@ namespace beam::wallet {
 		auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
 		if (m_BbsTimestamps.end() != itBbs)
         {
-			itBbs->second = std::max(itBbs->second, msg.m_TimePosted);
+			std::setmax(itBbs->second, msg.m_TimePosted);
         }
 		else
         {
@@ -493,7 +450,11 @@ namespace beam::wallet {
         case ChangeAction::Updated:
             for (const auto& address : items)
             {
-                if (!address.isExpired())
+                if (!address.isOwn())
+                {
+                    continue;
+                }
+                else if (!address.isExpired())
                 {
                     AddOwnAddress(address);
                 }

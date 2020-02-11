@@ -88,6 +88,11 @@ namespace std
         s.swap_buf(buffer);
         return beam::wallet::EncodeToBase58(buffer);
     }
+
+    string to_string(const beam::Version& v)
+    {
+        return v.to_string();
+    }
 }  // namespace std
 
 namespace beam
@@ -105,6 +110,49 @@ namespace beam
         os << std::to_string(amount);
         
         return os;
+    }
+
+    // Version Version::getCurrent()
+    // {
+    //     return Version
+    //     {
+    //         VERSION_MAJOR,
+    //         VERSION_MINOR,
+    //         VERSION_REVISION
+    //     };
+    // }
+
+    std::string Version::to_string() const
+    {
+        std::string maj(std::to_string(m_major));
+        std::string min(std::to_string(m_minor));
+        std::string rev(std::to_string(m_revision));
+        std::string res;
+        res.reserve(maj.size() + min.size() + rev.size());
+        res.append(maj).push_back('.');
+        res.append(min).push_back('.');
+        res.append(rev);
+        return res;
+    }
+
+    bool Version::operator==(const Version& other) const
+    {
+        return m_major == other.m_major
+            && m_minor == other.m_minor
+            && m_revision == other.m_revision;
+    }
+
+    bool Version::operator<(const Version& other) const
+    {
+        return m_major < other.m_major
+            || (m_major == other.m_major
+                && (m_minor < other.m_minor
+                    || (m_minor == other.m_minor && m_revision < other.m_revision)));
+    }
+
+    bool Version::operator!=(const Version& other) const
+    {
+        return !(*this == other);
     }
 }  // namespace beam
 
@@ -243,6 +291,15 @@ namespace beam::wallet
         beam::Blob data(m_offerData);
         Hash::Processor()
             << "SwapOfferSignature"
+            << data
+            >> hv;
+    }
+
+    void SignatureHandler::get_Hash(Hash::Value& hv) const
+    {
+        beam::Blob data(m_data);
+        Hash::Processor()
+            << "Undersign"
             << data
             >> hv;
     }

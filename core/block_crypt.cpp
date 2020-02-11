@@ -55,8 +55,8 @@ namespace beam
 
 	void HeightRange::Intersect(const HeightRange& x)
 	{
-		m_Min = std::max(m_Min, x.m_Min);
-		m_Max = std::min(m_Max, x.m_Max);
+		std::setmax(m_Min, x.m_Min);
+		std::setmin(m_Max, x.m_Max);
 	}
 
 	bool HeightRange::IsEmpty() const

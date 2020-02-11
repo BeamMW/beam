@@ -457,7 +457,7 @@ namespace beam
 			b.m_Height = MaxHeight;
 
 			for (size_t i = 0; i < g.m_Data.m_vOutputs.size(); i++)
-				b.m_Height = std::min(b.m_Height, g.m_Data.m_vOutputs[i]->m_Incubation);
+				std::setmin(b.m_Height, g.m_Data.m_vOutputs[i]->m_Incubation);
 		}
 
 		return ret;
@@ -482,7 +482,7 @@ namespace beam
 
 				Height h = MaxHeight;
 				for (size_t i = 0; i < g.m_vCoins.size(); i++)
-					h = std::min(h, g.m_vCoins[i].m_pOutput->m_Incubation);
+					std::setmin(h, g.m_vCoins[i].m_pOutput->m_Incubation);
 
 				GroupMap::iterator it = map.find(h);
 				bool bNew = (map.end() == it);

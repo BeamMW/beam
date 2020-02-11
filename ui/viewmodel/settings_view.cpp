@@ -794,6 +794,7 @@ void SwapCoinSettingsItem::applyNodeAddressElectrum(const QString& address)
 
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance().getSettings()}
+    , m_newscastSettings(AppModel::getInstance().getSettings())
     , m_isValidNodeAddress{true}
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
@@ -1146,4 +1147,9 @@ const QList<QObject*>& SettingsViewModel::getSwapCoinSettings()
         m_swapSettings.push_back(new SwapCoinSettingsItem(*AppModel::getInstance().getQtumClient(), beam::wallet::AtomicSwapCoin::Qtum));
     }
     return m_swapSettings;
+}
+
+QObject* SettingsViewModel::getNewscastSettings()
+{
+    return &m_newscastSettings;
 }

@@ -462,17 +462,9 @@
         <source>Copy code</source>
         <translation>Kopioi koodi</translation>
     </message>
-    <message id="info-title">
-        <source>Info view</source>
-        <translation>Info</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Yritä uudelleen</translation>
-    </message>
-    <message id="notifications-title">
-        <source>Notifications view</source>
-        <translation>Ilmoitukset</translation>
     </message>
     <message id="status-connecting">
         <source>connecting</source>
@@ -986,7 +978,12 @@
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
 •  must contain at least one number</source>
-        <translation>Vahvan salasanan tulee täyttää seuraavat kriteerit:
+        <oldsource>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</oldsource>
+        <translation type="unfinished">Vahvan salasanan tulee täyttää seuraavat kriteerit:
 •  salasanassa täytyy olla vähintään 10 merkkiä
 •  vähintään yksi kirjain pienellä
 •  vähintään yksi kirjain isolla
@@ -1257,7 +1254,9 @@
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</source>
-        <translation>Sinulla ei ole ulkoisia valuuttoja yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
+        <oldsource>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</oldsource>
+        <translation type="unfinished">Sinulla ei ole ulkoisia valuuttoja yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create a Swap Offer</source>
@@ -1335,7 +1334,9 @@ Update your settings and try again.</source>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
 please review your settings and try again</source>
-        <translation>%1 ei ole yhdistetty. \nTarkista asetuksesi ja yritä uudelleen.</translation>
+        <oldsource>%1 is not connected, 
+please review your settings and try again</oldsource>
+        <translation type="unfinished">%1 ei ole yhdistetty. \nTarkista asetuksesi ja yritä uudelleen.</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1530,12 +1531,16 @@ please review your settings and try again</source>
     <message id="settings-progress-na">
         <source>You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</source>
-        <translation>Et voi katkaista lompakon yhteyttä, muokata seed phrasea tai vaihtaa oletuksena olevaa\nsiirtomaksua, kun sinulla on käsittelyssä olevia tapahtumia.</translation>
+        <oldsource>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</oldsource>
+        <translation type="unfinished">Et voi katkaista lompakon yhteyttä, muokata seed phrasea tai vaihtaa oletuksena olevaa\nsiirtomaksua, kun sinulla on käsittelyssä olevia tapahtumia.</translation>
     </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.
 Please try again later or create an offer yourself.</source>
-        <translation>Ei yhtään voimassa olevaa tarjousta.\nTee oma tarjous tai yritä myöhemmin uudelleen.</translation>
+        <oldsource>There are no active offers at the moment.
+Please try again later or create an offer yourself.</oldsource>
+        <translation type="unfinished">Ei yhtään voimassa olevaa tarjousta.\nTee oma tarjous tai yritä myöhemmin uudelleen.</translation>
     </message>
     <message id="send-less-than-fee">
         <source>The swap amount must be greater than the transaction fee</source>
@@ -1704,7 +1709,9 @@ Please try again later or create an offer yourself.</source>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</source>
-        <translation>Tarjous tällä tapahtuman tunnisteella on jo hyväksytty.\nTarkista swap-tunniste ja yritä uudelleen.</translation>
+        <oldsource>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</oldsource>
+        <translation type="unfinished">Tarjous tällä tapahtuman tunnisteella on jo hyväksytty.\nTarkista swap-tunniste ja yritä uudelleen.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
         <source>Оffer is already accepted</source>
@@ -1992,8 +1999,11 @@ to complete.</oldsource>
         <source>Please notice, that knowing your owner key allows to
 know all your funds (UTXO). Make sure that you
 deploy the key at the node you trust completely.</source>
+        <oldsource>Please notice, that knowing your owner key allows to
+know all your funds (UTXO). Make sure that you
+deploy the key at the node you trust completely.</oldsource>
         <extracomment>settings tab, show owner key message</extracomment>
-        <translation>Huomioithan, että omistusavain antaa mahdollisuuden
+        <translation type="unfinished">Huomioithan, että omistusavain antaa mahdollisuuden
 nähdä koko saldosi (UTXO). Varmista, että sijoitat
 avaimen palvelimeen (node), johon luotat täysin.</translation>
     </message>
@@ -2109,6 +2119,42 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
     </message>
     <message id="tx-failure-asset-small-fee">
         <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-open-url-button">
+        <source>open web-site</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-cancel-button">
+        <source>cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-notification-title">
+        <source>New update available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-notification-message">
+        <source>Update %1 is available to download. You can update later from Settings.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-notification-text">
+        <source>Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version.This action will expose your IP to the web server. To avoid it, choose &apos;Cancel&apos;. You can change your choice in app setting anytime.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-notifications-title">
+        <source>Notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-notifications-version">
+        <source>Wallet version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-notifications-news">
+        <source>News</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-notifications-tx-status">
+        <source>Transaction status</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

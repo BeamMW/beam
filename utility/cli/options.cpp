@@ -276,10 +276,16 @@ namespace beam
         // assets
         const char* ASSET_ISSUE       = "issue";
         const char* ASSET_CONSUME     = "consume";
+        const char* ASSET_INFO        = "asset_info";
         const char* ASSET_REGISTER    = "reg";
         const char* ASSET_UNREGISTER  = "unreg";
         const char* ASSET_INDEX       = "asset_idx";
         const char* ASSET_ID          = "asset_id";
+        const char* METADATA          = "metadata";
+
+        // newscaster
+        const char* BBS_MESSAGE = "message";
+        const char* PRIVATE_KEY = "key";
 
         // Defaults
         const Amount kMinimumFee = 100;
@@ -312,7 +318,7 @@ namespace beam
         node_options.add_options()
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
-            //(cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
+            (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::NONCEPREFIX_DIGITS, po::value<unsigned>()->default_value(0), "number of hex digits for nonce prefix for stratum client (0..6)")
@@ -420,7 +426,8 @@ namespace beam
         po::options_description wallet_assets_options("Confidential assets options");
         wallet_assets_options.add_options()
             (cli::ASSET_INDEX, po::value<Positive<uint32_t>>(), "asset index")
-            (cli::ASSET_ID, po::value<string>(), "asset id");
+            (cli::ASSET_ID,    po::value<Positive<uint32_t>>(), "asset id")
+            (cli::METADATA,    po::value<string>(),             "asset metadata");
 
 #ifdef BEAM_LASER_SUPPORT
         po::options_description laser_commands("Laser commands");
