@@ -62,7 +62,9 @@ namespace beam::wallet
     macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)    \
     macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)    \
     macro(CreateWallet,     "create_wallet",    API_WRITE_ACCESS)   \
-    macro(OpenWallet,       "open_wallet",      API_WRITE_ACCESS)
+    macro(OpenWallet,       "open_wallet",      API_WRITE_ACCESS)   \
+    macro(Ping,             "ping",             API_READ_ACCESS)    \
+    macro(Release,          "release",          API_READ_ACCESS)    \
     // macro(Lock,             "lock",             API_WRITE_ACCESS)
     // macro(Unlock,           "unlock",           API_WRITE_ACCESS)
 
@@ -86,6 +88,16 @@ namespace beam::wallet
         {
             std::string session;
         };
+    };
+
+    struct Ping
+    {
+        struct Response {};
+    };
+
+    struct Release
+    {
+        struct Response {};
     };
 
     struct AddressData
