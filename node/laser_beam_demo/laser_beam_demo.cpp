@@ -487,14 +487,12 @@ bool Client::OpenChannel(const WalletID& widTrg, Amount nMy, Amount nTrg)
 	Channel& c = AddChannel(key);
 	c.m_widTrg = widTrg;
 
+	c.m_Params.m_hRevisionMaxLifeTime = 40;
 	c.m_Params.m_hLockTime = 10;
 	c.m_Params.m_Fee = 101;
 
-	HeightRange hr;
-	hr.m_Min = get_TipHeight();
-	hr.m_Max = hr.m_Min + 30;
-
-	if (c.Open(nMy, nTrg, hr))
+	const Height hOpenGracefulTxLifeTime = 8;
+	if (c.Open(nMy, nTrg, hOpenGracefulTxLifeTime))
 		return true;
 
 	c.MaybeDelete();
@@ -631,6 +629,7 @@ void Test()
 	//	auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 
 	Rules::get().pForks[1].m_Height = 1;
+	Rules::get().pForks[2].m_Height = 1;
 	Rules::get().FakePoW = true;
 	Rules::get().UpdateChecksum();
 

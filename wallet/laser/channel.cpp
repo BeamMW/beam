@@ -354,9 +354,9 @@ const WalletAddress& Channel::get_myAddr() const
     return m_myAddr;
 }
 
-bool Channel::Open(HeightRange openWindow)
+bool Channel::Open(Height hOpenTxDh)
 {
-    return Lightning::Channel::Open(m_aMy, m_aTrg, openWindow);
+    return Lightning::Channel::Open(m_aMy, m_aTrg, hOpenTxDh);
 }
 
 bool Channel::TransformLastState()
@@ -517,10 +517,10 @@ void Channel::Unsubscribe()
 }
 
 bool Channel::TransferInternal(
-        Amount nMyNew, uint32_t iRole, bool bCloseGraceful)
+        Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful)
 {
     m_gracefulClose = bCloseGraceful;
-    return Lightning::Channel::TransferInternal(nMyNew, iRole, bCloseGraceful);
+    return Lightning::Channel::TransferInternal(nMyNew, iRole, h, bCloseGraceful);
 }
 
 void Channel::RestoreInternalState(const ByteBuffer& data)

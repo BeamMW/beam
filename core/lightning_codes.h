@@ -30,6 +30,7 @@ struct Codes
 	static const uint32_t H0 = Control0 + 12;
 	static const uint32_t H1 = Control0 + 13;
 	static const uint32_t HLock = Control0 + 14;
+	static const uint32_t HLifeTime = Control0 + 15;
 
 	static const uint32_t ValueMy = Control0 + 21;
 	static const uint32_t ValueYours = Control0 + 22;

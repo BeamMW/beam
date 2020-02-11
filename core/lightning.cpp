@@ -109,6 +109,7 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 
 			bool bOk =
 				dataIn.Get(m_Params.m_hLockTime, Codes::HLock) &&
+				dataIn.Get(m_Params.m_hRevisionMaxLifeTime, Codes::HLifeTime) &&
 				dataIn.Get(m_Params.m_Fee, Codes::Fee) &&
 				dataIn.Get(nPeer, Codes::ValueMy) &&
 				dataIn.Get(nMy, Codes::ValueYours);
@@ -130,7 +131,9 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 		{
 			// value transfer?
 			Amount val = 0;
-			if (!dataIn.Get(val, Codes::ValueTansfer))
+			Height h = 0;
+			if (!dataIn.Get(val, Codes::ValueTansfer) ||
+				!dataIn.Get(h, Codes::H0))
 				return;
 
 			Amount valMy = m_vUpdates.back()->m_Outp.m_Value;
@@ -142,7 +145,7 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 			uint32_t iClose = 0;
 			dataIn.Get(iClose, Codes::CloseGraceful);
 
-			if (!TransferInternal(val, 1, !!iClose))
+			if (!TransferInternal(val, 1, h, !!iClose))
 				return;
 		}
 	}
@@ -649,7 +652,7 @@ void Channel::CreatePunishmentTx()
 	TxKernel::Ptr& pKrn = tx.m_vKernels.back();
 	pKrn.reset(new TxKernelStd);
 
-//	pKrn->m_Height.m_Min = m_State.m_Close.m_hPhase1; // not mandatory
+	pKrn->m_Height.m_Min = m_State.m_Close.m_hPhase1; // mandatory
 	pKrn->m_Fee = m_Params.m_Fee;
 
 	// extract (pseudo)random part into kernel. No need for extra-secure nonce generation
@@ -857,14 +860,19 @@ void Channel::DataUpdate::CheckStdType()
 	}
 }
 
-bool Channel::Open(Amount nMy, Amount nOther, const HeightRange& hr0)
+bool Channel::Open(Amount nMy, Amount nOther, Height hOpenTxDh)
 {
+	HeightRange hr0;
+	hr0.m_Min = get_Tip();
+	hr0.m_Max = hr0.m_Min + hOpenTxDh;
+
 	if (!OpenInternal(0, nMy, nOther, hr0))
 		return false;
 
 	Storage::Map dataIn, dataOut;
 
 	dataOut.Set(m_Params.m_hLockTime, Codes::HLock);
+	dataOut.Set(m_Params.m_hRevisionMaxLifeTime, Codes::HLifeTime);
 	dataOut.Set(m_Params.m_Fee, Codes::Fee);
 	dataOut.Set(nMy, Codes::ValueMy);
 	dataOut.Set(nOther, Codes::ValueYours);
@@ -888,11 +896,13 @@ bool Channel::Transfer(Amount val, bool bCloseGraceful)
 	if (valMy < val)
 		return false;
 
-	if (!TransferInternal(valMy - val, 0, bCloseGraceful))
+	Height h = get_Tip();
+	if (!TransferInternal(valMy - val, 0, h, bCloseGraceful))
 		return false;
 
 	Storage::Map dataIn, dataOut;
 	dataOut.Set(val, Codes::ValueTansfer);
+	dataOut.Set(h, Codes::H0);
 
 	if (bCloseGraceful)
 		dataOut.Set(uint32_t(1), Codes::CloseGraceful);
@@ -907,6 +917,22 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 {
 	if (m_pOpen || m_pNegCtx)
 		return false; // already in progress
+
+	// check params sanity
+	// hr0 lifetime - should be order of standard tx negotiation (several hours)
+	// m_hRevisionMaxLifeTime - can be long, but no longer than max kernel validity time (Rules::)
+	// m_hLockTime - 
+	if (hr0.IsEmpty())
+		return false;
+	if (hr0.m_Max - hr0.m_Min >= m_Params.m_hRevisionMaxLifeTime)
+		return false; // typically it should be much smaller
+
+	Height hMaxLifeTimeWithLock = m_Params.m_hRevisionMaxLifeTime + m_Params.m_hLockTime; // this is the validity lifetime of the 2nd-stage withdrawal tx
+	if (hMaxLifeTimeWithLock < m_Params.m_hLockTime)
+		return false; // overflow
+
+	if (hMaxLifeTimeWithLock > Rules::get().MaxKernelValidityDH)
+		return false; // too large
 
 	Amount nMyFee = m_Params.m_Fee / 2;
 	if (iRole)
@@ -960,17 +986,17 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 		p->m_Inst.Set(iRole, Codes::Role);
 		p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
 
-		MultiTx::KernelParam krn1;
-		krn1.m_pFee = &m_Params.m_Fee;
-		krn1.m_pH0 = &Cast::NotConst(hr0).m_Min;
-		krn1.m_pH1 = &Cast::NotConst(hr0).m_Max;
 
+		MultiTx::KernelParam krn0;
+		krn0.m_pFee = &m_Params.m_Fee;
+		krn0.m_pH0 = &Cast::NotConst(hr0).m_Min;
+		krn0.m_pH1 = &Cast::NotConst(hr0).m_Max;
+
+		Height h1, h2;
 		WithdrawTx::CommonParam cp;
-		cp.m_Krn1.m_pFee = &m_Params.m_Fee;
-		cp.m_Krn2.m_pFee = &m_Params.m_Fee;
-		cp.m_Krn2.m_pLock = &m_Params.m_hLockTime;
+		SetWithdrawParams(cp, hr0.m_Min, h1, h2);
 
-		p->m_Inst.Setup(true, &Cast::NotConst(vIn), &vChg, &ms0, krn1, &msA, &msB, &vOut, cp);
+		p->m_Inst.Setup(true, &Cast::NotConst(vIn), &vChg, &ms0, krn0, &msA, &msB, &vOut, cp);
 	}
 
 
@@ -994,7 +1020,22 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 	return true;
 }
 
-bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGraceful)
+void Channel::SetWithdrawParams(WithdrawTx::CommonParam& cp, const Height& h, Height& h1, Height& h2) const
+{
+	h1 = h + m_Params.m_hRevisionMaxLifeTime;
+	h2 = h1 + m_Params.m_hLockTime;
+
+	cp.m_Krn1.m_pFee = &Cast::NotConst(m_Params).m_Fee;
+	cp.m_Krn1.m_pH0 = &Cast::NotConst(h);
+	cp.m_Krn1.m_pH1 = &h1;
+	cp.m_Krn2.m_pFee = &Cast::NotConst(m_Params).m_Fee;
+	cp.m_Krn2.m_pH0 = &Cast::NotConst(h);
+	cp.m_Krn2.m_pH1 = &h2;
+	cp.m_Krn2.m_pLock = &Cast::NotConst(m_Params.m_hLockTime);
+}
+
+
+bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful)
 {
 	if (m_pNegCtx || (State::Open != get_State()))
 		return false;
@@ -1003,6 +1044,10 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGracefu
 
 	if (DataUpdate::Type::Direct == m_vUpdates.back()->m_Type)
 		return false; // no negotiations past decision to (gracefully) close the channel
+
+	DataUpdate& d0 = *m_vUpdates.back();
+	if (h < d0.get_H0())
+		return false; // attempt to decrease the height
 
 	Amount nMyFee = m_Params.m_Fee / 2;
 	if (iRole)
@@ -1035,6 +1080,8 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGracefu
 		n.Set(m_pOpen->m_Comm0, MultiTx::Codes::InpMsCommitment);
 		n.Set(vOut, MultiTx::Codes::OutpCids);
 		n.Set(m_Params.m_Fee, MultiTx::Codes::KrnFee);
+		n.Set(h, MultiTx::Codes::KrnH0);
+		n.Set(h + m_Params.m_hRevisionMaxLifeTime, MultiTx::Codes::KrnH1);
 
 		CoinID msDummy(Zero);
 		msDummy.m_Value = m_pOpen->m_ms0.m_Value - m_Params.m_Fee;
@@ -1058,18 +1105,15 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGracefu
 		AllocTxoID(msA);
 		AllocTxoID(msB);
 
-		DataUpdate& d0 = *m_vUpdates.back();
-
 		{
 			ChannelUpdate::Worker wrk(p->m_Inst);
 
 			p->m_Inst.Set(iRole, Codes::Role);
 			p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
 
+			Height h1, h2;
 			WithdrawTx::CommonParam cp;
-			cp.m_Krn1.m_pFee = &m_Params.m_Fee;
-			cp.m_Krn2.m_pFee = &m_Params.m_Fee;
-			cp.m_Krn2.m_pLock = &m_Params.m_hLockTime;
+			SetWithdrawParams(cp, h, h1, h2);
 
 			p->m_Inst.Setup(true, &m_pOpen->m_ms0, &m_pOpen->m_Comm0, &msA, &msB, &Cast::NotConst(vOut), cp, &d0.m_msMy, &d0.m_msPeer, &d0.m_CommPeer1);
 		}

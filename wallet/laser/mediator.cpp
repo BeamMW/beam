@@ -591,15 +591,8 @@ void Mediator::OnIncoming(const ChannelIDPtr& chID,
 
 void Mediator::OpenInternal(const ChannelIDPtr& chID)
 {
-    Block::SystemState::Full tip;
-    get_History().get_Tip(tip);
-
-    HeightRange openWindow;
-    openWindow.m_Min = tip.m_Height;
-    openWindow.m_Max = openWindow.m_Min + kDefaultTxLifetime;
-
     auto& ch = m_channels[chID];
-    if (ch && ch->Open(openWindow))
+    if (ch && ch->Open(kDefaultTxLifetime))
     {
         LOG_INFO() << "Opening channel: "
                    << to_hex(chID->m_pData, chID->nBytes);

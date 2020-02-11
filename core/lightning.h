@@ -123,6 +123,7 @@ namespace Lightning {
 
 		struct Params
 		{
+			Height m_hRevisionMaxLifeTime = 1440 * 14;
 			Height m_hLockTime = 1440; // withdrawal lock. Same for all
 			Amount m_Fee = 0; // for all txs
 		} m_Params;
@@ -165,7 +166,7 @@ namespace Lightning {
 		bool IsUnfairPeerClosed() const;
 
 
-		bool Open(Amount nMy, Amount nOther, const HeightRange& hr0);
+		bool Open(Amount nMy, Amount nOther, Height hOpenTxDh);
 
 		bool Transfer(Amount, bool bCloseGraceful = false);
 
@@ -203,7 +204,7 @@ namespace Lightning {
 		virtual size_t SelectWithdrawalPath(); // By default selects the most recent available withdrawal. Override to try to use outdated (fraudulent) revisions, for testing.
 	
 	protected:
-		virtual bool TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGraceful);
+		virtual bool TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful);
 
 
 	private:
@@ -211,6 +212,7 @@ namespace Lightning {
 		bool OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
 		void UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut);
 		void SendPeerInternal(Storage::Map&);
+		void SetWithdrawParams(WithdrawTx::CommonParam&, const Height& h, Height& h1, Height& h2) const;
 	};
 
 
