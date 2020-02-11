@@ -30,7 +30,7 @@ matrix:
         - OS_FOLDER=mac
       script:
         - git apply 3rdparty/protobuf-patch.diff
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_HW_WALLET=Off . && make -j 4 && ctest --verbose && cpack;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_HW_WALLET=Off . && make -j$(sysctl -n hw.ncpu) && ctest --verbose && cpack;
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
@@ -75,7 +75,7 @@ matrix:
         - OS_FOLDER=mac
       script:
         - git apply 3rdparty/protobuf-patch.diff
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_SIGN_MACOS_BINARY=On -DBEAM_HW_WALLET=Off . && make -j 4 && ctest --verbose && cpack;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_SIGN_MACOS_BINARY=On -DBEAM_HW_WALLET=Off . && make -j$(sysctl -n hw.ncpu) && ctest --verbose && cpack;
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
@@ -129,7 +129,7 @@ matrix:
         - OS_FOLDER=linux
       script:
         - git apply 3rdparty/protobuf-patch.diff
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_HW_WALLET=Off . && make -j 4 && ctest --verbose && cpack;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_HW_WALLET=Off . && make -j$(nproc) && ctest --verbose && cpack;
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
@@ -177,7 +177,7 @@ matrix:
       script:
         - git apply 3rdparty/protobuf-patch.diff
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_HW_WALLET=Off .
-        - make -j 4
+        - make -j$(nproc)
         - ctest --verbose 
         - cpack
         # extract build version
@@ -221,7 +221,7 @@ matrix:
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:
         - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
-        - make wallet-jni -j4
+        - make wallet-jni -j$(nproc)
       after_success:
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
@@ -269,7 +269,7 @@ matrix:
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:
         - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
-        - make wallet-jni -j4
+        - make wallet-jni -j$(nproc)
       after_success:
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
@@ -317,7 +317,7 @@ matrix:
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:
         - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
-        - make wallet-jni -j4
+        - make wallet-jni -j$(nproc)
       after_success:
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
@@ -365,7 +365,7 @@ matrix:
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:
         - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
-        - make wallet-jni -j4
+        - make wallet-jni -j$(nproc)
       after_success:
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen

@@ -2049,7 +2049,7 @@ namespace
                 {
                     ws_.async_write(
                         boost::asio::buffer(*contents),
-                        [this, sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                        [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
                     {
                         sp->on_write(ec, bytes);
                     });
@@ -2087,7 +2087,7 @@ namespace
 
                 ws_.async_write(
                     boost::asio::buffer(*contents),
-                    [this, sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                    [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
                     {
                         sp->on_write(ec, bytes);
                     });
