@@ -30,9 +30,9 @@ content-type: application/json-rpc
     "id": 1236,
     "method": "swap_create_offer",
     "params": {
-        "send_amount": 1000000,
+        "send_amount": 44000000000,
         "send_currency": "beam",
-        "receive_amount": 2000000,
+        "receive_amount": 2000000000,
         "receive_currency": "btc",
         "beam_fee": 100,
         "btc_fee_rate": 90000,
@@ -51,7 +51,7 @@ content-type: application/json-rpc
     "id": 126,
     "method": "swap_offer_status",
     "params": {
-        "token": "Jk6G34NFBZVdUhZkRAy5eetuuZ1vivQcP7PiwcKC7G4WVvY4P5X2qABegCAtCAP8WTLffaWysu8VUQCotc6UPxLLELPTJzEbZpeG9Z19UU5cHRe47p6KTgF7sE3b1EiqWMpPuR1rjtDgAKfjouksQgPg9d3DmTnDQMiD"
+        "token": "TJfE1KvPqPwBrVScMKpzxW3YAmJykzJUMwETKxvzTmZpZZaj9i2g3iD9HKMhQQUc7pNZ5Ug3fmmveJVetib9p3TMJmg2CeYx7Ufn6BfQ3mFp8hezf2wCkz6n45Awn9JZHWxwWX4zdfja8LzCo823N4SPuATQc11MLXmFpqJe"
     }
 }
 
@@ -64,6 +64,34 @@ content-type: application/json-rpc
     "jsonrpc": "2.0",
     "id": 126,
     "method": "swap_cancel_offer",
+    "params": {
+        "token": "2MKE5Wc2fc4zx1GpTTfDDKkyAtY4UfHr2covLcwmmp4pTjukA2NidBa7rTMHrDCgtzky9wpyd542VrQyTgzUiH1URpMVSiS3evAMEBUuXv36ZkcHHHhhn9hfiCpn2D3PnPskMA1et4j5kxjYGXvjSSL3aNh6rDLksms2Nh"
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 126,
+    "method": "swap_publish_offer",
+    "params": {
+        "token": "TJfE1KvPqPwBrVScMKpzxW3YAmJykzJUMwETKxvzTmZpZZaj9i2g3iD9HKMhQQUc7pNZ5Ug3fmmveJVetib9p3TMJmg2CeYx7Ufn6BfQ3mFp8hezf2wCkz6n45Awn9JZHWxwWX4zdfja8LzCo823N4SPuATQc11MLXmFpqJe"
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 126,
+    "method": "swap_accept_offer",
     "params": {
         "token": "Jk6G34NFBZVdUhZkRAy5eetuuZ1vivQcP7PiwcKC7G4WVvY4P5X2qABegCAtCAP8WTLffaWysu8VUQCotc6UPxLLELPTJzEbZpeG9Z19UU5cHRe47p6KTgF7sE3b1EiqWMpPuR1rjtDgAKfjouksQgPg9d3DmTnDQMiD"
     }

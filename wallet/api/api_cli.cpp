@@ -853,7 +853,8 @@ private:
             for (const auto& tx : swapTxs)
             {
                 SwapOffer offer(tx);
-                if (offer.m_status != SwapOfferStatus::Pending) continue;
+                if (offer.m_status != SwapOfferStatus::Pending &&
+                    offer.m_status != SwapOfferStatus::InProgress) continue;
 
                 const auto it = std::find_if(
                     offers.begin(),
@@ -1012,9 +1013,22 @@ private:
                 throw FailToParseToken();
 
             SwapOffer offer;
-            auto tx = _walletDB->getTx(*txId);
+            auto publicOffers = _swapOffersBoard.getOffersList();
+            auto it = std::find_if(
+                publicOffers.begin(), publicOffers.end(),
+                [&txId] (const SwapOffer& publicOffer)
+                {
+                    auto publicTxId = publicOffer.GetTxID();
+                    if (publicTxId)
+                    return *txId == *publicTxId;
+                    return false;
+                });
 
-            if (tx)  // own token
+            if (it != publicOffers.end())
+            {
+                offer = *it;
+            }
+            else if (auto tx = _walletDB->getTx(*txId); tx)
             {
                 offer = SwapOffer(*tx);
             }
@@ -1026,12 +1040,12 @@ private:
                     throw FailToParseToken();
 
                 auto myAddresses = _walletDB->getAddresses(true);
-                const auto& it = std::find_if(
+                const auto& addrIt = std::find_if(
                 myAddresses.begin(), myAddresses.end(),
                     [&peerId] (const WalletAddress& wa) {
                         return wa.m_walletID == *peerId;
                     });
-                if (it == myAddresses.end())
+                if (addrIt == myAddresses.end())
                 {
                     offer = SwapOffer(*txParams);
                     offer.m_publisherId = *peerId;

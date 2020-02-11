@@ -191,8 +191,10 @@ json OfferToJson(const SwapOffer& offer,
 {
     const auto& publisherId = offer.m_publisherId;
     bool isOwnOffer = true;
+    bool isPublic = false;
     if (publisherId.cmp(Zero))
     {
+        isPublic = true;
         const auto& it = std::find_if(
             myAddresses.begin(), myAddresses.end(),
             [&publisherId] (const WalletAddress& wa) {
@@ -202,7 +204,7 @@ json OfferToJson(const SwapOffer& offer,
     }
 
     bool isSendBeamOffer =
-        isOwnOffer ? !offer.isBeamSide() : offer.isBeamSide();
+        (isOwnOffer && !isPublic) ? offer.isBeamSide() : !offer.isBeamSide();
 
     Amount send =
         isSendBeamOffer ? offer.amountBeam() : offer.amountSwapCoin();
@@ -243,14 +245,15 @@ json OfferToJson(const SwapOffer& offer,
         {"send_currency", sendCurrency},
         {"receive_amount", receive},
         {"receive_currency", sreceiveCurrency},
-        {"is_my_offer", isOwnOffer},
         {"time_created", createTimeStr},
         {"time_expired", expiresTimeStr},
+        {"is_my_offer", isOwnOffer},
+        {"is_public", isPublic},
     };
 
     if (offer.m_status == SwapOfferStatus::Pending)
     {
-        if (isOwnOffer)
+        if (isOwnOffer && !isPublic)
         {
             const auto& mirroredTxParams = MirrorSwapTxParams(offer);
             const auto& readyForTokenizeTxParameters =
@@ -1302,7 +1305,12 @@ json OfferToJson(const SwapOffer& offer,
 
     void WalletApi::getResponse(const JsonRpcId& id, const PublishOffer::Response& res, json& msg)
     {
-        msg = getNotImplError(id);
+        msg = 
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", OfferToJson(res.offer, res.addrList, res.systemHeight)}
+        };
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const AcceptOffer::Response& res, json& msg)
@@ -1312,7 +1320,6 @@ json OfferToJson(const SwapOffer& offer,
 
     void WalletApi::getResponse(const JsonRpcId& id, const CancelOffer::Response& res, json& msg)
     {
-        // msg = getNotImplError(id);
         msg = 
         {
             {JsonRpcHrd, JsonRpcVerHrd},
