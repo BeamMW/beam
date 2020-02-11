@@ -204,6 +204,14 @@ struct Client
 			return Lightning::Channel::SelectWithdrawalPath(); // default
 		}
 
+		virtual void OnRevisionOutdated(uint32_t nRevision) override
+		{
+			std::cout
+				<< m_This.m_sName
+				<< "Outdated revision: " << nRevision
+				<< std::endl;
+		}
+
 		struct Codes
 		{
 			static const uint32_t Control0 = 1024 << 16;
@@ -486,7 +494,7 @@ bool Client::OpenChannel(const WalletID& widTrg, Amount nMy, Amount nTrg)
 	Channel& c = AddChannel(key);
 	c.m_widTrg = widTrg;
 
-	c.m_Params.m_hRevisionMaxLifeTime = 40;
+	c.m_Params.m_hRevisionMaxLifeTime = 20;
 	c.m_Params.m_hLockTime = 10;
 	c.m_Params.m_Fee = 101;
 

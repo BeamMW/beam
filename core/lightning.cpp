@@ -365,10 +365,31 @@ void Channel::Update()
 
 	Height hTip = get_Tip();
 
-	//while (m_lstUpdates.size() > 1)
-	//{
-	//	// check if we can forget the
-	//}
+	if (!m_pRequest)
+	{
+		// check if we can forget some oldest revisions. Don't do this while the request is in the progress (it may use it)
+		while (m_lstUpdates.size() > 1)
+		{
+			DataUpdate& d = m_lstUpdates.front();
+			if (&d == m_State.m_Close.m_pPath)
+				break;
+
+			const HeightRange* pHR = d.get_HR();
+			if (!pHR)
+				break; // not ready?
+
+			Height h1 = pHR->m_Max + Rules::get().MaxRollback;
+			if (h1 < pHR->m_Max)
+				break; // overflow
+
+			if (h1 >= hTip)
+				break;
+
+			// outdated!
+			m_lstUpdates.DeleteFront();
+			OnRevisionOutdated(m_nRevision - static_cast<uint32_t>(m_lstUpdates.size()));
+		}
+	}
 
 	if (!m_pOpen->m_hOpened)
 	{

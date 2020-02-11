@@ -218,6 +218,7 @@ namespace Lightning {
 		void OnCoin(const std::vector<CoinID>&, Height, CoinState, bool bReverse);
 
 		virtual DataUpdate* SelectWithdrawalPath(); // By default selects the most recent available withdrawal. Override to try to use outdated (fraudulent) revisions, for testing.
+		virtual void OnRevisionOutdated(uint32_t) {} // just informative, override to log/notify
 	
 	protected:
 		virtual bool TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful);
