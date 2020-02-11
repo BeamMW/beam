@@ -2499,6 +2499,43 @@ namespace beam::wallet
         saveShieldedCoinRaw(shieldedCoin);
     }
 
+    void WalletDB::rollbackConfirmedShieldedUtxo(Height minHeight)
+    {
+        // Shielded UTXOs
+        vector<ShieldedCoin> changedCoins;
+        {
+            const char* req = "SELECT " ENUM_SHIELDED_COIN_FIELDS(LIST, COMMA, ) " FROM " SHIELDED_COINS_NAME " WHERE confirmHeight > ?1 OR spentHeight > ?1;";
+            sqlite::Statement stm(this, req);
+            stm.bind(1, minHeight);
+            while (stm.step())
+            {
+                ShieldedCoin& coin = changedCoins.emplace_back();
+                int colIdx = 0;
+                ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+            }
+        }
+        if (!changedCoins.empty())
+        {
+            {
+                const char* req = "UPDATE " SHIELDED_COINS_NAME " SET confirmHeight=?1 WHERE confirmHeight > ?2;";
+                sqlite::Statement stm(this, req);
+                stm.bind(1, MaxHeight);
+                stm.bind(2, minHeight);
+                stm.step();
+            }
+
+            {
+                const char* req = "UPDATE " SHIELDED_COINS_NAME " SET spentHeight=?1 WHERE spentHeight > ?2;";
+                sqlite::Statement stm(this, req);
+                stm.bind(1, MaxHeight);
+                stm.bind(2, minHeight);
+                stm.step();
+            }
+
+            notifyShieldedCoinsChanged(ChangeAction::Updated, changedCoins);
+        }
+    }
+
     void WalletDB::insertShieldedCoinRaw(const ShieldedCoin& coin)
     {
         const char* req = "INSERT INTO " SHIELDED_COINS_NAME " (" ENUM_SHIELDED_COIN_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_SHIELDED_COIN_FIELDS(BIND_LIST, COMMA, ) ");";
@@ -2525,7 +2562,12 @@ namespace beam::wallet
     void WalletDB::saveShieldedCoinRaw(const ShieldedCoin& coin)
     {
         if (!updateShieldedCoinRaw(coin))
+        {
             insertShieldedCoinRaw(coin);
+            notifyShieldedCoinsChanged(ChangeAction::Added, {coin});
+            return;
+        }
+        notifyShieldedCoinsChanged(ChangeAction::Updated, {coin});
     }
 
     vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const
@@ -2781,6 +2823,67 @@ namespace beam::wallet
             stm.step();
 
             notifyCoinsChanged(ChangeAction::Removed, deletedItems);
+        }
+    }
+
+    void WalletDB::restoreShieldedCoinsSpentByTx(const TxID& txId)
+    {
+        std::vector<ECC::Scalar> updatedRows;
+        {
+            const char* req = "SELECT skSerialG FROM " SHIELDED_COINS_NAME " WHERE spentTxId=?1;";
+            sqlite::Statement stm(this, req);
+            stm.bind(1, txId);
+            while (stm.step())
+            {
+                ECC::Scalar& coinSerial = updatedRows.emplace_back();
+                stm.get(0, coinSerial);
+            }
+        }
+        if (!updatedRows.empty())
+        {
+            {
+                const char* req = "UPDATE " SHIELDED_COINS_NAME " SET spentTxId=NULL WHERE spentTxId=?1;";
+                sqlite::Statement stm(this, req);
+                stm.bind(1, txId);
+                stm.step();
+            }
+
+            vector<ShieldedCoin> updatedCoins;
+            updatedCoins.reserve(updatedRows.size());
+
+            for (const auto& serial : updatedRows)
+            {
+                updatedCoins.emplace_back(getShieldedCoin(serial).value());
+            }            
+
+            notifyShieldedCoinsChanged(ChangeAction::Updated, updatedCoins);
+        }
+    }
+
+    void WalletDB::deleteShieldedCoinsCreatedByTx(const TxID& txId)
+    {
+        std::vector<ShieldedCoin> deletedItems;
+        {
+            const char* req = "SELECT " ENUM_SHIELDED_COIN_FIELDS(LIST, COMMA, ) " FROM " SHIELDED_COINS_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";
+            sqlite::Statement stm(this, req);
+            stm.bind(1, txId);
+            stm.bind(2, MaxHeight);
+            while (stm.step())
+            {
+                ShieldedCoin& coin = deletedItems.emplace_back();
+                int colIdx = 0;
+                ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+            }
+        }
+        if (!deletedItems.empty())
+        {
+            const char* req = "DELETE FROM " SHIELDED_COINS_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";
+            sqlite::Statement stm(this, req);
+            stm.bind(1, txId);
+            stm.bind(2, MaxHeight);
+            stm.step();
+
+            notifyShieldedCoinsChanged(ChangeAction::Removed, deletedItems);
         }
     }
 
@@ -3329,6 +3432,17 @@ namespace beam::wallet
         for (auto sub : m_subscribers)
         {
             sub->onAddressChanged(action, items);
+        }
+    }
+
+    void WalletDB::notifyShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items)
+    {
+        if (items.empty() && action != ChangeAction::Reset)
+            return;
+
+        for (auto sub : m_subscribers)
+        {
+            sub->onShieldedCoinsChanged(action, items);
         }
     }
 

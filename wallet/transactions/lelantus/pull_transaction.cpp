@@ -146,4 +146,11 @@ namespace beam::wallet::lelantus
         SetCompletedTxCoinStatuses(hProof);
         CompleteTx();
     }
+
+    void PullTransaction::RollbackTx()
+    {
+        LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
+        GetWalletDB()->restoreShieldedCoinsSpentByTx(GetTxID());
+        GetWalletDB()->deleteCoinsCreatedByTx(GetTxID());
+    }
 } // namespace beam::wallet::lelantus

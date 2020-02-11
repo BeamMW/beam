@@ -901,6 +901,7 @@ namespace beam::wallet
         m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
 
         m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
+        m_WalletDB->rollbackConfirmedShieldedUtxo(sTip.m_Height);
 
         // Rollback active transaction
         for (auto it = m_ActiveTransactions.begin(); m_ActiveTransactions.end() != it; it++)

@@ -295,6 +295,7 @@ namespace beam::wallet
         virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) {};
         virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) {};
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
+        virtual void onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items) {};
     };
 
     struct IWalletDB : IVariablesDB
@@ -385,6 +386,9 @@ namespace beam::wallet
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const ECC::Scalar& skSerial) const = 0;
         virtual void saveShieldedCoin(const ShieldedCoin& shieldedCoin) = 0;
 
+        // Rollback shielded UTXO set to known height (used in rollback scenario)
+        virtual void rollbackConfirmedShieldedUtxo(Height minHeight) = 0;
+
         // /////////////////////////////////////////////
         // Transaction management
         virtual std::vector<TxDescription> getTxHistory(wallet::TxType txType = wallet::TxType::Simple, uint64_t start = 0, int count = std::numeric_limits<int>::max()) const = 0;
@@ -397,6 +401,9 @@ namespace beam::wallet
         virtual std::vector<TxParameter> getAllTxParameters() const = 0;
         virtual void rollbackTx(const TxID& txId) = 0;
         virtual void deleteCoinsCreatedByTx(const TxID& txId) = 0;
+
+        virtual void restoreShieldedCoinsSpentByTx(const TxID& txId) = 0;
+        virtual void deleteShieldedCoinsCreatedByTx(const TxID& txId) = 0;
 
         // ////////////////////////////////////////////
         // Address management
@@ -503,6 +510,7 @@ namespace beam::wallet
         boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(const ECC::Scalar& skSerial) const override;
         void saveShieldedCoin(const ShieldedCoin& shieldedCoin) override;
+        void rollbackConfirmedShieldedUtxo(Height minHeight) override;
 
         std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;
         boost::optional<TxDescription> getTx(const TxID& txId) const override;
@@ -510,6 +518,8 @@ namespace beam::wallet
         void deleteTx(const TxID& txId) override;
         void rollbackTx(const TxID& txId) override;
         void deleteCoinsCreatedByTx(const TxID& txId) override;
+        void restoreShieldedCoinsSpentByTx(const TxID& txId) override;
+        void deleteShieldedCoinsCreatedByTx(const TxID& txId) override;
 
         std::vector<WalletAddress> getAddresses(bool own) const override;
         void saveAddress(const WalletAddress&, bool isLaser = false) override;
@@ -565,6 +575,7 @@ namespace beam::wallet
         void notifyTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items);
         void notifySystemStateChanged(const Block::SystemState::ID& stateID);
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
+        void notifyShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items);
 
         bool updateCoinRaw(const Coin&);
         void insertCoinRaw(const Coin&);

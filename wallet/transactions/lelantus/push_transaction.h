@@ -45,6 +45,7 @@ namespace beam::wallet::lelantus
         TxType GetType() const override;
         bool IsInSafety() const override;
         void UpdateImpl() override;
+        void RollbackTx() override;
 
     private:
         std::shared_ptr<PushTxBuilder> m_TxBuilder;

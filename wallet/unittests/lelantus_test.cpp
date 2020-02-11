@@ -475,6 +475,181 @@ void TestShortWindow()
     WALLET_CHECK(std::all_of(txHistory.begin(), txHistory.end(), [](const auto& tx) { return tx.m_status == TxStatus::Completed;}));
 }
 
+void TestShieldedUTXORollback()
+{
+    cout << "\nShielded UTXO rollback test\n";
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    auto db = createSenderWalletDB();
+
+    // create shieldedUTXO
+    ShieldedCoin coin;
+    Height height = 123123;
+    Height spentHeight = height + 100;
+
+    coin.m_confirmHeight = height;
+    coin.m_spentHeight = spentHeight;
+
+    db->saveShieldedCoin(coin);
+
+    db->rollbackConfirmedShieldedUtxo(height - 100);
+
+    auto coins = db->getShieldedCoins();
+    WALLET_CHECK(coins.size() == 1);
+    WALLET_CHECK(coins[0].m_spentHeight == MaxHeight);
+    WALLET_CHECK(coins[0].m_confirmHeight == MaxHeight);
+}
+
+void TestPushTxRollbackByLowFee()
+{
+    cout << "\nTest rollback pushTx(reason: low fee).\n";
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    auto completeAction = [&mainReactor](auto)
+    {
+        mainReactor->stop();        
+    };
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+    TestWalletRig sender("sender", senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>();
+    sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pushTxCreator));
+
+    auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
+    sender.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pullTxCreator));
+
+    Node node;
+    NodeObserver observer([&]()
+        {
+            auto cursor = node.get_Processor().m_Cursor;
+            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            {
+                wallet::TxParameters parameters(GenerateTxID());
+
+                parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
+                    .SetParameter(TxParameterID::IsSender, true)
+                    .SetParameter(TxParameterID::Amount, 3800)
+                    .SetParameter(TxParameterID::Fee, 200)
+                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                    .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                    .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+                sender.m_Wallet.StartTransaction(parameters);
+            }
+            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 10)
+            {
+                mainReactor->stop();
+            }
+        });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    auto txHistory = sender.m_WalletDB->getTxHistory(TxType::PushTransaction);
+    // check Tx params
+    WALLET_CHECK(txHistory.size() == 1);
+    WALLET_CHECK(txHistory[0].m_status == TxStatus::Failed);
+    WALLET_CHECK(*txHistory[0].GetParameter<uint8_t>(TxParameterID::TransactionRegistered) == proto::TxStatus::LowFee);
+    // check coins
+    auto coins = sender.m_WalletDB->getCoinsByTx(*txHistory[0].GetTxID());
+    WALLET_CHECK(coins.size() == 0);    
+    auto shieldedCoins = sender.m_WalletDB->getShieldedCoins();
+    WALLET_CHECK(shieldedCoins.size() == 0);
+}
+
+void TestPullTxRollbackByLowFee()
+{
+    cout << "\nTest rollback pullTx(reason: low fee).\n";
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 2;
+    auto completeAction = [&mainReactor, &completedCount](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+        }
+    };
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+    TestWalletRig sender("sender", senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>();
+    sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pushTxCreator));
+
+    auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
+    sender.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pullTxCreator));
+
+    TxID pullTxID = {};
+    Node node;
+    NodeObserver observer([&]()
+        {
+            auto cursor = node.get_Processor().m_Cursor;
+            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            {
+                wallet::TxParameters parameters(GenerateTxID());
+
+                parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
+                    .SetParameter(TxParameterID::IsSender, true)
+                    .SetParameter(TxParameterID::Amount, 3800)
+                    .SetParameter(TxParameterID::Fee, 1200)
+                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                    .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                    .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+                sender.m_Wallet.StartTransaction(parameters);
+            }
+            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 10)
+            {
+                wallet::TxParameters parameters(GenerateTxID());
+
+                parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
+                    .SetParameter(TxParameterID::IsSender, false)
+                    .SetParameter(TxParameterID::Amount, 3600)
+                    .SetParameter(TxParameterID::Fee, 200)
+                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+                    .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
+                    .SetParameter(TxParameterID::WindowBegin, 0U)
+                    .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{})
+                    .SetParameter(TxParameterID::ShieldedOutputId, 0U)
+                    .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+                pullTxID = sender.m_Wallet.StartTransaction(parameters);
+            }
+            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 20)
+            {
+                mainReactor->stop();
+            }
+        });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    WALLET_CHECK(completedCount == 0);
+    auto txHistory = sender.m_WalletDB->getTxHistory(TxType::PullTransaction);
+    // check Tx params
+    WALLET_CHECK(txHistory.size() == 1);
+    WALLET_CHECK(txHistory[0].m_status == TxStatus::Failed);
+    WALLET_CHECK(*txHistory[0].GetParameter<uint8_t>(TxParameterID::TransactionRegistered) == proto::TxStatus::LowFee);
+    // check coins
+    auto coins = sender.m_WalletDB->getCoinsByTx(pullTxID);
+    WALLET_CHECK(coins.size() == 0);
+    auto shieldedCoins = sender.m_WalletDB->getShieldedCoins();
+    WALLET_CHECK(shieldedCoins.size() == 1);
+    WALLET_CHECK(!shieldedCoins[0].m_spentTxId.is_initialized());
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -491,6 +666,10 @@ int main()
     /*TestManyTransactons();*/
 
     TestShortWindow();
+
+    TestShieldedUTXORollback();
+    TestPushTxRollbackByLowFee();
+    TestPullTxRollbackByLowFee();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
