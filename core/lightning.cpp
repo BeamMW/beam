@@ -25,7 +25,8 @@ struct Channel::MuSigLocator
 
 	virtual ~MuSigLocator() {}
 
-	size_t m_iIndex;
+	DataUpdate* m_pIndex; // set nullptr if we're looking for MSig0
+	uint32_t m_nRevision;
 	bool m_Initiator;
 };
 
@@ -37,14 +38,14 @@ Channel::State::Enum Channel::get_State() const
 	if (m_State.m_Close.m_hPhase2)
 		return State::Closed;
 
-	assert(!m_vUpdates.empty());
+	assert(!m_lstUpdates.empty());
 
 	if (!m_pOpen->m_hOpened)
 	{
 		if (m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max)
 			return State::OpenFailed;
 
-		if (DataUpdate::Type::None == m_vUpdates.front()->m_Type)
+		if (DataUpdate::Type::None == m_lstUpdates.front().m_Type)
 			return State::Opening0;
 
 		if (m_pNegCtx && (NegotiationCtx::Open == m_pNegCtx->m_eType))
@@ -64,16 +65,43 @@ Channel::State::Enum Channel::get_State() const
 	return m_pNegCtx ? State::Updating : State::Open;
 }
 
+Channel::DataUpdate* Channel::UpdateList::get_NextSafe(DataUpdate& d) const
+{
+	iterator it = s_iterator_to(d);
+	return (++it == end()) ? nullptr : &(*it);
+}
+
+Channel::DataUpdate* Channel::UpdateList::get_PrevSafe(DataUpdate& d) const
+{
+	iterator it = s_iterator_to(d);
+	if (begin() == it)
+		return nullptr;
+	return &(*--it);
+}
+
+void Channel::UpdateList::Clear()
+{
+	while (!empty())
+		DeleteFront();
+}
+
+void Channel::UpdateList::DeleteFront()
+{
+	DataUpdate& d = front();
+	pop_front();
+	delete &d;
+}
+
 bool Channel::IsUnfairPeerClosed() const
 {
 	assert(m_State.m_Close.m_hPhase1);
-	assert(m_State.m_Close.m_iPath < m_vUpdates.size());
+	assert(m_State.m_Close.m_pPath);
 
-	return
-		!m_State.m_Close.m_Initiator &&
-		(m_State.m_Close.m_iPath + 1 < m_vUpdates.size()) &&
-		m_vUpdates[m_State.m_Close.m_iPath + 1]->m_PeerKeyValid;
+	if (m_State.m_Close.m_Initiator)
+		return false;
 
+	DataUpdate* p = m_lstUpdates.get_NextSafe(*m_State.m_Close.m_pPath);
+	return p && p->m_PeerKeyValid;
 }
 
 void Channel::OnPeerData(Storage::Map& dataIn)
@@ -89,19 +117,19 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 		return;
 	}
 
-	if (nRev < m_vUpdates.size())
+	if (nRev < m_nRevision)
 		return;
 
-	if (nRev > m_vUpdates.size())
+	if (nRev > m_nRevision)
 	{
 		if (m_pNegCtx)
 			return;
 
-		if (nRev > m_vUpdates.size() + 1)
+		if (nRev > m_nRevision + 1)
 			return;
 
 		// new negotiation?
-		if (m_vUpdates.empty())
+		if (!m_nRevision)
 		{
 			// should be channel open request
 			Amount nMy = 0, nPeer = 0;
@@ -136,7 +164,7 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 				!dataIn.Get(h, Codes::H0))
 				return;
 
-			Amount valMy = m_vUpdates.back()->m_Outp.m_Value;
+			Amount valMy = m_lstUpdates.back().m_Outp.m_Value;
 			val += valMy;
 
 			if (val < valMy)
@@ -245,9 +273,9 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 				x.m_Tx0.Get(m_pOpen->m_hvKernel0, MultiTx::Codes::KernelID);
 			}
 
-			assert(m_vUpdates.size() == 1);
+			assert(m_nRevision == 1);
 
-			DataUpdate& d = *m_vUpdates.front();
+			DataUpdate& d = m_lstUpdates.back();
 			Cast::Down<ChannelWithdrawal::Result>(d) = std::move(res);
 			d.CheckStdType();
 		}
@@ -278,8 +306,8 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 			if (!(nDone1 & nFlags0))
 				break;
 
-			assert(m_vUpdates.size() > 1);
-			DataUpdate& d = *m_vUpdates.back();
+			assert(m_nRevision > 1);
+			DataUpdate& d = m_lstUpdates.back();
 
 			x.get_Result(d);
 			d.CheckStdType();
@@ -295,8 +323,8 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 
 			if (Status::Success == status)
 			{
-				assert(m_vUpdates.size() > 1);
-				DataUpdate& d = *m_vUpdates.back();
+				assert(m_nRevision > 1);
+				DataUpdate& d = m_lstUpdates.back();
 
 				x.Get(d.m_tx1, MultiTx::Codes::TxFinal);
 				x.Get(d.m_PeerKey.m_Value, MultiTx::Codes::KernelID); // just use this variable
@@ -333,13 +361,18 @@ void Channel::Update()
 
 	if (!m_pOpen)
 		return;
-	assert(!m_vUpdates.empty());
+	assert(!m_lstUpdates.empty());
 
 	Height hTip = get_Tip();
 
+	//while (m_lstUpdates.size() > 1)
+	//{
+	//	// check if we can forget the
+	//}
+
 	if (!m_pOpen->m_hOpened)
 	{
-		if (DataUpdate::Type::None == m_vUpdates.front()->m_Type)
+		if (DataUpdate::Type::None == m_lstUpdates.front().m_Type)
 		{
 			// early negotiation stage
 			m_State.m_hQueryLast = hTip;
@@ -363,9 +396,9 @@ void Channel::Update()
 		assert(m_State.m_Terminate);
 
 		// msigN confirmed.
-		assert(m_State.m_Close.m_iPath < m_vUpdates.size());
+		assert(m_State.m_Close.m_pPath);
 
-		const DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
+		const DataUpdate& d = *m_State.m_Close.m_pPath;
 
 		if ((DataUpdate::Type::Punishment == d.m_Type) || (m_State.m_Close.m_hPhase1 + m_Params.m_hLockTime <= hTip + 1))
 		{
@@ -383,7 +416,7 @@ void Channel::Update()
 		return;
 	}
 
-	const DataUpdate& d = *m_vUpdates.back();
+	const DataUpdate& d = m_lstUpdates.back();
 	if (hTip > m_State.m_hQueryLast)
 	{
 		if (DataUpdate::Type::Direct == d.m_Type)
@@ -394,9 +427,9 @@ void Channel::Update()
 
 	if (m_State.m_Terminate)
 	{
-		size_t iPath = SelectWithdrawalPath();
-		if (iPath < m_vUpdates.size())
-			SendTxNoSpam(m_vUpdates[iPath]->m_tx1, hTip);
+		DataUpdate* pPath = SelectWithdrawalPath();
+		if (pPath)
+			SendTxNoSpam(pPath->m_tx1, hTip);
 	}
 	else
 	{
@@ -405,29 +438,29 @@ void Channel::Update()
 	}
 }
 
-size_t Channel::SelectWithdrawalPath()
+Channel::DataUpdate* Channel::SelectWithdrawalPath()
 {
-	// Select the termination path. Note: it may not be the most recent m_vUpdates, because it may (theoretically) be not ready yet.
+	// Select the termination path. Note: it may not be the most recent, because it may (theoretically) be not ready yet.
 	// Go from back to front, until we encounter a valid path
-	size_t iPath = m_vUpdates.size() - 1;
-
-	for (; ; iPath--)
+	for (UpdateList::reverse_iterator it = m_lstUpdates.rbegin(); m_lstUpdates.rend() != it; it++)
 	{
-		const DataUpdate& d = *m_vUpdates[iPath];
+		DataUpdate& d = *it;
 		if (DataUpdate::Type::None != d.m_Type)
-			break; // good enough
+			return &d; // good enough
 
 		// we must never reveal our key before we obtain the full withdrawal path
-		assert(iPath && !d.m_RevealedSelfKey);
+		assert(!d.m_RevealedSelfKey);
 	}
 
-	return iPath;
+	return nullptr;
 }
 
 Channel::DataUpdate& Channel::CreateUpdatePoint(uint32_t iRole, const CoinID& msA, const CoinID& msB, const CoinID& outp)
 {
-	m_vUpdates.push_back(std::unique_ptr<DataUpdate>(new DataUpdate));
-	DataUpdate& d = *m_vUpdates.back();
+	DataUpdate* pVal = new DataUpdate;
+	DataUpdate& d = *pVal; // alias
+	m_lstUpdates.push_back(d);
+	m_nRevision++;
 
 	const CoinID* pArr[] = { &msA, &msB };
 
@@ -478,9 +511,11 @@ void Channel::OnRolledBack()
 		if (h >= m_State.m_Close.m_hPhase2)
 			return;
 
-		OnCoin(m_vUpdates[m_State.m_Close.m_iPath]->m_Outp, m_State.m_Close.m_hPhase2, CoinState::Confirmed, true); // remove confirmation
+		OnCoin(m_State.m_Close.m_pPath->m_Outp, m_State.m_Close.m_hPhase2, CoinState::Confirmed, true); // remove confirmation
 
 		m_State.m_Close.m_hPhase2 = 0;
+		m_State.m_Close.m_pPath = nullptr;
+		m_State.m_Close.m_nRevision = 0;
 	}
 
 	std::setmin(m_State.m_hQueryLast, h);
@@ -538,26 +573,35 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 		// continue search
 		if (r.m_Initiator)
 		{
-			assert(r.m_iIndex < m_vUpdates.size());
+			assert(r.m_pIndex);
 
 			r.m_Initiator = false;
-			r.m_Msg.m_Utxo = m_vUpdates[r.m_iIndex]->m_CommPeer1;
+			r.m_Msg.m_Utxo = r.m_pIndex->m_CommPeer1;
 		}
 		else
 		{
-			if (!r.m_iIndex)
+			if (r.m_pIndex)
 			{
-				// not found! (it's a problem)
-				m_State.m_hQueryLast = get_Tip();
-				Update();
-				return;
+				r.m_pIndex = m_lstUpdates.get_PrevSafe(*r.m_pIndex);
+				r.m_nRevision--;
+			}
+			else
+			{
+				r.m_pIndex = &m_lstUpdates.back();
+				r.m_nRevision = m_nRevision;
 			}
 
-			std::setmin(r.m_iIndex, m_vUpdates.size());
 			while (true)
 			{
-				assert(r.m_iIndex);
-				const DataUpdate& d = *m_vUpdates[--r.m_iIndex];
+				if (!r.m_pIndex)
+				{
+					// not found! (it's a problem)
+					m_State.m_hQueryLast = get_Tip();
+					Update();
+					return;
+				}
+
+				const DataUpdate& d = *r.m_pIndex;
 
 				bool bIs2Phase = (DataUpdate::Type::TimeLocked == d.m_Type) || (DataUpdate::Type::Punishment == d.m_Type);
 				if (bIs2Phase)
@@ -566,6 +610,9 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 					r.m_Msg.m_Utxo = d.m_Comm1;
 					break;
 				}
+
+				r.m_pIndex = m_lstUpdates.get_PrevSafe(*r.m_pIndex);
+				r.m_nRevision--;
 			}
 
 		}
@@ -578,7 +625,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 	else
 	{
 		// bingo!
-		if (r.m_iIndex == static_cast<size_t>(-1))
+		if (!r.m_pIndex)
 		{
 			m_State.m_hQueryLast = get_Tip();
 			ZeroObject(m_State.m_Close); // msig0 is still intact
@@ -589,7 +636,8 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 			m_State.m_hQueryLast = 0;
 			m_State.m_hTxSentLast = 0;
 
-			m_State.m_Close.m_iPath = r.m_iIndex;
+			m_State.m_Close.m_pPath = r.m_pIndex;
+			m_State.m_Close.m_nRevision = r.m_nRevision;
 			m_State.m_Close.m_Initiator = r.m_Initiator;
 			m_State.m_Close.m_hPhase1 = r.m_Res.m_Proofs.front().m_State.m_Maturity;
 
@@ -598,7 +646,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 
 			if (IsUnfairPeerClosed())
 			{
-				DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
+				DataUpdate& d = *r.m_pIndex;
 				if (DataUpdate::Type::TimeLocked == d.m_Type)
 					// punish it! Create an immediate withdraw tx, put it instead of m_txPeer2
 					CreatePunishmentTx();
@@ -611,12 +659,12 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 
 void Channel::CreatePunishmentTx()
 {
-	assert(m_State.m_Terminate && !m_State.m_Close.m_Initiator && (m_State.m_Close.m_iPath + 1 < m_vUpdates.size()));
+	assert(m_State.m_Terminate && !m_State.m_Close.m_Initiator && (m_State.m_Close.m_pPath));
 
-	DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
+	DataUpdate& d = *m_State.m_Close.m_pPath;
 	assert(DataUpdate::Type::TimeLocked == d.m_Type);
 
-	DataUpdate& d1 = *m_vUpdates[m_State.m_Close.m_iPath + 1];
+	DataUpdate& d1 = *m_lstUpdates.get_NextSafe(d);
 	assert(d1.m_PeerKeyValid);
 
 	// Create an immediate withdraw tx, put it instead of m_txPeer2
@@ -704,7 +752,7 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 
 		if (m_State.m_Close.m_hPhase1 && !m_State.m_Close.m_hPhase2)
 		{
-			const DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
+			const DataUpdate& d = *m_State.m_Close.m_pPath;
 			Merkle::Hash hv;
 			d.get_Phase2ID(hv, m_State.m_Close.m_Initiator);
 
@@ -715,7 +763,7 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 			}
 		}
 
-		const DataUpdate& d = *m_vUpdates.back();
+		DataUpdate& d = m_lstUpdates.back();
 		if (!m_State.m_Close.m_hPhase1 && !m_State.m_Close.m_hPhase2 && (DataUpdate::Type::Direct == d.m_Type) && (r.m_Msg.m_ID == d.m_PeerKey.m_Value))
 		{
 			// graceful closure detected
@@ -724,7 +772,8 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 			m_State.m_hQueryLast = 0;
 			m_State.m_hTxSentLast = 0;
 
-			m_State.m_Close.m_iPath = m_vUpdates.size() - 1;
+			m_State.m_Close.m_pPath = &d;
+			m_State.m_Close.m_nRevision = m_nRevision;
 			m_State.m_Close.m_Initiator = true; // doesn't matter
 
 			OnCoin(d.m_Outp, h, CoinState::Confirmed, false);
@@ -733,7 +782,7 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 	}
 	else
 	{
-		const DataUpdate& d = *m_vUpdates.back();
+		const DataUpdate& d = m_lstUpdates.back();
 		if (DataUpdate::Type::Direct == d.m_Type)
 			ConfirmMuSig();
 		else
@@ -829,7 +878,7 @@ void Channel::ConfirmMuSig()
 	}
 
 	MuSigLocator::Ptr pReq(new MuSigLocator);
-	pReq->m_iIndex = static_cast<size_t>(-1);
+	pReq->m_pIndex = nullptr;
 	pReq->m_Initiator = false;
 	pReq->m_Msg.m_Utxo = m_pOpen->m_Comm0;
 
@@ -891,7 +940,7 @@ bool Channel::Transfer(Amount val, bool bCloseGraceful)
 	if (!m_pOpen)
 		return false;
 
-	Amount valMy = m_vUpdates.back()->m_Outp.m_Value;
+	Amount valMy = m_lstUpdates.back().m_Outp.m_Value;
 
 	if (valMy < val)
 		return false;
@@ -1040,12 +1089,12 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCl
 	if (m_pNegCtx || (State::Open != get_State()))
 		return false;
 
-	assert(m_pOpen && !m_State.m_Terminate && !m_vUpdates.empty());
+	assert(m_pOpen && !m_State.m_Terminate && !m_lstUpdates.empty());
 
-	if (DataUpdate::Type::Direct == m_vUpdates.back()->m_Type)
+	DataUpdate& d0 = m_lstUpdates.back();
+	if (DataUpdate::Type::Direct == d0.m_Type)
 		return false; // no negotiations past decision to (gracefully) close the channel
 
-	DataUpdate& d0 = *m_vUpdates.back();
 	if (h < d0.get_H0())
 		return false; // attempt to decrease the height
 
@@ -1143,7 +1192,7 @@ bool Channel::IsSafeToForget(Height hMaxRollback)
 	{
 		return
 			(m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max + hMaxRollback) || // too late
-			(DataUpdate::Type::None == m_vUpdates.front()->m_Type); // negotiation is at a very early stage
+			(DataUpdate::Type::None == m_lstUpdates.front().m_Type); // negotiation is at a very early stage
 	}
 
 	return m_State.m_Close.m_hPhase2 && (m_State.m_Close.m_hPhase2 + hMaxRollback <= get_Tip());
@@ -1163,7 +1212,7 @@ void Channel::Forget()
 	CancelTx();
 
 	m_pNegCtx.reset();
-	m_vUpdates.clear();
+	m_lstUpdates.Clear();
 	
 	ZeroObject(m_State);
 }
@@ -1188,7 +1237,7 @@ void Channel::SendPeerInternal(Storage::Map& dataOut)
 {
 	if (!dataOut.empty())
 	{
-		dataOut.Set(static_cast<uint32_t>(m_vUpdates.size()), Codes::Revision);
+		dataOut.Set(m_nRevision, Codes::Revision);
 		SendPeer(std::move(dataOut));
 	}
 }

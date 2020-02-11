@@ -79,8 +79,6 @@ struct Client
 
 	typedef std::map<uint32_t, ByteBuffer> FieldMap;
 
-	size_t m_OverrideWithdrawal = static_cast<size_t>(-1);
-
 	struct Channel
 		:public Lightning::Channel
 	{
@@ -99,6 +97,8 @@ struct Client
 		typedef boost::intrusive::multiset<Key> Map;
 
 		State::Enum m_LastState = State::None;
+
+		DataUpdate* m_pOverrideWithdrawal = nullptr;
 
 		void LogNewState()
 		{
@@ -126,7 +126,7 @@ struct Client
 				os << "OpenFailed (Not confirmed, missed height window). Waiting for " << m_SafeForgetHeight << " confirmations before forgetting";
 				break;
 			case State::Open:
-				os << "Open. Last Revision: " << m_vUpdates.size() << ". Balance: " << m_vUpdates.back()->m_Outp.m_Value << " / " << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
+				os << "Open. Last Revision: " << m_nRevision << ". Balance: " << m_lstUpdates.back().m_Outp.m_Value << " / " << (m_lstUpdates.back().m_msMy.m_Value - m_Params.m_Fee);
 				break;
 			case State::Updating:
 				os << "Updating (creating newer Revision)";
@@ -136,8 +136,8 @@ struct Client
 				break;
 			case State::Closing2:
 				{
-					os << "Closing2 (Phase-1 withdrawal detected). Revision: " << m_State.m_Close.m_iPath << ". Initiated by " << (m_State.m_Close.m_Initiator ? "me" : "peer");
-					if (DataUpdate::Type::Punishment == m_vUpdates[m_State.m_Close.m_iPath]->m_Type)
+					os << "Closing2 (Phase-1 withdrawal detected). Revision: " << m_State.m_Close.m_nRevision << ". Initiated by " << (m_State.m_Close.m_Initiator ? "me" : "peer");
+					if (DataUpdate::Type::Punishment == m_State.m_Close.m_pPath->m_Type)
 						os << ". Fraudulent withdrawal attempt detected! Will claim everything";
 				}
 				break;
@@ -196,10 +196,10 @@ struct Client
 
 		}
 
-		virtual size_t SelectWithdrawalPath() override
+		virtual Channel::DataUpdate* SelectWithdrawalPath() override
 		{
-			if (m_This.m_OverrideWithdrawal < m_vUpdates.size())
-				return m_This.m_OverrideWithdrawal;
+			if (m_pOverrideWithdrawal)
+				return m_pOverrideWithdrawal;
 
 			return Lightning::Channel::SelectWithdrawalPath(); // default
 		}
@@ -727,9 +727,12 @@ void Test()
 					std::cout << "Scenario: User B attempts to cheat, Close using Revision=1, while negotiating about new transfer" << std::endl;
 					{
 						Client& cl = m_pC[1];
-						cl.m_OverrideWithdrawal = 1;
 						for (Client::Channel::Map::iterator it = cl.m_Channels.begin(); cl.m_Channels.end() != it; it++)
-							(it)->get_ParentObj().Close();
+						{
+							Client::Channel& ch = it->get_ParentObj();
+							ch.m_pOverrideWithdrawal = ch.m_lstUpdates.get_NextSafe(ch.m_lstUpdates.front());
+							ch.Close();
+						}
 					}
 					break;
 

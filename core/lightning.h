@@ -16,6 +16,7 @@
 
 #include "negotiator.h"
 #include "fly_client.h"
+#include <boost/intrusive/list.hpp>
 
 namespace beam {
 namespace Lightning {
@@ -98,6 +99,7 @@ namespace Lightning {
 
 		struct DataUpdate
 			:public ChannelUpdate::Result
+			,public boost::intrusive::list_base_hook<>
 		{
 			CoinID m_msMy; // my part of msigN for my withdrawal
 			CoinID m_msPeer; // my part of msigN for peer withdrawal
@@ -119,7 +121,20 @@ namespace Lightning {
 		};
 
 		std::unique_ptr<DataOpen> m_pOpen;
-		std::vector< std::unique_ptr<DataUpdate> > m_vUpdates;
+
+		struct UpdateList
+			:public boost::intrusive::list<DataUpdate>
+		{
+			~UpdateList() { Clear(); }
+			void Clear();
+			void DeleteFront();
+
+			DataUpdate* get_NextSafe(DataUpdate&) const;
+			DataUpdate* get_PrevSafe(DataUpdate&) const;
+		};
+
+		UpdateList m_lstUpdates;
+		uint32_t m_nRevision = 0;
 
 		struct Params
 		{
@@ -151,7 +166,8 @@ namespace Lightning {
 			struct Close
 			{
 				// set iff confirmed withdrawal msigN
-				size_t m_iPath;
+				DataUpdate* m_pPath = nullptr;
+				uint32_t m_nRevision = 0;
 				bool m_Initiator; // who initiated the withdrawal
 				Height m_hPhase1 = 0; // msig0 -> msigN confirmed
 				Height m_hPhase2 = 0; // msigN -> outputs confirmed. In case of "unfair" withdrawal (initiated by the malicious peer) the "outputs" are mine only.
@@ -201,7 +217,7 @@ namespace Lightning {
 
 		void OnCoin(const std::vector<CoinID>&, Height, CoinState, bool bReverse);
 
-		virtual size_t SelectWithdrawalPath(); // By default selects the most recent available withdrawal. Override to try to use outdated (fraudulent) revisions, for testing.
+		virtual DataUpdate* SelectWithdrawalPath(); // By default selects the most recent available withdrawal. Override to try to use outdated (fraudulent) revisions, for testing.
 	
 	protected:
 		virtual bool TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful);
