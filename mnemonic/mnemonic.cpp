@@ -105,8 +105,11 @@ namespace beam
 
     bool isAllowedWord(const string& word, const Dictionary& dict)
     {
-        assert(is_sorted(dict.begin(), dict.end()));
-        return binary_search(dict.begin(), dict.end(), word);
+        auto predicate = [] (const char* left, const char* right) {
+            return strcmp(left, right) < 0;
+        };
+        assert(is_sorted(dict.begin(), dict.end(), predicate));
+        return binary_search(dict.begin(), dict.end(), word.c_str(), predicate);
     }
 
     bool isValidMnemonic(const WordList& words, const Dictionary& dict)
