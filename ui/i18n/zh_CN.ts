@@ -2109,7 +2109,8 @@ deploy the key at the node you trust completely.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-failure-invalid-asset-amount">
-        <source>Cannot consume more than MAX_INT64 asset groth in one transaction</source>
+        <source>Cannot issue/consume more than MAX_INT64 asset groth in one transaction</source>
+        <oldsource>Cannot consume more than MAX_INT64 asset groth in one transaction</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-failure-invalid-data-for-payment-proof">
@@ -2134,7 +2135,7 @@ deploy the key at the node you trust completely.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-failure-asset-small-fee">
-        <source></source>
+        <source>Asset registration fee is too small</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-notifications-title">
@@ -2151,6 +2152,34 @@ deploy the key at the node you trust completely.</translation>
     </message>
     <message id="settings-notifications-tx-status">
         <source>Transaction status</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-fee-too-large">
+        <source>Fee is too large</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-asset-invalid-info">
+        <source>No asset info or asset info is not valid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-asset-invalid-metadata">
+        <source>No asset metadata or asset metadata is not valid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-asset-invalid-id">
+        <source>Invalid asset id</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-asset-confirmation">
+        <source>Failed to receive asset confirmation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-asset-in-use">
+        <source>Asset is still in use (issued amount &gt; 0)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failure-asset-locked">
+        <source>Asset is still locked</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
