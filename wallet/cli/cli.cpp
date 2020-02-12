@@ -2260,23 +2260,21 @@ namespace
             return -1;
         }
 
-        return DoWalletFunc(vm, [&txId](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        auto walletDB = OpenDataBase(vm);
+        auto tx = walletDB->getTx(*txId);
+        if (tx)
+        {
+            if (tx->canDelete())
             {
-                auto tx = walletDB->getTx(*txId);
-                if (tx)
-                {
-                    if (tx->canDelete())
-                    {
-                        wallet.DeleteTransaction(*txId);
-                        return 0;
-                    }
-                    LOG_ERROR() << kErrorTxStatusInvalid;
-                    return -1;
-                }
+                walletDB->deleteTx(*txId);
+                return 0;
+            }
+            LOG_ERROR() << kErrorTxStatusInvalid;
+            return -1;
+        }
 
-                LOG_ERROR() << kErrorTxIdUnknown;
-                return -1;
-            });
+        LOG_ERROR() << kErrorTxIdUnknown;
+        return -1;
     }
 
     int CancelTransaction(const po::variables_map& vm)
