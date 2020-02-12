@@ -21,6 +21,12 @@
 
 namespace beam::wallet::lelantus
 {
+    TxParameters CreatePushTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId)
+    {
+        return CreateTransactionParameters(TxType::PushTransaction, txId)
+            .SetParameter(TxParameterID::MyID, myID);
+    }
+
     BaseTransaction::Ptr PushTransaction::Creator::Create(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
         , const TxID& txID)

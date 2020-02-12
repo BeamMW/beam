@@ -21,6 +21,18 @@
 
 namespace beam::wallet::lelantus
 {
+    TxParameters CreatePullTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId)
+    {
+        // TODO: find best place to init ShieldedInputMinCfg
+        const Lelantus::Cfg minInputCfg{ 4, 5 };
+
+        return CreateTransactionParameters(TxType::PullTransaction, txId)
+            .SetParameter(TxParameterID::MyID, myID)
+            .SetParameter(TxParameterID::IsSender, false)
+            .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{})
+            .SetParameter(TxParameterID::ShieldedInputMinCfg, minInputCfg);
+    }
+
     BaseTransaction::Ptr PullTransaction::Creator::Create(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
         , const TxID& txID)

@@ -2503,17 +2503,11 @@ namespace
                 }
                 WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
-                currentTxID = wallet.StartTransaction(TxParameters(GenerateTxID())
-                    .SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
-                    .SetParameter(TxParameterID::IsSender, true)
+                auto txParams = lelantus::CreatePushTransactionParameters(senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
-                    .SetParameter(TxParameterID::Fee, fee)
-                    // TODO check this param 
-                    .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
-                    .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
-                    .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
-                    .SetParameter(TxParameterID::CreateTime, getTimestamp()));
+                    .SetParameter(TxParameterID::Fee, fee);
 
+                currentTxID = wallet.StartTransaction(txParams);
                 return 0;
             });
     }
@@ -2522,11 +2516,10 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                TxoID windowBegin = 0;
                 TxoID shieldedId = 0;
                 Amount fee = 0;
 
-                if (!ReadFee(vm, fee, true) || !ReadShieldedId(vm, shieldedId) || !ReadWindowBegin(vm, windowBegin))
+                if (!ReadFee(vm, fee, true) || !ReadShieldedId(vm, shieldedId))
                 {
                     return -1;
                 }
@@ -2539,21 +2532,18 @@ namespace
 
                 WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
-                currentTxID = wallet.StartTransaction(TxParameters(GenerateTxID())
-                    .SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
-                    .SetParameter(TxParameterID::IsSender, false)
+                auto txParams = lelantus::CreatePullTransactionParameters(senderAddress.m_walletID)
                     // TODO check this param
                     .SetParameter(TxParameterID::Amount, shieldedCoin->m_value - fee)
                     .SetParameter(TxParameterID::Fee, fee)
-                    // TODO check this param 
-                    .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
-                    .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
-                    .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
-                    .SetParameter(TxParameterID::WindowBegin, windowBegin)
-                    .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{})
-                    .SetParameter(TxParameterID::ShieldedOutputId, shieldedId)
-                    .SetParameter(TxParameterID::CreateTime, getTimestamp()));
+                    .SetParameter(TxParameterID::ShieldedOutputId, shieldedId);
 
+                if (TxoID windowBegin = 0; ReadWindowBegin(vm, windowBegin))
+                {
+                    txParams.SetParameter(TxParameterID::WindowBegin, windowBegin);
+                }
+
+                currentTxID = wallet.StartTransaction(txParams);
                 return 0;
             });
     }
