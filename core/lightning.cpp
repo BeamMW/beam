@@ -724,7 +724,7 @@ void Channel::CreatePunishmentTx()
 	Output::Ptr& pOutp = tx.m_vOutputs.back();
 	pOutp.reset(new Output);
 
-	pOutp->Create(Rules::get().pForks[1].m_Height, k, *pKdf, cidOut, *pKdf);
+	pOutp->Create(m_State.m_Close.m_hPhase1, k, *pKdf, cidOut, *pKdf);
 
 	k = -k;
 	offs += k;
@@ -1071,7 +1071,7 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 		ChannelOpen::Worker wrk(p->m_Inst);
 
 		p->m_Inst.Set(iRole, Codes::Role);
-		p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+		p->m_Inst.Set(hr0.m_Min, Codes::Scheme);
 
 
 		MultiTx::KernelParam krn0;
@@ -1160,7 +1160,7 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCl
 		AllocTxoID(cid);
 
 		n.Set(iRole, Codes::Role);
-		n.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+		n.Set(h, Codes::Scheme);
 
 
 		n.Set(m_pOpen->m_ms0, MultiTx::Codes::InpMsCid);
@@ -1196,7 +1196,7 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCl
 			ChannelUpdate::Worker wrk(p->m_Inst);
 
 			p->m_Inst.Set(iRole, Codes::Role);
-			p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+			p->m_Inst.Set(h, Codes::Scheme);
 
 			Height h1, h2;
 			WithdrawTx::CommonParam cp;
