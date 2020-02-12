@@ -1688,6 +1688,19 @@ namespace beam
 		return 0; // should not be reached
 	}
 
+	Height Rules::get_ForkMaxHeightSafe(size_t iFork) const
+	{
+		assert(iFork < _countof(pForks));
+		if (iFork + 1 < _countof(pForks))
+		{
+			Height h = pForks[iFork + 1].m_Height;
+			if (h < MaxHeight)
+				return h - 1;
+		}
+
+		return MaxHeight;
+	}
+
 	const HeightHash& Rules::get_LastFork() const
 	{
 		size_t i = _countof(pForks);
