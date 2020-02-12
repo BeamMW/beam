@@ -21,6 +21,7 @@
 #include "model/settings.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/client.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/settings.h"
+#include "ui/viewmodel/newscast/news_settings.h"
 
 class SwapCoinClientModel;
 
@@ -235,8 +236,9 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString  currentLanguage         READ getCurrentLanguage         WRITE setCurrentLanguage)
     Q_PROPERTY(bool     isValidNodeAddress      READ isValidNodeAddress         NOTIFY validNodeAddressChanged)
 
-    Q_PROPERTY(QList<QObject*> swapCoinSettingsList     READ getSwapCoinSettings    CONSTANT)
-
+    Q_PROPERTY(QList<QObject*> swapCoinSettingsList READ getSwapCoinSettings    CONSTANT)
+    Q_PROPERTY(QObject* newscastSettings        READ getNewscastSettings        CONSTANT)
+    
 public:
 
     SettingsViewModel();
@@ -272,6 +274,7 @@ public:
     bool isChanged() const;
 
     const QList<QObject*>& getSwapCoinSettings();
+    QObject* getNewscastSettings();
 
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
@@ -311,6 +314,7 @@ protected:
 private:
     WalletSettings& m_settings;
     QList<QObject*> m_swapSettings;
+    NewscastSettings m_newscastSettings;
 
     QString m_nodeAddress;
     bool m_localNodeRun;

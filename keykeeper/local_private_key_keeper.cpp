@@ -664,6 +664,13 @@ namespace beam::wallet
                     return false;
             }
 
+            if (bOuts && m_This.IsTrustless())
+            {
+                Key::Index iSubKey;
+                if (cid.get_ChildKdfIndex(iSubKey))
+                    return false; // trustless wallet should not send funds to child subkeys (potentially belonging to miners)
+            }
+
             bool bAdded = false;
             if (cid.m_AssetID)
             {
@@ -877,7 +884,7 @@ namespace beam::wallet
         {
             // legacy. We need to verify the payment proof vs externally-specified our ID (usually SBBS address)
             if (IsTrustless())
-                return false;
+                return Status::Unspecified;
         }
 
         get_Nonce(kNonce, x.m_Slot);

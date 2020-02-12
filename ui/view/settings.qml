@@ -12,7 +12,6 @@ ColumnLayout {
     Layout.fillWidth: true
     state: "general"
     property string linkStyle: "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>"
-    property bool swapMode:  false
 
     SettingsViewModel {
         id: viewModel
@@ -203,21 +202,23 @@ deploy the key at the node you trust completely."*/
         State {
             name: "general"
             PropertyChanges { target: generalSettingsTab; state: "active" }
-            PropertyChanges { target: settingsView; swapMode: false }
+            PropertyChanges { target: generalSettings;  visible: true }
+            PropertyChanges { target: swapSettings;     visible: false }
         },
         State {
             name: "swap"
             PropertyChanges { target: swapSettingsTab; state: "active" }
-            PropertyChanges { target: settingsView; swapMode: true }
+            PropertyChanges { target: generalSettings;  visible: false }
+            PropertyChanges { target: swapSettings;     visible: true }
         }
     ]
 
     ScrollView {
+        id: swapSettings
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.bottomMargin: 10
         clip: true
-        visible: swapMode
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
@@ -368,11 +369,11 @@ deploy the key at the node you trust completely."*/
     }
 
     ScrollView {
+        id: generalSettings
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.bottomMargin: 10
         clip: true
-        visible: !swapMode
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
@@ -381,8 +382,383 @@ deploy the key at the node you trust completely."*/
             spacing: 10
 
             ColumnLayout {
-                Layout.preferredWidth: settingsView.width * 0.4
+                Layout.preferredWidth: settingsView.width * 0.6
                 Layout.alignment: Qt.AlignTop | Qt.AlignLeft
+
+                Rectangle {
+                    id: generalBlock
+                    Layout.fillWidth: true
+                    radius: 10
+                    color: Style.background_second
+                    Layout.preferredHeight: 330
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 30
+                        spacing: 10
+                        SFText {
+                            Layout.preferredHeight: 21
+                            //: settings tab, general section, title
+                            //% "General settings"
+                            text: qsTrId("settings-general-title")
+                            color: Style.content_main
+                            font.pixelSize: 18
+                            font.styleName: "Bold"; font.weight: Font.Bold
+                        }
+
+                        RowLayout {
+                            Layout.preferredHeight: 16
+                            Layout.topMargin: 15
+
+                            ColumnLayout {
+                                SFText {
+                                    Layout.fillWidth: true
+                                    //: settings tab, general section, lock screen label
+                                    //% "Lock screen"
+                                    text: qsTrId("settings-general-lock-screen")
+                                    color: Style.content_secondary
+                                    font.pixelSize: 14
+                                }
+                            }
+
+                            Item {
+                            }
+                            ColumnLayout {
+                                CustomComboBox {
+                                    id: lockTimeoutControl
+                                    fontPixelSize: 14
+                                    Layout.preferredWidth: generalBlock.width * 0.33
+
+                                    currentIndex: viewModel.lockTimeout
+                                    model: [
+                                        //% "Never"
+                                        qsTrId("settings-general-lock-screen-never"),
+                                        //% "1 minute"
+                                        qsTrId("settings-general-lock-screen-1m"),
+                                        //% "5 minutes"
+                                        qsTrId("settings-general-lock-screen-5m"),
+                                        //% "15 minutes"
+                                        qsTrId("settings-general-lock-screen-15m"),
+                                        //% "30 minutes"
+                                        qsTrId("settings-general-lock-screen-30m"),
+                                        //% "1 hour"
+                                        qsTrId("settings-general-lock-screen-1h"),
+                                    ]
+                                    onActivated: {
+                                        viewModel.lockTimeout = lockTimeoutControl.currentIndex;
+                                    }
+                                }
+                            }
+                        }
+
+                        Item {
+                            Layout.preferredHeight: 15
+                        }
+
+                        RowLayout {
+                           Layout.preferredHeight: 16
+                        
+                           ColumnLayout {
+                               SFText {
+                                   Layout.fillWidth: true
+                                   //: settings tab, general section, language label
+                                   //% "Language"
+                                   text: qsTrId("settings-general-language")
+                                   color: Style.content_secondary
+                                   font.pixelSize: 14
+                               }
+                           }
+                        
+                           Item {
+                           }
+                        
+                           ColumnLayout {
+                               CustomComboBox {
+                                   id: language
+                                   Layout.preferredWidth: generalBlock.width * 0.33
+                                   fontPixelSize: 14
+                        
+                                   model: viewModel.supportedLanguages
+                                   currentIndex: viewModel.currentLanguageIndex
+                                   onActivated: {
+                                       viewModel.currentLanguage = currentText;
+                                   }
+                               }
+                           }
+                           visible: false  // Remove to enable language dropdown
+                        }
+                        
+                        Item {
+                           Layout.preferredHeight: 10
+                           visible: false  // Remove to enable language dropdown
+                        }
+
+                        SFText {
+                            //: settings tab, general section, wallet data folder location label
+                            //% "Wallet folder location"
+                            text: qsTrId("settings-wallet-location-label")
+                            color: Style.content_main
+                            font.pixelSize: 14
+                            font.styleName: "Bold"; font.weight: Font.Bold
+                        }
+
+                        RowLayout {
+                            SFText {
+                                Layout.fillWidth: true
+                                font.pixelSize: 14
+                                color: Style.content_main
+                                text: viewModel.walletLocation
+                                elide: Text.ElideMiddle
+                            }
+
+                            SFText {
+                                Layout.fillWidth: false
+                                Layout.alignment: Qt.AlignRight
+                                font.pixelSize: 14
+                                color: Style.active
+                                //% "Show in folder"
+                                text: qsTrId("general-show-in-folder")
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.LeftButton
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        viewModel.openFolder(viewModel.walletLocation);
+                                    }
+                                }
+                            }
+                        }
+
+                        Item {
+                            Layout.preferredHeight: 10
+                        }
+
+                        RowLayout {
+                            Layout.preferredHeight: 16
+
+                            CustomSwitch {
+                                id: isPasswordReqiredToSpendMoney
+                                //: settings tab, general section, ask password to send label
+                                //% "Ask password for every sending transaction"
+                                text: qsTrId("settings-general-require-pwd-to-spend")
+                                font.pixelSize: 14
+                                Layout.fillWidth: true
+                                checked: viewModel.isPasswordReqiredToSpendMoney
+                                function onDialogAccepted() {
+                                    viewModel.isPasswordReqiredToSpendMoney = checked;
+                                }
+
+                                function onDialogRejected() {
+                                    checked = !checked;
+                                }
+                                onClicked: {
+                                    confirmPasswordDialog.dialogTitle = viewModel.isPasswordReqiredToSpendMoney
+                                        //: settings tab, general section, ask password to send, confirm password dialog, title if checked
+                                        //% "Don't ask password on every Send"
+                                        ? qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-title")
+                                        //: settings tab, general section, ask password to send, confirm password dialog, title if unchecked
+                                        //% "Ask password on every Send"
+                                        : qsTrId("settings-general-no-require-pwd-to-spend-confirm-pwd-title");
+                                    //: settings tab, general section, ask password to send, confirm password dialog, message
+                                    //% "Password verification is required to change that setting"
+                                    confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-message");
+                                    confirmPasswordDialog.okButtonIcon = "qrc:/assets/icon-done.svg"
+                                    //% "Proceed"
+                                    confirmPasswordDialog.okButtonText = qsTrId("general-proceed")
+                                    confirmPasswordDialog.onDialogAccepted = onDialogAccepted;
+                                    confirmPasswordDialog.onDialogRejected = onDialogRejected;
+                                    confirmPasswordDialog.open();
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.preferredHeight: 32
+
+                            SFText {
+                                property string beamUrl: "<a href='https://www.beam.mw/'>beam.mw</a>"
+                                //% "blockchain explorer"
+                                property string explorerUrl: "<a href='%1'>%2</a>".arg(Style.explorerUrl).arg(qsTrId("explorer"))
+                                //: general settings, label for alow open external links
+                                //% "Allow access to %1 and %2 (to fetch exchanges and transaction data)"
+                                text: Style.linkStyle + qsTrId("settings-general-allow-beammw-label").arg(beamUrl).arg(explorerUrl)
+                                textFormat: Text.RichText
+                                font.pixelSize: 14
+                                color: allowBeamMWLinks.palette.text
+                                wrapMode: Text.WordWrap
+                                Layout.preferredWidth: generalBlock.width - 95
+                                Layout.preferredHeight: 32
+                                linkEnabled: true
+                                onLinkActivated:  {
+                                    Utils.openExternal(link, viewModel, externalLinkConfirmation)
+                                }
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 10
+                            }
+
+                            CustomSwitch {
+                                id: allowBeamMWLinks
+                                Layout.preferredWidth: 30
+                                checked: viewModel.isAllowedBeamMWLinks
+                                Binding {
+                                    target: viewModel
+                                    property: "isAllowedBeamMWLinks"
+                                    value: allowBeamMWLinks.checked
+                                }
+                            }
+                        }
+
+                        Item {
+                            Layout.fillHeight: true
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: notificationsBlock
+                    Layout.fillWidth: true
+                    radius: 10
+                    color: Style.background_second
+                    Layout.preferredHeight: 200
+                    Layout.topMargin: 30
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 30
+                        spacing: 10
+
+                        SFText {
+                            Layout.preferredHeight: 21
+                            //% "Notifications"
+                            text: qsTrId("settings-notifications-title")
+                            color: Style.content_main
+                            font.pixelSize: 18
+                            font.styleName: "Bold"; font.weight: Font.Bold
+                        }
+
+                        CustomSwitch {
+                            id: walletVersionNotificationsSwitch
+                            //% "Wallet version"
+                            text: qsTrId("settings-notifications-version")
+                            font.pixelSize: 14
+                            Layout.fillWidth: true
+                            checked: viewModel.newscastSettings.isUpdatesPushActive
+                            Binding {
+                                target: viewModel.newscastSettings
+                                property: "isUpdatesPushActive"
+                                value: walletVersionNotificationsSwitch.checked
+                            }
+                        }
+                        CustomSwitch {
+                            id: newsNotificationsSwitch
+                            //% "News"
+                            text: qsTrId("settings-notifications-news")
+                            font.pixelSize: 14
+                            Layout.fillWidth: true
+                            // checked: viewModel.
+                            onClicked: {
+                                // test
+                                var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(settingsView);
+                                popup.titleText = "New version v1.2.3 is avalable";
+                                popup.messageText = "Your current version is v1.2.2. Please update to get the most of your Beam wallet.";
+                                popup.acceptButtonText = "update now";
+                                popup.open();
+                            }
+                        }
+                        CustomSwitch {
+                            id: txStatusNotificationsSwitch
+                            //% "Transaction status"
+                            text: qsTrId("settings-notifications-tx-status")
+                            font.pixelSize: 14
+                            Layout.fillWidth: true
+                            // checked: viewModel.
+                            // onClicked: {}
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 38
+                    Layout.topMargin: 30
+
+                    CustomButton {
+                        Layout.preferredWidth: 250
+                        Layout.preferredHeight: 38
+                        Layout.alignment: Qt.AlignLeft
+                        // Layout.leftMargin: 5
+                        //% "Change wallet password"
+                        text: qsTrId("general-change-pwd")
+                        palette.buttonText : "white"
+                        palette.button: Style.background_second
+                        icon.source: "qrc:/assets/icon-password.svg"
+                        icon.width: 16
+                        icon.height: 16
+                        onClicked: changePasswordDialog.open()
+                    }
+
+                    Item {
+                        Layout.maximumWidth: 30
+                        Layout.fillWidth: true
+                    }
+
+                    CustomButton {
+                        Layout.preferredWidth: 250
+                        Layout.preferredHeight: 38
+                        Layout.alignment: Qt.AlignRight
+                        // Layout.rightMargin: 5
+                        //: settings tab, general section, Show owner key button and dialog title
+                        //% "Show owner key"
+                        text: qsTrId("settings-general-require-pwd-to-show-owner-key")
+                        palette.button: Style.background_second
+                        palette.buttonText : Style.content_main
+                        onClicked: {
+                            //: settings tab, general section, Show owner key button and dialog title
+                            //% "Show owner key"
+                            confirmPasswordDialog.dialogTitle = qsTrId("settings-general-require-pwd-to-show-owner-key");
+                            //: settings tab, general section, ask password to Show owner key, message
+                            //% "Password verification is required to see the owner key"
+                            confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-show-owner-key-message");
+                            //: settings tab, general section, Show owner key button and dialog title
+                            //% "Show owner key"
+                            confirmPasswordDialog.okButtonText = qsTrId("settings-general-require-pwd-to-show-owner-key")
+                            confirmPasswordDialog.okButtonIcon = "qrc:/assets/icon-show-key.svg"
+                            confirmPasswordDialog.onDialogAccepted = function () {
+                                showOwnerKeyDialog.pwd = confirmPasswordDialog.pwd;
+                                showOwnerKeyDialog.open();
+                            };
+                            confirmPasswordDialog.onDialogRejected = function() {}
+                            confirmPasswordDialog.open();
+                        }
+                    }
+                }
+
+                CustomButton {
+                    Layout.preferredWidth: 250
+                    Layout.preferredHeight: 38
+                    Layout.alignment: Qt.AlignLeft
+                    Layout.topMargin: 30
+                    //% "Rescan"
+                    text: qsTrId("general-rescan")
+                    palette.button: Style.background_second
+                    palette.buttonText : Style.content_main
+                    icon.source: "qrc:/assets/icon-repeat-white.svg"
+                    enabled: viewModel.localNodeRun && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
+                    onClicked: {
+                        confirmRefreshDialog.open();
+                    }
+                }
+            }
+
+            Item {
+                Layout.preferredWidth: 10
+            }
+
+            ColumnLayout {
+                Layout.preferredWidth: settingsView.width * 0.4
+                Layout.alignment: Qt.AlignTop | Qt.AlignRight
 
                 Rectangle {
                     id: nodeBlock
@@ -707,323 +1083,13 @@ deploy the key at the node you trust completely."*/
                     }
                 }
 
-                 CustomButton {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 38
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.topMargin: 10
-                    //: settings tab, general section, Show owner key button and dialog title
-                    //% "Show owner key"
-                    text: qsTrId("settings-general-require-pwd-to-show-owner-key")
-                    palette.button: Style.background_second
-                    palette.buttonText : Style.content_main
-                    onClicked: {
-                        //: settings tab, general section, Show owner key button and dialog title
-                        //% "Show owner key"
-                        confirmPasswordDialog.dialogTitle = qsTrId("settings-general-require-pwd-to-show-owner-key");
-                        //: settings tab, general section, ask password to Show owner key, message
-                        //% "Password verification is required to see the owner key"
-                        confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-show-owner-key-message");
-                         //: settings tab, general section, Show owner key button and dialog title
-                         //% "Show owner key"
-                        confirmPasswordDialog.okButtonText = qsTrId("settings-general-require-pwd-to-show-owner-key")
-                        confirmPasswordDialog.okButtonIcon = "qrc:/assets/icon-show-key.svg"
-                        confirmPasswordDialog.onDialogAccepted = function () {
-                            showOwnerKeyDialog.pwd = confirmPasswordDialog.pwd;
-                            showOwnerKeyDialog.open();
-                        };
-                        confirmPasswordDialog.onDialogRejected = function() {}
-                        confirmPasswordDialog.open();
-                    }
-                }
-            }
-
-            Item {
-                Layout.preferredWidth: 10
-            }
-
-            ColumnLayout {
-                Layout.preferredWidth: settingsView.width * 0.6
-                Layout.alignment: Qt.AlignTop | Qt.AlignRight
-
-                Rectangle {
-                    id: generalBlock
-                    Layout.fillWidth: true
-                    radius: 10
-                    color: Style.background_second
-                    Layout.preferredHeight: 330
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 30
-                        spacing: 10
-                        SFText {
-                            Layout.preferredHeight: 21
-                            //: settings tab, general section, title
-                            //% "General settings"
-                            text: qsTrId("settings-general-title")
-                            color: Style.content_main
-                            font.pixelSize: 18
-                            font.styleName: "Bold"; font.weight: Font.Bold
-                        }
-
-                        RowLayout {
-                            Layout.preferredHeight: 16
-                            Layout.topMargin: 15
-
-                            ColumnLayout {
-                                SFText {
-                                    Layout.fillWidth: true
-                                    //: settings tab, general section, lock screen label
-                                    //% "Lock screen"
-                                    text: qsTrId("settings-general-lock-screen")
-                                    color: Style.content_secondary
-                                    font.pixelSize: 14
-                                }
-                            }
-
-                            Item {
-                            }
-                            ColumnLayout {
-                                CustomComboBox {
-                                    id: lockTimeoutControl
-                                    fontPixelSize: 14
-                                    Layout.preferredWidth: generalBlock.width * 0.33
-
-                                    currentIndex: viewModel.lockTimeout
-                                    model: [
-                                        //% "Never"
-                                        qsTrId("settings-general-lock-screen-never"),
-                                        //% "1 minute"
-                                        qsTrId("settings-general-lock-screen-1m"),
-                                        //% "5 minutes"
-                                        qsTrId("settings-general-lock-screen-5m"),
-                                        //% "15 minutes"
-                                        qsTrId("settings-general-lock-screen-15m"),
-                                        //% "30 minutes"
-                                        qsTrId("settings-general-lock-screen-30m"),
-                                        //% "1 hour"
-                                        qsTrId("settings-general-lock-screen-1h"),
-                                    ]
-                                    onActivated: {
-                                        viewModel.lockTimeout = lockTimeoutControl.currentIndex;
-                                    }
-                                }
-                            }
-                        }
-
-                        Item {
-                            Layout.preferredHeight: 15
-                        }
-
-                        RowLayout {
-                           Layout.preferredHeight: 16
-                        
-                           ColumnLayout {
-                               SFText {
-                                   Layout.fillWidth: true
-                                   //: settings tab, general section, language label
-                                   //% "Language"
-                                   text: qsTrId("settings-general-language")
-                                   color: Style.content_secondary
-                                   font.pixelSize: 14
-                               }
-                           }
-                        
-                           Item {
-                           }
-                        
-                           ColumnLayout {
-                               CustomComboBox {
-                                   id: language
-                                   Layout.preferredWidth: generalBlock.width * 0.33
-                                   fontPixelSize: 14
-                        
-                                   model: viewModel.supportedLanguages
-                                   currentIndex: viewModel.currentLanguageIndex
-                                   onActivated: {
-                                       viewModel.currentLanguage = currentText;
-                                   }
-                               }
-                           }
-                           visible: false  // Remove to enable language dropdown
-                        }
-                        
-                        Item {
-                           Layout.preferredHeight: 10
-                           visible: false  // Remove to enable language dropdown
-                        }
-
-                        SFText {
-                            //: settings tab, general section, wallet data folder location label
-                            //% "Wallet folder location"
-                            text: qsTrId("settings-wallet-location-label")
-                            color: Style.content_main
-                            font.pixelSize: 14
-                            font.styleName: "Bold"; font.weight: Font.Bold
-                        }
-
-                        RowLayout {
-                            SFText {
-                                Layout.fillWidth: true
-                                font.pixelSize: 14
-                                color: Style.content_main
-                                text: viewModel.walletLocation
-                                elide: Text.ElideMiddle
-                            }
-
-                            SFText {
-                                Layout.fillWidth: false
-                                Layout.alignment: Qt.AlignRight
-                                font.pixelSize: 14
-                                color: Style.active
-                                //% "Show in folder"
-                                text: qsTrId("general-show-in-folder")
-                                MouseArea {
-                                    anchors.fill: parent
-                                    acceptedButtons: Qt.LeftButton
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        viewModel.openFolder(viewModel.walletLocation);
-                                    }
-                                }
-                            }
-                        }
-
-                        Item {
-                            Layout.preferredHeight: 10
-                        }
-
-                        RowLayout {
-                            Layout.preferredHeight: 16
-
-                            CustomSwitch {
-                                id: isPasswordReqiredToSpendMoney
-                                //: settings tab, general section, ask password to send label
-                                //% "Ask password for every sending transaction"
-                                text: qsTrId("settings-general-require-pwd-to-spend")
-                                font.pixelSize: 14
-                                Layout.fillWidth: true
-                                checked: viewModel.isPasswordReqiredToSpendMoney
-                                function onDialogAccepted() {
-                                    viewModel.isPasswordReqiredToSpendMoney = checked;
-                                }
-
-                                function onDialogRejected() {
-                                    checked = !checked;
-                                }
-                                onClicked: {
-                                    confirmPasswordDialog.dialogTitle = viewModel.isPasswordReqiredToSpendMoney
-                                        //: settings tab, general section, ask password to send, confirm password dialog, title if checked
-                                        //% "Don't ask password on every Send"
-                                        ? qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-title")
-                                        //: settings tab, general section, ask password to send, confirm password dialog, title if unchecked
-                                        //% "Ask password on every Send"
-                                        : qsTrId("settings-general-no-require-pwd-to-spend-confirm-pwd-title");
-                                    //: settings tab, general section, ask password to send, confirm password dialog, message
-                                    //% "Password verification is required to change that setting"
-                                    confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-message");
-                                    confirmPasswordDialog.okButtonIcon = "qrc:/assets/icon-done.svg"
-                                    confirmPasswordDialog.onDialogAccepted = onDialogAccepted;
-                                    confirmPasswordDialog.onDialogRejected = onDialogRejected;
-                                    confirmPasswordDialog.open();
-                                }
-                            }
-                        }
-
-                        RowLayout {
-                            Layout.preferredHeight: 32
-
-                            SFText {
-                                property string beamUrl: "<a href='https://www.beam.mw/'>beam.mw</a>"
-                                //% "blockchain explorer"
-                                property string explorerUrl: "<a href='%1'>%2</a>".arg(Style.explorerUrl).arg(qsTrId("explorer"))
-                                //: general settings, label for alow open external links
-                                //% "Allow access to %1 and %2 (to fetch exchanges and transaction data)"
-                                text: Style.linkStyle + qsTrId("settings-general-allow-beammw-label").arg(beamUrl).arg(explorerUrl)
-                                textFormat: Text.RichText
-                                font.pixelSize: 14
-                                color: allowBeamMWLinks.palette.text
-                                wrapMode: Text.WordWrap
-                                Layout.preferredWidth: generalBlock.width - 95
-                                Layout.preferredHeight: 32
-                                linkEnabled: true
-                                onLinkActivated:  {
-                                    Utils.openExternal(link, viewModel, externalLinkConfirmation)
-                                }
-                            }
-
-                            Item {
-                                Layout.preferredWidth: 10
-                            }
-
-                            CustomSwitch {
-                                id: allowBeamMWLinks
-                                Layout.preferredWidth: 30
-                                checked: viewModel.isAllowedBeamMWLinks
-                                Binding {
-                                    target: viewModel
-                                    property: "isAllowedBeamMWLinks"
-                                    value: allowBeamMWLinks.checked
-                                }
-                            }
-                        }
-
-                        Item {
-                            Layout.fillHeight: true
-                        }
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 38
-                    Layout.topMargin: 25
-
-                    CustomButton {
-                        Layout.preferredWidth: 250
-                        Layout.preferredHeight: 38
-                        Layout.alignment: Qt.AlignLeft
-                        Layout.leftMargin: 5
-                        //% "Change wallet password"
-                        text: qsTrId("general-change-pwd")
-                        palette.buttonText : "white"
-                        palette.button: Style.background_second
-                        icon.source: "qrc:/assets/icon-password.svg"
-                        icon.width: 16
-                        icon.height: 16
-                        onClicked: changePasswordDialog.open()
-                    }
-
-                    Item {
-                        Layout.maximumWidth: 30
-                        Layout.fillWidth: true
-                    }
-
-                    CustomButton {
-                        Layout.preferredWidth: 250
-                        Layout.preferredHeight: 38
-                        Layout.alignment: Qt.AlignRight
-                        Layout.rightMargin: 5
-                        //% "Rescan"
-                        text: qsTrId("general-rescan")
-                        palette.button: Style.background_second
-                        palette.buttonText : viewModel.localNodeRun ? Style.content_main : Style.content_disabled
-                        icon.source: "qrc:/assets/icon-repeat-white.svg"
-                        enabled: viewModel.localNodeRun && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
-                        onClicked: {
-                            confirmRefreshDialog.open();
-                        }
-                    }
-                }
-
                 Rectangle {
                     id: feedBackBlock
                     Layout.fillWidth: true
-                    Layout.topMargin: 25
+                    Layout.topMargin: 20
                     radius: 10
                     color: Style.background_second
-                    Layout.preferredHeight: 240
+                    Layout.preferredHeight: 270
 
                     ColumnLayout {
                         anchors.fill: parent

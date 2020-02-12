@@ -74,6 +74,7 @@
 #define LASER_ADDRESSES_NAME "LaserAddresses"
 #define LASER_OPEN_STATES_NAME "LaserOpenStates"
 #define LASER_UPDATES_NAME "LaserUpdates"
+#define ASSETS_NAME "Assets"
 #define SHIELDED_COINS_NAME "ShieldedCoins"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
@@ -134,6 +135,17 @@
     each(data,             data,             BLOB, obj)
 
 #define LASER_CHANNEL_FIELDS ENUM_LASER_CHANNEL_FIELDS(LIST, COMMA, )
+
+#define ENUM_ASSET_FIELDS(each, sep, obj) \
+    each(ID,             ID,            INTEGER NOT NULL PRIMARY KEY,  obj) sep \
+    each(Value,          Value,         INTEGER,           obj) sep \
+    each(Owner,          Owner,         BLOB NOT NULL,     obj) sep \
+    each(LockHeight,     LockHeight,    INTEGER,           obj) sep \
+    each(Metadata,       Metadata,      BLOB,              obj) sep \
+    each(RefreshHeight,  RefreshHeight, INTEGER NOT NULL,  obj) sep \
+    each(IsOwned,        IsOwned,       INTEGER,           obj)
+
+#define ASSET_FIELDS ENUM_ASSET_FIELDS(LIST, COMMA, )
 
 #define ENUM_SHIELDED_COIN_FIELDS(each, sep, obj) \
     each(skSerialG,             skSerialG,            BLOB NOT NULL PRIMARY KEY, obj) sep \
@@ -519,6 +531,12 @@ namespace beam::wallet
                 bind(col, m.data(), m.size());
             }
 
+            template<uint32_t nBytes_>
+            void bind(int col, const uintBig_t<nBytes_>& data)
+            {
+                bind(col, data.m_pData, static_cast<size_t>(nBytes_));
+            }
+
             void bind(int col, const void* blob, size_t size)
             {
                 if (size > static_cast<size_t>(numeric_limits<int32_t>::max()))// 0x7fffffff
@@ -773,7 +791,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion = 18;
+        const int DbVersion   = 19;
+        const int DbVersion18 = 18;
         const int DbVersion17 = 17;
         const int DbVersion16 = 16;
         const int DbVersion15 = 15;
@@ -992,7 +1011,6 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
-        
         void CreateLaserTables(sqlite3* db)
         {
             const char* req = "CREATE TABLE " LASER_CHANNELS_NAME " (" ENUM_LASER_CHANNEL_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
@@ -1004,6 +1022,16 @@ namespace beam::wallet
             throwIfError(ret, db);
 
             LOG_INFO() << "Create laser tables";
+        }
+
+        void CreateAssetsTable(sqlite3* db)
+        {
+            assert(db != nullptr);
+            const char* req = "CREATE TABLE " ASSETS_NAME " (" ENUM_ASSET_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;"
+                              "CREATE UNIQUE INDEX OwnerIndex ON " ASSETS_NAME "(Owner);"
+                              "CREATE INDEX RefreshHeightIndex ON " ASSETS_NAME "(RefreshHeight);";
+            const auto ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
         }
 
         void CreateShieldedCoinsTable(sqlite3* db)
@@ -1121,6 +1149,7 @@ namespace beam::wallet
         CreateTxParamsTable(db);
         CreateStatesTable(db);
         CreateLaserTables(db);
+        CreateAssetsTable(db);
         CreateShieldedCoinsTable(db);
     }
 
@@ -1566,21 +1595,18 @@ namespace beam::wallet
                     }
                     // no break; 
                 case DbVersion16:
-                {
                     LOG_INFO() << "Converting DB from format 16...";
                     CreateLaserTables(walletDB->_db);
-                    // no break;   
-                }
+                    // no break;
                 case DbVersion17:
-                {
                     LOG_INFO() << "Converting DB from format 17...";
+                    CreateAssetsTable(walletDB->_db);
+                    // no break
+                case DbVersion18:
+                    LOG_INFO() << "Converting DB from format 18...";
                     CreateShieldedCoinsTable(walletDB->_db);
-                    // no break;   
-                }
-
-                storage::setVar(*walletDB, Version, DbVersion);
-                // no break
-
+                    storage::setVar(*walletDB, Version, DbVersion);
+                    // no break
                 case DbVersion:
                     // drop private variables from public database for cold wallet
                     if (separateDBForPrivateData && !DropPrivateVariablesFromPublicDatabase(*walletDB))
@@ -1913,7 +1939,7 @@ namespace beam::wallet
         // derive the channel from the address
         BbsChannel ch;
         wid.m_Pk.ExportWord<0>(ch);
-        ch %= proto::Bbs::s_MaxChannels;
+        ch %= proto::Bbs::s_MaxWalletChannels;
 
         wid.m_Channel = ch;
     }
@@ -3014,6 +3040,50 @@ namespace beam::wallet
         m_AddressesCache.erase(id);
     }
 
+    void WalletDB::saveAsset(const Asset::Full &info, Height refreshHeight)
+    {
+        LOG_DEBUG() << "Save asset: " << info.m_ID;
+
+        const char* find = "SELECT * FROM" ASSETS_NAME " WHERE assetID=?1;";
+        sqlite::Statement stmFind(this, find);
+        stmFind.bind(1, info.m_ID);
+
+        const char* update = "UPDATE " ASSETS_NAME " SET Value=?2, Owner=?3, LockHeight=?4, Metadata=?5, RefreshHeight=?6 WHERE ID=?1;";
+        const char* insert = "INSERT INTO " ASSETS_NAME " (" ENUM_ASSET_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ASSET_FIELDS(BIND_LIST, COMMA, ) ");";
+        const bool  found  = stmFind.step();
+
+        sqlite::Statement stm(this, found ? update: insert);
+        stm.bind(1, info.m_ID);
+        stm.bind(2, info.m_Value);
+        stm.bind(3, info.m_Owner);
+        stm.bind(4, info.m_LockHeight);
+        stm.bind(5, info.m_Metadata.m_Value);
+        stm.bind(6, refreshHeight ? refreshHeight : getCurrentHeight());
+        stm.bind(7, false);
+        stm.step();
+    }
+
+    boost::optional<Asset::Full> WalletDB::findAsset(Asset::ID assetId)
+    {
+        const char* find = "SELECT * FROM" ASSETS_NAME " WHERE assetID=?1;";
+        sqlite::Statement stmFind(this, find);
+        stmFind.bind(1, assetId);
+        if (!stmFind.step()) return boost::optional<Asset::Full>();
+
+        Asset::Full info;
+        stmFind.get(0, info.m_ID);
+        assert(info.m_ID == assetId);
+
+        stmFind.get(1, info.m_Value);
+        stmFind.get(2, info.m_Owner);
+        stmFind.get(3, info.m_LockHeight);
+
+        stmFind.get(4, info.m_Metadata.m_Value);
+        info.m_Metadata.UpdateHash();
+
+        return info;
+    }
+
     void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
     {
         LOG_DEBUG() << "Save channel: "
@@ -3166,9 +3236,10 @@ namespace beam::wallet
 
     void WalletDB::Subscribe(IWalletDbObserver* observer)
     {
-        assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
-
-        m_subscribers.push_back(observer);
+        if (std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end())
+        {
+            m_subscribers.push_back(observer);
+        }
     }
 
     void WalletDB::Unsubscribe(IWalletDbObserver* observer)
@@ -3402,7 +3473,7 @@ namespace beam::wallet
         if (items.empty() && action != ChangeAction::Reset)
             return;
 
-        for (auto sub : m_subscribers)
+        for (const auto sub : m_subscribers)
         {
             sub->onCoinsChanged(action, items);
         }
@@ -3413,7 +3484,7 @@ namespace beam::wallet
         if (items.empty() && action != ChangeAction::Reset)
             return;
 
-        for (auto sub : m_subscribers)
+        for (const auto sub : m_subscribers)
         {
             sub->onTransactionChanged(action, items);
         }
@@ -3421,7 +3492,7 @@ namespace beam::wallet
 
     void WalletDB::notifySystemStateChanged(const Block::SystemState::ID& stateID)
     {
-        for (auto sub : m_subscribers) sub->onSystemStateChanged(stateID);
+        for (const auto sub : m_subscribers) sub->onSystemStateChanged(stateID);
     }
 
     void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
@@ -3429,7 +3500,7 @@ namespace beam::wallet
         if (items.empty() && action != ChangeAction::Reset)
             return;
 
-        for (auto sub : m_subscribers)
+        for (const auto sub : m_subscribers)
         {
             sub->onAddressChanged(action, items);
         }
@@ -3440,7 +3511,7 @@ namespace beam::wallet
         if (items.empty() && action != ChangeAction::Reset)
             return;
 
-        for (auto sub : m_subscribers)
+        for (const auto sub : m_subscribers)
         {
             sub->onShieldedCoinsChanged(action, items);
         }
@@ -3769,7 +3840,6 @@ namespace beam::wallet
             Init(db);
         }
 
-
         void Totals::Init(IWalletDB& walletDB)
         {
             auto getTotalsRef = [this](Asset::ID assetId) -> AssetTotals& {
@@ -4063,7 +4133,8 @@ namespace beam::wallet
                     if(txtype == TxType::AssetConsume ||
                        txtype == TxType::AssetIssue ||
                        txtype == TxType::AssetReg ||
-                       txtype == TxType::AssetUnreg)
+                       txtype == TxType::AssetUnreg ||
+                       txtype == TxType::AssetInfo)
                     {
                         // Should be Zero for assets issue & consume
                         if (wid != Zero)

@@ -15,6 +15,8 @@ Rectangle {
 
 	MainViewModel {id: viewModel}
 
+    UpdateInfoProvider {id: updateInfoProvider}
+
     ConfirmationDialog {
         id:                     closeDialog
         //% "Beam wallet close"
@@ -89,13 +91,10 @@ Rectangle {
     }
 
     property var contentItems : [
-		//"dashboard",
 		"wallet", 
         "atomic_swap",
 		"addresses", 
 		"utxo",
-		//"notification", 
-		//"info",
 		"settings"]
     property int selectedItem
 
@@ -332,6 +331,18 @@ Rectangle {
             trezor_popup.message = error
             trezor_popup.open()
 
+        }
+    }
+
+    Connections {
+        target: updateInfoProvider
+        onShowUpdateNotification: function(version) {
+            console.log("News received. Message: " + version);
+            var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(main);
+            popup.title = "New version v1.2.3 is avalable";
+            popup.message = "Your current version is v1.2.2. Please update to get the most of your Beam wallet.";
+            popup.acceptButtonText = "update now";
+            popup.open();
         }
     }
 

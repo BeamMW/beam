@@ -125,6 +125,11 @@ namespace std
         s.swap_buf(buffer);
         return beam::wallet::EncodeToBase58(buffer);
     }
+
+    string to_string(const beam::Version& v)
+    {
+        return v.to_string();
+    }
 }  // namespace std
 
 namespace beam
@@ -142,6 +147,49 @@ namespace beam
         os << std::to_string(amount);
         
         return os;
+    }
+
+    // Version Version::getCurrent()
+    // {
+    //     return Version
+    //     {
+    //         VERSION_MAJOR,
+    //         VERSION_MINOR,
+    //         VERSION_REVISION
+    //     };
+    // }
+
+    std::string Version::to_string() const
+    {
+        std::string maj(std::to_string(m_major));
+        std::string min(std::to_string(m_minor));
+        std::string rev(std::to_string(m_revision));
+        std::string res;
+        res.reserve(maj.size() + min.size() + rev.size());
+        res.append(maj).push_back('.');
+        res.append(min).push_back('.');
+        res.append(rev);
+        return res;
+    }
+
+    bool Version::operator==(const Version& other) const
+    {
+        return m_major == other.m_major
+            && m_minor == other.m_minor
+            && m_revision == other.m_revision;
+    }
+
+    bool Version::operator<(const Version& other) const
+    {
+        return m_major < other.m_major
+            || (m_major == other.m_major
+                && (m_minor < other.m_minor
+                    || (m_minor == other.m_minor && m_revision < other.m_revision)));
+    }
+
+    bool Version::operator!=(const Version& other) const
+    {
+        return !(*this == other);
     }
 }  // namespace beam
 
@@ -296,6 +344,15 @@ namespace beam::wallet
             >> hv;
     }
 
+    void SignatureHandler::get_Hash(Hash::Value& hv) const
+    {
+        beam::Blob data(m_data);
+        Hash::Processor()
+            << "Undersign"
+            << data
+            >> hv;
+    }
+
     TxParameters::TxParameters(const boost::optional<TxID>& txID)
         : m_ID(txID)
     {
@@ -433,35 +490,21 @@ namespace beam::wallet
         return {};
     }
 
-    void SwapOffer::SetTxParameters(const PackedTxParameters& parameters)
+    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params)
     {
-        // Do not forget to set other SwapOffer members also!
-        SubTxID subTxID = kDefaultSubTxID;
-        Deserializer d;
-        for (const auto& p : parameters)
+        bool res = false;
+        const TxParameters& p = receiverParams;
+        if (auto peerID = p.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); peerID)
         {
-            if (p.first == TxParameterID::SubTxIndex)
-            {
-                // change subTxID
-                d.reset(p.second.data(), p.second.size());
-                d & subTxID;
-                continue;
-            }
-
-            SetParameter(p.first, p.second, subTxID);
+            params.SetParameter(beam::wallet::TxParameterID::PeerID, *peerID);
+            res = true;
         }
-    }
-
-    SwapOffer SwapOfferToken::Unpack() const
-    {
-        SwapOffer result(m_TxID);
-        result.SetTxParameters(m_Parameters);
-
-        if (m_TxID) result.m_txId = *m_TxID;
-        if (m_status) result.m_status = *m_status;
-        if (m_publisherId) result.m_publisherId = *m_publisherId;
-        if (m_coin) result.m_coin = *m_coin;
-        return result;
+        if (auto peerID = p.GetParameter<PeerID>(beam::wallet::TxParameterID::PeerSecureWalletID); peerID)
+        {
+            params.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *peerID);
+            res &= true;
+        }
+        return res;
     }
 
     bool TxDescription::canResume() const

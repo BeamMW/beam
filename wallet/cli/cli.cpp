@@ -110,34 +110,25 @@ namespace beam
         case TxStatus::Canceled: return kTxStatusCancelled;
         case TxStatus::Completed:
         {
-            if (tx.m_txType == TxType::AssetIssue)
+            switch (tx.m_txType)
             {
-                return kTxStatusIssued;
-            }
-            else if (tx.m_txType == TxType::AssetConsume)
+                case TxType::AssetIssue: return kTxStatusIssued;
+                case TxType::AssetConsume: return kTxStatusConsumed;
+                case TxType::AssetReg: return kTxStatusRegistered;
+                case TxType::AssetUnreg: return kTxStatusUnregistered;
+                case TxType::AssetInfo: return kTxStatusInfoProvided;
+                default:
             {
-                return kTxStatusConsumed;
+                    if (tx.m_selfTx) return kTxStatusSentToOwn;
+                    return tx.m_sender ? kTxStatusSent : kTxStatusReceived;
             }
-            else if (tx.m_txType == TxType::AssetReg)
-            {
-                return kTxStatusRegistered;
             }
-            else if (tx.m_txType == TxType::AssetUnreg)
-            {
-                return kTxStatusUnregistered;
-            }
-            else if (tx.m_selfTx)
-            {
-                return kTxStatusSentToOwn;
-            }
-            return tx.m_sender ? kTxStatusSent : kTxStatusReceived;
         }
         case TxStatus::Failed: return TxFailureReason::TransactionExpired == tx.m_failureReason
             ? kTxStatusExpired : kTxStatusFailed;
         default:
             BOOST_ASSERT_MSG(false, kErrorUnknowmTxStatus);
         }
-
         return "";
     }
 
@@ -1209,42 +1200,20 @@ namespace
         return coinIDs;
     }
 
-    bool ReadAssetId(const po::variables_map& vm, Asset::ID& assetId)
-    {
-        if(!vm.count(cli::ASSET_ID))
-        {
-            // Just no asset id, it is normal, use BEAM
-            return true;
-        }
-
-        assetId = vm[cli::ASSET_ID].as<Asset::ID>();
-        return true;
-    }
-
-    bool LoadReceiverParams(const po::variables_map& vm, TxParameters& receiverParams)
+    bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
     {
         if (vm.count(cli::RECEIVER_ADDR) == 0)
         {
             LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
-        auto receverAddrOrToken = vm[cli::RECEIVER_ADDR].as<string>();
-        auto params = ParseParameters(receverAddrOrToken);
-        if (!params)
+        auto receiverParams = ParseParameters(vm[cli::RECEIVER_ADDR].as<string>());
+        if (!receiverParams)
         {
             LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
-        TxParameters& p = *params;
-        if (auto peerID = p.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); peerID)
-        {
-            receiverParams.SetParameter(beam::wallet::TxParameterID::PeerID, *peerID);
-        }
-        if (auto peerID = p.GetParameter<PeerID>(beam::wallet::TxParameterID::PeerSecureWalletID); peerID)
-        {
-            receiverParams.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *peerID);
-        }
-        return true;
+        return LoadReceiverParams(*receiverParams, params);
     }
 
     bool ReadAmount(const po::variables_map& vm, Amount& amount)
@@ -1334,10 +1303,9 @@ namespace
             return false;
         }
 
-        if (!ReadAssetId(vm, assetId))
+        if(vm.count(cli::ASSET_ID)) // asset id can be zero if beam only
         {
-            LOG_ERROR() << kInvalidAssetID;
-            return false;
+            assetId = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
         }
 
         return true;
@@ -1793,7 +1761,7 @@ namespace
 
         bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
-        Asset::ID assetId = 0;
+        Asset::ID assetId = Asset::s_InvalidID;
         Amount amount = 0;
         Amount fee = 0;
         WalletID receiverWalletID(Zero);
@@ -2069,7 +2037,7 @@ namespace
     {
     public:
         CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
-        void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
+        void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
         {
             LOG_ERROR() << kErrorConnectionFailed;
         };
@@ -2135,21 +2103,25 @@ namespace
 
     TxID IssueConsumeAsset(bool issue, const po::variables_map& vm, Wallet& wallet)
     {
+        if(!vm.count(cli::ASSET_ID)) // asset id can be zero if beam only
+        {
+            throw std::runtime_error(kErrorAssetIdRequired);
+        }
+        Asset::ID aid = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
+
         if(!vm.count(cli::ASSET_INDEX))
         {
             throw std::runtime_error(kErrorAssetIdxRequired);
         }
-
-        const auto aidx = vm[cli::ASSET_INDEX].as<Positive<uint32_t>>().value;
+        const Key::Index aidx = vm[cli::ASSET_INDEX].as<Positive<uint32_t>>().value;
 
         if (!vm.count(cli::AMOUNT))
         {
             throw std::runtime_error(kErrorAmountMissing);
         }
-
-        auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
-        auto amount = static_cast<ECC::Amount>(std::round(signedAmount * Rules::Coin));
-        if (amount == 0)
+        double cliAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
+        Amount amountGroth = static_cast<ECC::Amount>(std::round(cliAmount * Rules::Coin));
+        if (amountGroth == 0) /// TODO:ASSETS - check if necessary, may be Positive<> above would throw
         {
             throw std::runtime_error(kErrorZeroAmount);
         }
@@ -2161,10 +2133,11 @@ namespace
         }
 
         auto params = CreateTransactionParameters(issue ? TxType::AssetIssue : TxType::AssetConsume)
-                        .SetParameter(TxParameterID::Amount, amount)
+                        .SetParameter(TxParameterID::Amount, amountGroth)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
-                        .SetParameter(TxParameterID::AssetOwnerIdx, Key::Index(aidx));
+                        .SetParameter(TxParameterID::AssetOwnerIdx, aidx)
+                        .SetParameter(TxParameterID::AssetID, aid);
 
         return wallet.StartTransaction(params);
     }
@@ -2176,7 +2149,7 @@ namespace
             throw std::runtime_error(kErrorAssetIdxRequired);
         }
 
-        const auto aidx = vm[cli::ASSET_INDEX].as<Positive<uint32_t>>().value;
+        const Key::Index aidx = vm[cli::ASSET_INDEX].as<Positive<uint32_t>>().value;
 
         auto fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
         if (fee < cli::kMinimumFee)
@@ -2189,7 +2162,37 @@ namespace
                         .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
-                        .SetParameter(TxParameterID::AssetOwnerIdx, Key::Index(aidx));
+                        .SetParameter(TxParameterID::AssetOwnerIdx, aidx);
+
+        if (reg)
+        {
+            if(!vm.count(cli::METADATA))
+            {
+                throw std::runtime_error(kErrorAssetMetadataRequired);
+            }
+
+            std::string meta = vm[cli::METADATA].as<std::string>();
+            if (meta.empty())
+            {
+                throw std::runtime_error(kErrorAssetMetadataRequired);
+            }
+
+            params.SetParameter(TxParameterID::AssetMetadata, meta);
+        }
+
+        return wallet.StartTransaction(params);
+    }
+
+    TxID GetAssetInfo(const po::variables_map& vm, Wallet& wallet)
+    {
+        if(!vm.count(cli::ASSET_ID)) // asset id can be zero if beam only
+        {
+            throw std::runtime_error(kErrorAssetIdRequired);
+        }
+
+        Asset::ID aid = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
+        auto params = CreateTransactionParameters(TxType::AssetInfo)
+                        .SetParameter(TxParameterID::AssetID, aid);
 
         return wallet.StartTransaction(params);
     }
@@ -2300,7 +2303,7 @@ namespace
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
                 io::Address receiverAddr;
-                Asset::ID assetId = 0;
+                Asset::ID assetId = Asset::s_InvalidID;
                 Amount amount = 0;
                 Amount fee = 0;
                 WalletID receiverWalletID(Zero);
@@ -2475,6 +2478,15 @@ namespace
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
                 currentTxID = RegUnregAsset(false, vm, wallet);
+                return 0;
+            });
+    }
+
+    int ShowAssetInfo(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+                currentTxID = GetAssetInfo(vm, wallet);
                 return 0;
             });
     }
@@ -2678,6 +2690,7 @@ int main_impl(int argc, char* argv[])
                     {cli::ASSET_CONSUME,        ConsumeAsset},
                     {cli::ASSET_REGISTER,       RegisterAsset},
                     {cli::ASSET_UNREGISTER,     UnregisterAsset},
+                    {cli::ASSET_INFO,           ShowAssetInfo},
                     {cli::INSERT_TO_POOL,       InsertToShieldedPool},
                     {cli::EXTRACT_FROM_POOL,    ExtractFromShieldedPool}
                 };

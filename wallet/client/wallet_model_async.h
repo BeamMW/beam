@@ -17,6 +17,7 @@
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
+#include "wallet/client/extensions/offers_board/swap_offer.h"
 
 namespace beam::wallet
 {
@@ -63,6 +64,8 @@ namespace beam::wallet
         virtual void importDataFromJson(const std::string& data) = 0;
         virtual void exportDataToJson() = 0;
         virtual void exportTxHistoryToCsv() = 0;
+
+        virtual void setNewscastKey(const std::string& publisherKey) = 0;
 
         virtual ~IWalletModelAsync() {}
     };

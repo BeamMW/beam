@@ -157,8 +157,6 @@ namespace proto {
 
 				SyncCtx::Ptr m_pSync;
 
-				size_t m_iIndex; // for callbacks only
-
 				struct StateArray;
 
 				bool ShouldSync() const;
@@ -181,7 +179,7 @@ namespace proto {
 			public:
 				NetworkStd& m_This;
 
-				Connection(NetworkStd& x, size_t iIndex);
+				Connection(NetworkStd& x);
 				virtual ~Connection();
 
 				void ResetAll();
@@ -241,8 +239,8 @@ namespace proto {
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
 
 			// more events
-			virtual void OnNodeConnected(size_t iNodeIdx, bool) {}
-			virtual void OnConnectionFailed(size_t iNodeIdx, const NodeConnection::DisconnectReason&) {}
+			virtual void OnNodeConnected(bool) {}
+			virtual void OnConnectionFailed(const NodeConnection::DisconnectReason&) {}
 		};
 	};
 

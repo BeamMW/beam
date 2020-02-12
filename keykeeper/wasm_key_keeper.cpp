@@ -18,236 +18,204 @@
 
 #include <boost/algorithm/string.hpp>
 #include "utility/string_helpers.cpp"
+#include "nlohmann/json.hpp"
 
 #include <emscripten/bind.h>
 
 using namespace emscripten;
 using namespace beam;
 using namespace beam::wallet;
-
+using json = nlohmann::json;
 // #define PRINT_TEST_DATA 1
 
 struct KeyKeeper
 {
-    KeyKeeper(const std::string& words)
+    KeyKeeper(const std::string& phrase)
+        : _impl2(CreateKdfFromSeed(phrase))
     {
         static_assert(sizeof(uint64_t) == sizeof(unsigned long long));
-
-        if(!IsValidPhrase(words))
-            throw "Invalid seed phrase";
-
-        ECC::NoLeak<ECC::uintBig> seed;       
-        auto buf = beam::decodeMnemonic(string_helpers::split(words, ' '));
-        ECC::Hash::Processor() << beam::Blob(buf.data(), (uint32_t)buf.size()) >> seed.V;
-        ECC::HKdf::Create(_kdf, seed.V);
-
-        struct VariablesDB : IVariablesDB
-        {
-            void setVarRaw(const char* name, const void* data, size_t size) override {};
-            bool getVarRaw(const char* name, void* data, int size) const override { return false; };
-            void removeVarRaw(const char* name) override {};
-            void setPrivateVarRaw(const char* name, const void* data, size_t size) override {};
-            bool getPrivateVarRaw(const char* name, void* data, int size) const override { return false; };
-            bool getBlob(const char* name, ByteBuffer& var) const override { return false; };
-        };
-
-        IVariablesDB::Ptr vars = std::make_shared<VariablesDB>();
-
-        _impl = std::make_shared<LocalPrivateKeyKeeper>(vars, _kdf);
     }
 
-    std::string GeneratePublicKey(const std::string& id) const
+    std::string GetOwnerKey(const std::string& pass)
     {
-#if defined(PRINT_TEST_DATA)
-        {
-            std::cout 
-                << "ECC::Key::IDV(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0) -> data:application/octet-stream;base64,"
-                << to_base64(ECC::Key::IDV(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0))
-                << std::endl;
-        }
-#endif
+        IPrivateKeyKeeper2::Method::get_Kdf method;
+        method.m_Root = true;
+        method.m_iChild = 0;
+        _impl2.InvokeSync(method);
 
-        return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::uintBig>(id)));
-    }
-
-    std::string GenerateCoinKey(const std::string& sCid) const
-    {
-#if defined(PRINT_TEST_DATA)
-        {
-            std::cout
-                << "ECC::Key::IDV(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0) -> data:application/octet-stream;base64,"
-                << to_base64(ECC::Key::IDV(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0))
-                << std::endl;
-        }
-#endif
-
-        return to_base64(_impl->GenerateCoinKeySync(from_base64<CoinID>(sCid)));
-    }
-
-    std::string GetOwnerKey(const std::string& pass) const
-    {
         beam::KeyString ks;
         ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
         ks.m_sMeta = std::to_string(0);
 
-        ks.ExportP(*_kdf);
+        ks.ExportP(*method.m_pPKdf);
 
         return ks.m_sRes;
     }
 
-    size_t AllocateNonceSlotSync()
+    std::string get_Kdf(bool root, Key::Index keyIndex)
     {
-        return _impl->AllocateNonceSlotSync();
-    }
-
-    std::string GenerateNonce(size_t slot)
-    {
-        return to_base64(_impl->GenerateNonceSync(slot));
-    }
-
-    std::string GenerateOutput(const std::string& schemeHeigh, const std::string& cid)
-    {
-#if defined(PRINT_TEST_DATA)
+        IPrivateKeyKeeper2::Method::get_Kdf method;
+        method.m_Root = root;
+        method.m_iChild = keyIndex;
+        auto status = _impl2.InvokeSync(method);
+        json res =
         {
-            Height schemeHeigh = 100500;
-            std::cout 
-                << "Height schemeHeigh -> data:application/octet-stream;base64,"
-                << to_base64(schemeHeigh)
-                << std::endl;
+            {JsonFields::Status, status}
+        };
+
+        if (status == IPrivateKeyKeeper2::Status::Success)
+        {
+            ByteBuffer buf(sizeof(ECC::HKdfPub::Packed), 0);
+            method.m_pPKdf->ExportP(&buf[0]);
+            
+            res.push_back({ JsonFields::PublicKdf, to_base64(buf) });
         }
-#endif
-        // TODO: switch to generate vector<> instead single output
-        auto outputs = _impl->GenerateOutputsSync(from_base64<Height>(schemeHeigh), {from_base64<CoinID>(cid)});
-
-        return to_base64(outputs[0]);
+        return res.dump();
     }
 
-    std::string Sign(const std::string& inputs, const std::string& outputs, const std::string& offset, size_t nonceSlot, const std::string& kernelParameters, const std::string& publicNonce)
+    std::string get_NumSlots()
     {
-#if defined(PRINT_TEST_DATA)
+        IPrivateKeyKeeper2::Method::get_NumSlots method;
+        auto status = _impl2.InvokeSync(method);
+        json res =
         {
-            ECC::Point::Native totalPublicExcess = Zero;
+            {JsonFields::Status, status}
+        };
 
-            std::vector<ECC::Key::IDV> inputCoins =
+        if (status == IPrivateKeyKeeper2::Status::Success)
+        {
+            res.push_back({ JsonFields::Count, method.m_Count });
+        }
+        return res.dump();
+    }
+
+    std::string CreateOutput(const std::string& scheme, const std::string& cid)
+    {
+        IPrivateKeyKeeper2::Method::CreateOutput method;
+
+        method.m_hScheme = from_base64<Height>(scheme);
+        method.m_Cid = from_base64<CoinID>(cid);
+
+        auto status = _impl2.InvokeSync(method);
+        json res =
+        {
+            {JsonFields::Status, status}
+        };
+
+        if (status == IPrivateKeyKeeper2::Status::Success)
+        {
+            res.push_back({ JsonFields::Result, to_base64(method.m_pResult) });
+        }
+        return res.dump();
+    }
+    
+    std::string SignReceiver(const std::string& inputs
+                           , const std::string& outputs
+                           , const std::string& kernel
+                           , bool nonConventional
+                           , const std::string& peerID
+                           , const std::string& myIDKey)
+    {
+        IPrivateKeyKeeper2::Method::SignReceiver method;
+
+        method.m_vInputs = from_base64<std::vector<CoinID>>(inputs);
+        method.m_vOutputs = from_base64<std::vector<CoinID>>(outputs);
+        method.m_pKernel = from_base64<TxKernelStd::Ptr>(kernel);
+        method.m_NonConventional = nonConventional;
+        method.m_Peer = from_base64<PeerID>(peerID);
+        method.m_MyIDKey = from_base64<WalletIDKey>(myIDKey);
+
+        auto status = _impl2.InvokeSync(method);
+        json res =
+        {
+            {JsonFields::Status, status}
+        };
+
+        if (status == IPrivateKeyKeeper2::Status::Success)
+        {
+            res.push_back({ JsonFields::PaymentProofSig, to_base64(method.m_PaymentProofSignature) });
+            FillCommonSignatureResult(res, method);
+        }
+        return res.dump();
+    }
+
+    std::string SignSender(const std::string& inputs
+                         , const std::string& outputs
+                         , const std::string& kernel
+                         , bool nonConventional
+                         , const std::string& peerID
+                         , const std::string& myIDKey
+                         , uint32_t slot
+                         , const std::string& userAgreement
+                         , const std::string& myID
+                         , const std::string& paymentProof)
+    {
+        IPrivateKeyKeeper2::Method::SignSender method;
+
+        method.m_vInputs = from_base64<std::vector<CoinID>>(inputs);
+        method.m_vOutputs = from_base64<std::vector<CoinID>>(outputs);
+        method.m_pKernel = from_base64<TxKernelStd::Ptr>(kernel);
+        method.m_NonConventional = nonConventional;
+        method.m_Peer = from_base64<PeerID>(peerID);
+        method.m_MyIDKey = from_base64<WalletIDKey>(myIDKey);
+        method.m_Slot = slot;
+        method.m_UserAgreement = from_base64<ECC::Hash::Value>(userAgreement);
+        method.m_MyID = from_base64<PeerID>(myID);
+        method.m_PaymentProofSignature = from_base64<ECC::Signature>(paymentProof);
+
+        bool zeroAgreement = method.m_UserAgreement == Zero;
+
+        auto status = _impl2.InvokeSync(method);
+        json res =
+        {
+            {JsonFields::Status, status}
+        };
+
+        if (status == IPrivateKeyKeeper2::Status::Success)
+        {
+            if (zeroAgreement)
             {
-                {40, 0, Key::Type::Regular},
-            };
-
-            std::vector<ECC::Key::IDV> outputCoins =
-            {
-                {16, 0, Key::Type::Regular},
-                {24, 0, Key::Type::Regular},
-            };
-
-            beam::Amount fee = 0;
-            ECC::Scalar::Native offset = Zero;
-            offset.GenRandomNnz();
-
-            std::cout 
-                << "std::vector<Key::IDV> inputs -> data:application/octet-stream;base64,"
-                << to_base64(inputCoins)
-                << std::endl;
-
-            std::cout 
-                << "std::vector<Key::IDV> outputs -> data:application/octet-stream;base64,"
-                << to_base64(outputCoins)
-                << std::endl;
-
-            std::cout 
-                << "ECC::Scalar offset -> data:application/octet-stream;base64,"
-                << to_base64(ECC::Scalar(offset))
-                << std::endl;
-
-            {
-
-                ECC::Point::Native publicAmount = Zero;
-                Amount amount = 0;
-                for (const auto& cid : inputCoins)
-                {
-                    amount += cid.m_Value;
-                }
-                AmountBig::AddTo(publicAmount, amount);
-                amount = 0;
-                publicAmount = -publicAmount;
-                for (const auto& cid : outputCoins)
-                {
-                    amount += cid.m_Value;
-                }
-                AmountBig::AddTo(publicAmount, amount);
-
-                ECC::Point::Native publicExcess = ECC::Context::get().G * offset;
-
-                {
-                    ECC::Point::Native commitment;
-
-                    for (const auto& output : outputCoins)
-                    {
-                        // TODO:ASSETS implement
-                        if (commitment.Import(_impl->GenerateCoinKeySync(output, Zero)))
-                        {
-                            publicExcess += commitment;
-                        }
-                    }
-
-                    publicExcess = -publicExcess;
-                    for (const auto& input : inputCoins)
-                    {
-                        // TODO:ASSETS implement
-                        if (commitment.Import(_impl->GenerateCoinKeySync(input, Zero)))
-                        {
-                            publicExcess += commitment;
-                        }
-                    }
-                }
-
-                publicExcess += publicAmount;
-
-                totalPublicExcess = publicExcess;
+                res.push_back({ JsonFields::UserAgreement, to_base64(method.m_UserAgreement) });
+                res.push_back({ JsonFields::Commitment, to_base64(method.m_pKernel->m_Commitment) });
+                res.push_back({ JsonFields::PublicNonce, to_base64(method.m_pKernel->m_Signature.m_NoncePub) });
             }
-
-            KernelParameters kernelParameters;
-            kernelParameters.fee = fee;
-            kernelParameters.height = { 25000, 27500 };
-            kernelParameters.commitment = totalPublicExcess;
-
-            std::cout 
-                << "KernelParameters kernelParamerters -> data:application/octet-stream;base64,"
-                << to_base64(kernelParameters)
-                << std::endl;
-
-            ECC::Point::Native peerPublicNonce = Zero;
-            ECC::Point::Native publicNonce;
-            uint8_t nonceSlot = (uint8_t)_impl->AllocateNonceSlotSync();
-            publicNonce.Import(_impl->GenerateNonceSync(nonceSlot));
-
-            ECC::Signature signature;
-            signature.m_NoncePub = publicNonce + peerPublicNonce;
-
-            std::cout 
-                << "publicNonce -> data:application/octet-stream;base64,"
-                << to_base64(signature.m_NoncePub)
-                << std::endl;
+            else
+            {
+                FillCommonSignatureResult(res, method);
+            }
         }
-#endif
+        return res.dump();
+    }
 
-        ECC::Scalar::Native offsetNative;
-        offsetNative.Import(from_base64<ECC::Scalar>(offset));
+    std::string SignSplit(const std::string& inputs
+                        , const std::string& outputs
+                        , const std::string& kernel
+                        , bool nonConventional)
+    {
+        IPrivateKeyKeeper2::Method::SignSplit method;
 
-        ECC::Point::Native publicNonceNative;
-        publicNonceNative.Import(from_base64<ECC::Point>(publicNonce));
+        method.m_vInputs = from_base64<std::vector<CoinID>>(inputs);
+        method.m_vOutputs = from_base64<std::vector<CoinID>>(outputs);
+        method.m_pKernel = from_base64<TxKernelStd::Ptr>(kernel);
+        method.m_NonConventional = nonConventional;
 
-        //auto sign = _impl->SignSync(
-        //    from_base64<std::vector<Key::IDV>>(inputs), 
-        //    from_base64<std::vector<Key::IDV>>(outputs),
-        //    Zero,
-        //    offsetNative,
-        //    nonceSlot,
-        //    from_base64<KernelParameters>(kernelParameters),
-        //    publicNonceNative);
+        auto status = _impl2.InvokeSync(method);
+        json res =
+        {
+            {JsonFields::Status, status}
+        };
 
-        ECC::Scalar sign(Zero); // dummy
+        if (status == IPrivateKeyKeeper2::Status::Success)
+        {
+            FillCommonSignatureResult(res, method);
+        }
+        return res.dump();
+    }
 
-        return to_base64(sign);
+    void FillCommonSignatureResult(json& res, const IPrivateKeyKeeper2::Method::TxCommon& method)
+    {
+        res.push_back({ JsonFields::Offset, to_base64(ECC::Scalar(method.m_kOffset)) });
+        res.push_back({ JsonFields::Kernel, to_base64(method.m_pKernel) });
     }
 
     static std::string GeneratePhrase()
@@ -265,9 +233,29 @@ struct KeyKeeper
         return isValidMnemonic(string_helpers::split(words, ' '), language::en);
     }
 
+    // TODO: move to common place
+    static ECC::Key::IKdf::Ptr CreateKdfFromSeed(const std::string& phrase)
+    {
+        if (!IsValidPhrase(phrase))
+            throw "Invalid seed phrase";
+
+        Key::IKdf::Ptr kdf;
+        ECC::NoLeak<ECC::uintBig> seed;
+        auto buf = beam::decodeMnemonic(string_helpers::split(phrase, ' '));
+        ECC::Hash::Processor() << beam::Blob(buf.data(), (uint32_t)buf.size()) >> seed.V;
+        ECC::HKdf::Create(kdf, seed.V);
+        return kdf;
+    }
+
 private:
-    Key::IKdf::Ptr _kdf;
-    IPrivateKeyKeeper::Ptr _impl;
+    struct MyKeeKeeper
+        : public LocalPrivateKeyKeeperStd
+    {
+        using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
+
+        bool IsTrustless() override { return true; }
+    };
+    MyKeeKeeper _impl2;
 };
 
 // Binding code
@@ -275,13 +263,13 @@ EMSCRIPTEN_BINDINGS()
 {
     class_<KeyKeeper>("KeyKeeper")
         .constructor<const std::string&>()
-        .function("generatePublicKey",      &KeyKeeper::GeneratePublicKey)
-        .function("generateCoinKey",        &KeyKeeper::GenerateCoinKey)
         .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
-        .function("allocateNonceSlot",      &KeyKeeper::AllocateNonceSlotSync)
-        .function("generateNonce",          &KeyKeeper::GenerateNonce)
-        .function("generateOutput",         &KeyKeeper::GenerateOutput)
-        .function("sign",                   &KeyKeeper::Sign)
+#define THE_MACRO(method) \
+        .function(#method, &KeyKeeper::method)\
+
+        KEY_KEEPER_METHODS(THE_MACRO)
+#undef THE_MACRO
+
         .class_function("GeneratePhrase",   &KeyKeeper::GeneratePhrase)
         .class_function("IsAllowedWord",    &KeyKeeper::IsAllowedWord)
         .class_function("IsValidPhrase",    &KeyKeeper::IsValidPhrase)

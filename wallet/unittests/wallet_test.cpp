@@ -2179,7 +2179,7 @@ void TestKeyKeeper()
     {
         using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
 
-        virtual bool IsTrustless() override { return true; }
+        bool IsTrustless() override { return true; }
     };
 
     Peer pPeer[2];
@@ -2239,7 +2239,7 @@ void TestKeyKeeper()
     mR.m_pKernel = std::move(mS.m_pKernel);
     mR.m_vInputs.push_back(CoinID(3, 2344, Key::Type::Regular));
     mR.m_vOutputs.push_back(CoinID(125, 2345, Key::Type::Regular));
-    mR.m_vOutputs.push_back(CoinID(8, 2346, Key::Type::Regular, 6));
+    mR.m_vOutputs.push_back(CoinID(8, 2346, Key::Type::Regular));
 
     // adjust kernel height a little
     mR.m_pKernel->m_Height.m_Min += 2;

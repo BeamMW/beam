@@ -176,8 +176,7 @@ if(SWAP_MAINNET)
 endif()
 
 option(BEAM_ATOMIC_SWAP_SUPPORT "Build wallet with atomic swap support" ON)
-option(BEAM_LELANTUS_SUPPORT "Build wallet with lelantus support" ON)
-option(BEAM_LASER_SUPPORT "Build wallet with laser support" ON)
+option(BEAM_LASER_SUPPORT "Build wallet with laser support" OFF)
 
 option(BEAM_CONFIDENTIAL_ASSETS_SUPPORT "Build wallet with confidential assets support" ON)
 

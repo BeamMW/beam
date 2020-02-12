@@ -67,7 +67,7 @@ struct SomeObject {
 
 struct MsgHandler : IErrorHandler {
     void on_protocol_error(uint64_t fromStream, ProtocolError error) override {
-        cout << __FUNCTION__ << "(" << fromStream << "," << error << ")" << endl;
+        cout << __FUNCTION__ << "(" << fromStream << "," << static_cast<int32_t>(error) << ")" << endl;
     }
 
     void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override {

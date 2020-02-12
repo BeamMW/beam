@@ -14,8 +14,12 @@
 
 #pragma once
 
+#include "swap_offer.h"
+#include "swap_offers_observer.h"
+#include "offers_protocol_handler.h"
+#include "wallet/client/extensions/broadcast_gateway/interface.h"
+
 #include "wallet/core/wallet.h"
-#include "utility/logger.h"
 #include "utility/std_extension.h"
 
 #include <unordered_map>
@@ -28,17 +32,20 @@ namespace beam::wallet
      *  Implementation of public swap offers bulletin board using not crypted BBS broadcasting.
      */
     class SwapOffersBoard
-        : public FlyClient::IBbsReceiver,
+        : public IBroadcastListener,
           public IWalletDbObserver
     {
     public:
-        SwapOffersBoard(FlyClient::INetwork& network, IWalletMessageEndpoint& messageEndpoint);
+        using Ptr = std::shared_ptr<SwapOffersBoard>;
+
+        SwapOffersBoard(IBroadcastMsgsGateway&, OfferBoardProtocolHandler&);
 
         /**
-         *  FlyClient::IBbsReceiver implementation
-         *  Executed to catch BBS messages received on subscribed channels
+         *  IBroadcastListener implementation
+         *  Processes broadcast messages
          */
-        virtual void OnMsg(proto::BbsMsg&& msg) override;
+        virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
+        
         /**
          *  IWalletDbObserver implementation
          *  Watches for swap transaction status changes to update linked offers on board
@@ -56,17 +63,13 @@ namespace beam::wallet
         void Unsubscribe(ISwapOffersObserver* observer);
 
     private:
-		FlyClient::INetwork& m_network;                     /// source of incoming BBS messages
-        std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
-        IWalletMessageEndpoint& m_messageEndpoint;          /// destination of outgoing BBS messages
+		IBroadcastMsgsGateway& m_broadcastGateway;
+        OfferBoardProtocolHandler& m_protocolHandler;       /// handles message creating and parsing
 
-        static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
-        static constexpr uint8_t m_protocolVersion = 1;
-        Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
         Height m_currentHeight = 0;
         std::unordered_map<TxID, SwapOffer> m_offersCache;
+        std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
 
-        auto getChannel(AtomicSwapCoin coin) const -> BbsChannel;
         bool isOfferExpired(const SwapOffer& offer) const;
         void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
         void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);

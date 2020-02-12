@@ -62,6 +62,7 @@ namespace beam::wallet
 
         beam::Key::Index m_assetOwnerIdx;
         PeerID m_assetOwnerId;
+        std::string m_Metadata;
 
         Amount     m_Fee;
         Amount     m_ChangeBeam;

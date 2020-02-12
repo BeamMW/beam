@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 	<title>Beam Wallet Client</title>
@@ -145,7 +145,7 @@
 
 		Module().then(function(Module)
         {
-			var connection = null;
+        	var connection = null;
 			var keykeeper = null
 
 			function showPanel(id)
@@ -181,6 +181,11 @@
 			}
 
 			start();
+
+			function initKeyKeeper(seed)
+			{
+				return new Module.KeyKeeper(seed)
+			}
 
 			function send(amount, address)
 			{
@@ -422,7 +427,7 @@
 			$('#open-wallet-panel .open-wallet-button').click(() => 
 			{
 				console.log(`Opening wallet with seed phrase: ${localStorage.seed}`)
-				keykeeper = new Module.KeyKeeper(localStorage.seed)
+				keykeeper = initKeyKeeper(localStorage.seed)
 				var walletPass = $('#open-wallet-panel .wallet-pass-input').val()
 
 				connection.onmessage = e => 
@@ -466,7 +471,7 @@
 					{
 						jsonrpc:'2.0', 
 						id: id,
-						result: result
+						result: JSON.parse(result)
 					})
 				)
 			}
@@ -490,12 +495,12 @@
 				
 				var handlers = 
 				{
-					generate_key: 			() => sendKeykeeperResult(data.id, keykeeper.generatePublicKey(data.params.id)),
-					generate_coin_key:		() => sendKeykeeperResult(data.id, keykeeper.generateCoinKey(data.params.id, data.params.asset_id)),
-					allocate_nonce_slot: 	() => sendKeykeeperResult(data.id, keykeeper.allocateNonceSlot()),
-					generate_output: 		() => sendKeykeeperResult(data.id, keykeeper.generateOutput(data.params.scheme, data.params.id)),
-					generate_nonce: 		() => sendKeykeeperResult(data.id, keykeeper.generateNonce(data.params.slot)),
-					sign: 					() => sendKeykeeperResult(data.id, keykeeper.sign(data.params.inputs, data.params.outputs, data.params.offset, data.params.slot, data.params.kernel_parameters, data.params.public_nonce)),
+					get_kdf:                () => sendKeykeeperResult(data.id, keykeeper.get_Kdf(data.params.root, data.params.child_key_num)), 
+					get_slots:              () => sendKeykeeperResult(data.id, keykeeper.get_NumSlots()),
+					create_output:          () => sendKeykeeperResult(data.id, keykeeper.CreateOutput(data.params.scheme, data.params.id)),
+                    sign_receiver:          () => sendKeykeeperResult(data.id, keykeeper.SignReceiver(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv, data.params.peer_id, data.params.my_id_key)),
+                    sign_sender:            () => sendKeykeeperResult(data.id, keykeeper.SignSender(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv, data.params.peer_id, data.params.my_id_key, data.params.slot, data.params.agreement, data.params.my_id, data.params.payment_proof_sig)),
+                    sign_split:             () => sendKeykeeperResult(data.id, keykeeper.SignSplit(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv)),
 				}
 
 				handlers[data.method] 
@@ -508,13 +513,7 @@
 				var seed = $('#create-wallet-panel .seed-phrase-input').val()
 				console.log(`Creating new wallet with seed phrase: ${seed}`)
 
-				if(!Module.KeyKeeper.IsValidPhrase(seed))
-				{
-					alert('error: invalid seed prase');
-					return;
-				}
-
-				keykeeper = new Module.KeyKeeper(seed)
+				keykeeper = initKeyKeeper(seed)
 				var walletPass = $('#create-wallet-panel .wallet-pass-input').val()
 				var ownerKey = keykeeper.getOwnerKey(walletPass)
 

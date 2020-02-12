@@ -46,27 +46,6 @@ namespace
 {
     static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 
-    template<typename Observer, typename Notifier>
-    struct ScopedSubscriber
-    {
-        ScopedSubscriber(Observer* observer, const std::shared_ptr<Notifier>& notifier)
-            : m_observer(observer)
-            , m_notifier(notifier)
-        {
-            m_notifier->Subscribe(m_observer);
-        }
-
-        ~ScopedSubscriber()
-        {
-            m_notifier->Unsubscribe(m_observer);
-        }
-    private:
-        Observer * m_observer;
-        std::shared_ptr<Notifier> m_notifier;
-    };
-
-    using WalletSubscriber = ScopedSubscriber<IWalletObserver, Wallet>;
-
     // this code for node
     static unique_ptr<NodeModel> nodeModel;
 

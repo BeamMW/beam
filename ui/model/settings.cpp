@@ -47,6 +47,10 @@ namespace
 
     const char* kDefaultLocale = "en_US";
 
+    const char* kNewscastPublicKey = "newscast/publisher_key";
+    const char* kUpdatesPushActive = "newscast/updates_push_active";
+    const char* kExcRatesActive = "newscast/exchange_rates_active";
+
     const std::map<QString, QString> kSupportedLangs { 
         { "zh_CN", "Chinese Simplified"},
         { "en_US", "English" },
@@ -341,6 +345,58 @@ void WalletSettings::setLocaleByLanguageName(const QString& language)
         m_data.setValue(kLocaleName, locale);
     }
     emit localeChanged();
+}
+
+bool WalletSettings::isUpdatesPushActive() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(kUpdatesPushActive, false).toBool();
+}
+
+void WalletSettings::setUpdatesPushActive(bool isActive)
+{
+    if (isActive != isUpdatesPushActive())
+    {
+        Lock lock(m_mutex);
+        m_data.setValue(kUpdatesPushActive, isActive);
+    }
+}
+
+bool WalletSettings::isExcRatesActive() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(kExcRatesActive, false).toBool();
+}
+
+void WalletSettings::setExcRatesActive(bool isActive)
+{
+    if (isActive != isExcRatesActive())
+    {
+        Lock lock(m_mutex);
+        m_data.setValue(kExcRatesActive, isActive);
+    }
+}
+
+QString WalletSettings::getNewscastKey() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(kNewscastPublicKey).toString();
+}
+
+void WalletSettings::setNewscastKey(QString keyHex)
+{
+    if (keyHex != getNewscastKey())
+    {
+        auto walletModel = AppModel::getInstance().getWallet();
+        if (walletModel)
+        {
+            walletModel->getAsync()->setNewscastKey(keyHex.toStdString());
+        }
+        {
+            Lock lock(m_mutex);
+            m_data.setValue(kNewscastPublicKey, keyHex);
+        }
+    }
 }
 
 // static

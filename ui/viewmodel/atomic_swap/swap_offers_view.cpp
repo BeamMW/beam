@@ -55,7 +55,6 @@ void SwapOffersViewModel::ActiveTxCounters::clear()
 
 SwapOffersViewModel::SwapOffersViewModel()
     :   m_walletModel{*AppModel::getInstance().getWallet()},
-        m_selectedCoin(AtomicSwapCoin::Bitcoin),
         m_btcClient(AppModel::getInstance().getBitcoinClient()),
         m_ltcClient(AppModel::getInstance().getLitecoinClient()),
         m_qtumClient(AppModel::getInstance().getQtumClient())
@@ -88,17 +87,6 @@ SwapOffersViewModel::SwapOffersViewModel()
     m_blocksPerHour.emplace(AtomicSwapCoin::Bitcoin, m_btcClient->GetSettings().GetBlocksPerHour());
     m_blocksPerHour.emplace(AtomicSwapCoin::Litecoin, m_ltcClient->GetSettings().GetBlocksPerHour());
     m_blocksPerHour.emplace(AtomicSwapCoin::Qtum, m_qtumClient->GetSettings().GetBlocksPerHour());
-}
-
-int SwapOffersViewModel::getSelectedCoin()
-{
-    return static_cast<int>(m_selectedCoin);
-}
-
-void SwapOffersViewModel::setSelectedCoin(int coinType)
-{
-    m_selectedCoin = static_cast<AtomicSwapCoin>(coinType);
-    emit selectedCoinChanged();
 }
 
 QAbstractItemModel* SwapOffersViewModel::getAllOffers()

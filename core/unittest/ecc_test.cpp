@@ -51,32 +51,6 @@
 #	pragma warning (pop)
 #endif
 
-//#define TREZOR_DEBUG 1
-#if TREZOR_DEBUG == 1
-    #define ANSI_COLOR_RED     "\x1b[31m"
-    #define ANSI_COLOR_GREEN   "\x1b[32m"
-    #define ANSI_COLOR_YELLOW  "\x1b[33m"
-    #define ANSI_COLOR_BLUE    "\x1b[34m"
-    #define ANSI_COLOR_MAGENTA "\x1b[35m"
-    #define ANSI_COLOR_CYAN    "\x1b[36m"
-    #define ANSI_COLOR_RESET   "\x1b[0m"
-
-    #define DEBUG_PRINT(msg, arr, len)                                                  \
-        printf(ANSI_COLOR_CYAN "Line=%u" ANSI_COLOR_RESET ", Msg=%s ", __LINE__, msg);  \
-    printf(ANSI_COLOR_YELLOW);                                                          \
-    for (size_t i = 0; i < len; i++)                                                    \
-    {                                                                                   \
-        printf("%02x", arr[i]);                                                         \
-    }                                                                                   \
-    printf(ANSI_COLOR_RESET "\n");
-#else
-    #define DEBUG_PRINT(msg, arr, len) 0
-#endif // TREZOR_DEBUG
-
-#if defined(BEAM_HW_WALLET)
-#include "keykeeper/hw_wallet.h"
-#endif
-
 // Needed for test
 struct secp256k1_context_struct {
     secp256k1_ecmult_context ecmult_ctx;
@@ -144,27 +118,18 @@ void GenerateRandom(void* p, uint32_t n)
 		((uint8_t*) p)[i] = (uint8_t) rand();
 }
 
-void Test_GenerateNonRandom(void* p, uint32_t n, uint8_t value)
-{
-	for (uint32_t i = 0; i < n; i++)
-		((uint8_t*) p)[i] = value;
-}
-
 template <uint32_t nBytes>
-void SetRandom(beam::uintBig_t<nBytes>& x, bool is_trezor_debug = false)
+void SetRandom(beam::uintBig_t<nBytes>& x)
 {
-    if (is_trezor_debug)
-        Test_GenerateNonRandom(x.m_pData, x.nBytes, 3);
-    else
-        GenerateRandom(x.m_pData, x.nBytes);
+	GenerateRandom(x.m_pData, x.nBytes);
 }
 
-void SetRandom(Scalar::Native& x, bool is_trezor_debug = false)
+void SetRandom(Scalar::Native& x)
 {
 	Scalar s;
 	while (true)
 	{
-		SetRandom(s.m_Value, is_trezor_debug);
+		SetRandom(s.m_Value);
 		if (!x.Import(s))
 			break;
 	}
@@ -193,12 +158,9 @@ void SetRandom(Key::IKdf::Ptr& pPtr)
 
 
 template <typename T>
-void SetRandomOrd(T& x, bool is_trezor_debug = false)
+void SetRandomOrd(T& x)
 {
-    if (is_trezor_debug)
-        Test_GenerateNonRandom(&x, sizeof(x), 0);
-    else
-        GenerateRandom(&x, sizeof(x));
+	GenerateRandom(&x, sizeof(x));
 }
 
 uint32_t get_LsBit(const uint8_t* pSrc, uint32_t nSrc, uint32_t iBit)
@@ -1220,23 +1182,23 @@ struct TransactionMaker
 			m_k = Zero;
 		}
 
-		void FinalizeExcess(Point::Native& kG, Scalar::Native& kOffset, bool is_trezor_debug = false)
+		void FinalizeExcess(Point::Native& kG, Scalar::Native& kOffset)
 		{
 			kOffset += m_k;
 
-			SetRandom(m_k, is_trezor_debug);
+			SetRandom(m_k);
 			kOffset += m_k;
 
 			m_k = -m_k;
 			kG += Context::get().G * m_k;
 		}
 
-		void AddInput(beam::Transaction& t, Amount val, Key::IKdf& kdf, beam::Asset::ID nAssetID = 0, bool is_trezor_debug = false)
+		void AddInput(beam::Transaction& t, Amount val, Key::IKdf& kdf, beam::Asset::ID nAssetID = 0)
 		{
 			std::unique_ptr<beam::Input> pInp(new beam::Input);
 
 			CoinID cid;
-			SetRandomOrd(cid.m_Idx, is_trezor_debug);
+			SetRandomOrd(cid.m_Idx);
 			cid.m_Type = Key::Type::Regular;
 			cid.set_Subkey(0);
 			cid.m_Value = val;
@@ -1249,14 +1211,14 @@ struct TransactionMaker
 			m_k += k;
 		}
 
-		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf, beam::Asset::ID nAssetID = 0, bool is_trezor_debug = false)
+		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf, beam::Asset::ID nAssetID = 0)
 		{
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
 
 			Scalar::Native k;
 
 			CoinID cid;
-			SetRandomOrd(cid.m_Idx, is_trezor_debug);
+			SetRandomOrd(cid.m_Idx);
 			cid.m_Type = Key::Type::Regular;
 			cid.set_Subkey(0);
 			cid.m_Value = val;
@@ -1279,7 +1241,7 @@ struct TransactionMaker
 
 	Peer m_pPeers[2]; // actually can be more
 
-	void CoSignKernel(beam::TxKernelStd& krn, bool is_trezor_debug = false)
+	void CoSignKernel(beam::TxKernelStd& krn)
 	{
 		// 1st pass. Public excesses and Nonces are summed.
 		Scalar::Native pX[_countof(m_pPeers)];
@@ -1290,9 +1252,9 @@ struct TransactionMaker
 		for (size_t i = 0; i < _countof(m_pPeers); i++)
 		{
 			Peer& p = m_pPeers[i];
-			p.FinalizeExcess(kG, offset, is_trezor_debug);
+			p.FinalizeExcess(kG, offset);
 
-			SetRandom(pX[i], is_trezor_debug);
+			SetRandom(pX[i]);
 			xG += Context::get().G * pX[i];
 		}
 
@@ -1320,7 +1282,7 @@ struct TransactionMaker
 		krn.m_Signature.m_k = kSig;
 	}
 
-	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag, bool bNested, bool is_trezor_debug = false)
+	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag, bool bNested)
 	{
 		std::unique_ptr<beam::TxKernelStd> pKrn(new beam::TxKernelStd);
 		pKrn->m_Fee = fee;
@@ -1333,7 +1295,7 @@ struct TransactionMaker
 		//pKrn->m_pHashLock.release();
 
 		beam::TxKernelStd::HashLock hl;
-		SetRandom(hl.m_Value, is_trezor_debug);
+		SetRandom(hl.m_Value);
 
 		pKrn->m_pHashLock->m_IsImage = true;
 		pKrn->m_pHashLock->m_Value = hl.get_Image(pKrn->m_pHashLock->m_Value);
@@ -1349,9 +1311,9 @@ struct TransactionMaker
 			beam::Asset::ID nAssetID = 17;
 			Amount valAsset = 4431;
 			
-			SetRandom(sk, is_trezor_debug); // excess
+			SetRandom(sk); // excess
 
-			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, nAssetID, is_trezor_debug); // output UTXO to consume the created asset
+			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, nAssetID); // output UTXO to consume the created asset
 
 			beam::TxKernelAssetEmit::Ptr pKrnEmission(new beam::TxKernelAssetEmit);
 			pKrnEmission->m_Height.m_Min = g_hFork;
@@ -1367,7 +1329,7 @@ struct TransactionMaker
 			m_pPeers[0].m_k += sk;
 		}
 
-		CoSignKernel(*pKrn, is_trezor_debug);
+		CoSignKernel(*pKrn);
 
 		Point::Native exc;
 		pKrn->m_pHashLock->m_IsImage = false;
@@ -1382,14 +1344,14 @@ struct TransactionMaker
 		lstTrg.push_back(std::move(pKrn));
 	}
 
-	void AddInput(int i, Amount val, bool is_trezor_debug = false)
+	void AddInput(int i, Amount val)
 	{
-		m_pPeers[i].AddInput(m_Trans, val, m_Kdf, 0, is_trezor_debug);
+		m_pPeers[i].AddInput(m_Trans, val, m_Kdf);
 	}
 
-	void AddOutput(int i, Amount val, bool is_trezor_debug = false)
+	void AddOutput(int i, Amount val)
 	{
-		m_pPeers[i].AddOutput(m_Trans, val, m_Kdf, 0, is_trezor_debug);
+		m_pPeers[i].AddOutput(m_Trans, val, m_Kdf);
 	}
 };
 
@@ -1420,538 +1382,6 @@ void TestTransaction()
 	ctx.m_Height.m_Min = g_hFork;
 	verify_test(tm.m_Trans.IsValid(ctx));
 	verify_test(ctx.m_Stats.m_Fee == beam::AmountBig::Type(fee1 + fee2));
-}
-
-// Copy+Pasted from wallet/common.h
-struct PaymentConfirmation
-{
-	// I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
-	Amount m_Value;
-	Hash::Value m_KernelID;
-	beam::PeerID m_Sender;
-
-	void get_Hash(Hash::Value& hv) const
-	{
-        Hash::Processor()
-            << "PaymentConfirmation"
-            << m_KernelID
-            << m_Sender
-            << m_Value
-            >> hv;
-	}
-
-	bool IsValid(const Signature& s, const beam::PeerID& pid) const
-	{
-		Point::Native pk;
-		if (!pid.ExportNnz(pk))
-			return false;
-
-		Hash::Value hv;
-		get_Hash(hv);
-
-		return s.IsValid(hv, pk);
-	}
-
-	void Sign(Signature& s, const Scalar::Native& sk)
-	{
-		Hash::Value hv;
-		get_Hash(hv);
-
-		s.Sign(hv, sk);
-	}
-};
-
-struct IHWWallet
-{
-	static const uint32_t s_Slots = 16;
-
-	virtual void GetNoncePub(Point::Native& res, uint32_t iSlot) = 0;
-
-	struct TransactionInOuts
-	{
-		const CoinID* m_pInputs;
-		const CoinID* m_pOutputs;
-		uint32_t m_Inputs;
-		uint32_t m_Outputs;
-	};
-
-	virtual void SummarizeCommitment(Point::Native& res, const TransactionInOuts&) = 0;
-
-	void CreateInput(beam::Input& res, const CoinID& cid)
-	{
-		TransactionInOuts tx;
-		tx.m_Outputs = 0;
-		tx.m_Inputs = 1;
-		tx.m_pInputs = &cid;
-
-		Point::Native pt(Zero);
-		SummarizeCommitment(pt, tx);
-
-		res.m_Commitment = pt;
-	}
-
-	virtual void CreateOutput(beam::Output&, const CoinID&) = 0;
-
-	struct TransactionData
-		:public TransactionInOuts
-	{
-		// common kernel parameters
-		beam::HeightRange m_Height;
-		beam::Amount m_Fee;
-		// aggregated data
-		Point m_KernelCommitment;
-		Signature m_SignatureKrn;
-		// Additional explicit blinding factor that should be added
-		Scalar m_Offset;
-		// sender/receiver details
-		beam::PeerID m_Peer; // For receiver: address to who to sign the PaymentProof. For sender: address of the receiver that signed the PaymentProof
-		Signature m_PaymentProofSignature;
-	};
-
-	virtual bool SignTransactionRcv(TransactionData& tx) = 0;
-	virtual bool SignTransactionSnd(TransactionData& tx, uint32_t iSlot, bool bFinal) = 0;
-
-	virtual void GetWalletID(beam::PeerID& res) = 0;
-
-	// The flow is:
-	//	1. Sender is called SignTransactionSnd(), bFinal == false. It create the commitments and offset
-	//	2. Receiver is called SignTransactionRcv(). It completes the signature, and sings the m_PaymentProofSignature
-	//	3. Sender is called SignTransactionSnd(), bFinal == true. It checks the m_PaymentProofSignature, ASKS THE USER PERMISSION, and then completes the signature
-};
-
-struct HWWalletEmulator
-	:public IHWWallet
-{
-	Scalar m_pNonces[s_Slots];
-	Scalar m_nonceLast;
-	Key::IKdf::Ptr m_pKdf;
-
-	void Initialize()
-	{
-		// random wallet initialization
-		Hash::Value hv;
-#if TREZOR_DEBUG == 1
-        Test_SetUintBig(hv, 3);
-#else
-        GenRandom(hv);
-#endif
-		HKdf::Create(m_pKdf, hv);
-
-		// pre-initialize all the nonces
-		GenRandom(m_nonceLast.m_Value);
-		for (uint32_t i = 0; i < s_Slots; i++)
-			Regenerate(i);
-	}
-
-	// Regenerate a specific nonce
-	void Regenerate(uint32_t iSlot)
-	{
-#if TREZOR_DEBUG == 1
-        m_nonceLast = (uint32_t)3;
-        m_pNonces[iSlot] = m_nonceLast;
-#else
-		do
-			Hash::Processor() << m_nonceLast.m_Value >> m_nonceLast.m_Value;
-		while (!m_nonceLast.IsValid());
-
-		m_pNonces[iSlot] = m_nonceLast;
-#endif
-	}
-
-	virtual void GetNoncePub(Point::Native& res, uint32_t iSlot) override
-	{
-		iSlot %= s_Slots;
-		res = Context::get().G * m_pNonces[iSlot];
-	}
-
-	typedef int64_t AmountSigned;
-
-	// Add the blinding factor and value of a specific TXO
-	void SummarizeOnce(Scalar::Native& res, AmountSigned& dVal, const CoinID& cid)
-	{
-		Scalar::Native sk;
-		CoinID::Worker(cid).Create(sk, *m_pKdf);
-		res += sk;
-		dVal += cid.m_Value; // TODO - asset type!
-	}
-
-	// Summarize blinding factors and values of several in/out TXOs
-	void Summarize(Scalar::Native& res, AmountSigned& dVal, const TransactionInOuts& tx)
-	{
-		res = -res;
-		dVal = -dVal;
-
-		for (uint32_t i = 0; i < tx.m_Outputs; i++)
-			SummarizeOnce(res, dVal, tx.m_pOutputs[i]);
-
-		res = -res;
-		dVal = -dVal;
-
-		for (uint32_t i = 0; i < tx.m_Inputs; i++)
-			SummarizeOnce(res, dVal, tx.m_pInputs[i]);
-	}
-
-	virtual void SummarizeCommitment(Point::Native& res, const TransactionInOuts& tx) override
-	{
-		// Summarize (as above), but return only the commitment
-		Scalar::Native sk(Zero);
-		AmountSigned dVal = 0;
-		Summarize(sk, dVal, tx);
-
-		res = Context::get().G * sk;
-
-		if (dVal < 0)
-		{
-			res = -res;
-			res += Context::get().H * Amount(-dVal);
-			res = -res;
-		}
-		else
-			res += Context::get().H * Amount(dVal);
-	}
-
-	virtual void CreateOutput(beam::Output& outp, const CoinID& cid)  override
-	{
-		Scalar::Native sk;
-		outp.Create(g_hFork, sk, *m_pKdf, cid, *m_pKdf);
-	}
-
-	virtual bool SignTransactionRcv(TransactionData& tx) override
-	{
-		AmountSigned dVal = 0;
-		Scalar::Native skTotal(Zero);
-
-		// calculate the overall blinding factor, and the sum being sent/transferred
-		Summarize(skTotal, dVal, tx);
-
-		if (dVal >= 0)
-			return false; // not receiving
-		Amount val = -dVal;
-
-		Scalar::Native kKrn, kNonce;
-
-		Oracle ng;
-		ng
-			<< "hw-wlt-rcv"
-			<< tx.m_Fee
-			<< tx.m_Height.m_Min
-			<< tx.m_Height.m_Max
-			<< tx.m_KernelCommitment
-			<< tx.m_SignatureKrn.m_NoncePub
-			<< tx.m_Peer
-			<< skTotal
-			<< val;
-
-		ng >> kKrn;
-		ng >> kNonce;
-
-		beam::TxKernelStd krn;
-
-		Point::Native comm, comm2;
-		if (!comm.Import(tx.m_KernelCommitment))
-			return false;
-
-		comm2 = Context::get().G * kKrn;
-		comm += comm2;
-		krn.m_Commitment = comm;
-
-		if (!comm.Import(tx.m_SignatureKrn.m_NoncePub))
-			return false;
-
-		comm2 = Context::get().G * kNonce;
-		comm += comm2;
-		tx.m_SignatureKrn.m_NoncePub = comm;
-
-		krn.m_Fee = tx.m_Fee;
-		krn.m_Height = tx.m_Height;
-		krn.UpdateID();
-
-		tx.m_SignatureKrn.SignPartial(krn.m_Internal.m_ID, kKrn, kNonce);
-
-		kKrn = -kKrn;
-		skTotal += kKrn;
-		tx.m_Offset = skTotal;
-		tx.m_KernelCommitment = krn.m_Commitment;
-
-		PaymentConfirmation pc;
-		pc.m_KernelID = krn.m_Internal.m_ID;
-		pc.m_Sender = tx.m_Peer;
-		pc.m_Value = val;
-
-		beam::PeerID pidSelf;
-		GetWalletIDInternal(pidSelf, skTotal);
-		pc.Sign(tx.m_PaymentProofSignature, skTotal);
-
-		return true; // finito!
-	}
-
-	virtual bool SignTransactionSnd(TransactionData& tx, uint32_t iSlot, bool bFinal) override
-	{
-		AmountSigned dVal = 0;
-		Scalar::Native skTotal = Zero;
-
-		// calculate the overall blinding factor, and the sum being sent/transferred
-		Summarize(skTotal, dVal, tx);
-
-		dVal -= tx.m_Fee;
-
-		if (dVal <= 0)
-			return false; // not sending
-
-		Scalar::Native kKrn;
-
-		Oracle ng;
-		ng
-			<< "hw-wlt-snd"
-			<< tx.m_Fee
-			<< tx.m_Height.m_Min
-			<< tx.m_Height.m_Max
-			<< tx.m_Peer
-			<< skTotal
-			<< Amount(dVal)
-			>> kKrn;
-
-		Point::Native comm;
-		comm = Context::get().G * kKrn;
-
-		iSlot %= s_Slots;
-		Scalar& nonce = m_pNonces[iSlot];
-
-		if (!bFinal)
-		{
-			tx.m_KernelCommitment = comm;
-
-			comm = Context::get().G * nonce;
-			tx.m_SignatureKrn.m_NoncePub = comm;
-
-			return true;
-		}
-
-		beam::TxKernelStd krn;
-		krn.m_Fee = tx.m_Fee;
-		krn.m_Height = tx.m_Height;
-		krn.m_Commitment = tx.m_KernelCommitment;
-		krn.UpdateID();
-
-		/////////////////////////
-		// Verify peer signature
-		PaymentConfirmation pc;
-		pc.m_KernelID = krn.m_Internal.m_ID;
-		pc.m_Value = dVal;
-
-
-		Scalar::Native skId;
-		GetWalletIDInternal(pc.m_Sender, skId);
-
-		if (!pc.IsValid(tx.m_PaymentProofSignature, tx.m_Peer))
-			return false;
-
-		/////////////////////////
-		// Ask for user permission!
-		//
-		// ...
-
-		if (!comm.Import(tx.m_KernelCommitment))
-			return false;
-
-		Scalar::Native kSig = tx.m_SignatureKrn.m_k;
-		Scalar::Native kNonce = nonce;
-		Regenerate(iSlot);
-
-		tx.m_SignatureKrn.SignPartial(krn.m_Internal.m_ID, kKrn, kNonce);
-		kSig += tx.m_SignatureKrn.m_k;
-		tx.m_SignatureKrn.m_k = kSig;
-
-		if (!tx.m_SignatureKrn.IsValid(krn.m_Internal.m_ID, comm))
-			return false;
-
-		kKrn = -kKrn;
-		skTotal += kKrn;
-		skTotal += tx.m_Offset;
-		tx.m_Offset = skTotal;
-
-		return true; // finito!
-	}
-
-	void GetWalletIDInternal(beam::PeerID& res, Scalar::Native& sk)
-	{
-		Key::ID kid(Zero);
-		kid.m_Type = Key::Type::WalletID;
-
-		m_pKdf->DeriveKey(sk, kid);
-
-		res.FromSk(sk);
-	}
-
-	virtual void GetWalletID(beam::PeerID& res) override
-	{
-		Scalar::Native sk;
-		GetWalletIDInternal(res, sk);
-	}
-};
-
-
-struct MyWallet
-{
-	IHWWallet& m_HW;
-
-	uint32_t m_iSlot; // slot selected for the transaction
-	uint64_t m_nLastCoinIndex = 0;
-
-	std::vector<CoinID> m_vIns;
-	std::vector<CoinID> m_vOuts;
-
-	Amount m_Balance = 0; // in - out. Does not include fee
-
-	void AddInp(beam::TxVectors::Perishable& txp, Amount val)
-	{
-#if TREZOR_DEBUG == 1
-		CoinID cid(val, 0, Key::Type::Regular);
-#else
-		CoinID cid(val, ++m_nLastCoinIndex, Key::Type::Regular);
-#endif
-		m_vIns.push_back(cid);
-
-		beam::Input::Ptr pInp(new beam::Input);
-		m_HW.CreateInput(*pInp, cid);
-
-		txp.m_vInputs.push_back(std::move(pInp));
-		m_Balance += val;
-	}
-
-	void AddOutp(beam::TxVectors::Perishable& txp, Amount val)
-	{
-#if TREZOR_DEBUG == 1
-		CoinID cid(val, 0, Key::Type::Regular);
-#else
-		CoinID cid(val, ++m_nLastCoinIndex, Key::Type::Regular);
-#endif
-		m_vOuts.push_back(cid);
-
-		beam::Output::Ptr pOutp(new beam::Output);
-		m_HW.CreateOutput(*pOutp, cid);
-
-		txp.m_vOutputs.push_back(std::move(pOutp));
-		m_Balance -= val;
-	}
-
-	void AssignTxBase(IHWWallet::TransactionData& tx, const beam::TxKernelStd& krn, const beam::PeerID& pid)
-	{
-		tx.m_pInputs = m_vIns.empty() ? nullptr : &m_vIns.front();
-		tx.m_pOutputs = m_vOuts.empty() ? nullptr : &m_vOuts.front();
-		tx.m_Inputs = static_cast<uint32_t>(m_vIns.size());
-		tx.m_Outputs = static_cast<uint32_t>(m_vOuts.size());
-
-		tx.m_Fee = krn.m_Fee;
-		tx.m_Height = krn.m_Height;
-		tx.m_Peer = pid;
-	}
-
-	bool SignSnd1(beam::TxKernelStd& krn, const beam::PeerID& pidRcv)
-	{
-		IHWWallet::TransactionData tx;
-		AssignTxBase(tx, krn, pidRcv);
-
-		if (!m_HW.SignTransactionSnd(tx, m_iSlot, false))
-			return false;
-
-		krn.m_Commitment = tx.m_KernelCommitment;
-		krn.m_Signature.m_NoncePub = tx.m_SignatureKrn.m_NoncePub;
-		return true;
-	}
-
-	bool SignRcv(beam::TxKernelStd& krn, Scalar& offs, const beam::PeerID& pidSnd, Signature& sigPeer)
-	{
-		IHWWallet::TransactionData tx;
-		AssignTxBase(tx, krn, pidSnd);
-
-		tx.m_KernelCommitment = krn.m_Commitment;
-		tx.m_SignatureKrn.m_NoncePub = krn.m_Signature.m_NoncePub;
-
-		if (!m_HW.SignTransactionRcv(tx))
-			return false;
-
-		krn.m_Commitment = tx.m_KernelCommitment;
-		krn.UpdateID();
-
-		krn.m_Signature = tx.m_SignatureKrn;
-		offs = tx.m_Offset;
-		sigPeer = tx.m_PaymentProofSignature;
-		return true;
-	}
-
-	bool SignSnd2(beam::TxKernelStd& krn, Scalar& offs, const beam::PeerID& pidRcv, const Signature& sigPeer)
-	{
-		IHWWallet::TransactionData tx;
-		AssignTxBase(tx, krn, pidRcv);
-
-		tx.m_KernelCommitment = krn.m_Commitment;
-		tx.m_SignatureKrn = krn.m_Signature;
-		tx.m_Offset = offs;
-		tx.m_PaymentProofSignature = sigPeer;
-
-		if (!m_HW.SignTransactionSnd(tx, m_iSlot, true))
-			return false;
-
-		krn.UpdateID();
-		krn.m_Signature.m_k = tx.m_SignatureKrn.m_k;
-		offs = tx.m_Offset;
-		return true;
-	}
-
-	MyWallet(IHWWallet& hw)
-		:m_HW(hw)
-	{
-	}
-};
-
-void TestTransactionHW()
-{
-	HWWalletEmulator hw1, hw2;
-	hw1.Initialize();
-	hw2.Initialize();
-
-	beam::PeerID pidSnd, pidRcv;
-	hw1.GetWalletID(pidSnd);
-	hw2.GetWalletID(pidRcv);
-
-	MyWallet mw1(hw1), mw2(hw2);
-
-	beam::Transaction tx;
-
-	// peers agree on the transaction details, including kernel height and fees
-	beam::TxKernelStd::Ptr pKrn(new beam::TxKernelStd);
-	pKrn->m_Fee = 100;
-	pKrn->m_Height.m_Min = 25000;
-	pKrn->m_Height.m_Max = 27500;
-
-	// peers agree on the amount transferred, each selects its inputs and outputs
-	mw1.AddInp(tx, 350000);
-	mw1.AddInp(tx, 250000);
-	mw1.AddOutp(tx, 170000);
-
-	mw2.AddInp(tx, 190000);
-	mw2.AddOutp(tx, mw1.m_Balance + mw2.m_Balance - pKrn->m_Fee);
-
-	assert(mw1.m_Balance + mw2.m_Balance - pKrn->m_Fee == 0);
-
-	Signature sigPaymentProof;
-
-	verify_test(mw1.SignSnd1(*pKrn, pidRcv));
-	verify_test(mw2.SignRcv(*pKrn, tx.m_Offset, pidSnd, sigPaymentProof));
-	verify_test(mw1.SignSnd2(*pKrn, tx.m_Offset, pidRcv, sigPaymentProof));
-
-
-	Point::Native pt;
-	verify_test(pKrn->IsValid(g_hFork, pt));
-
-	tx.Normalize();
-	tx.m_vKernels.push_back(std::move(pKrn));
-
-	beam::TxBase::Context::Params pars;
-	beam::TxBase::Context ctx(pars);
-	ctx.m_Height.m_Min = g_hFork;
-	verify_test(tx.IsValid(ctx));
 }
 
 void TestCutThrough()
@@ -2706,78 +2136,6 @@ void TestAssetEmission()
 	verify_test(bIsValid);
 }
 
-void TestTxKernel()
-{
-    TransactionMaker tm;
-    tm.AddInput(0, 100, true);
-    uint8_t scalar_data[32];
-    secp256k1_scalar_get_b32(scalar_data, &tm.m_pPeers[0].m_k.get());
-    verify_test(IS_EQUAL_HEX("72644062a0703bbe61c5cadc1ec5fdad2b32dfe9684909b0f339ba825fb3f103", scalar_data, 32));
-    tm.AddInput(0, 3000, true);
-    secp256k1_scalar_get_b32(scalar_data, &tm.m_pPeers[0].m_k.get());
-    verify_test(IS_EQUAL_HEX("c25325ec65ebbfcd5297bfb1f8a37c14d63283085f3703e6afa62cfa9c68bfeb", scalar_data, 32));
-    tm.AddInput(0, 2000, true);
-    secp256k1_scalar_get_b32(scalar_data, &tm.m_pPeers[0].m_k.get());
-    verify_test(IS_EQUAL_HEX("2ebd4b44494ef4344a7199da37c54ffc24ca31a094ff5b8a33c433403f771dfc", scalar_data, 32));
-
-    tm.AddOutput(0, 100, true);
-    secp256k1_scalar_get_b32(scalar_data, &tm.m_pPeers[0].m_k.get());
-    verify_test(IS_EQUAL_HEX("bc590ae1a8deb875e8abcefe18ff524db4462e9ddbfef215005cd74aaff96e3a", scalar_data, 32));
-
-    std::vector<beam::TxKernel::Ptr> lstNested;
-    std::vector<beam::TxKernel::Ptr> lstDummy;
-
-    Amount fee1 = 100;
-
-    tm.CreateTxKernel(lstNested, fee1, lstDummy, false, false, true);
-}
-
-//void TestTransactionHWSingular()
-//{
-//    HWWalletEmulator hw1;
-//    hw1.Initialize();
-//
-//    MyWallet mw1(hw1);
-//    mw1.m_Kernel.m_Fee = 100;
-//    mw1.m_Kernel.m_Height.m_Min = 25000;
-//    mw1.m_Kernel.m_Height.m_Max = 27500;
-//
-//    mw1.AddInp(350000);
-//    mw1.AddInp(250000);
-//    mw1.AddOutp(170000);
-//
-//    Point::Native pt(Zero);
-//    //mw1.CalcCommitment(pt);
-//
-//    Test_SetUintBig(mw1.m_Kernel.m_Signature.m_NoncePub.m_X, 3);
-//    mw1.m_Kernel.m_Signature.m_NoncePub.m_Y = 1;
-//    Test_SetUintBig(mw1.m_Kernel.m_Commitment.m_X, 3);
-//    mw1.m_Kernel.m_Commitment.m_Y = 1;
-//    mw1.m_Offset = (uint32_t)3;
-//
-//#if TREZOR_DEBUG == 1
-//    printf("Kernel params for TX sign:\n\tFee: %ld\n\tMin_height: %ld; Max_height: %ld\n",
-//           (long)mw1.m_Kernel.m_Fee, (long)mw1.m_Kernel.m_Height.m_Min, (long)mw1.m_Kernel.m_Height.m_Max);
-//    char point_str[64];
-//    mw1.m_Kernel.m_Signature.m_NoncePub.m_X.Print(point_str);
-//    printf("\tNonce pub x: %s\n", point_str);
-//    mw1.m_Kernel.m_Commitment.m_X.Print(point_str);
-//    printf("\tCommitment x: %s\n", point_str);
-//#endif
-//
-//    mw1.m_iSlot = 6;
-//    mw1.m_HW.ResetNonce(pt, mw1.m_iSlot);
-//
-//    Scalar::Native k1;
-//    verify_test(mw1.SignTx(k1));
-//
-//    uint8_t scalar_data[32];
-//    secp256k1_scalar_get_b32(scalar_data, &k1.get());
-//    DEBUG_PRINT("Test transaction signature. Signature scalar k: ", scalar_data, 32);
-//    verify_test(IS_EQUAL_HEX("f2381d7329c680eb1afe31f01201c6da30c90790f4130a757a3c3607e7b19838", scalar_data, 32));
-//}
-
-
 void TestAll()
 {
 	TestUintBig();
@@ -2789,9 +2147,6 @@ void TestAll()
 	TestRangeProof(false);
 	TestRangeProof(true);
 	TestTransaction();
-	TestTransactionHW();
-	//TestTxKernel();
-	//TestTransactionHWSingular();   
 	TestMultiSigOutput();
 	TestCutThrough();
 	TestAES();

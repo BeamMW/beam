@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include "core/common.h"
 #include "core/ecc_native.h"
 #include "core/merkle.h"
 
@@ -32,6 +31,7 @@ namespace beam::wallet
         AssetConsume,
         AssetReg,
         AssetUnreg,
+        AssetInfo,
         PushTransaction,
         PullTransaction,
         ALL
@@ -118,19 +118,19 @@ namespace beam::wallet
     };
 
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
-    MACRO(Unknown,                       0, "Unknown reason") \
-    MACRO(Canceled,                      1, "Transaction was cancelled") \
-    MACRO(InvalidPeerSignature,          2, "Peer's signature is not valid ") \
-    MACRO(FailedToRegister,              3, "Failed to register transaction") \
-    MACRO(InvalidTransaction,            4, "Transaction is not valid") \
+    MACRO(Unknown,                       0, "Unexpected reason, please send wallet logs to Beam support") \
+    MACRO(Canceled,                      1, "Transaction cancelled") \
+    MACRO(InvalidPeerSignature,          2, "Receiver signature in not valid, please send wallet logs to Beam support") \
+    MACRO(FailedToRegister,              3, "Failed to register transaction with the blockchain, see node logs for details") \
+    MACRO(InvalidTransaction,            4, "Transaction is not valid, please send wallet logs to Beam support") \
     MACRO(InvalidKernelProof,            5, "Invalid kernel proof provided") \
-    MACRO(FailedToSendParameters,        6, "Failed to send tx parameters") \
+    MACRO(FailedToSendParameters,        6, "Failed to send Transaction parameters") \
     MACRO(NoInputs,                      7, "Not enough inputs to process the transaction") \
     MACRO(ExpiredAddressProvided,        8, "Address is expired") \
-    MACRO(FailedToGetParameter,          9, "Failed to get parameter") \
-    MACRO(TransactionExpired,            10, "Transaction has expired") \
-    MACRO(NoPaymentProof,                11, "Payment not signed by the receiver") \
-    MACRO(MaxHeightIsUnacceptable,       12, "Kernel's max height is unacceptable") \
+    MACRO(FailedToGetParameter,          9, "Failed to get transaction parameters") \
+    MACRO(TransactionExpired,            10, "Transaction timed out") \
+    MACRO(NoPaymentProof,                11, "Payment not signed by the receiver, please send wallet logs to Beam support") \
+    MACRO(MaxHeightIsUnacceptable,       12, "Kernel maximum height is too high") \
     MACRO(InvalidState,                  13, "Transaction has invalid state") \
     MACRO(SubTxFailed,                   14, "Subtransaction has failed") \
     MACRO(SwapInvalidAmount,             15, "Contract's amount is not valid") \
@@ -148,15 +148,17 @@ namespace beam::wallet
     MACRO(NoKeyKeeper,                   27, "Key keeper is not initialized") \
     MACRO(NoAssetId,                     28, "No valid asset owner id/asset owner idx") \
     MACRO(NoAssetInfo,                   29, "No asset info or asset info is not valid") \
-    MACRO(AssetConfirmFailed,            30, "Failed to receive asset confirmation") \
-    MACRO(AssetInUse,                    31, "Asset is still in use (issued amount > 0)") \
-    MACRO(AssetLocked,                   32, "Asset is still locked") \
-    MACRO(RegisterAmountTooSmall,        33, "Asset registration fee is too small") \
-    MACRO(ConsumeAmountTooBig,           34, "Cannot consume more than MAX_INT64 asset groth in one transaction") \
-    MACRO(NotEnoughDataForProof,         35, "Some mandatory data for payment proof is missing") \
-    MACRO(NoMasterKey,                   36, "Master key is needed for this transaction, but unavailable") \
-    MACRO(KeyKeeperError,                37, "Key keeper malfunctioned") \
-    MACRO(KeyKeeperUserAbort,            38, "Aborted by the user") \
+    MACRO(NoAssetMeta,                   30, "No asset metadata or asset metadata is not valid") \
+    MACRO(InvalidAssetId,                31, "Invalid asset id") \
+    MACRO(AssetConfirmFailed,            32, "Failed to receive asset confirmation") \
+    MACRO(AssetInUse,                    33, "Asset is still in use (issued amount > 0)") \
+    MACRO(AssetLocked,                   34, "Asset is still locked") \
+    MACRO(RegisterAmountTooSmall,        35, "Asset registration fee is too small") \
+    MACRO(ICAmountTooBig,                36, "Cannot issue/consume more than MAX_INT64 asset groth in one transaction") \
+    MACRO(NotEnoughDataForProof,         37, "Some mandatory data for payment proof is missing") \
+    MACRO(NoMasterKey,                   38, "Master key is needed for this transaction, but unavailable") \
+    MACRO(KeyKeeperError,                39, "Key keeper malfunctioned") \
+    MACRO(KeyKeeperUserAbort,            40, "Aborted by the user")
 
     enum TxFailureReason : int32_t
     {
@@ -265,12 +267,13 @@ namespace beam::wallet
 
         PeerLockImage = 115,
         AssetOwnerIdx = 116,
+        AssetMetadata = 117,
 
         // Lelantus
-        ShieldedOutputId = 117,
-        WindowBegin = 118,
-        ShieldedInputCfg = 119,
-        ShieldedInputMinCfg = 120,
+        ShieldedOutputId = 120,
+        WindowBegin = 121,
+        ShieldedInputCfg = 122,
+        ShieldedInputMinCfg = 123,
 
         // private parameters
         PrivateFirstParam = 128,
@@ -446,50 +449,6 @@ namespace beam::wallet
 
     AtomicSwapCoin from_string(const std::string& value);
 
-    struct SwapOffer : public TxParameters
-    {
-        SwapOffer() = default;
-        SwapOffer(const boost::optional<TxID>& txID)
-            : TxParameters(txID) {};
-        SwapOffer(const TxID& txId, SwapOfferStatus status, WalletID publisherId, AtomicSwapCoin coin)
-            : TxParameters(txId),
-              m_txId(txId),
-              m_status(status),
-              m_publisherId(publisherId),
-              m_coin(coin) {};
-
-        /**
-         * Used to set m_Parameters on default constructed SwapOffer
-         */
-        void SetTxParameters(const PackedTxParameters&);
-
-        TxID m_txId = {};
-        SwapOfferStatus m_status = SwapOfferStatus::Pending;
-        WalletID m_publisherId = {};
-        AtomicSwapCoin m_coin = AtomicSwapCoin::Unknown;
-    };
-
-    class SwapOfferToken
-    {
-    public:
-        SwapOfferToken() = default;
-        SwapOfferToken(const SwapOffer& offer)
-            : m_TxID(offer.m_txId),
-              m_status(offer.m_status),
-              m_publisherId(offer.m_publisherId),
-              m_coin(offer.m_coin),
-              m_Parameters(offer.Pack()) {};
-        
-        SwapOffer Unpack() const;
-        SERIALIZE(m_TxID, m_status, m_publisherId, m_coin, m_Parameters);
-    private:
-        boost::optional<TxID> m_TxID;
-        boost::optional<SwapOfferStatus> m_status;
-        boost::optional<WalletID> m_publisherId;
-        boost::optional<AtomicSwapCoin> m_coin;
-        PackedTxParameters m_Parameters;
-    };
-
     boost::optional<TxParameters> ParseParameters(const std::string& text);
 
     // Specifies key transaction parameters for interaction with Wallet Clients
@@ -501,7 +460,7 @@ namespace beam::wallet
             , TxType txType = TxType::Simple
             , Amount amount = 0
             , Amount fee =0
-            , Asset::ID assetId = 0
+            , Asset::ID assetId = Asset::s_InvalidID
             , Height minHeight = 0
             , const WalletID & peerId = Zero
             , const WalletID& myId = Zero
@@ -544,7 +503,7 @@ namespace beam::wallet
         Amount m_fee = 0;
         Amount m_changeBeam = 0;
         Amount m_changeAsset = 0;
-        Asset::ID m_assetId = 0;
+        Asset::ID m_assetId = Asset::s_InvalidID;
         Key::Index m_assetOwnerIdx = 0;
         Height m_minHeight = 0;
         WalletID m_peerId = Zero;
@@ -636,6 +595,7 @@ namespace beam::wallet
         virtual void confirm_outputs(const std::vector<Coin>&) = 0;
         virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
         virtual void send_tx_params(const WalletID& peerID, const SetTxParameter&) = 0;
@@ -676,7 +636,7 @@ namespace beam::wallet
     {
         // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
         Amount m_Value;
-        Asset::ID m_AssetID = 0;
+        Asset::ID m_AssetID = Asset::s_InvalidID;
         ECC::Hash::Value m_KernelID;
         PeerID m_Sender;
 
@@ -691,13 +651,64 @@ namespace beam::wallet
         void get_Hash(ECC::Hash::Value&) const override;
     };
 
+    struct SignatureHandler : public ConfirmationBase
+    {
+        ByteBuffer m_data;
+        void get_Hash(ECC::Hash::Value&) const override;
+    };
+
     uint64_t get_RandomID();
+
+    template<typename Observer, typename Notifier>
+    struct ScopedSubscriber
+    {
+        ScopedSubscriber(Observer* observer, const std::shared_ptr<Notifier>& notifier)
+            : m_observer(observer)
+            , m_notifier(notifier)
+        {
+            m_notifier->Subscribe(m_observer);
+        }
+
+        ~ScopedSubscriber()
+        {
+            m_notifier->Unsubscribe(m_observer);
+        }
+    private:
+        Observer* m_observer;
+        std::shared_ptr<Notifier> m_notifier;
+    };
+ 
+    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params);
+ 
 }  // beam::wallet
 
 namespace beam
 {
     std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount);
     std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid);
+
+    struct Version
+    {
+        uint32_t m_major;
+        uint32_t m_minor;
+        uint32_t m_revision;
+
+        Version() = default;
+        Version(uint32_t major, uint32_t minor, uint32_t rev)
+            : m_major(major)
+            , m_minor(minor)
+            , m_revision(rev)
+        {};
+
+        SERIALIZE(m_major, m_minor, m_revision);
+
+        // static Version getCurrent();
+
+        std::string to_string() const;
+        bool operator==(const Version& other) const;
+        bool operator!=(const Version& other) const;
+        bool operator<(const Version& other) const;
+    };
 }  // namespace beam
 
 namespace std
@@ -708,4 +719,5 @@ namespace std
     string to_string(beam::wallet::SwapOfferStatus status);
     string to_string(const beam::wallet::PrintableAmount& amount);
     string to_string(const beam::wallet::TxParameters&);
+    string to_string(const beam::Version&);
 }

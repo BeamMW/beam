@@ -49,6 +49,7 @@ namespace beam
     const char kTxStatusIssued[] = "asset issued";
     const char kTxStatusRegistered[] = "asset registred";
     const char kTxStatusUnregistered[] = "asset unregistred";
+    const char kTxStatusInfoProvided[] = "asset info provided";
 
     // Errors
     const char kErrorUnknownCoinStatus[] = "Unknown coin status";
@@ -224,8 +225,9 @@ namespace beam
     const char kPpRequired[] = "Parameter set: Payment proof required: %1%";
 
     // Confidential assets
-    const char kInvalidAssetID[] = "Invalid asset ID";
-    const char kErrorAssetIdxRequired[] = "Asset index is not specified";
+    const char kErrorAssetIdxRequired[] = "Asset owner index is not specified";
+    const char kErrorAssetIdRequired[] = "Asset ID is not specified";
+    const char kErrorAssetMetadataRequired[] = "Asset metadata required";
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT

@@ -277,10 +277,16 @@ namespace beam
         // assets
         const char* ASSET_ISSUE       = "issue";
         const char* ASSET_CONSUME     = "consume";
+        const char* ASSET_INFO        = "asset_info";
         const char* ASSET_REGISTER    = "reg";
         const char* ASSET_UNREGISTER  = "unreg";
         const char* ASSET_INDEX       = "asset_idx";
         const char* ASSET_ID          = "asset_id";
+        const char* METADATA          = "metadata";
+
+        // newscaster
+        const char* BBS_MESSAGE = "message";
+        const char* PRIVATE_KEY = "key";
 
         // lelantus
         const char* INSERT_TO_POOL = "insert_to_pool";
@@ -430,7 +436,8 @@ namespace beam
         po::options_description wallet_assets_options("Confidential assets options");
         wallet_assets_options.add_options()
             (cli::ASSET_INDEX, po::value<Positive<uint32_t>>(), "asset index")
-            (cli::ASSET_ID, po::value<string>(), "asset id");
+            (cli::ASSET_ID,    po::value<Positive<uint32_t>>(), "asset id")
+            (cli::METADATA,    po::value<string>(),             "asset metadata");
 
 #ifdef BEAM_LASER_SUPPORT
         po::options_description laser_commands("Laser commands");
