@@ -558,32 +558,45 @@ void TestMultiMac()
 {
 	Mode::Scope scope(Mode::Fast);
 
-	for (int i = 0; i < 50000; i++)
+	uint32_t aa = sizeof(ECC_Min::MultiMac);
+	uint32_t bb = sizeof(ECC_Min::MultiMac::Prepared);
+	uint32_t cc = sizeof(ECC_Min::MultiMac::Prepared::Wnaf);
+	aa; bb; cc;
+
+	const uint32_t nBatch = 8;
+
+	ECC::MultiMac_WithBufs<1, nBatch> mm1;
+	ECC_Min::MultiMac_WithBufs<nBatch> mm2;
+
+	for (uint32_t iGen = 0; iGen < nBatch; iGen++)
 	{
-		const uint32_t nBatch = 8;
+		const MultiMac::Prepared& p = ECC::Context::get().m_Ipp.m_pGen_[0][iGen];
+		mm1.m_ppPrepared[iGen] = &p;
 
-		uint32_t aa = sizeof(ECC_Min::MultiMac);
-		uint32_t bb = sizeof(ECC_Min::MultiMac::Casual);
-		uint32_t cc = sizeof(ECC::MultiMac::Prepared::Fast::Wnaf);
+		ECC_Min::MultiMac::Prepared& trg = mm2.m_pPrepared[iGen];
+		const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
 
-		aa; bb; cc;
+		static_assert(trg.nCount <= src.nCount);
 
-		ECC::MultiMac_WithBufs< nBatch, 1> mm1;
-		ECC_Min::MultiMac_WithBufs<nBatch> mm2;
+		for (uint32_t j = 0; j < trg.nCount; j++)
+			trg.m_pPt[j] = src.m_pPt[j];
+	}
+
+	for (int i = 0; i < 10; i++)
+	{
+		mm1.Reset();
+		mm2.Reset();
+
 
 		for (uint32_t iPt = 0; iPt < nBatch; iPt++)
 		{
-			Point::Native pt;
-			SetRandom(pt);
-
 			Scalar::Native sk;
 			SetRandom(sk);
 
-			mm1.m_pCasual[iPt].Init(pt);
-			mm1.m_pKCasual[iPt] = sk;
-			mm1.m_Casual++;
+			mm1.m_pKPrep[iPt] = sk;
+			mm1.m_Prepared++;
 
-			mm2.Add(pt.get_Raw(), sk.get());
+			mm2.Add(sk.get());
 
 		}
 

@@ -101,30 +101,26 @@ namespace ECC_Min
 			}
 		};
 
-		struct Casual
+		struct Prepared
 		{
-			// In fast mode: x1 is assigned from the beginning, then on-demand calculated x2 and then only odd multiples.
-			static const int nBits = 3;
-			static const int nMaxOdd = (1 << nBits) - 1; // 15
-			static const int nCount = (nMaxOdd >> 1) + 1;
+			static const int nBits = 4;
+			static const int nMaxOdd = (1 << nBits) - 1;
 
-			secp256k1_gej m_pPt[nCount];
-			secp256k1_fe m_pFe[nCount];
-			unsigned int m_nNeeded;
+			static const int nCount = (nMaxOdd >> 1) + 1;
+			secp256k1_ge_storage m_pPt[nCount]; // odd powers
 
 			typedef Wnaf_T<nBits> Wnaf;
-			Wnaf m_Wnaf;
 		};
 
-		Index m_Casual;
+		Index m_Prepared;
 
 		WnafBase::Shared m_ws;
 
 		MultiMac() { Reset(); }
 
 		void Reset();
-		void Add(Casual&, const secp256k1_gej&, const secp256k1_scalar&);
-		void Calculate(secp256k1_gej&, Casual*);
+		void Add(Prepared::Wnaf&, const secp256k1_scalar&);
+		void Calculate(secp256k1_gej&, const Prepared*, Prepared::Wnaf*);
 
 
 	private:
@@ -132,25 +128,24 @@ namespace ECC_Min
 		struct Normalizer;
 	};
 
-	template <unsigned int nMaxCasual>
+	template <unsigned int nMaxCount>
 	struct MultiMac_WithBufs
 		:public MultiMac
 	{
-		struct Bufs {
-			Casual m_pCasual[nMaxCasual];
-		} m_Bufs;
+		Prepared m_pPrepared[nMaxCount];
+		Prepared::Wnaf m_pWnaf[nMaxCount];
 
-		void Add(const secp256k1_gej& gej, const secp256k1_scalar& k)
+		void Add(const secp256k1_scalar& k)
 		{
-			static_assert(nMaxCasual <= Index(-1));
-			assert(m_Casual < nMaxCasual);
-			MultiMac::Add(m_Bufs.m_pCasual[m_Casual], gej, k);
+			static_assert(nMaxCount <= Index(-1));
+			assert(m_Prepared < nMaxCount);
+			MultiMac::Add(m_pWnaf[m_Prepared], k);
 		}
 
 		void Calculate(secp256k1_gej& res)
 		{
-			assert(m_Casual <= nMaxCasual);
-			MultiMac::Calculate(res, m_Bufs.m_pCasual);
+			assert(m_Prepared <= nMaxCount);
+			MultiMac::Calculate(res, m_pPrepared, m_pWnaf);
 		}
 	};
 } // namespace ECC_Min

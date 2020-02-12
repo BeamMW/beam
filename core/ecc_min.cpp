@@ -161,7 +161,7 @@ namespace ECC_Min
 	// MultiMac
 	void MultiMac::Reset()
 	{
-		m_Casual = 0;
+		m_Prepared = 0;
 		m_ws.Reset();
 	}
 
@@ -315,165 +315,17 @@ namespace ECC_Min
 		return nOdd;
 	}
 
-	struct MultiMac::Normalizer
-		:public BatchNormalizer
+	void MultiMac::Add(Prepared::Wnaf& wnaf, const secp256k1_scalar& k)
 	{
-		Casual* m_pCasual;
-		Index m_Casual;
+		Index iEntry = m_Prepared++;
 
-		struct Cursor
-		{
-			Index m_iElement;
-			uint32_t m_iEntry;
-		};
-
-		Cursor m_Cursor;
-
-		void FromCursor(Element& el, const Cursor& cu) const;
-		bool MoveBkwd(Cursor& cu) const;
-
-		virtual void Reset() override;
-		virtual bool MoveNext(Element& el) override;
-
-		virtual bool MovePrev(Element& el) override;
-	};
-
-	void MultiMac::Normalizer::FromCursor(Element& el, const Cursor& cu) const
-	{
-		Casual& x = m_pCasual[cu.m_iElement];
-
-		el.m_pPoint = x.m_pPt + cu.m_iEntry;
-		el.m_pFe = x.m_pFe + cu.m_iEntry;
+		unsigned int nEntries = wnaf.Init(m_ws, k, iEntry + 1);
+		assert(nEntries <= _countof(wnaf.m_pVals));
 	}
 
-	bool MultiMac::Normalizer::MoveBkwd(Cursor& cu) const
-	{
-		while (true)
-		{
-			if (cu.m_iElement < m_Casual)
-			{
-				Casual& x = m_pCasual[cu.m_iElement];
-
-				assert(cu.m_iEntry <= x.m_nNeeded);
-				x; // suppress warning in release build
-
-				if (cu.m_iEntry)
-				{
-					cu.m_iEntry--;
-					break;
-				}
-			}
-
-			if (!cu.m_iElement)
-				return false;
-
-			cu.m_iElement--;
-
-			Casual& x = m_pCasual[cu.m_iElement];
-			cu.m_iEntry = x.m_nNeeded;
-		}
-
-		return true;
-	}
-
-	void MultiMac::Normalizer::Reset()
-	{
-		memset(&m_Cursor, 0, sizeof(m_Cursor));
-	}
-
-	bool MultiMac::Normalizer::MoveNext(Element& el)
-	{
-		while (true)
-		{
-			if (m_Cursor.m_iElement == m_Casual)
-				return false;
-
-			Casual& x = m_pCasual[m_Cursor.m_iElement];
-
-			if (m_Cursor.m_iEntry < x.m_nNeeded)
-				break;
-
-			m_Cursor.m_iElement++;
-			m_Cursor.m_iEntry = 0;
-
-		}
-
-		FromCursor(el, m_Cursor);
-		m_Cursor.m_iEntry++;
-
-		return true;
-	}
-
-	bool MultiMac::Normalizer::MovePrev(Element& el)
-	{
-		Cursor cu1 = m_Cursor;
-		if (!MoveBkwd(cu1))
-			return false;
-
-		Cursor cu2 = cu1;
-		if (!MoveBkwd(cu2))
-			return false;
-
-		m_Cursor = cu1;
-		FromCursor(el, cu2);
-		return true;
-	}
-
-	void MultiMac::Add(Casual& x, const secp256k1_gej& gej, const secp256k1_scalar& k)
-	{
-		Index iEntry = m_Casual++;
-
-		if (secp256k1_gej_is_infinity(&gej))
-		{
-			x.m_nNeeded = 0;
-			return;
-		}
-
-		x.m_pPt[0] = gej;
-
-		unsigned int nEntries = x.m_Wnaf.Init(m_ws, k, iEntry + 1);
-		assert(nEntries <= _countof(x.m_Wnaf.m_pVals));
-
-		{
-			// Find highest needed element, calculate all the needed ones
-			x.m_nNeeded = 0;
-			for (unsigned int i = 0; i < nEntries; i++)
-			{
-				const WnafBase::Entry& e = x.m_Wnaf.m_pVals[i];
-
-				unsigned int nOdd = e.m_Odd & ~e.s_Negative;
-				assert(nOdd & 1);
-
-				unsigned int nElem = (nOdd >> 1);
-
-				if (x.m_nNeeded < nElem + 1)
-					x.m_nNeeded = nElem + 1;
-			}
-			assert(x.m_nNeeded <= Casual::nCount);
-
-			if (x.m_nNeeded <= 1)
-				return;
-		}
-
-		// Calculate all the needed elements
-		secp256k1_gej ptX2;
-		secp256k1_gej_double_var(&ptX2, &gej, nullptr);
-
-		for (uint32_t nPrepared = 1; nPrepared < x.m_nNeeded; nPrepared++)
-			secp256k1_gej_add_var(x.m_pPt + nPrepared, x.m_pPt + nPrepared - 1, &ptX2, nullptr);
-	}
-
-	void MultiMac::Calculate(secp256k1_gej& res, Casual* pCasual)
+	void MultiMac::Calculate(secp256k1_gej& res, const Prepared* pPrepared, Prepared::Wnaf* pWnaf)
 	{
 		secp256k1_gej_set_infinity(&res);
-
-		// Bring everything to the same denominator
-		secp256k1_fe zDenom;
-		Normalizer nrm;
-		nrm.m_pCasual = pCasual;
-		nrm.m_Casual = m_Casual;
-		nrm.ToCommonDenominator(zDenom);
-
 		
 		for (unsigned int iBit = ECC_Min::nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
 		{
@@ -483,17 +335,16 @@ namespace ECC_Min
 			WnafBase::Link& lnkC = m_ws.m_pTable[iBit]; // alias
 			while (lnkC.m_iElement)
 			{
-				Casual& x = pCasual[lnkC.m_iElement - 1];
-				Casual::Wnaf& wnaf = x.m_Wnaf;
+				const Prepared& x = pPrepared[lnkC.m_iElement - 1];
+				Prepared::Wnaf& wnaf = pWnaf[lnkC.m_iElement - 1];
 
 				bool bNeg;
 				unsigned int nOdd = wnaf.Fetch(m_ws, iBit, bNeg);
 
 				unsigned int nElem = (nOdd >> 1);
-				assert(nElem < x.m_nNeeded);
 
 				secp256k1_ge ge;
-				BatchNormalizer::get_As(ge, x.m_pPt[nElem]);
+				secp256k1_ge_from_storage(&ge, x.m_pPt + nElem);
 
 				if (bNeg)
 					secp256k1_ge_neg(&ge, &ge);
@@ -501,9 +352,6 @@ namespace ECC_Min
 				secp256k1_gej_add_ge_var(&res, &res, &ge, nullptr);
 			}
 		}
-
-		// fix denominator
-		secp256k1_fe_mul(&res.z, &res.z, &zDenom);
 	}
 
 
