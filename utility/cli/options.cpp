@@ -355,7 +355,7 @@ namespace beam
             (cli::SEED_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39.")
             (cli::AMOUNT_FULL, po::value<Positive<double>>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
-            (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
+            (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver's address or token")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::TX_HISTORY, "print transactions' history in info command")

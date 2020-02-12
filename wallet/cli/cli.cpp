@@ -568,30 +568,43 @@ namespace
     int GetToken(const po::variables_map& vm)
     {
         TxParameters params;
-        if (!LoadReceiverParams(vm, params))
+        if (vm.find(cli::RECEIVER_ADDR) != vm.end())
         {
-            return -1;
-        }
-
-  //      if (!params.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID))
-        {
-            auto walletID = params.GetParameter<WalletID>(TxParameterID::PeerID);
-            if (!walletID)
+            auto receiver = vm[cli::RECEIVER_ADDR].as<string>();
+            bool isValid = true;
+            WalletID walletID;
+            ByteBuffer buffer = from_hex(receiver, &isValid);
+            if (!isValid || !walletID.FromBuf(buffer))
             {
-                LOG_ERROR() << "Cannot generate token, there is no address";
+                LOG_ERROR() << "Invalid address";
                 return -1;
             }
             auto walletDB = OpenDataBase(vm);
-            auto address = walletDB->getAddress(*walletID);
+            auto address = walletDB->getAddress(walletID);
             if (!address)
             {
                 LOG_ERROR() << "Cannot generate token, there is no address";
                 return -1;
             }
+            if (address->isExpired())
+            {
+                LOG_ERROR() << "Cannot generate token, address is expired";
+                return -1;
+            }
+            params.SetParameter(TxParameterID::PeerID, walletID);
             params.SetParameter(TxParameterID::PeerSecureWalletID, address->m_Identity);
         }
+        else
+        {
+            auto walletDB = OpenDataBase(vm);
+            WalletAddress address = GenerateNewAddress(walletDB, "");
+            
+            params.SetParameter(TxParameterID::PeerID, address.m_walletID);
+            params.SetParameter(TxParameterID::PeerSecureWalletID, address.m_Identity);
+        }
 
-        LOG_INFO() << "token:\t" << to_string(params);
+        params.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+        LOG_INFO() << "token: " << to_string(params);
         return 0;
     }
 
@@ -1151,7 +1164,7 @@ namespace
 
     bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
     {
-        if (vm.count(cli::RECEIVER_ADDR) == 0)
+        if (vm.find(cli::RECEIVER_ADDR) == vm.end())
         {
             LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
