@@ -599,6 +599,7 @@ namespace beam
 
 		struct Internal
 		{
+			bool m_HasNonStd = false; // is it or does it contain non-std kernels with side effects and mutual dependencies. Those should not be sorted!
 			Merkle::Hash m_ID; // unique kernel identifier in the system.
 		} m_Internal;
 

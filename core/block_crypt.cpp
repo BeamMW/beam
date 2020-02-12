@@ -591,6 +591,8 @@ namespace beam
 
 	void TxKernelStd::UpdateID()
 	{
+		m_Internal.m_HasNonStd = false;
+
 		ECC::Hash::Processor hp;
 		HashBase(hp);
 
@@ -618,6 +620,16 @@ namespace beam
 
 		HashNested(hp);
 		hp >> m_Internal.m_ID;
+
+		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
+		{
+			const TxKernel& v = *(*it);
+			if (v.m_Internal.m_HasNonStd)
+			{
+				m_Internal.m_HasNonStd = true;
+				break;
+			}
+		}
 	}
 
 	bool TxKernel::IsValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm) const
@@ -635,12 +647,6 @@ namespace beam
 			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
 				(m_Height.m_Max < pParent->m_Height.m_Max))
 				return false; // parent Height range must be contained in ours.
-		}
-		else
-		{
-			if ((hScheme >= r.pForks[2].m_Height) && (m_Height.m_Min < r.pForks[2].m_Height))
-				// Starting from Fork2 non-embedded kernels must have appropriate min height
-				return false;
 		}
 
 		if (!m_vNested.empty())
@@ -726,22 +732,10 @@ namespace beam
 
 	int TxKernel::cmp(const TxKernel& v) const
 	{
-		const Rules& r = Rules::get();
-		bool b2Me = (m_Height.m_Min >= r.pForks[2].m_Height);
-		bool b2Other = (v.m_Height.m_Min >= r.pForks[2].m_Height);
+		CMP_MEMBER(m_Internal.m_HasNonStd)
 
-		if (b2Me)
-		{
-			if (!b2Other)
-				return 1;
-
-			CMP_MEMBER_EX(m_Internal.m_ID)
-		}
-		else
-		{
-			if (b2Other)
-				return -1;
-		}
+		if (m_Internal.m_HasNonStd)
+			return 0; // no sort for non-std kernels (always keep their order)
 
 		Subtype::Enum t0 = get_Subtype();
 		Subtype::Enum t1 = v.get_Subtype();
@@ -752,7 +746,7 @@ namespace beam
 
 	int TxKernel::cmp_Subtype(const TxKernel&) const
 	{
-		return 0;
+		return 0; // currentl unreachable: all kernels besides TxKernelStd are defined as 'non-standard', and should not be compared
 	}
 
 	int TxKernelStd::cmp_Subtype(const TxKernel& v_) const
@@ -849,6 +843,7 @@ namespace beam
 
 	void TxKernelNonStd::UpdateID()
 	{
+		m_Internal.m_HasNonStd = true; // I'm non-standard already
 		UpdateMsg();
 		MsgToID();
 	}

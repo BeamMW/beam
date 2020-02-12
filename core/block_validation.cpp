@@ -165,14 +165,8 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (pPrev)
-				{
-					int n = pPrev->cmp(*r.m_pKernel);
-					if (n > 0)
-						return false;
-					if (!n && (iFork >= 2))
-						return false; // starting from Fork2 duplicates are forbidden
-				}
+				if (pPrev && ((*pPrev) > (*r.m_pKernel)))
+					return false; // wrong order
 
 				if (!r.m_pKernel->IsValid(m_Height.m_Min, m_Sigma))
 					return false;

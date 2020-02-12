@@ -1997,6 +1997,9 @@ struct NodeProcessor::BlockInterpretCtx
 
 	BlobSet* m_pDups = nullptr; // used in validate-only mode
 
+	typedef std::set<Blob> BlobPtrSet; // like BlobSet, but buffers are not allocated/copied
+	BlobPtrSet* m_pDupIDs;
+
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
 		,m_Fwd(bFwd)
@@ -3280,6 +3283,18 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 		Height hPrev = FindVisibleKernel(v.m_Internal.m_ID, bic);
 		if (hPrev >= Rules::HeightGenesis)
 			return false; // duplicated
+
+		if (bic.m_ValidateOnly)
+		{
+			assert(bic.m_pDupIDs);
+			Blob key(v.m_Internal.m_ID);
+
+			if (bic.m_pDupIDs->end() != bic.m_pDupIDs->find(key))
+				return false; // duplicated within the same tx
+
+			bic.m_pDupIDs->insert(key);
+			
+		}
 	}
 
 	bool bSaveID = ((bic.m_Height >= Rules::HeightGenesis) && bic.m_SaveKid); // for historical reasons treasury kernels are ignored
@@ -3940,6 +3955,9 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 	BlockInterpretCtx::BlobSet setDups;
 	bic.m_pDups = &setDups;
+
+	BlockInterpretCtx::BlobPtrSet setKrnIds;
+	bic.m_pDupIDs = &setKrnIds;
 
 	size_t n = 0;
 	if (!HandleElementVecFwd(tx.m_vKernels, bic, n))
