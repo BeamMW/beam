@@ -691,8 +691,14 @@ namespace beam
 	bool TxKernelStd::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
 		const Rules& r = Rules::get(); // alias
-		if ((hScheme < r.pForks[1].m_Height) && m_pRelativeLock)
-			return false; // unsupported for that version
+		if (m_pRelativeLock)
+		{
+			if (hScheme < r.pForks[1].m_Height)
+				return false; // unsupported for that version
+
+			if ((hScheme >= r.pForks[2].m_Height) && !m_pRelativeLock->m_LockHeight)
+				return false; // zero m_LockHeight makes no sense, but allowed prior to Fork2
+		}
 
 		ECC::Point::Native pt;
 		if (!pt.ImportNnz(m_Commitment))

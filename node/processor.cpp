@@ -2640,22 +2640,30 @@ bool NodeProcessor::IsDummy(const CoinID&  cid)
 		(Key::Type::Decoy == cid.m_Type);
 }
 
+Height NodeProcessor::FindVisibleKernel(const Merkle::Hash& id, const BlockInterpretCtx& bic)
+{
+	Height h = m_DB.FindKernel(id);
+	if (h >= Rules::HeightGenesis)
+	{
+		assert(h <= bic.m_Height);
+
+		const Rules& r = Rules::get();
+		if ((bic.m_Height >= r.pForks[2].m_Height) && (bic.m_Height - h > r.MaxKernelValidityDH))
+			return 0; // Starting from Fork2 - visibility horizon is limited
+	}
+
+	return h;
+}
+
+
 bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
 {
 	if (bic.m_Fwd && krn.m_pRelativeLock && !bic.m_AlreadyValidated)
 	{
 		const TxKernelStd::RelativeLock& x = *krn.m_pRelativeLock;
 
-		Height h0 = m_DB.FindKernel(x.m_ID);
+		Height h0 = FindVisibleKernel(x.m_ID, bic);
 		if (h0 < Rules::HeightGenesis)
-			return false;
-
-		const Rules& rules = Rules::get();
-		// We should NOT allow for (h0 == bic.m_Height), which is possible if (x.m_LockHeight == 0).
-		// it will be fragile when kernels are sorted, attacker may do this to prevent correct block generation.
-		//
-		// Can't be enforced prior to Fork2. But since Fork2 - the following comparison makes sure to reject it.
-		if ((bic.m_Height >= rules.pForks[2].m_Height) && (Height(bic.m_Height - h0 - 1) >= rules.MaxKernelValidityDH))
 			return false;
 
 		HeightAdd(h0, x.m_LockHeight);
@@ -3269,9 +3277,8 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 	const Rules& r = Rules::get();
 	if (bic.m_Fwd && (bic.m_Height >= r.pForks[2].m_Height) && !bic.m_AlreadyValidated)
 	{
-		Height hPrev = m_DB.FindKernel(v.m_Internal.m_ID);
-		assert(hPrev <= bic.m_Height);
-		if ((hPrev >= Rules::HeightGenesis) && (bic.m_Height - hPrev <= r.MaxKernelValidityDH))
+		Height hPrev = FindVisibleKernel(v.m_Internal.m_ID, bic);
+		if (hPrev >= Rules::HeightGenesis)
 			return false; // duplicated
 	}
 
