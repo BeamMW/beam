@@ -912,13 +912,15 @@ namespace
         if (vm.count(cli::SHIELDED_UTXOS))
         {
             // TODO should implement
-            const char kShieldedCoinsTableHeadFormat[] = "  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
+            const char kShieldedCoinsTableHeadFormat[] = "  | %1% | %2% | %3% | %4% | %5% | %6% | %7% | %8% | %9% |";
             const char kShieldedCreateTxID[] = "createTxID";
             const char kShieldedSpentTxID[] = "spentTxID";
             const char kShieldedConfirmHeight[] = "confirmHeight";
             const char kShieldedSpentHeight[] = "spentHeight";
+            const char kAnonymitySet[] = "anonymitySet(approx.)";
+            const char kTargetAnonymitySet[] = "targetAnonymitySet";
 
-            const array<uint8_t, 7> columnWidths{ { 4, 14, 14, 32, 32, 14, 14} };
+            const array<uint8_t, 9> columnWidths{ { 4, 10, 10, 32, 32, 13, 12, 21, 18} };
             cout << boost::format(kShieldedCoinsTableHeadFormat)
                 % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
                 % boost::io::group(right, setw(columnWidths[1]), kBEAM)
@@ -927,20 +929,27 @@ namespace
                 % boost::io::group(right, setw(columnWidths[4]), kShieldedSpentTxID)
                 % boost::io::group(right, setw(columnWidths[5]), kShieldedConfirmHeight)
                 % boost::io::group(right, setw(columnWidths[6]), kShieldedSpentHeight)
+                % boost::io::group(right, setw(columnWidths[7]), kAnonymitySet)
+                % boost::io::group(right, setw(columnWidths[8]), kTargetAnonymitySet)
                 << std::endl;
 
             auto shieldedCoins = walletDB->getShieldedCoins();
+            TxoID lastKnownShieldedOuts = 0;
+            storage::getVar(*walletDB, kStateSummaryShieldedOutsDBPath, lastKnownShieldedOuts);
 
             for (const auto& c : shieldedCoins)
             {
+                TxoID anonymitySetForCoin = lastKnownShieldedOuts && (lastKnownShieldedOuts > c.m_ID) ? lastKnownShieldedOuts - c.m_ID : 0;
                 cout << boost::format(kShieldedCoinsTableHeadFormat)
                     % boost::io::group(left, setw(columnWidths[0]), std::to_string(c.m_ID))
                     % boost::io::group(right, setw(columnWidths[1]), c.m_value / Rules::Coin)
                     % boost::io::group(right, setw(columnWidths[2]), c.m_value % Rules::Coin)
                     % boost::io::group(left, setw(columnWidths[3]), c.m_createTxId ? to_hex(c.m_createTxId->data(), c.m_createTxId->size()) : "")
                     % boost::io::group(left, setw(columnWidths[4]), c.m_spentTxId ? to_hex(c.m_spentTxId->data(), c.m_spentTxId->size()) : "")
-                    % boost::io::group(left, setw(columnWidths[5]), (c.m_confirmHeight != MaxHeight) ? std::to_string(c.m_confirmHeight) : "--")
-                    % boost::io::group(left, setw(columnWidths[6]), (c.m_spentHeight != MaxHeight) ? std::to_string(c.m_spentHeight) : "--")
+                    % boost::io::group(right, setw(columnWidths[5]), (c.m_confirmHeight != MaxHeight) ? std::to_string(c.m_confirmHeight) : "--")
+                    % boost::io::group(right, setw(columnWidths[6]), (c.m_spentHeight != MaxHeight) ? std::to_string(c.m_spentHeight) : "--")
+                    % boost::io::group(right, setw(columnWidths[7]), (anonymitySetForCoin) ? std::to_string(anonymitySetForCoin) : "--")
+                    % boost::io::group(right, setw(columnWidths[8]), Rules::get().Shielded.NMax)
                     << std::endl;
             }
 
