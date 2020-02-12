@@ -2111,7 +2111,7 @@ namespace
                 do_write_json(msg);
             }
 
-            void sendAsync(const json& msg, KeyKeeperFunc func)
+            void sendAsync(const json& msg, KeyKeeperFunc func) override
             {
                 do_write_json(msg, func);
             }
