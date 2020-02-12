@@ -121,6 +121,38 @@ WalletApi::ACL loadACL(const std::string& path)
     return WalletApi::ACL(keys);
 }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+boost::optional<SwapOffer> getOfferFromBoardByTxId(
+    const std::vector<SwapOffer>& board, const TxID& txId)
+{
+    auto it = std::find_if(
+        board.begin(), board.end(),
+        [txId] (const SwapOffer& publicOffer)
+        {
+            auto publicTxId = publicOffer.GetTxID();
+            if (publicTxId)
+                return txId == *publicTxId;
+            return false;
+        });
+    if (it != board.end())
+        return *it;
+    
+    return boost::optional<SwapOffer>();
+}
+
+WalletID createWID(IWalletDB* walletDb, const std::string& comment)
+{
+    WalletAddress address;
+    walletDb->createAddress(address);
+    if (!comment.empty())
+        address.m_label = comment;
+    address.m_duration = WalletAddress::AddressExpiration24h;
+    walletDb->saveAddress(address);
+
+    return address.m_walletID;
+}
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+
 class IWalletApiServer
 {
 public:
@@ -858,15 +890,45 @@ private:
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
         void onMessage(const JsonRpcId& id, const OffersList& data) override
         {
-            auto offers = _swapOffersBoard.getOffersList();
+            bool showAll = data.filter.showAll && *data.filter.showAll;
+            bool filter = data.filter.status.is_initialized();
+            SwapOfferStatus filterStatus = SwapOfferStatus::Completed;
+            
+            std::vector<SwapOffer> offers;
+            if (filter)
+            {
+                filterStatus = *data.filter.status;
+                if (filterStatus != SwapOfferStatus::Pending)
+                {
+                    offers = _swapOffersBoard.getOffersList();
+                }
+            }
+            else
+            {
+                offers = _swapOffersBoard.getOffersList();
+            }
+
             auto swapTxs = _walletDB->getTxHistory(TxType::AtomicSwap);
             offers.reserve(offers.size() + swapTxs.size());
             
             for (const auto& tx : swapTxs)
             {
                 SwapOffer offer(tx);
-                if (offer.m_status != SwapOfferStatus::Pending &&
-                    offer.m_status != SwapOfferStatus::InProgress) continue;
+
+                if (!showAll)
+                {
+                    if (filter &&
+                        offer.m_status != filterStatus)
+                    {
+                        continue;
+                    }
+                    if (!filter &&
+                        offer.m_status != SwapOfferStatus::Pending &&
+                        offer.m_status != SwapOfferStatus::InProgress)
+                    {
+                        continue;
+                    }
+                }
 
                 const auto it = std::find_if(
                     offers.begin(),
@@ -893,19 +955,11 @@ private:
         {
             // TODO(zavarza) check balance
             auto txParameters = CreateSwapTransactionParameters();
-
-            WalletAddress address;
-            _walletDB->createAddress(address);
-            if (!data.comment.empty())
-                address.m_label = data.comment;
-            address.m_duration = WalletAddress::AddressExpiration24h;
-            _walletDB->saveAddress(address);
-
+            auto wid = createWID(_walletDB.get(), data.comment);
             auto currentHeight = _walletDB->getCurrentHeight();
-
             FillSwapTxParams(
                 &txParameters,
-                address.m_walletID,
+                wid,
                 currentHeight,
                 data.beamAmount,
                 data.beamFee,
@@ -976,8 +1030,91 @@ private:
 
         void onMessage(const JsonRpcId& id, const AcceptOffer & data) override
         {
-            AcceptOffer ::Response res;
-            doResponse(id, res);
+            auto txParams = ParseParameters(data.token);
+            if (!txParams)
+                throw FailToParseToken();
+
+            auto txId = txParams->GetTxID();
+            if (!txId)
+                throw FailToParseToken();
+
+            auto publicOffer = getOfferFromBoardByTxId(
+                _swapOffersBoard.getOffersList(), *txId);
+
+            SwapOffer offer;
+            auto myAddresses = _walletDB->getAddresses(true);
+            if (publicOffer)
+            {
+                offer = *publicOffer;
+
+                if (isMyAddress(myAddresses, offer.m_publisherId))
+                    throw FailToAcceptOwnOffer();
+            }
+            else
+            {
+                auto peerId =
+                    txParams->GetParameter<WalletID>(TxParameterID::PeerID);
+
+                if (!peerId)
+                    throw FailToParseToken();
+
+                if (isMyAddress(myAddresses, *peerId))
+                    throw FailToAcceptOwnOffer();
+
+                auto wid = createWID(_walletDB.get(), data.comment);
+                offer = SwapOffer(*txParams);
+                offer.SetParameter(TxParameterID::MyID, wid);
+                if (!data.comment.empty())
+                {
+                    offer.SetParameter(
+                        TxParameterID::Message,
+                        beam::ByteBuffer(data.comment.begin(),
+                                         data.comment.end()));
+                }
+            }
+
+            // TODO(zavarza) check params
+
+            if (offer.isBeamSide())
+            {
+                offer.SetParameter(TxParameterID::Fee,
+                                   data.beamFee,
+                                   beam::wallet::SubTxIndex::BEAM_LOCK_TX);
+                offer.SetParameter(TxParameterID::Fee,
+                                   data.beamFee,
+                                   beam::wallet::SubTxIndex::BEAM_REFUND_TX);
+                offer.SetParameter(TxParameterID::Fee,
+                                   data.swapFee,
+                                   beam::wallet::SubTxIndex::REDEEM_TX);
+            }
+            else
+            {
+                offer.SetParameter(TxParameterID::Fee,
+                                   data.swapFee,
+                                   beam::wallet::SubTxIndex::LOCK_TX);
+                offer.SetParameter(TxParameterID::Fee,
+                                   data.swapFee,
+                                   beam::wallet::SubTxIndex::REFUND_TX);
+                offer.SetParameter(TxParameterID::Fee,
+                                   data.beamFee,
+                                   beam::wallet::SubTxIndex::BEAM_REDEEM_TX);
+            }
+            
+            // TODO(zavarza) check balance
+
+            _wallet.StartTransaction(offer);
+            offer.m_status = SwapOfferStatus::InProgress;
+            if (!publicOffer)
+                offer.DeleteParameter(TxParameterID::MyID);
+
+            doResponse(
+                id,
+                AcceptOffer::Response
+                {
+                    myAddresses,
+                    _walletDB->getCurrentHeight(),
+                    offer
+                });
         }
 
         void onMessage(const JsonRpcId& id, const CancelOffer& data) override
@@ -1003,7 +1140,7 @@ private:
             }
             else
             {
-                throw CantCancelTx(offer.m_status);
+                throw FailToCancelTx(offer.m_status);
             }
 
             doResponse(id, CancelOffer::Response
@@ -1024,21 +1161,13 @@ private:
             if (!txId)
                 throw FailToParseToken();
 
-            SwapOffer offer;
-            auto publicOffers = _swapOffersBoard.getOffersList();
-            auto it = std::find_if(
-                publicOffers.begin(), publicOffers.end(),
-                [&txId] (const SwapOffer& publicOffer)
-                {
-                    auto publicTxId = publicOffer.GetTxID();
-                    if (publicTxId)
-                    return *txId == *publicTxId;
-                    return false;
-                });
+            auto publicOffer = getOfferFromBoardByTxId(
+                _swapOffersBoard.getOffersList(), *txId);
 
-            if (it != publicOffers.end())
+            SwapOffer offer;
+            if (publicOffer)
             {
-                offer = *it;
+                offer = *publicOffer;
             }
             else if (auto tx = _walletDB->getTx(*txId); tx)
             {
@@ -1052,15 +1181,9 @@ private:
                     throw FailToParseToken();
 
                 auto myAddresses = _walletDB->getAddresses(true);
-                const auto& addrIt = std::find_if(
-                myAddresses.begin(), myAddresses.end(),
-                    [&peerId] (const WalletAddress& wa) {
-                        return wa.m_walletID == *peerId;
-                    });
-                if (addrIt == myAddresses.end())
+                if (!isMyAddress(myAddresses, *peerId))
                 {
                     offer = SwapOffer(*txParams);
-                    offer.m_publisherId = *peerId;
                 }
                 else
                 {

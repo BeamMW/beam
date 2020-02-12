@@ -87,44 +87,30 @@ namespace beam::wallet
     class FailToParseToken : public std::runtime_error
     {
     public:
-        FailToParseToken()
-            : std::runtime_error("")
-        {
-        }
-
+        FailToParseToken() : std::runtime_error("") {}
     };
 
     class TxNotFound : public std::runtime_error
     {
     public:
-        TxNotFound()
-            : std::runtime_error("")
-        {
-        }
-
+        TxNotFound() : std::runtime_error("") {}
     };
 
-    class CantCancelTx : public std::runtime_error
+    class FailToCancelTx : public std::runtime_error
     {
     public:
-        CantCancelTx(const SwapOfferStatus& status)
-            : std::runtime_error(""), _status(status)
-        {
-        }
+        FailToCancelTx(const SwapOfferStatus& status)
+            : std::runtime_error(""), _status(status) {}
         SwapOfferStatus _status;
     };
 
-    struct OffersList
+    class FailToAcceptOwnOffer : public std::runtime_error
     {
-        struct Response
-        {
-            std::vector<WalletAddress> addrList;
-            Height systemHeight;
-            std::vector<SwapOffer> list;
-        };
+    public:
+        FailToAcceptOwnOffer() : std::runtime_error("") {}
     };
 
-    struct CreateOffer
+    struct OfferInput
     {
         Amount beamAmount = 0;
         Amount swapAmount = 0;
@@ -134,6 +120,27 @@ namespace beam::wallet
         Amount swapFee = 0;
         Height offerLifetime = 15;
         std::string comment;
+    };
+
+    struct OffersList
+    {
+        struct
+        {
+            boost::optional<SwapOfferStatus> status;
+            boost::optional<bool> showAll;
+        } filter;
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            std::vector<SwapOffer> list;
+        };
+    };
+
+    struct CreateOffer : public OfferInput
+    {
+        CreateOffer() = default;
+        CreateOffer(const OfferInput& oi) : OfferInput(oi) {}
         struct Response
         {
             std::vector<WalletAddress> addrList;
@@ -153,12 +160,16 @@ namespace beam::wallet
         };
     };
 
-    struct AcceptOffer
+    struct AcceptOffer : public OfferInput
     {
+        AcceptOffer() = default;
+        AcceptOffer(const OfferInput& oi) : OfferInput(oi) {}
         std::string token;
         struct Response
         {
-
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            SwapOffer offer;
         };
     };
 
@@ -385,6 +396,11 @@ namespace beam::wallet
             TxID txId;
         };
     };
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    bool isMyAddress(
+        const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     class IWalletApiHandler
     {
