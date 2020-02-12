@@ -55,6 +55,7 @@ ColumnLayout {
     property bool     multi:        false // changing this property in runtime would reset bindings
     property int      currency:     Currency.CurrBeam
     property string   amount:       "0"
+    property string   amountIn:     "0"
     property int      fee:          currencies[currency].defaultFee
     property alias    error:        errmsg.text
     property bool     readOnlyA:    false
@@ -102,12 +103,12 @@ ColumnLayout {
             }
 
             function formatDisplayedAmount() {
-                return control.amount == "0" ? "" : (ainput.focus ? control.amount : Utils.uiStringToLocale(control.amount))
+                return control.amountIn == "0" ? "" : (ainput.focus ? control.amountIn : Utils.uiStringToLocale(control.amountIn))
             }
 
             Connections {
                 target: control
-                onAmountChanged: {
+                onAmountInChanged: {
                     if (!ainput.focus) {
                         ainput.text = ainput.formatDisplayedAmount()
                     }
