@@ -347,6 +347,11 @@ namespace beam::wallet
         return m_TxID < x.m_TxID;
     }
 
+    bool Wallet::MyRequestStateSummary::operator < (const MyRequestStateSummary& x) const
+    {
+        return false;
+    }
+
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
         uint32_t n = get_ParentObj().SyncRemains();
@@ -741,6 +746,12 @@ namespace beam::wallet
         assert(false);
     }
 
+    void Wallet::OnRequestComplete(MyRequestStateSummary& r)
+    {
+        // TODO: save full response?
+        storage::setVar(*m_WalletDB, kStateSummaryShieldedOutsDBPath, r.m_Res.m_ShieldedOuts);
+    }
+
     void Wallet::RequestEvents()
     {
         if (!m_OwnedNodesOnline)
@@ -975,6 +986,7 @@ namespace beam::wallet
         LOG_INFO() << "Sync up to " << id;
 
         RequestEvents();
+        RequestStateSummary();
 
         for (auto& tx : m_NextTipTransactionToUpdate)
         {
@@ -1292,5 +1304,11 @@ namespace beam::wallet
             return IsValidTimeStamp(sTip.m_TimeStamp);
         }
         return true; // to allow made air-gapped transactions
+    }
+
+    void Wallet::RequestStateSummary()
+    {
+        MyRequestStateSummary::Ptr pReq(new MyRequestStateSummary);
+        PostReqUnique(*pReq);
     }
 }

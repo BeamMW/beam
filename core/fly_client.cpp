@@ -818,6 +818,15 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestProofShieldedOutp& 
     }
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestStateSummary& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestStateSummary& req)
+{
+}
+
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
 {
     return (LoginFlags::Bbs & m_LoginFlags) && IsAtTip();

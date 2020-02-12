@@ -185,6 +185,7 @@ namespace beam::wallet
         void SetEventsHeight(Height);
         Height GetEventsHeightNext();
         void ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h);
+        void RequestStateSummary();
 
         BaseTransaction::Ptr GetTransaction(const WalletID& myID, const SetTxParameter& msg);
         BaseTransaction::Ptr ConstructTransaction(const TxID& id, TxType type);
@@ -207,7 +208,8 @@ namespace beam::wallet
 #define REQUEST_TYPES_Sync(macro) \
         macro(Utxo) \
         macro(Kernel) \
-        macro(Events)
+        macro(Events) \
+        macro(StateSummary)
 
         struct AllTasks {
 #define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };
