@@ -129,7 +129,7 @@ content-type: application/json-rpc
         "beam_fee": 100,
         "btc_fee_rate": 90000,
         "comment": "API-accept",
-        "token" : "6xexCymtrtLcHHVYq1ToUoawWafE2mw56oSaMxoU5xViKSKMSLaP66DZwbiL1K2AsaLHFwPvGdZbq1VnqJPnrcqKJudh5aGBheUebMSkVyFKUjDJcQxWKFA4BwTQdJwptX8f2EEvnFbwpL356RwYz3RScDWMJdNyCAt5tbE"
+        "token" : "6xewkUBnRZXrRKwwnseyFaufaPvGAvcjMG1DmQKtJvyyKvamsmRgcAVoyBFcDWp93ZcF6sFuiGYUmoLFkrXQLnASyX53ppziXy1MNePox7TGRZX1smSBuNMBgQCoQzW2j3EEs3yqRXgF6wkpjMZq6iCrY1E9sxDoGGxwyEt"
     }
 }
 

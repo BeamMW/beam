@@ -151,6 +151,30 @@ WalletID createWID(IWalletDB* walletDb, const std::string& comment)
 
     return address.m_walletID;
 }
+
+bool checkAcceptableTxParams(const TxParameters& params, const OfferInput& data)
+{
+    auto beamAmount = params.GetParameter<Amount>(TxParameterID::Amount);
+    if (!beamAmount || *beamAmount != data.beamAmount)
+        return false;
+    
+    auto swapAmount = params.GetParameter<Amount>(
+        TxParameterID::AtomicSwapAmount);
+    if (!swapAmount || *swapAmount != data.swapAmount)
+        return false;
+    
+    auto swapCoin = params.GetParameter<AtomicSwapCoin>(
+        TxParameterID::AtomicSwapCoin);
+    if (!swapCoin || *swapCoin != data.swapCoin)
+        return false;
+
+    auto isBeamSide = params.GetParameter<bool>(
+        TxParameterID::AtomicSwapIsBeamSide);
+    if (!isBeamSide || *isBeamSide != data.isBeamSide)
+        return false;
+
+    return true;
+}
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 class IWalletApiServer
@@ -1073,7 +1097,8 @@ private:
                 }
             }
 
-            // TODO(zavarza) check params
+            if (!checkAcceptableTxParams(offer, data))
+                throw FailToAcceptOffer();
 
             if (offer.isBeamSide())
             {

@@ -110,6 +110,12 @@ namespace beam::wallet
         FailToAcceptOwnOffer() : std::runtime_error("") {}
     };
 
+    class FailToAcceptOffer : public std::runtime_error
+    {
+    public:
+        FailToAcceptOffer() : std::runtime_error("") {}
+    };
+
     struct OfferInput
     {
         Amount beamAmount = 0;

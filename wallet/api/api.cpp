@@ -918,6 +918,15 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 id
             };
         }
+        catch(const FailToAcceptOffer&)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "Wrong offer params.",
+                id
+            };
+        }
     }
 
     void WalletApi::onCancelOfferMessage(const JsonRpcId& id, const json& params)
