@@ -10,6 +10,7 @@ target_sources(wallet_client
         extensions/news_channels/broadcast_msg_creator.cpp
         extensions/news_channels/broadcast_msg_validator.cpp
         extensions/news_channels/updates_provider.cpp
+        extensions/news_channels/exchange_rate_provider.cpp
         extensions/offers_board/swap_offer.cpp
         extensions/offers_board/swap_offer_token.cpp
         extensions/offers_board/offers_protocol_handler.cpp

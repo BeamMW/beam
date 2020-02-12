@@ -691,6 +691,7 @@ namespace beam
         // static Version getCurrent();
 
         std::string to_string() const;
+        bool from_string(const std::string&);
         bool operator==(const Version& other) const;
         bool operator!=(const Version& other) const;
         bool operator<(const Version& other) const;

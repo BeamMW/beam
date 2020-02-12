@@ -17,6 +17,7 @@
 #include "utility/logger.h"
 #include "core/ecc_native.h"
 #include "base58.h"
+#include "utility/string_helpers.h"
 
 #include <iomanip>
 #include <boost/algorithm/string.hpp>
@@ -170,6 +171,37 @@ namespace beam
         res.append(min).push_back('.');
         res.append(rev);
         return res;
+    }
+
+    bool Version::from_string(const std::string& verString)
+    {
+        try
+        {
+            auto stringList = string_helpers::split(verString, '.');
+            if (stringList.size() != 3) return false;
+
+            std::vector<uint32_t> verList;
+
+            for (const auto& str : stringList)
+            {
+                size_t strEnd = 0;
+                uint32_t integer = std::stoul(str, &strEnd);
+                if (strEnd != str.size())
+                {
+                    return false;
+                }
+                verList.push_back(integer);
+            }
+
+            m_major = verList[0];
+            m_minor = verList[1];
+            m_revision = verList[2];
+        }
+        catch(...)
+        {
+            return false;
+        }
+        return true;
     }
 
     bool Version::operator==(const Version& other) const
