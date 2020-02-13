@@ -419,6 +419,8 @@ matrix:
         - BALANSER_PATH="/$HOME/build/BeamMW/beam/wallet/service-balancer"
       go:
         - tip
+      install:
+        #- sudo apt install golang-go -y
       script:
         - go build -o "$BALANSER_PATH/bin" "BALANSER_PATH/*.go"
       after_success:
