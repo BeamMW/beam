@@ -48,7 +48,7 @@ namespace ECC_Min
 
 		struct Prepared
 		{
-			static const int nBits = 4;
+			static const uint8_t nBits = 4;
 			static const int nMaxOdd = (1 << nBits) - 1;
 
 			static const int nCount = (nMaxOdd >> 1) + 1;
@@ -58,7 +58,8 @@ namespace ECC_Min
 		struct WNafCursor
 		{
 			uint8_t m_iBit;
-			uint8_t m_iOdd;
+			uint8_t m_iElement;
+			static const uint8_t s_HiBit = 0x80;
 
 			static_assert(Prepared::nMaxOdd <= uint8_t(-1));
 
@@ -66,7 +67,12 @@ namespace ECC_Min
 			bool FindCarry(const secp256k1_scalar&);
 			void MoveAfterCarry(const secp256k1_scalar&);
 			void MoveNext(const secp256k1_scalar&);
-			static uint8_t get_Bit(const secp256k1_scalar&, uint16_t iBit);
+
+			static uint8_t get_Bit(const secp256k1_scalar&, uint8_t iBit);
+			static void xor_Bit(secp256k1_scalar&, uint8_t iBit);
+
+			static bool SplitPosNeg(secp256k1_scalar&, secp256k1_scalar&);
+
 		};
 
 		Index m_Prepared;
@@ -74,7 +80,7 @@ namespace ECC_Min
 		MultiMac() { Reset(); }
 
 		void Reset();
-		void Calculate(secp256k1_gej&, const Prepared*, const secp256k1_scalar*, WNafCursor*);
+		void Calculate(secp256k1_gej&, const Prepared*, secp256k1_scalar*, WNafCursor*);
 
 
 	private:
@@ -87,14 +93,15 @@ namespace ECC_Min
 		:public MultiMac
 	{
 		Prepared m_pPrepared[nMaxCount];
-		WNafCursor m_pWnaf[nMaxCount];
-		secp256k1_scalar m_pK[nMaxCount];
+		WNafCursor m_pWnaf[nMaxCount * 2];
+		secp256k1_scalar m_pK[nMaxCount * 2];
 
 		void Add(const secp256k1_scalar& k)
 		{
 			static_assert(nMaxCount <= Index(-1));
 			assert(m_Prepared < nMaxCount);
-			m_pK[m_Prepared++] = k;
+			m_pK[m_Prepared * 2] = k;
+			m_Prepared++;
 		}
 
 		void Calculate(secp256k1_gej& res)
