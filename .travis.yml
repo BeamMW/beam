@@ -416,7 +416,7 @@ matrix:
         - BUILD_TYPE=Release
         - GOOS=linux
         - GOARCH=amd64
-        - BALANCER_PATH="~/BeamMW/beam/wallet/service-balancer"
+        - BALANCER_PATH="wallet/service-balancer"
       go:
         - 1.13.x
       install:
