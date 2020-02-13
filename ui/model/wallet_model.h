@@ -79,7 +79,7 @@ signals:
 #endif
     void txHistoryExportedToCsv(const QString& data);
     void newAppVersion(const QString& msg);
-    void exchangeRatesUpdate(const QString& msg);
+    void exchangeRatesUpdate(const beam::wallet::ExchangeRates&);
 
 private:
     void onStatus(const beam::wallet::WalletStatus& status) override;
@@ -108,7 +108,7 @@ private:
     void onExportTxHistoryToCsv(const std::string& data) override;
     void onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers) override;
     void onNewWalletVersion(const beam::wallet::VersionInfo&) override;
-    // void onExchangeRates(const ExchangeRates&) override;
+    void onExchangeRates(const beam::wallet::ExchangeRates&) override;
 
     void onShowKeyKeeperMessage() override;
     void onHideKeyKeeperMessage() override;

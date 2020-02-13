@@ -289,6 +289,11 @@ void WalletModel::onNewWalletVersion(const VersionInfo& v)
     }
 }
 
+void WalletModel::onExchangeRates(const beam::wallet::ExchangeRates& rates)
+{
+    emit exchangeRatesUpdate(rates);
+}
+
 beam::Amount WalletModel::getAvailable() const
 {
     return m_status.available;

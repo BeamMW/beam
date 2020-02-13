@@ -38,7 +38,7 @@ namespace beam::wallet
     public:
         using Ptr = std::shared_ptr<SwapOffersBoard>;
 
-        SwapOffersBoard(IBroadcastMsgsGateway&, OfferBoardProtocolHandler&);
+        SwapOffersBoard(IBroadcastMsgGateway&, OfferBoardProtocolHandler&);
 
         /**
          *  IBroadcastListener implementation
@@ -63,7 +63,7 @@ namespace beam::wallet
         void Unsubscribe(ISwapOffersObserver* observer);
 
     private:
-		IBroadcastMsgsGateway& m_broadcastGateway;
+		IBroadcastMsgGateway& m_broadcastGateway;
         OfferBoardProtocolHandler& m_protocolHandler;       /// handles message creating and parsing
 
         Height m_currentHeight = 0;

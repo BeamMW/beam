@@ -31,14 +31,14 @@ namespace beam
      *  Encapsulates transport protocol.
      */
     class BroadcastRouter
-        : public IBroadcastMsgsGateway
+        : public IBroadcastMsgGateway
         , IErrorHandler  // Error handling for Protocol
         , proto::FlyClient::IBbsReceiver
     {
     public:
         BroadcastRouter(proto::FlyClient::INetwork&, wallet::IWalletMessageEndpoint&);
 
-        // IBroadcastMsgsGateway
+        // IBroadcastMsgGateway
         void registerListener(BroadcastContentType, IBroadcastListener*) override;
         void unregisterListener(BroadcastContentType) override;
         void sendRawMessage(BroadcastContentType type, const ByteBuffer&) override; // deprecated. used in SwapOffersBoard.

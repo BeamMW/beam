@@ -23,7 +23,7 @@ namespace beam::wallet
      *  @messageEndpoint    outgoing messages destination
      *  @protocolHandler    offer board protocol handler
      */
-    SwapOffersBoard::SwapOffersBoard(IBroadcastMsgsGateway& broadcastGateway,
+    SwapOffersBoard::SwapOffersBoard(IBroadcastMsgGateway& broadcastGateway,
                                      OfferBoardProtocolHandler& protocolHandler)
         :   m_broadcastGateway(broadcastGateway),
             m_protocolHandler(protocolHandler)

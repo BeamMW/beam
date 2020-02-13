@@ -16,6 +16,7 @@ Rectangle {
 	MainViewModel {id: viewModel}
 
     UpdateInfoProvider {id: updateInfoProvider}
+    ExchangeRateProvider {id: ratesProvider}
 
     ConfirmationDialog {
         id:                     closeDialog

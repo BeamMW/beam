@@ -19,6 +19,7 @@
 #include "keykeeper/trezor_key_keeper.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
 #include "extensions/news_channels/updates_provider.h"
+#include "extensions/news_channels/exchange_rate_provider.h"
 
 using namespace std;
 
@@ -324,9 +325,13 @@ namespace beam::wallet
                     }
                     m_broadcastValidator = broadcastValidator;
                     auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
+                    auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator);
                     m_updatesProvider = updatesProvider;
+                    m_exchangeRateProvider = exchangeRateProvider;
                     using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
+                    using ExchangeRatesSubscriber = ScopedSubscriber<INewsObserver, ExchangeRateProvider>;
                     auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(this), updatesProvider);
+                    auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<INewsObserver*>(this), exchangeRateProvider);
 
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){

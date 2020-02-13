@@ -62,7 +62,7 @@ namespace beam
     /**
      *  Interface to access broadcasting network
      */
-    struct IBroadcastMsgsGateway
+    struct IBroadcastMsgGateway
     {
         virtual void registerListener(BroadcastContentType, IBroadcastListener*) = 0;
         virtual void unregisterListener(BroadcastContentType) = 0;

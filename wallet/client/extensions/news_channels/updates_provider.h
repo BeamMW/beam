@@ -27,7 +27,7 @@ namespace beam::wallet
         : public IBroadcastListener
     {
     public:
-        AppUpdateInfoProvider(IBroadcastMsgsGateway&, BroadcastMsgValidator&);
+        AppUpdateInfoProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&);
 
         /**
          *  Provides application update information from broadcast messages
@@ -39,7 +39,7 @@ namespace beam::wallet
         void Unsubscribe(INewsObserver* observer);
         
     private:
-		IBroadcastMsgsGateway& m_broadcastGateway;
+		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;
         std::vector<INewsObserver*> m_subscribers;
 

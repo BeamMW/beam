@@ -16,7 +16,24 @@
 
 #include <QObject>
 
+#include "ui/model/app_model.h"
+#include "wallet/client/extensions/news_channels/interface.h"
+
 class ExchangeRateProvider : public QObject
 {
     Q_OBJECT
+    // Q_PROPERTY()
+
+public:
+    ExchangeRateProvider();
+
+signals:
+    //
+
+public slots:
+    void onExchangeRatesUpdate(const beam::wallet::ExchangeRates& rates);
+
+private:
+    WalletModel& m_walletModel;
+    // WalletSettings& m_settings;
 };
