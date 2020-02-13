@@ -22,6 +22,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <map>
 #include <queue>
+#include <cstdio>
 
 #include "utility/cli/options.h"
 #include "utility/helpers.h"
@@ -2194,6 +2195,25 @@ namespace
                     fail(ec, "listen");
                     return;
                 }
+
+                if (auto pipe = fdopen(3, "w"))
+                {
+                    const char listening[] = "LISTENING";
+                    const auto wsize = sizeof(listening) - sizeof(listening[0]);
+                    if (wsize != fwrite(listening, sizeof(listening[0]),wsize , pipe))
+                    {
+                        LOG_WARNING() << "Failed to write sync pipe";
+                    }
+                    else
+                    {
+                        LOG_INFO() << "Sync pipe: OK, " << listening << ", " << wsize << " bytes";
+                    }
+                    fclose(pipe);
+                }
+                else
+                {
+                    LOG_WARNING() << "Failed to open sync pipe";
+                }
             }
 
             // Start accepting incoming connections
@@ -2311,7 +2331,7 @@ int main(int argc, char* argv[])
 
             if (!node_addr.resolve(options.nodeURI.c_str()))
             {
-                LOG_ERROR() << "unable to resolve node address: " << options.nodeURI;
+                LOG_ERROR() << "unable to resolve node address4: `" << options.nodeURI << "`";
                 return -1;
             }
         }
@@ -2322,8 +2342,8 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, 5);//options.logCleanupPeriod);
 
+        LOG_INFO() << "Starting server on port " << options.port;
         WalletApiServer server(reactor, options.port);
-
         reactor->run();
 
         LOG_INFO() << "Done";

@@ -14,7 +14,11 @@
 		<h1 class="text-center">Beam Wallet Client</h1>
 		<hr>
 
-		<div id="connecting-panel">
+    <div id="login-panel">
+      <span class="badge badge-danger">status: logging in, please wait...</span>
+    </div>
+
+		<div id="connecting-panel" style="display: none;">
 			<span class="badge badge-danger">status: connecting to the Wallet Service, please wait...</span>
 		</div>
 
@@ -150,13 +154,97 @@
 
 			function showPanel(id)
 			{
-				['#connecting-panel', '#create-wallet-panel', '#open-wallet-panel', '#wallet-panel'].forEach(name => $(name).hide())
+				['#login-panel', '#connecting-panel', '#create-wallet-panel', '#open-wallet-panel', '#wallet-panel'].forEach(name => $(name).hide())
 				$(id).show()
 			}
-		
-			function start()
+      
+      //
+      // This wallet ID is used to identify session. Now it works like this
+      //
+      // No wallet: 
+      //    Option 1 (implemented, not the best way, inconvenient at the wallet side and causes service restart): 
+      //      - generate GUID (unique)
+      //      - POST WalletID to /login and receive WS endpoint
+      //      - create wallet via WS endpoint
+      //      - disconnect WS endpoint
+      //      - (POST WalletID to /close)
+      //      - goto 'Have wallet'
+      //    Option 2: (to be done/reconsidered, not the best way as well)
+      //      - generate GUID (unique)
+      //      - POST WalletID to /login and receive WS endpoint
+      //      - create wallet via WS endpoint
+      //      - POST OldWalletID (GUID), NewWalletID (real WalletID) to /replace-id
+      //      - use new WalletID in all subsequent calls
+      //    Option 3: (the best)
+      //      - do not connect before you have seed
+      //      - derive real WalletID from seed
+      //      - connect using real WalletID
+      //
+      // Have wallet/WalletID:
+      //    - use real WalletID for all calls
+      //
+      // TODO: implement ID replacement without reconnecting
+      //
+      const walletGUID = 'A001'
+      
+      // Alive ping interval, such short time is used only for testing
+      // TODO: discuss real alive ping interval, may be use websockets for this
+      const aliveInterval = 10000 
+
+      function login() {
+          const login = 'http://127.0.0.1:20000/login'
+          var xhr = new XMLHttpRequest()
+          xhr.open("POST", login, true)
+          xhr.setRequestHeader("Content-Type", "application/json")
+
+          xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+              if (xhr.status === 200) {
+                var json = JSON.parse(xhr.responseText)
+                var endpoint = ['ws://', json.endpoint].join('')
+                console.log('Login OK. Connection endpoint: ', endpoint)
+                start(endpoint)
+                startAliveTimer()
+              } 
+            }
+          }
+
+          xhr.send(JSON.stringify({
+            WalletID: walletGUID
+          }))
+      }
+
+      function startAliveTimer() {
+        const timer = setInterval(() => {
+          console.log('Sending alive ping')
+          
+          const alive = 'http://127.0.0.1:20000/alive'
+          var xhr = new XMLHttpRequest()
+          xhr.open("POST", alive, true)
+          xhr.setRequestHeader("Content-Type", "application/json")
+
+          xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+              if (xhr.status === 200) {
+                var json = JSON.parse(xhr.responseText)
+                if ((json.error || '').length) {
+                  console.log('Alive request error: ', endpoint)
+                } else {
+                  console.log('Alive request OK')
+                }
+              }
+            }
+          }
+
+          xhr.send(JSON.stringify({
+            WalletID: walletGUID
+          }))
+        }, aliveInterval)
+      }
+
+			function start(url)
 			{
-				const url = 'ws://127.0.0.1:8080'
+        showPanel('#connecting-panel')
 				connection = new WebSocket(url)
 
 				connection.onopen = () => 
@@ -168,19 +256,17 @@
 				connection.onclose = () =>
 				{
 					showPanel('#connecting-panel')
-
 					console.log('connection lost, reconnecting...')
-
-					setTimeout(start, 5000)
+					setTimeout(() => login(), 5000)
 				}
 
 				connection.onerror = error => 
 				{
-					console.log(`connection error: ${error}`)
+					console.log(`connection error: ${JSON.stringify(error)}`)
 				}
 			}
 
-			start();
+			login()
 
 			function initKeyKeeper(seed)
 			{
