@@ -422,7 +422,7 @@ matrix:
       install:
         #- sudo apt install golang-go -y
       script:
-        - go build -o "$BALANSER_PATH/bin" "BALANSER_PATH/*.go"
+        - go build -o "$BALANSER_PATH/bin" "$BALANSER_PATH/*.go"
       after_success:
         - tar -cvzf service-balancer.tar.gz $BALANSER_PATH/bin/.* $BALANSER_PATH/bin/
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE
