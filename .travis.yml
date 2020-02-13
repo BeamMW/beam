@@ -405,6 +405,29 @@ matrix:
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE/" wasm-key-keeper.tar.gz
 
 ###############################################################################
+# Service balancer 
+###############################################################################
+
+    - os: linux
+      dist: bionic
+      language: go
+      env:
+        - TARGET_TYPE=go
+        - BUILD_TYPE=Release
+        - GOOS=linux
+        - GOARCH=amd64
+        - BALANSER_PATH="/$HOME/build/BeamMW/beam/wallet/service-balancer"
+      go:
+        - tip
+      script:
+        - go build -o "$BALANSER_PATH/bin" "BALANSER_PATH/*.go"
+      after_success:
+        - tar -cvzf service-balancer.tar.gz $BALANSER_PATH/bin/.* $BALANSER_PATH/bin/
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE
+        - curl --retry 3 --ftp-create-dirs -T service-balancer.tar.gz $BUILDS_SERVER_PATH/
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE/" service-balancer.tar.gz
+
+###############################################################################
 # Common part
 ###############################################################################
 before_script:
