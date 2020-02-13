@@ -338,10 +338,11 @@ Rectangle {
         target: updateInfoProvider
         onShowUpdateNotification: function(version) {
             console.log("News received. Message: " + version);
-            var dialog = Qt.createComponent("controls/UpdateNotificationPopup.qml").createObject(main);
-            dialog.externalUrl = "https://www.beam.mw/downloads";
-            dialog.version = version;
-            dialog.open();
+            var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(main);
+            popup.title = "New version v1.2.3 is avalable";
+            popup.message = "Your current version is v1.2.2. Please update to get the most of your Beam wallet.";
+            popup.acceptButtonText = "update now";
+            popup.open();
         }
     }
 

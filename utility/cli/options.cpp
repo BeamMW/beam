@@ -283,9 +283,13 @@ namespace beam
         const char* ASSET_ID          = "asset_id";
         const char* METADATA          = "metadata";
 
-        // newscaster
-        const char* BBS_MESSAGE = "message";
+        // broadcaster
         const char* PRIVATE_KEY = "key";
+        const char* MESSAGE_TYPE = "msg_type";
+        const char* UPDATE_VERSION = "upd_ver";
+        const char* UPDATE_TYPE = "upd_type";
+        const char* EXCHANGE_CURR = "exch_curr";
+        const char* EXCHANGE_RATE = "exch_rate";
 
         // Defaults
         const Amount kMinimumFee = 100;
@@ -355,7 +359,7 @@ namespace beam
             (cli::SEED_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39.")
             (cli::AMOUNT_FULL, po::value<Positive<double>>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
-            (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
+            (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver's address or token")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::TX_HISTORY, "print transactions' history in info command")

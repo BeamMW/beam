@@ -568,30 +568,43 @@ namespace
     int GetToken(const po::variables_map& vm)
     {
         TxParameters params;
-        if (!LoadReceiverParams(vm, params))
+        if (vm.find(cli::RECEIVER_ADDR) != vm.end())
         {
-            return -1;
-        }
-
-  //      if (!params.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID))
-        {
-            auto walletID = params.GetParameter<WalletID>(TxParameterID::PeerID);
-            if (!walletID)
+            auto receiver = vm[cli::RECEIVER_ADDR].as<string>();
+            bool isValid = true;
+            WalletID walletID;
+            ByteBuffer buffer = from_hex(receiver, &isValid);
+            if (!isValid || !walletID.FromBuf(buffer))
             {
-                LOG_ERROR() << "Cannot generate token, there is no address";
+                LOG_ERROR() << "Invalid address";
                 return -1;
             }
             auto walletDB = OpenDataBase(vm);
-            auto address = walletDB->getAddress(*walletID);
+            auto address = walletDB->getAddress(walletID);
             if (!address)
             {
                 LOG_ERROR() << "Cannot generate token, there is no address";
                 return -1;
             }
+            if (address->isExpired())
+            {
+                LOG_ERROR() << "Cannot generate token, address is expired";
+                return -1;
+            }
+            params.SetParameter(TxParameterID::PeerID, walletID);
             params.SetParameter(TxParameterID::PeerSecureWalletID, address->m_Identity);
         }
+        else
+        {
+            auto walletDB = OpenDataBase(vm);
+            WalletAddress address = GenerateNewAddress(walletDB, "");
+            
+            params.SetParameter(TxParameterID::PeerID, address.m_walletID);
+            params.SetParameter(TxParameterID::PeerSecureWalletID, address.m_Identity);
+        }
 
-        LOG_INFO() << "token:\t" << to_string(params);
+        params.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+        LOG_INFO() << "token: " << to_string(params);
         return 0;
     }
 
@@ -1149,30 +1162,20 @@ namespace
         return coinIDs;
     }
 
-    bool LoadReceiverParams(const po::variables_map& vm, TxParameters& receiverParams)
+    bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
     {
-        if (vm.count(cli::RECEIVER_ADDR) == 0)
+        if (vm.find(cli::RECEIVER_ADDR) == vm.end())
         {
             LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
-        auto receverAddrOrToken = vm[cli::RECEIVER_ADDR].as<string>();
-        auto params = ParseParameters(receverAddrOrToken);
-        if (!params)
+        auto receiverParams = ParseParameters(vm[cli::RECEIVER_ADDR].as<string>());
+        if (!receiverParams)
         {
             LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
-        TxParameters& p = *params;
-        if (auto peerID = p.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); peerID)
-        {
-            receiverParams.SetParameter(beam::wallet::TxParameterID::PeerID, *peerID);
-        }
-        if (auto peerID = p.GetParameter<PeerID>(beam::wallet::TxParameterID::PeerSecureWalletID); peerID)
-        {
-            receiverParams.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *peerID);
-        }
-        return true;
+        return LoadReceiverParams(*receiverParams, params);
     }
 
     bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
@@ -2270,23 +2273,21 @@ namespace
             return -1;
         }
 
-        return DoWalletFunc(vm, [&txId](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        auto walletDB = OpenDataBase(vm);
+        auto tx = walletDB->getTx(*txId);
+        if (tx)
+        {
+            if (tx->canDelete())
             {
-                auto tx = walletDB->getTx(*txId);
-                if (tx)
-                {
-                    if (tx->canDelete())
-                    {
-                        wallet.DeleteTransaction(*txId);
-                        return 0;
-                    }
-                    LOG_ERROR() << kErrorTxStatusInvalid;
-                    return -1;
-                }
+                walletDB->deleteTx(*txId);
+                return 0;
+            }
+            LOG_ERROR() << kErrorTxStatusInvalid;
+            return -1;
+        }
 
-                LOG_ERROR() << kErrorTxIdUnknown;
-                return -1;
-            });
+        LOG_ERROR() << kErrorTxIdUnknown;
+        return -1;
     }
 
     int CancelTransaction(const po::variables_map& vm)

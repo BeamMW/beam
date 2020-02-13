@@ -658,7 +658,14 @@ deploy the key at the node you trust completely."*/
                             font.pixelSize: 14
                             Layout.fillWidth: true
                             // checked: viewModel.
-                            // onClicked: {}
+                            onClicked: {
+                                // test
+                                var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(settingsView);
+                                popup.titleText = "New version v1.2.3 is avalable";
+                                popup.messageText = "Your current version is v1.2.2. Please update to get the most of your Beam wallet.";
+                                popup.acceptButtonText = "update now";
+                                popup.open();
+                            }
                         }
                         CustomSwitch {
                             id: txStatusNotificationsSwitch

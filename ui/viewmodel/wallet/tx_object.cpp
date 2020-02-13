@@ -204,7 +204,7 @@ QString TxObject::getTransactionID() const
 
 QString TxObject::getReasonString(beam::wallet::TxFailureReason reason) const
 {
-    static const std::array<QString,34> reasons = {
+    static const std::vector<QString> reasons = {
         //% "Unexpected reason, please send wallet logs to Beam support"
         qtTrId("tx-failure-undefined"),
         //% "Transaction cancelled"
@@ -253,6 +253,8 @@ QString TxObject::getReasonString(beam::wallet::TxFailureReason reason) const
         qtTrId("tx-failure-create-multisig"),
         //% "Fee is too small"
         qtTrId("tx-failure-fee-too-small"),
+        //% "Fee is too large"
+        qtTrId("tx-failure-fee-too-large"),
         //% "Kernel's min height is unacceptable"
         qtTrId("tx-failure-kernel-min-height"),
         //% "Not a loopback transaction"
@@ -261,9 +263,21 @@ QString TxObject::getReasonString(beam::wallet::TxFailureReason reason) const
         qtTrId("tx-failure-key-keeper-no-initialized"),
         //% "No valid asset owner id/asset owner idx"
         qtTrId("tx-failure-invalid-asset-id"),
-        //%"Asset registration fee is too small"
+        //% "No asset info or asset info is not valid"
+        qtTrId("tx-failure-asset-invalid-info"),
+        //% "No asset metadata or asset metadata is not valid"
+        qtTrId("tx-failure-asset-invalid-metadata"),
+        //% "Invalid asset id"
+        qtTrId("tx-failure-asset-invalid-id"),
+        //% "Failed to receive asset confirmation"
+        qtTrId("tx-failure-asset-confirmation"),
+        //% "Asset is still in use (issued amount > 0)"
+        qtTrId("tx-failure-asset-in-use"),
+        //% "Asset is still locked"
+        qtTrId("tx-failure-asset-locked"),
+        //% "Asset registration fee is too small"
         qtTrId("tx-failure-asset-small-fee"),
-        //% "Cannot consume more than MAX_INT64 asset groth in one transaction"
+        //% "Cannot issue/consume more than MAX_INT64 asset groth in one transaction"
         qtTrId("tx-failure-invalid-asset-amount"),
         //% "Some mandatory data for payment proof is missing"
         qtTrId("tx-failure-invalid-data-for-payment-proof"),

@@ -23,8 +23,6 @@
 
 namespace beam::wallet::laser
 {
-const Height kMaxRolbackHeight = 8;
-
 class Channel : public Lightning::Channel, public ILaserChannelEntity
 {
 public:
@@ -90,7 +88,7 @@ public:
     const ByteBuffer& get_Data() const override;
     const WalletAddress& get_myAddr() const override;
 
-    bool Open(HeightRange openWindow);
+    bool Open(Height hOpenTxDh);
     bool TransformLastState();
     Lightning::Channel::State::Enum get_LastState() const;
     void UpdateRestorePoint();
@@ -100,7 +98,7 @@ public:
 
 protected:
     bool TransferInternal(
-        Amount nMyNew, uint32_t iRole, bool bCloseGraceful) override;
+        Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful) override;
 
 private:
     void RestoreInternalState(const ByteBuffer& data);

@@ -404,20 +404,57 @@ namespace
     {
         cout << endl << "Test Version" << endl;
 
-        Version v {123, 456, 789};
-        WALLET_CHECK(to_string(v) == "123.456.789");
-        // WALLET_CHECK(to_string(Version::getCurrent()) == PROJECT_VERSION);
+        {
+            Version v {123, 456, 789};
+            WALLET_CHECK(to_string(v) == "123.456.789");
+            // WALLET_CHECK(to_string(Version::getCurrent()) == PROJECT_VERSION);
+        }
 
-        WALLET_CHECK(Version(12,12,12) == Version(12,12,12));
-        WALLET_CHECK(!(Version(12,12,12) != Version(12,12,12)));
-        WALLET_CHECK(Version(12,13,12) != Version(12,12,12));
-        WALLET_CHECK(!(Version(12,13,12) == Version(12,12,12)));
+        {
+            WALLET_CHECK(Version(12,12,12) == Version(12,12,12));
+            WALLET_CHECK(!(Version(12,12,12) != Version(12,12,12)));
+            WALLET_CHECK(Version(12,13,12) != Version(12,12,12));
+            WALLET_CHECK(!(Version(12,13,12) == Version(12,12,12)));
 
-        WALLET_CHECK(Version(12,12,12) < Version(13,12,12));
-        WALLET_CHECK(Version(12,12,12) < Version(12,13,12));
-        WALLET_CHECK(Version(12,12,12) < Version(12,12,13));
-        WALLET_CHECK(Version(12,12,12) < Version(13,13,13));
-        WALLET_CHECK(!(Version(12,12,12) < Version(12,12,12)));
+            WALLET_CHECK(Version(12,12,12) < Version(13,12,12));
+            WALLET_CHECK(Version(12,12,12) < Version(12,13,12));
+            WALLET_CHECK(Version(12,12,12) < Version(12,12,13));
+            WALLET_CHECK(Version(12,12,12) < Version(13,13,13));
+            WALLET_CHECK(!(Version(12,12,12) < Version(12,12,12)));
+        }
+
+        {
+            Version v;
+            bool res = false;
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12.345.6789"));
+            WALLET_CHECK(res == true);
+            WALLET_CHECK(v == Version(12,345,6789));
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("0.0.0"));
+            WALLET_CHECK(res == true);
+            WALLET_CHECK(v == Version());
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12345.6789"));
+            WALLET_CHECK(res == false);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12,345.6789"));
+            WALLET_CHECK(res == false);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12.345.6e89"));
+            WALLET_CHECK(res == false);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12345.6789.12.52"));
+            WALLET_CHECK(res == false);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("f12345.6789.52"));
+            WALLET_CHECK(res == false);
+        }
+
+        {
+            WALLET_CHECK("desktop" == VersionInfo::to_string(VersionInfo::Application::DesktopWallet));
+            WALLET_CHECK(VersionInfo::Application::DesktopWallet == VersionInfo::from_string("desktop"));
+        }
     }
 
 } // namespace

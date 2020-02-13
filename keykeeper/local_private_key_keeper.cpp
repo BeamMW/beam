@@ -884,7 +884,7 @@ namespace beam::wallet
         {
             // legacy. We need to verify the payment proof vs externally-specified our ID (usually SBBS address)
             if (IsTrustless())
-                return false;
+                return Status::Unspecified;
         }
 
         get_Nonce(kNonce, x.m_Slot);
