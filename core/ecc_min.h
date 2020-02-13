@@ -57,12 +57,15 @@ namespace ECC_Min
 
 		struct WNafCursor
 		{
-			uint16_t m_iBit;
-			uint16_t m_iOdd;
-			bool m_Negate;
+			uint8_t m_iBit;
+			uint8_t m_iOdd;
 
-			bool MoveNext(const secp256k1_scalar&, uint16_t nWndBits);
-			void MoveNext2(const secp256k1_scalar&, uint16_t nWndBits);
+			static_assert(Prepared::nMaxOdd <= uint8_t(-1));
+
+			void Reset();
+			bool FindCarry(const secp256k1_scalar&);
+			void MoveAfterCarry(const secp256k1_scalar&);
+			void MoveNext(const secp256k1_scalar&);
 			static uint8_t get_Bit(const secp256k1_scalar&, uint16_t iBit);
 		};
 

@@ -164,7 +164,13 @@ namespace ECC_Min
 		m_Prepared = 0;
 	}
 
-	bool MultiMac::WNafCursor::MoveNext(const secp256k1_scalar& k, uint16_t nWndBits)
+	void MultiMac::WNafCursor::Reset()
+	{
+		m_iBit = 0;
+		m_iOdd = 0;
+	}
+
+	bool MultiMac::WNafCursor::FindCarry(const secp256k1_scalar& k)
 	{
 		// find next nnz bit
 		for (; ; m_iBit--)
@@ -176,12 +182,14 @@ namespace ECC_Min
 				return false;
 		}
 
+		return true;
+	}
+
+	void MultiMac::WNafCursor::MoveAfterCarry(const secp256k1_scalar& k)
+	{
 		m_iOdd = 1;
-		m_Negate = false;
 
-		assert(nWndBits);
-		nWndBits--;
-
+		uint8_t nWndBits = static_cast<uint8_t>(Prepared::nBits - 1);
 		if (nWndBits > m_iBit)
 			nWndBits = m_iBit;
 
@@ -190,26 +198,21 @@ namespace ECC_Min
 
 		for (; !(1 & m_iOdd); m_iBit++)
 			m_iOdd >>= 1;
-
-		return true;
 	}
 
-	void MultiMac::WNafCursor::MoveNext2(const secp256k1_scalar& k, uint16_t nWndBits)
+	void MultiMac::WNafCursor::MoveNext(const secp256k1_scalar& k)
 	{
-		if (m_iBit)
-		{
-			m_iBit--;
-			if (MoveNext(k, nWndBits))
-				return;
-		}
+		m_iBit--;
 
-		m_iBit = ECC_Min::nBits + 2; // end
+		if (FindCarry(k))
+			MoveAfterCarry(k);
+		else
+			m_iOdd = 0;
 	}
 
 	uint8_t MultiMac::WNafCursor::get_Bit(const secp256k1_scalar& k, uint16_t iBit)
 	{
-		if (iBit >= ECC_Min::nBits)
-			return 0;
+		assert(iBit < ECC_Min::nBits);
 
 		const uint16_t nWordBits = sizeof(secp256k1_scalar_uint) * 8;
 
@@ -224,10 +227,8 @@ namespace ECC_Min
 		for (Index i = 0; i < m_Prepared; i++)
 		{
 			WNafCursor& wc = pWnaf[i];
-			wc.m_iBit = ECC_Min::nBits + 1;
-			wc.m_iOdd = 0;
-			wc.m_Negate = false;
-			wc.MoveNext2(pK[i], Prepared::nBits);
+			wc.Reset();
+			wc.MoveNext(pK[i]);
 		}
 		
 		for (uint16_t iBit = ECC_Min::nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
@@ -240,6 +241,8 @@ namespace ECC_Min
 				WNafCursor& wc = pWnaf[i];
 				if (wc.m_iBit != iBit)
 					continue;
+				if (!wc.m_iOdd)
+					continue; // not really a pos
 
 				const Prepared& x = pPrepared[i];
 
@@ -249,12 +252,11 @@ namespace ECC_Min
 				secp256k1_ge ge;
 				secp256k1_ge_from_storage(&ge, x.m_pPt + nElem);
 
-				if (wc.m_Negate)
-					secp256k1_ge_neg(&ge, &ge);
 
 				secp256k1_gej_add_ge_var(&res, &res, &ge, nullptr);
 
-				wc.MoveNext2(pK[i], Prepared::nBits);
+				if (iBit)
+					wc.MoveNext(pK[i]);
 			}
 		}
 	}
