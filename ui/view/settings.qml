@@ -661,8 +661,8 @@ deploy the key at the node you trust completely."*/
                             onClicked: {
                                 // test
                                 var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(settingsView);
-                                popup.titleText = "New version v1.2.3 is avalable";
-                                popup.messageText = "Your current version is v1.2.2. Please update to get the most of your Beam wallet.";
+                                popup.title = "New version v1.2.3 is avalable";
+                                popup.message = "Your current version is v1.2.2. Please update to get the most of your Beam wallet.";
                                 popup.acceptButtonText = "update now";
                                 popup.open();
                             }
