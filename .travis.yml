@@ -416,9 +416,9 @@ matrix:
         - BUILD_TYPE=Release
         - GOOS=linux
         - GOARCH=amd64
-        - BALANCER_PATH="BeamMW/beam/wallet/service-balancer"
+        - BALANCER_PATH="~/BeamMW/beam/wallet/service-balancer"
       go:
-        - tip
+        - 1.11.x
       install:
         #- sudo apt install golang-go -y
       script:
