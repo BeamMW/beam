@@ -45,61 +45,6 @@ namespace ECC_Min
 	{
 		typedef uint8_t Index;
 
-		struct WnafBase
-		{
-			// window NAF (wNAF) representation
-
-			struct Entry
-			{
-				uint16_t m_Odd;
-				uint16_t m_iBit;
-
-				static const uint16_t s_Negative = uint16_t(1) << 15;
-			};
-
-			struct Link
-			{
-				Index m_iElement;
-				uint8_t m_iEntry; // 1-based
-
-			} m_Next;
-
-			struct Shared
-			{
-				Link m_pTable[ECC_Min::nBits + 1];
-
-				void Reset();
-
-				unsigned int Add(Entry* pTrg, const secp256k1_scalar& k, unsigned int nWndBits, WnafBase&, Index iElement);
-
-				unsigned int Fetch(unsigned int iBit, WnafBase&, const Entry*, bool& bNeg);
-			};
-
-		protected:
-
-
-			struct Context;
-		};
-
-		template <unsigned int nWndBits>
-		struct Wnaf_T
-			:public WnafBase
-		{
-			static const unsigned int nMaxEntries = ECC_Min::nBits / (nWndBits + 1) + 1;
-			static_assert(nMaxEntries <= uint8_t(-1));
-
-			Entry m_pVals[nMaxEntries];
-
-			unsigned int Init(Shared& s, const secp256k1_scalar& k, Index iElement)
-			{
-				return s.Add(m_pVals, k, nWndBits, *this, iElement);
-			}
-
-			unsigned int Fetch(Shared& s, unsigned int iBit, bool& bNeg)
-			{
-				return s.Fetch(iBit, *this, m_pVals, bNeg);
-			}
-		};
 
 		struct Prepared
 		{
@@ -108,19 +53,25 @@ namespace ECC_Min
 
 			static const int nCount = (nMaxOdd >> 1) + 1;
 			secp256k1_ge_storage m_pPt[nCount]; // odd powers
+		};
 
-			typedef Wnaf_T<nBits> Wnaf;
+		struct WNafCursor
+		{
+			uint16_t m_iBit;
+			uint16_t m_iOdd;
+			bool m_Negate;
+
+			bool MoveNext(const secp256k1_scalar&, uint16_t nWndBits);
+			void MoveNext2(const secp256k1_scalar&, uint16_t nWndBits);
+			static uint8_t get_Bit(const secp256k1_scalar&, uint16_t iBit);
 		};
 
 		Index m_Prepared;
 
-		WnafBase::Shared m_ws;
-
 		MultiMac() { Reset(); }
 
 		void Reset();
-		void Add(Prepared::Wnaf&, const secp256k1_scalar&);
-		void Calculate(secp256k1_gej&, const Prepared*, Prepared::Wnaf*);
+		void Calculate(secp256k1_gej&, const Prepared*, const secp256k1_scalar*, WNafCursor*);
 
 
 	private:
@@ -133,19 +84,20 @@ namespace ECC_Min
 		:public MultiMac
 	{
 		Prepared m_pPrepared[nMaxCount];
-		Prepared::Wnaf m_pWnaf[nMaxCount];
+		WNafCursor m_pWnaf[nMaxCount];
+		secp256k1_scalar m_pK[nMaxCount];
 
 		void Add(const secp256k1_scalar& k)
 		{
 			static_assert(nMaxCount <= Index(-1));
 			assert(m_Prepared < nMaxCount);
-			MultiMac::Add(m_pWnaf[m_Prepared], k);
+			m_pK[m_Prepared++] = k;
 		}
 
 		void Calculate(secp256k1_gej& res)
 		{
 			assert(m_Prepared <= nMaxCount);
-			MultiMac::Calculate(res, m_pPrepared, m_pWnaf);
+			MultiMac::Calculate(res, m_pPrepared, m_pK, m_pWnaf);
 		}
 	};
 } // namespace ECC_Min

@@ -560,7 +560,7 @@ void TestMultiMac()
 
 	uint32_t aa = sizeof(ECC_Min::MultiMac);
 	uint32_t bb = sizeof(ECC_Min::MultiMac::Prepared);
-	uint32_t cc = sizeof(ECC_Min::MultiMac::Prepared::Wnaf);
+	uint32_t cc = sizeof(ECC_Min::MultiMac::WNafCursor);
 	aa; bb; cc;
 
 	const uint32_t nBatch = 8;

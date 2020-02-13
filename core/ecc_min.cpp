@@ -162,194 +162,99 @@ namespace ECC_Min
 	void MultiMac::Reset()
 	{
 		m_Prepared = 0;
-		m_ws.Reset();
 	}
 
-	struct MultiMac::WnafBase::Context
+	bool MultiMac::WNafCursor::MoveNext(const secp256k1_scalar& k, uint16_t nWndBits)
 	{
-		const secp256k1_scalar_uint* m_p;
-		unsigned int m_Flag;
-		unsigned int m_iBit;
-		unsigned int m_Carry;
-
-		unsigned int NextOdd();
-
-		void OnBit(unsigned int& res, unsigned int x)
+		// find next nnz bit
+		for (; ; m_iBit--)
 		{
-			if (x)
-			{
-				res |= m_Flag;
-				m_Carry = 0;
-			}
-		}
-	};
-
-	unsigned int MultiMac::WnafBase::Context::NextOdd()
-	{
-		const unsigned int nWordBits = sizeof(*m_p) << 3;
-		const unsigned int nMsk = nWordBits - 1;
-
-		unsigned int res = 0;
-
-		while (true)
-		{
-			if (m_iBit >= ECC_Min::nBits)
-			{
-				OnBit(res, m_Carry);
-
-				if (!res)
-					break;
-			}
-			else
-			{
-				unsigned int n = m_p[m_iBit / nWordBits] >> (m_iBit & nMsk);
-				OnBit(res, (1 & n) != m_Carry);
-			}
-
-			m_iBit++;
-			res >>= 1;
-
-			if (1 & res)
-				break;
-		}
-
-		return res;
-	}
-
-	void MultiMac::WnafBase::Shared::Reset()
-	{
-		memset(m_pTable, 0, sizeof(m_pTable));
-	}
-
-	unsigned int MultiMac::WnafBase::Shared::Add(Entry* pTrg, const secp256k1_scalar& k, unsigned int nWndBits, WnafBase& wnaf, Index iElement)
-	{
-		const unsigned int nWndConsume = nWndBits + 1;
-
-		Context ctx;
-		ctx.m_p = k.d;
-		ctx.m_iBit = 0;
-		ctx.m_Carry = 0;
-		ctx.m_Flag = 1 << nWndConsume;
-
-		uint8_t iEntry = 0;
-
-		for ( ; ; iEntry++)
-		{
-			unsigned int nOdd = ctx.NextOdd();
-			if (!nOdd)
+			if (get_Bit(k, m_iBit))
 				break;
 
-			assert(!ctx.m_Carry);
-			assert(1 & nOdd);
-			assert(!(nOdd >> nWndConsume));
-
-			assert(ctx.m_iBit >= nWndConsume);
-			unsigned int iIdx = ctx.m_iBit - nWndConsume;
-			assert(iIdx < _countof(m_pTable));
-
-			Entry& x = pTrg[iEntry];
-			x.m_iBit = static_cast<uint16_t>(iIdx);
-
-			if (nOdd >> nWndBits)
-			{
-				// hi bit is ON
-				nOdd ^= (1 << nWndConsume) - 2;
-
-				assert(1 & nOdd);
-				assert(!(nOdd >> nWndBits));
-
-				x.m_Odd = static_cast<int16_t>(nOdd) | Entry::s_Negative;
-
-				ctx.m_Carry = 1;
-			}
-			else
-				x.m_Odd = static_cast<int16_t>(nOdd);
+			if (!m_iBit)
+				return false;
 		}
 
-		unsigned int ret = iEntry--;
-		if (ret)
-		{
-			// add the highest bit
-			const Entry& x = pTrg[iEntry];
-			Link& lnk = m_pTable[x.m_iBit];
-			
-			wnaf.m_Next = lnk;
-			lnk.m_iElement = iElement;
-			lnk.m_iEntry = iEntry;
-		}
+		m_iOdd = 1;
+		m_Negate = false;
 
-		return ret;
+		assert(nWndBits);
+		nWndBits--;
+
+		if (nWndBits > m_iBit)
+			nWndBits = m_iBit;
+
+		for (uint16_t i = 0; i < nWndBits; i++)
+			m_iOdd = (m_iOdd << 1) | get_Bit(k, --m_iBit);
+
+		for (; !(1 & m_iOdd); m_iBit++)
+			m_iOdd >>= 1;
+
+		return true;
 	}
 
-	unsigned int MultiMac::WnafBase::Shared::Fetch(unsigned int iBit, WnafBase& wnaf, const Entry* pE, bool& bNeg)
+	void MultiMac::WNafCursor::MoveNext2(const secp256k1_scalar& k, uint16_t nWndBits)
 	{
-		Link& lnkTop = m_pTable[iBit]; // alias
-		Link lnkThis = lnkTop;
-
-		const Entry& e = pE[lnkThis.m_iEntry];
-		assert(e.m_iBit == iBit);
-
-		lnkTop = wnaf.m_Next; // pop this entry
-
-		if (lnkThis.m_iEntry)
+		if (m_iBit)
 		{
-			// insert next entry
-			lnkThis.m_iEntry--;
-
-			const Entry& e2 = pE[lnkThis.m_iEntry];
-			assert(e2.m_iBit < iBit);
-
-			Link& lnkTop2 = m_pTable[e2.m_iBit];
-			wnaf.m_Next = lnkTop2;
-			lnkTop2 = lnkThis;
+			m_iBit--;
+			if (MoveNext(k, nWndBits))
+				return;
 		}
 
-		unsigned int nOdd = e.m_Odd;
-		assert(1 & nOdd);
-
-		bNeg = !!(e.m_Odd & e.s_Negative);
-
-		if (bNeg)
-			nOdd &= ~e.s_Negative;
-
-		return nOdd;
+		m_iBit = ECC_Min::nBits + 2; // end
 	}
 
-	void MultiMac::Add(Prepared::Wnaf& wnaf, const secp256k1_scalar& k)
+	uint8_t MultiMac::WNafCursor::get_Bit(const secp256k1_scalar& k, uint16_t iBit)
 	{
-		Index iEntry = m_Prepared++;
+		if (iBit >= ECC_Min::nBits)
+			return 0;
 
-		unsigned int nEntries = wnaf.Init(m_ws, k, iEntry + 1);
-		assert(nEntries <= _countof(wnaf.m_pVals));
+		const uint16_t nWordBits = sizeof(secp256k1_scalar_uint) * 8;
+
+		return 1 & (k.d[iBit / nWordBits] >> (iBit & (nWordBits - 1)));
 	}
 
-	void MultiMac::Calculate(secp256k1_gej& res, const Prepared* pPrepared, Prepared::Wnaf* pWnaf)
+
+	void MultiMac::Calculate(secp256k1_gej& res, const Prepared* pPrepared, const secp256k1_scalar* pK, WNafCursor* pWnaf)
 	{
 		secp256k1_gej_set_infinity(&res);
+
+		for (Index i = 0; i < m_Prepared; i++)
+		{
+			WNafCursor& wc = pWnaf[i];
+			wc.m_iBit = ECC_Min::nBits + 1;
+			wc.m_iOdd = 0;
+			wc.m_Negate = false;
+			wc.MoveNext2(pK[i], Prepared::nBits);
+		}
 		
-		for (unsigned int iBit = ECC_Min::nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
+		for (uint16_t iBit = ECC_Min::nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
 		{
 			if (!secp256k1_gej_is_infinity(&res))
 				secp256k1_gej_double_var(&res, &res, nullptr);
 
-			WnafBase::Link& lnkC = m_ws.m_pTable[iBit]; // alias
-			while (lnkC.m_iElement)
+			for (Index i = 0; i < m_Prepared; i++)
 			{
-				const Prepared& x = pPrepared[lnkC.m_iElement - 1];
-				Prepared::Wnaf& wnaf = pWnaf[lnkC.m_iElement - 1];
+				WNafCursor& wc = pWnaf[i];
+				if (wc.m_iBit != iBit)
+					continue;
 
-				bool bNeg;
-				unsigned int nOdd = wnaf.Fetch(m_ws, iBit, bNeg);
+				const Prepared& x = pPrepared[i];
 
-				unsigned int nElem = (nOdd >> 1);
+				unsigned int nElem = (wc.m_iOdd >> 1);
+				assert(nElem < (unsigned int) Prepared::nCount);
 
 				secp256k1_ge ge;
 				secp256k1_ge_from_storage(&ge, x.m_pPt + nElem);
 
-				if (bNeg)
+				if (wc.m_Negate)
 					secp256k1_ge_neg(&ge, &ge);
 
 				secp256k1_gej_add_ge_var(&res, &res, &ge, nullptr);
+
+				wc.MoveNext2(pK[i], Prepared::nBits);
 			}
 		}
 	}
