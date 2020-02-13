@@ -1092,6 +1092,11 @@ private:
             Send(msgOut);
         }
 
+        void OnMsg(proto::GetStateSummary&& msg) override
+        {
+            Send(proto::StateSummary{});
+        }
+
         void OnDisconnect(const DisconnectReason& r) override
         {
             switch (r.m_Type)
