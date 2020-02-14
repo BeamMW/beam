@@ -33,6 +33,7 @@
 
 #include "p2p/line_protocol.h"
 
+#include "wallet/api/api_connection.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
@@ -83,454 +84,18 @@ namespace beam::wallet
     };
     static std::unordered_map<std::string, WalletInfo> WalletsMap;
 
-    static const char JsonRpcHrd[] = "jsonrpc";
-    static const char JsonRpcVerHrd[] = "2.0";
-
-    namespace
-    {
-        std::string txIDToString(const TxID& txId)
-        {
-            return to_hex(txId.data(), txId.size());
-        }
-    }
-
-    struct jsonrpc_exception
-    {
-        ApiError code;
-        std::string data;
-        JsonRpcId id;
-    };
-
-    std::string getJsonString(const char* data, size_t size)
-    {
-        return std::string(data, data + (size > 1024 ? 1024 : size));
-    }
-
-    WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
-        : _handler(handler)
-        , _acl(acl)
+    WalletServiceApi::WalletServiceApi(IWalletServiceApiHandler& handler, ACL acl)
+        : WalletApi(handler, acl)
     {
 #define REG_FUNC(api, name, writeAccess) \
         _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
 
-        WALLET_API_METHODS(REG_FUNC)
+        WALLET_SERVICE_API_METHODS(REG_FUNC)
 
 #undef REG_FUNC
     };
 
-    bool existsJsonParam(const nlohmann::json& params, const std::string& name)
-    {
-        return params.find(name) != params.end();
-    }
-
-    void checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id)
-    {
-        if (!existsJsonParam(params, name))
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parameter '" + name + "' doesn't exist.", id };
-    }
-
-    void FillAddressData(const JsonRpcId& id, const nlohmann::json& params, AddressData& data)
-    {
-        if (existsJsonParam(params, "comment"))
-        {
-            std::string comment = params["comment"];
-
-            data.comment = comment;
-        }
-
-        if (existsJsonParam(params, "expiration"))
-        {
-            std::string expiration = params["expiration"];
-
-            static std::map<std::string, AddressData::Expiration> Items =
-            {
-                {"expired", AddressData::Expired},
-                {"24h",  AddressData::OneDay},
-                {"never", AddressData::Never},
-            };
-
-            if(Items.count(expiration) == 0)
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Unknown value for the 'expiration' parameter.", id };
-
-            data.expiration = Items[expiration];
-        }
-    }
-
-    void WalletApi::onCreateAddressMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        CreateAddress createAddress;
-        FillAddressData(id, params, createAddress);
-
-        _handler.onMessage(id, createAddress);
-    }
-
-    void WalletApi::onDeleteAddressMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        checkJsonParam(params, "address", id);
-
-        DeleteAddress deleteAddress;
-        deleteAddress.address.FromHex(params["address"]);
-
-        _handler.onMessage(id, deleteAddress);
-    }
-
-    void WalletApi::onEditAddressMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        checkJsonParam(params, "address", id);
-
-        if (!existsJsonParam(params, "comment") && !existsJsonParam(params, "expiration"))
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Comment or Expiration parameter must be specified.", id };
-
-        EditAddress editAddress;
-        editAddress.address.FromHex(params["address"]);
-
-        FillAddressData(id, params, editAddress);
-
-
-        _handler.onMessage(id, editAddress);
-    }
-
-    void WalletApi::onAddrListMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        checkJsonParam(params, "own", id);
-
-        AddrList addrList;
-
-        addrList.own = params["own"];
-
-        _handler.onMessage(id, addrList);
-    }
-
-    void WalletApi::onValidateAddressMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        checkJsonParam(params, "address", id);
-
-        if (params["address"].empty())
-            throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
-
-        ValidateAddress validateAddress;
-        validateAddress.address.FromHex(params["address"]);
-
-        _handler.onMessage(id, validateAddress);
-    }
-
-    static CoinIDList readCoinsParameter(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        CoinIDList coins;
-
-        if (!params["coins"].is_array() || params["coins"].size() <= 0)
-            throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "Invalid 'coins' parameter.", id };
-
-        for (const auto& cid : params["coins"])
-        {
-            bool done = false;
-
-            if (cid.is_string())
-            {
-                auto coinId = Coin::FromString(cid);
-
-                if (coinId)
-                {
-                    coins.push_back(*coinId);
-                    done = true;
-                }
-            }
-
-            if (!done)
-                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "Invalid 'coin ID' parameter.", id };
-        }
-
-        return coins;
-    }
-
-    // uint64_t readSessionParameter(const JsonRpcId& id, const nlohmann::json& params)
-    // {
-    //     uint64_t session = 0;
-
-    //     if (params["session"] > 0)
-    //     {
-    //         session = params["session"];
-    //     }
-    //     else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
-
-    //     return session;
-    
-    // }
-
-    void checkTxId(const ByteBuffer& txId, const JsonRpcId& id)
-    {
-        if (txId.size() != TxID().size())
-            throw jsonrpc_exception{ ApiError::InvalidTxId, "Transaction ID has wrong format.", id };
-    }
-
-    boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        boost::optional<TxID> txId;
-
-        if (existsJsonParam(params, "txId"))
-        {
-            TxID txIdDst;
-            auto txIdSrc = from_hex(params["txId"]);
-
-            checkTxId(txIdSrc, id);
-
-            std::copy_n(txIdSrc.begin(), TxID().size(), txIdDst.begin());
-            txId = txIdDst;
-        }
-
-        return txId;
-    }
-
-    void WalletApi::onSendMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        checkJsonParam(params, "value", id);
-        checkJsonParam(params, "address", id);
-
-        if (!params["value"].is_number_unsigned() || params["value"] == 0)
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Value must be non zero 64bit unsigned integer.", id };
-
-        if (params["address"].empty())
-            throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
-
-        Send send;
-
-        send.value = params["value"];
-
-        if (existsJsonParam(params, "coins"))
-        {
-            send.coins = readCoinsParameter(id, params);
-        }
-        // else if (existsJsonParam(params, "session"))
-        // {
-        //     send.session = readSessionParameter(id, params);
-        // }
-
-        auto txParams = ParseParameters(params["address"]);
-        if (!txParams)
-        {
-            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address or token.", id };
-        }
-        send.txParameters = *txParams;
-
-        if (auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
-        {
-            send.address = *peerID;
-        }
-        else
-        {
-            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address.", id };
-        }
-
-        if (existsJsonParam(params, "from"))
-        {
-            WalletID from(Zero);
-            if (from.FromHex(params["from"]))
-            {
-                send.from = from;
-            }
-            else
-            {
-                throw jsonrpc_exception{ ApiError::InvalidAddress, "Invalid sender address.", id };
-            }
-        }
-
-        if (existsJsonParam(params, "fee"))
-        {
-            if(!params["fee"].is_number_unsigned() || params["fee"] == 0)
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid fee.", id };
-
-            send.fee = params["fee"];
-        }
-
-        if (existsJsonParam(params, "comment"))
-        {
-            send.comment = params["comment"];
-        }
-
-        send.txId = readTxIdParameter(id, params);
-
-        _handler.onMessage(id, send);
-    }
-
-    void WalletApi::onStatusMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        checkJsonParam(params, "txId", id);
-
-        Status status;
-
-        auto txId = from_hex(params["txId"]);
-
-        checkTxId(txId, id);
-
-        std::copy_n(txId.begin(), status.txId.size(), status.txId.begin());
-
-        _handler.onMessage(id, status);
-    }
-
-    void WalletApi::onSplitMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        checkJsonParam(params, "coins", id);
-
-        if (!params["coins"].is_array() || params["coins"].size() <= 0)
-            throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coins parameter must be a nonempty array.", id };
-
-        Split split;
-
-        for (const auto& amount : params["coins"])
-        {
-            if(!amount.is_number_unsigned() || amount == 0)
-                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coin amount must be non zero 64bit unsigned integer.", id };
-
-            split.coins.push_back(amount);
-        }
-
-        if (existsJsonParam(params, "fee"))
-        {
-            if (!params["fee"].is_number_unsigned() || params["fee"] == 0)
-                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Invalid fee.", id };
-
-            split.fee = params["fee"];
-        }
-        else
-        {
-            split.fee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), DefaultFee); // +1 extra output for change
-        }
-
-        split.txId = readTxIdParameter(id, params);
-
-        _handler.onMessage(id, split);
-    }
-
-    void WalletApi::onTxCancelMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        checkJsonParam(params, "txId", id);
-        auto txId = from_hex(params["txId"]);
-
-        TxCancel txCancel;
-
-        checkTxId(txId, id);
-
-        std::copy_n(txId.begin(), txCancel.txId.size(), txCancel.txId.begin());
-
-        _handler.onMessage(id, txCancel);
-    }
-
-    void WalletApi::onTxDeleteMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        checkJsonParam(params, "txId", id);
-        auto txId = from_hex(params["txId"]);
-
-        TxDelete txDelete;
-
-        checkTxId(txId, id);
-
-        std::copy_n(txId.begin(), txDelete.txId.size(), txDelete.txId.begin());
-
-        _handler.onMessage(id, txDelete);
-    }
-
-    void WalletApi::onGetUtxoMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        GetUtxo getUtxo;
-
-        if (existsJsonParam(params, "count"))
-        {
-            if (params["count"] > 0)
-            {
-                getUtxo.count = params["count"];
-            }
-            else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'count' parameter.", id };
-        }
-
-        if (existsJsonParam(params, "skip"))
-        {
-            if (params["skip"] >= 0)
-            {
-                getUtxo.skip = params["skip"];
-            }
-            else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.", id };
-        }
-
-        _handler.onMessage(id, getUtxo);
-    }
-
-    // void WalletApi::onLockMessage(const JsonRpcId& id, const nlohmann::json& params)
-    // {
-    //     checkJsonParam(params, "coins", id);
-    //     checkJsonParam(params, "session", id);
-
-    //     Lock lock;
-
-    //     lock.session = readSessionParameter(id, params);
-    //     lock.coins = readCoinsParameter(id, params);
-
-    //     _handler.onMessage(id, lock);
-    // }
-
-    // void WalletApi::onUnlockMessage(const JsonRpcId& id, const nlohmann::json& params)
-    // {
-    //     checkJsonParam(params, "session", id);
-
-    //     Unlock unlock;
-
-    //     unlock.session = readSessionParameter(id, params);
-
-    //     _handler.onMessage(id, unlock);
-    // }
-
-    void WalletApi::onTxListMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        TxList txList;
-
-        if (existsJsonParam(params, "filter"))
-        {
-            if (existsJsonParam(params["filter"], "status")
-                && params["filter"]["status"].is_number_unsigned())
-            {
-                txList.filter.status = (TxStatus)params["filter"]["status"];
-            }
-
-            if (existsJsonParam(params["filter"], "height")
-                && params["filter"]["height"].is_number_unsigned())
-            {
-                txList.filter.height = (Height)params["filter"]["height"];
-            }
-        }
-
-        if (existsJsonParam(params, "count"))
-        {
-            if (params["count"] > 0)
-            {
-                txList.count = params["count"];
-            }
-            else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'count' parameter.", id };
-        }
-
-        if (existsJsonParam(params, "skip"))
-        {
-            if (params["skip"] >= 0)
-            {
-                txList.skip = params["skip"];
-            }
-            else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.", id };
-        }
-
-        _handler.onMessage(id, txList);
-    }
-
-    void WalletApi::onWalletStatusMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        WalletStatus walletStatus;
-        _handler.onMessage(id, walletStatus);
-    }
-
-    void WalletApi::onGenerateTxIdMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        GenerateTxId generateTxId;
-        _handler.onMessage(id, generateTxId);
-    }
-
-    void WalletApi::onCreateWalletMessage(const JsonRpcId& id, const nlohmann::json& params)
+    void WalletServiceApi::onCreateWalletMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         CreateWallet createWallet;
 
@@ -546,10 +111,10 @@ namespace beam::wallet
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'ownerkey' parameter must be specified.", id };
 
-        _handler.onMessage(id, createWallet);
+        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, createWallet);
     }
 
-    void WalletApi::onOpenWalletMessage(const JsonRpcId& id, const nlohmann::json& params)
+    void WalletServiceApi::onOpenWalletMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         OpenWallet openWallet;
 
@@ -565,262 +130,20 @@ namespace beam::wallet
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'id' parameter must be specified.", id };
 
-        _handler.onMessage(id, openWallet);
+        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, openWallet);
     }
 
-    void WalletApi::onPingMessage(const JsonRpcId& id, const nlohmann::json& params)
+    void WalletServiceApi::onPingMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
-        _handler.onMessage(id, Ping{});
+        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, Ping{});
     }
 
-    void WalletApi::onReleaseMessage(const JsonRpcId& id, const nlohmann::json& params)
+    void WalletServiceApi::onReleaseMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
-        _handler.onMessage(id, Release{});
+        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, Release{});
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", std::to_string(res.address)}
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const DeleteAddress::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", "done"}
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const EditAddress::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", "done"}
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const AddrList::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", json::array()}
-        };
-
-        for (auto& addr : res.list)
-        {
-            msg["result"].push_back(
-            {
-                {"address", std::to_string(addr.m_walletID)},
-                {"comment", addr.m_label},
-                {"category", addr.m_category},
-                {"create_time", addr.getCreateTime()},
-                {"duration", addr.m_duration},
-                {"expired", addr.isExpired()},
-                {"own", addr.m_OwnID != 0}
-            });
-        }
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const ValidateAddress::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", 
-                {
-                    {"is_valid",  res.isValid},
-                    {"is_mine",  res.isMine},
-                }
-            }
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const GetUtxo::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", json::array()}
-        };
-
-        for (auto& utxo : res.utxos)
-        {
-            std::string createTxId = utxo.m_createTxId.is_initialized() ? txIDToString(*utxo.m_createTxId) : "";
-            std::string spentTxId = utxo.m_spentTxId.is_initialized() ? txIDToString(*utxo.m_spentTxId) : "";
-
-            msg["result"].push_back(
-            { 
-                {"id", utxo.toStringID()},
-                {"amount", utxo.m_ID.m_Value},
-                {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
-                {"maturity", utxo.get_Maturity()},
-                {"createTxId", createTxId},
-                {"spentTxId", spentTxId},
-                {"status", utxo.m_status},
-                {"status_string", utxo.getStatusString()},
-                {"session", utxo.m_sessionId}
-            });
-        }
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const Send::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", 
-                {
-                    {"txId", txIDToString(res.txId)}
-                }
-            }
-        };
-    }
-
-    static void getStatusResponseJson(const TxDescription& tx, json& msg, Height kernelProofHeight, Height systemHeight)
-    {
-        msg = json
-        {
-            {"txId", txIDToString(tx.m_txId)},
-            {"status", tx.m_status},
-            {"status_string", tx.getStatusString()},
-            {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
-            {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
-            {"fee", tx.m_fee},
-            {"value", tx.m_amount},
-            {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
-            {"create_time", tx.m_createTime},            
-            {"income", !tx.m_sender}
-        };
-
-        if (kernelProofHeight > 0)
-        {
-            msg["height"] = kernelProofHeight;
-
-            if (systemHeight >= kernelProofHeight)
-            {
-                msg["confirmations"] = systemHeight - kernelProofHeight;
-            }
-        }
-
-        if (tx.m_status == TxStatus::Failed)
-        {
-            msg["failure_reason"] = wallet::GetFailureMessage(tx.m_failureReason);
-        }
-        else if (tx.m_status != TxStatus::Canceled)
-        {
-            msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
-        }
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const Status::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", {}}
-        };
-
-        getStatusResponseJson(res.tx, msg["result"], res.kernelProofHeight, res.systemHeight);
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const Split::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result",
-                {
-                    {"txId", to_hex(res.txId.data(), res.txId.size())}
-                }
-            }
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const TxCancel::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", res.result}
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const TxDelete::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", res.result}
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const TxList::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", json::array()}
-        };
-
-        for (const auto& resItem : res.resultList)
-        {
-            json item = {};
-            getStatusResponseJson(resItem.tx, item, resItem.kernelProofHeight, resItem.systemHeight);
-            msg["result"].push_back(item);
-        }
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const WalletStatus::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result",
-                {
-                    {"current_height", res.currentHeight},
-                    {"current_state_hash", to_hex(res.currentStateHash.m_pData, res.currentStateHash.nBytes)},
-                    {"prev_state_hash", to_hex(res.prevStateHash.m_pData, res.prevStateHash.nBytes)},
-                    {"available", res.available},
-                    {"receiving", res.receiving},
-                    {"sending", res.sending},
-                    {"maturing", res.maturing},
-                    {"difficulty", res.difficulty},
-                }
-            }
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const GenerateTxId::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", txIDToString(res.txId)}
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const CreateWallet::Response& res, json& msg)
+    void WalletServiceApi::getResponse(const JsonRpcId& id, const CreateWallet::Response& res, json& msg)
     {
         msg = json
         {
@@ -830,7 +153,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const OpenWallet::Response& res, json& msg)
+    void WalletServiceApi::getResponse(const JsonRpcId& id, const OpenWallet::Response& res, json& msg)
     {
         msg = json
         {
@@ -840,7 +163,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const Ping::Response& res, json& msg)
+    void WalletServiceApi::getResponse(const JsonRpcId& id, const Ping::Response& res, json& msg)
     {
         msg = json
         {
@@ -850,7 +173,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const Release::Response& res, json& msg)
+    void WalletServiceApi::getResponse(const JsonRpcId& id, const Release::Response& res, json& msg)
     {
         msg = json
         {
@@ -858,147 +181,6 @@ namespace beam::wallet
             {"id", id},
             {"result", "done"}
         };
-    }
-
-    // void WalletApi::getResponse(const JsonRpcId& id, const Lock::Response& res, json& msg)
-    // {
-    //     msg = json
-    //     {
-    //         {JsonRpcHrd, JsonRpcVerHrd},
-    //         {"id", id},
-    //         {"result", res.result}
-    //     };        
-    // }
-
-    // void WalletApi::getResponse(const JsonRpcId& id, const Unlock::Response& res, json& msg)
-    // {
-    //     msg = json
-    //     {
-    //         {JsonRpcHrd, JsonRpcVerHrd},
-    //         {"id", id},
-    //         {"result", res.result}
-    //     };
-    // }
-
-    bool WalletApi::parse(const char* data, size_t size)
-    {
-        if (size == 0)
-        {
-            json msg
-            {
-                {JsonRpcHrd, JsonRpcVerHrd},
-                {"error",
-                    {
-                        {"code", ApiError::InvalidJsonRpc},
-                        {"message", "Empty JSON request."},
-                    }
-                }
-            };
-
-            _handler.onInvalidJsonRpc(msg);
-            return false;
-        }
-
-        try
-        {
-            json msg = json::parse(data, data + size);
-
-            if(!msg["id"].is_number_integer() 
-                && !msg["id"].is_string())
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "ID can be integer or string only." };
-
-            JsonRpcId id = msg["id"];
-
-            if (msg[JsonRpcHrd] != JsonRpcVerHrd) 
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid JSON-RPC 2.0 header.", id };
-
-            if (_acl)
-            {
-                if (msg["key"] == nullptr) 
-                    throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "API key not specified.", id };
-
-                if (_acl->count(msg["key"]) == 0) 
-                    throw jsonrpc_exception{ ApiError::UnknownApiKey , msg["key"], id };
-            }
-
-            checkJsonParam(msg, "method", id);
-
-            JsonRpcId method = msg["method"];
-
-            if (_methods.find(method) == _methods.end())
-            {
-                throw jsonrpc_exception{ ApiError::NotFoundJsonRpc, method, id };
-            }
-
-            try
-            {
-                auto& info = _methods[method];
-
-                if(_acl && info.writeAccess && _acl.get()[msg["key"]] == false)
-                {
-                    throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "User doesn't have permissions to call this method.", id };
-                }
-
-                info.func(id, msg["params"] == nullptr ? json::object() : msg["params"]);
-            }
-            catch (const nlohmann::detail::exception& e)
-            {
-                LOG_ERROR() << "json parse: " << e.what() << "\n" << getJsonString(data, size);
-
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc , e.what(), id };
-            }
-        }
-        catch (const jsonrpc_exception& e)
-        {
-            json msg
-            {
-                {JsonRpcHrd, JsonRpcVerHrd},
-                {"error",
-                    {
-                        {"code", e.code},
-                        {"message", getErrorMessage(e.code)},
-                    }
-                }
-            };
-
-            if (!e.data.empty())
-            {
-                msg["error"]["data"] = e.data;
-            }
-
-            if (e.id.is_number_integer() || e.id.is_string()) msg["id"] = e.id;
-            else msg.erase("id");
-
-            _handler.onInvalidJsonRpc(msg);
-        }
-        catch (const std::exception& e)
-        {
-            json msg
-            {
-                {JsonRpcHrd, JsonRpcVerHrd},
-                {"error",
-                    {
-                        {"code", ApiError::InternalErrorJsonRpc},
-                        {"message", e.what()},
-                    }
-                }
-            };
-
-            _handler.onInvalidJsonRpc(msg);
-        }
-
-        return true;
-    }
-
-    const char* WalletApi::getErrorMessage(ApiError code)
-    {
-#define ERROR_ITEM(_, item, info) case item: return info;
-        switch (code) { JSON_RPC_ERRORS(ERROR_ITEM) }
-#undef ERROR_ITEM
-
-        assert(false);
-
-        return "unknown error.";
     }
 }
 
@@ -1089,7 +271,7 @@ namespace
             {
                 json msg =
                 {
-                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
                     {"id", 0},
                     {"method", "get_kdf"},
                     {"params",
@@ -1121,7 +303,7 @@ namespace
             {
                 json msg =
                 {
-                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
                     {"id", 0},
                     {"method", "get_slots"}
                 };
@@ -1141,7 +323,7 @@ namespace
             {
                 json msg =
                 {
-                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
                     {"id", 0},
                     {"method", "create_output"},
                     {"params",
@@ -1167,7 +349,7 @@ namespace
             {
                 json msg =
                 {
-                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
                     {"id", 0},
                     {"method", "sign_receiver"},
                     {"params",
@@ -1197,7 +379,7 @@ namespace
             {
                 json msg =
                 {
-                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
                     {"id", 0},
                     {"method", "sign_sender"},
                     {"params",
@@ -1241,7 +423,7 @@ namespace
             {
                 json msg =
                 {
-                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
                     {"id", 0},
                     {"method", "sign_split"},
                     {"params",
@@ -1289,29 +471,65 @@ namespace
             IApiConnectionHandler& _connection;
             io::Reactor::Ptr _reactor;
         };
-        
-        class ApiConnection : IWalletApiHandler, IWalletDbObserver
+
+        class MyApiConnection : public ApiConnection
         {
-            IApiConnectionHandler* _handler;
-            io::Reactor::Ptr _reactor;
         public:
-            ApiConnection(IApiConnectionHandler* handler, io::Reactor::Ptr reactor) 
-                : _handler(handler)
+            MyApiConnection(IApiConnectionHandler* handler, IWalletData& walletData, WalletApi::ACL acl)
+                : ApiConnection(walletData, acl)
+                , _handler(handler)
+            {
+            
+            }
+
+            void serializeMsg(const json& msg) override
+            {
+                _handler->serializeMsg(msg);
+            }
+
+        private:
+            IApiConnectionHandler* _handler;
+        };
+        
+        class ServiceApiConnection 
+            : public IWalletServiceApiHandler
+            , private ApiConnection::IWalletData
+        {
+        public:
+            ServiceApiConnection(IApiConnectionHandler* handler, io::Reactor::Ptr reactor)
+                : _apiConnection(handler, *this, boost::none)
+                , _handler(handler)
                 , _reactor(reactor)
                 , _api(*this)
             {
                 
             }
 
-            virtual ~ApiConnection()
+            virtual ~ServiceApiConnection()
             {
-                if(_walletDB)
-                    _walletDB->Unsubscribe(this);
+            }
+
+            // IWalletData methods
+            IWalletDB::Ptr getWalletDB() override
+            {
+                assert(_walletDB);
+                return _walletDB;
+            }
+
+            Wallet& getWallet() override
+            {
+                assert(_wallet);
+                return *_wallet;
             }
 
             void serializeMsg(const json& msg)
             {
                 _handler->serializeMsg(msg);
+            }
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                _apiConnection.onInvalidJsonRpc(msg);
             }
 
             template<typename T>
@@ -1322,447 +540,13 @@ namespace
                 serializeMsg(msg);
             }
 
-            void doError(const JsonRpcId& id, ApiError code, const std::string& data = "")
-            {
-                json msg
-                {
-                    {"jsonrpc", "2.0"},
-                    {"id", id},
-                    {"error",
-                        {
-                            {"code", code},
-                            {"message", WalletApi::getErrorMessage(code)}
-                        }
-                    }
-                };
+#define MESSAGE_FUNC(api, name, _) \
+            void onMessage(const JsonRpcId& id, const api& data) override \
+            { _apiConnection.onMessage(id, data); } 
 
-                if (!data.empty())
-                {
-                    msg["error"]["data"] = data;
-                }
+            WALLET_API_METHODS(MESSAGE_FUNC)
 
-                serializeMsg(msg);
-            }
-
-            void onInvalidJsonRpc(const json& msg) override
-            {
-                LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
-
-                serializeMsg(msg);
-            }
-
-            void FillAddressData(const AddressData& data, WalletAddress& address)
-            {
-                if (data.comment)
-                {
-                    address.setLabel(*data.comment);
-                }
-
-                if (data.expiration)
-                {
-                    switch (*data.expiration)
-                    {
-                    case EditAddress::OneDay:
-                        address.setExpiration(WalletAddress::ExpirationStatus::OneDay);
-                        break;
-                    case EditAddress::Expired:
-                        address.setExpiration(WalletAddress::ExpirationStatus::Expired);
-                        break;
-                    case EditAddress::Never:
-                        address.setExpiration(WalletAddress::ExpirationStatus::Never);
-                        break;
-                    }
-                }
-            }
-
-            void onMessage(const JsonRpcId& id, const CreateAddress& data) override 
-            {
-                LOG_DEBUG() << "CreateAddress(id = " << id << ")";
-
-                WalletAddress address;
-                _walletDB->createAddress(address);
-                FillAddressData(data, address);
-
-                _walletDB->saveAddress(address);
-
-                doResponse(id, CreateAddress::Response{ address.m_walletID });
-            }
-
-            void onMessage(const JsonRpcId& id, const DeleteAddress& data) override
-            {
-                LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
-
-                auto addr = _walletDB->getAddress(data.address);
-
-                if (addr)
-                {
-                    _walletDB->deleteAddress(data.address);
-
-                    doResponse(id, DeleteAddress::Response{});
-                }
-                else
-                {
-                    doError(id, ApiError::InvalidAddress, "Provided address doesn't exist.");
-                }
-            }
-
-            void onMessage(const JsonRpcId& id, const EditAddress& data) override
-            {
-                LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
-
-                auto addr = _walletDB->getAddress(data.address);
-
-                if (addr)
-                {
-                    if (addr->m_OwnID)
-                    {
-                        FillAddressData(data, *addr);
-                        _walletDB->saveAddress(*addr);
-
-                        doResponse(id, EditAddress::Response{});
-                    }
-                    else
-                    {
-                        doError(id, ApiError::InvalidAddress, "You can edit only own address.");
-                    }
-                }
-                else
-                {
-                    doError(id, ApiError::InvalidAddress, "Provided address doesn't exist.");
-                }
-            }
-
-            void onMessage(const JsonRpcId& id, const AddrList& data) override
-            {
-                LOG_DEBUG() << "AddrList(id = " << id << ")";
-
-                doResponse(id, AddrList::Response{ _walletDB->getAddresses(data.own) });
-            }
-
-            void onMessage(const JsonRpcId& id, const ValidateAddress& data) override
-            {
-                LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
-
-                auto addr = _walletDB->getAddress(data.address);
-                bool isMine = addr ? addr->m_OwnID != 0 : false;
-                doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? !addr->isExpired() : true), isMine});
-            }
-
-            void doTxAlreadyExistsError(const JsonRpcId& id)
-            {
-                doError(id, ApiError::InvalidTxId, "Provided transaction ID already exists in the wallet.");
-            }
-
-            void onMessage(const JsonRpcId& id, const Send& data) override
-            {
-                LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
-
-                try
-                {
-                    WalletID from(Zero);
-
-                    if(data.from)
-                    {
-                        if(!data.from->IsValid())
-                        {
-                            doError(id, ApiError::InvalidAddress, "Invalid sender address.");
-                            return;
-                        }
-
-                        auto addr = _walletDB->getAddress(*data.from);
-                        bool isMine = addr ? addr->m_OwnID != 0 : false;
-
-                        if(!isMine)
-                        {
-                            doError(id, ApiError::InvalidAddress, "It's not your own address.");
-                            return;
-                        }
-
-                        if (addr->isExpired())
-                        {
-                            doError(id, ApiError::InvalidAddress, "Sender address is expired.");
-                            return;
-                        }
-
-                        from = *data.from;
-                    }
-                    else
-                    {
-                        WalletAddress senderAddress;
-                        _walletDB->createAddress(senderAddress);
-                        _walletDB->saveAddress(senderAddress);
-
-                        from = senderAddress.m_walletID;
-                    }
-
-                    ByteBuffer message(data.comment.begin(), data.comment.end());
-
-                    CoinIDList coins;
-
-                    // if (data.session)
-                    // {
-                    //     coins = _walletDB->getLockedCoins(*data.session);
-
-                    //     if (coins.empty())
-                    //     {
-                    //         doError(id, ApiError::InternalErrorJsonRpc, "Requested session is empty.");
-                    //         return;
-                    //     }
-                    // }
-                    // else
-                    {
-                        coins = data.coins ? *data.coins : CoinIDList();
-                    }
-
-                    auto minimumFee = std::max(wallet::GetMinimumFee(2), DefaultFee); // receivers's output + change
-                    if (data.fee < minimumFee)
-                    {
-                        doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
-                        return;
-                    }
-
-                    if (data.txId && _walletDB->getTx(*data.txId))
-                    {
-                        doTxAlreadyExistsError(id);
-                        return;
-                    }
-                    auto params = CreateSimpleTransactionParameters(data.txId);
-                    LoadReceiverParams(data.txParameters, params);
-
-                    params.SetParameter(TxParameterID::MyID, from)
-                        .SetParameter(TxParameterID::Amount, data.value)
-                        .SetParameter(TxParameterID::Fee, data.fee)
-                        .SetParameter(TxParameterID::PreselectedCoins, coins)
-                        .SetParameter(TxParameterID::Message, message);
-
-                    auto txId = _wallet->StartTransaction(params);
-
-                    doResponse(id, Send::Response{ txId });
-                }
-                catch(...)
-                {
-                    doError(id, ApiError::InternalErrorJsonRpc, "Transaction could not be created. Please look at logs.");
-                }
-            }
-
-            void onMessage(const JsonRpcId& id, const Status& data) override
-            {
-                LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
-
-                auto tx = _walletDB->getTx(data.txId);
-
-                if (tx)
-                {
-                    Block::SystemState::ID stateID = {};
-                    _walletDB->getSystemStateID(stateID);
-
-                    Status::Response result;
-                    result.tx = *tx;
-                    result.kernelProofHeight = 0;
-                    result.systemHeight = stateID.m_Height;
-                    result.confirmations = 0;
-
-                    storage::getTxParameter(*_walletDB, tx->m_txId, TxParameterID::KernelProofHeight, result.kernelProofHeight);
-
-                    doResponse(id, result);
-                }
-                else
-                {
-                    doError(id, ApiError::InvalidParamsJsonRpc, "Unknown transaction ID.");
-                }
-            }
-
-            void onMessage(const JsonRpcId& id, const Split& data) override
-            {
-                LOG_DEBUG() << "Split(id = " << id << " coins = [";
-                for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
-                LOG_DEBUG() << "], fee = " << data.fee;
-                try
-                {
-                    WalletAddress senderAddress;
-                    _walletDB->createAddress(senderAddress);
-                    _walletDB->saveAddress(senderAddress);
-
-                    auto minimumFee = std::max(wallet::GetMinimumFee(data.coins.size() + 1), DefaultFee); // +1 extra output for change 
-                    if (data.fee < minimumFee)
-                    {
-                        doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
-                        return;
-                    }
-
-                    if (data.txId && _walletDB->getTx(*data.txId))
-                    {
-                        doTxAlreadyExistsError(id);
-                        return;
-                    }
-
-                    //auto txId = _wallet.StartTransaction(CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
-                    //    .SetParameter(TxParameterID::Fee, data.fee));
-
-                    //doResponse(id, Send::Response{ txId });
-                    doError(id, ApiError::InternalErrorJsonRpc, "Temporary disabled!!!");
-                }
-                catch(...)
-                {
-                    doError(id, ApiError::InternalErrorJsonRpc, "Transaction could not be created. Please look at logs.");
-                }
-            }
-
-            void onMessage(const JsonRpcId& id, const TxCancel& data) override
-            {
-                LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
-
-                auto tx = _walletDB->getTx(data.txId);
-
-                if (tx)
-                {
-                    if (tx->canCancel())
-                    {                        
-                        //_wallet.CancelTransaction(tx->m_txId);
-                        TxCancel::Response result{ true };
-                        doResponse(id, result);
-                    }
-                    else
-                    {
-                        doError(id, ApiError::InvalidTxStatus, "Transaction could not be cancelled. Invalid transaction status.");
-                    }
-                }
-                else
-                {
-                    doError(id, ApiError::InvalidParamsJsonRpc, "Unknown transaction ID.");
-                }
-            }
-
-            void onMessage(const JsonRpcId& id, const TxDelete& data) override
-            {
-                LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
-
-                auto tx = _walletDB->getTx(data.txId);
-
-                if (tx)
-                {
-                    if (tx->canDelete())
-                    {
-                        _walletDB->deleteTx(data.txId);
-
-                        if (_walletDB->getTx(data.txId))
-                        {
-                            doError(id, ApiError::InternalErrorJsonRpc, "Transaction not deleted.");
-                        }
-                        else
-                        {
-                            doResponse(id, TxDelete::Response{true});
-                        }
-                    }
-                    else
-                    {
-                        doError(id, ApiError::InternalErrorJsonRpc, "Transaction can't be deleted.");
-                    }
-                }
-                else
-                {
-                    doError(id, ApiError::InvalidParamsJsonRpc, "Unknown transaction ID.");
-                }
-            }
-
-            template<typename T>
-            static void doPagination(size_t skip, size_t count, std::vector<T>& res)
-            {
-                if (count > 0)
-                {
-                    size_t start = skip;
-                    size_t end = start + count;
-                    size_t size = res.size();
-
-                    if (start < size)
-                    {
-                        if (end > size) end = size;
-
-                        res = std::vector<T>(res.begin() + start, res.begin() + end);
-                    }
-                    else res = {};
-                }
-            }
-
-            void onMessage(const JsonRpcId& id, const GetUtxo& data) override 
-            {
-                LOG_DEBUG() << "GetUtxo(id = " << id << ")";
-
-                GetUtxo::Response response;
-                _walletDB->visitCoins([&response](const Coin& c)->bool
-                {
-                    response.utxos.push_back(c);
-                    return true;
-                });
-
-                doPagination(data.skip, data.count, response.utxos);
-
-                doResponse(id, response);
-            }
-
-            void onMessage(const JsonRpcId& id, const WalletStatus& data) override
-            {
-                LOG_DEBUG() << "WalletStatus(id = " << id << ")";
-
-                WalletStatus::Response response;
-
-                {
-                    Block::SystemState::ID stateID = {};
-                    _walletDB->getSystemStateID(stateID);
-
-                    response.currentHeight = stateID.m_Height;
-                    response.currentStateHash = stateID.m_Hash;
-                }
-
-                {
-                    Block::SystemState::Full state;
-                    _walletDB->get_History().get_Tip(state);
-                    response.prevStateHash = state.m_Prev;
-                    response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
-                }
-
-                storage::Totals allTotals(*_walletDB);
-                const auto& totals = allTotals.GetTotals(Zero);
-
-                response.available = totals.Avail;
-                response.receiving = totals.Incoming;
-                response.sending = totals.Outgoing;
-                response.maturing = totals.Maturing;
-
-                doResponse(id, response);
-            }
-
-            void onMessage(const JsonRpcId& id, const GenerateTxId& data) override
-            {
-                LOG_DEBUG() << "GenerateTxId(id = " << id << ")";
-
-                doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
-            }
-
-            static std::string generateWalletID(Key::IPKdf::Ptr ownerKdf)
-            {
-                Key::ID kid(Zero);
-                kid.m_Type = ECC::Key::Type::WalletID;
-
-                ECC::Point::Native pt;
-                ECC::Hash::Value hv;
-                kid.get_Hash(hv);
-                ownerKdf->DerivePKeyG(pt, hv);
-                PeerID pid;
-                pid.Import(pt);
-                return pid.str();
-            }
-
-            static std::string generateUid()
-            {
-                std::array<uint8_t, 16> buf{};
-                {
-                    boost::uuids::uuid uid = boost::uuids::random_generator()();
-                    std::copy(uid.begin(), uid.end(), buf.begin());
-                }
-
-                return to_hex(buf.data(), buf.size());
-            }
+#undef MESSAGE_FUNC
 
             void onMessage(const JsonRpcId& id, const CreateWallet& data) override
             {
@@ -1795,7 +579,7 @@ namespace
                     }
                 }
 
-                doError(id, ApiError::InternalErrorJsonRpc, "Wallet not created.");
+                _apiConnection.doError(id, ApiError::InternalErrorJsonRpc, "Wallet not created.");
             }
 
             void onMessage(const JsonRpcId& id, const OpenWallet& data) override
@@ -1822,7 +606,7 @@ namespace
                 
                 if(!_walletDB)
                 {
-                    doError(id, ApiError::InternalErrorJsonRpc, "Wallet not opened.");
+                    _apiConnection.doError(id, ApiError::InternalErrorJsonRpc, "Wallet not opened.");
                     return;
                 }
 
@@ -1830,8 +614,6 @@ namespace
                 WalletsMap[data.id].wallet = _wallet;
 
                 LOG_INFO() << "wallet sucessfully opened...";
-
-                _walletDB->Subscribe(this);
 
                 _wallet->ResumeAllTransactions();
 
@@ -1875,82 +657,29 @@ namespace
                 doResponse(id, Release::Response{});
             }
 
-            // void onMessage(const JsonRpcId& id, const Lock& data) override
-            // {
-            //     LOG_DEBUG() << "Lock(id = " << id << ")";
-
-            //     Lock::Response response;
-
-            //     response.result = _walletDB->lockCoins(data.coins, data.session);
-
-            //     doResponse(id, response);
-            // }
-
-            // void onMessage(const JsonRpcId& id, const Unlock& data) override
-            // {
-            //     LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
-
-            //     Unlock::Response response;
-
-            //     response.result = _walletDB->unlockCoins(data.session);
-
-            //     doResponse(id, response);
-            // }
-
-            void onMessage(const JsonRpcId& id, const TxList& data) override
+            static std::string generateWalletID(Key::IPKdf::Ptr ownerKdf)
             {
-                LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
+                Key::ID kid(Zero);
+                kid.m_Type = ECC::Key::Type::WalletID;
 
-                TxList::Response res;
+                ECC::Point::Native pt;
+                ECC::Hash::Value hv;
+                kid.get_Hash(hv);
+                ownerKdf->DerivePKeyG(pt, hv);
+                PeerID pid;
+                pid.Import(pt);
+                return pid.str();
+            }
 
+            static std::string generateUid()
+            {
+                std::array<uint8_t, 16> buf{};
                 {
-                    auto txList = _walletDB->getTxHistory();
-
-                    Block::SystemState::ID stateID = {};
-                    _walletDB->getSystemStateID(stateID);
-
-                    for (const auto& tx : txList)
-                    {
-                        Status::Response item;
-                        item.tx = tx;
-                        item.kernelProofHeight = 0;
-                        item.systemHeight = stateID.m_Height;
-                        item.confirmations = 0;
-
-                        storage::getTxParameter(*_walletDB, tx.m_txId, TxParameterID::KernelProofHeight, item.kernelProofHeight);
-                        res.resultList.push_back(item);
-                    }
+                    boost::uuids::uuid uid = boost::uuids::random_generator()();
+                    std::copy(uid.begin(), uid.end(), buf.begin());
                 }
 
-                using Result = decltype(res.resultList);
-
-                // filter transactions by status if provided
-                if (data.filter.status)
-                {
-                    Result filteredList;
-
-                    for (const auto& it : res.resultList)
-                        if (it.tx.m_status == *data.filter.status)
-                            filteredList.push_back(it);
-
-                    res.resultList = filteredList;
-                }
-
-                // filter transactions by height if provided
-                if (data.filter.height)
-                {
-                    Result filteredList;
-
-                    for (const auto& it : res.resultList)
-                        if (it.kernelProofHeight == *data.filter.height)
-                            filteredList.push_back(it);
-
-                    res.resultList = filteredList;
-                }
-
-                doPagination(data.skip, data.count, res.resultList);
-
-                doResponse(id, res);
+                return to_hex(buf.data(), buf.size());
             }
 
             IPrivateKeyKeeper2::Ptr createKeyKeeper(const std::string& pass, const std::string& ownerKey) const
@@ -1982,14 +711,18 @@ namespace
             }
 
         protected:
+            MyApiConnection _apiConnection;
+            IApiConnectionHandler* _handler;
+            io::Reactor::Ptr _reactor;
+
             IWalletDB::Ptr _walletDB;
             Wallet::Ptr _wallet;
-            WalletApi _api;
+            WalletServiceApi _api;
         };
 
         class session : 
             public std::enable_shared_from_this<session>, 
-            public ApiConnection, 
+            public ServiceApiConnection, 
             public IApiConnectionHandler
         {
             websocket::stream<tcp::socket> ws_;
@@ -2005,7 +738,7 @@ namespace
             // Take ownership of the socket
             explicit
             session(tcp::socket socket, io::Reactor::Ptr reactor)
-                : ApiConnection(this, reactor)
+                : ServiceApiConnection(this, reactor)
                 , ws_(std::move(socket))
                 , _newDataEvent(io::AsyncEvent::create(*reactor, [this]() { process_new_data(); }))
             {
@@ -2186,7 +919,7 @@ namespace
                 {
                     json msg = json::parse(data.c_str(), data.c_str() + data.size());
 
-                    if (existsJsonParam(msg, "result"))
+                    if (WalletApi::existsJsonParam(msg, "result"))
                     {
                         if (_keeperCallbacks.empty())
                             return;
@@ -2366,7 +1099,7 @@ int main(int argc, char* argv[])
                 std::ifstream cfg("wallet-api.cfg");
 
                 if (cfg)
-                {                    
+                {
                     po::store(po::parse_config_file(cfg, desc), vm);
                 }
             }

@@ -127,6 +127,7 @@ namespace
             , _tlsOptions(tlsOptions)
             , _walletDB(walletDB)
             , _wallet(wallet)
+            , _walletData(walletDB, wallet)
             , _acl(acl)
             , _whitelist(whitelist)
         {
@@ -182,10 +183,31 @@ namespace
             }
         }
 
+        struct WalletData : ApiConnection::IWalletData
+        {
+            WalletData(IWalletDB::Ptr walletDB, Wallet& wallet)
+                : m_walletDB(walletDB)
+                , m_wallet(wallet)
+            {}
+
+            IWalletDB::Ptr getWalletDB() override
+            {
+                return m_walletDB;
+            }
+
+            Wallet& getWallet() override
+            {
+                return m_wallet;
+            }
+
+            IWalletDB::Ptr m_walletDB;
+            Wallet& m_wallet;
+        };
+
         template<typename T>
         std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
         {
-            return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, _walletDB, _wallet, std::move(newStream), _acl));
+            return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, std::move(newStream), _walletData, _acl));
         }
 
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -220,8 +242,8 @@ namespace
         class TcpApiConnection : public ApiConnection
         {
         public:
-            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
-                : ApiConnection(walletDB, wallet, acl)
+            TcpApiConnection(IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletData& walletData, WalletApi::ACL acl)
+                : ApiConnection(walletData, acl)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
                 , _server(server)
@@ -280,8 +302,8 @@ namespace
         class HttpApiConnection : public ApiConnection
         {
         public:
-            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
-                : ApiConnection(walletDB, wallet, acl)
+            HttpApiConnection(IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletData& walletData, WalletApi::ACL acl)
+                : ApiConnection(walletData, acl)
                 , _keepalive(false)
                 , _msgCreator(2000)
                 , _packer(PACKER_FRAGMENTS_SIZE)
@@ -399,6 +421,7 @@ namespace
 
         IWalletDB::Ptr _walletDB;
         Wallet& _wallet;
+        WalletData _walletData;
         std::vector<uint64_t> _pendingToClose;
         WalletApi::ACL _acl;
         std::vector<uint32_t> _whitelist;

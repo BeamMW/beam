@@ -284,6 +284,16 @@ namespace beam::wallet
     {
     public:
 
+        struct jsonrpc_exception
+        {
+            ApiError code;
+            std::string data;
+            JsonRpcId id;
+        };
+
+        static inline const char JsonRpcHrd[] = "jsonrpc";
+        static inline const char JsonRpcVerHrd[] = "2.0";
+
         // user api key and read/write access
         using ACL = boost::optional<std::map<std::string, bool>>;
 
@@ -297,8 +307,10 @@ namespace beam::wallet
 #undef RESPONSE_FUNC
 
         bool parse(const char* data, size_t size);
-
+        
         static const char* getErrorMessage(ApiError code);
+        static bool existsJsonParam(const nlohmann::json& params, const std::string& name);
+        static void checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id);
 
     private:
 
@@ -309,7 +321,8 @@ namespace beam::wallet
 
 #undef MESSAGE_FUNC
 
-    private:
+    protected:
+
         IWalletApiHandler& _handler;
 
         struct FuncInfo

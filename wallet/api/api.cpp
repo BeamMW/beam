@@ -20,27 +20,17 @@ using json = nlohmann::json;
 
 namespace beam::wallet
 {
-    static const char JsonRpcHrd[] = "jsonrpc";
-    static const char JsonRpcVerHrd[] = "2.0";
-
     namespace
     {
         std::string txIDToString(const TxID& txId)
         {
             return to_hex(txId.data(), txId.size());
         }
-    }
-
-    struct jsonrpc_exception
-    {
-        ApiError code;
-        std::string data;
-        JsonRpcId id;
-    };
-
-    std::string getJsonString(const char* data, size_t size)
-    {
-        return std::string(data, data + (size > 1024 ? 1024 : size));
+    
+        std::string getJsonString(const char* data, size_t size)
+        {
+            return std::string(data, data + (size > 1024 ? 1024 : size));
+        }
     }
 
     WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
@@ -55,27 +45,27 @@ namespace beam::wallet
 #undef REG_FUNC
     };
 
-    bool existsJsonParam(const nlohmann::json& params, const std::string& name)
+    bool WalletApi::existsJsonParam(const nlohmann::json& params, const std::string& name)
     {
         return params.find(name) != params.end();
     }
 
-    void checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id)
+    void WalletApi::checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id)
     {
         if (!existsJsonParam(params, name))
             throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parameter '" + name + "' doesn't exist.", id };
     }
 
-    void FillAddressData(const JsonRpcId& id, const nlohmann::json& params, AddressData& data)
+    static void FillAddressData(const JsonRpcId& id, const nlohmann::json& params, AddressData& data)
     {
-        if (existsJsonParam(params, "comment"))
+        if (WalletApi::existsJsonParam(params, "comment"))
         {
             std::string comment = params["comment"];
 
             data.comment = comment;
         }
 
-        if (existsJsonParam(params, "expiration"))
+        if (WalletApi::existsJsonParam(params, "expiration"))
         {
             std::string expiration = params["expiration"];
 
@@ -87,7 +77,7 @@ namespace beam::wallet
             };
 
             if(Items.count(expiration) == 0)
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Unknown value for the 'expiration' parameter.", id };
+                throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Unknown value for the 'expiration' parameter.", id };
 
             data.expiration = Items[expiration];
         }
@@ -156,19 +146,19 @@ namespace beam::wallet
         CoinIDList coins;
 
         if (!params["coins"].is_array() || params["coins"].size() <= 0)
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coins parameter must be an array of strings (coin IDs).", id };
+            throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coins parameter must be an array of strings (coin IDs).", id };
 
         for (const auto& cid : params["coins"])
         {
             if (!cid.is_string())
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coin ID in the coins array must be a string.", id };
+                throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coin ID in the coins array must be a string.", id };
 
             std::string sCid = cid;
             auto coinId = Coin::FromString(sCid);
             if (!coinId)
             {
                 const auto errmsg = std::string("Invalid 'coin ID' parameter: ") + std::string(sCid);
-                throw jsonrpc_exception{ApiError::InvalidParamsJsonRpc, errmsg, id};
+                throw WalletApi::jsonrpc_exception{ApiError::InvalidParamsJsonRpc, errmsg, id};
             }
 
             coins.push_back(*coinId);
@@ -185,7 +175,7 @@ namespace beam::wallet
         {
             session = params["session"];
         }
-        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
+        else throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
 
         return session;
     
@@ -194,17 +184,17 @@ namespace beam::wallet
     void checkTxId(const ByteBuffer& txId, const JsonRpcId& id)
     {
         if (txId.size() != TxID().size())
-            throw jsonrpc_exception{ ApiError::InvalidTxId, "Transaction ID has wrong format.", id };
+            throw WalletApi::jsonrpc_exception{ ApiError::InvalidTxId, "Transaction ID has wrong format.", id };
     }
 
     boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const nlohmann::json& params)
     {
         boost::optional<TxID> txId;
 
-        if (existsJsonParam(params, "txId"))
+        if (WalletApi::existsJsonParam(params, "txId"))
         {
             if (!params["txId"].is_string())
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Transaction ID must be a hex string.", id };
+                throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Transaction ID must be a hex string.", id };
 
             TxID txIdDst;
             auto txIdSrc = from_hex(params["txId"]);

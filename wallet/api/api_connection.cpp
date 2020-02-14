@@ -30,10 +30,8 @@ namespace
 
 namespace beam::wallet
 {
-
-    ApiConnection::ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletApi::ACL acl)
-        : _walletDB(walletDB)
-        , _wallet(wallet)
+    ApiConnection::ApiConnection(IWalletData& walletData, WalletApi::ACL acl)
+        : _walletData(walletData)
         , _api(*this, acl)
     {
     }
@@ -100,10 +98,10 @@ namespace beam::wallet
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
         WalletAddress address;
-        _walletDB->createAddress(address);
+        _walletData.getWalletDB()->createAddress(address);
         FillAddressData(data, address);
 
-        _walletDB->saveAddress(address);
+        _walletData.getWalletDB()->saveAddress(address);
 
         doResponse(id, CreateAddress::Response{ address.m_walletID });
     }
@@ -112,11 +110,11 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
-        auto addr = _walletDB->getAddress(data.address);
+        auto addr = _walletData.getWalletDB()->getAddress(data.address);
 
         if (addr)
         {
-            _walletDB->deleteAddress(data.address);
+            _walletData.getWalletDB()->deleteAddress(data.address);
 
             doResponse(id, DeleteAddress::Response{});
         }
@@ -130,14 +128,14 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
-        auto addr = _walletDB->getAddress(data.address);
+        auto addr = _walletData.getWalletDB()->getAddress(data.address);
 
         if (addr)
         {
             if (addr->isOwn())
             {
                 FillAddressData(data, *addr);
-                _walletDB->saveAddress(*addr);
+                _walletData.getWalletDB()->saveAddress(*addr);
 
                 doResponse(id, EditAddress::Response{});
             }
@@ -156,14 +154,14 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "AddrList(id = " << id << ")";
 
-        doResponse(id, AddrList::Response{ _walletDB->getAddresses(data.own) });
+        doResponse(id, AddrList::Response{ _walletData.getWalletDB()->getAddresses(data.own) });
     }
 
     void ApiConnection::onMessage(const JsonRpcId& id, const ValidateAddress& data)
     {
         LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
-        auto addr = _walletDB->getAddress(data.address);
+        auto addr = _walletData.getWalletDB()->getAddress(data.address);
         bool isMine = addr ? addr->isOwn() : false;
         doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? !addr->isExpired() : true), isMine });
     }
@@ -189,7 +187,7 @@ namespace beam::wallet
                     return;
                 }
 
-                auto addr = _walletDB->getAddress(*data.from);
+                auto addr = _walletData.getWalletDB()->getAddress(*data.from);
                 bool isMine = addr ? addr->isOwn() : false;
 
                 if (!isMine)
@@ -209,8 +207,8 @@ namespace beam::wallet
             else
             {
                 WalletAddress senderAddress;
-                _walletDB->createAddress(senderAddress);
-                _walletDB->saveAddress(senderAddress);
+                _walletData.getWalletDB()->createAddress(senderAddress);
+                _walletData.getWalletDB()->saveAddress(senderAddress);
 
                 from = senderAddress.m_walletID;
             }
@@ -221,7 +219,7 @@ namespace beam::wallet
 
             if (data.session)
             {
-                coins = _walletDB->getLockedCoins(*data.session);
+                coins = _walletData.getWalletDB()->getLockedCoins(*data.session);
 
                 if (coins.empty())
                 {
@@ -241,13 +239,13 @@ namespace beam::wallet
                 return;
             }
 
-            if (data.txId && _walletDB->getTx(*data.txId))
+            if (data.txId && _walletData.getWalletDB()->getTx(*data.txId))
             {
                 doTxAlreadyExistsError(id);
                 return;
             }
 
-            auto txId = _wallet.StartTransaction(CreateSimpleTransactionParameters(data.txId)
+            auto txId = _walletData.getWallet().StartTransaction(CreateSimpleTransactionParameters(data.txId)
                 .SetParameter(TxParameterID::MyID, from)
                 .SetParameter(TxParameterID::PeerID, data.address)
                 .SetParameter(TxParameterID::Amount, data.value)
@@ -273,7 +271,7 @@ namespace beam::wallet
 
             if (data.session)
             {
-                if ((coins = _walletDB->getLockedCoins(*data.session)).empty())
+                if ((coins = _walletData.getWalletDB()->getLockedCoins(*data.session)).empty())
                 {
                     doError(id, ApiError::InternalErrorJsonRpc, "Requested session is empty.");
                     return;
@@ -291,13 +289,13 @@ namespace beam::wallet
                 return;
             }
 
-            if (data.txId && _walletDB->getTx(*data.txId))
+            if (data.txId && _walletData.getWalletDB()->getTx(*data.txId))
             {
                 doTxAlreadyExistsError(id);
                 return;
             }
 
-            const auto txId = _wallet.StartTransaction(CreateTransactionParameters(TxType::AssetIssue, data.txId)
+            const auto txId = _walletData.getWallet().StartTransaction(CreateTransactionParameters(TxType::AssetIssue, data.txId)
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
                 .SetParameter(TxParameterID::PreselectedCoins, coins)
@@ -315,12 +313,12 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
-        auto tx = _walletDB->getTx(data.txId);
+        auto tx = _walletData.getWalletDB()->getTx(data.txId);
 
         if (tx)
         {
             Block::SystemState::ID stateID = {};
-            _walletDB->getSystemStateID(stateID);
+            _walletData.getWalletDB()->getSystemStateID(stateID);
 
             Status::Response result;
             result.tx = *tx;
@@ -328,7 +326,7 @@ namespace beam::wallet
             result.systemHeight = stateID.m_Height;
             result.confirmations = 0;
 
-            storage::getTxParameter(*_walletDB, tx->m_txId, TxParameterID::KernelProofHeight, result.kernelProofHeight);
+            storage::getTxParameter(*_walletData.getWalletDB(), tx->m_txId, TxParameterID::KernelProofHeight, result.kernelProofHeight);
 
             doResponse(id, result);
         }
@@ -346,8 +344,8 @@ namespace beam::wallet
         try
         {
             WalletAddress senderAddress;
-            _walletDB->createAddress(senderAddress);
-            _walletDB->saveAddress(senderAddress);
+            _walletData.getWalletDB()->createAddress(senderAddress);
+            _walletData.getWalletDB()->saveAddress(senderAddress);
 
             auto minimumFee = std::max(wallet::GetMinimumFee(data.coins.size() + 1), DefaultFee); // +1 extra output for change 
             if (data.fee < minimumFee)
@@ -356,13 +354,13 @@ namespace beam::wallet
                 return;
             }
 
-            if (data.txId && _walletDB->getTx(*data.txId))
+            if (data.txId && _walletData.getWalletDB()->getTx(*data.txId))
             {
                 doTxAlreadyExistsError(id);
                 return;
             }
 
-            auto txId = _wallet.StartTransaction(CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
+            auto txId = _walletData.getWallet().StartTransaction(CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
                 .SetParameter(TxParameterID::Fee, data.fee));
 
             doResponse(id, Send::Response{ txId });
@@ -377,13 +375,13 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
-        auto tx = _walletDB->getTx(data.txId);
+        auto tx = _walletData.getWalletDB()->getTx(data.txId);
 
         if (tx)
         {
-            if (_wallet.CanCancelTransaction(tx->m_txId))
+            if (_walletData.getWallet().CanCancelTransaction(tx->m_txId))
             {
-                _wallet.CancelTransaction(tx->m_txId);
+                _walletData.getWallet().CancelTransaction(tx->m_txId);
                 TxCancel::Response result{ true };
                 doResponse(id, result);
             }
@@ -402,15 +400,15 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
-        auto tx = _walletDB->getTx(data.txId);
+        auto tx = _walletData.getWalletDB()->getTx(data.txId);
 
         if (tx)
         {
             if (tx->canDelete())
             {
-                _walletDB->deleteTx(data.txId);
+                _walletData.getWalletDB()->deleteTx(data.txId);
 
-                if (_walletDB->getTx(data.txId))
+                if (_walletData.getWalletDB()->getTx(data.txId))
                 {
                     doError(id, ApiError::InternalErrorJsonRpc, "Transaction not deleted.");
                 }
@@ -435,7 +433,7 @@ namespace beam::wallet
         LOG_DEBUG() << "GetUtxo(id = " << id << ")";
 
         GetUtxo::Response response;
-        _walletDB->visitCoins([&response](const Coin& c)->bool
+        _walletData.getWalletDB()->visitCoins([&response](const Coin& c)->bool
             {
                 response.utxos.push_back(c);
                 return true;
@@ -454,7 +452,7 @@ namespace beam::wallet
 
         {
             Block::SystemState::ID stateID = {};
-            _walletDB->getSystemStateID(stateID);
+            _walletData.getWalletDB()->getSystemStateID(stateID);
 
             response.currentHeight = stateID.m_Height;
             response.currentStateHash = stateID.m_Hash;
@@ -462,12 +460,12 @@ namespace beam::wallet
 
         {
             Block::SystemState::Full state;
-            _walletDB->get_History().get_Tip(state);
+            _walletData.getWalletDB()->get_History().get_Tip(state);
             response.prevStateHash = state.m_Prev;
             response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
         }
 
-        storage::Totals allTotals(*_walletDB);
+        storage::Totals allTotals(*_walletData.getWalletDB());
         const auto& totals = allTotals.GetTotals(Zero);
 
         response.available = totals.Avail;
@@ -491,7 +489,7 @@ namespace beam::wallet
 
         Lock::Response response;
 
-        response.result = _walletDB->lockCoins(data.coins, data.session);
+        response.result = _walletData.getWalletDB()->lockCoins(data.coins, data.session);
 
         doResponse(id, response);
     }
@@ -502,7 +500,7 @@ namespace beam::wallet
 
         Unlock::Response response;
 
-        response.result = _walletDB->unlockCoins(data.session);
+        response.result = _walletData.getWalletDB()->unlockCoins(data.session);
 
         doResponse(id, response);
     }
@@ -514,10 +512,10 @@ namespace beam::wallet
         TxList::Response res;
 
         {
-            auto txList = _walletDB->getTxHistory();
+            auto txList = _walletData.getWalletDB()->getTxHistory();
 
             Block::SystemState::ID stateID = {};
-            _walletDB->getSystemStateID(stateID);
+            _walletData.getWalletDB()->getSystemStateID(stateID);
 
             for (const auto& tx : txList)
             {
@@ -527,7 +525,7 @@ namespace beam::wallet
                 item.systemHeight = stateID.m_Height;
                 item.confirmations = 0;
 
-                storage::getTxParameter(*_walletDB, tx.m_txId, TxParameterID::KernelProofHeight, item.kernelProofHeight);
+                storage::getTxParameter(*_walletData.getWalletDB(), tx.m_txId, TxParameterID::KernelProofHeight, item.kernelProofHeight);
                 res.resultList.push_back(item);
             }
         }

@@ -22,7 +22,13 @@ namespace beam::wallet
     class ApiConnection : public IWalletApiHandler
     {
     public:
-        ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletApi::ACL acl);
+        struct IWalletData
+        {
+            virtual IWalletDB::Ptr getWalletDB() = 0;
+            virtual Wallet& getWallet() = 0;
+        };
+
+        ApiConnection(IWalletData& walletData, WalletApi::ACL acl);
         virtual ~ApiConnection();
 
         virtual void serializeMsg(const json& msg) = 0;
@@ -70,8 +76,7 @@ namespace beam::wallet
         }
 
     protected:
-        IWalletDB::Ptr _walletDB;
-        Wallet& _wallet;
+        IWalletData& _walletData;
         WalletApi _api;
     };
 } // beam::wallet
