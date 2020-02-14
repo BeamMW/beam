@@ -70,7 +70,7 @@ namespace ECC_Min
 				uint8_t m_iElement;
 				static const uint8_t s_HiBit = 0x80;
 
-				static_assert(Prepared::nMaxOdd <= uint8_t(-1));
+				static_assert(Prepared::nCount < s_HiBit);
 
 				void MoveNext(const secp256k1_scalar&);
 			};
@@ -96,10 +96,6 @@ namespace ECC_Min
 
 			void Calculate() const;
 		};
-
-	private:
-
-		struct Normalizer;
 	};
 
 	template <unsigned int nMaxCount>
