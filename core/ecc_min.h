@@ -43,9 +43,6 @@ namespace ECC_Min
 
 	struct MultiMac
 	{
-		typedef uint8_t Index;
-
-
 		struct Prepared
 		{
 			static const uint8_t nBits = 4;
@@ -55,33 +52,50 @@ namespace ECC_Min
 			secp256k1_ge_storage m_pPt[nCount]; // odd powers
 		};
 
-		struct WNafCursor
+		struct WNaf
 		{
-			uint8_t m_iBit;
-			uint8_t m_iElement;
-			static const uint8_t s_HiBit = 0x80;
+			struct Cursor
+			{
+				uint8_t m_iBit;
+				uint8_t m_iElement;
+				static const uint8_t s_HiBit = 0x80;
 
-			static_assert(Prepared::nMaxOdd <= uint8_t(-1));
+				static_assert(Prepared::nMaxOdd <= uint8_t(-1));
 
-			void Reset();
-			bool FindCarry(const secp256k1_scalar&);
-			void MoveAfterCarry(const secp256k1_scalar&);
-			void MoveNext(const secp256k1_scalar&);
+				bool FindCarry(const secp256k1_scalar&);
+				void MoveAfterCarry(const secp256k1_scalar&);
+				void MoveNext(const secp256k1_scalar&);
+			};
 
 			static uint8_t get_Bit(const secp256k1_scalar&, uint8_t iBit);
 			static void xor_Bit(secp256k1_scalar&, uint8_t iBit);
 
-			static bool SplitPosNeg(secp256k1_scalar&, secp256k1_scalar&);
-
+			Cursor m_Pos;
+			Cursor m_Neg;
 		};
 
-		Index m_Prepared;
+		struct Scalar
+		{
+			secp256k1_scalar m_Pos;
+			secp256k1_scalar m_Neg;
 
-		MultiMac() { Reset(); }
+			bool SplitPosNeg(); // returns carry
+		};
 
-		void Reset();
-		void Calculate(secp256k1_gej&, const Prepared*, secp256k1_scalar*, WNafCursor*);
+		struct Context
+		{
+			secp256k1_gej* m_pRes;
 
+			unsigned int m_Count;
+			const Prepared* m_pPrep;
+			Scalar* m_pS;
+			WNaf* m_pWnaf;
+
+			void Calculate() const;
+
+		private:
+			void Process(uint16_t iBit, unsigned int i, bool bNeg) const;
+		};
 
 	private:
 
@@ -93,21 +107,35 @@ namespace ECC_Min
 		:public MultiMac
 	{
 		Prepared m_pPrepared[nMaxCount];
-		WNafCursor m_pWnaf[nMaxCount * 2];
-		secp256k1_scalar m_pK[nMaxCount * 2];
+		WNaf m_pWnaf[nMaxCount];
+		Scalar m_pS[nMaxCount];
+
+		unsigned int m_Count = 0;
+
+		void Reset() {
+			m_Count = 0;
+		}
+
+		secp256k1_scalar& Add()
+		{
+			assert(m_Count < nMaxCount);
+			return m_pS[m_Count++].m_Pos;
+		}
 
 		void Add(const secp256k1_scalar& k)
 		{
-			static_assert(nMaxCount <= Index(-1));
-			assert(m_Prepared < nMaxCount);
-			m_pK[m_Prepared * 2] = k;
-			m_Prepared++;
+			Add() = k;
 		}
 
 		void Calculate(secp256k1_gej& res)
 		{
-			assert(m_Prepared <= nMaxCount);
-			MultiMac::Calculate(res, m_pPrepared, m_pK, m_pWnaf);
+			Context ctx;
+			ctx.m_pRes = &res;
+			ctx.m_Count = m_Count;
+			ctx.m_pPrep = m_pPrepared;
+			ctx.m_pS = m_pS;
+			ctx.m_pWnaf = m_pWnaf;
+			ctx.Calculate();
 		}
 	};
 } // namespace ECC_Min

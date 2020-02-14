@@ -159,18 +159,7 @@ namespace ECC_Min
 
 	/////////////////////
 	// MultiMac
-	void MultiMac::Reset()
-	{
-		m_Prepared = 0;
-	}
-
-	void MultiMac::WNafCursor::Reset()
-	{
-		m_iBit = 0;
-		m_iElement = 0;
-	}
-
-	bool MultiMac::WNafCursor::FindCarry(const secp256k1_scalar& k)
+	bool MultiMac::WNaf::Cursor::FindCarry(const secp256k1_scalar& k)
 	{
 		// find next nnz bit
 		for (; ; m_iBit--)
@@ -185,7 +174,7 @@ namespace ECC_Min
 		return true;
 	}
 
-	void MultiMac::WNafCursor::MoveAfterCarry(const secp256k1_scalar& k)
+	void MultiMac::WNaf::Cursor::MoveAfterCarry(const secp256k1_scalar& k)
 	{
 		uint8_t nOdd = 1;
 
@@ -202,7 +191,7 @@ namespace ECC_Min
 		m_iElement = nOdd >> 1;
 	}
 
-	void MultiMac::WNafCursor::MoveNext(const secp256k1_scalar& k)
+	void MultiMac::WNaf::Cursor::MoveNext(const secp256k1_scalar& k)
 	{
 		m_iBit--;
 
@@ -215,13 +204,13 @@ namespace ECC_Min
 		}
 	}
 
-	uint8_t MultiMac::WNafCursor::get_Bit(const secp256k1_scalar& k, uint8_t iBit)
+	uint8_t MultiMac::WNaf::get_Bit(const secp256k1_scalar& k, uint8_t iBit)
 	{
 		const uint16_t nWordBits = sizeof(secp256k1_scalar_uint) * 8;
 		return 1 & (k.d[iBit / nWordBits] >> (iBit & (nWordBits - 1)));
 	}
 
-	void MultiMac::WNafCursor::xor_Bit(secp256k1_scalar& k, uint8_t iBit)
+	void MultiMac::WNaf::xor_Bit(secp256k1_scalar& k, uint8_t iBit)
 	{
 		const uint16_t nWordBits = sizeof(secp256k1_scalar_uint) * 8;
 
@@ -231,9 +220,9 @@ namespace ECC_Min
 		x ^= msk;
 	}
 
-	bool MultiMac::WNafCursor::SplitPosNeg(secp256k1_scalar& k0, secp256k1_scalar& k1)
+	bool MultiMac::Scalar::SplitPosNeg()
 	{
-		memset(k1.d, 0, sizeof(k1.d));
+		memset(m_Neg.d, 0, sizeof(m_Neg.d));
 
 		uint8_t iBit = 0;
 
@@ -245,29 +234,29 @@ namespace ECC_Min
 				if (iBit >= ECC_Min::nBits - Prepared::nBits)
 					return false;
 
-				if (get_Bit(k0, iBit))
+				if (WNaf::get_Bit(m_Pos, iBit))
 					break;
 			}
 
 			iBit += Prepared::nBits;
 
-			if (!get_Bit(k0, iBit))
+			if (!WNaf::get_Bit(m_Pos, iBit))
 				// interleaving is not needed
 				continue;
 
 			// set negative bits
-			xor_Bit(k0, iBit - Prepared::nBits);
-			xor_Bit(k1, iBit - Prepared::nBits);
+			WNaf::xor_Bit(m_Pos, iBit - Prepared::nBits);
+			WNaf::xor_Bit(m_Neg, iBit - Prepared::nBits);
 
 			for (uint8_t i = 1; i < Prepared::nBits; i++)
 			{
-				if (get_Bit(k0, iBit - i))
-					xor_Bit(k0, iBit - i);
+				if (WNaf::get_Bit(m_Pos, iBit - i))
+					WNaf::xor_Bit(m_Pos, iBit - i);
 				else
-					xor_Bit(k1, iBit - i);
+					WNaf::xor_Bit(m_Neg, iBit - i);
 			}
 
-			xor_Bit(k0, iBit);
+			WNaf::xor_Bit(m_Pos, iBit);
 
 			// propagate carry
 			while (true)
@@ -275,8 +264,8 @@ namespace ECC_Min
 				if (! ++iBit)
 					return true; // carry goes outside
 
-				uint8_t val = get_Bit(k0, iBit);
-				xor_Bit(k0, iBit);
+				uint8_t val = WNaf::get_Bit(m_Pos, iBit);
+				WNaf::xor_Bit(m_Pos, iBit);
 
 				if (!val)
 					break;
@@ -286,67 +275,73 @@ namespace ECC_Min
 		return false;
 	}
 
-
-	void MultiMac::Calculate(secp256k1_gej& res, const Prepared* pPrepared, secp256k1_scalar* pK, WNafCursor* pWnaf)
+	void MultiMac::Context::Calculate() const
 	{
-		secp256k1_gej_set_infinity(&res);
+		secp256k1_gej_set_infinity(m_pRes);
 
-		for (Index i = 0; i < m_Prepared * 2; i++)
+		for (unsigned int i = 0; i < m_Count; i++)
 		{
-			bool bCarry = false;
+			WNaf& wnaf = m_pWnaf[i];
+			wnaf.m_Pos.m_iBit = 0;
+			wnaf.m_Neg.m_iBit = 0;
 
-			secp256k1_scalar& k = pK[i];
-			if (!(1 & i))
-				bCarry = WNafCursor::SplitPosNeg(k, pK[i + 1]);
+			Scalar& s = m_pS[i];
 
-			WNafCursor& wc = pWnaf[i];
-			wc.Reset();
-
+			bool bCarry = s.SplitPosNeg();
 			if (bCarry)
 			{
-				wc.MoveAfterCarry(k);
-				if (!wc.m_iBit)
+				wnaf.m_Pos.MoveAfterCarry(s.m_Pos);
+				if (!wnaf.m_Pos.m_iBit)
 				{
-					assert(!wc.m_iElement);
-					wc.m_iElement = WNafCursor::s_HiBit;
+					assert(!wnaf.m_Pos.m_iElement);
+					wnaf.m_Pos.m_iElement = WNaf::Cursor::s_HiBit;
 				}
 			}
 			else
-				wc.MoveNext(k);
+				wnaf.m_Pos.MoveNext(s.m_Pos);
+
+			wnaf.m_Neg.MoveNext(s.m_Neg);
 		}
 		
 		for (uint16_t iBit = ECC_Min::nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
 		{
-			if (!secp256k1_gej_is_infinity(&res))
-				secp256k1_gej_double_var(&res, &res, nullptr);
+			if (!secp256k1_gej_is_infinity(m_pRes))
+				secp256k1_gej_double_var(m_pRes, m_pRes, nullptr);
 
-			for (Index i = 0; i < m_Prepared * 2; i++)
+			for (unsigned int i = 0; i < m_Count; i++)
 			{
-				WNafCursor& wc = pWnaf[i];
-				if (static_cast<uint8_t>(iBit) != wc.m_iBit)
-					continue;
-
-				// special case: resolve 256-0 ambiguity
-				if ((wc.m_iElement ^ static_cast<uint8_t>(iBit >> 1)) & WNafCursor::s_HiBit)
-					continue;
-
-				const Prepared& x = pPrepared[i >> 1];
-
-				secp256k1_ge ge;
-				secp256k1_ge_from_storage(&ge, x.m_pPt + (wc.m_iElement & ~WNafCursor::s_HiBit));
-
-				if (1 & i)
-					secp256k1_ge_neg(&ge, &ge);
-
-				secp256k1_gej_add_ge_var(&res, &res, &ge, nullptr);
-
-				if (iBit)
-					wc.MoveNext(pK[i]);
+				Process(iBit, i, false);
+				Process(iBit, i, true);
 			}
 		}
 	}
 
+	void MultiMac::Context::Process(uint16_t iBit, unsigned int i, bool bNeg) const
+	{
+		WNaf& wnaf = m_pWnaf[i];
+		WNaf::Cursor& wc = bNeg ? wnaf.m_Neg : wnaf.m_Pos;
 
+		if (static_cast<uint8_t>(iBit) != wc.m_iBit)
+			return;
+
+		// special case: resolve 256-0 ambiguity
+		if ((wc.m_iElement ^ static_cast<uint8_t>(iBit >> 1)) & WNaf::Cursor::s_HiBit)
+			return;
+
+		secp256k1_ge ge;
+		secp256k1_ge_from_storage(&ge, m_pPrep[i].m_pPt + (wc.m_iElement & ~WNaf::Cursor::s_HiBit));
+
+		if (bNeg)
+			secp256k1_ge_neg(&ge, &ge);
+
+		secp256k1_gej_add_ge_var(m_pRes, m_pRes, &ge, nullptr);
+
+		if (iBit)
+		{
+			const Scalar& s = m_pS[i];
+			wc.MoveNext(bNeg ? s.m_Neg : s.m_Pos);
+		}
+	}
 
 
 
