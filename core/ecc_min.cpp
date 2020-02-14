@@ -48,15 +48,16 @@ namespace ECC_Min
 
 	struct MultiMac::BitWalker
 	{
-		secp256k1_scalar_uint* m_p;
+		int m_Word;
 		secp256k1_scalar_uint m_Msk;
 
-		void SetPos(const secp256k1_scalar& k, uint8_t iBit)
-		{
-			const uint16_t nWordBits = sizeof(secp256k1_scalar_uint) * 8;
+		static const unsigned int s_WordBits = sizeof(secp256k1_scalar_uint) * 8;
 
-			m_p = (secp256k1_scalar_uint*) k.d + (iBit / nWordBits);
-			m_Msk = secp256k1_scalar_uint(1) << (iBit & (nWordBits - 1));
+		void SetPos(uint8_t iBit)
+		{
+
+			m_Word = iBit / s_WordBits;
+			m_Msk = secp256k1_scalar_uint(1) << (iBit & (s_WordBits - 1));
 		}
 
 		void MoveUp()
@@ -64,7 +65,7 @@ namespace ECC_Min
 			if (!(m_Msk <<= 1))
 			{
 				m_Msk = 1;
-				m_p++;
+				m_Word++;
 			}
 		}
 
@@ -75,13 +76,18 @@ namespace ECC_Min
 				const uint16_t nWordBits = sizeof(secp256k1_scalar_uint) * 8;
 				m_Msk = secp256k1_scalar_uint(1) << (nWordBits - 1);
 
-				m_p--;
+				m_Word--;
 			}
 		}
 
-		secp256k1_scalar_uint get() const
+		secp256k1_scalar_uint get(const secp256k1_scalar& k) const
 		{
-			return *m_p & m_Msk;
+			return k.d[m_Word] & m_Msk;
+		}
+
+		void xor(secp256k1_scalar& k) const
+		{
+			k.d[m_Word] ^= m_Msk;
 		}
 	};
 
@@ -202,12 +208,12 @@ namespace ECC_Min
 	void MultiMac::WNaf::Cursor::MoveNext(const secp256k1_scalar& k)
 	{
 		BitWalker bw;
-		bw.SetPos(k, --m_iBit);
+		bw.SetPos(--m_iBit);
 
 		// find next nnz bit
 		for (; ; m_iBit--, bw.MoveDown())
 		{
-			if (bw.get())
+			if (bw.get(k))
 				break;
 
 			if (!m_iBit)
@@ -228,7 +234,7 @@ namespace ECC_Min
 		for (uint8_t i = 0; i < nWndBits; i++, m_iBit--)
 		{
 			bw.MoveDown();
-			nOdd = (nOdd << 1) | (bw.get() != 0);
+			nOdd = (nOdd << 1) | (bw.get(k) != 0);
 		}
 
 		for (; !(1 & nOdd); m_iBit++)
@@ -246,7 +252,7 @@ namespace ECC_Min
 
 		uint8_t iBit = 0;
 		BitWalker bw;
-		bw.m_p = m_pK[0].d;
+		bw.m_Word = 0;
 		bw.m_Msk = 1;
 
 		while (true)
@@ -257,7 +263,7 @@ namespace ECC_Min
 				if (iBit >= ECC_Min::nBits - Prepared::nBits)
 					return false;
 
-				if (bw.get())
+				if (bw.get(m_pK[0]))
 					break;
 
 				iBit++;
@@ -270,37 +276,32 @@ namespace ECC_Min
 			for (uint32_t i = 0; i < Prepared::nBits; i++)
 				bw.MoveUp(); // akward
 
-			if (!bw.get())
+			if (!bw.get(m_pK[0]))
 				continue; // interleaving is not needed
 
 			// set negative bits
-			bw0.m_p[0] ^= bw0.m_Msk;
-			m_pK[1].d[(bw0.m_p - m_pK[0].d)] ^= bw0.m_Msk;
+			bw0.xor(m_pK[0]);
+			bw0.xor(m_pK[1]);
 
 			for (uint8_t i = 1; i < Prepared::nBits; i++)
 			{
 				bw0.MoveUp();
-				if (bw0.get())
-					bw0.m_p[0] ^= bw0.m_Msk;
-				else
-					m_pK[1].d[(bw0.m_p - m_pK[0].d)] ^= bw0.m_Msk;
-			}
 
-			bw.m_p[0] ^= bw.m_Msk;
+				secp256k1_scalar_uint val = bw0.get(m_pK[0]);
+				bw0.xor(m_pK[!val]);
+			}
 
 			// propagate carry
 			while (true)
 			{
+				bw.xor(m_pK[0]);
+				if (bw.get(m_pK[0]))
+					break;
+
 				if (! ++iBit)
 					return true; // carry goes outside
 
 				bw.MoveUp();
-
-				secp256k1_scalar_uint  val = bw.get();
-				bw.m_p[0] ^= bw.m_Msk;
-
-				if (!val)
-					break;
 			}
 		}
 #endif // ECC_Min_MultiMac_Interleaved
