@@ -932,6 +932,15 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 id
             };
         }
+        catch(const std::runtime_error& e)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                e.what(),
+                id
+            };
+        }
     }
 
     void WalletApi::onCancelOfferMessage(const JsonRpcId& id, const json& params)
