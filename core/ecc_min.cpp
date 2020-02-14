@@ -46,6 +46,46 @@ namespace ECC_Min
 	typedef uint32_t secp256k1_scalar_uint;
 #endif // USE_SCALAR_4X64
 
+	struct MultiMac::BitWalker
+	{
+		secp256k1_scalar_uint* m_p;
+		secp256k1_scalar_uint m_Msk;
+
+		void SetPos(const secp256k1_scalar& k, uint8_t iBit)
+		{
+			const uint16_t nWordBits = sizeof(secp256k1_scalar_uint) * 8;
+
+			m_p = (secp256k1_scalar_uint*) k.d + (iBit / nWordBits);
+			m_Msk = secp256k1_scalar_uint(1) << (iBit & (nWordBits - 1));
+		}
+
+		void MoveUp()
+		{
+			if (!(m_Msk <<= 1))
+			{
+				m_Msk = 1;
+				m_p++;
+			}
+		}
+
+		void MoveDown()
+		{
+			if (!(m_Msk >>= 1))
+			{
+				const uint16_t nWordBits = sizeof(secp256k1_scalar_uint) * 8;
+				m_Msk = secp256k1_scalar_uint(1) << (nWordBits - 1);
+
+				m_p--;
+			}
+		}
+
+		secp256k1_scalar_uint get() const
+		{
+			return *m_p & m_Msk;
+		}
+	};
+
+
 	/////////////////////
 	// BatchNormalizer
 	struct BatchNormalizer
@@ -159,31 +199,37 @@ namespace ECC_Min
 
 	/////////////////////
 	// MultiMac
-	bool MultiMac::WNaf::Cursor::FindCarry(const secp256k1_scalar& k)
+	void MultiMac::WNaf::Cursor::MoveNext(const secp256k1_scalar& k)
 	{
+		BitWalker bw;
+		bw.SetPos(k, --m_iBit);
+
 		// find next nnz bit
-		for (; ; m_iBit--)
+		for (; ; m_iBit--, bw.MoveDown())
 		{
-			if (get_Bit(k, m_iBit))
+			if (bw.get())
 				break;
 
 			if (!m_iBit)
-				return false;
+			{
+				// end
+				m_iBit = 1;
+				m_iElement = s_HiBit;
+				return;
+			}
 		}
 
-		return true;
-	}
-
-	void MultiMac::WNaf::Cursor::MoveAfterCarry(const secp256k1_scalar& k)
-	{
 		uint8_t nOdd = 1;
 
 		uint8_t nWndBits = Prepared::nBits - 1;
 		if (nWndBits > m_iBit)
 			nWndBits = m_iBit;
 
-		for (uint8_t i = 0; i < nWndBits; i++)
-			nOdd = (nOdd << 1) | get_Bit(k, --m_iBit);
+		for (uint8_t i = 0; i < nWndBits; i++, m_iBit--)
+		{
+			bw.MoveDown();
+			nOdd = (nOdd << 1) | (bw.get() != 0);
+		}
 
 		for (; !(1 & nOdd); m_iBit++)
 			nOdd >>= 1;
@@ -191,72 +237,53 @@ namespace ECC_Min
 		m_iElement = nOdd >> 1;
 	}
 
-	void MultiMac::WNaf::Cursor::MoveNext(const secp256k1_scalar& k)
-	{
-		m_iBit--;
-
-		if (FindCarry(k))
-			MoveAfterCarry(k);
-		else
-		{
-			m_iBit = 1;
-			m_iElement = s_HiBit;
-		}
-	}
-
-	uint8_t MultiMac::WNaf::get_Bit(const secp256k1_scalar& k, uint8_t iBit)
-	{
-		const uint16_t nWordBits = sizeof(secp256k1_scalar_uint) * 8;
-		return 1 & (k.d[iBit / nWordBits] >> (iBit & (nWordBits - 1)));
-	}
-
-	void MultiMac::WNaf::xor_Bit(secp256k1_scalar& k, uint8_t iBit)
-	{
-		const uint16_t nWordBits = sizeof(secp256k1_scalar_uint) * 8;
-
-		secp256k1_scalar_uint& x = k.d[iBit / nWordBits];
-		secp256k1_scalar_uint msk = uint8_t(1) << (iBit & (nWordBits - 1));
-
-		x ^= msk;
-	}
-
 	bool MultiMac::Scalar::SplitPosNeg()
 	{
 		memset(m_Neg.d, 0, sizeof(m_Neg.d));
 
 		uint8_t iBit = 0;
+		BitWalker bw;
+		bw.m_p = m_Pos.d;
+		bw.m_Msk = 1;
 
 		while (true)
 		{
 			// find nnz bit
-			for (; ; iBit++)
+			while (true)
 			{
 				if (iBit >= ECC_Min::nBits - Prepared::nBits)
 					return false;
 
-				if (WNaf::get_Bit(m_Pos, iBit))
+				if (bw.get())
 					break;
+
+				iBit++;
+				bw.MoveUp();
 			}
 
-			iBit += Prepared::nBits;
+			BitWalker bw0 = bw;
 
-			if (!WNaf::get_Bit(m_Pos, iBit))
-				// interleaving is not needed
-				continue;
+			iBit += Prepared::nBits;
+			for (uint32_t i = 0; i < Prepared::nBits; i++)
+				bw.MoveUp(); // akward
+
+			if (!bw.get())
+				continue; // interleaving is not needed
 
 			// set negative bits
-			WNaf::xor_Bit(m_Pos, iBit - Prepared::nBits);
-			WNaf::xor_Bit(m_Neg, iBit - Prepared::nBits);
+			bw0.m_p[0] ^= bw0.m_Msk;
+			m_Neg.d[(bw0.m_p - m_Pos.d)] ^= bw0.m_Msk;
 
 			for (uint8_t i = 1; i < Prepared::nBits; i++)
 			{
-				if (WNaf::get_Bit(m_Pos, iBit - i))
-					WNaf::xor_Bit(m_Pos, iBit - i);
+				bw0.MoveUp();
+				if (bw0.get())
+					bw0.m_p[0] ^= bw0.m_Msk;
 				else
-					WNaf::xor_Bit(m_Neg, iBit - i);
+					m_Neg.d[(bw0.m_p - m_Pos.d)] ^= bw0.m_Msk;
 			}
 
-			WNaf::xor_Bit(m_Pos, iBit);
+			bw.m_p[0] ^= bw.m_Msk;
 
 			// propagate carry
 			while (true)
@@ -264,8 +291,10 @@ namespace ECC_Min
 				if (! ++iBit)
 					return true; // carry goes outside
 
-				uint8_t val = WNaf::get_Bit(m_Pos, iBit);
-				WNaf::xor_Bit(m_Pos, iBit);
+				bw.MoveUp();
+
+				secp256k1_scalar_uint  val = bw.get();
+				bw.m_p[0] ^= bw.m_Msk;
 
 				if (!val)
 					break;
@@ -289,14 +318,7 @@ namespace ECC_Min
 
 			bool bCarry = s.SplitPosNeg();
 			if (bCarry)
-			{
-				wnaf.m_Pos.MoveAfterCarry(s.m_Pos);
-				if (!wnaf.m_Pos.m_iBit)
-				{
-					assert(!wnaf.m_Pos.m_iElement);
-					wnaf.m_Pos.m_iElement = WNaf::Cursor::s_HiBit;
-				}
-			}
+				wnaf.m_Pos.m_iElement = WNaf::Cursor::s_HiBit;
 			else
 				wnaf.m_Pos.MoveNext(s.m_Pos);
 

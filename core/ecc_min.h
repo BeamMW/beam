@@ -52,6 +52,8 @@ namespace ECC_Min
 			secp256k1_ge_storage m_pPt[nCount]; // odd powers
 		};
 
+		struct BitWalker;
+
 		struct WNaf
 		{
 			struct Cursor
@@ -62,13 +64,8 @@ namespace ECC_Min
 
 				static_assert(Prepared::nMaxOdd <= uint8_t(-1));
 
-				bool FindCarry(const secp256k1_scalar&);
-				void MoveAfterCarry(const secp256k1_scalar&);
 				void MoveNext(const secp256k1_scalar&);
 			};
-
-			static uint8_t get_Bit(const secp256k1_scalar&, uint8_t iBit);
-			static void xor_Bit(secp256k1_scalar&, uint8_t iBit);
 
 			Cursor m_Pos;
 			Cursor m_Neg;
