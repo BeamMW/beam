@@ -93,7 +93,7 @@ inline static void BitWalker_xor(const BitWalker* p, secp256k1_scalar* pK)
 }
 
 
-void WNaf_Cursor_MoveNext(ECC_Min_MultiMac_WNaf_Cursor* p, const secp256k1_scalar* pK)
+static void WNaf_Cursor_MoveNext(ECC_Min_MultiMac_WNaf_Cursor* p, const secp256k1_scalar* pK)
 {
 	BitWalker bw;
 	BitWalker_SetPos(&bw, --p->m_iBit);
@@ -131,134 +131,128 @@ void WNaf_Cursor_MoveNext(ECC_Min_MultiMac_WNaf_Cursor* p, const secp256k1_scala
 	p->m_iElement = nOdd >> 1;
 }
 
-namespace ECC_Min {
-
-	bool MultiMac::Scalar::SplitPosNeg()
-	{
+static bool Scalar_SplitPosNeg(ECC_Min_MultiMac_Scalar* p)
+{
 #if ECC_Min_MultiMac_Directions != 2
-		static_assert(ECC_Min_MultiMac_Directions == 1);
+	static_assert(ECC_Min_MultiMac_Directions == 1);
 #else // ECC_Min_MultiMac_Directions
 
-		memset(m_pK[1].d, 0, sizeof(m_pK[1].d));
+	memset(p->m_pK[1].d, 0, sizeof(p->m_pK[1].d));
 
-		uint8_t iBit = 0;
-		BitWalker bw;
-		bw.m_Word = 0;
-		bw.m_Msk = 1;
+	uint8_t iBit = 0;
+	BitWalker bw;
+	bw.m_Word = 0;
+	bw.m_Msk = 1;
 
+	while (true)
+	{
+		// find nnz bit
 		while (true)
 		{
-			// find nnz bit
-			while (true)
-			{
-				if (iBit >= ECC_Min_nBits - ECC_Min_MultiMac_Prepared_nBits)
-					return false;
+			if (iBit >= ECC_Min_nBits - ECC_Min_MultiMac_Prepared_nBits)
+				return false;
 
-				if (BitWalker_get(&bw, m_pK))
-					break;
+			if (BitWalker_get(&bw, p->m_pK))
+				break;
 
-				iBit++;
-				BitWalker_MoveUp(&bw);
-			}
-
-			BitWalker bw0 = bw;
-
-			iBit += ECC_Min_MultiMac_Prepared_nBits;
-			for (uint32_t i = 0; i < ECC_Min_MultiMac_Prepared_nBits; i++)
-				BitWalker_MoveUp(&bw); // akward
-
-			if (!BitWalker_get(&bw, m_pK))
-				continue; // interleaving is not needed
-
-			// set negative bits
-			BitWalker_xor(&bw0, m_pK);
-			BitWalker_xor(&bw0, m_pK + 1);
-
-			for (uint8_t i = 1; i < ECC_Min_MultiMac_Prepared_nBits; i++)
-			{
-				BitWalker_MoveUp(&bw0);
-
-				secp256k1_scalar_uint val = BitWalker_get(&bw0, m_pK);
-				BitWalker_xor(&bw0, m_pK + !val);
-			}
-
-			// propagate carry
-			while (true)
-			{
-				BitWalker_xor(&bw, m_pK);
-				if (BitWalker_get(&bw, m_pK))
-					break;
-
-				if (! ++iBit)
-					return true; // carry goes outside
-
-				BitWalker_MoveUp(&bw);
-			}
+			iBit++;
+			BitWalker_MoveUp(&bw);
 		}
+
+		BitWalker bw0 = bw;
+
+		iBit += ECC_Min_MultiMac_Prepared_nBits;
+		for (uint32_t i = 0; i < ECC_Min_MultiMac_Prepared_nBits; i++)
+			BitWalker_MoveUp(&bw); // akward
+
+		if (!BitWalker_get(&bw, p->m_pK))
+			continue; // interleaving is not needed
+
+		// set negative bits
+		BitWalker_xor(&bw0, p->m_pK);
+		BitWalker_xor(&bw0, p->m_pK + 1);
+
+		for (uint8_t i = 1; i < ECC_Min_MultiMac_Prepared_nBits; i++)
+		{
+			BitWalker_MoveUp(&bw0);
+
+			secp256k1_scalar_uint val = BitWalker_get(&bw0, p->m_pK);
+			BitWalker_xor(&bw0, p->m_pK + !val);
+		}
+
+		// propagate carry
+		while (true)
+		{
+			BitWalker_xor(&bw, p->m_pK);
+			if (BitWalker_get(&bw, p->m_pK))
+				break;
+
+			if (! ++iBit)
+				return true; // carry goes outside
+
+			BitWalker_MoveUp(&bw);
+		}
+	}
 #endif // ECC_Min_MultiMac_Directions
 
-		return false;
-	}
+	return false;
+}
 
-	void MultiMac::Context::Calculate() const
+void ECC_Min_MultiMac_Calculate(const ECC_Min_MultiMac_Context* p)
+{
+	secp256k1_gej_set_infinity(p->m_pRes);
+
+	for (unsigned int i = 0; i < p->m_Count; i++)
 	{
-		secp256k1_gej_set_infinity(m_pRes);
+		ECC_Min_MultiMac_WNaf& wnaf = p->m_pWnaf[i];
+		ECC_Min_MultiMac_Scalar& s = p->m_pS[i];
 
-		for (unsigned int i = 0; i < m_Count; i++)
-		{
-			ECC_Min_MultiMac_WNaf& wnaf = m_pWnaf[i];
-			Scalar& s = m_pS[i];
-
-			wnaf.m_pC[0].m_iBit = 0;
+		wnaf.m_pC[0].m_iBit = 0;
 
 
-			bool bCarry = s.SplitPosNeg();
-			if (bCarry)
-				wnaf.m_pC[0].m_iElement = s_WNaf_HiBit;
-			else
-				WNaf_Cursor_MoveNext(wnaf.m_pC, s.m_pK);
+		bool bCarry = Scalar_SplitPosNeg(&s);
+		if (bCarry)
+			wnaf.m_pC[0].m_iElement = s_WNaf_HiBit;
+		else
+			WNaf_Cursor_MoveNext(wnaf.m_pC, s.m_pK);
 
 #if ECC_Min_MultiMac_Directions == 2
-			wnaf.m_pC[1].m_iBit = 0;
-			WNaf_Cursor_MoveNext(wnaf.m_pC + 1, s.m_pK + 1);
+		wnaf.m_pC[1].m_iBit = 0;
+		WNaf_Cursor_MoveNext(wnaf.m_pC + 1, s.m_pK + 1);
 #endif // ECC_Min_MultiMac_Directions
-		}
+	}
 		
-		for (uint16_t iBit = ECC_Min_nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
+	for (uint16_t iBit = ECC_Min_nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
+	{
+		if (!secp256k1_gej_is_infinity(p->m_pRes))
+			secp256k1_gej_double_var(p->m_pRes, p->m_pRes, nullptr);
+
+		for (unsigned int i = 0; i < p->m_Count; i++)
 		{
-			if (!secp256k1_gej_is_infinity(m_pRes))
-				secp256k1_gej_double_var(m_pRes, m_pRes, nullptr);
+			ECC_Min_MultiMac_WNaf& wnaf = p->m_pWnaf[i];
 
-			for (unsigned int i = 0; i < m_Count; i++)
+			for (unsigned int j = 0; j < ECC_Min_MultiMac_Directions; j++)
 			{
-				ECC_Min_MultiMac_WNaf& wnaf = m_pWnaf[i];
+				ECC_Min_MultiMac_WNaf_Cursor& wc = wnaf.m_pC[j];
 
-				for (unsigned int j = 0; j < ECC_Min_MultiMac_Directions; j++)
-				{
-					ECC_Min_MultiMac_WNaf_Cursor& wc = wnaf.m_pC[j];
+				if (static_cast<uint8_t>(iBit) != wc.m_iBit)
+					continue;
 
-					if (static_cast<uint8_t>(iBit) != wc.m_iBit)
-						continue;
+				// special case: resolve 256-0 ambiguity
+				if ((wc.m_iElement ^ static_cast<uint8_t>(iBit >> 1)) & s_WNaf_HiBit)
+					continue;
 
-					// special case: resolve 256-0 ambiguity
-					if ((wc.m_iElement ^ static_cast<uint8_t>(iBit >> 1)) & s_WNaf_HiBit)
-						continue;
+				secp256k1_ge ge;
+				secp256k1_ge_from_storage(&ge, p->m_pPrep[i].m_pPt + (wc.m_iElement & ~s_WNaf_HiBit));
 
-					secp256k1_ge ge;
-					secp256k1_ge_from_storage(&ge, m_pPrep[i].m_pPt + (wc.m_iElement & ~s_WNaf_HiBit));
+				if (j)
+					secp256k1_ge_neg(&ge, &ge);
 
-					if (j)
-						secp256k1_ge_neg(&ge, &ge);
+				secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, nullptr);
 
-					secp256k1_gej_add_ge_var(m_pRes, m_pRes, &ge, nullptr);
-
-					if (iBit)
-						WNaf_Cursor_MoveNext(&wc, m_pS[i].m_pK + j);
-				}
+				if (iBit)
+					WNaf_Cursor_MoveNext(&wc, p->m_pS[i].m_pK + j);
 			}
 		}
 	}
-
-
-} // namespace ECC_Min
-
+}

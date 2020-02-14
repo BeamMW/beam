@@ -56,37 +56,31 @@ struct ECC_Min_MultiMac_WNaf {
 	ECC_Min_MultiMac_WNaf_Cursor m_pC[ECC_Min_MultiMac_Directions];
 };
 
+struct ECC_Min_MultiMac_Scalar {
+	secp256k1_scalar m_pK[ECC_Min_MultiMac_Directions];
+};
+
+struct ECC_Min_MultiMac_Context
+{
+	secp256k1_gej* m_pRes;
+
+	unsigned int m_Count;
+	const ECC_Min_MultiMac_Prepared* m_pPrep;
+	ECC_Min_MultiMac_Scalar* m_pS;
+	ECC_Min_MultiMac_WNaf* m_pWnaf;
+
+};
+
+void ECC_Min_MultiMac_Calculate(const ECC_Min_MultiMac_Context*);
+
 namespace ECC_Min
 {
-	struct MultiMac
-	{
-		struct Scalar
-		{
-			secp256k1_scalar m_pK[ECC_Min_MultiMac_Directions];
-
-			bool SplitPosNeg(); // returns carry
-		};
-
-		struct Context
-		{
-			secp256k1_gej* m_pRes;
-
-			unsigned int m_Count;
-			const ECC_Min_MultiMac_Prepared* m_pPrep;
-			Scalar* m_pS;
-			ECC_Min_MultiMac_WNaf* m_pWnaf;
-
-			void Calculate() const;
-		};
-	};
-
 	template <unsigned int nMaxCount>
 	struct MultiMac_WithBufs
-		:public MultiMac
 	{
 		ECC_Min_MultiMac_Prepared m_pPrepared[nMaxCount];
 		ECC_Min_MultiMac_WNaf m_pWnaf[nMaxCount];
-		Scalar m_pS[nMaxCount];
+		ECC_Min_MultiMac_Scalar m_pS[nMaxCount];
 
 		unsigned int m_Count = 0;
 
@@ -107,13 +101,13 @@ namespace ECC_Min
 
 		void Calculate(secp256k1_gej& res)
 		{
-			Context ctx;
+			ECC_Min_MultiMac_Context ctx;
 			ctx.m_pRes = &res;
 			ctx.m_Count = m_Count;
 			ctx.m_pPrep = m_pPrepared;
 			ctx.m_pS = m_pS;
 			ctx.m_pWnaf = m_pWnaf;
-			ctx.Calculate();
+			ECC_Min_MultiMac_Calculate(&ctx);
 		}
 	};
 } // namespace ECC_Min

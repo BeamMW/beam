@@ -554,14 +554,52 @@ void TestPoints()
 	verify_test(p0 == Zero);
 }
 
+namespace ECC_Min
+{
+	template <unsigned int nMaxCount>
+	struct MultiMac_WithBufs
+	{
+		ECC_Min_MultiMac_Prepared m_pPrepared[nMaxCount];
+		ECC_Min_MultiMac_WNaf m_pWnaf[nMaxCount];
+		ECC_Min_MultiMac_Scalar m_pS[nMaxCount];
+
+		unsigned int m_Count = 0;
+
+		void Reset() {
+			m_Count = 0;
+		}
+
+		secp256k1_scalar& Add()
+		{
+			assert(m_Count < nMaxCount);
+			return m_pS[m_Count++].m_pK[0];
+		}
+
+		void Add(const secp256k1_scalar& k)
+		{
+			Add() = k;
+		}
+
+		void Calculate(secp256k1_gej& res)
+		{
+			ECC_Min_MultiMac_Context ctx;
+			ctx.m_pRes = &res;
+			ctx.m_Count = m_Count;
+			ctx.m_pPrep = m_pPrepared;
+			ctx.m_pS = m_pS;
+			ctx.m_pWnaf = m_pWnaf;
+			ECC_Min_MultiMac_Calculate(&ctx);
+		}
+	};
+} // namespace ECC_Min
+
 void TestMultiMac()
 {
 	Mode::Scope scope(Mode::Fast);
 
-	uint32_t aa = sizeof(ECC_Min::MultiMac);
 	uint32_t bb = sizeof(ECC_Min_MultiMac_Prepared);
-	uint32_t cc = sizeof(ECC_Min_MultiMac_WNaf_Cursor);
-	aa; bb; cc;
+	uint32_t cc = sizeof(ECC_Min_MultiMac_WNaf);
+	bb; cc;
 
 	const uint32_t nBatch = 8;
 
