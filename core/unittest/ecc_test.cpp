@@ -559,8 +559,8 @@ void TestMultiMac()
 	Mode::Scope scope(Mode::Fast);
 
 	uint32_t aa = sizeof(ECC_Min::MultiMac);
-	uint32_t bb = sizeof(ECC_Min::MultiMac::Prepared);
-	uint32_t cc = sizeof(ECC_Min::MultiMac::WNaf::Cursor);
+	uint32_t bb = sizeof(ECC_Min_MultiMac_Prepared);
+	uint32_t cc = sizeof(ECC_Min_MultiMac_WNaf_Cursor);
 	aa; bb; cc;
 
 	const uint32_t nBatch = 8;
@@ -573,12 +573,12 @@ void TestMultiMac()
 		const MultiMac::Prepared& p = ECC::Context::get().m_Ipp.m_pGen_[0][iGen];
 		mm1.m_ppPrepared[iGen] = &p;
 
-		ECC_Min::MultiMac::Prepared& trg = mm2.m_pPrepared[iGen];
+		ECC_Min_MultiMac_Prepared& trg = mm2.m_pPrepared[iGen];
 		const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
 
-		static_assert(trg.nCount <= src.nCount);
+		static_assert(_countof(trg.m_pPt) <= src.nCount);
 
-		for (uint32_t j = 0; j < trg.nCount; j++)
+		for (uint32_t j = 0; j < _countof(trg.m_pPt); j++)
 			trg.m_pPt[j] = src.m_pPt[j];
 	}
 

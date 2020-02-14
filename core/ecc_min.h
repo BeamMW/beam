@@ -37,50 +37,32 @@
 #	pragma warning (pop)
 #endif
 
+
+static const uint8_t  ECC_Min_MultiMac_Prepared_nBits = 4;
+static const uint8_t  ECC_Min_MultiMac_Prepared_nCount = 1 << (ECC_Min_MultiMac_Prepared_nBits - 1); // odd powers
+
+struct ECC_Min_MultiMac_Prepared {
+	secp256k1_ge_storage m_pPt[ECC_Min_MultiMac_Prepared_nCount]; // odd powers
+};
+
+#define ECC_Min_MultiMac_Directions 2 // must be 1 or 2. For 2 interleaving is used. Faster (~1 effective window bit), but needs an extra scalar per element
+
+struct ECC_Min_MultiMac_WNaf_Cursor {
+	uint8_t m_iBit;
+	uint8_t m_iElement;
+};
+
+struct ECC_Min_MultiMac_WNaf {
+	ECC_Min_MultiMac_WNaf_Cursor m_pC[ECC_Min_MultiMac_Directions];
+};
+
 namespace ECC_Min
 {
-	inline const uint32_t nBits = 256;
-
 	struct MultiMac
 	{
-		struct Prepared
-		{
-			static const uint8_t nBits = 4;
-			static const int nMaxOdd = (1 << nBits) - 1;
-
-			static const int nCount = (nMaxOdd >> 1) + 1;
-			secp256k1_ge_storage m_pPt[nCount]; // odd powers
-		};
-
-		struct BitWalker;
-
-#define ECC_Min_MultiMac_Interleaved
-
-#ifdef ECC_Min_MultiMac_Interleaved
-		static const unsigned int s_Directions = 2; // pos/neg
-#else // ECC_Min_MultiMac_Interleaved
-		static const unsigned int s_Directions = 1;
-#endif // ECC_Min_MultiMac_Interleaved
-
-		struct WNaf
-		{
-			struct Cursor
-			{
-				uint8_t m_iBit;
-				uint8_t m_iElement;
-				static const uint8_t s_HiBit = 0x80;
-
-				static_assert(Prepared::nCount < s_HiBit);
-
-				void MoveNext(const secp256k1_scalar&);
-			};
-
-			Cursor m_pC[s_Directions];
-		};
-
 		struct Scalar
 		{
-			secp256k1_scalar m_pK[s_Directions];
+			secp256k1_scalar m_pK[ECC_Min_MultiMac_Directions];
 
 			bool SplitPosNeg(); // returns carry
 		};
@@ -90,9 +72,9 @@ namespace ECC_Min
 			secp256k1_gej* m_pRes;
 
 			unsigned int m_Count;
-			const Prepared* m_pPrep;
+			const ECC_Min_MultiMac_Prepared* m_pPrep;
 			Scalar* m_pS;
-			WNaf* m_pWnaf;
+			ECC_Min_MultiMac_WNaf* m_pWnaf;
 
 			void Calculate() const;
 		};
@@ -102,8 +84,8 @@ namespace ECC_Min
 	struct MultiMac_WithBufs
 		:public MultiMac
 	{
-		Prepared m_pPrepared[nMaxCount];
-		WNaf m_pWnaf[nMaxCount];
+		ECC_Min_MultiMac_Prepared m_pPrepared[nMaxCount];
+		ECC_Min_MultiMac_WNaf m_pWnaf[nMaxCount];
 		Scalar m_pS[nMaxCount];
 
 		unsigned int m_Count = 0;
