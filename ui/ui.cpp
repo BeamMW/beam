@@ -30,6 +30,7 @@
 #include "viewmodel/utxo/utxo_view_type.h"
 #include "viewmodel/atomic_swap/swap_offers_view.h"
 #include "viewmodel/address_book_view.h"
+#include "viewmodel/notifications_view.h"
 #include "viewmodel/wallet/wallet_view.h"
 #include "viewmodel/help_view.h"
 #include "viewmodel/settings_view.h"
@@ -227,6 +228,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<SettingsViewModel>("Beam.Wallet", 1, 0, "SettingsViewModel");
             qmlRegisterType<AddressBookViewModel>("Beam.Wallet", 1, 0, "AddressBookViewModel");
             qmlRegisterType<SwapOffersViewModel>("Beam.Wallet", 1, 0, "SwapOffersViewModel");
+            qmlRegisterType<NotificationsViewModel>("Beam.Wallet", 1, 0, "NotificationsViewModel");
             qmlRegisterType<HelpViewModel>("Beam.Wallet", 1, 0, "HelpViewModel");
             qmlRegisterType<MessagesViewModel>("Beam.Wallet", 1, 0, "MessagesViewModel");
             qmlRegisterType<StatusbarViewModel>("Beam.Wallet", 1, 0, "StatusbarViewModel");

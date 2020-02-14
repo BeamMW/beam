@@ -333,6 +333,8 @@ namespace beam::wallet
                     auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(this), updatesProvider);
                     auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<INewsObserver*>(this), exchangeRateProvider);
 
+                    m_notificationCenter = make_shared<NotificationCenter>(*m_walletDB);
+
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){
                         wallet->CleanupNetwork();

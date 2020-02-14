@@ -2182,5 +2182,9 @@ deploy the key at the node you trust completely.</translation>
         <source>Asset is still locked</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="notifications-title">
+        <source>Notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

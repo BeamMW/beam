@@ -29,6 +29,7 @@
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif
+#include "wallet/client/extensions/notifications/notification_center.h"
 
 #include <thread>
 #include <atomic>
@@ -191,6 +192,7 @@ namespace beam::wallet
         std::weak_ptr<BroadcastMsgValidator> m_broadcastValidator;
         std::weak_ptr<IBroadcastListener> m_updatesProvider;
         std::weak_ptr<IBroadcastListener> m_exchangeRateProvider;
+        std::shared_ptr<NotificationCenter> m_notificationCenter;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
 #endif

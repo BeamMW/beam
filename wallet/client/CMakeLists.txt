@@ -15,6 +15,7 @@ target_sources(wallet_client
         extensions/offers_board/swap_offer_token.cpp
         extensions/offers_board/offers_protocol_handler.cpp
         extensions/offers_board/swap_offers_board.cpp
+        extensions/notifications/notification_center.cpp
 )
 
 target_link_libraries(wallet_client 

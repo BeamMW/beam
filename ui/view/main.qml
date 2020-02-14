@@ -94,7 +94,8 @@ Rectangle {
     property var contentItems : [
 		"wallet", 
         "atomic_swap",
-		"addresses", 
+		"addresses",
+        "notifications",
 		"utxo",
 		"settings"]
     property int selectedItem
