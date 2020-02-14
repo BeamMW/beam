@@ -462,7 +462,7 @@ void ReceiveSwapViewModel::updateTransactionToken()
     auto swapAmount =
         _isBeamSide ? _amountToReceiveGrothes : _amountSentGrothes;
     auto beamFee = _isBeamSide ? _sentFeeGrothes : _receiveFeeGrothes;
-    auto swapFee = _isBeamSide ? _receiveFeeGrothes : _sentFeeGrothes;
+    auto swapFeeRate = _isBeamSide ? _receiveFeeGrothes : _sentFeeGrothes;
 
     FillSwapTxParams(
         &_txParameters,
@@ -472,7 +472,7 @@ void ReceiveSwapViewModel::updateTransactionToken()
         beamFee,
         swapCoin,
         swapAmount,
-        swapFee,
+        swapFeeRate,
         _isBeamSide,
         GetBlockCount(_offerExpires)
     );

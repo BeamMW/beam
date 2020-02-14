@@ -1602,75 +1602,13 @@ namespace
 
         Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
         wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
-        Amount feeRate = Amount(0);
 
         if (vm.count(cli::SWAP_COIN) > 0)
         {
             swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
         }
 
-        switch (swapCoin)
-        {
-            case beam::wallet::AtomicSwapCoin::Bitcoin:
-            {
-                auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
-                btcSettingsProvider->Initialize();
-
-                auto btcSettings = btcSettingsProvider->GetSettings();
-                if (!btcSettings.IsInitialized())
-                {
-                    throw std::runtime_error("BTC settings should be initialized.");
-                }
-
-                feeRate = btcSettings.GetFeeRate();
-                if (!BitcoinSide::CheckAmount(swapAmount, feeRate))
-                {
-                    throw std::runtime_error("The swap amount must be greater than the redemption fee.");
-                }
-                break;
-            }
-            case beam::wallet::AtomicSwapCoin::Litecoin:
-            {
-                auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
-                ltcSettingsProvider->Initialize();
-
-                auto ltcSettings = ltcSettingsProvider->GetSettings();
-                if (!ltcSettings.IsInitialized())
-                {
-                    throw std::runtime_error("LTC settings should be initialized.");
-                }
-
-                feeRate = ltcSettings.GetFeeRate();
-                if (!LitecoinSide::CheckAmount(swapAmount, feeRate))
-                {
-                    throw std::runtime_error("The swap amount must be greater than the redemption fee.");
-                }
-                break;
-            }
-            case beam::wallet::AtomicSwapCoin::Qtum:
-            {
-                auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
-                qtumSettingsProvider->Initialize();
-
-                auto qtumSettings = qtumSettingsProvider->GetSettings();
-                if (!qtumSettings.IsInitialized())
-                {
-                    throw std::runtime_error("Qtum settings should be initialized.");
-                }
-
-                feeRate = qtumSettings.GetFeeRate();
-                if (!QtumSide::CheckAmount(swapAmount, feeRate))
-                {
-                    throw std::runtime_error("The swap amount must be greater than the redemption fee.");
-                }
-                break;
-            }
-            default:
-            {
-                throw std::runtime_error("Unsupported coin for swap");
-                break;
-            }
-        }
+        Amount swapFeeRate = GetOrCheckSwapFeeRate(swapCoin, swapAmount, walletDB);
 
         bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
@@ -1712,38 +1650,17 @@ namespace
                          fee,
                          swapCoin,
                          swapAmount,
-                         feeRate,
+                         swapFeeRate,
                          isBeamSide);
 
         boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
-        
-        // !TODO: token generation should be in one place (I see second one in receive_swap_view.cpp)
-
-        // delete local parameters from token
-        if (isBeamSide)
-        {
-            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_LOCK_TX);
-            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REFUND_TX);
-            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REDEEM_TX);
-        }
-        else
-        {
-            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REDEEM_TX);
-            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::LOCK_TX);
-            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REFUND_TX);
-        }
 
         // print swap tx token
         {
-            // auto token = SwapTxParametersToToken(swapParameters);
-            isBeamSide = !*swapTxParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-            swapTxParameters.SetParameter(TxParameterID::IsInitiator, !*swapTxParameters.GetParameter<bool>(TxParameterID::IsInitiator));
-            swapTxParameters.SetParameter(TxParameterID::PeerID, *swapTxParameters.GetParameter<WalletID>(TxParameterID::MyID));
-            swapTxParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
-            swapTxParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
-            swapTxParameters.DeleteParameter(TxParameterID::MyID);
-
-            auto swapTxToken = std::to_string(swapTxParameters);
+            const auto& mirroredTxParams = MirrorSwapTxParams(swapTxParameters);
+            const auto& readyForTokenizeTxParams =
+                PrepareSwapTxParamsForTokenization(mirroredTxParams);
+            auto swapTxToken = std::to_string(readyForTokenizeTxParams);
             LOG_INFO() << "Swap token: " << swapTxToken;
         }
         return currentTxID;
@@ -1867,18 +1784,7 @@ namespace
 
         Amount fee = cli::kMinimumFee;
         swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-        if (isBeamSide)
-        {
-            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
-            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
-            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::REDEEM_TX);
-        }
-        else
-        {
-            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
-            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::LOCK_TX);
-            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::REFUND_TX);
-        }
+        FillSwapFee(&(*swapTxParameters), fee, swapFeeRate, *isBeamSide);
 
         return wallet.StartTransaction(*swapTxParameters);
     }

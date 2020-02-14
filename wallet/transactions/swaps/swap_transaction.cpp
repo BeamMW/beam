@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "swap_transaction.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
 
 #include "bitcoin/bitcoin.hpp"
 
@@ -44,7 +44,7 @@ namespace beam::wallet
                           Amount beamFee,
                           AtomicSwapCoin swapCoin,
                           Amount swapAmount,
-                          Amount swapFee,
+                          Amount swapFeeRate,
                           bool isBeamSide /*= true*/,
                           Height responseTime /*= kDefaultTxResponseTime*/,
                           Height lifetime /*= kDefaultTxLifetime*/)
@@ -58,6 +58,16 @@ namespace beam::wallet
         params->SetParameter(TxParameterID::IsSender, isBeamSide);
         params->SetParameter(TxParameterID::IsInitiator, false);
 
+        FillSwapFee(params, beamFee, swapFeeRate, isBeamSide);
+
+        params->SetParameter(TxParameterID::Lifetime, lifetime);
+        params->SetParameter(TxParameterID::PeerResponseTime, responseTime);
+    }
+
+    void FillSwapFee(
+        TxParameters* params, Amount beamFee,
+        Amount swapFeeRate, bool isBeamSide/* = true*/)
+    {
         if (isBeamSide)
         {
             params->SetParameter(
@@ -65,20 +75,17 @@ namespace beam::wallet
             params->SetParameter(
                 TxParameterID::Fee, beamFee, SubTxIndex::BEAM_REFUND_TX);
             params->SetParameter(
-                TxParameterID::Fee, swapFee, SubTxIndex::REDEEM_TX);
+                TxParameterID::Fee, swapFeeRate, SubTxIndex::REDEEM_TX);
         }
         else
         {
             params->SetParameter(
                 TxParameterID::Fee, beamFee, SubTxIndex::BEAM_REDEEM_TX);
             params->SetParameter(
-                TxParameterID::Fee, swapFee, SubTxIndex::LOCK_TX);
+                TxParameterID::Fee, swapFeeRate, SubTxIndex::LOCK_TX);
             params->SetParameter(
-                TxParameterID::Fee, swapFee, SubTxIndex::REFUND_TX);
+                TxParameterID::Fee, swapFeeRate, SubTxIndex::REFUND_TX);
         }
-
-        params->SetParameter(TxParameterID::Lifetime, lifetime);
-        params->SetParameter(TxParameterID::PeerResponseTime, responseTime);
     }
 
     TxParameters MirrorSwapTxParams(const TxParameters& original,

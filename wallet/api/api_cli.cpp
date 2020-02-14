@@ -45,6 +45,11 @@
 #include "wallet/transactions/swaps/utils.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
+#include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
+#include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include "nlohmann/json.hpp"
@@ -121,7 +126,22 @@ WalletApi::ACL loadACL(const std::string& path)
     return WalletApi::ACL(keys);
 }
 
+class IWalletApiServer
+{
+public:
+    virtual void closeConnection(uint64_t id) = 0;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    virtual Amount getBtcAvailable() const = 0;
+    virtual Amount getLtcAvailable() const = 0;
+    virtual Amount getQtumAvailable() const = 0;
+    virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+};
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+const char kNotEnoughtFundsError[] =
+    "There is not enough funds to complete the transaction";
+
 boost::optional<SwapOffer> getOfferFromBoardByTxId(
     const std::vector<SwapOffer>& board, const TxID& txId)
 {
@@ -175,13 +195,96 @@ bool checkAcceptableTxParams(const TxParameters& params, const OfferInput& data)
 
     return true;
 }
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
-class IWalletApiServer
+void checkBeamAmount(
+    IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
+{
+    storage::Totals allTotals(*walletDB);
+    const auto& totals = allTotals.GetTotals(Zero);
+    auto available = totals.Avail;
+    if (beamAmount + beamFee > available)
+    {
+        throw std::runtime_error("Not enought beams");
+    }
+}
+
+bool checkSwapAmount(
+    const IWalletApiServer& server, AtomicSwapCoin swapCoin,
+    Amount swapAmount, Amount swapFeeRate)
+{
+    beam::Amount total = swapAmount + swapFeeRate;
+    switch (swapCoin)
+    {
+        case AtomicSwapCoin::Bitcoin:
+        {
+            return server.getBtcAvailable() > total;
+        }
+        case AtomicSwapCoin::Litecoin:
+        {
+            return server.getLtcAvailable() > total;
+        }
+        case AtomicSwapCoin::Qtum:
+        {
+            return server.getQtumAvailable() > total;
+        }
+        default:
+        {
+            assert(false);
+            return true;
+        }
+    }
+}
+
+using BaseSwapClient = beam::bitcoin::Client;
+class SwapClient : public BaseSwapClient
 {
 public:
-    virtual void closeConnection(uint64_t id) = 0;
+    using Ptr = std::shared_ptr<SwapClient>;
+    SwapClient(
+        beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
+        std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
+        io::Reactor& reactor)
+        : BaseSwapClient(bridgeHolder,
+                         std::move(settingsProvider),
+                         reactor)
+        , _timer(beam::io::Timer::create(reactor))
+    {
+        requestBalance();
+        _timer->start(1000, true, [this] ()
+        {
+            requestBalance();
+        });
+    }
+    Amount GetAvailable() const
+    {
+        return _balance.m_available;
+    }
+
+private:
+    beam::io::Timer::Ptr _timer;
+    Balance _balance;
+    Status _status;
+    void requestBalance()
+    {
+        if (GetSettings().IsActivated())
+        {
+            // update balance
+            GetAsync()->GetBalance();
+        }
+    }
+    void OnStatus(Status status) override
+    {
+        _status = status;
+    }
+    void OnBalance(const Balance& balance) override
+    {
+        _balance = balance;
+    }
+    void OnCanModifySettingsChanged(bool canModify) override {}
+    void OnChangedSettings() override {}
+    void OnConnectionError(beam::bitcoin::IBridge::ErrorType error) override {}
 };
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 class WalletApiServer 
     : public IWalletApiServer
@@ -211,11 +314,31 @@ public:
     }
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+    Amount getBtcAvailable() const override
+    {
+        return _bitcoinClient ? _bitcoinClient->GetAvailable() : 0;
+    }
+
+    Amount getLtcAvailable() const override
+    {
+        return _litecoinClient ? _litecoinClient->GetAvailable() : 0;
+    }
+
+    Amount getQtumAvailable() const override
+    {
+        return _qtumClient ? _qtumClient->GetAvailable() : 0;
+    }
+
+    const SwapOffersBoard& getSwapOffersBoard() const
+    {
+        return *_offersBulletinBoard;
+    }
+
     using WalletDbSubscriber =
         ScopedSubscriber<wallet::IWalletDbObserver, wallet::IWalletDB>;
     using SwapOffersBoardSubscriber =
         ScopedSubscriber<wallet::ISwapOffersObserver, wallet::SwapOffersBoard>;
-    void initSwapOffers(
+    void initSwapFeature(
         proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
     {
         _broadcastRouter = std::make_shared<BroadcastRouter>(nnet, wnet);
@@ -230,6 +353,42 @@ public:
         _swapOffersBoardSubscriber =
             std::make_unique<SwapOffersBoardSubscriber>(
                 static_cast<ISwapOffersObserver*>(this), _offersBulletinBoard);
+
+        _btcBridgeHolder = std::make_shared<
+            bitcoin::BridgeHolder<bitcoin::Electrum,
+                                  bitcoin::BitcoinCore017>>();
+
+        auto bitcoinSettingsProvider =
+            std::make_unique<bitcoin::SettingsProvider>(_walletDB);
+        bitcoinSettingsProvider->Initialize();
+        _bitcoinClient = std::make_shared<SwapClient>(
+            _btcBridgeHolder,
+            std::move(bitcoinSettingsProvider),
+            io::Reactor::get_Current()
+        );
+
+        _ltcBridgeHolder = std::make_shared<
+            bitcoin::BridgeHolder<litecoin::Electrum,
+                                  litecoin::LitecoinCore017>>();
+        auto litecoinSettingsProvider =
+            std::make_unique<litecoin::SettingsProvider>(_walletDB);
+        litecoinSettingsProvider->Initialize();
+        _litecoinClient = std::make_shared<SwapClient>(
+            _ltcBridgeHolder,
+            std::move(litecoinSettingsProvider),
+            io::Reactor::get_Current()
+        );
+
+        _qtumBridgeHolder = std::make_shared<
+            bitcoin::BridgeHolder<qtum::Electrum, qtum::QtumCore017>>();
+        auto qtumSettingsProvider =
+            std::make_unique<qtum::SettingsProvider>(_walletDB);
+        qtumSettingsProvider->Initialize();
+        _qtumClient = std::make_shared<SwapClient>(
+            _qtumBridgeHolder,
+            std::move(qtumSettingsProvider),
+            io::Reactor::get_Current()
+        );
     }
 
     void onSwapOffersChanged(
@@ -240,9 +399,17 @@ public:
 private:
     std::shared_ptr<BroadcastRouter> _broadcastRouter;
     std::shared_ptr<OfferBoardProtocolHandler> _offerBoardProtocolHandler;
-    std::shared_ptr<SwapOffersBoard> _offersBulletinBoard;
+    SwapOffersBoard::Ptr _offersBulletinBoard;
     std::unique_ptr<WalletDbSubscriber> _walletDbSubscriber;
     std::unique_ptr<SwapOffersBoardSubscriber> _swapOffersBoardSubscriber;
+
+    beam::bitcoin::IBridgeHolder::Ptr _btcBridgeHolder;
+    beam::bitcoin::IBridgeHolder::Ptr _ltcBridgeHolder;
+    beam::bitcoin::IBridgeHolder::Ptr _qtumBridgeHolder;
+
+    SwapClient::Ptr _bitcoinClient;
+    SwapClient::Ptr _litecoinClient;
+    SwapClient::Ptr _qtumClient;
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 protected:
@@ -290,7 +457,6 @@ private:
     }
 
     class ApiConnection;
-
     template<typename T>
     std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
     {
@@ -301,9 +467,6 @@ private:
                                 , _wnet
                                 , std::move(newStream)
                                 , _acl
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-                                , *_offersBulletinBoard
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         ));
     }
 
@@ -324,8 +487,6 @@ private:
 
             LOG_DEBUG() << "+peer " << peer;
 
-            checkConnections();
-
             _connections[peer.u64()] = _useHttp
                 ? createConnection<HttpApiConnection>(std::move(newStream))
                 : createConnection<TcpApiConnection>(std::move(newStream));
@@ -338,21 +499,17 @@ private:
     class ApiConnection : IWalletApiHandler, IWalletDbObserver
     {
     public:
-        ApiConnection(IWalletDB::Ptr walletDB
+        ApiConnection(IWalletApiServer& server
+                    , IWalletDB::Ptr walletDB
                     , Wallet& wallet
                     , IWalletMessageEndpoint& wnet
                     , WalletApi::ACL acl
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-                    , SwapOffersBoard& swapOffersBoard
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT                
             )
-            : _walletDB(walletDB)
+            : _server(server)
+            , _walletDB(walletDB)
             , _wallet(wallet)
             , _api(*this, acl)
             , _wnet(wnet)
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-            , _swapOffersBoard(swapOffersBoard)
-#endif  //BEAM_ATOMIC_SWAP_SUPPORT
         {
             _walletDB->Subscribe(this);
         }
@@ -924,12 +1081,12 @@ private:
                 filterStatus = *data.filter.status;
                 if (filterStatus != SwapOfferStatus::Pending)
                 {
-                    offers = _swapOffersBoard.getOffersList();
+                    offers = _server.getSwapOffersBoard().getOffersList();
                 }
             }
             else
             {
-                offers = _swapOffersBoard.getOffersList();
+                offers = _server.getSwapOffersBoard().getOffersList();
             }
 
             auto swapTxs = _walletDB->getTxHistory(TxType::AtomicSwap);
@@ -977,7 +1134,24 @@ private:
 
         void onMessage(const JsonRpcId& id, const CreateOffer& data) override
         {
-            // TODO(zavarza) check balance
+            Amount swapFeeRate = data.swapFeeRate;
+            if (data.isBeamSide)
+            {
+                checkBeamAmount(_walletDB, data.beamAmount, data.beamFee);
+            }
+            else
+            {
+                swapFeeRate = GetOrCheckSwapFeeRate(
+                    data.swapCoin, data.swapAmount,
+                    swapFeeRate ? nullptr : _walletDB, swapFeeRate);
+                bool isEnought = checkSwapAmount(_server,
+                                                 data.swapCoin,
+                                                 data.swapAmount,
+                                                 swapFeeRate);
+                if (!isEnought)
+                    throw std::runtime_error(kNotEnoughtFundsError);
+            }
+
             auto txParameters = CreateSwapTransactionParameters();
             auto wid = createWID(_walletDB.get(), data.comment);
             auto currentHeight = _walletDB->getCurrentHeight();
@@ -989,7 +1163,7 @@ private:
                 data.beamFee,
                 data.swapCoin,
                 data.swapAmount,
-                data.swapFee,
+                swapFeeRate,
                 data.isBeamSide,
                 data.offerLifetime);
 
@@ -1041,7 +1215,7 @@ private:
             {
                 offer.m_publisherId =
                     *offer.GetParameter<WalletID>(TxParameterID::PeerID);
-                _swapOffersBoard.publishOffer(offer);
+                _server.getSwapOffersBoard().publishOffer(offer);
             }
 
             doResponse(id, PublishOffer::Response
@@ -1063,7 +1237,7 @@ private:
                 throw FailToParseToken();
 
             auto publicOffer = getOfferFromBoardByTxId(
-                _swapOffersBoard.getOffersList(), *txId);
+                _server.getSwapOffersBoard().getOffersList(), *txId);
 
             SwapOffer offer;
             auto myAddresses = _walletDB->getAddresses(true);
@@ -1100,32 +1274,29 @@ private:
             if (!checkAcceptableTxParams(offer, data))
                 throw FailToAcceptOffer();
 
-            if (offer.isBeamSide())
+            Amount swapFeeRate = data.swapFeeRate;
+            if (data.isBeamSide)
             {
-                offer.SetParameter(TxParameterID::Fee,
-                                   data.beamFee,
-                                   beam::wallet::SubTxIndex::BEAM_LOCK_TX);
-                offer.SetParameter(TxParameterID::Fee,
-                                   data.beamFee,
-                                   beam::wallet::SubTxIndex::BEAM_REFUND_TX);
-                offer.SetParameter(TxParameterID::Fee,
-                                   data.swapFee,
-                                   beam::wallet::SubTxIndex::REDEEM_TX);
+                checkBeamAmount(_walletDB, data.beamAmount, data.beamFee);
             }
             else
             {
-                offer.SetParameter(TxParameterID::Fee,
-                                   data.swapFee,
-                                   beam::wallet::SubTxIndex::LOCK_TX);
-                offer.SetParameter(TxParameterID::Fee,
-                                   data.swapFee,
-                                   beam::wallet::SubTxIndex::REFUND_TX);
-                offer.SetParameter(TxParameterID::Fee,
-                                   data.beamFee,
-                                   beam::wallet::SubTxIndex::BEAM_REDEEM_TX);
+                swapFeeRate = GetOrCheckSwapFeeRate(
+                    data.swapCoin, data.swapAmount,
+                    swapFeeRate ? nullptr : _walletDB, swapFeeRate);
+                bool isEnought = checkSwapAmount(_server,
+                                                 data.swapCoin,
+                                                 data.swapAmount,
+                                                 swapFeeRate);
+                if (!isEnought)
+                    throw std::runtime_error(kNotEnoughtFundsError);
             }
-            
-            // TODO(zavarza) check balance
+
+            FillSwapFee(
+                &offer,
+                data.beamFee,
+                data.swapFeeRate,
+                offer.isBeamSide());
 
             _wallet.StartTransaction(offer);
             offer.m_status = SwapOfferStatus::InProgress;
@@ -1187,7 +1358,7 @@ private:
                 throw FailToParseToken();
 
             auto publicOffer = getOfferFromBoardByTxId(
-                _swapOffersBoard.getOffersList(), *txId);
+                _server.getSwapOffersBoard().getOffersList(), *txId);
 
             SwapOffer offer;
             if (publicOffer)
@@ -1236,14 +1407,11 @@ private:
         }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
     protected:
+        IWalletApiServer& _server;
         IWalletDB::Ptr _walletDB;
         Wallet& _wallet;
         WalletApi _api;
         IWalletMessageEndpoint& _wnet;
-
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-        SwapOffersBoard& _swapOffersBoard;
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
     };
 
     class TcpApiConnection : public ApiConnection
@@ -1255,21 +1423,15 @@ private:
                         , IWalletMessageEndpoint& wnet
                         , io::TcpStream::Ptr&& newStream
                         , WalletApi::ACL acl
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-                        , SwapOffersBoard& swapOffersBoard
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
             )
-            : ApiConnection(walletDB
+            : ApiConnection(server
+                            , walletDB
                             , wallet
                             , wnet
-                            , acl
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)                
-                            , swapOffersBoard
-#endif // BEAM_ATOMIC_SWAP_SUPPORT                
+                            , acl               
             )
             , _stream(std::move(newStream))
             , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
-            , _server(server)
         {
             _stream->enable_keepalive(2);
             _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
@@ -1319,7 +1481,6 @@ private:
     private:
         io::TcpStream::Ptr _stream;
         LineProtocol _lineProtocol;
-        IWalletApiServer& _server;
     };
 
     class HttpApiConnection : public ApiConnection
@@ -1331,19 +1492,11 @@ private:
                         , IWalletMessageEndpoint& wnet
                         , io::TcpStream::Ptr&& newStream
                         , WalletApi::ACL acl
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-                        , SwapOffersBoard& swapOffersBoard
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
             )
-            : ApiConnection(walletDB, wallet, wnet, acl
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)                
-            , swapOffersBoard
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-            )
+            : ApiConnection(server, walletDB, wallet, wnet, acl)
             , _keepalive(false)
             , _msgCreator(2000)
             , _packer(PACKER_FRAGMENTS_SIZE)
-            , _server(server)
         {
             newStream->enable_keepalive(1);
             auto peer = newStream->peer_address();
@@ -1444,7 +1597,6 @@ private:
         HttpMsgCreator _packer;
         io::SerializedMsg _headers;
         io::SerializedMsg _body;
-        IWalletApiServer& _server;
     };
 
     io::Reactor& _reactor;
@@ -1674,7 +1826,7 @@ int main(int argc, char* argv[])
             listenTo, options.useHttp, acl, tlsOptions, whitelist);
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-        server.initSwapOffers(*nnet, *wnet);
+        server.initSwapFeature(*nnet, *wnet);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
         io::Reactor::get_Current().run();

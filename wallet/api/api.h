@@ -123,7 +123,7 @@ namespace beam::wallet
         AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
         bool isBeamSide = true;
         Amount beamFee = DefaultFee;
-        Amount swapFee = 0;
+        Amount swapFeeRate = 0;
         Height offerLifetime = 15;
         std::string comment;
     };

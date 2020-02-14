@@ -29,10 +29,14 @@ namespace beam::wallet
                           Amount beamFee,
                           AtomicSwapCoin swapCoin,
                           Amount swapAmount,
-                          Amount swapFee,
+                          Amount swapFeeRate,
                           bool isBeamSide = true,
                           Height responseTime = kDefaultTxResponseTime,
                           Height lifetime = kDefaultTxLifetime);
+
+    void FillSwapFee(
+        TxParameters* params, Amount beamFee,
+        Amount swapFeeRate, bool isBeamSide = true);
 
     TxParameters MirrorSwapTxParams(const TxParameters& original,
                                     bool isOwn = true);

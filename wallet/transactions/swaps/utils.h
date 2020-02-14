@@ -19,12 +19,18 @@
 
 namespace beam::wallet
 {
-    const char* getSwapTxStatus(AtomicSwapTransaction::State state);
+const char* getSwapTxStatus(AtomicSwapTransaction::State state);
 
-    TxParameters InitNewSwap(const WalletID& myID, Height minHeight, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, Amount swapFee, bool isBeamSide = true,
-        Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
+TxParameters InitNewSwap(
+    const WalletID& myID, Height minHeight, Amount amount,
+    Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFee,
+    bool isBeamSide = true, Height lifetime = kDefaultTxLifetime,
+    Height responseTime = kDefaultTxResponseTime);
 
-    class Wallet;
-    void RegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB);
+class Wallet;
+void RegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB);
+
+Amount GetOrCheckSwapFeeRate(
+    AtomicSwapCoin swapCoin, Amount swapAmount,
+    IWalletDB::Ptr walletDB = nullptr, Amount feeRate = 0);
 } // namespace beam::wallet

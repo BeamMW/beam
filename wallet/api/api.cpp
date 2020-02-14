@@ -360,53 +360,47 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     checkJsonParam(params, "beam_fee", id);
     if (!params["beam_fee"].is_number_unsigned() ||
         params["beam_fee"] == 0)
+    {
         throw jsonrpc_exception
         {
             ApiError::InvalidJsonRpc,
             "\'beam_fee\' must be non zero 64bit unsigned integer.",
             id
         };
+    }
     data.beamFee = params["beam_fee"];
+    if (data.isBeamSide &&
+        data.beamAmount < data.beamFee)
+    {
+        throw jsonrpc_exception
+        {
+            ApiError::InvalidJsonRpc,
+            "\'beam_fee\' must be non zero 64bit unsigned integer.",
+            id
+        };
+    }
 
     std::string swapCoinFeeParamName = data.isBeamSide
         ? params["receive_currency"]
         : params["send_currency"];
     swapCoinFeeParamName += "_fee_rate";
 
-    checkJsonParam(params, swapCoinFeeParamName, id);
-    if (!params[swapCoinFeeParamName].is_number_unsigned() ||
-        params[swapCoinFeeParamName] == 0)
+    if (existsJsonParam(params, swapCoinFeeParamName))
     {
-        auto message =
-            swapCoinFeeParamName +
-            " must be non zero 64bit unsigned integer.";
-        throw jsonrpc_exception
+        if (!params[swapCoinFeeParamName].is_number_unsigned() ||
+            params[swapCoinFeeParamName] == 0)
         {
-            ApiError::InvalidJsonRpc,
-            message,
-            id
-        };
-    }
-
-    Amount swapFeeRate = params[swapCoinFeeParamName];
-    switch(data.swapCoin)
-    {
-        case AtomicSwapCoin::Bitcoin:
-            data.swapFee = BitcoinSide::CalcTotalFee(swapFeeRate);
-            break;
-        case AtomicSwapCoin::Litecoin:
-            data.swapFee = LitecoinSide::CalcTotalFee(swapFeeRate);
-            break;
-        case AtomicSwapCoin::Qtum:
-            data.swapFee = QtumSide::CalcTotalFee(swapFeeRate);
-            break;
-        default:
+            auto message =
+                swapCoinFeeParamName +
+                " must be non zero 64bit unsigned integer.";
             throw jsonrpc_exception
             {
                 ApiError::InvalidJsonRpc,
-                "swap coin undefined",
+                message,
                 id
             };
+        }
+        data.swapFeeRate = params[swapCoinFeeParamName];
     }
 
     if (existsJsonParam(params, "offer_expires"))
@@ -838,6 +832,15 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {
                 ApiError::InvalidJsonRpc,
                 "Can't create transaction.",
+                id
+            };
+        }
+        catch(const std::runtime_error& e)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                e.what(),
                 id
             };
         }
