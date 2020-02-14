@@ -54,6 +54,14 @@ namespace ECC_Min
 
 		struct BitWalker;
 
+#define ECC_Min_MultiMac_Interleaved
+
+#ifdef ECC_Min_MultiMac_Interleaved
+		static const unsigned int s_Directions = 2; // pos/neg
+#else // ECC_Min_MultiMac_Interleaved
+		static const unsigned int s_Directions = 1;
+#endif // ECC_Min_MultiMac_Interleaved
+
 		struct WNaf
 		{
 			struct Cursor
@@ -67,14 +75,12 @@ namespace ECC_Min
 				void MoveNext(const secp256k1_scalar&);
 			};
 
-			Cursor m_Pos;
-			Cursor m_Neg;
+			Cursor m_pC[s_Directions];
 		};
 
 		struct Scalar
 		{
-			secp256k1_scalar m_Pos;
-			secp256k1_scalar m_Neg;
+			secp256k1_scalar m_pK[s_Directions];
 
 			bool SplitPosNeg(); // returns carry
 		};
@@ -89,9 +95,6 @@ namespace ECC_Min
 			WNaf* m_pWnaf;
 
 			void Calculate() const;
-
-		private:
-			void Process(uint16_t iBit, unsigned int i, bool bNeg) const;
 		};
 
 	private:
@@ -116,7 +119,7 @@ namespace ECC_Min
 		secp256k1_scalar& Add()
 		{
 			assert(m_Count < nMaxCount);
-			return m_pS[m_Count++].m_Pos;
+			return m_pS[m_Count++].m_pK[0];
 		}
 
 		void Add(const secp256k1_scalar& k)
