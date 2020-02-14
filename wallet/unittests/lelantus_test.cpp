@@ -165,6 +165,14 @@ void TestSimpleTx()
         {
             return (tx.m_txType == TxType::PushTransaction || tx.m_txType == TxType::PullTransaction) && tx.m_status == TxStatus::Completed;
         }));
+    for (const auto& tx : txHistory)
+    {
+        if (tx.m_txType == TxType::PullTransaction)
+        {
+            auto coins = sender.m_WalletDB->getCoinsCreatedByTx(tx.m_txId);
+            WALLET_CHECK(std::all_of(coins.begin(), coins.end(), [](const auto& coin) { return coin.m_isUnlinked; }));
+        }
+    }
 }
 
 void TestManyTransactons()

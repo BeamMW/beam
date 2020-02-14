@@ -232,4 +232,15 @@ namespace beam::wallet::lelantus
 
         return transaction;
     }
+
+    void PullTxBuilder::GenerateUnlinkedBeamCoin(Amount amount)
+    {
+        Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount, Zero);
+
+        newUtxo.m_createTxId = m_Tx.GetTxID();
+        newUtxo.m_isUnlinked = true;
+        m_Tx.GetWalletDB()->storeCoin(newUtxo);
+        m_OutputCoins.push_back(newUtxo.m_ID);
+        m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
+    }
 } // namespace beam::wallet::lelantus

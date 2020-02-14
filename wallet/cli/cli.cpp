@@ -707,7 +707,7 @@ namespace
 
     void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId, const char* coin, const char* groth)
     {
-        const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
+        const array<uint8_t, 7> columnWidths{ { 49, 8, 10, 18, 30, 6, 8} };
         cout << boost::format(kCoinsTableHeadFormat)
                  % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
                  % boost::io::group(right, setw(columnWidths[1]), coin)
@@ -715,6 +715,7 @@ namespace
                  % boost::io::group(left, setw(columnWidths[3]), kCoinColumnMaturity)
                  % boost::io::group(left, setw(columnWidths[4]), kCoinColumnStatus)
                  % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
+                 % boost::io::group(left, setw(columnWidths[6]), kCoinColumnIsUnlinked)
                  << std::endl;
 
         walletDB->visitCoins([&columnWidths, &assetId](const Coin& c)->bool
@@ -729,6 +730,7 @@ namespace
                                                                 : "-"))
                         % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
                         % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
+                        % boost::io::group(right, boolalpha, setw(columnWidths[6]), c.m_isUnlinked)
                      << std::endl;
             }
             return true;

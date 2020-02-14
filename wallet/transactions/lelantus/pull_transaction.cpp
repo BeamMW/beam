@@ -83,7 +83,7 @@ namespace beam::wallet::lelantus
 
             for (const auto& amount : m_TxBuilder->GetAmountList())
             {
-                m_TxBuilder->GenerateBeamCoin(amount, false);
+                m_TxBuilder->GenerateUnlinkedBeamCoin(amount);
             }
         }
         

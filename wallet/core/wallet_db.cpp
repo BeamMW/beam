@@ -43,7 +43,8 @@
     each(spentHeight,    spentHeight,   INTEGER, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
     each(spentTxId,      spentTxId,     BLOB, obj) sep \
-    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
+    each(sessionId,      sessionId,     INTEGER NOT NULL, obj) sep \
+    each(isUnlinked,     isUnlinked,    BOOLEAN DEFAULT false, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
@@ -1604,6 +1605,48 @@ namespace beam::wallet
                     // no break
                 case DbVersion18:
                     LOG_INFO() << "Converting DB from format 18...";
+
+                    // migrate coins
+                    if (!IsTableCreated(walletDB.get(), STORAGE_NAME "_del"))
+                    {
+                        const char* req =
+                            "ALTER TABLE " STORAGE_NAME " RENAME TO " STORAGE_NAME "_del;"
+                            "DROP INDEX CoinIndex;"
+                            "DROP INDEX ConfirmIndex;";
+
+                        int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                        throwIfError(ret, walletDB->_db);
+                    }
+
+                    if (!IsTableCreated(walletDB.get(), STORAGE_NAME))
+                    {
+                        CreateStorageTable(walletDB->_db);
+                    }
+
+                    {
+                        const char* req = "SELECT * FROM " STORAGE_NAME "_del;";
+                        for (sqlite::Statement stm(walletDB.get(), req); stm.step();) {
+                            Coin coin;
+                            stm.get(0, coin.m_ID.m_Type);
+                            stm.get(1, coin.m_ID.m_SubIdx);
+                            stm.get(2, coin.m_ID.m_Idx);
+                            stm.get(3, coin.m_ID.m_Value);
+                            stm.get(4, coin.m_ID.m_AssetID);
+                            stm.get(5, coin.m_maturity);
+                            stm.get(6, coin.m_confirmHeight);
+                            stm.get(7, coin.m_spentHeight);
+                            stm.get(8, coin.m_createTxId);
+                            stm.get(9, coin.m_spentTxId);
+                            stm.get(10, coin.m_sessionId);
+                            walletDB->saveCoin(coin);
+                        }
+                    }
+                    {
+                        const char* req = "DROP TABLE " STORAGE_NAME "_del;";
+                        int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                        throwIfError(ret, walletDB->_db);
+                    }
+
                     CreateShieldedCoinsTable(walletDB->_db);
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
