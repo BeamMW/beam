@@ -14,7 +14,6 @@
 
 #include <iostream>
 #include "../ecc_native.h"
-#include "../ecc_min.h"
 #include "../block_rw.h"
 #include "../shielded.h"
 #include "../treasury.h"
@@ -24,6 +23,10 @@
 #include "../proto.h"
 #include "../lelantus.h"
 #include "../../utility/executor.h"
+
+extern "C" {
+#include "../ecc_min.h"
+}
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic ignored "-Wunused-result"

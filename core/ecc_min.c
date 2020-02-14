@@ -39,8 +39,8 @@
 
 static const uint32_t ECC_Min_nBits = sizeof(secp256k1_scalar) * 8;
 
-static const uint8_t s_WNaf_HiBit = 0x80;
-static_assert(ECC_Min_MultiMac_Prepared_nCount < s_WNaf_HiBit);
+#define s_WNaf_HiBit 0x80
+static_assert(ECC_Min_MultiMac_Prepared_nCount < s_WNaf_HiBit, "");
 
 #ifdef USE_SCALAR_4X64
 typedef uint64_t secp256k1_scalar_uint;
@@ -48,18 +48,18 @@ typedef uint64_t secp256k1_scalar_uint;
 typedef uint32_t secp256k1_scalar_uint;
 #endif // USE_SCALAR_4X64
 
-struct BitWalker
+typedef struct tagBitWalker
 {
 	int m_Word;
 	secp256k1_scalar_uint m_Msk;
-};
+} BitWalker;
 
 inline static void BitWalker_SetPos(BitWalker* p, uint8_t iBit)
 {
 	const unsigned int nWordBits = sizeof(secp256k1_scalar_uint) * 8;
 
 	p->m_Word = iBit / nWordBits;
-	p->m_Msk = secp256k1_scalar_uint(1) << (iBit & (nWordBits - 1));
+	p->m_Msk = ((secp256k1_scalar_uint) 1) << (iBit & (nWordBits - 1));
 }
 
 inline static void BitWalker_MoveUp(BitWalker* p)
@@ -76,7 +76,7 @@ inline static void BitWalker_MoveDown(BitWalker* p)
 	if (!(p->m_Msk >>= 1))
 	{
 		const unsigned int nWordBits = sizeof(secp256k1_scalar_uint) * 8;
-		p->m_Msk = secp256k1_scalar_uint(1) << (nWordBits - 1);
+		p->m_Msk = ((secp256k1_scalar_uint) 1) << (nWordBits - 1);
 
 		p->m_Word--;
 	}
@@ -131,7 +131,7 @@ static void WNaf_Cursor_MoveNext(ECC_Min_MultiMac_WNaf_Cursor* p, const secp256k
 	p->m_iElement = nOdd >> 1;
 }
 
-static bool Scalar_SplitPosNeg(ECC_Min_MultiMac_Scalar* p)
+static int Scalar_SplitPosNeg(ECC_Min_MultiMac_Scalar* p)
 {
 #if ECC_Min_MultiMac_Directions != 2
 	static_assert(ECC_Min_MultiMac_Directions == 1);
@@ -144,13 +144,13 @@ static bool Scalar_SplitPosNeg(ECC_Min_MultiMac_Scalar* p)
 	bw.m_Word = 0;
 	bw.m_Msk = 1;
 
-	while (true)
+	while (1)
 	{
 		// find nnz bit
-		while (true)
+		while (1)
 		{
 			if (iBit >= ECC_Min_nBits - ECC_Min_MultiMac_Prepared_nBits)
-				return false;
+				return 0;
 
 			if (BitWalker_get(&bw, p->m_pK))
 				break;
@@ -181,21 +181,21 @@ static bool Scalar_SplitPosNeg(ECC_Min_MultiMac_Scalar* p)
 		}
 
 		// propagate carry
-		while (true)
+		while (1)
 		{
 			BitWalker_xor(&bw, p->m_pK);
 			if (BitWalker_get(&bw, p->m_pK))
 				break;
 
 			if (! ++iBit)
-				return true; // carry goes outside
+				return 1; // carry goes outside
 
 			BitWalker_MoveUp(&bw);
 		}
 	}
 #endif // ECC_Min_MultiMac_Directions
 
-	return false;
+	return 0;
 }
 
 void ECC_Min_MultiMac_Calculate(const ECC_Min_MultiMac_Context* p)
@@ -204,54 +204,53 @@ void ECC_Min_MultiMac_Calculate(const ECC_Min_MultiMac_Context* p)
 
 	for (unsigned int i = 0; i < p->m_Count; i++)
 	{
-		ECC_Min_MultiMac_WNaf& wnaf = p->m_pWnaf[i];
-		ECC_Min_MultiMac_Scalar& s = p->m_pS[i];
+		ECC_Min_MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
+		ECC_Min_MultiMac_Scalar* pS = p->m_pS + i;
 
-		wnaf.m_pC[0].m_iBit = 0;
+		pWnaf->m_pC[0].m_iBit = 0;
 
-
-		bool bCarry = Scalar_SplitPosNeg(&s);
-		if (bCarry)
-			wnaf.m_pC[0].m_iElement = s_WNaf_HiBit;
+		int carry = Scalar_SplitPosNeg(pS);
+		if (carry)
+			pWnaf->m_pC[0].m_iElement = s_WNaf_HiBit;
 		else
-			WNaf_Cursor_MoveNext(wnaf.m_pC, s.m_pK);
+			WNaf_Cursor_MoveNext(pWnaf->m_pC, pS->m_pK);
 
 #if ECC_Min_MultiMac_Directions == 2
-		wnaf.m_pC[1].m_iBit = 0;
-		WNaf_Cursor_MoveNext(wnaf.m_pC + 1, s.m_pK + 1);
+		pWnaf->m_pC[1].m_iBit = 0;
+		WNaf_Cursor_MoveNext(pWnaf->m_pC + 1, pS->m_pK + 1);
 #endif // ECC_Min_MultiMac_Directions
 	}
 		
 	for (uint16_t iBit = ECC_Min_nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
 	{
 		if (!secp256k1_gej_is_infinity(p->m_pRes))
-			secp256k1_gej_double_var(p->m_pRes, p->m_pRes, nullptr);
+			secp256k1_gej_double_var(p->m_pRes, p->m_pRes, 0);
 
 		for (unsigned int i = 0; i < p->m_Count; i++)
 		{
-			ECC_Min_MultiMac_WNaf& wnaf = p->m_pWnaf[i];
+			ECC_Min_MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
 
 			for (unsigned int j = 0; j < ECC_Min_MultiMac_Directions; j++)
 			{
-				ECC_Min_MultiMac_WNaf_Cursor& wc = wnaf.m_pC[j];
+				ECC_Min_MultiMac_WNaf_Cursor* pWc = pWnaf->m_pC + j;
 
-				if (static_cast<uint8_t>(iBit) != wc.m_iBit)
+				if (((uint8_t) iBit) != pWc->m_iBit)
 					continue;
 
 				// special case: resolve 256-0 ambiguity
-				if ((wc.m_iElement ^ static_cast<uint8_t>(iBit >> 1)) & s_WNaf_HiBit)
+				if ((pWc->m_iElement ^ ((uint8_t) (iBit >> 1))) & s_WNaf_HiBit)
 					continue;
 
 				secp256k1_ge ge;
-				secp256k1_ge_from_storage(&ge, p->m_pPrep[i].m_pPt + (wc.m_iElement & ~s_WNaf_HiBit));
+				secp256k1_ge_from_storage(&ge, p->m_pPrep[i].m_pPt + (pWc->m_iElement & ~s_WNaf_HiBit));
 
 				if (j)
 					secp256k1_ge_neg(&ge, &ge);
 
-				secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, nullptr);
+				secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
 
 				if (iBit)
-					WNaf_Cursor_MoveNext(&wc, p->m_pS[i].m_pK + j);
+					WNaf_Cursor_MoveNext(pWc, p->m_pS[i].m_pK + j);
 			}
 		}
 	}
