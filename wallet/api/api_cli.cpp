@@ -141,6 +141,8 @@ public:
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 const char kNotEnoughtFundsError[] =
     "There is not enough funds to complete the transaction";
+const char kSwapAmountToLowError[] =
+    "The swap amount must be greater than the redemption fee.";
 
 boost::optional<SwapOffer> getOfferFromBoardByTxId(
     const std::vector<SwapOffer>& board, const TxID& txId)
@@ -196,7 +198,7 @@ bool checkAcceptableTxParams(const TxParameters& params, const OfferInput& data)
     return true;
 }
 
-void checkBeamAmount(
+void checkIsEnoughtBeamAmount(
     IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
 {
     storage::Totals allTotals(*walletDB);
@@ -208,7 +210,7 @@ void checkBeamAmount(
     }
 }
 
-bool checkSwapAmount(
+bool checkIsEnoughtSwapAmount(
     const IWalletApiServer& server, AtomicSwapCoin swapCoin,
     Amount swapAmount, Amount swapFeeRate)
 {
@@ -1134,22 +1136,27 @@ private:
 
         void onMessage(const JsonRpcId& id, const CreateOffer& data) override
         {
-            Amount swapFeeRate = data.swapFeeRate;
+            Amount swapFeeRate = data.swapFeeRate
+                ? data.swapFeeRate
+                : GetSwapFeeRate(_walletDB, data.swapCoin);
+
             if (data.isBeamSide)
             {
-                checkBeamAmount(_walletDB, data.beamAmount, data.beamFee);
+                checkIsEnoughtBeamAmount(
+                    _walletDB, data.beamAmount, data.beamFee);
             }
             else
             {
-                swapFeeRate = GetOrCheckSwapFeeRate(
-                    data.swapCoin, data.swapAmount,
-                    swapFeeRate ? nullptr : _walletDB, swapFeeRate);
-                bool isEnought = checkSwapAmount(_server,
-                                                 data.swapCoin,
-                                                 data.swapAmount,
-                                                 swapFeeRate);
+                bool isEnought = checkIsEnoughtSwapAmount(
+                    _server, data.swapCoin, data.swapAmount, swapFeeRate);
                 if (!isEnought)
                     throw std::runtime_error(kNotEnoughtFundsError);
+
+                bool isSwapAmountValid =
+                    IsSwapAmountValid(
+                        data.swapCoin, data.swapAmount, swapFeeRate);
+                if (!isSwapAmountValid)
+                    throw std::runtime_error(kSwapAmountToLowError);
             }
 
             auto txParameters = CreateSwapTransactionParameters();
@@ -1274,20 +1281,18 @@ private:
             if (!checkAcceptableTxParams(offer, data))
                 throw FailToAcceptOffer();
 
-            Amount swapFeeRate = data.swapFeeRate;
+            Amount swapFeeRate = data.swapFeeRate
+                ? data.swapFeeRate
+                : GetSwapFeeRate(_walletDB, data.swapCoin);
             if (data.isBeamSide)
             {
-                checkBeamAmount(_walletDB, data.beamAmount, data.beamFee);
+                checkIsEnoughtBeamAmount(
+                    _walletDB, data.beamAmount, data.beamFee);
             }
             else
             {
-                swapFeeRate = GetOrCheckSwapFeeRate(
-                    data.swapCoin, data.swapAmount,
-                    swapFeeRate ? nullptr : _walletDB, swapFeeRate);
-                bool isEnought = checkSwapAmount(_server,
-                                                 data.swapCoin,
-                                                 data.swapAmount,
-                                                 swapFeeRate);
+                bool isEnought = checkIsEnoughtSwapAmount(
+                    _server, data.swapCoin, data.swapAmount, swapFeeRate);
                 if (!isEnought)
                     throw std::runtime_error(kNotEnoughtFundsError);
             }

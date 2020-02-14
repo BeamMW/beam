@@ -1608,7 +1608,11 @@ namespace
             swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
         }
 
-        Amount swapFeeRate = GetOrCheckSwapFeeRate(swapCoin, swapAmount, walletDB);
+        Amount swapFeeRate = GetSwapFeeRate(walletDB, swapCoin);
+        bool isSwapAmountValid =
+            IsSwapAmountValid(swapCoin, swapAmount, swapFeeRate);
+        if (!isSwapAmountValid)
+            throw std::runtime_error("The swap amount must be greater than the redemption fee.");
 
         bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 

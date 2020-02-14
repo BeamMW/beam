@@ -30,7 +30,7 @@ TxParameters InitNewSwap(
 class Wallet;
 void RegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB);
 
-Amount GetOrCheckSwapFeeRate(
-    AtomicSwapCoin swapCoin, Amount swapAmount,
-    IWalletDB::Ptr walletDB = nullptr, Amount feeRate = 0);
+Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin);
+bool IsSwapAmountValid(
+    AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate);
 } // namespace beam::wallet

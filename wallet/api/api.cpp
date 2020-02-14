@@ -357,27 +357,29 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     data.beamAmount = data.isBeamSide ? sendAmount : receiveAmount;
     data.swapAmount = data.isBeamSide ? receiveAmount : sendAmount;
 
-    checkJsonParam(params, "beam_fee", id);
-    if (!params["beam_fee"].is_number_unsigned() ||
-        params["beam_fee"] == 0)
+    if (existsJsonParam(params, "beam_fee"))
     {
-        throw jsonrpc_exception
+        if (!params["beam_fee"].is_number_unsigned() ||
+            params["beam_fee"] == 0)
         {
-            ApiError::InvalidJsonRpc,
-            "\'beam_fee\' must be non zero 64bit unsigned integer.",
-            id
-        };
-    }
-    data.beamFee = params["beam_fee"];
-    if (data.isBeamSide &&
-        data.beamAmount < data.beamFee)
-    {
-        throw jsonrpc_exception
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "\'beam_fee\' must be non zero 64bit unsigned integer.",
+                id
+            };
+        }
+        data.beamFee = params["beam_fee"];
+        if (data.isBeamSide &&
+            data.beamAmount < data.beamFee)
         {
-            ApiError::InvalidJsonRpc,
-            "\'beam_fee\' must be non zero 64bit unsigned integer.",
-            id
-        };
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "\'beam_fee\' must be non zero 64bit unsigned integer.",
+                id
+            };
+        }
     }
 
     std::string swapCoinFeeParamName = data.isBeamSide

@@ -164,84 +164,70 @@ void RegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
     }
 }
 
-Amount GetOrCheckSwapFeeRate(
-    AtomicSwapCoin swapCoin, Amount swapAmount,
-    IWalletDB::Ptr walletDB/* = nullptr*/, Amount feeRate/* = 0*/)
+Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
 {
-    Amount localFeeRate = walletDB ? 0 : feeRate;
     switch (swapCoin)
     {
-        case AtomicSwapCoin::Bitcoin:
+    case AtomicSwapCoin::Bitcoin:
+    {
+        auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
+        btcSettingsProvider->Initialize();
+
+        auto btcSettings = btcSettingsProvider->GetSettings();
+        if (!btcSettings.IsInitialized())
         {
-            if (walletDB)
-            {
-                auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
-                btcSettingsProvider->Initialize();
-
-                auto btcSettings = btcSettingsProvider->GetSettings();
-                if (!btcSettings.IsInitialized())
-                {
-                    throw std::runtime_error("BTC settings should be initialized.");
-                }
-
-                localFeeRate = btcSettings.GetFeeRate();
-            }
-            if (!BitcoinSide::CheckAmount(swapAmount, localFeeRate))
-            {
-                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
-            }
-            break;
+            throw std::runtime_error("BTC settings should be initialized.");
         }
-        case AtomicSwapCoin::Litecoin:
-        {
-            if (walletDB)
-            {
-                auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
-                ltcSettingsProvider->Initialize();
 
-                auto ltcSettings = ltcSettingsProvider->GetSettings();
-                if (!ltcSettings.IsInitialized())
-                {
-                    throw std::runtime_error("LTC settings should be initialized.");
-                }
-
-                localFeeRate = ltcSettings.GetFeeRate();
-            }
-            if (!LitecoinSide::CheckAmount(swapAmount, localFeeRate))
-            {
-                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
-            }
-            break;
-        }
-        case AtomicSwapCoin::Qtum:
-        {
-            if (walletDB)
-            {
-                auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
-                qtumSettingsProvider->Initialize();
-
-                auto qtumSettings = qtumSettingsProvider->GetSettings();
-                if (!qtumSettings.IsInitialized())
-                {
-                    throw std::runtime_error("Qtum settings should be initialized.");
-                }
-
-                localFeeRate = qtumSettings.GetFeeRate();
-            }
-            if (!QtumSide::CheckAmount(swapAmount, localFeeRate))
-            {
-                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
-            }
-            break;
-        }
-        default:
-        {
-            throw std::runtime_error("Unsupported coin for swap");
-            break;
-        }
+        return btcSettings.GetFeeRate();
     }
+    case AtomicSwapCoin::Litecoin:
+    {
+        auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
+        ltcSettingsProvider->Initialize();
 
-    return localFeeRate;
+        auto ltcSettings = ltcSettingsProvider->GetSettings();
+        if (!ltcSettings.IsInitialized())
+        {
+            throw std::runtime_error("LTC settings should be initialized.");
+        }
+
+        return ltcSettings.GetFeeRate();
+    }
+    case AtomicSwapCoin::Qtum:
+    {
+        auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
+        qtumSettingsProvider->Initialize();
+
+        auto qtumSettings = qtumSettingsProvider->GetSettings();
+        if (!qtumSettings.IsInitialized())
+        {
+            throw std::runtime_error("Qtum settings should be initialized.");
+        }
+
+        return qtumSettings.GetFeeRate();
+    }
+    default:
+    {
+        throw std::runtime_error("Unsupported coin for swap");
+    }
+    }
+}
+
+bool IsSwapAmountValid(
+    AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate)
+{
+    switch (swapCoin)
+    {
+    case AtomicSwapCoin::Bitcoin:
+        return BitcoinSide::CheckAmount(swapAmount, swapFeeRate);
+    case AtomicSwapCoin::Litecoin:
+        return LitecoinSide::CheckAmount(swapAmount, swapFeeRate);
+    case AtomicSwapCoin::Qtum:
+        return QtumSide::CheckAmount(swapAmount, swapFeeRate);
+    default:
+        throw std::runtime_error("Unsupported coin for swap");
+    }
 }
 
 } // namespace beam::wallet
