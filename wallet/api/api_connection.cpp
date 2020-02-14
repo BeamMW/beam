@@ -245,13 +245,16 @@ namespace beam::wallet
                 return;
             }
 
-            auto txId = _walletData.getWallet().StartTransaction(CreateSimpleTransactionParameters(data.txId)
-                .SetParameter(TxParameterID::MyID, from)
-                .SetParameter(TxParameterID::PeerID, data.address)
+            auto params = CreateSimpleTransactionParameters(data.txId);
+            LoadReceiverParams(data.txParameters, params);
+
+            params.SetParameter(TxParameterID::MyID, from)
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
                 .SetParameter(TxParameterID::PreselectedCoins, coins)
-                .SetParameter(TxParameterID::Message, message));
+                .SetParameter(TxParameterID::Message, message);
+
+            auto txId = _walletData.getWallet().StartTransaction(params);
 
             doResponse(id, Send::Response{ txId });
         }

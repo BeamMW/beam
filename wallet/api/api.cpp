@@ -231,7 +231,18 @@ namespace beam::wallet
             send.session = readSessionParameter(id, params);
         }
 
-        if (!send.address.FromHex(params["address"]))
+        auto txParams = ParseParameters(params["address"]);
+        if (!txParams)
+        {
+            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address or token.", id };
+        }
+        send.txParameters = *txParams;
+
+        if (auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
+        {
+            send.address = *peerID;
+        }
+        else
         {
             throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address.", id };
         }

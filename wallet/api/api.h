@@ -127,6 +127,7 @@ namespace beam::wallet
         boost::optional<TxID> txId;
         WalletID address;
         std::string comment;
+        TxParameters txParameters;
 
         struct Response
         {
