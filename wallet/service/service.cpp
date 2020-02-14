@@ -1739,6 +1739,20 @@ namespace
                 doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
             }
 
+            static std::string generateWalletID(Key::IPKdf::Ptr ownerKdf)
+            {
+                Key::ID kid(Zero);
+                kid.m_Type = ECC::Key::Type::WalletID;
+
+                ECC::Point::Native pt;
+                ECC::Hash::Value hv;
+                kid.get_Hash(hv);
+                ownerKdf->DerivePKeyG(pt, hv);
+                PeerID pid;
+                pid.Import(pt);
+                return pid.str();
+            }
+
             static std::string generateUid()
             {
                 std::array<uint8_t, 16> buf{};
@@ -1764,7 +1778,7 @@ namespace
                 if(ks.Import(*ownerKdf))
                 {
                     auto keyKeeper = createKeyKeeper(ownerKdf);
-                    auto dbName = generateUid();
+                    auto dbName = generateWalletID(ownerKdf);
                     IWalletDB::Ptr walletDB = WalletDB::init(dbName + ".db", SecString(data.pass), keyKeeper);
 
                     if(walletDB)
@@ -2241,7 +2255,6 @@ namespace
                     fail(ec, "listen");
                     return;
                 }
-
                 if (auto pipe = fdopen(3, "w"))
                 {
                     const char listening[] = "LISTENING";

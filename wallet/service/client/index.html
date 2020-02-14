@@ -515,7 +515,8 @@
 				console.log(`Opening wallet with seed phrase: ${localStorage.seed}`)
 				keykeeper = initKeyKeeper(localStorage.seed)
 				var walletPass = $('#open-wallet-panel .wallet-pass-input').val()
-
+                var walletID = keykeeper.getWalletID()
+                console.log(`walletID: ${walletID}`)
 				connection.onmessage = e => 
 				{
 					console.log(`got response: ${e.data}`)
