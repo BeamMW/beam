@@ -297,3 +297,37 @@ void ECC_Min_NonceGenerator_NextScalar(ECC_Min_NonceGenerator* p, secp256k1_scal
 	}
 }
 
+//////////////////////////////
+// Oracle
+void ECC_Min_Oracle_Init(ECC_Min_Oracle* p)
+{
+	secp256k1_sha256_initialize(&p->m_sha);
+}
+
+void ECC_Min_Oracle_Expose(ECC_Min_Oracle* p, const uint8_t* pPtr, size_t nSize)
+{
+	secp256k1_sha256_write(&p->m_sha, pPtr, nSize);
+}
+
+void ECC_Min_Oracle_NextHash(ECC_Min_Oracle* p, uint8_t* pHash)
+{
+	secp256k1_sha256_t sha = p->m_sha; // copy
+	secp256k1_sha256_finalize(&sha, pHash);
+
+	secp256k1_sha256_write(&p->m_sha, pHash, ECC_Min_nBytes);
+}
+
+void ECC_Min_Oracle_NextScalar(ECC_Min_Oracle* p, secp256k1_scalar* pS)
+{
+	while (1)
+	{
+		uint8_t pBuf[ECC_Min_nBytes];
+		ECC_Min_Oracle_NextHash(p, pBuf);
+
+		int overflow;
+		secp256k1_scalar_set_b32(pS, pBuf, &overflow);
+		if (!overflow)
+			break;
+	}
+}
+

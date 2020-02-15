@@ -91,3 +91,12 @@ void ECC_Min_NonceGenerator_Init(ECC_Min_NonceGenerator*, const char* szSalt, si
 void ECC_Min_NonceGenerator_NextOkm(ECC_Min_NonceGenerator*);
 void ECC_Min_NonceGenerator_NextScalar(ECC_Min_NonceGenerator*, secp256k1_scalar*);
 
+typedef struct tagECC_Min_Oracle {
+	secp256k1_sha256_t m_sha;
+} ECC_Min_Oracle;
+
+void ECC_Min_Oracle_Init(ECC_Min_Oracle*);
+void ECC_Min_Oracle_Expose(ECC_Min_Oracle*, const uint8_t*, size_t);
+void ECC_Min_Oracle_NextHash(ECC_Min_Oracle*, uint8_t*);
+void ECC_Min_Oracle_NextScalar(ECC_Min_Oracle*, secp256k1_scalar*);
+

@@ -671,10 +671,33 @@ void TestEccMin()
 
 			verify_test(sk1 == sk2);
 		}
-
-
 	}
 
+	// Oracle
+	for (int i = 0; i < 3; i++)
+	{
+		Oracle o1;
+		ECC_Min_Oracle o2;
+		ECC_Min_Oracle_Init(&o2);
+
+		for (int j = 0; j < 4; j++)
+		{
+			for (int k = 0; k < 3; k++)
+			{
+				Scalar::Native sk1, sk2;
+				o1 >> sk1;
+				ECC_Min_Oracle_NextScalar(&o2, &sk2.get_Raw());
+
+				verify_test(sk1 == sk2);
+			}
+
+			Hash::Value val;
+			SetRandom(val);
+
+			o1 << val;
+			ECC_Min_Oracle_Expose(&o2, val.m_pData, val.nBytes);
+		}
+	}
 }
 
 void TestSigning()
