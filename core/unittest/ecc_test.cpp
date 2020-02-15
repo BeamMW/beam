@@ -617,7 +617,7 @@ void TestMultiMac()
 		ECC_Min_MultiMac_Prepared& trg = mm2.m_pPrepared[iGen];
 		const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
 
-		static_assert(_countof(trg.m_pPt) <= src.nCount);
+		static_assert(_countof(trg.m_pPt) <= _countof(src.m_pPt));
 
 		for (uint32_t j = 0; j < _countof(trg.m_pPt); j++)
 			trg.m_pPt[j] = src.m_pPt[j];
