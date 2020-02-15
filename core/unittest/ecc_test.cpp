@@ -596,8 +596,9 @@ namespace ECC_Min
 	};
 } // namespace ECC_Min
 
-void TestMultiMac()
+void TestEccMin()
 {
+	// MultiMac
 	Mode::Scope scope(Mode::Fast);
 
 	uint32_t bb = sizeof(ECC_Min_MultiMac_Prepared);
@@ -647,6 +648,33 @@ void TestMultiMac()
 
 		verify_test(res1 == res2);
 	}
+
+	// NonceGen
+	static const char szSalt[] = "my_salt";
+
+	for (int i = 0; i < 3; i++)
+	{
+		Hash::Value seed;
+		SetRandom(seed);
+
+		NonceGenerator ng1(szSalt);
+		ng1 << seed;
+
+		ECC_Min_NonceGenerator ng2;
+		ECC_Min_NonceGenerator_Init(&ng2, szSalt, sizeof(szSalt), seed.m_pData, seed.nBytes);
+
+		for (int j = 0; j < 10; j++)
+		{
+			Scalar::Native sk1, sk2;
+			ng1 >> sk1;
+			ECC_Min_NonceGenerator_NextScalar(&ng2, &sk2.get_Raw());
+
+			verify_test(sk1 == sk2);
+		}
+
+
+	}
+
 }
 
 void TestSigning()
@@ -2238,7 +2266,7 @@ void TestAll()
 	TestHash();
 	TestScalars();
 	TestPoints();
-	TestMultiMac();
+	TestEccMin();
 	TestSigning();
 	TestCommitments();
 	TestRangeProof(false);

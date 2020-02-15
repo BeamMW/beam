@@ -72,3 +72,22 @@ typedef struct tagECC_Min_MultiMac_Context
 } ECC_Min_MultiMac_Context;
 
 void ECC_Min_MultiMac_Calculate(const ECC_Min_MultiMac_Context*);
+
+#define ECC_Min_nBytes sizeof(secp256k1_scalar)
+#define ECC_Min_nBits (ECC_Min_nBytes * 8)
+
+typedef struct tagECC_Min_NonceGenerator
+{
+	// RFC-5869
+	uint8_t m_Prk[ECC_Min_nBytes];
+	uint8_t m_Okm[ECC_Min_nBytes];
+
+	uint8_t m_Counter; // wraps-around, it's fine
+	uint8_t m_FirstTime;
+
+} ECC_Min_NonceGenerator;
+
+void ECC_Min_NonceGenerator_Init(ECC_Min_NonceGenerator*, const char* szSalt, size_t nSalt, const uint8_t* pSeed, size_t nSeed);
+void ECC_Min_NonceGenerator_NextOkm(ECC_Min_NonceGenerator*);
+void ECC_Min_NonceGenerator_NextScalar(ECC_Min_NonceGenerator*, secp256k1_scalar*);
+
