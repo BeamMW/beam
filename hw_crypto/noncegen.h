@@ -24,6 +24,9 @@ typedef struct
 	uint8_t m_Counter; // wraps-around, it's fine
 	uint8_t m_FirstTime;
 
+	const uint8_t* m_pContext;
+	size_t m_nContext;
+
 } BeamCrypto_NonceGenerator;
 
 void BeamCrypto_NonceGenerator_Init(BeamCrypto_NonceGenerator*, const char* szSalt, size_t nSalt, const BeamCrypto_UintBig* pSeed);

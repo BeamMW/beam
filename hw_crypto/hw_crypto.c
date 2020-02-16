@@ -260,15 +260,28 @@ void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context* p)
 
 //////////////////////////////
 // NonceGenerator
-void BeamCrypto_NonceGenerator_Init(BeamCrypto_NonceGenerator* p, const char* szSalt, size_t nSalt, const BeamCrypto_UintBig* pSeed)
+void BeamCrypto_NonceGenerator_InitBegin(BeamCrypto_NonceGenerator* p, secp256k1_hmac_sha256_t* pHMac, const char* szSalt, size_t nSalt)
 {
 	p->m_Counter = 0;
 	p->m_FirstTime = 1;
+	p->m_pContext = 0;
+	p->m_nContext = 0;
 
+	secp256k1_hmac_sha256_initialize(pHMac, (uint8_t*) szSalt, nSalt);
+}
+
+void BeamCrypto_NonceGenerator_InitEnd(BeamCrypto_NonceGenerator* p, secp256k1_hmac_sha256_t* pHMac)
+{
+	secp256k1_hmac_sha256_finalize(pHMac, p->m_Prk.m_pVal);
+}
+
+void BeamCrypto_NonceGenerator_Init(BeamCrypto_NonceGenerator* p, const char* szSalt, size_t nSalt, const BeamCrypto_UintBig* pSeed)
+{
 	secp256k1_hmac_sha256_t hmac;
-	secp256k1_hmac_sha256_initialize(&hmac, (uint8_t*) szSalt, nSalt);
+
+	BeamCrypto_NonceGenerator_InitBegin(p, &hmac, szSalt, nSalt);
 	secp256k1_hmac_sha256_write(&hmac, pSeed->m_pVal, sizeof(pSeed->m_pVal));
-	secp256k1_hmac_sha256_finalize(&hmac, p->m_Prk.m_pVal);
+	BeamCrypto_NonceGenerator_InitEnd(p, &hmac);
 }
 
 void BeamCrypto_NonceGenerator_NextOkm(BeamCrypto_NonceGenerator* p)
@@ -281,6 +294,8 @@ void BeamCrypto_NonceGenerator_NextOkm(BeamCrypto_NonceGenerator* p)
 		p->m_FirstTime = 0;
 	else
 		secp256k1_hmac_sha256_write(&hmac, p->m_Okm.m_pVal, sizeof(p->m_Okm.m_pVal));
+
+	secp256k1_hmac_sha256_write(&hmac, p->m_pContext, p->m_nContext);
 
 	p->m_Counter++;
 	secp256k1_hmac_sha256_write(&hmac, &p->m_Counter, sizeof(p->m_Counter));
