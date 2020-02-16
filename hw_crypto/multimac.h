@@ -17,11 +17,17 @@
 
 #define BeamCrypto_MultiMac_Directions 2 // must be 1 or 2. For 2 interleaving is used. Faster (~1 effective window bit), but needs an extra scalar per element
 #define BeamCrypto_MultiMac_Fast_nBits 4
+#define BeamCrypto_MultiMac_Secure_nBits 4
 #define BeamCrypto_MultiMac_Fast_nCount (1 << (BeamCrypto_MultiMac_Fast_nBits - 1)) // odd powers
+#define BeamCrypto_MultiMac_Secure_nCount (1 << BeamCrypto_MultiMac_Secure_nBits)
 
 typedef struct {
 	secp256k1_ge_storage m_pPt[BeamCrypto_MultiMac_Fast_nCount]; // odd powers
 } BeamCrypto_MultiMac_Fast;
+
+typedef struct {
+	secp256k1_ge_storage m_pPt[BeamCrypto_MultiMac_Secure_nCount + 1]; // the last is the compensation term
+} BeamCrypto_MultiMac_Secure;
 
 typedef struct {
 	uint8_t m_iBit;
@@ -41,10 +47,14 @@ typedef struct
 	secp256k1_gej* m_pRes;
 
 	unsigned int m_Fast;
+	unsigned int m_Secure;
 
 	const BeamCrypto_MultiMac_Fast* m_pGenFast;
 	BeamCrypto_MultiMac_Scalar* m_pS;
 	BeamCrypto_MultiMac_WNaf* m_pWnaf;
+
+	const BeamCrypto_MultiMac_Secure* m_pGenSecure;
+	const secp256k1_scalar* m_pSecureK;
 
 } BeamCrypto_MultiMac_Context;
 
