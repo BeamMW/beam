@@ -39,3 +39,8 @@
 
 #define BeamCrypto_nBytes sizeof(secp256k1_scalar)
 #define BeamCrypto_nBits (BeamCrypto_nBytes * 8)
+
+typedef struct
+{
+	uint8_t m_pVal[BeamCrypto_nBytes];
+} BeamCrypto_UintBig;

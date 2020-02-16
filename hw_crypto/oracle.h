@@ -21,5 +21,5 @@ typedef struct {
 
 void BeamCrypto_Oracle_Init(BeamCrypto_Oracle*);
 void BeamCrypto_Oracle_Expose(BeamCrypto_Oracle*, const uint8_t*, size_t);
-void BeamCrypto_Oracle_NextHash(BeamCrypto_Oracle*, uint8_t*);
+void BeamCrypto_Oracle_NextHash(BeamCrypto_Oracle*, BeamCrypto_UintBig*);
 void BeamCrypto_Oracle_NextScalar(BeamCrypto_Oracle*, secp256k1_scalar*);

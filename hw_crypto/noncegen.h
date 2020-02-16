@@ -18,14 +18,14 @@
 typedef struct
 {
 	// RFC-5869
-	uint8_t m_Prk[BeamCrypto_nBytes];
-	uint8_t m_Okm[BeamCrypto_nBytes];
+	BeamCrypto_UintBig m_Prk;
+	BeamCrypto_UintBig m_Okm;
 
 	uint8_t m_Counter; // wraps-around, it's fine
 	uint8_t m_FirstTime;
 
 } BeamCrypto_NonceGenerator;
 
-void BeamCrypto_NonceGenerator_Init(BeamCrypto_NonceGenerator*, const char* szSalt, size_t nSalt, const uint8_t* pSeed, size_t nSeed);
+void BeamCrypto_NonceGenerator_Init(BeamCrypto_NonceGenerator*, const char* szSalt, size_t nSalt, const BeamCrypto_UintBig* pSeed);
 void BeamCrypto_NonceGenerator_NextOkm(BeamCrypto_NonceGenerator*);
 void BeamCrypto_NonceGenerator_NextScalar(BeamCrypto_NonceGenerator*, secp256k1_scalar*);

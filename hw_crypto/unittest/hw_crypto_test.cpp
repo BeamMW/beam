@@ -159,8 +159,10 @@ void TestNonceGen()
 		ECC::NonceGenerator ng1(szSalt);
 		ng1 << seed;
 
+		static_assert(sizeof(ECC::Hash::Value) == sizeof(BeamCrypto_UintBig));
+
 		BeamCrypto_NonceGenerator ng2;
-		BeamCrypto_NonceGenerator_Init(&ng2, szSalt, sizeof(szSalt), seed.m_pData, seed.nBytes);
+		BeamCrypto_NonceGenerator_Init(&ng2, szSalt, sizeof(szSalt), (BeamCrypto_UintBig*) &seed);
 
 		for (int j = 0; j < 10; j++)
 		{

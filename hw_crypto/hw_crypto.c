@@ -259,32 +259,32 @@ void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context* p)
 
 //////////////////////////////
 // NonceGenerator
-void BeamCrypto_NonceGenerator_Init(BeamCrypto_NonceGenerator* p, const char* szSalt, size_t nSalt, const uint8_t* pSeed, size_t nSeed)
+void BeamCrypto_NonceGenerator_Init(BeamCrypto_NonceGenerator* p, const char* szSalt, size_t nSalt, const BeamCrypto_UintBig* pSeed)
 {
 	p->m_Counter = 0;
 	p->m_FirstTime = 1;
 
 	secp256k1_hmac_sha256_t hmac;
 	secp256k1_hmac_sha256_initialize(&hmac, (uint8_t*) szSalt, nSalt);
-	secp256k1_hmac_sha256_write(&hmac, pSeed, nSeed);
-	secp256k1_hmac_sha256_finalize(&hmac, p->m_Prk);
+	secp256k1_hmac_sha256_write(&hmac, pSeed->m_pVal, sizeof(pSeed->m_pVal));
+	secp256k1_hmac_sha256_finalize(&hmac, p->m_Prk.m_pVal);
 }
 
 void BeamCrypto_NonceGenerator_NextOkm(BeamCrypto_NonceGenerator* p)
 {
 	// Expand
 	secp256k1_hmac_sha256_t hmac;
-	secp256k1_hmac_sha256_initialize(&hmac, p->m_Prk, sizeof(p->m_Prk));
+	secp256k1_hmac_sha256_initialize(&hmac, p->m_Prk.m_pVal, sizeof(p->m_Prk.m_pVal));
 
 	if (p->m_FirstTime)
 		p->m_FirstTime = 0;
 	else
-		secp256k1_hmac_sha256_write(&hmac, p->m_Okm, sizeof(p->m_Okm));
+		secp256k1_hmac_sha256_write(&hmac, p->m_Okm.m_pVal, sizeof(p->m_Okm.m_pVal));
 
 	p->m_Counter++;
 	secp256k1_hmac_sha256_write(&hmac, &p->m_Counter, sizeof(p->m_Counter));
 
-	secp256k1_hmac_sha256_finalize(&hmac, p->m_Okm);
+	secp256k1_hmac_sha256_finalize(&hmac, p->m_Okm.m_pVal);
 }
 
 void BeamCrypto_NonceGenerator_NextScalar(BeamCrypto_NonceGenerator* p, secp256k1_scalar* pS)
@@ -294,7 +294,7 @@ void BeamCrypto_NonceGenerator_NextScalar(BeamCrypto_NonceGenerator* p, secp256k
 		BeamCrypto_NonceGenerator_NextOkm(p);
 
 		int overflow;
-		secp256k1_scalar_set_b32(pS, p->m_Okm, &overflow);
+		secp256k1_scalar_set_b32(pS, p->m_Okm.m_pVal, &overflow);
 		if (!overflow)
 			break;
 	}
@@ -312,23 +312,23 @@ void BeamCrypto_Oracle_Expose(BeamCrypto_Oracle* p, const uint8_t* pPtr, size_t 
 	secp256k1_sha256_write(&p->m_sha, pPtr, nSize);
 }
 
-void BeamCrypto_Oracle_NextHash(BeamCrypto_Oracle* p, uint8_t* pHash)
+void BeamCrypto_Oracle_NextHash(BeamCrypto_Oracle* p, BeamCrypto_UintBig* pHash)
 {
 	secp256k1_sha256_t sha = p->m_sha; // copy
-	secp256k1_sha256_finalize(&sha, pHash);
+	secp256k1_sha256_finalize(&sha, pHash->m_pVal);
 
-	secp256k1_sha256_write(&p->m_sha, pHash, BeamCrypto_nBytes);
+	secp256k1_sha256_write(&p->m_sha, pHash->m_pVal, BeamCrypto_nBytes);
 }
 
 void BeamCrypto_Oracle_NextScalar(BeamCrypto_Oracle* p, secp256k1_scalar* pS)
 {
 	while (1)
 	{
-		uint8_t pBuf[BeamCrypto_nBytes];
-		BeamCrypto_Oracle_NextHash(p, pBuf);
+		BeamCrypto_UintBig hash;
+		BeamCrypto_Oracle_NextHash(p, &hash);
 
 		int overflow;
-		secp256k1_scalar_set_b32(pS, pBuf, &overflow);
+		secp256k1_scalar_set_b32(pS, hash.m_pVal, &overflow);
 		if (!overflow)
 			break;
 	}
