@@ -225,8 +225,8 @@ void TestCoinID(const CoinID& cid)
 
 	verify_test(hv1 == hv2);
 
-	BeamCrypto_CoinID_Scheme nScheme;
-	BeamCrypto_CoinID_SubKey nSubKey;
+	uint8_t nScheme;
+	uint32_t nSubKey;
 	bool bChildKdf2 = !!BeamCrypto_CoinID_getSchemeAndSubkey(&cid2, &nScheme, &nSubKey);
 
 	verify_test(cid.get_Scheme() == nScheme);

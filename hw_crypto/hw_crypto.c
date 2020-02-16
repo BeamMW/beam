@@ -355,9 +355,9 @@ void BeamCrypto_Oracle_NextScalar(BeamCrypto_Oracle* p, secp256k1_scalar* pS)
 // CoinID
 #define BeamCrypto_CoinID_nSubkeyBits 24
 
-int BeamCrypto_CoinID_getSchemeAndSubkey(const BeamCrypto_CoinID* p, BeamCrypto_CoinID_Scheme* pScheme, BeamCrypto_CoinID_SubKey* pSubkey)
+int BeamCrypto_CoinID_getSchemeAndSubkey(const BeamCrypto_CoinID* p, uint8_t* pScheme, uint32_t* pSubkey)
 {
-	*pScheme = (BeamCrypto_CoinID_Scheme) (p->m_SubIdx >> BeamCrypto_CoinID_nSubkeyBits);
+	*pScheme = (uint8_t) (p->m_SubIdx >> BeamCrypto_CoinID_nSubkeyBits);
 	*pSubkey = p->m_SubIdx & ((1U << BeamCrypto_CoinID_nSubkeyBits) - 1);
 
 	if (!*pSubkey)
@@ -395,12 +395,11 @@ void BeamCrypto_CoinID_getHash(const BeamCrypto_CoinID* p, BeamCrypto_UintBig* p
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
 
-	BeamCrypto_CoinID_Scheme nScheme;
-	BeamCrypto_CoinID_SubKey nSubkey;
-
+	uint8_t nScheme;
+	uint32_t nSubkey;
 	BeamCrypto_CoinID_getSchemeAndSubkey(p, &nScheme, &nSubkey);
 
-	BeamCrypto_CoinID_SubKey nSubIdx = p->m_SubIdx;
+	uint32_t nSubIdx = p->m_SubIdx;
 
 	switch (nScheme)
 	{

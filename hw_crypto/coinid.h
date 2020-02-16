@@ -18,26 +18,20 @@
 typedef uint64_t BeamCrypto_Amount;
 typedef uint32_t BeamCrypto_AssetID;
 
-typedef uint8_t BeamCrypto_CoinID_Scheme;
-typedef uint32_t BeamCrypto_CoinID_SubKey;
-
 typedef struct
 {
 	uint64_t m_Idx;
 	uint32_t m_Type;
-
-	BeamCrypto_CoinID_SubKey m_SubIdx;
+	uint32_t m_SubIdx;
 
 	BeamCrypto_Amount  m_Amount;
 	BeamCrypto_AssetID m_AssetID;
 
 } BeamCrypto_CoinID;
 
-typedef uint8_t BeamCrypto_CoinID_Scheme;
-
 #define BeamCrypto_CoinID_Scheme_V0 0
 #define BeamCrypto_CoinID_Scheme_V1 1
 #define BeamCrypto_CoinID_Scheme_BB21 2 // worakround for BB.2.1
 
-int BeamCrypto_CoinID_getSchemeAndSubkey(const BeamCrypto_CoinID*, BeamCrypto_CoinID_Scheme*, BeamCrypto_CoinID_SubKey*); // returns 1 iff subkey is required
+int BeamCrypto_CoinID_getSchemeAndSubkey(const BeamCrypto_CoinID*, uint8_t* pScheme, uint32_t* pSubkey); // returns 1 iff subkey is required
 void BeamCrypto_CoinID_getHash(const BeamCrypto_CoinID*, BeamCrypto_UintBig*);
