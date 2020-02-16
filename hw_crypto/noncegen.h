@@ -15,7 +15,7 @@
 #pragma once
 #include "ecc_decl.h"
 
-typedef struct tagBeamCrypto_NonceGenerator
+typedef struct
 {
 	// RFC-5869
 	uint8_t m_Prk[BeamCrypto_nBytes];

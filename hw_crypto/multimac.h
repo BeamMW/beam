@@ -19,25 +19,25 @@
 #define BeamCrypto_MultiMac_Prepared_nBits 4
 #define BeamCrypto_MultiMac_Prepared_nCount (1 << (BeamCrypto_MultiMac_Prepared_nBits - 1)) // odd powers
 
-typedef struct tagBeamCrypto_MultiMac_Prepared {
+typedef struct {
 	secp256k1_ge_storage m_pPt[BeamCrypto_MultiMac_Prepared_nCount]; // odd powers
 } BeamCrypto_MultiMac_Prepared;
 
 
-typedef struct tagBeamCrypto_MultiMac_WNaf_Cursor {
+typedef struct {
 	uint8_t m_iBit;
 	uint8_t m_iElement;
 } BeamCrypto_MultiMac_WNaf_Cursor;
 
-typedef struct tagBeamCrypto_MultiMac_WNaf {
+typedef struct {
 	BeamCrypto_MultiMac_WNaf_Cursor m_pC[BeamCrypto_MultiMac_Directions];
 } BeamCrypto_MultiMac_WNaf;
 
-typedef struct tagBeamCrypto_MultiMac_Scalar {
+typedef struct {
 	secp256k1_scalar m_pK[BeamCrypto_MultiMac_Directions];
 } BeamCrypto_MultiMac_Scalar;
 
-typedef struct tagBeamCrypto_MultiMac_Context
+typedef struct
 {
 	secp256k1_gej* m_pRes;
 

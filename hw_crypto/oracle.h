@@ -15,7 +15,7 @@
 #pragma once
 #include "ecc_decl.h"
 
-typedef struct tagBeamCrypto_Oracle {
+typedef struct {
 	secp256k1_sha256_t m_sha;
 } BeamCrypto_Oracle;
 

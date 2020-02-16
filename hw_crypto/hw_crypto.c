@@ -49,7 +49,7 @@ typedef uint64_t secp256k1_scalar_uint;
 typedef uint32_t secp256k1_scalar_uint;
 #endif // USE_SCALAR_4X64
 
-typedef struct tagBitWalker
+typedef struct
 {
 	int m_Word;
 	secp256k1_scalar_uint m_Msk;
