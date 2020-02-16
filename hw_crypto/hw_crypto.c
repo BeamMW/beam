@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#define USE_BASIC_CONFIG
+#include <assert.h>
+#include "multimac.h"
+#include "oracle.h"
+#include "noncegen.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
@@ -22,8 +25,6 @@
 #	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #endif
 
-#include "ecc_min.h"
-#include <assert.h>
 
 #include "secp256k1-zkp/src/group_impl.h"
 #include "secp256k1-zkp/src/scalar_impl.h"
@@ -36,6 +37,8 @@
 #	pragma warning (default: 4706 4701)
 #	pragma warning (pop)
 #endif
+
+
 
 #define s_WNaf_HiBit 0x80
 static_assert(ECC_Min_MultiMac_Prepared_nCount < s_WNaf_HiBit, "");

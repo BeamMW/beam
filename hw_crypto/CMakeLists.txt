@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 
 set(HW_CRYPTO_SRC
-    ecc_min.c
+    hw_crypto.c
 # ~etc
 )
 

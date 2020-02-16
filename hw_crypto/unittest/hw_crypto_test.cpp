@@ -15,7 +15,9 @@
 #include <iostream>
 
 extern "C" {
-#include "ecc_min.h"
+#include "multimac.h"
+#include "oracle.h"
+#include "noncegen.h"
 }
 
 #include "../core/ecc_native.h"
