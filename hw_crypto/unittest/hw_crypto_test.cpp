@@ -86,6 +86,12 @@ void SetRandomOrd(T& x)
 	GenerateRandom(&x, sizeof(x));
 }
 
+BeamCrypto_UintBig& Ecc2BC(const ECC::uintBig& x)
+{
+	static_assert(sizeof(x) == sizeof(BeamCrypto_UintBig));
+	return (BeamCrypto_UintBig&) x;
+}
+
 void TestMultiMac()
 {
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
@@ -160,10 +166,8 @@ void TestNonceGen()
 		ECC::NonceGenerator ng1(szSalt);
 		ng1 << seed;
 
-		static_assert(sizeof(ECC::Hash::Value) == sizeof(BeamCrypto_UintBig));
-
 		BeamCrypto_NonceGenerator ng2;
-		BeamCrypto_NonceGenerator_Init(&ng2, szSalt, sizeof(szSalt), (BeamCrypto_UintBig*) &seed);
+		BeamCrypto_NonceGenerator_Init(&ng2, szSalt, sizeof(szSalt), &Ecc2BC(seed));
 
 		for (int j = 0; j < 10; j++)
 		{
@@ -216,9 +220,7 @@ void TestCoinID(const CoinID& cid)
 	cid2.m_Amount = cid.m_Value;
 	cid2.m_AssetID = cid.m_AssetID;
 
-	static_assert(sizeof(ECC::Hash::Value) == sizeof(BeamCrypto_UintBig));
-
-	BeamCrypto_CoinID_getHash(&cid2, (BeamCrypto_UintBig*) &hv2);
+	BeamCrypto_CoinID_getHash(&cid2, &Ecc2BC(hv2));
 
 	verify_test(hv1 == hv2);
 

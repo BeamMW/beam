@@ -39,7 +39,7 @@
 #	pragma warning (pop)
 #endif
 
-
+#define SECURE_ERASE_OBJ(x) memset(&x, 0, sizeof(x))
 
 #define s_WNaf_HiBit 0x80
 static_assert(BeamCrypto_MultiMac_Prepared_nCount < s_WNaf_HiBit, "");
