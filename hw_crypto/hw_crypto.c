@@ -17,6 +17,7 @@
 #include "oracle.h"
 #include "noncegen.h"
 #include "coinid.h"
+#include "kdf.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
@@ -435,3 +436,55 @@ void BeamCrypto_CoinID_getHash(const BeamCrypto_CoinID* p, BeamCrypto_UintBig* p
 
 	secp256k1_sha256_finalize(&sha, pHash->m_pVal);
 }
+
+//////////////////////////////
+// Kdf
+void BeamCrypto_Kdf_Init(BeamCrypto_Kdf* p, const BeamCrypto_UintBig* pSeed)
+{
+	static const char szSalt[] = "beam-HKdf";
+
+	BeamCrypto_NonceGenerator ng1, ng2;
+	BeamCrypto_NonceGenerator_Init(&ng1, szSalt, sizeof(szSalt), pSeed);
+	ng2 = ng1;
+
+	static const char szCtx1[] = "gen";
+	static const char szCtx2[] = "coF";
+
+	ng1.m_pContext = szCtx1;
+	ng1.m_nContext = sizeof(szCtx1);
+
+	BeamCrypto_NonceGenerator_NextOkm(&ng1);
+	p->m_Secret = ng1.m_Okm;
+
+	ng2.m_pContext = szCtx2;
+	ng2.m_nContext = sizeof(szCtx2);
+	BeamCrypto_NonceGenerator_NextScalar(&ng2, &p->m_kCoFactor);
+
+	SECURE_ERASE_OBJ(ng1);
+	SECURE_ERASE_OBJ(ng2);
+}
+
+void BeamCrypto_Kdf_Derive_PKey(const BeamCrypto_Kdf* p, const BeamCrypto_UintBig* pHv, secp256k1_scalar* pK)
+{
+	static const char szSalt[] = "beam-Key";
+
+	BeamCrypto_NonceGenerator ng;
+	secp256k1_hmac_sha256_t hmac;
+	BeamCrypto_NonceGenerator_InitBegin(&ng, &hmac, szSalt, sizeof(szSalt));
+
+	secp256k1_hmac_sha256_write(&hmac, p->m_Secret.m_pVal, sizeof(p->m_Secret.m_pVal));
+	secp256k1_hmac_sha256_write(&hmac, pHv->m_pVal, sizeof(pHv->m_pVal));
+
+	BeamCrypto_NonceGenerator_InitEnd(&ng, &hmac);
+
+	BeamCrypto_NonceGenerator_NextScalar(&ng, pK);
+
+	SECURE_ERASE_OBJ(ng);
+}
+
+void BeamCrypto_Kdf_Derive_SKey(const BeamCrypto_Kdf* p, const BeamCrypto_UintBig* pHv, secp256k1_scalar* pK)
+{
+	BeamCrypto_Kdf_Derive_PKey(p, pHv, pK);
+	secp256k1_scalar_mul(pK, pK, &p->m_kCoFactor);
+}
+

@@ -19,6 +19,7 @@ extern "C" {
 #include "oracle.h"
 #include "noncegen.h"
 #include "coinid.h"
+#include "kdf.h"
 }
 
 #include "../core/ecc_native.h"
@@ -280,6 +281,36 @@ void TestCoinID()
 	}
 }
 
+void TestKdf()
+{
+	for (int i = 0; i < 3; i++)
+	{
+		ECC::Hash::Value hv;
+		SetRandom(hv);
+
+		ECC::HKdf hkdf;
+		hkdf.Generate(hv);
+
+		BeamCrypto_Kdf kdf2;
+		BeamCrypto_Kdf_Init(&kdf2, &Ecc2BC(hv));
+
+		for (int j = 0; j < 5; j++)
+		{
+			SetRandom(hv);
+
+			ECC::Scalar::Native sk1, sk2;
+
+			hkdf.DerivePKey(sk1, hv);
+			BeamCrypto_Kdf_Derive_PKey(&kdf2, &Ecc2BC(hv), &sk2.get_Raw());
+			verify_test(sk1 == sk2);
+
+			hkdf.DeriveKey(sk1, hv);
+			BeamCrypto_Kdf_Derive_SKey(&kdf2, &Ecc2BC(hv), &sk2.get_Raw());
+			verify_test(sk1 == sk2);
+		}
+	}
+}
+
 int main()
 {
 	Rules::get().CA.Enabled = true;
@@ -290,6 +321,7 @@ int main()
 	TestNonceGen();
 	TestOracle();
 	TestCoinID();
+	TestKdf();
 
     return g_TestsFailed ? -1 : 0;
 }
