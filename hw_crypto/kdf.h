@@ -25,3 +25,4 @@ typedef struct
 void BeamCrypto_Kdf_Init(BeamCrypto_Kdf*, const BeamCrypto_UintBig* pSeed);
 void BeamCrypto_Kdf_Derive_PKey(const BeamCrypto_Kdf*, const BeamCrypto_UintBig* pHv, secp256k1_scalar* pK);
 void BeamCrypto_Kdf_Derive_SKey(const BeamCrypto_Kdf*, const BeamCrypto_UintBig* pHv, secp256k1_scalar* pK);
+void BeamCrypto_Kdf_getChild(BeamCrypto_Kdf*, uint32_t iChild, const BeamCrypto_Kdf* pParent);

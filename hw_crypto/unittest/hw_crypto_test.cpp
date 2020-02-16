@@ -283,16 +283,27 @@ void TestCoinID()
 
 void TestKdf()
 {
+	ECC::HKdf hkdf;
+	BeamCrypto_Kdf kdf2;
+
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Hash::Value hv;
 		SetRandom(hv);
 
-		ECC::HKdf hkdf;
-		hkdf.Generate(hv);
+		if (i)
+		{
+			uint32_t iChild;
+			SetRandomOrd(iChild);
 
-		BeamCrypto_Kdf kdf2;
-		BeamCrypto_Kdf_Init(&kdf2, &Ecc2BC(hv));
+			hkdf.GenerateChild(hkdf, iChild);
+			BeamCrypto_Kdf_getChild(&kdf2, iChild, &kdf2);
+		}
+		else
+		{
+			hkdf.Generate(hv);
+			BeamCrypto_Kdf_Init(&kdf2, &Ecc2BC(hv));
+		}
 
 		for (int j = 0; j < 5; j++)
 		{

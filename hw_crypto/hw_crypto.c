@@ -487,3 +487,31 @@ void BeamCrypto_Kdf_Derive_SKey(const BeamCrypto_Kdf* p, const BeamCrypto_UintBi
 	secp256k1_scalar_mul(pK, pK, &p->m_kCoFactor);
 }
 
+#define ARRAY_ELEMENT_SAFE(arr, index) ((arr)[(((index) < _countof(arr)) ? (index) : (_countof(arr) - 1))])
+#define FOURCC_FROM_BYTES(a, b, c, d) (((((((uint32_t) a << 8) | (uint32_t) b) << 8) | (uint32_t) c) << 8) | (uint32_t) d)
+#define FOURCC_FROM_STR(name) FOURCC_FROM_BYTES(ARRAY_ELEMENT_SAFE(#name,0), ARRAY_ELEMENT_SAFE(#name,1), ARRAY_ELEMENT_SAFE(#name,2), ARRAY_ELEMENT_SAFE(#name,3))
+
+void BeamCrypto_Kdf_getChild(BeamCrypto_Kdf* p, uint32_t iChild, const BeamCrypto_Kdf* pParent)
+{
+	secp256k1_sha256_t sha;
+	secp256k1_sha256_initialize(&sha);
+	HASH_WRITE_STR(sha, "kid");
+
+	const uint32_t nType = FOURCC_FROM_STR(SubK);
+
+	secp256k1_sha256_write_Num(&sha, iChild);
+	secp256k1_sha256_write_Num(&sha, nType);
+	secp256k1_sha256_write_Num(&sha, 0);
+
+	BeamCrypto_UintBig hv;
+	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+
+	secp256k1_scalar sk;
+	BeamCrypto_Kdf_Derive_SKey(pParent, &hv, &sk);
+
+	secp256k1_scalar_get_b32(hv.m_pVal, &sk);
+	SECURE_ERASE_OBJ(sk);
+
+	BeamCrypto_Kdf_Init(p, &hv);
+	SECURE_ERASE_OBJ(hv);
+}
