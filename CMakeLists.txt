@@ -402,6 +402,7 @@ add_subdirectory(p2p)
 add_subdirectory(http)
 add_subdirectory(keykeeper)
 add_subdirectory(wallet)
+add_subdirectory(hw_crypto)
 add_subdirectory(node)
 add_subdirectory(mnemonic)
 

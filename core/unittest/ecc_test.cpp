@@ -24,10 +24,6 @@
 #include "../lelantus.h"
 #include "../../utility/executor.h"
 
-extern "C" {
-#include "../ecc_min.h"
-}
-
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic ignored "-Wunused-result"
 #endif
@@ -555,149 +551,6 @@ void TestPoints()
 	p0 = -p0;
 	p0 += p1;
 	verify_test(p0 == Zero);
-}
-
-namespace ECC_Min
-{
-	template <unsigned int nMaxCount>
-	struct MultiMac_WithBufs
-	{
-		ECC_Min_MultiMac_Prepared m_pPrepared[nMaxCount];
-		ECC_Min_MultiMac_WNaf m_pWnaf[nMaxCount];
-		ECC_Min_MultiMac_Scalar m_pS[nMaxCount];
-
-		unsigned int m_Count = 0;
-
-		void Reset() {
-			m_Count = 0;
-		}
-
-		secp256k1_scalar& Add()
-		{
-			assert(m_Count < nMaxCount);
-			return m_pS[m_Count++].m_pK[0];
-		}
-
-		void Add(const secp256k1_scalar& k)
-		{
-			Add() = k;
-		}
-
-		void Calculate(secp256k1_gej& res)
-		{
-			ECC_Min_MultiMac_Context ctx;
-			ctx.m_pRes = &res;
-			ctx.m_Count = m_Count;
-			ctx.m_pPrep = m_pPrepared;
-			ctx.m_pS = m_pS;
-			ctx.m_pWnaf = m_pWnaf;
-			ECC_Min_MultiMac_Calculate(&ctx);
-		}
-	};
-} // namespace ECC_Min
-
-void TestEccMin()
-{
-	// MultiMac
-	Mode::Scope scope(Mode::Fast);
-
-	uint32_t bb = sizeof(ECC_Min_MultiMac_Prepared);
-	uint32_t cc = sizeof(ECC_Min_MultiMac_WNaf);
-	bb; cc;
-
-	const uint32_t nBatch = 8;
-
-	ECC::MultiMac_WithBufs<1, nBatch> mm1;
-	ECC_Min::MultiMac_WithBufs<nBatch> mm2;
-
-	for (uint32_t iGen = 0; iGen < nBatch; iGen++)
-	{
-		const MultiMac::Prepared& p = ECC::Context::get().m_Ipp.m_pGen_[0][iGen];
-		mm1.m_ppPrepared[iGen] = &p;
-
-		ECC_Min_MultiMac_Prepared& trg = mm2.m_pPrepared[iGen];
-		const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
-
-		static_assert(_countof(trg.m_pPt) <= _countof(src.m_pPt));
-
-		for (uint32_t j = 0; j < _countof(trg.m_pPt); j++)
-			trg.m_pPt[j] = src.m_pPt[j];
-	}
-
-	for (int i = 0; i < 10; i++)
-	{
-		mm1.Reset();
-		mm2.Reset();
-
-
-		for (uint32_t iPt = 0; iPt < nBatch; iPt++)
-		{
-			Scalar::Native sk;
-			SetRandom(sk);
-
-			mm1.m_pKPrep[iPt] = sk;
-			mm1.m_Prepared++;
-
-			mm2.Add(sk.get());
-
-		}
-
-		Point::Native res1, res2;
-		mm1.Calculate(res1);
-		mm2.Calculate(res2.get_Raw());
-
-		verify_test(res1 == res2);
-	}
-
-	// NonceGen
-	static const char szSalt[] = "my_salt";
-
-	for (int i = 0; i < 3; i++)
-	{
-		Hash::Value seed;
-		SetRandom(seed);
-
-		NonceGenerator ng1(szSalt);
-		ng1 << seed;
-
-		ECC_Min_NonceGenerator ng2;
-		ECC_Min_NonceGenerator_Init(&ng2, szSalt, sizeof(szSalt), seed.m_pData, seed.nBytes);
-
-		for (int j = 0; j < 10; j++)
-		{
-			Scalar::Native sk1, sk2;
-			ng1 >> sk1;
-			ECC_Min_NonceGenerator_NextScalar(&ng2, &sk2.get_Raw());
-
-			verify_test(sk1 == sk2);
-		}
-	}
-
-	// Oracle
-	for (int i = 0; i < 3; i++)
-	{
-		Oracle o1;
-		ECC_Min_Oracle o2;
-		ECC_Min_Oracle_Init(&o2);
-
-		for (int j = 0; j < 4; j++)
-		{
-			for (int k = 0; k < 3; k++)
-			{
-				Scalar::Native sk1, sk2;
-				o1 >> sk1;
-				ECC_Min_Oracle_NextScalar(&o2, &sk2.get_Raw());
-
-				verify_test(sk1 == sk2);
-			}
-
-			Hash::Value val;
-			SetRandom(val);
-
-			o1 << val;
-			ECC_Min_Oracle_Expose(&o2, val.m_pData, val.nBytes);
-		}
-	}
 }
 
 void TestSigning()
@@ -2289,7 +2142,6 @@ void TestAll()
 	TestHash();
 	TestScalars();
 	TestPoints();
-	TestEccMin();
 	TestSigning();
 	TestCommitments();
 	TestRangeProof(false);
