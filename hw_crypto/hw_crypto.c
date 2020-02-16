@@ -16,6 +16,7 @@
 #include "multimac.h"
 #include "oracle.h"
 #include "noncegen.h"
+#include "coinid.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
@@ -334,3 +335,88 @@ void BeamCrypto_Oracle_NextScalar(BeamCrypto_Oracle* p, secp256k1_scalar* pS)
 	}
 }
 
+//////////////////////////////
+// CoinID
+#define BeamCrypto_CoinID_nSubkeyBits 24
+
+int BeamCrypto_CoinID_getSchemeAndSubkey(const BeamCrypto_CoinID* p, BeamCrypto_CoinID_Scheme* pScheme, BeamCrypto_CoinID_SubKey* pSubkey)
+{
+	*pScheme = (BeamCrypto_CoinID_Scheme) (p->m_SubIdx >> BeamCrypto_CoinID_nSubkeyBits);
+	*pSubkey = p->m_SubIdx & ((1U << BeamCrypto_CoinID_nSubkeyBits) - 1);
+
+	if (!*pSubkey)
+		return 0; // by convention: up to latest scheme, Subkey=0 - is a master key
+
+	if (BeamCrypto_CoinID_Scheme_BB21 == *pScheme)
+		return 0; // BB2.1 workaround
+
+	return 1;
+}
+
+#define HASH_WRITE_STR(hash, str) secp256k1_sha256_write(&hash, str, sizeof(str))
+
+void secp256k1_sha256_write_Num(secp256k1_sha256_t* pSha, uint64_t val)
+{
+	int nContinue;
+	do
+	{
+		uint8_t x = (uint8_t)val;
+
+		nContinue = (val >= 0x80);
+		if (nContinue)
+		{
+			x |= 0x80;
+			val >>= 7;
+		}
+
+		secp256k1_sha256_write(pSha, &x, sizeof(x));
+
+	} while (nContinue);
+}
+
+void BeamCrypto_CoinID_getHash(const BeamCrypto_CoinID* p, BeamCrypto_UintBig* pHash)
+{
+	secp256k1_sha256_t sha;
+	secp256k1_sha256_initialize(&sha);
+
+	BeamCrypto_CoinID_Scheme nScheme;
+	BeamCrypto_CoinID_SubKey nSubkey;
+
+	BeamCrypto_CoinID_getSchemeAndSubkey(p, &nScheme, &nSubkey);
+
+	BeamCrypto_CoinID_SubKey nSubIdx = p->m_SubIdx;
+
+	switch (nScheme)
+	{
+	case BeamCrypto_CoinID_Scheme_BB21:
+		// this is actually V0, with a workaround
+		nSubIdx = nSubkey | (BeamCrypto_CoinID_Scheme_V0 << BeamCrypto_CoinID_nSubkeyBits);
+		nScheme = BeamCrypto_CoinID_Scheme_V0;
+		// no break;
+
+	case BeamCrypto_CoinID_Scheme_V0:
+		HASH_WRITE_STR(sha, "kid");
+		break;
+
+	default:
+		HASH_WRITE_STR(sha, "kidv-1");
+	}
+
+	secp256k1_sha256_write_Num(&sha, p->m_Idx);
+	secp256k1_sha256_write_Num(&sha, p->m_Type);
+	secp256k1_sha256_write_Num(&sha, nSubIdx);
+
+	if (nScheme >= BeamCrypto_CoinID_Scheme_V1)
+	{
+		// newer scheme - account for the Value and Asset.
+		secp256k1_sha256_write_Num(&sha, p->m_Amount);
+
+		if (p->m_AssetID)
+		{
+			HASH_WRITE_STR(sha, "asset");
+			secp256k1_sha256_write_Num(&sha, p->m_AssetID);
+		}
+	}
+
+	secp256k1_sha256_finalize(&sha, pHash->m_pVal);
+}

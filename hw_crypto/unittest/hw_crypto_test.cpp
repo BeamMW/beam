@@ -18,6 +18,7 @@ extern "C" {
 #include "multimac.h"
 #include "oracle.h"
 #include "noncegen.h"
+#include "coinid.h"
 }
 
 #include "../core/ecc_native.h"
@@ -203,6 +204,80 @@ void TestOracle()
 	}
 }
 
+void TestCoinID(const CoinID& cid)
+{
+	ECC::Hash::Value hv1, hv2;
+	cid.get_Hash(hv1);
+
+	BeamCrypto_CoinID cid2;
+	cid2.m_Idx = cid.m_Idx;
+	cid2.m_Type = cid.m_Type;
+	cid2.m_SubIdx = cid.m_SubIdx;
+	cid2.m_Amount = cid.m_Value;
+	cid2.m_AssetID = cid.m_AssetID;
+
+	static_assert(sizeof(ECC::Hash::Value) == sizeof(BeamCrypto_UintBig));
+
+	BeamCrypto_CoinID_getHash(&cid2, (BeamCrypto_UintBig*) &hv2);
+
+	verify_test(hv1 == hv2);
+
+	BeamCrypto_CoinID_Scheme nScheme;
+	BeamCrypto_CoinID_SubKey nSubKey;
+	bool bChildKdf2 = !!BeamCrypto_CoinID_getSchemeAndSubkey(&cid2, &nScheme, &nSubKey);
+
+	verify_test(cid.get_Scheme() == nScheme);
+
+	uint32_t iChild;
+	bool bChildKdf = cid.get_ChildKdfIndex(iChild);
+	verify_test(bChildKdf == bChildKdf2);
+
+	if (bChildKdf) {
+		verify_test(nSubKey == iChild);
+	}
+
+}
+
+void TestCoinID()
+{
+	for (int i = 0; i < 10; i++)
+	{
+		CoinID cid;
+		SetRandomOrd(cid.m_Idx);
+		SetRandomOrd(cid.m_Type);
+		SetRandomOrd(cid.m_Value);
+
+		for (int iAsset = 0; iAsset < 2; iAsset++)
+		{
+			if (iAsset)
+				SetRandomOrd(cid.m_AssetID);
+			else
+				cid.m_AssetID = 0;
+
+			for (int iCh = 0; iCh < 2; iCh++)
+			{
+				uint32_t iChild;
+				if (iCh)
+				{
+					SetRandomOrd(iChild);
+					iChild &= (1U << 24) - 1;
+				}
+				else
+					iChild = 0;
+
+				cid.set_Subkey(iChild);
+				TestCoinID(cid);
+
+				cid.set_Subkey(iChild, CoinID::Scheme::V0);
+				TestCoinID(cid);
+
+				cid.set_Subkey(iChild, CoinID::Scheme::BB21);
+				TestCoinID(cid);
+			}
+		}
+	}
+}
+
 int main()
 {
 	Rules::get().CA.Enabled = true;
@@ -212,6 +287,7 @@ int main()
 	TestMultiMac();
 	TestNonceGen();
 	TestOracle();
+	TestCoinID();
 
     return g_TestsFailed ? -1 : 0;
 }
