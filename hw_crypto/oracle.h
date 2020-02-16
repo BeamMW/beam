@@ -15,11 +15,11 @@
 #pragma once
 #include "ecc_decl.h"
 
-typedef struct tagECC_Min_Oracle {
+typedef struct tagBeamCrypto_Oracle {
 	secp256k1_sha256_t m_sha;
-} ECC_Min_Oracle;
+} BeamCrypto_Oracle;
 
-void ECC_Min_Oracle_Init(ECC_Min_Oracle*);
-void ECC_Min_Oracle_Expose(ECC_Min_Oracle*, const uint8_t*, size_t);
-void ECC_Min_Oracle_NextHash(ECC_Min_Oracle*, uint8_t*);
-void ECC_Min_Oracle_NextScalar(ECC_Min_Oracle*, secp256k1_scalar*);
+void BeamCrypto_Oracle_Init(BeamCrypto_Oracle*);
+void BeamCrypto_Oracle_Expose(BeamCrypto_Oracle*, const uint8_t*, size_t);
+void BeamCrypto_Oracle_NextHash(BeamCrypto_Oracle*, uint8_t*);
+void BeamCrypto_Oracle_NextScalar(BeamCrypto_Oracle*, secp256k1_scalar*);

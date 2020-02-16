@@ -15,17 +15,17 @@
 #pragma once
 #include "ecc_decl.h"
 
-typedef struct tagECC_Min_NonceGenerator
+typedef struct tagBeamCrypto_NonceGenerator
 {
 	// RFC-5869
-	uint8_t m_Prk[ECC_Min_nBytes];
-	uint8_t m_Okm[ECC_Min_nBytes];
+	uint8_t m_Prk[BeamCrypto_nBytes];
+	uint8_t m_Okm[BeamCrypto_nBytes];
 
 	uint8_t m_Counter; // wraps-around, it's fine
 	uint8_t m_FirstTime;
 
-} ECC_Min_NonceGenerator;
+} BeamCrypto_NonceGenerator;
 
-void ECC_Min_NonceGenerator_Init(ECC_Min_NonceGenerator*, const char* szSalt, size_t nSalt, const uint8_t* pSeed, size_t nSeed);
-void ECC_Min_NonceGenerator_NextOkm(ECC_Min_NonceGenerator*);
-void ECC_Min_NonceGenerator_NextScalar(ECC_Min_NonceGenerator*, secp256k1_scalar*);
+void BeamCrypto_NonceGenerator_Init(BeamCrypto_NonceGenerator*, const char* szSalt, size_t nSalt, const uint8_t* pSeed, size_t nSeed);
+void BeamCrypto_NonceGenerator_NextOkm(BeamCrypto_NonceGenerator*);
+void BeamCrypto_NonceGenerator_NextScalar(BeamCrypto_NonceGenerator*, secp256k1_scalar*);

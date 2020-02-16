@@ -37,5 +37,5 @@
 #	pragma warning (pop)
 #endif
 
-#define ECC_Min_nBytes sizeof(secp256k1_scalar)
-#define ECC_Min_nBits (ECC_Min_nBytes * 8)
+#define BeamCrypto_nBytes sizeof(secp256k1_scalar)
+#define BeamCrypto_nBits (BeamCrypto_nBytes * 8)

@@ -89,17 +89,17 @@ void TestMultiMac()
 {
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
 
-	uint32_t bb = sizeof(ECC_Min_MultiMac_Prepared);
-	uint32_t cc = sizeof(ECC_Min_MultiMac_WNaf);
+	uint32_t bb = sizeof(BeamCrypto_MultiMac_Prepared);
+	uint32_t cc = sizeof(BeamCrypto_MultiMac_WNaf);
 	bb; cc;
 
 	const uint32_t nBatch = 8;
 
-	ECC_Min_MultiMac_Prepared pPrepared[nBatch];
-	ECC_Min_MultiMac_WNaf pWnaf[nBatch];
-	ECC_Min_MultiMac_Scalar pS[nBatch];
+	BeamCrypto_MultiMac_Prepared pPrepared[nBatch];
+	BeamCrypto_MultiMac_WNaf pWnaf[nBatch];
+	BeamCrypto_MultiMac_Scalar pS[nBatch];
 
-	ECC_Min_MultiMac_Context mmCtx;
+	BeamCrypto_MultiMac_Context mmCtx;
 	mmCtx.m_Count = nBatch;
 	mmCtx.m_pPrep = pPrepared;
 	mmCtx.m_pS = pS;
@@ -112,7 +112,7 @@ void TestMultiMac()
 		const ECC::MultiMac::Prepared& p = ECC::Context::get().m_Ipp.m_pGen_[0][iGen];
 		mm1.m_ppPrepared[iGen] = &p;
 
-		ECC_Min_MultiMac_Prepared& trg = pPrepared[iGen];
+		BeamCrypto_MultiMac_Prepared& trg = pPrepared[iGen];
 		const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
 
 		static_assert(_countof(trg.m_pPt) <= _countof(src.m_pPt));
@@ -141,7 +141,7 @@ void TestMultiMac()
 		mm1.Calculate(res1);
 
 		mmCtx.m_pRes = &res2.get_Raw();
-		ECC_Min_MultiMac_Calculate(&mmCtx);
+		BeamCrypto_MultiMac_Calculate(&mmCtx);
 
 		verify_test(res1 == res2);
 	}
@@ -159,14 +159,14 @@ void TestNonceGen()
 		ECC::NonceGenerator ng1(szSalt);
 		ng1 << seed;
 
-		ECC_Min_NonceGenerator ng2;
-		ECC_Min_NonceGenerator_Init(&ng2, szSalt, sizeof(szSalt), seed.m_pData, seed.nBytes);
+		BeamCrypto_NonceGenerator ng2;
+		BeamCrypto_NonceGenerator_Init(&ng2, szSalt, sizeof(szSalt), seed.m_pData, seed.nBytes);
 
 		for (int j = 0; j < 10; j++)
 		{
 			ECC::Scalar::Native sk1, sk2;
 			ng1 >> sk1;
-			ECC_Min_NonceGenerator_NextScalar(&ng2, &sk2.get_Raw());
+			BeamCrypto_NonceGenerator_NextScalar(&ng2, &sk2.get_Raw());
 
 			verify_test(sk1 == sk2);
 		}
@@ -178,8 +178,8 @@ void TestOracle()
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Oracle o1;
-		ECC_Min_Oracle o2;
-		ECC_Min_Oracle_Init(&o2);
+		BeamCrypto_Oracle o2;
+		BeamCrypto_Oracle_Init(&o2);
 
 		for (int j = 0; j < 4; j++)
 		{
@@ -187,7 +187,7 @@ void TestOracle()
 			{
 				ECC::Scalar::Native sk1, sk2;
 				o1 >> sk1;
-				ECC_Min_Oracle_NextScalar(&o2, &sk2.get_Raw());
+				BeamCrypto_Oracle_NextScalar(&o2, &sk2.get_Raw());
 
 				verify_test(sk1 == sk2);
 			}
@@ -196,7 +196,7 @@ void TestOracle()
 			SetRandom(val);
 
 			o1 << val;
-			ECC_Min_Oracle_Expose(&o2, val.m_pData, val.nBytes);
+			BeamCrypto_Oracle_Expose(&o2, val.m_pData, val.nBytes);
 		}
 	}
 }

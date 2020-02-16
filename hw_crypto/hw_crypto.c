@@ -41,7 +41,7 @@
 
 
 #define s_WNaf_HiBit 0x80
-static_assert(ECC_Min_MultiMac_Prepared_nCount < s_WNaf_HiBit, "");
+static_assert(BeamCrypto_MultiMac_Prepared_nCount < s_WNaf_HiBit, "");
 
 #ifdef USE_SCALAR_4X64
 typedef uint64_t secp256k1_scalar_uint;
@@ -94,7 +94,7 @@ inline static void BitWalker_xor(const BitWalker* p, secp256k1_scalar* pK)
 }
 
 
-static void WNaf_Cursor_MoveNext(ECC_Min_MultiMac_WNaf_Cursor* p, const secp256k1_scalar* pK)
+static void WNaf_Cursor_MoveNext(BeamCrypto_MultiMac_WNaf_Cursor* p, const secp256k1_scalar* pK)
 {
 	BitWalker bw;
 	BitWalker_SetPos(&bw, --p->m_iBit);
@@ -116,7 +116,7 @@ static void WNaf_Cursor_MoveNext(ECC_Min_MultiMac_WNaf_Cursor* p, const secp256k
 
 	uint8_t nOdd = 1;
 
-	uint8_t nWndBits = ECC_Min_MultiMac_Prepared_nBits - 1;
+	uint8_t nWndBits = BeamCrypto_MultiMac_Prepared_nBits - 1;
 	if (nWndBits > p->m_iBit)
 		nWndBits = p->m_iBit;
 
@@ -132,11 +132,11 @@ static void WNaf_Cursor_MoveNext(ECC_Min_MultiMac_WNaf_Cursor* p, const secp256k
 	p->m_iElement = nOdd >> 1;
 }
 
-static int Scalar_SplitPosNeg(ECC_Min_MultiMac_Scalar* p)
+static int Scalar_SplitPosNeg(BeamCrypto_MultiMac_Scalar* p)
 {
-#if ECC_Min_MultiMac_Directions != 2
-	static_assert(ECC_Min_MultiMac_Directions == 1);
-#else // ECC_Min_MultiMac_Directions
+#if BeamCrypto_MultiMac_Directions != 2
+	static_assert(BeamCrypto_MultiMac_Directions == 1);
+#else // BeamCrypto_MultiMac_Directions
 
 	memset(p->m_pK[1].d, 0, sizeof(p->m_pK[1].d));
 
@@ -150,7 +150,7 @@ static int Scalar_SplitPosNeg(ECC_Min_MultiMac_Scalar* p)
 		// find nnz bit
 		while (1)
 		{
-			if (iBit >= ECC_Min_nBits - ECC_Min_MultiMac_Prepared_nBits)
+			if (iBit >= BeamCrypto_nBits - BeamCrypto_MultiMac_Prepared_nBits)
 				return 0;
 
 			if (BitWalker_get(&bw, p->m_pK))
@@ -162,8 +162,8 @@ static int Scalar_SplitPosNeg(ECC_Min_MultiMac_Scalar* p)
 
 		BitWalker bw0 = bw;
 
-		iBit += ECC_Min_MultiMac_Prepared_nBits;
-		for (uint32_t i = 0; i < ECC_Min_MultiMac_Prepared_nBits; i++)
+		iBit += BeamCrypto_MultiMac_Prepared_nBits;
+		for (uint32_t i = 0; i < BeamCrypto_MultiMac_Prepared_nBits; i++)
 			BitWalker_MoveUp(&bw); // akward
 
 		if (!BitWalker_get(&bw, p->m_pK))
@@ -173,7 +173,7 @@ static int Scalar_SplitPosNeg(ECC_Min_MultiMac_Scalar* p)
 		BitWalker_xor(&bw0, p->m_pK);
 		BitWalker_xor(&bw0, p->m_pK + 1);
 
-		for (uint8_t i = 1; i < ECC_Min_MultiMac_Prepared_nBits; i++)
+		for (uint8_t i = 1; i < BeamCrypto_MultiMac_Prepared_nBits; i++)
 		{
 			BitWalker_MoveUp(&bw0);
 
@@ -194,19 +194,19 @@ static int Scalar_SplitPosNeg(ECC_Min_MultiMac_Scalar* p)
 			BitWalker_MoveUp(&bw);
 		}
 	}
-#endif // ECC_Min_MultiMac_Directions
+#endif // BeamCrypto_MultiMac_Directions
 
 	return 0;
 }
 
-void ECC_Min_MultiMac_Calculate(const ECC_Min_MultiMac_Context* p)
+void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context* p)
 {
 	secp256k1_gej_set_infinity(p->m_pRes);
 
 	for (unsigned int i = 0; i < p->m_Count; i++)
 	{
-		ECC_Min_MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
-		ECC_Min_MultiMac_Scalar* pS = p->m_pS + i;
+		BeamCrypto_MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
+		BeamCrypto_MultiMac_Scalar* pS = p->m_pS + i;
 
 		pWnaf->m_pC[0].m_iBit = 0;
 
@@ -216,24 +216,24 @@ void ECC_Min_MultiMac_Calculate(const ECC_Min_MultiMac_Context* p)
 		else
 			WNaf_Cursor_MoveNext(pWnaf->m_pC, pS->m_pK);
 
-#if ECC_Min_MultiMac_Directions == 2
+#if BeamCrypto_MultiMac_Directions == 2
 		pWnaf->m_pC[1].m_iBit = 0;
 		WNaf_Cursor_MoveNext(pWnaf->m_pC + 1, pS->m_pK + 1);
-#endif // ECC_Min_MultiMac_Directions
+#endif // BeamCrypto_MultiMac_Directions
 	}
 		
-	for (uint16_t iBit = ECC_Min_nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
+	for (uint16_t iBit = BeamCrypto_nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
 	{
 		if (!secp256k1_gej_is_infinity(p->m_pRes))
 			secp256k1_gej_double_var(p->m_pRes, p->m_pRes, 0);
 
 		for (unsigned int i = 0; i < p->m_Count; i++)
 		{
-			ECC_Min_MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
+			BeamCrypto_MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
 
-			for (unsigned int j = 0; j < ECC_Min_MultiMac_Directions; j++)
+			for (unsigned int j = 0; j < BeamCrypto_MultiMac_Directions; j++)
 			{
-				ECC_Min_MultiMac_WNaf_Cursor* pWc = pWnaf->m_pC + j;
+				BeamCrypto_MultiMac_WNaf_Cursor* pWc = pWnaf->m_pC + j;
 
 				if (((uint8_t) iBit) != pWc->m_iBit)
 					continue;
@@ -259,7 +259,7 @@ void ECC_Min_MultiMac_Calculate(const ECC_Min_MultiMac_Context* p)
 
 //////////////////////////////
 // NonceGenerator
-void ECC_Min_NonceGenerator_Init(ECC_Min_NonceGenerator* p, const char* szSalt, size_t nSalt, const uint8_t* pSeed, size_t nSeed)
+void BeamCrypto_NonceGenerator_Init(BeamCrypto_NonceGenerator* p, const char* szSalt, size_t nSalt, const uint8_t* pSeed, size_t nSeed)
 {
 	p->m_Counter = 0;
 	p->m_FirstTime = 1;
@@ -270,7 +270,7 @@ void ECC_Min_NonceGenerator_Init(ECC_Min_NonceGenerator* p, const char* szSalt, 
 	secp256k1_hmac_sha256_finalize(&hmac, p->m_Prk);
 }
 
-void ECC_Min_NonceGenerator_NextOkm(ECC_Min_NonceGenerator* p)
+void BeamCrypto_NonceGenerator_NextOkm(BeamCrypto_NonceGenerator* p)
 {
 	// Expand
 	secp256k1_hmac_sha256_t hmac;
@@ -287,11 +287,11 @@ void ECC_Min_NonceGenerator_NextOkm(ECC_Min_NonceGenerator* p)
 	secp256k1_hmac_sha256_finalize(&hmac, p->m_Okm);
 }
 
-void ECC_Min_NonceGenerator_NextScalar(ECC_Min_NonceGenerator* p, secp256k1_scalar* pS)
+void BeamCrypto_NonceGenerator_NextScalar(BeamCrypto_NonceGenerator* p, secp256k1_scalar* pS)
 {
 	while (1)
 	{
-		ECC_Min_NonceGenerator_NextOkm(p);
+		BeamCrypto_NonceGenerator_NextOkm(p);
 
 		int overflow;
 		secp256k1_scalar_set_b32(pS, p->m_Okm, &overflow);
@@ -302,30 +302,30 @@ void ECC_Min_NonceGenerator_NextScalar(ECC_Min_NonceGenerator* p, secp256k1_scal
 
 //////////////////////////////
 // Oracle
-void ECC_Min_Oracle_Init(ECC_Min_Oracle* p)
+void BeamCrypto_Oracle_Init(BeamCrypto_Oracle* p)
 {
 	secp256k1_sha256_initialize(&p->m_sha);
 }
 
-void ECC_Min_Oracle_Expose(ECC_Min_Oracle* p, const uint8_t* pPtr, size_t nSize)
+void BeamCrypto_Oracle_Expose(BeamCrypto_Oracle* p, const uint8_t* pPtr, size_t nSize)
 {
 	secp256k1_sha256_write(&p->m_sha, pPtr, nSize);
 }
 
-void ECC_Min_Oracle_NextHash(ECC_Min_Oracle* p, uint8_t* pHash)
+void BeamCrypto_Oracle_NextHash(BeamCrypto_Oracle* p, uint8_t* pHash)
 {
 	secp256k1_sha256_t sha = p->m_sha; // copy
 	secp256k1_sha256_finalize(&sha, pHash);
 
-	secp256k1_sha256_write(&p->m_sha, pHash, ECC_Min_nBytes);
+	secp256k1_sha256_write(&p->m_sha, pHash, BeamCrypto_nBytes);
 }
 
-void ECC_Min_Oracle_NextScalar(ECC_Min_Oracle* p, secp256k1_scalar* pS)
+void BeamCrypto_Oracle_NextScalar(BeamCrypto_Oracle* p, secp256k1_scalar* pS)
 {
 	while (1)
 	{
-		uint8_t pBuf[ECC_Min_nBytes];
-		ECC_Min_Oracle_NextHash(p, pBuf);
+		uint8_t pBuf[BeamCrypto_nBytes];
+		BeamCrypto_Oracle_NextHash(p, pBuf);
 
 		int overflow;
 		secp256k1_scalar_set_b32(pS, pBuf, &overflow);
