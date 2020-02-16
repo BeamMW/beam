@@ -43,7 +43,7 @@
 #define SECURE_ERASE_OBJ(x) memset(&x, 0, sizeof(x))
 
 #define s_WNaf_HiBit 0x80
-static_assert(BeamCrypto_MultiMac_Prepared_nCount < s_WNaf_HiBit, "");
+static_assert(BeamCrypto_MultiMac_Fast_nCount < s_WNaf_HiBit, "");
 
 #ifdef USE_SCALAR_4X64
 typedef uint64_t secp256k1_scalar_uint;
@@ -51,6 +51,10 @@ typedef uint64_t secp256k1_scalar_uint;
 typedef uint32_t secp256k1_scalar_uint;
 #endif // USE_SCALAR_4X64
 
+#define secp256k1_scalar_WordBits (sizeof(secp256k1_scalar_uint) * 8)
+
+//////////////////////////////
+// MultiMac
 typedef struct
 {
 	int m_Word;
@@ -59,10 +63,8 @@ typedef struct
 
 inline static void BitWalker_SetPos(BitWalker* p, uint8_t iBit)
 {
-	const unsigned int nWordBits = sizeof(secp256k1_scalar_uint) * 8;
-
-	p->m_Word = iBit / nWordBits;
-	p->m_Msk = ((secp256k1_scalar_uint) 1) << (iBit & (nWordBits - 1));
+	p->m_Word = iBit / secp256k1_scalar_WordBits;
+	p->m_Msk = ((secp256k1_scalar_uint) 1) << (iBit & (secp256k1_scalar_WordBits - 1));
 }
 
 inline static void BitWalker_MoveUp(BitWalker* p)
@@ -78,8 +80,7 @@ inline static void BitWalker_MoveDown(BitWalker* p)
 {
 	if (!(p->m_Msk >>= 1))
 	{
-		const unsigned int nWordBits = sizeof(secp256k1_scalar_uint) * 8;
-		p->m_Msk = ((secp256k1_scalar_uint) 1) << (nWordBits - 1);
+		p->m_Msk = ((secp256k1_scalar_uint) 1) << (secp256k1_scalar_WordBits - 1);
 
 		p->m_Word--;
 	}
@@ -118,7 +119,7 @@ static void WNaf_Cursor_MoveNext(BeamCrypto_MultiMac_WNaf_Cursor* p, const secp2
 
 	uint8_t nOdd = 1;
 
-	uint8_t nWndBits = BeamCrypto_MultiMac_Prepared_nBits - 1;
+	uint8_t nWndBits = BeamCrypto_MultiMac_Fast_nBits - 1;
 	if (nWndBits > p->m_iBit)
 		nWndBits = p->m_iBit;
 
@@ -137,7 +138,7 @@ static void WNaf_Cursor_MoveNext(BeamCrypto_MultiMac_WNaf_Cursor* p, const secp2
 static int Scalar_SplitPosNeg(BeamCrypto_MultiMac_Scalar* p)
 {
 #if BeamCrypto_MultiMac_Directions != 2
-	static_assert(BeamCrypto_MultiMac_Directions == 1);
+	static_assert(BeamCrypto_MultiMac_Directions == 1, "");
 #else // BeamCrypto_MultiMac_Directions
 
 	memset(p->m_pK[1].d, 0, sizeof(p->m_pK[1].d));
@@ -152,7 +153,7 @@ static int Scalar_SplitPosNeg(BeamCrypto_MultiMac_Scalar* p)
 		// find nnz bit
 		while (1)
 		{
-			if (iBit >= BeamCrypto_nBits - BeamCrypto_MultiMac_Prepared_nBits)
+			if (iBit >= BeamCrypto_nBits - BeamCrypto_MultiMac_Fast_nBits)
 				return 0;
 
 			if (BitWalker_get(&bw, p->m_pK))
@@ -164,8 +165,8 @@ static int Scalar_SplitPosNeg(BeamCrypto_MultiMac_Scalar* p)
 
 		BitWalker bw0 = bw;
 
-		iBit += BeamCrypto_MultiMac_Prepared_nBits;
-		for (uint32_t i = 0; i < BeamCrypto_MultiMac_Prepared_nBits; i++)
+		iBit += BeamCrypto_MultiMac_Fast_nBits;
+		for (uint32_t i = 0; i < BeamCrypto_MultiMac_Fast_nBits; i++)
 			BitWalker_MoveUp(&bw); // akward
 
 		if (!BitWalker_get(&bw, p->m_pK))
@@ -175,7 +176,7 @@ static int Scalar_SplitPosNeg(BeamCrypto_MultiMac_Scalar* p)
 		BitWalker_xor(&bw0, p->m_pK);
 		BitWalker_xor(&bw0, p->m_pK + 1);
 
-		for (uint8_t i = 1; i < BeamCrypto_MultiMac_Prepared_nBits; i++)
+		for (uint8_t i = 1; i < BeamCrypto_MultiMac_Fast_nBits; i++)
 		{
 			BitWalker_MoveUp(&bw0);
 
@@ -205,7 +206,7 @@ void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context* p)
 {
 	secp256k1_gej_set_infinity(p->m_pRes);
 
-	for (unsigned int i = 0; i < p->m_Count; i++)
+	for (unsigned int i = 0; i < p->m_Fast; i++)
 	{
 		BeamCrypto_MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
 		BeamCrypto_MultiMac_Scalar* pS = p->m_pS + i;
@@ -223,13 +224,12 @@ void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context* p)
 		WNaf_Cursor_MoveNext(pWnaf->m_pC + 1, pS->m_pK + 1);
 #endif // BeamCrypto_MultiMac_Directions
 	}
-		
+
 	for (uint16_t iBit = BeamCrypto_nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
 	{
-		if (!secp256k1_gej_is_infinity(p->m_pRes))
-			secp256k1_gej_double_var(p->m_pRes, p->m_pRes, 0);
+		secp256k1_gej_double_var(p->m_pRes, p->m_pRes, 0); // would be fast if zero, no need to check explicitly
 
-		for (unsigned int i = 0; i < p->m_Count; i++)
+		for (unsigned int i = 0; i < p->m_Fast; i++)
 		{
 			BeamCrypto_MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
 
@@ -245,7 +245,7 @@ void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context* p)
 					continue;
 
 				secp256k1_ge ge;
-				secp256k1_ge_from_storage(&ge, p->m_pPrep[i].m_pPt + (pWc->m_iElement & ~s_WNaf_HiBit));
+				secp256k1_ge_from_storage(&ge, p->m_pGenFast[i].m_pPt + (pWc->m_iElement & ~s_WNaf_HiBit));
 
 				if (j)
 					secp256k1_ge_neg(&ge, &ge);

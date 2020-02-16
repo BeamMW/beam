@@ -16,13 +16,12 @@
 #include "ecc_decl.h"
 
 #define BeamCrypto_MultiMac_Directions 2 // must be 1 or 2. For 2 interleaving is used. Faster (~1 effective window bit), but needs an extra scalar per element
-#define BeamCrypto_MultiMac_Prepared_nBits 4
-#define BeamCrypto_MultiMac_Prepared_nCount (1 << (BeamCrypto_MultiMac_Prepared_nBits - 1)) // odd powers
+#define BeamCrypto_MultiMac_Fast_nBits 4
+#define BeamCrypto_MultiMac_Fast_nCount (1 << (BeamCrypto_MultiMac_Fast_nBits - 1)) // odd powers
 
 typedef struct {
-	secp256k1_ge_storage m_pPt[BeamCrypto_MultiMac_Prepared_nCount]; // odd powers
-} BeamCrypto_MultiMac_Prepared;
-
+	secp256k1_ge_storage m_pPt[BeamCrypto_MultiMac_Fast_nCount]; // odd powers
+} BeamCrypto_MultiMac_Fast;
 
 typedef struct {
 	uint8_t m_iBit;
@@ -41,8 +40,9 @@ typedef struct
 {
 	secp256k1_gej* m_pRes;
 
-	unsigned int m_Count;
-	const BeamCrypto_MultiMac_Prepared* m_pPrep;
+	unsigned int m_Fast;
+
+	const BeamCrypto_MultiMac_Fast* m_pGenFast;
 	BeamCrypto_MultiMac_Scalar* m_pS;
 	BeamCrypto_MultiMac_WNaf* m_pWnaf;
 

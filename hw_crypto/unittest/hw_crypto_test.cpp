@@ -97,19 +97,19 @@ void TestMultiMac()
 {
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
 
-	uint32_t bb = sizeof(BeamCrypto_MultiMac_Prepared);
+	uint32_t bb = sizeof(BeamCrypto_MultiMac_Fast);
 	uint32_t cc = sizeof(BeamCrypto_MultiMac_WNaf);
 	bb; cc;
 
 	const uint32_t nBatch = 8;
 
-	BeamCrypto_MultiMac_Prepared pPrepared[nBatch];
+	BeamCrypto_MultiMac_Fast pGenFast[nBatch];
 	BeamCrypto_MultiMac_WNaf pWnaf[nBatch];
 	BeamCrypto_MultiMac_Scalar pS[nBatch];
 
 	BeamCrypto_MultiMac_Context mmCtx;
-	mmCtx.m_Count = nBatch;
-	mmCtx.m_pPrep = pPrepared;
+	mmCtx.m_Fast = nBatch;
+	mmCtx.m_pGenFast = pGenFast;
 	mmCtx.m_pS = pS;
 	mmCtx.m_pWnaf = pWnaf;
 
@@ -120,7 +120,7 @@ void TestMultiMac()
 		const ECC::MultiMac::Prepared& p = ECC::Context::get().m_Ipp.m_pGen_[0][iGen];
 		mm1.m_ppPrepared[iGen] = &p;
 
-		BeamCrypto_MultiMac_Prepared& trg = pPrepared[iGen];
+		BeamCrypto_MultiMac_Fast& trg = pGenFast[iGen];
 		const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
 
 		static_assert(_countof(trg.m_pPt) <= _countof(src.m_pPt));
