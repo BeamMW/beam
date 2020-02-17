@@ -120,6 +120,41 @@ void BeamCrypto_InitGenSecure(BeamCrypto_MultiMac_Secure& x, const ECC::Point::N
 	cpc.Flush();
 }
 
+void BeamCrypto_InitFast(BeamCrypto_MultiMac_Fast& trg, const ECC::MultiMac::Prepared p)
+{
+	const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
+
+	static_assert(_countof(trg.m_pPt) <= _countof(src.m_pPt));
+
+	for (uint32_t j = 0; j < _countof(trg.m_pPt); j++)
+		trg.m_pPt[j] = src.m_pPt[j];
+}
+
+void InitContext()
+{
+	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
+	assert(pCtx);
+
+	const ECC::Context& ctx = ECC::Context::get();
+
+	ECC::Point::Native nums, pt;
+	ctx.m_Ipp.m_GenDot_.m_Fast.m_pPt[0].Assign(nums, true); // whatever point, doesn't matter actually
+
+	ctx.m_Ipp.G_.m_Fast.m_pPt[0].Assign(pt, true);
+	BeamCrypto_InitGenSecure(pCtx->m_GenG, pt, nums);
+
+	ctx.m_Ipp.J_.m_Fast.m_pPt[0].Assign(pt, true);
+	BeamCrypto_InitGenSecure(pCtx->m_GenJ, pt, nums);
+
+	static_assert(ECC::InnerProduct::nDim * 2 == BeamCrypto_MultiMac_Fast_Idx_H);
+
+	for (uint32_t iGen = 0; iGen < ECC::InnerProduct::nDim * 2; iGen++)
+		BeamCrypto_InitFast(pCtx->m_pGenFast[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen]);
+
+	BeamCrypto_InitFast(pCtx->m_pGenFast[BeamCrypto_MultiMac_Fast_Idx_H], ECC::Context::get().m_Ipp.H_);
+}
+
+
 void TestMultiMac()
 {
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
@@ -134,7 +169,6 @@ void TestMultiMac()
 
 	const uint32_t nBatch = nFast + nSecure;
 
-	BeamCrypto_MultiMac_Fast pGenFast[nFast];
 	BeamCrypto_MultiMac_WNaf pWnaf[nFast];
 	BeamCrypto_MultiMac_Scalar pFastS[nFast];
 
@@ -142,9 +176,10 @@ void TestMultiMac()
 	secp256k1_scalar pSecureS[nSecure];
 
 	BeamCrypto_MultiMac_Context mmCtx;
+	mmCtx.m_pZDenom = nullptr;
 	mmCtx.m_Fast = nFast;
 	mmCtx.m_Secure = nSecure;
-	mmCtx.m_pGenFast = pGenFast;
+	mmCtx.m_pGenFast = BeamCrypto_Context_get()->m_pGenFast;
 	mmCtx.m_pS = pFastS;
 	mmCtx.m_pWnaf = pWnaf;
 	mmCtx.m_pGenSecure = pGenSecure;
@@ -156,14 +191,6 @@ void TestMultiMac()
 	{
 		const ECC::MultiMac::Prepared& p = ECC::Context::get().m_Ipp.m_pGen_[0][iGen];
 		mm1.m_ppPrepared[iGen] = &p;
-
-		BeamCrypto_MultiMac_Fast& trg = pGenFast[iGen];
-		const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
-
-		static_assert(_countof(trg.m_pPt) <= _countof(src.m_pPt));
-
-		for (uint32_t j = 0; j < _countof(trg.m_pPt); j++)
-			trg.m_pPt[j] = src.m_pPt[j];
 	}
 
 	ECC::Point::Native ptVal, nums;
@@ -380,6 +407,8 @@ int main()
 	Rules::get().CA.Enabled = true;
 	Rules::get().pForks[1].m_Height = g_hFork;
 	Rules::get().pForks[2].m_Height = g_hFork;
+
+	InitContext();
 
 	TestMultiMac();
 	TestNonceGen();
