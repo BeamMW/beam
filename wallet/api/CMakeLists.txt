@@ -9,9 +9,6 @@ target_link_libraries(wallet_api_proto
         wallet_client
         utility
 )
-# if(BEAM_ATOMIC_SWAP_SUPPORT)
-#     target_compile_definitions(wallet_api_proto PUBLIC BEAM_ATOMIC_SWAP_SUPPORT)
-# endif()
 
 add_library(wallet_api STATIC api_connection.cpp)
 
