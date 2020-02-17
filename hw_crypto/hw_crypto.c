@@ -873,6 +873,46 @@ void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
 	BeamCrypto_NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &hv);
 
 	BeamCrypto_NonceGenerator_NextScalar(&ng, &alpha);
+
+	// TODO: embed params into alpha
+
+	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
+
+	// CalcA
+	secp256k1_ge ge;
+	secp256k1_gej gej;
+	BeamCrypto_MultiMac_Context mmCtx;
+	mmCtx.m_pRes = &gej;
+	mmCtx.m_Fast = 0;
+	mmCtx.m_Secure = 1;
+	mmCtx.m_pGenSecure = &pCtx->m_GenG;
+	mmCtx.m_pSecureK = &alpha;
+	mmCtx.m_pZDenom = 0;
+
+	BeamCrypto_MultiMac_Calculate(&mmCtx); // alpha*G
+
+	BeamCrypto_Amount v = p->m_Cid.m_Amount;
+	const uint64_t nBits = sizeof(BeamCrypto_Amount) * 8;
+
+	for (uint32_t i = 0; i < nBits; i++)
+	{
+		if (1 & (v >> i))
+			secp256k1_ge_from_storage(&ge, pCtx->m_pGenFast[i].m_pPt);
+		else
+		{
+			secp256k1_ge_from_storage(&ge, pCtx->m_pGenFast[nBits + i].m_pPt);
+			secp256k1_ge_neg(&ge, &ge);
+		}
+
+		secp256k1_gej_add_ge_var(&gej, &gej, &ge, 0);
+	}
+
+	secp256k1_ge_set_gej(&ge, &gej);
+
+	BeamCrypto_Point_Export(&comm, &ge); // A
+
+
+
 	BeamCrypto_NonceGenerator_NextScalar(&ng, &ro);
 
 
