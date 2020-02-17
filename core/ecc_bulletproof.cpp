@@ -854,10 +854,10 @@ namespace ECC {
 			m_Part2.m_T2 = comm2;
 		}
 
-		cs.Init2(m_Part2, oracle); // get challenge 
-
 		if (Phase::Step2 == ePhase)
 			return true; // stop after T1,T2 calculated
+
+		cs.Init2(m_Part2, oracle); // get challenge 
 
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
 		nonces.AddInfo2(l0, sk, cs);
