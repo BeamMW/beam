@@ -1123,7 +1123,7 @@ int main(int argc, char* argv[])
 
             if (!node_addr.resolve(options.nodeURI.c_str()))
             {
-                LOG_ERROR() << "unable to resolve node address4: `" << options.nodeURI << "`";
+                LOG_ERROR() << "unable to resolve node address: `" << options.nodeURI << "`";
                 return -1;
             }
         }
