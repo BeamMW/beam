@@ -364,6 +364,7 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 	rp.m_Cid = cid2;
 	rp.m_pT[0] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T1);
 	rp.m_pT[1] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T2);
+	rp.m_pKExtra = nullptr;
 	ZeroObject(rp.m_TauX);
 
 	verify_test(BeamCrypto_RangeProof_Calculate(&rp)); // Phase 2
