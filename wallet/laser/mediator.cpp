@@ -24,8 +24,7 @@
 
 namespace
 {
-const beam::Timestamp kToleranceSeconds =
-    60 * beam::wallet::laser::kMaxRolbackHeight;
+const beam::Timestamp kToleranceSeconds = 60 * 8; // TODO: maybe use Node built-in status notifications to detect out-of-sync
 
 bool IsValidTimeStamp(beam::Timestamp currentBlockTime_s)
 {
@@ -591,15 +590,8 @@ void Mediator::OnIncoming(const ChannelIDPtr& chID,
 
 void Mediator::OpenInternal(const ChannelIDPtr& chID)
 {
-    Block::SystemState::Full tip;
-    get_History().get_Tip(tip);
-
-    HeightRange openWindow;
-    openWindow.m_Min = tip.m_Height;
-    openWindow.m_Max = openWindow.m_Min + kDefaultTxLifetime;
-
     auto& ch = m_channels[chID];
-    if (ch && ch->Open(openWindow))
+    if (ch && ch->Open(kDefaultTxLifetime))
     {
         LOG_INFO() << "Opening channel: "
                    << to_hex(chID->m_pData, chID->nBytes);
@@ -784,7 +776,7 @@ void Mediator::UpdateChannels()
         {
             ch->LogNewState();
             PrepareToForget(ch);
-            if (!ch->IsNegotiating() && ch->IsSafeToForget(kMaxRolbackHeight))
+            if (!ch->IsNegotiating() && ch->IsSafeToForget())
             {
                 m_readyForForgetChannels.push_back(ch->get_chID());
             }

@@ -462,4 +462,4 @@ namespace beam::wallet
         std::map<std::string, FuncInfo> _methods;
         ACL _acl;
     };
-}
+}  // namespace beam::wallet

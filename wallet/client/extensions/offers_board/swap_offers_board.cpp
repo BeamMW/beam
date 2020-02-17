@@ -23,10 +23,10 @@ namespace beam::wallet
  *  @messageEndpoint    outgoing messages destination
  *  @protocolHandler    offer board protocol handler
  */
-SwapOffersBoard::SwapOffersBoard(IBroadcastMsgsGateway& broadcastGateway,
-                                    OfferBoardProtocolHandler& protocolHandler)
-    :   m_broadcastGateway(broadcastGateway),
-        m_protocolHandler(protocolHandler)
+SwapOffersBoard::SwapOffersBoard(IBroadcastMsgGateway& broadcastGateway,
+                                 OfferBoardProtocolHandler& protocolHandler)
+    : m_broadcastGateway(broadcastGateway),
+      m_protocolHandler(protocolHandler)
 {
     broadcastGateway.registerListener(BroadcastContentType::SwapOffers, this);
 }
@@ -278,7 +278,7 @@ void SwapOffersBoard::notifySubscribers(ChangeAction action, const std::vector<S
 {
     for (const auto sub : m_subscribers)
     {
-        sub->onSwapOffersChanged(action, std::vector<SwapOffer>{offers});
+            sub->onSwapOffersChanged(action, std::vector<SwapOffer>{offers});
     }
 }
 

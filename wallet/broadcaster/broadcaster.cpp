@@ -18,6 +18,7 @@
 
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
+#include "utility/string_helpers.h"
 
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/wallet_network.h"
@@ -45,6 +46,60 @@ WalletID channelToWalletID(BbsChannel channel)
     return dummyWalletID;
 }
 
+bool parseUpdateInfo(const std::string& versionString, const std::string& typeString, VersionInfo& result)
+{
+    Version version;
+    bool res = version.from_string(versionString);
+    if (!res)
+    {
+        return false;
+    }
+
+    VersionInfo::Application appType = VersionInfo::from_string(typeString);
+    if (appType == VersionInfo::Application::Unknown)
+    {
+        return false;
+    }
+    
+    result.m_application = appType;
+    result.m_version = version;
+    return true;
+}
+
+bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate, ExchangeRates& result)
+{
+    auto currency = ExchangeRates::from_string(currencyString);
+    if (currency == ExchangeRates::Currency::Unknown || rate == 0)
+    {
+        return false;
+    }
+
+    result.m_rates = { {currency, rate, ExchangeRates::Currency::Usd} };
+    return true;
+}
+
+ByteBuffer generateUpdateMessage(const std::string& versionString, const std::string& typeString)
+{
+    VersionInfo result;
+    bool res = parseUpdateInfo(versionString, typeString, result);
+    if (!res)
+    {
+        return ByteBuffer();
+    }
+    return toByteBuffer(result);
+}
+
+ByteBuffer generateExchangeRates(const std::string& currencyString, const Amount& rate)
+{
+    ExchangeRates result;
+    bool res = parseExchangeRateInfo(currencyString, rate, result);
+    if (!res)
+    {
+        return ByteBuffer();
+    }
+    return toByteBuffer(result);
+}
+
 int main_impl(int argc, char* argv[])
 {
     using namespace beam;
@@ -62,8 +117,20 @@ int main_impl(int argc, char* argv[])
             Nonnegative<uint32_t> pollPeriod_ms;
             uint32_t logCleanupPeriod;
 
-            std::string bbsMessage;
             std::string privateKey;
+            std::string messageType;
+
+            struct WalletUpdateInfo {
+                std::string version;
+                std::string walletType;
+            } walletUpdateInfo;
+
+            struct ExchangeRate {
+                std::string currency;
+                beam::Amount rate;
+                // test usd only
+                // std::string unitOfMeasurment;
+            } exchangeRate;
         } options;
 
         io::Address nodeAddress;
@@ -71,7 +138,7 @@ int main_impl(int argc, char* argv[])
         reactor = io::Reactor::create();
 
         {
-            po::options_description desc("Beam BBS general options");
+            po::options_description desc("General options");
             desc.add_options()
                 (cli::HELP_FULL, "list of all options")
                 (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
@@ -81,13 +148,17 @@ int main_impl(int argc, char* argv[])
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             ;
 
-            po::options_description bbsDesc("BBS message options");
-            bbsDesc.add_options()
-                (cli::BBS_MESSAGE, po::value<std::string>(&options.bbsMessage), "BBS message to broadcast")
-                (cli::PRIVATE_KEY, po::value<std::string>(&options.privateKey), "private key to sign BBS message")
+            po::options_description messageDesc("Broadcast message options");
+            messageDesc.add_options()
+                (cli::PRIVATE_KEY, po::value<std::string>(&options.privateKey), "private key to sign message")
+                (cli::MESSAGE_TYPE, po::value<std::string>(&options.messageType), "type of message: 'update' - info about available software updates, 'exchange' - info about current exchange rates")
+                (cli::UPDATE_VERSION, po::value<std::string>(&options.walletUpdateInfo.version), "available software version in format 'x.x.x'")
+                (cli::UPDATE_TYPE, po::value<std::string>(&options.walletUpdateInfo.walletType), "updated software: 'desktop', 'android', 'ios'")
+                (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum'")
+                (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")
             ;
             
-            desc.add(bbsDesc);
+            desc.add(messageDesc);
             desc.add(createRulesOptionsDescription());
 
             po::variables_map vm;
@@ -117,7 +188,7 @@ int main_impl(int argc, char* argv[])
             getRulesOptions(vm);
 
             Rules::get().UpdateChecksum();
-            LOG_INFO() << "BBS broadcasting utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
+            LOG_INFO() << "Broadcasting utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             
             if (vm.count(cli::NODE_ADDR) == 0)
@@ -126,9 +197,9 @@ int main_impl(int argc, char* argv[])
                 return -1;
             }
 
-            if (vm.count(cli::BBS_MESSAGE) == 0)
+            if (vm.count(cli::MESSAGE_TYPE) == 0)
             {
-                LOG_ERROR() << "message has to be specified";
+                LOG_ERROR() << "message type has to be specified";
                 return -1;
             }
 
@@ -167,7 +238,7 @@ int main_impl(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
 
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
+        LocalPrivateKeyKeeper keyKeeper(walletDB, walletDB->get_MasterKdf());
         Wallet wallet(walletDB);
 
         wallet.ResumeAllTransactions();
@@ -205,11 +276,34 @@ int main_impl(int argc, char* argv[])
             return -1;
         }
 
-        VersionInfo versionInfo;
-        versionInfo.m_application = VersionInfo::Application::DesktopWallet;
-        versionInfo.m_version = Version(1,2,3);
-        BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(versionInfo), key);
-        broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
+        ByteBuffer rawMessage;
+        BroadcastContentType contentType;
+        if (options.messageType == "update")
+        {
+            rawMessage = generateUpdateMessage(options.walletUpdateInfo.version, options.walletUpdateInfo.walletType);
+            contentType = BroadcastContentType::SoftwareUpdates;
+        }
+        else if (options.messageType == "exchange")
+        {
+            rawMessage = generateExchangeRates(options.exchangeRate.currency, options.exchangeRate.rate);
+            contentType = BroadcastContentType::ExchangeRates;
+        }
+        else
+        {
+            LOG_ERROR() << "Invalid type of message: " << options.messageType;
+            return -1;
+        }
+
+        if (rawMessage.size())
+        {
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(rawMessage, key);
+            broadcastRouter.sendMessage(contentType, msg);
+        }
+        else
+        {
+            LOG_ERROR() << "Invalid message parameters";
+            return -1;
+        }
 
         io::Reactor::get_Current().run();
 

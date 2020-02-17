@@ -354,9 +354,9 @@ const WalletAddress& Channel::get_myAddr() const
     return m_myAddr;
 }
 
-bool Channel::Open(HeightRange openWindow)
+bool Channel::Open(Height hOpenTxDh)
 {
-    return Lightning::Channel::Open(m_aMy, m_aTrg, openWindow);
+    return Lightning::Channel::Open(m_aMy, m_aTrg, hOpenTxDh);
 }
 
 bool Channel::TransformLastState()
@@ -380,7 +380,7 @@ void Channel::UpdateRestorePoint()
 
     ser & m_State.m_hTxSentLast;
     ser & m_State.m_hQueryLast;
-    ser & m_State.m_Close.m_iPath;
+    ser & m_State.m_Close.m_nRevision;
     ser & m_State.m_Close.m_Initiator;
     ser & m_State.m_Close.m_hPhase1;
     ser & m_State.m_Close.m_hPhase2;
@@ -400,23 +400,24 @@ void Channel::UpdateRestorePoint()
     }
     ser & m_pOpen->m_cidChange;
 
-    ser & m_vUpdates.size();
-    for (auto& upd : m_vUpdates)
+    ser & m_nRevision;
+    ser & m_lstUpdates.size();
+    for (auto& upd : m_lstUpdates)
     {
-        ser & upd->m_Comm1;
-        ser & upd->m_tx1;
-        ser & upd->m_tx2;
-        ser & upd->m_CommPeer1;
-        ser & upd->m_txPeer2;
+        ser & upd.m_Comm1;
+        ser & upd.m_tx1;
+        ser & upd.m_tx2;
+        ser & upd.m_CommPeer1;
+        ser & upd.m_txPeer2;
 
-        ser & upd->m_RevealedSelfKey;
-        ser & upd->m_PeerKeyValid;
-        ser & upd->m_PeerKey;
+        ser & upd.m_RevealedSelfKey;
+        ser & upd.m_PeerKeyValid;
+        ser & upd.m_PeerKey;
 
-        ser & upd->m_msMy;
-        ser & upd->m_msPeer;
-        ser & upd->m_Outp;
-        ser & upd->m_Type;
+        ser & upd.m_msMy;
+        ser & upd.m_msPeer;
+        ser & upd.m_Outp;
+        ser & upd.m_Type;
     }
 
     Blob blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second));
@@ -428,11 +429,11 @@ void Channel::UpdateRestorePoint()
     }
     m_bbsTimestamp = getTimestamp();
 
-    if (!m_vUpdates.empty())
+    if (!m_lstUpdates.empty())
     {
-        const auto& lastUpdate = m_vUpdates.back();
-        m_aCurMy = lastUpdate->m_Outp.m_Value;
-        auto total = lastUpdate->m_msMy.m_Value;
+        const auto& lastUpdate = m_lstUpdates.back();
+        m_aCurMy = lastUpdate.m_Outp.m_Value;
+        auto total = lastUpdate.m_msMy.m_Value;
         if (!m_gracefulClose)
         {
             total -= m_Params.m_Fee;
@@ -467,9 +468,9 @@ void Channel::LogNewState()
         os << "OpenFailed (Not confirmed, missed height window). Waiting for 8 confirmations before forgetting";
         break;
     case beam::Lightning::Channel::State::Open:
-        os << "Open. Last Revision: " << m_vUpdates.size()
-           << ". My balance: " << m_vUpdates.back()->m_Outp.m_Value
-           << " / Total balance: " << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
+        os << "Open. Last Revision: " << m_nRevision
+           << ". My balance: " << m_lstUpdates.back().m_Outp.m_Value
+           << " / Total balance: " << (m_lstUpdates.back().m_msMy.m_Value - m_Params.m_Fee);
         break;
     case beam::Lightning::Channel::State::Updating:
         os << "Updating (creating newer Revision)";
@@ -480,17 +481,16 @@ void Channel::LogNewState()
     case beam::Lightning::Channel::State::Closing2:
         {
             os << "Closing2 (Phase-1 withdrawal detected). Revision: "
-               << m_State.m_Close.m_iPath + 1 << ". Initiated by " 
+               << m_State.m_Close.m_nRevision << ". Initiated by " 
                << (m_State.m_Close.m_Initiator ? "me" : "peer");
-            if (DataUpdate::Type::Punishment == 
-                m_vUpdates[m_State.m_Close.m_iPath]->m_Type)
+            if (DataUpdate::Type::Punishment == m_State.m_Close.m_pPath->m_Type)
             {
                 os << ". Fraudulent withdrawal attempt detected! Will claim everything";
             }
         }
         break;
     case beam::Lightning::Channel::State::Closed:
-        os << "Closed. Waiting for " << kMaxRolbackHeight <<" confirmations before forgetting";
+        os << "Closed. Waiting for " << Rules::get().MaxRollback << " confirmations before forgetting";
         break;
     default:
         return;
@@ -517,10 +517,10 @@ void Channel::Unsubscribe()
 }
 
 bool Channel::TransferInternal(
-        Amount nMyNew, uint32_t iRole, bool bCloseGraceful)
+        Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful)
 {
     m_gracefulClose = bCloseGraceful;
-    return Lightning::Channel::TransferInternal(nMyNew, iRole, bCloseGraceful);
+    return Lightning::Channel::TransferInternal(nMyNew, iRole, h, bCloseGraceful);
 }
 
 void Channel::RestoreInternalState(const ByteBuffer& data)
@@ -532,7 +532,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
 
         der & m_State.m_hTxSentLast;
         der & m_State.m_hQueryLast;
-        der & m_State.m_Close.m_iPath;
+        der & m_State.m_Close.m_nRevision;
         der & m_State.m_Close.m_Initiator;
         der & m_State.m_Close.m_hPhase1;
         der & m_State.m_Close.m_hPhase2;
@@ -558,26 +558,32 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
         }
         der & m_pOpen->m_cidChange;
 
+        der & m_nRevision;
         size_t vUpdatesSize = 0;
         der & vUpdatesSize;
-        m_vUpdates.reserve(vUpdatesSize);
         for (size_t i = 0; i < vUpdatesSize; ++i)
         {
-            auto& upd = m_vUpdates.emplace_back(std::make_unique<DataUpdate>());
-            der & upd->m_Comm1;
-            der & upd->m_tx1;
-            der & upd->m_tx2;
-            der & upd->m_CommPeer1;
-            der & upd->m_txPeer2;
+            DataUpdate* pVal = new DataUpdate;
+            DataUpdate& upd = *pVal;
+            m_lstUpdates.push_back(upd);
 
-            der & upd->m_RevealedSelfKey;
-            der & upd->m_PeerKeyValid;
-            der & upd->m_PeerKey;
+            der & upd.m_Comm1;
+            der & upd.m_tx1;
+            der & upd.m_tx2;
+            der & upd.m_CommPeer1;
+            der & upd.m_txPeer2;
 
-            der & upd->m_msMy;
-            der & upd->m_msPeer;
-            der & upd->m_Outp;
-            der & upd->m_Type;
+            der & upd.m_RevealedSelfKey;
+            der & upd.m_PeerKeyValid;
+            der & upd.m_PeerKey;
+
+            der & upd.m_msMy;
+            der & upd.m_msPeer;
+            der & upd.m_Outp;
+            der & upd.m_Type;
+
+            if (m_State.m_Close.m_nRevision == m_nRevision - vUpdatesSize + i + 1)
+                m_State.m_Close.m_pPath = pVal;
         }
     }
     catch (const std::exception&)

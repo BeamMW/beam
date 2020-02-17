@@ -288,6 +288,7 @@ namespace beam
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
 		size_t FindFork(Height) const;
+		Height get_ForkMaxHeightSafe(size_t iFork) const;
 		std::string get_SignatureStr() const;
 
 	private:
@@ -598,6 +599,7 @@ namespace beam
 
 		struct Internal
 		{
+			bool m_HasNonStd = false; // is it or does it contain non-std kernels with side effects and mutual dependencies. Those should not be sorted!
 			Merkle::Hash m_ID; // unique kernel identifier in the system.
 		} m_Internal;
 

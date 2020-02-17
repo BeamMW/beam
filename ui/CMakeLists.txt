@@ -139,6 +139,7 @@ set(UI_SRC
     viewmodel/settings_view.cpp
     viewmodel/address_book_view.h
     viewmodel/address_book_view.cpp
+    viewmodel/notifications_view.cpp
     viewmodel/ui_helpers.h
     viewmodel/ui_helpers.cpp
     viewmodel/messages_view.h

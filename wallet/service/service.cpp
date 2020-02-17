@@ -22,6 +22,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <map>
 #include <queue>
+#include <cstdio>
 
 #include "utility/cli/options.h"
 #include "utility/helpers.h"
@@ -71,15 +72,17 @@ namespace beam::wallet
     struct WalletInfo
     {
         std::string ownerKey;
-        IWalletDB::Ptr walletDB;
+        std::weak_ptr<Wallet> wallet;
+        std::weak_ptr<IWalletDB> walletDB;
         
-        WalletInfo(const std::string& ownerKey, IWalletDB::Ptr walletDB)
+        WalletInfo(const std::string& ownerKey, Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
             : ownerKey(ownerKey)
+            , wallet(wallet)
             , walletDB(walletDB)
         {}
         WalletInfo() = default;
     };
-    static std::map<std::string, WalletInfo> WalletsMap;
+    static std::unordered_map<std::string, WalletInfo> WalletsMap;
 
     static const char JsonRpcHrd[] = "jsonrpc";
     static const char JsonRpcVerHrd[] = "2.0";
@@ -283,6 +286,7 @@ namespace beam::wallet
             throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
 
         Send send;
+
         send.value = params["value"];
 
         if (existsJsonParam(params, "coins"))
@@ -294,7 +298,18 @@ namespace beam::wallet
         //     send.session = readSessionParameter(id, params);
         // }
 
-        if (!send.address.FromHex(params["address"]))
+        auto txParams = ParseParameters(params["address"]);
+        if (!txParams)
+        {
+            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address or token.", id };
+        }
+        send.txParameters = *txParams;
+
+        if (auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
+        {
+            send.address = *peerID;
+        }
+        else
         {
             throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address.", id };
         }
@@ -546,6 +561,16 @@ namespace beam::wallet
         _handler.onMessage(id, openWallet);
     }
 
+    void WalletApi::onPingMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        _handler.onMessage(id, Ping{});
+    }
+
+    void WalletApi::onReleaseMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        _handler.onMessage(id, Release{});
+    }
+
     void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
     {
         msg = json
@@ -772,6 +797,26 @@ namespace beam::wallet
         };
     }
 
+    void WalletApi::getResponse(const JsonRpcId& id, const Ping::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", "pong"}
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const Release::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", "done"}
+        };
+    }
+
     // void WalletApi::getResponse(const JsonRpcId& id, const Lock::Response& res, json& msg)
     // {
     //     msg = json
@@ -966,24 +1011,22 @@ namespace
 
     private:
 
-        struct ApiConnectionHandler
+        struct IApiConnectionHandler
         {
             virtual void serializeMsg(const json& msg) = 0;
+            using KeyKeeperFunc = std::function<void(const json&)>;
+            virtual void sendAsync(const json& msg, KeyKeeperFunc func) = 0;
         };
-
-        class session;
 
         class WasmKeyKeeperProxy 
             : public PrivateKeyKeeper_AsyncNotify
             , public std::enable_shared_from_this<WasmKeyKeeperProxy>
         {
-            Key::IPKdf::Ptr _ownerKdf;
-            session& _s;
-            io::Reactor::Ptr _reactor;
         public:
-            WasmKeyKeeperProxy(Key::IPKdf::Ptr ownerKdf, session& s, io::Reactor::Ptr reactor)
+
+            WasmKeyKeeperProxy(Key::IPKdf::Ptr ownerKdf, IApiConnectionHandler& connection, io::Reactor::Ptr reactor)
             : _ownerKdf(ownerKdf)
-            , _s(s)
+            , _connection(connection)
             , _reactor(reactor)
             {}
             virtual ~WasmKeyKeeperProxy(){}
@@ -1014,7 +1057,8 @@ namespace
                     }
                 };
 
-                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
+
+                _connection.sendAsync(msg, [this, &x, h](const json& msg)
                     {
                         Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
@@ -1039,7 +1083,7 @@ namespace
                     {"method", "get_slots"}
                 };
 
-                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
+                _connection.sendAsync(msg, [this, &x, h](const json& msg)
                 {
                     Status::Type s = GetStatus(msg);
                     if (s == Status::Success)
@@ -1065,7 +1109,7 @@ namespace
                     }
                 };
 
-                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
+                _connection.sendAsync(msg, [this, &x, h](const json& msg)
                     {
                         Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
@@ -1095,14 +1139,12 @@ namespace
                     }
                 };
 
-                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
+                _connection.sendAsync(msg, [this, &x, h](const json& msg)
                     {
                         Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
-                            x.m_kOffset = GetOffset(msg);
-                            x.m_PaymentProofSignature = GetPaymentProofSignature(msg);
-                            x.m_pKernel = GetKernel(msg);
+                            GetMutualResult(x, msg);
                         }
                         PushOut(s, h);
                     });
@@ -1125,25 +1167,27 @@ namespace
                             {"my_id_key", to_base64(x.m_MyIDKey)},
                             {"slot",      x.m_Slot},
                             {"agreement", to_base64(x.m_UserAgreement)},
-                            {"my_id",     to_base64(x.m_MyID)}
+                            {"my_id",     to_base64(x.m_MyID)},
+                            {"payment_proof_sig", to_base64(x.m_PaymentProofSignature)}
                         }
                     }
                 };
 
-                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
+                _connection.sendAsync(msg, [this, &x, h](const json& msg)
                     {
                         Status::Type s = GetStatus(msg);
+
                         if (s == Status::Success)
                         {
-                            x.m_pKernel = GetKernel(msg);
                             if (x.m_UserAgreement == Zero)
                             {
                                 x.m_UserAgreement = from_base64<ECC::Hash::Value>(msg["agreement"]);
+                                x.m_pKernel->m_Commitment = from_base64<ECC::Point>(msg["commitment"]);
+                                x.m_pKernel->m_Signature.m_NoncePub = from_base64<ECC::Point>(msg["pub_nonce"]);
                             }
                             else
                             {
-                                x.m_kOffset = GetOffset(msg);
-                                x.m_PaymentProofSignature = GetPaymentProofSignature(msg);
+                                GetCommonResult(x, msg);
                             }
                         }
                         PushOut(s, h);
@@ -1167,16 +1211,29 @@ namespace
                     }
                 };
 
-                _s.call_keykeeper_method_async(msg, [this, &x, h](const json& msg)
+                _connection.sendAsync(msg, [this, &x, h](const json& msg)
                     {
                         Status::Type s = GetStatus(msg);
                         if (s == Status::Success)
                         {
-                            x.m_kOffset = GetOffset(msg);
-                            x.m_pKernel = GetKernel(msg);
+                            GetCommonResult(x, msg);
                         }
                         PushOut(s, h);
                     });
+            }
+
+
+            static void GetMutualResult(Method::TxMutual& x, const json& msg)
+            {
+                x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
+                GetCommonResult(x, msg);
+            }
+
+            static void GetCommonResult(Method::TxCommon& x, const json& msg)
+            {
+                auto offset = from_base64<ECC::Scalar>(msg["offset"]);
+                x.m_kOffset.Import(offset);
+                x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
             }
 
             static Status::Type GetStatus(const json& msg)
@@ -1184,43 +1241,21 @@ namespace
                 return msg["status"];
             }
 
-            static ECC::Scalar::Native GetOffset(const json& msg)
-            {
-                auto offset = from_base64<ECC::Scalar>(msg["offset"]);
-                ECC::Scalar::Native res;
-                res.Import(offset);
-                return res;
-            }
-
-            static TxKernelStd::Ptr GetKernel(const json& msg)
-            {
-                return from_base64<TxKernelStd::Ptr>(msg["kernel"]);
-            }
-
-            static ECC::Signature GetPaymentProofSignature(const json& msg)
-            {
-                return from_base64<ECC::Signature>(msg["payment_proof_sig"]);
-            }
-
-         //   void subscribe(Handler::Ptr handler) override
-         //   {
-         //       assert(!"not implemented.");
-         //   }
-
         private:
-            mutable Key::IKdf::Ptr _sbbsKdf;
+            Key::IPKdf::Ptr _ownerKdf;
+            IApiConnectionHandler& _connection;
+            io::Reactor::Ptr _reactor;
         };
         
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
         {
-            ApiConnectionHandler* _handler;
+            IApiConnectionHandler* _handler;
             io::Reactor::Ptr _reactor;
         public:
-            ApiConnection(ApiConnectionHandler* handler, io::Reactor::Ptr reactor, session& s) 
+            ApiConnection(IApiConnectionHandler* handler, io::Reactor::Ptr reactor) 
                 : _handler(handler)
                 , _reactor(reactor)
                 , _api(*this)
-                , _session(s)
             {
                 
             }
@@ -1414,7 +1449,7 @@ namespace
                         _walletDB->createAddress(senderAddress);
                         _walletDB->saveAddress(senderAddress);
 
-                        from = senderAddress.m_walletID;     
+                        from = senderAddress.m_walletID;
                     }
 
                     ByteBuffer message(data.comment.begin(), data.comment.end());
@@ -1448,14 +1483,16 @@ namespace
                         doTxAlreadyExistsError(id);
                         return;
                     }
+                    auto params = CreateSimpleTransactionParameters(data.txId);
+                    LoadReceiverParams(data.txParameters, params);
 
-                    auto txId = _wallet->StartTransaction(CreateSimpleTransactionParameters(data.txId)
-                        .SetParameter(TxParameterID::MyID, from)
-                        .SetParameter(TxParameterID::PeerID, data.address)
+                    params.SetParameter(TxParameterID::MyID, from)
                         .SetParameter(TxParameterID::Amount, data.value)
                         .SetParameter(TxParameterID::Fee, data.fee)
                         .SetParameter(TxParameterID::PreselectedCoins, coins)
-                        .SetParameter(TxParameterID::Message, message));
+                        .SetParameter(TxParameterID::Message, message);
+
+                    auto txId = _wallet->StartTransaction(params);
 
                     doResponse(id, Send::Response{ txId });
                 }
@@ -1659,6 +1696,20 @@ namespace
                 doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
             }
 
+            static std::string generateWalletID(Key::IPKdf::Ptr ownerKdf)
+            {
+                Key::ID kid(Zero);
+                kid.m_Type = ECC::Key::Type::WalletID;
+
+                ECC::Point::Native pt;
+                ECC::Hash::Value hv;
+                kid.get_Hash(hv);
+                ownerKdf->DerivePKeyG(pt, hv);
+                PeerID pid;
+                pid.Import(pt);
+                return pid.str();
+            }
+
             static std::string generateUid()
             {
                 std::array<uint8_t, 16> buf{};
@@ -1683,14 +1734,13 @@ namespace
 
                 if(ks.Import(*ownerKdf))
                 {
-                    auto keyKeeper = std::make_shared<WasmKeyKeeperProxy>(ownerKdf, _session, _reactor);
-                    auto dbName = generateUid();
+                    auto keyKeeper = createKeyKeeper(ownerKdf);
+                    auto dbName = generateWalletID(ownerKdf);
                     IWalletDB::Ptr walletDB = WalletDB::init(dbName + ".db", SecString(data.pass), keyKeeper);
 
                     if(walletDB)
                     {
-                        walletDB->Subscribe(this);
-                        WalletsMap[dbName] = WalletInfo( data.ownerKey,  walletDB);
+                        WalletsMap[dbName] = WalletInfo(data.ownerKey, {}, walletDB);
                         // generate default address
                         WalletAddress address;
                         walletDB->createAddress(address);
@@ -1714,12 +1764,17 @@ namespace
                 if (it == WalletsMap.end())
                 {
                     _walletDB = WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeperFromDB(data.id, data.pass));
+                    _wallet = std::make_shared<Wallet>(_walletDB);
+                }
+                else if (auto wdb = it->second.walletDB.lock(); wdb)
+                {
+                    _walletDB = wdb;
+                    _wallet = it->second.wallet.lock();
                 }
                 else
                 {
-                    _walletDB = (it->second.walletDB)
-                        ? it->second.walletDB
-                        : WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeper(data.pass, it->second.ownerKey));
+                    _walletDB = WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeper(data.pass, it->second.ownerKey));
+                    _wallet = std::make_shared<Wallet>(_walletDB);
                 }
                 
                 if(!_walletDB)
@@ -1729,12 +1784,12 @@ namespace
                 }
 
                 WalletsMap[data.id].walletDB = _walletDB;
+                WalletsMap[data.id].wallet = _wallet;
 
                 LOG_INFO() << "wallet sucessfully opened...";
 
                 _walletDB->Subscribe(this);
 
-                _wallet = std::make_unique<Wallet>( _walletDB );
                 _wallet->ResumeAllTransactions();
 
                 auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*_wallet);
@@ -1765,6 +1820,16 @@ namespace
                 auto session = generateUid();
 
                 doResponse(id, OpenWallet::Response{session});
+            }
+
+            void onMessage(const JsonRpcId& id, const Ping& data) override
+            {
+                doResponse(id, Ping::Response{});
+            }
+
+            void onMessage(const JsonRpcId& id, const Release& data) override
+            {
+                doResponse(id, Release::Response{});
             }
 
             // void onMessage(const JsonRpcId& id, const Lock& data) override
@@ -1870,27 +1935,26 @@ namespace
 
             IPrivateKeyKeeper2::Ptr createKeyKeeper(Key::IPKdf::Ptr ownerKdf) const
             {
-                return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, _session, _reactor);
+                return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, *_handler, _reactor);
             }
 
         protected:
             IWalletDB::Ptr _walletDB;
-            std::unique_ptr<Wallet> _wallet;
+            Wallet::Ptr _wallet;
             WalletApi _api;
-            session& _session;
         };
 
         class session : 
             public std::enable_shared_from_this<session>, 
             public ApiConnection, 
-            public ApiConnectionHandler
+            public IApiConnectionHandler
         {
             websocket::stream<tcp::socket> ws_;
             boost::beast::multi_buffer buffer_;
             io::AsyncEvent::Ptr _newDataEvent;
             std::mutex _queueMutex;
             std::queue<std::string> _dataQueue;
-            using KeyKeeperFunc = std::function<void(const json&)>;
+            
             std::queue<KeyKeeperFunc> _keeperCallbacks;
             std::queue<std::string> _writeQueue;
 
@@ -1898,7 +1962,7 @@ namespace
             // Take ownership of the socket
             explicit
             session(tcp::socket socket, io::Reactor::Ptr reactor)
-                : ApiConnection(this, reactor, *this)
+                : ApiConnection(this, reactor)
                 , ws_(std::move(socket))
                 , _newDataEvent(io::AsyncEvent::create(*reactor, [this]() { process_new_data(); }))
             {
@@ -2006,7 +2070,7 @@ namespace
                 {
                     ws_.async_write(
                         boost::asio::buffer(*contents),
-                        [this, sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                        [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
                     {
                         sp->on_write(ec, bytes);
                     });
@@ -2019,7 +2083,7 @@ namespace
                 do_write_json(msg);
             }
 
-            void call_keykeeper_method_async(const json& msg, KeyKeeperFunc func)
+            void sendAsync(const json& msg, KeyKeeperFunc func) override
             {
                 do_write_json(msg, func);
             }
@@ -2032,7 +2096,6 @@ namespace
                     if (func)
                     {
                         _keeperCallbacks.push(std::move(func));
-                        LOG_DEBUG() << "data to key keeper:" << msg.dump();
                     }
                     _writeQueue.push(msg.dump());
 
@@ -2044,7 +2107,7 @@ namespace
 
                 ws_.async_write(
                     boost::asio::buffer(*contents),
-                    [this, sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                    [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
                     {
                         sp->on_write(ec, bytes);
                     });
@@ -2084,8 +2147,6 @@ namespace
                     {
                         if (_keeperCallbacks.empty())
                             return;
-
-                        LOG_DEBUG() << "data from key keeper:" << data;
 
                         _keeperCallbacks.front()(msg["result"]);
                         _keeperCallbacks.pop();
@@ -2151,6 +2212,24 @@ namespace
                     fail(ec, "listen");
                     return;
                 }
+                if (auto pipe = fdopen(3, "w"))
+                {
+                    const char listening[] = "LISTENING";
+                    const auto wsize = sizeof(listening) - sizeof(listening[0]);
+                    if (wsize != fwrite(listening, sizeof(listening[0]),wsize , pipe))
+                    {
+                        LOG_WARNING() << "Failed to write sync pipe";
+                    }
+                    else
+                    {
+                        LOG_INFO() << "Sync pipe: OK, " << listening << ", " << wsize << " bytes";
+                    }
+                    fclose(pipe);
+                }
+                else
+                {
+                    LOG_WARNING() << "Failed to open sync pipe";
+                }
             }
 
             // Start accepting incoming connections
@@ -2184,15 +2263,12 @@ namespace
                 {
                     // Create the session and run it
                     auto s = std::make_shared<session>(std::move(socket_), _reactor);
-                 //   _sessions.push_back(s);
                     s->run();
                 }
 
                 // Accept another connection
                 do_accept();
             }
-
-            std::vector<std::shared_ptr<session>> _sessions;
         };
 
         io::Reactor::Ptr _reactor;
@@ -2268,7 +2344,7 @@ int main(int argc, char* argv[])
 
             if (!node_addr.resolve(options.nodeURI.c_str()))
             {
-                LOG_ERROR() << "unable to resolve node address: " << options.nodeURI;
+                LOG_ERROR() << "unable to resolve node address4: `" << options.nodeURI << "`";
                 return -1;
             }
         }
@@ -2279,8 +2355,8 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, 5);//options.logCleanupPeriod);
 
+        LOG_INFO() << "Starting server on port " << options.port;
         WalletApiServer server(reactor, options.port);
-
         reactor->run();
 
         LOG_INFO() << "Done";

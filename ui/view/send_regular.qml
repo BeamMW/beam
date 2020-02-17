@@ -170,7 +170,7 @@ ColumnLayout {
                 //% "Send"
                 title:            qsTrId("send-title")
                 id:               sendAmountInput
-                amount:           viewModel.sendAmount
+                amountIn:         viewModel.sendAmount
                 hasFee:           true
                 showAddAll:       true
                 maxAvailable:     viewModel.maxAvailable

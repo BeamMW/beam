@@ -52,6 +52,11 @@ struct KeyKeeper
         return ks.m_sRes;
     }
 
+    std::string GetWalletID()
+    {
+        return _impl2.GetWalletID();
+    }
+
     std::string get_Kdf(bool root, Key::Index keyIndex)
     {
         IPrivateKeyKeeper2::Method::get_Kdf method;
@@ -133,9 +138,8 @@ struct KeyKeeper
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ JsonFields::Offset, to_base64(ECC::Scalar(method.m_kOffset)) });
             res.push_back({ JsonFields::PaymentProofSig, to_base64(method.m_PaymentProofSignature) });
-            res.push_back({ JsonFields::Kernel, to_base64(method.m_pKernel) });
+            FillCommonSignatureResult(res, method);
         }
         return res.dump();
     }
@@ -148,7 +152,8 @@ struct KeyKeeper
                          , const std::string& myIDKey
                          , uint32_t slot
                          , const std::string& userAgreement
-                         , const std::string& myID)
+                         , const std::string& myID
+                         , const std::string& paymentProof)
     {
         IPrivateKeyKeeper2::Method::SignSender method;
 
@@ -161,6 +166,7 @@ struct KeyKeeper
         method.m_Slot = slot;
         method.m_UserAgreement = from_base64<ECC::Hash::Value>(userAgreement);
         method.m_MyID = from_base64<PeerID>(myID);
+        method.m_PaymentProofSignature = from_base64<ECC::Signature>(paymentProof);
 
         bool zeroAgreement = method.m_UserAgreement == Zero;
 
@@ -172,16 +178,15 @@ struct KeyKeeper
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ JsonFields::Kernel, to_base64(method.m_pKernel) });
-
             if (zeroAgreement)
             {
                 res.push_back({ JsonFields::UserAgreement, to_base64(method.m_UserAgreement) });
+                res.push_back({ JsonFields::Commitment, to_base64(method.m_pKernel->m_Commitment) });
+                res.push_back({ JsonFields::PublicNonce, to_base64(method.m_pKernel->m_Signature.m_NoncePub) });
             }
             else
             {
-                res.push_back({ JsonFields::Offset, to_base64(ECC::Scalar(method.m_kOffset)) });
-                res.push_back({ JsonFields::PaymentProofSig, to_base64(method.m_PaymentProofSignature) });
+                FillCommonSignatureResult(res, method);
             }
         }
         return res.dump();
@@ -207,10 +212,15 @@ struct KeyKeeper
 
         if (status == IPrivateKeyKeeper2::Status::Success)
         {
-            res.push_back({ JsonFields::Offset, to_base64(ECC::Scalar(method.m_kOffset)) });
-            res.push_back({ JsonFields::Kernel, to_base64(method.m_pKernel) });
+            FillCommonSignatureResult(res, method);
         }
         return res.dump();
+    }
+
+    void FillCommonSignatureResult(json& res, const IPrivateKeyKeeper2::Method::TxCommon& method)
+    {
+        res.push_back({ JsonFields::Offset, to_base64(ECC::Scalar(method.m_kOffset)) });
+        res.push_back({ JsonFields::Kernel, to_base64(method.m_pKernel) });
     }
 
     static std::string GeneratePhrase()
@@ -249,6 +259,18 @@ private:
         using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
 
         bool IsTrustless() override { return true; }
+
+        std::string GetWalletID() const
+        {
+            Key::ID kid(Zero);
+            kid.m_Type = ECC::Key::Type::WalletID;
+
+            ECC::Scalar::Native sk;
+            m_pKdf->DeriveKey(sk, kid);
+            PeerID pid;
+            pid.FromSk(sk);
+            return pid.str();
+        }
     };
     MyKeeKeeper _impl2;
 };
@@ -259,6 +281,7 @@ EMSCRIPTEN_BINDINGS()
     class_<KeyKeeper>("KeyKeeper")
         .constructor<const std::string&>()
         .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
+        .function("getWalletID",            &KeyKeeper::GetWalletID)
 #define THE_MACRO(method) \
         .function(#method, &KeyKeeper::method)\
 

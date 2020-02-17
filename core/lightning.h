@@ -16,6 +16,7 @@
 
 #include "negotiator.h"
 #include "fly_client.h"
+#include <boost/intrusive/list.hpp>
 
 namespace beam {
 namespace Lightning {
@@ -98,6 +99,7 @@ namespace Lightning {
 
 		struct DataUpdate
 			:public ChannelUpdate::Result
+			,public boost::intrusive::list_base_hook<>
 		{
 			CoinID m_msMy; // my part of msigN for my withdrawal
 			CoinID m_msPeer; // my part of msigN for peer withdrawal
@@ -119,11 +121,26 @@ namespace Lightning {
 		};
 
 		std::unique_ptr<DataOpen> m_pOpen;
-		std::vector< std::unique_ptr<DataUpdate> > m_vUpdates;
+
+		struct UpdateList
+			:public boost::intrusive::list<DataUpdate>
+		{
+			~UpdateList() { Clear(); }
+			void Clear();
+			void DeleteFront();
+
+			DataUpdate* get_NextSafe(DataUpdate&) const;
+			DataUpdate* get_PrevSafe(DataUpdate&) const;
+		};
+
+		UpdateList m_lstUpdates;
+		uint32_t m_nRevision = 0;
 
 		struct Params
 		{
+			Height m_hRevisionMaxLifeTime = 1440 * 14;
 			Height m_hLockTime = 1440; // withdrawal lock. Same for all
+			Height m_hPostLockReserve = 1440; // max height diff of 2nd-stage withdrawal, in addition to m_hLockTime. Same for all
 			Amount m_Fee = 0; // for all txs
 		} m_Params;
 
@@ -150,7 +167,8 @@ namespace Lightning {
 			struct Close
 			{
 				// set iff confirmed withdrawal msigN
-				size_t m_iPath;
+				DataUpdate* m_pPath = nullptr;
+				uint32_t m_nRevision = 0;
 				bool m_Initiator; // who initiated the withdrawal
 				Height m_hPhase1 = 0; // msig0 -> msigN confirmed
 				Height m_hPhase2 = 0; // msigN -> outputs confirmed. In case of "unfair" withdrawal (initiated by the malicious peer) the "outputs" are mine only.
@@ -165,7 +183,7 @@ namespace Lightning {
 		bool IsUnfairPeerClosed() const;
 
 
-		bool Open(Amount nMy, Amount nOther, const HeightRange& hr0);
+		bool Open(Amount nMy, Amount nOther, Height hOpenTxDh);
 
 		bool Transfer(Amount, bool bCloseGraceful = false);
 
@@ -177,7 +195,7 @@ namespace Lightning {
 
 		void OnPeerData(Storage::Map& dataIn);
 
-		bool IsSafeToForget(Height hMaxRollback); // returns true if the channel is either closed or couldn't be opened (i.e. no chance), and it's safe w.r.t. max rollback depth.
+		bool IsSafeToForget(); // returns true if the channel is either closed or couldn't be opened (i.e. no chance), and it's safe w.r.t. max rollback depth.
 		void Forget(); // If the channel didn't open - the locked inputs will are unlocked
 
 		bool IsNegotiating() const { return m_pNegCtx != nullptr; }
@@ -200,10 +218,11 @@ namespace Lightning {
 
 		void OnCoin(const std::vector<CoinID>&, Height, CoinState, bool bReverse);
 
-		virtual size_t SelectWithdrawalPath(); // By default selects the most recent available withdrawal. Override to try to use outdated (fraudulent) revisions, for testing.
+		virtual DataUpdate* SelectWithdrawalPath(); // By default selects the most recent available withdrawal. Override to try to use outdated (fraudulent) revisions, for testing.
+		virtual void OnRevisionOutdated(uint32_t) {} // just informative, override to log/notify
 	
 	protected:
-		virtual bool TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGraceful);
+		virtual bool TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful);
 
 
 	private:
@@ -211,6 +230,7 @@ namespace Lightning {
 		bool OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
 		void UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut);
 		void SendPeerInternal(Storage::Map&);
+		void SetWithdrawParams(WithdrawTx::CommonParam&, const Height& h, Height& h1, Height& h2) const;
 	};
 
 

@@ -746,8 +746,10 @@ void WithdrawTx::Setup(bool bSet,
 	m_Tx1.SetGet(bSet, cp.m_Krn1.m_pH0, MultiTx::Codes::KrnH0);
 	m_Tx1.SetGet(bSet, cp.m_Krn1.m_pH1, MultiTx::Codes::KrnH1);
 	m_Tx1.SetGet(bSet, cp.m_Krn1.m_pFee, MultiTx::Codes::KrnFee);
-	m_Tx2.SetGet(bSet, cp.m_Krn2.m_pFee, MultiTx::Codes::KrnFee);
 	m_Tx2.SetGet(bSet, pOuts, MultiTx::Codes::OutpCids);
+	m_Tx2.SetGet(bSet, cp.m_Krn2.m_pH0, MultiTx::Codes::KrnH0);
+	m_Tx2.SetGet(bSet, cp.m_Krn2.m_pH1, MultiTx::Codes::KrnH1);
+	m_Tx2.SetGet(bSet, cp.m_Krn2.m_pFee, MultiTx::Codes::KrnFee);
 	m_Tx2.SetGet(bSet, cp.m_Krn2.m_pLock, MultiTx::Codes::KrnLockHeight);
 }
 
@@ -813,6 +815,16 @@ void WithdrawTx::QueryVar(std::string& s, uint32_t code)
 
 /////////////////////
 // ChannelWithdrawal
+const HeightRange* ChannelWithdrawal::Result::get_HR() const
+{
+	return m_tx1.m_vKernels.empty() ? nullptr : &m_tx1.m_vKernels.front()->m_Height;
+}
+
+Height ChannelWithdrawal::Result::get_H0() const
+{
+	const HeightRange* pHR = get_HR();
+	return pHR ? pHR->m_Min : 0;
+}
 
 void ChannelWithdrawal::get_Result(Result& r)
 {
@@ -861,6 +873,8 @@ bool ChannelWithdrawal::SB::Read(uint32_t code, Blob& blob)
 	case MultiTx::Codes::KrnH1 + (2 << 16) :
 	case MultiTx::Codes::OutpCids + (3 << 16) :
 	case MultiTx::Codes::KrnFee + (3 << 16) :
+	case MultiTx::Codes::KrnH0 + (3 << 16) :
+	case MultiTx::Codes::KrnH1 + (3 << 16) :
 	case MultiTx::Codes::KrnLockHeight + (3 << 16) :
 		// use parameters from SA
 		return m_pS->Read(code + Offset(m_iChannel - WithdrawTx::s_Channels), blob);

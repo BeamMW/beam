@@ -106,19 +106,19 @@ namespace beam::wallet
     };
 
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
-    MACRO(Unknown,                       0, "Unknown reason") \
-    MACRO(Canceled,                      1, "Transaction was cancelled") \
-    MACRO(InvalidPeerSignature,          2, "Peer's signature is not valid ") \
-    MACRO(FailedToRegister,              3, "Failed to register transaction") \
-    MACRO(InvalidTransaction,            4, "Transaction is not valid") \
+    MACRO(Unknown,                       0, "Unexpected reason, please send wallet logs to Beam support") \
+    MACRO(Canceled,                      1, "Transaction cancelled") \
+    MACRO(InvalidPeerSignature,          2, "Receiver signature in not valid, please send wallet logs to Beam support") \
+    MACRO(FailedToRegister,              3, "Failed to register transaction with the blockchain, see node logs for details") \
+    MACRO(InvalidTransaction,            4, "Transaction is not valid, please send wallet logs to Beam support") \
     MACRO(InvalidKernelProof,            5, "Invalid kernel proof provided") \
-    MACRO(FailedToSendParameters,        6, "Failed to send tx parameters") \
+    MACRO(FailedToSendParameters,        6, "Failed to send Transaction parameters") \
     MACRO(NoInputs,                      7, "Not enough inputs to process the transaction") \
     MACRO(ExpiredAddressProvided,        8, "Address is expired") \
-    MACRO(FailedToGetParameter,          9, "Failed to get parameter") \
-    MACRO(TransactionExpired,            10, "Transaction has expired") \
-    MACRO(NoPaymentProof,                11, "Payment not signed by the receiver") \
-    MACRO(MaxHeightIsUnacceptable,       12, "Kernel's max height is unacceptable") \
+    MACRO(FailedToGetParameter,          9, "Failed to get transaction parameters") \
+    MACRO(TransactionExpired,            10, "Transaction timed out") \
+    MACRO(NoPaymentProof,                11, "Payment not signed by the receiver, please send wallet logs to Beam support") \
+    MACRO(MaxHeightIsUnacceptable,       12, "Kernel maximum height is too high") \
     MACRO(InvalidState,                  13, "Transaction has invalid state") \
     MACRO(SubTxFailed,                   14, "Subtransaction has failed") \
     MACRO(SwapInvalidAmount,             15, "Contract's amount is not valid") \
@@ -643,7 +643,10 @@ namespace beam::wallet
         Observer * m_observer;
         std::shared_ptr<Notifier> m_notifier;
     };
-}  // beam::wallet
+ 
+    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params);
+ 
+}    // beam::wallet
 
 namespace beam
 {
@@ -668,6 +671,7 @@ namespace beam
         // static Version getCurrent();
 
         std::string to_string() const;
+        bool from_string(const std::string&);
         bool operator==(const Version& other) const;
         bool operator!=(const Version& other) const;
         bool operator<(const Version& other) const;

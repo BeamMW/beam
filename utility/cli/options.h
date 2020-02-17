@@ -186,9 +186,13 @@ namespace beam
         extern const char* ASSET_ID;
         extern const char* METADATA;
 
-        // newscaster
-        extern const char* BBS_MESSAGE;
+        // broadcaster
         extern const char* PRIVATE_KEY;
+        extern const char* MESSAGE_TYPE;
+        extern const char* UPDATE_VERSION;
+        extern const char* UPDATE_TYPE;
+        extern const char* EXCHANGE_CURR;
+        extern const char* EXCHANGE_RATE;        
 
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;

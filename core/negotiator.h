@@ -328,8 +328,9 @@ namespace Negotiator {
 		{
 			MultiTx::KernelParam m_Krn1;
 
-			struct Krn2 {
-				Amount* m_pFee;
+			struct Krn2
+				:public MultiTx::KernelParam
+			{
 				Height* m_pLock;
 			} m_Krn2;
 
@@ -401,6 +402,9 @@ namespace Negotiator {
 			// Peer's 2nd withdrawal tx
 			ECC::Point m_CommPeer1;
 			Transaction m_txPeer2;
+
+			const HeightRange* get_HR() const;
+			Height get_H0() const; // min height
 		};
 
 	protected:
