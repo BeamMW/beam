@@ -29,9 +29,10 @@ namespace beam::wallet
         LOG_DEBUG() << "loadToCache()";
     }
 
-    void NotificationCenter::store(const Notification&)
+    void NotificationCenter::store(const Notification& notification)
     {
         LOG_DEBUG() << "store()";
+        m_storage.saveNotification(notification);
     }
 
     std::vector<Notification> NotificationCenter::getNotifications()

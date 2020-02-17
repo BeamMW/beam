@@ -3392,6 +3392,15 @@ namespace beam::wallet
         stm.step();
     }
 
+    std::vector<Notification> WalletDB::getNotifications() const
+    {
+        return { Notification {} };
+    }
+
+    void WalletDB::saveNotification(const Notification&)
+    {
+    }
+
     bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)
     {
         const char* req = pBelow ?
