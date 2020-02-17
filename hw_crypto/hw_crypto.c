@@ -715,3 +715,125 @@ void BeamCrypto_Kdf_getChild(BeamCrypto_Kdf* p, uint32_t iChild, const BeamCrypt
 	BeamCrypto_Kdf_Init(p, &hv);
 	SECURE_ERASE_OBJ(hv);
 }
+
+//////////////////////////////
+// Kdf - CoinID key derivation
+void BeamCrypto_CoinID_getSk(const BeamCrypto_Kdf* pKdf, const BeamCrypto_CoinID* pCid, secp256k1_scalar* pK)
+{
+	BeamCrypto_CoinID_getSkComm(pKdf, pCid, pK, 0);
+}
+
+void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_CoinID* pCid, secp256k1_scalar* pK, BeamCrypto_Point* pComm)
+{
+	union
+	{
+		// save some space
+		struct
+		{
+			uint8_t nScheme;
+			uint32_t nSubkey;
+			BeamCrypto_UintBig hv;
+			BeamCrypto_Kdf kdfC;
+		} k;
+
+		BeamCrypto_Oracle oracle;
+
+		struct
+		{
+			BeamCrypto_MultiMac_Scalar s;
+			BeamCrypto_MultiMac_WNaf wnaf;
+			BeamCrypto_MultiMac_Fast genAsset;
+			secp256k1_fe zDenom;
+		} mm;
+
+		secp256k1_ge ge;
+
+	} u;
+
+	int nChild = BeamCrypto_CoinID_getSchemeAndSubkey(pCid, &u.k.nScheme, &u.k.nSubkey);
+	if (nChild)
+	{
+		BeamCrypto_Kdf_getChild(&u.k.kdfC, u.k.nSubkey, pKdf);
+		pKdf = &u.k.kdfC;
+	}
+
+	BeamCrypto_CoinID_getHash(pCid, &u.k.hv);
+
+	BeamCrypto_Kdf_Derive_SKey(pKdf, &u.k.hv, pK);
+
+	if (nChild)
+		SECURE_ERASE_OBJ(u.k.kdfC);
+
+	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
+
+	secp256k1_gej gejGH, gejJ;
+
+	// sk*G + v*H
+	BeamCrypto_MultiMac_Context mmCtx;
+	mmCtx.m_pRes = &gejGH;
+	mmCtx.m_Secure = 1;
+	mmCtx.m_pSecureK = pK;
+	mmCtx.m_pGenSecure = &pCtx->m_GenG;
+	mmCtx.m_Fast = 1;
+	mmCtx.m_pS = &u.mm.s;
+	mmCtx.m_pWnaf = &u.mm.wnaf;
+
+	secp256k1_scalar_set_u64(u.mm.s.m_pK, pCid->m_Amount);
+
+	if (pCid->m_AssetID)
+	{
+		// derive asset gen
+		BeamCrypto_Oracle_Init(&u.oracle);
+
+		HASH_WRITE_STR(u.oracle.m_sha, "B.Asset.Gen.V1");
+		secp256k1_sha256_write_Num(&u.oracle.m_sha, pCid->m_AssetID);
+
+		secp256k1_ge geAsset;
+		BeamCrypto_Oracle_NextPoint(&u.oracle, &geAsset);
+
+		mmCtx.m_pGenFast = &u.mm.genAsset;
+		mmCtx.m_pZDenom = &u.mm.zDenom;
+
+		BeamCrypto_MultiMac_SetCustom(&mmCtx, &geAsset);
+
+	}
+	else
+	{
+		mmCtx.m_pGenFast = pCtx->m_pGenFast + BeamCrypto_MultiMac_Fast_Idx_H;
+		mmCtx.m_pZDenom = 0;
+	}
+
+	BeamCrypto_MultiMac_Calculate(&mmCtx);
+
+	// sk * J
+	mmCtx.m_pRes = &gejJ;
+	mmCtx.m_pGenSecure = &pCtx->m_GenJ;
+	mmCtx.m_pZDenom = 0;
+	mmCtx.m_Fast = 0;
+
+	// adjust sk
+	BeamCrypto_MultiMac_Calculate(&mmCtx);
+
+	BeamCrypto_Oracle_Init(&u.oracle);
+	secp256k1_sha256_write_Gej(&u.oracle.m_sha, &gejGH);
+	secp256k1_sha256_write_Gej(&u.oracle.m_sha, &gejJ);
+
+	secp256k1_scalar k1;
+	BeamCrypto_Oracle_NextScalar(&u.oracle, &k1);
+
+	secp256k1_scalar_add(pK, pK, &k1);
+
+	if (pComm)
+	{
+		mmCtx.m_pGenSecure = &pCtx->m_GenG; // not really secure here, just no good reason to have additional non-secure J-gen
+		mmCtx.m_pSecureK = &k1;
+
+		BeamCrypto_MultiMac_Calculate(&mmCtx);
+
+		secp256k1_gej_add_var(&gejGH, &gejGH, &gejJ, 0);
+
+		secp256k1_ge_set_gej(&u.ge, &gejGH);
+
+		BeamCrypto_Point_Export(pComm, &u.ge);
+	}
+}

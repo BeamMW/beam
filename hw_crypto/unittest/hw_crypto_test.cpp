@@ -93,6 +93,12 @@ BeamCrypto_UintBig& Ecc2BC(const ECC::uintBig& x)
 	return (BeamCrypto_UintBig&) x;
 }
 
+BeamCrypto_Point& Ecc2BC(const ECC::Point& x)
+{
+	static_assert(sizeof(x) == sizeof(BeamCrypto_Point));
+	return (BeamCrypto_Point&) x;
+}
+
 void BeamCrypto_InitGenSecure(BeamCrypto_MultiMac_Secure& x, const ECC::Point::Native& ptVal, const ECC::Point::Native& nums)
 {
 	ECC::Point::Compact::Converter cpc;
@@ -289,7 +295,7 @@ void TestOracle()
 	}
 }
 
-void TestCoinID(const CoinID& cid)
+void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 {
 	ECC::Hash::Value hv1, hv2;
 	cid.get_Hash(hv1);
@@ -319,10 +325,36 @@ void TestCoinID(const CoinID& cid)
 		verify_test(nSubKey == iChild);
 	}
 
+	// keys and commitment
+	ECC::Scalar::Native sk1, sk2;
+	ECC::Point comm1, comm2;
+
+	if (bChildKdf)
+	{
+		ECC::HKdf hkdfC;
+		hkdfC.GenerateChild(kdf, iChild);
+		CoinID::Worker(cid).Create(sk1, comm1, hkdfC);
+	}
+	else
+		CoinID::Worker(cid).Create(sk1, comm1, kdf);
+
+	BeamCrypto_CoinID_getSkComm(&kdf2, &cid2, &sk2.get_Raw(), &Ecc2BC(comm2));
+
+	verify_test(sk1 == sk2);
+	verify_test(comm1 == comm2);
 }
 
-void TestCoinID()
+void TestCoins()
 {
+	ECC::HKdf hkdf;
+	BeamCrypto_Kdf kdf2;
+
+	ECC::Hash::Value hv;
+	SetRandom(hv);
+
+	hkdf.Generate(hv);
+	BeamCrypto_Kdf_Init(&kdf2, &Ecc2BC(hv));
+
 	for (int i = 0; i < 10; i++)
 	{
 		CoinID cid;
@@ -349,13 +381,13 @@ void TestCoinID()
 					iChild = 0;
 
 				cid.set_Subkey(iChild);
-				TestCoinID(cid);
+				TestCoin(cid, hkdf, kdf2);
 
 				cid.set_Subkey(iChild, CoinID::Scheme::V0);
-				TestCoinID(cid);
+				TestCoin(cid, hkdf, kdf2);
 
 				cid.set_Subkey(iChild, CoinID::Scheme::BB21);
-				TestCoinID(cid);
+				TestCoin(cid, hkdf, kdf2);
 			}
 		}
 	}
@@ -413,8 +445,8 @@ int main()
 	TestMultiMac();
 	TestNonceGen();
 	TestOracle();
-	TestCoinID();
 	TestKdf();
+	TestCoins();
 
     return g_TestsFailed ? -1 : 0;
 }
