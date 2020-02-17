@@ -39,6 +39,7 @@ public:
     using Ptr = std::shared_ptr<SwapOffersBoard>;
 
     SwapOffersBoard(IBroadcastMsgGateway&, OfferBoardProtocolHandler&);
+    virtual ~SwapOffersBoard() {};
 
     /**
      *  IBroadcastListener implementation
