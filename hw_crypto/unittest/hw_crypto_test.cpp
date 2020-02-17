@@ -20,6 +20,7 @@ extern "C" {
 #include "noncegen.h"
 #include "coinid.h"
 #include "kdf.h"
+#include "rangeproof.h"
 }
 
 #include "../core/ecc_native.h"
@@ -329,19 +330,25 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 	ECC::Scalar::Native sk1, sk2;
 	ECC::Point comm1, comm2;
 
+	ECC::Key::IKdf* pChildKdf = &kdf;
+	ECC::HKdf hkdfC;
+
 	if (bChildKdf)
 	{
-		ECC::HKdf hkdfC;
 		hkdfC.GenerateChild(kdf, iChild);
-		CoinID::Worker(cid).Create(sk1, comm1, hkdfC);
+		pChildKdf = &hkdfC;
 	}
-	else
-		CoinID::Worker(cid).Create(sk1, comm1, kdf);
+
+	CoinID::Worker(cid).Create(sk1, comm1, *pChildKdf);
 
 	BeamCrypto_CoinID_getSkComm(&kdf2, &cid2, &sk2.get_Raw(), &Ecc2BC(comm2));
 
 	verify_test(sk1 == sk2);
 	verify_test(comm1 == comm2);
+
+	if (CoinID::Scheme::V1 != nScheme)
+		return;
+
 }
 
 void TestCoins()

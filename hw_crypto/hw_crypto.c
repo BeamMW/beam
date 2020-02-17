@@ -18,6 +18,7 @@
 #include "noncegen.h"
 #include "coinid.h"
 #include "kdf.h"
+#include "rangeproof.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
@@ -836,4 +837,48 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 
 		BeamCrypto_Point_Export(pComm, &u.ge);
 	}
+}
+
+//////////////////////////////
+// RangeProof
+void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
+{
+	secp256k1_scalar sk, alpha, ro;
+	BeamCrypto_Point comm;
+	BeamCrypto_CoinID_getSkComm(p->m_pKdf, &p->m_Cid, &sk, &comm);
+
+	BeamCrypto_Oracle oracle;
+
+	// get seed
+	BeamCrypto_UintBig hv;
+	secp256k1_sha256_initialize(&oracle.m_sha);
+	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
+	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
+
+	BeamCrypto_Kdf_Derive_PKey(p->m_pKdf, &hv, &alpha);
+	secp256k1_scalar_get_b32(hv.m_pVal, &alpha);
+
+	secp256k1_sha256_initialize(&oracle.m_sha);
+	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
+
+	// oracle
+	BeamCrypto_Oracle_Init(&oracle);
+	secp256k1_sha256_write_Num(&oracle.m_sha, 0); // incubation time, must be zero
+	secp256k1_sha256_write_Point(&oracle.m_sha, &comm); // starting from Fork1, earlier schem is not allowed
+
+	// NonceGen
+	static const char szSalt[] = "bulletproof";
+	BeamCrypto_NonceGenerator ng;
+	BeamCrypto_NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &hv);
+
+	BeamCrypto_NonceGenerator_NextScalar(&ng, &alpha);
+	BeamCrypto_NonceGenerator_NextScalar(&ng, &ro);
+
+
+
+
+
+
+	SECURE_ERASE_OBJ(sk);
 }
