@@ -892,7 +892,10 @@ void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
 	BeamCrypto_MultiMac_Calculate(&mmCtx); // alpha*G
 
 	BeamCrypto_Amount v = p->m_Cid.m_Amount;
-	const uint64_t nBits = sizeof(BeamCrypto_Amount) * 8;
+
+#define nDims (sizeof(BeamCrypto_Amount) * 8)
+
+	const unsigned int nBits = nDims;
 
 	for (uint32_t i = 0; i < nBits; i++)
 	{
@@ -907,17 +910,29 @@ void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
 		secp256k1_gej_add_ge_var(&gej, &gej, &ge, 0);
 	}
 
-	secp256k1_ge_set_gej(&ge, &gej);
+	secp256k1_ge_set_gej(&ge, &gej); // TODO: export A,S via batch-normalize together (slightly faster)
+	secp256k1_sha256_write_Ge(&oracle.m_sha, &ge);
 
-	BeamCrypto_Point_Export(&comm, &ge); // A
-
-
-
+	// CalcS
 	BeamCrypto_NonceGenerator_NextScalar(&ng, &ro);
+	mmCtx.m_pSecureK = &ro;
 
+	mmCtx.m_Fast = nBits * 2;
+	mmCtx.m_pGenFast = pCtx->m_pGenFast;
 
+	BeamCrypto_MultiMac_Scalar pS[nDims * 2]; // Large array (8K), TODO: do this in quantas
+	BeamCrypto_MultiMac_WNaf pWnaf[nDims * 2];
 
+	mmCtx.m_pS = pS;
+	mmCtx.m_pWnaf = pWnaf;
 
+	for (unsigned int i = 0; i < nDims * 2; i++)
+		BeamCrypto_NonceGenerator_NextScalar(&ng, pS[i].m_pK);
+
+	BeamCrypto_MultiMac_Calculate(&mmCtx);
+
+	secp256k1_ge_set_gej(&ge, &gej);
+	secp256k1_sha256_write_Ge(&oracle.m_sha, &ge);
 
 
 	SECURE_ERASE_OBJ(sk);
