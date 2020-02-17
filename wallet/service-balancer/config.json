@@ -1,7 +1,7 @@
 {
-  "Node":           "127.0.0.1:10000",
-  "ServicePath":    "/home/op/projects/beam-assets/cmake-build-debug/wallet/service/wallet-service-masternet",
-  "ListenAddress":  ":20000",
-  "PublicAddress":  "127.0.0.1",
-  "WSFirstPort":     30000
+  "BeamNode":             "127.0.0.1:10000",
+  "ServicePath":          "/home/op/projects/beam-assets/cmake-build-debug/wallet/service/wallet-service-masternet",
+  "ServiceFirstPort":     30000,
+  "SerivcePublicAddress": "127.0.0.1",
+  "ListenAddress":        ":20000"
 }

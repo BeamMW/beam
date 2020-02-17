@@ -13,11 +13,11 @@ const (
 )
 
 type Config struct {
-	Node          string
-	ServicePath   string
-	ListenAddress string
-	PublicAddress string
-	WSFirstPort   int
+	BeamNode             string
+	ServicePath          string
+	ServiceFirstPort     int
+	SerivcePublicAddress string
+	ListenAddress        string
 }
 
 var config = Config{}
@@ -49,7 +49,7 @@ func (cfg* Config) Read(fname string) error {
 		return err
 	}
 
-	if len(cfg.Node) == 0 {
+	if len(cfg.BeamNode) == 0 {
 		return errors.New("config, missing Node")
 	}
 
@@ -61,11 +61,11 @@ func (cfg* Config) Read(fname string) error {
 		return errors.New("config, missing ListenAddress")
 	}
 
-	if cfg.WSFirstPort <= 0 {
+	if cfg.ServiceFirstPort <= 0 {
 		return errors.New("config, invalid wallet serivce port")
 	}
 
-	if len(cfg.PublicAddress) == 0 {
+	if len(cfg.SerivcePublicAddress) == 0 {
 		return errors.New("config, missing public address")
 	}
 

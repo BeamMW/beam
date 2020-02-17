@@ -175,13 +175,13 @@ func monitor2Initialize() (err error) {
 // TODO: pass 'delete database' flag to the service if GUID is used instead of wallet ID
 func launchService2(index int) (*service, error) {
 	var svc  = &service{}
-	var port = config.WSFirstPort + index
+	var port = config.ServiceFirstPort + index
 
 	ctxWS, cancelWS := context.WithCancel(context.Background())
 	svc.CancelCmd   = cancelWS
 	svc.Context     = ctxWS
-	svc.Command     = exec.CommandContext(ctxWS, config.ServicePath, "-n", config.Node, "-p", strconv.Itoa(port))
-	svc.Address     = config.PublicAddress + ":" + strconv.Itoa(port)
+	svc.Command     = exec.CommandContext(ctxWS, config.ServicePath, "-n", config.BeamNode, "-p", strconv.Itoa(port))
+	svc.Address     = config.SerivcePublicAddress + ":" + strconv.Itoa(port)
 	svc.ServiceExit = make(chan struct{})
 
 	// TODO: reconsider logs management
@@ -203,7 +203,7 @@ func launchService2(index int) (*service, error) {
 	}
 
 	// Start wallet service
-	log.Printf("service index %v, starting as [%v %v %v %v]", index, config.ServicePath, "-n " + config.Node, "-p", port)
+	log.Printf("service index %v, starting as [%v %v %v %v]", index, config.ServicePath, "-n " + config.BeamNode, "-p", port)
 	if err = svc.Command.Start(); err != nil {
 		return nil, err
 	}
