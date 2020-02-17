@@ -110,3 +110,7 @@ ui/translations.qrc
 beam_version.gen
 keykeeper/wasm-key-keeper.*
 wallet/service/client/wasm-key-keeper.*
+
+wallet/service-balancer/logs/
+
+wallet/service-balancer/service-balancer

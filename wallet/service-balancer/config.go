@@ -16,6 +16,8 @@ type Config struct {
 	Node          string
 	ServicePath   string
 	ListenAddress string
+	PublicAddress string
+	WSFirstPort   int
 }
 
 var config = Config{}
@@ -48,15 +50,23 @@ func (cfg* Config) Read(fname string) error {
 	}
 
 	if len(cfg.Node) == 0 {
-		return errors.New("Config: missing Node")
+		return errors.New("config, missing Node")
 	}
 
 	if len(cfg.ServicePath) == 0 {
-		return errors.New("Config: missing ServicePath")
+		return errors.New("config, missing ServicePath")
 	}
 
 	if len(cfg.ListenAddress) == 0 {
-		return errors.New("Config: missing ListenAddress")
+		return errors.New("config, missing ListenAddress")
+	}
+
+	if cfg.WSFirstPort <= 0 {
+		return errors.New("config, invalid wallet serivce port")
+	}
+
+	if len(cfg.PublicAddress) == 0 {
+		return errors.New("config, missing public address")
 	}
 
 	return nil
