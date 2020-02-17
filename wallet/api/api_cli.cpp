@@ -222,7 +222,7 @@ public:
         return _qtumClient ? _qtumClient->GetAvailable() : 0;
     }
 
-    const SwapOffersBoard& getSwapOffersBoard() const
+    const SwapOffersBoard& getSwapOffersBoard() const override
     {
         return *_offersBulletinBoard;
     }
@@ -357,6 +357,8 @@ private:
                 , m_atomicSwapProvider(atomicSwapProvider)
             {}
 
+            virtual ~WalletData() {}
+
             IWalletDB::Ptr getWalletDB() override
             {
                 return m_walletDB;
@@ -368,7 +370,7 @@ private:
             }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-            const IAtomicSwapProvider& getAtomicSwapProvider() const
+            const IAtomicSwapProvider& getAtomicSwapProvider() const override
             {
                 return m_atomicSwapProvider;
             }
