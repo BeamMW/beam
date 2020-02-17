@@ -58,7 +58,6 @@ transactions, atomic swaps and more.
 years.
 * Implemented from scratch in C++.
 
-[Read our position paper](https://docs.beam.mw/BEAM_Position_Paper_v0.2.2.pdf)
 
 ### Roadmap
 

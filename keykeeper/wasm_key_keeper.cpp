@@ -52,6 +52,11 @@ struct KeyKeeper
         return ks.m_sRes;
     }
 
+    std::string GetWalletID()
+    {
+        return _impl2.GetWalletID();
+    }
+
     std::string get_Kdf(bool root, Key::Index keyIndex)
     {
         IPrivateKeyKeeper2::Method::get_Kdf method;
@@ -254,6 +259,18 @@ private:
         using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
 
         bool IsTrustless() override { return true; }
+
+        std::string GetWalletID() const
+        {
+            Key::ID kid(Zero);
+            kid.m_Type = ECC::Key::Type::WalletID;
+
+            ECC::Scalar::Native sk;
+            m_pKdf->DeriveKey(sk, kid);
+            PeerID pid;
+            pid.FromSk(sk);
+            return pid.str();
+        }
     };
     MyKeeKeeper _impl2;
 };
@@ -264,6 +281,7 @@ EMSCRIPTEN_BINDINGS()
     class_<KeyKeeper>("KeyKeeper")
         .constructor<const std::string&>()
         .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
+        .function("getWalletID",            &KeyKeeper::GetWalletID)
 #define THE_MACRO(method) \
         .function(#method, &KeyKeeper::method)\
 

@@ -22,13 +22,15 @@
 #include "wallet/core/private_key_keeper.h"
 #include "wallet_model_async.h"
 #include "wallet/client/changes_collector.h"
-#include "wallet/client/extensions/offers_board/swap_offers_observer.h"
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
 #include "wallet/client/extensions/news_channels/interface.h"
 #include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/client/extensions/offers_board/swap_offers_observer.h"
+#include "wallet/client/extensions/offers_board/swap_offer.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
-#endif
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/client/extensions/notifications/notification_center.h"
 
 #include <thread>
 #include <atomic>
@@ -56,7 +58,9 @@ namespace beam::wallet
 
     class WalletClient
         : private IWalletObserver
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         , private ISwapOffersObserver
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         , private IWalletModelAsync
         , private IWalletDB::IRecoveryProgress
         , private IPrivateKeyKeeper::Handler
@@ -146,7 +150,7 @@ namespace beam::wallet
         void publishSwapOffer(const SwapOffer& offer) override;
         void loadSwapParams() override;
         void storeSwapParams(const beam::ByteBuffer& params) override;
-#endif
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
@@ -187,13 +191,14 @@ namespace beam::wallet
         std::weak_ptr<IWalletMessageEndpoint> m_walletNetwork;
         std::weak_ptr<Wallet> m_wallet;
         // broadcasting via BBS
-        std::weak_ptr<IBroadcastMsgsGateway> m_broadcastRouter;
-        std::weak_ptr<IBroadcastListener> m_updatesProvider;
+        std::weak_ptr<IBroadcastMsgGateway> m_broadcastRouter;
         std::weak_ptr<BroadcastMsgValidator> m_broadcastValidator;
+        std::weak_ptr<IBroadcastListener> m_updatesProvider;
+        std::weak_ptr<IBroadcastListener> m_exchangeRateProvider;
+        std::shared_ptr<NotificationCenter> m_notificationCenter;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
-#endif
-
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         uint32_t m_connectedNodesCount;
         uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;

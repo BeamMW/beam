@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "swap_transaction.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
 
 #include "bitcoin/bitcoin.hpp"
 
@@ -25,6 +25,143 @@ using namespace ECC;
 
 namespace beam::wallet
 {
+    namespace
+    {
+    template<typename T>
+    void copyParameter(TxParameterID id, const TxParameters& source, TxParameters& dest)
+    {
+        if (auto p = source.GetParameter<T>(id); p)
+        {
+            dest.SetParameter(id, *p);
+        }
+    }
+    }  // namespace
+
+    void FillSwapTxParams(TxParameters* params,
+                          const WalletID& myID,
+                          Height minHeight,
+                          Amount amount,
+                          Amount beamFee,
+                          AtomicSwapCoin swapCoin,
+                          Amount swapAmount,
+                          Amount swapFeeRate,
+                          bool isBeamSide /*= true*/,
+                          Height responseTime /*= kDefaultTxResponseTime*/,
+                          Height lifetime /*= kDefaultTxLifetime*/)
+    {
+        params->SetParameter(TxParameterID::MyID, myID);
+        params->SetParameter(TxParameterID::MinHeight, minHeight);
+        params->SetParameter(TxParameterID::Amount, amount);
+        params->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
+        params->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount);
+        params->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+        params->SetParameter(TxParameterID::IsSender, isBeamSide);
+        params->SetParameter(TxParameterID::IsInitiator, false);
+
+        FillSwapFee(params, beamFee, swapFeeRate, isBeamSide);
+
+        params->SetParameter(TxParameterID::Lifetime, lifetime);
+        params->SetParameter(TxParameterID::PeerResponseTime, responseTime);
+    }
+
+    void FillSwapFee(
+        TxParameters* params, Amount beamFee,
+        Amount swapFeeRate, bool isBeamSide/* = true*/)
+    {
+        if (isBeamSide)
+        {
+            params->SetParameter(
+                TxParameterID::Fee, beamFee, SubTxIndex::BEAM_LOCK_TX);
+            params->SetParameter(
+                TxParameterID::Fee, beamFee, SubTxIndex::BEAM_REFUND_TX);
+            params->SetParameter(
+                TxParameterID::Fee, swapFeeRate, SubTxIndex::REDEEM_TX);
+        }
+        else
+        {
+            params->SetParameter(
+                TxParameterID::Fee, beamFee, SubTxIndex::BEAM_REDEEM_TX);
+            params->SetParameter(
+                TxParameterID::Fee, swapFeeRate, SubTxIndex::LOCK_TX);
+            params->SetParameter(
+                TxParameterID::Fee, swapFeeRate, SubTxIndex::REFUND_TX);
+        }
+    }
+
+    TxParameters MirrorSwapTxParams(const TxParameters& original,
+                                    bool isOwn  /* = true */)
+    {
+        auto res = CreateSwapTransactionParameters(original.GetTxID());
+
+        copyParameter<Height>(TxParameterID::MinHeight, original, res);
+        copyParameter<Height>(TxParameterID::PeerResponseTime, original, res);
+        copyParameter<Timestamp>(TxParameterID::CreateTime, original, res);
+        copyParameter<Height>(TxParameterID::Lifetime, original, res);
+
+        copyParameter<Amount>(TxParameterID::Amount, original, res);
+        copyParameter<Amount>(TxParameterID::AtomicSwapAmount, original, res);
+        copyParameter<AtomicSwapCoin>(
+            TxParameterID::AtomicSwapCoin, original, res);
+
+        if (isOwn)
+        {
+            auto myId = *original.GetParameter<WalletID>(TxParameterID::MyID);
+            res.SetParameter(TxParameterID::PeerID, myId);
+            res.DeleteParameter(TxParameterID::MyID);
+        }
+        else
+        {
+            auto myId = *original.GetParameter<WalletID>(TxParameterID::PeerID);
+            res.SetParameter(TxParameterID::MyID, myId);
+            res.DeleteParameter(TxParameterID::PeerID);
+        }
+        
+
+        bool isInitiator =
+            *original.GetParameter<bool>(TxParameterID::IsInitiator);
+        res.SetParameter(TxParameterID::IsInitiator, !isInitiator);
+
+        bool isBeamSide =
+            *original.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+
+        res.SetParameter(TxParameterID::AtomicSwapIsBeamSide, !isBeamSide);
+        res.SetParameter(TxParameterID::IsSender, !isBeamSide);
+
+        return res;
+    }
+
+    TxParameters PrepareSwapTxParamsForTokenization(
+        const TxParameters& original)
+    {
+        auto res = CreateSwapTransactionParameters(original.GetTxID());
+        copyParameter<Height>(TxParameterID::MinHeight, original, res);
+        copyParameter<Height>(TxParameterID::PeerResponseTime, original, res);
+        copyParameter<Timestamp>(TxParameterID::CreateTime, original, res);
+        copyParameter<Height>(TxParameterID::Lifetime, original, res);
+
+        copyParameter<Amount>(TxParameterID::Amount, original, res);
+        copyParameter<Amount>(TxParameterID::AtomicSwapAmount, original, res);
+        copyParameter<AtomicSwapCoin>(
+            TxParameterID::AtomicSwapCoin, original, res);
+
+        copyParameter<WalletID>(TxParameterID::PeerID, original, res);
+        copyParameter<bool>(TxParameterID::IsInitiator, original, res);
+        copyParameter<bool>(TxParameterID::AtomicSwapIsBeamSide, original, res);
+        copyParameter<bool>(TxParameterID::IsSender, original, res);
+
+        return res;
+    }
+
+    TxParameters CreateSwapTransactionParameters(
+        const boost::optional<TxID>& oTxId /*= boost::none*/)
+    {
+        const auto txID = oTxId ? *oTxId : GenerateTxID();
+        return TxParameters(txID)
+            .SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap)
+            .SetParameter(TxParameterID::IsInitiator, false)
+            .SetParameter(TxParameterID::CreateTime, getTimestamp());
+    }
+
     template <typename T>
     boost::optional<T> GetTxParameterAsOptional(const BaseTransaction& tx, TxParameterID paramID, SubTxID subTxID = kDefaultSubTxID)
     {

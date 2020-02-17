@@ -16,6 +16,7 @@ Rectangle {
 	MainViewModel {id: viewModel}
 
     UpdateInfoProvider {id: updateInfoProvider}
+    ExchangeRateProvider {id: ratesProvider}
 
     ConfirmationDialog {
         id:                     closeDialog
@@ -93,7 +94,8 @@ Rectangle {
     property var contentItems : [
 		"wallet", 
         "atomic_swap",
-		"addresses", 
+		"addresses",
+        "notifications",
 		"utxo",
 		"settings"]
     property int selectedItem

@@ -68,21 +68,13 @@ bool parseUpdateInfo(const std::string& versionString, const std::string& typeSt
 
 bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate, ExchangeRates& result)
 {
-    // Version version;
-    // bool res = version.from_string(versionString);
-    // if (!res)
-    // {
-    //     return false;
-    // }
+    auto currency = ExchangeRates::from_string(currencyString);
+    if (currency == ExchangeRates::Currency::Unknown || rate == 0)
+    {
+        return false;
+    }
 
-    // VersionInfo::Application appType = VersionInfo::from_string(typeString);
-    // if (appType == VersionInfo::Application::Unknown)
-    // {
-    //     return false;
-    // }
-    
-    // test
-    result.m_rates = { {ExchangeRates::Currency::Beam, 1234567890, ExchangeRates::Currency::Usd} };
+    result.m_rates = { {currency, rate, ExchangeRates::Currency::Usd} };
     return true;
 }
 
@@ -246,7 +238,7 @@ int main_impl(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
 
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
+        LocalPrivateKeyKeeper keyKeeper(walletDB, walletDB->get_MasterKdf());
         Wallet wallet(walletDB);
 
         wallet.ResumeAllTransactions();

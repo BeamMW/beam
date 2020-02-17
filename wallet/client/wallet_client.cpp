@@ -19,6 +19,7 @@
 #include "keykeeper/trezor_key_keeper.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
 #include "extensions/news_channels/updates_provider.h"
+#include "extensions/news_channels/exchange_rate_provider.h"
 
 using namespace std;
 
@@ -27,7 +28,7 @@ namespace
 using namespace beam;
 using namespace beam::wallet;
 
-const size_t kCollectorBufferSize = 50;
+    const size_t kCollectorBufferSize = 50;
 
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
@@ -324,9 +325,15 @@ namespace beam::wallet
                     }
                     m_broadcastValidator = broadcastValidator;
                     auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
+                    auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator);
                     m_updatesProvider = updatesProvider;
+                    m_exchangeRateProvider = exchangeRateProvider;
                     using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
+                    using ExchangeRatesSubscriber = ScopedSubscriber<INewsObserver, ExchangeRateProvider>;
                     auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(this), updatesProvider);
+                    auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<INewsObserver*>(this), exchangeRateProvider);
+
+                    m_notificationCenter = make_shared<NotificationCenter>(*m_walletDB);
 
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){
@@ -567,7 +574,7 @@ namespace beam::wallet
         if (auto s = m_nodeNetwork.lock())
         {
             s->Connect();
-        }
+    }
     }
 
     void WalletClient::calcChange(Amount&& amount)
@@ -640,8 +647,7 @@ namespace beam::wallet
     {
         m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
-
-#endif
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     void WalletClient::cancelTx(const TxID& id)
     {
@@ -760,20 +766,20 @@ namespace beam::wallet
                 LOG_ERROR() << "Unable to resolve node address: " << addr;
                 onWalletError(ErrorType::HostResolvedError);
             }
-        }
+            }
         else
         {
             io::Address address;
             if (address.resolve(addr.c_str()))
             {
                 m_initialNodeAddrStr = addr;
-            }
-            else
-            {
-                LOG_ERROR() << "Unable to resolve node address: " << addr;
-                onWalletError(ErrorType::HostResolvedError);
-            }
         }
+        else
+        {
+            LOG_ERROR() << "Unable to resolve node address: " << addr;
+            onWalletError(ErrorType::HostResolvedError);
+        }
+    }
     }
 
     void WalletClient::changeWalletPassword(const SecString& pass)

@@ -2166,5 +2166,9 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
         <source>Asset is still locked</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="notifications-title">
+        <source>Notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

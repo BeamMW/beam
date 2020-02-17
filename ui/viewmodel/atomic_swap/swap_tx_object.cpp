@@ -525,23 +525,6 @@ beam::wallet::AtomicSwapCoin SwapTxObject::getSwapCoinType() const
 
 namespace
 {
-    template<typename T>
-    void copyParameter(TxParameterID id, const TxParameters& source, TxParameters& dest)
-    {
-        if (auto p = source.GetParameter<T>(id); p)
-        {
-            dest.SetParameter(id, *p);
-        }
-    }
-
-    void copyParameter(TxParameterID id, const TxParameters& source, TxParameters& dest, bool inverse = false)
-    {
-        if (auto p = source.GetParameter<bool>(id); p)
-        {
-            dest.SetParameter(id, inverse ? !*p : *p);
-        }
-    }
-
     template<size_t V>
     QString getSwapCoinTxId(const TxParameters& source)
     {
@@ -590,37 +573,19 @@ QString SwapTxObject::getToken() const
         return "";
     }
 
-    TxParameters tokenParams(m_tx.m_txId);
-
     auto isInitiator = m_tx.GetParameter<bool>(TxParameterID::IsInitiator);
+    
     if (*isInitiator == false) 
     {
-        if (auto p = m_tx.GetParameter<WalletID>(TxParameterID::MyID); p)
-        {
-            tokenParams.SetParameter(TxParameterID::PeerID, *p);
-        }
-    }
-    else
-    {
-        copyParameter<WalletID>(TxParameterID::PeerID, m_tx, tokenParams);
+        const auto& mirroredTxParams = MirrorSwapTxParams(m_tx);
+        const auto& readyForTokenizeTxParams =
+            PrepareSwapTxParamsForTokenization(mirroredTxParams);
+        return QString::fromStdString(std::to_string(readyForTokenizeTxParams));
     }
 
-    tokenParams.SetParameter(TxParameterID::IsInitiator, true);
-
-    copyParameter(TxParameterID::IsSender, m_tx, tokenParams, !*isInitiator);
-    copyParameter(TxParameterID::AtomicSwapIsBeamSide, m_tx, tokenParams, !*isInitiator);
-
-    tokenParams.SetParameter(beam::wallet::TxParameterID::TransactionType, m_type);
-    copyParameter<Height>(TxParameterID::MinHeight, m_tx, tokenParams);
-    copyParameter<Height>(TxParameterID::PeerResponseTime, m_tx, tokenParams);
-    copyParameter<Timestamp>(TxParameterID::CreateTime, m_tx, tokenParams);
-    copyParameter<Height>(TxParameterID::Lifetime, m_tx, tokenParams);
-
-    copyParameter<Amount>(TxParameterID::Amount, m_tx, tokenParams);
-    copyParameter<Amount>(TxParameterID::AtomicSwapAmount, m_tx, tokenParams);
-    copyParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin, m_tx, tokenParams);
-
-    return QString::fromStdString(std::to_string(tokenParams));
+    const auto& readyForTokenizeTxParams =
+            PrepareSwapTxParamsForTokenization(m_tx);
+    return QString::fromStdString(std::to_string(readyForTokenizeTxParams));
 }
 
 bool SwapTxObject::isLockTxProofReceived() const

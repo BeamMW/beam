@@ -19,7 +19,7 @@
 namespace beam::wallet
 {
     ExchangeRateProvider::ExchangeRateProvider(
-        IBroadcastMsgsGateway& broadcastGateway,
+        IBroadcastMsgGateway& broadcastGateway,
         BroadcastMsgValidator& validator)
         : m_broadcastGateway(broadcastGateway),
           m_validator(validator)

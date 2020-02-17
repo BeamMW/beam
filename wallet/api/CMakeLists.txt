@@ -6,9 +6,16 @@ add_library(wallet_api_proto STATIC api.cpp)
 
 target_link_libraries(wallet_api_proto
     PUBLIC 
+        wallet_client
+        utility
+)
+
+add_library(wallet_api STATIC api_connection.cpp)
+
+target_link_libraries(wallet_api
+    PUBLIC 
         wallet 
-        utility 
-        http
+        wallet_api_proto
 )
 
 set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
@@ -18,6 +25,8 @@ target_include_directories(${WALLET_API_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR
 target_link_libraries(${WALLET_API_NAME}
     PRIVATE 
         wallet_api_proto
+        wallet_api
+        http
         cli
 )
 

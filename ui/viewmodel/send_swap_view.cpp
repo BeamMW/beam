@@ -15,6 +15,7 @@
 #include "model/app_model.h"
 #include "qml_globals.h"
 #include "wallet/transactions/swaps/common.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
 #include "ui_helpers.h"
 
 SendSwapViewModel::SendSwapViewModel()
@@ -126,13 +127,7 @@ void SendSwapViewModel::setToken(const QString& value)
 
 bool SendSwapViewModel::getTokenValid() const
 {
-    if (QMLGlobals::isSwapToken(_token))
-    {
-        // TODO:SWAP check if token is valid
-        return true;
-    }
-
-    return false;
+    return QMLGlobals::isSwapToken(_token);
 }
 
 bool SendSwapViewModel::getParametersValid() const
@@ -367,18 +362,11 @@ void SendSwapViewModel::sendMoney()
     auto beamFee = _isBeamSide ? getSendFee() : getReceiveFee();
     auto swapFee = _isBeamSide ? getReceiveFee() : getSendFee();
 
-    if (_isBeamSide)
-    {
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_LOCK_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_REFUND_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::REDEEM_TX);
-    }
-    else
-    {
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::LOCK_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::REFUND_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_REDEEM_TX);
-    }
+    beam::wallet::FillSwapFee(
+        &txParameters,
+        beam::Amount(beamFee),
+        beam::Amount(swapFee),
+        _isBeamSide);
 
     if (!_comment.isEmpty())
     {

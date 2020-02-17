@@ -79,7 +79,7 @@ signals:
 #endif
     void txHistoryExportedToCsv(const QString& data);
     void newAppVersion(const QString& msg);
-    void exchangeRatesUpdate(const QString& msg);
+    void exchangeRatesUpdate(const beam::wallet::ExchangeRates&);
 
 private:
     void onStatus(const beam::wallet::WalletStatus& status) override;
@@ -89,6 +89,9 @@ private:
     void onAllUtxoChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Coin>& utxos) override;
     void onAddressesChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::WalletAddress>& items) override;
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs) override;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    void onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers) override;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr) override;
     void onSwapParamsLoaded(const beam::ByteBuffer& token) override;
     void onNewAddressFailed() override;
@@ -106,9 +109,8 @@ private:
     void onImportDataFromJson(bool isOk) override;
     void onExportDataToJson(const std::string& data) override;
     void onExportTxHistoryToCsv(const std::string& data) override;
-    void onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers) override;
     void onNewWalletVersion(const beam::wallet::VersionInfo&) override;
-    // void onExchangeRates(const ExchangeRates&) override;
+    void onExchangeRates(const beam::wallet::ExchangeRates&) override;
 
     void onShowKeyKeeperMessage() override;
     void onHideKeyKeeperMessage() override;

@@ -33,6 +33,7 @@
 #include "secstring.h"
 #include "private_key_keeper.h"
 #include "variables_db.h"
+#include "wallet/client/extensions/notifications/notification.h"
 
 #include <string>
 
@@ -416,6 +417,10 @@ namespace beam::wallet
         virtual void saveAsset(const Asset::Full& info, Height refreshHeight = 0) = 0;
         virtual boost::optional<Asset::Full> findAsset(Asset::ID) = 0;
 
+        // Notifications management
+        virtual std::vector<Notification> getNotifications() const = 0;
+        virtual void saveNotification(const Notification&) = 0;
+
        private:
            bool get_CommitmentSafe(ECC::Point& comm, const CoinID&, IPrivateKeyKeeper2*);
     };
@@ -424,7 +429,7 @@ namespace beam::wallet
     {
         struct Statement;
         struct Transaction;
-    }
+    }  // namespace sqlite
 
     class WalletDB : public IWalletDB
     {
@@ -526,6 +531,9 @@ namespace beam::wallet
 
         void saveAsset(const Asset::Full& info, Height refreshHeight = 0) override;
         boost::optional<Asset::Full> findAsset(Asset::ID) override;
+
+        std::vector<Notification> getNotifications() const override;
+        void saveNotification(const Notification&) override;
 
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);
@@ -750,5 +758,7 @@ namespace beam::wallet
         std::string ExportTxHistoryToCsv(const IWalletDB& db);
 
         void HookErrors();
-    }
-}
+        bool isMyAddress(
+            const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
+    }  // namespace storage
+}  // namespace beam::wallet

@@ -82,7 +82,8 @@ namespace beam::wallet
             Bitcoin,
             Litecoin,
             Qtum,
-            Usd
+            Usd,
+            Unknown
         };
 
         struct ExchangeRate
@@ -98,6 +99,40 @@ namespace beam::wallet
         std::vector<ExchangeRate> m_rates;
 
         SERIALIZE(m_ts, m_rates);
+
+        static std::string to_string(const Currency& currency)
+        {
+            switch (currency)
+            {
+                case Currency::Beam:
+                    return "beam";
+                case Currency::Bitcoin:
+                    return "btc";
+                case Currency::Litecoin:
+                    return "ltc";
+                case Currency::Qtum:
+                    return "qtum";
+                case Currency::Usd:
+                    return "usd";
+                default:
+                    return "unknown";
+            }
+        };
+
+        static Currency from_string(const std::string& c)
+        {
+            if (c == "beam")
+                return Currency::Beam;
+            else if (c == "btc")
+                return Currency::Bitcoin;
+            else if (c == "ltc")
+                return Currency::Litecoin;
+            else if (c == "qtum")
+                return Currency::Qtum;
+            else if (c == "usd")
+                return Currency::Usd;
+            else return Currency::Unknown;
+        };
     };
     
     /**

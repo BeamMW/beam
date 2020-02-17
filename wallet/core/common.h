@@ -105,16 +105,6 @@ namespace beam::wallet
         Registering
     };
 
-    enum class SwapOfferStatus : uint32_t
-    {
-        Pending,
-        InProgress,
-        Completed,
-        Canceled,
-        Expired,
-        Failed
-    };
-
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
     MACRO(Unknown,                       0, "Unexpected reason, please send wallet logs to Beam support") \
     MACRO(Canceled,                      1, "Transaction cancelled") \
@@ -429,16 +419,6 @@ namespace beam::wallet
         PackedTxParameters m_Parameters;
     };    
 
-    enum class AtomicSwapCoin : int32_t // explicit signed type for serialization backward compatibility
-    {
-        Bitcoin,
-        Litecoin,
-        Qtum,
-        Unknown
-    };
-
-    AtomicSwapCoin from_string(const std::string& value);
-
     boost::optional<TxParameters> ParseParameters(const std::string& text);
 
     // Specifies key transaction parameters for interaction with Wallet Clients
@@ -660,7 +640,7 @@ namespace beam::wallet
             m_notifier->Unsubscribe(m_observer);
         }
     private:
-        Observer* m_observer;
+        Observer * m_observer;
         std::shared_ptr<Notifier> m_notifier;
     };
  
@@ -670,6 +650,18 @@ namespace beam::wallet
 
 namespace beam
 {
+    template <typename E>
+    using UnderlyingType = typename std::underlying_type<E>::type;
+
+    template <typename E>
+    using EnumTypesOnly = typename std::enable_if<std::is_enum<E>::value, E>::type;
+
+    template <typename E, typename = EnumTypesOnly<E>>
+    constexpr UnderlyingType<E> underlying_cast(E e)
+    {
+        return static_cast<UnderlyingType<E>>(e);
+    }
+
     std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount);
     std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid);
 
@@ -702,8 +694,6 @@ namespace std
 {
     string to_string(const beam::wallet::WalletID&);
     string to_string(const beam::Merkle::Hash& hash);
-    string to_string(beam::wallet::AtomicSwapCoin value);
-    string to_string(beam::wallet::SwapOfferStatus status);
     string to_string(const beam::wallet::PrintableAmount& amount);
     string to_string(const beam::wallet::TxParameters&);
     string to_string(const beam::Version&);

@@ -14,16 +14,17 @@
 
 #pragma once
 
-#include "swap_offer.h"
+#include "wallet/client/extensions/offers_board/swap_offer.h"
 
 #include "wallet/core/wallet_db.h"
+#include <vector>
 
 namespace beam::wallet
 {
-    /// Interface for swap bulletin board observer.
-    struct ISwapOffersObserver
-    {
-        virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) = 0;
-    };
+/// Interface for swap bulletin board observer.
+struct ISwapOffersObserver
+{
+    virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) = 0;
+};
 
 } // namespace beam::wallet

@@ -13,3 +13,26 @@
 // limitations under the License.
 
 #include "exchange_rate_provider.h"
+
+// test
+#include "utility/logger.h"
+
+ExchangeRateProvider::ExchangeRateProvider()
+    : m_walletModel(*AppModel::getInstance().getWallet())
+{
+    qRegisterMetaType<beam::wallet::ExchangeRates>("beam::wallet::ExchangeRates");
+
+    connect(&m_walletModel,
+            SIGNAL(exchangeRatesUpdate(const beam::wallet::ExchangeRates&)),
+            SLOT(onExchangeRatesUpdate(const beam::wallet::ExchangeRates&)));
+}
+
+void ExchangeRateProvider::onExchangeRatesUpdate(const beam::wallet::ExchangeRates& rates)
+{
+    // TEST
+    for (const auto& rate : rates.m_rates)
+    {
+        LOG_DEBUG() << "Exchange rate: 1 " << beam::wallet::ExchangeRates::to_string(rate.m_currency) << " = "
+                    << rate.m_rate << " " << beam::wallet::ExchangeRates::to_string(rate.m_unit);
+    }
+}

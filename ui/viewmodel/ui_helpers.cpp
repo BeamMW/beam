@@ -78,6 +78,7 @@ namespace beamui
         return datetime.toString(Qt::SystemLocaleShortDate);
     }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
     Currencies convertSwapCoinToCurrency(wallet::AtomicSwapCoin coin)
     {
         switch (coin)
@@ -93,6 +94,7 @@ namespace beamui
             return beamui::Currencies::Unknown;
         }
     }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     Filter::Filter(size_t size)
         : _samples(size, 0.0)
