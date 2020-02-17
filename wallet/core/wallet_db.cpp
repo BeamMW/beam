@@ -4304,6 +4304,19 @@ namespace beam::wallet
         {
             sqlite3_config(SQLITE_CONFIG_LOG, LogSqliteError, nullptr);
         }
+
+        bool isMyAddress(
+            const std::vector<WalletAddress>& myAddresses, const WalletID& wid)
+        {
+            auto myAddrIt = std::find_if(
+                myAddresses.begin(),
+                myAddresses.end(),
+                [&wid] (const WalletAddress& addr)
+                {
+                    return wid == addr.m_walletID;
+                });
+            return myAddrIt != myAddresses.end();
+        }
     }
 
     ////////////////////////

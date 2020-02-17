@@ -209,10 +209,11 @@ void ApiConnection::onMessage(const JsonRpcId& id, const CreateAddress& data)
     LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
     WalletAddress address;
-        _walletData.getWalletDB()->createAddress(address);
+    auto walletDB = _walletData.getWalletDB();
+    walletDB->createAddress(address);
     FillAddressData(data, address);
 
-        _walletData.getWalletDB()->saveAddress(address);
+    walletDB->saveAddress(address);
 
     doResponse(id, CreateAddress::Response{ address.m_walletID });
 }
@@ -221,11 +222,12 @@ void ApiConnection::onMessage(const JsonRpcId& id, const DeleteAddress& data)
 {
     LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
-        auto addr = _walletData.getWalletDB()->getAddress(data.address);
+    auto walletDB = _walletData.getWalletDB();
+    auto addr = walletDB->getAddress(data.address);
 
     if (addr)
     {
-            _walletData.getWalletDB()->deleteAddress(data.address);
+        walletDB->deleteAddress(data.address);
 
         doResponse(id, DeleteAddress::Response{});
     }
@@ -239,14 +241,15 @@ void ApiConnection::onMessage(const JsonRpcId& id, const EditAddress& data)
 {
     LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
-        auto addr = _walletData.getWalletDB()->getAddress(data.address);
+    auto walletDB = _walletData.getWalletDB();
+    auto addr = walletDB->getAddress(data.address);
 
     if (addr)
     {
         if (addr->isOwn())
         {
             FillAddressData(data, *addr);
-                _walletData.getWalletDB()->saveAddress(*addr);
+            walletDB->saveAddress(*addr);
 
             doResponse(id, EditAddress::Response{});
         }
@@ -265,14 +268,14 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AddrList& data)
 {
     LOG_DEBUG() << "AddrList(id = " << id << ")";
 
-        doResponse(id, AddrList::Response{ _walletData.getWalletDB()->getAddresses(data.own) });
-    }
+    doResponse(id, AddrList::Response{ _walletData.getWalletDB()->getAddresses(data.own) });
+}
 
 void ApiConnection::onMessage(const JsonRpcId& id, const ValidateAddress& data)
 {
     LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
-        auto addr = _walletData.getWalletDB()->getAddress(data.address);
+    auto addr = _walletData.getWalletDB()->getAddress(data.address);
     bool isMine = addr ? addr->isOwn() : false;
     doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? !addr->isExpired() : true), isMine });
 }
@@ -290,6 +293,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Send& data)
     {
         WalletID from(Zero);
 
+        auto walletDB = _walletData.getWalletDB();
         if (data.from)
         {
             if (!data.from->IsValid())
@@ -298,7 +302,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Send& data)
                 return;
             }
 
-                auto addr = _walletData.getWalletDB()->getAddress(*data.from);
+            auto addr = walletDB->getAddress(*data.from);
             bool isMine = addr ? addr->isOwn() : false;
 
             if (!isMine)
@@ -318,8 +322,8 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Send& data)
         else
         {
             WalletAddress senderAddress;
-                _walletData.getWalletDB()->createAddress(senderAddress);
-                _walletData.getWalletDB()->saveAddress(senderAddress);
+            walletDB->createAddress(senderAddress);
+            walletDB->saveAddress(senderAddress);
 
             from = senderAddress.m_walletID;
         }
@@ -330,7 +334,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Send& data)
 
         if (data.session)
         {
-                coins = _walletData.getWalletDB()->getLockedCoins(*data.session);
+            coins = walletDB->getLockedCoins(*data.session);
 
             if (coins.empty())
             {
@@ -350,22 +354,22 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Send& data)
             return;
         }
 
-            if (data.txId && _walletData.getWalletDB()->getTx(*data.txId))
+        if (data.txId && walletDB->getTx(*data.txId))
         {
             doTxAlreadyExistsError(id);
             return;
         }
 
-            auto params = CreateSimpleTransactionParameters(data.txId);
-            LoadReceiverParams(data.txParameters, params);
+        auto params = CreateSimpleTransactionParameters(data.txId);
+        LoadReceiverParams(data.txParameters, params);
 
-            params.SetParameter(TxParameterID::MyID, from)
-            .SetParameter(TxParameterID::Amount, data.value)
-            .SetParameter(TxParameterID::Fee, data.fee)
-            .SetParameter(TxParameterID::PreselectedCoins, coins)
-                .SetParameter(TxParameterID::Message, message);
+        params.SetParameter(TxParameterID::MyID, from)
+              .SetParameter(TxParameterID::Amount, data.value)
+              .SetParameter(TxParameterID::Fee, data.fee)
+              .SetParameter(TxParameterID::PreselectedCoins, coins)
+              .SetParameter(TxParameterID::Message, message);
 
-            auto txId = _walletData.getWallet().StartTransaction(params);
+        auto txId = _walletData.getWallet().StartTransaction(params);
 
         doResponse(id, Send::Response{ txId });
     }
@@ -385,7 +389,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Issue& data)
         auto walletDB = _walletData.getWalletDB();
         if (data.session)
         {
-                if ((coins = walletDB->getLockedCoins(*data.session)).empty())
+            if ((coins = walletDB->getLockedCoins(*data.session)).empty())
             {
                 doError(id, ApiError::InternalErrorJsonRpc, "Requested session is empty.");
                 return;
@@ -409,7 +413,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Issue& data)
             return;
         }
 
-            const auto txId = _walletData.getWallet().StartTransaction(CreateTransactionParameters(TxType::AssetIssue, data.txId)
+        const auto txId = _walletData.getWallet().StartTransaction(CreateTransactionParameters(TxType::AssetIssue, data.txId)
             .SetParameter(TxParameterID::Amount, data.value)
             .SetParameter(TxParameterID::Fee, data.fee)
             .SetParameter(TxParameterID::PreselectedCoins, coins)
@@ -428,7 +432,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Status& data)
     LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
     auto walletDB = _walletData.getWalletDB();
-        auto tx = walletDB->getTx(data.txId);
+    auto tx = walletDB->getTx(data.txId);
 
     if (tx)
     {
@@ -441,7 +445,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Status& data)
         result.systemHeight = stateID.m_Height;
         result.confirmations = 0;
 
-            storage::getTxParameter(*walletDB, tx->m_txId, TxParameterID::KernelProofHeight, result.kernelProofHeight);
+        storage::getTxParameter(*walletDB, tx->m_txId, TxParameterID::KernelProofHeight, result.kernelProofHeight);
 
         doResponse(id, result);
     }
@@ -460,8 +464,8 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Split& data)
     {
         auto walletDB = _walletData.getWalletDB();
         WalletAddress senderAddress;
-            walletDB->createAddress(senderAddress);
-            walletDB->saveAddress(senderAddress);
+        walletDB->createAddress(senderAddress);
+        walletDB->saveAddress(senderAddress);
 
         auto minimumFee = std::max(wallet::GetMinimumFee(data.coins.size() + 1), DefaultFee); // +1 extra output for change 
         if (data.fee < minimumFee)
@@ -476,7 +480,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Split& data)
             return;
         }
 
-            auto txId = _walletData.getWallet().StartTransaction(CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
+        auto txId = _walletData.getWallet().StartTransaction(CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
             .SetParameter(TxParameterID::Fee, data.fee));
 
         doResponse(id, Send::Response{ txId });
@@ -491,13 +495,14 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxCancel& data)
 {
     LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
-        auto tx = _walletData.getWalletDB()->getTx(data.txId);
+    auto tx = _walletData.getWalletDB()->getTx(data.txId);
 
     if (tx)
     {
-            if (_walletData.getWallet().CanCancelTransaction(tx->m_txId))
+        auto& wallet = _walletData.getWallet();
+        if (wallet.CanCancelTransaction(tx->m_txId))
         {
-                _walletData.getWallet().CancelTransaction(tx->m_txId);
+            wallet.CancelTransaction(tx->m_txId);
             TxCancel::Response result{ true };
             doResponse(id, result);
         }
@@ -516,15 +521,16 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxDelete& data)
 {
     LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
-        auto tx = _walletData.getWalletDB()->getTx(data.txId);
+    auto walletDB = _walletData.getWalletDB();
+    auto tx = walletDB->getTx(data.txId);
 
     if (tx)
     {
         if (tx->canDelete())
         {
-                _walletData.getWalletDB()->deleteTx(data.txId);
+            walletDB->deleteTx(data.txId);
 
-                if (_walletData.getWalletDB()->getTx(data.txId))
+            if (walletDB->getTx(data.txId))
             {
                 doError(id, ApiError::InternalErrorJsonRpc, "Transaction not deleted.");
             }
@@ -549,11 +555,11 @@ void ApiConnection::onMessage(const JsonRpcId& id, const GetUtxo& data)
     LOG_DEBUG() << "GetUtxo(id = " << id << ")";
 
     GetUtxo::Response response;
-        _walletData.getWalletDB()->visitCoins([&response](const Coin& c)->bool
-        {
-            response.utxos.push_back(c);
-            return true;
-        });
+    _walletData.getWalletDB()->visitCoins([&response](const Coin& c)->bool
+    {
+        response.utxos.push_back(c);
+        return true;
+    });
 
     doPagination(data.skip, data.count, response.utxos);
 
@@ -565,10 +571,11 @@ void ApiConnection::onMessage(const JsonRpcId& id, const WalletStatus& data)
     LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
     WalletStatus::Response response;
+    auto walletDB = _walletData.getWalletDB();
 
     {
         Block::SystemState::ID stateID = {};
-            _walletData.getWalletDB()->getSystemStateID(stateID);
+        walletDB->getSystemStateID(stateID);
 
         response.currentHeight = stateID.m_Height;
         response.currentStateHash = stateID.m_Hash;
@@ -576,12 +583,12 @@ void ApiConnection::onMessage(const JsonRpcId& id, const WalletStatus& data)
 
     {
         Block::SystemState::Full state;
-            _walletData.getWalletDB()->get_History().get_Tip(state);
+        walletDB->get_History().get_Tip(state);
         response.prevStateHash = state.m_Prev;
         response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
     }
 
-        storage::Totals allTotals(*_walletData.getWalletDB());
+    storage::Totals allTotals(*walletDB);
     const auto& totals = allTotals.GetTotals(Zero);
 
     response.available = totals.Avail;
@@ -605,7 +612,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Lock& data)
 
     Lock::Response response;
 
-        response.result = _walletData.getWalletDB()->lockCoins(data.coins, data.session);
+    response.result = _walletData.getWalletDB()->lockCoins(data.coins, data.session);
 
     doResponse(id, response);
 }
@@ -616,7 +623,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Unlock& data)
 
     Unlock::Response response;
 
-        response.result = _walletData.getWalletDB()->unlockCoins(data.session);
+    response.result = _walletData.getWalletDB()->unlockCoins(data.session);
 
     doResponse(id, response);
 }
@@ -628,10 +635,11 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxList& data)
     TxList::Response res;
 
     {
-            auto txList = _walletData.getWalletDB()->getTxHistory();
+        auto walletDB = _walletData.getWalletDB();
+        auto txList = walletDB->getTxHistory();
 
         Block::SystemState::ID stateID = {};
-            _walletData.getWalletDB()->getSystemStateID(stateID);
+        _walletData.getWalletDB()->getSystemStateID(stateID);
 
         for (const auto& tx : txList)
         {
@@ -641,7 +649,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxList& data)
             item.systemHeight = stateID.m_Height;
             item.confirmations = 0;
 
-                storage::getTxParameter(*_walletData.getWalletDB(), tx.m_txId, TxParameterID::KernelProofHeight, item.kernelProofHeight);
+            storage::getTxParameter(*walletDB, tx.m_txId, TxParameterID::KernelProofHeight, item.kernelProofHeight);
             res.resultList.push_back(item);
         }
     }
@@ -677,7 +685,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxList& data)
     doResponse(id, res);
 }
 
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void ApiConnection::onMessage(const JsonRpcId& id, const OffersList& data)
 {
     bool showAll = data.filter.showAll && *data.filter.showAll;
@@ -865,7 +873,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
     {
         offer = *publicOffer;
 
-        if (isMyAddress(myAddresses, offer.m_publisherId))
+        if (storage::isMyAddress(myAddresses, offer.m_publisherId))
             throw FailToAcceptOwnOffer();
     }
     else
@@ -876,7 +884,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
         if (!peerId)
             throw FailToParseToken();
 
-        if (isMyAddress(myAddresses, *peerId))
+        if (storage::isMyAddress(myAddresses, *peerId))
             throw FailToAcceptOwnOffer();
 
         auto wid = createWID(walletDB.get(), data.comment);
@@ -887,7 +895,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
             offer.SetParameter(
                 TxParameterID::Message,
                 beam::ByteBuffer(data.comment.begin(),
-                                    data.comment.end()));
+                                 data.comment.end()));
         }
     }
 
@@ -998,7 +1006,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const OfferStatus& data)
             throw FailToParseToken();
 
         auto myAddresses = walletDB->getAddresses(true);
-        if (!isMyAddress(myAddresses, *peerId))
+        if (!storage::isMyAddress(myAddresses, *peerId))
         {
             offer = SwapOffer(*txParams);
         }

@@ -404,11 +404,6 @@ namespace beam::wallet
         };
     };
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    bool isMyAddress(
-        const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
     class IApiHandler
     {
     public:
@@ -450,8 +445,8 @@ namespace beam::wallet
         bool parse(const char* data, size_t size);
 
         static const char* getErrorMessage(ApiError code);
-        static bool existsJsonParam(const nlohmann::json& params, const std::string& name);
-        static void checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id);
+        static bool existsJsonParam(const json& params, const std::string& name);
+        static void checkJsonParam(const json& params, const std::string& name, const JsonRpcId& id);
     protected:
         IApiHandler& _handler;
 

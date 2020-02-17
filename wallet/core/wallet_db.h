@@ -429,7 +429,7 @@ namespace beam::wallet
     {
         struct Statement;
         struct Transaction;
-    }
+    }  // namespace sqlite
 
     class WalletDB : public IWalletDB
     {
@@ -758,5 +758,7 @@ namespace beam::wallet
         std::string ExportTxHistoryToCsv(const IWalletDB& db);
 
         void HookErrors();
-    }
-}
+        bool isMyAddress(
+            const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
+    }  // namespace storage
+}  // namespace beam::wallet

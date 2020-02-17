@@ -22,17 +22,12 @@
 #include "wallet/transactions/swaps/utils.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-#include "nlohmann/json.hpp"
-
-using json = nlohmann::json;
-
 namespace beam::wallet
 {    
 namespace
 {
 
-
-static json getNotImplError(const JsonRpcId& id)
+json getNotImplError(const JsonRpcId& id)
 {
     return json
     {
@@ -119,6 +114,33 @@ boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const json& params)
     return txId;
 }
 
+static void FillAddressData(const JsonRpcId& id, const json& params, AddressData& data)
+{
+    if (WalletApi::existsJsonParam(params, "comment"))
+    {
+        std::string comment = params["comment"];
+
+        data.comment = comment;
+    }
+
+    if (WalletApi::existsJsonParam(params, "expiration"))
+    {
+        std::string expiration = params["expiration"];
+
+        static std::map<std::string, AddressData::Expiration> Items =
+        {
+            {"expired", AddressData::Expired},
+            {"24h",  AddressData::OneDay},
+            {"never", AddressData::Never},
+        };
+
+        if(Items.count(expiration) == 0)
+            throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Unknown value for the 'expiration' parameter.", id };
+
+        data.expiration = Items[expiration];
+    }
+}
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void throwIncorrectCurrencyError(const std::string& name, const JsonRpcId& id)
 {
@@ -149,7 +171,7 @@ json OfferToJson(const SwapOffer& offer,
     if (publisherId.cmp(Zero))
     {
         isPublic = true;
-        isOwnOffer = isMyAddress(myAddresses, publisherId);
+        isOwnOffer = storage::isMyAddress(myAddresses, publisherId);
     }
     else
     {
@@ -386,26 +408,146 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
 }  // namespace
 
-#ifdef  BEAM_ATOMIC_SWAP_SUPPORT
-    bool isMyAddress(
-        const std::vector<WalletAddress>& myAddresses, const WalletID& wid)
-    {
-        auto myAddrIt = std::find_if(
-            myAddresses.begin(),
-            myAddresses.end(),
-            [&wid] (const WalletAddress& addr)
-            {
-                return wid == addr.m_walletID;
-            });
-        return myAddrIt != myAddresses.end();
-    }
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
     Api::Api(IApiHandler& handler, ACL acl)
         : _handler(handler)
         , _acl(acl)
     {
 
+    }
+
+    // static
+    bool Api::existsJsonParam(const json& params, const std::string& name)
+    {
+        return params.find(name) != params.end();
+    }
+
+    // static
+    void Api::checkJsonParam(const json& params, const std::string& name, const JsonRpcId& id)
+    {
+        if (!existsJsonParam(params, name))
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parameter '" + name + "' doesn't exist.", id };
+    }
+
+    bool Api::parse(const char* data, size_t size)
+    {
+        if (size == 0)
+        {
+            json msg
+            {
+                {JsonRpcHrd, JsonRpcVerHrd},
+                {"error",
+                    {
+                        {"code", ApiError::InvalidJsonRpc},
+                        {"message", "Empty JSON request."},
+                    }
+                }
+            };
+
+            _handler.onInvalidJsonRpc(msg);
+            return false;
+        }
+
+        try
+        {
+            json msg = json::parse(data, data + size);
+
+            if(!msg["id"].is_number_integer() 
+                && !msg["id"].is_string())
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "ID can be integer or string only." };
+
+            JsonRpcId id = msg["id"];
+
+            if (msg[JsonRpcHrd] != JsonRpcVerHrd) 
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid JSON-RPC 2.0 header.", id };
+
+            if (_acl)
+            {
+                if (msg["key"] == nullptr) 
+                    throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "API key not specified.", id };
+
+                if (_acl->count(msg["key"]) == 0) 
+                    throw jsonrpc_exception{ ApiError::UnknownApiKey , msg["key"], id };
+            }
+
+            checkJsonParam(msg, "method", id);
+
+            JsonRpcId method = msg["method"];
+
+            if (_methods.find(method) == _methods.end())
+            {
+                throw jsonrpc_exception{ ApiError::NotFoundJsonRpc, method, id };
+            }
+
+            try
+            {
+                auto& info = _methods[method];
+
+                if(_acl && info.writeAccess && _acl.get()[msg["key"]] == false)
+                {
+                    throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "User doesn't have permissions to call this method.", id };
+                }
+
+                info.func(id, msg["params"] == nullptr ? json::object() : msg["params"]);
+            }
+            catch (const nlohmann::detail::exception& e)
+            {
+                LOG_ERROR() << "json parse: " << e.what() << "\n" << getJsonString(data, size);
+
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc , e.what(), id };
+            }
+        }
+        catch (const jsonrpc_exception& e)
+        {
+            json msg
+            {
+                {JsonRpcHrd, JsonRpcVerHrd},
+                {"error",
+                    {
+                        {"code", e.code},
+                        {"message", getErrorMessage(e.code)},
+                    }
+                }
+            };
+
+            if (!e.data.empty())
+            {
+                msg["error"]["data"] = e.data;
+            }
+
+            if (e.id.is_number_integer() || e.id.is_string()) msg["id"] = e.id;
+            else msg.erase("id");
+
+            _handler.onInvalidJsonRpc(msg);
+        }
+        catch (const std::exception& e)
+        {
+            json msg
+            {
+                {JsonRpcHrd, JsonRpcVerHrd},
+                {"error",
+                    {
+                        {"code", ApiError::InternalErrorJsonRpc},
+                        {"message", e.what()},
+                    }
+                }
+            };
+
+            _handler.onInvalidJsonRpc(msg);
+        }
+
+        return true;
+    }
+
+    // static
+    const char* Api::getErrorMessage(ApiError code)
+    {
+#define ERROR_ITEM(_, item, info) case item: return info;
+        switch (code) { JSON_RPC_ERRORS(ERROR_ITEM) }
+#undef ERROR_ITEM
+
+        assert(false);
+
+        return "unknown error.";
     }
 
     WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
@@ -418,44 +560,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
 #undef REG_FUNC
     };
-
-    bool Api::existsJsonParam(const nlohmann::json& params, const std::string& name)
-    {
-        return params.find(name) != params.end();
-    }
-
-    void Api::checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id)
-    {
-        if (!existsJsonParam(params, name))
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parameter '" + name + "' doesn't exist.", id };
-    }
-
-    static void FillAddressData(const JsonRpcId& id, const nlohmann::json& params, AddressData& data)
-    {
-        if (WalletApi::existsJsonParam(params, "comment"))
-        {
-            std::string comment = params["comment"];
-
-            data.comment = comment;
-        }
-
-        if (WalletApi::existsJsonParam(params, "expiration"))
-        {
-            std::string expiration = params["expiration"];
-
-            static std::map<std::string, AddressData::Expiration> Items =
-            {
-                {"expired", AddressData::Expired},
-                {"24h",  AddressData::OneDay},
-                {"never", AddressData::Never},
-            };
-
-            if(Items.count(expiration) == 0)
-                throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Unknown value for the 'expiration' parameter.", id };
-
-            data.expiration = Items[expiration];
-        }
-    }
 
     IWalletApiHandler& WalletApi::getHandler() const
     {
@@ -795,7 +899,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         getHandler().onMessage(id, txList);
     }
 
-    void WalletApi::onWalletStatusMessage(const JsonRpcId& id, const nlohmann::json& params)
+    void WalletApi::onWalletStatusMessage(const JsonRpcId& id, const json& params)
     {
         WalletStatus walletStatus;
         getHandler().onMessage(id, walletStatus);
@@ -807,7 +911,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         getHandler().onMessage(id, generateTxId);
     }
 
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 
     void WalletApi::onOffersListMessage(const JsonRpcId& id, const json& params)
     {
@@ -1032,7 +1136,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             };
         }
     }
-#endif
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
     {
@@ -1279,128 +1383,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         };
     }
 
-    bool Api::parse(const char* data, size_t size)
-    {
-        if (size == 0)
-        {
-            json msg
-            {
-                {JsonRpcHrd, JsonRpcVerHrd},
-                {"error",
-                    {
-                        {"code", ApiError::InvalidJsonRpc},
-                        {"message", "Empty JSON request."},
-                    }
-                }
-            };
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 
-            _handler.onInvalidJsonRpc(msg);
-            return false;
-        }
-
-        try
-        {
-            json msg = json::parse(data, data + size);
-
-            if(!msg["id"].is_number_integer() 
-                && !msg["id"].is_string())
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "ID can be integer or string only." };
-
-            JsonRpcId id = msg["id"];
-
-            if (msg[JsonRpcHrd] != JsonRpcVerHrd) 
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid JSON-RPC 2.0 header.", id };
-
-            if (_acl)
-            {
-                if (msg["key"] == nullptr) 
-                    throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "API key not specified.", id };
-
-                if (_acl->count(msg["key"]) == 0) 
-                    throw jsonrpc_exception{ ApiError::UnknownApiKey , msg["key"], id };
-            }
-
-            checkJsonParam(msg, "method", id);
-
-            JsonRpcId method = msg["method"];
-
-            if (_methods.find(method) == _methods.end())
-            {
-                throw jsonrpc_exception{ ApiError::NotFoundJsonRpc, method, id };
-            }
-
-            try
-            {
-                auto& info = _methods[method];
-
-                if(_acl && info.writeAccess && _acl.get()[msg["key"]] == false)
-                {
-                    throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "User doesn't have permissions to call this method.", id };
-                }
-
-                info.func(id, msg["params"] == nullptr ? json::object() : msg["params"]);
-            }
-            catch (const nlohmann::detail::exception& e)
-            {
-                LOG_ERROR() << "json parse: " << e.what() << "\n" << getJsonString(data, size);
-
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc , e.what(), id };
-            }
-        }
-        catch (const jsonrpc_exception& e)
-        {
-            json msg
-            {
-                {JsonRpcHrd, JsonRpcVerHrd},
-                {"error",
-                    {
-                        {"code", e.code},
-                        {"message", getErrorMessage(e.code)},
-                    }
-                }
-            };
-
-            if (!e.data.empty())
-            {
-                msg["error"]["data"] = e.data;
-            }
-
-            if (e.id.is_number_integer() || e.id.is_string()) msg["id"] = e.id;
-            else msg.erase("id");
-
-            _handler.onInvalidJsonRpc(msg);
-        }
-        catch (const std::exception& e)
-        {
-            json msg
-            {
-                {JsonRpcHrd, JsonRpcVerHrd},
-                {"error",
-                    {
-                        {"code", ApiError::InternalErrorJsonRpc},
-                        {"message", e.what()},
-                    }
-                }
-            };
-
-            _handler.onInvalidJsonRpc(msg);
-        }
-
-        return true;
-    }
-
-    const char* Api::getErrorMessage(ApiError code)
-    {
-#define ERROR_ITEM(_, item, info) case item: return info;
-        switch (code) { JSON_RPC_ERRORS(ERROR_ITEM) }
-#undef ERROR_ITEM
-
-        assert(false);
-
-        return "unknown error.";
-    }
-
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)    
     void WalletApi::getResponse(const JsonRpcId& id, const OffersList::Response& res, json& msg)
     {
         msg = 
