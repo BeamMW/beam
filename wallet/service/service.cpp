@@ -77,6 +77,11 @@ namespace beam::wallet
 #undef REG_FUNC
     };
 
+    IWalletServiceApiHandler& WalletServiceApi::getHandler() const
+    {
+        return static_cast<IWalletServiceApiHandler&>(_handler);
+    }
+
     void WalletServiceApi::onCreateWalletMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         CreateWallet createWallet;
@@ -93,7 +98,7 @@ namespace beam::wallet
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'ownerkey' parameter must be specified.", id };
 
-        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, createWallet);
+        getHandler().onMessage(id, createWallet);
     }
 
     void WalletServiceApi::onOpenWalletMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -112,17 +117,17 @@ namespace beam::wallet
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'id' parameter must be specified.", id };
 
-        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, openWallet);
+        getHandler().onMessage(id, openWallet);
     }
 
     void WalletServiceApi::onPingMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
-        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, Ping{});
+        getHandler().onMessage(id, Ping{});
     }
 
     void WalletServiceApi::onReleaseMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
-        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, Release{});
+        getHandler().onMessage(id, Release{});
     }
 
     void WalletServiceApi::getResponse(const JsonRpcId& id, const CreateWallet::Response& res, json& msg)

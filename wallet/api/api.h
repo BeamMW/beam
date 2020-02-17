@@ -268,11 +268,15 @@ namespace beam::wallet
         };
     };
 
-    class IWalletApiHandler
+    class IApiHandler
     {
     public:
         virtual void onInvalidJsonRpc(const json& msg) = 0;
+    };
 
+    class IWalletApiHandler : public IApiHandler
+    {
+    public:
 #define MESSAGE_FUNC(api, name, _) \
         virtual void onMessage(const JsonRpcId& id, const api& data) = 0;
 
@@ -281,9 +285,11 @@ namespace beam::wallet
 #undef MESSAGE_FUNC
     };
 
-    class WalletApi
+    class Api
     {
     public:
+
+        using Ptr = std::shared_ptr<Api>;
 
         struct jsonrpc_exception
         {
@@ -298,6 +304,29 @@ namespace beam::wallet
         // user api key and read/write access
         using ACL = boost::optional<std::map<std::string, bool>>;
 
+        Api(IApiHandler& handler, ACL acl = boost::none);
+
+        bool parse(const char* data, size_t size);
+
+        static const char* getErrorMessage(ApiError code);
+        static bool existsJsonParam(const nlohmann::json& params, const std::string& name);
+        static void checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id);
+    protected:
+        IApiHandler& _handler;
+
+        struct FuncInfo
+        {
+            std::function<void(const JsonRpcId & id, const json & msg)> func;
+            bool writeAccess;
+        };
+
+        std::unordered_map<std::string, FuncInfo> _methods;
+        ACL _acl;
+    };
+
+    class WalletApi : public Api
+    {
+    public:
         WalletApi(IWalletApiHandler& handler, ACL acl = boost::none);
 
 #define RESPONSE_FUNC(api, name, _) \
@@ -307,13 +336,8 @@ namespace beam::wallet
 
 #undef RESPONSE_FUNC
 
-        bool parse(const char* data, size_t size);
-        
-        static const char* getErrorMessage(ApiError code);
-        static bool existsJsonParam(const nlohmann::json& params, const std::string& name);
-        static void checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id);
-
     private:
+        IWalletApiHandler& getHandler() const;
 
 #define MESSAGE_FUNC(api, name, _) \
         void on##api##Message(const JsonRpcId& id, const json& msg);
@@ -322,17 +346,5 @@ namespace beam::wallet
 
 #undef MESSAGE_FUNC
 
-    protected:
-
-        IWalletApiHandler& _handler;
-
-        struct FuncInfo
-        {
-            std::function<void(const JsonRpcId& id, const json& msg)> func;
-            bool writeAccess;
-        };
-
-        std::unordered_map<std::string, FuncInfo> _methods;
-        ACL _acl;
     };
 }

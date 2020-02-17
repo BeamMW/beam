@@ -33,9 +33,15 @@ namespace beam::wallet
         }
     }
 
-    WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
+    Api::Api(IApiHandler& handler, ACL acl)
         : _handler(handler)
         , _acl(acl)
+    {
+
+    }
+
+    WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
+        : Api(handler, acl)
     {
 #define REG_FUNC(api, name, writeAccess) \
         _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
@@ -45,12 +51,12 @@ namespace beam::wallet
 #undef REG_FUNC
     };
 
-    bool WalletApi::existsJsonParam(const nlohmann::json& params, const std::string& name)
+    bool Api::existsJsonParam(const nlohmann::json& params, const std::string& name)
     {
         return params.find(name) != params.end();
     }
 
-    void WalletApi::checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id)
+    void Api::checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id)
     {
         if (!existsJsonParam(params, name))
             throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parameter '" + name + "' doesn't exist.", id };
@@ -83,12 +89,17 @@ namespace beam::wallet
         }
     }
 
+    IWalletApiHandler& WalletApi::getHandler() const
+    {
+        return static_cast<IWalletApiHandler&>(_handler);
+    }
+
     void WalletApi::onCreateAddressMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         CreateAddress createAddress;
         FillAddressData(id, params, createAddress);
 
-        _handler.onMessage(id, createAddress);
+        getHandler().onMessage(id, createAddress);
     }
 
     void WalletApi::onDeleteAddressMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -98,7 +109,7 @@ namespace beam::wallet
         DeleteAddress deleteAddress;
         deleteAddress.address.FromHex(params["address"]);
 
-        _handler.onMessage(id, deleteAddress);
+        getHandler().onMessage(id, deleteAddress);
     }
 
     void WalletApi::onEditAddressMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -114,7 +125,7 @@ namespace beam::wallet
         FillAddressData(id, params, editAddress);
 
 
-        _handler.onMessage(id, editAddress);
+        getHandler().onMessage(id, editAddress);
     }
 
     void WalletApi::onAddrListMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -125,7 +136,7 @@ namespace beam::wallet
 
         addrList.own = params["own"];
 
-        _handler.onMessage(id, addrList);
+        getHandler().onMessage(id, addrList);
     }
 
     void WalletApi::onValidateAddressMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -138,7 +149,7 @@ namespace beam::wallet
         ValidateAddress validateAddress;
         validateAddress.address.FromHex(params["address"]);
 
-        _handler.onMessage(id, validateAddress);
+        getHandler().onMessage(id, validateAddress);
     }
 
     static CoinIDList readCoinsParameter(const JsonRpcId& id, const nlohmann::json& params)
@@ -275,7 +286,7 @@ namespace beam::wallet
 
         send.txId = readTxIdParameter(id, params);
 
-        _handler.onMessage(id, send);
+        getHandler().onMessage(id, send);
     }
 
     void WalletApi::onStatusMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -290,7 +301,7 @@ namespace beam::wallet
 
         std::copy_n(txId.begin(), status.txId.size(), status.txId.begin());
 
-        _handler.onMessage(id, status);
+        getHandler().onMessage(id, status);
     }
 
     void WalletApi::onSplitMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -324,7 +335,7 @@ namespace beam::wallet
 
         split.txId = readTxIdParameter(id, params);
 
-        _handler.onMessage(id, split);
+        getHandler().onMessage(id, split);
     }
 
     void WalletApi::onTxCancelMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -338,7 +349,7 @@ namespace beam::wallet
 
         std::copy_n(txId.begin(), txCancel.txId.size(), txCancel.txId.begin());
 
-        _handler.onMessage(id, txCancel);
+        getHandler().onMessage(id, txCancel);
     }
 
     void WalletApi::onTxDeleteMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -352,7 +363,7 @@ namespace beam::wallet
 
         std::copy_n(txId.begin(), txDelete.txId.size(), txDelete.txId.begin());
 
-        _handler.onMessage(id, txDelete);
+        getHandler().onMessage(id, txDelete);
     }
 
     void WalletApi::onIssueMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -391,7 +402,7 @@ namespace beam::wallet
         }
 
         issue.txId = readTxIdParameter(id, params);
-        _handler.onMessage(id, issue);
+        getHandler().onMessage(id, issue);
     }
 
     void WalletApi::onGetUtxoMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -416,7 +427,7 @@ namespace beam::wallet
             else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.", id };
         }
 
-        _handler.onMessage(id, getUtxo);
+        getHandler().onMessage(id, getUtxo);
     }
 
     void WalletApi::onLockMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -429,7 +440,7 @@ namespace beam::wallet
         lock.session = readSessionParameter(id, params);
         lock.coins = readCoinsParameter(id, params);
 
-        _handler.onMessage(id, lock);
+        getHandler().onMessage(id, lock);
     }
 
     void WalletApi::onUnlockMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -440,7 +451,7 @@ namespace beam::wallet
 
         unlock.session = readSessionParameter(id, params);
 
-        _handler.onMessage(id, unlock);
+        getHandler().onMessage(id, unlock);
     }
 
     void WalletApi::onTxListMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -480,19 +491,19 @@ namespace beam::wallet
             else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.", id };
         }
 
-        _handler.onMessage(id, txList);
+        getHandler().onMessage(id, txList);
     }
 
     void WalletApi::onWalletStatusMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         WalletStatus walletStatus;
-        _handler.onMessage(id, walletStatus);
+        getHandler().onMessage(id, walletStatus);
     }
 
     void WalletApi::onGenerateTxIdMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         GenerateTxId generateTxId;
-        _handler.onMessage(id, generateTxId);
+        getHandler().onMessage(id, generateTxId);
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
@@ -771,7 +782,7 @@ namespace beam::wallet
         };
     }
 
-    bool WalletApi::parse(const char* data, size_t size)
+    bool Api::parse(const char* data, size_t size)
     {
         if (size == 0)
         {
@@ -881,7 +892,7 @@ namespace beam::wallet
         return true;
     }
 
-    const char* WalletApi::getErrorMessage(ApiError code)
+    const char* Api::getErrorMessage(ApiError code)
     {
 #define ERROR_ITEM(_, item, info) case item: return info;
         switch (code) { JSON_RPC_ERRORS(ERROR_ITEM) }

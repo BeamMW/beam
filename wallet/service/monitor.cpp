@@ -27,6 +27,82 @@
 
 using namespace beam;
 
+namespace beam::wallet
+{
+    SbbsMonitorApi::SbbsMonitorApi(ISbbsMonitorApiHandler& handler, ACL acl)
+        : Api(handler, acl)
+    {
+
+    }
+
+    ISbbsMonitorApiHandler& SbbsMonitorApi::getHandler() const
+    {
+        return static_cast<ISbbsMonitorApiHandler&>(_handler);
+    }
+
+    void SbbsMonitorApi::getResponse(const JsonRpcId& id, const ListenAddress::Response& data, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", "done"}
+        };
+    }
+
+    void SbbsMonitorApi::getResponse(const JsonRpcId& id, const RevokeAddress::Response& data, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", "done"}
+        };
+    }
+
+    void SbbsMonitorApi::onListenAddressMessage(const JsonRpcId& id, const json& msg)
+    {
+        ListenAddress message;
+
+        if (existsJsonParam(msg, "address"))
+        {
+            message.address.FromHex(msg["address"]);
+        }
+        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'address' parameter must be specified.", id };
+
+        if (existsJsonParam(msg, "privateKey"))
+        {
+            auto buffer = from_hex(msg["privateKey"]);
+
+            ECC::Scalar s;
+            Deserializer d;
+            d.reset(buffer);
+            d& s;
+
+            if (message.privateKey.Import(s))
+            {
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "invalid private key", id };
+            }
+        }
+        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'id' parameter must be specified.", id };
+
+        getHandler().onMessage(id, message);
+    }
+
+    void SbbsMonitorApi::onRevokeAddressMessage(const JsonRpcId& id, const json& msg)
+    {
+        RevokeAddress message;
+
+        if (existsJsonParam(msg, "address"))
+        {
+            message.address.FromHex(msg["address"]);
+        }
+        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'address' parameter must be specified.", id };
+
+        getHandler().onMessage(id, message);
+    }
+}
+
 namespace
 {
     class Monitor

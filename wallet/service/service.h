@@ -86,6 +86,8 @@ namespace beam::wallet
 
     private:
 
+        IWalletServiceApiHandler& getHandler() const;
+
 #define MESSAGE_FUNC(api, name, _) \
         void on##api##Message(const JsonRpcId& id, const json& msg);
 
