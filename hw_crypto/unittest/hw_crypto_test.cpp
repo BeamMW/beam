@@ -39,6 +39,12 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 	g_TestsFailed++;
 }
 
+void DbgPrint(const char* sz)
+{
+	printf("** %s\n", sz);
+	fflush(stdout);
+}
+
 #define verify_test(x) \
 	do { \
 		if (!(x)) \
@@ -298,6 +304,8 @@ void TestOracle()
 
 void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 {
+	DbgPrint("TestCoin - 1");
+
 	ECC::Hash::Value hv1, hv2;
 	cid.get_Hash(hv1);
 
@@ -310,11 +318,15 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 
 	BeamCrypto_CoinID_getHash(&cid2, &Ecc2BC(hv2));
 
+	DbgPrint("TestCoin - 2");
+
 	verify_test(hv1 == hv2);
 
 	uint8_t nScheme;
 	uint32_t nSubKey;
 	bool bChildKdf2 = !!BeamCrypto_CoinID_getSchemeAndSubkey(&cid2, &nScheme, &nSubKey);
+
+	DbgPrint("TestCoin - 3");
 
 	verify_test(cid.get_Scheme() == nScheme);
 
@@ -343,6 +355,8 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 
 	BeamCrypto_CoinID_getSkComm(&kdf2, &cid2, &sk2.get_Raw(), &Ecc2BC(comm2));
 
+	DbgPrint("TestCoin - 4");
+
 	verify_test(sk1 == sk2);
 	verify_test(comm1 == comm2);
 
@@ -367,7 +381,9 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 	rp.m_pKExtra = nullptr;
 	ZeroObject(rp.m_TauX);
 
+	DbgPrint("TestCoin - 5");
 	verify_test(BeamCrypto_RangeProof_Calculate(&rp)); // Phase 2
+	DbgPrint("TestCoin - 6");
 
 	Ecc2BC(outp.m_pConfidential->m_Part2.m_T1) = rp.m_pT[0];
 	Ecc2BC(outp.m_pConfidential->m_Part2.m_T2) = rp.m_pT[1];
@@ -486,10 +502,15 @@ int main()
 
 	InitContext();
 
+	DbgPrint("Testing MultiMac");
 	TestMultiMac();
+	DbgPrint("Testing NonceGen");
 	TestNonceGen();
+	DbgPrint("Testing Oracle");
 	TestOracle();
+	DbgPrint("Testing Kdf");
 	TestKdf();
+	DbgPrint("Testing Coins");
 	TestCoins();
 
     return g_TestsFailed ? -1 : 0;
