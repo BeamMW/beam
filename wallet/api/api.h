@@ -332,7 +332,7 @@ namespace beam::wallet
             bool writeAccess;
         };
 
-        std::map<std::string, FuncInfo> _methods;
+        std::unordered_map<std::string, FuncInfo> _methods;
         ACL _acl;
     };
 }
