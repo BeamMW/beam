@@ -845,6 +845,16 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 
 //////////////////////////////
 // RangeProof
+
+static void WriteInNetworkOrder(uint8_t** ppDst, uint64_t val, unsigned int nLen)
+{
+	for (unsigned int i = 0; i < nLen; i++, val >>= 8)
+	{
+		--*ppDst;
+		**ppDst = (uint8_t) val;
+	}
+}
+
 void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
 {
 	secp256k1_scalar sk, alpha, ro;
@@ -878,7 +888,20 @@ void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
 
 	BeamCrypto_NonceGenerator_NextScalar(&ng, &alpha);
 
-	// TODO: embed params into alpha
+	// embed params into alpha
+	uint8_t* pPtr = hv.m_pVal + BeamCrypto_nBytes;
+	WriteInNetworkOrder(&pPtr, p->m_Cid.m_Amount, sizeof(p->m_Cid.m_Amount));
+	WriteInNetworkOrder(&pPtr, p->m_Cid.m_SubIdx, sizeof(p->m_Cid.m_SubIdx));
+	WriteInNetworkOrder(&pPtr, p->m_Cid.m_Type, sizeof(p->m_Cid.m_Type));
+	WriteInNetworkOrder(&pPtr, p->m_Cid.m_Idx, sizeof(p->m_Cid.m_Idx));
+	WriteInNetworkOrder(&pPtr, p->m_Cid.m_AssetID, sizeof(p->m_Cid.m_AssetID));
+	memset(hv.m_pVal, 0, pPtr - hv.m_pVal); // padding
+
+	int overflow;
+	secp256k1_scalar_set_b32(&ro, hv.m_pVal, &overflow);
+	assert(!overflow);
+
+	secp256k1_scalar_add(&alpha, &alpha, &ro);
 
 	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
 
