@@ -474,7 +474,7 @@ namespace beam::wallet
 
         if (PostReqUnique(*pVal))
         {
-            LOG_INFO() << " Get shielded list, start_index = " << startIndex << ", count = " << count;
+            LOG_INFO() << txId << " Get shielded list, start_index = " << startIndex << ", count = " << count;
         }
     }
 
@@ -488,7 +488,7 @@ namespace beam::wallet
 
         if (PostReqUnique(*pVal))
         {
-            LOG_INFO() << " Get proof of shielded output.";
+            LOG_INFO() << txId << " Get proof of shielded output.";
         }
     }
 

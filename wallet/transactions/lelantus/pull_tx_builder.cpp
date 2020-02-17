@@ -39,24 +39,6 @@ namespace beam::wallet::lelantus
 
             return skSpendKey;
         }
-
-        TxoID GenerateWindowBegin(TxoID shieldedId, uint32_t windowSize)
-        {
-            std::random_device rd;
-            std::default_random_engine generator(rd());
-
-            if (shieldedId < windowSize)
-            {
-                std::uniform_int_distribution<TxoID> distribution(0, shieldedId);
-                return distribution(generator);
-            }
-            else
-            {
-                auto min = shieldedId - windowSize;
-                std::uniform_int_distribution<TxoID> distribution(min + 1, min + windowSize);
-                return distribution(generator);
-            }
-        }
     }
 
     PullTxBuilder::PullTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee)
@@ -101,7 +83,6 @@ namespace beam::wallet::lelantus
 
         // create transaction
         auto transaction = std::make_shared<Transaction>();
-
         transaction->m_vOutputs = move(m_Outputs);
 
         {
@@ -122,7 +103,6 @@ namespace beam::wallet::lelantus
             uint32_t windowSize = cfg.get_N();
             TxoID windowEnd = startIndex + m_shieldedList.size();
             bool isRestrictedMode = m_totalShieldedOuts > windowEnd + Rules::get().Shielded.MaxWindowBacklog;
-            TxoID restrictedOffset = 0;
 
             if (isRestrictedMode)
             {
@@ -132,14 +112,6 @@ namespace beam::wallet::lelantus
 
                 // update parameters
                 windowSize = cfg.get_N();
-                if ((shieldedId - startIndex) >= windowSize)
-                {
-                    TxoID maxStartIndex = windowEnd - windowSize;
-                    TxoID restrictedStartIndex = std::min(GenerateWindowBegin(shieldedId, windowSize), maxStartIndex);
-
-                    restrictedOffset = restrictedStartIndex - startIndex;
-                    startIndex = restrictedStartIndex;
-                }
                 windowEnd = startIndex + windowSize;
             }
 
@@ -156,7 +128,7 @@ namespace beam::wallet::lelantus
             if (isRestrictedMode)
             {
                 lst.m_vec.resize(windowSize);
-                std::copy_n(m_shieldedList.begin() + restrictedOffset, windowSize, lst.m_vec.begin());
+                std::copy_n(m_shieldedList.begin(), windowSize, lst.m_vec.begin());
             }
             else if (windowEnd == startIndex + windowSize)
             {
@@ -221,6 +193,17 @@ namespace beam::wallet::lelantus
             pKrn->MsgToID();
             m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
 
+
+            LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
+                << " Transaction created. Kernel: " << GetKernelIDString()
+                << ", min height: " << pKrn->m_Height.m_Min
+                << ", max height: " << pKrn->m_Height.m_Max
+                << ", shielded id: " << shieldedId
+                << ", window start: " << startIndex
+                << ", window end: " << pKrn->m_WindowEnd
+                << ", window size: " << windowSize
+                << ", total shielded outs: " << m_totalShieldedOuts;
+
             transaction->m_vKernels.push_back(std::move(pKrn));
 
             ECC::Scalar::Native offset = transaction->m_Offset;
@@ -242,5 +225,58 @@ namespace beam::wallet::lelantus
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
+    }
+
+    TxoID PullTxBuilder::GenerateWindowBegin(TxoID shieldedId, uint32_t windowSize)
+    {
+        if (shieldedId == 0)
+            return 0;
+
+        TxoID totalShieldedOuts = 0;
+        storage::getVar(*m_Tx.GetWalletDB(), kStateSummaryShieldedOutsDBPath, totalShieldedOuts);
+
+        bool isRestrictedMode = totalShieldedOuts > shieldedId + windowSize + Rules::get().Shielded.MaxWindowBacklog;
+
+        std::random_device rd;
+        std::default_random_engine generator(rd());
+
+        if (isRestrictedMode)
+        {
+            uint32_t restrictedWindowSize = m_Tx.GetMandatoryParameter<Lelantus::Cfg>(TxParameterID::ShieldedInputMinCfg).get_N();
+            if (shieldedId < restrictedWindowSize)
+            {
+                std::uniform_int_distribution<TxoID> distribution(0, shieldedId);
+                return distribution(generator);
+            }
+            else
+            {
+                std::uniform_int_distribution<TxoID> distribution(shieldedId - restrictedWindowSize + 1, shieldedId);
+                return distribution(generator);
+            }
+        }
+        else
+        {
+            if (shieldedId >= windowSize)
+            {
+                TxoID maxWindowEnd = std::min(shieldedId + windowSize, totalShieldedOuts);
+                TxoID maxWindowBegin = maxWindowEnd - windowSize;
+                TxoID minWindowBegin = shieldedId - windowSize + 1;
+
+                if (totalShieldedOuts - windowSize > Rules::get().Shielded.MaxWindowBacklog)
+                {                    
+                    TxoID normalMinWindowBegin = totalShieldedOuts - Rules::get().Shielded.MaxWindowBacklog - windowSize;
+                    minWindowBegin = std::max(minWindowBegin, normalMinWindowBegin);
+                }
+
+                assert(minWindowBegin <= shieldedId);
+
+                std::uniform_int_distribution<TxoID> distribution(minWindowBegin, maxWindowBegin);
+                return distribution(generator);
+            }
+            else
+            {
+                return 0;
+            }
+        }
     }
 } // namespace beam::wallet::lelantus

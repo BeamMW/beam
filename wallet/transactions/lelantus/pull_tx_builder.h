@@ -26,6 +26,10 @@ namespace beam::wallet::lelantus
         bool GetShieldedList();
         Transaction::Ptr CreateTransaction() override;
         void GenerateUnlinkedBeamCoin(Amount amount);
+
+    private:
+        TxoID GenerateWindowBegin(TxoID shieldedId, uint32_t windowSize);
+
     private:
         std::vector<ECC::Point::Storage> m_shieldedList;
         TxoID m_totalShieldedOuts = 0;
