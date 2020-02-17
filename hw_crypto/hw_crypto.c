@@ -871,9 +871,9 @@ static void WriteInNetworkOrder(uint8_t** ppDst, uint64_t val, unsigned int nLen
 	}
 }
 
-void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
+int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof* p)
 {
-	secp256k1_scalar sk, alpha, ro;
+	secp256k1_scalar sk, pK[2], pChallenge[2];
 	BeamCrypto_Point comm;
 	BeamCrypto_CoinID_getSkComm(p->m_pKdf, &p->m_Cid, &sk, &comm);
 
@@ -885,8 +885,8 @@ void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
 	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
 	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
 
-	BeamCrypto_Kdf_Derive_PKey(p->m_pKdf, &hv, &alpha);
-	secp256k1_scalar_get_b32(hv.m_pVal, &alpha);
+	BeamCrypto_Kdf_Derive_PKey(p->m_pKdf, &hv, pK);
+	secp256k1_scalar_get_b32(hv.m_pVal, pK);
 
 	secp256k1_sha256_initialize(&oracle.m_sha);
 	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
@@ -902,7 +902,7 @@ void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
 	BeamCrypto_NonceGenerator ng;
 	BeamCrypto_NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &hv);
 
-	BeamCrypto_NonceGenerator_NextScalar(&ng, &alpha);
+	BeamCrypto_NonceGenerator_NextScalar(&ng, pK); // alpha
 
 	// embed params into alpha
 	uint8_t* pPtr = hv.m_pVal + BeamCrypto_nBytes;
@@ -914,22 +914,22 @@ void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
 	memset(hv.m_pVal, 0, pPtr - hv.m_pVal); // padding
 
 	int overflow;
-	secp256k1_scalar_set_b32(&ro, hv.m_pVal, &overflow);
+	secp256k1_scalar_set_b32(pK + 1, hv.m_pVal, &overflow);
 	assert(!overflow);
 
-	secp256k1_scalar_add(&alpha, &alpha, &ro);
+	secp256k1_scalar_add(pK, pK, pK + 1);
 
 	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
 
 	// CalcA
 	secp256k1_ge ge;
-	secp256k1_gej gej;
+	secp256k1_gej pGej[2]; // A,S
 	BeamCrypto_MultiMac_Context mmCtx;
-	mmCtx.m_pRes = &gej;
+	mmCtx.m_pRes = pGej;
 	mmCtx.m_Fast = 0;
 	mmCtx.m_Secure = 1;
 	mmCtx.m_pGenSecure = &pCtx->m_GenG;
-	mmCtx.m_pSecureK = &alpha;
+	mmCtx.m_pSecureK = pK;
 	mmCtx.m_pZDenom = 0;
 
 	BeamCrypto_MultiMac_Calculate(&mmCtx); // alpha*G
@@ -950,15 +950,13 @@ void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
 			secp256k1_ge_neg(&ge, &ge);
 		}
 
-		secp256k1_gej_add_ge_var(&gej, &gej, &ge, 0);
+		secp256k1_gej_add_ge_var(pGej, pGej, &ge, 0);
 	}
 
-	secp256k1_ge_set_gej(&ge, &gej); // TODO: export A,S via batch-normalize together (slightly faster)
-	secp256k1_sha256_write_Ge(&oracle.m_sha, &ge);
-
 	// CalcS
-	BeamCrypto_NonceGenerator_NextScalar(&ng, &ro);
-	mmCtx.m_pSecureK = &ro;
+	BeamCrypto_NonceGenerator_NextScalar(&ng, pK + 1);
+	mmCtx.m_pSecureK = pK + 1;
+	mmCtx.m_pRes = pGej + 1;
 
 	mmCtx.m_Fast = nBits * 2;
 	mmCtx.m_pGenFast = pCtx->m_pGenFast;
@@ -974,9 +972,87 @@ void BeamCrypto_RangeProof_Calculate(const BeamCrypto_RangeProof* p)
 
 	BeamCrypto_MultiMac_Calculate(&mmCtx);
 
-	secp256k1_ge_set_gej(&ge, &gej);
-	secp256k1_sha256_write_Ge(&oracle.m_sha, &ge);
+	// normalize A,S at once
+	secp256k1_fe pFe[3];
+	BeamCrypto_ToCommonDenominator(2, pGej, pFe, pFe + 2, 1);
 
+	for (unsigned int i = 0; i < 2; i++)
+	{
+		BeamCrypto_Point_Export_Raw(&comm, &pGej[i].x, &pGej[i].y);
+		secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
+	}
+
+	// get challenges. Use the challenges, sk, T1 and T2 to init the NonceGen for blinding the sk
+	secp256k1_hmac_sha256_t hmac;
+	BeamCrypto_NonceGenerator_InitBegin(&ng, &hmac, szSalt, sizeof(szSalt)); // same salt, nevermind
+
+	secp256k1_scalar_get_b32(hv.m_pVal, &sk);
+	secp256k1_hmac_sha256_write(&hmac, hv.m_pVal, sizeof(hv.m_pVal));
+
+	for (unsigned int i = 0; i < 2; i++)
+	{
+		secp256k1_hmac_sha256_write(&hmac, p->m_pT[i].m_X.m_pVal, sizeof(p->m_pT[i].m_X.m_pVal));
+		secp256k1_hmac_sha256_write(&hmac, &p->m_pT[i].m_Y, sizeof(p->m_pT[i].m_Y));
+
+		BeamCrypto_Oracle_NextScalar(&oracle, pChallenge); // challenges y,z. The 'y' is not needed, will be overwritten by 'z'.
+		secp256k1_scalar_get_b32(hv.m_pVal, pChallenge);
+		secp256k1_hmac_sha256_write(&hmac, hv.m_pVal, sizeof(hv.m_pVal));
+	}
+
+	mmCtx.m_Fast = 0;
+
+	int ok = 1;
+
+	BeamCrypto_NonceGenerator_InitEnd(&ng, &hmac);
+
+	for (unsigned int i = 0; i < 2; i++)
+	{
+		BeamCrypto_NonceGenerator_NextScalar(&ng, pK + i); // tau1/2
+		mmCtx.m_pSecureK = pK + i;
+		mmCtx.m_pRes = pGej + i;
+
+		BeamCrypto_MultiMac_Calculate(&mmCtx); // pub nonces of T1/T2
+
+		if (!BeamCrypto_Point_ImportNnz(p->m_pT + i, &ge))
+		{
+			ok = 0;
+			break;
+		}
+
+		secp256k1_gej_add_ge_var(mmCtx.m_pRes, mmCtx.m_pRes, &ge, 0);
+	}
+
+	SECURE_ERASE_OBJ(ng);
+
+	if (ok)
+	{
+		// normalize & expose
+		BeamCrypto_ToCommonDenominator(2, pGej, pFe, pFe + 2, 1);
+
+		for (unsigned int i = 0; i < 2; i++)
+		{
+			BeamCrypto_Point_Export_Raw(p->m_pT + i, &pGej[i].x, &pGej[i].y);
+			secp256k1_sha256_write_Point(&oracle.m_sha, p->m_pT + i);
+		}
+
+		// last challenge
+		BeamCrypto_Oracle_NextScalar(&oracle, pChallenge + 1);
+
+		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
+		secp256k1_scalar_mul(pK, pK, pChallenge + 1); // tau1*x
+		secp256k1_scalar_mul(pChallenge + 1, pChallenge + 1, pChallenge + 1); // x^2
+		secp256k1_scalar_mul(pK + 1, pK + 1, pChallenge + 1); // tau2*x^2
+
+		secp256k1_scalar_mul(pChallenge, pChallenge, pChallenge); // z^2
+
+		secp256k1_scalar_mul(&p->m_TauX, &sk, pChallenge); // sk*z^2
+		secp256k1_scalar_add(&p->m_TauX, &p->m_TauX, pK);
+		secp256k1_scalar_add(&p->m_TauX, &p->m_TauX, pK + 1);
+	}
 
 	SECURE_ERASE_OBJ(sk);
+	SECURE_ERASE_OBJ(pK); // tau1/2
+	//SECURE_ERASE_OBJ(hv); - no need, last value is the challenge
+
+	return ok;
 }
