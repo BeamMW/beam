@@ -976,7 +976,13 @@ int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof* p)
 	mmCtx.m_pWnaf = u.s.pWnaf;
 
 	for (unsigned int i = 0; i < nDims * 2; i++)
+	{
 		BeamCrypto_NonceGenerator_NextScalar(&ng, u.s.pS[i].m_pK);
+
+		if (!(i % nDims) && p->m_pKExtra)
+			// embed more info
+			secp256k1_scalar_add(u.s.pS[i].m_pK, u.s.pS[i].m_pK, p->m_pKExtra + (i / nDims));
+	}
 
 	BeamCrypto_MultiMac_Calculate(&mmCtx);
 

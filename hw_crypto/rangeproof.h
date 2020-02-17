@@ -20,6 +20,8 @@ typedef struct
 	BeamCrypto_CoinID m_Cid;
 	const BeamCrypto_Kdf* m_pKdf; // master kdf
 
+	const secp256k1_scalar* m_pKExtra; // optionally embed 2 scalars that can be recognized (in addition to CoinID)
+
 	BeamCrypto_Point m_pT[2]; // in/out
 	secp256k1_scalar m_TauX; // result
 
