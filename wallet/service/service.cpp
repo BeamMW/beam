@@ -66,24 +66,6 @@ namespace beam::wallet
 {
     io::Address node_addr;
 
-    // !TODO: temporary solution, just to reuse already opened wallet DB
-    // DB shouldn't be locked in normal case
-
-    struct WalletInfo
-    {
-        std::string ownerKey;
-        std::weak_ptr<Wallet> wallet;
-        std::weak_ptr<IWalletDB> walletDB;
-        
-        WalletInfo(const std::string& ownerKey, Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
-            : ownerKey(ownerKey)
-            , wallet(wallet)
-            , walletDB(walletDB)
-        {}
-        WalletInfo() = default;
-    };
-    static std::unordered_map<std::string, WalletInfo> WalletsMap;
-
     WalletServiceApi::WalletServiceApi(IWalletServiceApiHandler& handler, ACL acl)
         : WalletApi(handler, acl)
     {
@@ -186,13 +168,6 @@ namespace beam::wallet
 
 namespace
 {
-    std::string getMinimumFeeError(Amount minimumFee)
-    {
-        std::stringstream ss;
-        ss << "Failed to initiate the send operation. The minimum fee is " << minimumFee << " GROTH.";
-        return ss.str();
-    }
-
     void fail(boost::system::error_code ec, char const* what)
     {
         LOG_ERROR() << what << ": " << ec.message();
@@ -200,9 +175,6 @@ namespace
 
     class WalletApiServer
     {
-        boost::asio::io_context _ioc;
-        std::shared_ptr<std::thread> _iocThread;
-
     public:
         WalletApiServer(io::Reactor::Ptr reactor, uint16_t port)
             : _ioc{1}
@@ -216,7 +188,7 @@ namespace
             stop();
         }
 
-    protected:
+    private:
 
         void start(uint16_t port)
         {
@@ -225,7 +197,7 @@ namespace
 
         void iocThreadFunc(uint16_t port)
         {
-            std::make_shared<listener>(_ioc, tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port }, _reactor)->run();
+            std::make_shared<listener>(_ioc, tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port }, _reactor, _walletMap)->run();
             _ioc.run();
         }
 
@@ -235,6 +207,24 @@ namespace
         }
 
     private:
+
+        struct WalletInfo
+        {
+            std::string ownerKey;
+            std::weak_ptr<Wallet> wallet;
+            std::weak_ptr<IWalletDB> walletDB;
+
+            WalletInfo(const std::string& ownerKey, Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
+                : ownerKey(ownerKey)
+                , wallet(wallet)
+                , walletDB(walletDB)
+            {}
+            WalletInfo() = default;
+        };
+
+        using WalletMap = std::unordered_map<std::string, WalletInfo>;
+
+        WalletMap _walletMap;
 
         struct IApiConnectionHandler
         {
@@ -250,9 +240,9 @@ namespace
         public:
 
             WasmKeyKeeperProxy(Key::IPKdf::Ptr ownerKdf, IApiConnectionHandler& connection, io::Reactor::Ptr reactor)
-            : _ownerKdf(ownerKdf)
-            , _connection(connection)
-            , _reactor(reactor)
+                : _ownerKdf(ownerKdf)
+                , _connection(connection)
+                , _reactor(reactor)
             {}
             virtual ~WasmKeyKeeperProxy(){}
 
@@ -496,11 +486,12 @@ namespace
             , private ApiConnection::IWalletData
         {
         public:
-            ServiceApiConnection(IApiConnectionHandler* handler, io::Reactor::Ptr reactor)
+            ServiceApiConnection(IApiConnectionHandler* handler, io::Reactor::Ptr reactor, WalletMap& walletMap)
                 : _apiConnection(handler, *this, boost::none)
                 , _handler(handler)
                 , _reactor(reactor)
                 , _api(*this)
+                , _walletMap(walletMap)
             {
                 
             }
@@ -567,7 +558,7 @@ namespace
 
                     if(walletDB)
                     {
-                        WalletsMap[dbName] = WalletInfo(data.ownerKey, {}, walletDB);
+                        _walletMap[dbName] = WalletInfo(data.ownerKey, {}, walletDB);
                         // generate default address
                         WalletAddress address;
                         walletDB->createAddress(address);
@@ -586,12 +577,19 @@ namespace
             {
                 LOG_DEBUG() << "OpenWallet(id = " << id << ")";
 
-                auto it = WalletsMap.find(data.id);
-
-                if (it == WalletsMap.end())
+                auto it = _walletMap.find(data.id);
+                if (it == _walletMap.end())
                 {
                     _walletDB = WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeperFromDB(data.id, data.pass));
                     _wallet = std::make_shared<Wallet>(_walletDB);
+
+                    Key::IPKdf::Ptr pKey = _walletDB->get_OwnerKdf();
+                    KeyString ks;
+                    ks.SetPassword(Blob(data.pass.data(), static_cast<uint32_t>(data.pass.size())));
+                    ks.m_sMeta = std::to_string(0);
+                    ks.ExportP(*pKey);
+                    _walletMap[data.id].ownerKey = ks.m_sRes;
+
                 }
                 else if (auto wdb = it->second.walletDB.lock(); wdb)
                 {
@@ -610,8 +608,8 @@ namespace
                     return;
                 }
 
-                WalletsMap[data.id].walletDB = _walletDB;
-                WalletsMap[data.id].wallet = _wallet;
+                _walletMap[data.id].walletDB = _walletDB;
+                _walletMap[data.id].wallet = _wallet;
 
                 LOG_INFO() << "wallet sucessfully opened...";
 
@@ -718,6 +716,7 @@ namespace
             IWalletDB::Ptr _walletDB;
             Wallet::Ptr _wallet;
             WalletServiceApi _api;
+            WalletMap& _walletMap;
         };
 
         class session : 
@@ -737,8 +736,8 @@ namespace
         public:
             // Take ownership of the socket
             explicit
-            session(tcp::socket socket, io::Reactor::Ptr reactor)
-                : ServiceApiConnection(this, reactor)
+            session(tcp::socket socket, io::Reactor::Ptr reactor, WalletMap& walletMap)
+                : ServiceApiConnection(this, reactor, walletMap)
                 , ws_(std::move(socket))
                 , _newDataEvent(io::AsyncEvent::create(*reactor, [this]() { process_new_data(); }))
             {
@@ -946,13 +945,15 @@ namespace
             tcp::acceptor acceptor_;
             tcp::socket socket_;
             io::Reactor::Ptr _reactor;
+            WalletMap _walletMap;
 
         public:
             listener(boost::asio::io_context& ioc,
-                tcp::endpoint endpoint, io::Reactor::Ptr reactor)
+                tcp::endpoint endpoint, io::Reactor::Ptr reactor, WalletMap& walletMap)
                 : acceptor_(ioc)
                 , socket_(ioc)
                 , _reactor(reactor)
+                , _walletMap(walletMap)
             {
                 boost::system::error_code ec;
 
@@ -988,24 +989,24 @@ namespace
                     fail(ec, "listen");
                     return;
                 }
-                if (auto pipe = fdopen(3, "w"))
-                {
-                    const char listening[] = "LISTENING";
-                    const auto wsize = sizeof(listening) - sizeof(listening[0]);
-                    if (wsize != fwrite(listening, sizeof(listening[0]),wsize , pipe))
-                    {
-                        LOG_WARNING() << "Failed to write sync pipe";
-                    }
-                    else
-                    {
-                        LOG_INFO() << "Sync pipe: OK, " << listening << ", " << wsize << " bytes";
-                    }
-                    fclose(pipe);
-                }
-                else
-                {
-                    LOG_WARNING() << "Failed to open sync pipe";
-                }
+                //if (auto pipe = fdopen(3, "w"))
+                //{
+                //    const char listening[] = "LISTENING";
+                //    const auto wsize = sizeof(listening) - sizeof(listening[0]);
+                //    if (wsize != fwrite(listening, sizeof(listening[0]),wsize , pipe))
+                //    {
+                //        LOG_WARNING() << "Failed to write sync pipe";
+                //    }
+                //    else
+                //    {
+                //        LOG_INFO() << "Sync pipe: OK, " << listening << ", " << wsize << " bytes";
+                //    }
+                //    fclose(pipe);
+                //}
+                //else
+                //{
+                //    LOG_WARNING() << "Failed to open sync pipe";
+                //}
             }
 
             // Start accepting incoming connections
@@ -1038,7 +1039,7 @@ namespace
                 else
                 {
                     // Create the session and run it
-                    auto s = std::make_shared<session>(std::move(socket_), _reactor);
+                    auto s = std::make_shared<session>(std::move(socket_), _reactor, _walletMap);
                     s->run();
                 }
 
@@ -1047,6 +1048,8 @@ namespace
             }
         };
 
+        boost::asio::io_context _ioc;
+        std::shared_ptr<std::thread> _iocThread;
         io::Reactor::Ptr _reactor;
     };
 }
