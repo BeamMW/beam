@@ -56,6 +56,8 @@ typedef struct
 	const BeamCrypto_MultiMac_Secure* m_pGenSecure;
 	const secp256k1_scalar* m_pSecureK;
 
+	secp256k1_fe* m_pZDenom; // optional common z-denominator of 'fast' generators.
+
 } BeamCrypto_MultiMac_Context;
 
 void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context*);

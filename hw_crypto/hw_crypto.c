@@ -274,7 +274,11 @@ void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context* p)
 				}
 
 				secp256k1_ge_from_storage(&ge, &ges);
-				secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
+
+				if (p->m_pZDenom)
+					secp256k1_gej_add_zinv_var(p->m_pRes, p->m_pRes, &ge, p->m_pZDenom);
+				else
+					secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
 			}
 		}
 
@@ -308,10 +312,87 @@ void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context* p)
 
 	SECURE_ERASE_OBJ(ges);
 
+	if (p->m_pZDenom)
+		// fix denominator
+		secp256k1_fe_mul(&p->m_pRes->z, &p->m_pRes->z, p->m_pZDenom);
+
 	for (unsigned int i = 0; i < p->m_Secure; i++)
 	{
 		secp256k1_ge_from_storage(&ge, p->m_pGenSecure[i].m_pPt + BeamCrypto_MultiMac_Secure_nCount);
 		secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
+	}
+}
+
+static void secp256k1_gej_rescale_XY(secp256k1_gej* pGej, const secp256k1_fe* pZ)
+{
+	// equivalent of secp256k1_gej_rescale, but doesn't change z coordinate
+	// A bit more effective when the value of z is known in advance (such as when normalizing)
+	secp256k1_fe zz;
+	secp256k1_fe_sqr(&zz, pZ);
+
+	secp256k1_fe_mul(&pGej->x, &pGej->x, &zz);
+	secp256k1_fe_mul(&pGej->y, &pGej->y, &zz);
+	secp256k1_fe_mul(&pGej->y, &pGej->y, pZ);
+}
+
+static void BeamCrypto_ToCommonDenominator(unsigned int nCount, secp256k1_gej* pGej, secp256k1_fe* pFe, secp256k1_fe* pZDenom, int nNormalize)
+{
+	assert(nCount);
+
+	pFe[0] = pGej[0].z;
+
+	for (unsigned int i = 1; i < nCount; i++)
+		secp256k1_fe_mul(pFe + i, pFe + i - 1, &pGej[i].z);
+
+	if (nNormalize)
+		secp256k1_fe_inv(pZDenom, pFe + nCount - 1); // the only expensive call
+	else
+		secp256k1_fe_set_int(pZDenom, 1);
+
+	for (unsigned int i = nCount; i--; )
+	{
+		if (i)
+			secp256k1_fe_mul(pFe + i, pFe + i - 1, pZDenom);
+		else
+			pFe[i] = *pZDenom;
+
+		secp256k1_gej_rescale_XY(pGej + i, pFe + i);
+
+		secp256k1_fe_mul(pZDenom, pZDenom, &pGej[i].z);
+	}
+}
+
+void BeamCrypto_MultiMac_SetCustom(BeamCrypto_MultiMac_Context* p, const secp256k1_ge* pGe)
+{
+	assert(p->m_Fast == 1);
+	assert(p->m_pZDenom);
+	assert(!secp256k1_ge_is_infinity(pGe));
+
+	// calculate odd powers
+	secp256k1_gej pOdds[BeamCrypto_MultiMac_Fast_nCount];
+	secp256k1_gej_set_ge(pOdds, pGe);
+
+	secp256k1_gej x2;
+	secp256k1_gej_double_var(&x2, pOdds, 0);
+
+	for (unsigned int i = 1; i < BeamCrypto_MultiMac_Fast_nCount; i++)
+	{
+		secp256k1_gej_add_var(pOdds + i, pOdds + i - 1, &x2, 0);
+		assert(!secp256k1_gej_is_infinity(pOdds + i)); // odd powers of non-zero point must not be zero!
+	}
+
+	secp256k1_fe pFe[BeamCrypto_MultiMac_Fast_nCount];
+
+	BeamCrypto_ToCommonDenominator(BeamCrypto_MultiMac_Fast_nCount, pOdds, pFe, p->m_pZDenom, 0);
+
+	secp256k1_ge ge;
+	ge.infinity = 0;
+
+	for (unsigned int i = 0; i < BeamCrypto_MultiMac_Fast_nCount; i++)
+	{
+		ge.x = pOdds[i].x;
+		ge.y = pOdds[i].y;
+		secp256k1_ge_to_storage((secp256k1_ge_storage*) p->m_pGenFast[0].m_pPt + i, &ge);
 	}
 }
 
