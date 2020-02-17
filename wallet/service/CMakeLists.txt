@@ -17,6 +17,7 @@ target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_directories(${TARGET_NAME} PRIVATE ${Boost_LIBRARY_DIRS})
 target_link_libraries(${TARGET_NAME}
     PRIVATE 
+        wallet_api
         wallet 
         utility 
         http
@@ -31,8 +32,9 @@ target_include_directories(${MONITOR_TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY
 
 target_link_libraries(${MONITOR_TARGET_NAME}
     PRIVATE
-       wallet 
-    #   utility 
+        wallet_api
+        wallet 
+        utility 
     #   http
-     #  cli
-)
+        cli
+) 

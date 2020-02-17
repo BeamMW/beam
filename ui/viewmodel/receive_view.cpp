@@ -172,7 +172,10 @@ void ReceiveViewModel::saveAddress()
 
 void ReceiveViewModel::updateTransactionToken()
 {
-    _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, _amountToReceiveGrothes);
+    if (_amountToReceiveGrothes > 0)
+    {
+        _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, _amountToReceiveGrothes);
+    }
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
     _txParameters.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
     if (_hasIdentity)

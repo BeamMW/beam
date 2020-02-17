@@ -349,19 +349,49 @@ private:
         }
     }
 
+        struct WalletData : ApiConnection::IWalletData
+        {
+            WalletData(IWalletDB::Ptr walletDB, Wallet& wallet, IAtomicSwapProvider& atomicSwapProvider)
+                : m_walletDB(walletDB)
+                , m_wallet(wallet)
+                , m_atomicSwapProvider(atomicSwapProvider)
+            {}
+
+            IWalletDB::Ptr getWalletDB() override
+            {
+                return m_walletDB;
+            }
+
+            Wallet& getWallet() override
+            {
+                return m_wallet;
+            }
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+            const IAtomicSwapProvider& getAtomicSwapProvider() const
+            {
+                return m_atomicSwapProvider;
+            }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+            IWalletDB::Ptr m_walletDB;
+            Wallet& m_wallet;
+            IAtomicSwapProvider& m_atomicSwapProvider;
+        };
+
     template<typename T>
     std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
     {
+        if (!_walletData)
+        {
+            _walletData = std::make_unique<WalletData>(_walletDB, _wallet, *this);
+        }
+
     return std::static_pointer_cast<ApiConnection>(
         std::make_shared<T>(*this
-                            , _walletDB
-                            , _wallet
                             , std::move(newStream)
-                            , _acl
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                            , (*this)
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-    ));
+                            , *_walletData
+                            , _acl));
     }
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -396,21 +426,12 @@ private:
     {
     public:
     TcpApiConnection(IWalletApiServer& server
-                    , IWalletDB::Ptr walletDB
-                    , Wallet& wallet
                     , io::TcpStream::Ptr&& newStream
+                    , IWalletData& walletData
                     , WalletApi::ACL acl
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                    , const IAtomicSwapProvider& swapProvider
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         )
-        : ApiConnection(walletDB
-                      , wallet
-                      , acl
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                      , swapProvider
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-        )
+        : ApiConnection(walletData
+                      , acl )
         , _server(server)
         , _stream(std::move(newStream))
         , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -470,22 +491,13 @@ private:
     {
     public:
         HttpApiConnection(IWalletApiServer& server
-                        , IWalletDB::Ptr walletDB
-                        , Wallet& wallet
                         , io::TcpStream::Ptr&& newStream
+                        , IWalletData& walletData
                         , WalletApi::ACL acl
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                        , const IAtomicSwapProvider& swapProvider
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
             )
             : ApiConnection(
-                  walletDB
-                , wallet
-                , acl
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                , swapProvider
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-                )
+                  walletData
+                , acl)
             , _server(server)
             , _keepalive(false)
             , _msgCreator(2000)
@@ -603,6 +615,7 @@ private:
 
     IWalletDB::Ptr _walletDB;
     Wallet& _wallet;
+        std::unique_ptr<WalletData> _walletData;
     std::vector<uint64_t> _pendingToClose;
     WalletApi::ACL _acl;
     std::vector<uint32_t> _whitelist;

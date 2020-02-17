@@ -650,6 +650,18 @@ namespace beam::wallet
 
 namespace beam
 {
+    template <typename E>
+    using UnderlyingType = typename std::underlying_type<E>::type;
+
+    template <typename E>
+    using EnumTypesOnly = typename std::enable_if<std::is_enum<E>::value, E>::type;
+
+    template <typename E, typename = EnumTypesOnly<E>>
+    constexpr UnderlyingType<E> underlying_cast(E e)
+    {
+        return static_cast<UnderlyingType<E>>(e);
+    }
+
     std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount);
     std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid);
 

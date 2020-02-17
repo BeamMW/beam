@@ -30,21 +30,13 @@ namespace beam::wallet
 {    
 namespace
 {
-static const char JsonRpcHrd[] = "jsonrpc";
-static const char JsonRpcVerHrd[] = "2.0";
 
-struct jsonrpc_exception
-{
-    ApiError code;
-    std::string data;
-    JsonRpcId id;
-};
 
 static json getNotImplError(const JsonRpcId& id)
 {
     return json
     {
-        {JsonRpcHrd, JsonRpcVerHrd},
+        {Api::JsonRpcHrd, Api::JsonRpcVerHrd},
         {"id", id},
         {"error",
             {
@@ -60,62 +52,24 @@ std::string getJsonString(const char* data, size_t size)
     return std::string(data, data + (size > 1024 ? 1024 : size));
 }
 
-bool existsJsonParam(const json& params, const std::string& name)
-{
-    return params.find(name) != params.end();
-}
-
-void checkJsonParam(const json& params, const std::string& name, const JsonRpcId& id)
-{
-    if (!existsJsonParam(params, name))
-        throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parameter '" + name + "' doesn't exist.", id };
-}
-
-void FillAddressData(const JsonRpcId& id, const json& params, AddressData& data)
-{
-    if (existsJsonParam(params, "comment"))
-    {
-        std::string comment = params["comment"];
-
-        data.comment = comment;
-    }
-
-    if (existsJsonParam(params, "expiration"))
-    {
-        std::string expiration = params["expiration"];
-
-        static std::map<std::string, AddressData::Expiration> Items =
-        {
-            {"expired", AddressData::Expired},
-            {"24h",  AddressData::OneDay},
-            {"never", AddressData::Never},
-        };
-
-        if(Items.count(expiration) == 0)
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Unknown value for the 'expiration' parameter.", id };
-
-        data.expiration = Items[expiration];
-    }
-}
-
 CoinIDList readCoinsParameter(const JsonRpcId& id, const json& params)
 {
     CoinIDList coins;
 
     if (!params["coins"].is_array() || params["coins"].size() <= 0)
-        throw jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coins parameter must be an array of strings (coin IDs).", id };
+        throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coins parameter must be an array of strings (coin IDs).", id };
 
     for (const auto& cid : params["coins"])
     {
         if (!cid.is_string())
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coin ID in the coins array must be a string.", id };
+            throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coin ID in the coins array must be a string.", id };
 
         std::string sCid = cid;
         auto coinId = Coin::FromString(sCid);
         if (!coinId)
         {
             const auto errmsg = std::string("Invalid 'coin ID' parameter: ") + std::string(sCid);
-            throw jsonrpc_exception{ApiError::InvalidParamsJsonRpc, errmsg, id};
+            throw WalletApi::jsonrpc_exception{ApiError::InvalidParamsJsonRpc, errmsg, id};
         }
 
         coins.push_back(*coinId);
@@ -132,7 +86,7 @@ uint64_t readSessionParameter(const JsonRpcId& id, const json& params)
     {
         session = params["session"];
     }
-    else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
+    else throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
 
     return session;
 
@@ -141,17 +95,17 @@ uint64_t readSessionParameter(const JsonRpcId& id, const json& params)
 void checkTxId(const ByteBuffer& txId, const JsonRpcId& id)
 {
     if (txId.size() != TxID().size())
-        throw jsonrpc_exception{ ApiError::InvalidTxId, "Transaction ID has wrong format.", id };
+        throw WalletApi::jsonrpc_exception{ ApiError::InvalidTxId, "Transaction ID has wrong format.", id };
 }
 
 boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const json& params)
 {
     boost::optional<TxID> txId;
 
-    if (existsJsonParam(params, "txId"))
+    if (WalletApi::existsJsonParam(params, "txId"))
     {
         if (!params["txId"].is_string())
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Transaction ID must be a hex string.", id };
+            throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Transaction ID must be a hex string.", id };
 
         TxID txIdDst;
         auto txIdSrc = from_hex(params["txId"]);
@@ -168,7 +122,7 @@ boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const json& params)
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void throwIncorrectCurrencyError(const std::string& name, const JsonRpcId& id)
 {
-    throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "wrong currency message here.", id };
+    throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "wrong currency message here.", id };
 }
 
 std::string swapOfferStatusToString(const SwapOfferStatus& status)
@@ -275,10 +229,10 @@ json OfferToJson(const SwapOffer& offer,
 OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 {
     OfferInput data;
-    checkJsonParam(params, "send_amount", id);
+    WalletApi::checkJsonParam(params, "send_amount", id);
     if (!params["send_amount"].is_number_unsigned() ||
         params["send_amount"] == 0)
-        throw jsonrpc_exception
+        throw WalletApi::jsonrpc_exception
         {
             ApiError::InvalidJsonRpc,
             "\'send_amount\' must be non zero 64bit unsigned integer.",
@@ -287,7 +241,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     Amount sendAmount = params["send_amount"];
         
     AtomicSwapCoin sendCoin = AtomicSwapCoin::Unknown;
-    checkJsonParam(params, "send_currency", id);
+    WalletApi::checkJsonParam(params, "send_currency", id);
     if (params["send_currency"].is_string())
     {
         sendCoin = from_string(params["send_currency"]);
@@ -303,10 +257,10 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         throwIncorrectCurrencyError("send_currency", id);
     }
 
-    checkJsonParam(params, "receive_amount", id);
+    WalletApi::checkJsonParam(params, "receive_amount", id);
     if (!params["receive_amount"].is_number_unsigned() ||
         params["receive_amount"] == 0)
-        throw jsonrpc_exception
+        throw WalletApi::jsonrpc_exception
         {
             ApiError::InvalidJsonRpc,
             "\'receive_amount\' must be non zero 64bit unsigned integer.",
@@ -315,7 +269,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     Amount receiveAmount = params["receive_amount"];
 
     AtomicSwapCoin receiveCoin = AtomicSwapCoin::Unknown;
-    checkJsonParam(params, "receive_currency", id);
+    WalletApi::checkJsonParam(params, "receive_currency", id);
     if (params["receive_currency"].is_string())
     {
         receiveCoin = from_string(params["receive_currency"]);
@@ -334,7 +288,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     if (params["receive_currency"] != "beam" &&
         params["send_currency"] != "beam")
     {
-        throw jsonrpc_exception
+        throw WalletApi::jsonrpc_exception
         {
             ApiError::InvalidJsonRpc,
             "\'receive_currency\' or \'send_currency\' must be 'beam'.",
@@ -344,7 +298,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     if (sendCoin == receiveCoin)
     {
-        throw jsonrpc_exception
+        throw WalletApi::jsonrpc_exception
         {
             ApiError::InvalidJsonRpc,
             "\'receive_currency\' and \'send_currency\' must be not same.",
@@ -357,12 +311,12 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     data.beamAmount = data.isBeamSide ? sendAmount : receiveAmount;
     data.swapAmount = data.isBeamSide ? receiveAmount : sendAmount;
 
-    if (existsJsonParam(params, "beam_fee"))
+    if (WalletApi::existsJsonParam(params, "beam_fee"))
     {
         if (!params["beam_fee"].is_number_unsigned() ||
             params["beam_fee"] == 0)
         {
-            throw jsonrpc_exception
+            throw WalletApi::jsonrpc_exception
             {
                 ApiError::InvalidJsonRpc,
                 "\'beam_fee\' must be non zero 64bit unsigned integer.",
@@ -373,7 +327,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         if (data.isBeamSide &&
             data.beamAmount < data.beamFee)
         {
-            throw jsonrpc_exception
+            throw WalletApi::jsonrpc_exception
             {
                 ApiError::InvalidJsonRpc,
                 "\'beam_fee\' must be non zero 64bit unsigned integer.",
@@ -387,7 +341,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         : params["send_currency"];
     swapCoinFeeParamName += "_fee_rate";
 
-    if (existsJsonParam(params, swapCoinFeeParamName))
+    if (WalletApi::existsJsonParam(params, swapCoinFeeParamName))
     {
         if (!params[swapCoinFeeParamName].is_number_unsigned() ||
             params[swapCoinFeeParamName] == 0)
@@ -395,7 +349,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             auto message =
                 swapCoinFeeParamName +
                 " must be non zero 64bit unsigned integer.";
-            throw jsonrpc_exception
+            throw WalletApi::jsonrpc_exception
             {
                 ApiError::InvalidJsonRpc,
                 message,
@@ -405,12 +359,12 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         data.swapFeeRate = params[swapCoinFeeParamName];
     }
 
-    if (existsJsonParam(params, "offer_expires"))
+    if (WalletApi::existsJsonParam(params, "offer_expires"))
     {
         if (!params["offer_expires"].is_number_unsigned() ||
             params["offer_expires"] == 0)
         {
-            throw jsonrpc_exception
+            throw WalletApi::jsonrpc_exception
             {
                 ApiError::InvalidJsonRpc,
                 "\'offer_expires\' must be non zero 64bit unsigned integer.",
@@ -420,7 +374,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         data.offerLifetime = params["offer_expires"];
     }
 
-    if (existsJsonParam(params, "comment") &&
+    if (WalletApi::existsJsonParam(params, "comment") &&
         params["comment"].is_string())
     {
         data.comment = params["comment"];
@@ -447,9 +401,15 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-    WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
+    Api::Api(IApiHandler& handler, ACL acl)
         : _handler(handler)
         , _acl(acl)
+    {
+
+    }
+
+    WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
+        : Api(handler, acl)
     {
 #define REG_FUNC(api, name, writeAccess) \
         _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
@@ -459,12 +419,55 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 #undef REG_FUNC
     };
 
+    bool Api::existsJsonParam(const nlohmann::json& params, const std::string& name)
+    {
+        return params.find(name) != params.end();
+    }
+
+    void Api::checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id)
+    {
+        if (!existsJsonParam(params, name))
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parameter '" + name + "' doesn't exist.", id };
+    }
+
+    static void FillAddressData(const JsonRpcId& id, const nlohmann::json& params, AddressData& data)
+    {
+        if (WalletApi::existsJsonParam(params, "comment"))
+        {
+            std::string comment = params["comment"];
+
+            data.comment = comment;
+        }
+
+        if (WalletApi::existsJsonParam(params, "expiration"))
+        {
+            std::string expiration = params["expiration"];
+
+            static std::map<std::string, AddressData::Expiration> Items =
+            {
+                {"expired", AddressData::Expired},
+                {"24h",  AddressData::OneDay},
+                {"never", AddressData::Never},
+            };
+
+            if(Items.count(expiration) == 0)
+                throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Unknown value for the 'expiration' parameter.", id };
+
+            data.expiration = Items[expiration];
+        }
+    }
+
+    IWalletApiHandler& WalletApi::getHandler() const
+    {
+        return static_cast<IWalletApiHandler&>(_handler);
+    }
+
     void WalletApi::onCreateAddressMessage(const JsonRpcId& id, const json& params)
     {
         CreateAddress createAddress;
         FillAddressData(id, params, createAddress);
 
-        _handler.onMessage(id, createAddress);
+        getHandler().onMessage(id, createAddress);
     }
 
     void WalletApi::onDeleteAddressMessage(const JsonRpcId& id, const json& params)
@@ -474,7 +477,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         DeleteAddress deleteAddress;
         deleteAddress.address.FromHex(params["address"]);
 
-        _handler.onMessage(id, deleteAddress);
+        getHandler().onMessage(id, deleteAddress);
     }
 
     void WalletApi::onEditAddressMessage(const JsonRpcId& id, const json& params)
@@ -490,7 +493,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         FillAddressData(id, params, editAddress);
 
 
-        _handler.onMessage(id, editAddress);
+        getHandler().onMessage(id, editAddress);
     }
 
     void WalletApi::onAddrListMessage(const JsonRpcId& id, const json& params)
@@ -501,7 +504,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         addrList.own = params["own"];
 
-        _handler.onMessage(id, addrList);
+        getHandler().onMessage(id, addrList);
     }
 
     void WalletApi::onValidateAddressMessage(const JsonRpcId& id, const json& params)
@@ -514,7 +517,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         ValidateAddress validateAddress;
         validateAddress.address.FromHex(params["address"]);
 
-        _handler.onMessage(id, validateAddress);
+        getHandler().onMessage(id, validateAddress);
     }
 
     void WalletApi::onSendMessage(const JsonRpcId& id, const json& params)
@@ -540,7 +543,18 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             send.session = readSessionParameter(id, params);
         }
 
-        if (!send.address.FromHex(params["address"]))
+        auto txParams = ParseParameters(params["address"]);
+        if (!txParams)
+        {
+            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address or token.", id };
+        }
+        send.txParameters = *txParams;
+
+        if (auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
+        {
+            send.address = *peerID;
+        }
+        else
         {
             throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address.", id };
         }
@@ -573,7 +587,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         send.txId = readTxIdParameter(id, params);
 
-        _handler.onMessage(id, send);
+        getHandler().onMessage(id, send);
     }
 
     void WalletApi::onStatusMessage(const JsonRpcId& id, const json& params)
@@ -588,7 +602,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         std::copy_n(txId.begin(), status.txId.size(), status.txId.begin());
 
-        _handler.onMessage(id, status);
+        getHandler().onMessage(id, status);
     }
 
     void WalletApi::onSplitMessage(const JsonRpcId& id, const json& params)
@@ -622,7 +636,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         split.txId = readTxIdParameter(id, params);
 
-        _handler.onMessage(id, split);
+        getHandler().onMessage(id, split);
     }
 
     void WalletApi::onTxCancelMessage(const JsonRpcId& id, const json& params)
@@ -636,7 +650,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         std::copy_n(txId.begin(), txCancel.txId.size(), txCancel.txId.begin());
 
-        _handler.onMessage(id, txCancel);
+        getHandler().onMessage(id, txCancel);
     }
 
     void WalletApi::onTxDeleteMessage(const JsonRpcId& id, const json& params)
@@ -650,7 +664,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         std::copy_n(txId.begin(), txDelete.txId.size(), txDelete.txId.begin());
 
-        _handler.onMessage(id, txDelete);
+        getHandler().onMessage(id, txDelete);
     }
 
     void WalletApi::onIssueMessage(const JsonRpcId& id, const json& params)
@@ -689,7 +703,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         }
 
         issue.txId = readTxIdParameter(id, params);
-        _handler.onMessage(id, issue);
+        getHandler().onMessage(id, issue);
     }
 
     void WalletApi::onGetUtxoMessage(const JsonRpcId& id, const json& params)
@@ -714,7 +728,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.", id };
         }
 
-        _handler.onMessage(id, getUtxo);
+        getHandler().onMessage(id, getUtxo);
     }
 
     void WalletApi::onLockMessage(const JsonRpcId& id, const json& params)
@@ -727,7 +741,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         lock.session = readSessionParameter(id, params);
         lock.coins = readCoinsParameter(id, params);
 
-        _handler.onMessage(id, lock);
+        getHandler().onMessage(id, lock);
     }
 
     void WalletApi::onUnlockMessage(const JsonRpcId& id, const json& params)
@@ -738,7 +752,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         unlock.session = readSessionParameter(id, params);
 
-        _handler.onMessage(id, unlock);
+        getHandler().onMessage(id, unlock);
     }
 
     void WalletApi::onTxListMessage(const JsonRpcId& id, const json& params)
@@ -778,19 +792,19 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.", id };
         }
 
-        _handler.onMessage(id, txList);
+        getHandler().onMessage(id, txList);
     }
 
-    void WalletApi::onWalletStatusMessage(const JsonRpcId& id, const json& params)
+    void WalletApi::onWalletStatusMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         WalletStatus walletStatus;
-        _handler.onMessage(id, walletStatus);
+        getHandler().onMessage(id, walletStatus);
     }
 
     void WalletApi::onGenerateTxIdMessage(const JsonRpcId& id, const json& params)
     {
         GenerateTxId generateTxId;
-        _handler.onMessage(id, generateTxId);
+        getHandler().onMessage(id, generateTxId);
     }
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
@@ -817,7 +831,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             }
         }
 
-        _handler.onMessage(id, offersList);
+        getHandler().onMessage(id, offersList);
     }
 
     void WalletApi::onCreateOfferMessage(const JsonRpcId& id, const json& params)
@@ -826,7 +840,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         try
         {
-            _handler.onMessage(id, data);
+            getHandler().onMessage(id, data);
         }
         catch(const FailToStartNewTransactionException&)
         {
@@ -864,7 +878,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         PublishOffer data{token};
         try
         {
-            _handler.onMessage(id, data);
+            getHandler().onMessage(id, data);
         }
         catch(const FailToParseToken&)
         {
@@ -903,7 +917,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         data.token = token;
         try
         {
-            _handler.onMessage(id, data);
+            getHandler().onMessage(id, data);
         }
         catch(const FailToParseToken&)
         {
@@ -959,7 +973,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         CancelOffer data{token};
         try
         {
-            _handler.onMessage(id, data);
+            getHandler().onMessage(id, data);
         }
         catch(const FailToParseToken&)
         {
@@ -1006,7 +1020,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         OfferStatus data{token};
         try
         {
-            _handler.onMessage(id, data);
+            getHandler().onMessage(id, data);
         }
         catch(const FailToParseToken&)
         {
@@ -1265,7 +1279,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         };
     }
 
-    bool WalletApi::parse(const char* data, size_t size)
+    bool Api::parse(const char* data, size_t size)
     {
         if (size == 0)
         {
@@ -1375,7 +1389,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         return true;
     }
 
-    const char* WalletApi::getErrorMessage(ApiError code)
+    const char* Api::getErrorMessage(ApiError code)
     {
 #define ERROR_ITEM(_, item, info) case item: return info;
         switch (code) { JSON_RPC_ERRORS(ERROR_ITEM) }

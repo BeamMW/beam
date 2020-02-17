@@ -14,28 +14,12 @@
 
 #pragma once
 
+#include "wallet/client/extensions/notifications/notification.h"
 #include "wallet/client/extensions/news_channels/interface.h"
 #include "wallet/core/wallet_db.h"
 
 namespace beam::wallet
 {
-    struct Notification
-    {
-        enum class Type : uint32_t
-        {
-            SoftwareUpdateAvailable,
-            AddressStatusChanged,
-            TransactionStatusChanged,
-            BeamNews
-        };
-
-        // unique ID - probably same as BroadcastMsg::m_signature underlying type
-        ECC::uintBig m_id;
-        Type m_type;
-        Timestamp m_ts;
-        ByteBuffer m_content;
-    };
-
     class NotificationCenter
         : public INewsObserver
     {

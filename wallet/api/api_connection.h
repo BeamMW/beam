@@ -25,13 +25,17 @@ namespace beam::wallet
 class ApiConnection : public IWalletApiHandler
 {
 public:
-    ApiConnection(
-        IWalletDB::Ptr walletDB
-      , Wallet& wallet
-      , WalletApi::ACL acl
+        struct IWalletData
+        {
+            virtual IWalletDB::Ptr getWalletDB() = 0;
+            virtual Wallet& getWallet() = 0;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-      , const IAtomicSwapProvider& swapProvider
+            virtual const IAtomicSwapProvider& getAtomicSwapProvider() const = 0;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        };
+    ApiConnection(
+        IWalletData& walletData
+      , WalletApi::ACL acl
     );
     virtual ~ApiConnection();
 
@@ -80,11 +84,7 @@ public:
     }
 
 protected:
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    const IAtomicSwapProvider& _swapProvider;
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-    IWalletDB::Ptr _walletDB;
-    Wallet& _wallet;
+    IWalletData& _walletData;
     WalletApi _api;
 };
 } // beam::wallet
