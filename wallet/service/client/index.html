@@ -185,11 +185,14 @@
       //
       // TODO: implement ID replacement without reconnecting
       //
-      const walletGUID = 'A001'
+      // const walletGUID = 'A001'
+      const walletGUID = 'R00' + Math.floor(Math.random() * (1 - 100 + 1) ) + 100
+
       
       // Alive ping interval, such short time is used only for testing
       // TODO: discuss real alive ping interval, may be use websockets for this
-      const aliveInterval = 10000 
+      const aliveInterval = 10000
+      var aliveTimer = null
 
       function login() {
           const login = 'http://127.0.0.1:20000/login'
@@ -215,7 +218,8 @@
       }
 
       function startAliveTimer() {
-        const timer = setInterval(() => {
+      	if (aliveTimer) clearInterval(alieTimer)
+        aliveTimer = setInterval(() => {
           console.log('Sending alive ping')
           
           const alive = 'http://127.0.0.1:20000/alive'

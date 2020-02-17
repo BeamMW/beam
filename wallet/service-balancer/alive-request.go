@@ -15,7 +15,7 @@ type aliveR struct {
 	Error string  `json:"error,omitempty"`
 }
 
-func aliveRequest(w http.ResponseWriter, r *http.Request) {
+func aliveRequest2(w http.ResponseWriter, r *http.Request) {
 	allowCORS(w, r)
 
 	if r.Method == "OPTIONS" {
@@ -49,5 +49,5 @@ func aliveRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	monitorAlive(req.WalletID)
+	monitor2Alive(req.WalletID)
 }
