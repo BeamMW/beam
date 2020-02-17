@@ -713,15 +713,15 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
-    Height fork1Height = 10;
-    Height fork2Height = 20;
+    Height fork1Height = 6;
+    Height fork2Height = 12;
     Rules::get().pForks[1].m_Height = fork1Height;
     Rules::get().pForks[2].m_Height = fork2Height;
 
     TestSimpleTx();
-    TestManyTransactons(50);
-    TestManyTransactons(100);
-    TestManyTransactons(200);
+    TestManyTransactons(20, Lelantus::Cfg{2, 5}, Lelantus::Cfg{2, 3});
+    TestManyTransactons(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
+    TestManyTransactons(100, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
 
     ///*TestManyTransactons();*/
 
