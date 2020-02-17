@@ -455,6 +455,36 @@ void BeamCrypto_NonceGenerator_NextScalar(BeamCrypto_NonceGenerator* p, secp256k
 }
 
 //////////////////////////////
+// Point
+int BeamCrypto_Point_ImportNnz(const BeamCrypto_Point* pPt, secp256k1_ge* pGe)
+{
+	if (pPt->m_Y > 1)
+		return 0; // should always be well-formed
+
+	secp256k1_fe nx;
+	if (!secp256k1_fe_set_b32(&nx, pPt->m_X.m_pVal))
+		return 0;
+
+	if (!secp256k1_ge_set_xo_var(pGe, &nx, pPt->m_Y))
+		return 0;
+
+	return 1;
+}
+
+void BeamCrypto_Point_Export(BeamCrypto_Point* pPt, const secp256k1_ge* pGe)
+{
+	if (secp256k1_ge_is_infinity(pGe))
+	{
+		memset(pPt, 0, sizeof(*pPt));
+	}
+	else
+	{
+		secp256k1_fe_get_b32(pPt->m_X.m_pVal, &pGe->x);
+		pPt->m_Y = (secp256k1_fe_is_odd(&pGe->y) != 0);
+	}
+}
+
+//////////////////////////////
 // Oracle
 void BeamCrypto_Oracle_Init(BeamCrypto_Oracle* p)
 {
@@ -484,6 +514,19 @@ void BeamCrypto_Oracle_NextScalar(BeamCrypto_Oracle* p, secp256k1_scalar* pS)
 		int overflow;
 		secp256k1_scalar_set_b32(pS, hash.m_pVal, &overflow);
 		if (!overflow)
+			break;
+	}
+}
+
+void BeamCrypto_Oracle_NextPoint(BeamCrypto_Oracle* p, secp256k1_ge* pGe)
+{
+	BeamCrypto_Point pt;
+	pt.m_Y = 0;
+
+	while (1)
+	{
+		BeamCrypto_Oracle_NextHash(p, &pt.m_X);
+		if (BeamCrypto_Point_ImportNnz(&pt, pGe))
 			break;
 	}
 }
@@ -525,6 +568,26 @@ void secp256k1_sha256_write_Num(secp256k1_sha256_t* pSha, uint64_t val)
 		secp256k1_sha256_write(pSha, &x, sizeof(x));
 
 	} while (nContinue);
+}
+
+void secp256k1_sha256_write_Point(secp256k1_sha256_t* pSha, const BeamCrypto_Point* pPt)
+{
+	secp256k1_sha256_write(pSha, pPt->m_X.m_pVal, sizeof(pPt->m_X.m_pVal));
+	secp256k1_sha256_write(pSha, &pPt->m_Y, sizeof(pPt->m_Y));
+}
+
+void secp256k1_sha256_write_Ge(secp256k1_sha256_t* pSha, const secp256k1_ge* pGe)
+{
+	BeamCrypto_Point pt;
+	BeamCrypto_Point_Export(&pt, pGe);
+	secp256k1_sha256_write_Point(pSha, &pt);
+}
+
+void secp256k1_sha256_write_Gej(secp256k1_sha256_t* pSha, secp256k1_gej* pGej)
+{
+	secp256k1_ge ge;
+	secp256k1_ge_set_gej_var(&ge, pGej); // expensive
+	secp256k1_sha256_write_Ge(pSha, &ge);
 }
 
 void BeamCrypto_CoinID_getHash(const BeamCrypto_CoinID* p, BeamCrypto_UintBig* pHash)

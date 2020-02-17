@@ -44,3 +44,9 @@ typedef struct
 {
 	uint8_t m_pVal[BeamCrypto_nBytes];
 } BeamCrypto_UintBig;
+
+typedef struct
+{
+	BeamCrypto_UintBig m_X;
+	uint8_t m_Y;
+} BeamCrypto_Point;
