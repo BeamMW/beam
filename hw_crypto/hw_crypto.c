@@ -778,8 +778,6 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 	mmCtx.m_pS = &u.mm.s;
 	mmCtx.m_pWnaf = &u.mm.wnaf;
 
-	secp256k1_scalar_set_u64(u.mm.s.m_pK, pCid->m_Amount);
-
 	if (pCid->m_AssetID)
 	{
 		// derive asset gen
@@ -802,6 +800,8 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 		mmCtx.m_pGenFast = pCtx->m_pGenFast + BeamCrypto_MultiMac_Fast_Idx_H;
 		mmCtx.m_pZDenom = 0;
 	}
+
+	secp256k1_scalar_set_u64(u.mm.s.m_pK, pCid->m_Amount);
 
 	BeamCrypto_MultiMac_Calculate(&mmCtx);
 
