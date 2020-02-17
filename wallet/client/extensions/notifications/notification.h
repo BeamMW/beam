@@ -31,7 +31,7 @@ namespace beam::wallet
         // unique ID - probably same as BroadcastMsg::m_signature underlying type
         ECC::uintBig m_ID;
         Type m_type;
-        Timestamp m_ts;
+        Timestamp m_createTime;
         bool m_read;            // if notification was read
         ByteBuffer m_content;
     };

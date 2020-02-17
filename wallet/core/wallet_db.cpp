@@ -75,6 +75,7 @@
 #define LASER_OPEN_STATES_NAME "LaserOpenStates"
 #define LASER_UPDATES_NAME "LaserUpdates"
 #define ASSETS_NAME "Assets"
+#define NOTIFICATIONS_NAME "notifications"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -145,6 +146,15 @@
     each(IsOwned,        IsOwned,       INTEGER,           obj)
 
 #define ASSET_FIELDS ENUM_ASSET_FIELDS(LIST, COMMA, )
+
+#define ENUM_NOTIFICATION_FIELDS(each, sep, obj) \
+    each(ID,            ID,             BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(type,          type,           INTEGER,            obj) sep \
+    each(createTime,    createTime,     INTEGER,            obj) sep \
+    each(read,          read,           BOOLEAN,            obj) sep \
+    each(content,       content,        BLOB NOT NULL,      obj)
+
+#define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
 
 namespace std
 {
@@ -553,6 +563,12 @@ namespace beam::wallet
                 throwIfError(ret, _db);
             }
 
+            // TODO: replace with template
+            void bind(int col, Notification::Type type)
+            {
+                bind(col, underlying_cast(type));
+            }
+
             bool step()
             {
                 int n = _walletDB ? sqlite3_total_changes(_db) : 0;
@@ -650,6 +666,21 @@ namespace beam::wallet
                     memcpy(data.m_pData, sqlite3_column_blob(_stm, col), size);
                 else
                     throw std::runtime_error("wrong blob size");
+            }
+
+            // template<typename EnumType, typename = EnumTypesOnly<E>>
+            // void get(int col, EnumType& enumValue)
+            // {
+            //     UnderlyingType<EnumType> temp;
+            //     get(col, temp);
+            //     t = static_cast<EnumType>(temp);
+            // }
+
+            void get(int col, Notification::Type& t)
+            {
+                uint32_t temp;
+                get(col, temp);
+                t = static_cast<Notification::Type>(temp);
             }
 
             bool getBlobSafe(int col, void* blob, int size)
@@ -988,6 +1019,13 @@ namespace beam::wallet
             const auto ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
+    
+        void CreateNotificationsTable(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " NOTIFICATIONS_NAME " (" ENUM_NOTIFICATION_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
 
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
         {
@@ -1098,6 +1136,7 @@ namespace beam::wallet
         CreateStatesTable(db);
         CreateLaserTables(db);
         CreateAssetsTable(db);
+        CreateNotificationsTable(db);
     }
 
     std::shared_ptr<WalletDB>  WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -2978,6 +3017,49 @@ namespace beam::wallet
         return channels;
     }
 
+    vector<Notification> WalletDB::getNotifications() const
+    {
+        vector<Notification> res;
+        const char* req = "SELECT * FROM " NOTIFICATIONS_NAME " ORDER BY createTime DESC;";
+        sqlite::Statement stm(this, req);
+
+        while (stm.step())
+        {
+            auto& notification = res.emplace_back();
+            int colIdx = 0;
+            ENUM_NOTIFICATION_FIELDS(STM_GET_LIST, NOSEP, notification);
+        }
+        return res;
+    }
+
+    void WalletDB::saveNotification(const Notification& notification)
+    {
+        const char* selectReq = "SELECT * FROM " NOTIFICATIONS_NAME " WHERE ID=?1;";
+        sqlite::Statement selectStm(this, selectReq);
+        selectStm.bind(1, notification.m_ID);
+
+        if (selectStm.step())
+        {
+            const char* updateReq = "UPDATE " NOTIFICATIONS_NAME " SET type=?2, createTime=?3, read=?4, content=?5 WHERE ID=?1;";
+            sqlite::Statement updateStm(this, updateReq);
+
+            updateStm.bind(1, notification.m_ID);
+            updateStm.bind(2, notification.m_type);
+            updateStm.bind(3, notification.m_createTime);
+            updateStm.bind(4, notification.m_read);
+            updateStm.bind(5, notification.m_content);
+            updateStm.step();
+        }
+        else
+        {
+            const char* insertReq = "INSERT INTO " NOTIFICATIONS_NAME " (" ENUM_NOTIFICATION_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_NOTIFICATION_FIELDS(BIND_LIST, COMMA, ) ");";
+            sqlite::Statement stm(this, insertReq);
+            int colIdx = 0;
+            ENUM_NOTIFICATION_FIELDS(STM_BIND_LIST, NOSEP, notification);
+            stm.step();
+        }
+    }
+
     void WalletDB::Subscribe(IWalletDbObserver* observer)
     {
         if (std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end())
@@ -3390,15 +3472,6 @@ namespace beam::wallet
         sqlite::Statement stm(this, "DELETE FROM " INCOMING_WALLET_MESSAGE_NAME " WHERE ID == ?1;");
         stm.bind(1, id);
         stm.step();
-    }
-
-    std::vector<Notification> WalletDB::getNotifications() const
-    {
-        return { Notification {} };
-    }
-
-    void WalletDB::saveNotification(const Notification&)
-    {
     }
 
     bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)
