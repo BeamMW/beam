@@ -884,9 +884,19 @@ int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof* p)
 	{
 		struct
 		{
-			// needed for calculating Part1.S
-			BeamCrypto_MultiMac_Scalar pS[nDims * 2]; // Large array (8K), TODO: do this in quantas
-			BeamCrypto_MultiMac_WNaf pWnaf[nDims * 2];
+			// Data buffers needed for calculating Part1.S
+			// Need to multi-exponentiate nDims * 2 == 128 elements.
+			// Calculating everything in a single pass is faster, but requires more buffers (stack memory)
+			// Each element size is sizeof(BeamCrypto_MultiMac_Scalar) + sizeof(BeamCrypto_MultiMac_WNaf),
+			// which is either 34 or 68 bytes, depends on BeamCrypto_MultiMac_Directions (larger size is for faster algorithm)
+			//
+			// This requires 8.5K stack memory (or 4.25K if BeamCrypto_MultiMac_Directions == 1)
+#define Calc_S_Naggle_Max (nDims * 2)
+
+#define Calc_S_Naggle Calc_S_Naggle_Max
+
+			BeamCrypto_MultiMac_Scalar pS[Calc_S_Naggle];
+			BeamCrypto_MultiMac_WNaf pWnaf[Calc_S_Naggle];
 		} s;
 
 		struct
@@ -900,6 +910,8 @@ int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof* p)
 			secp256k1_fe pFe[3];
 		} x;
 	} u;
+
+	static_assert(Calc_S_Naggle <= Calc_S_Naggle_Max, "Naggle too large");
 
 	BeamCrypto_CoinID_getSkComm(p->m_pKdf, &p->m_Cid, &sk, &comm);
 
@@ -938,15 +950,55 @@ int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof* p)
 
 	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
 
-	// CalcA
+	// CalcS
+	BeamCrypto_NonceGenerator_NextScalar(&ng, pK + 1);
+
 	BeamCrypto_MultiMac_Context mmCtx;
+	mmCtx.m_pZDenom = 0;
+
+	mmCtx.m_Secure = 1;
+	mmCtx.m_pSecureK = pK + 1;
+	mmCtx.m_pGenSecure = &pCtx->m_GenG;
+
+	mmCtx.m_Fast = 0;
+	mmCtx.m_pGenFast = pCtx->m_pGenFast;
+	mmCtx.m_pS = u.s.pS;
+	mmCtx.m_pWnaf = u.s.pWnaf;
+
+	for (unsigned int iBit = 0; iBit < nDims * 2; iBit++, mmCtx.m_Fast++)
+	{
+		if (Calc_S_Naggle == mmCtx.m_Fast)
+		{
+			// flush
+			mmCtx.m_pRes = pGej + (iBit != Calc_S_Naggle); // 1st flush goes to pGej[0] directly
+			BeamCrypto_MultiMac_Calculate(&mmCtx);
+
+			if (iBit != Calc_S_Naggle)
+				secp256k1_gej_add_var(pGej, pGej + 1, pGej, 0);
+
+			mmCtx.m_Secure = 0;
+			mmCtx.m_Fast = 0;
+			mmCtx.m_pGenFast += Calc_S_Naggle;
+		}
+
+		BeamCrypto_NonceGenerator_NextScalar(&ng, u.s.pS[mmCtx.m_Fast].m_pK);
+
+		if (!(iBit % nDims) && p->m_pKExtra)
+			// embed more info
+			secp256k1_scalar_add(u.s.pS[mmCtx.m_Fast].m_pK, u.s.pS[mmCtx.m_Fast].m_pK, p->m_pKExtra + (iBit / nDims));
+	}
+
+	mmCtx.m_pRes = pGej + 1;
+	BeamCrypto_MultiMac_Calculate(&mmCtx);
+
+	if (Calc_S_Naggle < Calc_S_Naggle_Max)
+		secp256k1_gej_add_var(pGej + 1, pGej + 1, pGej, 0);
+
+	// CalcA
 	mmCtx.m_pRes = pGej;
 	mmCtx.m_Fast = 0;
 	mmCtx.m_Secure = 1;
-	mmCtx.m_pGenSecure = &pCtx->m_GenG;
 	mmCtx.m_pSecureK = pK;
-	mmCtx.m_pZDenom = 0;
-
 	BeamCrypto_MultiMac_Calculate(&mmCtx); // alpha*G
 
 	BeamCrypto_Amount v = p->m_Cid.m_Amount;
@@ -963,28 +1015,6 @@ int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof* p)
 
 		secp256k1_gej_add_ge_var(pGej, pGej, &u.x.ge, 0);
 	}
-
-	// CalcS
-	BeamCrypto_NonceGenerator_NextScalar(&ng, pK + 1);
-	mmCtx.m_pSecureK = pK + 1;
-	mmCtx.m_pRes = pGej + 1;
-
-	mmCtx.m_Fast = nDims * 2;
-	mmCtx.m_pGenFast = pCtx->m_pGenFast;
-
-	mmCtx.m_pS = u.s.pS;
-	mmCtx.m_pWnaf = u.s.pWnaf;
-
-	for (unsigned int i = 0; i < nDims * 2; i++)
-	{
-		BeamCrypto_NonceGenerator_NextScalar(&ng, u.s.pS[i].m_pK);
-
-		if (!(i % nDims) && p->m_pKExtra)
-			// embed more info
-			secp256k1_scalar_add(u.s.pS[i].m_pK, u.s.pS[i].m_pK, p->m_pKExtra + (i / nDims));
-	}
-
-	BeamCrypto_MultiMac_Calculate(&mmCtx);
 
 	// oracle
 	BeamCrypto_Oracle_Init(&u.x.oracle);
@@ -1015,8 +1045,6 @@ int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof* p)
 		secp256k1_scalar_get_b32(u.x.hv.m_pVal, u.x.pChallenge);
 		secp256k1_hmac_sha256_write(&u.x.hmac, u.x.hv.m_pVal, sizeof(u.x.hv.m_pVal));
 	}
-
-	mmCtx.m_Fast = 0;
 
 	int ok = 1;
 
