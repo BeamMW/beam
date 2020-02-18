@@ -570,13 +570,13 @@ void TestPKdfExport()
 				uint32_t iChild;
 				SetRandomOrd(iChild);
 
-				BeamCrypto_KeyKeeper_GetKdfPub(&kk, &pkdf2, &iChild);
+				BeamCrypto_KeyKeeper_GetPKdf(&kk, &pkdf2, &iChild);
 				hkdfChild.GenerateChild(hkdf, iChild);
 			}
 			else
 			{
 				pKdf1 = &hkdf;
-				BeamCrypto_KeyKeeper_GetKdfPub(&kk, &pkdf2, nullptr);
+				BeamCrypto_KeyKeeper_GetPKdf(&kk, &pkdf2, nullptr);
 			}
 
 			ECC::HKdfPub::Packed p;
