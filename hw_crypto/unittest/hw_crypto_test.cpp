@@ -109,8 +109,6 @@ BeamCrypto_Point& Ecc2BC(const ECC::Point& x)
 
 void BeamCrypto_InitGenSecure(BeamCrypto_MultiMac_Secure& x, const ECC::Point::Native& ptVal, const ECC::Point::Native& nums)
 {
-	DbgPrint("BeamCrypto_InitGenSecure - 1");
-
 	ECC::Point::Compact::Converter cpc;
 	ECC::Point::Native pt = nums;
 
@@ -122,8 +120,6 @@ void BeamCrypto_InitGenSecure(BeamCrypto_MultiMac_Secure& x, const ECC::Point::N
 			break;
 	}
 
-	DbgPrint("BeamCrypto_InitGenSecure - 2");
-
 	pt = Zero;
 	for (unsigned int iBit = BeamCrypto_nBits; iBit--; )
 	{
@@ -133,34 +129,23 @@ void BeamCrypto_InitGenSecure(BeamCrypto_MultiMac_Secure& x, const ECC::Point::N
 			pt += nums;
 	}
 
-	DbgPrint("BeamCrypto_InitGenSecure - 3");
-
 	pt = -pt;
 	cpc.set_Deferred(Cast::Up<ECC::Point::Compact>(x.m_pPt[BeamCrypto_MultiMac_Secure_nCount]), pt);
-
-	DbgPrint("BeamCrypto_InitGenSecure - 4");
 	cpc.Flush();
-	DbgPrint("BeamCrypto_InitGenSecure - 5");
 }
 
 void BeamCrypto_InitFast(BeamCrypto_MultiMac_Fast& trg, const ECC::MultiMac::Prepared p)
 {
-	DbgPrint("BeamCrypto_InitFast - 1");
-
 	const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
 
 	static_assert(_countof(trg.m_pPt) <= _countof(src.m_pPt));
 
 	for (uint32_t j = 0; j < _countof(trg.m_pPt); j++)
 		trg.m_pPt[j] = src.m_pPt[j];
-
-	DbgPrint("BeamCrypto_InitFast - 2");
 }
 
 void InitContext()
 {
-	DbgPrint("InitContext - 1");
-
 	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
 	assert(pCtx);
 
@@ -175,16 +160,12 @@ void InitContext()
 	ctx.m_Ipp.J_.m_Fast.m_pPt[0].Assign(pt, true);
 	BeamCrypto_InitGenSecure(pCtx->m_GenJ, pt, nums);
 
-	DbgPrint("InitContext - 2");
-
 	static_assert(ECC::InnerProduct::nDim * 2 == BeamCrypto_MultiMac_Fast_Idx_H);
 
 	for (uint32_t iGen = 0; iGen < ECC::InnerProduct::nDim * 2; iGen++)
 		BeamCrypto_InitFast(pCtx->m_pGenFast[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen]);
 
 	BeamCrypto_InitFast(pCtx->m_pGenFast[BeamCrypto_MultiMac_Fast_Idx_H], ECC::Context::get().m_Ipp.H_);
-
-	DbgPrint("InitContext - 3");
 }
 
 
