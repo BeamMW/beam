@@ -1191,16 +1191,21 @@ void BeamCrypto_Signature_Sign(BeamCrypto_Signature* p, const BeamCrypto_UintBig
 
 	// expose the nonce
 	BeamCrypto_MulG(&p->m_NoncePub, &u.nonce);
+	BeamCrypto_Signature_SignPartial(p, pMsg, pSk, &u.nonce);
 
+	SECURE_ERASE_OBJ(u.nonce);
+}
+
+void BeamCrypto_Signature_SignPartial(BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce)
+{
 	secp256k1_scalar e;
 	BeamCrypto_Signature_GetChallenge(p, pMsg, &e);
 
 	secp256k1_scalar_mul(&e, &e, pSk);
-	secp256k1_scalar_add(&e, &e, &u.nonce);
+	secp256k1_scalar_add(&e, &e, pNonce);
 	secp256k1_scalar_negate(&e, &e);
 
 	secp256k1_scalar_get_b32(p->m_k.m_pVal, &e);
-	SECURE_ERASE_OBJ(u.nonce);
 }
 
 int BeamCrypto_Signature_IsValid_Gej(const BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, const secp256k1_gej* pPk)
