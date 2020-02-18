@@ -1191,20 +1191,27 @@ void BeamCrypto_Signature_Sign(BeamCrypto_Signature* p, const BeamCrypto_UintBig
 	// expose the nonce
 	BeamCrypto_MulG(&p->m_NoncePub, &u.nonce);
 
-	BeamCrypto_Signature_GetChallenge(p, pMsg, &p->m_k);
+	secp256k1_scalar e;
+	BeamCrypto_Signature_GetChallenge(p, pMsg, &e);
 
-	secp256k1_scalar_mul(&p->m_k, &p->m_k, pSk);
-	secp256k1_scalar_add(&p->m_k, &p->m_k, &u.nonce);
-	secp256k1_scalar_negate(&p->m_k, &p->m_k);
+	secp256k1_scalar_mul(&e, &e, pSk);
+	secp256k1_scalar_add(&e, &e, &u.nonce);
+	secp256k1_scalar_negate(&e, &e);
 
+	secp256k1_scalar_get_b32(p->m_k.m_pVal, &e);
 	SECURE_ERASE_OBJ(u.nonce);
 }
 
-int BeamCrypto_Signature_IsValid(BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, const secp256k1_gej* pPk)
+int BeamCrypto_Signature_IsValid_Gej(const BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, const secp256k1_gej* pPk)
 {
 	secp256k1_ge ge;
 	if (!BeamCrypto_Point_ImportNnz(&p->m_NoncePub, &ge))
 		return 0;
+
+	secp256k1_scalar k;
+	int overflow; // for historical reasons we don't check for overflow, i.e. theoretically there can be an ambiguity, but it makes not much sense for the attacker
+	secp256k1_scalar_set_b32(&k, p->m_k.m_pVal, &overflow);
+
 
 	secp256k1_gej gej;
 	secp256k1_fe zDenom;
@@ -1217,7 +1224,7 @@ int BeamCrypto_Signature_IsValid(BeamCrypto_Signature* p, const BeamCrypto_UintB
 	ctx.m_pRes = &gej;
 	ctx.m_Secure = 1;
 	ctx.m_pGenSecure = &BeamCrypto_Context_get()->m_GenG;
-	ctx.m_pSecureK = &p->m_k;
+	ctx.m_pSecureK = &k;
 
 	if (secp256k1_gej_is_infinity(pPk))
 	{
@@ -1241,3 +1248,16 @@ int BeamCrypto_Signature_IsValid(BeamCrypto_Signature* p, const BeamCrypto_UintB
 
 	return secp256k1_gej_is_infinity(&gej);
 }
+
+int BeamCrypto_Signature_IsValid_Pt(const BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, const BeamCrypto_Point* pPk)
+{
+	secp256k1_ge ge;
+	if (!BeamCrypto_Point_ImportNnz(pPk, &ge))
+		return 0;
+
+	secp256k1_gej gej;
+	secp256k1_gej_set_ge(&gej, &ge);
+
+	return BeamCrypto_Signature_IsValid_Gej(p, pMsg, &gej);
+}
+
