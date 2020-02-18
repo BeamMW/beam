@@ -3,9 +3,9 @@
 # Notarize the dmg
 notarize_dmg() {(
   echo "Uploading $BEAM_WALLET_UI_IN to notarization service"
-  uploadRes=`xcrun altool --notarize-app --primary-bundle-id "com.mw.beam.beamwallet" --username "$MACOS_NOTARIZE_USER" --password "$MACOS_NOTARIZE_PASS" --file "$BEAM_WALLET_UI_IN" | tr -d '\n' `
+  uploadRes=`xcrun altool --notarize-app --primary-bundle-id "com.mw.beam.beamwallet" --username "$MACOS_NOTARIZE_USER" --password "$MACOS_NOTARIZE_PASS" --file "$BEAM_WALLET_UI_IN" --verbose`
   echo "Result: $uploadRes"
-  uuid=`echo "$uploadRes" | grep 'RequestUUID' | awk '{ print $NF }'`
+  uuid=`echo "$uploadRes" | grep 'RequestUUID' | awk '{ print $3 }'`
   if [ "$uuid" = "" ]; then
     echo "Uploading to notarization service error"
     exit 1
