@@ -128,7 +128,7 @@ void BeamCrypto_InitGenSecure(BeamCrypto_MultiMac_Secure& x, const ECC::Point::N
 	cpc.Flush();
 }
 
-void BeamCrypto_InitFast(BeamCrypto_MultiMac_Fast& trg, const ECC::MultiMac::Prepared p)
+void BeamCrypto_InitFast(BeamCrypto_MultiMac_Fast& trg, const ECC::MultiMac::Prepared& p)
 {
 	const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
 
