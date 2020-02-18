@@ -225,12 +225,12 @@ json OfferToJson(const SwapOffer& offer,
         {"receive_currency", receiveCurrency},
         {"time_created", createTimeStr},
         {"time_expired", expiresTimeStr},
-        {"is_my_offer", isOwnOffer},
-        {"is_public", isPublic},
     };
 
     if (offer.m_status == SwapOfferStatus::Pending)
     {
+        result["is_my_offer"] = isOwnOffer;
+        result["is_public"] = isPublic;
         if (isOwnOffer && !isPublic)
         {
             const auto& mirroredTxParams = MirrorSwapTxParams(offer);
