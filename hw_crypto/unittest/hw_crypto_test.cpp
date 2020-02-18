@@ -21,6 +21,7 @@ extern "C" {
 #include "coinid.h"
 #include "kdf.h"
 #include "rangeproof.h"
+#include "sign.h"
 }
 
 #include "../core/ecc_native.h"
@@ -494,6 +495,36 @@ void TestKdf()
 	}
 }
 
+void TestSignature()
+{
+	for (int i = 0; i < 5; i++)
+	{
+		ECC::Hash::Value msg;
+		ECC::Scalar::Native sk, k;
+		SetRandom(msg);
+		SetRandom(sk);
+
+		ECC::Point::Native pkN = ECC::Context::get().G * sk;
+
+		BeamCrypto_Signature sig2;
+		BeamCrypto_Signature_Sign(&sig2, &Ecc2BC(msg), &sk.get_Raw());
+
+		verify_test(BeamCrypto_Signature_IsValid(&sig2, &Ecc2BC(msg), &pkN.get_Raw()));
+
+		k.get_Raw() = sig2.m_k;
+
+		ECC::Signature sig1;
+		Ecc2BC(sig1.m_NoncePub) = sig2.m_NoncePub;
+		sig1.m_k = k;
+
+		verify_test(sig1.IsValid(msg, pkN));
+
+		// tamper with sig
+		sig2.m_k.d[0] ^= 12;
+		verify_test(!BeamCrypto_Signature_IsValid(&sig2, &Ecc2BC(msg), &pkN.get_Raw()));
+	}
+}
+
 int main()
 {
 	Rules::get().CA.Enabled = true;
@@ -512,6 +543,7 @@ int main()
 	TestKdf();
 	DbgPrint("Testing Coins");
 	TestCoins();
+	TestSignature();
 
     return g_TestsFailed ? -1 : 0;
 }

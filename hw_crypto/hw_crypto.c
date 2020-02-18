@@ -19,6 +19,7 @@
 #include "coinid.h"
 #include "kdf.h"
 #include "rangeproof.h"
+#include "sign.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
@@ -1116,4 +1117,107 @@ int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof* p)
 	//SECURE_ERASE_OBJ(hv); - no need, last value is the challenge
 
 	return ok;
+}
+
+//////////////////////////////
+// Signature
+void BeamCrypto_Signature_GetChallenge(const BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, secp256k1_scalar* pE)
+{
+	BeamCrypto_Oracle oracle;
+	BeamCrypto_Oracle_Init(&oracle);
+	secp256k1_sha256_write_Point(&oracle.m_sha, &p->m_NoncePub);
+	secp256k1_sha256_write(&oracle.m_sha, pMsg->m_pVal, sizeof(pMsg->m_pVal));
+
+	BeamCrypto_Oracle_NextScalar(&oracle, pE);
+}
+
+void BeamCrypto_Signature_Sign(BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, const secp256k1_scalar* pSk)
+{
+	// get nonce
+	secp256k1_hmac_sha256_t hmac;
+	BeamCrypto_NonceGenerator ng;
+	static const char szSalt[] = "beam-Schnorr";
+	BeamCrypto_NonceGenerator_InitBegin(&ng, &hmac, szSalt, sizeof(szSalt));
+
+	union
+	{
+		BeamCrypto_UintBig sk;
+		secp256k1_scalar nonce;
+	} u;
+
+	static_assert(sizeof(u.nonce) >= sizeof(u.sk), ""); // means nonce completely overwrites the sk
+
+	secp256k1_scalar_get_b32(u.sk.m_pVal, pSk);
+	secp256k1_hmac_sha256_write(&hmac, u.sk.m_pVal, sizeof(u.sk.m_pVal));
+	secp256k1_hmac_sha256_write(&hmac, pMsg->m_pVal, sizeof(pMsg->m_pVal));
+
+	BeamCrypto_NonceGenerator_InitEnd(&ng, &hmac);
+	BeamCrypto_NonceGenerator_NextScalar(&ng, &u.nonce);
+	SECURE_ERASE_OBJ(ng);
+
+	// expose the nonce
+	secp256k1_gej gej;
+	BeamCrypto_MultiMac_Context ctx;
+	ctx.m_pRes = &gej;
+	ctx.m_pZDenom = 0;
+	ctx.m_Fast = 0;
+	ctx.m_Secure = 1;
+	ctx.m_pGenSecure = &BeamCrypto_Context_get()->m_GenG;
+	ctx.m_pSecureK = &u.nonce;
+
+	BeamCrypto_MultiMac_Calculate(&ctx);
+
+	secp256k1_ge ge;
+	secp256k1_ge_set_gej_var(&ge, &gej);
+	BeamCrypto_Point_Export(&p->m_NoncePub, &ge);
+
+	BeamCrypto_Signature_GetChallenge(p, pMsg, &p->m_k);
+
+	secp256k1_scalar_mul(&p->m_k, &p->m_k, pSk);
+	secp256k1_scalar_add(&p->m_k, &p->m_k, &u.nonce);
+	secp256k1_scalar_negate(&p->m_k, &p->m_k);
+
+	SECURE_ERASE_OBJ(u.nonce);
+}
+
+int BeamCrypto_Signature_IsValid(BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, const secp256k1_gej* pPk)
+{
+	secp256k1_ge ge;
+	if (!BeamCrypto_Point_ImportNnz(&p->m_NoncePub, &ge))
+		return 0;
+
+	secp256k1_gej gej;
+	secp256k1_fe zDenom;
+
+	BeamCrypto_MultiMac_WNaf wnaf;
+	BeamCrypto_MultiMac_Scalar s;
+	BeamCrypto_MultiMac_Fast gen;
+
+	BeamCrypto_MultiMac_Context ctx;
+	ctx.m_pRes = &gej;
+	ctx.m_Secure = 1;
+	ctx.m_pGenSecure = &BeamCrypto_Context_get()->m_GenG;
+	ctx.m_pSecureK = &p->m_k;
+
+	if (secp256k1_gej_is_infinity(pPk))
+	{
+		ctx.m_Fast = 0;
+		ctx.m_pZDenom = 0;
+	}
+	else
+	{
+		ctx.m_pZDenom = &zDenom;
+		ctx.m_Fast = 1;
+		ctx.m_pGenFast = &gen;
+		ctx.m_pS = &s;
+		ctx.m_pWnaf = &wnaf;
+		BeamCrypto_MultiMac_SetCustom_gej_Nnz(&ctx, pPk);
+
+		BeamCrypto_Signature_GetChallenge(p, pMsg, s.m_pK);
+	}
+
+	BeamCrypto_MultiMac_Calculate(&ctx);
+	secp256k1_gej_add_ge_var(&gej, &gej, &ge, 0);
+
+	return secp256k1_gej_is_infinity(&gej);
 }
