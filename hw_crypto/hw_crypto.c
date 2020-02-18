@@ -374,16 +374,12 @@ static void secp256k1_ge_set_gej_normalized(secp256k1_ge* pGe, const secp256k1_g
 	pGe->y = pGej->y;
 }
 
-void BeamCrypto_MultiMac_SetCustom(BeamCrypto_MultiMac_Context* p, const secp256k1_ge* pGe)
+static void BeamCrypto_MultiMac_SetCustom_Nnz(BeamCrypto_MultiMac_Context* p, secp256k1_gej* pOdds)
 {
 	assert(p->m_Fast == 1);
 	assert(p->m_pZDenom);
-	assert(!secp256k1_ge_is_infinity(pGe));
 
 	// calculate odd powers
-	secp256k1_gej pOdds[BeamCrypto_MultiMac_Fast_nCount];
-	secp256k1_gej_set_ge(pOdds, pGe);
-
 	secp256k1_gej x2;
 	secp256k1_gej_double_var(&x2, pOdds, 0);
 
@@ -401,8 +397,28 @@ void BeamCrypto_MultiMac_SetCustom(BeamCrypto_MultiMac_Context* p, const secp256
 	{
 		secp256k1_ge ge;
 		secp256k1_ge_set_gej_normalized(&ge, pOdds + i);
-		secp256k1_ge_to_storage((secp256k1_ge_storage*) p->m_pGenFast[0].m_pPt + i, &ge);
+		secp256k1_ge_to_storage((secp256k1_ge_storage*)p->m_pGenFast[0].m_pPt + i, &ge);
 	}
+}
+
+static void BeamCrypto_MultiMac_SetCustom_ge_Nnz(BeamCrypto_MultiMac_Context* p, const secp256k1_ge* pGe)
+{
+	assert(!secp256k1_ge_is_infinity(pGe));
+
+	secp256k1_gej pOdds[BeamCrypto_MultiMac_Fast_nCount];
+	secp256k1_gej_set_ge(pOdds, pGe);
+
+	BeamCrypto_MultiMac_SetCustom_Nnz(p, pOdds);
+}
+
+static void BeamCrypto_MultiMac_SetCustom_gej_Nnz(BeamCrypto_MultiMac_Context* p, const secp256k1_gej* pGej)
+{
+	assert(!secp256k1_gej_is_infinity(pGej));
+
+	secp256k1_gej pOdds[BeamCrypto_MultiMac_Fast_nCount];
+	pOdds[0] = *pGej;
+
+	BeamCrypto_MultiMac_SetCustom_Nnz(p, pOdds);
 }
 
 //////////////////////////////
@@ -808,7 +824,7 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 		mmCtx.m_pGenFast = &u.mm.genAsset;
 		mmCtx.m_pZDenom = &u.mm.zDenom;
 
-		BeamCrypto_MultiMac_SetCustom(&mmCtx, &geAsset);
+		BeamCrypto_MultiMac_SetCustom_ge_Nnz(&mmCtx, &geAsset);
 
 	}
 	else
