@@ -654,8 +654,10 @@ namespace beam::wallet
             if (m_NonConventional)
                 continue; // ignore values
 
-            if (cid.get_Scheme() < CoinID::Scheme::V1)
+            switch (cid.get_Scheme())
             {
+            case CoinID::Scheme::V0:
+            case CoinID::Scheme::BB21:
                 // disallow weak scheme
                 if (bOuts)
                     return false; // no reason to create new weak outputs
@@ -721,9 +723,6 @@ namespace beam::wallet
             // disallow weak paramters
             if (x.m_hScheme < Rules::get().pForks[1].m_Height)
                 return Status::Unspecified; // blinding factor can be tampered without user permission
-
-            if (x.m_Cid.get_Scheme() < CoinID::Scheme::V1)
-                return Status::UserAbort; // value can be tampered without user permission
         }
 
         x.m_pResult.reset(new Output);

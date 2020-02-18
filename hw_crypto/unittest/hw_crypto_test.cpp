@@ -800,9 +800,27 @@ void KeyKeeperHwEmu::TxExport(Method::TxCommon& m, const BeamCrypto_TxCommon& tx
 	m.m_kOffset = kOffs;
 }
 
+
+struct KeyKeeperStd
+	:public wallet::LocalPrivateKeyKeeperStd
+{
+	bool m_Trustless = true;
+
+	using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
+	virtual bool IsTrustless() override { return m_Trustless; }
+};
+
+
+
 struct KeyKeeperWrap
 {
 	KeyKeeperHwEmu m_kkEmu;
+	KeyKeeperStd m_kkStd; // for comparison
+
+	KeyKeeperWrap(const Key::IKdf::Ptr& pKdf)
+		:m_kkStd(pKdf)
+	{
+	}
 
 	static CoinID& Add(std::vector<CoinID>& vec, Amount val = 0);
 
@@ -810,6 +828,39 @@ struct KeyKeeperWrap
 	void TestTx(const wallet::IPrivateKeyKeeper2::Method::TxCommon& tx2);
 
 	void TextKeyKeeperSplit();
+
+	static void TestSameKrn(TxKernelStd& k1, TxKernelStd& k2)
+	{
+		k1.UpdateID();
+		k2.UpdateID();
+		verify_test(k1.m_Internal.m_ID == k2.m_Internal.m_ID);
+		verify_test(k1.m_Signature.m_k == k2.m_Signature.m_k);
+	}
+
+	template <typename TMethod>
+	int InvokeOnBoth(TMethod& m)
+	{
+		TxKernelStd::Ptr pKrn;
+		m.m_pKernel->Clone((TxKernel::Ptr&) pKrn);
+		ECC::Scalar::Native kOffs = m.m_kOffset;
+
+		int n1 = m_kkEmu.InvokeSync(m);
+
+		m.m_pKernel.swap(pKrn);
+		std::swap(m.m_kOffset, kOffs);
+
+		int n2 = m_kkStd.InvokeSync(m);
+
+		verify_test(n1 == n2);
+
+		if (KeyKeeperHwEmu::Status::Success == n1)
+		{
+			verify_test(kOffs == m.m_kOffset);
+			TestSameKrn(*pKrn, *m.m_pKernel);
+		}
+
+		return n1;
+	}
 };
 
 CoinID& KeyKeeperWrap::Add(std::vector<CoinID>& vec, Amount val)
@@ -890,28 +941,27 @@ void KeyKeeperWrap::TextKeyKeeperSplit()
 	m.m_pKernel->m_Height.m_Max = g_hFork + 40;
 	m.m_pKernel->m_Fee = 30; // Incorrect balance (funds missing)
 
-	verify_test(m_kkEmu.InvokeSync(m) != KeyKeeperHwEmu::Status::Success);
+	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
 
 	m.m_pKernel->m_Fee = 32; // ok
 	
 	m.m_vOutputs[0].set_Subkey(0, CoinID::Scheme::V0); // weak output scheme
-	verify_test(m_kkEmu.InvokeSync(m) != KeyKeeperHwEmu::Status::Success);
+	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
 
 	m.m_vOutputs[0].set_Subkey(0, CoinID::Scheme::BB21); // weak output scheme
-	verify_test(m_kkEmu.InvokeSync(m) != KeyKeeperHwEmu::Status::Success);
+	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
 
 	m.m_vOutputs[0].set_Subkey(12); // outputs to a child key
-	verify_test(m_kkEmu.InvokeSync(m) != KeyKeeperHwEmu::Status::Success);
+	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
 
 	m.m_vOutputs[0].set_Subkey(0); // ok
 
-	m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
-
 	m.m_vInputs[0].set_Subkey(14, CoinID::Scheme::V0); // weak input scheme
-	verify_test(m_kkEmu.InvokeSync(m) != KeyKeeperHwEmu::Status::Success);
+	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
 
 	m_kkEmu.m_Ctx.m_AllowWeakInputs = 1;
-	verify_test(m_kkEmu.InvokeSync(m) == KeyKeeperHwEmu::Status::Success); // should work now
+	m_kkStd.m_Trustless = false; // no explicit flag for weak inputs, just switch to trusted mode
+	verify_test(InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success); // should work now
 
 	TestTx(m);
 
@@ -919,16 +969,20 @@ void KeyKeeperWrap::TextKeyKeeperSplit()
 	Add(m.m_vInputs, 16).m_AssetID = 12;
 	Add(m.m_vOutputs, 16).m_AssetID = 13;
 
-	verify_test(m_kkEmu.InvokeSync(m) != KeyKeeperHwEmu::Status::Success); // different assets mixed (not allowed)
+	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success); // different assets mixed (not allowed)
 
 	m.m_vOutputs.back().m_AssetID = 12;
 	m.m_vOutputs.back().m_Value = 15;
-	verify_test(m_kkEmu.InvokeSync(m) != KeyKeeperHwEmu::Status::Success); // asset balance mismatch
+	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success); // asset balance mismatch
 
 	m.m_vOutputs.back().m_Value = 16;
-	verify_test(m_kkEmu.InvokeSync(m) == KeyKeeperHwEmu::Status::Success); // ok
+	m.m_kOffset = Zero; // m_kkStd assumes it's 0-initialized
+	verify_test(InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success); // ok
 
 	TestTx(m);
+
+	m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
+	m_kkStd.m_Trustless = true;
 }
 
 void TextKeyKeeperTxs()
@@ -936,7 +990,10 @@ void TextKeyKeeperTxs()
 	ECC::Hash::Value hv;
 	SetRandom(hv);
 
-	KeyKeeperWrap kkw;
+	Key::IKdf::Ptr pKdf;
+	ECC::HKdf::Create(pKdf, hv);
+
+	KeyKeeperWrap kkw(pKdf);
 
 	kkw.m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
 	BeamCrypto_Kdf_Init(&kkw.m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
