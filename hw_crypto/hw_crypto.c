@@ -1293,3 +1293,26 @@ int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernel* pKrn)
 	return BeamCrypto_Signature_IsValid_Pt(&pKrn->m_Signature, &msg, &pKrn->m_Commitment);
 }
 
+//////////////////////////////
+// KeyKeeper - pub Kdf export
+static void Kdf2Pub(const BeamCrypto_Kdf* pKdf, BeamCrypto_KdfPub* pRes)
+{
+	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
+
+	pRes->m_Secret = pKdf->m_Secret;
+
+	BeamCrypto_MulPoint(&pRes->m_CoFactorG, &pCtx->m_GenG, &pKdf->m_kCoFactor);
+	BeamCrypto_MulPoint(&pRes->m_CoFactorJ, &pCtx->m_GenJ, &pKdf->m_kCoFactor);
+}
+
+void BeamCrypto_KeyKeeper_GetKdfPub(const BeamCrypto_KeyKeeper* p, BeamCrypto_KdfPub* pRes, uint32_t* pChild)
+{
+	if (pChild)
+	{
+		BeamCrypto_Kdf kdfChild;
+		BeamCrypto_Kdf_getChild(&kdfChild, *pChild, &p->m_MasterKey);
+		Kdf2Pub(&kdfChild, pRes);
+	}
+	else
+		Kdf2Pub(&p->m_MasterKey, pRes);
+}

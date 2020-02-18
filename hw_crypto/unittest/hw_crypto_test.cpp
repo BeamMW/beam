@@ -545,6 +545,63 @@ void TestKrn()
 	}
 }
 
+void TestPKdfExport()
+{
+	for (int i = 0; i < 3; i++)
+	{
+		ECC::Hash::Value hv;
+		SetRandom(hv);
+
+		ECC::HKdf hkdf;
+		hkdf.Generate(hv);
+
+		BeamCrypto_KeyKeeper kk;
+		BeamCrypto_Kdf_Init(&kk.m_MasterKey, &Ecc2BC(hv));
+
+		for (int j = 0; j < 3; j++)
+		{
+			ECC::HKdf hkdfChild;
+			ECC::HKdf* pKdf1 = &hkdfChild;
+
+			BeamCrypto_KdfPub pkdf2;
+
+			if (j)
+			{
+				uint32_t iChild;
+				SetRandomOrd(iChild);
+
+				BeamCrypto_KeyKeeper_GetKdfPub(&kk, &pkdf2, &iChild);
+				hkdfChild.GenerateChild(hkdf, iChild);
+			}
+			else
+			{
+				pKdf1 = &hkdf;
+				BeamCrypto_KeyKeeper_GetKdfPub(&kk, &pkdf2, nullptr);
+			}
+
+			ECC::HKdfPub::Packed p;
+			Ecc2BC(p.m_Secret) = pkdf2.m_Secret;
+			Ecc2BC(p.m_PkG) = pkdf2.m_CoFactorG;
+			Ecc2BC(p.m_PkJ) = pkdf2.m_CoFactorJ;
+
+			ECC::HKdfPub hkdf2;
+			verify_test(hkdf2.Import(p));
+
+			// Check the match between directly derived pKdf1 and imported hkdf2
+			// Key::IPKdf::IsSame() is not a comprehensive test, it won't check point images (too expensive)
+
+			ECC::Point::Native pt1, pt2;
+			pKdf1->DerivePKeyG(pt1, hv);
+			hkdf2.DerivePKeyG(pt2, hv);
+			verify_test(pt1 == pt2);
+
+			pKdf1->DerivePKeyJ(pt1, hv);
+			hkdf2.DerivePKeyJ(pt2, hv);
+			verify_test(pt1 == pt2);
+		}
+	}
+}
+
 int main()
 {
 	Rules::get().CA.Enabled = true;
@@ -560,6 +617,7 @@ int main()
 	TestCoins();
 	TestSignature();
 	TestKrn();
+	TestPKdfExport();
 
     return g_TestsFailed ? -1 : 0;
 }
