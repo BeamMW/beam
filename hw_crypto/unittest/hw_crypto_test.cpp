@@ -602,6 +602,264 @@ void TestPKdfExport()
 	}
 }
 
+
+struct KeyKeeperWrap
+{
+	BeamCrypto_KeyKeeper m_Kk;
+	ECC::HKdfPub m_OwnerKey;
+
+	std::vector<BeamCrypto_CoinID> m_vIns;
+	std::vector<BeamCrypto_CoinID> m_vOuts;
+
+	static BeamCrypto_CoinID& AddCid(std::vector<BeamCrypto_CoinID>&, uint32_t iChild, const BeamCrypto_CoinID*&, unsigned int&);
+
+	BeamCrypto_CoinID& AddInp(BeamCrypto_TxCommon& tx, uint32_t iChild = 0) {
+		return AddCid(m_vIns, iChild, tx.m_pIns, tx.m_Ins);
+	}
+
+	BeamCrypto_CoinID& AddOutp(BeamCrypto_TxCommon& tx, uint32_t iChild = 0) {
+		return AddCid(m_vOuts, iChild, tx.m_pOuts, tx.m_Outs);
+	}
+
+	void get_PKdf(ECC::HKdfPub&, uint32_t* pChild);
+
+	static void CidCvt(CoinID& cid1, const BeamCrypto_CoinID&);
+
+	void get_Comm(ECC::Point&, const BeamCrypto_CoinID&);
+	void get_Comm2(ECC::Point&, const CoinID&, Key::IPKdf&);
+
+	void ExportTx(Transaction& tx, const BeamCrypto_TxCommon& tx2);
+	void TestTx(const BeamCrypto_TxCommon& tx2);
+
+	void TextKeyKeeperSplit();
+};
+
+BeamCrypto_CoinID& KeyKeeperWrap::AddCid(std::vector<BeamCrypto_CoinID>& vec, uint32_t iChild, const BeamCrypto_CoinID*& pPtr, unsigned int& nCount)
+{
+	BeamCrypto_CoinID& ret = vec.emplace_back();
+
+	CoinID cidDef;
+	cidDef.set_Subkey(iChild); // will set default scheme
+
+	ZeroObject(ret);
+	SetRandomOrd(ret.m_Idx);
+	ret.m_SubIdx = cidDef.m_SubIdx;
+	ret.m_Type = Key::Type::Regular;
+
+	pPtr = &vec.front();
+	nCount = static_cast<unsigned int>(vec.size());
+
+	return ret;
+}
+
+void KeyKeeperWrap::get_PKdf(ECC::HKdfPub& pkdf, uint32_t* pChild)
+{
+	BeamCrypto_KdfPub pkdf2;
+	BeamCrypto_KeyKeeper_GetKdfPub(&m_Kk, &pkdf2, pChild);
+
+	ECC::HKdfPub::Packed p;
+	Ecc2BC(p.m_Secret) = pkdf2.m_Secret;
+	Ecc2BC(p.m_PkG) = pkdf2.m_CoFactorG;
+	Ecc2BC(p.m_PkJ) = pkdf2.m_CoFactorJ;
+
+	verify_test(pkdf.Import(p));
+}
+
+void KeyKeeperWrap::CidCvt(CoinID& cid1, const BeamCrypto_CoinID& cid)
+{
+	cid1.m_Idx = cid.m_Idx;
+	cid1.m_Type = cid.m_Type;
+	cid1.m_SubIdx = cid.m_SubIdx;
+	cid1.m_AssetID = cid.m_AssetID;
+	cid1.m_Value = cid.m_Amount;
+}
+
+void KeyKeeperWrap::get_Comm(ECC::Point& comm, const BeamCrypto_CoinID& cid)
+{
+	CoinID cid1;
+	CidCvt(cid1, cid);
+
+	uint32_t nSubkey;
+	if (cid1.get_ChildKdfIndex(nSubkey))
+	{
+		ECC::HKdfPub pkdf;
+		get_PKdf(pkdf, &nSubkey);
+		get_Comm2(comm, cid1, pkdf);
+	}
+	else
+		get_Comm2(comm, cid1, m_OwnerKey);
+}
+
+void KeyKeeperWrap::get_Comm2(ECC::Point& comm, const CoinID& cid, Key::IPKdf& pkdf)
+{
+	ECC::Point::Native commN;
+	CoinID::Worker(cid).Recover(commN, pkdf);
+	comm = commN;
+}
+
+void KeyKeeperWrap::ExportTx(Transaction& tx, const BeamCrypto_TxCommon& tx2)
+{
+	tx.m_vInputs.resize(tx2.m_Ins);
+
+	for (unsigned int i = 0; i < tx2.m_Ins; i++)
+	{
+		Input::Ptr& pInp = tx.m_vInputs[i];
+		pInp = std::make_unique<Input>();
+		get_Comm(pInp->m_Commitment, tx2.m_pIns[i]);
+	}
+
+	tx.m_vOutputs.resize(tx2.m_Outs);
+
+	for (unsigned int i = 0; i < tx2.m_Outs; i++)
+	{
+		Output::Ptr& pOutp = tx.m_vOutputs[i];
+		pOutp = std::make_unique<Output>();
+		get_Comm(pOutp->m_Commitment, tx2.m_pOuts[i]);
+
+		// rangeproof
+		ECC::Scalar::Native skDummy;
+		ECC::HKdf kdfDummy;
+
+		CoinID cid;
+		CidCvt(cid, tx2.m_pOuts[i]);
+
+		pOutp->Create(g_hFork, skDummy, kdfDummy, cid, m_OwnerKey, Output::OpCode::Mpc_1);
+
+		assert(pOutp->m_pConfidential);
+
+		BeamCrypto_RangeProof rp;
+		rp.m_pKdf = &m_Kk.m_MasterKey;
+		rp.m_Cid = tx2.m_pOuts[i];
+		rp.m_pT[0] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1);
+		rp.m_pT[1] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2);
+		rp.m_pKExtra = nullptr;
+		ZeroObject(rp.m_TauX);
+
+		verify_test(BeamCrypto_RangeProof_Calculate(&rp)); // Phase 2
+
+		Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1) = rp.m_pT[0];
+		Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2) = rp.m_pT[1];
+
+		ECC::Scalar::Native tauX;
+		tauX.get_Raw() = rp.m_TauX;
+		pOutp->m_pConfidential->m_Part3.m_TauX = tauX;
+
+		pOutp->Create(g_hFork, skDummy, kdfDummy, cid, m_OwnerKey, Output::OpCode::Mpc_2); // Phase 3
+	}
+
+	// kernel
+	TxKernel::Ptr& pKrn = tx.m_vKernels.emplace_back();
+	pKrn = std::make_unique<TxKernelStd>();
+	TxKernelStd& krn = Cast::Up<TxKernelStd>(*pKrn);
+
+	krn.m_Fee = tx2.m_Krn.m_Fee;
+	krn.m_Height.m_Min = tx2.m_Krn.m_hMin;
+	krn.m_Height.m_Max = tx2.m_Krn.m_hMax;
+	Ecc2BC(krn.m_Commitment) = tx2.m_Krn.m_Commitment;
+	Ecc2BC(krn.m_Signature.m_NoncePub) = tx2.m_Krn.m_Signature.m_NoncePub;
+	Ecc2BC(krn.m_Signature.m_k.m_Value) = tx2.m_Krn.m_Signature.m_k;
+	krn.UpdateID();
+
+	// offset
+	Ecc2BC(tx.m_Offset.m_Value) = tx2.m_kOffset;
+
+	tx.Normalize();
+}
+
+void KeyKeeperWrap::TestTx(const BeamCrypto_TxCommon& tx2)
+{
+	Transaction tx;
+	ExportTx(tx, tx2);
+
+	Transaction::Context::Params pars;
+	Transaction::Context ctx(pars);
+	ctx.m_Height.m_Min = tx2.m_Krn.m_hMin;
+	verify_test(tx.IsValid(ctx));
+}
+
+void KeyKeeperWrap::TextKeyKeeperSplit()
+{
+	BeamCrypto_TxCommon tx;
+
+	AddInp(tx).m_Amount = 55;
+	AddInp(tx).m_Amount = 16;
+
+	AddOutp(tx).m_Amount = 12;
+	AddOutp(tx).m_Amount = 13;
+	AddOutp(tx).m_Amount = 14;
+
+	tx.m_Krn.m_hMin = g_hFork;
+	tx.m_Krn.m_hMax = g_hFork + 40;
+
+	// Incorrect balance (funds missing)
+	tx.m_Krn.m_Fee = 30;
+
+	int nRes = BeamCrypto_KeyKeeper_SignTx_Split(&m_Kk, &tx);
+	verify_test(BeamCrypto_KeyKeeper_Status_Ok != nRes);
+
+	tx.m_Krn.m_Fee = 32;
+
+	// weak output scheme
+	m_vOuts[0].m_SubIdx = BeamCrypto_CoinID_Scheme_V0 << 24;
+	nRes = BeamCrypto_KeyKeeper_SignTx_Split(&m_Kk, &tx);
+	verify_test(BeamCrypto_KeyKeeper_Status_Ok != nRes);
+
+	m_vOuts[0].m_SubIdx = BeamCrypto_CoinID_Scheme_BB21 << 24;
+	nRes = BeamCrypto_KeyKeeper_SignTx_Split(&m_Kk, &tx);
+	verify_test(BeamCrypto_KeyKeeper_Status_Ok != nRes);
+
+	// outputs to a child key
+	m_vOuts[0].m_SubIdx = (BeamCrypto_CoinID_Scheme_V1 << 24) | 12;
+	nRes = BeamCrypto_KeyKeeper_SignTx_Split(&m_Kk, &tx);
+	verify_test(BeamCrypto_KeyKeeper_Status_Ok != nRes);
+
+	m_vOuts[0].m_SubIdx = BeamCrypto_CoinID_Scheme_V1 << 24; // ok
+
+	m_Kk.m_AllowWeakInputs = 0;
+	m_vIns[0].m_SubIdx = (BeamCrypto_CoinID_Scheme_V0 << 24) | 14; // weak input scheme
+
+	nRes = BeamCrypto_KeyKeeper_SignTx_Split(&m_Kk, &tx);
+	verify_test(BeamCrypto_KeyKeeper_Status_Ok != nRes);
+
+	m_Kk.m_AllowWeakInputs = 1;
+	nRes = BeamCrypto_KeyKeeper_SignTx_Split(&m_Kk, &tx);
+	verify_test(BeamCrypto_KeyKeeper_Status_Ok == nRes); // should work now
+	TestTx(tx);
+
+	// add asset
+	AddInp(tx).m_Amount = 16;
+	m_vIns.back().m_AssetID = 12;
+
+	AddOutp(tx).m_Amount = 15;
+	m_vOuts.back().m_AssetID = 13;
+
+	nRes = BeamCrypto_KeyKeeper_SignTx_Split(&m_Kk, &tx);
+	verify_test(BeamCrypto_KeyKeeper_Status_Ok != nRes); // different assets mixed (not allowed)
+
+	m_vOuts.back().m_AssetID = 12;
+	nRes = BeamCrypto_KeyKeeper_SignTx_Split(&m_Kk, &tx);
+	verify_test(BeamCrypto_KeyKeeper_Status_Ok != nRes); // asset balance mismatch
+
+	m_vOuts.back().m_Amount = 16; // ok
+	nRes = BeamCrypto_KeyKeeper_SignTx_Split(&m_Kk, &tx);
+	verify_test(BeamCrypto_KeyKeeper_Status_Ok == nRes);
+	TestTx(tx);
+}
+
+void TextKeyKeeperTxs()
+{
+	ECC::Hash::Value hv;
+	SetRandom(hv);
+
+	KeyKeeperWrap kkw;
+	kkw.m_Kk.m_AllowWeakInputs = 0;
+	BeamCrypto_Kdf_Init(&kkw.m_Kk.m_MasterKey, &Ecc2BC(hv));
+
+	kkw.get_PKdf(kkw.m_OwnerKey, nullptr);
+
+	kkw.TextKeyKeeperSplit();
+}
+
 int main()
 {
 	Rules::get().CA.Enabled = true;
@@ -618,6 +876,7 @@ int main()
 	TestSignature();
 	TestKrn();
 	TestPKdfExport();
+	TextKeyKeeperTxs();
 
     return g_TestsFailed ? -1 : 0;
 }

@@ -21,6 +21,8 @@ typedef struct
 {
 	BeamCrypto_Kdf m_MasterKey;
 
+	int m_AllowWeakInputs;
+
 	// TODO: state, Slot management, etc.
 
 } BeamCrypto_KeyKeeper;
@@ -50,3 +52,24 @@ typedef struct
 
 void BeamCrypto_TxKernel_getID(const BeamCrypto_TxKernel*, BeamCrypto_UintBig* pMsg);
 int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernel*);
+
+typedef struct
+{
+	const BeamCrypto_CoinID* m_pIns;
+	const BeamCrypto_CoinID* m_pOuts;
+	unsigned int m_Ins;
+	unsigned int m_Outs;
+
+	BeamCrypto_TxKernel m_Krn;
+	BeamCrypto_UintBig m_kOffset;
+
+} BeamCrypto_TxCommon;
+
+#define BeamCrypto_KeyKeeper_Status_Ok 0
+#define BeamCrypto_KeyKeeper_Status_Unspecified 1
+#define BeamCrypto_KeyKeeper_Status_UserAbort 2
+#define BeamCrypto_KeyKeeper_Status_NotImpl 3
+
+// Split tx, no value transfer. Only fee is spent (hence the user agreement is required)
+int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*);
+

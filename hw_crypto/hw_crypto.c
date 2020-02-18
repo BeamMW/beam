@@ -1321,3 +1321,161 @@ void BeamCrypto_KeyKeeper_GetKdfPub(const BeamCrypto_KeyKeeper* p, BeamCrypto_Kd
 	else
 		Kdf2Pub(&p->m_MasterKey, pRes);
 }
+
+//////////////////////////////
+// KeyKeeper - transaction common. Aggregation
+typedef struct
+{
+	BeamCrypto_Amount m_AmountBeam;
+	BeamCrypto_Amount m_AmountAsset;
+
+} TxAggr0;
+
+typedef struct
+{
+	TxAggr0 m_Ins;
+	TxAggr0 m_Outs;
+
+	BeamCrypto_AssetID m_AssetID;
+	secp256k1_scalar m_sk;
+
+} TxAggr;
+
+
+static int TxAggregate0(const BeamCrypto_KeyKeeper* p, const BeamCrypto_CoinID* pCid, unsigned int nCount, TxAggr0* pRes, TxAggr* pCommon, int isOuts)
+{
+	for (unsigned int i = 0; i < nCount; i++)
+	{
+		uint8_t nScheme;
+		uint32_t nSubkey;
+		BeamCrypto_CoinID_getSchemeAndSubkey(pCid + i, &nScheme, &nSubkey);
+
+		if (nSubkey && isOuts)
+			return 0; // HW wallet should not send funds to child subkeys (potentially belonging to miners)
+
+		switch (nScheme)
+		{
+		case BeamCrypto_CoinID_Scheme_V0:
+		case BeamCrypto_CoinID_Scheme_BB21:
+			// weak schemes
+			if (isOuts)
+				return 0; // no reason to create weak outputs
+
+			if (!p->m_AllowWeakInputs)
+				return 0;
+		}
+
+		BeamCrypto_Amount* pVal;
+		if (pCid[i].m_AssetID)
+		{
+			if (pCommon->m_AssetID)
+			{
+				if (pCommon->m_AssetID != pCid[i].m_AssetID)
+					return 0; // multiple assets are not allowed
+			}
+			else
+				pCommon->m_AssetID = pCid[i].m_AssetID;
+
+			pVal = &pRes->m_AmountAsset;
+		}
+		else
+			pVal = &pRes->m_AmountBeam;
+
+		BeamCrypto_Amount val = *pVal;
+		(*pVal) += pCid[i].m_Amount;
+
+		if (val > (*pVal))
+			return 0; // overflow
+
+		secp256k1_scalar sk;
+		BeamCrypto_CoinID_getSk(&p->m_MasterKey, pCid + i, &sk);
+
+		secp256k1_scalar_add(&pCommon->m_sk, &pCommon->m_sk, &sk);
+		SECURE_ERASE_OBJ(sk);
+	}
+
+	return 1;
+}
+
+static int TxAggregate(const BeamCrypto_KeyKeeper* p, const BeamCrypto_TxCommon* pTx, TxAggr* pRes)
+{
+	memset(pRes, 0, sizeof(*pRes));
+
+	if (!TxAggregate0(p, pTx->m_pIns, pTx->m_Ins, &pRes->m_Ins, pRes, 0))
+		return 0;
+
+	secp256k1_scalar_negate(&pRes->m_sk, &pRes->m_sk);
+
+	return TxAggregate0(p, pTx->m_pOuts, pTx->m_Outs, &pRes->m_Outs, pRes, 1);
+}
+
+static void TxAggrToOffset(TxAggr* pAggr, const secp256k1_scalar* pKrn, BeamCrypto_TxCommon* pTx)
+{
+	secp256k1_scalar_add(&pAggr->m_sk, &pAggr->m_sk, pKrn);
+	secp256k1_scalar_negate(&pAggr->m_sk, &pAggr->m_sk);
+	secp256k1_scalar_get_b32(pTx->m_kOffset.m_pVal, &pAggr->m_sk);
+}
+
+//////////////////////////////
+// KeyKeeper - user permission required
+static int BeamCrypto_KeyKeeper_ConfirmSpend(BeamCrypto_Amount val, BeamCrypto_AssetID aid, const BeamCrypto_UintBig* pPeerID, const BeamCrypto_TxKernel* pKrn, const BeamCrypto_UintBig* pKrnID)
+{
+	// pPeerID is NULL, if it's a Split tx.
+	// pKrnID may be NULL, if this is a 'preliminary' confirmation (SendTx 1st invocation)
+
+	return BeamCrypto_KeyKeeper_Status_Ok; // TODO
+}
+
+//////////////////////////////
+// KeyKeeper - SplitTx
+int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx)
+{
+	TxAggr txAggr;
+	if (!TxAggregate(p, pTx, &txAggr))
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+
+	if (txAggr.m_Ins.m_AmountAsset != txAggr.m_Outs.m_AmountAsset)
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+	if (txAggr.m_Ins.m_AmountBeam < txAggr.m_Outs.m_AmountBeam)
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+	if (txAggr.m_Ins.m_AmountBeam - txAggr.m_Outs.m_AmountBeam != pTx->m_Krn.m_Fee)
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+
+	// hash all visible params
+	secp256k1_sha256_t sha;
+	secp256k1_sha256_initialize(&sha);
+	secp256k1_sha256_write_Num(&sha, pTx->m_Krn.m_hMin);
+	secp256k1_sha256_write_Num(&sha, pTx->m_Krn.m_hMax);
+	secp256k1_sha256_write_Num(&sha, pTx->m_Krn.m_Fee);
+
+	BeamCrypto_UintBig hv;
+	secp256k1_scalar_get_b32(hv.m_pVal, &txAggr.m_sk);
+	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+
+	// derive keys
+	static const char szSalt[] = "hw-wlt-split";
+	BeamCrypto_NonceGenerator ng;
+	BeamCrypto_NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &hv);
+
+	secp256k1_scalar kKrn, kNonce;
+	BeamCrypto_NonceGenerator_NextScalar(&ng, &kKrn);
+	BeamCrypto_NonceGenerator_NextScalar(&ng, &kNonce);
+	SECURE_ERASE_OBJ(ng);
+
+	BeamCrypto_MulG(&pTx->m_Krn.m_Commitment, &kKrn);
+	BeamCrypto_MulG(&pTx->m_Krn.m_Signature.m_NoncePub, &kNonce);
+
+	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv);
+
+	int res = BeamCrypto_KeyKeeper_ConfirmSpend(0, 0, 0, &pTx->m_Krn, &hv);
+	if (BeamCrypto_KeyKeeper_Status_Ok != res)
+		return res;
+
+	BeamCrypto_Signature_SignPartial(&pTx->m_Krn.m_Signature, &hv, &kKrn, &kNonce);
+
+	TxAggrToOffset(&txAggr, &kKrn, pTx);
+
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
