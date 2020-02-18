@@ -1479,3 +1479,156 @@ int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper* p, BeamCrypto_
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
 
+//////////////////////////////
+// KeyKeeper - Receive + Send common stuff
+static void GetPaymentConfirmationMsg(BeamCrypto_UintBig* pRes, const BeamCrypto_UintBig* pSender, const BeamCrypto_UintBig* pKernelID, BeamCrypto_Amount amount, BeamCrypto_AssetID nAssetID)
+{
+	secp256k1_sha256_t sha;
+	secp256k1_sha256_initialize(&sha);
+
+	HASH_WRITE_STR(sha, "PaymentConfirmation");
+	secp256k1_sha256_write(&sha, pKernelID->m_pVal, sizeof(pKernelID->m_pVal));
+	secp256k1_sha256_write(&sha, pSender->m_pVal, sizeof(pSender->m_pVal));
+	secp256k1_sha256_write_Num(&sha, amount);
+
+	if (nAssetID)
+	{
+		HASH_WRITE_STR(sha, "asset");
+		secp256k1_sha256_write_Num(&sha, nAssetID);
+	}
+
+	secp256k1_sha256_finalize(&sha, pRes->m_pVal);
+}
+
+static int KernelAddKeys(BeamCrypto_TxKernel* pKrn, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce)
+{
+	secp256k1_gej pGej[2];
+
+	BeamCrypto_MultiMac_Context ctx;
+	ctx.m_pZDenom = 0;
+	ctx.m_Fast = 0;
+	ctx.m_Secure = 1;
+	ctx.m_pGenSecure = &BeamCrypto_Context_get()->m_GenG;
+
+	ctx.m_pRes = pGej;
+	ctx.m_pSecureK = pSk;
+	BeamCrypto_MultiMac_Calculate(&ctx);
+
+	ctx.m_pRes = pGej + 1;
+	ctx.m_pSecureK = pNonce;
+	BeamCrypto_MultiMac_Calculate(&ctx);
+
+	secp256k1_ge ge;
+	if (!BeamCrypto_Point_ImportNnz(&pKrn->m_Commitment, &ge))
+		return 0;
+	secp256k1_gej_add_ge_var(pGej, pGej, &ge, 0);
+
+	if (!BeamCrypto_Point_ImportNnz(&pKrn->m_Signature.m_NoncePub, &ge))
+		return 0;
+	secp256k1_gej_add_ge_var(pGej + 1, pGej + 1, &ge, 0);
+
+	secp256k1_fe pFe[_countof(pGej) + 1];
+	BeamCrypto_ToCommonDenominator(_countof(pGej), pGej, pFe, pFe + _countof(pGej), 1);
+
+	BeamCrypto_Point_Export_Raw(&pKrn->m_Commitment, &pGej[0].x, &pGej[0].y);
+	BeamCrypto_Point_Export_Raw(&pKrn->m_Signature.m_NoncePub, &pGej[1].x, &pGej[1].y);
+
+	return 1;
+}
+
+//////////////////////////////
+// KeyKeeper - ReceiveTx
+int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx, BeamCrypto_TxMutualInfo* pMut)
+{
+	TxAggr txAggr;
+	if (!TxAggregate(p, pTx, &txAggr))
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+
+	if (txAggr.m_Ins.m_AmountBeam != txAggr.m_Outs.m_AmountBeam)
+	{
+		if (txAggr.m_Ins.m_AmountBeam > txAggr.m_Outs.m_AmountBeam)
+			return BeamCrypto_KeyKeeper_Status_Unspecified; // not receiving
+
+		if (txAggr.m_Ins.m_AmountAsset != txAggr.m_Outs.m_AmountAsset)
+			return BeamCrypto_KeyKeeper_Status_Unspecified; // mixed
+
+		txAggr.m_AssetID = 0;
+		txAggr.m_Outs.m_AmountAsset = txAggr.m_Outs.m_AmountBeam - txAggr.m_Ins.m_AmountBeam;
+	}
+	else
+	{
+		if (txAggr.m_Ins.m_AmountAsset >= txAggr.m_Outs.m_AmountAsset)
+			return BeamCrypto_KeyKeeper_Status_Unspecified; // not receiving
+
+		assert(txAggr.m_AssetID);
+		txAggr.m_Outs.m_AmountAsset -= txAggr.m_Ins.m_AmountAsset;
+	}
+
+	// Hash *ALL* the parameters, make the context unique
+	secp256k1_sha256_t sha;
+	secp256k1_sha256_initialize(&sha);
+
+	BeamCrypto_UintBig hv;
+	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv); // not a final ID yet
+
+	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_write_Point(&sha, &pTx->m_Krn.m_Signature.m_NoncePub);
+
+	uint8_t nFlag = 0; // not nonconventional
+	secp256k1_sha256_write(&sha, &nFlag, sizeof(nFlag));
+	secp256k1_sha256_write(&sha, pMut->m_Peer.m_pVal, sizeof(pMut->m_Peer.m_pVal));
+	secp256k1_sha256_write_Num(&sha, pMut->m_MyIDKey);
+
+	secp256k1_scalar_get_b32(hv.m_pVal, &txAggr.m_sk);
+	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
+
+	secp256k1_sha256_write_Num(&sha, txAggr.m_Outs.m_AmountAsset); // the value being-received
+	secp256k1_sha256_write_Num(&sha, txAggr.m_AssetID);
+
+	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+
+	// derive keys
+	static const char szSalt[] = "hw-wlt-rcv";
+	BeamCrypto_NonceGenerator ng;
+	BeamCrypto_NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &hv);
+
+	secp256k1_scalar kKrn, kNonce;
+	BeamCrypto_NonceGenerator_NextScalar(&ng, &kKrn);
+	BeamCrypto_NonceGenerator_NextScalar(&ng, &kNonce);
+	SECURE_ERASE_OBJ(ng);
+
+	if (!KernelAddKeys(&pTx->m_Krn, &kKrn, &kNonce))
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+
+	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv); // final ID yet
+
+	BeamCrypto_Signature_SignPartial(&pTx->m_Krn.m_Signature, &hv, &kKrn, &kNonce);
+
+	TxAggrToOffset(&txAggr, &kKrn, pTx);
+
+	if (pMut->m_MyIDKey)
+	{
+		// derive key
+		BeamCrypto_UintBig hv2;
+
+		secp256k1_sha256_initialize(&sha);
+		HASH_WRITE_STR(sha, "kid");
+
+		const uint32_t nType = FOURCC_FROM_STR(tRid);
+
+		secp256k1_sha256_write_Num(&sha, pMut->m_MyIDKey);
+		secp256k1_sha256_write_Num(&sha, nType);
+		secp256k1_sha256_write_Num(&sha, 0);
+		secp256k1_sha256_finalize(&sha, hv2.m_pVal);
+
+		BeamCrypto_Kdf_Derive_SKey(&p->m_MasterKey, &hv2, &kKrn);
+		BeamCrypto_Sk2Pk(&hv2, &kKrn);
+
+		// sign
+		GetPaymentConfirmationMsg(&hv2, &pMut->m_Peer, &hv, txAggr.m_Outs.m_AmountAsset, txAggr.m_AssetID);
+
+		BeamCrypto_Signature_Sign(&pMut->m_PaymentProofSignature, &hv2, &kKrn);
+	}
+
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}

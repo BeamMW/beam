@@ -728,7 +728,25 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateOutput& m)
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignReceiver& m)
 {
-	return Status::NotImplemented;
+	std::vector<BeamCrypto_CoinID> vCvt;
+	BeamCrypto_TxCommon tx2;
+	TxImport(tx2, m, vCvt);
+
+	BeamCrypto_TxMutualInfo txMut;
+	txMut.m_MyIDKey = m.m_MyIDKey;
+	txMut.m_Peer = Ecc2BC(m.m_Peer);
+
+	int nRet = BeamCrypto_KeyKeeper_SignTx_Receive(&m_Ctx, &tx2, &txMut);
+
+	if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
+	{
+		TxExport(m, tx2);
+
+		Ecc2BC(m.m_PaymentProofSignature.m_NoncePub) = txMut.m_PaymentProofSignature.m_NoncePub;
+		Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value) = txMut.m_PaymentProofSignature.m_k;
+	}
+
+	return static_cast<Status::Type>(nRet);
 }
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSender& m)
@@ -827,37 +845,105 @@ struct KeyKeeperWrap
 	void ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::Method::TxCommon& tx2);
 	void TestTx(const wallet::IPrivateKeyKeeper2::Method::TxCommon& tx2);
 
-	void TestKeyKeeperSplit();
+	void TestSplit();
+	void TestRcv();
 
-	static void TestSameKrn(TxKernelStd& k1, TxKernelStd& k2)
+	void UpdateMethod(KeyKeeperHwEmu::Method::TxCommon& dst, KeyKeeperHwEmu::Method::TxCommon& src, int nPhase)
 	{
-		k1.UpdateID();
-		k2.UpdateID();
-		verify_test(k1.m_Internal.m_ID == k2.m_Internal.m_ID);
-		verify_test(k1.m_Signature.m_k == k2.m_Signature.m_k);
+		switch (nPhase)
+		{
+		case 0: // save
+			dst.m_kOffset = src.m_kOffset;
+			src.m_pKernel->Clone((TxKernel::Ptr&) dst.m_pKernel);
+			break;
+
+		case 1: // swap
+			std::swap(dst.m_kOffset, src.m_kOffset);
+			dst.m_pKernel.swap(src.m_pKernel);
+			break;
+
+		default: // compare
+			verify_test(dst.m_kOffset == src.m_kOffset);
+			verify_test(dst.m_pKernel->m_Internal.m_ID == src.m_pKernel->m_Internal.m_ID);
+			verify_test(dst.m_pKernel->m_Signature == src.m_pKernel->m_Signature);
+		}
+	}
+
+	void UpdateMethod(KeyKeeperHwEmu::Method::SignReceiver& dst, KeyKeeperHwEmu::Method::SignReceiver& src, int nPhase)
+	{
+		UpdateMethod(Cast::Down<KeyKeeperHwEmu::Method::TxCommon>(dst), Cast::Down<KeyKeeperHwEmu::Method::TxCommon>(src), nPhase);
+
+		switch (nPhase)
+		{
+		case 0: // save
+			// ignore, initially it's just garbage
+			break;
+
+		case 1: // swap
+			dst.m_PaymentProofSignature = src.m_PaymentProofSignature;
+			break;
+
+		default: // compare signatures
+			// Right now we can't mem-compare them, because standard signature on host uses system random (in addition to NonceGen)
+			// So we'll only compare that both signatures are good for the expected pubkey
+			{
+				ECC::Hash::Value hv;
+				Key::ID(src.m_MyIDKey, Key::Type::WalletID).get_Hash(hv);
+
+				ECC::Point::Native ptN;
+				verify_test(m_kkEmu.get_OwnerKey());
+				m_kkEmu.m_pOwnerKey->DerivePKeyG(ptN, hv);
+
+				PeerID pid;
+				pid = ECC::Point(ptN).m_X;
+
+				wallet::PaymentConfirmation pc;
+				pc.m_KernelID = src.m_pKernel->m_Internal.m_ID;
+				pc.m_Sender = src.m_Peer;
+
+				pc.m_Value = 0;
+				for (size_t i = 0; i < src.m_vOutputs.size(); i++)
+				{
+					if (pc.m_AssetID != src.m_vOutputs[i].m_AssetID)
+					{
+						pc.m_AssetID = src.m_vOutputs[i].m_AssetID;
+						pc.m_Value = 0;
+					}
+					pc.m_Value += src.m_vOutputs[i].m_Value;
+				}
+
+				for (size_t i = 0; i < src.m_vInputs.size(); i++)
+				{
+					if (pc.m_AssetID == src.m_vInputs[i].m_AssetID)
+						pc.m_Value -= src.m_vInputs[i].m_Value;
+				}
+
+				pc.m_Signature = dst.m_PaymentProofSignature;
+				verify_test(pc.IsValid(pid));
+
+				pc.m_Signature = src.m_PaymentProofSignature;
+				verify_test(pc.IsValid(pid));
+			}
+			break;
+		}
 	}
 
 	template <typename TMethod>
 	int InvokeOnBoth(TMethod& m)
 	{
-		TxKernelStd::Ptr pKrn;
-		m.m_pKernel->Clone((TxKernel::Ptr&) pKrn);
-		ECC::Scalar::Native kOffs = m.m_kOffset;
+		TMethod m2;
+		UpdateMethod(m2, m, 0);
 
 		int n1 = m_kkEmu.InvokeSync(m);
 
-		m.m_pKernel.swap(pKrn);
-		std::swap(m.m_kOffset, kOffs);
+		UpdateMethod(m2, m, 1);
 
 		int n2 = m_kkStd.InvokeSync(m);
 
 		verify_test(n1 == n2);
 
 		if (KeyKeeperHwEmu::Status::Success == n1)
-		{
-			verify_test(kOffs == m.m_kOffset);
-			TestSameKrn(*pKrn, *m.m_pKernel);
-		}
+			UpdateMethod(m2, m, 2);
 
 		return n1;
 	}
@@ -925,7 +1011,7 @@ void KeyKeeperWrap::TestTx(const wallet::IPrivateKeyKeeper2::Method::TxCommon& t
 	verify_test(tx.IsValid(ctx));
 }
 
-void KeyKeeperWrap::TestKeyKeeperSplit()
+void KeyKeeperWrap::TestSplit()
 {
 	wallet::IPrivateKeyKeeper2::Method::SignSplit m;
 
@@ -985,6 +1071,38 @@ void KeyKeeperWrap::TestKeyKeeperSplit()
 	m_kkStd.m_Trustless = true;
 }
 
+void KeyKeeperWrap::TestRcv()
+{
+	wallet::IPrivateKeyKeeper2::Method::SignReceiver m;
+
+	Add(m.m_vInputs, 20);
+	Add(m.m_vInputs, 30);
+
+	Add(m.m_vOutputs, 40);
+
+	m.m_pKernel = std::make_unique<TxKernelStd>();
+	m.m_pKernel->m_Height.m_Min = g_hFork;
+	m.m_pKernel->m_Height.m_Max = g_hFork + 40;
+	m.m_pKernel->m_Fee = 20;
+
+	SetRandom(m.m_Peer);
+	m.m_MyIDKey = 325;
+
+	// make the kernel look like the sender already did its part
+	ECC::Point::Native pt = ECC::Context::get().G * ECC::Scalar::Native(115U);
+	m.m_pKernel->m_Commitment = pt;
+	m.m_pKernel->m_Signature.m_NoncePub = pt;
+	m.m_pKernel->m_Signature.m_k = Zero;
+
+	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success); // not receiving (though with fee it looks like the balance is to our side)
+
+	Add(m.m_vOutputs, 100);
+
+	verify_test(InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success); // should work now
+
+
+}
+
 void TestKeyKeeperTxs()
 {
 	ECC::Hash::Value hv;
@@ -998,7 +1116,8 @@ void TestKeyKeeperTxs()
 	kkw.m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
 	BeamCrypto_Kdf_Init(&kkw.m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
 
-	kkw.TestKeyKeeperSplit();
+	kkw.TestSplit();
+	kkw.TestRcv();
 }
 
 int main()

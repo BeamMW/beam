@@ -38,6 +38,7 @@ typedef struct
 void BeamCrypto_KeyKeeper_GetPKdf(const BeamCrypto_KeyKeeper*, BeamCrypto_KdfPub*, const uint32_t* pChild); // if pChild is NULL then the master kdfpub (owner key) is returned
 
 typedef uint64_t BeamCrypto_Height;
+typedef uint64_t BeamCrypto_WalletIdentity;
 
 typedef struct
 {
@@ -73,3 +74,12 @@ typedef struct
 // Split tx, no value transfer. Only fee is spent (hence the user agreement is required)
 int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*);
 
+typedef struct
+{
+	BeamCrypto_UintBig m_Peer;
+	BeamCrypto_WalletIdentity m_MyIDKey;
+	BeamCrypto_Signature m_PaymentProofSignature;
+
+} BeamCrypto_TxMutualInfo;
+
+int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, BeamCrypto_TxMutualInfo*);
