@@ -14,18 +14,18 @@
 
 #pragma once
 
-#include "wallet/core/base_tx_builder.h"
+#include "base_lelantus_tx_builder.h"
 
 namespace beam::wallet::lelantus
 {
-    class PullTxBuilder : public BaseTxBuilder
+    class PullTxBuilder : public BaseLelantusTxBuilder
     {
     public:
-        PullTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
+        PullTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee);
         // true if async
         bool GetShieldedList();
         Transaction::Ptr CreateTransaction() override;
-        void GenerateUnlinkedBeamCoin(Amount amount);
+        void GenerateUnlinkedBeamCoin(Amount amount);        
 
     private:
         TxoID GenerateWindowBegin(TxoID shieldedId, uint32_t windowSize);

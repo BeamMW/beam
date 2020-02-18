@@ -14,14 +14,16 @@
 
 #pragma once
 
-#include "base_lelantus_tx_builder.h"
+#include "wallet/core/base_tx_builder.h"
 
 namespace beam::wallet::lelantus
 {
-    class PushTxBuilder : public BaseLelantusTxBuilder
+    class BaseLelantusTxBuilder : public BaseTxBuilder
     {
     public:
-        PushTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee);
-        Transaction::Ptr CreateTransaction() override;
+        BaseLelantusTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee);
+
+        bool GetInitialTxParams() override;
+        Height GetMaxHeight() const override;
     };
 } // namespace beam::wallet::lelantus

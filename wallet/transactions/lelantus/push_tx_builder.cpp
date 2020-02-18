@@ -18,8 +18,8 @@
 
 namespace beam::wallet::lelantus
 {
-    PushTxBuilder::PushTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee)
-        : BaseTxBuilder(tx, subTxID, amount, fee)
+    PushTxBuilder::PushTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee)
+        : BaseLelantusTxBuilder(tx, amount, fee)
     {
     }
 

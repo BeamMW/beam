@@ -74,7 +74,7 @@ namespace beam::wallet::lelantus
 
         if (!m_TxBuilder)
         {
-            m_TxBuilder = std::make_shared<PullTxBuilder>(*this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+            m_TxBuilder = std::make_shared<PullTxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
         }
 
         if (!m_TxBuilder->GetInitialTxParams())
