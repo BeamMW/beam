@@ -827,7 +827,7 @@ struct KeyKeeperWrap
 	void ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::Method::TxCommon& tx2);
 	void TestTx(const wallet::IPrivateKeyKeeper2::Method::TxCommon& tx2);
 
-	void TextKeyKeeperSplit();
+	void TestKeyKeeperSplit();
 
 	static void TestSameKrn(TxKernelStd& k1, TxKernelStd& k2)
 	{
@@ -925,7 +925,7 @@ void KeyKeeperWrap::TestTx(const wallet::IPrivateKeyKeeper2::Method::TxCommon& t
 	verify_test(tx.IsValid(ctx));
 }
 
-void KeyKeeperWrap::TextKeyKeeperSplit()
+void KeyKeeperWrap::TestKeyKeeperSplit()
 {
 	wallet::IPrivateKeyKeeper2::Method::SignSplit m;
 
@@ -985,7 +985,7 @@ void KeyKeeperWrap::TextKeyKeeperSplit()
 	m_kkStd.m_Trustless = true;
 }
 
-void TextKeyKeeperTxs()
+void TestKeyKeeperTxs()
 {
 	ECC::Hash::Value hv;
 	SetRandom(hv);
@@ -998,7 +998,7 @@ void TextKeyKeeperTxs()
 	kkw.m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
 	BeamCrypto_Kdf_Init(&kkw.m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
 
-	kkw.TextKeyKeeperSplit();
+	kkw.TestKeyKeeperSplit();
 }
 
 int main()
@@ -1017,7 +1017,7 @@ int main()
 	TestSignature();
 	TestKrn();
 	TestPKdfExport();
-	TextKeyKeeperTxs();
+	TestKeyKeeperTxs();
 
     return g_TestsFailed ? -1 : 0;
 }
