@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "wallet/client/extensions/notifications/notification.h"
+#include "wallet/client/extensions/notifications/notification_observer.h"
 #include "wallet/client/extensions/news_channels/interface.h"
 #include "wallet/core/wallet_db.h"
 
@@ -28,17 +28,21 @@ namespace beam::wallet
 
         std::vector<Notification> getNotifications();
 
+        void Subscribe(INotificationsObserver* observer);
+        void Unsubscribe(INotificationsObserver* observer);
+
         // INewsObserver implementation
         virtual void onNewWalletVersion(const VersionInfo&) override;
-        virtual void onExchangeRates(const ExchangeRates&) override;
 
         // TODO interface for wallet transactions and addresses changes listening
 
     private:
+        void notifySubscribers(ChangeAction, const std::vector<Notification>&) const;
         void loadToCache();
         void store(const Notification&);
 
         IWalletDB& m_storage;
         // std::unordered_map<ECC::uintBig, Notification> m_cache;
+        std::vector<INotificationsObserver*> m_subscribers;    /// used to notify subscribers about offers changes
     };
 } // namespace beam::wallet

@@ -48,7 +48,7 @@ namespace beam::wallet
         return false;
     }
 
-    void ExchangeRateProvider::Subscribe(INewsObserver* observer)
+    void ExchangeRateProvider::Subscribe(IExchangeRateObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),
                             m_subscribers.end(),
@@ -57,7 +57,7 @@ namespace beam::wallet
         if (it == m_subscribers.end()) m_subscribers.push_back(observer);
     }
 
-    void ExchangeRateProvider::Unsubscribe(INewsObserver* observer)
+    void ExchangeRateProvider::Unsubscribe(IExchangeRateObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),
                             m_subscribers.end(),

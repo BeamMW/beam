@@ -202,6 +202,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::setNewscastKey, key);
     }
+
+    void getNotifications() override
+    {
+        call_async(&IWalletModelAsync::getNotifications);
+    }
 };
 }
 
@@ -300,9 +305,16 @@ namespace beam::wallet
 
                     auto wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
+                    // Notification center initialization
+                    m_notificationCenter = make_shared<NotificationCenter>(*m_walletDB);
+                    using NotificationsSubscriber = ScopedSubscriber<INotificationsObserver, NotificationCenter>;
+                    auto notificationsSubscriber = make_unique<NotificationsSubscriber>(static_cast<INotificationsObserver*>(this), m_notificationCenter);
+
+                    // Broadcast router and broadcast message consumers initialization
                     auto broadcastRouter = make_shared<BroadcastRouter>(*nodeNetwork, *walletNetwork);
                     m_broadcastRouter = broadcastRouter;
 
+                    // Swap offer board uses broadcasting messages
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
                     OfferBoardProtocolHandler protocolHandler(m_keyKeeper->get_SbbsKdf(), m_walletDB);
 
@@ -315,6 +327,7 @@ namespace beam::wallet
                     auto walletDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);
                     auto swapOffersBoardSubscriber = make_unique<SwapOffersBoardSubscriber>(static_cast<ISwapOffersObserver*>(this), offersBulletinBoard);
 #endif
+                    // Broadcast validator initialization. It verifies messages signatures.
                     auto broadcastValidator = make_shared<BroadcastMsgValidator>();
                     {
                         PeerID key;
@@ -324,16 +337,16 @@ namespace beam::wallet
                         }
                     }
                     m_broadcastValidator = broadcastValidator;
+
+                    // Other content providers using broadcast messages
                     auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
                     auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator);
                     m_updatesProvider = updatesProvider;
                     m_exchangeRateProvider = exchangeRateProvider;
                     using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
-                    using ExchangeRatesSubscriber = ScopedSubscriber<INewsObserver, ExchangeRateProvider>;
-                    auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(this), updatesProvider);
-                    auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<INewsObserver*>(this), exchangeRateProvider);
-
-                    m_notificationCenter = make_shared<NotificationCenter>(*m_walletDB);
+                    using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRateObserver, ExchangeRateProvider>;
+                    auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(m_notificationCenter.get()), updatesProvider);
+                    auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<IExchangeRateObserver*>(this), exchangeRateProvider);
 
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){
@@ -882,6 +895,11 @@ namespace beam::wallet
         {
             s->setPublisherKeys( { key } );
         }
+    }
+
+    void WalletClient::getNotifications()
+    {
+        onNotificationsChanged(ChangeAction::Reset, m_notificationCenter->getNotifications());
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

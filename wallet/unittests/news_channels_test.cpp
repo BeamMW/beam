@@ -48,7 +48,7 @@ namespace
     /**
      *  Class to test correct notification of news channels observers
      */
-    struct MockNewsObserver : public INewsObserver
+    struct MockNewsObserver : public INewsObserver, public IExchangeRateObserver
     {
         using OnVersion = function<void(const VersionInfo&)>;
         using OnRate = function<void(const ExchangeRates&)>;

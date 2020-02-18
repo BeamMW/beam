@@ -141,6 +141,14 @@ namespace beam::wallet
     struct INewsObserver
     {
         virtual void onNewWalletVersion(const VersionInfo&) = 0;
+        // virtual void onBeamNews() = 0;
+    };
+
+    /**
+     *  Interface for exchange rates observers.
+     */
+    struct IExchangeRateObserver
+    {
         virtual void onExchangeRates(const ExchangeRates&) = 0;
     };
 

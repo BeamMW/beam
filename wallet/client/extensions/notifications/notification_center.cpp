@@ -31,7 +31,6 @@ namespace beam::wallet
 
     void NotificationCenter::store(const Notification& notification)
     {
-        LOG_DEBUG() << "store()";
         m_storage.saveNotification(notification);
     }
 
@@ -46,9 +45,33 @@ namespace beam::wallet
         LOG_DEBUG() << "onNewWalletVersion()";
     }
 
-    void NotificationCenter::onExchangeRates(const ExchangeRates&)
+    void NotificationCenter::Subscribe(INotificationsObserver* observer)
     {
-        LOG_DEBUG() << "onExchangeRates()";
+        assert(
+            std::find(std::begin(m_subscribers),
+                      std::end(m_subscribers),
+                      observer) == std::end(m_subscribers));
+
+        m_subscribers.push_back(observer);
+    }
+
+    void NotificationCenter::Unsubscribe(INotificationsObserver* observer)
+    {
+        auto it = std::find(std::begin(m_subscribers),
+                            std::end(m_subscribers),
+                            observer);
+
+        assert(it != std::end(m_subscribers));
+
+        m_subscribers.erase(it);
+    }
+
+    void NotificationCenter::notifySubscribers(ChangeAction action, const std::vector<Notification>& notifications) const
+    {
+        for (const auto sub : m_subscribers)
+        {
+                sub->onNotificationsChanged(action, std::vector<Notification>{notifications});
+        }
     }
 
 } // namespace beam::wallet
