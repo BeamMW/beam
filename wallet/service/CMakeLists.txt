@@ -32,8 +32,9 @@ target_include_directories(${MONITOR_TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY
 
 target_link_libraries(${MONITOR_TARGET_NAME}
     PRIVATE
-       wallet 
-    #   utility 
+        wallet_api
+        wallet 
+        utility 
     #   http
-     #  cli
-)
+        cli
+) 

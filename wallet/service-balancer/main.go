@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-  "net/http"
+	"net/http"
 )
 
 func main () {
@@ -12,7 +12,7 @@ func main () {
 		log.Fatal(err)
 	}
 
-	if err := monitorInitialize(); err != nil {
+	if err := monitor2Initialize(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -20,14 +20,15 @@ func main () {
 	http.HandleFunc("/", helloRequest)
 
 	// Get endpoint
-	http.HandleFunc("/login", loginRequest)
+	http.HandleFunc("/login", loginRequest2)
 
 	// Inform that wallet is still alive and endpoint should be kept
-	http.HandleFunc("/alive", aliveRequest)
+	// TODO: consider websockets and automatically detect disconnect
+	http.HandleFunc("/alive", aliveRequest2)
 
 	// Forcibly close endpoint and stop service
 	// Should normally not be used
-	http.HandleFunc("/close", closeRequest)
+	http.HandleFunc("/logout", logoutRequest2)
 	
 	log.Println(config.ListenAddress, "Go!")
 	if err := http.ListenAndServe(config.ListenAddress, nil); err != nil {

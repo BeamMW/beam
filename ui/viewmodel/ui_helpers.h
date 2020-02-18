@@ -1,6 +1,9 @@
 #pragma once
 #include <QObject>
 #include "wallet/core/common.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/transactions/swaps/common.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 Q_DECLARE_METATYPE(beam::wallet::TxID)
 Q_DECLARE_METATYPE(beam::wallet::TxParameters)
@@ -26,7 +29,9 @@ namespace beamui
     // expects ui string with a "." as a separator
     beam::Amount UIStringToAmount(const QString& value);
     QString toString(const beam::Timestamp& ts);
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
     Currencies convertSwapCoinToCurrency(beam::wallet::AtomicSwapCoin coin);
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     class Filter
     {

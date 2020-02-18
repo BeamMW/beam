@@ -28,7 +28,7 @@ namespace
 using namespace beam;
 using namespace beam::wallet;
 
-const size_t kCollectorBufferSize = 50;
+    const size_t kCollectorBufferSize = 50;
 
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
@@ -574,7 +574,7 @@ namespace beam::wallet
         if (auto s = m_nodeNetwork.lock())
         {
             s->Connect();
-        }
+    }
     }
 
     void WalletClient::calcChange(Amount&& amount)
@@ -647,8 +647,7 @@ namespace beam::wallet
     {
         m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
-
-#endif
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     void WalletClient::cancelTx(const TxID& id)
     {
@@ -767,20 +766,20 @@ namespace beam::wallet
                 LOG_ERROR() << "Unable to resolve node address: " << addr;
                 onWalletError(ErrorType::HostResolvedError);
             }
-        }
+            }
         else
         {
             io::Address address;
             if (address.resolve(addr.c_str()))
             {
                 m_initialNodeAddrStr = addr;
-            }
-            else
-            {
-                LOG_ERROR() << "Unable to resolve node address: " << addr;
-                onWalletError(ErrorType::HostResolvedError);
-            }
         }
+        else
+        {
+            LOG_ERROR() << "Unable to resolve node address: " << addr;
+            onWalletError(ErrorType::HostResolvedError);
+        }
+    }
     }
 
     void WalletClient::changeWalletPassword(const SecString& pass)

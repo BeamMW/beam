@@ -14,25 +14,17 @@
 
 #pragma once
 
-#include "core/ecc.h"
+#include "wallet/core/common.h"
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
 
 namespace beam::wallet
 {
-    struct Notification
-    {
-        enum class Type : uint32_t
-        {
-            SoftwareUpdateAvailable,
-            AddressStatusChanged,
-            TransactionStatusChanged,
-            BeamNews
-        };
-
-        // unique ID - probably same as BroadcastMsg::m_signature underlying type
-        ECC::uintBig m_ID;
-        Type m_type;
-        Timestamp m_createTime;
-        bool m_read;            // if notification was read
-        ByteBuffer m_content;
-    };
-} // namespace beam::wallet
+class IAtomicSwapProvider
+{
+public:
+    virtual Amount getBtcAvailable() const = 0;
+    virtual Amount getLtcAvailable() const = 0;
+    virtual Amount getQtumAvailable() const = 0;
+    virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
+};
+}  // namespace beam::wallet

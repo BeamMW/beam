@@ -7,23 +7,23 @@ import (
 	"net/http"
 )
 
-type clse struct {
+type logout struct {
 	WalletID string
 }
 
-type clseR struct {
+type logoutR struct {
 	Error string  `json:"error,omitempty"`
 }
 
-func closeRequest(w http.ResponseWriter, r *http.Request) {
+func logoutRequest2(w http.ResponseWriter, r *http.Request) {
 	allowCORS(w, r)
 
 	if r.Method == "OPTIONS" {
 		return
 	}
 
-	var req clse
-	var res clseR
+	var req logout
+	var res logoutR
 	var err error
 
 	defer func () {
@@ -45,9 +45,9 @@ func closeRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(req.WalletID) == 0 {
-		err = fmt.Errorf("close, bad wallet id %v", req.WalletID)
+		err = fmt.Errorf("logout, bad wallet id %v", req.WalletID)
 		return
 	}
 
-	monitorClose(req.WalletID)
+	monitor2Logout(req.WalletID)
 }

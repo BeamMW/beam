@@ -14,30 +14,32 @@
 
 #pragma once
 
-#include "swap_offer.h"
+#include "wallet/client/extensions/offers_board/swap_offer.h"
 
 namespace beam::wallet
 {
-    class SwapOfferToken
-    {
-    public:
-        SwapOfferToken() = default;
-        SwapOfferToken(const SwapOffer& offer)
-            : m_TxID(offer.m_txId),
-              m_status(offer.m_status),
-              m_publisherId(offer.m_publisherId),
-              m_coin(offer.m_coin),
-              m_Parameters(offer.Pack()) {};
-        
-        SwapOffer Unpack() const;
-        boost::optional<WalletID> getPublicKey() const;
-        SERIALIZE(m_TxID, m_status, m_publisherId, m_coin, m_Parameters);
+class SwapOfferToken
+{
+public:
+    static bool isValid(const std::string& token);
 
-    private:
-        boost::optional<TxID> m_TxID;
-        boost::optional<SwapOfferStatus> m_status;
-        boost::optional<WalletID> m_publisherId;
-        boost::optional<AtomicSwapCoin> m_coin;
-        PackedTxParameters m_Parameters;
-    };
+    SwapOfferToken() = default;
+    SwapOfferToken(const SwapOffer& offer)
+        : m_TxID(offer.m_txId),
+            m_status(offer.m_status),
+            m_publisherId(offer.m_publisherId),
+            m_coin(offer.m_coin),
+            m_Parameters(offer.Pack()) {};
+    
+    SwapOffer Unpack() const;
+    boost::optional<WalletID> getPublicKey() const;
+    SERIALIZE(m_TxID, m_status, m_publisherId, m_coin, m_Parameters);
+
+private:
+    boost::optional<TxID> m_TxID;
+    boost::optional<SwapOfferStatus> m_status;
+    boost::optional<WalletID> m_publisherId;
+    boost::optional<AtomicSwapCoin> m_coin;
+    PackedTxParameters m_Parameters;
+};
 } // namespace beam::wallet

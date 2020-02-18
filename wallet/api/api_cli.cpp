@@ -15,8 +15,8 @@
 #define LOG_VERBOSE_ENABLED 1
 #include "utility/logger.h"
 
-#include "api.h"
-#include "api_connection.h"
+#include "wallet/api/api.h"
+#include "wallet/api/api_connection.h"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -43,6 +43,17 @@
 #include "wallet/core/simple_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
 
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+#include "wallet/api/i_atomic_swap_provider.h"
+#include "wallet/transactions/swaps/utils.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
+#include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
+#include "wallet/transactions/swaps/bridges/qtum/qtum.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
 #include "nlohmann/json.hpp"
 #include "version.h"
 
@@ -56,139 +67,297 @@ using namespace beam::wallet;
 
 namespace
 {
-    struct TlsOptions
+struct TlsOptions
+{
+    bool use;
+    std::string certPath;
+    std::string keyPath;
+};
+
+WalletApi::ACL loadACL(const std::string& path)
+{
+    std::ifstream file(path);
+    std::string line;
+    WalletApi::ACL::value_type keys;
+    int curLine = 1;
+
+    while (std::getline(file, line)) 
     {
-        bool use;
-        std::string certPath;
-        std::string keyPath;
-    };
+        boost::algorithm::trim(line);
 
-    WalletApi::ACL loadACL(const std::string& path)
-    {
-        std::ifstream file(path);
-        std::string line;
-        WalletApi::ACL::value_type keys;
-        int curLine = 1;
+        auto key = string_helpers::split(line, ':');
+        bool parsed = false;
 
-        while (std::getline(file, line)) 
+        static const char* READ_ACCESS = "read";
+        static const char* WRITE_ACCESS = "write";
+
+        if (key.size() == 2)
         {
-            boost::algorithm::trim(line);
+            boost::algorithm::trim(key[0]);
+            boost::algorithm::trim(key[1]);
 
-            auto key = string_helpers::split(line, ':');
-            bool parsed = false;
-
-            static const char* READ_ACCESS = "read";
-            static const char* WRITE_ACCESS = "write";
-
-            if (key.size() == 2)
-            {
-                boost::algorithm::trim(key[0]);
-                boost::algorithm::trim(key[1]);
-
-                parsed = !key[0].empty() && (key[1] == READ_ACCESS || key[1] == WRITE_ACCESS);
-            }
-
-            if (!parsed)
-            {
-                LOG_ERROR() << "ACL parsing error, line " << curLine;
-                return boost::none;
-            }
-
-            keys.insert({ key[0], key[1] == WRITE_ACCESS });
-            curLine++;
+            parsed = !key[0].empty() && (key[1] == READ_ACCESS || key[1] == WRITE_ACCESS);
         }
 
-        if (keys.empty())
+        if (!parsed)
         {
-            LOG_WARNING() << "ACL file is empty";
-        }
-        else
-        {
-            LOG_INFO() << "ACL file successfully loaded";
+            LOG_ERROR() << "ACL parsing error, line " << curLine;
+            return boost::none;
         }
 
-        return WalletApi::ACL(keys);
+        keys.insert({ key[0], key[1] == WRITE_ACCESS });
+        curLine++;
     }
 
-    class IWalletApiServer
+    if (keys.empty())
     {
-    public:
-        virtual void closeConnection(uint64_t id) = 0;
-    };
-
-    class WalletApiServer : public IWalletApiServer
+        LOG_WARNING() << "ACL file is empty";
+    }
+    else
     {
-    public:
-        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, io::Reactor& reactor, 
-            io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
-            : _reactor(reactor)
-            , _bindAddress(listenTo)
-            , _useHttp(useHttp)
-            , _tlsOptions(tlsOptions)
-            , _walletDB(walletDB)
-            , _wallet(wallet)
-            , _walletData(walletDB, wallet)
-            , _acl(acl)
-            , _whitelist(whitelist)
+        LOG_INFO() << "ACL file successfully loaded";
+    }
+
+    return WalletApi::ACL(keys);
+}
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+using BaseSwapClient = beam::bitcoin::Client;
+class SwapClient : public BaseSwapClient
+{
+public:
+    using Ptr = std::shared_ptr<SwapClient>;
+    SwapClient(
+        beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
+        std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
+        io::Reactor& reactor)
+        : BaseSwapClient(bridgeHolder,
+                         std::move(settingsProvider),
+                         reactor)
+        , _timer(beam::io::Timer::create(reactor))
+    {
+        requestBalance();
+        _timer->start(1000, true, [this] ()
         {
-            start();
+            requestBalance();
+        });
+    }
+    Amount GetAvailable() const
+    {
+        return _balance.m_available;
+    }
+
+private:
+    beam::io::Timer::Ptr _timer;
+    Balance _balance;
+    Status _status;
+    void requestBalance()
+    {
+        if (GetSettings().IsActivated())
+        {
+            // update balance
+            GetAsync()->GetBalance();
         }
+    }
+    void OnStatus(Status status) override
+    {
+        _status = status;
+    }
+    void OnBalance(const Balance& balance) override
+    {
+        _balance = balance;
+    }
+    void OnCanModifySettingsChanged(bool canModify) override {}
+    void OnChangedSettings() override {}
+    void OnConnectionError(beam::bitcoin::IBridge::ErrorType error) override {}
+};
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
-        ~WalletApiServer()
+class IWalletApiServer
+{
+public:
+    virtual void closeConnection(uint64_t id) = 0;
+};
+
+class WalletApiServer 
+    : public IWalletApiServer
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    , public IAtomicSwapProvider
+    , ISwapOffersObserver
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+{
+public:
+    WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, io::Reactor& reactor, 
+        io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
+        : _reactor(reactor)
+        , _bindAddress(listenTo)
+        , _useHttp(useHttp)
+        , _tlsOptions(tlsOptions)
+        , _walletDB(walletDB)
+        , _wallet(wallet)
+        , _acl(acl)
+        , _whitelist(whitelist)
+    {
+        start();
+    }
+
+    ~WalletApiServer()
+    {
+        stop();
+    }
+
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+    Amount getBtcAvailable() const override
+    {
+        return _bitcoinClient ? _bitcoinClient->GetAvailable() : 0;
+    }
+
+    Amount getLtcAvailable() const override
+    {
+        return _litecoinClient ? _litecoinClient->GetAvailable() : 0;
+    }
+
+    Amount getQtumAvailable() const override
+    {
+        return _qtumClient ? _qtumClient->GetAvailable() : 0;
+    }
+
+    const SwapOffersBoard& getSwapOffersBoard() const override
+    {
+        return *_offersBulletinBoard;
+    }
+
+    using WalletDbSubscriber =
+        ScopedSubscriber<wallet::IWalletDbObserver, wallet::IWalletDB>;
+    using SwapOffersBoardSubscriber =
+        ScopedSubscriber<wallet::ISwapOffersObserver, wallet::SwapOffersBoard>;
+    void initSwapFeature(
+        proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
+    {
+        _broadcastRouter = std::make_shared<BroadcastRouter>(nnet, wnet);
+        _offerBoardProtocolHandler =
+            std::make_shared<OfferBoardProtocolHandler>(
+                _walletDB->get_SbbsKdf(), _walletDB);
+        _offersBulletinBoard = std::make_shared<SwapOffersBoard>(
+            *_broadcastRouter, *_offerBoardProtocolHandler);
+        _walletDbSubscriber = std::make_unique<WalletDbSubscriber>(
+            static_cast<IWalletDbObserver*>(
+                _offersBulletinBoard.get()), _walletDB);
+        _swapOffersBoardSubscriber =
+            std::make_unique<SwapOffersBoardSubscriber>(
+                static_cast<ISwapOffersObserver*>(this), _offersBulletinBoard);
+
+        _btcBridgeHolder = std::make_shared<
+            bitcoin::BridgeHolder<bitcoin::Electrum,
+                                  bitcoin::BitcoinCore017>>();
+
+        auto bitcoinSettingsProvider =
+            std::make_unique<bitcoin::SettingsProvider>(_walletDB);
+        bitcoinSettingsProvider->Initialize();
+        _bitcoinClient = std::make_shared<SwapClient>(
+            _btcBridgeHolder,
+            std::move(bitcoinSettingsProvider),
+            io::Reactor::get_Current()
+        );
+
+        _ltcBridgeHolder = std::make_shared<
+            bitcoin::BridgeHolder<litecoin::Electrum,
+                                  litecoin::LitecoinCore017>>();
+        auto litecoinSettingsProvider =
+            std::make_unique<litecoin::SettingsProvider>(_walletDB);
+        litecoinSettingsProvider->Initialize();
+        _litecoinClient = std::make_shared<SwapClient>(
+            _ltcBridgeHolder,
+            std::move(litecoinSettingsProvider),
+            io::Reactor::get_Current()
+        );
+
+        _qtumBridgeHolder = std::make_shared<
+            bitcoin::BridgeHolder<qtum::Electrum, qtum::QtumCore017>>();
+        auto qtumSettingsProvider =
+            std::make_unique<qtum::SettingsProvider>(_walletDB);
+        qtumSettingsProvider->Initialize();
+        _qtumClient = std::make_shared<SwapClient>(
+            _qtumBridgeHolder,
+            std::move(qtumSettingsProvider),
+            io::Reactor::get_Current()
+        );
+    }
+
+    void onSwapOffersChanged(
+        ChangeAction action, const std::vector<SwapOffer>& offers) override
+    {
+
+    }
+private:
+    std::shared_ptr<BroadcastRouter> _broadcastRouter;
+    std::shared_ptr<OfferBoardProtocolHandler> _offerBoardProtocolHandler;
+    SwapOffersBoard::Ptr _offersBulletinBoard;
+    std::unique_ptr<WalletDbSubscriber> _walletDbSubscriber;
+    std::unique_ptr<SwapOffersBoardSubscriber> _swapOffersBoardSubscriber;
+
+    beam::bitcoin::IBridgeHolder::Ptr _btcBridgeHolder;
+    beam::bitcoin::IBridgeHolder::Ptr _ltcBridgeHolder;
+    beam::bitcoin::IBridgeHolder::Ptr _qtumBridgeHolder;
+
+    SwapClient::Ptr _bitcoinClient;
+    SwapClient::Ptr _litecoinClient;
+    SwapClient::Ptr _qtumClient;
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+
+protected:
+
+    void start()
+    {
+        LOG_INFO() << "Start server on " << _bindAddress;
+
+        try
         {
-            stop();
+            _server = _tlsOptions.use
+                ? io::SslServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted), _tlsOptions.certPath.c_str(), _tlsOptions.keyPath.c_str())
+                : io::TcpServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted));
+
         }
-
-    protected:
-
-        void start()
+        catch (const std::exception& e)
         {
-            LOG_INFO() << "Start server on " << _bindAddress;
+            LOG_ERROR() << "cannot start server: " << e.what();
+        }
+    }
 
-            try
+    void stop()
+    {
+
+    }
+
+    void closeConnection(uint64_t id) override
+    {
+        _pendingToClose.push_back(id);
+    }
+
+private:
+
+    void checkConnections()
+    {
+        // clean closed connections
+        {
+            for (auto id : _pendingToClose)
             {
-                _server = _tlsOptions.use
-                    ? io::SslServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted), _tlsOptions.certPath.c_str(), _tlsOptions.keyPath.c_str())
-                    : io::TcpServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted));
-
+                _connections.erase(id);
             }
-            catch (const std::exception& e)
-            {
-                LOG_ERROR() << "cannot start server: " << e.what();
-            }
+
+            _pendingToClose.clear();
         }
-
-        void stop()
-        {
-
-        }
-
-        void closeConnection(uint64_t id) override
-        {
-            _pendingToClose.push_back(id);
-        }
-
-    private:
-
-        void checkConnections()
-        {
-            // clean closed connections
-            {
-                for (auto id : _pendingToClose)
-                {
-                    _connections.erase(id);
-                }
-
-                _pendingToClose.clear();
-            }
-        }
+    }
 
         struct WalletData : ApiConnection::IWalletData
         {
-            WalletData(IWalletDB::Ptr walletDB, Wallet& wallet)
+            WalletData(IWalletDB::Ptr walletDB, Wallet& wallet, IAtomicSwapProvider& atomicSwapProvider)
                 : m_walletDB(walletDB)
                 , m_wallet(wallet)
+                , m_atomicSwapProvider(atomicSwapProvider)
             {}
+
+            virtual ~WalletData() {}
 
             IWalletDB::Ptr getWalletDB() override
             {
@@ -200,233 +369,260 @@ namespace
                 return m_wallet;
             }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+            const IAtomicSwapProvider& getAtomicSwapProvider() const override
+            {
+                return m_atomicSwapProvider;
+            }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
             IWalletDB::Ptr m_walletDB;
             Wallet& m_wallet;
+            IAtomicSwapProvider& m_atomicSwapProvider;
         };
 
-        template<typename T>
-        std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
+    template<typename T>
+    std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
+    {
+        if (!_walletData)
         {
-            return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, std::move(newStream), _walletData, _acl));
+            _walletData = std::make_unique<WalletData>(_walletDB, _wallet, *this);
         }
 
-        void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
-        {
-            if (errorCode == 0) 
-            {          
-                auto peer = newStream->peer_address();
+    return std::static_pointer_cast<ApiConnection>(
+        std::make_shared<T>(*this
+                            , std::move(newStream)
+                            , *_walletData
+                            , _acl));
+    }
 
-                if (!_whitelist.empty())
+    void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
+    {
+        if (errorCode == 0) 
+        {          
+            auto peer = newStream->peer_address();
+
+            if (!_whitelist.empty())
+            {
+                if (std::find(_whitelist.begin(), _whitelist.end(), peer.ip()) == _whitelist.end())
                 {
-                    if (std::find(_whitelist.begin(), _whitelist.end(), peer.ip()) == _whitelist.end())
-                    {
-                        LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
-                        return;
-                    }
+                    LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
+                    return;
                 }
-
-                LOG_DEBUG() << "+peer " << peer;
-
-                checkConnections();
-
-                _connections[peer.u64()] = _useHttp
-                    ? createConnection<HttpApiConnection>(std::move(newStream))
-                    : createConnection<TcpApiConnection>(std::move(newStream));
             }
 
-            LOG_DEBUG() << "on_stream_accepted";
+            LOG_DEBUG() << "+peer " << peer;
+
+            checkConnections();
+
+            _connections[peer.u64()] = _useHttp
+                ? createConnection<HttpApiConnection>(std::move(newStream))
+                : createConnection<TcpApiConnection>(std::move(newStream));
+        }
+
+        LOG_DEBUG() << "on_stream_accepted";
+    }
+
+private:
+    class TcpApiConnection : public ApiConnection
+    {
+    public:
+    TcpApiConnection(IWalletApiServer& server
+                    , io::TcpStream::Ptr&& newStream
+                    , IWalletData& walletData
+                    , WalletApi::ACL acl
+        )
+        : ApiConnection(walletData
+                      , acl )
+        , _server(server)
+        , _stream(std::move(newStream))
+        , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
+        {
+            _stream->enable_keepalive(2);
+            _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
+        }
+
+        virtual ~TcpApiConnection()
+        {
+
+        }
+
+        void serializeMsg(const json& msg) override
+        {
+            serialize_json_msg(_lineProtocol, msg);
+        }
+
+        void on_write(io::SharedBuffer&& msg)
+        {
+            _stream->write(msg);
+        }
+
+        bool on_raw_message(void* data, size_t size)
+        {
+            LOG_INFO() << "got " << std::string((char*)data, size);
+
+            return _api.parse(static_cast<const char*>(data), size);
+        }
+
+        bool on_stream_data(io::ErrorCode errorCode, void* data, size_t size)
+        {
+            if (errorCode != 0)
+            {
+                LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
+                _server.closeConnection(_stream->peer_address().u64());
+                return false;
+            }
+
+            if (!_lineProtocol.new_data_from_stream(data, size))
+            {
+                LOG_INFO() << "stream corrupted";
+                _server.closeConnection(_stream->peer_address().u64());
+                return false;
+            }
+
+            return true;
         }
 
     private:
-        
-        class TcpApiConnection : public ApiConnection
+        IWalletApiServer& _server;
+        io::TcpStream::Ptr _stream;
+        LineProtocol _lineProtocol;
+    };
+
+    class HttpApiConnection : public ApiConnection
+    {
+    public:
+        HttpApiConnection(IWalletApiServer& server
+                        , io::TcpStream::Ptr&& newStream
+                        , IWalletData& walletData
+                        , WalletApi::ACL acl
+            )
+            : ApiConnection(
+                  walletData
+                , acl)
+            , _server(server)
+            , _keepalive(false)
+            , _msgCreator(2000)
+            , _packer(PACKER_FRAGMENTS_SIZE)
         {
-        public:
-            TcpApiConnection(IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletData& walletData, WalletApi::ACL acl)
-                : ApiConnection(walletData, acl)
-                , _stream(std::move(newStream))
-                , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
-                , _server(server)
+            newStream->enable_keepalive(1);
+            auto peer = newStream->peer_address();
+
+            _connection = std::make_unique<HttpConnection>(
+                peer.u64(),
+                BaseConnection::inbound,
+                BIND_THIS_MEMFN(on_request),
+                10000,
+                1024,
+                std::move(newStream)
+                );
+        }
+
+        virtual ~HttpApiConnection() {}
+
+        void serializeMsg(const json& msg) override
+        {
+            serialize_json_msg(_body, _packer, msg);                
+            _keepalive = send(_connection, 200, "OK");
+        }
+
+    private:
+
+        bool on_request(uint64_t id, const HttpMsgReader::Message& msg)
+        {
+            if (msg.what != HttpMsgReader::http_message || !msg.msg)
             {
-                _stream->enable_keepalive(2);
-                _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
+                LOG_DEBUG() << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
+                _connection->shutdown();
+                _server.closeConnection(id);
+                return false;
             }
 
-            virtual ~TcpApiConnection()
+            if (msg.msg->get_path() != "/api/wallet")
             {
-
+                _keepalive = send(_connection, 404, "Not Found");
             }
-
-            void serializeMsg(const json& msg) override
+            else
             {
-                serialize_json_msg(_lineProtocol, msg);
-            }
+                _body.clear();
 
-            void on_write(io::SharedBuffer&& msg)
-            {
-                _stream->write(msg);
-            }
+                size_t size = 0;
+                auto data = msg.msg->get_body(size);
 
-            bool on_raw_message(void* data, size_t size)
-            {
                 LOG_INFO() << "got " << std::string((char*)data, size);
 
-                return _api.parse(static_cast<const char*>(data), size);
+                _api.parse((char*)data, size);
             }
 
-            bool on_stream_data(io::ErrorCode errorCode, void* data, size_t size)
+            if (!_keepalive)
             {
-                if (errorCode != 0)
-                {
-                    LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
-                    _server.closeConnection(_stream->peer_address().u64());
-                    return false;
-                }
-
-                if (!_lineProtocol.new_data_from_stream(data, size))
-                {
-                    LOG_INFO() << "stream corrupted";
-                    _server.closeConnection(_stream->peer_address().u64());
-                    return false;
-                }
-
-                return true;
+                _connection->shutdown();
+                _server.closeConnection(id);
             }
 
-        private:
-            io::TcpStream::Ptr _stream;
-            LineProtocol _lineProtocol;
-            IWalletApiServer& _server;
-        };
+            return _keepalive;
+        }
 
-        class HttpApiConnection : public ApiConnection
+        bool send(const HttpConnection::Ptr& conn, int code, const char* message)
         {
-        public:
-            HttpApiConnection(IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletData& walletData, WalletApi::ACL acl)
-                : ApiConnection(walletData, acl)
-                , _keepalive(false)
-                , _msgCreator(2000)
-                , _packer(PACKER_FRAGMENTS_SIZE)
-                , _server(server)
-            {
-                newStream->enable_keepalive(1);
-                auto peer = newStream->peer_address();
+            assert(conn);
 
-                _connection = std::make_unique<HttpConnection>(
-                    peer.u64(),
-                    BaseConnection::inbound,
-                    BIND_THIS_MEMFN(on_request),
-                    10000,
-                    1024,
-                    std::move(newStream)
-                    );
+            size_t bodySize = 0;
+            for (const auto& f : _body) { bodySize += f.size; }
+
+            bool ok = _msgCreator.create_response(
+                _headers,
+                code,
+                message,
+                0,
+                0,
+                1,
+                "application/json",
+                bodySize
+            );
+
+            if (ok) {
+                auto result = conn->write_msg(_headers);
+                if (result && bodySize > 0) {
+                    result = conn->write_msg(_body);
+                }
+                if (!result) ok = false;
+            }
+            else {
+                LOG_ERROR() << "cannot create response";
             }
 
-            virtual ~HttpApiConnection() {}
+            _headers.clear();
+            _body.clear();
+            return (ok && code == 200);
+        }
 
-            void serializeMsg(const json& msg) override
-            {
-                serialize_json_msg(_body, _packer, msg);                
-                _keepalive = send(_connection, 200, "OK");
-            }
+        HttpConnection::Ptr _connection;
+        IWalletApiServer& _server;
+        bool _keepalive;
 
-        private:
-
-            bool on_request(uint64_t id, const HttpMsgReader::Message& msg)
-            {
-                if (msg.what != HttpMsgReader::http_message || !msg.msg)
-                {
-                    LOG_DEBUG() << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
-                    _connection->shutdown();
-                    _server.closeConnection(id);
-                    return false;
-                }
-
-                if (msg.msg->get_path() != "/api/wallet")
-                {
-                    _keepalive = send(_connection, 404, "Not Found");
-                }
-                else
-                {
-                    _body.clear();
-
-                    size_t size = 0;
-                    auto data = msg.msg->get_body(size);
-
-                    LOG_INFO() << "got " << std::string((char*)data, size);
-
-                    _api.parse((char*)data, size);
-                }
-
-                if (!_keepalive)
-                {
-                    _connection->shutdown();
-                    _server.closeConnection(id);
-                }
-
-                return _keepalive;
-            }
-
-            bool send(const HttpConnection::Ptr& conn, int code, const char* message)
-            {
-                assert(conn);
-
-                size_t bodySize = 0;
-                for (const auto& f : _body) { bodySize += f.size; }
-
-                bool ok = _msgCreator.create_response(
-                    _headers,
-                    code,
-                    message,
-                    0,
-                    0,
-                    1,
-                    "application/json",
-                    bodySize
-                );
-
-                if (ok) {
-                    auto result = conn->write_msg(_headers);
-                    if (result && bodySize > 0) {
-                        result = conn->write_msg(_body);
-                    }
-                    if (!result) ok = false;
-                }
-                else {
-                    LOG_ERROR() << "cannot create response";
-                }
-
-                _headers.clear();
-                _body.clear();
-                return (ok && code == 200);
-            }
-
-            HttpConnection::Ptr _connection;
-            bool _keepalive;
-
-            HttpMsgCreator _msgCreator;
-            HttpMsgCreator _packer;
-            io::SerializedMsg _headers;
-            io::SerializedMsg _body;
-            IWalletApiServer& _server;
-        };
-
-        io::Reactor& _reactor;
-        io::TcpServer::Ptr _server;
-        io::Address _bindAddress;
-        bool _useHttp;
-        TlsOptions _tlsOptions;
-
-        std::unordered_map<uint64_t, std::shared_ptr<ApiConnection>> _connections;
-
-        IWalletDB::Ptr _walletDB;
-        Wallet& _wallet;
-        WalletData _walletData;
-        std::vector<uint64_t> _pendingToClose;
-        WalletApi::ACL _acl;
-        std::vector<uint32_t> _whitelist;
+        HttpMsgCreator _msgCreator;
+        HttpMsgCreator _packer;
+        io::SerializedMsg _headers;
+        io::SerializedMsg _body;
     };
-}
+
+    io::Reactor& _reactor;
+    io::TcpServer::Ptr _server;
+    io::Address _bindAddress;
+    bool _useHttp;
+    TlsOptions _tlsOptions;
+
+    std::unordered_map<uint64_t, std::shared_ptr<ApiConnection>> _connections;
+
+    IWalletDB::Ptr _walletDB;
+    Wallet& _wallet;
+        std::unique_ptr<WalletData> _walletData;
+    std::vector<uint64_t> _pendingToClose;
+    WalletApi::ACL _acl;
+    std::vector<uint32_t> _whitelist;
+};
+}  // namespace
 
 int main(int argc, char* argv[])
 {
@@ -633,6 +829,11 @@ int main(int argc, char* argv[])
 
         WalletApiServer server(walletDB, wallet, *reactor, 
             listenTo, options.useHttp, acl, tlsOptions, whitelist);
+
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+        RegisterSwapTxCreators(wallet, walletDB);
+        server.initSwapFeature(*nnet, *wnet);
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
         io::Reactor::get_Current().run();
 

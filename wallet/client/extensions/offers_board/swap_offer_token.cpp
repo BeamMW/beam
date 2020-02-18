@@ -16,21 +16,35 @@
 
 namespace beam::wallet
 {
-    SwapOffer SwapOfferToken::Unpack() const
+// static 
+bool SwapOfferToken::isValid(const std::string& token)
+{
+    if (token.empty()) return false;
+    
+    auto params = ParseParameters(token);
+    if (!params)
     {
-        SwapOffer result(m_TxID);
-        result.SetTxParameters(m_Parameters);
-
-        if (m_TxID) result.m_txId = *m_TxID;
-        if (m_status) result.m_status = *m_status;
-        if (m_publisherId) result.m_publisherId = *m_publisherId;
-        if (m_coin) result.m_coin = *m_coin;
-        return result;
+        return false;
     }
+    auto type = params->GetParameter<TxType>(TxParameterID::TransactionType);
+    return type && *type == TxType::AtomicSwap;
+}
 
-    boost::optional<WalletID> SwapOfferToken::getPublicKey() const
-    {
-        return m_publisherId;
-    }
+SwapOffer SwapOfferToken::Unpack() const
+{
+    SwapOffer result(m_TxID);
+    result.SetTxParameters(m_Parameters);
+
+    if (m_TxID) result.m_txId = *m_TxID;
+    if (m_status) result.m_status = *m_status;
+    if (m_publisherId) result.m_publisherId = *m_publisherId;
+    if (m_coin) result.m_coin = *m_coin;
+    return result;
+}
+
+boost::optional<WalletID> SwapOfferToken::getPublicKey() const
+{
+    return m_publisherId;
+}
 
 } // namespace beam::wallet

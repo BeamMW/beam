@@ -52,43 +52,6 @@ namespace std
         return string(sz);
     }
 
-    string to_string(beam::wallet::AtomicSwapCoin value)
-    {
-        switch (value)
-        {
-        case beam::wallet::AtomicSwapCoin::Bitcoin:
-            return "BTC";
-        case beam::wallet::AtomicSwapCoin::Litecoin:
-            return "LTC";
-        case beam::wallet::AtomicSwapCoin::Qtum:
-            return "QTUM";
-        default:
-            return "";
-        }
-    }
-
-    string to_string(beam::wallet::SwapOfferStatus status)
-    {
-        switch (status)
-        {
-        case beam::wallet::SwapOfferStatus::Pending:
-            return "Pending";
-        case beam::wallet::SwapOfferStatus::InProgress:
-            return "InProgress";
-        case beam::wallet::SwapOfferStatus::Completed:
-            return "Completed";
-        case beam::wallet::SwapOfferStatus::Canceled:
-            return "Canceled";
-        case beam::wallet::SwapOfferStatus::Expired:
-            return "Expired";
-        case beam::wallet::SwapOfferStatus::Failed:
-            return "Failed";
-
-        default:
-            return "";
-        }
-    }
-
     string to_string(const beam::wallet::PrintableAmount& amount)
     {
         stringstream ss;
@@ -259,18 +222,6 @@ namespace beam::wallet
     {
         Point::Native p;
         return m_Pk.ExportNnz(p);
-    }
-
-    AtomicSwapCoin from_string(const std::string& value)
-    {
-        if (value == "btc")
-            return AtomicSwapCoin::Bitcoin;
-        else if (value == "ltc")
-            return AtomicSwapCoin::Litecoin;
-        else if (value == "qtum")
-            return AtomicSwapCoin::Qtum;
-
-        return AtomicSwapCoin::Unknown;
     }
 
     ByteBuffer toByteBuffer(const ECC::Point::Native& value)

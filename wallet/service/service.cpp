@@ -77,6 +77,11 @@ namespace beam::wallet
 #undef REG_FUNC
     };
 
+    IWalletServiceApiHandler& WalletServiceApi::getHandler() const
+    {
+        return static_cast<IWalletServiceApiHandler&>(_handler);
+    }
+
     void WalletServiceApi::onCreateWalletMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         CreateWallet createWallet;
@@ -93,7 +98,7 @@ namespace beam::wallet
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'ownerkey' parameter must be specified.", id };
 
-        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, createWallet);
+        getHandler().onMessage(id, createWallet);
     }
 
     void WalletServiceApi::onOpenWalletMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -112,17 +117,17 @@ namespace beam::wallet
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'id' parameter must be specified.", id };
 
-        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, openWallet);
+        getHandler().onMessage(id, openWallet);
     }
 
     void WalletServiceApi::onPingMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
-        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, Ping{});
+        getHandler().onMessage(id, Ping{});
     }
 
     void WalletServiceApi::onReleaseMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
-        static_cast<IWalletServiceApiHandler&>(_handler).onMessage(id, Release{});
+        getHandler().onMessage(id, Release{});
     }
 
     void WalletServiceApi::getResponse(const JsonRpcId& id, const CreateWallet::Response& res, json& msg)
@@ -513,6 +518,13 @@ namespace
                 return *_wallet;
             }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+            const IAtomicSwapProvider& getAtomicSwapProvider() const override
+            {
+                throw std::runtime_error("not supported");
+            }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
             void serializeMsg(const json& msg)
             {
                 _handler->serializeMsg(msg);
@@ -532,7 +544,7 @@ namespace
             }
 
 #define MESSAGE_FUNC(api, name, _) \
-            void onMessage(const JsonRpcId& id, const api& data) override \
+            void onMessage(const JsonRpcId& id, const wallet::api& data) override \
             { _apiConnection.onMessage(id, data); } 
 
             WALLET_API_METHODS(MESSAGE_FUNC)
@@ -645,9 +657,9 @@ namespace
                 doResponse(id, OpenWallet::Response{session});
             }
 
-            void onMessage(const JsonRpcId& id, const Ping& data) override
+            void onMessage(const JsonRpcId& id, const wallet::Ping& data) override
             {
-                doResponse(id, Ping::Response{});
+                doResponse(id, wallet::Ping::Response{});
             }
 
             void onMessage(const JsonRpcId& id, const Release& data) override
@@ -1123,7 +1135,7 @@ int main(int argc, char* argv[])
 
             if (!node_addr.resolve(options.nodeURI.c_str()))
             {
-                LOG_ERROR() << "unable to resolve node address4: `" << options.nodeURI << "`";
+                LOG_ERROR() << "unable to resolve node address: `" << options.nodeURI << "`";
                 return -1;
             }
         }

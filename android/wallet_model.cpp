@@ -249,12 +249,14 @@ void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addres
     env->DeleteLocalRef(addrArray);
 }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void WalletModel::onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
 {
     LOG_DEBUG() << "onSwapOffersChanged()";
 
     // TODO
 }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 void WalletModel::onGeneratedNewAddress(const WalletAddress& address)
 {

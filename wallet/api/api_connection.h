@@ -14,70 +14,78 @@
 
 #pragma once
 
-#include "api.h"
+#include "wallet/api/api.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/api/i_atomic_swap_provider.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/core/wallet_db.h"
 
 namespace beam::wallet
 {
-    class ApiConnection : public IWalletApiHandler
+class ApiConnection : public IWalletApiHandler
+{
+public:
+    struct IWalletData
     {
-    public:
-        struct IWalletData
-        {
-            virtual IWalletDB::Ptr getWalletDB() = 0;
-            virtual Wallet& getWallet() = 0;
-        };
+        virtual IWalletDB::Ptr getWalletDB() = 0;
+        virtual Wallet& getWallet() = 0;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        virtual const IAtomicSwapProvider& getAtomicSwapProvider() const = 0;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+    };
+    ApiConnection(
+        IWalletData& walletData
+      , WalletApi::ACL acl
+    );
+    virtual ~ApiConnection();
 
-        ApiConnection(IWalletData& walletData, WalletApi::ACL acl);
-        virtual ~ApiConnection();
+    virtual void serializeMsg(const json& msg) = 0;
 
-        virtual void serializeMsg(const json& msg) = 0;
+    template<typename T>
+    void doResponse(const JsonRpcId& id, const T& response)
+    {
+        json msg;
+        _api.getResponse(id, response, msg);
+        serializeMsg(msg);
+    }
 
-        template<typename T>
-        void doResponse(const JsonRpcId& id, const T& response)
-        {
-            json msg;
-            _api.getResponse(id, response, msg);
-            serializeMsg(msg);
-        }
+    void doError(const JsonRpcId& id, ApiError code, const std::string& data = "");
 
-        void doError(const JsonRpcId& id, ApiError code, const std::string& data = "");
+    void onInvalidJsonRpc(const json& msg) override;
 
-        void onInvalidJsonRpc(const json& msg) override;
-
-        void FillAddressData(const AddressData& data, WalletAddress& address);
+    void FillAddressData(const AddressData& data, WalletAddress& address);
 
 #define MESSAGE_FUNC(api, name, _) \
-        void onMessage(const JsonRpcId& id, const api& data) override;
+    void onMessage(const JsonRpcId& id, const api& data) override;
 
-        WALLET_API_METHODS(MESSAGE_FUNC)
+    WALLET_API_METHODS(MESSAGE_FUNC)
 
 #undef MESSAGE_FUNC
 
-        void doTxAlreadyExistsError(const JsonRpcId& id);
+    void doTxAlreadyExistsError(const JsonRpcId& id);
 
-        template<typename T>
-        static void doPagination(size_t skip, size_t count, std::vector<T>& res)
+    template<typename T>
+    static void doPagination(size_t skip, size_t count, std::vector<T>& res)
+    {
+        if (count > 0)
         {
-            if (count > 0)
+            size_t start = skip;
+            size_t end = start + count;
+            size_t size = res.size();
+
+            if (start < size)
             {
-                size_t start = skip;
-                size_t end = start + count;
-                size_t size = res.size();
+                if (end > size) end = size;
 
-                if (start < size)
-                {
-                    if (end > size) end = size;
-
-                    res = std::vector<T>(res.begin() + start, res.begin() + end);
-                }
-                else res = {};
+                res = std::vector<T>(res.begin() + start, res.begin() + end);
             }
+            else res = {};
         }
+    }
 
-    protected:
-        IWalletData& _walletData;
-        WalletApi _api;
-    };
+protected:
+    IWalletData& _walletData;
+    WalletApi _api;
+};
 } // beam::wallet
 

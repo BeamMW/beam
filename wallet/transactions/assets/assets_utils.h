@@ -1,4 +1,4 @@
-// Copyright 2020 The Beam Team
+// Copyright 2018 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,28 +11,27 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
-#include "core/ecc.h"
+#include <core/block_crypt.h>
+#include "common.h"
 
-namespace beam::wallet
-{
-    struct Notification
+namespace beam::wallet {
+    class AssetMeta
     {
-        enum class Type : uint32_t
-        {
-            SoftwareUpdateAvailable,
-            AddressStatusChanged,
-            TransactionStatusChanged,
-            BeamNews
-        };
+    public:
+        explicit AssetMeta(std::string meta);
+        explicit AssetMeta(const Asset::Full& info);
 
-        // unique ID - probably same as BroadcastMsg::m_signature underlying type
-        ECC::uintBig m_ID;
-        Type m_type;
-        Timestamp m_createTime;
-        bool m_read;            // if notification was read
-        ByteBuffer m_content;
+        bool isStd() const;
+        void LogInfo(const std::string& prefix = "") const;
+
+    private:
+        void Parse();
+
+        typedef std::map<std::string, std::string> SMap;
+        SMap _values;
+        bool _std;
+        std::string _meta;
     };
-} // namespace beam::wallet
+}

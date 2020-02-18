@@ -98,7 +98,7 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
 
 bool WalletModel::isOwnAddress(const WalletID& walletID) const
 {
-    return m_myWalletIds.find(walletID) != m_myWalletIds.end();
+    return m_myWalletIds.count(walletID);
 }
 
 bool WalletModel::isAddressWithCommentExist(const std::string& comment) const
@@ -161,10 +161,12 @@ void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAd
     emit addressesChanged(own, addrs);
 }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void WalletModel::onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
 {
     emit swapOffersChanged(action, offers);
 }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 void WalletModel::onCoinsByTx(const std::vector<beam::wallet::Coin>& coins)
 {
