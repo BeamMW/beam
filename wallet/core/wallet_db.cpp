@@ -486,6 +486,12 @@ namespace beam::wallet
                 int ret = sqlite3_bind_int(_stm, col, val);
                 throwIfError(ret, _db);
             }
+            
+            template<typename EnumType, typename = EnumTypesOnly<EnumType>>
+            void bind(int col, EnumType type)
+            {
+                bind(col, underlying_cast(type));
+            }
 
             void bind(int col, const TxID& id)
             {
@@ -563,12 +569,6 @@ namespace beam::wallet
                 throwIfError(ret, _db);
             }
 
-            // TODO: replace with template
-            void bind(int col, Notification::Type type)
-            {
-                bind(col, underlying_cast(type));
-            }
-
             bool step()
             {
                 int n = _walletDB ? sqlite3_total_changes(_db) : 0;
@@ -602,9 +602,12 @@ namespace beam::wallet
                 val = sqlite3_column_int(_stm, col);
             }
 
-            void get(int col, TxStatus& status)
+            template<typename EnumType, typename = EnumTypesOnly<EnumType>>
+            void get(int col, EnumType& enumValue)
             {
-                status = static_cast<TxStatus>(sqlite3_column_int(_stm, col));
+                UnderlyingType<EnumType> temp;
+                get(col, temp);
+                enumValue = static_cast<EnumType>(temp);
             }
 
             void get(int col, bool& val)
@@ -666,21 +669,6 @@ namespace beam::wallet
                     memcpy(data.m_pData, sqlite3_column_blob(_stm, col), size);
                 else
                     throw std::runtime_error("wrong blob size");
-            }
-
-            // template<typename EnumType, typename = EnumTypesOnly<E>>
-            // void get(int col, EnumType& enumValue)
-            // {
-            //     UnderlyingType<EnumType> temp;
-            //     get(col, temp);
-            //     t = static_cast<EnumType>(temp);
-            // }
-
-            void get(int col, Notification::Type& t)
-            {
-                uint32_t temp;
-                get(col, temp);
-                t = static_cast<Notification::Type>(temp);
             }
 
             bool getBlobSafe(int col, void* blob, int size)
