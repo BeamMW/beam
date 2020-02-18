@@ -26,23 +26,64 @@ namespace beam::wallet
     
     void NotificationCenter::loadToCache()
     {
-        LOG_DEBUG() << "loadToCache()";
+        LOG_DEBUG() << "NotificationCenter::loadToCache()";
+
+        std::vector<Notification> notifications;
+        try
+        {
+            notifications = m_storage.getNotifications();
+        }
+        catch(const std::exception& e)
+        {
+            LOG_ERROR() << "Notifications loading failed: " << e.what();
+        }
+        catch(...)
+        {
+            LOG_ERROR() << "Notifications loading failed.";
+        }
+        
+        for (const auto& notification : notifications)
+        {
+            m_cache[notification.m_ID] = notification;
+        }
     }
 
     void NotificationCenter::store(const Notification& notification)
     {
+        m_cache[notification.m_ID] = notification;
         m_storage.saveNotification(notification);
+
+        // TODO: ChangeAction depending on state
+        notifySubscribers(ChangeAction::Updated, {notification});
     }
 
-    std::vector<Notification> NotificationCenter::getNotifications()
+    std::vector<Notification> NotificationCenter::getNotifications() const
     {
-        LOG_DEBUG() << "getNotifications()";
-        return {};
+        LOG_DEBUG() << "NotificationCenter::getNotifications()";
+
+        std::vector<Notification> notifications;
+
+        for (const auto& pair : m_cache)
+        {
+            // if (status == ...)
+            notifications.push_back(pair.second);
+        }
+
+        return notifications;
     }
 
-    void NotificationCenter::onNewWalletVersion(const VersionInfo&)
+    void NotificationCenter::onNewWalletVersion(const VersionInfo& content, const ECC::uintBig& signature)
     {
-        LOG_DEBUG() << "onNewWalletVersion()";
+        LOG_DEBUG() << "NotificationCenter::onNewWalletVersion()";
+
+        Notification n;
+        n.m_ID = signature;
+        n.m_type = Notification::Type::SoftwareUpdateAvailable;
+        n.m_createTime = getTimestamp();
+        n.m_read = false;
+        n.m_content = toByteBuffer(content);
+
+        store(n);
     }
 
     void NotificationCenter::Subscribe(INotificationsObserver* observer)

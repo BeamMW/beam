@@ -35,9 +35,11 @@ namespace beam::wallet
             if (m_validator.processMessage(input, res))
             {
                 VersionInfo updateInfo;
-                if (fromByteBuffer(res.m_content, updateInfo))
+                ECC::uintBig signature;
+                if (fromByteBuffer(res.m_content, updateInfo)
+                 && fromByteBuffer(res.m_signature, signature))
                 {
-                    notifySubscribers(updateInfo);
+                    notifySubscribers(updateInfo, signature);
                 }
             }
         }
@@ -76,11 +78,11 @@ namespace beam::wallet
         m_subscribers.erase(it);
     }
 
-    void AppUpdateInfoProvider::notifySubscribers(const VersionInfo& info) const
+    void AppUpdateInfoProvider::notifySubscribers(const VersionInfo& info, const ECC::uintBig& signature) const
     {
         for (const auto sub : m_subscribers)
         {
-            sub->onNewWalletVersion(info);
+            sub->onNewWalletVersion(info, signature);
         }
     }
 

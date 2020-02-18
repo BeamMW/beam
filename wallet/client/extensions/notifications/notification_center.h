@@ -28,13 +28,13 @@ namespace beam::wallet
     public:
         NotificationCenter(IWalletDB& storage);
 
-        std::vector<Notification> getNotifications();
+        std::vector<Notification> getNotifications() const;
 
         void Subscribe(INotificationsObserver* observer);
         void Unsubscribe(INotificationsObserver* observer);
 
         // INewsObserver implementation
-        virtual void onNewWalletVersion(const VersionInfo&) override;
+        virtual void onNewWalletVersion(const VersionInfo&, const ECC::uintBig&) override;
 
         // TODO interface for wallet transactions and addresses changes listening
 
@@ -44,8 +44,7 @@ namespace beam::wallet
         void store(const Notification&);
 
         IWalletDB& m_storage;
-        std::unordered_map<ECC::uintBig,
-                           Notification> m_cache;
+        std::unordered_map<ECC::uintBig, Notification> m_cache;
         std::vector<INotificationsObserver*> m_subscribers;    /// used to notify subscribers about offers changes
     };
 } // namespace beam::wallet

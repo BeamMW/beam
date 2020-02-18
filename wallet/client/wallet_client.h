@@ -124,7 +124,7 @@ namespace beam::wallet
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
         virtual void onExchangeRates(const ExchangeRates&) override {}
-        virtual void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) {}
+        virtual void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
         
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         virtual void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}

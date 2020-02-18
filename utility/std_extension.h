@@ -38,7 +38,7 @@ namespace std
     {
         auto operator() (const beam::uintBig_t<N>& key) const
         {
-            std::hash<T> hasher;
+            std::hash<uint8_t> hasher;
             size_t result = 0;
             for(size_t i = 0; i < N; ++i)
             {

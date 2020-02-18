@@ -41,7 +41,7 @@ namespace beam::wallet
     private:
         // static Version getCurrentVersion();
 
-        void notifySubscribers(const VersionInfo&) const;
+        void notifySubscribers(const VersionInfo&, const ECC::uintBig&) const;
 
 		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;

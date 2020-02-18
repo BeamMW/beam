@@ -140,7 +140,7 @@ namespace beam::wallet
      */
     struct INewsObserver
     {
-        virtual void onNewWalletVersion(const VersionInfo&) = 0;
+        virtual void onNewWalletVersion(const VersionInfo&, const ECC::uintBig&) = 0;
         // virtual void onBeamNews() = 0;
     };
 
