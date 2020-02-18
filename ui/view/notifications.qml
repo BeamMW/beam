@@ -31,12 +31,6 @@ Item {
     ListView {
         id: notificationsList
 
-        // Rectangle {
-        //     anchors.fill: parent
-        //     color: "#ff0000"
-        //     opacity: 0.1
-        // }
-
         anchors.fill: parent
         anchors.topMargin: 97
         spacing: 10
@@ -122,7 +116,8 @@ Item {
         }
 
         delegate: Item {
-            width: 914
+            anchors.left: parent.left
+            anchors.right: parent.right
             height: 121
 
             Rectangle {
@@ -130,37 +125,68 @@ Item {
                 anchors.fill: parent
                 color: Style.background_popup
             }
-            RowLayout {
+
+            Row {
                 anchors.fill: parent
-                spacing: 30
+
                 SvgImage {
-                    Layout.leftMargin: 30
-                    Layout.maximumHeight: 40
-                    Layout.maximumWidth: 40
+                    anchors.left: parent.left
+                    anchors.leftMargin: 30
+                    anchors.verticalCenter: parent.verticalCenter 
+
                     source: getIconSource(type)
                 }
-                ColumnLayout {
+
+                Column {
+                    anchors.fill: parent
+                    anchors.topMargin: 20
+                    anchors.leftMargin: 100
+                    anchors.rightMargin: 150
+                    clip: true
+
+                    spacing: 10
+
                     SFText {
                         text: title
+                        font.pixelSize: 18
+                        color: Style.content_main
+                        font.styleName: "Bold"; font.weight: Font.Bold
                     }
+
                     SFText {
                         text: message
+                        font.pixelSize: 14
+                        color: Style.content_main
                     }
+
                     SFText {
                         text: date
+                        font.pixelSize: 12
+                        color: Style.content_main
                     }
                 }
-                ColumnLayout {
-                    CustomToolButton {
-                        icon.source: "qrc:/assets/icon-cancel-white.svg"
-                    }
-                    CustomButton {
-                        height: 38
-                        palette.button: Style.background_second
-                        palette.buttonText : Style.content_main
-                        icon.source: "qrc:/assets/icon-repeat-white.svg"
-                    }
-                }
+            }
+
+            CustomToolButton {
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.topMargin: 20
+                anchors.rightMargin: 20
+
+                icon.source: "qrc:/assets/icon-cancel-white.svg"
+            }
+
+            CustomButton {
+                anchors.bottom: parent.bottom
+                anchors.right: parent.right
+                anchors.bottomMargin: 20
+                anchors.rightMargin: 20
+
+                height: 38
+                palette.button: Style.background_second
+                palette.buttonText : Style.content_main
+                icon.source: "qrc:/assets/icon-repeat-white.svg"
+                text: 'details'
             }
         }
     } // ListView
