@@ -157,9 +157,18 @@ void InitContext()
 	static_assert(ECC::InnerProduct::nDim * 2 == BeamCrypto_MultiMac_Fast_Idx_H);
 
 	for (uint32_t iGen = 0; iGen < ECC::InnerProduct::nDim * 2; iGen++)
+	{
+		printf("** InitFast %u\n", iGen);
+		fflush(stdout);
 		BeamCrypto_InitFast(pCtx->m_pGenFast[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen]);
+	}
 
+	printf("** InitFast H\n");
+	fflush(stdout);
 	BeamCrypto_InitFast(pCtx->m_pGenFast[BeamCrypto_MultiMac_Fast_Idx_H], ECC::Context::get().m_Ipp.H_);
+
+	printf("** InitContext done\n");
+	fflush(stdout);
 }
 
 
