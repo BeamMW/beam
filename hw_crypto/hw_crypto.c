@@ -1310,7 +1310,7 @@ static void Kdf2Pub(const BeamCrypto_Kdf* pKdf, BeamCrypto_KdfPub* pRes)
 	BeamCrypto_MulPoint(&pRes->m_CoFactorJ, &pCtx->m_GenJ, &pKdf->m_kCoFactor);
 }
 
-void BeamCrypto_KeyKeeper_GetKdfPub(const BeamCrypto_KeyKeeper* p, BeamCrypto_KdfPub* pRes, uint32_t* pChild)
+void BeamCrypto_KeyKeeper_GetPKdf(const BeamCrypto_KeyKeeper* p, BeamCrypto_KdfPub* pRes, const uint32_t* pChild)
 {
 	if (pChild)
 	{

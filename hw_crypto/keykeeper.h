@@ -35,7 +35,7 @@ typedef struct
 
 } BeamCrypto_KdfPub;
 
-void BeamCrypto_KeyKeeper_GetKdfPub(const BeamCrypto_KeyKeeper*, BeamCrypto_KdfPub*, uint32_t* pChild); // if pChild is NULL then the master kdfpub (owner key) is returned
+void BeamCrypto_KeyKeeper_GetPKdf(const BeamCrypto_KeyKeeper*, BeamCrypto_KdfPub*, const uint32_t* pChild); // if pChild is NULL then the master kdfpub (owner key) is returned
 
 typedef uint64_t BeamCrypto_Height;
 
