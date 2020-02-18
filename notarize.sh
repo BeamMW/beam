@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 # Notarize the dmg
 notarize_dmg() {(
