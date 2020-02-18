@@ -20,6 +20,7 @@
 #include "kdf.h"
 #include "rangeproof.h"
 #include "sign.h"
+#include "keykeeper.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
@@ -1259,5 +1260,36 @@ int BeamCrypto_Signature_IsValid_Pt(const BeamCrypto_Signature* p, const BeamCry
 	secp256k1_gej_set_ge(&gej, &ge);
 
 	return BeamCrypto_Signature_IsValid_Gej(p, pMsg, &gej);
+}
+
+//////////////////////////////
+// TxKernel
+void BeamCrypto_TxKernel_getID(const BeamCrypto_TxKernel* pKrn, BeamCrypto_UintBig* pMsg)
+{
+	secp256k1_sha256_t sha;
+	secp256k1_sha256_initialize(&sha);
+
+	secp256k1_sha256_write_Num(&sha, pKrn->m_Fee);
+	secp256k1_sha256_write_Num(&sha, pKrn->m_hMin);
+	secp256k1_sha256_write_Num(&sha, pKrn->m_hMax);
+
+	secp256k1_sha256_write_Point(&sha, &pKrn->m_Commitment);
+	secp256k1_sha256_write_Num(&sha, 0); // former m_AssetEmission
+
+	uint8_t nFlags = 0; // extended flags, irrelevent for HW wallet
+	secp256k1_sha256_write(&sha, &nFlags, sizeof(nFlags));
+
+	nFlags = 1; // no more nested kernels
+	secp256k1_sha256_write(&sha, &nFlags, sizeof(nFlags));
+
+	secp256k1_sha256_finalize(&sha, pMsg->m_pVal);
+}
+
+int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernel* pKrn)
+{
+	BeamCrypto_UintBig msg;
+	BeamCrypto_TxKernel_getID(pKrn, &msg);
+
+	return BeamCrypto_Signature_IsValid_Pt(&pKrn->m_Signature, &msg, &pKrn->m_Commitment);
 }
 

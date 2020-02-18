@@ -22,6 +22,7 @@ extern "C" {
 #include "kdf.h"
 #include "rangeproof.h"
 #include "sign.h"
+#include "keykeeper.h"
 }
 
 #include "../core/ecc_native.h"
@@ -510,6 +511,40 @@ void TestSignature()
 	}
 }
 
+void TestKrn()
+{
+	for (int i = 0; i < 3; i++)
+	{
+		TxKernelStd krn1;
+		SetRandomOrd(krn1.m_Fee);
+		SetRandomOrd(krn1.m_Height.m_Min);
+		SetRandomOrd(krn1.m_Height.m_Max);
+		std::setmax(krn1.m_Height.m_Max, krn1.m_Height.m_Min);
+
+		ECC::Scalar::Native sk;
+		SetRandom(sk);
+		krn1.Sign(sk);
+
+		BeamCrypto_TxKernel krn2;
+		krn2.m_Fee = krn1.m_Fee;
+		krn2.m_hMin = krn1.m_Height.m_Min;
+		krn2.m_hMax = krn1.m_Height.m_Max;
+		krn2.m_Commitment = Ecc2BC(krn1.m_Commitment);
+		krn2.m_Signature.m_k = Ecc2BC(krn1.m_Signature.m_k.m_Value);
+		krn2.m_Signature.m_NoncePub = Ecc2BC(krn1.m_Signature.m_NoncePub);
+
+		verify_test(BeamCrypto_TxKernel_IsValid(&krn2));
+
+		ECC::Hash::Value msg;
+		BeamCrypto_TxKernel_getID(&krn2, &Ecc2BC(msg));
+		verify_test(msg == krn1.m_Internal.m_ID);
+
+		// tamper
+		krn2.m_Fee++;
+		verify_test(!BeamCrypto_TxKernel_IsValid(&krn2));
+	}
+}
+
 int main()
 {
 	Rules::get().CA.Enabled = true;
@@ -524,6 +559,7 @@ int main()
 	TestKdf();
 	TestCoins();
 	TestSignature();
+	TestKrn();
 
     return g_TestsFailed ? -1 : 0;
 }
