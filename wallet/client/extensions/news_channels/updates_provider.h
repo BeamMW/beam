@@ -39,11 +39,14 @@ namespace beam::wallet
         void Unsubscribe(INewsObserver* observer);
         
     private:
+        // static Version getCurrentVersion();
+
+        void notifySubscribers(const VersionInfo&) const;
+
 		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;
         std::vector<INewsObserver*> m_subscribers;
 
-        void notifySubscribers(const VersionInfo&) const;
     };
 
 } // namespace beam::wallet

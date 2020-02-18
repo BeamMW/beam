@@ -680,8 +680,6 @@ namespace beam
 
         SERIALIZE(m_major, m_minor, m_revision);
 
-        // static Version getCurrent();
-
         std::string to_string() const;
         bool from_string(const std::string&);
         bool operator==(const Version& other) const;

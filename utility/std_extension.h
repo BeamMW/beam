@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "core/uintBig.h"
+
 namespace std
 {
 	template<class T, size_t N> 
@@ -30,4 +32,19 @@ namespace std
 	        return result;
 	    }
 	};
+
+    template<size_t N>
+    struct hash<beam::uintBig_t<N>>
+    {
+        auto operator() (const beam::uintBig_t<N>& key) const
+        {
+            std::hash<T> hasher;
+            size_t result = 0;
+            for(size_t i = 0; i < N; ++i)
+            {
+                result = (result << 1) ^ hasher(key.m_pData[i]);
+            }
+            return result;
+        }
+    };
 }

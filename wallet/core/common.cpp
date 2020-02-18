@@ -113,16 +113,6 @@ namespace beam
         return os;
     }
 
-    // Version Version::getCurrent()
-    // {
-    //     return Version
-    //     {
-    //         VERSION_MAJOR,
-    //         VERSION_MINOR,
-    //         VERSION_REVISION
-    //     };
-    // }
-
     std::string Version::to_string() const
     {
         std::string maj(std::to_string(m_major));

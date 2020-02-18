@@ -18,6 +18,8 @@
 #include "wallet/client/extensions/news_channels/interface.h"
 #include "wallet/core/wallet_db.h"
 
+#include "utility/std_extension.h"
+
 namespace beam::wallet
 {
     class NotificationCenter
@@ -42,7 +44,8 @@ namespace beam::wallet
         void store(const Notification&);
 
         IWalletDB& m_storage;
-        // std::unordered_map<ECC::uintBig, Notification> m_cache;
+        std::unordered_map<ECC::uintBig,
+                           Notification> m_cache;
         std::vector<INotificationsObserver*> m_subscribers;    /// used to notify subscribers about offers changes
     };
 } // namespace beam::wallet
