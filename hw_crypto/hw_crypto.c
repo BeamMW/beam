@@ -511,6 +511,39 @@ void BeamCrypto_Point_Export(BeamCrypto_Point* pPt, const secp256k1_ge* pGe)
 		BeamCrypto_Point_Export_Raw(pPt, &pGe->x, &pGe->y);
 }
 
+void BeamCrypto_MulPoint(BeamCrypto_Point* pRes, const BeamCrypto_MultiMac_Secure* pGen, const secp256k1_scalar* pK)
+{
+	secp256k1_ge ge;
+	secp256k1_gej gej;
+	BeamCrypto_MultiMac_Context ctx;
+	ctx.m_pRes = &gej;
+	ctx.m_pZDenom = 0;
+	ctx.m_Fast = 0;
+	ctx.m_Secure = 1;
+	ctx.m_pGenSecure = pGen;
+	ctx.m_pSecureK = pK;
+
+	BeamCrypto_MultiMac_Calculate(&ctx);
+
+	secp256k1_ge_set_gej_var(&ge, &gej);
+	BeamCrypto_Point_Export(pRes, &ge);
+}
+
+void BeamCrypto_MulG(BeamCrypto_Point* pRes, const secp256k1_scalar* pK)
+{
+	BeamCrypto_MulPoint(pRes, &BeamCrypto_Context_get()->m_GenG, pK);
+}
+
+void BeamCrypto_Sk2Pk(BeamCrypto_UintBig* pRes, secp256k1_scalar* pK)
+{
+	BeamCrypto_Point pt;
+	BeamCrypto_MulG(&pt, pK);
+
+	*pRes = pt.m_X;
+
+	if (pt.m_Y)
+		secp256k1_scalar_negate(pK, pK);
+}
 //////////////////////////////
 // Oracle
 void BeamCrypto_Oracle_Init(BeamCrypto_Oracle* p)
@@ -1156,20 +1189,7 @@ void BeamCrypto_Signature_Sign(BeamCrypto_Signature* p, const BeamCrypto_UintBig
 	SECURE_ERASE_OBJ(ng);
 
 	// expose the nonce
-	secp256k1_gej gej;
-	BeamCrypto_MultiMac_Context ctx;
-	ctx.m_pRes = &gej;
-	ctx.m_pZDenom = 0;
-	ctx.m_Fast = 0;
-	ctx.m_Secure = 1;
-	ctx.m_pGenSecure = &BeamCrypto_Context_get()->m_GenG;
-	ctx.m_pSecureK = &u.nonce;
-
-	BeamCrypto_MultiMac_Calculate(&ctx);
-
-	secp256k1_ge ge;
-	secp256k1_ge_set_gej_var(&ge, &gej);
-	BeamCrypto_Point_Export(&p->m_NoncePub, &ge);
+	BeamCrypto_MulG(&p->m_NoncePub, &u.nonce);
 
 	BeamCrypto_Signature_GetChallenge(p, pMsg, &p->m_k);
 
