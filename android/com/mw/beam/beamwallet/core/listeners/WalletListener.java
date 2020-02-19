@@ -19,6 +19,9 @@ import com.mw.beam.beamwallet.core.entities.dto.UtxoDTO;
 import com.mw.beam.beamwallet.core.entities.dto.TxDescriptionDTO;
 import com.mw.beam.beamwallet.core.entities.dto.WalletAddressDTO;
 import com.mw.beam.beamwallet.core.entities.dto.PaymentInfoDTO;
+import com.mw.beam.beamwallet.core.entities.dto.NotificationDTO;
+import com.mw.beam.beamwallet.core.entities.dto.ExchangeRateDTO;
+import com.mw.beam.beamwallet.core.entities.dto.VersionInfoDTO;
 
 import com.mw.beam.beamwallet.core.entities.Wallet;
 
@@ -208,5 +211,120 @@ public class WalletListener
     static void onExportDataToJson(String data)
     {
         System.out.println(">>>>>>>>>>>>>> async onExportDataToJson(" + data +") in Java");
+    }
+
+	static void onNewVersionNotification(int action, NotificationDTO notificationInfo, VersionInfoDTO content)
+    {
+		System.out.println(">>>>>>>>>>>>>> async onNewVersionNotification in Java");
+		switch(action)
+		{
+			case 0://Added: 
+				System.out.println("onNewVersionNotification [ADDED]");
+				break;
+			case 1://Removed: 
+				System.out.println("onNewVersionNotification [REMOVED]");
+				break;
+			case 2://Updated: 
+				System.out.println("onNewVersionNotification [UPDATED]");
+				break;
+			case 3://Reset:
+				System.out.println("onNewVersionNotification [RESET]");
+				break;
+		}
+		System.out.println("Id: " + notificationInfo.id);
+
+		String stateString;
+		switch(notificationInfo.state)
+		{
+			case 0:
+				stateString = "Unread";
+				break;
+			case 1: 
+				stateString = "Read";
+				break;
+			case 2: 
+				stateString = "Deleted";
+				break;
+		}
+		System.out.println("State: " + stateString);
+		System.out.println("CreateTime: " + notificationInfo.createTime);
+		
+		String applicationString;
+		switch(notificationInfo.application)
+		{
+			case 0:
+				applicationString = "DesktopWallet";
+				break;
+			case 1:
+				applicationString = "AndroidWallet";
+				break;
+			case 2:
+				applicationString = "IOSWallet";
+				break;
+			case 3:
+				applicationString = "Unknown";
+				break;
+		}
+		System.out.println("Application: " + applicationString);
+		System.out.println("versionMajor: " + notificationInfo.versionMajor);
+		System.out.println("versionMinor: " + notificationInfo.versionMinor);
+		System.out.println("versionRevision: " + notificationInfo.versionRevision);
+    }
+
+	static void onExchangeRates(int action, NotificationDTO notificationInfo, ExchangeRateDTO[] rates)
+    {
+        System.out.println(">>>>>>>>>>>>>> async onExchangeRates in Java");
+		switch(action)
+		{
+			case 0://Added: 
+				System.out.println("onExchangeRates [ADDED]");
+				break;
+			case 1://Removed: 
+				System.out.println("onExchangeRates [REMOVED]");
+				break;
+			case 2://Updated: 
+				System.out.println("onExchangeRates [UPDATED]");
+				break;
+			case 3://Reset:
+				System.out.println("onExchangeRates [RESET]");
+				break;
+		}
+		System.out.println("Id: " + notificationInfo.id);
+
+		String stateString;
+		switch(notificationInfo.state)
+		{
+			case 0:
+				stateString = "Unread";
+				break;
+			case 1: 
+				stateString = "Read";
+				break;
+			case 2: 
+				stateString = "Deleted";
+				break;
+		}
+		System.out.println("State: " + stateString);
+		System.out.println("CreateTime: " + notificationInfo.createTime);
+
+		if(rates != null)
+		{
+			System.out.println("rates length: " + rates.length);
+
+			System.out.println("+-------------------------------------------------------");
+			System.out.println("| RATE");
+			System.out.println("+-------------------------------------------------------");
+			System.out.println("| Currency: | amount:       | Unit:");
+			System.out.println("+-----------+---------------+-------------------------------");
+
+			for(int i = 0; i < rates.length; i++)
+			{
+				System.out.println("| " + rates[i].currency 
+					+ "\t| "  + rates[i].amount
+					+ "\t| "  + rates[i].unit);
+			}
+
+			System.out.println("+-------------------------------------------------------");			
+		}
     }
 }

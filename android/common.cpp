@@ -24,6 +24,9 @@ jclass TxDescriptionClass = 0;
 jclass UtxoClass = 0;
 jclass WalletAddressClass = 0;
 jclass PaymentInfoClass = 0;
+jclass NotificationClass = 0;
+jclass ExchangeRateClass = 0;
+jclass VersionInfoClass = 0;
 
 namespace
 {
