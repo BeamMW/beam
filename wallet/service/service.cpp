@@ -688,11 +688,13 @@ namespace
 
             void onMessage(const JsonRpcId& id, const wallet::Ping& data) override
             {
+                LOG_DEBUG() << "Ping(id = " << id << ")";
                 doResponse(id, wallet::Ping::Response{});
             }
 
             void onMessage(const JsonRpcId& id, const Release& data) override
             {
+                LOG_DEBUG() << "Release(id = " << id << ")";
                 doResponse(id, Release::Response{});
             }
 

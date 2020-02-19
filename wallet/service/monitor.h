@@ -20,11 +20,11 @@ namespace beam::wallet
 {
 
 #define WALLET_MONITOR_API_METHODS(macro) \
-    macro(ListenAddress,     "listen_address",    API_WRITE_ACCESS)   \
-    macro(RevokeAddress,     "revoke_address",    API_WRITE_ACCESS)   \
+    macro(Subscribe,     "subscribe",     API_WRITE_ACCESS)   \
+    macro(UnSubscribe,   "unsubcsribe",   API_WRITE_ACCESS)   \
     
 
-    struct ListenAddress
+    struct Subscribe
     {
         WalletID address;
         ECC::Scalar::Native privateKey;
@@ -34,7 +34,7 @@ namespace beam::wallet
         };
     };
 
-    struct RevokeAddress
+    struct UnSubscribe
     {
         WalletID address;
         struct Response
