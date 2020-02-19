@@ -330,6 +330,8 @@ void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context* p)
 	}
 }
 
+//////////////////////////////
+// Batch normalization
 static void secp256k1_gej_rescale_XY(secp256k1_gej* pGej, const secp256k1_fe* pZ)
 {
 	// equivalent of secp256k1_gej_rescale, but doesn't change z coordinate
@@ -342,31 +344,46 @@ static void secp256k1_gej_rescale_XY(secp256k1_gej* pGej, const secp256k1_fe* pZ
 	secp256k1_fe_mul(&pGej->y, &pGej->y, pZ);
 }
 
+static void BatchNormalize_Fwd(secp256k1_fe* pFe, unsigned int n, const secp256k1_gej* pGej, const secp256k1_fe* pFePrev)
+{
+	if (n)
+		secp256k1_fe_mul(pFe, pFePrev, &pGej->z);
+	else
+		*pFe = pGej[0].z;
+}
+
+static void BatchNormalize_Apex(secp256k1_fe* pZDenom, secp256k1_fe* pFePrev, int nNormalize)
+{
+	if (nNormalize)
+		secp256k1_fe_inv(pZDenom, pFePrev); // the only expensive call
+	else
+		secp256k1_fe_set_int(pZDenom, 1);
+}
+
+static void BatchNormalize_Bwd(secp256k1_fe* pFe, unsigned int n, secp256k1_gej* pGej, const secp256k1_fe* pFePrev, secp256k1_fe* pZDenom)
+{
+	if (n)
+		secp256k1_fe_mul(pFe, pFePrev, pZDenom);
+	else
+		*pFe = *pZDenom;
+
+	secp256k1_gej_rescale_XY(pGej, pFe);
+
+	secp256k1_fe_mul(pZDenom, pZDenom, &pGej->z);
+}
+
+
 static void BeamCrypto_ToCommonDenominator(unsigned int nCount, secp256k1_gej* pGej, secp256k1_fe* pFe, secp256k1_fe* pZDenom, int nNormalize)
 {
 	assert(nCount);
 
-	pFe[0] = pGej[0].z;
+	for (unsigned int i = 0; i < nCount; i++)
+		BatchNormalize_Fwd(pFe + i, i, pGej + i, pFe + i - 1);
 
-	for (unsigned int i = 1; i < nCount; i++)
-		secp256k1_fe_mul(pFe + i, pFe + i - 1, &pGej[i].z);
-
-	if (nNormalize)
-		secp256k1_fe_inv(pZDenom, pFe + nCount - 1); // the only expensive call
-	else
-		secp256k1_fe_set_int(pZDenom, 1);
+	BatchNormalize_Apex(pZDenom, pFe + nCount - 1, nNormalize);
 
 	for (unsigned int i = nCount; i--; )
-	{
-		if (i)
-			secp256k1_fe_mul(pFe + i, pFe + i - 1, pZDenom);
-		else
-			pFe[i] = *pZDenom;
-
-		secp256k1_gej_rescale_XY(pGej + i, pFe + i);
-
-		secp256k1_fe_mul(pZDenom, pZDenom, &pGej[i].z);
-	}
+		BatchNormalize_Bwd(pFe + i, i, pGej + i, pFe + i - 1, pZDenom);
 }
 
 static void secp256k1_ge_set_gej_normalized(secp256k1_ge* pGe, const secp256k1_gej* pGej)
