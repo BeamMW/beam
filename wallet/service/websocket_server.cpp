@@ -54,7 +54,7 @@ namespace beam::wallet
             explicit Session(tcp::socket socket, io::Reactor::Ptr reactor, WebSocketServer::HandlerCreator& creator)
                 : m_webSocket(std::move(socket))
                 , m_newDataEvent(io::AsyncEvent::create(*reactor, [this]() { process_new_data(); }))
-                , m_handler(creator([this](const auto& msg) {do_write(msg); }))
+                , m_handler(creator([this](const auto& msg) { do_write(msg); }))
                 
             {
 

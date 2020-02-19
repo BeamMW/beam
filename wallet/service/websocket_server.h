@@ -29,7 +29,7 @@ namespace beam::wallet
         {
         public:
             using Ptr = std::unique_ptr<IHandler>;
-
+            virtual ~IHandler() {};
             virtual void processData(const std::string&) {};
         };
 

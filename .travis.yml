@@ -423,6 +423,9 @@ matrix:
       script:
         - go build -o $BALANCER_PATH/service-balancer $BALANCER_PATH/*.go  
       after_success:
+        - cd $BALANCER_PATH/service-balancer
+        - ls
+        - cd $HOME/build/BeamMW/beam/
         - tar -cvzf service-balancer.tar.gz --directory=$HOME/build/BeamMW/beam/$BALANCER_PATH service-balancer config.json
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE
         - curl --retry 3 --ftp-create-dirs -T service-balancer.tar.gz $BUILDS_SERVER_PATH/
