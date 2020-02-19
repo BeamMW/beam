@@ -899,6 +899,9 @@ struct KeyKeeperWrap
 		SetRandom(m_kkStd.m_State.m_hvLast);
 		m_kkStd.m_State.Generate();
 
+		m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
+		BeamCrypto_Kdf_Init(&m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
+
 		m_Nonces = m_kkStd.m_State; // copy 
 	}
 
@@ -1077,22 +1080,22 @@ CoinID& KeyKeeperWrap::Add(std::vector<CoinID>& vec, Amount val)
 
 void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::Method::TxCommon& tx2)
 {
-	tx.m_vInputs.resize(tx2.m_vInputs.size());
+	tx.m_vInputs.reserve(tx.m_vInputs.size() + tx2.m_vInputs.size());
 
 	ECC::Point::Native pt;
 
-	for (unsigned int i = 0; i < tx.m_vInputs.size(); i++)
+	for (unsigned int i = 0; i < tx2.m_vInputs.size(); i++)
 	{
-		Input::Ptr& pInp = tx.m_vInputs[i];
+		Input::Ptr& pInp = tx.m_vInputs.emplace_back();
 		pInp = std::make_unique<Input>();
 
 		m_kkEmu.get_Commitment(pt, tx2.m_vInputs[i]);
 		pInp->m_Commitment = pt;
 	}
 
-	tx.m_vOutputs.resize(tx2.m_vOutputs.size());
+	tx.m_vOutputs.reserve(tx.m_vOutputs.size() + tx2.m_vOutputs.size());
 
-	for (unsigned int i = 0; i < tx.m_vOutputs.size(); i++)
+	for (unsigned int i = 0; i < tx2.m_vOutputs.size(); i++)
 	{
 		KeyKeeperHwEmu::Method::CreateOutput m;
 		m.m_hScheme = g_hFork;
@@ -1101,13 +1104,13 @@ void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::
 		verify_test(m_kkEmu.InvokeSync(m) == KeyKeeperHwEmu::Status::Success);
 		assert(m.m_pResult);
 
-		tx.m_vOutputs[i].swap(m.m_pResult);
+		tx.m_vOutputs.emplace_back().swap(m.m_pResult);
 	}
 
+
 	// kernel
-	assert(tx2.m_pKernel);
-	TxKernel::Ptr& pKrn = tx.m_vKernels.emplace_back();
-	tx2.m_pKernel->Clone(pKrn);
+	if (tx2.m_pKernel)
+		tx2.m_pKernel->Clone(tx.m_vKernels.emplace_back());
 
 	// offset
 	tx.m_Offset = tx2.m_kOffset;
@@ -1251,12 +1254,56 @@ void TestKeyKeeperTxs()
 
 	KeyKeeperWrap kkw(hv);
 
-	kkw.m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
-	BeamCrypto_Kdf_Init(&kkw.m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
-
 	kkw.TestSplit();
 	kkw.TestRcv();
 	kkw.TestSend1();
+
+	// try a full with tx from both sides, each belongs to a different wallet
+	SetRandom(hv);
+	KeyKeeperWrap kkw2(hv); // the receiver
+
+	wallet::IPrivateKeyKeeper2::Method::SignSender mS;
+	mS.m_MyIDKey = 18;
+	mS.m_Slot = 8;
+	mS.m_UserAgreement = Zero;
+
+	wallet::IPrivateKeyKeeper2::Method::SignReceiver mR;
+	mR.m_MyIDKey = 23;
+
+	kkw.get_WalletID(mR.m_Peer, mS.m_MyIDKey);
+	kkw2.get_WalletID(mS.m_Peer, mR.m_MyIDKey);
+
+	KeyKeeperWrap::Add(mS.m_vInputs, 50);
+	KeyKeeperWrap::Add(mS.m_vOutputs, 25);
+
+	mS.m_pKernel = std::make_unique<TxKernelStd>();
+	mS.m_pKernel->m_Height.m_Min = g_hFork;
+	mS.m_pKernel->m_Height.m_Max = g_hFork + 40;
+	mS.m_pKernel->m_Fee = 20; // net value transfer is 5 groth
+
+	verify_test(kkw.InvokeOnBoth(mS) == KeyKeeperHwEmu::Status::Success); // Sender Phase1
+
+	KeyKeeperWrap::Add(mR.m_vInputs, 6);
+	KeyKeeperWrap::Add(mR.m_vOutputs, 11);
+
+	mR.m_pKernel.swap(mS.m_pKernel);
+	verify_test(kkw2.InvokeOnBoth(mR) == KeyKeeperHwEmu::Status::Success); // Receiver
+
+	mS.m_pKernel.swap(mR.m_pKernel);
+	mS.m_PaymentProofSignature = mR.m_PaymentProofSignature;
+	mS.m_kOffset = mR.m_kOffset;
+
+	Transaction tx;
+	kkw2.ExportTx(tx, mR); // the receiver part
+
+	verify_test(kkw.InvokeOnBoth(mS) == KeyKeeperHwEmu::Status::Success); // Send Phase2
+
+	kkw.ExportTx(tx, mS); // the sender part
+
+	Transaction::Context::Params pars;
+	Transaction::Context ctx(pars);
+	ctx.m_Height.m_Min = mS.m_pKernel->m_Height.m_Min;
+	verify_test(tx.IsValid(ctx));
 }
 
 int main()
