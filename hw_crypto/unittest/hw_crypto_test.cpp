@@ -33,6 +33,27 @@ extern "C" {
 
 using namespace beam;
 
+extern "C"
+{
+	wallet::LocalPrivateKeyKeeperStd::State g_HwEmuNonces;
+
+	uint32_t BeamCrypto_KeyKeeper_getNumSlots() {
+		return wallet::LocalPrivateKeyKeeperStd::s_Slots;
+	}
+
+	void BeamCrypto_KeyKeeper_ReadSlot(uint32_t iSlot, BeamCrypto_UintBig* p)
+	{
+		memcpy(p->m_pVal, g_HwEmuNonces.m_pSlot[iSlot].m_pData, BeamCrypto_nBytes);
+	}
+
+
+	void BeamCrypto_KeyKeeper_RegenerateSlot(uint32_t iSlot)
+	{
+		g_HwEmuNonces.Regenerate(iSlot);
+	}
+}
+
+
 int g_TestsFailed = 0;
 
 const Height g_hFork = 3; // whatever
@@ -844,6 +865,10 @@ struct KeyKeeperWrap
 	KeyKeeperWrap(const Key::IKdf::Ptr& pKdf)
 		:m_kkStd(pKdf)
 	{
+		SetRandom(m_kkStd.m_State.m_hvLast);
+		m_kkStd.m_State.Generate();
+
+		g_HwEmuNonces = m_kkStd.m_State; // copy 
 	}
 
 	static CoinID& Add(std::vector<CoinID>& vec, Amount val = 0);

@@ -27,6 +27,10 @@ typedef struct
 
 } BeamCrypto_KeyKeeper;
 
+uint32_t BeamCrypto_KeyKeeper_getNumSlots();
+void BeamCrypto_KeyKeeper_ReadSlot(uint32_t, BeamCrypto_UintBig*);
+void BeamCrypto_KeyKeeper_RegenerateSlot(uint32_t);
+
 typedef struct
 {
 	BeamCrypto_UintBig m_Secret;
