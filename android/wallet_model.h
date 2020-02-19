@@ -58,5 +58,5 @@ private:
     void onShowKeyKeeperError(const std::string&) override {}
     void onPostFunctionToClientContext(MessageFunction&& func) override {};
     void onExportTxHistoryToCsv(const std::string& data) override {};
-    void onNotificationsChanged(ChangeAction action, const std::vector<Notification>&) override {};
+    void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override {};
 };
