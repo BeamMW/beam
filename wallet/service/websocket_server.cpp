@@ -22,6 +22,7 @@
 #include <boost/asio/ip/tcp.hpp>
 
 #include <thread>
+#include <mutex>
 #include <queue>
 
 using namespace beam;

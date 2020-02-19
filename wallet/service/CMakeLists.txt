@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.13)
 
 add_library(websocket STATIC websocket_server.h websocket_server.cpp)
-target_link_libraries(websocket PRIVATE Boost::boost)
+target_link_libraries(websocket
+    PRIVATE 
+        Boost::boost
+        utility
+)
 
 set(TARGET_NAME wallet-service${BEAM_TARGET_SUFFIX})
 
