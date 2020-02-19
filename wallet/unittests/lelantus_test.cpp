@@ -652,34 +652,18 @@ void TestPullTxRollbackByLowFee()
             auto cursor = node.get_Processor().m_Cursor;
             if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
-                wallet::TxParameters parameters(GenerateTxID());
-
-                parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
-                    .SetParameter(TxParameterID::IsSender, true)
+                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 3800)
-                    .SetParameter(TxParameterID::Fee, 1200)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
-                    .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
-                    .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
-                    .SetParameter(TxParameterID::CreateTime, getTimestamp());
+                    .SetParameter(TxParameterID::Fee, 1200);
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 10)
             {
-                wallet::TxParameters parameters(GenerateTxID());
-
-                parameters.SetParameter(TxParameterID::TransactionType, TxType::PullTransaction)
-                    .SetParameter(TxParameterID::IsSender, false)
+                auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 3600)
                     .SetParameter(TxParameterID::Fee, 200)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
-                    .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
-                    .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
-                    .SetParameter(TxParameterID::WindowBegin, 0U)
-                    .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{})
-                    .SetParameter(TxParameterID::ShieldedOutputId, 0U)
-                    .SetParameter(TxParameterID::CreateTime, getTimestamp());
+                    .SetParameter(TxParameterID::ShieldedOutputId, 0U);
 
                 pullTxID = sender.m_Wallet.StartTransaction(parameters);
             }
