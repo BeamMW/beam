@@ -35,7 +35,7 @@ using namespace beam;
 
 extern "C"
 {
-	wallet::LocalPrivateKeyKeeperStd::State g_HwEmuNonces;
+	wallet::LocalPrivateKeyKeeperStd::State* g_pHwEmuNonces = nullptr;
 
 	uint32_t BeamCrypto_KeyKeeper_getNumSlots() {
 		return wallet::LocalPrivateKeyKeeperStd::s_Slots;
@@ -43,13 +43,13 @@ extern "C"
 
 	void BeamCrypto_KeyKeeper_ReadSlot(uint32_t iSlot, BeamCrypto_UintBig* p)
 	{
-		memcpy(p->m_pVal, g_HwEmuNonces.m_pSlot[iSlot].m_pData, BeamCrypto_nBytes);
+		memcpy(p->m_pVal, g_pHwEmuNonces->m_pSlot[iSlot].m_pData, BeamCrypto_nBytes);
 	}
 
 
 	void BeamCrypto_KeyKeeper_RegenerateSlot(uint32_t iSlot)
 	{
-		g_HwEmuNonces.Regenerate(iSlot);
+		g_pHwEmuNonces->Regenerate(iSlot);
 	}
 }
 
@@ -884,13 +884,22 @@ struct KeyKeeperWrap
 	KeyKeeperHwEmu m_kkEmu;
 	KeyKeeperStd m_kkStd; // for comparison
 
-	KeyKeeperWrap(const Key::IKdf::Ptr& pKdf)
-		:m_kkStd(pKdf)
+	wallet::LocalPrivateKeyKeeperStd::State m_Nonces;
+
+	static Key::IKdf::Ptr get_KdfFromSeed(const ECC::Hash::Value& hv)
+	{
+		Key::IKdf::Ptr pKdf;
+		ECC::HKdf::Create(pKdf, hv);
+		return pKdf;
+	}
+
+	KeyKeeperWrap(const ECC::Hash::Value& hv)
+		:m_kkStd(get_KdfFromSeed(hv))
 	{
 		SetRandom(m_kkStd.m_State.m_hvLast);
 		m_kkStd.m_State.Generate();
 
-		g_HwEmuNonces = m_kkStd.m_State; // copy 
+		m_Nonces = m_kkStd.m_State; // copy 
 	}
 
 	static CoinID& Add(std::vector<CoinID>& vec, Amount val = 0);
@@ -901,6 +910,53 @@ struct KeyKeeperWrap
 	void TestSplit();
 	void TestRcv();
 	void TestSend1();
+
+	void get_WalletID(PeerID& pid, wallet::WalletIDKey nKeyID)
+	{
+		ECC::Hash::Value hv;
+		Key::ID(nKeyID, Key::Type::WalletID).get_Hash(hv);
+
+		ECC::Point::Native ptN;
+		verify_test(m_kkEmu.get_OwnerKey());
+		m_kkEmu.m_pOwnerKey->DerivePKeyG(ptN, hv);
+
+		pid = ECC::Point(ptN).m_X;
+	}
+
+	static void GetPaymentConfirmationStatsVec(wallet::PaymentConfirmation& pc, const std::vector<CoinID>& vec)
+	{
+		for (size_t i = 0; i < vec.size(); i++)
+		{
+			const CoinID& cid = vec[i];
+			if (pc.m_AssetID != cid.m_AssetID)
+			{
+				pc.m_AssetID = cid.m_AssetID;
+				pc.m_Value = 0;
+			}
+			pc.m_Value += cid.m_Value;
+		}
+	}
+
+	static void NegateUns(Amount& v)
+	{
+		// v = -v
+		v = (v ^ static_cast<Amount>(-1)) + 1;
+	}
+
+	void GetPaymentConfirmationStats(wallet::PaymentConfirmation& pc, const wallet::IPrivateKeyKeeper2::Method::TxCommon& tx, bool bSending)
+	{
+		// Reconstruct the value and asset of the actual tx. This is (roughly) a duplication of logic within the KeyKeeper
+
+		pc.m_Value = 0;
+		pc.m_AssetID = 0;
+
+		GetPaymentConfirmationStatsVec(pc, tx.m_vOutputs);
+		NegateUns(pc.m_Value);
+		GetPaymentConfirmationStatsVec(pc, tx.m_vInputs);
+
+		if (!bSending)
+			NegateUns(pc.m_Value);
+	}
 
 	void UpdateMethod(KeyKeeperHwEmu::Method::TxCommon& dst, KeyKeeperHwEmu::Method::TxCommon& src, int nPhase)
 	{
@@ -945,36 +1001,13 @@ struct KeyKeeperWrap
 			// Right now we can't mem-compare them, because standard signature on host uses system random (in addition to NonceGen)
 			// So we'll only compare that both signatures are good for the expected pubkey
 			{
-				ECC::Hash::Value hv;
-				Key::ID(src.m_MyIDKey, Key::Type::WalletID).get_Hash(hv);
-
-				ECC::Point::Native ptN;
-				verify_test(m_kkEmu.get_OwnerKey());
-				m_kkEmu.m_pOwnerKey->DerivePKeyG(ptN, hv);
-
 				PeerID pid;
-				pid = ECC::Point(ptN).m_X;
+				get_WalletID(pid, src.m_MyIDKey);
 
 				wallet::PaymentConfirmation pc;
 				pc.m_KernelID = src.m_pKernel->m_Internal.m_ID;
 				pc.m_Sender = src.m_Peer;
-
-				pc.m_Value = 0;
-				for (size_t i = 0; i < src.m_vOutputs.size(); i++)
-				{
-					if (pc.m_AssetID != src.m_vOutputs[i].m_AssetID)
-					{
-						pc.m_AssetID = src.m_vOutputs[i].m_AssetID;
-						pc.m_Value = 0;
-					}
-					pc.m_Value += src.m_vOutputs[i].m_Value;
-				}
-
-				for (size_t i = 0; i < src.m_vInputs.size(); i++)
-				{
-					if (pc.m_AssetID == src.m_vInputs[i].m_AssetID)
-						pc.m_Value -= src.m_vInputs[i].m_Value;
-				}
+				GetPaymentConfirmationStats(pc, src, false);
 
 				pc.m_Signature = dst.m_PaymentProofSignature;
 				verify_test(pc.IsValid(pid));
@@ -1014,7 +1047,9 @@ struct KeyKeeperWrap
 		TMethod m2;
 		UpdateMethod(m2, m, 0);
 
+		g_pHwEmuNonces = &m_Nonces;
 		int n1 = m_kkEmu.InvokeSync(m);
+		g_pHwEmuNonces = nullptr;
 
 		UpdateMethod(m2, m, 1);
 
@@ -1214,10 +1249,7 @@ void TestKeyKeeperTxs()
 	ECC::Hash::Value hv;
 	SetRandom(hv);
 
-	Key::IKdf::Ptr pKdf;
-	ECC::HKdf::Create(pKdf, hv);
-
-	KeyKeeperWrap kkw(pKdf);
+	KeyKeeperWrap kkw(hv);
 
 	kkw.m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
 	BeamCrypto_Kdf_Init(&kkw.m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
