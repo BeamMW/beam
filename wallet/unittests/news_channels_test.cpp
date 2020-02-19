@@ -304,7 +304,7 @@ namespace
         msg.m_signature = signature;
 
         MockNewsObserver testObserver(
-            [&notificationCount, &verInfo, &signature]
+            [&notificationCount, &verInfo/*, &signature*/]
             (const VersionInfo& v, const ECC::uintBig& s)
             {
                 WALLET_CHECK(verInfo == v);

@@ -22,6 +22,8 @@ namespace beam::wallet
         : m_storage(storage)
     {
         LOG_DEBUG() << "NotificationCenter()";
+
+        loadToCache();
     }
     
     void NotificationCenter::loadToCache()
@@ -48,7 +50,7 @@ namespace beam::wallet
         }
     }
 
-    void NotificationCenter::store(const Notification& notification)
+    void NotificationCenter::saveNotification(const Notification& notification)
     {
         m_cache[notification.m_ID] = notification;
         m_storage.saveNotification(notification);
@@ -82,8 +84,8 @@ namespace beam::wallet
         n.m_createTime = getTimestamp();
         n.m_read = false;
         n.m_content = toByteBuffer(content);
-
-        store(n);
+        
+        saveNotification(n);
     }
 
     void NotificationCenter::Subscribe(INotificationsObserver* observer)

@@ -29,6 +29,7 @@ namespace beam::wallet
         NotificationCenter(IWalletDB& storage);
 
         std::vector<Notification> getNotifications() const;
+        void saveNotification(const Notification&);
 
         void Subscribe(INotificationsObserver* observer);
         void Unsubscribe(INotificationsObserver* observer);
@@ -41,7 +42,6 @@ namespace beam::wallet
     private:
         void notifySubscribers(ChangeAction, const std::vector<Notification>&) const;
         void loadToCache();
-        void store(const Notification&);
 
         IWalletDB& m_storage;
         std::unordered_map<ECC::uintBig, Notification> m_cache;
