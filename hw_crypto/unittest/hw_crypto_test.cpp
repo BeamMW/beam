@@ -884,8 +884,12 @@ struct KeyKeeperWrap
 		switch (nPhase)
 		{
 		case 0: // save
-			dst.m_kOffset = src.m_kOffset;
-			src.m_pKernel->Clone((TxKernel::Ptr&) dst.m_pKernel);
+			{
+				dst.m_kOffset = src.m_kOffset;
+				TxKernel::Ptr pKrn;
+				src.m_pKernel->Clone(pKrn);
+				dst.m_pKernel.reset(Cast::Up<TxKernelStd>(pKrn.release()));
+			}
 			break;
 
 		case 1: // swap
