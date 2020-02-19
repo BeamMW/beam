@@ -98,10 +98,10 @@ BeamCrypto_UintBig& Ecc2BC(const ECC::uintBig& x)
 	return (BeamCrypto_UintBig&) x;
 }
 
-BeamCrypto_Point& Ecc2BC(const ECC::Point& x)
+BeamCrypto_CompactPoint& Ecc2BC(const ECC::Point& x)
 {
-	static_assert(sizeof(x) == sizeof(BeamCrypto_Point));
-	return (BeamCrypto_Point&) x;
+	static_assert(sizeof(x) == sizeof(BeamCrypto_CompactPoint));
+	return (BeamCrypto_CompactPoint&) x;
 }
 
 void BeamCrypto_InitGenSecure(BeamCrypto_MultiMac_Secure& x, const ECC::Point::Native& ptVal, const ECC::Point::Native& nums)
@@ -345,7 +345,11 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 
 	CoinID::Worker(cid).Create(sk1, comm1, *pChildKdf);
 
-	BeamCrypto_CoinID_getSkComm(&kdf2, &cid2, &sk2.get_Raw(), &Ecc2BC(comm2));
+	BeamCrypto_FlexPoint fp;
+	BeamCrypto_CoinID_getSkComm(&kdf2, &cid2, &sk2.get_Raw(), &fp);
+
+	BeamCrypto_FlexPoint_MakeCompact(&fp);
+	Ecc2BC(comm2) = fp.m_Compact;
 
 	verify_test(sk1 == sk2);
 	verify_test(comm1 == comm2);
@@ -497,8 +501,11 @@ void TestSignature()
 		BeamCrypto_Signature sig2;
 		BeamCrypto_Signature_Sign(&sig2, &Ecc2BC(msg), &sk.get_Raw());
 
-		verify_test(BeamCrypto_Signature_IsValid_Gej(&sig2, &Ecc2BC(msg), &pkN.get_Raw()));
-		verify_test(BeamCrypto_Signature_IsValid_Pt(&sig2, &Ecc2BC(msg), &Ecc2BC(pk)));
+		BeamCrypto_FlexPoint fp;
+		fp.m_Compact = Ecc2BC(pk);
+		fp.m_Flags = BeamCrypto_FlexPoint_Compact;
+
+		verify_test(BeamCrypto_Signature_IsValid(&sig2, &Ecc2BC(msg), &fp));
 
 		ECC::Signature sig1;
 		Ecc2BC(sig1.m_NoncePub) = sig2.m_NoncePub;
@@ -508,8 +515,7 @@ void TestSignature()
 
 		// tamper with sig
 		sig2.m_k.m_pVal[0] ^= 12;
-		verify_test(!BeamCrypto_Signature_IsValid_Gej(&sig2, &Ecc2BC(msg), &pkN.get_Raw()));
-		verify_test(!BeamCrypto_Signature_IsValid_Pt(&sig2, &Ecc2BC(msg), &Ecc2BC(pk)));
+		verify_test(!BeamCrypto_Signature_IsValid(&sig2, &Ecc2BC(msg), &fp));
 	}
 }
 

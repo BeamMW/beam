@@ -76,6 +76,6 @@ typedef struct
 BeamCrypto_Context* BeamCrypto_Context_get();
 
 // simplified versions
-void BeamCrypto_MulPoint(BeamCrypto_Point*, const BeamCrypto_MultiMac_Secure*, const secp256k1_scalar*);
-void BeamCrypto_MulG(BeamCrypto_Point*, const secp256k1_scalar*);
+void BeamCrypto_MulPoint(BeamCrypto_FlexPoint*, const BeamCrypto_MultiMac_Secure*, const secp256k1_scalar*);
+void BeamCrypto_MulG(BeamCrypto_FlexPoint*, const secp256k1_scalar*);
 void BeamCrypto_Sk2Pk(BeamCrypto_UintBig*, secp256k1_scalar*);

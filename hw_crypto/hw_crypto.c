@@ -393,10 +393,17 @@ static void secp256k1_ge_set_gej_normalized(secp256k1_ge* pGe, const secp256k1_g
 	pGe->y = pGej->y;
 }
 
-static void BeamCrypto_MultiMac_SetCustom_Nnz(BeamCrypto_MultiMac_Context* p, secp256k1_gej* pOdds)
+static void BeamCrypto_MultiMac_SetCustom_Nnz(BeamCrypto_MultiMac_Context* p, BeamCrypto_FlexPoint* pFlex)
 {
 	assert(p->m_Fast == 1);
 	assert(p->m_pZDenom);
+
+	BeamCrypto_FlexPoint_MakeGej(pFlex);
+	assert(BeamCrypto_FlexPoint_Gej & pFlex->m_Flags);
+	assert(!secp256k1_gej_is_infinity(&pFlex->m_Gej));
+
+	secp256k1_gej pOdds[BeamCrypto_MultiMac_Fast_nCount];
+	pOdds[0] = pFlex->m_Gej;
 
 	// calculate odd powers
 	secp256k1_gej x2;
@@ -418,26 +425,6 @@ static void BeamCrypto_MultiMac_SetCustom_Nnz(BeamCrypto_MultiMac_Context* p, se
 		secp256k1_ge_set_gej_normalized(&ge, pOdds + i);
 		secp256k1_ge_to_storage((secp256k1_ge_storage*)p->m_pGenFast[0].m_pPt + i, &ge);
 	}
-}
-
-static void BeamCrypto_MultiMac_SetCustom_ge_Nnz(BeamCrypto_MultiMac_Context* p, const secp256k1_ge* pGe)
-{
-	assert(!secp256k1_ge_is_infinity(pGe));
-
-	secp256k1_gej pOdds[BeamCrypto_MultiMac_Fast_nCount];
-	secp256k1_gej_set_ge(pOdds, pGe);
-
-	BeamCrypto_MultiMac_SetCustom_Nnz(p, pOdds);
-}
-
-static void BeamCrypto_MultiMac_SetCustom_gej_Nnz(BeamCrypto_MultiMac_Context* p, const secp256k1_gej* pGej)
-{
-	assert(!secp256k1_gej_is_infinity(pGej));
-
-	secp256k1_gej pOdds[BeamCrypto_MultiMac_Fast_nCount];
-	pOdds[0] = *pGej;
-
-	BeamCrypto_MultiMac_SetCustom_Nnz(p, pOdds);
 }
 
 //////////////////////////////
@@ -498,43 +485,119 @@ void BeamCrypto_NonceGenerator_NextScalar(BeamCrypto_NonceGenerator* p, secp256k
 	}
 }
 
-//////////////////////////////
-// Point
-int BeamCrypto_Point_ImportNnz(const BeamCrypto_Point* pPt, secp256k1_ge* pGe)
+static int IsUintBigZero(const BeamCrypto_UintBig* p)
 {
-	if (pPt->m_Y > 1)
-		return 0; // should always be well-formed
-
-	secp256k1_fe nx;
-	if (!secp256k1_fe_set_b32(&nx, pPt->m_X.m_pVal))
-		return 0;
-
-	if (!secp256k1_ge_set_xo_var(pGe, &nx, pPt->m_Y))
-		return 0;
-
+	// const-time isn't required
+	for (unsigned int i = 0; i < _countof(p->m_pVal); i++)
+		if (p->m_pVal[i])
+			return 0;
 	return 1;
 }
 
-void BeamCrypto_Point_Export_Raw(BeamCrypto_Point* pPt, const secp256k1_fe* pX, const secp256k1_fe* pY)
+//////////////////////////////
+// Point
+void BeamCrypto_FlexPoint_MakeCompact(BeamCrypto_FlexPoint* pFlex)
 {
-	secp256k1_fe_get_b32(pPt->m_X.m_pVal, pX);
-	pPt->m_Y = (secp256k1_fe_is_odd(pY) != 0);
-}
+	if ((BeamCrypto_FlexPoint_Compact & pFlex->m_Flags) || !pFlex->m_Flags)
+		return;
 
-void BeamCrypto_Point_Export(BeamCrypto_Point* pPt, const secp256k1_ge* pGe)
-{
-	if (secp256k1_ge_is_infinity(pGe))
-		memset(pPt, 0, sizeof(*pPt));
+	BeamCrypto_FlexPoint_MakeGe(pFlex);
+	assert(BeamCrypto_FlexPoint_Ge & pFlex->m_Flags);
+
+	if (secp256k1_ge_is_infinity(&pFlex->m_Ge))
+		memset(&pFlex->m_Compact, 0, sizeof(pFlex->m_Compact));
 	else
-		BeamCrypto_Point_Export_Raw(pPt, &pGe->x, &pGe->y);
+	{
+		secp256k1_fe_get_b32(pFlex->m_Compact.m_X.m_pVal, &pFlex->m_Ge.x);
+		pFlex->m_Compact.m_Y = (secp256k1_fe_is_odd(&pFlex->m_Ge.y) != 0);
+	}
+
+	pFlex->m_Flags |= BeamCrypto_FlexPoint_Compact;
 }
 
-void BeamCrypto_MulPoint(BeamCrypto_Point* pRes, const BeamCrypto_MultiMac_Secure* pGen, const secp256k1_scalar* pK)
+void BeamCrypto_FlexPoint_MakeGej(BeamCrypto_FlexPoint* pFlex)
 {
-	secp256k1_ge ge;
-	secp256k1_gej gej;
+	if (BeamCrypto_FlexPoint_Gej & pFlex->m_Flags)
+		return;
+
+	BeamCrypto_FlexPoint_MakeGe(pFlex);
+	if (!pFlex->m_Flags)
+		return;
+
+	assert(BeamCrypto_FlexPoint_Ge & pFlex->m_Flags);
+	secp256k1_gej_set_ge(&pFlex->m_Gej, &pFlex->m_Ge);
+
+	pFlex->m_Flags |= BeamCrypto_FlexPoint_Gej;
+}
+
+void BeamCrypto_FlexPoint_MakeGe(BeamCrypto_FlexPoint* pFlex)
+{
+	if (BeamCrypto_FlexPoint_Ge & pFlex->m_Flags)
+		return;
+
+	if (BeamCrypto_FlexPoint_Gej & pFlex->m_Flags)
+		secp256k1_ge_set_gej_var(&pFlex->m_Ge, &pFlex->m_Gej); // expensive, better to a batch convertion
+	else
+	{
+		if (!(BeamCrypto_FlexPoint_Compact & pFlex->m_Flags))
+			return;
+
+		pFlex->m_Flags = 0; // will restore Compact flag iff import is successful
+
+		if (pFlex->m_Compact.m_Y > 1)
+			return; // not well-formed
+
+		secp256k1_fe nx;
+		if (!secp256k1_fe_set_b32(&nx, pFlex->m_Compact.m_X.m_pVal))
+			return; // not well-formed
+
+		if (!secp256k1_ge_set_xo_var(&pFlex->m_Ge, &nx, pFlex->m_Compact.m_Y))
+		{
+			// be convention zeroed Compact is a zero point
+			if (pFlex->m_Compact.m_Y || !IsUintBigZero(&pFlex->m_Compact.m_X))
+				return;
+
+			pFlex->m_Ge.infinity = 1; // no specific function like secp256k1_ge_set_infinity
+		}
+
+		pFlex->m_Flags = BeamCrypto_FlexPoint_Compact; // restored
+	}
+
+	pFlex->m_Flags |= BeamCrypto_FlexPoint_Ge;
+}
+
+void BeamCrypto_FlexPoint_MakeGe_Batch(BeamCrypto_FlexPoint* pFlex, unsigned int nCount)
+{
+	assert(nCount);
+
+	static_assert(sizeof(pFlex->m_Ge) >= sizeof(secp256k1_fe), "Ge is used as a temp placeholder for Fe");
+#define FLEX_POINT_TEMP_FE(pt) ((secp256k1_fe*) (&(pt).m_Ge))
+
+	for (unsigned int i = 0; i < nCount; i++)
+	{
+		assert(BeamCrypto_FlexPoint_Gej == pFlex[i].m_Flags);
+
+		BatchNormalize_Fwd(FLEX_POINT_TEMP_FE(pFlex[i]), i, &pFlex[i].m_Gej, FLEX_POINT_TEMP_FE(pFlex[i - 1]));
+	}
+
+	secp256k1_fe zDenom;
+	BatchNormalize_Apex(&zDenom, FLEX_POINT_TEMP_FE(pFlex[nCount - 1]), 1);
+
+	for (unsigned int i = nCount; i--; )
+	{
+		BatchNormalize_Bwd(FLEX_POINT_TEMP_FE(pFlex[i]), i, &pFlex[i].m_Gej, FLEX_POINT_TEMP_FE(pFlex[i - 1]), &zDenom);
+
+		secp256k1_ge_set_gej_normalized(&pFlex[i].m_Ge, &pFlex[i].m_Gej);
+		pFlex[i].m_Flags = BeamCrypto_FlexPoint_Ge;
+	}
+
+	assert(nCount);
+}
+
+void BeamCrypto_MulPoint(BeamCrypto_FlexPoint* pFlex, const BeamCrypto_MultiMac_Secure* pGen, const secp256k1_scalar* pK)
+{
 	BeamCrypto_MultiMac_Context ctx;
-	ctx.m_pRes = &gej;
+	ctx.m_pRes = &pFlex->m_Gej;
 	ctx.m_pZDenom = 0;
 	ctx.m_Fast = 0;
 	ctx.m_Secure = 1;
@@ -542,24 +605,25 @@ void BeamCrypto_MulPoint(BeamCrypto_Point* pRes, const BeamCrypto_MultiMac_Secur
 	ctx.m_pSecureK = pK;
 
 	BeamCrypto_MultiMac_Calculate(&ctx);
-
-	secp256k1_ge_set_gej_var(&ge, &gej);
-	BeamCrypto_Point_Export(pRes, &ge);
+	pFlex->m_Flags = BeamCrypto_FlexPoint_Gej;
 }
 
-void BeamCrypto_MulG(BeamCrypto_Point* pRes, const secp256k1_scalar* pK)
+void BeamCrypto_MulG(BeamCrypto_FlexPoint* pFlex, const secp256k1_scalar* pK)
 {
-	BeamCrypto_MulPoint(pRes, &BeamCrypto_Context_get()->m_GenG, pK);
+	BeamCrypto_MulPoint(pFlex, &BeamCrypto_Context_get()->m_GenG, pK);
 }
 
 void BeamCrypto_Sk2Pk(BeamCrypto_UintBig* pRes, secp256k1_scalar* pK)
 {
-	BeamCrypto_Point pt;
-	BeamCrypto_MulG(&pt, pK);
+	BeamCrypto_FlexPoint fp;
+	BeamCrypto_MulG(&fp, pK);
 
-	*pRes = pt.m_X;
+	BeamCrypto_FlexPoint_MakeCompact(&fp);
+	assert(BeamCrypto_FlexPoint_Compact & fp.m_Flags);
 
-	if (pt.m_Y)
+	*pRes = fp.m_Compact.m_X;
+
+	if (fp.m_Compact.m_Y)
 		secp256k1_scalar_negate(pK, pK);
 }
 //////////////////////////////
@@ -596,15 +660,18 @@ void BeamCrypto_Oracle_NextScalar(BeamCrypto_Oracle* p, secp256k1_scalar* pS)
 	}
 }
 
-void BeamCrypto_Oracle_NextPoint(BeamCrypto_Oracle* p, secp256k1_ge* pGe)
+void BeamCrypto_Oracle_NextPoint(BeamCrypto_Oracle* p, BeamCrypto_FlexPoint* pFlex)
 {
-	BeamCrypto_Point pt;
-	pt.m_Y = 0;
+	pFlex->m_Compact.m_Y = 0;
 
 	while (1)
 	{
-		BeamCrypto_Oracle_NextHash(p, &pt.m_X);
-		if (BeamCrypto_Point_ImportNnz(&pt, pGe))
+		BeamCrypto_Oracle_NextHash(p, &pFlex->m_Compact.m_X);
+		pFlex->m_Flags = BeamCrypto_FlexPoint_Compact;
+
+		BeamCrypto_FlexPoint_MakeGe(pFlex);
+
+		if ((BeamCrypto_FlexPoint_Ge & pFlex->m_Flags) && !secp256k1_ge_is_infinity(&pFlex->m_Ge))
 			break;
 	}
 }
@@ -648,24 +715,17 @@ void secp256k1_sha256_write_Num(secp256k1_sha256_t* pSha, uint64_t val)
 	} while (nContinue);
 }
 
-void secp256k1_sha256_write_Point(secp256k1_sha256_t* pSha, const BeamCrypto_Point* pPt)
+void secp256k1_sha256_write_CompactPoint(secp256k1_sha256_t* pSha, const BeamCrypto_CompactPoint* pCompact)
 {
-	secp256k1_sha256_write(pSha, pPt->m_X.m_pVal, sizeof(pPt->m_X.m_pVal));
-	secp256k1_sha256_write(pSha, &pPt->m_Y, sizeof(pPt->m_Y));
+	secp256k1_sha256_write(pSha, pCompact->m_X.m_pVal, sizeof(pCompact->m_X.m_pVal));
+	secp256k1_sha256_write(pSha, &pCompact->m_Y, sizeof(pCompact->m_Y));
 }
 
-void secp256k1_sha256_write_Ge(secp256k1_sha256_t* pSha, const secp256k1_ge* pGe)
+void secp256k1_sha256_write_Point(secp256k1_sha256_t* pSha, BeamCrypto_FlexPoint* pFlex)
 {
-	BeamCrypto_Point pt;
-	BeamCrypto_Point_Export(&pt, pGe);
-	secp256k1_sha256_write_Point(pSha, &pt);
-}
-
-void secp256k1_sha256_write_Gej(secp256k1_sha256_t* pSha, secp256k1_gej* pGej)
-{
-	secp256k1_ge ge;
-	secp256k1_ge_set_gej_var(&ge, pGej); // expensive
-	secp256k1_sha256_write_Ge(pSha, &ge);
+	BeamCrypto_FlexPoint_MakeCompact(pFlex);
+	assert(BeamCrypto_FlexPoint_Compact & pFlex->m_Flags);
+	secp256k1_sha256_write_CompactPoint(pSha, &pFlex->m_Compact);
 }
 
 void BeamCrypto_CoinID_getHash(const BeamCrypto_CoinID* p, BeamCrypto_UintBig* pHash)
@@ -801,9 +861,9 @@ void BeamCrypto_CoinID_getSk(const BeamCrypto_Kdf* pKdf, const BeamCrypto_CoinID
 	BeamCrypto_CoinID_getSkComm(pKdf, pCid, pK, 0);
 }
 
-void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_CoinID* pCid, secp256k1_scalar* pK, BeamCrypto_Point* pComm)
+void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_CoinID* pCid, secp256k1_scalar* pK, BeamCrypto_FlexPoint* pComm)
 {
-	secp256k1_gej pGej[2];
+	BeamCrypto_FlexPoint pFlex[2];
 
 	union
 	{
@@ -819,7 +879,6 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 		struct
 		{
 			BeamCrypto_Oracle oracle;
-			secp256k1_ge ge;
 			secp256k1_scalar k1;
 		} o;
 
@@ -830,8 +889,6 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 			BeamCrypto_MultiMac_Fast genAsset;
 			secp256k1_fe zDenom;
 		} mm;
-
-		secp256k1_fe pFe[_countof(pGej) + 1];
 
 	} u;
 
@@ -854,7 +911,7 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 
 	// sk*G + v*H
 	BeamCrypto_MultiMac_Context mmCtx;
-	mmCtx.m_pRes = pGej;
+	mmCtx.m_pRes = &pFlex[0].m_Gej;
 	mmCtx.m_Secure = 1;
 	mmCtx.m_pSecureK = pK;
 	mmCtx.m_pGenSecure = &pCtx->m_GenG;
@@ -870,13 +927,13 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 		HASH_WRITE_STR(u.o.oracle.m_sha, "B.Asset.Gen.V1");
 		secp256k1_sha256_write_Num(&u.o.oracle.m_sha, pCid->m_AssetID);
 
-		secp256k1_ge geAsset;
-		BeamCrypto_Oracle_NextPoint(&u.o.oracle, &geAsset);
+		BeamCrypto_FlexPoint fpAsset;
+		BeamCrypto_Oracle_NextPoint(&u.o.oracle, &fpAsset);
 
 		mmCtx.m_pGenFast = &u.mm.genAsset;
 		mmCtx.m_pZDenom = &u.mm.zDenom;
 
-		BeamCrypto_MultiMac_SetCustom_ge_Nnz(&mmCtx, &geAsset);
+		BeamCrypto_MultiMac_SetCustom_Nnz(&mmCtx, &fpAsset);
 
 	}
 	else
@@ -888,25 +945,24 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 	secp256k1_scalar_set_u64(u.mm.s.m_pK, pCid->m_Amount);
 
 	BeamCrypto_MultiMac_Calculate(&mmCtx);
+	pFlex[0].m_Flags = BeamCrypto_FlexPoint_Gej;
 
 	// sk * J
-	mmCtx.m_pRes = pGej + 1;
+	mmCtx.m_pRes = &pFlex[1].m_Gej;
 	mmCtx.m_pGenSecure = &pCtx->m_GenJ;
 	mmCtx.m_pZDenom = 0;
 	mmCtx.m_Fast = 0;
 
 	BeamCrypto_MultiMac_Calculate(&mmCtx);
+	pFlex[1].m_Flags = BeamCrypto_FlexPoint_Gej;
 
 	// adjust sk
-	BeamCrypto_ToCommonDenominator(_countof(pGej), pGej, u.pFe, u.pFe + _countof(pGej), 1);
+	BeamCrypto_FlexPoint_MakeGe_Batch(pFlex, _countof(pFlex));
 
 	BeamCrypto_Oracle_Init(&u.o.oracle);
 
-	for (unsigned int i = 0; i < _countof(pGej); i++)
-	{
-		secp256k1_ge_set_gej_normalized(&u.o.ge, pGej + i);
-		secp256k1_sha256_write_Ge(&u.o.oracle.m_sha, &u.o.ge);
-	}
+	for (unsigned int i = 0; i < _countof(pFlex); i++)
+		secp256k1_sha256_write_Point(&u.o.oracle.m_sha, pFlex + i);
 
 	BeamCrypto_Oracle_NextScalar(&u.o.oracle, &u.o.k1);
 
@@ -918,12 +974,12 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 		mmCtx.m_pSecureK = &u.o.k1;
 
 		BeamCrypto_MultiMac_Calculate(&mmCtx);
+		pFlex[1].m_Flags = BeamCrypto_FlexPoint_Gej;
 
-		secp256k1_ge_set_gej_normalized(&u.o.ge, pGej); // pGej[0] is already normalized
-		secp256k1_gej_add_ge_var(pGej + 1, pGej + 1, &u.o.ge, 0);
+		assert(BeamCrypto_FlexPoint_Ge & pFlex[0].m_Flags);
 
-		secp256k1_ge_set_gej(&u.o.ge, pGej + 1);
-		BeamCrypto_Point_Export(pComm, &u.o.ge);
+		secp256k1_gej_add_ge_var(&pComm->m_Gej, &pFlex[1].m_Gej, &pFlex[0].m_Ge, 0);
+		pComm->m_Flags = BeamCrypto_FlexPoint_Gej;
 	}
 }
 
@@ -942,24 +998,31 @@ static void WriteInNetworkOrder(uint8_t** ppDst, uint64_t val, unsigned int nLen
 typedef struct
 {
 	BeamCrypto_RangeProof* m_pRangeProof;
-	BeamCrypto_NonceGenerator m_NonceGen;
-	secp256k1_gej m_pGej[2];
+	BeamCrypto_NonceGenerator m_NonceGen; // 88 bytes
+	secp256k1_gej m_pGej[2]; // 248 bytes
 
+	// 97 bytes. This can be saved, at expense of calculating them again (BeamCrypto_CoinID_getSkComm)
 	secp256k1_scalar m_sk;
 	secp256k1_scalar m_alpha;
-	BeamCrypto_Point m_Commitment;
+	BeamCrypto_CompactPoint m_Commitment;
 
 } BeamCrypto_RangeProof_Worker;
 
 static void BeamCrypto_RangeProof_Calculate_Before_S(BeamCrypto_RangeProof_Worker* pWrk)
 {
 	const BeamCrypto_RangeProof* p = pWrk->m_pRangeProof;
-	BeamCrypto_CoinID_getSkComm(p->m_pKdf, &p->m_Cid, &pWrk->m_sk, &pWrk->m_Commitment);
+
+	BeamCrypto_FlexPoint fp;
+	BeamCrypto_CoinID_getSkComm(p->m_pKdf, &p->m_Cid, &pWrk->m_sk, &fp);
+
+	BeamCrypto_FlexPoint_MakeCompact(&fp);
+	assert(BeamCrypto_FlexPoint_Compact & fp.m_Flags);
+	pWrk->m_Commitment = fp.m_Compact;
 
 	// get seed
 	BeamCrypto_Oracle oracle;
 	secp256k1_sha256_initialize(&oracle.m_sha);
-	secp256k1_sha256_write_Point(&oracle.m_sha, &pWrk->m_Commitment);
+	secp256k1_sha256_write_Point(&oracle.m_sha, &fp);
 
 	BeamCrypto_UintBig hv;
 	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
@@ -1073,8 +1136,10 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 	secp256k1_scalar pChallenge[2];
 	BeamCrypto_UintBig hv;
 	secp256k1_hmac_sha256_t hmac;
-	secp256k1_ge ge;
-	secp256k1_fe pFe[3];
+
+	BeamCrypto_FlexPoint pFp[2]; // 496 bytes
+	pFp[1].m_Gej = pWrk->m_pGej[1];
+	pFp[1].m_Flags = BeamCrypto_FlexPoint_Gej;
 
 	// CalcA
 	BeamCrypto_MultiMac_Context mmCtx;
@@ -1083,37 +1148,35 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 	mmCtx.m_Secure = 1;
 	mmCtx.m_pSecureK = &pWrk->m_alpha;
 	mmCtx.m_pGenSecure = &pCtx->m_GenG;
-	mmCtx.m_pRes = pWrk->m_pGej;
+	mmCtx.m_pRes = &pFp[0].m_Gej;
+
 	BeamCrypto_MultiMac_Calculate(&mmCtx); // alpha*G
+	pFp[0].m_Flags = BeamCrypto_FlexPoint_Gej;
 
 	BeamCrypto_Amount v = p->m_Cid.m_Amount;
 
 	for (uint32_t i = 0; i < nDims; i++)
 	{
 		if (1 & (v >> i))
-			secp256k1_ge_from_storage(&ge, pCtx->m_pGenFast[i].m_pPt);
+			secp256k1_ge_from_storage(&pFp[0].m_Ge, pCtx->m_pGenFast[i].m_pPt);
 		else
 		{
-			secp256k1_ge_from_storage(&ge, pCtx->m_pGenFast[nDims + i].m_pPt);
-			secp256k1_ge_neg(&ge, &ge);
+			secp256k1_ge_from_storage(&pFp[0].m_Ge, pCtx->m_pGenFast[nDims + i].m_pPt);
+			secp256k1_ge_neg(&pFp[0].m_Ge, &pFp[0].m_Ge);
 		}
 
-		secp256k1_gej_add_ge_var(pWrk->m_pGej, pWrk->m_pGej, &ge, 0);
+		secp256k1_gej_add_ge_var(&pFp[0].m_Gej, &pFp[0].m_Gej, &pFp[0].m_Ge, 0);
 	}
-
-	// oracle
-	BeamCrypto_Oracle_Init(&oracle);
-	secp256k1_sha256_write_Num(&oracle.m_sha, 0); // incubation time, must be zero
-	secp256k1_sha256_write_Point(&oracle.m_sha, &pWrk->m_Commitment); // starting from Fork1, earlier schem is not allowed
 
 	// normalize A,S at once, feed them to Oracle
-	BeamCrypto_ToCommonDenominator(2, pWrk->m_pGej, pFe, pFe + 2, 1);
+	BeamCrypto_FlexPoint_MakeGe_Batch(pFp, _countof(pFp));
+
+	BeamCrypto_Oracle_Init(&oracle);
+	secp256k1_sha256_write_Num(&oracle.m_sha, 0); // incubation time, must be zero
+	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pWrk->m_Commitment); // starting from Fork1, earlier schem is not allowed
 
 	for (unsigned int i = 0; i < 2; i++)
-	{
-		BeamCrypto_Point_Export_Raw(&pWrk->m_Commitment, &pWrk->m_pGej[i].x, &pWrk->m_pGej[i].y);
-		secp256k1_sha256_write_Point(&oracle.m_sha, &pWrk->m_Commitment);
-	}
+		secp256k1_sha256_write_Point(&oracle.m_sha, pFp + i);
 
 	// get challenges. Use the challenges, sk, T1 and T2 to init the NonceGen for blinding the sk
 	static const char szSalt[] = "bulletproof-sk";
@@ -1140,17 +1203,21 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 	{
 		BeamCrypto_NonceGenerator_NextScalar(&pWrk->m_NonceGen, pK + i); // tau1/2
 		mmCtx.m_pSecureK = pK + i;
-		mmCtx.m_pRes = pWrk->m_pGej + i;
+		mmCtx.m_pRes = pWrk->m_pGej;
 
 		BeamCrypto_MultiMac_Calculate(&mmCtx); // pub nonces of T1/T2
 
-		if (!BeamCrypto_Point_ImportNnz(p->m_pT + i, &ge))
+		pFp[i].m_Compact = p->m_pT[i];
+		pFp[i].m_Flags = BeamCrypto_FlexPoint_Compact;
+		BeamCrypto_FlexPoint_MakeGe(pFp + i);
+		if (!pFp[i].m_Flags)
 		{
 			ok = 0;
 			break;
 		}
 
-		secp256k1_gej_add_ge_var(mmCtx.m_pRes, mmCtx.m_pRes, &ge, 0);
+		secp256k1_gej_add_ge_var(&pFp[i].m_Gej, mmCtx.m_pRes, &pFp[i].m_Ge, 0);
+		pFp[i].m_Flags = BeamCrypto_FlexPoint_Gej;
 	}
 
 	SECURE_ERASE_OBJ(pWrk->m_NonceGen);
@@ -1158,12 +1225,13 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 	if (ok)
 	{
 		// normalize & expose
-		BeamCrypto_ToCommonDenominator(2, pWrk->m_pGej, pFe, pFe + 2, 1);
+		BeamCrypto_FlexPoint_MakeGe_Batch(pFp, _countof(pFp));
 
 		for (unsigned int i = 0; i < 2; i++)
 		{
-			BeamCrypto_Point_Export_Raw(p->m_pT + i, &pWrk->m_pGej[i].x, &pWrk->m_pGej[i].y);
-			secp256k1_sha256_write_Point(&oracle.m_sha, p->m_pT + i);
+			secp256k1_sha256_write_Point(&oracle.m_sha, pFp + i);
+			assert(BeamCrypto_FlexPoint_Compact & pFp[i].m_Flags);
+			p->m_pT[i] = pFp[i].m_Compact;
 		}
 
 		// last challenge
@@ -1205,7 +1273,7 @@ void BeamCrypto_Signature_GetChallenge(const BeamCrypto_Signature* p, const Beam
 {
 	BeamCrypto_Oracle oracle;
 	BeamCrypto_Oracle_Init(&oracle);
-	secp256k1_sha256_write_Point(&oracle.m_sha, &p->m_NoncePub);
+	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &p->m_NoncePub);
 	secp256k1_sha256_write(&oracle.m_sha, pMsg->m_pVal, sizeof(pMsg->m_pVal));
 
 	BeamCrypto_Oracle_NextScalar(&oracle, pE);
@@ -1236,7 +1304,11 @@ void BeamCrypto_Signature_Sign(BeamCrypto_Signature* p, const BeamCrypto_UintBig
 	SECURE_ERASE_OBJ(ng);
 
 	// expose the nonce
-	BeamCrypto_MulG(&p->m_NoncePub, &u.nonce);
+	BeamCrypto_FlexPoint fp;
+	BeamCrypto_MulG(&fp, &u.nonce);
+	BeamCrypto_FlexPoint_MakeCompact(&fp);
+	p->m_NoncePub = fp.m_Compact;
+
 	BeamCrypto_Signature_SignPartial(p, pMsg, pSk, &u.nonce);
 
 	SECURE_ERASE_OBJ(u.nonce);
@@ -1254,16 +1326,24 @@ void BeamCrypto_Signature_SignPartial(BeamCrypto_Signature* p, const BeamCrypto_
 	secp256k1_scalar_get_b32(p->m_k.m_pVal, &e);
 }
 
-int BeamCrypto_Signature_IsValid_Gej(const BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, const secp256k1_gej* pPk)
+int BeamCrypto_Signature_IsValid(const BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, BeamCrypto_FlexPoint* pPk)
 {
-	secp256k1_ge ge;
-	if (!BeamCrypto_Point_ImportNnz(&p->m_NoncePub, &ge))
+	BeamCrypto_FlexPoint fpNonce;
+	fpNonce.m_Compact = p->m_NoncePub;
+	fpNonce.m_Flags = BeamCrypto_FlexPoint_Compact;
+	
+	BeamCrypto_FlexPoint_MakeGe(&fpNonce);
+	if (!fpNonce.m_Flags)
 		return 0;
 
 	secp256k1_scalar k;
 	int overflow; // for historical reasons we don't check for overflow, i.e. theoretically there can be an ambiguity, but it makes not much sense for the attacker
 	secp256k1_scalar_set_b32(&k, p->m_k.m_pVal, &overflow);
 
+
+	BeamCrypto_FlexPoint_MakeGej(pPk);
+	if (!pPk->m_Flags)
+		return 0; // bad Pubkey
 
 	secp256k1_gej gej;
 	secp256k1_fe zDenom;
@@ -1278,8 +1358,9 @@ int BeamCrypto_Signature_IsValid_Gej(const BeamCrypto_Signature* p, const BeamCr
 	ctx.m_pGenSecure = &BeamCrypto_Context_get()->m_GenG;
 	ctx.m_pSecureK = &k;
 
-	if (secp256k1_gej_is_infinity(pPk))
+	if (secp256k1_gej_is_infinity(&pPk->m_Gej))
 	{
+		// unlikely, but allowed for historical reasons
 		ctx.m_Fast = 0;
 		ctx.m_pZDenom = 0;
 	}
@@ -1290,27 +1371,15 @@ int BeamCrypto_Signature_IsValid_Gej(const BeamCrypto_Signature* p, const BeamCr
 		ctx.m_pGenFast = &gen;
 		ctx.m_pS = &s;
 		ctx.m_pWnaf = &wnaf;
-		BeamCrypto_MultiMac_SetCustom_gej_Nnz(&ctx, pPk);
+		BeamCrypto_MultiMac_SetCustom_Nnz(&ctx, pPk);
 
 		BeamCrypto_Signature_GetChallenge(p, pMsg, s.m_pK);
 	}
 
 	BeamCrypto_MultiMac_Calculate(&ctx);
-	secp256k1_gej_add_ge_var(&gej, &gej, &ge, 0);
+	secp256k1_gej_add_ge_var(&gej, &gej, &fpNonce.m_Ge, 0);
 
 	return secp256k1_gej_is_infinity(&gej);
-}
-
-int BeamCrypto_Signature_IsValid_Pt(const BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, const BeamCrypto_Point* pPk)
-{
-	secp256k1_ge ge;
-	if (!BeamCrypto_Point_ImportNnz(pPk, &ge))
-		return 0;
-
-	secp256k1_gej gej;
-	secp256k1_gej_set_ge(&gej, &ge);
-
-	return BeamCrypto_Signature_IsValid_Gej(p, pMsg, &gej);
 }
 
 //////////////////////////////
@@ -1324,7 +1393,7 @@ void BeamCrypto_TxKernel_getID(const BeamCrypto_TxKernel* pKrn, BeamCrypto_UintB
 	secp256k1_sha256_write_Num(&sha, pKrn->m_hMin);
 	secp256k1_sha256_write_Num(&sha, pKrn->m_hMax);
 
-	secp256k1_sha256_write_Point(&sha, &pKrn->m_Commitment);
+	secp256k1_sha256_write_CompactPoint(&sha, &pKrn->m_Commitment);
 	secp256k1_sha256_write_Num(&sha, 0); // former m_AssetEmission
 
 	uint8_t nFlags = 0; // extended flags, irrelevent for HW wallet
@@ -1341,7 +1410,11 @@ int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernel* pKrn)
 	BeamCrypto_UintBig msg;
 	BeamCrypto_TxKernel_getID(pKrn, &msg);
 
-	return BeamCrypto_Signature_IsValid_Pt(&pKrn->m_Signature, &msg, &pKrn->m_Commitment);
+	BeamCrypto_FlexPoint fp;
+	fp.m_Compact = pKrn->m_Commitment;
+	fp.m_Flags = BeamCrypto_FlexPoint_Compact;
+
+	return BeamCrypto_Signature_IsValid(&pKrn->m_Signature, &msg, &fp);
 }
 
 //////////////////////////////
@@ -1352,8 +1425,15 @@ static void Kdf2Pub(const BeamCrypto_Kdf* pKdf, BeamCrypto_KdfPub* pRes)
 
 	pRes->m_Secret = pKdf->m_Secret;
 
-	BeamCrypto_MulPoint(&pRes->m_CoFactorG, &pCtx->m_GenG, &pKdf->m_kCoFactor);
-	BeamCrypto_MulPoint(&pRes->m_CoFactorJ, &pCtx->m_GenJ, &pKdf->m_kCoFactor);
+	BeamCrypto_FlexPoint fp;
+
+	BeamCrypto_MulPoint(&fp, &pCtx->m_GenG, &pKdf->m_kCoFactor);
+	BeamCrypto_FlexPoint_MakeCompact(&fp);
+	pRes->m_CoFactorG = fp.m_Compact;
+
+	BeamCrypto_MulPoint(&fp, &pCtx->m_GenJ, &pKdf->m_kCoFactor);
+	BeamCrypto_FlexPoint_MakeCompact(&fp);
+	pRes->m_CoFactorJ = fp.m_Compact;
 }
 
 void BeamCrypto_KeyKeeper_GetPKdf(const BeamCrypto_KeyKeeper* p, BeamCrypto_KdfPub* pRes, const uint32_t* pChild)
@@ -1473,6 +1553,48 @@ static int BeamCrypto_KeyKeeper_ConfirmSpend(BeamCrypto_Amount val, BeamCrypto_A
 }
 
 //////////////////////////////
+// KeyKeeper - Kernel modification
+static int KernelUpdateKeys(BeamCrypto_TxKernel* pKrn, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce, int nAdd)
+{
+	BeamCrypto_FlexPoint pFp[2];
+
+	BeamCrypto_MulG(pFp, pSk);
+	BeamCrypto_MulG(pFp + 1, pNonce);
+
+	if (nAdd)
+	{
+		BeamCrypto_FlexPoint fp;
+		fp.m_Compact = pKrn->m_Commitment;
+		fp.m_Flags = BeamCrypto_FlexPoint_Compact;
+
+		BeamCrypto_FlexPoint_MakeGe(&fp);
+		if (!fp.m_Flags)
+			return 0;
+
+		secp256k1_gej_add_ge_var(&pFp[0].m_Gej, &pFp[0].m_Gej, &fp.m_Ge, 0);
+
+		fp.m_Compact = pKrn->m_Signature.m_NoncePub;
+		fp.m_Flags = BeamCrypto_FlexPoint_Compact;
+
+		BeamCrypto_FlexPoint_MakeGe(&fp);
+		if (!fp.m_Flags)
+			return 0;
+
+		secp256k1_gej_add_ge_var(&pFp[1].m_Gej, &pFp[1].m_Gej, &fp.m_Ge, 0);
+	}
+
+	BeamCrypto_FlexPoint_MakeGe_Batch(pFp, _countof(pFp));
+
+	BeamCrypto_FlexPoint_MakeCompact(pFp);
+	pKrn->m_Commitment = pFp[0].m_Compact;
+
+	BeamCrypto_FlexPoint_MakeCompact(pFp + 1);
+	pKrn->m_Signature.m_NoncePub = pFp[1].m_Compact;
+
+	return 1;
+}
+
+//////////////////////////////
 // KeyKeeper - SplitTx
 int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx)
 {
@@ -1509,8 +1631,7 @@ int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper* p, BeamCrypto_
 	BeamCrypto_NonceGenerator_NextScalar(&ng, &kNonce);
 	SECURE_ERASE_OBJ(ng);
 
-	BeamCrypto_MulG(&pTx->m_Krn.m_Commitment, &kKrn);
-	BeamCrypto_MulG(&pTx->m_Krn.m_Signature.m_NoncePub, &kNonce);
+	KernelUpdateKeys(&pTx->m_Krn, &kKrn, &kNonce, 0);
 
 	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv);
 
@@ -1544,42 +1665,6 @@ static void GetPaymentConfirmationMsg(BeamCrypto_UintBig* pRes, const BeamCrypto
 	}
 
 	secp256k1_sha256_finalize(&sha, pRes->m_pVal);
-}
-
-static int KernelAddKeys(BeamCrypto_TxKernel* pKrn, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce)
-{
-	secp256k1_gej pGej[2];
-
-	BeamCrypto_MultiMac_Context ctx;
-	ctx.m_pZDenom = 0;
-	ctx.m_Fast = 0;
-	ctx.m_Secure = 1;
-	ctx.m_pGenSecure = &BeamCrypto_Context_get()->m_GenG;
-
-	ctx.m_pRes = pGej;
-	ctx.m_pSecureK = pSk;
-	BeamCrypto_MultiMac_Calculate(&ctx);
-
-	ctx.m_pRes = pGej + 1;
-	ctx.m_pSecureK = pNonce;
-	BeamCrypto_MultiMac_Calculate(&ctx);
-
-	secp256k1_ge ge;
-	if (!BeamCrypto_Point_ImportNnz(&pKrn->m_Commitment, &ge))
-		return 0;
-	secp256k1_gej_add_ge_var(pGej, pGej, &ge, 0);
-
-	if (!BeamCrypto_Point_ImportNnz(&pKrn->m_Signature.m_NoncePub, &ge))
-		return 0;
-	secp256k1_gej_add_ge_var(pGej + 1, pGej + 1, &ge, 0);
-
-	secp256k1_fe pFe[_countof(pGej) + 1];
-	BeamCrypto_ToCommonDenominator(_countof(pGej), pGej, pFe, pFe + _countof(pGej), 1);
-
-	BeamCrypto_Point_Export_Raw(&pKrn->m_Commitment, &pGej[0].x, &pGej[0].y);
-	BeamCrypto_Point_Export_Raw(&pKrn->m_Signature.m_NoncePub, &pGej[1].x, &pGej[1].y);
-
-	return 1;
 }
 
 //////////////////////////////
@@ -1618,7 +1703,7 @@ int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper* p, BeamCrypt
 	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv); // not a final ID yet
 
 	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
-	secp256k1_sha256_write_Point(&sha, &pTx->m_Krn.m_Signature.m_NoncePub);
+	secp256k1_sha256_write_CompactPoint(&sha, &pTx->m_Krn.m_Signature.m_NoncePub);
 
 	uint8_t nFlag = 0; // not nonconventional
 	secp256k1_sha256_write(&sha, &nFlag, sizeof(nFlag));
@@ -1643,7 +1728,7 @@ int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper* p, BeamCrypt
 	BeamCrypto_NonceGenerator_NextScalar(&ng, &kNonce);
 	SECURE_ERASE_OBJ(ng);
 
-	if (!KernelAddKeys(&pTx->m_Krn, &kKrn, &kNonce))
+	if (!KernelUpdateKeys(&pTx->m_Krn, &kKrn, &kNonce, 1))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 
 	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv); // final ID yet

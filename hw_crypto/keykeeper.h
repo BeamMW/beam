@@ -30,8 +30,8 @@ typedef struct
 typedef struct
 {
 	BeamCrypto_UintBig m_Secret;
-	BeamCrypto_Point m_CoFactorG;
-	BeamCrypto_Point m_CoFactorJ;
+	BeamCrypto_CompactPoint m_CoFactorG;
+	BeamCrypto_CompactPoint m_CoFactorJ;
 
 } BeamCrypto_KdfPub;
 
@@ -46,7 +46,7 @@ typedef struct
 	BeamCrypto_Height m_hMin;
 	BeamCrypto_Height m_hMax;
 
-	BeamCrypto_Point m_Commitment;
+	BeamCrypto_CompactPoint m_Commitment;
 	BeamCrypto_Signature m_Signature;
 
 } BeamCrypto_TxKernel;

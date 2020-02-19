@@ -22,7 +22,7 @@ typedef struct
 
 	const secp256k1_scalar* m_pKExtra; // optionally embed 2 scalars that can be recognized (in addition to CoinID)
 
-	BeamCrypto_Point m_pT[2]; // in/out
+	BeamCrypto_CompactPoint m_pT[2]; // in/out
 	secp256k1_scalar m_TauX; // result
 
 } BeamCrypto_RangeProof;

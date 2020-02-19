@@ -47,6 +47,27 @@ typedef struct
 
 typedef struct
 {
+	// platform-independent EC point representation
 	BeamCrypto_UintBig m_X;
 	uint8_t m_Y;
-} BeamCrypto_Point;
+} BeamCrypto_CompactPoint;
+
+// Converting point representations is expensive.
+// The following is a "flexible" point representation, which is converted on-demand according to the needs
+typedef struct
+{
+	BeamCrypto_CompactPoint m_Compact; // platform-independent way. Suitable for serialization, hashing and etc.
+	secp256k1_gej m_Gej; // Jacobian form (x,y,z)
+	secp256k1_ge m_Ge; // Affine form (x,y)
+
+	uint8_t m_Flags; // zero indicates 'invalid' point. Auto-set on a failed attempt to convert from m_Compact
+
+} BeamCrypto_FlexPoint;
+
+#define BeamCrypto_FlexPoint_Compact 1
+#define BeamCrypto_FlexPoint_Gej 2
+#define BeamCrypto_FlexPoint_Ge 4
+
+void BeamCrypto_FlexPoint_MakeCompact(BeamCrypto_FlexPoint*);
+void BeamCrypto_FlexPoint_MakeGej(BeamCrypto_FlexPoint*);
+void BeamCrypto_FlexPoint_MakeGe(BeamCrypto_FlexPoint*);
