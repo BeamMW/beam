@@ -778,7 +778,29 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignReceiver& m)
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSender& m)
 {
-	return Status::NotImplemented;
+	std::vector<BeamCrypto_CoinID> vCvt;
+	BeamCrypto_TxCommon tx2;
+	TxImport(tx2, m, vCvt);
+
+	BeamCrypto_TxMutualInfo txMut;
+	txMut.m_MyIDKey = m.m_MyIDKey;
+	txMut.m_Peer = Ecc2BC(m.m_Peer);
+	txMut.m_PaymentProofSignature.m_NoncePub = Ecc2BC(m.m_PaymentProofSignature.m_NoncePub);
+	txMut.m_PaymentProofSignature.m_k = Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value);
+
+	BeamCrypto_TxSenderParams txSnd;
+	txSnd.m_iSlot = m.m_Slot;
+	txSnd.m_UserAgreement = Ecc2BC(m.m_UserAgreement);
+
+	int nRet = BeamCrypto_KeyKeeper_SignTx_Send(&m_Ctx, &tx2, &txMut, &txSnd);
+
+	if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
+	{
+		TxExport(m, tx2);
+		Ecc2BC(m.m_UserAgreement) = txSnd.m_UserAgreement;
+	}
+
+	return static_cast<Status::Type>(nRet);
 }
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSplit& m)
@@ -878,6 +900,7 @@ struct KeyKeeperWrap
 
 	void TestSplit();
 	void TestRcv();
+	void TestSend1();
 
 	void UpdateMethod(KeyKeeperHwEmu::Method::TxCommon& dst, KeyKeeperHwEmu::Method::TxCommon& src, int nPhase)
 	{
@@ -961,6 +984,28 @@ struct KeyKeeperWrap
 			}
 			break;
 		}
+	}
+
+	void UpdateMethod(KeyKeeperHwEmu::Method::SignSender& dst, KeyKeeperHwEmu::Method::SignSender& src, int nPhase)
+	{
+		switch (nPhase)
+		{
+		case 0: // save
+			dst.m_UserAgreement = src.m_UserAgreement;
+			break;
+
+		case 1: // swap
+			std::swap(dst.m_UserAgreement, src.m_UserAgreement);
+			break;
+
+		default: // compare
+			verify_test(dst.m_UserAgreement == src.m_UserAgreement);
+			// kernel is not necessarily updated (it's not finalized on the 1st invocation
+			dst.m_pKernel->UpdateID();
+			src.m_pKernel->UpdateID();
+		}
+
+		UpdateMethod(Cast::Down<KeyKeeperHwEmu::Method::TxCommon>(dst), Cast::Down<KeyKeeperHwEmu::Method::TxCommon>(src), nPhase);
 	}
 
 	template <typename TMethod>
@@ -1134,8 +1179,34 @@ void KeyKeeperWrap::TestRcv()
 	Add(m.m_vOutputs, 100);
 
 	verify_test(InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success); // should work now
+}
 
+void KeyKeeperWrap::TestSend1()
+{
+	wallet::IPrivateKeyKeeper2::Method::SignSender m;
+	m.m_MyIDKey = 18;
+	m.m_Peer = 567U;
+	m.m_Slot = 6;
+	m.m_UserAgreement = Zero;
 
+	Add(m.m_vInputs, 45);
+
+	Add(m.m_vOutputs, 25);
+
+	m.m_pKernel = std::make_unique<TxKernelStd>();
+	m.m_pKernel->m_Height.m_Min = g_hFork;
+	m.m_pKernel->m_Height.m_Max = g_hFork + 40;
+	m.m_pKernel->m_Fee = 20;
+
+	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success); // not sending, everything is consumed by the fee
+
+	Add(m.m_vInputs, 50);
+	Add(m.m_vInputs, 15).m_AssetID = 4;
+
+	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success); // mixed
+
+	Add(m.m_vOutputs, 50);
+	verify_test(InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success); // should work now
 }
 
 void TestKeyKeeperTxs()
@@ -1153,6 +1224,7 @@ void TestKeyKeeperTxs()
 
 	kkw.TestSplit();
 	kkw.TestRcv();
+	kkw.TestSend1();
 }
 
 int main()

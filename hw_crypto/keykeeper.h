@@ -87,3 +87,12 @@ typedef struct
 } BeamCrypto_TxMutualInfo;
 
 int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, BeamCrypto_TxMutualInfo*);
+
+typedef struct
+{
+	uint32_t m_iSlot;
+	BeamCrypto_UintBig m_UserAgreement; // set to Zero on 1st invocation
+
+} BeamCrypto_TxSenderParams;
+
+int BeamCrypto_KeyKeeper_SignTx_Send(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, BeamCrypto_TxMutualInfo*, BeamCrypto_TxSenderParams*);

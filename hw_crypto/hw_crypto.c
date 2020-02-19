@@ -1542,6 +1542,15 @@ static void TxAggrToOffset(TxAggr* pAggr, const secp256k1_scalar* pKrn, BeamCryp
 	secp256k1_scalar_get_b32(pTx->m_kOffset.m_pVal, &pAggr->m_sk);
 }
 
+static void TxImportSubtract(secp256k1_scalar* pK, const BeamCrypto_UintBig* pPrev)
+{
+	secp256k1_scalar kPeer;
+	int overflow;
+	secp256k1_scalar_set_b32(&kPeer, pPrev->m_pVal, &overflow);
+	secp256k1_scalar_negate(&kPeer, &kPeer);
+	secp256k1_scalar_add(pK, pK, &kPeer);
+}
+
 //////////////////////////////
 // KeyKeeper - user permission required
 static int BeamCrypto_KeyKeeper_ConfirmSpend(BeamCrypto_Amount val, BeamCrypto_AssetID aid, const BeamCrypto_UintBig* pPeerID, const BeamCrypto_TxKernel* pKrn, const BeamCrypto_UintBig* pKrnID)
@@ -1762,6 +1771,133 @@ int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper* p, BeamCrypt
 		GetPaymentConfirmationMsg(&hvID, &pMut->m_Peer, &hv, txAggr.m_Outs.m_Assets, txAggr.m_AssetID);
 		BeamCrypto_Signature_Sign(&pMut->m_PaymentProofSignature, &hvID, &kKrn);
 	}
+
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
+//////////////////////////////
+// KeyKeeper - SendTx
+int BeamCrypto_KeyKeeper_SignTx_Send(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx, BeamCrypto_TxMutualInfo* pMut, BeamCrypto_TxSenderParams* pSnd)
+{
+	TxAggr txAggr;
+	if (!TxAggregate(p, pTx, &txAggr))
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+
+	if (IsUintBigZero(&pMut->m_Peer))
+		return BeamCrypto_KeyKeeper_Status_UserAbort; // conventional transfers must always be signed
+
+	if (txAggr.m_Ins.m_Beams < txAggr.m_Outs.m_Beams)
+		return BeamCrypto_KeyKeeper_Status_Unspecified; // not sending
+	txAggr.m_Ins.m_Beams -= txAggr.m_Outs.m_Beams;
+
+	if (txAggr.m_Ins.m_Assets != txAggr.m_Outs.m_Assets)
+	{
+		if (txAggr.m_Ins.m_Assets < txAggr.m_Outs.m_Assets)
+			return BeamCrypto_KeyKeeper_Status_Unspecified; // not sending
+
+		if (txAggr.m_Ins.m_Beams != pTx->m_Krn.m_Fee)
+			return BeamCrypto_KeyKeeper_Status_Unspecified; // balance mismatch, the lost amount must go entirely to fee
+
+		txAggr.m_Ins.m_Assets -= txAggr.m_Outs.m_Assets;
+	}
+	else
+	{
+		if (txAggr.m_Ins.m_Beams <= pTx->m_Krn.m_Fee)
+			return BeamCrypto_KeyKeeper_Status_Unspecified; // not sending
+
+		txAggr.m_Ins.m_Assets = txAggr.m_Ins.m_Beams - pTx->m_Krn.m_Fee;
+		txAggr.m_AssetID = 0;
+	}
+
+	secp256k1_scalar kKrn, kNonce;
+	BeamCrypto_UintBig hvMyID, hv;
+	GetWalletIDKey(p, pMut->m_MyIDKey, &kNonce, &hvMyID);
+
+	if (pSnd->m_iSlot >= BeamCrypto_KeyKeeper_getNumSlots())
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+
+	BeamCrypto_KeyKeeper_ReadSlot(pSnd->m_iSlot, &hv);
+	BeamCrypto_Kdf_Derive_SKey(&p->m_MasterKey, &hv, &kNonce);
+
+	// during negotiation kernel height and commitment are adjusted. We should only commit to the Fee
+	secp256k1_sha256_t sha;
+	secp256k1_sha256_initialize(&sha);
+	secp256k1_sha256_write_Num(&sha, pTx->m_Krn.m_Fee);
+	secp256k1_sha256_write(&sha, pMut->m_Peer.m_pVal, sizeof(pMut->m_Peer.m_pVal));
+	secp256k1_sha256_write(&sha, hvMyID.m_pVal, sizeof(hvMyID.m_pVal));
+
+	uint8_t nFlag = 0; // not nonconventional
+	secp256k1_sha256_write(&sha, &nFlag, sizeof(nFlag));
+
+	secp256k1_scalar_get_b32(hv.m_pVal, &txAggr.m_sk);
+	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_write_Num(&sha, txAggr.m_Ins.m_Assets);
+	secp256k1_sha256_write_Num(&sha, txAggr.m_AssetID);
+
+	secp256k1_scalar_get_b32(hv.m_pVal, &kNonce);
+	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+
+	static const char szSalt[] = "hw-wlt-snd";
+	BeamCrypto_NonceGenerator ng;
+	BeamCrypto_NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &hv);
+	BeamCrypto_NonceGenerator_NextScalar(&ng, &kKrn);
+	SECURE_ERASE_OBJ(ng);
+
+	// derive tx token
+	secp256k1_sha256_initialize(&sha);
+	HASH_WRITE_STR(sha, "tx.token");
+
+	secp256k1_scalar_get_b32(hv.m_pVal, &kKrn);
+	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+
+	if (IsUintBigZero(&hv))
+		hv.m_pVal[_countof(hv.m_pVal) - 1] = 1;
+
+	if (IsUintBigZero(&pSnd->m_UserAgreement))
+	{
+		int res = BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pMut->m_Peer, &pTx->m_Krn, 0);
+		if (BeamCrypto_KeyKeeper_Status_Ok != res)
+			return res;
+
+		pSnd->m_UserAgreement = hv;
+
+		KernelUpdateKeys(&pTx->m_Krn, &kKrn, &kNonce, 0);
+
+		return BeamCrypto_KeyKeeper_Status_Ok;
+	}
+
+	if (memcmp(pSnd->m_UserAgreement.m_pVal, hv.m_pVal, sizeof(hv.m_pVal)))
+		return BeamCrypto_KeyKeeper_Status_Unspecified; // incorrect user agreement token
+
+	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv);
+
+	// verify payment confirmation signature
+	GetPaymentConfirmationMsg(&hvMyID, &hvMyID, &hv, txAggr.m_Ins.m_Assets, txAggr.m_AssetID);
+
+	BeamCrypto_FlexPoint fp;
+	fp.m_Compact.m_X = pMut->m_Peer;
+	fp.m_Compact.m_Y = 0;
+	fp.m_Flags = BeamCrypto_FlexPoint_Compact;
+
+	if (!BeamCrypto_Signature_IsValid(&pMut->m_PaymentProofSignature, &hvMyID, &fp))
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+
+	// 2nd user confirmation request. Now the kernel is complete, its ID is calculated
+	int res = BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pMut->m_Peer, &pTx->m_Krn, &hvMyID);
+	if (BeamCrypto_KeyKeeper_Status_Ok != res)
+		return res;
+
+	// Regenerate the slot (BEFORE signing), and sign
+	BeamCrypto_KeyKeeper_RegenerateSlot(pSnd->m_iSlot);
+
+	TxImportSubtract(&kNonce, &pTx->m_Krn.m_Signature.m_k);
+	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv); // final ID
+	BeamCrypto_Signature_SignPartial(&pTx->m_Krn.m_Signature, &hv, &kKrn, &kNonce);
+
+	TxImportSubtract(&kKrn, &pTx->m_kOffset);
+	TxAggrToOffset(&txAggr, &kKrn, pTx);
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
