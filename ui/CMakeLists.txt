@@ -128,9 +128,10 @@ set(UI_SRC
     viewmodel/utxo/utxo_view.cpp
     viewmodel/utxo/utxo_view_status.h
     viewmodel/utxo/utxo_view_type.h
-    viewmodel/newscast/news_settings.cpp
-    viewmodel/newscast/update_info_provider.cpp
-    viewmodel/newscast/exchange_rate_provider.cpp
+    viewmodel/notifications/notifications_view.cpp
+    viewmodel/notifications/news_settings.cpp
+    viewmodel/notifications/update_info_provider.cpp
+    viewmodel/notifications/exchange_rate_provider.cpp
     viewmodel/main_view.h
     viewmodel/main_view.cpp
     viewmodel/help_view.h
@@ -139,7 +140,6 @@ set(UI_SRC
     viewmodel/settings_view.cpp
     viewmodel/address_book_view.h
     viewmodel/address_book_view.cpp
-    viewmodel/notifications_view.cpp
     viewmodel/ui_helpers.h
     viewmodel/ui_helpers.cpp
     viewmodel/messages_view.h

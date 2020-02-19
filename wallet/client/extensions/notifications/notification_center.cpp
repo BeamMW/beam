@@ -82,7 +82,7 @@ namespace beam::wallet
         n.m_ID = signature;
         n.m_type = Notification::Type::SoftwareUpdateAvailable;
         n.m_createTime = getTimestamp();
-        n.m_read = false;
+        n.m_state = Notification::State::Unread;
         n.m_content = toByteBuffer(content);
         
         saveNotification(n);

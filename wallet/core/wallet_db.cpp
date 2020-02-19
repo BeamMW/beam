@@ -150,8 +150,8 @@
 #define ENUM_NOTIFICATION_FIELDS(each, sep, obj) \
     each(ID,            ID,             BLOB NOT NULL PRIMARY KEY, obj) sep \
     each(type,          type,           INTEGER,            obj) sep \
+    each(state,         state,          INTEGER,            obj) sep \
     each(createTime,    createTime,     INTEGER,            obj) sep \
-    each(read,          read,           BOOLEAN,            obj) sep \
     each(content,       content,        BLOB NOT NULL,      obj)
 
 #define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
@@ -766,7 +766,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 18;
+        const int DbVersion   = 19;
+        const int DbVersion18 = 18;
         const int DbVersion17 = 17;
         const int DbVersion16 = 16;
         const int DbVersion15 = 15;
@@ -1575,8 +1576,14 @@ namespace beam::wallet
                 case DbVersion17:
                     LOG_INFO() << "Converting DB from format 17...";
                     CreateAssetsTable(walletDB->_db);
+                    // no break
+
+                case DbVersion18:
+                    LOG_INFO() << "Converting DB from format 18...";
+                    CreateNotificationsTable(walletDB->_db);
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
+
                 case DbVersion:
                     // drop private variables from public database for cold wallet
                     if (separateDBForPrivateData && !DropPrivateVariablesFromPublicDatabase(*walletDB))
@@ -3028,13 +3035,13 @@ namespace beam::wallet
 
         if (selectStm.step())
         {
-            const char* updateReq = "UPDATE " NOTIFICATIONS_NAME " SET type=?2, createTime=?3, read=?4, content=?5 WHERE ID=?1;";
+            const char* updateReq = "UPDATE " NOTIFICATIONS_NAME " SET type=?2, state=?3, createTime=?4, content=?5 WHERE ID=?1;";
             sqlite::Statement updateStm(this, updateReq);
 
             updateStm.bind(1, notification.m_ID);
             updateStm.bind(2, notification.m_type);
-            updateStm.bind(3, notification.m_createTime);
-            updateStm.bind(4, notification.m_read);
+            updateStm.bind(3, notification.m_state);
+            updateStm.bind(4, notification.m_createTime);
             updateStm.bind(5, notification.m_content);
             updateStm.step();
         }

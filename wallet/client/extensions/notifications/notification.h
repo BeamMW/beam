@@ -28,11 +28,18 @@ namespace beam::wallet
             BeamNews
         };
 
+        enum class State : uint32_t
+        {
+            Unread,
+            Read,
+            Deleted
+        };
+
         // unique ID - probably same as BroadcastMsg::m_signature underlying type
         ECC::uintBig m_ID;
         Type m_type;
+        State m_state;
         Timestamp m_createTime;
-        bool m_read;            // if notification was read
         ByteBuffer m_content;
     };
 } // namespace beam::wallet

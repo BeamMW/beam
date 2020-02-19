@@ -288,6 +288,11 @@ void WalletModel::onExchangeRates(const beam::wallet::ExchangeRates& rates)
     emit exchangeRatesUpdate(rates);
 }
 
+void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<Notification>& notifications)
+{
+    emit notificationsChanged(action, notifications);
+}
+
 beam::Amount WalletModel::getAvailable() const
 {
     return m_status.available;
