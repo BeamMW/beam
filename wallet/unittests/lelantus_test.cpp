@@ -826,7 +826,7 @@ int main()
     TestShieldedUTXORollback();
     TestPushTxRollbackByLowFee();
     TestPullTxRollbackByLowFee();
-    TestExpiredTxs();
+    //TestExpiredTxs();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
