@@ -2170,5 +2170,17 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <source>Notifications</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="notifications-update-now">
+        <source>update now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-activate">
+        <source>activate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-details">
+        <source>details</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

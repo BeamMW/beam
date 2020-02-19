@@ -28,6 +28,18 @@ Item {
         model: statusbarModel
     }
 
+    CustomButton {
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: 49
+
+        height: 38
+        palette.button: Style.background_second
+        palette.buttonText : Style.content_main
+        icon.source: "qrc:/assets/icon-cancel-white.svg"
+        text: 'clear all'
+    }
+
     ListView {
         id: notificationsList
 
@@ -185,41 +197,53 @@ Item {
                 height: 38
                 palette.button: Style.background_second
                 palette.buttonText : Style.content_main
-                icon.source: "qrc:/assets/icon-repeat-white.svg"
-                text: 'details'
+                icon.source: getActionButtonIcon(type)
+                text: getActionButtonLabel(type)
+
+                visible: getActionButtonLabel(type) != undefined
             }
         }
     } // ListView
 
     function getIconSource(notificationType) {
-        switch(notificationType)
-        {
-            case "active":
-                return "qrc:/assets/icon-notifications-active.svg";
-            case "community":
-                return "qrc:/assets/icon-notifications-community.svg";
-            case "events":
-                return "qrc:/assets/icon-notifications-events.svg";
-            case "expired":
-                return "qrc:/assets/icon-notifications-expired.svg";
-            case "failed":
-                return "qrc:/assets/icon-notifications-failed.svg";
-            case "hotnews":
-                return "qrc:/assets/icon-notifications-hotnews.svg";
-            case "inpress":
-                return "qrc:/assets/icon-notifications-inpress.svg";
-            case "newsletter":
-                return "qrc:/assets/icon-notifications-newsletter.svg";
-            case "received":
-                return "qrc:/assets/icon-notifications-received.svg";
-            case "sent":
-                return "qrc:/assets/icon-notifications-sent.svg";
-            case "update":
-                return "qrc:/assets/icon-notifications-update.svg";
-            case "videos":
-                return "qrc:/assets/icon-notifications-videos.svg";
-
-            default: return "";
-        }
+        return "qrc:/assets/icon-notifications-" + notificationType;
     }
+
+    function getActionButtonLabel(notificationType) {
+        //% "update now"
+        var updateLabel = qsTrId('notifications-update-now')
+
+        //% "activate"
+        var activateLabel = qsTrId('notifications-activate')
+
+        //% "details"
+        var detailsLabel = qsTrId('notifications-details')
+
+        var labels =
+        {
+            update: updateLabel,
+            expired: activateLabel,
+            received: detailsLabel,
+            sent: detailsLabel,
+            failed: detailsLabel
+        }
+
+        return labels[notificationType]
+    }
+
+    function getActionButtonIcon(notificationType) {
+        var updateIcon = 'qrc:/assets/icon-repeat-white.svg'
+
+        var icons =
+        {
+            update: updateIcon,
+            expired: updateIcon,
+            received: updateIcon,
+            sent: updateIcon,
+            failed: updateIcon
+        }
+
+        return icons[notificationType]
+    }
+
 } // Item
