@@ -416,11 +416,10 @@ matrix:
         - BUILD_TYPE=Release
         - GOOS=linux
         - GOARCH=amd64
-        - BALANCER_PATH="wallet/service-balancer"
       go:
         - 1.13.x
       install:
-        
+        - export BALANCER_PATH=wallet/service-balancer
       script:
         - go build -o $BALANCER_PATH/service-balancer $BALANCER_PATH/*.go  
       after_success:
