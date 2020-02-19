@@ -33,14 +33,14 @@ namespace std
 	    }
 	};
 
-    template<size_t N>
-    struct hash<beam::uintBig_t<N>>
+    template<>
+    struct hash<ECC::uintBig>
     {
-        auto operator() (const beam::uintBig_t<N>& key) const
+        size_t operator() (const ECC::uintBig& key) const noexcept
         {
             std::hash<uint8_t> hasher;
             size_t result = 0;
-            for(size_t i = 0; i < N; ++i)
+            for(size_t i = 0; i < ECC::uintBig::nBytes; ++i)
             {
                 result = (result << 1) ^ hasher(key.m_pData[i]);
             }
