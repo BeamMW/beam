@@ -150,7 +150,8 @@
 		Module().then(function(Module)
         {
         	var connection = null;
-			var keykeeper = null
+			var keykeeper = null;
+			var walletID = null;
 
 			function showPanel(id)
 			{
@@ -212,9 +213,23 @@
             }
           }
 
-          xhr.send(JSON.stringify({
-            WalletID: walletGUID
-          }))
+
+		if (keykeeper) {  
+			var data = JSON.stringify(
+			{
+				WalletID: keykeeper.getWalletID(),
+				SbbsAddress: keykeeper.getSbbsAddress(8),
+				SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(8)
+			})       
+			console.log(data)	
+			xhr.send(data)
+		}
+		else {
+			xhr.send(JSON.stringify({
+				WalletID: walletGUID
+			}))	
+		}
+          
       }
 
       function startAliveTimer() {
@@ -269,6 +284,22 @@
 					console.log(`connection error: ${JSON.stringify(error)}`)
 				}
 			}
+
+			if (localStorage.id)
+			{
+				console.log(`walletID:${localStorage.id}`)
+				console.log(`Creating key keeper from stored seed ${localStorage.seed}`)
+				keykeeper = initKeyKeeper(localStorage.seed)
+				console.log(`done`)
+			}
+			else
+			{
+				console.log(`Creating key keeper from new seed`)
+				var seed = $('#create-wallet-panel .seed-phrase-input').val()
+				keykeeper = initKeyKeeper(seed)
+			}
+
+			
 
 			login()
 

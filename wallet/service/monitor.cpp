@@ -485,7 +485,7 @@ int main(int argc, char* argv[])
         nnet.m_Cfg.m_vNodes.push_back(nodeAddress);
         nnet.Connect();
  
-        for (BbsChannel c = 0; c < 1024; ++c)
+        for (BbsChannel c = 0; c < proto::Bbs::s_MaxWalletChannels; ++c)
         {
             nnet.BbsSubscribe(c, getTimestamp(), &monitor);
         }
