@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "wallet/core/common.h"
 #include "wallet/core/wallet_network.h"
 #include "core/common.h"
-
-#include "wallet/core//common_utils.h"
+#include "wallet/core/common_utils.h"
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
