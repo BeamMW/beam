@@ -416,16 +416,48 @@ namespace beam
 	};
 #pragma pack (pop)
 
-	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const CoinID& cid, Key::IPKdf& tagKdf, bool bPublic /* = false */)
+	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const CoinID& cid, Key::IPKdf& tagKdf, OpCode::Enum eOp)
 	{
+		bool bUseCoinKdf = true;
+		switch (eOp)
+		{
+		case OpCode::Mpc_1:
+		case OpCode::Mpc_2:
+			bUseCoinKdf = false;
+			break;
+
+		default:
+			break; // suppress warning
+		}
+
+
 		CoinID::Worker wrk(cid);
-		wrk.Create(sk, m_Commitment, coinKdf);
+		if (bUseCoinKdf)
+			wrk.Create(sk, m_Commitment, coinKdf);
+		else
+		{
+			if (cid.m_AssetID)
+			{
+				// some non-trivial key is required for asset proof
+				ECC::Hash::Value hv;
+				cid.get_Hash(hv);
+				tagKdf.DerivePKey(sk, hv);
+			}
+		}
 
 		ECC::Scalar::Native skSign = sk;
 		if (cid.m_AssetID)
 		{
 			m_pAsset = std::make_unique<Asset::Proof>();
 			m_pAsset->Create(wrk.m_hGen, skSign, cid.m_Value, cid.m_AssetID, wrk.m_hGen);
+
+			if (!bUseCoinKdf)
+			{
+				// subtract the dummy key
+				sk = -sk;
+				skSign += sk;
+				sk = Zero;
+			}
 		}
 
 		ECC::Oracle oracle;
@@ -435,7 +467,7 @@ namespace beam
 		cp.m_Value = cid.m_Value;
 		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
-		if (bPublic || m_Coinbase)
+		if ((OpCode::Public == eOp) || m_Coinbase)
 		{
 			Key::ID::Packed kid;
 			cp.m_Blob.p = &kid;
@@ -454,8 +486,28 @@ namespace beam
 			kida.m_Kid = cid;
 			kida.m_AssetID = cid.m_AssetID;
 
-			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-			m_pConfidential->Create(skSign, cp, oracle, &wrk.m_hGen);
+			if (OpCode::Mpc_2 != eOp)
+				m_pConfidential.reset(new ECC::RangeProof::Confidential);
+			else
+				assert(m_pConfidential);
+
+			if (bUseCoinKdf)
+				m_pConfidential->Create(skSign, cp, oracle, &wrk.m_hGen);
+			else
+			{
+				ECC::RangeProof::Confidential::Nonces nonces; // not required, leave it zero (set in c'tor)
+
+				if (OpCode::Mpc_1 == eOp)
+				{
+					ZeroObject(m_pConfidential->m_Part2);
+					m_pConfidential->CoSign(nonces, skSign, cp, oracle, ECC::RangeProof::Confidential::Phase::Step2, &wrk.m_hGen); // stop after Part2
+				}
+				else
+				{
+					// by now Part2 and Part3 
+					m_pConfidential->CoSign(nonces, skSign, cp, oracle, ECC::RangeProof::Confidential::Phase::Finalize, &wrk.m_hGen);
+				}
+			}
 		}
 	}
 

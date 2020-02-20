@@ -718,7 +718,7 @@ namespace beam
 
 			Output::Ptr pOut(new Output);
 			pOut->m_Incubation = hIncubation;
-			pOut->Create(h + 1, k, *m_pKdf, utxo.m_Cid, *m_pKdf, bPublic);
+			pOut->Create(h + 1, k, *m_pKdf, utxo.m_Cid, *m_pKdf, bPublic ? Output::OpCode::Public : Output::OpCode::Standard);
 
 			tx.m_vOutputs.push_back(std::move(pOut));
 			UpdateOffset(tx, k, true);
