@@ -187,24 +187,9 @@ namespace
 
         static void writeToSyncPipe()
         {
-            if (auto pipe = fdopen(3, "w"))
-            {
-                const char listening[] = "LISTENING";
-                const auto wsize = sizeof(listening) - sizeof(listening[0]);
-                if (wsize != fwrite(listening, sizeof(listening[0]),wsize , pipe))
-                {
-                    LOG_WARNING() << "Failed to write sync pipe";
-                }
-                else
-                {
-                    LOG_INFO() << "Sync pipe: OK, " << listening << ", " << wsize << " bytes";
-                }
-                fclose(pipe);
-            }
-            else
-            {
-                LOG_WARNING() << "Failed to open sync pipe";
-            }
+            const int SuccessFD = 3;
+            Pipe pipe(SuccessFD);
+            pipe.notify("LISTENING");
         }
 
     private:

@@ -266,8 +266,6 @@ namespace beam::wallet
                 {
                     failEx(ec, "listen");
                 }
-
-
             }
 
             // Start accepting incoming connections
