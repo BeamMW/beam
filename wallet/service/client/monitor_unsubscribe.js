@@ -8,11 +8,10 @@ client.on('open', function open() {
 		{
 			jsonrpc: '2.0',
 			id: 123,
-			method: 'subscribe',
+			method: 'unsubscribe',
 			params: 
 			{
-				address: "1b9b12a58768fb181b9bea2a1d34d84da8a101d197cdbf4f8fd030fc24808f33450",
-				privateKey: "57e7f12544fc4a93e94780abaa84925e12b7d6cd1c8a904bd14aea41a8281940"
+				address: "1b9b12a58768fb181b9bea2a1d34d84da8a101d197cdbf4f8fd030fc24808f33450"				
 			}
 		}) + '\n');
 });
