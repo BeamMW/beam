@@ -164,6 +164,8 @@ void BeamCrypto_InitFast(BeamCrypto_MultiMac_Fast& trg, const ECC::MultiMac::Pre
 
 void InitContext()
 {
+	printf("Init context...\n");
+
 	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
 	assert(pCtx);
 
@@ -189,6 +191,8 @@ void InitContext()
 
 void TestMultiMac()
 {
+	printf("MultiMac...\n");
+
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
 
 	uint32_t aa = sizeof(BeamCrypto_MultiMac_Secure);
@@ -269,6 +273,8 @@ void TestMultiMac()
 
 void TestNonceGen()
 {
+	printf("NonceGen...\n");
+
 	static const char szSalt[] = "my_salt";
 
 	for (int i = 0; i < 3; i++)
@@ -295,6 +301,8 @@ void TestNonceGen()
 
 void TestOracle()
 {
+	printf("Oracle...\n");
+
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Oracle o1;
@@ -419,6 +427,8 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 
 void TestCoins()
 {
+	printf("Utxo key derivation and rangeproof...\n");
+
 	ECC::HKdf hkdf;
 	BeamCrypto_Kdf kdf2;
 
@@ -468,6 +478,8 @@ void TestCoins()
 
 void TestKdf()
 {
+	printf("Key derivation...\n");
+
 	ECC::HKdf hkdf;
 	BeamCrypto_Kdf kdf2;
 
@@ -509,6 +521,8 @@ void TestKdf()
 
 void TestSignature()
 {
+	printf("Signatures...\n");
+
 	for (int i = 0; i < 5; i++)
 	{
 		ECC::Hash::Value msg;
@@ -542,6 +556,8 @@ void TestSignature()
 
 void TestKrn()
 {
+	printf("Tx Kernels...\n");
+
 	for (int i = 0; i < 3; i++)
 	{
 		TxKernelStd krn1;
@@ -576,6 +592,8 @@ void TestKrn()
 
 void TestPKdfExport()
 {
+	printf("PKdf export...\n");
+
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Hash::Value hv;
@@ -1254,9 +1272,14 @@ void TestKeyKeeperTxs()
 
 	KeyKeeperWrap kkw(hv);
 
+	printf("Split tx...\n");
 	kkw.TestSplit();
+	printf("Receiver tx...\n");
 	kkw.TestRcv();
+	printf("Send tx...\n");
 	kkw.TestSend1();
+
+	printf("Mutual Snd-Rcv-Snd tx...\n");
 
 	// try a full with tx from both sides, each belongs to a different wallet
 	SetRandom(hv);
@@ -1282,6 +1305,7 @@ void TestKeyKeeperTxs()
 	mS.m_pKernel->m_Fee = 20; // net value transfer is 5 groth
 
 	verify_test(kkw.InvokeOnBoth(mS) == KeyKeeperHwEmu::Status::Success); // Sender Phase1
+	verify_test(mS.m_UserAgreement != Zero);
 
 	KeyKeeperWrap::Add(mR.m_vInputs, 6);
 	KeyKeeperWrap::Add(mR.m_vOutputs, 11);
@@ -1296,6 +1320,14 @@ void TestKeyKeeperTxs()
 	Transaction tx;
 	kkw2.ExportTx(tx, mR); // the receiver part
 
+	mS.m_UserAgreement.Negate(); // tamper with user approval token
+	verify_test(kkw.InvokeOnBoth(mS) != KeyKeeperHwEmu::Status::Success);
+
+	mS.m_UserAgreement.Negate();
+	mS.m_PaymentProofSignature.m_NoncePub.m_Y ^= 1; // tamper with payment proof signature
+	verify_test(kkw.InvokeOnBoth(mS) != KeyKeeperHwEmu::Status::Success);
+
+	mS.m_PaymentProofSignature.m_NoncePub.m_Y ^= 1;
 	verify_test(kkw.InvokeOnBoth(mS) == KeyKeeperHwEmu::Status::Success); // Send Phase2
 
 	kkw.ExportTx(tx, mS); // the sender part
@@ -1304,6 +1336,8 @@ void TestKeyKeeperTxs()
 	Transaction::Context ctx(pars);
 	ctx.m_Height.m_Min = mS.m_pKernel->m_Height.m_Min;
 	verify_test(tx.IsValid(ctx));
+
+	verify_test(kkw.InvokeOnBoth(mS) != KeyKeeperHwEmu::Status::Success); // Sender Phase2 can be called only once, the slot must have been invalidated
 }
 
 int main()
@@ -1323,6 +1357,8 @@ int main()
 	TestKrn();
 	TestPKdfExport();
 	TestKeyKeeperTxs();
+
+	printf("All done\n");
 
     return g_TestsFailed ? -1 : 0;
 }
