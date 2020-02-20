@@ -50,6 +50,7 @@
 #include "version.h"
 
 #include "keykeeper/wasm_key_keeper.h"
+#include "pipe.h"
 
 using json = nlohmann::json;
 
@@ -753,7 +754,6 @@ namespace
                 , ws_(std::move(socket))
                 , _newDataEvent(io::AsyncEvent::create(*reactor, [this]() { process_new_data(); }))
             {
-                
             }
 
             ~session()
@@ -968,12 +968,18 @@ namespace
                 , _walletMap(walletMap)
             {
                 boost::system::error_code ec;
+                Pipe pipe(3);
+
+                const auto failed = [&] (boost::system::error_code code, const std::string& message) {
+                     pipe.notifyFailed();
+                     fail(code, message.c_str());
+                };
 
                 // Open the acceptor
                 acceptor_.open(endpoint.protocol(), ec);
                 if(ec)
                 {
-                    fail(ec, "open");
+                    failed(ec, "open");
                     return;
                 }
 
@@ -981,7 +987,7 @@ namespace
                 acceptor_.set_option(boost::asio::socket_base::reuse_address(true), ec);
                 if(ec)
                 {
-                    fail(ec, "set_option");
+                    failed(ec, "set_option");
                     return;
                 }
 
@@ -989,36 +995,19 @@ namespace
                 acceptor_.bind(endpoint, ec);
                 if(ec)
                 {
-                    fail(ec, "bind");
+                    failed(ec, "bind");
                     return;
                 }
 
                 // Start listening for connections
-                acceptor_.listen(
-                    boost::asio::socket_base::max_listen_connections, ec);
+                acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
                 if(ec)
                 {
-                    fail(ec, "listen");
+                    failed(ec, "listen");
                     return;
                 }
-                //if (auto pipe = fdopen(3, "w"))
-                //{
-                //    const char listening[] = "LISTENING";
-                //    const auto wsize = sizeof(listening) - sizeof(listening[0]);
-                //    if (wsize != fwrite(listening, sizeof(listening[0]),wsize , pipe))
-                //    {
-                //        LOG_WARNING() << "Failed to write sync pipe";
-                //    }
-                //    else
-                //    {
-                //        LOG_INFO() << "Sync pipe: OK, " << listening << ", " << wsize << " bytes";
-                //    }
-                //    fclose(pipe);
-                //}
-                //else
-                //{
-                //    LOG_WARNING() << "Failed to open sync pipe";
-                //}
+
+                pipe.notify("LISTENING");
             }
 
             // Start accepting incoming connections

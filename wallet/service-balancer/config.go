@@ -18,6 +18,7 @@ type Config struct {
 	ServiceFirstPort     int
 	SerivcePublicAddress string
 	ListenAddress        string
+	Debug				 bool
 }
 
 var config = Config{}
@@ -33,7 +34,7 @@ func (cfg* Config) Read(fname string) error {
 		return err
 	}
 
-	log.Println("Reading configuration from", fpath)
+	log.Println("reading configuration from", fpath)
 
 	file, err := os.Open(fname)
 	if err != nil {
@@ -68,6 +69,12 @@ func (cfg* Config) Read(fname string) error {
 	if len(cfg.SerivcePublicAddress) == 0 {
 		return errors.New("config, missing public address")
 	}
+
+	var mode = "RELEASE"
+	if cfg.Debug {
+		mode = "DEBUG"
+	}
+	log.Printf("starting in %v mode", mode)
 
 	return nil
 }

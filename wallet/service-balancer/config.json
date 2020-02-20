@@ -3,5 +3,6 @@
   "ServicePath":          "/home/op/projects/beam-assets/cmake-build-debug/wallet/service/wallet-service-masternet",
   "ServiceFirstPort":     30000,
   "SerivcePublicAddress": "127.0.0.1",
-  "ListenAddress":        ":20000"
+  "ListenAddress":        ":20000",
+  "Debug":                true
 }
