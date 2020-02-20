@@ -508,6 +508,9 @@ void BeamCrypto_FlexPoint_MakeCompact(BeamCrypto_FlexPoint* pFlex)
 		memset(&pFlex->m_Compact, 0, sizeof(pFlex->m_Compact));
 	else
 	{
+		secp256k1_fe_normalize(&pFlex->m_Ge.x);
+		secp256k1_fe_normalize(&pFlex->m_Ge.y);
+
 		secp256k1_fe_get_b32(pFlex->m_Compact.m_X.m_pVal, &pFlex->m_Ge.x);
 		pFlex->m_Compact.m_Y = (secp256k1_fe_is_odd(&pFlex->m_Ge.y) != 0);
 	}
