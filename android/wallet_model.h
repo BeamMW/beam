@@ -59,5 +59,5 @@ private:
     void onPostFunctionToClientContext(MessageFunction&& func) override {};
     void onExportTxHistoryToCsv(const std::string& data) override {};
     void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
-    void onExchangeRates(const ExchangeRates&) override {};
+    void onExchangeRates(const beam::wallet::ExchangeRates&) override {};
 };

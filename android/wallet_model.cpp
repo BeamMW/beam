@@ -424,7 +424,7 @@ void WalletModel::onExportDataToJson(const std::string& data)
     env->DeleteLocalRef(jdata);
 }
 
-void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>& notifications)
+void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>& notifications)
 {
     LOG_DEBUG() << "onNotificationsChanged";
 
