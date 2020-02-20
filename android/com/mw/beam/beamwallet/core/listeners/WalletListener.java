@@ -271,41 +271,11 @@ public class WalletListener
 		System.out.println("versionRevision: " + notificationInfo.versionRevision);
     }
 
-	static void onExchangeRates(int action, NotificationDTO notificationInfo, ExchangeRateDTO[] rates)
+	static void onExchangeRates(ExchangeRateDTO[] rates, long timeStamp)
     {
         System.out.println(">>>>>>>>>>>>>> async onExchangeRates in Java");
-		switch(action)
-		{
-			case 0://Added: 
-				System.out.println("onExchangeRates [ADDED]");
-				break;
-			case 1://Removed: 
-				System.out.println("onExchangeRates [REMOVED]");
-				break;
-			case 2://Updated: 
-				System.out.println("onExchangeRates [UPDATED]");
-				break;
-			case 3://Reset:
-				System.out.println("onExchangeRates [RESET]");
-				break;
-		}
-		System.out.println("Id: " + notificationInfo.id);
-
-		String stateString;
-		switch(notificationInfo.state)
-		{
-			case 0:
-				stateString = "Unread";
-				break;
-			case 1: 
-				stateString = "Read";
-				break;
-			case 2: 
-				stateString = "Deleted";
-				break;
-		}
-		System.out.println("State: " + stateString);
-		System.out.println("CreateTime: " + notificationInfo.createTime);
+		
+		System.out.println("Timestamp: " + notificationInfo.createTime);
 
 		if(rates != null)
 		{

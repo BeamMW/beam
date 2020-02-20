@@ -33,7 +33,7 @@ namespace
         {
             utxos = env->NewObjectArray(static_cast<jsize>(utxosVec.size()), UtxoClass, NULL);
 
-            for (int i = 0; i < utxosVec.size(); ++i)
+            for (size_t i = 0; i < utxosVec.size(); ++i)
             {
                 const auto& coin = utxosVec[i];
 
@@ -70,7 +70,7 @@ namespace
         {
             addrArray = env->NewObjectArray(static_cast<jsize>(addresses.size()), WalletAddressClass, NULL);
 
-            for (int i = 0; i < addresses.size(); ++i)
+            for (size_t i = 0; i < addresses.size(); ++i)
             {
                 const auto& addrRef = addresses[i];
 
@@ -91,6 +91,34 @@ namespace
             }
         }
         return addrArray;
+    }
+
+    jobjectArray convertExchangeRatesToJObject(JNIEnv* env, const ExchangeRates& rates)
+    {
+        jobjectArray ratesArray = 0;
+
+        if (!rates.m_rates.empty())
+        {
+            ratesArray = env->NewObjectArray(static_cast<jsize>(rates.m_rates.size()), ExchangeRateClass, NULL);
+
+            for (size_t i = 0; i < rates.m_rates.size(); ++i)
+            {
+                const auto& rateRef = rates.m_rates[i];
+
+                jobject rate = env->AllocObject(ExchangeRateClass);
+
+                {
+                    setIntField(env, ExchangeRateClass, rate, "currency", underlying_cast(rateRef.m_currency));
+                    setLongField(env, ExchangeRateClass, rate, "amount", rateRef.m_rate);
+                    setIntField(env, ExchangeRateClass, rate, "unit", underlying_cast(rateRef.m_unit));
+                }
+
+                env->SetObjectArrayElement(ratesArray, i, rate);
+
+                env->DeleteLocalRef(rate);
+            }
+        }
+        return ratesArray;
     }
 }
 
@@ -149,7 +177,7 @@ void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescriptio
     {
         txItems = env->NewObjectArray(static_cast<jsize>(items.size()), TxDescriptionClass, NULL);
 
-        for (int i = 0; i < items.size(); ++i)
+        for (size_t i = 0; i < items.size(); ++i)
         {
             const auto& item = items[i];
 
@@ -310,13 +338,13 @@ void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 
 void WalletModel::onWalletError(ErrorType error)
 {
-    LOG_DEBUG() << "onWalletError: error = " << static_cast<int>(error);
+    LOG_DEBUG() << "onWalletError: error = " << underlying_cast(error);
 
     JNIEnv* env = Android_JNI_getEnv();
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeConnectionFailed", "(I)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, static_cast<int>(error));
+    env->CallStaticVoidMethod(WalletListenerClass, callback, underlying_cast(error));
 }
 
 void WalletModel::FailedToStartWallet()
@@ -452,12 +480,27 @@ void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, cons
                 setLongField(env, VersionInfoClass, jVersionInfo, "versionRevision", versionInfo.m_version.m_revision);
             }
 
-            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNewVersionNotification", "(L" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO;)V");
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNewVersionNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO;)V");
 
-            env->CallStaticVoidMethod(WalletListenerClass, callback, jNotificationInfo, jVersionInfo);
+            env->CallStaticVoidMethod(WalletListenerClass, callback, action, jNotificationInfo, jVersionInfo);
 
             env->DeleteLocalRef(jNotificationInfo);
             env->DeleteLocalRef(jVersionInfo);
         }
     }
+}
+
+void WalletModel::onExchangeRates(const beam::wallet::ExchangeRates& rates)
+{
+    LOG_DEBUG() << "onExchangeRates";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jobjectArray jRates = convertExchangeRatesToJObject(env, rates);
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onExchangeRates", "(J[L" BEAM_JAVA_PATH "/entities/dto/ExchangeRateDTO;)V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, rates.m_ts, jRates);
+
+    env->DeleteLocalRef(jRates);
 }
