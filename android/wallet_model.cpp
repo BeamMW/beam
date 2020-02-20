@@ -423,3 +423,14 @@ void WalletModel::onExportDataToJson(const std::string& data)
     env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
     env->DeleteLocalRef(jdata);
 }
+
+void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&)
+{
+    LOG_DEBUG() << "onNotificationsChanged";
+
+    // JNIEnv* env = Android_JNI_getEnv();
+
+    // jmethodID callback = env->GetStaticMethodID(WalletListenerClass, ""
+
+    // env->CallStaticVoidMethod(WalletListenerClass, callback
+}

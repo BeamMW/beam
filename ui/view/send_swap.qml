@@ -134,7 +134,7 @@ please review your settings and try again"
                         id:               sendAmountInput
                         hasFee:           true
                         currFeeTitle:     true
-                        amount:           viewModel.sendAmount
+                        amountIn:         viewModel.sendAmount
                         currency:         viewModel.sendCurrency
                         readOnlyA:        true
                         multi:            false
@@ -215,7 +215,7 @@ please review your settings and try again"
                         id:               receiveAmountInput
                         hasFee:           true
                         currFeeTitle:     true
-                        amount:           viewModel.receiveAmount
+                        amountIn:         viewModel.receiveAmount
                         currency:         viewModel.receiveCurrency
                         readOnlyA:        true
                         multi:            false

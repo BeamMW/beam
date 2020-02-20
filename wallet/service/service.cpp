@@ -31,19 +31,12 @@
 #include "utility/string_helpers.h"
 #include "utility/log_rotation.h"
 
-#include "p2p/line_protocol.h"
-
 #include "wallet/api/api_connection.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
 
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/asio/bind_executor.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 
 #include "nlohmann/json.hpp"
@@ -52,6 +45,8 @@
 #include "keykeeper/wasm_key_keeper.h"
 #include "pipe.h"
 
+#include "websocket_server.h"
+
 using json = nlohmann::json;
 
 static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
@@ -59,9 +54,6 @@ static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 
 using namespace beam;
 using namespace beam::wallet;
-using tcp = boost::asio::ip::tcp;               // from <boost/asio/ip/tcp.hpp>
-
-namespace websocket = boost::beast::websocket;  // from <boost/beast/websocket.hpp>
 
 namespace beam::wallet
 {
@@ -179,37 +171,40 @@ namespace
         LOG_ERROR() << what << ": " << ec.message();
     }
 
-    class WalletApiServer
+    class WalletApiServer : public WebSocketServer
     {
     public:
+
         WalletApiServer(io::Reactor::Ptr reactor, uint16_t port)
-            : _ioc{1}
-            , _reactor(reactor)
+            : WebSocketServer(reactor, port, 
+                [this, reactor](auto&& func)
+                { return std::make_unique<ServiceApiConnection>(func, reactor, _walletMap); },
+                []() { WalletApiServer::writeToSyncPipe(); }
+            )
         {
-            start(port);
         }
-
-        ~WalletApiServer()
-        {
-            stop();
-        }
-
     private:
 
-        void start(uint16_t port)
+        static void writeToSyncPipe()
         {
-            _iocThread = std::make_shared<std::thread>([this](auto port) {iocThreadFunc(port); }, port);
-        }
-
-        void iocThreadFunc(uint16_t port)
-        {
-            std::make_shared<listener>(_ioc, tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port }, _reactor, _walletMap)->run();
-            _ioc.run();
-        }
-
-        void stop()
-        {
-            _ioc.stop();
+            if (auto pipe = fdopen(3, "w"))
+            {
+                const char listening[] = "LISTENING";
+                const auto wsize = sizeof(listening) - sizeof(listening[0]);
+                if (wsize != fwrite(listening, sizeof(listening[0]),wsize , pipe))
+                {
+                    LOG_WARNING() << "Failed to write sync pipe";
+                }
+                else
+                {
+                    LOG_INFO() << "Sync pipe: OK, " << listening << ", " << wsize << " bytes";
+                }
+                fclose(pipe);
+            }
+            else
+            {
+                LOG_WARNING() << "Failed to open sync pipe";
+            }
         }
 
     private:
@@ -490,16 +485,18 @@ namespace
         class ServiceApiConnection 
             : public IWalletServiceApiHandler
             , private ApiConnection::IWalletData
+            , public WebSocketServer::IHandler
+            , public IApiConnectionHandler
         {
         public:
-            ServiceApiConnection(IApiConnectionHandler* handler, io::Reactor::Ptr reactor, WalletMap& walletMap)
-                : _apiConnection(handler, *this, boost::none)
-                , _handler(handler)
+            ServiceApiConnection(WebSocketServer::SendMessageFunc sendFunc, io::Reactor::Ptr reactor, WalletMap& walletMap)
+                : _apiConnection(this, *this, boost::none)
+                , _sendFunc(sendFunc)
                 , _reactor(reactor)
                 , _api(*this)
                 , _walletMap(walletMap)
             {
-                
+                assert(_sendFunc);
             }
 
             virtual ~ServiceApiConnection()
@@ -526,12 +523,44 @@ namespace
             }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-            void serializeMsg(const json& msg)
+            void serializeMsg(const json& msg) 
             {
-                _handler->serializeMsg(msg);
+                _sendFunc(msg.dump());
             }
 
-            void onInvalidJsonRpc(const json& msg) override
+            void sendAsync(const json& msg, KeyKeeperFunc func)
+            {
+                _keeperCallbacks.push(std::move(func));
+                serializeMsg(msg);
+            }
+
+            void processData(const std::string& data) override
+            {
+                try
+                {
+                    json msg = json::parse(data.c_str(), data.c_str() + data.size());
+
+                    if (WalletApi::existsJsonParam(msg, "result"))
+                    {
+                        if (_keeperCallbacks.empty())
+                            return;
+
+                        _keeperCallbacks.front()(msg["result"]);
+                        _keeperCallbacks.pop();
+                    }
+                    else
+                    {
+                        // !TODO: don't forget to cache this request
+                        _api.parse(data.c_str(), data.size());
+                    }
+                }
+                catch (const nlohmann::detail::exception & e)
+                {
+                    LOG_ERROR() << "json parse: " << e.what() << "\n";
+                }
+            }
+
+            void onInvalidJsonRpc(const json& msg)
             {
                 _apiConnection.onInvalidJsonRpc(msg);
             }
@@ -660,11 +689,13 @@ namespace
 
             void onMessage(const JsonRpcId& id, const wallet::Ping& data) override
             {
+                LOG_DEBUG() << "Ping(id = " << id << ")";
                 doResponse(id, wallet::Ping::Response{});
             }
 
             void onMessage(const JsonRpcId& id, const Release& data) override
             {
+                LOG_DEBUG() << "Release(id = " << id << ")";
                 doResponse(id, Release::Response{});
             }
 
@@ -693,7 +724,7 @@ namespace
                 return to_hex(buf.data(), buf.size());
             }
 
-            IPrivateKeyKeeper2::Ptr createKeyKeeper(const std::string& pass, const std::string& ownerKey) const
+            IPrivateKeyKeeper2::Ptr createKeyKeeper(const std::string& pass, const std::string& ownerKey)
             {
                 beam::KeyString ks;
 
@@ -709,349 +740,29 @@ namespace
                 return {};
             }
 
-            IPrivateKeyKeeper2::Ptr createKeyKeeperFromDB(const std::string& id, const std::string& pass) const
+            IPrivateKeyKeeper2::Ptr createKeyKeeperFromDB(const std::string& id, const std::string& pass)
             {
                 auto walletDB = WalletDB::open(id + ".db", SecString(pass));
                 Key::IPKdf::Ptr pKey = walletDB->get_OwnerKdf();
                 return createKeyKeeper(pKey);
             }
 
-            IPrivateKeyKeeper2::Ptr createKeyKeeper(Key::IPKdf::Ptr ownerKdf) const
+            IPrivateKeyKeeper2::Ptr createKeyKeeper(Key::IPKdf::Ptr ownerKdf)
             {
-                return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, *_handler, _reactor);
+                return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, *this, _reactor);
             }
 
         protected:
             MyApiConnection _apiConnection;
-            IApiConnectionHandler* _handler;
+            WebSocketServer::SendMessageFunc _sendFunc;
             io::Reactor::Ptr _reactor;
-
+            std::queue<KeyKeeperFunc> _keeperCallbacks;
             IWalletDB::Ptr _walletDB;
             Wallet::Ptr _wallet;
             WalletServiceApi _api;
             WalletMap& _walletMap;
         };
 
-        class session : 
-            public std::enable_shared_from_this<session>, 
-            public ServiceApiConnection, 
-            public IApiConnectionHandler
-        {
-            websocket::stream<tcp::socket> ws_;
-            boost::beast::multi_buffer buffer_;
-            io::AsyncEvent::Ptr _newDataEvent;
-            std::mutex _queueMutex;
-            std::queue<std::string> _dataQueue;
-            
-            std::queue<KeyKeeperFunc> _keeperCallbacks;
-            std::queue<std::string> _writeQueue;
-
-        public:
-            // Take ownership of the socket
-            explicit
-            session(tcp::socket socket, io::Reactor::Ptr reactor, WalletMap& walletMap)
-                : ServiceApiConnection(this, reactor, walletMap)
-                , ws_(std::move(socket))
-                , _newDataEvent(io::AsyncEvent::create(*reactor, [this]() { process_new_data(); }))
-            {
-            }
-
-            ~session()
-            {
-                LOG_DEBUG() << "session destroyed.";
-            }
-
-            // Start the asynchronous operation
-            void
-            run()
-            {
-                // Accept the websocket handshake
-                ws_.async_accept(
-                    boost::asio::bind_executor(
-                        ws_.get_executor(),
-                        std::bind(
-                            &session::on_accept,
-                            shared_from_this(),
-                            std::placeholders::_1)));
-            }
-
-            void
-            on_accept(boost::system::error_code ec)
-            {
-                if(ec)
-                    return fail(ec, "accept");
-
-                // Read a message
-                do_read();
-            }
-
-            void
-            do_read()
-            {
-                // Read a message into our buffer
-                ws_.async_read(
-                    buffer_,
-                    [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
-                {
-                    sp->on_read(ec, bytes);
-                });
-            }
-
-            void
-            on_read(
-                boost::system::error_code ec,
-                std::size_t bytes_transferred)
-            {
-                boost::ignore_unused(bytes_transferred);
-
-                // This indicates that the session was closed
-                if(ec == websocket::error::closed)
-                    return;
-
-                if(ec)
-                    return fail(ec, "read");
-
-                {
-                    std::ostringstream os;
-
-# if (BOOST_VERSION/100 % 1000) >= 70
-                    os << boost::beast::make_printable(buffer_.data());
-# else
-                    os << boost::beast::buffers(buffer_.data());
-# endif
-                    buffer_.consume(buffer_.size());
-                    auto data = os.str();
-                    
-                    if(data.size())
-                    {
-                       // LOG_DEBUG() << "data from a client:" << data;
-                    
-                        process_data_async(std::move(data));
-                    }
-                }
-
-                do_read();
-            }
-
-            void
-            on_write(
-                boost::system::error_code ec,
-                std::size_t bytes_transferred)
-            {
-                boost::ignore_unused(bytes_transferred);
-
-                if(ec)
-                    return fail(ec, "write");
-
-                std::string* contents = nullptr;
-                {
-                    std::unique_lock<std::mutex> lock(_queueMutex);
-                    _writeQueue.pop();
-                    if (!_writeQueue.empty())
-                    {
-                        contents = &_writeQueue.front();
-                    }
-                }
-
-                if (contents)
-                {
-                    ws_.async_write(
-                        boost::asio::buffer(*contents),
-                        [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
-                    {
-                        sp->on_write(ec, bytes);
-                    });
-                }
-            }
-
-
-            void serializeMsg(const json& msg) override
-            {
-                do_write_json(msg);
-            }
-
-            void sendAsync(const json& msg, KeyKeeperFunc func) override
-            {
-                do_write_json(msg, func);
-            }
-
-            void do_write_json(const json& msg, KeyKeeperFunc func = {})
-            {
-                std::string* contents = nullptr;
-                {
-                    std::unique_lock<std::mutex> lock(_queueMutex);
-                    if (func)
-                    {
-                        _keeperCallbacks.push(std::move(func));
-                    }
-                    _writeQueue.push(msg.dump());
-
-                    if (_writeQueue.size() > 1)
-                        return;
-
-                    contents = &_writeQueue.front();
-                }
-
-                ws_.async_write(
-                    boost::asio::buffer(*contents),
-                    [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
-                    {
-                        sp->on_write(ec, bytes);
-                    });
-            }
-
-            void process_new_data()
-            {
-                while (!_dataQueue.empty())
-                {
-                    std::string data;
-                    {
-                        std::unique_lock<std::mutex> lock(_queueMutex);
-                        data = _dataQueue.front();
-                        _dataQueue.pop();
-                    }
-
-                    process_data(data);
-                }
-            }
-
-            void process_data_async(std::string&& data)
-            {
-                {
-                    std::unique_lock<std::mutex> lock(_queueMutex);
-                    _dataQueue.push(std::move(data));
-                }
-                _newDataEvent->post();
-            }
-
-            void process_data(const std::string& data)
-            {
-                try
-                {
-                    json msg = json::parse(data.c_str(), data.c_str() + data.size());
-
-                    if (WalletApi::existsJsonParam(msg, "result"))
-                    {
-                        if (_keeperCallbacks.empty())
-                            return;
-
-                        _keeperCallbacks.front()(msg["result"]);
-                        _keeperCallbacks.pop();
-                    }
-                    else
-                    {
-                        // !TODO: don't forget to cache this request
-                        _api.parse(data.c_str(), data.size());
-                    }
-                }
-                catch (const nlohmann::detail::exception & e)
-                {
-                    LOG_ERROR() << "json parse: " << e.what() << "\n";
-                }
-            }
-        };
-
-        // Accepts incoming connections and launches the sessions
-        class listener : public std::enable_shared_from_this<listener>
-        {
-            tcp::acceptor acceptor_;
-            tcp::socket socket_;
-            io::Reactor::Ptr _reactor;
-            WalletMap _walletMap;
-
-        public:
-            listener(boost::asio::io_context& ioc,
-                tcp::endpoint endpoint, io::Reactor::Ptr reactor, WalletMap& walletMap)
-                : acceptor_(ioc)
-                , socket_(ioc)
-                , _reactor(reactor)
-                , _walletMap(walletMap)
-            {
-                boost::system::error_code ec;
-                Pipe pipe(3);
-
-                const auto failed = [&] (boost::system::error_code code, const std::string& message) {
-                     pipe.notifyFailed();
-                     fail(code, message.c_str());
-                };
-
-                // Open the acceptor
-                acceptor_.open(endpoint.protocol(), ec);
-                if(ec)
-                {
-                    failed(ec, "open");
-                    return;
-                }
-
-                // Allow address reuse
-                acceptor_.set_option(boost::asio::socket_base::reuse_address(true), ec);
-                if(ec)
-                {
-                    failed(ec, "set_option");
-                    return;
-                }
-
-                // Bind to the server address
-                acceptor_.bind(endpoint, ec);
-                if(ec)
-                {
-                    failed(ec, "bind");
-                    return;
-                }
-
-                // Start listening for connections
-                acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
-                if(ec)
-                {
-                    failed(ec, "listen");
-                    return;
-                }
-
-                pipe.notify("LISTENING");
-            }
-
-            // Start accepting incoming connections
-            void
-            run()
-            {
-                if(! acceptor_.is_open())
-                    return;
-                do_accept();
-            }
-
-            void
-            do_accept()
-            {
-                acceptor_.async_accept(
-                    socket_,
-                    std::bind(
-                        &listener::on_accept,
-                        shared_from_this(),
-                        std::placeholders::_1));
-            }
-
-            void
-            on_accept(boost::system::error_code ec)
-            {
-                if(ec)
-                {
-                    fail(ec, "accept");
-                }
-                else
-                {
-                    // Create the session and run it
-                    auto s = std::make_shared<session>(std::move(socket_), _reactor, _walletMap);
-                    s->run();
-                }
-
-                // Accept another connection
-                do_accept();
-            }
-        };
-
-        boost::asio::io_context _ioc;
-        std::shared_ptr<std::thread> _iocThread;
-        io::Reactor::Ptr _reactor;
     };
 }
 

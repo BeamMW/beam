@@ -416,15 +416,17 @@ matrix:
         - BUILD_TYPE=Release
         - GOOS=linux
         - GOARCH=amd64
-        - BALANCER_PATH="wallet/service-balancer"
       go:
         - 1.13.x
       install:
-        
+        - export BALANCER_PATH=wallet/service-balancer
       script:
-        - go build -o $BALANCER_PATH/service-balancer $BALANCER_PATH/*.go  
+        - go build -o $BALANCER_PATH/balancer $BALANCER_PATH/*.go  
       after_success:
-        - tar -cvzf service-balancer.tar.gz --directory=$HOME/build/BeamMW/beam/$BALANCER_PATH service-balancer config.json
+        - cd $BALANCER_PATH
+        - ls
+        - cd $HOME/build/BeamMW/beam/
+        - tar -cvzf service-balancer.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/service-balancer/ main.go balancer  config.json
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE
         - curl --retry 3 --ftp-create-dirs -T service-balancer.tar.gz $BUILDS_SERVER_PATH/
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE/" service-balancer.tar.gz

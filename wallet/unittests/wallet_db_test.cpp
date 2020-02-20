@@ -1315,8 +1315,8 @@ void TestNotifications()
         Notification n1 = {
             id,
             Notification::Type::SoftwareUpdateAvailable,
+            Notification::State::Unread,
             getTimestamp(),
-            false,
             toByteBuffer("notification1")
         };
         db->saveNotification(n1);
@@ -1328,13 +1328,13 @@ void TestNotifications()
         WALLET_CHECK(list[0].m_ID == n1.m_ID);
         WALLET_CHECK(list[0].m_type == n1.m_type);
         WALLET_CHECK(list[0].m_createTime == n1.m_createTime);
-        WALLET_CHECK(list[0].m_read == n1.m_read);
+        WALLET_CHECK(list[0].m_state == n1.m_state);
         WALLET_CHECK(list[0].m_content == n1.m_content);
 
         // update notification
         n1.m_type = Notification::Type::BeamNews;
-        n1.m_createTime = getTimestamp();
-        n1.m_read = true;
+        n1.m_createTime = 123456;
+        n1.m_state = Notification::State::Read;
         n1.m_content = toByteBuffer("notification1changed");
         db->saveNotification(n1);
 
@@ -1343,7 +1343,7 @@ void TestNotifications()
         WALLET_CHECK(list[0].m_ID == n1.m_ID);
         WALLET_CHECK(list[0].m_type == n1.m_type);
         WALLET_CHECK(list[0].m_createTime == n1.m_createTime);
-        WALLET_CHECK(list[0].m_read == n1.m_read);
+        WALLET_CHECK(list[0].m_state == n1.m_state);
         WALLET_CHECK(list[0].m_content == n1.m_content);
 
         // add one notification
@@ -1351,24 +1351,24 @@ void TestNotifications()
         Notification n2 = {
             id,
             Notification::Type::AddressStatusChanged,
-            getTimestamp(),
-            false,
+            Notification::State::Unread,
+            789123,
             toByteBuffer("notification2")
         };
         db->saveNotification(n2);
 
         list = db->getNotifications();
         WALLET_CHECK(list.size() == 2);
-        // WALLET_CHECK(list[0].m_ID == n2.m_ID);
-        // WALLET_CHECK(list[0].m_type == n2.m_type);
-        // WALLET_CHECK(list[0].m_createTime == n2.m_createTime);
-        // WALLET_CHECK(list[0].m_read == n2.m_read);
-        // WALLET_CHECK(list[0].m_content == n2.m_content);
-        // WALLET_CHECK(list[1].m_ID == n1.m_ID);
-        // WALLET_CHECK(list[1].m_type == n1.m_type);
-        // WALLET_CHECK(list[1].m_createTime == n1.m_createTime);
-        // WALLET_CHECK(list[1].m_read == n1.m_read);
-        // WALLET_CHECK(list[1].m_content == n1.m_content);
+        WALLET_CHECK(list[0].m_ID == n2.m_ID);
+        WALLET_CHECK(list[0].m_type == n2.m_type);
+        WALLET_CHECK(list[0].m_createTime == n2.m_createTime);
+        WALLET_CHECK(list[0].m_state == n2.m_state);
+        WALLET_CHECK(list[0].m_content == n2.m_content);
+        WALLET_CHECK(list[1].m_ID == n1.m_ID);
+        WALLET_CHECK(list[1].m_type == n1.m_type);
+        WALLET_CHECK(list[1].m_createTime == n1.m_createTime);
+        WALLET_CHECK(list[1].m_state == n1.m_state);
+        WALLET_CHECK(list[1].m_content == n1.m_content);
     }
 }
 
@@ -1386,21 +1386,21 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    // TestWalletDataBase();
-    // TestStoreCoins();
-    // TestStoreTxRecord();
-    // TestTxRollback();
-    // TestUTXORollback();
-    // TestSelect();
-    // TestSelect2();
-    // TestSelect3();
-    // TestSelect4();
-    // TestSelect5();
-    // TestSelect6();
-    // TestAddresses();
-    // TestExportImportTx();
-    // TestTxParameters();
-    // TestWalletMessages();
+    TestWalletDataBase();
+    TestStoreCoins();
+    TestStoreTxRecord();
+    TestTxRollback();
+    TestUTXORollback();
+    TestSelect();
+    TestSelect2();
+    TestSelect3();
+    TestSelect4();
+    TestSelect5();
+    TestSelect6();
+    TestAddresses();
+    TestExportImportTx();
+    TestTxParameters();
+    TestWalletMessages();
     TestNotifications();
 
     return WALLET_CHECK_RESULT;

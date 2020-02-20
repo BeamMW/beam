@@ -12,11 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "model/app_model.h"
-#include "notifications_view.h"
+#pragma once
 
-NotificationsViewModel::NotificationsViewModel()
-    : m_walletModel{*AppModel::getInstance().getWallet()}
+#include "notification.h"
+#include "wallet/core/wallet_db.h"  // ChangeAction type
+
+namespace beam::wallet
 {
-    // signals connecting
-}
+    /**
+     *  Interface for notifications observers.
+     */
+    struct INotificationsObserver
+    {
+        virtual void onNotificationsChanged(ChangeAction action, const std::vector<Notification>&) = 0;
+    };
+    
+} // namespace beam::wallet

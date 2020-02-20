@@ -886,17 +886,6 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
 
         if (storage::isMyAddress(myAddresses, *peerId))
             throw FailToAcceptOwnOffer();
-
-        auto wid = createWID(walletDB.get(), data.comment);
-        offer = SwapOffer(*txParams);
-        offer.SetParameter(TxParameterID::MyID, wid);
-        if (!data.comment.empty())
-        {
-            offer.SetParameter(
-                TxParameterID::Message,
-                beam::ByteBuffer(data.comment.begin(),
-                                 data.comment.end()));
-        }
     }
 
     if (!checkAcceptableTxParams(offer, data))
@@ -918,11 +907,21 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
             throw std::runtime_error(kNotEnoughtFundsError);
     }
 
+    auto wid = createWID(walletDB.get(), data.comment);
+    offer = SwapOffer(*txParams);
+    offer.SetParameter(TxParameterID::MyID, wid);
+    if (!data.comment.empty())
+    {
+        offer.SetParameter(TxParameterID::Message,
+                           beam::ByteBuffer(data.comment.begin(),
+                                            data.comment.end()));
+    }
+
     FillSwapFee(
         &offer,
         data.beamFee,
         data.swapFeeRate,
-        offer.isBeamSide());
+        data.isBeamSide);
 
     _walletData.getWallet().StartTransaction(offer);
     offer.m_status = SwapOfferStatus::InProgress;

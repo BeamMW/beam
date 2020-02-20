@@ -14,6 +14,7 @@
 
 #include "monitor.h"
 
+#include "websocket_server.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/default_peers.h"
 #include "utility/logger.h"
@@ -22,8 +23,10 @@
 #include "version.h"
 
 #include <memory>
+#include <unordered_map>
 #include <boost/filesystem.hpp>
-#include <boost/format.hpp>
+#include <boost/intrusive/set.hpp>
+
 
 using namespace beam;
 
@@ -32,7 +35,12 @@ namespace beam::wallet
     SbbsMonitorApi::SbbsMonitorApi(ISbbsMonitorApiHandler& handler, ACL acl)
         : Api(handler, acl)
     {
+#define REG_FUNC(api, name, writeAccess) \
+        _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
 
+        WALLET_MONITOR_API_METHODS(REG_FUNC)
+
+#undef REG_FUNC
     }
 
     ISbbsMonitorApiHandler& SbbsMonitorApi::getHandler() const
@@ -40,7 +48,7 @@ namespace beam::wallet
         return static_cast<ISbbsMonitorApiHandler&>(_handler);
     }
 
-    void SbbsMonitorApi::getResponse(const JsonRpcId& id, const ListenAddress::Response& data, json& msg)
+    void SbbsMonitorApi::getResponse(const JsonRpcId& id, const Subscribe::Response& data, json& msg)
     {
         msg = json
         {
@@ -50,7 +58,7 @@ namespace beam::wallet
         };
     }
 
-    void SbbsMonitorApi::getResponse(const JsonRpcId& id, const RevokeAddress::Response& data, json& msg)
+    void SbbsMonitorApi::getResponse(const JsonRpcId& id, const UnSubscribe::Response& data, json& msg)
     {
         msg = json
         {
@@ -60,9 +68,9 @@ namespace beam::wallet
         };
     }
 
-    void SbbsMonitorApi::onListenAddressMessage(const JsonRpcId& id, const json& msg)
+    void SbbsMonitorApi::onSubscribeMessage(const JsonRpcId& id, const json& msg)
     {
-        ListenAddress message;
+        Subscribe message;
 
         if (existsJsonParam(msg, "address"))
         {
@@ -84,14 +92,14 @@ namespace beam::wallet
                 throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "invalid private key", id };
             }
         }
-        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'id' parameter must be specified.", id };
+        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'privateKey' parameter must be specified.", id };
 
         getHandler().onMessage(id, message);
     }
 
-    void SbbsMonitorApi::onRevokeAddressMessage(const JsonRpcId& id, const json& msg)
+    void SbbsMonitorApi::onUnSubscribeMessage(const JsonRpcId& id, const json& msg)
     {
-        RevokeAddress message;
+        UnSubscribe message;
 
         if (existsJsonParam(msg, "address"))
         {
@@ -105,19 +113,94 @@ namespace beam::wallet
 
 namespace
 {
+    using namespace beam::wallet;
+    namespace bi = boost::intrusive;
     class Monitor
         : public proto::FlyClient
         , public proto::FlyClient::IBbsReceiver
         , public wallet::IWalletMessageConsumer
     {
+    public:
+        void subscribe(const WalletID& address, const ECC::Scalar::Native& privateKey)
+        {
+            auto addr = new AddressInfo;
+            addr->m_Address = address;
+            address.m_Channel.Export(addr->m_Channel);
+            addr->m_PrivateKey = privateKey;
+            m_Channels.insert(*addr);
+            m_Addresses.insert(*addr);
+        }
+
+        void unSubscribe(const WalletID& address)
+        {
+            auto it = m_Addresses.find(address);
+            if (it != m_Addresses.end())
+            {
+                m_Channels.erase(ChannelSet::s_iterator_to(*it));
+                m_Addresses.erase(it);
+                delete &(*it);
+            }
+        }
+
+    private:
+
         void OnWalletMessage(const wallet::WalletID& peerID, const wallet::SetTxParameter& msg) override
         {
-
+            LOG_INFO() << "new bbs message for peer: " << std::to_string(peerID);
         }
 
         void OnMsg(proto::BbsMsg&& msg) override
         {
             LOG_INFO() << "new bbs message on channel: " << msg.m_Channel;
+
+            auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
+            if (m_BbsTimestamps.end() != itBbs)
+            {
+                std::setmax(itBbs->second, msg.m_TimePosted);
+            }
+            else
+            {
+                m_BbsTimestamps[msg.m_Channel] = msg.m_TimePosted;
+            }
+
+            if (msg.m_Message.empty())
+            {
+                return;
+            }
+
+            auto range = m_Channels.lower_bound_range(msg.m_Channel);
+
+            for (auto it = range.first; it != range.second; ++it)
+            {
+                ByteBuffer buf = msg.m_Message; // duplicate
+                uint8_t* pMsg = &buf.front();
+                uint32_t nSize = static_cast<uint32_t>(buf.size());
+
+                if (!proto::Bbs::Decrypt(pMsg, nSize, it->m_PrivateKey))
+                    continue;
+
+                SetTxParameter msgWallet;
+                bool bValid = false;
+
+                try 
+                {
+                    Deserializer der;
+                    der.reset(pMsg, nSize);
+                    der& msgWallet;
+                    bValid = true;
+                }
+                catch (const std::exception&)
+                {
+                    LOG_WARNING() << "BBS deserialization failed";
+                }
+
+                if (bValid)
+                {
+                    WalletID wid;
+                    OnWalletMessage(it->m_Address, msgWallet);
+                    break;
+                }
+            }
         }
 
         Block::SystemState::IHistory& get_History() override 
@@ -125,10 +208,133 @@ namespace
             return m_Headers;
         }
 
+    private:
+
         Block::SystemState::HistoryMap m_Headers;
+        
+        struct ChannelTag {};
+        using ChannelHook = bi::set_base_hook<bi::tag<ChannelTag>>;
+
+        struct AddressInfo 
+            : bi::set_base_hook<>
+            , ChannelHook
+        {
+            WalletID m_Address;
+            BbsChannel m_Channel;
+            ECC::Scalar::Native m_PrivateKey;
+            Timestamp m_ExpirationTime;
+        };
+
+        struct ChannelKey
+        {
+            using type = BbsChannel;
+            const type& operator()(const AddressInfo& addr) const 
+            {
+                return addr.m_Channel;
+            }
+        };
+
+        struct AddressKey
+        {
+            using type = WalletID;
+            const type& operator()(const AddressInfo& addr) const { return addr.m_Address; }
+        };
+
+        using ChannelSet = bi::multiset<AddressInfo, bi::key_of_value<ChannelKey>, bi::base_hook<ChannelHook>>;
+        using AddressSet = bi::set<AddressInfo, bi::key_of_value<AddressKey>>;
+
+        ChannelSet m_Channels;
+        AddressSet m_Addresses;
+        std::unordered_map<BbsChannel, Timestamp> m_BbsTimestamps;
+
     };
 
     static const unsigned LOG_ROTATION_PERIOD_SEC = 3 * 60 * 60; // 3 hours
+
+    class MonitorApiHandler 
+        : public ISbbsMonitorApiHandler
+        , public WebSocketServer::IHandler
+    {
+    public:
+        MonitorApiHandler(Monitor& monitor, WebSocketServer::SendMessageFunc&& func)
+            : m_monitor(monitor)
+            , m_api(*this)
+            , m_sendFunc(std::move(func))
+        {
+        }
+
+        ~MonitorApiHandler()
+        {}
+
+        void onMessage(const JsonRpcId& id, const Subscribe& data)
+        {
+            LOG_DEBUG() << "Subscribe(id = " << id << ")";
+
+            m_monitor.subscribe(data.address, data.privateKey);
+
+            doResponse(id, Subscribe::Response{});
+        }
+
+        void onMessage(const JsonRpcId& id, const UnSubscribe& data)
+        {
+            LOG_DEBUG() << "UnSubscribe(id = " << id << ")";
+
+            m_monitor.unSubscribe(data.address);
+
+            doResponse(id, UnSubscribe::Response{});
+        }
+
+        template<typename T>
+        void doResponse(const JsonRpcId& id, const T& response)
+        {
+            if (m_sendFunc)
+            {
+                json msg;
+                m_api.getResponse(id, response, msg);
+                m_sendFunc(msg.dump());
+            }
+        }
+
+        void onInvalidJsonRpc(const json& msg)
+        {
+            LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
+            if (m_sendFunc)
+            {
+                m_sendFunc(msg.dump());
+            }
+        }
+
+        void processData(const std::string& data) override
+        {
+            try
+            {
+                json msg = json::parse(data.c_str(), data.c_str() + data.size());
+
+                m_api.parse(data.c_str(), data.size());
+            }
+            catch (const nlohmann::detail::exception & e)
+            {
+                LOG_ERROR() << "json parse: " << e.what() << "\n";
+            }
+        }
+        Monitor& m_monitor;
+        SbbsMonitorApi m_api;
+        WebSocketServer::SendMessageFunc m_sendFunc;
+    };
+
+
+    class Server : public wallet::WebSocketServer
+    {
+    public:
+        Server(Monitor& monitor, io::Reactor::Ptr reactor, uint16_t port)
+            : WebSocketServer(reactor, port,
+                [&monitor](auto&& func)->IHandler::Ptr
+                { return std::make_unique<MonitorApiHandler>(monitor, std::move(func)); }
+            )
+        {
+        }
+    };
+
 }
 
 int main(int argc, char* argv[])
@@ -228,7 +434,8 @@ int main(int argc, char* argv[])
         {
             nnet.BbsSubscribe(c, getTimestamp(), &monitor);
         }
-
+ 
+        Server server(monitor, reactor, options.port);
         reactor->run();
 
         LOG_INFO() << "Done";

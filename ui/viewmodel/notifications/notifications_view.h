@@ -17,6 +17,7 @@
 #include <QObject>
 
 #include "model/app_model.h"
+#include "wallet/client/extensions/notifications/notification.h"
 
 class NotificationsViewModel : public QObject
 {
@@ -29,6 +30,7 @@ public:
     // QAbstractItemModel* getNotifications();
 
 public slots:
+    void onNotificationsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&);
     
 signals:
     // void allNotificationsChanged();
@@ -36,4 +38,6 @@ signals:
 private:
     WalletModel& m_walletModel;
 
+    // test - replace with abstract model list
+    std::vector<beam::wallet::Notification> m_notifications;
 };

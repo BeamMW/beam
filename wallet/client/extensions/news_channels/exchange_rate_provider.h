@@ -34,14 +34,14 @@ namespace beam::wallet
          */
         virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
         
-        // INewsObserver interface
-        void Subscribe(INewsObserver* observer);
-        void Unsubscribe(INewsObserver* observer);
+        // IExchangeRateObserver interface
+        void Subscribe(IExchangeRateObserver* observer);
+        void Unsubscribe(IExchangeRateObserver* observer);
         
     private:
 		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;
-        std::vector<INewsObserver*> m_subscribers;
+        std::vector<IExchangeRateObserver*> m_subscribers;
 
         void notifySubscribers(const ExchangeRates&) const;
     };

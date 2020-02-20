@@ -22,6 +22,8 @@
 #include "wallet/core/private_key_keeper.h"
 #include "wallet_model_async.h"
 #include "wallet/client/changes_collector.h"
+#include "wallet/client/extensions/notifications/notification_observer.h"
+#include "wallet/client/extensions/notifications/notification_center.h"
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
 #include "wallet/client/extensions/news_channels/interface.h"
 #include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
@@ -30,7 +32,6 @@
 #include "wallet/client/extensions/offers_board/swap_offer.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-#include "wallet/client/extensions/notifications/notification_center.h"
 
 #include <thread>
 #include <atomic>
@@ -65,7 +66,8 @@ namespace beam::wallet
         , private IWalletDB::IRecoveryProgress
         , private IPrivateKeyKeeper::Handler
         , private INodeConnectionObserver
-        , private INewsObserver
+        , private IExchangeRateObserver
+        , private INotificationsObserver
     {
     public:
         WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper);
@@ -121,8 +123,9 @@ namespace beam::wallet
         virtual void onExportDataToJson(const std::string& data) {}
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
-        virtual void onNewWalletVersion(const VersionInfo&) override {}
         virtual void onExchangeRates(const ExchangeRates&) override {}
+        virtual void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
+        
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         virtual void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
 #endif
@@ -170,6 +173,7 @@ namespace beam::wallet
         void exportDataToJson() override;
         void exportTxHistoryToCsv() override;
         void setNewscastKey(const std::string& publisherKey) override;
+        void getNotifications() override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;

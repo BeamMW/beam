@@ -120,7 +120,17 @@
         <file>assets/icon-wallet-small.svg</file>
         <file>assets/icon-notifications.svg</file>
         <file>assets/icon-notifications-active.svg</file>
+        <file>assets/icon-notifications-community.svg</file>
+        <file>assets/icon-notifications-events.svg</file>
+        <file>assets/icon-notifications-expired.svg</file>
+        <file>assets/icon-notifications-failed.svg</file>
+        <file>assets/icon-notifications-hotnews.svg</file>
+        <file>assets/icon-notifications-inpress.svg</file>
+        <file>assets/icon-notifications-newsletter.svg</file>
+        <file>assets/icon-notifications-received.svg</file>
+        <file>assets/icon-notifications-sent.svg</file>
         <file>assets/icon-notifications-update.svg</file>
+        <file>assets/icon-notifications-videos.svg</file>
         <file>assets/icon-info.svg</file>
         <file>assets/icon-info-active.svg</file>
         <file>assets/icon-settings.svg</file>

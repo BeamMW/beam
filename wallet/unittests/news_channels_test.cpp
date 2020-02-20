@@ -48,18 +48,18 @@ namespace
     /**
      *  Class to test correct notification of news channels observers
      */
-    struct MockNewsObserver : public INewsObserver
+    struct MockNewsObserver : public INewsObserver, public IExchangeRateObserver
     {
-        using OnVersion = function<void(const VersionInfo&)>;
+        using OnVersion = function<void(const VersionInfo&, const ECC::uintBig&)>;
         using OnRate = function<void(const ExchangeRates&)>;
 
         MockNewsObserver(OnVersion onVers, OnRate onRate)
             : m_onVers(onVers)
             , m_onRate(onRate) {};
 
-        virtual void onNewWalletVersion(const VersionInfo& v) override
+        virtual void onNewWalletVersion(const VersionInfo& v, const ECC::uintBig& s) override
         {
-            m_onVers(v);
+            m_onVers(v, s);
         }
         virtual void onExchangeRates(const ExchangeRates& r) override
         {
@@ -298,24 +298,26 @@ namespace
         //                                                               ExchangeRates::Currency::Usd
         //                                                             }}};
 
+        BroadcastMsg msg;
+        msg.m_content = toByteBuffer(verInfo);
+        const auto& [pk, signature] = signData(msg.m_content, 321, senderWalletDB);
+        msg.m_signature = signature;
+
         MockNewsObserver testObserver(
-            [&notificationCount, &verInfo]
-            (const VersionInfo& v)          // void onNewWalletVersion(const VersionInfo&)
+            [&notificationCount, &verInfo/*, &signature*/]
+            (const VersionInfo& v, const ECC::uintBig& s)
             {
                 WALLET_CHECK(verInfo == v);
+                // WALLET_CHECK(signature == toByteBuffer(s));
                 ++notificationCount;
             },
             [&notificationCount/*, &rates*/]
-            (const ExchangeRates& r)        // void onExchangeRates(const ExchangeRates&)
+            (const ExchangeRates& r)
             {
                 // WALLET_CHECK(rates == r);
                 ++notificationCount;
             });
 
-        BroadcastMsg msg;
-        msg.m_content = toByteBuffer(verInfo);
-        const auto& [pk, signature] = signData(msg.m_content, 321, senderWalletDB);
-        msg.m_signature = signature;
 
         {
             // loading correct key with 2 additional just for filling

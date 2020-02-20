@@ -69,6 +69,8 @@ namespace beam::wallet
 
         virtual void setNewscastKey(const std::string& publisherKey) = 0;
 
+        virtual void getNotifications() = 0;
+
         virtual ~IWalletModelAsync() {}
     };
 }
