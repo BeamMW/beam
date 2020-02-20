@@ -279,9 +279,9 @@ namespace beam::wallet
         onPostFunctionToClientContext(move(func));
     }
 
-    void WalletClient::start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators, const std::string& newsPublisherKey)
+    void WalletClient::start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
-        m_thread = std::make_shared<std::thread>([this, txCreators, newsPublisherKey]()
+        m_thread = std::make_shared<std::thread>([this, txCreators]()
             {
                 try
                 {
@@ -346,7 +346,7 @@ namespace beam::wallet
                     auto broadcastValidator = make_shared<BroadcastMsgValidator>();
                     {
                         PeerID key;
-                        if (BroadcastMsgValidator::stringToPublicKey(newsPublisherKey, key))
+                        if (BroadcastMsgValidator::stringToPublicKey("db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec", key))
                         {
                             broadcastValidator->setPublisherKeys( { key } );
                         }

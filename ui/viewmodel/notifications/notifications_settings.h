@@ -18,40 +18,42 @@
 
 #include "ui/model/settings.h"
 
-class NewscastSettings : public QObject
+class NotificationsSettings : public QObject
 {
     Q_OBJECT
 
     Q_PROPERTY(bool    isExcRatesActive    READ isExcRatesActive    WRITE setExcRatesActive    NOTIFY excRatesActiveChanged)
-    Q_PROPERTY(bool    isUpdatesPushActive READ isUpdatesPushActive WRITE setUpdatesPushActive NOTIFY updatesPushActiveChanged)
-    Q_PROPERTY(QString publisherKey        READ getPublisherKey     WRITE setPublisherKey      NOTIFY publisherKeyChanged)
-    Q_PROPERTY(bool    isSettingsChanged   READ isSettingsChanged                              NOTIFY settingsChanged)
+    Q_PROPERTY(bool    isNewVersionActive  READ isNewVersionActive  WRITE setNewVersionActive  NOTIFY newVersionActiveChanged)
+    Q_PROPERTY(bool    isBeamNewsActive    READ isBeamNewsActive    WRITE setBeamNewsActive    NOTIFY beamNewsActiveChanged)
+    Q_PROPERTY(bool    isTxStatusActive    READ isTxStatusActive    WRITE setTxStatusActive    NOTIFY txStatusActiveChanged)
 
 public:
-    NewscastSettings(WalletSettings&);
+    NotificationsSettings(WalletSettings&);
 
     bool isExcRatesActive();
+    bool isNewVersionActive();
+    bool isBeamNewsActive();
+    bool isTxStatusActive();
+
     void setExcRatesActive(bool);
-    bool isUpdatesPushActive();
-    void setUpdatesPushActive(bool);
-    bool isSettingsChanged();
-    QString getPublisherKey();
-    void setPublisherKey(QString);
+    void setNewVersionActive(bool);
+    void setBeamNewsActive(bool);
+    void setTxStatusActive(bool);
 
 signals:
     void excRatesActiveChanged();
-    void updatesPushActiveChanged();
-    void publisherKeyChanged();
-    void settingsChanged();
+    void newVersionActiveChanged();
+    void beamNewsActiveChanged();
+    void txStatusActiveChanged();
 
 public slots:
-    void apply();
-    void restore();
+    void loadFromStorage();
     
 private:
     WalletSettings& m_storage;
 
     bool m_isExcRatesActive;
-    bool m_isUpdatesPushActive;
-    QString m_publisherKey;
+    bool m_isNewVersionActive;
+    bool m_isBeamNewsActive;
+    bool m_isTxStatusActive;
 };

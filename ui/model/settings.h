@@ -68,12 +68,14 @@ public:
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
 
-    bool isUpdatesPushActive() const;
-    void setUpdatesPushActive(bool isActive);
     bool isExcRatesActive() const;
+    bool isNewVersionActive() const;
+    bool isBeamNewsActive() const;
+    bool isTxStatusActive() const;
+    void setNewVersionActive(bool isActive);
     void setExcRatesActive(bool isActive);
-    QString getNewscastKey() const;
-    void setNewscastKey(QString keyHex);
+    void setBeamNewsActive(bool isActive);
+    void setTxStatusActive(bool isActive);
 
     static void openFolder(const QString& path);
 
@@ -98,7 +100,6 @@ signals:
     void localNodeSynchronizedChanged();
     void localeChanged();
     void beamMWLinksChanged();
-    // void newscastSettingsChanged();
 
 private:
     QSettings m_data;
