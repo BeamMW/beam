@@ -172,8 +172,13 @@ namespace beam::wallet
         void importDataFromJson(const std::string& data) override;
         void exportDataToJson() override;
         void exportTxHistoryToCsv() override;
-        void setNewscastKey(const std::string& publisherKey) override;
+
+        void switchExchangeRates(bool isActive) override;
+        void switchNotifications(Notification::Type type, bool isActive) override;
+        
         void getNotifications() override;
+        void markNotificationAsRead(const ECC::uintBig& id) override;
+        void deleteNotification(const ECC::uintBig& id) override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
@@ -196,7 +201,6 @@ namespace beam::wallet
         std::weak_ptr<Wallet> m_wallet;
         // broadcasting via BBS
         std::weak_ptr<IBroadcastMsgGateway> m_broadcastRouter;
-        std::weak_ptr<BroadcastMsgValidator> m_broadcastValidator;
         std::weak_ptr<IBroadcastListener> m_updatesProvider;
         std::weak_ptr<IBroadcastListener> m_exchangeRateProvider;
         std::shared_ptr<NotificationCenter> m_notificationCenter;

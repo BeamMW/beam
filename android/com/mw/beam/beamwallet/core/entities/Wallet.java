@@ -47,6 +47,13 @@ public class Wallet
     public native void importDataFromJson(String data);
     public native void exportDataToJson();
 
+    public native void switchExchangeRates(boolean isActive);
+    public native void switchNotifications(int type, boolean isActive);
+
+    public native void getNotifications();
+    public native void markNotificationAsRead(String id);
+    public native void deleteNotification(String id);
+
     // deprecated
     public native void saveAddressChanges(String addr, String name, boolean isNever, boolean makeActive, boolean makeExpired);
 

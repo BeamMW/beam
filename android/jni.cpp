@@ -574,6 +574,46 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(exportDataToJson)(JNIEnv *env,
     walletModel->getAsync()->exportDataToJson();
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(switchExchangeRates)(JNIEnv *env, jobject thiz, jboolean isActive)
+{
+    walletModel->getAsync()->switchExchangeRates(isActive);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(switchNotifications)(JNIEnv *env, jobject thiz,
+    jint notificationTypeEnum, jboolean isActive)
+{
+    if (notificationTypeEnum < underlying_cast(Notification::Type::SoftwareUpdateAvailable)
+     || notificationTypeEnum > underlying_cast(Notification::Type::BeamNews))
+    {
+        LOG_ERROR() << "Address expiration is not valid!!!";
+    }
+    
+    walletModel->getAsync()->switchNotifications(static_cast<Notification::Type>(notificationTypeEnum), isActive);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getNotifications)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->getNotifications();
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(markNotificationAsRead)(JNIEnv *env, jobject thiz, jstring idString)
+{
+    auto buffer = from_hex(JString(env, idString).value());
+    Blob rawData(buffer.data(), buffer.size());
+    ECC::uintBig id(rawData);
+
+    walletModel->getAsync()->markNotificationAsRead(id);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteNotification)(JNIEnv *env, jobject thiz, jstring idString)
+{
+    auto buffer = from_hex(JString(env, idString).value());
+    Blob rawData(buffer.data(), buffer.size());
+    ECC::uintBig id(rawData);
+
+    walletModel->getAsync()->deleteNotification(id);
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;

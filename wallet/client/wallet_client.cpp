@@ -198,14 +198,29 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::exportTxHistoryToCsv);
     }
 
-    void setNewscastKey(const std::string& key) override
+    void switchExchangeRates(bool isActive) override
     {
-        call_async(&IWalletModelAsync::setNewscastKey, key);
+        call_async(&IWalletModelAsync::switchExchangeRates, isActive);
     }
 
+    void switchNotifications(Notification::Type type, bool isActive) override
+    {
+        call_async(&IWalletModelAsync::switchNotifications, type, isActive);
+    }
+        
     void getNotifications() override
     {
         call_async(&IWalletModelAsync::getNotifications);
+    }
+
+    void markNotificationAsRead(const ECC::uintBig& id) override
+    {
+        call_async(&IWalletModelAsync::markNotificationAsRead, id);
+    }
+
+    void deleteNotification(const ECC::uintBig& id) override
+    {
+        call_async(&IWalletModelAsync::deleteNotification, id);
     }
 };
 }
@@ -336,7 +351,6 @@ namespace beam::wallet
                             broadcastValidator->setPublisherKeys( { key } );
                         }
                     }
-                    m_broadcastValidator = broadcastValidator;
 
                     // Other content providers using broadcast messages
                     auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
@@ -883,23 +897,29 @@ namespace beam::wallet
         onExportTxHistoryToCsv(data);   
     }
 
-    void WalletClient::setNewscastKey(const std::string& keyString)
+    void WalletClient::switchExchangeRates(bool isActive)
     {
-        PeerID key;
-        if (!BroadcastMsgValidator::stringToPublicKey(keyString, key))
-        {
-            return;
-        }
-        assert(!m_broadcastValidator.expired());
-        if (auto s = m_broadcastValidator.lock())
-        {
-            s->setPublisherKeys( { key } );
-        }
+        // m_broadcastRouter->
     }
 
+    void WalletClient::switchNotifications(Notification::Type type, bool isActive)
+    {
+        // m_broadcastRouter->
+    }
+    
     void WalletClient::getNotifications()
     {
         onNotificationsChanged(ChangeAction::Reset, m_notificationCenter->getNotifications());
+    }
+
+    void WalletClient::markNotificationAsRead(const ECC::uintBig& id)
+    {
+        // m_notificationCenter->
+    }
+
+    void WalletClient::deleteNotification(const ECC::uintBig& id)
+    {
+        // m_notificationCenter->
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)
