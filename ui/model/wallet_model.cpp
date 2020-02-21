@@ -41,6 +41,8 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeep
     qRegisterMetaType<beam::wallet::TxID>("beam::wallet::TxID");
     qRegisterMetaType<beam::wallet::TxParameters>("beam::wallet::TxParameters");
     qRegisterMetaType<std::function<void()>>("std::function<void()>");
+    qRegisterMetaType<std::vector<beam::wallet::Notification>>("std::vector<beam::wallet::Notification>");
+    qRegisterMetaType<beam::wallet::VersionInfo>("beam::wallet::VersionInfo");
 
     connect(this, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), this, SLOT(setStatus(const beam::wallet::WalletStatus&)));
     connect(this, SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
@@ -291,6 +293,22 @@ void WalletModel::onExchangeRates(const beam::wallet::ExchangeRates& rates)
 void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<Notification>& notifications)
 {
     emit notificationsChanged(action, notifications);
+
+    if (action != beam::wallet::ChangeAction::Removed)
+    {
+        for (const auto& n : notifications)
+        {
+            if (n.m_type == beam::wallet::Notification::Type::SoftwareUpdateAvailable
+             && n.m_state == beam::wallet::Notification::State::Unread)
+            {
+                beam::wallet::VersionInfo info;
+                if (beam::wallet::fromByteBuffer(n.m_content, info))
+                {
+                    emit newSoftwareUpdateAvailable(info);
+                }
+            }
+        }
+    }
 }
 
 beam::Amount WalletModel::getAvailable() const

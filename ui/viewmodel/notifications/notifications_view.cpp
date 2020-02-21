@@ -20,8 +20,6 @@
 NotificationsViewModel::NotificationsViewModel()
     : m_walletModel{*AppModel::getInstance().getWallet()}
 {
-    qRegisterMetaType<std::vector<beam::wallet::Notification>>("std::vector<beam::wallet::Notification>");
-
     connect(&m_walletModel,
             SIGNAL(notificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)),
             SLOT(onNotificationsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)));

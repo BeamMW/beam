@@ -338,11 +338,11 @@ Rectangle {
 
     Connections {
         target: updateInfoProvider
-        onShowUpdateNotification: function(version) {
-            console.log("News received. Message: " + version);
+        onShowUpdateNotification: function(newVersion, currentVersion) {
+            console.log("New version " + newVersion + " is avalable");
             var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(main);
-            popup.title = "New version v1.2.3 is avalable";
-            popup.message = "Your current version is v1.2.2. Please update to get the most of your Beam wallet.";
+            popup.title = "New version v" + newVersion + " is avalable";
+            popup.message = "Your current version is v" + currentVersion + ". Please update to get the most of your Beam wallet.";
             popup.acceptButtonText = "update now";
             popup.open();
         }

@@ -20,10 +20,29 @@ UpdateInfoProvider::UpdateInfoProvider()
     : m_walletModel(*AppModel::getInstance().getWallet())
     , m_settings(AppModel::getInstance().getSettings())
 {
-    connect(&m_walletModel, SIGNAL(newAppVersion(const QString&)), SLOT(onNewAppVersion(const QString&)));
+    connect(&m_walletModel,
+            SIGNAL(newSoftwareUpdateAvailable(const beam::wallet::VersionInfo&)),
+            SLOT(onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&)));
 }
 
-void UpdateInfoProvider::onNewAppVersion(const QString& msg)
+void UpdateInfoProvider::onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo& info)
 {
-    emit showUpdateNotification(msg);
+    if (info.m_application == beam::wallet::VersionInfo::Application::DesktopWallet
+     && getCurrentVersion() < info.m_version)
+    {
+        QString newVersion = QString::fromStdString(info.m_version.to_string());
+        QString currentVersion = QString::fromStdString(getCurrentVersion().to_string());
+        
+        emit showUpdateNotification(newVersion, currentVersion);
+    }
+}
+
+beam::wallet::Version UpdateInfoProvider::getCurrentVersion()
+{
+    return beam::wallet::Version
+    {
+        VERSION_MAJOR,
+        VERSION_MINOR,
+        VERSION_REVISION
+    };
 }

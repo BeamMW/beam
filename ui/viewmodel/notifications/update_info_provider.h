@@ -24,14 +24,17 @@ class UpdateInfoProvider : public QObject
 
 public:
     UpdateInfoProvider();
+    
 
 signals:
-    void showUpdateNotification(const QString& versionString);
+    void showUpdateNotification(const QString&, const QString&);
 
 public slots:
-    void onNewAppVersion(const QString& msg);
+    void onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&);
 
 private:
+    beam::wallet::Version getCurrentVersion();
+
     WalletModel& m_walletModel;
     WalletSettings& m_settings; /// TODO store last version user notified about
 };

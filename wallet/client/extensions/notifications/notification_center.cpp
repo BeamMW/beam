@@ -67,7 +67,7 @@ namespace beam::wallet
 
         for (const auto& pair : m_cache)
         {
-            // if (status == ...)
+            if (pair.second.m_state == Notification::State::Deleted) continue;
             notifications.push_back(pair.second);
         }
 
