@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "update_info_provider.h"
+#include "push_notification_manager.h"
 
-#include "version.h"
+#include "viewmodel/ui_helpers.h"
 
-UpdateInfoProvider::UpdateInfoProvider()
+PushNotificationManager::PushNotificationManager()
     : m_walletModel(*AppModel::getInstance().getWallet())
     , m_settings(AppModel::getInstance().getSettings())
 {
@@ -25,24 +25,14 @@ UpdateInfoProvider::UpdateInfoProvider()
             SLOT(onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&)));
 }
 
-void UpdateInfoProvider::onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo& info)
+void PushNotificationManager::onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo& info)
 {
     if (info.m_application == beam::wallet::VersionInfo::Application::DesktopWallet
-     && getCurrentVersion() < info.m_version)
+     && beamui::getCurrentAppVersion() < info.m_version)
     {
         QString newVersion = QString::fromStdString(info.m_version.to_string());
-        QString currentVersion = QString::fromStdString(getCurrentVersion().to_string());
+        QString currentVersion = QString::fromStdString(beamui::getCurrentAppVersion().to_string());
         
         emit showUpdateNotification(newVersion, currentVersion);
     }
-}
-
-beam::wallet::Version UpdateInfoProvider::getCurrentVersion()
-{
-    return beam::wallet::Version
-    {
-        VERSION_MAJOR,
-        VERSION_MINOR,
-        VERSION_REVISION
-    };
 }

@@ -15,7 +15,7 @@ Rectangle {
 
 	MainViewModel {id: viewModel}
 
-    UpdateInfoProvider {id: updateInfoProvider}
+    PushNotificationManager {id: updateInfoProvider}
     ExchangeRateProvider {id: ratesProvider}
 
     ConfirmationDialog {

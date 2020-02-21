@@ -17,6 +17,8 @@
 #include "utility/logger.h"
 #include "wallet/client/extensions/news_channels/interface.h"
 
+using namespace beam::wallet;
+
 NotificationsViewModel::NotificationsViewModel()
     : m_walletModel{*AppModel::getInstance().getWallet()}
 {
@@ -27,23 +29,45 @@ NotificationsViewModel::NotificationsViewModel()
     m_walletModel.getAsync()->getNotifications();
 }
 
-void NotificationsViewModel::onNotificationsDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>& notifications)
+QAbstractItemModel* NotificationsViewModel::getNotifications()
 {
-    // test
-    m_notifications.clear();
+    return &m_notificationsList;
+}
+
+void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action, const std::vector<Notification>& notifications)
+{
+    std::vector<std::shared_ptr<NotificationItem>> modifiedNotifications;
+    modifiedNotifications.reserve(notifications.size());
+
     for (const auto& n : notifications)
     {
-        m_notifications.push_back(n);
-
-        if (n.m_type == beam::wallet::Notification::Type::SoftwareUpdateAvailable)
-        {
-            beam::wallet::VersionInfo versionInfo;
-            bool res = beam::wallet::fromByteBuffer(n.m_content, versionInfo);
-            if (res)
-            {
-                LOG_INFO() << "News version available. Type: " << beam::wallet::VersionInfo::to_string(versionInfo.m_application)
-                        << ". Version: " << versionInfo.m_version.to_string();
-            }
-        }
+        modifiedNotifications.push_back(std::make_shared<NotificationItem>(n));
     }
+
+    switch (action)
+    {
+        case ChangeAction::Reset:
+            {
+                m_notificationsList.reset(modifiedNotifications);
+                break;
+            }
+
+        case ChangeAction::Added:
+            {
+                m_notificationsList.insert(modifiedNotifications);
+                break;
+            }
+
+        case ChangeAction::Removed:
+            {
+                m_notificationsList.remove(modifiedNotifications);
+                break;
+            }
+        
+        default:
+            assert(false && "Unexpected action");
+            break;
+    }
+    
+    emit allNotificationsChanged();
 }

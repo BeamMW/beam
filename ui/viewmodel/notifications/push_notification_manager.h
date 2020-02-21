@@ -18,13 +18,12 @@
 
 #include "ui/model/app_model.h"
 
-class UpdateInfoProvider : public QObject
+class PushNotificationManager : public QObject
 {
     Q_OBJECT
 
 public:
-    UpdateInfoProvider();
-    
+    PushNotificationManager();
 
 signals:
     void showUpdateNotification(const QString&, const QString&);
@@ -33,8 +32,6 @@ public slots:
     void onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&);
 
 private:
-    beam::wallet::Version getCurrentVersion();
-
     WalletModel& m_walletModel;
     WalletSettings& m_settings; /// TODO store last version user notified about
 };

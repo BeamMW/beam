@@ -128,9 +128,11 @@ set(UI_SRC
     viewmodel/utxo/utxo_view.cpp
     viewmodel/utxo/utxo_view_status.h
     viewmodel/utxo/utxo_view_type.h
+    viewmodel/notifications/notification_item.cpp
+    viewmodel/notifications/notifications_list.cpp
     viewmodel/notifications/notifications_view.cpp
     viewmodel/notifications/notifications_settings.cpp
-    viewmodel/notifications/update_info_provider.cpp
+    viewmodel/notifications/push_notification_manager.cpp
     viewmodel/notifications/exchange_rate_provider.cpp
     viewmodel/main_view.h
     viewmodel/main_view.cpp

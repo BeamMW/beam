@@ -7,6 +7,7 @@
 
 Q_DECLARE_METATYPE(beam::wallet::TxID)
 Q_DECLARE_METATYPE(beam::wallet::TxParameters)
+Q_DECLARE_METATYPE(ECC::uintBig)
 
 namespace beamui
 {
@@ -48,5 +49,7 @@ namespace beamui
     QDateTime CalculateExpiresTime(beam::Height currentHeight, beam::Height expiresHeight);
     QString getEstimateTimeStr(int estimate);
     QString convertBeamHeightDiffToTime(int32_t dt);
+
+    beam::Version getCurrentAppVersion();
 
 }  // namespace beamui

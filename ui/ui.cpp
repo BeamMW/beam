@@ -48,7 +48,7 @@
 #include "viewmodel/helpers/sortfilterproxymodel.h"
 #include "viewmodel/helpers/token_bootstrap_manager.h"
 #include "viewmodel/notifications/notifications_view.h"
-#include "viewmodel/notifications/update_info_provider.h"
+#include "viewmodel/notifications/push_notification_manager.h"
 #include "viewmodel/notifications/exchange_rate_provider.h"
 #include "wallet/core/wallet_db.h"
 #include "utility/log_rotation.h"
@@ -246,7 +246,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<SwapOfferItem>("Beam.Wallet", 1, 0, "SwapOfferItem");
             qmlRegisterType<SwapOffersList>("Beam.Wallet", 1, 0, "SwapOffersList");
             qmlRegisterType<TokenBootstrapManager>("Beam.Wallet", 1, 0, "TokenBootstrapManager");
-            qmlRegisterType<UpdateInfoProvider>("Beam.Wallet", 1, 0, "UpdateInfoProvider");
+            qmlRegisterType<PushNotificationManager>("Beam.Wallet", 1, 0, "PushNotificationManager");
             qmlRegisterType<ExchangeRateProvider>("Beam.Wallet", 1, 0, "ExchangeRateProvider");
             
             qmlRegisterType<SortFilterProxyModel>("Beam.Wallet", 1, 0, "SortFilterProxyModel");

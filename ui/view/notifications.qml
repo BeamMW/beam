@@ -48,84 +48,85 @@ Item {
         spacing: 10
         clip: true
 
-        model: ListModel {
-            ListElement {
-                type: "update"
-                title: "New version v1.2.3 is avalable"
-                message: "Your current version is v1.2.2. Please update to get the most of your Beam wallet."
-                date: "25.01.2020   |   1:20 PM"
-            }
+        model: viewModel.notifications
+        // ListModel {
+            // ListElement {
+            //     type: "update"
+            //     title: "New version v1.2.3 is avalable"
+            //     message: "Your current version is v1.2.2. Please update to get the most of your Beam wallet."
+            //     date: "25.01.2020   |   1:20 PM"
+            // }
 
-            ListElement {
-                type: "expired"
-                title: "Address expired"
-                message: "167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb address expired."
-                date: "25.01.2020   |   1:20 PM"
-            }
+            // ListElement {
+            //     type: "expired"
+            //     title: "Address expired"
+            //     message: "167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb address expired."
+            //     date: "25.01.2020   |   1:20 PM"
+            // }
 
-            ListElement {
-                type: "received"
-                title: "Transaction received"
-                message: "You received 1234 BEAM from 167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb."
-                date: "25.01.2020   |   1:20 PM"
-            }
+            // ListElement {
+            //     type: "received"
+            //     title: "Transaction received"
+            //     message: "You received 1234 BEAM from 167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb."
+            //     date: "25.01.2020   |   1:20 PM"
+            // }
 
-            ListElement {
-                type: "sent"
-                title: "Transaction sent"
-                message: "You sent 1234 BEAM to 167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb."
-                date: "25.01.2020   |   1:20 PM"
-            }
+            // ListElement {
+            //     type: "sent"
+            //     title: "Transaction sent"
+            //     message: "You sent 1234 BEAM to 167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb."
+            //     date: "25.01.2020   |   1:20 PM"
+            // }
 
-            ListElement {
-                type: "failed"
-                title: "Transaction failed"
-                message: "Sending 1234 BEAM to 167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb failed."
-                date: "25.01.2020   |   1:20 PM"
-            }
+            // ListElement {
+            //     type: "failed"
+            //     title: "Transaction failed"
+            //     message: "Sending 1234 BEAM to 167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb failed."
+            //     date: "25.01.2020   |   1:20 PM"
+            // }
 
-            ListElement {
-                type: "inpress"
-                title: "BEAM in the press"
-                message: "Beam: Halved Successfully, Plans For 2020, Lelantus MW Discussed, Progress On Double Doppler 4.2, Beam Web Wallet And Trustless Wallet Service. Please visit News Center on Beam website for more information."
-                date: "25.01.2020   |   1:20 PM"
-            }
+            // ListElement {
+            //     type: "inpress"
+            //     title: "BEAM in the press"
+            //     message: "Beam: Halved Successfully, Plans For 2020, Lelantus MW Discussed, Progress On Double Doppler 4.2, Beam Web Wallet And Trustless Wallet Service. Please visit News Center on Beam website for more information."
+            //     date: "25.01.2020   |   1:20 PM"
+            // }
 
-            ListElement {
-                type: "hotnews"
-                title: "BEAN Hot News"
-                message: "Double Doppler 4.0 — Atomic Swaps — Release Notes. Please visit News Center on Beam website for more information."
-                date: "25.01.2020   |   1:20 PM"
-            }
+            // ListElement {
+            //     type: "hotnews"
+            //     title: "BEAN Hot News"
+            //     message: "Double Doppler 4.0 — Atomic Swaps — Release Notes. Please visit News Center on Beam website for more information."
+            //     date: "25.01.2020   |   1:20 PM"
+            // }
 
-            ListElement {
-                type: "videos"
-                title: "BEAM Videos & Podcasts"
-                message: "Beam Weekly Development Update 21 January 2020. Please visit News Center on Beam website for more information."
-                date: "25.01.2020   |   1:20 PM"
-            }
+            // ListElement {
+            //     type: "videos"
+            //     title: "BEAM Videos & Podcasts"
+            //     message: "Beam Weekly Development Update 21 January 2020. Please visit News Center on Beam website for more information."
+            //     date: "25.01.2020   |   1:20 PM"
+            // }
 
-            ListElement {
-                type: "events"
-                title: "BEAM Events"
-                message: "Advancing Bitcoin Developer Conference 2020. Please visit News Center on Beam website for more information."
-                date: "25.01.2020   |   1:20 PM"
-            }
+            // ListElement {
+            //     type: "events"
+            //     title: "BEAM Events"
+            //     message: "Advancing Bitcoin Developer Conference 2020. Please visit News Center on Beam website for more information."
+            //     date: "25.01.2020   |   1:20 PM"
+            // }
 
-            ListElement {
-                type: "newsletter"
-                title: "BEAM Newletter"
-                message: "Beam 2020 Week #4. Please visit News Center on Beam website for more information."
-                date: "25.01.2020   |   1:20 PM"
-            }
+            // ListElement {
+            //     type: "newsletter"
+            //     title: "BEAM Newletter"
+            //     message: "Beam 2020 Week #4. Please visit News Center on Beam website for more information."
+            //     date: "25.01.2020   |   1:20 PM"
+            // }
 
-            ListElement {
-                type: "community"
-                title: "BEAM Community"
-                message: "My Dialogue with Agbona Igwemoh, Africa’s Lead Ambassador for Beam. Please visit News Center on Beam website for more information."
-                date: "25.01.2020   |   1:20 PM"
-            }
-        }
+            // ListElement {
+            //     type: "community"
+            //     title: "BEAM Community"
+            //     message: "My Dialogue with Agbona Igwemoh, Africa’s Lead Ambassador for Beam. Please visit News Center on Beam website for more information."
+            //     date: "25.01.2020   |   1:20 PM"
+            // }
+        // }
 
         delegate: Item {
             anchors.left: parent.left

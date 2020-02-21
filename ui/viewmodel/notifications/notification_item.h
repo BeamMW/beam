@@ -15,28 +15,29 @@
 #pragma once
 
 #include <QObject>
+#include <QDateTime>
+#include "model/wallet_model.h"
+#include "viewmodel/ui_helpers.h"
 
-#include "model/app_model.h"
-#include "viewmodel/notifications/notifications_list.h"
-
-class NotificationsViewModel : public QObject
+class NotificationItem : public QObject
 {
-	Q_OBJECT
-    Q_PROPERTY(QAbstractItemModel*  notifications        READ getNotifications        NOTIFY allNotificationsChanged)
+    Q_OBJECT
 
 public:
-    NotificationsViewModel();
+    NotificationItem() = default;
+    NotificationItem(const beam::wallet::Notification&);
+    bool operator==(const NotificationItem& other) const;
 
-    QAbstractItemModel* getNotifications();
+    auto timeCreated() const -> QDateTime;
+    auto title() const -> QString;
+    auto message() const -> QString;
+    auto type() const -> QString;
+    auto state() const -> QString;
 
-public slots:
-    void onNotificationsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&);
-    
+    auto getID() const -> ECC::uintBig;
+
 signals:
-    void allNotificationsChanged();
 
 private:
-    WalletModel& m_walletModel;
-
-    NotificationsList m_notificationsList;
+    beam::wallet::Notification m_notification;
 };
