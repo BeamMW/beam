@@ -245,6 +245,8 @@ public class WalletListener
 			case 2: 
 				stateString = "Deleted";
 				break;
+			default:
+				stateString = "Unknown";
 		}
 		System.out.println("State: " + stateString);
 		System.out.println("CreateTime: " + notificationInfo.createTime);
@@ -264,6 +266,8 @@ public class WalletListener
 			case 3:
 				applicationString = "Unknown";
 				break;
+			default:
+				applicationString = "Unknown";
 		}
 		System.out.println("Application: " + applicationString);
 		System.out.println("versionMajor: " + content.versionMajor);
@@ -275,7 +279,7 @@ public class WalletListener
     {
         System.out.println(">>>>>>>>>>>>>> async onExchangeRates in Java");
 		
-		System.out.println("Timestamp: " + notificationInfo.createTime);
+		System.out.println("Timestamp: " + timeStamp);
 
 		if(rates != null)
 		{
