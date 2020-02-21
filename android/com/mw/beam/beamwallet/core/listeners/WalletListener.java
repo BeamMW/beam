@@ -250,7 +250,7 @@ public class WalletListener
 		System.out.println("CreateTime: " + notificationInfo.createTime);
 		
 		String applicationString;
-		switch(notificationInfo.application)
+		switch(content.application)
 		{
 			case 0:
 				applicationString = "DesktopWallet";
@@ -266,9 +266,9 @@ public class WalletListener
 				break;
 		}
 		System.out.println("Application: " + applicationString);
-		System.out.println("versionMajor: " + notificationInfo.versionMajor);
-		System.out.println("versionMinor: " + notificationInfo.versionMinor);
-		System.out.println("versionRevision: " + notificationInfo.versionRevision);
+		System.out.println("versionMajor: " + content.versionMajor);
+		System.out.println("versionMinor: " + content.versionMinor);
+		System.out.println("versionRevision: " + content.versionRevision);
     }
 
 	static void onExchangeRates(ExchangeRateDTO[] rates, long timeStamp)
