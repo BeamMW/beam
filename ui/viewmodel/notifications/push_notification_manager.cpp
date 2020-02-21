@@ -21,18 +21,25 @@ PushNotificationManager::PushNotificationManager()
     , m_settings(AppModel::getInstance().getSettings())
 {
     connect(&m_walletModel,
-            SIGNAL(newSoftwareUpdateAvailable(const beam::wallet::VersionInfo&)),
-            SLOT(onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&)));
+            SIGNAL(newSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig&)),
+            SLOT(onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig&)));
 }
 
-void PushNotificationManager::onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo& info)
+void PushNotificationManager::onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo& info, const ECC::uintBig& notificationID)
 {
     if (info.m_application == beam::wallet::VersionInfo::Application::DesktopWallet
      && beamui::getCurrentAppVersion() < info.m_version)
     {
         QString newVersion = QString::fromStdString(info.m_version.to_string());
         QString currentVersion = QString::fromStdString(beamui::getCurrentAppVersion().to_string());
+        QVariant id = QVariant::fromValue(notificationID);
         
-        emit showUpdateNotification(newVersion, currentVersion);
+        emit showUpdateNotification(newVersion, currentVersion, id);
     }
+}
+
+void PushNotificationManager::onCancelPopup(const QVariant& variantID)
+{
+    auto id = variantID.value<ECC::uintBig>();
+    m_walletModel.getAsync()->markNotificationAsRead(id);
 }

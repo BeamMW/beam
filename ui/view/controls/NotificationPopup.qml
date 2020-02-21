@@ -11,6 +11,9 @@ Popup {
     property alias message: contentText.text
     property alias acceptButtonText: acceptButton.text
 
+    property var onCancel: function () {}
+    property var onAccept: function () {}
+
     width: 295
     height: 198
     modal: false
@@ -52,7 +55,7 @@ Popup {
             x: 235
             y: -10
             icon.source: "qrc:/assets/icon-cancel-white.svg"
-            onClicked: { console.log("close popup click") }
+            onClicked: onCancel()
         }
 
         Column {
@@ -92,9 +95,7 @@ Popup {
             palette.button: Style.background_second
             palette.buttonText : Style.content_main
             icon.source: "qrc:/assets/icon-repeat-white.svg"
-            onClicked: {
-                console.log("update click")
-            }
+            onClicked: onAccept()
         }
     }
 }

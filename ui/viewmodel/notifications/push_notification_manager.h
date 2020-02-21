@@ -25,11 +25,13 @@ class PushNotificationManager : public QObject
 public:
     PushNotificationManager();
 
+    Q_INVOKABLE void onCancelPopup(const QVariant& variantID);
+
 signals:
-    void showUpdateNotification(const QString&, const QString&);
+    void showUpdateNotification(const QString&, const QString&, const QVariant&);
 
 public slots:
-    void onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&);
+    void onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig& notificationID);
 
 private:
     WalletModel& m_walletModel;

@@ -81,7 +81,7 @@ signals:
     
     void exchangeRatesUpdate(const beam::wallet::ExchangeRates&);
     void notificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&);
-    void newSoftwareUpdateAvailable(const beam::wallet::VersionInfo&);
+    void newSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig&);
 
 private:
     void onStatus(const beam::wallet::WalletStatus& status) override;

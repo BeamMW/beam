@@ -914,6 +914,7 @@ namespace beam::wallet
 
     void WalletClient::markNotificationAsRead(const ECC::uintBig& id)
     {
+        LOG_DEBUG() << "TODO: mark notification as read: " << id;
         // m_notificationCenter->
     }
 

@@ -43,6 +43,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeep
     qRegisterMetaType<std::function<void()>>("std::function<void()>");
     qRegisterMetaType<std::vector<beam::wallet::Notification>>("std::vector<beam::wallet::Notification>");
     qRegisterMetaType<beam::wallet::VersionInfo>("beam::wallet::VersionInfo");
+    qRegisterMetaType<ECC::uintBig>("ECC::uintBig");
 
     connect(this, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), this, SLOT(setStatus(const beam::wallet::WalletStatus&)));
     connect(this, SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
@@ -304,7 +305,7 @@ void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, cons
                 beam::wallet::VersionInfo info;
                 if (beam::wallet::fromByteBuffer(n.m_content, info))
                 {
-                    emit newSoftwareUpdateAvailable(info);
+                    emit newSoftwareUpdateAvailable(info, n.m_ID);
                 }
             }
         }
