@@ -53,7 +53,7 @@ namespace
                 if (coin.m_spentTxId)
                     setStringField(env, UtxoClass, utxo, "spentTxId", to_hex(coin.m_spentTxId->data(), coin.m_spentTxId->size()));
 
-                env->SetObjectArrayElement(utxos, i, static_cast<jsize>(utxo));
+                env->SetObjectArrayElement(utxos, static_cast<jsize>(i), utxo);
 
                 env->DeleteLocalRef(utxo);
             }
@@ -85,7 +85,7 @@ namespace
                     setLongField(env, WalletAddressClass, addr, "own", addrRef.m_OwnID);
                 }
 
-                env->SetObjectArrayElement(addrArray, i, static_cast<jsize>(addr));
+                env->SetObjectArrayElement(addrArray, static_cast<jsize>(i), addr);
 
                 env->DeleteLocalRef(addr);
             }
@@ -113,7 +113,7 @@ namespace
                     setIntField(env, ExchangeRateClass, rate, "unit", underlying_cast(rateRef.m_unit));
                 }
 
-                env->SetObjectArrayElement(ratesArray, i, static_cast<jsize>(rate));
+                env->SetObjectArrayElement(ratesArray, static_cast<jsize>(i), rate);
 
                 env->DeleteLocalRef(rate);
             }
@@ -201,7 +201,7 @@ void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescriptio
             setStringField(env, TxDescriptionClass, tx, "kernelId", to_hex(item.m_kernelID.m_pData, item.m_kernelID.nBytes));
             setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(item.m_failureReason));
 
-            env->SetObjectArrayElement(txItems, i, static_cast<jsize>(tx));
+            env->SetObjectArrayElement(txItems, static_cast<jsize>(i), tx);
 
             env->DeleteLocalRef(tx);
         }
