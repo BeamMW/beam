@@ -86,48 +86,59 @@ namespace beam::wallet
         io::Timer::Ptr m_AddressExpirationTimer;
     };
 
+    class BbsSender
+    {
+    public:
+        BbsSender(proto::FlyClient::INetwork::Ptr nodeEndpoint);
+        bool m_MineOutgoing = true; // can be turned-off for testing
+        virtual ~BbsSender();
+        void Send(const WalletID& peerID, const ByteBuffer& msg, uint64_t messageID);
+        proto::FlyClient::IBbsReceiver* get_BbsReceiver();
+
+        virtual void OnMessageSent(uint64_t messageID) {}
+        virtual void OnMsg(const proto::BbsMsg&) {};
+    private:
+        void DeleteReq(WalletRequestBbsMsg& r);
+        void OnMined();
+        void OnMined(BbsMiner::Task::Ptr);
+    private:
+        proto::FlyClient::INetwork::Ptr m_NodeEndpoint;
+        BbsMsgList m_PendingBbsMsgs;
+
+        struct BbsSentEvt
+            :public proto::FlyClient::Request::IHandler
+            , public proto::FlyClient::IBbsReceiver
+        {
+            virtual void OnComplete(proto::FlyClient::Request&) override;
+            virtual void OnMsg(proto::BbsMsg&&) override;
+
+            IMPLEMENT_GET_PARENT_OBJ(BbsSender, m_BbsSentEvt)
+        } m_BbsSentEvt;
+
+        BbsMiner m_Miner;
+    };
+
     class WalletNetworkViaBbs
         : public BaseMessageEndpoint
         , private IWalletDbObserver
+        , public BbsSender
     {
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
         IWalletDB::Ptr m_WalletDB;
 
-        BbsMsgList m_PendingBbsMsgs;
-
-        void DeleteReq(WalletRequestBbsMsg& r);
-
-        struct BbsSentEvt
-            :public proto::FlyClient::Request::IHandler
-            ,public proto::FlyClient::IBbsReceiver
-        {
-            virtual void OnComplete(proto::FlyClient::Request&) override;
-            virtual void OnMsg(proto::BbsMsg&&) override;
-            IMPLEMENT_GET_PARENT_OBJ(WalletNetworkViaBbs, m_BbsSentEvt)
-        } m_BbsSentEvt;
-
-        void OnMsg(const proto::BbsMsg&);
+        void OnMsg(const proto::BbsMsg&) override;
 
         std::unordered_map<BbsChannel, Timestamp> m_BbsTimestamps;
         io::Timer::Ptr m_pTimerBbsTmSave;
         void OnTimerBbsTmSave();
         void SaveBbsTimestamps();
-
-        BbsMiner m_Miner;
-
-        void OnMined();
-        void OnMined(BbsMiner::Task::Ptr);
-
     public:
-
-        WalletNetworkViaBbs(IWalletMessageConsumer&, std::shared_ptr<proto::FlyClient::INetwork>, const IWalletDB::Ptr&);
+        WalletNetworkViaBbs(IWalletMessageConsumer&, proto::FlyClient::INetwork::Ptr, const IWalletDB::Ptr&);
         virtual ~WalletNetworkViaBbs();
-
-        bool m_MineOutgoing = true; // can be turned-off for testing
-
     private:
         void OnChannelAdded(BbsChannel channel) override;
         void OnChannelDeleted(BbsChannel channel) override;
+        void OnMessageSent(uint64_t messageID) override;
         // IWalletMessageEndpoint
         void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
