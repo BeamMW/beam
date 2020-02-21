@@ -129,7 +129,7 @@ set(UI_SRC
     viewmodel/utxo/utxo_view_status.h
     viewmodel/utxo/utxo_view_type.h
     viewmodel/notifications/notifications_view.cpp
-    viewmodel/notifications/news_settings.cpp
+    viewmodel/notifications/notifications_settings.cpp
     viewmodel/notifications/update_info_provider.cpp
     viewmodel/notifications/exchange_rate_provider.cpp
     viewmodel/main_view.h

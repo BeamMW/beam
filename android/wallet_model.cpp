@@ -33,7 +33,7 @@ namespace
         {
             utxos = env->NewObjectArray(static_cast<jsize>(utxosVec.size()), UtxoClass, NULL);
 
-            for (int i = 0; i < utxosVec.size(); ++i)
+            for (size_t i = 0; i < utxosVec.size(); ++i)
             {
                 const auto& coin = utxosVec[i];
 
@@ -53,7 +53,7 @@ namespace
                 if (coin.m_spentTxId)
                     setStringField(env, UtxoClass, utxo, "spentTxId", to_hex(coin.m_spentTxId->data(), coin.m_spentTxId->size()));
 
-                env->SetObjectArrayElement(utxos, i, utxo);
+                env->SetObjectArrayElement(utxos, i, static_cast<jsize>(utxo));
 
                 env->DeleteLocalRef(utxo);
             }
@@ -70,7 +70,7 @@ namespace
         {
             addrArray = env->NewObjectArray(static_cast<jsize>(addresses.size()), WalletAddressClass, NULL);
 
-            for (int i = 0; i < addresses.size(); ++i)
+            for (size_t i = 0; i < addresses.size(); ++i)
             {
                 const auto& addrRef = addresses[i];
 
@@ -85,12 +85,40 @@ namespace
                     setLongField(env, WalletAddressClass, addr, "own", addrRef.m_OwnID);
                 }
 
-                env->SetObjectArrayElement(addrArray, i, addr);
+                env->SetObjectArrayElement(addrArray, i, static_cast<jsize>(addr));
 
                 env->DeleteLocalRef(addr);
             }
         }
         return addrArray;
+    }
+
+    jobjectArray convertExchangeRatesToJObject(JNIEnv* env, const ExchangeRates& rates)
+    {
+        jobjectArray ratesArray = 0;
+
+        if (!rates.m_rates.empty())
+        {
+            ratesArray = env->NewObjectArray(static_cast<jsize>(rates.m_rates.size()), ExchangeRateClass, NULL);
+
+            for (size_t i = 0; i < rates.m_rates.size(); ++i)
+            {
+                const auto& rateRef = rates.m_rates[i];
+
+                jobject rate = env->AllocObject(ExchangeRateClass);
+
+                {
+                    setIntField(env, ExchangeRateClass, rate, "currency", underlying_cast(rateRef.m_currency));
+                    setLongField(env, ExchangeRateClass, rate, "amount", rateRef.m_rate);
+                    setIntField(env, ExchangeRateClass, rate, "unit", underlying_cast(rateRef.m_unit));
+                }
+
+                env->SetObjectArrayElement(ratesArray, i, static_cast<jsize>(rate));
+
+                env->DeleteLocalRef(rate);
+            }
+        }
+        return ratesArray;
     }
 }
 
@@ -149,7 +177,7 @@ void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescriptio
     {
         txItems = env->NewObjectArray(static_cast<jsize>(items.size()), TxDescriptionClass, NULL);
 
-        for (int i = 0; i < items.size(); ++i)
+        for (size_t i = 0; i < items.size(); ++i)
         {
             const auto& item = items[i];
 
@@ -173,7 +201,7 @@ void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescriptio
             setStringField(env, TxDescriptionClass, tx, "kernelId", to_hex(item.m_kernelID.m_pData, item.m_kernelID.nBytes));
             setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(item.m_failureReason));
 
-            env->SetObjectArrayElement(txItems, i, tx);
+            env->SetObjectArrayElement(txItems, i, static_cast<jsize>(tx));
 
             env->DeleteLocalRef(tx);
         }
@@ -310,13 +338,13 @@ void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 
 void WalletModel::onWalletError(ErrorType error)
 {
-    LOG_DEBUG() << "onWalletError: error = " << static_cast<int>(error);
+    LOG_DEBUG() << "onWalletError: error = " << underlying_cast(error);
 
     JNIEnv* env = Android_JNI_getEnv();
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeConnectionFailed", "(I)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, static_cast<int>(error));
+    env->CallStaticVoidMethod(WalletListenerClass, callback, underlying_cast(error));
 }
 
 void WalletModel::FailedToStartWallet()
@@ -424,13 +452,55 @@ void WalletModel::onExportDataToJson(const std::string& data)
     env->DeleteLocalRef(jdata);
 }
 
-void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&)
+void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>& notifications)
 {
     LOG_DEBUG() << "onNotificationsChanged";
 
-    // JNIEnv* env = Android_JNI_getEnv();
+    JNIEnv* env = Android_JNI_getEnv();
 
-    // jmethodID callback = env->GetStaticMethodID(WalletListenerClass, ""
+    for (const auto& notification : notifications)
+    {
+        beam::wallet::VersionInfo versionInfo;
 
-    // env->CallStaticVoidMethod(WalletListenerClass, callback
+        if (notification.m_type == beam::wallet::Notification::Type::SoftwareUpdateAvailable &&
+            beam::wallet::fromByteBuffer(notification.m_content, versionInfo))
+        {
+            jobject jNotificationInfo = env->AllocObject(NotificationClass);
+            {
+                setStringField(env, NotificationClass, jNotificationInfo, "id", to_string(notification.m_ID));
+                setIntField(env, NotificationClass, jNotificationInfo, "state", beam::underlying_cast(notification.m_state));
+                setLongField(env, NotificationClass, jNotificationInfo, "createTime", notification.m_createTime);
+            }
+
+            jobject jVersionInfo = env->AllocObject(VersionInfoClass);
+            {
+                setIntField(env, VersionInfoClass, jVersionInfo, "application", beam::underlying_cast(versionInfo.m_application));
+                setLongField(env, VersionInfoClass, jVersionInfo, "versionMajor", versionInfo.m_version.m_major);
+                setLongField(env, VersionInfoClass, jVersionInfo, "versionMinor", versionInfo.m_version.m_minor);
+                setLongField(env, VersionInfoClass, jVersionInfo, "versionRevision", versionInfo.m_version.m_revision);
+            }
+
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNewVersionNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO;)V");
+
+            env->CallStaticVoidMethod(WalletListenerClass, callback, action, jNotificationInfo, jVersionInfo);
+
+            env->DeleteLocalRef(jNotificationInfo);
+            env->DeleteLocalRef(jVersionInfo);
+        }
+    }
+}
+
+void WalletModel::onExchangeRates(const beam::wallet::ExchangeRates& rates)
+{
+    LOG_DEBUG() << "onExchangeRates";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jobjectArray jRates = convertExchangeRatesToJObject(env, rates);
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onExchangeRates", "(J[L" BEAM_JAVA_PATH "/entities/dto/ExchangeRateDTO;)V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, rates.m_ts, jRates);
+
+    env->DeleteLocalRef(jRates);
 }

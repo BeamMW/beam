@@ -644,10 +644,10 @@ deploy the key at the node you trust completely."*/
                             text: qsTrId("settings-notifications-version")
                             font.pixelSize: 14
                             Layout.fillWidth: true
-                            checked: viewModel.newscastSettings.isUpdatesPushActive
+                            checked: viewModel.notificationsSettings.isNewVersionActive
                             Binding {
-                                target: viewModel.newscastSettings
-                                property: "isUpdatesPushActive"
+                                target: viewModel.notificationsSettings
+                                property: "isNewVersionActive"
                                 value: walletVersionNotificationsSwitch.checked
                             }
                         }

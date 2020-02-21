@@ -794,7 +794,7 @@ void SwapCoinSettingsItem::applyNodeAddressElectrum(const QString& address)
 
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance().getSettings()}
-    , m_newscastSettings(AppModel::getInstance().getSettings())
+    , m_notificationsSettings(AppModel::getInstance().getSettings())
     , m_isValidNodeAddress{true}
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
@@ -1149,7 +1149,7 @@ const QList<QObject*>& SettingsViewModel::getSwapCoinSettings()
     return m_swapSettings;
 }
 
-QObject* SettingsViewModel::getNewscastSettings()
+QObject* SettingsViewModel::getNotificationsSettings()
 {
-    return &m_newscastSettings;
+    return &m_notificationsSettings;
 }
