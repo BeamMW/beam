@@ -128,7 +128,7 @@ if (BEAM_NO_QT_UI_WALLET)
     set(BEAM_QT_UI_WALLET FALSE)    
 endif()
 
-set(BEAM_USE_STATIC FALSE)
+option(BEAM_USE_STATIC "Build with staticaly linked libraries " FALSE)
 if(BEAM_LINK_TYPE MATCHES "Static")
     set(BEAM_USE_STATIC TRUE)
 endif()
