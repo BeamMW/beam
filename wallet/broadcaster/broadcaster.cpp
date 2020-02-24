@@ -135,7 +135,7 @@ namespace
             BbsSender::Send(peerID, msg, 0);
         }
 
-        void OnMessageSent(uint64_t id)
+        void OnMessageSent(uint64_t id) override
         {
             io::Reactor::get_Current().stop();
         }
