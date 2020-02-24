@@ -2182,5 +2182,9 @@ deploy the key at the node you trust completely.</translation>
         <source>details</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="notifications-clear-all">
+        <source>clear all</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

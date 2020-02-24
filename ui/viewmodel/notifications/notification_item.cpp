@@ -107,16 +107,18 @@ auto NotificationItem::message() const -> QString
 
 auto NotificationItem::type() const -> QString
 {
+    // !TODO: full list of the supported item types is: update expired received sent failed inpress hotnews videos events newsletter community
+    
     switch(m_notification.m_type)
     {
         case Notification::Type::SoftwareUpdateAvailable:
-            return "softwareUpdate";
+            return "update";
         case Notification::Type::AddressStatusChanged:
-            return "addressChanged";
+            return "expired";
         case Notification::Type::TransactionStatusChanged:
-            return "txStatusChanged";
+            return "received"; // or "sent" or "failed"
         case Notification::Type::BeamNews:
-            return "beamNews";
+            return "newsletter";
         default:
             return "error";
     }
