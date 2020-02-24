@@ -121,7 +121,7 @@ func NewService(index int) (svc *Service, err error) {
 				}
 				return
 			}
-			//svc.ServiceAlive <- true
+			svc.ServiceAlive <- true
 		}
 	} ()
 
