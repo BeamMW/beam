@@ -637,7 +637,19 @@ deploy the key at the node you trust completely."*/
                             font.pixelSize: 18
                             font.styleName: "Bold"; font.weight: Font.Bold
                         }
-
+                        CustomSwitch {
+                            id: exchangeRatesNotificationsSwitch
+                            //% "Exchange rates"
+                            text: qsTrId("settings-notifications-rates")
+                            font.pixelSize: 14
+                            Layout.fillWidth: true
+                            checked: viewModel.notificationsSettings.isExcRatesActive
+                            Binding {
+                                target: viewModel.notificationsSettings
+                                property: "isExcRatesActive"
+                                value: exchangeRatesNotificationsSwitch.checked
+                            }
+                        }
                         CustomSwitch {
                             id: walletVersionNotificationsSwitch
                             //% "Wallet version"

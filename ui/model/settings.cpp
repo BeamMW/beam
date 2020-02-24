@@ -47,10 +47,10 @@ namespace
 
     const char* kDefaultLocale = "en_US";
 
-    const char* kExcRatesActive = "notifications/exchange_rates_active";
-    const char* kNewVersionActive = "notifications/new_software_version_active";
-    const char* kBeamNewsActive = "notifications/beam_news_active";
-    const char* kTxStatusActive = "notifications/tx_status_active";
+    const char* kExcRatesActive = "notifications/exchange_rates";
+    const char* kNewVersionActive = "notifications/software_release";
+    const char* kBeamNewsActive = "notifications/beam_news";
+    const char* kTxStatusActive = "notifications/tx_status";
 
     const std::map<QString, QString> kSupportedLangs { 
         { "zh_CN", "Chinese Simplified"},

@@ -68,12 +68,13 @@ public:
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
 
+    // Notifications settings
     bool isExcRatesActive() const;
     bool isNewVersionActive() const;
     bool isBeamNewsActive() const;
     bool isTxStatusActive() const;
-    void setNewVersionActive(bool isActive);
     void setExcRatesActive(bool isActive);
+    void setNewVersionActive(bool isActive);
     void setBeamNewsActive(bool isActive);
     void setTxStatusActive(bool isActive);
 

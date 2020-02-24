@@ -45,7 +45,7 @@ void NotificationsSettings::setNewVersionActive(bool isActive)
     if (isActive != m_isNewVersionActive)
     {
         m_isNewVersionActive = isActive;
-        m_storage.setNewVersionActive(m_isNewVersionActive);
+        m_storage.setNewVersionActive(isActive);
         emit newVersionActiveChanged();
     }
 }
@@ -55,7 +55,7 @@ void NotificationsSettings::setExcRatesActive(bool isActive)
     if (isActive != m_isExcRatesActive)
     {
         m_isExcRatesActive = isActive;
-        m_storage.setExcRatesActive(m_isExcRatesActive);
+        m_storage.setExcRatesActive(isActive);
         emit excRatesActiveChanged();
     }
 }
@@ -65,7 +65,7 @@ void NotificationsSettings::setBeamNewsActive(bool isActive)
     if (isActive != m_isBeamNewsActive)
     {
         m_isBeamNewsActive = isActive;
-        // m_storage.setBeamNewsActive
+        m_storage.setBeamNewsActive(isActive);
         emit beamNewsActiveChanged();
     }
 }
@@ -75,7 +75,7 @@ void NotificationsSettings::setTxStatusActive(bool isActive)
     if (isActive != m_isTxStatusActive)
     {
         m_isTxStatusActive = isActive;
-        // m_storage.setTxStatusActive
+        m_storage.setTxStatusActive(isActive);
         emit txStatusActiveChanged();
     }
 }
@@ -84,6 +84,10 @@ void NotificationsSettings::loadFromStorage()
 {
     m_isNewVersionActive = m_storage.isNewVersionActive();
     m_isExcRatesActive = m_storage.isExcRatesActive();
+    m_isBeamNewsActive = m_storage.isBeamNewsActive();
+    m_isTxStatusActive = m_storage.isTxStatusActive();
     emit excRatesActiveChanged();
     emit newVersionActiveChanged();
+    emit beamNewsActiveChanged();
+    emit txStatusActiveChanged();
 }
