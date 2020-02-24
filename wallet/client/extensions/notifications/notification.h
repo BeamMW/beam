@@ -41,5 +41,14 @@ namespace beam::wallet
         State m_state;
         Timestamp m_createTime;
         ByteBuffer m_content;
+
+        bool operator==(const Notification& other) const
+        {
+            return m_ID == other.m_ID
+                && m_type == other.m_type
+                && m_state == other.m_state
+                && m_createTime == other.m_createTime
+                && m_content == other.m_content;
+        };
     };
 } // namespace beam::wallet

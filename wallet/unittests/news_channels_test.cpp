@@ -35,6 +35,8 @@ WALLET_TEST_INIT
 #include "wallet/client/extensions/news_channels/broadcast_msg_creator.h"
 #include "wallet/client/extensions/news_channels/updates_provider.h"
 
+#include "wallet/client/extensions/notifications/notification_center.h"
+
 #include <tuple>
 
 using namespace beam;
@@ -68,6 +70,24 @@ namespace
 
         OnVersion m_onVers;
         OnRate m_onRate;
+    };
+
+    /**
+     *  Class to test notifications observers interface
+     */
+    struct MockNotificationsObserver : public INotificationsObserver
+    {
+        using OnNotification = function<void(ChangeAction action, const std::vector<Notification>&)>;
+
+        MockNotificationsObserver(OnNotification callback)
+            : m_onNotification(callback) {};
+        
+        virtual void onNotificationsChanged(ChangeAction action, const std::vector<Notification>& list) override
+        {
+            m_onNotification(action, list);
+        }
+
+        OnNotification m_onNotification;
     };
 
     /**
@@ -114,15 +134,6 @@ namespace
                   std::begin(msg) + MsgHeader::SIZE);
         return msg;
     };
-
-    /**
-     * Create BroadcastMsg with specified string
-     */
-    // BroadcastMsg createBroadcastMsg(std::string testString)
-    // {
-    //     BroadcastMsg res = { toByteBuffer(testString), };
-    //     return res;
-    // }
 
     /**
      *  Tests:
@@ -459,6 +470,134 @@ namespace
         }
     }
 
+    void TestNotificationCenter()
+    {
+        cout << endl << "Test NotificationCenter" << endl;
+
+        auto storage = createSenderWalletDB();
+        NotificationCenter center(*storage);
+
+        {
+            {
+                cout << "Case: empty list" << endl;
+                WALLET_CHECK(center.getNotifications().size() == 0);
+            }
+
+            VersionInfo info { VersionInfo::Application::DesktopWallet, Version(1,2,3) };
+            const uintBig id({0,1,2,3,4,5,6,7,8,9,
+                              0,1,2,3,4,5,6,7,8,9,
+                              0,1,2,3,4,5,6,7,8,9,
+                              0,1});
+            
+            {
+                cout << "Case: create notification" << endl;
+                size_t execCount = 0;
+                MockNotificationsObserver observer(
+                    [&execCount, &id]
+                    (ChangeAction action, const std::vector<Notification>& list)
+                    {
+                        WALLET_CHECK(action == ChangeAction::Added);
+                        WALLET_CHECK(list.size() == 1);
+                        WALLET_CHECK(list[0].m_ID == id);
+                        WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                        ++execCount;
+                    }
+                );
+                center.Subscribe(&observer);
+                center.onNewWalletVersion(info, id);
+                auto list = center.getNotifications();
+                WALLET_CHECK(list.size() == 1);
+                WALLET_CHECK(list[0].m_ID == id);
+                WALLET_CHECK(list[0].m_type == Notification::Type::SoftwareUpdateAvailable);
+                WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                WALLET_CHECK(list[0].m_createTime != 0);
+                WALLET_CHECK(list[0].m_content == toByteBuffer(info));
+                WALLET_CHECK(execCount == 1);
+                center.Unsubscribe(&observer);
+            }
+
+            // update: mark as read
+            {
+                cout << "Case: mark as read" << endl;
+                size_t execCount = 0;
+                MockNotificationsObserver observer(
+                    [&execCount, &id]
+                    (ChangeAction action, const std::vector<Notification>& list)
+                    {
+                        WALLET_CHECK(action == ChangeAction::Updated);
+                        WALLET_CHECK(list.size() == 1);
+                        WALLET_CHECK(list[0].m_ID == id);
+                        WALLET_CHECK(list[0].m_state == Notification::State::Read);
+                        ++execCount;
+                    }
+                );
+                center.Subscribe(&observer);
+                center.markNotificationAsRead(id);
+                auto list = center.getNotifications();
+                WALLET_CHECK(list.size() == 1);
+                WALLET_CHECK(list[0].m_ID == id);
+                WALLET_CHECK(list[0].m_type == Notification::Type::SoftwareUpdateAvailable);
+                WALLET_CHECK(list[0].m_state == Notification::State::Read);
+                WALLET_CHECK(list[0].m_createTime != 0);
+                WALLET_CHECK(list[0].m_content == toByteBuffer(info));
+                WALLET_CHECK(execCount == 1);
+                center.Unsubscribe(&observer);
+            }
+
+            Notification n;
+            n.m_ID = id;
+            n.m_type = Notification::Type::SoftwareUpdateAvailable;
+            n.m_state = Notification::State::Unread;
+            n.m_createTime = getTimestamp();
+            n.m_content = toByteBuffer(info);
+
+            // update
+            {
+                cout << "Case: update notification" << endl;
+                size_t execCount = 0;
+                MockNotificationsObserver observer(
+                    [&execCount, &n]
+                    (ChangeAction action, const std::vector<Notification>& list)
+                    {
+                        WALLET_CHECK(action == ChangeAction::Updated);
+                        WALLET_CHECK(list.size() == 1);
+                        WALLET_CHECK(list[0] == n);
+                        ++execCount;
+                    }
+                );
+                center.Subscribe(&observer);
+                center.updateNotification(n);
+                auto list = center.getNotifications();
+                WALLET_CHECK(list.size() == 1);
+                WALLET_CHECK(list[0] == n);
+                WALLET_CHECK(execCount == 1);
+                center.Unsubscribe(&observer);
+            }
+
+            // delete
+            {
+                cout << "Case: delete notification" << endl;
+                size_t execCount = 0;
+                MockNotificationsObserver observer(
+                    [&execCount, &id]
+                    (ChangeAction action, const std::vector<Notification>& list)
+                    {
+                        WALLET_CHECK(action == ChangeAction::Removed);
+                        WALLET_CHECK(list.size() == 1);
+                        WALLET_CHECK(list[0].m_ID == id);
+                        ++execCount;
+                    }
+                );
+                center.Subscribe(&observer);
+                center.deleteNotification(id);
+                auto list = center.getNotifications();
+                WALLET_CHECK(list.size() == 0);
+                WALLET_CHECK(execCount == 1);
+                center.Unsubscribe(&observer);
+            }
+        }
+    }
+
 } // namespace
 
 int main()
@@ -474,6 +613,8 @@ int main()
     TestStringToKeyConvertation();
     // TestProtocolBuilder();
     TestSoftwareVersion();
+
+    TestNotificationCenter();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

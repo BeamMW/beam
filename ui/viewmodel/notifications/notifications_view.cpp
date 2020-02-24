@@ -63,6 +63,12 @@ void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action
                 m_notificationsList.remove(modifiedNotifications);
                 break;
             }
+
+        case ChangeAction::Updated:
+            {
+                m_notificationsList.update(modifiedNotifications);
+                break;
+            }
         
         default:
             assert(false && "Unexpected action");

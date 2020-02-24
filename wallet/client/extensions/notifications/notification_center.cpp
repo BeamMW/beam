@@ -50,13 +50,56 @@ namespace beam::wallet
         }
     }
 
-    void NotificationCenter::saveNotification(const Notification& notification)
+    void NotificationCenter::createNotification(const Notification& notification)
     {
+        LOG_DEBUG() << "createNotification()";
+
         m_cache[notification.m_ID] = notification;
         m_storage.saveNotification(notification);
 
-        // TODO: ChangeAction depending on state
-        notifySubscribers(ChangeAction::Updated, {notification});
+        notifySubscribers(ChangeAction::Added, {notification});
+    }
+
+    void NotificationCenter::updateNotification(const Notification& notification)
+    {
+        LOG_DEBUG() << "updateNotification()";
+
+        const auto it = m_cache.find(notification.m_ID);
+        if (it != std::cend(m_cache))
+        {
+            m_cache[notification.m_ID] = notification;
+            m_storage.saveNotification(notification);
+
+            notifySubscribers(ChangeAction::Updated, {notification});
+        }
+    }
+
+    void NotificationCenter::markNotificationAsRead(const ECC::uintBig& notificationID)
+    {
+        LOG_DEBUG() << "markNotificationAsRead()";
+
+        auto search = m_cache.find(notificationID);
+        if (search != m_cache.cend() && search->second.m_state == Notification::State::Unread)
+        {
+            search->second.m_state = Notification::State::Read;
+            updateNotification(search->second);
+        }
+    }
+    
+    void NotificationCenter::deleteNotification(const ECC::uintBig& notificationID)
+    {
+        LOG_DEBUG() << "deleteNotification()";
+
+        auto search = m_cache.find(notificationID);
+        if (search != m_cache.cend())
+        {
+            search->second.m_state = Notification::State::Deleted;
+            m_storage.saveNotification(search->second);
+
+            notifySubscribers(ChangeAction::Removed, { search->second });
+
+            m_cache.erase(search);
+        }
     }
 
     std::vector<Notification> NotificationCenter::getNotifications() const
@@ -85,7 +128,7 @@ namespace beam::wallet
         n.m_state = Notification::State::Unread;
         n.m_content = toByteBuffer(content);
         
-        saveNotification(n);
+        createNotification(n);
     }
 
     void NotificationCenter::Subscribe(INotificationsObserver* observer)
