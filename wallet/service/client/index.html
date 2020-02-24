@@ -188,18 +188,24 @@
       // const walletGUID = 'A001'
       const walletGUID = 'R00' + Math.floor(Math.random() * (1 - 100 + 1) ) + 100
 
+      function login() {
+        login_ws()
+      }
       
       // Alive ping interval, such short time is used only for testing
-      // TODO: discuss real alive ping interval, may be use websockets for this
+      // This is necessary only for HTTP version, not for websockets
       const aliveInterval = 10000
       var aliveTimer = null
 
-      function login() {
-          const login = 'http://127.0.0.1:20000/login'
+      // 
+      // Balancer HTTP Login example 
+      //
+      function login_http() {
+          const loginURL = 'http://127.0.0.1:20000/login'
+          
           var xhr = new XMLHttpRequest()
-          xhr.open("POST", login, true)
+          xhr.open("POST", loginURL, true)
           xhr.setRequestHeader("Content-Type", "application/json")
-
           xhr.onreadystatechange = function () {
             if (xhr.readyState === 4) {
               if (xhr.status === 200) {
@@ -211,17 +217,16 @@
               } 
             }
           }
-
           xhr.send(JSON.stringify({
             WalletID: walletGUID
           }))
       }
 
       function startAliveTimer() {
-      	if (aliveTimer) clearInterval(alieTimer)
+        if (aliveTimer) clearInterval(alieTimer)
         aliveTimer = setInterval(() => {
           console.log('Sending alive ping')
-          
+
           const alive = 'http://127.0.0.1:20000/alive'
           var xhr = new XMLHttpRequest()
           xhr.open("POST", alive, true)
@@ -246,6 +251,57 @@
         }, aliveInterval)
       }
 
+      // 
+      // Balancer WebSockets Login example 
+      //
+      function login_ws() {
+        let ws = new WebSocket('ws://127.0.0.1:20000/ws')
+        
+        ws.onopen = () => {
+          console.log('login_ws: connected...')
+
+          ws.onmessage = (e) => {
+            console.log('login msg ', e)
+          }
+
+          ws.send(JSON.stringify(
+          {
+            jsonrpc: "2.0",
+            id: 123,
+            method: "login",
+            params:
+            {
+              WalletID: walletGUID
+            }
+          }))
+
+          ws.onmessage = (e) => {
+            var data = JSON.parse(e.data)
+
+            if (data.result) {
+              console.log(`result is ${data.result}`)
+              if (data.id == 123) {
+                console.log("ws login OK, endpoint is ", data.result.endpoint)
+                var endpoint = ['ws://', data.result.endpoint].join('')
+                start(endpoint)
+              }
+            } else if (data.error)
+              console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+          }
+        }
+
+        ws.onclose = () => { 
+          console.log('login_ws: connection lost')
+        }
+
+        ws.onerror = error => {
+          console.log(`login_ws: connection error: ${JSON.stringify(error)}`)
+        }
+      }
+
+      //
+      // After-login flow
+      //
 			function start(url)
 			{
         showPanel('#connecting-panel')

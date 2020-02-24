@@ -56,7 +56,8 @@ namespace beam::wallet {
         }
         else
         {
-            LOG_INFO() << "Sync pipe: " << message << ", " << wsize << " bytes";
+            fflush(_file);
+            LOG_INFO() << "Sync pipe " << _fd << ": " << message << ", " << wsize << " bytes";
         }
     }
 

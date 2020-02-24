@@ -10,34 +10,36 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
+	"time"
 )
 
 //
 // Single wallet service
 //
 type Service struct {
-	Address     string
-	command     *exec.Cmd
-	cancelCmd   context.CancelFunc
-	context     context.Context
-	ServiceExit chan struct{}
+	Address      string
+	command      *exec.Cmd
+	cancelCmd    context.CancelFunc
+	context      context.Context
+	ServiceExit  chan struct{}
+	ServiceAlive chan bool
 }
 
 func (svc* Service) Shutdown() {
-	close(svc.ServiceExit)
 	svc.cancelCmd()
 }
 
-func NewService(index int) (*Service, error) {
-	var svc  = Service{}
+func NewService(index int) (svc *Service, err error) {
+	svc = &Service{}
 	var port = config.ServiceFirstPort + index
 
 	ctxWS, cancelWS := context.WithCancel(context.Background())
-	svc.cancelCmd   = cancelWS
-	svc.context     = ctxWS
-	svc.command     = exec.CommandContext(ctxWS, config.ServicePath, "-n", config.BeamNode, "-p", strconv.Itoa(port))
-	svc.Address     = config.SerivcePublicAddress + ":" + strconv.Itoa(port)
-	svc.ServiceExit = make(chan struct{})
+	svc.cancelCmd    = cancelWS
+	svc.context      = ctxWS
+	svc.command      = exec.CommandContext(ctxWS, config.ServicePath, "-n", config.BeamNode, "-p", strconv.Itoa(port))
+	svc.Address      = config.SerivcePublicAddress + ":" + strconv.Itoa(port)
+	svc.ServiceExit  = make(chan struct{})
+	svc.ServiceAlive = make(chan bool)
 
 	if config.Debug {
 		svc.command.Stdout = os.Stdout
@@ -45,54 +47,86 @@ func NewService(index int) (*Service, error) {
 	}
 
 	// Setup pipes
-	pipeR, pipeW, err := os.Pipe()
+	startPipeR, startPipeW, err := os.Pipe()
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	defer pipeR.Close()
-	defer pipeW.Close()
+	alivePipeR, alivePipeW, err := os.Pipe()
+	if err != nil {
+		return
+	}
+
+	defer func () {
+		if err != nil {
+			svc = nil
+			if alivePipeR != nil {
+				_ = alivePipeR.Close()
+			}
+		}
+
+		if startPipeW != nil {
+			_ = startPipeW.Close()
+		}
+		if startPipeR != nil {
+			_ = startPipeR.Close()
+		}
+		if alivePipeW != nil {
+			_ = alivePipeW.Close()
+		}
+	} ()
 
 	svc.command.ExtraFiles = []*os.File {
-		pipeW,
+		startPipeW,
+		alivePipeW,
 	}
 
 	// Start wallet service
 	log.Printf("service %v, starting as [%v %v %v %v]", index, config.ServicePath, "-n " + config.BeamNode, "-p", port)
 	if err = svc.command.Start(); err != nil {
-		return nil, err
+		return
 	}
-	_ = pipeW.Close()
 	log.Printf("service %v, pid is %v", index, svc.command.Process.Pid)
 
 	//
 	// Wait for the service spin-up & listening
 	//
-	presp, err := readPipe(pipeR)
-	_ = pipeR.Close()
-
+	presp, err := readPipe(startPipeR, ServiceLaunchTimeout)
 	if err != nil {
 		cancelWS()
 		err = fmt.Errorf("service %v, failed to read from sync pipe, %v", index, err)
-		return nil, err
+		return
 	}
 
 	if "LISTENING" != presp {
 		cancelWS()
 		err = fmt.Errorf("service %v, failed to start. Wrong pipe response %v", index, presp)
-		return nil, err
+		return
 	}
 
-	//
-	// Everything is OK
-	//
+	// This goroutine waits for process exit
 	go func () {
 		_ = svc.command.Wait()
+		_ = alivePipeR.Close()
 		close(svc.ServiceExit)
 	} ()
 
+	// This goroutine reads process heartbeat
+	go func () {
+		for {
+			_, err := readPipe(alivePipeR, ServiceHeartbeatTimeout)
+			if err != nil {
+				if config.Debug {
+					log.Printf("service %v, aborting hearbeat pipe %v", index, err)
+				}
+				return
+			}
+			//svc.ServiceAlive <- true
+		}
+	} ()
+
 	log.Printf("service %v, successfully started, sync pipe response %v", index, presp)
-	return &svc, nil
+	return
 }
 
 //
@@ -211,46 +245,36 @@ func NewServices() (result *Services, err error) {
 		var svcIdx = i
 
 		go func() {
-			var serviceExit = service.ServiceExit
-			// TODO: consider implementing alive check
-			// aliveTimeout := time.NewTimer(ServiceAliveTimeout)
-			var shutdownService = func (exitProcess bool) {
-				serviceExit = nil
-				if exitProcess {
-					service.Shutdown()
-				}
-				result.Drop(svcIdx)
-			}
+			var serviceExit  = service.ServiceExit
+			var aliveTimeout = time.NewTimer(ServiceAliveTimeout)
 
 			for {
 				select {
-				/*
-					case <- aliveTimeout.C:
-						// No alive signals from service for some time. Usually this means
-						// that connection to the service has been lost and we need to restart it
-						log.Printf("service %v, alive timeout", svcIdx)
-						shutdown(true)
+				case <- aliveTimeout.C:
+					// No alive signals from service for some time. Usually this means
+					// that connection to the service has been lost and we need to restart it
+					log.Printf("service %v, alive timeout", svcIdx)
+					service.Shutdown()
 
-					case <- service.ServiceAlive:
-						// This means that alive ping has been received
-						// timeout timer should be restarted
-						// TODO:DEBUG LOG
+				case <- service.ServiceAlive:
+					// This means that alive ping has been received. Timeout timer should be restarted
+					if config.Debug {
 						log.Printf("service %v, service is alive, restarting alive timeout", svcIdx)
-						aliveTimeout = time.NewTimer(ServiceAliveTimeout)
-				*/
+					}
+					aliveTimeout = time.NewTimer(ServiceAliveTimeout)
 
 				case <- serviceExit:
 					//
 					// Now we just drop all endpoints for this service and continue without it
-					// TODO: If there are 0 services left - panic
-					// TODO: consider restart on the same port, Do not drop endpoints then, bad clients might try to reconnect.
-					// TODO: consider restart on new port, drop endpoints. This seems to be better solution (?)
+					// TODO: If there are 0 services left - panic OR
+					//       - consider restart on the same port, Do not drop endpoints then, bad clients might try to reconnect.
+					//       - consider restart on new port, drop endpoints. This seems to be better solution (?)
 					//
 					// This means that something really bad happened.
 					// May be wallet service has been killed by OOM/admin/other process
+					// TODO: check all 'dropped' messages, if counters are correct
 					log.Printf("service %v, unexpected shutdown [%v]", svcIdx, service.command.ProcessState)
-					// TODO: consider implementing service restart. This might be not so trivial
-					shutdownService(false)
+					result.Drop(svcIdx)
 					return
 				}
 			}

@@ -173,27 +173,34 @@ namespace
 
     class WalletApiServer : public WebSocketServer
     {
+        static const int SyncFileDescriptor      = 3;
+        static const int HeartbeatFileDescriptor = 4;
+        static const int HeartbeatInterval       = 5000;
+
     public:
 
         WalletApiServer(io::Reactor::Ptr reactor, uint16_t port)
-            : WebSocketServer(reactor, port, 
-                [this, reactor](auto&& func)
-                { return std::make_unique<ServiceApiConnection>(func, reactor, _walletMap); },
-                []() { WalletApiServer::writeToSyncPipe(); }
-            )
+            : WebSocketServer(reactor, port,
+            [this, reactor] (auto&& func) {
+                return std::make_unique<ServiceApiConnection>(func, reactor, _walletMap);
+            },
+            [] () {
+                Pipe syncPipe(SyncFileDescriptor);
+                syncPipe.notify("LISTENING");
+            })
+            , _heartbeatPipe(HeartbeatFileDescriptor)
         {
-        }
-    private:
-
-        static void writeToSyncPipe()
-        {
-            const int SuccessFD = 3;
-            Pipe pipe(SuccessFD);
-            pipe.notify("LISTENING");
+            _heartbeatTimer = io::Timer::create(*reactor);
+            _heartbeatTimer->start(HeartbeatInterval, true, [this] () {
+                _heartbeatPipe.notify("alive");
+            });
         }
 
     private:
+        io::Timer::Ptr _heartbeatTimer;
+        Pipe _heartbeatPipe;
 
+    private:
         struct WalletInfo
         {
             std::string ownerKey;

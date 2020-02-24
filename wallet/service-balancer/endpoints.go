@@ -107,7 +107,7 @@ func (points *Endpoints) Add(wid string, svcIdx int, address string) {
 				timeout.Stop()
 				log.Printf("wallet %v, endpoint removed", wid)
 			} else {
-				log.Printf("wallet %v, client removed, %v clients left", wid, clients)
+				log.Printf("wallet %v, client removed, %v client(s) left", wid, clients)
 			}
 		}
 
@@ -131,12 +131,12 @@ func (points *Endpoints) Add(wid string, svcIdx int, address string) {
 			case <- epoint.WalletLogout:
 				// This means that web wallet notified us about exit
 				// Need to shutdown this endpoint
-				log.Printf("wallet %v, logout request", wid)
+				log.Printf("wallet %v, WalletLogout signal", wid)
 				releaseEndpoint()
 				return
 
 			case <- epoint.Dropped:
-				log.Printf("ERROR wallet %v, endpoint dropped, clients %v, service %v", wid, epoint.GetClientsCnt(), epoint.GetServiceIdx())
+				log.Printf("wallet %v, endpoint dropped, clients %v, service %v", wid, epoint.GetClientsCnt(), epoint.GetServiceIdx())
 				timeout.Stop()
 				return
 			}

@@ -3,13 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/olahol/melody"
+	"log"
 	"net/http"
 	"os"
 	"time"
-)
-
-const (
-	LAUNCH_TIMEOUT = 5 * time.Second
 )
 
 type login struct {
@@ -21,9 +19,11 @@ type loginR struct {
 	Error    string  `json:"error,omitempty"`
 }
 
-func readPipe(pipe *os.File) (res string, err error) {
-	if err = pipe.SetReadDeadline(time.Now().Add(LAUNCH_TIMEOUT)); err != nil {
-		return
+func readPipe(pipe *os.File, timeout time.Duration) (res string, err error) {
+	if timeout != 0 {
+		if err = pipe.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+			return
+		}
 	}
 
 	var dsize int
@@ -58,3 +58,32 @@ func loginRequest(w http.ResponseWriter, r *http.Request) (interface{}, error){
 	res.Endpoint = epoint
 	return res, nil
 }
+
+type rpcLoginParams struct {
+	WalletID string `json:"WalletID"`
+}
+
+type rpcLoginResult struct {
+	Endpoint string  `json:"endpoint"`
+}
+
+func rpcLoginRequest(session* melody.Session, params *json.RawMessage) (result interface{}, err error) {
+	var loginParms  rpcLoginParams
+	var loginResult rpcLoginResult
+
+	if err = json.Unmarshal(*params, &loginParms); err != nil {
+		return
+	}
+
+	loginResult.Endpoint, err = monitorGet(loginParms.WalletID)
+	if err != nil {
+		return
+	}
+
+	log.Printf("wallet %v, rpc login request", loginParms.WalletID)
+	session.Set(RpcKeyWID, loginParms.WalletID)
+	result = &loginResult
+
+	return
+}
+

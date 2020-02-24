@@ -9,14 +9,15 @@ import (
 var services *Services
 
 var (
-	EndpointAliveTimeout = 5 * time.Minute
-	ServiceAliveTimeout  = 10 * time.Second
+	EndpointAliveTimeout    = 5  * time.Minute
+	ServiceLaunchTimeout    = 5  * time.Second
+	ServiceAliveTimeout     = 15 * time.Second
+	ServiceHeartbeatTimeout = 10 * time.Second // Should be heartbeat interval * 2
 )
 
 func monitorInitialize() (err error) {
 	if config.Debug {
-		EndpointAliveTimeout = 20 * time.Second
-		ServiceAliveTimeout  = 10 * time.Second
+		EndpointAliveTimeout = 10 * time.Second
 	}
 
 	services, err = NewServices()
@@ -32,7 +33,7 @@ func monitorInitialize() (err error) {
 			select {
 			case svcIdx := <- services.Dropped:
 				points, clients := epoints.DropServiceEndpoints(svcIdx)
-				log.Printf("ERROR, service %v dropped, %v endpoint(s) with %v client(s)", svcIdx, points, clients)
+				log.Printf("service %v dropped, %v endpoint(s) with %v client(s)", svcIdx, points, clients)
 			}
 		}
 	} ()
