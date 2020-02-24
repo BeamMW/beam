@@ -418,6 +418,8 @@ namespace beam
 
 	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const CoinID& cid, Key::IPKdf& tagKdf, OpCode::Enum eOp)
 	{
+		CoinID::Worker wrk(cid);
+
 		bool bUseCoinKdf = true;
 		switch (eOp)
 		{
@@ -427,37 +429,18 @@ namespace beam
 			break;
 
 		default:
-			break; // suppress warning
-		}
-
-
-		CoinID::Worker wrk(cid);
-		if (bUseCoinKdf)
 			wrk.Create(sk, m_Commitment, coinKdf);
-		else
-		{
-			if (cid.m_AssetID)
-			{
-				// some non-trivial key is required for asset proof
-				ECC::Hash::Value hv;
-				cid.get_Hash(hv);
-				tagKdf.DerivePKey(sk, hv);
-			}
 		}
 
 		ECC::Scalar::Native skSign = sk;
 		if (cid.m_AssetID)
 		{
-			m_pAsset = std::make_unique<Asset::Proof>();
-			m_pAsset->Create(wrk.m_hGen, skSign, cid.m_Value, cid.m_AssetID, wrk.m_hGen);
-
+			ECC::Hash::Value hv;
 			if (!bUseCoinKdf)
-			{
-				// subtract the dummy key
-				sk = -sk;
-				skSign += sk;
-				sk = Zero;
-			}
+				cid.get_Hash(hv);
+
+			m_pAsset = std::make_unique<Asset::Proof>();
+			m_pAsset->Create(wrk.m_hGen, skSign, cid.m_Value, cid.m_AssetID, wrk.m_hGen, bUseCoinKdf ? nullptr : &hv);
 		}
 
 		ECC::Oracle oracle;
@@ -2469,41 +2452,39 @@ namespace beam
 		return true;
 	}
 
-	void Asset::Proof::Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid)
+	void Asset::Proof::Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Hash::Value* phvSeed)
 	{
 		ECC::Point::Native gen;
 		if (aid)
 			Base(aid).get_Generator(gen);
-		else
-			get_H().Assign(gen, true);
 
-		Create(genBlinded, skInOut, val, aid, gen);
+		Create(genBlinded, skInOut, val, aid, gen, phvSeed);
 	}
 
-	void Asset::Proof::get_skGen(ECC::Scalar::Native& skGen, const ECC::Scalar::Native& sk, Amount val, Asset::ID aid)
+	void Asset::Proof::Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Point::Native& gen, const ECC::Hash::Value* phvSeed)
 	{
 		ECC::NonceGenerator nonceGen("out-sk-asset");
-
 		ECC::NoLeak<ECC::Scalar> k;
-		k.V = sk;
+
+		k.V = skInOut;
 		nonceGen << k.V.m_Value;
 
-		ECC::Hash::Processor()
+		ECC::Hash::Processor hp;
+		hp
 			<< aid
-			<< val
-			>> k.V.m_Value;
+			<< val;
+		if (phvSeed)
+			hp << (*phvSeed);
 
-		nonceGen
-			<< k.V.m_Value
-			>> skGen; // blinding factor for generator
-	}
+		hp >> k.V.m_Value;
+		nonceGen << k.V.m_Value;
 
-	void Asset::Proof::Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Point::Native& gen)
-	{
-		ECC::Scalar::Native skGen;
-		get_skGen(skGen, skInOut, val, aid);
-		Create(genBlinded, skGen, aid, gen);
-		ModifySk(skInOut, skGen, val);
+		ECC::Scalar::Native skAsset;
+		nonceGen >> skAsset;
+
+		ModifySk(skInOut, skAsset, val);
+
+		Create(genBlinded, skAsset, aid, gen);
 	}
 
 	void Asset::Proof::Create(ECC::Point::Native& genBlinded, const ECC::Scalar::Native& skGen, Asset::ID aid, const ECC::Point::Native& gen)
