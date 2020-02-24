@@ -115,20 +115,28 @@ namespace
 {
     using namespace beam::wallet;
     namespace bi = boost::intrusive;
+
+    struct IMonitorConnectionHandler
+    {
+        virtual void sendAsync(const json& msg) = 0;
+    };
+
     class Monitor
         : public proto::FlyClient
         , public proto::FlyClient::IBbsReceiver
         , public wallet::IWalletMessageConsumer
     {
     public:
-        void subscribe(const WalletID& address, const ECC::Scalar::Native& privateKey)
+        void subscribe(const WalletID& address, const ECC::Scalar::Native& privateKey/*, Timestamp expirationTime*/)
         {
             auto addr = new AddressInfo;
             addr->m_Address = address;
             address.m_Channel.Export(addr->m_Channel);
             addr->m_PrivateKey = privateKey;
+            //addr->m_ExpirationTime = expirationTime;
             m_Channels.insert(*addr);
             m_Addresses.insert(*addr);
+            LOG_INFO() << "Subscribed to " << std::to_string(address);
         }
 
         void unSubscribe(const WalletID& address)
@@ -139,7 +147,17 @@ namespace
                 m_Channels.erase(ChannelSet::s_iterator_to(*it));
                 m_Addresses.erase(it);
                 delete &(*it);
+                LOG_INFO() << "Unsubscribed from " << std::to_string(address);
             }
+            else
+            {
+                LOG_WARNING() << "There is no subscription to " << std::to_string(address);
+            }
+        }
+
+        void setHandler(IMonitorConnectionHandler* handler)
+        {
+            m_ConnectionHandler = handler;
         }
 
     private:
@@ -147,6 +165,20 @@ namespace
         void OnWalletMessage(const wallet::WalletID& peerID, const wallet::SetTxParameter& msg) override
         {
             LOG_INFO() << "new bbs message for peer: " << std::to_string(peerID);
+
+            json jsonMsg =
+            {
+                {Api::JsonRpcHrd, Api::JsonRpcVerHrd},
+                {"id", 0},
+                {"method", "new_message"},
+                {"params",
+                    {
+                        {"address",  std::to_string(peerID)}
+                    }
+                }
+            };
+
+            sendAsync(jsonMsg);
         }
 
         void OnMsg(proto::BbsMsg&& msg) override
@@ -208,6 +240,18 @@ namespace
             return m_Headers;
         }
 
+        void sendAsync(const json& msg)
+        {
+            if (m_ConnectionHandler)
+            {
+                m_ConnectionHandler->sendAsync(msg);
+            }
+            else
+            {
+                LOG_WARNING() << "Cannot send notification, connection was closed";
+            }
+        }
+
     private:
 
         Block::SystemState::HistoryMap m_Headers;
@@ -247,6 +291,8 @@ namespace
         AddressSet m_Addresses;
         std::unordered_map<BbsChannel, Timestamp> m_BbsTimestamps;
 
+        IMonitorConnectionHandler* m_ConnectionHandler;
+
     };
 
     static const unsigned LOG_ROTATION_PERIOD_SEC = 3 * 60 * 60; // 3 hours
@@ -254,6 +300,7 @@ namespace
     class MonitorApiHandler 
         : public ISbbsMonitorApiHandler
         , public WebSocketServer::IHandler
+        , public IMonitorConnectionHandler
     {
     public:
         MonitorApiHandler(Monitor& monitor, WebSocketServer::SendMessageFunc&& func)
@@ -261,12 +308,15 @@ namespace
             , m_api(*this)
             , m_sendFunc(std::move(func))
         {
+            m_monitor.setHandler(this);
         }
 
         ~MonitorApiHandler()
-        {}
+        {
+            m_monitor.setHandler(nullptr);
+        }
 
-        void onMessage(const JsonRpcId& id, const Subscribe& data)
+        void onMessage(const JsonRpcId& id, const Subscribe& data) override
         {
             LOG_DEBUG() << "Subscribe(id = " << id << ")";
 
@@ -275,7 +325,7 @@ namespace
             doResponse(id, Subscribe::Response{});
         }
 
-        void onMessage(const JsonRpcId& id, const UnSubscribe& data)
+        void onMessage(const JsonRpcId& id, const UnSubscribe& data) override
         {
             LOG_DEBUG() << "UnSubscribe(id = " << id << ")";
 
@@ -295,13 +345,10 @@ namespace
             }
         }
 
-        void onInvalidJsonRpc(const json& msg)
+        void onInvalidJsonRpc(const json& msg) override
         {
             LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
-            if (m_sendFunc)
-            {
-                m_sendFunc(msg.dump());
-            }
+            sendAsync(msg);
         }
 
         void processData(const std::string& data) override
@@ -315,6 +362,14 @@ namespace
             catch (const nlohmann::detail::exception & e)
             {
                 LOG_ERROR() << "json parse: " << e.what() << "\n";
+            }
+        }
+
+        void sendAsync(const json& msg) override
+        {
+            if (m_sendFunc)
+            {
+                m_sendFunc(msg.dump());
             }
         }
         Monitor& m_monitor;
@@ -430,7 +485,7 @@ int main(int argc, char* argv[])
         nnet.m_Cfg.m_vNodes.push_back(nodeAddress);
         nnet.Connect();
  
-        for (BbsChannel c = 0; c < 1024; ++c)
+        for (BbsChannel c = 0; c < proto::Bbs::s_MaxWalletChannels; ++c)
         {
             nnet.BbsSubscribe(c, getTimestamp(), &monitor);
         }

@@ -515,12 +515,12 @@ namespace
             }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-            void serializeMsg(const json& msg) 
+            void serializeMsg(const json& msg) override
             {
                 _sendFunc(msg.dump());
             }
 
-            void sendAsync(const json& msg, KeyKeeperFunc func)
+            void sendAsync(const json& msg, KeyKeeperFunc func) override
             {
                 _keeperCallbacks.push(std::move(func));
                 serializeMsg(msg);
@@ -552,7 +552,7 @@ namespace
                 }
             }
 
-            void onInvalidJsonRpc(const json& msg)
+            void onInvalidJsonRpc(const json& msg) override
             {
                 _apiConnection.onInvalidJsonRpc(msg);
             }

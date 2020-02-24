@@ -47,9 +47,10 @@ namespace
 
     const char* kDefaultLocale = "en_US";
 
-    const char* kNewscastPublicKey = "newscast/publisher_key";
-    const char* kUpdatesPushActive = "newscast/updates_push_active";
-    const char* kExcRatesActive = "newscast/exchange_rates_active";
+    const char* kExcRatesActive = "notifications/exchange_rates";
+    const char* kNewVersionActive = "notifications/software_release";
+    const char* kBeamNewsActive = "notifications/beam_news";
+    const char* kTxStatusActive = "notifications/tx_status";
 
     const std::map<QString, QString> kSupportedLangs { 
         { "zh_CN", "Chinese Simplified"},
@@ -347,25 +348,37 @@ void WalletSettings::setLocaleByLanguageName(const QString& language)
     emit localeChanged();
 }
 
-bool WalletSettings::isUpdatesPushActive() const
+bool WalletSettings::isNewVersionActive() const
 {
     Lock lock(m_mutex);
-    return m_data.value(kUpdatesPushActive, false).toBool();
-}
-
-void WalletSettings::setUpdatesPushActive(bool isActive)
-{
-    if (isActive != isUpdatesPushActive())
-    {
-        Lock lock(m_mutex);
-        m_data.setValue(kUpdatesPushActive, isActive);
-    }
+    return m_data.value(kNewVersionActive, false).toBool();
 }
 
 bool WalletSettings::isExcRatesActive() const
 {
     Lock lock(m_mutex);
     return m_data.value(kExcRatesActive, false).toBool();
+}
+
+bool WalletSettings::isBeamNewsActive() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(kBeamNewsActive, false).toBool();
+}
+
+bool WalletSettings::isTxStatusActive() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(kTxStatusActive, false).toBool();
+}
+
+void WalletSettings::setNewVersionActive(bool isActive)
+{
+    if (isActive != isNewVersionActive())
+    {
+        Lock lock(m_mutex);
+        m_data.setValue(kNewVersionActive, isActive);
+    }
 }
 
 void WalletSettings::setExcRatesActive(bool isActive)
@@ -377,25 +390,21 @@ void WalletSettings::setExcRatesActive(bool isActive)
     }
 }
 
-QString WalletSettings::getNewscastKey() const
+void WalletSettings::setBeamNewsActive(bool isActive)
 {
-    Lock lock(m_mutex);
-    return m_data.value(kNewscastPublicKey).toString();
+    if (isActive != isBeamNewsActive())
+    {
+        Lock lock(m_mutex);
+        m_data.setValue(kBeamNewsActive, isActive);
+    }
 }
 
-void WalletSettings::setNewscastKey(QString keyHex)
+void WalletSettings::setTxStatusActive(bool isActive)
 {
-    if (keyHex != getNewscastKey())
+    if (isActive != isTxStatusActive())
     {
-        auto walletModel = AppModel::getInstance().getWallet();
-        if (walletModel)
-        {
-            walletModel->getAsync()->setNewscastKey(keyHex.toStdString());
-        }
-        {
-            Lock lock(m_mutex);
-            m_data.setValue(kNewscastPublicKey, keyHex);
-        }
+        Lock lock(m_mutex);
+        m_data.setValue(kTxStatusActive, isActive);
     }
 }
 

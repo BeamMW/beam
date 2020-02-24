@@ -11,8 +11,8 @@ client.on('open', function open() {
 			method: 'subscribe',
 			params: 
 			{
-				address: "xxxxxxxxxxxxx",
-				privateKey: "xxxxxxxxxxxxxxxxxxx"
+				address: "1b9b12a58768fb181b9bea2a1d34d84da8a101d197cdbf4f8fd030fc24808f33450",
+				privateKey: "57e7f12544fc4a93e94780abaa84925e12b7d6cd1c8a904bd14aea41a8281940"
 			}
 		}) + '\n');
 });
@@ -21,7 +21,7 @@ client.on('message', function incoming(data)
 {
 	var res = JSON.parse(data);
 	console.log('Received:', res);
-	client.close();
+//	client.close();
 });
 
 client.on('close', function() 

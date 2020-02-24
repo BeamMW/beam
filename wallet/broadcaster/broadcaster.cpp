@@ -100,6 +100,48 @@ ByteBuffer generateExchangeRates(const std::string& currencyString, const Amount
     return toByteBuffer(result);
 }
 
+namespace
+{
+    class MyFlyClient 
+        : public proto::FlyClient
+        , public wallet::IWalletMessageConsumer
+    {
+        void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override
+        {
+        }
+
+        Block::SystemState::IHistory& get_History() override
+        {
+            return m_Headers;
+        }
+
+        Block::SystemState::HistoryMap m_Headers;
+    };
+
+    class MyBbsSender
+        : public IWalletMessageEndpoint
+        , private wallet::BbsSender
+    {
+    public:
+        using BbsSender::BbsSender;
+
+        void Send(const WalletID& peerID, const SetTxParameter& msg) override
+        {
+        
+        }
+        
+        void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
+        {
+            BbsSender::Send(peerID, msg, 0);
+        }
+
+        void OnMessageSent(uint64_t id) override
+        {
+            io::Reactor::get_Current().stop();
+        }
+    };
+}
+
 int main_impl(int argc, char* argv[])
 {
     using namespace beam;
@@ -142,8 +184,6 @@ int main_impl(int argc, char* argv[])
             desc.add_options()
                 (cli::HELP_FULL, "list of all options")
                 (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
-                (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
-                (cli::PASS, po::value<std::string>(), "password for the wallet")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             ;
@@ -214,23 +254,6 @@ int main_impl(int argc, char* argv[])
                 LOG_ERROR() << "unable to resolve node address: " << options.nodeURI;
                 return -1;
             }
-
-            if (!WalletDB::isInitialized(options.walletPath))
-            {
-                LOG_ERROR() << "Wallet not found, path is: " << options.walletPath;
-                return -1;
-            }
-
-            SecString pass;
-            if (!beam::read_wallet_pass(pass, vm))
-            {
-                LOG_ERROR() << "Please, provide password for the wallet.";
-                return -1;
-            }
-
-            walletDB = WalletDB::open(options.walletPath, pass);
-
-            LOG_INFO() << "wallet sucessfully opened...";
         }
 
         io::Reactor::Scope scope(*reactor);
@@ -238,36 +261,31 @@ int main_impl(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
 
-        LocalPrivateKeyKeeper keyKeeper(walletDB, walletDB->get_MasterKdf());
-        Wallet wallet(walletDB);
+        MyFlyClient client;
+        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(client);
 
-        wallet.ResumeAllTransactions();
-
-        proto::FlyClient::NetworkStd nnet(wallet);
-        nnet.m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
+        nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         
-        if (nnet.m_Cfg.m_PollPeriod_ms)
+        if (nnet->m_Cfg.m_PollPeriod_ms)
         {
-            LOG_INFO() << "Node poll period = " << nnet.m_Cfg.m_PollPeriod_ms << " ms";
-            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet.m_Cfg.m_PollPeriod_ms);
-            if (timeout_ms != nnet.m_Cfg.m_PollPeriod_ms)
+            LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+            if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
             {
                 LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
             }
         }
         uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
-        if (nnet.m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+        if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
         {
             LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
         }
-        nnet.m_Cfg.m_vNodes.push_back(nodeAddress);
-        nnet.Connect();
+        nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
+        nnet->Connect();
 
-        WalletNetworkViaBbs wnet(wallet, std::shared_ptr<proto::FlyClient::INetwork>(&nnet), walletDB);
-		wallet.AddMessageEndpoint(std::shared_ptr<IWalletMessageEndpoint>(&wnet));
-        wallet.SetNodeEndpoint(std::shared_ptr<beam::proto::FlyClient::INetwork>(&nnet));
+        MyBbsSender wnet(nnet);
 
-        BroadcastRouter broadcastRouter(nnet, wnet);
+        BroadcastRouter broadcastRouter(*nnet, wnet);
 
         ECC::Scalar::Native key;
         if (!BroadcastMsgCreator::stringToPrivateKey(options.privateKey, key))

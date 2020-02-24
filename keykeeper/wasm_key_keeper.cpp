@@ -15,6 +15,7 @@
 #include "local_private_key_keeper.h"
 #include "mnemonic/mnemonic.h"
 #include "wasm_key_keeper.h"
+#include "wallet/core/wallet_db.h"
 
 #include <boost/algorithm/string.hpp>
 #include "utility/string_helpers.cpp"
@@ -27,6 +28,29 @@ using namespace beam;
 using namespace beam::wallet;
 using json = nlohmann::json;
 // #define PRINT_TEST_DATA 1
+
+namespace beam
+{
+    char* to_hex(char* dst, const void* bytes, size_t size) {
+        static const char digits[] = "0123456789abcdef";
+        char* d = dst;
+
+        const uint8_t* ptr = (const uint8_t*)bytes;
+        const uint8_t* end = ptr + size;
+        while (ptr < end) {
+            uint8_t c = *ptr++;
+            *d++ = digits[c >> 4];
+            *d++ = digits[c & 0xF];
+        }
+        *d = '\0';
+        return dst;
+    }
+
+    std::string to_hex(const void* bytes, size_t size) {
+        char* buf = (char*)alloca(2 * size + 1);
+        return std::string(to_hex(buf, bytes, size));
+    }
+}
 
 struct KeyKeeper
 {
@@ -55,6 +79,16 @@ struct KeyKeeper
     std::string GetWalletID()
     {
         return _impl2.GetWalletID();
+    }
+
+    std::string GetSbbsAddress(int ownID)
+    {
+        return _impl2.GetSbbsAddress(uint64_t(ownID));
+    }
+
+    std::string GetSbbsAddressPrivate(int ownID)
+    {
+        return _impl2.GetSbbsAddressPrivate(uint64_t(ownID));
     }
 
     std::string get_Kdf(bool root, Key::Index keyIndex)
@@ -253,6 +287,7 @@ struct KeyKeeper
     }
 
 private:
+
     struct MyKeeKeeper
         : public LocalPrivateKeyKeeperStd
     {
@@ -271,6 +306,94 @@ private:
             pid.FromSk(sk);
             return pid.str();
         }
+
+        std::string GetSbbsAddress(uint64_t ownID)
+        {
+            WalletID walletID;
+            get_SbbsWalletID(walletID, ownID);
+            return std::to_string(walletID);
+        }
+
+        std::string GetSbbsAddressPrivate(uint64_t ownID)
+        {
+            ECC::Scalar::Native sk;
+            WalletID walletID;
+            get_SbbsWalletID(sk, walletID, ownID);
+            return ECC::Scalar(sk).m_Value.str();
+        }
+
+        Key::IKdf::Ptr CreateSbbsKdf() 
+        {
+            IPrivateKeyKeeper2::Method::get_Kdf m;
+            // trustless mode. create SBBS Kdf from a child PKdf. It won't be directly accessible from the owner key
+            m.m_Root = false;
+            m.m_iChild = Key::Index(-1); // definitely won't collude with a coin child Kdf (for coins high byte is reserved for scheme)
+
+            InvokeSync(m);
+
+            ECC::Scalar::Native sk;
+            m.m_pPKdf->DerivePKey(sk, Zero);
+
+            ECC::NoLeak<ECC::Scalar> s;
+            s.V = sk;
+
+            Key::IKdf::Ptr kdf;
+            ECC::HKdf::Create(kdf, s.V.m_Value);
+            return kdf;
+        }
+
+        // copied from wallet_db.cpp 
+        // TODO move to common place
+        Key::IKdf::Ptr get_SbbsKdf()// const
+        {
+            if (!m_pKdfSbbs)
+            {
+                m_pKdfSbbs = CreateSbbsKdf();
+            }
+            return m_pKdfSbbs;
+        }
+
+        void get_SbbsPeerID(ECC::Scalar::Native& sk, PeerID& pid, uint64_t ownID)
+        {
+            Key::IKdf::Ptr pKdfSbbs = get_SbbsKdf();
+           // if (!pKdfSbbs)
+           //     throw CannotGenerateSecretException();
+
+            ECC::Hash::Value hv;
+            Key::ID(ownID, Key::Type::Bbs).get_Hash(hv);
+
+            pKdfSbbs->DeriveKey(sk, hv);
+            pid.FromSk(sk);
+        }
+
+        void get_SbbsWalletID(ECC::Scalar::Native& sk, WalletID& wid, uint64_t ownID)
+        {
+            get_SbbsPeerID(sk, wid.m_Pk, ownID);
+
+            // derive the channel from the address
+            BbsChannel ch;
+            wid.m_Pk.ExportWord<0>(ch);
+            ch %= proto::Bbs::s_MaxWalletChannels;
+
+            wid.m_Channel = ch;
+        }
+
+        void get_SbbsWalletID(WalletID& wid, uint64_t ownID)
+        {
+            ECC::Scalar::Native sk;
+            get_SbbsWalletID(sk, wid, ownID);
+        }
+
+        //void get_Identity(PeerID& pid, uint64_t ownID)// const
+        //{
+        //    ECC::Hash::Value hv;
+        //    Key::ID(ownID, Key::Type::WalletID).get_Hash(hv);
+        //    ECC::Point::Native pt;
+        //    get_OwnerKdf()->DerivePKeyG(pt, hv);
+        //    pid = ECC::Point(pt).m_X;
+        //}
+
+        /*mutable*/ ECC::Key::IKdf::Ptr m_pKdfSbbs;
     };
     MyKeeKeeper _impl2;
 };
@@ -282,6 +405,8 @@ EMSCRIPTEN_BINDINGS()
         .constructor<const std::string&>()
         .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
         .function("getWalletID",            &KeyKeeper::GetWalletID)
+        .function("getSbbsAddress",         &KeyKeeper::GetSbbsAddress)
+        .function("getSbbsAddressPrivate",  &KeyKeeper::GetSbbsAddressPrivate)
 #define THE_MACRO(method) \
         .function(#method, &KeyKeeper::method)\
 

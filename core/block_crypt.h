@@ -495,7 +495,16 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 		Asset::Proof::Ptr								m_pAsset;
 
-		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, bool bPublic = false);
+		struct OpCode {
+			enum Enum {
+				Standard,
+				Public, // insist on public rangeproof, regardless to m_Coinbase. For tests only
+				Mpc_1, // ignore coinKdf, generate rangeproof without sk, up to T1/T2
+				Mpc_2, // Finish rangeproof after T1/T2 and TauX were updated by the peer
+			};
+		};
+
+		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, OpCode::Enum = OpCode::Standard);
 
 		bool Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID&) const;
 		bool VerifyRecovered(Key::IPKdf& coinKdf, const CoinID&) const;

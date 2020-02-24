@@ -1,4 +1,4 @@
-// Copyright 2020 The Beam Team
+// Copyright 2018 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,25 +13,18 @@
 // limitations under the License.
 
 #pragma once
+#include "kdf.h"
 
-#include <QObject>
-
-#include "ui/model/app_model.h"
-
-class UpdateInfoProvider : public QObject
+typedef struct
 {
-    Q_OBJECT
+	BeamCrypto_CoinID m_Cid;
+	const BeamCrypto_Kdf* m_pKdf; // master kdf
 
-public:
-    UpdateInfoProvider();
+	const secp256k1_scalar* m_pKExtra; // optionally embed 2 scalars that can be recognized (in addition to CoinID)
 
-signals:
-    void showUpdateNotification(const QString& versionString);
+	BeamCrypto_CompactPoint m_pT[2]; // in/out
+	secp256k1_scalar m_TauX; // result
 
-public slots:
-    void onNewAppVersion(const QString& msg);
+} BeamCrypto_RangeProof;
 
-private:
-    WalletModel& m_walletModel;
-    WalletSettings& m_settings; /// TODO store last version user notified about
-};
+int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof*);

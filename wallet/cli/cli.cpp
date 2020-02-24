@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "wallet/core/common.h"
 #include "wallet/core/wallet_network.h"
 #include "core/common.h"
-
-#include "wallet/core//common_utils.h"
+#include "wallet/core/common_utils.h"
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
@@ -2007,9 +2007,8 @@ namespace
 
     int DoWalletFunc(const po::variables_map& vm, std::function<int (const po::variables_map&, Wallet&, IWalletDB::Ptr, boost::optional<TxID>&, bool)> func)
     {
-        auto walletDB = OpenDataBase(vm);
-
         LOG_INFO() << kStartMessage;
+        auto walletDB = OpenDataBase(vm);
 
         const auto& currHeight = walletDB->getCurrentHeight();
         const auto& fork1Height = Rules::get().pForks[1].m_Height;
@@ -2137,6 +2136,7 @@ namespace
         auto tx = walletDB->getTx(*txId);
         if (tx)
         {
+            LOG_INFO() << "deleting tx " << *txId;
             if (tx->canDelete())
             {
                 walletDB->deleteTx(*txId);

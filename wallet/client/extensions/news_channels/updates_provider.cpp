@@ -50,16 +50,6 @@ namespace beam::wallet
         return false;
     }
 
-    // Version AppUpdateInfoProvider::getCurrentVersion()
-    // {
-    //     return Version
-    //     {
-    //         VERSION_MAJOR,
-    //         VERSION_MINOR,
-    //         VERSION_REVISION
-    //     };
-    // }
-
     void AppUpdateInfoProvider::Subscribe(INewsObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),

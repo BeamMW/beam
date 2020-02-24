@@ -15,7 +15,7 @@ Rectangle {
 
 	MainViewModel {id: viewModel}
 
-    UpdateInfoProvider {id: updateInfoProvider}
+    PushNotificationManager {id: updateInfoProvider}
     ExchangeRateProvider {id: ratesProvider}
 
     ConfirmationDialog {
@@ -338,12 +338,24 @@ Rectangle {
 
     Connections {
         target: updateInfoProvider
-        onShowUpdateNotification: function(version) {
-            console.log("News received. Message: " + version);
+        onShowUpdateNotification: function(newVersion, currentVersion, id) {
             var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(main);
-            popup.title = "New version v1.2.3 is avalable";
-            popup.message = "Your current version is v1.2.2. Please update to get the most of your Beam wallet.";
+            popup.title = "New version v" + newVersion + " is avalable";
+            popup.message = "Your current version is v" + currentVersion + ". Please update to get the most of your Beam wallet.";
             popup.acceptButtonText = "update now";
+            popup.onCancel = function () {
+                updateInfoProvider.onCancelPopup(id);
+                popup.close();
+            }
+            popup.onAccept = function () {
+                var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
+                var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
+                var externalLinkConfirmation = component.createObject(main);
+                Utils.openExternal(
+                    "https://www.beam.mw/#downloads",
+                    settingsViewModel,
+                    externalLinkConfirmation);
+            }
             popup.open();
         }
     }

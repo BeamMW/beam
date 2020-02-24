@@ -21,7 +21,7 @@ namespace beam::wallet
 
 #define WALLET_MONITOR_API_METHODS(macro) \
     macro(Subscribe,     "subscribe",     API_WRITE_ACCESS)   \
-    macro(UnSubscribe,   "unsubcsribe",   API_WRITE_ACCESS)   \
+    macro(UnSubscribe,   "unsubscribe",   API_WRITE_ACCESS)   \
     
 
     struct Subscribe

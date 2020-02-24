@@ -2182,5 +2182,9 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <source>details</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="notifications-clear-all">
+        <source>clear all</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

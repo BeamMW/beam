@@ -4,6 +4,7 @@
 #include <QTextStream>
 #include <numeric>
 #include "3rdparty/libbitcoin/include/bitcoin/bitcoin/formats/base_10.hpp"
+#include "version.h"
 
 using namespace std;
 using namespace beam;
@@ -245,6 +246,16 @@ namespace beamui
         time_s = (time_s + (quantum_s >> 1)) / quantum_s;
         time_s *= quantum_s;
         return beamui::getEstimateTimeStr(time_s);
+    }
+
+    beam::Version getCurrentAppVersion()
+    {
+        return beam::Version
+        {
+            VERSION_MAJOR,
+            VERSION_MINOR,
+            VERSION_REVISION
+        };
     }
 
 }  // namespace beamui

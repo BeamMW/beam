@@ -1,4 +1,4 @@
-// Copyright 2020 The Beam Team
+// Copyright 2018 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,18 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "update_info_provider.h"
+#pragma once
+#include "ecc_decl.h"
 
-#include "version.h"
+typedef struct {
+	secp256k1_sha256_t m_sha;
+} BeamCrypto_Oracle;
 
-UpdateInfoProvider::UpdateInfoProvider()
-    : m_walletModel(*AppModel::getInstance().getWallet())
-    , m_settings(AppModel::getInstance().getSettings())
-{
-    connect(&m_walletModel, SIGNAL(newAppVersion(const QString&)), SLOT(onNewAppVersion(const QString&)));
-}
-
-void UpdateInfoProvider::onNewAppVersion(const QString& msg)
-{
-    emit showUpdateNotification(msg);
-}
+void BeamCrypto_Oracle_Init(BeamCrypto_Oracle*);
+void BeamCrypto_Oracle_Expose(BeamCrypto_Oracle*, const uint8_t*, size_t);
+void BeamCrypto_Oracle_NextHash(BeamCrypto_Oracle*, BeamCrypto_UintBig*);
+void BeamCrypto_Oracle_NextScalar(BeamCrypto_Oracle*, secp256k1_scalar*);
+void BeamCrypto_Oracle_NextPoint(BeamCrypto_Oracle*, BeamCrypto_FlexPoint*);

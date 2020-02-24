@@ -39,7 +39,6 @@ namespace beam::wallet
         void Unsubscribe(INewsObserver* observer);
         
     private:
-        // static Version getCurrentVersion();
 
         void notifySubscribers(const VersionInfo&, const ECC::uintBig&) const;
 
