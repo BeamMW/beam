@@ -622,7 +622,7 @@ deploy the key at the node you trust completely."*/
                     radius: 10
                     color: Style.background_second
                     Layout.preferredHeight: 200
-                    Layout.topMargin: 30
+                    Layout.topMargin: 20
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -657,14 +657,11 @@ deploy the key at the node you trust completely."*/
                             text: qsTrId("settings-notifications-news")
                             font.pixelSize: 14
                             Layout.fillWidth: true
-                            // checked: viewModel.
-                            onClicked: {
-                                // test
-                                var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(settingsView);
-                                popup.title = "New version v1.2.3 is avalable";
-                                popup.message = "Your current version is v1.2.2. Please update to get the most of your Beam wallet.";
-                                popup.acceptButtonText = "update now";
-                                popup.open();
+                            checked: viewModel.notificationsSettings.isBeamNewsActive
+                            Binding {
+                                target: viewModel.notificationsSettings
+                                property: "isBeamNewsActive"
+                                value: newsNotificationsSwitch.checked
                             }
                         }
                         CustomSwitch {
@@ -673,8 +670,12 @@ deploy the key at the node you trust completely."*/
                             text: qsTrId("settings-notifications-tx-status")
                             font.pixelSize: 14
                             Layout.fillWidth: true
-                            // checked: viewModel.
-                            // onClicked: {}
+                            checked: viewModel.notificationsSettings.isTxStatusActive
+                            Binding {
+                                target: viewModel.notificationsSettings
+                                property: "isTxStatusActive"
+                                value: txStatusNotificationsSwitch.checked
+                            }
                         }
                     }
                 }
@@ -682,7 +683,7 @@ deploy the key at the node you trust completely."*/
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 38
-                    Layout.topMargin: 30
+                    Layout.topMargin: 20
 
                     CustomButton {
                         Layout.preferredWidth: 250
@@ -739,7 +740,7 @@ deploy the key at the node you trust completely."*/
                     Layout.preferredWidth: 250
                     Layout.preferredHeight: 38
                     Layout.alignment: Qt.AlignLeft
-                    Layout.topMargin: 30
+                    Layout.topMargin: 20
                     //% "Rescan"
                     text: qsTrId("general-rescan")
                     palette.button: Style.background_second
