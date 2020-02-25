@@ -142,7 +142,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        walletModel->start();
+        std::map<Notification::Type,bool> activeNotifications {
+            { Notification::Type::SoftwareUpdateAvailable, false },
+            { Notification::Type::BeamNews, false },
+            { Notification::Type::TransactionStatusChanged, false }
+        };
+
+        walletModel->start(activeNotifications);
 
         return walletObj;
     }
@@ -574,12 +580,12 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(exportDataToJson)(JNIEnv *env,
     walletModel->getAsync()->exportDataToJson();
 }
 
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(switchExchangeRates)(JNIEnv *env, jobject thiz, jboolean isActive)
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(switchOnOffExchangeRates)(JNIEnv *env, jobject thiz, jboolean isActive)
 {
-    walletModel->getAsync()->switchExchangeRates(isActive);
+    walletModel->getAsync()->switchOnOffExchangeRates(isActive);
 }
 
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(switchNotifications)(JNIEnv *env, jobject thiz,
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(switchOnOffNotifications)(JNIEnv *env, jobject thiz,
     jint notificationTypeEnum, jboolean isActive)
 {
     if (notificationTypeEnum < static_cast<int>(Notification::Type::SoftwareUpdateAvailable)
@@ -588,7 +594,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(switchNotifications)(JNIEnv *e
         LOG_ERROR() << "Address expiration is not valid!!!";
     }
     
-    walletModel->getAsync()->switchNotifications(static_cast<Notification::Type>(notificationTypeEnum), isActive);
+    walletModel->getAsync()->switchOnOffNotifications(static_cast<Notification::Type>(notificationTypeEnum), isActive);
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getNotifications)(JNIEnv *env, jobject thiz)

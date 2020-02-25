@@ -47,8 +47,8 @@ public class Wallet
     public native void importDataFromJson(String data);
     public native void exportDataToJson();
 
-    public native void switchExchangeRates(boolean isActive);
-    public native void switchNotifications(int type, boolean isActive);
+    public native void switchOnOffExchangeRates(boolean isActive);
+    public native void switchOnOffNotifications(int type, boolean isActive);
 
     public native void getNotifications();
     public native void markNotificationAsRead(String id);

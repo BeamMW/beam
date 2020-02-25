@@ -475,7 +475,13 @@ namespace
         cout << endl << "Test NotificationCenter" << endl;
 
         auto storage = createSenderWalletDB();
-        NotificationCenter center(*storage);
+        std::map<Notification::Type,bool> activeTypes {
+            { Notification::Type::SoftwareUpdateAvailable, true },
+            { Notification::Type::AddressStatusChanged, true },
+            { Notification::Type::TransactionStatusChanged, true },
+            { Notification::Type::BeamNews, true }
+        };
+        NotificationCenter center(*storage, activeTypes);
 
         {
             {

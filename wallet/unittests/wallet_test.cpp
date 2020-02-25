@@ -1502,7 +1502,14 @@ namespace
         auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(db, db->get_MasterKdf());
         std::string nodeAddr = "127.0.0.1:32546";
         TestWalletClient client(db, nodeAddr, io::Reactor::create(), keyKeeper);
-        client.start();
+        {
+            std::map<Notification::Type,bool> activeNotifications {
+                { Notification::Type::SoftwareUpdateAvailable, true },
+                { Notification::Type::BeamNews, true },
+                { Notification::Type::TransactionStatusChanged, true }
+            };
+            client.start(activeNotifications);
+        }
         auto timer = io::Timer::create(*mainReactor);
         
         auto startEvent = io::AsyncEvent::create(*mainReactor, [&timer, mainReactor, &client, db]()

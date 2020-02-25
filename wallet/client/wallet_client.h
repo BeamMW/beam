@@ -73,7 +73,8 @@ namespace beam::wallet
         WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper);
         virtual ~WalletClient();
 
-        void start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
+        void start( std::map<Notification::Type,bool> activeNotifications,
+                    std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
         IWalletModelAsync::Ptr getAsync();
         std::string getNodeAddress() const;
@@ -173,8 +174,8 @@ namespace beam::wallet
         void exportDataToJson() override;
         void exportTxHistoryToCsv() override;
 
-        void switchExchangeRates(bool isActive) override;
-        void switchNotifications(Notification::Type type, bool isActive) override;
+        void switchOnOffExchangeRates(bool isActive) override;
+        void switchOnOffNotifications(Notification::Type type, bool isActive) override;
         
         void getNotifications() override;
         void markNotificationAsRead(const ECC::uintBig& id) override;
