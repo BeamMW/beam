@@ -68,6 +68,12 @@ type rpcLoginResult struct {
 }
 
 func rpcLoginRequest(session* melody.Session, params *json.RawMessage) (result interface{}, err error) {
+	wid, err := getValidWID(session)
+	if err == nil {
+		err = fmt.Errorf("already signed in, wallet id %v", wid)
+		return
+	}
+
 	var loginParms  rpcLoginParams
 	var loginResult rpcLoginResult
 
@@ -75,15 +81,14 @@ func rpcLoginRequest(session* melody.Session, params *json.RawMessage) (result i
 		return
 	}
 
+	log.Printf("wallet %v, rpc login request", loginParms.WalletID)
 	loginResult.Endpoint, err = monitorGet(loginParms.WalletID)
 	if err != nil {
 		return
 	}
 
-	log.Printf("wallet %v, rpc login request", loginParms.WalletID)
 	session.Set(RpcKeyWID, loginParms.WalletID)
 	result = &loginResult
 
 	return
 }
-

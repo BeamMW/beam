@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/olahol/melody"
 	"net/http"
 )
 
@@ -24,5 +25,15 @@ func aliveRequest(w http.ResponseWriter, r *http.Request) (res interface{}, err 
 	}
 
 	err = monitorAlive(req.WalletID)
+	return
+}
+
+func rpcAlive(session *melody.Session) (err error) {
+	wid, err := getValidWID(session)
+	if err != nil {
+		return
+	}
+
+	err = monitorAlive(wid)
 	return
 }

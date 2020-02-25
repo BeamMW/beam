@@ -91,7 +91,7 @@ func NewService(index int) (svc *Service, err error) {
 	//
 	// Wait for the service spin-up & listening
 	//
-	presp, err := readPipe(startPipeR, ServiceLaunchTimeout)
+	presp, err := readPipe(startPipeR, config.ServiceLaunchTimeout)
 	if err != nil {
 		cancelWS()
 		err = fmt.Errorf("service %v, failed to read from sync pipe, %v", index, err)
@@ -114,7 +114,7 @@ func NewService(index int) (svc *Service, err error) {
 	// This goroutine reads process heartbeat
 	go func () {
 		for {
-			_, err := readPipe(alivePipeR, ServiceHeartbeatTimeout)
+			_, err := readPipe(alivePipeR, config.ServiceHeartbeatTimeout)
 			if err != nil {
 				if config.Debug {
 					log.Printf("service %v, aborting hearbeat pipe %v", index, err)
@@ -246,7 +246,7 @@ func NewServices() (result *Services, err error) {
 
 		go func() {
 			var serviceExit  = service.ServiceExit
-			var aliveTimeout = time.NewTimer(ServiceAliveTimeout)
+			var aliveTimeout = time.NewTimer(config.ServiceAliveTimeout)
 
 			for {
 				select {
@@ -258,10 +258,10 @@ func NewServices() (result *Services, err error) {
 
 				case <- service.ServiceAlive:
 					// This means that alive ping has been received. Timeout timer should be restarted
-					if config.Debug {
+					if config.NoisyLogs {
 						log.Printf("service %v, service is alive, restarting alive timeout", svcIdx)
 					}
-					aliveTimeout = time.NewTimer(ServiceAliveTimeout)
+					aliveTimeout = time.NewTimer(config.ServiceAliveTimeout)
 
 				case <- serviceExit:
 					//

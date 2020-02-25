@@ -8,12 +8,13 @@ import (
 
 func main () {
 	log.Println("starting wallet service balancer")
+	m := melody.New()
 
-	if err := loadConfig(); err != nil {
+	if err := loadConfig(m); err != nil {
 		log.Fatal(err)
 	}
 
-	if err := monitorInitialize(); err != nil {
+	if err := monitorInitialize(m); err != nil {
 		log.Fatal(err)
 	}
 
@@ -37,8 +38,6 @@ func main () {
 	// JsonRPCv2.0 over WebSockets
 	//
 	var wsGenericError = "websocket processing error, %v"
-	m := melody.New()
-
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request){
 		if err := m.HandleRequest(w, r); err != nil {
 			log.Printf(wsGenericError, err)
@@ -58,7 +57,11 @@ func main () {
 		}
 	})
 
-	// TODO: implement ping-pong ws connection health check
+	m.HandlePong(func(session *melody.Session) {
+		if err := rpcAlive(session); err != nil {
+			log.Printf(wsGenericError, err)
+		}
+	})
 
 	log.Println(config.ListenAddress, "Go!")
 	if err := http.ListenAndServe(config.ListenAddress, nil); err != nil {

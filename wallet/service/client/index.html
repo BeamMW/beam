@@ -148,97 +148,82 @@
 	<script type="text/javascript">
 
 		Module().then(function(Module)
-        {
-        	var connection = null;
-			var keykeeper = null;
-			var walletID = null;
-
-			function showPanel(id)
-			{
-				['#login-panel', '#connecting-panel', '#create-wallet-panel', '#open-wallet-panel', '#wallet-panel'].forEach(name => $(name).hide())
-				$(id).show()
-			}
+    {
+      var connection = null;
+      var keykeeper = null;
+      var walletID = null;
       
-      //
-      // This wallet ID is used to identify session. Now it works like this
-      //
-      // No wallet: 
-      //    Option 1 (implemented, not the best way, inconvenient at the wallet side and causes service restart): 
-      //      - generate GUID (unique)
-      //      - POST WalletID to /login and receive WS endpoint
-      //      - create wallet via WS endpoint
-      //      - disconnect WS endpoint
-      //      - (POST WalletID to /close)
-      //      - goto 'Have wallet'
-      //    Option 2: (to be done/reconsidered, not the best way as well)
-      //      - generate GUID (unique)
-      //      - POST WalletID to /login and receive WS endpoint
-      //      - create wallet via WS endpoint
-      //      - POST OldWalletID (GUID), NewWalletID (real WalletID) to /replace-id
-      //      - use new WalletID in all subsequent calls
-      //    Option 3: (the best)
-      //      - do not connect before you have seed
-      //      - derive real WalletID from seed
-      //      - connect using real WalletID
-      //
-      // Have wallet/WalletID:
-      //    - use real WalletID for all calls
-      //
-      // TODO: implement ID replacement without reconnecting
-      //
-      // const walletGUID = 'A001'
+      // This should be any unique value, same between sessions
+      // Better to use walletID as below
+      // const walletGUID = 'A001' 
       const walletGUID = 'R00' + Math.floor(Math.random() * (1 - 100 + 1) ) + 100
-
-      function login() {
-        login_ws()
-      }
       
-      // Alive ping interval, such short time is used only for testing
-      // This is necessary only for HTTP version, not for websockets
+      // Alive ping. Should send every 10 seconds
+      // This is necessary only for HTTP version.
+      // For websockets disconnects are detected automatically
       const aliveInterval = 10000
       var aliveTimer = null
 
-      // 
-      // Balancer HTTP Login example 
-      //
-      function login_http() {
-          const loginURL = 'http://127.0.0.1:20000/login'
-          
-          var xhr = new XMLHttpRequest()
-          xhr.open("POST", loginURL, true)
-          xhr.setRequestHeader("Content-Type", "application/json")
-          xhr.onreadystatechange = function () {
-            if (xhr.readyState === 4) {
-              if (xhr.status === 200) {
-                var json = JSON.parse(xhr.responseText)
-                var endpoint = ['ws://', json.endpoint].join('')
-                console.log('Login OK. Connection endpoint: ', endpoint)
-                start(endpoint)
-                startAliveTimer()
-              } 
-            }
-          }
-
-
-		if (keykeeper) {  
-			var data = JSON.stringify(
-			{
-				WalletID: keykeeper.getWalletID(),
-				SbbsAddress: keykeeper.getSbbsAddress(8),
-				SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(8)
-			})       
-			console.log(data)	
-			xhr.send(data)
-		}
-		else {
-			xhr.send(JSON.stringify({
-				WalletID: walletGUID
-			}))	
-		}
-          
+      function initKeyKeeper(seed) {
+        return new Module.KeyKeeper(seed)
       }
 
-      function startAliveTimer() {
+      login()
+
+      function login() {
+        if (localStorage.id) {
+          console.log(`walletID:${localStorage.id}`)
+          console.log(`Creating key keeper from stored seed ${localStorage.seed}`)
+          keykeeper = initKeyKeeper(localStorage.seed)
+          console.log(`done`)
+        } else {
+          console.log(`Creating key keeper from new seed`)
+          var seed = $('#create-wallet-panel .seed-phrase-input').val()
+          keykeeper = initKeyKeeper(seed)
+        }
+
+        var loginParams = {
+          WalletID: walletGUID
+        }
+
+        if (keykeeper) {
+          loginParams.WalletID = keykeeper.getWalletID()
+          loginParams.SbbsAddress = keykeeper.getSbbsAddress(8)
+          loginParams.SbbsAddressPrivate = keykeeper.getSbbsAddressPrivate(8)
+        }
+
+        // This is better
+        login_ws(loginParams)
+        // This is worse
+        // login_http(loginParams)
+      }      
+
+      // 
+      // Balancer HTTP Login example 
+      // You login to the balancer and get wallet endpoint
+      //
+      function login_http(params) {
+        const loginURL = 'http://127.0.0.1:20000/login'
+        
+        var xhr = new XMLHttpRequest()
+        xhr.open("POST", loginURL, true)
+        xhr.setRequestHeader("Content-Type", "application/json")
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+              var json = JSON.parse(xhr.responseText)
+              var endpoint = ['ws://', json.endpoint].join('')
+              console.log('Login OK. Connection endpoint: ', endpoint)
+              start(endpoint)
+              startAliveTimer(params)
+            } 
+          }
+        }
+
+        xhr.send(JSON.stringify(params))
+      }
+
+      function startAliveTimer(params) {
         if (aliveTimer) clearInterval(alieTimer)
         aliveTimer = setInterval(() => {
           console.log('Sending alive ping')
@@ -262,7 +247,7 @@
           }
 
           xhr.send(JSON.stringify({
-            WalletID: walletGUID
+            WalletID: params.WalletID
           }))
         }, aliveInterval)
       }
@@ -270,7 +255,7 @@
       // 
       // Balancer WebSockets Login example 
       //
-      function login_ws() {
+      function login_ws(loginParams) {
         let ws = new WebSocket('ws://127.0.0.1:20000/ws')
         
         ws.onopen = () => {
@@ -285,10 +270,7 @@
             jsonrpc: "2.0",
             id: 123,
             method: "login",
-            params:
-            {
-              WalletID: walletGUID
-            }
+            params: loginParams
           }))
 
           ws.onmessage = (e) => {
@@ -342,29 +324,6 @@
 				}
 			}
 
-			if (localStorage.id)
-			{
-				console.log(`walletID:${localStorage.id}`)
-				console.log(`Creating key keeper from stored seed ${localStorage.seed}`)
-				keykeeper = initKeyKeeper(localStorage.seed)
-				console.log(`done`)
-			}
-			else
-			{
-				console.log(`Creating key keeper from new seed`)
-				var seed = $('#create-wallet-panel .seed-phrase-input').val()
-				keykeeper = initKeyKeeper(seed)
-			}
-
-			
-
-			login()
-
-			function initKeyKeeper(seed)
-			{
-				return new Module.KeyKeeper(seed)
-			}
-
 			function send(amount, address)
 			{
 				console.log(`!!! sending ${amount} groth to ${address}...`)
@@ -395,6 +354,11 @@
 					}
 				}))
 			}
+
+      function showPanel(id) {
+        ['#login-panel', '#connecting-panel', '#create-wallet-panel', '#open-wallet-panel', '#wallet-panel'].forEach(name => $(name).hide())
+        $(id).show()
+      }
 
 			$('#wallet-panel .send-button').click(() => 
 			{

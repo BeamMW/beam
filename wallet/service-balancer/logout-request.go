@@ -38,8 +38,18 @@ type rpcLogoutResult struct {
 }
 
 func rpcLogoutRequest(session* melody.Session, params *json.RawMessage) (result interface{}, err error) {
+	wid, err := getValidWID(session)
+	if err != nil {
+		return
+	}
+
 	var logoutParms  rpcLogoutParams
 	if err = json.Unmarshal(*params, &logoutParms); err != nil {
+		return
+	}
+
+	if wid != logoutParms.WalletID {
+		err = fmt.Errorf("logout request for %v on wrong session (wid mismatch)", logoutParms.WalletID)
 		return
 	}
 
@@ -56,14 +66,19 @@ func rpcLogoutRequest(session* melody.Session, params *json.RawMessage) (result 
 }
 
 func rpcDisconnect(session *melody.Session) error {
-	if iwid, ok := session.Get(RpcKeyWID); ok && iwid != nil {
-		if wid, ok := iwid.(string); ok {
-			log.Printf("wallet %v, rpc disconnect", wid)
-			session.Set(RpcKeyWID, nil)
-			return monitorLogout(wid)
-		} else {
-			return fmt.Errorf("ERROR, invalid or nil wid in rpcDisconnect, %v", wid)
-		}
+	wid, err := getWID(session)
+	if err != nil {
+		return err
 	}
+
+	// Disconnect is always called
+	// Client might be already logged out
+	// in this case we just ignore and leave
+	if len(wid) != 0 {
+		log.Printf("wallet %v, rpc disconnect", wid)
+		session.Set(RpcKeyWID, nil)
+		return monitorLogout(wid)
+	}
+
 	return nil
 }

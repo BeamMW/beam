@@ -96,7 +96,7 @@ func (points *Endpoints) Add(wid string, svcIdx int, address string) {
 	//  Monitor the new endpoint
 	//
 	go func () {
-		timeout := time.NewTimer(EndpointAliveTimeout)
+		timeout := time.NewTimer(config.EndpointAliveTimeout)
 
 		var releaseEndpoint = func () {
 			points.mutex.Lock()
@@ -123,15 +123,16 @@ func (points *Endpoints) Add(wid string, svcIdx int, address string) {
 			case <- epoint.WalletAlive:
 				// This means that alive ping has been received
 				// Timeout should be restarted
-				if config.Debug {
+				if config.NoisyLogs {
 					log.Printf("wallet %v, web wallet is alive, restarting alive timeout", wid)
 				}
-				timeout = time.NewTimer(EndpointAliveTimeout)
+				timeout = time.NewTimer(config.EndpointAliveTimeout)
 
 			case <- epoint.WalletLogout:
 				// This means that web wallet notified us about exit
 				// Need to shutdown this endpoint
 				log.Printf("wallet %v, WalletLogout signal", wid)
+				// TODO: consider releasing endpoint after some time, may be client would come again
 				releaseEndpoint()
 				return
 

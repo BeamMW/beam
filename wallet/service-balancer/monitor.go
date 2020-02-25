@@ -2,24 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/olahol/melody"
 	"log"
-	"time"
 )
 
 var services *Services
 
-var (
-	EndpointAliveTimeout    = 5  * time.Minute
-	ServiceLaunchTimeout    = 5  * time.Second
-	ServiceAliveTimeout     = 15 * time.Second
-	ServiceHeartbeatTimeout = 10 * time.Second // Should be heartbeat interval * 2
-)
-
-func monitorInitialize() (err error) {
-	if config.Debug {
-		EndpointAliveTimeout = 10 * time.Second
-	}
-
+func monitorInitialize(m *melody.Melody) (err error) {
 	services, err = NewServices()
 	if err != nil {
 		return
