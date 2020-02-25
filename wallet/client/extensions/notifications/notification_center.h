@@ -26,12 +26,14 @@ namespace beam::wallet
         : public INewsObserver
     {
     public:
-        NotificationCenter(IWalletDB& storage);
+        NotificationCenter(IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications);
 
         std::vector<Notification> getNotifications() const;
         void updateNotification(const Notification&);
         void markNotificationAsRead(const ECC::uintBig& notificationID);
         void deleteNotification(const ECC::uintBig& notificationID);
+
+        void switchOnOffNotifications(Notification::Type, bool);
 
         void Subscribe(INotificationsObserver* observer);
         void Unsubscribe(INotificationsObserver* observer);
@@ -43,10 +45,12 @@ namespace beam::wallet
 
     private:
         void notifySubscribers(ChangeAction, const std::vector<Notification>&) const;
+        bool isNotificationTypeActive(Notification::Type) const;
         void loadToCache();
         void createNotification(const Notification&);
 
         IWalletDB& m_storage;
+        std::map<Notification::Type, bool> m_activeNotifications;
         std::unordered_map<ECC::uintBig, Notification> m_cache;
         std::vector<INotificationsObserver*> m_subscribers;
     };

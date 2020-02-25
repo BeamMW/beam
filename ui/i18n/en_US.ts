@@ -977,12 +977,7 @@
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
 •  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:
-•  the length must be at least 10 characters
-•  must contain at least one lowercase letter
-•  must contain at least one uppercase letter
-•  must contain at least one number</oldsource>
-        <translation type="unfinished">Strong password needs to meet the following requirements:
+        <translation>Strong password needs to meet the following requirements:
 •  the length must be at least 10 characters
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
@@ -1130,7 +1125,6 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
         <source>Don&apos;t ask password on every Send</source>
-        <oldsource>Don’t ask password on every Send</oldsource>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if checked</extracomment>
         <translation>Don’t ask password on every Send</translation>
     </message>
@@ -1256,7 +1250,7 @@ or send this address to the sender over secure channel</translation>
 Update your settings and try again.</source>
         <oldsource>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</oldsource>
-        <translation type="unfinished">You do not have any 3rd-party currencies connected.
+        <translation>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1265,8 +1259,7 @@ Update your settings and try again.</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this token to the sender over an external secure channel or scan the QR code</source>
-        <oldsource>Send this address to the sender over an external secure channel or scan the QR code</oldsource>
-        <translation type="unfinished">Send this address to the sender over an external secure channel or scan the QR code</translation>
+        <translation>Send this address to the sender over an external secure channel or scan the QR code</translation>
     </message>
     <message id="receive-amount-swap-label">
         <source>Receive amount</source>
@@ -1337,7 +1330,7 @@ Update your settings and try again.</translation>
 please review your settings and try again</source>
         <oldsource>%1 is not connected, 
 please review your settings and try again</oldsource>
-        <translation type="unfinished">%1 is not connected, 
+        <translation>%1 is not connected, 
 please review your settings and try again</translation>
     </message>
     <message id="send-not-enough">
@@ -1374,8 +1367,7 @@ please review your settings and try again</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer than usual. Please, check your network.</source>
-        <oldsource>It may take longer then usual. Please, check your network.</oldsource>
-        <translation type="unfinished">It may take longer then usual. Please, check your network.</translation>
+        <translation>It may take longer then usual. Please, check your network.</translation>
     </message>
     <message id="atomic-swap-title">
         <source>Atomic Swaps</source>
@@ -1507,8 +1499,7 @@ please review your settings and try again</translation>
     </message>
     <message id="wallet-receive-copy-token">
         <source>copy swap token</source>
-        <oldsource>Copy transaction token</oldsource>
-        <translation type="unfinished">copy swap token</translation>
+        <translation>copy swap token</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
@@ -1535,7 +1526,7 @@ please review your settings and try again</translation>
 fee while you have transactions in progress.</source>
         <oldsource>You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</oldsource>
-        <translation type="unfinished">You cannot disconnect wallet, edit seed phrase or change default
+        <translation>You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</translation>
     </message>
     <message id="atomic-no-offers">
@@ -1543,7 +1534,7 @@ fee while you have transactions in progress.</translation>
 Please try again later or create an offer yourself.</source>
         <oldsource>There are no active offers at the moment.
 Please try again later or create an offer yourself.</oldsource>
-        <translation type="unfinished">There are no active offers at the moment.
+        <translation>There are no active offers at the moment.
 Please try again later or create an offer yourself.</translation>
     </message>
     <message id="send-less-than-fee">
@@ -1715,7 +1706,7 @@ Please try again later or create an offer yourself.</translation>
 Please check the swap token and try again.</source>
         <oldsource>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</oldsource>
-        <translation type="unfinished">The offer with this transaction token is already accepted.
+        <translation>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
@@ -1844,8 +1835,7 @@ Please check the swap token and try again.</translation>
     </message>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token</source>
-        <oldsource>Your swap token:</oldsource>
-        <translation type="unfinished">Your swap token:</translation>
+        <translation>Your swap token:</translation>
     </message>
     <message id="send-swap-confirmation-title">
         <source>Confirm atomic swap</source>
@@ -1855,7 +1845,7 @@ Please check the swap token and try again.</translation>
         <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
         <oldsource>Keep your wallet online. The swap normally takes about 1 hour
 to complete.</oldsource>
-        <translation type="unfinished">Keep your wallet online. The swap normally takes about 1 hour
+        <translation>Keep your wallet online. The swap normally takes about 1 hour
 to complete.</translation>
     </message>
     <message id="beam-transaction-fee">
@@ -1880,126 +1870,121 @@ to complete.</translation>
     </message>
     <message id="swap-tx-state-in-progress-normal">
         <source>The swap is expected to complete in %1 at most.</source>
-        <oldsource>The swap is expected to complete in %1 at most</oldsource>
-        <translation type="unfinished">The swap is expected to complete in %1 at most</translation>
+        <translation>The swap is expected to complete in %1 at most</translation>
     </message>
     <message id="swap-tx-state-in-progress-refunding">
         <source>Swap failed: the refund of your %2 will start in %1. The refund duration depends on the transaction fee you specified for %2.</source>
-        <oldsource>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</oldsource>
-        <translation type="unfinished">The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</translation>
+        <translation>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</translation>
     </message>
     <message id="atomic-swap-tx-cancel">
         <source>Cancel atomic swap</source>
-        <translation type="unfinished"></translation>
+        <translation>Cancel atomic swap</translation>
     </message>
     <message id="atomic-swap-tx-cancel-text">
         <source>Are you sure you want to cancel?</source>
-        <oldsource>Are you sure you want to cancel atomic swap transaction?</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Are you sure you want to cancel?</translation>
     </message>
     <message id="atomic-swap-tx-yes-button">
         <source>yes</source>
-        <translation type="unfinished"></translation>
+        <translation>yes</translation>
     </message>
     <message id="atomic-swap-no-button">
         <source>no</source>
-        <translation type="unfinished"></translation>
+        <translation>no</translation>
     </message>
     <message id="swap-tx-state-refunding">
         <source>Swap failed, the money is being released back to your wallet</source>
-        <oldsource>Refunding</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Swap failed, the money is being released back to your wallet</translation>
     </message>
     <message id="wallet-txs-status-waiting-peer">
         <source>waiting for counterparty</source>
-        <oldsource>waiting for peer</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>waiting for counterparty</translation>
     </message>
     <message id="send-swap-fee-warning">
         <source> Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled.</source>
-        <translation type="unfinished"></translation>
+        <translation> Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled.</translation>
     </message>
     <message id="app-close-title">
         <source>Beam wallet close</source>
-        <translation type="unfinished"></translation>
+        <translation>Beam wallet close</translation>
     </message>
     <message id="app-close-text">
         <source>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</source>
-        <translation type="unfinished"></translation>
+        <translation>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</translation>
     </message>
     <message id="wallet-export-tx-history">
         <source>Export transactions history</source>
         <extracomment>transactions history screen, export button tooltip and open file dialog</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Export transactions history</translation>
     </message>
     <message id="atomic-swap-my-offers-tab">
         <source>My offers</source>
-        <translation type="unfinished"></translation>
+        <translation>My offers</translation>
     </message>
     <message id="addresses-delete-warning-title">
         <source>Delete address</source>
-        <translation type="unfinished">Delete address</translation>
+        <translation>Delete address</translation>
     </message>
     <message id="addresses-delete-warning-text">
         <source>There is active transaction that uses this address, therefore the address cannot be deleted.</source>
-        <translation type="unfinished"></translation>
+        <translation>There is active transaction that uses this address, therefore the address cannot be deleted.</translation>
     </message>
     <message id="general-fee-total">
         <source>%1 Transaction fee (est)</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 Transaction fee (est)</translation>
     </message>
     <message id="settings-fee-rate-note">
         <source>Remember to validate the expected fee rate for the blockchain (as it varies with time).</source>
-        <translation type="unfinished"></translation>
+        <translation>Remember to validate the expected fee rate for the blockchain (as it varies with time).</translation>
     </message>
     <message id="addresses-edit-warning-title">
         <source>Edit address</source>
-        <translation type="unfinished">Edit address</translation>
+        <translation>Edit address</translation>
     </message>
     <message id="addresses-edit-warning-text">
         <source>There is active transaction that uses this address, therefore the address expiration cannot be changed.</source>
-        <translation type="unfinished"></translation>
+        <translation>There is active transaction that uses this address, therefore the address expiration cannot be changed.</translation>
     </message>
     <message id="select-server-automatically">
         <source>Select server automatically</source>
-        <translation type="unfinished"></translation>
+        <translation>Select server automatically</translation>
     </message>
     <message id="settings-swap-seed-segwit-warning">
         <source>Segwit seed phrase is not supported yet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Segwit seed phrase is not supported yet.</translation>
     </message>
     <message id="settings-swap-seed-invali-warning">
         <source>Invalid seed phrase. Please check again and resubmit.</source>
-        <translation type="unfinished"></translation>
+        <translation>Invalid seed phrase. Please check again and resubmit.</translation>
     </message>
     <message id="swap-details-tx-fee-estimated">
         <source>%1 Estimated transaction fee</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 Estimated transaction fee</translation>
     </message>
     <message id="wallet-receive-expires-15m">
         <source>15 minutes</source>
-        <translation type="unfinished">15 minutes</translation>
+        <translation>15 minutes</translation>
     </message>
     <message id="wallet-receive-expires-30m">
         <source>30 minutes</source>
-        <translation type="unfinished">30 minutes</translation>
+        <translation>30 minutes</translation>
     </message>
     <message id="wallet-receive-expires-1">
         <source>1 hour</source>
-        <translation type="unfinished">1 hour</translation>
+        <translation>1 hour</translation>
     </message>
     <message id="wallet-receive-expires-2">
         <source>2 hours</source>
-        <translation type="unfinished">6 hours {2 ?}</translation>
+        <translation>2 hours</translation>
     </message>
     <message id="accept-swap-token">
         <source>Your swap token</source>
-        <translation type="unfinished">Your swap token:</translation>
+        <translation>Your swap token:</translation>
     </message>
     <message id="settings-show-owner-key-title">
         <source>Owner key</source>
         <extracomment>settings tab, show owner key dialog title</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Owner key</translation>
     </message>
     <message id="settings-show-owner-key-message">
         <source>Please notice, that knowing your owner key allows to
@@ -2009,58 +1994,60 @@ deploy the key at the node you trust completely.</source>
 know all your funds (UTXO). Make sure that you
 deploy the key at the node you trust completely.</oldsource>
         <extracomment>settings tab, show owner key message</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Please notice, that knowing your owner key allows to
+know all your funds (UTXO). Make sure that you
+deploy the key at the node you trust completely.</translation>
     </message>
     <message id="general-tab">
         <source>General</source>
-        <translation type="unfinished"></translation>
+        <translation>General</translation>
     </message>
     <message id="settings-remote-node-address">
         <source>Remote node address</source>
         <extracomment>settings tab, node section, address label</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Remote node address</translation>
     </message>
     <message id="settings-general-require-pwd-to-show-owner-key">
         <source>Show owner key</source>
         <extracomment>settings tab, general section, Show owner key button and dialog title</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Show owner key</translation>
     </message>
     <message id="settings-general-require-pwd-to-show-owner-key-message">
         <source>Password verification is required to see the owner key</source>
         <extracomment>settings tab, general section, ask password to Show owner key, message</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Password verification is required to see the owner key</translation>
     </message>
     <message id="swap-tx-state-in-progress-negotiation">
         <source>If the other side will not sign the transaction in %1, the offer will be canceled automatically.</source>
-        <translation type="unfinished"></translation>
+        <translation>If the other side will not sign the transaction in %1, the offer will be canceled automatically.</translation>
     </message>
     <message id="swap-invalid-credentials-error">
         <source>Invalid credentials</source>
-        <translation type="unfinished"></translation>
+        <translation>Invalid credentials</translation>
     </message>
     <message id="swap-connection-error">
         <source>Cannot connect to node</source>
-        <translation type="unfinished">Cannot connect to node</translation>
+        <translation>Cannot connect to node</translation>
     </message>
     <message id="swap-invalid-genesis-block-error">
         <source>Invalid genesis block</source>
-        <translation type="unfinished"></translation>
+        <translation>Invalid genesis block</translation>
     </message>
     <message id="tx-state-initial-sender">
         <source>If the receiver won&apos;t get online in %1, the transaction will be canceled automatically</source>
-        <translation type="unfinished"></translation>
+        <translation>If the receiver won&apos;t get online in %1, the transaction will be canceled automatically</translation>
     </message>
     <message id="tx-state-initial-receiver">
         <source>If the sender won&apos;t get online in %1, the transaction will be canceled automatically</source>
-        <translation type="unfinished"></translation>
+        <translation>If the sender won&apos;t get online in %1, the transaction will be canceled automatically</translation>
     </message>
     <message id="tx-state-in-progress-normal">
         <source>The transaction is usually expected to complete in a few minutes.</source>
-        <translation type="unfinished"></translation>
+        <translation>The transaction is usually expected to complete in a few minutes.</translation>
     </message>
     <message id="tx-state-in-progress-long">
         <source>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</source>
-        <translation type="unfinished"></translation>
+        <translation>It is taking longer than usual. In case the transaction could not be completed it will be canceled automatically in %1.</translation>
     </message>
     <message id="amount-input-add-all">
         <source>add all</source>
@@ -2073,122 +2060,124 @@ deploy the key at the node you trust completely.</oldsource>
     </message>
     <message id="wallet-receive-your-token">
         <source>Your receive token</source>
-        <translation type="unfinished"></translation>
+        <translation>Your receive token</translation>
     </message>
     <message id="wallet-receive-regular-copy-token">
         <source>Copy transaction token</source>
-        <translation type="unfinished"></translation>
+        <translation>Copy transaction token</translation>
     </message>
     <message id="tx-failure-kernel-min-height">
         <source>Kernel&apos;s min height is unacceptable</source>
-        <translation type="unfinished"></translation>
+        <translation>Kernel&apos;s min height is unacceptable</translation>
     </message>
     <message id="tx-failure-loopback">
         <source>Not a loopback transaction</source>
-        <translation type="unfinished"></translation>
+        <translation>Not a loopback transaction</translation>
     </message>
     <message id="tx-failure-key-keeper-no-initialized">
         <source>Key keeper is not initialized</source>
-        <translation type="unfinished"></translation>
+        <translation>Key keeper is not initialized</translation>
     </message>
     <message id="tx-failure-invalid-asset-id">
         <source>No valid asset owner id/asset owner idx</source>
-        <oldsource>No valid asset id/asset idx</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>No valid asset owner id/asset owner idx</translation>
     </message>
     <message id="tx-failure-invalid-asset-amount">
         <source>Cannot issue/consume more than MAX_INT64 asset groth in one transaction</source>
-        <oldsource>Cannot consume more than MAX_INT64 asset groth in one transaction</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Cannot issue/consume more than MAX_INT64 asset groth in one transaction</translation>
     </message>
     <message id="tx-failure-invalid-data-for-payment-proof">
         <source>Some mandatory data for payment proof is missing</source>
-        <translation type="unfinished"></translation>
+        <translation>Some mandatory data for payment proof is missing</translation>
     </message>
     <message id="general-invalid-port">
         <source>Port is mandatory</source>
         <extracomment>settings tab, node section, port error label</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Port is mandatory</translation>
     </message>
     <message id="tx-failure-there-is-no-master-key">
         <source>Master key is needed for this transaction, but unavailable</source>
-        <translation type="unfinished"></translation>
+        <translation>Master key is needed for this transaction, but unavailable</translation>
     </message>
     <message id="tx-failure-keeper-malfunctioned">
         <source>Key keeper malfunctioned</source>
-        <translation type="unfinished"></translation>
+        <translation>Key keeper malfunctioned</translation>
     </message>
     <message id="tx-failure-aborted-by-user">
         <source>Aborted by the user</source>
-        <translation type="unfinished"></translation>
+        <translation>Aborted by the user</translation>
     </message>
     <message id="tx-failure-asset-small-fee">
         <source>Asset registration fee is too small</source>
-        <translation type="unfinished"></translation>
+        <translation>Asset registration fee is too small</translation>
     </message>
     <message id="settings-notifications-title">
         <source>Notifications</source>
-        <translation type="unfinished"></translation>
+        <translation>Notifications</translation>
     </message>
     <message id="settings-notifications-version">
         <source>Wallet version</source>
-        <translation type="unfinished"></translation>
+        <translation>&gt;Wallet version</translation>
     </message>
     <message id="settings-notifications-news">
         <source>News</source>
-        <translation type="unfinished"></translation>
+        <translation>News</translation>
     </message>
     <message id="settings-notifications-tx-status">
         <source>Transaction status</source>
-        <translation type="unfinished"></translation>
+        <translation>Transaction status</translation>
     </message>
     <message id="tx-failure-fee-too-large">
         <source>Fee is too large</source>
-        <translation type="unfinished"></translation>
+        <translation>Fee is too large</translation>
     </message>
     <message id="tx-failure-asset-invalid-info">
         <source>No asset info or asset info is not valid</source>
-        <translation type="unfinished"></translation>
+        <translation>No asset info or asset info is not valid</translation>
     </message>
     <message id="tx-failure-asset-invalid-metadata">
         <source>No asset metadata or asset metadata is not valid</source>
-        <translation type="unfinished"></translation>
+        <translation>No asset metadata or asset metadata is not valid</translation>
     </message>
     <message id="tx-failure-asset-invalid-id">
         <source>Invalid asset id</source>
-        <translation type="unfinished"></translation>
+        <translation>Invalid asset id</translation>
     </message>
     <message id="tx-failure-asset-confirmation">
         <source>Failed to receive asset confirmation</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to receive asset confirmation</translation>
     </message>
     <message id="tx-failure-asset-in-use">
         <source>Asset is still in use (issued amount &gt; 0)</source>
-        <translation type="unfinished"></translation>
+        <translation>Asset is still in use (issued amount &gt; 0)</translation>
     </message>
     <message id="tx-failure-asset-locked">
         <source>Asset is still locked</source>
-        <translation type="unfinished"></translation>
+        <translation>Asset is still locked</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications</source>
-        <translation type="unfinished"></translation>
+        <translation>Notifications</translation>
     </message>
     <message id="notifications-update-now">
         <source>update now</source>
-        <translation type="unfinished"></translation>
+        <translation>update now</translation>
     </message>
     <message id="notifications-activate">
         <source>activate</source>
-        <translation type="unfinished"></translation>
+        <translation>activate</translation>
     </message>
     <message id="notifications-details">
         <source>details</source>
-        <translation type="unfinished"></translation>
+        <translation>details</translation>
     </message>
     <message id="notifications-clear-all">
         <source>clear all</source>
-        <translation type="unfinished"></translation>
+        <translation>clear all</translation>
+    </message>
+    <message id="settings-notifications-rates">
+        <source>Exchange rates</source>
+        <translation>Exchange rates</translation>
     </message>
 </context>
 </TS>

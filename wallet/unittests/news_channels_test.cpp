@@ -135,6 +135,99 @@ namespace
         return msg;
     };
 
+    void TestStringToKeyConvertation()
+    {
+        cout << endl << "Test string to key convertation" << endl;
+
+        {
+            ECC::uintBig referencePubKey = {
+                0xdb, 0x61, 0x7c, 0xed, 0xb1, 0x75, 0x43, 0x37,
+                0x5b, 0x60, 0x20, 0x36, 0xab, 0x22, 0x3b, 0x67,
+                0xb0, 0x6f, 0x86, 0x48, 0xde, 0x2b, 0xb0, 0x4d,
+                0xe0, 0x47, 0xf4, 0x85, 0xe7, 0xa9, 0xda, 0xec
+            };
+
+            bool res = false;
+            PeerID key;
+            WALLET_CHECK_NO_THROW(res = BroadcastMsgValidator::stringToPublicKey("db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec", key));
+            WALLET_CHECK(res && key == referencePubKey);
+        }
+        {
+            ECC::uintBig referencePrivateKey = {
+                0xf7, 0x0c, 0x36, 0xf2, 0xd8, 0x34, 0x2b, 0x66,
+                0xe3, 0x08, 0x1e, 0xa4, 0xd8, 0x75, 0x43, 0x56,
+                0x6d, 0x6a, 0xd2, 0x42, 0xc6, 0xe6, 0x1d, 0xbf,
+                0x92, 0x6d, 0x57, 0xff, 0x42, 0xde, 0x0c, 0x59
+            };
+            ECC::Scalar refKey;
+            refKey.m_Value = referencePrivateKey;
+            ECC::Scalar::Native nativeKey;
+            nativeKey.Import(refKey);
+
+            bool res = false;
+            ECC::Scalar::Native key;
+            WALLET_CHECK_NO_THROW(res = BroadcastMsgCreator::stringToPrivateKey("f70c36f2d8342b66e3081ea4d87543566d6ad242c6e61dbf926d57ff42de0c59", key));
+            WALLET_CHECK(res && key == nativeKey);
+        }
+    }
+
+    void TestSoftwareVersion()
+    {
+        cout << endl << "Test Version operations" << endl;
+
+        {
+            Version v {123, 456, 789};
+            WALLET_CHECK(to_string(v) == "123.456.789");
+            // WALLET_CHECK(to_string(Version::getCurrent()) == PROJECT_VERSION);
+        }
+
+        {
+            WALLET_CHECK(Version(12,12,12) == Version(12,12,12));
+            WALLET_CHECK(!(Version(12,12,12) != Version(12,12,12)));
+            WALLET_CHECK(Version(12,13,12) != Version(12,12,12));
+            WALLET_CHECK(!(Version(12,13,12) == Version(12,12,12)));
+
+            WALLET_CHECK(Version(12,12,12) < Version(13,12,12));
+            WALLET_CHECK(Version(12,12,12) < Version(12,13,12));
+            WALLET_CHECK(Version(12,12,12) < Version(12,12,13));
+            WALLET_CHECK(Version(12,12,12) < Version(13,13,13));
+            WALLET_CHECK(!(Version(12,12,12) < Version(12,12,12)));
+        }
+
+        {
+            Version v;
+            bool res = false;
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12.345.6789"));
+            WALLET_CHECK(res == true);
+            WALLET_CHECK(v == Version(12,345,6789));
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("0.0.0"));
+            WALLET_CHECK(res == true);
+            WALLET_CHECK(v == Version());
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12345.6789"));
+            WALLET_CHECK(res == false);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12,345.6789"));
+            WALLET_CHECK(res == false);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12.345.6e89"));
+            WALLET_CHECK(res == false);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12345.6789.12.52"));
+            WALLET_CHECK(res == false);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("f12345.6789.52"));
+            WALLET_CHECK(res == false);
+        }
+
+        {
+            WALLET_CHECK("desktop" == VersionInfo::to_string(VersionInfo::Application::DesktopWallet));
+            WALLET_CHECK(VersionInfo::Application::DesktopWallet == VersionInfo::from_string("desktop"));
+        }
+    }
+
     /**
      *  Tests:
      *  - only correctly signed with PrivateKey messageas are accepted
@@ -290,6 +383,24 @@ namespace
         cout << "Test end" << endl;
     }
 
+    void TestProtocolBuilder()
+    {
+        cout << endl << "Test BroadcastMsgCreator" << endl;
+
+        BroadcastMsgValidator validator;
+        auto walletDB = createSenderWalletDB();
+
+        const auto& [pk, sk] = deriveKeypair(walletDB, 1);
+        validator.setPublisherKeys({ pk });
+
+        BroadcastMsg msg;
+        BroadcastMsg outMsg;
+        WALLET_CHECK_NO_THROW(msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(std::string("hello")), sk));
+        bool res = validator.processMessage(toByteBuffer(msg), outMsg);
+        WALLET_CHECK(res);
+        WALLET_CHECK(msg == outMsg);
+    }
+
     void TestNewsChannelsObservers()
     {
         cout << endl << "Test news channels observers" << endl;
@@ -369,113 +480,18 @@ namespace
         cout << "Test end" << endl;
     }
 
-    void TestStringToKeyConvertation()
-    {
-        cout << endl << "Test string to key convertation" << endl;
-
-        {
-            ECC::uintBig referencePubKey = {
-                0xdb, 0x61, 0x7c, 0xed, 0xb1, 0x75, 0x43, 0x37,
-                0x5b, 0x60, 0x20, 0x36, 0xab, 0x22, 0x3b, 0x67,
-                0xb0, 0x6f, 0x86, 0x48, 0xde, 0x2b, 0xb0, 0x4d,
-                0xe0, 0x47, 0xf4, 0x85, 0xe7, 0xa9, 0xda, 0xec
-            };
-
-            bool res = false;
-            PeerID key;
-            WALLET_CHECK_NO_THROW(res = BroadcastMsgValidator::stringToPublicKey("db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec", key));
-            WALLET_CHECK(res && key == referencePubKey);
-        }
-        {
-            ECC::uintBig referencePrivateKey = {
-                0xf7, 0x0c, 0x36, 0xf2, 0xd8, 0x34, 0x2b, 0x66,
-                0xe3, 0x08, 0x1e, 0xa4, 0xd8, 0x75, 0x43, 0x56,
-                0x6d, 0x6a, 0xd2, 0x42, 0xc6, 0xe6, 0x1d, 0xbf,
-                0x92, 0x6d, 0x57, 0xff, 0x42, 0xde, 0x0c, 0x59
-            };
-            ECC::Scalar refKey;
-            refKey.m_Value = referencePrivateKey;
-            ECC::Scalar::Native nativeKey;
-            nativeKey.Import(refKey);
-
-            bool res = false;
-            ECC::Scalar::Native key;
-            WALLET_CHECK_NO_THROW(res = BroadcastMsgCreator::stringToPrivateKey("f70c36f2d8342b66e3081ea4d87543566d6ad242c6e61dbf926d57ff42de0c59", key));
-            WALLET_CHECK(res && key == nativeKey);
-        }
-    }
-
-    void TestProtocolBuilder()
-    {
-        cout << endl << "Test BroadcastMsgCreator" << endl;
-        // TODO Newscast test
-        /// Create message signed with private key
-        // static ByteBuffer createMessage(const NewsMessage& content, const PrivateKey& key);
-    }
-
-    void TestSoftwareVersion()
-    {
-        cout << endl << "Test Version" << endl;
-
-        {
-            Version v {123, 456, 789};
-            WALLET_CHECK(to_string(v) == "123.456.789");
-            // WALLET_CHECK(to_string(Version::getCurrent()) == PROJECT_VERSION);
-        }
-
-        {
-            WALLET_CHECK(Version(12,12,12) == Version(12,12,12));
-            WALLET_CHECK(!(Version(12,12,12) != Version(12,12,12)));
-            WALLET_CHECK(Version(12,13,12) != Version(12,12,12));
-            WALLET_CHECK(!(Version(12,13,12) == Version(12,12,12)));
-
-            WALLET_CHECK(Version(12,12,12) < Version(13,12,12));
-            WALLET_CHECK(Version(12,12,12) < Version(12,13,12));
-            WALLET_CHECK(Version(12,12,12) < Version(12,12,13));
-            WALLET_CHECK(Version(12,12,12) < Version(13,13,13));
-            WALLET_CHECK(!(Version(12,12,12) < Version(12,12,12)));
-        }
-
-        {
-            Version v;
-            bool res = false;
-
-            WALLET_CHECK_NO_THROW(res = v.from_string("12.345.6789"));
-            WALLET_CHECK(res == true);
-            WALLET_CHECK(v == Version(12,345,6789));
-
-            WALLET_CHECK_NO_THROW(res = v.from_string("0.0.0"));
-            WALLET_CHECK(res == true);
-            WALLET_CHECK(v == Version());
-
-            WALLET_CHECK_NO_THROW(res = v.from_string("12345.6789"));
-            WALLET_CHECK(res == false);
-
-            WALLET_CHECK_NO_THROW(res = v.from_string("12,345.6789"));
-            WALLET_CHECK(res == false);
-
-            WALLET_CHECK_NO_THROW(res = v.from_string("12.345.6e89"));
-            WALLET_CHECK(res == false);
-
-            WALLET_CHECK_NO_THROW(res = v.from_string("12345.6789.12.52"));
-            WALLET_CHECK(res == false);
-
-            WALLET_CHECK_NO_THROW(res = v.from_string("f12345.6789.52"));
-            WALLET_CHECK(res == false);
-        }
-
-        {
-            WALLET_CHECK("desktop" == VersionInfo::to_string(VersionInfo::Application::DesktopWallet));
-            WALLET_CHECK(VersionInfo::Application::DesktopWallet == VersionInfo::from_string("desktop"));
-        }
-    }
-
     void TestNotificationCenter()
     {
         cout << endl << "Test NotificationCenter" << endl;
 
         auto storage = createSenderWalletDB();
-        NotificationCenter center(*storage);
+        std::map<Notification::Type,bool> activeTypes {
+            { Notification::Type::SoftwareUpdateAvailable, true },
+            { Notification::Type::AddressStatusChanged, true },
+            { Notification::Type::TransactionStatusChanged, true },
+            { Notification::Type::BeamNews, true }
+        };
+        NotificationCenter center(*storage, activeTypes);
 
         {
             {
@@ -595,6 +611,105 @@ namespace
                 WALLET_CHECK(execCount == 1);
                 center.Unsubscribe(&observer);
             }
+
+            // check on duplicate
+            {
+                cout << "Case: duplicate notification" << endl;
+                MockNotificationsObserver observer(
+                    []
+                    (ChangeAction action, const std::vector<Notification>& list)
+                    {
+                        WALLET_CHECK(false);
+                    }
+                );
+                center.Subscribe(&observer);
+                center.onNewWalletVersion(info, id);
+                auto list = center.getNotifications();
+                WALLET_CHECK(list.size() == 0);
+                center.Unsubscribe(&observer);
+            }
+        }
+    }
+
+    void TestNotificationsOnOffSwitching()
+    {
+        cout << endl << "Test notifications on/off switching" << endl;
+
+        auto storage = createSenderWalletDB();
+        std::map<Notification::Type,bool> activeTypes {
+            { Notification::Type::SoftwareUpdateAvailable, false },
+            { Notification::Type::AddressStatusChanged, false },
+            { Notification::Type::TransactionStatusChanged, false },
+            { Notification::Type::BeamNews, false }
+        };
+        NotificationCenter center(*storage, activeTypes);
+
+        WALLET_CHECK(center.getNotifications().size() == 0);
+
+        VersionInfo info { VersionInfo::Application::DesktopWallet, Version(1,2,3) };
+        const uintBig id( {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+                           1,1,1,1,1,1,1,1,1,1,1,1});
+        const uintBig id2({2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+                           2,2,2,2,2,2,2,2,2,2,2,2});
+        const uintBig id3({3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+                           3,3,3,3,3,3,3,3,3,3,3,3});
+
+        // notifications is off on start
+        {
+            cout << "Case: notifications is off on start" << endl;
+            MockNotificationsObserver observer(
+                []
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(false);
+                }
+            );
+            center.Subscribe(&observer);
+            center.onNewWalletVersion(info, id);
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 0);
+            center.Unsubscribe(&observer);
+        }
+        // notifications switched on
+        {
+            cout << "Case: notifications switched on" << endl;
+            size_t execCount = 0;
+            MockNotificationsObserver observer(
+                [&execCount, &id2]
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(action == ChangeAction::Added);
+                    WALLET_CHECK(list.size() == 1);
+                    WALLET_CHECK(list[0].m_ID == id2);
+                    ++execCount;
+                }
+            );
+            center.switchOnOffNotifications(Notification::Type::SoftwareUpdateAvailable, true);
+            center.Subscribe(&observer);
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 1);
+            center.onNewWalletVersion(info, id2);
+            list = center.getNotifications();
+            WALLET_CHECK(list.size() == 2);
+            center.Unsubscribe(&observer);
+            WALLET_CHECK(execCount == 1);
+        }
+        // notification switched off
+        {
+            cout << "Case: notifications switched on" << endl;
+            MockNotificationsObserver observer(
+                []
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(false);
+                }
+            );
+            center.switchOnOffNotifications(Notification::Type::SoftwareUpdateAvailable, false);
+            center.Subscribe(&observer);
+            center.onNewWalletVersion(info, id3);
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 0);
+            center.Unsubscribe(&observer);
         }
     }
 
@@ -607,14 +722,17 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    TestSignatureValidation();
-    TestPublisherKeysLoading();
-    TestNewsChannelsObservers();
     TestStringToKeyConvertation();
-    // TestProtocolBuilder();
     TestSoftwareVersion();
 
+    TestSignatureValidation();
+    TestPublisherKeysLoading();
+    TestProtocolBuilder();
+
+    TestNewsChannelsObservers();
+
     TestNotificationCenter();
+    TestNotificationsOnOffSwitching();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

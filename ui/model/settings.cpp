@@ -376,6 +376,13 @@ void WalletSettings::setNewVersionActive(bool isActive)
 {
     if (isActive != isNewVersionActive())
     {
+        auto walletModel = AppModel::getInstance().getWallet();
+        if (walletModel)
+        {
+            walletModel->getAsync()->switchOnOffNotifications(
+                beam::wallet::Notification::Type::SoftwareUpdateAvailable,
+                isActive);
+        }
         Lock lock(m_mutex);
         m_data.setValue(kNewVersionActive, isActive);
     }
@@ -385,6 +392,11 @@ void WalletSettings::setExcRatesActive(bool isActive)
 {
     if (isActive != isExcRatesActive())
     {
+        auto walletModel = AppModel::getInstance().getWallet();
+        if (walletModel)
+        {
+            walletModel->getAsync()->switchOnOffExchangeRates(isActive);
+        }
         Lock lock(m_mutex);
         m_data.setValue(kExcRatesActive, isActive);
     }
@@ -394,6 +406,13 @@ void WalletSettings::setBeamNewsActive(bool isActive)
 {
     if (isActive != isBeamNewsActive())
     {
+        auto walletModel = AppModel::getInstance().getWallet();
+        if (walletModel)
+        {
+            walletModel->getAsync()->switchOnOffNotifications(
+                beam::wallet::Notification::Type::BeamNews,
+                isActive);
+        }
         Lock lock(m_mutex);
         m_data.setValue(kBeamNewsActive, isActive);
     }
@@ -403,6 +422,13 @@ void WalletSettings::setTxStatusActive(bool isActive)
 {
     if (isActive != isTxStatusActive())
     {
+        auto walletModel = AppModel::getInstance().getWallet();
+        if (walletModel)
+        {
+            walletModel->getAsync()->switchOnOffNotifications(
+                beam::wallet::Notification::Type::TransactionStatusChanged,
+                isActive);
+        }
         Lock lock(m_mutex);
         m_data.setValue(kTxStatusActive, isActive);
     }

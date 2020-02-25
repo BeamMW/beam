@@ -18,8 +18,13 @@
 
 namespace beam::wallet
 {
-    NotificationCenter::NotificationCenter(IWalletDB& storage)
+    /**
+     *  @storage                used to store notifications
+     *  @activeNotifications    shows which of Notification::Type are active
+     */
+    NotificationCenter::NotificationCenter(IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications)
         : m_storage(storage)
+        , m_activeNotifications(activeNotifications)
     {
         LOG_DEBUG() << "NotificationCenter()";
 
@@ -50,6 +55,18 @@ namespace beam::wallet
         }
     }
 
+    bool NotificationCenter::isNotificationTypeActive(Notification::Type type) const
+    {
+        auto it = m_activeNotifications.find(type);
+        assert(it != std::cend(m_activeNotifications));
+        return it->second;
+    }
+
+    void NotificationCenter::switchOnOffNotifications(Notification::Type type, bool onOff)
+    {
+        m_activeNotifications[type] = onOff;
+    }
+
     void NotificationCenter::createNotification(const Notification& notification)
     {
         LOG_DEBUG() << "createNotification()";
@@ -57,7 +74,10 @@ namespace beam::wallet
         m_cache[notification.m_ID] = notification;
         m_storage.saveNotification(notification);
 
-        notifySubscribers(ChangeAction::Added, {notification});
+        if (isNotificationTypeActive(notification.m_type))
+        {
+            notifySubscribers(ChangeAction::Added, {notification});
+        }
     }
 
     void NotificationCenter::updateNotification(const Notification& notification)
@@ -70,7 +90,10 @@ namespace beam::wallet
             m_cache[notification.m_ID] = notification;
             m_storage.saveNotification(notification);
 
-            notifySubscribers(ChangeAction::Updated, {notification});
+            if (isNotificationTypeActive(notification.m_type))
+            {
+                notifySubscribers(ChangeAction::Updated, {notification});
+            }
         }
     }
 
@@ -93,12 +116,15 @@ namespace beam::wallet
         auto search = m_cache.find(notificationID);
         if (search != m_cache.cend())
         {
-            search->second.m_state = Notification::State::Deleted;
-            m_storage.saveNotification(search->second);
+            auto& notification = search->second;
 
-            notifySubscribers(ChangeAction::Removed, { search->second });
+            notification.m_state = Notification::State::Deleted;
+            m_storage.saveNotification(notification);
 
-            m_cache.erase(search);
+            if (isNotificationTypeActive(notification.m_type))
+            {
+                notifySubscribers(ChangeAction::Removed, { notification });
+            }
         }
     }
 
@@ -110,6 +136,7 @@ namespace beam::wallet
 
         for (const auto& pair : m_cache)
         {
+            if (!isNotificationTypeActive(pair.second.m_type)) continue;
             if (pair.second.m_state == Notification::State::Deleted) continue;
             notifications.push_back(pair.second);
         }
@@ -117,18 +144,26 @@ namespace beam::wallet
         return notifications;
     }
 
+    /**
+     *  @content    new release information
+     *  @signature  signature of broadcast message used here as unique ID of notification
+     */
     void NotificationCenter::onNewWalletVersion(const VersionInfo& content, const ECC::uintBig& signature)
     {
         LOG_DEBUG() << "NotificationCenter::onNewWalletVersion()";
 
-        Notification n;
-        n.m_ID = signature;
-        n.m_type = Notification::Type::SoftwareUpdateAvailable;
-        n.m_createTime = getTimestamp();
-        n.m_state = Notification::State::Unread;
-        n.m_content = toByteBuffer(content);
-        
-        createNotification(n);
+        auto search = m_cache.find(signature);
+        if (search == m_cache.cend())
+        {
+            Notification n;
+            n.m_ID = signature;
+            n.m_type = Notification::Type::SoftwareUpdateAvailable;
+            n.m_createTime = getTimestamp();
+            n.m_state = Notification::State::Unread;
+            n.m_content = toByteBuffer(content);
+            
+            createNotification(n);
+        }
     }
 
     void NotificationCenter::Subscribe(INotificationsObserver* observer)

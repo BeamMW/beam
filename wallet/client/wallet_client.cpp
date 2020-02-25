@@ -198,14 +198,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::exportTxHistoryToCsv);
     }
 
-    void switchExchangeRates(bool isActive) override
+    void switchOnOffExchangeRates(bool isActive) override
     {
-        call_async(&IWalletModelAsync::switchExchangeRates, isActive);
+        call_async(&IWalletModelAsync::switchOnOffExchangeRates, isActive);
     }
 
-    void switchNotifications(Notification::Type type, bool isActive) override
+    void switchOnOffNotifications(Notification::Type type, bool isActive) override
     {
-        call_async(&IWalletModelAsync::switchNotifications, type, isActive);
+        call_async(&IWalletModelAsync::switchOnOffNotifications, type, isActive);
     }
         
     void getNotifications() override
@@ -279,9 +279,9 @@ namespace beam::wallet
         onPostFunctionToClientContext(move(func));
     }
 
-    void WalletClient::start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
+    void WalletClient::start(std::map<Notification::Type,bool> activeNotifications, std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
-        m_thread = std::make_shared<std::thread>([this, txCreators]()
+        m_thread = std::make_shared<std::thread>([this, txCreators, activeNotifications]()
             {
                 try
                 {
@@ -321,7 +321,7 @@ namespace beam::wallet
                     auto wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
                     // Notification center initialization
-                    m_notificationCenter = make_shared<NotificationCenter>(*m_walletDB);
+                    m_notificationCenter = make_shared<NotificationCenter>(*m_walletDB, activeNotifications);
                     using NotificationsSubscriber = ScopedSubscriber<INotificationsObserver, NotificationCenter>;
                     auto notificationsSubscriber = make_unique<NotificationsSubscriber>(static_cast<INotificationsObserver*>(this), m_notificationCenter);
 
@@ -897,14 +897,14 @@ namespace beam::wallet
         onExportTxHistoryToCsv(data);   
     }
 
-    void WalletClient::switchExchangeRates(bool isActive)
+    void WalletClient::switchOnOffExchangeRates(bool isActive)
     {
         // m_broadcastRouter->
     }
 
-    void WalletClient::switchNotifications(Notification::Type type, bool isActive)
+    void WalletClient::switchOnOffNotifications(Notification::Type type, bool isActive)
     {
-        // m_broadcastRouter->
+        m_notificationCenter->switchOnOffNotifications(type, isActive);
     }
     
     void WalletClient::getNotifications()

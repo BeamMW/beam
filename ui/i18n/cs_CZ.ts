@@ -562,7 +562,6 @@
     </message>
     <message id="send-amount-label">
         <source>Send</source>
-        <oldsource>Transaction amount</oldsource>
         <translation type="unfinished">Částka transakce</translation>
     </message>
     <message id="send-founds-fail">
@@ -978,11 +977,6 @@
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
 •  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:
-•  the length must be at least 10 characters
-•  must contain at least one lowercase letter
-•  must contain at least one uppercase letter
-•  must contain at least one number</oldsource>
         <translation type="unfinished">Silné heslo musí splňovat následující požadavky:
 • heslo musí mít nejméně 10 znaků
 • musí obsahovat alespoň jedno malé písmeno
@@ -1130,7 +1124,6 @@
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
         <source>Don&apos;t ask password on every Send</source>
-        <oldsource>Don’t ask password on every Send</oldsource>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title if checked</extracomment>
         <translation>Neptat se na heslo při každém odeslání</translation>
     </message>
@@ -1254,8 +1247,6 @@
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.
-Update your settings and try again.</oldsource>
         <translation type="unfinished">Nemáte připojené žádné měny třetích stran.\nAktualizujte nastavení a zkuste to znovu.</translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1264,7 +1255,6 @@ Update your settings and try again.</oldsource>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this token to the sender over an external secure channel or scan the QR code</source>
-        <oldsource>Send this address to the sender over an external secure channel or scan the QR code</oldsource>
         <translation type="unfinished">Odešlete tuto adresu odesílateli přes externí zabezpečený kanál nebo naskenujte QR kód</translation>
     </message>
     <message id="receive-amount-swap-label">
@@ -1334,8 +1324,6 @@ Update your settings and try again.</oldsource>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
 please review your settings and try again</source>
-        <oldsource>%1 is not connected, 
-please review your settings and try again</oldsource>
         <translation type="unfinished">%1 není připojen, 
 prosím zkontrolujte nastavení a zkuste to znovu.</translation>
     </message>
@@ -1373,7 +1361,6 @@ prosím zkontrolujte nastavení a zkuste to znovu.</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer than usual. Please, check your network.</source>
-        <oldsource>It may take longer then usual. Please, check your network.</oldsource>
         <translation>Trvá to déle než obvykle. Zkontrolujte prosím síť.</translation>
     </message>
     <message id="atomic-swap-title">
@@ -1506,7 +1493,6 @@ prosím zkontrolujte nastavení a zkuste to znovu.</translation>
     </message>
     <message id="wallet-receive-copy-token">
         <source>copy swap token</source>
-        <oldsource>Copy transaction token</oldsource>
         <translation type="unfinished">kopírovat token transakce</translation>
     </message>
     <message id="wallet-model-device-not-connected">
@@ -1532,15 +1518,11 @@ prosím zkontrolujte nastavení a zkuste to znovu.</translation>
     <message id="settings-progress-na">
         <source>You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</source>
-        <oldsource>You cannot disconnect wallet, edit seed phrase or change default
-fee while you have transactions in progress.</oldsource>
         <translation type="unfinished">Nemůžete odpojit peněženku, upravit klíčová slova nebo změnit výchozí poplatek\nběhem zpracování transakcí.</translation>
     </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.
 Please try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.
-Please try again later or create an offer yourself.</oldsource>
         <translation type="unfinished">Momentálně nejsou žádné aktivní nabídky.\nZkuste to prosím později nebo vytvořte svou nabídku.</translation>
     </message>
     <message id="send-less-than-fee">
@@ -1710,8 +1692,6 @@ Please try again later or create an offer yourself.</oldsource>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</source>
-        <oldsource>The offer with this transaction token is already accepted.
-Please check the swap token and try again.</oldsource>
         <translation type="unfinished">Nabídka s tímto tokenem transakce je již přijata.\nProsím zkontrolujte token výměny a zkuste to znovu.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
@@ -1840,7 +1820,6 @@ Please check the swap token and try again.</oldsource>
     </message>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token</source>
-        <oldsource>Your swap token:</oldsource>
         <translation type="unfinished">Your swap token</translation>
     </message>
     <message id="send-swap-confirmation-title">
@@ -1849,8 +1828,6 @@ Please check the swap token and try again.</oldsource>
     </message>
     <message id="send-swap-sconfirmation-online-time">
         <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
-        <oldsource>Keep your wallet online. The swap normally takes about 1 hour
-to complete.</oldsource>
         <translation>Nechte Vaši peněženku online. Výměna měn obvykle trvá asi 1 hodinu.</translation>
     </message>
     <message id="beam-transaction-fee">
@@ -1875,12 +1852,10 @@ to complete.</oldsource>
     </message>
     <message id="swap-tx-state-in-progress-normal">
         <source>The swap is expected to complete in %1 at most.</source>
-        <oldsource>The swap is expected to complete in %1 at most</oldsource>
         <translation>Předpokládá se, že výměna bude dokončena maximálně za %1.</translation>
     </message>
     <message id="swap-tx-state-in-progress-refunding">
         <source>Swap failed: the refund of your %2 will start in %1. The refund duration depends on the transaction fee you specified for %2.</source>
-        <oldsource>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</oldsource>
         <translation type="unfinished">Swap failed: the refund of your %2 will start in %1. The refund duration depends on the transaction fee you specified for %2.</translation>
     </message>
     <message id="atomic-swap-tx-cancel">
@@ -1889,7 +1864,6 @@ to complete.</oldsource>
     </message>
     <message id="atomic-swap-tx-cancel-text">
         <source>Are you sure you want to cancel?</source>
-        <oldsource>Are you sure you want to cancel atomic swap transaction?</oldsource>
         <translation>Opravdu chcete zrušit?</translation>
     </message>
     <message id="atomic-swap-tx-yes-button">
@@ -1902,12 +1876,10 @@ to complete.</oldsource>
     </message>
     <message id="swap-tx-state-refunding">
         <source>Swap failed, the money is being released back to your wallet</source>
-        <oldsource>Refunding</oldsource>
         <translation type="unfinished">Swap failed, the money is being released back to your wallet</translation>
     </message>
     <message id="wallet-txs-status-waiting-peer">
         <source>waiting for counterparty</source>
-        <oldsource>waiting for peer</oldsource>
         <translation type="unfinished">waiting for counterparty</translation>
     </message>
     <message id="send-swap-fee-warning">
@@ -2089,12 +2061,10 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
     </message>
     <message id="tx-failure-invalid-asset-id">
         <source>No valid asset owner id/asset owner idx</source>
-        <oldsource>No valid asset id/asset idx</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-failure-invalid-asset-amount">
         <source>Cannot issue/consume more than MAX_INT64 asset groth in one transaction</source>
-        <oldsource>Cannot consume more than MAX_INT64 asset groth in one transaction</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-failure-invalid-data-for-payment-proof">
@@ -2184,6 +2154,10 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
     </message>
     <message id="notifications-clear-all">
         <source>clear all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-notifications-rates">
+        <source>Exchange rates</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
