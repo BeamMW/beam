@@ -211,7 +211,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
                 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        walletModel->start();
+        std::map<Notification::Type,bool> activeNotifications {
+            { Notification::Type::SoftwareUpdateAvailable, false },
+            { Notification::Type::BeamNews, false },
+            { Notification::Type::TransactionStatusChanged, false }
+        };
+
+        walletModel->start(activeNotifications);
 
         return walletObj;
     }
