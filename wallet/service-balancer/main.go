@@ -34,6 +34,9 @@ func main () {
 	// Inform that wallet web client is leaving
 	http.HandleFunc("/logout", wrapHandler(logoutRequest))
 
+	// Get general server statistics
+	http.HandleFunc("/status", wrapHandler(statusRequest))
+
 	//
 	// JsonRPCv2.0 over WebSockets
 	//

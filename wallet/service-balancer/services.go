@@ -18,6 +18,7 @@ import (
 //
 type Service struct {
 	Address      string
+	Port         int
 	command      *exec.Cmd
 	cancelCmd    context.CancelFunc
 	context      context.Context
@@ -25,13 +26,35 @@ type Service struct {
 	ServiceAlive chan bool
 }
 
+type ServiceStats struct {
+	Pid          int
+	Address      string
+	Args         []string
+	ProcessState *os.ProcessState
+	EndpointsCnt int
+	ClientsCnt   int
+}
+
+func (svc* Service) GetStats() (stats *ServiceStats) {
+	stats = &ServiceStats{
+		Pid:          svc.command.Process.Pid,
+		Address:      svc.Address,
+		Args:         svc.command.Args,
+		ProcessState: svc.command.ProcessState,
+	}
+	return
+}
+
 func (svc* Service) Shutdown() {
 	svc.cancelCmd()
 }
 
-func NewService(index int) (svc *Service, err error) {
+func NewService(index int, port int) (svc *Service, err error) {
 	svc = &Service{}
-	var port = config.ServiceFirstPort + index
+
+	if port == 0 {
+		port = config.GenerateServicePort()
+	}
 
 	ctxWS, cancelWS := context.WithCancel(context.Background())
 	svc.cancelCmd    = cancelWS
@@ -40,6 +63,7 @@ func NewService(index int) (svc *Service, err error) {
 	svc.Address      = config.SerivcePublicAddress + ":" + strconv.Itoa(port)
 	svc.ServiceExit  = make(chan struct{})
 	svc.ServiceAlive = make(chan bool)
+	svc.Port         = port
 
 	if config.Debug {
 		svc.command.Stdout = os.Stdout
@@ -144,6 +168,34 @@ type Services struct  {
 	next      int
 }
 
+func (svcs* Services) GetActiveCnt() (cnt int) {
+	svcs.mutex.Lock()
+	for i := 0; i < len(svcs.all); i++ {
+		if svcs.all[i] != nil {
+			cnt++
+		}
+	}
+	svcs.mutex.Unlock()
+	return
+}
+
+func (svcs* Services) GetStats() (stats []*ServiceStats) {
+	svcs.mutex.Lock()
+		stats = make([]*ServiceStats, len(svcs.all))
+		for i := 0; i < len(svcs.all); i++ {
+			if svcs.all[i] != nil {
+				stats[i] = svcs.all[i].GetStats()
+			}
+		}
+	svcs.mutex.Unlock()
+
+	for i := 0; i < len(stats); i++ {
+		stats[i].EndpointsCnt, stats[i].ClientsCnt = epoints.GetSvcCounts(i)
+	}
+
+	return
+}
+
 func (svcs* Services) GetNext() (int, *Service, error) {
 	svcs.mutex.Lock()
 	defer svcs.mutex.Unlock()
@@ -184,12 +236,20 @@ func (svcs *Services) ShutdownAll () {
 	}
 }
 
-func (svcs *Services) Drop (svcIdx int) {
+func (svcs *Services) DropAndRelaunch (svcIdx int) (service *Service, err error) {
 	svcs.mutex.Lock()
 	defer svcs.mutex.Unlock()
 
 	svcs.all[svcIdx] = nil
 	svcs.Dropped <- svcIdx
+
+	service, err = NewService(svcIdx, 0)
+	if err != nil {
+		return
+	}
+
+	svcs.all[svcIdx] = service
+	return
 }
 
 func (svcs* Services) Get (svcIdx int) *Service {
@@ -235,7 +295,7 @@ func NewServices() (result *Services, err error) {
 	}
 
 	for i := 0; i < svcsCnt; i++ {
-		service, launchErr := NewService(i)
+		service, launchErr := NewService(i, 0)
 		if launchErr != nil {
 			err = launchErr
 			return
@@ -245,7 +305,6 @@ func NewServices() (result *Services, err error) {
 		var svcIdx = i
 
 		go func() {
-			var serviceExit  = service.ServiceExit
 			var aliveTimeout = time.NewTimer(config.ServiceAliveTimeout)
 
 			for {
@@ -263,19 +322,17 @@ func NewServices() (result *Services, err error) {
 					}
 					aliveTimeout = time.NewTimer(config.ServiceAliveTimeout)
 
-				case <- serviceExit:
-					//
-					// Now we just drop all endpoints for this service and continue without it
-					// TODO: If there are 0 services left - panic OR
-					//       - consider restart on the same port, Do not drop endpoints then, bad clients might try to reconnect.
-					//       - consider restart on new port, drop endpoints. This seems to be better solution (?)
-					//
-					// This means that something really bad happened.
-					// May be wallet service has been killed by OOM/admin/other process
-					// TODO: check all 'dropped' messages, if counters are correct
+				case <- service.ServiceExit:
 					log.Printf("service %v, unexpected shutdown [%v]", svcIdx, service.command.ProcessState)
-					result.Drop(svcIdx)
-					return
+					// TODO: consider restart on the same port, Do not drop endpoints then, bad clients might try to reconnect.
+					//       this might fail with busy ports and cause other issues. While this service is not public
+					//       it seems to be better to continue using new ports
+					if service, err = result.DropAndRelaunch(svcIdx); err != nil {
+						log.Printf("service %v, failed to relaunch", err)
+						if services.GetActiveCnt() == 0 {
+							log.Fatalf("no active services left, halting")
+						}
+					}
 				}
 			}
 		}()

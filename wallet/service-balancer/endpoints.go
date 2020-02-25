@@ -44,6 +44,20 @@ type Endpoints struct {
 	mutex sync.Mutex
 }
 
+func (eps* Endpoints) GetSvcCounts(svcidx int) (epcnt int, clientscnt int) {
+	eps.mutex.Lock()
+	defer eps.mutex.Unlock()
+
+	for _, val := range eps.all {
+		if val.service == svcidx {
+			epcnt++
+			clientscnt += int(val.clientsCnt)
+		}
+	}
+
+	return
+}
+
 func (points *Endpoints) DropServiceEndpoints (svcIdx int) (pointsCnt int, clientsCnt int) {
 	points.mutex.Lock()
 	defer points.mutex.Unlock()
@@ -96,15 +110,15 @@ func (points *Endpoints) Add(wid string, svcIdx int, address string) {
 	//  Monitor the new endpoint
 	//
 	go func () {
-		timeout := time.NewTimer(config.EndpointAliveTimeout)
+		aliveTimeout := time.NewTimer(config.EndpointAliveTimeout)
 
-		var releaseEndpoint = func () {
+		var releaseClient = func () {
 			points.mutex.Lock()
 			defer points.mutex.Unlock()
 
 			if clients := epoint.Release(wid); clients == 0 {
 				delete(points.all, wid)
-				timeout.Stop()
+				aliveTimeout.Stop()
 				log.Printf("wallet %v, endpoint removed", wid)
 			} else {
 				log.Printf("wallet %v, client removed, %v client(s) left", wid, clients)
@@ -113,32 +127,27 @@ func (points *Endpoints) Add(wid string, svcIdx int, address string) {
 
 		for {
 			select {
-			case <- timeout.C:
+			case <- aliveTimeout.C:
 				// No alive signals from wallet for some time. Usually this means
 				// that connection to the web wallet has been lost and we need to shutdown this endpoint
 				log.Printf("wallet %v, endpoint timeout", wid)
-				releaseEndpoint()
+				releaseClient()
 				return
 
 			case <- epoint.WalletAlive:
-				// This means that alive ping has been received
-				// Timeout should be restarted
 				if config.NoisyLogs {
 					log.Printf("wallet %v, web wallet is alive, restarting alive timeout", wid)
 				}
-				timeout = time.NewTimer(config.EndpointAliveTimeout)
+				aliveTimeout = time.NewTimer(config.EndpointAliveTimeout)
 
 			case <- epoint.WalletLogout:
-				// This means that web wallet notified us about exit
-				// Need to shutdown this endpoint
 				log.Printf("wallet %v, WalletLogout signal", wid)
-				// TODO: consider releasing endpoint after some time, may be client would come again
-				releaseEndpoint()
+				releaseClient()
 				return
 
 			case <- epoint.Dropped:
 				log.Printf("wallet %v, endpoint dropped, clients %v, service %v", wid, epoint.GetClientsCnt(), epoint.GetServiceIdx())
-				timeout.Stop()
+				aliveTimeout.Stop()
 				return
 			}
 		}

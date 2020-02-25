@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -26,6 +27,8 @@ type Config struct {
 	ServiceLaunchTimeout    time.Duration
 	ServiceAliveTimeout     time.Duration
 	ServiceHeartbeatTimeout time.Duration
+	nextServicePort         int
+	mutex					sync.Mutex
 }
 
 var config = Config{
@@ -35,6 +38,15 @@ var config = Config{
 
 func loadConfig (m *melody.Melody) error {
 	return config.Read(ConfigFile, m)
+}
+
+func (cfg* Config) GenerateServicePort() (port int) {
+	cfg.mutex.Lock()
+	defer cfg.mutex.Unlock()
+
+	port = cfg.nextServicePort
+	cfg.nextServicePort++
+	return
 }
 
 func (cfg* Config) Read(fname string, m *melody.Melody) error {
@@ -75,6 +87,7 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 	if cfg.ServiceFirstPort <= 0 {
 		return errors.New("config, invalid wallet serivce port")
 	}
+	cfg.nextServicePort = cfg.ServiceFirstPort
 
 	if len(cfg.SerivcePublicAddress) == 0 {
 		return errors.New("config, missing public address")

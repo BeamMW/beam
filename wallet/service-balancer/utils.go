@@ -10,7 +10,7 @@ import (
 	"runtime"
 )
 
-// TODO: allow CORs only for domains from config
+// TODO: allow CORs only for hosts from config
 func allowCORS(w http.ResponseWriter, r *http.Request) {
 	
 	methods := r.Header.Get("Access-Control-Request-Method")
@@ -30,21 +30,26 @@ func allowCORS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Access-Control-Allow-Origin", origin)
 }
 
+func setJsonHeaders(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json; charset=utf-8")
+}
+
 type genericR struct {
 	Error string  `json:"error,omitempty"`
 }
 
-func wrapHandler(handler func(w http.ResponseWriter, r *http.Request)(interface{}, error))http.HandlerFunc{
+func wrapHandler(handler func(r *http.Request)(interface{}, error))http.HandlerFunc{
 	var fname = runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
 	return func (w http.ResponseWriter, r *http.Request) {
 		allowCORS(w, r)
+		setJsonHeaders(w, r)
 
 		if r.Method == "OPTIONS" {
 			return
 		}
 
 		var res interface{} = nil
-		res, err := handler(w, r)
+		res, err := handler(r)
 
 		if err != nil {
 			res = genericR{
