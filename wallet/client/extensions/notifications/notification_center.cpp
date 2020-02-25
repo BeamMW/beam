@@ -144,18 +144,26 @@ namespace beam::wallet
         return notifications;
     }
 
+    /**
+     *  @content    new release information
+     *  @signature  signature of broadcast message used here as unique ID of notification
+     */
     void NotificationCenter::onNewWalletVersion(const VersionInfo& content, const ECC::uintBig& signature)
     {
         LOG_DEBUG() << "NotificationCenter::onNewWalletVersion()";
 
-        Notification n;
-        n.m_ID = signature;
-        n.m_type = Notification::Type::SoftwareUpdateAvailable;
-        n.m_createTime = getTimestamp();
-        n.m_state = Notification::State::Unread;
-        n.m_content = toByteBuffer(content);
-        
-        createNotification(n);
+        auto search = m_cache.find(signature);
+        if (search == m_cache.cend())
+        {
+            Notification n;
+            n.m_ID = signature;
+            n.m_type = Notification::Type::SoftwareUpdateAvailable;
+            n.m_createTime = getTimestamp();
+            n.m_state = Notification::State::Unread;
+            n.m_content = toByteBuffer(content);
+            
+            createNotification(n);
+        }
     }
 
     void NotificationCenter::Subscribe(INotificationsObserver* observer)
