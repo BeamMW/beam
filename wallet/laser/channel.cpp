@@ -465,7 +465,7 @@ void Channel::LogNewState()
         os << "Opening2 (Waiting channel open confirmation)";
         break;
     case beam::Lightning::Channel::State::OpenFailed:
-        os << "OpenFailed (Not confirmed, missed height window). Waiting for 8 confirmations before forgetting";
+        os << "OpenFailed (Not confirmed, missed height window). Waiting for " << Rules::get().MaxRollback << " confirmations before forgetting";
         break;
     case beam::Lightning::Channel::State::Open:
         os << "Open. Last Revision: " << m_nRevision

@@ -109,6 +109,7 @@ int main()
 
     Rules::get().pForks[1].m_Height = 1;
 	Rules::get().FakePoW = true;
+    Rules::get().MaxRollback = 5;
 	Rules::get().UpdateChecksum();
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };

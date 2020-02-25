@@ -327,26 +327,26 @@ void Mediator::OpenChannel(Amount aMy,
 
 bool Mediator::Close(const std::string& channelID)
 {
-        auto p_channelID = RestoreChannel(channelID);
+    auto p_channelID = RestoreChannel(channelID);
     if (!p_channelID)
-        {
-            LOG_DEBUG() << "Channel " << channelID << " restored with error";
+    {
+        LOG_DEBUG() << "Channel " << channelID << " restored with error";
         return false;
-        }
+    }
 
-        auto& channel = m_channels[p_channelID];
-        if (!channel)
-        {
-            LOG_DEBUG() << "Channel " << channelID << " unexpected error";
+    auto& channel = m_channels[p_channelID];
+    if (!channel)
+    {
+        LOG_DEBUG() << "Channel " << channelID << " unexpected error";
         return false;
-        }
+    }
 
-        channel->Subscribe();
-        m_actionsQueue.emplace_back([this, p_channelID] () {
-            CloseInternal(p_channelID);
-        });
-        
-        LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
+    channel->Subscribe();
+    m_actionsQueue.emplace_back([this, p_channelID] () {
+        CloseInternal(p_channelID);
+    });
+    
+    LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
     return true;
 }
 
@@ -694,6 +694,7 @@ void Mediator::ForgetChannel(const ChannelIDPtr& chID)
                 observer->OnClosed(chID);
             }
         }
+
         m_channels.erase(it);
     }
 }
@@ -776,6 +777,7 @@ void Mediator::UpdateChannels()
         {
             ch->LogNewState();
             PrepareToForget(ch);
+
             if (!ch->IsNegotiating() && ch->IsSafeToForget())
             {
                 m_readyForForgetChannels.push_back(ch->get_chID());
