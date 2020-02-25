@@ -1318,6 +1318,9 @@ struct NodeProcessor::MultiblockContext
 
 void NodeProcessor::MultiblockContext::MyTask::Exec(Executor::Context&)
 {
+	MultiAssetContext::BatchCtx bcAssets(m_pShared->m_Mbc.m_Mac);
+	Asset::Proof::BatchContext::Scope scopeAssets(bcAssets);
+
 	m_pShared->Exec(m_iVerifier);
 }
 
@@ -1332,9 +1335,6 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	beam::TxBase txbDummy;
 	if (bSparse)
 		txbDummy.m_Offset = Zero;
-
-	MultiAssetContext::BatchCtx bcAssets(m_Mbc.m_Mac);
-	Asset::Proof::BatchContext::Scope scopeAssets(bcAssets);
 
 	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
 
@@ -4359,15 +4359,6 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 			m_pR->Clone(pR);
 
 			bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR));
-
-			ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
-			if (pBc)
-			{
-				if (bValid)
-					bValid = pBc->Flush();
-
-				pBc->Reset();
-			}
 
 			std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 
