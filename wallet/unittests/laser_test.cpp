@@ -35,8 +35,8 @@ using namespace std;
 
 namespace {
 
-const Height kMaxTestHeight = 254;
-const Height kChannelLockTime = 42;
+const Height kMaxTestHeight = 360;
+const Height kChannelLockTime = 70;
 const Amount kTransferFirst = 10000;
 const Amount kTransferSecond = 2000;
 
