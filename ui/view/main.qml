@@ -13,9 +13,34 @@ Rectangle {
 
     anchors.fill: parent
 
-	MainViewModel {id: viewModel}
+	MainViewModel {
+        id: viewModel
+    }
 
-    PushNotificationManager {id: updateInfoProvider}
+    PushNotificationManager {
+        id: updateInfoProvider
+        onShowUpdateNotification: function(newVersion, currentVersion, id) {
+            var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(main);
+            popup.title = "New version v" + newVersion + " is avalable";
+            popup.message = "Your current version is v" + currentVersion + ". Please update to get the most of your Beam wallet.";
+            popup.acceptButtonText = "update now";
+            popup.onCancel = function () {
+                updateInfoProvider.onCancelPopup(id);
+                popup.close();
+            }
+            popup.onAccept = function () {
+                var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
+                var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
+                var externalLinkConfirmation = component.createObject(main);
+                Utils.openExternal(
+                    "https://www.beam.mw/#downloads",
+                    settingsViewModel,
+                    externalLinkConfirmation);
+            }
+            popup.open();
+        }
+    }
+
     ExchangeRateProvider {id: ratesProvider}
 
     ConfirmationDialog {
@@ -333,30 +358,6 @@ Rectangle {
             trezor_popup.message = error
             trezor_popup.open()
 
-        }
-    }
-
-    Connections {
-        target: updateInfoProvider
-        onShowUpdateNotification: function(newVersion, currentVersion, id) {
-            var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(main);
-            popup.title = "New version v" + newVersion + " is avalable";
-            popup.message = "Your current version is v" + currentVersion + ". Please update to get the most of your Beam wallet.";
-            popup.acceptButtonText = "update now";
-            popup.onCancel = function () {
-                updateInfoProvider.onCancelPopup(id);
-                popup.close();
-            }
-            popup.onAccept = function () {
-                var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
-                var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
-                var externalLinkConfirmation = component.createObject(main);
-                Utils.openExternal(
-                    "https://www.beam.mw/#downloads",
-                    settingsViewModel,
-                    externalLinkConfirmation);
-            }
-            popup.open();
         }
     }
 
