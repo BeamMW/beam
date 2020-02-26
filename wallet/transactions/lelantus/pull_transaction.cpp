@@ -91,6 +91,25 @@ namespace beam::wallet::lelantus
             {
                 m_TxBuilder->GenerateUnlinkedBeamCoin(amount);
             }
+
+            // validate input
+            {
+                TxoID shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
+                auto shieldedCoin = GetWalletDB()->getShieldedCoin(shieldedId);
+
+                if (!shieldedCoin || !shieldedCoin->IsAvailable())
+                {
+                    throw TransactionFailedException(false, TxFailureReason::NoInputs);
+                }
+
+                Amount requiredAmount = m_TxBuilder->GetAmount() + m_TxBuilder->GetFee();
+
+                if (shieldedCoin->m_value < requiredAmount)
+                {
+                    LOG_ERROR() << GetTxID() << " The ShieldedCoin value(" << PrintableAmount(shieldedCoin->m_value) << ") is less than the required value(" << PrintableAmount(requiredAmount) << ")";
+                    throw TransactionFailedException(false, TxFailureReason::NoInputs, "");
+                }
+            }
         }
         
         if (m_TxBuilder->CreateOutputs())
