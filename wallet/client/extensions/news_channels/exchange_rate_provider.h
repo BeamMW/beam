@@ -15,8 +15,8 @@
 #pragma once
 
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
-#include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
 
 namespace beam::wallet
 {

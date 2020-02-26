@@ -25,8 +25,8 @@
 #include "wallet/client/extensions/notifications/notification_observer.h"
 #include "wallet/client/extensions/notifications/notification_center.h"
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
-#include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_observer.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"

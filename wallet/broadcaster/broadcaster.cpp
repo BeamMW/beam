@@ -23,7 +23,7 @@
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
-#include "wallet/client/extensions/news_channels/broadcast_msg_creator.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
