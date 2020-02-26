@@ -19,13 +19,13 @@
 #include "ui/model/app_model.h"
 #include "wallet/client/extensions/news_channels/interface.h"
 
-class ExchangeRateProvider : public QObject
+class ExchangeRatesManager : public QObject
 {
     Q_OBJECT
     // Q_PROPERTY()
 
 public:
-    ExchangeRateProvider();
+    ExchangeRatesManager();
 
 signals:
     //

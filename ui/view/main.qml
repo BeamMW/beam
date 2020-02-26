@@ -41,7 +41,9 @@ Rectangle {
         }
     }
 
-    ExchangeRateProvider {id: ratesProvider}
+    ExchangeRatesManager {
+        id: ratesManager
+    }
 
     ConfirmationDialog {
         id:                     closeDialog

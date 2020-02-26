@@ -18,7 +18,6 @@
 
 PushNotificationManager::PushNotificationManager()
     : m_walletModel(*AppModel::getInstance().getWallet())
-    , m_settings(AppModel::getInstance().getSettings())
 {
     connect(&m_walletModel,
             SIGNAL(newSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig&)),

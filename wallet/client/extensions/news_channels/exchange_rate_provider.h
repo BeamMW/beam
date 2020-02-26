@@ -17,6 +17,7 @@
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
+#include "wallet/core/wallet_db.h"
 
 namespace beam::wallet
 {
@@ -27,7 +28,7 @@ namespace beam::wallet
         : public IBroadcastListener
     {
     public:
-        ExchangeRateProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&);
+        ExchangeRateProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&, IWalletDB&);
 
         /**
          *  Provides exchange rates from broadcast messages
@@ -41,6 +42,7 @@ namespace beam::wallet
     private:
 		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;
+        IWalletDB& m_storage;
         std::vector<IExchangeRateObserver*> m_subscribers;
 
         void notifySubscribers(const ExchangeRates&) const;

@@ -2117,7 +2117,7 @@ deploy the key at the node you trust completely.</translation>
     </message>
     <message id="settings-notifications-version">
         <source>Wallet version</source>
-        <translation>&gt;Wallet version</translation>
+        <translation>Wallet version</translation>
     </message>
     <message id="settings-notifications-news">
         <source>News</source>

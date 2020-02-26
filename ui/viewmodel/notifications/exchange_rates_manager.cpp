@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "exchange_rate_provider.h"
+#include "exchange_rates_manager.h"
 
 // test
 #include "utility/logger.h"
 
-ExchangeRateProvider::ExchangeRateProvider()
+ExchangeRatesManager::ExchangeRatesManager()
     : m_walletModel(*AppModel::getInstance().getWallet())
 {
     qRegisterMetaType<beam::wallet::ExchangeRates>("beam::wallet::ExchangeRates");
@@ -27,7 +27,7 @@ ExchangeRateProvider::ExchangeRateProvider()
             SLOT(onExchangeRatesUpdate(const beam::wallet::ExchangeRates&)));
 }
 
-void ExchangeRateProvider::onExchangeRatesUpdate(const beam::wallet::ExchangeRates& rates)
+void ExchangeRatesManager::onExchangeRatesUpdate(const beam::wallet::ExchangeRates& rates)
 {
     // TEST
     for (const auto& rate : rates.m_rates)
