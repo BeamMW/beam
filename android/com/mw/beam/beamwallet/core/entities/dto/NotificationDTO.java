@@ -16,14 +16,14 @@ package com.mw.beam.beamwallet.core.entities.dto;
 
 public class NotificationDTO
 {
-    public enum State
-    {
-        Unread = 0,
-        Read,
-        Deleted
-    }
-
     public String id;
 	public int state;
     public long createTime;
+
+    public enum State
+    {
+        Unread,
+        Read,
+        Deleted
+    }
 }

@@ -16,16 +16,16 @@ package com.mw.beam.beamwallet.core.entities.dto;
 
 public class VersionInfoDTO
 {
-    // public enum Application
-    // {
-    //     DesktopWallet = 0,
-    //     AndroidWallet,
-    //     IOSWallet,
-    //     Unknown
-    // }
-
 	public int application;
     public long versionMajor;
     public long versionMinor;
     public long versionRevision;
+
+    public enum Application
+    {
+        DesktopWallet,
+        AndroidWallet,
+        IOSWallet,
+        Unknown
+    }
 }

@@ -291,10 +291,10 @@ public class WalletListener
 
 			for(int i = 0; i < rates.length; i++)
 			{
-				System.out.println("| " + rates[i].currency 
-					+ "\t| " + rates[i].amount
-					+ "\t| " + rates[i].unit)
-					+ "\t| " + rates[i].updateTime;
+				System.out.println( "| " + rates[i].currency 
+								+ "\t| " + rates[i].amount
+								+ "\t| " + rates[i].unit
+								+ "\t| " + rates[i].updateTime);
 			}
 
 			System.out.println("+-------------------------------------------------------");			

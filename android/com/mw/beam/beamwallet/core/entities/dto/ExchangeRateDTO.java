@@ -16,18 +16,18 @@ package com.mw.beam.beamwallet.core.entities.dto;
 
 public class ExchangeRateDTO
 {
+    public int currency;
+    public int unit;            // unit of m_rate measurment, e.g. USD
+    public long amount;
+    public long updateTime;
     public enum Currency
+
     {
-        Beam = 0,
+        Beam,
         Bitcoin,
         Litecoin,
         Qtum,
         Usd,
         Unknown
     }
-
-    public int currency;
-    public int unit;            // unit of m_rate measurment, e.g. USD
-    public long amount;
-    public long updateTime;
 }
