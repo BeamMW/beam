@@ -286,7 +286,7 @@ void WalletModel::onPostFunctionToClientContext(MessageFunction&& func)
     emit functionPosted(func);
 }
 
-void WalletModel::onExchangeRates(const beam::wallet::ExchangeRates& rates)
+void WalletModel::onExchangeRates(const std::vector<beam::wallet::ExchangeRate>& rates)
 {
     emit exchangeRatesUpdate(rates);
 }

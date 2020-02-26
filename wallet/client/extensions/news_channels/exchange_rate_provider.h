@@ -45,6 +45,6 @@ namespace beam::wallet
         IWalletDB& m_storage;
         std::vector<IExchangeRateObserver*> m_subscribers;
 
-        void notifySubscribers(const ExchangeRates&) const;
+        void notifySubscribers(const std::vector<ExchangeRate>&) const;
     };
 } // namespace beam::wallet

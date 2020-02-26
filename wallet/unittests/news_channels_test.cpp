@@ -53,7 +53,7 @@ namespace
     struct MockNewsObserver : public INewsObserver, public IExchangeRateObserver
     {
         using OnVersion = function<void(const VersionInfo&, const ECC::uintBig&)>;
-        using OnRate = function<void(const ExchangeRates&)>;
+        using OnRate = function<void(const std::vector<ExchangeRate>&)>;
 
         MockNewsObserver(OnVersion onVers, OnRate onRate)
             : m_onVers(onVers)
@@ -63,7 +63,7 @@ namespace
         {
             m_onVers(v, s);
         }
-        virtual void onExchangeRates(const ExchangeRates& r) override
+        virtual void onExchangeRates(const std::vector<ExchangeRate>& r) override
         {
             m_onRate(r);
         }
@@ -434,7 +434,7 @@ namespace
                 ++notificationCount;
             },
             [&notificationCount/*, &rates*/]
-            (const ExchangeRates& r)
+            (const std::vector<ExchangeRate>& r)
             {
                 // WALLET_CHECK(rates == r);
                 ++notificationCount;

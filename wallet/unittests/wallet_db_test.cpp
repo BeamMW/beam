@@ -1372,6 +1372,17 @@ void TestNotifications()
     }
 }
 
+void TestExchangeRates()
+{
+    cout << "\nWallet database exchange rates test\n";
+    auto db = createSqliteWalletDB();
+
+    {
+        auto rates = db->getExchangeRates();
+        WALLET_CHECK(rates.empty());
+    }
+}
+
 }
 
 int main() 
@@ -1402,6 +1413,7 @@ int main()
     TestTxParameters();
     TestWalletMessages();
     TestNotifications();
+    TestExchangeRates();
 
     return WALLET_CHECK_RESULT;
 }

@@ -275,12 +275,10 @@ public class WalletListener
 		System.out.println("versionRevision: " + content.versionRevision);
     }
 
-	static void onExchangeRates(ExchangeRateDTO[] rates, long timeStamp)
+	static void onExchangeRates(ExchangeRateDTO[] rates)
     {
         System.out.println(">>>>>>>>>>>>>> async onExchangeRates in Java");
 		
-		System.out.println("Timestamp: " + timeStamp);
-
 		if(rates != null)
 		{
 			System.out.println("rates length: " + rates.length);
@@ -288,14 +286,15 @@ public class WalletListener
 			System.out.println("+-------------------------------------------------------");
 			System.out.println("| RATE");
 			System.out.println("+-------------------------------------------------------");
-			System.out.println("| Currency: | amount:       | Unit:");
-			System.out.println("+-----------+---------------+-------------------------------");
+			System.out.println("| Currency: | amount:       | Unit:	| Updated:");
+			System.out.println("+-----------+---------------+-------+-------------------");
 
 			for(int i = 0; i < rates.length; i++)
 			{
 				System.out.println("| " + rates[i].currency 
-					+ "\t| "  + rates[i].amount
-					+ "\t| "  + rates[i].unit);
+					+ "\t| " + rates[i].amount
+					+ "\t| " + rates[i].unit)
+					+ "\t| " + rates[i].updateTime;
 			}
 
 			System.out.println("+-------------------------------------------------------");			

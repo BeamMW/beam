@@ -31,7 +31,7 @@ signals:
     //
 
 public slots:
-    void onExchangeRatesUpdate(const beam::wallet::ExchangeRates& rates);
+    void onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates);
 
 private:
     WalletModel& m_walletModel;

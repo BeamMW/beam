@@ -66,15 +66,15 @@ bool parseUpdateInfo(const std::string& versionString, const std::string& typeSt
     return true;
 }
 
-bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate, ExchangeRates& result)
+bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate, std::vector<ExchangeRate>& result)
 {
-    auto currency = ExchangeRates::from_string(currencyString);
-    if (currency == ExchangeRates::Currency::Unknown || rate == 0)
+    auto currency = ExchangeRate::from_string(currencyString);
+    if (currency == ExchangeRate::Currency::Unknown || rate == 0)
     {
         return false;
     }
 
-    result.m_rates = { {currency, rate, ExchangeRates::Currency::Usd} };
+    result = { {currency, ExchangeRate::Currency::Usd, rate, getTimestamp()} };
     return true;
 }
 
@@ -91,7 +91,7 @@ ByteBuffer generateUpdateMessage(const std::string& versionString, const std::st
 
 ByteBuffer generateExchangeRates(const std::string& currencyString, const Amount& rate)
 {
-    ExchangeRates result;
+    std::vector<ExchangeRate> result;
     bool res = parseExchangeRateInfo(currencyString, rate, result);
     if (!res)
     {

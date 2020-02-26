@@ -20,19 +20,19 @@
 ExchangeRatesManager::ExchangeRatesManager()
     : m_walletModel(*AppModel::getInstance().getWallet())
 {
-    qRegisterMetaType<beam::wallet::ExchangeRates>("beam::wallet::ExchangeRates");
+    qRegisterMetaType<std::vector<beam::wallet::ExchangeRate>>("std::vector<beam::wallet::ExchangeRate>");
 
     connect(&m_walletModel,
-            SIGNAL(exchangeRatesUpdate(const beam::wallet::ExchangeRates&)),
-            SLOT(onExchangeRatesUpdate(const beam::wallet::ExchangeRates&)));
+            SIGNAL(exchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>&)),
+            SLOT(onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>&)));
 }
 
-void ExchangeRatesManager::onExchangeRatesUpdate(const beam::wallet::ExchangeRates& rates)
+void ExchangeRatesManager::onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates)
 {
     // TEST
-    for (const auto& rate : rates.m_rates)
+    for (const auto& rate : rates)
     {
-        LOG_DEBUG() << "Exchange rate: 1 " << beam::wallet::ExchangeRates::to_string(rate.m_currency) << " = "
-                    << rate.m_rate << " " << beam::wallet::ExchangeRates::to_string(rate.m_unit);
+        LOG_DEBUG() << "Exchange rate: 1 " << beam::wallet::ExchangeRate::to_string(rate.m_currency) << " = "
+                    << rate.m_rate << " " << beam::wallet::ExchangeRate::to_string(rate.m_unit);
     }
 }
