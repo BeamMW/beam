@@ -20,9 +20,11 @@ namespace beam::wallet
 {
     ExchangeRateProvider::ExchangeRateProvider(
         IBroadcastMsgGateway& broadcastGateway,
-        BroadcastMsgValidator& validator)
+        BroadcastMsgValidator& validator,
+        IWalletDB& storage)
         : m_broadcastGateway(broadcastGateway),
-          m_validator(validator)
+          m_validator(validator),
+          m_storage(storage)
     {
         m_broadcastGateway.registerListener(BroadcastContentType::ExchangeRates, this);
     }
@@ -34,9 +36,10 @@ namespace beam::wallet
             BroadcastMsg res;
             if (m_validator.processMessage(input, res))
             {
-                ExchangeRates rates;
+                std::vector<ExchangeRate> rates;
                 if (fromByteBuffer(res.m_content, rates))
                 {
+                    m_storage.saveExchangeRates(rates);
                     notifySubscribers(rates);
                 }
             }
@@ -66,7 +69,7 @@ namespace beam::wallet
         m_subscribers.erase(it);
     }
 
-    void ExchangeRateProvider::notifySubscribers(const ExchangeRates& rates) const
+    void ExchangeRateProvider::notifySubscribers(const std::vector<ExchangeRate>& rates) const
     {
         for (const auto sub : m_subscribers)
         {

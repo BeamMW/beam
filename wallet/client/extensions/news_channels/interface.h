@@ -74,7 +74,7 @@ namespace beam::wallet
         };
     };
 
-    struct ExchangeRates
+    struct ExchangeRate
     {
         enum class Currency : uint32_t
         {
@@ -85,20 +85,13 @@ namespace beam::wallet
             Usd,
             Unknown
         };
+    
+        Currency m_currency;
+        Currency m_unit;            // unit of m_rate measurment, e.g. USD or any other currency
+        Amount m_rate;
+        Timestamp m_updateTime;
 
-        struct ExchangeRate
-        {
-            Currency m_currency;
-            Amount m_rate;
-            Currency m_unit;    // unit of m_rate measurment, e.g. usd
-
-            SERIALIZE(m_currency, m_rate, m_unit);
-        };
-
-        Timestamp m_ts;
-        std::vector<ExchangeRate> m_rates;
-
-        SERIALIZE(m_ts, m_rates);
+        SERIALIZE(m_currency, m_unit, m_rate, m_updateTime);
 
         static std::string to_string(const Currency& currency)
         {
@@ -149,7 +142,7 @@ namespace beam::wallet
      */
     struct IExchangeRateObserver
     {
-        virtual void onExchangeRates(const ExchangeRates&) = 0;
+        virtual void onExchangeRates(const std::vector<ExchangeRate>&) = 0;
     };
 
 } // namespace beam::wallet

@@ -1318,6 +1318,9 @@ struct NodeProcessor::MultiblockContext
 
 void NodeProcessor::MultiblockContext::MyTask::Exec(Executor::Context&)
 {
+	MultiAssetContext::BatchCtx bcAssets(m_pShared->m_Mbc.m_Mac);
+	Asset::Proof::BatchContext::Scope scopeAssets(bcAssets);
+
 	m_pShared->Exec(m_iVerifier);
 }
 
@@ -1332,9 +1335,6 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	beam::TxBase txbDummy;
 	if (bSparse)
 		txbDummy.m_Offset = Zero;
-
-	MultiAssetContext::BatchCtx bcAssets(m_Mbc.m_Mac);
-	Asset::Proof::BatchContext::Scope scopeAssets(bcAssets);
 
 	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
 
@@ -1924,6 +1924,7 @@ struct NodeProcessor::BlockInterpretCtx
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
 	Asset::ID m_AssetsUsed = Asset::s_MaxCount + 1;
+	Asset::ID m_AssetHi = static_cast<Asset::ID>(-1); // last valid Asset ID
 
 	// rollback data
 	ByteBuffer* m_pRollback = nullptr;
@@ -2006,6 +2007,16 @@ struct NodeProcessor::BlockInterpretCtx
 	{
 	}
 
+	void SetAssetHi(const NodeProcessor& np)
+	{
+		m_AssetHi = static_cast<Asset::ID>(np.m_Mmr.m_Assets.m_Count);
+	}
+
+	bool ValidateAssetRange(const Asset::Proof::Ptr& p) const
+	{
+		return !p || (p->m_Begin <= m_AssetHi);
+	}
+
 	void EnsureAssetsUsed(NodeDB&);
 };
 
@@ -2044,6 +2055,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	LOG_INFO() << os.str();
 
 	BlockInterpretCtx bic(0, true);
+	bic.SetAssetHi(*this);
 	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 	{
 		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data, bic))
@@ -2174,6 +2186,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	TxoID id0 = m_Extra.m_Txos;
 
 	BlockInterpretCtx bic(sid.m_Height, true);
+	bic.SetAssetHi(*this);
 	if (!bFirstTime)
 		bic.m_AlreadyValidated = true;
 
@@ -2919,6 +2932,9 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			return false;
 		}
 
+		if (!bic.ValidateAssetRange(krn.m_Txo.m_pAsset))
+			return false;
+
 		if (bic.m_ValidateOnly)
 		{
 			if (!ValidateUniqueNoDup(bic, blobKey))
@@ -3006,6 +3022,9 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 	{
 		if (!bic.m_AlreadyValidated)
 		{
+			if (!bic.ValidateAssetRange(krn.m_pAsset))
+				return false;
+
 			if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
 			{
 				bic.m_LimitExceeded = true;
@@ -3245,6 +3264,9 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 
 	if (bic.m_Fwd)
 	{
+		if (!bic.ValidateAssetRange(v.m_pAsset))
+			return false;
+
 		TxoID nID = m_Extra.m_Txos;
 
 		if (bCreate)
@@ -3949,6 +3971,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 	// Ensure kernels are ok
 	BlockInterpretCtx bic(h, true);
+	bic.SetAssetHi(*this);
 	bic.m_ValidateOnly = true;
 	bic.m_UpdateMmrs = false;
 	bic.m_SaveKid = false;
@@ -3962,6 +3985,11 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	size_t n = 0;
 	if (!HandleElementVecFwd(tx.m_vKernels, bic, n))
 		return bic.m_LimitExceeded ? proto::TxStatus::LimitExceeded : proto::TxStatus::InvalidContext;
+
+	// Ensure output assets are in range
+	for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
+		if (!bic.ValidateAssetRange(tx.m_vOutputs[i]->m_pAsset))
+			return proto::TxStatus::InvalidContext;
 
 	if (!bShieldedTested)
 	{
@@ -4215,6 +4243,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height + 1, true);
 	bic.m_UpdateMmrs = false;
+	bic.SetAssetHi(*this);
 
 	ByteBuffer bbR;
 	bic.m_pRollback = &bbR;
@@ -4359,15 +4388,6 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 			m_pR->Clone(pR);
 
 			bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR));
-
-			ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
-			if (pBc)
-			{
-				if (bValid)
-					bValid = pBc->Flush();
-
-				pBc->Reset();
-			}
 
 			std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 

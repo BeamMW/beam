@@ -30,9 +30,9 @@ WALLET_TEST_INIT
 #include "mock_bbs_network.cpp"
 
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
-#include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
-#include "wallet/client/extensions/news_channels/broadcast_msg_creator.h"
 #include "wallet/client/extensions/news_channels/updates_provider.h"
 
 #include "wallet/client/extensions/notifications/notification_center.h"
@@ -53,7 +53,7 @@ namespace
     struct MockNewsObserver : public INewsObserver, public IExchangeRateObserver
     {
         using OnVersion = function<void(const VersionInfo&, const ECC::uintBig&)>;
-        using OnRate = function<void(const ExchangeRates&)>;
+        using OnRate = function<void(const std::vector<ExchangeRate>&)>;
 
         MockNewsObserver(OnVersion onVers, OnRate onRate)
             : m_onVers(onVers)
@@ -63,7 +63,7 @@ namespace
         {
             m_onVers(v, s);
         }
-        virtual void onExchangeRates(const ExchangeRates& r) override
+        virtual void onExchangeRates(const std::vector<ExchangeRate>& r) override
         {
             m_onRate(r);
         }
@@ -434,7 +434,7 @@ namespace
                 ++notificationCount;
             },
             [&notificationCount/*, &rates*/]
-            (const ExchangeRates& r)
+            (const std::vector<ExchangeRate>& r)
             {
                 // WALLET_CHECK(rates == r);
                 ++notificationCount;
@@ -556,36 +556,6 @@ namespace
                 WALLET_CHECK(list[0].m_state == Notification::State::Read);
                 WALLET_CHECK(list[0].m_createTime != 0);
                 WALLET_CHECK(list[0].m_content == toByteBuffer(info));
-                WALLET_CHECK(execCount == 1);
-                center.Unsubscribe(&observer);
-            }
-
-            Notification n;
-            n.m_ID = id;
-            n.m_type = Notification::Type::SoftwareUpdateAvailable;
-            n.m_state = Notification::State::Unread;
-            n.m_createTime = getTimestamp();
-            n.m_content = toByteBuffer(info);
-
-            // update
-            {
-                cout << "Case: update notification" << endl;
-                size_t execCount = 0;
-                MockNotificationsObserver observer(
-                    [&execCount, &n]
-                    (ChangeAction action, const std::vector<Notification>& list)
-                    {
-                        WALLET_CHECK(action == ChangeAction::Updated);
-                        WALLET_CHECK(list.size() == 1);
-                        WALLET_CHECK(list[0] == n);
-                        ++execCount;
-                    }
-                );
-                center.Subscribe(&observer);
-                center.updateNotification(n);
-                auto list = center.getNotifications();
-                WALLET_CHECK(list.size() == 1);
-                WALLET_CHECK(list[0] == n);
                 WALLET_CHECK(execCount == 1);
                 center.Unsubscribe(&observer);
             }

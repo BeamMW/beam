@@ -29,7 +29,6 @@ namespace beam::wallet
         NotificationCenter(IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications);
 
         std::vector<Notification> getNotifications() const;
-        void updateNotification(const Notification&);
         void markNotificationAsRead(const ECC::uintBig& notificationID);
         void deleteNotification(const ECC::uintBig& notificationID);
 
@@ -48,6 +47,7 @@ namespace beam::wallet
         bool isNotificationTypeActive(Notification::Type) const;
         void loadToCache();
         void createNotification(const Notification&);
+        void updateNotification(const Notification&);
 
         IWalletDB& m_storage;
         std::map<Notification::Type, bool> m_activeNotifications;

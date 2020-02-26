@@ -18,6 +18,9 @@
 
 #include "ui/model/app_model.h"
 
+/**
+ *  Used to show user notification popup when a new wallet application was released.
+ */
 class PushNotificationManager : public QObject
 {
     Q_OBJECT
@@ -25,6 +28,7 @@ class PushNotificationManager : public QObject
 public:
     PushNotificationManager();
 
+    /// Will mark notification as read to ignore it next time.
     Q_INVOKABLE void onCancelPopup(const QVariant& variantID);
 
 signals:
@@ -35,5 +39,4 @@ public slots:
 
 private:
     WalletModel& m_walletModel;
-    WalletSettings& m_settings; /// TODO store last version user notified about
 };

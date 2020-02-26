@@ -19,19 +19,19 @@
 #include "ui/model/app_model.h"
 #include "wallet/client/extensions/news_channels/interface.h"
 
-class ExchangeRateProvider : public QObject
+class ExchangeRatesManager : public QObject
 {
     Q_OBJECT
     // Q_PROPERTY()
 
 public:
-    ExchangeRateProvider();
+    ExchangeRatesManager();
 
 signals:
     //
 
 public slots:
-    void onExchangeRatesUpdate(const beam::wallet::ExchangeRates& rates);
+    void onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates);
 
 private:
     WalletModel& m_walletModel;

@@ -76,6 +76,7 @@
 #define LASER_UPDATES_NAME "LaserUpdates"
 #define ASSETS_NAME "Assets"
 #define NOTIFICATIONS_NAME "notifications"
+#define EXCHANGE_RATES_NAME "exchangeRates"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -155,6 +156,14 @@
     each(content,       content,        BLOB NOT NULL,      obj)
 
 #define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
+
+#define ENUM_EXCHANGE_RATES_FIELDS(each, sep, obj) \
+    each(currency,      currency,       BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(unit,          unit,           INTEGER,            obj) sep \
+    each(rate,          rate,          INTEGER,            obj) sep \
+    each(updateTime,    updateTime,     INTEGER,            obj) sep \
+
+#define EXCHANGE_RATES_FIELDS ENUM_EXCHANGE_RATES_FIELDS(LIST, COMMA, )
 
 namespace std
 {
@@ -3053,6 +3062,17 @@ namespace beam::wallet
             ENUM_NOTIFICATION_FIELDS(STM_BIND_LIST, NOSEP, notification);
             stm.step();
         }
+    }
+
+    std::vector<ExchangeRate> WalletDB::getExchangeRates() const
+    {
+        //
+        return {};
+    }
+
+    void WalletDB::saveExchangeRates(const std::vector<ExchangeRate>& rates)
+    {
+        // 
     }
 
     void WalletDB::Subscribe(IWalletDbObserver* observer)
