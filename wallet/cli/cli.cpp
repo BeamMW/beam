@@ -922,7 +922,7 @@ namespace
             const char kAnonymitySet[] = "anonymitySet(approx.)";
             const char kTargetAnonymitySet[] = "targetAnonymitySet";
 
-            const array<uint8_t, 9> columnWidths{ { 4, 10, 10, 32, 32, 13, 12, 21, 18} };
+            const array<uint8_t, 9> columnWidths{ { 12, 10, 10, 32, 32, 13, 12, 21, 18} };
             cout << boost::format(kShieldedCoinsTableHeadFormat)
                 % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
                 % boost::io::group(right, setw(columnWidths[1]), kBEAM)
@@ -943,7 +943,7 @@ namespace
             {
                 TxoID anonymitySetForCoin = lastKnownShieldedOuts && (lastKnownShieldedOuts > c.m_ID) ? lastKnownShieldedOuts - c.m_ID : 0;
                 cout << boost::format(kShieldedCoinsTableHeadFormat)
-                    % boost::io::group(left, setw(columnWidths[0]), std::to_string(c.m_ID))
+                    % boost::io::group(left, setw(columnWidths[0]), c.m_ID == ShieldedCoin::kInvalidID ? "--" : std::to_string(c.m_ID))
                     % boost::io::group(right, setw(columnWidths[1]), c.m_value / Rules::Coin)
                     % boost::io::group(right, setw(columnWidths[2]), c.m_value % Rules::Coin)
                     % boost::io::group(left, setw(columnWidths[3]), c.m_createTxId ? to_hex(c.m_createTxId->data(), c.m_createTxId->size()) : "")
