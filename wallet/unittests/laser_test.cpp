@@ -209,11 +209,15 @@ int main()
         wdbSecond
     ] (Height height)
     {
-        if (height == kMaxTestHeight)
+        if (height > kMaxTestHeight)
         {
+            if (!resultsForCheck.test14.firstClosed ||
+                !resultsForCheck.test14.secondClosed)
+            {
+                WALLET_CHECK(false);
+            }
             ResetObservers();
             io::Reactor::get_Current().stop();
-            return;
         }
 
         if (height == 2)
@@ -251,6 +255,7 @@ int main()
             laserFirst->StopWaiting();
             ResetObservers();  
         }
+
         if (height == resultsForCheck.test1.height + 1)
         {
             LOG_INFO() << "Test 2: second side open without coins";
@@ -294,6 +299,7 @@ int main()
             laserFirst->StopWaiting();
             ResetObservers();
         }
+
         if (height == resultsForCheck.test2.height + 1)
         {
             storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
@@ -340,6 +346,7 @@ int main()
             resultsForCheck.test3.unlockHeight = channelFirst->get_LockHeight();
             ResetObservers();
         }
+
         if (height == resultsForCheck.test3.height + 1)
         {
             LOG_INFO() << "Test 4: check balance";
@@ -369,6 +376,7 @@ int main()
             
             resultsForCheck.test4.height = height;
         }
+
         if (height == resultsForCheck.test4.height + 1)
         {
             if (height >= resultsForCheck.test3.unlockHeight)
@@ -429,6 +437,7 @@ int main()
             resultsForCheck.test5.height = height;
             ResetObservers();
         }
+
         if (height > resultsForCheck.test5.height &&
             height < resultsForCheck.test3.unlockHeight &&
             !resultsForCheck.test6.testInProgress)
@@ -486,7 +495,9 @@ int main()
 
             LOG_INFO() << "Test 6: finished " << resultsForCheck.test6.count << " times";
         }
+
         if (height >= resultsForCheck.test3.unlockHeight &&
+            height > resultsForCheck.test5.height &&
             !resultsForCheck.test6.testInProgress &&
             !resultsForCheck.test7.transferStarted)  
         {
@@ -524,6 +535,7 @@ int main()
             resultsForCheck.test7.height = height;
             ResetObservers();
         }
+
         if (height == resultsForCheck.test7.height + 1)
         {
             LOG_INFO() << "Test 8: close by first, after lock height reached";
@@ -567,6 +579,7 @@ int main()
             resultsForCheck.test8.height = height;
             ResetObservers();
         }
+
         if (height == resultsForCheck.test8.height + 1)
         {
             LOG_INFO() << "Test 9: open with coins";
@@ -607,6 +620,7 @@ int main()
             resultsForCheck.test9.height = height;
             ResetObservers();
         }
+
         if (height == resultsForCheck.test9.height + 1)
         {
             LOG_INFO() << "Test 10: recreate first";
@@ -621,6 +635,7 @@ int main()
 
             resultsForCheck.test10.height = height;
         }
+
         if (height == resultsForCheck.test10.height + 1)
         {
             LOG_INFO() << "Test 11: recreate second";
@@ -635,6 +650,7 @@ int main()
 
             resultsForCheck.test11.height = height;
         }
+
         if (height == resultsForCheck.test11.height + 1)
         {
             LOG_INFO() << "Test 12: close by first, before lock height reached";
@@ -678,6 +694,7 @@ int main()
             resultsForCheck.test12.height = height;
             ResetObservers();
         }
+
         if (height == resultsForCheck.test12.height + 1)
         {
             LOG_INFO() << "Test 13: open with coins";
@@ -718,6 +735,7 @@ int main()
             resultsForCheck.test13.height = height;
             ResetObservers();
         }
+
         if (height == resultsForCheck.test13.height + 1)
         {
             LOG_INFO() << "Test 14: close graceful by first, before lock height reached";
@@ -730,7 +748,7 @@ int main()
                 {
                     LOG_INFO() << "Test 14: first closed";
                     resultsForCheck.test14.firstClosed = true;
-                    WALLET_CHECK(resultsForCheck.test14.firstClosed);
+                    WALLET_CHECK(true);
                 };
             observer_1.onCloseFailed =
                 [] (const laser::ChannelIDPtr& chID)
@@ -743,7 +761,7 @@ int main()
                 {
                     LOG_INFO() << "Test 14: second closed";
                     resultsForCheck.test14.secondClosed = true;
-                    WALLET_CHECK(resultsForCheck.test14.secondClosed);
+                    WALLET_CHECK(true);
                 };
             observer_2.onCloseFailed =
                 [] (const laser::ChannelIDPtr& chID)
@@ -760,8 +778,10 @@ int main()
         {
             resultsForCheck.test14.height = height;
             ResetObservers();
+        }
 
-            ResetObservers();
+        if (height == resultsForCheck.test14.height + 1)
+        {
             io::Reactor::get_Current().stop();
         }
     };
