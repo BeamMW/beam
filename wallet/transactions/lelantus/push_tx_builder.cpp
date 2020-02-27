@@ -110,6 +110,11 @@ namespace beam::wallet::lelantus
             pKrn->MsgToID();
             m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
 
+            LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
+                << " Transaction created. Kernel: " << GetKernelIDString()
+                << ", min height: " << pKrn->m_Height.m_Min
+                << ", max height: " << pKrn->m_Height.m_Max;
+
             transaction->m_vKernels.push_back(std::move(pKrn));
 
             ECC::Scalar::Native offset = transaction->m_Offset;

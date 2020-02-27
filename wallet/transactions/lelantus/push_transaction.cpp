@@ -75,6 +75,10 @@ namespace beam::wallet::lelantus
         {
             UpdateTxDescription(TxStatus::InProgress);
 
+            LOG_INFO() << GetTxID() << " Sending to shielded pool "
+                << PrintableAmount(m_TxBuilder->GetAmount())
+                << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
+
             m_TxBuilder->SelectInputs();
             m_TxBuilder->AddChange();
         }
