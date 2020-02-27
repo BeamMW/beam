@@ -2176,7 +2176,7 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <translation type="unfinished"></translation>
     </message>
     <message id="notifications-read">
-        <source>READ</source>
+        <source>Read</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

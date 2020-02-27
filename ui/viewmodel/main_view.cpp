@@ -90,3 +90,8 @@ int MainViewModel::getUnsafeTxCount() const
 {
     return static_cast<int>(AppModel::getInstance().getWallet()->getUnsafeActiveTransactionsCount());
 }
+
+int MainViewModel::getUnreadNotifications() const
+{
+    return 3;
+}

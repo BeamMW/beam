@@ -188,6 +188,26 @@ Rectangle {
 
     					visible: control.activeFocus
                     }
+
+                    Item {
+                        visible: contentItems[index] == 'notifications'
+                        Rectangle {
+                            x: 42
+                            y: 9
+                            width: 16
+                            height: 16
+                            radius: width/2
+                            color: Style.active
+
+                            SFText {
+                                text: viewModel.unreadNotifications
+                                font.pixelSize: 12
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+                    }
+
                     Keys.onPressed: {
                         if ((event.key == Qt.Key_Return || event.key == Qt.Key_Enter || event.key == Qt.Key_Space) && selectedItem != index) 
                             updateItem(index);

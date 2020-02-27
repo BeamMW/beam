@@ -2179,7 +2179,7 @@ deploy the key at the node you trust completely.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="notifications-read">
-        <source>READ</source>
+        <source>Read</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

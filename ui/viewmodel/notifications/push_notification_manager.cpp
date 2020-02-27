@@ -22,6 +22,10 @@ PushNotificationManager::PushNotificationManager()
     connect(&m_walletModel,
             SIGNAL(newSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig&)),
             SLOT(onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig&)));
+
+    connect(&m_walletModel,
+            SIGNAL(notificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)),
+            SLOT(onNotificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)));            
 }
 
 void PushNotificationManager::onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo& info, const ECC::uintBig& notificationID)
@@ -35,6 +39,11 @@ void PushNotificationManager::onNewSoftwareUpdateAvailable(const beam::wallet::V
         
         emit showUpdateNotification(newVersion, currentVersion, id);
     }
+}
+
+void PushNotificationManager::onNotificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)
+{
+    LOG_DEBUG() << "onNotificationsChanged";
 }
 
 void PushNotificationManager::onCancelPopup(const QVariant& variantID)

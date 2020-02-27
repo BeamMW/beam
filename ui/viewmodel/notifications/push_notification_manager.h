@@ -36,6 +36,7 @@ signals:
 
 public slots:
     void onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig& notificationID);
+    void onNotificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&);
 
 private:
     WalletModel& m_walletModel;

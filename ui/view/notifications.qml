@@ -142,7 +142,7 @@ Item {
             SFText {
                 Layout.alignment: Qt.AlignHCenter
 
-                //% "READ"
+                //% "Read"
                 text: qsTrId('notifications-read').toUpperCase()
 
                 font.pixelSize: 14

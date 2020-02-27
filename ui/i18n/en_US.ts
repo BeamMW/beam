@@ -2181,8 +2181,7 @@ deploy the key at the node you trust completely.</translation>
         <translation>clear all</translation>
     </message>
     <message id="notifications-read">
-        <source>READ</source>
-        <oldsource>Read</oldsource>
+        <source>Read</source>
         <translation type="unfinished">Read</translation>
     </message>
     <message id="settings-notifications-rates">
