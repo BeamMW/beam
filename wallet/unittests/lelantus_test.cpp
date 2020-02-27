@@ -787,6 +787,84 @@ void TestExpiredTxs()
     WALLET_CHECK(completedPullTx->m_status == TxStatus::Completed);
 }
 
+void TestReextract()
+{
+    cout << "\nTest re-extraction of the shieldedCoin\n";
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 3;
+    auto completeAction = [&mainReactor, &completedCount](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+        }
+    };
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+    TestWalletRig sender("sender", senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>();
+    sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pushTxCreator));
+
+    auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
+    sender.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pullTxCreator));
+
+    TxID firstPullTxID = {};
+    TxID secondPullTxID = {};
+
+    Node node;
+    NodeObserver observer([&]()
+        {
+            auto cursor = node.get_Processor().m_Cursor;
+            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            {
+                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                    .SetParameter(TxParameterID::Amount, 3800)
+                    .SetParameter(TxParameterID::Fee, 1200);
+
+                sender.m_Wallet.StartTransaction(parameters);
+            }
+            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 10)
+            {
+                {
+                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                        .SetParameter(TxParameterID::Amount, 2600)
+                        .SetParameter(TxParameterID::Fee, 1200)
+                        .SetParameter(TxParameterID::ShieldedOutputId, 0U);
+                    firstPullTxID = *parameters.GetTxID();
+                    sender.m_Wallet.StartTransaction(parameters);
+                }
+                {
+                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                        .SetParameter(TxParameterID::Amount, 2600)
+                        .SetParameter(TxParameterID::Fee, 1200)
+                        .SetParameter(TxParameterID::ShieldedOutputId, 0U);
+                    secondPullTxID = *parameters.GetTxID();
+                    sender.m_Wallet.StartTransaction(parameters);
+                }
+            }
+            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 20)
+            {
+                mainReactor->stop();
+            }
+        });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    WALLET_CHECK(completedCount == 0);
+    auto firstPullTx = sender.m_WalletDB->getTx(firstPullTxID);
+    auto secondPullTx = sender.m_WalletDB->getTx(secondPullTxID);
+    WALLET_CHECK(firstPullTx->m_status == TxStatus::Completed);
+    WALLET_CHECK(secondPullTx->m_status == TxStatus::Failed);
+    WALLET_CHECK(secondPullTx->m_failureReason == TxFailureReason::NoInputs);
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -811,6 +889,8 @@ int main()
     TestPushTxRollbackByLowFee();
     TestPullTxRollbackByLowFee();
     //TestExpiredTxs();
+
+    TestReextract();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

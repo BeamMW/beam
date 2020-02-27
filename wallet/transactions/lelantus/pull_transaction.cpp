@@ -95,6 +95,11 @@ namespace beam::wallet::lelantus
             TxoID shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
             auto shieldedCoin = GetWalletDB()->getShieldedCoin(shieldedId);
 
+            LOG_INFO() << GetTxID() << " Extracting from shielded pool:"
+                << " ID - " << shieldedId << ", amount - " << shieldedCoin->m_value
+                << ", receiving amount - " << PrintableAmount(m_TxBuilder->GetAmount())
+                << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
+
             // validate input
             {
                 if (!shieldedCoin || !shieldedCoin->IsAvailable())
@@ -111,12 +116,11 @@ namespace beam::wallet::lelantus
                         << ") is less than the required value(" << PrintableAmount(requiredAmount) << ")";
                     throw TransactionFailedException(false, TxFailureReason::NoInputs, "");
                 }
-            }
 
-            LOG_INFO() << GetTxID() << " Extracting from shielded pool:"
-                << " ID - " << shieldedId << ", amount - " << shieldedCoin->m_value
-                << ", receiving amount - " << PrintableAmount(m_TxBuilder->GetAmount())
-                << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
+                // update "m_spentTxId" for shieldedCoin
+                shieldedCoin->m_spentTxId = GetTxID();
+                GetWalletDB()->saveShieldedCoin(*shieldedCoin);
+            }
         }
         
         if (m_TxBuilder->CreateOutputs())
