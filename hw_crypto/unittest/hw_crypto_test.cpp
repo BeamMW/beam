@@ -162,6 +162,32 @@ void BeamCrypto_InitFast(BeamCrypto_MultiMac_Fast& trg, const ECC::MultiMac::Pre
 		trg.m_pPt[j] = src.m_pPt[j];
 }
 
+char Dig2Hex(uint8_t x)
+{
+	if (x < 0xa)
+		return '0' + x;
+
+	return x + 'a' - 0xa;
+}
+
+void BufferToHexTxt(std::string& s, const uint8_t* p, size_t n)
+{
+	std::ostringstream os;
+
+	for (size_t i = 0; i < n; i++)
+	{
+		if (!(i & 15))
+			os << "\n ";
+		os
+			<< "0x"
+			<< Dig2Hex(p[i] >> 4)
+			<< Dig2Hex(p[i] & 0xf)
+			<< ',';
+	}
+
+	s = os.str();
+}
+
 void InitContext()
 {
 	printf("Init context...\n");
@@ -1346,7 +1372,7 @@ int main()
 	Rules::get().pForks[1].m_Height = g_hFork;
 	Rules::get().pForks[2].m_Height = g_hFork;
 
-	InitContext();
+	//InitContext();
 
 	TestMultiMac();
 	TestNonceGen();
