@@ -26,7 +26,7 @@
 #include "wallet/client/extensions/notifications/notification_center.h"
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
-#include "wallet/client/extensions/news_channels/interface.h"
+#include "wallet/client/extensions/news_channels/exchange_rate_provider.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_observer.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"
@@ -181,6 +181,8 @@ namespace beam::wallet
         void markNotificationAsRead(const ECC::uintBig& id) override;
         void deleteNotification(const ECC::uintBig& id) override;
 
+        void getExchangeRates() override;
+
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
 
@@ -203,7 +205,7 @@ namespace beam::wallet
         // broadcasting via BBS
         std::weak_ptr<IBroadcastMsgGateway> m_broadcastRouter;
         std::weak_ptr<IBroadcastListener> m_updatesProvider;
-        std::weak_ptr<IBroadcastListener> m_exchangeRateProvider;
+        std::weak_ptr<ExchangeRateProvider> m_exchangeRateProvider;
         std::shared_ptr<NotificationCenter> m_notificationCenter;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;

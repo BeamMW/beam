@@ -29,9 +29,7 @@ namespace beam::wallet
     public:
         AppUpdateInfoProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&);
 
-        /**
-         *  Provides application update information from broadcast messages
-         */
+        // IBroadcastListener implementation
         virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
         
         // INewsObserver interface

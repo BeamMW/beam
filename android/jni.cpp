@@ -626,6 +626,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteNotification)(JNIEnv *en
     walletModel->getAsync()->deleteNotification(id);
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getExchangeRates)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->getExchangeRates();
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;

@@ -22,7 +22,7 @@
 namespace beam::wallet
 {
     /**
-     *  Listen for exchange rate information
+     *  Provides exchange rates from broadcast messages
      */
     class ExchangeRateProvider
         : public IBroadcastListener
@@ -30,9 +30,9 @@ namespace beam::wallet
     public:
         ExchangeRateProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&, IWalletDB&);
 
-        /**
-         *  Provides exchange rates from broadcast messages
-         */
+        std::vector<ExchangeRate> getRates();
+
+        // IBroadcastListener implementation
         virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
         
         // IExchangeRateObserver interface
@@ -40,6 +40,8 @@ namespace beam::wallet
         void Unsubscribe(IExchangeRateObserver* observer);
         
     private:
+        void loadRatesToCache();
+
 		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;
         IWalletDB& m_storage;

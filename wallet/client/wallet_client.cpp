@@ -222,6 +222,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::deleteNotification, id);
     }
+
+    void getExchangeRates() override
+    {
+        call_async(&IWalletModelAsync::getExchangeRates);
+    }
 };
 }
 
@@ -899,7 +904,7 @@ namespace beam::wallet
 
     void WalletClient::switchOnOffExchangeRates(bool isActive)
     {
-        // m_broadcastRouter->
+        // m_exchangeRateProvider->
     }
 
     void WalletClient::switchOnOffNotifications(Notification::Type type, bool isActive)
@@ -919,7 +924,20 @@ namespace beam::wallet
 
     void WalletClient::deleteNotification(const ECC::uintBig& id)
     {
-        // m_notificationCenter->
+        m_notificationCenter->deleteNotification(id);
+    }
+
+    void WalletClient::getExchangeRates()
+    {
+        assert(!m_exchangeRateProvider.expired());
+        if (auto s = m_exchangeRateProvider.lock())
+        {
+            onExchangeRates(s->getRates());
+        }
+        else
+        {
+            onExchangeRates({});
+        }
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

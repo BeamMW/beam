@@ -26,7 +26,28 @@ namespace beam::wallet
           m_validator(validator),
           m_storage(storage)
     {
+        loadRatesToCache();
         m_broadcastGateway.registerListener(BroadcastContentType::ExchangeRates, this);
+    }
+
+    void ExchangeRateProvider::loadRatesToCache()
+    {
+        const auto& rates = m_storage.getExchangeRates();
+        for (const auto& rate : rates)
+        {
+            const auto uniqID = std::make_pair(rate.m_currency, rate.m_unit);
+            m_cache[uniqID] = rate;
+        }
+    }
+
+    std::vector<ExchangeRate> ExchangeRateProvider::getRates()
+    {
+        std::vector<ExchangeRate> rates; 
+        for (const auto r : m_cache)
+        {
+            rates.push_back(r.second);
+        }
+        return rates;
     }
 
     bool ExchangeRateProvider::onMessage(uint64_t unused, ByteBuffer&& input)
@@ -36,16 +57,26 @@ namespace beam::wallet
             BroadcastMsg res;
             if (m_validator.processMessage(input, res))
             {
-                std::vector<ExchangeRate> rates;
-                if (fromByteBuffer(res.m_content, rates))
+                std::vector<ExchangeRate> receivedRates;
+                if (fromByteBuffer(res.m_content, receivedRates))
                 {
-                    for (const auto& r : rates)
+                    std::vector<ExchangeRate> changedRates;
+                    for (const auto& receivedRate : receivedRates)
                     {
-                        const auto uniqID = std::make_pair(r.m_currency, r.m_unit);
-                        m_cache[uniqID] = r;
-                        m_storage.saveExchangeRate(r);
+                        const auto uniqID = std::make_pair(receivedRate.m_currency, receivedRate.m_unit);
+                        const auto storedRateIt = m_cache.find(uniqID);
+                        if (storedRateIt == std::cend(m_cache)
+                         || storedRateIt->second.m_updateTime < receivedRate.m_updateTime)
+                        {
+                            m_cache[uniqID] = receivedRate;
+                            m_storage.saveExchangeRate(receivedRate);
+                            changedRates.emplace_back(receivedRate);
+                        }
                     }
-                    notifySubscribers(rates);
+                    if (!changedRates.empty())
+                    {
+                        notifySubscribers(changedRates);
+                    }
                 }
             }
         }
