@@ -46,6 +46,8 @@ namespace beam::wallet
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
     constexpr Amount kMinFeeInGroth = 100;
+    constexpr Amount kShieldedCoinMinFeeInGroth = 1000;
+    constexpr Amount kShieldedTxMinFeeInGroth = kMinFeeInGroth + kShieldedCoinMinFeeInGroth;
     inline const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
 
 #pragma pack (push, 1)

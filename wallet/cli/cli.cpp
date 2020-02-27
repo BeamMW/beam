@@ -2512,6 +2512,23 @@ namespace
                 {
                     return -1;
                 }
+
+                if (fee < kShieldedTxMinFeeInGroth)
+                {
+                    std::stringstream ss;
+                    ss << "Fee is too small. Minimal fee is " << PrintableAmount(kShieldedTxMinFeeInGroth);
+                    throw std::runtime_error(ss.str());
+                }
+
+                const Amount pushTxMinAmount = kShieldedTxMinFeeInGroth + 1;
+
+                if (amount < pushTxMinAmount)
+                {
+                    std::stringstream ss;
+                    ss << "Amount is too small. Minimal amount is " << PrintableAmount(pushTxMinAmount);
+                    throw std::runtime_error(ss.str());
+                }
+
                 WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
                 auto txParams = lelantus::CreatePushTransactionParameters(senderAddress.m_walletID)
@@ -2533,6 +2550,13 @@ namespace
                 if (!ReadFee(vm, fee, true) || !ReadShieldedId(vm, shieldedId))
                 {
                     return -1;
+                }
+
+                if (fee < kShieldedTxMinFeeInGroth)
+                {
+                    std::stringstream ss;
+                    ss << "Fee is too small. Minimal fee is " << PrintableAmount(kShieldedTxMinFeeInGroth);
+                    throw std::runtime_error(ss.str());
                 }
 
                 auto shieldedCoin = walletDB->getShieldedCoin(shieldedId);
