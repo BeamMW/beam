@@ -977,6 +977,11 @@
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
 •  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</oldsource>
         <translation type="unfinished">Silné heslo musí splňovat následující požadavky:
 • heslo musí mít nejméně 10 znaků
 • musí obsahovat alespoň jedno malé písmeno
@@ -1247,6 +1252,8 @@
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</oldsource>
         <translation type="unfinished">Nemáte připojené žádné měny třetích stran.\nAktualizujte nastavení a zkuste to znovu.</translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1324,6 +1331,8 @@ Update your settings and try again.</source>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
 please review your settings and try again</source>
+        <oldsource>%1 is not connected, 
+please review your settings and try again</oldsource>
         <translation type="unfinished">%1 není připojen, 
 prosím zkontrolujte nastavení a zkuste to znovu.</translation>
     </message>
@@ -1518,11 +1527,15 @@ prosím zkontrolujte nastavení a zkuste to znovu.</translation>
     <message id="settings-progress-na">
         <source>You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</source>
+        <oldsource>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</oldsource>
         <translation type="unfinished">Nemůžete odpojit peněženku, upravit klíčová slova nebo změnit výchozí poplatek\nběhem zpracování transakcí.</translation>
     </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.
 Please try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.
+Please try again later or create an offer yourself.</oldsource>
         <translation type="unfinished">Momentálně nejsou žádné aktivní nabídky.\nZkuste to prosím později nebo vytvořte svou nabídku.</translation>
     </message>
     <message id="send-less-than-fee">
@@ -1692,6 +1705,8 @@ Please try again later or create an offer yourself.</source>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</source>
+        <oldsource>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</oldsource>
         <translation type="unfinished">Nabídka s tímto tokenem transakce je již přijata.\nProsím zkontrolujte token výměny a zkuste to znovu.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
@@ -2158,6 +2173,10 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
     </message>
     <message id="settings-notifications-rates">
         <source>Exchange rates</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-read">
+        <source>READ</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

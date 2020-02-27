@@ -2177,5 +2177,9 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
         <source>Exchange rates</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="notifications-read">
+        <source>READ</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

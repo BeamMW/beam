@@ -9,8 +9,7 @@ import Beam.Wallet 1.0
 
 Item {
     id: notificationsViewRoot
-    Layout.fillWidth: true
-    Layout.fillHeight: true
+    anchors.fill: parent
 
     NotificationsViewModel {
         id: viewModel
@@ -39,177 +38,206 @@ Item {
         icon.source: "qrc:/assets/icon-cancel-white.svg"
         //% "clear all"
         text: qsTrId('notifications-clear-all')
-        visible: viewModel.notifications.rowCount() > 0
+        visible: viewModel.readNotifications.rowCount() + viewModel.unreadNotifications.rowCount() > 0
         onClicked: {
             console.log('TODO: clear all notifications')
         }
     }
 
-    ListView {
-        id: notificationsList
-
+    ScrollView {
         anchors.fill: parent
         anchors.topMargin: 97
-        spacing: 10
         clip: true
+        id:scrl
 
-        model: viewModel.notifications
-        // ListModel {
-        //     ListElement {
-        //         type: "update"
-        //         title: "New version v1.2.3 is avalable"
-        //         message: "Your current version is v1.2.2. Please update to get the most of your Beam wallet."
-        //         date: "25.01.2020   |   1:20 PM"
-        //     }
+        ColumnLayout {
+            width: scrl.availableWidth
+            spacing: 10
 
-        //     ListElement {
-        //         type: "expired"
-        //         title: "Address expired"
-        //         message: "167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb address expired."
-        //         date: "25.01.2020   |   1:20 PM"
-        //     }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 10
 
-        //     ListElement {
-        //         type: "received"
-        //         title: "Transaction received"
-        //         message: "You received 1234 BEAM from 167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb."
-        //         date: "25.01.2020   |   1:20 PM"
-        //     }
+                Repeater {
+                    model: viewModel.unreadNotifications
 
-        //     ListElement {
-        //         type: "sent"
-        //         title: "Transaction sent"
-        //         message: "You sent 1234 BEAM to 167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb."
-        //         date: "25.01.2020   |   1:20 PM"
-        //     }
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 121
 
-        //     ListElement {
-        //         type: "failed"
-        //         title: "Transaction failed"
-        //         message: "Sending 1234 BEAM to 167jbfsdjkflk39902mnsdnkbkjadavfd39nas7877qwb failed."
-        //         date: "25.01.2020   |   1:20 PM"
-        //     }
+                        Rectangle {
+                            radius: 10
+                            anchors.fill: parent
+                            color: Style.background_popup
+                        }
 
-        //     ListElement {
-        //         type: "inpress"
-        //         title: "BEAM in the press"
-        //         message: "Beam: Halved Successfully, Plans For 2020, Lelantus MW Discussed, Progress On Double Doppler 4.2, Beam Web Wallet And Trustless Wallet Service. Please visit News Center on Beam website for more information."
-        //         date: "25.01.2020   |   1:20 PM"
-        //     }
+                        Item {
+                            anchors.fill: parent
 
-        //     ListElement {
-        //         type: "hotnews"
-        //         title: "BEAN Hot News"
-        //         message: "Double Doppler 4.0 — Atomic Swaps — Release Notes. Please visit News Center on Beam website for more information."
-        //         date: "25.01.2020   |   1:20 PM"
-        //     }
+                            SvgImage {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 30
+                                anchors.verticalCenter: parent.verticalCenter 
 
-        //     ListElement {
-        //         type: "videos"
-        //         title: "BEAM Videos & Podcasts"
-        //         message: "Beam Weekly Development Update 21 January 2020. Please visit News Center on Beam website for more information."
-        //         date: "25.01.2020   |   1:20 PM"
-        //     }
+                                source: getIconSource(type)
+                            }
 
-        //     ListElement {
-        //         type: "events"
-        //         title: "BEAM Events"
-        //         message: "Advancing Bitcoin Developer Conference 2020. Please visit News Center on Beam website for more information."
-        //         date: "25.01.2020   |   1:20 PM"
-        //     }
+                            Column {
+                                anchors.fill: parent
+                                anchors.topMargin: 20
+                                anchors.leftMargin: 100
+                                anchors.rightMargin: 150
+                                clip: true
 
-        //     ListElement {
-        //         type: "newsletter"
-        //         title: "BEAM Newletter"
-        //         message: "Beam 2020 Week #4. Please visit News Center on Beam website for more information."
-        //         date: "25.01.2020   |   1:20 PM"
-        //     }
+                                spacing: 10
 
-        //     ListElement {
-        //         type: "community"
-        //         title: "BEAM Community"
-        //         message: "My Dialogue with Agbona Igwemoh, Africa’s Lead Ambassador for Beam. Please visit News Center on Beam website for more information."
-        //         date: "25.01.2020   |   1:20 PM"
-        //     }
-        // }
+                                SFText {
+                                    text: title
+                                    font.pixelSize: 18
+                                    color: Style.content_main
+                                    font.styleName: "Bold"; font.weight: Font.Bold
+                                }
 
-        delegate: Item {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 121
+                                SFText {
+                                    text: message
+                                    font.pixelSize: 14
+                                    color: Style.content_main
+                                }
 
-            Rectangle {
-                radius: 10
-                anchors.fill: parent
-                color: Style.background_popup
-            }
+                                SFText {
+                                    text: timeCreated
+                                    font.pixelSize: 12
+                                    color: Style.content_main
+                                }
+                            }
+                        }
 
-            Item {
-                anchors.fill: parent
+                        CustomToolButton {
+                            anchors.top: parent.top
+                            anchors.right: parent.right
+                            anchors.topMargin: 20
+                            anchors.rightMargin: 20
 
-                SvgImage {
-                    anchors.left: parent.left
-                    anchors.leftMargin: 30
-                    anchors.verticalCenter: parent.verticalCenter 
+                            icon.source: "qrc:/assets/icon-cancel-white.svg"
+                        }
 
-                    source: getIconSource(type)
-                }
+                        CustomButton {
+                            anchors.bottom: parent.bottom
+                            anchors.right: parent.right
+                            anchors.bottomMargin: 20
+                            anchors.rightMargin: 20
 
-                Column {
-                    anchors.fill: parent
-                    anchors.topMargin: 20
-                    anchors.leftMargin: 100
-                    anchors.rightMargin: 150
-                    clip: true
+                            height: 38
+                            palette.button: Style.background_second
+                            palette.buttonText : Style.content_main
+                            icon.source: getActionButtonIcon(type)
+                            text: getActionButtonLabel(type)
 
-                    spacing: 10
-
-                    SFText {
-                        text: title
-                        font.pixelSize: 18
-                        color: Style.content_main
-                        font.styleName: "Bold"; font.weight: Font.Bold
-                    }
-
-                    SFText {
-                        text: message
-                        font.pixelSize: 14
-                        color: Style.content_main
-                    }
-
-                    SFText {
-                        text: timeCreated
-                        font.pixelSize: 12
-                        color: Style.content_main
+                            visible: getActionButtonLabel(type) != undefined
+                        }
                     }
                 }
             }
 
-            CustomToolButton {
-                anchors.top: parent.top
-                anchors.right: parent.right
-                anchors.topMargin: 20
-                anchors.rightMargin: 20
+            SFText {
+                Layout.alignment: Qt.AlignHCenter
 
-                icon.source: "qrc:/assets/icon-cancel-white.svg"
+                //% "READ"
+                text: qsTrId('notifications-read').toUpperCase()
+
+                font.pixelSize: 14
+                color: Style.content_main
+                visible: viewModel.readNotifications.rowCount() > 0
             }
 
-            CustomButton {
-                anchors.bottom: parent.bottom
-                anchors.right: parent.right
-                anchors.bottomMargin: 20
-                anchors.rightMargin: 20
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 10
 
-                height: 38
-                palette.button: Style.background_second
-                palette.buttonText : Style.content_main
-                icon.source: getActionButtonIcon(type)
-                text: getActionButtonLabel(type)
+                visible: viewModel.readNotifications.rowCount() > 0
 
-                visible: getActionButtonLabel(type) != undefined
+                Repeater {
+                    model: viewModel.readNotifications
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 121
+
+                        Rectangle {
+                            radius: 10
+                            anchors.fill: parent
+                            color: Style.background_popup
+                        }
+
+                        Item {
+                            anchors.fill: parent
+
+                            SvgImage {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 30
+                                anchors.verticalCenter: parent.verticalCenter 
+
+                                source: getIconSource(type)
+                            }
+
+                            Column {
+                                anchors.fill: parent
+                                anchors.topMargin: 20
+                                anchors.leftMargin: 100
+                                anchors.rightMargin: 150
+                                clip: true
+
+                                spacing: 10
+
+                                SFText {
+                                    text: title
+                                    font.pixelSize: 18
+                                    color: Style.content_main
+                                    font.styleName: "Bold"; font.weight: Font.Bold
+                                }
+
+                                SFText {
+                                    text: message
+                                    font.pixelSize: 14
+                                    color: Style.content_main
+                                }
+
+                                SFText {
+                                    text: timeCreated
+                                    font.pixelSize: 12
+                                    color: Style.content_main
+                                }
+                            }
+                        }
+
+                        CustomToolButton {
+                            anchors.top: parent.top
+                            anchors.right: parent.right
+                            anchors.topMargin: 20
+                            anchors.rightMargin: 20
+
+                            icon.source: "qrc:/assets/icon-cancel-white.svg"
+                        }
+
+                        CustomButton {
+                            anchors.bottom: parent.bottom
+                            anchors.right: parent.right
+                            anchors.bottomMargin: 20
+                            anchors.rightMargin: 20
+
+                            height: 38
+                            palette.button: Style.background_second
+                            palette.buttonText : Style.content_main
+                            icon.source: getActionButtonIcon(type)
+                            text: getActionButtonLabel(type)
+
+                            visible: getActionButtonLabel(type) != undefined
+                        }
+                    }
+                }
             }
         }
-    } // ListView
+    }
 
     function getIconSource(notificationType) {
         return "qrc:/assets/icon-notifications-" + notificationType;

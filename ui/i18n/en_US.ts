@@ -977,7 +977,12 @@
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
 •  must contain at least one number</source>
-        <translation>Strong password needs to meet the following requirements:
+        <oldsource>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</oldsource>
+        <translation type="unfinished">Strong password needs to meet the following requirements:
 •  the length must be at least 10 characters
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
@@ -1250,7 +1255,7 @@ or send this address to the sender over secure channel</translation>
 Update your settings and try again.</source>
         <oldsource>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</oldsource>
-        <translation>You do not have any 3rd-party currencies connected.
+        <translation type="unfinished">You do not have any 3rd-party currencies connected.
 Update your settings and try again.</translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1330,7 +1335,7 @@ Update your settings and try again.</translation>
 please review your settings and try again</source>
         <oldsource>%1 is not connected, 
 please review your settings and try again</oldsource>
-        <translation>%1 is not connected, 
+        <translation type="unfinished">%1 is not connected, 
 please review your settings and try again</translation>
     </message>
     <message id="send-not-enough">
@@ -1526,7 +1531,7 @@ please review your settings and try again</translation>
 fee while you have transactions in progress.</source>
         <oldsource>You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</oldsource>
-        <translation>You cannot disconnect wallet, edit seed phrase or change default
+        <translation type="unfinished">You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</translation>
     </message>
     <message id="atomic-no-offers">
@@ -1534,7 +1539,7 @@ fee while you have transactions in progress.</translation>
 Please try again later or create an offer yourself.</source>
         <oldsource>There are no active offers at the moment.
 Please try again later or create an offer yourself.</oldsource>
-        <translation>There are no active offers at the moment.
+        <translation type="unfinished">There are no active offers at the moment.
 Please try again later or create an offer yourself.</translation>
     </message>
     <message id="send-less-than-fee">
@@ -1706,7 +1711,7 @@ Please try again later or create an offer yourself.</translation>
 Please check the swap token and try again.</source>
         <oldsource>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</oldsource>
-        <translation>The offer with this transaction token is already accepted.
+        <translation type="unfinished">The offer with this transaction token is already accepted.
 Please check the swap token and try again.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
@@ -1994,7 +1999,7 @@ deploy the key at the node you trust completely.</source>
 know all your funds (UTXO). Make sure that you
 deploy the key at the node you trust completely.</oldsource>
         <extracomment>settings tab, show owner key message</extracomment>
-        <translation>Please notice, that knowing your owner key allows to
+        <translation type="unfinished">Please notice, that knowing your owner key allows to
 know all your funds (UTXO). Make sure that you
 deploy the key at the node you trust completely.</translation>
     </message>
@@ -2174,6 +2179,11 @@ deploy the key at the node you trust completely.</translation>
     <message id="notifications-clear-all">
         <source>clear all</source>
         <translation>clear all</translation>
+    </message>
+    <message id="notifications-read">
+        <source>READ</source>
+        <oldsource>Read</oldsource>
+        <translation type="unfinished">Read</translation>
     </message>
     <message id="settings-notifications-rates">
         <source>Exchange rates</source>

@@ -25,13 +25,18 @@ NotificationsViewModel::NotificationsViewModel()
     connect(&m_walletModel,
             SIGNAL(notificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)),
             SLOT(onNotificationsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)));
-    
+
     m_walletModel.getAsync()->getNotifications();
 }
 
-QAbstractItemModel* NotificationsViewModel::getNotifications()
+QAbstractItemModel* NotificationsViewModel::getReadNotifications()
 {
-    return &m_notificationsList;
+    return &m_readNotificationsList;
+}
+
+QAbstractItemModel* NotificationsViewModel::getUnreadNotifications()
+{
+    return &m_unreadNotificationsList;
 }
 
 void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action, const std::vector<Notification>& notifications)
@@ -48,25 +53,25 @@ void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action
     {
         case ChangeAction::Reset:
             {
-                m_notificationsList.reset(modifiedNotifications);
+                m_unreadNotificationsList.reset(modifiedNotifications);
                 break;
             }
 
         case ChangeAction::Added:
             {
-                m_notificationsList.insert(modifiedNotifications);
+                m_unreadNotificationsList.insert(modifiedNotifications);
                 break;
             }
 
         case ChangeAction::Removed:
             {
-                m_notificationsList.remove(modifiedNotifications);
+                m_unreadNotificationsList.remove(modifiedNotifications);
                 break;
             }
 
         case ChangeAction::Updated:
             {
-                m_notificationsList.update(modifiedNotifications);
+                m_unreadNotificationsList.update(modifiedNotifications);
                 break;
             }
         
