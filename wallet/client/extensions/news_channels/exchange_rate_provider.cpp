@@ -52,8 +52,9 @@ namespace beam::wallet
         catch(...)
         {
             LOG_WARNING() << "broadcast message processing exception";
+            return false;
         }
-        return false;
+        return true;
     }
 
     void ExchangeRateProvider::Subscribe(IExchangeRateObserver* observer)

@@ -169,38 +169,38 @@ void BroadcastRouter::OnMsg(proto::BbsMsg&& bbsMsg)
 
 void BroadcastRouter::on_protocol_error(uint64_t fromStream, ProtocolError error)
 {
-    std::string description; 
-    switch (error)
-    {
-        case ProtocolError::no_error:
-            description = "ok";
-            break;
+    // std::string description; 
+    // switch (error)
+    // {
+    //     case ProtocolError::no_error:
+    //         description = "ok";
+    //         break;
 
-        case ProtocolError::version_error:
-            description = "wrong protocol version (first 3 bytes)";
-            break;
+    //     case ProtocolError::version_error:
+    //         description = "wrong protocol version (first 3 bytes)";
+    //         break;
 
-        case ProtocolError::msg_type_error:
-            description = "msg type is not handled by this protocol";
-            break;
+    //     case ProtocolError::msg_type_error:
+    //         description = "msg type is not handled by this protocol";
+    //         break;
 
-        case ProtocolError::msg_size_error:
-            description = "msg size out of allowed range";
-            break;
+    //     case ProtocolError::msg_size_error:
+    //         description = "msg size out of allowed range";
+    //         break;
 
-        case ProtocolError::message_corrupted:
-            description = "deserialization error";
-            break;
+    //     case ProtocolError::message_corrupted:
+    //         description = "deserialization error";
+    //         break;
 
-        case ProtocolError::unexpected_msg_type:
-            description = "receiving of msg type disabled for this stream";
-            break;
+    //     case ProtocolError::unexpected_msg_type:
+    //         description = "receiving of msg type disabled for this stream";
+    //         break;
         
-        default:
-            description = "receiving of msg type disabled for this stream";
-            break;
-    }
-    LOG_DEBUG() << "BroadcastRouter protocol: " << description;
+    //     default:
+    //         description = "receiving of msg type disabled for this stream";
+    //         break;
+    // }
+    // LOG_DEBUG() << "BroadcastRouter protocol: " << description;
 }
 
 /// unused
