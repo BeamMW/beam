@@ -39,7 +39,12 @@ namespace beam::wallet
                 std::vector<ExchangeRate> rates;
                 if (fromByteBuffer(res.m_content, rates))
                 {
-                    m_storage.saveExchangeRates(rates);
+                    for (const auto& r : rates)
+                    {
+                        const auto uniqID = std::make_pair(r.m_currency, r.m_unit);
+                        m_cache[uniqID] = r;
+                        m_storage.saveExchangeRate(r);
+                    }
                     notifySubscribers(rates);
                 }
             }

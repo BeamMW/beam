@@ -158,10 +158,10 @@
 #define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
 
 #define ENUM_EXCHANGE_RATES_FIELDS(each, sep, obj) \
-    each(currency,      currency,       BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(currency,      currency,       INTEGER,            obj) sep \
     each(unit,          unit,           INTEGER,            obj) sep \
-    each(rate,          rate,          INTEGER,            obj) sep \
-    each(updateTime,    updateTime,     INTEGER,            obj) sep \
+    each(rate,          rate,           INTEGER,            obj) sep \
+    each(updateTime,    updateTime,     INTEGER,            obj)
 
 #define EXCHANGE_RATES_FIELDS ENUM_EXCHANGE_RATES_FIELDS(LIST, COMMA, )
 
@@ -475,12 +475,6 @@ namespace beam::wallet
             void bind(int col, Key::Type val)
             {
                 int ret = sqlite3_bind_int(_stm, col, val);
-                throwIfError(ret, _db);
-            }
-
-            void bind(int col, TxStatus val)
-            {
-                int ret = sqlite3_bind_int(_stm, col, static_cast<int>(val));
                 throwIfError(ret, _db);
             }
 
@@ -1025,6 +1019,13 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void CreateExchangeRatesTable(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " EXCHANGE_RATES_NAME " (" ENUM_EXCHANGE_RATES_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit)) WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
         {
             int ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE, nullptr);
@@ -1135,6 +1136,7 @@ namespace beam::wallet
         CreateLaserTables(db);
         CreateAssetsTable(db);
         CreateNotificationsTable(db);
+        CreateExchangeRatesTable(db);
     }
 
     std::shared_ptr<WalletDB>  WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -1590,6 +1592,7 @@ namespace beam::wallet
                 case DbVersion18:
                     LOG_INFO() << "Converting DB from format 18...";
                     CreateNotificationsTable(walletDB->_db);
+                    CreateExchangeRatesTable(walletDB->_db);
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 
@@ -3066,13 +3069,45 @@ namespace beam::wallet
 
     std::vector<ExchangeRate> WalletDB::getExchangeRates() const
     {
-        //
-        return {};
+        std::vector<ExchangeRate> res;
+        const char* req = "SELECT * FROM " EXCHANGE_RATES_NAME " ORDER BY updateTime DESC;";
+        sqlite::Statement stm(this, req);
+
+        while (stm.step())
+        {
+            auto& rate = res.emplace_back();
+            int colIdx = 0;
+            ENUM_EXCHANGE_RATES_FIELDS(STM_GET_LIST, NOSEP, rate);
+        }
+        return res;
     }
 
-    void WalletDB::saveExchangeRates(const std::vector<ExchangeRate>& rates)
+    void WalletDB::saveExchangeRate(const ExchangeRate& rate)
     {
-        // 
+        const char* selectReq = "SELECT * FROM " EXCHANGE_RATES_NAME " WHERE currency=?1 AND unit=?2;";
+        sqlite::Statement selectStm(this, selectReq);
+        selectStm.bind(1, rate.m_currency);
+        selectStm.bind(2, rate.m_unit);
+
+        if (selectStm.step())
+        {
+            const char* updateReq = "UPDATE " EXCHANGE_RATES_NAME " SET rate=?1, updateTime=?2 WHERE currency=?3 AND unit=?4;";
+            sqlite::Statement updateStm(this, updateReq);
+
+            updateStm.bind(1, rate.m_rate);
+            updateStm.bind(2, rate.m_updateTime);
+            updateStm.bind(3, rate.m_currency);
+            updateStm.bind(4, rate.m_unit);
+            updateStm.step();
+        }
+        else
+        {
+            const char* insertReq = "INSERT INTO " EXCHANGE_RATES_NAME " (" ENUM_EXCHANGE_RATES_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_EXCHANGE_RATES_FIELDS(BIND_LIST, COMMA, ) ");";
+            sqlite::Statement stm(this, insertReq);
+            int colIdx = 0;
+            ENUM_EXCHANGE_RATES_FIELDS(STM_BIND_LIST, NOSEP, rate);
+            stm.step();
+        }
     }
 
     void WalletDB::Subscribe(IWalletDbObserver* observer)

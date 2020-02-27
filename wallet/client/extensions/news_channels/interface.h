@@ -62,15 +62,15 @@ namespace beam::wallet
             else return Application::Unknown;
         };
 
-        bool operator==(const VersionInfo& o) const
+        bool operator==(const VersionInfo& other) const
         {
-            return m_application == o.m_application
-                && m_version == o.m_version;
+            return m_application == other.m_application
+                && m_version == other.m_version;
         };
 
-        bool operator!=(const VersionInfo& o) const
+        bool operator!=(const VersionInfo& other) const
         {
-            return !(*this == o);
+            return !(*this == other);
         };
     };
 
@@ -88,7 +88,7 @@ namespace beam::wallet
     
         Currency m_currency;
         Currency m_unit;            // unit of m_rate measurment, e.g. USD or any other currency
-        Amount m_rate;
+        Amount m_rate;              // value as decimal fixed point. m_rate = 100,000,000 is 1 unit
         Timestamp m_updateTime;
 
         SERIALIZE(m_currency, m_unit, m_rate, m_updateTime);
@@ -125,6 +125,18 @@ namespace beam::wallet
             else if (c == "usd")
                 return Currency::Usd;
             else return Currency::Unknown;
+        };
+
+        bool operator==(const ExchangeRate& other) const
+        {
+            return m_currency == other.m_currency
+                && m_unit == other.m_unit
+                && m_rate == other.m_rate
+                && m_updateTime == other.m_updateTime;
+        };
+        bool operator!=(const ExchangeRate& other) const
+        {
+            return !(*this == other);
         };
     };
     
