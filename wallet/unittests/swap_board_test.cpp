@@ -13,29 +13,19 @@
 // limitations under the License.
 
 
-#include <assert.h>
-#include <iostream>
-#include <functional>
-#include <boost/filesystem.hpp>
-
+// test helpers and mocks
 #include "test_helpers.h"
-#include "wallet/core/common.h"
-#include "wallet/core/simple_transaction.h"
-#include "wallet/core/wallet_network.h"
-
-// for wallet_test_environment.cpp
-#include "core/unittest/mini_blockchain.h"
-#include "core/radixtree.h"
-#include "utility/test_helpers.h"
-#include "node/node.h"
-
 WALLET_TEST_INIT
-
-#include "wallet_test_environment.cpp"
 #include "mock_bbs_network.cpp"
 
+// tested module
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
+
+// dependencies
+#include "keykeeper/local_private_key_keeper.h"
+
+#include <boost/filesystem.hpp>
 
 using namespace beam;
 using namespace beam::wallet;
@@ -45,6 +35,8 @@ namespace
 {
     using PrivateKey = ECC::Scalar::Native;
     using PublicKey = PeerID;
+
+    const string dbFileName = "wallet.db";
 
     /**
      *  Class to test correct notification of SwapOffersBoard observers
@@ -78,6 +70,21 @@ namespace
 
         OnMessage m_callback;
     };
+
+    IWalletDB::Ptr createSqliteWalletDB()
+    {
+        if (boost::filesystem::exists(dbFileName))
+        {
+            boost::filesystem::remove(dbFileName);
+        }
+        ECC::NoLeak<ECC::uintBig> seed;
+        seed.V = 10283UL;
+        auto walletDB = WalletDB::init(dbFileName, string("pass123"), seed);
+        beam::Block::SystemState::ID id = { };
+        id.m_Height = 134;
+        walletDB->setSystemStateID(id);
+        return walletDB;
+    }
 
     // Generate random TxID
     TxID generateTxID()
@@ -189,19 +196,19 @@ namespace
     {
         cout << endl << "Test protocol handler validating signature" << endl;
 
-        auto senderWalletDB = createSenderWalletDB();
+        auto storage = createSqliteWalletDB();
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
-            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+            make_shared<LocalPrivateKeyKeeper>(storage, storage->get_MasterKdf());
 
-        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), storage);
 
         {
             std::cout << "Case: parsing message with invalid signature" << endl;
 
-            const auto& [offer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
+            const auto& [offer, keyIndex] = generateTestOffer(storage, keyKeeper);
 
             const ByteBuffer msgRaw = toByteBuffer(SwapOfferToken(offer));
-            auto signatureRaw = signData(msgRaw, keyIndex, senderWalletDB);
+            auto signatureRaw = signData(msgRaw, keyIndex, storage);
             // corrupt signature
             signatureRaw.front() += 1;
 
@@ -214,15 +221,15 @@ namespace
         {
             std::cout << "Case: parsing message with invalid public key" << endl;
 
-            auto [offer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
+            auto [offer, keyIndex] = generateTestOffer(storage, keyKeeper);
 
             // changed public key another
             WalletAddress anotherAddress;
-            senderWalletDB->createAddress(anotherAddress);
+            storage->createAddress(anotherAddress);
             offer.m_publisherId = anotherAddress.m_walletID;
 
             const ByteBuffer msgRaw = toByteBuffer(SwapOfferToken(offer));
-            const auto signatureRaw = signData(msgRaw, keyIndex, senderWalletDB);
+            const auto signatureRaw = signData(msgRaw, keyIndex, storage);
             const auto finalMessage = makeMsg(msgRaw, signatureRaw);
 
             boost::optional<SwapOffer> res;
@@ -232,10 +239,10 @@ namespace
         {
             std::cout << "Case: parsing correct message" << endl;
 
-            const auto& [offer, keyIndex] = generateTestOffer(senderWalletDB, keyKeeper);
+            const auto& [offer, keyIndex] = generateTestOffer(storage, keyKeeper);
 
             const ByteBuffer msgRaw = toByteBuffer(SwapOfferToken(offer));
-            const auto signatureRaw = signData(msgRaw, keyIndex, senderWalletDB);
+            const auto signatureRaw = signData(msgRaw, keyIndex, storage);
             const auto finalMessage = makeMsg(msgRaw, signatureRaw);
 
             boost::optional<SwapOffer> res;
@@ -251,11 +258,11 @@ namespace
     {
         cout << endl << "Test protocol handler integration" << endl;
 
-        auto senderWalletDB = createSenderWalletDB();
+        auto storage = createSqliteWalletDB();
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
-            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+            make_shared<LocalPrivateKeyKeeper>(storage, storage->get_MasterKdf());
 
-        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), storage);
         MockBbsNetwork mockNetwork;
         BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
 
@@ -263,7 +270,7 @@ namespace
             std::cout << "Case: create, dispatch and parse offer" << endl;
 
             SwapOffer offer;
-            std::tie(offer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);
+            std::tie(offer, std::ignore) = generateTestOffer(storage, keyKeeper);
             bool executed = false;
 
             MockBroadcastListener testListener(
@@ -294,18 +301,18 @@ namespace
     {
         cout << endl << "Test mandatory parameters validation" << endl;
 
-        auto senderWalletDB = createSenderWalletDB();
+        auto storage = createSqliteWalletDB();
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
-            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+            make_shared<LocalPrivateKeyKeeper>(storage, storage->get_MasterKdf());
         MockBbsNetwork mockNetwork;
         BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
-        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), storage);
         SwapOffersBoard Alice(broadcastRouter, protocolHandler);
 
         WALLET_CHECK(Alice.getOffersList().size() == 0);
 
         SwapOffer correctOffer;
-        std::tie(correctOffer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);
+        std::tie(correctOffer, std::ignore) = generateTestOffer(storage, keyKeeper);
         TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
         
         size_t offersCount = 0;
@@ -364,10 +371,10 @@ namespace
     {
         cout << endl << "Test boards communication and notification" << endl;
 
-        auto senderWalletDB = createSenderWalletDB();
+        auto storage = createSqliteWalletDB();
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
-            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
+            make_shared<LocalPrivateKeyKeeper>(storage, storage->get_MasterKdf());
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), storage);
         MockBbsNetwork mockNetwork;
         BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
         BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
@@ -382,7 +389,7 @@ namespace
         WALLET_CHECK(Cory.getOffersList().size() == 0);
 
         SwapOffer correctOffer;
-        std::tie(correctOffer, std::ignore) =  generateTestOffer(senderWalletDB, keyKeeper);
+        std::tie(correctOffer, std::ignore) =  generateTestOffer(storage, keyKeeper);
         TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
         
         size_t offersCount = 0;
@@ -517,10 +524,10 @@ namespace
     {
         cout << endl << "Test linked transaction status changes" << endl;
 
-        auto senderWalletDB = createSenderWalletDB();
+        auto storage = createSqliteWalletDB();
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
-            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
+            make_shared<LocalPrivateKeyKeeper>(storage, storage->get_MasterKdf());
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), storage);
         MockBbsNetwork mockNetwork;
         BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
         BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
@@ -529,7 +536,7 @@ namespace
         SwapOffersBoard Bob(broadcastRouterB, protocolHandler);
 
         SwapOffer correctOffer;
-        std::tie(correctOffer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);
+        std::tie(correctOffer, std::ignore) = generateTestOffer(storage, keyKeeper);
         TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
 
         size_t offerCount = 0;
@@ -657,10 +664,10 @@ namespace
     {
         cout << endl << "Test delayed offer update" << endl;
 
-        auto senderWalletDB = createSenderWalletDB();
+        auto storage = createSqliteWalletDB();
         std::shared_ptr<IPrivateKeyKeeper> keyKeeper =
-            make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
-        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), senderWalletDB);
+            make_shared<LocalPrivateKeyKeeper>(storage, storage->get_MasterKdf());
+        OfferBoardProtocolHandler protocolHandler(keyKeeper->get_SbbsKdf(), storage);
         MockBbsNetwork mockNetwork;
         BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
         BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
@@ -669,7 +676,7 @@ namespace
         SwapOffersBoard Bob(broadcastRouterB, protocolHandler);
 
         SwapOffer correctOffer;
-        std::tie(correctOffer, std::ignore) = generateTestOffer(senderWalletDB, keyKeeper);
+        std::tie(correctOffer, std::ignore) = generateTestOffer(storage, keyKeeper);
 
         uint32_t exCount = 0;
         MockBoardObserver observer(
@@ -731,7 +738,7 @@ int main()
     TestLinkedTransactionChanges();
     TestDelayedOfferUpdate();
 
-    boost::filesystem::remove(SenderWalletDB);
+    boost::filesystem::remove(dbFileName);
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
