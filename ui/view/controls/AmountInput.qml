@@ -55,7 +55,7 @@ ColumnLayout {
     property bool     multi:        false // changing this property in runtime would reset bindings
     property int      currency:     Currency.CurrBeam
     property string   amount:       "0"
-    property string   amountIn:     "0"
+    property string   amountIn:     "0"  // public property for binding. Use it to avoid binding overriding
     property int      fee:          currencies[currency].defaultFee
     property alias    error:        errmsg.text
     property bool     readOnlyA:    false
