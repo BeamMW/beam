@@ -22,6 +22,7 @@ WALLET_TEST_INIT
 // tested module
 #include "wallet/client/extensions/news_channels/interface.h"
 #include "wallet/client/extensions/news_channels/updates_provider.h"
+#include "wallet/client/extensions/news_channels/exchange_rate_provider.h"
 #include "wallet/client/extensions/notifications/notification_center.h"
 
 // dependencies
@@ -172,35 +173,40 @@ namespace
     {
         cout << endl << "Test news channels observers" << endl;
 
+        auto storage = createSqliteWalletDB();
         MockBbsNetwork network;
         BroadcastRouter broadcastRouter(network, network);
         BroadcastMsgValidator validator;
         AppUpdateInfoProvider updatesProvider(broadcastRouter, validator);
-        auto storage = createSqliteWalletDB();
+        ExchangeRateProvider rateProvider(broadcastRouter, validator, *storage);
         
-        int notificationCount = 0;
+        int execCountVers = 0;
+        int execCountRate = 0;
 
         const VersionInfo verInfo { VersionInfo::Application::DesktopWallet, Version {123,456,789} };
-        // const std::vector<ExchangeRate> rates {
-        //     { ExchangeRates::Currency::Beam, ExchangeRate::Currency::Usd, 147852369, getTimestamp() } };
+        const std::vector<ExchangeRate> rates {
+            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 147852369, getTimestamp() } };
 
         const auto& [pk, sk] = deriveKeypair(storage, 321);
-        BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
-        // BroadcastMsg msgR = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rates), sk);
+        BroadcastMsg msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
+        BroadcastMsg msgR = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rates), sk);
+        ECC::uintBig msgSignature;
+        fromByteBuffer(msgV.m_signature, msgSignature);
 
         MockNewsObserver testObserver(
-            [&notificationCount, &verInfo/*, &signature*/]
-            (const VersionInfo& v, const ECC::uintBig& s)
+            [&execCountVers, &verInfo, &msgSignature]
+            (const VersionInfo& v, const ECC::uintBig& id)
             {
+                // check notification ID same as message signature
+                WALLET_CHECK(msgSignature == id);
                 WALLET_CHECK(verInfo == v);
-                // WALLET_CHECK(signature == toByteBuffer(s));
-                ++notificationCount;
+                ++execCountVers;
             },
-            [&notificationCount/*, &rates*/]
+            [&execCountRate, &rates]
             (const std::vector<ExchangeRate>& r)
             {
-                // WALLET_CHECK(rates == r);
-                ++notificationCount;
+                WALLET_CHECK(rates == r);
+                ++execCountRate;
             });
 
 
@@ -215,31 +221,110 @@ namespace
         {
             cout << "Case: subscribed on valid message" << endl;
             updatesProvider.Subscribe(&testObserver);
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 1);
+            rateProvider.Subscribe(&testObserver);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgR);
+            WALLET_CHECK(execCountVers == 1);
+            WALLET_CHECK(execCountRate == 1);
         }
         {
             cout << "Case: unsubscribed on valid message" << endl;
             updatesProvider.Unsubscribe(&testObserver);
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 1);
+            rateProvider.Unsubscribe(&testObserver);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgR);
+            WALLET_CHECK(execCountVers == 1);
+            WALLET_CHECK(execCountRate == 1);
         }
         {
             cout << "Case: subscribed back" << endl;
             updatesProvider.Subscribe(&testObserver);
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 2);
+            rateProvider.Subscribe(&testObserver);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            WALLET_CHECK(execCountVers == 2);
+            WALLET_CHECK(execCountRate == 1);   // the rate was the same so no need in the notification
         }
         {
             cout << "Case: subscribed on invalid message" << endl;
             // sign the same message with other key
             PrivateKey newSk;
             std::tie(std::ignore, newSk) = deriveKeypair(storage, 322);
-            msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), newSk);
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 2);
+            msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), newSk);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            WALLET_CHECK(execCountVers == 2);
         }
         cout << "Test end" << endl;
+    }
+
+    void TestExchangeRateProvider()
+    {
+        cout << endl << "Test ExchangeRateProvider" << endl;
+
+        MockBbsNetwork network;
+        BroadcastRouter broadcastRouter(network, network);
+        BroadcastMsgValidator validator;
+        auto storage = createSqliteWalletDB();
+        ExchangeRateProvider rateProvider(broadcastRouter, validator, *storage);
+
+        const auto& [pk, sk] = deriveKeypair(storage, 321);
+        validator.setPublisherKeys({pk});
+
+        // empty provider
+        {
+            cout << "Case: empty rates" << endl;
+            WALLET_CHECK(rateProvider.getRates().empty());
+        }
+        const std::vector<ExchangeRate> rate {
+            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 147852369, getTimestamp() }
+        };
+        // add rate
+        {
+            cout << "Case: add rates" << endl;
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rate), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
+
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 1);
+            WALLET_CHECK(testRates[0] == rate[0]);
+        }
+        // update rate
+        {
+            cout << "Case: not update if rates older" << endl;
+            const std::vector<ExchangeRate> rateOlder {
+                { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 14785238554, getTimestamp()-100 }
+            };
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateOlder), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
+
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 1);
+            WALLET_CHECK(testRates[0] == rate[0]);
+        }
+        const std::vector<ExchangeRate> rateNewer {
+            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 14785238554, getTimestamp()+100 }
+        };
+        {
+            cout << "Case: update rates" << endl;
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateNewer), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
+
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 1);
+            WALLET_CHECK(testRates[0] == rateNewer[0]);
+        }
+        // add more rate
+        {
+            cout << "Case: add more rates" << endl;
+            const std::vector<ExchangeRate> rateAdded {
+                { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Bitcoin, 987, getTimestamp()+100 }
+            };
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateAdded), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
+
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 2);
+            WALLET_CHECK(testRates[0] == rateNewer[0] || testRates[1] == rateNewer[0]);
+        }
     }
 
     void TestNotificationCenter()
@@ -457,6 +542,8 @@ int main()
     TestSoftwareVersion();
 
     TestNewsChannelsObservers();
+
+    TestExchangeRateProvider();
 
     TestNotificationCenter();
     TestNotificationsOnOffSwitching();
