@@ -64,6 +64,7 @@ namespace beam
     extern const char kErrorSeedPhraseNotProvided[];
     extern const char kErrorTxIdParamReqired[];
     extern const char kErrorTxWithIdNotFound[];
+    extern const char kErrorTxIdParamInvalid[];
     extern const char kErrorPpExportFailed[];
     extern const char kErrorPpCannotExportForReceiver[];
     extern const char kErrorPpExportFailedTxNotCompleted[];
