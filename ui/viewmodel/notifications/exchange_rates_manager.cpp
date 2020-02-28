@@ -14,11 +14,16 @@
 
 #include "exchange_rates_manager.h"
 
+#include "viewmodel/ui_helpers.h"
+
 // test
 #include "utility/logger.h"
 
+using namespace beam::wallet;
+
 ExchangeRatesManager::ExchangeRatesManager()
     : m_walletModel(*AppModel::getInstance().getWallet())
+    , m_rateUnit(ExchangeRate::Currency::Usd)
 {
     qRegisterMetaType<std::vector<beam::wallet::ExchangeRate>>("std::vector<beam::wallet::ExchangeRate>");
 
@@ -29,10 +34,49 @@ ExchangeRatesManager::ExchangeRatesManager()
 
 void ExchangeRatesManager::onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates)
 {
-    // TEST
     for (const auto& rate : rates)
     {
-        LOG_DEBUG() << "Exchange rate: 1 " << beam::wallet::ExchangeRate::to_string(rate.m_currency) << " = "
-                    << rate.m_rate << " " << beam::wallet::ExchangeRate::to_string(rate.m_unit);
+        if (rate.m_unit != m_rateUnit) continue;
+        m_rates[rate.m_currency] = rate.m_rate;
     }
+
+    // TEST
+    // for (const auto& rate : rates)
+    // {
+    //     LOG_DEBUG() << "Exchange rate: 1 " << beam::wallet::ExchangeRate::to_string(rate.m_currency) << " = "
+    //                 << rate.m_rate << " " << beam::wallet::ExchangeRate::to_string(rate.m_unit);
+    // }
 }
+
+QString ExchangeRatesManager::getBeamRate()
+{
+    const auto it = m_rates.find(ExchangeRate::Currency::Beam);
+    beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
+    
+    return beamui::AmountToUIString(value, beamui::Currencies::Beam);
+}
+
+QString ExchangeRatesManager::getBtcRate()
+{
+    const auto it = m_rates.find(ExchangeRate::Currency::Bitcoin);
+    beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
+    
+    return beamui::AmountToUIString(value, beamui::Currencies::Bitcoin);
+}
+
+QString ExchangeRatesManager::getLtcRate()
+{
+    const auto it = m_rates.find(ExchangeRate::Currency::Litecoin);
+    beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
+    
+    return beamui::AmountToUIString(value, beamui::Currencies::Litecoin);
+}
+
+QString ExchangeRatesManager::getQtumRate()
+{
+    const auto it = m_rates.find(ExchangeRate::Currency::Qtum);
+    beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
+    
+    return beamui::AmountToUIString(value, beamui::Currencies::Qtum);
+}
+

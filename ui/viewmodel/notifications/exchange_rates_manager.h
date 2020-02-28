@@ -22,13 +22,24 @@
 class ExchangeRatesManager : public QObject
 {
     Q_OBJECT
-    // Q_PROPERTY()
+    Q_PROPERTY(QString      beamRate        READ getBeamRate        NOTIFY  beamRateChanged)
+    Q_PROPERTY(QString      btcRate         READ getBtcRate         NOTIFY  btcRateChanged)
+    Q_PROPERTY(QString      ltcRate         READ getLtcRate         NOTIFY  ltcRateChanged)
+    Q_PROPERTY(QString      qtumRate        READ getQtumRate        NOTIFY  qtumRateChanged)
 
 public:
     ExchangeRatesManager();
 
+    QString getBeamRate();
+    QString getBtcRate();
+    QString getLtcRate();
+    QString getQtumRate();
+
 signals:
-    //
+    void beamRateChanged();
+    void btcRateChanged();
+    void ltcRateChanged();
+    void qtumRateChanged();
 
 public slots:
     void onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates);
@@ -36,4 +47,7 @@ public slots:
 private:
     WalletModel& m_walletModel;
     // WalletSettings& m_settings;
+
+    beam::wallet::ExchangeRate::Currency m_rateUnit;
+    std::map<beam::wallet::ExchangeRate::Currency, beam::Amount> m_rates;
 };

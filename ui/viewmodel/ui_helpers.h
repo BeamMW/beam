@@ -17,6 +17,7 @@ namespace beamui
         Bitcoin,
         Litecoin,
         Qtum,
+        Usd,
         Unknown
     };
 

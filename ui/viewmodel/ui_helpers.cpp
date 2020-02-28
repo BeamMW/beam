@@ -52,6 +52,10 @@ namespace beamui
                 coinSign = QString(" QTUM");
                 break;
 
+            case Currencies::Usd:
+                coinSign = QString(" USD");
+                break;
+
             case Currencies::Unknown:
                 coinSign = "";
                 break;
