@@ -799,6 +799,7 @@ SettingsViewModel::SettingsViewModel()
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
     , m_supportedLanguages(WalletSettings::getSupportedLanguages())
+    , m_supportedAmountUnits(WalletSettings::getSupportedAmountUnits())
 {
     undoChanges();
 
@@ -806,6 +807,7 @@ SettingsViewModel::SettingsViewModel()
     m_isPasswordReqiredToSpendMoney = m_settings.isPasswordReqiredToSpendMoney();
     m_isAllowedBeamMWLinks = m_settings.isAllowedBeamMWLinks();
     m_currentLanguageIndex = m_supportedLanguages.indexOf(m_settings.getLanguageName());
+    m_currentAmountUnitIndex = m_supportedAmountUnits.indexOf(m_settings.getAmountUnitName());
 
     connect(&AppModel::getInstance().getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
     connect(&AppModel::getInstance().getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
@@ -1009,6 +1011,38 @@ void SettingsViewModel::setCurrentLanguage(QString value)
     if (index != -1 )
     {
         setCurrentLanguageIndex(index);
+    }
+}
+
+QStringList SettingsViewModel::getSupportedAmountUnits() const
+{
+    return m_supportedAmountUnits;
+}
+
+int SettingsViewModel::getCurrentAmountUnitIndex() const
+{
+    return m_currentAmountUnitIndex;
+}
+
+QString SettingsViewModel::getCurrentAmountUnit() const
+{
+    return m_supportedAmountUnits[m_currentAmountUnitIndex];
+}
+
+void SettingsViewModel::setCurrentAmountUnitIndex(int value)
+{
+    m_currentAmountUnitIndex = value;
+    m_settings.setAmountUnitByName(
+            m_supportedAmountUnits[m_currentAmountUnitIndex]);
+    emit currentAmountUnitIndexChanged();
+}
+
+void SettingsViewModel::setCurrentAmountUnit(const QString& value)
+{
+    auto index = m_supportedAmountUnits.indexOf(value);
+    if (index != -1 )
+    {
+        setCurrentAmountUnitIndex(index);
     }
 }
 

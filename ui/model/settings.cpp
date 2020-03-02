@@ -40,12 +40,14 @@ namespace
     const char* kRequirePasswordToSpendMoney = "require_password_to_spend_money";
     const char* kIsAlowedBeamMWLink = "beam_mw_links_allowed";
     const char* kshowSwapBetaWarning = "show_swap_beta_warning";
+    const char* kAmountUnit = "amountUnit";
 
     const char* kLocalNodeRun = "localnode/run";
     const char* kLocalNodePort = "localnode/port";
     const char* kLocalNodePeers = "localnode/peers";
 
     const char* kDefaultLocale = "en_US";
+    const char* kDefaultAmountUnit = "usd";
 
     const char* kExcRatesActive = "notifications/exchange_rates";
     const char* kNewVersionActive = "notifications/software_release";
@@ -71,6 +73,10 @@ namespace
         { "tr_TR", "Türkçe"},
         { "vi_VI", "Tiếng việt"},
         { "ko_KR", "한국어"}
+    };
+
+    const std::map<QString, QString> kSupportedAmountUnits {
+        { "usd", "USD (United States Dollar)" }
     };
 
     const vector<string> kOutDatedPeers = beam::getOutdatedDefaultPeers();
@@ -348,28 +354,63 @@ void WalletSettings::setLocaleByLanguageName(const QString& language)
     emit localeChanged();
 }
 
+QString WalletSettings::getAmountUnitName() const
+{
+    Lock lock(m_mutex);
+    QString savedAmountUnit = m_data.value(kAmountUnit, kDefaultAmountUnit).toString();
+
+    const auto it = kSupportedAmountUnits.find(savedAmountUnit);
+    if (it == std::cend(kSupportedAmountUnits))
+    {
+        return kSupportedAmountUnits.at(kDefaultAmountUnit);
+    }
+    else
+    {
+        return it->second;
+    }
+}
+
+void WalletSettings::setAmountUnitByName(const QString& name)
+{
+    const auto& it = std::find_if(
+            kSupportedAmountUnits.begin(),
+            kSupportedAmountUnits.end(),
+            [name] (const auto& mapedObject) -> bool
+            {
+                return mapedObject.second == name;
+            });
+    auto unitName = 
+            it != kSupportedAmountUnits.end()
+                ? it->first
+                : QString::fromUtf8(kDefaultAmountUnit);
+    {
+        Lock lock(m_mutex);
+        m_data.setValue(kAmountUnit, unitName);
+    }
+}
+
 bool WalletSettings::isNewVersionActive() const
 {
     Lock lock(m_mutex);
-    return m_data.value(kNewVersionActive, false).toBool();
+    return m_data.value(kNewVersionActive, true).toBool();
 }
 
 bool WalletSettings::isExcRatesActive() const
 {
     Lock lock(m_mutex);
-    return m_data.value(kExcRatesActive, false).toBool();
+    return m_data.value(kExcRatesActive, true).toBool();
 }
 
 bool WalletSettings::isBeamNewsActive() const
 {
     Lock lock(m_mutex);
-    return m_data.value(kBeamNewsActive, false).toBool();
+    return m_data.value(kBeamNewsActive, true).toBool();
 }
 
 bool WalletSettings::isTxStatusActive() const
 {
     Lock lock(m_mutex);
-    return m_data.value(kTxStatusActive, false).toBool();
+    return m_data.value(kTxStatusActive, true).toBool();
 }
 
 void WalletSettings::setNewVersionActive(bool isActive)
@@ -445,6 +486,19 @@ QStringList WalletSettings::getSupportedLanguages()
                        return lang.second;
                    });
     return languagesNames;
+}
+
+// static
+QStringList WalletSettings::getSupportedAmountUnits()
+{
+    QStringList unitNames;
+    std::transform(kSupportedAmountUnits.begin(),
+                   kSupportedAmountUnits.end(),
+                   std::back_inserter(unitNames),
+                   [] (const auto& name) -> QString {
+                       return name.second;
+                   });
+    return unitNames;
 }
 
 // static

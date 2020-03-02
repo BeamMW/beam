@@ -67,6 +67,9 @@ public:
     QString getLanguageName() const;
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
+    static QStringList getSupportedAmountUnits();
+    QString getAmountUnitName() const;
+    void setAmountUnitByName(const QString&);
 
     // Notifications settings
     bool isExcRatesActive() const;

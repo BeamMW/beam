@@ -36,6 +36,9 @@ void ExchangeRatesManager::onExchangeRatesUpdate(const std::vector<beam::wallet:
 {
     for (const auto& rate : rates)
     {
+        LOG_DEBUG() << "Exchange rate: 1 " << beam::wallet::ExchangeRate::to_string(rate.m_currency) << " = "
+                    << rate.m_rate << " " << beam::wallet::ExchangeRate::to_string(rate.m_unit);
+
         if (rate.m_unit != m_rateUnit) continue;
         m_rates[rate.m_currency] = rate.m_rate;
     }
@@ -43,8 +46,7 @@ void ExchangeRatesManager::onExchangeRatesUpdate(const std::vector<beam::wallet:
     // TEST
     // for (const auto& rate : rates)
     // {
-    //     LOG_DEBUG() << "Exchange rate: 1 " << beam::wallet::ExchangeRate::to_string(rate.m_currency) << " = "
-    //                 << rate.m_rate << " " << beam::wallet::ExchangeRate::to_string(rate.m_unit);
+        
     // }
 }
 

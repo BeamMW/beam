@@ -489,8 +489,44 @@ deploy the key at the node you trust completely."*/
                         }
                         
                         Item {
-                           Layout.preferredHeight: 10
+                           Layout.preferredHeight: 15
                            visible: false  // Remove to enable language dropdown
+                        }
+
+                        RowLayout {
+                           Layout.preferredHeight: 16
+                        
+                           ColumnLayout {
+                               SFText {
+                                   Layout.fillWidth: true
+                                   //: settings tab, general section, amounts unit label
+                                   //% "Show amounts in"
+                                   text: qsTrId("settings-general-amounts-unit")
+                                   color: Style.content_secondary
+                                   font.pixelSize: 14
+                               }
+                           }
+                        
+                           Item {
+                           }
+                        
+                           ColumnLayout {
+                               CustomComboBox {
+                                   id: amountsUnit
+                                   Layout.preferredWidth: generalBlock.width * 0.33
+                                   fontPixelSize: 14
+                        
+                                   model: viewModel.supportedAmountUnits
+                                   currentIndex: viewModel.currentAmountUnitIndex
+                                   onActivated: {
+                                       viewModel.currentAmountUnit = currentText;
+                                   }
+                               }
+                           }
+                        }
+                        
+                        Item {
+                           Layout.preferredHeight: 10
                         }
 
                         SFText {
