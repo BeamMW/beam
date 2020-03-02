@@ -2177,9 +2177,21 @@ deploy the key at the node you trust completely.</translation>
         <source>Exchange rates</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="notifications-read">
-        <source>Read</source>
+    <message id="notifications-clear-all-dialog">
+        <source>Clear all notifications</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-clear-all-text">
+        <source>Are you sure you want to remove all notifications?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-clear-all-yes-button">
+        <source>yes</source>
+        <translation type="unfinished">ja</translation>
+    </message>
+    <message id="notifications-clear-all-no-button">
+        <source>no</source>
+        <translation type="unfinished">nej</translation>
     </message>
 </context>
 </TS>

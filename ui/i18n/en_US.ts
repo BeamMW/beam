@@ -2180,13 +2180,25 @@ deploy the key at the node you trust completely.</translation>
         <source>clear all</source>
         <translation>clear all</translation>
     </message>
-    <message id="notifications-read">
-        <source>Read</source>
-        <translation type="unfinished">Read</translation>
-    </message>
     <message id="settings-notifications-rates">
         <source>Exchange rates</source>
         <translation>Exchange rates</translation>
+    </message>
+    <message id="notifications-clear-all-dialog">
+        <source>Clear all notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-clear-all-text">
+        <source>Are you sure you want to remove all notifications?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-clear-all-yes-button">
+        <source>yes</source>
+        <translation type="unfinished">yes</translation>
+    </message>
+    <message id="notifications-clear-all-no-button">
+        <source>no</source>
+        <translation type="unfinished">no</translation>
     </message>
 </context>
 </TS>

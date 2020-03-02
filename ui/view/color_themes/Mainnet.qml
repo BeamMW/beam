@@ -12,6 +12,7 @@ AbstractColors {
     property color content_opposite:      "#032e49" // marine
     property color validator_warning:     "#f4ce4a"
     property color validator_error:       "#ff625c"
+    property color section:               "#2c5066"
 
     property color navigation_background: "#000000" 
     property color background_main:       "#042548" 

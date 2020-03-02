@@ -29,19 +29,19 @@ bool NotificationItem::operator==(const NotificationItem& other) const
     return getID() == other.getID();
 }
 
-auto NotificationItem::getID() const -> ECC::uintBig
+ECC::uintBig NotificationItem::getID() const
 {
     return m_notification.m_ID;
 }
 
-auto NotificationItem::timeCreated() const -> QDateTime
+QDateTime NotificationItem::timeCreated() const
 {
     QDateTime datetime;
     datetime.setTime_t(m_notification.m_createTime);
     return datetime;
 }
 
-auto NotificationItem::title() const -> QString
+QString NotificationItem::title() const
 {
     switch(m_notification.m_type)
     {
@@ -73,7 +73,7 @@ auto NotificationItem::title() const -> QString
     }
 }
 
-auto NotificationItem::message() const -> QString
+QString NotificationItem::message() const
 {
     switch(m_notification.m_type)
     {
@@ -105,7 +105,7 @@ auto NotificationItem::message() const -> QString
     }
 }
 
-auto NotificationItem::type() const -> QString
+QString NotificationItem::type() const
 {
     // !TODO: full list of the supported item types is: update expired received sent failed inpress hotnews videos events newsletter community
     
@@ -124,7 +124,7 @@ auto NotificationItem::type() const -> QString
     }
 }
 
-auto NotificationItem::state() const -> QString
+QString NotificationItem::state() const
 {
     switch(m_notification.m_state)
     {

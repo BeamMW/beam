@@ -29,14 +29,9 @@ NotificationsViewModel::NotificationsViewModel()
     m_walletModel.getAsync()->getNotifications();
 }
 
-QAbstractItemModel* NotificationsViewModel::getReadNotifications()
+QAbstractItemModel* NotificationsViewModel::getNotifications()  
 {
-    return &m_readNotificationsList;
-}
-
-QAbstractItemModel* NotificationsViewModel::getUnreadNotifications()
-{
-    return &m_unreadNotificationsList;
+    return &m_notificationsList;
 }
 
 void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action, const std::vector<Notification>& notifications)
@@ -53,25 +48,25 @@ void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action
     {
         case ChangeAction::Reset:
             {
-                m_unreadNotificationsList.reset(modifiedNotifications);
+                m_notificationsList.reset(modifiedNotifications);
                 break;
             }
 
         case ChangeAction::Added:
             {
-                m_unreadNotificationsList.insert(modifiedNotifications);
+                m_notificationsList.insert(modifiedNotifications);
                 break;
             }
 
         case ChangeAction::Removed:
             {
-                m_unreadNotificationsList.remove(modifiedNotifications);
+                m_notificationsList.remove(modifiedNotifications);
                 break;
             }
 
         case ChangeAction::Updated:
             {
-                m_unreadNotificationsList.update(modifiedNotifications);
+                m_notificationsList.update(modifiedNotifications);
                 break;
             }
         

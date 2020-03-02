@@ -191,7 +191,7 @@ namespace beam::wallet
     {
         for (const auto sub : m_subscribers)
         {
-                sub->onNotificationsChanged(action, std::vector<Notification>{notifications});
+            sub->onNotificationsChanged(action, notifications);
         }
     }
 

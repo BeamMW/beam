@@ -2175,9 +2175,21 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <source>Exchange rates</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="notifications-read">
-        <source>Read</source>
+    <message id="notifications-clear-all-dialog">
+        <source>Clear all notifications</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-clear-all-text">
+        <source>Are you sure you want to remove all notifications?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-clear-all-yes-button">
+        <source>yes</source>
+        <translation type="unfinished">ano</translation>
+    </message>
+    <message id="notifications-clear-all-no-button">
+        <source>no</source>
+        <translation type="unfinished">ne</translation>
     </message>
 </context>
 </TS>

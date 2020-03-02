@@ -28,13 +28,14 @@ public:
     NotificationItem(const beam::wallet::Notification&);
     bool operator==(const NotificationItem& other) const;
 
-    auto timeCreated() const -> QDateTime;
-    auto title() const -> QString;
-    auto message() const -> QString;
-    auto type() const -> QString;
-    auto state() const -> QString;
+    QDateTime timeCreated() const;
+    QString title() const;
+    QString message() const;
+    QString type() const;
+    QString state() const;
 
-    auto getID() const -> ECC::uintBig;
+    ECC::uintBig getID() const;
+    
 
 signals:
 

@@ -22,14 +22,12 @@
 class NotificationsViewModel : public QObject
 {
 	Q_OBJECT
-    Q_PROPERTY(QAbstractItemModel*  readNotifications        READ getReadNotifications        NOTIFY allNotificationsChanged)
-    Q_PROPERTY(QAbstractItemModel*  unreadNotifications      READ getUnreadNotifications      NOTIFY allNotificationsChanged)
+    Q_PROPERTY(QAbstractItemModel*  notifications            READ getNotifications            NOTIFY allNotificationsChanged)
 
 public:
     NotificationsViewModel();
 
-    QAbstractItemModel* getReadNotifications();
-    QAbstractItemModel* getUnreadNotifications();
+    QAbstractItemModel* getNotifications();
 
 public slots:
     void onNotificationsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&);
@@ -41,6 +39,5 @@ private:
 
     WalletModel& m_walletModel;
 
-    NotificationsList m_readNotificationsList;
-    NotificationsList m_unreadNotificationsList;
+    NotificationsList m_notificationsList;
 };
