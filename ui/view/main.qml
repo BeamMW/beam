@@ -11,6 +11,8 @@ import "utils.js" as Utils
 Rectangle {
     id: main
 
+    property var openedNotifications: 0
+
     anchors.fill: parent
 
 	MainViewModel {
@@ -37,6 +39,12 @@ Rectangle {
                     settingsViewModel,
                     externalLinkConfirmation);
             }
+            main.openedNotifications++;
+            popup.closed.connect(function() {
+                main.openedNotifications--;
+            })
+            
+            popup.verticalOffset = (main.openedNotifications - 1) * 200;
             popup.open();
         }
     }
