@@ -25,7 +25,9 @@ PushNotificationManager::PushNotificationManager()
 
     connect(&m_walletModel,
             SIGNAL(notificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)),
-            SLOT(onNotificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)));            
+            SLOT(onNotificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)));
+
+    m_walletModel.getAsync()->getNotifications();
 }
 
 void PushNotificationManager::onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo& info, const ECC::uintBig& notificationID)

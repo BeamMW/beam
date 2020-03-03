@@ -39,7 +39,7 @@ Popup {
         
         NumberAnimation { target: popup; property: "opacity"; from: 1.0; to: 0.0; easing.type: Easing.InOutQuad }
         NumberAnimation { target: popup; property: "height"; from: 198; to: 0.0; easing.type: Easing.InOutQuad }
-        onStopped: popup.onCancel()
+        onStopped: popup.close()
     }
 
     Timer {

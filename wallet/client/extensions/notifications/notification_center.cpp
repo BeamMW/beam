@@ -67,6 +67,15 @@ namespace beam::wallet
         m_activeNotifications[type] = onOff;
     }
 
+    size_t NotificationCenter::getUnreadCount() const
+    {
+        return std::count_if(m_cache.begin(), m_cache.end(),
+            [](const auto& p)
+            {
+                return p.second.m_state == Notification::State::Unread;
+            });
+    }
+
     void NotificationCenter::createNotification(const Notification& notification)
     {
         LOG_DEBUG() << "createNotification()";

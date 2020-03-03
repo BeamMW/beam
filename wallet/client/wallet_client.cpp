@@ -328,7 +328,19 @@ namespace beam::wallet
                     // Notification center initialization
                     m_notificationCenter = make_shared<NotificationCenter>(*m_walletDB, activeNotifications);
                     using NotificationsSubscriber = ScopedSubscriber<INotificationsObserver, NotificationCenter>;
-                    auto notificationsSubscriber = make_unique<NotificationsSubscriber>(static_cast<INotificationsObserver*>(this), m_notificationCenter);
+
+                    struct MyNotificationsObserver : INotificationsObserver
+                    {
+                        WalletClient& m_client;
+                        MyNotificationsObserver(WalletClient& client) : m_client(client) {}
+                        void onNotificationsChanged(ChangeAction action, const std::vector<Notification>& items) override
+                        {
+                            m_client.updateNotifications();
+                            static_cast<INotificationsObserver&>(m_client).onNotificationsChanged(action, items);
+                        }
+                    } notificationObserver(*this);
+
+                    auto notificationsSubscriber = make_unique<NotificationsSubscriber>(&notificationObserver, m_notificationCenter);
 
                     // Broadcast router and broadcast message consumers initialization
                     auto broadcastRouter = make_shared<BroadcastRouter>(*nodeNetwork, *walletNetwork);
@@ -434,6 +446,11 @@ namespace beam::wallet
     size_t WalletClient::getUnsafeActiveTransactionsCount() const
     {
         return m_unsafeActiveTxCount;
+    }
+
+    size_t WalletClient::getUnreadNotificationsCount() const
+    {
+        return m_unreadNotificationsCount;
     }
 
     bool WalletClient::isConnectionTrusted() const
@@ -1032,6 +1049,14 @@ namespace beam::wallet
                 m_unsafeActiveTxCount = count;
             });
         }
+    }
+
+    void WalletClient::updateNotifications()
+    {
+        postFunctionToClientContext([this, count = m_notificationCenter->getUnreadCount()]()
+        {
+            m_unreadNotificationsCount = count;
+        });
     }
 
     void WalletClient::updateConnectionTrust(bool trustedConnected)

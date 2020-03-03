@@ -134,11 +134,19 @@ ColumnLayout {
             property bool isUnread: model.state == "unread" 
 
             Rectangle {
-                
                 radius: 10
                 anchors.fill: parent
                 color: (parent.isUnread) ? Style.active : Style.background_second
                 opacity: (parent.isUnread) ? 0.1 : 1.0
+            }
+
+            Timer {
+                id: readTimer
+                running: parent.isUnread
+                interval: 10000
+                onTriggered: {
+                    viewModel.markItemAsRead(model.rawID);
+                }
             }
         
             Item {

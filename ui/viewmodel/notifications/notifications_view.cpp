@@ -47,6 +47,11 @@ void NotificationsViewModel::removeItem(const ECC::uintBig& id)
     m_walletModel.getAsync()->deleteNotification(id);
 }
 
+void NotificationsViewModel::markItemAsRead(const ECC::uintBig& id)
+{
+    m_walletModel.getAsync()->markNotificationAsRead(id);
+}
+
 void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action, const std::vector<Notification>& notifications)
 {
     std::vector<std::shared_ptr<NotificationItem>> modifiedNotifications;

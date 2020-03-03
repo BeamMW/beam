@@ -33,6 +33,7 @@ namespace beam::wallet
         void deleteNotification(const ECC::uintBig& notificationID);
 
         void switchOnOffNotifications(Notification::Type, bool);
+        size_t getUnreadCount() const;
 
         void Subscribe(INotificationsObserver* observer);
         void Unsubscribe(INotificationsObserver* observer);

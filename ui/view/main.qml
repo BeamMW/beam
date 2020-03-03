@@ -194,8 +194,9 @@ Rectangle {
                     }
 
                     Item {
-                        visible: contentItems[index] == 'notifications'
+                        visible: contentItems[index] == 'notifications' && viewModel.unreadNotifications > 0
                         Rectangle {
+                            id: counter
                             x: 42
                             y: 9
                             width: 16
@@ -204,11 +205,18 @@ Rectangle {
                             color: Style.active
 
                             SFText {
+                                height: 14
                                 text: viewModel.unreadNotifications
                                 font.pixelSize: 12
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.centerIn: counter
                             }
+                        }
+                        DropShadow {
+                            anchors.fill: counter
+                            radius: 5
+                            samples: 9
+                            source: counter
+                            color: Style.active
                         }
                     }
 

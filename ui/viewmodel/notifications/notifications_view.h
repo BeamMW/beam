@@ -31,6 +31,7 @@ public:
 
     Q_INVOKABLE void clearAll();
     Q_INVOKABLE void removeItem(const ECC::uintBig& id);
+    Q_INVOKABLE void markItemAsRead(const ECC::uintBig& id);
 
 public slots:
     void onNotificationsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&);
