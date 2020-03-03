@@ -267,6 +267,10 @@ public:
     void setCurrentLanguageIndex(int value);
     QString getCurrentLanguage() const;
     void setCurrentLanguage(QString value);
+
+    // Amount in second currency
+    QString amountUnitDisplayedToConfigName(const QString& amountUnitName) const;
+    QString amountUnitConfigToDisplayedName(const QString& amountUnitDisplayed) const;
     QStringList getSupportedAmountUnits() const;
     int getCurrentAmountUnitIndex() const;
     void setCurrentAmountUnitIndex(int);
@@ -342,5 +346,7 @@ private:
     int m_currentAmountUnitIndex;
     int m_timerId;
 
+    /// key - unit name (from config), value - unit displayed name (for UI)
+    static const std::map<QString, QString> m_displayedAmountUnits;
     const int CHECK_INTERVAL = 1000;
 };

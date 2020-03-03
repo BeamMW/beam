@@ -68,6 +68,7 @@ const symbolBeam  = "BEAM";
 const symbolBtc   = "BTC";
 const symbolLtc   = "LTC";
 const symbolQtum  = "QTUM";
+const symbolUsd  = "USD";
 
 const maxAmount   = "254000000";
 const minAmount   = "0.00000001";

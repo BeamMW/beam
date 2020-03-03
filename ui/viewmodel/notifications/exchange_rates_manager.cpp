@@ -23,13 +23,28 @@ using namespace beam::wallet;
 
 ExchangeRatesManager::ExchangeRatesManager()
     : m_walletModel(*AppModel::getInstance().getWallet())
-    , m_rateUnit(ExchangeRate::Currency::Usd)
+    , m_settings(AppModel::getInstance().getSettings())
 {
+    setAmountUnit();
+
     qRegisterMetaType<std::vector<beam::wallet::ExchangeRate>>("std::vector<beam::wallet::ExchangeRate>");
 
     connect(&m_walletModel,
             SIGNAL(exchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>&)),
             SLOT(onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>&)));
+
+    connect(&m_settings,
+            SIGNAL(amountUnitChanged()),
+            SLOT(onAmountUnitChanged()));
+}
+
+void ExchangeRatesManager::setAmountUnit()
+{
+    m_rateUnit = ExchangeRate::from_string(m_settings.getAmountUnit().toStdString());
+    if (m_rateUnit == ExchangeRate::Currency::Unknown)
+    {
+        m_rateUnit = ExchangeRate::Currency::Usd;
+    }
 }
 
 void ExchangeRatesManager::onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates)
@@ -42,12 +57,11 @@ void ExchangeRatesManager::onExchangeRatesUpdate(const std::vector<beam::wallet:
         if (rate.m_unit != m_rateUnit) continue;
         m_rates[rate.m_currency] = rate.m_rate;
     }
+}
 
-    // TEST
-    // for (const auto& rate : rates)
-    // {
-        
-    // }
+void ExchangeRatesManager::onAmountUnitChanged()
+{
+    setAmountUnit();
 }
 
 QString ExchangeRatesManager::getBeamRate()

@@ -68,8 +68,8 @@ public:
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
     static QStringList getSupportedAmountUnits();
-    QString getAmountUnitName() const;
-    void setAmountUnitByName(const QString&);
+    QString getAmountUnit() const;
+    void setAmountUnit(const QString&);
 
     // Notifications settings
     bool isExcRatesActive() const;
@@ -104,6 +104,7 @@ signals:
     void localNodeSynchronizedChanged();
     void localeChanged();
     void beamMWLinksChanged();
+    void amountUnitChanged();
 
 private:
     QSettings m_data;

@@ -26,6 +26,7 @@
 #include "wallet/core/default_peers.h"
 
 #include "version.h"
+#include "wallet/client/extensions/news_channels/interface.h"
 
 #include "quazip/quazip.h"
 #include "quazip/quazipfile.h"
@@ -47,7 +48,7 @@ namespace
     const char* kLocalNodePeers = "localnode/peers";
 
     const char* kDefaultLocale = "en_US";
-    const char* kDefaultAmountUnit = "usd";
+    const char* kDefaultAmountUnit = beam::wallet::usdCurrencyStr.data();
 
     const char* kExcRatesActive = "notifications/exchange_rates";
     const char* kNewVersionActive = "notifications/software_release";
@@ -75,8 +76,9 @@ namespace
         { "ko_KR", "한국어"}
     };
 
-    const std::map<QString, QString> kSupportedAmountUnits {
-        { "usd", "USD (United States Dollar)" }
+    const std::vector<QString> kSupportedAmountUnits {
+        beam::wallet::usdCurrencyStr.data(),
+        // beam::wallet::btcCurrencyStr.data()
     };
 
     const vector<string> kOutDatedPeers = beam::getOutdatedDefaultPeers();
@@ -354,38 +356,38 @@ void WalletSettings::setLocaleByLanguageName(const QString& language)
     emit localeChanged();
 }
 
-QString WalletSettings::getAmountUnitName() const
+QString WalletSettings::getAmountUnit() const
 {
     Lock lock(m_mutex);
     QString savedAmountUnit = m_data.value(kAmountUnit, kDefaultAmountUnit).toString();
 
-    const auto it = kSupportedAmountUnits.find(savedAmountUnit);
+    const auto it = find(std::begin(kSupportedAmountUnits),
+                         std::cend(kSupportedAmountUnits),
+                         savedAmountUnit);
     if (it == std::cend(kSupportedAmountUnits))
     {
-        return kSupportedAmountUnits.at(kDefaultAmountUnit);
+        return kDefaultAmountUnit;
     }
     else
     {
-        return it->second;
+        return savedAmountUnit;
     }
 }
 
-void WalletSettings::setAmountUnitByName(const QString& name)
+void WalletSettings::setAmountUnit(const QString& name)
 {
-    const auto& it = std::find_if(
+    const auto& it = std::find(
             kSupportedAmountUnits.begin(),
             kSupportedAmountUnits.end(),
-            [name] (const auto& mapedObject) -> bool
-            {
-                return mapedObject.second == name;
-            });
+            name);
     auto unitName = 
             it != kSupportedAmountUnits.end()
-                ? it->first
+                ? name
                 : QString::fromUtf8(kDefaultAmountUnit);
     {
         Lock lock(m_mutex);
         m_data.setValue(kAmountUnit, unitName);
+        emit amountUnitChanged();
     }
 }
 
@@ -492,12 +494,11 @@ QStringList WalletSettings::getSupportedLanguages()
 QStringList WalletSettings::getSupportedAmountUnits()
 {
     QStringList unitNames;
-    std::transform(kSupportedAmountUnits.begin(),
-                   kSupportedAmountUnits.end(),
-                   std::back_inserter(unitNames),
-                   [] (const auto& name) -> QString {
-                       return name.second;
-                   });
+
+    for (const auto& n : kSupportedAmountUnits)
+    {
+        unitNames.append(n);
+    }
     return unitNames;
 }
 

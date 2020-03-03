@@ -43,10 +43,13 @@ signals:
 
 public slots:
     void onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates);
+    void onAmountUnitChanged();
 
 private:
+    void setAmountUnit();
+
     WalletModel& m_walletModel;
-    // WalletSettings& m_settings;
+    WalletSettings& m_settings;
 
     beam::wallet::ExchangeRate::Currency m_rateUnit;
     std::map<beam::wallet::ExchangeRate::Currency, beam::Amount> m_rates;

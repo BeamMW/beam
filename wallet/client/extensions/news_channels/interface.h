@@ -19,7 +19,19 @@
 namespace beam::wallet
 {
     using namespace beam;
-    
+
+    constexpr std::string_view desktopAppStr = "desktop";
+    constexpr std::string_view androidAppStr = "android";
+    constexpr std::string_view iosAppStr = "ios";
+    constexpr std::string_view unknownAppStr = "unknown";
+
+    constexpr std::string_view beamCurrencyStr = "beam";
+    constexpr std::string_view btcCurrencyStr = "btc";
+    constexpr std::string_view ltcCurrencyStr = "ltc";
+    constexpr std::string_view qtumCurrencyStr = "qtum";
+    constexpr std::string_view usdCurrencyStr = "usd";
+    constexpr std::string_view unknownCurrencyStr = "unknown";
+
     struct VersionInfo
     {
         enum class Application : uint32_t
@@ -35,29 +47,28 @@ namespace beam::wallet
 
         SERIALIZE(m_application, m_version);
 
-        // TODO move string literals to one definition
         static std::string to_string(Application a)
         {
             switch (a)
             {
                 case Application::DesktopWallet:
-                    return "desktop";
+                    return std::string(desktopAppStr);
                 case Application::AndroidWallet:
-                    return "android";
+                    return std::string(androidAppStr);
                 case Application::IOSWallet:
-                    return "ios";
+                    return std::string(iosAppStr);
                 default:
-                    return "unknown";
+                    return std::string(unknownAppStr);
             }
         };
 
         static Application from_string(const std::string& type)
         {
-            if (type == "desktop")
+            if (type == desktopAppStr)
                 return Application::DesktopWallet;
-            else if (type == "android")
+            else if (type == androidAppStr)
                 return Application::AndroidWallet;
-            else if (type == "ios")
+            else if (type == iosAppStr)
                 return Application::IOSWallet;
             else return Application::Unknown;
         };
@@ -98,31 +109,31 @@ namespace beam::wallet
             switch (currency)
             {
                 case Currency::Beam:
-                    return "beam";
+                    return std::string(beamCurrencyStr);
                 case Currency::Bitcoin:
-                    return "btc";
+                    return std::string(btcCurrencyStr);
                 case Currency::Litecoin:
-                    return "ltc";
+                    return std::string(ltcCurrencyStr);
                 case Currency::Qtum:
-                    return "qtum";
+                    return std::string(qtumCurrencyStr);
                 case Currency::Usd:
-                    return "usd";
+                    return std::string(usdCurrencyStr);
                 default:
-                    return "unknown";
+                    return std::string(unknownCurrencyStr);
             }
         };
 
         static Currency from_string(const std::string& c)
         {
-            if (c == "beam")
+            if (c == beamCurrencyStr)
                 return Currency::Beam;
-            else if (c == "btc")
+            else if (c == btcCurrencyStr)
                 return Currency::Bitcoin;
-            else if (c == "ltc")
+            else if (c == ltcCurrencyStr)
                 return Currency::Litecoin;
-            else if (c == "qtum")
+            else if (c == qtumCurrencyStr)
                 return Currency::Qtum;
-            else if (c == "usd")
+            else if (c == usdCurrencyStr)
                 return Currency::Usd;
             else return Currency::Unknown;
         };

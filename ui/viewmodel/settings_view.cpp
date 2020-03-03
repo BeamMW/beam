@@ -791,6 +791,11 @@ void SwapCoinSettingsItem::applyNodeAddressElectrum(const QString& address)
     }
 }
 
+const std::map<QString, QString> SettingsViewModel::m_displayedAmountUnits =
+{
+    { beam::wallet::usdCurrencyStr.data(), "USD (United States Dollar)" },
+    // { beam::wallet::btcCurrencyStr.data(), "Bitcoin" }
+};
 
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance().getSettings()}
@@ -807,7 +812,7 @@ SettingsViewModel::SettingsViewModel()
     m_isPasswordReqiredToSpendMoney = m_settings.isPasswordReqiredToSpendMoney();
     m_isAllowedBeamMWLinks = m_settings.isAllowedBeamMWLinks();
     m_currentLanguageIndex = m_supportedLanguages.indexOf(m_settings.getLanguageName());
-    m_currentAmountUnitIndex = m_supportedAmountUnits.indexOf(m_settings.getAmountUnitName());
+    m_currentAmountUnitIndex = m_supportedAmountUnits.indexOf(m_settings.getAmountUnit());
 
     connect(&AppModel::getInstance().getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
     connect(&AppModel::getInstance().getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
@@ -1014,9 +1019,35 @@ void SettingsViewModel::setCurrentLanguage(QString value)
     }
 }
 
+QString SettingsViewModel::amountUnitConfigToDisplayedName(const QString& amountUnitName) const
+{
+    const auto it = m_displayedAmountUnits.find(amountUnitName);
+    assert(it != std::cend(m_displayedAmountUnits));
+    return it->second;
+}
+
+QString SettingsViewModel::amountUnitDisplayedToConfigName(const QString& amountUnitDisplayed) const
+{
+    const auto it = find_if(
+        std::begin(m_displayedAmountUnits),
+        std::cend(m_displayedAmountUnits),
+        [amountUnitDisplayed](const auto& element) -> bool
+        {
+            return element.second == amountUnitDisplayed;
+        });
+    assert(it != std::cend(m_displayedAmountUnits));
+    return it->first;
+}
+
 QStringList SettingsViewModel::getSupportedAmountUnits() const
 {
-    return m_supportedAmountUnits;
+    QStringList displayedUnitNames;
+    displayedUnitNames.reserve(m_supportedAmountUnits.size());
+    for (const auto& unit : m_supportedAmountUnits)
+    {
+        displayedUnitNames.append(amountUnitConfigToDisplayedName(unit));
+    }
+    return displayedUnitNames;
 }
 
 int SettingsViewModel::getCurrentAmountUnitIndex() const
@@ -1024,22 +1055,21 @@ int SettingsViewModel::getCurrentAmountUnitIndex() const
     return m_currentAmountUnitIndex;
 }
 
-QString SettingsViewModel::getCurrentAmountUnit() const
-{
-    return m_supportedAmountUnits[m_currentAmountUnitIndex];
-}
-
 void SettingsViewModel::setCurrentAmountUnitIndex(int value)
 {
     m_currentAmountUnitIndex = value;
-    m_settings.setAmountUnitByName(
-            m_supportedAmountUnits[m_currentAmountUnitIndex]);
+    m_settings.setAmountUnit(m_supportedAmountUnits[m_currentAmountUnitIndex]);
     emit currentAmountUnitIndexChanged();
+}
+
+QString SettingsViewModel::getCurrentAmountUnit() const
+{
+    return amountUnitConfigToDisplayedName(m_supportedAmountUnits[m_currentAmountUnitIndex]);
 }
 
 void SettingsViewModel::setCurrentAmountUnit(const QString& value)
 {
-    auto index = m_supportedAmountUnits.indexOf(value);
+    auto index = m_supportedAmountUnits.indexOf(amountUnitDisplayedToConfigName(value));
     if (index != -1 )
     {
         setCurrentAmountUnitIndex(index);
