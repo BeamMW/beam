@@ -35,7 +35,7 @@ ColumnLayout {
         icon.source: "qrc:/assets/icon-cancel-white.svg"
         //% "clear all"
         text: qsTrId('notifications-clear-all')
-      //  visible: viewModel.notifications.count > 0//notificationList.model.count > 0
+        visible: notificationList.model.count > 0
         onClicked: {
             viewModel.clearAll();
         }
@@ -60,7 +60,7 @@ ColumnLayout {
             color:                Style.content_main
             opacity:              0.5
             lineHeight:           1.43
-/*% "There are no notifications yet."*/
+            /*% "There are no notifications yet."*/
             text:                 qsTrId("notifications-empty")
         }
 
@@ -104,7 +104,7 @@ ColumnLayout {
                 NumberAnimation { property: "y"; easing.type: Easing.InOutQuad }
             }
         }
-        ////! [transitions]
+        //! [transitions]
 
         ScrollIndicator.vertical: ScrollIndicator { }
 
@@ -216,6 +216,10 @@ ColumnLayout {
                 text: getActionButtonLabel(type)
         
                 visible: getActionButtonLabel(type) != undefined
+
+                onClicked: {
+                    notificationsViewRoot.notifications[type].action(model.rawID);
+                }
             }
         }
     }
@@ -224,41 +228,62 @@ ColumnLayout {
         return "qrc:/assets/icon-notifications-" + notificationType;
     }
 
-    function getActionButtonLabel(notificationType) {
+    property var icons: ({
+        updateIcon: 'qrc:/assets/icon-repeat-white.svg'
+    })
+
+    property var labels: ({
         //% "update now"
-        var updateLabel = qsTrId('notifications-update-now')
-
+        updateLabel:    qsTrId("notifications-update-now"),
         //% "activate"
-        var activateLabel = qsTrId('notifications-activate')
-
+        activateLabel:  qsTrId("notifications-activate"),
         //% "details"
-        var detailsLabel = qsTrId('notifications-details')
+        detailsLabel:   qsTrId("notifications-details")
+    })
 
-        var labels =
-        {
-            update: updateLabel,
-            expired: activateLabel,
-            received: detailsLabel,
-            sent: detailsLabel,
-            failed: detailsLabel
+    property var notifications: ({
+        update: {
+            label:      labels.updateLabel,
+            icon:       icons.updateIcon,
+            action:     updateClient
+        },
+        expired: {
+            label:      labels.activateLabel,
+            icon:       icons.updateIcon,
+            action:     noAction
+        },
+        received: {
+            label:      labels.detailsLabel,
+            icon:       icons.updateIcon,
+            action:     noAction
+        },
+        sent: {
+            label:      labels.detailsLabel,
+            icon:       icons.updateIcon,
+            action:     noAction
+        },
+        failed: {
+            label:      labels.detailsLabel,
+            icon:       icons.updateIcon,
+            action:     noAction
         }
+    })
 
-        return labels[notificationType]
+    function updateClient(id) {
+        viewModel.removeItem(id);
+        Utils.navigateToDownloads();
+    }
+
+    function noAction(id) {
+        console.log("not implemented");
+    }
+
+    function getActionButtonLabel(notificationType) {
+        return notificationsViewRoot.notifications[notificationType].label
     }
 
     function getActionButtonIcon(notificationType) {
-        var updateIcon = 'qrc:/assets/icon-repeat-white.svg'
-
-        var icons =
-        {
-            update: updateIcon,
-            expired: updateIcon,
-            received: updateIcon,
-            sent: updateIcon,
-            failed: updateIcon
-        }
-
-        return icons[notificationType] || ''
+        return notificationsViewRoot.notifications[notificationType].icon || ''
     }
 
     

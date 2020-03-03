@@ -341,7 +341,7 @@ namespace beam::wallet
                     } notificationObserver(*this);
 
                     auto notificationsSubscriber = make_unique<NotificationsSubscriber>(&notificationObserver, m_notificationCenter);
-
+                    updateNotifications();
                     // Broadcast router and broadcast message consumers initialization
                     auto broadcastRouter = make_shared<BroadcastRouter>(*nodeNetwork, *walletNetwork);
                     m_broadcastRouter = broadcastRouter;

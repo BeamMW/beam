@@ -60,6 +60,16 @@ function openExternal(externalLink, settings, dialog, onFinish) {
     }
 }
 
+function navigateToDownloads() {
+    var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
+    var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
+    var externalLinkConfirmation = component.createObject(main);
+    Utils.openExternal(
+        "https://www.beam.mw/#downloads",
+        settingsViewModel,
+        externalLinkConfirmation);
+}
+
 function currenciesList() {
     return ["BEAM", "BTC", "LTC", "QTUM"]
 }

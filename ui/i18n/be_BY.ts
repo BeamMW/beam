@@ -2152,8 +2152,29 @@ deploy the key at the node you trust completely.</translation>
         <source>Asset is still locked</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="settings-notifications-rates">
+        <source>Exchange rates</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-general-amounts-unit">
+        <source>Show amounts in</source>
+        <extracomment>settings tab, general section, amounts unit label</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="notifications-title">
         <source>Notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-clear-all">
+        <source>clear all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-empty">
+        <source>There are no notifications yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-read">
+        <source>read</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="notifications-update-now">
@@ -2166,27 +2187,6 @@ deploy the key at the node you trust completely.</translation>
     </message>
     <message id="notifications-details">
         <source>details</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="notifications-clear-all">
-        <source>clear all</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-notifications-rates">
-        <source>Exchange rates</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-general-amounts-unit">
-        <source>Show amounts in</source>
-        <extracomment>settings tab, general section, amounts unit label</extracomment>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="notifications-read">
-        <source>read</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="notifications-empty">
-        <source>There are no notifications yet.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -40,4 +40,5 @@ public slots:
 
 private:
     WalletModel& m_walletModel;
+    bool m_firstNotification = true;
 };

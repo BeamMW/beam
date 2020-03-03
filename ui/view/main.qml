@@ -31,13 +31,7 @@ Rectangle {
                 popup.close();
             }
             popup.onAccept = function () {
-                var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
-                var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
-                var externalLinkConfirmation = component.createObject(main);
-                Utils.openExternal(
-                    "https://www.beam.mw/#downloads",
-                    settingsViewModel,
-                    externalLinkConfirmation);
+                Utils.navigateToDownloads();
             }
             main.openedNotifications++;
             popup.closed.connect(function() {

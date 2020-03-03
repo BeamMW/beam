@@ -2160,26 +2160,6 @@ deploy the key at the node you trust completely.</translation>
         <source>Asset is still locked</source>
         <translation>Asset is still locked</translation>
     </message>
-    <message id="notifications-title">
-        <source>Notifications</source>
-        <translation>Notifications</translation>
-    </message>
-    <message id="notifications-update-now">
-        <source>update now</source>
-        <translation>update now</translation>
-    </message>
-    <message id="notifications-activate">
-        <source>activate</source>
-        <translation>activate</translation>
-    </message>
-    <message id="notifications-details">
-        <source>details</source>
-        <translation>details</translation>
-    </message>
-    <message id="notifications-clear-all">
-        <source>clear all</source>
-        <translation>clear all</translation>
-    </message>
     <message id="settings-notifications-rates">
         <source>Exchange rates</source>
         <translation>Exchange rates</translation>
@@ -2189,12 +2169,32 @@ deploy the key at the node you trust completely.</translation>
         <extracomment>settings tab, general section, amounts unit label</extracomment>
         <translation type="unfinished"></translation>
     </message>
-    <message id="notifications-read">
-        <source>read</source>
+    <message id="notifications-title">
+        <source>Notifications</source>
+        <translation type="unfinished">Notifications</translation>
+    </message>
+    <message id="notifications-clear-all">
+        <source>clear all</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="notifications-empty">
         <source>There are no notifications yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-read">
+        <source>read</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-update-now">
+        <source>update now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-activate">
+        <source>activate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-details">
+        <source>details</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

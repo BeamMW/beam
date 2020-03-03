@@ -20,10 +20,6 @@ PushNotificationManager::PushNotificationManager()
     : m_walletModel(*AppModel::getInstance().getWallet())
 {
     connect(&m_walletModel,
-            SIGNAL(newSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig&)),
-            SLOT(onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig&)));
-
-    connect(&m_walletModel,
             SIGNAL(notificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)),
             SLOT(onNotificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)));
 
@@ -43,9 +39,25 @@ void PushNotificationManager::onNewSoftwareUpdateAvailable(const beam::wallet::V
     }
 }
 
-void PushNotificationManager::onNotificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)
+void PushNotificationManager::onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>& notifications)
 {
-    LOG_DEBUG() << "onNotificationsChanged";
+    if (m_firstNotification && action == beam::wallet::ChangeAction::Reset 
+        || action == beam::wallet::ChangeAction::Added)
+    {
+        for (const auto& n : notifications)
+        {
+            if (n.m_type == beam::wallet::Notification::Type::SoftwareUpdateAvailable
+                && n.m_state == beam::wallet::Notification::State::Unread)
+            {
+                beam::wallet::VersionInfo info;
+                if (beam::wallet::fromByteBuffer(n.m_content, info))
+                {
+                    onNewSoftwareUpdateAvailable(info, n.m_ID);
+                }
+            }
+        }
+        m_firstNotification = false;
+    }
 }
 
 void PushNotificationManager::onCancelPopup(const QVariant& variantID)
