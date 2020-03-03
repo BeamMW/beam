@@ -41,7 +41,7 @@ void PushNotificationManager::onNewSoftwareUpdateAvailable(const beam::wallet::V
 
 void PushNotificationManager::onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>& notifications)
 {
-    if (m_firstNotification && action == beam::wallet::ChangeAction::Reset 
+    if ((m_firstNotification && action == beam::wallet::ChangeAction::Reset)
         || action == beam::wallet::ChangeAction::Added)
     {
         for (const auto& n : notifications)
