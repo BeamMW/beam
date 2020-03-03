@@ -191,6 +191,48 @@ QString WalletViewModel::beamLockedMaturing() const
     return beamui::AmountToUIString(_model.getMaturing());
 }
 
+QString WalletViewModel::beamAvailable2ndCurrency() const
+{
+    // return "0";
+    return _exchangeRatesManager.calcAmount(beamAvailable(), ExchangeRate::Currency::Beam);
+}
+
+QString WalletViewModel::beamReceiving2ndCurrency() const
+{
+    return "0";
+    // return _exchangeRatesManager.calcAmount(beamReceiving(), ExchangeRate::Currency::Beam);
+}
+
+QString WalletViewModel::beamSending2ndCurrency() const
+{
+    return "0";
+    // return _exchangeRatesManager.calcAmount(beamSending(), ExchangeRate::Currency::Beam);
+}
+
+QString WalletViewModel::beamLocked2ndCurrency() const
+{
+    return "0";
+    // return _exchangeRatesManager.calcAmount(beamLocked(), ExchangeRate::Currency::Beam);
+}
+
+QString WalletViewModel::beamLockedMaturing2ndCurrency() const
+{
+    return "0";
+    // return _exchangeRatesManager.calcAmount(beamLockedMaturing(), ExchangeRate::Currency::Beam);
+}
+
+QString WalletViewModel::beamReceivingChange2ndCurrency() const
+{
+    return "0";
+    // return _exchangeRatesManager.calcAmount(beamReceivingChange(), ExchangeRate::Currency::Beam);
+}
+
+QString WalletViewModel::beamReceivingIncoming2ndCurrency() const
+{
+    return "0";
+    // return _exchangeRatesManager.calcAmount(beamReceivingIncoming(), ExchangeRate::Currency::Beam);
+}
+
 bool WalletViewModel::isAllowedBeamMWLinks() const
 {
     return _settings.isAllowedBeamMWLinks();

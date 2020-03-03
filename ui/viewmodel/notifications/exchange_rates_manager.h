@@ -16,30 +16,21 @@
 
 #include <QObject>
 
-#include "ui/model/app_model.h"
+#include "model/wallet_model.h"
+#include "model/settings.h"
 #include "wallet/client/extensions/news_channels/interface.h"
 
 class ExchangeRatesManager : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString      beamRate        READ getBeamRate        NOTIFY  beamRateChanged)
-    Q_PROPERTY(QString      btcRate         READ getBtcRate         NOTIFY  btcRateChanged)
-    Q_PROPERTY(QString      ltcRate         READ getLtcRate         NOTIFY  ltcRateChanged)
-    Q_PROPERTY(QString      qtumRate        READ getQtumRate        NOTIFY  qtumRateChanged)
-
 public:
     ExchangeRatesManager();
 
-    QString getBeamRate();
-    QString getBtcRate();
-    QString getLtcRate();
-    QString getQtumRate();
-
-signals:
-    void beamRateChanged();
-    void btcRateChanged();
-    void ltcRateChanged();
-    void qtumRateChanged();
+    QString getBeamRate() const;
+    QString getBtcRate() const;
+    QString getLtcRate() const;
+    QString getQtumRate() const;
+    QString calcAmount(const QString&, beam::wallet::ExchangeRate::Currency) const;
 
 public slots:
     void onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates);

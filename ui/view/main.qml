@@ -49,10 +49,6 @@ Rectangle {
         }
     }
 
-    ExchangeRatesManager {
-        id: ratesManager
-    }
-
     ConfirmationDialog {
         id:                     closeDialog
         //% "Beam wallet close"

@@ -10,12 +10,14 @@ Control {
     id: control
 
     property string available
+    property string availableSecondCurrency
     property string locked
     property string lockedMaturing
     property string sending
     property string receiving
     property string receivingChange
     property string receivingIncoming
+    property string secondCurrency
 
     property var onOpenExternal: null
     signal copyValueText()
@@ -155,10 +157,12 @@ Control {
             Layout.preferredWidth: parseFloat(receiving) > 0 || parseFloat(sending) > 0 ? parent.width / 2 : parent.width
             BeamAmount {
                 amount:            available
+                currencySymbol:    Utils.symbolBeam
+                secondCurrencyAmount:   availableSecondCurrency
+                secondCurrencySymbol:   secondCurrency
                 spacing:           15
                 lightFont:         false
                 fontSize:          16
-                currencySymbol:    Utils.symbolBeam
                 iconSource:        "qrc:/assets/icon-beam.svg"
                 iconSize:          Qt.size(22, 22)
                 copyMenuEnabled:   true

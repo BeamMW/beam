@@ -14,7 +14,9 @@
 
 #include "exchange_rates_manager.h"
 
+#include "model/app_model.h"
 #include "viewmodel/ui_helpers.h"
+#include "viewmodel/qml_globals.h"
 
 // test
 #include "utility/logger.h"
@@ -36,6 +38,8 @@ ExchangeRatesManager::ExchangeRatesManager()
     connect(&m_settings,
             SIGNAL(amountUnitChanged()),
             SLOT(onAmountUnitChanged()));
+
+    m_walletModel.getAsync()->getExchangeRates();
 }
 
 void ExchangeRatesManager::setAmountUnit()
@@ -64,35 +68,64 @@ void ExchangeRatesManager::onAmountUnitChanged()
     setAmountUnit();
 }
 
-QString ExchangeRatesManager::getBeamRate()
+QString ExchangeRatesManager::getBeamRate() const
 {
     const auto it = m_rates.find(ExchangeRate::Currency::Beam);
     beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
     
-    return beamui::AmountToUIString(value, beamui::Currencies::Beam);
+    return beamui::AmountToUIString(value);
 }
 
-QString ExchangeRatesManager::getBtcRate()
+QString ExchangeRatesManager::getBtcRate() const
 {
     const auto it = m_rates.find(ExchangeRate::Currency::Bitcoin);
     beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
     
-    return beamui::AmountToUIString(value, beamui::Currencies::Bitcoin);
+    return beamui::AmountToUIString(value);
 }
 
-QString ExchangeRatesManager::getLtcRate()
+QString ExchangeRatesManager::getLtcRate() const
 {
     const auto it = m_rates.find(ExchangeRate::Currency::Litecoin);
     beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
     
-    return beamui::AmountToUIString(value, beamui::Currencies::Litecoin);
+    return beamui::AmountToUIString(value);
 }
 
-QString ExchangeRatesManager::getQtumRate()
+QString ExchangeRatesManager::getQtumRate() const
 {
     const auto it = m_rates.find(ExchangeRate::Currency::Qtum);
     beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
     
-    return beamui::AmountToUIString(value, beamui::Currencies::Qtum);
+    return beamui::AmountToUIString(value);
+}
+
+/**
+ *  Calculate amount in second currency
+ *  @amount     Amount in main currency
+ *  @currency   Main currency
+ *  @return     Equal value in second currency
+ */
+QString ExchangeRatesManager::calcAmount(const QString& amount, ExchangeRate::Currency currency) const
+{
+    QString rate;
+    switch (currency)
+    {
+        case ExchangeRate::Currency::Beam:
+            rate = getBeamRate();
+            break;
+        case ExchangeRate::Currency::Bitcoin:
+            rate = getBtcRate();
+            break;
+        case ExchangeRate::Currency::Litecoin:
+            rate = getLtcRate();
+            break;
+        case ExchangeRate::Currency::Qtum:
+            rate = getQtumRate();
+            break;
+        default:
+            return "0";
+    }
+    return QMLGlobals::multiplyWithPrecision8(amount, rate);
 }
 
