@@ -55,11 +55,11 @@ public:
         {
             return;
         }
-        int row = 0;
+        int row = m_list.size();
         beginInsertRows(QModelIndex(), row, row + int(items.size()) - 1);
         for (const auto& item : items)
         {
-            m_list.insert(row, item);
+            m_list.push_back(item);
         }
         endInsertRows();
     }
@@ -119,6 +119,16 @@ public:
             m_list.insert(index, item);
             endInsertRows();
         }
+    }
+
+    auto begin()
+    {
+        return m_list.begin();
+    }
+
+    auto end()
+    {
+        return m_list.end();
     }
 
 protected:

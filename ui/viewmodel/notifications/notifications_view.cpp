@@ -34,6 +34,19 @@ QAbstractItemModel* NotificationsViewModel::getNotifications()
     return &m_notificationsList;
 }
 
+void NotificationsViewModel::clearAll()
+{
+    for(auto& n : m_notificationsList)
+    {
+        m_walletModel.getAsync()->deleteNotification(n->getID());
+    }
+}
+
+void NotificationsViewModel::removeItem(const ECC::uintBig& id)
+{
+    m_walletModel.getAsync()->deleteNotification(id);
+}
+
 void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action, const std::vector<Notification>& notifications)
 {
     std::vector<std::shared_ptr<NotificationItem>> modifiedNotifications;

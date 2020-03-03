@@ -10,27 +10,10 @@ import Beam.Wallet 1.0
 ColumnLayout {
     id: notificationsViewRoot
     anchors.fill: parent
+    spacing: 0
 
     NotificationsViewModel {
         id: viewModel
-    }
-
-    ConfirmationDialog {
-        id:                     clearAllDialog
-        //% "Clear all notifications"
-        title:                  qsTrId("notifications-clear-all-dialog")
-        //% "Are you sure you want to remove all notifications?"
-        text:                   qsTrId("notifications-clear-all-text")
-        //% "yes"
-        okButtonText:           qsTrId("notifications-clear-all-yes-button")
-        okButtonIconSource:     "qrc:/assets/icon-done.svg"
-        //% "no"
-        cancelButtonText:       qsTrId("notifications-clear-all-no-button")
-        cancelButtonIconSource: "qrc:/assets/icon-cancel-16.svg"
-        onAccepted: {
-            console.log('TODO: clear all notifications')
-            //viewModel.clearAll();
-        }
     }
 
     Title {
@@ -42,25 +25,56 @@ ColumnLayout {
         id: status_bar
         model: statusbarModel
     }
-
+    
     CustomButton {
         Layout.alignment: Qt.AlignRight | Qt.AlignTop
-
-        height: 38
+        Layout.preferredHeight: 38
+        Layout.bottomMargin: 10
         palette.button: Style.background_second
         palette.buttonText : Style.content_main
         icon.source: "qrc:/assets/icon-cancel-white.svg"
         //% "clear all"
         text: qsTrId('notifications-clear-all')
-        visible: viewModel.notifications.rowCount() > 0
+      //  visible: viewModel.notifications.count > 0//notificationList.model.count > 0
         onClicked: {
-            clearAllDialog.open();
+            viewModel.clearAll();
+        }
+    }
+
+    ColumnLayout {
+        Layout.fillWidth: true
+        visible: notificationList.model.count == 0
+
+        SvgImage {
+            Layout.topMargin: 100
+            Layout.alignment: Qt.AlignHCenter
+            source:     "qrc:/assets/icon-notifications.svg"
+            sourceSize: Qt.size(60, 60)
+        }
+
+        SFText {
+            Layout.topMargin:     30
+            Layout.alignment:     Qt.AlignHCenter
+            horizontalAlignment:  Text.AlignHCenter
+            font.pixelSize:       14
+            color:                Style.content_main
+            opacity:              0.5
+            lineHeight:           1.43
+/*% "There are no notifications yet."*/
+            text:                 qsTrId("notifications-empty")
+        }
+
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
         }
     }
 
     ListView {
+        id: notificationList
         Layout.fillWidth: true
         Layout.fillHeight: true
+        visible: notificationList.model.count > 0 
 
         model: SortFilterProxyModel {
             source: SortFilterProxyModel {
@@ -76,16 +90,36 @@ ColumnLayout {
         spacing: 10
         clip: true
 
-        ScrollBar.vertical: ScrollBar { }
+        //! [transitions]
+        add: Transition {
+            NumberAnimation { property: "opacity"; from: 0; to: 1.0; easing.type: Easing.InOutQuad }
+        }
+        remove: Transition {
+            NumberAnimation { property: "opacity"; to: 0; easing.type: Easing.InOutQuad }
+        }
+        
+        displaced: Transition {
+            SequentialAnimation {
+                PauseAnimation { duration: 125 }
+                NumberAnimation { property: "y"; easing.type: Easing.InOutQuad }
+            }
+        }
+        ////! [transitions]
+
+        ScrollIndicator.vertical: ScrollIndicator { }
+
         section.property: "state"
         section.delegate: Item {
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 24
+            height: section == "read" ? 24 : 0
+            
             SFText {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
-                text: section
+                //% "read"
+                text: qsTrId("notifications-read")
+                //text: section
                 font.pixelSize: 12
                 color: Style.section
                 font.capitalization: Font.AllUppercase
@@ -97,10 +131,14 @@ ColumnLayout {
             anchors.right: parent.right
             height: 121
         
+            property bool isUnread: model.state == "unread" 
+
             Rectangle {
+                
                 radius: 10
                 anchors.fill: parent
-                color: Style.background_popup
+                color: (parent.isUnread) ? Style.active : Style.background_second
+                opacity: (parent.isUnread) ? 0.1 : 1.0
             }
         
             Item {
@@ -131,7 +169,7 @@ ColumnLayout {
                     }
         
                     SFText {
-                        text: message
+                        text: model.message
                         font.pixelSize: 14
                         color: Style.content_main
                     }
@@ -152,6 +190,9 @@ ColumnLayout {
                 anchors.rightMargin: 20
         
                 icon.source: "qrc:/assets/icon-cancel-white.svg"
+                onClicked: {
+                    viewModel.removeItem(model.rawID);
+                }
             }
         
             CustomButton {
@@ -211,5 +252,7 @@ ColumnLayout {
 
         return icons[notificationType] || ''
     }
+
+    
 
 } // Item

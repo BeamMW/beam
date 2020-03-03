@@ -14,7 +14,9 @@
 
 #include "sortfilterproxymodel.h"
 
-SortFilterProxyModel::SortFilterProxyModel(QObject *parent) : QSortFilterProxyModel(parent), m_complete(false)
+SortFilterProxyModel::SortFilterProxyModel(QObject *parent) 
+    : QSortFilterProxyModel(parent)
+    , m_complete(false)
 {
     connect(this, &QAbstractItemModel::rowsInserted, this, &SortFilterProxyModel::countChanged);
     connect(this, &QAbstractItemModel::rowsRemoved, this, &SortFilterProxyModel::countChanged);

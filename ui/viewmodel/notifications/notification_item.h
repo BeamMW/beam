@@ -35,8 +35,7 @@ public:
     QString state() const;
 
     ECC::uintBig getID() const;
-    
-
+ 
 signals:
 
 private:
