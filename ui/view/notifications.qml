@@ -112,17 +112,18 @@ ColumnLayout {
         section.delegate: Item {
             anchors.left: parent.left
             anchors.right: parent.right
-            height: section == "read" ? 24 : 0
+            property bool isRead: section == "read" 
+            height: isRead ? 24 : 0
             
             SFText {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 //% "read"
                 text: qsTrId("notifications-read")
-                //text: section
                 font.pixelSize: 12
                 color: Style.section
                 font.capitalization: Font.AllUppercase
+                visible: parent.isRead
             }
         }
 
