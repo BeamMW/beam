@@ -438,7 +438,7 @@ namespace beam::wallet
     {
         struct Statement
         {
-            Statement(const WalletDB* db, const char* sql, bool privateDB=false)
+            Statement(const WalletDB* db, const char* sql, bool privateDB = false)
                 : _walletDB(nullptr)
                 , _db(privateDB ? db->m_PrivateDB : db->_db)
                 , _stm(nullptr)
@@ -737,7 +737,7 @@ namespace beam::wallet
 
             void begin()
             {
-                int ret = sqlite3_exec(_db, "BEGIN;", nullptr, nullptr, nullptr);
+                int ret = sqlite3_exec(_db, "BEGIN EXCLUSIVE;", nullptr, nullptr, nullptr);
                 throwIfError(ret, _db);
             }
 
@@ -919,7 +919,7 @@ namespace beam::wallet
 
     namespace
     {
-        bool IsTableCreated(WalletDB* db, const char* tableName)
+        bool IsTableCreated(const WalletDB* db, const char* tableName)
         {
             std::string req = "SELECT name FROM sqlite_master WHERE type='table' AND name='";
             req += tableName;
