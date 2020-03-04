@@ -346,6 +346,8 @@ namespace beam::wallet
                     auto broadcastRouter = make_shared<BroadcastRouter>(*nodeNetwork, *walletNetwork);
                     m_broadcastRouter = broadcastRouter;
 
+
+                    using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
                     // Swap offer board uses broadcasting messages
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
                     OfferBoardProtocolHandler protocolHandler(m_keyKeeper->get_SbbsKdf(), m_walletDB);
@@ -353,7 +355,6 @@ namespace beam::wallet
                     auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler);
                     m_offersBulletinBoard = offersBulletinBoard;
 
-                    using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
                     using SwapOffersBoardSubscriber = ScopedSubscriber<ISwapOffersObserver, SwapOffersBoard>;
 
                     auto walletDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);
