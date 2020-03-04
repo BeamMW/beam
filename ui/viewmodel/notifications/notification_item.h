@@ -36,7 +36,7 @@ public:
 
     ECC::uintBig getID() const;
 
-    QString NotificationItem::getTxID() const;
+    QString getTxID() const;
  
 signals:
 
