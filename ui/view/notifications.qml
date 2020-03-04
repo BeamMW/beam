@@ -77,15 +77,10 @@ ColumnLayout {
         visible: notificationList.model.count > 0 
 
         model: SortFilterProxyModel {
-            source: SortFilterProxyModel {
-                source: viewModel.notifications
-                sortOrder: Qt.DescendingOrder
-                sortCaseSensitivity: Qt.CaseInsensitive
-                sortRole: "timeCreatedSort"
-            }
+            source: viewModel.notifications
             sortOrder: Qt.DescendingOrder
             sortCaseSensitivity: Qt.CaseInsensitive
-            sortRole: "state"
+            sortRole: "timeCreatedSort"
         }
         spacing: 10
         clip: true
