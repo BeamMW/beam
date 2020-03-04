@@ -20,11 +20,8 @@ Control {
     property string secondCurrency
     property string availableSecondCurrency
     property string lockedSecondCurrency
-    property string lockedMaturingSecondCurrency
     property string sendingSecondCurrency
     property string receivingSecondCurrency
-    property string receivingChangeSecondCurrency
-    property string receivingIncomingSecondCurrency
 
     property var onOpenExternal: null
     signal copyValueText()
@@ -88,8 +85,6 @@ Control {
             BeamAmount {
                 amount:            lockedMaturing
                 currencySymbol:    Utils.symbolBeam
-                secondCurrencyAmount:   lockedMaturingSecondCurrency
-                secondCurrencySymbol:   secondCurrency
                 spacing:           15
                 lightFont:         false
                 fontSize:          12
@@ -132,8 +127,6 @@ Control {
             BeamAmount {
                 amount:            receivingChange
                 currencySymbol:    Utils.symbolBeam
-                secondCurrencyAmount:   receivingChangeSecondCurrency
-                secondCurrencySymbol:   secondCurrency
                 spacing:           15
                 lightFont:         false
                 fontSize:          12
@@ -153,8 +146,6 @@ Control {
             BeamAmount {
                 amount:            receivingIncoming
                 currencySymbol:    Utils.symbolBeam
-                secondCurrencyAmount:   receivingIncomingSecondCurrency
-                secondCurrencySymbol:   secondCurrency
                 spacing:           15
                 lightFont:         false
                 fontSize:          12

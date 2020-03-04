@@ -239,21 +239,6 @@ QString WalletViewModel::beamLocked2ndCurrency() const
     return _exchangeRatesManager.calcAmountIn2ndCurrency(beamLocked(), ExchangeRate::Currency::Beam);
 }
 
-QString WalletViewModel::beamLockedMaturing2ndCurrency() const
-{
-    return _exchangeRatesManager.calcAmountIn2ndCurrency(beamLockedMaturing(), ExchangeRate::Currency::Beam);
-}
-
-QString WalletViewModel::beamReceivingChange2ndCurrency() const
-{
-    return _exchangeRatesManager.calcAmountIn2ndCurrency(beamReceivingChange(), ExchangeRate::Currency::Beam);
-}
-
-QString WalletViewModel::beamReceivingIncoming2ndCurrency() const
-{
-    return _exchangeRatesManager.calcAmountIn2ndCurrency(beamReceivingIncoming(), ExchangeRate::Currency::Beam);
-}
-
 bool WalletViewModel::isAllowedBeamMWLinks() const
 {
     return _settings.isAllowedBeamMWLinks();

@@ -39,9 +39,6 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString beamReceiving2ndCurrency           READ beamReceiving2ndCurrency          NOTIFY beamReceiving2ndCurrencyChanged)
     Q_PROPERTY(QString beamSending2ndCurrency             READ beamSending2ndCurrency            NOTIFY beamSending2ndCurrencyChanged)
     Q_PROPERTY(QString beamLocked2ndCurrency              READ beamLocked2ndCurrency             NOTIFY beamLocked2ndCurrencyChanged)
-    Q_PROPERTY(QString beamLockedMaturing2ndCurrency      READ beamLockedMaturing2ndCurrency     NOTIFY beamLocked2ndCurrencyChanged)
-    Q_PROPERTY(QString beamReceivingChange2ndCurrency     READ beamReceivingChange2ndCurrency    NOTIFY beamReceiving2ndCurrencyChanged)
-    Q_PROPERTY(QString beamReceivingIncoming2ndCurrency   READ beamReceivingIncoming2ndCurrency  NOTIFY beamReceiving2ndCurrencyChanged)
     Q_PROPERTY(bool isAllowedBeamMWLinks             READ isAllowedBeamMWLinks       WRITE allowBeamMWLinks      NOTIFY beamMWLinksAllowed)
     Q_PROPERTY(QAbstractItemModel* transactions      READ getTransactions            NOTIFY transactionsChanged)
 
@@ -61,9 +58,6 @@ public:
     QString beamReceiving2ndCurrency() const;
     QString beamSending2ndCurrency() const;
     QString beamLocked2ndCurrency() const;
-    QString beamLockedMaturing2ndCurrency() const;
-    QString beamReceivingChange2ndCurrency() const;
-    QString beamReceivingIncoming2ndCurrency() const;
 
     QAbstractItemModel* getTransactions();
     bool getIsOfflineStatus() const;

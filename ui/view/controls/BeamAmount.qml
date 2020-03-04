@@ -14,7 +14,7 @@ Control {
     property string  amount:          "0"
     property string  currencySymbol:  Utils.symbolBeam
     property string  secondCurrencyAmount:  "0"
-    property string  secondCurrencySymbol:  Utils.symbolUsd
+    property string  secondCurrencySymbol:  ""
     property string  color:           Style.content_main
     property bool    error:           false
     property bool    showZero:        true
@@ -67,6 +67,7 @@ Control {
 
             SFLabel {
                 id:              secondCurrencyAmountText
+                visible:         secondCurrencySymbol != ""
                 font.pixelSize:  10
                 font.styleName:  "Light"
                 font.weight:     Font.Normal
