@@ -72,7 +72,9 @@ namespace beam::wallet
         return std::count_if(m_cache.begin(), m_cache.end(),
             [](const auto& p)
             {
-                return p.second.m_state == Notification::State::Unread;
+                return p.second.m_state == Notification::State::Unread 
+                    && (p.second.m_type == Notification::Type::SoftwareUpdateAvailable 
+                        || p.second.m_type == Notification::Type::TransactionStatusChanged);
             });
     }
 

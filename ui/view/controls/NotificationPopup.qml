@@ -44,7 +44,7 @@ Popup {
 
     Timer {
         id: closeTimer
-        interval: 10000
+        interval: 3000
         onTriggered: {
             hideAnimation.start();
         }
