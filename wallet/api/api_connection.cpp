@@ -126,7 +126,7 @@ bool checkAcceptableTxParams(const TxParameters& params, const OfferInput& data)
 
     auto isBeamSide = params.GetParameter<bool>(
         TxParameterID::AtomicSwapIsBeamSide);
-    if (!isBeamSide || *isBeamSide == data.isBeamSide)
+    if (!isBeamSide || *isBeamSide != data.isBeamSide)
         return false;
 
     return true;
@@ -151,7 +151,7 @@ bool checkPublicOffer(const TxParameters& params, const SwapOffer& publicOffer)
 
     auto isBeamSide = params.GetParameter<bool>(
         TxParameterID::AtomicSwapIsBeamSide);
-    if (!isBeamSide || *isBeamSide == publicOffer.isBeamSide())
+    if (!isBeamSide || *isBeamSide != publicOffer.isBeamSide())
         return false;
 
     return true;
