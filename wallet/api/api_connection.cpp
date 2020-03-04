@@ -126,7 +126,32 @@ bool checkAcceptableTxParams(const TxParameters& params, const OfferInput& data)
 
     auto isBeamSide = params.GetParameter<bool>(
         TxParameterID::AtomicSwapIsBeamSide);
-    if (!isBeamSide || *isBeamSide != data.isBeamSide)
+    if (!isBeamSide || *isBeamSide == data.isBeamSide)
+        return false;
+
+    return true;
+}
+
+// TODO roman.strilets: it's duplicate of checkAcceptableTxParams. should be refactored
+bool checkPublicOffer(const TxParameters& params, const SwapOffer& publicOffer)
+{
+    auto beamAmount = params.GetParameter<Amount>(TxParameterID::Amount);
+    if (!beamAmount || *beamAmount != publicOffer.amountBeam())
+        return false;
+
+    auto swapAmount = params.GetParameter<Amount>(
+        TxParameterID::AtomicSwapAmount);
+    if (!swapAmount || *swapAmount != publicOffer.amountSwapCoin())
+        return false;
+
+    auto swapCoin = params.GetParameter<AtomicSwapCoin>(
+        TxParameterID::AtomicSwapCoin);
+    if (!swapCoin || *swapCoin != publicOffer.swapCoinType())
+        return false;
+
+    auto isBeamSide = params.GetParameter<bool>(
+        TxParameterID::AtomicSwapIsBeamSide);
+    if (!isBeamSide || *isBeamSide == publicOffer.isBeamSide())
         return false;
 
     return true;
@@ -867,13 +892,14 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
 
     auto walletDB = _walletData.getWalletDB();
 
-    SwapOffer offer;
     auto myAddresses = walletDB->getAddresses(true);
     if (publicOffer)
     {
-        offer = *publicOffer;
+        // compare public offer and token
+        if (!checkPublicOffer(*txParams, *publicOffer))
+            throw FailToAcceptOffer();
 
-        if (storage::isMyAddress(myAddresses, offer.m_publisherId))
+        if (storage::isMyAddress(myAddresses, publicOffer->m_publisherId))
             throw FailToAcceptOwnOffer();
     }
     else
@@ -888,7 +914,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
             throw FailToAcceptOwnOffer();
     }
 
-    if (!checkAcceptableTxParams(offer, data))
+    if (!checkAcceptableTxParams(*txParams, data))
         throw FailToAcceptOffer();
 
     Amount swapFeeRate = data.swapFeeRate
@@ -908,7 +934,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
     }
 
     auto wid = createWID(walletDB.get(), data.comment);
-    offer = SwapOffer(*txParams);
+    SwapOffer offer = SwapOffer(*txParams);
     offer.SetParameter(TxParameterID::MyID, wid);
     if (!data.comment.empty())
     {
