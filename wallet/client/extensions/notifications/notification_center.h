@@ -24,6 +24,7 @@ namespace beam::wallet
 {
     class NotificationCenter
         : public INewsObserver
+        , public IWalletDbObserver
     {
     public:
         NotificationCenter(IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications);
@@ -41,8 +42,10 @@ namespace beam::wallet
         // INewsObserver implementation
         virtual void onNewWalletVersion(const VersionInfo&, const ECC::uintBig&) override;
 
-        // TODO interface for wallet transactions and addresses changes listening
-
+        // IWalletDbObserver implementation
+        void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
+        void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
+        
     private:
         void notifySubscribers(ChangeAction, const std::vector<Notification>&) const;
         bool isNotificationTypeActive(Notification::Type) const;

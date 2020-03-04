@@ -74,7 +74,7 @@ namespace beam::wallet
             {
                 return p.second.m_state == Notification::State::Unread 
                     && (p.second.m_type == Notification::Type::SoftwareUpdateAvailable 
-                        || p.second.m_type == Notification::Type::TransactionStatusChanged);
+                        || p.second.m_type == Notification::Type::TransactionFailed);
             });
     }
 
@@ -82,7 +82,7 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "createNotification()";
 
-        m_cache[notification.m_ID] = notification;
+        m_cache.insert(std::make_pair(notification.m_ID, notification));
         m_storage.saveNotification(notification);
 
         if (isNotificationTypeActive(notification.m_type))
@@ -176,6 +176,39 @@ namespace beam::wallet
             createNotification(n);
         }
     }
+
+    void NotificationCenter::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
+    {
+        if (action == ChangeAction::Added || action == ChangeAction::Updated)
+        {
+            LOG_DEBUG() << "NotificationCenter::onTransactionChanged()";
+           
+            for (const auto& item : items)
+            {
+                bool failed = (item.m_status == TxStatus::Failed || item.m_status == TxStatus::Canceled);
+                if (!failed && item.m_status != TxStatus::Completed)
+                {
+                    continue;
+                }
+                const auto& id = item.GetTxID();
+                ECC::Hash::Value hv;
+                ECC::Hash::Processor() << Blob(id->data(), static_cast<uint32_t>(id->size())) << uint32_t(item.m_status) >> hv;
+                Notification n;
+                n.m_ID = hv;
+                n.m_type = failed ? Notification::Type::TransactionFailed : Notification::Type::TransactionCompleted;
+                n.m_createTime = getTimestamp();
+                n.m_state = Notification::State::Unread;
+                n.m_content = toByteBuffer(TxToken(item));
+                createNotification(n);
+            }
+        }
+    }
+
+    void NotificationCenter::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
+    {
+
+    }
+
 
     void NotificationCenter::Subscribe(INotificationsObserver* observer)
     {

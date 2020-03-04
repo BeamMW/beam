@@ -35,6 +35,8 @@ public:
     QString state() const;
 
     ECC::uintBig getID() const;
+
+    QString NotificationItem::getTxID() const;
  
 signals:
 

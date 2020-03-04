@@ -15,7 +15,7 @@
 #pragma once
 
 #include <QAbstractListModel>
-
+Q_DECLARE_METATYPE(QModelIndex)
 template <typename T>
 class ListModel : public QAbstractListModel
 {

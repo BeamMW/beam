@@ -471,6 +471,12 @@ void WalletSettings::setTxStatusActive(bool isActive)
             walletModel->getAsync()->switchOnOffNotifications(
                 beam::wallet::Notification::Type::TransactionStatusChanged,
                 isActive);
+            walletModel->getAsync()->switchOnOffNotifications(
+                beam::wallet::Notification::Type::TransactionCompleted,
+                isActive);
+            walletModel->getAsync()->switchOnOffNotifications(
+                beam::wallet::Notification::Type::TransactionFailed,
+                isActive);
         }
         Lock lock(m_mutex);
         m_data.setValue(kTxStatusActive, isActive);

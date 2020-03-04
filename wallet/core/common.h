@@ -695,4 +695,5 @@ namespace std
     string to_string(const beam::wallet::PrintableAmount& amount);
     string to_string(const beam::wallet::TxParameters&);
     string to_string(const beam::Version&);
+    string to_string(const beam::wallet::TxID&);
 }

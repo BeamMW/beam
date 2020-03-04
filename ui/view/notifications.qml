@@ -156,7 +156,7 @@ ColumnLayout {
                     source: getIconSource(type)
                 }
         
-                Column {
+                ColumnLayout {
                     anchors.fill: parent
                     anchors.topMargin: 20
                     anchors.leftMargin: 100
@@ -173,9 +173,11 @@ ColumnLayout {
                     }
         
                     SFText {
+                        Layout.fillWidth: true
                         text: model.message
                         font.pixelSize: 14
                         color: Style.content_main
+                        elide: Text.ElideMiddle
                     }
         
                     SFText {
@@ -183,6 +185,9 @@ ColumnLayout {
                         font.pixelSize: 12
                         color: Style.content_main
                         opacity: 0.5
+                    }
+                    Item {
+                        Layout.fillHeight: true
                     }
                 }
             }
@@ -251,23 +256,30 @@ ColumnLayout {
         received: {
             label:      labels.detailsLabel,
             icon:       icons.updateIcon,
-            action:     noAction
+            action:     navigateToTransaction
         },
         sent: {
             label:      labels.detailsLabel,
             icon:       icons.updateIcon,
-            action:     noAction
+            action:     navigateToTransaction
         },
         failed: {
             label:      labels.detailsLabel,
             icon:       icons.updateIcon,
-            action:     noAction
+            action:     navigateToTransaction
         }
     })
 
     function updateClient(id) {
         viewModel.removeItem(id);
         Utils.navigateToDownloads();
+    }
+
+    function navigateToTransaction(id) {
+        var txID = viewModel.getItemTxID(id);
+        if (txID.length > 0) {
+            main.openTransactionDetails(txID);
+        }
     }
 
     function noAction(id) {
@@ -281,7 +293,4 @@ ColumnLayout {
     function getActionButtonIcon(notificationType) {
         return notificationsViewRoot.notifications[notificationType].icon || ''
     }
-
-    
-
 } // Item

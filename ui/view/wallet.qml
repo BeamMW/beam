@@ -12,6 +12,8 @@ Item {
     id: root
     anchors.fill: parent
 
+    property string openedTxID: ""
+
     function onAccepted() { walletStackView.pop(); }
     function onClosed() { walletStackView.pop(); }
     function onSwapToken(token) {
@@ -104,7 +106,7 @@ Item {
             Layout.fillHeight: true
             spacing: 0
             state: "all"
-            
+
             Row {
                 Layout.alignment: Qt.AlignTop | Qt.AlignRight
                 Layout.topMargin: 33
@@ -291,6 +293,21 @@ Item {
             CustomTableView {
                 id: transactionsTable
 
+                Component.onCompleted: {
+                    transactionsTable.model.modelReset.connect(function(){
+                        if (root.openedTxID != "") {
+                            var index = viewModel.transactions.index(0, 0);
+                            var indexList = viewModel.transactions.match(index, 271, root.openedTxID)
+                            if (indexList.length > 0) {
+                                index = searchProxyModel.mapFromSource(indexList[0]);
+                                index = txProxyModel.mapFromSource(index);
+                                transactionsTable.positionViewAtRow(index.row, ListView.Beginning)
+                               // var item = transactionsTable.getItemAt(index.row, ListView.Beginning)
+                            }
+                        }
+                    })
+                }
+
                 Layout.alignment: Qt.AlignTop
                 Layout.fillWidth : true
                 Layout.fillHeight : true
@@ -315,7 +332,7 @@ Item {
                 model: SortFilterProxyModel {
                     id: txProxyModel
                     source: SortFilterProxyModel {
-                        
+                        id: searchProxyModel
                         source: viewModel.transactions
                         filterRole: "search"
                         filterString: searchBox.text

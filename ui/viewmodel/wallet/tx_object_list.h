@@ -19,9 +19,7 @@
 
 class TxObjectList : public ListModel<std::shared_ptr<TxObject>>
 {
-
     Q_OBJECT
-
 public:
     enum class Roles
     {

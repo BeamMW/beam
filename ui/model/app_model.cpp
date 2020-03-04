@@ -275,7 +275,9 @@ void AppModel::startWallet()
     std::map<Notification::Type,bool> activeNotifications {
         { Notification::Type::SoftwareUpdateAvailable, m_settings.isNewVersionActive() },
         { Notification::Type::BeamNews, m_settings.isBeamNewsActive() },
-        { Notification::Type::TransactionStatusChanged, m_settings.isTxStatusActive() }
+        { Notification::Type::TransactionStatusChanged, m_settings.isTxStatusActive() },
+        { Notification::Type::TransactionCompleted, m_settings.isTxStatusActive() },
+        { Notification::Type::TransactionFailed, m_settings.isTxStatusActive() }
     };
 
     m_wallet->start(activeNotifications, additionalTxCreators);

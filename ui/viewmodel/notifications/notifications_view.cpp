@@ -52,6 +52,18 @@ void NotificationsViewModel::markItemAsRead(const ECC::uintBig& id)
     m_walletModel.getAsync()->markNotificationAsRead(id);
 }
 
+QString NotificationsViewModel::getItemTxID(const ECC::uintBig& id)
+{
+    for (const auto& n : m_notificationsList)
+    {
+        if (n->getID() == id)
+        {
+            return n->getTxID();
+        }
+    }
+    return "";
+}
+
 void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action, const std::vector<Notification>& notifications)
 {
     std::vector<std::shared_ptr<NotificationItem>> modifiedNotifications;
