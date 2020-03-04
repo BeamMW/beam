@@ -27,7 +27,6 @@ ExchangeRatesManager::ExchangeRatesManager()
     : m_walletModel(*AppModel::getInstance().getWallet())
     , m_settings(AppModel::getInstance().getSettings())
 {
-    setAmountUnit();
 
     qRegisterMetaType<std::vector<beam::wallet::ExchangeRate>>("std::vector<beam::wallet::ExchangeRate>");
 
@@ -36,23 +35,26 @@ ExchangeRatesManager::ExchangeRatesManager()
             SLOT(onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>&)));
 
     connect(&m_settings,
-            SIGNAL(amountUnitChanged()),
-            SLOT(onAmountUnitChanged()));
+            SIGNAL(rateUnitChanged()),
+            SLOT(onRateUnitChanged()));
 
-    m_walletModel.getAsync()->getExchangeRates();
+    setRateUnit();
 }
 
-void ExchangeRatesManager::setAmountUnit()
+void ExchangeRatesManager::setRateUnit()
 {
-    m_rateUnit = ExchangeRate::from_string(m_settings.getAmountUnit().toStdString());
+    m_rateUnit = ExchangeRate::from_string(m_settings.getRateUnit().toStdString());
     if (m_rateUnit == ExchangeRate::Currency::Unknown)
     {
-        m_rateUnit = ExchangeRate::Currency::Usd;
+        m_rateUnit = ExchangeRate::Currency::Usd;   // set USD as default
     }
+    m_walletModel.getAsync()->getExchangeRates();
 }
 
 void ExchangeRatesManager::onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates)
 {
+    bool isActiveRateChanged = false;
+
     for (const auto& rate : rates)
     {
         LOG_DEBUG() << "Exchange rate: 1 " << beam::wallet::ExchangeRate::to_string(rate.m_currency) << " = "
@@ -60,12 +62,20 @@ void ExchangeRatesManager::onExchangeRatesUpdate(const std::vector<beam::wallet:
 
         if (rate.m_unit != m_rateUnit) continue;
         m_rates[rate.m_currency] = rate.m_rate;
+        if (!isActiveRateChanged) isActiveRateChanged = true;
     }
+    if (isActiveRateChanged) emit activeRateChanged();
 }
 
-void ExchangeRatesManager::onAmountUnitChanged()
+void ExchangeRatesManager::onRateUnitChanged()
 {
-    setAmountUnit();
+    setRateUnit();
+    emit rateUnitChanged();
+}
+
+QString ExchangeRatesManager::getRateUnit() const
+{
+    return QString::fromStdString(ExchangeRate::to_string(m_rateUnit));
 }
 
 QString ExchangeRatesManager::getBeamRate() const
@@ -106,7 +116,7 @@ QString ExchangeRatesManager::getQtumRate() const
  *  @currency   Main currency
  *  @return     Equal value in second currency
  */
-QString ExchangeRatesManager::calcAmount(const QString& amount, ExchangeRate::Currency currency) const
+QString ExchangeRatesManager::calcAmountIn2ndCurrency(const QString& amount, ExchangeRate::Currency currency) const
 {
     QString rate;
     switch (currency)

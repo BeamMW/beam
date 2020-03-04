@@ -26,18 +26,24 @@ class ExchangeRatesManager : public QObject
 public:
     ExchangeRatesManager();
 
+    QString getRateUnit() const;
+
     QString getBeamRate() const;
     QString getBtcRate() const;
     QString getLtcRate() const;
     QString getQtumRate() const;
-    QString calcAmount(const QString&, beam::wallet::ExchangeRate::Currency) const;
+    QString calcAmountIn2ndCurrency(const QString&, beam::wallet::ExchangeRate::Currency) const;
 
 public slots:
     void onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates);
-    void onAmountUnitChanged();
+    void onRateUnitChanged();
+
+signals:
+    void rateUnitChanged();
+    void activeRateChanged();
 
 private:
-    void setAmountUnit();
+    void setRateUnit();
 
     WalletModel& m_walletModel;
     WalletSettings& m_settings;

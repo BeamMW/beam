@@ -804,7 +804,7 @@ SettingsViewModel::SettingsViewModel()
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
     , m_supportedLanguages(WalletSettings::getSupportedLanguages())
-    , m_supportedAmountUnits(WalletSettings::getSupportedAmountUnits())
+    , m_supportedAmountUnits(WalletSettings::getSupportedRateUnits())
 {
     undoChanges();
 
@@ -812,7 +812,7 @@ SettingsViewModel::SettingsViewModel()
     m_isPasswordReqiredToSpendMoney = m_settings.isPasswordReqiredToSpendMoney();
     m_isAllowedBeamMWLinks = m_settings.isAllowedBeamMWLinks();
     m_currentLanguageIndex = m_supportedLanguages.indexOf(m_settings.getLanguageName());
-    m_currentAmountUnitIndex = m_supportedAmountUnits.indexOf(m_settings.getAmountUnit());
+    m_currentAmountUnitIndex = m_supportedAmountUnits.indexOf(m_settings.getRateUnit());
 
     connect(&AppModel::getInstance().getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
     connect(&AppModel::getInstance().getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
@@ -1039,7 +1039,7 @@ QString SettingsViewModel::amountUnitDisplayedToConfigName(const QString& amount
     return it->first;
 }
 
-QStringList SettingsViewModel::getSupportedAmountUnits() const
+QStringList SettingsViewModel::getSupportedRateUnits() const
 {
     QStringList displayedUnitNames;
     displayedUnitNames.reserve(m_supportedAmountUnits.size());
@@ -1058,7 +1058,7 @@ int SettingsViewModel::getCurrentAmountUnitIndex() const
 void SettingsViewModel::setCurrentAmountUnitIndex(int value)
 {
     m_currentAmountUnitIndex = value;
-    m_settings.setAmountUnit(m_supportedAmountUnits[m_currentAmountUnitIndex]);
+    m_settings.setRateUnit(m_supportedAmountUnits[m_currentAmountUnitIndex]);
     emit currentAmountUnitIndexChanged();
 }
 

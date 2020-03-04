@@ -78,7 +78,17 @@ const symbolBeam  = "BEAM";
 const symbolBtc   = "BTC";
 const symbolLtc   = "LTC";
 const symbolQtum  = "QTUM";
-const symbolUsd  = "USD";
+const symbolUsd   = "USD";
+
+function getCurrencySymbol(exchangeCurrency)
+{
+    if (exchangeCurrency == "usd")
+        return symbolUsd;
+    else if (exchangeCurrency == "btc")
+        return symbolBtc;
+    else
+        return "";
+}
 
 const maxAmount   = "254000000";
 const minAmount   = "0.00000001";

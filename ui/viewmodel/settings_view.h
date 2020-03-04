@@ -235,7 +235,7 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(int      currentLanguageIndex    READ getCurrentLanguageIndex    NOTIFY currentLanguageIndexChanged)
     Q_PROPERTY(QString  currentLanguage         READ getCurrentLanguage         WRITE setCurrentLanguage)
     Q_PROPERTY(bool     isValidNodeAddress      READ isValidNodeAddress         NOTIFY validNodeAddressChanged)
-    Q_PROPERTY(QStringList supportedAmountUnits READ getSupportedAmountUnits    NOTIFY currentAmountUnitIndexChanged)
+    Q_PROPERTY(QStringList supportedAmountUnits READ getSupportedRateUnits    NOTIFY currentAmountUnitIndexChanged)
     Q_PROPERTY(int      currentAmountUnitIndex  READ getCurrentAmountUnitIndex  NOTIFY currentAmountUnitIndexChanged)
     Q_PROPERTY(QString  currentAmountUnit       READ getCurrentAmountUnit       WRITE setCurrentAmountUnit)
 
@@ -271,7 +271,7 @@ public:
     // Amount in second currency
     QString amountUnitDisplayedToConfigName(const QString& amountUnitName) const;
     QString amountUnitConfigToDisplayedName(const QString& amountUnitDisplayed) const;
-    QStringList getSupportedAmountUnits() const;
+    QStringList getSupportedRateUnits() const;
     int getCurrentAmountUnitIndex() const;
     void setCurrentAmountUnitIndex(int);
     QString getCurrentAmountUnit() const;

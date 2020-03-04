@@ -41,7 +41,7 @@ namespace
     const char* kRequirePasswordToSpendMoney = "require_password_to_spend_money";
     const char* kIsAlowedBeamMWLink = "beam_mw_links_allowed";
     const char* kshowSwapBetaWarning = "show_swap_beta_warning";
-    const char* kAmountUnit = "amountUnit";
+    const char* kRateUnit = "rateUnit";
 
     const char* kLocalNodeRun = "localnode/run";
     const char* kLocalNodePort = "localnode/port";
@@ -356,10 +356,10 @@ void WalletSettings::setLocaleByLanguageName(const QString& language)
     emit localeChanged();
 }
 
-QString WalletSettings::getAmountUnit() const
+QString WalletSettings::getRateUnit() const
 {
     Lock lock(m_mutex);
-    QString savedAmountUnit = m_data.value(kAmountUnit, kDefaultAmountUnit).toString();
+    QString savedAmountUnit = m_data.value(kRateUnit, kDefaultAmountUnit).toString();
 
     const auto it = find(std::begin(kSupportedAmountUnits),
                          std::cend(kSupportedAmountUnits),
@@ -374,7 +374,7 @@ QString WalletSettings::getAmountUnit() const
     }
 }
 
-void WalletSettings::setAmountUnit(const QString& name)
+void WalletSettings::setRateUnit(const QString& name)
 {
     const auto& it = std::find(
             kSupportedAmountUnits.begin(),
@@ -386,8 +386,8 @@ void WalletSettings::setAmountUnit(const QString& name)
                 : QString::fromUtf8(kDefaultAmountUnit);
     {
         Lock lock(m_mutex);
-        m_data.setValue(kAmountUnit, unitName);
-        emit amountUnitChanged();
+        m_data.setValue(kRateUnit, unitName);
+        emit rateUnitChanged();
     }
 }
 
@@ -491,7 +491,7 @@ QStringList WalletSettings::getSupportedLanguages()
 }
 
 // static
-QStringList WalletSettings::getSupportedAmountUnits()
+QStringList WalletSettings::getSupportedRateUnits()
 {
     QStringList unitNames;
 

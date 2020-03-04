@@ -160,9 +160,14 @@ Item {
                 receiving:         viewModel.beamReceiving
                 receivingChange:   viewModel.beamReceivingChange
                 receivingIncoming: viewModel.beamReceivingIncoming
-                // TODO: need to take from ExchangeRatesManager
-                secondCurrency:    Utils.symbolUsd
-                availableSecondCurrency: viewModel.beamAvailable2ndCurrency
+                secondCurrency:                     Utils.getCurrencySymbol(viewModel.secondCurrency)
+                availableSecondCurrency:            viewModel.beamAvailable2ndCurrency
+                lockedSecondCurrency:               viewModel.beamReceiving2ndCurrency
+                lockedMaturingSecondCurrency:       viewModel.beamSending2ndCurrency
+                sendingSecondCurrency:              viewModel.beamLocked2ndCurrency
+                receivingSecondCurrency:            viewModel.beamLockedMaturing2ndCurrency
+                receivingChangeSecondCurrency:      viewModel.beamReceivingChange2ndCurrency
+                receivingIncomingSecondCurrency:    viewModel.beamReceivingIncoming2ndCurrency
             }
 
             Item {
