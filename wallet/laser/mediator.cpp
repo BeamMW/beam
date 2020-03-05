@@ -40,7 +40,7 @@ inline bool CanBeClosed(int state)
 
 inline bool CanBeDeleted(int state)
 {
-    return state < beam::Lightning::Channel::State::Opening1 ||
+    return state == beam::Lightning::Channel::State::None ||
            state == beam::Lightning::Channel::State::OpenFailed ||
            state == beam::Lightning::Channel::State::Closed;
 }
@@ -163,10 +163,9 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
 
     if (!chID && m_pInputReceiver)
     {
-        if (!OnIncoming(inChID, dataIn))
-        {
-            return;
-        }
+        LOG_INFO() << "Create incoming: "
+                   << to_hex(inChID->m_pData , inChID->nBytes);
+        OnIncoming(inChID, dataIn);
     }
     else
     {
@@ -522,76 +521,75 @@ bool Mediator::get_skBbs(ECC::Scalar::Native& sk, const ChannelIDPtr& chID)
     return wid.m_Pk == peerID;
 }
 
-bool Mediator::OnIncoming(const ChannelIDPtr& channelID,
+void Mediator::OnIncoming(const ChannelIDPtr& chID,
                           Negotiator::Storage::Map& dataIn)
 {
     WalletID trgWid;
     if (!dataIn.Get(trgWid, Channel::Codes::MyWid))
-        return false;
+        return;
 
     Amount fee;
-    if (!dataIn.Get(fee, beam::Lightning::Codes::Fee) ||
-        fee != m_feeAllowed)
+    if (!dataIn.Get(fee, beam::Lightning::Codes::Fee))
+        return;
+    if (fee != m_feeAllowed)
     {
-        LOG_ERROR() << "Incoming connection with incorrect 'laser_fee' detected";
-        return false;
+        LOG_ERROR() << "Incoming with incorrect FEE detected";
+        return;
     }
 
     Amount aMy;
-    if (!dataIn.Get(aMy, beam::Lightning::Codes::ValueYours) ||
-        aMy != m_myInAllowed)
+    if (!dataIn.Get(aMy, beam::Lightning::Codes::ValueYours))
+        return;
+    if (aMy != m_myInAllowed)
     {
-        LOG_ERROR() << "Incoming connection with incorrect 'laser_my_locked_amount' detected";
-        return false;
+        LOG_ERROR() << "Incoming with incorrect 'laser_my_locked_amount' AMOUNT detected";
+        return;
     }
     
     Amount aTrg;
-    if (!dataIn.Get(aTrg, beam::Lightning::Codes::ValueMy) ||
-        aTrg != m_trgInAllowed)
+    if (!dataIn.Get(aTrg, beam::Lightning::Codes::ValueMy))
+        return;
+    if (aTrg != m_trgInAllowed)
     {
-        LOG_ERROR() << "Incoming connection with incorrect 'laser_remote_locked_amount' detected";
-        return false;
+        LOG_ERROR() << "Incoming with incorrect 'laser_remote_locked_amount' AMOUNT detected";
+        return;
     }
 
     Height locktime;
-    if (!dataIn.Get(locktime, beam::Lightning::Codes::HLock) ||
-        locktime != m_locktimeAllowed)
+    if (!dataIn.Get(locktime, beam::Lightning::Codes::HLock))
+        return; 
+    if (locktime != m_locktimeAllowed)
     {
-        LOG_ERROR() << "Incoming connection with incorrect 'laser_lock_time' detected";
-        return false;
+        LOG_ERROR() << "Incoming with incorrect LOCKTIME detected";
+        return;
     }          
 
     Unsubscribe();
 
-    LOG_INFO() << "Create channel by incoming connection: "
-               << to_hex(channelID->m_pData , channelID->nBytes);
-
     auto channel = std::make_unique<Channel>(
-        *this, channelID, m_myInAddr, trgWid, fee, aMy, aTrg, locktime);
+        *this, chID, m_myInAddr, trgWid, fee, aMy, aTrg, locktime);
     channel->Subscribe();
     m_channels[channel->get_chID()] = std::move(channel);
 
     m_pInputReceiver.reset();
-    return true;
 }
 
 void Mediator::OpenInternal(const ChannelIDPtr& chID)
 {
-    auto& channel = m_channels[chID];
-    if (channel && channel->Open(kDefaultTxLifetime))
+    auto& ch = m_channels[chID];
+    if (ch && ch->Open(kDefaultTxLifetime))
     {
         LOG_INFO() << "Opening channel: "
                    << to_hex(chID->m_pData, chID->nBytes);
-        UpdateChannelExterior(channel);
         return;
     }
 
     LOG_ERROR() << "Opening channel "
                 << to_hex(chID->m_pData, chID->nBytes) << " fail";
-    if (channel)
+    if (ch)
     {
-        channel->Unsubscribe();
-        channel->Forget();
+        ch->Unsubscribe();
+        ch->Forget();
     }
 
     m_channels.erase(chID);
@@ -793,7 +791,8 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
 
     channel->LogState();
     auto state = channel->get_State();
-    if (state == Lightning::Channel::State::None) return;
+    if (state == Lightning::Channel::State::None ||
+        state == Lightning::Channel::State::Opening0) return;
     
     channel->UpdateRestorePoint();
     m_pWalletDB->saveLaserChannel(*channel);
