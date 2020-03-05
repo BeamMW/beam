@@ -151,7 +151,7 @@ std::string swapOfferStatusToString(const SwapOfferStatus& status)
 {
     switch(status)
     {
-    case SwapOfferStatus::Canceled : return "canceled";
+    case SwapOfferStatus::Canceled : return "cancelled";
     case SwapOfferStatus::Completed : return "completed";
     case SwapOfferStatus::Expired : return "expired";
     case SwapOfferStatus::Failed : return "failed";
