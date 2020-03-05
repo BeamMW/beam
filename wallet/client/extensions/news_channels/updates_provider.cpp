@@ -39,6 +39,8 @@ namespace beam::wallet
                 if (fromByteBuffer(res.m_content, updateInfo)
                  && fromByteBuffer(res.m_signature, signature))
                 {
+                    // TODO: replace signature with HASH(updateInfo)
+                    // because 'signature' can be different for same 'updateInfo'
                     notifySubscribers(updateInfo, signature);
                 }
             }

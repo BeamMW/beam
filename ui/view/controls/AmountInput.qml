@@ -65,6 +65,9 @@ ColumnLayout {
     property bool     showTotalFee: false
     property bool     showAddAll:   false
     property string   maxAvailable: Utils.maxAmount
+    property alias    amountSecondCurrency:     amount2ndCurrencyText.text
+    property alias    feeSecondCurrency:        fee2ndCurrencyText.text
+    property alias    feeTotalSecondCurrency:   feeTotal2ndCurrencyText.text
 
     SFText {
         font.pixelSize:   14
@@ -190,6 +193,13 @@ ColumnLayout {
         }
     }
 
+    SFText {
+        id:               amount2ndCurrencyText
+        visible:          text != ""
+        font.pixelSize:   14
+        color:            Style.content_secondary
+    }
+
     Item {
         Layout.fillWidth: true
         SFText {
@@ -230,6 +240,12 @@ ColumnLayout {
                     onCurrencyChanged: feeInput.fee = currencies[currency].defaultFee
                 }
             }
+            SFText {
+                id:               fee2ndCurrencyText
+                visible:          text != ""
+                font.pixelSize:   14
+                color:            Style.content_secondary
+            }
         }
        
         ColumnLayout {
@@ -247,6 +263,13 @@ ColumnLayout {
                 font.pixelSize:   14
                 color:            Style.content_main
                 text:             getTotalFeeAmount()
+            }
+            SFText {
+                id:               feeTotal2ndCurrencyText
+                visible:          text != ""
+                Layout.topMargin: 6
+                font.pixelSize:   14
+                color:            Style.content_secondary
             }
         }
     }

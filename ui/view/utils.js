@@ -74,6 +74,7 @@ function currenciesList() {
     return ["BEAM", "BTC", "LTC", "QTUM"]
 }
 
+// TODO: refact all currencies labels to one place
 const symbolBeam  = "BEAM";
 const symbolBtc   = "BTC";
 const symbolLtc   = "LTC";

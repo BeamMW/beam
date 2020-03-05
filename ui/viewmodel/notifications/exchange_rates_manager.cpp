@@ -73,6 +73,11 @@ void ExchangeRatesManager::onRateUnitChanged()
     emit rateUnitChanged();
 }
 
+beam::wallet::ExchangeRate::Currency ExchangeRatesManager::getRateUnitRaw() const
+{
+    return m_rateUnit;
+}
+
 QString ExchangeRatesManager::getRateUnit() const
 {
     return QString::fromStdString(ExchangeRate::to_string(m_rateUnit));
@@ -137,5 +142,22 @@ QString ExchangeRatesManager::calcAmountIn2ndCurrency(const QString& amount, Exc
             return "0";
     }
     return QMLGlobals::multiplyWithPrecision8(amount, rate);
+}
+
+ExchangeRate::Currency ExchangeRatesManager::convertCurrencyToExchangeCurrency(WalletCurrency::Currency uiCurrency)
+{
+    switch (uiCurrency)
+    {
+    case Currency::CurrBeam:
+        return ExchangeRate::Currency::Beam;
+    case Currency::CurrBtc:
+        return ExchangeRate::Currency::Bitcoin;
+    case Currency::CurrLtc:
+        return ExchangeRate::Currency::Litecoin;
+    case Currency::CurrQtum:
+        return ExchangeRate::Currency::Qtum;
+    default:
+        return ExchangeRate::Currency::Unknown;
+    }
 }
 
