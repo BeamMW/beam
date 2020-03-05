@@ -38,6 +38,25 @@ namespace
 
     const string dbFileName = "wallet.db";
 
+    void PublishOfferNoThrow(const SwapOffersBoard& board, const SwapOffer& offer)
+    {
+        try {
+            board.publishOffer(offer);
+        }
+        catch(const SwapOffersBoard::InvalidOfferException & e) {
+            std::cout << offer.m_txId << e.what() << endl;
+        }
+        catch(const SwapOffersBoard::OfferAlreadyPublishedException & e) {
+            std::cout << offer.m_txId << e.what() << endl;
+        }
+        catch(const SwapOffersBoard::ForeignOfferException & e) {
+            std::cout << offer.m_txId << e.what() << endl;
+        }
+        catch(const SwapOffersBoard::ExpiredOfferException & e) {
+            std::cout << offer.m_txId << e.what() << endl;
+        }
+    }
+
     /**
      *  Class to test correct notification of SwapOffersBoard observers
      */
@@ -124,6 +143,7 @@ namespace
         o.SetParameter(TxParameterID::AtomicSwapAmount, Amount(std::rand() % 1000));
         o.SetParameter(TxParameterID::MinHeight, Height(std::rand() % 1000));
         o.SetParameter(TxParameterID::PeerResponseTime, Height(std::rand() % 500));
+        o.SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
         return o;
     }
 
@@ -334,7 +354,7 @@ namespace
                 o.m_txId = incrementTxID(txID);
                 cout << "\tparameter code " << static_cast<uint32_t>(parameter) << endl;
                 o.DeleteParameter(parameter);
-                Alice.publishOffer(o);
+                PublishOfferNoThrow(Alice, o);
                 WALLET_CHECK_NO_THROW(count = Alice.getOffersList().size());
                 WALLET_CHECK(count == offersCount);
             }
@@ -344,7 +364,7 @@ namespace
             SwapOffer o = correctOffer;
             o.m_txId = incrementTxID(txID);
             o.m_coin = AtomicSwapCoin::Unknown;
-            Alice.publishOffer(o);
+            PublishOfferNoThrow(Alice, o);
             WALLET_CHECK_NO_THROW(count = Alice.getOffersList().size());
             WALLET_CHECK(count == offersCount);
         }
@@ -353,7 +373,7 @@ namespace
             SwapOffer o = correctOffer;
             o.m_txId = incrementTxID(txID);
             o.m_status = static_cast<SwapOfferStatus>(static_cast<uint32_t>(SwapOfferStatus::Failed) + 1);
-            Alice.publishOffer(o);
+            PublishOfferNoThrow(Alice, o);
             WALLET_CHECK_NO_THROW(count = Alice.getOffersList().size());
             WALLET_CHECK(count == offersCount);
         }
@@ -361,7 +381,7 @@ namespace
             cout << "Case: correct offer" << endl;
             SwapOffer o = correctOffer;
             o.m_txId = incrementTxID(txID);
-            Alice.publishOffer(o);
+            PublishOfferNoThrow(Alice, o);
             WALLET_CHECK(Alice.getOffersList().size() == ++offersCount);
         }
         cout << "Test end" << endl;
@@ -413,9 +433,9 @@ namespace
             SwapOffer o3 = correctOffer;
             o2.m_txId = incrementTxID(txID);
             o3.m_txId = incrementTxID(txID);
-            Alice.publishOffer(o1);
-            Bob.publishOffer(o2);
-            Cory.publishOffer(o3);
+            PublishOfferNoThrow(Alice, o1);
+            PublishOfferNoThrow(Bob, o2);
+            PublishOfferNoThrow(Cory, o3);
             offersCount += 3;
             WALLET_CHECK(Alice.getOffersList().size() == offersCount);
             WALLET_CHECK(Bob.getOffersList().size() == offersCount);
@@ -443,7 +463,7 @@ namespace
             cout << "Case: ignore same TxID" << endl;
             SwapOffer o4 = correctOffer;
             o4.m_coin = AtomicSwapCoin::Qtum;
-            Cory.publishOffer(o4);
+            PublishOfferNoThrow(Cory, o4);
             WALLET_CHECK(Alice.getOffersList().size() == offersCount);
             WALLET_CHECK(Bob.getOffersList().size() == offersCount);
             WALLET_CHECK(Cory.getOffersList().size() == offersCount);
@@ -453,7 +473,7 @@ namespace
             cout << "Case: different TxID" << endl;
             o4.m_txId = incrementTxID(txID);
             o4.m_coin = AtomicSwapCoin::Qtum;
-            Cory.publishOffer(o4);
+            PublishOfferNoThrow(Cory, o4);
             offersCount++;
             WALLET_CHECK(Alice.getOffersList().size() == offersCount);
             WALLET_CHECK(Bob.getOffersList().size() == offersCount);
@@ -468,7 +488,7 @@ namespace
             o4 = correctOffer;
             o4.m_txId = incrementTxID(txID);
             o4.m_coin = AtomicSwapCoin::Litecoin;
-            Bob.publishOffer(o4);
+            PublishOfferNoThrow(Bob, o4);
             offersCount++;
             WALLET_CHECK(Alice.getOffersList().size() == offersCount);
             WALLET_CHECK(Bob.getOffersList().size() == offersCount);
@@ -500,7 +520,7 @@ namespace
                     o.m_txId = incrementTxID(txID);
                     cout << "\tparameter " << static_cast<uint32_t>(s) << endl;
                     o.m_status = s;
-                    Alice.publishOffer(o);
+                    PublishOfferNoThrow(Alice, o);
                     WALLET_CHECK(Bob.getOffersList().size() == offersCount);
                 }
                 WALLET_CHECK(execCount == 0);
@@ -510,7 +530,7 @@ namespace
                 SwapOffer o = correctOffer;
                 o.m_txId = incrementTxID(txID);
                 o.m_status = SwapOfferStatus::Pending;
-                Alice.publishOffer(o);
+                PublishOfferNoThrow(Alice, o);
                 offersCount++;
                 WALLET_CHECK(Bob.getOffersList().size() == offersCount);
                 WALLET_CHECK(execCount == 1);
@@ -553,11 +573,11 @@ namespace
             o3.m_txId = incrementTxID(txID);
             o4.m_txId = incrementTxID(txID);
             o5.m_txId = incrementTxID(txID);
-            Alice.publishOffer(o1);
-            Alice.publishOffer(o2);
-            Alice.publishOffer(o3);
-            Alice.publishOffer(o4);
-            Alice.publishOffer(o5);
+            PublishOfferNoThrow(Alice, o1);
+            PublishOfferNoThrow(Alice, o2);
+            PublishOfferNoThrow(Alice, o3);
+            PublishOfferNoThrow(Alice, o4);
+            PublishOfferNoThrow(Alice, o5);
             offerCount += 5;
             WALLET_CHECK(Bob.getOffersList().size() == offerCount);
             WALLET_CHECK(Alice.getOffersList().size() == offerCount);
@@ -615,8 +635,8 @@ namespace
             aliceOffer.m_txId = incrementTxID(txID);
             aliceExpiredOffer.m_txId = incrementTxID(txID);
             bobOffer.m_txId = incrementTxID(txID);
-            Bob.publishOffer(bobOffer);
-            Alice.publishOffer(aliceOffer);
+            PublishOfferNoThrow(Bob, bobOffer);
+            PublishOfferNoThrow(Alice, aliceOffer);
             offerCount += 2;
 
             WALLET_CHECK(Alice.getOffersList().size() == offerCount);
@@ -651,7 +671,7 @@ namespace
 
             // check expired offer 
             Alice.Subscribe(&obsRemove);
-            Alice.publishOffer(aliceExpiredOffer);
+            PublishOfferNoThrow(Alice, aliceExpiredOffer);
             Alice.Unsubscribe(&obsRemove);
             WALLET_CHECK(Alice.getOffersList().size() == offerCount - 2);
             WALLET_CHECK(exCount == 2);
@@ -713,7 +733,7 @@ namespace
             WALLET_CHECK(Alice.getOffersList().size() == 0);
             WALLET_CHECK(Bob.getOffersList().size() == 0);
 
-            Bob.publishOffer(o);
+            PublishOfferNoThrow(Bob, o);
             WALLET_CHECK(exCount == 0);
             WALLET_CHECK(Alice.getOffersList().size() == 0);
             WALLET_CHECK(Bob.getOffersList().size() == 0);

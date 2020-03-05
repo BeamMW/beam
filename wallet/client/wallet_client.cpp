@@ -679,7 +679,14 @@ namespace beam::wallet
     {
         if (auto p = m_offersBulletinBoard.lock())
         {
-            p->publishOffer(offer);
+            try
+            {
+                p->publishOffer(offer);
+            }
+            catch (const std::runtime_error& e)
+            {
+                LOG_ERROR() << offer.m_txId << e.what();
+            }
         }
     }
 

@@ -864,17 +864,16 @@ void ApiConnection::onMessage(const JsonRpcId& id, const PublishOffer& data)
     SwapOffer offer(readyForTokenizeTxParams);
     if (offer.m_status == SwapOfferStatus::Pending)
     {
-        offer.m_publisherId =
-            *offer.GetParameter<WalletID>(TxParameterID::PeerID);
+        offer.m_publisherId = *offer.GetParameter<WalletID>(TxParameterID::PeerID);
         _walletData.getAtomicSwapProvider().getSwapOffersBoard().publishOffer(offer);
-    }
 
-    doResponse(id, PublishOffer::Response
-        {
-            walletDB->getAddresses(true),
-            walletDB->getCurrentHeight(),
-            offer
-        });
+        doResponse(id, PublishOffer::Response
+            {
+                walletDB->getAddresses(true),
+                walletDB->getCurrentHeight(),
+                offer
+            });
+    }
 }
 
 void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)

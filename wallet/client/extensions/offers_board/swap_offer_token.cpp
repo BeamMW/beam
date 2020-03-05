@@ -26,8 +26,8 @@ bool SwapOfferToken::isValid(const std::string& token)
     {
         return false;
     }
-    auto type = params->GetParameter<TxType>(TxParameterID::TransactionType);
-    return type && *type == TxType::AtomicSwap;
+    SwapOffer offer(*params);
+    return offer.IsValid();
 }
 
 SwapOffer SwapOfferToken::Unpack() const
