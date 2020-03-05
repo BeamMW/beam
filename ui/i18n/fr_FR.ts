@@ -941,16 +941,20 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation>Langue</translation>
     </message>
     <message id="open-external-open">
-        <source>Open</source>
-        <translation>Ouvrir</translation>
+        <source>allow and open</source>
+        <oldsource>Open</oldsource>
+        <translation type="unfinished">Ouvrir</translation>
     </message>
     <message id="open-external-title">
         <source>External link</source>
         <translation>Lien externe</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <translation>L&apos;application Beam Wallet nécessite l&apos;autorisation d&apos;ouvrir un lien externe dans le navigateur. Cette action exposera votre adresse IP au serveur Web. Pour l&apos;éviter, choisissez -Annuler-. Vous pouvez modifier votre choix dans les paramètres de l&apos;application à tout moment.</translation>
+        <source>Beam Wallet app requires permission to open external link in the browser.
+This action will expose your IP to the web server.
+To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
+        <oldsource>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</oldsource>
+        <translation type="unfinished">L&apos;application Beam Wallet nécessite l&apos;autorisation d&apos;ouvrir un lien externe dans le navigateur. Cette action exposera votre adresse IP au serveur Web. Pour l&apos;éviter, choisissez -Annuler-. Vous pouvez modifier votre choix dans les paramètres de l&apos;application à tout moment.</translation>
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
@@ -2237,6 +2241,21 @@ deploy the key at the node you trust completely.</translation>
     </message>
     <message id="notification-transaction-sent">
         <source>Transaction sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="open-external-beam-site-title">
+        <source>Allow access to Beam website</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-from-external-message">
+        <source>Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version.
+This action will expose your IP to the web server.
+To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-update-wallet">
+        <source>update wallet</source>
+        <extracomment>settings update wallet button</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>

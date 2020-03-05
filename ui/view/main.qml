@@ -12,6 +12,7 @@ Rectangle {
     id: main
 
     property var openedNotifications: 0
+    property alias hasNewerVersion : updateInfoProvider.hasNewerVersion
 
     anchors.fill: parent
 

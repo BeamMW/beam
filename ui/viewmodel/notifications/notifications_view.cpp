@@ -71,7 +71,10 @@ void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action
 
     for (const auto& n : notifications)
     {
-        modifiedNotifications.push_back(std::make_shared<NotificationItem>(n));
+        if (action == ChangeAction::Removed || n.m_state != Notification::State::Deleted)
+        {
+            modifiedNotifications.push_back(std::make_shared<NotificationItem>(n));
+        }
     }
 
     switch (action)

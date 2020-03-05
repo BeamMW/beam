@@ -158,8 +158,7 @@ deploy the key at the node you trust completely."*/
 
         SFText {
             Layout.fillWidth: true
-            Layout.alignment: Qt.AlignBottom | Qt.AlignRight
-            bottomPadding: 7
+            Layout.alignment: Qt.AlignCenter | Qt.AlignRight
             horizontalAlignment: Text.AlignRight
             font.pixelSize: 14
             color: Style.content_secondary
@@ -167,6 +166,18 @@ deploy the key at the node you trust completely."*/
             //% "Version"
             text: qsTrId("settings-version") + ": " + viewModel.version
         }
+        PrimaryButton {
+            Layout.alignment: Qt.AlignCenter
+            Layout.leftMargin: 20
+            Layout.preferredHeight: 38
+            //: settings update wallet button
+            //% "update wallet"
+            text: qsTrId("settings-update-wallet")
+            icon.source: "qrc:/assets/icon-repeat.svg"
+            visible: main.hasNewerVersion
+            onClicked: Utils.navigateToDownloads()
+        }
+
     }
 
     StatusBar {

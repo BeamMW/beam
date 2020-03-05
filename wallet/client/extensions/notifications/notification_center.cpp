@@ -147,8 +147,11 @@ namespace beam::wallet
 
         for (const auto& pair : m_cache)
         {
-            if (!isNotificationTypeActive(pair.second.m_type)) continue;
-            if (pair.second.m_state == Notification::State::Deleted) continue;
+            if (!isNotificationTypeActive(pair.second.m_type))
+                continue;
+            if (pair.second.m_type != Notification::Type::SoftwareUpdateAvailable // we do not filter out deleted software update notifications
+                && pair.second.m_state == Notification::State::Deleted)
+                continue;
             notifications.push_back(pair.second);
         }
 
