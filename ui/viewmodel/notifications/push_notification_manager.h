@@ -18,22 +18,30 @@
 
 #include "ui/model/app_model.h"
 
+/**
+ *  Used to show user notification popup when a new wallet application was released.
+ */
 class PushNotificationManager : public QObject
 {
     Q_OBJECT
-
+    Q_PROPERTY(bool hasNewerVersion            READ hasNewerVersion            NOTIFY showUpdateNotification)
 public:
     PushNotificationManager();
 
+    /// Will mark notification as read to ignore it next time.
     Q_INVOKABLE void onCancelPopup(const QVariant& variantID);
+
+    bool hasNewerVersion() const;
 
 signals:
     void showUpdateNotification(const QString&, const QString&, const QVariant&);
 
 public slots:
-    void onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig& notificationID);
+    void onNewSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig& notificationID, bool showPopup);
+    void onNotificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&);
 
 private:
     WalletModel& m_walletModel;
-    WalletSettings& m_settings; /// TODO store last version user notified about
+    bool m_firstNotification = true;
+    bool m_hasNewerVersion = false;
 };

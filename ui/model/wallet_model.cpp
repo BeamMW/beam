@@ -286,7 +286,7 @@ void WalletModel::onPostFunctionToClientContext(MessageFunction&& func)
     emit functionPosted(func);
 }
 
-void WalletModel::onExchangeRates(const beam::wallet::ExchangeRates& rates)
+void WalletModel::onExchangeRates(const std::vector<beam::wallet::ExchangeRate>& rates)
 {
     emit exchangeRatesUpdate(rates);
 }
@@ -294,22 +294,6 @@ void WalletModel::onExchangeRates(const beam::wallet::ExchangeRates& rates)
 void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<Notification>& notifications)
 {
     emit notificationsChanged(action, notifications);
-
-    if (action != beam::wallet::ChangeAction::Removed)
-    {
-        for (const auto& n : notifications)
-        {
-            if (n.m_type == beam::wallet::Notification::Type::SoftwareUpdateAvailable
-             && n.m_state == beam::wallet::Notification::State::Unread)
-            {
-                beam::wallet::VersionInfo info;
-                if (beam::wallet::fromByteBuffer(n.m_content, info))
-                {
-                    emit newSoftwareUpdateAvailable(info, n.m_ID);
-                }
-            }
-        }
-    }
 }
 
 beam::Amount WalletModel::getAvailable() const

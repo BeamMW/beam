@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 set(HW_CRYPTO_SRC
     hw_crypto.c
+    context.c
 # ~etc
 )
 

@@ -213,32 +213,42 @@ auto SwapOffersBoard::getOffersList() const -> std::vector<SwapOffer>
 
 void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
 {
-    auto swapCoin = offer.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-    auto isBeamSide = offer.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-    auto amount = offer.GetParameter<Amount>(TxParameterID::Amount);
-    auto swapAmount = offer.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
-    auto responseTime = offer.GetParameter<Height>(TxParameterID::PeerResponseTime);
-    auto minimalHeight = offer.GetParameter<Height>(TxParameterID::MinHeight);
-
-    if (!swapCoin || !isBeamSide || !amount || !swapAmount || !responseTime || !minimalHeight)
+    if (!offer.IsValid())
     {
-        LOG_WARNING() << offer.m_txId << " Can't publish invalid offer.\n\t";
-        return;
+        throw InvalidOfferException();
     }
 
-    LOG_INFO() << offer.m_txId << " Publish offer.\n\t"
-                << "isBeamSide: " << (*isBeamSide ? "false" : "true") << "\n\t"
-                << "swapCoin: " << std::to_string(*swapCoin) << "\n\t"
-                << "amount: " << *amount << "\n\t"
-                << "swapAmount: " << *swapAmount << "\n\t"
-                << "responseTime: " << *responseTime << "\n\t"
-                << "minimalHeight: " << *minimalHeight;
-    
+    if (isOfferExpired(offer))
+    {
+        throw ExpiredOfferException();
+    }
+
+    if (auto offerIt = m_offersCache.find(offer.m_txId); offerIt != m_offersCache.end())
+    {
+        throw OfferAlreadyPublishedException();
+    }
+
+    {
+        auto swapCoin = offer.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        auto isBeamSide = offer.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+        auto amount = offer.GetParameter<Amount>(TxParameterID::Amount);
+        auto swapAmount = offer.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+        auto responseTime = offer.GetParameter<Height>(TxParameterID::PeerResponseTime);
+        auto minimalHeight = offer.GetParameter<Height>(TxParameterID::MinHeight);
+
+        LOG_INFO() << offer.m_txId << " Publish offer.\n\t"
+            << "isBeamSide: " << (*isBeamSide ? "false" : "true") << "\n\t"
+            << "swapCoin: " << std::to_string(*swapCoin) << "\n\t"
+            << "amount: " << *amount << "\n\t"
+            << "swapAmount: " << *swapAmount << "\n\t"
+            << "responseTime: " << *responseTime << "\n\t"
+            << "minimalHeight: " << *minimalHeight;
+    }
+
     auto message = m_protocolHandler.createMessage(offer, offer.m_publisherId);
     if (!message)
     {
-        LOG_WARNING() << offer.m_txId << " Offer has foreign Pk and will not be published.\n\t";
-        return;
+        throw ForeignOfferException();
     }
     m_broadcastGateway.sendRawMessage(BroadcastContentType::SwapOffers, *message);
 }

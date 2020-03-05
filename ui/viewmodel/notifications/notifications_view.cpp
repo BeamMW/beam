@@ -25,13 +25,43 @@ NotificationsViewModel::NotificationsViewModel()
     connect(&m_walletModel,
             SIGNAL(notificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)),
             SLOT(onNotificationsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&)));
-    
+
     m_walletModel.getAsync()->getNotifications();
 }
 
-QAbstractItemModel* NotificationsViewModel::getNotifications()
+QAbstractItemModel* NotificationsViewModel::getNotifications()  
 {
     return &m_notificationsList;
+}
+
+void NotificationsViewModel::clearAll()
+{
+    for(auto& n : m_notificationsList)
+    {
+        m_walletModel.getAsync()->deleteNotification(n->getID());
+    }
+}
+
+void NotificationsViewModel::removeItem(const ECC::uintBig& id)
+{
+    m_walletModel.getAsync()->deleteNotification(id);
+}
+
+void NotificationsViewModel::markItemAsRead(const ECC::uintBig& id)
+{
+    m_walletModel.getAsync()->markNotificationAsRead(id);
+}
+
+QString NotificationsViewModel::getItemTxID(const ECC::uintBig& id)
+{
+    for (const auto& n : m_notificationsList)
+    {
+        if (n->getID() == id)
+        {
+            return n->getTxID();
+        }
+    }
+    return "";
 }
 
 void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action, const std::vector<Notification>& notifications)
@@ -41,7 +71,10 @@ void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action
 
     for (const auto& n : notifications)
     {
-        modifiedNotifications.push_back(std::make_shared<NotificationItem>(n));
+        if (action == ChangeAction::Removed || n.m_state != Notification::State::Deleted)
+        {
+            modifiedNotifications.push_back(std::make_shared<NotificationItem>(n));
+        }
     }
 
     switch (action)

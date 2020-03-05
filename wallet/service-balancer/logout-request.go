@@ -12,7 +12,7 @@ type logout struct {
 	WalletID string
 }
 
-func logoutRequest(w http.ResponseWriter, r *http.Request) (res interface{}, err error) {
+func logoutRequest(r *http.Request) (res interface{}, err error) {
 	var req logout
 
 	decoder := json.NewDecoder(r.Body)

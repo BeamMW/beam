@@ -11,7 +11,7 @@ type alive struct {
 	WalletID string
 }
 
-func aliveRequest(w http.ResponseWriter, r *http.Request) (res interface{}, err error) {
+func aliveRequest(r *http.Request) (res interface{}, err error) {
 	var req alive
 
 	decoder := json.NewDecoder(r.Body)

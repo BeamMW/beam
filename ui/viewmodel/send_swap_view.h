@@ -16,6 +16,7 @@
 #include <QObject>
 #include <QDateTime>
 #include "model/wallet_model.h"
+#include "notifications/exchange_rates_manager.h"
 #include "currencies.h"
 
 class SendSwapViewModel: public QObject
@@ -38,6 +39,8 @@ class SendSwapViewModel: public QObject
     Q_PROPERTY(bool          isReceiveFeeOK   READ isReceiveFeeOK                           NOTIFY isReceiveFeeOKChanged)
     Q_PROPERTY(bool          isSendBeam       READ isSendBeam                               NOTIFY tokenChanged)
     Q_PROPERTY(QString       rate             READ getRate                                  NOTIFY tokenChanged)
+    Q_PROPERTY(QString       sendAmount2ndCurrency      READ getSendAmount2ndCurrency       NOTIFY secondCurrencyAmountChanged)
+    Q_PROPERTY(QString       receiveAmount2ndCurrency   READ getReceiveAmount2ndCurrency    NOTIFY secondCurrencyAmountChanged)
 
     Q_PROPERTY(WalletCurrency::Currency  receiveCurrency  READ getReceiveCurrency  NOTIFY  receiveCurrencyChanged)
     Q_PROPERTY(WalletCurrency::Currency  sendCurrency     READ getSendCurrency     NOTIFY  sendCurrencyChanged)
@@ -87,6 +90,9 @@ public:
     bool isSendBeam() const;
     QString getRate() const;
 
+    QString getSendAmount2ndCurrency() const;
+    QString getReceiveAmount2ndCurrency() const;
+
 public:
     Q_INVOKABLE void setParameters(const QVariant& parameters);    /// used to pass TxParameters directly without Token generation
     Q_INVOKABLE void sendMoney();
@@ -107,6 +113,8 @@ signals:
     void enoughChanged();
     void isSendFeeOKChanged();
     void isReceiveFeeOKChanged();
+    void secondCurrencyChanged();
+    void secondCurrencyAmountChanged();
 
 public slots:
     void onChangeCalculated(beam::Amount change);
@@ -128,6 +136,7 @@ private:
     QString      _token;
 
     WalletModel& _walletModel;
+    ExchangeRatesManager _exchangeRatesManager;
     beam::wallet::TxParameters _txParameters;
     bool _isBeamSide;
 };

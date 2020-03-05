@@ -1325,11 +1325,7 @@ void TestNotifications()
         std::vector<Notification> list;
         list = db->getNotifications();
         WALLET_CHECK(list.size() == 1);
-        WALLET_CHECK(list[0].m_ID == n1.m_ID);
-        WALLET_CHECK(list[0].m_type == n1.m_type);
-        WALLET_CHECK(list[0].m_createTime == n1.m_createTime);
-        WALLET_CHECK(list[0].m_state == n1.m_state);
-        WALLET_CHECK(list[0].m_content == n1.m_content);
+        WALLET_CHECK(list[0] == n1);
 
         // update notification
         n1.m_type = Notification::Type::BeamNews;
@@ -1340,11 +1336,7 @@ void TestNotifications()
 
         list = db->getNotifications();
         WALLET_CHECK(list.size() == 1);
-        WALLET_CHECK(list[0].m_ID == n1.m_ID);
-        WALLET_CHECK(list[0].m_type == n1.m_type);
-        WALLET_CHECK(list[0].m_createTime == n1.m_createTime);
-        WALLET_CHECK(list[0].m_state == n1.m_state);
-        WALLET_CHECK(list[0].m_content == n1.m_content);
+        WALLET_CHECK(list[0] == n1);
 
         // add one notification
         ECC::GenRandom(id);
@@ -1359,16 +1351,54 @@ void TestNotifications()
 
         list = db->getNotifications();
         WALLET_CHECK(list.size() == 2);
-        WALLET_CHECK(list[0].m_ID == n2.m_ID);
-        WALLET_CHECK(list[0].m_type == n2.m_type);
-        WALLET_CHECK(list[0].m_createTime == n2.m_createTime);
-        WALLET_CHECK(list[0].m_state == n2.m_state);
-        WALLET_CHECK(list[0].m_content == n2.m_content);
-        WALLET_CHECK(list[1].m_ID == n1.m_ID);
-        WALLET_CHECK(list[1].m_type == n1.m_type);
-        WALLET_CHECK(list[1].m_createTime == n1.m_createTime);
-        WALLET_CHECK(list[1].m_state == n1.m_state);
-        WALLET_CHECK(list[1].m_content == n1.m_content);
+        WALLET_CHECK(list[0] == n2);
+        WALLET_CHECK(list[1] == n1);
+    }
+}
+
+void TestExchangeRates()
+{
+    cout << "\nWallet database exchange rates test\n";
+    auto db = createSqliteWalletDB();
+
+    // empty storage
+    {
+        auto rates = db->getExchangeRates();
+        WALLET_CHECK(rates.empty());
+    }
+
+    {
+        // store rate
+        ExchangeRate r1 { ExchangeRate::Currency::Beam,
+                          ExchangeRate::Currency::Usd,
+                          100000000,
+                          111 };
+        WALLET_CHECK_NO_THROW(db->saveExchangeRate(r1));
+
+        // read
+        auto rates = db->getExchangeRates();
+        WALLET_CHECK(rates.size() == 1);
+        WALLET_CHECK(rates[0] == r1);
+
+        // store another one
+        ExchangeRate r2 { ExchangeRate::Currency::Bitcoin,
+                          ExchangeRate::Currency::Usd,
+                          100000000000,
+                          222 };
+        db->saveExchangeRate(r2);
+        rates = db->getExchangeRates();
+        WALLET_CHECK(rates.size() == 2);
+        WALLET_CHECK(rates[0] == r2);
+        WALLET_CHECK(rates[1] == r1);
+
+        // update one of
+        r1.m_rate += 100500;
+        r1.m_updateTime = 333;
+        db->saveExchangeRate(r1);
+        rates = db->getExchangeRates();
+        WALLET_CHECK(rates.size() == 2);
+        WALLET_CHECK(rates[0] == r1);
+        WALLET_CHECK(rates[1] == r2);
     }
 }
 
@@ -1402,6 +1432,7 @@ int main()
     TestTxParameters();
     TestWalletMessages();
     TestNotifications();
+    TestExchangeRates();
 
     return WALLET_CHECK_RESULT;
 }

@@ -67,11 +67,22 @@ namespace beam::wallet
         m_activeNotifications[type] = onOff;
     }
 
+    size_t NotificationCenter::getUnreadCount() const
+    {
+        return std::count_if(m_cache.begin(), m_cache.end(),
+            [](const auto& p)
+            {
+                return p.second.m_state == Notification::State::Unread 
+                    && (p.second.m_type == Notification::Type::SoftwareUpdateAvailable 
+                        || p.second.m_type == Notification::Type::TransactionFailed);
+            });
+    }
+
     void NotificationCenter::createNotification(const Notification& notification)
     {
         LOG_DEBUG() << "createNotification()";
 
-        m_cache[notification.m_ID] = notification;
+        m_cache.insert(std::make_pair(notification.m_ID, notification));
         m_storage.saveNotification(notification);
 
         if (isNotificationTypeActive(notification.m_type))
@@ -136,27 +147,71 @@ namespace beam::wallet
 
         for (const auto& pair : m_cache)
         {
-            if (!isNotificationTypeActive(pair.second.m_type)) continue;
-            if (pair.second.m_state == Notification::State::Deleted) continue;
+            if (!isNotificationTypeActive(pair.second.m_type))
+                continue;
+            if (pair.second.m_type != Notification::Type::SoftwareUpdateAvailable // we do not filter out deleted software update notifications
+                && pair.second.m_state == Notification::State::Deleted)
+                continue;
             notifications.push_back(pair.second);
         }
 
         return notifications;
     }
 
+    /**
+     *  @content    new release information
+     *  @signature  signature of broadcast message used here as unique ID of notification
+     */
     void NotificationCenter::onNewWalletVersion(const VersionInfo& content, const ECC::uintBig& signature)
     {
         LOG_DEBUG() << "NotificationCenter::onNewWalletVersion()";
 
-        Notification n;
-        n.m_ID = signature;
-        n.m_type = Notification::Type::SoftwareUpdateAvailable;
-        n.m_createTime = getTimestamp();
-        n.m_state = Notification::State::Unread;
-        n.m_content = toByteBuffer(content);
-        
-        createNotification(n);
+        auto search = m_cache.find(signature);
+        if (search == m_cache.cend())
+        {
+            Notification n;
+            n.m_ID = signature;
+            n.m_type = Notification::Type::SoftwareUpdateAvailable;
+            n.m_createTime = getTimestamp();
+            n.m_state = Notification::State::Unread;
+            n.m_content = toByteBuffer(content);
+            
+            createNotification(n);
+        }
     }
+
+    void NotificationCenter::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
+    {
+        if (action == ChangeAction::Added || action == ChangeAction::Updated)
+        {
+            LOG_DEBUG() << "NotificationCenter::onTransactionChanged()";
+           
+            for (const auto& item : items)
+            {
+                bool failed = (item.m_status == TxStatus::Failed || item.m_status == TxStatus::Canceled);
+                if (!failed && item.m_status != TxStatus::Completed)
+                {
+                    continue;
+                }
+                const auto& id = item.GetTxID();
+                ECC::Hash::Value hv;
+                ECC::Hash::Processor() << Blob(id->data(), static_cast<uint32_t>(id->size())) << uint32_t(item.m_status) >> hv;
+                Notification n;
+                n.m_ID = hv;
+                n.m_type = failed ? Notification::Type::TransactionFailed : Notification::Type::TransactionCompleted;
+                n.m_createTime = getTimestamp();
+                n.m_state = Notification::State::Unread;
+                n.m_content = toByteBuffer(TxToken(item));
+                createNotification(n);
+            }
+        }
+    }
+
+    void NotificationCenter::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
+    {
+
+    }
+
 
     void NotificationCenter::Subscribe(INotificationsObserver* observer)
     {
@@ -183,7 +238,7 @@ namespace beam::wallet
     {
         for (const auto sub : m_subscribers)
         {
-                sub->onNotificationsChanged(action, std::vector<Notification>{notifications});
+            sub->onNotificationsChanged(action, notifications);
         }
     }
 

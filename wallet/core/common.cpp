@@ -94,6 +94,11 @@ namespace std
     {
         return v.to_string();
     }
+
+    string to_string(const beam::wallet::TxID& id)
+    {
+        return to_hex(id.data(), id.size());
+    }
 }  // namespace std
 
 namespace beam
@@ -101,7 +106,7 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid)
     {
         stringstream ss;
-        ss << "[" << to_hex(uuid.data(), uuid.size()) << "]";
+        ss << "[" << std::to_string(uuid) << "]";
         os << ss.str();
         return os;
     }

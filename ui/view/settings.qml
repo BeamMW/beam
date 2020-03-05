@@ -158,8 +158,7 @@ deploy the key at the node you trust completely."*/
 
         SFText {
             Layout.fillWidth: true
-            Layout.alignment: Qt.AlignBottom | Qt.AlignRight
-            bottomPadding: 7
+            Layout.alignment: Qt.AlignCenter | Qt.AlignRight
             horizontalAlignment: Text.AlignRight
             font.pixelSize: 14
             color: Style.content_secondary
@@ -167,6 +166,18 @@ deploy the key at the node you trust completely."*/
             //% "Version"
             text: qsTrId("settings-version") + ": " + viewModel.version
         }
+        PrimaryButton {
+            Layout.alignment: Qt.AlignCenter
+            Layout.leftMargin: 20
+            Layout.preferredHeight: 38
+            //: settings update wallet button
+            //% "update wallet"
+            text: qsTrId("settings-update-wallet")
+            icon.source: "qrc:/assets/icon-repeat.svg"
+            visible: main.hasNewerVersion
+            onClicked: Utils.navigateToDownloads()
+        }
+
     }
 
     StatusBar {
@@ -489,8 +500,44 @@ deploy the key at the node you trust completely."*/
                         }
                         
                         Item {
-                           Layout.preferredHeight: 10
+                           Layout.preferredHeight: 15
                            visible: false  // Remove to enable language dropdown
+                        }
+
+                        RowLayout {
+                           Layout.preferredHeight: 16
+                        
+                           ColumnLayout {
+                               SFText {
+                                   Layout.fillWidth: true
+                                   //: settings tab, general section, amounts unit label
+                                   //% "Show amounts in"
+                                   text: qsTrId("settings-general-amounts-unit")
+                                   color: Style.content_secondary
+                                   font.pixelSize: 14
+                               }
+                           }
+                        
+                           Item {
+                           }
+                        
+                           ColumnLayout {
+                               CustomComboBox {
+                                   id: amountsUnit
+                                   Layout.preferredWidth: generalBlock.width * 0.33
+                                   fontPixelSize: 14
+                        
+                                   model: viewModel.supportedAmountUnits
+                                   currentIndex: viewModel.currentAmountUnitIndex
+                                   onActivated: {
+                                       viewModel.currentAmountUnit = currentText;
+                                   }
+                               }
+                           }
+                        }
+                        
+                        Item {
+                           Layout.preferredHeight: 10
                         }
 
                         SFText {

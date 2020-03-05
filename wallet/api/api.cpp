@@ -1002,6 +1002,19 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 id
             };
         }
+        // handled: InvalidOfferException, ForeignOfferException, 
+        //        OfferAlreadyPublishedException, ExpiredOfferException
+        catch (const std::runtime_error& e)
+        {
+            std::stringstream ss;
+            ss << "Failed to publish offer:" << e.what();
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                ss.str(),
+                id
+            };
+        }
     }
 
     void WalletApi::onAcceptOfferMessage(const JsonRpcId& id, const json& params)

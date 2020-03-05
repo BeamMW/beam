@@ -37,7 +37,7 @@ func readPipe(pipe *os.File, timeout time.Duration) (res string, err error) {
 	return
 }
 
-func loginRequest(w http.ResponseWriter, r *http.Request) (interface{}, error){
+func loginRequest(r *http.Request) (interface{}, error){
 	var req login
 	var res loginR
 

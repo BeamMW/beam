@@ -115,8 +115,9 @@ Update your settings and try again."
                         color:            Style.accent_outgoing
                         hasFee:           true
                         currFeeTitle:     true
+                        amountSecondCurrency: viewModel.sendAmount2ndCurrency
                         currency:         viewModel.sentCurrency
-                        amount:           viewModel.amountSent
+                        amountIn:         viewModel.amountSent
                         multi:            true
                         resetAmount:      false
                         currColor:        currencyError() || !BeamGlobals.canReceive(currency) ? Style.validator_error : Style.content_main
@@ -251,7 +252,8 @@ please review your settings and try again"
                         hasFee:           true
                         currFeeTitle:     true
                         currency:         viewModel.receiveCurrency
-                        amount:           viewModel.amountToReceive
+                        amountIn:         viewModel.amountToReceive
+                        amountSecondCurrency: viewModel.receiveAmount2ndCurrency
                         multi:            true
                         resetAmount:      false
                         currColor:        currencyError() || !BeamGlobals.canReceive(currency) ? Style.validator_error : Style.content_main

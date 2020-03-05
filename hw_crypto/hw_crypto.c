@@ -60,13 +60,6 @@ typedef uint32_t secp256k1_scalar_uint;
 
 #define secp256k1_scalar_WordBits (sizeof(secp256k1_scalar_uint) * 8)
 
-BeamCrypto_Context g_Context;
-
-BeamCrypto_Context* BeamCrypto_Context_get()
-{
-	return &g_Context;
-}
-
 //////////////////////////////
 // MultiMac
 typedef struct

@@ -57,6 +57,16 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(txHistoryExportedToCsv(const QString&)),
             this, SLOT(onTxHistoryExportedToCsv(const QString&)));
 
+    connect(&_model, SIGNAL(availableChanged()), this, SIGNAL(beamAvailable2ndCurrencyChanged()));
+    connect(&_model, SIGNAL(receivingChanged()), this, SIGNAL(beamReceiving2ndCurrencyChanged()));
+    connect(&_model, SIGNAL(sendingChanged()), this, SIGNAL(beamSending2ndCurrencyChanged()));
+    connect(&_model, SIGNAL(maturingChanged()), this, SIGNAL(beamLocked2ndCurrencyChanged()));
+    connect(&_model, SIGNAL(receivingChangeChanged()), this, SIGNAL(beamReceiving2ndCurrencyChanged()));
+    connect(&_model, SIGNAL(receivingIncomingChanged()), this, SIGNAL(beamReceiving2ndCurrencyChanged()));
+
+    connect(&_exchangeRatesManager, SIGNAL(rateUnitChanged()), this, SLOT(onExchangeRateUnitChanged()));
+    connect(&_exchangeRatesManager, SIGNAL(activeRateChanged()), this, SLOT(onActiveExchangeRateChanged()));
+
     _model.getAsync()->getTransactions();
 }
 
@@ -156,6 +166,19 @@ void WalletViewModel::onTxHistoryExportedToCsv(const QString& data)
     }
 }
 
+void WalletViewModel::onExchangeRateUnitChanged()
+{
+    emit secondCurrencyChanged();
+}
+
+void WalletViewModel::onActiveExchangeRateChanged()
+{
+    emit beamAvailable2ndCurrencyChanged();
+    emit beamReceiving2ndCurrencyChanged();
+    emit beamSending2ndCurrencyChanged();
+    emit beamLocked2ndCurrencyChanged();
+}
+
 QString WalletViewModel::beamAvailable() const
 {
     return beamui::AmountToUIString(_model.getAvailable());
@@ -189,6 +212,31 @@ QString WalletViewModel::beamLocked() const
 QString WalletViewModel::beamLockedMaturing() const
 {
     return beamui::AmountToUIString(_model.getMaturing());
+}
+
+QString WalletViewModel::secondCurrency() const
+{
+    return _exchangeRatesManager.getRateUnit();
+}
+
+QString WalletViewModel::beamAvailable2ndCurrency() const
+{
+    return _exchangeRatesManager.calcAmountIn2ndCurrency(beamAvailable(), ExchangeRate::Currency::Beam);
+}
+
+QString WalletViewModel::beamReceiving2ndCurrency() const
+{
+    return _exchangeRatesManager.calcAmountIn2ndCurrency(beamReceiving(), ExchangeRate::Currency::Beam);
+}
+
+QString WalletViewModel::beamSending2ndCurrency() const
+{
+    return _exchangeRatesManager.calcAmountIn2ndCurrency(beamSending(), ExchangeRate::Currency::Beam);
+}
+
+QString WalletViewModel::beamLocked2ndCurrency() const
+{
+    return _exchangeRatesManager.calcAmountIn2ndCurrency(beamLocked(), ExchangeRate::Currency::Beam);
 }
 
 bool WalletViewModel::isAllowedBeamMWLinks() const

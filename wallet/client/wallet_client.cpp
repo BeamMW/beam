@@ -222,6 +222,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::deleteNotification, id);
     }
+
+    void getExchangeRates() override
+    {
+        call_async(&IWalletModelAsync::getExchangeRates);
+    }
 };
 }
 
@@ -323,12 +328,26 @@ namespace beam::wallet
                     // Notification center initialization
                     m_notificationCenter = make_shared<NotificationCenter>(*m_walletDB, activeNotifications);
                     using NotificationsSubscriber = ScopedSubscriber<INotificationsObserver, NotificationCenter>;
-                    auto notificationsSubscriber = make_unique<NotificationsSubscriber>(static_cast<INotificationsObserver*>(this), m_notificationCenter);
 
+                    struct MyNotificationsObserver : INotificationsObserver
+                    {
+                        WalletClient& m_client;
+                        MyNotificationsObserver(WalletClient& client) : m_client(client) {}
+                        void onNotificationsChanged(ChangeAction action, const std::vector<Notification>& items) override
+                        {
+                            m_client.updateNotifications();
+                            static_cast<INotificationsObserver&>(m_client).onNotificationsChanged(action, items);
+                        }
+                    } notificationObserver(*this);
+
+                    auto notificationsSubscriber = make_unique<NotificationsSubscriber>(&notificationObserver, m_notificationCenter);
+                    updateNotifications();
                     // Broadcast router and broadcast message consumers initialization
                     auto broadcastRouter = make_shared<BroadcastRouter>(*nodeNetwork, *walletNetwork);
                     m_broadcastRouter = broadcastRouter;
 
+
+                    using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
                     // Swap offer board uses broadcasting messages
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
                     OfferBoardProtocolHandler protocolHandler(m_keyKeeper->get_SbbsKdf(), m_walletDB);
@@ -336,7 +355,6 @@ namespace beam::wallet
                     auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler);
                     m_offersBulletinBoard = offersBulletinBoard;
 
-                    using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
                     using SwapOffersBoardSubscriber = ScopedSubscriber<ISwapOffersObserver, SwapOffersBoard>;
 
                     auto walletDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);
@@ -354,13 +372,14 @@ namespace beam::wallet
 
                     // Other content providers using broadcast messages
                     auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
-                    auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator);
+                    auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB);
                     m_updatesProvider = updatesProvider;
                     m_exchangeRateProvider = exchangeRateProvider;
                     using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
                     using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRateObserver, ExchangeRateProvider>;
                     auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(m_notificationCenter.get()), updatesProvider);
                     auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<IExchangeRateObserver*>(this), exchangeRateProvider);
+                    auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(m_notificationCenter.get()), m_walletDB);
 
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){
@@ -429,6 +448,11 @@ namespace beam::wallet
     size_t WalletClient::getUnsafeActiveTransactionsCount() const
     {
         return m_unsafeActiveTxCount;
+    }
+
+    size_t WalletClient::getUnreadNotificationsCount() const
+    {
+        return m_unreadNotificationsCount;
     }
 
     bool WalletClient::isConnectionTrusted() const
@@ -655,7 +679,14 @@ namespace beam::wallet
     {
         if (auto p = m_offersBulletinBoard.lock())
         {
-            p->publishOffer(offer);
+            try
+            {
+                p->publishOffer(offer);
+            }
+            catch (const std::runtime_error& e)
+            {
+                LOG_ERROR() << offer.m_txId << e.what();
+            }
         }
     }
 
@@ -899,7 +930,7 @@ namespace beam::wallet
 
     void WalletClient::switchOnOffExchangeRates(bool isActive)
     {
-        // m_broadcastRouter->
+        // m_exchangeRateProvider->
     }
 
     void WalletClient::switchOnOffNotifications(Notification::Type type, bool isActive)
@@ -919,7 +950,20 @@ namespace beam::wallet
 
     void WalletClient::deleteNotification(const ECC::uintBig& id)
     {
-        // m_notificationCenter->
+        m_notificationCenter->deleteNotification(id);
+    }
+
+    void WalletClient::getExchangeRates()
+    {
+        assert(!m_exchangeRateProvider.expired());
+        if (auto s = m_exchangeRateProvider.lock())
+        {
+            onExchangeRates(s->getRates());
+        }
+        else
+        {
+            onExchangeRates({});
+        }
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)
@@ -1014,6 +1058,14 @@ namespace beam::wallet
                 m_unsafeActiveTxCount = count;
             });
         }
+    }
+
+    void WalletClient::updateNotifications()
+    {
+        postFunctionToClientContext([this, count = m_notificationCenter->getUnreadCount()]()
+        {
+            m_unreadNotificationsCount = count;
+        });
     }
 
     void WalletClient::updateConnectionTrust(bool trustedConnected)

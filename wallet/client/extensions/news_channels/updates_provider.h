@@ -15,8 +15,8 @@
 #pragma once
 
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
-#include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
 
 namespace beam::wallet
 {    
@@ -29,9 +29,7 @@ namespace beam::wallet
     public:
         AppUpdateInfoProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&);
 
-        /**
-         *  Provides application update information from broadcast messages
-         */
+        // IBroadcastListener implementation
         virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
         
         // INewsObserver interface

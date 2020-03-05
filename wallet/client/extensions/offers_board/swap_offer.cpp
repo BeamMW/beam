@@ -99,6 +99,21 @@ void SwapOffer::SetTxParameters(const PackedTxParameters& parameters)
     }
 }
 
+bool SwapOffer::IsValid() const
+{
+    auto swapCoin = GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+    auto isBeamSide = GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+    auto amount = GetParameter<Amount>(TxParameterID::Amount);
+    auto swapAmount = GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+    auto responseTime = GetParameter<Height>(TxParameterID::PeerResponseTime);
+    auto minimalHeight = GetParameter<Height>(TxParameterID::MinHeight);
+    auto txId = GetTxID();
+    auto type = GetParameter<TxType>(TxParameterID::TransactionType);
+
+    return type && *type == TxType::AtomicSwap && swapCoin && isBeamSide
+        && amount && swapAmount && responseTime && minimalHeight && txId;
+}
+
 bool SwapOffer::isBeamSide() const
 {
     bool res;

@@ -15,6 +15,7 @@
 
 #include <QObject>
 #include "model/wallet_model.h"
+#include "viewmodel/notifications/exchange_rates_manager.h"
 #include "currencies.h"
 
 class ReceiveSwapViewModel: public QObject
@@ -34,6 +35,8 @@ class ReceiveSwapViewModel: public QObject
     Q_PROPERTY(bool          isReceiveFeeOK           READ isReceiveFeeOK                                    NOTIFY  isReceiveFeeOKChanged)
     Q_PROPERTY(bool          isSendBeam               READ isSendBeam                                        NOTIFY  transactionTokenChanged)
     Q_PROPERTY(QString       rate                     READ getRate                                           NOTIFY  rateChanged)
+    Q_PROPERTY(QString       sendAmount2ndCurrency    READ getSendAmount2ndCurrency       NOTIFY secondCurrencyAmountChanged)
+    Q_PROPERTY(QString       receiveAmount2ndCurrency READ getReceiveAmount2ndCurrency    NOTIFY secondCurrencyAmountChanged)
 
     Q_PROPERTY(WalletCurrency::Currency  receiveCurrency    READ getReceiveCurrency    WRITE  setReceiveCurrency  NOTIFY  receiveCurrencyChanged)
     Q_PROPERTY(WalletCurrency::Currency  sentCurrency       READ getSentCurrency       WRITE  setSentCurrency     NOTIFY  sentCurrencyChanged)
@@ -58,6 +61,7 @@ signals:
     void isSendFeeOKChanged();
     void isReceiveFeeOKChanged();
     void rateChanged();
+    void secondCurrencyAmountChanged();
 
 public:
     Q_INVOKABLE void generateNewAddress();
@@ -106,6 +110,9 @@ private:
 
     bool isSendBeam() const;
     QString getRate() const;
+    
+    QString getSendAmount2ndCurrency() const;
+    QString getReceiveAmount2ndCurrency() const;
 
 private slots:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr);
@@ -126,6 +133,7 @@ private:
 
     beam::wallet::WalletAddress _receiverAddress;
     WalletModel& _walletModel;
+    ExchangeRatesManager _exchangeRatesManager;
     beam::wallet::TxParameters _txParameters;
     bool _isBeamSide;
 };

@@ -11,12 +11,38 @@ import "utils.js" as Utils
 Rectangle {
     id: main
 
+    property var openedNotifications: 0
+    property alias hasNewerVersion : updateInfoProvider.hasNewerVersion
+
     anchors.fill: parent
 
-	MainViewModel {id: viewModel}
+	MainViewModel {
+        id: viewModel
+    }
 
-    PushNotificationManager {id: updateInfoProvider}
-    ExchangeRateProvider {id: ratesProvider}
+    PushNotificationManager {
+        id: updateInfoProvider
+        onShowUpdateNotification: function(newVersion, currentVersion, id) {
+            var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(main);
+            popup.title = "New version v" + newVersion + " is avalable";
+            popup.message = "Your current version is v" + currentVersion + ". Please update to get the most of your Beam wallet.";
+            popup.acceptButtonText = "update now";
+            popup.onCancel = function () {
+                updateInfoProvider.onCancelPopup(id);
+                popup.close();
+            }
+            popup.onAccept = function () {
+                Utils.navigateToDownloads();
+            }
+            main.openedNotifications++;
+            popup.closed.connect(function() {
+                main.openedNotifications--;
+            })
+            
+            popup.verticalOffset = (main.openedNotifications - 1) * 200;
+            popup.open();
+        }
+    }
 
     ConfirmationDialog {
         id:                     closeDialog
@@ -161,6 +187,34 @@ Rectangle {
 
     					visible: control.activeFocus
                     }
+
+                    Item {
+                        visible: contentItems[index] == 'notifications' && viewModel.unreadNotifications > 0
+                        Rectangle {
+                            id: counter
+                            x: 42
+                            y: 9
+                            width: 16
+                            height: 16
+                            radius: width/2
+                            color: Style.active
+
+                            SFText {
+                                height: 14
+                                text: viewModel.unreadNotifications
+                                font.pixelSize: 12
+                                anchors.centerIn: counter
+                            }
+                        }
+                        DropShadow {
+                            anchors.fill: counter
+                            radius: 5
+                            samples: 9
+                            source: counter
+                            color: Style.active
+                        }
+                    }
+
                     Keys.onPressed: {
                         if ((event.key == Qt.Key_Return || event.key == Qt.Key_Enter || event.key == Qt.Key_Space) && selectedItem != index) 
                             updateItem(index);
@@ -303,6 +357,10 @@ Rectangle {
         updateItem("atomic_swap", {"shouldShowActiveTransactions": true})
     }
 
+    function openTransactionDetails(id) {
+        updateItem("wallet", {"openedTxID": id})
+    }
+
     function resetLockTimer() {
         viewModel.resetLockTimer();
     }
@@ -333,30 +391,6 @@ Rectangle {
             trezor_popup.message = error
             trezor_popup.open()
 
-        }
-    }
-
-    Connections {
-        target: updateInfoProvider
-        onShowUpdateNotification: function(newVersion, currentVersion, id) {
-            var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(main);
-            popup.title = "New version v" + newVersion + " is avalable";
-            popup.message = "Your current version is v" + currentVersion + ". Please update to get the most of your Beam wallet.";
-            popup.acceptButtonText = "update now";
-            popup.onCancel = function () {
-                updateInfoProvider.onCancelPopup(id);
-                popup.close();
-            }
-            popup.onAccept = function () {
-                var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
-                var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
-                var externalLinkConfirmation = component.createObject(main);
-                Utils.openExternal(
-                    "https://www.beam.mw/#downloads",
-                    settingsViewModel,
-                    externalLinkConfirmation);
-            }
-            popup.open();
         }
     }
 

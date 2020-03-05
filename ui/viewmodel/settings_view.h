@@ -235,6 +235,9 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(int      currentLanguageIndex    READ getCurrentLanguageIndex    NOTIFY currentLanguageIndexChanged)
     Q_PROPERTY(QString  currentLanguage         READ getCurrentLanguage         WRITE setCurrentLanguage)
     Q_PROPERTY(bool     isValidNodeAddress      READ isValidNodeAddress         NOTIFY validNodeAddressChanged)
+    Q_PROPERTY(QStringList supportedAmountUnits READ getSupportedRateUnits    NOTIFY currentAmountUnitIndexChanged)
+    Q_PROPERTY(int      currentAmountUnitIndex  READ getCurrentAmountUnitIndex  NOTIFY currentAmountUnitIndexChanged)
+    Q_PROPERTY(QString  currentAmountUnit       READ getCurrentAmountUnit       WRITE setCurrentAmountUnit)
 
     Q_PROPERTY(QList<QObject*> swapCoinSettingsList READ getSwapCoinSettings    CONSTANT)
     Q_PROPERTY(QObject* notificationsSettings   READ getNotificationsSettings   CONSTANT)
@@ -264,6 +267,15 @@ public:
     void setCurrentLanguageIndex(int value);
     QString getCurrentLanguage() const;
     void setCurrentLanguage(QString value);
+
+    // Amount in second currency
+    QString amountUnitDisplayedToConfigName(const QString& amountUnitName) const;
+    QString amountUnitConfigToDisplayedName(const QString& amountUnitDisplayed) const;
+    QStringList getSupportedRateUnits() const;
+    int getCurrentAmountUnitIndex() const;
+    void setCurrentAmountUnitIndex(int);
+    QString getCurrentAmountUnit() const;
+    void setCurrentAmountUnit(const QString&);
 
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& localNodePeers);
@@ -306,6 +318,7 @@ signals:
     void passwordReqiredToSpendMoneyChanged();
     void validNodeAddressChanged();
     void currentLanguageIndexChanged();
+    void currentAmountUnitIndexChanged();
     void beamMWLinksPermissionChanged();
 
 protected:
@@ -328,8 +341,12 @@ private:
     bool m_isNeedToCheckAddress;
     bool m_isNeedToApplyChanges;
     QStringList m_supportedLanguages;
+    QStringList m_supportedAmountUnits;
     int m_currentLanguageIndex;
+    int m_currentAmountUnitIndex;
     int m_timerId;
 
+    /// key - unit name (from config), value - unit displayed name (for UI)
+    static const std::map<QString, QString> m_displayedAmountUnits;
     const int CHECK_INTERVAL = 1000;
 };

@@ -940,16 +940,20 @@
         <translation>Taal</translation>
     </message>
     <message id="open-external-open">
-        <source>Open</source>
-        <translation>Openen</translation>
+        <source>allow and open</source>
+        <oldsource>Open</oldsource>
+        <translation type="unfinished">Openen</translation>
     </message>
     <message id="open-external-title">
         <source>External link</source>
         <translation>Externe link</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <translation>Beam Wallet vereist toestemming om externe links in de browser te openen. Deze actie zal uw IP adres aan de webserver blootstellen. Kies -Annuleren- om dit te voorkomen. U kunt uw keuze op elk gewenst moment wijzigen in Instellingen.</translation>
+        <source>Beam Wallet app requires permission to open external link in the browser.
+This action will expose your IP to the web server.
+To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
+        <oldsource>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</oldsource>
+        <translation type="unfinished">Beam Wallet vereist toestemming om externe links in de browser te openen. Deze actie zal uw IP adres aan de webserver blootstellen. Kies -Annuleren- om dit te voorkomen. U kunt uw keuze op elk gewenst moment wijzigen in Instellingen.</translation>
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
@@ -2151,8 +2155,29 @@ deploy the key at the node you trust completely.</oldsource>
         <source>Asset is still locked</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="settings-notifications-rates">
+        <source>Exchange rates</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-general-amounts-unit">
+        <source>Show amounts in</source>
+        <extracomment>settings tab, general section, amounts unit label</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="notifications-title">
         <source>Notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-clear-all">
+        <source>clear all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-empty">
+        <source>There are no notifications yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-read">
+        <source>read</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="notifications-update-now">
@@ -2167,12 +2192,67 @@ deploy the key at the node you trust completely.</oldsource>
         <source>details</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="notifications-clear-all">
-        <source>clear all</source>
+    <message id="notification-update-title">
+        <source>New version v %1 is avalable</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="settings-notifications-rates">
-        <source>Exchange rates</source>
+    <message id="notification-address-expired">
+        <source>Address expired</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-received">
+        <source>Transaction received</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-sent-message">
+        <source>You sent &lt;b&gt;%1&lt;/b&gt; BEAM to &lt;b&gt;%2&lt;/b&gt;.</source>
+        <oldsource>You sent %1 BEAM to %2.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-failed">
+        <source>Transaction failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-news">
+        <source>BEAM in the press</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-address-expired-message">
+        <source>Address expired</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-received-message">
+        <source>You received &lt;b&gt;%1 BEAM&lt;/b&gt; from &lt;b&gt;%2&lt;/b&gt;.</source>
+        <oldsource>You received %1 BEAM from %2.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-send-failed-message">
+        <source>Sending &lt;b&gt;%1 BEAM&lt;/b&gt; to &lt;b&gt;%2&lt;/b&gt; failed.</source>
+        <oldsource>Sending %1 BEAM to %2 failed.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-receive-failed-message">
+        <source>Receiving &lt;b&gt;%1 BEAM&lt;/b&gt; from &lt;b&gt;%2&lt;/b&gt; failed.</source>
+        <oldsource>Receiving %1 BEAM from %2 failed.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-sent">
+        <source>Transaction sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="open-external-beam-site-title">
+        <source>Allow access to Beam website</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-from-external-message">
+        <source>Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version.
+This action will expose your IP to the web server.
+To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-update-wallet">
+        <source>update wallet</source>
+        <extracomment>settings update wallet button</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>

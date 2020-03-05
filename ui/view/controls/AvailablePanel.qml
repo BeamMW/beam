@@ -16,6 +16,12 @@ Control {
     property string receiving
     property string receivingChange
     property string receivingIncoming
+    // second currency info
+    property string secondCurrency
+    property string availableSecondCurrency
+    property string lockedSecondCurrency
+    property string sendingSecondCurrency
+    property string receivingSecondCurrency
 
     property var onOpenExternal: null
     signal copyValueText()
@@ -78,10 +84,10 @@ Control {
 
             BeamAmount {
                 amount:            lockedMaturing
+                currencySymbol:    Utils.symbolBeam
                 spacing:           15
                 lightFont:         false
                 fontSize:          12
-                currencySymbol:    Utils.symbolBeam
             }
         }
     }
@@ -120,10 +126,10 @@ Control {
 
             BeamAmount {
                 amount:            receivingChange
+                currencySymbol:    Utils.symbolBeam
                 spacing:           15
                 lightFont:         false
                 fontSize:          12
-                currencySymbol:    Utils.symbolBeam
                 color:             Style.accent_incoming
                 prefix:            "+"
             }
@@ -139,10 +145,10 @@ Control {
 
             BeamAmount {
                 amount:            receivingIncoming
+                currencySymbol:    Utils.symbolBeam
                 spacing:           15
                 lightFont:         false
                 fontSize:          12
-                currencySymbol:    Utils.symbolBeam
                 color:             Style.accent_incoming
                 prefix:            "+"
             }
@@ -155,10 +161,12 @@ Control {
             Layout.preferredWidth: parseFloat(receiving) > 0 || parseFloat(sending) > 0 ? parent.width / 2 : parent.width
             BeamAmount {
                 amount:            available
+                currencySymbol:    Utils.symbolBeam
+                secondCurrencyAmount:   availableSecondCurrency
+                secondCurrencySymbol:   secondCurrency
                 spacing:           15
                 lightFont:         false
                 fontSize:          16
-                currencySymbol:    Utils.symbolBeam
                 iconSource:        "qrc:/assets/icon-beam.svg"
                 iconSize:          Qt.size(22, 22)
                 copyMenuEnabled:   true
@@ -173,9 +181,11 @@ Control {
             BeamAmount {
                 id:                lockedAmount
                 amount:            locked
+                currencySymbol:    Utils.symbolBeam
+                secondCurrencyAmount:   lockedSecondCurrency
+                secondCurrencySymbol:   secondCurrency
                 lightFont:         false
                 fontSize:          16
-                currencySymbol:    Utils.symbolBeam
                 copyMenuEnabled:   true
                 //% "Locked"
                 caption:           qsTrId("available-panel-locked")
@@ -207,10 +217,12 @@ Control {
             BeamAmount {
                 Layout.leftMargin: 20
                 amount:            sending
+                currencySymbol:    Utils.symbolBeam
+                secondCurrencyAmount:   sendingSecondCurrency
+                secondCurrencySymbol:   secondCurrency
                 color:             Style.accent_outgoing
                 lightFont:         false
                 fontSize:          16
-                currencySymbol:    Utils.symbolBeam
                 copyMenuEnabled:   true
                 //% "Sending"
                 caption:           qsTrId("available-panel-sending")
@@ -225,10 +237,12 @@ Control {
             BeamAmount {
                 id:                receivingAmount
                 amount:            receiving
+                currencySymbol:    Utils.symbolBeam                
+                secondCurrencyAmount:   receivingSecondCurrency
+                secondCurrencySymbol:   secondCurrency
                 color:             Style.accent_incoming
                 lightFont:         false
                 fontSize:          16
-                currencySymbol:    Utils.symbolBeam
                 copyMenuEnabled:   true
                 //% "Receiving"
                 caption:           qsTrId("available-panel-receiving")

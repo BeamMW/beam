@@ -53,6 +53,8 @@ public class Wallet
     public native void getNotifications();
     public native void markNotificationAsRead(String id);
     public native void deleteNotification(String id);
+    
+    public native void getExchangeRates();
 
     // deprecated
     public native void saveAddressChanges(String addr, String name, boolean isNever, boolean makeActive, boolean makeExpired);

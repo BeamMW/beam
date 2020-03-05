@@ -945,6 +945,10 @@ namespace
             res.emplace();
             std::copy_n(txIdVec.begin(), 16, res->begin());
         }
+        else
+        {
+            LOG_ERROR() << boost::format(kErrorTxIdParamInvalid) % txIdStr;
+        }
         return res;
     }
 
@@ -1021,7 +1025,19 @@ namespace
         }
         ByteBuffer buf = from_hex(pprofData.as<string>());
 
-        if (!storage::VerifyPaymentProof(buf))
+        bool isValid = false;
+
+        try
+        {
+            isValid = storage::VerifyPaymentProof(buf);
+        }
+        catch (const std::runtime_error & e)
+        {
+            LOG_ERROR() << e.what();
+            throw std::runtime_error(kErrorPpInvalid);
+        }
+
+        if (!isValid)
             throw std::runtime_error(kErrorPpInvalid);
 
         return 0;

@@ -25,7 +25,9 @@ namespace beam::wallet
             SoftwareUpdateAvailable,
             AddressStatusChanged,
             TransactionStatusChanged,
-            BeamNews
+            BeamNews,
+            TransactionFailed,
+            TransactionCompleted
         };
 
         enum class State : uint32_t

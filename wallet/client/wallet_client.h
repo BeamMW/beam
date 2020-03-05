@@ -25,8 +25,8 @@
 #include "wallet/client/extensions/notifications/notification_observer.h"
 #include "wallet/client/extensions/notifications/notification_center.h"
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
-#include "wallet/client/extensions/news_channels/interface.h"
-#include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
+#include "wallet/client/extensions/news_channels/exchange_rate_provider.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_observer.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"
@@ -82,6 +82,7 @@ namespace beam::wallet
         bool isRunning() const;
         bool isFork1() const;
         size_t getUnsafeActiveTransactionsCount() const;
+        size_t getUnreadNotificationsCount() const;
         bool isConnectionTrusted() const;
 
         /// INodeConnectionObserver implementation
@@ -124,11 +125,11 @@ namespace beam::wallet
         virtual void onExportDataToJson(const std::string& data) {}
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
-        virtual void onExchangeRates(const ExchangeRates&) override {}
-        virtual void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
+        void onExchangeRates(const std::vector<ExchangeRate>&) override {}
+        void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
         
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-        virtual void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
+        void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
 #endif
 
     private:
@@ -181,6 +182,8 @@ namespace beam::wallet
         void markNotificationAsRead(const ECC::uintBig& id) override;
         void deleteNotification(const ECC::uintBig& id) override;
 
+        void getExchangeRates() override;
+
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
 
@@ -189,6 +192,7 @@ namespace beam::wallet
 
         void updateClientState();
         void updateClientTxState();
+        void updateNotifications();
         void updateConnectionTrust(bool trustedConnected);
         bool isConnected() const;
     private:
@@ -203,7 +207,7 @@ namespace beam::wallet
         // broadcasting via BBS
         std::weak_ptr<IBroadcastMsgGateway> m_broadcastRouter;
         std::weak_ptr<IBroadcastListener> m_updatesProvider;
-        std::weak_ptr<IBroadcastListener> m_exchangeRateProvider;
+        std::weak_ptr<ExchangeRateProvider> m_exchangeRateProvider;
         std::shared_ptr<NotificationCenter> m_notificationCenter;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
@@ -237,6 +241,7 @@ namespace beam::wallet
         
         // these variables are accessible from UI thread
         size_t m_unsafeActiveTxCount = 0;
+        size_t m_unreadNotificationsCount = 0;
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;
     };

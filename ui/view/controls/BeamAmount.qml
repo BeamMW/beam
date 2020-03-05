@@ -12,13 +12,15 @@ Control {
     spacing: 8
 
     property string  amount:          "0"
+    property string  currencySymbol:  Utils.symbolBeam
+    property string  secondCurrencyAmount:  "0"
+    property string  secondCurrencySymbol:  ""
     property string  color:           Style.content_main
     property bool    error:           false
     property bool    showZero:        true
     property bool    showDrop:        false
     property int     fontSize:        14
     property bool    lightFont:       true
-    property string  currencySymbol:  Utils.symbolBeam
     property string  iconSource:      ""
     property size    iconSize:        Qt.size(0, 0)
     property alias   copyMenuEnabled: amountText.copyMenuEnabled
@@ -61,6 +63,18 @@ Control {
                     visible: showDrop
                     source:  "qrc:/assets/icon-down.svg"
                 }
+            }
+
+            SFLabel {
+                id:              secondCurrencyAmountText
+                visible:         secondCurrencySymbol != ""
+                font.pixelSize:  10
+                font.styleName:  "Light"
+                font.weight:     Font.Normal
+                color:           Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
+                text:            parseFloat(secondCurrencyAmount) > 0 || showZero ? prefix + [Utils.uiStringToLocale(secondCurrencyAmount), control.secondCurrencySymbol].join(" ") : "-"
+                onCopyText:      BeamGlobals.copyToClipboard(secondCurrencyAmount)
+                copyMenuEnabled: true
             }
         }
     }

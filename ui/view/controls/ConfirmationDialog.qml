@@ -35,7 +35,10 @@ Dialog {
     x: (parent.width - width) / 2
     y: (parent.height - height) / 2
     visible: false
-        
+    
+    leftPadding: 32
+    rightPadding: 32
+
     background: Rectangle {
         radius: 10
         color: Style.background_popup
@@ -53,8 +56,6 @@ Dialog {
     }
 
     SFText {
-        leftPadding: 20
-        rightPadding: 20
         bottomPadding: 20
         topPadding: control.title.length > 0 ? 10 : 30
         id: messageText

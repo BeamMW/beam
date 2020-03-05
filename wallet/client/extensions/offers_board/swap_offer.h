@@ -33,6 +33,8 @@ struct SwapOffer : public TxParameters
      */
     void SetTxParameters(const PackedTxParameters&);
 
+    bool IsValid() const;
+
     bool isBeamSide() const;
     Amount amountBeam() const;
     Amount amountSwapCoin() const;
