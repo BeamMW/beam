@@ -152,7 +152,6 @@ bool AppModel::openWallet(const beam::SecString& pass)
         if (WalletDB::isInitialized(m_settings.getWalletStorage()))
         {
             m_db = WalletDB::open(m_settings.getWalletStorage(), pass);
-            m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db, m_db->get_MasterKdf());
         }
 #if defined(BEAM_HW_WALLET)
         else if (WalletDB::isInitialized(m_settings.getTrezorWalletStorage()))
@@ -210,7 +209,6 @@ void AppModel::onResetWallet()
     assert(m_db);
 
     m_wallet.reset();
-    m_keyKeeper.reset();
     m_bitcoinClient.reset();
     m_litecoinClient.reset();
     m_qtumClient.reset();
@@ -368,7 +366,7 @@ void AppModel::start()
     InitLtcClient();
     InitQtumClient();
 
-    m_wallet = std::make_shared<WalletModel>(m_db, m_keyKeeper, nodeAddrStr, m_walletReactor);
+    m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr, m_walletReactor);
 
     if (m_settings.getRunLocalNode())
     {

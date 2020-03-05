@@ -59,8 +59,6 @@ void TestAssets() {
     beam::wallet::RegisterAssetCreators(sender.m_Wallet);
 
     const Key::Index assetOwnerIdx = Key::Index(22);
-    const auto assetOwnerId = sender.m_KeyKeeper->GetAssetOwnerID(assetOwnerIdx);
-    WALLET_CHECK(assetOwnerId != Zero);
 
     Asset::ID assetId = 445; // whatever
 

@@ -19,68 +19,8 @@
 
 namespace beam::wallet
 {
-    struct KernelParameters
-    {
-        beam::HeightRange height;
-        beam::Amount fee;
-        ECC::Point commitment;
-        ECC::Point publicNonce;
-        boost::optional<ECC::Hash::Value> lockImage;
-        boost::optional<ECC::Hash::Value> lockPreImage;
-        ECC::Signature paymentProofSignature;
-        PeerID peerID = Zero;
-        PeerID myID;
-
-        SERIALIZE(height.m_Min, height.m_Max, fee, commitment, publicNonce, lockImage, lockPreImage, paymentProofSignature, peerID, myID)
-    };
-
-    struct ReceiverSignature
-    {
-        ECC::Signature m_KernelSignature;
-        ECC::Signature m_PaymentProofSignature;
-        ECC::Scalar m_Offset;
-        ECC::Point m_KernelCommitment;
-    };
-
-    struct SenderSignature
-    {
-        ECC::Signature m_KernelSignature;
-        ECC::Scalar m_Offset;
-        ECC::Point m_KernelCommitment;
-    };
-
-    struct AssetSignature
-    {
-        PeerID m_AssetOwnerId = 0UL;
-        ECC::Scalar m_Offset;
-    };
-
     using WalletIDKey = uint64_t;
 
-    class KeyKeeperException : public std::runtime_error
-    {
-    public:
-        explicit KeyKeeperException(const std::string& message) : std::runtime_error(message) {}
-        explicit KeyKeeperException(const char* message) : std::runtime_error(message) {}
-    };
-
-    class InvalidPaymentProofException : public KeyKeeperException
-    {
-    public:
-        InvalidPaymentProofException() : KeyKeeperException("Invalid payment proof") {}
-    };
-
-    class InvalidParametersException : public KeyKeeperException
-    {
-    public:
-        InvalidParametersException() : KeyKeeperException("Invalid signature parameters") {}
-    };
-
-
-    //
-    // Interface to master key storage. HW wallet etc.
-    // Only public info should cross its boundary.
-    //
     struct IPrivateKeyKeeper
     {
         struct Handler
@@ -91,78 +31,12 @@ namespace beam::wallet
             virtual void onHideKeyKeeperMessage() = 0;
             virtual void onShowKeyKeeperError(const std::string&) = 0;
         };
-
-        using Ptr = std::shared_ptr<IPrivateKeyKeeper>;
-
-        template<typename R>
-        using Callback = std::function<void(R&&)>;
-
-        using ExceptionCallback = Callback<std::exception_ptr>;
-        
-        using PublicKeys = std::vector<ECC::Point>;
-        using RangeProofs = std::vector<std::unique_ptr<ECC::RangeProof::Confidential>>;
-        using Outputs = std::vector<Output::Ptr>;
-
-        virtual void GeneratePublicKeys(const std::vector<CoinID>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
-        virtual void GenerateOutputs(Height schemeHeigh, const std::vector<CoinID>& ids, Callback<Outputs>&&, ExceptionCallback&&) = 0;
-
-        virtual void SignReceiver(const std::vector<CoinID>& inputs
-                                , const std::vector<CoinID>& outputs
-                                , const KernelParameters& kernelParamerters
-                                , const WalletIDKey& walletIDkey
-                                , Callback<ReceiverSignature>&&, ExceptionCallback&&) = 0;
-        virtual void SignSender(const std::vector<CoinID>& inputs
-                              , const std::vector<CoinID>& outputs
-                              , size_t nonceSlot
-                              , const KernelParameters& kernelParamerters
-                              , bool initial
-                              , Callback<SenderSignature>&&, ExceptionCallback&&) = 0;
-
-
-        // sync part for integration test
-        virtual size_t AllocateNonceSlotSync() = 0;
-        virtual PublicKeys GeneratePublicKeysSync(const std::vector<CoinID>& ids, bool createCoinKey) = 0;
-
-        virtual ECC::Point GeneratePublicKeySync(const ECC::uintBig& id) = 0;
-        virtual ECC::Point GenerateCoinKeySync(const CoinID&) = 0;
-        virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<CoinID>& ids) = 0;
-
-        virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
-
-        virtual ReceiverSignature SignReceiverSync(const std::vector<CoinID>& inputs
-                                             , const std::vector<CoinID>& outputs
-                                             , const KernelParameters& kernelParamerters
-                                             , const WalletIDKey& walletIDkey) = 0;
-        virtual SenderSignature SignSenderSync(const std::vector<CoinID>& inputs
-                                         , const std::vector<CoinID>& outputs
-                                         , size_t nonceSlot
-                                         , const KernelParameters& kernelParamerters
-                                         , bool initial) = 0;
-
-        virtual Key::IKdf::Ptr get_SbbsKdf() const = 0;
-        virtual void subscribe(Handler::Ptr handler) = 0;
-
-        //
-        // For assets
-        //
-        virtual void SignAssetKernel(const std::vector<CoinID>& inputs,
-                    const std::vector<CoinID>& outputs,
-                    Amount fee,
-                    Key::Index assetOwnerIdx,
-                    TxKernelAssetControl& kernel,
-                    Callback<AssetSignature>&&,
-                    ExceptionCallback&&) = 0;
-
-        virtual AssetSignature SignAssetKernelSync(const std::vector<CoinID>& inputs,
-                    const std::vector<CoinID>& outputs,
-                    Amount fee,
-                    Key::Index assetOwnerIdx,
-                    TxKernelAssetControl& kernel
-                ) = 0;
-
-        virtual PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) = 0;
     };
 
+    //
+    // Interface to master key storage. HW wallet etc.
+    // Only public info should cross its boundary.
+    //
     struct IPrivateKeyKeeper2
     {
         typedef std::shared_ptr<IPrivateKeyKeeper2> Ptr;

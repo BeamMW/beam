@@ -421,7 +421,6 @@ struct TestWalletRig
 
     TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
         : m_WalletDB{ walletDB }
-        , m_KeyKeeper(make_shared<LocalPrivateKeyKeeper>(m_WalletDB, m_WalletDB->get_MasterKdf()))
         , m_Wallet{ m_WalletDB, move(action), Wallet::UpdateCompletedAction() }
     {
 
@@ -514,7 +513,6 @@ struct TestWalletRig
     PeerID m_SecureWalletID;
     uint64_t m_OwnID;
     IWalletDB::Ptr m_WalletDB;
-    IPrivateKeyKeeper::Ptr m_KeyKeeper;
     TestWallet m_Wallet;
     IWalletMessageEndpoint::Ptr m_messageEndpoint;
 };
