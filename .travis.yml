@@ -46,7 +46,8 @@ matrix:
       language: cpp
       osx_image: xcode10.1
       install:
-        - export TZ=Etc/GMT-3
+        - export TZ=GMT-3
+        - sudo systemsetup -gettimezone
         - brew update
         - brew unlink cmake
         - brew install cmake
@@ -88,7 +89,7 @@ matrix:
         - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/api/wallet-api$BEAM_TARGET_SUFFIX
         - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp explorer/explorer-node$BEAM_TARGET_SUFFIX
         - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp $BEAM_WALLET_UI_IN
-        #- bash notarize.sh
+        - bash notarize.sh
 
 ###############################################################################
 # Linux Debug
