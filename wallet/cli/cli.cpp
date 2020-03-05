@@ -1990,6 +1990,7 @@ namespace
             return -1;
         }
         laser->SetNetwork(nnet);
+        laser->ListenClosedChannelsWithPossibleRollback();
 
         LaserObserver laserObserver(walletDB, vm);
         laser->AddObserver(&laserObserver);

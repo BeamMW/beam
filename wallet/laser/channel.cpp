@@ -99,9 +99,6 @@ Channel::Channel(IChannelHolder& holder,
     , m_bbsTimestamp(std::get<LaserFields::LASER_BBS_TIMESTAMP>(entity))
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
-    m_lastState = m_lastLoggedState =
-        static_cast<Lightning::Channel::State::Enum>(
-            std::get<LaserFields::LASER_STATE>(entity));
     m_Params.m_Fee = std::get<LaserFields::LASER_FEE>(entity);
     m_Params.m_hLockTime = std::get<LaserFields::LASER_LOCKTIME>(entity);
 
@@ -402,7 +399,7 @@ void Channel::UpdateRestorePoint()
 
     ser & m_nRevision;
     ser & m_lstUpdates.size();
-    for (auto& upd : m_lstUpdates)
+    for (const auto& upd : m_lstUpdates)
     {
         ser & upd.m_Comm1;
         ser & upd.m_tx1;
@@ -442,14 +439,9 @@ void Channel::UpdateRestorePoint()
     }
 }
 
-void Channel::LogNewState()
+void Channel::LogState()
 {
     auto state = beam::Lightning::Channel::get_State();
-    if (m_lastLoggedState == state)
-        return;
-
-    m_lastLoggedState = state;
-
     std::ostringstream os;
     os << "Channel:" << to_hex(m_ID->m_pData, m_ID->nBytes) << " state ";
 
@@ -514,6 +506,22 @@ void Channel::Unsubscribe()
     get_Net().BbsSubscribe(ch, 0, nullptr);
     LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " unsubscribed from BBS channel: " << ch;
     
+}
+
+bool Channel::IsSafeToClose() const
+{
+    if (!m_pOpen)
+        return true;
+
+    if (!m_pOpen->m_hOpened)
+    {
+        return
+            m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max ||
+            DataUpdate::Type::None == m_lstUpdates.front().m_Type;
+    }
+
+    return 
+        m_State.m_Close.m_hPhase2 && m_State.m_Close.m_hPhase2 <= get_Tip();
 }
 
 bool Channel::TransferInternal(

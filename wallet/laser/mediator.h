@@ -63,6 +63,7 @@ public:
     bool Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob) final;
     
     void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
+    void ListenClosedChannelsWithPossibleRollback();
 
     void WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime);
     void StopWaiting();
@@ -90,17 +91,20 @@ private:
                     Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID);
     void TransferInternal(Amount amount, const ChannelIDPtr& chID);
+    void GracefulCloseInternal(const std::unique_ptr<Channel>& channel);
     void CloseInternal(const ChannelIDPtr& chID);
-    void ForgetChannel(const ChannelIDPtr& chID);
-    ChannelIDPtr RestoreChannel(const std::string& channelID);
-    bool RestoreChannelInternal(const ChannelIDPtr& p_channelID);
+    void ClosingCompleted(const ChannelIDPtr& p_channelID);
+    ChannelIDPtr LoadChannel(const std::string& channelID);
+    std::unique_ptr<Channel> LoadChannelInternal(
+        const ChannelIDPtr& p_channelID);
+    bool LoadAndStoreChannelInternal(const ChannelIDPtr& p_channelID);
     void UpdateChannels();
     void UpdateChannelExterior(const std::unique_ptr<Channel>& channel);
     bool ValidateTip();
-    void PrepareToForget(const std::unique_ptr<Channel>& channel);
     bool IsEnoughCoinsAvailable(Amount required);
     void Subscribe();
     void Unsubscribe();
+    bool IsInSync();
 
     IWalletDB::Ptr m_pWalletDB;
     proto::FlyClient::INetwork::Ptr m_pConnection;
@@ -114,7 +118,8 @@ private:
 
     std::unordered_map<ChannelIDPtr, std::unique_ptr<Channel>> m_channels;
     std::vector<std::function<void()>> m_actionsQueue;
-    std::vector<ChannelIDPtr> m_readyForForgetChannels;
+    std::vector<ChannelIDPtr> m_readyForCloseChannels;
+    std::vector<std::unique_ptr<Channel>> m_closedChannels;
     std::vector<Observer*> m_observers;
 };
 }  // namespace beam::wallet::laser

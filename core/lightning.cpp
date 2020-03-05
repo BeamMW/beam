@@ -1222,7 +1222,7 @@ void Channel::Close()
 	}
 }
 
-bool Channel::IsSafeToForget()
+bool Channel::IsSafeToForget() const
 {
 	if (!m_pOpen)
 		return true;

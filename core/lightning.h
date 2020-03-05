@@ -141,7 +141,7 @@ namespace Lightning {
 			Height m_hRevisionMaxLifeTime = 1440 * 14;
 			Height m_hLockTime = 1440; // withdrawal lock. Same for all
 			Height m_hPostLockReserve = 1440; // max height diff of 2nd-stage withdrawal, in addition to m_hLockTime. Same for all
-			Amount m_Fee = 0; // for all txs
+			Amount m_Fee = 100; // for all txs
 		} m_Params;
 
 		struct State
@@ -195,7 +195,7 @@ namespace Lightning {
 
 		void OnPeerData(Storage::Map& dataIn);
 
-		bool IsSafeToForget(); // returns true if the channel is either closed or couldn't be opened (i.e. no chance), and it's safe w.r.t. max rollback depth.
+		bool IsSafeToForget() const; // returns true if the channel is either closed or couldn't be opened (i.e. no chance), and it's safe w.r.t. max rollback depth.
 		void Forget(); // If the channel didn't open - the locked inputs will are unlocked
 
 		bool IsNegotiating() const { return m_pNegCtx != nullptr; }

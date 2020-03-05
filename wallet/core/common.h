@@ -645,7 +645,10 @@ namespace beam::wallet
     };
  
     bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params);
- 
+
+    // Check current time with the timestamp of last received block
+    // If it is more than 10 minutes, the walelt is considered not in sync
+    bool IsValidTimeStamp(Timestamp currentBlockTime_s);
 }    // beam::wallet
 
 namespace beam

@@ -34,22 +34,6 @@ namespace beam::wallet
 
     namespace
     {
-        // Check current time with the timestamp of last received block
-        // If it is more than 10 minutes, the walelt is considered not in sync
-        bool IsValidTimeStamp(Timestamp currentBlockTime_s)
-        {
-            Timestamp currentTime_s = getTimestamp();
-            const Timestamp tolerance_s = 60 * 10; // 10 minutes tolerance.
-            currentBlockTime_s += tolerance_s;
-
-            if (currentTime_s > currentBlockTime_s)
-            {
-                LOG_INFO() << "It seems that last known blockchain tip is not up to date";
-                return false;
-            }
-            return true;
-        }
-
         bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool isInternalSource, bool allowPrivate = false)
         {
             bool txChanged = false;

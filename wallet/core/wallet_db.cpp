@@ -2977,7 +2977,7 @@ namespace beam::wallet
         return false;
     }
 
-    std::vector<TLaserChannelEntity> WalletDB::loadLaserChannels()
+    std::vector<TLaserChannelEntity> WalletDB::loadLaserChannels(uint8_t state)
     {
         std::vector<TLaserChannelEntity> channels;
 
@@ -2988,7 +2988,13 @@ namespace beam::wallet
         countStm.get(0, count);
         channels.reserve(count);
 
-        sqlite::Statement stm(this, "SELECT * FROM " LASER_CHANNELS_NAME ";");
+        sqlite::Statement stm(
+            this, 
+            state
+                ? "SELECT * FROM " LASER_CHANNELS_NAME " WHERE state=?1;"
+                : "SELECT * FROM " LASER_CHANNELS_NAME ";");
+        if (state)
+            stm.bind(1, state);
 
         while (stm.step())
         {

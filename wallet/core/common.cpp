@@ -480,6 +480,19 @@ namespace beam::wallet
         return res;
     }
 
+    bool IsValidTimeStamp(Timestamp currentBlockTime_s)
+    {
+        Timestamp currentTime_s = getTimestamp();
+        const Timestamp tolerance_s = 60 * 10; // 10 minutes tolerance.
+
+        if (currentTime_s > currentBlockTime_s + tolerance_s)
+        {
+            LOG_INFO() << "It seems that last known blockchain tip is not up to date";
+            return false;
+        }
+        return true;
+    }
+
     bool TxDescription::canResume() const
     {
         return m_status == TxStatus::Pending
