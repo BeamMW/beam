@@ -75,6 +75,8 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: notificationList.model.count > 0 
+        boundsMovement: Flickable.StopAtBounds
+        boundsBehavior: Flickable.StopAtBounds
 
         model: SortFilterProxyModel {
             source: viewModel.notifications
