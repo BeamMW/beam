@@ -87,7 +87,7 @@ public:
 
 private:
     bool get_skBbs(ECC::Scalar::Native&, const ChannelIDPtr& chID);
-    void OnIncoming(const ChannelIDPtr& chID,
+    bool OnIncoming(const ChannelIDPtr& channelID,
                     Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID);
     void TransferInternal(Amount amount, const ChannelIDPtr& chID);
