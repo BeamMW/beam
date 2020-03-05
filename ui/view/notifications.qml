@@ -181,6 +181,7 @@ ColumnLayout {
                     }
         
                     SFText {
+                        Layout.topMargin: 10
                         text: timeCreated
                         font.pixelSize: 12
                         color: Style.content_main
@@ -213,7 +214,8 @@ ColumnLayout {
                 height: 38
                 palette.button: Style.background_second
                 palette.buttonText : Style.content_main
-                icon.source: getActionButtonIcon(type)
+                icon.source: getActionButtonIcon(type).source
+                icon.height: getActionButtonIcon(type).height
                 text: getActionButtonLabel(type)
         
                 visible: getActionButtonLabel(type) != undefined
@@ -230,7 +232,8 @@ ColumnLayout {
     }
 
     property var icons: ({
-        updateIcon: 'qrc:/assets/icon-repeat-white.svg'
+        updateIcon: { source: 'qrc:/assets/icon-repeat-white.svg', height: 16},
+        detailsIcon: { source: 'qrc:/assets/icon-details.svg', height: 12}
     })
 
     property var labels: ({
@@ -255,17 +258,17 @@ ColumnLayout {
         },
         received: {
             label:      labels.detailsLabel,
-            icon:       icons.updateIcon,
+            icon:       icons.detailsIcon,
             action:     navigateToTransaction
         },
         sent: {
             label:      labels.detailsLabel,
-            icon:       icons.updateIcon,
+            icon:       icons.detailsIcon,
             action:     navigateToTransaction
         },
         failed: {
             label:      labels.detailsLabel,
-            icon:       icons.updateIcon,
+            icon:       icons.detailsIcon,
             action:     navigateToTransaction
         }
     })
