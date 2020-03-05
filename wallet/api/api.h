@@ -152,6 +152,7 @@ namespace beam::wallet
             std::vector<WalletAddress> addrList;
             Height systemHeight;
             std::string token;
+            TxID txId;
         };
     };
 

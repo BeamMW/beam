@@ -218,7 +218,7 @@ json OfferToJson(const SwapOffer& offer,
     json result {
         {"status", offer.m_status},
         {"status_string", swapOfferStatusToString(offer.m_status)},
-        {"tx_id", TxIDToString(offer.m_txId)},
+        {"txId", TxIDToString(offer.m_txId)},
         {"send_amount", send},
         {"send_currency", sendCurrency},
         {"receive_amount", receive},
@@ -1298,7 +1298,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"id", id},
             {"result",
                 {
-                    {"txId", to_hex(res.txId.data(), res.txId.size())}
+                    {"txId", TxIDToString(res.txId)}
                 }
             }
         };
@@ -1422,7 +1422,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"id", id},
             {"result", 
             {
-                {"token", res.token}
+                {"txId", TxIDToString(res.txId)},
+                {"token", res.token},
             }}
         };
     }

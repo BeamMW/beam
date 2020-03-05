@@ -838,7 +838,8 @@ void ApiConnection::onMessage(const JsonRpcId& id, const CreateOffer& data)
         {
             walletDB->getAddresses(true),
             currentHeight,
-            token
+            token,
+            txId
         });
 }
 
