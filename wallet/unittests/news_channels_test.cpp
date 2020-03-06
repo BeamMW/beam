@@ -424,7 +424,8 @@ namespace
                 center.Subscribe(&observer);
                 center.deleteNotification(id);
                 auto list = center.getNotifications();
-                WALLET_CHECK(list.size() == 0);
+                // all notifications returned! even deleted.
+                WALLET_CHECK(list.size() == 1);
                 WALLET_CHECK(execCount == 1);
                 center.Unsubscribe(&observer);
             }
@@ -442,7 +443,7 @@ namespace
                 center.Subscribe(&observer);
                 center.onNewWalletVersion(info, id);
                 auto list = center.getNotifications();
-                WALLET_CHECK(list.size() == 0);
+                WALLET_CHECK(list.size() == 1);
                 center.Unsubscribe(&observer);
             }
         }
