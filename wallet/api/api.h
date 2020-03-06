@@ -24,8 +24,6 @@
 
 namespace beam::wallet
 {
-    constexpr Amount DefaultFee = 100;
-
     using json = nlohmann::json;
     using JsonRpcId = json;
 
@@ -128,7 +126,7 @@ namespace beam::wallet
         Amount swapAmount = 0;
         AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
         bool isBeamSide = true;
-        Amount beamFee = DefaultFee;
+        Amount beamFee = kMinFeeInGroth;
         Amount swapFeeRate = 0;
         Height offerLifetime = 15;
         std::string comment;
@@ -252,7 +250,7 @@ namespace beam::wallet
     struct Send
     {
         Amount value;
-        Amount fee = DefaultFee;
+        Amount fee = kMinFeeInGroth;
         boost::optional<CoinIDList> coins;
         boost::optional<WalletID> from;
         boost::optional<uint64_t> session;
@@ -270,7 +268,7 @@ namespace beam::wallet
     struct Issue
     {
         Amount value;
-        Amount fee = DefaultFee;
+        Amount fee = kMinFeeInGroth;
         Key::Index index;
         boost::optional<CoinIDList> coins;
         boost::optional<uint64_t> session;
@@ -297,7 +295,7 @@ namespace beam::wallet
 
     struct Split
     {
-        Amount fee = DefaultFee;
+        Amount fee = kMinFeeInGroth;
         AmountList coins;
         boost::optional<TxID> txId;
 

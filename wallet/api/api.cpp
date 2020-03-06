@@ -114,6 +114,29 @@ boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const json& params)
     return txId;
 }
 
+Amount readBeamFeeParameter(const JsonRpcId& id, const json& params,
+    const std::string& paramName = "fee",
+    Amount minimumFee = std::max(wallet::GetMinimumFee(2), kMinFeeInGroth)) // receivers's output + change
+{
+    if (!params[paramName].is_number_unsigned() || params[paramName] == 0)
+    {
+        std::stringstream ss;
+        ss << "\"" << paramName << "\" " << "must be non zero 64bit unsigned integer.";
+        throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, ss.str(), id };
+    }
+
+    Amount fee = params[paramName];
+
+    if (fee < minimumFee)
+    {
+        std::stringstream ss;
+        ss << "Failed to initiate the operation. The minimum fee is " << minimumFee << " GROTH.";
+        throw WalletApi::jsonrpc_exception{ ApiError::InternalErrorJsonRpc, ss.str(), id };
+    }
+
+    return fee;
+}
+
 static void FillAddressData(const JsonRpcId& id, const json& params, AddressData& data)
 {
     if (WalletApi::existsJsonParam(params, "comment"))
@@ -335,17 +358,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     if (WalletApi::existsJsonParam(params, "beam_fee"))
     {
-        if (!params["beam_fee"].is_number_unsigned() ||
-            params["beam_fee"] == 0)
-        {
-            throw WalletApi::jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "\'beam_fee\' must be non zero 64bit unsigned integer.",
-                id
-            };
-        }
-        data.beamFee = params["beam_fee"];
+        data.beamFee = readBeamFeeParameter(id, params, "beam_fee");
+
         if (data.isBeamSide &&
             data.beamAmount < data.beamFee)
         {
@@ -684,10 +698,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         if (existsJsonParam(params, "fee"))
         {
-            if(!params["fee"].is_number_unsigned() || params["fee"] == 0)
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid fee.", id };
-
-            send.fee = params["fee"];
+            send.fee = readBeamFeeParameter(id, params);
         }
 
         if (existsJsonParam(params, "comment"))
@@ -732,16 +743,14 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             split.coins.push_back(amount);
         }
 
+        auto minimumFee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), kMinFeeInGroth); // +1 extra output for change
         if (existsJsonParam(params, "fee"))
         {
-            if (!params["fee"].is_number_unsigned() || params["fee"] == 0)
-                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Invalid fee.", id };
-
-            split.fee = params["fee"];
+            split.fee = readBeamFeeParameter(id, params, "fee", minimumFee);
         }
         else
         {
-            split.fee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), DefaultFee); // +1 extra output for change
+            split.fee = minimumFee;
         }
 
         split.txId = readTxIdParameter(id, params);
@@ -806,10 +815,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         if (existsJsonParam(params, "fee"))
         {
-            if(!params["fee"].is_number_unsigned() || params["fee"] == 0)
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Fee must be non zero 64bit unsigned integer.", id };
-
-            issue.fee = params["fee"];
+            issue.fee = readBeamFeeParameter(id, params);
         }
 
         issue.txId = readTxIdParameter(id, params);

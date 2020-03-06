@@ -24,13 +24,6 @@ using namespace beam;
 
 namespace
 {
-std::string getMinimumFeeError(Amount minimumFee)
-{
-    std::stringstream ss;
-    ss << "Failed to initiate the send operation. The minimum fee is " << minimumFee << " GROTH.";
-    return ss.str();
-}
-
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 using namespace beam::wallet;
 
@@ -372,13 +365,6 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Send& data)
             coins = data.coins ? *data.coins : CoinIDList();
         }
 
-        auto minimumFee = std::max(wallet::GetMinimumFee(2), DefaultFee); // receivers's output + change
-        if (data.fee < minimumFee)
-        {
-            doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
-            return;
-        }
-
         if (data.txId && walletDB->getTx(*data.txId))
         {
             doTxAlreadyExistsError(id);
@@ -423,13 +409,6 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Issue& data)
         else
         {
             coins = data.coins ? *data.coins : CoinIDList();
-        }
-
-        auto minimumFee = std::max(wallet::GetMinimumFee(2), DefaultFee);
-        if (data.fee < minimumFee)
-        {
-            doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
-            return;
         }
 
         if (data.txId && walletDB->getTx(*data.txId))
@@ -492,14 +471,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Split& data)
         walletDB->createAddress(senderAddress);
         walletDB->saveAddress(senderAddress);
 
-        auto minimumFee = std::max(wallet::GetMinimumFee(data.coins.size() + 1), DefaultFee); // +1 extra output for change 
-        if (data.fee < minimumFee)
-        {
-            doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
-            return;
-        }
-
-            if (data.txId && _walletData.getWalletDB()->getTx(*data.txId))
+        if (data.txId && _walletData.getWalletDB()->getTx(*data.txId))
         {
             doTxAlreadyExistsError(id);
             return;
