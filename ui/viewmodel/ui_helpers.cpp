@@ -52,11 +52,26 @@ namespace beamui
         }
     }
     
+    /**
+     *  Convert amount value to printable format.
+     *  @value      Value in coin quants (satoshi, groth and s.o.). 
+     *              Unsigned integer with the fixed decimal point.
+     *              Decimal point position depends on @coinType.
+     *  @coinType   Specify coint type.
+     */
     QString AmountToUIString(const Amount& value, Currencies coinType)
     {
-        // TODO implement for another currencies
-        std::string btc = libbitcoin::satoshi_to_btc(value);
-        QString amount = QString::fromStdString(btc);
+        // TODO: implementation without currency label
+        QString amount;
+        switch (coinType)
+        {
+            case Currencies::Usd:
+            case Currencies::Beam:  // TODO implement convertation of beam::Amount to string using Rules::Coin
+            default:
+                std::string btc = libbitcoin::satoshi_to_btc(value);
+                amount = QString::fromStdString(btc);
+        }
+        
         QString coinLabel = getCurrencyLabel(coinType);
 
         if (coinLabel.isEmpty())

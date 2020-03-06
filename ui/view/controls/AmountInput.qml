@@ -43,6 +43,10 @@ ColumnLayout {
         return BeamGlobals.calcTotalFee(control.currency, control.fee);
     }
 
+    function getFeeInSecondCurrency(feeValue) {
+        return BeamGlobals.calcFeeInSecondCurrency(feeValue, control.currency, control.secondCurrencyRateValue, control.secondCurrencyLabel)
+    }    
+
     readonly property bool     isValidFee:     hasFee ? feeInput.isValid : true
     readonly property bool     isValid:        error.length == 0 && isValidFee
     readonly property string   currencyLabel:  getCurrencyLabel()
@@ -66,8 +70,8 @@ ColumnLayout {
     property bool     showAddAll:   false
     property string   maxAvailable: Utils.maxAmount
     property alias    amountSecondCurrency:     amount2ndCurrencyText.text
-    property alias    feeSecondCurrency:        fee2ndCurrencyText.text
-    property alias    feeTotalSecondCurrency:   feeTotal2ndCurrencyText.text
+    property string   secondCurrencyRateValue:  "0"
+    property string   secondCurrencyLabel:      ""
 
     SFText {
         font.pixelSize:   14
@@ -217,18 +221,17 @@ ColumnLayout {
         Layout.topMargin: 30
         ColumnLayout {
             Layout.maximumWidth:  198
+            visible:              control.hasFee
             SFText {
                 font.pixelSize:   14
                 font.styleName:   "Bold"
                 font.weight:      Font.Bold
                 color:            Style.content_main
                 text:             getFeeTitle()
-                visible:          control.hasFee
             }
             FeeInput {
                 id:               feeInput
                 Layout.fillWidth: true
-                visible:          control.hasFee
                 fee:              control.fee
                 minFee:           currencies[currency].minFee
                 feeLabel:         getFeeLabel()
@@ -241,10 +244,11 @@ ColumnLayout {
                 }
             }
             SFText {
-                id:               fee2ndCurrencyText
-                visible:          text != ""
+                id:               feeInSecondCurrency
+                visible:          control.secondCurrencyLabel != ""
                 font.pixelSize:   14
                 color:            Style.content_secondary
+                text:             getFeeInSecondCurrency(control.fee)
             }
         }
        
@@ -259,17 +263,18 @@ ColumnLayout {
                 text:             getTotalFeeTitle()
             }
             SFText {
+                id:               totalFeeLabel
                 Layout.topMargin: 6
                 font.pixelSize:   14
                 color:            Style.content_main
                 text:             getTotalFeeAmount()
             }
             SFText {
-                id:               feeTotal2ndCurrencyText
-                visible:          text != ""
+                id:               feeTotalInSecondCurrency
                 Layout.topMargin: 6
                 font.pixelSize:   14
                 color:            Style.content_secondary
+                text:             getFeeInSecondCurrency(parseInt(totalFeeLabel.text, 10))
             }
         }
     }
