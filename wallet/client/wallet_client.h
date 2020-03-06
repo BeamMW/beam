@@ -70,7 +70,7 @@ namespace beam::wallet
         , private INotificationsObserver
     {
     public:
-        WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper);
+        WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
         virtual ~WalletClient();
 
         void start( std::map<Notification::Type,bool> activeNotifications,
@@ -216,7 +216,6 @@ namespace beam::wallet
         uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;
         std::string m_initialNodeAddrStr;
-        IPrivateKeyKeeper::Ptr m_keyKeeper;
 
         struct CoinKey
         {

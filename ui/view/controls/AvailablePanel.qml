@@ -17,7 +17,6 @@ Control {
     property string receivingChange
     property string receivingIncoming
     // second currency info
-    property string secondCurrency
     property string availableSecondCurrency
     property string lockedSecondCurrency
     property string sendingSecondCurrency
@@ -163,7 +162,6 @@ Control {
                 amount:            available
                 currencySymbol:    Utils.symbolBeam
                 secondCurrencyAmount:   availableSecondCurrency
-                secondCurrencySymbol:   secondCurrency
                 spacing:           15
                 lightFont:         false
                 fontSize:          16
@@ -183,7 +181,6 @@ Control {
                 amount:            locked
                 currencySymbol:    Utils.symbolBeam
                 secondCurrencyAmount:   lockedSecondCurrency
-                secondCurrencySymbol:   secondCurrency
                 lightFont:         false
                 fontSize:          16
                 copyMenuEnabled:   true
@@ -219,7 +216,6 @@ Control {
                 amount:            sending
                 currencySymbol:    Utils.symbolBeam
                 secondCurrencyAmount:   sendingSecondCurrency
-                secondCurrencySymbol:   secondCurrency
                 color:             Style.accent_outgoing
                 lightFont:         false
                 fontSize:          16
@@ -239,7 +235,6 @@ Control {
                 amount:            receiving
                 currencySymbol:    Utils.symbolBeam                
                 secondCurrencyAmount:   receivingSecondCurrency
-                secondCurrencySymbol:   secondCurrency
                 color:             Style.accent_incoming
                 lightFont:         false
                 fontSize:          16

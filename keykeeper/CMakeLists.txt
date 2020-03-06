@@ -16,7 +16,7 @@ target_sources(keykeeper
 )
 
 if(BEAM_HW_WALLET)
-    target_sources(keykeeper PRIVATE trezor_key_keeper.cpp)
+    #target_sources(keykeeper PRIVATE trezor_key_keeper.cpp)
 endif()
 
 if(EMSCRIPTEN)

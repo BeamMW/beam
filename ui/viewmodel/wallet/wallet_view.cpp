@@ -64,7 +64,7 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(receivingChangeChanged()), this, SIGNAL(beamReceiving2ndCurrencyChanged()));
     connect(&_model, SIGNAL(receivingIncomingChanged()), this, SIGNAL(beamReceiving2ndCurrencyChanged()));
 
-    connect(&_exchangeRatesManager, SIGNAL(rateUnitChanged()), this, SLOT(onExchangeRateUnitChanged()));
+    connect(&_exchangeRatesManager, SIGNAL(rateUnitChanged()), this, SLOT(onActiveExchangeRateChanged()));
     connect(&_exchangeRatesManager, SIGNAL(activeRateChanged()), this, SLOT(onActiveExchangeRateChanged()));
 
     _model.getAsync()->getTransactions();
@@ -166,11 +166,6 @@ void WalletViewModel::onTxHistoryExportedToCsv(const QString& data)
     }
 }
 
-void WalletViewModel::onExchangeRateUnitChanged()
-{
-    emit secondCurrencyChanged();
-}
-
 void WalletViewModel::onActiveExchangeRateChanged()
 {
     emit beamAvailable2ndCurrencyChanged();
@@ -214,29 +209,33 @@ QString WalletViewModel::beamLockedMaturing() const
     return beamui::AmountToUIString(_model.getMaturing());
 }
 
-QString WalletViewModel::secondCurrency() const
+QString WalletViewModel::calcAmountInSecondCurrency(const QString& amountInBeam) const
 {
-    return _exchangeRatesManager.getRateUnit();
+    QString currencyLabel = getCurrencyLabel(
+        convertExchangeRateCurrencyToUiCurrency(
+            _exchangeRatesManager.getRateUnitRaw()));
+    QString amount = _exchangeRatesManager.calcAmountIn2ndCurrency(amountInBeam, ExchangeRate::Currency::Beam);
+    return amount + " " + currencyLabel;
 }
 
 QString WalletViewModel::beamAvailable2ndCurrency() const
 {
-    return _exchangeRatesManager.calcAmountIn2ndCurrency(beamAvailable(), ExchangeRate::Currency::Beam);
+    return calcAmountInSecondCurrency(beamAvailable());
 }
 
 QString WalletViewModel::beamReceiving2ndCurrency() const
 {
-    return _exchangeRatesManager.calcAmountIn2ndCurrency(beamReceiving(), ExchangeRate::Currency::Beam);
+    return calcAmountInSecondCurrency(beamReceiving());
 }
 
 QString WalletViewModel::beamSending2ndCurrency() const
 {
-    return _exchangeRatesManager.calcAmountIn2ndCurrency(beamSending(), ExchangeRate::Currency::Beam);
+    return calcAmountInSecondCurrency(beamSending());
 }
 
 QString WalletViewModel::beamLocked2ndCurrency() const
 {
-    return _exchangeRatesManager.calcAmountIn2ndCurrency(beamLocked(), ExchangeRate::Currency::Beam);
+    return calcAmountInSecondCurrency(beamLocked());
 }
 
 bool WalletViewModel::isAllowedBeamMWLinks() const

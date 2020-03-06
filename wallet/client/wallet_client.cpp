@@ -16,7 +16,7 @@
 #include "wallet/core/simple_transaction.h"
 #include "utility/log_rotation.h"
 #include "core/block_rw.h"
-#include "keykeeper/trezor_key_keeper.h"
+//#include "keykeeper/trezor_key_keeper.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
 #include "extensions/news_channels/updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
@@ -232,19 +232,18 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
 namespace beam::wallet
 {
-    WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper)
+    WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
         , m_async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *m_reactor) }
         , m_connectedNodesCount(0)
         , m_trustedConnectionCount(0)
         , m_initialNodeAddrStr(nodeAddr)
-        , m_keyKeeper(keyKeeper)
         , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAllUtxoChanged(action, items); })
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
         , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
     {
-        m_keyKeeper->subscribe(this);
+        //m_keyKeeper->subscribe(this);
     }
 
     WalletClient::~WalletClient()
@@ -350,7 +349,7 @@ namespace beam::wallet
                     using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
                     // Swap offer board uses broadcasting messages
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                    OfferBoardProtocolHandler protocolHandler(m_keyKeeper->get_SbbsKdf(), m_walletDB);
+                    OfferBoardProtocolHandler protocolHandler(m_walletDB->get_SbbsKdf(), m_walletDB);
 
                     auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler);
                     m_offersBulletinBoard = offersBulletinBoard;
@@ -749,10 +748,10 @@ namespace beam::wallet
 
             onGeneratedNewAddress(address);
         }
-        catch (const TrezorKeyKeeper::DeviceNotConnected&)
-        {
-            onNoDeviceConnected();
-        }
+        //catch (const TrezorKeyKeeper::DeviceNotConnected&)
+        //{
+        //    onNoDeviceConnected();
+        //}
         catch (const CannotGenerateSecretException&)
         {
             onNewAddressFailed();

@@ -27,7 +27,6 @@ class ExchangeRatesManager : public QObject
 public:
     ExchangeRatesManager();
 
-    QString getRateUnit() const;    
     QString calcAmountIn2ndCurrency(const QString&, beam::wallet::ExchangeRate::Currency) const;
     beam::wallet::ExchangeRate::Currency getRateUnitRaw() const;
 
@@ -42,10 +41,10 @@ signals:
     void activeRateChanged();
 
 private:
-    QString getBeamRate() const;
-    QString getBtcRate() const;
-    QString getLtcRate() const;
-    QString getQtumRate() const;
+    beam::Amount getBeamRate() const;
+    beam::Amount getBtcRate() const;
+    beam::Amount getLtcRate() const;
+    beam::Amount getQtumRate() const;
     void setRateUnit();
 
     WalletModel& m_walletModel;

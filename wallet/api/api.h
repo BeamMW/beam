@@ -56,7 +56,6 @@ namespace beam::wallet
     macro(CreateOffer,      "swap_create_offer",    API_WRITE_ACCESS)   \
     macro(PublishOffer,     "swap_publish_offer",   API_WRITE_ACCESS)   \
     macro(AcceptOffer,      "swap_accept_offer",    API_WRITE_ACCESS)   \
-    macro(CancelOffer,      "swap_cancel_offer",    API_WRITE_ACCESS)   \
     macro(OfferStatus,      "swap_offer_status",    API_READ_ACCESS)
 #else  // !BEAM_ATOMIC_SWAP_SUPPORT
 #define SWAP_OFFER_API_METHODS(macro)
@@ -81,6 +80,13 @@ namespace beam::wallet
     macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)    \
     macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)    \
     SWAP_OFFER_API_METHODS(macro)
+
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+#define WALLET_API_METHODS_ALIASES(macro) \
+    macro("swap_cancel_offer", TxCancel, "tx_cancel", API_WRITE_ACCESS)
+#else  // !BEAM_ATOMIC_SWAP_SUPPORT
+#define WALLET_API_METHODS_ALIASES(macro)
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 
@@ -152,6 +158,7 @@ namespace beam::wallet
             std::vector<WalletAddress> addrList;
             Height systemHeight;
             std::string token;
+            TxID txId;
         };
     };
 
@@ -170,17 +177,6 @@ namespace beam::wallet
     {
         AcceptOffer() = default;
         AcceptOffer(const OfferInput& oi) : OfferInput(oi) {}
-        std::string token;
-        struct Response
-        {
-            std::vector<WalletAddress> addrList;
-            Height systemHeight;
-            SwapOffer offer;
-        };
-    };
-
-    struct CancelOffer
-    {
         std::string token;
         struct Response
         {

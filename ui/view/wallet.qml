@@ -162,7 +162,6 @@ Item {
                 receiving:         viewModel.beamReceiving
                 receivingChange:   viewModel.beamReceivingChange
                 receivingIncoming: viewModel.beamReceivingIncoming
-                secondCurrency:                     Utils.getCurrencySymbol(viewModel.secondCurrency)
                 availableSecondCurrency:            viewModel.beamAvailable2ndCurrency
                 lockedSecondCurrency:               viewModel.beamLocked2ndCurrency
                 sendingSecondCurrency:              viewModel.beamSending2ndCurrency
