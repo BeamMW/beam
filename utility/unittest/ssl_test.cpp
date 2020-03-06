@@ -56,7 +56,7 @@ namespace {
         };
 
         SSLContext::Ptr serverCtx = SSLContext::create_server_ctx(
-            PROJECT_SOURCE_DIR "/utility/unittest/test.crt", PROJECT_SOURCE_DIR "/utility/unittest/test.key"
+            PROJECT_SOURCE_DIR "/utility/unittest/test.crt", PROJECT_SOURCE_DIR "/utility/unittest/test.key", false, false
         );
         SSLContext::Ptr clientCtx = SSLContext::create_client_context();
 

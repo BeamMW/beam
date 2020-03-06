@@ -23,6 +23,22 @@ namespace beam { namespace io {
 
 namespace {
 
+int verify_server(int preverify_ok, X509_STORE_CTX* x509_ctx)
+{
+    if (!preverify_ok) {
+        LOG_ERROR() << "server verification error: " << X509_STORE_CTX_get_error(x509_ctx);
+    }
+    return preverify_ok;
+}
+
+int verify_client(int preverify_ok, X509_STORE_CTX* x509_ctx)
+{
+    if (!preverify_ok) {
+        LOG_ERROR() << "client verification error: " << X509_STORE_CTX_get_error(x509_ctx);
+    }
+    return preverify_ok;
+}
+
 struct SSLInitializer {
     SSLInitializer() {
         SSL_library_init();
@@ -60,13 +76,13 @@ SSL_CTX* init_ctx(bool isServer) {
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 
-    SSL_CTX_set_options(ctx, SSL_OP_ALL|SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
     return ctx;
 }
 
 } //namespace
 
-SSLContext::Ptr SSLContext::create_server_ctx(const char* certFileName, const char* privKeyFileName) {
+SSLContext::Ptr SSLContext::create_server_ctx(const char* certFileName, const char* privKeyFileName,
+                                              bool requestCertificate, bool rejectUnauthorized) {
     assert(certFileName && privKeyFileName);
 
     SSL_CTX* ctx = init_ctx(true);
@@ -82,18 +98,29 @@ SSLContext::Ptr SSLContext::create_server_ctx(const char* certFileName, const ch
         LOG_ERROR() << "SSL_CTX_check_private_key failed" << privKeyFileName;
         IO_EXCEPTION(EC_SSL_ERROR);
     }
+    // the server will not send a client certificate request to the client, so the client will not send a certificate.
+    int verificationMode = SSL_VERIFY_NONE;
+    if (requestCertificate)
+    {
+        // the server sends a client certificate request to the client. The certificate returned (if any) is checked. 
+        // If the verification process fails, the TLS/SSL handshake is immediately terminated with an alert message containing the reason for the verification failure.
+        verificationMode = SSL_VERIFY_PEER;
+        if (rejectUnauthorized)
+        {
+            verificationMode |= SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+        }
+    }
+    SSL_CTX_set_verify(ctx, verificationMode, verify_server);
     return Ptr(new SSLContext(ctx, true));
 }
 
 SSLContext::Ptr SSLContext::create_client_context() {
     SSL_CTX* ctx = init_ctx(false);
-    /*SSL_CTX_set_verify(
-        ctx, SSL_VERIFY_PEER,
-        [](int ok, X509_STORE_CTX* ctx) ->int {
-            // TODO !!!
-            return 1;
-        }
-    );*/
+
+    // if not using an anonymous cipher (by default disabled), the server will send a certificate which will be checked.
+    // The result of the certificate verification process can be checked after the TLS/SSL handshake using the SSL_get_verify_result(3) function. 
+    // The handshake will be continued regardless of the verification result.
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, verify_client);
     return Ptr(new SSLContext(ctx, false));
 }
 
