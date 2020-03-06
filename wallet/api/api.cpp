@@ -559,6 +559,12 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         WALLET_API_METHODS(REG_FUNC)
 
 #undef REG_FUNC
+#define REG_ALIASES_FUNC(aliasName, api, name, writeAccess) \
+        _methods[aliasName] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
+
+         WALLET_API_METHODS_ALIASES(REG_ALIASES_FUNC)
+#undef REG_ALIASES_FUNC
+            //WALLET_API_METHODS_ALIASES
     };
 
     IWalletApiHandler& WalletApi::getHandler() const
@@ -1074,53 +1080,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         }
     }
 
-    void WalletApi::onCancelOfferMessage(const JsonRpcId& id, const json& params)
-    {
-        checkJsonParam(params, "token", id);
-        const auto& token = params["token"];
-
-        if (!SwapOfferToken::isValid(token))
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Parameter 'token' is not valid swap token.",
-                id
-            };
-
-        CancelOffer data{token};
-        try
-        {
-            getHandler().onMessage(id, data);
-        }
-        catch(const FailToParseToken&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Parse Parameters from 'token' failed.",
-                id
-            };
-        }
-        catch(const TxNotFound&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Tranzaction not found.",
-                id
-            };
-        }
-        catch(const FailToCancelTx& e)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Can't cancel transaction with status: " + swapOfferStatusToString(e._status),
-                id
-            };
-        }
-    }
-
     void WalletApi::onOfferStatusMessage(const JsonRpcId& id, const json& params)
     {
         checkJsonParam(params, "token", id);
@@ -1439,16 +1398,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const AcceptOffer::Response& res, json& msg)
-    {
-        msg = 
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", OfferToJson(res.offer, res.addrList, res.systemHeight)}
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const CancelOffer::Response& res, json& msg)
     {
         msg = 
         {

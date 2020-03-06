@@ -964,41 +964,6 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
         });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const CancelOffer& data)
-{
-    auto txParams = ParseParameters(data.token);
-    if (!txParams)
-        throw FailToParseToken();
-
-    auto txId = txParams->GetTxID();
-    if (!txId)
-        throw FailToParseToken();
-
-    auto walletDB = _walletData.getWalletDB();
-    auto tx = walletDB->getTx(*txId);
-
-    if (!tx)
-        throw TxNotFound();
-
-    SwapOffer offer(*tx);
-    if (offer.m_status == SwapOfferStatus::Pending)
-    {
-        _walletData.getWallet().CancelTransaction(*txId);
-        offer.m_status = SwapOfferStatus::Canceled;
-    }
-    else
-    {
-        throw FailToCancelTx(offer.m_status);
-    }
-
-    doResponse(id, CancelOffer::Response
-        {
-            walletDB->getAddresses(true),
-            walletDB->getCurrentHeight(),
-            offer
-        });
-}
-
 void ApiConnection::onMessage(const JsonRpcId& id, const OfferStatus& data)
 {
     auto txParams = ParseParameters(data.token);
