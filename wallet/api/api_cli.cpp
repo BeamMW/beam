@@ -801,8 +801,6 @@ int main(int argc, char* argv[])
 
         Wallet wallet{ walletDB };
 
-        wallet.ResumeAllTransactions();
-
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         
@@ -834,6 +832,9 @@ int main(int argc, char* argv[])
         RegisterSwapTxCreators(wallet, walletDB);
         server.initSwapFeature(*nnet, *wnet);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+        // All TxCreators must be registered by this point
+        wallet.ResumeAllTransactions();
 
         io::Reactor::get_Current().run();
 
