@@ -379,7 +379,7 @@ namespace beam::wallet
         // Address management
         virtual boost::optional<WalletAddress> getAddress(
                 const WalletID&, bool isLaser = false) const = 0;
-        virtual std::vector<WalletAddress> getAddresses(bool own) const = 0;
+        virtual std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const = 0;
         virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
         virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
 
@@ -493,7 +493,7 @@ namespace beam::wallet
         void rollbackTx(const TxID& txId) override;
         void deleteCoinsCreatedByTx(const TxID& txId) override;
 
-        std::vector<WalletAddress> getAddresses(bool own) const override;
+        std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const override;
         void saveAddress(const WalletAddress&, bool isLaser = false) override;
         boost::optional<WalletAddress> getAddress(
             const WalletID&, bool isLaser = false) const override;

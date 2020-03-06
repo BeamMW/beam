@@ -2735,11 +2735,13 @@ namespace beam::wallet
         return boost::optional<WalletAddress>();
     }
 
-    std::vector<WalletAddress> WalletDB::getAddresses(bool own) const
+    std::vector<WalletAddress> WalletDB::getAddresses(bool own, bool isLaser) const
     {
+        const std::string addrTableName =
+            isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
         vector<WalletAddress> res;
-        const char* req = "SELECT * FROM " ADDRESSES_NAME " ORDER BY createTime DESC;";
-        sqlite::Statement stm(this, req);
+        auto req = "SELECT * FROM " + addrTableName + " ORDER BY createTime DESC;";
+        sqlite::Statement stm(this, req.c_str());
 
         while (stm.step())
         {

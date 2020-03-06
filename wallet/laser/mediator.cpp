@@ -258,6 +258,7 @@ void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime
         "laser_in",
         WalletAddress::ExpirationStatus::Never,
         false);
+    m_pWalletDB->saveAddress(m_myInAddr, true);
 
     Subscribe();
 }
@@ -311,6 +312,18 @@ void Mediator::OpenChannel(Amount aMy,
     if (!IsEnoughCoinsAvailable(aMy + fee))
     {
         LOG_ERROR() << "Your available amount less then required.";
+        auto zeroID = std::make_shared<ChannelID>(Zero);
+        for (auto observer : m_observers)
+        {
+            observer->OnOpenFailed(zeroID);
+        }
+        return;
+    }
+
+    auto addresses = m_pWalletDB->getAddresses(true, true);
+    if (storage::isMyAddress(addresses, receiverWalletID))
+    {
+        LOG_ERROR() << "Can't open channel on same DB as receiver";
         auto zeroID = std::make_shared<ChannelID>(Zero);
         for (auto observer : m_observers)
         {
@@ -800,7 +813,8 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
 
     if (state == Lightning::Channel::State::Open)
     {
-        if (lastState != Lightning::Channel::State::Updating)
+        if (lastState != Lightning::Channel::State::Updating &&
+            lastState != Lightning::Channel::State::Open)
         {
             LOG_DEBUG() << "observer->OnOpened";
             for (auto observer : m_observers)
