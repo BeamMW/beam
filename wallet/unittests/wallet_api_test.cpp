@@ -429,7 +429,7 @@ namespace
                 WALLET_CHECK(data.coins[1] == 12);
                 WALLET_CHECK(data.coins[2] == 13);
                 WALLET_CHECK(data.coins[3] == 50000000000000);
-                WALLET_CHECK(data.fee == 4);
+                WALLET_CHECK(data.fee == 100);
             }
         };
 
@@ -979,7 +979,7 @@ int main()
         {
             "session" : 123,
             "coins" : [11, 12, 13, 50000000000000],
-            "fee" : 4
+            "fee" : 100
         }
     }));
 
