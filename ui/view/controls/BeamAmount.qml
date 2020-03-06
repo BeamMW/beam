@@ -13,8 +13,7 @@ Control {
 
     property string  amount:          "0"
     property string  currencySymbol:  Utils.symbolBeam
-    property string  secondCurrencyAmount:  "0"
-    property string  secondCurrencySymbol:  ""
+    property string  secondCurrencyAmount:  "-"
     property string  color:           Style.content_main
     property bool    error:           false
     property bool    showZero:        true
@@ -67,12 +66,12 @@ Control {
 
             SFLabel {
                 id:              secondCurrencyAmountText
-                visible:         secondCurrencySymbol != ""
+                visible:         secondCurrencyAmount != "-"
                 font.pixelSize:  10
                 font.styleName:  "Light"
                 font.weight:     Font.Normal
                 color:           Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
-                text:            parseFloat(secondCurrencyAmount) > 0 || showZero ? prefix + [Utils.uiStringToLocale(secondCurrencyAmount), control.secondCurrencySymbol].join(" ") : "-"
+                text:            parseFloat(secondCurrencyAmount) > 0 || showZero ? prefix + Utils.uiStringToLocale(secondCurrencyAmount) : "-"
                 onCopyText:      BeamGlobals.copyToClipboard(secondCurrencyAmount)
                 copyMenuEnabled: true
             }

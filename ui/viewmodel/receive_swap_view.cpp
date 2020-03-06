@@ -498,7 +498,9 @@ QString ReceiveSwapViewModel::getSendAmount2ndCurrency() const
 
     if (sendCurrency != secondCurrency)
     {
-        return _exchangeRatesManager.calcAmountIn2ndCurrency(getAmountSent(), sendCurrency);
+        QString currencyLabel = beamui::getCurrencyLabel(beamui::convertExchangeRateCurrencyToUiCurrency(secondCurrency));
+        QString amount = _exchangeRatesManager.calcAmountIn2ndCurrency(getAmountSent(), sendCurrency);
+        return amount + " " + currencyLabel;
     }
     else
     {
@@ -514,7 +516,9 @@ QString ReceiveSwapViewModel::getReceiveAmount2ndCurrency() const
     if (receiveCurrency != secondCurrency
      && secondCurrency != beam::wallet::ExchangeRate::Currency::Usd)
     {
-        return _exchangeRatesManager.calcAmountIn2ndCurrency(getAmountToReceive(), receiveCurrency);
+        QString currencyLabel = beamui::getCurrencyLabel(beamui::convertExchangeRateCurrencyToUiCurrency(secondCurrency));
+        QString amount = _exchangeRatesManager.calcAmountIn2ndCurrency(getAmountToReceive(), receiveCurrency);
+        return amount + " " + currencyLabel;
     }
     else
     {

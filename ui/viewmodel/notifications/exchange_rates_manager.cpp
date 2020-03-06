@@ -78,41 +78,28 @@ beam::wallet::ExchangeRate::Currency ExchangeRatesManager::getRateUnitRaw() cons
     return m_rateUnit;
 }
 
-QString ExchangeRatesManager::getRateUnit() const
-{
-    return QString::fromStdString(ExchangeRate::to_string(m_rateUnit));
-}
-
-QString ExchangeRatesManager::getBeamRate() const
+beam::Amount ExchangeRatesManager::getBeamRate() const
 {
     const auto it = m_rates.find(ExchangeRate::Currency::Beam);
-    beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
-    
-    return beamui::AmountToUIString(value);
+    return (it == std::cend(m_rates)) ? 0 : it->second;
 }
 
-QString ExchangeRatesManager::getBtcRate() const
+beam::Amount ExchangeRatesManager::getBtcRate() const
 {
     const auto it = m_rates.find(ExchangeRate::Currency::Bitcoin);
-    beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
-    
-    return beamui::AmountToUIString(value);
+    return (it == std::cend(m_rates)) ? 0 : it->second;
 }
 
-QString ExchangeRatesManager::getLtcRate() const
+beam::Amount ExchangeRatesManager::getLtcRate() const
 {
     const auto it = m_rates.find(ExchangeRate::Currency::Litecoin);
-    beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
-    
-    return beamui::AmountToUIString(value);
+    return (it == std::cend(m_rates)) ? 0 : it->second;
 }
 
-QString ExchangeRatesManager::getQtumRate() const
+beam::Amount ExchangeRatesManager::getQtumRate() const
 {
     const auto it = m_rates.find(ExchangeRate::Currency::Qtum);
-    beam::Amount value = (it == std::cend(m_rates)) ? 0 : it->second;
-    
-    return beamui::AmountToUIString(value);
+    return (it == std::cend(m_rates)) ? 0 : it->second;
 }
 
 /**
@@ -123,7 +110,9 @@ QString ExchangeRatesManager::getQtumRate() const
  */
 QString ExchangeRatesManager::calcAmountIn2ndCurrency(const QString& amount, ExchangeRate::Currency currency) const
 {
-    QString rate;
+    beam::Amount rate;
+    // TODO: return "-" if no info about exchange rate
+    // TODO: return with currency suffix
     switch (currency)
     {
         case ExchangeRate::Currency::Beam:
@@ -139,9 +128,17 @@ QString ExchangeRatesManager::calcAmountIn2ndCurrency(const QString& amount, Exc
             rate = getQtumRate();
             break;
         default:
-            return "0";
+            rate = 0;
     }
-    return QMLGlobals::multiplyWithPrecision8(amount, rate);
+
+    if (rate == 0)
+    {
+        return "-";
+    }
+    else
+    {
+        return QMLGlobals::multiplyWithPrecision8(amount, beamui::AmountToUIString(rate));
+    }
 }
 
 ExchangeRate::Currency ExchangeRatesManager::convertCurrencyToExchangeCurrency(WalletCurrency::Currency uiCurrency)

@@ -34,7 +34,6 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString beamLockedMaturing            READ beamLockedMaturing         NOTIFY beamLockedChanged)
     Q_PROPERTY(QString beamReceivingChange           READ beamReceivingChange        NOTIFY beamReceivingChanged)
     Q_PROPERTY(QString beamReceivingIncoming         READ beamReceivingIncoming      NOTIFY beamReceivingChanged)
-    Q_PROPERTY(QString secondCurrency                     READ secondCurrency                    NOTIFY secondCurrencyChanged)
     Q_PROPERTY(QString beamAvailable2ndCurrency           READ beamAvailable2ndCurrency          NOTIFY beamAvailable2ndCurrencyChanged)
     Q_PROPERTY(QString beamReceiving2ndCurrency           READ beamReceiving2ndCurrency          NOTIFY beamReceiving2ndCurrencyChanged)
     Q_PROPERTY(QString beamSending2ndCurrency             READ beamSending2ndCurrency            NOTIFY beamSending2ndCurrencyChanged)
@@ -53,7 +52,6 @@ public:
     QString beamReceivingChange() const;
     QString beamReceivingIncoming() const;
 
-    QString secondCurrency() const;
     QString beamAvailable2ndCurrency() const;
     QString beamReceiving2ndCurrency() const;
     QString beamSending2ndCurrency() const;
@@ -76,7 +74,6 @@ public slots:
     void onTxHistoryExportedToCsv(const QString& data);
 
 private slots:
-    void onExchangeRateUnitChanged();
     void onActiveExchangeRateChanged();
 
 signals:
@@ -85,7 +82,6 @@ signals:
     void beamSendingChanged();
     void beamLockedChanged();
 
-    void secondCurrencyChanged();
     void beamAvailable2ndCurrencyChanged();
     void beamReceiving2ndCurrencyChanged();
     void beamSending2ndCurrencyChanged();
@@ -95,6 +91,8 @@ signals:
     void beamMWLinksAllowed();
 
 private:
+    QString calcAmountInSecondCurrency(const QString& amountInBeam) const;
+
     WalletModel& _model;
     WalletSettings& _settings;
     ExchangeRatesManager _exchangeRatesManager;
