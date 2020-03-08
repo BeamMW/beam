@@ -38,8 +38,8 @@ type genericR struct {
 	Error string  `json:"error,omitempty"`
 }
 
-func wrapHandler(handler func(r *http.Request)(interface{}, error))http.HandlerFunc{
-	var fname = runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
+func wrapHandler(handler func(r *http.Request)(interface{}, error)) http.HandlerFunc{
+	var handlerName = runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
 	return func (w http.ResponseWriter, r *http.Request) {
 		allowCORS(w, r)
 		setJsonHeaders(w, r)
@@ -56,7 +56,7 @@ func wrapHandler(handler func(r *http.Request)(interface{}, error))http.HandlerF
 				Error: err.Error(),
 			}
 			w.WriteHeader(http.StatusInternalServerError)
-			log.Printf("ERROR in handler %v: %v" , fname, err)
+			log.Printf("ERROR in handler %v: %v" , handlerName, err)
 		}
 
 		if res == nil {
@@ -66,40 +66,22 @@ func wrapHandler(handler func(r *http.Request)(interface{}, error))http.HandlerF
 
 		encoder := json.NewEncoder(w)
 		if jerr := encoder.Encode(res); jerr != nil {
-			log.Printf("ERROR in wrapper for %v handler, failed to encode result %v", fname, jerr)
+			log.Printf("ERROR in wrapper for %v handler, failed to encode result %v", handlerName, jerr)
 		}
 	}
 }
 
-// Can return empty WID
-func getWID(session *melody.Session) (string, error) {
-	if iwid, ok := session.Get(RpcKeyWID); ok && iwid != nil {
-		if wid, ok := iwid.(string); ok {
-			return wid, nil
-		} else {
-			return "", errors.New("invalid (non-string) wid stored on session")
-		}
-	}
-	return "", nil
-}
-
-// Returns error if WID is empty
 func getValidWID(session *melody.Session) (wid string, err error) {
-	iwid, ok := session.Get(RpcKeyWID)
+	stored, ok := session.Get(RpcKeyWID)
 
 	if !ok {
-		err = errors.New("no wallet id set in session")
+		err = errors.New("no wallet id set")
 		return
 	}
 
-	if iwid == nil {
-		err = errors.New("nil wallet id")
-		return
-	}
-
-	wid, ok = iwid.(string)
+	wid, ok = stored.(string)
 	if !ok {
-		err = errors.New("invalid (non-string) wid stored on session")
+		err = errors.New("non-string or nil wid")
 		return
 	}
 

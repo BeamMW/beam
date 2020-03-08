@@ -6,10 +6,16 @@ import (
 	"log"
 )
 
-var services *Services
+var walletServices *Services
+var sbbsServices *Services
 
 func monitorInitialize(m *melody.Melody) (err error) {
-	services, err = NewServices()
+	walletServices, err = NewWalletServices()
+	if err != nil {
+		return
+	}
+
+	sbbsServices, err = NewBbsServices()
 	if err != nil {
 		return
 	}
@@ -20,12 +26,31 @@ func monitorInitialize(m *melody.Melody) (err error) {
 	go func () {
 		for {
 			select {
-			case svcIdx := <- services.Dropped:
+			case svcIdx := <- walletServices.Dropped:
 				points, clients := epoints.DropServiceEndpoints(svcIdx)
-				log.Printf("service %v dropped, %v endpoint(s) with %v client(s)", svcIdx, points, clients)
+				log.Printf("service %v, dropped. %v endpoint(s) with %v client(s)", svcIdx, points, clients)
+			case svcIdx := <- walletServices.Restarted:
+				log.Printf("service %v, restarted", svcIdx)
 			}
 		}
 	} ()
+
+	//
+	// This is connection point between sbbs service and sbbs watchers
+	//
+	go func () {
+		for {
+			select {
+			case svcIdx := <- sbbsServices.Dropped:
+				log.Printf("bbs %v, dropped", svcIdx)
+			case svcIdx := <- sbbsServices.Restarted:
+				log.Printf("bbs %v, restarted", svcIdx)
+			}
+		}
+	} ()
+
+	// Start listening for SBBs messages
+	sbbsListen()
 
 	return
 }
@@ -43,7 +68,7 @@ func monitorGet(wid string) (string, error) {
 	// and returns existing endpoint is necessary. This situation should
 	// be very rare though possible
 	//
-	svcIdx, service, err := services.GetNext()
+	svcIdx, service, err := walletServices.GetNext()
 	if err != nil {
 		return "", fmt.Errorf("wallet %v, %v", wid, err)
 	}

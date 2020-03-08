@@ -66,15 +66,9 @@ func rpcLogoutRequest(session* melody.Session, params *json.RawMessage) (result 
 }
 
 func rpcDisconnect(session *melody.Session) error {
-	wid, err := getWID(session)
-	if err != nil {
-		return err
-	}
-
-	// Disconnect is always called
-	// Client might be already logged out
-	// in this case we just ignore and leave
-	if len(wid) != 0 {
+	// Client might be already logged out since disconnect is always called on connection release
+	// If there is no wallet id we just ignore and leave
+	if wid, err := getValidWID(session); err == nil {
 		log.Printf("wallet %v, rpc disconnect", wid)
 		session.Set(RpcKeyWID, nil)
 		return monitorLogout(wid)

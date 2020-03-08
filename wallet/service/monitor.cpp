@@ -21,6 +21,7 @@
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 #include "version.h"
+#include "pipe.h"
 
 #include <memory>
 #include <unordered_map>
@@ -383,13 +384,24 @@ namespace
     public:
         Server(Monitor& monitor, io::Reactor::Ptr reactor, uint16_t port)
             : WebSocketServer(reactor, port,
-                [&monitor](auto&& func)->IHandler::Ptr
-                { return std::make_unique<MonitorApiHandler>(monitor, std::move(func)); }
-            )
+            [&monitor](auto&& func)->IHandler::Ptr {
+                return std::make_unique<MonitorApiHandler>(monitor, std::move(func));
+            },
+            [] () {
+                Pipe syncPipe(Pipe::SyncFileDescriptor);
+                syncPipe.notify("LISTENING");
+            })
+            , _heartbeatPipe(Pipe::HeartbeatFileDescriptor)
         {
+            _heartbeatTimer = io::Timer::create(*reactor);
+            _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this] () {
+                _heartbeatPipe.notify("alive");
+            });
         }
+    private:
+        io::Timer::Ptr _heartbeatTimer;
+        Pipe _heartbeatPipe;
     };
-
 }
 
 int main(int argc, char* argv[])
@@ -411,7 +423,6 @@ int main(int argc, char* argv[])
             std::string nodeURI;
             Nonnegative<uint32_t> pollPeriod_ms;
             uint32_t logCleanupPeriod;
-
         } options;
 
         io::Address nodeAddress;

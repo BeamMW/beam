@@ -1,12 +1,33 @@
 package main
 
 import (
+	"flag"
 	"github.com/olahol/melody"
 	"log"
 	"net/http"
 )
 
 func main () {
+	flag.Parse()
+	args := flag.Args()
+
+	if len(args) > 1 {
+		log.Fatal("too many arguments")
+	}
+
+	if len(args) == 1 {
+		if args[0] == "vapid-keys" {
+			printNewVAPIDKeys()
+			return
+		} else {
+			log.Fatalf("unknown command: %v", args[0])
+		}
+	}
+
+
+	//
+	// Command line is OK
+	//
 	log.Println("starting wallet service balancer")
 	m := melody.New()
 

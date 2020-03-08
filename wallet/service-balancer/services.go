@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -49,17 +50,13 @@ func (svc* Service) Shutdown() {
 	svc.cancelCmd()
 }
 
-func NewService(index int, port int) (svc *Service, err error) {
+func NewService(servicePath string, index int, port int, logname string) (svc *Service, err error) {
 	svc = &Service{}
-
-	if port == 0 {
-		port = config.GenerateServicePort()
-	}
 
 	ctxWS, cancelWS := context.WithCancel(context.Background())
 	svc.cancelCmd    = cancelWS
 	svc.context      = ctxWS
-	svc.command      = exec.CommandContext(ctxWS, config.ServicePath, "-n", config.BeamNode, "-p", strconv.Itoa(port))
+	svc.command      = exec.CommandContext(ctxWS, servicePath, "-n", config.BeamNode, "-p", strconv.Itoa(port))
 	svc.Address      = config.SerivcePublicAddress + ":" + strconv.Itoa(port)
 	svc.ServiceExit  = make(chan struct{})
 	svc.ServiceAlive = make(chan bool)
@@ -106,11 +103,11 @@ func NewService(index int, port int) (svc *Service, err error) {
 	}
 
 	// Start wallet service
-	log.Printf("service %v, starting as [%v %v %v %v]", index, config.ServicePath, "-n " + config.BeamNode, "-p", port)
+	log.Printf("%v %v, starting as [%v %v %v %v]", logname, index, servicePath, "-n " + config.BeamNode, "-p", port)
 	if err = svc.command.Start(); err != nil {
 		return
 	}
-	log.Printf("service %v, pid is %v", index, svc.command.Process.Pid)
+	log.Printf("%v %v, pid is %v", logname, index, svc.command.Process.Pid)
 
 	//
 	// Wait for the service spin-up & listening
@@ -118,13 +115,13 @@ func NewService(index int, port int) (svc *Service, err error) {
 	presp, err := readPipe(startPipeR, config.ServiceLaunchTimeout)
 	if err != nil {
 		cancelWS()
-		err = fmt.Errorf("service %v, failed to read from sync pipe, %v", index, err)
+		err = fmt.Errorf("%v %v, failed to read from sync pipe, %v", logname, index, err)
 		return
 	}
 
 	if "LISTENING" != presp {
 		cancelWS()
-		err = fmt.Errorf("service %v, failed to start. Wrong pipe response %v", index, presp)
+		err = fmt.Errorf("%v %v, failed to start. Wrong pipe response %v", logname, index, presp)
 		return
 	}
 
@@ -141,7 +138,7 @@ func NewService(index int, port int) (svc *Service, err error) {
 			_, err := readPipe(alivePipeR, config.ServiceHeartbeatTimeout)
 			if err != nil {
 				if config.Debug {
-					log.Printf("service %v, aborting hearbeat pipe %v", index, err)
+					log.Printf("%v %v, aborting hearbeat pipe %v", logname, index, err)
 				}
 				return
 			}
@@ -149,7 +146,7 @@ func NewService(index int, port int) (svc *Service, err error) {
 		}
 	} ()
 
-	log.Printf("service %v, successfully started, sync pipe response %v", index, presp)
+	log.Printf("%v %v, successfully started, sync pipe response %v", logname, index, presp)
 	return
 }
 
@@ -157,15 +154,19 @@ func NewService(index int, port int) (svc *Service, err error) {
 // Services collection
 //
 const (
-	MaxServices = 2
+	// TODO: remove min services and resolve dep in GetNext() code
 	MinServices = 2
 )
 
 type Services struct  {
-	mutex     sync.Mutex
-	all       []*Service
-	Dropped   chan int
-	next      int
+	Dropped     chan int
+	Restarted   chan int
+	mutex       sync.Mutex
+	all         []*Service
+	logname     string
+	servicePath string
+	nextIdx     int
+	nextPort    int32
 }
 
 func (svcs* Services) GetActiveCnt() (cnt int) {
@@ -196,24 +197,36 @@ func (svcs* Services) GetStats() (stats []*ServiceStats) {
 	return
 }
 
+func (svcs* Services) GetAt(index int) (*Service, error) {
+	svcs.mutex.Lock()
+	defer svcs.mutex.Unlock()
+
+	if index < 0 || index >= len(svcs.all) {
+		return nil, fmt.Errorf("bad index %v (services cnt is %v)", index, len(svcs.all))
+	}
+
+	return svcs.all[index], nil
+}
+
 func (svcs* Services) GetNext() (int, *Service, error) {
 	svcs.mutex.Lock()
 	defer svcs.mutex.Unlock()
 
-	var initialIdx = svcs.next
-	var svcIdx     = svcs.next
+	var initialIdx = svcs.nextIdx
+	var svcIdx     = svcs.nextIdx
+	var maxSvcs    = len(svcs.all)
 
 	for  {
-		svcIdx = svcs.next
-		svcs.next++
+		svcIdx = svcs.nextIdx
+		svcs.nextIdx++
 
-		if svcs.next == MaxServices {
-			svcs.next = 0
+		if svcs.nextIdx == maxSvcs {
+			svcs.nextIdx = 0
 		}
 
 		var service = svcs.all[svcIdx]
 		if service == nil {
-			if svcs.next == initialIdx {
+			if svcs.nextIdx == initialIdx {
 				// This is really bad and MUST never happen in normal flow
 				return 0, nil, errors.New("no active services found")
 			}
@@ -236,6 +249,11 @@ func (svcs *Services) ShutdownAll () {
 	}
 }
 
+func (svcs *Services) getNextPort() (port int) {
+	port = int(atomic.AddInt32(&svcs.nextPort, 1)) - 1
+	return
+}
+
 func (svcs *Services) DropAndRelaunch (svcIdx int) (service *Service, err error) {
 	svcs.mutex.Lock()
 	defer svcs.mutex.Unlock()
@@ -243,12 +261,13 @@ func (svcs *Services) DropAndRelaunch (svcIdx int) (service *Service, err error)
 	svcs.all[svcIdx] = nil
 	svcs.Dropped <- svcIdx
 
-	service, err = NewService(svcIdx, 0)
+	service, err = NewService(svcs.servicePath, svcIdx, svcs.getNextPort(), svcs.logname)
 	if err != nil {
 		return
 	}
 
 	svcs.all[svcIdx] = service
+	svcs.Restarted <- svcIdx
 	return
 }
 
@@ -259,7 +278,7 @@ func (svcs* Services) Get (svcIdx int) *Service {
 	return svcs.all[svcIdx]
 }
 
-func NewServices() (result *Services, err error) {
+func NewServices(svcsCnt int, port int, servicePath string, logname string) (result *Services, err error) {
 	defer func () {
 		if err != nil {
 			if result != nil {
@@ -268,34 +287,18 @@ func NewServices() (result *Services, err error) {
 		}
 	}()
 
-	if MinServices < 2 {
-		return nil, fmt.Errorf("MinServices %v is less than 2. Code assumes having at least 2 wallet services", MinServices)
-	}
-
-	var cpus = runtime.NumCPU()
-	var svcsCnt = MinServices
-
-	if !config.Debug {
-		svcsCnt = MaxServices
-
-		if svcsCnt > cpus {
-			svcsCnt = cpus
-		}
-
-		if svcsCnt < MinServices {
-			svcsCnt = MinServices
-		}
-	}
-
-	log.Printf("initializing wallet services, CPU count %v, service count %v", cpus, svcsCnt)
 	result = &Services{
-		mutex:     sync.Mutex{},
-		all:       make([]*Service, svcsCnt),
-		Dropped:   make(chan int),
+		Dropped:     make(chan int),
+		Restarted:   make(chan int),
+		mutex:       sync.Mutex{},
+		all:         make([]*Service, svcsCnt),
+		servicePath: servicePath,
+		nextPort:    int32(port),
+		logname:     logname,
 	}
 
 	for i := 0; i < svcsCnt; i++ {
-		service, launchErr := NewService(i, 0)
+		service, launchErr := NewService(result.servicePath, i, result.getNextPort(), logname)
 		if launchErr != nil {
 			err = launchErr
 			return
@@ -312,24 +315,24 @@ func NewServices() (result *Services, err error) {
 				case <- aliveTimeout.C:
 					// No alive signals from service for some time. Usually this means
 					// that connection to the service has been lost and we need to restart it
-					log.Printf("service %v, alive timeout", svcIdx)
+					log.Printf("%v %v, alive timeout", logname, svcIdx)
 					service.Shutdown()
 
 				case <- service.ServiceAlive:
 					// This means that alive ping has been received. Timeout timer should be restarted
 					if config.NoisyLogs {
-						log.Printf("service %v, service is alive, restarting alive timeout", svcIdx)
+						log.Printf("%v %v, service is alive, restarting alive timeout", logname, svcIdx)
 					}
 					aliveTimeout = time.NewTimer(config.ServiceAliveTimeout)
 
 				case <- service.ServiceExit:
-					log.Printf("service %v, unexpected shutdown [%v]", svcIdx, service.command.ProcessState)
+					log.Printf("%v %v, unexpected shutdown [%v]", logname, svcIdx, service.command.ProcessState)
 					// TODO: consider restart on the same port, Do not drop endpoints then, bad clients might try to reconnect.
 					//       this might fail with busy ports and cause other issues. While this service is not public
 					//       it seems to be better to continue using new ports
 					if service, err = result.DropAndRelaunch(svcIdx); err != nil {
-						log.Printf("service %v, failed to relaunch", err)
-						if services.GetActiveCnt() == 0 {
+						log.Printf("%v %v, failed to relaunch", logname, err)
+						if result.GetActiveCnt() == 0 {
 							log.Fatalf("no active services left, halting")
 						}
 					}
@@ -339,4 +342,20 @@ func NewServices() (result *Services, err error) {
 	}
 
 	return
+}
+
+func NewWalletServices () (*Services, error)  {
+	var svcsCnt = runtime.NumCPU() - 2
+	if config.Debug {
+		svcsCnt = 2
+	}
+
+	log.Printf("initializing wallet services, CPU count %v, service count %v", runtime.NumCPU(), svcsCnt)
+	return NewServices(svcsCnt, config.ServiceFirstPort, config.ServicePath, "service")
+}
+
+func NewBbsServices () (*Services, error) {
+	var svcsCnt = 1
+	log.Printf("initializing wallet services, CPU count %v, service count %v", runtime.NumCPU(), svcsCnt)
+	return NewServices(svcsCnt, config.BbsServiceFirstPort, config.BbsServicePath, "bbs")
 }

@@ -45,7 +45,9 @@ func jsonRpcProcess(session *melody.Session, msg []byte) (response []byte) {
 			}
 		}
 		if err != nil {
-			var rpcError = `{"jsonrpc":"2.0", id:nil, error: {code: %v, message: "%v"}`
+			// TODO: better to return real id if present, but current code never fails.
+			//       Let's think about this later
+			var rpcError = `{"jsonrpc":"2.0", "id": null, "error": {"code": %v, "message": "%v"}}`
 			response = []byte(fmt.Sprintf(rpcError, errCode, err.Error()))
 		}
 	} ()
@@ -79,9 +81,11 @@ func jsonRpcProcess(session *melody.Session, msg []byte) (response []byte) {
 		return
 	}
 
-	err = fmt.Errorf("method not found")
+	if header.Method == "subscribe" {
+		requestResult, err = rpcSubscribeRequest(session, header.Params)
+	}
+
+	err = fmt.Errorf("method '%v' not found", header.Method)
 	errCode = -32601
 	return
 }
-
-

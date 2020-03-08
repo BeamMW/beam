@@ -7,16 +7,19 @@ import (
 )
 
 type statusRes struct {
-	Memory      runtime.MemStats
-	GC          debug.GCStats
-	NumCPU      int
-	NumGos      int
-	MaxServices int
-	Services    []*ServiceStats
+	Memory            runtime.MemStats
+	GC                debug.GCStats
+	NumCPU            int
+	NumGos            int
+	MaxWalletServices int
+	MaxBbsServices    int
+	WalletServices    []*ServiceStats
+	BbsServices       []*ServiceStats
 }
 
 func statusRequest (r *http.Request)(interface{}, error) {
 	if !config.Debug {
+		// TODO: add secret-based access
 		return nil, nil
 	}
 
@@ -27,8 +30,10 @@ func statusRequest (r *http.Request)(interface{}, error) {
 
 	runtime.ReadMemStats(&res.Memory)
 	debug.ReadGCStats(&res.GC)
-	res.Services = services.GetStats()
-	res.MaxServices = len(res.Services)
+	res.WalletServices    = walletServices.GetStats()
+	res.BbsServices       = sbbsServices.GetStats()
+	res.MaxWalletServices = len(res.WalletServices)
+	res.MaxBbsServices    = len(res.BbsServices)
 
 	return res, nil
 }
