@@ -78,27 +78,12 @@ beam::wallet::ExchangeRate::Currency ExchangeRatesManager::getRateUnitRaw() cons
     return m_rateUnit;
 }
 
-beam::Amount ExchangeRatesManager::getBeamRate() const
+/**
+ *  Get an exchange rate for specific @currency.
+ */
+beam::Amount ExchangeRatesManager::getRate(ExchangeRate::Currency currency) const
 {
-    const auto it = m_rates.find(ExchangeRate::Currency::Beam);
-    return (it == std::cend(m_rates)) ? 0 : it->second;
-}
-
-beam::Amount ExchangeRatesManager::getBtcRate() const
-{
-    const auto it = m_rates.find(ExchangeRate::Currency::Bitcoin);
-    return (it == std::cend(m_rates)) ? 0 : it->second;
-}
-
-beam::Amount ExchangeRatesManager::getLtcRate() const
-{
-    const auto it = m_rates.find(ExchangeRate::Currency::Litecoin);
-    return (it == std::cend(m_rates)) ? 0 : it->second;
-}
-
-beam::Amount ExchangeRatesManager::getQtumRate() const
-{
-    const auto it = m_rates.find(ExchangeRate::Currency::Qtum);
+    const auto it = m_rates.find(currency);
     return (it == std::cend(m_rates)) ? 0 : it->second;
 }
 
@@ -110,26 +95,8 @@ beam::Amount ExchangeRatesManager::getQtumRate() const
  */
 QString ExchangeRatesManager::calcAmountIn2ndCurrency(const QString& amount, ExchangeRate::Currency currency) const
 {
-    beam::Amount rate;
-    // TODO: return "-" if no info about exchange rate
+    beam::Amount rate = getRate(currency);
     // TODO: return with currency suffix
-    switch (currency)
-    {
-        case ExchangeRate::Currency::Beam:
-            rate = getBeamRate();
-            break;
-        case ExchangeRate::Currency::Bitcoin:
-            rate = getBtcRate();
-            break;
-        case ExchangeRate::Currency::Litecoin:
-            rate = getLtcRate();
-            break;
-        case ExchangeRate::Currency::Qtum:
-            rate = getQtumRate();
-            break;
-        default:
-            rate = 0;
-    }
 
     if (rate == 0)
     {

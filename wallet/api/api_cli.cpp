@@ -72,6 +72,8 @@ struct TlsOptions
     bool use;
     std::string certPath;
     std::string keyPath;
+    bool requestCertificate;
+    bool rejectUnauthorized;
 };
 
 WalletApi::ACL loadACL(const std::string& path)
@@ -314,7 +316,8 @@ protected:
         try
         {
             _server = _tlsOptions.use
-                ? io::SslServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted), _tlsOptions.certPath.c_str(), _tlsOptions.keyPath.c_str())
+                ? io::SslServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted)
+                    , _tlsOptions.certPath.c_str(), _tlsOptions.keyPath.c_str(), _tlsOptions.requestCertificate, _tlsOptions.rejectUnauthorized)
                 : io::TcpServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted));
 
         }
@@ -683,6 +686,8 @@ int main(int argc, char* argv[])
                 (cli::API_USE_TLS, po::value<bool>(&tlsOptions.use)->default_value(false), "use TLS protocol")
                 (cli::API_TLS_CERT, po::value<std::string>(&tlsOptions.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
                 (cli::API_TLS_KEY, po::value<std::string>(&tlsOptions.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
+                (cli::API_TLS_REQUEST_CERTIFICATE, po::value<bool>(&tlsOptions.requestCertificate)->default_value("false"), "request client's certificate for verification")
+                (cli::API_TLS_REJECT_UNAUTHORIZED, po::value<bool>(&tlsOptions.rejectUnauthorized)->default_value("true"), "server will reject any connection which is not authorized with the list of supplied CAs.")
             ;
 
             desc.add(authDesc);
@@ -801,8 +806,6 @@ int main(int argc, char* argv[])
 
         Wallet wallet{ walletDB };
 
-        wallet.ResumeAllTransactions();
-
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         
@@ -834,6 +837,9 @@ int main(int argc, char* argv[])
         RegisterSwapTxCreators(wallet, walletDB);
         server.initSwapFeature(*nnet, *wnet);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+        // All TxCreators must be registered by this point
+        wallet.ResumeAllTransactions();
 
         io::Reactor::get_Current().run();
 
