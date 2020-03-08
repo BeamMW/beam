@@ -136,6 +136,7 @@ please review your settings and try again"
                         currFeeTitle:     true
                         amountIn:         viewModel.sendAmount
                         currency:         viewModel.sendCurrency
+                        amountSecondCurrency: viewModel.sendAmount2ndCurrency
                         readOnlyA:        true
                         multi:            false
                         color:            Style.accent_outgoing
@@ -217,6 +218,7 @@ please review your settings and try again"
                         currFeeTitle:     true
                         amountIn:         viewModel.receiveAmount
                         currency:         viewModel.receiveCurrency
+                        amountSecondCurrency: viewModel.receiveAmount2ndCurrency
                         readOnlyA:        true
                         multi:            false
                         color:            Style.accent_incoming

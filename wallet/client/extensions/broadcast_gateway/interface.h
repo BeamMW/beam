@@ -30,7 +30,7 @@ namespace beam
     };
 
     /**
-     *  Inteface for different content providers
+     *  Interface for different content providers to get information from the broadcast
      */
     struct IBroadcastListener
     {

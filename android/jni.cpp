@@ -112,8 +112,6 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
     {
         LOG_DEBUG() << "wallet successfully created.";
 
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-
         passwordHash.V = SecString(pass).hash().V;
         // generate default address
         
@@ -133,11 +131,11 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         
         if (restore)
         {
-            walletModel = make_unique<WalletModel>(walletDB, keyKeeper, "127.0.0.1:10005", reactor);
+            walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
         }
         else
         {
-            walletModel = make_unique<WalletModel>(walletDB, keyKeeper, JString(env, nodeAddrStr).value(), reactor);
+            walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
         }
 
         jobject walletObj = env->AllocObject(WalletClass);
@@ -199,7 +197,6 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
     auto reactor = io::Reactor::create();
     io::Reactor::Scope scope(*reactor);
     auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass);
-    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
     if(walletDB)
     {
@@ -207,7 +204,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
         passwordHash.V = SecString(pass).hash().V;
         
-        walletModel = make_unique<WalletModel>(walletDB, keyKeeper, JString(env, nodeAddrStr).value(), reactor);
+        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
                 
         jobject walletObj = env->AllocObject(WalletClass);
 
@@ -626,6 +623,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteNotification)(JNIEnv *en
     walletModel->getAsync()->deleteNotification(id);
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getExchangeRates)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->getExchangeRates();
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;
@@ -680,6 +682,24 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/PaymentInfoDTO");
         PaymentInfoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/ExchangeRateDTO");
+        ExchangeRateClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/NotificationDTO");
+        NotificationClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO");
+        VersionInfoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
         env->DeleteLocalRef(cls);
     }
 

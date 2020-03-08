@@ -26,4 +26,12 @@ public class NotificationDTO
         Read,
         Deleted
     }
+
+    public enum Type    // used to point Notification::Type in Wallet::switchOnOffNotifications()
+    {
+        SoftwareUpdateAvailable, // 0
+        AddressStatusChanged,
+        TransactionStatusChanged,
+        BeamNews
+    }
 }

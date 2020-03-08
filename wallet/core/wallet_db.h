@@ -424,7 +424,7 @@ namespace beam::wallet
 
         // Exchange rates management
         virtual std::vector<ExchangeRate> getExchangeRates() const = 0;
-        virtual void saveExchangeRates(const std::vector<ExchangeRate>&) = 0;
+        virtual void saveExchangeRate(const ExchangeRate&) = 0;
 
        private:
            bool get_CommitmentSafe(ECC::Point& comm, const CoinID&, IPrivateKeyKeeper2*);
@@ -541,7 +541,7 @@ namespace beam::wallet
         void saveNotification(const Notification&) override;
         
         std::vector<ExchangeRate> getExchangeRates() const override;
-        void saveExchangeRates(const std::vector<ExchangeRate>&) override;
+        void saveExchangeRate(const ExchangeRate&) override;
 
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);

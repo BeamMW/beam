@@ -121,8 +121,8 @@ namespace
     }
 }
 
-WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const std::string& nodeAddr, Reactor::Ptr reactor)
-    : WalletClient(walletDB, nodeAddr, reactor, keyKeeper)
+WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, Reactor::Ptr reactor)
+    : WalletClient(walletDB, nodeAddr, reactor)
 {    
 }
 

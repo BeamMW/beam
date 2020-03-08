@@ -155,6 +155,7 @@ void SendViewModel::onChangeCalculated(beam::Amount change)
     _changeGrothes = change;
     emit availableChanged();
     emit canSendChanged();
+    emit isEnoughChanged();
 }
 
 QString SendViewModel::getChange() const

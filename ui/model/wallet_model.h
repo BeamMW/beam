@@ -28,7 +28,7 @@ public:
 
     using Ptr = std::shared_ptr<WalletModel>;
 
-    WalletModel(beam::wallet::IWalletDB::Ptr walletDB, beam::wallet::IPrivateKeyKeeper::Ptr keyKeeper, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
+    WalletModel(beam::wallet::IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
     ~WalletModel() override;
 
     QString GetErrorString(beam::wallet::ErrorType type);
@@ -81,7 +81,6 @@ signals:
     
     void exchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>&);
     void notificationsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Notification>&);
-    void newSoftwareUpdateAvailable(const beam::wallet::VersionInfo&, const ECC::uintBig&);
 
 private:
     void onStatus(const beam::wallet::WalletStatus& status) override;

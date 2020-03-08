@@ -66,6 +66,7 @@ namespace beam
     const char kErrorSeedPhraseNotProvided[] = "Seed phrase has not been provided.";
     const char kErrorTxIdParamReqired[] = "Failed, --tx_id param required";
     const char kErrorTxWithIdNotFound[] = "Failed, transaction with id: %1% does not exist.";
+    const char kErrorTxIdParamInvalid[] = "Failed, invalid tx_id provided: %1%";
     const char kErrorPpExportFailed[] = "Failed to export payment proof, transaction does not exist.";
     const char kErrorPpCannotExportForReceiver[] = "Cannot export payment proof for receiver or self transaction.";
     const char kErrorPpExportFailedTxNotCompleted[] = "Failed to export payment proof. Transaction is not completed.";

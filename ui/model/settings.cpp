@@ -26,6 +26,7 @@
 #include "wallet/core/default_peers.h"
 
 #include "version.h"
+#include "wallet/client/extensions/news_channels/interface.h"
 
 #include "quazip/quazip.h"
 #include "quazip/quazipfile.h"
@@ -40,12 +41,14 @@ namespace
     const char* kRequirePasswordToSpendMoney = "require_password_to_spend_money";
     const char* kIsAlowedBeamMWLink = "beam_mw_links_allowed";
     const char* kshowSwapBetaWarning = "show_swap_beta_warning";
+    const char* kRateUnit = "rateUnit";
 
     const char* kLocalNodeRun = "localnode/run";
     const char* kLocalNodePort = "localnode/port";
     const char* kLocalNodePeers = "localnode/peers";
 
     const char* kDefaultLocale = "en_US";
+    const char* kDefaultAmountUnit = beam::wallet::usdCurrencyStr.data();
 
     const char* kExcRatesActive = "notifications/exchange_rates";
     const char* kNewVersionActive = "notifications/software_release";
@@ -71,6 +74,11 @@ namespace
         { "tr_TR", "Türkçe"},
         { "vi_VI", "Tiếng việt"},
         { "ko_KR", "한국어"}
+    };
+
+    const std::vector<QString> kSupportedAmountUnits {
+        beam::wallet::usdCurrencyStr.data(),
+        // beam::wallet::btcCurrencyStr.data()
     };
 
     const vector<string> kOutDatedPeers = beam::getOutdatedDefaultPeers();
@@ -348,28 +356,63 @@ void WalletSettings::setLocaleByLanguageName(const QString& language)
     emit localeChanged();
 }
 
+QString WalletSettings::getRateUnit() const
+{
+    Lock lock(m_mutex);
+    QString savedAmountUnit = m_data.value(kRateUnit, kDefaultAmountUnit).toString();
+
+    const auto it = find(std::begin(kSupportedAmountUnits),
+                         std::cend(kSupportedAmountUnits),
+                         savedAmountUnit);
+    if (it == std::cend(kSupportedAmountUnits))
+    {
+        return kDefaultAmountUnit;
+    }
+    else
+    {
+        return savedAmountUnit;
+    }
+}
+
+void WalletSettings::setRateUnit(const QString& name)
+{
+    const auto& it = std::find(
+            kSupportedAmountUnits.begin(),
+            kSupportedAmountUnits.end(),
+            name);
+    auto unitName = 
+            it != kSupportedAmountUnits.end()
+                ? name
+                : QString::fromUtf8(kDefaultAmountUnit);
+    {
+        Lock lock(m_mutex);
+        m_data.setValue(kRateUnit, unitName);
+        emit rateUnitChanged();
+    }
+}
+
 bool WalletSettings::isNewVersionActive() const
 {
     Lock lock(m_mutex);
-    return m_data.value(kNewVersionActive, false).toBool();
+    return m_data.value(kNewVersionActive, true).toBool();
 }
 
 bool WalletSettings::isExcRatesActive() const
 {
     Lock lock(m_mutex);
-    return m_data.value(kExcRatesActive, false).toBool();
+    return m_data.value(kExcRatesActive, true).toBool();
 }
 
 bool WalletSettings::isBeamNewsActive() const
 {
     Lock lock(m_mutex);
-    return m_data.value(kBeamNewsActive, false).toBool();
+    return m_data.value(kBeamNewsActive, true).toBool();
 }
 
 bool WalletSettings::isTxStatusActive() const
 {
     Lock lock(m_mutex);
-    return m_data.value(kTxStatusActive, false).toBool();
+    return m_data.value(kTxStatusActive, true).toBool();
 }
 
 void WalletSettings::setNewVersionActive(bool isActive)
@@ -428,6 +471,12 @@ void WalletSettings::setTxStatusActive(bool isActive)
             walletModel->getAsync()->switchOnOffNotifications(
                 beam::wallet::Notification::Type::TransactionStatusChanged,
                 isActive);
+            walletModel->getAsync()->switchOnOffNotifications(
+                beam::wallet::Notification::Type::TransactionCompleted,
+                isActive);
+            walletModel->getAsync()->switchOnOffNotifications(
+                beam::wallet::Notification::Type::TransactionFailed,
+                isActive);
         }
         Lock lock(m_mutex);
         m_data.setValue(kTxStatusActive, isActive);
@@ -445,6 +494,18 @@ QStringList WalletSettings::getSupportedLanguages()
                        return lang.second;
                    });
     return languagesNames;
+}
+
+// static
+QStringList WalletSettings::getSupportedRateUnits()
+{
+    QStringList unitNames;
+
+    for (const auto& n : kSupportedAmountUnits)
+    {
+        unitNames.append(n);
+    }
+    return unitNames;
 }
 
 // static

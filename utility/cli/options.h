@@ -161,6 +161,8 @@ namespace beam
         extern const char* API_USE_TLS;
         extern const char* API_TLS_CERT;
         extern const char* API_TLS_KEY;
+        extern const char* API_TLS_REQUEST_CERTIFICATE;
+        extern const char* API_TLS_REJECT_UNAUTHORIZED;
         extern const char* API_USE_ACL;
         extern const char* API_ACL_PATH;
 

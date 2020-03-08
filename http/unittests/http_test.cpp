@@ -39,7 +39,7 @@ public:
                 _reactor,
                 io::Address::localhost().port(PORT),
                 BIND_THIS_MEMFN(on_stream_accepted),
-                PROJECT_SOURCE_DIR "/utility/unittest/test.crt", PROJECT_SOURCE_DIR "/utility/unittest/test.key"
+                PROJECT_SOURCE_DIR "/utility/unittest/test.crt", PROJECT_SOURCE_DIR "/utility/unittest/test.key", false
             );
         } else {
             _server = io::TcpServer::create(

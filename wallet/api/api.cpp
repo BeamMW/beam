@@ -114,6 +114,29 @@ boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const json& params)
     return txId;
 }
 
+Amount readBeamFeeParameter(const JsonRpcId& id, const json& params,
+    const std::string& paramName = "fee",
+    Amount minimumFee = std::max(wallet::GetMinimumFee(2), kMinFeeInGroth)) // receivers's output + change
+{
+    if (!params[paramName].is_number_unsigned() || params[paramName] == 0)
+    {
+        std::stringstream ss;
+        ss << "\"" << paramName << "\" " << "must be non zero 64bit unsigned integer.";
+        throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, ss.str(), id };
+    }
+
+    Amount fee = params[paramName];
+
+    if (fee < minimumFee)
+    {
+        std::stringstream ss;
+        ss << "Failed to initiate the operation. The minimum fee is " << minimumFee << " GROTH.";
+        throw WalletApi::jsonrpc_exception{ ApiError::InternalErrorJsonRpc, ss.str(), id };
+    }
+
+    return fee;
+}
+
 static void FillAddressData(const JsonRpcId& id, const json& params, AddressData& data)
 {
     if (WalletApi::existsJsonParam(params, "comment"))
@@ -151,7 +174,7 @@ std::string swapOfferStatusToString(const SwapOfferStatus& status)
 {
     switch(status)
     {
-    case SwapOfferStatus::Canceled : return "canceled";
+    case SwapOfferStatus::Canceled : return "cancelled";
     case SwapOfferStatus::Completed : return "completed";
     case SwapOfferStatus::Expired : return "expired";
     case SwapOfferStatus::Failed : return "failed";
@@ -218,7 +241,7 @@ json OfferToJson(const SwapOffer& offer,
     json result {
         {"status", offer.m_status},
         {"status_string", swapOfferStatusToString(offer.m_status)},
-        {"tx_id", TxIDToString(offer.m_txId)},
+        {"txId", TxIDToString(offer.m_txId)},
         {"send_amount", send},
         {"send_currency", sendCurrency},
         {"receive_amount", receive},
@@ -335,17 +358,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     if (WalletApi::existsJsonParam(params, "beam_fee"))
     {
-        if (!params["beam_fee"].is_number_unsigned() ||
-            params["beam_fee"] == 0)
-        {
-            throw WalletApi::jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "\'beam_fee\' must be non zero 64bit unsigned integer.",
-                id
-            };
-        }
-        data.beamFee = params["beam_fee"];
+        data.beamFee = readBeamFeeParameter(id, params, "beam_fee");
+
         if (data.isBeamSide &&
             data.beamAmount < data.beamFee)
         {
@@ -559,6 +573,12 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         WALLET_API_METHODS(REG_FUNC)
 
 #undef REG_FUNC
+#define REG_ALIASES_FUNC(aliasName, api, name, writeAccess) \
+        _methods[aliasName] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
+
+         WALLET_API_METHODS_ALIASES(REG_ALIASES_FUNC)
+#undef REG_ALIASES_FUNC
+            //WALLET_API_METHODS_ALIASES
     };
 
     IWalletApiHandler& WalletApi::getHandler() const
@@ -678,10 +698,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         if (existsJsonParam(params, "fee"))
         {
-            if(!params["fee"].is_number_unsigned() || params["fee"] == 0)
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid fee.", id };
-
-            send.fee = params["fee"];
+            send.fee = readBeamFeeParameter(id, params);
         }
 
         if (existsJsonParam(params, "comment"))
@@ -726,16 +743,14 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             split.coins.push_back(amount);
         }
 
+        auto minimumFee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), kMinFeeInGroth); // +1 extra output for change
         if (existsJsonParam(params, "fee"))
         {
-            if (!params["fee"].is_number_unsigned() || params["fee"] == 0)
-                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Invalid fee.", id };
-
-            split.fee = params["fee"];
+            split.fee = readBeamFeeParameter(id, params, "fee", minimumFee);
         }
         else
         {
-            split.fee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), DefaultFee); // +1 extra output for change
+            split.fee = minimumFee;
         }
 
         split.txId = readTxIdParameter(id, params);
@@ -800,10 +815,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         if (existsJsonParam(params, "fee"))
         {
-            if(!params["fee"].is_number_unsigned() || params["fee"] == 0)
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Fee must be non zero 64bit unsigned integer.", id };
-
-            issue.fee = params["fee"];
+            issue.fee = readBeamFeeParameter(id, params);
         }
 
         issue.txId = readTxIdParameter(id, params);
@@ -1002,6 +1014,19 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 id
             };
         }
+        // handled: InvalidOfferException, ForeignOfferException, 
+        //        OfferAlreadyPublishedException, ExpiredOfferException
+        catch (const std::runtime_error& e)
+        {
+            std::stringstream ss;
+            ss << "Failed to publish offer:" << e.what();
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                ss.str(),
+                id
+            };
+        }
     }
 
     void WalletApi::onAcceptOfferMessage(const JsonRpcId& id, const json& params)
@@ -1056,53 +1081,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {
                 ApiError::InvalidJsonRpc,
                 e.what(),
-                id
-            };
-        }
-    }
-
-    void WalletApi::onCancelOfferMessage(const JsonRpcId& id, const json& params)
-    {
-        checkJsonParam(params, "token", id);
-        const auto& token = params["token"];
-
-        if (!SwapOfferToken::isValid(token))
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Parameter 'token' is not valid swap token.",
-                id
-            };
-
-        CancelOffer data{token};
-        try
-        {
-            getHandler().onMessage(id, data);
-        }
-        catch(const FailToParseToken&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Parse Parameters from 'token' failed.",
-                id
-            };
-        }
-        catch(const TxNotFound&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Tranzaction not found.",
-                id
-            };
-        }
-        catch(const FailToCancelTx& e)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Can't cancel transaction with status: " + swapOfferStatusToString(e._status),
                 id
             };
         }
@@ -1285,7 +1263,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"id", id},
             {"result",
                 {
-                    {"txId", to_hex(res.txId.data(), res.txId.size())}
+                    {"txId", TxIDToString(res.txId)}
                 }
             }
         };
@@ -1409,7 +1387,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"id", id},
             {"result", 
             {
-                {"token", res.token}
+                {"txId", TxIDToString(res.txId)},
+                {"token", res.token},
             }}
         };
     }
@@ -1425,16 +1404,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const AcceptOffer::Response& res, json& msg)
-    {
-        msg = 
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", OfferToJson(res.offer, res.addrList, res.systemHeight)}
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const CancelOffer::Response& res, json& msg)
     {
         msg = 
         {

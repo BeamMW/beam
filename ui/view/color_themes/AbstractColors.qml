@@ -11,6 +11,7 @@ QtObject {
     property color content_opposite;
     property color validator_warning;
     property color validator_error;
+    property color section;
 
     property color navigation_background;
     property color background_main;

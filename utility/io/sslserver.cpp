@@ -20,14 +20,15 @@ namespace beam { namespace io {
 
 TcpServer::Ptr SslServer::create(
     Reactor& reactor, Address bindAddress, Callback&& callback,
-    const char* certFileName, const char* privKeyFileName
+    const char* certFileName, const char* privKeyFileName,
+    bool requestCertificate, bool rejectUnauthorized
 ) {
     assert(callback && certFileName && privKeyFileName);
 
     if (!callback || !certFileName || !privKeyFileName)
         IO_EXCEPTION(EC_EINVAL);
 
-    SSLContext::Ptr ctx = SSLContext::create_server_ctx(certFileName, privKeyFileName);
+    SSLContext::Ptr ctx = SSLContext::create_server_ctx(certFileName, privKeyFileName, requestCertificate, rejectUnauthorized);
 
     return Ptr(new SslServer(std::move(callback), reactor, bindAddress, std::move(ctx)));
 }

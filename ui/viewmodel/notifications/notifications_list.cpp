@@ -47,7 +47,7 @@ QVariant NotificationsList::data(const QModelIndex &index, int role) const
         case Roles::TimeCreated:
             return value->timeCreated().toString(Qt::SystemLocaleShortDate);
         case Roles::TimeCreatedSort:
-            return value->timeCreated();
+            return value->state() + value->timeCreated().toString(Qt::TextDate);
 
         case Roles::Title:
             return value->title();

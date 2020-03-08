@@ -221,8 +221,6 @@ namespace beam::wallet
             std::mutex m_queueMutex;
             std::queue<std::string> m_dataQueue;
             std::queue<std::string> m_writeQueue;
-
-            //std::queue<KeyKeeperFunc> m_keeperCallbacks;
         };
 
         // Accepts incoming connections and launches the sessions

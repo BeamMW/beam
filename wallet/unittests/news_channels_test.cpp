@@ -14,31 +14,25 @@
 
 #include <boost/filesystem.hpp>
 
+// test helpers and mocks
 #include "test_helpers.h"
-#include "wallet/core/common.h"
-#include "wallet/core/simple_transaction.h"
-#include "wallet/core/wallet_network.h"
-#include "keykeeper/local_private_key_keeper.h"
-// for wallet_test_environment.cpp
-#include "core/unittest/mini_blockchain.h"
-#include "core/radixtree.h"
-#include "utility/test_helpers.h"
-#include "node/node.h"
-
 WALLET_TEST_INIT
-#include "wallet_test_environment.cpp"
 #include "mock_bbs_network.cpp"
 
+// tested module
+#include "wallet/client/extensions/news_channels/interface.h"
+#include "wallet/client/extensions/news_channels/updates_provider.h"
+#include "wallet/client/extensions/news_channels/exchange_rate_provider.h"
+#include "wallet/client/extensions/notifications/notification_center.h"
+
+// dependencies
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
-#include "wallet/client/extensions/news_channels/interface.h"
-#include "wallet/client/extensions/news_channels/updates_provider.h"
-
-#include "wallet/client/extensions/notifications/notification_center.h"
 
 #include <tuple>
 
+using namespace std;
 using namespace beam;
 using namespace beam::wallet;
 
@@ -46,6 +40,8 @@ namespace
 {
     using PrivateKey = ECC::Scalar::Native;
     using PublicKey = PeerID;
+
+    const string dbFileName = "wallet.db";
 
     /**
      *  Class to test correct notification of news channels observers
@@ -90,85 +86,31 @@ namespace
         OnNotification m_onNotification;
     };
 
+    IWalletDB::Ptr createSqliteWalletDB()
+    {
+        if (boost::filesystem::exists(dbFileName))
+        {
+            boost::filesystem::remove(dbFileName);
+        }
+        ECC::NoLeak<ECC::uintBig> seed;
+        seed.V = 10283UL;
+        auto walletDB = WalletDB::init(dbFileName, string("pass123"), seed);
+        beam::Block::SystemState::ID id = { };
+        id.m_Height = 134;
+        walletDB->setSystemStateID(id);
+        return walletDB;
+    }
+
     /**
      *  Derive key pair with specified @keyIndex
      */
-    std::tuple<PublicKey, PrivateKey> deriveKeypair(IWalletDB::Ptr walletDB, uint64_t keyIndex)
+    std::tuple<PublicKey, PrivateKey> deriveKeypair(IWalletDB::Ptr storage, uint64_t keyIndex)
     {
         PrivateKey sk;
         PublicKey pk;
-        walletDB->get_MasterKdf()->DeriveKey(sk, ECC::Key::ID(keyIndex, Key::Type::Bbs));
+        storage->get_MasterKdf()->DeriveKey(sk, ECC::Key::ID(keyIndex, Key::Type::Bbs));
         pk.FromSk(sk);
         return std::make_tuple(pk, sk);
-    }
-
-    /**
-     *  Create signature for @data using key derived with specified @keyIndex
-     *  return derived public key and signature
-     */
-    std::tuple<PublicKey, ByteBuffer> signData(const ByteBuffer& data, uint64_t keyIndex, IWalletDB::Ptr walletDB)
-    {
-        const auto& [pk, sk] = deriveKeypair(walletDB, keyIndex);
-        SignatureHandler signHandler;
-        signHandler.m_data = data;
-        signHandler.Sign(sk);
-        ByteBuffer rawSignature = toByteBuffer(signHandler.m_Signature);
-        return std::make_tuple(pk, rawSignature);
-    }
-    
-    /**
-     *  Create message with Protocol header according to broadcast protocol
-     */
-    ByteBuffer addProtocolHeader(const BroadcastMsg& body, BroadcastContentType type)
-    {
-        ByteBuffer content = toByteBuffer(body);
-        ByteBuffer msg(MsgHeader::SIZE + content.size());
-        MsgHeader header(0, // V0
-                         0, // V1
-                         1, // V2
-                         static_cast<uint8_t>(type),
-                         static_cast<uint8_t>(content.size()));
-        header.write(msg.data());
-        std::copy(std::cbegin(content),
-                  std::cend(content),
-                  std::begin(msg) + MsgHeader::SIZE);
-        return msg;
-    };
-
-    void TestStringToKeyConvertation()
-    {
-        cout << endl << "Test string to key convertation" << endl;
-
-        {
-            ECC::uintBig referencePubKey = {
-                0xdb, 0x61, 0x7c, 0xed, 0xb1, 0x75, 0x43, 0x37,
-                0x5b, 0x60, 0x20, 0x36, 0xab, 0x22, 0x3b, 0x67,
-                0xb0, 0x6f, 0x86, 0x48, 0xde, 0x2b, 0xb0, 0x4d,
-                0xe0, 0x47, 0xf4, 0x85, 0xe7, 0xa9, 0xda, 0xec
-            };
-
-            bool res = false;
-            PeerID key;
-            WALLET_CHECK_NO_THROW(res = BroadcastMsgValidator::stringToPublicKey("db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec", key));
-            WALLET_CHECK(res && key == referencePubKey);
-        }
-        {
-            ECC::uintBig referencePrivateKey = {
-                0xf7, 0x0c, 0x36, 0xf2, 0xd8, 0x34, 0x2b, 0x66,
-                0xe3, 0x08, 0x1e, 0xa4, 0xd8, 0x75, 0x43, 0x56,
-                0x6d, 0x6a, 0xd2, 0x42, 0xc6, 0xe6, 0x1d, 0xbf,
-                0x92, 0x6d, 0x57, 0xff, 0x42, 0xde, 0x0c, 0x59
-            };
-            ECC::Scalar refKey;
-            refKey.m_Value = referencePrivateKey;
-            ECC::Scalar::Native nativeKey;
-            nativeKey.Import(refKey);
-
-            bool res = false;
-            ECC::Scalar::Native key;
-            WALLET_CHECK_NO_THROW(res = BroadcastMsgCreator::stringToPrivateKey("f70c36f2d8342b66e3081ea4d87543566d6ad242c6e61dbf926d57ff42de0c59", key));
-            WALLET_CHECK(res && key == nativeKey);
-        }
     }
 
     void TestSoftwareVersion()
@@ -178,7 +120,6 @@ namespace
         {
             Version v {123, 456, 789};
             WALLET_CHECK(to_string(v) == "123.456.789");
-            // WALLET_CHECK(to_string(Version::getCurrent()) == PROJECT_VERSION);
         }
 
         {
@@ -228,263 +169,169 @@ namespace
         }
     }
 
-    /**
-     *  Tests:
-     *  - only correctly signed with PrivateKey messageas are accepted
-     *  - publishers PublicKeys are correcly accepted
-     */
-    void TestSignatureValidation()
-    {
-        cout << endl << "Test BroadcastMsgValidator signature verification" << endl;
-
-        auto senderWalletDB = createSenderWalletDB();
-        BroadcastMsgValidator validator;
-
-        // generate key pairs for test
-        std::array<std::pair<PublicKey,PrivateKey>,10> keyPairsArray;
-        for (size_t i = 0; i < keyPairsArray.size(); ++i)
-        {
-            const auto [pk, sk] = deriveKeypair(senderWalletDB, i);
-            keyPairsArray[i] = std::make_pair(pk, sk);
-        }
-
-        // generate cases for test
-        const std::array<std::pair<bool, bool>, keyPairsArray.size()> keyDistributionTable = 
-        {
-            // different combinations with keys:
-            // (loadKeyToEndpoint, signDataWithKey)
-            std::make_pair(true, true),
-            std::make_pair(true, false),
-            std::make_pair(false, true),
-            std::make_pair(false, false),
-            std::make_pair(true, true),
-            std::make_pair(true, false),
-            std::make_pair(false, true),
-            std::make_pair(false, false),
-            std::make_pair(true, true),
-            std::make_pair(true, true)
-        };
-
-        // prepare messages and publisher keys
-        std::array<ByteBuffer, keyPairsArray.size()> messages;  // messages for test
-        std::vector<PublicKey> publisherKeys;   // keys to load in NewsEndpoint
-        for (size_t i = 0; i < keyPairsArray.size(); ++i)
-        {
-            const auto [to_load, to_sign] = keyDistributionTable[i];
-            const auto& [pubKey, privKey] = keyPairsArray[i];
-
-            if (to_load) publisherKeys.push_back(pubKey);
-
-            BroadcastMsg msg;
-            msg.m_content = toByteBuffer(std::to_string(i));
-            SignatureHandler signHandler;
-            signHandler.m_data = msg.m_content;
-            if (to_sign) signHandler.Sign(privKey);
-            msg.m_signature = toByteBuffer(signHandler.m_Signature);
-            messages[i] = toByteBuffer(msg);
-        }
-
-        WALLET_CHECK_NO_THROW(validator.setPublisherKeys(publisherKeys));
-
-        // Push messages and check validation result
-        for (size_t i = 0; i < messages.size(); ++i)
-        {
-            const ByteBuffer& data = messages[i];
-            BroadcastMsg msg;
-            bool res = false;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, msg));
-
-            auto [keyLoaded, msgSigned] = keyDistributionTable[i];
-
-            if (res)
-            {
-                // Only messages with signed with correct keys have to pass validation
-                WALLET_CHECK(keyLoaded && msgSigned);
-                // Check content
-                ByteBuffer referenceContent = toByteBuffer(std::to_string(i));
-                WALLET_CHECK(referenceContent == msg.m_content);
-            }
-            else
-            {
-                WALLET_CHECK(!keyLoaded || !msgSigned);
-                // key not loaded to validator or message not correctly signed
-                // are the reasons to fail
-            }
-        }
-        cout << "Test end" << endl;
-    }
-
-    /**
-     *  Test BroadcastMsgValidator key loading
-     */
-    void TestPublisherKeysLoading()
-    {
-        cout << endl << "Test BroadcastMsgValidator keys loading" << endl;
-
-        auto senderWalletDB = createSenderWalletDB();
-        BroadcastMsgValidator validator;
-
-        {
-            cout << "Case: no keys loaded, not signed message" << endl;
-
-            BroadcastMsg msg;
-            msg.m_content = toByteBuffer(std::string("not signed message"));
-            SignatureHandler signHandler;
-            signHandler.m_data = msg.m_content;
-            msg.m_signature = toByteBuffer(signHandler.m_Signature);
-            ByteBuffer data = toByteBuffer(msg);
-
-            bool res = false;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, msg));
-            WALLET_CHECK(!res);
-        }
-        {
-            cout << "Case: no keys loaded, correct message" << endl;
-
-            BroadcastMsg msg;
-            msg.m_content = toByteBuffer(std::string("correct message"));
-
-            const auto& [pk, signature] = signData(msg.m_content, 123, senderWalletDB);
-            msg.m_signature = signature;
-            ByteBuffer data = toByteBuffer(msg);
-
-            bool res = false;
-            BroadcastMsg resMsg;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, resMsg));
-            WALLET_CHECK(!res);
-
-            cout << "Case: key loaded, correct message" << endl;
-            WALLET_CHECK_NO_THROW(validator.setPublisherKeys({pk}));
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, resMsg));
-            WALLET_CHECK(res);
-            WALLET_CHECK(msg == resMsg);
-            
-            cout << "Case: keys cleared" << endl;
-
-            WALLET_CHECK_NO_THROW(validator.setPublisherKeys({}));
-            WALLET_CHECK(!validator.processMessage(data, resMsg));
-        }
-        {
-            cout << "Case: new key loaded" << endl;
-
-            BroadcastMsg msg;
-            msg.m_content = toByteBuffer(std::string("test message"));
-            const auto& [pk, signature] = signData(msg.m_content, 159, senderWalletDB);
-            msg.m_signature = signature;
-            ByteBuffer data = toByteBuffer(msg);
-
-            WALLET_CHECK_NO_THROW(validator.setPublisherKeys({pk}));
-            bool res = false;
-            BroadcastMsg resMsg;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, resMsg));
-            WALLET_CHECK(res);
-            WALLET_CHECK(msg == resMsg);
-        }
-        cout << "Test end" << endl;
-    }
-
-    void TestProtocolBuilder()
-    {
-        cout << endl << "Test BroadcastMsgCreator" << endl;
-
-        BroadcastMsgValidator validator;
-        auto walletDB = createSenderWalletDB();
-
-        const auto& [pk, sk] = deriveKeypair(walletDB, 1);
-        validator.setPublisherKeys({ pk });
-
-        BroadcastMsg msg;
-        BroadcastMsg outMsg;
-        WALLET_CHECK_NO_THROW(msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(std::string("hello")), sk));
-        bool res = validator.processMessage(toByteBuffer(msg), outMsg);
-        WALLET_CHECK(res);
-        WALLET_CHECK(msg == outMsg);
-    }
-
     void TestNewsChannelsObservers()
     {
         cout << endl << "Test news channels observers" << endl;
 
+        auto storage = createSqliteWalletDB();
         MockBbsNetwork network;
         BroadcastRouter broadcastRouter(network, network);
         BroadcastMsgValidator validator;
         AppUpdateInfoProvider updatesProvider(broadcastRouter, validator);
-        // TODO exchange rates provider test
-        auto senderWalletDB = createSenderWalletDB();
+        ExchangeRateProvider rateProvider(broadcastRouter, validator, *storage);
         
-        int notificationCount = 0;
+        int execCountVers = 0;
+        int execCountRate = 0;
 
-        const VersionInfo verInfo = { VersionInfo::Application::DesktopWallet, Version {123,456,789} };
-        // const ExchangeRates rates = {getTimestamp(), { ExchangeRate { ExchangeRates::Currency::Beam,
-        //                                                               147852369,
-        //                                                               ExchangeRates::Currency::Usd
-        //                                                             }}};
+        const VersionInfo verInfo { VersionInfo::Application::DesktopWallet, Version {123,456,789} };
+        const std::vector<ExchangeRate> rates {
+            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 147852369, getTimestamp() } };
 
-        BroadcastMsg msg;
-        msg.m_content = toByteBuffer(verInfo);
-        const auto& [pk, signature] = signData(msg.m_content, 321, senderWalletDB);
-        msg.m_signature = signature;
+        const auto& [pk, sk] = deriveKeypair(storage, 321);
+        BroadcastMsg msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
+        BroadcastMsg msgR = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rates), sk);
+        ECC::uintBig msgSignature;
+        fromByteBuffer(msgV.m_signature, msgSignature);
 
         MockNewsObserver testObserver(
-            [&notificationCount, &verInfo/*, &signature*/]
-            (const VersionInfo& v, const ECC::uintBig& s)
+            [&execCountVers, &verInfo, &msgSignature]
+            (const VersionInfo& v, const ECC::uintBig& id)
             {
+                // check notification ID same as message signature
+                WALLET_CHECK(msgSignature == id);
                 WALLET_CHECK(verInfo == v);
-                // WALLET_CHECK(signature == toByteBuffer(s));
-                ++notificationCount;
+                ++execCountVers;
             },
-            [&notificationCount/*, &rates*/]
+            [&execCountRate, &rates]
             (const std::vector<ExchangeRate>& r)
             {
-                // WALLET_CHECK(rates == r);
-                ++notificationCount;
+                WALLET_CHECK(rates == r);
+                ++execCountRate;
             });
 
 
         {
             // loading correct key with 2 additional just for filling
             PublicKey pk2, pk3;
-            std::tie(pk2, std::ignore) = deriveKeypair(senderWalletDB, 789);
-            std::tie(pk3, std::ignore) = deriveKeypair(senderWalletDB, 456);
+            std::tie(pk2, std::ignore) = deriveKeypair(storage, 789);
+            std::tie(pk3, std::ignore) = deriveKeypair(storage, 456);
             validator.setPublisherKeys({pk, pk2, pk3});
         }
 
         {
             cout << "Case: subscribed on valid message" << endl;
             updatesProvider.Subscribe(&testObserver);
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 1);
+            rateProvider.Subscribe(&testObserver);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgR);
+            WALLET_CHECK(execCountVers == 1);
+            WALLET_CHECK(execCountRate == 1);
         }
         {
             cout << "Case: unsubscribed on valid message" << endl;
             updatesProvider.Unsubscribe(&testObserver);
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 1);
+            rateProvider.Unsubscribe(&testObserver);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgR);
+            WALLET_CHECK(execCountVers == 1);
+            WALLET_CHECK(execCountRate == 1);
         }
         {
             cout << "Case: subscribed back" << endl;
             updatesProvider.Subscribe(&testObserver);
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 2);
+            rateProvider.Subscribe(&testObserver);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            WALLET_CHECK(execCountVers == 2);
+            WALLET_CHECK(execCountRate == 1);   // the rate was the same so no need in the notification
         }
         {
             cout << "Case: subscribed on invalid message" << endl;
             // sign the same message with other key
-            ByteBuffer newSignature;
-            std::tie(std::ignore, newSignature) = signData(msg.m_content, 322, senderWalletDB);
-            msg.m_signature = newSignature;
-
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 2);
+            PrivateKey newSk;
+            std::tie(std::ignore, newSk) = deriveKeypair(storage, 322);
+            msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), newSk);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            WALLET_CHECK(execCountVers == 2);
         }
         cout << "Test end" << endl;
+    }
+
+    void TestExchangeRateProvider()
+    {
+        cout << endl << "Test ExchangeRateProvider" << endl;
+
+        MockBbsNetwork network;
+        BroadcastRouter broadcastRouter(network, network);
+        BroadcastMsgValidator validator;
+        auto storage = createSqliteWalletDB();
+        ExchangeRateProvider rateProvider(broadcastRouter, validator, *storage);
+
+        const auto& [pk, sk] = deriveKeypair(storage, 321);
+        validator.setPublisherKeys({pk});
+
+        // empty provider
+        {
+            cout << "Case: empty rates" << endl;
+            WALLET_CHECK(rateProvider.getRates().empty());
+        }
+        const std::vector<ExchangeRate> rate {
+            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 147852369, getTimestamp() }
+        };
+        // add rate
+        {
+            cout << "Case: add rates" << endl;
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rate), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
+
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 1);
+            WALLET_CHECK(testRates[0] == rate[0]);
+        }
+        // update rate
+        {
+            cout << "Case: not update if rates older" << endl;
+            const std::vector<ExchangeRate> rateOlder {
+                { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 14785238554, getTimestamp()-100 }
+            };
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateOlder), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
+
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 1);
+            WALLET_CHECK(testRates[0] == rate[0]);
+        }
+        const std::vector<ExchangeRate> rateNewer {
+            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 14785238554, getTimestamp()+100 }
+        };
+        {
+            cout << "Case: update rates" << endl;
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateNewer), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
+
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 1);
+            WALLET_CHECK(testRates[0] == rateNewer[0]);
+        }
+        // add more rate
+        {
+            cout << "Case: add more rates" << endl;
+            const std::vector<ExchangeRate> rateAdded {
+                { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Bitcoin, 987, getTimestamp()+100 }
+            };
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateAdded), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
+
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 2);
+            WALLET_CHECK(testRates[0] == rateNewer[0] || testRates[1] == rateNewer[0]);
+        }
     }
 
     void TestNotificationCenter()
     {
         cout << endl << "Test NotificationCenter" << endl;
 
-        auto storage = createSenderWalletDB();
+        auto storage = createSqliteWalletDB();
         std::map<Notification::Type,bool> activeTypes {
             { Notification::Type::SoftwareUpdateAvailable, true },
             { Notification::Type::AddressStatusChanged, true },
@@ -499,11 +346,11 @@ namespace
                 WALLET_CHECK(center.getNotifications().size() == 0);
             }
 
-            VersionInfo info { VersionInfo::Application::DesktopWallet, Version(1,2,3) };
-            const uintBig id({0,1,2,3,4,5,6,7,8,9,
+            const ECC::uintBig id({0,1,2,3,4,5,6,7,8,9,
                               0,1,2,3,4,5,6,7,8,9,
                               0,1,2,3,4,5,6,7,8,9,
                               0,1});
+            const VersionInfo info { VersionInfo::Application::DesktopWallet, Version(1,2,3) };
             
             {
                 cout << "Case: create notification" << endl;
@@ -577,7 +424,8 @@ namespace
                 center.Subscribe(&observer);
                 center.deleteNotification(id);
                 auto list = center.getNotifications();
-                WALLET_CHECK(list.size() == 0);
+                // all notifications returned! even deleted.
+                WALLET_CHECK(list.size() == 1);
                 WALLET_CHECK(execCount == 1);
                 center.Unsubscribe(&observer);
             }
@@ -595,7 +443,7 @@ namespace
                 center.Subscribe(&observer);
                 center.onNewWalletVersion(info, id);
                 auto list = center.getNotifications();
-                WALLET_CHECK(list.size() == 0);
+                WALLET_CHECK(list.size() == 1);
                 center.Unsubscribe(&observer);
             }
         }
@@ -605,7 +453,7 @@ namespace
     {
         cout << endl << "Test notifications on/off switching" << endl;
 
-        auto storage = createSenderWalletDB();
+        auto storage = createSqliteWalletDB();
         std::map<Notification::Type,bool> activeTypes {
             { Notification::Type::SoftwareUpdateAvailable, false },
             { Notification::Type::AddressStatusChanged, false },
@@ -617,12 +465,12 @@ namespace
         WALLET_CHECK(center.getNotifications().size() == 0);
 
         VersionInfo info { VersionInfo::Application::DesktopWallet, Version(1,2,3) };
-        const uintBig id( {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-                           1,1,1,1,1,1,1,1,1,1,1,1});
-        const uintBig id2({2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
-                           2,2,2,2,2,2,2,2,2,2,2,2});
-        const uintBig id3({3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-                           3,3,3,3,3,3,3,3,3,3,3,3});
+        const ECC::uintBig id( {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+                                1,1,1,1,1,1,1,1,1,1,1,1});
+        const ECC::uintBig id2({2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+                                2,2,2,2,2,2,2,2,2,2,2,2});
+        const ECC::uintBig id3({3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+                                3,3,3,3,3,3,3,3,3,3,3,3});
 
         // notifications is off on start
         {
@@ -692,17 +540,16 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    TestStringToKeyConvertation();
     TestSoftwareVersion();
-
-    TestSignatureValidation();
-    TestPublisherKeysLoading();
-    TestProtocolBuilder();
 
     TestNewsChannelsObservers();
 
+    TestExchangeRateProvider();
+
     TestNotificationCenter();
     TestNotificationsOnOffSwitching();
+    
+    boost::filesystem::remove(dbFileName);
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

@@ -33,7 +33,7 @@ class SendViewModel: public QObject
     Q_PROPERTY(QString  totalUTXO          READ getTotalUTXO                                    NOTIFY availableChanged)
     Q_PROPERTY(QString  maxAvailable       READ getMaxAvailable                                 NOTIFY availableChanged)
     Q_PROPERTY(QString  missing            READ getMissing                                      NOTIFY availableChanged)
-    Q_PROPERTY(bool     isEnough           READ isEnough                                        NOTIFY sendAmountChanged)
+    Q_PROPERTY(bool     isEnough           READ isEnough                                        NOTIFY isEnoughChanged)
     Q_PROPERTY(bool     canSend            READ canSend                                         NOTIFY canSendChanged)
 
 public:
@@ -74,6 +74,7 @@ signals:
     void sendMoneyVerified();
     void cantSendToExpired();
     void canSendChanged();
+    void isEnoughChanged();
 
 public slots:
     void onChangeCalculated(beam::Amount change);

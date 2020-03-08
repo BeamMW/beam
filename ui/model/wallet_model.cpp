@@ -24,8 +24,8 @@ using namespace beam::wallet;
 using namespace beam::io;
 using namespace std;
 
-WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
-    : WalletClient(walletDB, nodeAddr, reactor, keyKeeper)
+WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
+    : WalletClient(walletDB, nodeAddr, reactor)
 {
     qRegisterMetaType<beam::ByteBuffer>("beam::ByteBuffer");
     qRegisterMetaType<beam::wallet::WalletStatus>("beam::wallet::WalletStatus");
@@ -294,22 +294,6 @@ void WalletModel::onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&
 void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<Notification>& notifications)
 {
     emit notificationsChanged(action, notifications);
-
-    if (action != beam::wallet::ChangeAction::Removed)
-    {
-        for (const auto& n : notifications)
-        {
-            if (n.m_type == beam::wallet::Notification::Type::SoftwareUpdateAvailable
-             && n.m_state == beam::wallet::Notification::State::Unread)
-            {
-                beam::wallet::VersionInfo info;
-                if (beam::wallet::fromByteBuffer(n.m_content, info))
-                {
-                    emit newSoftwareUpdateAvailable(info, n.m_ID);
-                }
-            }
-        }
-    }
 }
 
 beam::Amount WalletModel::getAvailable() const

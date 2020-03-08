@@ -940,16 +940,20 @@
         <translation>Language</translation>
     </message>
     <message id="open-external-open">
-        <source>Open</source>
-        <translation>Open</translation>
+        <source>allow and open</source>
+        <translation type="unfinished">allow and open</translation>
     </message>
     <message id="open-external-title">
         <source>External link</source>
         <translation>External link</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <translation>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose &quot;Cancel&quot;. You can change your choice in app setting anytime.</translation>
+        <source>Beam Wallet app requires permission to open external link in the browser.
+This action will expose your IP to the web server.
+To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
+        <translation type="unfinished">Beam Wallet app requires permission to open external link in the browser.
+This action will expose your IP to the web server.
+To avoid it, choose &quot;Cancel&quot;. You can change your choice in app setting anytime.</translation>
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
@@ -977,7 +981,12 @@
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
 •  must contain at least one number</source>
-        <translation>Strong password needs to meet the following requirements:
+        <oldsource>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</oldsource>
+        <translation type="unfinished">Strong password needs to meet the following requirements:
 •  the length must be at least 10 characters
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
@@ -1250,7 +1259,7 @@ or send this address to the sender over secure channel</translation>
 Update your settings and try again.</source>
         <oldsource>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</oldsource>
-        <translation>You do not have any 3rd-party currencies connected.
+        <translation type="unfinished">You do not have any 3rd-party currencies connected.
 Update your settings and try again.</translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1330,7 +1339,7 @@ Update your settings and try again.</translation>
 please review your settings and try again</source>
         <oldsource>%1 is not connected, 
 please review your settings and try again</oldsource>
-        <translation>%1 is not connected, 
+        <translation type="unfinished">%1 is not connected, 
 please review your settings and try again</translation>
     </message>
     <message id="send-not-enough">
@@ -1526,7 +1535,7 @@ please review your settings and try again</translation>
 fee while you have transactions in progress.</source>
         <oldsource>You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</oldsource>
-        <translation>You cannot disconnect wallet, edit seed phrase or change default
+        <translation type="unfinished">You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</translation>
     </message>
     <message id="atomic-no-offers">
@@ -1534,7 +1543,7 @@ fee while you have transactions in progress.</translation>
 Please try again later or create an offer yourself.</source>
         <oldsource>There are no active offers at the moment.
 Please try again later or create an offer yourself.</oldsource>
-        <translation>There are no active offers at the moment.
+        <translation type="unfinished">There are no active offers at the moment.
 Please try again later or create an offer yourself.</translation>
     </message>
     <message id="send-less-than-fee">
@@ -1706,7 +1715,7 @@ Please try again later or create an offer yourself.</translation>
 Please check the swap token and try again.</source>
         <oldsource>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</oldsource>
-        <translation>The offer with this transaction token is already accepted.
+        <translation type="unfinished">The offer with this transaction token is already accepted.
 Please check the swap token and try again.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
@@ -1994,7 +2003,7 @@ deploy the key at the node you trust completely.</source>
 know all your funds (UTXO). Make sure that you
 deploy the key at the node you trust completely.</oldsource>
         <extracomment>settings tab, show owner key message</extracomment>
-        <translation>Please notice, that knowing your owner key allows to
+        <translation type="unfinished">Please notice, that knowing your owner key allows to
 know all your funds (UTXO). Make sure that you
 deploy the key at the node you trust completely.</translation>
     </message>
@@ -2155,29 +2164,107 @@ deploy the key at the node you trust completely.</translation>
         <source>Asset is still locked</source>
         <translation>Asset is still locked</translation>
     </message>
-    <message id="notifications-title">
-        <source>Notifications</source>
-        <translation>Notifications</translation>
-    </message>
-    <message id="notifications-update-now">
-        <source>update now</source>
-        <translation>update now</translation>
-    </message>
-    <message id="notifications-activate">
-        <source>activate</source>
-        <translation>activate</translation>
-    </message>
-    <message id="notifications-details">
-        <source>details</source>
-        <translation>details</translation>
-    </message>
-    <message id="notifications-clear-all">
-        <source>clear all</source>
-        <translation>clear all</translation>
-    </message>
     <message id="settings-notifications-rates">
         <source>Exchange rates</source>
         <translation>Exchange rates</translation>
+    </message>
+    <message id="settings-general-amounts-unit">
+        <source>Show amounts in</source>
+        <extracomment>settings tab, general section, amounts unit label</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-title">
+        <source>Notifications</source>
+        <translation type="unfinished">Notifications</translation>
+    </message>
+    <message id="notifications-clear-all">
+        <source>clear all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-empty">
+        <source>There are no notifications yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-read">
+        <source>read</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-update-now">
+        <source>update now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-activate">
+        <source>activate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-details">
+        <source>details</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-update-title">
+        <source>New version v %1 is avalable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-address-expired">
+        <source>Address expired</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-received">
+        <source>Transaction received</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-sent-message">
+        <source>You sent &lt;b&gt;%1&lt;/b&gt; BEAM to &lt;b&gt;%2&lt;/b&gt;.</source>
+        <oldsource>You sent %1 BEAM to %2.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-failed">
+        <source>Transaction failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-news">
+        <source>BEAM in the press</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-address-expired-message">
+        <source>Address expired</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-received-message">
+        <source>You received &lt;b&gt;%1 BEAM&lt;/b&gt; from &lt;b&gt;%2&lt;/b&gt;.</source>
+        <oldsource>You received %1 BEAM from %2.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-send-failed-message">
+        <source>Sending &lt;b&gt;%1 BEAM&lt;/b&gt; to &lt;b&gt;%2&lt;/b&gt; failed.</source>
+        <oldsource>Sending %1 BEAM to %2 failed.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-receive-failed-message">
+        <source>Receiving &lt;b&gt;%1 BEAM&lt;/b&gt; from &lt;b&gt;%2&lt;/b&gt; failed.</source>
+        <oldsource>Receiving %1 BEAM from %2 failed.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-sent">
+        <source>Transaction sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="open-external-beam-site-title">
+        <source>Allow access to Beam website</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-from-external-message">
+        <source>Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version.
+This action will expose your IP to the web server.
+To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
+        <translation type="unfinished">Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version.
+This action will expose your IP to the web server.
+To avoid it, choose &quot;Cancel&quot;. You can change your choice in app setting anytime.</translation>
+    </message>
+    <message id="settings-update-wallet">
+        <source>update wallet</source>
+        <extracomment>settings update wallet button</extracomment>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

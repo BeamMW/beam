@@ -27,36 +27,61 @@ namespace beamui
         return QString::fromStdString(id);
     }
     
-    QString AmountToUIString(const Amount& value, Currencies coinType)
+    QString getCurrencyLabel(Currencies currency)
     {
-        // TODO implement for another currencies
-        std::string btc = libbitcoin::satoshi_to_btc(value);
-        QString amount = QString::fromStdString(btc);
-
-        QString coinSign;
-        switch (coinType)
+        switch (currency)
         {
             case Currencies::Beam:
-                coinSign = QString(" BEAM");
-                break;
+                return QString(currencyBeamLabel.data());
 
             case Currencies::Bitcoin:
-                coinSign = QString(" BTC");
-                break;
+                return QString(currencyBitcoinLabel.data());
 
             case Currencies::Litecoin:
-                coinSign = QString(" LTC");
-                break;
+                return QString(currencyLitecoinLabel.data());
 
             case Currencies::Qtum:
-                coinSign = QString(" QTUM");
-                break;
+                return QString(currencyQtumLabel.data());
+
+            case Currencies::Usd:
+                return QString(currencyUsdLabel.data());
 
             case Currencies::Unknown:
-                coinSign = "";
-                break;
+            default:
+                return QString(currencyUnknownLabel.data());
         }
-        return amount + coinSign;
+    }
+    
+    /**
+     *  Convert amount value to printable format.
+     *  @value      Value in coin quants (satoshi, groth and s.o.). 
+     *              Unsigned integer with the fixed decimal point.
+     *              Decimal point position depends on @coinType.
+     *  @coinType   Specify coint type.
+     */
+    QString AmountToUIString(const Amount& value, Currencies coinType)
+    {
+        // TODO: implementation without currency label
+        QString amount;
+        switch (coinType)
+        {
+            case Currencies::Usd:
+            case Currencies::Beam:  // TODO implement convertation of beam::Amount to string using Rules::Coin
+            default:
+                std::string btc = libbitcoin::satoshi_to_btc(value);
+                amount = QString::fromStdString(btc);
+        }
+        
+        QString coinLabel = getCurrencyLabel(coinType);
+
+        if (coinLabel.isEmpty())
+        {
+            return amount;
+        }
+        else
+        {
+            return amount + " " + coinLabel;
+        }
     }
 
     QString AmountInGrothToUIString(const beam::Amount& value)
@@ -96,6 +121,26 @@ namespace beamui
         }
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+    Currencies convertExchangeRateCurrencyToUiCurrency(beam::wallet::ExchangeRate::Currency currency)
+    {
+        switch (currency)
+        {
+        case wallet::ExchangeRate::Currency::Beam:
+            return beamui::Currencies::Beam;
+        case wallet::ExchangeRate::Currency::Bitcoin:
+            return beamui::Currencies::Bitcoin;
+        case wallet::ExchangeRate::Currency::Litecoin:
+            return beamui::Currencies::Litecoin;
+        case wallet::ExchangeRate::Currency::Qtum:
+            return beamui::Currencies::Qtum;
+        case wallet::ExchangeRate::Currency::Usd:
+            return beamui::Currencies::Usd;
+        case wallet::ExchangeRate::Currency::Unknown:
+        default:
+            return beamui::Currencies::Unknown;
+        }
+    }
 
     Filter::Filter(size_t size)
         : _samples(size, 0.0)
@@ -225,6 +270,7 @@ namespace beamui
             case Currencies::Bitcoin: return "btc";
             case Currencies::Litecoin: return "ltc";
             case Currencies::Qtum: return "qtum";
+            case Currencies::Usd: return "usd";
             default: return "unknown";
         }
     }

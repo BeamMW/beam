@@ -11,6 +11,9 @@ import "utils.js" as Utils
 Rectangle {
     id: main
 
+    property var openedNotifications: 0
+    property alias hasNewerVersion : updateInfoProvider.hasNewerVersion
+
     anchors.fill: parent
 
 	MainViewModel {
@@ -29,20 +32,16 @@ Rectangle {
                 popup.close();
             }
             popup.onAccept = function () {
-                var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
-                var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
-                var externalLinkConfirmation = component.createObject(main);
-                Utils.openExternal(
-                    "https://www.beam.mw/#downloads",
-                    settingsViewModel,
-                    externalLinkConfirmation);
+                Utils.navigateToDownloads();
             }
+            main.openedNotifications++;
+            popup.closed.connect(function() {
+                main.openedNotifications--;
+            })
+            
+            popup.verticalOffset = (main.openedNotifications - 1) * 200;
             popup.open();
         }
-    }
-
-    ExchangeRatesManager {
-        id: ratesManager
     }
 
     ConfirmationDialog {
@@ -188,6 +187,34 @@ Rectangle {
 
     					visible: control.activeFocus
                     }
+
+                    Item {
+                        visible: contentItems[index] == 'notifications' && viewModel.unreadNotifications > 0
+                        Rectangle {
+                            id: counter
+                            x: 42
+                            y: 9
+                            width: 16
+                            height: 16
+                            radius: width/2
+                            color: Style.active
+
+                            SFText {
+                                height: 14
+                                text: viewModel.unreadNotifications
+                                font.pixelSize: 12
+                                anchors.centerIn: counter
+                            }
+                        }
+                        DropShadow {
+                            anchors.fill: counter
+                            radius: 5
+                            samples: 9
+                            source: counter
+                            color: Style.active
+                        }
+                    }
+
                     Keys.onPressed: {
                         if ((event.key == Qt.Key_Return || event.key == Qt.Key_Enter || event.key == Qt.Key_Space) && selectedItem != index) 
                             updateItem(index);
@@ -328,6 +355,10 @@ Rectangle {
 
     function openSwapActiveTransactionsList() {
         updateItem("atomic_swap", {"shouldShowActiveTransactions": true})
+    }
+
+    function openTransactionDetails(id) {
+        updateItem("wallet", {"openedTxID": id})
     }
 
     function resetLockTimer() {

@@ -88,7 +88,7 @@ TxObjectList::TxObjectList()
 {
 }
 
-auto TxObjectList::roleNames() const -> QHash<int, QByteArray>
+QHash<int, QByteArray> TxObjectList::roleNames() const
 {
     static const auto roles = QHash<int, QByteArray>
     {
@@ -127,7 +127,7 @@ auto TxObjectList::roleNames() const -> QHash<int, QByteArray>
     return roles;
 }
 
-auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
+QVariant TxObjectList::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_list.size())
     {

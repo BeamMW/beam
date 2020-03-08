@@ -940,16 +940,20 @@
         <translation>Jazyk</translation>
     </message>
     <message id="open-external-open">
-        <source>Open</source>
-        <translation>Otevřít</translation>
+        <source>allow and open</source>
+        <oldsource>Open</oldsource>
+        <translation type="unfinished">Otevřít</translation>
     </message>
     <message id="open-external-title">
         <source>External link</source>
         <translation>Externí odkaz</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <translation>Aplikace peněženky Beam vyžaduje oprávnění k otevření externího odkazu v prohlížeči. Tato akce vystaví vaši IP adresu webovému serveru. Chcete-li tomu zabránit, zvolte &quot;Zrušit&quot;. Tuto volbu můžete kdykoli změnit v nastavení aplikace.</translation>
+        <source>Beam Wallet app requires permission to open external link in the browser.
+This action will expose your IP to the web server.
+To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
+        <oldsource>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</oldsource>
+        <translation type="unfinished">Aplikace peněženky Beam vyžaduje oprávnění k otevření externího odkazu v prohlížeči. Tato akce vystaví vaši IP adresu webovému serveru. Chcete-li tomu zabránit, zvolte &quot;Zrušit&quot;. Tuto volbu můžete kdykoli změnit v nastavení aplikace.</translation>
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
@@ -977,6 +981,11 @@
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
 •  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</oldsource>
         <translation type="unfinished">Silné heslo musí splňovat následující požadavky:
 • heslo musí mít nejméně 10 znaků
 • musí obsahovat alespoň jedno malé písmeno
@@ -1247,6 +1256,8 @@
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</oldsource>
         <translation type="unfinished">Nemáte připojené žádné měny třetích stran.\nAktualizujte nastavení a zkuste to znovu.</translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1324,6 +1335,8 @@ Update your settings and try again.</source>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
 please review your settings and try again</source>
+        <oldsource>%1 is not connected, 
+please review your settings and try again</oldsource>
         <translation type="unfinished">%1 není připojen, 
 prosím zkontrolujte nastavení a zkuste to znovu.</translation>
     </message>
@@ -1518,11 +1531,15 @@ prosím zkontrolujte nastavení a zkuste to znovu.</translation>
     <message id="settings-progress-na">
         <source>You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</source>
+        <oldsource>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</oldsource>
         <translation type="unfinished">Nemůžete odpojit peněženku, upravit klíčová slova nebo změnit výchozí poplatek\nběhem zpracování transakcí.</translation>
     </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.
 Please try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.
+Please try again later or create an offer yourself.</oldsource>
         <translation type="unfinished">Momentálně nejsou žádné aktivní nabídky.\nZkuste to prosím později nebo vytvořte svou nabídku.</translation>
     </message>
     <message id="send-less-than-fee">
@@ -1692,6 +1709,8 @@ Please try again later or create an offer yourself.</source>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</source>
+        <oldsource>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</oldsource>
         <translation type="unfinished">Nabídka s tímto tokenem transakce je již přijata.\nProsím zkontrolujte token výměny a zkuste to znovu.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
@@ -2136,8 +2155,29 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <source>Asset is still locked</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="settings-notifications-rates">
+        <source>Exchange rates</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-general-amounts-unit">
+        <source>Show amounts in</source>
+        <extracomment>settings tab, general section, amounts unit label</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="notifications-title">
         <source>Notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-clear-all">
+        <source>clear all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-empty">
+        <source>There are no notifications yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-read">
+        <source>read</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="notifications-update-now">
@@ -2152,12 +2192,67 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <source>details</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="notifications-clear-all">
-        <source>clear all</source>
+    <message id="notification-update-title">
+        <source>New version v %1 is avalable</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="settings-notifications-rates">
-        <source>Exchange rates</source>
+    <message id="notification-address-expired">
+        <source>Address expired</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-received">
+        <source>Transaction received</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-sent-message">
+        <source>You sent &lt;b&gt;%1&lt;/b&gt; BEAM to &lt;b&gt;%2&lt;/b&gt;.</source>
+        <oldsource>You sent %1 BEAM to %2.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-failed">
+        <source>Transaction failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-news">
+        <source>BEAM in the press</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-address-expired-message">
+        <source>Address expired</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-received-message">
+        <source>You received &lt;b&gt;%1 BEAM&lt;/b&gt; from &lt;b&gt;%2&lt;/b&gt;.</source>
+        <oldsource>You received %1 BEAM from %2.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-send-failed-message">
+        <source>Sending &lt;b&gt;%1 BEAM&lt;/b&gt; to &lt;b&gt;%2&lt;/b&gt; failed.</source>
+        <oldsource>Sending %1 BEAM to %2 failed.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-receive-failed-message">
+        <source>Receiving &lt;b&gt;%1 BEAM&lt;/b&gt; from &lt;b&gt;%2&lt;/b&gt; failed.</source>
+        <oldsource>Receiving %1 BEAM from %2 failed.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-transaction-sent">
+        <source>Transaction sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="open-external-beam-site-title">
+        <source>Allow access to Beam website</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="update-from-external-message">
+        <source>Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version.
+This action will expose your IP to the web server.
+To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-update-wallet">
+        <source>update wallet</source>
+        <extracomment>settings update wallet button</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>

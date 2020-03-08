@@ -38,6 +38,30 @@ class SwapOffersBoard
 public:
     using Ptr = std::shared_ptr<SwapOffersBoard>;
 
+    class InvalidOfferException : public std::runtime_error
+    {
+    public:
+        InvalidOfferException() : std::runtime_error(" Can't publish invalid offer.") {}
+    };
+
+    class OfferAlreadyPublishedException : public std::runtime_error
+    {
+    public:
+        OfferAlreadyPublishedException() : std::runtime_error(" Offer has already been published.") {}
+    };
+
+    class ForeignOfferException : public std::runtime_error
+    {
+    public:
+        ForeignOfferException() : std::runtime_error(" Offer has foreign Pk and will not be published.") {}
+    };
+
+    class ExpiredOfferException : public std::runtime_error
+    {
+    public:
+        ExpiredOfferException() : std::runtime_error(" Can't publish expired offer.") {}
+    };
+
     SwapOffersBoard(IBroadcastMsgGateway&, OfferBoardProtocolHandler&);
     virtual ~SwapOffersBoard() {};
 

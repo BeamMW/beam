@@ -182,7 +182,11 @@ namespace beam::wallet
     ByteBuffer toByteBuffer(const ECC::Point::Native& value);
     ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
 
-    Amount GetMinimumFee(size_t numberOfOutputs, size_t numberOfKenrnels = 1);
+    constexpr Amount GetMinimumFee(size_t numberOfOutputs, size_t numberOfKenrnels = 1)
+    {
+        // Minimum Fee = (number of outputs) * 10 + (number of kernels) * 10
+        return (numberOfOutputs + numberOfKenrnels) * 10;
+    }
 
     // Ids of the transaction parameters
     enum class TxParameterID : uint8_t
@@ -695,4 +699,5 @@ namespace std
     string to_string(const beam::wallet::PrintableAmount& amount);
     string to_string(const beam::wallet::TxParameters&);
     string to_string(const beam::Version&);
+    string to_string(const beam::wallet::TxID&);
 }

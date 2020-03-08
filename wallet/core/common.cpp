@@ -94,6 +94,11 @@ namespace std
     {
         return v.to_string();
     }
+
+    string to_string(const beam::wallet::TxID& id)
+    {
+        return to_hex(id.data(), id.size());
+    }
 }  // namespace std
 
 namespace beam
@@ -101,7 +106,7 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid)
     {
         stringstream ss;
-        ss << "[" << to_hex(uuid.data(), uuid.size()) << "]";
+        ss << "[" << std::to_string(uuid) << "]";
         os << ss.str();
         return os;
     }
@@ -229,12 +234,6 @@ namespace beam::wallet
         ECC::Scalar s;
         value.Export(s);
         return toByteBuffer(s);
-    }
-
-    Amount GetMinimumFee(size_t numberOfOutputs, size_t numberOfKenrnels /*= 1*/)
-    {
-        // Minimum Fee = (number of outputs) * 10 + (number of kernels) * 10
-        return (numberOfOutputs + numberOfKenrnels) * 10;
     }
 
     ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType)

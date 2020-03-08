@@ -24,13 +24,6 @@ using namespace beam;
 
 namespace
 {
-std::string getMinimumFeeError(Amount minimumFee)
-{
-    std::stringstream ss;
-    ss << "Failed to initiate the send operation. The minimum fee is " << minimumFee << " GROTH.";
-    return ss.str();
-}
-
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 using namespace beam::wallet;
 
@@ -127,6 +120,31 @@ bool checkAcceptableTxParams(const TxParameters& params, const OfferInput& data)
     auto isBeamSide = params.GetParameter<bool>(
         TxParameterID::AtomicSwapIsBeamSide);
     if (!isBeamSide || *isBeamSide != data.isBeamSide)
+        return false;
+
+    return true;
+}
+
+// TODO roman.strilets: it's duplicate of checkAcceptableTxParams. should be refactored
+bool checkPublicOffer(const TxParameters& params, const SwapOffer& publicOffer)
+{
+    auto beamAmount = params.GetParameter<Amount>(TxParameterID::Amount);
+    if (!beamAmount || *beamAmount != publicOffer.amountBeam())
+        return false;
+
+    auto swapAmount = params.GetParameter<Amount>(
+        TxParameterID::AtomicSwapAmount);
+    if (!swapAmount || *swapAmount != publicOffer.amountSwapCoin())
+        return false;
+
+    auto swapCoin = params.GetParameter<AtomicSwapCoin>(
+        TxParameterID::AtomicSwapCoin);
+    if (!swapCoin || *swapCoin != publicOffer.swapCoinType())
+        return false;
+
+    auto isBeamSide = params.GetParameter<bool>(
+        TxParameterID::AtomicSwapIsBeamSide);
+    if (!isBeamSide || *isBeamSide != publicOffer.isBeamSide())
         return false;
 
     return true;
@@ -347,13 +365,6 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Send& data)
             coins = data.coins ? *data.coins : CoinIDList();
         }
 
-        auto minimumFee = std::max(wallet::GetMinimumFee(2), DefaultFee); // receivers's output + change
-        if (data.fee < minimumFee)
-        {
-            doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
-            return;
-        }
-
         if (data.txId && walletDB->getTx(*data.txId))
         {
             doTxAlreadyExistsError(id);
@@ -398,13 +409,6 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Issue& data)
         else
         {
             coins = data.coins ? *data.coins : CoinIDList();
-        }
-
-        auto minimumFee = std::max(wallet::GetMinimumFee(2), DefaultFee);
-        if (data.fee < minimumFee)
-        {
-            doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
-            return;
         }
 
         if (data.txId && walletDB->getTx(*data.txId))
@@ -467,14 +471,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Split& data)
         walletDB->createAddress(senderAddress);
         walletDB->saveAddress(senderAddress);
 
-        auto minimumFee = std::max(wallet::GetMinimumFee(data.coins.size() + 1), DefaultFee); // +1 extra output for change 
-        if (data.fee < minimumFee)
-        {
-            doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
-            return;
-        }
-
-            if (data.txId && _walletData.getWalletDB()->getTx(*data.txId))
+        if (data.txId && _walletData.getWalletDB()->getTx(*data.txId))
         {
             doTxAlreadyExistsError(id);
             return;
@@ -813,7 +810,8 @@ void ApiConnection::onMessage(const JsonRpcId& id, const CreateOffer& data)
         {
             walletDB->getAddresses(true),
             currentHeight,
-            token
+            token,
+            txId
         });
 }
 
@@ -839,17 +837,16 @@ void ApiConnection::onMessage(const JsonRpcId& id, const PublishOffer& data)
     SwapOffer offer(readyForTokenizeTxParams);
     if (offer.m_status == SwapOfferStatus::Pending)
     {
-        offer.m_publisherId =
-            *offer.GetParameter<WalletID>(TxParameterID::PeerID);
+        offer.m_publisherId = *offer.GetParameter<WalletID>(TxParameterID::PeerID);
         _walletData.getAtomicSwapProvider().getSwapOffersBoard().publishOffer(offer);
-    }
 
-    doResponse(id, PublishOffer::Response
-        {
-            walletDB->getAddresses(true),
-            walletDB->getCurrentHeight(),
-            offer
-        });
+        doResponse(id, PublishOffer::Response
+            {
+                walletDB->getAddresses(true),
+                walletDB->getCurrentHeight(),
+                offer
+            });
+    }
 }
 
 void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
@@ -867,13 +864,14 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
 
     auto walletDB = _walletData.getWalletDB();
 
-    SwapOffer offer;
     auto myAddresses = walletDB->getAddresses(true);
     if (publicOffer)
     {
-        offer = *publicOffer;
+        // compare public offer and token
+        if (!checkPublicOffer(*txParams, *publicOffer))
+            throw FailToAcceptOffer();
 
-        if (storage::isMyAddress(myAddresses, offer.m_publisherId))
+        if (storage::isMyAddress(myAddresses, publicOffer->m_publisherId))
             throw FailToAcceptOwnOffer();
     }
     else
@@ -888,7 +886,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
             throw FailToAcceptOwnOffer();
     }
 
-    if (!checkAcceptableTxParams(offer, data))
+    if (!checkAcceptableTxParams(*txParams, data))
         throw FailToAcceptOffer();
 
     Amount swapFeeRate = data.swapFeeRate
@@ -908,7 +906,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
     }
 
     auto wid = createWID(walletDB.get(), data.comment);
-    offer = SwapOffer(*txParams);
+    SwapOffer offer = SwapOffer(*txParams);
     offer.SetParameter(TxParameterID::MyID, wid);
     if (!data.comment.empty())
     {
@@ -933,41 +931,6 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
         AcceptOffer::Response
         {
             myAddresses,
-            walletDB->getCurrentHeight(),
-            offer
-        });
-}
-
-void ApiConnection::onMessage(const JsonRpcId& id, const CancelOffer& data)
-{
-    auto txParams = ParseParameters(data.token);
-    if (!txParams)
-        throw FailToParseToken();
-
-    auto txId = txParams->GetTxID();
-    if (!txId)
-        throw FailToParseToken();
-
-    auto walletDB = _walletData.getWalletDB();
-    auto tx = walletDB->getTx(*txId);
-
-    if (!tx)
-        throw TxNotFound();
-
-    SwapOffer offer(*tx);
-    if (offer.m_status == SwapOfferStatus::Pending)
-    {
-        _walletData.getWallet().CancelTransaction(*txId);
-        offer.m_status = SwapOfferStatus::Canceled;
-    }
-    else
-    {
-        throw FailToCancelTx(offer.m_status);
-    }
-
-    doResponse(id, CancelOffer::Response
-        {
-            walletDB->getAddresses(true),
             walletDB->getCurrentHeight(),
             offer
         });

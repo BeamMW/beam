@@ -20,6 +20,33 @@
 
 using namespace beam::wallet;
 
+namespace
+{
+    TxParameters getTxParameters(const Notification& notification)
+    {
+        TxToken token;
+        Deserializer d;
+        d.reset(notification.m_content);
+        d& token;
+        return token.UnpackParameters();
+    }
+
+    Amount getAmount(const TxParameters& p)
+    {
+        return *p.GetParameter<Amount>(TxParameterID::Amount);
+    }
+
+    WalletID getPeerID(const TxParameters& p)
+    {
+        return *p.GetParameter<WalletID>(TxParameterID::PeerID);
+    }
+
+    bool isSender(const TxParameters& p)
+    {
+        return *p.GetParameter<bool>(TxParameterID::IsSender);
+    }
+}
+
 NotificationItem::NotificationItem(const Notification& notification)
     : m_notification{notification}
 {}
@@ -29,19 +56,19 @@ bool NotificationItem::operator==(const NotificationItem& other) const
     return getID() == other.getID();
 }
 
-auto NotificationItem::getID() const -> ECC::uintBig
+ECC::uintBig NotificationItem::getID() const
 {
     return m_notification.m_ID;
 }
 
-auto NotificationItem::timeCreated() const -> QDateTime
+QDateTime NotificationItem::timeCreated() const
 {
     QDateTime datetime;
     datetime.setTime_t(m_notification.m_createTime);
     return datetime;
 }
 
-auto NotificationItem::title() const -> QString
+QString NotificationItem::title() const
 {
     switch(m_notification.m_type)
     {
@@ -51,10 +78,8 @@ auto NotificationItem::title() const -> QString
             if (fromByteBuffer(m_notification.m_content, info))
             {
                 QString ver = QString::fromStdString(info.m_version.to_string());
-                QString title("New version v");
-                title.append(ver);
-                title.append(" is avalable");
-                return title;
+                //% "New version v %1 is avalable"
+                return qtTrId("notification-update-title").arg(ver);
             }
             else
             {
@@ -63,17 +88,31 @@ auto NotificationItem::title() const -> QString
             }
         }
         case Notification::Type::AddressStatusChanged:
-            return "Address expired";
-        case Notification::Type::TransactionStatusChanged:
-            return "Transaction received";
+            //% "Address expired"
+            return qtTrId("notification-address-expired");
+        case Notification::Type::TransactionCompleted:
+        {
+            auto p = getTxParameters(m_notification);
+            if (isSender(p))
+            {
+                //% "Transaction sent"
+                return qtTrId("notification-transaction-sent");
+            }
+            //% "Transaction received"
+            return qtTrId("notification-transaction-received");
+        }            
+        case Notification::Type::TransactionFailed:
+            //% "Transaction failed"
+            return qtTrId("notification-transaction-failed");
         case Notification::Type::BeamNews:
-            return "BEAM in the press";
+            //% "BEAM in the press"
+            return qtTrId("notification-news");
         default:
             return "error";
     }
 }
 
-auto NotificationItem::message() const -> QString
+QString NotificationItem::message() const
 {
     switch(m_notification.m_type)
     {
@@ -95,9 +134,30 @@ auto NotificationItem::message() const -> QString
             }
         }
         case Notification::Type::AddressStatusChanged:
-            return "Address expired";
-        case Notification::Type::TransactionStatusChanged:
-            return "Transaction received";
+            //% "Address expired"
+            return qtTrId("notification-address-expired-message");
+        case Notification::Type::TransactionCompleted:
+        {
+            auto p = getTxParameters(m_notification);
+            QString message =  (isSender(p) ?
+                //% "You sent <b>%1</b> BEAM to <b>%2</b>."
+                qtTrId("notification-transaction-sent-message")
+                :
+                //% "You received <b>%1 BEAM</b> from <b>%2</b>."
+                qtTrId("notification-transaction-received-message"));
+            return message.arg(getAmount(p)).arg(std::to_string(getPeerID(p)).c_str());
+        }
+        case Notification::Type::TransactionFailed:
+        {
+            auto p = getTxParameters(m_notification);
+            QString message = (isSender(p) ?
+                //% "Sending <b>%1 BEAM</b> to <b>%2</b> failed."
+                qtTrId("notification-transaction-send-failed-message")
+                :
+                //% "Receiving <b>%1 BEAM</b> from <b>%2</b> failed."
+                qtTrId("notification-transaction-receive-failed-message"));
+            return message.arg(getAmount(p)).arg(std::to_string(getPeerID(p)).c_str());
+        }
         case Notification::Type::BeamNews:
             return "BEAM in the press";
         default:
@@ -105,7 +165,7 @@ auto NotificationItem::message() const -> QString
     }
 }
 
-auto NotificationItem::type() const -> QString
+QString NotificationItem::type() const
 {
     // !TODO: full list of the supported item types is: update expired received sent failed inpress hotnews videos events newsletter community
     
@@ -115,8 +175,13 @@ auto NotificationItem::type() const -> QString
             return "update";
         case Notification::Type::AddressStatusChanged:
             return "expired";
-        case Notification::Type::TransactionStatusChanged:
-            return "received"; // or "sent" or "failed"
+        case Notification::Type::TransactionCompleted:
+        {
+            auto p = getTxParameters(m_notification);
+            return (isSender(p) ? "sent" : "received");
+        }
+        case Notification::Type::TransactionFailed:
+            return "failed";
         case Notification::Type::BeamNews:
             return "newsletter";
         default:
@@ -124,7 +189,7 @@ auto NotificationItem::type() const -> QString
     }
 }
 
-auto NotificationItem::state() const -> QString
+QString NotificationItem::state() const
 {
     switch(m_notification.m_state)
     {
@@ -137,4 +202,16 @@ auto NotificationItem::state() const -> QString
         default:
             return "error";
     }
+}
+
+QString NotificationItem::getTxID() const
+{
+    try
+    {
+        auto p = getTxParameters(m_notification);
+        return QString::fromStdString(std::to_string(*p.GetTxID()));
+    }
+    catch(...)
+    { }
+    return "";
 }

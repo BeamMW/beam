@@ -252,7 +252,7 @@ namespace beam::wallet
     {
         return std::count_if(m_ActiveTransactions.begin(), m_ActiveTransactions.end(), [](const auto& p)
             {
-                return !p.second->IsInSafety();
+                return p.second && !p.second->IsInSafety();
             });
     }
 
@@ -289,8 +289,8 @@ namespace beam::wallet
         if (it != m_ActiveTransactions.end())
         {
             pGuard.swap(it->second);
-            pGuard->FreeResources();
             m_ActiveTransactions.erase(it);
+            pGuard->FreeResources();
         }
 
         if (m_TxCompletedAction)

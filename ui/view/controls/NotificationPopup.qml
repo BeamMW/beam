@@ -10,7 +10,7 @@ Popup {
     property alias title: title.text
     property alias message: contentText.text
     property alias acceptButtonText: acceptButton.text
-
+    property var verticalOffset: 0
     property var onCancel: function () {}
     property var onAccept: function () {}
 
@@ -19,13 +19,41 @@ Popup {
     modal: false
     parent: Overlay.overlay
     x: parent.width - width - 20        // 20 units from edge
-    y: parent.height - height - 20
+    y: parent.height - height - 20 - verticalOffset
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
     // padding: 0.0
 
     topPadding: 20
     bottomPadding: 20
     leftPadding: 20
+
+    ParallelAnimation {
+        id: showAnimation
+        
+        NumberAnimation { target: popup; property: "opacity"; from: 0.0; to: 1.0; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: popup; property: "height"; from: 0.0; to: 198; easing.type: Easing.InOutQuad }
+    }
+  
+    ParallelAnimation {
+        id: hideAnimation
+        
+        NumberAnimation { target: popup; property: "opacity"; from: 1.0; to: 0.0; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: popup; property: "height"; from: 198; to: 0.0; easing.type: Easing.InOutQuad }
+        onStopped: popup.close()
+    }
+
+    Timer {
+        id: closeTimer
+        interval: 3000
+        onTriggered: {
+            hideAnimation.start();
+        }
+    }
+
+    onOpened: {
+        showAnimation.start();
+        closeTimer.start()
+    }
 
     background: Rectangle {
         id: rect

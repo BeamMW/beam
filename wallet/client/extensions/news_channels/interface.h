@@ -19,7 +19,19 @@
 namespace beam::wallet
 {
     using namespace beam;
-    
+
+    constexpr std::string_view desktopAppStr = "desktop";
+    constexpr std::string_view androidAppStr = "android";
+    constexpr std::string_view iosAppStr = "ios";
+    constexpr std::string_view unknownAppStr = "unknown";
+
+    constexpr std::string_view beamCurrencyStr = "beam";
+    constexpr std::string_view btcCurrencyStr = "btc";
+    constexpr std::string_view ltcCurrencyStr = "ltc";
+    constexpr std::string_view qtumCurrencyStr = "qtum";
+    constexpr std::string_view usdCurrencyStr = "usd";
+    constexpr std::string_view unknownCurrencyStr = "unknown";
+
     struct VersionInfo
     {
         enum class Application : uint32_t
@@ -35,42 +47,41 @@ namespace beam::wallet
 
         SERIALIZE(m_application, m_version);
 
-        // TODO move string literals to one definition
         static std::string to_string(Application a)
         {
             switch (a)
             {
                 case Application::DesktopWallet:
-                    return "desktop";
+                    return std::string(desktopAppStr);
                 case Application::AndroidWallet:
-                    return "android";
+                    return std::string(androidAppStr);
                 case Application::IOSWallet:
-                    return "ios";
+                    return std::string(iosAppStr);
                 default:
-                    return "unknown";
+                    return std::string(unknownAppStr);
             }
         };
 
         static Application from_string(const std::string& type)
         {
-            if (type == "desktop")
+            if (type == desktopAppStr)
                 return Application::DesktopWallet;
-            else if (type == "android")
+            else if (type == androidAppStr)
                 return Application::AndroidWallet;
-            else if (type == "ios")
+            else if (type == iosAppStr)
                 return Application::IOSWallet;
             else return Application::Unknown;
         };
 
-        bool operator==(const VersionInfo& o) const
+        bool operator==(const VersionInfo& other) const
         {
-            return m_application == o.m_application
-                && m_version == o.m_version;
+            return m_application == other.m_application
+                && m_version == other.m_version;
         };
 
-        bool operator!=(const VersionInfo& o) const
+        bool operator!=(const VersionInfo& other) const
         {
-            return !(*this == o);
+            return !(*this == other);
         };
     };
 
@@ -88,7 +99,7 @@ namespace beam::wallet
     
         Currency m_currency;
         Currency m_unit;            // unit of m_rate measurment, e.g. USD or any other currency
-        Amount m_rate;
+        Amount m_rate;              // value as decimal fixed point. m_rate = 100,000,000 is 1 unit
         Timestamp m_updateTime;
 
         SERIALIZE(m_currency, m_unit, m_rate, m_updateTime);
@@ -98,33 +109,45 @@ namespace beam::wallet
             switch (currency)
             {
                 case Currency::Beam:
-                    return "beam";
+                    return std::string(beamCurrencyStr);
                 case Currency::Bitcoin:
-                    return "btc";
+                    return std::string(btcCurrencyStr);
                 case Currency::Litecoin:
-                    return "ltc";
+                    return std::string(ltcCurrencyStr);
                 case Currency::Qtum:
-                    return "qtum";
+                    return std::string(qtumCurrencyStr);
                 case Currency::Usd:
-                    return "usd";
+                    return std::string(usdCurrencyStr);
                 default:
-                    return "unknown";
+                    return std::string(unknownCurrencyStr);
             }
         };
 
         static Currency from_string(const std::string& c)
         {
-            if (c == "beam")
+            if (c == beamCurrencyStr)
                 return Currency::Beam;
-            else if (c == "btc")
+            else if (c == btcCurrencyStr)
                 return Currency::Bitcoin;
-            else if (c == "ltc")
+            else if (c == ltcCurrencyStr)
                 return Currency::Litecoin;
-            else if (c == "qtum")
+            else if (c == qtumCurrencyStr)
                 return Currency::Qtum;
-            else if (c == "usd")
+            else if (c == usdCurrencyStr)
                 return Currency::Usd;
             else return Currency::Unknown;
+        };
+
+        bool operator==(const ExchangeRate& other) const
+        {
+            return m_currency == other.m_currency
+                && m_unit == other.m_unit
+                && m_rate == other.m_rate
+                && m_updateTime == other.m_updateTime;
+        };
+        bool operator!=(const ExchangeRate& other) const
+        {
+            return !(*this == other);
         };
     };
     
