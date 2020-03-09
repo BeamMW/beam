@@ -32,7 +32,9 @@ SendSwapViewModel::SendSwapViewModel()
     connect(&_walletModel, &WalletModel::changeCalculated,  this,  &SendSwapViewModel::onChangeCalculated);
     connect(&_walletModel, &WalletModel::availableChanged, this, &SendSwapViewModel::recalcAvailable);
     connect(&_exchangeRatesManager, SIGNAL(rateUnitChanged()), SIGNAL(secondCurrencyAmountChanged()));
+    connect(&_exchangeRatesManager, SIGNAL(rateUnitChanged()), SIGNAL(secondCurrencyLabelChanged()));
     connect(&_exchangeRatesManager, SIGNAL(activeRateChanged()), SIGNAL(secondCurrencyAmountChanged()));
+    connect(&_exchangeRatesManager, SIGNAL(activeRateChanged()), SIGNAL(secondCurrencyRateChanged()));
 }
 
 QString SendSwapViewModel::getToken() const
@@ -434,7 +436,9 @@ QString SendSwapViewModel::getSendAmount2ndCurrency() const
 
     if (sendCurrency != secondCurrency)
     {
-        return _exchangeRatesManager.calcAmountIn2ndCurrency(getSendAmount(), sendCurrency);
+        QString currencyLabel = beamui::getCurrencyLabel(beamui::convertExchangeRateCurrencyToUiCurrency(secondCurrency));
+        QString amount = _exchangeRatesManager.calcAmountIn2ndCurrency(getSendAmount(), sendCurrency);
+        return amount + " " + currencyLabel;
     }
     else
     {
@@ -450,10 +454,31 @@ QString SendSwapViewModel::getReceiveAmount2ndCurrency() const
     if (receiveCurrency != secondCurrency
      && secondCurrency != beam::wallet::ExchangeRate::Currency::Usd)
     {
-        return _exchangeRatesManager.calcAmountIn2ndCurrency(getReceiveAmount(), receiveCurrency);
+        QString currencyLabel = beamui::getCurrencyLabel(beamui::convertExchangeRateCurrencyToUiCurrency(secondCurrency));
+        QString amount = _exchangeRatesManager.calcAmountIn2ndCurrency(getReceiveAmount(), receiveCurrency);
+        return amount + " " + currencyLabel;
     }
     else
     {
         return "";
     }
+}
+
+QString SendSwapViewModel::getSecondCurrencySendRateValue() const
+{
+    auto sendCurrency = ExchangeRatesManager::convertCurrencyToExchangeCurrency(getSendCurrency());
+    auto rate = _exchangeRatesManager.getRate(sendCurrency);
+    return beamui::AmountToUIString(rate);
+}
+
+QString SendSwapViewModel::getSecondCurrencyReceiveRateValue() const
+{
+    auto receiveCurrency = ExchangeRatesManager::convertCurrencyToExchangeCurrency(getReceiveCurrency());
+    auto rate = _exchangeRatesManager.getRate(receiveCurrency);
+    return beamui::AmountToUIString(rate);
+}
+
+QString SendSwapViewModel::getSecondCurrencyLabel() const
+{
+    return beamui::getCurrencyLabel(beamui::convertExchangeRateCurrencyToUiCurrency(_exchangeRatesManager.getRateUnitRaw()));
 }
