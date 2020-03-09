@@ -45,7 +45,11 @@ ColumnLayout {
 
     function getFeeInSecondCurrency(feeValue) {
         return BeamGlobals.calcFeeInSecondCurrency(feeValue, control.currency, control.secondCurrencyRateValue, control.secondCurrencyLabel)
-    }    
+    }
+
+    function getAmountInSecondCurrency() {
+        return BeamGlobals.calcAmountInSecondCurrency(control.amount, control.currency, control.secondCurrencyRateValue, control.secondCurrencyLabel)
+    }
 
     readonly property bool     isValidFee:     hasFee ? feeInput.isValid : true
     readonly property bool     isValid:        error.length == 0 && isValidFee
@@ -69,7 +73,6 @@ ColumnLayout {
     property bool     showTotalFee: false
     property bool     showAddAll:   false
     property string   maxAvailable: Utils.maxAmount
-    property alias    amountSecondCurrency:     amount2ndCurrencyText.text
     property string   secondCurrencyRateValue:  "0"
     property string   secondCurrencyLabel:      ""
 
@@ -210,10 +213,11 @@ ColumnLayout {
             visible:         error.length
         }
         SFText {
-            id:             amount2ndCurrencyText
-            visible:        text != "" && !errmsg.visible
+            id:             amountSecondCurrencyText
+            visible:        secondCurrencyLabel != "" && !errmsg.visible
             font.pixelSize: 14
             color:          Style.content_secondary
+            text:           getAmountInSecondCurrency()
         }
     }
 

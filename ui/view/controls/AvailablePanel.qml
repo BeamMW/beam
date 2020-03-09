@@ -16,11 +16,8 @@ Control {
     property string receiving
     property string receivingChange
     property string receivingIncoming
-    // second currency info
-    property string availableSecondCurrency
-    property string lockedSecondCurrency
-    property string sendingSecondCurrency
-    property string receivingSecondCurrency
+    property string secondCurrencyLabel
+    property string secondCurrencyRateValue
 
     property var onOpenExternal: null
     signal copyValueText()
@@ -161,7 +158,8 @@ Control {
             BeamAmount {
                 amount:            available
                 currencySymbol:    Utils.symbolBeam
-                secondCurrencyAmount:   availableSecondCurrency
+                secondCurrencyLabel:        control.secondCurrencyLabel
+                secondCurrencyRateValue:    control.secondCurrencyRateValue
                 spacing:           15
                 lightFont:         false
                 fontSize:          16
@@ -180,7 +178,8 @@ Control {
                 id:                lockedAmount
                 amount:            locked
                 currencySymbol:    Utils.symbolBeam
-                secondCurrencyAmount:   lockedSecondCurrency
+                secondCurrencyLabel:        control.secondCurrencyLabel
+                secondCurrencyRateValue:    control.secondCurrencyRateValue
                 lightFont:         false
                 fontSize:          16
                 copyMenuEnabled:   true
@@ -215,7 +214,8 @@ Control {
                 Layout.leftMargin: 20
                 amount:            sending
                 currencySymbol:    Utils.symbolBeam
-                secondCurrencyAmount:   sendingSecondCurrency
+                secondCurrencyLabel:        control.secondCurrencyLabel
+                secondCurrencyRateValue:    control.secondCurrencyRateValue
                 color:             Style.accent_outgoing
                 lightFont:         false
                 fontSize:          16
@@ -233,8 +233,9 @@ Control {
             BeamAmount {
                 id:                receivingAmount
                 amount:            receiving
-                currencySymbol:    Utils.symbolBeam                
-                secondCurrencyAmount:   receivingSecondCurrency
+                currencySymbol:    Utils.symbolBeam
+                secondCurrencyLabel:        control.secondCurrencyLabel
+                secondCurrencyRateValue:    control.secondCurrencyRateValue
                 color:             Style.accent_incoming
                 lightFont:         false
                 fontSize:          16
