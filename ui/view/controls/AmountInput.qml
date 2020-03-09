@@ -197,12 +197,7 @@ ColumnLayout {
         }
     }
 
-    SFText {
-        id:               amount2ndCurrencyText
-        visible:          text != ""
-        font.pixelSize:   14
-        color:            Style.content_secondary
-    }
+    
 
     Item {
         Layout.fillWidth: true
@@ -213,6 +208,12 @@ ColumnLayout {
             font.styleName:  "Italic"
             width:           parent.width
             visible:         error.length
+        }
+        SFText {
+            id:             amount2ndCurrencyText
+            visible:        text != "" && !errmsg.visible
+            font.pixelSize: 14
+            color:          Style.content_secondary
         }
     }
 

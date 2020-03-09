@@ -239,11 +239,17 @@ QString QMLGlobals::calcTotalFee(Currency currency, unsigned int feeRate)
 QString QMLGlobals::calcFeeInSecondCurrency(int fee, Currency originalCurrency, const QString& exchangeRate, const QString& secondCurrencyLabel)
 {
     // originalCurrency is needed to convert fee to string
-    // consider use uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin);
+    // possible use uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin);
 
     QString feeInOriginalCurrency = beamui::AmountToUIString(fee);
-    QString feeInSecondCurrency = multiplyWithPrecision8(feeInOriginalCurrency, exchangeRate);
-    return feeInSecondCurrency + " " + secondCurrencyLabel;
+    if (exchangeRate == "0")
+    {
+        return "- " + secondCurrencyLabel;
+    }
+    else
+    {
+        return multiplyWithPrecision8(feeInOriginalCurrency, exchangeRate) + " " + secondCurrencyLabel;
+    }
 }
 
 bool QMLGlobals::canSwap()

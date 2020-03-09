@@ -548,6 +548,5 @@ QString ReceiveSwapViewModel::getSecondCurrencyReceiveRateValue() const
 
 QString ReceiveSwapViewModel::getSecondCurrencyLabel() const
 {
-    // TODO replace beamui::getCurrencyLabel(beamui::convertExchangeRateCurrencyToUiCurrency with one function
     return beamui::getCurrencyLabel(beamui::convertExchangeRateCurrencyToUiCurrency(_exchangeRatesManager.getRateUnitRaw()));
 }
