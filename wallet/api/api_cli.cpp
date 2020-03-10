@@ -287,7 +287,7 @@ public:
             std::make_unique<denarius::SettingsProvider>(_walletDB);
         denariusSettingsProvider->Initialize();
         _denariusClient = std::make_shared<SwapClient>(
-            _ltcBridgeHolder,
+            _dBridgeHolder,
             std::move(denariusSettingsProvider),
             io::Reactor::get_Current()
         );

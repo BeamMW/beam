@@ -468,9 +468,11 @@ Item {
                                     ListElement{text: "ALL"; pair: ""}
                                     ListElement{text: "BEAM->BTC"; pair: "beambtc"}
                                     ListElement{text: "BEAM->LTC"; pair: "beamltc"}
+                                    ListElement{text: "BEAM->D"; pair: "beamd"}
                                     ListElement{text: "BEAM->QTUM"; pair: "beamqtum"}
                                     ListElement{text: "BTC->BEAM"; pair: "btcbeam"}
                                     ListElement{text: "LTC->BEAM"; pair: "ltcbeam"}
+                                    ListElement{text: "D->BEAM"; pair: "dbeam"}
                                     ListElement{text: "QTUM->BEAM"; pair: "qtumbeam"}
                                 }
                         }

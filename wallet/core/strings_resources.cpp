@@ -102,6 +102,7 @@ namespace beam
     const char kErrorNoBTCNodeCredentials[] = "BTC node credentials should be provided";
     const char kErrorSwapAmountTooLow[] = "The swap amount must be greater than the redemption fee.";
     const char kErrorNoLTCNodeCredentials[] = "LTC node credentials should be provided";
+    const char kErrorNoDNodeCredentials[] = "D node credentials should be provided";
     const char kErrorNoQTUMNodeCredentials[] = "Qtum node credentials should be provided";
     const char kErrorAmountTooLow[] = "The amount must be greater than the redemption fee.";
     const char kErrorUnableSendZeroCoin[] = "Unable to send zero coins";
@@ -133,6 +134,7 @@ namespace beam
     // Coins available for swap
     const char kSwapCoinBTC[] = "BTC";
     const char kSwapCoinLTC[] = "LTC";
+    const char kSwapCoinD[] = "D";
     const char kSwapCoinQTUM[] = "QTUM";
 
     // Treasury messages

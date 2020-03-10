@@ -71,7 +71,7 @@ function navigateToDownloads() {
 }
 
 function currenciesList() {
-    return ["BEAM", "BTC", "D", "LTC", "QTUM"]
+    return ["BEAM", "BTC", "LTC", "D", "QTUM"]
 }
 
 // TODO: refact all currencies labels to one place

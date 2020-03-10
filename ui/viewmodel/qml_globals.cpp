@@ -154,7 +154,7 @@ bool QMLGlobals::isFeeOK(uint32_t fee, Currency currency)
     case Currency::CurrBeam: return fee >= minFeeBeam();
     case Currency::CurrBtc:  return true;
     case Currency::CurrLtc:  return true;
-    case Currency::CurrD:  return true;
+    case Currency::CurrD:    return true;
     case Currency::CurrQtum: return true;
     default:
         assert(false);

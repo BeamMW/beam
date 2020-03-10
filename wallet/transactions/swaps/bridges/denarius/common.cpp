@@ -33,7 +33,8 @@ namespace beam::denarius
         return kDenariusMainnetP2KH;
 #else
 
-        return libbitcoin::wallet::ec_private::testnet_p2kh;
+        //return libbitcoin::wallet::ec_private::testnet_p2kh;
+        return kDenariusMainnetP2KH;
 #endif
     }
 
@@ -42,7 +43,8 @@ namespace beam::denarius
 #if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
         return { kMainnetGenesisBlockHash };
 #else
-        return { kTestnetGenesisBlockHash , kRegtestGenesisBlockHash };
+        //return { kTestnetGenesisBlockHash , kRegtestGenesisBlockHash };
+        return { kMainnetGenesisBlockHash };
 #endif
     }
 } // namespace beam::denarius

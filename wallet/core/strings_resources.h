@@ -100,6 +100,7 @@ namespace beam
     extern const char kErrorNoBTCNodeCredentials[];
     extern const char kErrorSwapAmountTooLow[];
     extern const char kErrorNoLTCNodeCredentials[];
+    extern const char kErrorNoDNodeCredentials[];
     extern const char kErrorNoQTUMNodeCredentials[];
     extern const char kErrorAmountTooLow[];
     extern const char kErrorUnableSendZeroCoin[];
@@ -130,6 +131,7 @@ namespace beam
     // Coins available for swap
     extern const char kSwapCoinBTC[];
     extern const char kSwapCoinLTC[];
+    extern const char kSwapCoinD[];
     extern const char kSwapCoinQTUM[];
     // Treasury messages
     extern const char kTreasuryConsumeRemaining[];

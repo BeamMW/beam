@@ -479,7 +479,6 @@ void AppModel::InitDClient()
     m_denariusClient = std::make_shared<SwapCoinClientModel>(m_dBridgeHolder, std::move(settingsProvider), *m_walletReactor);
 }
 
-
 void AppModel::InitQtumClient()
 {
     m_qtumBridgeHolder = std::make_shared<bitcoin::BridgeHolder<qtum::Electrum, qtum::QtumCore017>>();

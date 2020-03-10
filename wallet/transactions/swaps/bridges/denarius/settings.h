@@ -49,6 +49,8 @@ namespace beam::denarius
                 "electrumx4.denarius.pro:50002"
 #else // MASTERNET and TESTNET
                 "electrumx1.denarius.pro:50002",
+                "electrumx2.denarius.pro:50002",
+                "electrumx3.denarius.pro:50002",
                 "electrumx4.denarius.pro:50002"
 #endif
             };
