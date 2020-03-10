@@ -394,6 +394,8 @@ please review your settings and try again"
                                     qsTrId("general-fee-rate").arg(sendAmountInput.getCurrencyLabel()),
                                 swapCurrencyLabel: sendAmountInput.currency == Currency.CurrBeam ? "" : sendAmountInput.getCurrencyLabel(),
                                 onAcceptedCallback: acceptedCallback
+                                // secondCurrencyRate: viewModel.secondCurrencySendRateValue
+                                // secondCurrencyLabel: viewModel.secondCurrencyLabel
                             }).open();
 
                         function acceptedCallback() {

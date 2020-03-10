@@ -308,6 +308,8 @@ ColumnLayout {
                         //% "GROTH"
                         feeText: [Utils.uiStringToLocale(viewModel.feeGrothes), qsTrId("general-groth")].join(" "),
                         onAcceptedCallback: acceptedCallback
+                        // secondCurrencyRate: 
+                        // secondCurrencyLabel: 
                     }).open();
 
                 function acceptedCallback() {
