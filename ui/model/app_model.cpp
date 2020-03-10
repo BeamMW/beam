@@ -23,6 +23,7 @@
 
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
+#include "wallet/transactions/swaps/bridges/denarius/denarius.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 
 #include "keykeeper/local_private_key_keeper.h"
@@ -211,6 +212,7 @@ void AppModel::onResetWallet()
     m_wallet.reset();
     m_bitcoinClient.reset();
     m_litecoinClient.reset();
+    m_denariusClient.reset();
     m_qtumClient.reset();
 
     m_db.reset();
@@ -255,6 +257,17 @@ void AppModel::startWallet()
 
         auto ltcSecondSideFactory = beam::wallet::MakeSecondSideFactory<LitecoinSide, bitcoin::IBridge, litecoin::ISettingsProvider>(litecoinBridgeCreator, *ltcClient);
         swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
+    }
+
+    if (auto dClient = getDenariusClient(); dClient)
+    {
+        auto denariusBridgeCreator = [bridgeHolder = m_dBridgeHolder, reactor = m_walletReactor, settingsProvider = dClient]() -> bitcoin::IBridge::Ptr
+        {
+            return bridgeHolder->Get(*reactor, *settingsProvider);
+        };
+
+        auto dSecondSideFactory = beam::wallet::MakeSecondSideFactory<DenariusSide, bitcoin::IBridge, denarius::ISettingsProvider>(denariusBridgeCreator, *dClient);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Denarius, dSecondSideFactory);
     }
 
     if (auto qtumClient = getQtumClient(); qtumClient)
@@ -364,6 +377,7 @@ void AppModel::start()
 
     InitBtcClient();
     InitLtcClient();
+    InitDClient();
     InitQtumClient();
 
     m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr, m_walletReactor);
@@ -431,6 +445,11 @@ SwapCoinClientModel::Ptr AppModel::getLitecoinClient() const
     return m_litecoinClient;
 }
 
+SwapCoinClientModel::Ptr AppModel::getDenariusClient() const
+{
+    return m_denariusClient;
+}
+
 SwapCoinClientModel::Ptr AppModel::getQtumClient() const
 {
     return m_qtumClient;
@@ -451,6 +470,15 @@ void AppModel::InitLtcClient()
     settingsProvider->Initialize();
     m_litecoinClient = std::make_shared<SwapCoinClientModel>(m_ltcBridgeHolder, std::move(settingsProvider), *m_walletReactor);
 }
+
+void AppModel::InitDClient()
+{
+    m_dBridgeHolder = std::make_shared<bitcoin::BridgeHolder<denarius::Electrum, denarius::DenariusCore017>>();
+    auto settingsProvider = std::make_unique<denarius::SettingsProvider>(m_db);
+    settingsProvider->Initialize();
+    m_denariusClient = std::make_shared<SwapCoinClientModel>(m_dBridgeHolder, std::move(settingsProvider), *m_walletReactor);
+}
+
 
 void AppModel::InitQtumClient()
 {

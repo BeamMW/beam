@@ -262,6 +262,7 @@ auto SwapTxObject::getSwapCoinName() const -> QString
         {
             case AtomicSwapCoin::Bitcoin:   return toString(beamui::Currencies::Bitcoin);
             case AtomicSwapCoin::Litecoin:  return toString(beamui::Currencies::Litecoin);
+            case AtomicSwapCoin::Denarius:  return toString(beamui::Currencies::Denarius);
             case AtomicSwapCoin::Qtum:      return toString(beamui::Currencies::Qtum);
             case AtomicSwapCoin::Unknown:   return toString(beamui::Currencies::Unknown);
         }
@@ -395,6 +396,10 @@ QString SwapTxObject::getSwapCoinFeeRate() const
                 rateMeasure = QMLGlobals::ltcFeeRateLabel();
                 break;
 
+            case AtomicSwapCoin::Denarius:
+                rateMeasure = QMLGlobals::dFeeRateLabel();
+                break;
+
             case AtomicSwapCoin::Qtum:
                 rateMeasure = QMLGlobals::qtumFeeRateLabel();
                 break;
@@ -426,6 +431,10 @@ QString SwapTxObject::getSwapCoinFee() const
 
             case AtomicSwapCoin::Litecoin:
                 coinTypeQt = Currency::CurrLtc;
+                break;
+
+            case AtomicSwapCoin::Denarius:
+                coinTypeQt = Currency::CurrD;
                 break;
 
             case AtomicSwapCoin::Qtum:

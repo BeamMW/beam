@@ -23,8 +23,9 @@ public:
         CurrBeam  = 0,
         CurrBtc   = 1,
         CurrLtc   = 2,
-        CurrQtum  = 3,
-        CurrEnd   = 4
+        CurrD     = 3,
+        CurrQtum  = 4,
+        CurrEnd   = 5
     };
     Q_ENUMS(Currency)
 };

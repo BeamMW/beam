@@ -18,6 +18,7 @@
 #include "wallet/transactions/swaps/utils.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_side.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin_side.h"
+#include "wallet/transactions/swaps/bridges/denarius/denarius_side.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum_side.h"
 #include <QClipboard>
 #include "qml_globals.h"
@@ -360,6 +361,11 @@ bool ReceiveSwapViewModel::isEnough() const
         beam::Amount total = _amountSentGrothes + _sentFeeGrothes;
         return AppModel::getInstance().getLitecoinClient()->getAvailable() > total;
     }
+    case Currency::CurrD:
+    {
+        beam::Amount total = _amountSentGrothes + _sentFeeGrothes;
+        return AppModel::getInstance().getDenariusClient()->getAvailable() > total;
+    }
     case Currency::CurrQtum:
     {
         beam::Amount total = _amountSentGrothes + _sentFeeGrothes;
@@ -446,6 +452,8 @@ namespace
             return beam::wallet::AtomicSwapCoin::Bitcoin;
         case Currency::CurrLtc:
             return beam::wallet::AtomicSwapCoin::Litecoin;
+        case Currency::CurrD:
+            return beam::wallet::AtomicSwapCoin::Denarius;
         case Currency::CurrQtum:
             return beam::wallet::AtomicSwapCoin::Qtum;
         default:

@@ -53,6 +53,7 @@ public:
     NodeModel& getNode();
     SwapCoinClientModel::Ptr getBitcoinClient() const;
     SwapCoinClientModel::Ptr getLitecoinClient() const;
+    SwapCoinClientModel::Ptr getDenariusClient() const;
     SwapCoinClientModel::Ptr getQtumClient() const;
 
 public slots:
@@ -70,6 +71,7 @@ private:
     void startWallet();
     void InitBtcClient();
     void InitLtcClient();
+    void InitDClient();
     void InitQtumClient();
     void onWalledOpened(const beam::SecString& pass);
     void backupDB(const std::string& dbFilePath);
@@ -79,10 +81,12 @@ private:
     // SwapCoinClientModels must be destroyed after WalletModel
     SwapCoinClientModel::Ptr m_bitcoinClient;
     SwapCoinClientModel::Ptr m_litecoinClient;
+    SwapCoinClientModel::Ptr m_denariusClient;
     SwapCoinClientModel::Ptr m_qtumClient;
 
     beam::bitcoin::IBridgeHolder::Ptr m_btcBridgeHolder;
     beam::bitcoin::IBridgeHolder::Ptr m_ltcBridgeHolder;
+    beam::bitcoin::IBridgeHolder::Ptr m_dBridgeHolder;
     beam::bitcoin::IBridgeHolder::Ptr m_qtumBridgeHolder;
 
     WalletModel::Ptr m_wallet;

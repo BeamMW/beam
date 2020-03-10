@@ -26,6 +26,7 @@ public class ExchangeRateDTO
         Beam,
         Bitcoin,
         Litecoin,
+        Denarius,
         Qtum,
         Usd,
         Unknown

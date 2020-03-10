@@ -23,6 +23,8 @@ AtomicSwapCoin from_string(const std::string& value)
         return AtomicSwapCoin::Bitcoin;
     else if (value == "ltc")
         return AtomicSwapCoin::Litecoin;
+    else if (value == "d")
+        return AtomicSwapCoin::Denarius;
     else if (value == "qtum")
         return AtomicSwapCoin::Qtum;
 
@@ -35,6 +37,7 @@ uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept
     {
     case AtomicSwapCoin::Bitcoin:
     case AtomicSwapCoin::Litecoin:
+    case AtomicSwapCoin::Denarius:
     case AtomicSwapCoin::Qtum:
         return libbitcoin::satoshi_per_bitcoin;
     default:
@@ -78,6 +81,8 @@ string to_string(beam::wallet::AtomicSwapCoin value)
         return "BTC";
     case beam::wallet::AtomicSwapCoin::Litecoin:
         return "LTC";
+    case beam::wallet::AtomicSwapCoin::Denarius:
+        return "D";
     case beam::wallet::AtomicSwapCoin::Qtum:
         return "QTUM";
     default:

@@ -48,17 +48,20 @@ public:
     Q_INVOKABLE static unsigned int defFeeBeam();
     Q_INVOKABLE static unsigned int defFeeRateBtc();
     Q_INVOKABLE static unsigned int defFeeRateLtc();
+    Q_INVOKABLE static unsigned int defFeeRateD();
     Q_INVOKABLE static unsigned int defFeeRateQtum();
 
     Q_INVOKABLE static QString beamFeeRateLabel();
     Q_INVOKABLE static QString btcFeeRateLabel();
     Q_INVOKABLE static QString ltcFeeRateLabel();
+    Q_INVOKABLE static QString dFeeRateLabel();
     Q_INVOKABLE static QString qtumFeeRateLabel();
 
     // Swap & other currencies utils
     Q_INVOKABLE static bool canSwap();
     Q_INVOKABLE static bool haveBtc();
     Q_INVOKABLE static bool haveLtc();
+    Q_INVOKABLE static bool haveD();
     Q_INVOKABLE static bool haveQtum();
 
     Q_INVOKABLE static QString rawTxParametrsToTokenStr(

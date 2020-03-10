@@ -19,4 +19,4 @@
 namespace beam::qtum
 {
     using Electrum = bitcoin::Electrum;
-} // namespace beam::litecoin
+} // namespace beam::qtum

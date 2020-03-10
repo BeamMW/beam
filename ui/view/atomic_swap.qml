@@ -242,6 +242,10 @@ Item {
                     return viewModel.hasLtcTx ? kTxInProgress : "";
                 }
 
+                function dActiveTxStr() {
+                    return viewModel.hasDTx ? kTxInProgress : "";
+                }
+
                 function qtumActiveTxStr() {
                     return viewModel.hasQtumTx ? kTxInProgress : "";
                 }
@@ -270,6 +274,19 @@ Item {
                     isOk: viewModel.ltcOK
                     isConnecting: viewModel.ltcConnecting
                     visible: BeamGlobals.haveLtc()
+                    textConnecting: qsTrId("swap-connecting")
+                    textConnectionError: qsTrId("swap-beta-connection-error")
+                }
+
+                SwapCurrencyAmountPane {
+                    gradLeft: Style.swapCurrencyPaneGrLeftD
+                    currencyIcon: "qrc:/assets/icon-d.svg"
+                    amount: viewModel.hasDTx ? "" : viewModel.dAvailable
+                    currencySymbol: Utils.symbolD
+                    valueSecondaryStr: parent.dActiveTxStr()
+                    isOk: viewModel.dOK
+                    isConnecting: viewModel.dConnecting
+                    visible: BeamGlobals.haveD()
                     textConnecting: qsTrId("swap-connecting")
                     textConnectionError: qsTrId("swap-beta-connection-error")
                 }
@@ -315,6 +332,8 @@ Item {
                         currencyIcons.push("qrc:/assets/icon-btc.svg");
                     if (!BeamGlobals.haveLtc())
                         currencyIcons.push("qrc:/assets/icon-ltc.svg");
+                    if (!BeamGlobals.haveD())
+                        currencyIcons.push("qrc:/assets/icon-d.svg");
                     if (!BeamGlobals.haveQtum())
                         currencyIcons.push("qrc:/assets/icon-qtum.svg");
 
@@ -1129,6 +1148,7 @@ Please try again later or create an offer yourself."
         switch(coin) {
             case "btc": return "qrc:/assets/icon-btc.svg";
             case "ltc": return "qrc:/assets/icon-ltc.svg";
+            case "d": return "qrc:/assets/icon-d.svg";
             case "qtum": return "qrc:/assets/icon-qtum.svg";
             default: return "";
         }

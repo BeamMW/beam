@@ -24,6 +24,7 @@ class IAtomicSwapProvider
 public:
     virtual Amount getBtcAvailable() const = 0;
     virtual Amount getLtcAvailable() const = 0;
+    virtual Amount getDAvailable() const = 0;
     virtual Amount getQtumAvailable() const = 0;
     virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
 };

@@ -71,13 +71,14 @@ function navigateToDownloads() {
 }
 
 function currenciesList() {
-    return ["BEAM", "BTC", "LTC", "QTUM"]
+    return ["BEAM", "BTC", "D", "LTC", "QTUM"]
 }
 
 // TODO: refact all currencies labels to one place
 const symbolBeam  = "BEAM";
 const symbolBtc   = "BTC";
 const symbolLtc   = "LTC";
+const symbolD     = "D";
 const symbolQtum  = "QTUM";
 
 const maxAmount   = "254000000";

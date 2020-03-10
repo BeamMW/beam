@@ -50,6 +50,8 @@ namespace
             return Currency::CurrBtc;
         case beam::wallet::AtomicSwapCoin::Litecoin:
             return Currency::CurrLtc;
+        case beam::wallet::AtomicSwapCoin::Denarius:
+            return Currency::CurrD;
         case beam::wallet::AtomicSwapCoin::Qtum:
             return Currency::CurrQtum;
         default:
@@ -306,6 +308,11 @@ bool SendSwapViewModel::isEnough() const
     {
         const beam::Amount total = _sendAmountGrothes + _sendFeeGrothes;
         return AppModel::getInstance().getLitecoinClient()->getAvailable() > total;
+    }
+    case Currency::CurrD:
+    {
+        const beam::Amount total = _sendAmountGrothes + _sendFeeGrothes;
+        return AppModel::getInstance().getDenariusClient()->getAvailable() > total;
     }
     case Currency::CurrQtum:
     {

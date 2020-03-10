@@ -29,10 +29,12 @@
 #include "mnemonic/mnemonic.h"
 
 #include "wallet/transactions/swaps/bridges/litecoin/settings.h"
+#include "wallet/transactions/swaps/bridges/denarius/settings.h"
 #include "wallet/transactions/swaps/bridges/qtum/settings.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/common.h"
 #include "wallet/transactions/swaps/bridges/qtum/common.h"
 #include "wallet/transactions/swaps/bridges/litecoin/common.h"
+#include "wallet/transactions/swaps/bridges/denarius/common.h"
 
 using namespace beam;
 using namespace ECC;
@@ -161,6 +163,8 @@ QString SwapCoinSettingsItem::getFeeRateLabel() const
             return QMLGlobals::btcFeeRateLabel();;
         case beam::wallet::AtomicSwapCoin::Litecoin:
             return QMLGlobals::ltcFeeRateLabel();
+        case beam::wallet::AtomicSwapCoin::Denarius:
+            return QMLGlobals::dFeeRateLabel();
         case beam::wallet::AtomicSwapCoin::Qtum:
             return QMLGlobals::qtumFeeRateLabel();
         default:
@@ -199,6 +203,9 @@ QString SwapCoinSettingsItem::getShowSeedDialogTitle() const
         case beam::wallet::AtomicSwapCoin::Litecoin:
             //% "Litecoin seed phrase"
             return qtTrId("litecoin-show-seed-title");
+        case beam::wallet::AtomicSwapCoin::Denarius:
+            //% "Denarius seed phrase"
+            return qtTrId("denarius-show-seed-title");
         case beam::wallet::AtomicSwapCoin::Qtum:
             //% "Qtum seed phrase"
             return qtTrId("qtum-show-seed-title");
@@ -220,6 +227,9 @@ QString SwapCoinSettingsItem::getShowAddressesDialogTitle() const
         case beam::wallet::AtomicSwapCoin::Litecoin:
             //% "Litecoin wallet addresses"
             return qtTrId("litecoin-show-addresses-title");
+        case beam::wallet::AtomicSwapCoin::Denarius:
+            //% "Denarius wallet addresses"
+            return qtTrId("denarius-show-addresses-title");
         case beam::wallet::AtomicSwapCoin::Qtum:
             //% "Qtum wallet addresses"
             return qtTrId("qtum-show-addresses-title");
@@ -241,6 +251,9 @@ QString SwapCoinSettingsItem::getGeneralTitle() const
         case wallet::AtomicSwapCoin::Litecoin:
             //% "Litecoin"
             return qtTrId("general-litecoin");
+        case wallet::AtomicSwapCoin::Denarius:
+            //% "Denarius"
+            return qtTrId("general-denarius");
         case wallet::AtomicSwapCoin::Qtum:
             //% "QTUM"
             return qtTrId("general-qtum");
@@ -263,6 +276,9 @@ QString SwapCoinSettingsItem::getConnectedNodeTitle() const
         case wallet::AtomicSwapCoin::Litecoin:
             //% "Litecoin node"
             return qtTrId("settings-swap-litecoin-node");
+        case wallet::AtomicSwapCoin::Denarius:
+            //% "Denarius node"
+            return qtTrId("settings-swap-denarius-node");
         case wallet::AtomicSwapCoin::Qtum:
             //% "Qtum node"
             return qtTrId("settings-swap-qtum-node");
@@ -285,6 +301,9 @@ QString SwapCoinSettingsItem::getConnectedElectrumTitle() const
         case wallet::AtomicSwapCoin::Litecoin:
             //% "Litecoin electrum"
             return qtTrId("settings-swap-litecoin-electrum");
+        case wallet::AtomicSwapCoin::Denarius:
+            //% "Denarius electrum"
+            return qtTrId("settings-swap-denarius-electrum");
         case wallet::AtomicSwapCoin::Qtum:
             //% "Qtum electrum"
             return qtTrId("settings-swap-qtum-electrum");
@@ -1208,6 +1227,7 @@ const QList<QObject*>& SettingsViewModel::getSwapCoinSettings()
     {
         m_swapSettings.push_back(new SwapCoinSettingsItem(*AppModel::getInstance().getBitcoinClient(), beam::wallet::AtomicSwapCoin::Bitcoin));
         m_swapSettings.push_back(new SwapCoinSettingsItem(*AppModel::getInstance().getLitecoinClient(), beam::wallet::AtomicSwapCoin::Litecoin));
+        m_swapSettings.push_back(new SwapCoinSettingsItem(*AppModel::getInstance().getDenariusClient(), beam::wallet::AtomicSwapCoin::Denarius));
         m_swapSettings.push_back(new SwapCoinSettingsItem(*AppModel::getInstance().getQtumClient(), beam::wallet::AtomicSwapCoin::Qtum));
     }
     return m_swapSettings;

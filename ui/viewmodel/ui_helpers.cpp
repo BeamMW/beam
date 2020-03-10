@@ -40,6 +40,9 @@ namespace beamui
             case Currencies::Litecoin:
                 return QString(currencyLitecoinLabel.data());
 
+            case Currencies::Denarius:
+                return QString(currencyDenariusLabel.data());
+
             case Currencies::Qtum:
                 return QString(currencyQtumLabel.data());
 
@@ -113,6 +116,8 @@ namespace beamui
             return beamui::Currencies::Bitcoin;
         case wallet::AtomicSwapCoin::Litecoin:
             return beamui::Currencies::Litecoin;
+        case wallet::AtomicSwapCoin::Denarius:
+            return beamui::Currencies::Denarius;
         case wallet::AtomicSwapCoin::Qtum:
             return beamui::Currencies::Qtum;
         case wallet::AtomicSwapCoin::Unknown:
@@ -132,6 +137,8 @@ namespace beamui
             return beamui::Currencies::Bitcoin;
         case wallet::ExchangeRate::Currency::Litecoin:
             return beamui::Currencies::Litecoin;
+        case wallet::ExchangeRate::Currency::Denarius:
+            return beamui::Currencies::Denarius;
         case wallet::ExchangeRate::Currency::Qtum:
             return beamui::Currencies::Qtum;
         case wallet::ExchangeRate::Currency::Usd:
@@ -269,6 +276,7 @@ namespace beamui
             case Currencies::Beam: return "beam";
             case Currencies::Bitcoin: return "btc";
             case Currencies::Litecoin: return "ltc";
+            case Currencies::Denarius: return "d";
             case Currencies::Qtum: return "qtum";
             case Currencies::Usd: return "usd";
             default: return "unknown";

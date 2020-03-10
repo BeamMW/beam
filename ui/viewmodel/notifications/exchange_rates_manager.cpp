@@ -97,6 +97,8 @@ ExchangeRate::Currency ExchangeRatesManager::convertCurrencyToExchangeCurrency(W
         return ExchangeRate::Currency::Bitcoin;
     case Currency::CurrLtc:
         return ExchangeRate::Currency::Litecoin;
+    case Currency::CurrD:
+        return ExchangeRate::Currency::Denarius;
     case Currency::CurrQtum:
         return ExchangeRate::Currency::Qtum;
     default:

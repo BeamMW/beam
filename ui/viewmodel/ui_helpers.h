@@ -16,6 +16,7 @@ namespace beamui
     constexpr std::string_view currencyBeamLabel =      "BEAM";
     constexpr std::string_view currencyBitcoinLabel =   "BTC";
     constexpr std::string_view currencyLitecoinLabel =  "LTC";
+    constexpr std::string_view currencyDenariusLabel =  "D";
     constexpr std::string_view currencyQtumLabel =      "QTUM";
     constexpr std::string_view currencyUsdLabel =       "USD";
     constexpr std::string_view currencyUnknownLabel =   "";
@@ -25,6 +26,7 @@ namespace beamui
         Beam,
         Bitcoin,
         Litecoin,
+        Denarius,
         Qtum,
         Usd,
         Unknown

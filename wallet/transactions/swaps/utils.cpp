@@ -18,8 +18,10 @@
 #include "wallet/core/wallet_db.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/electrum.h"
+#include "wallet/transactions/swaps/bridges/denarius/electrum.h"
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
+#include "wallet/transactions/swaps/bridges/denarius/denarius.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 
 namespace beam::wallet
@@ -144,6 +146,26 @@ void RegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
     }
 
     {
+        auto dSettingsProvider = std::make_shared<denarius::SettingsProvider>(walletDB);
+        dSettingsProvider->Initialize();
+
+        // dSettingsProvider stored in denariusBridgeCreator
+        auto denariusBridgeCreator = [settingsProvider = dSettingsProvider]() -> bitcoin::IBridge::Ptr
+        {
+            if (settingsProvider->GetSettings().IsElectrumActivated())
+                return std::make_shared<denarius::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+
+            if (settingsProvider->GetSettings().IsCoreActivated())
+            return std::make_shared<denarius::DenariusCore017>(io::Reactor::get_Current(), *settingsProvider);
+
+            return bitcoin::IBridge::Ptr();
+        };
+
+        auto dSecondSideFactory = wallet::MakeSecondSideFactory<DenariusSide, denarius::Electrum, denarius::ISettingsProvider>(denariusBridgeCreator, *dSettingsProvider);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Denarius, dSecondSideFactory);
+    }
+
+    {
         auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
         qtumSettingsProvider->Initialize();
 
@@ -194,6 +216,19 @@ Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
 
         return ltcSettings.GetFeeRate();
     }
+    case AtomicSwapCoin::Denarius:
+    {
+        auto dSettingsProvider = std::make_shared<denarius::SettingsProvider>(walletDB);
+        dSettingsProvider->Initialize();
+
+        auto dSettings = dSettingsProvider->GetSettings();
+        if (!dSettings.IsInitialized())
+        {
+            throw std::runtime_error("D settings should be initialized.");
+        }
+
+        return dSettings.GetFeeRate();
+    }
     case AtomicSwapCoin::Qtum:
     {
         auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
@@ -223,6 +258,8 @@ bool IsSwapAmountValid(
         return BitcoinSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Litecoin:
         return LitecoinSide::CheckAmount(swapAmount, swapFeeRate);
+    case AtomicSwapCoin::Denarius:
+        return DenariusSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Qtum:
         return QtumSide::CheckAmount(swapAmount, swapFeeRate);
     default:

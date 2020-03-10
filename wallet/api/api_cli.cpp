@@ -51,6 +51,7 @@
 #include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
+#include "wallet/transactions/swaps/bridges/denarius/denarius.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
@@ -219,6 +220,11 @@ public:
         return _litecoinClient ? _litecoinClient->GetAvailable() : 0;
     }
 
+    Amount getDAvailable() const override
+    {
+        return _denariusClient ? _denariusClient->GetAvailable() : 0;
+    }
+
     Amount getQtumAvailable() const override
     {
         return _qtumClient ? _qtumClient->GetAvailable() : 0;
@@ -274,6 +280,18 @@ public:
             io::Reactor::get_Current()
         );
 
+        _dBridgeHolder = std::make_shared<
+            bitcoin::BridgeHolder<denarius::Electrum,
+                                  denarius::DenariusCore017>>();
+        auto denariusSettingsProvider =
+            std::make_unique<denarius::SettingsProvider>(_walletDB);
+        denariusSettingsProvider->Initialize();
+        _denariusClient = std::make_shared<SwapClient>(
+            _ltcBridgeHolder,
+            std::move(denariusSettingsProvider),
+            io::Reactor::get_Current()
+        );
+
         _qtumBridgeHolder = std::make_shared<
             bitcoin::BridgeHolder<qtum::Electrum, qtum::QtumCore017>>();
         auto qtumSettingsProvider =
@@ -300,10 +318,12 @@ private:
 
     beam::bitcoin::IBridgeHolder::Ptr _btcBridgeHolder;
     beam::bitcoin::IBridgeHolder::Ptr _ltcBridgeHolder;
+    beam::bitcoin::IBridgeHolder::Ptr _dBridgeHolder;
     beam::bitcoin::IBridgeHolder::Ptr _qtumBridgeHolder;
 
     SwapClient::Ptr _bitcoinClient;
     SwapClient::Ptr _litecoinClient;
+    SwapClient::Ptr _denariusClient;
     SwapClient::Ptr _qtumClient;
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 

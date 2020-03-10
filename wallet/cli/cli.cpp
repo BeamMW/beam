@@ -24,8 +24,10 @@
 #include "wallet/core/strings_resources.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/electrum.h"
+#include "wallet/transactions/swaps/bridges/denarius/electrum.h"
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
+#include "wallet/transactions/swaps/bridges/denarius/denarius.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 
 #include "wallet/transactions/swaps/common.h"
@@ -1559,6 +1561,10 @@ namespace
             {
                 return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>(vm, walletDB);
             }
+            case beam::wallet::AtomicSwapCoin::Denarius:
+            {
+                return HandleSwapCoin<denarius::SettingsProvider, denarius::Settings, denarius::DenariusCoreSettings, denarius::ElectrumSettings>(vm, walletDB);
+            }
             case beam::wallet::AtomicSwapCoin::Qtum:
             {
                 return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>(vm, walletDB);
@@ -1592,6 +1598,11 @@ namespace
             case beam::wallet::AtomicSwapCoin::Litecoin:
             {
                 ShowSwapSettings<litecoin::SettingsProvider>(walletDB, "litecoin");
+                break;
+            }
+            case beam::wallet::AtomicSwapCoin::Denarius:
+            {
+                ShowSwapSettings<denarius::SettingsProvider>(walletDB, "denarius");
                 break;
             }
             case beam::wallet::AtomicSwapCoin::Qtum:
@@ -1750,6 +1761,22 @@ namespace
                 throw std::runtime_error("The swap amount must be greater than the redemption fee.");
             }
             swapFeeRate = ltcSettings.GetFeeRate();
+        }
+        else if (swapCoin == wallet::AtomicSwapCoin::Denarius)
+        {
+            auto dSettingsProvider = std::make_shared<denarius::SettingsProvider>(walletDB);
+            dSettingsProvider->Initialize();
+            auto dSettings = dSettingsProvider->GetSettings();
+            if (!dSettings.IsInitialized())
+            {
+                throw std::runtime_error("D settings should be initialized.");
+            }
+
+            if (!DenariusSide::CheckAmount(*swapAmount, dSettings.GetFeeRate()))
+            {
+                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+            }
+            swapFeeRate = dSettings.GetFeeRate();
         }
         else if (swapCoin == wallet::AtomicSwapCoin::Qtum)
         {

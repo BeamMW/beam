@@ -41,6 +41,8 @@ int& SwapOffersViewModel::ActiveTxCounters::getCounter(AtomicSwapCoin swapCoinTy
         return btc;
     case wallet::AtomicSwapCoin::Litecoin:
         return ltc;
+    case wallet::AtomicSwapCoin::Denarius:
+        return d;
     case wallet::AtomicSwapCoin::Qtum:
         return qtum;
     default:
@@ -50,13 +52,14 @@ int& SwapOffersViewModel::ActiveTxCounters::getCounter(AtomicSwapCoin swapCoinTy
 
 void SwapOffersViewModel::ActiveTxCounters::clear()
 {
-    btc = ltc = qtum = 0;
+    btc = ltc = d = qtum = 0;
 }
 
 SwapOffersViewModel::SwapOffersViewModel()
     :   m_walletModel{*AppModel::getInstance().getWallet()},
         m_btcClient(AppModel::getInstance().getBitcoinClient()),
         m_ltcClient(AppModel::getInstance().getLitecoinClient()),
+        m_dClient(AppModel::getInstance().getDenariusClient()),
         m_qtumClient(AppModel::getInstance().getQtumClient())
 {
     connect(&m_walletModel, SIGNAL(availableChanged()), this, SIGNAL(beamAvailableChanged()));
@@ -70,9 +73,11 @@ SwapOffersViewModel::SwapOffersViewModel()
 
     connect(m_btcClient.get(),  SIGNAL(balanceChanged()), this, SIGNAL(btcAvailableChanged()));
     connect(m_ltcClient.get(), SIGNAL(balanceChanged()), this, SIGNAL(ltcAvailableChanged()));
+    connect(m_dClient.get(), SIGNAL(balanceChanged()), this, SIGNAL(dAvailableChanged()));
     connect(m_qtumClient.get(), SIGNAL(balanceChanged()), this, SIGNAL(qtumAvailableChanged()));
     connect(m_btcClient.get(), SIGNAL(statusChanged()), this, SIGNAL(btcOKChanged()));
     connect(m_ltcClient.get(), SIGNAL(statusChanged()), this, SIGNAL(ltcOKChanged()));
+    connect(m_dClient.get(), SIGNAL(statusChanged()), this, SIGNAL(dOKChanged()));
     connect(m_qtumClient.get(), SIGNAL(statusChanged()), this, SIGNAL(qtumOKChanged()));
 
     monitorAllOffersFitBalance();
@@ -82,10 +87,12 @@ SwapOffersViewModel::SwapOffersViewModel()
     
     m_minTxConfirmations.emplace(AtomicSwapCoin::Bitcoin, m_btcClient->GetSettings().GetTxMinConfirmations());
     m_minTxConfirmations.emplace(AtomicSwapCoin::Litecoin, m_ltcClient->GetSettings().GetTxMinConfirmations());
+    m_minTxConfirmations.emplace(AtomicSwapCoin::Denarius, m_dClient->GetSettings().GetTxMinConfirmations());
     m_minTxConfirmations.emplace(AtomicSwapCoin::Qtum, m_qtumClient->GetSettings().GetTxMinConfirmations());
 
     m_blocksPerHour.emplace(AtomicSwapCoin::Bitcoin, m_btcClient->GetSettings().GetBlocksPerHour());
     m_blocksPerHour.emplace(AtomicSwapCoin::Litecoin, m_ltcClient->GetSettings().GetBlocksPerHour());
+    m_blocksPerHour.emplace(AtomicSwapCoin::Denarius, m_dClient->GetSettings().GetBlocksPerHour());
     m_blocksPerHour.emplace(AtomicSwapCoin::Qtum, m_qtumClient->GetSettings().GetBlocksPerHour());
 }
 
@@ -114,6 +121,11 @@ QString SwapOffersViewModel::ltcAvailable() const
     return beamui::AmountToUIString(m_ltcClient->getAvailable());
 }
 
+QString SwapOffersViewModel::dAvailable() const
+{
+    return beamui::AmountToUIString(m_dClient->getAvailable());
+}
+
 QString SwapOffersViewModel::qtumAvailable() const
 {
     return beamui::AmountToUIString(m_qtumClient->getAvailable());
@@ -129,6 +141,11 @@ bool SwapOffersViewModel::ltcOK()  const
     return m_ltcClient->getStatus() == Client::Status::Connected;
 }
 
+bool SwapOffersViewModel::dOK()  const
+{
+    return m_dClient->getStatus() == Client::Status::Connected;
+}
+
 bool SwapOffersViewModel::qtumOK() const
 {
     return m_qtumClient->getStatus() == Client::Status::Connected;
@@ -142,6 +159,11 @@ bool SwapOffersViewModel::btcConnecting()  const
 bool SwapOffersViewModel::ltcConnecting()  const
 {
     return m_ltcClient->getStatus() == Client::Status::Connecting;
+}
+
+bool SwapOffersViewModel::dConnecting()  const
+{
+    return m_dClient->getStatus() == Client::Status::Connecting;
 }
 
 bool SwapOffersViewModel::qtumConnecting()  const
@@ -403,6 +425,11 @@ bool SwapOffersViewModel::hasLtcTx() const
     return m_activeTxCounters.ltc > 0;
 }
 
+bool SwapOffersViewModel::hasDTx() const
+{
+    return m_activeTxCounters.d > 0;
+}
+
 bool SwapOffersViewModel::hasQtumTx() const
 {
     return m_activeTxCounters.qtum > 0;
@@ -445,6 +472,11 @@ bool SwapOffersViewModel::isOfferFitBalance(const SwapOfferItem& offer)
     {
         auto myLtcAmount = ltcOK() ? m_ltcClient->getAvailable() : 0;
         return isSendBeam ? ltcOK() : swapCoinOfferAmount <= myLtcAmount;
+    }
+    else if (swapCoinName == toString(beamui::Currencies::Denarius))
+    {
+        auto myDAmount = dOK() ? m_dClient->getAvailable() : 0;
+        return isSendBeam ? dOK() : swapCoinOfferAmount <= myDAmount;
     }
     else if (swapCoinName == toString(beamui::Currencies::Qtum))
     {

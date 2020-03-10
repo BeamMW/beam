@@ -59,6 +59,10 @@ bool checkIsEnoughtSwapAmount(
         {
             return swapProvider.getLtcAvailable() > total;
         }
+        case AtomicSwapCoin::Denarius:
+        {
+            return swapProvider.getDAvailable() > total;
+        }
         case AtomicSwapCoin::Qtum:
         {
             return swapProvider.getQtumAvailable() > total;

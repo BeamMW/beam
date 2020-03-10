@@ -22,6 +22,7 @@
 #include "wallet/client/extensions/offers_board/swap_offer_token.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_side.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin_side.h"
+#include "wallet/transactions/swaps/bridges/denarius/denarius_side.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum_side.h"
 #include "utility/string_helpers.h"
 
@@ -153,6 +154,7 @@ bool QMLGlobals::isFeeOK(uint32_t fee, Currency currency)
     case Currency::CurrBeam: return fee >= minFeeBeam();
     case Currency::CurrBtc:  return true;
     case Currency::CurrLtc:  return true;
+    case Currency::CurrD:  return true;
     case Currency::CurrQtum: return true;
     default:
         assert(false);
@@ -181,6 +183,12 @@ uint32_t QMLGlobals::defFeeRateLtc()
 {
     const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
     return ltcSettings.GetFeeRate();
+}
+
+uint32_t QMLGlobals::defFeeRateD()
+{
+    const auto dSettings = AppModel::getInstance().getDenariusClient()->GetSettings();
+    return dSettings.GetFeeRate();
 }
 
 uint32_t QMLGlobals::defFeeRateQtum()
@@ -214,6 +222,11 @@ QString QMLGlobals::ltcFeeRateLabel()
     return "ph/kB";
 }
 
+QString QMLGlobals::dFeeRateLabel()
+{
+    return "narii/kB";
+}
+
 QString QMLGlobals::qtumFeeRateLabel()
 {
     return "qsat/kB";
@@ -240,6 +253,10 @@ QString QMLGlobals::calcTotalFee(Currency currency, unsigned int feeRate)
         case Currency::CurrLtc: {
             auto total = beam::wallet::LitecoinSide::CalcTotalFee(feeRate);
             return QString::fromStdString(std::to_string(total)) + " ph";
+        }
+        case Currency::CurrD: {
+            auto total = beam::wallet::DenariusSide::CalcTotalFee(feeRate);
+            return QString::fromStdString(std::to_string(total)) + " narii";
         }
         case Currency::CurrQtum: {
             auto total = beam::wallet::QtumSide::CalcTotalFee(feeRate);
@@ -298,6 +315,11 @@ bool QMLGlobals::haveLtc()
     return AppModel::getInstance().getLitecoinClient()->GetSettings().IsActivated();
 }
 
+bool QMLGlobals::haveD()
+{
+    return AppModel::getInstance().getDenariusClient()->GetSettings().IsActivated();
+}
+
 bool QMLGlobals::haveQtum()
 {
     return AppModel::getInstance().getQtumClient()->GetSettings().IsActivated();
@@ -330,6 +352,12 @@ bool QMLGlobals::canReceive(Currency currency)
     case Currency::CurrLtc:
     {
         auto client = AppModel::getInstance().getLitecoinClient();
+        return client->GetSettings().IsActivated() &&
+               client->getStatus() == beam::bitcoin::Client::Status::Connected;
+    }
+    case Currency::CurrD:
+    {
+        auto client = AppModel::getInstance().getDenariusClient();
         return client->GetSettings().IsActivated() &&
                client->getStatus() == beam::bitcoin::Client::Status::Connected;
     }
@@ -366,6 +394,11 @@ QString QMLGlobals::getCurrencyName(Currency currency)
         //% "Litecoin"
         return qtTrId("general-litecoin");
     }
+    case Currency::CurrD:
+    {
+        //% "Denarius"
+        return qtTrId("general-denarius");
+    }
     case Currency::CurrQtum:
     {
         //% "QTUM"
@@ -390,6 +423,9 @@ bool QMLGlobals::isSwapFeeOK(unsigned int amount, unsigned int fee, Currency cur
         }
         case Currency::CurrLtc: {
             return beam::wallet::LitecoinSide::CheckAmount(amount, fee);
+        }
+        case Currency::CurrD: {
+            return beam::wallet::DenariusSide::CheckAmount(amount, fee);
         }
         case Currency::CurrQtum: {
             return beam::wallet::QtumSide::CheckAmount(amount, fee);

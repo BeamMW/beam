@@ -18,6 +18,9 @@ set(SWAP_SRC
     bridges/litecoin/litecoin_core_016.cpp
     bridges/litecoin/litecoin_core_017.cpp
     bridges/litecoin/litecoin_side.cpp
+    bridges/denarius/common.cpp
+    bridges/denarius/denarius_core_017.cpp
+    bridges/denarius/denarius_side.cpp
     bridges/qtum/common.cpp
     bridges/qtum/qtum_core_017.cpp
     bridges/qtum/qtum_side.cpp

@@ -28,6 +28,7 @@ namespace beam::wallet
     constexpr std::string_view beamCurrencyStr = "beam";
     constexpr std::string_view btcCurrencyStr = "btc";
     constexpr std::string_view ltcCurrencyStr = "ltc";
+    constexpr std::string_view dCurrencyStr = "d";
     constexpr std::string_view qtumCurrencyStr = "qtum";
     constexpr std::string_view usdCurrencyStr = "usd";
     constexpr std::string_view unknownCurrencyStr = "unknown";
@@ -92,6 +93,7 @@ namespace beam::wallet
             Beam,
             Bitcoin,
             Litecoin,
+            Denarius,
             Qtum,
             Usd,
             Unknown
@@ -114,6 +116,8 @@ namespace beam::wallet
                     return std::string(btcCurrencyStr);
                 case Currency::Litecoin:
                     return std::string(ltcCurrencyStr);
+                case Currency::Denarius:
+                    return std::string(dCurrencyStr);
                 case Currency::Qtum:
                     return std::string(qtumCurrencyStr);
                 case Currency::Usd:
@@ -131,6 +135,8 @@ namespace beam::wallet
                 return Currency::Bitcoin;
             else if (c == ltcCurrencyStr)
                 return Currency::Litecoin;
+            else if (c == dCurrencyStr)
+                return Currency::Denarius;
             else if (c == qtumCurrencyStr)
                 return Currency::Qtum;
             else if (c == usdCurrencyStr)
