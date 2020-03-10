@@ -51,6 +51,7 @@ namespace beam::wallet
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #define SWAP_OFFER_API_METHODS(macro) \
     macro(OffersList,       "swap_offers_list",     API_READ_ACCESS)    \
+    macro(OffersBoard,      "swap_offers_board",    API_READ_ACCESS)    \
     macro(CreateOffer,      "swap_create_offer",    API_WRITE_ACCESS)   \
     macro(PublishOffer,     "swap_publish_offer",   API_WRITE_ACCESS)   \
     macro(AcceptOffer,      "swap_accept_offer",    API_WRITE_ACCESS)   \
@@ -136,8 +137,22 @@ namespace beam::wallet
     {
         struct
         {
+            boost::optional<AtomicSwapCoin> swapCoin;
             boost::optional<SwapOfferStatus> status;
-            boost::optional<bool> showAll;
+        } filter;
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            std::vector<SwapOffer> list;
+        };
+    };
+
+    struct OffersBoard
+    {
+        struct
+        {
+            boost::optional<AtomicSwapCoin> swapCoin;
         } filter;
         struct Response
         {

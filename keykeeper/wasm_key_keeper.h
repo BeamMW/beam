@@ -15,7 +15,6 @@
 #pragma once
 
 #include "core/block_rw.h"
-#include "3rdparty/utilstrencodings.h"
 #include "wallet/core/private_key_keeper.h"
 
 namespace beam::wallet
@@ -32,34 +31,5 @@ namespace beam::wallet
         inline const char* PublicKdf = "pub_kdf";
         inline const char* PublicNonce = "pub_nonce";
         inline const char* Commitment = "commitment";
-    }
-
-    template <typename T>
-    std::string to_base64(const T& obj)
-    {
-        ByteBuffer buffer;
-        {
-            Serializer s;
-            s & obj;
-            s.swap_buf(buffer);
-        }
-
-        return EncodeBase64(buffer.data(), buffer.size());
-    }
-
-    template <typename T>
-    T from_base64(const std::string& base64)
-    {
-        T obj;
-        {
-            auto data = DecodeBase64(base64.data());
-
-            Deserializer d;
-            d.reset(data.data(), data.size());
-
-            d & obj;
-        }
-
-        return obj;
     }
 };

@@ -87,27 +87,6 @@ beam::Amount ExchangeRatesManager::getRate(ExchangeRate::Currency currency) cons
     return (it == std::cend(m_rates)) ? 0 : it->second;
 }
 
-/**
- *  Calculate amount in second currency
- *  @amount     Amount in main currency
- *  @currency   Main currency
- *  @return     Equal value in second currency
- */
-QString ExchangeRatesManager::calcAmountIn2ndCurrency(const QString& amount, ExchangeRate::Currency currency) const
-{
-    beam::Amount rate = getRate(currency);
-    // TODO: return with currency suffix
-
-    if (rate == 0)
-    {
-        return "-";
-    }
-    else
-    {
-        return QMLGlobals::multiplyWithPrecision8(amount, beamui::AmountToUIString(rate));
-    }
-}
-
 ExchangeRate::Currency ExchangeRatesManager::convertCurrencyToExchangeCurrency(WalletCurrency::Currency uiCurrency)
 {
     switch (uiCurrency)

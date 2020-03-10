@@ -27,7 +27,6 @@ class ExchangeRatesManager : public QObject
 public:
     ExchangeRatesManager();
 
-    QString calcAmountIn2ndCurrency(const QString&, beam::wallet::ExchangeRate::Currency) const;
     beam::Amount getRate(beam::wallet::ExchangeRate::Currency) const;
     beam::wallet::ExchangeRate::Currency getRateUnitRaw() const;
 

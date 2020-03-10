@@ -162,10 +162,8 @@ Item {
                 receiving:         viewModel.beamReceiving
                 receivingChange:   viewModel.beamReceivingChange
                 receivingIncoming: viewModel.beamReceivingIncoming
-                availableSecondCurrency:            viewModel.beamAvailable2ndCurrency
-                lockedSecondCurrency:               viewModel.beamLocked2ndCurrency
-                sendingSecondCurrency:              viewModel.beamSending2ndCurrency
-                receivingSecondCurrency:            viewModel.beamReceiving2ndCurrency
+                secondCurrencyLabel:        viewModel.secondCurrencyLabel
+                secondCurrencyRateValue:    viewModel.secondCurrencyRateValue
             }
 
             Item {

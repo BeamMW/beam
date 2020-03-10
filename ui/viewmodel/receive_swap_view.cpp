@@ -77,9 +77,7 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     connect(&_walletModel, &WalletModel::swapParamsLoaded, this, &ReceiveSwapViewModel::onSwapParamsLoaded);
     connect(&_walletModel, SIGNAL(newAddressFailed()), this, SIGNAL(newAddressFailed()));
     connect(&_walletModel, &WalletModel::stateIDChanged, this, &ReceiveSwapViewModel::updateTransactionToken);
-    connect(&_exchangeRatesManager, SIGNAL(rateUnitChanged()), SIGNAL(secondCurrencyAmountChanged()));
     connect(&_exchangeRatesManager, SIGNAL(rateUnitChanged()), SIGNAL(secondCurrencyLabelChanged()));
-    connect(&_exchangeRatesManager, SIGNAL(activeRateChanged()), SIGNAL(secondCurrencyAmountChanged()));
     connect(&_exchangeRatesManager, SIGNAL(activeRateChanged()), SIGNAL(secondCurrencyRateChanged()));
 
     generateNewAddress();
@@ -181,7 +179,6 @@ void ReceiveSwapViewModel::setAmountToReceive(QString value)
         _amountToReceiveGrothes = amount;
         emit amountReceiveChanged();
         emit rateChanged();
-        emit secondCurrencyAmountChanged();
         updateTransactionToken();
     }
 }
@@ -205,7 +202,6 @@ void ReceiveSwapViewModel::setAmountSent(QString value)
         _amountSentGrothes = amount;
         if (isPreviouseSendWasZero && _amountToReceiveGrothes) emit rateChanged();
         emit amountSentChanged();
-        emit secondCurrencyAmountChanged();
         updateTransactionToken();
     }
 }
@@ -241,7 +237,6 @@ void ReceiveSwapViewModel::setReceiveCurrency(Currency value)
         emit receiveCurrencyChanged();
         updateTransactionToken();
         emit rateChanged();
-        emit secondCurrencyAmountChanged();
         emit secondCurrencyRateChanged();
         storeSwapParams();
     }
@@ -262,7 +257,6 @@ void ReceiveSwapViewModel::setSentCurrency(Currency value)
         emit sentCurrencyChanged();
         updateTransactionToken();
         emit rateChanged();
-        emit secondCurrencyAmountChanged();
         emit secondCurrencyRateChanged();
         storeSwapParams();
     }
@@ -495,41 +489,6 @@ void ReceiveSwapViewModel::updateTransactionToken()
 
     setTransactionToken(
         QString::fromStdString(std::to_string(readyForTokenizeTxParams)));
-}
-
-QString ReceiveSwapViewModel::getSendAmount2ndCurrency() const
-{
-    auto sendCurrency = ExchangeRatesManager::convertCurrencyToExchangeCurrency(getSentCurrency());
-    auto secondCurrency = _exchangeRatesManager.getRateUnitRaw();
-
-    if (sendCurrency != secondCurrency)
-    {
-        QString currencyLabel = beamui::getCurrencyLabel(beamui::convertExchangeRateCurrencyToUiCurrency(secondCurrency));
-        QString amount = _exchangeRatesManager.calcAmountIn2ndCurrency(getAmountSent(), sendCurrency);
-        return amount + " " + currencyLabel;
-    }
-    else
-    {
-        return "";
-    }
-}
-
-QString ReceiveSwapViewModel::getReceiveAmount2ndCurrency() const
-{
-    auto receiveCurrency = ExchangeRatesManager::convertCurrencyToExchangeCurrency(getReceiveCurrency());
-    auto secondCurrency = _exchangeRatesManager.getRateUnitRaw();
-
-    if (receiveCurrency != secondCurrency
-     && secondCurrency != beam::wallet::ExchangeRate::Currency::Usd)
-    {
-        QString currencyLabel = beamui::getCurrencyLabel(beamui::convertExchangeRateCurrencyToUiCurrency(secondCurrency));
-        QString amount = _exchangeRatesManager.calcAmountIn2ndCurrency(getAmountToReceive(), receiveCurrency);
-        return amount + " " + currencyLabel;
-    }
-    else
-    {
-        return "";
-    }
 }
 
 QString ReceiveSwapViewModel::getSecondCurrencySendRateValue() const
