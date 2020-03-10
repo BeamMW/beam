@@ -63,13 +63,25 @@ ConfirmationDialog {
         okButton.clicked();
     }
 
-    // function getFeeInSecondCurrency(feeValue) {
-    //     return BeamGlobals.calcFeeInSecondCurrency(feeValue, control.currency, control.secondCurrencyRateValue, control.secondCurrencyLabel)
-    // }
+    function getFeeInSecondCurrency(feeValue) {
+        console.log("TODO: getFeeInSecondCurrency()")
+        return "0.123 USD"
+        // return BeamGlobals.calcFeeInSecondCurrency(
+        //     feeValue,
+        //     control.currency,
+        //     sendViewConfirm.secondCurrencyRate,
+        //     sendViewConfirm.secondCurrencyLabel)
+    }
 
-    // function getAmountInSecondCurrency() {
-    //     return BeamGlobals.calcAmountInSecondCurrency(control.amount, control.currency, control.secondCurrencyRateValue, control.secondCurrencyLabel)
-    // }
+    function getAmountInSecondCurrency() {
+        console.log("TODO: getAmountInSecondCurrency()")
+        return "123 USD"
+        // return BeamGlobals.calcAmountInSecondCurrency(
+        //     sendViewConfirm.amountText,
+        //     control.currency,
+        //     sendViewConfirm.secondCurrencyRate,
+        //     sendViewConfirm.secondCurrencyLabel)
+    }
 
     onAccepted: {
         onAcceptedCallback();
@@ -164,7 +176,7 @@ ConfirmationDialog {
                         id: secondCurrencyAmountLabel
                         font.pixelSize: 14
                         color: Style.content_disabled
-                        text: "12345"
+                        text: getAmountInSecondCurrency()
                     }
                 }
 
@@ -195,7 +207,7 @@ ConfirmationDialog {
                         id: secondCurrencyFeeLabel
                         font.pixelSize: 14
                         color: Style.content_disabled
-                        text: "654"
+                        text: getFeeInSecondCurrency(parseInt(feeLabel.text, 10))
                     }
                 }
 

@@ -307,9 +307,9 @@ ColumnLayout {
                         amountText: [Utils.uiStringToLocale(viewModel.sendAmount), qsTrId("general-beam")].join(" "),
                         //% "GROTH"
                         feeText: [Utils.uiStringToLocale(viewModel.feeGrothes), qsTrId("general-groth")].join(" "),
-                        onAcceptedCallback: acceptedCallback
-                        // secondCurrencyRate: 
-                        // secondCurrencyLabel: 
+                        onAcceptedCallback: acceptedCallback,
+                        secondCurrencyRate: viewModel.secondCurrencyRateValue,
+                        secondCurrencyLabel: viewModel.secondCurrencyLabel
                     }).open();
 
                 function acceptedCallback() {

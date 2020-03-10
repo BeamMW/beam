@@ -196,7 +196,7 @@ QString WalletViewModel::beamLockedMaturing() const
 
 QString WalletViewModel::getSecondCurrencyLabel() const
 {
-    return beamui::getCurrencyLabel(beamui::convertExchangeRateCurrencyToUiCurrency(_exchangeRatesManager.getRateUnitRaw()));
+    return beamui::getCurrencyLabel(_exchangeRatesManager.getRateUnitRaw());
 }
 
 QString WalletViewModel::getSecondCurrencyRateValue() const

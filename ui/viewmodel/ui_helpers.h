@@ -32,7 +32,8 @@ namespace beamui
 
     QString toString(Currencies currency);
     std::string toStdString(Currencies currency);
-    QString getCurrencyLabel(Currencies currency);
+    QString getCurrencyLabel(Currencies);
+    QString getCurrencyLabel(beam::wallet::ExchangeRate::Currency);
     /// convert amount to ui string with "." as a separator
     QString AmountToUIString(const beam::Amount& value, Currencies coinType = Currencies::Unknown);
     QString AmountInGrothToUIString(const beam::Amount& value);
