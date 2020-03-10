@@ -40,13 +40,6 @@ int verify_client(int preverify_ok, X509_STORE_CTX* x509_ctx)
     return preverify_ok;
 }
 
-int get_password(char* buf, int size, int rwflag, void* userdata)
-{
-    strncpy_s(buf, 4, (char*)("beam"), 4);
-    buf[4] = '\0';
-    return (int)(strlen(buf));
-}
-
 void ssl_info(const SSL* ssl, int where, int ret)
 {
     const char* str;
