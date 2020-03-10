@@ -18,6 +18,7 @@
 #include "core/merkle.h"
 
 #include "core/serialization_adapters.h"
+#include "3rdparty/utilstrencodings.h"
 #include "core/proto.h"
 #include <algorithm>
 
@@ -181,6 +182,35 @@ namespace beam::wallet
 
     ByteBuffer toByteBuffer(const ECC::Point::Native& value);
     ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
+
+    template <typename T>
+    std::string to_base64(const T& obj)
+    {
+        ByteBuffer buffer;
+        {
+            Serializer s;
+            s& obj;
+            s.swap_buf(buffer);
+        }
+
+        return EncodeBase64(buffer.data(), buffer.size());
+    }
+
+    template <typename T>
+    T from_base64(const std::string& base64)
+    {
+        T obj;
+        {
+            auto data = DecodeBase64(base64.data());
+
+            Deserializer d;
+            d.reset(data.data(), data.size());
+
+            d& obj;
+        }
+
+        return obj;
+    }
 
     constexpr Amount GetMinimumFee(size_t numberOfOutputs, size_t numberOfKenrnels = 1)
     {

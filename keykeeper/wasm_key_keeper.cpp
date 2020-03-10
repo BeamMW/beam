@@ -81,14 +81,14 @@ struct KeyKeeper
         return _impl2.GetWalletID();
     }
 
-    std::string GetSbbsAddress(int ownID)
+    std::string GetSbbsAddress(const std::string& ownID)
     {
-        return _impl2.GetSbbsAddress(uint64_t(ownID));
+        return _impl2.GetSbbsAddress(from_base64<uint64_t>(ownID));
     }
 
-    std::string GetSbbsAddressPrivate(int ownID)
+    std::string GetSbbsAddressPrivate(const std::string& ownID)
     {
-        return _impl2.GetSbbsAddressPrivate(uint64_t(ownID));
+        return _impl2.GetSbbsAddressPrivate(from_base64<uint64_t>(ownID));
     }
 
     std::string get_Kdf(bool root, Key::Index keyIndex)

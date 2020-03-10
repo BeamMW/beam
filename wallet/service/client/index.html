@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 	<title>Beam Wallet Client</title>
@@ -188,8 +188,8 @@
 
 				let loginParams = {
 					WalletID: keykeeper.getWalletID(),
-					SbbsAddress: keykeeper.getSbbsAddress(8),
-					SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(8)
+					SbbsAddress: keykeeper.getSbbsAddress("OA=="),
+					SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate("OA==")
 				}
 
 				loginConnection.send(JSON.stringify({
