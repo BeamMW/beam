@@ -73,6 +73,22 @@ namespace
 
         return QString::fromStdString(result);
     }
+
+    template<uint8_t N>
+    QString multiplyWithPrecision(const QString& first, const QString& second)
+    {
+        cpp_dec_float_50 dec_first(first.toStdString().c_str());
+        cpp_dec_float_50 dec_second(second.toStdString().c_str());
+
+        cpp_dec_float_50 product = dec_first * dec_second;
+
+        std::ostringstream oss;
+        oss.precision(std::numeric_limits<cpp_dec_float_50>::digits10);
+        oss << std::fixed << product;
+
+        QString result = QString::fromStdString(oss.str());
+        return rountWithPrecision<N>(result);
+    }
 }
 
 QMLGlobals::QMLGlobals(QQmlEngine& engine)
@@ -239,11 +255,32 @@ QString QMLGlobals::calcTotalFee(Currency currency, unsigned int feeRate)
 QString QMLGlobals::calcFeeInSecondCurrency(int fee, Currency originalCurrency, const QString& exchangeRate, const QString& secondCurrencyLabel)
 {
     // originalCurrency is needed to convert fee to string
-    // consider use uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin);
+    // possible use uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin);
 
     QString feeInOriginalCurrency = beamui::AmountToUIString(fee);
-    QString feeInSecondCurrency = multiplyWithPrecision8(feeInOriginalCurrency, exchangeRate);
-    return feeInSecondCurrency + " " + secondCurrencyLabel;
+    if (exchangeRate == "0")
+    {
+        return "- " + secondCurrencyLabel;
+    }
+    else
+    {
+        return multiplyWithPrecision<2>(feeInOriginalCurrency, exchangeRate) + " " + secondCurrencyLabel;
+    }
+}
+
+QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, Currency originalCurrency, const QString& exchangeRate, const QString& secondCurrencyLabel)
+{
+    // originalCurrency is needed to convert fee to string
+    // possible use uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin);
+
+    if (exchangeRate == "0")
+    {
+        return "- " + secondCurrencyLabel;
+    }
+    else
+    {
+        return multiplyWithPrecision<2>(amount, exchangeRate) + " " + secondCurrencyLabel;
+    }
 }
 
 bool QMLGlobals::canSwap()
@@ -381,17 +418,7 @@ QString QMLGlobals::divideWithPrecision8(const QString& dividend, const QString&
 
 QString QMLGlobals::multiplyWithPrecision8(const QString& first, const QString& second)
 {
-    cpp_dec_float_50 dec_first(first.toStdString().c_str());
-    cpp_dec_float_50 dec_second(second.toStdString().c_str());
-
-    cpp_dec_float_50 product = dec_first * dec_second;
-
-    std::ostringstream oss;
-    oss.precision(std::numeric_limits<cpp_dec_float_50>::digits10);
-    oss << std::fixed << product;
-
-    QString result = QString::fromStdString(oss.str());
-    return QMLGlobals::rountWithPrecision8(result);
+    return multiplyWithPrecision<8>(first, second);
 }
 
 QString QMLGlobals::rountWithPrecision8(const QString& number)
