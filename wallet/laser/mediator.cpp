@@ -427,7 +427,8 @@ bool Mediator::Delete(const std::string& channelID)
         return false;
     }
 
-    if (!channel->IsSafeToForget())
+    if (state == Lightning::Channel::State::Closed &&
+        !channel->IsSafeToForget())
     {
         LOG_ERROR() << "Channel: " << channelID << " can be rolled back";
         return false;
