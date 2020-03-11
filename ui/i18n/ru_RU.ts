@@ -940,19 +940,22 @@
         <translation>Язык</translation>
     </message>
     <message id="open-external-open">
-        <source>allow and open</source>
-        <oldsource>Open</oldsource>
+        <source>proceed</source>
+        <oldsource>allow and open</oldsource>
         <translation type="unfinished">Открыть</translation>
     </message>
     <message id="open-external-title">
-        <source>External link</source>
-        <translation>Внешняя ссылка</translation>
+        <source>Open external link</source>
+        <oldsource>External link</oldsource>
+        <translation type="unfinished">Внешняя ссылка</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser.
+        <source>Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
+
+Allow to open and proceed to the website? You can always update your choice in Settings.</source>
+        <oldsource>Beam Wallet app requires permission to open external link in the browser.
 This action will expose your IP to the web server.
-To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <oldsource>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</oldsource>
+To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</oldsource>
         <translation type="unfinished">Кошелек пытается открыть внешнюю ссылку в браузере. Это действие может раскрыть ваш IP адрес серверу. Чтобы избежать этого, нажмите &quot;отмена&quot;. Вы можете изменить свой выбор в настройках в любое время.</translation>
     </message>
     <message id="start-open-change-wallet-message">
@@ -2240,16 +2243,6 @@ deploy the key at the node you trust completely.</translation>
     </message>
     <message id="notification-transaction-sent">
         <source>Transaction sent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="open-external-beam-site-title">
-        <source>Allow access to Beam website</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="update-from-external-message">
-        <source>Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version.
-This action will expose your IP to the web server.
-To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-update-wallet">
