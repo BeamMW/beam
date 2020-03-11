@@ -23,7 +23,7 @@ public:
     /// Creates the server and starts listening
     static Ptr create(Reactor& reactor, Address bindAddress, Callback&& callback,
                       const char* certFileName, const char* privKeyFileName,
-                      bool requestCertificate = true, bool rejectUnauthorized = true);
+                      bool requestCertificate = false, bool rejectUnauthorized = false);
 
     ~SslServer() = default;
 
