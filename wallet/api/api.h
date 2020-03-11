@@ -55,7 +55,8 @@ namespace beam::wallet
     macro(CreateOffer,      "swap_create_offer",    API_WRITE_ACCESS)   \
     macro(PublishOffer,     "swap_publish_offer",   API_WRITE_ACCESS)   \
     macro(AcceptOffer,      "swap_accept_offer",    API_WRITE_ACCESS)   \
-    macro(OfferStatus,      "swap_offer_status",    API_READ_ACCESS)
+    macro(OfferStatus,      "swap_offer_status",    API_READ_ACCESS)    \
+    macro(DecodeToken,      "swap_decode_token",    API_READ_ACCESS)
 #else  // !BEAM_ATOMIC_SWAP_SUPPORT
 #define SWAP_OFFER_API_METHODS(macro)
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -201,11 +202,19 @@ namespace beam::wallet
 
     struct OfferStatus
     {
+        TxID txId;
+        struct Response
+        {
+            Height systemHeight;
+            SwapOffer offer;
+        };
+    };
+
+    struct DecodeToken
+    {
         std::string token;
         struct Response
         {
-            std::vector<WalletAddress> addrList;
-            Height systemHeight;
             SwapOffer offer;
         };
     };

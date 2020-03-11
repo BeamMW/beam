@@ -941,6 +941,35 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
 
 void ApiConnection::onMessage(const JsonRpcId& id, const OfferStatus& data)
 {
+    auto walletDB = _walletData.getWalletDB();
+
+    if (auto tx = walletDB->getTx(data.txId); tx)
+    {
+        SwapOffer offer = SwapOffer(*tx);
+
+        // TODO roman.strilets: need to check this code
+        Timestamp expirationTime =
+            offer.timeCreated() + 60 * offer.peerResponseHeight();
+        if (expirationTime <= getTimestamp())
+        {
+            offer.m_status = SwapOfferStatus::Expired;
+        }
+
+        doResponse(
+            id,
+            OfferStatus::Response
+            {
+                walletDB->getCurrentHeight(),
+                offer
+            });
+        return;
+    }
+
+    throw TxNotFound();
+}
+
+void ApiConnection::onMessage(const JsonRpcId& id, const DecodeToken& data)
+{
     auto txParams = ParseParameters(data.token);
     if (!txParams)
         throw FailToParseToken();
@@ -949,53 +978,30 @@ void ApiConnection::onMessage(const JsonRpcId& id, const OfferStatus& data)
     if (!txId)
         throw FailToParseToken();
 
-    auto publicOffer = getOfferFromBoardByTxId(
-        _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList(), *txId);
-
     auto walletDB = _walletData.getWalletDB();
 
+    auto peerId =
+        txParams->GetParameter<WalletID>(TxParameterID::PeerID);
+    if (!peerId)
+        throw FailToParseToken();
+
     SwapOffer offer;
-    if (publicOffer)
+    auto myAddresses = walletDB->getAddresses(true);
+    if (!storage::isMyAddress(myAddresses, *peerId))
     {
-        offer = *publicOffer;
+        offer = SwapOffer(*txParams);
     }
-    else if (auto tx = walletDB->getTx(*txId); tx)
+    else
     {
-        offer = SwapOffer(*tx);
-    }
-    else // third party token
-    {
-        auto peerId =
-            txParams->GetParameter<WalletID>(TxParameterID::PeerID);
-        if (!peerId)
-            throw FailToParseToken();
-
-        auto myAddresses = walletDB->getAddresses(true);
-        if (!storage::isMyAddress(myAddresses, *peerId))
-        {
-            offer = SwapOffer(*txParams);
-        }
-        else
-        {
-            auto mirroredTxParams =
-                MirrorSwapTxParams(*txParams, false);
-            offer = SwapOffer(mirroredTxParams);
-        }
-    }
-
-    Timestamp expirationTime =
-        offer.timeCreated() + 60 * offer.peerResponseHeight();
-    if (expirationTime <= getTimestamp())
-    {
-        offer.m_status = SwapOfferStatus::Expired;
+        auto mirroredTxParams =
+            MirrorSwapTxParams(*txParams, false);
+        offer = SwapOffer(mirroredTxParams);
     }
 
     doResponse(
         id,
-        OfferStatus::Response
+        DecodeToken::Response
         {
-            walletDB->getAddresses(true),
-            walletDB->getCurrentHeight(),
             offer
         });
 }

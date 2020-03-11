@@ -271,6 +271,61 @@ json OfferToJson(const SwapOffer& offer,
     return result;
 }
 
+json OfferStatusToJson(const SwapOffer& offer, const Height& systemHeight)
+{
+    auto peerResponseTime = offer.peerResponseHeight();
+    auto minHeight = offer.minHeight();
+
+    Timestamp expiresTime = getTimestamp();
+    if (systemHeight && peerResponseTime && minHeight)
+    {
+        auto expiresHeight = minHeight + peerResponseTime;
+        auto currentDateTime = getTimestamp();
+
+        // TODO roman.strilets: need to check this code
+        expiresTime = systemHeight <= expiresHeight
+            ? currentDateTime + (expiresHeight - systemHeight) * 60
+            : currentDateTime - (systemHeight - expiresHeight) * 60;
+    }
+
+    auto createTimeStr = format_timestamp(kTimeStampFormat3x3,
+        offer.timeCreated() * 1000,
+        false);
+    auto expiresTimeStr = format_timestamp(kTimeStampFormat3x3,
+        expiresTime * 1000,
+        false);
+
+    json result{
+        {"status", offer.m_status},
+        {"status_string", swapOfferStatusToString(offer.m_status)},
+        {"tx_id", TxIDToString(offer.m_txId)},
+        {"time_created", createTimeStr},
+        {"time_expired", expiresTimeStr},
+    };
+
+    return result;
+}
+
+json TokenToJson(const SwapOffer& offer)
+{
+    auto createTimeStr = format_timestamp(kTimeStampFormat3x3,
+        offer.timeCreated() * 1000,
+        false);
+
+    json result{
+        {"tx_id", TxIDToString(offer.m_txId)},
+        {"is_beam_side", offer.isBeamSide()},
+        {"beam_amount", offer.amountBeam()},
+        {"swap_coin", std::to_string(offer.swapCoinType())},
+        {"swap_amount", offer.amountSwapCoin()},
+        {"min_height", offer.minHeight()},
+        {"peer_response_height", offer.peerResponseHeight()},
+        {"time_created", createTimeStr},
+    };
+
+    return result;
+}
+
 OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 {
     OfferInput data;
@@ -1107,23 +1162,52 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onOfferStatusMessage(const JsonRpcId& id, const json& params)
     {
+        checkJsonParam(params, "tx_id", id);
+        auto txId = from_hex(params["tx_id"]);
+
+        OfferStatus offerStatus;
+
+        checkTxId(txId, id);
+
+        std::copy_n(txId.begin(), offerStatus.txId.size(), offerStatus.txId.begin());
+
+        try
+        {
+            getHandler().onMessage(id, offerStatus);
+        }
+        catch(const TxNotFound&)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::NotSupported,
+                "It is not my offer.",
+                id
+            };
+        }
+    }
+
+    void WalletApi::onDecodeTokenMessage(const JsonRpcId& id, const json& params)
+    {
         checkJsonParam(params, "token", id);
         const auto& token = params["token"];
 
         if (!SwapOfferToken::isValid(token))
+        {
             throw jsonrpc_exception
             {
                 ApiError::InvalidJsonRpc,
                 "Parameter 'token' is not valid swap token.",
                 id
             };
+        }
 
-        OfferStatus data{token};
+        DecodeToken decodeToken{ token };
+
         try
         {
-            getHandler().onMessage(id, data);
+            getHandler().onMessage(id, decodeToken);
         }
-        catch(const FailToParseToken&)
+        catch (const FailToParseToken&)
         {
             throw jsonrpc_exception
             {
@@ -1454,7 +1538,17 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
-            {"result", OfferToJson(res.offer, res.addrList, res.systemHeight)}
+            {"result", OfferStatusToJson(res.offer, res.systemHeight)}
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const DecodeToken::Response& res, json& msg)
+    {
+        msg =
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", TokenToJson(res.offer)}
         };
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
