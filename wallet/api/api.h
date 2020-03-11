@@ -187,11 +187,12 @@ namespace beam::wallet
         };
     };
 
-    struct AcceptOffer : public OfferInput
+    struct AcceptOffer
     {
-        AcceptOffer() = default;
-        AcceptOffer(const OfferInput& oi) : OfferInput(oi) {}
         std::string token;
+        Amount beamFee = kMinFeeInGroth;
+        Amount swapFeeRate = 0;
+        std::string comment;
         struct Response
         {
             std::vector<WalletAddress> addrList;

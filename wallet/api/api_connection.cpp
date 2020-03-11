@@ -866,8 +866,8 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
         _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList(), *txId);
 
     auto walletDB = _walletData.getWalletDB();
-
     auto myAddresses = walletDB->getAddresses(true);
+
     if (publicOffer)
     {
         // compare public offer and token
@@ -879,8 +879,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
     }
     else
     {
-        auto peerId =
-            txParams->GetParameter<WalletID>(TxParameterID::PeerID);
+        auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerID);
 
         if (!peerId)
             throw FailToParseToken();
@@ -889,21 +888,35 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
             throw FailToAcceptOwnOffer();
     }
 
-    if (!checkAcceptableTxParams(*txParams, data))
-        throw FailToAcceptOffer();
-
-    Amount swapFeeRate = data.swapFeeRate
-        ? data.swapFeeRate
-        : GetSwapFeeRate(walletDB, data.swapCoin);
-    if (data.isBeamSide)
+    auto beamAmount = txParams->GetParameter<Amount>(TxParameterID::Amount);
+    auto swapAmount = txParams->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+    auto swapCoin = txParams->GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+    auto isBeamSide = txParams->GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+    if (!beamAmount || !swapAmount || !swapCoin || !isBeamSide)
     {
-        checkIsEnoughtBeamAmount(
-            walletDB, data.beamAmount, data.beamFee);
+        throw FailToParseToken();
+    }
+
+    Amount swapFeeRate = data.swapFeeRate ? data.swapFeeRate : GetSwapFeeRate(walletDB, *swapCoin);
+
+    if (*isBeamSide)
+    {
+        if (*beamAmount < data.beamFee)
+        {
+            throw WalletApi::jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "\'beam_amount\' must be greater than \"beam_fee\".",
+                id
+            };
+        }
+
+        checkIsEnoughtBeamAmount(walletDB, *beamAmount, data.beamFee);
     }
     else
     {
         bool isEnought = checkIsEnoughtSwapAmount(
-            _walletData.getAtomicSwapProvider(), data.swapCoin, data.swapAmount, swapFeeRate);
+            _walletData.getAtomicSwapProvider(), *swapCoin, *swapAmount, swapFeeRate);
         if (!isEnought)
             throw std::runtime_error(kNotEnoughtFundsError);
     }
@@ -918,11 +931,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
                                             data.comment.end()));
     }
 
-    FillSwapFee(
-        &offer,
-        data.beamFee,
-        data.swapFeeRate,
-        data.isBeamSide);
+    FillSwapFee(&offer, data.beamFee, swapFeeRate, *isBeamSide);
 
     _walletData.getWallet().StartTransaction(offer);
     offer.m_status = SwapOfferStatus::InProgress;

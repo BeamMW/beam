@@ -114,10 +114,16 @@ boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const json& params)
     return txId;
 }
 
+// return 0 if parameter not found
 Amount readBeamFeeParameter(const JsonRpcId& id, const json& params,
     const std::string& paramName = "fee",
     Amount minimumFee = std::max(wallet::GetMinimumFee(2), kMinFeeInGroth)) // receivers's output + change
 {
+    if (!WalletApi::existsJsonParam(params, paramName))
+    {
+        return 0;
+    }
+
     if (!params[paramName].is_number_unsigned() || params[paramName] == 0)
     {
         std::stringstream ss;
@@ -135,6 +141,26 @@ Amount readBeamFeeParameter(const JsonRpcId& id, const json& params,
     }
 
     return fee;
+}
+
+Amount readSwapFeeRateParameter(const JsonRpcId& id, const json& params)
+{
+    if (!WalletApi::existsJsonParam(params, "fee_rate"))
+    {
+        return 0;
+    }
+
+    if (!params["fee_rate"].is_number_unsigned() || params["fee_rate"] == 0)
+    {
+        auto message = "\"fee_rate\" must be non zero 64bit unsigned integer.";
+        throw WalletApi::jsonrpc_exception
+        {
+            ApiError::InvalidJsonRpc,
+            message,
+            id
+        };
+    }
+    return params["fee_rate"];
 }
 
 static void FillAddressData(const JsonRpcId& id, const json& params, AddressData& data)
@@ -411,12 +437,11 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     data.beamAmount = data.isBeamSide ? sendAmount : receiveAmount;
     data.swapAmount = data.isBeamSide ? receiveAmount : sendAmount;
 
-    if (WalletApi::existsJsonParam(params, "beam_fee"))
+    if (auto beamFee = readBeamFeeParameter(id, params, "beam_fee"); beamFee)
     {
-        data.beamFee = readBeamFeeParameter(id, params, "beam_fee");
+        data.beamFee = beamFee;
 
-        if (data.isBeamSide &&
-            data.beamAmount < data.beamFee)
+        if (data.isBeamSide && data.beamAmount < data.beamFee)
         {
             throw WalletApi::jsonrpc_exception
             {
@@ -427,27 +452,9 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         }
     }
 
-    std::string swapCoinFeeParamName = data.isBeamSide
-        ? params["receive_currency"]
-        : params["send_currency"];
-    swapCoinFeeParamName += "_fee_rate";
-
-    if (WalletApi::existsJsonParam(params, swapCoinFeeParamName))
+    if (auto feeRate = readSwapFeeRateParameter(id, params); feeRate)
     {
-        if (!params[swapCoinFeeParamName].is_number_unsigned() ||
-            params[swapCoinFeeParamName] == 0)
-        {
-            auto message =
-                swapCoinFeeParamName +
-                " must be non zero 64bit unsigned integer.";
-            throw WalletApi::jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                message,
-                id
-            };
-        }
-        data.swapFeeRate = params[swapCoinFeeParamName];
+        data.swapFeeRate = feeRate;
     }
 
     if (WalletApi::existsJsonParam(params, "offer_expires"))
@@ -751,9 +758,9 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             }
         }
 
-        if (existsJsonParam(params, "fee"))
+        if (auto beamFee = readBeamFeeParameter(id, params); beamFee)
         {
-            send.fee = readBeamFeeParameter(id, params);
+            send.fee = beamFee;
         }
 
         if (existsJsonParam(params, "comment"))
@@ -799,9 +806,9 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         }
 
         auto minimumFee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), kMinFeeInGroth); // +1 extra output for change
-        if (existsJsonParam(params, "fee"))
+        if (auto beamFee = readBeamFeeParameter(id, params, "fee", minimumFee); beamFee)
         {
-            split.fee = readBeamFeeParameter(id, params, "fee", minimumFee);
+            split.fee = beamFee;
         }
         else
         {
@@ -868,9 +875,9 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             issue.session = readSessionParameter(id, params);
         }
 
-        if (existsJsonParam(params, "fee"))
+        if (auto beamFee = readBeamFeeParameter(id, params); beamFee)
         {
-            issue.fee = readBeamFeeParameter(id, params);
+            issue.fee = beamFee;
         }
 
         issue.txId = readTxIdParameter(id, params);
@@ -1116,8 +1123,24 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 id
             };
 
-        AcceptOffer data = collectOfferInput(id, params);;
+        AcceptOffer data;
         data.token = token;
+
+        if (auto beamFee = readBeamFeeParameter(id, params, "beam_fee"); beamFee)
+        {
+            data.beamFee = beamFee;
+        }
+
+        if (auto feeRate = readSwapFeeRateParameter(id, params); feeRate)
+        {
+            data.swapFeeRate = feeRate;
+        }
+
+        if (WalletApi::existsJsonParam(params, "comment") && params["comment"].is_string())
+        {
+            data.comment = params["comment"];
+        }
+
         try
         {
             getHandler().onMessage(id, data);
