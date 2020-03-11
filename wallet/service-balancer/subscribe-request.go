@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/olahol/melody"
 	"log"
+	"net/url"
 )
 
 type rpcSubscribeParams struct {
@@ -12,6 +13,12 @@ type rpcSubscribeParams struct {
 	SbbsAddressPrivate   string `json:"SbbsAddressPrivate"`
 	NotificationEndpoint string `json:"NotificationEndpoint"`
 	ServerKey            string `json:"ServerKey"`
+	P256dhKey            string `json:"P256dhKey"`
+	AuthKey              string `json:"AuthKey"`
+}
+
+type rpcSubscribeResult struct {
+	Subscribe bool  `json:"subscribe"`
 }
 
 func rpcSubscribeRequest(session* melody.Session, params *json.RawMessage) (result interface{}, err error) {
@@ -22,39 +29,43 @@ func rpcSubscribeRequest(session* melody.Session, params *json.RawMessage) (resu
 
 	log.Printf("wallet %v, rpc subscribe request", wid)
 
-	var sub rpcSubscribeParams
-	if err = json.Unmarshal(*params, &sub); err != nil {
+	var subscribeParams rpcSubscribeParams
+	if err = json.Unmarshal(*params, &subscribeParams); err != nil {
 		return
 	}
 
-	if len(sub.SbbsAddress) == 0 {
+	if len(subscribeParams.SbbsAddress) == 0 {
 		return nil, errors.New("invalid SBBS address")
 	}
 
-	if len(sub.SbbsAddressPrivate) == 0 {
+	if len(subscribeParams.SbbsAddressPrivate) == 0 {
 		return nil, errors.New("invalid SBBS key")
 	}
 
-	if len(sub.NotificationEndpoint) == 0 {
-		// TODO: check for valid https:// 
+	if len(subscribeParams.NotificationEndpoint) == 0 {
 		return nil, errors.New("invalid notification endpoint")
 	}
 
-	if sub.ServerKey != config.VAPIDPublic {
+	if _, err = url.ParseRequestURI(subscribeParams.NotificationEndpoint); err != nil {
+		return
+	}
+
+	if subscribeParams.ServerKey != config.VAPIDPublic {
 		return nil, errors.New("server key mismatch")
 	}
 
-	//var, err = monitorGet(loginParms.WalletID)
-	//if err != nil {
-	//	return
-	//}
+	if len(subscribeParams.P256dhKey) == 0 {
+		return nil, errors.New("invalid P256dhKey")
+	}
 
-	//session.Set(RpcKeyWID, loginParms.WalletID)
-	///result = &loginResult
-	// Send test notification
-	go func() {
+	if len(subscribeParams.AuthKey) == 0 {
+		return nil, errors.New("invalid AuthKey")
+	}
 
-	}()
+	monitorSubscribe(&subscribeParams)
+	result = &rpcSubscribeResult{
+		Subscribe: true,
+	}
 
 	return
 }

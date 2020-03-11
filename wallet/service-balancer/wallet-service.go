@@ -1,21 +1,20 @@
 package main
 
 import (
+	"beam.mw/service-balancer/services"
 	"fmt"
 	"github.com/olahol/melody"
 	"log"
+	"strconv"
 )
 
-var walletServices *Services
-var sbbsServices *Services
+var (
+	walletServices *services.Services
+)
 
-func monitorInitialize(m *melody.Melody) (err error) {
+
+func walletServicesInitialize(m *melody.Melody) (err error) {
 	walletServices, err = NewWalletServices()
-	if err != nil {
-		return
-	}
-
-	sbbsServices, err = NewBbsServices()
 	if err != nil {
 		return
 	}
@@ -35,27 +34,10 @@ func monitorInitialize(m *melody.Melody) (err error) {
 		}
 	} ()
 
-	//
-	// This is connection point between sbbs service and sbbs watchers
-	//
-	go func () {
-		for {
-			select {
-			case svcIdx := <- sbbsServices.Dropped:
-				log.Printf("bbs %v, dropped", svcIdx)
-			case svcIdx := <- sbbsServices.Restarted:
-				log.Printf("bbs %v, restarted", svcIdx)
-			}
-		}
-	} ()
-
-	// Start listening for SBBs messages
-	sbbsListen()
-
 	return
 }
 
-func monitorGet(wid string) (string, error) {
+func wallletServicesGet(wid string) (string, error) {
 	if epoint, ok := epoints.Get(wid); ok {
 		svcIdx, svcAddr := epoint.Use()
 		log.Printf("wallet %v, existing endpoint is [%v:%v]", wid, svcIdx, svcAddr)
@@ -73,12 +55,13 @@ func monitorGet(wid string) (string, error) {
 		return "", fmt.Errorf("wallet %v, %v", wid, err)
 	}
 
-	epoints.Add(wid, svcIdx, service.Address)
-	log.Printf("wallet %v, new endpoint is [%v:%v]", wid, svcIdx, service.Address)
-	return service.Address, nil
+	var address = config.SerivcePublicAddress + ":" + strconv.Itoa(service.Port)
+	epoints.Add(wid, svcIdx, address)
+	log.Printf("wallet %v, new endpoint is [%v:%v]", wid, svcIdx, address)
+	return address, nil
 }
 
-func monitorAlive (wid string) error {
+func walletServicesAlive (wid string) error {
 	if epoint, ok := epoints.Get(wid); ok {
 		epoint.WalletAlive <- true
 		return nil
@@ -88,7 +71,7 @@ func monitorAlive (wid string) error {
 	return fmt.Errorf("wallet %v, alive request on missing endpoint", wid)
 }
 
-func monitorLogout(wid string) error {
+func walletServicesLogout(wid string) error {
 	if epoint, ok := epoints.Get(wid); ok {
 		epoint.WalletLogout <- true
 		return nil

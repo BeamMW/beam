@@ -69,7 +69,13 @@ export default class webpush {
 
             let subscriptionParams = Object.assign({}, params)
             subscriptionParams.NotificationEndpoint = this.subscription.endpoint
-            subscriptionParams.ServerKey = this.subscription.options.applicationServerKey
+            subscriptionParams.ServerKey = this.serverKey
+
+            let p256dh = this.subscription.getKey('p256dh')
+            subscriptionParams.P256dhKey = btoa(String.fromCharCode.apply(null, new Uint8Array(p256dh)))
+
+            let auth = this.subscription.getKey('auth')
+            subscriptionParams.AuthKey   = btoa(String.fromCharCode.apply(null, new Uint8Array(auth)))
 
             console.log("Subscription params", JSON.stringify(subscriptionParams))
             connection.send(JSON.stringify({

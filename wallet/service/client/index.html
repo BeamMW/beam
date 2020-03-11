@@ -14,12 +14,6 @@
 		<h1 class="text-center">Beam Wallet Client</h1>
 		<hr>
 
-		<div id="push-panel" style="display:none">
-			<button class="btn btn-secondary" id="push-enable" style="display:none">Enable Push Notifications</button>
-			<button class="btn btn-secondary" id="push-disable" style="display:none">Disable Push Notification</button>
-			<span id="push-blocked" style="display:none">Push notifications are blocked by user</span>
-		</div>
-
 		<hr>
 		<div id="login-panel">
 		  <span class="badge badge-danger">status: logging in, please wait...</span>
@@ -126,6 +120,11 @@
 				</thead>
 				<tbody></tbody>
 			</table>
+			<div id="push-panel" style="display:none">
+			<button class="btn btn-secondary" id="push-enable" style="display:none">Enable Push Notifications</button>
+			<button class="btn btn-secondary" id="push-disable" style="display:none">Disable Push Notifications</button>
+			<span id="push-blocked" style="display:none">Push notifications are blocked by user</span>
+			</div>
 			<hr>
 			<h3>UTXO</h3>
 			<table class="table utxo">
@@ -161,55 +160,28 @@
 		var connection = null
 		var webpush = null;
 
-		(async () => {
-			webpush = new Proxy(new WebPush(), {
-				set: function(obj, prop, value) {
-					if (prop === "subscription") {
-						if (value) {
-							$("#push-enable").hide()
-							$("#push-disable").show()
-						} else {
-							$("#push-enable").show()
-							$("#push-disable").hide()
-						}
-						$("#push-panel").show()
-					}
-					obj[prop] = value
-					return true
-				}
-			})
-			login()
-		})()
-
-		$("#push-enable").click(() => {
-			alert("Enable push");
-			(async () => {
-				if (await webpush.subscribe()) {
-					await webpush.notifyServer()
-				}
-			})()
-		})
-
-		$("#push-disable").click(() => {
-			alert("Disable push");
-			(async () => webpush.unsubscribe())()
-		})
+		login()
 
 		// If you change walletID/seed you should ALWAYS relogin
 		// If you lose loginConnection or connection, ALWAYS relogin
 		// Both loginConnection & connection should be active
 		function login() {
+			keykeeper = initKeyKeeper("giraffe usage sad arrest sound chimney file select monster head clown ask")
+			localStorage.seed = "giraffe usage sad arrest sound chimney file select monster head clown ask"
+			localStorage.id = keykeeper.getWalletID()
+
 			if (localStorage.id && localStorage.seed) {
 				console.log(`Stored WalletID:${localStorage.id}`)
 				console.log(`Stored Seed: ${localStorage.seed}`)
 				keykeeper = initKeyKeeper(localStorage.seed)
 				console.log(`Keykeeper created`);
 			} else {
-				let seed = Module.KeyKeeper.GeneratePhrase()
+				/*let seed = Module.KeyKeeper.GeneratePhrase()
 				console.log(`New Seed: ${seed}`)
 				keykeeper = initKeyKeeper(seed)
 				console.log(`New WalletID: ${keykeeper.getWalletID()}`)
-				$('#create-wallet-panel .seed-phrase-input').val(seed)
+				$('#create-wallet-panel .seed-phrase-input').val(seed)*/
+
 			}
 
 			console.log("Logging in...")
@@ -248,22 +220,7 @@
 					if (data.id === 123) {
 						console.log("login_ws: OK, endpoint is ", data.result.endpoint)
 						let endpoint = ['ws://', data.result.endpoint].join('');
-
-						if (webpush.blockedByUser) {
-							$("#push-blocked").show()
-							$("#push-panel").show()
-							start(endpoint)
-						} else {
-							(async () => {
-								if (await webpush.register(loginConnection)) {
-									await webpush.notifyServer(loginConnection, {
-										SbbsAddress: keykeeper.getSbbsAddress(8),
-										SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(8)
-									})
-								}
-								start(endpoint)
-							})()
-						}
+						start(endpoint)
 					}
 				} else {
 					console.log("login_ws: failed")
@@ -434,7 +391,7 @@
 
 			console.log(`walletID: ${walletID}`)
 			connection.onmessage = e => {
-				console.log(`got response: ${e.data}`)
+				console.log(`open wallet got response: ${e.data}`)
 				let data = JSON.parse(e.data)
 				if (data.result && data.result.length) {
 					console.log(`wallet session: ${data.result}`)
@@ -483,15 +440,23 @@
 				let data = JSON.parse(e.data)
 				if(data.result)	{
 					let body = $('#wallet-panel .addresses > tbody').empty()
-					data.result.forEach && data.result.forEach((item, index) => body.append(`<tr>
-						<td>${index+1}</td>
-						<td>${item.address}</td>
-						<td>${item.comment}</td>
-						<td>${item.create_time}</td>
-						<td>${item.duration}</td>
-						<td>${item.expired}</td>
-						<td>${item.own}</td>
-						</tr>`))
+					let defaddr = undefined
+					data.result.forEach && data.result.forEach((item, index) => {
+						if (index === 0) defaddr = item
+						console.log(JSON.stringify(item))
+						body.append(`<tr>
+										<td>${index+1}</td>
+										<td>${item.address}</td>
+										<td>${item.comment}</td>
+										<td>${item.create_time}</td>
+										<td>${item.duration}</td>
+										<td>${item.expired}</td>
+										<td>${item.own}</td>
+									</tr>`)
+					})
+					if (defaddr) {
+						showPush(defaddr)
+					}
 					showUtxo()
 				}
 				else if(data.error)
@@ -508,6 +473,60 @@
 					own: true
 				}
 			}))
+		}
+
+		function showPush(addr) {
+			webpush = new Proxy(new WebPush(), {
+				set: function(obj, prop, value) {
+					if (prop === "subscription") {
+						if (value) {
+							$("#push-enable").hide()
+							$("#push-disable").show()
+						} else {
+							$("#push-enable").show()
+							$("#push-disable").hide()
+						}
+						$("#push-panel").show()
+					}
+					obj[prop] = value
+					return true
+				}
+			})
+
+			if (webpush.blockedByUser) {
+				console.log("notifications blocked by user")
+				$("#push-blocked").show()
+				$("#push-panel").show()
+			} else {
+				console.log("notifications enabled, notifying server");
+				(async () => {
+					if (await webpush.register(loginConnection)) {
+						await webpush.notifyServer(loginConnection, {
+							SbbsAddress: keykeeper.getSbbsAddress(addr.ownIDBase64),
+							SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.ownIDBase64)
+						})
+						console.log("Push notification - OK")
+					}
+				})()
+			}
+
+			$("#push-enable").click(() => {
+				alert("Enable push");
+				(async () => {
+					if (await webpush.subscribe()) {
+						await webpush.notifyServer(loginConnection, {
+							SbbsAddress: keykeeper.getSbbsAddress(addr.ownIDBase64),
+							SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.ownIDBase64)
+						})
+					}
+				})()
+				return false
+			})
+
+			$("#push-disable").click(() => {
+				alert("Disable push");
+				(async () => webpush.unsubscribe())()
+			})
 		}
 
 		function showUtxo() {
@@ -542,17 +561,19 @@
 				let data = JSON.parse(e.data)
 				if (data.result) {
 					let body = $('#wallet-panel .transactions > tbody').empty()
-					data.result.forEach && data.result.forEach((item, index) => body.append(`<tr>
+					data.result.forEach && data.result.forEach((item, index) => {
+						body.append(`<tr>
 							<td>${index + 1}</td>
 							<td>${new Date(item.create_time * 1000).toLocaleString()}</td>
 							<td>${item.receiver.slice(0, 32)}...</td>
 							<td>${item.sender.slice(0, 32)}...</td>
 							<td>${item.value}</td>
 							<td>${item.status_string}</td>
-							</tr>`))
+							</tr>`)
+					})
 				} else onkeykeeper(data)
-				if ($('#wallet-panel').is(":visible"))
-					setTimeout(showWalletStatus, 5000)
+				//if ($('#wallet-panel').is(":visible"))
+				//	setTimeout(showWalletStatus, 5000)
 			}
 
 			connection.send(JSON.stringify({

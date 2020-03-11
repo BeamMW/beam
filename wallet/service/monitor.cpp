@@ -165,7 +165,10 @@ namespace
 
         void OnWalletMessage(const wallet::WalletID& peerID, const wallet::SetTxParameter& msg) override
         {
-            LOG_INFO() << "new bbs message for peer: " << std::to_string(peerID);
+            beam::Amount amount = 0;
+            msg.GetParameter<beam::Amount>(TxParameterID::Amount, amount);
+
+            LOG_INFO() << "new bbs message for peer: " << std::to_string(peerID) << " amount: " << amount;
 
             json jsonMsg =
             {
@@ -174,7 +177,8 @@ namespace
                 {"method", "new_message"},
                 {"params",
                     {
-                        {"address",  std::to_string(peerID)}
+                        {"address",  std::to_string(peerID)},
+                        {"amount",   amount}
                     }
                 }
             };
