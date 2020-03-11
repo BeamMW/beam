@@ -51,6 +51,11 @@ namespace beamui
                 return QString(currencyUnknownLabel.data());
         }
     }
+
+    QString getCurrencyLabel(beam::wallet::ExchangeRate::Currency currency)
+    {
+        return getCurrencyLabel(convertExchangeRateCurrencyToUiCurrency(currency));
+    }
     
     /**
      *  Convert amount value to printable format.

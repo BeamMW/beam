@@ -214,7 +214,7 @@ ColumnLayout {
         }
         SFText {
             id:             amountSecondCurrencyText
-            visible:        secondCurrencyLabel != "" && !errmsg.visible
+            visible:        secondCurrencyLabel != "" && !errmsg.visible && !showTotalFee    // show only on send side
             font.pixelSize: 14
             color:          Style.content_secondary
             text:           getAmountInSecondCurrency()

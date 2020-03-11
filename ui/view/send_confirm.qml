@@ -21,6 +21,8 @@ ConfirmationDialog {
     property Item   defaultFocusItem:   BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
     property bool   swapMode:           false
     property var    swapCurrencyLabel:  ""
+    property string secondCurrencyRate:  "0"
+    property string secondCurrencyLabel: ""
     //% "Transaction fee"
     property string feeLabel: qsTrId("general-fee") + ":"
 
@@ -59,6 +61,26 @@ ConfirmationDialog {
     function passworInputEnter() {
         okButton.forceActiveFocus(Qt.TabFocusReason);
         okButton.clicked();
+    }
+
+    function getFeeInSecondCurrency(feeValue) {
+        console.log("TODO: getFeeInSecondCurrency()")
+        return "0.123 USD"
+        // return BeamGlobals.calcFeeInSecondCurrency(
+        //     feeValue,
+        //     control.currency,
+        //     sendViewConfirm.secondCurrencyRate,
+        //     sendViewConfirm.secondCurrencyLabel)
+    }
+
+    function getAmountInSecondCurrency() {
+        console.log("TODO: getAmountInSecondCurrency()")
+        return "123 USD"
+        // return BeamGlobals.calcAmountInSecondCurrency(
+        //     sendViewConfirm.amountText,
+        //     control.currency,
+        //     sendViewConfirm.secondCurrencyRate,
+        //     sendViewConfirm.secondCurrencyLabel)
     }
 
     onAccepted: {
@@ -132,22 +154,30 @@ ConfirmationDialog {
                     Layout.fillWidth: false
                     Layout.fillHeight: true
                     Layout.minimumHeight: 16
-                    Layout.bottomMargin: 3
+                    // Layout.bottomMargin: 3
+                    Layout.topMargin: 9
                     font.pixelSize: 14
                     color: Style.content_disabled
                     //% "Amount"
                     text: qsTrId("general-amount") + ":"
-                    verticalAlignment: Text.AlignBottom
+                    verticalAlignment: Text.AlignTop
                 }
 
-                SFText {
-                    id: amountLabel
+                ColumnLayout {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.minimumHeight: 29
-                    font.pixelSize: 24
-                    color: Style.accent_outgoing
-                    verticalAlignment: Text.AlignBottom
+                    SFText {
+                        id: amountLabel
+                        Layout.minimumHeight: 29
+                        font.pixelSize: 24
+                        color: Style.accent_outgoing
+                    }
+                    SFText {
+                        id: secondCurrencyAmountLabel
+                        font.pixelSize: 14
+                        color: Style.content_disabled
+                        text: getAmountInSecondCurrency()
+                    }
                 }
 
                 //
@@ -156,18 +186,29 @@ ConfirmationDialog {
                 SFText {
                     Layout.row: 3
                     Layout.fillWidth: false
+                    Layout.fillHeight: true
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
                     color: Style.content_disabled
                     text: sendViewConfirm.feeLabel
+                    verticalAlignment: Text.AlignTop
                 }
 
-                SFText {
-                    id: feeLabel
+                ColumnLayout {
                     Layout.fillWidth: true
-                    Layout.minimumHeight: 16
-                    font.pixelSize: 14
-                    color: Style.content_main
+                    Layout.fillHeight: true
+                    SFText {
+                        id: feeLabel
+                        Layout.minimumHeight: 16
+                        font.pixelSize: 14
+                        color: Style.content_main
+                    }
+                    SFText {
+                        id: secondCurrencyFeeLabel
+                        font.pixelSize: 14
+                        color: Style.content_disabled
+                        text: getFeeInSecondCurrency(parseInt(feeLabel.text, 10))
+                    }
                 }
 
                 //
