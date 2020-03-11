@@ -30,7 +30,8 @@ public:
         Message,
         Type,
         State,
-        RawID
+        RawID,
+        DateCreated
     };
 
     NotificationsList();

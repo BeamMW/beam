@@ -182,13 +182,36 @@ ColumnLayout {
                         elide: Text.ElideMiddle
                     }
         
-                    SFText {
+                    RowLayout {
                         Layout.topMargin: 10
-                        text: timeCreated
-                        font.pixelSize: 12
-                        color: Style.content_main
-                        opacity: 0.5
+                        SFText {
+                            Layout.rightMargin: 5
+                            text: dateCreated
+                            font.pixelSize: 12
+                            color: Style.content_main
+                            opacity: 0.5
+                        }
+
+                        SFText {
+                            text: "|"
+                            font.pixelSize: 12
+                            color: Style.content_main
+                            opacity: 0.5
+                        }
+
+                        SFText {
+                            Layout.leftMargin: 5
+                            text: timeCreated
+                            font.pixelSize: 12
+                            color: Style.content_main
+                            opacity: 0.5
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
                     }
+                    
                     Item {
                         Layout.fillHeight: true
                     }
