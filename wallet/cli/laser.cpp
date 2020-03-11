@@ -131,10 +131,11 @@ bool LoadLaserParams(const po::variables_map& vm,
 
     if (vm.count(cli::LASER_FEE))
     {
-        *fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
+        *fee = vm[cli::LASER_FEE].as<Nonnegative<Amount>>().value;
+        LOG_DEBUG() << vm[cli::LASER_FEE].as<Nonnegative<Amount>>().value;
         if (*fee < cli::kMinimumFee)
         {
-            LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 groth.";
+            LOG_ERROR() << "Failed to initiate the operation. The minimum fee is 100 groth.";
             return false;
         }
     }
