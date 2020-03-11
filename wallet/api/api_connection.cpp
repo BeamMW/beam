@@ -888,6 +888,11 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
             throw FailToAcceptOwnOffer();
     }
 
+    if (auto tx = walletDB->getTx(*txId); tx)
+    {
+        throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Offer already accepted.", id };
+    }
+
     auto beamAmount = txParams->GetParameter<Amount>(TxParameterID::Amount);
     auto swapAmount = txParams->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
     auto swapCoin = txParams->GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
