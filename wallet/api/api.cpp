@@ -1240,6 +1240,30 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             };
         }
     }
+
+    void WalletApi::onGetBalanceMessage(const JsonRpcId& id, const json& params)
+    {
+        checkJsonParam(params, "coin", id);
+        AtomicSwapCoin coin = AtomicSwapCoin::Unknown;
+        if (params["coin"].is_string())
+        {
+            coin = from_string(params["coin"]);
+        }
+
+        if (coin == AtomicSwapCoin::Unknown)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidJsonRpc,
+                "Unknown coin.",
+                id
+            };
+        }
+
+        GetBalance data{ coin };
+
+        getHandler().onMessage(id, data);
+    }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
@@ -1572,6 +1596,19 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", TokenToJson(res.offer)}
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const GetBalance::Response& res, json& msg)
+    {
+        msg =
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result",
+            {
+                {"avaible", res.avaible},
+            }}
         };
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT

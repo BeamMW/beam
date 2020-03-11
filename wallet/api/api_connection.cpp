@@ -1019,6 +1019,39 @@ void ApiConnection::onMessage(const JsonRpcId& id, const DecodeToken& data)
             offer
         });
 }
+
+void ApiConnection::onMessage(const JsonRpcId& id, const GetBalance& data)
+{
+    Amount avaible = 0;
+    switch (data.coin)
+    {
+    case AtomicSwapCoin::Bitcoin:
+    {
+        avaible = _walletData.getAtomicSwapProvider().getBtcAvailable();
+        break;
+    }
+    case AtomicSwapCoin::Litecoin:
+    {
+        avaible = _walletData.getAtomicSwapProvider().getLtcAvailable();
+        break;
+    }
+    case AtomicSwapCoin::Qtum:
+    {
+        avaible = _walletData.getAtomicSwapProvider().getQtumAvailable();
+        break;
+    }
+    default:
+        assert(false && "process new coin");
+        break;
+    }
+
+    doResponse(
+        id,
+        GetBalance::Response
+        {
+            avaible
+        });
+}
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 } // namespace beam::wallet

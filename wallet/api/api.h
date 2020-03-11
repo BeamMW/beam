@@ -56,7 +56,8 @@ namespace beam::wallet
     macro(PublishOffer,     "swap_publish_offer",   API_WRITE_ACCESS)   \
     macro(AcceptOffer,      "swap_accept_offer",    API_WRITE_ACCESS)   \
     macro(OfferStatus,      "swap_offer_status",    API_READ_ACCESS)    \
-    macro(DecodeToken,      "swap_decode_token",    API_READ_ACCESS)
+    macro(DecodeToken,      "swap_decode_token",    API_READ_ACCESS)    \
+    macro(GetBalance,       "swap_get_balance",     API_READ_ACCESS)
 #else  // !BEAM_ATOMIC_SWAP_SUPPORT
 #define SWAP_OFFER_API_METHODS(macro)
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -217,6 +218,15 @@ namespace beam::wallet
         struct Response
         {
             SwapOffer offer;
+        };
+    };
+
+    struct GetBalance
+    {
+        AtomicSwapCoin coin;
+        struct Response
+        {
+            Amount avaible;
         };
     };
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
