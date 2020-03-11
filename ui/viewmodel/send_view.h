@@ -15,6 +15,7 @@
 
 #include <QObject>
 #include "model/wallet_model.h"
+#include "notifications/exchange_rates_manager.h"
 
 class SendViewModel: public QObject
 {
@@ -35,6 +36,9 @@ class SendViewModel: public QObject
     Q_PROPERTY(QString  missing            READ getMissing                                      NOTIFY availableChanged)
     Q_PROPERTY(bool     isEnough           READ isEnough                                        NOTIFY isEnoughChanged)
     Q_PROPERTY(bool     canSend            READ canSend                                         NOTIFY canSendChanged)
+
+    Q_PROPERTY(QString  secondCurrencyLabel         READ getSecondCurrencyLabel                 NOTIFY secondCurrencyLabelChanged)
+    Q_PROPERTY(QString  secondCurrencyRateValue     READ getSecondCurrencyRateValue             NOTIFY secondCurrencyRateChanged)
 
 public:
     SendViewModel();
@@ -62,6 +66,9 @@ public:
     bool isEnough() const;
     bool canSend() const;
 
+    QString getSecondCurrencyLabel() const;
+    QString getSecondCurrencyRateValue() const;
+
 public:
     Q_INVOKABLE void sendMoney();
 
@@ -75,6 +82,8 @@ signals:
     void cantSendToExpired();
     void canSendChanged();
     void isEnoughChanged();
+    void secondCurrencyLabelChanged();
+    void secondCurrencyRateChanged();
 
 public slots:
     void onChangeCalculated(beam::Amount change);
@@ -91,5 +100,6 @@ private:
     QString _receiverTA;
 
     WalletModel& _walletModel;
+    ExchangeRatesManager _exchangeRatesManager;
     beam::wallet::TxParameters _txParameters;
 };

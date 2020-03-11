@@ -143,7 +143,6 @@ func (points *Endpoints) Add(wid string, svcIdx int, address string) {
 			case <- epoint.WalletLogout:
 				log.Printf("wallet %v, WalletLogout signal", wid)
 				releaseClient()
-				return
 
 			case <- epoint.Dropped:
 				log.Printf("wallet %v, endpoint dropped, clients %v, service %v", wid, epoint.GetClientsCnt(), epoint.GetServiceIdx())

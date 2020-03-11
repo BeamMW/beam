@@ -15,6 +15,7 @@
 #include "sslio.h"
 #include <openssl/bio.h>
 #include <assert.h>
+#include <sstream>
 
 #define LOG_DEBUG_ENABLED 1
 #include "utility/logger.h"
@@ -37,6 +38,45 @@ int verify_client(int preverify_ok, X509_STORE_CTX* x509_ctx)
         LOG_ERROR() << "client verification error: " << X509_STORE_CTX_get_error(x509_ctx);
     }
     return preverify_ok;
+}
+
+void ssl_info(const SSL* ssl, int where, int ret)
+{
+    const char* str;
+    int w;
+
+    w = where & ~SSL_ST_MASK;
+
+    if (w & SSL_ST_CONNECT) str = "SSL_connect";
+    else if (w & SSL_ST_ACCEPT) str = "SSL_accept";
+    else str = "undefined";
+    std::stringstream ss;
+    if (where & SSL_CB_LOOP)
+    {
+        ss <<  str<< ":" <<  SSL_state_string_long(ssl);
+    }
+    else if (where & SSL_CB_ALERT)
+    {
+        str = (where & SSL_CB_READ) ? "read" : "write";
+        ss << "SSL3 alert " <<
+            str << ":" <<
+            SSL_alert_type_string_long(ret) << ":" <<
+            SSL_alert_desc_string_long(ret);
+    }
+    else if (where & SSL_CB_EXIT)
+    {
+        if (ret == 0)
+            ss << str << ":failed in "<< SSL_state_string_long(ssl);
+        else if (ret < 0)
+        {
+            ss << str << ":error in " << SSL_state_string_long(ssl)
+                << ":" <<
+                SSL_alert_type_string_long(ret) << ":" <<
+                SSL_alert_desc_string_long(ret);
+        }
+    }
+
+    LOG_DEBUG() << TRACE(ssl) << "  " << ss.str();
 }
 
 struct SSLInitializer {
@@ -76,7 +116,28 @@ SSL_CTX* init_ctx(bool isServer) {
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 
+    //SSL_CTX_set_info_callback(ctx, ssl_info);
+
     return ctx;
+}
+
+void setup_certificate(SSL_CTX* ctx, const char* certFileName, const char* privKeyFileName)
+{
+    if (certFileName && privKeyFileName)
+    {
+        if (SSL_CTX_use_certificate_file(ctx, certFileName, SSL_FILETYPE_PEM) != 1) {
+            LOG_ERROR() << "SSL_CTX_use_certificate_file failed, " << certFileName;
+            IO_EXCEPTION(EC_SSL_ERROR);
+        }
+        if (SSL_CTX_use_PrivateKey_file(ctx, privKeyFileName, SSL_FILETYPE_PEM) != 1) {
+            LOG_ERROR() << "SSL_CTX_use_PrivateKey_file failed " << privKeyFileName;
+            IO_EXCEPTION(EC_SSL_ERROR);
+        }
+        if (SSL_CTX_check_private_key(ctx) != 1) {
+            LOG_ERROR() << "SSL_CTX_check_private_key failed" << privKeyFileName;
+            IO_EXCEPTION(EC_SSL_ERROR);
+        }
+    }
 }
 
 } //namespace
@@ -84,20 +145,10 @@ SSL_CTX* init_ctx(bool isServer) {
 SSLContext::Ptr SSLContext::create_server_ctx(const char* certFileName, const char* privKeyFileName,
                                               bool requestCertificate, bool rejectUnauthorized) {
     assert(certFileName && privKeyFileName);
-
+    
     SSL_CTX* ctx = init_ctx(true);
-    if (SSL_CTX_use_certificate_file(ctx, certFileName, SSL_FILETYPE_PEM) != 1) {
-        LOG_ERROR() << "SSL_CTX_use_certificate_file failed, " << certFileName;
-        IO_EXCEPTION(EC_SSL_ERROR);
-    }
-    if (SSL_CTX_use_PrivateKey_file(ctx, privKeyFileName, SSL_FILETYPE_PEM) != 1) {
-        LOG_ERROR() << "SSL_CTX_use_PrivateKey_file failed " << privKeyFileName;
-        IO_EXCEPTION(EC_SSL_ERROR);
-    }
-    if (SSL_CTX_check_private_key(ctx) != 1) {
-        LOG_ERROR() << "SSL_CTX_check_private_key failed" << privKeyFileName;
-        IO_EXCEPTION(EC_SSL_ERROR);
-    }
+    setup_certificate(ctx, certFileName, privKeyFileName);
+
     // the server will not send a client certificate request to the client, so the client will not send a certificate.
     int verificationMode = SSL_VERIFY_NONE;
     if (requestCertificate)
@@ -111,16 +162,29 @@ SSLContext::Ptr SSLContext::create_server_ctx(const char* certFileName, const ch
         }
     }
     SSL_CTX_set_verify(ctx, verificationMode, verify_server);
+
     return Ptr(new SSLContext(ctx, true));
 }
 
-SSLContext::Ptr SSLContext::create_client_context() {
+SSLContext::Ptr SSLContext::create_client_context(const char* certFileName, const char* privKeyFileName, bool rejectUnauthorized) {
     SSL_CTX* ctx = init_ctx(false);
 
-    // if not using an anonymous cipher (by default disabled), the server will send a certificate which will be checked.
-    // The result of the certificate verification process can be checked after the TLS/SSL handshake using the SSL_get_verify_result(3) function. 
-    // The handshake will be continued regardless of the verification result.
-    SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, verify_client);
+    setup_certificate(ctx, certFileName, privKeyFileName);
+
+    
+    int verifyMode = (rejectUnauthorized == false) ?
+        // if not using an anonymous cipher (by default disabled), the server will send a certificate which will be checked.
+        // The result of the certificate verification process can be checked after the TLS/SSL handshake using the SSL_get_verify_result(3) function. 
+        // The handshake will be continued regardless of the verification result.
+        SSL_VERIFY_NONE
+        :
+        // the server certificate is verified.
+        // If the verification process fails, the TLS / SSL handshake is immediately terminated with an alert message containing the reason for the verification failure.
+        // If no server certificate is sent, because an anonymous cipher is used, SSL_VERIFY_PEER is ignored.
+        SSL_VERIFY_PEER;    
+    
+    SSL_CTX_set_verify(ctx, verifyMode, verify_client);
+
     return Ptr(new SSLContext(ctx, false));
 }
 

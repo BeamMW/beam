@@ -1,12 +1,33 @@
 package main
 
 import (
+	"flag"
 	"github.com/olahol/melody"
 	"log"
 	"net/http"
 )
 
 func main () {
+	flag.Parse()
+	args := flag.Args()
+
+	if len(args) > 1 {
+		log.Fatal("too many arguments")
+	}
+
+	if len(args) == 1 {
+		if args[0] == "vapid-keys" {
+			printNewVAPIDKeys()
+			return
+		} else {
+			log.Fatalf("unknown command: %v", args[0])
+		}
+	}
+
+
+	//
+	// Command line is OK
+	//
 	log.Println("starting wallet service balancer")
 	m := melody.New()
 
@@ -14,9 +35,14 @@ func main () {
 		log.Fatal(err)
 	}
 
-	if err := monitorInitialize(m); err != nil {
+	if err := sbbsMonitorInitialize(); err != nil {
 		log.Fatal(err)
 	}
+
+	if err := walletServicesInitialize(m); err != nil {
+		log.Fatal(err)
+	}
+
 
 	//
 	// HTTP API
@@ -25,22 +51,13 @@ func main () {
 	// Now just hello
 	http.HandleFunc("/", helloRequest)
 
-	// Get endpoint
-	http.HandleFunc("/login", wrapHandler(loginRequest))
-
-	// Inform that wallet is still alive and endpoint should be kept
-	http.HandleFunc("/alive", wrapHandler(aliveRequest))
-
-	// Inform that wallet web client is leaving
-	http.HandleFunc("/logout", wrapHandler(logoutRequest))
-
 	// Get general server statistics
 	http.HandleFunc("/status", wrapHandler(statusRequest))
 
 	//
 	// JsonRPCv2.0 over WebSockets
 	//
-	var wsGenericError = "websocket processing error, %v"
+	var wsGenericError = "websocket server processing error, %v"
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request){
 		if err := m.HandleRequest(w, r); err != nil {
 			log.Printf(wsGenericError, err)
@@ -48,22 +65,33 @@ func main () {
 	})
 
 	m.HandleMessage(func(session *melody.Session, msg []byte) {
-		resp := jsonRpcProcess(session, msg)
-		if err := session.Write(resp); err != nil {
-			log.Printf(wsGenericError, err)
-		}
+		go func() {
+			if resp := jsonRpcProcessWallet(session, msg); resp != nil {
+				if err := session.Write(resp); err != nil {
+					log.Printf(wsGenericError, err)
+				}
+			}
+		} ()
+	})
+
+	m.HandleConnect(func(session *melody.Session) {
+		log.Printf("websocket server new session")
 	})
 
 	m.HandleDisconnect(func(session *melody.Session) {
-		if err := rpcDisconnect(session); err != nil {
+		if err := onWalletDisconnect(session); err != nil {
 			log.Printf(wsGenericError, err)
 		}
 	})
 
 	m.HandlePong(func(session *melody.Session) {
-		if err := rpcAlive(session); err != nil {
+		if err := onWalletPong(session); err != nil {
 			log.Printf(wsGenericError, err)
 		}
+	})
+
+	m.HandleError(func(session *melody.Session, err error) {
+		log.Printf(wsGenericError, err)
 	})
 
 	log.Println(config.ListenAddress, "Go!")

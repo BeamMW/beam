@@ -21,6 +21,7 @@
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 #include "version.h"
+#include "pipe.h"
 
 #include <memory>
 #include <unordered_map>
@@ -164,7 +165,10 @@ namespace
 
         void OnWalletMessage(const wallet::WalletID& peerID, const wallet::SetTxParameter& msg) override
         {
-            LOG_INFO() << "new bbs message for peer: " << std::to_string(peerID);
+            beam::Amount amount = 0;
+            msg.GetParameter<beam::Amount>(TxParameterID::Amount, amount);
+
+            LOG_INFO() << "new bbs message for peer: " << std::to_string(peerID) << " amount: " << amount;
 
             json jsonMsg =
             {
@@ -173,7 +177,8 @@ namespace
                 {"method", "new_message"},
                 {"params",
                     {
-                        {"address",  std::to_string(peerID)}
+                        {"address",  std::to_string(peerID)},
+                        {"amount",   amount}
                     }
                 }
             };
@@ -383,13 +388,24 @@ namespace
     public:
         Server(Monitor& monitor, io::Reactor::Ptr reactor, uint16_t port)
             : WebSocketServer(reactor, port,
-                [&monitor](auto&& func)->IHandler::Ptr
-                { return std::make_unique<MonitorApiHandler>(monitor, std::move(func)); }
-            )
+            [&monitor](auto&& func)->IHandler::Ptr {
+                return std::make_unique<MonitorApiHandler>(monitor, std::move(func));
+            },
+            [] () {
+                Pipe syncPipe(Pipe::SyncFileDescriptor);
+                syncPipe.notify("LISTENING");
+            })
+            , _heartbeatPipe(Pipe::HeartbeatFileDescriptor)
         {
+            _heartbeatTimer = io::Timer::create(*reactor);
+            _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this] () {
+                _heartbeatPipe.notify("alive");
+            });
         }
+    private:
+        io::Timer::Ptr _heartbeatTimer;
+        Pipe _heartbeatPipe;
     };
-
 }
 
 int main(int argc, char* argv[])
@@ -411,7 +427,6 @@ int main(int argc, char* argv[])
             std::string nodeURI;
             Nonnegative<uint32_t> pollPeriod_ms;
             uint32_t logCleanupPeriod;
-
         } options;
 
         io::Address nodeAddress;

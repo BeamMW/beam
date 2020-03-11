@@ -1,56 +1,57 @@
 package main
 
 import (
-	"github.com/olahol/melody"
-	"os"
-	"log"
 	"encoding/json"
-	"path/filepath"
 	"errors"
-	"sync"
+	"github.com/olahol/melody"
+	"log"
+	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 )
+
+// TODO: add counters
 
 const (
 	ConfigFile = "config.json"
 )
 
 type Config struct {
-	BeamNode                string
-	ServicePath             string
-	ServiceFirstPort        int
+	BeamNodeAddress         string
+	WalletServicePath       string
+	WalletServiceFirstPort  int
+	WalletServiceLastPort   int
+	BbsMonitorPath			string
+	BbsMonitorFirstPort     int
+	BbsMonitorLastPort      int
 	SerivcePublicAddress    string
 	ListenAddress           string
+	PushContactMail			string
 	Debug				    bool
 	NoisyLogs               bool
 	EndpointAliveTimeout    time.Duration
 	ServiceLaunchTimeout    time.Duration
 	ServiceAliveTimeout     time.Duration
 	ServiceHeartbeatTimeout time.Duration
-	nextServicePort         int
-	mutex					sync.Mutex
+	VAPIDPublic             string
+	VAPIDPrivate            string
 }
 
 var config = Config{
-	NoisyLogs: false,
-	Debug: true,
+	NoisyLogs:     false,
+	Debug:         true,
 }
 
 func loadConfig (m *melody.Melody) error {
 	return config.Read(ConfigFile, m)
 }
 
-func (cfg* Config) GenerateServicePort() (port int) {
-	cfg.mutex.Lock()
-	defer cfg.mutex.Unlock()
-
-	port = cfg.nextServicePort
-	cfg.nextServicePort++
-	return
-}
-
 func (cfg* Config) Read(fname string, m *melody.Melody) error {
-	
+	// Set melody params
+	m.Config.MaxMessageSize = 1024
+
+	// Read config file
 	fpath, err := filepath.Abs(fname)
 	if err != nil {
 		return err
@@ -72,22 +73,19 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 		return err
 	}
 
-	if len(cfg.BeamNode) == 0 {
-		return errors.New("config, missing Node")
+	if len(cfg.WalletServicePath) == 0 {
+		return errors.New("config, missing WalletServicePath")
 	}
 
-	if len(cfg.ServicePath) == 0 {
-		return errors.New("config, missing ServicePath")
+	if cfg.WalletServiceFirstPort <= 0 {
+		return errors.New("config, invalid wallet serivce first port")
 	}
 
-	if len(cfg.ListenAddress) == 0 {
-		return errors.New("config, missing ListenAddress")
+	if  cfg.WalletServiceLastPort <= 0 ||
+		cfg.WalletServiceFirstPort > cfg.WalletServiceLastPort ||
+		cfg.WalletServiceFirstPort + runtime.NumCPU() > cfg.WalletServiceLastPort {
+		return errors.New("config, invalid wallet serivce last port")
 	}
-
-	if cfg.ServiceFirstPort <= 0 {
-		return errors.New("config, invalid wallet serivce port")
-	}
-	cfg.nextServicePort = cfg.ServiceFirstPort
 
 	if len(cfg.SerivcePublicAddress) == 0 {
 		return errors.New("config, missing public address")
@@ -95,6 +93,32 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 
 	if cfg.EndpointAliveTimeout == 0 {
 		cfg.EndpointAliveTimeout = m.Config.PingPeriod + m.Config.PingPeriod/2
+	}
+
+	if len(cfg.BbsMonitorPath) == 0 {
+		return errors.New("config, missing BbsMonitorPath")
+	}
+
+	if cfg.BbsMonitorFirstPort <= 0 {
+		return errors.New("config, invalid bbs monitor first port")
+	}
+
+	if  cfg.BbsMonitorLastPort <= 0 ||
+		cfg.BbsMonitorFirstPort > cfg.BbsMonitorLastPort ||
+		cfg.BbsMonitorFirstPort + runtime.NumCPU() > cfg.BbsMonitorLastPort {
+		return errors.New("config, invalid bbs monitor last port")
+	}
+
+	if len(cfg.BeamNodeAddress) == 0 {
+		return errors.New("config, missing Node")
+	}
+
+	if len(cfg.ListenAddress) == 0 {
+		return errors.New("config, missing ListenAddress")
+	}
+
+	if len(cfg.PushContactMail) == 0 {
+		return errors.New("config, missing push contact email")
 	}
 
 	if cfg.ServiceLaunchTimeout == 0 {
@@ -113,7 +137,7 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 	if cfg.Debug {
 		mode = "DEBUG"
 	}
-	log.Printf("starting in %v mode", mode)
 
+	log.Printf("starting in %v mode", mode)
 	return nil
 }

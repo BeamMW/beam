@@ -4,8 +4,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/olahol/melody"
+	"log"
 )
+
+const (
+	RpcKeyWID = "wid"
+)
+
+type rpcHeader struct {
+	Jsonrpc string           `json:"jsonrpc"`
+	Id      *json.RawMessage `json:"id"`
+	Result  *json.RawMessage `json:"result"`
+	Params  *json.RawMessage `json:"params"`
+	Error   *json.RawMessage `json:"error"`
+	Method  string           `json:"method"`
+}
 
 type rpcRequest struct {
 	Jsonrpc string           `json:"jsonrpc"`
@@ -20,46 +33,78 @@ type rpcResponse struct {
 	Result  *json.RawMessage `json:"result"`
 }
 
-const (
-	RpcKeyWID = "wid"
-)
+type rpcError struct {
+	Code int `json:"code"`
+	Message string `json:"message"`
+}
 
-func jsonRpcProcess(session *melody.Session, msg []byte) (response []byte) {
+func getIdStr(rawid *json.RawMessage) string {
+	if rawid == nil {
+		return ""
+	}
+	return string(*rawid)
+}
+
+type fnRpcMethod func(string, *json.RawMessage) (int, error, interface{})
+
+func jsonRpcProcess(msg []byte, handler fnRpcMethod) (response []byte) {
+	var err error
+	var errCode int
+
 	var requestId  *json.RawMessage
 	var requestResult interface{}
 
-	var err error
-	var errCode  = -32000
-
 	defer func () {
 		if err == nil {
-			var resp = rpcResponse {
-				Jsonrpc: "2.0",
-				Id: requestId,
-			}
-			rawres, err := json.Marshal(requestResult)
-			if err == nil {
-				rawmsg := json.RawMessage(rawres)
-				resp.Result = &rawmsg
-				response, err = json.Marshal(resp)
+			if requestResult != nil {
+				var resp = rpcResponse{
+					Jsonrpc: "2.0",
+					Id:      requestId,
+				}
+				rawres, err := json.Marshal(requestResult)
+				if err == nil {
+					rawmsg := json.RawMessage(rawres)
+					resp.Result = &rawmsg
+					response, err = json.Marshal(resp)
+				}
 			}
 		}
 		if err != nil {
-			var rpcError = `{"jsonrpc":"2.0", id:nil, error: {code: %v, message: "%v"}`
-			response = []byte(fmt.Sprintf(rpcError, errCode, err.Error()))
+			var errFmt = `{"jsonrpc":"2.0", "id": "-1", "error": {"code": %v, "message": "%v"}}`
+			var rpcError = fmt.Sprintf(errFmt, errCode, err.Error())
+			log.Printf("jsonrpc error: %v", rpcError)
+			response = []byte(rpcError)
 		}
 	} ()
 
-	var header rpcRequest
-	if err = json.Unmarshal(msg, &header); err != nil {
+	var header = rpcHeader{}
+	if err := json.Unmarshal(msg, &header); err != nil {
 		errCode = -32700
 		return
 	}
 
-	requestId = header.Id
-	if header.Jsonrpc != "2.0" {
-		err = fmt.Errorf("bad jsonrpc version %v", header.Jsonrpc)
+	if header.Error != nil {
+		log.Printf("jsonrpc, received error response for id [%v], result %v", getIdStr(header.Id), string(*header.Error))
+		return
+	}
+
+	if header.Result != nil {
+		log.Printf("jsonrpc, received response for id [%v], result %v", getIdStr(header.Id), string(*header.Result))
+		return
+	}
+
+	//
+	// Assume we're dealing with request (method call)
+	//
+	if requestId = header.Id; header.Id == nil {
 		errCode = -32600
+		err = fmt.Errorf("missing jsonrpc id")
+		return
+	}
+
+	if header.Jsonrpc != "2.0" {
+		errCode = -32600
+		err = fmt.Errorf("bad jsonrpc version %v", header.Jsonrpc)
 		return
 	}
 
@@ -69,19 +114,20 @@ func jsonRpcProcess(session *melody.Session, msg []byte) (response []byte) {
 		return
 	}
 
-	if header.Method == "login" {
-		requestResult, err = rpcLoginRequest(session, header.Params)
+	if len(header.Method) == 0 {
+		err = errors.New("bad jsonrpc, empty method")
+		errCode = -32600
 		return
 	}
 
-	if header.Method == "logout" {
-		requestResult, err = rpcLogoutRequest(session, header.Params)
-		return
+	errCode, err, requestResult = handler(header.Method, header.Params)
+	if err == nil {
+		if requestResult == nil {
+			errCode = -32600
+			err = fmt.Errorf("jsonrpc, empty result returned from %v handler", header.Method)
+		}
 	}
 
-	err = fmt.Errorf("method not found")
-	errCode = -32601
 	return
 }
-
 

@@ -932,23 +932,42 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         if (existsJsonParam(params, "filter"))
         {
+            if (existsJsonParam(params["filter"], "swapCoin"))
+            {
+                if (params["filter"]["swapCoin"].is_string())
+                {
+                    offersList.filter.swapCoin = from_string(params["filter"]["swapCoin"]);
+                }
+            }
+
             if (existsJsonParam(params["filter"], "status"))
             {
                 if (params["filter"]["status"].is_number_unsigned())
                 {
-                    offersList.filter.status =
-                        static_cast<SwapOfferStatus>(
-                            params["filter"]["status"]);
+                    offersList.filter.status = static_cast<SwapOfferStatus>(params["filter"]["status"]);
                 }
-            }
-            else if (params["filter"].is_string()
-                    && params["filter"] == "showAll")
-            {
-                offersList.filter.showAll = true;
             }
         }
 
         getHandler().onMessage(id, offersList);
+    }
+
+    void WalletApi::onOffersBoardMessage(const JsonRpcId& id, const json& params)
+    {
+        OffersBoard offersBoard;
+
+        if (existsJsonParam(params, "filter"))
+        {
+            if (existsJsonParam(params["filter"], "swapCoin"))
+            {
+                if (params["filter"]["swapCoin"].is_string())
+                {
+                    offersBoard.filter.swapCoin = from_string(params["filter"]["swapCoin"]);
+                }
+            }
+        }
+
+        getHandler().onMessage(id, offersBoard);
     }
 
     void WalletApi::onCreateOfferMessage(const JsonRpcId& id, const json& params)
@@ -1167,7 +1186,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 {"duration", addr.m_duration},
                 {"expired", addr.isExpired()},
                 {"own", addr.isOwn()},
-                {"ownID", addr.m_OwnID}
+                {"ownIDBase64", to_base64(addr.m_OwnID)}
             });
         }
     }
@@ -1378,6 +1397,21 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
              msg["result"].push_back(
                 OfferToJson(offer, res.addrList, res.systemHeight));
+        }
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const OffersBoard::Response& res, json& msg)
+    {
+        msg =
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", json::array()}
+        };
+
+        for (auto& offer : res.list)
+        {
+            msg["result"].push_back(OfferToJson(offer, res.addrList, res.systemHeight));
         }
     }
 

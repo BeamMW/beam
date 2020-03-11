@@ -689,62 +689,65 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxList& data)
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void ApiConnection::onMessage(const JsonRpcId& id, const OffersList& data)
 {
-    bool showAll = data.filter.showAll && *data.filter.showAll;
-    bool filter = data.filter.status.is_initialized();
-    SwapOfferStatus filterStatus = SwapOfferStatus::Completed;
-    
-    std::vector<SwapOffer> offers;
-    if (filter)
-    {
-        filterStatus = *data.filter.status;
-        if (filterStatus != SwapOfferStatus::Pending)
-        {
-            offers = _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList();
-        }
-    }
-    else
-    {
-        offers = _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList();
-    }
-
+    std::vector<SwapOffer> publicOffers = _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList();
     auto walletDB = _walletData.getWalletDB();
 
     auto swapTxs = walletDB->getTxHistory(TxType::AtomicSwap);
-    offers.reserve(offers.size() + swapTxs.size());
+    std::vector<SwapOffer> offers;
+
+    offers.reserve(swapTxs.size());
     
     for (const auto& tx : swapTxs)
     {
         SwapOffer offer(tx);
 
-        if (!showAll)
+        if ((data.filter.status && (*data.filter.status != offer.m_status)) ||
+            (data.filter.swapCoin && (*data.filter.swapCoin != offer.m_coin)))
         {
-            if (filter &&
-                offer.m_status != filterStatus)
-            {
-                continue;
-            }
-            if (!filter &&
-                offer.m_status != SwapOfferStatus::Pending &&
-                offer.m_status != SwapOfferStatus::InProgress)
-            {
-                continue;
-            }
+            continue;
         }
 
-        const auto it = std::find_if(
-            offers.begin(),
-            offers.end(),
-            [&offer] (const SwapOffer& offerFromBoard) {
+        const auto it = std::find_if(publicOffers.begin(), publicOffers.end(),
+            [&offer](const SwapOffer& offerFromBoard) {
                 return offer.m_txId == offerFromBoard.m_txId;
             });
 
-        if (it == offers.end())
-            offers.push_back(offer);
+        if (it != publicOffers.end())
+        {
+            offer.m_publisherId = it->m_publisherId;
+        }
+        offers.push_back(offer);
     }
 
     doResponse(
         id,
         OffersList::Response
+        {
+            walletDB->getAddresses(true),
+            walletDB->getCurrentHeight(),
+            offers,
+        });
+}
+
+void ApiConnection::onMessage(const JsonRpcId& id, const OffersBoard& data)
+{
+    std::vector<SwapOffer> offers = _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList();
+    auto walletDB = _walletData.getWalletDB();
+    
+    if (data.filter.swapCoin)
+    {
+        std::vector<SwapOffer> filteredOffers;
+        filteredOffers.reserve(offers.size());
+
+        std::copy_if(offers.begin(), offers.end(), std::back_inserter(filteredOffers),
+            [&data](const auto& offer) { return offer.m_coin == *data.filter.swapCoin; });
+
+        offers.swap(filteredOffers);
+    }
+
+    doResponse(
+        id,
+        OffersBoard::Response
         {
             walletDB->getAddresses(true),
             walletDB->getCurrentHeight(),
