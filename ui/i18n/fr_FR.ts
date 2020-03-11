@@ -8,8 +8,9 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source>GROTH</source>
-        <translation>GROTH</translation>
+        <source></source>
+        <oldsource>GROTH</oldsource>
+        <translation type="unfinished">GROTH</translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -954,9 +955,9 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <source>Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
 
 Allow to open and proceed to the website? You can always update your choice in Settings.</source>
-        <oldsource>Beam Wallet app requires permission to open external link in the browser.
-This action will expose your IP to the web server.
-To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</oldsource>
+        <oldsource>Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
+
+Allow to open and proceed to the website? You can always update your choice in Settings.</oldsource>
         <translation type="unfinished">L&apos;application Beam Wallet nécessite l&apos;autorisation d&apos;ouvrir un lien externe dans le navigateur. Cette action exposera votre adresse IP au serveur Web. Pour l&apos;éviter, choisissez -Annuler-. Vous pouvez modifier votre choix dans les paramètres de l&apos;application à tout moment.</translation>
     </message>
     <message id="start-open-change-wallet-message">

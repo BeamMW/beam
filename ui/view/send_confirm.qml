@@ -3,6 +3,7 @@ import QtQuick.Controls 2.4
 import QtQuick.Layouts 1.1
 import Beam.Wallet 1.0
 import "controls"
+import "./utils.js" as Utils
 
 ConfirmationDialog {
     onVisibleChanged: {
@@ -16,15 +17,22 @@ ConfirmationDialog {
 
     property var    onAcceptedCallback: undefined
     property alias  addressText:        addressLabel.text
-    property alias  amountText:         amountLabel.text
-    property alias  feeText:            feeLabel.text
-    property Item   defaultFocusItem:   BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
+    property int    currency:           Currency.CurrBeam
+    property string amount:             "0"
+    property string fee:                "0"
+    property string secondCurrencyRate:         "0"
+    property string secondCurrencyLabel:        ""
     property bool   swapMode:           false
-    property var    swapCurrencyLabel:  ""
-    property string secondCurrencyRate:  "0"
-    property string secondCurrencyLabel: ""
-    //% "Transaction fee"
-    property string feeLabel: qsTrId("general-fee") + ":"
+    readonly property string    currencyLabel:  BeamGlobals.getCurrencyLabel(sendViewConfirm.currency)
+    readonly property string    feeLabel:       !sendViewConfirm.swapMode
+                                                //% "Transaction fee"
+                                                ? (qsTrId("general-fee") + ":")
+                                                : (sendViewConfirm.currency == Currency.CurrBeam
+                                                    //% "BEAM Transaction fee"
+                                                    ? (qsTrId("beam-transaction-fee") + ":")
+                                                    //% "%1 Transaction fee rate"
+                                                    : qsTrId("general-fee-rate").arg(currencyLabel))
+    property Item   defaultFocusItem:   BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
 
     okButtonText: sendViewConfirm.swapMode ?
                     //% "Swap"
@@ -64,23 +72,19 @@ ConfirmationDialog {
     }
 
     function getFeeInSecondCurrency(feeValue) {
-        console.log("TODO: getFeeInSecondCurrency()")
-        return "0.123 USD"
-        // return BeamGlobals.calcFeeInSecondCurrency(
-        //     feeValue,
-        //     control.currency,
-        //     sendViewConfirm.secondCurrencyRate,
-        //     sendViewConfirm.secondCurrencyLabel)
+        return BeamGlobals.calcFeeInSecondCurrency(
+            feeValue,
+            sendViewConfirm.currency,
+            sendViewConfirm.secondCurrencyRate,
+            sendViewConfirm.secondCurrencyLabel)
     }
 
     function getAmountInSecondCurrency() {
-        console.log("TODO: getAmountInSecondCurrency()")
-        return "123 USD"
-        // return BeamGlobals.calcAmountInSecondCurrency(
-        //     sendViewConfirm.amountText,
-        //     control.currency,
-        //     sendViewConfirm.secondCurrencyRate,
-        //     sendViewConfirm.secondCurrencyLabel)
+        return BeamGlobals.calcAmountInSecondCurrency(
+            sendViewConfirm.amount,
+            sendViewConfirm.currency,
+            sendViewConfirm.secondCurrencyRate,
+            sendViewConfirm.secondCurrencyLabel)
     }
 
     onAccepted: {
@@ -171,6 +175,10 @@ ConfirmationDialog {
                         Layout.minimumHeight: 29
                         font.pixelSize: 24
                         color: Style.accent_outgoing
+                        text: [
+                                Utils.uiStringToLocale(sendViewConfirm.amount),
+                                sendViewConfirm.currencyLabel
+                            ].join(" ")
                     }
                     SFText {
                         id: secondCurrencyAmountLabel
@@ -202,12 +210,16 @@ ConfirmationDialog {
                         Layout.minimumHeight: 16
                         font.pixelSize: 14
                         color: Style.content_main
+                        text: [
+                                Utils.uiStringToLocale(sendViewConfirm.fee),
+                                BeamGlobals.getFeeRateLabel(sendViewConfirm.currency)
+                            ].join(" ")
                     }
                     SFText {
                         id: secondCurrencyFeeLabel
                         font.pixelSize: 14
                         color: Style.content_disabled
-                        text: getFeeInSecondCurrency(parseInt(feeLabel.text, 10))
+                        text: getFeeInSecondCurrency(parseInt(sendViewConfirm.fee, 10))
                     }
                 }
 
@@ -272,9 +284,9 @@ ConfirmationDialog {
                     wrapMode: Text.WordWrap
                     text: sendViewConfirm.swapMode ?
                         //% "Keep your wallet online. The swap normally takes about 1 hour to complete."
-                        qsTrId("send-swap-sconfirmation-online-time") + (swapCurrencyLabel !== "" ?
+                        qsTrId("send-swap-sconfirmation-online-time") + (sendViewConfirm.currency !== Currency.CurrBeam ?
                             //% " Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled."
-                            qsTrId("send-swap-fee-warning").arg(swapCurrencyLabel)
+                            qsTrId("send-swap-fee-warning").arg(sendViewConfirm.currencyLabel)
                             : "")
                         :
                         //% "For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards."

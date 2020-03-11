@@ -8,8 +8,9 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source>GROTH</source>
-        <translation>Groth: đơn vị nhỏ nhất của Beam </translation>
+        <source></source>
+        <oldsource>GROTH</oldsource>
+        <translation type="unfinished">Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -953,9 +954,9 @@
         <source>Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
 
 Allow to open and proceed to the website? You can always update your choice in Settings.</source>
-        <oldsource>Beam Wallet app requires permission to open external link in the browser.
-This action will expose your IP to the web server.
-To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</oldsource>
+        <oldsource>Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
+
+Allow to open and proceed to the website? You can always update your choice in Settings.</oldsource>
         <translation type="unfinished">Ứng dụng Ví Beam yêu cầu sự cho phép để mở liên kết ngoài trong trình duyệt. Hành động này sẽ hiển thị IP của bạn cho máy chủ web. Để tránh điều này, chọn -Hủy-. Bạn có thể thay đổi lựa chọn của mình trong cài đặt ứng dụng bất cứ lúc nào.</translation>
     </message>
     <message id="start-open-change-wallet-message">

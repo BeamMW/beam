@@ -71,14 +71,13 @@ function navigateToDownloads() {
 }
 
 function currenciesList() {
-    return ["BEAM", "BTC", "LTC", "QTUM"]
+    return [
+        BeamGlobals.getCurrencyLabel(Currency.CurrBeam),
+        BeamGlobals.getCurrencyLabel(Currency.CurrBtc),
+        BeamGlobals.getCurrencyLabel(Currency.CurrLtc),
+        BeamGlobals.getCurrencyLabel(Currency.CurrQtum)
+    ]
 }
-
-// TODO: refact all currencies labels to one place
-const symbolBeam  = "BEAM";
-const symbolBtc   = "BTC";
-const symbolLtc   = "LTC";
-const symbolQtum  = "QTUM";
 
 const maxAmount   = "254000000";
 const minAmount   = "0.00000001";

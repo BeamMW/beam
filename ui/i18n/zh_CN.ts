@@ -8,8 +8,9 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source>GROTH</source>
-        <translation>GROTH</translation>
+        <source></source>
+        <oldsource>GROTH</oldsource>
+        <translation type="unfinished">GROTH</translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -966,9 +967,9 @@
         <source>Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
 
 Allow to open and proceed to the website? You can always update your choice in Settings.</source>
-        <oldsource>Beam Wallet app requires permission to open external link in the browser.
-This action will expose your IP to the web server.
-To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</oldsource>
+        <oldsource>Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
+
+Allow to open and proceed to the website? You can always update your choice in Settings.</oldsource>
         <translation type="unfinished">Beam钱包需要获取权限以在浏览器中打开外部链接
 
 在浏览器中打开外部外链会暴露您的IP地址；如不想暴露IP地址，请选择“取消”；您可以随时在设置中修改该选项</translation>

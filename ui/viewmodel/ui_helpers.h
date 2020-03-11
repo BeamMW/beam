@@ -20,6 +20,12 @@ namespace beamui
     constexpr std::string_view currencyUsdLabel =       "USD";
     constexpr std::string_view currencyUnknownLabel =   "";
 
+    constexpr std::string_view currencyBeamFeeRateLabel =       "GROTH";
+    constexpr std::string_view currencyBitcoinFeeRateLabel =    "sat/kB";
+    constexpr std::string_view currencyLitecoinFeeRateLabel =   "ph/kB";
+    constexpr std::string_view currencyQtumFeeRateLabel =       "qsat/kB";
+    constexpr std::string_view currencyUnknownFeeRateLabel =    "";
+
     enum class Currencies
     {
         Beam,
@@ -34,6 +40,7 @@ namespace beamui
     std::string toStdString(Currencies currency);
     QString getCurrencyLabel(Currencies);
     QString getCurrencyLabel(beam::wallet::ExchangeRate::Currency);
+    QString getFeeRateLabel(Currencies);
     /// convert amount to ui string with "." as a separator
     QString AmountToUIString(const beam::Amount& value, Currencies coinType = Currencies::Unknown);
     QString AmountInGrothToUIString(const beam::Amount& value);
