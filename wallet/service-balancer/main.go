@@ -24,11 +24,11 @@ func main () {
 		}
 	}
 
-
 	//
 	// Command line is OK
 	//
 	log.Println("starting wallet service balancer")
+	startCounters()
 	m := melody.New()
 
 	if err := loadConfig(m); err != nil {
@@ -42,7 +42,6 @@ func main () {
 	if err := walletServicesInitialize(m); err != nil {
 		log.Fatal(err)
 	}
-
 
 	//
 	// HTTP API
@@ -59,6 +58,7 @@ func main () {
 	//
 	var wsGenericError = "websocket server processing error, %v"
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request){
+		counters.CountWUpgrade()
 		if err := m.HandleRequest(w, r); err != nil {
 			log.Printf(wsGenericError, err)
 		}
@@ -75,10 +75,12 @@ func main () {
 	})
 
 	m.HandleConnect(func(session *melody.Session) {
+		counters.CountWConnect()
 		log.Printf("websocket server new session")
 	})
 
 	m.HandleDisconnect(func(session *melody.Session) {
+		counters.CountWDisconnect()
 		if err := onWalletDisconnect(session); err != nil {
 			log.Printf(wsGenericError, err)
 		}
@@ -91,6 +93,7 @@ func main () {
 	})
 
 	m.HandleError(func(session *melody.Session, err error) {
+		counters.CountWError()
 		log.Printf(wsGenericError, err)
 	})
 

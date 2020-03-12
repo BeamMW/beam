@@ -158,7 +158,8 @@
 		let keykeeper = null
 		var loginConnection = null
 		var connection = null
-		var webpush = null;
+		var webpush = null
+		var defaddr = null
 
 		login()
 
@@ -166,9 +167,9 @@
 		// If you lose loginConnection or connection, ALWAYS relogin
 		// Both loginConnection & connection should be active
 		function login() {
-			keykeeper = initKeyKeeper("giraffe usage sad arrest sound chimney file select monster head clown ask")
-			localStorage.seed = "giraffe usage sad arrest sound chimney file select monster head clown ask"
-			localStorage.id = keykeeper.getWalletID()
+			//keykeeper = initKeyKeeper("giraffe usage sad arrest sound chimney file select monster head clown ask")
+			//localStorage.seed = "giraffe usage sad arrest sound chimney file select monster head clown ask"
+			//localStorage.id = keykeeper.getWalletID()
 
 			if (localStorage.id && localStorage.seed) {
 				console.log(`Stored WalletID:${localStorage.id}`)
@@ -176,12 +177,11 @@
 				keykeeper = initKeyKeeper(localStorage.seed)
 				console.log(`Keykeeper created`);
 			} else {
-				/*let seed = Module.KeyKeeper.GeneratePhrase()
+				let seed = Module.KeyKeeper.GeneratePhrase()
 				console.log(`New Seed: ${seed}`)
 				keykeeper = initKeyKeeper(seed)
 				console.log(`New WalletID: ${keykeeper.getWalletID()}`)
-				$('#create-wallet-panel .seed-phrase-input').val(seed)*/
-
+				$('#create-wallet-panel .seed-phrase-input').val(seed)
 			}
 
 			console.log("Logging in...")
@@ -373,6 +373,7 @@
 
 		$('#open-wallet-panel .delete-wallet-button').click(() => {
 			if (confirm('Are you sure want do delete current wallet data?')) {
+				pushNotifyUnsub(defaddr)
 				localStorage.clear()
 				connection.close()
 			}
@@ -415,6 +416,9 @@
 		})
 
 		function showWalletStatus() {
+			// unsubscribe if any
+      		pushNotifyUnsub(defaddr)
+
 			connection.onmessage = e => {
 				let data = JSON.parse(e.data)
 				if (data.result) {
@@ -440,7 +444,6 @@
 				let data = JSON.parse(e.data)
 				if(data.result)	{
 					let body = $('#wallet-panel .addresses > tbody').empty()
-					let defaddr = undefined
 					data.result.forEach && data.result.forEach((item, index) => {
 						if (index === 0) defaddr = item
 						console.log(JSON.stringify(item))
@@ -455,7 +458,7 @@
 									</tr>`)
 					})
 					if (defaddr) {
-						showPush(defaddr)
+						showPush()
 					}
 					showUtxo()
 				}
@@ -474,8 +477,35 @@
 				}
 			}))
 		}
+		
+		async function pushNotifySub(addr) {
+      		return new Promise((resolve, reject) => {
+				if (!addr) reject()
+				return webpush.notifyServer(true, loginConnection, {
+					SbbsAddress: keykeeper.getSbbsAddress(addr.ownIDBase64),
+					SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.ownIDBase64),
+					ExpiresAt: addr.create_time + addr.duration
+				})
+			})
+		}
 
-		function showPush(addr) {
+		async function pushNotifyUnsub(addr) {
+      		return new Promise((resolve, reject) => {
+      			if (!addr) reject()
+
+      			if (!webpush.userSubscribed) {
+					console.log('unsub: no previous subscription')
+					reject()
+					return
+				}
+      			return webpush.notifyServer(false, loginConnection, {
+					SbbsAddress: keykeeper.getSbbsAddress(addr.ownIDBase64),
+					SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.ownIDBase64)
+				})
+			})
+		}
+
+		function showPush() {
 			webpush = new Proxy(new WebPush(), {
 				set: function(obj, prop, value) {
 					if (prop === "subscription") {
@@ -497,35 +527,35 @@
 				console.log("notifications blocked by user")
 				$("#push-blocked").show()
 				$("#push-panel").show()
+				// may be push was disabled in settings
+				// remove any previous subscriptions
+				// TODO: check the same on service worker start (if possible)
+				pushNotifyUnsub(defaddr)
 			} else {
 				console.log("notifications enabled, notifying server");
 				(async () => {
 					if (await webpush.register(loginConnection)) {
-						await webpush.notifyServer(loginConnection, {
-							SbbsAddress: keykeeper.getSbbsAddress(addr.ownIDBase64),
-							SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.ownIDBase64)
-						})
+						await pushNotifySub(defaddr)
 						console.log("Push notification - OK")
 					}
 				})()
 			}
 
 			$("#push-enable").click(() => {
-				alert("Enable push");
 				(async () => {
 					if (await webpush.subscribe()) {
-						await webpush.notifyServer(loginConnection, {
-							SbbsAddress: keykeeper.getSbbsAddress(addr.ownIDBase64),
-							SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.ownIDBase64)
-						})
+						await pushNotifySub(defaddr)
 					}
 				})()
-				return false
+				return true
 			})
 
 			$("#push-disable").click(() => {
-				alert("Disable push");
-				(async () => webpush.unsubscribe())()
+				(async () => {
+					await pushNotifyUnsub()
+					await webpush.unsubscribe()
+				})()
+				return true
 			})
 		}
 
@@ -572,8 +602,8 @@
 							</tr>`)
 					})
 				} else onkeykeeper(data)
-				//if ($('#wallet-panel').is(":visible"))
-				//	setTimeout(showWalletStatus, 5000)
+				if ($('#wallet-panel').is(":visible"))
+					setTimeout(showWalletStatus, 5000)
 			}
 
 			connection.send(JSON.stringify({

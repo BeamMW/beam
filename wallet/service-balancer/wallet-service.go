@@ -27,6 +27,7 @@ func walletServicesInitialize(m *melody.Melody) (err error) {
 			select {
 			case svcIdx := <- walletServices.Dropped:
 				points, clients := epoints.DropServiceEndpoints(svcIdx)
+				counters.CountWSDrop(points, clients)
 				log.Printf("service %v, dropped. %v endpoint(s) with %v client(s)", svcIdx, points, clients)
 			case svcIdx := <- walletServices.Restarted:
 				log.Printf("service %v, restarted", svcIdx)

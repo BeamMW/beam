@@ -1,20 +1,20 @@
 package main
 
 import (
+	"beam.mw/service-balancer/wsclient"
 	"encoding/json"
 	"log"
 )
 
 type rpcNewmsgParams struct {
 	Address string `json:"address"`
-	Amount  uint64 `json:"amount"`
 }
 
 type rpcNewmsgResult struct {
 	Handled bool `json:"handled"`
 }
 
-func onNewBbsMessage(client *WSClient, params *json.RawMessage) (result interface{}, err error) {
+func onNewBbsMessage(client *wsclient.WSClient, params *json.RawMessage) (result interface{}, err error) {
 	var nmParams rpcNewmsgParams
 	var nmResult rpcNewmsgResult
 
@@ -24,9 +24,9 @@ func onNewBbsMessage(client *WSClient, params *json.RawMessage) (result interfac
 	log.Printf("new bbs message request, address %v", nmParams.Address)
 
 	go func() {
-		err := forEachSub(nmParams.Address, func(sub *subEntry) {
+		err := forEachSub(nmParams.Address, func(sub *Subscription) {
 			go func () {
-				err := sendPushNotification(string(*params), sub.NotificationEndpoint, sub.P256dhKey, sub.AuthKey)
+				err := sendPushNotification(string(*params), sub.NotificationEndpoint, sub.P256dhKey, sub.AuthKey, sub.ExpiresAt)
 				if err != nil {
 					log.Printf("push notification error %v", err)
 				}

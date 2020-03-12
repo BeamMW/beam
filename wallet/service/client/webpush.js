@@ -45,9 +45,13 @@ export default class webpush {
     }
 
     async unsubscribe() {
+        return new Promise((resolve, reject) => {
+            this.subscription = undefined
+            resolve()
+        })
     }
 
-    async notifyServer(connection, params) {
+    async notifyServer(subscribe, connection, params) {
         return new Promise((resolve, reject) => {
             let onclose = () => {
                 cleanup()
@@ -71,50 +75,35 @@ export default class webpush {
             subscriptionParams.NotificationEndpoint = this.subscription.endpoint
             subscriptionParams.ServerKey = this.serverKey
 
-            let p256dh = this.subscription.getKey('p256dh')
-            subscriptionParams.P256dhKey = btoa(String.fromCharCode.apply(null, new Uint8Array(p256dh)))
+            if (subscribe) {
+                let p256dh = this.subscription.getKey('p256dh')
+                subscriptionParams.P256dhKey = btoa(String.fromCharCode.apply(null, new Uint8Array(p256dh)))
 
-            let auth = this.subscription.getKey('auth')
-            subscriptionParams.AuthKey   = btoa(String.fromCharCode.apply(null, new Uint8Array(auth)))
+                let auth = this.subscription.getKey('auth')
+                subscriptionParams.AuthKey = btoa(String.fromCharCode.apply(null, new Uint8Array(auth)))
+            }
 
-            console.log("Subscription params", JSON.stringify(subscriptionParams))
+            console.log("sub/unsub params", JSON.stringify(subscriptionParams))
             connection.send(JSON.stringify({
                 jsonrpc: "2.0",
                 id: 666,
-                method: "subscribe",
+                method: subscribe ? "subscribe" : "unsubscribe" ,
                 params: subscriptionParams
             }))
 
             connection.onmessage = e => {
                 let data = JSON.parse(e.data)
                 if (data.result) {
-                    console.log(`subscribe: result is ${JSON.stringify(data.result)}`)
+                    console.log(`sub/unsub: result is ${JSON.stringify(data.result)}`)
                     if (data.id === 666) {
-                        console.log("Subscribe OK. STARTING...")
+                        console.log("sub/unsub OK")
                         cleanup()
                         resolve()
                     }
                 } else {
-                    console.log("Subscription error,", JSON.stringify(data))
+                    console.log("sub/unsub error,", JSON.stringify(data))
                 }
             }
         })
     }
 }
-
-/*
-function encodeKey(rawKey) {
-    const padding = '='.repeat((4 - rawKey.length % 4) % 4);
-    const base64 = (rawKey + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/')
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length)
-
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i)
-    }
-    return outputArray
-}
-*/

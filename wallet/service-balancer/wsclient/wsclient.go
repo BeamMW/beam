@@ -1,4 +1,4 @@
-package main
+package wsclient
 
 import (
 	"context"
@@ -23,10 +23,6 @@ type WSClient struct {
 	pongWait   time.Duration
 	onError    fnError
 	onMessage  fnMessage
-}
-
-type IS struct {
-	val int
 }
 
 func NewWSClient(host string, path string) (*WSClient, error) {

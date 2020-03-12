@@ -165,25 +165,51 @@ namespace
 
         void OnWalletMessage(const wallet::WalletID& peerID, const wallet::SetTxParameter& msg) override
         {
-            beam::Amount amount = 0;
-            msg.GetParameter<beam::Amount>(TxParameterID::Amount, amount);
-
-            LOG_INFO() << "new bbs message for peer: " << std::to_string(peerID) << " amount: " << amount;
-
-            json jsonMsg =
+            if (msg.m_Type != TxType::Simple)
             {
-                {Api::JsonRpcHrd, Api::JsonRpcVerHrd},
-                {"id", 0},
-                {"method", "new_message"},
-                {"params",
-                    {
-                        {"address",  std::to_string(peerID)},
-                        {"amount",   amount}
-                    }
-                }
-            };
+                return;
+            }
 
-            sendAsync(jsonMsg);
+            TxFailureReason failReason = TxFailureReason::Unknown;
+            if (msg.GetParameter<TxFailureReason>(TxParameterID::FailureReason, failReason))
+            {
+                json jsonMsg =
+                {
+                    {Api::JsonRpcHrd, Api::JsonRpcVerHrd},
+                    {"id", 0},
+                    {"method", "new_message"},
+                    {"params",
+                        {
+                            {"txtype",         "simple"},
+                            {"txid",           std::to_string(msg.m_TxID)},
+                            {"address",        std::to_string(peerID)},
+                            {"failureReason",  static_cast<int>(failReason)}
+                        }
+                    }
+                };
+                sendAsync(jsonMsg);
+            }
+            else
+            {
+                beam::Amount amount = 0;
+                msg.GetParameter<beam::Amount>(TxParameterID::Amount, amount);
+
+                json jsonMsg =
+                {
+                    {Api::JsonRpcHrd, Api::JsonRpcVerHrd},
+                    {"id", 0},
+                    {"method", "new_message"},
+                    {"params",
+                        {
+                            {"txtype",   "simple"},
+                            {"txid",     std::to_string(msg.m_TxID)},
+                            {"address",  std::to_string(peerID)},
+                            {"amount",   amount}
+                        }
+                    }
+                };
+                sendAsync(jsonMsg);
+            }
         }
 
         void OnMsg(proto::BbsMsg&& msg) override

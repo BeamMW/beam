@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-// TODO: add counters
-
 const (
 	ConfigFile = "config.json"
 )
@@ -36,6 +34,8 @@ type Config struct {
 	ServiceHeartbeatTimeout time.Duration
 	VAPIDPublic             string
 	VAPIDPrivate            string
+	DatabasePath            string
+	APISecret               string
 }
 
 var config = Config{
@@ -131,6 +131,10 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 
 	if cfg.ServiceHeartbeatTimeout == 0 {
 		cfg.ServiceHeartbeatTimeout = 10 * time.Second
+	}
+
+	if len(cfg.DatabasePath) == 0 {
+		return errors.New("missing database path")
 	}
 
 	var mode = "RELEASE"

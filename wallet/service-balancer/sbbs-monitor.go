@@ -2,15 +2,19 @@ package main
 
 import (
 	"beam.mw/service-balancer/services"
+	"beam.mw/service-balancer/wsclient"
 	"encoding/json"
+	"errors"
 	"log"
 	"strconv"
 	"sync"
+	"time"
 )
 
 type SbbsMonitor struct {
-	Dropped   chan struct{}
-	Subscribe chan *rpcSubscribeParams
+	Dropped     chan struct{}
+	Subscribe   chan *SubParams
+	Unsubscribe chan *UnsubParams
 }
 
 type SbbsMonitors struct {
@@ -43,17 +47,18 @@ func (mons *SbbsMonitors) ListenMonitor(sbbsIdx int) error {
 	}
 
 	var address = "127.0.0.1:" + strconv.Itoa(service.Port)
-	wsc, err := NewWSClient(address, "/")
+	wsc, err := wsclient.NewWSClient(address, "/")
 	if err != nil {
 		return err
 	}
 
 	var wsGenericError = "websocket bbs client processing error, %v"
-	wsc.HandleError(func (client *WSClient, err error){
+	wsc.HandleError(func (client *wsclient.WSClient, err error){
+		counters.CountBbsError()
 		log.Printf(wsGenericError, err)
 	})
 
-	wsc.HandleMessage(func (client *WSClient, message [] byte){
+	wsc.HandleMessage(func (client *wsclient.WSClient, message [] byte){
 		go func() {
 			if resp := jsonRpcProcessBbs(client, message); resp != nil {
 				client.Write(resp)
@@ -62,8 +67,9 @@ func (mons *SbbsMonitors) ListenMonitor(sbbsIdx int) error {
 	})
 
 	var monitor = &SbbsMonitor{
-		Dropped:   make(chan struct{}),
-		Subscribe: make(chan *rpcSubscribeParams),
+		Dropped:      make(chan struct{}),
+		Subscribe:    make(chan *SubParams),
+		Unsubscribe:  make(chan *UnsubParams),
 	}
 	mons.monitor = monitor
 
@@ -72,16 +78,24 @@ func (mons *SbbsMonitors) ListenMonitor(sbbsIdx int) error {
 		for {
 			select {
 			case req := <- monitor.Subscribe:
+				// TODO: check all logs and move to DEBUG guard if necessary
 				log.Printf("bbs %v, subscribe %v, %v", sbbsIdx, req.SbbsAddress, req.SbbsAddressPrivate)
 				go func () {
-					if err := storeSub(req); err != nil {
-						log.Printf("db error %v", err)
-					}
-					err := sbbsMonitorSubscribe(wsc, req.SbbsAddress, req.SbbsAddressPrivate)
+					err := sbbsMonitorSubscribe(wsc, req.SbbsAddress, req.SbbsAddressPrivate, req.ExpiresAt)
 					if err != nil {
 						log.Printf("bbs %v, failed to subscribe %v", sbbsIdx, err)
 					}
 				}()
+
+			case req := <- monitor.Unsubscribe:
+				log.Printf("bbs %v, unsubscribe %v, %v", sbbsIdx, req.SbbsAddress, req.SbbsAddressPrivate)
+				go func () {
+					err := sbbsMonitorUnsubscribe(wsc, req.SbbsAddress, req.SbbsAddressPrivate)
+					if err != nil {
+						log.Printf("bbs %v, failed to subscribe %v", sbbsIdx, err)
+					}
+				}()
+
 			case <- monitor.Dropped:
 				log.Printf("bbs %v, exit & leave", sbbsIdx)
 				wsc.Stop()
@@ -90,12 +104,17 @@ func (mons *SbbsMonitors) ListenMonitor(sbbsIdx int) error {
 		}
 	}()
 
-	go forAllSubs(func(entry *subEntry) {
-		err := sbbsMonitorSubscribe(wsc, entry.SbbsAddress, entry.SbbsAddressPrivate)
+	go func() {
+		err := forAllSubs(func(entry *Subscription) {
+			err := sbbsMonitorSubscribe(wsc, entry.SbbsAddress, entry.SbbsAddressPrivate, entry.ExpiresAt)
+			if err != nil {
+				log.Printf("sbbs subscribe error %v", err)
+			}
+		})
 		if err != nil {
-			log.Printf("sbbs subscribe error %v", err)
+			log.Printf("forAllSubs error %v", err)
 		}
-	})
+	}()
 
 	return nil
 }
@@ -118,6 +137,7 @@ func sbbsMonitorInitialize() (err error) {
 		for {
 			select {
 			case svcIdx := <- sbbsServices.Dropped:
+				counters.CountBBSDrop()
 				log.Printf("bbs %v, dropped", svcIdx)
 				monitors.DropMonitor(svcIdx)
 
@@ -138,10 +158,11 @@ func sbbsMonitorInitialize() (err error) {
 	return
 }
 
-func sbbsMonitorSubscribe(wsc *WSClient, address string, private string) error {
+func sbbsMonitorSubscribe(wsc *wsclient.WSClient, address string, private string, expires int64) error {
 	params, err := json.Marshal(map[string]interface{}{
-		"address": address,
+		"address":    address,
 		"privateKey": private,
+		"expires":    expires,
 	})
 
 	if err != nil {
@@ -162,8 +183,54 @@ func sbbsMonitorSubscribe(wsc *WSClient, address string, private string) error {
 	return nil
 }
 
-func monitorSubscribe(params *rpcSubscribeParams) {
+func sbbsMonitorUnsubscribe(wsc *wsclient.WSClient, address string, private string) error {
+	params, err := json.Marshal(map[string]interface{}{
+		"address": address,
+		"privateKey": private,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	rawParams := json.RawMessage(params)
+	rawid := json.RawMessage([]byte(`"UNSUB-` + address + `"`))
+
+	jsonv := rpcRequest {
+		Jsonrpc: "2.0",
+		Id:      &rawid,
+		Method:  "unsubscribe",
+		Params:  &rawParams,
+	}
+
+	wsc.Write(jsonv)
+	return nil
+}
+
+func monitorSubscribe(params *SubParams) error {
+	if params.ExpiresAt <= time.Now().Unix() {
+		return errors.New("subscrption is already expired")
+	}
+
+	if err := storeSub(params); err != nil {
+		return err
+	}
+
 	monitors.mutex.Lock()
 	defer monitors.mutex.Unlock()
 	monitors.monitor.Subscribe <- params
+
+	return nil
+}
+
+func monitorUnsubscribe(params *UnsubParams) error {
+	if err := removeSub(params); err != nil {
+		return err
+	}
+
+	monitors.mutex.Lock()
+	defer monitors.mutex.Unlock()
+	monitors.monitor.Unsubscribe <- params
+
+	return nil
 }

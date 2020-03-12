@@ -6,33 +6,38 @@ import (
 	"github.com/olahol/melody"
 	"log"
 	"net/url"
+	"time"
 )
 
-type rpcSubscribeParams struct {
+type SubParams struct {
 	SbbsAddress          string `json:"SbbsAddress"`
 	SbbsAddressPrivate   string `json:"SbbsAddressPrivate"`
 	NotificationEndpoint string `json:"NotificationEndpoint"`
 	ServerKey            string `json:"ServerKey"`
 	P256dhKey            string `json:"P256dhKey"`
 	AuthKey              string `json:"AuthKey"`
+	ExpiresAt            int64  `json:"ExpiresAt"`
 }
 
-type rpcSubscribeResult struct {
+type SubResult struct {
 	Subscribe bool  `json:"subscribe"`
 }
 
-func rpcSubscribeRequest(session* melody.Session, params *json.RawMessage) (result interface{}, err error) {
+func onWalletSubscribe(session* melody.Session, params *json.RawMessage) (result interface{}, err error) {
 	wid, err := getValidWID(session)
 	if err != nil {
 		return
 	}
 
+	// TODO: check keys ?
 	log.Printf("wallet %v, rpc subscribe request", wid)
 
-	var subscribeParams rpcSubscribeParams
+	var subscribeParams SubParams
 	if err = json.Unmarshal(*params, &subscribeParams); err != nil {
 		return
 	}
+
+	log.Printf("wallet %v, rpc subscribe request, address %v, expires %v", wid, subscribeParams.SbbsAddress, time.Unix(subscribeParams.ExpiresAt, 0))
 
 	if len(subscribeParams.SbbsAddress) == 0 {
 		return nil, errors.New("invalid SBBS address")
@@ -62,8 +67,11 @@ func rpcSubscribeRequest(session* melody.Session, params *json.RawMessage) (resu
 		return nil, errors.New("invalid AuthKey")
 	}
 
-	monitorSubscribe(&subscribeParams)
-	result = &rpcSubscribeResult{
+	if err = monitorSubscribe(&subscribeParams); err != nil {
+		return
+	}
+
+	result = &SubResult{
 		Subscribe: true,
 	}
 

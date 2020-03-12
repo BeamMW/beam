@@ -7,11 +7,11 @@ import (
 	"log"
 )
 
-type rpcLoginParams struct {
+type loginParams struct {
 	WalletID string `json:"WalletID"`
 }
 
-type rpcLoginResult struct {
+type loginResult struct {
 	Endpoint string  `json:"endpoint"`
 }
 
@@ -22,21 +22,21 @@ func onWalletLogin(session* melody.Session, params *json.RawMessage) (result int
 		return
 	}
 
-	var loginParms  rpcLoginParams
-	var loginResult rpcLoginResult
+	var par loginParams
+	var res loginResult
 
-	if err = json.Unmarshal(*params, &loginParms); err != nil {
+	if err = json.Unmarshal(*params, &par); err != nil {
 		return
 	}
 
-	log.Printf("wallet %v, rpc login request", loginParms.WalletID)
-	loginResult.Endpoint, err = wallletServicesGet(loginParms.WalletID)
+	log.Printf("wallet %v, rpc login request", par.WalletID)
+	res.Endpoint, err = wallletServicesGet(par.WalletID)
 	if err != nil {
 		return
 	}
 
-	session.Set(RpcKeyWID, loginParms.WalletID)
-	result = &loginResult
+	session.Set(RpcKeyWID, par.WalletID)
+	result = &res
 
 	return
 }
