@@ -126,6 +126,24 @@ namespace beam::wallet
         FailToAcceptOffer() : std::runtime_error("") {}
     };
 
+    class NotEnoughtBeams : public std::runtime_error
+    {
+    public:
+        NotEnoughtBeams() : std::runtime_error("Not enought beams") {}
+    };
+
+    class NotEnoughtSwapCoins : public std::runtime_error
+    {
+    public:
+        NotEnoughtSwapCoins() : std::runtime_error("There is not enough funds to complete the transaction") {}
+    };
+
+    class FailToConnectSwap : public std::runtime_error
+    {
+    public:
+        FailToConnectSwap(const std::string& coin) : std::runtime_error(std::string("There is not connection with ") + coin + " wallet") {}
+    };
+
     struct OfferInput
     {
         Amount beamAmount = 0;

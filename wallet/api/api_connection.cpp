@@ -27,8 +27,6 @@ namespace
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 using namespace beam::wallet;
 
-const char kNotEnoughtFundsError[] =
-    "There is not enough funds to complete the transaction";
 const char kSwapAmountToLowError[] =
     "The swap amount must be greater than the redemption fee.";
 
@@ -40,7 +38,7 @@ void checkIsEnoughtBeamAmount(
     auto available = totals.Avail;
     if (beamAmount + beamFee > available)
     {
-        throw std::runtime_error("Not enought beams");
+        throw NotEnoughtBeams();
     }
 }
 
@@ -67,6 +65,35 @@ bool checkIsEnoughtSwapAmount(
     {
         assert(false);
         return true;
+    }
+    }
+}
+
+void checkSwapConnection(const IAtomicSwapProvider& swapProvider, AtomicSwapCoin swapCoin)
+{
+    switch (swapCoin)
+    {
+    case AtomicSwapCoin::Bitcoin:
+    {
+        if (swapProvider.isBtcConnected())
+            break;
+    }
+    case AtomicSwapCoin::Litecoin:
+    {
+        if (swapProvider.isLtcConnected())
+            break;
+    }
+    case AtomicSwapCoin::Qtum:
+    {
+        if (swapProvider.isQtumConnected())
+            break;
+
+        throw FailToConnectSwap(std::to_string(swapCoin));
+    }
+    default:
+    {
+        assert(false && "Process new coin");
+        break;
     }
     }
 }
@@ -774,6 +801,8 @@ void ApiConnection::onMessage(const JsonRpcId& id, const OffersBoard& data)
 
 void ApiConnection::onMessage(const JsonRpcId& id, const CreateOffer& data)
 {
+    checkSwapConnection(_walletData.getAtomicSwapProvider(), data.swapCoin);
+
     auto walletDB = _walletData.getWalletDB();
     Amount swapFeeRate = data.swapFeeRate
         ? data.swapFeeRate
@@ -789,7 +818,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const CreateOffer& data)
         bool isEnought = checkIsEnoughtSwapAmount(
             _walletData.getAtomicSwapProvider(), data.swapCoin, data.swapAmount, swapFeeRate);
         if (!isEnought)
-            throw std::runtime_error(kNotEnoughtFundsError);
+            throw NotEnoughtSwapCoins();
 
         bool isSwapAmountValid =
             IsSwapAmountValid(
@@ -925,6 +954,8 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
 
     Amount swapFeeRate = data.swapFeeRate ? data.swapFeeRate : GetSwapFeeRate(walletDB, *swapCoin);
 
+    checkSwapConnection(_walletData.getAtomicSwapProvider(), *swapCoin);
+
     if (*isBeamSide)
     {
         if (*beamAmount < data.beamFee)
@@ -944,7 +975,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
         bool isEnought = checkIsEnoughtSwapAmount(
             _walletData.getAtomicSwapProvider(), *swapCoin, *swapAmount, swapFeeRate);
         if (!isEnought)
-            throw std::runtime_error(kNotEnoughtFundsError);
+            throw NotEnoughtSwapCoins();
     }
 
     auto wid = createWID(walletDB.get(), data.comment);
@@ -1043,6 +1074,8 @@ void ApiConnection::onMessage(const JsonRpcId& id, const DecodeToken& data)
 
 void ApiConnection::onMessage(const JsonRpcId& id, const GetBalance& data)
 {
+    checkSwapConnection(_walletData.getAtomicSwapProvider(), data.coin);
+
     Amount avaible = 0;
     switch (data.coin)
     {

@@ -137,6 +137,7 @@ public:
                          std::move(settingsProvider),
                          reactor)
         , _timer(beam::io::Timer::create(reactor))
+        , _status(Status::Unknown)
     {
         requestBalance();
         _timer->start(1000, true, [this] ()
@@ -144,9 +145,15 @@ public:
             requestBalance();
         });
     }
+
     Amount GetAvailable() const
     {
         return _balance.m_available;
+    }
+
+    bool IsConnected() const
+    {
+        return _status == Status::Connected;
     }
 
 private:
@@ -227,6 +234,21 @@ public:
     const SwapOffersBoard& getSwapOffersBoard() const override
     {
         return *_offersBulletinBoard;
+    }
+
+    bool isBtcConnected() const override
+    {
+        return _bitcoinClient && _bitcoinClient->IsConnected();
+    }
+
+    bool isLtcConnected() const override
+    {
+        return _litecoinClient && _litecoinClient->IsConnected();
+    }
+
+    bool isQtumConnected() const override
+    {
+        return _qtumClient && _qtumClient->IsConnected();
     }
 
     using WalletDbSubscriber =

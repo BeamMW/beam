@@ -1284,7 +1284,19 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         GetBalance data{ coin };
 
-        getHandler().onMessage(id, data);
+        try
+        {
+            getHandler().onMessage(id, data);
+        }
+        catch (const std::runtime_error & e)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InternalErrorJsonRpc,
+                e.what(),
+                id
+            };
+        }
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
