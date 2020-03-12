@@ -181,20 +181,28 @@ namespace
                 return std::make_unique<ServiceApiConnection>(func, reactor, _walletMap);
             },
             [] () {
+#ifndef _WIN32                
                 Pipe syncPipe(Pipe::SyncFileDescriptor);
                 syncPipe.notify("LISTENING");
+#endif
             })
+#ifndef _WIN32
             , _heartbeatPipe(Pipe::HeartbeatFileDescriptor)
+#endif            
         {
+#ifndef _WIN32
             _heartbeatTimer = io::Timer::create(*reactor);
             _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this] () {
                 _heartbeatPipe.notify("alive");
             });
+#endif
         }
 
     private:
+#ifndef _WIN32    
         io::Timer::Ptr _heartbeatTimer;
         Pipe _heartbeatPipe;
+#endif
 
     private:
         struct WalletInfo
