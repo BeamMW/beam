@@ -98,6 +98,7 @@ QHash<int, QByteArray> TxObjectList::roleNames() const
         { static_cast<int>(Roles::AmountGeneralWithCurrencySort), "amountGeneralWithCurrencySort" },
         { static_cast<int>(Roles::AmountGeneral), "amountGeneral" },
         { static_cast<int>(Roles::AmountGeneralSort), "amountGeneralSort" },
+        { static_cast<int>(Roles::SecondCurrencyRate), "secondCurrencyRate" },
         { static_cast<int>(Roles::AddressFrom), "addressFrom" },
         { static_cast<int>(Roles::AddressFromSort), "addressFromSort" },
         { static_cast<int>(Roles::AddressTo), "addressTo" },
@@ -157,6 +158,8 @@ QVariant TxObjectList::data(const QModelIndex &index, int role) const
             return value->getAmount();
         case Roles::AmountGeneralSort:
             return static_cast<qulonglong>(value->getAmountValue());
+        case Roles::SecondCurrencyRate:
+            return value->getSecondCurrencyRate();
             
         case Roles::AddressFrom:
         case Roles::AddressFromSort:

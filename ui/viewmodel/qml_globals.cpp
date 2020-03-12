@@ -289,11 +289,8 @@ QString QMLGlobals::calcFeeInSecondCurrency(int fee, Currency originalCurrency, 
     }
 }
 
-QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, Currency originalCurrency, const QString& exchangeRate, const QString& secondCurrencyLabel)
+QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate, const QString& secondCurrencyLabel)
 {
-    // originalCurrency is needed to convert fee to string
-    // possible use uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin);
-
     if (exchangeRate == "0")
     {
         return "- " + secondCurrencyLabel;

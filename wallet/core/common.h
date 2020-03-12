@@ -341,6 +341,8 @@ namespace beam::wallet
         AtomicSwapExternalHeight = 207,
 
         InternalFailureReason = 210,
+
+        ExchangeRates = 220,
     
         State = 255
 

@@ -20,6 +20,9 @@ RowLayout {
     property var isSelfTx
     property var rawTxID
     property var stateDetails
+    property string amount
+    property string secondCurrencyRate
+    property string secondCurrencyLabel
     property string searchFilter: ""
     property bool hideFiltered: false
     property var searchRegExp: { return new RegExp(root.searchFilter, "gi");}
@@ -51,6 +54,10 @@ RowLayout {
         var s = text.substr(start, root.searchFilter.length);
         
         return text.replace(root.searchRegExp, "<font color=\"" + Style.active.toString() + "\">" + s + "</font>");
+    }
+
+    function getAmountInSecondCurrency() {
+        return BeamGlobals.calcAmountInSecondCurrency(root.amount, root.secondCurrencyRate, root.secondCurrencyLabel)
     }
 
     GridLayout {
@@ -111,6 +118,43 @@ RowLayout {
             text: getHighlitedText(root.receiveAddress)
             onCopyText: textCopied(root.receiveAddress)
             visible: isTextFieldVisible(root.receiveAddress)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Amount"
+            text: qsTrId("tx-details-amount-label") + ":"
+        }
+        SFLabel {
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            elide: Text.ElideMiddle
+            text: getHighlitedText(root.amount)
+            onCopyText: textCopied(root.amount)
+            visible: isTextFieldVisible(root.amount)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Currency amount"
+            text: qsTrId("tx-details-second-currency-amount-label") + ":"
+        }
+        SFLabel {
+            id: secondCurrencyAmountValueLabel
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            elide: Text.ElideMiddle
+            text: getHighlitedText(getAmountInSecondCurrency())
+            onCopyText: textCopied(secondCurrencyAmountValueLabel.text)
+            visible: isTextFieldVisible(secondCurrencyAmountValueLabel.text)
         }
         
         SFText {
