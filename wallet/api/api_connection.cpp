@@ -682,6 +682,27 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxList& data)
     doResponse(id, res);
 }
 
+void ApiConnection::onMessage(const JsonRpcId& id, const ExportPaymentProof& data)
+{
+    LOG_DEBUG() << "ExportPaymentProof(id = " << id << ")";
+
+    doResponse(id, ExportPaymentProof::Response{ wallet::storage::ExportPaymentProof(*_walletData.getWalletDB(), data.txId) });
+}
+
+void ApiConnection::onMessage(const JsonRpcId& id, const VerifyPaymentProof& data)
+{
+    LOG_DEBUG() << "VerifyPaymentProof(id = " << id << ")";
+    try
+    {
+        doResponse(id, VerifyPaymentProof::Response{ storage::PaymentInfo::FromByteBuffer(data.paymentProof) });
+    }
+    catch (...)
+    {
+
+    }
+    doError(id, ApiError::InvalidPaymentProof, "Failed to parse");
+}
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void ApiConnection::onMessage(const JsonRpcId& id, const OffersList& data)
 {

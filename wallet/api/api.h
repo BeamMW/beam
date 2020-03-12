@@ -36,7 +36,8 @@ namespace beam::wallet
     macro(-32002, UnknownApiKey,        "Unknown API key.")         \
     macro(-32003, InvalidAddress,       "Invalid address.")         \
     macro(-32004, InvalidTxId,          "Invalid transaction ID.")  \
-    macro(-32005, NotSupported,         "Feature is not supported")
+    macro(-32005, NotSupported,         "Feature is not supported") \
+    macro(-32006, InvalidPaymentProof,  "Invalid payment proof provided") \
 
     enum ApiError
     {
@@ -63,23 +64,25 @@ namespace beam::wallet
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #define WALLET_API_METHODS(macro) \
-    macro(CreateAddress,    "create_address",   API_WRITE_ACCESS)   \
-    macro(DeleteAddress,    "delete_address",   API_WRITE_ACCESS)   \
-    macro(EditAddress,      "edit_address",     API_WRITE_ACCESS)   \
-    macro(AddrList,         "addr_list",        API_READ_ACCESS)    \
-    macro(ValidateAddress,  "validate_address", API_READ_ACCESS)    \
-    macro(Send,             "tx_send",          API_WRITE_ACCESS)   \
-    macro(Issue,            "tx_issue",         API_WRITE_ACCESS)   \
-    macro(Status,           "tx_status",        API_READ_ACCESS)    \
-    macro(Split,            "tx_split",         API_WRITE_ACCESS)   \
-    macro(TxCancel,         "tx_cancel",        API_WRITE_ACCESS)   \
-    macro(TxDelete,         "tx_delete",        API_WRITE_ACCESS)   \
-    macro(GetUtxo,          "get_utxo",         API_READ_ACCESS)    \
-    macro(Lock,             "lock",             API_WRITE_ACCESS)   \
-    macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
-    macro(TxList,           "tx_list",          API_READ_ACCESS)    \
-    macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)    \
-    macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)    \
+    macro(CreateAddress,      "create_address",       API_WRITE_ACCESS)   \
+    macro(DeleteAddress,      "delete_address",       API_WRITE_ACCESS)   \
+    macro(EditAddress,        "edit_address",         API_WRITE_ACCESS)   \
+    macro(AddrList,           "addr_list",            API_READ_ACCESS)    \
+    macro(ValidateAddress,    "validate_address",     API_READ_ACCESS)    \
+    macro(Send,               "tx_send",              API_WRITE_ACCESS)   \
+    macro(Issue,              "tx_issue",             API_WRITE_ACCESS)   \
+    macro(Status,             "tx_status",            API_READ_ACCESS)    \
+    macro(Split,              "tx_split",             API_WRITE_ACCESS)   \
+    macro(TxCancel,           "tx_cancel",            API_WRITE_ACCESS)   \
+    macro(TxDelete,           "tx_delete",            API_WRITE_ACCESS)   \
+    macro(GetUtxo,            "get_utxo",             API_READ_ACCESS)    \
+    macro(Lock,               "lock",                 API_WRITE_ACCESS)   \
+    macro(Unlock,             "unlock",               API_WRITE_ACCESS)   \
+    macro(TxList,             "tx_list",              API_READ_ACCESS)    \
+    macro(WalletStatus,       "wallet_status",        API_READ_ACCESS)    \
+    macro(GenerateTxId,       "generate_tx_id",       API_READ_ACCESS)    \
+    macro(ExportPaymentProof, "export_payment_proof", API_READ_ACCESS)    \
+    macro(VerifyPaymentProof, "verify_payment_proof", API_READ_ACCESS)    \
     SWAP_OFFER_API_METHODS(macro)
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
@@ -430,6 +433,25 @@ namespace beam::wallet
         struct Response
         {
             TxID txId;
+        };
+    };
+
+    struct ExportPaymentProof 
+    {
+        TxID txId;
+
+        struct Response
+        {
+            ByteBuffer paymentProof;
+        };
+    };
+
+    struct VerifyPaymentProof
+    {
+        ByteBuffer paymentProof;
+        struct Response
+        {
+            storage::PaymentInfo paymentInfo;
         };
     };
 

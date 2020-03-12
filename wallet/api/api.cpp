@@ -985,6 +985,28 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         getHandler().onMessage(id, generateTxId);
     }
 
+    void WalletApi::onExportPaymentProofMessage(const JsonRpcId& id, const json& params)
+    {
+        checkJsonParam(params, "txId", id);
+        auto txId = from_hex(params["txId"]);
+        checkTxId(txId, id);
+
+        ExportPaymentProof data;
+        std::copy_n(txId.begin(), data.txId.size(), data.txId.begin());
+
+        getHandler().onMessage(id, data);
+    }
+
+    void WalletApi::onVerifyPaymentProofMessage(const JsonRpcId& id, const json& params)
+    {
+        checkJsonParam(params, "paymentProof", id);
+
+        VerifyPaymentProof data;
+        data.paymentProof = from_hex(params["paymentProof"]);
+
+        getHandler().onMessage(id, data);
+    }
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 
     void WalletApi::onOffersListMessage(const JsonRpcId& id, const json& params)
@@ -1509,6 +1531,40 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", res.result}
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const ExportPaymentProof::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", 
+                {
+                    {"payment_proof", to_hex(res.paymentProof.data(), res.paymentProof.size())}
+                }
+            }
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const VerifyPaymentProof::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", 
+                {
+                    {"is_valid", res.paymentInfo.IsValid()},
+
+                    {"sender", std::to_string(res.paymentInfo.m_Sender)},
+                    {"receiver", std::to_string(res.paymentInfo.m_Receiver)},
+                    {"amount", res.paymentInfo.m_Amount},
+                    {"kernel", std::to_string(res.paymentInfo.m_KernelID)},
+                    //{"signature", std::to_string(res.paymentInfo.m_Signature)}
+                }
+            }
         };
     }
 
