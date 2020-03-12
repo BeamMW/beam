@@ -36,9 +36,17 @@ namespace
         return *p.GetParameter<Amount>(TxParameterID::Amount);
     }
 
-    WalletID getPeerID(const TxParameters& p)
+    bool getPeerID(const TxParameters& p, WalletID& result)
     {
-        return *p.GetParameter<WalletID>(TxParameterID::PeerID);
+        if (auto peerId = p.GetParameter<WalletID>(TxParameterID::PeerID))
+        {
+            result = *peerId;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
     bool isSender(const TxParameters& p)
@@ -139,24 +147,30 @@ QString NotificationItem::message() const
         case Notification::Type::TransactionCompleted:
         {
             auto p = getTxParameters(m_notification);
+            // TODO: #1270 swap transactions can be without PeerID - so need a special case
+            WalletID wid;
+            getPeerID(p, wid);
             QString message =  (isSender(p) ?
                 //% "You sent <b>%1</b> BEAM to <b>%2</b>."
                 qtTrId("notification-transaction-sent-message")
                 :
                 //% "You received <b>%1 BEAM</b> from <b>%2</b>."
                 qtTrId("notification-transaction-received-message"));
-            return message.arg(getAmount(p)).arg(std::to_string(getPeerID(p)).c_str());
+            return message.arg(getAmount(p)).arg(std::to_string(wid).c_str());
         }
         case Notification::Type::TransactionFailed:
         {
             auto p = getTxParameters(m_notification);
+            // TODO: #1270 swap transactions can be without PeerID - so need a special case
+            WalletID wid;
+            getPeerID(p, wid);
             QString message = (isSender(p) ?
                 //% "Sending <b>%1 BEAM</b> to <b>%2</b> failed."
                 qtTrId("notification-transaction-send-failed-message")
                 :
                 //% "Receiving <b>%1 BEAM</b> from <b>%2</b> failed."
                 qtTrId("notification-transaction-receive-failed-message"));
-            return message.arg(getAmount(p)).arg(std::to_string(getPeerID(p)).c_str());
+            return message.arg(getAmount(p)).arg(std::to_string(wid).c_str());
         }
         case Notification::Type::BeamNews:
             return "BEAM in the press";

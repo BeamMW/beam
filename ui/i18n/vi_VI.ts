@@ -8,8 +8,9 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source>GROTH</source>
-        <translation>Groth: đơn vị nhỏ nhất của Beam </translation>
+        <source></source>
+        <oldsource>GROTH</oldsource>
+        <translation type="unfinished">Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -940,19 +941,22 @@
         <translation>Ngôn ngữ</translation>
     </message>
     <message id="open-external-open">
-        <source>allow and open</source>
-        <oldsource>Open</oldsource>
+        <source>proceed</source>
+        <oldsource>allow and open</oldsource>
         <translation type="unfinished">Mở</translation>
     </message>
     <message id="open-external-title">
-        <source>External link</source>
-        <translation>Liên kết bên ngoài</translation>
+        <source>Open external link</source>
+        <oldsource>External link</oldsource>
+        <translation type="unfinished">Liên kết bên ngoài</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser.
-This action will expose your IP to the web server.
-To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <oldsource>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</oldsource>
+        <source>Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
+
+Allow to open and proceed to the website? You can always update your choice in Settings.</source>
+        <oldsource>Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
+
+Allow to open and proceed to the website? You can always update your choice in Settings.</oldsource>
         <translation type="unfinished">Ứng dụng Ví Beam yêu cầu sự cho phép để mở liên kết ngoài trong trình duyệt. Hành động này sẽ hiển thị IP của bạn cho máy chủ web. Để tránh điều này, chọn -Hủy-. Bạn có thể thay đổi lựa chọn của mình trong cài đặt ứng dụng bất cứ lúc nào.</translation>
     </message>
     <message id="start-open-change-wallet-message">
@@ -2240,16 +2244,6 @@ deploy the key at the node you trust completely.</translation>
     </message>
     <message id="notification-transaction-sent">
         <source>Transaction sent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="open-external-beam-site-title">
-        <source>Allow access to Beam website</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="update-from-external-message">
-        <source>Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version.
-This action will expose your IP to the web server.
-To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-update-wallet">

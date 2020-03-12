@@ -56,6 +56,29 @@ namespace beamui
     {
         return getCurrencyLabel(convertExchangeRateCurrencyToUiCurrency(currency));
     }
+
+    QString getFeeRateLabel(Currencies currency)
+    {
+        switch (currency)
+        {
+            case Currencies::Beam:
+                return QString(currencyBeamFeeRateLabel.data());
+
+            case Currencies::Bitcoin:
+                return QString(currencyBitcoinFeeRateLabel.data());
+
+            case Currencies::Litecoin:
+                return QString(currencyLitecoinFeeRateLabel.data());
+
+            case Currencies::Qtum:
+                return QString(currencyQtumFeeRateLabel.data());
+
+            case Currencies::Usd:
+            case Currencies::Unknown:
+            default:
+                return QString(currencyUnknownFeeRateLabel.data());
+        }
+    }
     
     /**
      *  Convert amount value to printable format.

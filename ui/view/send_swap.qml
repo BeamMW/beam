@@ -385,15 +385,9 @@ please review your settings and try again"
                             {
                                 swapMode: true,
                                 addressText: viewModel.receiverAddress,
-                                amountText: [Utils.uiStringToLocale(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" "),
-                                feeText: [Utils.uiStringToLocale(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" "),
-                                feeLabel: sendAmountInput.currency == Currency.CurrBeam ?
-                                    //% "BEAM Transaction fee"
-                                    qsTrId("beam-transaction-fee") + ":" :
-                                    //% "%1 Transaction fee rate"
-                                    qsTrId("general-fee-rate").arg(sendAmountInput.getCurrencyLabel()),
-                                // TODO: move swapCurrencyLabel logic to control
-                                swapCurrencyLabel: sendAmountInput.currency == Currency.CurrBeam ? "" : sendAmountInput.getCurrencyLabel(),
+                                currency: viewModel.sendCurrency,
+                                amount: viewModel.sendAmount,
+                                fee: viewModel.sendFee,
                                 onAcceptedCallback: acceptedCallback,
                                 secondCurrencyRate: viewModel.secondCurrencySendRateValue,
                                 secondCurrencyLabel: viewModel.secondCurrencyLabel

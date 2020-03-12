@@ -12,7 +12,7 @@ Control {
     spacing: 8
 
     property string  amount:          "0"
-    property string  currencySymbol:  Utils.symbolBeam
+    property string  currencySymbol:  BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
     property string  secondCurrencyLabel:       ""
     property string  secondCurrencyRateValue:   "0"
     property string  color:           Style.content_main

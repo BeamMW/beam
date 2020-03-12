@@ -760,7 +760,9 @@ namespace beam::bitcoin
                 connection.m_callback(error, result, currentId);
                 m_connections.erase(currentId);
             }
-        }, 2000, true);
+        }, 2000, true
+        // TODO move this to the settings
+        , false);
 
         if (result)
             return;

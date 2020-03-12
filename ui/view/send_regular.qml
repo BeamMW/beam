@@ -303,10 +303,9 @@ ColumnLayout {
                 const dialogObject = dialogComponent.createObject(sendRegularView,
                     {
                         addressText: viewModel.receiverAddress,
-                        //% "BEAM"
-                        amountText: [Utils.uiStringToLocale(viewModel.sendAmount), qsTrId("general-beam")].join(" "),
-                        //% "GROTH"
-                        feeText: [Utils.uiStringToLocale(viewModel.feeGrothes), qsTrId("general-groth")].join(" "),
+                        currency: Currency.CurrBeam,
+                        amount: viewModel.sendAmount,
+                        fee: viewModel.feeGrothes,
                         onAcceptedCallback: acceptedCallback,
                         secondCurrencyRate: viewModel.secondCurrencyRateValue,
                         secondCurrencyLabel: viewModel.secondCurrencyLabel

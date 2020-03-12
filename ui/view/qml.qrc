@@ -223,6 +223,5 @@
         <file>assets/icon-trusted-node-status.svg</file>
         <file>utils.js</file>
         <file>qmldir</file>
-        <file>controls/UpdateAppFromSiteConfirmation.qml</file>
     </qresource>
 </RCC>

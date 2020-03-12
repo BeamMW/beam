@@ -226,7 +226,7 @@ Item {
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
                     amount: viewModel.beamAvailable
-                    currencySymbol: Utils.symbolBeam
+                    currencySymbol: BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                     valueSecondaryStr: activeTxCountStr()
                     visible: true
                 }
@@ -250,7 +250,7 @@ Item {
                     gradLeft: Style.swapCurrencyPaneGrLeftBTC
                     currencyIcon: "qrc:/assets/icon-btc.svg"
                     amount: viewModel.hasBtcTx ? "" : viewModel.btcAvailable
-                    currencySymbol: Utils.symbolBtc
+                    currencySymbol: BeamGlobals.getCurrencyLabel(Currency.CurrBtc)
                     valueSecondaryStr: parent.btcActiveTxStr()
                     isOk: viewModel.btcOK
                     isConnecting: viewModel.btcConnecting
@@ -265,7 +265,7 @@ Item {
                     gradLeft: Style.swapCurrencyPaneGrLeftLTC
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
                     amount: viewModel.hasLtcTx ? "" : viewModel.ltcAvailable
-                    currencySymbol: Utils.symbolLtc
+                    currencySymbol: BeamGlobals.getCurrencyLabel(Currency.CurrLtc)
                     valueSecondaryStr: parent.ltcActiveTxStr()
                     isOk: viewModel.ltcOK
                     isConnecting: viewModel.ltcConnecting
@@ -278,7 +278,7 @@ Item {
                     gradLeft: Style.swapCurrencyPaneGrLeftQTUM
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
                     amount: viewModel.hasQtumTx ? "" : viewModel.qtumAvailable
-                    currencySymbol: Utils.symbolQtum
+                    currencySymbol: BeamGlobals.getCurrencyLabel(Currency.CurrQtum)
                     valueSecondaryStr: parent.qtumActiveTxStr()
                     isOk: viewModel.qtumOK
                     isConnecting: viewModel.qtumConnecting

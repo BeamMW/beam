@@ -80,7 +80,7 @@ Control {
 
             BeamAmount {
                 amount:            lockedMaturing
-                currencySymbol:    Utils.symbolBeam
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                 spacing:           15
                 lightFont:         false
                 fontSize:          12
@@ -122,7 +122,7 @@ Control {
 
             BeamAmount {
                 amount:            receivingChange
-                currencySymbol:    Utils.symbolBeam
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                 spacing:           15
                 lightFont:         false
                 fontSize:          12
@@ -141,7 +141,7 @@ Control {
 
             BeamAmount {
                 amount:            receivingIncoming
-                currencySymbol:    Utils.symbolBeam
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                 spacing:           15
                 lightFont:         false
                 fontSize:          12
@@ -157,7 +157,7 @@ Control {
             Layout.preferredWidth: parseFloat(receiving) > 0 || parseFloat(sending) > 0 ? parent.width / 2 : parent.width
             BeamAmount {
                 amount:            available
-                currencySymbol:    Utils.symbolBeam
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                 secondCurrencyLabel:        control.secondCurrencyLabel
                 secondCurrencyRateValue:    control.secondCurrencyRateValue
                 spacing:           15
@@ -177,7 +177,7 @@ Control {
             BeamAmount {
                 id:                lockedAmount
                 amount:            locked
-                currencySymbol:    Utils.symbolBeam
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                 secondCurrencyLabel:        control.secondCurrencyLabel
                 secondCurrencyRateValue:    control.secondCurrencyRateValue
                 lightFont:         false
@@ -213,7 +213,7 @@ Control {
             BeamAmount {
                 Layout.leftMargin: 20
                 amount:            sending
-                currencySymbol:    Utils.symbolBeam
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                 secondCurrencyLabel:        control.secondCurrencyLabel
                 secondCurrencyRateValue:    control.secondCurrencyRateValue
                 color:             Style.accent_outgoing
@@ -233,7 +233,7 @@ Control {
             BeamAmount {
                 id:                receivingAmount
                 amount:            receiving
-                currencySymbol:    Utils.symbolBeam
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                 secondCurrencyLabel:        control.secondCurrencyLabel
                 secondCurrencyRateValue:    control.secondCurrencyRateValue
                 color:             Style.accent_incoming

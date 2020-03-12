@@ -7,21 +7,6 @@ import Beam.Wallet 1.0
 ColumnLayout {
     id: control
 
-    readonly property variant currencies: [
-        {label: "BEAM", feeLabel: BeamGlobals.beamFeeRateLabel(), minFee: BeamGlobals.minFeeBeam(), defaultFee: BeamGlobals.defFeeBeam()},
-        {label: "BTC",  feeLabel: BeamGlobals.btcFeeRateLabel(),  minFee: 0,                        defaultFee: BeamGlobals.defFeeRateBtc()},
-        {label: "LTC",  feeLabel: BeamGlobals.ltcFeeRateLabel(),  minFee: 0,                        defaultFee: BeamGlobals.defFeeRateLtc()},
-        {label: "QTUM", feeLabel: BeamGlobals.qtumFeeRateLabel(), minFee: 0,                        defaultFee: BeamGlobals.defFeeRateQtum()}
-    ]
-
-    function getCurrencyLabel() {
-        return currencies[control.currency].label
-    }
-
-    function getFeeLabel() {
-        return currencies[control.currency].feeLabel
-    }
-
     function getFeeTitle() {
         if (control.currency == Currency.CurrBeam) {
             return control.currFeeTitle ?
@@ -31,12 +16,12 @@ ColumnLayout {
                 qsTrId("general-fee")
         }
         //% "%1 Transaction fee rate"
-        return qsTrId("general-fee-rate").arg(getCurrencyLabel())
+        return qsTrId("general-fee-rate").arg(control.currencyLabel)
     }
 
     function getTotalFeeTitle() {
         //% "%1 Transaction fee (est)"
-        return qsTrId("general-fee-total").arg(getCurrencyLabel())
+        return qsTrId("general-fee-total").arg(control.currencyLabel)
     }
 
     function getTotalFeeAmount() {
@@ -53,7 +38,7 @@ ColumnLayout {
 
     readonly property bool     isValidFee:     hasFee ? feeInput.isValid : true
     readonly property bool     isValid:        error.length == 0 && isValidFee
-    readonly property string   currencyLabel:  getCurrencyLabel()
+    readonly property string   currencyLabel:  BeamGlobals.getCurrencyLabel(control.currency)
 
     property string   title
     property string   color:        Style.accent_incoming
@@ -64,7 +49,7 @@ ColumnLayout {
     property int      currency:     Currency.CurrBeam
     property string   amount:       "0"
     property string   amountIn:     "0"  // public property for binding. Use it to avoid binding overriding
-    property int      fee:          currencies[currency].defaultFee
+    property int      fee:          BeamGlobals.getDefaultFee(control.currency)
     property alias    error:        errmsg.text
     property bool     readOnlyA:    false
     property bool     readOnlyF:    false
@@ -131,7 +116,7 @@ ColumnLayout {
             font.pixelSize:     24
             font.letterSpacing: 0.6
             color:              control.currColor
-            text:               getCurrencyLabel()
+            text:               control.currencyLabel
             visible:            !multi
         }
 
@@ -238,14 +223,14 @@ ColumnLayout {
                 id:               feeInput
                 Layout.fillWidth: true
                 fee:              control.fee
-                minFee:           currencies[currency].minFee
-                feeLabel:         getFeeLabel()
+                minFee:           BeamGlobals.getMinimalFee(control.currency)
+                feeLabel:         BeamGlobals.getFeeRateLabel(control.currency)
                 color:            control.color
                 readOnly:         control.readOnlyF
                 Connections {
                     target: control
                     onFeeChanged: feeInput.fee = control.fee
-                    onCurrencyChanged: feeInput.fee = currencies[currency].defaultFee
+                    onCurrencyChanged: feeInput.fee = BeamGlobals.getDefaultFee(control.currency)
                 }
             }
             SFText {

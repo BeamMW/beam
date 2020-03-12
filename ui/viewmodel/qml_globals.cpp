@@ -89,6 +89,27 @@ namespace
         QString result = QString::fromStdString(oss.str());
         return rountWithPrecision<N>(result);
     }
+
+    beamui::Currencies convertUiCurrencyToCurrencies(WalletCurrency::Currency currency)
+    {
+        switch (currency)
+        {
+            case Currency::CurrBeam:
+                return beamui::Currencies::Beam;
+
+            case Currency::CurrBtc:
+                return beamui::Currencies::Bitcoin;
+
+            case Currency::CurrLtc:
+                return beamui::Currencies::Litecoin;
+
+            case Currency::CurrQtum:
+                return beamui::Currencies::Qtum;
+            
+            default:
+                return beamui::Currencies::Unknown;
+        }
+    }
 }
 
 QMLGlobals::QMLGlobals(QQmlEngine& engine)
@@ -347,6 +368,12 @@ bool QMLGlobals::canReceive(Currency currency)
     }
 }
 
+QString QMLGlobals::getCurrencyLabel(Currency currency)
+{
+    beamui::Currencies currencyCommon = convertUiCurrencyToCurrencies(currency);
+    return beamui::getCurrencyLabel(currencyCommon);
+}
+
 QString QMLGlobals::getCurrencyName(Currency currency)
 {
     switch(currency)
@@ -376,6 +403,54 @@ QString QMLGlobals::getCurrencyName(Currency currency)
         assert(false && "unexpected swap coin!");
         return QString();
     }
+    }
+}
+
+QString QMLGlobals::getFeeRateLabel(Currency currency)
+{
+    beamui::Currencies currencyCommon = convertUiCurrencyToCurrencies(currency);
+    return beamui::getFeeRateLabel(currencyCommon);
+}
+
+unsigned int QMLGlobals::getMinimalFee(Currency currency)
+{
+    switch (currency)
+    {
+        case Currency::CurrBeam:
+            return minFeeBeam();
+        
+        case Currency::CurrBtc:
+            return 0;
+
+        case Currency::CurrLtc:
+            return 0;
+        
+        case Currency::CurrQtum:
+            return 0;
+
+        default:
+            return 0;
+    }
+}
+
+unsigned int QMLGlobals::getDefaultFee(Currency currency)
+{
+    switch (currency)
+    {
+        case Currency::CurrBeam:
+            return defFeeBeam();
+        
+        case Currency::CurrBtc:
+            return defFeeRateBtc();
+
+        case Currency::CurrLtc:
+            return defFeeRateLtc();
+        
+        case Currency::CurrQtum:
+            return defFeeRateQtum();
+
+        default:
+            return 0;
     }
 }
 
