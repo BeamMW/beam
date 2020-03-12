@@ -27,7 +27,8 @@ namespace {
 int verify_server(int preverify_ok, X509_STORE_CTX* x509_ctx)
 {
     if (!preverify_ok) {
-        LOG_ERROR() << "server verification error: " << X509_STORE_CTX_get_error(x509_ctx);
+        int error = X509_STORE_CTX_get_error(x509_ctx);
+        LOG_ERROR() << "server verification error: " << error << " " << X509_verify_cert_error_string(error);
     }
     return preverify_ok;
 }
@@ -35,7 +36,8 @@ int verify_server(int preverify_ok, X509_STORE_CTX* x509_ctx)
 int verify_client(int preverify_ok, X509_STORE_CTX* x509_ctx)
 {
     if (!preverify_ok) {
-        LOG_ERROR() << "client verification error: " << X509_STORE_CTX_get_error(x509_ctx);
+        int error = X509_STORE_CTX_get_error(x509_ctx);
+        LOG_ERROR() << "client verification error: " << error << " " << X509_verify_cert_error_string(error);
     }
     return preverify_ok;
 }
@@ -140,6 +142,14 @@ void setup_certificate(SSL_CTX* ctx, const char* certFileName, const char* privK
     }
 }
 
+void setup_verification_path(SSL_CTX* ctx)
+{
+    if (SSL_CTX_set_default_verify_dir(ctx) != 1) {
+        LOG_ERROR() << "SSL_CTX_set_default_verify_dir failed";
+        IO_EXCEPTION(EC_SSL_ERROR);
+    }
+}
+
 } //namespace
 
 SSLContext::Ptr SSLContext::create_server_ctx(const char* certFileName, const char* privKeyFileName,
@@ -163,6 +173,8 @@ SSLContext::Ptr SSLContext::create_server_ctx(const char* certFileName, const ch
     }
     SSL_CTX_set_verify(ctx, verificationMode, verify_server);
 
+    setup_verification_path(ctx);
+
     return Ptr(new SSLContext(ctx, true));
 }
 
@@ -184,6 +196,8 @@ SSLContext::Ptr SSLContext::create_client_context(const char* certFileName, cons
         SSL_VERIFY_PEER;    
     
     SSL_CTX_set_verify(ctx, verifyMode, verify_client);
+    
+    setup_verification_path(ctx);
 
     return Ptr(new SSLContext(ctx, false));
 }
