@@ -17,6 +17,7 @@
 #include "wallet/transactions/swaps/swap_transaction.h"
 #include "core/ecc.h"
 #include "viewmodel/qml_globals.h"
+#include "viewmodel/ui_helpers.h"
 #include "model/app_model.h"
 
 using namespace beam;
@@ -383,25 +384,7 @@ QString SwapTxObject::getSwapCoinFeeRate() const
         if (feeRate && m_swapCoin)
         {
             QString value = QString::number(*feeRate);
-
-            QString rateMeasure;
-            switch (*m_swapCoin)
-            {
-            case AtomicSwapCoin::Bitcoin:
-                rateMeasure = QMLGlobals::btcFeeRateLabel();
-                break;
-
-            case AtomicSwapCoin::Litecoin:
-                rateMeasure = QMLGlobals::ltcFeeRateLabel();
-                break;
-
-            case AtomicSwapCoin::Qtum:
-                rateMeasure = QMLGlobals::qtumFeeRateLabel();
-                break;
-
-            default:
-                break;
-            }
+            QString rateMeasure = beamui::getFeeRateLabel(beamui::convertSwapCoinToCurrency(*m_swapCoin));
             return value + " " + rateMeasure;
         }
     }

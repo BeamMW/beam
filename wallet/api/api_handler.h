@@ -22,7 +22,7 @@
 
 namespace beam::wallet
 {
-class ApiConnection : public IWalletApiHandler
+class WalletApiHandler : public IWalletApiHandler
 {
 public:
     struct IWalletData
@@ -33,11 +33,11 @@ public:
         virtual const IAtomicSwapProvider& getAtomicSwapProvider() const = 0;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
     };
-    ApiConnection(
+    WalletApiHandler(
         IWalletData& walletData
       , WalletApi::ACL acl
     );
-    virtual ~ApiConnection();
+    virtual ~WalletApiHandler();
 
     virtual void serializeMsg(const json& msg) = 0;
 

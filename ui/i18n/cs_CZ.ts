@@ -2249,5 +2249,21 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <extracomment>settings update wallet button</extracomment>
         <translation type="unfinished"></translation>
     </message>
+    <message id="tx-details-amount-label">
+        <source>Amount</source>
+        <translation type="unfinished">Částka</translation>
+    </message>
+    <message id="tx-details-second-currency-amount-label">
+        <source>Currency amount</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-second-currency-notification">
+        <source> (for the day of transaction)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-exchange-rate-not-available">
+        <source>Exchange rate to %1 is not available</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

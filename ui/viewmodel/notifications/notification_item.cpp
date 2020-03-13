@@ -147,7 +147,7 @@ QString NotificationItem::message() const
         case Notification::Type::TransactionCompleted:
         {
             auto p = getTxParameters(m_notification);
-            // TODO: #1270 swap transactions can be without PeerID - so need a special case
+            // TODO: #1304 swap transactions can be without PeerID - so need a special case
             WalletID wid;
             getPeerID(p, wid);
             QString message =  (isSender(p) ?
@@ -161,7 +161,7 @@ QString NotificationItem::message() const
         case Notification::Type::TransactionFailed:
         {
             auto p = getTxParameters(m_notification);
-            // TODO: #1270 swap transactions can be without PeerID - so need a special case
+            // TODO: #1304 swap transactions can be without PeerID - so need a special case
             WalletID wid;
             getPeerID(p, wid);
             QString message = (isSender(p) ?

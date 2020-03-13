@@ -623,6 +623,92 @@ namespace
         }
     }
 
+    void testExportPaymentProofJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid list api json!!!");
+
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const ExportPaymentProof& data) override
+            {
+                WALLET_CHECK(id > 0);
+            }
+        };
+
+        WalletApiHandler handler;
+
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            ExportPaymentProof::Response response{};
+
+            auto proof = "8009f28991ef543253c8b6a2caf15cf99e23fb9c2b4ca30dc463c8ceb354d7979e80ef7d4255dd5e885200648abe5826d8e0ba0157d3e8cf9c42dcc8258b036986e50400371789ee82afc25ee29c9c57bcb1018b725a3a94c0ceb1fa7984ea13de4982553e0d78d925a362982182a971e654857b8e407e7ad2e9cb72b2b8228812f8ec50435351000c94e2c85996e9527d9b0c90a1843205a7ec8f99fa534083e5f1d055d9f53894";
+            
+            response.paymentProof = from_hex(proof);
+
+            api.getResponse(123, response, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+            WALLET_CHECK(res["result"]["payment_proof"] == proof);
+        }
+    }
+
+    void testVerifyPaymentProofJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid list api json!!!");
+
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const VerifyPaymentProof& data) override
+            {
+                WALLET_CHECK(id > 0);
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+        
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            VerifyPaymentProof::Response response{};
+       
+            auto proof = "8009f28991ef543253c8b6a2caf15cf99e23fb9c2b4ca30dc463c8ceb354d7979e80ef7d4255dd5e885200648abe5826d8e0ba0157d3e8cf9c42dcc8258b036986e50400371789ee82afc25ee29c9c57bcb1018b725a3a94c0ceb1fa7984ea13de4982553e0d78d925a362982182a971e654857b8e407e7ad2e9cb72b2b8228812f8ec50435351000c94e2c85996e9527d9b0c90a1843205a7ec8f99fa534083e5f1d055d9f53894";
+            response.paymentInfo = storage::PaymentInfo::FromByteBuffer(from_hex(proof));
+
+            api.getResponse(123, response, res);
+            testResultHeader(res);
+       
+            WALLET_CHECK(res["id"] == 123);
+            auto& result = res["result"];
+            WALLET_CHECK(result["is_valid"] == true);
+            WALLET_CHECK(result["sender"] == "9f28991ef543253c8b6a2caf15cf99e23fb9c2b4ca30dc463c8ceb354d7979e");
+            WALLET_CHECK(result["receiver"] == "ef7d4255dd5e885200648abe5826d8e0ba0157d3e8cf9c42dcc8258b036986e5");
+            WALLET_CHECK(result["amount"] == 2300000000);
+            WALLET_CHECK(result["kernel"] == "ee82afc25ee29c9c57bcb1018b725a3a94c0ceb1fa7984ea13de4982553e0d78");
+        }
+    }
+
     template<typename T>
     void testJsonRpcIdAsValue(const std::string& msg, const T& value)
     {
@@ -1115,6 +1201,28 @@ int main()
         "jsonrpc": "2.0",
         "id" : "123",
         "method" : "generate_tx_id"
+    }));
+
+    testExportPaymentProofJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : "123",
+        "method" : "export_payment_proof",
+        "params" :
+        {
+            "txId" : "10c4b760c842433cb58339a0fafef3db"
+        }
+    }));
+
+    testVerifyPaymentProofJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : "123",
+        "method" : "verify_payment_proof",
+        "params" :
+        {
+            "payment_proof" : "8009f28991ef543253c8b6a2caf15cf99e23fb9c2b4ca30dc463c8ceb354d7979e80ef7d4255dd5e885200648abe5826d8e0ba0157d3e8cf9c42dcc8258b036986e50400371789ee82afc25ee29c9c57bcb1018b725a3a94c0ceb1fa7984ea13de4982553e0d78d925a362982182a971e654857b8e407e7ad2e9cb72b2b8228812f8ec50435351000c94e2c85996e9527d9b0c90a1843205a7ec8f99fa534083e5f1d055d9f53894"
+        }
     }));
 
     return WALLET_CHECK_RESULT;

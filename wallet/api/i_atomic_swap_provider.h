@@ -26,5 +26,8 @@ public:
     virtual Amount getLtcAvailable() const = 0;
     virtual Amount getQtumAvailable() const = 0;
     virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
+    virtual bool isBtcConnected() const = 0;
+    virtual bool isLtcConnected() const = 0;
+    virtual bool isQtumConnected() const = 0;
 };
 }  // namespace beam::wallet

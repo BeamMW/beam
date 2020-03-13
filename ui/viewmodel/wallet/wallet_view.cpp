@@ -100,12 +100,13 @@ void WalletViewModel::onTransactionsChanged(beam::wallet::ChangeAction action, c
 {
     vector<shared_ptr<TxObject>> modifiedTransactions;
     modifiedTransactions.reserve(transactions.size());
+    ExchangeRate::Currency secondCurrency = _exchangeRatesManager.getRateUnitRaw();
 
     for (const auto& t : transactions)
     {
         if (t.GetParameter<TxType>(TxParameterID::TransactionType) != TxType::AtomicSwap)
         {
-            modifiedTransactions.push_back(make_shared<TxObject>(t));
+            modifiedTransactions.push_back(make_shared<TxObject>(t, secondCurrency));
         }
     }
 

@@ -33,7 +33,7 @@ ColumnLayout {
     }
 
     function getAmountInSecondCurrency() {
-        return BeamGlobals.calcAmountInSecondCurrency(control.amount, control.currency, control.secondCurrencyRateValue, control.secondCurrencyLabel)
+        return BeamGlobals.calcAmountInSecondCurrency(control.amount, control.secondCurrencyRateValue, control.secondCurrencyLabel)
     }
 
     readonly property bool     isValidFee:     hasFee ? feeInput.isValid : true
@@ -86,10 +86,8 @@ ColumnLayout {
             readOnly:         control.readOnlyA
 
             onTextChanged: {
-                if (ainput.focus) {
-                    // if nothing then "0", remove insignificant zeroes and "." in floats
-                    control.amount = text ? text.replace(/\.0*$|(\.\d*[1-9])0+$/,'$1') : "0"
-                }
+                // if nothing then "0", remove insignificant zeroes and "." in floats
+                control.amount = text ? text.replace(/\.0*$|(\.\d*[1-9])0+$/,'$1') : "0"
             }
 
             onFocusChanged: {

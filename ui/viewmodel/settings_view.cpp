@@ -27,6 +27,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include "utility/string_helpers.h"
 #include "mnemonic/mnemonic.h"
+#include "viewmodel/ui_helpers.h"
 
 #include "wallet/transactions/swaps/bridges/litecoin/settings.h"
 #include "wallet/transactions/swaps/bridges/qtum/settings.h"
@@ -155,20 +156,7 @@ SwapCoinSettingsItem::~SwapCoinSettingsItem()
 
 QString SwapCoinSettingsItem::getFeeRateLabel() const
 {
-    switch (m_swapCoin)
-    {
-        case beam::wallet::AtomicSwapCoin::Bitcoin:
-            return QMLGlobals::btcFeeRateLabel();;
-        case beam::wallet::AtomicSwapCoin::Litecoin:
-            return QMLGlobals::ltcFeeRateLabel();
-        case beam::wallet::AtomicSwapCoin::Qtum:
-            return QMLGlobals::qtumFeeRateLabel();
-        default:
-        {
-            assert(false && "unexpected swap coin!");
-            return QString();
-        }
-    }
+    return beamui::getFeeRateLabel(beamui::convertSwapCoinToCurrency(m_swapCoin));
 }
 
 QString SwapCoinSettingsItem::getTitle() const

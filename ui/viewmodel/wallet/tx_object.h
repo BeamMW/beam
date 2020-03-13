@@ -17,6 +17,7 @@
 #include <QDateTime>
 #include "viewmodel/payment_item.h"
 #include "viewmodel/ui_helpers.h"
+#include "wallet/client/extensions/news_channels/interface.h"
 
 class TxObject : public QObject
 {
@@ -24,7 +25,11 @@ class TxObject : public QObject
 
 public:
     TxObject(QObject* parent = nullptr);
-    TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
+    TxObject(const beam::wallet::TxDescription& tx,
+             QObject* parent = nullptr);
+    TxObject(const beam::wallet::TxDescription& tx,
+             beam::wallet::ExchangeRate::Currency secondCurrency,
+             QObject* parent = nullptr);
     bool operator==(const TxObject& other) const;
 
     auto timeCreated() const -> beam::Timestamp;
@@ -32,6 +37,7 @@ public:
     auto getAmountWithCurrency() const->QString;
     auto getAmount() const -> QString;
     auto getAmountValue() const -> beam::Amount;
+    auto getSecondCurrencyRate() const -> QString;
     auto getComment() const -> QString;
     auto getAddressFrom() const -> QString;
     auto getAddressTo() const -> QString;
@@ -71,4 +77,5 @@ protected:
     beam::wallet::TxDescription m_tx;
     QString m_kernelID;
     beam::wallet::TxType m_type;
+    beam::wallet::ExchangeRate::Currency m_secondCurrency;
 };

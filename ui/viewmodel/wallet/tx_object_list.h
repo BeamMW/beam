@@ -29,6 +29,7 @@ public:
         AmountGeneralWithCurrencySort,
         AmountGeneral,
         AmountGeneralSort,
+        SecondCurrencyRate,
         AddressFrom,
         AddressFromSort,
         AddressTo,

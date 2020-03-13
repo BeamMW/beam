@@ -31,7 +31,7 @@
 #include "utility/string_helpers.h"
 #include "utility/log_rotation.h"
 
-#include "wallet/api/api_connection.h"
+#include "wallet/api/api_handler.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
@@ -181,20 +181,28 @@ namespace
                 return std::make_unique<ServiceApiConnection>(func, reactor, _walletMap);
             },
             [] () {
+#ifndef _WIN32                
                 Pipe syncPipe(Pipe::SyncFileDescriptor);
                 syncPipe.notify("LISTENING");
+#endif
             })
+#ifndef _WIN32
             , _heartbeatPipe(Pipe::HeartbeatFileDescriptor)
+#endif            
         {
+#ifndef _WIN32
             _heartbeatTimer = io::Timer::create(*reactor);
             _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this] () {
                 _heartbeatPipe.notify("alive");
             });
+#endif
         }
 
     private:
+#ifndef _WIN32    
         io::Timer::Ptr _heartbeatTimer;
         Pipe _heartbeatPipe;
+#endif
 
     private:
         struct WalletInfo
@@ -451,11 +459,11 @@ namespace
             io::Reactor::Ptr _reactor;
         };
 
-        class MyApiConnection : public ApiConnection
+        class MyApiConnection : public WalletApiHandler
         {
         public:
             MyApiConnection(IApiConnectionHandler* handler, IWalletData& walletData, WalletApi::ACL acl)
-                : ApiConnection(walletData, acl)
+                : WalletApiHandler(walletData, acl)
                 , _handler(handler)
             {
             
@@ -472,7 +480,7 @@ namespace
         
         class ServiceApiConnection 
             : public IWalletServiceApiHandler
-            , private ApiConnection::IWalletData
+            , private WalletApiHandler::IWalletData
             , public WebSocketServer::IHandler
             , public IApiConnectionHandler
         {

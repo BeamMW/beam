@@ -17,10 +17,6 @@ ColumnLayout {
         id: viewModel
     }
 
-    OpenExternalLinkConfirmation {
-        id: externalLinkConfirmation
-    }
-
     ChangePasswordDialog {
         id: changePasswordDialog
         settingsViewModel: viewModel    
@@ -637,7 +633,7 @@ deploy the key at the node you trust completely."*/
                                 Layout.preferredHeight: 32
                                 linkEnabled: true
                                 onLinkActivated:  {
-                                    Utils.openExternal(link, viewModel, externalLinkConfirmation)
+                                    Utils.openExternalWithConfirmation(link)
                                 }
                             }
 
@@ -1184,7 +1180,7 @@ deploy the key at the node you trust completely."*/
                             wrapMode: Text.WordWrap
                             linkEnabled: true
                             onLinkActivated: {
-                                Utils.openExternal(link, viewModel, externalLinkConfirmation);
+                                Utils.openExternalWithConfirmation(link);
                             }
                         }
 

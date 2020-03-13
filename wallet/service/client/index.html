@@ -273,39 +273,10 @@
       	}
 
       	function onkeykeeper(data) {
-			console.log(`<<< keykeeper request: ${JSON.stringify(data)}`)
-
-			let handlers =
-			{
-				get_kdf:       () => sendKeykeeperResult(data.id, keykeeper.get_Kdf(data.params.root, data.params.child_key_num)),
-				get_slots:     () => sendKeykeeperResult(data.id, keykeeper.get_NumSlots()),
-				create_output: () => sendKeykeeperResult(data.id, keykeeper.CreateOutput(data.params.scheme, data.params.id)),
-				sign_receiver: () => sendKeykeeperResult(data.id, keykeeper.SignReceiver(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv, data.params.peer_id, data.params.my_id_key)),
-				sign_sender:   () => sendKeykeeperResult(data.id, keykeeper.SignSender(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv, data.params.peer_id, data.params.my_id_key, data.params.slot, data.params.agreement, data.params.my_id, data.params.payment_proof_sig)),
-				sign_split:    () => sendKeykeeperResult(data.id, keykeeper.SignSplit(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv)),
-			}
-
-			handlers[data.method]
-				? handlers[data.method]()
-				: sendKeykeeperError(data.id, `unknown method: ${data.method}`)
-		}
-
-		function sendKeykeeperError(id, error) {
-			console.log(`>>> keykeeper error: ${error}`)
-			connection.send(JSON.stringify({
-				jsonrpc:'2.0',
-				id: id,
-				error: error
-			}))
-		}
-
-		function sendKeykeeperResult(id, result) {
-			console.log(`>>> keykeeper result: ${result}`)
-			connection.send(JSON.stringify({
-				jsonrpc:'2.0',
-				id: id,
-				result: JSON.parse(result)
-			}))
+			console.log(`<<< keykeeper request: ${data}`)
+			let res = keykeeper.invokeServiceMethod(data)
+			console.log(`>>> keykeeper response: ${res}`)
+			connection.send(res);
 		}
 
       	/*function refresh()
@@ -355,7 +326,7 @@
 				else if(data.error)
 					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
 				else if(data.method)
-					onkeykeeper(data)
+					onkeykeeper(e.data)
 			}
 
 			connection.send(JSON.stringify(
@@ -401,7 +372,7 @@
 				} else if (data.error)
 					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
 				else if (data.method)
-					onkeykeeper(data)
+					onkeykeeper(e.data)
 			}
 
 			connection.send(JSON.stringify({
@@ -430,7 +401,7 @@
 				} else if (data.error)
 					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
 				else if (data.method)
-					onkeykeeper(data)
+					onkeykeeper(e.data)
 			}
 			connection.send(JSON.stringify({
 				jsonrpc: '2.0',
@@ -465,7 +436,7 @@
 				else if(data.error)
 					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
 				else if(data.method)
-					onkeykeeper(data)
+					onkeykeeper(e.data)
 			}
 
 			connection.send(JSON.stringify({
@@ -576,7 +547,7 @@
 				} else if (data.error)
 					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
 				else if (data.method)
-					onkeykeeper(data)
+					onkeykeeper(e.data)
 			}
 
 			connection.send(JSON.stringify({
@@ -601,7 +572,7 @@
 							<td>${item.status_string}</td>
 							</tr>`)
 					})
-				} else onkeykeeper(data)
+				} else onkeykeeper(e.data)
 				if ($('#wallet-panel').is(":visible"))
 					setTimeout(showWalletStatus, 5000)
 			}
@@ -641,7 +612,7 @@
 				else if (data.error)
 					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
 				else if (data.method)
-					onkeykeeper(data)
+					onkeykeeper(e.data)
 			}
 			connection.send(JSON.stringify({
 				jsonrpc: "2.0",
