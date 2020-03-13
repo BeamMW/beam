@@ -10,7 +10,7 @@ target_link_libraries(wallet_api_proto
         utility
 )
 
-add_library(wallet_api STATIC api_connection.cpp)
+add_library(wallet_api STATIC api_handler.cpp)
 
 target_link_libraries(wallet_api
     PUBLIC 

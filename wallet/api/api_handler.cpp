@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "api_connection.h"
+#include "api_handler.h"
 
 #include "wallet/core/simple_transaction.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -184,7 +184,7 @@ bool checkPublicOffer(const TxParameters& params, const SwapOffer& publicOffer)
 namespace beam::wallet
 {
 
-ApiConnection::ApiConnection(
+WalletApiHandler::WalletApiHandler(
       IWalletData& walletData
     , WalletApi::ACL acl)
     : _walletData(walletData)
@@ -192,11 +192,11 @@ ApiConnection::ApiConnection(
 {
 }
 
-ApiConnection::~ApiConnection()
+WalletApiHandler::~WalletApiHandler()
 {
 }
 
-void ApiConnection::doError(const JsonRpcId& id, ApiError code, const std::string& data)
+void WalletApiHandler::doError(const JsonRpcId& id, ApiError code, const std::string& data)
 {
     json msg
     {
@@ -218,14 +218,14 @@ void ApiConnection::doError(const JsonRpcId& id, ApiError code, const std::strin
     serializeMsg(msg);
 }
 
-void ApiConnection::onInvalidJsonRpc(const json& msg)
+void WalletApiHandler::onInvalidJsonRpc(const json& msg)
 {
     LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
 
     serializeMsg(msg);
 }
 
-void ApiConnection::FillAddressData(const AddressData& data, WalletAddress& address)
+void WalletApiHandler::FillAddressData(const AddressData& data, WalletAddress& address)
 {
     if (data.comment)
     {
@@ -249,7 +249,7 @@ void ApiConnection::FillAddressData(const AddressData& data, WalletAddress& addr
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const CreateAddress& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const CreateAddress& data)
 {
     LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
@@ -263,7 +263,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const CreateAddress& data)
     doResponse(id, CreateAddress::Response{ address.m_walletID });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const DeleteAddress& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const DeleteAddress& data)
 {
     LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
@@ -282,7 +282,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const DeleteAddress& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const EditAddress& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const EditAddress& data)
 {
     LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
@@ -309,14 +309,14 @@ void ApiConnection::onMessage(const JsonRpcId& id, const EditAddress& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const AddrList& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const AddrList& data)
 {
     LOG_DEBUG() << "AddrList(id = " << id << ")";
 
     doResponse(id, AddrList::Response{ _walletData.getWalletDB()->getAddresses(data.own) });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const ValidateAddress& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const ValidateAddress& data)
 {
     LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
@@ -325,12 +325,12 @@ void ApiConnection::onMessage(const JsonRpcId& id, const ValidateAddress& data)
     doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? !addr->isExpired() : true), isMine });
 }
 
-void ApiConnection::doTxAlreadyExistsError(const JsonRpcId& id)
+void WalletApiHandler::doTxAlreadyExistsError(const JsonRpcId& id)
 {
     doError(id, ApiError::InvalidTxId, "Provided transaction ID already exists in the wallet.");
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Send& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Send& data)
 {
     LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee << " address = " << std::to_string(data.address) << ")";
 
@@ -417,7 +417,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Send& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Issue& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Issue& data)
 {
     LOG_DEBUG() << "Issue(id = " << id << " amount = " << data.value << " fee = " << data.fee;
 
@@ -458,7 +458,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Issue& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Status& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Status& data)
 {
     LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -486,7 +486,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Status& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Split& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Split& data)
 {
     LOG_DEBUG() << "Split(id = " << id << " coins = [";
     for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
@@ -515,7 +515,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Split& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const TxCancel& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const TxCancel& data)
 {
     LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -541,7 +541,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxCancel& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const TxDelete& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const TxDelete& data)
 {
     LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -574,7 +574,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxDelete& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const GetUtxo& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const GetUtxo& data)
 {
     LOG_DEBUG() << "GetUtxo(id = " << id << ")";
 
@@ -590,7 +590,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const GetUtxo& data)
     doResponse(id, response);
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const WalletStatus& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const WalletStatus& data)
 {
     LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
@@ -623,14 +623,14 @@ void ApiConnection::onMessage(const JsonRpcId& id, const WalletStatus& data)
     doResponse(id, response);
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const GenerateTxId& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const GenerateTxId& data)
 {
     LOG_DEBUG() << "GenerateTxId(id = " << id << ")";
 
     doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Lock& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Lock& data)
 {
     LOG_DEBUG() << "Lock(id = " << id << ")";
 
@@ -641,7 +641,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Lock& data)
     doResponse(id, response);
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Unlock& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Unlock& data)
 {
     LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
 
@@ -652,7 +652,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Unlock& data)
     doResponse(id, response);
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const TxList& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const TxList& data)
 {
     LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
 
@@ -709,14 +709,14 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxList& data)
     doResponse(id, res);
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const ExportPaymentProof& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const ExportPaymentProof& data)
 {
     LOG_DEBUG() << "ExportPaymentProof(id = " << id << ")";
 
     doResponse(id, ExportPaymentProof::Response{ wallet::storage::ExportPaymentProof(*_walletData.getWalletDB(), data.txId) });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const VerifyPaymentProof& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const VerifyPaymentProof& data)
 {
     LOG_DEBUG() << "VerifyPaymentProof(id = " << id << ")";
     try
@@ -731,7 +731,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const VerifyPaymentProof& dat
 }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-void ApiConnection::onMessage(const JsonRpcId& id, const OffersList& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const OffersList& data)
 {
     std::vector<SwapOffer> publicOffers = _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList();
     auto walletDB = _walletData.getWalletDB();
@@ -773,7 +773,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const OffersList& data)
         });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const OffersBoard& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const OffersBoard& data)
 {
     std::vector<SwapOffer> offers = _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList();
     auto walletDB = _walletData.getWalletDB();
@@ -799,7 +799,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const OffersBoard& data)
         });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const CreateOffer& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const CreateOffer& data)
 {
     checkSwapConnection(_walletData.getAtomicSwapProvider(), data.swapCoin);
 
@@ -868,7 +868,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const CreateOffer& data)
         });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const PublishOffer& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const PublishOffer& data)
 {
     auto txParams = ParseParameters(data.token);
     if (!txParams)
@@ -902,7 +902,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const PublishOffer& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const AcceptOffer & data)
 {
     auto txParams = ParseParameters(data.token);
     if (!txParams)
@@ -1005,7 +1005,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
         });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const OfferStatus& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const OfferStatus& data)
 {
     auto walletDB = _walletData.getWalletDB();
 
@@ -1034,7 +1034,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const OfferStatus& data)
     throw TxNotFound();
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const DecodeToken& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const DecodeToken& data)
 {
     auto txParams = ParseParameters(data.token);
     if (!txParams)
@@ -1072,7 +1072,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const DecodeToken& data)
         });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const GetBalance& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const GetBalance& data)
 {
     checkSwapConnection(_walletData.getAtomicSwapProvider(), data.coin);
 

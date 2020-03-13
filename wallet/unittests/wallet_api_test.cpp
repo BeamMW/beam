@@ -644,7 +644,6 @@ namespace
 
         WalletApiHandler handler;
 
-        //ApiConnection handler;
         WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
@@ -685,8 +684,6 @@ namespace
         };
 
         WalletApiHandler handler;
-        //WalletData wd;
-        //ApiConnection handler(wd);
         WalletApi api(handler);
         
 

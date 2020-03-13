@@ -16,7 +16,7 @@
 #include "utility/logger.h"
 
 #include "wallet/api/api.h"
-#include "wallet/api/api_connection.h"
+#include "wallet/api/api_handler.h"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -374,7 +374,7 @@ private:
         }
     }
 
-        struct WalletData : ApiConnection::IWalletData
+        struct WalletData : WalletApiHandler::IWalletData
         {
             WalletData(IWalletDB::Ptr walletDB, Wallet& wallet, IAtomicSwapProvider& atomicSwapProvider)
                 : m_walletDB(walletDB)
@@ -407,14 +407,14 @@ private:
         };
 
     template<typename T>
-    std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
+    std::shared_ptr<WalletApiHandler> createConnection(io::TcpStream::Ptr&& newStream)
     {
         if (!_walletData)
         {
             _walletData = std::make_unique<WalletData>(_walletDB, _wallet, *this);
         }
 
-    return std::static_pointer_cast<ApiConnection>(
+    return std::static_pointer_cast<WalletApiHandler>(
         std::make_shared<T>(*this
                             , std::move(newStream)
                             , *_walletData
@@ -449,7 +449,7 @@ private:
     }
 
 private:
-    class TcpApiConnection : public ApiConnection
+    class TcpApiConnection : public WalletApiHandler
     {
     public:
     TcpApiConnection(IWalletApiServer& server
@@ -457,7 +457,7 @@ private:
                     , IWalletData& walletData
                     , WalletApi::ACL acl
         )
-        : ApiConnection(walletData
+        : WalletApiHandler(walletData
                       , acl )
         , _server(server)
         , _stream(std::move(newStream))
@@ -514,7 +514,7 @@ private:
         LineProtocol _lineProtocol;
     };
 
-    class HttpApiConnection : public ApiConnection
+    class HttpApiConnection : public WalletApiHandler
     {
     public:
         HttpApiConnection(IWalletApiServer& server
@@ -522,7 +522,7 @@ private:
                         , IWalletData& walletData
                         , WalletApi::ACL acl
             )
-            : ApiConnection(
+            : WalletApiHandler(
                   walletData
                 , acl)
             , _server(server)
@@ -638,7 +638,7 @@ private:
     bool _useHttp;
     TlsOptions _tlsOptions;
 
-    std::unordered_map<uint64_t, std::shared_ptr<ApiConnection>> _connections;
+    std::unordered_map<uint64_t, std::shared_ptr<WalletApiHandler>> _connections;
 
     IWalletDB::Ptr _walletDB;
     Wallet& _wallet;
