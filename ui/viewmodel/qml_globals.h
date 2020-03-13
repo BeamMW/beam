@@ -44,20 +44,11 @@ public:
     Q_INVOKABLE static QString calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate, const QString& secondCurrencyLabel);
 
     Q_INVOKABLE static unsigned int minFeeBeam();
-
-    Q_INVOKABLE static unsigned int defFeeBeam();
-    Q_INVOKABLE static unsigned int defFeeRateBtc();
-    Q_INVOKABLE static unsigned int defFeeRateLtc();
-    Q_INVOKABLE static unsigned int defFeeRateQtum();
     
-    Q_INVOKABLE static QString beamFeeRateLabel();
-    Q_INVOKABLE static QString btcFeeRateLabel();
-    Q_INVOKABLE static QString ltcFeeRateLabel();
-    Q_INVOKABLE static QString qtumFeeRateLabel();
-
     Q_INVOKABLE static QString getCurrencyLabel(Currency);
     Q_INVOKABLE static QString getCurrencyName(Currency);
     Q_INVOKABLE static QString getFeeRateLabel(Currency);
+    
     Q_INVOKABLE static unsigned int getMinimalFee(Currency);
     Q_INVOKABLE static unsigned int getDefaultFee(Currency);
 

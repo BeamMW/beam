@@ -27,6 +27,9 @@ RowLayout {
     property bool hideFiltered: false
     property var searchRegExp: { return new RegExp(root.searchFilter, "gi");}
 
+    readonly property string amountWithLabel: root.amount + " " + BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+    readonly property string secondCurrencyAmount: getAmountInSecondCurrency()
+
     property var onOpenExternal: null
     signal textCopied(string text)
     signal copyPaymentProof()
@@ -57,7 +60,16 @@ RowLayout {
     }
 
     function getAmountInSecondCurrency() {
-        return BeamGlobals.calcAmountInSecondCurrency(root.amount, root.secondCurrencyRate, root.secondCurrencyLabel)
+        if (root.amount !== "") {
+            let amountInSecondCurrency = BeamGlobals.calcAmountInSecondCurrency(root.amount, root.secondCurrencyRate, root.secondCurrencyLabel);
+            if (amountInSecondCurrency == "") {
+                //% "Exchange rate to %1 is not available"
+                amountInSecondCurrency = qsTrId("general-exchange-rate-not-available").arg(root.secondCurrencyLabel);
+            }
+            //% " (for the day of transaction)"
+            return amountInSecondCurrency + " " + qsTrId("tx-details-second-currency-notification");
+        }
+        else return "";
     }
 
     GridLayout {
@@ -126,14 +138,16 @@ RowLayout {
             color: Style.content_secondary
             //% "Amount"
             text: qsTrId("tx-details-amount-label") + ":"
+            visible: amountField.visible
         }
         SFLabel {
+            id: amountField
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
             elide: Text.ElideMiddle
-            text: getHighlitedText(root.amount)
+            text: root.amountWithLabel
             onCopyText: textCopied(root.amount)
             visible: isTextFieldVisible(root.amount)
         }
@@ -144,17 +158,18 @@ RowLayout {
             color: Style.content_secondary
             //% "Currency amount"
             text: qsTrId("tx-details-second-currency-amount-label") + ":"
+            visible: secondCurrencyAmountField.visible
         }
         SFLabel {
-            id: secondCurrencyAmountValueLabel
+            id: secondCurrencyAmountField
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
             elide: Text.ElideMiddle
-            text: getHighlitedText(getAmountInSecondCurrency())
-            onCopyText: textCopied(secondCurrencyAmountValueLabel.text)
-            visible: isTextFieldVisible(secondCurrencyAmountValueLabel.text)
+            text: root.secondCurrencyAmount
+            onCopyText: textCopied(secondCurrencyAmountField.text)
+            visible: isTextFieldVisible(secondCurrencyAmountField.text)
         }
         
         SFText {

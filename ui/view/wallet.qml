@@ -378,10 +378,9 @@ Item {
                         isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
                         rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
                         stateDetails:       txRolesMap && txRolesMap.stateDetails ? txRolesMap.stateDetails : ""
-                        // TODO: #1279
-                        amount:             "123" // txRolesMap && txRolesMap.amountGeneral ? txRolesMap.amountGeneral : ""
-                        secondCurrencyRate: "2" // txRolesMap && txRolesMap.secondCurrencyRate ? txRolesMap.secondCurrencyRate : ""
-                        secondCurrencyLabel: "USD" // viewModel.secondCurrencyLabel
+                        amount:             txRolesMap && txRolesMap.amountGeneral ? txRolesMap.amountGeneral : ""
+                        secondCurrencyRate: txRolesMap && txRolesMap.secondCurrencyRate ? txRolesMap.secondCurrencyRate : ""
+                        secondCurrencyLabel: viewModel.secondCurrencyLabel
                         searchFilter:       searchBox.text
                         hideFiltered:       rowItem.hideFiltered
 

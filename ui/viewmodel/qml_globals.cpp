@@ -187,28 +187,6 @@ uint32_t QMLGlobals::minFeeBeam()
     return AppModel::getInstance().getWallet()->isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth;
 }
 
-uint32_t QMLGlobals::defFeeBeam()
-{
-    return minFeeBeam();
-}
-
-uint32_t QMLGlobals::defFeeRateBtc()
-{
-    const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
-    return btcSettings.GetFeeRate();
-}
-
-uint32_t QMLGlobals::defFeeRateLtc()
-{
-    const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
-    return ltcSettings.GetFeeRate();
-}
-
-uint32_t QMLGlobals::defFeeRateQtum()
-{
-    return AppModel::getInstance().getQtumClient()->GetSettings().GetFeeRate();
-}
-
 bool QMLGlobals::needPasswordToSpend()
 {
     return AppModel::getInstance().getSettings().isPasswordReqiredToSpendMoney();
@@ -218,26 +196,6 @@ bool QMLGlobals::isPasswordValid(const QString& value)
 {
     beam::SecString secretPass = value.toStdString();
     return AppModel::getInstance().checkWalletPassword(secretPass);
-}
-
-QString QMLGlobals::beamFeeRateLabel()
-{
-    return "GROTH";
-}
-
-QString QMLGlobals::btcFeeRateLabel()
-{
-    return "sat/kB";
-}
-
-QString QMLGlobals::ltcFeeRateLabel()
-{
-    return "ph/kB";
-}
-
-QString QMLGlobals::qtumFeeRateLabel()
-{
-    return "qsat/kB";
 }
 
 int QMLGlobals::getMinFeeOrRate(Currency currency)
@@ -291,9 +249,9 @@ QString QMLGlobals::calcFeeInSecondCurrency(int fee, Currency originalCurrency, 
 
 QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate, const QString& secondCurrencyLabel)
 {
-    if (exchangeRate == "0")
+    if (exchangeRate.isEmpty() || exchangeRate == "0")
     {
-        return "- " + secondCurrencyLabel;
+        return "";
     }
     else
     {
@@ -435,16 +393,22 @@ unsigned int QMLGlobals::getDefaultFee(Currency currency)
     switch (currency)
     {
         case Currency::CurrBeam:
-            return defFeeBeam();
+            return minFeeBeam();
         
         case Currency::CurrBtc:
-            return defFeeRateBtc();
+        {
+            const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
+            return btcSettings.GetFeeRate();
+        }
 
         case Currency::CurrLtc:
-            return defFeeRateLtc();
+        {
+            const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
+            return ltcSettings.GetFeeRate();
+        }
         
         case Currency::CurrQtum:
-            return defFeeRateQtum();
+            return AppModel::getInstance().getQtumClient()->GetSettings().GetFeeRate();
 
         default:
             return 0;
