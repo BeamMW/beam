@@ -2249,5 +2249,13 @@ deploy the key at the node you trust completely.</oldsource>
         <extracomment>settings update wallet button</extracomment>
         <translation type="unfinished"></translation>
     </message>
+    <message id="tx-details-amount-label">
+        <source>Amount</source>
+        <translation type="unfinished">Aantal</translation>
+    </message>
+    <message id="tx-details-second-currency-amount-label">
+        <source>Currency amount</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

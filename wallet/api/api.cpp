@@ -999,10 +999,10 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onVerifyPaymentProofMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "paymentProof", id);
+        checkJsonParam(params, "payment_proof", id);
 
         VerifyPaymentProof data;
-        data.paymentProof = from_hex(params["paymentProof"]);
+        data.paymentProof = from_hex(params["payment_proof"]);
 
         getHandler().onMessage(id, data);
     }
