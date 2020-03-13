@@ -84,7 +84,6 @@ bool LoadLaserParams(const po::variables_map& vm,
                      Amount* aTrg,
                      Amount* fee,
                      WalletID* receiverWalletID,
-                     Height* locktime,
                      bool skipReceiverWalletID)
 {
     if (!skipReceiverWalletID)
@@ -106,12 +105,6 @@ bool LoadLaserParams(const po::variables_map& vm,
     if (!vm.count(cli::LASER_AMOUNT_TARGET))
     {
         LOG_ERROR() << kLaserErrorTrgAmountMissing;
-        return false;
-    }
-
-    if (!vm.count(cli::LASER_LOCK_TIME))
-    {
-        LOG_ERROR() << kLaserErrorLockTimeMissing;
         return false;
     }
 
@@ -144,8 +137,6 @@ bool LoadLaserParams(const po::variables_map& vm,
         LOG_INFO() << "\"--" << cli::LASER_FEE << "\" param is not specified, using default fee = " << kMinFeeInGroth;
         *fee = kMinFeeInGroth;
     }
-    
-    *locktime = vm[cli::LASER_LOCK_TIME].as<Positive<uint32_t>>().value;
 
     return true;
 }
@@ -209,16 +200,14 @@ bool LaserOpen(const MediatorPtr& laser,
     io::Address receiverAddr;
     Amount aMy = 0, aTrg = 0, fee = cli::kMinimumFee;
     WalletID receiverWalletID(Zero);
-    Height locktime = kDefaultTxLifetime;
 
-    if (!LoadLaserParams(
-            vm, &aMy, &aTrg, &fee, &receiverWalletID, &locktime))
+    if (!LoadLaserParams(vm, &aMy, &aTrg, &fee, &receiverWalletID))
     {
         LOG_ERROR() << kLaserErrorParamsRead;
         return false;
     }
 
-    laser->OpenChannel(aMy, aTrg, fee, receiverWalletID, locktime);
+    laser->OpenChannel(aMy, aTrg, fee, receiverWalletID);
     return true;
 }
 
@@ -228,16 +217,14 @@ bool LaserWait(const MediatorPtr& laser,
     io::Address receiverAddr;
     Amount aMy = 0, aTrg = 0, fee = cli::kMinimumFee;
     WalletID receiverWalletID(Zero);
-    Height locktime = kDefaultTxLifetime;
 
-    if (!LoadLaserParams(
-            vm, &aMy, &aTrg, &fee, &receiverWalletID, &locktime, true))
+    if (!LoadLaserParams(vm, &aMy, &aTrg, &fee, &receiverWalletID, true))
     {
         LOG_ERROR() << kLaserErrorParamsRead;
         return false;
     }
 
-    laser->WaitIncoming(aMy, aTrg, fee, locktime);
+    laser->WaitIncoming(aMy, aTrg, fee);
     return true;
 }
 
@@ -301,14 +288,14 @@ void LaserShow(const IWalletDB::Ptr& walletDB)
 
     array<uint8_t, 6> columnWidths{ { 32, 10, 10, 10, 10, 8 } };
 
-    // chId | aMy | aTrg | state | fee | locktime
+    // chId | aMy | aTrg | state | fee | valid till
     cout << boost::format(kLaserChannelListTableHead)
             % boost::io::group(left, setw(columnWidths[0]), kLaserChannelListChannelId)
             % boost::io::group(left, setw(columnWidths[1]), kLaserChannelListAMy)
             % boost::io::group(left, setw(columnWidths[2]), kLaserChannelListATrg)
             % boost::io::group(left, setw(columnWidths[3]), kLaserChannelListState)
             % boost::io::group(left, setw(columnWidths[4]), kLaserChannelListFee)
-            % boost::io::group(left, setw(columnWidths[5]), kLaserChannelListLocktime)
+            % boost::io::group(left, setw(columnWidths[5]), kLaserChannelListValidTill)
             << std::endl;
 
     for (auto& ch : channels)

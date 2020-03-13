@@ -16,12 +16,17 @@
 
 #include "negotiator.h"
 #include "fly_client.h"
+#include "wallet/core/common.h"
 #include <boost/intrusive/list.hpp>
 
 namespace beam {
 namespace Lightning {
 
 	using namespace Negotiator;
+
+	const Height kDefaultRevisionMaxLifeTime = 1440 * 14;
+	const Height kDefaultLockTime = 1440;
+	const Height kDefaultPostLockReserve = 1440;
 
 	class Channel
 	{
@@ -138,10 +143,10 @@ namespace Lightning {
 
 		struct Params
 		{
-			Height m_hRevisionMaxLifeTime = 1440 * 14;
-			Height m_hLockTime = 1440; // withdrawal lock. Same for all
-			Height m_hPostLockReserve = 1440; // max height diff of 2nd-stage withdrawal, in addition to m_hLockTime. Same for all
-			Amount m_Fee = 100; // for all txs
+			Height m_hRevisionMaxLifeTime = kDefaultRevisionMaxLifeTime;
+			Height m_hLockTime = kDefaultLockTime; // withdrawal lock. Same for all
+			Height m_hPostLockReserve = kDefaultPostLockReserve; // max height diff of 2nd-stage withdrawal, in addition to m_hLockTime. Same for all
+			Amount m_Fee = beam::wallet::kMinFeeInGroth; // for all txs
 		} m_Params;
 
 		struct State

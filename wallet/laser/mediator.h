@@ -65,15 +65,14 @@ public:
     void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
     void ListenClosedChannelsWithPossibleRollback();
 
-    void WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime);
+    void WaitIncoming(Amount aMy, Amount aTrg, Amount fee/*, Height locktime*/);
     void StopWaiting();
     WalletID getWaitingWalletID() const;
     
     void OpenChannel(Amount aMy,
                      Amount aTrg,
                      Amount fee,
-                     const WalletID& receiverWalletID,
-                     Height locktime);
+                     const WalletID& receiverWalletID);
     bool Serve(const std::string& channelID);
     bool Transfer(Amount amount, const std::string& channelID);
     bool Close(const std::string& channelID);
@@ -113,7 +112,6 @@ private:
     Amount m_myInAllowed = 0;
     Amount m_trgInAllowed = 0;
     Amount m_feeAllowed = 0;
-    Height m_locktimeAllowed = kDefaultTxLifetime;
     WalletAddress m_myInAddr;
 
     std::unordered_map<ChannelIDPtr, std::unique_ptr<Channel>> m_channels;

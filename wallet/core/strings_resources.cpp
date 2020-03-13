@@ -243,14 +243,13 @@ namespace beam
     const char kLaserErrorMyAmountMissing[] = "My amount is missing.";
     const char kLaserErrorTrgAmountMissing[] = "Remote side amount is missing.";
     const char kLaserErrorChannelIdMissing[] = "channel ID is missing";
-    const char kLaserErrorLockTimeMissing[] = "Lock time is missing.";
     const char kLaserChannelListTableHead[] = "Laser Channels:\n\n%1%|%2%|%3%|%4%|%5%|%6%";
     const char kLaserChannelListChannelId[] = "chId";
     const char kLaserChannelListAMy[] = "aMy";
     const char kLaserChannelListATrg[] = "aTrg";
     const char kLaserChannelListState[] = "state";
     const char kLaserChannelListFee[] = "fee";
-    const char kLaserChannelListLocktime[] = "locktime";
+    const char kLaserChannelListValidTill[] = "valid till";
     const char kLaserChannelTableBody[] = "%1%|%2%|%3%|%4%|%5%|%6%";
     const char kLaserErrorOpenFailed[] = "Open failed : %1%";
     const char kLaserMessageClosed[] = "Closed : %1%";

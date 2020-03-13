@@ -249,7 +249,6 @@ namespace beam
         const char* LASER_AMOUNT_TARGET = "laser_remote_locked_amount";
         const char* LASER_TARGET_ADDR = "laser_address";
         const char* LASER_FEE = "laser_fee";
-        const char* LASER_LOCK_TIME = "laser_lock_time";
         const char* LASER_CHANNEL_ID = "laser_channel";        
 #endif  // BEAM_LASER_SUPPORT
 
@@ -453,7 +452,6 @@ namespace beam
             (cli::LASER_AMOUNT_TARGET, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_TARGET_ADDR, po::value<string>(), "address of laser receiver")
             (cli::LASER_FEE, po::value<Nonnegative<Amount>>(), "fee (in Groth, 100,000,000 groth = 1 Beam)")
-            (cli::LASER_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks beam transaction")
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 #endif  // BEAM_LASER_SUPPORT
 

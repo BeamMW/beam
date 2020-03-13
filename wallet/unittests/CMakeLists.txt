@@ -20,9 +20,9 @@ if (BEAM_ATOMIC_SWAP_SUPPORT)
     add_test_snippet(electrum_test swap)
 endif()
 
-if (BEAM_LASER_SUPPORT)
-    add_test_snippet(laser_test node laser)
-endif()
+# if (BEAM_LASER_SUPPORT)
+#     add_test_snippet(laser_test node laser)
+# endif()
 
 #add_executable(offline offline.cpp)
 #target_link_libraries(offline node wallet)

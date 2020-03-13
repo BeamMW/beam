@@ -234,14 +234,13 @@ namespace beam
     extern const char kLaserErrorMyAmountMissing[];
     extern const char kLaserErrorTrgAmountMissing[];
     extern const char kLaserErrorChannelIdMissing[];
-    extern const char kLaserErrorLockTimeMissing[];
     extern const char kLaserChannelListTableHead[];
     extern const char kLaserChannelListChannelId[];
     extern const char kLaserChannelListAMy[];
     extern const char kLaserChannelListATrg[];
     extern const char kLaserChannelListState[];
     extern const char kLaserChannelListFee[];
-    extern const char kLaserChannelListLocktime[];
+    extern const char kLaserChannelListValidTill[];
     extern const char kLaserChannelTableBody[];
     extern const char kLaserErrorOpenFailed[];
     extern const char kLaserMessageClosed[];

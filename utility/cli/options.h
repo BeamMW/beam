@@ -152,7 +152,6 @@ namespace beam
         extern const char* LASER_AMOUNT_TARGET;
         extern const char* LASER_TARGET_ADDR;
         extern const char* LASER_FEE;
-        extern const char* LASER_LOCK_TIME;
         extern const char* LASER_CHANNEL_ID;
 #endif  // BEAM_LASER_SUPPORT
 

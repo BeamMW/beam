@@ -234,7 +234,7 @@ void Mediator::ListenClosedChannelsWithPossibleRollback()
     }
 }
 
-void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime)
+void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee)
 {
     if (!IsEnoughCoinsAvailable(aMy + fee))
     {
@@ -250,7 +250,6 @@ void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee, Height locktime
     m_myInAllowed = aMy;
     m_trgInAllowed = aTrg;
     m_feeAllowed = fee;
-    m_locktimeAllowed = locktime;
 
     m_pInputReceiver = std::make_unique<Receiver>(*this, nullptr);
     m_myInAddr = GenerateNewAddress(
@@ -269,7 +268,6 @@ void Mediator::StopWaiting()
     m_myInAllowed = 0;
     m_trgInAllowed = 0;
     m_feeAllowed = 0;
-    m_locktimeAllowed = 0;
     m_pInputReceiver.reset();
     m_myInAddr.m_walletID = Zero;
 }
@@ -306,8 +304,7 @@ bool Mediator::Serve(const std::string& channelID)
 void Mediator::OpenChannel(Amount aMy,
                            Amount aTrg,
                            Amount fee,
-                           const WalletID& receiverWalletID,
-                           Height locktime)
+                           const WalletID& receiverWalletID)
 {
     if (!IsEnoughCoinsAvailable(aMy + fee))
     {
@@ -339,8 +336,7 @@ void Mediator::OpenChannel(Amount aMy,
             false);        
 
     auto channel = std::make_unique<Channel>(
-        *this, myOutAddr, receiverWalletID,
-        fee, aMy, aTrg, locktime);
+        *this, myOutAddr, receiverWalletID, fee, aMy, aTrg);
     channel->Subscribe();
 
     auto chID = channel->get_chID();
@@ -569,9 +565,9 @@ bool Mediator::OnIncoming(const ChannelIDPtr& channelID,
 
     Height locktime;
     if (!dataIn.Get(locktime, beam::Lightning::Codes::HLock) ||
-        locktime != m_locktimeAllowed)
+        locktime != beam::Lightning::kDefaultLockTime)
     {
-        LOG_ERROR() << "Incoming connection with incorrect 'laser_lock_time' detected";
+        LOG_ERROR() << "Incoming connection with incorrect 'HLock' detected";
         return false;
     }          
 
@@ -581,7 +577,7 @@ bool Mediator::OnIncoming(const ChannelIDPtr& channelID,
                << to_hex(channelID->m_pData , channelID->nBytes);
 
     auto channel = std::make_unique<Channel>(
-        *this, channelID, m_myInAddr, trgWid, fee, aMy, aTrg, locktime);
+        *this, channelID, m_myInAddr, trgWid, fee, aMy, aTrg);
     channel->Subscribe();
     m_channels[channel->get_chID()] = std::move(channel);
 

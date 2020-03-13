@@ -242,9 +242,9 @@ int main()
                     WALLET_CHECK(true);
                 };
 
-            laserFirst->WaitIncoming(100000000, 100000000, 100, 10);
+            laserFirst->WaitIncoming(100000000, 100000000, 100);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, 100, firstWalletID, 10);
+            laserSecond->OpenChannel(100000000, 100000000, 100, firstWalletID);
         }
         if (height >= 3 &&
             resultsForCheck.test1.firstFailed &&
@@ -286,9 +286,9 @@ int main()
                     WALLET_CHECK(true);
                 };
 
-            laserFirst->WaitIncoming(100000000, 100000000, 100, 10);
+            laserFirst->WaitIncoming(100000000, 100000000, 100);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, 100, firstWalletID, 10);
+            laserSecond->OpenChannel(100000000, 100000000, 100, firstWalletID);
         }
         if (height > resultsForCheck.test1.height + 1 &&
             height > 7 &&
@@ -331,9 +331,9 @@ int main()
                     WALLET_CHECK(false);
                 };
 
-            laserFirst->WaitIncoming(100000000, 100000000, 101, kChannelLockTime);
+            laserFirst->WaitIncoming(100000000, 100000000, 101);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, kChannelLockTime);
+            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID);
         }
         if (height > resultsForCheck.test2.height + 1 &&
             resultsForCheck.channel_1 &&
@@ -608,9 +608,9 @@ int main()
                     WALLET_CHECK(false);
                 };
 
-            laserFirst->WaitIncoming(100000000, 100000000, 101, 10);
+            laserFirst->WaitIncoming(100000000, 100000000, 101);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 10);
+            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID);
         }
         if (height > resultsForCheck.test8.height + 1 &&
             resultsForCheck.channel_1 &&
@@ -723,9 +723,9 @@ int main()
                     WALLET_CHECK(false);
                 };
 
-            laserFirst->WaitIncoming(100000000, 100000000, 101, 10);
+            laserFirst->WaitIncoming(100000000, 100000000, 101);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 10);
+            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID);
         }
         if (height > resultsForCheck.test12.height + 1 &&
             resultsForCheck.channel_1 &&

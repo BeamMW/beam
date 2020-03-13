@@ -39,8 +39,7 @@ Channel::Channel(IChannelHolder& holder,
                  const WalletID& trg,
                  const Amount& fee,
                  const Amount& aMy,
-                 const Amount& aTrg,
-                 Height locktime)
+                 const Amount& aTrg)
     : Lightning::Channel()
     , m_rHolder(holder)
     , m_ID(std::make_shared<ChannelID>(Zero))
@@ -55,7 +54,6 @@ Channel::Channel(IChannelHolder& holder,
     ECC::GenRandom(*m_ID);
     m_upReceiver = std::make_unique<Receiver>(m_rHolder, m_ID);
     m_Params.m_Fee = fee;
-    m_Params.m_hLockTime = locktime;
 }
 
 Channel::Channel(IChannelHolder& holder,
@@ -64,8 +62,7 @@ Channel::Channel(IChannelHolder& holder,
                  const WalletID& trg,
                  const Amount& fee,
                  const Amount& aMy,
-                 const Amount& aTrg,
-                 Height locktime)
+                 const Amount& aTrg)
     : Lightning::Channel()
     , m_rHolder(holder)
     , m_ID(chID)
@@ -79,7 +76,6 @@ Channel::Channel(IChannelHolder& holder,
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
     m_Params.m_Fee = fee;
-    m_Params.m_hLockTime = locktime;
 }
 
 Channel::Channel(IChannelHolder& holder,
@@ -100,7 +96,6 @@ Channel::Channel(IChannelHolder& holder,
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
     m_Params.m_Fee = std::get<LaserFields::LASER_FEE>(entity);
-    m_Params.m_hLockTime = std::get<LaserFields::LASER_LOCKTIME>(entity);
 
     RestoreInternalState(std::get<LaserFields::LASER_DATA>(entity));
 }

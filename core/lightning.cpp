@@ -1008,9 +1008,6 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 	if (hr0.m_Max - hr0.m_Min >= m_Params.m_hRevisionMaxLifeTime)
 		return false; // typically it should be much smaller
 
-	// TODO(zavarza) on open  and transfer cli issue fixed
-	// m_Params.m_hPostLockReserve = m_Params.m_hLockTime; // currently use same
-
 	Height hMaxLifeTimeWithLock = m_Params.m_hRevisionMaxLifeTime + m_Params.m_hLockTime; // this is the validity lifetime of the 2nd-stage withdrawal tx
 	if (hMaxLifeTimeWithLock < m_Params.m_hLockTime)
 		return false; // overflow

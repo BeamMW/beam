@@ -39,16 +39,14 @@ public:
             const WalletID& trg,
             const Amount& fee,
             const Amount& aMy,
-            const Amount& aTrg,
-            Height locktime);
+            const Amount& aTrg);
     Channel(IChannelHolder& holder,
             const ChannelIDPtr& chID,
             const WalletAddress& myAddr,
             const WalletID& trg,
             const Amount& fee,
             const Amount& aMy,
-            const Amount& aTrg,
-            Height locktime);
+            const Amount& aTrg);
     Channel(IChannelHolder& holder,
             const ChannelIDPtr& chID,
             const WalletAddress& myAddr,
