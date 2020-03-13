@@ -3,32 +3,13 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/olahol/melody"
 	"log"
 	"net/http"
 	"reflect"
 	"runtime"
 )
-
-// TODO: allow CORs only for hosts from config
-func allowCORS(w http.ResponseWriter, r *http.Request) {
-	
-	methods := r.Header.Get("Access-Control-Request-Method")
-	if len(methods) != 0 {
-		w.Header().Add("Access-Control-Allow-Methods", methods)
-	}
-
-	headers := r.Header.Get("Access-Control-Request-Headers")
-	if len(headers) != 0 {
-		w.Header().Add("Access-Control-Allow-Headers", headers)
-	}
-
-	origin := r.Header.Get("Origin")
-	if len(origin) == 0 {
-		origin = "*"
-	}
-	w.Header().Add("Access-Control-Allow-Origin", origin)
-}
 
 func setJsonHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json; charset=utf-8")
@@ -41,7 +22,6 @@ type genericR struct {
 func wrapHandler(handler func(r *http.Request)(interface{}, error)) http.HandlerFunc{
 	var handlerName = runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
 	return func (w http.ResponseWriter, r *http.Request) {
-		allowCORS(w, r)
 		setJsonHeaders(w, r)
 
 		if r.Method == "OPTIONS" {
@@ -91,4 +71,21 @@ func getValidWID(session *melody.Session) (wid string, err error) {
 	}
 
 	return
+}
+
+func checkOrigin(r *http.Request) error {
+	if len(config.AllowedOrigin) == 0 {
+		return nil
+	}
+
+	origin := r.Header.Get("Origin")
+	if len(origin) == 0 {
+		return errors.New("origin is not set")
+	}
+
+	if origin != config.AllowedOrigin {
+		return fmt.Errorf("origin is not allowed: %v", origin)
+	}
+
+	return nil
 }

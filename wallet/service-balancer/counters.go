@@ -11,6 +11,8 @@ import (
 type Counters struct{
 	WUpgrade        int64
 	WUpgrade30      int64
+	WReject         int64
+	WReject30       int64
 	WConnect	    int64
 	WConnect30      int64
 	Login           int64
@@ -56,6 +58,8 @@ func (c* Counters) CopyTo(to *Counters) {
 	to.WBadMethod30    =  atomic.LoadInt64(&c.WBadMethod30)
 	to.WUpgrade        =  atomic.LoadInt64(&c.WUpgrade)
 	to.WUpgrade30      =  atomic.LoadInt64(&c.WUpgrade30)
+	to.WReject         =  atomic.LoadInt64(&c.WReject)
+	to.WReject30       =  atomic.LoadInt64(&c.WReject30)
 	to.WConnect        =  atomic.LoadInt64(&c.WConnect)
 	to.WConnect30      =  atomic.LoadInt64(&c.WConnect30)
 	to.WDisconnect     =  atomic.LoadInt64(&c.WDisconnect)
@@ -106,6 +110,11 @@ func (c *Counters) CountWBadMethod() {
 func (c *Counters) CountWUpgrade() {
 	atomic.AddInt64(&c.WUpgrade, 1)
 	atomic.AddInt64(&c.WUpgrade30, 1)
+}
+
+func (c *Counters) CountWReject() {
+	atomic.AddInt64(&c.WReject, 1)
+	atomic.AddInt64(&c.WReject30, 1)
 }
 
 func (c *Counters) CountWConnect() {
@@ -159,6 +168,7 @@ func (c* Counters) Reset() {
 	atomic.StoreInt64(&c.Unsubscribe30, 0)
 	atomic.StoreInt64(&c.WBadMethod30, 0)
 	atomic.StoreInt64(&c.WUpgrade30, 0)
+	atomic.StoreInt64(&c.WReject30, 0)
 	atomic.StoreInt64(&c.WConnect30, 0)
 	atomic.StoreInt64(&c.WDisconnect30, 0)
 	atomic.StoreInt64(&c.WError30, 0)

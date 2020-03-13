@@ -28,7 +28,7 @@ func onWalletSubscribe(session* melody.Session, params *json.RawMessage) (result
 	if err != nil {
 		return
 	}
-	
+
 	log.Printf("wallet %v, rpc subscribe request", wid)
 
 	var subscribeParams SubParams

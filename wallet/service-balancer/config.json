@@ -10,6 +10,7 @@
   "VAPIDPublic":            "BKV4kJcvOcY3CiDFntZQilujWbdZ0NWzyDjBIrY7y8JVVGrOuoyCu8xroxRueh0-3_W-tF5kryJ0M4VAEKj2kAE",
   "VAPIDPrivate":           "",
   "ListenAddress":          ":20000",
+  "AllowedOrigin":          "",
   "PushContactMail":        "support@beam.mw",
   "DatabasePath":           "./sbbs-data",
   "APISecret":              "secret",

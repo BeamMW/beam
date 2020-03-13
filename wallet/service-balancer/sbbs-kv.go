@@ -94,7 +94,6 @@ func storeSub(params *SubParams) error {
 		return err
 	}
 
-	// TODO: test TTL
 	return DB.Update(func(tx *badger.Txn) error {
 		key     := makeKey(params.SbbsAddress, params.NotificationEndpoint)
 		expires := time.Unix(params.ExpiresAt, 0).Sub(time.Now())

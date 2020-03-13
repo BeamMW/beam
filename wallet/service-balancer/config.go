@@ -36,6 +36,7 @@ type Config struct {
 	VAPIDPrivate            string
 	DatabasePath            string
 	APISecret               string
+	AllowedOrigin           string
 }
 
 var config = Config{

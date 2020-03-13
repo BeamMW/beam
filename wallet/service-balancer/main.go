@@ -58,6 +58,12 @@ func main () {
 	//
 	var wsGenericError = "websocket server processing error, %v"
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request){
+		if err := checkOrigin(r); err != nil {
+			counters.CountWReject()
+			w.WriteHeader(http.StatusForbidden)
+			_,_ = w.Write([]byte(err.Error()))
+			return
+		}
 		counters.CountWUpgrade()
 		if err := m.HandleRequest(w, r); err != nil {
 			log.Printf(wsGenericError, err)
@@ -101,6 +107,4 @@ func main () {
 	if err := http.ListenAndServe(config.ListenAddress, nil); err != nil {
 		log.Fatalf("Failed to start server %v", err)
 	}
-
-	// TODO: reduce non-debug logs
 }
