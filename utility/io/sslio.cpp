@@ -142,10 +142,10 @@ void setup_certificate(SSL_CTX* ctx, const char* certFileName, const char* privK
     }
 }
 
-void setup_verification_path(SSL_CTX* ctx)
+void setup_verification_paths(SSL_CTX* ctx)
 {
-    if (SSL_CTX_set_default_verify_dir(ctx) != 1) {
-        LOG_ERROR() << "SSL_CTX_set_default_verify_dir failed";
+    if (SSL_CTX_set_default_verify_paths(ctx) != 1) {
+        LOG_ERROR() << "SSL_CTX_set_default_verify_paths failed";
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 }
@@ -173,7 +173,7 @@ SSLContext::Ptr SSLContext::create_server_ctx(const char* certFileName, const ch
     }
     SSL_CTX_set_verify(ctx, verificationMode, verify_server);
 
-    setup_verification_path(ctx);
+    setup_verification_paths(ctx);
 
     return Ptr(new SSLContext(ctx, true));
 }
@@ -197,7 +197,7 @@ SSLContext::Ptr SSLContext::create_client_context(const char* certFileName, cons
     
     SSL_CTX_set_verify(ctx, verifyMode, verify_client);
     
-    setup_verification_path(ctx);
+    setup_verification_paths(ctx);
 
     return Ptr(new SSLContext(ctx, false));
 }
