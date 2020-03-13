@@ -101,4 +101,6 @@ func main () {
 	if err := http.ListenAndServe(config.ListenAddress, nil); err != nil {
 		log.Fatalf("Failed to start server %v", err)
 	}
+
+	// TODO: reduce non-debug logs
 }

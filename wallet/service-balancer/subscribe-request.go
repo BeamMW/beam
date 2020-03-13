@@ -28,8 +28,7 @@ func onWalletSubscribe(session* melody.Session, params *json.RawMessage) (result
 	if err != nil {
 		return
 	}
-
-	// TODO: check keys ?
+	
 	log.Printf("wallet %v, rpc subscribe request", wid)
 
 	var subscribeParams SubParams
@@ -45,6 +44,10 @@ func onWalletSubscribe(session* melody.Session, params *json.RawMessage) (result
 
 	if len(subscribeParams.SbbsAddressPrivate) == 0 {
 		return nil, errors.New("invalid SBBS key")
+	}
+
+	if !checkBbsKeys(subscribeParams.SbbsAddress, subscribeParams.SbbsAddressPrivate) {
+		return nil, errors.New("keys mismatch")
 	}
 
 	if len(subscribeParams.NotificationEndpoint) == 0 {

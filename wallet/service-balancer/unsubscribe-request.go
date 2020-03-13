@@ -38,6 +38,10 @@ func onWalletUnsubscribe(session* melody.Session, params *json.RawMessage) (resu
 		return nil, errors.New("invalid SBBS key")
 	}
 
+	if !checkBbsKeys(unsub.SbbsAddress, unsub.SbbsAddressPrivate) {
+		return nil, errors.New("keys mismatch")
+	}
+
 	if len(unsub.NotificationEndpoint) == 0 {
 		return nil, errors.New("invalid notification endpoint")
 	}
