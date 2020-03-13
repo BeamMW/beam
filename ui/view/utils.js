@@ -71,7 +71,7 @@ function openExternalWithConfirmation(externalLink, onFinish) {
 }
 
 function navigateToDownloads() {
-    openExternalWithConfirmation("https://www.beam.mw/#downloads")
+    openExternalWithConfirmation("https://www.beam.mw/downloads")
 }
 
 function currenciesList() {

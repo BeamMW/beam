@@ -232,8 +232,9 @@ ColumnLayout {
             CustomToolButton {
                 anchors.top: itemRect.top
                 anchors.right: itemRect.right
-                anchors.topMargin: 20
-                anchors.rightMargin: 20
+                anchors.topMargin: 12
+                anchors.rightMargin: 12
+                padding: 0
         
                 icon.source: "qrc:/assets/icon-cancel-white.svg"
                 onClicked: {
