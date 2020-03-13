@@ -32,10 +32,6 @@ Item {
         okButtonText: qsTrId("general-delete")
     }
 
-    OpenExternalLinkConfirmation {
-        id: externalLinkConfirmation
-    }   
-
     PaymentInfoDialog {
         id: paymentInfoDialog
         onTextCopied: function(text){
@@ -391,7 +387,7 @@ Item {
 
                         onOpenExternal : function() {
                             var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
-                            Utils.openExternal(url, viewModel, externalLinkConfirmation);
+                            Utils.openExternalWithConfirmation(url);
                         }
 
                         onTextCopied: function (text) {

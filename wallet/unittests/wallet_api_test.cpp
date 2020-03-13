@@ -701,6 +701,7 @@ namespace
        
             WALLET_CHECK(res["id"] == 123);
             auto& result = res["result"];
+            WALLET_CHECK(result["is_valid"] == true);
             WALLET_CHECK(result["sender"] == "9f28991ef543253c8b6a2caf15cf99e23fb9c2b4ca30dc463c8ceb354d7979e");
             WALLET_CHECK(result["receiver"] == "ef7d4255dd5e885200648abe5826d8e0ba0157d3e8cf9c42dcc8258b036986e5");
             WALLET_CHECK(result["amount"] == 2300000000);
