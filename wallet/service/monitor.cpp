@@ -419,13 +419,13 @@ namespace
             },
             [] () {
                 Pipe syncPipe(Pipe::SyncFileDescriptor);
-                syncPipe.notify("LISTENING");
+                syncPipe.notifyListening();
             })
             , _heartbeatPipe(Pipe::HeartbeatFileDescriptor)
         {
             _heartbeatTimer = io::Timer::create(*reactor);
             _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this] () {
-                _heartbeatPipe.notify("alive");
+                _heartbeatPipe.notifyAlive();
             });
         }
     private:

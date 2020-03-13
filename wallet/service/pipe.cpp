@@ -66,6 +66,16 @@ namespace beam::wallet {
     {
         notify("FAILED");
     }
+
+    void Pipe::notifyAlive() const
+    {
+        notify("ALIVE");
+    }
+
+    void Pipe::notifyListening() const
+    {
+        notify("LISTENING");
+    }
 }
 
 

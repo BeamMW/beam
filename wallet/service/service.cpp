@@ -183,7 +183,7 @@ namespace
             [] () {
 #ifndef _WIN32                
                 Pipe syncPipe(Pipe::SyncFileDescriptor);
-                syncPipe.notify("LISTENING");
+                syncPipe.notifyListening();
 #endif
             })
 #ifndef _WIN32
@@ -193,7 +193,7 @@ namespace
 #ifndef _WIN32
             _heartbeatTimer = io::Timer::create(*reactor);
             _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this] () {
-                _heartbeatPipe.notify("alive");
+                _heartbeatPipe.notifyAlive();
             });
 #endif
         }
