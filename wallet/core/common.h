@@ -291,6 +291,8 @@ namespace beam::wallet
         AssetOwnerIdx = 116,
         AssetMetadata = 117,
 
+        ExchangeRates = 120,
+
         // private parameters
         PrivateFirstParam = 128,
 
@@ -342,8 +344,6 @@ namespace beam::wallet
 
         InternalFailureReason = 210,
 
-        ExchangeRates = 220,
-    
         State = 255
 
     };
