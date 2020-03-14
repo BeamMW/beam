@@ -23,11 +23,13 @@ func onWalletUnsubscribe(session* melody.Session, params *json.RawMessage) (resu
 		return
 	}
 
-	log.Printf("wallet %v, rpc unsubscribe request", wid)
-
 	var unsub UnsubParams
 	if err = json.Unmarshal(*params, &unsub); err != nil {
 		return
+	}
+
+	if config.Debug {
+		log.Printf("wallet %v, rpc unsubscribe request %v:%v", wid, unsub.SbbsAddress, unsub.NotificationEndpoint)
 	}
 
 	if len(unsub.SbbsAddress) == 0 {

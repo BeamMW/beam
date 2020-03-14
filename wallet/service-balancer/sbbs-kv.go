@@ -125,7 +125,10 @@ func removeSub(params *UnsubParams) error {
 				return err
 			}
 
-			log.Printf("subscription %v:%v removed", params.SbbsAddress, params.NotificationEndpoint)
+			if config.Debug {
+				log.Printf("subscription %v:%v removed", params.SbbsAddress, params.NotificationEndpoint)
+			}
+
 			return nil
 		})
 	})

@@ -141,6 +141,11 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 	var mode = "RELEASE"
 	if cfg.Debug {
 		mode = "DEBUG"
+	} else {
+		if cfg.NoisyLogs {
+			log.Printf("NoisyLogs set to true in config in RELEASE mode, forced to false")
+			cfg.NoisyLogs = false
+		}
 	}
 
 	log.Printf("starting in %v mode", mode)

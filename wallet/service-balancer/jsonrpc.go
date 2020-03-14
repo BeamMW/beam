@@ -89,7 +89,9 @@ func jsonRpcProcess(msg []byte, handler fnRpcMethod) (response []byte) {
 	}
 
 	if header.Result != nil {
-		log.Printf("jsonrpc, received response for id [%v], result %v", getIdStr(header.Id), string(*header.Result))
+		if config.Debug {
+			log.Printf("jsonrpc, received response for id [%v], result %v", getIdStr(header.Id), string(*header.Result))
+		}
 		return
 	}
 

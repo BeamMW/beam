@@ -21,14 +21,17 @@ func onNewBbsMessage(client *wsclient.WSClient, params *json.RawMessage) (result
 	if err = json.Unmarshal(*params, &nmParams); err != nil {
 		return
 	}
-	log.Printf("new bbs message request, address %v", nmParams.Address)
+	if config.Debug {
+		log.Printf("new bbs message request, address %v", nmParams.Address)
+	}
 
 	go func() {
 		err := forEachSub(nmParams.Address, func(sub *Subscription) {
 			go func () {
 				err := sendPushNotification(string(*params), sub.NotificationEndpoint, sub.P256dhKey, sub.AuthKey, sub.ExpiresAt)
 				if err != nil {
-					log.Printf("push notification error %v", err)
+					// TODO: check when to remove bad endpoint
+					log.Printf("send push notification error %v", err)
 				}
 			}()
 		})

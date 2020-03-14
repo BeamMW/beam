@@ -119,9 +119,13 @@ func (points *Endpoints) Add(wid string, svcIdx int, address string) {
 			if clients := epoint.Release(wid); clients == 0 {
 				delete(points.all, wid)
 				aliveTimeout.Stop()
-				log.Printf("wallet %v, endpoint removed", wid)
+				if config.Debug {
+					log.Printf("wallet %v, endpoint removed", wid)
+				}
 			} else {
-				log.Printf("wallet %v, client removed, %v client(s) left", wid, clients)
+				if config.Debug {
+					log.Printf("wallet %v, client removed, %v client(s) left", wid, clients)
+				}
 			}
 		}
 
@@ -130,7 +134,9 @@ func (points *Endpoints) Add(wid string, svcIdx int, address string) {
 			case <- aliveTimeout.C:
 				// No alive signals from wallet for some time. Usually this means
 				// that connection to the web wallet has been lost and we need to shutdown this endpoint
-				log.Printf("wallet %v, endpoint timeout", wid)
+				if config.Debug {
+					log.Printf("wallet %v, endpoint timeout", wid)
+				}
 				releaseClient()
 				return
 
@@ -141,7 +147,9 @@ func (points *Endpoints) Add(wid string, svcIdx int, address string) {
 				aliveTimeout = time.NewTimer(config.EndpointAliveTimeout)
 
 			case <- epoint.WalletLogout:
-				log.Printf("wallet %v, WalletLogout signal", wid)
+				if config.Debug {
+					log.Printf("wallet %v, WalletLogout signal", wid)
+				}
 				releaseClient()
 
 			case <- epoint.Dropped:

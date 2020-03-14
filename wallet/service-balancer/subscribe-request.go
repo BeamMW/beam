@@ -29,14 +29,14 @@ func onWalletSubscribe(session* melody.Session, params *json.RawMessage) (result
 		return
 	}
 
-	log.Printf("wallet %v, rpc subscribe request", wid)
-
 	var subscribeParams SubParams
 	if err = json.Unmarshal(*params, &subscribeParams); err != nil {
 		return
 	}
 
-	log.Printf("wallet %v, rpc subscribe request, address %v, expires %v", wid, subscribeParams.SbbsAddress, time.Unix(subscribeParams.ExpiresAt, 0))
+	if config.Debug {
+		log.Printf("wallet %v, rpc subscribe request, address %v, expires %v", wid, subscribeParams.SbbsAddress, time.Unix(subscribeParams.ExpiresAt, 0))
+	}
 
 	if len(subscribeParams.SbbsAddress) == 0 {
 		return nil, errors.New("invalid SBBS address")

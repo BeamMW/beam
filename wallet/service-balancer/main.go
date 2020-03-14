@@ -82,7 +82,9 @@ func main () {
 
 	m.HandleConnect(func(session *melody.Session) {
 		counters.CountWConnect()
-		log.Printf("websocket server new session")
+		if config.Debug {
+			log.Printf("websocket server new session")
+		}
 	})
 
 	m.HandleDisconnect(func(session *melody.Session) {

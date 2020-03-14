@@ -31,7 +31,10 @@ func onWalletLogout(session* melody.Session, params *json.RawMessage) (result in
 		return
 	}
 
-	log.Printf("wallet %v, rpc logout request", logoutParms.WalletID)
+	if config.Debug {
+		log.Printf("wallet %v, rpc logout request", logoutParms.WalletID)
+	}
+
 	if err = walletServicesLogout(logoutParms.WalletID); err != nil {
 		return
 	}
@@ -47,7 +50,9 @@ func onWalletDisconnect(session *melody.Session) error {
 	// Client might be already logged out since disconnect is always called
 	// on connection release if there is no wallet id we just ignore and leave
 	if wid, err := getValidWID(session); err == nil {
-		log.Printf("wallet %v, rpc disconnect", wid)
+		if config.Debug {
+			log.Printf("wallet %v, rpc disconnect", wid)
+		}
 		session.Set(RpcKeyWID, nil)
 		return walletServicesLogout(wid)
 	}

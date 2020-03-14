@@ -29,7 +29,10 @@ func onWalletLogin(session* melody.Session, params *json.RawMessage) (result int
 		return
 	}
 
-	log.Printf("wallet %v, rpc login request", par.WalletID)
+	if config.Debug {
+		log.Printf("wallet %v, rpc login request", par.WalletID)
+	}
+
 	res.Endpoint, err = wallletServicesGet(par.WalletID)
 	if err != nil {
 		return

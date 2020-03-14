@@ -41,7 +41,9 @@ func walletServicesInitialize(m *melody.Melody) (err error) {
 func wallletServicesGet(wid string) (string, error) {
 	if epoint, ok := epoints.Get(wid); ok {
 		svcIdx, svcAddr := epoint.Use()
-		log.Printf("wallet %v, existing endpoint is [%v:%v]", wid, svcIdx, svcAddr)
+		if config.Debug {
+			log.Printf("wallet %v, existing endpoint is [%v:%v]", wid, svcIdx, svcAddr)
+		}
 		return svcAddr, nil
 	}
 
@@ -58,7 +60,11 @@ func wallletServicesGet(wid string) (string, error) {
 
 	var address = config.SerivcePublicAddress + ":" + strconv.Itoa(service.Port)
 	epoints.Add(wid, svcIdx, address)
-	log.Printf("wallet %v, new endpoint is [%v:%v]", wid, svcIdx, address)
+
+	if config.Debug {
+		log.Printf("wallet %v, new endpoint is [%v:%v]", wid, svcIdx, address)
+	}
+
 	return address, nil
 }
 

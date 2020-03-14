@@ -73,13 +73,17 @@ func (mons *SbbsMonitors) ListenMonitor(sbbsIdx int) error {
 	}
 	mons.monitor = monitor
 
-	log.Printf("bbs %v, listening to at %v", sbbsIdx, address)
+	if config.Debug {
+		log.Printf("bbs %v, listening to at %v", sbbsIdx, address)
+	}
+
 	go func () {
 		for {
 			select {
 			case req := <- monitor.Subscribe:
-				// TODO: check all logs and move to DEBUG guard if necessary
-				log.Printf("bbs %v, subscribe %v, %v", sbbsIdx, req.SbbsAddress, req.SbbsAddressPrivate)
+				if config.Debug {
+					log.Printf("bbs %v, subscribe %v, %v", sbbsIdx, req.SbbsAddress, req.SbbsAddressPrivate)
+				}
 				go func () {
 					err := sbbsMonitorSubscribe(wsc, req.SbbsAddress, req.SbbsAddressPrivate, req.ExpiresAt)
 					if err != nil {
@@ -88,11 +92,13 @@ func (mons *SbbsMonitors) ListenMonitor(sbbsIdx int) error {
 				}()
 
 			case req := <- monitor.Unsubscribe:
-				log.Printf("bbs %v, unsubscribe %v, %v", sbbsIdx, req.SbbsAddress, req.SbbsAddressPrivate)
+				if config.Debug {
+					log.Printf("bbs %v, unsubscribe %v, %v", sbbsIdx, req.SbbsAddress, req.SbbsAddressPrivate)
+				}
 				go func () {
 					err := sbbsMonitorUnsubscribe(wsc, req.SbbsAddress, req.SbbsAddressPrivate)
 					if err != nil {
-						log.Printf("bbs %v, failed to subscribe %v", sbbsIdx, err)
+						log.Printf("bbs %v, failed to unsubscribe %v", sbbsIdx, err)
 					}
 				}()
 
@@ -108,7 +114,7 @@ func (mons *SbbsMonitors) ListenMonitor(sbbsIdx int) error {
 		err := forAllSubs(func(entry *Subscription) {
 			err := sbbsMonitorSubscribe(wsc, entry.SbbsAddress, entry.SbbsAddressPrivate, entry.ExpiresAt)
 			if err != nil {
-				log.Printf("sbbs subscribe error %v", err)
+				log.Printf("sbbsMonitorSubscribe error %v", err)
 			}
 		})
 		if err != nil {
