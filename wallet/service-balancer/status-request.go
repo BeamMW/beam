@@ -4,7 +4,12 @@ import (
 	"beam.mw/service-balancer/services"
 	"errors"
 	"github.com/capnm/sysinfo"
+	syscall "golang.org/x/sys/unix"
+	"log"
+	"math"
 	"net/http"
+	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 )
@@ -13,6 +18,18 @@ type WalletStats struct {
 	services.ServiceStats
 	EndpointsCnt int
 	ClientsCnt int
+}
+
+type DiskStatus struct {
+	AllGB   float64
+	UsedGB  float64
+	FreeGB  float64
+	AvailGB float64
+}
+
+type DBStatus struct {
+	SizeMB	float64
+	SizeGB  float64
 }
 
 type statusRes struct {
@@ -30,10 +47,9 @@ type statusRes struct {
 	Config            *Config
 	Counters          Counters
 	WalletSockets     int64
-}
-
-func KbToMB(kbytes uint64) uint64 {
-	return kbytes / 1024
+	DBSize            DBStatus
+	DBDiskUsage       DiskStatus
+	SelfDiskUsage     DiskStatus
 }
 
 func statusRequest (r *http.Request)(interface{}, error) {
@@ -79,9 +95,59 @@ func statusRequest (r *http.Request)(interface{}, error) {
 	res.BbsServices       = sbbsServices.GetStats()
 	res.MaxWalletServices = len(res.WalletServices)
 	res.MaxBbsServices    = len(res.BbsServices)
-
-	// TODO: add database stats & disk usage info
-	// TODO: add subscriptions stats
+	res.DBSize            = DBSize(config.DatabasePath)
+	res.DBDiskUsage       = DiskUsage(config.DatabasePath)
+	res.SelfDiskUsage     = DiskUsage("./")
 
 	return res, nil
+}
+
+const (
+	B  = 1
+	KB = 1024 * B
+	MB = 1024 * KB
+	GB = 1024 * MB
+)
+
+func BytesTo(bytes uint64, to uint64) float64 {
+	return math.Round(float64(bytes) / float64(to) * 100) / 100
+}
+
+func DiskUsage(path string) (disk DiskStatus) {
+	fs := syscall.Statfs_t{}
+	err := syscall.Statfs(path, &fs)
+	if err != nil {
+		return
+	}
+
+	disk.AllGB   = BytesTo(fs.Blocks * uint64(fs.Bsize), GB)
+	disk.AvailGB = BytesTo(fs.Bavail * uint64(fs.Bsize), GB)
+	disk.FreeGB  = BytesTo(fs.Bfree * uint64(fs.Bsize),  GB)
+	disk.UsedGB  = disk.AllGB - disk.FreeGB
+
+	return
+}
+
+func DBSize(path string) DBStatus {
+	var size uint64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += uint64(info.Size())
+		}
+		return err
+	})
+
+	if err != nil {
+		log.Printf("error in DBSize %v", err)
+		return DBStatus{}
+	} else {
+		status := DBStatus{
+			SizeGB: BytesTo(size, GB),
+			SizeMB: BytesTo(size, MB),
+		}
+		return status
+	}
 }
