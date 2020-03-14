@@ -28,10 +28,27 @@ func onNewBbsMessage(client *wsclient.WSClient, params *json.RawMessage) (result
 	go func() {
 		err := forEachSub(nmParams.Address, func(sub *Subscription) {
 			go func () {
-				err := sendPushNotification(string(*params), sub.NotificationEndpoint, sub.P256dhKey, sub.AuthKey, sub.ExpiresAt)
+				resp, err := sendPushNotification(string(*params), sub.NotificationEndpoint, sub.P256dhKey, sub.AuthKey, sub.ExpiresAt)
 				if err != nil {
-					// TODO: check when to remove bad endpoint
-					log.Printf("send push notification error %v", err)
+					log.Printf("sendPushNotification %v", err)
+				}
+				if resp != nil {
+					defer resp.Body.Close()
+					// This usually means that endpoint doesn't exist anymore
+					// Let's stop listening and sending notifications for this endpoint
+					if resp.StatusCode == 404 {
+						if config.Debug {
+							log.Printf("404 on push notification %v:%v", sub.SbbsAddress, sub.NotificationEndpoint)
+						}
+						unsub := UnsubParams{
+							SbbsAddress:          sub.SbbsAddress,
+							SbbsAddressPrivate:   sub.SbbsAddressPrivate,
+							NotificationEndpoint: sub.NotificationEndpoint,
+						}
+						if err := monitorUnsubscribe(&unsub); err != nil {
+							log.Printf("monitorUnsubscribe error %v", err)
+						}
+					}
 				}
 			}()
 		})

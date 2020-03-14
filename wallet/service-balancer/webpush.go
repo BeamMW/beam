@@ -2,12 +2,13 @@ package main
 
 import (
 	"github.com/SherClockHolmes/webpush-go"
+	"net/http"
 	"time"
 )
 
-func sendPushNotification (data string, endpoint string, key string, auth string, expires int64) error {
+func sendPushNotification (data string, endpoint string, key string, auth string, expires int64) (*http.Response, error) {
 	sub := webpush.Subscription{}
-	sub.Endpoint    = endpoint
+	sub.Endpoint    = endpoint + "2a2"
 	sub.Keys.P256dh = key
 	sub.Keys.Auth   = auth
 
@@ -19,9 +20,5 @@ func sendPushNotification (data string, endpoint string, key string, auth string
 		VAPIDPrivateKey: config.VAPIDPrivate,
 	})
 
-	if resp != nil {
-		defer resp.Body.Close()
-	}
-
-	return err
+	return resp, err
 }
