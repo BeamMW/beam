@@ -2286,5 +2286,9 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <source>Offer &lt;b&gt;%1 %3 ➞ %2 BEAM&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; failed.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="notification-swap-failed">
+        <source>Atomic Swap offer failed</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

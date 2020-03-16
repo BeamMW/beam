@@ -160,7 +160,7 @@ QString NotificationItem::title() const
                 return qtTrId("notification-transaction-failed");
             case TxType::AtomicSwap:
                 //% "Atomic Swap offer failed"
-                return qtTrId("notification-swap-completed");
+                return qtTrId("notification-swap-failed");
             default:
                 return "error";
             }
