@@ -544,6 +544,11 @@ namespace
                         _keeperCallbacks.front()(msg["result"]);
                         _keeperCallbacks.pop();
                     }
+                    else if (WalletApi::existsJsonParam(msg, "error"))
+                    {
+                        const auto& error = msg["error"];
+                        LOG_ERROR() << "JSON RPC error id: " << error["id"] << " message: " << error["message"];
+                    }
                     else
                     {
                         // !TODO: don't forget to cache this request

@@ -119,7 +119,7 @@ namespace
 
     struct IMonitorConnectionHandler
     {
-        virtual void sendAsync(const json& msg) = 0;
+        virtual void sendRequestAsync(const json& msg) = 0;
     };
 
     class Monitor
@@ -275,7 +275,7 @@ namespace
         {
             if (m_ConnectionHandler)
             {
-                m_ConnectionHandler->sendAsync(msg);
+                m_ConnectionHandler->sendRequestAsync(msg);
             }
             else
             {
@@ -388,7 +388,24 @@ namespace
             {
                 json msg = json::parse(data.c_str(), data.c_str() + data.size());
 
-                m_api.parse(data.c_str(), data.size());
+                if (WalletApi::existsJsonParam(msg, "result"))
+                {
+                    if (m_requests == 0)
+                    {
+                        LOG_WARNING() << "Unexpected JSON RPC response: " << msg.dump();
+                        return;
+                    }
+                    --m_requests;
+                }
+                else if (WalletApi::existsJsonParam(msg, "error"))
+                {
+                    const auto& error = msg["error"];
+                    LOG_ERROR() << "JSON RPC error id: " << error["id"] << " message: " << error["message"];
+                }
+                else
+                {
+                    m_api.parse(data.c_str(), data.size());
+                }
             }
             catch (const nlohmann::detail::exception & e)
             {
@@ -396,7 +413,13 @@ namespace
             }
         }
 
-        void sendAsync(const json& msg) override
+        void sendRequestAsync(const json& msg) override
+        {
+            sendAsync(msg);
+            ++m_requests;
+        }
+
+        void sendAsync(const json& msg)
         {
             if (m_sendFunc)
             {
@@ -406,6 +429,7 @@ namespace
         Monitor& m_monitor;
         SbbsMonitorApi m_api;
         WebSocketServer::SendMessageFunc m_sendFunc;
+        int m_requests = 0;
     };
 
 
