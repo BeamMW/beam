@@ -28,16 +28,17 @@ namespace beam::wallet
     using JsonRpcId = json;
 
 #define JSON_RPC_ERRORS(macro) \
-    macro(-32600, InvalidJsonRpc,       "Invalid JSON-RPC.")        \
-    macro(-32601, NotFoundJsonRpc,      "Procedure not found.")     \
-    macro(-32602, InvalidParamsJsonRpc, "Invalid parameters.")      \
-    macro(-32603, InternalErrorJsonRpc, "Internal JSON-RPC error.") \
-    macro(-32001, InvalidTxStatus,      "Invalid TX status.")       \
-    macro(-32002, UnknownApiKey,        "Unknown API key.")         \
-    macro(-32003, InvalidAddress,       "Invalid address.")         \
-    macro(-32004, InvalidTxId,          "Invalid transaction ID.")  \
-    macro(-32005, NotSupported,         "Feature is not supported") \
-    macro(-32006, InvalidPaymentProof,  "Invalid payment proof provided") \
+    macro(-32600, InvalidJsonRpc,          "Invalid JSON-RPC.")              \
+    macro(-32601, NotFoundJsonRpc,         "Procedure not found.")           \
+    macro(-32602, InvalidParamsJsonRpc,    "Invalid parameters.")            \
+    macro(-32603, InternalErrorJsonRpc,    "Internal JSON-RPC error.")       \
+    macro(-32001, InvalidTxStatus,         "Invalid TX status.")             \
+    macro(-32002, UnknownApiKey,           "Unknown API key.")               \
+    macro(-32003, InvalidAddress,          "Invalid address.")               \
+    macro(-32004, InvalidTxId,             "Invalid transaction ID.")        \
+    macro(-32005, NotSupported,            "Feature is not supported")       \
+    macro(-32006, InvalidPaymentProof,     "Invalid payment proof provided") \
+    macro(-32007, PaymentProofExportError, "Cannot export payment proof")    \
 
     enum ApiError
     {
