@@ -13,6 +13,7 @@ Item {
     Layout.fillHeight: true
 
     property bool shouldShowActiveTransactions: false
+    property string openedTxID: ""
 
     SwapOffersViewModel {
         id: viewModel
@@ -114,7 +115,11 @@ Item {
             state: "offers"
 
             Component.onCompleted: {
-                if (offersViewRoot.shouldShowActiveTransactions) {
+                if (offersViewRoot.openedTxID != "") {
+                    atomicSwapLayout.state = "transactions";
+                    transactionsTab.state = "filterAllTransactions~";
+                }
+                else if (offersViewRoot.shouldShowActiveTransactions) {
                     atomicSwapLayout.state = "transactions";
                     transactionsTab.state = "filterInProgressTransactions";
                 }
@@ -757,6 +762,19 @@ Please try again later or create an offer yourself."
 
                     CustomTableView {
                         id: transactionsTable
+
+                        Component.onCompleted: {
+                            transactionsTable.model.modelReset.connect(function(){
+                                if (offersViewRoot.openedTxID != "") {
+                                    var index = viewModel.transactions.index(0, 0);
+                                    var indexList = viewModel.transactions.match(index, 271, offersViewRoot.openedTxID)
+                                    if (indexList.length > 0) {
+                                        index = txProxyModel.mapFromSource(index);
+                                        transactionsTable.positionViewAtRow(index.row, ListView.Beginning)
+                                    }
+                                }
+                            })
+                        }
 
                         Layout.alignment: Qt.AlignTop
                         Layout.fillWidth: true

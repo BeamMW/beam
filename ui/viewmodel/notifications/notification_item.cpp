@@ -1,4 +1,4 @@
-// Copyright 2020 The Beam Team
+﻿// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,10 +31,27 @@ namespace
         return token.UnpackParameters();
     }
 
-    Amount getAmount(const TxParameters& p)
+    QString getAmount(const TxParameters& p)
     {
-        return *p.GetParameter<Amount>(TxParameterID::Amount);
+        return beamui::AmountToUIString(*p.GetParameter<Amount>(TxParameterID::Amount));
     }
+
+    QString getSwapAmount(const TxParameters& p)
+    {
+        return beamui::AmountToUIString(*p.GetParameter<Amount>(TxParameterID::AtomicSwapAmount));
+    }
+
+    bool isBeamSide(const TxParameters& p)
+    {
+        return *p.GetParameter<bool>(TxParameterID::AtomicSwapCoin);
+    }
+
+    QString getSwapCoinName(const TxParameters& p)
+    {
+        auto swapCoin = p.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        return beamui::toString(beamui::convertSwapCoinToCurrency(*swapCoin));
+    }
+
 
     bool getPeerID(const TxParameters& p, WalletID& result)
     {
@@ -52,6 +69,11 @@ namespace
     bool isSender(const TxParameters& p)
     {
         return *p.GetParameter<bool>(TxParameterID::IsSender);
+    }
+
+    TxType getTxType(const TxParameters& p)
+    {
+        return *p.GetParameter<TxType>(TxParameterID::TransactionType);
     }
 }
 
@@ -74,6 +96,16 @@ QDateTime NotificationItem::timeCreated() const
     QDateTime datetime;
     datetime.setTime_t(m_notification.m_createTime);
     return datetime;
+}
+
+Timestamp NotificationItem::getTimestamp() const
+{
+    return m_notification.m_createTime;
+}
+
+Notification::State NotificationItem::getState() const
+{
+    return m_notification.m_state;
 }
 
 QString NotificationItem::title() const
@@ -101,17 +133,38 @@ QString NotificationItem::title() const
         case Notification::Type::TransactionCompleted:
         {
             auto p = getTxParameters(m_notification);
-            if (isSender(p))
+            switch (getTxType(p))
             {
-                //% "Transaction sent"
-                return qtTrId("notification-transaction-sent");
+            case TxType::Simple:
+                if (isSender(p))
+                {
+                    //% "Transaction sent"
+                    return qtTrId("notification-transaction-sent");
+                }
+                //% "Transaction received"
+                return qtTrId("notification-transaction-received");
+            case TxType::AtomicSwap:
+                //% "Atomic Swap offer completed"
+                return qtTrId("notification-swap-completed");
+            default:
+                return "error";
             }
-            //% "Transaction received"
-            return qtTrId("notification-transaction-received");
         }            
         case Notification::Type::TransactionFailed:
-            //% "Transaction failed"
-            return qtTrId("notification-transaction-failed");
+        {
+            auto p = getTxParameters(m_notification);
+            switch (getTxType(p))
+            {
+            case TxType::Simple:
+                //% "Transaction failed"
+                return qtTrId("notification-transaction-failed");
+            case TxType::AtomicSwap:
+                //% "Atomic Swap offer failed"
+                return qtTrId("notification-swap-completed");
+            default:
+                return "error";
+            }
+        }
         case Notification::Type::BeamNews:
             //% "BEAM in the press"
             return qtTrId("notification-news");
@@ -147,30 +200,75 @@ QString NotificationItem::message() const
         case Notification::Type::TransactionCompleted:
         {
             auto p = getTxParameters(m_notification);
-            // TODO: #1304 swap transactions can be without PeerID - so need a special case
-            WalletID wid;
-            getPeerID(p, wid);
-            QString message =  (isSender(p) ?
-                //% "You sent <b>%1</b> BEAM to <b>%2</b>."
-                qtTrId("notification-transaction-sent-message")
-                :
-                //% "You received <b>%1 BEAM</b> from <b>%2</b>."
-                qtTrId("notification-transaction-received-message"));
-            return message.arg(getAmount(p)).arg(std::to_string(wid).c_str());
+
+            switch (getTxType(p))
+            {
+            case TxType::Simple:
+            {
+                WalletID wid;
+                getPeerID(p, wid);
+                QString message = (isSender(p) ?
+                    //% "You sent <b>%1</b> BEAM to <b>%2</b>."
+                    qtTrId("notification-transaction-sent-message")
+                    :
+                    //% "You received <b>%1 BEAM</b> from <b>%2</b>."
+                    qtTrId("notification-transaction-received-message"));
+                return message.arg(getAmount(p)).arg(std::to_string(wid).c_str());
+            }
+            case TxType::AtomicSwap:
+            {
+                QString message = (isBeamSide(p) ?
+                    //% "Offer <b>%1 BEAM ➞ %2 %3</b> with transaction ID <b>%4</b> completed."
+                    qtTrId("notification-swap-beam-completed-message")
+                    :
+                    //% "Offer <b>%1 %3 ➞ %2 BEAM</b> with transaction ID <b>%4</b> completed."
+                    qtTrId("notification-swap-completed-message")
+                    );
+                
+                return message.arg(getAmount(p))
+                              .arg(getSwapAmount(p))
+                              .arg(getSwapCoinName(p))
+                              .arg(std::to_string(*p.GetTxID()).c_str());
+            }
+            default:
+                return "error";
+            }
         }
         case Notification::Type::TransactionFailed:
         {
             auto p = getTxParameters(m_notification);
-            // TODO: #1304 swap transactions can be without PeerID - so need a special case
-            WalletID wid;
-            getPeerID(p, wid);
-            QString message = (isSender(p) ?
-                //% "Sending <b>%1 BEAM</b> to <b>%2</b> failed."
-                qtTrId("notification-transaction-send-failed-message")
-                :
-                //% "Receiving <b>%1 BEAM</b> from <b>%2</b> failed."
-                qtTrId("notification-transaction-receive-failed-message"));
-            return message.arg(getAmount(p)).arg(std::to_string(wid).c_str());
+            switch (getTxType(p))
+            {
+            case TxType::Simple:
+            {
+                WalletID wid;
+                getPeerID(p, wid);
+                QString message = (isSender(p) ?
+                    //% "Sending <b>%1 BEAM</b> to <b>%2</b> failed."
+                    qtTrId("notification-transaction-send-failed-message")
+                    :
+                    //% "Receiving <b>%1 BEAM</b> from <b>%2</b> failed."
+                    qtTrId("notification-transaction-receive-failed-message"));
+                return message.arg(getAmount(p)).arg(std::to_string(wid).c_str());
+            }
+            case TxType::AtomicSwap:
+            {
+                QString message = (isBeamSide(p) ?
+                    //% "Offer <b>%1 BEAM ➞ %2 %3</b> with transaction ID <b>%4</b> failed."
+                    qtTrId("notification-swap-beam-failed-message")
+                    :
+                    //% "Offer <b>%1 %3 ➞ %2 BEAM</b> with transaction ID <b>%4</b> failed."
+                    qtTrId("notification-swap-failed-message")
+                    );
+
+                return message.arg(getAmount(p))
+                    .arg(getSwapAmount(p))
+                    .arg(getSwapCoinName(p))
+                    .arg(std::to_string(*p.GetTxID()).c_str());
+            }
+            default:
+                return "error";
+            }
         }
         case Notification::Type::BeamNews:
             return "BEAM in the press";
@@ -192,10 +290,29 @@ QString NotificationItem::type() const
         case Notification::Type::TransactionCompleted:
         {
             auto p = getTxParameters(m_notification);
-            return (isSender(p) ? "sent" : "received");
+            switch (getTxType(p))
+            {
+            case TxType::Simple:
+                return (isSender(p) ? "sent" : "received");
+            case TxType::AtomicSwap:
+                return "swapCompleted";
+            default:
+                return "error";
+            }
         }
         case Notification::Type::TransactionFailed:
-            return "failed";
+        {
+            auto p = getTxParameters(m_notification);
+            switch (getTxType(p))
+            {
+            case TxType::Simple:
+                return (isSender(p) ? "failedToSend" : "failedToReceive");
+            case TxType::AtomicSwap:
+                return "swapFailed";
+            default:
+                return "error";
+            }
+        }
         case Notification::Type::BeamNews:
             return "newsletter";
         default:

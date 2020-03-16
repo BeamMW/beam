@@ -277,7 +277,7 @@ ColumnLayout {
     }
 
     function getIconSource(notificationType) {
-        return "qrc:/assets/icon-notifications-" + notificationType;
+        return notificationsViewRoot.notifications[notificationType].icon || ''
     }
 
     property var icons: ({
@@ -297,28 +297,51 @@ ColumnLayout {
     property var notifications: ({
         update: {
             label:      labels.updateLabel,
-            icon:       icons.updateIcon,
-            action:     updateClient
+            actionIcon: icons.updateIcon,
+            action:     updateClient,
+            icon:       "qrc:/assets/icon-notifications-update.svg"
         },
         expired: {
             label:      labels.activateLabel,
-            icon:       icons.updateIcon,
-            action:     noAction
+            actionIcon: icons.updateIcon,
+            action:     noAction,
+            icon:       "qrc:/assets/icon-notifications-expired.svg"
         },
         received: {
             label:      labels.detailsLabel,
-            icon:       icons.detailsIcon,
-            action:     navigateToTransaction
+            actionIcon: icons.detailsIcon,
+            action:     navigateToTransaction,
+            icon:       "qrc:/assets/icon-notifications-received.svg"
         },
         sent: {
             label:      labels.detailsLabel,
-            icon:       icons.detailsIcon,
-            action:     navigateToTransaction
+            actionIcon: icons.detailsIcon,
+            action:     navigateToTransaction,
+            icon:       "qrc:/assets/icon-notifications-sent.svg"
         },
-        failed: {
+        failedToSend: {
             label:      labels.detailsLabel,
-            icon:       icons.detailsIcon,
-            action:     navigateToTransaction
+            actionIcon: icons.detailsIcon,
+            action:     navigateToTransaction,
+            icon:       "qrc:/assets/icon-notifications-sending-failed.svg"
+        },
+        failedToReceive: {
+            label:      labels.detailsLabel,
+            actionIcon: icons.detailsIcon,
+            action:     navigateToTransaction,
+            icon:       "qrc:/assets/icon-notifications-receiving-failed.svg"
+        },
+        swapFailed: {
+            label:      labels.detailsLabel,
+            actionIcon: icons.detailsIcon,
+            action:     navigateToSwapTransaction,
+            icon:       "qrc:/assets/icon-notifications-swap-failed.svg"
+        },
+        swapCompleted: {
+            label:      labels.detailsLabel,
+            actionIcon: icons.detailsIcon,
+            action:     navigateToSwapTransaction,
+            icon:       "qrc:/assets/icon-notifications-swap-completed.svg"
         }
     })
 
@@ -333,6 +356,13 @@ ColumnLayout {
         }
     }
 
+    function navigateToSwapTransaction(id) {
+        var txID = viewModel.getItemTxID(id);
+        if (txID.length > 0) {
+            main.openSwapTransactionDetails(txID);
+        }
+    }
+
     function noAction(id) {
         console.log("not implemented");
     }
@@ -342,6 +372,6 @@ ColumnLayout {
     }
 
     function getActionButtonIcon(notificationType) {
-        return notificationsViewRoot.notifications[notificationType].icon || ''
+        return notificationsViewRoot.notifications[notificationType].actionIcon || ''
     }
 } // Item

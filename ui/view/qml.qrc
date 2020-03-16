@@ -223,5 +223,9 @@
         <file>assets/icon-trusted-node-status.svg</file>
         <file>utils.js</file>
         <file>qmldir</file>
+        <file>assets/icon-notifications-swap-completed.svg</file>
+        <file>assets/icon-notifications-swap-failed.svg</file>
+        <file>assets/icon-notifications-receiving-failed.svg</file>
+        <file>assets/icon-notifications-sending-failed.svg</file>
     </qresource>
 </RCC>

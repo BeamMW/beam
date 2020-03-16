@@ -356,6 +356,10 @@ Rectangle {
         updateItem("wallet", {"openedTxID": id})
     }
 
+    function openSwapTransactionDetails(id) {
+        updateItem("atomic_swap", {"openedTxID": id})
+    }
+
     function resetLockTimer() {
         viewModel.resetLockTimer();
     }

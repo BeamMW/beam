@@ -29,6 +29,8 @@ public:
     bool operator==(const NotificationItem& other) const;
 
     QDateTime timeCreated() const;
+    beam::Timestamp getTimestamp() const;
+    beam::wallet::Notification::State getState() const;
     QString title() const;
     QString message() const;
     QString type() const;

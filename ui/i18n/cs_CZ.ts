@@ -2266,5 +2266,25 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <source>Exchange rate to %1 is not available</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="notification-swap-completed">
+        <source>Atomic Swap offer completed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-beam-completed-message">
+        <source>Offer &lt;b&gt;%1 BEAM ➞ %2 %3&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; completed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-completed-message">
+        <source>Offer &lt;b&gt;%1 %3 ➞ %2 BEAM&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; completed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-beam-failed-message">
+        <source>Offer &lt;b&gt;%1 BEAM ➞ %2 %3&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; failed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-failed-message">
+        <source>Offer &lt;b&gt;%1 %3 ➞ %2 BEAM&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; failed.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

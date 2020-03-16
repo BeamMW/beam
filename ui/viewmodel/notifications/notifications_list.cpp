@@ -50,8 +50,14 @@ QVariant NotificationsList::data(const QModelIndex &index, int role) const
         case Roles::DateCreated:
             return value->timeCreated().date().toString(Qt::SystemLocaleShortDate);
         case Roles::TimeCreatedSort:
-            return value->state() + value->timeCreated().toString(Qt::TextDate);
-
+        {
+            auto t = value->getTimestamp();
+            if (value->getState() == beam::wallet::Notification::State::Unread)
+            {
+                t |= (uint64_t(1) << 63);
+            }
+            return t;
+        }
         case Roles::Title:
             return value->title();
 
