@@ -240,6 +240,8 @@ namespace beam::wallet
         struct Response
         {
             SwapOffer offer;
+            bool isMyOffer;
+            bool isPublic;
         };
     };
 
