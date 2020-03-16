@@ -419,10 +419,6 @@ void Channel::UpdateRestorePoint()
     Blob blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second));
     blob.Export(m_data);
 
-    if (m_pOpen && m_pOpen->m_hOpened)
-    {
-        m_lockHeight = m_pOpen->m_hOpened + m_Params.m_hLockTime;
-    }
     m_bbsTimestamp = getTimestamp();
 
     if (!m_lstUpdates.empty())
@@ -435,7 +431,18 @@ void Channel::UpdateRestorePoint()
             total -= m_Params.m_Fee;
         }
         m_aCurTrg = total - m_aCurMy;
+
+        const HeightRange* pHR = lastUpdate.get_HR();
+        m_lockHeight = pHR ? pHR->m_Max : MaxHeight;
     }
+    else
+    {
+        if (m_pOpen && m_pOpen->m_hOpened)
+        {
+            m_lockHeight = m_pOpen->m_hOpened + m_Params.m_hRevisionMaxLifeTime;
+        }
+    }
+    
 }
 
 void Channel::LogState()
