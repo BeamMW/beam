@@ -767,7 +767,7 @@ Please try again later or create an offer yourself."
                             transactionsTable.model.modelReset.connect(function(){
                                 if (offersViewRoot.openedTxID != "") {
                                     var index = viewModel.transactions.index(0, 0);
-                                    var indexList = viewModel.transactions.match(index, 271, offersViewRoot.openedTxID)
+                                    var indexList = viewModel.transactions.match(index, SwapTxObjectList.Roles.TxID, offersViewRoot.openedTxID)
                                     if (indexList.length > 0) {
                                         index = txProxyModel.mapFromSource(index);
                                         transactionsTable.positionViewAtRow(index.row, ListView.Beginning)

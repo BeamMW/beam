@@ -290,7 +290,7 @@ Item {
                     transactionsTable.model.modelReset.connect(function(){
                         if (root.openedTxID != "") {
                             var index = viewModel.transactions.index(0, 0);
-                            var indexList = viewModel.transactions.match(index, 271, root.openedTxID)
+                            var indexList = viewModel.transactions.match(index, TxObjectList.Roles.TxID, root.openedTxID);
                             if (indexList.length > 0) {
                                 index = searchProxyModel.mapFromSource(indexList[0]);
                                 index = txProxyModel.mapFromSource(index);
