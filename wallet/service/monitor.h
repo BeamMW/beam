@@ -28,6 +28,7 @@ namespace beam::wallet
     {
         WalletID address;
         ECC::Scalar::Native privateKey;
+        Timestamp expires;
 
         struct Response
         {

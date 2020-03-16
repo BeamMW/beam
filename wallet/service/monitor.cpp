@@ -95,6 +95,15 @@ namespace beam::wallet
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'privateKey' parameter must be specified.", id };
 
+        if (existsJsonParam(msg, "expires"))
+        {
+            message.expires = msg["expires"];
+        }
+        else
+        {
+            message.expires = std::numeric_limits<Timestamp>::max();
+        }
+
         getHandler().onMessage(id, message);
     }
 
@@ -128,16 +137,24 @@ namespace
         , public wallet::IWalletMessageConsumer
     {
     public:
-        void subscribe(const WalletID& address, const ECC::Scalar::Native& privateKey/*, Timestamp expirationTime*/)
+        Monitor()
+            : m_AddressExirationTimer(io::Timer::create(io::Reactor::get_Current()))
+        {
+
+        }
+
+        void subscribe(const WalletID& address, const ECC::Scalar::Native& privateKey, Timestamp expirationTime)
         {
             auto addr = new AddressInfo;
             addr->m_Address = address;
             address.m_Channel.Export(addr->m_Channel);
             addr->m_PrivateKey = privateKey;
-            //addr->m_ExpirationTime = expirationTime;
+            addr->m_ExpirationTime = expirationTime;
             m_Channels.insert(*addr);
             m_Addresses.insert(*addr);
             LOG_INFO() << "Subscribed to " << std::to_string(address);
+
+            startExpirationTimer();
         }
 
         void unSubscribe(const WalletID& address)
@@ -145,9 +162,7 @@ namespace
             auto it = m_Addresses.find(address);
             if (it != m_Addresses.end())
             {
-                m_Channels.erase(ChannelSet::s_iterator_to(*it));
-                m_Addresses.erase(it);
-                delete &(*it);
+                DeleteAddress(&(*it));
                 LOG_INFO() << "Unsubscribed from " << std::to_string(address);
             }
             else
@@ -162,6 +177,39 @@ namespace
         }
 
     private:
+        struct AddressInfo;
+        void DeleteAddress(AddressInfo* addr)
+        {
+            m_Channels.erase(ChannelSet::s_iterator_to(*addr));
+            m_Addresses.erase(AddressSet::s_iterator_to(*addr));
+            delete addr;
+        }
+
+        void onExpirationTimer()
+        {
+            std::vector<AddressInfo*> addressedToDelete;
+            auto t = getTimestamp();
+            for (AddressInfo& addr : m_Addresses)
+            {
+                if (addr.m_ExpirationTime < t)
+                {
+                    addressedToDelete.push_back(&addr);
+                }
+            }
+            for (auto* addr : addressedToDelete)
+            {
+                DeleteAddress(addr);
+            }
+            if (!m_Addresses.empty())
+            {
+                startExpirationTimer();
+            }
+        }
+
+        void startExpirationTimer()
+        {
+            m_AddressExirationTimer->start(60000, false, [this] { onExpirationTimer(); });
+        }
 
         void OnWalletMessage(const wallet::WalletID& peerID, const wallet::SetTxParameter& msg) override
         {
@@ -321,6 +369,7 @@ namespace
         ChannelSet m_Channels;
         AddressSet m_Addresses;
         std::unordered_map<BbsChannel, Timestamp> m_BbsTimestamps;
+        io::Timer::Ptr m_AddressExirationTimer;
 
         IMonitorConnectionHandler* m_ConnectionHandler;
 
@@ -351,7 +400,7 @@ namespace
         {
             LOG_DEBUG() << "Subscribe(id = " << id << ")";
 
-            m_monitor.subscribe(data.address, data.privateKey);
+            m_monitor.subscribe(data.address, data.privateKey, data.expires);
 
             doResponse(id, Subscribe::Response{});
         }
