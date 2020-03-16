@@ -1026,30 +1026,37 @@ void WalletApiHandler::onMessage(const JsonRpcId& id, const AcceptOffer & data)
 void WalletApiHandler::onMessage(const JsonRpcId& id, const OfferStatus& data)
 {
     auto walletDB = _walletData.getWalletDB();
-
+    auto publicOffer = getOfferFromBoardByTxId(
+        _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList(), data.txId);
+    SwapOffer offer;
     if (auto tx = walletDB->getTx(data.txId); tx)
     {
-        SwapOffer offer = SwapOffer(*tx);
-
-        // TODO roman.strilets: need to check this code
-        Timestamp expirationTime =
-            offer.timeCreated() + 60 * offer.peerResponseHeight();
-        if (expirationTime <= getTimestamp())
-        {
-            offer.m_status = SwapOfferStatus::Expired;
-        }
-
-        doResponse(
-            id,
-            OfferStatus::Response
-            {
-                walletDB->getCurrentHeight(),
-                offer
-            });
-        return;
+        offer = SwapOffer(*tx);
+    }
+    else if (publicOffer)
+    {
+        offer = *publicOffer;
+    }
+    else
+    {
+        throw TxNotFound();
     }
 
-    throw TxNotFound();
+    // TODO roman.strilets: need to check this code
+    Timestamp expirationTime =
+        offer.timeCreated() + 60 * offer.peerResponseHeight();
+    if (expirationTime <= getTimestamp())
+    {
+        offer.m_status = SwapOfferStatus::Expired;
+    }
+
+    doResponse(
+        id,
+        OfferStatus::Response
+        {
+            walletDB->getCurrentHeight(),
+            offer
+        });
 }
 
 void WalletApiHandler::onMessage(const JsonRpcId& id, const DecodeToken& data)
@@ -1070,6 +1077,7 @@ void WalletApiHandler::onMessage(const JsonRpcId& id, const DecodeToken& data)
         throw FailToParseToken();
 
     SwapOffer offer;
+    bool isMyOffer = false;
     auto myAddresses = walletDB->getAddresses(true);
     if (!storage::isMyAddress(myAddresses, *peerId))
     {
@@ -1077,16 +1085,25 @@ void WalletApiHandler::onMessage(const JsonRpcId& id, const DecodeToken& data)
     }
     else
     {
+        isMyOffer = true;
+        // TODO roman.strilets: maybe it is superfluous
         auto mirroredTxParams =
             MirrorSwapTxParams(*txParams, false);
         offer = SwapOffer(mirroredTxParams);
     }
 
+    auto publicOffer = getOfferFromBoardByTxId(
+        _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList(), *txId);
+
+    bool isPublic = !!publicOffer;
+
     doResponse(
         id,
         DecodeToken::Response
         {
-            offer
+            offer,
+            isMyOffer,
+            isPublic
         });
 }
 

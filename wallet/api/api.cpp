@@ -332,20 +332,36 @@ json OfferStatusToJson(const SwapOffer& offer, const Height& systemHeight)
     return result;
 }
 
-json TokenToJson(const SwapOffer& offer)
+json TokenToJson(const SwapOffer& offer, bool isMyOffer = false, bool isPublic = false)
 {
+    // TODO roman.strilets: check isPublic in this code!!!
+    bool isSendBeamOffer =
+        (isMyOffer && isPublic) ? !offer.isBeamSide() : offer.isBeamSide();
+
+    Amount send =
+        isSendBeamOffer ? offer.amountBeam() : offer.amountSwapCoin();
+    Amount receive =
+        isSendBeamOffer ? offer.amountSwapCoin() : offer.amountBeam();
+
+    std::string sendCurrency =
+        isSendBeamOffer ? "BEAM" : std::to_string(offer.swapCoinType());
+    std::string receiveCurrency =
+        isSendBeamOffer ? std::to_string(offer.swapCoinType()) : "BEAM";
+
     auto createTimeStr = format_timestamp(kTimeStampFormat3x3,
         offer.timeCreated() * 1000,
         false);
 
     json result{
         {"tx_id", TxIDToString(offer.m_txId)},
-        {"is_beam_side", offer.isBeamSide()},
-        {"beam_amount", offer.amountBeam()},
-        {"swap_coin", std::to_string(offer.swapCoinType())},
-        {"swap_amount", offer.amountSwapCoin()},
+        {"is_my_offer", isMyOffer},
+        {"is_public", isPublic},
+        {"send_amount", send},
+        {"send_currency", sendCurrency},
+        {"receive_amount", receive},
+        {"receive_currency", receiveCurrency},
         {"min_height", offer.minHeight()},
-        {"peer_response_height", offer.peerResponseHeight()},
+        {"height_expired", offer.peerResponseHeight() + offer.minHeight()},
         {"time_created", createTimeStr},
     };
 
@@ -1663,7 +1679,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
-            {"result", TokenToJson(res.offer)}
+            {"result", TokenToJson(res.offer, res.isMyOffer, res.isPublic)}
         };
     }
 
