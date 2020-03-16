@@ -301,14 +301,15 @@ void LaserShow(const IWalletDB::Ptr& walletDB)
     for (auto& ch : channels)
     {
         const auto& chID = std::get<LaserFields::LASER_CH_ID>(ch);
+        auto state = std::get<LaserFields::LASER_STATE>(ch);
 
         cout << boost::format(kLaserChannelTableBody)
             % boost::io::group(left, setw(columnWidths[0]), beam::to_hex(chID.m_pData, chID.nBytes))
             % boost::io::group(left, setw(columnWidths[1]), to_string(PrintableAmount(std::get<LaserFields::LASER_AMOUNT_CURRENT_MY>(ch), true)))
             % boost::io::group(left, setw(columnWidths[2]), to_string(PrintableAmount(std::get<LaserFields::LASER_AMOUNT_CURRENT_TRG>(ch), true)))
-            % boost::io::group(left, setw(columnWidths[3]), LaserChannelStateStr(std::get<LaserFields::LASER_STATE>(ch)))
+            % boost::io::group(left, setw(columnWidths[3]), LaserChannelStateStr(state))
             % boost::io::group(left, setw(columnWidths[4]), to_string(PrintableAmount(std::get<LaserFields::LASER_FEE>(ch), true)))
-            % boost::io::group(left, setw(columnWidths[5]), std::get<LaserFields::LASER_LOCK_HEIGHT>(ch))
+            % boost::io::group(left, setw(columnWidths[5]), state == Lightning::Channel::State::Open ? std::get<LaserFields::LASER_LOCK_HEIGHT>(ch) : 0)
             << std::endl;
     }
 }

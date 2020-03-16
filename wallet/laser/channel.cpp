@@ -196,13 +196,13 @@ void Channel::OnCoin(const CoinID& cid,
 {
     auto pWalletDB = m_rHolder.getWalletDB();
     auto coins = pWalletDB->getCoinsByID(std::vector<CoinID>({cid}));
+
+    bool isNewCoin = false;
     if (coins.empty())
     {
         auto& coin = coins.emplace_back();
         coin.m_ID = cid;
-        coin.m_maturity = m_pOpen && m_pOpen->m_hOpened
-            ? m_Params.m_hLockTime + m_pOpen->m_hOpened
-            : m_Params.m_hLockTime + h;
+        isNewCoin = true;
     }
     
     const char* szStatus = "";
@@ -259,6 +259,10 @@ void Channel::OnCoin(const CoinID& cid,
     for (auto& coin : coins)
     {
         coin.m_status = coinStatus;
+        if (isNewCoin)
+        {
+            coin.m_maturity = h;
+        }
         switch(coinStatus)
         {
         case Coin::Status::Available:
