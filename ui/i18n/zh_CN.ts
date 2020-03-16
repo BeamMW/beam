@@ -565,7 +565,8 @@
         <translation type="unfinished">Please specify contact or transaction token</translation>
     </message>
     <message id="send-amount-label">
-        <source>Send</source>
+        <source>Amount to send</source>
+        <oldsource>Send</oldsource>
         <translation type="unfinished">交易数量</translation>
     </message>
     <message id="send-founds-fail">

@@ -562,7 +562,8 @@
         <translation>Vui lòng chỉ định tiền điện tử hoặc liên hệ của giao dịch</translation>
     </message>
     <message id="send-amount-label">
-        <source>Send</source>
+        <source>Amount to send</source>
+        <oldsource>Send</oldsource>
         <translation type="unfinished">Số tiền giao dịch</translation>
     </message>
     <message id="send-founds-fail">

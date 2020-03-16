@@ -562,7 +562,8 @@
         <translation>กรุณาระบุผู้ติดต่อหรือโทเค็นธุรกรรม</translation>
     </message>
     <message id="send-amount-label">
-        <source>Send</source>
+        <source>Amount to send</source>
+        <oldsource>Send</oldsource>
         <translation type="unfinished">จำนวนธุรกรรม</translation>
     </message>
     <message id="send-founds-fail">

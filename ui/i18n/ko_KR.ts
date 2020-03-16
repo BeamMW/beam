@@ -562,7 +562,8 @@
         <translation>연락처 또는 트랜잭션 토큰을 지정해주세요</translation>
     </message>
     <message id="send-amount-label">
-        <source>Send</source>
+        <source>Amount to send</source>
+        <oldsource>Send</oldsource>
         <translation type="unfinished">거래량</translation>
     </message>
     <message id="send-founds-fail">

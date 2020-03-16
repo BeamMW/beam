@@ -562,7 +562,8 @@
         <translation>Пазначце адрас атрымальніка</translation>
     </message>
     <message id="send-amount-label">
-        <source>Send</source>
+        <source>Amount to send</source>
+        <oldsource>Send</oldsource>
         <translation type="unfinished">Сума транзакцыі</translation>
     </message>
     <message id="send-founds-fail">

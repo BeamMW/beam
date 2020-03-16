@@ -76,6 +76,7 @@ Control {
                 font.pixelSize:  10
                 font.styleName:  "Light"
                 font.weight:     Font.Normal
+                opacity:         0.5
                 color:           Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
                 text:            getAmountInSecondCurrency()
                 onCopyText:      BeamGlobals.copyToClipboard(secondCurrencyAmountText.text)

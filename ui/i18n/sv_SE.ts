@@ -562,7 +562,8 @@
         <translation>Vänligen verifiera kontakt eller transaktionstoken</translation>
     </message>
     <message id="send-amount-label">
-        <source>Send</source>
+        <source>Amount to send</source>
+        <oldsource>Send</oldsource>
         <translation type="unfinished">Transaktionsbelopp</translation>
     </message>
     <message id="send-founds-fail">

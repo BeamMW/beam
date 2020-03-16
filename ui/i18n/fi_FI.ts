@@ -562,7 +562,8 @@
         <translation>Määritä yhteystieto tai tapahtuman tunniste</translation>
     </message>
     <message id="send-amount-label">
-        <source>Send</source>
+        <source>Amount to send</source>
+        <oldsource>Send</oldsource>
         <translation type="unfinished">Summa</translation>
     </message>
     <message id="send-founds-fail">

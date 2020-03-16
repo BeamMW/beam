@@ -562,7 +562,8 @@
         <translation>Por favor, especifique contacto o token de transacción</translation>
     </message>
     <message id="send-amount-label">
-        <source>Send</source>
+        <source>Amount to send</source>
+        <oldsource>Send</oldsource>
         <translation type="unfinished">Importe de la transacción</translation>
     </message>
     <message id="send-founds-fail">

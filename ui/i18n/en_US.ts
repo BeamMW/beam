@@ -562,8 +562,8 @@
         <translation>Please specify contact or transaction token</translation>
     </message>
     <message id="send-amount-label">
-        <source>Send</source>
-        <translation>Send</translation>
+        <source>Amount to send</source>
+        <translation>Amount to send</translation>
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
