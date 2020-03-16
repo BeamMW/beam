@@ -87,7 +87,10 @@ ColumnLayout {
 
             onTextChanged: {
                 // if nothing then "0", remove insignificant zeroes and "." in floats
-                control.amount = text ? text.replace(/\.0*$|(\.\d*[1-9])0+$/,'$1') : "0"
+                // TODO: #1277 binding problem
+                if (ainput.focus) {
+                    control.amount = text ? text.replace(/\.0*$|(\.\d*[1-9])0+$/,'$1') : "0"
+                }
             }
 
             onFocusChanged: {

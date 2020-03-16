@@ -27,7 +27,9 @@ RowLayout {
     property bool hideFiltered: false
     property var searchRegExp: { return new RegExp(root.searchFilter, "gi");}
 
-    readonly property string amountWithLabel: root.amount + " " + BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+    
+    readonly property string amountPrefix: root.isIncome ? "+" : "-"
+    readonly property string amountWithLabel: amountPrefix + root.amount + " " + BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
     readonly property string secondCurrencyAmount: getAmountInSecondCurrency()
 
     property var onOpenExternal: null
@@ -65,9 +67,12 @@ RowLayout {
             if (amountInSecondCurrency == "") {
                 //% "Exchange rate to %1 is not available"
                 amountInSecondCurrency = qsTrId("general-exchange-rate-not-available").arg(root.secondCurrencyLabel);
+                //% " (for the day of transaction)"
+                return amountInSecondCurrency + " " + qsTrId("tx-details-second-currency-notification");
             }
-            //% " (for the day of transaction)"
-            return amountInSecondCurrency + " " + qsTrId("tx-details-second-currency-notification");
+            else {
+                return amountPrefix + amountInSecondCurrency + " " + qsTrId("tx-details-second-currency-notification");
+            }
         }
         else return "";
     }
@@ -145,7 +150,8 @@ RowLayout {
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.content_main
+            font.bold: true
+            color: root.isIncome ? Style.accent_incoming : Style.accent_outgoing
             elide: Text.ElideMiddle
             text: root.amountWithLabel
             onCopyText: textCopied(root.amount)
