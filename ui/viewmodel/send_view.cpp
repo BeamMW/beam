@@ -184,6 +184,11 @@ bool SendViewModel::canSend() const
            && QMLGlobals::isFeeOK(_feeGrothes, Currency::CurrBeam);
 }
 
+void SendViewModel::setMaxAvailableAmount()
+{
+    setSendAmount(getMaxAvailable());
+}
+
 void SendViewModel::sendMoney()
 {
     assert(canSend());

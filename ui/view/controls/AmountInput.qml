@@ -57,9 +57,9 @@ ColumnLayout {
     property var      amountInput:  ainput
     property bool     showTotalFee: false
     property bool     showAddAll:   false
-    property string   maxAvailable: Utils.maxAmount
     property string   secondCurrencyRateValue:  "0"
     property string   secondCurrencyLabel:      ""
+    property var      setMaxAvailableAmount: {} // callback function
 
     SFText {
         font.pixelSize:   14
@@ -87,7 +87,6 @@ ColumnLayout {
 
             onTextChanged: {
                 // if nothing then "0", remove insignificant zeroes and "." in floats
-                // TODO: #1277 binding problem
                 if (ainput.focus) {
                     control.amount = text ? text.replace(/\.0*$|(\.\d*[1-9])0+$/,'$1') : "0"
                 }
@@ -147,9 +146,9 @@ ColumnLayout {
             visible:             control.showAddAll
 
             function addAll(){
-                if (parseFloat(maxAvailable)) {
-                    ainput.focus = true;
-                    ainput.text = maxAvailable;
+                ainput.focus = false;                
+                if (control.setMaxAvailableAmount) {
+                    control.setMaxAvailableAmount();
                 }
             }
 

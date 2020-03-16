@@ -173,9 +173,9 @@ ColumnLayout {
                 amountIn:         viewModel.sendAmount
                 secondCurrencyRateValue:    viewModel.secondCurrencyRateValue
                 secondCurrencyLabel:        viewModel.secondCurrencyLabel
+                setMaxAvailableAmount:      function() { viewModel.setMaxAvailableAmount(); }
                 hasFee:           true
                 showAddAll:       true
-                maxAvailable:     viewModel.maxAvailable
                 color:            Style.accent_outgoing
                 //% "Insufficient funds: you would need %1 to complete the transaction"
                 error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.uiStringToLocale(viewModel.missing))
