@@ -15,6 +15,7 @@
 #include "api_handler.h"
 
 #include "wallet/core/simple_transaction.h"
+#include "wallet/core/strings_resources.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/utils.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -713,7 +714,24 @@ void WalletApiHandler::onMessage(const JsonRpcId& id, const ExportPaymentProof& 
 {
     LOG_DEBUG() << "ExportPaymentProof(id = " << id << ")";
 
-    doResponse(id, ExportPaymentProof::Response{ wallet::storage::ExportPaymentProof(*_walletData.getWalletDB(), data.txId) });
+    auto walletDB = _walletData.getWalletDB();
+    auto tx = walletDB->getTx(data.txId);
+    if (!tx)
+    {
+        doError(id, ApiError::PaymentProofExportError, kErrorPpExportFailed);
+    }
+    else if (!tx->m_sender || tx->m_selfTx)
+    {
+        doError(id, ApiError::PaymentProofExportError, kErrorPpCannotExportForReceiver);
+    }
+    else if (tx->m_status != TxStatus::Completed)
+    {
+        doError(id, ApiError::PaymentProofExportError, kErrorPpExportFailedTxNotCompleted);
+    }
+    else
+    {
+        doResponse(id, ExportPaymentProof::Response{ wallet::storage::ExportPaymentProof(*_walletData.getWalletDB(), data.txId) });
+    }
 }
 
 void WalletApiHandler::onMessage(const JsonRpcId& id, const VerifyPaymentProof& data)
