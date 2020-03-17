@@ -469,6 +469,25 @@ namespace beam::wallet
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
     {
+        if (action == ChangeAction::Added)
+        {
+            for (const auto& tx : items)
+            {
+                if (tx.m_txType == TxType::Simple)
+                {
+                    assert(!m_exchangeRateProvider.expired());
+                    if (auto p = m_exchangeRateProvider.lock())
+                    {
+                        m_walletDB->setTxParameter( tx.m_txId,
+                                                    kDefaultSubTxID,
+                                                    TxParameterID::ExchangeRates,
+                                                    toByteBuffer(p->getRates()),
+                                                    false);
+                    }
+                }
+            }
+        }
+
         m_TransactionChangesCollector.CollectItems(action, items);
         updateClientTxState();
     }
@@ -515,13 +534,6 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::Message, message);
 
-
-                assert(!m_exchangeRateProvider.expired());
-                if (auto p = m_exchangeRateProvider.lock())
-                {
-                    txParameters.SetParameter(TxParameterID::ExchangeRates, p->getRates());
-                }
-
                 s->StartTransaction(txParameters);
             }
 
@@ -562,12 +574,6 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::Message, message);
                 
-                assert(!m_exchangeRateProvider.expired());
-                if (auto p = m_exchangeRateProvider.lock())
-                {
-                    txParameters.SetParameter(TxParameterID::ExchangeRates, p->getRates());
-                }
-
                 s->StartTransaction(txParameters);
             }
 
@@ -608,12 +614,6 @@ namespace beam::wallet
                     saveAddress(senderAddress, true); // should update the wallet_network
                 
                     parameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-                }
-
-                assert(!m_exchangeRateProvider.expired());
-                if (auto p = m_exchangeRateProvider.lock())
-                {
-                    parameters.SetParameter(TxParameterID::ExchangeRates, p->getRates());
                 }
 
                 s->StartTransaction(parameters);
