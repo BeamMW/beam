@@ -225,6 +225,7 @@
         <file>qmldir</file>
         <file>assets/icon-notifications-swap-completed.svg</file>
         <file>assets/icon-notifications-swap-failed.svg</file>
+        <file>assets/icon-notifications-swap-expired.svg</file>
         <file>assets/icon-notifications-receiving-failed.svg</file>
         <file>assets/icon-notifications-sending-failed.svg</file>
     </qresource>
