@@ -54,8 +54,10 @@ inline bool CanBeLoaded(int state)
 
 namespace beam::wallet::laser
 {
-Mediator::Mediator(const IWalletDB::Ptr& walletDB)
+Mediator::Mediator(const IWalletDB::Ptr& walletDB,
+                   const Lightning::Channel::Params& params)
     : m_pWalletDB(walletDB)
+    , m_Params(params)
 {
     m_myInAddr.m_walletID = Zero;
 }
@@ -304,7 +306,8 @@ bool Mediator::Serve(const std::string& channelID)
 void Mediator::OpenChannel(Amount aMy,
                            Amount aTrg,
                            Amount fee,
-                           const WalletID& receiverWalletID)
+                           const WalletID& receiverWalletID,
+                           Height hOpenTxDh)
 {
     if (!IsEnoughCoinsAvailable(aMy + fee))
     {
@@ -335,15 +338,17 @@ void Mediator::OpenChannel(Amount aMy,
             WalletAddress::ExpirationStatus::Never,
             false);        
 
+    auto params = m_Params;
+    params.m_Fee = fee;
     auto channel = std::make_unique<Channel>(
-        *this, myOutAddr, receiverWalletID, fee, aMy, aTrg);
+        *this, myOutAddr, receiverWalletID, aMy, aTrg, params);
     channel->Subscribe();
 
     auto chID = channel->get_chID();
     m_channels[chID] = std::move(channel);
     
-    m_actionsQueue.emplace_back([this, chID] () {
-        OpenInternal(chID);
+    m_actionsQueue.emplace_back([this, chID, hOpenTxDh] () {
+        OpenInternal(chID, hOpenTxDh);
     });
 }
 
@@ -565,7 +570,7 @@ bool Mediator::OnIncoming(const ChannelIDPtr& channelID,
 
     Height locktime;
     if (!dataIn.Get(locktime, beam::Lightning::Codes::HLock) ||
-        locktime != beam::Lightning::kDefaultLockTime)
+        locktime != m_Params.m_hLockTime)
     {
         LOG_ERROR() << "Incoming connection with incorrect 'HLock' detected";
         return false;
@@ -576,8 +581,10 @@ bool Mediator::OnIncoming(const ChannelIDPtr& channelID,
     LOG_INFO() << "Create channel by incoming connection: "
                << to_hex(channelID->m_pData , channelID->nBytes);
 
+    auto params = m_Params;
+    params.m_Fee = fee;
     auto channel = std::make_unique<Channel>(
-        *this, channelID, m_myInAddr, trgWid, fee, aMy, aTrg);
+        *this, channelID, m_myInAddr, trgWid, aMy, aTrg, params);
     channel->Subscribe();
     m_channels[channel->get_chID()] = std::move(channel);
 
@@ -585,10 +592,10 @@ bool Mediator::OnIncoming(const ChannelIDPtr& channelID,
     return true;
 }
 
-void Mediator::OpenInternal(const ChannelIDPtr& chID)
+void Mediator::OpenInternal(const ChannelIDPtr& chID, Height hOpenTxDh)
 {
     auto& channel = m_channels[chID];
-    if (channel && channel->Open(kDefaultTxLifetime))
+    if (channel && channel->Open(hOpenTxDh))
     {
         LOG_INFO() << "Opening channel: "
                    << to_hex(chID->m_pData, chID->nBytes);
@@ -760,7 +767,7 @@ std::unique_ptr<Channel> Mediator::LoadChannelInternal(
         return nullptr;
     }
 
-    return std::make_unique<Channel>(*this, p_channelID, *myAddr, chDBEntity);
+    return std::make_unique<Channel>(*this, p_channelID, *myAddr, chDBEntity, m_Params);
 }
 
 bool Mediator::LoadAndStoreChannelInternal(const ChannelIDPtr& p_channelID)

@@ -37,9 +37,9 @@ ChannelIDPtr Channel::ChannelIdFromString(const std::string& chIdStr)
 Channel::Channel(IChannelHolder& holder,
                  const WalletAddress& myAddr,
                  const WalletID& trg,
-                 const Amount& fee,
                  const Amount& aMy,
-                 const Amount& aTrg)
+                 const Amount& aTrg,
+                 const Lightning::Channel::Params& params)
     : Lightning::Channel()
     , m_rHolder(holder)
     , m_ID(std::make_shared<ChannelID>(Zero))
@@ -53,16 +53,17 @@ Channel::Channel(IChannelHolder& holder,
 {
     ECC::GenRandom(*m_ID);
     m_upReceiver = std::make_unique<Receiver>(m_rHolder, m_ID);
-    m_Params.m_Fee = fee;
+
+    m_Params = params;
 }
 
 Channel::Channel(IChannelHolder& holder,
                  const ChannelIDPtr& chID,
                  const WalletAddress& myAddr,
                  const WalletID& trg,
-                 const Amount& fee,
                  const Amount& aMy,
-                 const Amount& aTrg)
+                 const Amount& aTrg,
+                 const Lightning::Channel::Params& params)
     : Lightning::Channel()
     , m_rHolder(holder)
     , m_ID(chID)
@@ -75,13 +76,14 @@ Channel::Channel(IChannelHolder& holder,
     , m_bbsTimestamp(getTimestamp())
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
-    m_Params.m_Fee = fee;
+    m_Params = params;
 }
 
 Channel::Channel(IChannelHolder& holder,
                  const ChannelIDPtr& chID,
                  const WalletAddress& myAddr,
-                 const TLaserChannelEntity& entity)
+                 const TLaserChannelEntity& entity,
+                 const Lightning::Channel::Params& params)
     : Lightning::Channel()
     , m_rHolder(holder)
     , m_ID(chID)
@@ -95,6 +97,7 @@ Channel::Channel(IChannelHolder& holder,
     , m_bbsTimestamp(std::get<LaserFields::LASER_BBS_TIMESTAMP>(entity))
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
+    m_Params = params;
     m_Params.m_Fee = std::get<LaserFields::LASER_FEE>(entity);
 
     RestoreInternalState(std::get<LaserFields::LASER_DATA>(entity));
@@ -433,13 +436,17 @@ void Channel::UpdateRestorePoint()
         m_aCurTrg = total - m_aCurMy;
 
         const HeightRange* pHR = lastUpdate.get_HR();
-        m_lockHeight = pHR ? pHR->m_Max : MaxHeight;
+        m_lockHeight = pHR ? pHR->m_Max - m_Params.m_hLockTime - m_Params.m_hPostLockReserve : MaxHeight;
     }
     else
     {
         if (m_pOpen && m_pOpen->m_hOpened)
         {
-            m_lockHeight = m_pOpen->m_hOpened + m_Params.m_hRevisionMaxLifeTime;
+            m_lockHeight =
+                  m_pOpen->m_hOpened
+                + m_Params.m_hRevisionMaxLifeTime
+                - m_Params.m_hLockTime
+                - m_Params.m_hPostLockReserve;
         }
     }
     

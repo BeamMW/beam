@@ -37,20 +37,21 @@ public:
     Channel(IChannelHolder& holder,
             const WalletAddress& myAddr,
             const WalletID& trg,
-            const Amount& fee,
             const Amount& aMy,
-            const Amount& aTrg);
+            const Amount& aTrg,
+            const Lightning::Channel::Params& params = {});
     Channel(IChannelHolder& holder,
             const ChannelIDPtr& chID,
             const WalletAddress& myAddr,
             const WalletID& trg,
-            const Amount& fee,
             const Amount& aMy,
-            const Amount& aTrg);
+            const Amount& aTrg,
+            const Lightning::Channel::Params& params = {});
     Channel(IChannelHolder& holder,
             const ChannelIDPtr& chID,
             const WalletAddress& myAddr,
-            const TLaserChannelEntity& entity);
+            const TLaserChannelEntity& entity,
+            const Lightning::Channel::Params& params = {});
     Channel(const Channel&) = delete;
     void operator=(const Channel&) = delete;
     Channel(Channel&& channel) = delete;

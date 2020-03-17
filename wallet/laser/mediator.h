@@ -47,7 +47,8 @@ public:
         friend class Mediator;
         Mediator* m_observable;
     };
-    Mediator(const IWalletDB::Ptr& walletDB);
+    Mediator(const IWalletDB::Ptr& walletDB,
+             const Lightning::Channel::Params& params = {});
     ~Mediator();
     // proto::FlyClient
     void OnNewTip() override;
@@ -65,14 +66,15 @@ public:
     void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
     void ListenClosedChannelsWithPossibleRollback();
 
-    void WaitIncoming(Amount aMy, Amount aTrg, Amount fee/*, Height locktime*/);
+    void WaitIncoming(Amount aMy, Amount aTrg, Amount fee);
     void StopWaiting();
     WalletID getWaitingWalletID() const;
     
     void OpenChannel(Amount aMy,
                      Amount aTrg,
                      Amount fee,
-                     const WalletID& receiverWalletID);
+                     const WalletID& receiverWalletID,
+                     Height hOpenTxDh = kDefaultTxLifetime);
     bool Serve(const std::string& channelID);
     bool Transfer(Amount amount, const std::string& channelID);
     bool Close(const std::string& channelID);
@@ -88,7 +90,7 @@ private:
     bool get_skBbs(ECC::Scalar::Native&, const ChannelIDPtr& chID);
     bool OnIncoming(const ChannelIDPtr& channelID,
                     Negotiator::Storage::Map& dataIn);
-    void OpenInternal(const ChannelIDPtr& chID);
+    void OpenInternal(const ChannelIDPtr& chID, Height hOpenTxDh = kDefaultTxLifetime);
     void TransferInternal(Amount amount, const ChannelIDPtr& chID);
     void GracefulCloseInternal(const std::unique_ptr<Channel>& channel);
     void CloseInternal(const ChannelIDPtr& chID);
@@ -119,5 +121,7 @@ private:
     std::vector<ChannelIDPtr> m_readyForCloseChannels;
     std::vector<std::unique_ptr<Channel>> m_closedChannels;
     std::vector<Observer*> m_observers;
+
+    Lightning::Channel::Params m_Params;
 };
 }  // namespace beam::wallet::laser
