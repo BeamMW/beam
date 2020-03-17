@@ -895,7 +895,6 @@ namespace
             WALLET_CHECK(result["tx_id"] == kTxId);
             WALLET_CHECK(result["status"] == 0);
             WALLET_CHECK(result["status_string"] == "pending");
-            WALLET_CHECK(result["time_created"] == "2020.03.16 17:22:12");
         }
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
