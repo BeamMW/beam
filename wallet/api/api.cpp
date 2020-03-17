@@ -1691,7 +1691,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"id", id},
             {"result",
             {
-                {"avaible", res.avaible},
+                {"available", res.available},
             }}
         };
     }

@@ -1111,22 +1111,22 @@ void WalletApiHandler::onMessage(const JsonRpcId& id, const GetBalance& data)
 {
     checkSwapConnection(_walletData.getAtomicSwapProvider(), data.coin);
 
-    Amount avaible = 0;
+    Amount available = 0;
     switch (data.coin)
     {
     case AtomicSwapCoin::Bitcoin:
     {
-        avaible = _walletData.getAtomicSwapProvider().getBtcAvailable();
+        available = _walletData.getAtomicSwapProvider().getBtcAvailable();
         break;
     }
     case AtomicSwapCoin::Litecoin:
     {
-        avaible = _walletData.getAtomicSwapProvider().getLtcAvailable();
+        available = _walletData.getAtomicSwapProvider().getLtcAvailable();
         break;
     }
     case AtomicSwapCoin::Qtum:
     {
-        avaible = _walletData.getAtomicSwapProvider().getQtumAvailable();
+        available = _walletData.getAtomicSwapProvider().getQtumAvailable();
         break;
     }
     default:
@@ -1138,7 +1138,7 @@ void WalletApiHandler::onMessage(const JsonRpcId& id, const GetBalance& data)
         id,
         GetBalance::Response
         {
-            avaible
+            available
         });
 }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT

@@ -250,7 +250,7 @@ namespace beam::wallet
         AtomicSwapCoin coin;
         struct Response
         {
-            Amount avaible;
+            Amount available;
         };
     };
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
