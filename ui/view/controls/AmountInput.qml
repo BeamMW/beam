@@ -33,7 +33,10 @@ ColumnLayout {
     }
 
     function getAmountInSecondCurrency() {
-        return BeamGlobals.calcAmountInSecondCurrency(control.amount, control.secondCurrencyRateValue, control.secondCurrencyLabel)
+        return BeamGlobals.calcAmountInSecondCurrency(
+            control.amountIn,
+            control.secondCurrencyRateValue,
+            control.secondCurrencyLabel)
     }
 
     readonly property bool     isValidFee:     hasFee ? feeInput.isValid : true

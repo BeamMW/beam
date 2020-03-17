@@ -20,11 +20,6 @@ ColumnLayout {
         topColor: Style.accent_outgoing
     }
 
-    function setToken(token) {
-        viewModel.receiverTA = token
-        sendAmountInput.amountInput.forceActiveFocus();
-    }
-
     SendViewModel {
         id: viewModel
 

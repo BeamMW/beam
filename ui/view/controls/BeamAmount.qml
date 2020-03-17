@@ -29,7 +29,10 @@ Control {
     property string  prefix:          ""
 
     function getAmountInSecondCurrency() {
-        let secondCurrencyAmount = BeamGlobals.calcAmountInSecondCurrency(control.amount, control.secondCurrencyRateValue, control.secondCurrencyLabel)
+        let secondCurrencyAmount = BeamGlobals.calcAmountInSecondCurrency(
+            control.amount,
+            control.secondCurrencyRateValue,
+            control.secondCurrencyLabel);
         return control.prefix + Utils.uiStringToLocale(secondCurrencyAmount)
     }
 

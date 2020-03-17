@@ -56,7 +56,7 @@ QVariant NotificationsList::data(const QModelIndex &index, int role) const
             {
                 t |= (uint64_t(1) << 63);
             }
-            return t;
+            return static_cast<qulonglong>(t);
         }
         case Roles::Title:
             return value->title();
