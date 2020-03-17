@@ -1072,29 +1072,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     void WalletApi::onCreateOfferMessage(const JsonRpcId& id, const json& params)
     {
         CreateOffer data = collectOfferInput(id, params);
-
-        try
-        {
-            getHandler().onMessage(id, data);
-        }
-        catch(const FailToStartNewTransactionException&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Can't create transaction.",
-                id
-            };
-        }
-        catch(const std::runtime_error& e)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                e.what(),
-                id
-            };
-        }
+        getHandler().onMessage(id, data);
     }
 
     void WalletApi::onPublishOfferMessage(const JsonRpcId& id, const json& params)
@@ -1105,47 +1083,13 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         if (!SwapOfferToken::isValid(token))
             throw jsonrpc_exception
             {
-                ApiError::InvalidJsonRpc,
+                ApiError::InvalidParamsJsonRpc,
                 "Parameter 'token' is not valid swap token.",
                 id
             };
 
         PublishOffer data{token};
-        try
-        {
-            getHandler().onMessage(id, data);
-        }
-        catch(const FailToParseToken&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Parse Parameters from 'token' failed.",
-                id
-            };
-        }
-        catch(const TxNotFound&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Tranzaction not found.",
-                id
-            };
-        }
-        // handled: InvalidOfferException, ForeignOfferException, 
-        //        OfferAlreadyPublishedException, ExpiredOfferException
-        catch (const std::runtime_error& e)
-        {
-            std::stringstream ss;
-            ss << "Failed to publish offer:" << e.what();
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                ss.str(),
-                id
-            };
-        }
+        getHandler().onMessage(id, data);
     }
 
     void WalletApi::onAcceptOfferMessage(const JsonRpcId& id, const json& params)
@@ -1156,7 +1100,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         if (!SwapOfferToken::isValid(token))
             throw jsonrpc_exception
             {
-                ApiError::InvalidJsonRpc,
+                ApiError::InvalidParamsJsonRpc,
                 "Parameter 'token' is not valid swap token.",
                 id
             };
@@ -1179,46 +1123,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             data.comment = params["comment"];
         }
 
-        try
-        {
-            getHandler().onMessage(id, data);
-        }
-        catch(const FailToParseToken&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Parse Parameters from 'token' failed.",
-                id
-            };
-        }
-        catch(const FailToAcceptOwnOffer&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "You can't accept own offer.",
-                id
-            };
-        }
-        catch(const FailToAcceptOffer&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Wrong offer params.",
-                id
-            };
-        }
-        catch(const std::runtime_error& e)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                e.what(),
-                id
-            };
-        }
+        getHandler().onMessage(id, data);
     }
 
     void WalletApi::onOfferStatusMessage(const JsonRpcId& id, const json& params)
@@ -1231,20 +1136,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         checkTxId(txId, id);
 
         std::copy_n(txId.begin(), offerStatus.txId.size(), offerStatus.txId.begin());
-
-        try
-        {
-            getHandler().onMessage(id, offerStatus);
-        }
-        catch(const TxNotFound&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::NotSupported,
-                "It is not my offer.",
-                id
-            };
-        }
+        
+        getHandler().onMessage(id, offerStatus);
     }
 
     void WalletApi::onDecodeTokenMessage(const JsonRpcId& id, const json& params)
@@ -1256,27 +1149,14 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             throw jsonrpc_exception
             {
-                ApiError::InvalidJsonRpc,
+                ApiError::InvalidParamsJsonRpc,
                 "Parameter 'token' is not valid swap token.",
                 id
             };
         }
 
         DecodeToken decodeToken{ token };
-
-        try
-        {
-            getHandler().onMessage(id, decodeToken);
-        }
-        catch (const FailToParseToken&)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InvalidJsonRpc,
-                "Parse Parameters from 'token' failed.",
-                id
-            };
-        }
+        getHandler().onMessage(id, decodeToken);
     }
 
     void WalletApi::onGetBalanceMessage(const JsonRpcId& id, const json& params)
@@ -1292,27 +1172,14 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             throw jsonrpc_exception
             {
-                ApiError::InvalidJsonRpc,
+                ApiError::InvalidParamsJsonRpc,
                 "Unknown coin.",
                 id
             };
         }
 
         GetBalance data{ coin };
-
-        try
-        {
-            getHandler().onMessage(id, data);
-        }
-        catch (const std::runtime_error & e)
-        {
-            throw jsonrpc_exception
-            {
-                ApiError::InternalErrorJsonRpc,
-                e.what(),
-                id
-            };
-        }
+        getHandler().onMessage(id, data);
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 

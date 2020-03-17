@@ -28,17 +28,21 @@ namespace beam::wallet
     using JsonRpcId = json;
 
 #define JSON_RPC_ERRORS(macro) \
-    macro(-32600, InvalidJsonRpc,          "Invalid JSON-RPC.")              \
-    macro(-32601, NotFoundJsonRpc,         "Procedure not found.")           \
-    macro(-32602, InvalidParamsJsonRpc,    "Invalid parameters.")            \
-    macro(-32603, InternalErrorJsonRpc,    "Internal JSON-RPC error.")       \
-    macro(-32001, InvalidTxStatus,         "Invalid TX status.")             \
-    macro(-32002, UnknownApiKey,           "Unknown API key.")               \
-    macro(-32003, InvalidAddress,          "Invalid address.")               \
-    macro(-32004, InvalidTxId,             "Invalid transaction ID.")        \
-    macro(-32005, NotSupported,            "Feature is not supported")       \
-    macro(-32006, InvalidPaymentProof,     "Invalid payment proof provided") \
-    macro(-32007, PaymentProofExportError, "Cannot export payment proof")    \
+    macro(-32600, InvalidJsonRpc,            "Invalid JSON-RPC.")                \
+    macro(-32601, NotFoundJsonRpc,           "Procedure not found.")             \
+    macro(-32602, InvalidParamsJsonRpc,      "Invalid parameters.")              \
+    macro(-32603, InternalErrorJsonRpc,      "Internal JSON-RPC error.")         \
+    macro(-32001, InvalidTxStatus,           "Invalid TX status.")               \
+    macro(-32002, UnknownApiKey,             "Unknown API key.")                 \
+    macro(-32003, InvalidAddress,            "Invalid address.")                 \
+    macro(-32004, InvalidTxId,               "Invalid transaction ID.")          \
+    macro(-32005, NotSupported,              "Feature is not supported")         \
+    macro(-32006, InvalidPaymentProof,       "Invalid payment proof provided")   \
+    macro(-32007, PaymentProofExportError,   "Cannot export payment proof")      \
+    macro(-32008, SwapFailToParseToken,      "Invalid swap token.")              \
+    macro(-32009, SwapFailToAcceptOwnOffer,  "Can't accept own swap offer.")     \
+    macro(-32010, SwapNotEnoughtBeams,       "Not enought beams.")               \
+    macro(-32011, SwapFailToConnect,         "Doesn't have active connection.")  \
 
     enum ApiError
     {
@@ -98,45 +102,19 @@ namespace beam::wallet
     class FailToParseToken : public std::runtime_error
     {
     public:
-        FailToParseToken() : std::runtime_error("") {}
-    };
-
-    class TxNotFound : public std::runtime_error
-    {
-    public:
-        TxNotFound() : std::runtime_error("") {}
-    };
-
-    class FailToCancelTx : public std::runtime_error
-    {
-    public:
-        FailToCancelTx(const SwapOfferStatus& status)
-            : std::runtime_error(""), _status(status) {}
-        SwapOfferStatus _status;
+        FailToParseToken() : std::runtime_error("Parse Parameters from 'token' failed.") {}
     };
 
     class FailToAcceptOwnOffer : public std::runtime_error
     {
     public:
-        FailToAcceptOwnOffer() : std::runtime_error("") {}
-    };
-
-    class FailToAcceptOffer : public std::runtime_error
-    {
-    public:
-        FailToAcceptOffer() : std::runtime_error("") {}
+        FailToAcceptOwnOffer() : std::runtime_error("You can't accept own offer.") {}
     };
 
     class NotEnoughtBeams : public std::runtime_error
     {
     public:
         NotEnoughtBeams() : std::runtime_error("Not enought beams") {}
-    };
-
-    class NotEnoughtSwapCoins : public std::runtime_error
-    {
-    public:
-        NotEnoughtSwapCoins() : std::runtime_error("There is not enough funds to complete the transaction") {}
     };
 
     class FailToConnectSwap : public std::runtime_error
