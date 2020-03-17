@@ -28,15 +28,21 @@ namespace beam::wallet
     using JsonRpcId = json;
 
 #define JSON_RPC_ERRORS(macro) \
-    macro(-32600, InvalidJsonRpc,       "Invalid JSON-RPC.")        \
-    macro(-32601, NotFoundJsonRpc,      "Procedure not found.")     \
-    macro(-32602, InvalidParamsJsonRpc, "Invalid parameters.")      \
-    macro(-32603, InternalErrorJsonRpc, "Internal JSON-RPC error.") \
-    macro(-32001, InvalidTxStatus,      "Invalid TX status.")       \
-    macro(-32002, UnknownApiKey,        "Unknown API key.")         \
-    macro(-32003, InvalidAddress,       "Invalid address.")         \
-    macro(-32004, InvalidTxId,          "Invalid transaction ID.")  \
-    macro(-32005, NotSupported,         "Feature is not supported")
+    macro(-32600, InvalidJsonRpc,            "Invalid JSON-RPC.")                \
+    macro(-32601, NotFoundJsonRpc,           "Procedure not found.")             \
+    macro(-32602, InvalidParamsJsonRpc,      "Invalid parameters.")              \
+    macro(-32603, InternalErrorJsonRpc,      "Internal JSON-RPC error.")         \
+    macro(-32001, InvalidTxStatus,           "Invalid TX status.")               \
+    macro(-32002, UnknownApiKey,             "Unknown API key.")                 \
+    macro(-32003, InvalidAddress,            "Invalid address.")                 \
+    macro(-32004, InvalidTxId,               "Invalid transaction ID.")          \
+    macro(-32005, NotSupported,              "Feature is not supported")         \
+    macro(-32006, InvalidPaymentProof,       "Invalid payment proof provided")   \
+    macro(-32007, PaymentProofExportError,   "Cannot export payment proof")      \
+    macro(-32008, SwapFailToParseToken,      "Invalid swap token.")              \
+    macro(-32009, SwapFailToAcceptOwnOffer,  "Can't accept own swap offer.")     \
+    macro(-32010, SwapNotEnoughtBeams,       "Not enought beams.")               \
+    macro(-32011, SwapFailToConnect,         "Doesn't have active connection.")  \
 
     enum ApiError
     {
@@ -51,32 +57,37 @@ namespace beam::wallet
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #define SWAP_OFFER_API_METHODS(macro) \
     macro(OffersList,       "swap_offers_list",     API_READ_ACCESS)    \
+    macro(OffersBoard,      "swap_offers_board",    API_READ_ACCESS)    \
     macro(CreateOffer,      "swap_create_offer",    API_WRITE_ACCESS)   \
     macro(PublishOffer,     "swap_publish_offer",   API_WRITE_ACCESS)   \
     macro(AcceptOffer,      "swap_accept_offer",    API_WRITE_ACCESS)   \
-    macro(OfferStatus,      "swap_offer_status",    API_READ_ACCESS)
+    macro(OfferStatus,      "swap_offer_status",    API_READ_ACCESS)    \
+    macro(DecodeToken,      "swap_decode_token",    API_READ_ACCESS)    \
+    macro(GetBalance,       "swap_get_balance",     API_READ_ACCESS)
 #else  // !BEAM_ATOMIC_SWAP_SUPPORT
 #define SWAP_OFFER_API_METHODS(macro)
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #define WALLET_API_METHODS(macro) \
-    macro(CreateAddress,    "create_address",   API_WRITE_ACCESS)   \
-    macro(DeleteAddress,    "delete_address",   API_WRITE_ACCESS)   \
-    macro(EditAddress,      "edit_address",     API_WRITE_ACCESS)   \
-    macro(AddrList,         "addr_list",        API_READ_ACCESS)    \
-    macro(ValidateAddress,  "validate_address", API_READ_ACCESS)    \
-    macro(Send,             "tx_send",          API_WRITE_ACCESS)   \
-    macro(Issue,            "tx_issue",         API_WRITE_ACCESS)   \
-    macro(Status,           "tx_status",        API_READ_ACCESS)    \
-    macro(Split,            "tx_split",         API_WRITE_ACCESS)   \
-    macro(TxCancel,         "tx_cancel",        API_WRITE_ACCESS)   \
-    macro(TxDelete,         "tx_delete",        API_WRITE_ACCESS)   \
-    macro(GetUtxo,          "get_utxo",         API_READ_ACCESS)    \
-    macro(Lock,             "lock",             API_WRITE_ACCESS)   \
-    macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
-    macro(TxList,           "tx_list",          API_READ_ACCESS)    \
-    macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)    \
-    macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)    \
+    macro(CreateAddress,      "create_address",       API_WRITE_ACCESS)   \
+    macro(DeleteAddress,      "delete_address",       API_WRITE_ACCESS)   \
+    macro(EditAddress,        "edit_address",         API_WRITE_ACCESS)   \
+    macro(AddrList,           "addr_list",            API_READ_ACCESS)    \
+    macro(ValidateAddress,    "validate_address",     API_READ_ACCESS)    \
+    macro(Send,               "tx_send",              API_WRITE_ACCESS)   \
+    macro(Issue,              "tx_issue",             API_WRITE_ACCESS)   \
+    macro(Status,             "tx_status",            API_READ_ACCESS)    \
+    macro(Split,              "tx_split",             API_WRITE_ACCESS)   \
+    macro(TxCancel,           "tx_cancel",            API_WRITE_ACCESS)   \
+    macro(TxDelete,           "tx_delete",            API_WRITE_ACCESS)   \
+    macro(GetUtxo,            "get_utxo",             API_READ_ACCESS)    \
+    macro(Lock,               "lock",                 API_WRITE_ACCESS)   \
+    macro(Unlock,             "unlock",               API_WRITE_ACCESS)   \
+    macro(TxList,             "tx_list",              API_READ_ACCESS)    \
+    macro(WalletStatus,       "wallet_status",        API_READ_ACCESS)    \
+    macro(GenerateTxId,       "generate_tx_id",       API_READ_ACCESS)    \
+    macro(ExportPaymentProof, "export_payment_proof", API_READ_ACCESS)    \
+    macro(VerifyPaymentProof, "verify_payment_proof", API_READ_ACCESS)    \
     SWAP_OFFER_API_METHODS(macro)
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
@@ -91,33 +102,25 @@ namespace beam::wallet
     class FailToParseToken : public std::runtime_error
     {
     public:
-        FailToParseToken() : std::runtime_error("") {}
-    };
-
-    class TxNotFound : public std::runtime_error
-    {
-    public:
-        TxNotFound() : std::runtime_error("") {}
-    };
-
-    class FailToCancelTx : public std::runtime_error
-    {
-    public:
-        FailToCancelTx(const SwapOfferStatus& status)
-            : std::runtime_error(""), _status(status) {}
-        SwapOfferStatus _status;
+        FailToParseToken() : std::runtime_error("Parse Parameters from 'token' failed.") {}
     };
 
     class FailToAcceptOwnOffer : public std::runtime_error
     {
     public:
-        FailToAcceptOwnOffer() : std::runtime_error("") {}
+        FailToAcceptOwnOffer() : std::runtime_error("You can't accept own offer.") {}
     };
 
-    class FailToAcceptOffer : public std::runtime_error
+    class NotEnoughtBeams : public std::runtime_error
     {
     public:
-        FailToAcceptOffer() : std::runtime_error("") {}
+        NotEnoughtBeams() : std::runtime_error("Not enought beams") {}
+    };
+
+    class FailToConnectSwap : public std::runtime_error
+    {
+    public:
+        FailToConnectSwap(const std::string& coin) : std::runtime_error(std::string("There is not connection with ") + coin + " wallet") {}
     };
 
     struct OfferInput
@@ -136,8 +139,22 @@ namespace beam::wallet
     {
         struct
         {
+            boost::optional<AtomicSwapCoin> swapCoin;
             boost::optional<SwapOfferStatus> status;
-            boost::optional<bool> showAll;
+        } filter;
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            std::vector<SwapOffer> list;
+        };
+    };
+
+    struct OffersBoard
+    {
+        struct
+        {
+            boost::optional<AtomicSwapCoin> swapCoin;
         } filter;
         struct Response
         {
@@ -171,11 +188,12 @@ namespace beam::wallet
         };
     };
 
-    struct AcceptOffer : public OfferInput
+    struct AcceptOffer
     {
-        AcceptOffer() = default;
-        AcceptOffer(const OfferInput& oi) : OfferInput(oi) {}
         std::string token;
+        Amount beamFee = kMinFeeInGroth;
+        Amount swapFeeRate = 0;
+        std::string comment;
         struct Response
         {
             std::vector<WalletAddress> addrList;
@@ -186,12 +204,31 @@ namespace beam::wallet
 
     struct OfferStatus
     {
+        TxID txId;
+        struct Response
+        {
+            Height systemHeight;
+            SwapOffer offer;
+        };
+    };
+
+    struct DecodeToken
+    {
         std::string token;
         struct Response
         {
-            std::vector<WalletAddress> addrList;
-            Height systemHeight;
             SwapOffer offer;
+            bool isMyOffer;
+            bool isPublic;
+        };
+    };
+
+    struct GetBalance
+    {
+        AtomicSwapCoin coin;
+        struct Response
+        {
+            Amount available;
         };
     };
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -395,6 +432,25 @@ namespace beam::wallet
         struct Response
         {
             TxID txId;
+        };
+    };
+
+    struct ExportPaymentProof 
+    {
+        TxID txId;
+
+        struct Response
+        {
+            ByteBuffer paymentProof;
+        };
+    };
+
+    struct VerifyPaymentProof
+    {
+        ByteBuffer paymentProof;
+        struct Response
+        {
+            storage::PaymentInfo paymentInfo;
         };
     };
 

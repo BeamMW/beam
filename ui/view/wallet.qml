@@ -32,10 +32,6 @@ Item {
         okButtonText: qsTrId("general-delete")
     }
 
-    OpenExternalLinkConfirmation {
-        id: externalLinkConfirmation
-    }   
-
     PaymentInfoDialog {
         id: paymentInfoDialog
         onTextCopied: function(text){
@@ -294,7 +290,7 @@ Item {
                     transactionsTable.model.modelReset.connect(function(){
                         if (root.openedTxID != "") {
                             var index = viewModel.transactions.index(0, 0);
-                            var indexList = viewModel.transactions.match(index, 271, root.openedTxID)
+                            var indexList = viewModel.transactions.match(index, TxObjectList.Roles.TxID, root.openedTxID);
                             if (indexList.length > 0) {
                                 index = searchProxyModel.mapFromSource(indexList[0]);
                                 index = txProxyModel.mapFromSource(index);
@@ -378,6 +374,9 @@ Item {
                         isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
                         rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
                         stateDetails:       txRolesMap && txRolesMap.stateDetails ? txRolesMap.stateDetails : ""
+                        amount:             txRolesMap && txRolesMap.amountGeneral ? txRolesMap.amountGeneral : ""
+                        secondCurrencyRate: txRolesMap && txRolesMap.secondCurrencyRate ? txRolesMap.secondCurrencyRate : ""
+                        secondCurrencyLabel: viewModel.secondCurrencyLabel
                         searchFilter:       searchBox.text
                         hideFiltered:       rowItem.hideFiltered
 
@@ -388,7 +387,7 @@ Item {
 
                         onOpenExternal : function() {
                             var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
-                            Utils.openExternal(url, viewModel, externalLinkConfirmation);
+                            Utils.openExternalWithConfirmation(url);
                         }
 
                         onTextCopied: function (text) {

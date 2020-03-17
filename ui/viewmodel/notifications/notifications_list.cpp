@@ -28,7 +28,8 @@ QHash<int, QByteArray> NotificationsList::roleNames() const
         { static_cast<int>(Roles::Message), "message" },
         { static_cast<int>(Roles::Type), "type" },
         { static_cast<int>(Roles::State), "state" },
-        { static_cast<int>(Roles::RawID), "rawID" }
+        { static_cast<int>(Roles::RawID), "rawID" },
+        { static_cast<int>(Roles::DateCreated), "dateCreated" },
         
     };
     return roles;
@@ -45,10 +46,18 @@ QVariant NotificationsList::data(const QModelIndex &index, int role) const
     switch (static_cast<Roles>(role))
     {
         case Roles::TimeCreated:
-            return value->timeCreated().toString(Qt::SystemLocaleShortDate);
+            return value->timeCreated().time().toString(Qt::SystemLocaleShortDate);
+        case Roles::DateCreated:
+            return value->timeCreated().date().toString(Qt::SystemLocaleShortDate);
         case Roles::TimeCreatedSort:
-            return value->state() + value->timeCreated().toString(Qt::TextDate);
-
+        {
+            auto t = value->getTimestamp();
+            if (value->getState() == beam::wallet::Notification::State::Unread)
+            {
+                t |= (uint64_t(1) << 63);
+            }
+            return static_cast<qulonglong>(t);
+        }
         case Roles::Title:
             return value->title();
 

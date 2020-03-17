@@ -26,5 +26,11 @@ namespace beam::wallet {
 
         void notify(const std::string &message) const;
         void notifyFailed() const;
+        void notifyAlive()  const;
+        void notifyListening() const;
+
+        static const int SyncFileDescriptor      = 3;
+        static const int HeartbeatFileDescriptor = 4;
+        static const int HeartbeatInterval       = 5000;
     };
 }

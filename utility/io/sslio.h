@@ -31,7 +31,7 @@ public:
 
     static Ptr create_server_ctx(const char* certFileName, const char* privKeyFileName, bool requestCertificate, bool rejectUnauthorized);
 
-    static Ptr create_client_context();
+    static Ptr create_client_context(const char* certFileName = nullptr, const char* privKeyFileName = nullptr, bool rejectUnauthorized = true);
 
     SSL_CTX* get() { return _ctx; }
 

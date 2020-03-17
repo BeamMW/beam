@@ -83,6 +83,8 @@ public:
         StateDetails
     };
 
+    Q_ENUM(Roles)
+
     SwapTxObjectList();
 
     QVariant data(const QModelIndex &index, int role) const override;

@@ -84,7 +84,7 @@ ColumnLayout {
             sortCaseSensitivity: Qt.CaseInsensitive
             sortRole: "timeCreatedSort"
         }
-        spacing: 10
+        spacing: 0 // we emulate spacings with margins to avoid Flickable drag effect
         clip: true
 
         //! [transitions]
@@ -103,7 +103,7 @@ ColumnLayout {
         }
         //! [transitions]
 
-        ScrollIndicator.vertical: ScrollIndicator { }
+        ScrollBar.vertical: ScrollBar {}
 
         section.property: "state"
         section.delegate: Item {
@@ -127,15 +127,27 @@ ColumnLayout {
         delegate: Item {
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 121
+            height: 121+10
         
             property bool isUnread: model.state == "unread" 
 
             Rectangle {
+                id: itemRect
+                anchors.bottomMargin: 10
                 radius: 10
                 anchors.fill: parent
                 color: (parent.isUnread) ? Style.active : Style.background_second
                 opacity: (parent.isUnread) ? 0.1 : 1.0
+            }
+
+            MouseArea { // avoid Flickable drag effect
+                anchors.fill: parent
+                onPressed : {
+                    notificationList.interactive = false;
+                }
+                onReleased : {
+                    notificationList.interactive = true;
+                }
             }
 
             Timer {
@@ -148,7 +160,7 @@ ColumnLayout {
             }
         
             Item {
-                anchors.fill: parent
+                anchors.fill: itemRect
         
                 SvgImage {
                     anchors.left: parent.left
@@ -161,9 +173,9 @@ ColumnLayout {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.topMargin: 20
+                    anchors.bottomMargin: 20
                     anchors.leftMargin: 100
                     anchors.rightMargin: 150
-                    clip: true
         
                     spacing: 10
         
@@ -181,35 +193,64 @@ ColumnLayout {
                         color: Style.content_main
                         elide: Text.ElideMiddle
                     }
-        
-                    SFText {
-                        Layout.topMargin: 10
-                        text: timeCreated
-                        font.pixelSize: 12
-                        color: Style.content_main
-                        opacity: 0.5
-                    }
+
                     Item {
                         Layout.fillHeight: true
+                    }
+        
+                    RowLayout {
+                        SFText {
+                            Layout.rightMargin: 5
+                            text: dateCreated
+                            font.pixelSize: 12
+                            color: Style.content_main
+                            opacity: 0.5
+                        }
+
+                        SFText {
+                            text: "|"
+                            font.pixelSize: 12
+                            color: Style.content_main
+                            opacity: 0.5
+                        }
+
+                        SFText {
+                            Layout.leftMargin: 5
+                            text: timeCreated
+                            font.pixelSize: 12
+                            color: Style.content_main
+                            opacity: 0.5
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
                     }
                 }
             }
         
             CustomToolButton {
-                anchors.top: parent.top
-                anchors.right: parent.right
-                anchors.topMargin: 20
-                anchors.rightMargin: 20
+                anchors.top: itemRect.top
+                anchors.right: itemRect.right
+                anchors.topMargin: 12
+                anchors.rightMargin: 12
+                padding: 0
         
                 icon.source: "qrc:/assets/icon-cancel-white.svg"
                 onClicked: {
                     viewModel.removeItem(model.rawID);
                 }
+                onPressed : { // avoid Flickable drag effect
+                    notificationList.interactive = false;
+                }
+                onReleased : {
+                    notificationList.interactive = true;
+                }
             }
         
             CustomButton {
-                anchors.bottom: parent.bottom
-                anchors.right: parent.right
+                anchors.bottom: itemRect.bottom
+                anchors.right: itemRect.right
                 anchors.bottomMargin: 20
                 anchors.rightMargin: 20
         
@@ -225,12 +266,18 @@ ColumnLayout {
                 onClicked: {
                     notificationsViewRoot.notifications[type].action(model.rawID);
                 }
+                onPressed : { // avoid Flickable drag effect
+                    notificationList.interactive = false;
+                }
+                onReleased : {
+                    notificationList.interactive = true;
+                }
             }
         }
     }
 
     function getIconSource(notificationType) {
-        return "qrc:/assets/icon-notifications-" + notificationType;
+        return notificationsViewRoot.notifications[notificationType].icon || ''
     }
 
     property var icons: ({
@@ -250,28 +297,51 @@ ColumnLayout {
     property var notifications: ({
         update: {
             label:      labels.updateLabel,
-            icon:       icons.updateIcon,
-            action:     updateClient
+            actionIcon: icons.updateIcon,
+            action:     updateClient,
+            icon:       "qrc:/assets/icon-notifications-update.svg"
         },
         expired: {
             label:      labels.activateLabel,
-            icon:       icons.updateIcon,
-            action:     noAction
+            actionIcon: icons.updateIcon,
+            action:     noAction,
+            icon:       "qrc:/assets/icon-notifications-expired.svg"
         },
         received: {
             label:      labels.detailsLabel,
-            icon:       icons.detailsIcon,
-            action:     navigateToTransaction
+            actionIcon: icons.detailsIcon,
+            action:     navigateToTransaction,
+            icon:       "qrc:/assets/icon-notifications-received.svg"
         },
         sent: {
             label:      labels.detailsLabel,
-            icon:       icons.detailsIcon,
-            action:     navigateToTransaction
+            actionIcon: icons.detailsIcon,
+            action:     navigateToTransaction,
+            icon:       "qrc:/assets/icon-notifications-sent.svg"
         },
-        failed: {
+        failedToSend: {
             label:      labels.detailsLabel,
-            icon:       icons.detailsIcon,
-            action:     navigateToTransaction
+            actionIcon: icons.detailsIcon,
+            action:     navigateToTransaction,
+            icon:       "qrc:/assets/icon-notifications-sending-failed.svg"
+        },
+        failedToReceive: {
+            label:      labels.detailsLabel,
+            actionIcon: icons.detailsIcon,
+            action:     navigateToTransaction,
+            icon:       "qrc:/assets/icon-notifications-receiving-failed.svg"
+        },
+        swapFailed: {
+            label:      labels.detailsLabel,
+            actionIcon: icons.detailsIcon,
+            action:     navigateToSwapTransaction,
+            icon:       "qrc:/assets/icon-notifications-swap-failed.svg"
+        },
+        swapCompleted: {
+            label:      labels.detailsLabel,
+            actionIcon: icons.detailsIcon,
+            action:     navigateToSwapTransaction,
+            icon:       "qrc:/assets/icon-notifications-swap-completed.svg"
         }
     })
 
@@ -286,6 +356,13 @@ ColumnLayout {
         }
     }
 
+    function navigateToSwapTransaction(id) {
+        var txID = viewModel.getItemTxID(id);
+        if (txID.length > 0) {
+            main.openSwapTransactionDetails(txID);
+        }
+    }
+
     function noAction(id) {
         console.log("not implemented");
     }
@@ -295,6 +372,6 @@ ColumnLayout {
     }
 
     function getActionButtonIcon(notificationType) {
-        return notificationsViewRoot.notifications[notificationType].icon || ''
+        return notificationsViewRoot.notifications[notificationType].actionIcon || ''
     }
 } // Item

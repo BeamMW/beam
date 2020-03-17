@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "api_connection.h"
+#include "api_handler.h"
 
 #include "wallet/core/simple_transaction.h"
+#include "wallet/core/strings_resources.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/utils.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -27,20 +28,17 @@ namespace
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 using namespace beam::wallet;
 
-const char kNotEnoughtFundsError[] =
-    "There is not enough funds to complete the transaction";
-const char kSwapAmountToLowError[] =
-    "The swap amount must be greater than the redemption fee.";
+const char kSwapAmountToLowError[] = "The swap amount must be greater than the redemption fee.";
+const char kSwapNotEnoughtSwapCoins[] = "There is not enough funds to complete the transaction.";
 
-void checkIsEnoughtBeamAmount(
-    IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
+void checkIsEnoughtBeamAmount(IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
 {
     storage::Totals allTotals(*walletDB);
     const auto& totals = allTotals.GetTotals(Zero);
     auto available = totals.Avail;
     if (beamAmount + beamFee > available)
     {
-        throw std::runtime_error("Not enought beams");
+        throw NotEnoughtBeams();
     }
 }
 
@@ -67,6 +65,35 @@ bool checkIsEnoughtSwapAmount(
     {
         assert(false);
         return true;
+    }
+    }
+}
+
+void checkSwapConnection(const IAtomicSwapProvider& swapProvider, AtomicSwapCoin swapCoin)
+{
+    switch (swapCoin)
+    {
+    case AtomicSwapCoin::Bitcoin:
+    {
+        if (swapProvider.isBtcConnected())
+            break;
+    }
+    case AtomicSwapCoin::Litecoin:
+    {
+        if (swapProvider.isLtcConnected())
+            break;
+    }
+    case AtomicSwapCoin::Qtum:
+    {
+        if (swapProvider.isQtumConnected())
+            break;
+
+        throw FailToConnectSwap(std::to_string(swapCoin));
+    }
+    default:
+    {
+        assert(false && "Process new coin");
+        break;
     }
     }
 }
@@ -157,7 +184,7 @@ bool checkPublicOffer(const TxParameters& params, const SwapOffer& publicOffer)
 namespace beam::wallet
 {
 
-ApiConnection::ApiConnection(
+WalletApiHandler::WalletApiHandler(
       IWalletData& walletData
     , WalletApi::ACL acl)
     : _walletData(walletData)
@@ -165,11 +192,11 @@ ApiConnection::ApiConnection(
 {
 }
 
-ApiConnection::~ApiConnection()
+WalletApiHandler::~WalletApiHandler()
 {
 }
 
-void ApiConnection::doError(const JsonRpcId& id, ApiError code, const std::string& data)
+void WalletApiHandler::doError(const JsonRpcId& id, ApiError code, const std::string& data)
 {
     json msg
     {
@@ -191,14 +218,14 @@ void ApiConnection::doError(const JsonRpcId& id, ApiError code, const std::strin
     serializeMsg(msg);
 }
 
-void ApiConnection::onInvalidJsonRpc(const json& msg)
+void WalletApiHandler::onInvalidJsonRpc(const json& msg)
 {
     LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
 
     serializeMsg(msg);
 }
 
-void ApiConnection::FillAddressData(const AddressData& data, WalletAddress& address)
+void WalletApiHandler::FillAddressData(const AddressData& data, WalletAddress& address)
 {
     if (data.comment)
     {
@@ -222,7 +249,7 @@ void ApiConnection::FillAddressData(const AddressData& data, WalletAddress& addr
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const CreateAddress& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const CreateAddress& data)
 {
     LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
@@ -236,7 +263,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const CreateAddress& data)
     doResponse(id, CreateAddress::Response{ address.m_walletID });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const DeleteAddress& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const DeleteAddress& data)
 {
     LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
@@ -255,7 +282,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const DeleteAddress& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const EditAddress& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const EditAddress& data)
 {
     LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
@@ -282,14 +309,14 @@ void ApiConnection::onMessage(const JsonRpcId& id, const EditAddress& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const AddrList& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const AddrList& data)
 {
     LOG_DEBUG() << "AddrList(id = " << id << ")";
 
     doResponse(id, AddrList::Response{ _walletData.getWalletDB()->getAddresses(data.own) });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const ValidateAddress& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const ValidateAddress& data)
 {
     LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
@@ -298,12 +325,12 @@ void ApiConnection::onMessage(const JsonRpcId& id, const ValidateAddress& data)
     doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? !addr->isExpired() : true), isMine });
 }
 
-void ApiConnection::doTxAlreadyExistsError(const JsonRpcId& id)
+void WalletApiHandler::doTxAlreadyExistsError(const JsonRpcId& id)
 {
     doError(id, ApiError::InvalidTxId, "Provided transaction ID already exists in the wallet.");
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Send& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Send& data)
 {
     LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee << " address = " << std::to_string(data.address) << ")";
 
@@ -390,7 +417,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Send& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Issue& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Issue& data)
 {
     LOG_DEBUG() << "Issue(id = " << id << " amount = " << data.value << " fee = " << data.fee;
 
@@ -431,7 +458,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Issue& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Status& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Status& data)
 {
     LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -459,7 +486,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Status& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Split& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Split& data)
 {
     LOG_DEBUG() << "Split(id = " << id << " coins = [";
     for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
@@ -488,7 +515,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Split& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const TxCancel& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const TxCancel& data)
 {
     LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -514,7 +541,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxCancel& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const TxDelete& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const TxDelete& data)
 {
     LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -547,7 +574,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxDelete& data)
     }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const GetUtxo& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const GetUtxo& data)
 {
     LOG_DEBUG() << "GetUtxo(id = " << id << ")";
 
@@ -563,7 +590,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const GetUtxo& data)
     doResponse(id, response);
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const WalletStatus& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const WalletStatus& data)
 {
     LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
@@ -596,14 +623,14 @@ void ApiConnection::onMessage(const JsonRpcId& id, const WalletStatus& data)
     doResponse(id, response);
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const GenerateTxId& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const GenerateTxId& data)
 {
     LOG_DEBUG() << "GenerateTxId(id = " << id << ")";
 
     doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Lock& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Lock& data)
 {
     LOG_DEBUG() << "Lock(id = " << id << ")";
 
@@ -614,7 +641,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Lock& data)
     doResponse(id, response);
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const Unlock& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const Unlock& data)
 {
     LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
 
@@ -625,7 +652,7 @@ void ApiConnection::onMessage(const JsonRpcId& id, const Unlock& data)
     doResponse(id, response);
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const TxList& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const TxList& data)
 {
     LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
 
@@ -682,60 +709,75 @@ void ApiConnection::onMessage(const JsonRpcId& id, const TxList& data)
     doResponse(id, res);
 }
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-void ApiConnection::onMessage(const JsonRpcId& id, const OffersList& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const ExportPaymentProof& data)
 {
-    bool showAll = data.filter.showAll && *data.filter.showAll;
-    bool filter = data.filter.status.is_initialized();
-    SwapOfferStatus filterStatus = SwapOfferStatus::Completed;
-    
-    std::vector<SwapOffer> offers;
-    if (filter)
+    LOG_DEBUG() << "ExportPaymentProof(id = " << id << ")";
+
+    auto walletDB = _walletData.getWalletDB();
+    auto tx = walletDB->getTx(data.txId);
+    if (!tx)
     {
-        filterStatus = *data.filter.status;
-        if (filterStatus != SwapOfferStatus::Pending)
-        {
-            offers = _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList();
-        }
+        doError(id, ApiError::PaymentProofExportError, kErrorPpExportFailed);
+    }
+    else if (!tx->m_sender || tx->m_selfTx)
+    {
+        doError(id, ApiError::PaymentProofExportError, kErrorPpCannotExportForReceiver);
+    }
+    else if (tx->m_status != TxStatus::Completed)
+    {
+        doError(id, ApiError::PaymentProofExportError, kErrorPpExportFailedTxNotCompleted);
     }
     else
     {
-        offers = _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList();
+        doResponse(id, ExportPaymentProof::Response{ wallet::storage::ExportPaymentProof(*_walletData.getWalletDB(), data.txId) });
     }
+}
 
+void WalletApiHandler::onMessage(const JsonRpcId& id, const VerifyPaymentProof& data)
+{
+    LOG_DEBUG() << "VerifyPaymentProof(id = " << id << ")";
+    try
+    {
+        doResponse(id, VerifyPaymentProof::Response{ storage::PaymentInfo::FromByteBuffer(data.paymentProof) });
+    }
+    catch (...)
+    {
+
+    }
+    doError(id, ApiError::InvalidPaymentProof, "Failed to parse");
+}
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+void WalletApiHandler::onMessage(const JsonRpcId& id, const OffersList& data)
+{
+    std::vector<SwapOffer> publicOffers = _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList();
     auto walletDB = _walletData.getWalletDB();
 
     auto swapTxs = walletDB->getTxHistory(TxType::AtomicSwap);
-    offers.reserve(offers.size() + swapTxs.size());
+    std::vector<SwapOffer> offers;
+
+    offers.reserve(swapTxs.size());
     
     for (const auto& tx : swapTxs)
     {
         SwapOffer offer(tx);
 
-        if (!showAll)
+        if ((data.filter.status && (*data.filter.status != offer.m_status)) ||
+            (data.filter.swapCoin && (*data.filter.swapCoin != offer.m_coin)))
         {
-            if (filter &&
-                offer.m_status != filterStatus)
-            {
-                continue;
-            }
-            if (!filter &&
-                offer.m_status != SwapOfferStatus::Pending &&
-                offer.m_status != SwapOfferStatus::InProgress)
-            {
-                continue;
-            }
+            continue;
         }
 
-        const auto it = std::find_if(
-            offers.begin(),
-            offers.end(),
-            [&offer] (const SwapOffer& offerFromBoard) {
+        const auto it = std::find_if(publicOffers.begin(), publicOffers.end(),
+            [&offer](const SwapOffer& offerFromBoard) {
                 return offer.m_txId == offerFromBoard.m_txId;
             });
 
-        if (it == offers.end())
-            offers.push_back(offer);
+        if (it != publicOffers.end())
+        {
+            offer.m_publisherId = it->m_publisherId;
+        }
+        offers.push_back(offer);
     }
 
     doResponse(
@@ -748,225 +790,344 @@ void ApiConnection::onMessage(const JsonRpcId& id, const OffersList& data)
         });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const CreateOffer& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const OffersBoard& data)
 {
+    std::vector<SwapOffer> offers = _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList();
     auto walletDB = _walletData.getWalletDB();
-    Amount swapFeeRate = data.swapFeeRate
-        ? data.swapFeeRate
-        : GetSwapFeeRate(walletDB, data.swapCoin);
-
-    if (data.isBeamSide)
+    
+    if (data.filter.swapCoin)
     {
-        checkIsEnoughtBeamAmount(
-            walletDB, data.beamAmount, data.beamFee);
+        std::vector<SwapOffer> filteredOffers;
+        filteredOffers.reserve(offers.size());
+
+        std::copy_if(offers.begin(), offers.end(), std::back_inserter(filteredOffers),
+            [&data](const auto& offer) { return offer.m_coin == *data.filter.swapCoin; });
+
+        offers.swap(filteredOffers);
     }
-    else
-    {
-        bool isEnought = checkIsEnoughtSwapAmount(
-            _walletData.getAtomicSwapProvider(), data.swapCoin, data.swapAmount, swapFeeRate);
-        if (!isEnought)
-            throw std::runtime_error(kNotEnoughtFundsError);
-
-        bool isSwapAmountValid =
-            IsSwapAmountValid(
-                data.swapCoin, data.swapAmount, swapFeeRate);
-        if (!isSwapAmountValid)
-            throw std::runtime_error(kSwapAmountToLowError);
-    }
-
-    auto txParameters = CreateSwapTransactionParameters();
-    auto wid = createWID(walletDB.get(), data.comment);
-    auto currentHeight = walletDB->getCurrentHeight();
-    FillSwapTxParams(
-        &txParameters,
-        wid,
-        currentHeight,
-        data.beamAmount,
-        data.beamFee,
-        data.swapCoin,
-        data.swapAmount,
-        swapFeeRate,
-        data.isBeamSide,
-        data.offerLifetime);
-
-    if (!data.comment.empty())
-    {
-        txParameters.SetParameter(
-            TxParameterID::Message,
-            beam::ByteBuffer(data.comment.begin(), data.comment.end()));
-    }
-    auto& wallet = _walletData.getWallet();
-    auto txId = wallet.StartTransaction(txParameters);
-    LOG_DEBUG() << "transaction created: " << txId;
-
-    const auto& mirroredTxParams = MirrorSwapTxParams(txParameters);
-    const auto& readyForTokenizeTxParams =
-        PrepareSwapTxParamsForTokenization(mirroredTxParams);
-    auto token = std::to_string(readyForTokenizeTxParams);
 
     doResponse(
         id,
-        CreateOffer::Response
+        OffersBoard::Response
         {
             walletDB->getAddresses(true),
-            currentHeight,
-            token,
-            txId
+            walletDB->getCurrentHeight(),
+            offers,
         });
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const PublishOffer& data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const CreateOffer& data)
 {
-    auto txParams = ParseParameters(data.token);
-    if (!txParams)
-        throw FailToParseToken();
-
-    auto txId = txParams->GetTxID();
-    if (!txId)
-        throw FailToParseToken();
-
-    auto walletDB = _walletData.getWalletDB();
-    auto tx = walletDB->getTx(*txId);
-
-    if (!tx)
-        throw TxNotFound();
-
-    const auto& mirroredTxParams = MirrorSwapTxParams(*tx);
-    const auto& readyForTokenizeTxParams =
-        PrepareSwapTxParamsForTokenization(mirroredTxParams);
-    SwapOffer offer(readyForTokenizeTxParams);
-    if (offer.m_status == SwapOfferStatus::Pending)
+    try
     {
-        offer.m_publisherId = *offer.GetParameter<WalletID>(TxParameterID::PeerID);
-        _walletData.getAtomicSwapProvider().getSwapOffersBoard().publishOffer(offer);
+        checkSwapConnection(_walletData.getAtomicSwapProvider(), data.swapCoin);
 
-        doResponse(id, PublishOffer::Response
+        auto walletDB = _walletData.getWalletDB();
+        Amount swapFeeRate = data.swapFeeRate ? data.swapFeeRate : GetSwapFeeRate(walletDB, data.swapCoin);
+
+        if (data.isBeamSide)
+        {
+            checkIsEnoughtBeamAmount(walletDB, data.beamAmount, data.beamFee);
+        }
+        else
+        {
+            bool isEnought = checkIsEnoughtSwapAmount(
+                _walletData.getAtomicSwapProvider(), data.swapCoin, data.swapAmount, swapFeeRate);
+            if (!isEnought)
+            {
+                doError(id, ApiError::InvalidJsonRpc, kSwapNotEnoughtSwapCoins);
+                return;
+            }
+
+            bool isSwapAmountValid = IsSwapAmountValid(data.swapCoin, data.swapAmount, swapFeeRate);
+            if (!isSwapAmountValid)
+            {
+                doError(id, ApiError::InvalidJsonRpc, kSwapAmountToLowError);
+                return;
+            }
+        }
+
+        auto txParameters = CreateSwapTransactionParameters();
+        auto wid = createWID(walletDB.get(), data.comment);
+        auto currentHeight = walletDB->getCurrentHeight();
+        FillSwapTxParams(
+            &txParameters,
+            wid,
+            currentHeight,
+            data.beamAmount,
+            data.beamFee,
+            data.swapCoin,
+            data.swapAmount,
+            swapFeeRate,
+            data.isBeamSide,
+            data.offerLifetime);
+
+        if (!data.comment.empty())
+        {
+            txParameters.SetParameter(TxParameterID::Message,
+                beam::ByteBuffer(data.comment.begin(), data.comment.end()));
+        }
+
+        auto& wallet = _walletData.getWallet();
+        auto txId = wallet.StartTransaction(txParameters);
+        LOG_DEBUG() << "transaction created: " << txId;
+
+        const auto& mirroredTxParams = MirrorSwapTxParams(txParameters);
+        const auto& readyForTokenizeTxParams = PrepareSwapTxParamsForTokenization(mirroredTxParams);
+        auto token = std::to_string(readyForTokenizeTxParams);
+
+        doResponse(
+            id,
+            CreateOffer::Response
             {
                 walletDB->getAddresses(true),
+                currentHeight,
+                token,
+                txId
+            });
+    }
+    catch (const NotEnoughtBeams& e)
+    {
+        doError(id, ApiError::SwapNotEnoughtBeams, e.what());
+    }
+    catch (const FailToConnectSwap& e)
+    {
+        doError(id, ApiError::SwapFailToConnect, e.what());
+    }
+    catch (...)
+    {
+        doError(id, ApiError::InternalErrorJsonRpc, "Transaction could not be created. Please look at logs.");
+    }
+}
+
+void WalletApiHandler::onMessage(const JsonRpcId& id, const PublishOffer& data)
+{
+    try
+    {
+        auto txParams = ParseParameters(data.token);
+        if (!txParams)
+            throw FailToParseToken();
+
+        auto txId = txParams->GetTxID();
+        if (!txId)
+            throw FailToParseToken();
+
+        auto walletDB = _walletData.getWalletDB();
+        auto tx = walletDB->getTx(*txId);
+
+        if (!tx)
+        {
+            doError(id, ApiError::InternalErrorJsonRpc, "Tranzaction not found.");
+            return;
+        }
+
+        const auto& mirroredTxParams = MirrorSwapTxParams(*tx);
+        const auto& readyForTokenizeTxParams = PrepareSwapTxParamsForTokenization(mirroredTxParams);
+        SwapOffer offer(readyForTokenizeTxParams);
+
+        if (offer.m_status == SwapOfferStatus::Pending)
+        {
+            offer.m_publisherId = *offer.GetParameter<WalletID>(TxParameterID::PeerID);
+            _walletData.getAtomicSwapProvider().getSwapOffersBoard().publishOffer(offer);
+
+            doResponse(id, PublishOffer::Response
+                {
+                    walletDB->getAddresses(true),
+                    walletDB->getCurrentHeight(),
+                    offer
+                });
+        }
+    }
+    catch (const FailToParseToken& e)
+    {
+        doError(id, ApiError::SwapFailToParseToken, e.what());
+    }
+    // handled: InvalidOfferException, ForeignOfferException, 
+    //        OfferAlreadyPublishedException, ExpiredOfferException
+    catch (const std::runtime_error & e)
+    {
+        std::stringstream ss;
+        ss << "Failed to publish offer:" << e.what();
+
+        doError(id, ApiError::InvalidJsonRpc, ss.str());
+    }
+}
+
+void WalletApiHandler::onMessage(const JsonRpcId& id, const AcceptOffer & data)
+{
+    try
+    {
+        auto txParams = ParseParameters(data.token);
+        if (!txParams)
+            throw FailToParseToken();
+
+        auto txId = txParams->GetTxID();
+        if (!txId)
+            throw FailToParseToken();
+
+        auto publicOffer = getOfferFromBoardByTxId(
+            _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList(), *txId);
+
+        auto walletDB = _walletData.getWalletDB();
+        auto myAddresses = walletDB->getAddresses(true);
+
+        if (publicOffer)
+        {
+            // compare public offer and token
+            if (!checkPublicOffer(*txParams, *publicOffer))
+            {
+                doError(id, ApiError::InvalidJsonRpc, "Wrong offer params.");
+            }
+
+            if (storage::isMyAddress(myAddresses, publicOffer->m_publisherId))
+                throw FailToAcceptOwnOffer();
+        }
+        else
+        {
+            auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerID);
+
+            if (!peerId)
+                throw FailToParseToken();
+
+            if (storage::isMyAddress(myAddresses, *peerId))
+                throw FailToAcceptOwnOffer();
+        }
+
+        if (auto tx = walletDB->getTx(*txId); tx)
+        {
+            doError(id, ApiError::InvalidJsonRpc, "Offer already accepted.");
+            return;
+        }
+
+        auto beamAmount = txParams->GetParameter<Amount>(TxParameterID::Amount);
+        auto swapAmount = txParams->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+        auto swapCoin = txParams->GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        auto isBeamSide = txParams->GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+        if (!beamAmount || !swapAmount || !swapCoin || !isBeamSide)
+        {
+            throw FailToParseToken();
+        }
+
+        Amount swapFeeRate = data.swapFeeRate ? data.swapFeeRate : GetSwapFeeRate(walletDB, *swapCoin);
+
+        checkSwapConnection(_walletData.getAtomicSwapProvider(), *swapCoin);
+
+        if (*isBeamSide)
+        {
+            if (*beamAmount < data.beamFee)
+            {
+                doError(id, ApiError::InvalidJsonRpc, "\'beam_amount\' must be greater than \"beam_fee\".");
+                return;
+            }
+            checkIsEnoughtBeamAmount(walletDB, *beamAmount, data.beamFee);
+        }
+        else
+        {
+            bool isEnought = checkIsEnoughtSwapAmount(
+                _walletData.getAtomicSwapProvider(), *swapCoin, *swapAmount, swapFeeRate);
+            if (!isEnought)
+            {
+                doError(id, InvalidJsonRpc, kSwapNotEnoughtSwapCoins);
+                return;
+            }
+        }
+
+        auto wid = createWID(walletDB.get(), data.comment);
+        SwapOffer offer = SwapOffer(*txParams);
+        offer.SetParameter(TxParameterID::MyID, wid);
+        if (!data.comment.empty())
+        {
+            offer.SetParameter(TxParameterID::Message,
+                beam::ByteBuffer(data.comment.begin(),
+                    data.comment.end()));
+        }
+
+        FillSwapFee(&offer, data.beamFee, swapFeeRate, *isBeamSide);
+
+        _walletData.getWallet().StartTransaction(offer);
+        offer.m_status = SwapOfferStatus::InProgress;
+        if (!publicOffer)
+            offer.DeleteParameter(TxParameterID::MyID);
+
+        doResponse(
+            id,
+            AcceptOffer::Response
+            {
+                myAddresses,
                 walletDB->getCurrentHeight(),
                 offer
             });
     }
+    catch (const FailToParseToken& e)
+    {
+        doError(id, ApiError::SwapFailToParseToken, e.what());
+    }
+    catch (const FailToAcceptOwnOffer& e)
+    {
+        doError(id, ApiError::SwapFailToAcceptOwnOffer, e.what());
+    }
+    catch (const NotEnoughtBeams & e)
+    {
+        doError(id, ApiError::SwapNotEnoughtBeams, e.what());
+    }
+    catch (const FailToConnectSwap & e)
+    {
+        doError(id, ApiError::SwapFailToConnect, e.what());
+    }
+    catch (const std::runtime_error & e)
+    {
+        doError(id, ApiError::InvalidJsonRpc, e.what());
+    }
 }
 
-void ApiConnection::onMessage(const JsonRpcId& id, const AcceptOffer & data)
+void WalletApiHandler::onMessage(const JsonRpcId& id, const OfferStatus& data)
 {
-    auto txParams = ParseParameters(data.token);
-    if (!txParams)
-        throw FailToParseToken();
-
-    auto txId = txParams->GetTxID();
-    if (!txId)
-        throw FailToParseToken();
-
-    auto publicOffer = getOfferFromBoardByTxId(
-        _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList(), *txId);
-
     auto walletDB = _walletData.getWalletDB();
-
-    auto myAddresses = walletDB->getAddresses(true);
-    if (publicOffer)
-    {
-        // compare public offer and token
-        if (!checkPublicOffer(*txParams, *publicOffer))
-            throw FailToAcceptOffer();
-
-        if (storage::isMyAddress(myAddresses, publicOffer->m_publisherId))
-            throw FailToAcceptOwnOffer();
-    }
-    else
-    {
-        auto peerId =
-            txParams->GetParameter<WalletID>(TxParameterID::PeerID);
-
-        if (!peerId)
-            throw FailToParseToken();
-
-        if (storage::isMyAddress(myAddresses, *peerId))
-            throw FailToAcceptOwnOffer();
-    }
-
-    if (!checkAcceptableTxParams(*txParams, data))
-        throw FailToAcceptOffer();
-
-    Amount swapFeeRate = data.swapFeeRate
-        ? data.swapFeeRate
-        : GetSwapFeeRate(walletDB, data.swapCoin);
-    if (data.isBeamSide)
-    {
-        checkIsEnoughtBeamAmount(
-            walletDB, data.beamAmount, data.beamFee);
-    }
-    else
-    {
-        bool isEnought = checkIsEnoughtSwapAmount(
-            _walletData.getAtomicSwapProvider(), data.swapCoin, data.swapAmount, swapFeeRate);
-        if (!isEnought)
-            throw std::runtime_error(kNotEnoughtFundsError);
-    }
-
-    auto wid = createWID(walletDB.get(), data.comment);
-    SwapOffer offer = SwapOffer(*txParams);
-    offer.SetParameter(TxParameterID::MyID, wid);
-    if (!data.comment.empty())
-    {
-        offer.SetParameter(TxParameterID::Message,
-                           beam::ByteBuffer(data.comment.begin(),
-                                            data.comment.end()));
-    }
-
-    FillSwapFee(
-        &offer,
-        data.beamFee,
-        data.swapFeeRate,
-        data.isBeamSide);
-
-    _walletData.getWallet().StartTransaction(offer);
-    offer.m_status = SwapOfferStatus::InProgress;
-    if (!publicOffer)
-        offer.DeleteParameter(TxParameterID::MyID);
-
-    doResponse(
-        id,
-        AcceptOffer::Response
-        {
-            myAddresses,
-            walletDB->getCurrentHeight(),
-            offer
-        });
-}
-
-void ApiConnection::onMessage(const JsonRpcId& id, const OfferStatus& data)
-{
-    auto txParams = ParseParameters(data.token);
-    if (!txParams)
-        throw FailToParseToken();
-
-    auto txId = txParams->GetTxID();
-    if (!txId)
-        throw FailToParseToken();
-
     auto publicOffer = getOfferFromBoardByTxId(
-        _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList(), *txId);
-
-    auto walletDB = _walletData.getWalletDB();
-
+        _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList(), data.txId);
     SwapOffer offer;
-    if (publicOffer)
-    {
-        offer = *publicOffer;
-    }
-    else if (auto tx = walletDB->getTx(*txId); tx)
+    if (auto tx = walletDB->getTx(data.txId); tx)
     {
         offer = SwapOffer(*tx);
     }
-    else // third party token
+    else if (publicOffer)
     {
-        auto peerId =
-            txParams->GetParameter<WalletID>(TxParameterID::PeerID);
+        offer = *publicOffer;
+    }
+    else
+    {
+        doError(id, ApiError::InvalidJsonRpc, "It is not my offer.");
+        return;
+    }
+
+    // TODO roman.strilets: need to check this code
+    if (walletDB->getCurrentHeight() >= offer.minHeight() + offer.peerResponseHeight())
+    {
+        offer.m_status = SwapOfferStatus::Expired;
+    }
+
+    doResponse(id, OfferStatus::Response{ walletDB->getCurrentHeight(), offer });
+}
+
+void WalletApiHandler::onMessage(const JsonRpcId& id, const DecodeToken& data)
+{
+    try
+    {
+        auto txParams = ParseParameters(data.token);
+        if (!txParams)
+            throw FailToParseToken();
+
+        auto txId = txParams->GetTxID();
+        if (!txId)
+            throw FailToParseToken();
+
+        auto walletDB = _walletData.getWalletDB();
+        auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerID);
         if (!peerId)
             throw FailToParseToken();
 
+        SwapOffer offer;
+        bool isMyOffer = false;
         auto myAddresses = walletDB->getAddresses(true);
         if (!storage::isMyAddress(myAddresses, *peerId))
         {
@@ -974,27 +1135,67 @@ void ApiConnection::onMessage(const JsonRpcId& id, const OfferStatus& data)
         }
         else
         {
-            auto mirroredTxParams =
-                MirrorSwapTxParams(*txParams, false);
+            isMyOffer = true;
+            // TODO roman.strilets: maybe it is superfluous
+            auto mirroredTxParams = MirrorSwapTxParams(*txParams, false);
             offer = SwapOffer(mirroredTxParams);
         }
-    }
 
-    Timestamp expirationTime =
-        offer.timeCreated() + 60 * offer.peerResponseHeight();
-    if (expirationTime <= getTimestamp())
+        auto publicOffer = getOfferFromBoardByTxId(
+            _walletData.getAtomicSwapProvider().getSwapOffersBoard().getOffersList(), *txId);
+
+        bool isPublic = !!publicOffer;
+
+        doResponse(
+            id,
+            DecodeToken::Response
+            {
+                offer,
+                isMyOffer,
+                isPublic
+            });
+    }
+    catch (const FailToParseToken& e)
     {
-        offer.m_status = SwapOfferStatus::Expired;
+        doError(id, ApiError::SwapFailToParseToken, e.what());
     }
+}
 
-    doResponse(
-        id,
-        OfferStatus::Response
+void WalletApiHandler::onMessage(const JsonRpcId& id, const GetBalance& data)
+{
+    try
+    {
+        checkSwapConnection(_walletData.getAtomicSwapProvider(), data.coin);
+
+    Amount available = 0;
+        switch (data.coin)
         {
-            walletDB->getAddresses(true),
-            walletDB->getCurrentHeight(),
-            offer
-        });
+        case AtomicSwapCoin::Bitcoin:
+        {
+        available = _walletData.getAtomicSwapProvider().getBtcAvailable();
+            break;
+        }
+        case AtomicSwapCoin::Litecoin:
+        {
+        available = _walletData.getAtomicSwapProvider().getLtcAvailable();
+            break;
+        }
+        case AtomicSwapCoin::Qtum:
+        {
+        available = _walletData.getAtomicSwapProvider().getQtumAvailable();
+            break;
+        }
+        default:
+            assert(false && "process new coin");
+            break;
+        }
+
+        doResponse(id, GetBalance::Response{ available });
+    }
+    catch (const FailToConnectSwap & e)
+    {
+        doError(id, ApiError::SwapFailToConnect, e.what());
+    }
 }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 

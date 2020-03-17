@@ -12,7 +12,7 @@ Control {
     spacing: 8
 
     property string  amount:          "0"
-    property string  currencySymbol:  Utils.symbolBeam
+    property string  currencySymbol:  BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
     property string  secondCurrencyLabel:       ""
     property string  secondCurrencyRateValue:   "0"
     property string  color:           Style.content_main
@@ -29,7 +29,10 @@ Control {
     property string  prefix:          ""
 
     function getAmountInSecondCurrency() {
-        let secondCurrencyAmount = BeamGlobals.calcAmountInSecondCurrency(control.amount, Currency.CurrBeam, control.secondCurrencyRateValue, control.secondCurrencyLabel)
+        let secondCurrencyAmount = BeamGlobals.calcAmountInSecondCurrency(
+            control.amount,
+            control.secondCurrencyRateValue,
+            control.secondCurrencyLabel);
         return control.prefix + Utils.uiStringToLocale(secondCurrencyAmount)
     }
 
@@ -76,6 +79,7 @@ Control {
                 font.pixelSize:  10
                 font.styleName:  "Light"
                 font.weight:     Font.Normal
+                opacity:         0.5
                 color:           Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
                 text:            getAmountInSecondCurrency()
                 onCopyText:      BeamGlobals.copyToClipboard(secondCurrencyAmountText.text)

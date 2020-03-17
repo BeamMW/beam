@@ -60,25 +60,28 @@ function openExternal(externalLink, settings, dialog, onFinish) {
     }
 }
 
-function navigateToDownloads() {
+function openExternalWithConfirmation(externalLink, onFinish) {
     var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
-    var component = Qt.createComponent("controls/UpdateAppFromSiteConfirmation.qml");
+    var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
     var externalLinkConfirmation = component.createObject(main);
     Utils.openExternal(
-        "https://www.beam.mw/#downloads",
+        externalLink,
         settingsViewModel,
-        externalLinkConfirmation);
+        externalLinkConfirmation, onFinish);
+}
+
+function navigateToDownloads() {
+    openExternalWithConfirmation("https://www.beam.mw/downloads")
 }
 
 function currenciesList() {
-    return ["BEAM", "BTC", "LTC", "QTUM"]
+    return [
+        BeamGlobals.getCurrencyLabel(Currency.CurrBeam),
+        BeamGlobals.getCurrencyLabel(Currency.CurrBtc),
+        BeamGlobals.getCurrencyLabel(Currency.CurrLtc),
+        BeamGlobals.getCurrencyLabel(Currency.CurrQtum)
+    ]
 }
-
-// TODO: refact all currencies labels to one place
-const symbolBeam  = "BEAM";
-const symbolBtc   = "BTC";
-const symbolLtc   = "LTC";
-const symbolQtum  = "QTUM";
 
 const maxAmount   = "254000000";
 const minAmount   = "0.00000001";

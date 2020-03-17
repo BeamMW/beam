@@ -89,6 +89,27 @@ namespace
         QString result = QString::fromStdString(oss.str());
         return rountWithPrecision<N>(result);
     }
+
+    beamui::Currencies convertUiCurrencyToCurrencies(WalletCurrency::Currency currency)
+    {
+        switch (currency)
+        {
+            case Currency::CurrBeam:
+                return beamui::Currencies::Beam;
+
+            case Currency::CurrBtc:
+                return beamui::Currencies::Bitcoin;
+
+            case Currency::CurrLtc:
+                return beamui::Currencies::Litecoin;
+
+            case Currency::CurrQtum:
+                return beamui::Currencies::Qtum;
+            
+            default:
+                return beamui::Currencies::Unknown;
+        }
+    }
 }
 
 QMLGlobals::QMLGlobals(QQmlEngine& engine)
@@ -166,28 +187,6 @@ uint32_t QMLGlobals::minFeeBeam()
     return AppModel::getInstance().getWallet()->isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth;
 }
 
-uint32_t QMLGlobals::defFeeBeam()
-{
-    return minFeeBeam();
-}
-
-uint32_t QMLGlobals::defFeeRateBtc()
-{
-    const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
-    return btcSettings.GetFeeRate();
-}
-
-uint32_t QMLGlobals::defFeeRateLtc()
-{
-    const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
-    return ltcSettings.GetFeeRate();
-}
-
-uint32_t QMLGlobals::defFeeRateQtum()
-{
-    return AppModel::getInstance().getQtumClient()->GetSettings().GetFeeRate();
-}
-
 bool QMLGlobals::needPasswordToSpend()
 {
     return AppModel::getInstance().getSettings().isPasswordReqiredToSpendMoney();
@@ -197,26 +196,6 @@ bool QMLGlobals::isPasswordValid(const QString& value)
 {
     beam::SecString secretPass = value.toStdString();
     return AppModel::getInstance().checkWalletPassword(secretPass);
-}
-
-QString QMLGlobals::beamFeeRateLabel()
-{
-    return "GROTH";
-}
-
-QString QMLGlobals::btcFeeRateLabel()
-{
-    return "sat/kB";
-}
-
-QString QMLGlobals::ltcFeeRateLabel()
-{
-    return "ph/kB";
-}
-
-QString QMLGlobals::qtumFeeRateLabel()
-{
-    return "qsat/kB";
 }
 
 int QMLGlobals::getMinFeeOrRate(Currency currency)
@@ -268,14 +247,11 @@ QString QMLGlobals::calcFeeInSecondCurrency(int fee, Currency originalCurrency, 
     }
 }
 
-QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, Currency originalCurrency, const QString& exchangeRate, const QString& secondCurrencyLabel)
+QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate, const QString& secondCurrencyLabel)
 {
-    // originalCurrency is needed to convert fee to string
-    // possible use uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin);
-
-    if (exchangeRate == "0")
+    if (exchangeRate.isEmpty() || exchangeRate == "0")
     {
-        return "- " + secondCurrencyLabel;
+        return "";
     }
     else
     {
@@ -347,6 +323,12 @@ bool QMLGlobals::canReceive(Currency currency)
     }
 }
 
+QString QMLGlobals::getCurrencyLabel(Currency currency)
+{
+    beamui::Currencies currencyCommon = convertUiCurrencyToCurrencies(currency);
+    return beamui::getCurrencyLabel(currencyCommon);
+}
+
 QString QMLGlobals::getCurrencyName(Currency currency)
 {
     switch(currency)
@@ -376,6 +358,60 @@ QString QMLGlobals::getCurrencyName(Currency currency)
         assert(false && "unexpected swap coin!");
         return QString();
     }
+    }
+}
+
+QString QMLGlobals::getFeeRateLabel(Currency currency)
+{
+    beamui::Currencies currencyCommon = convertUiCurrencyToCurrencies(currency);
+    return beamui::getFeeRateLabel(currencyCommon);
+}
+
+unsigned int QMLGlobals::getMinimalFee(Currency currency)
+{
+    switch (currency)
+    {
+        case Currency::CurrBeam:
+            return minFeeBeam();
+        
+        case Currency::CurrBtc:
+            return 0;
+
+        case Currency::CurrLtc:
+            return 0;
+        
+        case Currency::CurrQtum:
+            return 0;
+
+        default:
+            return 0;
+    }
+}
+
+unsigned int QMLGlobals::getDefaultFee(Currency currency)
+{
+    switch (currency)
+    {
+        case Currency::CurrBeam:
+            return minFeeBeam();
+        
+        case Currency::CurrBtc:
+        {
+            const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
+            return btcSettings.GetFeeRate();
+        }
+
+        case Currency::CurrLtc:
+        {
+            const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
+            return ltcSettings.GetFeeRate();
+        }
+        
+        case Currency::CurrQtum:
+            return AppModel::getInstance().getQtumClient()->GetSettings().GetFeeRate();
+
+        default:
+            return 0;
     }
 }
 

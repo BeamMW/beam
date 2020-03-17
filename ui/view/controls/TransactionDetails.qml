@@ -20,9 +20,17 @@ RowLayout {
     property var isSelfTx
     property var rawTxID
     property var stateDetails
+    property string amount
+    property string secondCurrencyRate
+    property string secondCurrencyLabel
     property string searchFilter: ""
     property bool hideFiltered: false
     property var searchRegExp: { return new RegExp(root.searchFilter, "gi");}
+
+    
+    readonly property string amountPrefix: root.isIncome ? "+" : "-"
+    readonly property string amountWithLabel: amountPrefix + root.amount + " " + BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+    readonly property string secondCurrencyAmount: getAmountInSecondCurrency()
 
     property var onOpenExternal: null
     signal textCopied(string text)
@@ -51,6 +59,25 @@ RowLayout {
         var s = text.substr(start, root.searchFilter.length);
         
         return text.replace(root.searchRegExp, "<font color=\"" + Style.active.toString() + "\">" + s + "</font>");
+    }
+
+    function getAmountInSecondCurrency() {
+        if (root.amount !== "") {
+            let amountInSecondCurrency = BeamGlobals.calcAmountInSecondCurrency(
+                root.amount,
+                root.secondCurrencyRate,
+                root.secondCurrencyLabel);
+            if (amountInSecondCurrency == "") {
+                //% "Exchange rate to %1 is not available"
+                amountInSecondCurrency = qsTrId("general-exchange-rate-not-available").arg(root.secondCurrencyLabel);
+                //% " (for the day of transaction)"
+                return amountInSecondCurrency + " " + qsTrId("tx-details-second-currency-notification");
+            }
+            else {
+                return amountPrefix + amountInSecondCurrency + " " + qsTrId("tx-details-second-currency-notification");
+            }
+        }
+        else return "";
     }
 
     GridLayout {
@@ -111,6 +138,47 @@ RowLayout {
             text: getHighlitedText(root.receiveAddress)
             onCopyText: textCopied(root.receiveAddress)
             visible: isTextFieldVisible(root.receiveAddress)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Amount"
+            text: qsTrId("tx-details-amount-label") + ":"
+            visible: amountField.visible
+        }
+        SFLabel {
+            id: amountField
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            font.bold: true
+            color: root.isIncome ? Style.accent_incoming : Style.accent_outgoing
+            elide: Text.ElideMiddle
+            text: root.amountWithLabel
+            onCopyText: textCopied(root.amount)
+            visible: isTextFieldVisible(root.amount)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Currency amount"
+            text: qsTrId("tx-details-second-currency-amount-label") + ":"
+            visible: secondCurrencyAmountField.visible
+        }
+        SFLabel {
+            id: secondCurrencyAmountField
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            elide: Text.ElideMiddle
+            text: root.secondCurrencyAmount
+            onCopyText: textCopied(secondCurrencyAmountField.text)
+            visible: isTextFieldVisible(secondCurrencyAmountField.text)
         }
         
         SFText {

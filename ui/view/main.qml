@@ -256,13 +256,8 @@ Rectangle {
 
             onClickedChanged: {
                 if (clicked) {
-                    var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
-                    var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
-                    var externalLinkConfirmation = component.createObject(main);
-                    Utils.openExternal(
+                    Utils.openExternalWithConfirmation(
                         "https://www.beam.mw/#exchanges",
-                        settingsViewModel,
-                        externalLinkConfirmation,
                         function () {
                             whereToBuyControl.clicked = false;
                         });
@@ -359,6 +354,10 @@ Rectangle {
 
     function openTransactionDetails(id) {
         updateItem("wallet", {"openedTxID": id})
+    }
+
+    function openSwapTransactionDetails(id) {
+        updateItem("atomic_swap", {"openedTxID": id})
     }
 
     function resetLockTimer() {

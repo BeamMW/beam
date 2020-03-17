@@ -20,11 +20,6 @@ ColumnLayout {
         topColor: Style.accent_outgoing
     }
 
-    function setToken(token) {
-        viewModel.receiverTA = token
-        sendAmountInput.amountInput.forceActiveFocus();
-    }
-
     SendViewModel {
         id: viewModel
 
@@ -171,9 +166,11 @@ ColumnLayout {
                 title:            qsTrId("send-title")
                 id:               sendAmountInput
                 amountIn:         viewModel.sendAmount
+                secondCurrencyRateValue:    viewModel.secondCurrencyRateValue
+                secondCurrencyLabel:        viewModel.secondCurrencyLabel
+                setMaxAvailableAmount:      function() { viewModel.setMaxAvailableAmount(); }
                 hasFee:           true
                 showAddAll:       true
-                maxAvailable:     viewModel.maxAvailable
                 color:            Style.accent_outgoing
                 //% "Insufficient funds: you would need %1 to complete the transaction"
                 error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.uiStringToLocale(viewModel.missing))
@@ -196,84 +193,99 @@ ColumnLayout {
                 Layout.alignment:    Qt.AlignTop
                 Layout.minimumWidth: 400
                 columnSpacing:       20
+                rowSpacing:          10
                 columns:             2
 
                 Rectangle {
-                    x: 0
-                    y: 0
-                    width: parent.width
+                    x:      0
+                    y:      0
+                    width:  parent.width
                     height: parent.height
-                    radius:       10
-                    color:        Style.background_second
+                    radius: 10
+                    color:  Style.background_second
                 }
 
                 SFText {
-                    Layout.topMargin:  20
-                    Layout.leftMargin: 25
-                    font.pixelSize:    14
-                    color:             Style.content_secondary
+                    Layout.alignment:       Qt.AlignTop
+                    Layout.topMargin:       30
+                    Layout.leftMargin:      25
+                    font.pixelSize:         14
+                    color:                  Style.content_secondary
                     //% "Total UTXO value"
-                    text:              qsTrId("send-total-label") + ":"
+                    text:                   qsTrId("send-total-label") + ":"
                 }
 
                 BeamAmount
                 {
-                    Layout.topMargin:   15
-                    Layout.rightMargin: 25
-                    error:              !viewModel.isEnough
-                    amount:             viewModel.totalUTXO
+                    Layout.alignment:       Qt.AlignTop
+                    Layout.topMargin:       30
+                    Layout.rightMargin:     25
+                    error:                  !viewModel.isEnough
+                    amount:                 viewModel.totalUTXO
+                    currencySymbol:         BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+                    secondCurrencyLabel:    viewModel.secondCurrencyLabel
+                    secondCurrencyRateValue: viewModel.secondCurrencyRateValue
                 }
 
                 SFText {
-                    Layout.topMargin:  15
-                    Layout.leftMargin: 25
-                    font.pixelSize:    14
-                    color:             Style.content_secondary
-                    //% "Send"
-                    text:              qsTrId("send-amount-label") + ":"
+                    Layout.alignment:       Qt.AlignTop
+                    Layout.leftMargin:      25
+                    font.pixelSize:         14
+                    color:                  Style.content_secondary
+                    //% "Amount to send"
+                    text:                   qsTrId("send-amount-label") + ":"
                 }
 
                 BeamAmount
                 {
-                    Layout.topMargin:   15
-                    Layout.rightMargin: 25
-                    error:              !viewModel.isEnough
-                    amount:             viewModel.sendAmount
+                    Layout.alignment:       Qt.AlignTop
+                    Layout.rightMargin:     25
+                    error:                  !viewModel.isEnough
+                    amount:                 viewModel.sendAmount
+                    currencySymbol:         BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+                    secondCurrencyLabel:    viewModel.secondCurrencyLabel
+                    secondCurrencyRateValue: viewModel.secondCurrencyRateValue
                 }
 
                 SFText {
-                    Layout.topMargin:  15
-                    Layout.leftMargin: 25
-                    font.pixelSize:    14
-                    color:             Style.content_secondary
-                    text:              qsTrId("general-change") + ":"
+                    Layout.alignment:       Qt.AlignTop
+                    Layout.leftMargin:      25
+                    font.pixelSize:         14
+                    color:                  Style.content_secondary
+                    text:                   qsTrId("general-change") + ":"
                 }
 
                 BeamAmount
                 {
-                    Layout.topMargin:   15
-                    Layout.rightMargin: 25
-                    error:              !viewModel.isEnough
-                    amount:             viewModel.change
+                    Layout.alignment:       Qt.AlignTop
+                    Layout.rightMargin:     25
+                    error:                  !viewModel.isEnough
+                    amount:                 viewModel.change
+                    currencySymbol:         BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+                    secondCurrencyLabel:    viewModel.secondCurrencyLabel
+                    secondCurrencyRateValue: viewModel.secondCurrencyRateValue
                 }
 
                 SFText {
-                    Layout.topMargin:    15
-                    Layout.leftMargin:   25
-                    Layout.bottomMargin: 20
-                    font.pixelSize:      14
-                    color:               Style.content_secondary
+                    Layout.alignment:       Qt.AlignTop
+                    Layout.leftMargin:      25
+                    Layout.bottomMargin:    30
+                    font.pixelSize:         14
+                    color:                  Style.content_secondary
                     //% "Remaining"
-                    text:                qsTrId("send-remaining-label") + ":"
+                    text:                   qsTrId("send-remaining-label") + ":"
                 }
 
                 BeamAmount
                 {
-                    Layout.topMargin:    15
-                    Layout.rightMargin:  25
-                    Layout.bottomMargin: 20
-                    error:               !viewModel.isEnough
-                    amount:              viewModel.available
+                    Layout.alignment:       Qt.AlignTop
+                    Layout.rightMargin:     25
+                    Layout.bottomMargin:    30
+                    error:                  !viewModel.isEnough
+                    amount:                 viewModel.available
+                    currencySymbol:         BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+                    secondCurrencyLabel:    viewModel.secondCurrencyLabel
+                    secondCurrencyRateValue: viewModel.secondCurrencyRateValue
                 }
             }
         }
@@ -303,11 +315,12 @@ ColumnLayout {
                 const dialogObject = dialogComponent.createObject(sendRegularView,
                     {
                         addressText: viewModel.receiverAddress,
-                        //% "BEAM"
-                        amountText: [Utils.uiStringToLocale(viewModel.sendAmount), qsTrId("general-beam")].join(" "),
-                        //% "GROTH"
-                        feeText: [Utils.uiStringToLocale(viewModel.feeGrothes), qsTrId("general-groth")].join(" "),
-                        onAcceptedCallback: acceptedCallback
+                        currency: Currency.CurrBeam,
+                        amount: viewModel.sendAmount,
+                        fee: viewModel.feeGrothes,
+                        onAcceptedCallback: acceptedCallback,
+                        secondCurrencyRate: viewModel.secondCurrencyRateValue,
+                        secondCurrencyLabel: viewModel.secondCurrencyLabel
                     }).open();
 
                 function acceptedCallback() {

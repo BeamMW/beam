@@ -29,6 +29,7 @@ public:
         AmountGeneralWithCurrencySort,
         AmountGeneral,
         AmountGeneralSort,
+        SecondCurrencyRate,
         AddressFrom,
         AddressFromSort,
         AddressTo,
@@ -55,6 +56,8 @@ public:
         Search,
         StateDetails
     };
+
+    Q_ENUM(Roles)
 
     TxObjectList();
 

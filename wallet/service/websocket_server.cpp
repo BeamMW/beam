@@ -352,7 +352,6 @@ namespace beam::wallet
         StartAction m_startAction;
     };
 
-
     WebSocketServer::WebSocketServer(io::Reactor::Ptr reactor, uint16_t port, HandlerCreator&& creator, StartAction&& startAction)
         : m_impl(std::make_unique<WebSocketServerImpl>(reactor, port, std::move(creator), std::move(startAction)))
     {

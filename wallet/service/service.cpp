@@ -31,7 +31,7 @@
 #include "utility/string_helpers.h"
 #include "utility/log_rotation.h"
 
-#include "wallet/api/api_connection.h"
+#include "wallet/api/api_handler.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
@@ -173,10 +173,6 @@ namespace
 
     class WalletApiServer : public WebSocketServer
     {
-        static const int SyncFileDescriptor      = 3;
-        static const int HeartbeatFileDescriptor = 4;
-        static const int HeartbeatInterval       = 5000;
-
     public:
 
         WalletApiServer(io::Reactor::Ptr reactor, uint16_t port)
@@ -185,20 +181,28 @@ namespace
                 return std::make_unique<ServiceApiConnection>(func, reactor, _walletMap);
             },
             [] () {
-                Pipe syncPipe(SyncFileDescriptor);
-                syncPipe.notify("LISTENING");
+#ifndef _WIN32                
+                Pipe syncPipe(Pipe::SyncFileDescriptor);
+                syncPipe.notifyListening();
+#endif
             })
-            , _heartbeatPipe(HeartbeatFileDescriptor)
+#ifndef _WIN32
+            , _heartbeatPipe(Pipe::HeartbeatFileDescriptor)
+#endif            
         {
+#ifndef _WIN32
             _heartbeatTimer = io::Timer::create(*reactor);
-            _heartbeatTimer->start(HeartbeatInterval, true, [this] () {
-                _heartbeatPipe.notify("alive");
+            _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this] () {
+                _heartbeatPipe.notifyAlive();
             });
+#endif
         }
 
     private:
+#ifndef _WIN32    
         io::Timer::Ptr _heartbeatTimer;
         Pipe _heartbeatPipe;
+#endif
 
     private:
         struct WalletInfo
@@ -455,11 +459,11 @@ namespace
             io::Reactor::Ptr _reactor;
         };
 
-        class MyApiConnection : public ApiConnection
+        class MyApiConnection : public WalletApiHandler
         {
         public:
             MyApiConnection(IApiConnectionHandler* handler, IWalletData& walletData, WalletApi::ACL acl)
-                : ApiConnection(walletData, acl)
+                : WalletApiHandler(walletData, acl)
                 , _handler(handler)
             {
             
@@ -476,7 +480,7 @@ namespace
         
         class ServiceApiConnection 
             : public IWalletServiceApiHandler
-            , private ApiConnection::IWalletData
+            , private WalletApiHandler::IWalletData
             , public WebSocketServer::IHandler
             , public IApiConnectionHandler
         {
@@ -539,6 +543,11 @@ namespace
 
                         _keeperCallbacks.front()(msg["result"]);
                         _keeperCallbacks.pop();
+                    }
+                    else if (WalletApi::existsJsonParam(msg, "error"))
+                    {
+                        const auto& error = msg["error"];
+                        LOG_ERROR() << "JSON RPC error id: " << error["id"] << " message: " << error["message"];
                     }
                     else
                     {

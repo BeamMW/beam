@@ -7,21 +7,6 @@ import Beam.Wallet 1.0
 ColumnLayout {
     id: control
 
-    readonly property variant currencies: [
-        {label: "BEAM", feeLabel: BeamGlobals.beamFeeRateLabel(), minFee: BeamGlobals.minFeeBeam(), defaultFee: BeamGlobals.defFeeBeam()},
-        {label: "BTC",  feeLabel: BeamGlobals.btcFeeRateLabel(),  minFee: 0,                        defaultFee: BeamGlobals.defFeeRateBtc()},
-        {label: "LTC",  feeLabel: BeamGlobals.ltcFeeRateLabel(),  minFee: 0,                        defaultFee: BeamGlobals.defFeeRateLtc()},
-        {label: "QTUM", feeLabel: BeamGlobals.qtumFeeRateLabel(), minFee: 0,                        defaultFee: BeamGlobals.defFeeRateQtum()}
-    ]
-
-    function getCurrencyLabel() {
-        return currencies[control.currency].label
-    }
-
-    function getFeeLabel() {
-        return currencies[control.currency].feeLabel
-    }
-
     function getFeeTitle() {
         if (control.currency == Currency.CurrBeam) {
             return control.currFeeTitle ?
@@ -31,12 +16,12 @@ ColumnLayout {
                 qsTrId("general-fee")
         }
         //% "%1 Transaction fee rate"
-        return qsTrId("general-fee-rate").arg(getCurrencyLabel())
+        return qsTrId("general-fee-rate").arg(control.currencyLabel)
     }
 
     function getTotalFeeTitle() {
         //% "%1 Transaction fee (est)"
-        return qsTrId("general-fee-total").arg(getCurrencyLabel())
+        return qsTrId("general-fee-total").arg(control.currencyLabel)
     }
 
     function getTotalFeeAmount() {
@@ -44,16 +29,23 @@ ColumnLayout {
     }
 
     function getFeeInSecondCurrency(feeValue) {
-        return BeamGlobals.calcFeeInSecondCurrency(feeValue, control.currency, control.secondCurrencyRateValue, control.secondCurrencyLabel)
+        return BeamGlobals.calcFeeInSecondCurrency(
+            feeValue,
+            control.currency,
+            control.secondCurrencyRateValue,
+            control.secondCurrencyLabel);
     }
 
     function getAmountInSecondCurrency() {
-        return BeamGlobals.calcAmountInSecondCurrency(control.amount, control.currency, control.secondCurrencyRateValue, control.secondCurrencyLabel)
+        return BeamGlobals.calcAmountInSecondCurrency(
+            control.amountIn,
+            control.secondCurrencyRateValue,
+            control.secondCurrencyLabel);
     }
 
     readonly property bool     isValidFee:     hasFee ? feeInput.isValid : true
     readonly property bool     isValid:        error.length == 0 && isValidFee
-    readonly property string   currencyLabel:  getCurrencyLabel()
+    readonly property string   currencyLabel:  BeamGlobals.getCurrencyLabel(control.currency)
 
     property string   title
     property string   color:        Style.accent_incoming
@@ -64,7 +56,7 @@ ColumnLayout {
     property int      currency:     Currency.CurrBeam
     property string   amount:       "0"
     property string   amountIn:     "0"  // public property for binding. Use it to avoid binding overriding
-    property int      fee:          currencies[currency].defaultFee
+    property int      fee:          BeamGlobals.getDefaultFee(control.currency)
     property alias    error:        errmsg.text
     property bool     readOnlyA:    false
     property bool     readOnlyF:    false
@@ -72,9 +64,10 @@ ColumnLayout {
     property var      amountInput:  ainput
     property bool     showTotalFee: false
     property bool     showAddAll:   false
-    property string   maxAvailable: Utils.maxAmount
     property string   secondCurrencyRateValue:  "0"
     property string   secondCurrencyLabel:      ""
+    property var      setMaxAvailableAmount:    {} // callback function
+    readonly property bool  isExchangeRateAvailable:    control.secondCurrencyRateValue != "0"
 
     SFText {
         font.pixelSize:   14
@@ -101,8 +94,8 @@ ColumnLayout {
             readOnly:         control.readOnlyA
 
             onTextChanged: {
+                // if nothing then "0", remove insignificant zeroes and "." in floats
                 if (ainput.focus) {
-                    // if nothing then "0", remove insignificant zeroes and "." in floats
                     control.amount = text ? text.replace(/\.0*$|(\.\d*[1-9])0+$/,'$1') : "0"
                 }
             }
@@ -131,7 +124,7 @@ ColumnLayout {
             font.pixelSize:     24
             font.letterSpacing: 0.6
             color:              control.currColor
-            text:               getCurrencyLabel()
+            text:               control.currencyLabel
             visible:            !multi
         }
 
@@ -161,9 +154,9 @@ ColumnLayout {
             visible:             control.showAddAll
 
             function addAll(){
-                if (parseFloat(maxAvailable)) {
-                    ainput.focus = true;
-                    ainput.text = maxAvailable;
+                ainput.focus = false;                
+                if (control.setMaxAvailableAmount) {
+                    control.setMaxAvailableAmount();
                 }
             }
 
@@ -200,8 +193,6 @@ ColumnLayout {
         }
     }
 
-    
-
     Item {
         Layout.fillWidth: true
         SFText {
@@ -214,18 +205,23 @@ ColumnLayout {
         }
         SFText {
             id:             amountSecondCurrencyText
-            visible:        secondCurrencyLabel != "" && !errmsg.visible
+            visible:        secondCurrencyLabel != "" && !errmsg.visible && !showTotalFee    // show only on send side
             font.pixelSize: 14
-            color:          Style.content_secondary
-            text:           getAmountInSecondCurrency()
+            opacity:        isExchangeRateAvailable ? 0.5 : 0.7
+            color:          isExchangeRateAvailable ? Style.content_secondary : Style.accent_fail
+            text:           isExchangeRateAvailable
+                            ? getAmountInSecondCurrency()
+                            //% "Exchange rate to %1 is not available"
+                            : qsTrId("general-exchange-rate-not-available").arg(control.secondCurrencyLabel)
         }
     }
 
     GridLayout {
         columns:       2
-        Layout.topMargin: 30
+        Layout.topMargin: 50
         ColumnLayout {
             Layout.maximumWidth:  198
+            Layout.alignment:     Qt.AlignTop
             visible:              control.hasFee
             SFText {
                 font.pixelSize:   14
@@ -238,22 +234,19 @@ ColumnLayout {
                 id:               feeInput
                 Layout.fillWidth: true
                 fee:              control.fee
-                minFee:           currencies[currency].minFee
-                feeLabel:         getFeeLabel()
+                minFee:           BeamGlobals.getMinimalFee(control.currency)
+                feeLabel:         BeamGlobals.getFeeRateLabel(control.currency)
                 color:            control.color
                 readOnly:         control.readOnlyF
+                showSecondCurrency:         true
+                isExchangeRateAvailable:    control.isExchangeRateAvailable
+                secondCurrencyAmount:       getFeeInSecondCurrency(control.fee)
+                secondCurrencyLabel:        control.secondCurrencyLabel
                 Connections {
                     target: control
                     onFeeChanged: feeInput.fee = control.fee
-                    onCurrencyChanged: feeInput.fee = currencies[currency].defaultFee
+                    onCurrencyChanged: feeInput.fee = BeamGlobals.getDefaultFee(control.currency)
                 }
-            }
-            SFText {
-                id:               feeInSecondCurrency
-                visible:          control.secondCurrencyLabel != ""
-                font.pixelSize:   14
-                color:            Style.content_secondary
-                text:             getFeeInSecondCurrency(control.fee)
             }
         }
        
@@ -278,8 +271,11 @@ ColumnLayout {
                 id:               feeTotalInSecondCurrency
                 Layout.topMargin: 6
                 font.pixelSize:   14
-                color:            Style.content_secondary
-                text:             getFeeInSecondCurrency(parseInt(totalFeeLabel.text, 10))
+                opacity:          0.5
+                color:            isExchangeRateAvailable ? Style.content_secondary : Style.accent_fail
+                text:             isExchangeRateAvailable
+                                  ? getFeeInSecondCurrency(parseInt(totalFeeLabel.text, 10))
+                                  : ""
             }
         }
     }
@@ -287,11 +283,13 @@ ColumnLayout {
     SFText {
         enabled:               control.hasFee && control.currency != Currency.CurrBeam
         visible:               enabled
+        Layout.topMargin:      20
         Layout.preferredWidth: 370
         font.pixelSize:        14
+        font.italic:           true
         wrapMode:              Text.WordWrap
         color:                 Style.content_secondary
-        lineHeight:            1.1 
+        lineHeight:            1.1
         //% "Remember to validate the expected fee rate for the blockchain (as it varies with time)."
         text:                  qsTrId("settings-fee-rate-note")
     }

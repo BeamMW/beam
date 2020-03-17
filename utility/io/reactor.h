@@ -63,6 +63,7 @@ public:
         const ConnectCallback& callback,
         int timeoutMsec=-1,
         bool tlsConnect=false,
+        bool tlsRejectUnauthorized = true,
         Address bindTo=Address()
     );
 

@@ -30,6 +30,8 @@ SendViewModel::SendViewModel()
     connect(&_walletModel, SIGNAL(sendMoneyVerified()), this, SIGNAL(sendMoneyVerified()));
     connect(&_walletModel, SIGNAL(cantSendToExpired()), this, SIGNAL(cantSendToExpired()));
     connect(&_walletModel, SIGNAL(availableChanged()), this, SIGNAL(availableChanged()));
+    connect(&_exchangeRatesManager, SIGNAL(rateUnitChanged()), SIGNAL(secondCurrencyLabelChanged()));
+    connect(&_exchangeRatesManager, SIGNAL(activeRateChanged()), SIGNAL(secondCurrencyRateChanged()));
 }
 
 unsigned int SendViewModel::getFeeGrothes() const
@@ -182,6 +184,11 @@ bool SendViewModel::canSend() const
            && QMLGlobals::isFeeOK(_feeGrothes, Currency::CurrBeam);
 }
 
+void SendViewModel::setMaxAvailableAmount()
+{
+    setSendAmount(getMaxAvailable());
+}
+
 void SendViewModel::sendMoney()
 {
     assert(canSend());
@@ -228,4 +235,15 @@ void SendViewModel::extractParameters()
         std::string s(comment->begin(), comment->end());
         setComment(QString::fromStdString(s));
     }
+}
+
+QString SendViewModel::getSecondCurrencyLabel() const
+{
+    return beamui::getCurrencyLabel(_exchangeRatesManager.getRateUnitRaw());
+}
+
+QString SendViewModel::getSecondCurrencyRateValue() const
+{
+    auto rate = _exchangeRatesManager.getRate(beam::wallet::ExchangeRate::Currency::Beam);
+    return beamui::AmountToUIString(rate);
 }

@@ -469,6 +469,25 @@ namespace beam::wallet
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
     {
+        if (action == ChangeAction::Added)
+        {
+            for (const auto& tx : items)
+            {
+                if (tx.m_txType == TxType::Simple)
+                {
+                    assert(!m_exchangeRateProvider.expired());
+                    if (auto p = m_exchangeRateProvider.lock())
+                    {
+                        m_walletDB->setTxParameter( tx.m_txId,
+                                                    kDefaultSubTxID,
+                                                    TxParameterID::ExchangeRates,
+                                                    toByteBuffer(p->getRates()),
+                                                    false);
+                    }
+                }
+            }
+        }
+
         m_TransactionChangesCollector.CollectItems(action, items);
         updateClientTxState();
     }
@@ -506,16 +525,16 @@ namespace beam::wallet
                 WalletAddress senderAddress;
                 m_walletDB->createAddress(senderAddress);
                 saveAddress(senderAddress, true); // should update the wallet_network
-
                 ByteBuffer message(comment.begin(), comment.end());
 
-
-                s->StartTransaction(CreateSimpleTransactionParameters()
+                TxParameters txParameters = CreateSimpleTransactionParameters()
                     .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::PeerID, receiver)
                     .SetParameter(TxParameterID::Amount, amount)
                     .SetParameter(TxParameterID::Fee, fee)
-                    .SetParameter(TxParameterID::Message, message));
+                    .SetParameter(TxParameterID::Message, message);
+
+                s->StartTransaction(txParameters);
             }
 
             onSendMoneyVerified();
@@ -548,12 +567,14 @@ namespace beam::wallet
             if (s)
             {
                 ByteBuffer message(comment.begin(), comment.end());
-                s->StartTransaction(CreateSimpleTransactionParameters()
+                TxParameters txParameters = CreateSimpleTransactionParameters()
                     .SetParameter(TxParameterID::MyID, sender)
                     .SetParameter(TxParameterID::PeerID, receiver)
                     .SetParameter(TxParameterID::Amount, amount)
                     .SetParameter(TxParameterID::Fee, fee)
-                    .SetParameter(TxParameterID::Message, message));
+                    .SetParameter(TxParameterID::Message, message);
+                
+                s->StartTransaction(txParameters);
             }
 
             onSendMoneyVerified();
@@ -594,6 +615,7 @@ namespace beam::wallet
                 
                     parameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
                 }
+
                 s->StartTransaction(parameters);
             }
 

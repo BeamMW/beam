@@ -43,7 +43,10 @@ target_link_libraries(${TARGET_NAME}
 )
 
 set(MONITOR_TARGET_NAME sbbs-monitor${BEAM_TARGET_SUFFIX})
-add_executable(${MONITOR_TARGET_NAME} monitor.cpp)
+add_executable(${MONITOR_TARGET_NAME}
+        monitor.cpp
+        pipe.cpp
+        )
 
 target_include_directories(${MONITOR_TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 

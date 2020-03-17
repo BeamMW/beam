@@ -41,19 +41,16 @@ public:
     static int  getMinFeeOrRate(Currency currency);
     Q_INVOKABLE static QString calcTotalFee(Currency currency, unsigned int feeRate);
     Q_INVOKABLE static QString calcFeeInSecondCurrency(int fee, Currency originalCurrency, const QString& exchangeRate, const QString& secondCurrencyLabel);
-    Q_INVOKABLE static QString calcAmountInSecondCurrency(const QString& amount, Currency originalCurrency, const QString& exchangeRate, const QString& secondCurrencyLabel);
+    Q_INVOKABLE static QString calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate, const QString& secondCurrencyLabel);
 
     Q_INVOKABLE static unsigned int minFeeBeam();
-
-    Q_INVOKABLE static unsigned int defFeeBeam();
-    Q_INVOKABLE static unsigned int defFeeRateBtc();
-    Q_INVOKABLE static unsigned int defFeeRateLtc();
-    Q_INVOKABLE static unsigned int defFeeRateQtum();
-
-    Q_INVOKABLE static QString beamFeeRateLabel();
-    Q_INVOKABLE static QString btcFeeRateLabel();
-    Q_INVOKABLE static QString ltcFeeRateLabel();
-    Q_INVOKABLE static QString qtumFeeRateLabel();
+    
+    Q_INVOKABLE static QString getCurrencyLabel(Currency);
+    Q_INVOKABLE static QString getCurrencyName(Currency);
+    Q_INVOKABLE static QString getFeeRateLabel(Currency);
+    
+    Q_INVOKABLE static unsigned int getMinimalFee(Currency);
+    Q_INVOKABLE static unsigned int getDefaultFee(Currency);
 
     // Swap & other currencies utils
     Q_INVOKABLE static bool canSwap();
@@ -65,7 +62,6 @@ public:
             QVariant variantTxParams);
 
     Q_INVOKABLE static bool canReceive(Currency currency);
-    Q_INVOKABLE static QString getCurrencyName(Currency currency);
     Q_INVOKABLE static QString divideWithPrecision8(const QString& dividend, const QString& divider);
     Q_INVOKABLE static QString multiplyWithPrecision8(const QString& first, const QString& second);
     Q_INVOKABLE static QString rountWithPrecision8(const QString& number);

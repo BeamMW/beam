@@ -8,8 +8,9 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source>GROTH</source>
-        <translation>Groth</translation>
+        <source></source>
+        <oldsource>GROTH</oldsource>
+        <translation type="unfinished">Groth</translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -561,7 +562,8 @@
         <translation>Určete prosím kontakt nebo token transakce</translation>
     </message>
     <message id="send-amount-label">
-        <source>Send</source>
+        <source>Amount to send</source>
+        <oldsource>Send</oldsource>
         <translation type="unfinished">Částka transakce</translation>
     </message>
     <message id="send-founds-fail">
@@ -940,19 +942,22 @@
         <translation>Jazyk</translation>
     </message>
     <message id="open-external-open">
-        <source>allow and open</source>
-        <oldsource>Open</oldsource>
+        <source>proceed</source>
+        <oldsource>allow and open</oldsource>
         <translation type="unfinished">Otevřít</translation>
     </message>
     <message id="open-external-title">
-        <source>External link</source>
-        <translation>Externí odkaz</translation>
+        <source>Open external link</source>
+        <oldsource>External link</oldsource>
+        <translation type="unfinished">Externí odkaz</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser.
-This action will expose your IP to the web server.
-To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <oldsource>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</oldsource>
+        <source>Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
+
+Allow to open and proceed to the website? You can always update your choice in Settings.</source>
+        <oldsource>Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
+
+Allow to open and proceed to the website? You can always update your choice in Settings.</oldsource>
         <translation type="unfinished">Aplikace peněženky Beam vyžaduje oprávnění k otevření externího odkazu v prohlížeči. Tato akce vystaví vaši IP adresu webovému serveru. Chcete-li tomu zabránit, zvolte &quot;Zrušit&quot;. Tuto volbu můžete kdykoli změnit v nastavení aplikace.</translation>
     </message>
     <message id="start-open-change-wallet-message">
@@ -2240,19 +2245,49 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <source>Transaction sent</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="open-external-beam-site-title">
-        <source>Allow access to Beam website</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="update-from-external-message">
-        <source>Beam Wallet app requires permission to open external link to Beam web-site in the browser to download updated version.
-This action will expose your IP to the web server.
-To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="settings-update-wallet">
         <source>update wallet</source>
         <extracomment>settings update wallet button</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-amount-label">
+        <source>Amount</source>
+        <translation type="unfinished">Částka</translation>
+    </message>
+    <message id="tx-details-second-currency-amount-label">
+        <source>Currency amount</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-second-currency-notification">
+        <source> (for the day of transaction)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-exchange-rate-not-available">
+        <source>Exchange rate to %1 is not available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-completed">
+        <source>Atomic Swap offer completed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-beam-completed-message">
+        <source>Offer &lt;b&gt;%1 BEAM ➞ %2 %3&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; completed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-completed-message">
+        <source>Offer &lt;b&gt;%1 %3 ➞ %2 BEAM&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; completed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-beam-failed-message">
+        <source>Offer &lt;b&gt;%1 BEAM ➞ %2 %3&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; failed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-failed-message">
+        <source>Offer &lt;b&gt;%1 %3 ➞ %2 BEAM&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; failed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-failed">
+        <source>Atomic Swap offer failed</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

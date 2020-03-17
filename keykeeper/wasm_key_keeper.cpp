@@ -81,17 +81,46 @@ struct KeyKeeper
         return _impl2.GetWalletID();
     }
 
-    std::string GetSbbsAddress(int ownID)
+    std::string GetSbbsAddress(const std::string& ownID)
     {
-        return _impl2.GetSbbsAddress(uint64_t(ownID));
+        return _impl2.GetSbbsAddress(from_base64<uint64_t>(ownID));
     }
 
-    std::string GetSbbsAddressPrivate(int ownID)
+    std::string GetSbbsAddressPrivate(const std::string& ownID)
     {
-        return _impl2.GetSbbsAddressPrivate(uint64_t(ownID));
+        return _impl2.GetSbbsAddressPrivate(from_base64<uint64_t>(ownID));
     }
 
-    std::string get_Kdf(bool root, Key::Index keyIndex)
+    std::string InvokeServiceMethod(const std::string& data)
+    {
+        json msg = json::parse(data);
+        json params = msg["params"];
+        std::string method = msg["method"];
+        json res = 
+        {
+            {"jsonrpc", "2.0"},
+            {"id", msg["id"]}
+        };
+
+        // !TODO: we have to check all the parameters for every method and throw an error if smth wrong
+
+             if(method == "get_kdf")       res["result"] = get_Kdf(params["root"], params["child_key_num"]);
+        else if(method == "get_slots")     res["result"] = get_NumSlots();
+        else if(method == "create_output") res["result"] = CreateOutput(params["scheme"], params["id"]);
+        else if(method == "sign_receiver") res["result"] = SignReceiver(params["inputs"], params["outputs"], params["kernel"], params["non_conv"], params["peer_id"], params["my_id_key"]);
+        else if(method == "sign_sender")   res["result"] = SignSender(params["inputs"], params["outputs"], params["kernel"], params["non_conv"], params["peer_id"], params["my_id_key"], params["slot"], params["agreement"], params["my_id"], params["payment_proof_sig"]);
+        else if(method == "sign_split")    res["result"] = SignSplit(params["inputs"], params["outputs"], params["kernel"], params["non_conv"]);
+        else res["error"] = 
+            {
+                {"code", -32601}, 
+                {"message", "Procedure not found."}, 
+                {"data", ("unknown method: " + method)}
+            };
+
+        return res.dump();
+    }
+
+    json get_Kdf(bool root, Key::Index keyIndex)
     {
         IPrivateKeyKeeper2::Method::get_Kdf method;
         method.m_Root = root;
@@ -109,10 +138,10 @@ struct KeyKeeper
             
             res.push_back({ JsonFields::PublicKdf, to_base64(buf) });
         }
-        return res.dump();
+        return res;
     }
 
-    std::string get_NumSlots()
+    json get_NumSlots()
     {
         IPrivateKeyKeeper2::Method::get_NumSlots method;
         auto status = _impl2.InvokeSync(method);
@@ -125,10 +154,10 @@ struct KeyKeeper
         {
             res.push_back({ JsonFields::Count, method.m_Count });
         }
-        return res.dump();
+        return res;
     }
 
-    std::string CreateOutput(const std::string& scheme, const std::string& cid)
+    json CreateOutput(const std::string& scheme, const std::string& cid)
     {
         IPrivateKeyKeeper2::Method::CreateOutput method;
 
@@ -145,10 +174,10 @@ struct KeyKeeper
         {
             res.push_back({ JsonFields::Result, to_base64(method.m_pResult) });
         }
-        return res.dump();
+        return res;
     }
     
-    std::string SignReceiver(const std::string& inputs
+    json SignReceiver(const std::string& inputs
                            , const std::string& outputs
                            , const std::string& kernel
                            , bool nonConventional
@@ -175,10 +204,10 @@ struct KeyKeeper
             res.push_back({ JsonFields::PaymentProofSig, to_base64(method.m_PaymentProofSignature) });
             FillCommonSignatureResult(res, method);
         }
-        return res.dump();
+        return res;
     }
 
-    std::string SignSender(const std::string& inputs
+    json SignSender(const std::string& inputs
                          , const std::string& outputs
                          , const std::string& kernel
                          , bool nonConventional
@@ -223,10 +252,10 @@ struct KeyKeeper
                 FillCommonSignatureResult(res, method);
             }
         }
-        return res.dump();
+        return res;
     }
 
-    std::string SignSplit(const std::string& inputs
+    json SignSplit(const std::string& inputs
                         , const std::string& outputs
                         , const std::string& kernel
                         , bool nonConventional)
@@ -248,7 +277,7 @@ struct KeyKeeper
         {
             FillCommonSignatureResult(res, method);
         }
-        return res.dump();
+        return res;
     }
 
     void FillCommonSignatureResult(json& res, const IPrivateKeyKeeper2::Method::TxCommon& method)
@@ -407,15 +436,11 @@ EMSCRIPTEN_BINDINGS()
         .function("getWalletID",            &KeyKeeper::GetWalletID)
         .function("getSbbsAddress",         &KeyKeeper::GetSbbsAddress)
         .function("getSbbsAddressPrivate",  &KeyKeeper::GetSbbsAddressPrivate)
-#define THE_MACRO(method) \
-        .function(#method, &KeyKeeper::method)\
-
-        KEY_KEEPER_METHODS(THE_MACRO)
-#undef THE_MACRO
-
+        .function("invokeServiceMethod",    &KeyKeeper::InvokeServiceMethod)
         .class_function("GeneratePhrase",   &KeyKeeper::GeneratePhrase)
         .class_function("IsAllowedWord",    &KeyKeeper::IsAllowedWord)
         .class_function("IsValidPhrase",    &KeyKeeper::IsValidPhrase)
+        
         // .function("func", &KeyKeeper::func)
         // .property("prop", &KeyKeeper::getProp, &KeyKeeper::setProp)
         // .class_function("StaticFunc", &KeyKeeper::StaticFunc)
