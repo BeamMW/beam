@@ -54,6 +54,7 @@ Channel::Channel(IChannelHolder& holder,
     ECC::GenRandom(*m_ID);
     m_upReceiver = std::make_unique<Receiver>(m_rHolder, m_ID);
 
+    m_lastState = beam::Lightning::Channel::get_State();
     m_Params = params;
 }
 
@@ -76,6 +77,7 @@ Channel::Channel(IChannelHolder& holder,
     , m_bbsTimestamp(getTimestamp())
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
+    m_lastState = beam::Lightning::Channel::get_State();
     m_Params = params;
 }
 
@@ -97,6 +99,7 @@ Channel::Channel(IChannelHolder& holder,
     , m_bbsTimestamp(std::get<LaserFields::LASER_BBS_TIMESTAMP>(entity))
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
+    m_lastState = beam::Lightning::Channel::get_State();
     m_Params = params;
     m_Params.m_Fee = std::get<LaserFields::LASER_FEE>(entity);
 

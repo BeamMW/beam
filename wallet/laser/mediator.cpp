@@ -817,8 +817,7 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
 
     if (state == Lightning::Channel::State::Open)
     {
-        if (lastState != Lightning::Channel::State::Updating &&
-            lastState != Lightning::Channel::State::Open)
+        if (lastState <= Lightning::Channel::State::Opening2)
         {
             LOG_DEBUG() << "observer->OnOpened";
             for (auto observer : m_observers)
