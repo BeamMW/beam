@@ -178,7 +178,7 @@ please review your settings and try again"
                     // Comment
                     //
                     SFText {
-                        Layout.topMargin: 40
+                        Layout.topMargin: 30
                         font.pixelSize:   14
                         font.styleName:   "Bold"; font.weight: Font.Bold
                         color:            Style.content_main
@@ -197,6 +197,14 @@ please review your settings and try again"
                         text:             viewModel.addressComment
                         maximumLength:    BeamGlobals.maxCommentLength()
                         enabled:          !thisView.addressSaved
+                    }
+
+                    SFText {
+                        font.pixelSize:   14
+                        font.italic:      true
+                        color:            Style.content_secondary
+                        //% "Comments are local and won't be shared"
+                        text:             qsTrId("general-comment-local")
                     }
 
                     Binding {
@@ -309,7 +317,7 @@ please review your settings and try again"
                     }
 
                     SFText {
-                        Layout.topMargin: 18
+                        Layout.topMargin: 30
                         font.pixelSize:   14
                         font.styleName:   "Bold"
                         font.weight:      Font.Bold

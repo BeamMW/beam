@@ -29,14 +29,18 @@ ColumnLayout {
     }
 
     function getFeeInSecondCurrency(feeValue) {
-        return BeamGlobals.calcFeeInSecondCurrency(feeValue, control.currency, control.secondCurrencyRateValue, control.secondCurrencyLabel)
+        return BeamGlobals.calcFeeInSecondCurrency(
+            feeValue,
+            control.currency,
+            control.secondCurrencyRateValue,
+            control.secondCurrencyLabel);
     }
 
     function getAmountInSecondCurrency() {
         return BeamGlobals.calcAmountInSecondCurrency(
             control.amountIn,
             control.secondCurrencyRateValue,
-            control.secondCurrencyLabel)
+            control.secondCurrencyLabel);
     }
 
     readonly property bool     isValidFee:     hasFee ? feeInput.isValid : true
@@ -62,7 +66,8 @@ ColumnLayout {
     property bool     showAddAll:   false
     property string   secondCurrencyRateValue:  "0"
     property string   secondCurrencyLabel:      ""
-    property var      setMaxAvailableAmount: {} // callback function
+    property var      setMaxAvailableAmount:    {} // callback function
+    readonly property bool  isExchangeRateAvailable:    control.secondCurrencyRateValue != "0"
 
     SFText {
         font.pixelSize:   14
@@ -188,8 +193,6 @@ ColumnLayout {
         }
     }
 
-    
-
     Item {
         Layout.fillWidth: true
         SFText {
@@ -204,16 +207,21 @@ ColumnLayout {
             id:             amountSecondCurrencyText
             visible:        secondCurrencyLabel != "" && !errmsg.visible && !showTotalFee    // show only on send side
             font.pixelSize: 14
-            color:          Style.content_secondary
-            text:           getAmountInSecondCurrency()
+            opacity:        isExchangeRateAvailable ? 0.5 : 0.7
+            color:          isExchangeRateAvailable ? Style.content_secondary : Style.accent_fail
+            text:           isExchangeRateAvailable
+                            ? getAmountInSecondCurrency()
+                            //% "Exchange rate to %1 is not available"
+                            : qsTrId("general-exchange-rate-not-available").arg(control.secondCurrencyLabel)
         }
     }
 
     GridLayout {
         columns:       2
-        Layout.topMargin: 30
+        Layout.topMargin: 50
         ColumnLayout {
             Layout.maximumWidth:  198
+            Layout.alignment:     Qt.AlignTop
             visible:              control.hasFee
             SFText {
                 font.pixelSize:   14
@@ -230,18 +238,15 @@ ColumnLayout {
                 feeLabel:         BeamGlobals.getFeeRateLabel(control.currency)
                 color:            control.color
                 readOnly:         control.readOnlyF
+                showSecondCurrency:         true
+                isExchangeRateAvailable:    control.isExchangeRateAvailable
+                secondCurrencyAmount:       getFeeInSecondCurrency(control.fee)
+                secondCurrencyLabel:        control.secondCurrencyLabel
                 Connections {
                     target: control
                     onFeeChanged: feeInput.fee = control.fee
                     onCurrencyChanged: feeInput.fee = BeamGlobals.getDefaultFee(control.currency)
                 }
-            }
-            SFText {
-                id:               feeInSecondCurrency
-                visible:          control.secondCurrencyLabel != ""
-                font.pixelSize:   14
-                color:            Style.content_secondary
-                text:             getFeeInSecondCurrency(control.fee)
             }
         }
        
@@ -266,8 +271,11 @@ ColumnLayout {
                 id:               feeTotalInSecondCurrency
                 Layout.topMargin: 6
                 font.pixelSize:   14
-                color:            Style.content_secondary
-                text:             getFeeInSecondCurrency(parseInt(totalFeeLabel.text, 10))
+                opacity:          0.5
+                color:            isExchangeRateAvailable ? Style.content_secondary : Style.accent_fail
+                text:             isExchangeRateAvailable
+                                  ? getFeeInSecondCurrency(parseInt(totalFeeLabel.text, 10))
+                                  : ""
             }
         }
     }
@@ -275,11 +283,13 @@ ColumnLayout {
     SFText {
         enabled:               control.hasFee && control.currency != Currency.CurrBeam
         visible:               enabled
+        Layout.topMargin:      20
         Layout.preferredWidth: 370
         font.pixelSize:        14
+        font.italic:           true
         wrapMode:              Text.WordWrap
         color:                 Style.content_secondary
-        lineHeight:            1.1 
+        lineHeight:            1.1
         //% "Remember to validate the expected fee rate for the blockchain (as it varies with time)."
         text:                  qsTrId("settings-fee-rate-note")
     }
