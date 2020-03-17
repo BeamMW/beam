@@ -1101,8 +1101,7 @@ void WalletApiHandler::onMessage(const JsonRpcId& id, const OfferStatus& data)
     }
 
     // TODO roman.strilets: need to check this code
-    Timestamp expirationTime = offer.timeCreated() + 60 * offer.peerResponseHeight();
-    if (expirationTime <= getTimestamp())
+    if (walletDB->getCurrentHeight() >= offer.minHeight() + offer.peerResponseHeight())
     {
         offer.m_status = SwapOfferStatus::Expired;
     }

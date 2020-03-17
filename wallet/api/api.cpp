@@ -242,27 +242,8 @@ json OfferToJson(const SwapOffer& offer,
         isSendBeamOffer ? "BEAM" : std::to_string(offer.swapCoinType());
     std::string receiveCurrency =
         isSendBeamOffer ? std::to_string(offer.swapCoinType()) : "BEAM";
-
-    auto peerResponseTime = offer.peerResponseHeight();
-    auto minHeight = offer.minHeight();
-
-    Timestamp expiresTime = getTimestamp();
-    if (systemHeight && peerResponseTime && minHeight)
-    {
-        auto expiresHeight = minHeight + peerResponseTime;
-        auto currentDateTime = getTimestamp();
-
-        expiresTime = systemHeight <= expiresHeight
-            ? currentDateTime + (expiresHeight - systemHeight) * 60
-            : currentDateTime - (systemHeight - expiresHeight) * 60;
-    }
-
-    auto createTimeStr = format_timestamp(kTimeStampFormat3x3,
-                                        offer.timeCreated() * 1000,
-                                        false);
-    auto expiresTimeStr = format_timestamp(kTimeStampFormat3x3,
-                                        expiresTime * 1000,
-                                        false);
+    auto expiredHeight = offer.minHeight() + offer.peerResponseHeight();
+    auto createTimeStr = format_timestamp(kTimeStampFormat3x3,offer.timeCreated() * 1000, false);
     
     json result {
         {"status", offer.m_status},
@@ -273,7 +254,8 @@ json OfferToJson(const SwapOffer& offer,
         {"receive_amount", receive},
         {"receive_currency", receiveCurrency},
         {"time_created", createTimeStr},
-        {"time_expired", expiresTimeStr},
+        {"min_height", offer.minHeight()},
+        {"height_expired", expiredHeight},
     };
 
     if (offer.m_status == SwapOfferStatus::Pending)
@@ -299,34 +281,15 @@ json OfferToJson(const SwapOffer& offer,
 
 json OfferStatusToJson(const SwapOffer& offer, const Height& systemHeight)
 {
-    auto peerResponseTime = offer.peerResponseHeight();
-    auto minHeight = offer.minHeight();
-
-    Timestamp expiresTime = getTimestamp();
-    if (systemHeight && peerResponseTime && minHeight)
-    {
-        auto expiresHeight = minHeight + peerResponseTime;
-        auto currentDateTime = getTimestamp();
-
-        // TODO roman.strilets: need to check this code
-        expiresTime = systemHeight <= expiresHeight
-            ? currentDateTime + (expiresHeight - systemHeight) * 60
-            : currentDateTime - (systemHeight - expiresHeight) * 60;
-    }
-
-    auto createTimeStr = format_timestamp(kTimeStampFormat3x3,
-        offer.timeCreated() * 1000,
-        false);
-    auto expiresTimeStr = format_timestamp(kTimeStampFormat3x3,
-        expiresTime * 1000,
-        false);
-
+    auto expiredHeight = offer.minHeight() + offer.peerResponseHeight();
+    auto createTimeStr = format_timestamp(kTimeStampFormat3x3, offer.timeCreated() * 1000, false);
     json result{
         {"status", offer.m_status},
         {"status_string", swapOfferStatusToString(offer.m_status)},
         {"tx_id", TxIDToString(offer.m_txId)},
         {"time_created", createTimeStr},
-        {"time_expired", expiresTimeStr},
+        {"min_height", offer.minHeight()},
+        {"height_expired", expiredHeight},
     };
 
     return result;
