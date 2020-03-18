@@ -20,6 +20,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/beast/http.hpp>
 
 #include <thread>
 #include <mutex>
@@ -29,6 +30,8 @@ using namespace beam;
 using tcp = boost::asio::ip::tcp;               // from <boost/asio/ip/tcp.hpp>
 
 namespace websocket = boost::beast::websocket;  // from <boost/beast/websocket.hpp>
+namespace beast = boost::beast;                 // from <boost/beast.hpp>
+namespace http = beast::http;                   // from <boost/beast/http.hpp>
 
 namespace beam::wallet
 {
@@ -45,8 +48,6 @@ namespace beam::wallet
             throw std::runtime_error(ec.message());
         }
 
-        
-
         class Session : public std::enable_shared_from_this<Session>
         {
         public:
@@ -55,7 +56,7 @@ namespace beam::wallet
                 : m_webSocket(std::move(socket))
                 , m_newDataEvent(io::AsyncEvent::create(*reactor, [this]() { process_new_data(); }))
                 , m_handler(creator([this](const auto& msg) { do_write(msg); }))
-                
+
             {
 
             }
@@ -70,6 +71,17 @@ namespace beam::wallet
             {
                 // Accept the websocket handshake
                 m_webSocket.async_accept(
+                    [sp = shared_from_this()](boost::system::error_code ec)
+                {
+                    sp->on_accept(ec);
+                });
+            }
+
+            template<class Body, class Allocator>
+            void do_accept(http::request<Body, http::basic_fields<Allocator>> req)
+            {
+                m_webSocket.async_accept(
+                    req,
                     [sp = shared_from_this()](boost::system::error_code ec)
                 {
                     sp->on_accept(ec);
@@ -166,15 +178,15 @@ namespace beam::wallet
                 std::string* contents = nullptr;
                 {
                     std::unique_lock<std::mutex> lock(m_queueMutex);
-                    
+
                     m_writeQueue.push(msg);
-            
+
                     if (m_writeQueue.size() > 1)
                         return;
-            
+
                     contents = &m_writeQueue.front();
                 }
-            
+
                 m_webSocket.async_write(
                     boost::asio::buffer(*contents),
                     [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
@@ -221,17 +233,230 @@ namespace beam::wallet
             std::mutex m_queueMutex;
             std::queue<std::string> m_dataQueue;
             std::queue<std::string> m_writeQueue;
+            };
+
+        // Handles an HTTP server connection, we use it to filter origin
+        class HttpSession : public std::enable_shared_from_this<HttpSession>
+        {
+            // This queue is used for HTTP pipelining.
+            class Queue
+            {
+                enum
+                {
+                    // Maximum number of responses we will queue
+                    limit = 8
+                };
+
+                // The type-erased, saved work item
+                struct Work
+                {
+                    virtual ~Work() = default;
+                    virtual void operator()() = 0;
+                };
+
+                HttpSession& m_self;
+                std::vector<std::unique_ptr<Work>> m_items;
+
+            public:
+                explicit
+                    Queue(HttpSession& self)
+                    : m_self(self)
+                {
+                    static_assert(limit > 0, "queue limit must be positive");
+                    m_items.reserve(limit);
+                }
+
+                // Returns `true` if we have reached the queue limit
+                bool is_full() const
+                {
+                    return m_items.size() >= limit;
+                }
+
+                // Called when a message finishes sending
+                // Returns `true` if the caller should initiate a read
+                bool on_write()
+                {
+                    BOOST_ASSERT(!m_items.empty());
+                    auto const was_full = is_full();
+                    m_items.erase(m_items.begin());
+                    if (!m_items.empty())
+                        (*m_items.front())();
+                    return was_full;
+                }
+
+                // Called by the HTTP handler to send a response.
+                template<bool isRequest, class Body, class Fields>
+                void operator()(http::message<isRequest, Body, Fields>&& msg)
+                {
+                    // This holds a work item
+                    struct WorkImpl : Work
+                    {
+                        HttpSession& m_self;
+                        http::message<isRequest, Body, Fields> m_msg;
+
+                        WorkImpl(
+                            HttpSession& self,
+                            http::message<isRequest, Body, Fields>&& msg)
+                            : m_self(self)
+                            , m_msg(std::move(msg))
+                        {
+                        }
+
+                        void operator()()
+                        {
+                            http::async_write(
+                                m_self.m_stream,
+                                m_msg,
+                                [sp = m_self.shared_from_this(), close = m_msg.need_eof()](beast::error_code ec, std::size_t bytes_transferred)
+                            {
+                                sp->on_write(close, ec, bytes_transferred);
+                            });
+                        }
+                    };
+
+                    // Allocate and store the work
+                    m_items.push_back(
+                        boost::make_unique<WorkImpl>(m_self, std::move(msg)));
+
+                    // If there was no previous work, start this one
+                    if (m_items.size() == 1)
+                        (*m_items.front())();
+                }
+            };
+
+            beast::tcp_stream m_stream;
+            beast::flat_buffer m_buffer;
+
+            Queue m_queue;
+            io::Reactor::Ptr m_reactor;
+            WebSocketServer::HandlerCreator& m_handlerCreator;
+            std::string m_allowedOrigin;
+
+            // The parser is stored in an optional container so we can
+            // construct it from scratch it at the beginning of each new message.
+            boost::optional<http::request_parser<http::string_body>> m_parser;
+
+        public:
+            // Take ownership of the socket
+            HttpSession(tcp::socket&& socket, io::Reactor::Ptr reactor, WebSocketServer::HandlerCreator& creator, const std::string& allowedOrigin)
+                : m_stream(std::move(socket))
+                , m_queue(*this)
+                , m_reactor(reactor)
+                , m_handlerCreator(creator)
+                , m_allowedOrigin(allowedOrigin)
+            {
+            }
+
+            // Start the session
+            void run()
+            {
+                do_read();
+            }
+
+        private:
+            void do_read()
+            {
+                // Construct a new parser for each message
+                m_parser.emplace();
+
+                // Apply a reasonable limit to the allowed size
+                // of the body in bytes to prevent abuse.
+                m_parser->body_limit(10000);
+
+                // Set the timeout.
+                m_stream.expires_after(std::chrono::seconds(30));
+
+                // Read a request using the parser-oriented interface
+                http::async_read(
+                    m_stream,
+                    m_buffer,
+                    *m_parser,
+                    [sp = shared_from_this()](beast::error_code ec, std::size_t bytes_transferred)
+                {
+                    sp->on_read(ec, bytes_transferred);
+                });
+            }
+
+            void on_read(beast::error_code ec, std::size_t bytes_transferred)
+            {
+                boost::ignore_unused(bytes_transferred);
+
+                // This means they closed the connection
+                if (ec == http::error::end_of_stream)
+                    return do_close();
+
+                if (ec)
+                    return fail(ec, "read");
+
+                {
+                    auto req = m_parser->get();
+                    auto const forbiddenRequest =
+                        [&req](beast::string_view why)
+                    {
+                        http::response<http::string_body> res;
+                        res.version(req.version());
+                        res.result(http::status::forbidden);
+                        res.body() = std::string(why);
+                        res.prepare_payload();
+                        return res;
+                    };
+                    {
+                        if (!beast::iequals(req[http::field::origin], m_allowedOrigin))
+                        {
+                            m_queue(forbiddenRequest("origin is not allowed"));
+                            return;
+                        }
+                    }
+                }
+
+                // Create a websocket session, transferring ownership
+                // of both the socket and the HTTP request.
+                std::make_shared<Session>(m_stream.release_socket(), m_reactor, m_handlerCreator)->do_accept(m_parser->release());
+                return;
+            }
+
+            void on_write(bool close, beast::error_code ec, std::size_t bytes_transferred)
+            {
+                boost::ignore_unused(bytes_transferred);
+
+                if (ec)
+                    return fail(ec, "write");
+
+                if (close)
+                {
+                    // This means we should close the connection, usually because
+                    // the response indicated the "Connection: close" semantic.
+                    return do_close();
+                }
+
+                // Inform the queue that a write completed
+                if (m_queue.on_write())
+                {
+                    // Read another request
+                    do_read();
+                }
+            }
+
+            void do_close()
+            {
+                // Send a TCP shutdown
+                beast::error_code ec;
+                m_stream.socket().shutdown(tcp::socket::shutdown_send, ec);
+
+                // At this point the connection is closed gracefully
+            }
         };
 
         // Accepts incoming connections and launches the sessions
         class Listener : public std::enable_shared_from_this<Listener>
         {
         public:
-            Listener(boost::asio::io_context& ioc, tcp::endpoint endpoint, io::Reactor::Ptr reactor, WebSocketServer::HandlerCreator& creator)
+            Listener(boost::asio::io_context& ioc, tcp::endpoint endpoint, io::Reactor::Ptr reactor, WebSocketServer::HandlerCreator& creator, const std::string& allowedOrigin)
                 : m_acceptor(ioc)
                 , m_socket(ioc)
                 , m_reactor(reactor)
                 , m_handlerCreator(creator)
+                , m_allowedOrigin(allowedOrigin)
             {
                 boost::system::error_code ec;
 
@@ -292,9 +517,16 @@ namespace beam::wallet
                 }
                 else
                 {
-                    // Create the Session and run it
-                    auto s = std::make_shared<Session>(std::move(m_socket), m_reactor, m_handlerCreator);
-                    s->run();
+                    if (m_allowedOrigin.empty())
+                    {
+                        // Create the Session and run it
+                        std::make_shared<Session>(std::move(m_socket), m_reactor, m_handlerCreator)->run();
+                    }
+                    else
+                    {
+                        // Create the HttpSession and run it to handle Origin field
+                        std::make_shared<HttpSession>(std::move(m_socket), m_reactor, m_handlerCreator, m_allowedOrigin)->run();
+                    }
                 }
 
                 // Accept another connection
@@ -306,16 +538,18 @@ namespace beam::wallet
             tcp::socket m_socket;
             io::Reactor::Ptr m_reactor;
             WebSocketServer::HandlerCreator& m_handlerCreator;
+            std::string m_allowedOrigin;
         };
-    }
+        }
 
     struct WebSocketServer::WebSocketServerImpl
     {
-        WebSocketServerImpl(io::Reactor::Ptr reactor, uint16_t port, HandlerCreator&& creator, StartAction&& startAction)
+        WebSocketServerImpl(io::Reactor::Ptr reactor, uint16_t port, HandlerCreator&& creator, StartAction&& startAction, const std::string& allowedOrigin)
             : m_ioc{ 1 }
             , m_reactor(reactor)
             , m_handlerCreator(std::move(creator))
             , m_startAction(startAction)
+            , m_allowedOrigin(allowedOrigin)
         {
             start(port);
         }
@@ -323,6 +557,10 @@ namespace beam::wallet
         ~WebSocketServerImpl()
         {
             stop();
+            if (m_iocThread && m_iocThread->joinable())
+            {
+                m_iocThread->join();
+            }
         }
 
         void start(uint16_t port)
@@ -332,7 +570,7 @@ namespace beam::wallet
 
         void iocThreadFunc(uint16_t port)
         {
-            std::make_shared<Listener>(m_ioc, tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port }, m_reactor, m_handlerCreator)->run();
+            std::make_shared<Listener>(m_ioc, tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port }, m_reactor, m_handlerCreator, m_allowedOrigin)->run();
             if (m_startAction)
             {
                 m_startAction();
@@ -350,14 +588,15 @@ namespace beam::wallet
         io::Reactor::Ptr m_reactor;
         HandlerCreator m_handlerCreator;
         StartAction m_startAction;
+        std::string m_allowedOrigin;
     };
 
-    WebSocketServer::WebSocketServer(io::Reactor::Ptr reactor, uint16_t port, HandlerCreator&& creator, StartAction&& startAction)
-        : m_impl(std::make_unique<WebSocketServerImpl>(reactor, port, std::move(creator), std::move(startAction)))
+    WebSocketServer::WebSocketServer(io::Reactor::Ptr reactor, uint16_t port, HandlerCreator&& creator, StartAction&& startAction, const std::string& allowedOrigin)
+        : m_impl(std::make_unique<WebSocketServerImpl>(reactor, port, std::move(creator), std::move(startAction), allowedOrigin))
     {
     }
 
     WebSocketServer::~WebSocketServer()
     {
     }
-}
+    }

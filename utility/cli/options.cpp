@@ -229,6 +229,7 @@ namespace beam
         const char* NODE_POLL_PERIOD = "node_poll_period";
         const char* PROXY_USE = "proxy";
         const char* PROXY_ADDRESS = "proxy_addr";
+        const char* ALLOWED_ORIGIN = "allowed_origin";
         // values
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";

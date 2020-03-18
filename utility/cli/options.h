@@ -132,6 +132,7 @@ namespace beam
         extern const char* NODE_POLL_PERIOD;
         extern const char* PROXY_USE;
         extern const char* PROXY_ADDRESS;
+        extern const char* ALLOWED_ORIGIN;
         // values
         extern const char* EXPIRATION_TIME_24H;
         extern const char* EXPIRATION_TIME_NEVER;

@@ -37,7 +37,7 @@ namespace beam::wallet
         using HandlerCreator = std::function<IHandler::Ptr (SendMessageFunc&&)>;
         using StartAction = std::function<void()>;
 
-        WebSocketServer(beam::io::Reactor::Ptr reactor, uint16_t port, HandlerCreator&& creator, StartAction&& startAction = {});
+        WebSocketServer(beam::io::Reactor::Ptr reactor, uint16_t port, HandlerCreator&& creator, StartAction&& startAction = {}, const std::string& allowedOrigin = "");
         ~WebSocketServer();
 
     private:
