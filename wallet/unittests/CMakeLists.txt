@@ -29,6 +29,8 @@ if (BEAM_LASER_SUPPORT)
     add_test_snippet(laser_test_send node laser)
     add_test_snippet(laser_test_send_gracefull_close node laser)
     add_test_snippet(laser_test_send_fail node laser)
+    add_test_snippet(laser_test_listen_first node laser)
+    add_test_snippet(laser_test_listen_second node laser)
 endif()
 
 #add_executable(offline offline.cpp)
