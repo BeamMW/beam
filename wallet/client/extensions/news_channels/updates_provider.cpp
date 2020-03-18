@@ -35,13 +35,12 @@ namespace beam::wallet
             if (m_validator.processMessage(input, res))
             {
                 VersionInfo updateInfo;
-                ECC::uintBig signature;
-                if (fromByteBuffer(res.m_content, updateInfo)
-                 && fromByteBuffer(res.m_signature, signature))
+                if (fromByteBuffer(res.m_content, updateInfo))
                 {
-                    // TODO: replace signature with HASH(updateInfo)
-                    // because 'signature' can be different for same 'updateInfo'
-                    notifySubscribers(updateInfo, signature);
+                    beam::Blob content(res.m_content);
+                    ECC::Hash::Value hash;   // use hash like unique ID
+                    ECC::Hash::Processor() << content >> hash;
+                    notifySubscribers(updateInfo, hash);
                 }
             }
         }
