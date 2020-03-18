@@ -662,7 +662,9 @@ Result Reactor::tcp_connect_with_proxy(
     int timeoutMsec,
     bool tlsConnect
 ) {
-    // TODO: clarify proxy connection timeout calculation
+    // TODO dh: clarify proxy connection timeout calculation
+    // timeoutMsec = proxyServerConnectionTO + proxyToDestinationConnectionTO + proxyServerResponseTO
+    // now only proxyServerConnectionTO is set
     assert(callback);
     assert(!destAddr.empty());
     assert(!proxyAddr.empty());

@@ -38,18 +38,22 @@ namespace beamui
 
     QString toString(Currencies currency);
     std::string toStdString(Currencies currency);
+
     QString getCurrencyLabel(Currencies);
     QString getCurrencyLabel(beam::wallet::ExchangeRate::Currency);
     QString getFeeRateLabel(Currencies);
-    /// convert amount to ui string with "." as a separator
+
+    /// Convert amount to ui string with "." as a separator. With the default @coinType, no currency label added.
     QString AmountToUIString(const beam::Amount& value, Currencies coinType = Currencies::Unknown);
     QString AmountInGrothToUIString(const beam::Amount& value);
+
     /// expects ui string with a "." as a separator
     beam::Amount UIStringToAmount(const QString& value);
+
     Currencies convertExchangeRateCurrencyToUiCurrency(beam::wallet::ExchangeRate::Currency);
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     Currencies convertSwapCoinToCurrency(beam::wallet::AtomicSwapCoin coin);
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+#endif
 
     QString toString(const beam::wallet::WalletID&);
     QString toString(const beam::Merkle::Hash&);

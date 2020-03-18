@@ -60,7 +60,6 @@ namespace beam::wallet
                 std::vector<ExchangeRate> receivedRates;
                 if (fromByteBuffer(res.m_content, receivedRates))
                 {
-                    // TODO: dh notify with all rates each time, or push just changes?
                     std::vector<ExchangeRate> changedRates;
                     for (const auto& receivedRate : receivedRates)
                     {
