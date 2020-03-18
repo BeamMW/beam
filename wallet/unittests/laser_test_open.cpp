@@ -114,7 +114,7 @@ int main()
             io::Reactor::get_Current().stop();
         }
 
-        if (height == 3)
+        if (height == 5)
         {
             storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
             totals_1= totalsCalc_1.GetTotals(Zero);

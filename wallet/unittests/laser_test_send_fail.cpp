@@ -107,7 +107,7 @@ int main()
             io::Reactor::get_Current().stop();
         }
 
-        if (height == 3)
+        if (height == 5)
         {
             laserFirst->WaitIncoming(100000000, 100000000, kFee);
             auto firstWalletID = laserFirst->getWaitingWalletID();
