@@ -305,7 +305,7 @@ namespace beam::wallet
                         void operator()()
                         {
                             http::async_write(
-                                m_self.m_stream,
+                                m_self.m_socket,
                                 m_msg,
                                 [sp = m_self.shared_from_this(), close = m_msg.need_eof()](beast::error_code ec, std::size_t bytes_transferred)
                             {
@@ -324,22 +324,19 @@ namespace beam::wallet
                 }
             };
 
-            beast::tcp_stream m_stream;
+            tcp::socket m_socket;
             beast::flat_buffer m_buffer;
+            http::request<http::string_body> m_request;
 
             Queue m_queue;
             io::Reactor::Ptr m_reactor;
             WebSocketServer::HandlerCreator& m_handlerCreator;
             std::string m_allowedOrigin;
 
-            // The parser is stored in an optional container so we can
-            // construct it from scratch it at the beginning of each new message.
-            boost::optional<http::request_parser<http::string_body>> m_parser;
-
         public:
             // Take ownership of the socket
             HttpSession(tcp::socket&& socket, io::Reactor::Ptr reactor, WebSocketServer::HandlerCreator& creator, const std::string& allowedOrigin)
-                : m_stream(std::move(socket))
+                : m_socket(std::move(socket))
                 , m_queue(*this)
                 , m_reactor(reactor)
                 , m_handlerCreator(creator)
@@ -356,21 +353,11 @@ namespace beam::wallet
         private:
             void do_read()
             {
-                // Construct a new parser for each message
-                m_parser.emplace();
-
-                // Apply a reasonable limit to the allowed size
-                // of the body in bytes to prevent abuse.
-                m_parser->body_limit(10000);
-
-                // Set the timeout.
-                m_stream.expires_after(std::chrono::seconds(30));
-
                 // Read a request using the parser-oriented interface
                 http::async_read(
-                    m_stream,
+                    m_socket,
                     m_buffer,
-                    *m_parser,
+                    m_request,
                     [sp = shared_from_this()](beast::error_code ec, std::size_t bytes_transferred)
                 {
                     sp->on_read(ec, bytes_transferred);
@@ -389,19 +376,18 @@ namespace beam::wallet
                     return fail(ec, "read");
 
                 {
-                    auto req = m_parser->get();
                     auto const forbiddenRequest =
-                        [&req](beast::string_view why)
+                        [this](beast::string_view why)
                     {
                         http::response<http::string_body> res;
-                        res.version(req.version());
+                        res.version(m_request.version());
                         res.result(http::status::forbidden);
                         res.body() = std::string(why);
                         res.prepare_payload();
                         return res;
                     };
                     {
-                        if (!beast::iequals(req[http::field::origin], m_allowedOrigin))
+                        if (!beast::iequals(m_request[http::field::origin], m_allowedOrigin))
                         {
                             m_queue(forbiddenRequest("origin is not allowed"));
                             return;
@@ -411,7 +397,7 @@ namespace beam::wallet
 
                 // Create a websocket session, transferring ownership
                 // of both the socket and the HTTP request.
-                std::make_shared<Session>(m_stream.release_socket(), m_reactor, m_handlerCreator)->do_accept(m_parser->release());
+                std::make_shared<Session>(std::move(m_socket), m_reactor, m_handlerCreator)->do_accept(std::move(m_request));
                 return;
             }
 
@@ -441,7 +427,7 @@ namespace beam::wallet
             {
                 // Send a TCP shutdown
                 beast::error_code ec;
-                m_stream.socket().shutdown(tcp::socket::shutdown_send, ec);
+                m_socket.shutdown(tcp::socket::shutdown_send, ec);
 
                 // At this point the connection is closed gracefully
             }
