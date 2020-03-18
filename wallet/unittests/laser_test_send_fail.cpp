@@ -32,7 +32,8 @@ using namespace beam::wallet;
 using namespace std;
 
 namespace {
-const Height kMaxTestHeight = 42;
+const Height kMaxTestHeight = 142;
+const Amount kFee = 100;
 }  // namespace
 
 int main()
@@ -52,8 +53,8 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    auto wdbFirst = createSqliteWalletDB("laser_test_open_first.db", false, false);
-    auto wdbSecond = createSqliteWalletDB("laser_test_open_second.db", false, false);
+    auto wdbFirst = createSqliteWalletDB("laser_test_send_first.db", false, false);
+    auto wdbSecond = createSqliteWalletDB("laser_test_send_second.db", false, false);
 
     const AmountList amounts = {100000000, 100000000, 100000000, 100000000};
     for (auto amount : amounts)
@@ -73,86 +74,53 @@ int main()
     LaserObserver observer_1, observer_2;
     laser::ChannelIDPtr channel_1, channel_2;
 
-    observer_1.onOpened =
-        [&channel_1] (const laser::ChannelIDPtr& chID)
-        {
-            LOG_INFO() << "Test laser OPEN: first opened";
-            channel_1 = chID;
-        };
-    observer_2.onOpened =
-        [&channel_2] (const laser::ChannelIDPtr& chID)
-        {
-            LOG_INFO() << "Test laser OPEN: second opened";
-            channel_2 = chID;
-        };
-    observer_1.onOpenFailed = observer_2.onOpenFailed =
-        [] (const laser::ChannelIDPtr& chID)
-        {
-            LOG_INFO() << "Test laser OPEN: open failed";
-            WALLET_CHECK(false);
-        };
+    observer_1.onOpened = [&channel_1] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser SEND: first opened";
+        channel_1 = chID;
+    };
+    observer_2.onOpened = [&channel_2] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser SEND: second opened";
+        channel_2 = chID;
+    };
+    observer_1.onOpenFailed = observer_2.onOpenFailed = [] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser SEND: open failed";
+        WALLET_CHECK(false);
+    };
+
     laserFirst->AddObserver(&observer_1);
     laserSecond->AddObserver(&observer_2);
-
-    storage::Totals::AssetTotals totals_1, totals_1_a, totals_2, totals_2_a;
 
     auto newBlockFunc = [
         &laserFirst,
         &laserSecond,
-        &totals_1,
-        &totals_1_a,
-        &totals_2,
-        &totals_2_a,
         &channel_1,
         &channel_2
     ] (Height height)
     {
         if (height > kMaxTestHeight)
         {
-            LOG_ERROR() << "Test laser OPEN: time expired";
+            LOG_ERROR() << "Test laser SEND: time expired";
             WALLET_CHECK(false);
             io::Reactor::get_Current().stop();
         }
 
         if (height == 3)
         {
-            storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
-            totals_1= totalsCalc_1.GetTotals(Zero);
-
-            storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()));
-            totals_2= totalsCalc_2.GetTotals(Zero);
-
-            laserFirst->WaitIncoming(100000000, 100000000, 101);
+            laserFirst->WaitIncoming(100000000, 100000000, kFee);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 10);
+            laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, 10);
         }
 
         if (channel_1 && channel_2)
         {
-            storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
-            totals_1_a = totalsCalc_1.GetTotals(Zero);
-            const auto& channelFirst = laserFirst->getChannel(channel_1);
+            auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);
+            LOG_INFO() << "Test laser SEND: first send to second, amount more then locked in channel";
+            WALLET_CHECK(!laserFirst->Transfer(1000000000, channel2Str));
 
-            auto feeFirst = channelFirst->get_fee();
-
-            storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()));
-            totals_2_a = totalsCalc_2.GetTotals(Zero);
-            const auto& channelSecond = laserSecond->getChannel(channel_2);
-
-            auto feeSecond = channelSecond->get_fee();
-
-            Amount nFeeSecond = feeSecond / 2;
-            Amount nFeeFirst = feeFirst - nFeeSecond;
-
-            WALLET_CHECK(
-                totals_1.Unspent ==
-                totals_1_a.Unspent + channelFirst->get_amountMy() + nFeeFirst * 3);
-
-            WALLET_CHECK(
-                totals_2.Unspent ==
-                totals_2_a.Unspent + channelSecond->get_amountMy() + nFeeSecond * 3);
-
-            LOG_INFO() << "Test laser OPEN: finished";
+            LOG_INFO() << "Test laser SEND: finished";
             io::Reactor::get_Current().stop();
         }
     };

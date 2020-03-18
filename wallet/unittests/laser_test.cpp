@@ -367,7 +367,7 @@ int main()
             observer_2.onTransferFailed =
                 [&resultsForCheck] (const laser::ChannelIDPtr& chID)
                 {
-                LOG_INFO() << "Test 5: second transfer failed";
+                    LOG_INFO() << "Test 5: second transfer failed";
                     resultsForCheck.test5.secondCompleted = true;
                 };
             WALLET_CHECK(laserFirst->Transfer(kTransferFirst, channel2Str));
