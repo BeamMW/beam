@@ -847,7 +847,7 @@ int main(int argc, char* argv[])
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
-        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, 5);//options.logCleanupPeriod);
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
 
         LOG_INFO() << "Starting server on port " << options.port;
         WalletApiServer server(reactor, options.port, options.allowedOrigin);
