@@ -190,15 +190,11 @@ namespace
         const auto& [pk, sk] = deriveKeypair(storage, 321);
         BroadcastMsg msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
         BroadcastMsg msgR = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rates), sk);
-        ECC::uintBig msgSignature;
-        fromByteBuffer(msgV.m_signature, msgSignature);
-
+        
         MockNewsObserver testObserver(
-            [&execCountVers, &verInfo, &msgSignature]
+            [&execCountVers, &verInfo]
             (const VersionInfo& v, const ECC::uintBig& id)
             {
-                // check notification ID same as message signature
-                WALLET_CHECK(msgSignature == id);
                 WALLET_CHECK(verInfo == v);
                 ++execCountVers;
             },
