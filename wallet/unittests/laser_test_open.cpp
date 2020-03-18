@@ -32,7 +32,7 @@ using namespace beam::wallet;
 using namespace std;
 
 namespace {
-const Height kMaxTestHeight = 10;
+const Height kMaxTestHeight = 42;
 }  // namespace
 
 int main()
@@ -76,19 +76,19 @@ int main()
     observer_1.onOpened =
         [&channel_1] (const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser open: first opened";
+            LOG_INFO() << "Test laser OPEN: first opened";
             channel_1 = chID;
         };
     observer_2.onOpened =
         [&channel_2] (const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser open: second opened";
+            LOG_INFO() << "Test laser OPEN: second opened";
             channel_2 = chID;
         };
     observer_1.onOpenFailed = observer_2.onOpenFailed =
         [] (const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser open: open failed";
+            LOG_INFO() << "Test laser OPEN: open failed";
             WALLET_CHECK(false);
         };
     laserFirst->AddObserver(&observer_1);
@@ -109,7 +109,7 @@ int main()
     {
         if (height > kMaxTestHeight)
         {
-            LOG_ERROR() << "Test laser open: time expired";
+            LOG_ERROR() << "Test laser OPEN: time expired";
             WALLET_CHECK(false);
             io::Reactor::get_Current().stop();
         }
@@ -152,7 +152,7 @@ int main()
                     totals_2.Unspent ==
                     totals_2_a.Unspent + channelSecond->get_amountMy() + nFeeSecond * 3);
 
-            LOG_INFO() << "Test laser open: finished";
+            LOG_INFO() << "Test laser OPEN: finished";
             io::Reactor::get_Current().stop();
         }
     };

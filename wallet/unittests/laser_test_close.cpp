@@ -32,7 +32,7 @@ using namespace beam::wallet;
 using namespace std;
 
 namespace {
-const Height kMaxTestHeight = 10;
+const Height kMaxTestHeight = 42;
 }  // namespace
 
 int main()
@@ -52,16 +52,16 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    auto wdbFirst = createSqliteWalletDB("laser_test_open_fail_first.db", false, false);
-    auto wdbSecond = createSqliteWalletDB("laser_test_open_fail_second.db", false, false);
+    auto wdbFirst = createSqliteWalletDB("laser_test_close_first.db", false, false);
+    auto wdbSecond = createSqliteWalletDB("laser_test_close_second.db", false, false);
 
     const AmountList amounts = {100000000, 100000000, 100000000, 100000000};
     for (auto amount : amounts)
     {
-        Coin coinFirst = CreateAvailCoin(amount, 120);
+        Coin coinFirst = CreateAvailCoin(amount, 1);
         wdbFirst->storeCoin(coinFirst);
 
-        Coin coinSecond = CreateAvailCoin(amount, 120);
+        Coin coinSecond = CreateAvailCoin(amount, 1);
         wdbSecond->storeCoin(coinSecond);
     }
 
@@ -72,19 +72,37 @@ int main()
 
     LaserObserver observer_1, observer_2;
     laser::ChannelIDPtr channel_1, channel_2;
-    bool laser1Fail = false, laser2Fail = false;
+    bool laser1Closed = false, laser2Closed = false;
 
-    observer_1.onOpened = observer_2.onOpened = [] (const laser::ChannelIDPtr& chID)
+    observer_1.onOpened = [&channel_1] (const laser::ChannelIDPtr& chID)
     {
+        LOG_INFO() << "Test laser CLOSE: first opened";
+        channel_1 = chID;
+    };
+    observer_2.onOpened = [&channel_2] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser CLOSE: second opened";
+        channel_2 = chID;
+    };
+    observer_1.onOpenFailed = observer_2.onOpenFailed = [] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser CLOSE: open failed";
         WALLET_CHECK(false);
     };
-    observer_1.onOpenFailed = [&laser1Fail] (const laser::ChannelIDPtr& chID)
+    observer_1.onClosed = [&laser1Closed] (const laser::ChannelIDPtr& chID)
     {
-        laser1Fail = true;
+        LOG_INFO() << "Test laser CLOSE: first closed";
+        laser1Closed = true;
     };
-    observer_2.onOpenFailed = [&laser2Fail] (const laser::ChannelIDPtr& chID)
+    observer_2.onClosed = [&laser2Closed] (const laser::ChannelIDPtr& chID)
     {
-        laser2Fail = true;
+        LOG_INFO() << "Test laser CLOSE: second closed";
+        laser2Closed = true;
+    };
+    observer_1.onCloseFailed = observer_2.onCloseFailed = [] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser CLOSE: close failed";
+        WALLET_CHECK(false);
     };
     laserFirst->AddObserver(&observer_1);
     laserSecond->AddObserver(&observer_2);
@@ -92,13 +110,15 @@ int main()
     auto newBlockFunc = [
         &laserFirst,
         &laserSecond,
-        &laser1Fail,
-        &laser2Fail
+        &channel_1,
+        &channel_2,
+        &laser1Closed,
+        &laser2Closed
     ] (Height height)
     {
         if (height > kMaxTestHeight)
         {
-            LOG_ERROR() << "Test laser OPEN FAIL: time expired";
+            LOG_ERROR() << "Test laser CLOSE: time expired";
             WALLET_CHECK(false);
             io::Reactor::get_Current().stop();
         }
@@ -110,11 +130,20 @@ int main()
             laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 10);
         }
 
-        if (laser1Fail && laser2Fail)
+        if (channel_1 && channel_2)
         {
-            LOG_INFO() << "Test laser OPEN FAIL: finished";
+            auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
+            WALLET_CHECK(laserFirst->GracefulClose(channel1Str));
+            channel_1.reset();
+            channel_2.reset();
+        }
+
+        if (laser1Closed && laser2Closed)
+        {
+            LOG_INFO() << "Test laser CLOSE: finished";
             io::Reactor::get_Current().stop();
         }
+
     };
 
     TestNode node(newBlockFunc, 2);
