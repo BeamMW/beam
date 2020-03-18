@@ -170,11 +170,11 @@ QString NotificationItem::title() const
                 return qtTrId("notification-transaction-failed");
             case TxType::AtomicSwap:
                 return isSwapTxExpired(p) ?
-                        //% "Atomic Swap offer failed"
-                        qtTrId("notification-swap-failed")
-                        :
                         //% "Atomic Swap offer expired"
-                        qtTrId("notification-swap-expired");
+                        qtTrId("notification-swap-expired")
+                        :
+                        //% "Atomic Swap offer failed"
+                        qtTrId("notification-swap-failed");
             default:
                 return "error";
             }
