@@ -32,6 +32,13 @@ func newService(cfg *Config, index int, port int, logname string) (svc *service,
 	svc.cancelCmd    = cancelWS
 	svc.context      = ctxWS
 	svc.command      = exec.CommandContext(ctxWS, cfg.ServiceExePath, "-n", cfg.BeamNodeAddress, "-p", strconv.Itoa(port))
+
+	var cliOptions = ""
+	for _, arg := range cfg.CliOptions {
+		svc.command.Args = append(svc.command.Args, arg)
+		cliOptions = cliOptions + " " + arg
+	}
+
 	svc.serviceExit  = make(chan struct{})
 	svc.serviceAlive = make(chan bool)
 	svc.Port         = port
@@ -77,7 +84,7 @@ func newService(cfg *Config, index int, port int, logname string) (svc *service,
 	}
 
 	// Start wallet service
-	log.Printf("%v %v, starting as [%v %v %v %v]", logname, index, cfg.ServiceExePath, "-n " + cfg.BeamNodeAddress, "-p", port)
+	log.Printf("%v %v, starting as [%v %v %v %v%v]", logname, index, cfg.ServiceExePath, "-n " + cfg.BeamNodeAddress, "-p", port, cliOptions)
 	if err = svc.command.Start(); err != nil {
 		return
 	}
