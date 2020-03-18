@@ -21,7 +21,9 @@ if (BEAM_ATOMIC_SWAP_SUPPORT)
 endif()
 
 if (BEAM_LASER_SUPPORT)
-    add_test_snippet(laser_test node laser)
+    # add_test_snippet(laser_test node laser)
+    add_test_snippet(laser_test_open node laser)
+    add_test_snippet(laser_test_open_fail node laser)
 endif()
 
 #add_executable(offline offline.cpp)

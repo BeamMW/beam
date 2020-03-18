@@ -16,14 +16,12 @@
     #define LOG_VERBOSE_ENABLED 0
 #endif
 
-#include <boost/filesystem.hpp>
 #include "utility/logger.h"
-#include "wallet/core/wallet_network.h"
-#include "wallet/core/simple_transaction.h"
 #include "wallet/laser/mediator.h"
 #include "node/node.h"
 #include "core/unittest/mini_blockchain.h"
 #include "utility/test_helpers.h"
+#include "laser_test_utils.h"
 #include "test_helpers.h"
 
 WALLET_TEST_INIT
@@ -39,60 +37,12 @@ const Height kMaxTestHeight = 360;
 const Amount kTransferFirst = 10000;
 const Amount kTransferSecond = 2000;
 
-struct LaserObserver : public laser::Mediator::Observer
-{
-    using Action = std::function<void(const laser::ChannelIDPtr& chID)>;
-    Action onOpened = [] (const laser::ChannelIDPtr& chID) {};
-    Action onOpenFailed = [] (const laser::ChannelIDPtr& chID) {};
-    Action onClosed = [] (const laser::ChannelIDPtr& chID) {};
-    Action onUpdateFinished = [] (const laser::ChannelIDPtr& chID) {};
-    Action onCloseFailed = [] (const laser::ChannelIDPtr& chID) {};
-    Action onTransferFailed = Action();
-    void OnOpened(const laser::ChannelIDPtr& chID) override
-    {
-        onOpened(chID);
-    }
-    void OnOpenFailed(const laser::ChannelIDPtr& chID) override
-    {
-        onOpenFailed(chID);
-    }
-    void OnClosed(const laser::ChannelIDPtr& chID) override
-    {
-        onClosed(chID);
-    }
-    void OnCloseFailed(const laser::ChannelIDPtr& chID) override
-    {
-        onCloseFailed(chID);
-    }
-    void OnUpdateFinished(const laser::ChannelIDPtr& chID) override
-    {
-        onUpdateFinished(chID);
-    }
-    void OnTransferFailed(const laser::ChannelIDPtr& chID) override
-    {
-        onTransferFailed(chID);
-    }
-} observer_1, observer_2;
-
-proto::FlyClient::NetworkStd::Ptr CreateNetwork(proto::FlyClient& fc)
-{
-    io::Address nodeAddress = io::Address::localhost().port(32125);
-    auto nnet = make_shared<proto::FlyClient::NetworkStd>(fc);
-    nnet->m_Cfg.m_PollPeriod_ms = 0;
-    nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
-    nnet->Connect();
-
-    return nnet;
-}
+LaserObserver observer_1, observer_2;
 
 void ResetObservers()
 {
-    observer_1.onOpened = observer_2.onOpened = [] (const laser::ChannelIDPtr& chID) {};
-    observer_1.onOpenFailed = observer_2.onOpenFailed = [] (const laser::ChannelIDPtr& chID) {};
-    observer_1.onClosed = observer_2.onClosed = [] (const laser::ChannelIDPtr& chID) {};
-    observer_1.onCloseFailed = observer_2.onCloseFailed = [] (const laser::ChannelIDPtr& chID) {};
-    observer_1.onUpdateFinished = observer_2.onUpdateFinished = [] (const laser::ChannelIDPtr& chID) {};
-    observer_1.onTransferFailed = observer_2.onTransferFailed = [] (const laser::ChannelIDPtr& chID) {};
+    observer_1 = {};
+    observer_2 = {};
 }
 
 }  // namespace
@@ -120,13 +70,11 @@ int main()
     const AmountList amounts = {100000000, 100000000, 100000000, 100000000};
     for (auto amount : amounts)
     {
-        Coin coin = CreateAvailCoin(amount, 3);
-        wdbFirst->storeCoin(coin);
-    }
-    for (auto amount : amounts)
-    {
-        Coin coin = CreateAvailCoin(amount, 7);
-        wdbSecond->storeCoin(coin);
+        Coin coinFirst = CreateAvailCoin(amount, 3);
+        wdbFirst->storeCoin(coinFirst);
+
+        Coin coinSecond = CreateAvailCoin(amount, 7);
+        wdbSecond->storeCoin(coinSecond);
     }
 
     Lightning::Channel::Params params = {80, 10, 10, 100};
@@ -235,7 +183,7 @@ int main()
                 {
                     resultsForCheck.test1.firstFailed = true;
                 };
-           observer_2.onOpenFailed =
+            observer_2.onOpenFailed =
                 [&resultsForCheck] (const laser::ChannelIDPtr& chID)
                 {
                     resultsForCheck.test1.secondFailed = true;

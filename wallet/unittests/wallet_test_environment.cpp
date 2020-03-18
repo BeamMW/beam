@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <tuple>
+#include <boost/filesystem.hpp>
+
 #include "http/http_client.h"
 #include "core/treasury.h"
 #include "keykeeper/local_private_key_keeper.h"
-#include <tuple>
+#include "wallet/core/simple_transaction.h"
 
 using namespace beam;
 using namespace beam::wallet;
