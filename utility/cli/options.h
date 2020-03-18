@@ -194,7 +194,8 @@ namespace beam
         extern const char* UPDATE_VERSION;
         extern const char* UPDATE_TYPE;
         extern const char* EXCHANGE_CURR;
-        extern const char* EXCHANGE_RATE;        
+        extern const char* EXCHANGE_RATE;
+        extern const char* EXCHANGE_UNIT;
 
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;

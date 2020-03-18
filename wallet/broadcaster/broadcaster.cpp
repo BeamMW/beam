@@ -66,15 +66,18 @@ bool parseUpdateInfo(const std::string& versionString, const std::string& typeSt
     return true;
 }
 
-bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate, std::vector<ExchangeRate>& result)
+bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate, const std::string& unitString, std::vector<ExchangeRate>& result)
 {
     auto currency = ExchangeRate::from_string(currencyString);
-    if (currency == ExchangeRate::Currency::Unknown || rate == 0)
+    auto unit = ExchangeRate::from_string(unitString);
+    if (rate == 0 ||
+        currency == ExchangeRate::Currency::Unknown ||
+        unit == ExchangeRate::Currency::Unknown)
     {
         return false;
     }
 
-    result = { {currency, ExchangeRate::Currency::Usd, rate, getTimestamp()} };
+    result = { {currency, unit, rate, getTimestamp()} };
     return true;
 }
 
@@ -89,10 +92,10 @@ ByteBuffer generateUpdateMessage(const std::string& versionString, const std::st
     return toByteBuffer(result);
 }
 
-ByteBuffer generateExchangeRates(const std::string& currencyString, const Amount& rate)
+ByteBuffer generateExchangeRates(const std::string& currencyString, const Amount& rate, const std::string& unitString)
 {
     std::vector<ExchangeRate> result;
-    bool res = parseExchangeRateInfo(currencyString, rate, result);
+    bool res = parseExchangeRateInfo(currencyString, rate, unitString, result);
     if (!res)
     {
         return ByteBuffer();
@@ -170,8 +173,7 @@ int main_impl(int argc, char* argv[])
             struct ExchangeRate {
                 std::string currency;
                 beam::Amount rate;
-                // test usd only
-                // std::string unitOfMeasurment;
+                std::string unit;
             } exchangeRate;
         } options;
 
@@ -196,6 +198,7 @@ int main_impl(int argc, char* argv[])
                 (cli::UPDATE_TYPE, po::value<std::string>(&options.walletUpdateInfo.walletType), "updated software: 'desktop', 'android', 'ios'")
                 (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum'")
                 (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")
+                (cli::EXCHANGE_UNIT, po::value<std::string>(&options.exchangeRate.unit)->default_value("usd"), "unit currency: 'btc', 'usd'")
             ;
             
             desc.add(messageDesc);
@@ -303,7 +306,7 @@ int main_impl(int argc, char* argv[])
         }
         else if (options.messageType == "exchange")
         {
-            rawMessage = generateExchangeRates(options.exchangeRate.currency, options.exchangeRate.rate);
+            rawMessage = generateExchangeRates(options.exchangeRate.currency, options.exchangeRate.rate, options.exchangeRate.unit);
             contentType = BroadcastContentType::ExchangeRates;
         }
         else

@@ -782,7 +782,7 @@ void SwapCoinSettingsItem::applyNodeAddressElectrum(const QString& address)
 const std::map<QString, QString> SettingsViewModel::m_displayedAmountUnits =
 {
     { beam::wallet::usdCurrencyStr.data(), "USD (United States Dollar)" },
-    // { beam::wallet::btcCurrencyStr.data(), "Bitcoin" }
+    { beam::wallet::btcCurrencyStr.data(), "Bitcoin" }
 };
 
 SettingsViewModel::SettingsViewModel()

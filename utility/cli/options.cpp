@@ -292,6 +292,7 @@ namespace beam
         const char* UPDATE_TYPE = "upd_type";
         const char* EXCHANGE_CURR = "exch_curr";
         const char* EXCHANGE_RATE = "exch_rate";
+        const char* EXCHANGE_UNIT = "exch_unit";
 
         // Defaults
         const Amount kMinimumFee = 100;

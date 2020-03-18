@@ -78,7 +78,7 @@ namespace
 
     const std::vector<QString> kSupportedAmountUnits {
         beam::wallet::usdCurrencyStr.data(),
-        // beam::wallet::btcCurrencyStr.data()
+        beam::wallet::btcCurrencyStr.data()
     };
 
     const vector<string> kOutDatedPeers = beam::getOutdatedDefaultPeers();
