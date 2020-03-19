@@ -31,10 +31,6 @@ using namespace beam;
 using namespace beam::wallet;
 using namespace std;
 
-namespace {
-const Height kMaxTestHeight = 360;
-}  // namespace
-
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -66,7 +62,7 @@ int main()
     }
 
     // m_hRevisionMaxLifeTime, m_hLockTime, m_hPostLockReserve, m_Fee
-    Lightning::Channel::Params params = {1440, 120, 120, 100};
+    Lightning::Channel::Params params = {kRevisionMaxLifeTime, kLockTime, kPostLockReserve, kFee};
     auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, params);
     auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, params);
 
@@ -123,11 +119,11 @@ int main()
             io::Reactor::get_Current().stop();
         }
 
-        if (height == 3)
+        if (height == kStartBlock)
         {
-            laserFirst->WaitIncoming(100000000, 100000000, 101);
+            laserFirst->WaitIncoming(100000000, 100000000, kFee);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 120);
+            laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, kOpenTxDh);
         }
 
         if (channel_1 && channel_2)

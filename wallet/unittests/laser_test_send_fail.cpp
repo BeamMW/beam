@@ -31,11 +31,6 @@ using namespace beam;
 using namespace beam::wallet;
 using namespace std;
 
-namespace {
-const Height kMaxTestHeight = 360;
-const Amount kFee = 100;
-}  // namespace
-
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -53,8 +48,8 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    auto wdbFirst = createSqliteWalletDB("laser_test_send_first.db", false, false);
-    auto wdbSecond = createSqliteWalletDB("laser_test_send_second.db", false, false);
+    auto wdbFirst = createSqliteWalletDB("laser_test_send_fail_first.db", false, false);
+    auto wdbSecond = createSqliteWalletDB("laser_test_send_fail_second.db", false, false);
 
     const AmountList amounts = {100000000, 100000000, 100000000, 100000000};
     for (auto amount : amounts)
@@ -67,7 +62,7 @@ int main()
     }
 
     // m_hRevisionMaxLifeTime, m_hLockTime, m_hPostLockReserve, m_Fee
-    Lightning::Channel::Params params = {1440, 120, 120, 100};
+    Lightning::Channel::Params params = {kRevisionMaxLifeTime, kLockTime, kPostLockReserve, kFee};
     auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, params);
     auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, params);
 
@@ -107,11 +102,11 @@ int main()
             io::Reactor::get_Current().stop();
         }
 
-        if (height == 5)
+        if (height == kStartBlock)
         {
             laserFirst->WaitIncoming(100000000, 100000000, kFee);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, 120);
+            laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, kOpenTxDh);
         }
 
         if (channel_1 && channel_2)

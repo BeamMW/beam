@@ -32,9 +32,7 @@ using namespace beam::wallet;
 using namespace std;
 
 namespace {
-const Height kMaxTestHeight = 360;
 const Amount kTransferFirst = 10000;
-const Amount kFee = 100;
 }  // namespace
 
 int main()
@@ -54,8 +52,8 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    auto wdbFirst = createSqliteWalletDB("laser_test_send_first.db", false, false);
-    auto wdbSecond = createSqliteWalletDB("laser_test_send_second.db", false, false);
+    auto wdbFirst = createSqliteWalletDB("laser_test_send_gc_first.db", false, false);
+    auto wdbSecond = createSqliteWalletDB("laser_test_send_gc_second.db", false, false);
 
     const AmountList amounts = {100000000, 100000000, 100000000, 100000000};
     for (auto amount : amounts)
@@ -68,7 +66,7 @@ int main()
     }
 
     // m_hRevisionMaxLifeTime, m_hLockTime, m_hPostLockReserve, m_Fee
-    Lightning::Channel::Params params = {1440, 120, 120, 100};
+    Lightning::Channel::Params params = {kRevisionMaxLifeTime, kLockTime, kPostLockReserve, kFee};
     auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, params);
     auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, params);
 
@@ -79,41 +77,45 @@ int main()
     bool closeProcessStarted = false;
     storage::Totals::AssetTotals totals_1, totals_1_a, totals_2, totals_2_a;
     int transfersCount = 0;
+    Height openedAt = 0;
 
-    observer_1.onOpened = [&channel_1] (const laser::ChannelIDPtr& chID)
+    observer_1.onOpened = [&channel_1, &laserFirst, &openedAt] (const laser::ChannelIDPtr& chID)
     {
-        LOG_INFO() << "Test laser SEND: first opened";
+        LOG_INFO() << "Test laser SEND GC: first opened";
         channel_1 = chID;
+        const auto& channelFirst = laserFirst->getChannel(channel_1);
+        openedAt = channelFirst->m_pOpen->m_hOpened;
+        LOG_INFO() << "Test laser SEND GC: openedAt: " << openedAt;
     };
     observer_2.onOpened = [&channel_2] (const laser::ChannelIDPtr& chID)
     {
-        LOG_INFO() << "Test laser SEND: second opened";
+        LOG_INFO() << "Test laser SEND GC: second opened";
         channel_2 = chID;
     };
     observer_1.onOpenFailed = observer_2.onOpenFailed = [] (const laser::ChannelIDPtr& chID)
     {
-        LOG_INFO() << "Test laser SEND: open failed";
+        LOG_INFO() << "Test laser SEND GC: open failed";
         WALLET_CHECK(false);
     };
     observer_1.onClosed = [&laser1Closed] (const laser::ChannelIDPtr& chID)
     {
-        LOG_INFO() << "Test laser SEND: first closed";
+        LOG_INFO() << "Test laser SEND GC: first closed";
         laser1Closed = true;
     };
     observer_2.onClosed = [&laser2Closed] (const laser::ChannelIDPtr& chID)
     {
-        LOG_INFO() << "Test laser SEND: second closed";
+        LOG_INFO() << "Test laser SEND GC: second closed";
         laser2Closed = true;
     };
     observer_1.onCloseFailed = observer_2.onCloseFailed = [] (const laser::ChannelIDPtr& chID)
     {
-        LOG_INFO() << "Test laser SEND: close failed";
+        LOG_INFO() << "Test laser SEND GC: close failed";
         WALLET_CHECK(false);
     };
     observer_1.onUpdateFinished =
     [&channel_1, &laserFirst, &transfersCount, &transferInProgress] (const laser::ChannelIDPtr& chID)
     {
-        LOG_INFO() << "Test laser SEND: first updated";
+        LOG_INFO() << "Test laser SEND GC: first updated";
         
         const auto& channelFirst = laserFirst->getChannel(channel_1);
         WALLET_CHECK(channelFirst->get_amountCurrentMy() == 
@@ -122,7 +124,7 @@ int main()
     };
     observer_2.onUpdateFinished = [&channel_2, &laserSecond, &transfersCount] (const laser::ChannelIDPtr& chID)
     {
-        LOG_INFO() << "Test laser SEND: second updated";
+        LOG_INFO() << "Test laser SEND GC: second updated";
 
         const auto& channelSecond = laserSecond->getChannel(channel_2);
         WALLET_CHECK(channelSecond->get_amountCurrentMy() ==
@@ -130,7 +132,7 @@ int main()
     };
     observer_1.onTransferFailed = observer_2.onTransferFailed = [&transferInProgress] (const laser::ChannelIDPtr& chID)
     {
-        LOG_INFO() << "Test laser SEND: transfer failed";
+        LOG_INFO() << "Test laser SEND GC: transfer failed";
         WALLET_CHECK(false);
         transferInProgress = false;
     };
@@ -153,17 +155,18 @@ int main()
         &transfersCount,
         &closeProcessStarted,
         &observer_1,
-        &observer_2
+        &observer_2,
+        &openedAt
     ] (Height height)
     {
         if (height > kMaxTestHeight)
         {
-            LOG_ERROR() << "Test laser SEND: time expired";
+            LOG_ERROR() << "Test laser SEND GC: time expired";
             WALLET_CHECK(false);
             io::Reactor::get_Current().stop();
         }
 
-        if (height == 5)
+        if (height == kStartBlock)
         {
             storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
             totals_1= totalsCalc_1.GetTotals(Zero);
@@ -173,20 +176,21 @@ int main()
 
             laserFirst->WaitIncoming(100000000, 100000000, kFee);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, 120);
+            laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, kOpenTxDh);
         }
 
-        if (channel_1 && channel_2 && height < 42 && !transferInProgress)
+        if (channel_1 && channel_2 && height < openedAt + 20 && !transferInProgress)
         {
             transferInProgress = true;
             auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);
-            LOG_INFO() << "Test laser SEND: first send to second";
+            LOG_INFO() << "Test laser SEND GC: first send to second";
             ++transfersCount;
             WALLET_CHECK(laserFirst->Transfer(kTransferFirst, channel2Str));
         }
 
-        if (channel_1 && channel_2 && height > 42 && !transferInProgress && !closeProcessStarted)
+        if (channel_1 && channel_2 && height > openedAt + 20 && !transferInProgress && !closeProcessStarted)
         {
+            LOG_INFO() << "Test laser SEND GC: closing";
             observer_1.onUpdateFinished = observer_2.onUpdateFinished = [] (const laser::ChannelIDPtr& chID) {};
             auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
             WALLET_CHECK(laserFirst->GracefulClose(channel1Str));
@@ -205,7 +209,7 @@ int main()
 
             WALLET_CHECK(totals_2_a.Unspent + kFee == totals_2.Unspent + kTransferFirst * transfersCount);
 
-            LOG_INFO() << "Test laser SEND: finished";
+            LOG_INFO() << "Test laser SEND GC: finished";
             io::Reactor::get_Current().stop();
         }
 

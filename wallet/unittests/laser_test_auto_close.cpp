@@ -68,17 +68,14 @@ int main()
     bool laser1Closed = false, laser2Closed = false;
 
     LaserObserver observer_1, observer_2;
-    laser::ChannelIDPtr channel_1, channel_2;
 
-    observer_1.onOpened = [&channel_1] (const laser::ChannelIDPtr& chID)
+    observer_1.onOpened = [] (const laser::ChannelIDPtr& chID)
     {
         LOG_INFO() << "Test laser AUTO CLOSE: first opened";
-        channel_1 = chID;
     };
-    observer_2.onOpened = [&channel_2] (const laser::ChannelIDPtr& chID)
+    observer_2.onOpened = [] (const laser::ChannelIDPtr& chID)
     {
         LOG_INFO() << "Test laser AUTO CLOSE: second opened";
-        channel_2 = chID;
     };
     observer_1.onOpenFailed = observer_2.onOpenFailed = [] (const laser::ChannelIDPtr& chID)
     {
@@ -103,17 +100,9 @@ int main()
     laserFirst->AddObserver(&observer_1);
     laserSecond->AddObserver(&observer_2);
 
-    storage::Totals::AssetTotals totals_1, totals_1_a, totals_2, totals_2_a;
-
     auto newBlockFunc = [
         &laserFirst,
         &laserSecond,
-        &totals_1,
-        &totals_1_a,
-        &totals_2,
-        &totals_2_a,
-        &channel_1,
-        &channel_2,
         &laser1Closed,
         &laser2Closed
     ] (Height height)
@@ -127,12 +116,6 @@ int main()
 
         if (height == kStartBlock)
         {
-            storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
-            totals_1= totalsCalc_1.GetTotals(Zero);
-
-            storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()));
-            totals_2= totalsCalc_2.GetTotals(Zero);
-
             laserFirst->WaitIncoming(100000000, 100000000, kFee);
             auto firstWalletID = laserFirst->getWaitingWalletID();
             laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, kOpenTxDh);
