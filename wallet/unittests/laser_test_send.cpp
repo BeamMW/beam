@@ -176,7 +176,7 @@ int main()
             laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, kOpenTxDh);
         }
 
-        if (channel_1 && channel_2 && height < openedAt + 20 && !transferInProgress)
+        if (channel_1 && channel_2 && height < openedAt + 40 && !transferInProgress)
         {
             transferInProgress = true;
             auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);
@@ -185,7 +185,7 @@ int main()
             WALLET_CHECK(laserFirst->Transfer(kTransferFirst, channel2Str));
         }
 
-        if (channel_1 && channel_2 && height > openedAt + 20 && !transferInProgress && !closeProcessStarted)
+        if (channel_1 && channel_2 && height > openedAt + 40 && !transferInProgress && !closeProcessStarted)
         {
             auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
             WALLET_CHECK(laserFirst->Close(channel1Str));

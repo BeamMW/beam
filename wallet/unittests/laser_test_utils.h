@@ -28,11 +28,11 @@ namespace
 }  // namespace
 
 const Height kMaxTestHeight = 360;
-const Height kRevisionMaxLifeTime = 60;
-const Height kLockTime = 10;
-const Height kPostLockReserve = 10;
+const Height kRevisionMaxLifeTime = 90;
+const Height kLockTime = 30;
+const Height kPostLockReserve = 30;
 const Amount kFee = 100;
-const Height kOpenTxDh = 50;
+const Height kOpenTxDh = 70;
 const Height kStartBlock = 5;
 
 struct LaserObserver : public laser::Mediator::Observer
