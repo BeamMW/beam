@@ -15,6 +15,10 @@
 #include "lightning.h"
 #include "lightning_codes.h"
 
+
+namespace {
+const beam::Height kPostLockReserveLag = 5;
+}  // namespace
 namespace beam {
 namespace Lightning {
 
@@ -451,7 +455,7 @@ void Channel::Update()
 	if (!m_State.m_Terminate)
 	{
 		const HeightRange* pHR = pPath->get_HR();
-		if (pHR && (hTip + m_Params.m_hPostLockReserve > pHR->m_Max))
+		if (pHR && ((hTip + m_Params.m_hPostLockReserve + (m_iRole ? kPostLockReserveLag : 0)) > pHR->m_Max))
 		{
 			m_State.m_Terminate = true;
 			m_pNegCtx.reset();
@@ -1031,6 +1035,7 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 		return false;
 	nChange -= (nMy + nMyFee * 3);
 
+	m_iRole = iRole;
 	NegotiationCtx_Open* p = new NegotiationCtx_Open;
 	m_pNegCtx.reset(p);
 	m_pNegCtx->m_eType = NegotiationCtx::Open;
