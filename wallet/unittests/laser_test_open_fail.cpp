@@ -32,7 +32,7 @@ using namespace beam::wallet;
 using namespace std;
 
 namespace {
-const Height kMaxTestHeight = 10;
+const Height kMaxTestHeight = 360;
 }  // namespace
 
 int main()
