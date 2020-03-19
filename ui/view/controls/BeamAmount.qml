@@ -31,9 +31,8 @@ Control {
     function getAmountInSecondCurrency() {
         let secondCurrencyAmount = BeamGlobals.calcAmountInSecondCurrency(
             control.amount,
-            control.secondCurrencyRateValue,
-            control.secondCurrencyLabel);
-        return control.prefix + Utils.uiStringToLocale(secondCurrencyAmount)
+            control.secondCurrencyRateValue);
+        return control.prefix + Utils.uiStringToLocale(secondCurrencyAmount) + " " + control.secondCurrencyLabel;
     }
 
     contentItem: RowLayout{
