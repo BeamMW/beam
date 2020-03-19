@@ -39,7 +39,8 @@ Control {
         spacing: control.spacing
 
         SvgImage {
-            Layout.topMargin:   3
+            Layout.alignment:   Qt.AlignTop
+            Layout.topMargin:   12
             source:             control.iconSource
             sourceSize:         control.iconSize
             visible:            !!control.iconSource
