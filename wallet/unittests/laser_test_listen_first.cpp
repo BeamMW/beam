@@ -75,7 +75,7 @@ int main()
     bool laser1Closed = false, laser2Closed = false;
     bool firstUpdated = false, secondUpdated = false;
     bool closeProcessStarted = false;
-    bool transferInProgress = false;
+    Height startListenAt = 0;
 
     observer_1.onOpened = [&channel_1] (const laser::ChannelIDPtr& chID)
     {
@@ -141,7 +141,7 @@ int main()
         &observer_1,
         &observer_2,
         &closeProcessStarted,
-        &transferInProgress
+        &startListenAt
     ] (Height height)
     {
         if (height > kMaxTestHeight)
@@ -158,24 +158,26 @@ int main()
             laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, kOpenTxDh);
         }
 
-        if (channel_1 && channel_2 && !firstUpdated && !secondUpdated && !transferInProgress)
+        if (channel_1 && channel_2 && !startListenAt)
         {
-            transferInProgress = true;
+            startListenAt = height;
             LOG_INFO() << "Test laser LISTEN 1: first serve";
             laserFirst.reset(new laser::Mediator(wdbFirst, params));
             laserFirst->AddObserver(&observer_1);
             laserFirst->SetNetwork(CreateNetwork(*laserFirst));
 
-            auto channel1Str = to_hex(channel_1->m_pData,
-                                      channel_1->nBytes);
+            auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
             WALLET_CHECK(laserFirst->Serve(channel1Str));
+        }
 
+        if (startListenAt && height == startListenAt + 10)
+        {
             auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);
             LOG_INFO() << "Test laser LISTEN 1: first send to second";
             WALLET_CHECK(laserFirst->Transfer(kTransferFirst, channel2Str));
         }
 
-        if (channel_1 && channel_2 && firstUpdated && secondUpdated && !closeProcessStarted)
+        if (firstUpdated && secondUpdated && !closeProcessStarted)
         {
             closeProcessStarted = true;
             observer_1.onUpdateFinished =
