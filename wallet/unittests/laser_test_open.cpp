@@ -66,7 +66,7 @@ int main()
     }
 
     // m_hRevisionMaxLifeTime, m_hLockTime, m_hPostLockReserve, m_Fee
-    Lightning::Channel::Params params = {80, 10, 10, 100};
+    Lightning::Channel::Params params = {80, 15, 15, 100};
     auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, params);
     auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, params);
 
@@ -124,7 +124,7 @@ int main()
 
             laserFirst->WaitIncoming(100000000, 100000000, 101);
             auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 10);
+            laserSecond->OpenChannel(100000000, 100000000, 101, firstWalletID, 15);
         }
 
         if (channel_1 && channel_2)
