@@ -31,16 +31,16 @@ Control {
     function getAmountInSecondCurrency() {
         let secondCurrencyAmount = BeamGlobals.calcAmountInSecondCurrency(
             control.amount,
-            control.secondCurrencyRateValue,
-            control.secondCurrencyLabel);
-        return control.prefix + Utils.uiStringToLocale(secondCurrencyAmount)
+            control.secondCurrencyRateValue);
+        return control.prefix + Utils.uiStringToLocale(secondCurrencyAmount) + " " + control.secondCurrencyLabel;
     }
 
     contentItem: RowLayout{
         spacing: control.spacing
 
         SvgImage {
-            Layout.topMargin:   3
+            Layout.alignment:   Qt.AlignTop
+            Layout.topMargin:   12
             source:             control.iconSource
             sourceSize:         control.iconSize
             visible:            !!control.iconSource

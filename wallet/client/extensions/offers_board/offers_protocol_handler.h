@@ -28,11 +28,8 @@ namespace beam::wallet
 
     public:
 
-        // TODO: with time possible to split to message creator with access to storage (KDF and walletDB)
-        // and message parser without access
-
-        // TODO rewrite methods to use broadcast router message serialization before fork.
-        // Methods must use compatible BroadcastMsg type instead of raw ByteBuffer.
+        // With time possible to split this class to MessageCreator with access to storage (KDF and walletDB)
+        // and MessageParser without access
 
         /**
          *  Create message with swap offer according to protocol.

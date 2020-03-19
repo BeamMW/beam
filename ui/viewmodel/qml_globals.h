@@ -41,7 +41,7 @@ public:
     static int  getMinFeeOrRate(Currency currency);
     Q_INVOKABLE static QString calcTotalFee(Currency currency, unsigned int feeRate);
     Q_INVOKABLE static QString calcFeeInSecondCurrency(int fee, Currency originalCurrency, const QString& exchangeRate, const QString& secondCurrencyLabel);
-    Q_INVOKABLE static QString calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate, const QString& secondCurrencyLabel);
+    Q_INVOKABLE static QString calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate);
 
     Q_INVOKABLE static unsigned int minFeeBeam();
     

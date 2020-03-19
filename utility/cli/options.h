@@ -132,6 +132,7 @@ namespace beam
         extern const char* NODE_POLL_PERIOD;
         extern const char* PROXY_USE;
         extern const char* PROXY_ADDRESS;
+        extern const char* ALLOWED_ORIGIN;
         // values
         extern const char* EXPIRATION_TIME_24H;
         extern const char* EXPIRATION_TIME_NEVER;
@@ -193,7 +194,8 @@ namespace beam
         extern const char* UPDATE_VERSION;
         extern const char* UPDATE_TYPE;
         extern const char* EXCHANGE_CURR;
-        extern const char* EXCHANGE_RATE;        
+        extern const char* EXCHANGE_RATE;
+        extern const char* EXCHANGE_UNIT;
 
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;

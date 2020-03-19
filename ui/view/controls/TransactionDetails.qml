@@ -65,16 +65,15 @@ RowLayout {
         if (root.amount !== "") {
             let amountInSecondCurrency = BeamGlobals.calcAmountInSecondCurrency(
                 root.amount,
-                root.secondCurrencyRate,
-                root.secondCurrencyLabel);
+                root.secondCurrencyRate);
             if (amountInSecondCurrency == "") {
-                //% "Exchange rate to %1 is not available"
-                amountInSecondCurrency = qsTrId("general-exchange-rate-not-available").arg(root.secondCurrencyLabel);
-                //% " (for the day of transaction)"
-                return amountInSecondCurrency + " " + qsTrId("tx-details-second-currency-notification");
+                        //% "Exchange rate to %1 is not available"
+                return  qsTrId("general-exchange-rate-not-available").arg(root.secondCurrencyLabel) + " " +
+                        //% " (for the day of transaction)"
+                        qsTrId("tx-details-second-currency-notification");
             }
             else {
-                return amountPrefix + amountInSecondCurrency + " " + qsTrId("tx-details-second-currency-notification");
+                return root.amountPrefix + amountInSecondCurrency + root.secondCurrencyLabel + " " + qsTrId("tx-details-second-currency-notification");
             }
         }
         else return "";

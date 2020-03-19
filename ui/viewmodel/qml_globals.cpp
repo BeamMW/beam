@@ -247,7 +247,7 @@ QString QMLGlobals::calcFeeInSecondCurrency(int fee, Currency originalCurrency, 
     }
 }
 
-QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate, const QString& secondCurrencyLabel)
+QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate)
 {
     if (exchangeRate.isEmpty() || exchangeRate == "0")
     {
@@ -255,7 +255,7 @@ QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QStr
     }
     else
     {
-        return multiplyWithPrecision<2>(amount, exchangeRate) + " " + secondCurrencyLabel;
+        return multiplyWithPrecision<2>(amount, exchangeRate);
     }
 }
 

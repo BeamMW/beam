@@ -17,12 +17,13 @@ ConfirmationDialog {
 
     property var    onAcceptedCallback: undefined
     property alias  addressText:        addressLabel.text
+    property bool   swapMode:           false
     property int    currency:           Currency.CurrBeam
     property string amount:             "0"
     property string fee:                "0"
     property string secondCurrencyRate:         "0"
     property string secondCurrencyLabel:        ""
-    property bool   swapMode:           false
+    readonly property bool      showSecondCurrency: secondCurrencyLabel != ""
     readonly property string    currencyLabel:  BeamGlobals.getCurrencyLabel(sendViewConfirm.currency)
     readonly property string    feeLabel:       !sendViewConfirm.swapMode
                                                 //% "Transaction fee"
@@ -82,8 +83,7 @@ ConfirmationDialog {
     function getAmountInSecondCurrency() {
         return BeamGlobals.calcAmountInSecondCurrency(
             sendViewConfirm.amount,
-            sendViewConfirm.secondCurrencyRate,
-            sendViewConfirm.secondCurrencyLabel)
+            sendViewConfirm.secondCurrencyRate) + " " + sendViewConfirm.secondCurrencyLabel;
     }
 
     onAccepted: {
@@ -181,6 +181,7 @@ ConfirmationDialog {
                     }
                     SFText {
                         id: secondCurrencyAmountLabel
+                        visible: sendViewConfirm.showSecondCurrency
                         font.pixelSize: 14
                         color: Style.content_disabled
                         text: getAmountInSecondCurrency()
@@ -216,6 +217,7 @@ ConfirmationDialog {
                     }
                     SFText {
                         id: secondCurrencyFeeLabel
+                        visible: sendViewConfirm.showSecondCurrency
                         font.pixelSize: 14
                         color: Style.content_disabled
                         text: getFeeInSecondCurrency(parseInt(sendViewConfirm.fee, 10))

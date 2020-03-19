@@ -89,17 +89,17 @@ namespace beamui
      */
     QString AmountToUIString(const Amount& value, Currencies coinType)
     {
-        // TODO: implementation without currency label
-        QString amount;
+        std::string amountString;
         switch (coinType)
         {
             case Currencies::Usd:
-            case Currencies::Beam:  // TODO implement convertation of beam::Amount to string using Rules::Coin
+            case Currencies::Beam:
+                amountString = libbitcoin::encode_base10(value, Rules::Coin/10);
             default:
-                std::string btc = libbitcoin::satoshi_to_btc(value);
-                amount = QString::fromStdString(btc);
+                amountString = libbitcoin::satoshi_to_btc(value);
         }
-        
+
+        QString amount = QString::fromStdString(amountString);
         QString coinLabel = getCurrencyLabel(coinType);
 
         if (coinLabel.isEmpty())

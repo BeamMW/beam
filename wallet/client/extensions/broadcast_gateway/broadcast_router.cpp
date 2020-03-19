@@ -75,9 +75,9 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork, wallet:
                  m_protocol_version_2,
                  m_maxMessageTypes,
                  *this,
-                 MsgHeader::SIZE+1)     // TODO: serializer is not used
+                 MsgHeader::SIZE+1)     // note: MsgSerializer is not used here
     , m_msgReader(m_protocol,
-                  0,                    // uint64_t streamId
+                  0,                    // uint64_t streamId is not used here
                   m_defaultMessageSize)
     , m_lastTimestamp(getTimestamp() - m_bbsTimeWindow)
 {

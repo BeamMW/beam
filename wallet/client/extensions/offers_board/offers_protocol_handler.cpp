@@ -23,6 +23,9 @@ namespace beam::wallet
           m_sbbsKdf(sbbsKdf)
     {}
 
+    // TODO: #1315 rewrite methods to use broadcast router message serialization before fork.
+    // Methods must use compatible BroadcastMsg type instead of raw ByteBuffer.
+
     boost::optional<ByteBuffer> OfferBoardProtocolHandler::createMessage(const SwapOffer& content, const WalletID& wid) const
     {
         auto waddr = m_walletDB->getAddress(wid);

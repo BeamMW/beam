@@ -56,9 +56,9 @@ namespace beam
         static constexpr uint8_t m_protocol_version_1 = 0;
         static constexpr uint8_t m_protocol_version_2 = 1;
         static constexpr size_t m_maxMessageTypes = 3;
-        static constexpr size_t m_defaultMessageSize = 200;         // TODO: experimentally check
-        static constexpr size_t m_minMessageSize = 1;               // TODO: experimentally check
-        static constexpr size_t m_maxMessageSize = 1024*1024*10;    // TODO: experimentally check
+        static constexpr size_t m_defaultMessageSize = 200;         // set experimentally
+        static constexpr size_t m_minMessageSize = 1;
+        static constexpr size_t m_maxMessageSize = 1024*1024*10;
         static constexpr uint32_t m_bbsTimeWindow = 12*60*60;       // BBS message lifetime is 12 hours
 
         static const std::vector<BbsChannel> m_incomingBbsChannels;
@@ -70,8 +70,6 @@ namespace beam
 
         proto::FlyClient::INetwork& m_bbsNetwork;
         wallet::IWalletMessageEndpoint& m_bbsMessageEndpoint;
-
-        // TODO: think about the creation of own MsgReader for each BBS channel
 
         Protocol m_protocol;
         MsgReader m_msgReader;

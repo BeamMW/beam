@@ -75,6 +75,16 @@ namespace
     {
         return *p.GetParameter<TxType>(TxParameterID::TransactionType);
     }
+
+    bool isSwapTxExpired(const TxParameters& p)
+    {
+        auto txStatus = p.GetParameter<wallet::TxStatus>(TxParameterID::Status);
+        auto failureReason = p.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+        return txStatus
+            && failureReason
+            && *txStatus == wallet::TxStatus::Failed
+            && *failureReason == TxFailureReason::TransactionExpired;
+    }
 }
 
 NotificationItem::NotificationItem(const Notification& notification)
@@ -159,8 +169,12 @@ QString NotificationItem::title() const
                 //% "Transaction failed"
                 return qtTrId("notification-transaction-failed");
             case TxType::AtomicSwap:
-                //% "Atomic Swap offer failed"
-                return qtTrId("notification-swap-failed");
+                return isSwapTxExpired(p) ?
+                        //% "Atomic Swap offer expired"
+                        qtTrId("notification-swap-expired")
+                        :
+                        //% "Atomic Swap offer failed"
+                        qtTrId("notification-swap-failed");
             default:
                 return "error";
             }
@@ -253,13 +267,23 @@ QString NotificationItem::message() const
             }
             case TxType::AtomicSwap:
             {
-                QString message = (isBeamSide(p) ?
-                    //% "Offer <b>%1 BEAM ➞ %2 %3</b> with transaction ID <b>%4</b> failed."
-                    qtTrId("notification-swap-beam-failed-message")
-                    :
-                    //% "Offer <b>%1 %3 ➞ %2 BEAM</b> with transaction ID <b>%4</b> failed."
-                    qtTrId("notification-swap-failed-message")
-                    );
+                QString message;
+                if (isSwapTxExpired(p))
+                {
+                    message = isBeamSide(p) ?
+                        //% "Offer <b>%1 BEAM ➞ %2 %3</b> with transaction ID <b>%4</b> expired."
+                        qtTrId("notification-swap-beam-expired-message") :
+                        //% "Offer <b>%1 %3 ➞ %2 BEAM</b> with transaction ID <b>%4</b> expired."
+                        qtTrId("notification-swap-expired-message");
+                }
+                else
+                {
+                    message = isBeamSide(p) ?
+                        //% "Offer <b>%1 BEAM ➞ %2 %3</b> with transaction ID <b>%4</b> failed."
+                        qtTrId("notification-swap-beam-failed-message") :
+                        //% "Offer <b>%1 %3 ➞ %2 BEAM</b> with transaction ID <b>%4</b> failed."
+                        qtTrId("notification-swap-failed-message");
+                }
 
                 return message.arg(getAmount(p))
                     .arg(getSwapAmount(p))
@@ -308,7 +332,7 @@ QString NotificationItem::type() const
             case TxType::Simple:
                 return (isSender(p) ? "failedToSend" : "failedToReceive");
             case TxType::AtomicSwap:
-                return "swapFailed";
+                return isSwapTxExpired(p) ? "swapExpired" : "swapFailed";
             default:
                 return "error";
             }

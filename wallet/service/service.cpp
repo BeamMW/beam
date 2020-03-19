@@ -175,7 +175,7 @@ namespace
     {
     public:
 
-        WalletApiServer(io::Reactor::Ptr reactor, uint16_t port)
+        WalletApiServer(io::Reactor::Ptr reactor, uint16_t port, const std::string& allowedOrigin)
             : WebSocketServer(reactor, port,
             [this, reactor] (auto&& func) {
                 return std::make_unique<ServiceApiConnection>(func, reactor, _walletMap);
@@ -185,7 +185,7 @@ namespace
                 Pipe syncPipe(Pipe::SyncFileDescriptor);
                 syncPipe.notifyListening();
 #endif
-            })
+            }, allowedOrigin)
 #ifndef _WIN32
             , _heartbeatPipe(Pipe::HeartbeatFileDescriptor)
 #endif            
@@ -783,6 +783,7 @@ int main(int argc, char* argv[])
             std::string nodeURI;
             Nonnegative<uint32_t> pollPeriod_ms;
             uint32_t logCleanupPeriod;
+            std::string allowedOrigin;
 
         } options;
 
@@ -792,6 +793,7 @@ int main(int argc, char* argv[])
                 (cli::HELP_FULL, "list of all options")
                 (cli::PORT_FULL, po::value(&options.port)->default_value(8080), "port to start server on")
                 (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
+                (cli::ALLOWED_ORIGIN, po::value<std::string>(&options.allowedOrigin)->default_value(""), "allowed origin")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             ;
@@ -845,10 +847,10 @@ int main(int argc, char* argv[])
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
-        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, 5);//options.logCleanupPeriod);
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
 
         LOG_INFO() << "Starting server on port " << options.port;
-        WalletApiServer server(reactor, options.port);
+        WalletApiServer server(reactor, options.port, options.allowedOrigin);
         reactor->run();
 
         LOG_INFO() << "Done";

@@ -39,8 +39,7 @@ ColumnLayout {
     function getAmountInSecondCurrency() {
         return BeamGlobals.calcAmountInSecondCurrency(
             control.amountIn,
-            control.secondCurrencyRateValue,
-            control.secondCurrencyLabel);
+            control.secondCurrencyRateValue) + " " + control.secondCurrencyLabel;
     }
 
     readonly property bool     isValidFee:     hasFee ? feeInput.isValid : true
@@ -66,7 +65,8 @@ ColumnLayout {
     property bool     showAddAll:   false
     property string   secondCurrencyRateValue:  "0"
     property string   secondCurrencyLabel:      ""
-    property var      setMaxAvailableAmount:    {} // callback function
+    property var      setMaxAvailableAmount:    {} // callback function to set amount from viewmodel
+    property bool     showSecondCurrency:       control.secondCurrencyLabel != "" && control.secondCurrencyLabel != control.currencyLabel
     readonly property bool  isExchangeRateAvailable:    control.secondCurrencyRateValue != "0"
 
     SFText {
@@ -205,7 +205,7 @@ ColumnLayout {
         }
         SFText {
             id:             amountSecondCurrencyText
-            visible:        secondCurrencyLabel != "" && !errmsg.visible && !showTotalFee    // show only on send side
+            visible:        control.showSecondCurrency && !errmsg.visible && !showTotalFee  // show only on send side
             font.pixelSize: 14
             opacity:        isExchangeRateAvailable ? 0.5 : 0.7
             color:          isExchangeRateAvailable ? Style.content_secondary : Style.accent_fail
@@ -238,7 +238,7 @@ ColumnLayout {
                 feeLabel:         BeamGlobals.getFeeRateLabel(control.currency)
                 color:            control.color
                 readOnly:         control.readOnlyF
-                showSecondCurrency:         true
+                showSecondCurrency:         control.showSecondCurrency
                 isExchangeRateAvailable:    control.isExchangeRateAvailable
                 secondCurrencyAmount:       getFeeInSecondCurrency(control.fee)
                 secondCurrencyLabel:        control.secondCurrencyLabel
@@ -269,13 +269,12 @@ ColumnLayout {
             }
             SFText {
                 id:               feeTotalInSecondCurrency
+                visible:          control.showSecondCurrency && control.isExchangeRateAvailable
                 Layout.topMargin: 6
                 font.pixelSize:   14
                 opacity:          0.5
-                color:            isExchangeRateAvailable ? Style.content_secondary : Style.accent_fail
-                text:             isExchangeRateAvailable
-                                  ? getFeeInSecondCurrency(parseInt(totalFeeLabel.text, 10))
-                                  : ""
+                color:            Style.content_secondary
+                text:             getFeeInSecondCurrency(parseInt(totalFeeLabel.text, 10))
             }
         }
     }

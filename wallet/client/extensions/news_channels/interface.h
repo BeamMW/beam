@@ -156,7 +156,11 @@ namespace beam::wallet
      */
     struct INewsObserver
     {
-        virtual void onNewWalletVersion(const VersionInfo&, const ECC::uintBig&) = 0;
+        /**
+         *  @content    content of notification (new release information)
+         *  @id         unique ID of notification (possibly HASH of content)
+         */
+        virtual void onNewWalletVersion(const VersionInfo& content, const ECC::uintBig& id) = 0;
         // virtual void onBeamNews() = 0;
     };
 

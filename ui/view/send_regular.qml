@@ -9,7 +9,7 @@ ColumnLayout {
     id: sendRegularView
 
     property var defaultFocusItem: receiverTAInput
-
+    spacing: 0
     // callbacks set by parent
     property var onAccepted: undefined
     property var onClosed: undefined
@@ -41,7 +41,7 @@ ColumnLayout {
     Row {
         Layout.alignment:    Qt.AlignHCenter
         Layout.topMargin:    75
-        Layout.bottomMargin: 40
+        //Layout.bottomMargin: 40
 
         SFText {
             font.pixelSize:  18
@@ -50,6 +50,12 @@ ColumnLayout {
             //% "Send"
             text:            qsTrId("send-title")
         }
+    }
+
+    Item {
+        Layout.fillHeight: true
+        Layout.maximumHeight: 40
+        Layout.minimumHeight: 20
     }
 
     RowLayout  {
@@ -159,6 +165,7 @@ ColumnLayout {
             Layout.alignment: Qt.AlignTop
             Layout.rightMargin: 35
             Layout.fillWidth: true
+            Layout.fillHeight: true
             Layout.preferredWidth: 100
 
             AmountInput {
@@ -188,8 +195,14 @@ ColumnLayout {
                 value:    sendAmountInput.fee
             }
 
+            Item {
+                Layout.fillHeight: true
+                Layout.maximumHeight: 50
+                Layout.minimumHeight: 25
+            }
+
             GridLayout {
-                Layout.topMargin:    50
+                //Layout.topMargin:    50
                 Layout.alignment:    Qt.AlignTop
                 Layout.minimumWidth: 400
                 columnSpacing:       20
@@ -290,10 +303,14 @@ ColumnLayout {
             }
         }
     }
-
+    Item {
+        Layout.fillHeight: true
+        Layout.maximumHeight: 40
+        Layout.minimumHeight: 20
+    }
     Row {
         Layout.alignment: Qt.AlignHCenter
-        Layout.topMargin: 40
+        //Layout.topMargin: 40
         spacing:          25
 
         CustomButton {
@@ -332,5 +349,6 @@ ColumnLayout {
 
     Item {
         Layout.fillHeight: true
+        Layout.minimumHeight: 20
     }
 }

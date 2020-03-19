@@ -215,7 +215,7 @@ json OfferToJson(const SwapOffer& offer,
                  const Height& systemHeight)
 {
     const auto& publisherId = offer.m_publisherId;
-    bool isOwnOffer = true;
+    bool isOwnOffer = false;
     bool isPublic = false;
     if (publisherId.cmp(Zero))
     {
@@ -224,10 +224,10 @@ json OfferToJson(const SwapOffer& offer,
     }
     else
     {
-        auto peerId = offer.GetParameter<WalletID>(TxParameterID::PeerID);
         auto myId = offer.GetParameter<WalletID>(TxParameterID::MyID);
-        if (peerId && !myId)
-            isOwnOffer = false;
+        // TODO roman.strilets should create new function for this code
+        if (myId && storage::isMyAddress(myAddresses, *myId) && !offer.GetParameter<bool>(TxParameterID::IsInitiator).get())
+            isOwnOffer = true;
     }
 
     bool isSendBeamOffer =

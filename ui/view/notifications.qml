@@ -337,6 +337,12 @@ ColumnLayout {
             action:     navigateToSwapTransaction,
             icon:       "qrc:/assets/icon-notifications-swap-failed.svg"
         },
+        swapExpired: {
+            label:      labels.detailsLabel,
+            actionIcon: icons.detailsIcon,
+            action:     navigateToSwapTransaction,
+            icon:       "qrc:/assets/icon-notifications-expired.svg"
+        },
         swapCompleted: {
             label:      labels.detailsLabel,
             actionIcon: icons.detailsIcon,
