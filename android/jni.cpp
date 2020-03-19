@@ -60,6 +60,19 @@ namespace
         LOG_INFO() << "Beam Mobile Wallet " << appVersion << " (" << BRANCH_NAME << ") library: " << PROJECT_VERSION;
         LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
     }
+
+    std::map<Notification::Type,bool> initNotifications(bool defaultValue)
+    {
+        return std::map<Notification::Type,bool> {
+            { Notification::Type::SoftwareUpdateAvailable,  defaultValue },
+            { Notification::Type::BeamNews,                 defaultValue },
+            { Notification::Type::TransactionStatusChanged, defaultValue },
+            { Notification::Type::TransactionCompleted,     defaultValue },
+            { Notification::Type::TransactionFailed,        defaultValue },
+            { Notification::Type::AddressStatusChanged,     defaultValue }
+        }
+    }
+
 }
 
 
@@ -140,13 +153,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        std::map<Notification::Type,bool> activeNotifications {
-            { Notification::Type::SoftwareUpdateAvailable, false },
-            { Notification::Type::BeamNews, false },
-            { Notification::Type::TransactionStatusChanged, false }
-        };
-
-        walletModel->start(activeNotifications);
+        walletModel->start(initNotifications(false));
 
         return walletObj;
     }
@@ -208,13 +215,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
                 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        std::map<Notification::Type,bool> activeNotifications {
-            { Notification::Type::SoftwareUpdateAvailable, false },
-            { Notification::Type::BeamNews, false },
-            { Notification::Type::TransactionStatusChanged, false }
-        };
-
-        walletModel->start(activeNotifications);
+        walletModel->start(initNotifications(false));
 
         return walletObj;
     }

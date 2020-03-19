@@ -113,6 +113,14 @@ namespace beam::wallet
         bool isOwn() const;
         Timestamp getCreateTime() const;
         Timestamp getExpirationTime() const;
+
+        SERIALIZE(  m_walletID,
+                    m_label,
+                    m_category,
+                    m_createTime,
+                    m_duration,
+                    m_OwnID,
+                    m_Identity);
         
         enum class ExpirationStatus
         {

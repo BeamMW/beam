@@ -282,7 +282,8 @@ ColumnLayout {
 
     property var icons: ({
         updateIcon: { source: 'qrc:/assets/icon-repeat-white.svg', height: 16},
-        detailsIcon: { source: 'qrc:/assets/icon-details.svg', height: 12}
+        detailsIcon: { source: 'qrc:/assets/icon-details.svg', height: 12},
+        activateIcon: { source: 'qrc:/assets/icon-activate.svg', height: 16}
     })
 
     property var labels: ({
@@ -303,8 +304,8 @@ ColumnLayout {
         },
         expired: {
             label:      labels.activateLabel,
-            actionIcon: icons.updateIcon,
-            action:     noAction,
+            actionIcon: icons.activateIcon,
+            action:     activateAddress,
             icon:       "qrc:/assets/icon-notifications-expired.svg"
         },
         received: {
@@ -355,6 +356,10 @@ ColumnLayout {
         Utils.navigateToDownloads();
     }
 
+    function activateAddress(id) {
+        viewModel.activateAddress(id);
+    }
+
     function navigateToTransaction(id) {
         var txID = viewModel.getItemTxID(id);
         if (txID.length > 0) {
@@ -367,10 +372,6 @@ ColumnLayout {
         if (txID.length > 0) {
             main.openSwapTransactionDetails(txID);
         }
-    }
-
-    function noAction(id) {
-        console.log("not implemented");
     }
 
     function getActionButtonLabel(notificationType) {

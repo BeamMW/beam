@@ -85,6 +85,18 @@ namespace
             && *txStatus == wallet::TxStatus::Failed
             && *failureReason == TxFailureReason::TransactionExpired;
     }
+
+    WalletAddress getWalletAddressRaw(const Notification& notification)
+    {
+        WalletAddress walletAddress;
+        fromByteBuffer(notification.m_content, walletAddress);
+        return walletAddress;
+    }
+
+    QString getAddress(const Notification& notification)
+    {
+        return beamui::toString(getWalletAddressRaw(notification).m_walletID);
+    }
 }
 
 NotificationItem::NotificationItem(const Notification& notification)
@@ -209,8 +221,11 @@ QString NotificationItem::message() const
             }
         }
         case Notification::Type::AddressStatusChanged:
-            //% "Address expired"
-            return qtTrId("notification-address-expired-message");
+        {
+            QString address = getAddress(m_notification);
+            //% "<b>%1</b> address expired."
+            return qtTrId("notification-address-expired-message").arg(address);
+        }
         case Notification::Type::TransactionCompleted:
         {
             auto p = getTxParameters(m_notification);
@@ -369,4 +384,9 @@ QString NotificationItem::getTxID() const
     catch(...)
     { }
     return "";
+}
+
+WalletAddress NotificationItem::getWalletAddress() const
+{
+    return getWalletAddressRaw(m_notification);
 }

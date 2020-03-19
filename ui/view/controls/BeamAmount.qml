@@ -29,10 +29,11 @@ Control {
     property string  prefix:          ""
 
     function getAmountInSecondCurrency() {
-        let secondCurrencyAmount = BeamGlobals.calcAmountInSecondCurrency(
-            control.amount,
-            control.secondCurrencyRateValue);
-        return control.prefix + Utils.uiStringToLocale(secondCurrencyAmount) + " " + control.secondCurrencyLabel;
+        let secondCurrencyAmount = Utils.uiStringToLocale(
+            BeamGlobals.calcAmountInSecondCurrency(
+                control.amount,
+                control.secondCurrencyRateValue));
+        return control.prefix + (secondCurrencyAmount == "" ? "-" : secondCurrencyAmount) + " " + control.secondCurrencyLabel;
     }
 
     contentItem: RowLayout{
@@ -40,7 +41,7 @@ Control {
 
         SvgImage {
             Layout.alignment:   Qt.AlignTop
-            Layout.topMargin:   12
+            Layout.topMargin:   12  
             source:             control.iconSource
             sourceSize:         control.iconSize
             visible:            !!control.iconSource

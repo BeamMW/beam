@@ -275,7 +275,8 @@ void AppModel::startWallet()
         { Notification::Type::BeamNews, m_settings.isBeamNewsActive() },
         { Notification::Type::TransactionStatusChanged, m_settings.isTxStatusActive() },
         { Notification::Type::TransactionCompleted, m_settings.isTxStatusActive() },
-        { Notification::Type::TransactionFailed, m_settings.isTxStatusActive() }
+        { Notification::Type::TransactionFailed, m_settings.isTxStatusActive() },
+        { Notification::Type::AddressStatusChanged, m_settings.isTxStatusActive() }
     };
 
     m_wallet->start(activeNotifications, additionalTxCreators);

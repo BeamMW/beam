@@ -2225,7 +2225,8 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-address-expired-message">
-        <source>Address expired</source>
+        <source>&lt;b&gt;%1&lt;/b&gt; address expired.</source>
+        <oldsource>Address expired</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-transaction-received-message">

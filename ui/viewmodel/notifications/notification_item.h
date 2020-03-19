@@ -39,6 +39,7 @@ public:
     ECC::uintBig getID() const;
 
     QString getTxID() const;
+    beam::wallet::WalletAddress getWalletAddress() const;
  
 signals:
 

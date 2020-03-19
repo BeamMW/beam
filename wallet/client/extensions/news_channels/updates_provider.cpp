@@ -37,9 +37,8 @@ namespace beam::wallet
                 VersionInfo updateInfo;
                 if (fromByteBuffer(res.m_content, updateInfo))
                 {
-                    beam::Blob content(res.m_content);
                     ECC::Hash::Value hash;   // use hash like unique ID
-                    ECC::Hash::Processor() << content >> hash;
+                    ECC::Hash::Processor() << Blob(res.m_content) >> hash;
                     notifySubscribers(updateInfo, hash);
                 }
             }

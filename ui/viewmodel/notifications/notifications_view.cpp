@@ -64,6 +64,19 @@ QString NotificationsViewModel::getItemTxID(const ECC::uintBig& id)
     return "";
 }
 
+/// Activate wallet address. @id - notification ID.
+void NotificationsViewModel::activateAddress(const ECC::uintBig& id)
+{
+    for (const auto& n : m_notificationsList)
+    {
+        if (n->getID() == id)
+        {
+            const auto walletAddress = n->getWalletAddress();
+            m_walletModel.getAsync()->activateAddress(walletAddress.m_walletID);
+        }
+    }
+}
+
 void NotificationsViewModel::onNotificationsDataModelChanged(ChangeAction action, const std::vector<Notification>& notifications)
 {
     std::vector<std::shared_ptr<NotificationItem>> modifiedNotifications;

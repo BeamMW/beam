@@ -216,6 +216,7 @@
         <file>assets/icon-qr.svg</file>
         <file>assets/icon-copy-blue.svg</file>
         <file>assets/icon-details.svg</file>
+        <file>assets/icon-activate.svg</file>
         <file>assets/beta-label.svg</file>
         <file>assets/icon-accept-offer.svg</file>
         <file>assets/icon-create-offer.svg</file>
@@ -225,7 +226,6 @@
         <file>qmldir</file>
         <file>assets/icon-notifications-swap-completed.svg</file>
         <file>assets/icon-notifications-swap-failed.svg</file>
-        <file>assets/icon-notifications-swap-expired.svg</file>
         <file>assets/icon-notifications-receiving-failed.svg</file>
         <file>assets/icon-notifications-sending-failed.svg</file>
     </qresource>

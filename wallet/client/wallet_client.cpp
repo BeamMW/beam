@@ -145,6 +145,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::updateAddress, id, name, status);
     }
 
+    void activateAddress(const wallet::WalletID& id) override
+    {
+        call_async(&IWalletModelAsync::activateAddress, id);
+    }
+
     void setNodeAddress(const std::string& addr) override
     {
         call_async(&IWalletModelAsync::setNodeAddress, addr);
@@ -820,6 +825,33 @@ namespace beam::wallet
                     addr->setExpiration(status);
                 }
                 addr->setLabel(name);
+                m_walletDB->saveAddress(*addr);
+            }
+            else
+            {
+                LOG_ERROR() << "Address " << to_string(id) << " is absent.";
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void WalletClient::activateAddress(const WalletID& id)
+    {
+        try
+        {
+            auto addr = m_walletDB->getAddress(id);
+            if (addr)
+            {
+                if (addr->isOwn())
+                {
+                    addr->setExpiration(WalletAddress::ExpirationStatus::OneDay);
+                }
                 m_walletDB->saveAddress(*addr);
             }
             else

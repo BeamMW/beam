@@ -205,9 +205,28 @@ namespace beam::wallet
 
     void NotificationCenter::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
     {
+        if (action != ChangeAction::Removed)
+        {
+            LOG_DEBUG() << "NotificationCenter::onAddressChanged()";
 
+            for (const auto& item : items)
+            {
+                if (!item.isExpired())
+                {
+                    continue;
+                }
+                ECC::Hash::Value hv;
+                ECC::Hash::Processor() << Blob(item.m_walletID.m_Pk) << item.m_duration >> hv;
+                Notification n;
+                n.m_ID = hv;
+                n.m_type = Notification::Type::AddressStatusChanged;
+                n.m_createTime = getTimestamp();
+                n.m_state = Notification::State::Unread;
+                n.m_content = toByteBuffer(item);
+                createNotification(n);
+            }
+        }
     }
-
 
     void NotificationCenter::Subscribe(INotificationsObserver* observer)
     {
