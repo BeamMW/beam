@@ -27,6 +27,14 @@ namespace
     const int kDefaultTestNodePort = 32125;
 }  // namespace
 
+const Height kMaxTestHeight = 360;
+const Height kRevisionMaxLifeTime = 120;
+const Height kLockTime = 30;
+const Height kPostLockReserve = 30;
+const Amount kFee = 100;
+const Height kOpenTxDh = 50;
+const Height kStartBlock = 5;
+
 struct LaserObserver : public laser::Mediator::Observer
 {
     using Action = std::function<void(const laser::ChannelIDPtr& chID)>;

@@ -48,8 +48,8 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    auto wdbFirst = createSqliteWalletDB("laser_test_open_first.db", false, false);
-    auto wdbSecond = createSqliteWalletDB("laser_test_open_second.db", false, false);
+    auto wdbFirst = createSqliteWalletDB("laser_test_auto_close_first.db", false, false);
+    auto wdbSecond = createSqliteWalletDB("laser_test_auto_close_second.db", false, false);
 
     const AmountList amounts = {100000000, 100000000, 100000000, 100000000};
     for (auto amount : amounts)
@@ -65,28 +65,41 @@ int main()
     Lightning::Channel::Params params = {kRevisionMaxLifeTime, kLockTime, kPostLockReserve, kFee};
     auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, params);
     auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, params);
+    bool laser1Closed = false, laser2Closed = false;
 
     LaserObserver observer_1, observer_2;
     laser::ChannelIDPtr channel_1, channel_2;
 
-    observer_1.onOpened =
-        [&channel_1] (const laser::ChannelIDPtr& chID)
-        {
-            LOG_INFO() << "Test laser OPEN: first opened";
-            channel_1 = chID;
-        };
-    observer_2.onOpened =
-        [&channel_2] (const laser::ChannelIDPtr& chID)
-        {
-            LOG_INFO() << "Test laser OPEN: second opened";
-            channel_2 = chID;
-        };
-    observer_1.onOpenFailed = observer_2.onOpenFailed =
-        [] (const laser::ChannelIDPtr& chID)
-        {
-            LOG_INFO() << "Test laser OPEN: open failed";
-            WALLET_CHECK(false);
-        };
+    observer_1.onOpened = [&channel_1] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser AUTO CLOSE: first opened";
+        channel_1 = chID;
+    };
+    observer_2.onOpened = [&channel_2] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser AUTO CLOSE: second opened";
+        channel_2 = chID;
+    };
+    observer_1.onOpenFailed = observer_2.onOpenFailed = [] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser AUTO CLOSE: open failed";
+        WALLET_CHECK(false);
+    };
+    observer_1.onClosed = [&laser1Closed] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser AUTO CLOSE: first closed";
+        laser1Closed = true;
+    };
+    observer_2.onClosed = [&laser2Closed] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser AUTO CLOSE: second closed";
+        laser2Closed = true;
+    };
+    observer_1.onCloseFailed = observer_2.onCloseFailed = [] (const laser::ChannelIDPtr& chID)
+    {
+        LOG_INFO() << "Test laser AUTO CLOSE: close failed";
+        WALLET_CHECK(false);
+    };
     laserFirst->AddObserver(&observer_1);
     laserSecond->AddObserver(&observer_2);
 
@@ -100,17 +113,19 @@ int main()
         &totals_2,
         &totals_2_a,
         &channel_1,
-        &channel_2
+        &channel_2,
+        &laser1Closed,
+        &laser2Closed
     ] (Height height)
     {
         if (height > kMaxTestHeight)
         {
-            LOG_ERROR() << "Test laser OPEN: time expired";
+            LOG_ERROR() << "Test laser AUTO CLOSE: time expired";
             WALLET_CHECK(false);
             io::Reactor::get_Current().stop();
         }
 
-        if (height == 5)
+        if (height == kStartBlock)
         {
             storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
             totals_1= totalsCalc_1.GetTotals(Zero);
@@ -123,37 +138,14 @@ int main()
             laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, kOpenTxDh);
         }
 
-        if (channel_1 && channel_2)
+        if (laser1Closed && laser2Closed)
         {
-            storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
-            totals_1_a = totalsCalc_1.GetTotals(Zero);
-            const auto& channelFirst = laserFirst->getChannel(channel_1);
-
-            auto feeFirst = channelFirst->get_fee();
-
-            storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()));
-            totals_2_a = totalsCalc_2.GetTotals(Zero);
-            const auto& channelSecond = laserSecond->getChannel(channel_2);
-
-            auto feeSecond = channelSecond->get_fee();
-
-            Amount nFeeSecond = feeSecond / 2;
-            Amount nFeeFirst = feeFirst - nFeeSecond;
-
-            WALLET_CHECK(
-                totals_1.Unspent ==
-                totals_1_a.Unspent + channelFirst->get_amountMy() + nFeeFirst * 3);
-
-            WALLET_CHECK(
-                totals_2.Unspent ==
-                totals_2_a.Unspent + channelSecond->get_amountMy() + nFeeSecond * 3);
-
-            LOG_INFO() << "Test laser OPEN: finished";
+            LOG_INFO() << "Test laser AUTO CLOSE: finished";
             io::Reactor::get_Current().stop();
         }
     };
 
-    TestNode node(newBlockFunc, 2);
+    TestNode node(newBlockFunc, 1);
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
     timer->start(1000, true, [&node]() {node.AddBlock(); });
 
