@@ -92,16 +92,7 @@ int main()
 
     storage::Totals::AssetTotals totals_1, totals_1_a, totals_2, totals_2_a;
 
-    auto newBlockFunc = [
-        &laserFirst,
-        &laserSecond,
-        &totals_1,
-        &totals_1_a,
-        &totals_2,
-        &totals_2_a,
-        &channel_1,
-        &channel_2
-    ] (Height height)
+    auto newBlockFunc = [&] (Height height)
     {
         if (height > kMaxTestHeight)
         {

@@ -140,24 +140,7 @@ int main()
     laserFirst->AddObserver(&observer_1);
     laserSecond->AddObserver(&observer_2);
 
-    auto newBlockFunc = [
-        &laserFirst,
-        &laserSecond,
-        &channel_1,
-        &channel_2,
-        &laser1Closed,
-        &laser2Closed,
-        &transferInProgress,
-        &totals_1,
-        &totals_1_a,
-        &totals_2,
-        &totals_2_a,
-        &transfersCount,
-        &closeProcessStarted,
-        &observer_1,
-        &observer_2,
-        &openedAt
-    ] (Height height)
+    auto newBlockFunc = [&] (Height height)
     {
         if (height > kMaxTestHeight)
         {
