@@ -104,7 +104,7 @@ signals:
     void localNodeSynchronizedChanged();
     void localeChanged();
     void beamMWLinksChanged();
-    void rateUnitChanged();
+    void secondCurrencyChanged();
 
 private:
     QSettings m_data;

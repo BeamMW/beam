@@ -288,9 +288,11 @@ namespace beam::wallet
         onPostFunctionToClientContext(move(func));
     }
 
-    void WalletClient::start(std::map<Notification::Type,bool> activeNotifications, std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
+    void WalletClient::start( std::map<Notification::Type,bool> activeNotifications,
+                              bool isSecondCurrencyEnabled,
+                              std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
-        m_thread = std::make_shared<std::thread>([this, txCreators, activeNotifications]()
+        m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, txCreators, activeNotifications]()
             {
                 try
                 {
@@ -376,7 +378,7 @@ namespace beam::wallet
 
                     // Other content providers using broadcast messages
                     auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
-                    auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB);
+                    auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB, isSecondCurrencyEnabled);
                     m_updatesProvider = updatesProvider;
                     m_exchangeRateProvider = exchangeRateProvider;
                     using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
@@ -983,7 +985,11 @@ namespace beam::wallet
 
     void WalletClient::switchOnOffExchangeRates(bool isActive)
     {
-        // m_exchangeRateProvider->
+        assert(!m_exchangeRateProvider.expired());
+        if (auto s = m_exchangeRateProvider.lock())
+        {
+            s->setOnOff(isActive);
+        }
     }
 
     void WalletClient::switchOnOffNotifications(Notification::Type type, bool isActive)

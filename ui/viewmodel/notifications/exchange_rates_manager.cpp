@@ -35,7 +35,7 @@ ExchangeRatesManager::ExchangeRatesManager()
             SLOT(onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>&)));
 
     connect(&m_settings,
-            SIGNAL(rateUnitChanged()),
+            SIGNAL(secondCurrencyChanged()),
             SLOT(onRateUnitChanged()));
 
     setRateUnit();

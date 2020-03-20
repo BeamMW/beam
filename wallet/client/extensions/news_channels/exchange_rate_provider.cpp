@@ -21,13 +21,32 @@ namespace beam::wallet
     ExchangeRateProvider::ExchangeRateProvider(
         IBroadcastMsgGateway& broadcastGateway,
         BroadcastMsgValidator& validator,
-        IWalletDB& storage)
-        : m_broadcastGateway(broadcastGateway),
+        IWalletDB& storage,
+        bool isEnabled)
+        : m_isEnabled(isEnabled),
+          m_broadcastGateway(broadcastGateway),
           m_validator(validator),
           m_storage(storage)
     {
-        loadRatesToCache();
-        m_broadcastGateway.registerListener(BroadcastContentType::ExchangeRates, this);
+        if (m_isEnabled) loadRatesToCache();
+        m_broadcastGateway.registerListener(BroadcastContentType::ExchangeRates, this); // can register only once because of Protocol class implementation
+    }
+
+    void ExchangeRateProvider::setOnOff(bool isEnabled)
+    {
+        if (m_isEnabled != isEnabled)
+        {
+            if (isEnabled)
+            {
+                loadRatesToCache();
+            }
+            else
+            {
+                m_cache.clear();
+            }
+
+            m_isEnabled = isEnabled;
+        }
     }
 
     void ExchangeRateProvider::loadRatesToCache()
@@ -52,38 +71,41 @@ namespace beam::wallet
 
     bool ExchangeRateProvider::onMessage(uint64_t unused, ByteBuffer&& input)
     {
-        try
+        if (m_isEnabled)
         {
-            BroadcastMsg res;
-            if (m_validator.processMessage(input, res))
+            try
             {
-                std::vector<ExchangeRate> receivedRates;
-                if (fromByteBuffer(res.m_content, receivedRates))
+                BroadcastMsg res;
+                if (m_validator.processMessage(input, res))
                 {
-                    std::vector<ExchangeRate> changedRates;
-                    for (const auto& receivedRate : receivedRates)
+                    std::vector<ExchangeRate> receivedRates;
+                    if (fromByteBuffer(res.m_content, receivedRates))
                     {
-                        const auto uniqID = std::make_pair(receivedRate.m_currency, receivedRate.m_unit);
-                        const auto storedRateIt = m_cache.find(uniqID);
-                        if (storedRateIt == std::cend(m_cache)
-                         || storedRateIt->second.m_updateTime < receivedRate.m_updateTime)
+                        std::vector<ExchangeRate> changedRates;
+                        for (const auto& receivedRate : receivedRates)
                         {
-                            m_cache[uniqID] = receivedRate;
-                            m_storage.saveExchangeRate(receivedRate);
-                            changedRates.emplace_back(receivedRate);
+                            const auto uniqID = std::make_pair(receivedRate.m_currency, receivedRate.m_unit);
+                            const auto storedRateIt = m_cache.find(uniqID);
+                            if (storedRateIt == std::cend(m_cache)
+                            || storedRateIt->second.m_updateTime < receivedRate.m_updateTime)
+                            {
+                                m_cache[uniqID] = receivedRate;
+                                m_storage.saveExchangeRate(receivedRate);
+                                changedRates.emplace_back(receivedRate);
+                            }
                         }
-                    }
-                    if (!changedRates.empty())
-                    {
-                        notifySubscribers(changedRates);
+                        if (!changedRates.empty())
+                        {
+                            notifySubscribers(changedRates);
+                        }
                     }
                 }
             }
-        }
-        catch(...)
-        {
-            LOG_WARNING() << "broadcast message processing exception";
-            return false;
+            catch(...)
+            {
+                LOG_WARNING() << "broadcast message processing exception";
+                return false;
+            }
         }
         return true;
     }

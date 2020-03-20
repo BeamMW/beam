@@ -387,7 +387,7 @@ void WalletSettings::setSecondCurrency(const QString& name)
     {
         Lock lock(m_mutex);
         m_data.setValue(kRateUnit, unitName);
-        emit rateUnitChanged();
+        emit secondCurrencyChanged();
     }
 }
 
