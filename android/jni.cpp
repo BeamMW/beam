@@ -61,16 +61,16 @@ namespace
         LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
     }
 
-    std::map<Notification::Type,bool> initNotifications(bool defaultValue)
+    std::map<Notification::Type,bool> initNotifications(bool initialValue)
     {
         return std::map<Notification::Type,bool> {
-            { Notification::Type::SoftwareUpdateAvailable,  defaultValue },
-            { Notification::Type::BeamNews,                 defaultValue },
-            { Notification::Type::TransactionStatusChanged, defaultValue },
-            { Notification::Type::TransactionCompleted,     defaultValue },
-            { Notification::Type::TransactionFailed,        defaultValue },
-            { Notification::Type::AddressStatusChanged,     defaultValue }
-        }
+            { Notification::Type::SoftwareUpdateAvailable,  initialValue },
+            { Notification::Type::BeamNews,                 initialValue },
+            { Notification::Type::TransactionStatusChanged, initialValue },
+            { Notification::Type::TransactionCompleted,     initialValue },
+            { Notification::Type::TransactionFailed,        initialValue },
+            { Notification::Type::AddressStatusChanged,     initialValue }
+        };
     }
 
 }
