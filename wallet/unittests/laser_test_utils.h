@@ -34,6 +34,7 @@ const Height kPostLockReserve = 30;
 const Amount kFee = 100;
 const Height kOpenTxDh = 70;
 const Height kStartBlock = 5;
+const unsigned kNewBlockInterval = 300;
 
 struct LaserObserver : public laser::Mediator::Observer
 {
