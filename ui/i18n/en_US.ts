@@ -2168,10 +2168,6 @@ deploy the key at the node you trust completely.</translation>
         <source>Asset is still locked</source>
         <translation>Asset is still locked</translation>
     </message>
-    <message id="settings-notifications-rates">
-        <source>Exchange rates</source>
-        <translation>Exchange rates</translation>
-    </message>
     <message id="settings-general-amounts-unit">
         <source>Show amounts in</source>
         <extracomment>settings tab, general section, amounts unit label</extracomment>

@@ -463,77 +463,75 @@ deploy the key at the node you trust completely."*/
                         }
 
                         RowLayout {
-                           Layout.preferredHeight: 16
+                            Layout.preferredHeight: 16
+                            
+                            ColumnLayout {
+                                SFText {
+                                    Layout.fillWidth: true
+                                    //: settings tab, general section, language label
+                                    //% "Language"
+                                    text: qsTrId("settings-general-language")
+                                    color: Style.content_secondary
+                                    font.pixelSize: 14
+                                }
+                            }
                         
-                           ColumnLayout {
-                               SFText {
-                                   Layout.fillWidth: true
-                                   //: settings tab, general section, language label
-                                   //% "Language"
-                                   text: qsTrId("settings-general-language")
-                                   color: Style.content_secondary
-                                   font.pixelSize: 14
-                               }
-                           }
-                        
-                           Item {
-                           }
-                        
-                           ColumnLayout {
-                               CustomComboBox {
-                                   id: language
-                                   Layout.preferredWidth: generalBlock.width * 0.33
-                                   fontPixelSize: 14
-                        
-                                   model: viewModel.supportedLanguages
-                                   currentIndex: viewModel.currentLanguageIndex
-                                   onActivated: {
-                                       viewModel.currentLanguage = currentText;
-                                   }
-                               }
-                           }
-                           visible: false  // Remove to enable language dropdown
+                            Item {
+                            }
+                            
+                            ColumnLayout {
+                                CustomComboBox {
+                                    id: language
+                                    Layout.preferredWidth: generalBlock.width * 0.33
+                                    fontPixelSize: 14
+                            
+                                    model: viewModel.supportedLanguages
+                                    currentIndex: viewModel.currentLanguageIndex
+                                    onActivated: {
+                                        viewModel.currentLanguage = currentText;
+                                    }
+                                }
+                            }
+                            visible: false  // Remove to enable language dropdown
                         }
                         
                         Item {
-                           Layout.preferredHeight: 15
-                           visible: false  // Remove to enable language dropdown
+                            Layout.preferredHeight: 15
+                            visible: false  // Remove to enable language dropdown
                         }
 
                         RowLayout {
-                           Layout.preferredHeight: 16
+                            Layout.preferredHeight: 16
                         
-                           ColumnLayout {
-                               SFText {
-                                   Layout.fillWidth: true
-                                   //: settings tab, general section, amounts unit label
-                                   //% "Show amounts in"
-                                   text: qsTrId("settings-general-amounts-unit")
-                                   color: Style.content_secondary
-                                   font.pixelSize: 14
-                               }
-                           }
+                            ColumnLayout {
+                                SFText {
+                                    Layout.fillWidth: true
+                                    //: settings tab, general section, amounts unit label
+                                    //% "Show amounts in"
+                                    text: qsTrId("settings-general-amounts-unit")
+                                    color: Style.content_secondary
+                                    font.pixelSize: 14
+                                }
+                            }
                         
-                           Item {
-                           }
+                            Item {
+                            }
                         
-                           ColumnLayout {
-                               CustomComboBox {
-                                   id: amountsUnit
-                                   Layout.preferredWidth: generalBlock.width * 0.33
-                                   fontPixelSize: 14
-                        
-                                   model: viewModel.supportedAmountUnits
-                                   currentIndex: viewModel.currentAmountUnitIndex
-                                   onActivated: {
-                                       viewModel.currentAmountUnit = currentText;
-                                   }
-                               }
-                           }
+                            ColumnLayout {
+                                CustomTripleSwitch {
+                                    id: tripleSwitch
+                                    width: 210 // generalBlock.width * 0.33
+                                    height: 20
+                                    state: viewModel.secondCurrency
+                                    onStateChanged: { 
+                                        viewModel.secondCurrency = tripleSwitch.state;
+                                    }
+                                }
+                            }
                         }
                         
                         Item {
-                           Layout.preferredHeight: 10
+                            Layout.preferredHeight: 10
                         }
 
                         SFText {
@@ -679,19 +677,6 @@ deploy the key at the node you trust completely."*/
                             color: Style.content_main
                             font.pixelSize: 18
                             font.styleName: "Bold"; font.weight: Font.Bold
-                        }
-                        CustomSwitch {
-                            id: exchangeRatesNotificationsSwitch
-                            //% "Exchange rates"
-                            text: qsTrId("settings-notifications-rates")
-                            font.pixelSize: 14
-                            Layout.fillWidth: true
-                            checked: viewModel.notificationsSettings.isExcRatesActive
-                            Binding {
-                                target: viewModel.notificationsSettings
-                                property: "isExcRatesActive"
-                                value: exchangeRatesNotificationsSwitch.checked
-                            }
                         }
                         CustomSwitch {
                             id: walletVersionNotificationsSwitch

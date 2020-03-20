@@ -32,6 +32,8 @@ namespace beam::wallet
     constexpr std::string_view usdCurrencyStr = "usd";
     constexpr std::string_view unknownCurrencyStr = "unknown";
 
+    constexpr std::string_view noSecondCurrencyStr = "off";
+
     struct VersionInfo
     {
         enum class Application : uint32_t

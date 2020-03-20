@@ -2162,10 +2162,6 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
         <source>Asset is still locked</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="settings-notifications-rates">
-        <source>Exchange rates</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="settings-general-amounts-unit">
         <source>Show amounts in</source>
         <extracomment>settings tab, general section, amounts unit label</extracomment>

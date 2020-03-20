@@ -58,6 +58,7 @@
         <file>controls/OpenExternalLinkConfirmation.qml</file>
         <file>controls/NotificationPopup.qml</file>
         <file>controls/SeedInput.qml</file>
+        <file>controls/CustomTripleSwitch.qml</file>
         <file>popup_message.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>

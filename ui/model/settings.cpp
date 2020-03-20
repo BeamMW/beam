@@ -50,7 +50,6 @@ namespace
     const char* kDefaultLocale = "en_US";
     const char* kDefaultAmountUnit = beam::wallet::usdCurrencyStr.data();
 
-    const char* kExcRatesActive = "notifications/exchange_rates";
     const char* kNewVersionActive = "notifications/software_release";
     const char* kBeamNewsActive = "notifications/beam_news";
     const char* kTxStatusActive = "notifications/tx_status";
@@ -77,6 +76,7 @@ namespace
     };
 
     const std::vector<QString> kSupportedAmountUnits {
+        beam::wallet::noSecondCurrencyStr.data(),
         beam::wallet::usdCurrencyStr.data(),
         beam::wallet::btcCurrencyStr.data()
     };
@@ -356,7 +356,7 @@ void WalletSettings::setLocaleByLanguageName(const QString& language)
     emit localeChanged();
 }
 
-QString WalletSettings::getRateUnit() const
+QString WalletSettings::getSecondCurrency() const
 {
     Lock lock(m_mutex);
     QString savedAmountUnit = m_data.value(kRateUnit, kDefaultAmountUnit).toString();
@@ -374,7 +374,7 @@ QString WalletSettings::getRateUnit() const
     }
 }
 
-void WalletSettings::setRateUnit(const QString& name)
+void WalletSettings::setSecondCurrency(const QString& name)
 {
     const auto& it = std::find(
             kSupportedAmountUnits.begin(),
@@ -395,12 +395,6 @@ bool WalletSettings::isNewVersionActive() const
 {
     Lock lock(m_mutex);
     return m_data.value(kNewVersionActive, true).toBool();
-}
-
-bool WalletSettings::isExcRatesActive() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(kExcRatesActive, true).toBool();
 }
 
 bool WalletSettings::isBeamNewsActive() const
@@ -428,20 +422,6 @@ void WalletSettings::setNewVersionActive(bool isActive)
         }
         Lock lock(m_mutex);
         m_data.setValue(kNewVersionActive, isActive);
-    }
-}
-
-void WalletSettings::setExcRatesActive(bool isActive)
-{
-    if (isActive != isExcRatesActive())
-    {
-        auto walletModel = AppModel::getInstance().getWallet();
-        if (walletModel)
-        {
-            walletModel->getAsync()->switchOnOffExchangeRates(isActive);
-        }
-        Lock lock(m_mutex);
-        m_data.setValue(kExcRatesActive, isActive);
     }
 }
 

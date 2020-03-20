@@ -43,16 +43,17 @@ ExchangeRatesManager::ExchangeRatesManager()
 
 void ExchangeRatesManager::setRateUnit()
 {
-    m_rateUnit = ExchangeRate::from_string(m_settings.getRateUnit().toStdString());
-    if (m_rateUnit == ExchangeRate::Currency::Unknown)
+    m_rateUnit = ExchangeRate::from_string(m_settings.getSecondCurrency().toStdString());
+    if (m_rateUnit != ExchangeRate::Currency::Unknown)
     {
-        m_rateUnit = ExchangeRate::Currency::Usd;   // set USD as default
+        m_walletModel.getAsync()->getExchangeRates();
     }
-    m_walletModel.getAsync()->getExchangeRates();
 }
 
 void ExchangeRatesManager::onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates)
 {
+    if (m_rateUnit == ExchangeRate::Currency::Unknown) return;  /// Second currency is turned OFF
+
     bool isActiveRateChanged = false;
 
     for (const auto& rate : rates)
