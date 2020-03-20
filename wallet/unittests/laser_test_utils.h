@@ -22,19 +22,15 @@
 
 using namespace beam::wallet;
 
-namespace
-{
-    const int kDefaultTestNodePort = 32125;
-}  // namespace
-
+const uint16_t kDefaultTestNodePort = 32125;
 const Height kMaxTestHeight = 360;
-const Height kRevisionMaxLifeTime = 90;
-const Height kLockTime = 30;
+const Height kRevisionMaxLifeTime = 71;
+const Height kLockTime = 5;
 const Height kPostLockReserve = 30;
 const Amount kFee = 100;
 const Height kOpenTxDh = 70;
-const Height kStartBlock = 5;
-const unsigned kNewBlockInterval = 300;
+const Height kStartBlock = 35;
+const unsigned kNewBlockInterval = 1000;
 
 struct LaserObserver : public laser::Mediator::Observer
 {
@@ -71,9 +67,9 @@ struct LaserObserver : public laser::Mediator::Observer
     }
 };
 
-proto::FlyClient::NetworkStd::Ptr CreateNetwork(proto::FlyClient& fc)
+proto::FlyClient::NetworkStd::Ptr CreateNetwork(proto::FlyClient& fc, uint16_t port = kDefaultTestNodePort)
 {
-    io::Address nodeAddress = io::Address::localhost().port(kDefaultTestNodePort);
+    io::Address nodeAddress = io::Address::localhost().port(port);
     auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(fc);
     nnet->m_Cfg.m_PollPeriod_ms = 0;
     nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
