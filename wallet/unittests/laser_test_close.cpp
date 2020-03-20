@@ -69,6 +69,7 @@ int main()
     LaserObserver observer_1, observer_2;
     laser::ChannelIDPtr channel_1, channel_2;
     bool laser1Closed = false, laser2Closed = false;
+    bool closeProcessStarted = false;
 
     observer_1.onOpened = [&channel_1] (const laser::ChannelIDPtr& chID)
     {
@@ -109,7 +110,8 @@ int main()
         &channel_1,
         &channel_2,
         &laser1Closed,
-        &laser2Closed
+        &laser2Closed,
+        &closeProcessStarted
     ] (Height height)
     {
         if (height > kMaxTestHeight)
@@ -126,12 +128,11 @@ int main()
             laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, kOpenTxDh);
         }
 
-        if (channel_1 && channel_2)
+        if (channel_1 && channel_2 && !closeProcessStarted)
         {
+            closeProcessStarted = true;
             auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
             WALLET_CHECK(laserFirst->GracefulClose(channel1Str));
-            channel_1.reset();
-            channel_2.reset();
         }
 
         if (laser1Closed && laser2Closed)
@@ -142,12 +143,12 @@ int main()
 
     };
 
-    TestNode node(newBlockFunc, 2);
-    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(1000, true, [&node]() {node.AddBlock(); });
-
     laserFirst->SetNetwork(CreateNetwork(*laserFirst));
     laserSecond->SetNetwork(CreateNetwork(*laserSecond));
+
+    TestNode node(newBlockFunc, 1);
+    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+    timer->start(kNewBlockInterval, true, [&node]() {node.AddBlock(); });
 
     mainReactor->run();
 
