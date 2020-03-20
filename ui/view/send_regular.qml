@@ -125,6 +125,26 @@ ColumnLayout {
                 font.pixelSize:   14
                 font.styleName:   "Bold"; font.weight: Font.Bold
                 color:            Style.content_main
+                text:             qsTrId(qsTrId("general-address"))
+                topPadding:       5
+                visible:          viewModel.isToken
+            }
+
+            SFTextArea {
+                id:               addressInput
+                Layout.fillWidth: true
+                font.pixelSize:   14
+                color:            Style.content_main
+                //enabled:          false
+                text:             viewModel.receiverAddress
+                visible:          viewModel.isToken
+            }
+
+            SFText {
+                Layout.topMargin: 25
+                font.pixelSize:   14
+                font.styleName:   "Bold"; font.weight: Font.Bold
+                color:            Style.content_main
                 //% "Comment"
                 text:             qsTrId("general-comment")
                 topPadding:    5

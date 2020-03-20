@@ -122,14 +122,7 @@ bool SendViewModel::getRreceiverTAValid() const
 
 QString SendViewModel::getReceiverAddress() const
 {
-    if (QMLGlobals::isTransactionToken(_receiverTA))
-    {
-        // TODO:SWAP return extracted address if we have token.
-        // Now we return token, just for tests
-        return _receiverTA;
-    }
-
-    return _receiverTA;
+    return _receiverAddress;
 }
 
 beam::Amount SendViewModel::calcTotalAmount() const
@@ -184,6 +177,11 @@ bool SendViewModel::canSend() const
            && QMLGlobals::isFeeOK(_feeGrothes, Currency::CurrBeam);
 }
 
+bool SendViewModel::isToken() const
+{
+    return _isToken;
+}
+
 void SendViewModel::setMaxAvailableAmount()
 {
     setSendAmount(getMaxAvailable());
@@ -198,10 +196,15 @@ void SendViewModel::sendMoney()
         auto messageString = _comment.toStdString();
 
         auto p = beam::wallet::CreateSimpleTransactionParameters()
-            .SetParameter(beam::wallet::TxParameterID::PeerID,  *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID))
-            .SetParameter(beam::wallet::TxParameterID::Amount,  _sendAmountGrothes)
-            .SetParameter(beam::wallet::TxParameterID::Fee,     _feeGrothes)
+            .SetParameter(beam::wallet::TxParameterID::PeerID, *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID))
+            .SetParameter(beam::wallet::TxParameterID::Amount, _sendAmountGrothes)
+            .SetParameter(beam::wallet::TxParameterID::Fee, _feeGrothes)
             .SetParameter(beam::wallet::TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
+
+        if (isToken())
+        {
+            p.SetParameter(beam::wallet::TxParameterID::OriginalToken, _receiverTA.toStdString());
+        }
 
         auto identity = _txParameters.GetParameter<beam::PeerID>(beam::wallet::TxParameterID::PeerSecureWalletID);
         if (identity)
@@ -222,6 +225,14 @@ void SendViewModel::extractParameters()
     }
 
     _txParameters = *txParameters;
+
+    if (auto peerID = _txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID); peerID)
+    {
+        _receiverAddress = QString::fromStdString(std::to_string(*peerID));
+        _isToken = _receiverTA != _receiverAddress;
+        emit receiverAddressChanged();
+    }
+
     if (auto amount = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Amount); amount && *amount > 0)
     {
         setSendAmount(beamui::AmountToUIString(*amount));

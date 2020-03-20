@@ -378,6 +378,17 @@ QString TxObject::getStateDetails() const
     return "";
 }
 
+QString TxObject::getToken() const
+{
+    const auto& tx = getTxDescription();
+    auto token = tx.GetParameter<std::string>(TxParameterID::OriginalToken);
+    if (token)
+    {
+        return QString::fromStdString(*token);
+    }
+    return QString();
+}
+
 bool TxObject::hasPaymentProof() const
 {
     return !isIncome() && m_tx.m_status == wallet::TxStatus::Completed;

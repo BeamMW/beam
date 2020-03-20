@@ -48,6 +48,7 @@ public:
     virtual auto getStatus() const -> QString;
     virtual auto getFailureReason() const -> QString;
     virtual QString getStateDetails() const;
+    QString getToken() const;
 
     bool isIncome() const;
     bool isSelfTx() const;

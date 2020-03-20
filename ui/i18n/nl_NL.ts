@@ -2303,5 +2303,9 @@ deploy the key at the node you trust completely.</oldsource>
         <source>Offer &lt;b&gt;%1 %3 ➞ %2 BEAM&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; expired.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="general-token">
+        <source>Token</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

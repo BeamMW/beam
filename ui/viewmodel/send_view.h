@@ -28,13 +28,14 @@ class SendViewModel: public QObject
     Q_PROPERTY(QString  receiverTA         READ getReceiverTA         WRITE setReceiverTA       NOTIFY receiverTAChanged)
     Q_PROPERTY(bool     receiverTAValid    READ getRreceiverTAValid                             NOTIFY receiverTAChanged)
 
-    Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                              NOTIFY receiverTAChanged)
+    Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                              NOTIFY receiverAddressChanged)
     Q_PROPERTY(QString  available          READ getAvailable                                    NOTIFY availableChanged)
     Q_PROPERTY(QString  change             READ getChange                                       NOTIFY availableChanged)
     Q_PROPERTY(QString  totalUTXO          READ getTotalUTXO                                    NOTIFY availableChanged)
     Q_PROPERTY(QString  missing            READ getMissing                                      NOTIFY availableChanged)
     Q_PROPERTY(bool     isEnough           READ isEnough                                        NOTIFY isEnoughChanged)
     Q_PROPERTY(bool     canSend            READ canSend                                         NOTIFY canSendChanged)
+    Q_PROPERTY(bool     isToken            READ isToken                                         NOTIFY receiverAddressChanged)
 
     Q_PROPERTY(QString  secondCurrencyLabel         READ getSecondCurrencyLabel                 NOTIFY secondCurrencyLabelChanged)
     Q_PROPERTY(QString  secondCurrencyRateValue     READ getSecondCurrencyRateValue             NOTIFY secondCurrencyRateChanged)
@@ -64,6 +65,7 @@ public:
 
     bool isEnough() const;
     bool canSend() const;
+    bool isToken() const;
 
     QString getSecondCurrencyLabel() const;
     QString getSecondCurrencyRateValue() const;
@@ -84,6 +86,7 @@ signals:
     void isEnoughChanged();
     void secondCurrencyLabelChanged();
     void secondCurrencyRateChanged();
+    void receiverAddressChanged();
 
 public slots:
     void onChangeCalculated(beam::Amount change);
@@ -98,6 +101,8 @@ private:
 
     QString _comment;
     QString _receiverTA;
+    QString _receiverAddress;
+    bool _isToken = false;
 
     WalletModel& _walletModel;
     ExchangeRatesManager _exchangeRatesManager;

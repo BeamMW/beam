@@ -292,6 +292,7 @@ namespace beam::wallet
         AssetMetadata = 117,
 
         ExchangeRates = 120,
+        OriginalToken = 121,
 
         // private parameters
         PrivateFirstParam = 128,

@@ -20,6 +20,7 @@ RowLayout {
     property var isSelfTx
     property var rawTxID
     property var stateDetails
+    property string token
     property string amount
     property string secondCurrencyRate
     property string secondCurrencyLabel
@@ -83,6 +84,7 @@ RowLayout {
         Layout.fillWidth: true
         Layout.preferredWidth: 4
         Layout.leftMargin: 30
+        Layout.rightMargin: 30
         Layout.topMargin: 30
         Layout.bottomMargin: 30
         columnSpacing: 44
@@ -259,6 +261,29 @@ RowLayout {
             elide: Text.ElideMiddle
             onCopyText: textCopied(root.kernelID)
             visible: isTextFieldVisible(root.kernelID)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Token"
+            text: qsTrId("general-token") + ":"
+            visible: tokenValueField.visible
+        }
+
+        SFLabel {
+            Layout.fillWidth: true
+            id: tokenValueField
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            wrapMode: Text.Wrap
+            text: getHighlitedText(root.token)
+            font.styleName: "Italic"
+            elide: Text.ElideMiddle
+            onCopyText: textCopied(root.token)
+            visible: root.token.length > 0 && isTextFieldVisible(root.token)
         }
         
         function canOpenInBlockchainExplorer(status) {
