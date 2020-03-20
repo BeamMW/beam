@@ -209,9 +209,9 @@ bool Mediator::Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob)
     return true;
 }
 
-void Mediator::SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net)
+void Mediator::SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net, bool mineOutgoing)
 {
-    m_pConnection = std::make_shared<Connection>(net);
+    m_pConnection = std::make_shared<Connection>(net, mineOutgoing);
 }
 
 void Mediator::ListenClosedChannelsWithPossibleRollback()

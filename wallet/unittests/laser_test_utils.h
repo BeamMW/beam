@@ -29,7 +29,7 @@ const Height kLockTime = 5;
 const Height kPostLockReserve = 30;
 const Amount kFee = 100;
 const Height kOpenTxDh = 70;
-const Height kStartBlock = 35;
+const Height kStartBlock = 3;
 const unsigned kNewBlockInterval = 1000;
 
 struct LaserObserver : public laser::Mediator::Observer
@@ -77,3 +77,9 @@ proto::FlyClient::NetworkStd::Ptr CreateNetwork(proto::FlyClient& fc, uint16_t p
 
     return nnet;
 };
+
+void ConfigureNetwork(laser::Mediator& laserFirst, laser::Mediator& laserSecond)
+{
+    laserFirst.SetNetwork(CreateNetwork(laserFirst), false);
+    laserSecond.SetNetwork(CreateNetwork(laserSecond), false);
+}

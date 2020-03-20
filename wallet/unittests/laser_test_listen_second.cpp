@@ -76,6 +76,7 @@ int main()
     bool firstUpdated = false, secondUpdated = false;
     bool closeProcessStarted = false;
     Height startListenAt = 0;
+    Height openedAt = 0;
 
     observer_1.onOpened = [&channel_1] (const laser::ChannelIDPtr& chID)
     {
@@ -141,7 +142,8 @@ int main()
         &observer_1,
         &observer_2,
         &closeProcessStarted,
-        &startListenAt
+        &startListenAt,
+        &openedAt
     ] (Height height)
     {
         if (height > kMaxTestHeight)
@@ -158,13 +160,18 @@ int main()
             laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, kOpenTxDh);
         }
 
-        if (channel_1 && channel_2 && !startListenAt)
+        if (channel_1 && channel_2 && !startListenAt && !openedAt)
+        {
+            openedAt = height;
+        }
+
+        if (openedAt && openedAt + 5 == height && !startListenAt)
         {
             startListenAt = height;
             LOG_INFO() << "Test laser LISTEN 2: second serve";
             laserSecond.reset(new laser::Mediator(wdbSecond, params));
             laserSecond->AddObserver(&observer_2);
-            laserSecond->SetNetwork(CreateNetwork(*laserSecond));
+            laserSecond->SetNetwork(CreateNetwork(*laserSecond), false);
 
             auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);
             WALLET_CHECK(laserSecond->Serve(channel2Str));
@@ -196,11 +203,10 @@ int main()
 
     };
 
-    laserFirst->SetNetwork(CreateNetwork(*laserFirst));
-    laserSecond->SetNetwork(CreateNetwork(*laserSecond));
+    ConfigureNetwork(*laserFirst, *laserSecond);
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    TestNode node(newBlockFunc, 33, kDefaultTestNodePort);
+    TestNode node(newBlockFunc, 1, kDefaultTestNodePort);
 
     timer->start(kNewBlockInterval, true, [&node]() {node.AddBlock(); });
     mainReactor->run();

@@ -63,7 +63,7 @@ public:
     void OnMsg(const ChannelIDPtr& chID, Blob&& blob) final;
     bool Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob) final;
     
-    void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
+    void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net, bool mineOutgoing = true);
     void ListenClosedChannelsWithPossibleRollback();
 
     void WaitIncoming(Amount aMy, Amount aTrg, Amount fee);
