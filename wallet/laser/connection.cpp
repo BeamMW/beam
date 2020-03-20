@@ -18,8 +18,9 @@
 
 namespace beam::wallet::laser
 {
-Connection::Connection(const FlyClient::NetworkStd::Ptr& net)
+Connection::Connection(const FlyClient::NetworkStd::Ptr& net,  bool mineOutgoing)
     : m_pNet(net)
+    , m_MineOutgoing(mineOutgoing)
 {
 }
 

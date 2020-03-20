@@ -113,11 +113,10 @@ int main()
         }
     };
 
-    laserFirst->SetNetwork(CreateNetwork(*laserFirst));
-    laserSecond->SetNetwork(CreateNetwork(*laserSecond));
+    ConfigureNetwork(*laserFirst, *laserSecond);
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    TestNode node(newBlockFunc, 33, kDefaultTestNodePort);
+    TestNode node(newBlockFunc, 1, kDefaultTestNodePort);
 
     timer->start(kNewBlockInterval, true, [&node]() {node.AddBlock(); });
     mainReactor->run();
