@@ -153,7 +153,7 @@ int main()
             io::Reactor::get_Current().stop();
         }
 
-        if (height == kStartBlock)
+        if (height == kTestStartBlock)
         {
             laserFirst->WaitIncoming(100000000, 100000000, kFee);
             auto firstWalletID = laserFirst->getWaitingWalletID();
@@ -206,7 +206,7 @@ int main()
     ConfigureNetwork(*laserFirst, *laserSecond);
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    TestNode node(newBlockFunc, 1, kDefaultTestNodePort);
+    TestNode node(newBlockFunc, kNewBlockFunkStart, kDefaultTestNodePort);
 
     timer->start(kNewBlockInterval, true, [&node]() {node.AddBlock(); });
     mainReactor->run();

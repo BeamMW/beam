@@ -23,13 +23,14 @@
 using namespace beam::wallet;
 
 const uint16_t kDefaultTestNodePort = 32125;
-const Height kMaxTestHeight = 360;
+const Height kMaxTestHeight = 180;
 const Height kRevisionMaxLifeTime = 71;
 const Height kLockTime = 5;
 const Height kPostLockReserve = 30;
 const Amount kFee = 100;
 const Height kOpenTxDh = 70;
-const Height kStartBlock = 3;
+const Height kTestStartBlock = 10;
+const Height kNewBlockFunkStart = 8;
 const unsigned kNewBlockInterval = 1000;
 
 struct LaserObserver : public laser::Mediator::Observer

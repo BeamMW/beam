@@ -110,7 +110,7 @@ int main()
             io::Reactor::get_Current().stop();
         }
 
-        if (height == kStartBlock)
+        if (height == kTestStartBlock)
         {
             storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
             totals_1= totalsCalc_1.GetTotals(Zero);
@@ -156,7 +156,7 @@ int main()
     ConfigureNetwork(*laserFirst, *laserSecond);
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    TestNode node(newBlockFunc, 1, kDefaultTestNodePort);
+    TestNode node(newBlockFunc, kNewBlockFunkStart, kDefaultTestNodePort);
 
     timer->start(kNewBlockInterval, true, [&node]() {node.AddBlock(); });
     mainReactor->run();
