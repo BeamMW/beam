@@ -932,10 +932,10 @@ class TestNode
 {
 public:
     using NewBlockFunc = std::function<void(Height)>;
-    TestNode(NewBlockFunc func = NewBlockFunc(), Height height = 145)
+    TestNode(NewBlockFunc func = NewBlockFunc(), Height height = 145, uint16_t port = 32125)
         : m_NewBlockFunc(func)
     {
-        m_Server.Listen(io::Address::localhost().port(32125));
+        m_Server.Listen(io::Address::localhost().port(port));
         while (m_Blockchain.m_mcm.m_vStates.size() < height)
             m_Blockchain.AddBlock();
     }

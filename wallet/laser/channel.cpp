@@ -395,6 +395,7 @@ void Channel::UpdateRestorePoint()
     ser & m_pOpen->m_txOpen;
     ser & m_pOpen->m_hvKernel0;
     ser & m_pOpen->m_hOpened;
+    ser & m_iRole;
     ser & m_pOpen->m_vInp.size();
     for (const CoinID& cid : m_pOpen->m_vInp)
     {
@@ -570,6 +571,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
         der & m_pOpen->m_txOpen;
         der & m_pOpen->m_hvKernel0;
         der & m_pOpen->m_hOpened;
+        der & m_iRole;
 
         size_t vInpSize = 0;
         der & vInpSize;

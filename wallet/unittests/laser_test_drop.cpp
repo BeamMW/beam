@@ -146,10 +146,10 @@ int main()
     laserFirst->SetNetwork(CreateNetwork(*laserFirst));
     laserSecond->SetNetwork(CreateNetwork(*laserSecond));
 
-    TestNode node(newBlockFunc, 1);
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(kNewBlockInterval, true, [&node]() {node.AddBlock(); });
+    TestNode node(newBlockFunc, 33, kDefaultTestNodePort);
 
+    timer->start(kNewBlockInterval, true, [&node]() {node.AddBlock(); });
     mainReactor->run();
 
     return WALLET_CHECK_RESULT;
