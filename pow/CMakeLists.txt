@@ -7,6 +7,7 @@ include_directories(impl)
 set(POW_SRC
     beamHash.cpp
     ${PROJECT_SOURCE_DIR}/3rdparty/crypto/equihashR_impl.cpp
+    ${PROJECT_SOURCE_DIR}/3rdparty/crypto/beamHashIII_impl.cpp
     ${PROJECT_SOURCE_DIR}/3rdparty/arith_uint256.cpp
     ${PROJECT_SOURCE_DIR}/3rdparty/uint256.cpp
     ${PROJECT_SOURCE_DIR}/3rdparty/utilstrencodings.cpp

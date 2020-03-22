@@ -22,7 +22,7 @@
 #include <stdexcept>
 #include <boost/optional.hpp>
 
-EhSolverCancelledException solver_cancelled;
+SolverCancelledException solver_cancelled;
 
 namespace
 {
@@ -434,7 +434,7 @@ void CollideBranches(std::vector<FullStepRow<WIDTH>>& X, const size_t hlen, cons
 template<unsigned int N, unsigned int K, unsigned int R>
 bool EquihashR<N,K,R>::OptimisedSolve(const eh_HashState& base_state,
                                    const std::function<bool(const std::vector<unsigned char>&)> validBlock,
-                                   const std::function<bool(EhSolverCancelCheck)> cancelled)
+                                   const std::function<bool(SolverCancelCheck)> cancelled)
 {
     eh_index init_size { 1U << (CollisionBitLength + 1 - R) };
     eh_index recreate_size { UntruncateIndex(1, 0, CollisionBitLength + 1) };
@@ -693,7 +693,7 @@ template bool EquihashR<150,5,0>::IsValidSolution(const eh_HashState& base_state
 #ifdef ENABLE_MINING
 template bool EquihashR<150,5,0>::OptimisedSolve(const eh_HashState& base_state,
                                              const std::function<bool(const std::vector<unsigned char>&)> validBlock,
-                                             const std::function<bool(EhSolverCancelCheck)> cancelled);
+                                             const std::function<bool(SolverCancelCheck)> cancelled);
 #endif
 
 
@@ -703,6 +703,6 @@ template bool EquihashR<150,5,3>::IsValidSolution(const eh_HashState& base_state
 #ifdef ENABLE_MINING
 template bool EquihashR<150,5,3>::OptimisedSolve(const eh_HashState& base_state,
                                              const std::function<bool(const std::vector<unsigned char>&)> validBlock,
-                                             const std::function<bool(EhSolverCancelCheck)> cancelled);
+                                             const std::function<bool(SolverCancelCheck)> cancelled);
 #endif
 
