@@ -152,7 +152,7 @@ bool sortStepElement(const stepElem &a, const stepElem &b) {
 
 std::vector<uint32_t> GetIndicesFromMinimal(std::vector<uint8_t> soln) {
 	std::bitset<800> inStream;
-	std::bitset<800> mask((1 << (collisionBitSize+2))-1);
+	std::bitset<800> mask((1 << (collisionBitSize+1))-1);
 
 	inStream.reset();
 	for (int32_t i = 99; i>=0; i--) {
@@ -220,8 +220,8 @@ bool BeamHash_III::IsValidSolution(const blake2b_state& base_state, std::vector<
 
 	// This will only evaluate bytes 0..99
 	std::vector<uint32_t> indices = GetIndicesFromMinimal(soln);
+
 	std::vector<stepElem> X;
-	
 	for (uint32_t i=0; i<indices.size(); i++) {
 		X.emplace_back(&prePow[0], indices[i]);
 	}
@@ -238,17 +238,17 @@ bool BeamHash_III::IsValidSolution(const blake2b_state& base_state, std::vector<
 			X[i+1].applyMix(remLen);
 		
 			if (!hasCollision(X[i], X[i+1])) { 
-				std::cout << "Collision Error" << i << " " << X.size() << std::endl;
+				//std::cout << "Collision Error" << i << " " << X.size() << std::endl;
                 		return false;
             		}
 
 			if (!distinctIndices(X[i], X[i+1])) { 
-				std::cout << "Non-Distinct" << i << " " << X.size() << std::endl;
+				//std::cout << "Non-Distinct" << i << " " << X.size() << std::endl;
                 		return false;
             		}
 
 			if (!indexAfter(X[i], X[i+1])) { 
-				std::cout << "Index Order" << i << " " << X.size() << std::endl;
+				//std::cout << "Index Order" << i << " " << X.size() << std::endl;
                 		return false;
             		}
 
@@ -327,7 +327,7 @@ bool BeamHash_III::OptimisedSolve(const blake2b_state& base_state,
 			if (cancelled(ListColliding)) throw beamSolverCancelled;
 		}
 
-		elements = outElements;		
+		elements = outElements;	
 	}
 
 	// Check the output of the last round for solutions
@@ -359,7 +359,6 @@ bool BeamHash_III::OptimisedSolve(const blake2b_state& base_state,
 					// Adding the extra nonce
 					for (uint32_t i=0; i<4; i++) sol.push_back(extraNonce[i]);
 
-					std::cout << "Test validity (solver): " << IsValidSolution(base_state, sol) << std::endl;
 					if (validBlock(sol))  return true;
 				}
 			} else {
