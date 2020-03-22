@@ -249,10 +249,10 @@ namespace ECC
 			ID(Zero_) { ZeroObject(*this); }
 
 			ID(uint64_t nIdx, Type type, uint32_t nSubIdx = 0) // most common c'tor
+				: m_Idx(nIdx)
+				, m_Type(type)
+				, m_SubIdx(nSubIdx)
 			{
-				m_Idx = nIdx;
-				m_Type = type;
-				m_SubIdx = nSubIdx;
 			}
 
 			void get_Hash(Hash::Value&) const;

@@ -448,13 +448,14 @@ void WalletSettings::setTxStatusActive(bool isActive)
         auto walletModel = AppModel::getInstance().getWallet();
         if (walletModel)
         {
-            walletModel->getAsync()->switchOnOffNotifications(
+            auto asyncModel = walletModel->getAsync();
+            asyncModel->switchOnOffNotifications(
                 beam::wallet::Notification::Type::TransactionStatusChanged,
                 isActive);
-            walletModel->getAsync()->switchOnOffNotifications(
+            asyncModel->switchOnOffNotifications(
                 beam::wallet::Notification::Type::TransactionCompleted,
                 isActive);
-            walletModel->getAsync()->switchOnOffNotifications(
+            asyncModel->switchOnOffNotifications(
                 beam::wallet::Notification::Type::TransactionFailed,
                 isActive);
         }

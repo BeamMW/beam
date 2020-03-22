@@ -286,7 +286,7 @@ namespace beam::wallet
 
     struct Send
     {
-        Amount value;
+        Amount value = 0;
         Amount fee = kMinFeeInGroth;
         boost::optional<CoinIDList> coins;
         boost::optional<WalletID> from;
@@ -304,7 +304,7 @@ namespace beam::wallet
 
     struct Issue
     {
-        Amount value;
+        Amount value = 0;
         Amount fee = kMinFeeInGroth;
         Key::Index index;
         boost::optional<CoinIDList> coins;

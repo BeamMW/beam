@@ -111,7 +111,7 @@ namespace beam::wallet
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
         virtual void onNewAddressFailed() {}
-        virtual void onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID) {}
+        virtual void onChangeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) {}
         virtual void onNodeConnectionChanged(bool isNodeConnected) {}
         virtual void onWalletError(ErrorType error) {}
         virtual void FailedToStartWallet() {}
@@ -142,11 +142,11 @@ namespace beam::wallet
         void onSyncProgress(int done, int total) override;
         void onOwnedNode(const PeerID& id, bool connected) override;
 
-        void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
-        void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
+        void sendMoney(const WalletID& receiver, const std::string& comment, Amount amount, Amount fee) override;
+        void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee) override;
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
-        void calcChange(Amount&& amount) override;
+        void calcChange(Amount amount) override;
         void getWalletStatus() override;
         void getTransactions() override;
         void getUtxosStatus() override;

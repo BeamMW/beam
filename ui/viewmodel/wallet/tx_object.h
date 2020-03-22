@@ -24,7 +24,6 @@ class TxObject : public QObject
     Q_OBJECT
 
 public:
-    TxObject(QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx,
              QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx,

@@ -28,7 +28,7 @@ namespace beam::wallet
         }
         
         size_t keySize = keyArray.size();
-        assert(keySize <= UINT32_MAX);
+        assert(keySize <= static_cast<size_t>(UINT32_MAX));
         Blob keyBlob(keyArray.data(), static_cast<uint32_t>(keySize));
 
         out = PeerID(ECC::uintBig(keyBlob));

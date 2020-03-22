@@ -59,7 +59,7 @@ public:
     Q_INVOKABLE static bool haveQtum();
 
     Q_INVOKABLE static QString rawTxParametrsToTokenStr(
-            QVariant variantTxParams);
+            const QVariant& variantTxParams);
 
     Q_INVOKABLE static bool canReceive(Currency currency);
     Q_INVOKABLE static QString divideWithPrecision8(const QString& dividend, const QString& divider);

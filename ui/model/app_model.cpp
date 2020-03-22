@@ -84,7 +84,7 @@ void AppModel::backupDB(const std::string& dbFilePath)
        
         if (fsutils::rename(dbFilePath, newName))
         {
-            m_walletDBBackupPath = newName;
+            m_walletDBBackupPath = std::move(newName);
         }
     }
 }

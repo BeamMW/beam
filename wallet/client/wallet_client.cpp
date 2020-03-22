@@ -36,16 +36,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 {
     BRIDGE_INIT(WalletModelBridge);
 
-    void sendMoney(const wallet::WalletID& receiverID, const std::string& comment, Amount&& amount, Amount&& fee) override
+    void sendMoney(const wallet::WalletID& receiverID, const std::string& comment, Amount amount, Amount fee) override
     {
-        typedef void(IWalletModelAsync::*SendMoneyType)(const wallet::WalletID&, const std::string&, Amount&&, Amount&&);
-        call_async((SendMoneyType)&IWalletModelAsync::sendMoney, receiverID, comment, move(amount), move(fee));
+        typedef void(IWalletModelAsync::*SendMoneyType)(const wallet::WalletID&, const std::string&, Amount, Amount);
+        call_async((SendMoneyType)&IWalletModelAsync::sendMoney, receiverID, comment, amount, fee);
     }
 
-    void sendMoney(const wallet::WalletID& senderID, const wallet::WalletID& receiverID, const std::string& comment, Amount&& amount, Amount&& fee) override
+    void sendMoney(const wallet::WalletID& senderID, const wallet::WalletID& receiverID, const std::string& comment, Amount amount, Amount fee) override
     {
-        typedef void(IWalletModelAsync::*SendMoneyType)(const wallet::WalletID &, const wallet::WalletID &, const std::string &, Amount &&, Amount &&);
-        call_async((SendMoneyType)&IWalletModelAsync::sendMoney, senderID, receiverID, comment, move(amount), move(fee));
+        typedef void(IWalletModelAsync::*SendMoneyType)(const wallet::WalletID &, const wallet::WalletID &, const std::string &, Amount, Amount);
+        call_async((SendMoneyType)&IWalletModelAsync::sendMoney, senderID, receiverID, comment, amount, fee);
     }
 
     void startTransaction(TxParameters&& parameters) override
@@ -58,9 +58,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::syncWithNode);
     }
 
-    void calcChange(Amount&& amount) override
+    void calcChange(Amount amount) override
     {
-        call_async(&IWalletModelAsync::calcChange, move(amount));
+        call_async(&IWalletModelAsync::calcChange, amount);
     }
 
     void getWalletStatus() override
@@ -521,7 +521,7 @@ namespace beam::wallet
         onNodeConnectionChanged(isConnected());
     }
 
-    void WalletClient::sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
+    void WalletClient::sendMoney(const WalletID& receiver, const std::string& comment, Amount amount, Amount fee)
     {
         try
         {
@@ -565,7 +565,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
+    void WalletClient::sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee)
     {
         try
         {
@@ -656,7 +656,7 @@ namespace beam::wallet
     }
     }
 
-    void WalletClient::calcChange(Amount&& amount)
+    void WalletClient::calcChange(Amount amount)
     {
         auto coins = m_walletDB->selectCoins(amount, Zero);
         Amount sum = 0;
