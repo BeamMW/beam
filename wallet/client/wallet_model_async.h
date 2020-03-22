@@ -48,7 +48,6 @@ namespace beam::wallet
         virtual void getSwapOffers() = 0;
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-        virtual void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) = 0;
         virtual void deleteAddress(const WalletID& id) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;
         virtual void activateAddress(const WalletID& id) = 0;

@@ -60,7 +60,6 @@ public class Wallet
     public native void saveAddressChanges(String addr, String name, boolean isNever, boolean makeActive, boolean makeExpired);
 
     // not implemented
-    public native void changeCurrentWalletIDs(); //const beam::WalletID& senderID, const beam::WalletID& receiverID);
     public native void setNodeAddress(); //const std::string& addr);
 
 }

@@ -124,12 +124,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::saveAddress, address, bOwn);
     }
 
-    void changeCurrentWalletIDs(const wallet::WalletID& senderID, const wallet::WalletID& receiverID) override
-    {
-        call_async(&IWalletModelAsync::changeCurrentWalletIDs, senderID, receiverID);
-    }
-
-
     void generateNewAddress() override
     {
         call_async(&IWalletModelAsync::generateNewAddress);
@@ -761,11 +755,6 @@ namespace beam::wallet
     void WalletClient::saveAddress(const WalletAddress& address, bool bOwn)
     {
         m_walletDB->saveAddress(address);
-    }
-
-    void WalletClient::changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID)
-    {
-        onChangeCurrentWalletIDs(senderID, receiverID);
     }
 
     void WalletClient::generateNewAddress()

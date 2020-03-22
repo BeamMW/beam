@@ -241,11 +241,6 @@ void WalletModel::onExportTxHistoryToCsv(const std::string& data)
     emit txHistoryExportedToCsv(QString::fromStdString(data));
 }
 
-void WalletModel::onChangeCurrentWalletIDs(const beam::wallet::WalletID& senderID, const beam::wallet::WalletID& receiverID)
-{
-    emit changeCurrentWalletIDs(senderID, receiverID);
-}
-
 void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 {
     emit nodeConnectionChanged(isNodeConnected);

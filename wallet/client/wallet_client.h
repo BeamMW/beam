@@ -111,7 +111,6 @@ namespace beam::wallet
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
         virtual void onNewAddressFailed() {}
-        virtual void onChangeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) {}
         virtual void onNodeConnectionChanged(bool isNodeConnected) {}
         virtual void onWalletError(ErrorType error) {}
         virtual void FailedToStartWallet() {}
@@ -161,7 +160,6 @@ namespace beam::wallet
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
         void saveAddress(const WalletAddress& address, bool bOwn) override;
-        void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) override;
         void generateNewAddress() override;
         void deleteAddress(const WalletID& id) override;
         void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
