@@ -2196,7 +2196,8 @@ deploy the key at the node you trust completely.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-update-title">
-        <source>New version v %1 is avalable</source>
+        <source>New version v %1 is available</source>
+        <oldsource>New version v %1 is avalable</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-address-expired">
@@ -2258,8 +2259,8 @@ deploy the key at the node you trust completely.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-details-second-currency-notification">
-        <source> (for the day of transaction)</source>
-        <translation type="unfinished"></translation>
+        <source>(for the day of transaction)</source>
+        <translation type="unfinished">GROTH</translation>
     </message>
     <message id="general-exchange-rate-not-available">
         <source>Exchange rate to %1 is not available</source>
@@ -2303,6 +2304,10 @@ deploy the key at the node you trust completely.</translation>
     </message>
     <message id="general-token">
         <source>Token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-exchange-rate-not-available">
+        <source>Exchange rate to %1 was not available at the time of transaction</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

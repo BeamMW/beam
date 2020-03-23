@@ -140,7 +140,7 @@ QString NotificationItem::title() const
             if (fromByteBuffer(m_notification.m_content, info))
             {
                 QString ver = QString::fromStdString(info.m_version.to_string());
-                //% "New version v %1 is avalable"
+                //% "New version v %1 is available"
                 return qtTrId("notification-update-title").arg(ver);
             }
             else

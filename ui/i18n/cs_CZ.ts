@@ -2194,7 +2194,8 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-update-title">
-        <source>New version v %1 is avalable</source>
+        <source>New version v %1 is available</source>
+        <oldsource>New version v %1 is avalable</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-address-expired">
@@ -2256,8 +2257,8 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <translation type="unfinished"></translation>
     </message>
     <message id="tx-details-second-currency-notification">
-        <source> (for the day of transaction)</source>
-        <translation type="unfinished"></translation>
+        <source>(for the day of transaction)</source>
+        <translation type="unfinished">Groth</translation>
     </message>
     <message id="general-exchange-rate-not-available">
         <source>Exchange rate to %1 is not available</source>
@@ -2301,6 +2302,10 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
     </message>
     <message id="general-token">
         <source>Token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-exchange-rate-not-available">
+        <source>Exchange rate to %1 was not available at the time of transaction</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
