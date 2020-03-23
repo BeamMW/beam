@@ -73,9 +73,9 @@ CustomTableView {
     }
 
     TableViewColumn {
-        role: parentModel.categoryRole
-        //% "Category"
-        title: qsTrId("general-category")
+        role: viewModel.identityRole
+        //% "Identity"
+        title: qsTrId("general-identity")
         width: 150 *  rootControl.columnResizeRatio
         resizable: false
         movable: false

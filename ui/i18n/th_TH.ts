@@ -20,10 +20,6 @@
         <source>Contact</source>
         <translation>รายชื่อผู้ติดต่อ</translation>
     </message>
-    <message id="general-category">
-        <source>Category</source>
-        <translation>หมวดหมู่</translation>
-    </message>
     <message id="general-actions">
         <source>Actions</source>
         <translation>คำสั่ง</translation>
@@ -2312,6 +2308,10 @@ deploy the key at the node you trust completely.</translation>
     </message>
     <message id="tx-details-exchange-rate-not-available">
         <source>Exchange rate to %1 was not available at the time of transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-identity">
+        <source>Identity</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -104,7 +104,7 @@ namespace beam::wallet
         Timestamp m_createTime;
         uint64_t  m_duration;   // if equals to "AddressNeverExpires" then address never expires
         uint64_t  m_OwnID;      // set for own address
-        PeerID    m_Identity; // derived from master. Different from m_walletID
+        PeerID    m_Identity;   // derived from master. Different from m_walletID
         
         WalletAddress();
         bool operator == (const WalletAddress& other) const;

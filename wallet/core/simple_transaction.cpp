@@ -94,6 +94,10 @@ namespace beam::wallet
             {
                 address.m_label = std::string(message->begin(), message->end());
             }
+            if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID); identity)
+            {
+                address.m_Identity = *identity;
+            }
 
             m_WalletDB->saveAddress(address);
         }

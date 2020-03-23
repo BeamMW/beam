@@ -340,11 +340,11 @@ ColumnLayout {
             }
 
             TableViewColumn {
-                id: categoryColumn
-                role: viewModel.categoryRole
-                //% "Category"
-                title: qsTrId("general-category")
-                width: contactsView.getAdjustedColumnWidth(categoryColumn)//290 * contactsView.columnResizeRatio
+                id: identityColumn
+                role: viewModel.identityRole
+                //% "Identity"
+                title: qsTrId("general-identity")
+                width: contactsView.getAdjustedColumnWidth(identityColumn)
                 movable: false
             }
 

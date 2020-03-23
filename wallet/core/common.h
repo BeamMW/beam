@@ -736,4 +736,5 @@ namespace std
     string to_string(const beam::wallet::TxParameters&);
     string to_string(const beam::Version&);
     string to_string(const beam::wallet::TxID&);
+    string to_string(const beam::PeerID& id);
 }

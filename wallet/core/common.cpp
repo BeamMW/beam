@@ -99,6 +99,11 @@ namespace std
     {
         return to_hex(id.data(), id.size());
     }
+
+    string to_string(const beam::PeerID& id)
+    {
+        return id.str();
+    }
 }  // namespace std
 
 namespace beam

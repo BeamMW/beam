@@ -20,10 +20,6 @@
         <source>Contact</source>
         <translation>Kontakt</translation>
     </message>
-    <message id="general-category">
-        <source>Category</source>
-        <translation>Kategorie</translation>
-    </message>
     <message id="general-actions">
         <source>Actions</source>
         <translation>Akce</translation>
@@ -2308,6 +2304,10 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
     </message>
     <message id="tx-details-exchange-rate-not-available">
         <source>Exchange rate to %1 was not available at the time of transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-identity">
+        <source>Identity</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

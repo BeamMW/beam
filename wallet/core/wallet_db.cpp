@@ -90,7 +90,8 @@
     each(category,       category,       TEXT, obj) sep \
     each(createTime,     createTime,     INTEGER, obj) sep \
     each(duration,       duration,       INTEGER, obj) sep \
-    each(OwnID,          OwnID,          INTEGER NOT NULL, obj)
+    each(OwnID,          OwnID,          INTEGER NOT NULL, obj) sep \
+    each(Identity,       Identity,       BLOB, obj) 
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
 
@@ -641,6 +642,14 @@ namespace beam::wallet
                 getBlobStrict(col, hash.m_pData, hash.nBytes);
             }
 
+            void get(int col, PeerID& x)
+            {
+                if (!getBlobSafe(col, &x, sizeof(x)))
+                {
+                    x = Zero;
+                }
+            }
+
             void get(int col, WalletID& x)
             {
                 getBlobStrict(col, &x, sizeof(x));
@@ -1022,6 +1031,13 @@ namespace beam::wallet
         void CreateExchangeRatesTable(sqlite3* db)
         {
             const char* req = "CREATE TABLE " EXCHANGE_RATES_NAME " (" ENUM_EXCHANGE_RATES_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit)) WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
+        void AddAddressIdentityColumn(sqlite3* db)
+        {
+            const char* req = "ALTER TABLE " ADDRESSES_NAME " ADD Identity BLOB NULL;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
@@ -1593,6 +1609,7 @@ namespace beam::wallet
                     LOG_INFO() << "Converting DB from format 18...";
                     CreateNotificationsTable(walletDB->_db);
                     CreateExchangeRatesTable(walletDB->_db);
+                    AddAddressIdentityColumn(walletDB->_db);
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 
@@ -2703,6 +2720,17 @@ namespace beam::wallet
         }
     }
 
+    namespace
+    {
+        void loadAddress(const IWalletDB* db, sqlite::Statement& stm, WalletAddress& address)
+        {
+            int colIdx = 0;
+            ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
+            if (address.isOwn() && address.m_Identity == Zero)
+                db->get_Identity(address.m_Identity, address.m_OwnID);
+        }
+    }
+
     boost::optional<WalletAddress> WalletDB::getAddress(
         const WalletID& id, bool isLaser) const
     {
@@ -2720,17 +2748,14 @@ namespace beam::wallet
         if (stm.step())
         {
             WalletAddress address = {};
-            int colIdx = 0;
-            ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
-            if (address.isOwn())
-                get_Identity(address.m_Identity, address.m_OwnID);
+            loadAddress(this, stm, address);
 
             insertAddressToCache(id, address);
             return address;
         }
         if (!isLaser)
         {
-        insertAddressToCache(id, boost::optional<WalletAddress>());
+            insertAddressToCache(id, boost::optional<WalletAddress>());
         }
         return boost::optional<WalletAddress>();
     }
@@ -2746,10 +2771,7 @@ namespace beam::wallet
         while (stm.step())
         {
             auto& a = res.emplace_back();
-            int colIdx = 0;
-            ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
-            if (a.isOwn())
-                get_Identity(a.m_Identity, a.m_OwnID);
+            loadAddress(this, stm, a);
 
             if (a.isOwn() != own)
                 res.pop_back(); // akward, but ok
@@ -2793,9 +2815,9 @@ namespace beam::wallet
 
         if (!isLaser)
         {
-        insertAddressToCache(address.m_walletID, address);
-        notifyAddressChanged(action, { address });
-    }
+            insertAddressToCache(address.m_walletID, address);
+            notifyAddressChanged(action, { address });
+        }
     }
 
     void WalletDB::deleteAddress(const WalletID& id, bool isLaser)
@@ -3888,6 +3910,7 @@ namespace beam::wallet
                 const string TransactionParameters = "TransactionParameters";
                 const string Category = "Category";
                 const string WalletID = "WalletID";
+                const string Identity = "Identity";
                 const string Index = "Index";
                 const string Label = "Label";
                 const string CreationTime = "CreationTime";
@@ -3927,9 +3950,18 @@ namespace beam::wallet
                                 address.m_createTime = currentTime;
                                 address.m_duration = WalletAddress::AddressExpiration24h;
                             }
-                            if (jsonAddress.find(Fields::Category) != jsonAddress.end()) // for compatibility with older export
+                            if (auto it = jsonAddress.find(Fields::Category); it != jsonAddress.end()) // for compatibility with older export
                             {
-                                address.m_category = jsonAddress[Fields::Category];
+                                address.m_category = *it;
+                            }
+                            if (auto it = jsonAddress.find(Fields::Identity); it != jsonAddress.end())
+                            {
+                                bool isValid = false;
+                                auto buf = from_hex(*it, &isValid);
+                                if (isValid)
+                                {
+                                    address.m_Identity = Blob(buf);
+                                }
                             }
                             db.saveAddress(address);
 
@@ -4065,7 +4097,7 @@ namespace beam::wallet
                 json addresses = json::array();
                 for (const auto& address : db.getAddresses(own))
                 {
-                    addresses.push_back(
+                    addresses.emplace_back(
                         json
                         {
                             {Fields::Index, address.m_OwnID},
@@ -4077,6 +4109,10 @@ namespace beam::wallet
                             {Fields::Category, address.m_category}
                         }
                     );
+                    if (address.m_Identity != Zero)
+                    {
+                        addresses.back().push_back({ Fields::Identity, to_string(address.m_Identity) });
+                    }
                 }
                 return addresses;
             }
@@ -4385,6 +4421,7 @@ namespace beam::wallet
         , m_createTime(0)
         , m_duration(AddressExpiration24h)
         , m_OwnID(false)
+        , m_Identity(Zero)
     {}
 
     bool WalletAddress::operator == (const WalletAddress& other) const
