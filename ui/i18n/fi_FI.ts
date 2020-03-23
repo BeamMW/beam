@@ -2205,7 +2205,8 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-transaction-received">
-        <source>Transaction received</source>
+        <source>Transaction was received</source>
+        <oldsource>Transaction received</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-transaction-sent-message">
@@ -2242,7 +2243,8 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-transaction-sent">
-        <source>Transaction sent</source>
+        <source>Transaction was sent</source>
+        <oldsource>Transaction sent</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-update-wallet">

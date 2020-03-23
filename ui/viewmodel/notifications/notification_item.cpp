@@ -160,10 +160,10 @@ QString NotificationItem::title() const
             case TxType::Simple:
                 if (isSender(p))
                 {
-                    //% "Transaction sent"
+                    //% "Transaction was sent"
                     return qtTrId("notification-transaction-sent");
                 }
-                //% "Transaction received"
+                //% "Transaction was received"
                 return qtTrId("notification-transaction-received");
             case TxType::AtomicSwap:
                 //% "Atomic Swap offer completed"

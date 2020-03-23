@@ -2204,7 +2204,8 @@ deploy the key at the node you trust completely.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-transaction-received">
-        <source>Transaction received</source>
+        <source>Transaction was received</source>
+        <oldsource>Transaction received</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-transaction-sent-message">
@@ -2241,7 +2242,8 @@ deploy the key at the node you trust completely.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-transaction-sent">
-        <source>Transaction sent</source>
+        <source>Transaction was sent</source>
+        <oldsource>Transaction sent</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-update-wallet">
