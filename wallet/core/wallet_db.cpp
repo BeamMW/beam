@@ -3937,7 +3937,7 @@ namespace beam::wallet
                         if (!address.isOwn() || db.ValidateSbbsWalletID(address.m_walletID, address.m_OwnID))
                         {
                             //{ "SubIndex", 0 },
-                            address.m_label = jsonAddress[Fields::Label];
+                            address.m_label = jsonAddress[Fields::Label].get<std::string>();
                             auto creationTime = jsonAddress[Fields::CreationTime];
                             auto currentTime = beam::getTimestamp();
                             if (currentTime >= creationTime)
@@ -3952,7 +3952,7 @@ namespace beam::wallet
                             }
                             if (auto it = jsonAddress.find(Fields::Category); it != jsonAddress.end()) // for compatibility with older export
                             {
-                                address.m_category = *it;
+                                address.m_category = it->get<std::string>();
                             }
                             if (auto it = jsonAddress.find(Fields::Identity); it != jsonAddress.end())
                             {
