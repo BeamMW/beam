@@ -38,16 +38,33 @@ ExchangeRatesManager::ExchangeRatesManager()
             SIGNAL(secondCurrencyChanged()),
             SLOT(onRateUnitChanged()));
 
-    setRateUnit();
-}
-
-void ExchangeRatesManager::setRateUnit()
-{
     m_rateUnit = ExchangeRate::from_string(m_settings.getSecondCurrency().toStdString());
     if (m_rateUnit != ExchangeRate::Currency::Unknown)
     {
         m_walletModel.getAsync()->getExchangeRates();
     }
+}
+
+void ExchangeRatesManager::setRateUnit()
+{
+    auto newCurrency = ExchangeRate::from_string(m_settings.getSecondCurrency().toStdString());
+
+    if (newCurrency == ExchangeRate::Currency::Unknown && m_rateUnit != newCurrency)
+    {
+        m_walletModel.getAsync()->switchOnOffExchangeRates(false);
+    }
+    else
+    {
+        if (m_rateUnit == ExchangeRate::Currency::Unknown)
+        {
+            m_walletModel.getAsync()->switchOnOffExchangeRates(true);
+        }
+        if (m_rateUnit != newCurrency)
+        {
+            m_walletModel.getAsync()->getExchangeRates();
+        }
+    }
+    m_rateUnit = newCurrency;
 }
 
 void ExchangeRatesManager::onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates)
