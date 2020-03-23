@@ -68,10 +68,8 @@ RowLayout {
                 root.amount,
                 root.secondCurrencyRate);
             if (amountInSecondCurrency == "") {
-                        //% "Exchange rate to %1 is not available"
-                return  qsTrId("general-exchange-rate-not-available").arg(root.secondCurrencyLabel) + " " +
-                        //% " (for the day of transaction)"
-                        qsTrId("tx-details-second-currency-notification");
+                        //% "Exchange rate to %1 was not available at the time of transaction"
+                return  qsTrId("tx-details-exchange-rate-not-available").arg(root.secondCurrencyLabel);
             }
             else {
                 return root.amountPrefix + amountInSecondCurrency + " " + root.secondCurrencyLabel + " " + qsTrId("tx-details-second-currency-notification");
