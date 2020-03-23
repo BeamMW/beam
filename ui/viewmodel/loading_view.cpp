@@ -162,7 +162,7 @@ void LoadingViewModel::updateProgress()
         auto wbps = getWindowedBps();
         auto bps = (getWholeTimeBps() + wbps) / 2;
 
-        if (!bps)
+        if (fabs(bps) < std::numeric_limits<double>::epsilon())
         {
             estimateStr = QString::asprintf(
                     estimateStr.toStdString().c_str(),

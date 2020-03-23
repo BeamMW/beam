@@ -1104,7 +1104,6 @@ QString SettingsViewModel::getWalletLocation() const
 
 void SettingsViewModel::undoChanges()
 {
-    auto remoteNodeAddress = m_settings.getNodeAddress();
     auto unpackedAddress = parseAddress(m_settings.getNodeAddress());
     setNodeAddress(unpackedAddress.address);
     if (unpackedAddress.port > 0)

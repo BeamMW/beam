@@ -74,6 +74,7 @@ namespace beam::wallet
         virtual ~WalletClient();
 
         void start( std::map<Notification::Type,bool> activeNotifications,
+                    bool isSecondCurrencyEnabled = false,
                     std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
         IWalletModelAsync::Ptr getAsync();
@@ -110,7 +111,6 @@ namespace beam::wallet
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
         virtual void onNewAddressFailed() {}
-        virtual void onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID) {}
         virtual void onNodeConnectionChanged(bool isNodeConnected) {}
         virtual void onWalletError(ErrorType error) {}
         virtual void FailedToStartWallet() {}
@@ -141,11 +141,11 @@ namespace beam::wallet
         void onSyncProgress(int done, int total) override;
         void onOwnedNode(const PeerID& id, bool connected) override;
 
-        void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
-        void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
+        void sendMoney(const WalletID& receiver, const std::string& comment, Amount amount, Amount fee) override;
+        void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee) override;
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
-        void calcChange(Amount&& amount) override;
+        void calcChange(Amount amount) override;
         void getWalletStatus() override;
         void getTransactions() override;
         void getUtxosStatus() override;
@@ -160,7 +160,6 @@ namespace beam::wallet
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
         void saveAddress(const WalletAddress& address, bool bOwn) override;
-        void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) override;
         void generateNewAddress() override;
         void deleteAddress(const WalletID& id) override;
         void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;

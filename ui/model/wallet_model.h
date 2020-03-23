@@ -56,7 +56,6 @@ signals:
     void generatedNewAddress(const beam::wallet::WalletAddress& walletAddr);
     void swapParamsLoaded(const beam::ByteBuffer& params);
     void newAddressFailed();
-    void changeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID);
     void nodeConnectionChanged(bool isNodeConnected);
     void walletError(beam::wallet::ErrorType error);
     void sendMoneyVerified();
@@ -96,7 +95,6 @@ private:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr) override;
     void onSwapParamsLoaded(const beam::ByteBuffer& token) override;
     void onNewAddressFailed() override;
-    void onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID) override;
     void onNodeConnectionChanged(bool isNodeConnected) override;
     void onWalletError(beam::wallet::ErrorType error) override;
     void FailedToStartWallet() override;

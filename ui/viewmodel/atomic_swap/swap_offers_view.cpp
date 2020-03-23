@@ -500,8 +500,8 @@ bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
                 bool isInProgress = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsInProgress)).toBool();
                 if (isInProgress)
                 {
-                    auto mySwapCoin = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::SwapCoin)).toString();
-                    if (mySwapCoin.toStdString() == swapCoin)
+                    auto mySwapCoin = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::SwapCoin)).toString().toStdString();
+                    if (mySwapCoin == swapCoin)
                     {
                         return true;
                     }

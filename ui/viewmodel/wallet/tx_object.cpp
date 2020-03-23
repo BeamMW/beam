@@ -80,10 +80,6 @@ namespace
     }
 }
 
-TxObject::TxObject(QObject* parent)
-        : QObject(parent)
-{
-}
 
 TxObject::TxObject( const TxDescription& tx,
                     QObject* parent/* = nullptr*/)

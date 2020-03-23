@@ -1768,7 +1768,7 @@ namespace beam::wallet
                     {
                         // find free from the beginning
                         iSlot = 0;
-                        for (LocalKeyKeeper::UsedSlots::UsedMap::iterator it = us.m_Used.begin(); it->first == iSlot; it++)
+                        for (LocalKeyKeeper::UsedSlots::UsedMap::iterator it = us.m_Used.begin(); it->first == iSlot; ++it)
                             iSlot++;
                     }
                 }
@@ -2878,18 +2878,19 @@ namespace beam::wallet
 
     void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
     {
+        const auto& channelID = ch.get_chID();
         LOG_DEBUG() << "Save channel: "
-                    << to_hex(ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+                    << to_hex(channelID->m_pData, channelID->nBytes);
         const char* selectReq = "SELECT * FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
         sqlite::Statement stm2(this, selectReq);
-        stm2.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+        stm2.bind(1, channelID->m_pData, channelID->nBytes);
 
         if (stm2.step())
         {
             const char* updateReq = "UPDATE " LASER_CHANNELS_NAME " SET myWID=?2, trgWID=?3, state=?4, fee=?5, locktime=?6, amountMy=?7, amountTrg=?8, amountCurrentMy=?9, amountCurrentTrg=?10, lockHeight=?11, bbsTimestamp=?12, data=?13 WHERE chID=?1;";
             sqlite::Statement stm(this, updateReq);
 
-            stm.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+            stm.bind(1, channelID->m_pData, channelID->nBytes);
             stm.bind(2, ch.get_myWID());
             stm.bind(3, ch.get_trgWID());
             stm.bind(4, ch.get_State());
@@ -2908,7 +2909,7 @@ namespace beam::wallet
         {
             const char* insertReq = "INSERT INTO " LASER_CHANNELS_NAME " (" ENUM_LASER_CHANNEL_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_LASER_CHANNEL_FIELDS(BIND_LIST, COMMA, ) ");";
             sqlite::Statement stm(this, insertReq);
-            stm.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+            stm.bind(1, channelID->m_pData, channelID->nBytes);
             stm.bind(2, ch.get_myWID());
             stm.bind(3, ch.get_trgWID());
             stm.bind(4, ch.get_State());

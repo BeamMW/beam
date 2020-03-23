@@ -89,12 +89,14 @@ namespace beamui
      */
     QString AmountToUIString(const Amount& value, Currencies coinType)
     {
+        static uint8_t beamDecimals = static_cast<uint8_t>(std::log10(Rules::Coin));
         std::string amountString;
         switch (coinType)
         {
             case Currencies::Usd:
             case Currencies::Beam:
-                amountString = libbitcoin::encode_base10(value, Rules::Coin/10);
+                amountString = libbitcoin::encode_base10(value, beamDecimals);
+                break;
             default:
                 amountString = libbitcoin::satoshi_to_btc(value);
         }
@@ -259,7 +261,7 @@ namespace beamui
 
             return res;
         }
-        else if (estimate < kSecondsInHour && estimate > 100)
+        else if (estimate > 100)
         {
             value = estimate / kSecondsInMinute;
             estimate %= kSecondsInMinute;
@@ -269,7 +271,7 @@ namespace beamui
             }
             units = qtTrId("loading-view-estimate-minutes");
         }
-        else if (estimate <= 100 && estimate > kSecondsInMinute)
+        else if (estimate > kSecondsInMinute)
         {
             value = estimate / kSecondsInMinute;
             units = qtTrId("loading-view-estimate-minutes");

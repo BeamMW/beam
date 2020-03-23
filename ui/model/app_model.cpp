@@ -84,7 +84,7 @@ void AppModel::backupDB(const std::string& dbFilePath)
        
         if (fsutils::rename(dbFilePath, newName))
         {
-            m_walletDBBackupPath = newName;
+            m_walletDBBackupPath = std::move(newName);
         }
     }
 }
@@ -279,7 +279,9 @@ void AppModel::startWallet()
         { Notification::Type::AddressStatusChanged, m_settings.isTxStatusActive() }
     };
 
-    m_wallet->start(activeNotifications, additionalTxCreators);
+    bool isSecondCurrencyEnabled = m_settings.getSecondCurrency().toStdString() != noSecondCurrencyStr;
+
+    m_wallet->start(activeNotifications, isSecondCurrencyEnabled, additionalTxCreators);
 }
 
 void AppModel::applySettingsChanges()

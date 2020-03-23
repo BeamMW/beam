@@ -151,7 +151,7 @@ namespace beam::wallet
 
     void Wallet::SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint)
     {
-        m_NodeEndpoint = nodeEndpoint;
+        m_NodeEndpoint = std::move(nodeEndpoint);
     }
 
     void Wallet::AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint)
@@ -406,12 +406,13 @@ namespace beam::wallet
             MyRequestKernel2::Ptr pVal(new MyRequestKernel2);
             pVal->m_TxID = txID;
             pVal->m_SubTxID = subTxID;
-            pVal->m_Msg.m_Fetch = true;
-            pVal->m_Msg.m_ID = kernelID;
+            auto& msg = pVal->m_Msg; // alias
+            msg.m_Fetch = true;
+            msg.m_ID = kernelID;
 
             if (PostReqUnique(*pVal))
             {
-                LOG_INFO() << txID << "[" << subTxID << "]" << " Get details for kernel: " << pVal->m_Msg.m_ID;
+                LOG_INFO() << txID << "[" << subTxID << "]" << " Get details for kernel: " << msg.m_ID;
             }
         }
     }
