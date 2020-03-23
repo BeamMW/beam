@@ -74,7 +74,7 @@ RowLayout {
                         qsTrId("tx-details-second-currency-notification");
             }
             else {
-                return root.amountPrefix + amountInSecondCurrency + root.secondCurrencyLabel + " " + qsTrId("tx-details-second-currency-notification");
+                return root.amountPrefix + amountInSecondCurrency + " " + root.secondCurrencyLabel + " " + qsTrId("tx-details-second-currency-notification");
             }
         }
         else return "";
@@ -154,7 +154,7 @@ RowLayout {
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
-            font.bold: true
+            font.styleName: "Bold"; font.weight: Font.Bold
             color: root.isIncome ? Style.accent_incoming : Style.accent_outgoing
             elide: Text.ElideMiddle
             text: root.amountWithLabel
@@ -179,7 +179,7 @@ RowLayout {
             elide: Text.ElideMiddle
             text: root.secondCurrencyAmount
             onCopyText: textCopied(secondCurrencyAmountField.text)
-            visible: isTextFieldVisible(secondCurrencyAmountField.text)
+            visible: isTextFieldVisible(secondCurrencyAmountField.text) && root.secondCurrencyLabel != ""
         }
         
         SFText {
