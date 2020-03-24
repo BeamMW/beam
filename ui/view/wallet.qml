@@ -363,6 +363,8 @@ Item {
                         property var        txRolesMap: myModel
                         sendAddress:        txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
                         receiveAddress:     txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
+                        senderIdentity:     txRolesMap && txRolesMap.senderIdentity ? txRolesMap.senderIdentity : ""
+                        receiverIdentity:   txRolesMap && txRolesMap.receiverIdentity ? txRolesMap.receiverIdentity : ""
                         fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
                         comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
                         txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""

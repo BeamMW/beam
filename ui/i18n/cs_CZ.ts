@@ -475,22 +475,6 @@
         <source>updating</source>
         <translation>probíhá aktualizace</translation>
     </message>
-    <message id="tx-details-title">
-        <source>General transaction info</source>
-        <translation>Hlavní informace o transakci</translation>
-    </message>
-    <message id="tx-details-sending-addr-label">
-        <source>Sending address</source>
-        <translation>Odesílací adresa</translation>
-    </message>
-    <message id="tx-details-receiving-addr-label">
-        <source>Receiving address</source>
-        <translation>Přijímací adresa</translation>
-    </message>
-    <message id="tx-details-error-label">
-        <source>Error</source>
-        <translation>Chyba</translation>
-    </message>
     <message id="settings-report-problem-save-log-button">
         <source>Save wallet logs</source>
         <extracomment>settings tab, report problem section, save logs button</extracomment>
@@ -920,10 +904,6 @@
         <source>Receive amount (optional)</source>
         <translation>Požadovaná částka (volitelné)</translation>
     </message>
-    <message id="tx-details-tx-id-label">
-        <source>Transaction ID</source>
-        <translation>ID transakce</translation>
-    </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
         <translation>Nepodařilo se spustit integrovaný přístupový bod Node: nastavení časového pásma vašeho počítače není synchronizované. Opravte jej a restartujte peněženku.</translation>
@@ -1141,10 +1121,6 @@ Allow to open and proceed to the website? You can always update your choice in S
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Pro změnu nastavení je vyžadováno ověření hesla</translation>
-    </message>
-    <message id="open-in-explorer">
-        <source>Open in Blockchain Explorer</source>
-        <translation>Otevřít v prohlížeči Blockchainu</translation>
     </message>
     <message id="restore-finish-alert-button">
         <source>I understand</source>
@@ -2246,18 +2222,6 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <extracomment>settings update wallet button</extracomment>
         <translation type="unfinished"></translation>
     </message>
-    <message id="tx-details-amount-label">
-        <source>Amount</source>
-        <translation type="unfinished">Částka</translation>
-    </message>
-    <message id="tx-details-second-currency-amount-label">
-        <source>Currency amount</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="tx-details-second-currency-notification">
-        <source>(for the day of transaction)</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="general-exchange-rate-not-available">
         <source>Exchange rate to %1 is not available</source>
         <translation type="unfinished"></translation>
@@ -2298,14 +2262,6 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <source>Offer &lt;b&gt;%1 %3 ➞ %2 BEAM&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; expired.</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="general-token">
-        <source>Token</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="tx-details-exchange-rate-not-available">
-        <source>Exchange rate to %1 was not available at the time of transaction</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="general-identity">
         <source>Identity</source>
         <translation type="unfinished"></translation>
@@ -2313,6 +2269,58 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
     <message id="notifications-activated">
         <source>activated</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-exchange-rate-not-available">
+        <source>Exchange rate to %1 was not available at the time of transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-second-currency-notification">
+        <source>(for the day of transaction)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-title">
+        <source>General transaction info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-sending-addr-label">
+        <source>Sending address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-sender-identity">
+        <source>Sender identity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-receiving-addr-label">
+        <source>Receiving address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-receiver-identity">
+        <source>Receiver identity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-amount-label">
+        <source>Amount</source>
+        <translation type="unfinished">Částka</translation>
+    </message>
+    <message id="tx-details-second-currency-amount-label">
+        <source>Currency amount</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-tx-id-label">
+        <source>Transaction ID</source>
+        <translation type="unfinished">ID transakce</translation>
+    </message>
+    <message id="general-token">
+        <source>Token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-error-label">
+        <source>Error</source>
+        <translation type="unfinished">Chyba</translation>
     </message>
 </context>
 </TS>

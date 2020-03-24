@@ -124,7 +124,9 @@ QHash<int, QByteArray> TxObjectList::roleNames() const
         { static_cast<int>(Roles::RawTxID), "rawTxID" },
         { static_cast<int>(Roles::Search), "search" },
         { static_cast<int>(Roles::StateDetails), "stateDetails" },
-        { static_cast<int>(Roles::Token), "token" }
+        { static_cast<int>(Roles::Token), "token" },
+        { static_cast<int>(Roles::SenderIdentity), "senderIdentity"},
+        { static_cast<int>(Roles::ReceiverIdentity), "receiverIdentity"},
     };
     return roles;
 }
@@ -236,12 +238,20 @@ QVariant TxObjectList::data(const QModelIndex &index, int role) const
             r.append(value->getAddressTo());
             r.append(" ");
             r.append(value->getComment());
+            r.append(" ");
+            r.append(value->getSenderIdentity());
+            r.append(" ");
+            r.append(value->getReceiverIdentity());
             return r;
         }
         case Roles::StateDetails:
             return value->getStateDetails();
         case Roles::Token:
             return value->getToken();
+        case Roles::SenderIdentity:
+            return value->getSenderIdentity();
+        case Roles::ReceiverIdentity:
+            return value->getReceiverIdentity();
 
         default:
             return QVariant();

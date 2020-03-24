@@ -9,6 +9,8 @@ RowLayout {
     id: "root"
     property var sendAddress
     property var receiveAddress
+    property var senderIdentity
+    property var receiverIdentity
     property var fee
     property var comment
     property var txID
@@ -124,6 +126,26 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
+            //% "Sender identity"
+            text: qsTrId("tx-details-sender-identity") + ":"
+            visible: senderIdentityField.visible
+        }
+        SFLabel {
+            id: senderIdentityField
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            elide: Text.ElideMiddle
+            text: getHighlitedText(root.senderIdentity)
+            onCopyText: textCopied(root.senderIdentity)
+            visible: root.senderIdentity.length > 0 && root.receiverIdentity.length > 0 && isTextFieldVisible(root.senderIdentity)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
             //% "Receiving address"
             text: qsTrId("tx-details-receiving-addr-label") + ":"
             visible: receiveAddressField.visible
@@ -138,6 +160,26 @@ RowLayout {
             text: getHighlitedText(root.receiveAddress)
             onCopyText: textCopied(root.receiveAddress)
             visible: isTextFieldVisible(root.receiveAddress)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Receiver identity"
+            text: qsTrId("tx-details-receiver-identity") + ":"
+            visible: receiverIdentityField.visible
+        }
+        SFLabel {
+            id: receiverIdentityField
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            elide: Text.ElideMiddle
+            text: getHighlitedText(root.receiverIdentity)
+            onCopyText: textCopied(root.receiverIdentity)
+            visible: root.senderIdentity.length > 0 && root.receiverIdentity.length > 0 && isTextFieldVisible(root.receiverIdentity)
         }
 
         SFText {

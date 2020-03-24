@@ -55,7 +55,9 @@ public:
         RawTxID,
         Search,
         StateDetails,
-        Token
+        Token,
+        SenderIdentity,
+        ReceiverIdentity
     };
 
     Q_ENUM(Roles)
