@@ -2258,7 +2258,7 @@ deploy the key at the node you trust completely.</translation>
     </message>
     <message id="tx-details-second-currency-notification">
         <source>(for the day of transaction)</source>
-        <translation type="unfinished">Groth: đơn vị nhỏ nhất của Beam </translation>
+        <translation type="unfinished"></translation>
     </message>
     <message id="general-exchange-rate-not-available">
         <source>Exchange rate to %1 is not available</source>
