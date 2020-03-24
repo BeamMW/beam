@@ -21,6 +21,8 @@
 #include "3rdparty/utilstrencodings.h"
 #include "core/proto.h"
 #include <algorithm>
+#include "wallet/client/extensions/news_channels/version_info.h"
+#include "wallet/core/exchange_rate.h"
 
 namespace beam::wallet
 {
@@ -502,6 +504,7 @@ namespace beam::wallet
         bool canDelete() const;
         std::string getStatusString() const;
         std::string getStatusStringApi() const;
+        std::string getAmountInSecondCurrency(ExchangeRate::Currency) const;
 
     //private:
         TxID m_txId = {};
@@ -704,28 +707,6 @@ namespace beam
 
     std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount);
     std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid);
-
-    struct Version
-    {
-        uint32_t m_major;
-        uint32_t m_minor;
-        uint32_t m_revision;
-
-        Version() = default;
-        Version(uint32_t major, uint32_t minor, uint32_t rev)
-            : m_major(major)
-            , m_minor(minor)
-            , m_revision(rev)
-        {};
-
-        SERIALIZE(m_major, m_minor, m_revision);
-
-        std::string to_string() const;
-        bool from_string(const std::string&);
-        bool operator==(const Version& other) const;
-        bool operator!=(const Version& other) const;
-        bool operator<(const Version& other) const;
-    };
 }  // namespace beam
 
 namespace std

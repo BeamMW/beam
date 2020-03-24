@@ -21,10 +21,12 @@
 
 #include <iomanip>
 #include <boost/algorithm/string.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 
 using namespace std;
 using namespace ECC;
 using namespace beam;
+using boost::multiprecision::cpp_dec_float_50;
 
 namespace std
 {
@@ -121,70 +123,6 @@ namespace beam
         os << std::to_string(amount);
         
         return os;
-    }
-
-    std::string Version::to_string() const
-    {
-        std::string maj(std::to_string(m_major));
-        std::string min(std::to_string(m_minor));
-        std::string rev(std::to_string(m_revision));
-        std::string res;
-        res.reserve(maj.size() + min.size() + rev.size());
-        res.append(maj).push_back('.');
-        res.append(min).push_back('.');
-        res.append(rev);
-        return res;
-    }
-
-    bool Version::from_string(const std::string& verString)
-    {
-        try
-        {
-            auto stringList = string_helpers::split(verString, '.');
-            if (stringList.size() != 3) return false;
-
-            std::vector<uint32_t> verList;
-
-            for (const auto& str : stringList)
-            {
-                size_t strEnd = 0;
-                uint32_t integer = std::stoul(str, &strEnd);
-                if (strEnd != str.size())
-                {
-                    return false;
-                }
-                verList.push_back(integer);
-            }
-
-            m_major = verList[0];
-            m_minor = verList[1];
-            m_revision = verList[2];
-        }
-        catch(...)
-        {
-            return false;
-        }
-        return true;
-    }
-
-    bool Version::operator==(const Version& other) const
-    {
-        return m_major == other.m_major
-            && m_minor == other.m_minor
-            && m_revision == other.m_revision;
-    }
-
-    bool Version::operator<(const Version& other) const
-    {
-        return m_major < other.m_major
-            || (m_major == other.m_major
-                && (m_minor < other.m_minor
-                    || (m_minor == other.m_minor && m_revision < other.m_revision)));
-    }
-
-    bool Version::operator!=(const Version& other) const
-    {
-        return !(*this == other);
     }
 }  // namespace beam
 
@@ -579,6 +517,33 @@ namespace beam::wallet
 
         assert(false && "Unknown TX status!");
         return "unknown";
+    }
+
+    std::string TxDescription::getAmountInSecondCurrency(ExchangeRate::Currency secondCurrency) const
+    {
+        Amount rate = 0;
+        auto exchangeRatesOptional = GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
+        if (exchangeRatesOptional)
+        {
+            std::vector<ExchangeRate>& rates = *exchangeRatesOptional;
+            for (const auto r : rates)
+            {
+                if (r.m_currency == ExchangeRate::Currency::Beam && r.m_unit == secondCurrency)
+                {
+                    rate = r.m_rate;
+                }
+            }
+        }
+
+        cpp_dec_float_50 dec_first(to_string(PrintableAmount(m_amount, true)).c_str());
+        cpp_dec_float_50 dec_second(to_string(PrintableAmount(rate, true)).c_str());
+        cpp_dec_float_50 product = dec_first * dec_second;
+
+        std::ostringstream oss;
+        oss.precision(std::numeric_limits<cpp_dec_float_50>::digits10);
+        oss << std::fixed << product;
+
+        return oss.str();
     }
 
     uint64_t get_RandomID()

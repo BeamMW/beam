@@ -14,6 +14,7 @@
 
 #include "updates_provider.h"
 
+#include "wallet/core/common.h"
 #include "utility/logger.h"
 
 namespace beam::wallet

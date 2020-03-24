@@ -18,6 +18,7 @@
 #include "utility/helpers.h"
 #include "sqlite/sqlite3.h"
 #include "core/block_rw.h"
+#include "wallet/core/common.h"
 #include <sstream>
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
@@ -4355,19 +4356,35 @@ namespace beam::wallet
             return true;
         }
 
+        PeerID getIdentity(const TxParameters& txParams, bool isSender)
+        {
+            auto v = isSender ? txParams.GetParameter<PeerID>(TxParameterID::MySecureWalletID)
+                              : txParams.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID);
+            if (v)
+            {
+                return *v;
+            }
+            return PeerID();
+        }
+
         std::string ExportTxHistoryToCsv(const IWalletDB& db)
         {
             std::stringstream ss;
             ss << "Type" << ","
                << "Date | Time" << ","
                << "\"Amount, BEAM\"" << ","
-               << "Status" << ","
-               << "Sending address" << ","
-               << "Receiving address" << ","
+               << "\"Amount, USD\"" << ","
+               << "\"Amount, BTC\"" << ","
                << "\"Transaction fee, BEAM\"" << ","
+               << "Status" << ","
+               << "Comment" << "," 
                << "Transaction ID" << ","
                << "Kernel ID" << "," 
-               << "Comment" << "," 
+               << "Sending address" << ","
+               << "Sending identity" << ","
+               << "Receiving address" << ","
+               << "Receiving identity" << ","
+            // << "Token" << ","
                << "Payment proof" << std::endl;
 
             for (const auto& tx : db.getTxHistory())
@@ -4382,17 +4399,22 @@ namespace beam::wallet
                     beam::to_hex(strProof.data(), proof.data(), proof.size());
                 }
 
-                ss << (tx.m_sender ? "Send BEAM" : "Receive BEAM") << ","
-                   << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","
-                   << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","
-                   << tx.getStatusString() << ","
-                   << std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId) << ","
-                   << std::to_string(!tx.m_sender ? tx.m_myId : tx.m_peerId) << ","
-                   << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","
-                   << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","
-                   << std::to_string(tx.m_kernelID) << ","
-                   << std::string { tx.m_message.begin(), tx.m_message.end() } << ","
-                   << strProof << std::endl;
+                ss << (tx.m_sender ? "Send BEAM" : "Receive BEAM") << ","                                   // Type
+                   << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","           // Date | Time
+                   << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                             // Amount, BEAM
+                   << "\"" << tx.getAmountInSecondCurrency(ExchangeRate::Currency::Usd) << "\"" << ","      // Amount, USD
+                   << "\"" << tx.getAmountInSecondCurrency(ExchangeRate::Currency::Bitcoin) << "\"" << ","  // Amount, BTC
+                   << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                                // Transaction fee, BEAM
+                   << tx.getStatusString() << ","                                                           // Status
+                   << std::string { tx.m_message.begin(), tx.m_message.end() } << ","                       // Comment
+                   << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                                     // Transaction ID
+                   << std::to_string(tx.m_kernelID) << ","                                                  // Kernel ID
+                   << std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId) << ","                          // Sending address
+                   << std::to_string(getIdentity(tx, tx.m_sender)) << ","                                   // Sending identity
+                   << std::to_string(!tx.m_sender ? tx.m_myId : tx.m_peerId) << ","                         // Receiving address
+                   << std::to_string(getIdentity(tx, !tx.m_sender)) << ","                                  // Receiving identity
+                   // TODO                                                                                  // Token
+                   << strProof << std::endl;                                                                // Payment proof
             }
             return ss.str();
         }
