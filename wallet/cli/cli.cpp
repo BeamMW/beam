@@ -666,15 +666,16 @@ namespace
     {
         auto walletDB = OpenDataBase(vm);
         auto addresses = walletDB->getAddresses(true);
-        array<uint8_t, 5> columnWidths{ { 20, 70, 8, 20, 21 } };
+        array<uint8_t, 6> columnWidths{ { 20, 70, 70, 8, 20, 21 } };
 
-        // Comment | Address | Active | Expiration date | Created |
+        // Comment | Address | Identity | Active | Expiration date | Created |
         cout << boost::format(kAddrListTableHead)
              % boost::io::group(left, setw(columnWidths[0]), kAddrListColumnComment)
              % boost::io::group(left, setw(columnWidths[1]), kAddrListColumnAddress)
-             % boost::io::group(left, setw(columnWidths[2]), kAddrListColumnActive)
-             % boost::io::group(left, setw(columnWidths[3]), kAddrListColumnExprDate)
-             % boost::io::group(left, setw(columnWidths[4]), kAddrListColumnCreated)
+             % boost::io::group(left, setw(columnWidths[2]), kAddrListColumnIdentity)
+             % boost::io::group(left, setw(columnWidths[3]), kAddrListColumnActive)
+             % boost::io::group(left, setw(columnWidths[4]), kAddrListColumnExprDate)
+             % boost::io::group(left, setw(columnWidths[5]), kAddrListColumnCreated)
              << std::endl;
 
         for (const auto& address : addresses)
@@ -694,9 +695,10 @@ namespace
             cout << boost::format(kAddrListTableBody)
              % boost::io::group(left, setw(columnWidths[0]), comment)
              % boost::io::group(left, setw(columnWidths[1]), std::to_string(address.m_walletID))
-             % boost::io::group(left, boolalpha, setw(columnWidths[2]), !address.isExpired())
-             % boost::io::group(left, setw(columnWidths[3]), expirationDateText)
-             % boost::io::group(left, setw(columnWidths[4]), creationDateText)
+             % boost::io::group(left, setw(columnWidths[2]), std::to_string(address.m_Identity))
+             % boost::io::group(left, boolalpha, setw(columnWidths[3]), !address.isExpired())
+             % boost::io::group(left, setw(columnWidths[4]), expirationDateText)
+             % boost::io::group(left, setw(columnWidths[5]), creationDateText)
              << std::endl;
         }
 

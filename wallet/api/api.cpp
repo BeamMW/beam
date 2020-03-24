@@ -1196,8 +1196,12 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 {"duration", addr.m_duration},
                 {"expired", addr.isExpired()},
                 {"own", addr.isOwn()},
-                {"ownIDBase64", to_base64(addr.m_OwnID)}
+                {"ownIDBase64", to_base64(addr.m_OwnID)},
             });
+            if (addr.m_Identity != Zero)
+            {
+                msg["result"].back().push_back({ "identity", std::to_string(addr.m_Identity) });
+            }
         }
     }
 

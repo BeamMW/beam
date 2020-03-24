@@ -147,6 +147,7 @@ namespace beam
     extern const char kAddrListTableHead[];
     extern const char kAddrListColumnComment[];
     extern const char kAddrListColumnAddress[];
+    extern const char kAddrListColumnIdentity[];
     extern const char kAddrListColumnActive[];
     extern const char kAddrListColumnExprDate[];
     extern const char kAddrListColumnCreated[];

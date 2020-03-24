@@ -149,13 +149,14 @@ namespace beam
     const char kAddrExprChanged[] = "Expiration for address %1% was changed to \"%2%\".";
     const char kAddrNewGenerated[] = "New address generated:\n\n%1%\n";
     const char kAddrNewGeneratedLabel[] = "comment = %1%";
-    const char kAddrListTableHead[] = "Addresses\n\n  %1%|%2%|%3%|%4%|%5%";
+    const char kAddrListTableHead[] = "Addresses\n\n  %1%|%2%|%3%|%4%|%5%|%6%";
     const char kAddrListColumnComment[] = "comment";
     const char kAddrListColumnAddress[] = "address";
+    const char kAddrListColumnIdentity[] = "identity";
     const char kAddrListColumnActive[] = "active";
     const char kAddrListColumnExprDate[] = "expiration date";
     const char kAddrListColumnCreated[] = "created";
-    const char kAddrListTableBody[] = "  %1% %2% %3% %4% %5%";
+    const char kAddrListTableBody[] = "  %1% %2% %3% %4% %5% %6%";
 
     // Seed phrase
     const char kSeedPhraseGeneratedTitle[] = "======\nGenerated seed phrase: \n\n\t";
