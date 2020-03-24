@@ -585,6 +585,7 @@ namespace beam::wallet
         void onModified();
         void onFlushTimer();
         void onPrepareToModify();
+        void MigrateCoins();
     private:
         friend struct sqlite::Statement;
         bool m_Initialized = false;
