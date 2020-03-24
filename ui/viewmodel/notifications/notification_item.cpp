@@ -325,7 +325,10 @@ QString NotificationItem::type() const
         case Notification::Type::SoftwareUpdateAvailable:
             return "update";
         case Notification::Type::AddressStatusChanged:
-            return "expired";
+        {
+            const auto address = getWalletAddressRaw(m_notification);
+            return address.isExpired() ? "expired" : "extended";
+        }
         case Notification::Type::TransactionCompleted:
         {
             auto p = getTxParameters(m_notification);

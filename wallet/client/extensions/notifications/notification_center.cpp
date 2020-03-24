@@ -211,19 +211,39 @@ namespace beam::wallet
 
             for (const auto& item : items)
             {
-                if (!item.isExpired())
-                {
-                    continue;
-                }
                 ECC::Hash::Value hv;
-                ECC::Hash::Processor() << Blob(item.m_walletID.m_Pk) << item.m_duration >> hv;
-                Notification n;
-                n.m_ID = hv;
-                n.m_type = Notification::Type::AddressStatusChanged;
-                n.m_createTime = getTimestamp();
-                n.m_state = Notification::State::Unread;
-                n.m_content = toByteBuffer(item);
-                createNotification(n);
+                ECC::Hash::Processor() << Blob(item.m_walletID.m_Pk) >> hv;
+                
+                if (item.isExpired())
+                {
+                    // creating new notification about address expiration
+                    Notification n;
+                    n.m_ID = hv;
+                    n.m_type = Notification::Type::AddressStatusChanged;
+                    n.m_createTime = getTimestamp();
+                    n.m_state = Notification::State::Unread;
+                    n.m_content = toByteBuffer(item);
+
+                    auto it = m_cache.find(hv);
+                    if (it == std::cend(m_cache))
+                    {
+                        createNotification(n);
+                    }
+                    else
+                    {
+                        updateNotification(n);
+                    }
+                }
+                else
+                {
+                    // check if address was activated and update notification content to show it
+                    auto it = m_cache.find(hv);
+                    if (it != std::cend(m_cache))
+                    {
+                        it->second.m_content = toByteBuffer(item);
+                        updateNotification(it->second);
+                    }
+                }
             }
         }
     }

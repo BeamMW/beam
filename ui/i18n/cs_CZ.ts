@@ -2310,5 +2310,9 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
         <source>Identity</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="notifications-activated">
+        <source>activated</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

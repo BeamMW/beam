@@ -2310,5 +2310,9 @@ deploy the key at the node you trust completely.</oldsource>
         <source>Identity</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="notifications-activated">
+        <source>activated</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

@@ -2312,5 +2312,9 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
         <source>Identity</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="notifications-activated">
+        <source>activated</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

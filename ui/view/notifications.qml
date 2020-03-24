@@ -262,9 +262,12 @@ ColumnLayout {
                 text: getActionButtonLabel(type)
         
                 visible: getActionButtonLabel(type) != undefined
+                enabled: notificationsViewRoot.notifications[type].action != null
 
                 onClicked: {
-                    notificationsViewRoot.notifications[type].action(model.rawID);
+                    if (enabled) {
+                        notificationsViewRoot.notifications[type].action(model.rawID);
+                    }
                 }
                 onPressed : { // avoid Flickable drag effect
                     notificationList.interactive = false;
@@ -291,6 +294,8 @@ ColumnLayout {
         updateLabel:    qsTrId("notifications-update-now"),
         //% "activate"
         activateLabel:  qsTrId("notifications-activate"),
+        //% "activated"
+        activatedLabel: qsTrId("notifications-activated"),
         //% "details"
         detailsLabel:   qsTrId("notifications-details")
     })
@@ -306,6 +311,12 @@ ColumnLayout {
             label:      labels.activateLabel,
             actionIcon: icons.activateIcon,
             action:     activateAddress,
+            icon:       "qrc:/assets/icon-notifications-expired.svg"
+        },
+        extended: {
+            label:      labels.activatedLabel,
+            actionIcon: icons.activateIcon,
+            action:     null,
             icon:       "qrc:/assets/icon-notifications-expired.svg"
         },
         received: {
