@@ -539,7 +539,10 @@ namespace beam::wallet
                     cpp_dec_float_50 product = dec_first * dec_second;
 
                     std::ostringstream oss;
-                    oss.precision(8);
+                    uint32_t precision = secondCurrency == ExchangeRate::Currency::Usd
+                                            ? 2
+                                            : std::lround(std::log10(Rules::Coin));
+                    oss.precision(precision);
                     oss << std::fixed << product;
 
                     return oss.str();

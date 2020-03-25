@@ -4405,7 +4405,7 @@ namespace beam::wallet
                 std::string amountInUsd = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Usd);
                 std::string amountInBtc = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Bitcoin);
 
-                ss << (tx.m_sender ? "Send BEAM" : "Receive BEAM") << ","                           // Type
+                ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type
                    << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","   // Date | Time
                    << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                     // Amount, BEAM
                    << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
