@@ -22,13 +22,16 @@ namespace beam::wallet
      *  @storage                used to store notifications
      *  @activeNotifications    shows which of Notification::Type are active
      */
-    NotificationCenter::NotificationCenter(IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications)
+    NotificationCenter::NotificationCenter(IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications, io::Reactor::Ptr reactor)
         : m_storage(storage)
         , m_activeNotifications(activeNotifications)
+        , m_checkoutTimer(io::Timer::create(*reactor))
     {
         LOG_DEBUG() << "NotificationCenter()";
 
         loadToCache();
+        m_myAddresses = m_storage.getAddresses(true);
+        m_checkoutTimer->start(3000/*3sec*/, true/*periodic*/, [this]() { checkAddressesExpirationTime(); });
     }
     
     void NotificationCenter::loadToCache()
@@ -165,14 +168,14 @@ namespace beam::wallet
         auto search = m_cache.find(id);
         if (search == m_cache.cend())
         {
-            Notification n;
-            n.m_ID = id;
-            n.m_type = Notification::Type::SoftwareUpdateAvailable;
-            n.m_createTime = getTimestamp();
-            n.m_state = Notification::State::Unread;
-            n.m_content = toByteBuffer(content);
-            
-            createNotification(n);
+            createNotification(
+                Notification {
+                    id,
+                    Notification::Type::SoftwareUpdateAvailable,
+                    Notification::State::Unread,
+                    getTimestamp(),
+                    toByteBuffer(content)
+                });
         }
     }
 
@@ -192,13 +195,15 @@ namespace beam::wallet
                 const auto& id = item.GetTxID();
                 ECC::Hash::Value hv;
                 ECC::Hash::Processor() << Blob(id->data(), static_cast<uint32_t>(id->size())) << uint32_t(item.m_status) >> hv;
-                Notification n;
-                n.m_ID = hv;
-                n.m_type = failed ? Notification::Type::TransactionFailed : Notification::Type::TransactionCompleted;
-                n.m_createTime = getTimestamp();
-                n.m_state = Notification::State::Unread;
-                n.m_content = toByteBuffer(TxToken(item));
-                createNotification(n);
+                
+                createNotification(
+                    Notification {
+                        hv,
+                        failed ? Notification::Type::TransactionFailed : Notification::Type::TransactionCompleted,
+                        Notification::State::Unread,
+                        getTimestamp(),
+                        toByteBuffer(TxToken(item))
+                    });
             }
         }
     }
@@ -211,20 +216,20 @@ namespace beam::wallet
 
             for (const auto& item : items)
             {
-                ECC::Hash::Value hv;
-                ECC::Hash::Processor() << Blob(item.m_walletID.m_Pk) >> hv;
-                
+                ECC::uintBig id = Cast::Down<ECC::uintBig>(item.m_walletID.m_Pk);
+
+                auto it = m_cache.find(id);
+
                 if (item.isExpired())
                 {
-                    // creating new notification about address expiration
-                    Notification n;
-                    n.m_ID = hv;
-                    n.m_type = Notification::Type::AddressStatusChanged;
-                    n.m_createTime = getTimestamp();
-                    n.m_state = Notification::State::Unread;
-                    n.m_content = toByteBuffer(item);
+                    Notification n {
+                        id,
+                        Notification::Type::AddressStatusChanged,
+                        Notification::State::Unread,
+                        getTimestamp(),
+                        toByteBuffer(item)
+                    };
 
-                    auto it = m_cache.find(hv);
                     if (it == std::cend(m_cache))
                     {
                         createNotification(n);
@@ -237,11 +242,54 @@ namespace beam::wallet
                 else
                 {
                     // check if address was activated and update notification content to show it
-                    auto it = m_cache.find(hv);
                     if (it != std::cend(m_cache))
                     {
                         it->second.m_content = toByteBuffer(item);
                         updateNotification(it->second);
+                    }
+                }
+            }
+        }
+    }
+
+    void NotificationCenter::checkAddressesExpirationTime()
+    {
+        for (const auto& address : m_myAddresses)
+        {
+            if (address.isExpired())
+            {
+                ECC::uintBig id = Cast::Down<ECC::uintBig>(address.m_walletID.m_Pk);
+                auto it = m_cache.find(id);
+                
+                // No notification for expiration of this address
+                if (it == std::cend(m_cache))
+                {
+                    // creating new notification
+                    createNotification(
+                        Notification {
+                            id,
+                            Notification::Type::AddressStatusChanged,
+                            Notification::State::Unread,
+                            getTimestamp(),
+                            toByteBuffer(address)
+                        });
+                }
+                // There is the notification already
+                else
+                {
+                    WalletAddress cachedAddress;
+                    if (fromByteBuffer(it->second.m_content, cachedAddress) &&
+                        !cachedAddress.isExpired())
+                    {
+                        // updating existent notification
+                        updateNotification(
+                            Notification {
+                                id,
+                                Notification::Type::AddressStatusChanged,
+                                Notification::State::Unread,
+                                getTimestamp(),
+                                toByteBuffer(address)
+                            });
                     }
                 }
             }

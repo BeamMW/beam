@@ -326,7 +326,7 @@ namespace beam::wallet
                     auto wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
                     // Notification center initialization
-                    m_notificationCenter = make_shared<NotificationCenter>(*m_walletDB, activeNotifications);
+                    m_notificationCenter = make_shared<NotificationCenter>(*m_walletDB, activeNotifications, m_reactor->shared_from_this());
                     using NotificationsSubscriber = ScopedSubscriber<INotificationsObserver, NotificationCenter>;
 
                     struct MyNotificationsObserver : INotificationsObserver

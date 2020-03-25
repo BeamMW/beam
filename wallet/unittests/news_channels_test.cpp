@@ -334,7 +334,7 @@ namespace
             { Notification::Type::TransactionStatusChanged, true },
             { Notification::Type::BeamNews, true }
         };
-        NotificationCenter center(*storage, activeTypes);
+        NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
 
         {
             {
@@ -456,7 +456,7 @@ namespace
             { Notification::Type::TransactionStatusChanged, false },
             { Notification::Type::BeamNews, false }
         };
-        NotificationCenter center(*storage, activeTypes);
+        NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
 
         WALLET_CHECK(center.getNotifications().size() == 0);
 
@@ -544,6 +544,8 @@ int main()
 
     TestNotificationCenter();
     TestNotificationsOnOffSwitching();
+
+    // TODO test Notifications on address expiration
     
     boost::filesystem::remove(dbFileName);
 
