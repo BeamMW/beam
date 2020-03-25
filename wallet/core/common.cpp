@@ -519,31 +519,34 @@ namespace beam::wallet
         return "unknown";
     }
 
+    /// Return empty string if second currency exchange rate is not presented
     std::string TxDescription::getAmountInSecondCurrency(ExchangeRate::Currency secondCurrency) const
     {
-        Amount rate = 0;
         auto exchangeRatesOptional = GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
         if (exchangeRatesOptional)
         {
             std::vector<ExchangeRate>& rates = *exchangeRatesOptional;
             for (const auto r : rates)
             {
-                if (r.m_currency == ExchangeRate::Currency::Beam && r.m_unit == secondCurrency)
+                if (r.m_currency == ExchangeRate::Currency::Beam &&
+                    r.m_unit == secondCurrency &&
+                    r.m_rate != 0)
                 {
-                    rate = r.m_rate;
+                    cpp_dec_float_50 dec_first(m_amount);
+                    dec_first /= Rules::Coin;
+                    cpp_dec_float_50 dec_second(r.m_rate);
+                    dec_second /= Rules::Coin;
+                    cpp_dec_float_50 product = dec_first * dec_second;
+
+                    std::ostringstream oss;
+                    oss.precision(8);
+                    oss << std::fixed << product;
+
+                    return oss.str();
                 }
             }
         }
-
-        cpp_dec_float_50 dec_first(to_string(PrintableAmount(m_amount, true)).c_str());
-        cpp_dec_float_50 dec_second(to_string(PrintableAmount(rate, true)).c_str());
-        cpp_dec_float_50 product = dec_first * dec_second;
-
-        std::ostringstream oss;
-        oss.precision(std::numeric_limits<cpp_dec_float_50>::digits10);
-        oss << std::fixed << product;
-
-        return oss.str();
+        return "";
     }
 
     uint64_t get_RandomID()
