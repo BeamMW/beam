@@ -1110,12 +1110,6 @@ namespace beam::wallet
             return;
         }
 
-        // TODO roman.strilets: need to check this code
-        if (walletDB->getCurrentHeight() >= offer.minHeight() + offer.peerResponseHeight())
-        {
-            offer.m_status = SwapOfferStatus::Expired;
-        }
-
         doResponse(id, OfferStatus::Response{ walletDB->getCurrentHeight(), offer });
     }
 
