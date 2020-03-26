@@ -56,6 +56,7 @@ namespace beamui
 #endif
 
     QString toString(const beam::wallet::WalletID&);
+    QString toString(const beam::wallet::PeerID&);
     QString toString(const beam::Merkle::Hash&);
     QString toString(const beam::Timestamp& ts);
 

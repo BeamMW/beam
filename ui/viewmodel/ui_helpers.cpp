@@ -21,6 +21,16 @@ namespace beamui
         return "";
     }
 
+    QString toString(const beam::wallet::PeerID& peerID)
+    {
+        if (peerID != Zero)
+        {
+            auto id = std::to_string(peerID);
+            return QString::fromStdString(id);
+        }
+        return "";
+    }
+
     QString toString(const beam::Merkle::Hash& walletID)
     {
         auto id = std::to_string(walletID);
