@@ -68,7 +68,8 @@ RowLayout {
         if (root.amount !== "") {
             let amountInSecondCurrency = BeamGlobals.calcAmountInSecondCurrency(
                 root.amount,
-                root.secondCurrencyRate);
+                root.secondCurrencyRate,
+                root.secondCurrencyLabel);
             if (amountInSecondCurrency == "") {
                 //% "Exchange rate to %1 was not available at the time of transaction"
                 return  qsTrId("tx-details-exchange-rate-not-available").arg(root.secondCurrencyLabel);
