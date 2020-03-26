@@ -33,7 +33,7 @@ inline bool CanBeHandled(int state)
 
 inline bool CanBeClosed(int state)
 {
-    return state <= beam::Lightning::Channel::State::Closing1 &&
+    return state < beam::Lightning::Channel::State::Closing1 &&
            state != beam::Lightning::Channel::State::OpenFailed &&
            state >= beam::Lightning::Channel::State::Opening1;
 }
@@ -148,20 +148,20 @@ proto::FlyClient::INetwork& Mediator::get_Net()
 void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
 {
     auto inChID = std::make_shared<ChannelID>(Zero);
-	beam::Negotiator::Storage::Map dataIn;
+    beam::Negotiator::Storage::Map dataIn;
 
-	try
+    try
     {
-		Deserializer der;
-		der.reset(blob.p, blob.n);
+        Deserializer der;
+        der.reset(blob.p, blob.n);
 
-		der & (*inChID);
-		der & Cast::Down<FieldMap>(dataIn);
-	}
-	catch (const std::exception&)
+        der & (*inChID);
+        der & Cast::Down<FieldMap>(dataIn);
+    }
+    catch (const std::exception&)
     {
-		return;
-	}
+        return;
+    }
 
     if (!chID && m_pInputReceiver)
     {
@@ -203,9 +203,9 @@ bool Mediator::Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob)
         return false;
 
     if (!proto::Bbs::Decrypt(pMsg, blob->n, sk))
-		return false;
+        return false;
 
-	blob->p = pMsg;
+    blob->p = pMsg;
     return true;
 }
 
@@ -379,33 +379,33 @@ bool Mediator::Close(const std::string& channelID)
 
 bool Mediator::GracefulClose(const std::string& channelID)
 {
-        auto p_channelID = LoadChannel(channelID);
-        if (!p_channelID)
-        {
-            LOG_DEBUG() << "Channel " << channelID << " restored with error";
-        return false;
-        }
+    auto p_channelID = LoadChannel(channelID);
+    if (!p_channelID)
+    {
+        LOG_DEBUG() << "Channel " << channelID << " restored with error";
+    return false;
+    }
 
-        auto& channel = m_channels[p_channelID];
-        if (!channel)
-        {
-            LOG_DEBUG() << "Channel " << channelID << " unexpected error";
-        return false;
-        }
+    auto& channel = m_channels[p_channelID];
+    if (!channel)
+    {
+        LOG_DEBUG() << "Channel " << channelID << " unexpected error";
+    return false;
+    }
 
-        channel->Subscribe();
+    channel->Subscribe();
 
-        if (!IsInSync())
-        {
-            m_actionsQueue.emplace_back([this, &channel] () {
-                GracefulCloseInternal(channel);
-            });
-            LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
-        }
-        else
-        {
+    if (!IsInSync())
+    {
+        m_actionsQueue.emplace_back([this, &channel] () {
             GracefulCloseInternal(channel);
-        }
+        });
+        LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
+    }
+    else
+    {
+        GracefulCloseInternal(channel);
+    }
 
     return true;
 }
@@ -671,7 +671,7 @@ void Mediator::GracefulCloseInternal(const std::unique_ptr<Channel>& channel)
     Block::SystemState::Full tip;
     get_History().get_Tip(tip);
 
-    if (tip.m_Height <= channel->get_LockHeight())
+    if (tip.m_Height < channel->get_LockHeight())
     {
         if (!channel->Transfer(0, true))
         {
@@ -817,7 +817,8 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
 
     if (state == Lightning::Channel::State::Open)
     {
-        if (lastState <= Lightning::Channel::State::Opening2)
+        if (lastState <= Lightning::Channel::State::Opening2 &&
+            lastState != Lightning::Channel::State::None)
         {
             LOG_DEBUG() << "observer->OnOpened";
             for (auto observer : m_observers)

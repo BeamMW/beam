@@ -125,7 +125,6 @@ bool LoadLaserParams(const po::variables_map& vm,
     if (vm.count(cli::LASER_FEE))
     {
         *fee = vm[cli::LASER_FEE].as<Nonnegative<Amount>>().value;
-        LOG_DEBUG() << vm[cli::LASER_FEE].as<Nonnegative<Amount>>().value;
         if (*fee < cli::kMinimumFee)
         {
             LOG_ERROR() << "Failed to initiate the operation. The minimum fee is 100 groth.";
@@ -288,7 +287,7 @@ void LaserShow(const IWalletDB::Ptr& walletDB)
 
     array<uint8_t, 6> columnWidths{ { 32, 10, 10, 10, 10, 8 } };
 
-    // chId | aMy | aTrg | state | fee | valid till
+    // channel Id | aMy | aTrg | state | fee | valid till
     cout << boost::format(kLaserChannelListTableHead)
             % boost::io::group(left, setw(columnWidths[0]), kLaserChannelListChannelId)
             % boost::io::group(left, setw(columnWidths[1]), kLaserChannelListAMy)

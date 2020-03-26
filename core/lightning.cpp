@@ -96,6 +96,13 @@ void Channel::UpdateList::DeleteFront()
 	delete &d;
 }
 
+void Channel::UpdateList::DeleteBack()
+{
+	DataUpdate& d = back();
+	pop_back();
+	delete &d;
+}
+
 bool Channel::IsUnfairPeerClosed() const
 {
 	assert(m_State.m_Close.m_hPhase1);
@@ -179,6 +186,24 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 
 			if (!TransferInternal(val, 1, h, !!iClose))
 				return;
+		}
+	}
+	else if (nRev == m_nRevision && nRev > 1)
+	{
+		// double-sided graceful close
+		uint32_t iClose = 0;
+		if (dataIn.Get(iClose, Codes::CloseGraceful) && !!iClose)
+		{
+			if (m_pNegCtx && m_pNegCtx->m_eType == NegotiationCtx::Close)
+			{
+				m_lstUpdates.DeleteBack();
+				--m_nRevision;
+				m_pNegCtx.reset();
+				if (!m_iRole)
+					Transfer(0, true);
+
+				return;
+			}
 		}
 	}
 
@@ -1157,7 +1182,7 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCl
 
 		MultiTx& n = p->m_Inst;
 		n.m_pStorage = &p->m_Data;
-		get_Kdf(n.m_pKdf);
+		get_Kdf(n.m_pKdf); 
 
 		cid.m_Value += nMyFee;
 		AllocTxoID(cid);

@@ -133,6 +133,7 @@ namespace Lightning {
 			~UpdateList() { Clear(); }
 			void Clear();
 			void DeleteFront();
+			void DeleteBack();
 
 			DataUpdate* get_NextSafe(DataUpdate&) const;
 			DataUpdate* get_PrevSafe(DataUpdate&) const;
