@@ -35,9 +35,10 @@ namespace beam
         try
         {
             auto stringList = string_helpers::split(verString, '.');
-            if (stringList.size() != 3) return false;
+            if (stringList.size() > 3) return false;
 
-            std::vector<uint32_t> verList;
+            std::vector<uint32_t> verList(3, 0);
+            auto it = std::begin(verList);
 
             for (const auto& str : stringList)
             {
@@ -47,9 +48,9 @@ namespace beam
                 {
                     return false;
                 }
-                verList.push_back(integer);
+                *it = integer;
+                it++;
             }
-
             m_major = verList[0];
             m_minor = verList[1];
             m_revision = verList[2];

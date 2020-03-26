@@ -146,6 +146,8 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "NotificationCenter::getNotifications()";
 
+        // checkAddressesExpirationTime();
+
         std::vector<Notification> notifications;
 
         for (const auto& pair : m_cache)
