@@ -142,11 +142,11 @@ namespace beam::wallet
         }
     }
 
-    std::vector<Notification> NotificationCenter::getNotifications() const
+    std::vector<Notification> NotificationCenter::getNotifications()
     {
         LOG_DEBUG() << "NotificationCenter::getNotifications()";
 
-        // checkAddressesExpirationTime();
+        checkAddressesExpirationTime();
 
         std::vector<Notification> notifications;
 
@@ -218,8 +218,9 @@ namespace beam::wallet
 
             for (const auto& item : items)
             {
-                ECC::uintBig id = Cast::Down<ECC::uintBig>(item.m_walletID.m_Pk);
+                if (!item.isOwn()) continue;
 
+                ECC::uintBig id = Cast::Down<ECC::uintBig>(item.m_walletID.m_Pk);
                 auto it = m_cache.find(id);
 
                 if (item.isExpired())
@@ -250,6 +251,57 @@ namespace beam::wallet
                         updateNotification(it->second);
                     }
                 }
+            }
+        }
+        updateMyAddresses(action, items);
+    }
+
+    void NotificationCenter::updateMyAddresses(ChangeAction action, const std::vector<WalletAddress>& addresses)
+    {
+        if (action == ChangeAction::Reset)
+        {
+            m_myAddresses.clear();
+        }
+
+        for (const auto& address : addresses)
+        {
+            switch (action)
+            {
+                case ChangeAction::Removed:
+                {
+                    auto it = std::find_if(
+                        std::cbegin(m_myAddresses),
+                        std::cend(m_myAddresses),
+                        [&address](const WalletAddress& a) -> bool
+                        {
+                            return a.m_walletID == address.m_walletID;
+                        });
+                    if (it != std::cend(m_myAddresses))
+                    {
+                        m_myAddresses.erase(it);
+                    }
+                    break;
+                }
+                case ChangeAction::Updated:
+                {
+                    auto it = std::find_if(
+                        std::cbegin(m_myAddresses),
+                        std::cend(m_myAddresses),
+                        [&address](const WalletAddress& a) -> bool
+                        {
+                            return a.m_walletID == address.m_walletID;
+                        });
+                    if (it != std::cend(m_myAddresses))
+                    {
+                        m_myAddresses.erase(it);
+                        m_myAddresses.emplace_back(address);
+                    }
+                    break;
+                }
+                case ChangeAction::Added:   // same for both actions
+                case ChangeAction::Reset:
+                    m_myAddresses.emplace_back(address);
+                    break;
             }
         }
     }

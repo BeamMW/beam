@@ -32,7 +32,7 @@ namespace beam::wallet
     public:
         NotificationCenter(IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications, io::Reactor::Ptr reactor);
 
-        std::vector<Notification> getNotifications() const;
+        std::vector<Notification> getNotifications();
         void markNotificationAsRead(const ECC::uintBig& notificationID);
         void deleteNotification(const ECC::uintBig& notificationID);
 
@@ -56,6 +56,7 @@ namespace beam::wallet
         void createNotification(const Notification&);
         void updateNotification(const Notification&);
 
+        void updateMyAddresses(ChangeAction action, const std::vector<WalletAddress>& addresses);
         void checkAddressesExpirationTime();
 
         IWalletDB& m_storage;

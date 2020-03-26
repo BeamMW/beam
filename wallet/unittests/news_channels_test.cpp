@@ -528,89 +528,98 @@ namespace
         }
     }
 
-    // void TestNotificationsOnExpiredAddress()
-    // {
-    //     cout << endl << "Test notifications on expired address" << endl;
+    void TestNotificationsOnExpiredAddress()
+    {
+        cout << endl << "Test notifications on expired address" << endl;
 
-    //     auto storage = createSqliteWalletDB();
-    //     std::map<Notification::Type,bool> activeTypes {
-    //         { Notification::Type::SoftwareUpdateAvailable, false },
-    //         { Notification::Type::AddressStatusChanged, true },
-    //         { Notification::Type::TransactionStatusChanged, false },
-    //         { Notification::Type::BeamNews, false }
-    //     };
-    //     NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
+        // notification on appearing expired address in storage
+        {
+            auto storage = createSqliteWalletDB();
+            std::map<Notification::Type,bool> activeTypes {
+                { Notification::Type::SoftwareUpdateAvailable, false },
+                { Notification::Type::AddressStatusChanged, true },
+                { Notification::Type::TransactionStatusChanged, false },
+                { Notification::Type::BeamNews, false }
+            };
+            WalletAddress addr;
+            storage->createAddress(addr);
+            addr.m_createTime = 123;
+            addr.m_duration = 456;
+            storage->saveAddress(addr);
+            NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
 
-    //     // notification on appearing expired address in storage
-    //     {
-    //         uintBig_t id1 { 0,1,2,3,4,5,6,7,8,9,
-    //                         0,1,2,3,4,5,6,7,8,9,
-    //                         0,1,2,3,4,5,6,7,8,9,
-    //                         0,1 };
-    //         WalletID wid1 {
-    //             123,        // channel
-    //             id1         // PeerID
-    //         };
-    //         storage->saveAddress(
-    //             WalletAddress {
-    //                 wid1,
-    //                 "expiredAddress",
-    //                 "abc",
-    //                 1234567891,
-    //                 1234567890,
-    //                 true,
-    //                 PeerID()
-    //             });
-    //         // MockNotificationsObserver observer(
-    //         //     [&id1]
-    //         //     (ChangeAction action, const std::vector<Notification>& list)
-    //         //     {
-    //         //         WALLET_CHECK(action == ChangeAction::Added);
-    //         //         WALLET_CHECK(list.size() == 1);
-    //         //         WALLET_CHECK(list[0].m_ID == id1);
-    //         //         WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
-    //         //         WALLET_CHECK(list[0].m_state == Notification::State::Unread);
-    //         //     }
-    //         // );
+            size_t exeCount = 0;
+            MockNotificationsObserver observer(
+                [&exeCount, &addr]
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(action == ChangeAction::Added);
+                    WALLET_CHECK(list.size() == 1);
+                    WALLET_CHECK(list[0].m_ID == addr.m_walletID.m_Pk);
+                    WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
+                    WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                    ++exeCount;
+                }
+            );
 
-    //         // TODO timeout
-    //         // center.Subscribe(&observer);
-    //         auto list = center.getNotifications();
-    //         WALLET_CHECK(list.size() == 1);
-    //         WALLET_CHECK(list[0].m_ID == id1);
-    //         WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
-    //         WALLET_CHECK(list[0].m_state == Notification::State::Unread);
-    //         // center.Unsubscribe(&observer);
-    //     }
+            center.Subscribe(&observer);
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 1);
+            WALLET_CHECK(list[0].m_ID == addr.m_walletID.m_Pk);
+            WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
+            WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+            center.Unsubscribe(&observer);
+            WALLET_CHECK(exeCount == 1);
+        }
 
-    //     // notification on address update if expired
-    //     {
-    //         uintBig_t id2 { 0,1,2,3,4,5,6,7,8,9,
-    //                         0,1,2,3,4,5,6,7,8,9,
-    //                         0,1,2,3,4,5,6,7,8,9,
-    //                         0,2 };
-    //         WalletID wid2 {
-    //             123,        // channel
-    //             id2         // PeerID
-    //         };
-    //         MockNotificationsObserver observer(
-    //             [&id2]
-    //             (ChangeAction action, const std::vector<Notification>& list)
-    //             {
-    //                 WALLET_CHECK(action == ChangeAction::Added);
-    //                 WALLET_CHECK(list.size() == 1);
-    //                 WALLET_CHECK(list[0].m_ID == id2);
-    //                 WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
-    //                 WALLET_CHECK(list[0].m_state == Notification::State::Unread);
-    //             }
-    //         );
-    //         center.Subscribe(&observer);
-    //         center.onAddressChanged(ChangeAction::Updated, { wid2 });
-    //         auto list = center.getNotifications();
-    //         WALLET_CHECK(list.size() == 1);
-    //         center.Unsubscribe(&observer);
-    //     }
-    // }
+        // notification on address update if expired
+        {
+            auto storage = createSqliteWalletDB();
+            std::map<Notification::Type,bool> activeTypes {
+                { Notification::Type::SoftwareUpdateAvailable, false },
+                { Notification::Type::AddressStatusChanged, true },
+                { Notification::Type::TransactionStatusChanged, false },
+                { Notification::Type::BeamNews, false }
+            };
+            const ECC::uintBig id2({
+                0,1,2,3,4,5,6,7,8,9,
+                0,1,2,3,4,5,6,7,8,9,
+                0,1,2,3,4,5,6,7,8,9,
+                0,2});
+            WalletID wid2;
+            wid2.m_Channel = 123u;
+            wid2.m_Pk = id2;
+            WalletAddress addr2;
+            addr2.m_walletID = wid2;
+            addr2.m_label = "expiredAddress";
+            addr2.m_category = "abc";
+            addr2.m_createTime = 123;
+            addr2.m_duration = 456;
+            addr2.m_OwnID = 2;
+            addr2.m_Identity = PeerID();
+            NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
+
+            size_t exeCount = 0;
+            MockNotificationsObserver observer(
+                [&exeCount, &id2]
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(action == ChangeAction::Added);
+                    WALLET_CHECK(list.size() == 1);
+                    WALLET_CHECK(list[0].m_ID == id2);
+                    WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
+                    WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                    ++exeCount;
+                }
+            );
+            center.Subscribe(&observer);
+            center.onAddressChanged(ChangeAction::Updated, { addr2 });
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 1);
+            center.Unsubscribe(&observer);
+            WALLET_CHECK(exeCount == 1);
+        }
+    }
 
 } // namespace
 
@@ -627,7 +636,7 @@ int main()
 
     TestNotificationCenter();
     TestNotificationsOnOffSwitching();
-    // TestNotificationsOnExpiredAddress();
+    TestNotificationsOnExpiredAddress();
 
     boost::filesystem::remove(dbFileName);
 
