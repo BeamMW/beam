@@ -51,7 +51,7 @@ int calc_errors() {
     return retCode;
 }
 
-#define DOMAIN_NAME "beam.mw"
+#define DOMAIN_NAME "www.google.com"
 
 bool on_recv(ErrorCode what, void* data, size_t size) {
     if (data && size) {
@@ -242,10 +242,10 @@ int main() {
     reset_global_config(std::move(config));
 
     int retCode = 0;
- //   retCode += tcpclient_test(false);
+    retCode += tcpclient_test(false);
     retCode += tcpclient_test(true);
- //   retCode += tcpclient_writecancel_test();
-  //  retCode += tcpclient_unclosed_test();
+    retCode += tcpclient_writecancel_test();
+    retCode += tcpclient_unclosed_test();
     return retCode;
 }
 
