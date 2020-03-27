@@ -596,7 +596,7 @@ namespace
             addr2.m_createTime = 123;
             addr2.m_duration = 456;
             addr2.m_OwnID = 2;
-            addr2.m_Identity = PeerID();
+            addr2.m_Identity = id2;
             NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
 
             size_t exeCount = 0;
