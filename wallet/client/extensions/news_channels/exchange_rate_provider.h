@@ -36,6 +36,7 @@ namespace beam::wallet
 
         // IBroadcastListener implementation
         virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
+        virtual bool onMessage(uint64_t, BroadcastMsg&&) override;
         
         // IExchangeRateObserver interface
         void Subscribe(IExchangeRateObserver* observer);
@@ -43,6 +44,8 @@ namespace beam::wallet
         
     private:
         void loadRatesToCache();
+        void processRates(std::vector<ExchangeRate> rates);
+        void notifySubscribers(const std::vector<ExchangeRate>&) const;
 
         bool m_isEnabled;                           /// Shows if provider is working or turned OFF
 		IBroadcastMsgGateway& m_broadcastGateway;
@@ -51,7 +54,5 @@ namespace beam::wallet
         std::vector<IExchangeRateObserver*> m_subscribers;
         std::map<std::pair<ExchangeRate::Currency,ExchangeRate::Currency>,
                  ExchangeRate> m_cache;
-
-        void notifySubscribers(const std::vector<ExchangeRate>&) const;
     };
 } // namespace beam::wallet

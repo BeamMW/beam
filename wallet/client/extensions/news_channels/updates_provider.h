@@ -31,6 +31,7 @@ namespace beam::wallet
 
         // IBroadcastListener implementation
         virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
+        virtual bool onMessage(uint64_t unused, BroadcastMsg&&) override;
         
         // INewsObserver interface
         void Subscribe(INewsObserver* observer);

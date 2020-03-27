@@ -16,6 +16,7 @@
 
 #include "swap_offer_token.h"
 #include "wallet/core/wallet_db.h"
+#include "wallet/client/extensions/broadcast_gateway/interface.h"
 
 namespace beam::wallet
 {
@@ -48,7 +49,8 @@ namespace beam::wallet
         /**
          *  Parse message and verify signature.
          */
-        boost::optional<SwapOffer> parseMessage(const ByteBuffer& rawMessage) const;
+        boost::optional<SwapOffer> parseMessage(const ByteBuffer& rawMessage) const;    // remove after fork 2
+        boost::optional<SwapOffer> parseMessage(const BroadcastMsg& msg) const;
 
     private:
         std::shared_ptr<beam::wallet::IWalletDB> m_walletDB;

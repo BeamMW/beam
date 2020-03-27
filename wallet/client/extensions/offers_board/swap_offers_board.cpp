@@ -31,31 +31,44 @@ SwapOffersBoard::SwapOffersBoard(IBroadcastMsgGateway& broadcastGateway,
     broadcastGateway.registerListener(BroadcastContentType::SwapOffers, this);
 }
 
+bool SwapOffersBoard::onMessage(uint64_t unused, BroadcastMsg&& msg)
+{
+    auto newOffer = m_protocolHandler.parseMessage(msg);
+    if (!newOffer) return false;
+
+    return onOfferFromNetwork(*newOffer);
+}
+
 bool SwapOffersBoard::onMessage(uint64_t unused, ByteBuffer&& msg)
 {
     auto newOffer = m_protocolHandler.parseMessage(msg);
     if (!newOffer) return false;
 
-    if (newOffer->m_coin >= AtomicSwapCoin::Unknown || newOffer->m_status > SwapOfferStatus::Failed)
+    return onOfferFromNetwork(*newOffer);
+}
+
+bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
+{
+    if (newOffer.m_coin >= AtomicSwapCoin::Unknown || newOffer.m_status > SwapOfferStatus::Failed)
     {
         LOG_WARNING() << "offer board message is invalid";
         return false;
     }
 
-    auto it = m_offersCache.find(newOffer->m_txId);
+    auto it = m_offersCache.find(newOffer.m_txId);
     // New offer
     if (it == m_offersCache.end())
     {
-        if (isOfferExpired(*newOffer) && newOffer->m_status == SwapOfferStatus::Pending)
+        if (isOfferExpired(newOffer) && newOffer.m_status == SwapOfferStatus::Pending)
         {
-            newOffer->m_status = SwapOfferStatus::Expired;
+            newOffer.m_status = SwapOfferStatus::Expired;
         }
         
-        m_offersCache[newOffer->m_txId] = *newOffer;
+        m_offersCache[newOffer.m_txId] = newOffer;
 
-        if (newOffer->m_status == SwapOfferStatus::Pending)
+        if (newOffer.m_status == SwapOfferStatus::Pending)
         {
-            notifySubscribers(ChangeAction::Added, std::vector<SwapOffer>{*newOffer});
+            notifySubscribers(ChangeAction::Added, std::vector<SwapOffer>{newOffer});
         }
         else
         {
@@ -65,15 +78,15 @@ bool SwapOffersBoard::onMessage(uint64_t unused, ByteBuffer&& msg)
     // Existing offer update
     else    
     {
-        SwapOfferStatus existingStatus = m_offersCache[newOffer->m_txId].m_status;
+        SwapOfferStatus existingStatus = m_offersCache[newOffer.m_txId].m_status;
 
         // Normal case
         if (existingStatus == SwapOfferStatus::Pending)
         {
-            if (newOffer->m_status != SwapOfferStatus::Pending)
+            if (newOffer.m_status != SwapOfferStatus::Pending)
             {
-                m_offersCache[newOffer->m_txId].m_status = newOffer->m_status;
-                notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{*newOffer});
+                m_offersCache[newOffer.m_txId].m_status = newOffer.m_status;
+                notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{newOffer});
             }
         }
         // Transaction state has changed asynchronously while board was offline.
@@ -82,9 +95,9 @@ bool SwapOffersBoard::onMessage(uint64_t unused, ByteBuffer&& msg)
         // it need to be updated to latest status.
         else
         {
-            if (newOffer->m_status == SwapOfferStatus::Pending)
+            if (newOffer.m_status == SwapOfferStatus::Pending)
             {
-                sendUpdateToNetwork(newOffer->m_txId, newOffer->m_publisherId, newOffer->m_coin, existingStatus);
+                sendUpdateToNetwork(newOffer.m_txId, newOffer.m_publisherId, newOffer.m_coin, existingStatus);
             }
         }
     }

@@ -34,7 +34,8 @@ namespace beam
      */
     struct IBroadcastListener
     {
-        virtual bool onMessage(uint64_t, ByteBuffer&&) = 0;
+        virtual bool onMessage(uint64_t, ByteBuffer&&) {};      // deprecated. remove after fork 2
+        virtual bool onMessage(uint64_t, BroadcastMsg&&) {};
     };
 
     /**

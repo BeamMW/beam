@@ -69,7 +69,8 @@ public:
      *  IBroadcastListener implementation
      *  Processes broadcast messages
      */
-    virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
+    virtual bool onMessage(uint64_t, ByteBuffer&&) override;
+    virtual bool onMessage(uint64_t, BroadcastMsg&&) override;
     
     /**
      *  IWalletDbObserver implementation
@@ -96,6 +97,7 @@ private:
     std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
 
     bool isOfferExpired(const SwapOffer& offer) const;
+    bool onOfferFromNetwork(SwapOffer& newOffer);
     void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
     void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);
     void notifySubscribers(ChangeAction action, const std::vector<SwapOffer>& offers) const;

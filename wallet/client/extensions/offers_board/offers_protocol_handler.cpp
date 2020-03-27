@@ -93,4 +93,30 @@ namespace beam::wallet
         return token.Unpack();
     }
 
+    boost::optional<SwapOffer> OfferBoardProtocolHandler::parseMessage(const BroadcastMsg& msg) const
+    {        
+        SwapOfferToken token;
+        SwapOfferConfirmation confirmation;     // replace with common signature!
+
+        try
+        {
+            if (fromByteBuffer(msg.m_content, token)
+             && fromByteBuffer(msg.m_signature, confirmation)
+            {
+                confirmation.m_offerData = msg.m_content;
+                if (token.getPublicKey() && !confirmation.IsValid(token.getPublicKey()->m_Pk))
+                {
+                    LOG_WARNING() << "offer board message signature is invalid";
+                    return boost::none;
+                }
+                return token.Unpack();
+            }
+        }
+        catch(...)
+        {
+        }
+        LOG_WARNING() << "offer board message deserialization exception";
+        return boost::none;        
+    }
+
 } // namespace beam::wallet
