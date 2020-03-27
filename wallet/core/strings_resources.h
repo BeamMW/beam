@@ -224,6 +224,7 @@ namespace beam
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT
+    extern const char kLaserWaitPeer[];
     extern const char kLaserOpening[];
     extern const char kLaserOpenFailed[];
     extern const char kLaserOpen[];

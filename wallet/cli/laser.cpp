@@ -174,6 +174,7 @@ const char* LaserChannelStateStr(int state)
     {
     case Lightning::Channel::State::None:
     case Lightning::Channel::State::Opening0:
+        return kLaserWaitPeer;
     case Lightning::Channel::State::Opening1:
     case Lightning::Channel::State::Opening2:
         return kLaserOpening;

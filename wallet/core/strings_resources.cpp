@@ -233,6 +233,7 @@ namespace beam
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT
+    const char kLaserWaitPeer[] = "Waiting";
     const char kLaserOpening[] = "Opening";
     const char kLaserOpenFailed[] = "OpenFailed";
     const char kLaserOpen[] = "Open";
