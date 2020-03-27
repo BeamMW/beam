@@ -1041,6 +1041,10 @@ namespace beam::wallet
             const char* req = "ALTER TABLE " ADDRESSES_NAME " ADD Identity BLOB NULL;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
+
+            const char* req_laser = "ALTER TABLE " LASER_ADDRESSES_NAME " ADD Identity BLOB NULL;";
+            ret = sqlite3_exec(db, req_laser, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
         }
 
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
