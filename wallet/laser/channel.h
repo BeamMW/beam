@@ -89,16 +89,12 @@ public:
 
     bool Open(Height hOpenTxDh);
     bool TransformLastState();
-    Lightning::Channel::State::Enum get_LastState() const;
+    int get_LastState() const;
     void UpdateRestorePoint();
     void LogState();
     void Subscribe();
     void Unsubscribe();
     bool IsSafeToClose() const;
-
-protected:
-    bool TransferInternal(
-        Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful) override;
 
 private:
     void RestoreInternalState(const ByteBuffer& data);
@@ -106,7 +102,7 @@ private:
     IChannelHolder& m_rHolder;
 
     bool m_SendMyWid = true;
-    beam::Lightning::Channel::State::Enum m_lastState = State::None;
+    int m_lastState = State::None;
 
     ChannelIDPtr m_ID;
     WalletAddress m_myAddr;
@@ -120,6 +116,5 @@ private:
     
     std::unique_ptr<Receiver> m_upReceiver;
     ByteBuffer m_data;
-    bool m_gracefulClose = false;
 };
 }  // namespace beam::wallet::laser

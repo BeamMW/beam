@@ -230,6 +230,7 @@ namespace Lightning {
 	protected:
 		virtual bool TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful);
 		uint32_t m_iRole = 0;
+		bool m_gracefulClose = false;
 
 
 	private:

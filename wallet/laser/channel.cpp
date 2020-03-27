@@ -334,11 +334,6 @@ const Amount& Channel::get_amountCurrentTrg() const
 
 int Channel::get_State() const
 {
-    auto state = Lightning::Channel::get_State();
-    if (m_gracefulClose && state < Lightning::Channel::State::Closing1)
-    {
-        return Lightning::Channel::State::Closing1;
-    }
     return Lightning::Channel::get_State();
 }
 
@@ -373,11 +368,11 @@ bool Channel::TransformLastState()
     if (m_lastState == state)
         return false;
 
-    m_lastState = static_cast<beam::Lightning::Channel::State::Enum>(state);
+    m_lastState = state;
     return true;
 }
 
-Lightning::Channel::State::Enum Channel::get_LastState() const
+int Channel::get_LastState() const
 {
     return m_lastState;
 }
@@ -545,12 +540,6 @@ bool Channel::IsSafeToClose() const
 
     return 
         m_State.m_Close.m_hPhase2 && m_State.m_Close.m_hPhase2 <= get_Tip();
-}
-
-bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful)
-{
-    m_gracefulClose = bCloseGraceful;
-    return Lightning::Channel::TransferInternal(nMyNew, iRole, h, bCloseGraceful);
 }
 
 void Channel::RestoreInternalState(const ByteBuffer& data)

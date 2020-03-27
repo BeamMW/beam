@@ -63,8 +63,12 @@ Channel::State::Enum Channel::get_State() const
 	if (m_State.m_Close.m_hPhase1)
 		return State::Closing2;
 
-	if (m_State.m_Terminate)
+	if (m_State.m_Terminate || m_gracefulClose)
 		return State::Closing1;
+
+	auto& lastUpdate = m_lstUpdates.back();
+	if (!lastUpdate.get_HR())
+		return State::Updating;
 
 	return m_pNegCtx ? State::Updating : State::Open;
 }
@@ -1152,6 +1156,8 @@ void Channel::SetWithdrawParams(WithdrawTx::CommonParam& cp, const Height& h, He
 
 bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful)
 {
+	m_gracefulClose = bCloseGraceful;
+
 	if (m_pNegCtx || (State::Open != get_State()))
 		return false;
 
