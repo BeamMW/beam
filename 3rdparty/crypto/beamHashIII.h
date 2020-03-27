@@ -37,6 +37,7 @@ class stepElem {
 	friend bool hasCollision(stepElem &a, stepElem &b);
 	friend bool distinctIndices(stepElem &a, stepElem &b);  
 	friend bool indexAfter(stepElem &a, stepElem &b);  
+	friend uint64_t getLowBits(stepElem test);
 };
 
 class BeamHash_III : public PoWScheme {

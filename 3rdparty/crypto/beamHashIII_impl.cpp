@@ -44,7 +44,7 @@ uint64_t siphash24(uint64_t state0, uint64_t state1, uint64_t state2, uint64_t s
 stepElem::stepElem(const uint64_t * prePow, uint32_t index) {
 	workBits.reset();
 
-	for (int32_t i=7; i>=0; i--) {
+	for (int32_t i=6; i>=0; i--) {
 		workBits = (workBits << 64);
 		uint64_t hash=sipHash::siphash24(prePow[0],prePow[1],prePow[2],prePow[3],(index << 3)+i);
 		workBits |= hash; 		
@@ -75,21 +75,21 @@ stepElem::stepElem(const stepElem &a, const stepElem &b, uint32_t remLen) {
 }
 
 void stepElem::applyMix(uint32_t remLen) {
-	std::bitset<workBitSize> tempBits = workBits;
+	std::bitset<512> tempBits(workBits.to_string());
 
 	// Add in the bits of the index tree to the end of work bits
-	uint32_t padNum = ((workBitSize-remLen) + collisionBitSize) / (collisionBitSize + 1);
+	uint32_t padNum = ((512-remLen) + collisionBitSize) / (collisionBitSize + 1);
 	padNum = std::min<uint32_t>(padNum, indexTree.size());
 
 	for (uint32_t i=0; i<padNum; i++) {
-		std::bitset<workBitSize> tmp(indexTree[i]);
+		std::bitset<512> tmp(indexTree[i]);
 		tmp = tmp << (remLen+i*(collisionBitSize + 1));
 		tempBits |= tmp;
 	}
 
 
 	// Applyin the mix from the lined up bits
-	std::bitset<workBitSize> mask(0xFFFFFFFFFFFFFFFFUL);
+	std::bitset<512> mask(0xFFFFFFFFFFFFFFFFUL);
 	uint64_t result = 0;
 	for (uint32_t i=0; i<8; i++) {
 		uint64_t tmp = (tempBits & mask).to_ulong();
@@ -115,6 +115,10 @@ bool stepElem::isZero() {
 	return workBits.none();
 }
 
+uint64_t getLowBits(stepElem test) {
+	std::bitset<workBitSize> mask(~0);
+	return (uint64_t) (test.workBits & mask).to_ulong();
+}
 /********
 
     Friend Functions to compare step elements
@@ -216,7 +220,7 @@ bool BeamHash_III::IsValidSolution(const blake2b_state& base_state, std::vector<
 	blake2b_state state = base_state;
 	// Last 4 bytes of solution are our extra nonce
 	blake2b_update(&state, (uint8_t*) &soln[100], 4);			
-	blake2b_final(&state, (uint8_t*) &prePow[0], static_cast<uint8_t>(32));
+	blake2b_final(&state, (uint8_t*) &prePow[0], static_cast<uint8_t>(32));	
 
 	// This will only evaluate bytes 0..99
 	std::vector<uint32_t> indices = GetIndicesFromMinimal(soln);
@@ -238,7 +242,7 @@ bool BeamHash_III::IsValidSolution(const blake2b_state& base_state, std::vector<
 			X[i+1].applyMix(remLen);
 		
 			if (!hasCollision(X[i], X[i+1])) { 
-				//std::cout << "Collision Error" << i << " " << X.size() << std::endl;
+				//std::cout << "Collision Error" << i << " " << X.size() << " " << X[i].getCollisionBits() << " " << X[i+1].getCollisionBits() << std::endl;
                 		return false;
             		}
 
