@@ -51,12 +51,12 @@ int calc_errors() {
     return retCode;
 }
 
-#define DOMAIN_NAME "www.google.com"
+#define DOMAIN_NAME "github.com"
 
 bool on_recv(ErrorCode what, void* data, size_t size) {
     if (data && size) {
         LOG_DEBUG() << "RECEIVED " << size << " bytes";
-        LOG_DEBUG() << "\n" << std::string((const char*)data, size);
+        //LOG_DEBUG() << "\n" << std::string((const char*)data, size);
 		if (g_FirstRcv)
 		{
 			g_FirstRcv = false;
@@ -89,6 +89,7 @@ void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode st
 };
 
 int tcpclient_test(bool ssl) {
+    LOG_INFO() << __FUNCTION__ << TRACE(ssl);
     callbackCount = 3;
     g_FirstRcv = true;
     long reactorUseCount = 0;
