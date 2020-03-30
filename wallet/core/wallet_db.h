@@ -129,6 +129,17 @@ namespace beam::wallet
         static constexpr uint64_t AddressExpiration1h    = 60 * 60;
     };
 
+    class WalletAsset: public Asset::Full
+    {
+    public:
+        WalletAsset() = default;
+        WalletAsset(const Asset::Full& full, Height refreshHeight);
+        bool CanRollback(Height from) const;
+
+        Height m_refreshHeight = 0;
+        Key::Index m_ownerIndex = Asset::s_InvalidOwnerIdx;
+    };
+
     class ILaserChannelEntity
     {
     public:
@@ -347,8 +358,9 @@ namespace beam::wallet
         virtual bool findCoin(Coin& coin) = 0;
         virtual void clearCoins() = 0;
 
-        // Generic visitor to iterate over coin collection
+        // Generic visitors
         virtual void visitCoins(std::function<bool(const Coin& coin)> func) = 0;
+        virtual void visitAssets(std::function<bool(const WalletAsset&)> func) = 0;
 
         // Used in split API for session management
         virtual bool lockCoins(const CoinIDList& list, uint64_t session) = 0;
@@ -360,7 +372,7 @@ namespace beam::wallet
 
         // Rollback UTXO set to known height (used in rollback scenario)
         virtual void rollbackConfirmedUtxo(Height minHeight) = 0;
-
+        virtual void rollbackAssets(Height minHeight) = 0;
 
         // /////////////////////////////////////////////
         // Transaction management
@@ -415,8 +427,12 @@ namespace beam::wallet
         virtual void deleteIncomingWalletMessage(uint64_t id) = 0;
 
         // Assets management
-        virtual void saveAsset(const Asset::Full& info, Height refreshHeight = 0) = 0;
-        virtual boost::optional<Asset::Full> findAsset(Asset::ID) = 0;
+        virtual void saveAsset(const Asset::Full& info, Height refreshHeight) = 0;
+        virtual void setAssetOwnerIndex(const Asset::ID assetId, Key::Index ownerIndex) = 0;
+        virtual void dropAsset(const Asset::ID assetId) = 0;
+        virtual void dropAsset(const PeerID& ownerId) = 0;
+        virtual boost::optional<WalletAsset> findAsset(Asset::ID) = 0;
+        virtual boost::optional<WalletAsset> findAsset(const PeerID&) = 0;
 
         // Notifications management
         virtual std::vector<Notification> getNotifications() const = 0;
@@ -474,6 +490,7 @@ namespace beam::wallet
         void clearCoins() override;
 
         void visitCoins(std::function<bool(const Coin& coin)> func) override;
+        void visitAssets(std::function<bool(const WalletAsset& info)> func);
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;
@@ -485,6 +502,7 @@ namespace beam::wallet
         bool getBlob(const char* name, ByteBuffer& var) const override;
         Height getCurrentHeight() const override;
         void rollbackConfirmedUtxo(Height minHeight) override;
+        void rollbackAssets(Height minHeight) override;
 
         std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;
         boost::optional<TxDescription> getTx(const TxID& txId) const override;
@@ -534,8 +552,12 @@ namespace beam::wallet
         uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) override;
         void deleteIncomingWalletMessage(uint64_t id) override;
 
-        void saveAsset(const Asset::Full& info, Height refreshHeight = 0) override;
-        boost::optional<Asset::Full> findAsset(Asset::ID) override;
+        void saveAsset(const Asset::Full& info, Height refreshHeight) override;
+        void setAssetOwnerIndex(const Asset::ID assetId, Key::Index ownerIndex) override;
+        void dropAsset(const Asset::ID assetId) override;
+        void dropAsset(const PeerID& ownerId) override;
+        boost::optional<WalletAsset> findAsset(Asset::ID) override;
+        boost::optional<WalletAsset> findAsset(const PeerID&) override;
 
         std::vector<Notification> getNotifications() const override;
         void saveNotification(const Notification&) override;
@@ -691,23 +713,25 @@ namespace beam::wallet
         {
             struct AssetTotals {
                 Asset::ID AssetId = Asset::s_InvalidID;
-                Amount  Avail = 0;
-                Amount  Maturing = 0;
-                Amount  Incoming = 0;
-                Amount  ReceivingIncoming = 0;
-                Amount  ReceivingChange = 0;
-                Amount  Unavail = 0;
-                Amount  Outgoing = 0;
-                Amount  AvailCoinbase = 0;
-                Amount  Coinbase = 0;
-                Amount  AvailFee = 0;
-                Amount  Fee = 0;
-                Amount  Unspent = 0;
+                Amount   Avail = 0;
+                Amount   Maturing = 0;
+                Amount   Incoming = 0;
+                Amount   ReceivingIncoming = 0;
+                Amount   ReceivingChange = 0;
+                Amount   Unavail = 0;
+                Amount   Outgoing = 0;
+                Amount   AvailCoinbase = 0;
+                Amount   Coinbase = 0;
+                Amount   AvailFee = 0;
+                Amount   Fee = 0;
+                Amount   Unspent = 0;
+                uint32_t CoinsCnt = 0;
             };
 
             Totals();
             explicit Totals(IWalletDB& db);
             AssetTotals GetTotals(Asset::ID) const;
+            bool HasTotals(Asset::ID) const;
             mutable std::map<Asset::ID, AssetTotals> allTotals;
 
         private:

@@ -68,18 +68,16 @@ namespace beam::wallet
         }
     }
 
-    bool AssetRegisterTxBuilder::CreateInputs()
+    void AssetRegisterTxBuilder::CreateInputs()
     {
         if (GetInputs() || m_InputCoins.empty())
         {
-            return false;
+            return;
         }
 
         auto masterKdf = m_Tx.get_MasterKdfStrict();
         m_Inputs = GenerateAssetInputs(masterKdf, m_InputCoins);
         m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
-
-        return false; // completed sync
     }
 
     bool AssetRegisterTxBuilder::GetInitialTxParams()
@@ -277,19 +275,17 @@ namespace beam::wallet
                    << PrintableAmount(amount) << ", id " << newUtxo.toStringID();
     }
 
-    bool AssetRegisterTxBuilder::CreateOutputs()
+    void AssetRegisterTxBuilder::CreateOutputs()
     {
         if (GetOutputs() || m_OutputCoins.empty())
         {
             // if we already have outputs or there are no outputs, nothing to do here
-            return false;
+            return;
         }
 
         auto masterKdf = m_Tx.get_MasterKdfStrict();
         m_Outputs = GenerateAssetOutputs(masterKdf, m_MinHeight, m_OutputCoins);
         m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
-
-        return false; // completed sync
     }
 
     const Merkle::Hash& AssetRegisterTxBuilder::GetKernelID() const
@@ -309,9 +305,9 @@ namespace beam::wallet
         return *m_kernelID;
     }
 
-    bool AssetRegisterTxBuilder::MakeKernel()
+    void AssetRegisterTxBuilder::MakeKernel()
     {
-        if (m_kernel) return false; // already created
+        if (m_kernel) return; // already created
 
         m_kernel = make_unique<TxKernelAssetCreate>();
         m_kernel->m_Fee              = m_Fee;
@@ -328,7 +324,5 @@ namespace beam::wallet
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::Kernel, m_kernel, m_SubTxID);
-
-        return false; // completed sync
     }
 }

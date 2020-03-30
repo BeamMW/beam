@@ -36,17 +36,17 @@ namespace beam::wallet
         bool GetOutputs();
         void AddRefund();
         void GenerateBeamCoin(Amount amount, bool change);
-        bool CreateOutputs();
+        void CreateOutputs();
 
         Key::Index GetAssetOwnerIdx() const;
-        PeerID GetAssetOwnerId() const;
+        PeerID     GetAssetOwnerId() const;
 
         //
         // Blockchain stuff
         //
         const Merkle::Hash& GetKernelID() const;
         bool LoadKernel();
-        bool MakeKernel();
+        void MakeKernel();
 
         std::string GetKernelIDString() const;
         Height GetMinHeight() const;

@@ -21,6 +21,7 @@
 #include "utility/helpers.h"
 #include "simple_transaction.h"
 #include "strings_resources.h"
+#include "wallet/transactions/assets/assets_utils.h"
 
 #include <algorithm>
 #include <random>
@@ -605,19 +606,17 @@ namespace beam::wallet
         if (!req.m_Res.m_Proof.empty())
         {
             const auto& info = req.m_Res.m_Info;
-            m_WalletDB->saveAsset(info);
+            m_WalletDB->saveAsset(info, m_WalletDB->getCurrentHeight());
 
-            // TODO:ASSETS may be store full asset info (except issued amount?)
             if (tx->SetParameter(TxParameterID::AssetConfirmedHeight, info.m_LockHeight, req.m_SubTxID) &&
                 tx->SetParameter(TxParameterID::AssetFullInfo, info, req.m_SubTxID) &&
                 tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID))
             {
-                // TODO::ASSETS MAY BE (but may be not) print this stuff inside transaction
                 Key::Index aidx = 0;
                 tx->GetParameter(TxParameterID::AssetOwnerIdx, aidx);
                 if (aidx)
                 {
-                    // TODO::ASSETS print this stuff inside transaction
+                    m_WalletDB->setAssetOwnerIndex(info.m_ID, aidx);
                     LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Received proof for Asset with the owner index " << aidx;
                     LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset owner index: " << aidx;
                 }
@@ -628,8 +627,14 @@ namespace beam::wallet
 
                 LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset ID: "           << info.m_ID;
                 LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Issued amount: "      << PrintableAmount(AmountBig::get_Lo(info.m_Value), false, kAmountASSET, kAmountAGROTH);
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Metadata size: "      << info.m_Metadata.m_Value.size() << " bytes";
                 LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Lock Height: "        << info.m_LockHeight;
+                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Metadata size: "      << info.m_Metadata.m_Value.size() << " bytes";
+
+                AssetMeta meta(info);
+                if (meta.isStd())
+                {
+                    meta.LogInfo();
+                }
 
                 if (tx->GetType() == TxType::AssetReg)
                 {
@@ -649,6 +654,20 @@ namespace beam::wallet
         }
         else
         {
+            const auto& assetId = req.m_Msg.m_AssetID;
+            if (assetId != Asset::s_InvalidID)
+            {
+                m_WalletDB->dropAsset(assetId);
+            }
+            else
+            {
+                const auto& assetOwner = req.m_Msg.m_Owner;
+                if (assetOwner != Asset::s_InvalidOwnerID)
+                {
+                    m_WalletDB->dropAsset(assetOwner);
+                }
+            }
+
             tx->SetParameter(TxParameterID::AssetConfirmedHeight, Height(0), req.m_SubTxID);
             tx->SetParameter(TxParameterID::AssetFullInfo, Asset::Full(), req.m_SubTxID);
             tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, req.m_SubTxID);
@@ -822,14 +841,13 @@ namespace beam::wallet
         LOG_INFO() << "Rolled back to " << id;
 
         m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
-
         m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
+        m_WalletDB->rollbackAssets(sTip.m_Height);
 
         // Rollback active transaction
         for (auto it = m_ActiveTransactions.begin(); m_ActiveTransactions.end() != it; it++)
         {
             const auto& pTx = it->second;
-
             if (pTx->Rollback(sTip.m_Height))
             {
                 UpdateOnSynced(pTx);
@@ -855,7 +873,9 @@ namespace beam::wallet
 
         Height h = GetEventsHeightNext();
         if (h > sTip.m_Height + 1)
+        {
             SetEventsHeight(sTip.m_Height);
+        }
     }
 
     void Wallet::OnNewTip()

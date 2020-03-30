@@ -24,6 +24,7 @@ namespace beam
     extern const char kAGROTH[];
     extern const char kAmountASSET[];
     extern const char kAmountAGROTH[];
+    extern const char kNA[];
     // Coin statuses
     extern const char kCoinStatusAvailable[];
     extern const char kCoinStatusUnavailable[];
@@ -158,6 +159,7 @@ namespace beam
     // Wallet info
     extern const char kWalletSummaryFormat[];
     extern const char kWalletAssetSummaryFormat[];
+    extern const char kWalletAssetOwnerFormat[];
     extern const char kWalletSummaryFieldCurHeight[];
     extern const char kWalletSummaryFieldCurStateID[];
     extern const char kWalletSummaryFieldAvailable[];
@@ -219,7 +221,9 @@ namespace beam
     // Assets
     extern const char kErrorAssetIdxRequired[];
     extern const char kErrorAssetIdRequired[];
+    extern const char kErrorAssetIdOrIdxRequired[];
     extern const char kErrorAssetMetadataRequired[];
+    extern const char kErrornAssetNonSTDMeta[];
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT

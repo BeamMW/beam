@@ -78,104 +78,90 @@ namespace beam::wallet
         }
 
         auto& builder = GetTxBuilder();
-        if (!builder.LoadKernel())
+        if (!builder.LoadKernel() && GetState() == State::Initial)
         {
-            if (GetState() == State::Initial)
+            if (_issue)
             {
-                if (_issue)
-                {
-                    LOG_INFO() << GetTxID() << " Generating asset with owner index " << builder.GetAssetOwnerIdx()
-                               << " and asset id " << builder.GetAssetId() << ". Amount: "
-                               << PrintableAmount(builder.GetTransactionAmount(), false, kASSET, kAGROTH);
-                } else
-                {
-                    LOG_INFO() << GetTxID() << " Consuming asset with index " << builder.GetAssetOwnerIdx()
-                               << " and asset id " << builder.GetAssetId()
-                               << ". Amount: " << PrintableAmount(builder.GetTransactionAmount(), false, kASSET, kAGROTH);
-                }
+                LOG_INFO() << GetTxID() << " Generating asset with owner index " << builder.GetAssetOwnerIdx()
+                           << ". Amount: " << PrintableAmount(builder.GetTransactionAmount(), false, kASSET, kAGROTH);
+            } else
+            {
+                LOG_INFO() << GetTxID() << " Consuming asset with owner index " << builder.GetAssetOwnerIdx()
+                           << ". Amount: " << PrintableAmount(builder.GetTransactionAmount(), false, kASSET, kAGROTH);
+            }
 
-                UpdateTxDescription(TxStatus::InProgress);
+            UpdateTxDescription(TxStatus::InProgress);
+            if (const auto info = m_WalletDB->findAsset(builder.GetAssetOwnerId()))
+            {
+                SetParameter(TxParameterID::AssetID, info->m_ID);
+                SetParameter(TxParameterID::AssetFullInfo, *info);
                 SetState(State::AssetCheck);
-                ConfirmAsset(); // TODO:ASSETS move to base
+            }
+            else
+            {
+                // TODO:ASSETS consider moving confirmation workflow to base class
+                SetState(State::AssetConfirm);
+                ConfirmAsset();
+                return;
+            }
+        }
+
+        if (GetState() == State::AssetConfirm)
+        {
+            Height auHeight = 0, acHeight = 0;
+            GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
+            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
+            if (auHeight || !acHeight)
+            {
+                OnFailed(TxFailureReason::AssetConfirmFailed);
+                return;
+            }
+            SetState(State::AssetCheck);
+        }
+
+        if (GetState() == State::AssetCheck)
+        {
+            Asset::Full info;
+            if (!GetParameter(TxParameterID::AssetFullInfo, info))
+            {
+                OnFailed(TxFailureReason::NoAssetInfo, true);
                 return;
             }
 
-            if (GetState() == State::AssetCheck)
+            if (!info.IsValid())
             {
-                Height auHeight = 0;
-                GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-                if (auHeight)
-                {
-                    OnFailed(TxFailureReason::AssetConfirmFailed);
-                    return;
-                }
-
-                Height acHeight = 0;
-                GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-                if (!acHeight)
-                {
-                    ConfirmAsset();
-                    return;
-                }
-
-                Asset::Full info;
-                if (!GetParameter(TxParameterID::AssetFullInfo, info) || !info.IsValid())
-                {
-                    OnFailed(TxFailureReason::NoAssetInfo, true);
-                    return;
-                }
-
-                // Asset ID must be valid
-                if (info.m_ID != _builder->GetAssetId())
-                {
-                    OnFailed(TxFailureReason::InvalidAssetId, true);
-                    return;
-                }
+                OnFailed(TxFailureReason::NoAssetInfo, true);
+                return;
             }
 
-            if (GetState() == State::AssetCheck)
+            if (info.m_Owner != _builder->GetAssetOwnerId())
             {
-                if (!builder.GetInitialTxParams())
-                {
-                    LOG_INFO() << "!!!! --- BEAM: " << PrintableAmount(_builder->GetFee()) << " ASSET: " << _builder->GetAmountAsset();
-                    builder.SelectInputCoins();
-                    builder.AddChange();
+                OnFailed(TxFailureReason::InvalidAssetId, true);
+                return;
+            }
 
-                    if (_issue)
+            SetParameter(TxParameterID::AssetID, info.m_ID);
+            SetState(State::Making);
+        }
+
+        if (GetState() == State::Making)
+        {
+            if (!builder.GetInitialTxParams())
+            {
+                builder.SelectInputCoins();
+                builder.AddChange();
+
+                if (_issue)
+                {
+                    for (const auto &amount : builder.GetAmountList())
                     {
-                        for (const auto &amount : builder.GetAmountList())
-                        {
-                            builder.GenerateAssetCoin(amount, false);
-                        }
+                        builder.GenerateAssetCoin(amount, false);
                     }
                 }
-            }
 
-            if (GetState() == State::AssetCheck)
-            {
-                SetState(State::MakingInputs);
-                if (builder.CreateInputs())
-                {
-                    return;
-                }
-            }
-
-            if(GetState() == State::MakingInputs)
-            {
-                SetState(State::MakingOutputs);
-                if (builder.CreateOutputs())
-                {
-                    return;
-                }
-            }
-
-            if(GetState() == State::MakingOutputs)
-            {
-                SetState(State::MakingKernels);
-                if(builder.MakeKernel())
-                {
-                    return;
-                }
+                builder.CreateInputs();
+                builder.CreateOutputs();
+                builder.MakeKernel();
             }
         }
 
@@ -187,19 +173,19 @@ namespace beam::wallet
                 return;
             }
 
-            // Construct & verify transaction
             auto transaction = builder.CreateTransaction();
             TxBase::Context::Params params;
 			TxBase::Context ctx(params);
 			ctx.m_Height.m_Min = builder.GetMinHeight();
+
 			if (!transaction->IsValid(ctx))
             {
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return;
             }
 
+			SetState(State::Registration);
             m_Gateway.register_tx(GetTxID(), transaction);
-            SetState(State::Registration);
             return;
         }
 
@@ -218,7 +204,6 @@ namespace beam::wallet
             return;
         }
 
-        // TODO:ASSETS may be confirm asset again, may be skip confirmation via flag
         SetState(State::Finalizing);
         std::vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
         for (auto& coin : modified)

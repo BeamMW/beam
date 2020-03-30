@@ -37,16 +37,15 @@ namespace beam::wallet {
     AssetMeta::AssetMeta(const Asset::Full& info)
         : _std(false)
     {
-        const auto &mval = info.m_Metadata.m_Value;
+        const auto& mval = info.m_Metadata.m_Value;
         if (mval.empty())
         {
-            LOG_WARNING() << "AssetMeta::AssetMeta: metadata is empty";
             return;
         }
 
         if(!fromByteBuffer(mval, _meta))
         {
-            LOG_WARNING() << "AssetMeta::AssetMeta: failed to deserialize from Asset::Full";
+            LOG_WARNING() << "AssetID " << info.m_ID << " failed to deserialize from Asset::Full";
             return;
         }
 
@@ -92,5 +91,29 @@ namespace beam::wallet {
     bool AssetMeta::isStd() const
     {
         return _std;
+    }
+
+    std::string AssetMeta::GetUnitName() const
+    {
+        const auto it = _values.find(UNIT_NAME_KEY);
+        return it != _values.end() ? it->second : std::string();
+    }
+
+    std::string AssetMeta::GetNthUnitName() const
+    {
+        const auto it = _values.find(NTH_UNIT_NAME_KEY);
+        return it != _values.end() ? it->second : std::string();
+    }
+
+    std::string AssetMeta::GetName() const
+    {
+        const auto it = _values.find(NAME_KEY);
+        return it != _values.end() ? it->second : std::string();
+    }
+
+    std::string AssetMeta::GetShortName() const
+    {
+        const auto it = _values.find(SHORT_NAME_KEY);
+        return it != _values.end() ? it->second : std::string();
     }
 }

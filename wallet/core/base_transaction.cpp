@@ -152,12 +152,18 @@ namespace beam::wallet
         }
         catch (const TransactionFailedException & ex)
         {
-            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            if (ex.what() && strlen(ex.what()))
+            {
+                LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            }
             OnFailed(ex.GetReason(), ex.ShouldNofify());
         }
         catch (const exception & ex)
         {
-            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            if (ex.what() && strlen(ex.what()))
+            {
+                LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            }
             OnFailed(TxFailureReason::Unknown);
         }
     }

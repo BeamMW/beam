@@ -2337,6 +2337,8 @@ namespace beam
 
 	/////////////
 	// Asset
+	const PeerID Asset::s_InvalidOwnerID = Zero;
+
 	void Asset::Base::get_Generator(ECC::Point::Native& res, ECC::Point::Storage& res_s) const
 	{
 		assert(m_ID);

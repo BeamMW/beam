@@ -44,24 +44,7 @@ namespace beam::wallet
         ECC::Point GeneratePublicKeySync(const ECC::uintBig& id) override;
         ECC::Point GenerateCoinKeySync(const CoinID& id) override;
         Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<CoinID>& ids) override;
-
         ECC::Point GenerateNonceSync(size_t slot) override;
-
-        void SignAssetKernel(const std::vector<CoinID>& inputs,
-                const std::vector<CoinID>& outputs,
-                Amount fee,
-                Key::Index assetOwnerIdx,
-                TxKernelAssetControl& kernel,
-                Callback<AssetSignature>&&,
-                ExceptionCallback&&) override;
-
-        AssetSignature SignAssetKernelSync(const std::vector<CoinID>& inputs,
-                const std::vector<CoinID>& outputs,
-                Amount fee,
-                Key::Index assetOwnerIdx,
-                TxKernelAssetControl& kernel) override;
-
-        PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override;
 
     private:
         beam::HWWallet m_hwWallet;

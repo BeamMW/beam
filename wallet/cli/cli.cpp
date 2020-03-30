@@ -48,6 +48,7 @@
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 #include "utility/helpers.h"
+#include "wallet/transactions/assets/assets_utils.h"
 
 #ifdef BEAM_LASER_SUPPORT
 #include "laser.h"
@@ -703,24 +704,47 @@ namespace
         return 0;
     }
 
-    void ShowAssetInfo(const storage::Totals::AssetTotals& totals)
+    void ShowAssetInfo(IWalletDB::Ptr db, const storage::Totals::AssetTotals& totals)
     {
+        // TODO:ASSETS consider workaround for lockHeight > coin height
+        const auto info = db->findAsset(totals.AssetId);
+        const AssetMeta& meta = info.is_initialized() ? AssetMeta(*info) : AssetMeta(Asset::Full());
+        const Key::Index ownerIndex = info.is_initialized() ? info->m_ownerIndex : Asset::s_InvalidOwnerIdx;
+
+        const auto unitName    = meta.isStd() ? meta.GetUnitName() : kAmountASSET;
+        const auto nthName     = meta.isStd() ? meta.GetNthUnitName() : kAmountAGROTH;
+
         const unsigned kWidth = 26;
         cout << boost::format(kWalletAssetSummaryFormat)
              % totals.AssetId
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, kAmountASSET, kAmountAGROTH))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, kAmountASSET, kAmountAGROTH))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, kAmountASSET, kAmountAGROTH))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, kAmountASSET, kAmountAGROTH));
+             % (meta.isStd() ? meta.GetName() + "(" + meta.GetShortName() + ")" : kNA)
+             % (ownerIndex != Asset::s_InvalidOwnerIdx ? (boost::format(kWalletAssetOwnerFormat) % info->m_ownerIndex).str() : "")
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, unitName, nthName))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, unitName, nthName))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, unitName, nthName))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, unitName, nthName));
     }
 
-    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId, const char* coin, const char* groth)
+    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId)
     {
-        const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
+        std::string unitName = kBEAM;
+        std::string nthName  = kGROTH;
+
+        if (assetId != Asset::s_InvalidID)
+        {
+            // TODO:ASSETS consider workaround for lockHeight > coin height
+            const auto info = walletDB->findAsset(assetId);
+            const AssetMeta &meta = info.is_initialized() ? AssetMeta(*info) : AssetMeta(Asset::Full());
+            unitName = meta.isStd() ? meta.GetUnitName() : kAmountASSET;
+            nthName  =  meta.isStd() ? meta.GetNthUnitName() : kAmountAGROTH;
+        }
+
+        const uint8_t idWidth = assetId == Asset::s_InvalidID ? 49 : 57;
+        const array<uint8_t, 6> columnWidths{{idWidth, 14, 14, 18, 30, 8}};
         cout << boost::format(kCoinsTableHeadFormat)
                  % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
-                 % boost::io::group(right, setw(columnWidths[1]), coin)
-                 % boost::io::group(right, setw(columnWidths[2]), groth)
+                 % boost::io::group(right, setw(columnWidths[1]), unitName)
+                 % boost::io::group(right, setw(columnWidths[2]), nthName)
                  % boost::io::group(left, setw(columnWidths[3]), kCoinColumnMaturity)
                  % boost::io::group(left, setw(columnWidths[4]), kCoinColumnStatus)
                  % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
@@ -818,7 +842,7 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvaliableFee) % to_string(PrintableAmount(totals.AvailFee))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalFee) % to_string(PrintableAmount(totals.Fee))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent));
-        ShowAssetCoins(walletDB, Zero, kBEAM, kGROTH);
+        ShowAssetCoins(walletDB, Zero);
 
         if (vm.count(cli::TX_HISTORY))
         {
@@ -916,8 +940,10 @@ namespace
             const auto assetId = it.second.AssetId;
             if (assetId != 0) {
                 cout << endl;
-                ShowAssetInfo(it.second);
-                ShowAssetCoins(walletDB, it.second.AssetId, kASSET, kAGROTH);
+
+                ShowAssetInfo(walletDB, it.second);
+                ShowAssetCoins(walletDB, it.second.AssetId);
+
                 if (vm.count(cli::TX_HISTORY))
                 {
                     ShowAssetTxs(walletDB, it.second.AssetId, kASSET, kAGROTH);
@@ -1882,12 +1908,6 @@ namespace
 
     TxID IssueConsumeAsset(bool issue, const po::variables_map& vm, Wallet& wallet)
     {
-        if(!vm.count(cli::ASSET_ID)) // asset id can be zero if beam only
-        {
-            throw std::runtime_error(kErrorAssetIdRequired);
-        }
-        Asset::ID aid = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
-
         if(!vm.count(cli::ASSET_INDEX))
         {
             throw std::runtime_error(kErrorAssetIdxRequired);
@@ -1898,9 +1918,10 @@ namespace
         {
             throw std::runtime_error(kErrorAmountMissing);
         }
-        double cliAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
-        Amount amountGroth = static_cast<ECC::Amount>(std::round(cliAmount * Rules::Coin));
-        if (amountGroth == 0) /// TODO:ASSETS - check if necessary, may be Positive<> above would throw
+
+        const auto cliAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
+        const auto amountGroth = static_cast<ECC::Amount>(std::round(cliAmount * Rules::Coin));
+        if (amountGroth == 0)
         {
             throw std::runtime_error(kErrorZeroAmount);
         }
@@ -1915,8 +1936,7 @@ namespace
                         .SetParameter(TxParameterID::Amount, amountGroth)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
-                        .SetParameter(TxParameterID::AssetOwnerIdx, aidx)
-                        .SetParameter(TxParameterID::AssetID, aid);
+                        .SetParameter(TxParameterID::AssetOwnerIdx, aidx);
 
         return wallet.StartTransaction(params);
     }
@@ -1950,13 +1970,19 @@ namespace
                 throw std::runtime_error(kErrorAssetMetadataRequired);
             }
 
-            std::string meta = vm[cli::METADATA].as<std::string>();
-            if (meta.empty())
+            std::string smeta = vm[cli::METADATA].as<std::string>();
+            if (smeta.empty())
             {
                 throw std::runtime_error(kErrorAssetMetadataRequired);
             }
 
-            params.SetParameter(TxParameterID::AssetMetadata, meta);
+            AssetMeta meta(smeta);
+            if (!meta.isStd())
+            {
+                throw std::runtime_error(kErrornAssetNonSTDMeta);
+            }
+
+            params.SetParameter(TxParameterID::AssetMetadata, smeta);
         }
 
         return wallet.StartTransaction(params);
@@ -1964,16 +1990,23 @@ namespace
 
     TxID GetAssetInfo(const po::variables_map& vm, Wallet& wallet)
     {
-        if(!vm.count(cli::ASSET_ID)) // asset id can be zero if beam only
+        if (vm.count(cli::ASSET_ID))
         {
-            throw std::runtime_error(kErrorAssetIdRequired);
+            Asset::ID aid = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
+            auto params = CreateTransactionParameters(TxType::AssetInfo)
+                          .SetParameter(TxParameterID::AssetID, aid);
+            return wallet.StartTransaction(params);
         }
 
-        Asset::ID aid = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
-        auto params = CreateTransactionParameters(TxType::AssetInfo)
-                        .SetParameter(TxParameterID::AssetID, aid);
+        if (vm.count(cli::ASSET_INDEX))
+        {
+            const Key::Index aidx = vm[cli::ASSET_INDEX].as<Positive<uint32_t>>().value;
+            auto params = CreateTransactionParameters(TxType::AssetInfo)
+                          .SetParameter(TxParameterID::AssetOwnerIdx, aidx);
+            return wallet.StartTransaction(params);
+        }
 
-        return wallet.StartTransaction(params);
+        throw std::runtime_error(kErrorAssetIdOrIdxRequired);
     }
 
 #ifdef BEAM_LASER_SUPPORT

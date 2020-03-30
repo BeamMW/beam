@@ -21,6 +21,7 @@
 #include <sstream>
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
+#include <core/block_crypt.h>
 #include "nlohmann/json.hpp"
 #include "utility/std_extension.h"
 #include "keykeeper/local_private_key_keeper.h"
@@ -2832,9 +2833,10 @@ namespace beam::wallet
 
     void WalletDB::saveAsset(const Asset::Full &info, Height refreshHeight)
     {
-        LOG_DEBUG() << "Save asset: " << info.m_ID;
+        refreshHeight = refreshHeight ? refreshHeight : getCurrentHeight();
+        assert(info.m_LockHeight <= refreshHeight);
 
-        const char* find = "SELECT * FROM" ASSETS_NAME " WHERE assetID=?1;";
+        const char* find = "SELECT * FROM " ASSETS_NAME " WHERE ID=?1;";
         sqlite::Statement stmFind(this, find);
         stmFind.bind(1, info.m_ID);
 
@@ -2848,30 +2850,125 @@ namespace beam::wallet
         stm.bind(3, info.m_Owner);
         stm.bind(4, info.m_LockHeight);
         stm.bind(5, info.m_Metadata.m_Value);
-        stm.bind(6, refreshHeight ? refreshHeight : getCurrentHeight());
-        stm.bind(7, false);
+        stm.bind(6, refreshHeight);
+
+        if (!found)
+        {
+            // By default we do not mark new assets as owned
+            // For owned assets this value is set to the owner index by the 'AssetRegister' transaction
+            stm.bind(7, 0);
+        }
+
         stm.step();
     }
 
-    boost::optional<Asset::Full> WalletDB::findAsset(Asset::ID assetId)
+    void WalletDB::setAssetOwnerIndex(const Asset::ID assetId, Key::Index ownerIndex)
     {
-        const char* find = "SELECT * FROM" ASSETS_NAME " WHERE assetID=?1;";
+        const char* update = "UPDATE " ASSETS_NAME " SET IsOwned=?2 WHERE ID=?1;";
+        sqlite::Statement stmUpdate(this, update);
+        stmUpdate.bind(1, assetId);
+        stmUpdate.bind(2, ownerIndex);
+        stmUpdate.step();
+    }
+
+    void WalletDB::dropAsset(const PeerID& ownerId)
+    {
+        if(const auto oasset = findAsset(ownerId))
+        {
+            const auto& info = *oasset;
+            dropAsset(info.m_ID);
+        }
+    }
+
+    void WalletDB::dropAsset(const Asset::ID assetId)
+    {
+        const char* deleteReq = "DELETE FROM " ASSETS_NAME " WHERE ID=?1;";
+        sqlite::Statement stm(this, deleteReq);
+        stm.bind(1, assetId);
+        stm.step();
+    }
+
+    void WalletDB::visitAssets(std::function<bool(const WalletAsset& info)> visitor)
+    {
+        const char* select = "SELECT * FROM " ASSETS_NAME " ORDER BY ID;";
+        sqlite::Statement stm(this, select);
+
+        while (stm.step())
+        {
+            WalletAsset asset;
+
+            stm.get(0, asset.m_ID);
+            stm.get(1, asset.m_Value);
+            stm.get(2, asset.m_Owner);
+            stm.get(3, asset.m_LockHeight);
+            stm.get(4, asset.m_Metadata.m_Value);
+            asset.m_Metadata.UpdateHash();
+            stm.get(5, asset.m_refreshHeight);
+            assert(asset.m_refreshHeight != 0);
+            stm.get(6, asset.m_ownerIndex);
+
+            if (!visitor(asset))
+            {
+                break;
+            }
+        }
+    }
+
+    boost::optional<WalletAsset> WalletDB::findAsset(Asset::ID assetId)
+    {
+        const char* find = "SELECT * FROM " ASSETS_NAME " WHERE ID=?1;";
         sqlite::Statement stmFind(this, find);
         stmFind.bind(1, assetId);
-        if (!stmFind.step()) return boost::optional<Asset::Full>();
+        if (!stmFind.step())
+        {
+            return boost::optional<WalletAsset>();
+        }
 
-        Asset::Full info;
-        stmFind.get(0, info.m_ID);
-        assert(info.m_ID == assetId);
+        WalletAsset asset;
 
-        stmFind.get(1, info.m_Value);
-        stmFind.get(2, info.m_Owner);
-        stmFind.get(3, info.m_LockHeight);
+        stmFind.get(0, asset.m_ID);
+        assert(asset.m_ID == assetId);
 
-        stmFind.get(4, info.m_Metadata.m_Value);
-        info.m_Metadata.UpdateHash();
+        stmFind.get(1, asset.m_Value);
+        stmFind.get(2, asset.m_Owner);
+        stmFind.get(3, asset.m_LockHeight);
+        stmFind.get(4, asset.m_Metadata.m_Value);
+        asset.m_Metadata.UpdateHash();
+        stmFind.get(5, asset.m_refreshHeight);
+        assert(asset.m_refreshHeight != 0);
+        stmFind.get(6, asset.m_ownerIndex);
 
-        return info;
+        return asset;
+    }
+
+    boost::optional<WalletAsset> WalletDB::findAsset(const PeerID& ownerID)
+    {
+        const char* find = "SELECT ID FROM " ASSETS_NAME " WHERE Owner=?1;";
+        sqlite::Statement stmFind(this, find);
+        stmFind.bind(1, ownerID);
+
+        if (!stmFind.step())
+        {
+            return boost::optional<WalletAsset>();
+        }
+
+        Asset::ID assetID = Asset::s_InvalidID;
+        stmFind.get(0, assetID);
+
+        return findAsset(assetID);
+    }
+
+    void WalletDB::rollbackAssets(Height minHeight)
+    {
+        const char* drop = "DELETE FROM " ASSETS_NAME " WHERE LockHeight>?1;";
+        sqlite::Statement stmDrop(this, drop);
+        stmDrop.bind(1, minHeight);
+        stmDrop.step();
+
+        const char* update = "UPDATE " ASSETS_NAME " SET RefreshHeight=?1 WHERE RefreshHeight > ?1;";
+        sqlite::Statement stmUpdate(this, update);
+        stmUpdate.bind(1, minHeight);
+        stmUpdate.step();
     }
 
     void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
@@ -3718,8 +3815,9 @@ namespace beam::wallet
             walletDB.visitCoins([getTotalsRef] (const Coin& c) -> bool
             {
                 auto& totals = getTotalsRef(c.m_ID.m_AssetID);
-                const Amount& value = c.m_ID.m_Value; // alias
+                totals.CoinsCnt++;
 
+                const Amount& value = c.m_ID.m_Value;
                 switch (c.m_status)
                 {
                 case Coin::Status::Available:
@@ -3783,9 +3881,18 @@ namespace beam::wallet
                 default: // suppress warning
                     break;
                 }
-
                 return true;
             });
+
+             walletDB.visitAssets([this](const WalletAsset& asset) -> bool {
+                // we also add owned assets to totals even if there are no coins
+                if(!HasTotals(asset.m_ID) && asset.m_ownerIndex)
+                {
+                    allTotals[asset.m_ID] = AssetTotals();
+                    allTotals[asset.m_ID].AssetId = asset.m_ID;
+                }
+                return true;
+             });
         }
 
         Totals::AssetTotals Totals::GetTotals(Asset::ID assetId) const
@@ -3797,6 +3904,11 @@ namespace beam::wallet
                 return result;
             }
             return allTotals[assetId];
+        }
+
+        bool Totals::HasTotals(Asset::ID assetId) const
+        {
+            return allTotals.find(assetId) != allTotals.end();
         }
 
         void DeduceStatus(const IWalletDB& walletDB, Coin& c, Height hTop)
@@ -4443,5 +4555,17 @@ namespace beam::wallet
         default:
             break;
         }
+    }
+
+    WalletAsset::WalletAsset(const Asset::Full& full, Height refreshHeight)
+        : Asset::Full(full)
+        , m_refreshHeight(refreshHeight)
+    {
+    }
+
+    bool WalletAsset::CanRollback(Height from) const
+    {
+        const auto maxRollback = Rules::get().MaxRollback;
+        return m_LockHeight + maxRollback > from;
     }
 }

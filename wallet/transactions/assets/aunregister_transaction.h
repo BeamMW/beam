@@ -54,8 +54,7 @@ namespace beam::wallet
         {
             Initial,
             AssetCheck,
-            MakingOutputs,
-            MakingKernels,
+            Making,
             Registration,
             KernelConfirmation,
             Finalizing

@@ -24,7 +24,12 @@ namespace beam::wallet {
         explicit AssetMeta(const Asset::Full& info);
 
         bool isStd() const;
-        void LogInfo(const std::string& prefix = "") const;
+        void LogInfo(const std::string& prefix = "\t") const;
+
+        std::string GetUnitName() const;
+        std::string GetNthUnitName() const;
+        std::string GetName() const;
+        std::string GetShortName() const;
 
     private:
         void Parse();

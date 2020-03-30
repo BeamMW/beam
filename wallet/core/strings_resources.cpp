@@ -23,6 +23,7 @@ namespace beam
     const char kAGROTH[] = "AGROTH";
     const char kAmountASSET[] = "assets";
     const char kAmountAGROTH[] = "agroth";
+    const char kNA[] = "N/A";
 
     // Coin statuses
     const char kCoinStatusAvailable[] = "Available";
@@ -94,7 +95,7 @@ namespace beam
     const char kErrorWalletNotCreated[] = "something went wrong, wallet not created...";
     const char kErrorCantOpenWallet[] = "Please check your password. If password is lost, restore wallet.db from latest backup or delete it and restore from seed phrase.";
     const char kErrorNodeAddrNotSpecified[] = "node address should be specified";
-    const char kErrorNodeAddrUnresolved[] = "unable to resolve node address: %1%";
+    const char kErrorNodeAddrUnresolved[] = "unable to resolve node address3: %1%";
     const char kErrorNodePoolPeriodTooMuch[] = "The \"--node_poll_period\" parameter set to more than %1% hours may cause transaction problems.";
     const char kErrorSwapAmountMissing[] = "swap amount is missing";
     const char kErrorSwapCoinUnknown[] = "cannot swap asset coins";
@@ -164,7 +165,8 @@ namespace beam
 
     // Wallet info
     const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
-    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\nAsset ID: %1%\n\n%2%%3%\n%4%%5%\n%6%%7%\n%8%%9%\n\n";
+    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\nAsset ID: %1%\nAsset Name: %2%%3%\n\n%4%%5%\n%6%%7%\n%8%%9%\n%10%%11%\n\n";
+    const char kWalletAssetOwnerFormat[] = "\nAsset Owner Index: %1%\nYou own this asset";
     const char kWalletSummaryFieldCurHeight[] = "Current height";
     const char kWalletSummaryFieldCurStateID[] = "Current state ID";
     const char kWalletSummaryFieldAvailable[] = "Available";
@@ -228,7 +230,9 @@ namespace beam
     // Confidential assets
     const char kErrorAssetIdxRequired[] = "Asset owner index is not specified";
     const char kErrorAssetIdRequired[] = "Asset ID is not specified";
+    const char kErrorAssetIdOrIdxRequired[] = "Asset ID or Asset owner index is required";
     const char kErrorAssetMetadataRequired[] = "Asset metadata required";
+    const char kErrornAssetNonSTDMeta[] = "Bad (non-std) asset metadata";
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT

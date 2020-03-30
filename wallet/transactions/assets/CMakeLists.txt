@@ -12,6 +12,7 @@ target_sources(assets
         ainfo_transaction.cpp
         assets_reg_creators.cpp
         assets_kdf_utils.cpp
+        assets_utils.cpp
 )
 
 target_link_libraries(assets 

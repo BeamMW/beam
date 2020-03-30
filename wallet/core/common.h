@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "wallet/core/common.h"
 #include "core/ecc_native.h"
 #include "core/merkle.h"
 
@@ -147,7 +148,8 @@ namespace beam::wallet
     MACRO(NotEnoughDataForProof,         37, "Some mandatory data for payment proof is missing") \
     MACRO(NoMasterKey,                   38, "Master key is needed for this transaction, but unavailable") \
     MACRO(KeyKeeperError,                39, "Key keeper malfunctioned") \
-    MACRO(KeyKeeperUserAbort,            40, "Aborted by the user")
+    MACRO(KeyKeeperUserAbort,            40, "Aborted by the user") \
+    MACRO(AssetExists,                   41, "Asset has been already registered")
 
     enum TxFailureReason : int32_t
     {

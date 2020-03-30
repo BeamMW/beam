@@ -269,7 +269,7 @@ namespace beam
     class PositiveOptionException : public po::error_with_option_name {
     public:
         PositiveOptionException()
-            : po::error_with_option_name("The argument for option '%canonical_option%' must be more than 0.")
+            : po::error_with_option_name("The argument for option '%canonical_option%' must be greater than 0.")
         {
         }
     };

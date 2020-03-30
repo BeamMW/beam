@@ -160,6 +160,9 @@ public:
     void rollbackConfirmedUtxo(Height /*minHeight*/) override
     {}
 
+    void rollbackAssets(Height /*minHeight*/) override
+    {}
+
     void clearCoins() override {}
 
     void changePassword(const SecString& password) override {}

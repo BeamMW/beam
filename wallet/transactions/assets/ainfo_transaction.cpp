@@ -16,6 +16,7 @@
 #include "utility/logger.h"
 #include "wallet/core/strings_resources.h"
 #include "wallet/core/wallet.h"
+#include "assets_kdf_utils.h"
 
 namespace beam::wallet
 {
@@ -73,12 +74,6 @@ namespace beam::wallet
 
         if (GetState() == State::Initial)
         {
-            if (GetAssetID() == Asset::s_InvalidID)
-            {
-                OnFailed(TxFailureReason::NoAssetId, true);
-                return;
-            }
-
             UpdateTxDescription(TxStatus::InProgress);
             SetState(State::AssetCheck);
             ConfirmAsset();
@@ -87,19 +82,13 @@ namespace beam::wallet
 
         if (GetState() == State::AssetCheck)
         {
-            Height auHeight = 0;
+            Height auHeight = 0, acHeight = 0;
             GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-            if (auHeight)
+            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
+
+            if (auHeight || !acHeight)
             {
                 OnFailed(TxFailureReason::AssetConfirmFailed);
-                return;
-            }
-
-            Height acHeight = 0;
-            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-            if (!acHeight)
-            {
-                ConfirmAsset();
                 return;
             }
 
@@ -109,13 +98,6 @@ namespace beam::wallet
                 OnFailed(TxFailureReason::NoAssetInfo, true);
                 return;
             }
-
-            // Asset ID must be valid
-            if (info.m_ID != GetAssetID())
-            {
-                OnFailed(TxFailureReason::InvalidAssetId, true);
-                return;
-            }
         }
 
         CompleteTx();
@@ -123,7 +105,22 @@ namespace beam::wallet
 
     void AssetInfoTransaction::ConfirmAsset()
     {
-        GetGateway().confirm_asset(GetTxID(), GetAssetID(), kDefaultSubTxID);
+        if (GetAssetID() != Asset::s_InvalidID)
+        {
+            GetGateway().confirm_asset(GetTxID(), GetAssetID(), kDefaultSubTxID);
+            return;
+        }
+
+        if (GetAssetOwnerIdx() != Asset::s_InvalidOwnerIdx)
+        {
+            const auto masterKdf = get_MasterKdfStrict(); // can throw
+            const auto ownerIdx  = GetAssetOwnerIdx();
+            const auto ownerID   = GetAssetOwnerID(masterKdf, ownerIdx);
+            GetGateway().confirm_asset(GetTxID(), ownerIdx, ownerID, kDefaultSubTxID);
+            return;
+        }
+
+        throw TransactionFailedException(true, TxFailureReason::NoAssetId);
     }
 
     bool AssetInfoTransaction::IsLoopbackTransaction() const
@@ -169,5 +166,12 @@ namespace beam::wallet
         Asset::ID assetId = Asset::s_InvalidID;
         GetParameter(TxParameterID::AssetID, assetId, kDefaultSubTxID);
         return assetId;
+    }
+
+    Key::Index AssetInfoTransaction::GetAssetOwnerIdx() const
+    {
+        Key::Index assetIdx = 0;
+        GetParameter(TxParameterID::AssetOwnerIdx, assetIdx, kDefaultSubTxID);
+        return assetIdx;
     }
 }

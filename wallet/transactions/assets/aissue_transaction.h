@@ -56,10 +56,9 @@ namespace beam::wallet
         enum State : uint8_t
         {
             Initial,
+            AssetConfirm,
             AssetCheck,
-            MakingInputs,
-            MakingOutputs,
-            MakingKernels,
+            Making,
             Registration,
             KernelConfirmation,
             Finalizing

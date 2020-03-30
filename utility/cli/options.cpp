@@ -280,8 +280,8 @@ namespace beam
         const char* ASSET_ISSUE       = "issue";
         const char* ASSET_CONSUME     = "consume";
         const char* ASSET_INFO        = "asset_info";
-        const char* ASSET_REGISTER    = "reg";
-        const char* ASSET_UNREGISTER  = "unreg";
+        const char* ASSET_REGISTER    = "asset_reg";
+        const char* ASSET_UNREGISTER  = "asset_unreg";
         const char* ASSET_INDEX       = "asset_idx";
         const char* ASSET_ID          = "asset_id";
         const char* METADATA          = "metadata";
