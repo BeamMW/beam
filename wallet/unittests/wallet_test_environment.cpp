@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <tuple>
+#include <boost/filesystem.hpp>
+
 #include "http/http_client.h"
 #include "core/treasury.h"
 #include "keykeeper/local_private_key_keeper.h"
-#include <tuple>
+#include "wallet/core/simple_transaction.h"
 
 using namespace beam;
 using namespace beam::wallet;
@@ -133,7 +136,7 @@ public:
     void deleteTx(const TxID&) override {};
     void rollbackTx(const TxID&) override {}
 
-    std::vector<WalletAddress> getAddresses(bool own) const override { return {}; }
+    std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const override { return {}; }
 
     WalletAddress m_LastAdddr;
 
@@ -932,10 +935,10 @@ class TestNode
 {
 public:
     using NewBlockFunc = std::function<void(Height)>;
-    TestNode(NewBlockFunc func = NewBlockFunc(), Height height = 145)
+    TestNode(NewBlockFunc func = NewBlockFunc(), Height height = 145, uint16_t port = 32125)
         : m_NewBlockFunc(func)
     {
-        m_Server.Listen(io::Address::localhost().port(32125));
+        m_Server.Listen(io::Address::localhost().port(port));
         while (m_Blockchain.m_mcm.m_vStates.size() < height)
             m_Blockchain.AddBlock();
     }

@@ -150,13 +150,14 @@ namespace beam
     const char kAddrExprChanged[] = "Expiration for address %1% was changed to \"%2%\".";
     const char kAddrNewGenerated[] = "New address generated:\n\n%1%\n";
     const char kAddrNewGeneratedLabel[] = "comment = %1%";
-    const char kAddrListTableHead[] = "Addresses\n\n  %1%|%2%|%3%|%4%|%5%";
+    const char kAddrListTableHead[] = "Addresses\n\n  %1%|%2%|%3%|%4%|%5%|%6%";
     const char kAddrListColumnComment[] = "comment";
     const char kAddrListColumnAddress[] = "address";
+    const char kAddrListColumnIdentity[] = "identity";
     const char kAddrListColumnActive[] = "active";
     const char kAddrListColumnExprDate[] = "expiration date";
     const char kAddrListColumnCreated[] = "created";
-    const char kAddrListTableBody[] = "  %1% %2% %3% %4% %5%";
+    const char kAddrListTableBody[] = "  %1% %2% %3% %4% %5% %6%";
 
     // Seed phrase
     const char kSeedPhraseGeneratedTitle[] = "======\nGenerated seed phrase: \n\n\t";
@@ -247,14 +248,13 @@ namespace beam
     const char kLaserErrorMyAmountMissing[] = "My amount is missing.";
     const char kLaserErrorTrgAmountMissing[] = "Remote side amount is missing.";
     const char kLaserErrorChannelIdMissing[] = "channel ID is missing";
-    const char kLaserErrorLockTimeMissing[] = "Lock time is missing.";
     const char kLaserChannelListTableHead[] = "Laser Channels:\n\n%1%|%2%|%3%|%4%|%5%|%6%";
     const char kLaserChannelListChannelId[] = "chId";
     const char kLaserChannelListAMy[] = "aMy";
     const char kLaserChannelListATrg[] = "aTrg";
     const char kLaserChannelListState[] = "state";
     const char kLaserChannelListFee[] = "fee";
-    const char kLaserChannelListLocktime[] = "locktime";
+    const char kLaserChannelListValidTill[] = "valid till";
     const char kLaserChannelTableBody[] = "%1%|%2%|%3%|%4%|%5%|%6%";
     const char kLaserErrorOpenFailed[] = "Open failed : %1%";
     const char kLaserMessageClosed[] = "Closed : %1%";

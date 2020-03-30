@@ -68,15 +68,15 @@ public:
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
     static QStringList getSupportedRateUnits();
-    QString getRateUnit() const;
-    void setRateUnit(const QString&);
+
+    // Second currency settings
+    QString getSecondCurrency() const;
+    void setSecondCurrency(const QString&);
 
     // Notifications settings
-    bool isExcRatesActive() const;
     bool isNewVersionActive() const;
     bool isBeamNewsActive() const;
     bool isTxStatusActive() const;
-    void setExcRatesActive(bool isActive);
     void setNewVersionActive(bool isActive);
     void setBeamNewsActive(bool isActive);
     void setTxStatusActive(bool isActive);
@@ -104,7 +104,7 @@ signals:
     void localNodeSynchronizedChanged();
     void localeChanged();
     void beamMWLinksChanged();
-    void rateUnitChanged();
+    void secondCurrencyChanged();
 
 private:
     QSettings m_data;

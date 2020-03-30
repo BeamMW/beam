@@ -22,6 +22,8 @@
 #include "3rdparty/utilstrencodings.h"
 #include "core/proto.h"
 #include <algorithm>
+#include "wallet/client/extensions/news_channels/version_info.h"
+#include "wallet/core/exchange_rate.h"
 
 namespace beam::wallet
 {
@@ -294,6 +296,7 @@ namespace beam::wallet
         AssetMetadata = 117,
 
         ExchangeRates = 120,
+        OriginalToken = 121,
 
         // private parameters
         PrivateFirstParam = 128,
@@ -503,6 +506,7 @@ namespace beam::wallet
         bool canDelete() const;
         std::string getStatusString() const;
         std::string getStatusStringApi() const;
+        std::string getAmountInSecondCurrency(ExchangeRate::Currency) const;
 
     //private:
         TxID m_txId = {};
@@ -683,7 +687,10 @@ namespace beam::wallet
     };
  
     bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params);
- 
+
+    // Check current time with the timestamp of last received block
+    // If it is more than 10 minutes, the walelt is considered not in sync
+    bool IsValidTimeStamp(Timestamp currentBlockTime_s);
 }    // beam::wallet
 
 namespace beam
@@ -702,28 +709,6 @@ namespace beam
 
     std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount);
     std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid);
-
-    struct Version
-    {
-        uint32_t m_major;
-        uint32_t m_minor;
-        uint32_t m_revision;
-
-        Version() = default;
-        Version(uint32_t major, uint32_t minor, uint32_t rev)
-            : m_major(major)
-            , m_minor(minor)
-            , m_revision(rev)
-        {};
-
-        SERIALIZE(m_major, m_minor, m_revision);
-
-        std::string to_string() const;
-        bool from_string(const std::string&);
-        bool operator==(const Version& other) const;
-        bool operator!=(const Version& other) const;
-        bool operator<(const Version& other) const;
-    };
 }  // namespace beam
 
 namespace std
@@ -734,4 +719,5 @@ namespace std
     string to_string(const beam::wallet::TxParameters&);
     string to_string(const beam::Version&);
     string to_string(const beam::wallet::TxID&);
+    string to_string(const beam::PeerID& id);
 }

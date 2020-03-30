@@ -167,7 +167,7 @@ Item {
 
             RowLayout {
                 Layout.alignment: Qt.AlignRight | Qt.AlignTop
-                Layout.topMargin: 33
+                Layout.topMargin: 30
                 spacing: 20
 
                 CustomButton {
@@ -213,7 +213,7 @@ Item {
             RowLayout {
                 Layout.alignment: Qt.AlignLeft | Qt.AlignTop
                 Layout.fillWidth: true
-                Layout.topMargin: 32
+                Layout.topMargin: 29
                 spacing: 10
 
                 SwapCurrencyAmountPane {

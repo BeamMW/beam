@@ -75,7 +75,7 @@ Update your settings and try again."
     Item {
         Layout.fillWidth:    true
         Layout.topMargin:    75
-        Layout.bottomMargin: 50
+        //Layout.bottomMargin: 50
 
         SFText {
             x:                   parent.width / 2 - width / 2
@@ -85,6 +85,12 @@ Update your settings and try again."
             //% "Create a Swap Offer"
             text:                qsTrId("wallet-receive-swap-title")
         }
+    }
+
+    Item {
+        Layout.fillHeight: true
+        Layout.maximumHeight: 40
+        Layout.minimumHeight: 20
     }
 
     ScrollView {
@@ -560,10 +566,14 @@ please review your settings and try again"
                     }
                 }
             }
-
+            Item {
+                Layout.fillHeight: true
+                Layout.maximumHeight: 30
+                Layout.minimumHeight: 15
+            }
             Row {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 30
+                //Layout.topMargin: 30
                 spacing:          25
 
                 CustomButton {

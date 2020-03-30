@@ -35,22 +35,6 @@ namespace beam::wallet
 
     namespace
     {
-        // Check current time with the timestamp of last received block
-        // If it is more than 10 minutes, the walelt is considered not in sync
-        bool IsValidTimeStamp(Timestamp currentBlockTime_s)
-        {
-            Timestamp currentTime_s = getTimestamp();
-            const Timestamp tolerance_s = 60 * 10; // 10 minutes tolerance.
-            currentBlockTime_s += tolerance_s;
-
-            if (currentTime_s > currentBlockTime_s)
-            {
-                LOG_INFO() << "It seems that last known blockchain tip is not up to date";
-                return false;
-            }
-            return true;
-        }
-
         bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool isInternalSource, bool allowPrivate = false)
         {
             bool txChanged = false;
@@ -168,7 +152,7 @@ namespace beam::wallet
 
     void Wallet::SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint)
     {
-        m_NodeEndpoint = nodeEndpoint;
+        m_NodeEndpoint = std::move(nodeEndpoint);
     }
 
     void Wallet::AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint)
@@ -423,12 +407,13 @@ namespace beam::wallet
             MyRequestKernel2::Ptr pVal(new MyRequestKernel2);
             pVal->m_TxID = txID;
             pVal->m_SubTxID = subTxID;
-            pVal->m_Msg.m_Fetch = true;
-            pVal->m_Msg.m_ID = kernelID;
+            auto& msg = pVal->m_Msg; // alias
+            msg.m_Fetch = true;
+            msg.m_ID = kernelID;
 
             if (PostReqUnique(*pVal))
             {
-                LOG_INFO() << txID << "[" << subTxID << "]" << " Get details for kernel: " << pVal->m_Msg.m_ID;
+                LOG_INFO() << txID << "[" << subTxID << "]" << " Get details for kernel: " << msg.m_ID;
             }
         }
     }

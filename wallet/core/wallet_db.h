@@ -104,7 +104,7 @@ namespace beam::wallet
         Timestamp m_createTime;
         uint64_t  m_duration;   // if equals to "AddressNeverExpires" then address never expires
         uint64_t  m_OwnID;      // set for own address
-        PeerID    m_Identity; // derived from master. Different from m_walletID
+        PeerID    m_Identity;   // derived from master. Different from m_walletID
         
         WalletAddress();
         bool operator == (const WalletAddress& other) const;
@@ -113,6 +113,14 @@ namespace beam::wallet
         bool isOwn() const;
         Timestamp getCreateTime() const;
         Timestamp getExpirationTime() const;
+
+        SERIALIZE(  m_walletID,
+                    m_label,
+                    m_category,
+                    m_createTime,
+                    m_duration,
+                    m_OwnID,
+                    m_Identity);
         
         enum class ExpirationStatus
         {
@@ -391,7 +399,7 @@ namespace beam::wallet
         // Address management
         virtual boost::optional<WalletAddress> getAddress(
                 const WalletID&, bool isLaser = false) const = 0;
-        virtual std::vector<WalletAddress> getAddresses(bool own) const = 0;
+        virtual std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const = 0;
         virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
         virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
 
@@ -400,7 +408,7 @@ namespace beam::wallet
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
                                      TLaserChannelEntity* entity) = 0;
         virtual bool removeLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId) = 0;
-        virtual std::vector<TLaserChannelEntity> loadLaserChannels() = 0;
+        virtual std::vector<TLaserChannelEntity> loadLaserChannels(uint8_t state = 0) = 0;
 
         // 
         virtual Timestamp getLastUpdateTime() const = 0;
@@ -511,7 +519,7 @@ namespace beam::wallet
         void rollbackTx(const TxID& txId) override;
         void deleteCoinsCreatedByTx(const TxID& txId) override;
 
-        std::vector<WalletAddress> getAddresses(bool own) const override;
+        std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const override;
         void saveAddress(const WalletAddress&, bool isLaser = false) override;
         boost::optional<WalletAddress> getAddress(
             const WalletID&, bool isLaser = false) const override;
@@ -521,7 +529,7 @@ namespace beam::wallet
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
                                      TLaserChannelEntity* entity) override;
         bool removeLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId) override;
-        std::vector<TLaserChannelEntity> loadLaserChannels() override;
+        std::vector<TLaserChannelEntity> loadLaserChannels(uint8_t state = 0) override;
 
         Timestamp getLastUpdateTime() const override;
         void setSystemStateID(const Block::SystemState::ID& stateID) override;
@@ -599,6 +607,7 @@ namespace beam::wallet
         void onModified();
         void onFlushTimer();
         void onPrepareToModify();
+        void MigrateCoins();
     private:
         friend struct sqlite::Statement;
         bool m_Initialized = false;

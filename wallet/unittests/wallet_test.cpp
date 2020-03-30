@@ -25,7 +25,6 @@
 #include "utility/test_helpers.h"
 #include "core/radixtree.h"
 #include "core/unittest/mini_blockchain.h"
-#include "wallet/core/simple_transaction.h"
 #include "core/negotiator.h"
 #include "node/node.h"
 #include "wallet/core/private_key_keeper.h"
@@ -43,7 +42,6 @@
 #include <condition_variable>
 
 #include "core/proto.h"
-#include <boost/filesystem.hpp>
 #include <boost/intrusive/list.hpp>
 
 #if defined(BEAM_HW_WALLET)

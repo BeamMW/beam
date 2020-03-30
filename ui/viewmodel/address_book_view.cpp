@@ -56,6 +56,11 @@ QString AddressItem::getCategory() const
     return QString::fromStdString(m_walletAddress.m_category);
 }
 
+QString AddressItem::getIdentity() const
+{
+    return beamui::toString(m_walletAddress.m_Identity);
+}
+
 QDateTime AddressItem::getExpirationDate() const
 {
     QDateTime datetime;
@@ -113,6 +118,15 @@ QString ContactItem::getCategory() const
     return QString::fromStdString(m_walletAddress.m_category);
 }
 
+QString ContactItem::getIdentity() const
+{
+    if (m_walletAddress.m_Identity != Zero)
+    {
+        return beamui::toString(m_walletAddress.m_Identity);
+    }
+    return QString();
+}
+
 AddressBookViewModel::AddressBookViewModel()
     : m_model{*AppModel::getInstance().getWallet()}
 {
@@ -159,6 +173,11 @@ QString AddressBookViewModel::addressRole() const
 QString AddressBookViewModel::categoryRole() const
 {
     return "category";
+}
+
+QString AddressBookViewModel::identityRole() const
+{
+    return "identity";
 }
 
 QString AddressBookViewModel::expirationRole() const
@@ -439,6 +458,12 @@ std::function<bool(const AddressItem*, const AddressItem*)> AddressBookViewModel
         return compare(lf->getCategory(), rt->getCategory(), sortOrder);
     };
 
+    if (role == identityRole())
+        return [sortOrder = order](const AddressItem* lf, const AddressItem* rt)
+    {
+        return compare(lf->getIdentity(), rt->getIdentity(), sortOrder);
+    };
+
     if (role == expirationRole())
         return [sortOrder = order](const AddressItem* lf, const AddressItem* rt)
     {
@@ -464,6 +489,12 @@ std::function<bool(const ContactItem*, const ContactItem*)> AddressBookViewModel
         return [sortOrder = m_contactSortOrder](const ContactItem* lf, const ContactItem* rt)
     {
         return compare(lf->getCategory(), rt->getCategory(), sortOrder);
+    };
+
+    if (m_contactSortRole == identityRole())
+        return [sortOrder = m_contactSortOrder](const ContactItem* lf, const ContactItem* rt)
+    {
+        return compare(lf->getIdentity(), rt->getIdentity(), sortOrder);
     };
 
     // default for nameRole

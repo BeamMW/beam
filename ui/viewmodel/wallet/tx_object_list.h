@@ -54,7 +54,10 @@ public:
         HasPaymentProof,
         RawTxID,
         Search,
-        StateDetails
+        StateDetails,
+        Token,
+        SenderIdentity,
+        ReceiverIdentity
     };
 
     Q_ENUM(Roles)

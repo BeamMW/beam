@@ -22,7 +22,6 @@ class NotificationsSettings : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(bool    isExcRatesActive    READ isExcRatesActive    WRITE setExcRatesActive    NOTIFY excRatesActiveChanged)
     Q_PROPERTY(bool    isNewVersionActive  READ isNewVersionActive  WRITE setNewVersionActive  NOTIFY newVersionActiveChanged)
     Q_PROPERTY(bool    isBeamNewsActive    READ isBeamNewsActive    WRITE setBeamNewsActive    NOTIFY beamNewsActiveChanged)
     Q_PROPERTY(bool    isTxStatusActive    READ isTxStatusActive    WRITE setTxStatusActive    NOTIFY txStatusActiveChanged)
@@ -30,18 +29,15 @@ class NotificationsSettings : public QObject
 public:
     NotificationsSettings(WalletSettings&);
 
-    bool isExcRatesActive();
     bool isNewVersionActive();
     bool isBeamNewsActive();
     bool isTxStatusActive();
 
-    void setExcRatesActive(bool);
     void setNewVersionActive(bool);
     void setBeamNewsActive(bool);
     void setTxStatusActive(bool);
 
 signals:
-    void excRatesActiveChanged();
     void newVersionActiveChanged();
     void beamNewsActiveChanged();
     void txStatusActiveChanged();
@@ -52,7 +48,6 @@ public slots:
 private:
     WalletSettings& m_storage;
 
-    bool m_isExcRatesActive;
     bool m_isNewVersionActive;
     bool m_isBeamNewsActive;
     bool m_isTxStatusActive;

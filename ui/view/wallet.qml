@@ -105,7 +105,7 @@ Item {
 
             Row {
                 Layout.alignment: Qt.AlignTop | Qt.AlignRight
-                Layout.topMargin: 33
+                Layout.topMargin: 30
                 spacing: 20
 
                 CustomButton {
@@ -144,10 +144,10 @@ Item {
             }
 
             AvailablePanel {
-                Layout.topMargin: 32
+                Layout.topMargin: 29
                 Layout.alignment: Qt.AlignTop | Qt.AlignLeft
-                Layout.maximumHeight: 67
-                Layout.minimumHeight: 67
+                Layout.maximumHeight: 80
+                Layout.minimumHeight: 80
 
                 Layout.preferredWidth: parseFloat(viewModel.beamSending) > 0 || parseFloat(viewModel.beamReceiving) > 0 ? parent.width : (parent.width / 2)
 
@@ -363,6 +363,8 @@ Item {
                         property var        txRolesMap: myModel
                         sendAddress:        txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
                         receiveAddress:     txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
+                        senderIdentity:     txRolesMap && txRolesMap.senderIdentity ? txRolesMap.senderIdentity : ""
+                        receiverIdentity:   txRolesMap && txRolesMap.receiverIdentity ? txRolesMap.receiverIdentity : ""
                         fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
                         comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
                         txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
@@ -379,6 +381,7 @@ Item {
                         secondCurrencyLabel: viewModel.secondCurrencyLabel
                         searchFilter:       searchBox.text
                         hideFiltered:       rowItem.hideFiltered
+                        token:              txRolesMap ? txRolesMap.token : ""
 
                         onSearchFilterChanged: function(text) {
                             rowItem.collapsed = searchBox.text.length == 0;

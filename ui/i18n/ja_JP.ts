@@ -20,10 +20,6 @@
         <source>Contact</source>
         <translation>コンタクト</translation>
     </message>
-    <message id="general-category">
-        <source>Category</source>
-        <translation>カテゴリ</translation>
-    </message>
     <message id="general-actions">
         <source>Actions</source>
         <translation>アクション</translation>
@@ -479,22 +475,6 @@
         <source>updating</source>
         <translation>更新中</translation>
     </message>
-    <message id="tx-details-title">
-        <source>General transaction info</source>
-        <translation>トランザクションの詳細</translation>
-    </message>
-    <message id="tx-details-sending-addr-label">
-        <source>Sending address</source>
-        <translation>送信アドレス</translation>
-    </message>
-    <message id="tx-details-receiving-addr-label">
-        <source>Receiving address</source>
-        <translation>受信アドレス</translation>
-    </message>
-    <message id="tx-details-error-label">
-        <source>Error</source>
-        <translation>エラー</translation>
-    </message>
     <message id="settings-report-problem-save-log-button">
         <source>Save wallet logs</source>
         <extracomment>settings tab, report problem section, save logs button</extracomment>
@@ -924,10 +904,6 @@
         <source>Receive amount (optional)</source>
         <translation>受信数量（任意）</translation>
     </message>
-    <message id="tx-details-tx-id-label">
-        <source>Transaction ID</source>
-        <translation>トランザクションID</translation>
-    </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
         <translation>ノードの同期開始に失敗しました。：あなたのデバイスのタイムゾーン設定が同期されていません。問題を解決しウォレットを再起動してください。</translation>
@@ -1145,10 +1121,6 @@ Allow to open and proceed to the website? You can always update your choice in S
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>設定を変更するにはパスワードの照合が必要です</translation>
-    </message>
-    <message id="open-in-explorer">
-        <source>Open in Blockchain Explorer</source>
-        <translation>ブロックチェーンエクスプローラーで開く</translation>
     </message>
     <message id="restore-finish-alert-button">
         <source>I understand</source>
@@ -2162,10 +2134,6 @@ deploy the key at the node you trust completely.</translation>
         <source>Asset is still locked</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="settings-notifications-rates">
-        <source>Exchange rates</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="settings-general-amounts-unit">
         <source>Show amounts in</source>
         <extracomment>settings tab, general section, amounts unit label</extracomment>
@@ -2200,7 +2168,8 @@ deploy the key at the node you trust completely.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-update-title">
-        <source>New version v %1 is avalable</source>
+        <source>New version v %1 is available</source>
+        <oldsource>New version v %1 is avalable</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-address-expired">
@@ -2208,7 +2177,8 @@ deploy the key at the node you trust completely.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-transaction-received">
-        <source>Transaction received</source>
+        <source>Transaction was received</source>
+        <oldsource>Transaction received</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-transaction-sent-message">
@@ -2225,7 +2195,8 @@ deploy the key at the node you trust completely.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-address-expired-message">
-        <source>Address expired</source>
+        <source>&lt;b&gt;%1&lt;/b&gt; address expired.</source>
+        <oldsource>Address expired</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-transaction-received-message">
@@ -2244,24 +2215,13 @@ deploy the key at the node you trust completely.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="notification-transaction-sent">
-        <source>Transaction sent</source>
+        <source>Transaction was sent</source>
+        <oldsource>Transaction sent</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-update-wallet">
         <source>update wallet</source>
         <extracomment>settings update wallet button</extracomment>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="tx-details-amount-label">
-        <source>Amount</source>
-        <translation type="unfinished">数量</translation>
-    </message>
-    <message id="tx-details-second-currency-amount-label">
-        <source>Currency amount</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="tx-details-second-currency-notification">
-        <source> (for the day of transaction)</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="general-exchange-rate-not-available">
@@ -2303,6 +2263,66 @@ deploy the key at the node you trust completely.</translation>
     <message id="notification-swap-expired-message">
         <source>Offer &lt;b&gt;%1 %3 ➞ %2 BEAM&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; expired.</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="general-identity">
+        <source>Identity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-activated">
+        <source>activated</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-exchange-rate-not-available">
+        <source>Exchange rate to %1 was not available at the time of transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-second-currency-notification">
+        <source>(for the day of transaction)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-title">
+        <source>General transaction info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-sending-addr-label">
+        <source>Sending address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-sender-identity">
+        <source>Sender identity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-receiving-addr-label">
+        <source>Receiving address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-receiver-identity">
+        <source>Receiver identity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-amount-label">
+        <source>Amount</source>
+        <translation type="unfinished">数量</translation>
+    </message>
+    <message id="tx-details-second-currency-amount-label">
+        <source>Currency amount</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-tx-id-label">
+        <source>Transaction ID</source>
+        <translation type="unfinished">トランザクションID</translation>
+    </message>
+    <message id="general-token">
+        <source>Token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-error-label">
+        <source>Error</source>
+        <translation type="unfinished">エラー</translation>
     </message>
 </context>
 </TS>

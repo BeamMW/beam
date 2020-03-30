@@ -35,24 +35,42 @@ ExchangeRatesManager::ExchangeRatesManager()
             SLOT(onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>&)));
 
     connect(&m_settings,
-            SIGNAL(rateUnitChanged()),
+            SIGNAL(secondCurrencyChanged()),
             SLOT(onRateUnitChanged()));
 
-    setRateUnit();
+    m_rateUnit = ExchangeRate::from_string(m_settings.getSecondCurrency().toStdString());
+    if (m_rateUnit != ExchangeRate::Currency::Unknown)
+    {
+        m_walletModel.getAsync()->getExchangeRates();
+    }
 }
 
 void ExchangeRatesManager::setRateUnit()
 {
-    m_rateUnit = ExchangeRate::from_string(m_settings.getRateUnit().toStdString());
-    if (m_rateUnit == ExchangeRate::Currency::Unknown)
+    auto newCurrency = ExchangeRate::from_string(m_settings.getSecondCurrency().toStdString());
+
+    if (newCurrency == ExchangeRate::Currency::Unknown && m_rateUnit != newCurrency)
     {
-        m_rateUnit = ExchangeRate::Currency::Usd;   // set USD as default
+        m_walletModel.getAsync()->switchOnOffExchangeRates(false);
     }
-    m_walletModel.getAsync()->getExchangeRates();
+    else
+    {
+        if (m_rateUnit == ExchangeRate::Currency::Unknown)
+        {
+            m_walletModel.getAsync()->switchOnOffExchangeRates(true);
+        }
+        if (m_rateUnit != newCurrency)
+        {
+            m_walletModel.getAsync()->getExchangeRates();
+        }
+    }
+    m_rateUnit = newCurrency;
 }
 
 void ExchangeRatesManager::onExchangeRatesUpdate(const std::vector<beam::wallet::ExchangeRate>& rates)
 {
+    if (m_rateUnit == ExchangeRate::Currency::Unknown) return;  /// Second currency is turned OFF
+
     bool isActiveRateChanged = false;
 
     for (const auto& rate : rates)

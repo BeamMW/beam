@@ -116,14 +116,14 @@ bool SwapOffer::IsValid() const
 
 bool SwapOffer::isBeamSide() const
 {
-    bool res;
+    bool res = true;
     GetParameter(TxParameterID::AtomicSwapIsBeamSide, res);
     return res;
 }
 
 Amount SwapOffer::amountBeam() const
 {
-    Amount amount;
+    Amount amount = 0;
     if (GetParameter(TxParameterID::Amount, amount))
     {
         return amount;
@@ -133,7 +133,7 @@ Amount SwapOffer::amountBeam() const
 
 Amount SwapOffer::amountSwapCoin() const
 {
-    Amount amount;
+    Amount amount = 0;
     if (GetParameter(TxParameterID::AtomicSwapAmount, amount))
     {
         return amount;
@@ -152,14 +152,14 @@ AtomicSwapCoin SwapOffer::swapCoinType() const
 
 Timestamp SwapOffer::timeCreated() const
 {
-    Timestamp time;
+    Timestamp time = 0;
     GetParameter(TxParameterID::CreateTime, time);
     return time;
 }
 
 Height SwapOffer::peerResponseHeight() const
 {
-    Height peerResponseHeight;
+    Height peerResponseHeight = MaxHeight;
     GetParameter(beam::wallet::TxParameterID::PeerResponseTime,
                  peerResponseHeight);
     return peerResponseHeight;
@@ -167,7 +167,7 @@ Height SwapOffer::peerResponseHeight() const
 
 Height SwapOffer::minHeight() const
 {
-    Height minHeight;
+    Height minHeight = MaxHeight;
     GetParameter(beam::wallet::TxParameterID::MinHeight, minHeight);
     return minHeight;
 }

@@ -53,7 +53,7 @@ namespace beam::wallet
             // Combine all to final message
             ByteBuffer finalMessage(header.SIZE);
             header.write(finalMessage.data());  // copy header to finalMessage
-            finalMessage.reserve(header.SIZE + header.size);
+            finalMessage.reserve(header.SIZE + static_cast<size_t>(header.size));
             std::copy(  std::begin(contentRaw),
                         std::end(contentRaw),
                         std::back_inserter(finalMessage));

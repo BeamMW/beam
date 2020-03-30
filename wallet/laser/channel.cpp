@@ -37,10 +37,9 @@ ChannelIDPtr Channel::ChannelIdFromString(const std::string& chIdStr)
 Channel::Channel(IChannelHolder& holder,
                  const WalletAddress& myAddr,
                  const WalletID& trg,
-                 const Amount& fee,
                  const Amount& aMy,
                  const Amount& aTrg,
-                 Height locktime)
+                 const Lightning::Channel::Params& params)
     : Lightning::Channel()
     , m_rHolder(holder)
     , m_ID(std::make_shared<ChannelID>(Zero))
@@ -54,18 +53,18 @@ Channel::Channel(IChannelHolder& holder,
 {
     ECC::GenRandom(*m_ID);
     m_upReceiver = std::make_unique<Receiver>(m_rHolder, m_ID);
-    m_Params.m_Fee = fee;
-    m_Params.m_hLockTime = locktime;
+
+    m_lastState = beam::Lightning::Channel::get_State();
+    m_Params = params;
 }
 
 Channel::Channel(IChannelHolder& holder,
                  const ChannelIDPtr& chID,
                  const WalletAddress& myAddr,
                  const WalletID& trg,
-                 const Amount& fee,
                  const Amount& aMy,
                  const Amount& aTrg,
-                 Height locktime)
+                 const Lightning::Channel::Params& params)
     : Lightning::Channel()
     , m_rHolder(holder)
     , m_ID(chID)
@@ -78,14 +77,15 @@ Channel::Channel(IChannelHolder& holder,
     , m_bbsTimestamp(getTimestamp())
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
-    m_Params.m_Fee = fee;
-    m_Params.m_hLockTime = locktime;
+    m_lastState = beam::Lightning::Channel::get_State();
+    m_Params = params;
 }
 
 Channel::Channel(IChannelHolder& holder,
                  const ChannelIDPtr& chID,
                  const WalletAddress& myAddr,
-                 const TLaserChannelEntity& entity)
+                 const TLaserChannelEntity& entity,
+                 const Lightning::Channel::Params& params)
     : Lightning::Channel()
     , m_rHolder(holder)
     , m_ID(chID)
@@ -99,11 +99,9 @@ Channel::Channel(IChannelHolder& holder,
     , m_bbsTimestamp(std::get<LaserFields::LASER_BBS_TIMESTAMP>(entity))
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
-    m_lastState = m_lastLoggedState =
-        static_cast<Lightning::Channel::State::Enum>(
-            std::get<LaserFields::LASER_STATE>(entity));
+    m_lastState = beam::Lightning::Channel::get_State();
+    m_Params = params;
     m_Params.m_Fee = std::get<LaserFields::LASER_FEE>(entity);
-    m_Params.m_hLockTime = std::get<LaserFields::LASER_LOCKTIME>(entity);
 
     RestoreInternalState(std::get<LaserFields::LASER_DATA>(entity));
 }
@@ -204,13 +202,13 @@ void Channel::OnCoin(const CoinID& cid,
 {
     auto pWalletDB = m_rHolder.getWalletDB();
     auto coins = pWalletDB->getCoinsByID(std::vector<CoinID>({cid}));
+
+    bool isNewCoin = false;
     if (coins.empty())
     {
         auto& coin = coins.emplace_back();
         coin.m_ID = cid;
-        coin.m_maturity = m_pOpen && m_pOpen->m_hOpened
-            ? m_Params.m_hLockTime + m_pOpen->m_hOpened
-            : m_Params.m_hLockTime + h;
+        isNewCoin = true;
     }
     
     const char* szStatus = "";
@@ -267,6 +265,10 @@ void Channel::OnCoin(const CoinID& cid,
     for (auto& coin : coins)
     {
         coin.m_status = coinStatus;
+        if (isNewCoin)
+        {
+            coin.m_maturity = h;
+        }
         switch(coinStatus)
         {
         case Coin::Status::Available:
@@ -393,6 +395,7 @@ void Channel::UpdateRestorePoint()
     ser & m_pOpen->m_txOpen;
     ser & m_pOpen->m_hvKernel0;
     ser & m_pOpen->m_hOpened;
+    ser & m_iRole;
     ser & m_pOpen->m_vInp.size();
     for (const CoinID& cid : m_pOpen->m_vInp)
     {
@@ -402,7 +405,7 @@ void Channel::UpdateRestorePoint()
 
     ser & m_nRevision;
     ser & m_lstUpdates.size();
-    for (auto& upd : m_lstUpdates)
+    for (const auto& upd : m_lstUpdates)
     {
         ser & upd.m_Comm1;
         ser & upd.m_tx1;
@@ -423,10 +426,6 @@ void Channel::UpdateRestorePoint()
     Blob blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second));
     blob.Export(m_data);
 
-    if (m_pOpen && m_pOpen->m_hOpened)
-    {
-        m_lockHeight = m_pOpen->m_hOpened + m_Params.m_hLockTime;
-    }
     m_bbsTimestamp = getTimestamp();
 
     if (!m_lstUpdates.empty())
@@ -439,17 +438,27 @@ void Channel::UpdateRestorePoint()
             total -= m_Params.m_Fee;
         }
         m_aCurTrg = total - m_aCurMy;
+
+        const HeightRange* pHR = lastUpdate.get_HR();
+        m_lockHeight = pHR ? pHR->m_Max - m_Params.m_hLockTime - m_Params.m_hPostLockReserve : MaxHeight;
     }
+    else
+    {
+        if (m_pOpen && m_pOpen->m_hOpened)
+        {
+            m_lockHeight =
+                  m_pOpen->m_hOpened
+                + m_Params.m_hRevisionMaxLifeTime
+                - m_Params.m_hLockTime
+                - m_Params.m_hPostLockReserve;
+        }
+    }
+    
 }
 
-void Channel::LogNewState()
+void Channel::LogState()
 {
     auto state = beam::Lightning::Channel::get_State();
-    if (m_lastLoggedState == state)
-        return;
-
-    m_lastLoggedState = state;
-
     std::ostringstream os;
     os << "Channel:" << to_hex(m_ID->m_pData, m_ID->nBytes) << " state ";
 
@@ -465,7 +474,7 @@ void Channel::LogNewState()
         os << "Opening2 (Waiting channel open confirmation)";
         break;
     case beam::Lightning::Channel::State::OpenFailed:
-        os << "OpenFailed (Not confirmed, missed height window). Waiting for 8 confirmations before forgetting";
+        os << "OpenFailed (Not confirmed, missed height window). Waiting for " << Rules::get().MaxRollback << " confirmations before forgetting";
         break;
     case beam::Lightning::Channel::State::Open:
         os << "Open. Last Revision: " << m_nRevision
@@ -516,6 +525,22 @@ void Channel::Unsubscribe()
     
 }
 
+bool Channel::IsSafeToClose() const
+{
+    if (!m_pOpen)
+        return true;
+
+    if (!m_pOpen->m_hOpened)
+    {
+        return
+            m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max ||
+            DataUpdate::Type::None == m_lstUpdates.front().m_Type;
+    }
+
+    return 
+        m_State.m_Close.m_hPhase2 && m_State.m_Close.m_hPhase2 <= get_Tip();
+}
+
 bool Channel::TransferInternal(
         Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful)
 {
@@ -546,6 +571,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
         der & m_pOpen->m_txOpen;
         der & m_pOpen->m_hvKernel0;
         der & m_pOpen->m_hOpened;
+        der & m_iRole;
 
         size_t vInpSize = 0;
         der & vInpSize;

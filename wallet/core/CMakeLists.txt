@@ -17,6 +17,8 @@ target_sources(wallet
         wallet_db.cpp
         base58.cpp
         bbs_miner.cpp
+        version.cpp
+        exchange_rate.cpp
     PUBLIC
         common.h
         default_peers.h

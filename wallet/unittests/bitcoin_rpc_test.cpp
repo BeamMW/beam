@@ -125,7 +125,7 @@ void testSuccessResponse()
         ++counter;
     });
 
-    bridge.getTxOut("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& script, Amount value, uint16_t confirmations)
+    bridge.getTxOut("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& script, Amount value, uint32_t confirmations)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
         WALLET_CHECK(!script.empty());
@@ -205,7 +205,7 @@ void testEmptyResult()
         ++counter;
     });
 
-    bridge.getTxOut("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& script, Amount value, uint16_t confirmations)
+    bridge.getTxOut("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& script, Amount value, uint32_t confirmations)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
         WALLET_CHECK(error.m_message.empty());

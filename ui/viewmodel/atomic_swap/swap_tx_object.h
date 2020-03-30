@@ -20,7 +20,6 @@ class SwapTxObject : public TxObject
     Q_OBJECT
 
 public:
-    SwapTxObject(QObject* parent = nullptr);
     SwapTxObject(const beam::wallet::TxDescription& tx, uint32_t minTxConfirmations, double blocksPerHour, QObject* parent = nullptr);
     bool operator==(const SwapTxObject& other) const;
 

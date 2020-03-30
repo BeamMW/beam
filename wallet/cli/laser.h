@@ -44,7 +44,6 @@ namespace beam::wallet
                          Amount* aTrg,
                          Amount* fee,
                          WalletID* receiverWalletID,
-                         Height* locktime,
                          bool skipReceiverWalletID = false);
     std::vector<std::string> LoadLaserChannelsIdsFromDB(const IWalletDB::Ptr& walletDB);
     std::vector<std::string> ParseLaserChannelsIdsFromStr(const std::string& chIDsStr);

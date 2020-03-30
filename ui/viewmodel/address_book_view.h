@@ -28,6 +28,7 @@ class AddressItem : public QObject
     Q_PROPERTY(QString address          READ getAddress         CONSTANT)
     Q_PROPERTY(QString name             READ getName            CONSTANT)
     Q_PROPERTY(QString category         READ getCategory        CONSTANT)
+    Q_PROPERTY(QString identity         READ getIdentity        CONSTANT)
     Q_PROPERTY(QDateTime expirationDate READ getExpirationDate  CONSTANT)
     Q_PROPERTY(QDateTime createDate     READ getCreateDate      CONSTANT)
     Q_PROPERTY(bool neverExpired        READ isNeverExpired     CONSTANT)
@@ -40,6 +41,7 @@ public:
     QString getAddress() const;
     QString getName() const;
     QString getCategory() const;
+    QString getIdentity() const;
     QDateTime getExpirationDate() const;
     QDateTime getCreateDate() const;
     bool isNeverExpired() const;
@@ -58,6 +60,7 @@ class ContactItem : public QObject
     Q_PROPERTY(QString address       READ getAddress    CONSTANT)
     Q_PROPERTY(QString name          READ getName       CONSTANT)
     Q_PROPERTY(QString category      READ getCategory   CONSTANT)
+    Q_PROPERTY(QString identity      READ getIdentity   CONSTANT)
 
 public:
     ContactItem() = default;
@@ -66,6 +69,7 @@ public:
     QString getAddress() const;
     QString getName() const;
     QString getCategory() const;
+    QString getIdentity() const;
 
 private:
     beam::wallet::WalletAddress m_walletAddress;
@@ -81,6 +85,7 @@ class AddressBookViewModel : public QObject
     Q_PROPERTY(QString nameRole READ nameRole CONSTANT)
     Q_PROPERTY(QString addressRole READ addressRole CONSTANT)
     Q_PROPERTY(QString categoryRole READ categoryRole CONSTANT)
+    Q_PROPERTY(QString identityRole READ identityRole CONSTANT)
     Q_PROPERTY(QString expirationRole READ expirationRole CONSTANT)
     Q_PROPERTY(QString createdRole READ createdRole CONSTANT)
 
@@ -110,6 +115,7 @@ public:
     QString nameRole() const;
     QString addressRole() const;
     QString categoryRole() const;
+    QString identityRole() const;
     QString expirationRole() const;
     QString createdRole() const;
 

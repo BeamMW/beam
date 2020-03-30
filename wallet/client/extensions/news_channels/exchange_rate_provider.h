@@ -28,9 +28,11 @@ namespace beam::wallet
         : public IBroadcastListener
     {
     public:
-        ExchangeRateProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&, IWalletDB&);
+        ExchangeRateProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&, IWalletDB&, bool isEnabled = true);
 
         std::vector<ExchangeRate> getRates();
+
+        void setOnOff(bool isEnabled);
 
         // IBroadcastListener implementation
         virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
@@ -42,6 +44,7 @@ namespace beam::wallet
     private:
         void loadRatesToCache();
 
+        bool m_isEnabled;                           /// Shows if provider is working or turned OFF
 		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;
         IWalletDB& m_storage;

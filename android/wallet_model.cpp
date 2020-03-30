@@ -320,10 +320,6 @@ void WalletModel::onNewAddressFailed()
 
 }
 
-void WalletModel::onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID)
-{
-}
-
 void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 {
     LOG_DEBUG() << "onNodeConnectedStatusChanged(" << isNodeConnected << ")";

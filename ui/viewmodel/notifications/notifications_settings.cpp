@@ -20,11 +20,6 @@ NotificationsSettings::NotificationsSettings(WalletSettings& walletSettings)
     loadFromStorage();
 }
 
-bool NotificationsSettings::isExcRatesActive()
-{
-    return m_isExcRatesActive;
-}
-
 bool NotificationsSettings::isNewVersionActive()
 {
     return m_isNewVersionActive;
@@ -47,16 +42,6 @@ void NotificationsSettings::setNewVersionActive(bool isActive)
         m_isNewVersionActive = isActive;
         m_storage.setNewVersionActive(isActive);
         emit newVersionActiveChanged();
-    }
-}
-
-void NotificationsSettings::setExcRatesActive(bool isActive)
-{
-    if (isActive != m_isExcRatesActive)
-    {
-        m_isExcRatesActive = isActive;
-        m_storage.setExcRatesActive(isActive);
-        emit excRatesActiveChanged();
     }
 }
 
@@ -83,10 +68,8 @@ void NotificationsSettings::setTxStatusActive(bool isActive)
 void NotificationsSettings::loadFromStorage()
 {
     m_isNewVersionActive = m_storage.isNewVersionActive();
-    m_isExcRatesActive = m_storage.isExcRatesActive();
     m_isBeamNewsActive = m_storage.isBeamNewsActive();
     m_isTxStatusActive = m_storage.isTxStatusActive();
-    emit excRatesActiveChanged();
     emit newVersionActiveChanged();
     emit beamNewsActiveChanged();
     emit txStatusActiveChanged();

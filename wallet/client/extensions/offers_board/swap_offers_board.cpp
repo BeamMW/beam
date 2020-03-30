@@ -171,11 +171,11 @@ void SwapOffersBoard::updateOffer(const TxID& offerTxID, SwapOfferStatus newStat
     if (offerIt != m_offersCache.end())
     {
         AtomicSwapCoin coin = offerIt->second.m_coin;
-        WalletID publisherId = offerIt->second.m_publisherId;
         SwapOfferStatus  currentStatus = offerIt->second.m_status;
 
         if (currentStatus == SwapOfferStatus::Pending)
         {
+            const WalletID& publisherId = offerIt->second.m_publisherId;
             m_offersCache[offerTxID].m_status = newStatus;
             notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{m_offersCache[offerTxID]});
             sendUpdateToNetwork(offerTxID, publisherId, coin, newStatus);

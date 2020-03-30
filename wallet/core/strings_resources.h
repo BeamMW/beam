@@ -148,6 +148,7 @@ namespace beam
     extern const char kAddrListTableHead[];
     extern const char kAddrListColumnComment[];
     extern const char kAddrListColumnAddress[];
+    extern const char kAddrListColumnIdentity[];
     extern const char kAddrListColumnActive[];
     extern const char kAddrListColumnExprDate[];
     extern const char kAddrListColumnCreated[];
@@ -238,14 +239,13 @@ namespace beam
     extern const char kLaserErrorMyAmountMissing[];
     extern const char kLaserErrorTrgAmountMissing[];
     extern const char kLaserErrorChannelIdMissing[];
-    extern const char kLaserErrorLockTimeMissing[];
     extern const char kLaserChannelListTableHead[];
     extern const char kLaserChannelListChannelId[];
     extern const char kLaserChannelListAMy[];
     extern const char kLaserChannelListATrg[];
     extern const char kLaserChannelListState[];
     extern const char kLaserChannelListFee[];
-    extern const char kLaserChannelListLocktime[];
+    extern const char kLaserChannelListValidTill[];
     extern const char kLaserChannelTableBody[];
     extern const char kLaserErrorOpenFailed[];
     extern const char kLaserMessageClosed[];

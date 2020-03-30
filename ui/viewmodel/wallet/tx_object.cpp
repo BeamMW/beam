@@ -80,10 +80,6 @@ namespace
     }
 }
 
-TxObject::TxObject(QObject* parent)
-        : QObject(parent)
-{
-}
 
 TxObject::TxObject( const TxDescription& tx,
                     QObject* parent/* = nullptr*/)
@@ -376,6 +372,39 @@ QString TxObject::getStateDetails() const
         }
     }
     return "";
+}
+
+QString TxObject::getToken() const
+{
+    const auto& tx = getTxDescription();
+    auto token = tx.GetParameter<std::string>(TxParameterID::OriginalToken);
+    if (token)
+    {
+        return QString::fromStdString(*token);
+    }
+    return QString();
+}
+
+QString TxObject::getSenderIdentity() const
+{
+    return getIdentity(m_tx.m_sender);
+}
+
+QString TxObject::getReceiverIdentity() const
+{
+    return getIdentity(!m_tx.m_sender);
+}
+
+QString TxObject::getIdentity(bool isSender) const
+{
+    const auto& tx = getTxDescription();
+    auto v = isSender ? tx.GetParameter<PeerID>(TxParameterID::MySecureWalletID)
+        : tx.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID);
+    if (v)
+    {
+        return QString::fromStdString(std::to_string(*v));
+    }
+    return QString();
 }
 
 bool TxObject::hasPaymentProof() const

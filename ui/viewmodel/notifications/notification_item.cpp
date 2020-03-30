@@ -85,6 +85,18 @@ namespace
             && *txStatus == wallet::TxStatus::Failed
             && *failureReason == TxFailureReason::TransactionExpired;
     }
+
+    WalletAddress getWalletAddressRaw(const Notification& notification)
+    {
+        WalletAddress walletAddress;
+        fromByteBuffer(notification.m_content, walletAddress);
+        return walletAddress;
+    }
+
+    QString getAddress(const Notification& notification)
+    {
+        return beamui::toString(getWalletAddressRaw(notification).m_walletID);
+    }
 }
 
 NotificationItem::NotificationItem(const Notification& notification)
@@ -128,7 +140,7 @@ QString NotificationItem::title() const
             if (fromByteBuffer(m_notification.m_content, info))
             {
                 QString ver = QString::fromStdString(info.m_version.to_string());
-                //% "New version v %1 is avalable"
+                //% "New version v %1 is available"
                 return qtTrId("notification-update-title").arg(ver);
             }
             else
@@ -148,10 +160,10 @@ QString NotificationItem::title() const
             case TxType::Simple:
                 if (isSender(p))
                 {
-                    //% "Transaction sent"
+                    //% "Transaction was sent"
                     return qtTrId("notification-transaction-sent");
                 }
-                //% "Transaction received"
+                //% "Transaction was received"
                 return qtTrId("notification-transaction-received");
             case TxType::AtomicSwap:
                 //% "Atomic Swap offer completed"
@@ -209,8 +221,11 @@ QString NotificationItem::message() const
             }
         }
         case Notification::Type::AddressStatusChanged:
-            //% "Address expired"
-            return qtTrId("notification-address-expired-message");
+        {
+            QString address = getAddress(m_notification);
+            //% "<b>%1</b> address expired."
+            return qtTrId("notification-address-expired-message").arg(address);
+        }
         case Notification::Type::TransactionCompleted:
         {
             auto p = getTxParameters(m_notification);
@@ -310,7 +325,10 @@ QString NotificationItem::type() const
         case Notification::Type::SoftwareUpdateAvailable:
             return "update";
         case Notification::Type::AddressStatusChanged:
-            return "expired";
+        {
+            const auto address = getWalletAddressRaw(m_notification);
+            return address.isExpired() ? "expired" : "extended";
+        }
         case Notification::Type::TransactionCompleted:
         {
             auto p = getTxParameters(m_notification);
@@ -369,4 +387,9 @@ QString NotificationItem::getTxID() const
     catch(...)
     { }
     return "";
+}
+
+WalletAddress NotificationItem::getWalletAddress() const
+{
+    return getWalletAddressRaw(m_notification);
 }

@@ -122,13 +122,6 @@ namespace
     }
 }
 
-SwapTxObject::SwapTxObject(QObject* parent)
-        : TxObject(parent),
-          m_isBeamSide(boost::none),
-          m_swapCoin(boost::none)
-{
-}
-
 SwapTxObject::SwapTxObject(const TxDescription& tx, uint32_t minTxConfirmations, double blocksPerHour, QObject* parent/* = nullptr*/)
         : TxObject(tx, parent),
           m_isBeamSide(m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide)),
@@ -541,11 +534,11 @@ namespace
     template<size_t V>
     QString getBeamTxKernelId(const TxParameters& source)
     {
-        if (auto res = source.GetParameter<Merkle::Hash>(TxParameterID::KernelID, V))
+        if (auto res = source.GetParameter<Merkle::Hash>(TxParameterID::KernelID, V); res)
         {
             return QString::fromStdString(to_hex(res->m_pData, res->nBytes));
         }
-        else return QString();
+        return QString();
     }
 }
 

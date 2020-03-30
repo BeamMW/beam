@@ -259,7 +259,7 @@ namespace beam::wallet
         void DeleteReq(MyRequest##type& r) \
         { \
             m_Pending##type.erase(RequestSet##type::s_iterator_to(r)); \
-            r.m_pTrg = NULL; \
+            r.m_pTrg = nullptr; \
             r.Release(); \
         } \
         void OnRequestComplete(MyRequest##type&); \

@@ -81,13 +81,13 @@ namespace beam::wallet
 
         if (existsJsonParam(params, "pass"))
         {
-            createWallet.pass = params["pass"];
+            createWallet.pass = params["pass"].get<std::string>();
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'pass' parameter must be specified.", id };
 
         if (existsJsonParam(params, "ownerkey"))
         {
-            createWallet.ownerKey = params["ownerkey"];
+            createWallet.ownerKey = params["ownerkey"].get<std::string>();
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'ownerkey' parameter must be specified.", id };
 
@@ -100,13 +100,13 @@ namespace beam::wallet
 
         if (existsJsonParam(params, "pass"))
         {
-            openWallet.pass = params["pass"];
+            openWallet.pass = params["pass"].get<std::string>();
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'pass' parameter must be specified.", id };
 
         if (existsJsonParam(params, "id"))
         {
-            openWallet.id = params["id"];
+            openWallet.id = params["id"].get<std::string>();
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'id' parameter must be specified.", id };
 

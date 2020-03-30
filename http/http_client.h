@@ -56,7 +56,7 @@ public:
         Request& body(const void* data, size_t size) {
             body_.clear();
             if (data && size) {
-                body_.push_back(io::SharedBuffer(data, size));
+                body_.emplace_back(data, size);
             }
             return *this;
         }

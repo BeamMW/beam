@@ -235,19 +235,16 @@ QString QMLGlobals::calcFeeInSecondCurrency(int fee, Currency originalCurrency, 
 {
     // originalCurrency is needed to convert fee to string
     // possible use uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin);
-
-    QString feeInOriginalCurrency = beamui::AmountToUIString(fee);
     if (exchangeRate == "0")
     {
         return "- " + secondCurrencyLabel;
     }
-    else
-    {
-        return multiplyWithPrecision<2>(feeInOriginalCurrency, exchangeRate) + " " + secondCurrencyLabel;
-    }
+
+    QString feeInOriginalCurrency = beamui::AmountToUIString(fee);
+    return multiplyWithPrecision<2>(feeInOriginalCurrency, exchangeRate) + " " + secondCurrencyLabel;
 }
 
-QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate, const QString& secondCurrencyLabel)
+QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate)
 {
     if (exchangeRate.isEmpty() || exchangeRate == "0")
     {
@@ -255,7 +252,7 @@ QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QStr
     }
     else
     {
-        return multiplyWithPrecision<2>(amount, exchangeRate) + " " + secondCurrencyLabel;
+        return multiplyWithPrecision<2>(amount, exchangeRate);
     }
 }
 
@@ -279,7 +276,7 @@ bool QMLGlobals::haveQtum()
     return AppModel::getInstance().getQtumClient()->GetSettings().IsActivated();
 }
 
-QString QMLGlobals::rawTxParametrsToTokenStr(QVariant variantTxParams)
+QString QMLGlobals::rawTxParametrsToTokenStr(const QVariant& variantTxParams)
 {
     if (!variantTxParams.isNull() && variantTxParams.isValid())
     {

@@ -454,7 +454,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     if (WalletApi::existsJsonParam(params, "comment") &&
         params["comment"].is_string())
     {
-        data.comment = params["comment"];
+        data.comment = params["comment"].get<std::string>();
     }
 
     return data;
@@ -744,7 +744,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         if (existsJsonParam(params, "comment"))
         {
-            send.comment = params["comment"];
+            send.comment = params["comment"].get<std::string>();
         }
 
         send.txId = readTxIdParameter(id, params);
@@ -1058,7 +1058,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     void WalletApi::onAcceptOfferMessage(const JsonRpcId& id, const json& params)
     {
         checkJsonParam(params, "token", id);
-        const auto& token = params["token"];
+        const auto& token = params["token"].get<std::string>();
 
         if (!SwapOfferToken::isValid(token))
             throw jsonrpc_exception
@@ -1083,7 +1083,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         if (WalletApi::existsJsonParam(params, "comment") && params["comment"].is_string())
         {
-            data.comment = params["comment"];
+            data.comment = params["comment"].get<std::string>();
         }
 
         getHandler().onMessage(id, data);
@@ -1196,8 +1196,12 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 {"duration", addr.m_duration},
                 {"expired", addr.isExpired()},
                 {"own", addr.isOwn()},
-                {"ownIDBase64", to_base64(addr.m_OwnID)}
+                {"ownIDBase64", to_base64(addr.m_OwnID)},
             });
+            if (addr.m_Identity != Zero)
+            {
+                msg["result"].back().push_back({ "identity", std::to_string(addr.m_Identity) });
+            }
         }
     }
 

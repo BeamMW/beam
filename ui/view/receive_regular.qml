@@ -108,6 +108,8 @@ ColumnLayout {
                 title:            qsTrId("receive-amount-label")
                 id:               receiveAmountInput
                 amountIn:         viewModel.amountToReceive
+                secondCurrencyRateValue:    viewModel.secondCurrencyRateValue
+                secondCurrencyLabel:        viewModel.secondCurrencyLabel
             }
 
             Binding {
