@@ -95,6 +95,7 @@ private:
     void GracefulCloseInternal(const std::unique_ptr<Channel>& channel);
     void CloseInternal(const ChannelIDPtr& chID);
     void ClosingCompleted(const ChannelIDPtr& p_channelID);
+    void HandleOpenedWithFailChannel(const ChannelIDPtr& p_channelID);
     ChannelIDPtr LoadChannel(const std::string& channelID);
     std::unique_ptr<Channel> LoadChannelInternal(
         const ChannelIDPtr& p_channelID);
@@ -119,6 +120,7 @@ private:
     std::unordered_map<ChannelIDPtr, std::unique_ptr<Channel>> m_channels;
     std::vector<std::function<void()>> m_actionsQueue;
     std::vector<ChannelIDPtr> m_readyForCloseChannels;
+    std::vector<ChannelIDPtr> m_openedWithFailChannels;
     std::vector<std::unique_ptr<Channel>> m_closedChannels;
     std::vector<Observer*> m_observers;
 

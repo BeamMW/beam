@@ -44,12 +44,6 @@ inline bool CanBeDeleted(int state)
            state == beam::Lightning::Channel::State::OpenFailed ||
            state == beam::Lightning::Channel::State::Closed;
 }
-
-inline bool CanBeLoaded(int state)
-{
-    return state >= beam::Lightning::Channel::State::Opening1 &&
-           CanBeHandled(state);
-}
 }  // namespace
 
 namespace beam::wallet::laser
@@ -88,6 +82,12 @@ void Mediator::OnNewTip()
         ClosingCompleted(readyForCloseChannel);
     }
     m_readyForCloseChannels.clear();
+
+    for (const auto& openedWithFailChannel : m_openedWithFailChannels)
+    {
+        HandleOpenedWithFailChannel(openedWithFailChannel);
+    }
+    m_openedWithFailChannels.clear();
 }
 
 void Mediator::OnRolledBack()
@@ -435,7 +435,11 @@ bool Mediator::Delete(const std::string& channelID)
         return false;
     }
 
-    channel->Forget();
+    if (state == Lightning::Channel::State::OpenFailed)
+    {
+        channel->Forget();
+    }
+
     m_channels.erase(p_channelID);
     if (m_pWalletDB->removeLaserChannel(p_channelID))
     {
@@ -454,7 +458,7 @@ size_t Mediator::getChannelsCount() const
             m_channels.end(),
             [] (const auto& it) {
         const auto& ch = it.second;
-        return CanBeLoaded(ch->get_State());
+        return CanBeHandled(ch->get_State());
     });
 }
 
@@ -720,6 +724,18 @@ void Mediator::ClosingCompleted(const ChannelIDPtr& p_channelID)
     }
 }
 
+void Mediator::HandleOpenedWithFailChannel(const ChannelIDPtr& p_channelID)
+{
+    auto it = m_channels.find(p_channelID);
+    if (it == m_channels.end()) return;
+
+    m_channels.erase(it);
+    for (auto observer : m_observers)
+    {
+        observer->OnOpenFailed(p_channelID);
+    }
+}
+
 ChannelIDPtr Mediator::LoadChannel(const std::string& channelID)
 {
     auto p_channelID = Channel::ChannelIdFromString(channelID);
@@ -773,7 +789,7 @@ std::unique_ptr<Channel> Mediator::LoadChannelInternal(
 bool Mediator::LoadAndStoreChannelInternal(const ChannelIDPtr& p_channelID)
 {
     auto channel = LoadChannelInternal(p_channelID);
-    if (channel && CanBeLoaded(channel->get_State()))
+    if (channel && CanBeHandled(channel->get_State()))
     {
         m_channels[p_channelID] = std::move(channel);
         return true;
@@ -865,12 +881,7 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
         channel->Forget();
 
         auto channelID = channel->get_chID();
-        m_channels.erase(channelID);
-        
-        for (auto observer : m_observers)
-        {
-            observer->OnOpenFailed(channelID);
-        }
+        m_openedWithFailChannels.push_back(channelID);
     }
 }
 
