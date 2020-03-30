@@ -27,8 +27,6 @@ namespace beam::wallet
         , m_activeNotifications(activeNotifications)
         , m_checkoutTimer(io::Timer::create(*reactor))
     {
-        LOG_DEBUG() << "NotificationCenter()";
-
         loadToCache();
         m_myAddresses = m_storage.getAddresses(true);
         m_checkoutTimer->start(3000/*3sec*/, true/*periodic*/, [this]() { checkAddressesExpirationTime(); });
@@ -36,8 +34,6 @@ namespace beam::wallet
     
     void NotificationCenter::loadToCache()
     {
-        LOG_DEBUG() << "NotificationCenter::loadToCache()";
-
         std::vector<Notification> notifications;
         try
         {
@@ -83,8 +79,6 @@ namespace beam::wallet
 
     void NotificationCenter::createNotification(const Notification& notification)
     {
-        LOG_DEBUG() << "createNotification()";
-
         m_cache.insert(std::make_pair(notification.m_ID, notification));
         m_storage.saveNotification(notification);
 
@@ -96,8 +90,6 @@ namespace beam::wallet
 
     void NotificationCenter::updateNotification(const Notification& notification)
     {
-        LOG_DEBUG() << "updateNotification()";
-
         const auto it = m_cache.find(notification.m_ID);
         if (it != std::cend(m_cache))
         {
@@ -113,8 +105,6 @@ namespace beam::wallet
 
     void NotificationCenter::markNotificationAsRead(const ECC::uintBig& notificationID)
     {
-        LOG_DEBUG() << "markNotificationAsRead()";
-
         auto search = m_cache.find(notificationID);
         if (search != m_cache.cend() && search->second.m_state == Notification::State::Unread)
         {
@@ -125,8 +115,6 @@ namespace beam::wallet
     
     void NotificationCenter::deleteNotification(const ECC::uintBig& notificationID)
     {
-        LOG_DEBUG() << "deleteNotification()";
-
         auto search = m_cache.find(notificationID);
         if (search != m_cache.cend())
         {
@@ -144,8 +132,6 @@ namespace beam::wallet
 
     std::vector<Notification> NotificationCenter::getNotifications()
     {
-        LOG_DEBUG() << "NotificationCenter::getNotifications()";
-
         checkAddressesExpirationTime();
 
         std::vector<Notification> notifications;
@@ -165,8 +151,6 @@ namespace beam::wallet
 
     void NotificationCenter::onNewWalletVersion(const VersionInfo& content, const ECC::uintBig& id)
     {
-        LOG_DEBUG() << "NotificationCenter::onNewWalletVersion()";
-
         auto search = m_cache.find(id);
         if (search == m_cache.cend())
         {
@@ -185,8 +169,6 @@ namespace beam::wallet
     {
         if (action == ChangeAction::Added || action == ChangeAction::Updated)
         {
-            LOG_DEBUG() << "NotificationCenter::onTransactionChanged()";
-           
             for (const auto& item : items)
             {
                 bool failed = (item.m_status == TxStatus::Failed || item.m_status == TxStatus::Canceled);
@@ -214,8 +196,6 @@ namespace beam::wallet
     {
         if (action != ChangeAction::Removed)
         {
-            LOG_DEBUG() << "NotificationCenter::onAddressChanged()";
-
             for (const auto& item : items)
             {
                 if (!item.isOwn()) continue;
