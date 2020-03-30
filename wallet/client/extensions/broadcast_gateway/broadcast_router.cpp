@@ -22,8 +22,8 @@ namespace beam
 const std::vector<BbsChannel> BroadcastRouter::m_incomingBbsChannels =
 {
     proto::Bbs::s_BtcSwapOffersChannel,     // can be renamed to s_SwapOffersChannel after fork 2
-    proto::Bbs::s_LtcSwapOffersChannel,     // can be removed after fork 2
-    proto::Bbs::s_QtumSwapOffersChannel,    // can be removed after fork 2
+    proto::Bbs::s_LtcSwapOffersChannel,     // TODO: dh remove after 2 fork.
+    proto::Bbs::s_QtumSwapOffersChannel,    // TODO: dh remove after 2 fork.
     proto::Bbs::s_BroadcastChannel
 };
 
@@ -76,22 +76,22 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork, wallet:
                      m_maxMessageTypes,
                      *this,
                      MsgHeader::SIZE+1) // note: MsgSerializer is not used here
-    , m_protocol_new(m_ver_2[0],
-                     m_ver_2[1],
-                     m_ver_2[2],
-                     m_maxMessageTypes,
-                     *this,
-                     MsgHeader::SIZE+1)
+    , m_protocol(m_ver_2[0],
+                 m_ver_2[1],
+                 m_ver_2[2],
+                 m_maxMessageTypes,
+                 *this,
+                 MsgHeader::SIZE+1)
     , m_msgReader_old(m_protocol_old,
                       0,                // uint64_t streamId is not used here
                       m_defaultMessageSize)
-    , m_msgReader_new(m_protocol_new,
-                      0,                // uint64_t streamId is not used here
-                      m_defaultMessageSize)
+    , m_msgReader(m_protocol,
+                  0,                    // uint64_t streamId is not used here
+                  m_defaultMessageSize)
     , m_lastTimestamp(getTimestamp() - m_bbsTimeWindow)
 {
     m_msgReader_old.disable_all_msg_types();
-    m_msgReader_new.disable_all_msg_types();
+    m_msgReader.disable_all_msg_types();
 
     for (const auto& ch : m_incomingBbsChannels)
     {
@@ -115,14 +115,14 @@ void BroadcastRouter::registerListener(BroadcastContentType type, IBroadcastList
           &IBroadcastListener::onMessage >
         (msgType, listener, m_minMessageSize, m_maxMessageSize);
 
-    m_protocol_new.add_message_handler
+    m_protocol.add_message_handler
         < IBroadcastListener,
           BroadcastMsg,
           &IBroadcastListener::onMessage >
         (msgType, listener, m_minMessageSize, m_maxMessageSize);
 
     m_msgReader_old.enable_msg_type(msgType);
-    m_msgReader_new.enable_msg_type(msgType);
+    m_msgReader.enable_msg_type(msgType);
 }
 
 void BroadcastRouter::unregisterListener(BroadcastContentType type)
@@ -132,13 +132,12 @@ void BroadcastRouter::unregisterListener(BroadcastContentType type)
     m_listeners.erase(it);
 
     m_msgReader_old.disable_msg_type(getMsgType(type));
-    m_msgReader_new.disable_msg_type(getMsgType(type));
+    m_msgReader.disable_msg_type(getMsgType(type));
 }
 
 /**
- *  Deprecated method.
- *  Send without packing into common data object before serialization.
- *  Used in SwapOffersBoard.
+ *  Deprecated method. Send without packing into common data object before serialization. Used in SwapOffersBoard.
+ *  TODO: dh make private after 2 fork.
  */
 void BroadcastRouter::sendRawMessage(BroadcastContentType type, const ByteBuffer& msg)
 {
@@ -160,21 +159,9 @@ void BroadcastRouter::sendMessage(BroadcastContentType type, const BroadcastMsg&
 
     // Prepare Protocol header
     ByteBuffer packet(packSize);
-    MsgHeader header;
+    MsgHeader header(m_ver_2[0], m_ver_2[1], m_ver_2[2]);
 
-    // Here we have to check which version to use!
-    if (/*currectHeight > fork2*/ false)
-    {
-        header.V0 = m_ver_2[0];
-        header.V1 = m_ver_2[1];
-        header.V2 = m_ver_2[2];
-    }
-    else
-    {
-        header.V0 = m_ver_1[0];
-        header.V1 = m_ver_1[1];
-        header.V2 = m_ver_1[2];
-    }
+    
     header.type = getMsgType(type);
     header.size = static_cast<uint32_t>(content.size());
     header.write(packet.data());
@@ -197,9 +184,9 @@ void BroadcastRouter::OnMsg(proto::BbsMsg&& bbsMsg)
 
     // Here MsgReader used in stateless mode. State from previous message can cause error.
     m_msgReader_old.reset();
-    m_msgReader_new.reset();
+    m_msgReader.reset();
     m_msgReader_old.new_data_from_stream(io::EC_OK, data, size);
-    m_msgReader_new.new_data_from_stream(io::EC_OK, data, size);
+    m_msgReader.new_data_from_stream(io::EC_OK, data, size);
 }
 
 /// unused

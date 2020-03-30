@@ -115,9 +115,9 @@ namespace beam::wallet
         return true;
     }
 
-    virtual bool ExchangeRateProvider::onMessage(uint64_t unused, BroadcastMsg&& msg) override
+    bool ExchangeRateProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)
     {
-        if (m_isEnabled && m_validator.isSignatureValid())
+        if (m_isEnabled && m_validator.isSignatureValid(msg))
         {
             try
             {

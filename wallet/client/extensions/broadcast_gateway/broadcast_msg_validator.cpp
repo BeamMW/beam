@@ -44,7 +44,7 @@ namespace beam::wallet
         }
     }
 
-    // Can be removed after fork 2    
+    // Deprecated. TODO: dh remove after 2 fork.
     bool BroadcastMsgValidator::processMessage(const ByteBuffer& in, BroadcastMsg& out) const
     {
         try
@@ -74,9 +74,7 @@ namespace beam::wallet
             LOG_WARNING() << "broadcast message signature deserialization exception";
             return false;
         }
-
         signValidator.m_data = msg.m_content;
-        signValidator.m_Signature = msg.m_signature;
 
         auto it = std::find_if( std::cbegin(m_publisherKeys),
                                 std::cend(m_publisherKeys),

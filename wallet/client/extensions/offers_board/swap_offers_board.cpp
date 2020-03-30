@@ -258,12 +258,7 @@ void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
             << "minimalHeight: " << *minimalHeight;
     }
 
-    auto message = m_protocolHandler.createMessage(offer, offer.m_publisherId);
-    if (!message)
-    {
-        throw ForeignOfferException();
-    }
-    m_broadcastGateway.sendRawMessage(BroadcastContentType::SwapOffers, *message);
+    broadcastOffer(offer, offer.m_publisherId);
 }
 
 /**
@@ -272,13 +267,37 @@ void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
 void SwapOffersBoard::sendUpdateToNetwork(const TxID& offerID, const WalletID& publisherID, AtomicSwapCoin coin, SwapOfferStatus newStatus) const
 {
     LOG_INFO() << offerID << " offer status updated to " << std::to_string(newStatus);
-    auto message = m_protocolHandler.createMessage(SwapOffer(offerID, newStatus, publisherID, coin), publisherID);
-    if (!message)
+
+    try
     {
-        LOG_WARNING() << offerID << " Offer has foreign Pk and will not be updated.\n\t";
-        return;
+        broadcastOffer(SwapOffer(offerID, newStatus, publisherID, coin), publisherID);
     }
-    m_broadcastGateway.sendRawMessage(BroadcastContentType::SwapOffers, *message);
+    catch(const ForeignOfferException& e)
+    {
+        LOG_WARNING() << offerID << e.what();
+    }
+}
+
+void SwapOffersBoard::broadcastOffer(const SwapOffer& offer, const WalletID& publisherID) const
+{
+    if (m_currentHeight < Rules::get().pForks[1].m_Height)
+    {
+        auto message = m_protocolHandler.createMessage(offer, publisherID);
+        if (!message)
+        {
+            throw ForeignOfferException();
+        }
+        m_broadcastGateway.sendRawMessage(BroadcastContentType::SwapOffers, *message);
+    }
+    else
+    {
+        auto message = m_protocolHandler.createBroadcastMessage(offer, publisherID);
+        if (!message)
+        {
+            throw ForeignOfferException();
+        }
+        m_broadcastGateway.sendMessage(BroadcastContentType::SwapOffers, *message);
+    }
 }
 
 void SwapOffersBoard::Subscribe(ISwapOffersObserver* observer)

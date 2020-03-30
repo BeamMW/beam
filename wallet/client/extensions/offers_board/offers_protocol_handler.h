@@ -44,12 +44,13 @@ namespace beam::wallet
          * @param content   Swap offer data
          * @param wid       Signatory's public key 
          */
-        boost::optional<ByteBuffer> createMessage(const SwapOffer& content, const WalletID& wid) const;
+        boost::optional<ByteBuffer> createMessage(const SwapOffer& content, const WalletID& wid) const; // Deprecated. TODO: dh remove after 2 fork
+        boost::optional<BroadcastMsg> createBroadcastMessage(const SwapOffer& content, const WalletID& wid) const;
 
         /**
          *  Parse message and verify signature.
          */
-        boost::optional<SwapOffer> parseMessage(const ByteBuffer& rawMessage) const;    // remove after fork 2
+        boost::optional<SwapOffer> parseMessage(const ByteBuffer& rawMessage) const;    // Deprecated. TODO: dh remove after 2 fork.
         boost::optional<SwapOffer> parseMessage(const BroadcastMsg& msg) const;
 
     private:

@@ -69,7 +69,7 @@ public:
      *  IBroadcastListener implementation
      *  Processes broadcast messages
      */
-    virtual bool onMessage(uint64_t, ByteBuffer&&) override;
+    virtual bool onMessage(uint64_t, ByteBuffer&&) override;    // TODO: dh remove after 2 fork.
     virtual bool onMessage(uint64_t, BroadcastMsg&&) override;
     
     /**
@@ -98,6 +98,7 @@ private:
 
     bool isOfferExpired(const SwapOffer& offer) const;
     bool onOfferFromNetwork(SwapOffer& newOffer);
+    void broadcastOffer(const SwapOffer& content, const WalletID& wid) const;
     void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
     void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);
     void notifySubscribers(ChangeAction action, const std::vector<SwapOffer>& offers) const;

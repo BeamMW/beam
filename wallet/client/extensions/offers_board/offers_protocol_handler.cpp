@@ -14,6 +14,7 @@
 
 #include "offers_protocol_handler.h"
 #include "p2p/protocol_base.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
 #include "utility/logger.h"
 
 namespace beam::wallet
@@ -23,8 +24,23 @@ namespace beam::wallet
           m_sbbsKdf(sbbsKdf)
     {}
 
-    // TODO: #1315 rewrite methods to use broadcast router message serialization before fork.
-    // Methods must use compatible BroadcastMsg type instead of raw ByteBuffer.
+    boost::optional<BroadcastMsg> OfferBoardProtocolHandler::createBroadcastMessage(const SwapOffer& content, const WalletID& wid) const
+    {
+        auto waddr = m_walletDB->getAddress(wid);
+
+        if (waddr && waddr->isOwn())
+        {
+            // Get private key
+            PrivateKey sk;
+            PublicKey pk;
+            m_sbbsKdf->DeriveKey(sk, ECC::Key::ID(waddr->m_OwnID, Key::Type::Bbs));
+            pk.FromSk(sk);
+
+            return BroadcastMsgCreator::createSignedMessage(toByteBuffer(SwapOfferToken(content)), sk);
+
+        }
+        return boost::none;
+    }
 
     boost::optional<ByteBuffer> OfferBoardProtocolHandler::createMessage(const SwapOffer& content, const WalletID& wid) const
     {
@@ -96,15 +112,15 @@ namespace beam::wallet
     boost::optional<SwapOffer> OfferBoardProtocolHandler::parseMessage(const BroadcastMsg& msg) const
     {        
         SwapOfferToken token;
-        SwapOfferConfirmation confirmation;     // replace with common signature!
+        SignatureHandler signHandler;
 
         try
         {
             if (fromByteBuffer(msg.m_content, token)
-             && fromByteBuffer(msg.m_signature, confirmation)
+             && fromByteBuffer(msg.m_signature, signHandler.m_Signature))
             {
-                confirmation.m_offerData = msg.m_content;
-                if (token.getPublicKey() && !confirmation.IsValid(token.getPublicKey()->m_Pk))
+                signHandler.m_data = msg.m_content;
+                if (token.getPublicKey() && !signHandler.IsValid(token.getPublicKey()->m_Pk))
                 {
                     LOG_WARNING() << "offer board message signature is invalid";
                     return boost::none;
@@ -116,7 +132,7 @@ namespace beam::wallet
         {
         }
         LOG_WARNING() << "offer board message deserialization exception";
-        return boost::none;        
+        return boost::none;
     }
 
 } // namespace beam::wallet

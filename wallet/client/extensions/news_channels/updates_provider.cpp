@@ -56,13 +56,13 @@ namespace beam::wallet
     {
         if (m_validator.isSignatureValid(msg))
         {
-            VersionInfo updateInfo;
             try
             {
-                if (fromByteBuffer(res.m_content, updateInfo))
+                VersionInfo updateInfo;
+                if (fromByteBuffer(msg.m_content, updateInfo))
                 {
                     ECC::Hash::Value hash;   // use hash like unique ID
-                    ECC::Hash::Processor() << Blob(res.m_content) >> hash;
+                    ECC::Hash::Processor() << Blob(msg.m_content) >> hash;
                     notifySubscribers(updateInfo, hash);
                 }
             }
