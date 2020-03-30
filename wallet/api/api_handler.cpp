@@ -1020,6 +1020,12 @@ namespace beam::wallet
 
             Amount swapFeeRate = data.swapFeeRate ? data.swapFeeRate : GetSwapFeeRate(walletDB, *swapCoin);
 
+            if (!IsSwapAmountValid(*swapCoin, *swapAmount, swapFeeRate))
+            {
+                doError(id, ApiError::InvalidJsonRpc, kSwapAmountToLowError);
+                return;
+            }
+
             checkSwapConnection(_walletData.getAtomicSwapProvider(), *swapCoin);
 
             if (*isBeamSide)
