@@ -151,6 +151,8 @@ namespace beam::wallet
 
     void NotificationCenter::onNewWalletVersion(const VersionInfo& content, const ECC::uintBig& id)
     {
+        if (content.m_application != VersionInfo::Application::DesktopWallet) return;
+        
         auto search = m_cache.find(id);
         if (search == m_cache.cend())
         {
