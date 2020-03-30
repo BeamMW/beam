@@ -383,14 +383,14 @@ bool Mediator::GracefulClose(const std::string& channelID)
     if (!p_channelID)
     {
         LOG_DEBUG() << "Channel " << channelID << " restored with error";
-    return false;
+        return false;
     }
 
     auto& channel = m_channels[p_channelID];
     if (!channel)
     {
         LOG_DEBUG() << "Channel " << channelID << " unexpected error";
-    return false;
+        return false;
     }
 
     channel->Subscribe();

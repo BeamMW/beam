@@ -1156,8 +1156,6 @@ void Channel::SetWithdrawParams(WithdrawTx::CommonParam& cp, const Height& h, He
 
 bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful)
 {
-	m_gracefulClose = bCloseGraceful;
-
 	if (m_pNegCtx || (State::Open != get_State()))
 		return false;
 
@@ -1207,6 +1205,8 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCl
 		CoinID msDummy(Zero);
 		msDummy.m_Value = m_pOpen->m_ms0.m_Value - m_Params.m_Fee;
 		CreateUpdatePoint(iRole, msDummy, msDummy, vOut.front());
+
+		m_gracefulClose = true;
 	}
 	else
 	{
