@@ -94,23 +94,15 @@ void PeerManager::Update()
 	m_TicksLast_ms = nTicks_ms;
 
 	// select recommended peers
-	uint32_t nSelected = 0;
-
 	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; it++)
 	{
-		PeerInfo& pi = it->get_ParentObj();
-		assert(pi.m_Active.m_Now);
-
-		bool bTooEarlyToDisconnect = (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutDisconnect_ms);
-
-		it->m_Next = bTooEarlyToDisconnect;
-		if (bTooEarlyToDisconnect)
-			nSelected++;
+		assert(it->m_Now);
+		it->m_Next = false; // not yet
 	}
 
 	// 1st group
-	uint32_t nHighest = 0;
-	for (RawRatingSet::iterator it = m_Ratings.begin(); (nHighest < m_Cfg.m_DesiredHighest) && (nSelected < m_Cfg.m_DesiredTotal) && (m_Ratings.end() != it); it++, nHighest++)
+	uint32_t nSelected = 0;
+	for (RawRatingSet::iterator it = m_Ratings.begin(); (nSelected < m_Cfg.m_DesiredHighest) && (m_Ratings.end() != it); it++)
 		ActivatePeerInternal(it->get_ParentObj(), nTicks_ms, nSelected);
 
 	// 2nd group
@@ -125,8 +117,12 @@ void PeerManager::Update()
 
 		if (!pi.m_Active.m_Next)
 		{
-			OnActive(pi, false);
-			DeactivatePeer(pi);
+			bool bTooEarlyToDisconnect = (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutDisconnect_ms);
+			if (!bTooEarlyToDisconnect)
+			{
+				OnActive(pi, false);
+				DeactivatePeer(pi);
+			}
 		}
 	}
 }
