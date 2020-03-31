@@ -1215,13 +1215,16 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     PeerMan& pm = m_This.m_PeerMan; // alias
 	PeerManager::TimePoint tp;
 
+    Timestamp ts = getTimestamp();
+
     if (m_pInfo)
     {
         // probably we connected by the address
         if (m_pInfo->m_ID.m_Key == msg.m_ID)
         {
-			if (!(Flags::Accepted & m_Flags))
-				pm.OnSeen(*m_pInfo);
+            assert(!(Flags::Accepted & m_Flags));
+            m_pInfo->m_LastSeen = ts;
+
             TakeTasks();
             return; // all settled (already)
         }
@@ -1296,8 +1299,8 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	pPi->Attach(*this);
     pm.OnActive(*pPi, true);
 
-	if (!(Flags::Accepted & m_Flags))
-		pm.OnSeen(*pPi);
+    if (!(Flags::Accepted & m_Flags))
+        pPi->m_LastSeen = ts;
 
     LOG_INFO() << *m_pInfo << " connected, info updated";
 

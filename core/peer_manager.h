@@ -161,7 +161,6 @@ namespace beam {
 		void SetRating(PeerInfo&, uint32_t);
 		void Ban(PeerInfo&);
 		void ResetRatingBoost(PeerInfo&);
-		void OnSeen(PeerInfo&);
 		bool IsOutdated(const PeerInfo&) const;
 		void ModifyAddr(PeerInfo&, const io::Address&);
 		void RemoveAddr(PeerInfo&);

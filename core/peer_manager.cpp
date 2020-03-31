@@ -194,11 +194,6 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 	return ret;
 }
 
-void PeerManager::OnSeen(PeerInfo& pi)
-{
-	pi.m_LastSeen = getTimestamp();
-}
-
 void PeerManager::SetRating(PeerInfo& pi, uint32_t val)
 {
 	SetRatingInternal(pi, val, false);
