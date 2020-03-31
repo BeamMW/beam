@@ -145,6 +145,7 @@ namespace beam {
 			} m_Addr;
 
 			Timestamp m_LastSeen; // needed to filter-out dead peers, and to know when to update the address
+			Timestamp m_LastConnectAttempt;
 			uint32_t m_LastActivity_ms; // updated on connection attempt, and disconnection.
 		};
 

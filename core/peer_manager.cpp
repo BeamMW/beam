@@ -183,6 +183,7 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 
 	ret->m_Active.m_Now = false;
 	ret->m_LastSeen = 0;
+	ret->m_LastConnectAttempt = 0;
 	ret->m_LastActivity_ms = 0;
 
 	LOG_INFO() << *ret << " New";

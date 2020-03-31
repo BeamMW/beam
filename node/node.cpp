@@ -4085,6 +4085,7 @@ void Node::PeerMan::Initialize()
                 SetRating(*pPi, r);
 
             pPi->m_LastSeen = wlk.m_Data.m_LastSeen;
+            pPi->m_LastConnectAttempt = pPi->m_LastSeen;
         }
     }
 }
