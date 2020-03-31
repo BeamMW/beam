@@ -461,6 +461,7 @@ private:
 			static const uint16_t Connected		= 0x001;
 			static const uint16_t PiRcvd		= 0x002;
 			static const uint16_t Owner			= 0x004;
+			static const uint16_t Probe			= 0x008;
 			static const uint16_t Finalizing	= 0x080;
 			static const uint16_t HasTreasury	= 0x100;
 			static const uint16_t Chocking		= 0x200;

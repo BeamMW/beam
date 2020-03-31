@@ -755,6 +755,7 @@ namespace proto {
             static const uint8_t Duplicate    = 'd';
             static const uint8_t Timeout    = 't';
             static const uint8_t Other        = 'o';
+            static const uint8_t Probed        = 'p';
         };
 
         struct DisconnectReason
