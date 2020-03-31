@@ -255,6 +255,7 @@ namespace beam
     const char kLaserChannelTableBody[] = "%1%|%2%|%3%|%4%|%5%|%6%";
     const char kLaserErrorOpenFailed[] = "Open failed : %1%";
     const char kLaserMessageClosed[] = "Closed : %1%";
+    const char kLaserErrorTransferFailed[] = "Transfer to channel : %1% - failed.";
     const char kLaserMessageChannelServed[] = "Channel: %1% served";
     const char kLaserMessageUpdateFinished[] = "Update finished: %1%";
     const char kLaserMessageCloseFailed[] = "Close failed: %1%";

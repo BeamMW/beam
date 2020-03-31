@@ -52,8 +52,8 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    auto wdbFirst = createSqliteWalletDB("laser_test_send_first.db", false, false);
-    auto wdbSecond = createSqliteWalletDB("laser_test_send_second.db", false, false);
+    auto wdbFirst = createSqliteWalletDB("laser_test_send_gc_first.db", false, false);
+    auto wdbSecond = createSqliteWalletDB("laser_test_send_gc_second.db", false, false);
 
     const AmountList amounts = {100000000, 100000000, 100000000, 100000000};
     for (auto amount : amounts)
@@ -112,7 +112,8 @@ int main()
         LOG_INFO() << "Test laser SEND: close failed";
         WALLET_CHECK(false);
     };
-    observer_1.onUpdateFinished = [&channel_1, &laserFirst, &transfersCount, &transferInProgress] (const laser::ChannelIDPtr& chID)
+    observer_1.onUpdateFinished =
+    [&channel_1, &laserFirst, &transfersCount, &transferInProgress] (const laser::ChannelIDPtr& chID)
     {
         LOG_INFO() << "Test laser SEND: first updated";
         
@@ -172,8 +173,10 @@ int main()
 
         if (channel_1 && channel_2 && height > openedAt + 20 && !transferInProgress && !closeProcessStarted)
         {
+            LOG_INFO() << "Test laser SEND: closing";
+            observer_1.onUpdateFinished = observer_2.onUpdateFinished = [] (const laser::ChannelIDPtr& chID) {};
             auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
-            WALLET_CHECK(laserFirst->Close(channel1Str));
+            WALLET_CHECK(laserFirst->GracefulClose(channel1Str));
             closeProcessStarted = true;
         }
 
@@ -185,13 +188,9 @@ int main()
             storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()));
             totals_2_a = totalsCalc_2.GetTotals(Zero);
 
-            WALLET_CHECK(
-                totals_1.Unspent ==
-                totals_1_a.Unspent + kTransferFirst * transfersCount + kFee / 2 * 3);
+            WALLET_CHECK(totals_1.Unspent == totals_1_a.Unspent + kTransferFirst * transfersCount + kFee);
 
-            WALLET_CHECK(
-                totals_2_a.Unspent + kFee / 2 * 3 ==
-                totals_2.Unspent + kTransferFirst * transfersCount);
+            WALLET_CHECK(totals_2_a.Unspent + kFee == totals_2.Unspent + kTransferFirst * transfersCount);
 
             LOG_INFO() << "Test laser SEND: finished";
             io::Reactor::get_Current().stop();

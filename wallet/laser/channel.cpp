@@ -368,6 +368,14 @@ bool Channel::TransformLastState()
     if (m_lastState == state)
         return false;
 
+    if (state == State::Updating) {
+        m_lastUpdateStart = get_Tip();
+    }
+    else if (state == State::Open)
+    {
+        m_lastUpdateStart = 0;
+    }
+
     m_lastState = state;
     return true;
 }
@@ -398,6 +406,7 @@ void Channel::UpdateRestorePoint()
     ser & m_pOpen->m_hOpened;
     ser & m_iRole;
     ser & m_gracefulClose;
+    ser & m_lastUpdateStart;
     ser & m_pOpen->m_vInp.size();
     for (const CoinID& cid : m_pOpen->m_vInp)
     {
@@ -542,6 +551,11 @@ bool Channel::IsSafeToClose() const
         m_State.m_Close.m_hPhase2 && m_State.m_Close.m_hPhase2 <= get_Tip();
 }
 
+bool Channel::IsUpdateStuck() const
+{
+    return m_lastUpdateStart && (m_lastUpdateStart + Lightning::kDefaultOpenTxDh < get_Tip());
+}
+
 void Channel::RestoreInternalState(const ByteBuffer& data)
 {
     try
@@ -567,6 +581,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
         der & m_pOpen->m_hOpened;
         der & m_iRole;
         der & m_gracefulClose;
+        der & m_lastUpdateStart;
 
         size_t vInpSize = 0;
         der & vInpSize;

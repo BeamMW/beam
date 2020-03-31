@@ -95,6 +95,7 @@ public:
     void Subscribe();
     void Unsubscribe();
     bool IsSafeToClose() const;
+    bool IsUpdateStuck() const;
 
 private:
     void RestoreInternalState(const ByteBuffer& data);
@@ -113,6 +114,7 @@ private:
     Amount m_aCurTrg;
     Height m_lockHeight = MaxHeight;
     Timestamp m_bbsTimestamp;
+    Height m_lastUpdateStart = 0;
     
     std::unique_ptr<Receiver> m_upReceiver;
     ByteBuffer m_data;

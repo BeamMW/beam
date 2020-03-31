@@ -119,6 +119,16 @@ bool Channel::IsUnfairPeerClosed() const
 	return p && p->m_PeerKeyValid;
 }
 
+void Channel::DiscardLastRevision()
+{
+	if (m_nRevision && !m_lstUpdates.empty())
+	{
+		m_lstUpdates.DeleteBack();
+		--m_nRevision;
+		m_pNegCtx.reset();
+	}
+}
+
 void Channel::OnPeerData(Storage::Map& dataIn)
 {
 	if (m_State.m_Terminate)
@@ -200,14 +210,18 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 		{
 			if (m_pNegCtx && m_pNegCtx->m_eType == NegotiationCtx::Close)
 			{
-				m_lstUpdates.DeleteBack();
-				--m_nRevision;
-				m_pNegCtx.reset();
+				DiscardLastRevision();
 				if (!m_iRole)
 					Transfer(0, true);
 
 				return;
 			}
+		}
+		else
+		{
+			Amount valueTransfer = 0;
+			if (dataIn.Get(valueTransfer, Codes::ValueTansfer))
+				return;
 		}
 	}
 

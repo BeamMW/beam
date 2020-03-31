@@ -27,6 +27,7 @@ namespace Lightning {
 	const Height kDefaultRevisionMaxLifeTime = 1440 * 14;
 	const Height kDefaultLockTime = 1440;
 	const Height kDefaultPostLockReserve = 1440;
+	const Height kDefaultOpenTxDh = 2 * 60;
 
 	class Channel
 	{
@@ -187,6 +188,7 @@ namespace Lightning {
 
 		State::Enum get_State() const;
 		bool IsUnfairPeerClosed() const;
+		void DiscardLastRevision();
 
 
 		bool Open(Amount nMy, Amount nOther, Height hOpenTxDh);

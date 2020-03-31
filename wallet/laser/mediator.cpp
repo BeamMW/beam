@@ -147,6 +147,8 @@ proto::FlyClient::INetwork& Mediator::get_Net()
 
 void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
 {
+    Lock lock(m_mutex);
+
     auto inChID = std::make_shared<ChannelID>(Zero);
     beam::Negotiator::Storage::Map dataIn;
 
@@ -504,8 +506,6 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
     if (channel && channel->get_State() ==
         beam::Lightning::Channel::State::Open)
     {
-        channel->Subscribe();
-
         if (!IsInSync())
         {
             m_actionsQueue.emplace_back([this, amount, p_channelID] () {
@@ -523,8 +523,14 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
 
         return true;
     }
+    else if (channel && channel->get_State() ==
+             beam::Lightning::Channel::State::Updating)
+    {
+        LOG_ERROR() << "Previous transfer for channel: " << channelID << " is not completed.";
+        return false;
+    }
 
-    LOG_ERROR() << "Channel " << channelID << " is not OPEN";
+    LOG_ERROR() << "Channel " << channelID << " is not OPEN.";
     return false;
 }
 
@@ -625,26 +631,31 @@ void Mediator::OpenInternal(const ChannelIDPtr& chID, Height hOpenTxDh)
 
 void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
 {
-    auto& ch = m_channels[chID];
+    Lock lock(m_mutex);
+
+    auto& channel = m_channels[chID];
     std::string channelIdStr = to_hex(chID->m_pData, chID->nBytes);
 
-    if (!ch)
+    if (!channel)
     {
         LOG_ERROR() << "Channel: " << channelIdStr << " not found";
         return;
     }
 
+    channel->Subscribe();
+
     Block::SystemState::Full tip;
     get_History().get_Tip(tip);
-    Height channelLockHeight = ch->get_LockHeight();
+    Height channelLockHeight = channel->get_LockHeight();
 
     if (tip.m_Height + 1 < channelLockHeight)
     {
-        if (ch->Transfer(amount))
+        if (channel->Transfer(amount))
         {
             LOG_INFO() << "Transfer: " << PrintableAmount(amount, true)
                     << " to channel: " << channelIdStr
                     << " started";
+            UpdateChannelExterior(channel);
             return;
         }
         else
@@ -805,17 +816,34 @@ void Mediator::UpdateChannels()
 {
     for (auto& it: m_channels)
     {
-        auto& ch = it.second;
-        auto state = ch->get_State();
+        auto& channel = it.second;
+        auto state = channel->get_State();
+
+        bool revisionDiscarded = false;
+        if (state == beam::Lightning::Channel::State::Updating &&
+            channel->IsUpdateStuck())
+        {
+            LOG_DEBUG() << "Update stuck, discarding last revision...";
+            channel->DiscardLastRevision();
+            revisionDiscarded = true;
+        }
 
         if (state != beam::Lightning::Channel::State::None &&
             state != beam::Lightning::Channel::State::Closed &&
             state != Lightning::Channel::State::OpenFailed)
         {
-            ch->Update();
+            channel->Update();
         }
 
-        UpdateChannelExterior(ch);
+        UpdateChannelExterior(channel);
+
+        if (revisionDiscarded)
+        {
+            for (auto observer : m_observers)
+            {
+                observer->OnTransferFailed(channel->get_chID());
+            }
+        }
     }
 }
 

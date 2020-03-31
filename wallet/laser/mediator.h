@@ -16,6 +16,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 #include "wallet/laser/i_channel_holder.h"
@@ -74,7 +75,7 @@ public:
                      Amount aTrg,
                      Amount fee,
                      const WalletID& receiverWalletID,
-                     Height hOpenTxDh = kDefaultTxLifetime);
+                     Height hOpenTxDh = beam::Lightning::kDefaultOpenTxDh);
     bool Serve(const std::string& channelID);
     bool Transfer(Amount amount, const std::string& channelID);
     bool Close(const std::string& channelID);
@@ -90,7 +91,7 @@ private:
     bool get_skBbs(ECC::Scalar::Native&, const ChannelIDPtr& chID);
     bool OnIncoming(const ChannelIDPtr& channelID,
                     Negotiator::Storage::Map& dataIn);
-    void OpenInternal(const ChannelIDPtr& chID, Height hOpenTxDh = kDefaultTxLifetime);
+    void OpenInternal(const ChannelIDPtr& chID, Height hOpenTxDh = beam::Lightning::kDefaultOpenTxDh);
     void TransferInternal(Amount amount, const ChannelIDPtr& chID);
     void GracefulCloseInternal(const std::unique_ptr<Channel>& channel);
     void CloseInternal(const ChannelIDPtr& chID);
@@ -125,5 +126,7 @@ private:
     std::vector<Observer*> m_observers;
 
     Lightning::Channel::Params m_Params;
+    mutable std::mutex m_mutex;
+    using Lock = std::unique_lock<decltype(m_mutex)>;
 };
 }  // namespace beam::wallet::laser
