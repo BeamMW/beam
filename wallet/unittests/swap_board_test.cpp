@@ -452,6 +452,13 @@ namespace
                     WALLET_CHECK(*receivedValue == *dispatchedValue);
                 }
             }
+
+            cout << "Case: fork 2 happens" << endl;
+            HeightHash fork2;
+		    fork2.m_Height = Rules::get().pForks[1].m_Height;
+            Alice.onSystemStateChanged(fork2);
+            Bob.onSystemStateChanged(fork2);
+            Cory.onSystemStateChanged(fork2);
             
             cout << "Case: ignore same TxID" << endl;
             SwapOffer o4 = correctOffer;

@@ -244,7 +244,7 @@ QString QMLGlobals::calcFeeInSecondCurrency(int fee, Currency originalCurrency, 
     return multiplyWithPrecision<2>(feeInOriginalCurrency, exchangeRate) + " " + secondCurrencyLabel;
 }
 
-QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate)
+QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QString& exchangeRate, const QString& secondCurrLabel)
 {
     if (exchangeRate.isEmpty() || exchangeRate == "0")
     {
@@ -252,7 +252,9 @@ QString QMLGlobals::calcAmountInSecondCurrency(const QString& amount, const QStr
     }
     else
     {
-        return multiplyWithPrecision<2>(amount, exchangeRate);
+        return (secondCurrLabel == beamui::getCurrencyLabel(beamui::Currencies::Bitcoin))
+               ? multiplyWithPrecision<8>(amount, exchangeRate)     // Btc
+               : multiplyWithPrecision<2>(amount, exchangeRate);    // All other currencies
     }
 }
 

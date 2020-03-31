@@ -317,24 +317,23 @@ ColumnLayout {
                 title: qsTrId("general-contact")
                 width: 170 * contactsView.columnResizeRatio
                 movable: false
-                delegate: Item {
-                    Item {
-                        width: parent.width
-                        height: contactsView.rowHeight
-                        clip:true
+                delegate: 
+                Item {
+                    width: parent.width
+                    height: contactsView.rowHeight
+                    clip:true
 
-                        SFLabel {
-                            font.pixelSize: 14
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.leftMargin: 20
-                            elide: Text.ElideMiddle
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: styleData.value
-                            color: Style.content_main
-                            copyMenuEnabled: true
-                            onCopyText: BeamGlobals.copyToClipboard(text)
-                        }
+                    SFLabel {
+                        font.pixelSize: 14
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: 20
+                        elide: Text.ElideMiddle
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: styleData.value
+                        color: Style.content_main
+                        copyMenuEnabled: true
+                        onCopyText: BeamGlobals.copyToClipboard(text)
                     }
                 }
             }
@@ -346,6 +345,25 @@ ColumnLayout {
                 title: qsTrId("general-identity")
                 width: contactsView.getAdjustedColumnWidth(identityColumn)
                 movable: false
+                delegate:
+                Item {
+                    width: parent.width
+                    height: contactsView.rowHeight
+                    clip:true
+
+                    SFLabel {
+                        font.pixelSize: 14
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: 20
+                        elide: Text.ElideMiddle
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: styleData.value
+                        color: Style.content_main
+                        copyMenuEnabled: true
+                        onCopyText: BeamGlobals.copyToClipboard(text)
+                    }
+                }
             }
 
             TableViewColumn {

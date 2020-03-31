@@ -83,7 +83,8 @@ ConfirmationDialog {
     function getAmountInSecondCurrency() {
         return BeamGlobals.calcAmountInSecondCurrency(
             sendViewConfirm.amount,
-            sendViewConfirm.secondCurrencyRate) + " " + sendViewConfirm.secondCurrencyLabel;
+            sendViewConfirm.secondCurrencyRate,
+            sendViewConfirm.secondCurrencyLabel) + " " + sendViewConfirm.secondCurrencyLabel;
     }
 
     onAccepted: {

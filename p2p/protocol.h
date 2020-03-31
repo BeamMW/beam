@@ -95,6 +95,7 @@ public:
     }
 
     /// Adds custom message handler without object deserialization
+    // Deprecated. TODO: dh remove after 2 fork.
     template <
         typename MsgHandler,
         bool(MsgHandler::*MessageFn)(uint64_t, std::vector<uint8_t>&&)

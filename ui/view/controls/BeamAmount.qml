@@ -32,7 +32,8 @@ Control {
         let secondCurrencyAmount = Utils.uiStringToLocale(
             BeamGlobals.calcAmountInSecondCurrency(
                 control.amount,
-                control.secondCurrencyRateValue));
+                control.secondCurrencyRateValue,
+                control.secondCurrencyLabel));
         return control.prefix + (secondCurrencyAmount == "" ? "-" : secondCurrencyAmount) + " " + control.secondCurrencyLabel;
     }
 

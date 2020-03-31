@@ -148,7 +148,8 @@ namespace
             WALLET_CHECK(v == Version());
 
             WALLET_CHECK_NO_THROW(res = v.from_string("12345.6789"));
-            WALLET_CHECK(res == false);
+            WALLET_CHECK(res == true);
+            WALLET_CHECK(v == Version(12345,6789,0));
 
             WALLET_CHECK_NO_THROW(res = v.from_string("12,345.6789"));
             WALLET_CHECK(res == false);
@@ -334,7 +335,7 @@ namespace
             { Notification::Type::TransactionStatusChanged, true },
             { Notification::Type::BeamNews, true }
         };
-        NotificationCenter center(*storage, activeTypes);
+        NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
 
         {
             {
@@ -456,7 +457,7 @@ namespace
             { Notification::Type::TransactionStatusChanged, false },
             { Notification::Type::BeamNews, false }
         };
-        NotificationCenter center(*storage, activeTypes);
+        NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
 
         WALLET_CHECK(center.getNotifications().size() == 0);
 
@@ -527,6 +528,99 @@ namespace
         }
     }
 
+    void TestNotificationsOnExpiredAddress()
+    {
+        cout << endl << "Test notifications on expired address" << endl;
+
+        // notification on appearing expired address in storage
+        {
+            auto storage = createSqliteWalletDB();
+            std::map<Notification::Type,bool> activeTypes {
+                { Notification::Type::SoftwareUpdateAvailable, false },
+                { Notification::Type::AddressStatusChanged, true },
+                { Notification::Type::TransactionStatusChanged, false },
+                { Notification::Type::BeamNews, false }
+            };
+            WalletAddress addr;
+            storage->createAddress(addr);
+            addr.m_createTime = 123;
+            addr.m_duration = 456;
+            storage->saveAddress(addr);
+            NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
+
+            size_t exeCount = 0;
+            MockNotificationsObserver observer(
+                [&exeCount, &addr]
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(action == ChangeAction::Added);
+                    WALLET_CHECK(list.size() == 1);
+                    WALLET_CHECK(list[0].m_ID == addr.m_walletID.m_Pk);
+                    WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
+                    WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                    ++exeCount;
+                }
+            );
+
+            center.Subscribe(&observer);
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 1);
+            WALLET_CHECK(list[0].m_ID == addr.m_walletID.m_Pk);
+            WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
+            WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+            center.Unsubscribe(&observer);
+            WALLET_CHECK(exeCount == 1);
+        }
+
+        // notification on address update if expired
+        {
+            auto storage = createSqliteWalletDB();
+            std::map<Notification::Type,bool> activeTypes {
+                { Notification::Type::SoftwareUpdateAvailable, false },
+                { Notification::Type::AddressStatusChanged, true },
+                { Notification::Type::TransactionStatusChanged, false },
+                { Notification::Type::BeamNews, false }
+            };
+            const ECC::uintBig id2({
+                0,1,2,3,4,5,6,7,8,9,
+                0,1,2,3,4,5,6,7,8,9,
+                0,1,2,3,4,5,6,7,8,9,
+                0,2});
+            WalletID wid2;
+            wid2.m_Channel = 123u;
+            wid2.m_Pk = id2;
+            WalletAddress addr2;
+            addr2.m_walletID = wid2;
+            addr2.m_label = "expiredAddress";
+            addr2.m_category = "abc";
+            addr2.m_createTime = 123;
+            addr2.m_duration = 456;
+            addr2.m_OwnID = 2;
+            addr2.m_Identity = id2;
+            NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
+
+            size_t exeCount = 0;
+            MockNotificationsObserver observer(
+                [&exeCount, &id2]
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(action == ChangeAction::Added);
+                    WALLET_CHECK(list.size() == 1);
+                    WALLET_CHECK(list[0].m_ID == id2);
+                    WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
+                    WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                    ++exeCount;
+                }
+            );
+            center.Subscribe(&observer);
+            center.onAddressChanged(ChangeAction::Updated, { addr2 });
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 1);
+            center.Unsubscribe(&observer);
+            WALLET_CHECK(exeCount == 1);
+        }
+    }
+
 } // namespace
 
 int main()
@@ -537,14 +631,13 @@ int main()
     io::Reactor::Scope scope(*mainReactor);
 
     TestSoftwareVersion();
-
     TestNewsChannelsObservers();
-
     TestExchangeRateProvider();
 
     TestNotificationCenter();
     TestNotificationsOnOffSwitching();
-    
+    TestNotificationsOnExpiredAddress();
+
     boost::filesystem::remove(dbFileName);
 
     assert(g_failureCount == 0);
