@@ -113,6 +113,44 @@ namespace
         return std::make_tuple(pk, sk);
     }
 
+    /**
+     *  Send broadcast message using protocol version 0.0.1
+     *  Used to test compatibility between versions.
+     */
+    ByteBuffer createMessage(BroadcastContentType type, const BroadcastMsg& msg)
+    {
+        ByteBuffer content = wallet::toByteBuffer(msg);
+        size_t packSize = MsgHeader::SIZE + content.size();
+        assert(packSize <= proto::Bbs::s_MaxMsgSize);
+
+        // Prepare Protocol header
+        ByteBuffer packet(packSize);
+        MsgHeader header(BroadcastRouter::m_ver_1[0],
+                         BroadcastRouter::m_ver_1[1],
+                         BroadcastRouter::m_ver_1[2]);
+        
+        switch (type)
+        {
+        case BroadcastContentType::SwapOffers:
+            header.type = 0;
+            break;
+        case BroadcastContentType::SoftwareUpdates:
+            header.type = 1;
+            break;
+        case BroadcastContentType::ExchangeRates:
+            header.type = 2;
+            break;
+        }
+        header.size = static_cast<uint32_t>(content.size());
+        header.write(packet.data());
+
+        std::copy(std::begin(content),
+                std::end(content),
+                std::begin(packet) + MsgHeader::SIZE);
+
+        return packet;
+    }
+
     void TestSoftwareVersion()
     {
         cout << endl << "Test Version operations" << endl;
@@ -185,7 +223,7 @@ namespace
         int execCountRate = 0;
 
         const VersionInfo verInfo { VersionInfo::Application::DesktopWallet, Version {123,456,789} };
-        const std::vector<ExchangeRate> rates {
+        std::vector<ExchangeRate> rates {
             { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 147852369, getTimestamp() } };
 
         const auto& [pk, sk] = deriveKeypair(storage, 321);
@@ -249,6 +287,16 @@ namespace
             msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), newSk);
             broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
             WALLET_CHECK(execCountVers == 2);
+        }
+        {
+            cout << "Case: compatibility with the previous ver:0.0.1" << endl;
+            rates.front().m_updateTime = getTimestamp() + 1;
+            msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
+            msgR = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rates), sk);
+            broadcastRouter.sendRawMessage(BroadcastContentType::SoftwareUpdates, createMessage(BroadcastContentType::SoftwareUpdates, msgV));
+            broadcastRouter.sendRawMessage(BroadcastContentType::ExchangeRates, createMessage(BroadcastContentType::ExchangeRates, msgR));
+            WALLET_CHECK(execCountVers == 3);
+            WALLET_CHECK(execCountRate == 2);
         }
         cout << "Test end" << endl;
     }
