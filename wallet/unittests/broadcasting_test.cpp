@@ -270,10 +270,10 @@ namespace
                     }
                 });
 
-            broadcastRouterA.registerListener(BroadcastContentType::SwapOffers, &testListener);
+            broadcastRouterA.registerListener(BroadcastContentType::ExchangeRates, &testListener);
             broadcastRouterB.registerListener(BroadcastContentType::SoftwareUpdates, &testListener);
 
-            broadcastRouterB.sendMessage(BroadcastContentType::SwapOffers, msgA);
+            broadcastRouterB.sendMessage(BroadcastContentType::ExchangeRates, msgA);
             broadcastRouterA.sendMessage(BroadcastContentType::SoftwareUpdates, msgB);
             WALLET_CHECK(executed == 2);
         }
