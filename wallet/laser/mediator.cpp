@@ -359,18 +359,24 @@ bool Mediator::Close(const std::string& channelID)
     auto p_channelID = LoadChannel(channelID);
     if (!p_channelID)
     {
-        LOG_DEBUG() << "Channel " << channelID << " restored with error";
+        LOG_ERROR() << "Channel " << channelID << " restored with error";
         return false;
     }
 
     auto& channel = m_channels[p_channelID];
     if (!channel)
     {
-        LOG_DEBUG() << "Channel " << channelID << " unexpected error";
+        LOG_ERROR() << "Channel " << channelID << " unexpected error";
         return false;
     }
 
-    channel->Subscribe();
+    if (channel->get_State() != Lightning::Channel::State::Open)
+    {
+        LOG_ERROR() << "Previous action with channel: " << channelID
+                    << " is unfinished. Please, listen this channel till action complete.";
+        return false;
+    }
+
     m_actionsQueue.emplace_back([this, p_channelID] () {
         CloseInternal(p_channelID);
     });
@@ -384,18 +390,23 @@ bool Mediator::GracefulClose(const std::string& channelID)
     auto p_channelID = LoadChannel(channelID);
     if (!p_channelID)
     {
-        LOG_DEBUG() << "Channel " << channelID << " restored with error";
+        LOG_ERROR() << "Channel " << channelID << " restored with error";
         return false;
     }
 
     auto& channel = m_channels[p_channelID];
     if (!channel)
     {
-        LOG_DEBUG() << "Channel " << channelID << " unexpected error";
+        LOG_ERROR() << "Channel " << channelID << " unexpected error";
         return false;
     }
 
-    channel->Subscribe();
+    if (channel->get_State() != Lightning::Channel::State::Open)
+    {
+        LOG_ERROR() << "Previous action with channel: " << channelID
+                    << " is unfinished. Please, listen this channel till action complete.";
+        return false;
+    }
 
     if (!IsInSync())
     {
@@ -503,8 +514,7 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
         return false;
     }
 
-    if (channel && channel->get_State() ==
-        beam::Lightning::Channel::State::Open)
+    if (channel && channel->get_State() == Lightning::Channel::State::Open)
     {
         if (!IsInSync())
         {
@@ -523,8 +533,7 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
 
         return true;
     }
-    else if (channel && channel->get_State() ==
-             beam::Lightning::Channel::State::Updating)
+    else if (channel && channel->get_State() == Lightning::Channel::State::Updating)
     {
         LOG_ERROR() << "Previous transfer for channel: " << channelID << " is not completed.";
         return false;
@@ -555,7 +564,7 @@ bool Mediator::OnIncoming(const ChannelIDPtr& channelID,
         return false;
 
     Amount fee;
-    if (!dataIn.Get(fee, beam::Lightning::Codes::Fee) ||
+    if (!dataIn.Get(fee, Lightning::Codes::Fee) ||
         fee != m_feeAllowed)
     {
         LOG_ERROR() << "Incoming connection with incorrect 'laser_fee' detected";
@@ -563,7 +572,7 @@ bool Mediator::OnIncoming(const ChannelIDPtr& channelID,
     }
 
     Amount aMy;
-    if (!dataIn.Get(aMy, beam::Lightning::Codes::ValueYours) ||
+    if (!dataIn.Get(aMy, Lightning::Codes::ValueYours) ||
         aMy != m_myInAllowed)
     {
         LOG_ERROR() << "Incoming connection with incorrect 'laser_my_locked_amount' detected";
@@ -571,7 +580,7 @@ bool Mediator::OnIncoming(const ChannelIDPtr& channelID,
     }
     
     Amount aTrg;
-    if (!dataIn.Get(aTrg, beam::Lightning::Codes::ValueMy) ||
+    if (!dataIn.Get(aTrg, Lightning::Codes::ValueMy) ||
         aTrg != m_trgInAllowed)
     {
         LOG_ERROR() << "Incoming connection with incorrect 'laser_remote_locked_amount' detected";
@@ -579,7 +588,7 @@ bool Mediator::OnIncoming(const ChannelIDPtr& channelID,
     }
 
     Height locktime;
-    if (!dataIn.Get(locktime, beam::Lightning::Codes::HLock) ||
+    if (!dataIn.Get(locktime, Lightning::Codes::HLock) ||
         locktime != m_Params.m_hLockTime)
     {
         LOG_ERROR() << "Incoming connection with incorrect 'HLock' detected";
@@ -696,6 +705,7 @@ void Mediator::GracefulCloseInternal(const std::unique_ptr<Channel>& channel)
                 observer->OnCloseFailed(p_channelID);
             }
         }
+        channel->Subscribe();
     }
     else
     {
@@ -705,11 +715,12 @@ void Mediator::GracefulCloseInternal(const std::unique_ptr<Channel>& channel)
 
 void Mediator::CloseInternal(const ChannelIDPtr& chID)
 {
-    auto& ch = m_channels[chID];
-    if (ch && CanBeClosed(ch->get_State()))
+    auto& channel = m_channels[chID];
+    if (channel && CanBeClosed(channel->get_State()))
     {
-        ch->Close();
-        UpdateChannelExterior(ch);
+        channel->Close();
+        UpdateChannelExterior(channel);
+        channel->Subscribe();
         return;
     }
     LOG_ERROR() << "Can't close channel: "
@@ -820,7 +831,7 @@ void Mediator::UpdateChannels()
         auto state = channel->get_State();
 
         bool revisionDiscarded = false;
-        if (state == beam::Lightning::Channel::State::Updating &&
+        if (state == Lightning::Channel::State::Updating &&
             channel->IsUpdateStuck())
         {
             LOG_DEBUG() << "Update stuck, discarding last revision...";
@@ -828,8 +839,8 @@ void Mediator::UpdateChannels()
             revisionDiscarded = true;
         }
 
-        if (state != beam::Lightning::Channel::State::None &&
-            state != beam::Lightning::Channel::State::Closed &&
+        if (state != Lightning::Channel::State::None &&
+            state != Lightning::Channel::State::Closed &&
             state != Lightning::Channel::State::OpenFailed)
         {
             channel->Update();
@@ -890,9 +901,9 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
             }
         }
     }
-    else if (state == beam::Lightning::Channel::State::Closed)
+    else if (state == Lightning::Channel::State::Closed)
     {
-        if (lastState != beam::Lightning::Channel::State::Closed)
+        if (lastState != Lightning::Channel::State::Closed)
         {
             channel->Unsubscribe();
         }
@@ -902,8 +913,8 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
             m_readyForCloseChannels.push_back(channel->get_chID());
         }
     }
-    else if (state == beam::Lightning::Channel::State::OpenFailed &&
-             lastState != beam::Lightning::Channel::State::OpenFailed)
+    else if (state == Lightning::Channel::State::OpenFailed &&
+             lastState != Lightning::Channel::State::OpenFailed)
     {
         channel->Unsubscribe();
         channel->Forget();
