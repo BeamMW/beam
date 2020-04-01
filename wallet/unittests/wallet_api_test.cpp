@@ -902,6 +902,7 @@ namespace
 
 int main()
 {
+    auto logger = beam::Logger::create();
     testInvalidJsonRpc([](const json& msg)
     {
         testErrorHeader(msg);
@@ -934,6 +935,7 @@ int main()
         "jsonrpc": "2.0",
         "id" : 123,
         "method" : "balance123",
+        "key" : "0123456789AbcDef8b7cb3804b5978d42312c841dbfa03a1c31fc2f0627eeed6e43f2",
         "params" : "bar"
     }));
 
