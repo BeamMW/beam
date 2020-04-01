@@ -37,6 +37,7 @@ namespace beam
         extern const char* VERIFICATION_THREADS;
         extern const char* NONCEPREFIX_DIGITS;
         extern const char* NODE_PEER;
+        extern const char* NODE_PEERS_PERSISTENT;
         extern const char* PASS;
         extern const char* SET_SWAP_SETTINGS;
         extern const char* ACTIVE_CONNECTION;
