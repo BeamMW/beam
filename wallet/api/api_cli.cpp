@@ -484,8 +484,6 @@ private:
 
         bool on_raw_message(void* data, size_t size)
         {
-            LOG_INFO() << "got " << std::string((char*)data, size);
-
             return _api.parse(static_cast<const char*>(data), size);
         }
 
@@ -573,8 +571,6 @@ private:
 
                 size_t size = 0;
                 auto data = msg.msg->get_body(size);
-
-                LOG_INFO() << "got " << std::string((char*)data, size);
 
                 _api.parse((char*)data, size);
             }
