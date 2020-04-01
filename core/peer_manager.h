@@ -189,6 +189,10 @@ namespace beam {
 
 		void ActivatePeerInternal(PeerInfo&, uint32_t nTicks_ms, uint32_t& nSelected);
 		void SetRatingInternal(PeerInfo&, uint32_t, bool ban);
+
+	protected:
+		virtual void ActivateMorePeers(uint32_t nTicks_ms) {}
+		bool ActivatePeerSafe(PeerInfo&, uint32_t nTicks_ms);
 	};
 
 	std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo&);
