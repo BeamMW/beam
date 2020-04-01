@@ -710,17 +710,16 @@ namespace
     {
         // TODO:ASSETS consider workaround for lockHeight > coin height
         const auto info = db->findAsset(totals.AssetId);
-        const AssetMeta& meta = info.is_initialized() ? AssetMeta(*info) : AssetMeta(Asset::Full());
-        const Key::Index ownerIndex = info.is_initialized() ? info->m_ownerIndex : Asset::s_InvalidOwnerIdx;
-
-        const auto unitName    = meta.isStd() ? meta.GetUnitName() : kAmountASSET;
-        const auto nthName     = meta.isStd() ? meta.GetNthUnitName() : kAmountAGROTH;
+        const WalletAssetMeta& meta = info.is_initialized() ? WalletAssetMeta(*info) : WalletAssetMeta(Asset::Full());
+        const bool isOwned  = info.is_initialized() ? info->m_isOwned : false;
+        const auto unitName = meta.isStd() ? meta.GetUnitName() : kAmountASSET;
+        const auto nthName  = meta.isStd() ? meta.GetNthUnitName() : kAmountAGROTH;
 
         const unsigned kWidth = 26;
         cout << boost::format(kWalletAssetSummaryFormat)
              % totals.AssetId
              % (meta.isStd() ? meta.GetName() + "(" + meta.GetShortName() + ")" : kNA)
-             % (ownerIndex != Asset::s_InvalidOwnerIdx ? (boost::format(kWalletAssetOwnerFormat) % info->m_ownerIndex).str() : "")
+             % (isOwned ? (boost::format(kWalletAssetOwnerFormat) % info->m_Owner).str() : "")
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, unitName, nthName))
@@ -736,7 +735,7 @@ namespace
         {
             // TODO:ASSETS consider workaround for lockHeight > coin height
             const auto info = walletDB->findAsset(assetId);
-            const AssetMeta &meta = info.is_initialized() ? AssetMeta(*info) : AssetMeta(Asset::Full());
+            const WalletAssetMeta &meta = info.is_initialized() ? WalletAssetMeta(*info) : WalletAssetMeta(Asset::Full());
             unitName = meta.isStd() ? meta.GetUnitName() : kAmountASSET;
             nthName  =  meta.isStd() ? meta.GetNthUnitName() : kAmountAGROTH;
         }
@@ -1908,13 +1907,72 @@ namespace
         return nnet;
     }
 
-    TxID IssueConsumeAsset(bool issue, const po::variables_map& vm, Wallet& wallet)
+    std::string ReadAssetMeta(const po::variables_map& vm)
     {
-        if(!vm.count(cli::ASSET_INDEX))
+        if(!vm.count(cli::ASSET_METADATA))
         {
-            throw std::runtime_error(kErrorAssetIdxRequired);
+            throw std::runtime_error(kErrorAssetMetadataRequired);
         }
-        const Key::Index aidx = vm[cli::ASSET_INDEX].as<Positive<uint32_t>>().value;
+
+        std::string strMeta = vm[cli::ASSET_METADATA].as<std::string>();
+        if (strMeta.empty())
+        {
+            throw std::runtime_error(kErrorAssetMetadataRequired);
+        }
+
+        WalletAssetMeta meta(strMeta);
+        if (!meta.isStd())
+        {
+            throw std::runtime_error(kErrorAssetNonSTDMeta);
+        }
+
+        return strMeta;
+    }
+
+    std::string AssetID2Meta(const po::variables_map& vm, IWalletDB::Ptr walletDB)
+    {
+        if(!vm.count(cli::ASSET_ID))
+        {
+            throw std::runtime_error(kErrorAssetIDRequired);
+        }
+
+        const Asset::ID assetID = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
+        const auto info = walletDB->findAsset(assetID);
+        if(!info.is_initialized())
+        {
+             throw std::runtime_error(kErrorAssetNotFound);
+        }
+
+        if(!info->m_isOwned)
+        {
+            throw std::runtime_error(kErrorAssetNotOwned);
+        }
+
+        std::string meta;
+        if(!fromByteBuffer(info->m_Metadata.m_Value, meta))
+        {
+            throw std::runtime_error(kErrorAssetLoadMeta);
+        }
+
+        return meta;
+    }
+
+    TxID IssueConsumeAsset(bool issue, const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
+    {
+        std::string meta;
+
+        if(vm.count(cli::ASSET_ID))
+        {
+            meta = AssetID2Meta(vm, walletDB);
+        }
+        else if (vm.count(cli::ASSET_METADATA))
+        {
+            meta = ReadAssetMeta(vm);
+        }
+        else
+        {
+            throw std::runtime_error(kErrorAssetIdOrMetaRequired);
+        }
 
         if (!vm.count(cli::AMOUNT))
         {
@@ -1938,19 +1996,46 @@ namespace
                         .SetParameter(TxParameterID::Amount, amountGroth)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
-                        .SetParameter(TxParameterID::AssetOwnerIdx, aidx);
+                        .SetParameter(TxParameterID::AssetMetadata, meta);
 
         return wallet.StartTransaction(params);
     }
 
-    TxID RegUnregAsset(bool reg, const po::variables_map& vm, Wallet& wallet)
+    TxID RegisterAsset(const po::variables_map& vm, Wallet& wallet)
     {
-        if(!vm.count(cli::ASSET_INDEX))
+        const auto strMeta = ReadAssetMeta(vm);
+        const auto fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
+
+        if (fee < cli::kMinimumFee)
         {
-            throw std::runtime_error(kErrorAssetIdxRequired);
+            throw std::runtime_error(kErrorFeeToLow);
         }
 
-        const Key::Index aidx = vm[cli::ASSET_INDEX].as<Positive<uint32_t>>().value;
+        auto params = CreateTransactionParameters(TxType::AssetReg)
+                        .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
+                        .SetParameter(TxParameterID::Fee, fee)
+                        .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
+                        .SetParameter(TxParameterID::AssetMetadata, strMeta);
+
+        return wallet.StartTransaction(params);
+    }
+
+    TxID UnregisterAsset(const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
+    {
+        std::string meta;
+
+        if(vm.count(cli::ASSET_ID))
+        {
+            meta = AssetID2Meta(vm, walletDB);
+        }
+        else if (vm.count(cli::ASSET_METADATA))
+        {
+            meta = ReadAssetMeta(vm);
+        }
+        else
+        {
+            throw std::runtime_error(kErrorAssetIdOrMetaRequired);
+        }
 
         auto fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
         if (fee < cli::kMinimumFee)
@@ -1959,33 +2044,11 @@ namespace
             throw std::runtime_error(kErrorFeeToLow);
         }
 
-        auto params = CreateTransactionParameters(reg ? TxType::AssetReg : TxType::AssetUnreg)
+        auto params = CreateTransactionParameters(TxType::AssetUnreg)
                         .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
-                        .SetParameter(TxParameterID::AssetOwnerIdx, aidx);
-
-        if (reg)
-        {
-            if(!vm.count(cli::METADATA))
-            {
-                throw std::runtime_error(kErrorAssetMetadataRequired);
-            }
-
-            std::string smeta = vm[cli::METADATA].as<std::string>();
-            if (smeta.empty())
-            {
-                throw std::runtime_error(kErrorAssetMetadataRequired);
-            }
-
-            AssetMeta meta(smeta);
-            if (!meta.isStd())
-            {
-                throw std::runtime_error(kErrornAssetNonSTDMeta);
-            }
-
-            params.SetParameter(TxParameterID::AssetMetadata, smeta);
-        }
+                        .SetParameter(TxParameterID::AssetMetadata, meta);
 
         return wallet.StartTransaction(params);
     }
@@ -2000,15 +2063,15 @@ namespace
             return wallet.StartTransaction(params);
         }
 
-        if (vm.count(cli::ASSET_INDEX))
+        if (vm.count(cli::ASSET_METADATA))
         {
-            const Key::Index aidx = vm[cli::ASSET_INDEX].as<Positive<uint32_t>>().value;
+            const auto assetMeta = ReadAssetMeta(vm);
             auto params = CreateTransactionParameters(TxType::AssetInfo)
-                          .SetParameter(TxParameterID::AssetOwnerIdx, aidx);
+                          .SetParameter(TxParameterID::AssetMetadata, assetMeta);
             return wallet.StartTransaction(params);
         }
 
-        throw std::runtime_error(kErrorAssetIdOrIdxRequired);
+        throw std::runtime_error(kErrorAssetIdOrMetaRequired);
     }
 
 #ifdef BEAM_LASER_SUPPORT
@@ -2266,7 +2329,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = IssueConsumeAsset(true, vm, wallet);
+                currentTxID = IssueConsumeAsset(true, vm, wallet, walletDB);
                 return 0;
             });
     }
@@ -2275,7 +2338,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = IssueConsumeAsset(false, vm, wallet);
+                currentTxID = IssueConsumeAsset(false, vm, wallet, walletDB);
                 return 0;
             });
     }
@@ -2284,7 +2347,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = RegUnregAsset(true, vm, wallet);
+                currentTxID = RegisterAsset(vm, wallet);
                 return 0;
             });
     }
@@ -2293,12 +2356,12 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = RegUnregAsset(false, vm, wallet);
+                currentTxID = UnregisterAsset(vm, wallet, walletDB);
                 return 0;
             });
     }
 
-    int ShowAssetInfo(const po::variables_map& vm)
+    int GetAssetInfo(const po::variables_map& vm)
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
@@ -2438,7 +2501,7 @@ int main_impl(int argc, char* argv[])
                     {cli::ASSET_CONSUME,        ConsumeAsset},
                     {cli::ASSET_REGISTER,       RegisterAsset},
                     {cli::ASSET_UNREGISTER,     UnregisterAsset},
-                    {cli::ASSET_INFO,           ShowAssetInfo},
+                    {cli::ASSET_INFO,           GetAssetInfo},
                 };
 
                 auto cit = find_if(begin(commands), end(commands), [&command](auto& p) {return p.first == command; });

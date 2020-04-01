@@ -52,6 +52,6 @@ namespace beam::wallet
 
         State GetState() const;
         Asset::ID GetAssetID() const;
-        Key::Index GetAssetOwnerIdx() const;
+        PeerID GetAssetOwnerID() const;
     };
 }

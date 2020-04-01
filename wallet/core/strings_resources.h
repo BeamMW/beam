@@ -220,11 +220,13 @@ namespace beam
     extern const char kPpRequired[];
 
     // Assets
-    extern const char kErrorAssetIdxRequired[];
-    extern const char kErrorAssetIdRequired[];
-    extern const char kErrorAssetIdOrIdxRequired[];
+    extern const char kErrorAssetIdOrMetaRequired[];
     extern const char kErrorAssetMetadataRequired[];
-    extern const char kErrornAssetNonSTDMeta[];
+    extern const char kErrorAssetIDRequired[];
+    extern const char kErrorAssetNonSTDMeta[];
+    extern const char kErrorAssetNotFound[];
+    extern const char kErrorAssetNotOwned[];
+    extern const char kErrorAssetLoadMeta[];
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT

@@ -111,12 +111,9 @@ namespace beam::wallet
             return;
         }
 
-        if (GetAssetOwnerIdx() != Asset::s_InvalidOwnerIdx)
+        if (GetAssetOwnerID() != Asset::s_InvalidOwnerID)
         {
-            const auto masterKdf = get_MasterKdfStrict(); // can throw
-            const auto ownerIdx  = GetAssetOwnerIdx();
-            const auto ownerID   = GetAssetOwnerID(masterKdf, ownerIdx);
-            GetGateway().confirm_asset(GetTxID(), ownerIdx, ownerID, kDefaultSubTxID);
+            GetGateway().confirm_asset(GetTxID(), GetAssetOwnerID(), kDefaultSubTxID);
             return;
         }
 
@@ -168,10 +165,14 @@ namespace beam::wallet
         return assetId;
     }
 
-    Key::Index AssetInfoTransaction::GetAssetOwnerIdx() const
+    PeerID AssetInfoTransaction::GetAssetOwnerID() const
     {
-        Key::Index assetIdx = 0;
-        GetParameter(TxParameterID::AssetOwnerIdx, assetIdx, kDefaultSubTxID);
-        return assetIdx;
+        std::string strMeta;
+        if (GetParameter(TxParameterID::AssetMetadata, strMeta, kDefaultSubTxID))
+        {
+            const auto masterKdf = get_MasterKdfStrict(); // can throw
+            return beam::wallet::GetAssetOwnerID(masterKdf, strMeta);
+        }
+        return Asset::s_InvalidOwnerID;
     }
 }

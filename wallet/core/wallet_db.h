@@ -144,8 +144,8 @@ namespace beam::wallet
         WalletAsset(const Asset::Full& full, Height refreshHeight);
         bool CanRollback(Height from) const;
 
-        Height m_refreshHeight = 0;
-        Key::Index m_ownerIndex = Asset::s_InvalidOwnerIdx;
+        Height  m_refreshHeight = 0;
+        int32_t m_isOwned = 0;
     };
 
     class ILaserChannelEntity
@@ -436,7 +436,7 @@ namespace beam::wallet
 
         // Assets management
         virtual void saveAsset(const Asset::Full& info, Height refreshHeight) = 0;
-        virtual void setAssetOwnerIndex(const Asset::ID assetId, Key::Index ownerIndex) = 0;
+        virtual void markAssetOwned(const Asset::ID assetId) = 0;
         virtual void dropAsset(const Asset::ID assetId) = 0;
         virtual void dropAsset(const PeerID& ownerId) = 0;
         virtual boost::optional<WalletAsset> findAsset(Asset::ID) = 0;
@@ -561,7 +561,7 @@ namespace beam::wallet
         void deleteIncomingWalletMessage(uint64_t id) override;
 
         void saveAsset(const Asset::Full& info, Height refreshHeight) override;
-        void setAssetOwnerIndex(const Asset::ID assetId, Key::Index ownerIndex) override;
+        void markAssetOwned(const Asset::ID assetId) override;
         void dropAsset(const Asset::ID assetId) override;
         void dropAsset(const PeerID& ownerId) override;
         boost::optional<WalletAsset> findAsset(Asset::ID) override;

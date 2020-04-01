@@ -14,23 +14,18 @@
 #include "assets_kdf_utils.h"
 #include "proto.h"
 
-namespace beam::wallet {
-    namespace {
-        std::pair<PeerID, ECC::Scalar::Native> GetAssetOwnerKeypair(const Key::IKdf::Ptr& masterKdf, Key::Index assetOwnerIdx)
-        {
-            ECC::Scalar::Native skAssetOwnerSk;
-            masterKdf->DeriveKey(skAssetOwnerSk, beam::Key::ID(assetOwnerIdx, beam::Key::Type::Asset));
-
-            beam::PeerID assetOwnerId;
-            assetOwnerId.FromSk(skAssetOwnerSk);
-
-            return std::make_pair(assetOwnerId, std::move(skAssetOwnerSk));
-        }
-    }
-
-    PeerID GetAssetOwnerID(const Key::IKdf::Ptr& masterKdf, Key::Index assetOwnerIdx)
+namespace beam::wallet
+{
+    PeerID GetAssetOwnerID(const Key::IKdf::Ptr& masterKdf, const std::string& strMeta)
     {
-        return GetAssetOwnerKeypair(masterKdf, assetOwnerIdx).first;
+        Asset::Metadata meta;
+        meta.m_Value = toByteBuffer(strMeta);
+        meta.UpdateHash();
+
+        PeerID ownerID = 0UL;
+        meta.get_Owner(ownerID, *masterKdf);
+
+        return ownerID;
     }
 
     std::vector<Input::Ptr> GenerateAssetInputs(const Key::IKdf::Ptr& masterKdf, const CoinIDList& coins)
@@ -89,17 +84,21 @@ namespace beam::wallet {
     ECC::Scalar::Native SignAssetKernel(const Key::IKdf::Ptr& masterKdf,
             const CoinIDList& inputs,
             const CoinIDList& outputs,
-            Key::Index assetOwnerIdx,
+            const std::string& strMeta,
             TxKernelAssetControl& kernel)
     {
-        auto excess = GetExcess(masterKdf, inputs, outputs);
-        const auto& keypair = GetAssetOwnerKeypair(masterKdf, assetOwnerIdx);
-        kernel.m_Owner = keypair.first;
-
+        // TODO:ASSETS fix kernel key genration
         ECC::Scalar::Native kernelSk;
-        masterKdf->DeriveKey(kernelSk, Key::ID(assetOwnerIdx, Key::Type::Kernel, assetOwnerIdx));
-        kernel.Sign_(kernelSk, keypair.second);
+        masterKdf->DeriveKey(kernelSk, Key::ID(22, Key::Type::Kernel, 22));
+
+        Asset::Metadata meta;
+        meta.m_Value = toByteBuffer(strMeta);
+        meta.UpdateHash();
+
+        kernel.Sign(kernelSk, *masterKdf, meta);
         kernelSk = -kernelSk;
+
+        auto excess = GetExcess(masterKdf, inputs, outputs);
         excess += kernelSk;
 
         return excess;

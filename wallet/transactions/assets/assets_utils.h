@@ -17,11 +17,11 @@
 #include "common.h"
 
 namespace beam::wallet {
-    class AssetMeta
+    class WalletAssetMeta
     {
     public:
-        explicit AssetMeta(std::string meta);
-        explicit AssetMeta(const Asset::Full& info);
+        explicit WalletAssetMeta(std::string meta);
+        explicit WalletAssetMeta(const Asset::Full& info);
 
         bool isStd() const;
         void LogInfo(const std::string& prefix = "\t") const;

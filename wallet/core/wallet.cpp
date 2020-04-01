@@ -366,7 +366,7 @@ namespace beam::wallet
         }
     }
 
-    void Wallet::confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID)
+    void Wallet::confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID)
     {
         if (auto it = m_ActiveTransactions.find(txID); it != m_ActiveTransactions.end())
         {
@@ -377,7 +377,7 @@ namespace beam::wallet
             pVal->m_Msg.m_AssetID = Asset::s_InvalidID;
 
             if (PostReqUnique(*pVal))
-                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with the owner index: " << ownerIdx;
+                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with the owner ID: " << ownerID;
         }
     }
 
@@ -388,7 +388,7 @@ namespace beam::wallet
             MyRequestAsset::Ptr pVal(new MyRequestAsset);
             pVal->m_TxID = txID;
             pVal->m_SubTxID = subTxID;
-            pVal->m_Msg.m_Owner = Zero;
+            pVal->m_Msg.m_Owner = Asset::s_InvalidOwnerID;
             pVal->m_Msg.m_AssetID = assetId;
 
             if (PostReqUnique(*pVal))
@@ -597,34 +597,27 @@ namespace beam::wallet
                 tx->SetParameter(TxParameterID::AssetFullInfo, info, req.m_SubTxID) &&
                 tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID))
             {
-                Key::Index aidx = 0;
-                tx->GetParameter(TxParameterID::AssetOwnerIdx, aidx);
-                if (aidx)
-                {
-                    m_WalletDB->setAssetOwnerIndex(info.m_ID, aidx);
-                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Received proof for Asset with the owner index " << aidx;
-                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset owner index: " << aidx;
-                }
-                else
-                {
-                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Received proof for Asset with ID " << info.m_ID;
-                }
-
+                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Received proof for Asset with ID " << info.m_ID;
                 LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset ID: "           << info.m_ID;
+                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Owner ID: "           << info.m_Owner;
                 LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Issued amount: "      << PrintableAmount(AmountBig::get_Lo(info.m_Value), false, kAmountASSET, kAmountAGROTH);
                 LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Lock Height: "        << info.m_LockHeight;
                 LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Metadata size: "      << info.m_Metadata.m_Value.size() << " bytes";
 
-                AssetMeta meta(info);
-                if (meta.isStd())
-                {
-                    meta.LogInfo();
-                }
+                const WalletAssetMeta meta(info);
+                meta.LogInfo();
 
                 if (tx->GetType() == TxType::AssetReg)
                 {
-                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]"
-                               << " Please remember your asset's Owner Index & Asset ID. You wont be able to control/send/receive your asset without this info";
+                    m_WalletDB->markAssetOwned(info.m_ID);
+                }
+
+                if(const auto wasset = m_WalletDB->findAsset(info.m_ID))
+                {
+                    if(wasset->m_isOwned)
+                    {
+                        LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " You own this asset";
+                    }
                 }
 
                 AsyncContextHolder holder(*this);

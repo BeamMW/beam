@@ -48,7 +48,6 @@ namespace beam::wallet
         void     CreateInputs();
         void     CreateOutputs();
 
-        Key::Index GetAssetOwnerIdx() const;
         Asset::ID  GetAssetId() const;
         PeerID     GetAssetOwnerId() const;
 
@@ -69,17 +68,16 @@ namespace beam::wallet
     private:
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
+        PeerID  m_assetOwnerId;
 
-        beam::Key::Index m_assetOwnerIdx;
-        PeerID m_assetOwnerId;
-
-        bool       m_issue;
-        AmountList m_AmountList;
-        Amount     m_Fee;
-        Amount     m_ChangeBeam;
-        Amount     m_ChangeAsset;
-        Height     m_MinHeight;
-        Height     m_MaxHeight;
+        bool        m_issue;
+        std::string m_Metadata;
+        AmountList  m_AmountList;
+        Amount      m_Fee;
+        Amount      m_ChangeBeam;
+        Amount      m_ChangeAsset;
+        Height      m_MinHeight;
+        Height      m_MaxHeight;
 
         std::vector<Input::Ptr>  m_Inputs;
         std::vector<Output::Ptr> m_Outputs;

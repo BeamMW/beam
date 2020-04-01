@@ -38,8 +38,7 @@ namespace beam::wallet
         void GenerateBeamCoin(Amount amount, bool change);
         void CreateOutputs();
 
-        Key::Index GetAssetOwnerIdx() const;
-        PeerID     GetAssetOwnerId() const;
+        PeerID GetAssetOwnerId() const;
 
         //
         // Blockchain stuff
@@ -55,12 +54,11 @@ namespace beam::wallet
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
 
-        beam::Key::Index m_assetOwnerIdx;
         PeerID m_assetOwnerId;
-
-        Amount     m_Fee;
-        Height     m_MinHeight;
-        Height     m_MaxHeight;
+        Amount m_Fee;
+        Height m_MinHeight;
+        Height m_MaxHeight;
+        std::string m_Metadata;
 
         std::vector<Output::Ptr> m_Outputs;
         CoinIDList m_OutputCoins;

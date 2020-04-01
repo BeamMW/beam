@@ -72,7 +72,7 @@ namespace beam::wallet
         auto& builder = GetTxBuilder();
         if (!builder.LoadKernel() && GetState() == State::Initial)
         {
-            LOG_INFO() << GetTxID() << " Registering asset with the owner index " << builder.GetAssetOwnerIdx()
+            LOG_INFO() << GetTxID() << " Registering asset with the owner ID " << builder.GetAssetOwnerId()
                        << ". Cost is " << PrintableAmount(builder.GetAmountBeam(), false)
                        << ". Fee is "  << PrintableAmount(builder.GetFee(), false);
 
@@ -136,7 +136,7 @@ namespace beam::wallet
 
         if (GetState() == State::KernelConfirmation)
         {
-            LOG_INFO() << GetTxID() << " Asset with owner index " << _builder->GetAssetOwnerIdx() << " successfully registered";
+            LOG_INFO() << GetTxID() << " Asset with the owner ID " << _builder->GetAssetOwnerId() << " successfully registered";
             SetState(State::AssetConfirmation);
             // TODO:ASSETS consider running in separate transaction to not rollback if confirm failed
             ConfirmAsset();
@@ -183,7 +183,7 @@ namespace beam::wallet
 
     void AssetRegisterTransaction::ConfirmAsset()
     {
-        GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerIdx(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
+        GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
     }
 
     bool AssetRegisterTransaction::Rollback(Height height)
@@ -217,7 +217,6 @@ namespace beam::wallet
         case TxParameterID::Status:
         case TxParameterID::TransactionType:
         case TxParameterID::KernelID:
-        case TxParameterID::AssetOwnerIdx:
             return true;
         default:
             return false;

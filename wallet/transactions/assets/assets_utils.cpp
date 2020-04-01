@@ -27,14 +27,14 @@ namespace beam::wallet {
         const char NTH_UNIT_NAME_KEY[] = "NTHUN";
     }
 
-    AssetMeta::AssetMeta(std::string meta)
+    WalletAssetMeta::WalletAssetMeta(std::string meta)
         : _std(false)
         , _meta(std::move(meta))
     {
         Parse();
     }
 
-    AssetMeta::AssetMeta(const Asset::Full& info)
+    WalletAssetMeta::WalletAssetMeta(const Asset::Full& info)
         : _std(false)
     {
         const auto& mval = info.m_Metadata.m_Value;
@@ -52,7 +52,7 @@ namespace beam::wallet {
         Parse();
     }
 
-    void AssetMeta::Parse()
+    void WalletAssetMeta::Parse()
     {
         _std = false;
 
@@ -80,7 +80,7 @@ namespace beam::wallet {
                _values.find(NTH_UNIT_NAME_KEY) != _values.end();
     }
 
-    void AssetMeta::LogInfo(const std::string& prefix) const
+    void WalletAssetMeta::LogInfo(const std::string& prefix) const
     {
         for(const auto& it: _values)
         {
@@ -88,30 +88,30 @@ namespace beam::wallet {
         }
     }
 
-    bool AssetMeta::isStd() const
+    bool WalletAssetMeta::isStd() const
     {
         return _std;
     }
 
-    std::string AssetMeta::GetUnitName() const
+    std::string WalletAssetMeta::GetUnitName() const
     {
         const auto it = _values.find(UNIT_NAME_KEY);
         return it != _values.end() ? it->second : std::string();
     }
 
-    std::string AssetMeta::GetNthUnitName() const
+    std::string WalletAssetMeta::GetNthUnitName() const
     {
         const auto it = _values.find(NTH_UNIT_NAME_KEY);
         return it != _values.end() ? it->second : std::string();
     }
 
-    std::string AssetMeta::GetName() const
+    std::string WalletAssetMeta::GetName() const
     {
         const auto it = _values.find(NAME_KEY);
         return it != _values.end() ? it->second : std::string();
     }
 
-    std::string AssetMeta::GetShortName() const
+    std::string WalletAssetMeta::GetShortName() const
     {
         const auto it = _values.find(SHORT_NAME_KEY);
         return it != _values.end() ? it->second : std::string();

@@ -27,7 +27,6 @@ namespace beam::wallet
     AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID)
         : m_Tx{tx}
         , m_SubTxID(subTxID)
-        , m_assetOwnerIdx(0)
         , m_assetOwnerId(0UL)
         , m_issue(issue)
         , m_AmountList{0}
@@ -45,13 +44,13 @@ namespace beam::wallet
             m_AmountList = AmountList{m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount, m_SubTxID)};
         }
 
-        m_assetOwnerIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetOwnerIdx);
-        if (m_assetOwnerIdx == Asset::s_InvalidOwnerIdx)
+        m_Metadata = m_Tx.GetMandatoryParameter<std::string>(TxParameterID::AssetMetadata);
+        if(m_Metadata.empty())
         {
-            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
+            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetMeta);
         }
 
-        m_assetOwnerId = GetAssetOwnerID(masterKdf, m_assetOwnerIdx);
+        m_assetOwnerId = GetAssetOwnerID(masterKdf, m_Metadata);
         if (m_assetOwnerId == Zero)
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
@@ -204,11 +203,6 @@ namespace beam::wallet
     Amount AssetIssueTxBuilder::GetFee() const
     {
         return m_Fee;
-    }
-
-    Key::Index AssetIssueTxBuilder::GetAssetOwnerIdx() const
-    {
-        return m_assetOwnerIdx;
     }
 
      Asset::ID AssetIssueTxBuilder::GetAssetId() const
@@ -410,7 +404,7 @@ namespace beam::wallet
         m_Kernel->m_Value        = m_issue ? GetTransactionAmount() : -static_cast<AmountSigned>(GetTransactionAmount());
 
         auto masterKdf = m_Tx.get_MasterKdfStrict();
-        m_Offset = SignAssetKernel(masterKdf, m_InputCoins, m_OutputCoins, m_assetOwnerIdx, *m_Kernel);
+        m_Offset = SignAssetKernel(masterKdf, m_InputCoins, m_OutputCoins, m_Metadata, *m_Kernel);
         const Merkle::Hash& kernelID = m_Kernel->m_Internal.m_ID;
 
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);

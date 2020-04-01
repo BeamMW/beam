@@ -138,7 +138,7 @@ namespace beam::wallet
     MACRO(MinHeightIsUnacceptable,       25, "Kernel's min height is unacceptable") \
     MACRO(NotLoopback,                   26, "Not a loopback transaction") \
     MACRO(NoKeyKeeper,                   27, "Key keeper is not initialized") \
-    MACRO(NoAssetId,                     28, "No valid asset owner id/asset owner idx") \
+    MACRO(NoAssetId,                     28, "No valid asset id/asset owner id") \
     MACRO(NoAssetInfo,                   29, "No asset info or asset info is not valid") \
     MACRO(NoAssetMeta,                   30, "No asset metadata or asset metadata is not valid") \
     MACRO(InvalidAssetId,                31, "Invalid asset id") \
@@ -292,8 +292,7 @@ namespace beam::wallet
         PeerSharedBulletProofPart3 = 110,
 
         PeerLockImage = 115,
-        AssetOwnerIdx = 116,
-        AssetMetadata = 117,
+        AssetMetadata = 116,
 
         ExchangeRates = 120,
         OriginalToken = 121,
@@ -516,7 +515,6 @@ namespace beam::wallet
         Amount m_changeBeam = 0;
         Amount m_changeAsset = 0;
         Asset::ID m_assetId = Asset::s_InvalidID;
-        Key::Index m_assetOwnerIdx = 0;
         Height m_minHeight = 0;
         WalletID m_peerId = Zero;
         WalletID m_myId = Zero;
@@ -604,7 +602,7 @@ namespace beam::wallet
         virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_outputs(const std::vector<Coin>&) = 0;
         virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
-        virtual void confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;

@@ -391,7 +391,7 @@ namespace beam::wallet
         return ret;
     }
 
-    Key::IKdf::Ptr BaseTransaction::get_MasterKdfStrict()
+    Key::IKdf::Ptr BaseTransaction::get_MasterKdfStrict() const
     {
         Key::IKdf::Ptr ret = m_WalletDB->get_MasterKdf();
         if (!ret)

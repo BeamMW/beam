@@ -118,7 +118,7 @@ void TestAssets() {
     auto issueTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetIssue)
                 .SetParameter(TxParameterID::Amount,   issueAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
-                .SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
+                //.SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
                 .SetParameter(TxParameterID::Lifetime, Height(200)));
 
     waitCount = 1;
@@ -171,7 +171,7 @@ void TestAssets() {
     const auto consumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
                 .SetParameter(TxParameterID::Amount,   consumeAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
-                .SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
+                //.SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
                 .SetParameter(TxParameterID::Lifetime, Height(200)));
 
     waitCount = 1;
@@ -344,7 +344,7 @@ void TestAssets() {
     const auto srConsumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
                 .SetParameter(TxParameterID::Amount,   srConsumeAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
-                .SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
+                //.SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
                 .SetParameter(TxParameterID::Lifetime, Height(200)));
 
     waitCount = 1;
@@ -540,7 +540,7 @@ void TestAssets() {
     const auto nonOwnedConsumeTxId = receiver.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
                 .SetParameter(TxParameterID::Amount,   nonOwnedConsumeAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
-                .SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
+                //.SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
                 .SetParameter(TxParameterID::Lifetime, Height(200)));
 
     // Do not run reactor, transaction should be failed with no inputs already
@@ -650,7 +650,7 @@ void TestAssets() {
     const auto recvConsumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
                 .SetParameter(TxParameterID::Amount,   recvConsumeAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
-                .SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
+                //.SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
                 .SetParameter(TxParameterID::Lifetime, Height(200)));
 
     waitCount = 1;

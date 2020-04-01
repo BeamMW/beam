@@ -77,8 +77,8 @@ namespace beam::wallet
         {
             if (GetState() == State::Initial)
             {
-                LOG_INFO() << GetTxID() << " Unregistering asset with the owner index "
-                           << builder.GetAssetOwnerIdx()
+                LOG_INFO() << GetTxID() << " Unregistering asset with the owner id "
+                           << builder.GetAssetOwnerId()
                            << ". Refund amount is " << PrintableAmount(Rules::get().CA.DepositForList, false)
                            << " saving " << PrintableAmount(builder.GetFee(), false) << " transaction fee";
 
@@ -218,7 +218,7 @@ namespace beam::wallet
 
     void AssetUnregisterTransaction::ConfirmAsset()
     {
-        GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerIdx(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
+        GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
     }
 
     bool AssetUnregisterTransaction::IsLoopbackTransaction() const
@@ -237,7 +237,6 @@ namespace beam::wallet
         case TxParameterID::Status:
         case TxParameterID::TransactionType:
         case TxParameterID::KernelID:
-        case TxParameterID::AssetOwnerIdx:
             return true;
         default:
             return false;

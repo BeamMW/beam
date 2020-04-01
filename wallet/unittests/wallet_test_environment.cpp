@@ -34,7 +34,7 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override {}
     void confirm_outputs(const std::vector<Coin>&) override {}
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
-    void confirm_asset(const TxID&, const Key::Index, const PeerID&, SubTxID subTxID) override {}
+    void confirm_asset(const TxID&, const PeerID&, SubTxID subTxID) override {}
     void confirm_asset(const TxID&, const Asset::ID, SubTxID subTxID) override {}
     void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
@@ -123,7 +123,6 @@ public:
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ChangeBeam, toByteBuffer(p.m_changeBeam), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ChangeAsset, toByteBuffer(p.m_changeAsset), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetID, toByteBuffer(p.m_assetId), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetOwnerIdx, toByteBuffer(p.m_assetOwnerIdx), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MinHeight, toByteBuffer(p.m_minHeight), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerID, toByteBuffer(p.m_peerId), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MyID, toByteBuffer(p.m_myId), false);

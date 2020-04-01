@@ -167,7 +167,7 @@ namespace beam
     // Wallet info
     const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
     const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\nAsset ID: %1%\nAsset Name: %2%%3%\n\n%4%%5%\n%6%%7%\n%8%%9%\n%10%%11%\n\n";
-    const char kWalletAssetOwnerFormat[] = "\nAsset Owner Index: %1%\nYou own this asset";
+    const char kWalletAssetOwnerFormat[] = "\nAsset Owner ID: %1%\nYou own this asset";
     const char kWalletSummaryFieldCurHeight[] = "Current height";
     const char kWalletSummaryFieldCurStateID[] = "Current state ID";
     const char kWalletSummaryFieldAvailable[] = "Available";
@@ -229,11 +229,13 @@ namespace beam
     const char kPpRequired[] = "Parameter set: Payment proof required: %1%";
 
     // Confidential assets
-    const char kErrorAssetIdxRequired[] = "Asset owner index is not specified";
-    const char kErrorAssetIdRequired[] = "Asset ID is not specified";
-    const char kErrorAssetIdOrIdxRequired[] = "Asset ID or Asset owner index is required";
+    const char kErrorAssetIdOrMetaRequired[] = "Asset ID or Asset metadata is required";
     const char kErrorAssetMetadataRequired[] = "Asset metadata required";
-    const char kErrornAssetNonSTDMeta[] = "Bad (non-std) asset metadata";
+    const char kErrorAssetIDRequired[]       = "Asset ID required";
+    const char kErrorAssetNonSTDMeta[]       = "Bad (non-std) asset metadata";
+    const char kErrorAssetNotFound[]         = "Asset not found in a local database. Check asset ID or provide asset metadata";
+    const char kErrorAssetNotOwned[]         = "You do not own the asset";
+    const char kErrorAssetLoadMeta[]         = "Cannot load asset metadata";
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT

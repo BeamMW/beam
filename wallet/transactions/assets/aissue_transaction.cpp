@@ -82,11 +82,11 @@ namespace beam::wallet
         {
             if (_issue)
             {
-                LOG_INFO() << GetTxID() << " Generating asset with owner index " << builder.GetAssetOwnerIdx()
+                LOG_INFO() << GetTxID() << " Generating asset with owner id " << builder.GetAssetOwnerId()
                            << ". Amount: " << PrintableAmount(builder.GetTransactionAmount(), false, kASSET, kAGROTH);
             } else
             {
-                LOG_INFO() << GetTxID() << " Consuming asset with owner index " << builder.GetAssetOwnerIdx()
+                LOG_INFO() << GetTxID() << " Consuming asset with owner id " << builder.GetAssetOwnerId()
                            << ". Amount: " << PrintableAmount(builder.GetTransactionAmount(), false, kASSET, kAGROTH);
             }
 
@@ -230,7 +230,7 @@ namespace beam::wallet
 
     void AssetIssueTransaction::ConfirmAsset()
     {
-        GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerIdx(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
+        GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
     }
 
     bool AssetIssueTransaction::IsLoopbackTransaction() const
@@ -250,7 +250,6 @@ namespace beam::wallet
         case TxParameterID::Status:
         case TxParameterID::TransactionType:
         case TxParameterID::KernelID:
-        case TxParameterID::AssetOwnerIdx:
             return true;
         default:
             return false;

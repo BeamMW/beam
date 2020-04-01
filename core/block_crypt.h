@@ -110,7 +110,6 @@ namespace beam
 		typedef uint32_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
 		static const ID s_MaxCount  = uint32_t(1) << 30; // 1 billion. Of course practically it'll be very much smaller
 		static const ID s_InvalidID = 0;
-		static const Key::Index s_InvalidOwnerIdx = 0;
 		static const PeerID s_InvalidOwnerID;
 
 		struct Base

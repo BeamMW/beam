@@ -2619,9 +2619,6 @@ namespace beam::wallet
                 case TxParameterID::AssetID:
                     deserialize(txDescription.m_assetId, parameter.m_value);
                     break;
-                case TxParameterID::AssetOwnerIdx:
-                    deserialize(txDescription.m_assetOwnerIdx, parameter.m_value);
-                    break;
                 default:
                     break; // suppress warning
                 }
@@ -2646,7 +2643,6 @@ namespace beam::wallet
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeBeam,  p.m_changeBeam, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeAsset, p.m_changeAsset, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetID, p.m_assetId, false);
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetOwnerIdx, p.m_assetOwnerIdx, false);
         if (p.m_minHeight)
         {
             storage::setTxParameter(*this, p.m_txId, TxParameterID::MinHeight, p.m_minHeight, false);
@@ -2901,12 +2897,12 @@ namespace beam::wallet
         stm.step();
     }
 
-    void WalletDB::setAssetOwnerIndex(const Asset::ID assetId, Key::Index ownerIndex)
+    void WalletDB::markAssetOwned(const Asset::ID assetId)
     {
         const char* update = "UPDATE " ASSETS_NAME " SET IsOwned=?2 WHERE ID=?1;";
         sqlite::Statement stmUpdate(this, update);
         stmUpdate.bind(1, assetId);
-        stmUpdate.bind(2, ownerIndex);
+        stmUpdate.bind(2, 1);
         stmUpdate.step();
     }
 
@@ -2944,7 +2940,7 @@ namespace beam::wallet
             asset.m_Metadata.UpdateHash();
             stm.get(5, asset.m_refreshHeight);
             assert(asset.m_refreshHeight != 0);
-            stm.get(6, asset.m_ownerIndex);
+            stm.get(6, asset.m_isOwned);
 
             if (!visitor(asset))
             {
@@ -2975,7 +2971,7 @@ namespace beam::wallet
         asset.m_Metadata.UpdateHash();
         stmFind.get(5, asset.m_refreshHeight);
         assert(asset.m_refreshHeight != 0);
-        stmFind.get(6, asset.m_ownerIndex);
+        stmFind.get(6, asset.m_isOwned);
 
         return asset;
     }
@@ -3932,7 +3928,7 @@ namespace beam::wallet
 
              walletDB.visitAssets([this](const WalletAsset& asset) -> bool {
                 // we also add owned assets to totals even if there are no coins
-                if(!HasTotals(asset.m_ID) && asset.m_ownerIndex)
+                if(!HasTotals(asset.m_ID) && asset.m_isOwned)
                 {
                     allTotals[asset.m_ID] = AssetTotals();
                     allTotals[asset.m_ID].AssetId = asset.m_ID;
