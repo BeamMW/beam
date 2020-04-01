@@ -3857,7 +3857,15 @@ namespace beam::wallet
             walletDB.visitCoins([getTotalsRef] (const Coin& c) -> bool
             {
                 auto& totals = getTotalsRef(c.m_ID.m_AssetID);
-                totals.CoinsCnt++;
+
+                if (totals.MinCoinHeight == 0)
+                {
+                    totals.MinCoinHeight = c.m_confirmHeight;
+                }
+                else
+                {
+                    totals.MinCoinHeight = std::min(c.m_confirmHeight, totals.MinCoinHeight);
+                }
 
                 const Amount& value = c.m_ID.m_Value;
                 switch (c.m_status)

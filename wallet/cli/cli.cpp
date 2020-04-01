@@ -708,7 +708,6 @@ namespace
 
     void ShowAssetInfo(IWalletDB::Ptr db, const storage::Totals::AssetTotals& totals)
     {
-        // TODO:ASSETS consider workaround for lockHeight > coin height
         const auto info = db->findAsset(totals.AssetId);
         const WalletAssetMeta& meta = info.is_initialized() ? WalletAssetMeta(*info) : WalletAssetMeta(Asset::Full());
         const bool isOwned  = info.is_initialized() ? info->m_isOwned : false;
@@ -724,24 +723,35 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, unitName, nthName));
+
+        if (totals.MinCoinHeight && info->m_LockHeight > totals.MinCoinHeight)
+        {
+            cout << boost::format(kWalletUnreliableAsset) % info->m_LockHeight;
+        }
     }
 
-    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId)
+    std::pair<std::string, std::string> GetAssetNames(IWalletDB::Ptr walletDB, Asset::ID assetId)
     {
         std::string unitName = kBEAM;
         std::string nthName  = kGROTH;
 
         if (assetId != Asset::s_InvalidID)
         {
-            // TODO:ASSETS consider workaround for lockHeight > coin height
             const auto info = walletDB->findAsset(assetId);
             const WalletAssetMeta &meta = info.is_initialized() ? WalletAssetMeta(*info) : WalletAssetMeta(Asset::Full());
             unitName = meta.isStd() ? meta.GetUnitName() : kAmountASSET;
-            nthName  =  meta.isStd() ? meta.GetNthUnitName() : kAmountAGROTH;
+            nthName  = meta.isStd() ? meta.GetNthUnitName() : kAmountAGROTH;
         }
 
+        return std::make_pair(unitName, nthName);
+    }
+
+    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId)
+    {
+        const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
         const uint8_t idWidth = assetId == Asset::s_InvalidID ? 49 : 57;
-        const array<uint8_t, 6> columnWidths{{idWidth, 14, 14, 18, 30, 8}};
+
+        const array<uint8_t, 6> columnWidths{{idWidth, 14, 14, 18, 20, 8}};
         cout << boost::format(kCoinsTableHeadFormat)
                  % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
                  % boost::io::group(right, setw(columnWidths[1]), unitName)
@@ -771,7 +781,7 @@ namespace
         cout << std::endl;
     }
 
-    void ShowAssetTxs(const IWalletDB::Ptr& walletDB, Asset::ID assetId, const char* coin, const char* groth)
+    void ShowAssetTxs(const IWalletDB::Ptr& walletDB, Asset::ID assetId)
     {
         auto txHistory = walletDB->getTxHistory(TxType::AssetReg);
         auto txIssue   = walletDB->getTxHistory(TxType::AssetIssue);
@@ -795,14 +805,18 @@ namespace
 
         if (!txHistory.empty())
         {
-            const array<uint8_t, 6> columnWidths{{20, 17, 26, 21, 33, 65}};
-                cout << boost::format(kTxHistoryTableHead)
-                        % boost::io::group(left, setw(columnWidths[0]),  kTxHistoryColumnDatetTime)
-                        % boost::io::group(left, setw(columnWidths[1]),  kTxHistoryColumnDirection)
-                        % boost::io::group(right, setw(columnWidths[2]), kAssetTxHistoryColumnAmount)
-                        % boost::io::group(left, setw(columnWidths[3]),  kTxHistoryColumnStatus)
-                        % boost::io::group(left, setw(columnWidths[4]),  kTxHistoryColumnId)
-                        % boost::io::group(left, setw(columnWidths[5]),  kTxHistoryColumnKernelId)
+            const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
+            const auto amountHeader = boost::format(kAssetTxHistoryColumnAmount) % unitName;
+
+            const array<uint8_t, 7> columnWidths{{20, 10, 17, 18, 16, 33, 65}};
+                cout << boost::format(kAssetTxHistoryTableHead)
+                        % boost::io::group(left,  setw(columnWidths[0]),  kTxHistoryColumnDatetTime)
+                        % boost::io::group(left,  setw(columnWidths[1]),  kTxHistoryColumnHeight)
+                        % boost::io::group(left,  setw(columnWidths[2]),  kTxHistoryColumnDirection)
+                        % boost::io::group(right, setw(columnWidths[3]),  amountHeader)
+                        % boost::io::group(left,  setw(columnWidths[4]),  kTxHistoryColumnStatus)
+                        % boost::io::group(left,  setw(columnWidths[5]),  kTxHistoryColumnId)
+                        % boost::io::group(left,  setw(columnWidths[6]),  kTxHistoryColumnKernelId)
                      << std::endl;
 
             for (auto& tx : txHistory) {
@@ -810,12 +824,13 @@ namespace
                                  tx.m_txType == TxType::AssetReg || tx.m_txType == beam::wallet::TxType::AssetUnreg ?
                                  kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut : kTxDirectionIn);
                 cout << boost::format(kTxHistoryTableFormat)
-                        % boost::io::group(left, setw(columnWidths[0]),  format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
-                        % boost::io::group(left, setw(columnWidths[1]),  direction)
-                        % boost::io::group(right, setw(columnWidths[2]), to_string(PrintableAmount(tx.m_amount, true)))
-                        % boost::io::group(left, setw(columnWidths[3]),  getTxStatus(tx))
-                        % boost::io::group(left, setw(columnWidths[4]),  to_hex(tx.m_txId.data(), tx.m_txId.size()))
-                        % boost::io::group(left, setw(columnWidths[5]),  to_string(tx.m_kernelID))
+                        % boost::io::group(left,  setw(columnWidths[0]),  format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                        % boost::io::group(left,  setw(columnWidths[1]),  std::to_string(static_cast<int64_t>(tx.m_minHeight)))
+                        % boost::io::group(left,  setw(columnWidths[2]),  direction)
+                        % boost::io::group(right, setw(columnWidths[3]),  to_string(PrintableAmount(tx.m_amount, true)))
+                        % boost::io::group(left,  setw(columnWidths[4]),  getTxStatus(tx))
+                        % boost::io::group(left,  setw(columnWidths[5]),  to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                        % boost::io::group(left,  setw(columnWidths[6]),  to_string(tx.m_kernelID))
                      << std::endl;
             }
         }
@@ -947,7 +962,7 @@ namespace
 
                 if (vm.count(cli::TX_HISTORY))
                 {
-                    ShowAssetTxs(walletDB, it.second.AssetId, kASSET, kAGROTH);
+                    ShowAssetTxs(walletDB, it.second.AssetId);
                 }
             }
         }

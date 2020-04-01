@@ -839,12 +839,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         Issue issue;
         issue.value = params["value"];
 
-        auto ind = params["index"];
-        if (!params["index"].is_number_unsigned() || params["index"] == 0)
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Index must be non zero 64bit unsigned integer.", id };
-
-        issue.index = Key::Index (params["index"]);
-
         if (existsJsonParam(params, "coins"))
         {
             issue.coins = readCoinsParameter(id, params);
@@ -852,6 +846,28 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         else if (existsJsonParam(params, "session"))
         {
             issue.session = readSessionParameter(id, params);
+        }
+
+        if (existsJsonParam(params, "meta"))
+        {
+            if (!params["meta"].is_string() || params["meta"].empty())
+            {
+                throw jsonrpc_exception{ApiError::InvalidJsonRpc, "meta should be non-empty string", id};
+            }
+            issue.meta = params["meta"];
+        }
+        else if(existsJsonParam(params, "assetid"))
+        {
+            auto assetId = params["assetid"];
+            if (!params["assetid"].is_number_unsigned() || params["assetid"] == 0)
+            {
+                throw jsonrpc_exception{ApiError::InvalidJsonRpc, "assetid must be non zero 64bit unsigned integer", id};
+            }
+            issue.assetId = assetId;
+        }
+        else
+        {
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "assetid or meta is required", id };
         }
 
         if (auto beamFee = readBeamFeeParameter(id, params); beamFee)

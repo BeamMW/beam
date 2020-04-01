@@ -457,9 +457,8 @@ namespace beam::wallet
             const auto txId = _walletData.getWallet().StartTransaction(CreateTransactionParameters(TxType::AssetIssue, data.txId)
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
-                .SetParameter(TxParameterID::PreselectedCoins, coins);
-                // TODO:ASSETS refactor
-                //.SetParameter(TxParameterID::AssetOwnerIdx, data.index));
+                .SetParameter(TxParameterID::PreselectedCoins, coins)
+                .SetParameter(TxParameterID::AssetMetadata, data.meta));
 
             doResponse(id, Issue::Response{ txId });
         }

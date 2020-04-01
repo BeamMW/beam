@@ -306,8 +306,8 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = kMinFeeInGroth;
-        // TODO:ASSETS refactor
-        Key::Index index;
+        boost::optional<std::string> meta;
+        boost::optional<Asset::ID> assetId;
         boost::optional<CoinIDList> coins;
         boost::optional<uint64_t> session;
         boost::optional<TxID> txId;

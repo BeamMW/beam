@@ -734,7 +734,7 @@ namespace beam::wallet
                 Amount   AvailFee = 0;
                 Amount   Fee = 0;
                 Amount   Unspent = 0;
-                uint32_t CoinsCnt = 0;
+                Height   MinCoinHeight = 0;
             };
 
             Totals();

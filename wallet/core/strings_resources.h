@@ -160,6 +160,7 @@ namespace beam
     // Wallet info
     extern const char kWalletSummaryFormat[];
     extern const char kWalletAssetSummaryFormat[];
+    extern const char kWalletUnreliableAsset[];
     extern const char kWalletAssetOwnerFormat[];
     extern const char kWalletSummaryFieldCurHeight[];
     extern const char kWalletSummaryFieldCurStateID[];
@@ -180,8 +181,10 @@ namespace beam
     extern const char kCoinsTableFormat[];
     // Tx history
     extern const char kTxHistoryTableHead[];
+    extern const char kAssetTxHistoryTableHead[];
     extern const char kTxHistoryTableFormat[];
     extern const char kTxHistoryColumnDatetTime[];
+    extern const char kTxHistoryColumnHeight[];
     extern const char kTxHistoryColumnDirection[];
     extern const char kTxHistoryColumnAmount[];
     extern const char kAssetTxHistoryColumnAmount[];

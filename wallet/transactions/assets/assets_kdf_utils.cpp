@@ -87,9 +87,11 @@ namespace beam::wallet
             const std::string& strMeta,
             TxKernelAssetControl& kernel)
     {
-        // TODO:ASSETS fix kernel key genration
+        Key::Index skIdx = 0;
+        ECC::GenRandom(&skIdx, sizeof skIdx);
+
         ECC::Scalar::Native kernelSk;
-        masterKdf->DeriveKey(kernelSk, Key::ID(22, Key::Type::Kernel, 22));
+        masterKdf->DeriveKey(kernelSk, Key::ID(skIdx, Key::Type::Kernel, skIdx));
 
         Asset::Metadata meta;
         meta.m_Value = toByteBuffer(strMeta);
