@@ -459,7 +459,7 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::Fee, data.fee)
                 .SetParameter(TxParameterID::PreselectedCoins, coins);
                 // TODO:ASSETS refactor
-                .SetParameter(TxParameterID::AssetOwnerIdx, data.index));
+                //.SetParameter(TxParameterID::AssetOwnerIdx, data.index));
 
             doResponse(id, Issue::Response{ txId });
         }
