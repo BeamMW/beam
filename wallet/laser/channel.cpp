@@ -554,7 +554,7 @@ bool Channel::IsSafeToClose() const
 
 bool Channel::IsUpdateStuck() const
 {
-    return m_lastUpdateStart && (m_lastUpdateStart + Lightning::kDefaultOpenTxDh < get_Tip());
+    return m_lastUpdateStart && (m_lastUpdateStart + Lightning::kMaxBlackoutTime < get_Tip());
 }
 
 bool Channel::IsGracefulCloseStuck() const

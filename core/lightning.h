@@ -28,6 +28,7 @@ namespace Lightning {
 	const Height kDefaultLockTime = 1440;
 	const Height kDefaultPostLockReserve = 1440;
 	const Height kDefaultOpenTxDh = 2 * 60;
+	const Height kMaxBlackoutTime = 5;
 
 	class Channel
 	{
