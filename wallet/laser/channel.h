@@ -96,6 +96,7 @@ public:
     void Unsubscribe();
     bool IsSafeToClose() const;
     bool IsUpdateStuck() const;
+    bool IsGracefulCloseStuck() const;
 
 private:
     void RestoreInternalState(const ByteBuffer& data);

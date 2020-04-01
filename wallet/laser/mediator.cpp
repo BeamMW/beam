@@ -831,12 +831,19 @@ void Mediator::UpdateChannels()
         auto state = channel->get_State();
 
         bool revisionDiscarded = false;
-        if (state == Lightning::Channel::State::Updating &&
-            channel->IsUpdateStuck())
+        if (state == Lightning::Channel::State::Updating && channel->IsUpdateStuck())
         {
             LOG_DEBUG() << "Update stuck, discarding last revision...";
             channel->DiscardLastRevision();
             revisionDiscarded = true;
+        }
+
+        bool closingDiscarded = false;
+        if (state == Lightning::Channel::State::Closing1 && channel->IsGracefulCloseStuck())
+        {
+            LOG_DEBUG() << "Closing stuck, discarding last revision...";
+            channel->DiscardLastRevision();
+            closingDiscarded = true;
         }
 
         if (state != Lightning::Channel::State::None &&
@@ -849,12 +856,13 @@ void Mediator::UpdateChannels()
         UpdateChannelExterior(channel);
 
         if (revisionDiscarded)
-        {
             for (auto observer : m_observers)
-            {
                 observer->OnTransferFailed(channel->get_chID());
-            }
-        }
+
+        if (closingDiscarded)
+            for (auto observer : m_observers)
+                observer->OnCloseFailed(channel->get_chID());
+
     }
 }
 

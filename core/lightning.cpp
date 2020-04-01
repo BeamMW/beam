@@ -123,6 +123,7 @@ void Channel::DiscardLastRevision()
 {
 	if (m_nRevision && !m_lstUpdates.empty())
 	{
+		m_gracefulClose = false;
 		m_lstUpdates.DeleteBack();
 		--m_nRevision;
 		m_pNegCtx.reset();
@@ -713,6 +714,9 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 		else
 		{
 			// withdrawal detected
+			if (m_gracefulClose || get_State() == State::Updating)
+				DiscardLastRevision();
+
 			m_State.m_hQueryLast = 0;
 			m_State.m_hTxSentLast = 0;
 

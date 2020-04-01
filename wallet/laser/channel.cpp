@@ -368,7 +368,8 @@ bool Channel::TransformLastState()
     if (m_lastState == state)
         return false;
 
-    if (state == State::Updating) {
+    if (state == State::Updating || (state == State::Closing1 && m_gracefulClose))
+    {
         m_lastUpdateStart = get_Tip();
     }
     else if (state == State::Open)
@@ -554,6 +555,11 @@ bool Channel::IsSafeToClose() const
 bool Channel::IsUpdateStuck() const
 {
     return m_lastUpdateStart && (m_lastUpdateStart + Lightning::kDefaultOpenTxDh < get_Tip());
+}
+
+bool Channel::IsGracefulCloseStuck() const
+{
+    return m_gracefulClose && !m_State.m_Terminate && IsUpdateStuck();
 }
 
 void Channel::RestoreInternalState(const ByteBuffer& data)
