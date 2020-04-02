@@ -269,7 +269,7 @@ namespace beam::wallet
 
         if (existsJsonParam(params, "comment"))
         {
-            send.comment = params["comment"];
+            send.comment = params["comment"].get<std::string>();
         }
 
         send.txId = readTxIdParameter(id, params);
