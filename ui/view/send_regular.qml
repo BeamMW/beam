@@ -141,13 +141,13 @@ ColumnLayout {
             }
 
             SFText {
-                Layout.topMargin: 25
+                Layout.topMargin: 45
                 font.pixelSize:   14
                 font.styleName:   "Bold"; font.weight: Font.Bold
                 color:            Style.content_main
                 //% "Comment"
                 text:             qsTrId("general-comment")
-                topPadding:    5
+                topPadding:       5
             }
 
             SFTextInput {
@@ -200,7 +200,7 @@ ColumnLayout {
                 showAddAll:       true
                 color:            Style.accent_outgoing
                 //% "Insufficient funds: you would need %1 to complete the transaction"
-                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.uiStringToLocale(viewModel.missing))
+                error:            (viewModel.isEnough || viewModel.isZeroBalance) ? "" : qsTrId("send-founds-fail").arg(Utils.uiStringToLocale(viewModel.missing))
             }
 
             Binding {
