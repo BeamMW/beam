@@ -1036,15 +1036,26 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
-        void AddAddressIdentityColumn(sqlite3* db)
+        void AddAddressIdentityColumn(const WalletDB* walletDB, sqlite3* db)
         {
             const char* req = "ALTER TABLE " ADDRESSES_NAME " ADD Identity BLOB NULL;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
 
-            const char* req_laser = "ALTER TABLE " LASER_ADDRESSES_NAME " ADD Identity BLOB NULL;";
-            ret = sqlite3_exec(db, req_laser, nullptr, nullptr, nullptr);
-            throwIfError(ret, db);
+            const char* req_laser_addr_identity_exist =
+                "SELECT COUNT(*) AS CNTREC FROM pragma_table_info('" LASER_ADDRESSES_NAME "') WHERE name='Identity';";
+            int laser_addr_identity_exist = 0;
+            for (sqlite::Statement stm(walletDB, req_laser_addr_identity_exist); stm.step();)
+            {
+                stm.get(0, laser_addr_identity_exist);
+            }
+
+            if (!laser_addr_identity_exist)
+            {
+                const char* req_laser = "ALTER TABLE " LASER_ADDRESSES_NAME " ADD Identity BLOB NULL;";
+                ret = sqlite3_exec(db, req_laser, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
         }
 
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
@@ -1578,7 +1589,7 @@ namespace beam::wallet
                     walletDB->MigrateCoins();
                     CreateNotificationsTable(walletDB->_db);
                     CreateExchangeRatesTable(walletDB->_db);
-                    AddAddressIdentityColumn(walletDB->_db);
+                    AddAddressIdentityColumn(walletDB.get(), walletDB->_db);
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 
