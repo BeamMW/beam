@@ -220,6 +220,13 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 
 				return;
 			}
+
+			Height h = 0;
+			if (!dataIn.Get(h, Codes::H0))
+				return;
+
+			if (!!iClose && h + kMaxBlackoutTime <= get_Tip())
+				return;
 		}
 		else
 		{
