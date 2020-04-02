@@ -351,7 +351,8 @@ namespace
             void onMessage(const JsonRpcId& id, const Issue& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(data.index > 0);
+                // TODO:ASSETS fix
+                // WALLET_CHECK(data.index > 0);
                 WALLET_CHECK(data.value > 0);
             }
         };
