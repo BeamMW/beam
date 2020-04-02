@@ -109,6 +109,8 @@ void PeerManager::Update()
 	for (AdjustedRatingSet::iterator it = m_AdjustedRatings.begin(); (nSelected < m_Cfg.m_DesiredTotal) && (m_AdjustedRatings.end() != it); it++)
 		ActivatePeerInternal(it->get_ParentObj(), nTicks_ms, nSelected);
 
+	ActivateMorePeers(nTicks_ms);
+
 	// remove excess
 	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; )
 	{
@@ -127,21 +129,19 @@ void PeerManager::Update()
 	}
 }
 
-void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t nTicks_ms, uint32_t& nSelected)
+bool PeerManager::ActivatePeerSafe(PeerInfo& pi, uint32_t nTicks_ms)
 {
 	if (pi.m_Active.m_Now && pi.m_Active.m_Next)
-		return; // already selected
+		return false; // already selected
 
 	if (pi.m_Addr.m_Value.empty())
-		return; // current adddress unknown
+		return false; // current adddress unknown
 
 	if (!pi.m_Active.m_Now && (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutReconnect_ms))
-		return; // too early for reconnect
+		return false; // too early for reconnect
 
 	if (!pi.m_RawRating.m_Value)
-		return; // banned so far
-
-	nSelected++;
+		return false; // banned so far
 
 	pi.m_Active.m_Next = true;
 
@@ -150,6 +150,14 @@ void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t nTicks_ms, uint32_
 		OnActive(pi, true);
 		ActivatePeer(pi);
 	}
+
+	return true;
+}
+
+void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t nTicks_ms, uint32_t& nSelected)
+{
+	if (ActivatePeerSafe(pi, nTicks_ms))
+		nSelected++;
 }
 
 PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)

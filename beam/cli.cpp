@@ -302,6 +302,8 @@ int main_impl(int argc, char* argv[])
 						}
 					}
 
+					node.m_Cfg.m_PeersPersistent = vm[cli::NODE_PEERS_PERSISTENT].as<bool>();
+
 					LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
 					if (vm.count(cli::TREASURY_BLOCK))

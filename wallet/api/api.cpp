@@ -22,6 +22,8 @@
 #include "wallet/transactions/swaps/utils.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
+#include <regex>
+
 namespace beam::wallet
 {    
 namespace
@@ -485,6 +487,11 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     bool Api::parse(const char* data, size_t size)
     {
+        {
+            std::string s(data, size);
+            static std::regex keyRE(R"'(\"key\"\s*:\s*\"[\d\w]+\"\s*,?)'");
+            LOG_INFO() << "got " << std::regex_replace(s, keyRE, "");
+        }
         if (size == 0)
         {
             json msg

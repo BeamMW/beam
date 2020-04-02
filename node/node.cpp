@@ -4148,6 +4148,21 @@ void Node::PeerMan::OnFlush()
     }
 }
 
+void Node::PeerMan::ActivateMorePeers(uint32_t nTime_ms)
+{
+    const Config& cfg = get_ParentObj().m_Cfg; // alias
+    if (!cfg.m_PeersPersistent)
+        return;
+
+    for (uint32_t i = 0; i < cfg.m_Connect.size(); i++)
+    {
+        PeerID id0(Zero);
+        PeerInfo* pPi = OnPeer(id0, cfg.m_Connect[i], true);
+        if (pPi)
+            ActivatePeerSafe(*pPi, nTime_ms);
+    }
+}
+
 void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 {
     PeerInfoPlus& pip = Cast::Up<PeerInfoPlus>(pi);

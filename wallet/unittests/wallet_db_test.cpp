@@ -1222,6 +1222,43 @@ void TestSelect6()
     }
 }
 
+void TestSelect7()
+{
+    // https://github.com/BeamMW/beam/issues/1339
+    cout << "\nWallet database coin selection 7 test https://github.com/BeamMW/beam/issues/1339\n";
+    auto db = createSqliteWalletDB();
+
+    vector<Coin> coins;
+    coins.reserve(20);
+    coins.push_back(CreateAvailCoin(Amount(7)));
+    coins.push_back(CreateAvailCoin(Amount(43)));
+    coins.push_back(CreateAvailCoin(Amount(999'000)));
+    coins.push_back(CreateAvailCoin(Amount(74'282)));
+    coins.push_back(CreateAvailCoin(Amount(999'000)));
+    coins.push_back(CreateAvailCoin(Amount(999'000)));
+    coins.push_back(CreateAvailCoin(Amount(307'806)));
+    coins.push_back(CreateAvailCoin(Amount(5'249'000)));
+    coins.push_back(CreateAvailCoin(Amount(611'848)));
+    coins.push_back(CreateAvailCoin(Amount(258)));
+    coins.push_back(CreateAvailCoin(Amount(99'000'000)));
+    coins.push_back(CreateAvailCoin(Amount(7'055'842)));
+    coins.push_back(CreateAvailCoin(Amount(86'503'945)));
+    coins.push_back(CreateAvailCoin(Amount(996'856'225)));
+    coins.push_back(CreateAvailCoin(Amount(5'905'818'619)));
+    coins.push_back(CreateAvailCoin(Amount(1'879'910'994)));
+    coins.push_back(CreateAvailCoin(Amount(53'989'740'837)));
+    coins.push_back(CreateAvailCoin(Amount(303)));
+    coins.push_back(CreateAvailCoin(Amount(2'766)));
+    coins.push_back(CreateAvailCoin(Amount(6'456'001'778'569)));
+    db->storeCoins(coins);
+
+    storage::Totals totals(*db);
+    auto t = totals.GetTotals(Zero);
+    WALLET_CHECK(t.Avail == 6'518'975'908'344);
+
+    SelectCoins(db, 6'456'001'778'569 + 1000, false);
+}
+
 void TestWalletMessages()
 {
     cout << "\nWallet database wallet messages test\n";
@@ -1436,6 +1473,7 @@ int main()
     TestSelect4();
     TestSelect5();
     TestSelect6();
+    TestSelect7();
     TestAddresses();
     TestExportImportTx();
     TestTxParameters();
