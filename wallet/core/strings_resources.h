@@ -190,6 +190,7 @@ namespace beam
     extern const char kTxDirectionOut[];
     extern const char kTxDirectionIn[];
     extern const char kTxHistoryEmpty[];
+    extern const char kTxToken[];
     extern const char kSwapTxHistoryEmpty[];
     extern const char kSwapTxHistoryTableHead[];
     extern const char kSwapTxHistoryTableFormat[];

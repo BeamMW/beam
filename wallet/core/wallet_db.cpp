@@ -4308,7 +4308,24 @@ namespace beam::wallet
 
             if (bSuccess)
             {
-                return pi.to_string();
+                auto senderIdentity = tx->getSenderIdentity();
+                auto receiverIdentity = tx->getReceiverIdentity();
+                bool showIdentity = !senderIdentity.empty() && !receiverIdentity.empty();
+                std::ostringstream s;
+                s << "Sender: " << std::to_string(pi.m_Sender) << std::endl;
+                if (showIdentity)
+                {
+                    s << "Sender identity: " << senderIdentity << std::endl;
+                }
+                s << "Receiver: " << std::to_string(pi.m_Receiver) << std::endl;
+                if (showIdentity)
+                {
+                    s << "Receiver identity: " << receiverIdentity << std::endl;
+                }
+                s << "Amount: " << PrintableAmount(pi.m_Amount) << std::endl;
+                s << "KernelID: " << std::to_string(pi.m_KernelID) << std::endl;
+
+                return s.str();
             }
 
             LOG_WARNING() << "Can't get transaction details";

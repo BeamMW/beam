@@ -831,34 +831,36 @@ namespace
 
             if (txHistory.empty())
             {
-            cout << kTxHistoryEmpty << endl;
+                cout << kTxHistoryEmpty << endl;
             }
             else
             {
-            const array<uint8_t, 6> columnWidths{ {20, 17, 26, 21, 33, 65} };
-            cout << boost::format(kTxHistoryTableHead)
-                % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
-                % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
-                % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
-                % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
-                % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
-                % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
-                << std::endl;
-
-            for (auto& tx : txHistory) {
-                cout << boost::format(kTxHistoryTableFormat)
-                    % boost::io::group(left, setw(columnWidths[0]),
-                        format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
-                    % boost::io::group(left, setw(columnWidths[1]),
-                    (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut
-                        : kTxDirectionIn)))
-                    % boost::io::group(right, setw(columnWidths[2]),
-                        to_string(PrintableAmount(tx.m_amount, true)))
-                    % boost::io::group(left, setw(columnWidths[3]), getTxStatus(tx))
-                    % boost::io::group(left, setw(columnWidths[4]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
-                    % boost::io::group(left, setw(columnWidths[5]), to_string(tx.m_kernelID))
+                const array<uint8_t, 7> columnWidths{ {20, 17, 26, 21, 33, 65, 100} };
+                cout << boost::format(kTxHistoryTableHead)
+                    % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
+                    % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
+                    % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
+                    % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
+                    % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
+                    % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
+                    % boost::io::group(left, setw(columnWidths[6]), kTxToken)
                     << std::endl;
-            }
+
+                for (auto& tx : txHistory) {
+                    cout << boost::format(kTxHistoryTableFormat)
+                        % boost::io::group(left, setw(columnWidths[0]),
+                            format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                        % boost::io::group(left, setw(columnWidths[1]),
+                        (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut
+                            : kTxDirectionIn)))
+                        % boost::io::group(right, setw(columnWidths[2]),
+                            to_string(PrintableAmount(tx.m_amount, true)))
+                        % boost::io::group(left, setw(columnWidths[3]), getTxStatus(tx))
+                        % boost::io::group(left, setw(columnWidths[4]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                        % boost::io::group(left, setw(columnWidths[5]), to_string(tx.m_kernelID))
+                        % boost::io::group(left, setw(columnWidths[6]), tx.getToken())
+                        << std::endl;
+                }
             }
         }
 
@@ -968,13 +970,15 @@ namespace
             LOG_ERROR() << boost::format(kErrorTxWithIdNotFound) % vm[cli::TX_ID].as<string>();
             return -1;
         }
-
+        auto token = tx->getToken();
         LOG_INFO()
             << boost::format(kTxDetailsFormat)
                 % storage::TxDetailsInfo(walletDB, *txId) % getTxStatus(*tx) 
             << (tx->m_status == TxStatus::Failed
                     ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason)
-                    : boost::format(""));
+                    : boost::format(""))
+            << (!token.empty() ? "\nToken: " : "") << token;
+
 
         return 0;
     }

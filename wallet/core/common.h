@@ -505,6 +505,11 @@ namespace beam::wallet
         std::string getStatusString() const;
         std::string getStatusStringApi() const;
         std::string getAmountInSecondCurrency(ExchangeRate::Currency) const;
+        std::string getToken() const;
+        std::string getSenderIdentity() const;
+        std::string getReceiverIdentity() const;
+
+        std::string getIdentity(bool isSender) const;
 
     //private:
         TxID m_txId = {};

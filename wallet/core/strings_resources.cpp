@@ -185,8 +185,8 @@ namespace beam
     const char kCoinsTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
 
     // Tx history
-    const char kTxHistoryTableHead[] = "TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";
-    const char kTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
+    const char kTxHistoryTableHead[] = "TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
+    const char kTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%   %7%  ";
     const char kTxHistoryColumnDatetTime[] = "datetime";
     const char kTxHistoryColumnDirection[] = "direction";
     const char kTxHistoryColumnAmount[] = "amount, BEAM";
@@ -198,6 +198,7 @@ namespace beam
     const char kTxDirectionOut[] = "outgoing";
     const char kTxDirectionIn[] = "incoming";
     const char kTxHistoryEmpty[] = "No transactions";
+    const char kTxToken[] = "token";
     const char kSwapTxHistoryEmpty[] = "No swap transactions";
     const char kSwapTxHistoryTableHead[] = "SWAP TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";
     const char kSwapTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
