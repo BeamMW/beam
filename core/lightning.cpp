@@ -199,6 +199,9 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 			uint32_t iClose = 0;
 			dataIn.Get(iClose, Codes::CloseGraceful);
 
+			if (!!iClose && h + kMaxBlackoutTime <= get_Tip())
+				return;
+
 			if (!TransferInternal(val, 1, h, !!iClose))
 				return;
 		}

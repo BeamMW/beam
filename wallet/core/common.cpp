@@ -431,10 +431,9 @@ namespace beam::wallet
         return res;
     }
 
-    bool IsValidTimeStamp(Timestamp currentBlockTime_s)
+    bool IsValidTimeStamp(Timestamp currentBlockTime_s, Timestamp tolerance_s)
     {
         Timestamp currentTime_s = getTimestamp();
-        const Timestamp tolerance_s = 60 * 10; // 10 minutes tolerance.
 
         if (currentTime_s > currentBlockTime_s + tolerance_s)
         {
