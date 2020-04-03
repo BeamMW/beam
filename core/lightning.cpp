@@ -212,6 +212,13 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 		uint32_t iClose = 0;
 		if (dataIn.Get(iClose, Codes::CloseGraceful) && !!iClose)
 		{
+			Height h = 0;
+			if (!dataIn.Get(h, Codes::H0))
+				return;
+
+			if (!!iClose && h + kMaxBlackoutTime <= get_Tip())
+				return;
+
 			if (m_pNegCtx && m_pNegCtx->m_eType == NegotiationCtx::Close)
 			{
 				DiscardLastRevision();
@@ -220,13 +227,6 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 
 				return;
 			}
-
-			Height h = 0;
-			if (!dataIn.Get(h, Codes::H0))
-				return;
-
-			if (!!iClose && h + kMaxBlackoutTime <= get_Tip())
-				return;
 		}
 		else
 		{
