@@ -48,7 +48,7 @@
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 #include "utility/helpers.h"
-#include "wallet/transactions/assets/assets_utils.h"
+#include "wallet/core/assets_utils.h"
 
 #ifdef BEAM_LASER_SUPPORT
 #include "laser.h"

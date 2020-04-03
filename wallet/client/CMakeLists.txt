@@ -29,3 +29,7 @@ target_compile_features(wallet_client PUBLIC cxx_std_17)
 if(BEAM_ATOMIC_SWAP_SUPPORT)
     target_link_libraries(wallet_client PUBLIC swap)
 endif()
+
+if(BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
+    target_link_libraries(wallet_client PUBLIC assets)
+endif()
