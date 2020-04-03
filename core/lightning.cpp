@@ -63,8 +63,12 @@ Channel::State::Enum Channel::get_State() const
 	if (m_State.m_Close.m_hPhase1)
 		return State::Closing2;
 
-	if (m_State.m_Terminate)
+	if (m_State.m_Terminate || m_gracefulClose)
 		return State::Closing1;
+
+	auto& lastUpdate = m_lstUpdates.back();
+	if (!lastUpdate.get_HR())
+		return State::Updating;
 
 	return m_pNegCtx ? State::Updating : State::Open;
 }
@@ -113,6 +117,17 @@ bool Channel::IsUnfairPeerClosed() const
 
 	DataUpdate* p = m_lstUpdates.get_NextSafe(*m_State.m_Close.m_pPath);
 	return p && p->m_PeerKeyValid;
+}
+
+void Channel::DiscardLastRevision()
+{
+	if (m_nRevision && !m_lstUpdates.empty())
+	{
+		m_gracefulClose = false;
+		m_lstUpdates.DeleteBack();
+		--m_nRevision;
+		m_pNegCtx.reset();
+	}
 }
 
 void Channel::OnPeerData(Storage::Map& dataIn)
@@ -184,6 +199,9 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 			uint32_t iClose = 0;
 			dataIn.Get(iClose, Codes::CloseGraceful);
 
+			if (!!iClose && h + kMaxBlackoutTime <= get_Tip())
+				return;
+
 			if (!TransferInternal(val, 1, h, !!iClose))
 				return;
 		}
@@ -194,16 +212,27 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 		uint32_t iClose = 0;
 		if (dataIn.Get(iClose, Codes::CloseGraceful) && !!iClose)
 		{
+			Height h = 0;
+			if (!dataIn.Get(h, Codes::H0))
+				return;
+
+			if (!!iClose && h + kMaxBlackoutTime <= get_Tip())
+				return;
+
 			if (m_pNegCtx && m_pNegCtx->m_eType == NegotiationCtx::Close)
 			{
-				m_lstUpdates.DeleteBack();
-				--m_nRevision;
-				m_pNegCtx.reset();
+				DiscardLastRevision();
 				if (!m_iRole)
 					Transfer(0, true);
 
 				return;
 			}
+		}
+		else
+		{
+			Amount valueTransfer = 0;
+			if (dataIn.Get(valueTransfer, Codes::ValueTansfer))
+				return;
 		}
 	}
 
@@ -695,6 +724,9 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 		else
 		{
 			// withdrawal detected
+			if (m_gracefulClose || get_State() == State::Updating)
+				DiscardLastRevision();
+
 			m_State.m_hQueryLast = 0;
 			m_State.m_hTxSentLast = 0;
 
@@ -1201,6 +1233,8 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCl
 		CoinID msDummy(Zero);
 		msDummy.m_Value = m_pOpen->m_ms0.m_Value - m_Params.m_Fee;
 		CreateUpdatePoint(iRole, msDummy, msDummy, vOut.front());
+
+		m_gracefulClose = true;
 	}
 	else
 	{

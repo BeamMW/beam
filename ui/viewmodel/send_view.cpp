@@ -140,6 +140,11 @@ QString SendViewModel::getMissing() const
     return beamui::AmountToUIString(calcTotalAmount() - _walletModel.getAvailable());
 }
 
+bool SendViewModel::isZeroBalance() const
+{
+    return _walletModel.getAvailable() == 0;
+}
+
 bool SendViewModel::isEnough() const
 {
     return _walletModel.getAvailable() >= calcTotalAmount() + _changeGrothes;

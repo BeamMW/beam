@@ -334,11 +334,6 @@ const Amount& Channel::get_amountCurrentTrg() const
 
 int Channel::get_State() const
 {
-    auto state = Lightning::Channel::get_State();
-    if (m_gracefulClose && state < Lightning::Channel::State::Closing1)
-    {
-        return Lightning::Channel::State::Closing1;
-    }
     return Lightning::Channel::get_State();
 }
 
@@ -373,11 +368,20 @@ bool Channel::TransformLastState()
     if (m_lastState == state)
         return false;
 
-    m_lastState = static_cast<beam::Lightning::Channel::State::Enum>(state);
+    if (state == State::Updating || (state == State::Closing1 && m_gracefulClose))
+    {
+        m_lastUpdateStart = get_Tip();
+    }
+    else if (state == State::Open)
+    {
+        m_lastUpdateStart = 0;
+    }
+
+    m_lastState = state;
     return true;
 }
 
-Lightning::Channel::State::Enum Channel::get_LastState() const
+int Channel::get_LastState() const
 {
     return m_lastState;
 }
@@ -403,6 +407,7 @@ void Channel::UpdateRestorePoint()
     ser & m_pOpen->m_hOpened;
     ser & m_iRole;
     ser & m_gracefulClose;
+    ser & m_lastUpdateStart;
     ser & m_pOpen->m_vInp.size();
     for (const CoinID& cid : m_pOpen->m_vInp)
     {
@@ -547,10 +552,14 @@ bool Channel::IsSafeToClose() const
         m_State.m_Close.m_hPhase2 && m_State.m_Close.m_hPhase2 <= get_Tip();
 }
 
-bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful)
+bool Channel::IsUpdateStuck() const
 {
-    m_gracefulClose = bCloseGraceful;
-    return Lightning::Channel::TransferInternal(nMyNew, iRole, h, bCloseGraceful);
+    return m_lastUpdateStart && (m_lastUpdateStart + Lightning::kMaxBlackoutTime < get_Tip());
+}
+
+bool Channel::IsGracefulCloseStuck() const
+{
+    return m_gracefulClose && !m_State.m_Terminate && IsUpdateStuck();
 }
 
 void Channel::RestoreInternalState(const ByteBuffer& data)
@@ -578,6 +587,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
         der & m_pOpen->m_hOpened;
         der & m_iRole;
         der & m_gracefulClose;
+        der & m_lastUpdateStart;
 
         size_t vInpSize = 0;
         der & vInpSize;

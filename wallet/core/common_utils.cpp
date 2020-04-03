@@ -67,44 +67,4 @@ std::string TxIDToString(const TxID& txId)
 {
     return to_hex(txId.data(), txId.size());
 }
-
-void GetStatusResponseJson(const TxDescription& tx,
-                           nlohmann::json& msg,
-                           Height kernelProofHeight,
-                           Height systemHeight)
-{
-    msg = nlohmann::json
-    {
-        {"txId", TxIDToString(tx.m_txId)},
-        {"status", tx.m_status},
-        {"status_string", tx.getStatusStringApi()},
-        {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
-        {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
-        {"fee", tx.m_fee},
-        {"value", tx.m_amount},
-        {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
-        {"create_time", tx.m_createTime},            
-        {"income", !tx.m_sender}
-    };
-
-    if (kernelProofHeight > 0)
-    {
-        msg["height"] = kernelProofHeight;
-
-        if (systemHeight >= kernelProofHeight)
-        {
-            msg["confirmations"] = systemHeight - kernelProofHeight;
-        }
-    }
-
-    if (tx.m_status == TxStatus::Failed)
-    {
-        msg["failure_reason"] = GetFailureMessage(tx.m_failureReason);
-    }
-    else if (tx.m_status != TxStatus::Canceled)
-    {
-        msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
-    }
-}
-
 }  // namespace beam::wallet

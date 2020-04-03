@@ -15,7 +15,6 @@
 #pragma once
 
 #include "wallet/core/wallet_db.h"
-#include "nlohmann/json.hpp"
 #include <string>
 
 namespace beam::wallet
@@ -30,10 +29,4 @@ WalletAddress GenerateNewAddress(
 bool ReadTreasury(ByteBuffer&, const std::string& sPath);
 
 std::string TxIDToString(const TxID& txId);
-
-void GetStatusResponseJson(const TxDescription& tx,
-                           nlohmann::json& msg,
-                           Height kernelProofHeight,
-                           Height systemHeight);
-
 }  // namespace beam::wallet

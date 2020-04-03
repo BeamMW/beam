@@ -506,6 +506,11 @@ namespace beam::wallet
         std::string getStatusString() const;
         std::string getStatusStringApi() const;
         std::string getAmountInSecondCurrency(ExchangeRate::Currency) const;
+        std::string getToken() const;
+        std::string getSenderIdentity() const;
+        std::string getReceiverIdentity() const;
+
+        std::string getIdentity(bool isSender) const;
 
     //private:
         TxID m_txId = {};
@@ -688,7 +693,7 @@ namespace beam::wallet
 
     // Check current time with the timestamp of last received block
     // If it is more than 10 minutes, the walelt is considered not in sync
-    bool IsValidTimeStamp(Timestamp currentBlockTime_s);
+    bool IsValidTimeStamp(Timestamp currentBlockTime_s, Timestamp tolerance_s = 60 * 10); // 10 minutes tolerance.
 }    // beam::wallet
 
 namespace beam

@@ -217,6 +217,7 @@ void ReceiveSwapViewModel::setSentFee(unsigned int value)
     {
         _sentFeeGrothes = value;
         emit sentFeeChanged();
+        updateTransactionToken();
         emit secondCurrencyRateChanged();
         storeSwapParams();
     }
@@ -268,6 +269,7 @@ void ReceiveSwapViewModel::setReceiveFee(unsigned int value)
     {
         _receiveFeeGrothes = value;
         emit receiveFeeChanged();
+        updateTransactionToken();
         emit secondCurrencyRateChanged();
         storeSwapParams();
     }

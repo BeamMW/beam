@@ -73,9 +73,9 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork, wallet:
     , m_protocol_old(m_ver_1[0],
                      m_ver_1[1],
                      m_ver_1[2],
-                     m_maxMessageTypes,
-                     *this,
-                     MsgHeader::SIZE+1) // note: MsgSerializer is not used here
+                 m_maxMessageTypes,
+                 *this,
+                 MsgHeader::SIZE+1)     // note: MsgSerializer is not used here
     , m_protocol(m_ver_2[0],
                  m_ver_2[1],
                  m_ver_2[2],
