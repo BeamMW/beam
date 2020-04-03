@@ -861,7 +861,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {
                 throw jsonrpc_exception{ApiError::InvalidJsonRpc, "meta should be non-empty string", id};
             }
-            issue.meta = params["meta"];
+            issue.meta = params["meta"].get<std::string>();
         }
         else if(existsJsonParam(params, "assetid"))
         {
@@ -870,7 +870,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {
                 throw jsonrpc_exception{ApiError::InvalidJsonRpc, "assetid must be non zero 64bit unsigned integer", id};
             }
-            issue.assetId = assetId;
+            issue.assetId = assetId.get<beam::Asset::ID>();
         }
         else
         {
