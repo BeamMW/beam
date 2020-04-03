@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include "swap_offer.h"
-#include "swap_offers_observer.h"
-#include "offers_protocol_handler.h"
+#include "wallet/client/extensions/offers_board/swap_offer.h"
+#include "wallet/client/extensions/offers_board/swap_offers_observer.h"
+#include "wallet/client/extensions/offers_board/offers_protocol_handler.h"
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
 
 #include "wallet/core/wallet.h"
@@ -26,55 +26,83 @@
 
 namespace beam::wallet
 {
-    using namespace beam::proto;
+using namespace beam::proto;
 
-    /**
-     *  Implementation of public swap offers bulletin board using not crypted BBS broadcasting.
-     */
-    class SwapOffersBoard
-        : public IBroadcastListener,
-          public IWalletDbObserver
+/**
+ *  Implementation of public swap offers bulletin board using not crypted BBS broadcasting.
+ */
+class SwapOffersBoard
+    : public IBroadcastListener,
+      public IWalletDbObserver
+{
+public:
+    using Ptr = std::shared_ptr<SwapOffersBoard>;
+
+    class InvalidOfferException : public std::runtime_error
     {
     public:
-        using Ptr = std::shared_ptr<SwapOffersBoard>;
-
-        SwapOffersBoard(IBroadcastMsgsGateway&, OfferBoardProtocolHandler&);
-
-        /**
-         *  IBroadcastListener implementation
-         *  Processes broadcast messages
-         */
-        virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
-        
-        /**
-         *  IWalletDbObserver implementation
-         *  Watches for swap transaction status changes to update linked offers on board
-         */
-        virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
-        /**
-         *  Watches for system state to remove stuck expired offers from board
-         */
-        virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
-
-        auto getOffersList() const -> std::vector<SwapOffer>;
-        void publishOffer(const SwapOffer& offer) const;
-
-        void Subscribe(ISwapOffersObserver* observer);
-        void Unsubscribe(ISwapOffersObserver* observer);
-
-    private:
-		IBroadcastMsgsGateway& m_broadcastGateway;
-        OfferBoardProtocolHandler& m_protocolHandler;       /// handles message creating and parsing
-
-        Height m_currentHeight = 0;
-        std::unordered_map<TxID, SwapOffer> m_offersCache;
-        std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
-
-        bool isOfferExpired(const SwapOffer& offer) const;
-        void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
-        void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);
-        void notifySubscribers(ChangeAction action, const std::vector<SwapOffer>& offers) const;
-
+        InvalidOfferException() : std::runtime_error(" Can't publish invalid offer.") {}
     };
+
+    class OfferAlreadyPublishedException : public std::runtime_error
+    {
+    public:
+        OfferAlreadyPublishedException() : std::runtime_error(" Offer has already been published.") {}
+    };
+
+    class ForeignOfferException : public std::runtime_error
+    {
+    public:
+        ForeignOfferException() : std::runtime_error(" Offer has foreign Pk and will not be published.") {}
+    };
+
+    class ExpiredOfferException : public std::runtime_error
+    {
+    public:
+        ExpiredOfferException() : std::runtime_error(" Can't publish expired offer.") {}
+    };
+
+    SwapOffersBoard(IBroadcastMsgGateway&, OfferBoardProtocolHandler&);
+    virtual ~SwapOffersBoard() {};
+
+    /**
+     *  IBroadcastListener implementation
+     *  Processes broadcast messages
+     */
+    virtual bool onMessage(uint64_t, ByteBuffer&&) override;    // TODO: dh remove after 2 fork.
+    virtual bool onMessage(uint64_t, BroadcastMsg&&) override;
+    
+    /**
+     *  IWalletDbObserver implementation
+     *  Watches for swap transaction status changes to update linked offers on board
+     */
+    virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
+    /**
+     *  Watches for system state to remove stuck expired offers from board
+     */
+    virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
+
+    auto getOffersList() const -> std::vector<SwapOffer>;
+    void publishOffer(const SwapOffer& offer) const;
+
+    void Subscribe(ISwapOffersObserver* observer);
+    void Unsubscribe(ISwapOffersObserver* observer);
+
+private:
+    IBroadcastMsgGateway& m_broadcastGateway;
+    OfferBoardProtocolHandler& m_protocolHandler;       /// handles message creating and parsing
+
+    Height m_currentHeight = 0;
+    std::unordered_map<TxID, SwapOffer> m_offersCache;
+    std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
+
+    bool isOfferExpired(const SwapOffer& offer) const;
+    bool onOfferFromNetwork(SwapOffer& newOffer);
+    void broadcastOffer(const SwapOffer& content, const WalletID& wid) const;
+    void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
+    void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);
+    void notifySubscribers(ChangeAction action, const std::vector<SwapOffer>& offers) const;
+
+};
 
 } // namespace beam::wallet

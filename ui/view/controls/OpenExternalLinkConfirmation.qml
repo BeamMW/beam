@@ -8,43 +8,22 @@ ConfirmationDialog {
     property string externalUrl
     property var onOkClicked: function () {}
     property var onCancelClicked: function () {}
-    //% "Open"
+    //% "proceed"
     okButtonText: qsTrId("open-external-open")
     okButtonIconSource: "qrc:/assets/icon-external-link-black.svg"
     cancelButtonVisible: true
     cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
     width: 460
-    height: 217
+    leftPadding: 50
+    rightPadding: 50
 
-    contentItem: Item {
-        Column {
-            anchors.fill: parent
-            
-            SFText {
-                width: parent.width
-                topPadding: 20
-                font.pixelSize: 18
-                font.styleName: "Bold";
-                font.weight: Font.Bold
-                color: Style.content_main
-                horizontalAlignment : Text.AlignHCenter
-                //% "External link"
-                text: qsTrId("open-external-title")
-            }
-            SFText {
-                width: parent.width
-                topPadding: 15
-                leftPadding: 15
-                rightPadding: 15
-                font.pixelSize: 14
-                color: Style.content_main
-                wrapMode: Text.Wrap
-                horizontalAlignment : Text.AlignHCenter
-                //% "Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime."
-                text: qsTrId("open-external-message")
-            }
-        }
-    }
+    //% "Open external link"
+    title: qsTrId("open-external-title")
+
+    /*% "Beam Wallet app requires a permission to open external links to Beam website in your default browser. This action will expose your IP to the web server.
+
+Allow to open and proceed to the website? You can always update your choice in Settings."*/
+    text: qsTrId("open-external-message")
 
     onAccepted: {
         onOkClicked();

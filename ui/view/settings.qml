@@ -17,10 +17,6 @@ ColumnLayout {
         id: viewModel
     }
 
-    OpenExternalLinkConfirmation {
-        id: externalLinkConfirmation
-    }
-
     ChangePasswordDialog {
         id: changePasswordDialog
         settingsViewModel: viewModel    
@@ -158,8 +154,7 @@ deploy the key at the node you trust completely."*/
 
         SFText {
             Layout.fillWidth: true
-            Layout.alignment: Qt.AlignBottom | Qt.AlignRight
-            bottomPadding: 7
+            Layout.alignment: Qt.AlignCenter | Qt.AlignRight
             horizontalAlignment: Text.AlignRight
             font.pixelSize: 14
             color: Style.content_secondary
@@ -167,6 +162,18 @@ deploy the key at the node you trust completely."*/
             //% "Version"
             text: qsTrId("settings-version") + ": " + viewModel.version
         }
+        PrimaryButton {
+            Layout.alignment: Qt.AlignCenter
+            Layout.leftMargin: 20
+            Layout.preferredHeight: 38
+            //: settings update wallet button
+            //% "update wallet"
+            text: qsTrId("settings-update-wallet")
+            icon.source: "qrc:/assets/icon-repeat.svg"
+            visible: main.hasNewerVersion
+            onClicked: Utils.navigateToDownloads()
+        }
+
     }
 
     StatusBar {
@@ -456,41 +463,75 @@ deploy the key at the node you trust completely."*/
                         }
 
                         RowLayout {
-                           Layout.preferredHeight: 16
+                            Layout.preferredHeight: 16
+                            
+                            ColumnLayout {
+                                SFText {
+                                    Layout.fillWidth: true
+                                    //: settings tab, general section, language label
+                                    //% "Language"
+                                    text: qsTrId("settings-general-language")
+                                    color: Style.content_secondary
+                                    font.pixelSize: 14
+                                }
+                            }
                         
-                           ColumnLayout {
-                               SFText {
-                                   Layout.fillWidth: true
-                                   //: settings tab, general section, language label
-                                   //% "Language"
-                                   text: qsTrId("settings-general-language")
-                                   color: Style.content_secondary
-                                   font.pixelSize: 14
-                               }
-                           }
-                        
-                           Item {
-                           }
-                        
-                           ColumnLayout {
-                               CustomComboBox {
-                                   id: language
-                                   Layout.preferredWidth: generalBlock.width * 0.33
-                                   fontPixelSize: 14
-                        
-                                   model: viewModel.supportedLanguages
-                                   currentIndex: viewModel.currentLanguageIndex
-                                   onActivated: {
-                                       viewModel.currentLanguage = currentText;
-                                   }
-                               }
-                           }
-                           visible: false  // Remove to enable language dropdown
+                            Item {
+                            }
+                            
+                            ColumnLayout {
+                                CustomComboBox {
+                                    id: language
+                                    Layout.preferredWidth: generalBlock.width * 0.33
+                                    fontPixelSize: 14
+                            
+                                    model: viewModel.supportedLanguages
+                                    currentIndex: viewModel.currentLanguageIndex
+                                    onActivated: {
+                                        viewModel.currentLanguage = currentText;
+                                    }
+                                }
+                            }
+                            visible: false  // Remove to enable language dropdown
                         }
                         
                         Item {
-                           Layout.preferredHeight: 10
-                           visible: false  // Remove to enable language dropdown
+                            Layout.preferredHeight: 15
+                            visible: false  // Remove to enable language dropdown
+                        }
+
+                        RowLayout {
+                            Layout.preferredHeight: 16
+                        
+                            ColumnLayout {
+                                SFText {
+                                    Layout.fillWidth: true
+                                    //: settings tab, general section, amounts unit label
+                                    //% "Show amounts in"
+                                    text: qsTrId("settings-general-amounts-unit")
+                                    color: Style.content_secondary
+                                    font.pixelSize: 14
+                                }
+                            }
+                        
+                            Item {
+                            }
+                        
+                            ColumnLayout {
+                                CustomTripleSwitch {
+                                    id: tripleSwitch
+                                    width: 210 // generalBlock.width * 0.33
+                                    height: 20
+                                    state: viewModel.secondCurrency
+                                    onStateChanged: { 
+                                        viewModel.secondCurrency = tripleSwitch.state;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Item {
+                            Layout.preferredHeight: 10
                         }
 
                         SFText {
@@ -590,7 +631,7 @@ deploy the key at the node you trust completely."*/
                                 Layout.preferredHeight: 32
                                 linkEnabled: true
                                 onLinkActivated:  {
-                                    Utils.openExternal(link, viewModel, externalLinkConfirmation)
+                                    Utils.openExternalWithConfirmation(link)
                                 }
                             }
 
@@ -622,7 +663,7 @@ deploy the key at the node you trust completely."*/
                     radius: 10
                     color: Style.background_second
                     Layout.preferredHeight: 200
-                    Layout.topMargin: 30
+                    Layout.topMargin: 20
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -637,17 +678,16 @@ deploy the key at the node you trust completely."*/
                             font.pixelSize: 18
                             font.styleName: "Bold"; font.weight: Font.Bold
                         }
-
                         CustomSwitch {
                             id: walletVersionNotificationsSwitch
                             //% "Wallet version"
                             text: qsTrId("settings-notifications-version")
                             font.pixelSize: 14
                             Layout.fillWidth: true
-                            checked: viewModel.newscastSettings.isUpdatesPushActive
+                            checked: viewModel.notificationsSettings.isNewVersionActive
                             Binding {
-                                target: viewModel.newscastSettings
-                                property: "isUpdatesPushActive"
+                                target: viewModel.notificationsSettings
+                                property: "isNewVersionActive"
                                 value: walletVersionNotificationsSwitch.checked
                             }
                         }
@@ -657,14 +697,11 @@ deploy the key at the node you trust completely."*/
                             text: qsTrId("settings-notifications-news")
                             font.pixelSize: 14
                             Layout.fillWidth: true
-                            // checked: viewModel.
-                            onClicked: {
-                                // test
-                                var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(settingsView);
-                                popup.titleText = "New version v1.2.3 is avalable";
-                                popup.messageText = "Your current version is v1.2.2. Please update to get the most of your Beam wallet.";
-                                popup.acceptButtonText = "update now";
-                                popup.open();
+                            checked: viewModel.notificationsSettings.isBeamNewsActive
+                            Binding {
+                                target: viewModel.notificationsSettings
+                                property: "isBeamNewsActive"
+                                value: newsNotificationsSwitch.checked
                             }
                         }
                         CustomSwitch {
@@ -673,8 +710,12 @@ deploy the key at the node you trust completely."*/
                             text: qsTrId("settings-notifications-tx-status")
                             font.pixelSize: 14
                             Layout.fillWidth: true
-                            // checked: viewModel.
-                            // onClicked: {}
+                            checked: viewModel.notificationsSettings.isTxStatusActive
+                            Binding {
+                                target: viewModel.notificationsSettings
+                                property: "isTxStatusActive"
+                                value: txStatusNotificationsSwitch.checked
+                            }
                         }
                     }
                 }
@@ -682,7 +723,7 @@ deploy the key at the node you trust completely."*/
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 38
-                    Layout.topMargin: 30
+                    Layout.topMargin: 20
 
                     CustomButton {
                         Layout.preferredWidth: 250
@@ -739,7 +780,7 @@ deploy the key at the node you trust completely."*/
                     Layout.preferredWidth: 250
                     Layout.preferredHeight: 38
                     Layout.alignment: Qt.AlignLeft
-                    Layout.topMargin: 30
+                    Layout.topMargin: 20
                     //% "Rescan"
                     text: qsTrId("general-rescan")
                     palette.button: Style.background_second
@@ -1124,7 +1165,7 @@ deploy the key at the node you trust completely."*/
                             wrapMode: Text.WordWrap
                             linkEnabled: true
                             onLinkActivated: {
-                                Utils.openExternal(link, viewModel, externalLinkConfirmation);
+                                Utils.openExternalWithConfirmation(link);
                             }
                         }
 

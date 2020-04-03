@@ -27,6 +27,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include "utility/string_helpers.h"
 #include "mnemonic/mnemonic.h"
+#include "viewmodel/ui_helpers.h"
 
 #include "wallet/transactions/swaps/bridges/litecoin/settings.h"
 #include "wallet/transactions/swaps/bridges/qtum/settings.h"
@@ -155,20 +156,7 @@ SwapCoinSettingsItem::~SwapCoinSettingsItem()
 
 QString SwapCoinSettingsItem::getFeeRateLabel() const
 {
-    switch (m_swapCoin)
-    {
-        case beam::wallet::AtomicSwapCoin::Bitcoin:
-            return QMLGlobals::btcFeeRateLabel();;
-        case beam::wallet::AtomicSwapCoin::Litecoin:
-            return QMLGlobals::ltcFeeRateLabel();
-        case beam::wallet::AtomicSwapCoin::Qtum:
-            return QMLGlobals::qtumFeeRateLabel();
-        default:
-        {
-            assert(false && "unexpected swap coin!");
-            return QString();
-        }
-    }
+    return beamui::getFeeRateLabel(beamui::convertSwapCoinToCurrency(m_swapCoin));
 }
 
 QString SwapCoinSettingsItem::getTitle() const
@@ -791,14 +779,14 @@ void SwapCoinSettingsItem::applyNodeAddressElectrum(const QString& address)
     }
 }
 
-
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance().getSettings()}
-    , m_newscastSettings(AppModel::getInstance().getSettings())
+    , m_notificationsSettings(AppModel::getInstance().getSettings())
     , m_isValidNodeAddress{true}
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
     , m_supportedLanguages(WalletSettings::getSupportedLanguages())
+    , m_supportedAmountUnits(WalletSettings::getSupportedRateUnits())
 {
     undoChanges();
 
@@ -806,6 +794,7 @@ SettingsViewModel::SettingsViewModel()
     m_isPasswordReqiredToSpendMoney = m_settings.isPasswordReqiredToSpendMoney();
     m_isAllowedBeamMWLinks = m_settings.isAllowedBeamMWLinks();
     m_currentLanguageIndex = m_supportedLanguages.indexOf(m_settings.getLanguageName());
+    m_secondCurrency = m_settings.getSecondCurrency();
 
     connect(&AppModel::getInstance().getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
     connect(&AppModel::getInstance().getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
@@ -1012,6 +1001,18 @@ void SettingsViewModel::setCurrentLanguage(QString value)
     }
 }
 
+QString SettingsViewModel::getSecondCurrency() const
+{
+    return m_secondCurrency;
+}
+
+void SettingsViewModel::setSecondCurrency(const QString& value)
+{
+    m_secondCurrency = value;
+    m_settings.setSecondCurrency(value);
+    emit secondCurrencyChanged();
+}
+
 uint SettingsViewModel::coreAmount() const
 {
     return std::thread::hardware_concurrency();
@@ -1103,7 +1104,6 @@ QString SettingsViewModel::getWalletLocation() const
 
 void SettingsViewModel::undoChanges()
 {
-    auto remoteNodeAddress = m_settings.getNodeAddress();
     auto unpackedAddress = parseAddress(m_settings.getNodeAddress());
     setNodeAddress(unpackedAddress.address);
     if (unpackedAddress.port > 0)
@@ -1149,7 +1149,7 @@ const QList<QObject*>& SettingsViewModel::getSwapCoinSettings()
     return m_swapSettings;
 }
 
-QObject* SettingsViewModel::getNewscastSettings()
+QObject* SettingsViewModel::getNotificationsSettings()
 {
-    return &m_newscastSettings;
+    return &m_notificationsSettings;
 }

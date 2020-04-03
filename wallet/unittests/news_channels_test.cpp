@@ -14,29 +14,25 @@
 
 #include <boost/filesystem.hpp>
 
+// test helpers and mocks
 #include "test_helpers.h"
-#include "wallet/core/common.h"
-#include "wallet/core/simple_transaction.h"
-#include "wallet/core/wallet_network.h"
-#include "keykeeper/local_private_key_keeper.h"
-// for wallet_test_environment.cpp
-#include "core/unittest/mini_blockchain.h"
-#include "core/radixtree.h"
-#include "utility/test_helpers.h"
-#include "node/node.h"
-
 WALLET_TEST_INIT
-#include "wallet_test_environment.cpp"
 #include "mock_bbs_network.cpp"
 
-#include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
+// tested module
 #include "wallet/client/extensions/news_channels/interface.h"
-#include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
-#include "wallet/client/extensions/news_channels/broadcast_msg_creator.h"
 #include "wallet/client/extensions/news_channels/updates_provider.h"
+#include "wallet/client/extensions/news_channels/exchange_rate_provider.h"
+#include "wallet/client/extensions/notifications/notification_center.h"
+
+// dependencies
+#include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
 
 #include <tuple>
 
+using namespace std;
 using namespace beam;
 using namespace beam::wallet;
 
@@ -45,23 +41,25 @@ namespace
     using PrivateKey = ECC::Scalar::Native;
     using PublicKey = PeerID;
 
+    const string dbFileName = "wallet.db";
+
     /**
      *  Class to test correct notification of news channels observers
      */
-    struct MockNewsObserver : public INewsObserver
+    struct MockNewsObserver : public INewsObserver, public IExchangeRateObserver
     {
-        using OnVersion = function<void(const VersionInfo&)>;
-        using OnRate = function<void(const ExchangeRates&)>;
+        using OnVersion = function<void(const VersionInfo&, const ECC::uintBig&)>;
+        using OnRate = function<void(const std::vector<ExchangeRate>&)>;
 
         MockNewsObserver(OnVersion onVers, OnRate onRate)
             : m_onVers(onVers)
             , m_onRate(onRate) {};
 
-        virtual void onNewWalletVersion(const VersionInfo& v) override
+        virtual void onNewWalletVersion(const VersionInfo& v, const ECC::uintBig& s) override
         {
-            m_onVers(v);
+            m_onVers(v, s);
         }
-        virtual void onExchangeRates(const ExchangeRates& r) override
+        virtual void onExchangeRates(const std::vector<ExchangeRate>& r) override
         {
             m_onRate(r);
         }
@@ -71,353 +69,604 @@ namespace
     };
 
     /**
+     *  Class to test notifications observers interface
+     */
+    struct MockNotificationsObserver : public INotificationsObserver
+    {
+        using OnNotification = function<void(ChangeAction action, const std::vector<Notification>&)>;
+
+        MockNotificationsObserver(OnNotification callback)
+            : m_onNotification(callback) {};
+        
+        virtual void onNotificationsChanged(ChangeAction action, const std::vector<Notification>& list) override
+        {
+            m_onNotification(action, list);
+        }
+
+        OnNotification m_onNotification;
+    };
+
+    IWalletDB::Ptr createSqliteWalletDB()
+    {
+        if (boost::filesystem::exists(dbFileName))
+        {
+            boost::filesystem::remove(dbFileName);
+        }
+        ECC::NoLeak<ECC::uintBig> seed;
+        seed.V = 10283UL;
+        auto walletDB = WalletDB::init(dbFileName, string("pass123"), seed);
+        beam::Block::SystemState::ID id = { };
+        id.m_Height = 134;
+        walletDB->setSystemStateID(id);
+        return walletDB;
+    }
+
+    /**
      *  Derive key pair with specified @keyIndex
      */
-    std::tuple<PublicKey, PrivateKey> deriveKeypair(IWalletDB::Ptr walletDB, uint64_t keyIndex)
+    std::tuple<PublicKey, PrivateKey> deriveKeypair(IWalletDB::Ptr storage, uint64_t keyIndex)
     {
         PrivateKey sk;
         PublicKey pk;
-        walletDB->get_MasterKdf()->DeriveKey(sk, ECC::Key::ID(keyIndex, Key::Type::Bbs));
+        storage->get_MasterKdf()->DeriveKey(sk, ECC::Key::ID(keyIndex, Key::Type::Bbs));
         pk.FromSk(sk);
         return std::make_tuple(pk, sk);
     }
 
     /**
-     *  Create signature for @data using key derived with specified @keyIndex
-     *  return derived public key and signature
+     *  Send broadcast message using protocol version 0.0.1
+     *  Used to test compatibility between versions.
      */
-    std::tuple<PublicKey, ByteBuffer> signData(const ByteBuffer& data, uint64_t keyIndex, IWalletDB::Ptr walletDB)
+    ByteBuffer createMessage(BroadcastContentType type, const BroadcastMsg& msg)
     {
-        const auto& [pk, sk] = deriveKeypair(walletDB, keyIndex);
-        SignatureHandler signHandler;
-        signHandler.m_data = data;
-        signHandler.Sign(sk);
-        ByteBuffer rawSignature = toByteBuffer(signHandler.m_Signature);
-        return std::make_tuple(pk, rawSignature);
-    }
-    
-    /**
-     *  Create message with Protocol header according to broadcast protocol
-     */
-    ByteBuffer addProtocolHeader(const BroadcastMsg& body, BroadcastContentType type)
-    {
-        ByteBuffer content = toByteBuffer(body);
-        ByteBuffer msg(MsgHeader::SIZE + content.size());
-        MsgHeader header(0, // V0
-                         0, // V1
-                         1, // V2
-                         static_cast<uint8_t>(type),
-                         static_cast<uint8_t>(content.size()));
-        header.write(msg.data());
-        std::copy(std::cbegin(content),
-                  std::cend(content),
-                  std::begin(msg) + MsgHeader::SIZE);
-        return msg;
-    };
+        ByteBuffer content = wallet::toByteBuffer(msg);
+        size_t packSize = MsgHeader::SIZE + content.size();
+        assert(packSize <= proto::Bbs::s_MaxMsgSize);
 
-    /**
-     * Create BroadcastMsg with specified string
-     */
-    // BroadcastMsg createBroadcastMsg(std::string testString)
-    // {
-    //     BroadcastMsg res = { toByteBuffer(testString), };
-    //     return res;
-    // }
-
-    /**
-     *  Tests:
-     *  - only correctly signed with PrivateKey messageas are accepted
-     *  - publishers PublicKeys are correcly accepted
-     */
-    void TestSignatureValidation()
-    {
-        cout << endl << "Test BroadcastMsgValidator signature verification" << endl;
-
-        auto senderWalletDB = createSenderWalletDB();
-        BroadcastMsgValidator validator;
-
-        // generate key pairs for test
-        std::array<std::pair<PublicKey,PrivateKey>,10> keyPairsArray;
-        for (size_t i = 0; i < keyPairsArray.size(); ++i)
+        // Prepare Protocol header
+        ByteBuffer packet(packSize);
+        MsgHeader header(BroadcastRouter::m_ver_1[0],
+                         BroadcastRouter::m_ver_1[1],
+                         BroadcastRouter::m_ver_1[2]);
+        
+        switch (type)
         {
-            const auto [pk, sk] = deriveKeypair(senderWalletDB, i);
-            keyPairsArray[i] = std::make_pair(pk, sk);
+        case BroadcastContentType::SwapOffers:
+            header.type = 0;
+            break;
+        case BroadcastContentType::SoftwareUpdates:
+            header.type = 1;
+            break;
+        case BroadcastContentType::ExchangeRates:
+            header.type = 2;
+            break;
         }
+        header.size = static_cast<uint32_t>(content.size());
+        header.write(packet.data());
 
-        // generate cases for test
-        const std::array<std::pair<bool, bool>, keyPairsArray.size()> keyDistributionTable = 
-        {
-            // different combinations with keys:
-            // (loadKeyToEndpoint, signDataWithKey)
-            std::make_pair(true, true),
-            std::make_pair(true, false),
-            std::make_pair(false, true),
-            std::make_pair(false, false),
-            std::make_pair(true, true),
-            std::make_pair(true, false),
-            std::make_pair(false, true),
-            std::make_pair(false, false),
-            std::make_pair(true, true),
-            std::make_pair(true, true)
-        };
+        std::copy(std::begin(content),
+                std::end(content),
+                std::begin(packet) + MsgHeader::SIZE);
 
-        // prepare messages and publisher keys
-        std::array<ByteBuffer, keyPairsArray.size()> messages;  // messages for test
-        std::vector<PublicKey> publisherKeys;   // keys to load in NewsEndpoint
-        for (size_t i = 0; i < keyPairsArray.size(); ++i)
-        {
-            const auto [to_load, to_sign] = keyDistributionTable[i];
-            const auto& [pubKey, privKey] = keyPairsArray[i];
-
-            if (to_load) publisherKeys.push_back(pubKey);
-
-            BroadcastMsg msg;
-            msg.m_content = toByteBuffer(std::to_string(i));
-            SignatureHandler signHandler;
-            signHandler.m_data = msg.m_content;
-            if (to_sign) signHandler.Sign(privKey);
-            msg.m_signature = toByteBuffer(signHandler.m_Signature);
-            messages[i] = toByteBuffer(msg);
-        }
-
-        WALLET_CHECK_NO_THROW(validator.setPublisherKeys(publisherKeys));
-
-        // Push messages and check validation result
-        for (size_t i = 0; i < messages.size(); ++i)
-        {
-            const ByteBuffer& data = messages[i];
-            BroadcastMsg msg;
-            bool res = false;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, msg));
-
-            auto [keyLoaded, msgSigned] = keyDistributionTable[i];
-
-            if (res)
-            {
-                // Only messages with signed with correct keys have to pass validation
-                WALLET_CHECK(keyLoaded && msgSigned);
-                // Check content
-                ByteBuffer referenceContent = toByteBuffer(std::to_string(i));
-                WALLET_CHECK(referenceContent == msg.m_content);
-            }
-            else
-            {
-                WALLET_CHECK(!keyLoaded || !msgSigned);
-                // key not loaded to validator or message not correctly signed
-                // are the reasons to fail
-            }
-        }
-        cout << "Test end" << endl;
+        return packet;
     }
 
-    /**
-     *  Test BroadcastMsgValidator key loading
-     */
-    void TestPublisherKeysLoading()
+    void TestSoftwareVersion()
     {
-        cout << endl << "Test BroadcastMsgValidator keys loading" << endl;
-
-        auto senderWalletDB = createSenderWalletDB();
-        BroadcastMsgValidator validator;
+        cout << endl << "Test Version operations" << endl;
 
         {
-            cout << "Case: no keys loaded, not signed message" << endl;
-
-            BroadcastMsg msg;
-            msg.m_content = toByteBuffer(std::string("not signed message"));
-            SignatureHandler signHandler;
-            signHandler.m_data = msg.m_content;
-            msg.m_signature = toByteBuffer(signHandler.m_Signature);
-            ByteBuffer data = toByteBuffer(msg);
-
-            bool res = false;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, msg));
-            WALLET_CHECK(!res);
+            Version v {123, 456, 789};
+            WALLET_CHECK(to_string(v) == "123.456.789");
         }
+
         {
-            cout << "Case: no keys loaded, correct message" << endl;
+            WALLET_CHECK(Version(12,12,12) == Version(12,12,12));
+            WALLET_CHECK(!(Version(12,12,12) != Version(12,12,12)));
+            WALLET_CHECK(Version(12,13,12) != Version(12,12,12));
+            WALLET_CHECK(!(Version(12,13,12) == Version(12,12,12)));
 
-            BroadcastMsg msg;
-            msg.m_content = toByteBuffer(std::string("correct message"));
-
-            const auto& [pk, signature] = signData(msg.m_content, 123, senderWalletDB);
-            msg.m_signature = signature;
-            ByteBuffer data = toByteBuffer(msg);
-
-            bool res = false;
-            BroadcastMsg resMsg;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, resMsg));
-            WALLET_CHECK(!res);
-
-            cout << "Case: key loaded, correct message" << endl;
-            WALLET_CHECK_NO_THROW(validator.setPublisherKeys({pk}));
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, resMsg));
-            WALLET_CHECK(res);
-            WALLET_CHECK(msg == resMsg);
-            
-            cout << "Case: keys cleared" << endl;
-
-            WALLET_CHECK_NO_THROW(validator.setPublisherKeys({}));
-            WALLET_CHECK(!validator.processMessage(data, resMsg));
+            WALLET_CHECK(Version(12,12,12) < Version(13,12,12));
+            WALLET_CHECK(Version(12,12,12) < Version(12,13,12));
+            WALLET_CHECK(Version(12,12,12) < Version(12,12,13));
+            WALLET_CHECK(Version(12,12,12) < Version(13,13,13));
+            WALLET_CHECK(!(Version(12,12,12) < Version(12,12,12)));
         }
+
         {
-            cout << "Case: new key loaded" << endl;
-
-            BroadcastMsg msg;
-            msg.m_content = toByteBuffer(std::string("test message"));
-            const auto& [pk, signature] = signData(msg.m_content, 159, senderWalletDB);
-            msg.m_signature = signature;
-            ByteBuffer data = toByteBuffer(msg);
-
-            WALLET_CHECK_NO_THROW(validator.setPublisherKeys({pk}));
+            Version v;
             bool res = false;
-            BroadcastMsg resMsg;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, resMsg));
-            WALLET_CHECK(res);
-            WALLET_CHECK(msg == resMsg);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12.345.6789"));
+            WALLET_CHECK(res == true);
+            WALLET_CHECK(v == Version(12,345,6789));
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("0.0.0"));
+            WALLET_CHECK(res == true);
+            WALLET_CHECK(v == Version());
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12345.6789"));
+            WALLET_CHECK(res == true);
+            WALLET_CHECK(v == Version(12345,6789,0));
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12,345.6789"));
+            WALLET_CHECK(res == false);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12.345.6e89"));
+            WALLET_CHECK(res == false);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("12345.6789.12.52"));
+            WALLET_CHECK(res == false);
+
+            WALLET_CHECK_NO_THROW(res = v.from_string("f12345.6789.52"));
+            WALLET_CHECK(res == false);
         }
-        cout << "Test end" << endl;
+
+        {
+            WALLET_CHECK("desktop" == VersionInfo::to_string(VersionInfo::Application::DesktopWallet));
+            WALLET_CHECK(VersionInfo::Application::DesktopWallet == VersionInfo::from_string("desktop"));
+        }
     }
 
     void TestNewsChannelsObservers()
     {
         cout << endl << "Test news channels observers" << endl;
 
+        auto storage = createSqliteWalletDB();
         MockBbsNetwork network;
         BroadcastRouter broadcastRouter(network, network);
         BroadcastMsgValidator validator;
         AppUpdateInfoProvider updatesProvider(broadcastRouter, validator);
-        // TODO exchange rates provider test
-        auto senderWalletDB = createSenderWalletDB();
+        ExchangeRateProvider rateProvider(broadcastRouter, validator, *storage);
         
-        int notificationCount = 0;
+        int execCountVers = 0;
+        int execCountRate = 0;
 
-        const VersionInfo verInfo = { VersionInfo::Application::DesktopWallet, Version {123,456,789} };
-        // const ExchangeRates rates = {getTimestamp(), { ExchangeRate { ExchangeRates::Currency::Beam,
-        //                                                               147852369,
-        //                                                               ExchangeRates::Currency::Usd
-        //                                                             }}};
+        const VersionInfo verInfo { VersionInfo::Application::DesktopWallet, Version {123,456,789} };
+        std::vector<ExchangeRate> rates {
+            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 147852369, getTimestamp() } };
 
+        const auto& [pk, sk] = deriveKeypair(storage, 321);
+        BroadcastMsg msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
+        BroadcastMsg msgR = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rates), sk);
+        
         MockNewsObserver testObserver(
-            [&notificationCount, &verInfo]
-            (const VersionInfo& v)          // void onNewWalletVersion(const VersionInfo&)
+            [&execCountVers, &verInfo]
+            (const VersionInfo& v, const ECC::uintBig& id)
             {
                 WALLET_CHECK(verInfo == v);
-                ++notificationCount;
+                ++execCountVers;
             },
-            [&notificationCount/*, &rates*/]
-            (const ExchangeRates& r)        // void onExchangeRates(const ExchangeRates&)
+            [&execCountRate, &rates]
+            (const std::vector<ExchangeRate>& r)
             {
-                // WALLET_CHECK(rates == r);
-                ++notificationCount;
+                WALLET_CHECK(rates == r);
+                ++execCountRate;
             });
 
-        BroadcastMsg msg;
-        msg.m_content = toByteBuffer(verInfo);
-        const auto& [pk, signature] = signData(msg.m_content, 321, senderWalletDB);
-        msg.m_signature = signature;
 
         {
             // loading correct key with 2 additional just for filling
             PublicKey pk2, pk3;
-            std::tie(pk2, std::ignore) = deriveKeypair(senderWalletDB, 789);
-            std::tie(pk3, std::ignore) = deriveKeypair(senderWalletDB, 456);
+            std::tie(pk2, std::ignore) = deriveKeypair(storage, 789);
+            std::tie(pk3, std::ignore) = deriveKeypair(storage, 456);
             validator.setPublisherKeys({pk, pk2, pk3});
         }
 
         {
             cout << "Case: subscribed on valid message" << endl;
             updatesProvider.Subscribe(&testObserver);
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 1);
+            rateProvider.Subscribe(&testObserver);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgR);
+            WALLET_CHECK(execCountVers == 1);
+            WALLET_CHECK(execCountRate == 1);
         }
         {
             cout << "Case: unsubscribed on valid message" << endl;
             updatesProvider.Unsubscribe(&testObserver);
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 1);
+            rateProvider.Unsubscribe(&testObserver);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgR);
+            WALLET_CHECK(execCountVers == 1);
+            WALLET_CHECK(execCountRate == 1);
         }
         {
             cout << "Case: subscribed back" << endl;
             updatesProvider.Subscribe(&testObserver);
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 2);
+            rateProvider.Subscribe(&testObserver);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            WALLET_CHECK(execCountVers == 2);
+            WALLET_CHECK(execCountRate == 1);   // the rate was the same so no need in the notification
         }
         {
             cout << "Case: subscribed on invalid message" << endl;
             // sign the same message with other key
-            ByteBuffer newSignature;
-            std::tie(std::ignore, newSignature) = signData(msg.m_content, 322, senderWalletDB);
-            msg.m_signature = newSignature;
-
-            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
-            WALLET_CHECK(notificationCount == 2);
+            PrivateKey newSk;
+            std::tie(std::ignore, newSk) = deriveKeypair(storage, 322);
+            msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), newSk);
+            broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            WALLET_CHECK(execCountVers == 2);
+        }
+        {
+            cout << "Case: compatibility with the previous ver:0.0.1" << endl;
+            rates.front().m_updateTime = getTimestamp() + 1;
+            msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
+            msgR = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rates), sk);
+            broadcastRouter.sendRawMessage(BroadcastContentType::SoftwareUpdates, createMessage(BroadcastContentType::SoftwareUpdates, msgV));
+            broadcastRouter.sendRawMessage(BroadcastContentType::ExchangeRates, createMessage(BroadcastContentType::ExchangeRates, msgR));
+            WALLET_CHECK(execCountVers == 3);
+            WALLET_CHECK(execCountRate == 2);
         }
         cout << "Test end" << endl;
     }
 
-    void TestStringToKeyConvertation()
+    void TestExchangeRateProvider()
     {
-        cout << endl << "Test string to key convertation" << endl;
+        cout << endl << "Test ExchangeRateProvider" << endl;
 
+        MockBbsNetwork network;
+        BroadcastRouter broadcastRouter(network, network);
+        BroadcastMsgValidator validator;
+        auto storage = createSqliteWalletDB();
+        ExchangeRateProvider rateProvider(broadcastRouter, validator, *storage);
+
+        const auto& [pk, sk] = deriveKeypair(storage, 321);
+        validator.setPublisherKeys({pk});
+
+        // empty provider
         {
-            ECC::uintBig referencePubKey = {
-                0xdb, 0x61, 0x7c, 0xed, 0xb1, 0x75, 0x43, 0x37,
-                0x5b, 0x60, 0x20, 0x36, 0xab, 0x22, 0x3b, 0x67,
-                0xb0, 0x6f, 0x86, 0x48, 0xde, 0x2b, 0xb0, 0x4d,
-                0xe0, 0x47, 0xf4, 0x85, 0xe7, 0xa9, 0xda, 0xec
-            };
-
-            bool res = false;
-            PeerID key;
-            WALLET_CHECK_NO_THROW(res = BroadcastMsgValidator::stringToPublicKey("db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec", key));
-            WALLET_CHECK(res && key == referencePubKey);
+            cout << "Case: empty rates" << endl;
+            WALLET_CHECK(rateProvider.getRates().empty());
         }
+        const std::vector<ExchangeRate> rate {
+            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 147852369, getTimestamp() }
+        };
+        // add rate
         {
-            ECC::uintBig referencePrivateKey = {
-                0xf7, 0x0c, 0x36, 0xf2, 0xd8, 0x34, 0x2b, 0x66,
-                0xe3, 0x08, 0x1e, 0xa4, 0xd8, 0x75, 0x43, 0x56,
-                0x6d, 0x6a, 0xd2, 0x42, 0xc6, 0xe6, 0x1d, 0xbf,
-                0x92, 0x6d, 0x57, 0xff, 0x42, 0xde, 0x0c, 0x59
-            };
-            ECC::Scalar refKey;
-            refKey.m_Value = referencePrivateKey;
-            ECC::Scalar::Native nativeKey;
-            nativeKey.Import(refKey);
+            cout << "Case: add rates" << endl;
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rate), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
 
-            bool res = false;
-            ECC::Scalar::Native key;
-            WALLET_CHECK_NO_THROW(res = BroadcastMsgCreator::stringToPrivateKey("f70c36f2d8342b66e3081ea4d87543566d6ad242c6e61dbf926d57ff42de0c59", key));
-            WALLET_CHECK(res && key == nativeKey);
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 1);
+            WALLET_CHECK(testRates[0] == rate[0]);
+        }
+        // update rate
+        {
+            cout << "Case: not update if rates older" << endl;
+            const std::vector<ExchangeRate> rateOlder {
+                { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 14785238554, getTimestamp()-100 }
+            };
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateOlder), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
+
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 1);
+            WALLET_CHECK(testRates[0] == rate[0]);
+        }
+        const std::vector<ExchangeRate> rateNewer {
+            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 14785238554, getTimestamp()+100 }
+        };
+        {
+            cout << "Case: update rates" << endl;
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateNewer), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
+
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 1);
+            WALLET_CHECK(testRates[0] == rateNewer[0]);
+        }
+        // add more rate
+        {
+            cout << "Case: add more rates" << endl;
+            const std::vector<ExchangeRate> rateAdded {
+                { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Bitcoin, 987, getTimestamp()+100 }
+            };
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateAdded), sk);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
+
+            auto testRates = rateProvider.getRates();
+            WALLET_CHECK(testRates.size() == 2);
+            WALLET_CHECK(testRates[0] == rateNewer[0] || testRates[1] == rateNewer[0]);
         }
     }
 
-    void TestProtocolBuilder()
+    void TestNotificationCenter()
     {
-        cout << endl << "Test BroadcastMsgCreator" << endl;
-        // TODO Newscast test
-        /// Create message signed with private key
-        // static ByteBuffer createMessage(const NewsMessage& content, const PrivateKey& key);
+        cout << endl << "Test NotificationCenter" << endl;
+
+        auto storage = createSqliteWalletDB();
+        std::map<Notification::Type,bool> activeTypes {
+            { Notification::Type::SoftwareUpdateAvailable, true },
+            { Notification::Type::AddressStatusChanged, true },
+            { Notification::Type::TransactionStatusChanged, true },
+            { Notification::Type::BeamNews, true }
+        };
+        NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
+
+        {
+            {
+                cout << "Case: empty list" << endl;
+                WALLET_CHECK(center.getNotifications().size() == 0);
+            }
+
+            const ECC::uintBig id({0,1,2,3,4,5,6,7,8,9,
+                              0,1,2,3,4,5,6,7,8,9,
+                              0,1,2,3,4,5,6,7,8,9,
+                              0,1});
+            const VersionInfo info { VersionInfo::Application::DesktopWallet, Version(1,2,3) };
+            
+            {
+                cout << "Case: create notification" << endl;
+                size_t execCount = 0;
+                MockNotificationsObserver observer(
+                    [&execCount, &id]
+                    (ChangeAction action, const std::vector<Notification>& list)
+                    {
+                        WALLET_CHECK(action == ChangeAction::Added);
+                        WALLET_CHECK(list.size() == 1);
+                        WALLET_CHECK(list[0].m_ID == id);
+                        WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                        ++execCount;
+                    }
+                );
+                center.Subscribe(&observer);
+                center.onNewWalletVersion(info, id);
+                auto list = center.getNotifications();
+                WALLET_CHECK(list.size() == 1);
+                WALLET_CHECK(list[0].m_ID == id);
+                WALLET_CHECK(list[0].m_type == Notification::Type::SoftwareUpdateAvailable);
+                WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                WALLET_CHECK(list[0].m_createTime != 0);
+                WALLET_CHECK(list[0].m_content == toByteBuffer(info));
+                WALLET_CHECK(execCount == 1);
+                center.Unsubscribe(&observer);
+            }
+
+            // update: mark as read
+            {
+                cout << "Case: mark as read" << endl;
+                size_t execCount = 0;
+                MockNotificationsObserver observer(
+                    [&execCount, &id]
+                    (ChangeAction action, const std::vector<Notification>& list)
+                    {
+                        WALLET_CHECK(action == ChangeAction::Updated);
+                        WALLET_CHECK(list.size() == 1);
+                        WALLET_CHECK(list[0].m_ID == id);
+                        WALLET_CHECK(list[0].m_state == Notification::State::Read);
+                        ++execCount;
+                    }
+                );
+                center.Subscribe(&observer);
+                center.markNotificationAsRead(id);
+                auto list = center.getNotifications();
+                WALLET_CHECK(list.size() == 1);
+                WALLET_CHECK(list[0].m_ID == id);
+                WALLET_CHECK(list[0].m_type == Notification::Type::SoftwareUpdateAvailable);
+                WALLET_CHECK(list[0].m_state == Notification::State::Read);
+                WALLET_CHECK(list[0].m_createTime != 0);
+                WALLET_CHECK(list[0].m_content == toByteBuffer(info));
+                WALLET_CHECK(execCount == 1);
+                center.Unsubscribe(&observer);
+            }
+
+            // delete
+            {
+                cout << "Case: delete notification" << endl;
+                size_t execCount = 0;
+                MockNotificationsObserver observer(
+                    [&execCount, &id]
+                    (ChangeAction action, const std::vector<Notification>& list)
+                    {
+                        WALLET_CHECK(action == ChangeAction::Removed);
+                        WALLET_CHECK(list.size() == 1);
+                        WALLET_CHECK(list[0].m_ID == id);
+                        ++execCount;
+                    }
+                );
+                center.Subscribe(&observer);
+                center.deleteNotification(id);
+                auto list = center.getNotifications();
+                // all notifications returned! even deleted.
+                WALLET_CHECK(list.size() == 1);
+                WALLET_CHECK(execCount == 1);
+                center.Unsubscribe(&observer);
+            }
+
+            // check on duplicate
+            {
+                cout << "Case: duplicate notification" << endl;
+                MockNotificationsObserver observer(
+                    []
+                    (ChangeAction action, const std::vector<Notification>& list)
+                    {
+                        WALLET_CHECK(false);
+                    }
+                );
+                center.Subscribe(&observer);
+                center.onNewWalletVersion(info, id);
+                auto list = center.getNotifications();
+                WALLET_CHECK(list.size() == 1);
+                center.Unsubscribe(&observer);
+            }
+        }
     }
 
-    void TestSoftwareVersion()
+    void TestNotificationsOnOffSwitching()
     {
-        cout << endl << "Test Version" << endl;
+        cout << endl << "Test notifications on/off switching" << endl;
 
-        Version v {123, 456, 789};
-        WALLET_CHECK(to_string(v) == "123.456.789");
-        // WALLET_CHECK(to_string(Version::getCurrent()) == PROJECT_VERSION);
+        auto storage = createSqliteWalletDB();
+        std::map<Notification::Type,bool> activeTypes {
+            { Notification::Type::SoftwareUpdateAvailable, false },
+            { Notification::Type::AddressStatusChanged, false },
+            { Notification::Type::TransactionStatusChanged, false },
+            { Notification::Type::BeamNews, false }
+        };
+        NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
 
-        WALLET_CHECK(Version(12,12,12) == Version(12,12,12));
-        WALLET_CHECK(!(Version(12,12,12) != Version(12,12,12)));
-        WALLET_CHECK(Version(12,13,12) != Version(12,12,12));
-        WALLET_CHECK(!(Version(12,13,12) == Version(12,12,12)));
+        WALLET_CHECK(center.getNotifications().size() == 0);
 
-        WALLET_CHECK(Version(12,12,12) < Version(13,12,12));
-        WALLET_CHECK(Version(12,12,12) < Version(12,13,12));
-        WALLET_CHECK(Version(12,12,12) < Version(12,12,13));
-        WALLET_CHECK(Version(12,12,12) < Version(13,13,13));
-        WALLET_CHECK(!(Version(12,12,12) < Version(12,12,12)));
+        VersionInfo info { VersionInfo::Application::DesktopWallet, Version(1,2,3) };
+        const ECC::uintBig id( {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+                                1,1,1,1,1,1,1,1,1,1,1,1});
+        const ECC::uintBig id2({2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+                                2,2,2,2,2,2,2,2,2,2,2,2});
+        const ECC::uintBig id3({3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+                                3,3,3,3,3,3,3,3,3,3,3,3});
+
+        // notifications is off on start
+        {
+            cout << "Case: notifications is off on start" << endl;
+            MockNotificationsObserver observer(
+                []
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(false);
+                }
+            );
+            center.Subscribe(&observer);
+            center.onNewWalletVersion(info, id);
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 0);
+            center.Unsubscribe(&observer);
+        }
+        // notifications switched on
+        {
+            cout << "Case: notifications switched on" << endl;
+            size_t execCount = 0;
+            MockNotificationsObserver observer(
+                [&execCount, &id2]
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(action == ChangeAction::Added);
+                    WALLET_CHECK(list.size() == 1);
+                    WALLET_CHECK(list[0].m_ID == id2);
+                    ++execCount;
+                }
+            );
+            center.switchOnOffNotifications(Notification::Type::SoftwareUpdateAvailable, true);
+            center.Subscribe(&observer);
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 1);
+            center.onNewWalletVersion(info, id2);
+            list = center.getNotifications();
+            WALLET_CHECK(list.size() == 2);
+            center.Unsubscribe(&observer);
+            WALLET_CHECK(execCount == 1);
+        }
+        // notification switched off
+        {
+            cout << "Case: notifications switched on" << endl;
+            MockNotificationsObserver observer(
+                []
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(false);
+                }
+            );
+            center.switchOnOffNotifications(Notification::Type::SoftwareUpdateAvailable, false);
+            center.Subscribe(&observer);
+            center.onNewWalletVersion(info, id3);
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 0);
+            center.Unsubscribe(&observer);
+        }
+    }
+
+    void TestNotificationsOnExpiredAddress()
+    {
+        cout << endl << "Test notifications on expired address" << endl;
+
+        // notification on appearing expired address in storage
+        {
+            auto storage = createSqliteWalletDB();
+            std::map<Notification::Type,bool> activeTypes {
+                { Notification::Type::SoftwareUpdateAvailable, false },
+                { Notification::Type::AddressStatusChanged, true },
+                { Notification::Type::TransactionStatusChanged, false },
+                { Notification::Type::BeamNews, false }
+            };
+            WalletAddress addr;
+            storage->createAddress(addr);
+            addr.m_createTime = 123;
+            addr.m_duration = 456;
+            storage->saveAddress(addr);
+            NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
+
+            size_t exeCount = 0;
+            MockNotificationsObserver observer(
+                [&exeCount, &addr]
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(action == ChangeAction::Added);
+                    WALLET_CHECK(list.size() == 1);
+                    WALLET_CHECK(list[0].m_ID == addr.m_walletID.m_Pk);
+                    WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
+                    WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                    ++exeCount;
+                }
+            );
+
+            center.Subscribe(&observer);
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 1);
+            WALLET_CHECK(list[0].m_ID == addr.m_walletID.m_Pk);
+            WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
+            WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+            center.Unsubscribe(&observer);
+            WALLET_CHECK(exeCount == 1);
+        }
+
+        // notification on address update if expired
+        {
+            auto storage = createSqliteWalletDB();
+            std::map<Notification::Type,bool> activeTypes {
+                { Notification::Type::SoftwareUpdateAvailable, false },
+                { Notification::Type::AddressStatusChanged, true },
+                { Notification::Type::TransactionStatusChanged, false },
+                { Notification::Type::BeamNews, false }
+            };
+            const ECC::uintBig id2({
+                0,1,2,3,4,5,6,7,8,9,
+                0,1,2,3,4,5,6,7,8,9,
+                0,1,2,3,4,5,6,7,8,9,
+                0,2});
+            WalletID wid2;
+            wid2.m_Channel = 123u;
+            wid2.m_Pk = id2;
+            WalletAddress addr2;
+            addr2.m_walletID = wid2;
+            addr2.m_label = "expiredAddress";
+            addr2.m_category = "abc";
+            addr2.m_createTime = 123;
+            addr2.m_duration = 456;
+            addr2.m_OwnID = 2;
+            addr2.m_Identity = id2;
+            NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
+
+            size_t exeCount = 0;
+            MockNotificationsObserver observer(
+                [&exeCount, &id2]
+                (ChangeAction action, const std::vector<Notification>& list)
+                {
+                    WALLET_CHECK(action == ChangeAction::Added);
+                    WALLET_CHECK(list.size() == 1);
+                    WALLET_CHECK(list[0].m_ID == id2);
+                    WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
+                    WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                    ++exeCount;
+                }
+            );
+            center.Subscribe(&observer);
+            center.onAddressChanged(ChangeAction::Updated, { addr2 });
+            auto list = center.getNotifications();
+            WALLET_CHECK(list.size() == 1);
+            center.Unsubscribe(&observer);
+            WALLET_CHECK(exeCount == 1);
+        }
     }
 
 } // namespace
@@ -429,12 +678,15 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    TestSignatureValidation();
-    TestPublisherKeysLoading();
-    TestNewsChannelsObservers();
-    TestStringToKeyConvertation();
-    // TestProtocolBuilder();
     TestSoftwareVersion();
+    TestNewsChannelsObservers();
+    TestExchangeRateProvider();
+
+    TestNotificationCenter();
+    TestNotificationsOnOffSwitching();
+    TestNotificationsOnExpiredAddress();
+
+    boost::filesystem::remove(dbFileName);
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

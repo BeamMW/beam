@@ -134,8 +134,10 @@ please review your settings and try again"
                         id:               sendAmountInput
                         hasFee:           true
                         currFeeTitle:     true
-                        amount:           viewModel.sendAmount
+                        amountIn:         viewModel.sendAmount
                         currency:         viewModel.sendCurrency
+                        secondCurrencyRateValue:    viewModel.secondCurrencySendRateValue
+                        secondCurrencyLabel:        viewModel.secondCurrencyLabel
                         readOnlyA:        true
                         multi:            false
                         color:            Style.accent_outgoing
@@ -215,8 +217,10 @@ please review your settings and try again"
                         id:               receiveAmountInput
                         hasFee:           true
                         currFeeTitle:     true
-                        amount:           viewModel.receiveAmount
+                        amountIn:         viewModel.receiveAmount
                         currency:         viewModel.receiveCurrency
+                        secondCurrencyRateValue:    viewModel.secondCurrencyReceiveRateValue
+                        secondCurrencyLabel:        viewModel.secondCurrencyLabel
                         readOnlyA:        true
                         multi:            false
                         color:            Style.accent_incoming
@@ -381,15 +385,12 @@ please review your settings and try again"
                             {
                                 swapMode: true,
                                 addressText: viewModel.receiverAddress,
-                                amountText: [Utils.uiStringToLocale(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" "),
-                                feeText: [Utils.uiStringToLocale(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" "),
-                                feeLabel: sendAmountInput.currency == Currency.CurrBeam ?
-                                    //% "BEAM Transaction fee"
-                                    qsTrId("beam-transaction-fee") + ":" :
-                                    //% "%1 Transaction fee rate"
-                                    qsTrId("general-fee-rate").arg(sendAmountInput.getCurrencyLabel()),
-                                swapCurrencyLabel: sendAmountInput.currency == Currency.CurrBeam ? "" : sendAmountInput.getCurrencyLabel(),
-                                onAcceptedCallback: acceptedCallback
+                                currency: viewModel.sendCurrency,
+                                amount: viewModel.sendAmount,
+                                fee: viewModel.sendFee,
+                                onAcceptedCallback: acceptedCallback,
+                                secondCurrencyRate: viewModel.secondCurrencySendRateValue,
+                                secondCurrencyLabel: viewModel.secondCurrencyLabel
                             }).open();
 
                         function acceptedCallback() {

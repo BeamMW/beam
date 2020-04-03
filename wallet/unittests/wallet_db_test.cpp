@@ -622,7 +622,7 @@ void TestAddresses()
     a.m_duration = 23;
     a.m_OwnID = 44;
     db->get_SbbsWalletID(a.m_walletID, a.m_OwnID);
-
+    WALLET_CHECK(a.m_Identity == Zero);
     db->saveAddress(a);
 
     WalletAddress c = {};
@@ -632,6 +632,7 @@ void TestAddresses()
     c.m_duration = 23;
     c.m_OwnID = 0;
     db->get_SbbsWalletID(c.m_walletID, 32);
+    db->get_Identity(c.m_Identity, 32);
 
     db->saveAddress(c);
 
@@ -643,6 +644,10 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
+    
+    PeerID identity = Zero;
+    db->get_Identity(identity, a.m_OwnID);
+    WALLET_CHECK(addresses[0].m_Identity == identity);
 
     auto contacts = db->getAddresses(false);
     WALLET_CHECK(contacts.size() == 1);
@@ -652,6 +657,7 @@ void TestAddresses()
     WALLET_CHECK(contacts[0].m_createTime == c.m_createTime);
     WALLET_CHECK(contacts[0].m_duration == c.m_duration);
     WALLET_CHECK(contacts[0].m_OwnID == c.m_OwnID);
+    WALLET_CHECK(contacts[0].m_Identity == c.m_Identity);
 
 
     a.m_category = "cat2";
@@ -666,6 +672,7 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
+    WALLET_CHECK(addresses[0].m_Identity == identity);
 
     auto exported = storage::ExportDataToJson(*db);
     WALLET_CHECK(!exported.empty());
@@ -684,9 +691,11 @@ void TestAddresses()
         auto a3 = db->getAddress(a.m_walletID);
         WALLET_CHECK(a3.is_initialized());
         WALLET_CHECK(a3->m_category == a.m_category);
+        WALLET_CHECK(a3->m_Identity == identity);
         auto a4 = db->getAddress(c.m_walletID);
         WALLET_CHECK(a4.is_initialized());
         WALLET_CHECK(a4->m_category == c.m_category);
+        WALLET_CHECK(a4->m_Identity == c.m_Identity);
 
         WALLET_CHECK(addresses == db->getAddresses(true));
         WALLET_CHECK(contacts == db->getAddresses(false));
@@ -1213,8 +1222,46 @@ void TestSelect6()
     }
 }
 
+void TestSelect7()
+{
+    // https://github.com/BeamMW/beam/issues/1339
+    cout << "\nWallet database coin selection 7 test https://github.com/BeamMW/beam/issues/1339\n";
+    auto db = createSqliteWalletDB();
+
+    vector<Coin> coins;
+    coins.reserve(20);
+    coins.push_back(CreateAvailCoin(Amount(7)));
+    coins.push_back(CreateAvailCoin(Amount(43)));
+    coins.push_back(CreateAvailCoin(Amount(999'000)));
+    coins.push_back(CreateAvailCoin(Amount(74'282)));
+    coins.push_back(CreateAvailCoin(Amount(999'000)));
+    coins.push_back(CreateAvailCoin(Amount(999'000)));
+    coins.push_back(CreateAvailCoin(Amount(307'806)));
+    coins.push_back(CreateAvailCoin(Amount(5'249'000)));
+    coins.push_back(CreateAvailCoin(Amount(611'848)));
+    coins.push_back(CreateAvailCoin(Amount(258)));
+    coins.push_back(CreateAvailCoin(Amount(99'000'000)));
+    coins.push_back(CreateAvailCoin(Amount(7'055'842)));
+    coins.push_back(CreateAvailCoin(Amount(86'503'945)));
+    coins.push_back(CreateAvailCoin(Amount(996'856'225)));
+    coins.push_back(CreateAvailCoin(Amount(5'905'818'619)));
+    coins.push_back(CreateAvailCoin(Amount(1'879'910'994)));
+    coins.push_back(CreateAvailCoin(Amount(53'989'740'837)));
+    coins.push_back(CreateAvailCoin(Amount(303)));
+    coins.push_back(CreateAvailCoin(Amount(2'766)));
+    coins.push_back(CreateAvailCoin(Amount(6'456'001'778'569)));
+    db->storeCoins(coins);
+
+    storage::Totals totals(*db);
+    auto t = totals.GetTotals(Zero);
+    WALLET_CHECK(t.Avail == 6'518'975'908'344);
+
+    SelectCoins(db, 6'456'001'778'569 + 1000, false);
+}
+
 void TestWalletMessages()
 {
+    cout << "\nWallet database wallet messages test\n";
     auto db = createSqliteWalletDB();
 
     {
@@ -1297,6 +1344,110 @@ void TestWalletMessages()
     }
 }
 
+void TestNotifications()
+{
+    cout << "\nWallet database notifications test\n";
+    auto db = createSqliteWalletDB();
+
+    {
+        auto notifications = db->getNotifications();
+        WALLET_CHECK(notifications.empty());
+    }
+
+    {
+        // create notification
+        ECC::uintBig id;
+        ECC::GenRandom(id);
+        Notification n1 = {
+            id,
+            Notification::Type::SoftwareUpdateAvailable,
+            Notification::State::Unread,
+            getTimestamp(),
+            toByteBuffer("notification1")
+        };
+        db->saveNotification(n1);
+
+        // read notification
+        std::vector<Notification> list;
+        list = db->getNotifications();
+        WALLET_CHECK(list.size() == 1);
+        WALLET_CHECK(list[0] == n1);
+
+        // update notification
+        n1.m_type = Notification::Type::BeamNews;
+        n1.m_createTime = 123456;
+        n1.m_state = Notification::State::Read;
+        n1.m_content = toByteBuffer("notification1changed");
+        db->saveNotification(n1);
+
+        list = db->getNotifications();
+        WALLET_CHECK(list.size() == 1);
+        WALLET_CHECK(list[0] == n1);
+
+        // add one notification
+        ECC::GenRandom(id);
+        Notification n2 = {
+            id,
+            Notification::Type::AddressStatusChanged,
+            Notification::State::Unread,
+            789123,
+            toByteBuffer("notification2")
+        };
+        db->saveNotification(n2);
+
+        list = db->getNotifications();
+        WALLET_CHECK(list.size() == 2);
+        WALLET_CHECK(list[0] == n2);
+        WALLET_CHECK(list[1] == n1);
+    }
+}
+
+void TestExchangeRates()
+{
+    cout << "\nWallet database exchange rates test\n";
+    auto db = createSqliteWalletDB();
+
+    // empty storage
+    {
+        auto rates = db->getExchangeRates();
+        WALLET_CHECK(rates.empty());
+    }
+
+    {
+        // store rate
+        ExchangeRate r1 { ExchangeRate::Currency::Beam,
+                          ExchangeRate::Currency::Usd,
+                          100000000,
+                          111 };
+        WALLET_CHECK_NO_THROW(db->saveExchangeRate(r1));
+
+        // read
+        auto rates = db->getExchangeRates();
+        WALLET_CHECK(rates.size() == 1);
+        WALLET_CHECK(rates[0] == r1);
+
+        // store another one
+        ExchangeRate r2 { ExchangeRate::Currency::Bitcoin,
+                          ExchangeRate::Currency::Usd,
+                          100000000000,
+                          222 };
+        db->saveExchangeRate(r2);
+        rates = db->getExchangeRates();
+        WALLET_CHECK(rates.size() == 2);
+        WALLET_CHECK(rates[0] == r2);
+        WALLET_CHECK(rates[1] == r1);
+
+        // update one of
+        r1.m_rate += 100500;
+        r1.m_updateTime = 333;
+        db->saveExchangeRate(r1);
+        rates = db->getExchangeRates();
+        WALLET_CHECK(rates.size() == 2);
+        WALLET_CHECK(rates[0] == r1);
+        WALLET_CHECK(rates[1] == r2);
+    }
+}
+
 }
 
 int main() 
@@ -1322,11 +1473,13 @@ int main()
     TestSelect4();
     TestSelect5();
     TestSelect6();
+    TestSelect7();
     TestAddresses();
     TestExportImportTx();
     TestTxParameters();
     TestWalletMessages();
-
+    TestNotifications();
+    TestExchangeRates();
 
     return WALLET_CHECK_RESULT;
 }

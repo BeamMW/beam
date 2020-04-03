@@ -16,6 +16,7 @@
 
 #include "swap_offer_token.h"
 #include "wallet/core/wallet_db.h"
+#include "wallet/client/extensions/broadcast_gateway/interface.h"
 
 namespace beam::wallet
 {
@@ -28,11 +29,8 @@ namespace beam::wallet
 
     public:
 
-        // TODO: with time possible to split to message creator with access to storage (KDF and walletDB)
-        // and message parser without access
-
-        // TODO rewrite methods to use broadcast router message serialization before fork.
-        // Methods must use compatible BroadcastMsg type instead of raw ByteBuffer.
+        // With time possible to split this class to MessageCreator with access to storage (KDF and walletDB)
+        // and MessageParser without access
 
         /**
          *  Create message with swap offer according to protocol.
@@ -46,12 +44,14 @@ namespace beam::wallet
          * @param content   Swap offer data
          * @param wid       Signatory's public key 
          */
-        boost::optional<ByteBuffer> createMessage(const SwapOffer& content, const WalletID& wid) const;
+        boost::optional<ByteBuffer> createMessage(const SwapOffer& content, const WalletID& wid) const; // Deprecated. TODO: dh remove after 2 fork
+        boost::optional<BroadcastMsg> createBroadcastMessage(const SwapOffer& content, const WalletID& wid) const;
 
         /**
          *  Parse message and verify signature.
          */
-        boost::optional<SwapOffer> parseMessage(const ByteBuffer& rawMessage) const;
+        boost::optional<SwapOffer> parseMessage(const ByteBuffer& rawMessage) const;    // Deprecated. TODO: dh remove after 2 fork.
+        boost::optional<SwapOffer> parseMessage(const BroadcastMsg& msg) const;
 
     private:
         std::shared_ptr<beam::wallet::IWalletDB> m_walletDB;

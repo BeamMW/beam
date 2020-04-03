@@ -16,6 +16,8 @@ Control {
     property string receiving
     property string receivingChange
     property string receivingIncoming
+    property string secondCurrencyLabel
+    property string secondCurrencyRateValue
 
     property var onOpenExternal: null
     signal copyValueText()
@@ -78,10 +80,10 @@ Control {
 
             BeamAmount {
                 amount:            lockedMaturing
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                 spacing:           15
                 lightFont:         false
                 fontSize:          12
-                currencySymbol:    Utils.symbolBeam
             }
         }
     }
@@ -120,10 +122,10 @@ Control {
 
             BeamAmount {
                 amount:            receivingChange
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                 spacing:           15
                 lightFont:         false
                 fontSize:          12
-                currencySymbol:    Utils.symbolBeam
                 color:             Style.accent_incoming
                 prefix:            "+"
             }
@@ -139,10 +141,10 @@ Control {
 
             BeamAmount {
                 amount:            receivingIncoming
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                 spacing:           15
                 lightFont:         false
                 fontSize:          12
-                currencySymbol:    Utils.symbolBeam
                 color:             Style.accent_incoming
                 prefix:            "+"
             }
@@ -155,10 +157,12 @@ Control {
             Layout.preferredWidth: parseFloat(receiving) > 0 || parseFloat(sending) > 0 ? parent.width / 2 : parent.width
             BeamAmount {
                 amount:            available
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+                secondCurrencyLabel:        control.secondCurrencyLabel
+                secondCurrencyRateValue:    control.secondCurrencyRateValue
                 spacing:           15
                 lightFont:         false
                 fontSize:          16
-                currencySymbol:    Utils.symbolBeam
                 iconSource:        "qrc:/assets/icon-beam.svg"
                 iconSize:          Qt.size(22, 22)
                 copyMenuEnabled:   true
@@ -173,9 +177,11 @@ Control {
             BeamAmount {
                 id:                lockedAmount
                 amount:            locked
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+                secondCurrencyLabel:        control.secondCurrencyLabel
+                secondCurrencyRateValue:    control.secondCurrencyRateValue
                 lightFont:         false
                 fontSize:          16
-                currencySymbol:    Utils.symbolBeam
                 copyMenuEnabled:   true
                 //% "Locked"
                 caption:           qsTrId("available-panel-locked")
@@ -207,10 +213,12 @@ Control {
             BeamAmount {
                 Layout.leftMargin: 20
                 amount:            sending
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+                secondCurrencyLabel:        control.secondCurrencyLabel
+                secondCurrencyRateValue:    control.secondCurrencyRateValue
                 color:             Style.accent_outgoing
                 lightFont:         false
                 fontSize:          16
-                currencySymbol:    Utils.symbolBeam
                 copyMenuEnabled:   true
                 //% "Sending"
                 caption:           qsTrId("available-panel-sending")
@@ -225,10 +233,12 @@ Control {
             BeamAmount {
                 id:                receivingAmount
                 amount:            receiving
+                currencySymbol:    BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+                secondCurrencyLabel:        control.secondCurrencyLabel
+                secondCurrencyRateValue:    control.secondCurrencyRateValue
                 color:             Style.accent_incoming
                 lightFont:         false
                 fontSize:          16
-                currencySymbol:    Utils.symbolBeam
                 copyMenuEnabled:   true
                 //% "Receiving"
                 caption:           qsTrId("available-panel-receiving")

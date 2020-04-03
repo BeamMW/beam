@@ -48,7 +48,11 @@ after_build:
 
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/service/%BUILD_CONFIG%/wallet-service%BEAM_TARGET_SUFFIX%.exe
 
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/service/%BUILD_CONFIG%/sbbs-monitor%BEAM_TARGET_SUFFIX%.exe
+
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/explorer/explorer-node.cfg
+
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/broadcaster/%BUILD_CONFIG%/broadcaster%BEAM_TARGET_SUFFIX%.exe
         
     mkdir pdb
     
@@ -62,7 +66,11 @@ after_build:
 
     copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+
     copy c:\projects\beam\beam\%BUILD_CONFIG%\explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\pdb\beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
@@ -82,7 +90,11 @@ on_success:
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
+
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
+
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet%BEAM_DISPLAY_SUFFIX%-%BEAM_VERSION%-win64.exe" "%BUILDS_SERVER_PATH%/Beam-Wallet%BEAM_DISPLAY_SUFFIX2%-%BEAM_VERSION%.exe"
 
@@ -101,8 +113,14 @@ artifacts:
   - path: wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamWalletService
 
+  - path: sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+    name: BeamSbbsMonitor
+
   - path: explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamNodeExplorer
+
+  - path: broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+    name: BeamBroadcaster
 
   - path: pdb/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamPdb
@@ -121,7 +139,7 @@ deploy:
   unzip: false
   set_public: true
   folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win/"
-  artifact: BeamPdb, BeamWalletApi, BeamWalletService, BeamNodeExplorer, BeamWalletCli, BeamNode, BeamWallet
+  artifact: BeamPdb, BeamWalletApi, BeamWalletService, BeamSbbsMonitor, BeamNodeExplorer, BeamWalletCli, BeamNode, BeamWallet, BeamBroadcaster
 
 notifications:
   - provider: Email

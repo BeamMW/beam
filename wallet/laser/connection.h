@@ -24,7 +24,7 @@ using proto::FlyClient;
 class Connection final : public FlyClient::INetwork
 {
 public:
-    explicit Connection(const FlyClient::NetworkStd::Ptr& net);
+    explicit Connection(const FlyClient::NetworkStd::Ptr& net, bool mineOutgoing = true);
     ~Connection();
 
     virtual void Connect() override;
@@ -41,7 +41,7 @@ private:
     FlyClient::NetworkStd::Ptr m_pNet;
 
     BbsMiner m_Miner;
-    bool m_MineOutgoing = true;
+    bool m_MineOutgoing;
     std::unordered_map<
         BbsMiner::Task::Ptr,
         proto::FlyClient::Request::IHandler*> m_handlers;

@@ -14,12 +14,13 @@
 
 #include "updates_provider.h"
 
+#include "wallet/core/common.h"
 #include "utility/logger.h"
 
 namespace beam::wallet
 {
     AppUpdateInfoProvider::AppUpdateInfoProvider(
-        IBroadcastMsgsGateway& broadcastGateway,
+        IBroadcastMsgGateway& broadcastGateway,
         BroadcastMsgValidator& validator)
         : m_broadcastGateway(broadcastGateway),
           m_validator(validator)
@@ -37,15 +38,41 @@ namespace beam::wallet
                 VersionInfo updateInfo;
                 if (fromByteBuffer(res.m_content, updateInfo))
                 {
-                    notifySubscribers(updateInfo);
+                    ECC::Hash::Value hash;   // use hash like unique ID
+                    ECC::Hash::Processor() << Blob(res.m_content) >> hash;
+                    notifySubscribers(updateInfo, hash);
                 }
             }
         }
         catch(...)
         {
             LOG_WARNING() << "broadcast message processing exception";
+            return false;
         }
-        return false;
+        return true;
+    }
+
+    bool AppUpdateInfoProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)
+    {
+        if (m_validator.isSignatureValid(msg))
+        {
+            try
+            {
+                VersionInfo updateInfo;
+                if (fromByteBuffer(msg.m_content, updateInfo))
+                {
+                    ECC::Hash::Value hash;   // use hash like unique ID
+                    ECC::Hash::Processor() << Blob(msg.m_content) >> hash;
+                    notifySubscribers(updateInfo, hash);
+                }
+            }
+            catch(...)
+            {
+                LOG_WARNING() << "broadcast message processing exception";
+                return false;
+            }
+        }
+        return true;
     }
 
     void AppUpdateInfoProvider::Subscribe(INewsObserver* observer)
@@ -66,11 +93,11 @@ namespace beam::wallet
         m_subscribers.erase(it);
     }
 
-    void AppUpdateInfoProvider::notifySubscribers(const VersionInfo& info) const
+    void AppUpdateInfoProvider::notifySubscribers(const VersionInfo& info, const ECC::uintBig& signature) const
     {
         for (const auto sub : m_subscribers)
         {
-            sub->onNewWalletVersion(info);
+            sub->onNewWalletVersion(info, signature);
         }
     }
 

@@ -37,22 +37,21 @@ public:
     Channel(IChannelHolder& holder,
             const WalletAddress& myAddr,
             const WalletID& trg,
-            const Amount& fee,
             const Amount& aMy,
             const Amount& aTrg,
-            Height locktime);
+            const Lightning::Channel::Params& params = {});
     Channel(IChannelHolder& holder,
             const ChannelIDPtr& chID,
             const WalletAddress& myAddr,
             const WalletID& trg,
-            const Amount& fee,
             const Amount& aMy,
             const Amount& aTrg,
-            Height locktime);
+            const Lightning::Channel::Params& params = {});
     Channel(IChannelHolder& holder,
             const ChannelIDPtr& chID,
             const WalletAddress& myAddr,
-            const TLaserChannelEntity& entity);
+            const TLaserChannelEntity& entity,
+            const Lightning::Channel::Params& params = {});
     Channel(const Channel&) = delete;
     void operator=(const Channel&) = delete;
     Channel(Channel&& channel) = delete;
@@ -92,9 +91,10 @@ public:
     bool TransformLastState();
     Lightning::Channel::State::Enum get_LastState() const;
     void UpdateRestorePoint();
-    void LogNewState();
+    void LogState();
     void Subscribe();
     void Unsubscribe();
+    bool IsSafeToClose() const;
 
 protected:
     bool TransferInternal(
@@ -107,7 +107,6 @@ private:
 
     bool m_SendMyWid = true;
     beam::Lightning::Channel::State::Enum m_lastState = State::None;
-    beam::Lightning::Channel::State::Enum m_lastLoggedState = State::None;
 
     ChannelIDPtr m_ID;
     WalletAddress m_myAddr;

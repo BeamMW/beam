@@ -58,11 +58,17 @@ transactions, atomic swaps and more.
 years.
 * Implemented from scratch in C++.
 
-[Read our position paper](https://docs.beam.mw/BEAM_Position_Paper_v0.2.2.pdf)
 
 ### Roadmap
 
 See Beam roadmap for 2019 on https://beam.mw
+
+### Community projects
+
+Here is the list of Beam related projects created by our community members but NOT tested by Beam Team
+
+* [Beam Pay](https://github.com/vsnation/BeamPay) - a payment processor that allows for easy integration with your online store
+* [Beam Wallet Java API](https://github.com/beamfan/java-beam-api) - A Java library for the Beam cryptocurrency Wallet API.
 
 ### Current status
 

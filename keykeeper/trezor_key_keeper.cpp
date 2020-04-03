@@ -92,12 +92,6 @@ namespace beam::wallet
             });
     }
 
-    void TrezorKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, Asset::ID, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&)
-    {
-        // TODO:ASSETS implement
-        assert(false);
-    }
-
     size_t TrezorKeyKeeper::AllocateNonceSlotSync()
     {
         m_latestSlot++;
@@ -119,23 +113,9 @@ namespace beam::wallet
         return result;
     }
 
-    std::pair<IPrivateKeyKeeper::PublicKeys, ECC::Scalar::Native> TrezorKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, Asset::ID)
-    {
-        // TODO:ASSETS implement
-        assert(false);
-        return std::make_pair(PublicKeys(), ECC::Scalar::Native());
-    }
-
     ECC::Point TrezorKeyKeeper::GeneratePublicKeySync(const Key::IDV& id)
     {
         return m_hwWallet.generateKeySync(id, false);
-    }
-
-    ECC::Point GenerateCoinKeySync(const Key::IDV& id, Asset::ID)
-    {
-        // TODO:ASSETS implement
-        assert(assetId == Zero);
-        return m_hwWallet.generateKeySync(id, true);
     }
 
     IPrivateKeyKeeper::Outputs TrezorKeyKeeper::GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
@@ -153,13 +133,6 @@ namespace beam::wallet
         }
 
         return outputs;
-    }
-
-    IPrivateKeyKeeper::Outputs TrezorKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, Asset::ID)
-    {
-        // TODO:ASSETS implement
-        assert(false);
-        return std::make_pair(Outputs(), ECC::Scalar::Native());
     }
 
     ECC::Point TrezorKeyKeeper::GenerateNonceSync(size_t slot)
@@ -196,35 +169,5 @@ namespace beam::wallet
         assert(std::find(m_handlers.begin(), m_handlers.end(), handler) == m_handlers.end());
 
         m_handlers.push_back(handler);
-    }
-
-    void TrezorKeyKeeper::SignAssetKernel(const std::vector<CoinID>& inputs,
-                const std::vector<CoinID>& outputs,
-                Amount fee,
-                Key::Index assetOwnerIdx,
-                TxKernelAssetControl& kernel,
-                Callback<AssetSignature>&&,
-                ExceptionCallback&&)
-    {
-        // TODO:ASSETS implement
-        assert("!Not implemented");
-    }
-
-    AssetSignature TrezorKeyKeeper::SignAssetKernelSync(const std::vector<CoinID>& inputs,
-                const std::vector<CoinID>& outputs,
-                Amount fee,
-                Key::Index assetOwnerIdx,
-                TxKernelAssetControl& kernel)
-    {
-        // TODO:ASSETS implement
-        assert("!Not implemented");
-        return AssetSignature {};
-    }
-
-    PeerID TrezorKeyKeeper::GetAssetOwnerID() override
-    {
-        // TODO:ASSETS implement
-        assert("!Not implemented");
-        return Zero;
     }
 }

@@ -21,6 +21,7 @@
 #include "model/wallet_model.h"
 #include "model/settings.h"
 #include "viewmodel/messages_view.h"
+#include "viewmodel/notifications/exchange_rates_manager.h"
 #include "tx_object_list.h"
 
 class WalletViewModel : public QObject
@@ -33,19 +34,24 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString beamLockedMaturing            READ beamLockedMaturing         NOTIFY beamLockedChanged)
     Q_PROPERTY(QString beamReceivingChange           READ beamReceivingChange        NOTIFY beamReceivingChanged)
     Q_PROPERTY(QString beamReceivingIncoming         READ beamReceivingIncoming      NOTIFY beamReceivingChanged)
+    Q_PROPERTY(QString secondCurrencyLabel           READ getSecondCurrencyLabel     NOTIFY secondCurrencyLabelChanged)
+    Q_PROPERTY(QString secondCurrencyRateValue       READ getSecondCurrencyRateValue NOTIFY secondCurrencyRateChanged)
     Q_PROPERTY(bool isAllowedBeamMWLinks             READ isAllowedBeamMWLinks       WRITE allowBeamMWLinks      NOTIFY beamMWLinksAllowed)
     Q_PROPERTY(QAbstractItemModel* transactions      READ getTransactions            NOTIFY transactionsChanged)
 
 public:
     WalletViewModel();
 
-    QString  beamAvailable() const;
-    QString  beamReceiving() const;
-    QString  beamSending() const;
-    QString  beamLocked() const;
-    QString  beamLockedMaturing() const;
-    QString  beamReceivingChange() const;
-    QString  beamReceivingIncoming() const;
+    QString beamAvailable() const;
+    QString beamReceiving() const;
+    QString beamSending() const;
+    QString beamLocked() const;
+    QString beamLockedMaturing() const;
+    QString beamReceivingChange() const;
+    QString beamReceivingIncoming() const;
+
+    QString getSecondCurrencyLabel() const;
+    QString getSecondCurrencyRateValue() const;
 
     QAbstractItemModel* getTransactions();
     bool getIsOfflineStatus() const;
@@ -69,12 +75,16 @@ signals:
     void beamSendingChanged();
     void beamLockedChanged();
 
+    void secondCurrencyLabelChanged();
+    void secondCurrencyRateChanged();
+
     void transactionsChanged();
     void beamMWLinksAllowed();
 
 private:
     WalletModel& _model;
     WalletSettings& _settings;
+    ExchangeRatesManager _exchangeRatesManager;
     TxObjectList _transactionsList;
     QQueue<QString> _txHistoryToCsvPaths;
 };

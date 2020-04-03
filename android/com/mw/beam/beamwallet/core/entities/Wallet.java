@@ -47,11 +47,19 @@ public class Wallet
     public native void importDataFromJson(String data);
     public native void exportDataToJson();
 
+    public native void switchOnOffExchangeRates(boolean isActive);
+    public native void switchOnOffNotifications(int type, boolean isActive);
+
+    public native void getNotifications();
+    public native void markNotificationAsRead(String id);
+    public native void deleteNotification(String id);
+    
+    public native void getExchangeRates();
+
     // deprecated
     public native void saveAddressChanges(String addr, String name, boolean isNever, boolean makeActive, boolean makeExpired);
 
     // not implemented
-    public native void changeCurrentWalletIDs(); //const beam::WalletID& senderID, const beam::WalletID& receiverID);
     public native void setNodeAddress(); //const std::string& addr);
 
 }

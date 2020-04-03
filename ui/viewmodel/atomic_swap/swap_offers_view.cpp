@@ -309,15 +309,16 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
 
     for (const auto& offer : offers)
     {
+
         // Offers without publisherID don't pass validation
-        auto peerResponseTime = offer.GetParameter<beam::Height>(beam::wallet::TxParameterID::PeerResponseTime);
-        auto minHeight = offer.GetParameter<beam::Height>(beam::wallet::TxParameterID::MinHeight);
+        auto peerResponseTime = offer.peerResponseHeight();
+        auto minHeight = offer.minHeight();
         auto currentHeight = m_walletModel.getCurrentHeight();
 
         QDateTime timeExpiration;
         if (currentHeight && peerResponseTime && minHeight)
         {
-            auto expiresHeight = *minHeight + *peerResponseTime;
+            auto expiresHeight = minHeight + peerResponseTime;
             timeExpiration = beamui::CalculateExpiresTime(currentHeight, expiresHeight);
         }
 
@@ -499,8 +500,8 @@ bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
                 bool isInProgress = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsInProgress)).toBool();
                 if (isInProgress)
                 {
-                    auto mySwapCoin = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::SwapCoin)).toString();
-                    if (mySwapCoin.toStdString() == swapCoin)
+                    auto mySwapCoin = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::SwapCoin)).toString().toStdString();
+                    if (mySwapCoin == swapCoin)
                     {
                         return true;
                     }

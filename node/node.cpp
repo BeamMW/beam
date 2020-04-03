@@ -78,7 +78,7 @@ void Node::UpdateSyncStatus()
 			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 			{
 				Peer& peer = *it;
-				if (Peer::Flags::Connected & peer.m_Flags)
+				if ((Peer::Flags::Connected & peer.m_Flags) && !(Peer::Flags::Probe & peer.m_Flags))
 					peer.SendLogin();
 			}
 
@@ -1145,6 +1145,9 @@ void Node::Peer::OnConnectedSecure()
         Send(msgPi);
     }
 
+    if (Flags::Probe & m_Flags)
+        return; // just wait for peer to send its ID
+
     ProveID(m_This.m_MyPrivateID, proto::IDType::Node);
 
 	SendLogin();
@@ -1215,13 +1218,16 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     PeerMan& pm = m_This.m_PeerMan; // alias
 	PeerManager::TimePoint tp;
 
+    Timestamp ts = getTimestamp();
+
     if (m_pInfo)
     {
         // probably we connected by the address
         if (m_pInfo->m_ID.m_Key == msg.m_ID)
         {
-			if (!(Flags::Accepted & m_Flags))
-				pm.OnSeen(*m_pInfo);
+            assert(!(Flags::Accepted & m_Flags));
+            m_pInfo->m_LastSeen = ts;
+
             TakeTasks();
             return; // all settled (already)
         }
@@ -1264,6 +1270,16 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     PeerMan::PeerInfoPlus* pPi = Cast::Up<PeerMan::PeerInfoPlus>(pm.OnPeer(msg.m_ID, addr, bAddrValid));
     assert(pPi);
 
+    if (!(Flags::Accepted & m_Flags))
+        pPi->m_LastSeen = ts;
+
+    if (Flags::Probe & m_Flags)
+    {
+        LOG_INFO() << *pPi << " probed ok";
+        DeleteSelf(false, ByeReason::Probed);
+        return;
+    }
+
     if (pPi->m_Live.m_p)
     {
         LOG_INFO() << "Duplicate connection with the same PI.";
@@ -1296,10 +1312,25 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	pPi->Attach(*this);
     pm.OnActive(*pPi, true);
 
-	if (!(Flags::Accepted & m_Flags))
-		pm.OnSeen(*pPi);
-
     LOG_INFO() << *m_pInfo << " connected, info updated";
+
+    if ((Flags::Accepted & m_Flags) && !pPi->m_Addr.m_Value.empty())
+    {
+        uint32_t nPingThreshold_s = pm.m_Cfg.m_TimeoutRecommend_s / 3;
+        if ((ts - pPi->m_LastSeen > nPingThreshold_s) &&
+            (ts - pPi->m_LastConnectAttempt > nPingThreshold_s))
+        {
+            pPi->m_LastConnectAttempt = ts;
+
+            LOG_INFO() << *m_pInfo << " probing connection in opposite direction";
+
+
+            Peer* p = m_This.AllocPeer(pPi->m_Addr.m_Value);
+            p->m_Flags |= Flags::Probe;
+            p->Connect(pPi->m_Addr.m_Value);
+            p->m_Port = pPi->m_Addr.m_Value.port();
+        }
+    }
 
     TakeTasks();
 }
@@ -2575,6 +2606,12 @@ bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange
 
 void Node::Peer::OnLogin(proto::Login&& msg)
 {
+    if (Flags::Probe & m_Flags)
+    {
+        DeleteSelf(false, ByeReason::Probed);
+        return;
+    }
+
     if ((m_LoginFlags ^ msg.m_Flags) & proto::LoginFlags::SendPeers)
     {
         if (msg.m_Flags & proto::LoginFlags::SendPeers)
@@ -2587,8 +2624,10 @@ void Node::Peer::OnLogin(proto::Login&& msg)
             OnResendPeers();
         }
         else
+        {
             if (m_pTimerPeers)
                 m_pTimerPeers->cancel();
+        }
     }
 
     bool b = ShouldFinalizeMining();
@@ -4082,6 +4121,7 @@ void Node::PeerMan::Initialize()
                 SetRating(*pPi, r);
 
             pPi->m_LastSeen = wlk.m_Data.m_LastSeen;
+            pPi->m_LastConnectAttempt = pPi->m_LastSeen;
         }
     }
 }
@@ -4105,6 +4145,21 @@ void Node::PeerMan::OnFlush()
         d.m_LastSeen = pi.m_LastSeen;
 
         db.PeerIns(d);
+    }
+}
+
+void Node::PeerMan::ActivateMorePeers(uint32_t nTime_ms)
+{
+    const Config& cfg = get_ParentObj().m_Cfg; // alias
+    if (!cfg.m_PeersPersistent)
+        return;
+
+    for (uint32_t i = 0; i < cfg.m_Connect.size(); i++)
+    {
+        PeerID id0(Zero);
+        PeerInfo* pPi = OnPeer(id0, cfg.m_Connect[i], true);
+        if (pPi)
+            ActivatePeerSafe(*pPi, nTime_ms);
     }
 }
 

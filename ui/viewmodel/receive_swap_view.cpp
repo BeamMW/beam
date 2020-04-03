@@ -70,16 +70,15 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     , _offerExpires(OfferExpires30min)
     , _saveParamsAllowed(false)
     , _walletModel(*AppModel::getInstance().getWallet())
-    , _txParameters(beam::wallet::CreateSwapParameters()
-        .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, beam::wallet::AtomicSwapCoin::Bitcoin)
-        .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, true)
-        .SetParameter(beam::wallet::TxParameterID::IsInitiator, true))
-    , _isBeamSide(true)
+    , _txParameters(beam::wallet::CreateSwapTransactionParameters())
+    , _isBeamSide(false)
 {
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveSwapViewModel::onGeneratedNewAddress);
     connect(&_walletModel, &WalletModel::swapParamsLoaded, this, &ReceiveSwapViewModel::onSwapParamsLoaded);
     connect(&_walletModel, SIGNAL(newAddressFailed()), this, SIGNAL(newAddressFailed()));
     connect(&_walletModel, &WalletModel::stateIDChanged, this, &ReceiveSwapViewModel::updateTransactionToken);
+    connect(&_exchangeRatesManager, SIGNAL(rateUnitChanged()), SIGNAL(secondCurrencyLabelChanged()));
+    connect(&_exchangeRatesManager, SIGNAL(activeRateChanged()), SIGNAL(secondCurrencyRateChanged()));
 
     generateNewAddress();
     updateTransactionToken();
@@ -121,7 +120,7 @@ void ReceiveSwapViewModel::storeSwapParams()
 
 bool ReceiveSwapViewModel::isSendBeam() const
 {
-    return !_isBeamSide;
+    return _isBeamSide;
 }
 
 QString ReceiveSwapViewModel::getRate() const
@@ -218,6 +217,7 @@ void ReceiveSwapViewModel::setSentFee(unsigned int value)
     {
         _sentFeeGrothes = value;
         emit sentFeeChanged();
+        emit secondCurrencyRateChanged();
         storeSwapParams();
     }
 }
@@ -237,6 +237,7 @@ void ReceiveSwapViewModel::setReceiveCurrency(Currency value)
         emit receiveCurrencyChanged();
         updateTransactionToken();
         emit rateChanged();
+        emit secondCurrencyRateChanged();
         storeSwapParams();
     }
 }
@@ -256,6 +257,7 @@ void ReceiveSwapViewModel::setSentCurrency(Currency value)
         emit sentCurrencyChanged();
         updateTransactionToken();
         emit rateChanged();
+        emit secondCurrencyRateChanged();
         storeSwapParams();
     }
 }
@@ -266,6 +268,7 @@ void ReceiveSwapViewModel::setReceiveFee(unsigned int value)
     {
         _receiveFeeGrothes = value;
         emit receiveFeeChanged();
+        emit secondCurrencyRateChanged();
         storeSwapParams();
     }
 }
@@ -395,32 +398,13 @@ void ReceiveSwapViewModel::startListen()
 {
     using namespace beam::wallet;
 
-    bool isBeamSide = (_sentCurrency == Currency::CurrBeam);
-    auto beamFee = isBeamSide ? _sentFeeGrothes : _receiveFeeGrothes;
-    auto swapFee = isBeamSide ? _receiveFeeGrothes : _sentFeeGrothes;
-    auto txParameters = beam::wallet::TxParameters(_txParameters);
-
-    txParameters.DeleteParameter(TxParameterID::PeerID);
-    txParameters.SetParameter(TxParameterID::IsInitiator, !*_txParameters.GetParameter<bool>(TxParameterID::IsInitiator));
-    txParameters.SetParameter(TxParameterID::MyID, *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID));
-    if (isBeamSide)
-    {
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), SubTxIndex::BEAM_LOCK_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), SubTxIndex::BEAM_REFUND_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), SubTxIndex::REDEEM_TX);
-    }
-    else
-    {
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), SubTxIndex::LOCK_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), SubTxIndex::REFUND_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), SubTxIndex::BEAM_REDEEM_TX);
-    }
-    txParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
-    txParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
+    auto txParameters = TxParameters(_txParameters);
     if (!_addressComment.isEmpty())
     {
         std::string localComment = _addressComment.toStdString();
-        txParameters.SetParameter(TxParameterID::Message, beam::ByteBuffer(localComment.begin(), localComment.end()));
+        txParameters.SetParameter(
+            TxParameterID::Message,
+            beam::ByteBuffer(localComment.begin(), localComment.end()));
     }
 
     _walletModel.getAsync()->startTransaction(std::move(txParameters));
@@ -428,9 +412,17 @@ void ReceiveSwapViewModel::startListen()
 
 void ReceiveSwapViewModel::publishToken()
 {
-    auto txId = _txParameters.GetTxID();
-    auto publisherId = _txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID);
-    auto coin = _txParameters.GetParameter<beam::wallet::AtomicSwapCoin>(beam::wallet::TxParameterID::AtomicSwapCoin);
+    const auto& mirroredTxParams = MirrorSwapTxParams(_txParameters);
+    const auto& readyForTokenizeTxParams =
+        PrepareSwapTxParamsForTokenization(mirroredTxParams);
+
+    auto txId = readyForTokenizeTxParams.GetTxID();
+    auto publisherId =
+        readyForTokenizeTxParams.GetParameter<beam::wallet::WalletID>(
+            beam::wallet::TxParameterID::PeerID);
+    auto coin =
+        readyForTokenizeTxParams.GetParameter<beam::wallet::AtomicSwapCoin>(
+            beam::wallet::TxParameterID::AtomicSwapCoin);
     if (publisherId && txId && coin)
     {
         beam::wallet::SwapOffer offer(*txId);
@@ -438,7 +430,7 @@ void ReceiveSwapViewModel::publishToken()
         offer.m_publisherId = *publisherId;
         offer.m_status = beam::wallet::SwapOfferStatus::Pending;
         offer.m_coin = *coin;
-        offer.SetTxParameters(_txParameters.Pack());
+        offer.SetTxParameters(readyForTokenizeTxParams.Pack());
         
         _walletModel.getAsync()->publishSwapOffer(offer);
     }
@@ -467,21 +459,53 @@ void ReceiveSwapViewModel::updateTransactionToken()
     emit enoughChanged();
     emit isSendFeeOKChanged();
     emit isReceiveFeeOKChanged();
-    _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _walletModel.getCurrentHeight());
-    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 
-    // All parameters sets as if we were on the recipient side (mirrored)
-    _isBeamSide = (_receiveCurrency == Currency::CurrBeam);
-    auto swapCoin   = convertCurrencyToSwapCoin(_isBeamSide ? _sentCurrency : _receiveCurrency);
-    auto beamAmount = _isBeamSide ? _amountToReceiveGrothes : _amountSentGrothes;
-    auto swapAmount = _isBeamSide ? _amountSentGrothes : _amountToReceiveGrothes;
+    _isBeamSide = (_sentCurrency == Currency::CurrBeam);
+    auto swapCoin   = convertCurrencyToSwapCoin(
+        _isBeamSide ? _receiveCurrency : _sentCurrency);
+    auto beamAmount =
+        _isBeamSide ? _amountSentGrothes : _amountToReceiveGrothes;
+    auto swapAmount =
+        _isBeamSide ? _amountToReceiveGrothes : _amountSentGrothes;
+    auto beamFee = _isBeamSide ? _sentFeeGrothes : _receiveFeeGrothes;
+    auto swapFeeRate = _isBeamSide ? _receiveFeeGrothes : _sentFeeGrothes;
 
-    _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, _isBeamSide);
-    _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, beamAmount);
-    _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, swapCoin);
-    _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, swapAmount);
-    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
-    _txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, _isBeamSide);
+    FillSwapTxParams(
+        &_txParameters,
+        _receiverAddress.m_walletID,
+        _walletModel.getCurrentHeight(),
+        beamAmount,
+        beamFee,
+        swapCoin,
+        swapAmount,
+        swapFeeRate,
+        _isBeamSide,
+        GetBlockCount(_offerExpires)
+    );
 
-    setTransactionToken(QString::fromStdString(std::to_string(_txParameters)));
+    const auto& mirroredTxParams = MirrorSwapTxParams(_txParameters);
+    const auto& readyForTokenizeTxParams =
+        PrepareSwapTxParamsForTokenization(mirroredTxParams);
+
+    setTransactionToken(
+        QString::fromStdString(std::to_string(readyForTokenizeTxParams)));
+}
+
+QString ReceiveSwapViewModel::getSecondCurrencySendRateValue() const
+{
+    auto sendCurrency = ExchangeRatesManager::convertCurrencyToExchangeCurrency(getSentCurrency());
+    auto rate = _exchangeRatesManager.getRate(sendCurrency);
+    return beamui::AmountToUIString(rate);
+}
+
+QString ReceiveSwapViewModel::getSecondCurrencyReceiveRateValue() const
+{
+    auto receiveCurrency = ExchangeRatesManager::convertCurrencyToExchangeCurrency(getReceiveCurrency());
+    auto rate = _exchangeRatesManager.getRate(receiveCurrency);
+    return beamui::AmountToUIString(rate);
+}
+
+QString ReceiveSwapViewModel::getSecondCurrencyLabel() const
+{
+    return beamui::getCurrencyLabel(_exchangeRatesManager.getRateUnitRaw());
 }

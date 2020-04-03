@@ -15,32 +15,38 @@
 #pragma once
 
 #include "wallet/core/common.h"
+#include "wallet/transactions/swaps/common.h"
 
 namespace beam::wallet
 {
-    struct SwapOffer : public TxParameters
-    {
-        SwapOffer() = default;
+struct SwapOffer : public TxParameters
+{
+    SwapOffer() = default;
+    SwapOffer(const boost::optional<TxID>& txID);
+    SwapOffer(const TxID& txId,
+              SwapOfferStatus status,
+              WalletID publisherId,
+              AtomicSwapCoin coin);
+    SwapOffer(const TxParameters& params);
+    /**
+     * Used to set m_Parameters on default constructed SwapOffer
+     */
+    void SetTxParameters(const PackedTxParameters&);
 
-        SwapOffer(const boost::optional<TxID>& txID)
-            : TxParameters(txID) {};
+    bool IsValid() const;
 
-        SwapOffer(const TxID& txId, SwapOfferStatus status, WalletID publisherId, AtomicSwapCoin coin)
-            : TxParameters(txId),
-              m_txId(txId),
-              m_status(status),
-              m_publisherId(publisherId),
-              m_coin(coin) {};
+    bool isBeamSide() const;
+    Amount amountBeam() const;
+    Amount amountSwapCoin() const;
+    AtomicSwapCoin swapCoinType() const;
+    Timestamp timeCreated() const;
+    Height peerResponseHeight() const;
+    Height minHeight() const;
 
-        /**
-         * Used to set m_Parameters on default constructed SwapOffer
-         */
-        void SetTxParameters(const PackedTxParameters&);
-
-        TxID m_txId = {};
-        SwapOfferStatus m_status = SwapOfferStatus::Pending;
-        WalletID m_publisherId = {};
-        AtomicSwapCoin m_coin = AtomicSwapCoin::Unknown;
-    };
+    TxID m_txId = {};
+    SwapOfferStatus m_status = SwapOfferStatus::Pending;
+    WalletID m_publisherId = Zero;
+    mutable AtomicSwapCoin m_coin = AtomicSwapCoin::Unknown;
+};
     
 } // namespace beam::wallet

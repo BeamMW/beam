@@ -18,27 +18,52 @@
 
 namespace beam::wallet
 {
-    constexpr Height kBeamLockTimeInBlocks = 6 * 60;  // 6h
-    constexpr Height kMaxSentTimeOfBeamRedeemInBlocks = kBeamLockTimeInBlocks - 60;  // 6h - 1h
-    constexpr Height kBeamLockTxLifetimeMax = 4 * 60;   // 4h
+constexpr Height kBeamLockTimeInBlocks = 6 * 60;  // 6h
+constexpr Height kMaxSentTimeOfBeamRedeemInBlocks = kBeamLockTimeInBlocks - 60;  // 6h - 1h
+constexpr Height kBeamLockTxLifetimeMax = 4 * 60;   // 4h
 
-    enum SubTxIndex : SubTxID
-    {
-        BEAM_LOCK_TX = 2,
-        BEAM_REFUND_TX = 3,
-        BEAM_REDEEM_TX = 4,
-        LOCK_TX = 5,
-        REFUND_TX = 6,
-        REDEEM_TX = 7
-    };
+enum SubTxIndex : SubTxID
+{
+    BEAM_LOCK_TX = 2,
+    BEAM_REFUND_TX = 3,
+    BEAM_REDEEM_TX = 4,
+    LOCK_TX = 5,
+    REFUND_TX = 6,
+    REDEEM_TX = 7
+};
 
-    enum class SwapTxState : uint8_t
-    {
-        Initial,
-        CreatingTx,
-        SigningTx,
-        Constructed
-    };
+enum class SwapTxState : uint8_t
+{
+    Initial,
+    CreatingTx,
+    SigningTx,
+    Constructed
+};
 
-    uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept;
+enum class AtomicSwapCoin : int32_t // explicit signed type for serialization backward compatibility
+{
+    Bitcoin,
+    Litecoin,
+    Qtum,
+    Unknown
+};
+
+enum class SwapOfferStatus : uint32_t
+{
+    Pending,
+    InProgress,
+    Completed,
+    Canceled,
+    Expired,
+    Failed
+};
+
+AtomicSwapCoin from_string(const std::string& value);
+uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept;
 }  // namespace beam::wallet
+
+namespace std
+{
+    string to_string(beam::wallet::AtomicSwapCoin value);
+    string to_string(beam::wallet::SwapOfferStatus status);  
+}  // namespace std

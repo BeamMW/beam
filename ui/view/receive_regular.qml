@@ -107,7 +107,9 @@ ColumnLayout {
                 //% "Receive amount (optional)"
                 title:            qsTrId("receive-amount-label")
                 id:               receiveAmountInput
-                amount:           viewModel.amountToReceive
+                amountIn:         viewModel.amountToReceive
+                secondCurrencyRateValue:    viewModel.secondCurrencyRateValue
+                secondCurrencyLabel:        viewModel.secondCurrencyLabel
             }
 
             Binding {

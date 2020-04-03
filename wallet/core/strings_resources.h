@@ -24,6 +24,7 @@ namespace beam
     extern const char kAGROTH[];
     extern const char kAmountASSET[];
     extern const char kAmountAGROTH[];
+    extern const char kNA[];
     // Coin statuses
     extern const char kCoinStatusAvailable[];
     extern const char kCoinStatusUnavailable[];
@@ -64,6 +65,7 @@ namespace beam
     extern const char kErrorSeedPhraseNotProvided[];
     extern const char kErrorTxIdParamReqired[];
     extern const char kErrorTxWithIdNotFound[];
+    extern const char kErrorTxIdParamInvalid[];
     extern const char kErrorPpExportFailed[];
     extern const char kErrorPpCannotExportForReceiver[];
     extern const char kErrorPpExportFailedTxNotCompleted[];
@@ -146,6 +148,7 @@ namespace beam
     extern const char kAddrListTableHead[];
     extern const char kAddrListColumnComment[];
     extern const char kAddrListColumnAddress[];
+    extern const char kAddrListColumnIdentity[];
     extern const char kAddrListColumnActive[];
     extern const char kAddrListColumnExprDate[];
     extern const char kAddrListColumnCreated[];
@@ -157,6 +160,8 @@ namespace beam
     // Wallet info
     extern const char kWalletSummaryFormat[];
     extern const char kWalletAssetSummaryFormat[];
+    extern const char kWalletUnreliableAsset[];
+    extern const char kWalletAssetOwnerFormat[];
     extern const char kWalletSummaryFieldCurHeight[];
     extern const char kWalletSummaryFieldCurStateID[];
     extern const char kWalletSummaryFieldAvailable[];
@@ -177,8 +182,10 @@ namespace beam
     extern const char kCoinsTableFormat[];
     // Tx history
     extern const char kTxHistoryTableHead[];
+    extern const char kAssetTxHistoryTableHead[];
     extern const char kTxHistoryTableFormat[];
     extern const char kTxHistoryColumnDatetTime[];
+    extern const char kTxHistoryColumnHeight[];
     extern const char kTxHistoryColumnDirection[];
     extern const char kTxHistoryColumnAmount[];
     extern const char kAssetTxHistoryColumnAmount[];
@@ -217,9 +224,13 @@ namespace beam
     extern const char kPpRequired[];
 
     // Assets
-    extern const char kErrorAssetIdxRequired[];
-    extern const char kErrorAssetIdRequired[];
+    extern const char kErrorAssetIdOrMetaRequired[];
     extern const char kErrorAssetMetadataRequired[];
+    extern const char kErrorAssetIDRequired[];
+    extern const char kErrorAssetNonSTDMeta[];
+    extern const char kErrorAssetNotFound[];
+    extern const char kErrorAssetNotOwned[];
+    extern const char kErrorAssetLoadMeta[];
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT
@@ -234,14 +245,13 @@ namespace beam
     extern const char kLaserErrorMyAmountMissing[];
     extern const char kLaserErrorTrgAmountMissing[];
     extern const char kLaserErrorChannelIdMissing[];
-    extern const char kLaserErrorLockTimeMissing[];
     extern const char kLaserChannelListTableHead[];
     extern const char kLaserChannelListChannelId[];
     extern const char kLaserChannelListAMy[];
     extern const char kLaserChannelListATrg[];
     extern const char kLaserChannelListState[];
     extern const char kLaserChannelListFee[];
-    extern const char kLaserChannelListLocktime[];
+    extern const char kLaserChannelListValidTill[];
     extern const char kLaserChannelTableBody[];
     extern const char kLaserErrorOpenFailed[];
     extern const char kLaserMessageClosed[];

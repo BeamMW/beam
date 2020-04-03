@@ -14,6 +14,7 @@
 
 #include "offers_protocol_handler.h"
 #include "p2p/protocol_base.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
 #include "utility/logger.h"
 
 namespace beam::wallet
@@ -22,6 +23,24 @@ namespace beam::wallet
         : m_walletDB(walletDB),
           m_sbbsKdf(sbbsKdf)
     {}
+
+    boost::optional<BroadcastMsg> OfferBoardProtocolHandler::createBroadcastMessage(const SwapOffer& content, const WalletID& wid) const
+    {
+        auto waddr = m_walletDB->getAddress(wid);
+
+        if (waddr && waddr->isOwn())
+        {
+            // Get private key
+            PrivateKey sk;
+            PublicKey pk;
+            m_sbbsKdf->DeriveKey(sk, ECC::Key::ID(waddr->m_OwnID, Key::Type::Bbs));
+            pk.FromSk(sk);
+
+            return BroadcastMsgCreator::createSignedMessage(toByteBuffer(SwapOfferToken(content)), sk);
+
+        }
+        return boost::none;
+    }
 
     boost::optional<ByteBuffer> OfferBoardProtocolHandler::createMessage(const SwapOffer& content, const WalletID& wid) const
     {
@@ -50,7 +69,7 @@ namespace beam::wallet
             // Combine all to final message
             ByteBuffer finalMessage(header.SIZE);
             header.write(finalMessage.data());  // copy header to finalMessage
-            finalMessage.reserve(header.SIZE + header.size);
+            finalMessage.reserve(header.SIZE + static_cast<size_t>(header.size));
             std::copy(  std::begin(contentRaw),
                         std::end(contentRaw),
                         std::back_inserter(finalMessage));
@@ -88,6 +107,32 @@ namespace beam::wallet
             return boost::none;
         }
         return token.Unpack();
+    }
+
+    boost::optional<SwapOffer> OfferBoardProtocolHandler::parseMessage(const BroadcastMsg& msg) const
+    {        
+        SwapOfferToken token;
+        SignatureHandler signHandler;
+
+        try
+        {
+            if (fromByteBuffer(msg.m_content, token)
+             && fromByteBuffer(msg.m_signature, signHandler.m_Signature))
+            {
+                signHandler.m_data = msg.m_content;
+                if (token.getPublicKey() && !signHandler.IsValid(token.getPublicKey()->m_Pk))
+                {
+                    LOG_WARNING() << "offer board message signature is invalid";
+                    return boost::none;
+                }
+                return token.Unpack();
+            }
+        }
+        catch(...)
+        {
+        }
+        LOG_WARNING() << "offer board message deserialization exception";
+        return boost::none;
     }
 
 } // namespace beam::wallet

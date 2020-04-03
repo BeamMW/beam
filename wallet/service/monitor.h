@@ -14,4 +14,68 @@
 
 #pragma once
 
+#include "wallet/api/api.h"
 
+namespace beam::wallet
+{
+
+#define WALLET_MONITOR_API_METHODS(macro) \
+    macro(Subscribe,     "subscribe",     API_WRITE_ACCESS)   \
+    macro(UnSubscribe,   "unsubscribe",   API_WRITE_ACCESS)   \
+    
+
+    struct Subscribe
+    {
+        WalletID address;
+        ECC::Scalar::Native privateKey;
+        Timestamp expires;
+
+        struct Response
+        {
+        };
+    };
+
+    struct UnSubscribe
+    {
+        WalletID address;
+        struct Response
+        {
+        };
+    };
+
+    class ISbbsMonitorApiHandler : public IApiHandler
+    {
+    public:
+
+#define MESSAGE_FUNC(api, name, _) \
+        virtual void onMessage(const JsonRpcId& id, const api& data) = 0; 
+
+        WALLET_MONITOR_API_METHODS(MESSAGE_FUNC)
+
+#undef MESSAGE_FUNC
+    };
+
+    class SbbsMonitorApi : public Api
+    {
+    public:
+        SbbsMonitorApi(ISbbsMonitorApiHandler& handler, ACL acl = boost::none);
+
+#define RESPONSE_FUNC(api, name, _) \
+        void getResponse(const JsonRpcId& id, const api::Response& data, json& msg); 
+
+        WALLET_MONITOR_API_METHODS(RESPONSE_FUNC)
+
+#undef RESPONSE_FUNC
+
+    private:
+
+        ISbbsMonitorApiHandler& getHandler() const;
+
+#define MESSAGE_FUNC(api, name, _) \
+        void on##api##Message(const JsonRpcId& id, const json& msg);
+
+        WALLET_MONITOR_API_METHODS(MESSAGE_FUNC)
+
+#undef MESSAGE_FUNC
+    };
+} // beam::wallet

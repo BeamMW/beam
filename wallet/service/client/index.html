@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 	<title>Beam Wallet Client</title>
@@ -14,7 +14,12 @@
 		<h1 class="text-center">Beam Wallet Client</h1>
 		<hr>
 
-		<div id="connecting-panel">
+		<hr>
+		<div id="login-panel">
+		  <span class="badge badge-danger">status: logging in, please wait...</span>
+		</div>
+
+		<div id="connecting-panel" style="display: none;">
 			<span class="badge badge-danger">status: connecting to the Wallet Service, please wait...</span>
 		</div>
 
@@ -23,8 +28,8 @@
 				<span class="badge badge-success">status: connected to the Wallet Service</span>
 			</div>
 			<div class="form-group">
-				<label for="seed-phrase-input">Enter seed phrase:</label>
-				<input type="text" class="seed-phrase-input form-control" placeholder="Enter seed phrase">
+				<label for="seed-phrase-input">Generated seed phrase:</label>
+				<input disabled type="text" class="seed-phrase-input form-control" placeholder="Enter seed phrase">
 			</div>
 			<div class="form-group">
 				<label for="wallet-pass-input">Enter wallet password:</label>
@@ -115,6 +120,11 @@
 				</thead>
 				<tbody></tbody>
 			</table>
+			<div id="push-panel" style="display:none">
+			<button class="btn btn-secondary" id="push-enable" style="display:none">Enable Push Notifications</button>
+			<button class="btn btn-secondary" id="push-disable" style="display:none">Disable Push Notifications</button>
+			<span id="push-blocked" style="display:none">Push notifications are blocked by user</span>
+			</div>
 			<hr>
 			<h3>UTXO</h3>
 			<table class="table utxo">
@@ -138,444 +148,497 @@
 	
 	</div>
 </body>
-
 	<script src='wasm-key-keeper.js'></script>
+	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+	<script type="module">
+	import WebPush from './webpush.js'
+	Module().then(function(Module) {
+		let keykeeper = null
+		var loginConnection = null
+		var connection = null
+		var webpush = null
+		var defaddr = null
 
-	<script type="text/javascript">
+		login()
 
-		Module().then(function(Module)
-        {
-        	var connection = null;
-			var keykeeper = null
+		// If you change walletID/seed you should ALWAYS relogin
+		// If you lose loginConnection or connection, ALWAYS relogin
+		// Both loginConnection & connection should be active
+		function login() {
+			//keykeeper = initKeyKeeper("giraffe usage sad arrest sound chimney file select monster head clown ask")
+			//localStorage.seed = "giraffe usage sad arrest sound chimney file select monster head clown ask"
+			//localStorage.id = keykeeper.getWalletID()
 
-			function showPanel(id)
-			{
-				['#connecting-panel', '#create-wallet-panel', '#open-wallet-panel', '#wallet-panel'].forEach(name => $(name).hide())
-				$(id).show()
-			}
-		
-			function start()
-			{
-				const url = 'ws://127.0.0.1:8080'
-				connection = new WebSocket(url)
-
-				connection.onopen = () => 
-				{
-					console.log('Connected to the Wallet Servce...')			
-					refresh()
-				}
-				
-				connection.onclose = () =>
-				{
-					showPanel('#connecting-panel')
-
-					console.log('connection lost, reconnecting...')
-
-					setTimeout(start, 5000)
-				}
-
-				connection.onerror = error => 
-				{
-					console.log(`connection error: ${error}`)
-				}
+			if (localStorage.id && localStorage.seed) {
+				console.log(`Stored WalletID:${localStorage.id}`)
+				console.log(`Stored Seed: ${localStorage.seed}`)
+				keykeeper = initKeyKeeper(localStorage.seed)
+				console.log(`Keykeeper created`);
+			} else {
+				let seed = Module.KeyKeeper.GeneratePhrase()
+				console.log(`New Seed: ${seed}`)
+				keykeeper = initKeyKeeper(seed)
+				console.log(`New WalletID: ${keykeeper.getWalletID()}`)
+				$('#create-wallet-panel .seed-phrase-input').val(seed)
 			}
 
-			start();
+			console.log("Logging in...")
+			loginConnection = new WebSocket('ws://127.0.0.1:20000/ws')
 
-			function initKeyKeeper(seed)
-			{
-				return new Module.KeyKeeper(seed)
+			loginConnection.onclose = () => {
+				console.log('login_ws: connection lost')
+				loginConnection = null
+				relogin()
 			}
 
-			function send(amount, address)
-			{
-				console.log(`!!! sending ${amount} groth to ${address}...`)
+			loginConnection.onerror = error => {
+				console.log(`login_ws: connection error: ${JSON.stringify(error)}`)
+			}
 
-				connection.onmessage = (e) =>
-				{
-					var data = JSON.parse(e.data)
+        	loginConnection.onopen = () => {
+				console.log('login_ws: connected...')
 
-					if(data.result)
-						console.log(`result is ${data.result}`)
-					else if(data.error)
-						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
-					else if(data.method) 
-						onkeykeeper(data)
+				let loginParams = {
+					WalletID: keykeeper.getWalletID()
 				}
 
-				connection.send(JSON.stringify(
-				{
-					jsonrpc:"2.0", 
+				loginConnection.send(JSON.stringify({
+					jsonrpc: "2.0",
 					id: 123,
-					method:"tx_send", 
-					params:
-					{
-						value : amount,
-						fee : 100,
-						address : address,
-						comment : "thank you!"
-					}
+					method: "login",
+					params: loginParams
 				}))
 			}
 
-			$('#wallet-panel .send-button').click(() => 
+			loginConnection.onmessage = e => {
+				let data = JSON.parse(e.data)
+
+				if (data.result) {
+					console.log(`login_ws: result is ${JSON.stringify(data.result)}`)
+					if (data.id === 123) {
+						console.log("login_ws: OK, endpoint is ", data.result.endpoint)
+						let endpoint = ['ws://', data.result.endpoint].join('');
+						start(endpoint)
+					}
+				} else {
+					console.log("login_ws: failed")
+					if (data.error) {
+						console.log(`login_ws: error code:${data.error.code} text:${data.error.data}`)
+					}
+				}
+			}
+		}
+
+		function relogin () {
+			console.log('relogin in 5 seconds...')
+			setTimeout(() => login(), 5000)
+			showPanel('#connecting-panel')
+		}
+
+		function start(url) {
+			console.log("STARTING...")
+			showPanel('#connecting-panel')
+			connection = new WebSocket(url)
+
+			connection.onerror = error => {
+				console.log(`connection error: ${JSON.stringify(error)}`)
+			}
+
+			connection.onopen = () => {
+				console.log('Connected to the Wallet Servce...')
+				if (localStorage.id) {
+					showPanel('#open-wallet-panel')
+				} else {
+					showPanel('#create-wallet-panel')
+				}
+			}
+
+			connection.onclose = () =>
 			{
-				var addr = $('#wallet-panel .receiver-address-input').val()
-				if(addr.length == 0)
-				{
-					alert('Please, enter valid address.')
-					return
-				}
+				console.log('connection lost...')
+				connection = null
+				loginConnection.close()
+			}
+		}
 
-				var amount = $('#wallet-panel .amount-input').val()
+		function showPanel(id) {
+			['#login-panel', '#connecting-panel', '#create-wallet-panel', '#open-wallet-panel', '#wallet-panel'].forEach(name => $(name).hide())
+			$(id).show()
+		}
 
-				if(isNaN(parseInt(amount)))
-				{
-					alert('Please, enter valid amount.')
-					return
-				}
+		function initKeyKeeper(seed) {
+			return new Module.KeyKeeper(seed);
+      	}
 
-				if (confirm(`Are you sure want send ${amount} groth to ${addr}?`)) 
-				{
-					$('#wallet-panel .amount-input').val('')
-					send(parseInt(amount), addr)
-				}
-			})
+      	function onkeykeeper(data) {
+			console.log(`<<< keykeeper request: ${data}`)
+			let res = keykeeper.invokeServiceMethod(data)
+			console.log(`>>> keykeeper response: ${res}`)
+			connection.send(res);
+		}
 
-			$('#wallet-panel .close-wallet-button').click(() => 
+      	/*function refresh()
+		{
+			if(localStorage.id) {
+	  			showPanel('#open-wallet-panel')
+			}
+			else
 			{
-				if (confirm('Are you sure want do close the wallet?')) 
-				{
-					connection.close()
-				}
-			})
+				$('#create-wallet-panel .seed-phrase-input').val(Module.KeyKeeper.GeneratePhrase())
+				showPanel('#create-wallet-panel')
+			}
+		}*/
 
-			$('#open-wallet-panel .delete-wallet-button').click(() => 
-			{
-				if (confirm('Are you sure want do delete current wallet data?')) 
+      	$('#create-wallet-panel .create-wallet-button').click(() =>
+		{
+			let seed = $('#create-wallet-panel .seed-phrase-input').val()
+			console.log(`Creating new wallet with seed phrase: ${seed}`)
+
+			var walletPass = $('#create-wallet-panel .wallet-pass-input').val()
+			var ownerKey = keykeeper.getOwnerKey(walletPass)
+			console.log('ownerKey is: data:application/octet-stream;base64,' + ownerKey)
+
+			$('#create-wallet-panel .create-wallet-button')
+				.attr('disabled', true)
+				.find('.spinner-border').show()
+
+			connection.onmessage = e =>  {
+				console.log(`got response: ${e.data}`)
+
+				var data = JSON.parse(e.data)
+
+				if(data.result && data.result.length)
 				{
+					console.log(`result is: ${data.result}`)
+
 					localStorage.clear()
-					refresh()
+					localStorage.seed = seed
+					localStorage.id = data.result
+
+					$('#create-wallet-panel .create-wallet-button')
+						.attr('disabled', false)
+						.find('.spinner-border').hide()
+
+					showPanel('#open-wallet-panel')
+				}
+				else if(data.error)
+					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+				else if(data.method)
+					onkeykeeper(e.data)
+			}
+
+			connection.send(JSON.stringify(
+			{
+				jsonrpc:'2.0',
+				id: 0,
+				method: 'create_wallet',
+				params:
+				{
+					pass: walletPass,
+					ownerkey: ownerKey
+				}
+			}))
+		})
+
+		$('#open-wallet-panel .delete-wallet-button').click(() => {
+			if (confirm('Are you sure want do delete current wallet data?')) {
+				pushNotifyUnsub(defaddr)
+				localStorage.clear()
+				connection.close()
+			}
+		})
+
+		$('#wallet-panel .close-wallet-button').click(() => {
+			if (confirm('Are you sure want do close the wallet?')) {
+				connection.close()
+			}
+		})
+
+		$('#open-wallet-panel .open-wallet-button').click(() => {
+			console.log(`Opening wallet with seed phrase: ${localStorage.seed}`)
+			let walletPass = $('#open-wallet-panel .wallet-pass-input').val()
+			let walletID = keykeeper.getWalletID()
+
+			console.log(`walletID: ${walletID}`)
+			connection.onmessage = e => {
+				console.log(`open wallet got response: ${e.data}`)
+				let data = JSON.parse(e.data)
+				if (data.result && data.result.length) {
+					console.log(`wallet session: ${data.result}`)
+					showPanel('#wallet-panel')
+					showWalletStatus()
+				} else if (data.error)
+					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+				else if (data.method)
+					onkeykeeper(e.data)
+			}
+
+			connection.send(JSON.stringify({
+				jsonrpc: '2.0',
+				id: 0,
+				method: 'open_wallet',
+				params: {
+					id: localStorage.id,
+					pass: walletPass
+				}
+			}))
+		})
+
+		function showWalletStatus() {
+			// unsubscribe if any
+      		pushNotifyUnsub(defaddr)
+
+			connection.onmessage = e => {
+				let data = JSON.parse(e.data)
+				if (data.result) {
+					$("#wallet-panel .available").text(data.result.available)
+					$("#wallet-panel .sending").text(data.result.sending)
+					$("#wallet-panel .receiving").text(data.result.receiving)
+					$("#wallet-panel .current_height").text(data.result.current_height)
+					showAddresses()
+				} else if (data.error)
+					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+				else if (data.method)
+					onkeykeeper(e.data)
+			}
+			connection.send(JSON.stringify({
+				jsonrpc: '2.0',
+				id: 0,
+				method: 'wallet_status'
+			}))
+		}
+
+		function showAddresses() {
+			connection.onmessage = e => {
+				let data = JSON.parse(e.data)
+				if(data.result)	{
+					let body = $('#wallet-panel .addresses > tbody').empty()
+					data.result.forEach && data.result.forEach((item, index) => {
+						if (index === 0) defaddr = item
+						console.log(JSON.stringify(item))
+						body.append(`<tr>
+										<td>${index+1}</td>
+										<td>${item.address}</td>
+										<td>${item.comment}</td>
+										<td>${item.create_time}</td>
+										<td>${item.duration}</td>
+										<td>${item.expired}</td>
+										<td>${item.own}</td>
+									</tr>`)
+					})
+					if (defaddr) {
+						showPush()
+					}
+					showUtxo()
+				}
+				else if(data.error)
+					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+				else if(data.method)
+					onkeykeeper(e.data)
+			}
+
+			connection.send(JSON.stringify({
+				jsonrpc: '2.0',
+				id: 0,
+				method: 'addr_list',
+				params: {
+					own: true
+				}
+			}))
+		}
+		
+		async function pushNotifySub(addr) {
+      		return new Promise((resolve, reject) => {
+				if (!addr) reject()
+				return webpush.notifyServer(true, loginConnection, {
+					SbbsAddress: keykeeper.getSbbsAddress(addr.ownIDBase64),
+					SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.ownIDBase64),
+					ExpiresAt: addr.create_time + addr.duration
+				})
+			})
+		}
+
+		async function pushNotifyUnsub(addr) {
+      		return new Promise((resolve, reject) => {
+      			if (!addr) reject()
+
+      			if (!webpush.userSubscribed) {
+					console.log('unsub: no previous subscription')
+					reject()
+					return
+				}
+      			return webpush.notifyServer(false, loginConnection, {
+					SbbsAddress: keykeeper.getSbbsAddress(addr.ownIDBase64),
+					SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.ownIDBase64)
+				})
+			})
+		}
+
+		function showPush() {
+			webpush = new Proxy(new WebPush(), {
+				set: function(obj, prop, value) {
+					if (prop === "subscription") {
+						if (value) {
+							$("#push-enable").hide()
+							$("#push-disable").show()
+						} else {
+							$("#push-enable").show()
+							$("#push-disable").hide()
+						}
+						$("#push-panel").show()
+					}
+					obj[prop] = value
+					return true
 				}
 			})
 
-			function showAddresses()
-			{
-				connection.onmessage = e => 
-				{
-					// console.log(`got response: ${e.data}`)
-
-					var data = JSON.parse(e.data)
-
-					if(data.result)
-					{
-						var body = $('#wallet-panel .addresses > tbody')
-							.empty()
-
-						data.result.forEach && data.result.forEach((item, index) => body.append(`<tr>
-							<td>${index+1}</td>
-							<td>${item.address}</td>
-							<td>${item.comment}</td>
-							<td>${item.create_time}</td>
-							<td>${item.duration}</td>
-							<td>${item.expired}</td>
-							<td>${item.own}</td>
-							</tr>`))
-
-						showUtxo()
+			if (webpush.blockedByUser) {
+				console.log("notifications blocked by user")
+				$("#push-blocked").show()
+				$("#push-panel").show()
+				// may be push was disabled in settings
+				// remove any previous subscriptions
+				// TODO: check the same on service worker start (if possible)
+				pushNotifyUnsub(defaddr)
+			} else {
+				console.log("notifications enabled, notifying server");
+				(async () => {
+					if (await webpush.register(loginConnection)) {
+						await pushNotifySub(defaddr)
+						console.log("Push notification - OK")
 					}
-					else if(data.error)
-						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
-					else if(data.method) 
-						onkeykeeper(data)
-				}
-
-				connection.send(JSON.stringify(
-				{
-					jsonrpc:'2.0',
-					id: 0,
-					method: 'addr_list',
-					params:
-					{
-						own: true
-					}
-				}))
+				})()
 			}
 
-			function showTransactions()
-			{
-				connection.onmessage = e => 
-				{
-					// console.log(`got response: ${e.data}`)
-
-					var data = JSON.parse(e.data)
-
-					if(data.result)
-					{
-						var body = $('#wallet-panel .transactions > tbody')
-							.empty()
-					
-						data.result.forEach && data.result.forEach((item, index) => body.append(`<tr>
-							<td>${index+1}</td>
-							<td>${new Date(item.create_time*1000).toLocaleString()}</td>
-							<td>${item.receiver.slice(0,32)}...</td>
-							<td>${item.sender.slice(0,32)}...</td>
-							<td>${item.value}</td>
-							<td>${item.status_string}</td>
-							</tr>`))
+			$("#push-enable").click(() => {
+				(async () => {
+					if (await webpush.subscribe()) {
+						await pushNotifySub(defaddr)
 					}
-					else onkeykeeper(data)
+				})()
+				return true
+			})
 
-					if($('#wallet-panel').is(":visible"))
-						setTimeout(showWalletStatus, 5000)
-				}
+			$("#push-disable").click(() => {
+				(async () => {
+					await pushNotifyUnsub()
+					await webpush.unsubscribe()
+				})()
+				return true
+			})
+		}
 
-				connection.send(JSON.stringify(
-				{
-					jsonrpc:'2.0',
-					id: 0,
-					method: 'tx_list'
-				}))
-			}
-
-			function showUtxo()
-			{
-				connection.onmessage = e => 
-				{
-					// console.log(`got response: ${e.data}`)
-
-					var data = JSON.parse(e.data)
-
-					if(data.result)
-					{
-						var body = $('#wallet-panel .utxo > tbody')
-							.empty()
-
-						data.result.forEach && data.result.forEach((item, index) => body.append(`<tr>
-							<td>${index+1}</td>
+		function showUtxo() {
+			connection.onmessage = e => {
+				let data = JSON.parse(e.data)
+				if (data.result) {
+					let body = $('#wallet-panel .utxo > tbody').empty()
+					data.result.forEach && data.result.forEach((item, index) => body.append(`<tr>
+							<td>${index + 1}</td>
 							<td>${item.amount}</td>
 							<td>${item.id}</td>
 							<td>${item.maturity}</td>
 							<td>${item.status_string}</td>
 							<td>${item.type}</td>
 							</tr>`))
-
-						showTransactions()
-					}
-					else if(data.error)
-						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
-					else if(data.method) 
-						onkeykeeper(data)
-				}
-
-				connection.send(JSON.stringify(
-				{
-					jsonrpc:'2.0',
-					id: 0,
-					method: 'get_utxo'
-				}))
+					showTransactions()
+				} else if (data.error)
+					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+				else if (data.method)
+					onkeykeeper(e.data)
 			}
 
-            function createNewTestAddr()
-            {
-                connection.send(JSON.stringify(
-                {
-                    jsonrpc:'2.0',
-                    id: 123,
-                    method: 'create_address',
-                    params:
-                    {
-                        expiration : '24h',
-                        comment : 'John Smith'
-                    }
-                }))
-            }
+			connection.send(JSON.stringify({
+				jsonrpc: '2.0',
+				id: 0,
+				method: 'get_utxo'
+			}))
+		}
 
-			function showWalletStatus()
-			{
-				//setTimeout(createNewTestAddr, 5000)
-
-				connection.onmessage = e => 
-				{
-					// console.log(`got response: ${e.data}`)
-
-					var data = JSON.parse(e.data)
-
-					if(data.result)
-					{
-						$("#wallet-panel .available").text(data.result.available)
-						$("#wallet-panel .sending").text(data.result.sending)
-						$("#wallet-panel .receiving").text(data.result.receiving)
-						$("#wallet-panel .current_height").text(data.result.current_height)
-
-						showAddresses()
-					}
-					else if(data.error)
-						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
-					else if(data.method) 
-						onkeykeeper(data)
-				}
-
-				connection.send(JSON.stringify(
-				{
-					jsonrpc:'2.0',
-					id: 0,
-					method: 'wallet_status'
-				}))
-			}
-
-			$('#open-wallet-panel .open-wallet-button').click(() => 
-			{
-				console.log(`Opening wallet with seed phrase: ${localStorage.seed}`)
-				keykeeper = initKeyKeeper(localStorage.seed)
-				var walletPass = $('#open-wallet-panel .wallet-pass-input').val()
-
-				connection.onmessage = e => 
-				{
-					console.log(`got response: ${e.data}`)
-
-					var data = JSON.parse(e.data)
-
-					if(data.result && data.result.length)
-					{
-						console.log(`wallet session: ${data.result}`)
-
-						showPanel('#wallet-panel')
-
-						showWalletStatus()
-					}
-					else if(data.error)
-						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
-					else if(data.method) 
-						onkeykeeper(data)
-				}
-
-				connection.send(JSON.stringify(
-				{
-					jsonrpc:'2.0',
-					id: 0,
-					method: 'open_wallet',
-					params: 
-					{
-						id: localStorage.id,
-						pass: walletPass
-					}
-				}))
-			})
-
-			function sendKeykeeperResult(id, result)
-			{
-				console.log(`>>> keykeeper result: ${result}`)
-
-				connection.send(JSON.stringify(
-					{
-						jsonrpc:'2.0', 
-						id: id,
-						result: JSON.parse(result)
+		function showTransactions() {
+			connection.onmessage = e => {
+				let data = JSON.parse(e.data)
+				if (data.result) {
+					let body = $('#wallet-panel .transactions > tbody').empty()
+					data.result.forEach && data.result.forEach((item, index) => {
+						body.append(`<tr>
+							<td>${index + 1}</td>
+							<td>${new Date(item.create_time * 1000).toLocaleString()}</td>
+							<td>${item.receiver.slice(0, 32)}...</td>
+							<td>${item.sender.slice(0, 32)}...</td>
+							<td>${item.value}</td>
+							<td>${item.status_string}</td>
+							</tr>`)
 					})
-				)
+				} else onkeykeeper(e.data)
+				if ($('#wallet-panel').is(":visible"))
+					setTimeout(showWalletStatus, 5000)
 			}
 
-			function sendKeykeeperError(id, error)
-			{
-				console.log(`>>> keykeeper error: ${error}`)
+			connection.send(JSON.stringify({
+				jsonrpc: '2.0',
+				id: 0,
+				method: 'tx_list'
+			}))
+		}
 
-				connection.send(JSON.stringify(
-					{
-						jsonrpc:'2.0', 
-						id: id,
-						error: error
-					})
-				)
+		$('#wallet-panel .send-button').click(() => {
+			let addr = $('#wallet-panel .receiver-address-input').val()
+			if (addr.length === 0) {
+				alert('Please, enter valid address.')
+				return
 			}
 
-			function onkeykeeper(data)
-			{
-				console.log(`<<< keykeeper request: ${JSON.stringify(data)}`)
-				
-				var handlers = 
-				{
-					get_kdf:                () => sendKeykeeperResult(data.id, keykeeper.get_Kdf(data.params.root, data.params.child_key_num)), 
-					get_slots:              () => sendKeykeeperResult(data.id, keykeeper.get_NumSlots()),
-					create_output:          () => sendKeykeeperResult(data.id, keykeeper.CreateOutput(data.params.scheme, data.params.id)),
-                    sign_receiver:          () => sendKeykeeperResult(data.id, keykeeper.SignReceiver(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv, data.params.peer_id, data.params.my_id_key)),
-                    sign_sender:            () => sendKeykeeperResult(data.id, keykeeper.SignSender(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv, data.params.peer_id, data.params.my_id_key, data.params.slot, data.params.agreement, data.params.my_id, data.params.payment_proof_sig)),
-                    sign_split:             () => sendKeykeeperResult(data.id, keykeeper.SignSplit(data.params.inputs, data.params.outputs, data.params.kernel, data.params.non_conv)),
-				}
-
-				handlers[data.method] 
-					? handlers[data.method]() 
-					: sendKeykeeperError(data.id, `unknown method: ${data.method}`)
+			let amount = $('#wallet-panel .amount-input').val()
+			if (isNaN(parseInt(amount))) {
+				alert('Please, enter valid amount.')
+				return
 			}
 
-			$('#create-wallet-panel .create-wallet-button').click(() => 
-			{
-				var seed = $('#create-wallet-panel .seed-phrase-input').val()
-				console.log(`Creating new wallet with seed phrase: ${seed}`)
-
-				keykeeper = initKeyKeeper(seed)
-				var walletPass = $('#create-wallet-panel .wallet-pass-input').val()
-				var ownerKey = keykeeper.getOwnerKey(walletPass)
-
-				console.log('ownerKey is: data:application/octet-stream;base64,' + ownerKey)
-
-				$('#create-wallet-panel .create-wallet-button')
-					.attr('disabled', true)
-					.find('.spinner-border').show()
-
-				connection.onmessage = e => 
-				{
-					console.log(`got response: ${e.data}`)
-
-					var data = JSON.parse(e.data)
-
-					if(data.result && data.result.length)
-					{
-						console.log(`result is: ${data.result}`)
-
-						localStorage.clear()
-						localStorage.seed = seed
-						localStorage.id = data.result
-
-						$('#create-wallet-panel .create-wallet-button')
-							.attr('disabled', false)
-							.find('.spinner-border').hide()
-
-						refresh()
-					}
-					else if(data.error)
-						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
-					else if(data.method) 
-						onkeykeeper(data)
-				}
-
-				connection.send(JSON.stringify(
-				{
-					jsonrpc:'2.0',
-					id: 0,
-					method: 'create_wallet',
-					params: 
-					{
-						pass: walletPass,
-						ownerkey: ownerKey
-					}
-				}))
-			})
-
-			function refresh()
-			{
-				if(localStorage.id) showPanel('#open-wallet-panel')
-				else
-				{
-					$('#create-wallet-panel .seed-phrase-input').val(Module.KeyKeeper.GeneratePhrase())
-					showPanel('#create-wallet-panel')
-				}
+			if (confirm(`Are you sure want send ${amount} groth to ${addr}?`)) {
+				$('#wallet-panel .amount-input').val('')
+				send(parseInt(amount), addr)
 			}
 		})
 
-	</script>
+		function send(amount, address) {
+			console.log(`!!! sending ${amount} groth to ${address}...`)
+			connection.onmessage = (e) => {
+				let data = JSON.parse(e.data)
+				if (data.result)
+					console.log(`result is ${data.result}`)
+				else if (data.error)
+					console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+				else if (data.method)
+					onkeykeeper(e.data)
+			}
+			connection.send(JSON.stringify({
+				jsonrpc: "2.0",
+				id: 123,
+				method: "tx_send",
+				params: {
+					value: amount,
+					fee: 100,
+					address: address,
+					comment: "thank you!"
+				}
+			}))
+		}
 
-	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
-	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+        function createNewTestAddr() {
+			connection.send(JSON.stringify({
+				jsonrpc: '2.0',
+				id: 123,
+				method: 'create_address',
+				params:
+						{
+							expiration: '24h',
+							comment: 'John Smith'
+						}
+			}))
+		}
+	})
+	</script>
 </html>

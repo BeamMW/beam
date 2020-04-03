@@ -960,7 +960,7 @@ void TestRangeProof(bool bCustomTag)
 
 		beam::Output outp;
 		outp.m_Coinbase = true; // others may be disallowed
-		outp.Create(g_hFork, sk, kdf, cid, kdf, true);
+		outp.Create(g_hFork, sk, kdf, cid, kdf, beam::Output::OpCode::Public);
 		verify_test(outp.IsValid(g_hFork, comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 

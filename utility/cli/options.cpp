@@ -139,6 +139,7 @@ namespace beam
         const char* VERIFICATION_THREADS = "verification_threads";
         const char* NONCEPREFIX_DIGITS = "nonceprefix_digits";
         const char* NODE_PEER = "peer";
+        const char* NODE_PEERS_PERSISTENT = "peers_persistent";
         const char* PASS = "pass";
         const char* SET_SWAP_SETTINGS = "set_swap_settings";
         const char* ACTIVE_CONNECTION = "active_connection";
@@ -230,6 +231,7 @@ namespace beam
         const char* NODE_POLL_PERIOD = "node_poll_period";
         const char* PROXY_USE = "proxy";
         const char* PROXY_ADDRESS = "proxy_addr";
+        const char* ALLOWED_ORIGIN = "allowed_origin";
         // values
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";
@@ -250,7 +252,6 @@ namespace beam
         const char* LASER_AMOUNT_TARGET = "laser_remote_locked_amount";
         const char* LASER_TARGET_ADDR = "laser_address";
         const char* LASER_FEE = "laser_fee";
-        const char* LASER_LOCK_TIME = "laser_lock_time";
         const char* LASER_CHANNEL_ID = "laser_channel";        
 #endif  // BEAM_LASER_SUPPORT
 
@@ -259,6 +260,8 @@ namespace beam
         const char* API_USE_TLS = "use_tls";
         const char* API_TLS_CERT = "tls_cert";
         const char* API_TLS_KEY = "tls_key";
+        const char* API_TLS_REQUEST_CERTIFICATE = "tls_request_cert";
+        const char* API_TLS_REJECT_UNAUTHORIZED = "tls_reject_unauthorized";
         const char* API_USE_ACL= "use_acl";
         const char* API_ACL_PATH = "acl_path";
 
@@ -278,15 +281,19 @@ namespace beam
         const char* ASSET_ISSUE       = "issue";
         const char* ASSET_CONSUME     = "consume";
         const char* ASSET_INFO        = "asset_info";
-        const char* ASSET_REGISTER    = "reg";
-        const char* ASSET_UNREGISTER  = "unreg";
-        const char* ASSET_INDEX       = "asset_idx";
+        const char* ASSET_REGISTER    = "asset_reg";
+        const char* ASSET_UNREGISTER  = "asset_unreg";
         const char* ASSET_ID          = "asset_id";
-        const char* METADATA          = "metadata";
+        const char* ASSET_METADATA    = "asset_meta";
 
-        // newscaster
-        const char* BBS_MESSAGE = "message";
+        // broadcaster
         const char* PRIVATE_KEY = "key";
+        const char* MESSAGE_TYPE = "msg_type";
+        const char* UPDATE_VERSION = "upd_ver";
+        const char* UPDATE_TYPE = "upd_type";
+        const char* EXCHANGE_CURR = "exch_curr";
+        const char* EXCHANGE_RATE = "exch_rate";
+        const char* EXCHANGE_UNIT = "exch_unit";
 
         // lelantus
         const char* INSERT_TO_POOL = "insert_to_pool";
@@ -333,6 +340,7 @@ namespace beam
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::NONCEPREFIX_DIGITS, po::value<unsigned>()->default_value(0), "number of hex digits for nonce prefix for stratum client (0..6)")
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
+            (cli::NODE_PEERS_PERSISTENT, po::value<bool>()->default_value(false), "Keep persistent connection to the specified peers, regardless to ratings")
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
@@ -365,7 +373,7 @@ namespace beam
             (cli::SEED_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39.")
             (cli::AMOUNT_FULL, po::value<Positive<double>>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
-            (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
+            (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver's address or token")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::TX_HISTORY, "print transactions' history in info command")
@@ -435,9 +443,8 @@ namespace beam
 
         po::options_description wallet_assets_options("Confidential assets options");
         wallet_assets_options.add_options()
-            (cli::ASSET_INDEX, po::value<Positive<uint32_t>>(), "asset index")
-            (cli::ASSET_ID,    po::value<Positive<uint32_t>>(), "asset id")
-            (cli::METADATA,    po::value<string>(),             "asset metadata");
+            (cli::ASSET_ID,       po::value<Positive<uint32_t>>(), "asset id")
+            (cli::ASSET_METADATA, po::value<string>(),             "asset metadata");
 
 #ifdef BEAM_LASER_SUPPORT
         po::options_description laser_commands("Laser commands");
@@ -457,7 +464,6 @@ namespace beam
             (cli::LASER_AMOUNT_TARGET, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_TARGET_ADDR, po::value<string>(), "address of laser receiver")
             (cli::LASER_FEE, po::value<Nonnegative<Amount>>(), "fee (in Groth, 100,000,000 groth = 1 Beam)")
-            (cli::LASER_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks beam transaction")
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 #endif  // BEAM_LASER_SUPPORT
 

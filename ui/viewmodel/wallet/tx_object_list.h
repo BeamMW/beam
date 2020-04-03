@@ -19,9 +19,7 @@
 
 class TxObjectList : public ListModel<std::shared_ptr<TxObject>>
 {
-
     Q_OBJECT
-
 public:
     enum class Roles
     {
@@ -31,6 +29,7 @@ public:
         AmountGeneralWithCurrencySort,
         AmountGeneral,
         AmountGeneralSort,
+        SecondCurrencyRate,
         AddressFrom,
         AddressFromSort,
         AddressTo,
@@ -55,8 +54,13 @@ public:
         HasPaymentProof,
         RawTxID,
         Search,
-        StateDetails
+        StateDetails,
+        Token,
+        SenderIdentity,
+        ReceiverIdentity
     };
+
+    Q_ENUM(Roles)
 
     TxObjectList();
 

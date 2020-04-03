@@ -46,7 +46,8 @@ matrix:
       language: cpp
       osx_image: xcode10.1
       install:
-        - export TZ=Etc/GMT-3
+        - export TZ=GMT-3
+        - sudo systemsetup -gettimezone
         - brew update
         - brew unlink cmake
         - brew install cmake
@@ -178,7 +179,7 @@ matrix:
         - git apply 3rdparty/protobuf-patch.diff
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_HW_WALLET=Off .
         - make -j$(nproc)
-        - ctest --verbose 
+        - ctest --verbose
         - cpack
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
@@ -405,6 +406,32 @@ matrix:
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE/" wasm-key-keeper.tar.gz
 
 ###############################################################################
+# Service balancer 
+###############################################################################
+
+    - os: linux
+      dist: bionic
+      language: go
+      env:
+        - TARGET_TYPE=go
+        - BUILD_TYPE=Release
+        - GOOS=linux
+        - GOARCH=amd64
+      go:
+        - 1.13.x
+      install:
+        - export BALANCER_PATH=wallet/service-balancer
+      script:
+        - cd $HOME/build/BeamMW/beam/wallet/service-balancer/ && go build
+      after_success:
+        - tar cvzf service-balancer.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/service-balancer/ service-balancer  config.json
+        - cd $HOME/build/BeamMW/beam/wallet/service-balancer && ls
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE
+        - curl --retry 3 --ftp-create-dirs -T service-balancer.tar.gz $BUILDS_SERVER_PATH/
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE/" service-balancer.tar.gz
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$TARGET_TYPE/" service-balancer.tar.gz
+
+###############################################################################
 # Common part
 ###############################################################################
 before_script:
@@ -420,14 +447,18 @@ after_success:
   - tar -cvzf beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/cli beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg
   - tar -cvzf wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/api/ wallet-api$BEAM_TARGET_SUFFIX wallet-api.cfg
   - tar -cvzf wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/service wallet-service$BEAM_TARGET_SUFFIX
+  - tar -cvzf sbbs-monitor$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/service sbbs-monitor$BEAM_TARGET_SUFFIX
   - tar -cvzf explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/explorer explorer-node$BEAM_TARGET_SUFFIX explorer-node.cfg
+  - tar -cvzf broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/broadcaster broadcaster$BEAM_TARGET_SUFFIX
     
   # upload binaries to FTP
   - curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T sbbs-monitor$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_PATH/$BEAM_WALLET_UI_OUT"
 
   # upload binaries to FTP, to the latest folder
@@ -436,7 +467,9 @@ after_success:
   - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/wallet-api$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/wallet-service$BEAM_TARGET_SUFFIX.tar.gz
+  - curl --retry 3 --ftp-create-dirs -T sbbs-monitor$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/sbbs-monitor$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/explorer-node$BEAM_TARGET_SUFFIX.tar.gz
+  - curl --retry 3 --ftp-create-dirs -T broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/broadcaster$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_LATEST_PATH/$BEAM_WALLET_UI_OUT_VERLESS"
 
   # prep for deploy to AWS S3
@@ -447,7 +480,9 @@ after_success:
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" sbbs-monitor$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
 
   # prep for deploy to AWS S3, latest folder
@@ -455,7 +490,9 @@ after_success:
   - cp beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - cp wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz wallet-api$BEAM_TARGET_SUFFIX.tar.gz
   - cp wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz wallet-service$BEAM_TARGET_SUFFIX.tar.gz
+  - cp sbbs-monitor$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz sbbs-monitor$BEAM_TARGET_SUFFIX.tar.gz
   - cp explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz explorer-node$BEAM_TARGET_SUFFIX.tar.gz
+  - cp broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz broadcaster$BEAM_TARGET_SUFFIX.tar.gz
   - cp $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT_VERLESS
 
   # upload binaries to S3, to the latest folder
@@ -463,7 +500,9 @@ after_success:
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" wallet-api$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" wallet-service$BEAM_TARGET_SUFFIX.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" sbbs-monitor$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" explorer-node$BEAM_TARGET_SUFFIX.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" broadcaster$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT_VERLESS
 
 notifications:

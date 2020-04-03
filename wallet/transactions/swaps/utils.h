@@ -14,16 +14,23 @@
 
 #pragma once
 
-#include "swap_transaction.h"
-#include "common.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
+#include "wallet/transactions/swaps/common.h"
 
 namespace beam::wallet
 {
-    const char* getSwapTxStatus(AtomicSwapTransaction::State state);
+const char* getSwapTxStatus(AtomicSwapTransaction::State state);
 
-    TxParameters InitNewSwap(const WalletID& myID, Height minHeight, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, Amount swapFee, bool isBeamSide = true,
-        Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
+TxParameters InitNewSwap(
+    const WalletID& myID, Height minHeight, Amount amount,
+    Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFee,
+    bool isBeamSide = true, Height lifetime = kDefaultTxLifetime,
+    Height responseTime = kDefaultTxResponseTime);
 
-    TxParameters CreateSwapParameters();
+class Wallet;
+void RegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB);
+
+Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin);
+bool IsSwapAmountValid(
+    AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate);
 } // namespace beam::wallet

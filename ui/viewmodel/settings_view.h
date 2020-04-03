@@ -21,7 +21,7 @@
 #include "model/settings.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/client.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/settings.h"
-#include "ui/viewmodel/newscast/news_settings.h"
+#include "ui/viewmodel/notifications/notifications_settings.h"
 
 class SwapCoinClientModel;
 
@@ -235,9 +235,10 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(int      currentLanguageIndex    READ getCurrentLanguageIndex    NOTIFY currentLanguageIndexChanged)
     Q_PROPERTY(QString  currentLanguage         READ getCurrentLanguage         WRITE setCurrentLanguage)
     Q_PROPERTY(bool     isValidNodeAddress      READ isValidNodeAddress         NOTIFY validNodeAddressChanged)
+    Q_PROPERTY(QString  secondCurrency  READ getSecondCurrency  WRITE setSecondCurrency NOTIFY secondCurrencyChanged)
 
     Q_PROPERTY(QList<QObject*> swapCoinSettingsList READ getSwapCoinSettings    CONSTANT)
-    Q_PROPERTY(QObject* newscastSettings        READ getNewscastSettings        CONSTANT)
+    Q_PROPERTY(QObject* notificationsSettings   READ getNotificationsSettings   CONSTANT)
     
 public:
 
@@ -265,6 +266,10 @@ public:
     QString getCurrentLanguage() const;
     void setCurrentLanguage(QString value);
 
+    // Amount in second currency
+    QString getSecondCurrency() const;
+    void setSecondCurrency(const QString&);
+
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& localNodePeers);
     QString getWalletLocation() const;
@@ -274,7 +279,7 @@ public:
     bool isChanged() const;
 
     const QList<QObject*>& getSwapCoinSettings();
-    QObject* getNewscastSettings();
+    QObject* getNotificationsSettings();
 
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
@@ -306,6 +311,7 @@ signals:
     void passwordReqiredToSpendMoneyChanged();
     void validNodeAddressChanged();
     void currentLanguageIndexChanged();
+    void secondCurrencyChanged();
     void beamMWLinksPermissionChanged();
 
 protected:
@@ -314,7 +320,7 @@ protected:
 private:
     WalletSettings& m_settings;
     QList<QObject*> m_swapSettings;
-    NewscastSettings m_newscastSettings;
+    NotificationsSettings m_notificationsSettings;
 
     QString m_nodeAddress;
     bool m_localNodeRun;
@@ -328,7 +334,9 @@ private:
     bool m_isNeedToCheckAddress;
     bool m_isNeedToApplyChanges;
     QStringList m_supportedLanguages;
+    QStringList m_supportedAmountUnits;
     int m_currentLanguageIndex;
+    QString m_secondCurrency;
     int m_timerId;
 
     const int CHECK_INTERVAL = 1000;

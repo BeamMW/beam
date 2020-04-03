@@ -73,13 +73,8 @@ namespace beam
 		const Rules& rules = Rules::get(); // alias
 
 		size_t iFork = rules.FindFork(m_Height.m_Min);
-		if (rules.FindFork(m_Height.m_Max) != iFork)
-		{
-			// mixed versions are not allowed!
-			m_Height.m_Max = rules.pForks[iFork + 1].m_Height - 1;
-			assert(!m_Height.IsEmpty());
-
-		}
+		std::setmin(m_Height.m_Max, rules.get_ForkMaxHeightSafe(iFork)); // mixed versions are not allowed!
+		assert(!m_Height.IsEmpty());
 
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
@@ -170,14 +165,8 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (pPrev)
-				{
-					int n = pPrev->cmp(*r.m_pKernel);
-					if (n > 0)
-						return false;
-					if (!n && (iFork >= 2))
-						return false; // starting from Fork2 duplicates are forbidden
-				}
+				if (pPrev && ((*pPrev) > (*r.m_pKernel)))
+					return false; // wrong order
 
 				if (!r.m_pKernel->IsValid(m_Height.m_Min, m_Sigma))
 					return false;

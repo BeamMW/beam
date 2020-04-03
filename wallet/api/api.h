@@ -17,25 +17,32 @@
 #include <boost/optional.hpp>
 
 #include "wallet/core/wallet.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/client/extensions/offers_board/swap_offer.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #include "nlohmann/json.hpp"
 
 namespace beam::wallet
 {
-    constexpr Amount DefaultFee = 100;
-
     using json = nlohmann::json;
     using JsonRpcId = json;
 
 #define JSON_RPC_ERRORS(macro) \
-    macro(-32600, InvalidJsonRpc,       "Invalid JSON-RPC.")        \
-    macro(-32601, NotFoundJsonRpc,      "Procedure not found.")     \
-    macro(-32602, InvalidParamsJsonRpc, "Invalid parameters.")      \
-    macro(-32603, InternalErrorJsonRpc, "Internal JSON-RPC error.") \
-    macro(-32001, InvalidTxStatus,      "Invalid TX status.")       \
-    macro(-32002, UnknownApiKey,        "Unknown API key.")         \
-    macro(-32003, InvalidAddress,       "Invalid address.")         \
-    macro(-32004, InvalidTxId,          "Invalid transaction ID.")  \
-    macro(-32005, NotSupported,         "Feature is not supported")
+    macro(-32600, InvalidJsonRpc,            "Invalid JSON-RPC.")                \
+    macro(-32601, NotFoundJsonRpc,           "Procedure not found.")             \
+    macro(-32602, InvalidParamsJsonRpc,      "Invalid parameters.")              \
+    macro(-32603, InternalErrorJsonRpc,      "Internal JSON-RPC error.")         \
+    macro(-32001, InvalidTxStatus,           "Invalid TX status.")               \
+    macro(-32002, UnknownApiKey,             "Unknown API key.")                 \
+    macro(-32003, InvalidAddress,            "Invalid address.")                 \
+    macro(-32004, InvalidTxId,               "Invalid transaction ID.")          \
+    macro(-32005, NotSupported,              "Feature is not supported")         \
+    macro(-32006, InvalidPaymentProof,       "Invalid payment proof provided")   \
+    macro(-32007, PaymentProofExportError,   "Cannot export payment proof")      \
+    macro(-32008, SwapFailToParseToken,      "Invalid swap token.")              \
+    macro(-32009, SwapFailToAcceptOwnOffer,  "Can't accept own swap offer.")     \
+    macro(-32010, SwapNotEnoughtBeams,       "Not enought beams.")               \
+    macro(-32011, SwapFailToConnect,         "Doesn't have active connection.")  \
 
     enum ApiError
     {
@@ -47,24 +54,184 @@ namespace beam::wallet
 #define API_WRITE_ACCESS true
 #define API_READ_ACCESS false
 
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+#define SWAP_OFFER_API_METHODS(macro) \
+    macro(OffersList,       "swap_offers_list",     API_READ_ACCESS)    \
+    macro(OffersBoard,      "swap_offers_board",    API_READ_ACCESS)    \
+    macro(CreateOffer,      "swap_create_offer",    API_WRITE_ACCESS)   \
+    macro(PublishOffer,     "swap_publish_offer",   API_WRITE_ACCESS)   \
+    macro(AcceptOffer,      "swap_accept_offer",    API_WRITE_ACCESS)   \
+    macro(OfferStatus,      "swap_offer_status",    API_READ_ACCESS)    \
+    macro(DecodeToken,      "swap_decode_token",    API_READ_ACCESS)    \
+    macro(GetBalance,       "swap_get_balance",     API_READ_ACCESS)
+#else  // !BEAM_ATOMIC_SWAP_SUPPORT
+#define SWAP_OFFER_API_METHODS(macro)
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
 #define WALLET_API_METHODS(macro) \
-    macro(CreateAddress,    "create_address",   API_WRITE_ACCESS)   \
-    macro(DeleteAddress,    "delete_address",   API_WRITE_ACCESS)   \
-    macro(EditAddress,      "edit_address",     API_WRITE_ACCESS)   \
-    macro(AddrList,         "addr_list",        API_READ_ACCESS)    \
-    macro(ValidateAddress,  "validate_address", API_READ_ACCESS)    \
-    macro(Send,             "tx_send",          API_WRITE_ACCESS)   \
-    macro(Issue,            "tx_issue",         API_WRITE_ACCESS)   \
-    macro(Status,           "tx_status",        API_READ_ACCESS)    \
-    macro(Split,            "tx_split",         API_WRITE_ACCESS)   \
-    macro(TxCancel,         "tx_cancel",        API_WRITE_ACCESS)   \
-    macro(TxDelete,         "tx_delete",        API_WRITE_ACCESS)   \
-    macro(GetUtxo,          "get_utxo",         API_READ_ACCESS)    \
-    macro(Lock,             "lock",             API_WRITE_ACCESS)   \
-    macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
-    macro(TxList,           "tx_list",          API_READ_ACCESS)    \
-    macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)    \
-    macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)
+    macro(CreateAddress,      "create_address",       API_WRITE_ACCESS)   \
+    macro(DeleteAddress,      "delete_address",       API_WRITE_ACCESS)   \
+    macro(EditAddress,        "edit_address",         API_WRITE_ACCESS)   \
+    macro(AddrList,           "addr_list",            API_READ_ACCESS)    \
+    macro(ValidateAddress,    "validate_address",     API_READ_ACCESS)    \
+    macro(Send,               "tx_send",              API_WRITE_ACCESS)   \
+    macro(Issue,              "tx_issue",             API_WRITE_ACCESS)   \
+    macro(Status,             "tx_status",            API_READ_ACCESS)    \
+    macro(Split,              "tx_split",             API_WRITE_ACCESS)   \
+    macro(TxCancel,           "tx_cancel",            API_WRITE_ACCESS)   \
+    macro(TxDelete,           "tx_delete",            API_WRITE_ACCESS)   \
+    macro(GetUtxo,            "get_utxo",             API_READ_ACCESS)    \
+    macro(Lock,               "lock",                 API_WRITE_ACCESS)   \
+    macro(Unlock,             "unlock",               API_WRITE_ACCESS)   \
+    macro(TxList,             "tx_list",              API_READ_ACCESS)    \
+    macro(WalletStatus,       "wallet_status",        API_READ_ACCESS)    \
+    macro(GenerateTxId,       "generate_tx_id",       API_READ_ACCESS)    \
+    macro(ExportPaymentProof, "export_payment_proof", API_READ_ACCESS)    \
+    macro(VerifyPaymentProof, "verify_payment_proof", API_READ_ACCESS)    \
+    SWAP_OFFER_API_METHODS(macro)
+
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+#define WALLET_API_METHODS_ALIASES(macro) \
+    macro("swap_cancel_offer", TxCancel, "tx_cancel", API_WRITE_ACCESS)
+#else  // !BEAM_ATOMIC_SWAP_SUPPORT
+#define WALLET_API_METHODS_ALIASES(macro)
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+
+    class FailToParseToken : public std::runtime_error
+    {
+    public:
+        FailToParseToken() : std::runtime_error("Parse Parameters from 'token' failed.") {}
+    };
+
+    class FailToAcceptOwnOffer : public std::runtime_error
+    {
+    public:
+        FailToAcceptOwnOffer() : std::runtime_error("You can't accept own offer.") {}
+    };
+
+    class NotEnoughtBeams : public std::runtime_error
+    {
+    public:
+        NotEnoughtBeams() : std::runtime_error("Not enought beams") {}
+    };
+
+    class FailToConnectSwap : public std::runtime_error
+    {
+    public:
+        FailToConnectSwap(const std::string& coin) : std::runtime_error(std::string("There is not connection with ") + coin + " wallet") {}
+    };
+
+    struct OfferInput
+    {
+        Amount beamAmount = 0;
+        Amount swapAmount = 0;
+        AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
+        bool isBeamSide = true;
+        Amount beamFee = kMinFeeInGroth;
+        Amount swapFeeRate = 0;
+        Height offerLifetime = 15;
+        std::string comment;
+    };
+
+    struct OffersList
+    {
+        struct
+        {
+            boost::optional<AtomicSwapCoin> swapCoin;
+            boost::optional<SwapOfferStatus> status;
+        } filter;
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            std::vector<SwapOffer> list;
+        };
+    };
+
+    struct OffersBoard
+    {
+        struct
+        {
+            boost::optional<AtomicSwapCoin> swapCoin;
+        } filter;
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            std::vector<SwapOffer> list;
+        };
+    };
+
+    struct CreateOffer : public OfferInput
+    {
+        CreateOffer() = default;
+        CreateOffer(const OfferInput& oi) : OfferInput(oi) {}
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            std::string token;
+            TxID txId;
+        };
+    };
+
+    struct PublishOffer
+    {
+        std::string token;
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            SwapOffer offer;    
+        };
+    };
+
+    struct AcceptOffer
+    {
+        std::string token;
+        Amount beamFee = kMinFeeInGroth;
+        Amount swapFeeRate = 0;
+        std::string comment;
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            SwapOffer offer;
+        };
+    };
+
+    struct OfferStatus
+    {
+        TxID txId;
+        struct Response
+        {
+            Height systemHeight;
+            SwapOffer offer;
+        };
+    };
+
+    struct DecodeToken
+    {
+        std::string token;
+        struct Response
+        {
+            SwapOffer offer;
+            bool isMyOffer;
+            bool isPublic;
+        };
+    };
+
+    struct GetBalance
+    {
+        AtomicSwapCoin coin;
+        struct Response
+        {
+            Amount available;
+        };
+    };
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     struct AddressData
     {
@@ -119,14 +286,15 @@ namespace beam::wallet
 
     struct Send
     {
-        Amount value;
-        Amount fee = DefaultFee;
+        Amount value = 0;
+        Amount fee = kMinFeeInGroth;
         boost::optional<CoinIDList> coins;
         boost::optional<WalletID> from;
         boost::optional<uint64_t> session;
         boost::optional<TxID> txId;
         WalletID address;
         std::string comment;
+        TxParameters txParameters;
 
         struct Response
         {
@@ -136,9 +304,10 @@ namespace beam::wallet
 
     struct Issue
     {
-        Amount value;
-        Amount fee = DefaultFee;
-        Key::Index index;
+        Amount value = 0;
+        Amount fee = kMinFeeInGroth;
+        boost::optional<std::string> meta;
+        boost::optional<Asset::ID> assetId;
         boost::optional<CoinIDList> coins;
         boost::optional<uint64_t> session;
         boost::optional<TxID> txId;
@@ -164,7 +333,7 @@ namespace beam::wallet
 
     struct Split
     {
-        Amount fee = DefaultFee;
+        Amount fee = kMinFeeInGroth;
         AmountList coins;
         boost::optional<TxID> txId;
 
@@ -267,11 +436,34 @@ namespace beam::wallet
         };
     };
 
-    class IWalletApiHandler
+    struct ExportPaymentProof 
+    {
+        TxID txId;
+
+        struct Response
+        {
+            ByteBuffer paymentProof;
+        };
+    };
+
+    struct VerifyPaymentProof
+    {
+        ByteBuffer paymentProof;
+        struct Response
+        {
+            storage::PaymentInfo paymentInfo;
+        };
+    };
+
+    class IApiHandler
     {
     public:
         virtual void onInvalidJsonRpc(const json& msg) = 0;
+    };
 
+    class IWalletApiHandler : public IApiHandler
+    {
+    public:
 #define MESSAGE_FUNC(api, name, _) \
         virtual void onMessage(const JsonRpcId& id, const api& data) = 0;
 
@@ -280,13 +472,48 @@ namespace beam::wallet
 #undef MESSAGE_FUNC
     };
 
-    class WalletApi
+    class Api
     {
     public:
+
+        using Ptr = std::shared_ptr<Api>;
+
+        struct jsonrpc_exception
+        {
+            ApiError code;
+            std::string data;
+            JsonRpcId id;
+        };
+
+        static inline const char JsonRpcHrd[] = "jsonrpc";
+        static inline const char JsonRpcVerHrd[] = "2.0";
 
         // user api key and read/write access
         using ACL = boost::optional<std::map<std::string, bool>>;
 
+        Api(IApiHandler& handler, ACL acl = boost::none);
+
+        bool parse(const char* data, size_t size);
+
+        static const char* getErrorMessage(ApiError code);
+        static bool existsJsonParam(const json& params, const std::string& name);
+        static void checkJsonParam(const json& params, const std::string& name, const JsonRpcId& id);
+    protected:
+        IApiHandler& _handler;
+
+        struct FuncInfo
+        {
+            std::function<void(const JsonRpcId & id, const json & msg)> func;
+            bool writeAccess;
+        };
+
+        std::unordered_map<std::string, FuncInfo> _methods;
+        ACL _acl;
+    };
+
+    class WalletApi : public Api
+    {
+    public:
         WalletApi(IWalletApiHandler& handler, ACL acl = boost::none);
 
 #define RESPONSE_FUNC(api, name, _) \
@@ -296,11 +523,8 @@ namespace beam::wallet
 
 #undef RESPONSE_FUNC
 
-        bool parse(const char* data, size_t size);
-
-        static const char* getErrorMessage(ApiError code);
-
     private:
+        IWalletApiHandler& getHandler() const;
 
 #define MESSAGE_FUNC(api, name, _) \
         void on##api##Message(const JsonRpcId& id, const json& msg);
@@ -309,16 +533,5 @@ namespace beam::wallet
 
 #undef MESSAGE_FUNC
 
-    private:
-        IWalletApiHandler& _handler;
-
-        struct FuncInfo
-        {
-            std::function<void(const JsonRpcId& id, const json& msg)> func;
-            bool writeAccess;
-        };
-
-        std::map<std::string, FuncInfo> _methods;
-        ACL _acl;
     };
-}
+}  // namespace beam::wallet

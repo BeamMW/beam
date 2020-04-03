@@ -14,12 +14,16 @@
 
 #pragma once
 
+#include "wallet/core/common.h"
 #include "core/ecc_native.h"
 #include "core/merkle.h"
 
 #include "core/serialization_adapters.h"
+#include "3rdparty/utilstrencodings.h"
 #include "core/proto.h"
 #include <algorithm>
+#include "wallet/client/extensions/news_channels/version_info.h"
+#include "wallet/core/exchange_rate.h"
 
 namespace beam::wallet
 {
@@ -110,16 +114,6 @@ namespace beam::wallet
         Registering
     };
 
-    enum class SwapOfferStatus : uint32_t
-    {
-        Pending,
-        InProgress,
-        Completed,
-        Canceled,
-        Expired,
-        Failed
-    };
-
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
     MACRO(Unknown,                       0, "Unexpected reason, please send wallet logs to Beam support") \
     MACRO(Canceled,                      1, "Transaction cancelled") \
@@ -149,7 +143,7 @@ namespace beam::wallet
     MACRO(MinHeightIsUnacceptable,       25, "Kernel's min height is unacceptable") \
     MACRO(NotLoopback,                   26, "Not a loopback transaction") \
     MACRO(NoKeyKeeper,                   27, "Key keeper is not initialized") \
-    MACRO(NoAssetId,                     28, "No valid asset owner id/asset owner idx") \
+    MACRO(NoAssetId,                     28, "No valid asset id/asset owner id") \
     MACRO(NoAssetInfo,                   29, "No asset info or asset info is not valid") \
     MACRO(NoAssetMeta,                   30, "No asset metadata or asset metadata is not valid") \
     MACRO(InvalidAssetId,                31, "Invalid asset id") \
@@ -161,7 +155,8 @@ namespace beam::wallet
     MACRO(NotEnoughDataForProof,         37, "Some mandatory data for payment proof is missing") \
     MACRO(NoMasterKey,                   38, "Master key is needed for this transaction, but unavailable") \
     MACRO(KeyKeeperError,                39, "Key keeper malfunctioned") \
-    MACRO(KeyKeeperUserAbort,            40, "Aborted by the user")
+    MACRO(KeyKeeperUserAbort,            40, "Aborted by the user") \
+    MACRO(AssetExists,                   41, "Asset has been already registered")
 
     enum TxFailureReason : int32_t
     {
@@ -197,7 +192,40 @@ namespace beam::wallet
     ByteBuffer toByteBuffer(const ECC::Point::Native& value);
     ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
 
-    Amount GetMinimumFee(size_t numberOfOutputs, size_t numberOfKenrnels = 1);
+    template <typename T>
+    std::string to_base64(const T& obj)
+    {
+        ByteBuffer buffer;
+        {
+            Serializer s;
+            s& obj;
+            s.swap_buf(buffer);
+        }
+
+        return EncodeBase64(buffer.data(), buffer.size());
+    }
+
+    template <typename T>
+    T from_base64(const std::string& base64)
+    {
+        T obj;
+        {
+            auto data = DecodeBase64(base64.data());
+
+            Deserializer d;
+            d.reset(data.data(), data.size());
+
+            d& obj;
+        }
+
+        return obj;
+    }
+
+    constexpr Amount GetMinimumFee(size_t numberOfOutputs, size_t numberOfKenrnels = 1)
+    {
+        // Minimum Fee = (number of outputs) * 10 + (number of kernels) * 10
+        return (numberOfOutputs + numberOfKenrnels) * 10;
+    }
 
     // Ids of the transaction parameters
     enum class TxParameterID : uint8_t
@@ -269,8 +297,10 @@ namespace beam::wallet
         PeerSharedBulletProofPart3 = 110,
 
         PeerLockImage = 115,
-        AssetOwnerIdx = 116,
-        AssetMetadata = 117,
+        AssetMetadata = 116,
+
+        ExchangeRates = 120,
+        OriginalToken = 121,
 
         // Lelantus
         ShieldedOutputId = 120,
@@ -442,16 +472,6 @@ namespace beam::wallet
         PackedTxParameters m_Parameters;
     };    
 
-    enum class AtomicSwapCoin : int32_t // explicit signed type for serialization backward compatibility
-    {
-        Bitcoin,
-        Litecoin,
-        Qtum,
-        Unknown
-    };
-
-    AtomicSwapCoin from_string(const std::string& value);
-
     boost::optional<TxParameters> ParseParameters(const std::string& text);
 
     // Specifies key transaction parameters for interaction with Wallet Clients
@@ -498,6 +518,7 @@ namespace beam::wallet
         bool canDelete() const;
         std::string getStatusString() const;
         std::string getStatusStringApi() const;
+        std::string getAmountInSecondCurrency(ExchangeRate::Currency) const;
 
     //private:
         TxID m_txId = {};
@@ -507,7 +528,6 @@ namespace beam::wallet
         Amount m_changeBeam = 0;
         Amount m_changeAsset = 0;
         Asset::ID m_assetId = Asset::s_InvalidID;
-        Key::Index m_assetOwnerIdx = 0;
         Height m_minHeight = 0;
         WalletID m_peerId = Zero;
         WalletID m_myId = Zero;
@@ -597,7 +617,7 @@ namespace beam::wallet
         virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_outputs(const std::vector<Coin>&) = 0;
         virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
-        virtual void confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
@@ -677,50 +697,42 @@ namespace beam::wallet
             m_notifier->Unsubscribe(m_observer);
         }
     private:
-        Observer* m_observer;
+        Observer * m_observer;
         std::shared_ptr<Notifier> m_notifier;
     };
  
     bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params);
- 
-}  // beam::wallet
+
+    // Check current time with the timestamp of last received block
+    // If it is more than 10 minutes, the walelt is considered not in sync
+    bool IsValidTimeStamp(Timestamp currentBlockTime_s);
+}    // beam::wallet
 
 namespace beam
 {
+    template <typename E>
+    using UnderlyingType = typename std::underlying_type<E>::type;
+
+    template <typename E>
+    using EnumTypesOnly = typename std::enable_if<std::is_enum<E>::value, E>::type;
+
+    template <typename E, typename = EnumTypesOnly<E>>
+    constexpr UnderlyingType<E> underlying_cast(E e)
+    {
+        return static_cast<UnderlyingType<E>>(e);
+    }
+
     std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount);
     std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid);
-
-    struct Version
-    {
-        uint32_t m_major;
-        uint32_t m_minor;
-        uint32_t m_revision;
-
-        Version() = default;
-        Version(uint32_t major, uint32_t minor, uint32_t rev)
-            : m_major(major)
-            , m_minor(minor)
-            , m_revision(rev)
-        {};
-
-        SERIALIZE(m_major, m_minor, m_revision);
-
-        // static Version getCurrent();
-
-        std::string to_string() const;
-        bool operator==(const Version& other) const;
-        bool operator!=(const Version& other) const;
-        bool operator<(const Version& other) const;
-    };
 }  // namespace beam
 
 namespace std
 {
     string to_string(const beam::wallet::WalletID&);
     string to_string(const beam::Merkle::Hash& hash);
-    string to_string(beam::wallet::AtomicSwapCoin value);
-    string to_string(beam::wallet::SwapOfferStatus status);
     string to_string(const beam::wallet::PrintableAmount& amount);
     string to_string(const beam::wallet::TxParameters&);
     string to_string(const beam::Version&);
+    string to_string(const beam::wallet::TxID&);
+    string to_string(const beam::PeerID& id);
 }

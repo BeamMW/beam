@@ -29,7 +29,7 @@ namespace beam::wallet
 
     TxParameters CreateSimpleTransactionParameters(const boost::optional<TxID>& txId)
     {
-        return CreateTransactionParameters(TxType::Simple, txId).SetParameter(TxParameterID::TransactionType, TxType::Simple);
+        return CreateTransactionParameters(TxType::Simple, txId);
     }
 
     TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, const boost::optional<TxID>& txId)
@@ -56,11 +56,12 @@ namespace beam::wallet
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        const auto& peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
         if (!peerID)
         {
-            throw InvalidTransactionParametersException("");
+            throw InvalidTransactionParametersException("No PeerID");
         }
+
         auto receiverAddr = m_WalletDB->getAddress(*peerID);
         if (receiverAddr)
         {
@@ -94,6 +95,10 @@ namespace beam::wallet
             {
                 address.m_label = std::string(message->begin(), message->end());
             }
+            if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID); identity)
+            {
+                address.m_Identity = *identity;
+            }
 
             m_WalletDB->saveAddress(address);
         }
@@ -121,9 +126,9 @@ namespace beam::wallet
 
     void SimpleTransaction::UpdateImpl()
     {
-        bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
-        bool isSelfTx = IsSelfTx();
-        State txState = GetState();
+        const bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
+        const bool isSelfTx = IsSelfTx();
+        const auto txState  = GetState();
         AmountList amoutList;
         if (!GetParameter(TxParameterID::AmountList, amoutList))
         {
@@ -136,14 +141,14 @@ namespace beam::wallet
         }
         auto sharedBuilder = m_TxBuilder;
         BaseTxBuilder& builder = *sharedBuilder;
-
         builder.GetPeerInputsAndOutputs();
+        const bool isAsset = builder.GetAssetId() != Asset::s_InvalidID;
 
         // Check if we already have signed kernel
         if ((isSender && !builder.LoadKernel())
          || (!isSender && (!builder.HasKernelID() || txState == State::Initial)))
         {
-            // We don't need key keeper initialized to go on beyond this point
+            // We need key keeper initialized to go on beyond this point
             if (!m_WalletDB->get_KeyKeeper())
             {
                 // public wallet
@@ -167,7 +172,6 @@ namespace beam::wallet
 
             if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
-                const auto isAsset = builder.GetAssetId() != 0;
                 PeerID myWalletID, peerWalletID;
                 bool hasID = GetParameter<PeerID>(TxParameterID::MySecureWalletID, myWalletID)
                     && GetParameter<PeerID>(TxParameterID::PeerSecureWalletID, peerWalletID);
@@ -199,7 +203,6 @@ namespace beam::wallet
 
                 if (isSelfTx || !isSender)
                 {
-                    // TODO:ASSETS check if we need separate methods for Beam & Asset coins
                     // create receiver utxo
                     for (const auto& amount : builder.GetAmountList())
                     {
@@ -306,6 +309,100 @@ namespace beam::wallet
                 return;
             }
 
+            //
+            // Transaction can be registered
+            // Let's check that it is safe to receive this asset
+            // We don't do this earlier beacuse previous steps can take a lot of time
+            // and asset's state can change
+            //
+            if (isAsset && !isSender)
+            {
+                if (txState != State::AssetCheck && txState != State::AssetConfirmation)
+                {
+                    if (const auto oinfo = m_WalletDB->findAsset(builder.GetAssetId()))
+                    {
+                        SetState(State::AssetCheck);
+                    }
+                    else
+                    {
+                        SetState(State::AssetConfirmation);
+                        ConfirmAsset();
+                        return;
+                    }
+                }
+
+                if (txState == State::AssetConfirmation)
+                {
+                    Height auHeight = 0, acHeight = 0;
+                    GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
+                    GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
+                    if (auHeight || !acHeight)
+                    {
+                        OnFailed(TxFailureReason::AssetConfirmFailed);
+                        return;
+                    }
+                    SetState(State::AssetCheck);
+                }
+
+                if (txState == State::AssetCheck)
+                {
+                    const auto assetId = builder.GetAssetId();
+                    const auto oinfo = m_WalletDB->findAsset(assetId);
+
+                    if (!oinfo.is_initialized())
+                    {
+                        OnFailed(TxFailureReason::NoAssetInfo);
+                        return;
+                    }
+
+                    auto info = *oinfo;
+                    const auto currHeight = m_WalletDB->getCurrentHeight();
+
+                    if (info.CanRollback(currHeight))
+                    {
+                        OnFailed(TxFailureReason::AssetLocked, true);
+                        return;
+                    }
+
+                    const auto getRange = [](WalletAsset& info) -> auto {
+                        HeightRange result;
+                        result.m_Min = info.m_LockHeight;
+                        result.m_Max = AmountBig::get_Lo(info.m_LockHeight) > 0 ? info.m_refreshHeight : info.m_LockHeight;
+                        result.m_Max += Rules::get().CA.LockPeriod;
+                        return result;
+                    };
+
+                    HeightRange hrange = getRange(info);
+                    if (AmountBig::get_Lo(info.m_Value) > 0)
+                    {
+                        m_WalletDB->visitCoins([&](const Coin& coin) -> bool {
+                            if (coin.m_ID.m_AssetID != assetId) return true;
+                            if (coin.m_confirmHeight > hrange.m_Max) return true;
+                            if (coin.m_confirmHeight < hrange.m_Min) return true;
+
+                            const Height h1 = coin.m_spentHeight ? coin.m_spentHeight : currHeight;
+                            if (info.m_refreshHeight < h1)
+                            {
+                                info.m_refreshHeight = h1;
+                                hrange = getRange(info);
+                            }
+                            return true;
+                        });
+                    }
+
+                    if (!hrange.IsInRange(currHeight) || hrange.m_Max < currHeight)
+                    {
+                        SetState(State::AssetConfirmation);
+                        ConfirmAsset();
+                        return;
+                    }
+
+                    // TODO:ASSET check if we nee to compare metadata & owner
+                    //if ((item.m_Owner != owner) || (item.m_Metadata != md))
+			        //    throw FailTx("different asset data");
+                }
+            }
+
             // Construct transaction
             auto transaction = builder.CreateTransaction();
 
@@ -318,11 +415,11 @@ namespace beam::wallet
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return;
             }
-            GetGateway().register_tx(GetTxID(), transaction);
+
+			GetGateway().register_tx(GetTxID(), transaction);
             SetState(State::Registration);
             return;
         }
-        
 
         if (proto::TxStatus::Ok != nRegistered) // we have to ensure that this transaction hasn't already added to blockchain)
         {
@@ -344,8 +441,12 @@ namespace beam::wallet
         }
 
         SetCompletedTxCoinStatuses(hProof);
-
         CompleteTx();
+    }
+
+    void SimpleTransaction::ConfirmAsset()
+    {
+        GetGateway().confirm_asset(GetTxID(), m_TxBuilder->GetAssetId(), kDefaultSubTxID);
     }
 
     void SimpleTransaction::SendInvitation(const BaseTxBuilder& builder, bool isSender)

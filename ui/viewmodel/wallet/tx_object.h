@@ -17,31 +17,39 @@
 #include <QDateTime>
 #include "viewmodel/payment_item.h"
 #include "viewmodel/ui_helpers.h"
+#include "wallet/client/extensions/news_channels/interface.h"
 
 class TxObject : public QObject
 {
     Q_OBJECT
 
 public:
-    TxObject(QObject* parent = nullptr);
-    TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
+    TxObject(const beam::wallet::TxDescription& tx,
+             QObject* parent = nullptr);
+    TxObject(const beam::wallet::TxDescription& tx,
+             beam::wallet::ExchangeRate::Currency secondCurrency,
+             QObject* parent = nullptr);
     bool operator==(const TxObject& other) const;
 
-    auto timeCreated() const -> beam::Timestamp;
-    auto getTxID() const -> beam::wallet::TxID;
-    auto getAmountWithCurrency() const->QString;
-    auto getAmount() const -> QString;
-    auto getAmountValue() const -> beam::Amount;
-    auto getComment() const -> QString;
-    auto getAddressFrom() const -> QString;
-    auto getAddressTo() const -> QString;
-    virtual auto getFee() const -> QString;
-    auto getKernelID() const -> QString;
-    auto getTransactionID() const -> QString;
-    auto hasPaymentProof() const -> bool;
-    virtual auto getStatus() const -> QString;
-    virtual auto getFailureReason() const -> QString;
+    beam::Timestamp timeCreated() const;
+    beam::wallet::TxID getTxID() const;
+    QString getAmountWithCurrency() const;
+    QString getAmount() const;
+    beam::Amount getAmountValue() const;
+    QString getSecondCurrencyRate() const;
+    QString getComment() const;
+    QString getAddressFrom() const;
+    QString getAddressTo() const;
+    virtual QString getFee() const;
+    QString getKernelID() const;
+    QString getTransactionID() const ;
+    bool hasPaymentProof() const;
+    virtual QString getStatus() const;
+    virtual QString getFailureReason() const;
     virtual QString getStateDetails() const;
+    QString getToken() const;
+    QString getSenderIdentity() const;
+    QString getReceiverIdentity() const;
 
     bool isIncome() const;
     bool isSelfTx() const;
@@ -65,10 +73,12 @@ signals:
     void failureReasonChanged();
 
 protected:
-    auto getTxDescription() const -> const beam::wallet::TxDescription&;
-    auto getReasonString(beam::wallet::TxFailureReason reason) const -> QString;
+    const beam::wallet::TxDescription& getTxDescription() const;
+    QString getReasonString(beam::wallet::TxFailureReason reason) const;
+    QString getIdentity(bool isSender) const;
  
     beam::wallet::TxDescription m_tx;
     QString m_kernelID;
     beam::wallet::TxType m_type;
+    beam::wallet::ExchangeRate::Currency m_secondCurrency;
 };

@@ -50,35 +50,53 @@ CustomTableView {
         width: 150 *  rootControl.columnResizeRatio
         movable: false
         resizable: false
-        delegate: Item {
-            Item {
-                width: parent.width
-                height: rootControl.rowHeight
-                clip:true
+        delegate: 
+        Item {
+            width: parent.width
+            height: rootControl.rowHeight
+            clip:true
 
-                SFLabel {
-                    font.pixelSize: 14
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.leftMargin: 20
-                    elide: Text.ElideMiddle
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: styleData.value
-                    color: Style.content_main
-                    copyMenuEnabled: true
-                    onCopyText: BeamGlobals.copyToClipboard(text)
-                }
+            SFLabel {
+                font.pixelSize: 14
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.leftMargin: 20
+                elide: Text.ElideMiddle
+                anchors.verticalCenter: parent.verticalCenter
+                text: styleData.value
+                color: Style.content_main
+                copyMenuEnabled: true
+                onCopyText: BeamGlobals.copyToClipboard(text)
             }
         }
     }
 
     TableViewColumn {
-        role: parentModel.categoryRole
-        //% "Category"
-        title: qsTrId("general-category")
+        role: viewModel.identityRole
+        //% "Identity"
+        title: qsTrId("general-identity")
         width: 150 *  rootControl.columnResizeRatio
         resizable: false
         movable: false
+        delegate:
+        Item {
+            width: parent.width
+            height: rootControl.rowHeight
+            clip:true
+
+            SFLabel {
+                font.pixelSize: 14
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.leftMargin: 20
+                elide: Text.ElideMiddle
+                anchors.verticalCenter: parent.verticalCenter
+                text: styleData.value
+                color: Style.content_main
+                copyMenuEnabled: true
+                onCopyText: BeamGlobals.copyToClipboard(text)
+            }
+        }
     }
 
     TableViewColumn {

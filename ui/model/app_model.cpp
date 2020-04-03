@@ -84,7 +84,7 @@ void AppModel::backupDB(const std::string& dbFilePath)
        
         if (fsutils::rename(dbFilePath, newName))
         {
-            m_walletDBBackupPath = newName;
+            m_walletDBBackupPath = std::move(newName);
         }
     }
 }
@@ -152,7 +152,6 @@ bool AppModel::openWallet(const beam::SecString& pass)
         if (WalletDB::isInitialized(m_settings.getWalletStorage()))
         {
             m_db = WalletDB::open(m_settings.getWalletStorage(), pass);
-            m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db, m_db->get_MasterKdf());
         }
 #if defined(BEAM_HW_WALLET)
         else if (WalletDB::isInitialized(m_settings.getTrezorWalletStorage()))
@@ -210,7 +209,6 @@ void AppModel::onResetWallet()
     assert(m_db);
 
     m_wallet.reset();
-    m_keyKeeper.reset();
     m_bitcoinClient.reset();
     m_litecoinClient.reset();
     m_qtumClient.reset();
@@ -272,7 +270,18 @@ void AppModel::startWallet()
 
     additionalTxCreators->emplace(TxType::AtomicSwap, swapTransactionCreator);
 
-    m_wallet->start(additionalTxCreators, m_settings.getNewscastKey().toStdString());
+    std::map<Notification::Type,bool> activeNotifications {
+        { Notification::Type::SoftwareUpdateAvailable, m_settings.isNewVersionActive() },
+        { Notification::Type::BeamNews, m_settings.isBeamNewsActive() },
+        { Notification::Type::TransactionStatusChanged, m_settings.isTxStatusActive() },
+        { Notification::Type::TransactionCompleted, m_settings.isTxStatusActive() },
+        { Notification::Type::TransactionFailed, m_settings.isTxStatusActive() },
+        { Notification::Type::AddressStatusChanged, m_settings.isTxStatusActive() }
+    };
+
+    bool isSecondCurrencyEnabled = m_settings.getSecondCurrency().toStdString() != noSecondCurrencyStr;
+
+    m_wallet->start(activeNotifications, isSecondCurrencyEnabled, additionalTxCreators);
 }
 
 void AppModel::applySettingsChanges()
@@ -360,7 +369,7 @@ void AppModel::start()
     InitLtcClient();
     InitQtumClient();
 
-    m_wallet = std::make_shared<WalletModel>(m_db, m_keyKeeper, nodeAddrStr, m_walletReactor);
+    m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr, m_walletReactor);
 
     if (m_settings.getRunLocalNode())
     {

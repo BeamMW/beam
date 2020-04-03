@@ -15,6 +15,7 @@
 #include "model/app_model.h"
 #include "qml_globals.h"
 #include "wallet/transactions/swaps/common.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
 #include "ui_helpers.h"
 
 SendSwapViewModel::SendSwapViewModel()
@@ -30,6 +31,8 @@ SendSwapViewModel::SendSwapViewModel()
 {
     connect(&_walletModel, &WalletModel::changeCalculated,  this,  &SendSwapViewModel::onChangeCalculated);
     connect(&_walletModel, &WalletModel::availableChanged, this, &SendSwapViewModel::recalcAvailable);
+    connect(&_exchangeRatesManager, SIGNAL(rateUnitChanged()), SIGNAL(secondCurrencyLabelChanged()));
+    connect(&_exchangeRatesManager, SIGNAL(activeRateChanged()), SIGNAL(secondCurrencyRateChanged()));
 }
 
 QString SendSwapViewModel::getToken() const
@@ -126,13 +129,7 @@ void SendSwapViewModel::setToken(const QString& value)
 
 bool SendSwapViewModel::getTokenValid() const
 {
-    if (QMLGlobals::isSwapToken(_token))
-    {
-        // TODO:SWAP check if token is valid
-        return true;
-    }
-
-    return false;
+    return QMLGlobals::isSwapToken(_token);
 }
 
 bool SendSwapViewModel::getParametersValid() const
@@ -367,18 +364,11 @@ void SendSwapViewModel::sendMoney()
     auto beamFee = _isBeamSide ? getSendFee() : getReceiveFee();
     auto swapFee = _isBeamSide ? getReceiveFee() : getSendFee();
 
-    if (_isBeamSide)
-    {
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_LOCK_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_REFUND_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::REDEEM_TX);
-    }
-    else
-    {
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::LOCK_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::REFUND_TX);
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_REDEEM_TX);
-    }
+    beam::wallet::FillSwapFee(
+        &txParameters,
+        beam::Amount(beamFee),
+        beam::Amount(swapFee),
+        _isBeamSide);
 
     if (!_comment.isEmpty())
     {
@@ -431,4 +421,23 @@ QString SendSwapViewModel::getRate() const
     if (!beamAmount) return QString();
 
     return QMLGlobals::divideWithPrecision8(beamui::AmountToUIString(otherCoinAmount), beamui::AmountToUIString(beamAmount));
+}
+
+QString SendSwapViewModel::getSecondCurrencySendRateValue() const
+{
+    auto sendCurrency = ExchangeRatesManager::convertCurrencyToExchangeCurrency(getSendCurrency());
+    auto rate = _exchangeRatesManager.getRate(sendCurrency);
+    return beamui::AmountToUIString(rate);
+}
+
+QString SendSwapViewModel::getSecondCurrencyReceiveRateValue() const
+{
+    auto receiveCurrency = ExchangeRatesManager::convertCurrencyToExchangeCurrency(getReceiveCurrency());
+    auto rate = _exchangeRatesManager.getRate(receiveCurrency);
+    return beamui::AmountToUIString(rate);
+}
+
+QString SendSwapViewModel::getSecondCurrencyLabel() const
+{
+    return beamui::getCurrencyLabel(_exchangeRatesManager.getRateUnitRaw());
 }

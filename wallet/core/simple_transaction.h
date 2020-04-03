@@ -42,7 +42,10 @@ namespace beam::wallet
             Registration,
 
             KernelConfirmation,
-            OutputsConfirmation
+            OutputsConfirmation,
+
+            AssetConfirmation,
+            AssetCheck,
         };
 
         class Creator : public BaseTransaction::Creator
@@ -68,6 +71,7 @@ namespace beam::wallet
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         void SendInvitation(const BaseTxBuilder& builder, bool isSender);
         void ConfirmInvitation(const BaseTxBuilder& builder);
+        void ConfirmAsset();
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;
         State GetState() const;

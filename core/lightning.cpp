@@ -15,6 +15,10 @@
 #include "lightning.h"
 #include "lightning_codes.h"
 
+
+namespace {
+const beam::Height kPostLockReserveLag = 5;
+}  // namespace
 namespace beam {
 namespace Lightning {
 
@@ -89,6 +93,13 @@ void Channel::UpdateList::DeleteFront()
 {
 	DataUpdate& d = front();
 	pop_front();
+	delete &d;
+}
+
+void Channel::UpdateList::DeleteBack()
+{
+	DataUpdate& d = back();
+	pop_back();
 	delete &d;
 }
 
@@ -175,6 +186,24 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 
 			if (!TransferInternal(val, 1, h, !!iClose))
 				return;
+		}
+	}
+	else if (nRev == m_nRevision && nRev > 1)
+	{
+		// double-sided graceful close
+		uint32_t iClose = 0;
+		if (dataIn.Get(iClose, Codes::CloseGraceful) && !!iClose)
+		{
+			if (m_pNegCtx && m_pNegCtx->m_eType == NegotiationCtx::Close)
+			{
+				m_lstUpdates.DeleteBack();
+				--m_nRevision;
+				m_pNegCtx.reset();
+				if (!m_iRole)
+					Transfer(0, true);
+
+				return;
+			}
 		}
 	}
 
@@ -451,7 +480,7 @@ void Channel::Update()
 	if (!m_State.m_Terminate)
 	{
 		const HeightRange* pHR = pPath->get_HR();
-		if (pHR && (hTip + m_Params.m_hPostLockReserve > pHR->m_Max))
+		if (pHR && ((hTip + m_Params.m_hPostLockReserve + (m_iRole ? kPostLockReserveLag : 0)) > pHR->m_Max))
 		{
 			m_State.m_Terminate = true;
 			m_pNegCtx.reset();
@@ -724,7 +753,7 @@ void Channel::CreatePunishmentTx()
 	Output::Ptr& pOutp = tx.m_vOutputs.back();
 	pOutp.reset(new Output);
 
-	pOutp->Create(Rules::get().pForks[1].m_Height, k, *pKdf, cidOut, *pKdf);
+	pOutp->Create(m_State.m_Close.m_hPhase1, k, *pKdf, cidOut, *pKdf);
 
 	k = -k;
 	offs += k;
@@ -1008,8 +1037,6 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 	if (hr0.m_Max - hr0.m_Min >= m_Params.m_hRevisionMaxLifeTime)
 		return false; // typically it should be much smaller
 
-	m_Params.m_hPostLockReserve = m_Params.m_hLockTime; // currently use same
-
 	Height hMaxLifeTimeWithLock = m_Params.m_hRevisionMaxLifeTime + m_Params.m_hLockTime; // this is the validity lifetime of the 2nd-stage withdrawal tx
 	if (hMaxLifeTimeWithLock < m_Params.m_hLockTime)
 		return false; // overflow
@@ -1033,6 +1060,7 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 		return false;
 	nChange -= (nMy + nMyFee * 3);
 
+	m_iRole = iRole;
 	NegotiationCtx_Open* p = new NegotiationCtx_Open;
 	m_pNegCtx.reset(p);
 	m_pNegCtx->m_eType = NegotiationCtx::Open;
@@ -1071,7 +1099,7 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 		ChannelOpen::Worker wrk(p->m_Inst);
 
 		p->m_Inst.Set(iRole, Codes::Role);
-		p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+		p->m_Inst.Set(hr0.m_Min, Codes::Scheme);
 
 
 		MultiTx::KernelParam krn0;
@@ -1154,13 +1182,13 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCl
 
 		MultiTx& n = p->m_Inst;
 		n.m_pStorage = &p->m_Data;
-		get_Kdf(n.m_pKdf);
+		get_Kdf(n.m_pKdf); 
 
 		cid.m_Value += nMyFee;
 		AllocTxoID(cid);
 
 		n.Set(iRole, Codes::Role);
-		n.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+		n.Set(h, Codes::Scheme);
 
 
 		n.Set(m_pOpen->m_ms0, MultiTx::Codes::InpMsCid);
@@ -1196,7 +1224,7 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCl
 			ChannelUpdate::Worker wrk(p->m_Inst);
 
 			p->m_Inst.Set(iRole, Codes::Role);
-			p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+			p->m_Inst.Set(h, Codes::Scheme);
 
 			Height h1, h2;
 			WithdrawTx::CommonParam cp;
@@ -1221,7 +1249,7 @@ void Channel::Close()
 	}
 }
 
-bool Channel::IsSafeToForget()
+bool Channel::IsSafeToForget() const
 {
 	if (!m_pOpen)
 		return true;

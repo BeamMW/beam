@@ -12,13 +12,15 @@ Control {
     spacing: 8
 
     property string  amount:          "0"
+    property string  currencySymbol:  BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+    property string  secondCurrencyLabel:       ""
+    property string  secondCurrencyRateValue:   "0"
     property string  color:           Style.content_main
     property bool    error:           false
     property bool    showZero:        true
     property bool    showDrop:        false
     property int     fontSize:        14
     property bool    lightFont:       true
-    property string  currencySymbol:  Utils.symbolBeam
     property string  iconSource:      ""
     property size    iconSize:        Qt.size(0, 0)
     property alias   copyMenuEnabled: amountText.copyMenuEnabled
@@ -26,11 +28,21 @@ Control {
     property int     captionFontSize: 12
     property string  prefix:          ""
 
+    function getAmountInSecondCurrency() {
+        let secondCurrencyAmount = Utils.uiStringToLocale(
+            BeamGlobals.calcAmountInSecondCurrency(
+                control.amount,
+                control.secondCurrencyRateValue,
+                control.secondCurrencyLabel));
+        return control.prefix + (secondCurrencyAmount == "" ? "-" : secondCurrencyAmount) + " " + control.secondCurrencyLabel;
+    }
+
     contentItem: RowLayout{
         spacing: control.spacing
 
         SvgImage {
-            Layout.topMargin:   3
+            Layout.alignment:   Qt.AlignTop
+            Layout.topMargin:   12  
             source:             control.iconSource
             sourceSize:         control.iconSize
             visible:            !!control.iconSource
@@ -61,6 +73,19 @@ Control {
                     visible: showDrop
                     source:  "qrc:/assets/icon-down.svg"
                 }
+            }
+
+            SFLabel {
+                id:              secondCurrencyAmountText
+                visible:         secondCurrencyLabel != ""
+                font.pixelSize:  10
+                font.styleName:  "Light"
+                font.weight:     Font.Normal
+                opacity:         0.5
+                color:           Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
+                text:            getAmountInSecondCurrency()
+                onCopyText:      BeamGlobals.copyToClipboard(secondCurrencyAmountText.text)
+                copyMenuEnabled: true
             }
         }
     }

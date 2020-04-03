@@ -77,8 +77,8 @@ namespace beam::wallet
         {
             if (GetState() == State::Initial)
             {
-                LOG_INFO() << GetTxID() << " Unregistering asset with the owner index "
-                           << builder.GetAssetOwnerIdx()
+                LOG_INFO() << GetTxID() << " Unregistering asset with the owner id "
+                           << builder.GetAssetOwnerId()
                            << ". Refund amount is " << PrintableAmount(Rules::get().CA.DepositForList, false)
                            << " saving " << PrintableAmount(builder.GetFee(), false) << " transaction fee";
 
@@ -90,78 +90,77 @@ namespace beam::wallet
 
             if (GetState() == State::AssetCheck)
             {
-                Height auHeight = 0;
+                Height auHeight = 0, acHeight = 0;
                 GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-                if(auHeight)
+                GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
+
+                if(auHeight || !acHeight)
                 {
                     OnFailed(TxFailureReason::AssetConfirmFailed);
                     return;
                 }
 
-                Height acHeight = 0;
-                GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-                if (!acHeight)
-                {
-                    ConfirmAsset();
-                    return;
-                }
-
-                Asset::Full info;
-                if (!GetParameter(TxParameterID::AssetFullInfo, info) || !info.IsValid())
+                Asset::Full fullInfo;
+                if (!GetParameter(TxParameterID::AssetFullInfo, fullInfo))
                 {
                     OnFailed(TxFailureReason::NoAssetInfo, true);
                     return;
                 }
 
+                const WalletAsset info(fullInfo, acHeight);
+
+                //
                 // Asset ID must be valid
-                if (info.m_ID == 0)
+                //
+                if (info.m_ID == Asset::s_InvalidID)
                 {
                     OnFailed(TxFailureReason::NoAssetId, true);
                     return;
                 }
                 SetParameter(TxParameterID::AssetID, info.m_ID);
 
+                //
+                // User should own this asset
+                //
+                if (info.m_Owner != _builder->GetAssetOwnerId())
+                {
+                    OnFailed(TxFailureReason::NoAssetId, true);
+                    return;
+                }
+
+                //
                 // Asset value must be zero
+                //
                 if (info.m_Value != Zero)
                 {
                     OnFailed(TxFailureReason::AssetInUse, true);
                     return;
                 }
 
-                // Rollback should be not possible to the height prio the latest use
+                //
+                // Last burn to 0 should not be able to roll back
+                //
                 Block::SystemState::Full tip;
                 GetTip(tip);
-
-                const auto maxRollback = Rules::get().MaxRollback;
-                auto rollHeight = tip.m_Height >= maxRollback ? tip.m_Height - maxRollback : 0;
-                if (info.m_LockHeight == 0 || info.m_LockHeight > rollHeight)
+                if (info.CanRollback(tip.m_Height))
                 {
                     OnFailed(TxFailureReason::AssetLocked, true);
                     return;
                 }
-            }
 
-            if (GetState() == State::AssetCheck)
-            {
+                //
+                // Here we know that this asset is safe to unregister
+                // It is valid, 0 emission and this cannot be rolled back
+                //
+
                 if(!builder.GetInitialTxParams())
                 {
                     builder.AddRefund();
                 }
 
-                SetState(State::MakingOutputs);
-                if (builder.CreateOutputs())
-                {
-                    return;
-                }
-            }
-
-            if (GetState() == State::MakingOutputs)
-            {
-                SetState(State::MakingKernels);
-                if(builder.MakeKernel())
-                {
-                    return;
-                }
+                SetState(State::Making);
+                builder.CreateOutputs();
+                builder.MakeKernel();
             }
         }
 
@@ -205,18 +204,12 @@ namespace beam::wallet
         }
 
         SetState(State::Finalizing);
+        m_WalletDB->dropAsset(_builder->GetAssetOwnerId());
         std::vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
-            if (coin.m_createTxId == m_ID)
-            {
-                std::setmin(coin.m_confirmHeight, hProof);
-                coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
-            }
-            else
-            {
-                assert(!"Unexpected coins");
-            }
+           std::setmin(coin.m_confirmHeight, hProof);
+           coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
         }
 
         GetWalletDB()->saveCoins(modified);
@@ -225,7 +218,7 @@ namespace beam::wallet
 
     void AssetUnregisterTransaction::ConfirmAsset()
     {
-        GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerIdx(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
+        GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
     }
 
     bool AssetUnregisterTransaction::IsLoopbackTransaction() const
@@ -244,7 +237,6 @@ namespace beam::wallet
         case TxParameterID::Status:
         case TxParameterID::TransactionType:
         case TxParameterID::KernelID:
-        case TxParameterID::AssetOwnerIdx:
             return true;
         default:
             return false;

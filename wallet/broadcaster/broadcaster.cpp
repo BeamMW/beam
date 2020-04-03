@@ -18,11 +18,12 @@
 
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
+#include "utility/string_helpers.h"
 
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
-#include "wallet/client/extensions/news_channels/broadcast_msg_creator.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -45,6 +46,105 @@ WalletID channelToWalletID(BbsChannel channel)
     return dummyWalletID;
 }
 
+bool parseUpdateInfo(const std::string& versionString, const std::string& typeString, VersionInfo& result)
+{
+    Version version;
+    bool res = version.from_string(versionString);
+    if (!res)
+    {
+        return false;
+    }
+
+    VersionInfo::Application appType = VersionInfo::from_string(typeString);
+    if (appType == VersionInfo::Application::Unknown)
+    {
+        return false;
+    }
+    
+    result.m_application = appType;
+    result.m_version = version;
+    return true;
+}
+
+bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate, const std::string& unitString, std::vector<ExchangeRate>& result)
+{
+    auto currency = ExchangeRate::from_string(currencyString);
+    auto unit = ExchangeRate::from_string(unitString);
+    if (rate == 0 ||
+        currency == ExchangeRate::Currency::Unknown ||
+        unit == ExchangeRate::Currency::Unknown)
+    {
+        return false;
+    }
+
+    result = { {currency, unit, rate, getTimestamp()} };
+    return true;
+}
+
+ByteBuffer generateUpdateMessage(const std::string& versionString, const std::string& typeString)
+{
+    VersionInfo result;
+    bool res = parseUpdateInfo(versionString, typeString, result);
+    if (!res)
+    {
+        return ByteBuffer();
+    }
+    return toByteBuffer(result);
+}
+
+ByteBuffer generateExchangeRates(const std::string& currencyString, const Amount& rate, const std::string& unitString)
+{
+    std::vector<ExchangeRate> result;
+    bool res = parseExchangeRateInfo(currencyString, rate, unitString, result);
+    if (!res)
+    {
+        return ByteBuffer();
+    }
+    return toByteBuffer(result);
+}
+
+namespace
+{
+    class MyFlyClient 
+        : public proto::FlyClient
+        , public wallet::IWalletMessageConsumer
+    {
+        void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override
+        {
+        }
+
+        Block::SystemState::IHistory& get_History() override
+        {
+            return m_Headers;
+        }
+
+        Block::SystemState::HistoryMap m_Headers;
+    };
+
+    class MyBbsSender
+        : public IWalletMessageEndpoint
+        , private wallet::BbsSender
+    {
+    public:
+        using BbsSender::BbsSender;
+
+        void Send(const WalletID& peerID, const SetTxParameter& msg) override
+        {
+        
+        }
+        
+        void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
+        {
+            BbsSender::Send(peerID, msg, 0);
+        }
+
+        void OnMessageSent(uint64_t id) override
+        {
+            io::Reactor::get_Current().stop();
+        }
+    };
+}
+
 int main_impl(int argc, char* argv[])
 {
     using namespace beam;
@@ -62,8 +162,19 @@ int main_impl(int argc, char* argv[])
             Nonnegative<uint32_t> pollPeriod_ms;
             uint32_t logCleanupPeriod;
 
-            std::string bbsMessage;
             std::string privateKey;
+            std::string messageType;
+
+            struct WalletUpdateInfo {
+                std::string version;
+                std::string walletType;
+            } walletUpdateInfo;
+
+            struct ExchangeRate {
+                std::string currency;
+                beam::Amount rate;
+                std::string unit;
+            } exchangeRate;
         } options;
 
         io::Address nodeAddress;
@@ -71,23 +182,26 @@ int main_impl(int argc, char* argv[])
         reactor = io::Reactor::create();
 
         {
-            po::options_description desc("Beam BBS general options");
+            po::options_description desc("General options");
             desc.add_options()
                 (cli::HELP_FULL, "list of all options")
                 (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
-                (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
-                (cli::PASS, po::value<std::string>(), "password for the wallet")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             ;
 
-            po::options_description bbsDesc("BBS message options");
-            bbsDesc.add_options()
-                (cli::BBS_MESSAGE, po::value<std::string>(&options.bbsMessage), "BBS message to broadcast")
-                (cli::PRIVATE_KEY, po::value<std::string>(&options.privateKey), "private key to sign BBS message")
+            po::options_description messageDesc("Broadcast message options");
+            messageDesc.add_options()
+                (cli::PRIVATE_KEY, po::value<std::string>(&options.privateKey), "private key to sign message")
+                (cli::MESSAGE_TYPE, po::value<std::string>(&options.messageType), "type of message: 'update' - info about available software updates, 'exchange' - info about current exchange rates")
+                (cli::UPDATE_VERSION, po::value<std::string>(&options.walletUpdateInfo.version), "available software version in format 'x.x.x'")
+                (cli::UPDATE_TYPE, po::value<std::string>(&options.walletUpdateInfo.walletType), "updated software: 'desktop', 'android', 'ios'")
+                (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum'")
+                (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")
+                (cli::EXCHANGE_UNIT, po::value<std::string>(&options.exchangeRate.unit)->default_value("usd"), "unit currency: 'btc', 'usd'")
             ;
             
-            desc.add(bbsDesc);
+            desc.add(messageDesc);
             desc.add(createRulesOptionsDescription());
 
             po::variables_map vm;
@@ -117,7 +231,7 @@ int main_impl(int argc, char* argv[])
             getRulesOptions(vm);
 
             Rules::get().UpdateChecksum();
-            LOG_INFO() << "BBS broadcasting utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
+            LOG_INFO() << "Broadcasting utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             
             if (vm.count(cli::NODE_ADDR) == 0)
@@ -126,9 +240,9 @@ int main_impl(int argc, char* argv[])
                 return -1;
             }
 
-            if (vm.count(cli::BBS_MESSAGE) == 0)
+            if (vm.count(cli::MESSAGE_TYPE) == 0)
             {
-                LOG_ERROR() << "message has to be specified";
+                LOG_ERROR() << "message type has to be specified";
                 return -1;
             }
 
@@ -143,23 +257,6 @@ int main_impl(int argc, char* argv[])
                 LOG_ERROR() << "unable to resolve node address: " << options.nodeURI;
                 return -1;
             }
-
-            if (!WalletDB::isInitialized(options.walletPath))
-            {
-                LOG_ERROR() << "Wallet not found, path is: " << options.walletPath;
-                return -1;
-            }
-
-            SecString pass;
-            if (!beam::read_wallet_pass(pass, vm))
-            {
-                LOG_ERROR() << "Please, provide password for the wallet.";
-                return -1;
-            }
-
-            walletDB = WalletDB::open(options.walletPath, pass);
-
-            LOG_INFO() << "wallet sucessfully opened...";
         }
 
         io::Reactor::Scope scope(*reactor);
@@ -167,36 +264,31 @@ int main_impl(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
 
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-        Wallet wallet(walletDB);
+        MyFlyClient client;
+        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(client);
 
-        wallet.ResumeAllTransactions();
-
-        proto::FlyClient::NetworkStd nnet(wallet);
-        nnet.m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
+        nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         
-        if (nnet.m_Cfg.m_PollPeriod_ms)
+        if (nnet->m_Cfg.m_PollPeriod_ms)
         {
-            LOG_INFO() << "Node poll period = " << nnet.m_Cfg.m_PollPeriod_ms << " ms";
-            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet.m_Cfg.m_PollPeriod_ms);
-            if (timeout_ms != nnet.m_Cfg.m_PollPeriod_ms)
+            LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+            if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
             {
                 LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
             }
         }
         uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
-        if (nnet.m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+        if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
         {
             LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
         }
-        nnet.m_Cfg.m_vNodes.push_back(nodeAddress);
-        nnet.Connect();
+        nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
+        nnet->Connect();
 
-        WalletNetworkViaBbs wnet(wallet, std::shared_ptr<proto::FlyClient::INetwork>(&nnet), walletDB);
-		wallet.AddMessageEndpoint(std::shared_ptr<IWalletMessageEndpoint>(&wnet));
-        wallet.SetNodeEndpoint(std::shared_ptr<beam::proto::FlyClient::INetwork>(&nnet));
+        MyBbsSender wnet(nnet);
 
-        BroadcastRouter broadcastRouter(nnet, wnet);
+        BroadcastRouter broadcastRouter(*nnet, wnet);
 
         ECC::Scalar::Native key;
         if (!BroadcastMsgCreator::stringToPrivateKey(options.privateKey, key))
@@ -205,11 +297,34 @@ int main_impl(int argc, char* argv[])
             return -1;
         }
 
-        VersionInfo versionInfo;
-        versionInfo.m_application = VersionInfo::Application::DesktopWallet;
-        versionInfo.m_version = Version(1,2,3);
-        BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(versionInfo), key);
-        broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msg);
+        ByteBuffer rawMessage;
+        BroadcastContentType contentType;
+        if (options.messageType == "update")
+        {
+            rawMessage = generateUpdateMessage(options.walletUpdateInfo.version, options.walletUpdateInfo.walletType);
+            contentType = BroadcastContentType::SoftwareUpdates;
+        }
+        else if (options.messageType == "exchange")
+        {
+            rawMessage = generateExchangeRates(options.exchangeRate.currency, options.exchangeRate.rate, options.exchangeRate.unit);
+            contentType = BroadcastContentType::ExchangeRates;
+        }
+        else
+        {
+            LOG_ERROR() << "Invalid type of message: " << options.messageType;
+            return -1;
+        }
+
+        if (rawMessage.size())
+        {
+            BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(rawMessage, key);
+            broadcastRouter.sendMessage(contentType, msg);
+        }
+        else
+        {
+            LOG_ERROR() << "Invalid message parameters";
+            return -1;
+        }
 
         io::Reactor::get_Current().run();
 

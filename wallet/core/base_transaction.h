@@ -149,7 +149,7 @@ namespace beam::wallet
 
         IWalletDB::Ptr GetWalletDB();
         IPrivateKeyKeeper2::Ptr get_KeyKeeperStrict(); // throws TxFailureReason::NoKeyKeeper if no key keeper (read-only mode)
-        Key::IKdf::Ptr get_MasterKdfStrict(); // throws TxFailureReason::NoMasterKey if no master key
+        Key::IKdf::Ptr get_MasterKdfStrict() const; // throws TxFailureReason::NoMasterKey if no master key
         static void TestKeyKeeperRet(IPrivateKeyKeeper2::Status::Type); // throws TxFailureReason::KeyKeeperError on error
         static TxFailureReason KeyKeeperErrorToFailureReason(IPrivateKeyKeeper2::Status::Type);
         IAsyncContext& GetAsyncAcontext() const;

@@ -238,11 +238,82 @@ namespace beam::wallet {
 
     ///////////////////////////
 
-    WalletNetworkViaBbs::WalletNetworkViaBbs(IWalletMessageConsumer& w, shared_ptr<proto::FlyClient::INetwork> net, const IWalletDB::Ptr& pWalletDB)
+    BbsSender::BbsSender(proto::FlyClient::INetwork::Ptr nodeEndpoint)
+        : m_NodeEndpoint(nodeEndpoint)
+    {
+
+    }
+
+    BbsSender::~BbsSender()
+    {
+        try
+        {
+            m_Miner.Stop();
+            while (!m_PendingBbsMsgs.empty())
+                DeleteReq(m_PendingBbsMsgs.front());
+        }
+        catch (const std::exception & e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...)
+        {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void BbsSender::Send(const WalletID& peerID, const ByteBuffer& msg, uint64_t messageID)
+    {
+        BbsMiner::Task::Ptr pTask = std::make_shared<BbsMiner::Task>();
+        pTask->m_Msg.m_Message = msg;
+
+        pTask->m_Done = false;
+        pTask->m_Msg.m_Channel = channel_from_wallet_id(peerID);
+
+        pTask->m_StoredMessageID = messageID; // store id to be able to remove if send succeeded
+
+        if (m_MineOutgoing)
+        {
+            proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
+
+            if (!m_Miner.m_pEvt)
+            {
+                m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
+                m_Miner.m_Shutdown = false;
+
+                uint32_t nThreads = std::thread::hardware_concurrency();
+                nThreads = (nThreads > 1) ? (nThreads - 1) : 1; // leave at least 1 vacant core for other things
+                m_Miner.m_vThreads.resize(nThreads);
+
+                for (uint32_t i = 0; i < nThreads; i++)
+                    m_Miner.m_vThreads[i] = std::thread(&BbsMiner::Thread, &m_Miner, i);
+            }
+
+            std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
+
+            m_Miner.m_Pending.push_back(std::move(pTask));
+            m_Miner.m_NewTask.notify_all();
+        }
+        else
+        {
+            pTask->m_Msg.m_TimePosted = getTimestamp();
+            OnMined(pTask);
+        }
+    }
+
+    proto::FlyClient::IBbsReceiver* BbsSender::get_BbsReceiver()
+    {
+        return &m_BbsSentEvt;
+    }
+
+    ///////////////////////////
+
+    WalletNetworkViaBbs::WalletNetworkViaBbs(IWalletMessageConsumer& w, proto::FlyClient::INetwork::Ptr net, const IWalletDB::Ptr& pWalletDB)
         : BaseMessageEndpoint(w, pWalletDB)
+        , BbsSender(net)
         , m_NodeEndpoint(net)
-		, m_WalletDB(pWalletDB)
-	{
+        , m_WalletDB(pWalletDB)
+    {
 		ByteBuffer buffer;
 		m_WalletDB->getBlob(BBS_TIMESTAMPS, buffer);
 		if (!buffer.empty())
@@ -262,10 +333,6 @@ namespace beam::wallet {
         try 
         {
             m_WalletDB->Unsubscribe(this);
-            m_Miner.Stop();
-
-		    while (!m_PendingBbsMsgs.empty())
-			    DeleteReq(m_PendingBbsMsgs.front());
 
             Unsubscribe();
 		
@@ -301,11 +368,11 @@ namespace beam::wallet {
 		m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), buffer.size());
 	}
 
-	void WalletNetworkViaBbs::DeleteReq(WalletRequestBbsMsg& r)
+	void BbsSender::DeleteReq(WalletRequestBbsMsg& r)
 	{
 		m_PendingBbsMsgs.erase(BbsMsgList::s_iterator_to(r));
 		r.m_pTrg = NULL;
-        m_WalletDB->deleteWalletMessage(r.m_MessageID);
+        OnMessageSent(r.m_MessageID);
 		r.Release();
 	}
 
@@ -315,13 +382,13 @@ namespace beam::wallet {
 		SaveBbsTimestamps();
 	}
 
-	void WalletNetworkViaBbs::BbsSentEvt::OnComplete(proto::FlyClient::Request& r)
+	void BbsSender::BbsSentEvt::OnComplete(proto::FlyClient::Request& r)
 	{
 		assert(r.get_Type() == proto::FlyClient::Request::Type::BbsMsg);
 		get_ParentObj().DeleteReq(static_cast<WalletRequestBbsMsg&>(r));
 	}
 
-	void WalletNetworkViaBbs::BbsSentEvt::OnMsg(proto::BbsMsg&& msg)
+	void BbsSender::BbsSentEvt::OnMsg(proto::BbsMsg&& msg)
 	{
 		get_ParentObj().OnMsg(msg);
 	}
@@ -354,42 +421,7 @@ namespace beam::wallet {
     {
         // first store message for accidental app close
         auto messageID = m_WalletDB->saveWalletMessage(OutgoingWalletMessage{ 0, peerID, msg });
-
-        BbsMiner::Task::Ptr pTask = std::make_shared<BbsMiner::Task>();
-        pTask->m_Msg.m_Message = msg;
-        
-        pTask->m_Done = false;
-        pTask->m_Msg.m_Channel = channel_from_wallet_id(peerID);
-
-        pTask->m_StoredMessageID = messageID; // store id to be able to remove if send succeeded
-
-        if (m_MineOutgoing)
-        {
-            proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
-
-            if (!m_Miner.m_pEvt)
-            {
-                m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
-                m_Miner.m_Shutdown = false;
-
-                uint32_t nThreads = std::thread::hardware_concurrency();
-                nThreads = (nThreads > 1) ? (nThreads - 1) : 1; // leave at least 1 vacant core for other things
-                m_Miner.m_vThreads.resize(nThreads);
-
-                for (uint32_t i = 0; i < nThreads; i++)
-                    m_Miner.m_vThreads[i] = std::thread(&BbsMiner::Thread, &m_Miner, i);
-            }
-
-            std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
-
-            m_Miner.m_Pending.push_back(std::move(pTask));
-            m_Miner.m_NewTask.notify_all();
-        }
-        else
-        {
-            pTask->m_Msg.m_TimePosted = getTimestamp();
-            OnMined(pTask);
-        }
+        BbsSender::Send(peerID, msg, messageID);
     }
 
     void WalletNetworkViaBbs::OnChannelAdded(BbsChannel channel)
@@ -399,7 +431,7 @@ namespace beam::wallet {
         if (m_BbsTimestamps.end() != it)
             ts = it->second;
 
-        m_NodeEndpoint->BbsSubscribe(channel, ts, &m_BbsSentEvt);
+        m_NodeEndpoint->BbsSubscribe(channel, ts, get_BbsReceiver());
 	}
 
     void WalletNetworkViaBbs::OnChannelDeleted(BbsChannel channel)
@@ -407,7 +439,12 @@ namespace beam::wallet {
         m_NodeEndpoint->BbsSubscribe(channel, 0, nullptr);
 	}
 
-	void WalletNetworkViaBbs::OnMined()
+    void WalletNetworkViaBbs::OnMessageSent(uint64_t messageID)
+    {
+        m_WalletDB->deleteWalletMessage(messageID);
+    }
+
+	void BbsSender::OnMined()
 	{
 		while (true)
 		{
@@ -429,7 +466,7 @@ namespace beam::wallet {
 		}
 	}
 
-	void WalletNetworkViaBbs::OnMined(BbsMiner::Task::Ptr task)
+	void BbsSender::OnMined(BbsMiner::Task::Ptr task)
 	{
 		WalletRequestBbsMsg::Ptr pReq(new WalletRequestBbsMsg);
 

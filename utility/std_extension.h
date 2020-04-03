@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "core/uintBig.h"
+
 namespace std
 {
 	template<class T, size_t N> 
@@ -30,4 +32,19 @@ namespace std
 	        return result;
 	    }
 	};
+
+    template<>
+    struct hash<ECC::uintBig>
+    {
+        size_t operator() (const ECC::uintBig& key) const noexcept
+        {
+            std::hash<uint8_t> hasher;
+            size_t result = 0;
+            for(size_t i = 0; i < ECC::uintBig::nBytes; ++i)
+            {
+                result = (result << 1) ^ hasher(key.m_pData[i]);
+            }
+            return result;
+        }
+    };
 }

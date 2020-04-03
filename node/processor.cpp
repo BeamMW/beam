@@ -1318,6 +1318,9 @@ struct NodeProcessor::MultiblockContext
 
 void NodeProcessor::MultiblockContext::MyTask::Exec(Executor::Context&)
 {
+	MultiAssetContext::BatchCtx bcAssets(m_pShared->m_Mbc.m_Mac);
+	Asset::Proof::BatchContext::Scope scopeAssets(bcAssets);
+
 	m_pShared->Exec(m_iVerifier);
 }
 
@@ -1332,9 +1335,6 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	beam::TxBase txbDummy;
 	if (bSparse)
 		txbDummy.m_Offset = Zero;
-
-	MultiAssetContext::BatchCtx bcAssets(m_Mbc.m_Mac);
-	Asset::Proof::BatchContext::Scope scopeAssets(bcAssets);
 
 	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
 
@@ -1924,6 +1924,7 @@ struct NodeProcessor::BlockInterpretCtx
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
 	Asset::ID m_AssetsUsed = Asset::s_MaxCount + 1;
+	Asset::ID m_AssetHi = static_cast<Asset::ID>(-1); // last valid Asset ID
 
 	// rollback data
 	ByteBuffer* m_pRollback = nullptr;
@@ -1997,10 +1998,23 @@ struct NodeProcessor::BlockInterpretCtx
 
 	BlobSet* m_pDups = nullptr; // used in validate-only mode
 
+	typedef std::set<Blob> BlobPtrSet; // like BlobSet, but buffers are not allocated/copied
+	BlobPtrSet* m_pDupIDs;
+
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
 		,m_Fwd(bFwd)
 	{
+	}
+
+	void SetAssetHi(const NodeProcessor& np)
+	{
+		m_AssetHi = static_cast<Asset::ID>(np.m_Mmr.m_Assets.m_Count);
+	}
+
+	bool ValidateAssetRange(const Asset::Proof::Ptr& p) const
+	{
+		return !p || (p->m_Begin <= m_AssetHi);
 	}
 
 	void EnsureAssetsUsed(NodeDB&);
@@ -2041,6 +2055,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	LOG_INFO() << os.str();
 
 	BlockInterpretCtx bic(0, true);
+	bic.SetAssetHi(*this);
 	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 	{
 		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data, bic))
@@ -2171,6 +2186,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	TxoID id0 = m_Extra.m_Txos;
 
 	BlockInterpretCtx bic(sid.m_Height, true);
+	bic.SetAssetHi(*this);
 	if (!bFirstTime)
 		bic.m_AlreadyValidated = true;
 
@@ -2640,22 +2656,30 @@ bool NodeProcessor::IsDummy(const CoinID&  cid)
 		(Key::Type::Decoy == cid.m_Type);
 }
 
+Height NodeProcessor::FindVisibleKernel(const Merkle::Hash& id, const BlockInterpretCtx& bic)
+{
+	Height h = m_DB.FindKernel(id);
+	if (h >= Rules::HeightGenesis)
+	{
+		assert(h <= bic.m_Height);
+
+		const Rules& r = Rules::get();
+		if ((bic.m_Height >= r.pForks[2].m_Height) && (bic.m_Height - h > r.MaxKernelValidityDH))
+			return 0; // Starting from Fork2 - visibility horizon is limited
+	}
+
+	return h;
+}
+
+
 bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
 {
 	if (bic.m_Fwd && krn.m_pRelativeLock && !bic.m_AlreadyValidated)
 	{
 		const TxKernelStd::RelativeLock& x = *krn.m_pRelativeLock;
 
-		Height h0 = m_DB.FindKernel(x.m_ID);
+		Height h0 = FindVisibleKernel(x.m_ID, bic);
 		if (h0 < Rules::HeightGenesis)
-			return false;
-
-		const Rules& rules = Rules::get();
-		// We should NOT allow for (h0 == bic.m_Height), which is possible if (x.m_LockHeight == 0).
-		// it will be fragile when kernels are sorted, attacker may do this to prevent correct block generation.
-		//
-		// Can't be enforced prior to Fork2. But since Fork2 - the following comparison makes sure to reject it.
-		if ((bic.m_Height >= rules.pForks[2].m_Height) && (Height(bic.m_Height - h0 - 1) >= rules.MaxKernelValidityDH))
 			return false;
 
 		HeightAdd(h0, x.m_LockHeight);
@@ -2908,6 +2932,9 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			return false;
 		}
 
+		if (!bic.ValidateAssetRange(krn.m_Txo.m_pAsset))
+			return false;
+
 		if (bic.m_ValidateOnly)
 		{
 			if (!ValidateUniqueNoDup(bic, blobKey))
@@ -2995,6 +3022,9 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpre
 	{
 		if (!bic.m_AlreadyValidated)
 		{
+			if (!bic.ValidateAssetRange(krn.m_pAsset))
+				return false;
+
 			if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
 			{
 				bic.m_LimitExceeded = true;
@@ -3234,6 +3264,9 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 
 	if (bic.m_Fwd)
 	{
+		if (!bic.ValidateAssetRange(v.m_pAsset))
+			return false;
+
 		TxoID nID = m_Extra.m_Txos;
 
 		if (bCreate)
@@ -3269,10 +3302,21 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 	const Rules& r = Rules::get();
 	if (bic.m_Fwd && (bic.m_Height >= r.pForks[2].m_Height) && !bic.m_AlreadyValidated)
 	{
-		Height hPrev = m_DB.FindKernel(v.m_Internal.m_ID);
-		assert(hPrev <= bic.m_Height);
-		if ((hPrev >= Rules::HeightGenesis) && (bic.m_Height - hPrev <= r.MaxKernelValidityDH))
+		Height hPrev = FindVisibleKernel(v.m_Internal.m_ID, bic);
+		if (hPrev >= Rules::HeightGenesis)
 			return false; // duplicated
+
+		if (bic.m_ValidateOnly)
+		{
+			assert(bic.m_pDupIDs);
+			Blob key(v.m_Internal.m_ID);
+
+			if (bic.m_pDupIDs->end() != bic.m_pDupIDs->find(key))
+				return false; // duplicated within the same tx
+
+			bic.m_pDupIDs->insert(key);
+			
+		}
 	}
 
 	bool bSaveID = ((bic.m_Height >= Rules::HeightGenesis) && bic.m_SaveKid); // for historical reasons treasury kernels are ignored
@@ -3927,6 +3971,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 	// Ensure kernels are ok
 	BlockInterpretCtx bic(h, true);
+	bic.SetAssetHi(*this);
 	bic.m_ValidateOnly = true;
 	bic.m_UpdateMmrs = false;
 	bic.m_SaveKid = false;
@@ -3934,9 +3979,17 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	BlockInterpretCtx::BlobSet setDups;
 	bic.m_pDups = &setDups;
 
+	BlockInterpretCtx::BlobPtrSet setKrnIds;
+	bic.m_pDupIDs = &setKrnIds;
+
 	size_t n = 0;
 	if (!HandleElementVecFwd(tx.m_vKernels, bic, n))
 		return bic.m_LimitExceeded ? proto::TxStatus::LimitExceeded : proto::TxStatus::InvalidContext;
+
+	// Ensure output assets are in range
+	for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
+		if (!bic.ValidateAssetRange(tx.m_vOutputs[i]->m_pAsset))
+			return proto::TxStatus::InvalidContext;
 
 	if (!bShieldedTested)
 	{
@@ -4190,6 +4243,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height + 1, true);
 	bic.m_UpdateMmrs = false;
+	bic.SetAssetHi(*this);
 
 	ByteBuffer bbR;
 	bic.m_pRollback = &bbR;
@@ -4334,15 +4388,6 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 			m_pR->Clone(pR);
 
 			bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR));
-
-			ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
-			if (pBc)
-			{
-				if (bValid)
-					bValid = pBc->Flush();
-
-				pBc->Reset();
-			}
 
 			std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 

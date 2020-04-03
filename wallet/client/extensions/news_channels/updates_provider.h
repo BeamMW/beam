@@ -15,8 +15,8 @@
 #pragma once
 
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
-#include "wallet/client/extensions/news_channels/broadcast_msg_validator.h"
 
 namespace beam::wallet
 {    
@@ -27,23 +27,24 @@ namespace beam::wallet
         : public IBroadcastListener
     {
     public:
-        AppUpdateInfoProvider(IBroadcastMsgsGateway&, BroadcastMsgValidator&);
+        AppUpdateInfoProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&);
 
-        /**
-         *  Provides application update information from broadcast messages
-         */
-        virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
+        // IBroadcastListener implementation
+        virtual bool onMessage(uint64_t unused, ByteBuffer&&) override; // TODO: dh remove after 2 fork.
+        virtual bool onMessage(uint64_t unused, BroadcastMsg&&) override;
         
         // INewsObserver interface
         void Subscribe(INewsObserver* observer);
         void Unsubscribe(INewsObserver* observer);
         
     private:
-		IBroadcastMsgsGateway& m_broadcastGateway;
+
+        void notifySubscribers(const VersionInfo&, const ECC::uintBig&) const;
+
+		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;
         std::vector<INewsObserver*> m_subscribers;
 
-        void notifySubscribers(const VersionInfo&) const;
     };
 
 } // namespace beam::wallet

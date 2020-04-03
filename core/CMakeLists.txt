@@ -34,6 +34,7 @@ target_link_libraries(core
         pow
         pbkdf
         secp256k1
+        assets
 )
 
 #target_include_directories(core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

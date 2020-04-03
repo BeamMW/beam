@@ -26,7 +26,6 @@ namespace beam::wallet
     AssetUnregisterTxBuilder::AssetUnregisterTxBuilder(BaseTransaction& tx, SubTxID subTxID)
         : m_Tx{tx}
         , m_SubTxID(subTxID)
-        , m_assetOwnerIdx(0)
         , m_assetOwnerId(0UL)
         , m_Fee(0)
         , m_MinHeight(0)
@@ -35,18 +34,22 @@ namespace beam::wallet
     {
         auto masterKdf = m_Tx.get_MasterKdfStrict(); // can throw
         m_Fee = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, m_SubTxID);
+
+        // At the moment we do not require any fee inputs for this transaction
+        // and pay fees from ASSET->BEAM conversion. But need to be sure that
+        // this conversion generates enough BEAMs
         if (m_Fee > Rules::get().CA.DepositForList)
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 
-        m_assetOwnerIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetOwnerIdx);
-        if (m_assetOwnerIdx == 0)
+        m_Metadata = m_Tx.GetMandatoryParameter<std::string>(TxParameterID::AssetMetadata);
+        if(m_Metadata.empty())
         {
-            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
+            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetMeta);
         }
 
-        m_assetOwnerId = GetAssetOwnerID(masterKdf, m_assetOwnerIdx);
+        m_assetOwnerId = GetAssetOwnerID(masterKdf, m_Metadata);
         if (m_assetOwnerId == Zero)
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
@@ -55,8 +58,7 @@ namespace beam::wallet
 
     bool AssetUnregisterTxBuilder::GetInitialTxParams()
     {
-        // TODO:ASSETS remove all inputs and pay fee from refunded amount
-        m_Tx.GetParameter(TxParameterID::Outputs,    m_Outputs,     m_SubTxID);
+        m_Tx.GetParameter(TxParameterID::Outputs,m_Outputs, m_SubTxID);
         bool hasOCoins = m_Tx.GetParameter(TxParameterID::OutputCoins,m_OutputCoins, m_SubTxID);
 
         if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
@@ -134,14 +136,8 @@ namespace beam::wallet
         return m_Fee;
     }
 
-    Key::Index AssetUnregisterTxBuilder::GetAssetOwnerIdx() const
-    {
-        return m_assetOwnerIdx;
-    }
-
     PeerID AssetUnregisterTxBuilder::GetAssetOwnerId() const
     {
-        assert(m_assetOwnerId != Zero || !"Asset owner id is still zero");
         return m_assetOwnerId;
     }
 
@@ -181,19 +177,17 @@ namespace beam::wallet
                    << PrintableAmount(amount) << ", id " << newUtxo.toStringID();
     }
 
-    bool AssetUnregisterTxBuilder::CreateOutputs()
+    void AssetUnregisterTxBuilder::CreateOutputs()
     {
         if (GetOutputs() || m_OutputCoins.empty())
         {
             // if we already have outputs or there are no outputs, nothing to do here
-            return false;
+            return;
         }
 
         auto masterKdf = m_Tx.get_MasterKdfStrict();
         m_Outputs = GenerateAssetOutputs(masterKdf, m_MinHeight, m_OutputCoins);
         m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
-
-        return false;
     }
 
     const Merkle::Hash& AssetUnregisterTxBuilder::GetKernelID() const
@@ -213,9 +207,9 @@ namespace beam::wallet
         return *m_kernelID;
     }
 
-    bool AssetUnregisterTxBuilder::MakeKernel()
+    void AssetUnregisterTxBuilder::MakeKernel()
     {
-        if (m_kernel) return false;
+        if (m_kernel) return;
 
         m_kernel = make_unique<TxKernelAssetDestroy>();
         m_kernel->m_Fee          = m_Fee;
@@ -225,13 +219,11 @@ namespace beam::wallet
         m_kernel->m_AssetID      = m_Tx.GetMandatoryParameter<Asset::ID>(TxParameterID::AssetID, m_SubTxID);
 
         auto masterKdf = m_Tx.get_MasterKdfStrict();
-        m_Offset = SignAssetKernel(masterKdf, CoinIDList(), m_OutputCoins, m_assetOwnerIdx, *m_kernel);
+        m_Offset = SignAssetKernel(masterKdf, CoinIDList(), m_OutputCoins, m_Metadata, *m_kernel);
         const Merkle::Hash& kernelID = m_kernel->m_Internal.m_ID;
 
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::Kernel, m_kernel, m_SubTxID);
-
-        return false; // completed sync
     }
 }

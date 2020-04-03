@@ -141,7 +141,7 @@ namespace beam::wallet
 
         void confirm_outputs(const std::vector<Coin>&) override;
         void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
-        void confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID) override;
+        void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID) override;
         void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) override;
         void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         bool get_tip(Block::SystemState::Full& state) const override;
@@ -275,7 +275,7 @@ namespace beam::wallet
         void DeleteReq(MyRequest##type& r) \
         { \
             m_Pending##type.erase(RequestSet##type::s_iterator_to(r)); \
-            r.m_pTrg = NULL; \
+            r.m_pTrg = nullptr; \
             r.Release(); \
         } \
         void OnRequestComplete(MyRequest##type&); \

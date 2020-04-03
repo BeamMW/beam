@@ -38,6 +38,7 @@ namespace beam
         extern const char* VERIFICATION_THREADS;
         extern const char* NONCEPREFIX_DIGITS;
         extern const char* NODE_PEER;
+        extern const char* NODE_PEERS_PERSISTENT;
         extern const char* PASS;
         extern const char* SET_SWAP_SETTINGS;
         extern const char* ACTIVE_CONNECTION;
@@ -133,6 +134,7 @@ namespace beam
         extern const char* NODE_POLL_PERIOD;
         extern const char* PROXY_USE;
         extern const char* PROXY_ADDRESS;
+        extern const char* ALLOWED_ORIGIN;
         // values
         extern const char* EXPIRATION_TIME_24H;
         extern const char* EXPIRATION_TIME_NEVER;
@@ -153,7 +155,6 @@ namespace beam
         extern const char* LASER_AMOUNT_TARGET;
         extern const char* LASER_TARGET_ADDR;
         extern const char* LASER_FEE;
-        extern const char* LASER_LOCK_TIME;
         extern const char* LASER_CHANNEL_ID;
 #endif  // BEAM_LASER_SUPPORT
 
@@ -162,6 +163,8 @@ namespace beam
         extern const char* API_USE_TLS;
         extern const char* API_TLS_CERT;
         extern const char* API_TLS_KEY;
+        extern const char* API_TLS_REQUEST_CERTIFICATE;
+        extern const char* API_TLS_REJECT_UNAUTHORIZED;
         extern const char* API_USE_ACL;
         extern const char* API_ACL_PATH;
 
@@ -183,13 +186,17 @@ namespace beam
         extern const char* ASSET_INFO;
         extern const char* ASSET_REGISTER;
         extern const char* ASSET_UNREGISTER;
-        extern const char* ASSET_INDEX;
         extern const char* ASSET_ID;
-        extern const char* METADATA;
+        extern const char* ASSET_METADATA;
 
-        // newscaster
-        extern const char* BBS_MESSAGE;
+        // broadcaster
         extern const char* PRIVATE_KEY;
+        extern const char* MESSAGE_TYPE;
+        extern const char* UPDATE_VERSION;
+        extern const char* UPDATE_TYPE;
+        extern const char* EXCHANGE_CURR;
+        extern const char* EXCHANGE_RATE;
+        extern const char* EXCHANGE_UNIT;
 
         // lelantus
         extern const char* INSERT_TO_POOL;
@@ -270,7 +277,7 @@ namespace beam
     class PositiveOptionException : public po::error_with_option_name {
     public:
         PositiveOptionException()
-            : po::error_with_option_name("The argument for option '%canonical_option%' must be more than 0.")
+            : po::error_with_option_name("The argument for option '%canonical_option%' must be greater than 0.")
         {
         }
     };

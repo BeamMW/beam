@@ -354,6 +354,7 @@ public:
 	void RescanOwnedTxos();
 
 	uint64_t FindActiveAtStrict(Height);
+	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);
 
 	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);

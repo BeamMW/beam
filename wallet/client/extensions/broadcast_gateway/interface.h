@@ -30,14 +30,6 @@ namespace beam
     };
 
     /**
-     *  Inteface for different content providers
-     */
-    struct IBroadcastListener
-    {
-        virtual bool onMessage(uint64_t, ByteBuffer&&) = 0;
-    };
-
-    /**
      *  Data object broadcasted over wallet network and signed with publisher private key
      */
     struct BroadcastMsg
@@ -60,9 +52,18 @@ namespace beam
     };
 
     /**
+     *  Interface for different content providers to get information from the broadcast
+     */
+    struct IBroadcastListener
+    {
+        virtual bool onMessage(uint64_t, ByteBuffer&&) { return true; };    // Deprecated. TODO: dh remove after 2 fork.
+        virtual bool onMessage(uint64_t, BroadcastMsg&&) { return true; };
+    };
+
+    /**
      *  Interface to access broadcasting network
      */
-    struct IBroadcastMsgsGateway
+    struct IBroadcastMsgGateway
     {
         virtual void registerListener(BroadcastContentType, IBroadcastListener*) = 0;
         virtual void unregisterListener(BroadcastContentType) = 0;

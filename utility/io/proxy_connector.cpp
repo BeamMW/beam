@@ -79,7 +79,6 @@ void ProxyConnector::cancel_connection(uint64_t tag) {
 }
 
 void ProxyConnector::release_connection(uint64_t tag, Result res) {
-    // TODO: proxy refact ProxyConnectRequest set to smart pointers. Not possible with current custom MemPool implementation.
     ProxyConnectRequest* req_ptr = _connectRequests[tag];
 
     if (!res) {

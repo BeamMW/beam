@@ -17,20 +17,22 @@
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
-#include "wallet/client/extensions/offers_board/swap_offer.h"
 
 namespace beam::wallet
 {
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    struct SwapOffer;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
     struct IWalletModelAsync
     {
         using Ptr = std::shared_ptr<IWalletModelAsync>;
 
-        virtual void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee = 0) = 0;
-        virtual void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee = 0) = 0;
+        virtual void sendMoney(const WalletID& receiver, const std::string& comment, Amount amount, Amount fee = 0) = 0;
+        virtual void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee = 0) = 0;
         virtual void startTransaction(TxParameters&& parameters) = 0;
         virtual void syncWithNode() = 0;
-        virtual void calcChange(Amount&& amount) = 0;
+        virtual void calcChange(Amount amount) = 0;
         virtual void getWalletStatus() = 0;
         virtual void getTransactions() = 0;
         virtual void getUtxosStatus() = 0;
@@ -45,10 +47,10 @@ namespace beam::wallet
         virtual void storeSwapParams(const beam::ByteBuffer& params) = 0;
         virtual void getSwapOffers() = 0;
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
-#endif
-        virtual void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) = 0;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         virtual void deleteAddress(const WalletID& id) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;
+        virtual void activateAddress(const WalletID& id) = 0;
 
         virtual void setNodeAddress(const std::string& addr) = 0;
 
@@ -65,7 +67,14 @@ namespace beam::wallet
         virtual void exportDataToJson() = 0;
         virtual void exportTxHistoryToCsv() = 0;
 
-        virtual void setNewscastKey(const std::string& publisherKey) = 0;
+        virtual void switchOnOffExchangeRates(bool isActive) = 0;
+        virtual void switchOnOffNotifications(Notification::Type type, bool isActive) = 0;
+
+        virtual void getNotifications() = 0;
+        virtual void markNotificationAsRead(const ECC::uintBig& id) = 0;
+        virtual void deleteNotification(const ECC::uintBig& id) = 0;
+
+        virtual void getExchangeRates() = 0;
 
         virtual ~IWalletModelAsync() {}
     };

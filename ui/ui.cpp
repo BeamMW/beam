@@ -47,8 +47,9 @@
 #include "viewmodel/helpers/list_model.h"
 #include "viewmodel/helpers/sortfilterproxymodel.h"
 #include "viewmodel/helpers/token_bootstrap_manager.h"
-#include "viewmodel/newscast/update_info_provider.h"
-#include "viewmodel/newscast/exchange_rate_provider.h"
+#include "viewmodel/notifications/notifications_view.h"
+#include "viewmodel/notifications/push_notification_manager.h"
+#include "viewmodel/notifications/exchange_rates_manager.h"
 #include "wallet/core/wallet_db.h"
 #include "utility/log_rotation.h"
 #include "core/ecc_native.h"
@@ -227,6 +228,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<SettingsViewModel>("Beam.Wallet", 1, 0, "SettingsViewModel");
             qmlRegisterType<AddressBookViewModel>("Beam.Wallet", 1, 0, "AddressBookViewModel");
             qmlRegisterType<SwapOffersViewModel>("Beam.Wallet", 1, 0, "SwapOffersViewModel");
+            qmlRegisterType<NotificationsViewModel>("Beam.Wallet", 1, 0, "NotificationsViewModel");
             qmlRegisterType<HelpViewModel>("Beam.Wallet", 1, 0, "HelpViewModel");
             qmlRegisterType<MessagesViewModel>("Beam.Wallet", 1, 0, "MessagesViewModel");
             qmlRegisterType<StatusbarViewModel>("Beam.Wallet", 1, 0, "StatusbarViewModel");
@@ -243,9 +245,12 @@ int main (int argc, char* argv[])
             qmlRegisterType<WalletDBPathItem>("Beam.Wallet", 1, 0, "WalletDBPathItem");
             qmlRegisterType<SwapOfferItem>("Beam.Wallet", 1, 0, "SwapOfferItem");
             qmlRegisterType<SwapOffersList>("Beam.Wallet", 1, 0, "SwapOffersList");
+            qmlRegisterType<SwapTxObjectList>("Beam.Wallet", 1, 0, "SwapTxObjectList");
+            qmlRegisterType<TxObjectList>("Beam.Wallet", 1, 0, "TxObjectList");
+            
             qmlRegisterType<TokenBootstrapManager>("Beam.Wallet", 1, 0, "TokenBootstrapManager");
-            qmlRegisterType<UpdateInfoProvider>("Beam.Wallet", 1, 0, "UpdateInfoProvider");
-            qmlRegisterType<ExchangeRateProvider>("Beam.Wallet", 1, 0, "ExchangeRateProvider");
+            qmlRegisterType<PushNotificationManager>("Beam.Wallet", 1, 0, "PushNotificationManager");
+            qmlRegisterType<ExchangeRatesManager>("Beam.Wallet", 1, 0, "ExchangeRatesManager");
             
             qmlRegisterType<SortFilterProxyModel>("Beam.Wallet", 1, 0, "SortFilterProxyModel");
 

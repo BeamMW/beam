@@ -152,12 +152,18 @@ namespace beam::wallet
         }
         catch (const TransactionFailedException & ex)
         {
-            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            if (ex.what() && strlen(ex.what()))
+            {
+                LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            }
             OnFailed(ex.GetReason(), ex.ShouldNofify());
         }
         catch (const exception & ex)
         {
-            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            if (ex.what() && strlen(ex.what()))
+            {
+                LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            }
             OnFailed(TxFailureReason::Unknown);
         }
     }
@@ -385,7 +391,7 @@ namespace beam::wallet
         return ret;
     }
 
-    Key::IKdf::Ptr BaseTransaction::get_MasterKdfStrict()
+    Key::IKdf::Ptr BaseTransaction::get_MasterKdfStrict() const
     {
         Key::IKdf::Ptr ret = m_WalletDB->get_MasterKdf();
         if (!ret)

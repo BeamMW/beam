@@ -60,14 +60,28 @@ function openExternal(externalLink, settings, dialog, onFinish) {
     }
 }
 
-function currenciesList() {
-    return ["BEAM", "BTC", "LTC", "QTUM"]
+function openExternalWithConfirmation(externalLink, onFinish) {
+    var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
+    var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
+    var externalLinkConfirmation = component.createObject(main);
+    Utils.openExternal(
+        externalLink,
+        settingsViewModel,
+        externalLinkConfirmation, onFinish);
 }
 
-const symbolBeam  = "BEAM";
-const symbolBtc   = "BTC";
-const symbolLtc   = "LTC";
-const symbolQtum  = "QTUM";
+function navigateToDownloads() {
+    openExternalWithConfirmation("https://www.beam.mw/downloads")
+}
+
+function currenciesList() {
+    return [
+        BeamGlobals.getCurrencyLabel(Currency.CurrBeam),
+        BeamGlobals.getCurrencyLabel(Currency.CurrBtc),
+        BeamGlobals.getCurrencyLabel(Currency.CurrLtc),
+        BeamGlobals.getCurrencyLabel(Currency.CurrQtum)
+    ]
+}
 
 const maxAmount   = "254000000";
 const minAmount   = "0.00000001";

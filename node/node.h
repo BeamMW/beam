@@ -54,6 +54,7 @@ struct Node
 		uint16_t m_BeaconPort = 0; // set to 0 if should use the same port for listen
 		uint32_t m_BeaconPeriod_ms = 500;
 		std::vector<io::Address> m_Connect;
+		bool m_PeersPersistent = false; // keep connection to those peers, regardless to their rating
 
 		std::string m_sPathLocal;
 		NodeProcessor::Horizon m_Horizon;
@@ -439,6 +440,7 @@ private:
 		virtual void DeactivatePeer(PeerInfo&) override;
 		virtual PeerInfo* AllocPeer() override;
 		virtual void DeletePeer(PeerInfo&) override;
+		virtual void ActivateMorePeers(uint32_t nTicks_ms) override;
 
 		typedef boost::intrusive::multiset<PeerInfoPlus::AdjustedRatingLive> LiveSet;
 		LiveSet m_LiveSet;
@@ -461,6 +463,7 @@ private:
 			static const uint16_t Connected		= 0x001;
 			static const uint16_t PiRcvd		= 0x002;
 			static const uint16_t Owner			= 0x004;
+			static const uint16_t Probe			= 0x008;
 			static const uint16_t Finalizing	= 0x080;
 			static const uint16_t HasTreasury	= 0x100;
 			static const uint16_t Chocking		= 0x200;

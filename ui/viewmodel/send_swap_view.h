@@ -16,6 +16,7 @@
 #include <QObject>
 #include <QDateTime>
 #include "model/wallet_model.h"
+#include "notifications/exchange_rates_manager.h"
 #include "currencies.h"
 
 class SendSwapViewModel: public QObject
@@ -38,6 +39,10 @@ class SendSwapViewModel: public QObject
     Q_PROPERTY(bool          isReceiveFeeOK   READ isReceiveFeeOK                           NOTIFY isReceiveFeeOKChanged)
     Q_PROPERTY(bool          isSendBeam       READ isSendBeam                               NOTIFY tokenChanged)
     Q_PROPERTY(QString       rate             READ getRate                                  NOTIFY tokenChanged)
+
+    Q_PROPERTY(QString       secondCurrencyLabel            READ getSecondCurrencyLabel             NOTIFY secondCurrencyLabelChanged)
+    Q_PROPERTY(QString       secondCurrencySendRateValue    READ getSecondCurrencySendRateValue     NOTIFY secondCurrencyRateChanged)
+    Q_PROPERTY(QString       secondCurrencyReceiveRateValue READ getSecondCurrencyReceiveRateValue  NOTIFY secondCurrencyRateChanged)
 
     Q_PROPERTY(WalletCurrency::Currency  receiveCurrency  READ getReceiveCurrency  NOTIFY  receiveCurrencyChanged)
     Q_PROPERTY(WalletCurrency::Currency  sendCurrency     READ getSendCurrency     NOTIFY  sendCurrencyChanged)
@@ -87,6 +92,10 @@ public:
     bool isSendBeam() const;
     QString getRate() const;
 
+    QString getSecondCurrencyLabel() const;
+    QString getSecondCurrencySendRateValue() const;
+    QString getSecondCurrencyReceiveRateValue() const;
+
 public:
     Q_INVOKABLE void setParameters(const QVariant& parameters);    /// used to pass TxParameters directly without Token generation
     Q_INVOKABLE void sendMoney();
@@ -107,6 +116,8 @@ signals:
     void enoughChanged();
     void isSendFeeOKChanged();
     void isReceiveFeeOKChanged();
+    void secondCurrencyLabelChanged();
+    void secondCurrencyRateChanged();
 
 public slots:
     void onChangeCalculated(beam::Amount change);
@@ -128,6 +139,7 @@ private:
     QString      _token;
 
     WalletModel& _walletModel;
+    ExchangeRatesManager _exchangeRatesManager;
     beam::wallet::TxParameters _txParameters;
     bool _isBeamSide;
 };

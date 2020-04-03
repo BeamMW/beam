@@ -80,15 +80,20 @@ namespace
     }
 }
 
-TxObject::TxObject(QObject* parent)
-        : QObject(parent)
+
+TxObject::TxObject( const TxDescription& tx,
+                    QObject* parent/* = nullptr*/)
+        : TxObject(tx, beam::wallet::ExchangeRate::Currency::Unknown, parent)
 {
 }
 
-TxObject::TxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
+TxObject::TxObject( const TxDescription& tx,
+                    beam::wallet::ExchangeRate::Currency secondCurrency,
+                    QObject* parent/* = nullptr*/)
         : QObject(parent)
         , m_tx(tx)
         , m_type(*m_tx.GetParameter<TxType>(TxParameterID::TransactionType))
+        , m_secondCurrency(secondCurrency)
 {
     auto kernelID = QString::fromStdString(to_hex(m_tx.m_kernelID.m_pData, m_tx.m_kernelID.nBytes));
     setKernelID(kernelID);
@@ -133,6 +138,29 @@ QString TxObject::getAmount() const
 beam::Amount TxObject::getAmountValue() const
 {
     return m_tx.m_amount;
+}
+
+QString TxObject::getSecondCurrencyRate() const
+{
+    auto exchangeRatesOptional = getTxDescription().GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
+
+    if (exchangeRatesOptional)
+    {
+        std::vector<ExchangeRate>& rates = *exchangeRatesOptional;
+        auto secondCurrency = m_secondCurrency;
+        auto search = std::find_if(std::begin(rates),
+                                   std::end(rates),
+                                   [secondCurrency](const ExchangeRate& r)
+                                   {
+                                       return r.m_currency == ExchangeRate::Currency::Beam
+                                           && r.m_unit == secondCurrency;
+                                   });
+        if (search != std::cend(rates))
+        {
+            return AmountToUIString(search->m_rate);
+        }
+    }
+    return "0";
 }
 
 QString TxObject::getStatus() const
@@ -344,6 +372,39 @@ QString TxObject::getStateDetails() const
         }
     }
     return "";
+}
+
+QString TxObject::getToken() const
+{
+    const auto& tx = getTxDescription();
+    auto token = tx.GetParameter<std::string>(TxParameterID::OriginalToken);
+    if (token)
+    {
+        return QString::fromStdString(*token);
+    }
+    return QString();
+}
+
+QString TxObject::getSenderIdentity() const
+{
+    return getIdentity(m_tx.m_sender);
+}
+
+QString TxObject::getReceiverIdentity() const
+{
+    return getIdentity(!m_tx.m_sender);
+}
+
+QString TxObject::getIdentity(bool isSender) const
+{
+    const auto& tx = getTxDescription();
+    auto v = isSender ? tx.GetParameter<PeerID>(TxParameterID::MySecureWalletID)
+        : tx.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID);
+    if (v)
+    {
+        return QString::fromStdString(std::to_string(*v));
+    }
+    return QString();
 }
 
 bool TxObject::hasPaymentProof() const

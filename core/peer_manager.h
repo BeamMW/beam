@@ -145,6 +145,7 @@ namespace beam {
 			} m_Addr;
 
 			Timestamp m_LastSeen; // needed to filter-out dead peers, and to know when to update the address
+			Timestamp m_LastConnectAttempt;
 			uint32_t m_LastActivity_ms; // updated on connection attempt, and disconnection.
 		};
 
@@ -161,7 +162,6 @@ namespace beam {
 		void SetRating(PeerInfo&, uint32_t);
 		void Ban(PeerInfo&);
 		void ResetRatingBoost(PeerInfo&);
-		void OnSeen(PeerInfo&);
 		bool IsOutdated(const PeerInfo&) const;
 		void ModifyAddr(PeerInfo&, const io::Address&);
 		void RemoveAddr(PeerInfo&);
@@ -189,6 +189,10 @@ namespace beam {
 
 		void ActivatePeerInternal(PeerInfo&, uint32_t nTicks_ms, uint32_t& nSelected);
 		void SetRatingInternal(PeerInfo&, uint32_t, bool ban);
+
+	protected:
+		virtual void ActivateMorePeers(uint32_t nTicks_ms) {}
+		bool ActivatePeerSafe(PeerInfo&, uint32_t nTicks_ms);
 	};
 
 	std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo&);

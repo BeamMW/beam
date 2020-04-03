@@ -110,6 +110,7 @@ namespace beam
 		typedef uint32_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
 		static const ID s_MaxCount  = uint32_t(1) << 30; // 1 billion. Of course practically it'll be very much smaller
 		static const ID s_InvalidID = 0;
+		static const PeerID s_InvalidOwnerID;
 
 		struct Base
 		{
@@ -163,8 +164,8 @@ namespace beam
 
 			bool IsValid(ECC::Point::Native& hGen) const; // for testing only, in real-world cases batch verification should be used!
 			bool IsValid(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const;
-			void Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID, const ECC::Point::Native& gen);
-			void Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID);
+			void Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID, const ECC::Point::Native& gen, const ECC::Hash::Value* phvSeed = nullptr);
+			void Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID, const ECC::Hash::Value* phvSeed = nullptr);
 			void Create(ECC::Point::Native& genBlinded, const ECC::Scalar::Native& skGen, Asset::ID, const ECC::Point::Native& gen);
 
 			static void ModifySk(ECC::Scalar::Native& skInOut, const ECC::Scalar::Native& skGen, Amount val);
@@ -201,7 +202,6 @@ namespace beam
 		private:
 			uint32_t SetBegin(Asset::ID, const ECC::Scalar::Native& skGen);
 			static const ECC::Point::Compact& get_H();
-			static void get_skGen(ECC::Scalar::Native& skGen, const ECC::Scalar::Native& sk, Amount val, Asset::ID aid);
 		};
 	};
 	struct Rules
@@ -288,6 +288,7 @@ namespace beam
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
 		size_t FindFork(Height) const;
+		Height get_ForkMaxHeightSafe(size_t iFork) const;
 		std::string get_SignatureStr() const;
 
 	private:
@@ -494,7 +495,16 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 		Asset::Proof::Ptr								m_pAsset;
 
-		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, bool bPublic = false);
+		struct OpCode {
+			enum Enum {
+				Standard,
+				Public, // insist on public rangeproof, regardless to m_Coinbase. For tests only
+				Mpc_1, // ignore coinKdf, generate rangeproof without sk, up to T1/T2
+				Mpc_2, // Finish rangeproof after T1/T2 and TauX were updated by the peer
+			};
+		};
+
+		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, OpCode::Enum = OpCode::Standard);
 
 		bool Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID&) const;
 		bool VerifyRecovered(Key::IPKdf& coinKdf, const CoinID&) const;
@@ -598,6 +608,7 @@ namespace beam
 
 		struct Internal
 		{
+			bool m_HasNonStd = false; // is it or does it contain non-std kernels with side effects and mutual dependencies. Those should not be sorted!
 			Merkle::Hash m_ID; // unique kernel identifier in the system.
 		} m_Internal;
 

@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
-set(VERSION_MAJOR 4)
-set(VERSION_MINOR 2)
+set(VERSION_MAJOR 5)
+set(VERSION_MINOR 0)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -128,7 +128,7 @@ if (BEAM_NO_QT_UI_WALLET)
     set(BEAM_QT_UI_WALLET FALSE)    
 endif()
 
-set(BEAM_USE_STATIC FALSE)
+option(BEAM_USE_STATIC "Build with staticaly linked libraries " FALSE)
 if(BEAM_LINK_TYPE MATCHES "Static")
     set(BEAM_USE_STATIC TRUE)
 endif()
@@ -177,7 +177,7 @@ endif()
 
 option(BEAM_ATOMIC_SWAP_SUPPORT "Build wallet with atomic swap support" ON)
 option(BEAM_LELANTUS_SUPPORT "Build wallet with lelantus support" ON)
-option(BEAM_LASER_SUPPORT "Build wallet with laser support" OFF)
+option(BEAM_LASER_SUPPORT "Build wallet with laser support" ON)
 
 option(BEAM_CONFIDENTIAL_ASSETS_SUPPORT "Build wallet with confidential assets support" ON)
 
@@ -405,6 +405,7 @@ add_subdirectory(p2p)
 add_subdirectory(http)
 add_subdirectory(keykeeper)
 add_subdirectory(wallet)
+add_subdirectory(hw_crypto)
 add_subdirectory(node)
 add_subdirectory(mnemonic)
 

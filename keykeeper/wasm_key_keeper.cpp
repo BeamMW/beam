@@ -15,6 +15,7 @@
 #include "local_private_key_keeper.h"
 #include "mnemonic/mnemonic.h"
 #include "wasm_key_keeper.h"
+#include "wallet/core/wallet_db.h"
 
 #include <boost/algorithm/string.hpp>
 #include "utility/string_helpers.cpp"
@@ -27,6 +28,29 @@ using namespace beam;
 using namespace beam::wallet;
 using json = nlohmann::json;
 // #define PRINT_TEST_DATA 1
+
+namespace beam
+{
+    char* to_hex(char* dst, const void* bytes, size_t size) {
+        static const char digits[] = "0123456789abcdef";
+        char* d = dst;
+
+        const uint8_t* ptr = (const uint8_t*)bytes;
+        const uint8_t* end = ptr + size;
+        while (ptr < end) {
+            uint8_t c = *ptr++;
+            *d++ = digits[c >> 4];
+            *d++ = digits[c & 0xF];
+        }
+        *d = '\0';
+        return dst;
+    }
+
+    std::string to_hex(const void* bytes, size_t size) {
+        char* buf = (char*)alloca(2 * size + 1);
+        return std::string(to_hex(buf, bytes, size));
+    }
+}
 
 struct KeyKeeper
 {
@@ -52,7 +76,51 @@ struct KeyKeeper
         return ks.m_sRes;
     }
 
-    std::string get_Kdf(bool root, Key::Index keyIndex)
+    std::string GetWalletID()
+    {
+        return _impl2.GetWalletID();
+    }
+
+    std::string GetSbbsAddress(const std::string& ownID)
+    {
+        return _impl2.GetSbbsAddress(from_base64<uint64_t>(ownID));
+    }
+
+    std::string GetSbbsAddressPrivate(const std::string& ownID)
+    {
+        return _impl2.GetSbbsAddressPrivate(from_base64<uint64_t>(ownID));
+    }
+
+    std::string InvokeServiceMethod(const std::string& data)
+    {
+        json msg = json::parse(data);
+        json params = msg["params"];
+        std::string method = msg["method"];
+        json res = 
+        {
+            {"jsonrpc", "2.0"},
+            {"id", msg["id"]}
+        };
+
+        // !TODO: we have to check all the parameters for every method and throw an error if smth wrong
+
+             if(method == "get_kdf")       res["result"] = get_Kdf(params["root"], params["child_key_num"]);
+        else if(method == "get_slots")     res["result"] = get_NumSlots();
+        else if(method == "create_output") res["result"] = CreateOutput(params["scheme"], params["id"]);
+        else if(method == "sign_receiver") res["result"] = SignReceiver(params["inputs"], params["outputs"], params["kernel"], params["non_conv"], params["peer_id"], params["my_id_key"]);
+        else if(method == "sign_sender")   res["result"] = SignSender(params["inputs"], params["outputs"], params["kernel"], params["non_conv"], params["peer_id"], params["my_id_key"], params["slot"], params["agreement"], params["my_id"], params["payment_proof_sig"]);
+        else if(method == "sign_split")    res["result"] = SignSplit(params["inputs"], params["outputs"], params["kernel"], params["non_conv"]);
+        else res["error"] = 
+            {
+                {"code", -32601}, 
+                {"message", "Procedure not found."}, 
+                {"data", ("unknown method: " + method)}
+            };
+
+        return res.dump();
+    }
+
+    json get_Kdf(bool root, Key::Index keyIndex)
     {
         IPrivateKeyKeeper2::Method::get_Kdf method;
         method.m_Root = root;
@@ -70,10 +138,10 @@ struct KeyKeeper
             
             res.push_back({ JsonFields::PublicKdf, to_base64(buf) });
         }
-        return res.dump();
+        return res;
     }
 
-    std::string get_NumSlots()
+    json get_NumSlots()
     {
         IPrivateKeyKeeper2::Method::get_NumSlots method;
         auto status = _impl2.InvokeSync(method);
@@ -86,10 +154,10 @@ struct KeyKeeper
         {
             res.push_back({ JsonFields::Count, method.m_Count });
         }
-        return res.dump();
+        return res;
     }
 
-    std::string CreateOutput(const std::string& scheme, const std::string& cid)
+    json CreateOutput(const std::string& scheme, const std::string& cid)
     {
         IPrivateKeyKeeper2::Method::CreateOutput method;
 
@@ -106,10 +174,10 @@ struct KeyKeeper
         {
             res.push_back({ JsonFields::Result, to_base64(method.m_pResult) });
         }
-        return res.dump();
+        return res;
     }
     
-    std::string SignReceiver(const std::string& inputs
+    json SignReceiver(const std::string& inputs
                            , const std::string& outputs
                            , const std::string& kernel
                            , bool nonConventional
@@ -136,10 +204,10 @@ struct KeyKeeper
             res.push_back({ JsonFields::PaymentProofSig, to_base64(method.m_PaymentProofSignature) });
             FillCommonSignatureResult(res, method);
         }
-        return res.dump();
+        return res;
     }
 
-    std::string SignSender(const std::string& inputs
+    json SignSender(const std::string& inputs
                          , const std::string& outputs
                          , const std::string& kernel
                          , bool nonConventional
@@ -184,10 +252,10 @@ struct KeyKeeper
                 FillCommonSignatureResult(res, method);
             }
         }
-        return res.dump();
+        return res;
     }
 
-    std::string SignSplit(const std::string& inputs
+    json SignSplit(const std::string& inputs
                         , const std::string& outputs
                         , const std::string& kernel
                         , bool nonConventional)
@@ -209,7 +277,7 @@ struct KeyKeeper
         {
             FillCommonSignatureResult(res, method);
         }
-        return res.dump();
+        return res;
     }
 
     void FillCommonSignatureResult(json& res, const IPrivateKeyKeeper2::Method::TxCommon& method)
@@ -248,12 +316,113 @@ struct KeyKeeper
     }
 
 private:
+
     struct MyKeeKeeper
         : public LocalPrivateKeyKeeperStd
     {
         using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
 
         bool IsTrustless() override { return true; }
+
+        std::string GetWalletID() const
+        {
+            Key::ID kid(Zero);
+            kid.m_Type = ECC::Key::Type::WalletID;
+
+            ECC::Scalar::Native sk;
+            m_pKdf->DeriveKey(sk, kid);
+            PeerID pid;
+            pid.FromSk(sk);
+            return pid.str();
+        }
+
+        std::string GetSbbsAddress(uint64_t ownID)
+        {
+            WalletID walletID;
+            get_SbbsWalletID(walletID, ownID);
+            return std::to_string(walletID);
+        }
+
+        std::string GetSbbsAddressPrivate(uint64_t ownID)
+        {
+            ECC::Scalar::Native sk;
+            WalletID walletID;
+            get_SbbsWalletID(sk, walletID, ownID);
+            return ECC::Scalar(sk).m_Value.str();
+        }
+
+        Key::IKdf::Ptr CreateSbbsKdf() 
+        {
+            IPrivateKeyKeeper2::Method::get_Kdf m;
+            // trustless mode. create SBBS Kdf from a child PKdf. It won't be directly accessible from the owner key
+            m.m_Root = false;
+            m.m_iChild = Key::Index(-1); // definitely won't collude with a coin child Kdf (for coins high byte is reserved for scheme)
+
+            InvokeSync(m);
+
+            ECC::Scalar::Native sk;
+            m.m_pPKdf->DerivePKey(sk, Zero);
+
+            ECC::NoLeak<ECC::Scalar> s;
+            s.V = sk;
+
+            Key::IKdf::Ptr kdf;
+            ECC::HKdf::Create(kdf, s.V.m_Value);
+            return kdf;
+        }
+
+        // copied from wallet_db.cpp 
+        // TODO move to common place
+        Key::IKdf::Ptr get_SbbsKdf()// const
+        {
+            if (!m_pKdfSbbs)
+            {
+                m_pKdfSbbs = CreateSbbsKdf();
+            }
+            return m_pKdfSbbs;
+        }
+
+        void get_SbbsPeerID(ECC::Scalar::Native& sk, PeerID& pid, uint64_t ownID)
+        {
+            Key::IKdf::Ptr pKdfSbbs = get_SbbsKdf();
+           // if (!pKdfSbbs)
+           //     throw CannotGenerateSecretException();
+
+            ECC::Hash::Value hv;
+            Key::ID(ownID, Key::Type::Bbs).get_Hash(hv);
+
+            pKdfSbbs->DeriveKey(sk, hv);
+            pid.FromSk(sk);
+        }
+
+        void get_SbbsWalletID(ECC::Scalar::Native& sk, WalletID& wid, uint64_t ownID)
+        {
+            get_SbbsPeerID(sk, wid.m_Pk, ownID);
+
+            // derive the channel from the address
+            BbsChannel ch;
+            wid.m_Pk.ExportWord<0>(ch);
+            ch %= proto::Bbs::s_MaxWalletChannels;
+
+            wid.m_Channel = ch;
+        }
+
+        void get_SbbsWalletID(WalletID& wid, uint64_t ownID)
+        {
+            ECC::Scalar::Native sk;
+            get_SbbsWalletID(sk, wid, ownID);
+        }
+
+        //void get_Identity(PeerID& pid, uint64_t ownID)// const
+        //{
+        //    ECC::Hash::Value hv;
+        //    Key::ID(ownID, Key::Type::WalletID).get_Hash(hv);
+        //    ECC::Point::Native pt;
+        //    get_OwnerKdf()->DerivePKeyG(pt, hv);
+        //    pid = ECC::Point(pt).m_X;
+        //}
+
+        /*mutable*/ ECC::Key::IKdf::Ptr m_pKdfSbbs;
     };
     MyKeeKeeper _impl2;
 };
@@ -264,15 +433,14 @@ EMSCRIPTEN_BINDINGS()
     class_<KeyKeeper>("KeyKeeper")
         .constructor<const std::string&>()
         .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
-#define THE_MACRO(method) \
-        .function(#method, &KeyKeeper::method)\
-
-        KEY_KEEPER_METHODS(THE_MACRO)
-#undef THE_MACRO
-
+        .function("getWalletID",            &KeyKeeper::GetWalletID)
+        .function("getSbbsAddress",         &KeyKeeper::GetSbbsAddress)
+        .function("getSbbsAddressPrivate",  &KeyKeeper::GetSbbsAddressPrivate)
+        .function("invokeServiceMethod",    &KeyKeeper::InvokeServiceMethod)
         .class_function("GeneratePhrase",   &KeyKeeper::GeneratePhrase)
         .class_function("IsAllowedWord",    &KeyKeeper::IsAllowedWord)
         .class_function("IsValidPhrase",    &KeyKeeper::IsValidPhrase)
+        
         // .function("func", &KeyKeeper::func)
         // .property("prop", &KeyKeeper::getProp, &KeyKeeper::setProp)
         // .class_function("StaticFunc", &KeyKeeper::StaticFunc)

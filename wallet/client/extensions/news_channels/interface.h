@@ -14,63 +14,30 @@
 
 #pragma once
 
-#include "wallet/core/common.h" // Version
+#include "wallet/core/exchange_rate.h"
+#include "version_info.h"
 
 namespace beam::wallet
 {
-    using namespace beam;
-    
-    struct VersionInfo
-    {
-        enum class Application : uint32_t
-        {
-            DesktopWallet,
-            AndroidWallet,
-            IOSWallet
-        } m_application;
-        Version m_version;
-
-        SERIALIZE(m_application, m_version);
-
-        bool operator==(const VersionInfo& o) const
-        {
-            return m_application == o.m_application
-                && m_version == o.m_version;
-        };
-        bool operator!=(const VersionInfo& o) const
-        {
-            return !(*this == o);
-        };
-    };
-
-    struct ExchangeRates
-    {
-        enum class Currency : uint32_t
-        {
-            Beam,
-            Bitcoin,
-            Litecoin,
-            Qtum,
-            Usd
-        };
-        struct ExchangeRate
-        {
-            Currency m_currency;
-            Amount m_rate;
-            Currency m_unit;    // unit of m_rate
-        };
-
-        Timestamp m_ts;
-        std::vector<ExchangeRate> m_rates;
-    };
-    
     /**
      *  Interface for news channels observers. 
      */
     struct INewsObserver
     {
-        virtual void onNewWalletVersion(const VersionInfo&) = 0;
-        virtual void onExchangeRates(const ExchangeRates&) = 0;
+        /**
+         *  @content    content of notification (new release information)
+         *  @id         unique ID of notification (possibly HASH of content)
+         */
+        virtual void onNewWalletVersion(const VersionInfo& content, const ECC::uintBig& id) = 0;
+        // virtual void onBeamNews() = 0;
+    };
+
+    /**
+     *  Interface for exchange rates observers.
+     */
+    struct IExchangeRateObserver
+    {
+        virtual void onExchangeRates(const std::vector<ExchangeRate>&) = 0;
     };
 
 } // namespace beam::wallet
