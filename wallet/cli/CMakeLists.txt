@@ -32,17 +32,14 @@ target_link_libraries(${TARGET_NAME}
 )
 
 if(BEAM_LASER_SUPPORT)
-    target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_LASER_SUPPORT)
     target_link_libraries(${TARGET_NAME} PRIVATE laser)
 endif()
 
 if(BEAM_ATOMIC_SWAP_SUPPORT)
-    target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_ATOMIC_SWAP_SUPPORT)
     target_link_libraries(${TARGET_NAME} PRIVATE swap)
 endif()
 
 if(BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
-    target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
     target_link_libraries(${TARGET_NAME} PRIVATE assets)
 endif()
 

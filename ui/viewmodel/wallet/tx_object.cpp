@@ -377,34 +377,17 @@ QString TxObject::getStateDetails() const
 QString TxObject::getToken() const
 {
     const auto& tx = getTxDescription();
-    auto token = tx.GetParameter<std::string>(TxParameterID::OriginalToken);
-    if (token)
-    {
-        return QString::fromStdString(*token);
-    }
-    return QString();
+    return QString::fromStdString(tx.getToken());
 }
 
 QString TxObject::getSenderIdentity() const
 {
-    return getIdentity(m_tx.m_sender);
+    return QString::fromStdString(m_tx.getSenderIdentity());
 }
 
 QString TxObject::getReceiverIdentity() const
 {
-    return getIdentity(!m_tx.m_sender);
-}
-
-QString TxObject::getIdentity(bool isSender) const
-{
-    const auto& tx = getTxDescription();
-    auto v = isSender ? tx.GetParameter<PeerID>(TxParameterID::MySecureWalletID)
-        : tx.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID);
-    if (v)
-    {
-        return QString::fromStdString(std::to_string(*v));
-    }
-    return QString();
+    return QString::fromStdString(m_tx.getReceiverIdentity());
 }
 
 bool TxObject::hasPaymentProof() const

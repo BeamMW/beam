@@ -21,7 +21,7 @@
 #include "utility/helpers.h"
 #include "simple_transaction.h"
 #include "strings_resources.h"
-#include "wallet/transactions/assets/assets_utils.h"
+#include "assets_utils.h"
 
 #include <algorithm>
 #include <random>

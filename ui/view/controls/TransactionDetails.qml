@@ -32,7 +32,7 @@ RowLayout {
 
     
     readonly property string amountPrefix: root.isIncome ? "+" : "-"
-    readonly property string amountWithLabel: amountPrefix + root.amount + " " + BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+    readonly property string amountWithLabel: amountPrefix + " " + root.amount + " " + BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
     readonly property string secondCurrencyAmount: getAmountInSecondCurrency()
 
     property var onOpenExternal: null
@@ -76,7 +76,7 @@ RowLayout {
             }
             else {
                 //% "(for the day of transaction)"
-                return root.amountPrefix + amountInSecondCurrency + " " + root.secondCurrencyLabel + " " + qsTrId("tx-details-second-currency-notification");
+                return root.amountPrefix + " " + amountInSecondCurrency + " " + root.secondCurrencyLabel + " " + qsTrId("tx-details-second-currency-notification");
             }
         }
         else return "";

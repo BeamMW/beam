@@ -34,6 +34,7 @@ namespace beam::wallet
         void OnCloseFailed(const laser::ChannelIDPtr& chID) override;
         void OnUpdateStarted(const laser::ChannelIDPtr& chID) override;
         void OnUpdateFinished(const laser::ChannelIDPtr& chID) override;
+        void OnTransferFailed(const laser::ChannelIDPtr& chID) override;
     private:
         const IWalletDB::Ptr& m_walletDB;
         const po::variables_map& m_vm;

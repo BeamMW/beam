@@ -1037,15 +1037,26 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
-        void AddAddressIdentityColumn(sqlite3* db)
+        void AddAddressIdentityColumn(const WalletDB* walletDB, sqlite3* db)
         {
             const char* req = "ALTER TABLE " ADDRESSES_NAME " ADD Identity BLOB NULL;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
 
-            const char* req_laser = "ALTER TABLE " LASER_ADDRESSES_NAME " ADD Identity BLOB NULL;";
-            ret = sqlite3_exec(db, req_laser, nullptr, nullptr, nullptr);
-            throwIfError(ret, db);
+            const char* req_laser_addr_identity_exist =
+                "SELECT COUNT(*) AS CNTREC FROM pragma_table_info('" LASER_ADDRESSES_NAME "') WHERE name='Identity';";
+            int laser_addr_identity_exist = 0;
+            for (sqlite::Statement stm(walletDB, req_laser_addr_identity_exist); stm.step();)
+            {
+                stm.get(0, laser_addr_identity_exist);
+            }
+
+            if (!laser_addr_identity_exist)
+            {
+                const char* req_laser = "ALTER TABLE " LASER_ADDRESSES_NAME " ADD Identity BLOB NULL;";
+                ret = sqlite3_exec(db, req_laser, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
         }
 
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
@@ -1579,7 +1590,7 @@ namespace beam::wallet
                     walletDB->MigrateCoins();
                     CreateNotificationsTable(walletDB->_db);
                     CreateExchangeRatesTable(walletDB->_db);
-                    AddAddressIdentityColumn(walletDB->_db);
+                    AddAddressIdentityColumn(walletDB.get(), walletDB->_db);
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 
@@ -3065,7 +3076,7 @@ namespace beam::wallet
     bool WalletDB::getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
                                    TLaserChannelEntity* entity)
     {
-        const char* selectReq = "SELECT  " LASER_CHANNEL_FIELDS " FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
+        const char* selectReq = "SELECT " LASER_CHANNEL_FIELDS " FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
         sqlite::Statement stm(this, selectReq);
         stm.bind(1, chId->m_pData, chId->nBytes);
 
@@ -4417,7 +4428,24 @@ namespace beam::wallet
 
             if (bSuccess)
             {
-                return pi.to_string();
+                auto senderIdentity = tx->getSenderIdentity();
+                auto receiverIdentity = tx->getReceiverIdentity();
+                bool showIdentity = !senderIdentity.empty() && !receiverIdentity.empty();
+                std::ostringstream s;
+                s << "Sender: " << std::to_string(pi.m_Sender) << std::endl;
+                if (showIdentity)
+                {
+                    s << "Sender identity: " << senderIdentity << std::endl;
+                }
+                s << "Receiver: " << std::to_string(pi.m_Receiver) << std::endl;
+                if (showIdentity)
+                {
+                    s << "Receiver identity: " << receiverIdentity << std::endl;
+                }
+                s << "Amount: " << PrintableAmount(pi.m_Amount) << std::endl;
+                s << "KernelID: " << std::to_string(pi.m_KernelID) << std::endl;
+
+                return s.str();
             }
 
             LOG_WARNING() << "Can't get transaction details";
