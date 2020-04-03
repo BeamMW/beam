@@ -2619,6 +2619,9 @@ namespace beam::wallet
                 case TxParameterID::AssetID:
                     deserialize(txDescription.m_assetId, parameter.m_value);
                     break;
+                case TxParameterID::AssetMetadata:
+                    deserialize(txDescription.m_assetMeta, parameter.m_value);
+                    break;
                 default:
                     break; // suppress warning
                 }
@@ -2643,6 +2646,7 @@ namespace beam::wallet
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeBeam,  p.m_changeBeam, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeAsset, p.m_changeAsset, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetID, p.m_assetId, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetMetadata, p.m_assetMeta, false);
         if (p.m_minHeight)
         {
             storage::setTxParameter(*this, p.m_txId, TxParameterID::MinHeight, p.m_minHeight, false);
@@ -2938,9 +2942,9 @@ namespace beam::wallet
             stm.get(3, asset.m_LockHeight);
             stm.get(4, asset.m_Metadata.m_Value);
             asset.m_Metadata.UpdateHash();
-            stm.get(5, asset.m_refreshHeight);
-            assert(asset.m_refreshHeight != 0);
-            stm.get(6, asset.m_isOwned);
+            stm.get(5, asset.m_RefreshHeight);
+            assert(asset.m_RefreshHeight != 0);
+            stm.get(6, asset.m_IsOwned);
 
             if (!visitor(asset))
             {
@@ -2969,9 +2973,9 @@ namespace beam::wallet
         stmFind.get(3, asset.m_LockHeight);
         stmFind.get(4, asset.m_Metadata.m_Value);
         asset.m_Metadata.UpdateHash();
-        stmFind.get(5, asset.m_refreshHeight);
-        assert(asset.m_refreshHeight != 0);
-        stmFind.get(6, asset.m_isOwned);
+        stmFind.get(5, asset.m_RefreshHeight);
+        assert(asset.m_RefreshHeight != 0);
+        stmFind.get(6, asset.m_IsOwned);
 
         return asset;
     }
@@ -3936,7 +3940,7 @@ namespace beam::wallet
 
              walletDB.visitAssets([this](const WalletAsset& asset) -> bool {
                 // we also add owned assets to totals even if there are no coins
-                if(!HasTotals(asset.m_ID) && asset.m_isOwned)
+                if(!HasTotals(asset.m_ID) && asset.m_IsOwned)
                 {
                     allTotals[asset.m_ID] = AssetTotals();
                     allTotals[asset.m_ID].AssetId = asset.m_ID;
@@ -4651,7 +4655,7 @@ namespace beam::wallet
 
     WalletAsset::WalletAsset(const Asset::Full& full, Height refreshHeight)
         : Asset::Full(full)
-        , m_refreshHeight(refreshHeight)
+        , m_RefreshHeight(refreshHeight)
     {
     }
 

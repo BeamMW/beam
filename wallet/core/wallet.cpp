@@ -614,7 +614,7 @@ namespace beam::wallet
 
                 if(const auto wasset = m_WalletDB->findAsset(info.m_ID))
                 {
-                    if(wasset->m_isOwned)
+                    if(wasset->m_IsOwned)
                     {
                         LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " You own this asset";
                     }

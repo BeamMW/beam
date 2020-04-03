@@ -75,7 +75,9 @@ namespace beam::wallet
     macro(AddrList,           "addr_list",            API_READ_ACCESS)    \
     macro(ValidateAddress,    "validate_address",     API_READ_ACCESS)    \
     macro(Send,               "tx_send",              API_WRITE_ACCESS)   \
-    macro(Issue,              "tx_issue",             API_WRITE_ACCESS)   \
+    macro(Issue,              "tx_asset_issue",       API_WRITE_ACCESS)   \
+    macro(Consume,            "tx_asset_consume",     API_WRITE_ACCESS)   \
+    macro(AssetInfo,          "tx_asset_info",        API_WRITE_ACCESS)   \
     macro(Status,             "tx_status",            API_READ_ACCESS)    \
     macro(Split,              "tx_split",             API_WRITE_ACCESS)   \
     macro(TxCancel,           "tx_cancel",            API_WRITE_ACCESS)   \
@@ -88,6 +90,7 @@ namespace beam::wallet
     macro(GenerateTxId,       "generate_tx_id",       API_READ_ACCESS)    \
     macro(ExportPaymentProof, "export_payment_proof", API_READ_ACCESS)    \
     macro(VerifyPaymentProof, "verify_payment_proof", API_READ_ACCESS)    \
+    macro(GetAssetInfo,       "get_asset_info",       API_READ_ACCESS)    \
     SWAP_OFFER_API_METHODS(macro)
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
@@ -318,6 +321,34 @@ namespace beam::wallet
         };
     };
 
+    struct Consume
+    {
+        Amount value = 0;
+        Amount fee = kMinFeeInGroth;
+        boost::optional<std::string> meta;
+        boost::optional<Asset::ID> assetId;
+        boost::optional<CoinIDList> coins;
+        boost::optional<uint64_t> session;
+        boost::optional<TxID> txId;
+
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
+    struct AssetInfo
+    {
+        boost::optional<std::string> meta;
+        boost::optional<Asset::ID> assetId;
+        boost::optional<TxID> txId;
+
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
     struct Status
     {
         TxID txId;
@@ -455,6 +486,16 @@ namespace beam::wallet
         };
     };
 
+    struct GetAssetInfo
+    {
+        boost::optional<std::string> meta;
+        boost::optional<Asset::ID> assetId;
+        struct Response
+        {
+            WalletAsset AssetInfo;
+        };
+    };
+
     class IApiHandler
     {
     public:
@@ -498,6 +539,7 @@ namespace beam::wallet
         static const char* getErrorMessage(ApiError code);
         static bool existsJsonParam(const json& params, const std::string& name);
         static void checkJsonParam(const json& params, const std::string& name, const JsonRpcId& id);
+
     protected:
         IApiHandler& _handler;
 
@@ -533,5 +575,7 @@ namespace beam::wallet
 
 #undef MESSAGE_FUNC
 
+        template<typename T>
+        void onIssueConsumeMessage(bool issue, const JsonRpcId& id, const json& params);
     };
 }  // namespace beam::wallet

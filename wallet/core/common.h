@@ -515,6 +515,7 @@ namespace beam::wallet
         Amount m_changeBeam = 0;
         Amount m_changeAsset = 0;
         Asset::ID m_assetId = Asset::s_InvalidID;
+        std::string m_assetMeta;
         Height m_minHeight = 0;
         WalletID m_peerId = Zero;
         WalletID m_myId = Zero;

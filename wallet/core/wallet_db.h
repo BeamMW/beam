@@ -144,8 +144,8 @@ namespace beam::wallet
         WalletAsset(const Asset::Full& full, Height refreshHeight);
         bool CanRollback(Height from) const;
 
-        Height  m_refreshHeight = 0;
-        int32_t m_isOwned = 0;
+        Height  m_RefreshHeight = 0;
+        int32_t m_IsOwned = 0;
     };
 
     class ILaserChannelEntity

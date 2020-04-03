@@ -42,6 +42,7 @@
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
+#include "wallet/transactions/assets/assets_reg_creators.h"
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #include "wallet/api/i_atomic_swap_provider.h"
@@ -855,6 +856,11 @@ int main(int argc, char* argv[])
         RegisterSwapTxCreators(wallet, walletDB);
         server.initSwapFeature(*nnet, *wnet);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+        if (Rules::get().CA.Enabled)
+        {
+            RegisterAssetCreators(wallet);
+        }
 
         // All TxCreators must be registered by this point
         wallet.ResumeAllTransactions();
