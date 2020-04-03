@@ -540,7 +540,7 @@ namespace beam::wallet
         void clearCoins() override;
 
         void visitCoins(std::function<bool(const Coin& coin)> func) override;
-        void visitAssets(std::function<bool(const WalletAsset& info)> func);
+        void visitAssets(std::function<bool(const WalletAsset& info)> func) override;
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;

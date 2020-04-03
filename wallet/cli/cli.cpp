@@ -811,7 +811,8 @@ namespace
 
         if (!txHistory.empty())
         {
-            const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
+            std::string unitName;
+            std::tie(unitName, std::ignore) = GetAssetNames(walletDB, assetId);
             const auto amountHeader = boost::format(kAssetTxHistoryColumnAmount) % unitName;
 
             const array<uint8_t, 7> columnWidths{{20, 10, 17, 18, 16, 33, 65}};
