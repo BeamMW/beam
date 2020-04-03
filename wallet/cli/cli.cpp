@@ -1191,13 +1191,22 @@ namespace
             LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
-        auto receiverParams = ParseParameters(vm[cli::RECEIVER_ADDR].as<string>());
+        auto addressOrToken = vm[cli::RECEIVER_ADDR].as<string>();
+        auto receiverParams = ParseParameters(addressOrToken);
         if (!receiverParams)
         {
             LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
-        return LoadReceiverParams(*receiverParams, params);
+        if (!LoadReceiverParams(*receiverParams, params))
+        {
+            return false;
+        }
+        if (auto peerID = params.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); peerID && std::to_string(*peerID) != addressOrToken)
+        {
+            params.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);
+        }
+        return true;
     }
 
     bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)

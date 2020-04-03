@@ -411,6 +411,11 @@ namespace beam::wallet
             auto params = CreateSimpleTransactionParameters(data.txId);
             LoadReceiverParams(data.txParameters, params);
 
+            if (auto token = data.txParameters.GetParameter<std::string>(beam::wallet::TxParameterID::OriginalToken); token)
+            {
+                params.SetParameter(beam::wallet::TxParameterID::OriginalToken, *token);
+            }
+
             params.SetParameter(TxParameterID::MyID, from)
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
