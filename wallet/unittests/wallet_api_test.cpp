@@ -1056,7 +1056,7 @@ int main()
     Rules::get().CA.Enabled = true;
 
     // Invalid asset index
-    testInvalidIssueJsonRpc(JSON_CODE(
+   /* testInvalidIssueJsonRpc(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id" : 12345,
@@ -1208,6 +1208,7 @@ int main()
             "value" : 12342342
         }
     }));
+    */
 
     testStatusJsonRpc(JSON_CODE(
     {
