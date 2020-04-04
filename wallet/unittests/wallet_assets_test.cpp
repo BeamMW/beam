@@ -535,7 +535,7 @@ void TestAssets() {
     const auto nonOwnedConsumeAmount = send3rpAmount;
     const auto nonOwnedAssetChange   = 0;
     const auto nonOwnedBeamChange    = 0;
-    const auto assetMeta = "just for test";
+    const auto assetMeta = std::string("just for test");
 
     sw.start();
     const auto nonOwnedConsumeTxId = receiver.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)

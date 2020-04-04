@@ -710,7 +710,7 @@ namespace
     {
         const auto info = db->findAsset(totals.AssetId);
         const WalletAssetMeta& meta = info.is_initialized() ? WalletAssetMeta(*info) : WalletAssetMeta(Asset::Full());
-        const bool isOwned  = info.is_initialized() ? info->m_isOwned : false;
+        const bool isOwned  = info.is_initialized() ? info->m_IsOwned : false;
         const auto unitName = meta.isStd() ? meta.GetUnitName() : kAmountASSET;
         const auto nthName  = meta.isStd() ? meta.GetNthUnitName() : kAmountAGROTH;
 
@@ -1972,7 +1972,7 @@ namespace
              throw std::runtime_error(kErrorAssetNotFound);
         }
 
-        if(!info->m_isOwned)
+        if(!info->m_IsOwned)
         {
             throw std::runtime_error(kErrorAssetNotOwned);
         }
