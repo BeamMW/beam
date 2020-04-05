@@ -51,12 +51,12 @@ int calc_errors() {
     return retCode;
 }
 
-#define DOMAIN_NAME "beam.mw"
+#define DOMAIN_NAME "github.com"
 
 bool on_recv(ErrorCode what, void* data, size_t size) {
     if (data && size) {
         LOG_DEBUG() << "RECEIVED " << size << " bytes";
-        LOG_DEBUG() << "\n" << std::string((const char*)data, size);
+        //LOG_DEBUG() << "\n" << std::string((const char*)data, size);
 		if (g_FirstRcv)
 		{
 			g_FirstRcv = false;
@@ -89,6 +89,7 @@ void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode st
 };
 
 int tcpclient_test(bool ssl) {
+    LOG_INFO() << __FUNCTION__ << TRACE(ssl);
     callbackCount = 3;
     g_FirstRcv = true;
     long reactorUseCount = 0;
@@ -100,10 +101,18 @@ int tcpclient_test(bool ssl) {
             a.resolve(DOMAIN_NAME);
             a.port(ssl ? 443 : 80);
 
-            if (!reactor->tcp_connect(a, tag_ok, on_connected, 10000, ssl)) ++errorlevel;
-            if (!reactor->tcp_connect(Address::localhost().port(666), tag_refused, on_connected, -1, ssl)) ++errorlevel;
-            if (!reactor->tcp_connect(a.port(666), tag_timedout, on_connected, 100, ssl)) ++errorlevel;
-            if (!reactor->tcp_connect(a, tag_cancelled, on_connected, -1, ssl)) ++errorlevel;
+#ifdef WIN32
+            // OpenSSL has ho access to system certificate storage
+            bool rejectUnauthorized = false;
+#else
+            bool rejectUnauthorized = true;
+#endif // WIN32
+
+
+            if (!reactor->tcp_connect(a, tag_ok, on_connected, 10000, ssl, rejectUnauthorized)) ++errorlevel;
+            if (!reactor->tcp_connect(Address::localhost().port(666), tag_refused, on_connected, -1, ssl, false)) ++errorlevel;
+            if (!reactor->tcp_connect(a.port(666), tag_timedout, on_connected, 100, ssl, false)) ++errorlevel;
+            if (!reactor->tcp_connect(a, tag_cancelled, on_connected, -1, ssl, false)) ++errorlevel;
 
             reactor->cancel_tcp_connect(tag_cancelled);
 

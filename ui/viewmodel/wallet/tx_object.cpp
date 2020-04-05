@@ -13,7 +13,8 @@
 // limitations under the License.
 #include "tx_object.h"
 #include "viewmodel/ui_helpers.h"
-#include "wallet/common.h"
+#include "wallet/core/common.h"
+#include "wallet/core/simple_transaction.h"
 #include "model/app_model.h"
 
 using namespace beam;
@@ -79,18 +80,28 @@ namespace
     }
 }
 
-TxObject::TxObject(QObject* parent)
-        : QObject(parent)
+
+TxObject::TxObject( const TxDescription& tx,
+                    QObject* parent/* = nullptr*/)
+        : TxObject(tx, beam::wallet::ExchangeRate::Currency::Unknown, parent)
 {
 }
 
-TxObject::TxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
+TxObject::TxObject( const TxDescription& tx,
+                    beam::wallet::ExchangeRate::Currency secondCurrency,
+                    QObject* parent/* = nullptr*/)
         : QObject(parent)
         , m_tx(tx)
         , m_type(*m_tx.GetParameter<TxType>(TxParameterID::TransactionType))
+        , m_secondCurrency(secondCurrency)
 {
     auto kernelID = QString::fromStdString(to_hex(m_tx.m_kernelID.m_pData, m_tx.m_kernelID.nBytes));
     setKernelID(kernelID);
+}
+
+bool TxObject::operator==(const TxObject& other) const
+{
+    return getTxID() == other.getTxID();
 }
 
 auto TxObject::timeCreated() const -> beam::Timestamp
@@ -127,6 +138,29 @@ QString TxObject::getAmount() const
 beam::Amount TxObject::getAmountValue() const
 {
     return m_tx.m_amount;
+}
+
+QString TxObject::getSecondCurrencyRate() const
+{
+    auto exchangeRatesOptional = getTxDescription().GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
+
+    if (exchangeRatesOptional)
+    {
+        std::vector<ExchangeRate>& rates = *exchangeRatesOptional;
+        auto secondCurrency = m_secondCurrency;
+        auto search = std::find_if(std::begin(rates),
+                                   std::end(rates),
+                                   [secondCurrency](const ExchangeRate& r)
+                                   {
+                                       return r.m_currency == ExchangeRate::Currency::Beam
+                                           && r.m_unit == secondCurrency;
+                                   });
+        if (search != std::cend(rates))
+        {
+            return AmountToUIString(search->m_rate);
+        }
+    }
+    return "0";
 }
 
 QString TxObject::getStatus() const
@@ -198,56 +232,91 @@ QString TxObject::getTransactionID() const
 
 QString TxObject::getReasonString(beam::wallet::TxFailureReason reason) const
 {
-    const std::array<QString,24> reasons = {
+    static const std::vector<QString> reasons = {
         //% "Unexpected reason, please send wallet logs to Beam support"
-        qtTrId("tx-failture-undefined"),
+        qtTrId("tx-failure-undefined"),
         //% "Transaction cancelled"
-        qtTrId("tx-failture-cancelled"),
+        qtTrId("tx-failure-cancelled"),
         //% "Receiver signature in not valid, please send wallet logs to Beam support"
-        qtTrId("tx-failture-receiver-signature-invalid"),
+        qtTrId("tx-failure-receiver-signature-invalid"),
         //% "Failed to register transaction with the blockchain, see node logs for details"
-        qtTrId("tx-failture-not-registered-in-blockchain"),
+        qtTrId("tx-failure-not-registered-in-blockchain"),
         //% "Transaction is not valid, please send wallet logs to Beam support"
-        qtTrId("tx-failture-not-valid"),
+        qtTrId("tx-failure-not-valid"),
         //% "Invalid kernel proof provided"
-        qtTrId("tx-failture-kernel-invalid"),
+        qtTrId("tx-failure-kernel-invalid"),
         //% "Failed to send Transaction parameters"
-        qtTrId("tx-failture-parameters-not-sended"),
+        qtTrId("tx-failure-parameters-not-sended"),
         //% "No inputs"
-        qtTrId("tx-failture-no-inputs"),
+        qtTrId("tx-failure-no-inputs"),
         //% "Address is expired"
-        qtTrId("tx-failture-addr-expired"),
+        qtTrId("tx-failure-addr-expired"),
         //% "Failed to get transaction parameters"
-        qtTrId("tx-failture-parameters-not-readed"),
+        qtTrId("tx-failure-parameters-not-readed"),
         //% "Transaction timed out"
-        qtTrId("tx-failture-time-out"),
+        qtTrId("tx-failure-time-out"),
         //% "Payment not signed by the receiver, please send wallet logs to Beam support"
-        qtTrId("tx-failture-not-signed-by-receiver"),
+        qtTrId("tx-failure-not-signed-by-receiver"),
         //% "Kernel maximum height is too high"
-        qtTrId("tx-failture-max-height-to-high"),
+        qtTrId("tx-failure-max-height-to-high"),
         //% "Transaction has invalid state"
-        qtTrId("tx-failture-invalid-state"),
+        qtTrId("tx-failure-invalid-state"),
         //% "Subtransaction has failed"
-        qtTrId("tx-failture-subtx-failed"),
+        qtTrId("tx-failure-subtx-failed"),
         //% "Contract's amount is not valid"
-        qtTrId("tx-failture-invalid-contract-amount"),
+        qtTrId("tx-failure-invalid-contract-amount"),
         //% "Side chain has invalid contract"
-        qtTrId("tx-failture-invalid-sidechain-contract"),
+        qtTrId("tx-failure-invalid-sidechain-contract"),
         //% "Side chain bridge has internal error"
-        qtTrId("tx-failture-sidechain-internal-error"),
+        qtTrId("tx-failure-sidechain-internal-error"),
         //% "Side chain bridge has network error"
-        qtTrId("tx-failture-sidechain-network-error"),
+        qtTrId("tx-failure-sidechain-network-error"),
         //% "Side chain bridge has response format error"
-        qtTrId("tx-failture-invalid-sidechain-response-format"),
+        qtTrId("tx-failure-invalid-sidechain-response-format"),
         //% "Invalid credentials of Side chain"
-        qtTrId("tx-failture-invalid-side-chain-credentials"),
+        qtTrId("tx-failure-invalid-side-chain-credentials"),
         //% "Not enough time to finish btc lock transaction"
-        qtTrId("tx-failture-not-enough-time-btc-lock"),
+        qtTrId("tx-failure-not-enough-time-btc-lock"),
         //% "Failed to create multi-signature"
-        qtTrId("tx-failture-create-multisig"),
+        qtTrId("tx-failure-create-multisig"),
         //% "Fee is too small"
-        qtTrId("tx-failture-fee-too-small")
+        qtTrId("tx-failure-fee-too-small"),
+        //% "Fee is too large"
+        qtTrId("tx-failure-fee-too-large"),
+        //% "Kernel's min height is unacceptable"
+        qtTrId("tx-failure-kernel-min-height"),
+        //% "Not a loopback transaction"
+        qtTrId("tx-failure-loopback"),
+        //% "Key keeper is not initialized"
+        qtTrId("tx-failure-key-keeper-no-initialized"),
+        //% "No valid asset owner id/asset owner idx"
+        qtTrId("tx-failure-invalid-asset-id"),
+        //% "No asset info or asset info is not valid"
+        qtTrId("tx-failure-asset-invalid-info"),
+        //% "No asset metadata or asset metadata is not valid"
+        qtTrId("tx-failure-asset-invalid-metadata"),
+        //% "Invalid asset id"
+        qtTrId("tx-failure-asset-invalid-id"),
+        //% "Failed to receive asset confirmation"
+        qtTrId("tx-failure-asset-confirmation"),
+        //% "Asset is still in use (issued amount > 0)"
+        qtTrId("tx-failure-asset-in-use"),
+        //% "Asset is still locked"
+        qtTrId("tx-failure-asset-locked"),
+        //% "Asset registration fee is too small"
+        qtTrId("tx-failure-asset-small-fee"),
+        //% "Cannot issue/consume more than MAX_INT64 asset groth in one transaction"
+        qtTrId("tx-failure-invalid-asset-amount"),
+        //% "Some mandatory data for payment proof is missing"
+        qtTrId("tx-failure-invalid-data-for-payment-proof"),
+        //%  "Master key is needed for this transaction, but unavailable"
+        qtTrId("tx-failure-there-is-no-master-key"),
+        //% "Key keeper malfunctioned"
+        qtTrId("tx-failure-keeper-malfunctioned"),
+        //% "Aborted by the user"
+        qtTrId("tx-failure-aborted-by-user"),
     };
+
     assert(reasons.size() > static_cast<size_t>(reason));
     return reasons[reason];
 }
@@ -303,6 +372,22 @@ QString TxObject::getStateDetails() const
         }
     }
     return "";
+}
+
+QString TxObject::getToken() const
+{
+    const auto& tx = getTxDescription();
+    return QString::fromStdString(tx.getToken());
+}
+
+QString TxObject::getSenderIdentity() const
+{
+    return QString::fromStdString(m_tx.getSenderIdentity());
+}
+
+QString TxObject::getReceiverIdentity() const
+{
+    return QString::fromStdString(m_tx.getReceiverIdentity());
 }
 
 bool TxObject::hasPaymentProof() const

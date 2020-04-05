@@ -20,7 +20,7 @@
 #include <QStringList>
 #include <mutex>
 #include "model/wallet_model.h"
-#include "wallet/bitcoin/settings.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/settings.h"
 
 
 class WalletSettings : public QObject
@@ -44,7 +44,6 @@ public:
     bool showSwapBetaWarning();
     void setShowSwapBetaWarning(bool value);
 
-    void initModel(WalletModel::Ptr model);
 #if defined(BEAM_HW_WALLET)
     std::string getTrezorWalletStorage() const;
 #endif
@@ -68,6 +67,20 @@ public:
     QString getLanguageName() const;
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
+    static QStringList getSupportedRateUnits();
+
+    // Second currency settings
+    QString getSecondCurrency() const;
+    void setSecondCurrency(const QString&);
+
+    // Notifications settings
+    bool isNewVersionActive() const;
+    bool isBeamNewsActive() const;
+    bool isTxStatusActive() const;
+    void setNewVersionActive(bool isActive);
+    void setBeamNewsActive(bool isActive);
+    void setTxStatusActive(bool isActive);
+
     static void openFolder(const QString& path);
 
 public:
@@ -90,6 +103,8 @@ signals:
     void localNodePeersChanged();
     void localNodeSynchronizedChanged();
     void localeChanged();
+    void beamMWLinksChanged();
+    void secondCurrencyChanged();
 
 private:
     QSettings m_data;

@@ -27,6 +27,8 @@ enum ErrorCode {
     EC_FILE_CORRUPTED = UV_ERRNO_MAX - 2,
     EC_SSL_ERROR = UV_ERRNO_MAX - 3,
     EC_HOST_RESOLVED_ERROR = UV_ERRNO_MAX - 4,
+    EC_PROXY_AUTH_ERROR = UV_ERRNO_MAX - 5,
+    EC_PROXY_REPL_ERROR = UV_ERRNO_MAX - 6,
 #define XX(code, _) EC_ ## code = UV_ ## code,
     UV_ERRNO_MAP(XX)
 #undef XX

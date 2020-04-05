@@ -17,7 +17,7 @@
 #include "utility/logger.h"
 #include <future>
 #include <boost/filesystem.hpp>
-#include <wallet/unittests/util.h>
+#include <wallet/core/common_utils.h>
 
 namespace beam {
 
@@ -57,7 +57,7 @@ WaitHandle run_node(const NodeParams& params) {
                 node.m_Cfg.m_Connect.push_back(params.connectTo);
             }
             if (!params.treasuryPath.empty()) {
-                ReadTreasury(node.m_Cfg.m_Treasury, params.treasuryPath);
+                wallet::ReadTreasury(node.m_Cfg.m_Treasury, params.treasuryPath);
                 LOG_INFO() << "Treasury blocks read: " << node.m_Cfg.m_Treasury.size();
             }
 

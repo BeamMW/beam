@@ -9,6 +9,8 @@ RowLayout {
     id: "root"
     property var sendAddress
     property var receiveAddress
+    property var senderIdentity
+    property var receiverIdentity
     property var fee
     property var comment
     property var txID
@@ -20,9 +22,18 @@ RowLayout {
     property var isSelfTx
     property var rawTxID
     property var stateDetails
+    property string token
+    property string amount
+    property string secondCurrencyRate
+    property string secondCurrencyLabel
     property string searchFilter: ""
     property bool hideFiltered: false
     property var searchRegExp: { return new RegExp(root.searchFilter, "gi");}
+
+    
+    readonly property string amountPrefix: root.isIncome ? "+" : "-"
+    readonly property string amountWithLabel: amountPrefix + " " + root.amount + " " + BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
+    readonly property string secondCurrencyAmount: getAmountInSecondCurrency()
 
     property var onOpenExternal: null
     signal textCopied(string text)
@@ -53,10 +64,29 @@ RowLayout {
         return text.replace(root.searchRegExp, "<font color=\"" + Style.active.toString() + "\">" + s + "</font>");
     }
 
+    function getAmountInSecondCurrency() {
+        if (root.amount !== "") {
+            let amountInSecondCurrency = BeamGlobals.calcAmountInSecondCurrency(
+                root.amount,
+                root.secondCurrencyRate,
+                root.secondCurrencyLabel);
+            if (amountInSecondCurrency == "") {
+                //% "Exchange rate to %1 was not available at the time of transaction"
+                return  qsTrId("tx-details-exchange-rate-not-available").arg(root.secondCurrencyLabel);
+            }
+            else {
+                //% "(for the day of transaction)"
+                return root.amountPrefix + " " + amountInSecondCurrency + " " + root.secondCurrencyLabel + " " + qsTrId("tx-details-second-currency-notification");
+            }
+        }
+        else return "";
+    }
+
     GridLayout {
         Layout.fillWidth: true
         Layout.preferredWidth: 4
         Layout.leftMargin: 30
+        Layout.rightMargin: 30
         Layout.topMargin: 30
         Layout.bottomMargin: 30
         columnSpacing: 44
@@ -97,6 +127,26 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
+            //% "Sender identity"
+            text: qsTrId("tx-details-sender-identity") + ":"
+            visible: senderIdentityField.visible
+        }
+        SFLabel {
+            id: senderIdentityField
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            elide: Text.ElideMiddle
+            text: getHighlitedText(root.senderIdentity)
+            onCopyText: textCopied(root.senderIdentity)
+            visible: root.senderIdentity.length > 0 && root.receiverIdentity.length > 0 && isTextFieldVisible(root.senderIdentity)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
             //% "Receiving address"
             text: qsTrId("tx-details-receiving-addr-label") + ":"
             visible: receiveAddressField.visible
@@ -107,11 +157,71 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: getHighlitedText(root.receiveAddress)
             onCopyText: textCopied(root.receiveAddress)
             visible: isTextFieldVisible(root.receiveAddress)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Receiver identity"
+            text: qsTrId("tx-details-receiver-identity") + ":"
+            visible: receiverIdentityField.visible
+        }
+        SFLabel {
+            id: receiverIdentityField
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            elide: Text.ElideMiddle
+            text: getHighlitedText(root.receiverIdentity)
+            onCopyText: textCopied(root.receiverIdentity)
+            visible: root.senderIdentity.length > 0 && root.receiverIdentity.length > 0 && isTextFieldVisible(root.receiverIdentity)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Amount"
+            text: qsTrId("tx-details-amount-label") + ":"
+            visible: amountField.visible
+        }
+        SFLabel {
+            id: amountField
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            font.styleName: "Bold"; font.weight: Font.Bold
+            color: root.isIncome ? Style.accent_incoming : Style.accent_outgoing
+            elide: Text.ElideMiddle
+            text: root.amountWithLabel
+            onCopyText: textCopied(root.amount)
+            visible: isTextFieldVisible(root.amount)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Currency amount"
+            text: qsTrId("tx-details-second-currency-amount-label") + ":"
+            visible: secondCurrencyAmountField.visible
+        }
+        SFLabel {
+            id: secondCurrencyAmountField
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            elide: Text.ElideMiddle
+            text: root.secondCurrencyAmount
+            onCopyText: textCopied(secondCurrencyAmountField.text)
+            visible: isTextFieldVisible(secondCurrencyAmountField.text) && root.secondCurrencyLabel != ""
         }
         
         SFText {
@@ -146,7 +256,7 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            wrapMode: Text.Wrap
+            wrapMode: Text.WrapAnywhere 
             text: getHighlitedText(root.comment)
             font.styleName: "Italic"
             elide: Text.ElideRight
@@ -195,6 +305,29 @@ RowLayout {
             visible: isTextFieldVisible(root.kernelID)
         }
 
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Token"
+            text: qsTrId("general-token") + ":"
+            visible: tokenValueField.visible
+        }
+
+        SFLabel {
+            Layout.fillWidth: true
+            id: tokenValueField
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            wrapMode: Text.Wrap
+            text: getHighlitedText(root.token)
+            font.styleName: "Italic"
+            elide: Text.ElideMiddle
+            onCopyText: textCopied(root.token)
+            visible: root.token.length > 0 && isTextFieldVisible(root.token)
+        }
+        
         function canOpenInBlockchainExplorer(status) {
             switch(status) {
                 case "completed":
@@ -205,9 +338,8 @@ RowLayout {
                     return false;
             }
         }
-
+        
         Item {
-            Layout.fillWidth: true
             Layout.preferredHeight: 16
             visible: parent.canOpenInBlockchainExplorer(root.status) && root.isFieldVisible()
         }
@@ -215,7 +347,7 @@ RowLayout {
             Layout.preferredWidth: openInExplorer.width + 10 + openInExplorerIcon.width
             Layout.preferredHeight: 16
             visible: parent.canOpenInBlockchainExplorer(root.status) && root.isFieldVisible()
-
+        
             SFText {
                 id: openInExplorer
                 font.pixelSize: 14
@@ -244,7 +376,7 @@ RowLayout {
                 hoverEnabled: true
             }
         }
-
+        
         RowLayout {
             Layout.columnSpan: 2
             Layout.fillWidth: true
@@ -265,7 +397,7 @@ RowLayout {
                 onCopyText: textCopied(text)
             }
         }
-
+        
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
@@ -300,7 +432,7 @@ RowLayout {
         columnSpacing: 44
         rowSpacing: 14
         visible: !root.isIncome && root.isFieldVisible() && root.hasPaymentProof && !root.isSelfTx
-
+    
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true

@@ -1409,11 +1409,11 @@ Item
                                     backgroundColor: (modelData.isAllowed || modelData.value.length == 0) ? Style.content_main : Style.validator_error
                                     text: modelData.value
                                     onTextEdited: {
-                                        var phrases = text.split(viewModel.phrasesSeparator);
+                                        var phrases = text.trim().split(viewModel.phrasesSeparator);
                                         if (phrases.length > viewModel.recoveryPhrases.length) {
                                             for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
                                             {
-                                                viewModel.recoveryPhrases[i].value = phrases[i];
+                                                viewModel.recoveryPhrases[i].value = phrases[i].trim();
                                             }
                                         }
                                     }
@@ -2172,6 +2172,7 @@ Item
                                         {
                                             //% "Please, enter password"
                                             openPasswordError.text = qsTrId("general-pwd-empty-error");
+                                            openPassword.focus = true;
                                         }
                                         else
                                         {
@@ -2179,6 +2180,8 @@ Item
                                             {
                                                 //% "Invalid password provided"
                                                 openPasswordError.text = qsTrId("general-pwd-invalid");
+                                                openPassword.selectAll();
+                                                openPassword.focus = true;
                                             }
                                             else
                                             {

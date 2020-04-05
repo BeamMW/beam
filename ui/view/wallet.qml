@@ -12,6 +12,8 @@ Item {
     id: root
     anchors.fill: parent
 
+    property string openedTxID: ""
+
     function onAccepted() { walletStackView.pop(); }
     function onClosed() { walletStackView.pop(); }
     function onSwapToken(token) {
@@ -29,10 +31,6 @@ Item {
         //% "Delete"
         okButtonText: qsTrId("general-delete")
     }
-
-    OpenExternalLinkConfirmation {
-        id: externalLinkConfirmation
-    }   
 
     PaymentInfoDialog {
         id: paymentInfoDialog
@@ -104,10 +102,10 @@ Item {
             Layout.fillHeight: true
             spacing: 0
             state: "all"
-            
+
             Row {
                 Layout.alignment: Qt.AlignTop | Qt.AlignRight
-                Layout.topMargin: 33
+                Layout.topMargin: 30
                 spacing: 20
 
                 CustomButton {
@@ -146,10 +144,10 @@ Item {
             }
 
             AvailablePanel {
-                Layout.topMargin: 32
+                Layout.topMargin: 29
                 Layout.alignment: Qt.AlignTop | Qt.AlignLeft
-                Layout.maximumHeight: 67
-                Layout.minimumHeight: 67
+                Layout.maximumHeight: 80
+                Layout.minimumHeight: 80
 
                 Layout.preferredWidth: parseFloat(viewModel.beamSending) > 0 || parseFloat(viewModel.beamReceiving) > 0 ? parent.width : (parent.width / 2)
 
@@ -160,6 +158,8 @@ Item {
                 receiving:         viewModel.beamReceiving
                 receivingChange:   viewModel.beamReceivingChange
                 receivingIncoming: viewModel.beamReceivingIncoming
+                secondCurrencyLabel:        viewModel.secondCurrencyLabel
+                secondCurrencyRateValue:    viewModel.secondCurrencyRateValue
             }
 
             Item {
@@ -286,6 +286,21 @@ Item {
             CustomTableView {
                 id: transactionsTable
 
+                Component.onCompleted: {
+                    transactionsTable.model.modelReset.connect(function(){
+                        if (root.openedTxID != "") {
+                            var index = viewModel.transactions.index(0, 0);
+                            var indexList = viewModel.transactions.match(index, TxObjectList.Roles.TxID, root.openedTxID);
+                            if (indexList.length > 0) {
+                                index = searchProxyModel.mapFromSource(indexList[0]);
+                                index = txProxyModel.mapFromSource(index);
+                                transactionsTable.positionViewAtRow(index.row, ListView.Beginning)
+                               // var item = transactionsTable.getItemAt(index.row, ListView.Beginning)
+                            }
+                        }
+                    })
+                }
+
                 Layout.alignment: Qt.AlignTop
                 Layout.fillWidth : true
                 Layout.fillHeight : true
@@ -310,7 +325,7 @@ Item {
                 model: SortFilterProxyModel {
                     id: txProxyModel
                     source: SortFilterProxyModel {
-                        
+                        id: searchProxyModel
                         source: viewModel.transactions
                         filterRole: "search"
                         filterString: searchBox.text
@@ -348,6 +363,8 @@ Item {
                         property var        txRolesMap: myModel
                         sendAddress:        txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
                         receiveAddress:     txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
+                        senderIdentity:     txRolesMap && txRolesMap.senderIdentity ? txRolesMap.senderIdentity : ""
+                        receiverIdentity:   txRolesMap && txRolesMap.receiverIdentity ? txRolesMap.receiverIdentity : ""
                         fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
                         comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
                         txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
@@ -359,8 +376,12 @@ Item {
                         isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
                         rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
                         stateDetails:       txRolesMap && txRolesMap.stateDetails ? txRolesMap.stateDetails : ""
+                        amount:             txRolesMap && txRolesMap.amountGeneral ? txRolesMap.amountGeneral : ""
+                        secondCurrencyRate: txRolesMap && txRolesMap.secondCurrencyRate ? txRolesMap.secondCurrencyRate : ""
+                        secondCurrencyLabel: viewModel.secondCurrencyLabel
                         searchFilter:       searchBox.text
                         hideFiltered:       rowItem.hideFiltered
+                        token:              txRolesMap ? txRolesMap.token : ""
 
                         onSearchFilterChanged: function(text) {
                             rowItem.collapsed = searchBox.text.length == 0;
@@ -369,7 +390,7 @@ Item {
 
                         onOpenExternal : function() {
                             var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
-                            Utils.openExternal(url, viewModel, externalLinkConfirmation);
+                            Utils.openExternalWithConfirmation(url);
                         }
 
                         onTextCopied: function (text) {

@@ -59,11 +59,9 @@ void TxGenerator::GenerateKernel(Height h, Amount fee, uint32_t ind)
 		pKrn->m_Fee = fee;
 
 	m_Kdf.DeriveKey(key, Key::ID(ind, Key::Type::Kernel));
-	pKrn->m_Commitment = Point::Native(ECC::Context::get().G * key);
 
-	ECC::Hash::Value hv;
-	pKrn->get_Hash(hv);
-	pKrn->m_Signature.Sign(hv, key);
+	pKrn->Sign(key);
+
 	m_MsgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 
 	key = -key;

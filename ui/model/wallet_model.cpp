@@ -24,8 +24,8 @@ using namespace beam::wallet;
 using namespace beam::io;
 using namespace std;
 
-WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
-    : WalletClient(walletDB, nodeAddr, reactor, keyKeeper)
+WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
+    : WalletClient(walletDB, nodeAddr, reactor)
 {
     qRegisterMetaType<beam::ByteBuffer>("beam::ByteBuffer");
     qRegisterMetaType<beam::wallet::WalletStatus>("beam::wallet::WalletStatus");
@@ -41,6 +41,9 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeep
     qRegisterMetaType<beam::wallet::TxID>("beam::wallet::TxID");
     qRegisterMetaType<beam::wallet::TxParameters>("beam::wallet::TxParameters");
     qRegisterMetaType<std::function<void()>>("std::function<void()>");
+    qRegisterMetaType<std::vector<beam::wallet::Notification>>("std::vector<beam::wallet::Notification>");
+    qRegisterMetaType<beam::wallet::VersionInfo>("beam::wallet::VersionInfo");
+    qRegisterMetaType<ECC::uintBig>("ECC::uintBig");
 
     connect(this, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), this, SLOT(setStatus(const beam::wallet::WalletStatus&)));
     connect(this, SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
@@ -98,7 +101,7 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
 
 bool WalletModel::isOwnAddress(const WalletID& walletID) const
 {
-    return m_myWalletIds.find(walletID) != m_myWalletIds.end();
+    return m_myWalletIds.count(walletID);
 }
 
 bool WalletModel::isAddressWithCommentExist(const std::string& comment) const
@@ -130,9 +133,30 @@ void WalletModel::onChangeCalculated(beam::Amount change)
     emit changeCalculated(change);
 }
 
-void WalletModel::onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos)
+void WalletModel::onAllUtxoChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Coin>& utxos)
 {
-    emit allUtxoChanged(utxos);
+    emit allUtxoChanged(action, utxos);
+}
+
+void WalletModel::onAddressesChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::WalletAddress>& items)
+{
+    emit addressesChanged(action, items);
+    for (const auto& item : items)
+    {
+        if (item.isOwn())
+        {
+            if (action == ChangeAction::Removed)
+            {
+                m_myWalletIds.erase(item.m_walletID);
+                m_myAddrLabels.erase(item.m_label);
+            }
+            else
+            {
+                m_myWalletIds.emplace(item.m_walletID);
+                m_myAddrLabels.emplace(item.m_label);
+            }
+        }
+    }
 }
 
 void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs)
@@ -140,10 +164,12 @@ void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAd
     emit addressesChanged(own, addrs);
 }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void WalletModel::onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
 {
     emit swapOffersChanged(action, offers);
 }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 void WalletModel::onCoinsByTx(const std::vector<beam::wallet::Coin>& coins)
 {
@@ -215,11 +241,6 @@ void WalletModel::onExportTxHistoryToCsv(const std::string& data)
     emit txHistoryExportedToCsv(QString::fromStdString(data));
 }
 
-void WalletModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
-{
-    emit changeCurrentWalletIDs(senderID, receiverID);
-}
-
 void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 {
     emit nodeConnectionChanged(isNodeConnected);
@@ -258,6 +279,16 @@ void WalletModel::onPaymentProofExported(const beam::wallet::TxID& txID, const b
 void WalletModel::onPostFunctionToClientContext(MessageFunction&& func)
 {
     emit functionPosted(func);
+}
+
+void WalletModel::onExchangeRates(const std::vector<beam::wallet::ExchangeRate>& rates)
+{
+    emit exchangeRatesUpdate(rates);
+}
+
+void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<Notification>& notifications)
+{
+    emit notificationsChanged(action, notifications);
 }
 
 beam::Amount WalletModel::getAvailable() const

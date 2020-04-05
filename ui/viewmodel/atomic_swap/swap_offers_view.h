@@ -30,7 +30,6 @@ class SwapOffersViewModel : public QObject
     Q_PROPERTY(QAbstractItemModel*  transactions        READ getTransactions        NOTIFY allTransactionsChanged)
     Q_PROPERTY(QAbstractItemModel*  allOffers           READ getAllOffers           NOTIFY allOffersChanged)
     Q_PROPERTY(QAbstractItemModel*  allOffersFitBalance READ getAllOffersFitBalance NOTIFY allOffersFitBalanceChanged)
-    Q_PROPERTY(int                  selectedCoin        READ getSelectedCoin        NOTIFY selectedCoinChanged     WRITE   setSelectedCoin)
     Q_PROPERTY(QString              beamAvailable       READ beamAvailable          NOTIFY beamAvailableChanged)
     Q_PROPERTY(QString              btcAvailable        READ btcAvailable           NOTIFY btcAvailableChanged)
     Q_PROPERTY(QString              ltcAvailable        READ ltcAvailable           NOTIFY ltcAvailableChanged)
@@ -53,8 +52,6 @@ public:
     QAbstractItemModel* getTransactions();
     QAbstractItemModel* getAllOffers();
     QAbstractItemModel* getAllOffersFitBalance();
-    int getSelectedCoin();
-    void setSelectedCoin(int coinType);
     QString beamAvailable() const;
     QString btcAvailable() const;
     QString ltcAvailable() const;
@@ -111,8 +108,6 @@ private:
     double getBlocksPerHour(AtomicSwapCoin swapCoinType);
 
     WalletModel& m_walletModel;
-    
-    AtomicSwapCoin m_selectedCoin;
 
     SwapTxObjectList m_transactionsList;
     SwapOffersList m_offersList;

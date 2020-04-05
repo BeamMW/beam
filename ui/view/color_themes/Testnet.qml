@@ -11,6 +11,7 @@ AbstractColors {
     property color content_opposite:      "#171717"
     property color validator_warning:     "#f4ce4a"
     property color validator_error:       "#ff625c"
+    property color section:               "#2c5066"
 
     property color navigation_background: "#000000"
     property color background_main:       "#1a132d"

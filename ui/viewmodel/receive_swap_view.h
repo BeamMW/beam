@@ -15,6 +15,7 @@
 
 #include <QObject>
 #include "model/wallet_model.h"
+#include "viewmodel/notifications/exchange_rates_manager.h"
 #include "currencies.h"
 
 class ReceiveSwapViewModel: public QObject
@@ -34,6 +35,9 @@ class ReceiveSwapViewModel: public QObject
     Q_PROPERTY(bool          isReceiveFeeOK           READ isReceiveFeeOK                                    NOTIFY  isReceiveFeeOKChanged)
     Q_PROPERTY(bool          isSendBeam               READ isSendBeam                                        NOTIFY  transactionTokenChanged)
     Q_PROPERTY(QString       rate                     READ getRate                                           NOTIFY  rateChanged)
+    Q_PROPERTY(QString       secondCurrencyLabel      READ getSecondCurrencyLabel                   NOTIFY secondCurrencyLabelChanged)
+    Q_PROPERTY(QString       secondCurrencySendRateValue    READ getSecondCurrencySendRateValue     NOTIFY secondCurrencyRateChanged)
+    Q_PROPERTY(QString       secondCurrencyReceiveRateValue READ getSecondCurrencyReceiveRateValue  NOTIFY secondCurrencyRateChanged)
 
     Q_PROPERTY(WalletCurrency::Currency  receiveCurrency    READ getReceiveCurrency    WRITE  setReceiveCurrency  NOTIFY  receiveCurrencyChanged)
     Q_PROPERTY(WalletCurrency::Currency  sentCurrency       READ getSentCurrency       WRITE  setSentCurrency     NOTIFY  sentCurrencyChanged)
@@ -58,6 +62,8 @@ signals:
     void isSendFeeOKChanged();
     void isReceiveFeeOKChanged();
     void rateChanged();
+    void secondCurrencyRateChanged();
+    void secondCurrencyLabelChanged();
 
 public:
     Q_INVOKABLE void generateNewAddress();
@@ -107,6 +113,10 @@ private:
     bool isSendBeam() const;
     QString getRate() const;
 
+    QString getSecondCurrencyLabel() const;
+    QString getSecondCurrencySendRateValue() const;
+    QString getSecondCurrencyReceiveRateValue() const;
+
 private slots:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr);
     void onSwapParamsLoaded(const beam::ByteBuffer& token);
@@ -126,6 +136,7 @@ private:
 
     beam::wallet::WalletAddress _receiverAddress;
     WalletModel& _walletModel;
+    ExchangeRatesManager _exchangeRatesManager;
     beam::wallet::TxParameters _txParameters;
     bool _isBeamSide;
 };

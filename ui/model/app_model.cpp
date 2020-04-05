@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "app_model.h"
-#include "wallet/swaps/swap_transaction.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
 #include "utility/common.h"
 #include "utility/logger.h"
 #include "utility/fsutils.h"
@@ -21,9 +21,9 @@
 #include <QApplication>
 #include <QTranslator>
 
-#include "wallet/bitcoin/bitcoin.h"
-#include "wallet/litecoin/litecoin.h"
-#include "wallet/qtum/qtum.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
+#include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
+#include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 
 #include "keykeeper/local_private_key_keeper.h"
 
@@ -36,6 +36,18 @@ using namespace beam;
 using namespace beam::wallet;
 using namespace ECC;
 using namespace std;
+
+namespace
+{
+    void generateDefaultAddress(IWalletDB::Ptr db)
+    {
+        // generate default address
+        WalletAddress address;
+        db->createAddress(address);
+        address.m_label = "default";
+        db->saveAddress(address);
+    }
+}
 
 AppModel* AppModel::s_instance = nullptr;
 
@@ -72,7 +84,7 @@ void AppModel::backupDB(const std::string& dbFilePath)
        
         if (fsutils::rename(dbFilePath, newName))
         {
-            m_walletDBBackupPath = newName;
+            m_walletDBBackupPath = std::move(newName);
         }
     }
 }
@@ -95,28 +107,21 @@ void AppModel::restoreDBFromBackup(const std::string& dbFilePath)
     }
 }
 
-void AppModel::generateDefaultAddress()
-{
-    // generate default address
-    WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
-    address.m_label = "default";
-    m_db->saveAddress(address);
-}
-
 bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 {
     const auto dbFilePath = m_settings.getWalletStorage();
     backupDB(dbFilePath);
+    {
+        auto reactor = io::Reactor::create();
+        io::Reactor::Scope s(*reactor); // do it in main thread
+        auto db = WalletDB::init(dbFilePath, pass, seed.hash());
+        if (!db) 
+            return false;
 
-    m_db = WalletDB::init(dbFilePath, pass, seed.hash(), m_walletReactor);
-    if (!m_db) return false;
+        generateDefaultAddress(db);
+    }
 
-    m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db, m_db->get_MasterKdf());
-
-    generateDefaultAddress();
-    onWalledOpened(pass);
-
-    return true;
+    return openWallet(pass);
 }
 
 #if defined(BEAM_HW_WALLET)
@@ -124,16 +129,17 @@ bool AppModel::createTrezorWallet(std::shared_ptr<ECC::HKdfPub> ownerKey, const 
 {
     const auto dbFilePath = m_settings.getTrezorWalletStorage();
     backupDB(dbFilePath);
+    {
+        auto reactor = io::Reactor::create();
+        io::Reactor::Scope s(*reactor); // do it in main thread
+        db = WalletDB::initWithTrezor(dbFilePath, ownerKey, pass);
+        if (!db)
+            return false;
 
-    m_db = WalletDB::initWithTrezor(dbFilePath, ownerKey, pass, m_walletReactor);
-    if (!m_db) return false;
+        generateDefaultAddress(db);
+    }
 
-    m_keyKeeper = std::make_shared<TrezorKeyKeeper>();
-
-    generateDefaultAddress();
-    onWalledOpened(pass);
-
-    return true;
+    return return openWallet(pass);;
 }
 #endif
 
@@ -145,13 +151,12 @@ bool AppModel::openWallet(const beam::SecString& pass)
     {
         if (WalletDB::isInitialized(m_settings.getWalletStorage()))
         {
-            m_db = WalletDB::open(m_settings.getWalletStorage(), pass, m_walletReactor);
-            m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db, m_db->get_MasterKdf());
+            m_db = WalletDB::open(m_settings.getWalletStorage(), pass);
         }
 #if defined(BEAM_HW_WALLET)
         else if (WalletDB::isInitialized(m_settings.getTrezorWalletStorage()))
         {
-            m_db = WalletDB::open(m_settings.getTrezorWalletStorage(), pass, m_walletReactor, true);
+            m_db = WalletDB::open(m_settings.getTrezorWalletStorage(), pass, true);
             m_keyKeeper = std::make_shared<TrezorKeyKeeper>();
         }
 #endif
@@ -204,7 +209,6 @@ void AppModel::onResetWallet()
     assert(m_db);
 
     m_wallet.reset();
-    m_keyKeeper.reset();
     m_bitcoinClient.reset();
     m_litecoinClient.reset();
     m_qtumClient.reset();
@@ -266,7 +270,18 @@ void AppModel::startWallet()
 
     additionalTxCreators->emplace(TxType::AtomicSwap, swapTransactionCreator);
 
-    m_wallet->start(additionalTxCreators);
+    std::map<Notification::Type,bool> activeNotifications {
+        { Notification::Type::SoftwareUpdateAvailable, m_settings.isNewVersionActive() },
+        { Notification::Type::BeamNews, m_settings.isBeamNewsActive() },
+        { Notification::Type::TransactionStatusChanged, m_settings.isTxStatusActive() },
+        { Notification::Type::TransactionCompleted, m_settings.isTxStatusActive() },
+        { Notification::Type::TransactionFailed, m_settings.isTxStatusActive() },
+        { Notification::Type::AddressStatusChanged, m_settings.isTxStatusActive() }
+    };
+
+    bool isSecondCurrencyEnabled = m_settings.getSecondCurrency().toStdString() != noSecondCurrencyStr;
+
+    m_wallet->start(activeNotifications, isSecondCurrencyEnabled, additionalTxCreators);
 }
 
 void AppModel::applySettingsChanges()
@@ -354,7 +369,7 @@ void AppModel::start()
     InitLtcClient();
     InitQtumClient();
 
-    m_wallet = std::make_shared<WalletModel>(m_db, m_keyKeeper, nodeAddrStr, m_walletReactor);
+    m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr, m_walletReactor);
 
     if (m_settings.getRunLocalNode())
     {

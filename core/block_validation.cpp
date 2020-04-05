@@ -21,15 +21,13 @@ namespace beam
 	TxBase::Context::Params::Params()
 	{
 		ZeroObject(*this);
-		m_bVerifyOrder = true;
 		m_nVerifiers = 1;
 	}
 
 	void TxBase::Context::Reset()
 	{
 		m_Sigma = Zero;
-		m_Fee = Zero;
-		m_Coinbase = Zero;
+		m_Stats.Reset();
 		m_Height.Reset();
 		m_iVerifier = 0;
 	}
@@ -53,27 +51,17 @@ namespace beam
 
 	bool TxBase::Context::HandleElementHeight(const HeightRange& hr)
 	{
-		HeightRange r = m_Height;
-		r.Intersect(hr);
-		if (r.IsEmpty())
-			return false;
-
-		if (!m_Params.m_bBlockMode)
-			m_Height = r; // shrink permitted range
-
-		return true;
+		m_Height.Intersect(hr); // shrink permitted range. For blocks have no effect, since the range must already consist of a single height
+		return !m_Height.IsEmpty();
 	}
 
 	bool TxBase::Context::Merge(const Context& x)
 	{
-		assert(m_Params.m_bBlockMode == x.m_Params.m_bBlockMode);
-
 		if (!HandleElementHeight(x.m_Height))
 			return false;
 
 		m_Sigma += x.m_Sigma;
-		m_Fee += x.m_Fee;
-		m_Coinbase += x.m_Coinbase;
+		m_Stats += x.m_Stats;
 		return true;
 	}
 
@@ -84,16 +72,9 @@ namespace beam
 
 		const Rules& rules = Rules::get(); // alias
 
-		if ((m_Height.m_Min < rules.pForks[1].m_Height) && (m_Height.m_Max >= rules.pForks[1].m_Height))
-		{
-			// mixed version are not allowed!
-			if (m_Params.m_bBlockMode)
-				return false;
-
-			m_Height.m_Max = rules.pForks[1].m_Height - 1;
-			assert(!m_Height.IsEmpty());
-
-		}
+		size_t iFork = rules.FindFork(m_Height.m_Min);
+		std::setmin(m_Height.m_Max, rules.get_ForkMaxHeightSafe(iFork)); // mixed versions are not allowed!
+		assert(!m_Height.IsEmpty());
 
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
@@ -114,26 +95,24 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_Params.m_bVerifyOrder)
+				if (pPrev && (*pPrev > *r.m_pUtxoIn))
+					return false;
+
+				// make sure no redundant outputs
+				for (; r.m_pUtxoOut; r.NextUtxoOut())
 				{
-					if (pPrev && (*pPrev > *r.m_pUtxoIn))
-						return false;
+					int n = CmpInOut(*r.m_pUtxoIn, *r.m_pUtxoOut);
+					if (n < 0)
+						break;
 
-					// make sure no redundant outputs
-					for (; r.m_pUtxoOut; r.NextUtxoOut())
-					{
-						int n = CmpInOut(*r.m_pUtxoIn, *r.m_pUtxoOut);
-						if (n < 0)
-							break;
-
-						if (!n)
-							return false; // duplicate!
-					}
+					if (!n)
+						return false; // duplicate!
 				}
 
 				if (!pt.Import(r.m_pUtxoIn->m_Commitment))
 					return false;
 
+				r.m_pUtxoIn->AddStats(m_Stats);
 				m_Sigma += pt;
 			}
 		}
@@ -150,8 +129,12 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_Params.m_bVerifyOrder && pPrev && (*pPrev > *r.m_pUtxoOut))
-					return false;
+				if (pPrev && (*pPrev > *r.m_pUtxoOut))
+				{
+					// in case of unsigned outputs sometimes order of outputs may look incorrect (duplicated commitment, part of signatures removed)
+					if (!m_Params.m_bAllowUnsignedOutputs || (pPrev->m_Commitment != r.m_pUtxoOut->m_Commitment))
+						return false;
+				}
 
 				bool bSigned = r.m_pUtxoOut->m_pConfidential || r.m_pUtxoOut->m_pPublic;
 
@@ -170,19 +153,8 @@ namespace beam
 						return false;
 				}
 
+				r.m_pUtxoOut->AddStats(m_Stats);
 				m_Sigma += pt;
-
-				if (r.m_pUtxoOut->m_Coinbase)
-				{
-					if (!m_Params.m_bBlockMode)
-						return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
-
-					if (bSigned)
-					{
-						assert(r.m_pUtxoOut->m_pPublic); // must have already been checked
-						m_Coinbase += uintBigFrom(r.m_pUtxoOut->m_pPublic->m_Value);
-					}
-				}
 			}
 		}
 
@@ -193,14 +165,25 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_Params.m_bVerifyOrder && pPrev && (*pPrev > *r.m_pKernel))
+				if (pPrev && ((*pPrev) > (*r.m_pKernel)))
+					return false; // wrong order
+
+				if (!r.m_pKernel->IsValid(m_Height.m_Min, m_Sigma))
 					return false;
 
-				if (!r.m_pKernel->IsValid(m_Height.m_Min, m_Fee, m_Sigma))
+				HeightRange hr = r.m_pKernel->m_Height;
+				if (iFork >= 2)
+				{
+					assert(hr.m_Min >= rules.pForks[2].m_Height);
+
+					if (!hr.IsEmpty() && (hr.m_Max - hr.m_Min > rules.MaxKernelValidityDH))
+						hr.m_Max = hr.m_Min + rules.MaxKernelValidityDH;
+				}
+
+				if (!HandleElementHeight(hr))
 					return false;
 
-				if (!HandleElementHeight(r.m_pKernel->m_Height))
-					return false;
+				r.m_pKernel->AddStats(m_Stats);
 			}
 		}
 
@@ -213,9 +196,10 @@ namespace beam
 
 	bool TxBase::Context::IsValidTransaction()
 	{
-		assert(m_Coinbase == Zero); // must have already been checked
+		if (m_Stats.m_Coinbase != Zero)
+			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
-		AmountBig::AddTo(m_Sigma, m_Fee);
+		AmountBig::AddTo(m_Sigma, m_Stats.m_Fee);
 		return m_Sigma == Zero;
 	}
 
@@ -245,7 +229,7 @@ namespace beam
 				Rules::get_Emission(subsLocked, hr);
 			}
 
-			if (m_Coinbase < subsLocked)
+			if (m_Stats.m_Coinbase < subsLocked)
 				return false;
 		}
 

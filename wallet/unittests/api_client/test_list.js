@@ -18,13 +18,20 @@ client.connect(10000, '127.0.0.1', function() {
 		}) + '\n');
 });
 
+var acc = '';
+
 client.on('data', function(data) {
 
-	var res = JSON.parse(data);
+	acc += data;
+	if(data.indexOf('\n') != -1)
+	{
 
-	console.log("got:", res);
+	    var res = JSON.parse(acc);
 
-	client.destroy(); // kill client after server's response
+	    console.log("got:", res);
+
+	    client.destroy(); // kill client after server's response
+        }
 });
 
 client.on('close', function() {

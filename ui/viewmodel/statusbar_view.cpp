@@ -176,6 +176,7 @@ void StatusbarViewModel::onGetWalletError(beam::wallet::ErrorType error)
     setIsOnline(false);
     setWalletStatusErrorMsg(m_model.GetErrorString(error));
     setIsFailedStatus(true);
+    setIsConnectionTrusted(false);
 }
 
 void StatusbarViewModel::onSyncProgressUpdated(int done, int total)

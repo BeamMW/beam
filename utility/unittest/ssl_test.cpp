@@ -14,13 +14,29 @@
 
 #include "utility/io/sslio.h"
 #include "utility/logger.h"
+#include <sstream>
+#include <memory>
 
 using namespace beam;
 using namespace beam::io;
 using namespace std;
 
 namespace {
-    int test_sslio() {
+
+    void setup_test_CA(SSL_CTX* ctx, const std::string& caFile)
+    {
+        if (SSL_CTX_load_verify_locations(ctx, caFile.c_str(), nullptr) != 1) {
+            LOG_ERROR() << "SSL_CTX_load_verify_locations failed" << caFile;
+            IO_EXCEPTION(EC_SSL_ERROR);
+        }
+    }
+
+    int test_sslio(bool requestCertificate, bool rejectUnauthorized, const string& serverCertName, const string& clientCertName = "") {
+        LOG_INFO() << "Testing SSLIO " 
+                   << TRACE(requestCertificate)
+                   << TRACE(rejectUnauthorized)
+                   << TRACE(serverCertName)
+                   << TRACE(clientCertName);
         static const char a[] = "AAAAAAAAAAAAAAAAAAAA";
         static const char b[] = "BBBBBBBBBBBBBBBBBBBB";
 
@@ -29,7 +45,7 @@ namespace {
         size_t receivedSize = 0;
 
         auto on_decrypted = [&receivedSize](void* data, size_t size) -> bool {
-            LOG_DEBUG() << "received " << size << " bytes";
+            //LOG_DEBUG() << "received " << size << " bytes";
             receivedSize += size;
             return true;
         };
@@ -55,10 +71,34 @@ namespace {
             return Ok();
         };
 
+        struct PathHelper
+        {
+            string certFileName;
+            string certKeyFileName;
+            PathHelper(const std::string& name)
+            {
+                std::stringstream ss;
+                ss << PROJECT_SOURCE_DIR "/utility/unittest/" << name;
+                string certPath = ss.str();
+
+                certFileName = certPath + ".crt";
+                certKeyFileName = certPath + ".key";
+            }
+        };
+
+        PathHelper serverCert(serverCertName);
+
         SSLContext::Ptr serverCtx = SSLContext::create_server_ctx(
-            PROJECT_SOURCE_DIR "/utility/unittest/test.crt", PROJECT_SOURCE_DIR "/utility/unittest/test.key"
+            serverCert.certFileName.c_str(), serverCert.certKeyFileName.c_str(), requestCertificate, rejectUnauthorized
         );
-        SSLContext::Ptr clientCtx = SSLContext::create_client_context();
+
+        PathHelper clientCert(clientCertName);
+        SSLContext::Ptr clientCtx = SSLContext::create_client_context((clientCertName.empty() ? nullptr : clientCert.certFileName.c_str())
+                                                                    , (clientCertName.empty() ? nullptr : clientCert.certKeyFileName.c_str()), rejectUnauthorized);
+
+        const char* CAfile = PROJECT_SOURCE_DIR "/utility/unittest/beam_CA.pem";
+        setup_test_CA(serverCtx->get(), CAfile);
+        setup_test_CA(clientCtx->get(), CAfile);
 
         server = std::make_unique<SSLIO>(serverCtx, on_decrypted, on_encrypted_server);
         client = std::make_unique<SSLIO>(clientCtx, on_decrypted, on_encrypted_client);
@@ -79,9 +119,20 @@ namespace {
             LOG_ERROR() << TRACE(expectedSize) << TRACE(receivedSize);
             ++nErrors;
         }
+        LOG_INFO() << TRACE(nErrors);
         return nErrors;
     }
 }
+#define CHECK_TRUE(s) {\
+    auto r = (s);\
+    retCode += r;\
+}\
+
+#define CHECK_FALSE(s) {\
+    auto r = (s);\
+    if (r == 0) \
+        retCode += 1; \
+}\
 
 int main() {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -90,8 +141,24 @@ int main() {
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     int retCode = 0;
+
+    const std::string clientCert = "beam_client";
+    const std::string serverCert = "beam_server";
+    const std::string selfSignedCert = "test";
+
     try {
-        retCode += test_sslio();
+        CHECK_FALSE(test_sslio(false, true, selfSignedCert));
+        CHECK_FALSE(test_sslio(true, true, selfSignedCert));
+        CHECK_FALSE(test_sslio(true, true, selfSignedCert, clientCert));
+        CHECK_TRUE(test_sslio(true, false, selfSignedCert));
+        CHECK_TRUE(test_sslio(false, false, selfSignedCert));
+
+// should work with installed test beam CA
+        CHECK_TRUE(test_sslio(false, false, serverCert));
+        CHECK_TRUE(test_sslio(true, false, serverCert));
+        CHECK_TRUE(test_sslio(false, true, serverCert));
+        CHECK_FALSE(test_sslio(true, true, serverCert));
+        CHECK_TRUE(test_sslio(true, true, serverCert, clientCert));
     } catch (const exception& e) {
         LOG_ERROR() << e.what();
         retCode = 255;

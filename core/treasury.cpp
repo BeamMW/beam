@@ -159,10 +159,10 @@ namespace beam
 	void Treasury::get_ID(Key::IKdf& kdf, PeerID& pid, Scalar::Native& sk)
 	{
 		Key::ID kid(Zero);
-		kid.m_Type = FOURCC_FROM(tRid);
+		kid.m_Type = ECC::Key::Type::WalletID;
 
 		kdf.DeriveKey(sk, kid);
-		proto::Sk2Pk(pid, sk);
+		pid.FromSk(sk);
 	}
 
 	void Treasury::Response::Group::Create(const Request::Group& g, Key::IKdf& kdf, uint64_t& nIndex)
@@ -179,12 +179,12 @@ namespace beam
 			c.m_pOutput.reset(new Output);
 			c.m_pOutput->m_Incubation = c0.m_Incubation;
 
-			Key::IDV kidv(Zero);
-			kidv.m_Idx = nIndex++;
-			kidv.m_Type = Key::Type::Treasury;
-			kidv.m_Value = c0.m_Value;
+			CoinID cid(Zero);
+			cid.m_Idx = nIndex++;
+			cid.m_Type = Key::Type::Treasury;
+			cid.m_Value = c0.m_Value;
 
-			c.m_pOutput->Create(Rules::HeightGenesis - 1, sk, kdf, kidv, kdf);
+			c.m_pOutput->Create(Rules::HeightGenesis - 1, sk, kdf, cid, kdf);
 			offset += sk;
 
 			Hash::Value hv;
@@ -194,8 +194,8 @@ namespace beam
 
 		kdf.DeriveKey(sk, Key::ID(nIndex++, FOURCC_FROM(KeR3)));
 
-		m_pKernel.reset(new TxKernel);
-		m_pKernel->Sign(sk);
+		m_pKernel.reset(new TxKernelStd);
+		Cast::Up<TxKernelStd>(*m_pKernel).Sign(sk);
 		offset += sk;
 
 		offset = -offset;
@@ -216,11 +216,14 @@ namespace beam
 			(m_pKernel->m_Height.m_Max != MaxHeight))
 			return false;
 
+		TxVectors::Full txv;
+		TxVectors::Writer(txv, txv).Dump(Reader(*this));
+		txv.Normalize();
+
 		TxBase::Context::Params pars;
-		pars.m_bVerifyOrder = false;
 		TxBase::Context ctx(pars);
 		ZeroObject(ctx.m_Height);
-		if (!ctx.ValidateAndSummarize(m_Base, Reader(*this)))
+		if (!ctx.ValidateAndSummarize(m_Base, txv.get_Reader()))
 			return false;
 
 		Point::Native comm, comm2;
@@ -351,7 +354,7 @@ namespace beam
 
 		// finally verify the signature
 		Point::Native pk;
-		if (!proto::ImportPeerID(pk, r.m_WalletID))
+		if (!r.m_WalletID.ExportNnz(pk))
 			return false;
 
 		Hash::Value hv;
@@ -404,7 +407,7 @@ namespace beam
 		if (!ctx.ValidateAndSummarize(m_Data, m_Data.get_Reader()))
 			return false;
 
-		if (!(ctx.m_Fee == Zero))
+		if (!(ctx.m_Stats.m_Fee == Zero))
 			return false; // doesn't make sense for treasury
 
 		ctx.m_Sigma = -ctx.m_Sigma;
@@ -454,7 +457,7 @@ namespace beam
 			b.m_Height = MaxHeight;
 
 			for (size_t i = 0; i < g.m_Data.m_vOutputs.size(); i++)
-				b.m_Height = std::min(b.m_Height, g.m_Data.m_vOutputs[i]->m_Incubation);
+				std::setmin(b.m_Height, g.m_Data.m_vOutputs[i]->m_Incubation);
 		}
 
 		return ret;
@@ -479,7 +482,7 @@ namespace beam
 
 				Height h = MaxHeight;
 				for (size_t i = 0; i < g.m_vCoins.size(); i++)
-					h = std::min(h, g.m_vCoins[i].m_pOutput->m_Incubation);
+					std::setmin(h, g.m_vCoins[i].m_pOutput->m_Incubation);
 
 				GroupMap::iterator it = map.find(h);
 				bool bNew = (map.end() == it);
@@ -530,12 +533,12 @@ namespace beam
 			for (size_t iO = 0; iO < g.m_Data.m_vOutputs.size(); iO++)
 			{
 				const Output& outp = *g.m_Data.m_vOutputs[iO];
-				Key::IDV kidv;
-				if (outp.Recover(Rules::HeightGenesis - 1, kdf, kidv))
+				CoinID cid;
+				if (outp.Recover(Rules::HeightGenesis - 1, kdf, cid))
 				{
 					out.emplace_back();
 					out.back().m_Incubation = outp.m_Incubation;
-					out.back().m_Kidv = kidv;
+					out.back().m_Cid = cid;
 				}
 			}
 		}
@@ -550,7 +553,7 @@ namespace beam
 		if (m_Incubation + x.m_Incubation)
 			return 1;
 
-		return m_Kidv.cmp(x.m_Kidv);
+		return m_Cid.cmp(x.m_Cid);
 	}
 
 } // namespace beam

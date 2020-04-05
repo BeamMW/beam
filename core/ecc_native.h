@@ -112,6 +112,22 @@ namespace ECC
 
     std::ostream& operator << (std::ostream&, const Scalar::Native&);
 
+	struct Point::Storage
+	{
+		uintBig m_X;
+		uintBig m_Y;
+
+		void FromNnz(secp256k1_ge&);
+	};
+
+	struct Point::Compact
+		:public secp256k1_ge_storage
+	{
+		struct Converter;
+		void Assign(secp256k1_ge&) const;
+		void Assign(Point::Native&, bool bSet) const;
+	};
+
 	class Point::Native
 		:private secp256k1_gej
 	{
@@ -122,6 +138,9 @@ namespace ECC
 		typedef Op::Binary<Op::Mul, Native, Scalar::Native>	Mul;
 
 		Native(const Point&);
+
+		void ExportNnz(secp256k1_ge&) const;
+
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
 
@@ -138,6 +157,9 @@ namespace ECC
 		bool operator == (Zero_) const;
         bool operator != (Zero_) const;
 
+		bool operator == (const Native&) const;
+		bool operator == (const Point&) const;
+
 		Native& operator = (Zero_);
 		Native& operator = (Minus);
 		Native& operator = (Plus);
@@ -152,99 +174,214 @@ namespace ECC
 		template <class Setter> Native& operator = (const Setter& v) { v.Assign(*this, true); return *this; }
 		template <class Setter> Native& operator += (const Setter& v) { v.Assign(*this, false); return *this; }
 
-		bool ImportNnz(const Point&); // won't accept zero point, doesn't zero itself in case of failure
-		bool Import(const Point&);
+		bool ImportNnz(const Point&, Storage* = nullptr); // won't accept zero point, doesn't zero itself in case of failure
+		bool Import(const Point&, Storage* = nullptr);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
 
 		static void ExportEx(Point&, const secp256k1_ge&);
+
+		bool Import(const Storage&, bool bVerify);
+		void Export(Storage&) const;
+
+		struct BatchNormalizer
+		{
+			struct Element
+			{
+				Point::Native* m_pPoint;
+				secp256k1_fe* m_pFe; // temp
+			};
+
+			virtual void Reset() = 0;
+			virtual bool MoveNext(Element&) = 0;
+			virtual bool MovePrev(Element&) = 0;
+
+			void Normalize();
+			void ToCommonDenominator(secp256k1_fe& zDenom);
+
+			static void get_As(secp256k1_ge&, const Point::Native& ptNormalized);
+			static void get_As(secp256k1_ge_storage&, const Point::Native& ptNormalized);
+
+		private:
+			void NormalizeInternal(secp256k1_fe&, bool bNormalize);
+		};
+
+		struct BatchNormalizer_Arr
+			:public BatchNormalizer
+		{
+			uint32_t m_iIdx;
+			uint32_t m_Size;
+			Point::Native* m_pPts;
+			secp256k1_fe* m_pFes;
+
+			void get_At(Element& el, uint32_t iIdx);
+
+			virtual void Reset() override;
+			virtual bool MoveNext(Element& el) override;
+			virtual bool MovePrev(Element& el) override;
+		};
+
+		template <uint32_t nSize>
+		struct BatchNormalizer_Arr_T;
+	};
+
+	template <uint32_t nSize>
+	struct Point::Native::BatchNormalizer_Arr_T
+		:public BatchNormalizer_Arr
+	{
+		Point::Native m_pPtsBuf[nSize];
+		secp256k1_fe m_pFesBuf[nSize];
+
+		BatchNormalizer_Arr_T()
+		{
+			m_pPts = m_pPtsBuf;
+			m_pFes = m_pFesBuf;
+			m_Size = nSize;
+		}
 	};
 
     std::ostream& operator << (std::ostream&, const Point::Native&);
 
-    secp256k1_pubkey ConvertPointToPubkey(const Point& point);
-    std::vector<uint8_t> SerializePubkey(const secp256k1_pubkey& pubkey);
+	struct Point::Compact::Converter
+	{
+		static const uint32_t N = 0x100;
+		Native::BatchNormalizer_Arr_T<N> m_Batch;
 
-#ifdef NDEBUG
-#	define ECC_COMPACT_GEN // init time is insignificant in release build. ~1sec in debug.
-#endif // NDEBUG
+		Compact* m_ppC[N];
 
-#ifdef ECC_COMPACT_GEN
+		Converter();
+		void Flush();
 
-	// Generator tables are stored in compact structs (x,y in canonical form). Memory footprint: ~1.3MB. Slightly faster (probably due to better cache)
-	// Disadvantage: slower initialization, because needs "normalizing". Insignificant in release build, ~1sec in debug.
+		void set_Deferred(Compact& trg, Native& src);
+	};
 
-	typedef secp256k1_ge_storage CompactPoint;
+	secp256k1_pubkey ConvertPointToPubkey(const Point& point);
+	std::vector<uint8_t> SerializePubkey(const secp256k1_pubkey& pubkey);
 
-#else // ECC_COMPACT_GEN
-
-	// Generator tables are stored in "jacobian" form. Memory footprint ~2.6. Slightly slower (probably due to increased mem)
-	// Initialization is fast
-	//
-	// Currently used in debug to speed-up initialization.
-
-	typedef secp256k1_gej CompactPoint;
-
-#endif // ECC_COMPACT_GEN
+	template <typename T, size_t nCount = 1>
+	struct AlignedBuf
+	{
+		alignas(64) char m_p[sizeof(T) * nCount];
+		T& get() const { return *reinterpret_cast<T*>((char*) m_p); }
+	};
 
 	struct MultiMac
 	{
-		struct FastAux {
-			unsigned int m_nNextItem;
-			unsigned int m_nOdd;
+		struct WnafBase
+		{
+			// window NAF (wNAF) representation
 
-			void Schedule(const Scalar::Native& k, unsigned int iBitsRemaining, unsigned int nMaxOdd, unsigned int* pTbl, unsigned int iThisEntry);
+			struct Entry
+			{
+				uint16_t m_Odd;
+				uint16_t m_iBit;
+
+				static const uint16_t s_Negative = uint16_t(1) << 15;
+			};
+
+			struct Link
+			{
+				unsigned int m_iElement;
+				unsigned int m_iEntry; // 1-based
+
+			} m_Next;
+
+			struct Shared
+			{
+				Link m_pTable[ECC::nBits + 1];
+
+				void Reset();
+
+				unsigned int Add(Entry* pTrg, const Scalar::Native& k, unsigned int nWndBits, WnafBase&, unsigned int iElement);
+
+				unsigned int Fetch(unsigned int iBit, WnafBase&, const Entry*, bool& bNeg);
+			};
+
+		protected:
+
+
+			struct Context;
+		};
+
+		template <unsigned int nWndBits>
+		struct Wnaf_T
+			:public WnafBase
+		{
+			static const unsigned int nMaxEntries = ECC::nBits / (nWndBits + 1) + 1;
+
+			Entry m_pVals[nMaxEntries];
+
+			unsigned int Init(Shared& s, const Scalar::Native& k, unsigned int iElement)
+			{
+				return s.Add(m_pVals, k, nWndBits, *this, iElement);
+			}
+
+			unsigned int Fetch(Shared& s, unsigned int iBit, bool& bNeg)
+			{
+				return s.Fetch(iBit, *this, m_pVals, bNeg);
+			}
 		};
 
 		struct Casual
 		{
-			struct Secure {
+			struct Secure
+			{
 				// In secure mode: all the values are precalculated from the beginning, with the "nums" added (for futher obscuring)
 				static const int nBits = 4;
 				static const int nCount = 1 << nBits;
+
+				Point::Native m_pPt[Secure::nCount];
 			};
 
 			struct Fast
 			{
 				// In fast mode: x1 is assigned from the beginning, then on-demand calculated x2 and then only odd multiples.
-				static const int nMaxOdd = (1 << 5) - 1; // 31
-				static const int nCount = (nMaxOdd >> 1) + 2; // we need a single even: x2
+				static const int nBits = 4;
+				static const int nMaxOdd = (1 << nBits) - 1; // 15
+				static const int nCount = (nMaxOdd >> 1) + 1;
+
+				Point::Native m_pPt[Fast::nCount];
+				secp256k1_fe m_pFe[Fast::nCount];
+				unsigned int m_nNeeded;
+
+				typedef Wnaf_T<nBits> Wnaf;
+				Wnaf m_Wnaf;
 			};
 
-
-			Point::Native m_pPt[(Secure::nCount > Fast::nCount) ? Secure::nCount : Fast::nCount];
-
-			Scalar::Native m_K;
-
-			// used in fast mode
-			unsigned int m_nPrepared;
-			FastAux m_Aux;
+			union
+			{
+				AlignedBuf<Secure> S;
+				AlignedBuf<Fast> F;
+			} U;
 
 			void Init(const Point::Native&);
-			void Init(const Point::Native&, const Scalar::Native&);
 		};
 
 		struct Prepared
 		{
 			struct Fast {
-				static const int nMaxOdd = 0xff; // 255
+				static const int nBits = 8;
+				static const int nMaxOdd = (1 << nBits) - 1; // 255
 				// Currently we precalculate odd power up to 255.
 				// For 511 precalculated odds nearly x2 global data increase (2.5MB instead of 1.3MB). For single bulletproof verification the performance gain is ~8%.
 				// For 127 precalculated odds single bulletproof verfication is slower by about 6%.
 				// The difference deminishes for batch verifications (performance is dominated by non-prepared point multiplication).
 				static const int nCount = (nMaxOdd >> 1) + 1;
-				CompactPoint m_pPt[nCount]; // odd powers
+				Point::Compact m_pPt[nCount]; // odd powers
+
+				typedef Wnaf_T<nBits> Wnaf;
+
 			} m_Fast;
 
 			struct Secure {
 				// A variant of Generator::Obscured. Much less space & init time. Slower for single multiplication, nearly equal in MultiMac.
 				static const int nBits = 4;
-				CompactPoint m_pPt[(1 << nBits)];
-				CompactPoint m_Compensation;
+				Point::Compact m_pPt[(1 << nBits)];
+				Point::Compact m_Compensation;
 				Scalar::Native m_Scalar;
 			} m_Secure;
 
-			void Initialize(Oracle&, Hash::Processor& hpRes);
-			void Initialize(Point::Native&, Oracle&);
+			void Initialize(Oracle&, Hash::Processor& hpRes, Point::Compact::Converter&);
+			void Initialize(Point::Native&, Oracle&, Point::Compact::Converter&);
 
 			void Assign(Point::Native&, bool bSet) const;
 		};
@@ -252,15 +389,30 @@ namespace ECC
 		Casual* m_pCasual;
 		const Prepared** m_ppPrepared;
 		Scalar::Native* m_pKPrep;
-		FastAux* m_pAuxPrepared;
+		Scalar::Native* m_pKCasual;
+		Prepared::Fast::Wnaf* m_pWnafPrepared;
 
 		int m_Casual;
 		int m_Prepared;
+
+		struct Reuse {
+			enum Enum {
+				None,
+				Generate,
+				UseGenerated
+			};
+		};
+
+		Reuse::Enum m_ReuseFlag;
 
 		MultiMac() { Reset(); }
 
 		void Reset();
 		void Calculate(Point::Native&) const;
+
+	private:
+
+		struct Normalizer;
 	};
 
 	template <int nMaxCasual, int nMaxPrepared>
@@ -271,7 +423,8 @@ namespace ECC
 			Casual m_pCasual[nMaxCasual];
 			const Prepared* m_ppPrepared[nMaxPrepared];
 			Scalar::Native m_pKPrep[nMaxPrepared];
-			FastAux m_pAuxPrepared[nMaxPrepared];
+			Scalar::Native m_pKCasual[nMaxCasual];
+			Prepared::Fast::Wnaf m_pWnafPrepared[nMaxPrepared];
 		} m_Bufs;
 
 		MultiMac_WithBufs()
@@ -279,7 +432,8 @@ namespace ECC
 			m_pCasual		= m_Bufs.m_pCasual;
 			m_ppPrepared	= m_Bufs.m_ppPrepared;
 			m_pKPrep		= m_Bufs.m_pKPrep;
-			m_pAuxPrepared	= m_Bufs.m_pAuxPrepared;
+			m_pKCasual		= m_Bufs.m_pKCasual;
+			m_pWnafPrepared	= m_Bufs.m_pWnafPrepared;
 		}
 
 		void Calculate(Point::Native& res)
@@ -313,8 +467,6 @@ namespace ECC
 
 	namespace Generator
 	{
-		void ToPt(Point::Native&, secp256k1_ge& ge, const CompactPoint&, bool bSet);
-
 		static const uint32_t nBitsPerLevel = 4;
 		static const uint32_t nPointsPerLevel = 1 << nBitsPerLevel; // 16
 
@@ -325,11 +477,11 @@ namespace ECC
 			static const uint32_t nLevels = nBits_ / nBitsPerLevel;
 			static_assert(nLevels * nBitsPerLevel == nBits_, "");
 
-			CompactPoint m_pPts[nLevels * nPointsPerLevel];
+			Point::Compact m_pPts[nLevels * nPointsPerLevel];
 		};
 
-		void GeneratePts(const Point::Native&, Oracle&, CompactPoint* pPts, uint32_t nLevels);
-		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords);
+		void GeneratePts(const Point::Native&, Oracle&, Point::Compact* pPts, uint32_t nLevels, Point::Compact::Converter&);
+		void SetMul(Point::Native& res, bool bSet, const Point::Compact* pPts, const Scalar::Native::uint* p, int nWords);
 
 		template <uint32_t nBits_>
 		class Simple
@@ -366,9 +518,9 @@ namespace ECC
 			};
 
 		public:
-			void Initialize(const Point::Native& p, Oracle& oracle)
+			void Initialize(const Point::Native& p, Oracle& oracle, Point::Compact::Converter& cpc)
 			{
-				GeneratePts(p, oracle, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
+				GeneratePts(p, oracle, Base<nBits_>::m_pPts, Base<nBits_>::nLevels, cpc);
 			}
 
 			template <typename TScalar>
@@ -378,7 +530,7 @@ namespace ECC
 		class Obscured
 			:public Base<nBits>
 		{
-			CompactPoint m_AddPt;
+			Point::Compact m_AddPt;
 			Scalar::Native m_AddScalar;
 
 			template <typename TScalar>
@@ -394,29 +546,13 @@ namespace ECC
 			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
 
 		public:
-			void Initialize(const Point::Native&, Oracle&);
+			void Initialize(const Point::Native&, Oracle&, Point::Compact::Converter&);
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
 		};
 
 	} // namespace Generator
-
-	struct Signature::MultiSig
-	{
-		Scalar::Native	m_Nonce;	// specific signer
-		Point::Native	m_NoncePub;	// sum of all co-signers
-
-		//	NOTE: Schnorr's multisig should be used carefully. If done naively it has the following potential weaknesses:
-		//	1. Key cancellation. (The attacker may exclude you and actually create a signature for its private key).
-		//		This isn't a problem for our case, but should be taken into consideration if used in other schemes.
-		// 2. Private Key leak. If the same message signed with the same key but co-signers use different nonces (altering the challenge) - there's a potential for key leak. 
-		//		This is indeed the case if the nonce is generated from the secret key and the message only.
-		//		In order to prevent this the signer **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
-
-		void SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const;
-	};
-
 
 	class Hash::Processor
 		:private secp256k1_sha256_t
@@ -461,6 +597,9 @@ namespace ECC
 
 		template <typename T>
 		Processor& operator << (const T& t) { Write(t); return *this; }
+
+		template <typename T>
+		Processor& Serialize(const T&);
 
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
@@ -545,8 +684,10 @@ namespace ECC
 		virtual ~HKdf();
 		// IPKdf
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		virtual uint32_t ExportP(void*) const override;
 		// IKdf
 		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
+		virtual uint32_t ExportS(void*) const override;
 
 #pragma pack (push, 1)
 		struct Packed
@@ -565,6 +706,8 @@ namespace ECC
 
 		void GenerateChild(Key::IKdf&, Key::Index iKdf);
 		static void CreateChild(Ptr&, Key::IKdf&, Key::Index iKdf);
+
+		void GenerateChildParallel(Key::IKdf&, const Hash::Value&); // generate a subkey compatible with the appropriate HKdfPub
 	};
 
 	class HKdfPub
@@ -584,6 +727,7 @@ namespace ECC
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
 		virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
 		virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
+		virtual uint32_t ExportP(void*) const override;
 
 #pragma pack (push, 1)
 		struct Packed
@@ -599,6 +743,23 @@ namespace ECC
 		bool Import(const Packed&);
 
 		void GenerateFrom(const HKdf&);
+
+		void GenerateChildParallel(Key::IPKdf&, const Hash::Value&); // generate a subkey compatible with the appropriate HKdfPub
+	};
+
+	struct SignatureBase::Config
+	{
+		uint32_t m_nG; // num of generators
+		uint32_t m_nKeys; // num of keys
+
+		struct Generator
+		{
+			const MultiMac::Prepared* m_pGenPrep;
+			const ECC::Generator::Obscured* m_pGen;
+			uint32_t m_nBatchIdx;
+		};
+
+		const Generator* m_pG;
 	};
 
 	struct Context
@@ -614,20 +775,37 @@ namespace ECC
 		{
 			// generators used for inner product proof
 			MultiMac::Prepared m_pGen_[2][InnerProduct::nDim];
-			CompactPoint m_pGet1_Minus[InnerProduct::nDim];
+			Point::Compact m_pGet1_Minus[InnerProduct::nDim];
 			MultiMac::Prepared m_GenDot_; // seems that it's not necessary, can use G instead
 			MultiMac::Prepared m_Aux2_;
 			MultiMac::Prepared G_;
 			MultiMac::Prepared H_;
+			MultiMac::Prepared J_;
+
+			// useful constants
+			Scalar::Native m_2Inv;
 
 		} m_Ipp;
 
 		struct Casual
 		{
-			CompactPoint m_Nums;
-			CompactPoint m_Compensation;
+			Point::Compact m_Nums;
+			Point::Compact m_Compensation;
 
 		} m_Casual;
+
+		struct Sig
+		{
+			SignatureBase::Config::Generator m_GenG;
+			SignatureBase::Config::Generator m_pGenGJ[2];
+			SignatureBase::Config::Generator m_pGenGH[2];
+
+			SignatureBase::Config m_CfgG1; // regular
+			SignatureBase::Config m_CfgGJ1; // Generalized G+J
+			SignatureBase::Config m_CfgG2; // G, 2 keys
+			SignatureBase::Config m_CfgGH2; // Generalized G+H, 2 keys
+
+		} m_Sig;
 
 		Hash::Value m_hvChecksum; // all the generators and signature version. In case we change seed strings or formula
 
@@ -655,17 +833,18 @@ namespace ECC
 
 		static const uint32_t s_CasualCountPerProof = nCycles * 2 + 5; // L[], R[], A, S, T1, T2, Commitment
 
-		static const uint32_t s_CountPrepared = InnerProduct::nDim * 2 + 4; // [2][InnerProduct::nDim], m_GenDot_, m_Aux2_, G_, H_
+		static const uint32_t s_CountPrepared = InnerProduct::nDim * 2 + 5; // [2][InnerProduct::nDim], m_GenDot_, m_Aux2_, G_, H_, J_
 
 		static const uint32_t s_Idx_GenDot	= InnerProduct::nDim * 2;
 		static const uint32_t s_Idx_Aux2	= InnerProduct::nDim * 2 + 1;
 		static const uint32_t s_Idx_G		= InnerProduct::nDim * 2 + 2;
 		static const uint32_t s_Idx_H		= InnerProduct::nDim * 2 + 3;
+		static const uint32_t s_Idx_J		= InnerProduct::nDim * 2 + 4;
 
 		struct Bufs {
 			const Prepared* m_ppPrepared[s_CountPrepared];
 			Scalar::Native m_pKPrep[s_CountPrepared];
-			FastAux m_pAuxPrepared[s_CountPrepared];
+			Prepared::Fast::Wnaf m_pWnafPrepared[s_CountPrepared];
 		} m_Bufs;
 
 
@@ -676,9 +855,10 @@ namespace ECC
 		Scalar::Native m_Multiplier; // must be initialized in a non-trivial way
 		Point::Native m_Sum; // intermediate result, sum of Casuals
 
-		bool AddCasual(const Point& p, const Scalar::Native& k);
-		void AddCasual(const Point::Native& pt, const Scalar::Native& k);
+		bool AddCasual(const Point& p, const Scalar::Native& k, bool bPremultiplied = false);
+		void AddCasual(const Point::Native& pt, const Scalar::Native& k, bool bPremultiplied = false);
 		void AddPrepared(uint32_t i, const Scalar::Native& k);
+		void AddPreparedM(uint32_t i, const Scalar::Native& k);
 
 		void EquationBegin();
 
@@ -693,13 +873,22 @@ namespace ECC
 	struct InnerProduct::BatchContextEx
 		:public BatchContext
 	{
-		uint64_t m_pBuf[(sizeof(MultiMac::Casual) * s_CasualCountPerProof * nBatchSize + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
+		static const uint32_t s_Count = s_CasualCountPerProof * nBatchSize;
+		AlignedBuf<MultiMac::Casual, s_Count> m_Buf1;
+		AlignedBuf<Scalar::Native, s_Count> m_Buf2;
 
 		BatchContextEx()
-			:BatchContext(nBatchSize * s_CasualCountPerProof)
+			:BatchContext(s_Count)
 		{
-			m_pCasual = (MultiMac::Casual*) m_pBuf;
+			m_pCasual = &m_Buf1.get();
+			m_pKCasual = &m_Buf2.get();
 		}
+	};
+
+	struct InnerProduct::Modifier::Channel
+	{
+		Scalar::Native m_pV[nDim];
+		void SetPwr(const Scalar::Native& x); // m_pV[i] = x ^ i
 	};
 
 	class Commitment
@@ -726,7 +915,25 @@ namespace ECC
 		template <typename T>
 		Oracle& operator << (const T& t) { m_hp << t; return *this; }
 
+		template <typename T>
+		Oracle& Serialize(const T& t) { m_hp.Serialize(t); return *this; }
+
 		void operator >> (Scalar::Native&);
 		void operator >> (Hash::Value&);
+	};
+
+	struct RangeProof::Confidential::Nonces
+	{
+		Scalar::Native m_tau1;
+		Scalar::Native m_tau2;
+
+		Nonces() {}
+		Nonces(const uintBig& seedSk) { Init(seedSk); }
+
+		void Init(const uintBig& seedSk);
+
+		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
+		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
+		void AddInfo2(Scalar::Native& taux, const ChallengeSet&) const;
 	};
 }

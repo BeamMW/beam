@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 4)
-set(VERSION_MINOR 1)
+set(VERSION_MINOR 2)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -128,7 +128,7 @@ if (BEAM_NO_QT_UI_WALLET)
     set(BEAM_QT_UI_WALLET FALSE)    
 endif()
 
-set(BEAM_USE_STATIC FALSE)
+option(BEAM_USE_STATIC "Build with staticaly linked libraries " FALSE)
 if(BEAM_LINK_TYPE MATCHES "Static")
     set(BEAM_USE_STATIC TRUE)
 endif()
@@ -148,12 +148,12 @@ if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
 
-# uncoment next line for testnet
+# uncomment next line for testnet
 set(BEAM_TESTNET TRUE)
-# uncoment next line for mainnet
+# uncomment next line for mainnet
 #set(BEAM_MAINNET TRUE)
 
-# uncoment next line for swap mainnet
+# uncomment next line for swap mainnet
 #set(SWAP_MAINNET TRUE)
 
 if(BEAM_TESTNET)

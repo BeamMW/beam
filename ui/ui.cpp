@@ -25,14 +25,12 @@
 #include "viewmodel/start_view.h"
 #include "viewmodel/loading_view.h"
 #include "viewmodel/main_view.h"
-#include "viewmodel/utxo_view.h"
-#include "viewmodel/utxo_view_status.h"
-#include "viewmodel/utxo_view_type.h"
+#include "viewmodel/utxo/utxo_view.h"
+#include "viewmodel/utxo/utxo_view_status.h"
+#include "viewmodel/utxo/utxo_view_type.h"
 #include "viewmodel/atomic_swap/swap_offers_view.h"
-#include "viewmodel/dashboard_view.h"
 #include "viewmodel/address_book_view.h"
 #include "viewmodel/wallet/wallet_view.h"
-#include "viewmodel/notifications_view.h"
 #include "viewmodel/help_view.h"
 #include "viewmodel/settings_view.h"
 #include "viewmodel/messages_view.h"
@@ -49,7 +47,10 @@
 #include "viewmodel/helpers/list_model.h"
 #include "viewmodel/helpers/sortfilterproxymodel.h"
 #include "viewmodel/helpers/token_bootstrap_manager.h"
-#include "wallet/wallet_db.h"
+#include "viewmodel/notifications/notifications_view.h"
+#include "viewmodel/notifications/push_notification_manager.h"
+#include "viewmodel/notifications/exchange_rates_manager.h"
+#include "wallet/core/wallet_db.h"
 #include "utility/log_rotation.h"
 #include "core/ecc_native.h"
 #include "utility/cli/options.h"
@@ -158,7 +159,8 @@ int main (int argc, char* argv[])
 
         if (vm.count(cli::APPDATA_PATH))
         {
-            appDataDir = QString::fromStdString(vm[cli::APPDATA_PATH].as<string>());
+            const auto newPath = QString::fromStdString(vm[cli::APPDATA_PATH].as<string>());
+            appDataDir.setPath(newPath);
         }
 
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
@@ -219,7 +221,6 @@ int main (int argc, char* argv[])
             qmlRegisterType<StartViewModel>("Beam.Wallet", 1, 0, "StartViewModel");
             qmlRegisterType<LoadingViewModel>("Beam.Wallet", 1, 0, "LoadingViewModel");
             qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
-            qmlRegisterType<DashboardViewModel>("Beam.Wallet", 1, 0, "DashboardViewModel");
             qmlRegisterType<WalletViewModel>("Beam.Wallet", 1, 0, "WalletViewModel");
             qmlRegisterUncreatableType<UtxoViewStatus>("Beam.Wallet", 1, 0, "UtxoStatus", "Not creatable as it is an enum type.");
             qmlRegisterUncreatableType<UtxoViewType>("Beam.Wallet", 1, 0, "UtxoType", "Not creatable as it is an enum type.");
@@ -244,7 +245,12 @@ int main (int argc, char* argv[])
             qmlRegisterType<WalletDBPathItem>("Beam.Wallet", 1, 0, "WalletDBPathItem");
             qmlRegisterType<SwapOfferItem>("Beam.Wallet", 1, 0, "SwapOfferItem");
             qmlRegisterType<SwapOffersList>("Beam.Wallet", 1, 0, "SwapOffersList");
+            qmlRegisterType<SwapTxObjectList>("Beam.Wallet", 1, 0, "SwapTxObjectList");
+            qmlRegisterType<TxObjectList>("Beam.Wallet", 1, 0, "TxObjectList");
+            
             qmlRegisterType<TokenBootstrapManager>("Beam.Wallet", 1, 0, "TokenBootstrapManager");
+            qmlRegisterType<PushNotificationManager>("Beam.Wallet", 1, 0, "PushNotificationManager");
+            qmlRegisterType<ExchangeRatesManager>("Beam.Wallet", 1, 0, "ExchangeRatesManager");
             
             qmlRegisterType<SortFilterProxyModel>("Beam.Wallet", 1, 0, "SortFilterProxyModel");
 

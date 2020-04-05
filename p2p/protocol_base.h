@@ -82,9 +82,9 @@ struct VoidMessage {
 };
 
 /// Errors occured during deserialization
-enum ProtocolError {
+enum class ProtocolError : int32_t {
     no_error = 0,               // ok
-    protocol_version_error = -1,// wrong protocol version (first 3 bytes)
+    version_error = -1,         // wrong protocol version (first 3 bytes)
     msg_type_error = -2,        // msg type is not handled by this protocol
     msg_size_error = -3,        // msg size out of allowed range
     message_corrupted = -4,     // deserialization error
@@ -104,7 +104,7 @@ struct IErrorHandler {
     /// Per-connection msg type filter fails
     virtual void on_unexpected_msg(uint64_t fromStream, MsgType /*type*/ ) {
         // default impl
-        on_protocol_error(fromStream, unexpected_msg_type);
+        on_protocol_error(fromStream, ProtocolError::unexpected_msg_type);
     }
 };
 
@@ -143,21 +143,21 @@ public:
 
     /// Called by MsgReader on receiving message header
     bool approve_msg_header(uint64_t fromStream, const MsgHeader& header) {
-        ProtocolError error = no_error;
+        ProtocolError error = ProtocolError::no_error;
 
         if (header.V0 != V0 || header.V1 != V1 || header.V2 != V2) {
-            error = protocol_version_error;
+            error = ProtocolError::version_error;
         } else if (header.type >= _maxMessageTypes) {
-            error = msg_type_error;
+            error = ProtocolError::msg_type_error;
         } else {
             const DispatchTableItem& i = _dispatchTable[header.type];
             if (!i.callback)
-                error = msg_type_error;
+                error = ProtocolError::msg_type_error;
             else if (i.minSize > header.size || i.maxSize < header.size)
-                error = msg_size_error;
+                error = ProtocolError::msg_size_error;
         }
 
-        if (error == no_error) {
+        if (error == ProtocolError::no_error) {
             return true;
         }
 
@@ -177,7 +177,7 @@ public:
     }
 
 	void on_corrupt_msg(uint64_t fromStream) {
-		_errorHandler.on_protocol_error(fromStream, message_corrupted);
+		_errorHandler.on_protocol_error(fromStream, ProtocolError::message_corrupted);
 	}
 
     typedef bool(*OnRawMessage)(

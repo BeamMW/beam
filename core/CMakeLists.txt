@@ -16,10 +16,12 @@ set(CORE_SRC
     merkle.cpp
     negotiator.cpp
     lightning.cpp
+    lelantus.cpp
     proto.cpp
     peer_manager.cpp
     fly_client.cpp
     treasury.cpp
+    shielded.cpp
 # ~etc
 )
 

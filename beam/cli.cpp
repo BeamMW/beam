@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/wallet_network.h"
+#include "wallet/core/wallet_network.h"
 #include "core/common.h"
 
 #include "node/node.h"
@@ -237,7 +237,7 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_MiningThreads = 0; // by default disabled
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 
-					node.m_Cfg.m_LogUtxos = vm[cli::LOG_UTXOS].as<bool>();
+					node.m_Cfg.m_LogEvents = vm[cli::LOG_UTXOS].as<bool>();
 
 					std::string sKeyOwner;
 					get_parametr_with_deprecated_synonym(vm, cli::OWNER_KEY, cli::KEY_OWNER, &sKeyOwner);
@@ -341,6 +341,9 @@ int main_impl(int argc, char* argv[])
 					}
 
 					node.Initialize(stratumServer.get());
+
+					if (vm[cli::PRINT_TXO].as<bool>())
+						node.PrintTxos();
 
 					if (vm.count(cli::GENERATE_RECOVERY_PATH))
 					{

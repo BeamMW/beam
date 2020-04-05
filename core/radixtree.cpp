@@ -760,7 +760,7 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 	{
 		uint8_t val = uint8_t(d.m_Maturity >> ((sizeof(d.m_Maturity) - i - 1) << 3));
 		pKey[i] |= val >> 1;
-		pKey[i + 1] |= (val << 7);
+		pKey[i + 1] = (val << 7);
 	}
 
 	return *this;

@@ -28,9 +28,10 @@ namespace proto {
 		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
 		macro(Kernel2,		GetProofKernel2,	ProofKernel2) \
-		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
+		macro(Events,		GetEvents,			Events) \
 		macro(Transaction,	NewTransaction,		Status) \
-		macro(BbsMsg,		BbsMsg,				Pong)
+		macro(BbsMsg,		BbsMsg,				Pong) \
+		macro(Asset,		GetProofAsset,		ProofAsset)
 
 		class Request
 		{
@@ -90,6 +91,7 @@ namespace proto {
 
 		struct INetwork
 		{
+			using Ptr = std::shared_ptr<INetwork>;
 			virtual ~INetwork() {}
 
 			virtual void Connect() = 0;
@@ -103,6 +105,7 @@ namespace proto {
 		struct NetworkStd
 			:public INetwork
 		{
+			using Ptr = std::shared_ptr<NetworkStd>;
 			FlyClient& m_Client;
 
 			NetworkStd(FlyClient& fc) :m_Client(fc) {}
@@ -131,6 +134,8 @@ namespace proto {
 				uint32_t m_PollPeriod_ms = 0; // set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks
 				uint32_t m_ReconnectTimeout_ms = 5000;
                 uint32_t m_CloseConnectionDelay_ms = 1000;
+				bool m_UseProxy = false;
+				io::Address m_ProxyAddr;
 			} m_Cfg;
 
 			class Connection
@@ -148,8 +153,6 @@ namespace proto {
 				};
 
 				SyncCtx::Ptr m_pSync;
-
-				size_t m_iIndex; // for callbacks only
 
 				struct StateArray;
 
@@ -173,7 +176,7 @@ namespace proto {
 			public:
 				NetworkStd& m_This;
 
-				Connection(NetworkStd& x, size_t iIndex);
+				Connection(NetworkStd& x);
 				virtual ~Connection();
 
 				void ResetAll();
@@ -189,7 +192,7 @@ namespace proto {
 				void AssignRequest(RequestNode&);
 
 				bool IsAtTip() const;
-				uint8_t m_LoginFlags;
+				uint32_t m_LoginFlags;
 				uint8_t m_Flags;
 
 				struct Flags {
@@ -233,8 +236,8 @@ namespace proto {
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
 
 			// more events
-			virtual void OnNodeConnected(size_t iNodeIdx, bool) {}
-			virtual void OnConnectionFailed(size_t iNodeIdx, const NodeConnection::DisconnectReason&) {}
+			virtual void OnNodeConnected(bool) {}
+			virtual void OnConnectionFailed(const NodeConnection::DisconnectReason&) {}
 		};
 	};
 

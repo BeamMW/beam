@@ -162,6 +162,8 @@ namespace Negotiator {
 			virtual bool Read(uint32_t code, Blob& blob) override;
 		};
 
+		void DeriveKey(ECC::Scalar::Native&, const CoinID&) const;
+
 	public:
 
 		Key::IKdf::Ptr m_pKdf;
@@ -229,7 +231,7 @@ namespace Negotiator {
 		struct Codes
 			:public Negotiator::Codes
 		{
-			static const uint32_t Kidv = Input0 + 5;
+			static const uint32_t Cid = Input0 + 5;
 			static const uint32_t ShareResult = Input0 + 6;
 			static const uint32_t Commitment = Output0 + 1;
 			static const uint32_t OutputTxo = Output0 + 0;
@@ -251,11 +253,11 @@ namespace Negotiator {
 	class MultiTx
 		:public IBase
 	{
-		void CalcInput(const Key::IDV& kidv, ECC::Scalar::Native& offs, ECC::Point& comm);
-		void CalcMSig(const Key::IDV& kidv, ECC::Scalar::Native& offs);
+		void CalcInput(const CoinID&, ECC::Scalar::Native& offs, ECC::Point& comm);
+		void CalcMSig(const CoinID&, ECC::Scalar::Native& offs);
 		ECC::Point& PushInput(Transaction& tx);
 		bool BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& offs);
-		bool ReadKrn(TxKernel& krn, ECC::Hash::Value& hv);
+		bool ReadKrn(TxKernelStd& krn);
 
 		virtual uint32_t Update2() override;
 
@@ -275,12 +277,12 @@ namespace Negotiator {
 		{
 			static const uint32_t ShareResult = Input0 + 35;
 
-			static const uint32_t InpKidvs = Input0 + 21;
-			static const uint32_t InpMsKidv = Input0 + 22;
+			static const uint32_t InpCids = Input0 + 21;
+			static const uint32_t InpMsCid = Input0 + 22;
 			static const uint32_t InpMsCommitment = Input0 + 23;
 
-			static const uint32_t OutpKidvs = Input0 + 11;
-			static const uint32_t OutpMsKidv = Input0 + 12;
+			static const uint32_t OutpCids = Input0 + 11;
+			static const uint32_t OutpMsCid = Input0 + 12;
 			static const uint32_t OutpMsTxo = Input0 + 13;
 
 			static const uint32_t KrnH0 = Input0 + 5;
@@ -326,8 +328,9 @@ namespace Negotiator {
 		{
 			MultiTx::KernelParam m_Krn1;
 
-			struct Krn2 {
-				Amount* m_pFee;
+			struct Krn2
+				:public MultiTx::KernelParam
+			{
 				Height* m_pLock;
 			} m_Krn2;
 
@@ -339,10 +342,10 @@ namespace Negotiator {
 		MultiTx m_Tx2; // msig1 -> outputs, timelocked
 
 		void Setup(bool bSet,
-			Key::IDV* pMsig1,
-			Key::IDV* pMsig0,
+			CoinID* pMsig1,
+			CoinID* pMsig0,
 			ECC::Point* pComm0,
-			std::vector<Key::IDV>* pOuts,
+			std::vector<CoinID>* pOuts,
 			const CommonParam&);
 
 		struct Result
@@ -399,6 +402,9 @@ namespace Negotiator {
 			// Peer's 2nd withdrawal tx
 			ECC::Point m_CommPeer1;
 			Transaction m_txPeer2;
+
+			const HeightRange* get_HR() const;
+			Height get_H0() const; // min height
 		};
 
 	protected:
@@ -429,13 +435,13 @@ namespace Negotiator {
 		MultiTx m_Tx0; // inputs -> msig0
 
 		void Setup(bool bSet,
-			std::vector<Key::IDV>* pInps,
-			std::vector<Key::IDV>* pOutsChange,
-			Key::IDV* pMsig0,
+			std::vector<CoinID>* pInps,
+			std::vector<CoinID>* pOutsChange,
+			CoinID* pMsig0,
 			const MultiTx::KernelParam&,
-			Key::IDV* pMsig1A,
-			Key::IDV* pMsig1B,
-			std::vector<Key::IDV>* pOutsWd,
+			CoinID* pMsig1A,
+			CoinID* pMsig1B,
+			std::vector<CoinID>* pOutsWd,
 			const WithdrawTx::CommonParam&);
 
 		struct Result
@@ -502,8 +508,8 @@ namespace Negotiator {
 		{
 			static const uint32_t PeerBlindingFactor = PeerVariable0 + 0;
 
-			static const uint32_t KidvPrev = Input0 + 5;
-			static const uint32_t KidvPrevPeer = Input0 + 6;
+			static const uint32_t CidPrev = Input0 + 5;
+			static const uint32_t CidPrevPeer = Input0 + 6;
 			static const uint32_t CommitmentPrevPeer = Input0 + 7;
 
 			static const uint32_t PeerKey = Output0 + 0;
@@ -513,14 +519,14 @@ namespace Negotiator {
 	public:
 
 		void Setup(bool bSet,
-			Key::IDV* pMsig0,
+			CoinID* pMsig0,
 			ECC::Point* pComm0,
-			Key::IDV* pMsig1A,
-			Key::IDV* pMsig1B,
-			std::vector<Key::IDV>* pOutsWd,
+			CoinID* pMsig1A,
+			CoinID* pMsig1B,
+			std::vector<CoinID>* pOutsWd,
 			const WithdrawTx::CommonParam&,
-			Key::IDV* pMsigPrevMy, // should be revealed to the peer
-			Key::IDV* pMsigPrevPeer, // my part, that must be complemented by peer
+			CoinID* pMsigPrevMy, // should be revealed to the peer
+			CoinID* pMsigPrevPeer, // my part, that must be complemented by peer
 			ECC::Point* pCommPrevPeer); // the commitment, that should be obtained from my part and the blinding factor revealed by the peer
 
 

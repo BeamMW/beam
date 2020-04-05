@@ -57,6 +57,9 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(txHistoryExportedToCsv(const QString&)),
             this, SLOT(onTxHistoryExportedToCsv(const QString&)));
 
+    connect(&_exchangeRatesManager, SIGNAL(rateUnitChanged()), SIGNAL(secondCurrencyLabelChanged()));
+    connect(&_exchangeRatesManager, SIGNAL(activeRateChanged()), SIGNAL(secondCurrencyRateChanged()));
+
     _model.getAsync()->getTransactions();
 }
 
@@ -97,12 +100,13 @@ void WalletViewModel::onTransactionsChanged(beam::wallet::ChangeAction action, c
 {
     vector<shared_ptr<TxObject>> modifiedTransactions;
     modifiedTransactions.reserve(transactions.size());
+    ExchangeRate::Currency secondCurrency = _exchangeRatesManager.getRateUnitRaw();
 
     for (const auto& t : transactions)
     {
         if (t.GetParameter<TxType>(TxParameterID::TransactionType) != TxType::AtomicSwap)
         {
-            modifiedTransactions.push_back(make_shared<TxObject>(t));
+            modifiedTransactions.push_back(make_shared<TxObject>(t, secondCurrency));
         }
     }
 
@@ -189,6 +193,17 @@ QString WalletViewModel::beamLocked() const
 QString WalletViewModel::beamLockedMaturing() const
 {
     return beamui::AmountToUIString(_model.getMaturing());
+}
+
+QString WalletViewModel::getSecondCurrencyLabel() const
+{
+    return beamui::getCurrencyLabel(_exchangeRatesManager.getRateUnitRaw());
+}
+
+QString WalletViewModel::getSecondCurrencyRateValue() const
+{
+    auto rate = _exchangeRatesManager.getRate(ExchangeRate::Currency::Beam);
+    return beamui::AmountToUIString(rate);
 }
 
 bool WalletViewModel::isAllowedBeamMWLinks() const

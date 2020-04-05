@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/common.h"
-#include "wallet/wallet_network.h"
-#include "wallet/wallet.h"
-#include "wallet/wallet_transaction.h"
+#include "wallet/core/common.h"
+#include "wallet/core/wallet_network.h"
+#include "wallet/core/wallet.h"
+#include "wallet/core/simple_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
-#include "wallet/secstring.h"
-#include "wallet/swaps/common.h"
-#include "wallet/swaps/swap_transaction.h"
-#include "wallet/swaps/utils.h"
-#include "wallet/swaps/second_side.h"
-#include "wallet/bitcoin/bitcoin.h"
+#include "wallet/core/secstring.h"
+#include "wallet/transactions/swaps/common.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
+#include "wallet/transactions/swaps/utils.h"
+#include "wallet/transactions/swaps/second_side.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 
 #include "http/http_client.h"
 #include "utility/test_helpers.h"
@@ -37,6 +37,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/intrusive/list.hpp>
 #include <string_view>
+#include <utility>
 
 using namespace beam;
 using namespace std;
@@ -153,7 +154,7 @@ void InitElectrum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor,
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
 }
 
-void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
+void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool useSecureIDs = false)
 {
     cout << "\nTesting atomic swap transaction...\n";
 
@@ -230,16 +231,25 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
             auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
                 currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, isBeamSide);
 
+            if (useSecureIDs)
+            {
+                parameters.SetParameter(TxParameterID::MySecureWalletID, isBeamOwnerStart ? receiver.m_SecureWalletID : sender.m_SecureWalletID);
+            }
+
+            TestWalletRig* initiator = &sender;
+            TestWalletRig* acceptor = &receiver;
             if (isBeamOwnerStart)
             {
-                receiver.m_Wallet.StartTransaction(parameters);
-                txID = sender.m_Wallet.StartTransaction(AcceptSwapParameters(parameters, sender.m_WalletID, beamFee, feeRate));
+                std::swap(initiator, acceptor);
             }
-            else
+            
+            initiator->m_Wallet.StartTransaction(parameters);
+            auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, feeRate);
+            if (useSecureIDs)
             {
-                sender.m_Wallet.StartTransaction(parameters);
-                txID = receiver.m_Wallet.StartTransaction(AcceptSwapParameters(parameters, receiver.m_WalletID, beamFee, feeRate));
+                acceptParams.SetParameter(TxParameterID::MySecureWalletID, acceptor->m_SecureWalletID);
             }
+            txID = acceptor->m_Wallet.StartTransaction(acceptParams);
         }
     });
 
@@ -1285,8 +1295,8 @@ void ExpireByResponseTime(bool isBeamSide)
     InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
 
     auto db = createReceiverWalletDB();
-    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db, db->get_MasterKdf());
-    WalletAddress receiverWalletAddress = storage::createAddress(*db, keyKeeper);
+    WalletAddress receiverWalletAddress;
+    db->createAddress(receiverWalletAddress);
     WalletID receiverWalletID = receiverWalletAddress.m_walletID;
 
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
@@ -1626,7 +1636,8 @@ void TestIgnoringThirdPeer()
             if (txState == wallet::AtomicSwapTransaction::State::BuildingBeamLockTX)
             {
                 // create new address
-                WalletAddress newAddress = storage::createAddress(*sender->m_WalletDB, sender->m_KeyKeeper);
+                WalletAddress newAddress;
+                sender->m_WalletDB->createAddress(newAddress);
                 sender->m_WalletDB->saveAddress(newAddress);
 
                 // send msg from new address
@@ -1679,6 +1690,8 @@ int main()
 
     TestSwapTransaction(true, fork1Height);
     TestSwapTransaction(false, fork1Height);
+    TestSwapTransaction(true, fork1Height, true);
+    TestSwapTransaction(false, fork1Height, true);
     TestSwapTransactionWithoutChange(true);
 
     TestSwapBTCQuickRefundTransaction();

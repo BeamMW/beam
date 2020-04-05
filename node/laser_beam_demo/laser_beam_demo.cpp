@@ -72,14 +72,12 @@ struct Client
 	WalletID m_Wid;
 	ECC::Scalar::Native m_skBbs;
 
-	typedef std::map<Key::IDV, Height> CoinMap;
+	typedef std::map<CoinID, Height> CoinMap;
 	CoinMap m_Coins;
 
 	uint64_t m_nNextCoinID = 100500;
 
 	typedef std::map<uint32_t, ByteBuffer> FieldMap;
-
-	size_t m_OverrideWithdrawal = static_cast<size_t>(-1);
 
 	struct Channel
 		:public Lightning::Channel
@@ -99,6 +97,8 @@ struct Client
 		typedef boost::intrusive::multiset<Key> Map;
 
 		State::Enum m_LastState = State::None;
+
+		DataUpdate* m_pOverrideWithdrawal = nullptr;
 
 		void LogNewState()
 		{
@@ -123,10 +123,10 @@ struct Client
 				os << "Opening2 (Waiting channel open confirmation)";
 				break;
 			case State::OpenFailed:
-				os << "OpenFailed (Not confirmed, missed height window). Waiting for " << m_SafeForgetHeight << " confirmations before forgetting";
+				os << "OpenFailed (Not confirmed, missed height window). Waiting for " << Rules::get().MaxRollback << " confirmations before forgetting";
 				break;
 			case State::Open:
-				os << "Open. Last Revision: " << m_vUpdates.size() << ". Balance: " << m_vUpdates.back()->m_Outp.m_Value << " / " << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
+				os << "Open. Last Revision: " << m_nRevision << ". Balance: " << m_lstUpdates.back().m_Outp.m_Value << " / " << (m_lstUpdates.back().m_msMy.m_Value - m_Params.m_Fee);
 				break;
 			case State::Updating:
 				os << "Updating (creating newer Revision)";
@@ -136,13 +136,13 @@ struct Client
 				break;
 			case State::Closing2:
 				{
-					os << "Closing2 (Phase-1 withdrawal detected). Revision: " << m_State.m_Close.m_iPath << ". Initiated by " << (m_State.m_Close.m_Initiator ? "me" : "peer");
-					if (DataUpdate::Type::Punishment == m_vUpdates[m_State.m_Close.m_iPath]->m_Type)
+					os << "Closing2 (Phase-1 withdrawal detected). Revision: " << m_State.m_Close.m_nRevision << ". Initiated by " << (m_State.m_Close.m_Initiator ? "me" : "peer");
+					if (DataUpdate::Type::Punishment == m_State.m_Close.m_pPath->m_Type)
 						os << ". Fraudulent withdrawal attempt detected! Will claim everything";
 				}
 				break;
 			case State::Closed:
-				os << "Closed. Waiting for " << m_SafeForgetHeight << " confirmations before forgetting";
+				os << "Closed. Waiting for " << Rules::get().MaxRollback << " confirmations before forgetting";
 				break;
 			default:
 				return;
@@ -170,14 +170,15 @@ struct Client
 		virtual proto::FlyClient::INetwork& get_Net() override { return m_This.m_Conn; }
 		virtual void get_Kdf(ECC::Key::IKdf::Ptr& pKdf) override { pKdf = m_This.m_pKdf; }
 
-		virtual void AllocTxoID(ECC::Key::IDV& kidv) override
+		virtual void AllocTxoID(CoinID& cid) override
 		{
-			kidv.set_Subkey(0);
-			kidv.m_Idx = m_This.m_nNextCoinID++;
+			cid.set_Subkey(0);
+			cid.m_Idx = m_This.m_nNextCoinID++;
 		}
 
-		virtual Amount SelectInputs(std::vector<ECC::Key::IDV>& vInp, Amount valRequired) override
+		virtual Amount SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asset::ID nAssetID) override
 		{
+			assert(!nAssetID);
 			assert(vInp.empty());
 			Height h = m_This.get_TipHeight();
 			Amount nDone = 0;
@@ -195,12 +196,20 @@ struct Client
 
 		}
 
-		virtual size_t SelectWithdrawalPath() override
+		virtual Channel::DataUpdate* SelectWithdrawalPath() override
 		{
-			if (m_This.m_OverrideWithdrawal < m_vUpdates.size())
-				return m_This.m_OverrideWithdrawal;
+			if (m_pOverrideWithdrawal)
+				return m_pOverrideWithdrawal;
 
 			return Lightning::Channel::SelectWithdrawalPath(); // default
+		}
+
+		virtual void OnRevisionOutdated(uint32_t nRevision) override
+		{
+			std::cout
+				<< m_This.m_sName
+				<< "Outdated revision: " << nRevision
+				<< std::endl;
 		}
 
 		struct Codes
@@ -210,7 +219,6 @@ struct Client
 		};
 
 		bool m_SendMyWid = true;
-		Height m_SafeForgetHeight = 8;
 
 		virtual void SendPeer(Storage::Map&& dataOut) override
 		{
@@ -231,7 +239,7 @@ struct Client
 			m_This.Send(*this, ser);
 		}
 
-		virtual void OnCoin(const ECC::Key::IDV& kidv, Height h, CoinState eState, bool bReverse) override
+		virtual void OnCoin(const CoinID& cid, Height h, CoinState eState, bool bReverse) override
 		{
 			const char* szStatus = "";
 
@@ -240,25 +248,25 @@ struct Client
 			case CoinState::Locked:
 				szStatus = bReverse ? "Unlocked" : "Locked";
 				if (bReverse)
-					m_This.m_Coins[kidv] = h;
+					m_This.m_Coins[cid] = h;
 				else
-					m_This.m_Coins.erase(kidv);
+					m_This.m_Coins.erase(cid);
 				break;
 
 			case CoinState::Spent:
 				szStatus = bReverse ? "Unspent" : "Spent";
 				if (bReverse)
-					m_This.m_Coins[kidv] = h;
+					m_This.m_Coins[cid] = h;
 				else
-					m_This.m_Coins.erase(kidv);
+					m_This.m_Coins.erase(cid);
 				break;
 
 			case CoinState::Confirmed:
 				szStatus = bReverse ? "Unconfirmed" : "Confirmed";
 				if (bReverse)
-					m_This.m_Coins.erase(kidv);
+					m_This.m_Coins.erase(cid);
 				else
-					m_This.m_Coins[kidv] = h;
+					m_This.m_Coins[cid] = h;
 				break;
 
 
@@ -266,7 +274,7 @@ struct Client
 				break;
 			}
 
-			std::cout << m_This.m_sName << "Coin " << kidv.m_Value << " " << szStatus << std::endl;
+			std::cout << m_This.m_sName << "Coin " << cid.m_Value << " " << szStatus << std::endl;
 		}
 
 		void Close()
@@ -277,7 +285,7 @@ struct Client
 
 		void MaybeDelete()
 		{
-			if (!IsNegotiating() && IsSafeToForget(m_SafeForgetHeight))
+			if (!IsNegotiating() && IsSafeToForget())
 			{
 				Forget();
 				m_This.DeleteChannel(*this);
@@ -465,11 +473,11 @@ void Client::Initialize()
 	val.Export(kid.m_Idx);
 
 	m_pKdf->DeriveKey(m_skBbs, kid);
-	proto::Sk2Pk(m_Wid.m_Pk, m_skBbs);
+	m_Wid.m_Pk.FromSk(m_skBbs);
 
 	BbsChannel ch;
 	m_Wid.m_Pk.ExportWord<0>(ch);
-	ch %= proto::Bbs::s_MaxChannels;
+	ch %= proto::Bbs::s_MaxWalletChannels;
 	m_Wid.m_Channel = ch;
 
 	//std::cout << "My address: " << to_string(wid) << std::endl;
@@ -486,14 +494,12 @@ bool Client::OpenChannel(const WalletID& widTrg, Amount nMy, Amount nTrg)
 	Channel& c = AddChannel(key);
 	c.m_widTrg = widTrg;
 
+	c.m_Params.m_hRevisionMaxLifeTime = 20;
 	c.m_Params.m_hLockTime = 10;
 	c.m_Params.m_Fee = 101;
 
-	HeightRange hr;
-	hr.m_Min = get_TipHeight();
-	hr.m_Max = hr.m_Min + 30;
-
-	if (c.Open(nMy, nTrg, hr))
+	const Height hOpenGracefulTxLifeTime = 8;
+	if (c.Open(nMy, nTrg, hOpenGracefulTxLifeTime))
 		return true;
 
 	c.MaybeDelete();
@@ -561,9 +567,9 @@ void TestDirector::MakeTreasury()
 			for (size_t iC = 0; iC < g.m_vCoins.size(); iC++)
 			{
 				const Treasury::Response::Group::Coin& coin = g.m_vCoins[iC];
-				Key::IDV kidv;
-				if (coin.m_pOutput->Recover(0, *m_pC[i].m_pKdf, kidv))
-					m_pC[i].m_Coins[kidv] = coin.m_pOutput->m_Incubation;
+				CoinID cid;
+				if (coin.m_pOutput->Recover(0, *m_pC[i].m_pKdf, cid))
+					m_pC[i].m_Coins[cid] = coin.m_pOutput->m_Incubation;
 			}
 		}
 	}
@@ -630,7 +636,9 @@ void Test()
 	//	auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 
 	Rules::get().pForks[1].m_Height = 1;
+	Rules::get().pForks[2].m_Height = 1;
 	Rules::get().FakePoW = true;
+	Rules::get().MaxRollback = 5;
 	Rules::get().UpdateChecksum();
 
 	{
@@ -727,9 +735,12 @@ void Test()
 					std::cout << "Scenario: User B attempts to cheat, Close using Revision=1, while negotiating about new transfer" << std::endl;
 					{
 						Client& cl = m_pC[1];
-						cl.m_OverrideWithdrawal = 1;
 						for (Client::Channel::Map::iterator it = cl.m_Channels.begin(); cl.m_Channels.end() != it; it++)
-							(it)->get_ParentObj().Close();
+						{
+							Client::Channel& ch = it->get_ParentObj();
+							ch.m_pOverrideWithdrawal = ch.m_lstUpdates.get_NextSafe(ch.m_lstUpdates.front());
+							ch.Close();
+						}
 					}
 					break;
 
@@ -786,6 +797,27 @@ void Test()
 		Test3().Run();
 	}
 
+	{
+		struct Test4 :public TestDirector
+		{
+			virtual void OnTip(Height h)
+			{
+				switch (h)
+				{
+				case 2:
+					std::cout << "Scenario: User A opens a channel to B" << std::endl;
+					m_pC[0].OpenChannel(m_pC[1].m_Wid, 25000, 34000);
+					break;
+
+				case 40:
+					Stop();
+					break;
+				}
+			}
+		};
+
+		Test4().Run();
+	}
 }
 
 

@@ -7,7 +7,14 @@ import Beam.Wallet 1.0
 Dialog {
 	id: control
 
-	SettingsViewModel {id: viewModel}
+	property var settingsViewModel: {
+		return {
+			checkWalletPassword: function() {
+				console.log("settingsViewModel::checkWalletPassword undefined");
+				return false;
+			}
+		};
+	}
 	property string dialogTitle: "title"
 	property string dialogMessage: "message"
 	property alias okButtonText: okButton.text
@@ -23,10 +30,12 @@ Dialog {
 		console.log("Rejected");
 	}
 	property var onPwdEntered: function(password) {
-		if (viewModel.checkWalletPassword(password)) {
+		if (settingsViewModel.checkWalletPassword(password)) {
 			accept();
 		} else {
 			showError = true;
+			pwd.selectAll();
+			pwd.focus = true;
 		}
 	}
 

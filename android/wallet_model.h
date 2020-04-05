@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "wallet/wallet_client.h"
+#include "wallet/client/wallet_client.h"
 
 class WalletModel
     : public beam::wallet::WalletClient
@@ -23,7 +23,7 @@ public:
 
     using Ptr = std::shared_ptr<WalletModel>;
 
-    WalletModel(beam::wallet::IWalletDB::Ptr walletDB, beam::wallet::IPrivateKeyKeeper::Ptr keyKeeper, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
+    WalletModel(beam::wallet::IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
     ~WalletModel() override;
 
 private:
@@ -31,13 +31,15 @@ private:
     void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items) override;
     void onSyncProgressUpdated(int done, int total) override;
     void onChangeCalculated(beam::Amount change) override;
-    void onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos) override;
+    void onAllUtxoChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Coin>& utxos) override;
+    void onAddressesChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::WalletAddress>& addresses) override;
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs) override;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
     void onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers) override;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr) override;
     void onSwapParamsLoaded(const beam::ByteBuffer& params) override;
     void onNewAddressFailed() override;
-    void onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID) override;
     void onNodeConnectionChanged(bool isNodeConnected) override;
     void onWalletError(beam::wallet::ErrorType error) override;
     void FailedToStartWallet() override;
@@ -55,4 +57,6 @@ private:
     void onShowKeyKeeperError(const std::string&) override {}
     void onPostFunctionToClientContext(MessageFunction&& func) override {};
     void onExportTxHistoryToCsv(const std::string& data) override {};
+    void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
+    void onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&) override;
 };

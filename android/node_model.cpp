@@ -20,7 +20,7 @@
 
 #include <boost/filesystem.hpp>
 #include "utility/logger.h"
-#include "wallet/default_peers.h"
+#include "wallet/core/default_peers.h"
 
 #include <jni.h>
 #include "common.h"
