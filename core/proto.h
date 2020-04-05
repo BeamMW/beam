@@ -698,7 +698,7 @@ namespace proto {
 
         void HashAddNonce(ECC::Hash::Processor&, bool bRemote);
 
-		void OnLoginInternal(Height hPeerMaxScheme, Login&&);
+		void OnLoginInternal(Login&&);
 
     public:
 
