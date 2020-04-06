@@ -27,6 +27,8 @@ namespace Lightning {
 	const Height kDefaultRevisionMaxLifeTime = 1440 * 14;
 	const Height kDefaultLockTime = 1440;
 	const Height kDefaultPostLockReserve = 1440;
+	const Height kDefaultOpenTxDh = 2 * 60;
+	const Height kMaxBlackoutTime = 6;
 
 	class Channel
 	{
@@ -187,6 +189,7 @@ namespace Lightning {
 
 		State::Enum get_State() const;
 		bool IsUnfairPeerClosed() const;
+		void DiscardLastRevision();
 
 
 		bool Open(Amount nMy, Amount nOther, Height hOpenTxDh);
@@ -230,6 +233,7 @@ namespace Lightning {
 	protected:
 		virtual bool TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful);
 		uint32_t m_iRole = 0;
+		bool m_gracefulClose = false;
 
 
 	private:

@@ -15,6 +15,10 @@ ColumnLayout {
     property var onClosed: undefined
     property var onSwapToken: undefined
 
+    readonly property bool showInsufficientBalanceWarning:
+        !viewModel.isEnough &&
+        !(viewModel.isZeroBalance && (viewModel.sendAmount == "" || viewModel.sendAmount == "0"))  // not shown if available is 0 and no value entered to send
+
     TopGradient {
         mainRoot: main
         topColor: Style.accent_outgoing
@@ -121,7 +125,7 @@ ColumnLayout {
             }
 
             SFText {
-                Layout.topMargin: 25
+                Layout.topMargin: 45
                 font.pixelSize:   14
                 font.styleName:   "Bold"; font.weight: Font.Bold
                 color:            Style.content_main
@@ -141,13 +145,13 @@ ColumnLayout {
             }
 
             SFText {
-                Layout.topMargin: 25
+                Layout.topMargin: 45
                 font.pixelSize:   14
                 font.styleName:   "Bold"; font.weight: Font.Bold
                 color:            Style.content_main
                 //% "Comment"
                 text:             qsTrId("general-comment")
-                topPadding:    5
+                topPadding:       5
             }
 
             SFTextInput {
@@ -199,8 +203,10 @@ ColumnLayout {
                 hasFee:           true
                 showAddAll:       true
                 color:            Style.accent_outgoing
-                //% "Insufficient funds: you would need %1 to complete the transaction"
-                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.uiStringToLocale(viewModel.missing))
+                error:            showInsufficientBalanceWarning
+                                  //% "Insufficient funds: you would need %1 to complete the transaction"
+                                  ? qsTrId("send-founds-fail").arg(Utils.uiStringToLocale(viewModel.missing))
+                                  : ""
             }
 
             Binding {
@@ -253,7 +259,7 @@ ColumnLayout {
                     Layout.alignment:       Qt.AlignTop
                     Layout.topMargin:       30
                     Layout.rightMargin:     25
-                    error:                  !viewModel.isEnough
+                    error:                  showInsufficientBalanceWarning
                     amount:                 viewModel.totalUTXO
                     currencySymbol:         BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                     secondCurrencyLabel:    viewModel.secondCurrencyLabel
@@ -273,7 +279,7 @@ ColumnLayout {
                 {
                     Layout.alignment:       Qt.AlignTop
                     Layout.rightMargin:     25
-                    error:                  !viewModel.isEnough
+                    error:                  showInsufficientBalanceWarning
                     amount:                 viewModel.sendAmount
                     currencySymbol:         BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                     secondCurrencyLabel:    viewModel.secondCurrencyLabel
@@ -292,7 +298,7 @@ ColumnLayout {
                 {
                     Layout.alignment:       Qt.AlignTop
                     Layout.rightMargin:     25
-                    error:                  !viewModel.isEnough
+                    error:                  showInsufficientBalanceWarning
                     amount:                 viewModel.change
                     currencySymbol:         BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                     secondCurrencyLabel:    viewModel.secondCurrencyLabel
@@ -314,7 +320,7 @@ ColumnLayout {
                     Layout.alignment:       Qt.AlignTop
                     Layout.rightMargin:     25
                     Layout.bottomMargin:    30
-                    error:                  !viewModel.isEnough
+                    error:                  showInsufficientBalanceWarning
                     amount:                 viewModel.available
                     currencySymbol:         BeamGlobals.getCurrencyLabel(Currency.CurrBeam)
                     secondCurrencyLabel:    viewModel.secondCurrencyLabel

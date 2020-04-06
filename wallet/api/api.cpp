@@ -28,6 +28,60 @@ namespace beam::wallet
 {    
 namespace
 {
+    void GetStatusResponseJson(const TxDescription& tx,
+        json& msg,
+        Height kernelProofHeight,
+        Height systemHeight,
+        bool showIdentities = false)
+    {
+        msg = json
+        {
+            {"txId", TxIDToString(tx.m_txId)},
+            {"status", tx.m_status},
+            {"status_string", tx.getStatusStringApi()},
+            {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
+            {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
+            {"fee", tx.m_fee},
+            {"value", tx.m_amount},
+            {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
+            {"create_time", tx.m_createTime},
+            {"income", !tx.m_sender}
+        };
+
+        if (kernelProofHeight > 0)
+        {
+            msg["height"] = kernelProofHeight;
+
+            if (systemHeight >= kernelProofHeight)
+            {
+                msg["confirmations"] = systemHeight - kernelProofHeight;
+            }
+        }
+
+        if (tx.m_status == TxStatus::Failed)
+        {
+            msg["failure_reason"] = GetFailureMessage(tx.m_failureReason);
+        }
+        else if (tx.m_status != TxStatus::Canceled)
+        {
+            msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
+        }
+        auto token = tx.GetParameter<std::string>(TxParameterID::OriginalToken);
+        if (token)
+        {
+            msg["token"] = *token;
+        }
+        if (showIdentities)
+        {
+            auto senderIdentity = tx.getSenderIdentity();
+            auto receiverIdentity = tx.getReceiverIdentity();
+            if (!senderIdentity.empty() && !receiverIdentity.empty())
+            {
+                msg["sender_identity"] = senderIdentity;
+                msg["receiver_identity"] = receiverIdentity;
+            }
+        }
+    }
 
 json getNotImplError(const JsonRpcId& id)
 {
@@ -93,6 +147,14 @@ void checkTxId(const ByteBuffer& txId, const JsonRpcId& id)
 {
     if (txId.size() != TxID().size())
         throw WalletApi::jsonrpc_exception{ ApiError::InvalidTxId, "Transaction ID has wrong format.", id };
+}
+
+void checkCAEnabled(const JsonRpcId& id)
+{
+    if (!Rules::get().CA.Enabled)
+    {
+        throw WalletApi::jsonrpc_exception{ApiError::NotSupported, "Confidential assets are not supported in this version.", id};
+    }
 }
 
 boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const json& params)
@@ -715,7 +777,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             send.session = readSessionParameter(id, params);
         }
 
-        auto txParams = ParseParameters(params["address"]);
+        std::string addressOrToken = params["address"];
+        auto txParams = ParseParameters(addressOrToken);
         if (!txParams)
         {
             throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address or token.", id };
@@ -725,6 +788,10 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         if (auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
         {
             send.address = *peerID;
+            if (std::to_string(*peerID) != addressOrToken)
+            {
+                send.txParameters.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);
+            }
         }
         else
         {
@@ -834,56 +901,97 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         getHandler().onMessage(id, txDelete);
     }
 
-    void WalletApi::onIssueMessage(const JsonRpcId& id, const json& params)
+    template<typename T>
+    void ReadAssetParams(const JsonRpcId& id, const json& params, T& data)
     {
-        checkJsonParam(params, "value", id);
-        if (!Rules::get().CA.Enabled)
-            throw jsonrpc_exception{ ApiError::NotSupported, "Confidential assets are not supported in this version.", id };
-
-        if (!params["value"].is_number_unsigned() || params["value"] == 0)
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Value must be non zero 64bit unsigned integer.", id };
-
-        Issue issue;
-        issue.value = params["value"];
-
-        if (existsJsonParam(params, "coins"))
-        {
-            issue.coins = readCoinsParameter(id, params);
-        }
-        else if (existsJsonParam(params, "session"))
-        {
-            issue.session = readSessionParameter(id, params);
-        }
-
-        if (existsJsonParam(params, "meta"))
+        if (Api::existsJsonParam(params, "meta"))
         {
             if (!params["meta"].is_string() || params["meta"].empty())
             {
-                throw jsonrpc_exception{ApiError::InvalidJsonRpc, "meta should be non-empty string", id};
+                throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "meta should be non-empty string", id};
             }
-            issue.meta = params["meta"].get<std::string>();
+            data.meta = params["meta"].get<std::string>();
         }
-        else if(existsJsonParam(params, "assetid"))
+        else if(Api::existsJsonParam(params, "assetid"))
         {
-            auto assetId = params["assetid"];
             if (!params["assetid"].is_number_unsigned() || params["assetid"] == 0)
             {
-                throw jsonrpc_exception{ApiError::InvalidJsonRpc, "assetid must be non zero 64bit unsigned integer", id};
+                throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "assetid must be non zero 64bit unsigned integer", id};
             }
-            issue.assetId = assetId.get<beam::Asset::ID>();
+            data.assetId = params["assetid"].get<uint32_t>();
         }
         else
         {
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "assetid or meta is required", id };
+            throw Api::jsonrpc_exception{ ApiError::InvalidJsonRpc, "assetid or meta is required", id };
         }
+    }
+
+    void WalletApi::onIssueMessage(const JsonRpcId& id, const json& params)
+    {
+        onIssueConsumeMessage<Issue>(true, id, params);
+    }
+
+    void WalletApi::onConsumeMessage(const JsonRpcId& id, const json& params)
+    {
+        onIssueConsumeMessage<Consume>(true, id, params);
+    }
+
+    template<typename T>
+    void WalletApi::onIssueConsumeMessage(bool issue, const JsonRpcId& id, const json& params)
+    {
+        checkCAEnabled(id);
+
+        checkJsonParam(params, "value", id);
+        if (!params["value"].is_number_unsigned() || params["value"] == 0)
+        {
+            throw jsonrpc_exception{ApiError::InvalidJsonRpc, "Value must be non zero 64bit unsigned integer.", id};
+        }
+
+        T data;
+        data.value = params["value"];
+
+        if (existsJsonParam(params, "coins"))
+        {
+            data.coins = readCoinsParameter(id, params);
+        }
+        else if (existsJsonParam(params, "session"))
+        {
+            data.session = readSessionParameter(id, params);
+        }
+
+        ReadAssetParams(id, params, data);
 
         if (auto beamFee = readBeamFeeParameter(id, params); beamFee)
         {
-            issue.fee = beamFee;
+            data.fee = beamFee;
         }
 
-        issue.txId = readTxIdParameter(id, params);
-        getHandler().onMessage(id, issue);
+        data.txId = readTxIdParameter(id, params);
+        getHandler().onMessage(id, data);
+    }
+
+    template void WalletApi::onIssueConsumeMessage<Issue>(bool issue, const JsonRpcId& id, const json& params);
+    template void WalletApi::onIssueConsumeMessage<Consume>(bool issue, const JsonRpcId& id, const json& params);
+
+    void WalletApi::onGetAssetInfoMessage(const JsonRpcId& id, const json& params)
+    {
+        checkCAEnabled(id);
+
+        GetAssetInfo data;
+        ReadAssetParams(id, params, data);
+
+        getHandler().onMessage(id, data);
+    }
+
+    void WalletApi::onAssetInfoMessage(const JsonRpcId& id, const json& params)
+    {
+        checkCAEnabled(id);
+
+        AssetInfo data;
+        ReadAssetParams(id, params, data);
+
+        data.txId = readTxIdParameter(id, params);
+        getHandler().onMessage(id, data);
     }
 
     void WalletApi::onGetUtxoMessage(const JsonRpcId& id, const json& params)
@@ -1300,6 +1408,57 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         };
     }
 
+    void WalletApi::getResponse(const JsonRpcId& id, const AssetInfo::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result",
+                {
+                    {"txId", TxIDToString(res.txId)}
+                }
+            }
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId &id, const GetAssetInfo::Response &res, json &msg)
+    {
+        std::string strMeta;
+        fromByteBuffer(res.AssetInfo.m_Metadata.m_Value, strMeta);
+
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result",
+                {
+                    // TODO:ASSETS check if displayed in cli, refresh height
+                    {"assetId",       res.AssetInfo.m_ID},
+                    {"value",         res.AssetInfo.m_Value.str()},
+                    {"lockHeight",    res.AssetInfo.m_LockHeight},
+                    {"refreshHeight", res.AssetInfo.m_RefreshHeight},
+                    {"ownerId",       res.AssetInfo.m_Owner.str()},
+                    {"isOwned",       res.AssetInfo.m_IsOwned},
+                    {"metadata",      strMeta}
+                }
+            }
+        };
+    }
+    void WalletApi::getResponse(const JsonRpcId& id, const Consume::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result",
+                {
+                    {"txId", TxIDToString(res.txId)}
+                }
+            }
+        };
+    }
+
     void WalletApi::getResponse(const JsonRpcId& id, const Status::Response& res, json& msg)
     {
         msg = json
@@ -1310,7 +1469,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         };
 
         GetStatusResponseJson(
-            res.tx, msg["result"], res.kernelProofHeight, res.systemHeight);
+            res.tx, msg["result"], res.kernelProofHeight, res.systemHeight, true);
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const Split::Response& res, json& msg)

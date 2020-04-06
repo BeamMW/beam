@@ -431,10 +431,9 @@ namespace beam::wallet
         return res;
     }
 
-    bool IsValidTimeStamp(Timestamp currentBlockTime_s)
+    bool IsValidTimeStamp(Timestamp currentBlockTime_s, Timestamp tolerance_s)
     {
         Timestamp currentTime_s = getTimestamp();
-        const Timestamp tolerance_s = 60 * 10; // 10 minutes tolerance.
 
         if (currentTime_s > currentBlockTime_s + tolerance_s)
         {
@@ -559,6 +558,37 @@ namespace beam::wallet
             }
         }
         return "";
+    }
+
+    std::string TxDescription::getToken() const
+    {
+        auto token = GetParameter<std::string>(TxParameterID::OriginalToken);
+        if (token)
+        {
+            return *token;
+        }
+        return {};
+    }
+
+    std::string TxDescription::getSenderIdentity() const
+    {
+        return getIdentity(m_sender);
+    }
+
+    std::string TxDescription::getReceiverIdentity() const
+    {
+        return getIdentity(!m_sender);
+    }
+
+    std::string TxDescription::getIdentity(bool isSender) const
+    {
+        auto v = isSender ? GetParameter<PeerID>(TxParameterID::MySecureWalletID)
+            : GetParameter<PeerID>(TxParameterID::PeerSecureWalletID);
+        if (v)
+        {
+            return std::to_string(*v);
+        }
+        return {};
     }
 
     uint64_t get_RandomID()

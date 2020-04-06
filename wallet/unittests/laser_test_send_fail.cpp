@@ -54,10 +54,10 @@ int main()
     const AmountList amounts = {100000000, 100000000, 100000000, 100000000};
     for (auto amount : amounts)
     {
-        Coin coinFirst = CreateAvailCoin(amount, 1);
+        Coin coinFirst = CreateAvailCoin(amount, kCoinAvailableBlock);
         wdbFirst->storeCoin(coinFirst);
 
-        Coin coinSecond = CreateAvailCoin(amount, 1);
+        Coin coinSecond = CreateAvailCoin(amount, kCoinAvailableBlock);
         wdbSecond->storeCoin(coinSecond);
     }
 
@@ -118,7 +118,7 @@ int main()
     ConfigureNetwork(*laserFirst, *laserSecond);
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    TestNode node(newBlockFunc, kNewBlockFunkStart, kDefaultTestNodePort);
+    TestNode node(newBlockFunc, kNewBlockFuncStart, kDefaultTestNodePort);
 
     timer->start(kNewBlockInterval, true, [&node]() {node.AddBlock(); });
     mainReactor->run();

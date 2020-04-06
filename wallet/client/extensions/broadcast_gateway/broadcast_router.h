@@ -53,7 +53,7 @@ namespace beam
 
         static constexpr std::array<uint8_t, 3> m_ver_1 = { 0, 0, 1 };  // version used before 2nd fork: has custom deserialization and signature hash for SwapOffersBoard. TODO: dh remove after 2 fork.
         static constexpr std::array<uint8_t, 3> m_ver_2 = { 0, 0, 2 };  // verison after 2nd fork: will has common deserialization and signatures type for all BBS-based broadcasting.
-        
+
     private:
         static constexpr size_t m_maxMessageTypes = 3;
         static constexpr size_t m_defaultMessageSize = 200;         // set experimentally
@@ -71,7 +71,7 @@ namespace beam
         proto::FlyClient::INetwork& m_bbsNetwork;
         wallet::IWalletMessageEndpoint& m_bbsMessageEndpoint;
 
-        Protocol m_protocol_old;    // TODO: dh remove after 2 fork.
+        Protocol m_protocol_old;    // TODO: dh remove after 2 fork. Used only with SwapOffersBoard
         Protocol m_protocol;
         MsgReader m_msgReader_old;  // TODO: dh remove after 2 fork.
         MsgReader m_msgReader;

@@ -95,7 +95,7 @@ namespace beam
     const char kErrorWalletNotCreated[] = "something went wrong, wallet not created...";
     const char kErrorCantOpenWallet[] = "Please check your password. If password is lost, restore wallet.db from latest backup or delete it and restore from seed phrase.";
     const char kErrorNodeAddrNotSpecified[] = "node address should be specified";
-    const char kErrorNodeAddrUnresolved[] = "unable to resolve node address3: %1%";
+    const char kErrorNodeAddrUnresolved[] = "unable to resolve node address: %1%";
     const char kErrorNodePoolPeriodTooMuch[] = "The \"--node_poll_period\" parameter set to more than %1% hours may cause transaction problems.";
     const char kErrorSwapAmountMissing[] = "swap amount is missing";
     const char kErrorSwapCoinUnknown[] = "cannot swap asset coins";
@@ -166,7 +166,7 @@ namespace beam
 
     // Wallet info
     const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
-    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\nAsset ID: %1%\nAsset Name: %2%%3%\n\n%4%%5%\n%6%%7%\n%8%%9%\n%10%%11%\n\n";
+    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\nAsset ID: %1%\n\n%2%%3%\n%4%%5%\n%6%%7%\n%8%%9%\n\n";
     const char kWalletUnreliableAsset[] = "This asset has been burned at block %1%. This allows owner to unregister asset and register it again with different metadata but the same Asset ID technically producing completely new asset. All coins and transactions before block %1% could potentially belong to another asset.\n\n";
     const char kWalletAssetOwnerFormat[] = "\nAsset Owner ID: %1%\nYou own this asset";
     const char kWalletSummaryFieldCurHeight[] = "Current height";
@@ -189,7 +189,7 @@ namespace beam
     const char kCoinsTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%   %7%  ";
 
     // Tx history
-    const char kTxHistoryTableHead[] = "TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";
+    const char kTxHistoryTableHead[] = "TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
     const char kAssetTxHistoryTableHead[] = "TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
     const char kTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%   %7%  ";
     const char kTxHistoryColumnDatetTime[] = "datetime";
@@ -204,6 +204,7 @@ namespace beam
     const char kTxDirectionOut[] = "outgoing";
     const char kTxDirectionIn[] = "incoming";
     const char kTxHistoryEmpty[] = "No transactions";
+    const char kTxToken[] = "token";
     const char kSwapTxHistoryEmpty[] = "No swap transactions";
     const char kSwapTxHistoryTableHead[] = "SWAP TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";
     const char kSwapTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
@@ -243,6 +244,7 @@ namespace beam
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT
+    const char kLaserWaitPeer[] = "Waiting";
     const char kLaserOpening[] = "Opening";
     const char kLaserOpenFailed[] = "OpenFailed";
     const char kLaserOpen[] = "Open";
@@ -264,6 +266,7 @@ namespace beam
     const char kLaserChannelTableBody[] = "%1%|%2%|%3%|%4%|%5%|%6%";
     const char kLaserErrorOpenFailed[] = "Open failed : %1%";
     const char kLaserMessageClosed[] = "Closed : %1%";
+    const char kLaserErrorTransferFailed[] = "Transfer to channel : %1% - failed.";
     const char kLaserMessageChannelServed[] = "Channel: %1% served";
     const char kLaserMessageUpdateFinished[] = "Update finished: %1%";
     const char kLaserMessageCloseFailed[] = "Close failed: %1%";

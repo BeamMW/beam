@@ -1082,15 +1082,26 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
-        void AddAddressIdentityColumn(sqlite3* db)
+        void AddAddressIdentityColumn(const WalletDB* walletDB, sqlite3* db)
         {
             const char* req = "ALTER TABLE " ADDRESSES_NAME " ADD Identity BLOB NULL;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
 
-            const char* req_laser = "ALTER TABLE " LASER_ADDRESSES_NAME " ADD Identity BLOB NULL;";
-            ret = sqlite3_exec(db, req_laser, nullptr, nullptr, nullptr);
-            throwIfError(ret, db);
+            const char* req_laser_addr_identity_exist =
+                "SELECT COUNT(*) AS CNTREC FROM pragma_table_info('" LASER_ADDRESSES_NAME "') WHERE name='Identity';";
+            int laser_addr_identity_exist = 0;
+            for (sqlite::Statement stm(walletDB, req_laser_addr_identity_exist); stm.step();)
+            {
+                stm.get(0, laser_addr_identity_exist);
+            }
+
+            if (!laser_addr_identity_exist)
+            {
+                const char* req_laser = "ALTER TABLE " LASER_ADDRESSES_NAME " ADD Identity BLOB NULL;";
+                ret = sqlite3_exec(db, req_laser, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
         }
 
         void CreateShieldedCoinsTable(sqlite3* db)
@@ -1633,7 +1644,7 @@ namespace beam::wallet
                     CreateShieldedCoinsTable(walletDB->_db);
                     CreateNotificationsTable(walletDB->_db);
                     CreateExchangeRatesTable(walletDB->_db);
-                    AddAddressIdentityColumn(walletDB->_db);
+                    AddAddressIdentityColumn(walletDB.get(), walletDB->_db);
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 
@@ -2812,6 +2823,9 @@ namespace beam::wallet
                 case TxParameterID::AssetID:
                     deserialize(txDescription.m_assetId, parameter.m_value);
                     break;
+                case TxParameterID::AssetMetadata:
+                    deserialize(txDescription.m_assetMeta, parameter.m_value);
+                    break;
                 default:
                     break; // suppress warning
                 }
@@ -2836,6 +2850,7 @@ namespace beam::wallet
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeBeam,  p.m_changeBeam, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeAsset, p.m_changeAsset, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetID, p.m_assetId, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetMetadata, p.m_assetMeta, false);
         if (p.m_minHeight)
         {
             storage::setTxParameter(*this, p.m_txId, TxParameterID::MinHeight, p.m_minHeight, false);
@@ -3192,9 +3207,9 @@ namespace beam::wallet
             stm.get(3, asset.m_LockHeight);
             stm.get(4, asset.m_Metadata.m_Value);
             asset.m_Metadata.UpdateHash();
-            stm.get(5, asset.m_refreshHeight);
-            assert(asset.m_refreshHeight != 0);
-            stm.get(6, asset.m_isOwned);
+            stm.get(5, asset.m_RefreshHeight);
+            assert(asset.m_RefreshHeight != 0);
+            stm.get(6, asset.m_IsOwned);
 
             if (!visitor(asset))
             {
@@ -3223,9 +3238,9 @@ namespace beam::wallet
         stmFind.get(3, asset.m_LockHeight);
         stmFind.get(4, asset.m_Metadata.m_Value);
         asset.m_Metadata.UpdateHash();
-        stmFind.get(5, asset.m_refreshHeight);
-        assert(asset.m_refreshHeight != 0);
-        stmFind.get(6, asset.m_isOwned);
+        stmFind.get(5, asset.m_RefreshHeight);
+        assert(asset.m_RefreshHeight != 0);
+        stmFind.get(6, asset.m_IsOwned);
 
         return asset;
     }
@@ -3315,7 +3330,7 @@ namespace beam::wallet
     bool WalletDB::getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
                                    TLaserChannelEntity* entity)
     {
-        const char* selectReq = "SELECT  " LASER_CHANNEL_FIELDS " FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
+        const char* selectReq = "SELECT " LASER_CHANNEL_FIELDS " FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
         sqlite::Statement stm(this, selectReq);
         stm.bind(1, chId->m_pData, chId->nBytes);
 
@@ -4201,7 +4216,7 @@ namespace beam::wallet
 
              walletDB.visitAssets([this](const WalletAsset& asset) -> bool {
                 // we also add owned assets to totals even if there are no coins
-                if(!HasTotals(asset.m_ID) && asset.m_isOwned)
+                if(!HasTotals(asset.m_ID) && asset.m_IsOwned)
                 {
                     allTotals[asset.m_ID] = AssetTotals();
                     allTotals[asset.m_ID].AssetId = asset.m_ID;
@@ -4678,7 +4693,24 @@ namespace beam::wallet
 
             if (bSuccess)
             {
-                return pi.to_string();
+                auto senderIdentity = tx->getSenderIdentity();
+                auto receiverIdentity = tx->getReceiverIdentity();
+                bool showIdentity = !senderIdentity.empty() && !receiverIdentity.empty();
+                std::ostringstream s;
+                s << "Sender: " << std::to_string(pi.m_Sender) << std::endl;
+                if (showIdentity)
+                {
+                    s << "Sender identity: " << senderIdentity << std::endl;
+                }
+                s << "Receiver: " << std::to_string(pi.m_Receiver) << std::endl;
+                if (showIdentity)
+                {
+                    s << "Receiver identity: " << receiverIdentity << std::endl;
+                }
+                s << "Amount: " << PrintableAmount(pi.m_Amount) << std::endl;
+                s << "KernelID: " << std::to_string(pi.m_KernelID) << std::endl;
+
+                return s.str();
             }
 
             LOG_WARNING() << "Can't get transaction details";
@@ -4916,7 +4948,7 @@ namespace beam::wallet
 
     WalletAsset::WalletAsset(const Asset::Full& full, Height refreshHeight)
         : Asset::Full(full)
-        , m_refreshHeight(refreshHeight)
+        , m_RefreshHeight(refreshHeight)
     {
     }
 

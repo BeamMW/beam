@@ -83,6 +83,12 @@ public:
         }
     }
 
+    template<typename T>
+    void onIssueConsumeMessage(bool issue, const JsonRpcId& id, const T& data);
+
+    template<typename T>
+    bool setAssetParams(const JsonRpcId& id, TxParameters& tx, const T& data);
+
 protected:
     IWalletData& _walletData;
     WalletApi _api;

@@ -535,13 +535,14 @@ void TestAssets() {
     const auto nonOwnedConsumeAmount = send3rpAmount;
     const auto nonOwnedAssetChange   = 0;
     const auto nonOwnedBeamChange    = 0;
+    const auto assetMeta = std::string("just for test");
 
     sw.start();
     const auto nonOwnedConsumeTxId = receiver.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
-                .SetParameter(TxParameterID::Amount,   nonOwnedConsumeAmount)
-                .SetParameter(TxParameterID::Fee,      feeAmount)
-                //.SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
-                .SetParameter(TxParameterID::Lifetime, Height(200)));
+                .SetParameter(TxParameterID::Amount,         nonOwnedConsumeAmount)
+                .SetParameter(TxParameterID::Fee,            feeAmount)
+                .SetParameter(TxParameterID::AssetMetadata,  assetMeta)
+                .SetParameter(TxParameterID::Lifetime,       Height(200)));
 
     // Do not run reactor, transaction should be failed with no inputs already
     LOG_INFO() << "Consuming not owned assets elapsed time: " << sw.milliseconds() << "ms";
@@ -555,7 +556,7 @@ void TestAssets() {
     WALLET_CHECK(nonOwnedConsumeTx.m_changeAsset   == nonOwnedAssetChange);
     WALLET_CHECK(nonOwnedConsumeTx.m_status        == TxStatus::Failed);
     WALLET_CHECK(nonOwnedConsumeTx.m_failureReason == TxFailureReason::NoInputs);
-    //WALLET_CHECK(nonOwnedConsumeTx.m_assetOwnerIdx == assetOwnerIdx);
+    WALLET_CHECK(nonOwnedConsumeTx.m_assetMeta     == assetMeta);
     WALLET_CHECK(nonOwnedConsumeTx.m_assetId       != assetId);
 
     LOG_INFO() << "Finished Testing consuming not owned assets...";

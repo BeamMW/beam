@@ -32,7 +32,8 @@ void LaserObserver::OnOpened(const laser::ChannelIDPtr& chID)
     if (m_vm.count(cli::LASER_OPEN))
     {
         io::Reactor::get_Current().stop();
-    } else if (m_vm.count(cli::LASER_WAIT))
+    }
+    else if (m_vm.count(cli::LASER_WAIT))
     {
         LOG_INFO() << boost::format(kLaserMessageChannelServed)
                    % to_hex(chID->m_pData, chID->nBytes);
@@ -42,8 +43,8 @@ void LaserObserver::OnOpened(const laser::ChannelIDPtr& chID)
 
 void LaserObserver::OnOpenFailed(const laser::ChannelIDPtr& chID)
 {
-    LOG_DEBUG() << boost::format(kLaserErrorOpenFailed)
-                    % to_hex(chID->m_pData, chID->nBytes);
+    LOG_ERROR() << boost::format(kLaserErrorOpenFailed)
+                % to_hex(chID->m_pData, chID->nBytes);
     io::Reactor::get_Current().stop();
 }
 
@@ -53,8 +54,8 @@ void LaserObserver::OnClosed(const laser::ChannelIDPtr& chID)
     {
         io::Reactor::get_Current().stop();
     }
-    LOG_DEBUG() << boost::format(kLaserMessageClosed)
-                % to_hex(chID->m_pData, chID->nBytes);
+    LOG_INFO() << boost::format(kLaserMessageClosed)
+               % to_hex(chID->m_pData, chID->nBytes);
     LaserShow(m_walletDB); 
 }
 
@@ -75,7 +76,13 @@ void LaserObserver::OnUpdateFinished(const laser::ChannelIDPtr& chID)
     {
         io::Reactor::get_Current().stop();
     }
-    LOG_DEBUG() << boost::format(kLaserMessageUpdateFinished)
+    LOG_INFO() << boost::format(kLaserMessageUpdateFinished)
+               % to_hex(chID->m_pData, chID->nBytes);
+}
+
+void LaserObserver::OnTransferFailed(const laser::ChannelIDPtr& chID)
+{
+    LOG_ERROR() << boost::format(kLaserErrorTransferFailed)
                 % to_hex(chID->m_pData, chID->nBytes);
 }
 
@@ -174,6 +181,7 @@ const char* LaserChannelStateStr(int state)
     {
     case Lightning::Channel::State::None:
     case Lightning::Channel::State::Opening0:
+        return kLaserWaitPeer;
     case Lightning::Channel::State::Opening1:
     case Lightning::Channel::State::Opening2:
         return kLaserOpening;

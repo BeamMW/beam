@@ -367,7 +367,7 @@ namespace beam::wallet
                     const auto getRange = [](WalletAsset& info) -> auto {
                         HeightRange result;
                         result.m_Min = info.m_LockHeight;
-                        result.m_Max = AmountBig::get_Lo(info.m_LockHeight) > 0 ? info.m_refreshHeight : info.m_LockHeight;
+                        result.m_Max = AmountBig::get_Lo(info.m_LockHeight) > 0 ? info.m_RefreshHeight : info.m_LockHeight;
                         result.m_Max += Rules::get().CA.LockPeriod;
                         return result;
                     };
@@ -381,9 +381,9 @@ namespace beam::wallet
                             if (coin.m_confirmHeight < hrange.m_Min) return true;
 
                             const Height h1 = coin.m_spentHeight ? coin.m_spentHeight : currHeight;
-                            if (info.m_refreshHeight < h1)
+                            if (info.m_RefreshHeight < h1)
                             {
-                                info.m_refreshHeight = h1;
+                                info.m_RefreshHeight = h1;
                                 hrange = getRange(info);
                             }
                             return true;

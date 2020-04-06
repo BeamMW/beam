@@ -196,6 +196,7 @@ namespace beam
     extern const char kTxDirectionOut[];
     extern const char kTxDirectionIn[];
     extern const char kTxHistoryEmpty[];
+    extern const char kTxToken[];
     extern const char kSwapTxHistoryEmpty[];
     extern const char kSwapTxHistoryTableHead[];
     extern const char kSwapTxHistoryTableFormat[];
@@ -234,6 +235,7 @@ namespace beam
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT
+    extern const char kLaserWaitPeer[];
     extern const char kLaserOpening[];
     extern const char kLaserOpenFailed[];
     extern const char kLaserOpen[];
@@ -255,6 +257,7 @@ namespace beam
     extern const char kLaserChannelTableBody[];
     extern const char kLaserErrorOpenFailed[];
     extern const char kLaserMessageClosed[];
+    extern const char kLaserErrorTransferFailed[];
     extern const char kLaserMessageChannelServed[];
     extern const char kLaserMessageUpdateFinished[];
     extern const char kLaserMessageCloseFailed[];

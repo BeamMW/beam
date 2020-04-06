@@ -16,6 +16,7 @@
 
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/strings_resources.h"
+#include "wallet/transactions/assets/assets_kdf_utils.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/utils.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -411,6 +412,11 @@ namespace beam::wallet
             auto params = CreateSimpleTransactionParameters(data.txId);
             LoadReceiverParams(data.txParameters, params);
 
+            if (auto token = data.txParameters.GetParameter<std::string>(beam::wallet::TxParameterID::OriginalToken); token)
+            {
+                params.SetParameter(beam::wallet::TxParameterID::OriginalToken, *token);
+            }
+
             params.SetParameter(TxParameterID::MyID, from)
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
@@ -427,10 +433,64 @@ namespace beam::wallet
         }
     }
 
+    template<typename T>
+    bool WalletApiHandler::setAssetParams(const JsonRpcId& id, TxParameters& params, const T& data)
+    {
+        auto walletDB = _walletData.getWalletDB();
+
+        if (data.meta)
+        {
+            params.SetParameter(TxParameterID::AssetMetadata, *data.meta);
+            return true;
+        }
+        else if (data.assetId)
+        {
+            if (const auto asset = walletDB->findAsset(*data.assetId))
+            {
+                std::string meta;
+                if(!fromByteBuffer(asset->m_Metadata.m_Value, meta))
+                {
+                    doError(id, ApiError::InternalErrorJsonRpc, "Failed to load asset metadata.");
+                    return false;
+                }
+
+                params.SetParameter(TxParameterID::AssetMetadata, meta);
+                return true;
+            }
+            else
+            {
+                doError(id, ApiError::InternalErrorJsonRpc, "Asset not found in a local database. Update asset info (tx_asset_info) or provide asset metdata.");
+                return false;
+            }
+        }
+
+        assert(!"presence of params should be checked already");
+        doError(id, ApiError::InternalErrorJsonRpc, "assetid or meta is required");
+        return false;
+    }
+
+    template bool WalletApiHandler::setAssetParams(const JsonRpcId& id, TxParameters& params, const Issue& data);
+    template bool WalletApiHandler::setAssetParams(const JsonRpcId& id, TxParameters& params, const Consume& data);
+    template bool WalletApiHandler::setAssetParams(const JsonRpcId& id, TxParameters& params, const AssetInfo& data);
+
     void WalletApiHandler::onMessage(const JsonRpcId& id, const Issue& data)
     {
-        LOG_DEBUG() << "Issue(id = " << id << " amount = " << data.value << " fee = " << data.fee;
+        onIssueConsumeMessage(true, id, data);
+    }
 
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const Consume& data)
+    {
+        onIssueConsumeMessage(false, id, data);
+    }
+
+    template<typename T>
+    void WalletApiHandler::onIssueConsumeMessage(bool issue, const JsonRpcId& id, const T& data)
+    {
+        LOG_DEBUG() << (issue ? " Issue" : " Consume") << "(id = " << id << " assetid = "
+                    << (data.assetId ? *data.assetId : 0)
+                    << " meta = " << (data.meta ? *data.meta : "\"\"")
+                    << " amount = " << data.value << " fee = " << data.fee
+                    << ")";
         try
         {
             CoinIDList coins;
@@ -442,8 +502,7 @@ namespace beam::wallet
                     doError(id, ApiError::InternalErrorJsonRpc, "Requested session is empty.");
                     return;
                 }
-            }
-            else
+            } else
             {
                 coins = data.coins ? *data.coins : CoinIDList();
             }
@@ -454,12 +513,84 @@ namespace beam::wallet
                 return;
             }
 
-            const auto txId = _walletData.getWallet().StartTransaction(CreateTransactionParameters(TxType::AssetIssue, data.txId)
-                .SetParameter(TxParameterID::Amount, data.value)
-                .SetParameter(TxParameterID::Fee, data.fee)
-                .SetParameter(TxParameterID::PreselectedCoins, coins)
-                .SetParameter(TxParameterID::AssetMetadata, data.meta));
+            auto params = CreateTransactionParameters(issue ? TxType::AssetIssue : TxType::AssetConsume, data.txId)
+                    .SetParameter(TxParameterID::Amount, data.value)
+                    .SetParameter(TxParameterID::Fee, data.fee)
+                    .SetParameter(TxParameterID::PreselectedCoins, coins);
 
+            if(!setAssetParams(id, params, data))
+            {
+                return;
+            }
+
+            const auto txId = _walletData.getWallet().StartTransaction(params);
+            doResponse(id, Issue::Response{ txId });
+        }
+        catch (...)
+        {
+            doError(id, ApiError::InternalErrorJsonRpc, "Transaction could not be created. Please look at logs.");
+        }
+    }
+
+    template void WalletApiHandler::onIssueConsumeMessage<Issue>(bool issue, const JsonRpcId& id, const Issue& data);
+    template void WalletApiHandler::onIssueConsumeMessage<Consume>(bool issue, const JsonRpcId& id, const Consume& data);
+
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const GetAssetInfo& data)
+    {
+        LOG_DEBUG() << " GetAssetInfo" << "(id = " << id << " assetid = "
+                    << (data.assetId ? *data.assetId : 0)
+                    << " meta = " << (data.meta ? *data.meta : "\"\"")
+                    << ")";
+
+        auto walletDB = _walletData.getWalletDB();
+        boost::optional<WalletAsset> info;
+
+        if (data.assetId)
+        {
+            info = walletDB->findAsset(*data.assetId);
+        }
+        else if (data.meta)
+        {
+            const auto kdf = walletDB->get_MasterKdf();
+            const auto ownerID = GetAssetOwnerID(kdf, *data.meta);
+            info = walletDB->findAsset(ownerID);
+        }
+
+        if(!info.is_initialized())
+        {
+            doError(id, ApiError::InternalErrorJsonRpc, "Asset not found in a local database. Update asset info (tx_asset_info) and try again.");
+            return;
+        }
+
+        GetAssetInfo::Response resp;
+        resp.AssetInfo = *info;
+
+        doResponse(id, resp);
+    }
+
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const AssetInfo& data)
+    {
+        LOG_DEBUG() << " AssetInfo" << "(id = " << id << " assetid = "
+                    << (data.assetId ? *data.assetId : 0)
+                    << " meta = " << (data.meta ? *data.meta : "\"\"")
+                    << ")";
+        try
+        {
+            auto walletDB = _walletData.getWalletDB();
+            if (data.txId && walletDB->getTx(*data.txId))
+            {
+                doTxAlreadyExistsError(id);
+                return;
+            }
+
+            auto params = CreateTransactionParameters(TxType::AssetInfo, data.txId);
+
+            if(!setAssetParams(id, params, data))
+            {
+                return;
+            }
+
+            const auto txId = _walletData.getWallet().StartTransaction(params);
             doResponse(id, Issue::Response{ txId });
         }
         catch (...)
@@ -1019,6 +1150,12 @@ namespace beam::wallet
             }
 
             Amount swapFeeRate = data.swapFeeRate ? data.swapFeeRate : GetSwapFeeRate(walletDB, *swapCoin);
+
+            if (!IsSwapAmountValid(*swapCoin, *swapAmount, swapFeeRate))
+            {
+                doError(id, ApiError::InvalidJsonRpc, kSwapAmountToLowError);
+                return;
+            }
 
             checkSwapConnection(_walletData.getAtomicSwapProvider(), *swapCoin);
 

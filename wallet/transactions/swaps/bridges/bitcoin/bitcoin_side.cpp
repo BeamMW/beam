@@ -406,12 +406,9 @@ namespace beam::wallet
                         if (error.m_type == bitcoin::IBridge::BitcoinError ||
                             error.m_type == bitcoin::IBridge::InvalidResultFormat)
                         {
-                            SetTxError(error, SubTxIndex::LOCK_TX);
+                            SetTxError(error, subTxID);
                         }
-                        else
-                        {
-                            m_tx.UpdateOnNextTip();
-                        }
+                        m_tx.UpdateOnNextTip();
                         return;
                     }
 

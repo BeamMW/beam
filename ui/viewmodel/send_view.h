@@ -33,6 +33,7 @@ class SendViewModel: public QObject
     Q_PROPERTY(QString  change             READ getChange                                       NOTIFY availableChanged)
     Q_PROPERTY(QString  totalUTXO          READ getTotalUTXO                                    NOTIFY availableChanged)
     Q_PROPERTY(QString  missing            READ getMissing                                      NOTIFY availableChanged)
+    Q_PROPERTY(bool     isZeroBalance      READ isZeroBalance                                   NOTIFY availableChanged)
     Q_PROPERTY(bool     isEnough           READ isEnough                                        NOTIFY isEnoughChanged)
     Q_PROPERTY(bool     canSend            READ canSend                                         NOTIFY canSendChanged)
     Q_PROPERTY(bool     isToken            READ isToken                                         NOTIFY receiverAddressChanged)
@@ -63,6 +64,7 @@ public:
     QString getTotalUTXO() const;
     QString getMaxAvailable() const;
 
+    bool isZeroBalance() const;
     bool isEnough() const;
     bool canSend() const;
     bool isToken() const;
