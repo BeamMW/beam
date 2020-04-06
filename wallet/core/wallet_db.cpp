@@ -825,7 +825,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 19;
+        const int DbVersion   = 20;
+        const int DbVersion19 = 19;
         const int DbVersion18 = 18;
         const int DbVersion17 = 17;
         const int DbVersion16 = 16;
@@ -1641,10 +1642,13 @@ namespace beam::wallet
                 case DbVersion18:
                     LOG_INFO() << "Converting DB from format 18...";
                     walletDB->MigrateCoins();
-                    CreateShieldedCoinsTable(walletDB->_db);
                     CreateNotificationsTable(walletDB->_db);
                     CreateExchangeRatesTable(walletDB->_db);
                     AddAddressIdentityColumn(walletDB.get(), walletDB->_db);
+                    // no break
+
+                case DbVersion19:
+                    CreateShieldedCoinsTable(walletDB->_db);
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 
