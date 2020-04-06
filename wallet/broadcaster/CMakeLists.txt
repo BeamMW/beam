@@ -18,6 +18,7 @@ target_link_libraries(${TARGET_NAME}
     PRIVATE
         wallet_client
         cli
+        mnemonic
 )
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
