@@ -8,9 +8,8 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source></source>
-        <oldsource>GROTH</oldsource>
-        <translation type="unfinished">GROTH</translation>
+        <source>GROTH</source>
+        <translation>GROTH</translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
