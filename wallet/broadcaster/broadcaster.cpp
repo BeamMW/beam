@@ -20,6 +20,9 @@
 #include "utility/log_rotation.h"
 #include "utility/string_helpers.h"
 
+#include "mnemonic/mnemonic.h"
+#include "core/ecc.h"
+
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
@@ -105,6 +108,28 @@ ByteBuffer generateExchangeRates(const std::string& currencyString, const Amount
 
 namespace
 {
+    struct Options
+    {
+        std::string walletPath;
+        std::string nodeURI;
+        Nonnegative<uint32_t> pollPeriod_ms;
+        uint32_t logCleanupPeriod;
+
+        std::string privateKey;
+        std::string messageType;
+
+        struct WalletUpdateInfo {
+            std::string version;
+            std::string walletType;
+        } walletUpdateInfo;
+
+        struct ExchangeRate {
+            std::string currency;
+            beam::Amount rate;
+            std::string unit;
+        } exchangeRate;
+    };
+
     class MyFlyClient 
         : public proto::FlyClient
         , public wallet::IWalletMessageConsumer
@@ -143,126 +168,87 @@ namespace
             io::Reactor::get_Current().stop();
         }
     };
-}
 
-int main_impl(int argc, char* argv[])
-{
-    using namespace beam;
-    namespace po = boost::program_options;
-
-    const auto path = boost::filesystem::system_complete("./logs");
-    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "broadcast_", path.string());
-
-    try
+    bool generateKeyPair(ECC::Scalar::Native& sk, PeerID& pk)
     {
-        struct
+        std::string dbFileName = "temp_wallet.db";
+
+        if (WalletDB::isInitialized(dbFileName))
         {
-            std::string walletPath;
-            std::string nodeURI;
-            Nonnegative<uint32_t> pollPeriod_ms;
-            uint32_t logCleanupPeriod;
-
-            std::string privateKey;
-            std::string messageType;
-
-            struct WalletUpdateInfo {
-                std::string version;
-                std::string walletType;
-            } walletUpdateInfo;
-
-            struct ExchangeRate {
-                std::string currency;
-                beam::Amount rate;
-                std::string unit;
-            } exchangeRate;
-        } options;
-
-        io::Address nodeAddress;
-        IWalletDB::Ptr walletDB;
-        reactor = io::Reactor::create();
-
-        {
-            po::options_description desc("General options");
-            desc.add_options()
-                (cli::HELP_FULL, "list of all options")
-                (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
-                (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
-                (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
-            ;
-
-            po::options_description messageDesc("Broadcast message options");
-            messageDesc.add_options()
-                (cli::PRIVATE_KEY, po::value<std::string>(&options.privateKey), "private key to sign message")
-                (cli::MESSAGE_TYPE, po::value<std::string>(&options.messageType), "type of message: 'update' - info about available software updates, 'exchange' - info about current exchange rates")
-                (cli::UPDATE_VERSION, po::value<std::string>(&options.walletUpdateInfo.version), "available software version in format 'x.x.x'")
-                (cli::UPDATE_TYPE, po::value<std::string>(&options.walletUpdateInfo.walletType), "updated software: 'desktop', 'android', 'ios'")
-                (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum'")
-                (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")
-                (cli::EXCHANGE_UNIT, po::value<std::string>(&options.exchangeRate.unit)->default_value("usd"), "unit currency: 'btc', 'usd'")
-            ;
-            
-            desc.add(messageDesc);
-            desc.add(createRulesOptionsDescription());
-
-            po::variables_map vm;
-
-            po::store(po::command_line_parser(argc, argv)
-                .options(desc)
-                .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
-                .run(), vm);
-
-            if (vm.count(cli::HELP))
-            {
-                std::cout << desc << std::endl;
-                return 0;
-            }
-
-            {
-                std::ifstream cfg("bbs.cfg");
-
-                if (cfg)
-                {
-                    po::store(po::parse_config_file(cfg, desc), vm);
-                }
-            }
-
-            vm.notify();
-
-            getRulesOptions(vm);
-
-            Rules::get().UpdateChecksum();
-            LOG_INFO() << "Broadcasting utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-            LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
-            
-            if (vm.count(cli::NODE_ADDR) == 0)
-            {
-                LOG_ERROR() << "node address should be specified";
-                return -1;
-            }
-
-            if (vm.count(cli::MESSAGE_TYPE) == 0)
-            {
-                LOG_ERROR() << "message type has to be specified";
-                return -1;
-            }
-
-            if (vm.count(cli::PRIVATE_KEY) == 0)
-            {
-                LOG_ERROR() << "private key has to be specified";
-                return -1;
-            }
-
-            if (!nodeAddress.resolve(options.nodeURI.c_str()))
-            {
-                LOG_ERROR() << "unable to resolve node address: " << options.nodeURI;
-                return -1;
-            }
+            boost::filesystem::remove(dbFileName);
         }
 
-        io::Reactor::Scope scope(*reactor);
-        io::Reactor::GracefulIntHandler gih(*reactor);
+        SecString pass("tempPass"); // random password should be used
 
-        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
+        WordList phrase;
+        phrase = createMnemonic(getEntropy(), language::en);
+        BOOST_ASSERT(phrase.size() == 12);
+
+        auto buf = decodeMnemonic(phrase);
+        SecString seed;
+        seed.assign(buf.data(), buf.size());
+
+        ECC::NoLeak<ECC::uintBig> walletSeed;
+        walletSeed.V = seed.hash().V;
+  
+        auto walletDB = WalletDB::init(dbFileName, pass, walletSeed);
+        if (walletDB)
+        {
+            walletDB->get_SbbsPeerID(sk, pk, 1);
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    int generateKeysCommand(const po::variables_map& vm, const Options& options)
+    {
+        IWalletDB::Ptr walletDB;
+        ECC::Scalar::Native sk;
+        PeerID pk;
+
+        if (!generateKeyPair(sk, pk))
+        {
+            LOG_ERROR() << "key pair generating error";
+            return -1;
+        }
+
+        ECC::Scalar skToPrint;
+        sk.Export(skToPrint);
+        std::cout << "Private key: " << skToPrint.str() << std::endl;
+        std::cout << "Public key: " << pk.str() << std::endl;
+
+        return 0;
+    }
+
+    int transmitCommand(const po::variables_map& vm, const Options& options)
+    {
+        if (vm.count(cli::NODE_ADDR) == 0)
+        {
+            LOG_ERROR() << "node address should be specified";
+            return -1;
+        }
+
+        if (vm.count(cli::MESSAGE_TYPE) == 0)
+        {
+            LOG_ERROR() << "message type has to be specified";
+            return -1;
+        }
+
+        if (vm.count(cli::PRIVATE_KEY) == 0)
+        {
+            LOG_ERROR() << "private key has to be specified";
+            return -1;
+        }
+
+        io::Address nodeAddress;
+        if (!nodeAddress.resolve(options.nodeURI.c_str()))
+        {
+            LOG_ERROR() << "unable to resolve node address: " << options.nodeURI;
+            return -1;
+        }
 
         MyFlyClient client;
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(client);
@@ -327,13 +313,105 @@ int main_impl(int argc, char* argv[])
         }
 
         io::Reactor::get_Current().run();
+        return 0;
+    }
+}
+
+int main_impl(int argc, char* argv[])
+{
+    using namespace beam;
+    namespace po = boost::program_options;
+
+    const auto path = boost::filesystem::system_complete("./logs");
+    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "broadcast_", path.string());
+
+    try
+    {
+        Options options;
+        po::variables_map vm;
+
+        {
+            po::options_description desc("General options");
+            desc.add_options()
+                (cli::HELP_FULL, "list of all options")
+                (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
+                (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
+                (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
+                (cli::COMMAND, po::value<std::string>(), "command to execute [generate_keys|transmit]")
+            ;
+
+            po::options_description messageDesc("Broadcast message options");
+            messageDesc.add_options()
+                (cli::PRIVATE_KEY, po::value<std::string>(&options.privateKey), "private key to sign message")
+                (cli::MESSAGE_TYPE, po::value<std::string>(&options.messageType), "type of message: 'update' - info about available software updates, 'exchange' - info about current exchange rates")
+                (cli::UPDATE_VERSION, po::value<std::string>(&options.walletUpdateInfo.version), "available software version in format 'x.x.x'")
+                (cli::UPDATE_TYPE, po::value<std::string>(&options.walletUpdateInfo.walletType), "updated software: 'desktop', 'android', 'ios'")
+                (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum'")
+                (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")
+                (cli::EXCHANGE_UNIT, po::value<std::string>(&options.exchangeRate.unit)->default_value("usd"), "unit currency: 'btc', 'usd'")
+            ;
+            
+            desc.add(messageDesc);
+            desc.add(createRulesOptionsDescription());
+
+            po::store(po::command_line_parser(argc, argv)
+                .options(desc)
+                .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
+                .run(), vm);
+
+            if (vm.count(cli::HELP))
+            {
+                std::cout << desc << std::endl;
+                return 0;
+            }
+
+            {
+                std::ifstream cfg("bbs.cfg");
+
+                if (cfg)
+                {
+                    po::store(po::parse_config_file(cfg, desc), vm);
+                }
+            }
+        }
+
+        vm.notify();
+        getRulesOptions(vm);
+
+        reactor = io::Reactor::create();
+        io::Reactor::Scope scope(*reactor);
+        io::Reactor::GracefulIntHandler gih(*reactor);
+
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
+
+        Rules::get().UpdateChecksum();
+        LOG_INFO() << "Broadcasting utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
+        LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+
+        if (vm.count(cli::COMMAND) == 0)
+        {
+            return transmitCommand(vm, options);
+        }
+        else
+        {
+            auto command = vm[cli::COMMAND].as<std::string>();
+            
+            if (command == cli::GENERATE_KEYS)
+            {
+                generateKeysCommand(vm, options); 
+            }
+            else if (command == cli::TRANSMIT)
+            {
+                return transmitCommand(vm, options);
+            }
+            else
+            {
+                LOG_ERROR() << "unknown command: " << command;
+                return -1;
+            }
+        }
 
         LOG_INFO() << "Done";
-    }
-    catch (const DatabaseException&)
-    {
-        LOG_ERROR() << "Wallet not opened.";
-        return -1;
     }
     catch (const std::exception& e)
     {

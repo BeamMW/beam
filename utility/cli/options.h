@@ -189,6 +189,8 @@ namespace beam
         extern const char* METADATA;
 
         // broadcaster
+        extern const char* GENERATE_KEYS;
+        extern const char* TRANSMIT;
         extern const char* PRIVATE_KEY;
         extern const char* MESSAGE_TYPE;
         extern const char* UPDATE_VERSION;
