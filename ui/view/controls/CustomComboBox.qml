@@ -13,6 +13,7 @@ ComboBox {
     property int fontPixelSize: 12
     property double fontLetterSpacing: 0
     property string color: Style.content_main
+    property bool enableScroll: false 
 
     delegate: ItemDelegate {
         id: itemDelegate
@@ -72,10 +73,10 @@ ComboBox {
                 id: listView
                 Layout.fillWidth: true
                 clip: true
-                implicitHeight: contentHeight
+                implicitHeight: enableScroll ? 250 : contentHeight
                 model: control.popup.visible ? control.delegateModel : null
                 currentIndex: control.highlightedIndex
-                ScrollIndicator.vertical: ScrollIndicator { }            
+                ScrollIndicator.vertical: ScrollIndicator { }
             }
             Item {
                 Layout.fillWidth: true

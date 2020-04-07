@@ -20,10 +20,6 @@
         <source>Contact</source>
         <translation>Контакт</translation>
     </message>
-    <message id="general-category">
-        <source>Category</source>
-        <translation>Категорија</translation>
-    </message>
     <message id="general-actions">
         <source>Actions</source>
         <translation>Акције</translation>
@@ -562,8 +558,9 @@
         <translation>Молим спецификуј контакт или токен за трансакцију </translation>
     </message>
     <message id="send-amount-label">
-        <source>Send</source>
-        <translation>Пошаљи</translation>
+        <source>Amount to send</source>
+        <oldsource>Send</oldsource>
+        <translation type="unfinished">Пошаљи</translation>
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
@@ -800,8 +797,9 @@
         <translation>Трансакција отказана</translation>
     </message>
     <message id="tx-failure-receiver-signature-invalid">
-        <source>Receiver signature is not valid, please send wallet logs to Beam support</source>
-        <translation>Потпис примаоца није валидан, молим пошаљите логове новчаника Beam подршци</translation>
+        <source>Receiver signature in not valid, please send wallet logs to Beam support</source>
+        <oldsource>Receiver signature is not valid, please send wallet logs to Beam support</oldsource>
+        <translation type="unfinished">Потпис примаоца није валидан, молим пошаљите логове новчаника Beam подршци</translation>
     </message>
     <message id="tx-failure-not-registered-in-blockchain">
         <source>Failed to register transaction with the blockchain, see node logs for details</source>
@@ -1339,7 +1337,7 @@ Update your settings and try again.</oldsource>
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>%1 is not connected,
+        <source>%1 is not connected, 
 please review your settings and try again</source>
         <oldsource>%1 is not connected,
 please review your settings and try again</oldsource>
@@ -2168,10 +2166,6 @@ deploy the key at the node you trust completely.</oldsource>
         <source>Asset is still locked</source>
         <translation>Асет је још увек закључан</translation>
     </message>
-    <message id="settings-notifications-rates">
-        <source>Exchange rates</source>
-        <translation>Курс за размену</translation>
-    </message>
     <message id="settings-general-amounts-unit">
         <source>Show amounts in</source>
         <extracomment>settings tab, general section, amounts unit label</extracomment>
@@ -2206,7 +2200,8 @@ deploy the key at the node you trust completely.</oldsource>
         <translation type="unfinished">детаљи</translation>
     </message>
     <message id="notification-update-title">
-        <source>New version v %1 is avalable</source>
+        <source>New version v %1 is available</source>
+        <oldsource>New version v %1 is avalable</oldsource>
         <translation type="unfinished">Нова верзија v %1 је доступна</translation>
     </message>
     <message id="notification-address-expired">
@@ -2214,7 +2209,8 @@ deploy the key at the node you trust completely.</oldsource>
         <translation type="unfinished">Адреса је истекла</translation>
     </message>
     <message id="notification-transaction-received">
-        <source>Transaction received</source>
+        <source>Transaction was received</source>
+        <oldsource>Transaction received</oldsource>
         <translation type="unfinished">Трансакција примљена</translation>
     </message>
     <message id="notification-transaction-sent-message">
@@ -2231,7 +2227,8 @@ deploy the key at the node you trust completely.</oldsource>
         <translation type="unfinished">BEAM у штампаним медијима</translation>
     </message>
     <message id="notification-address-expired-message">
-        <source>Address expired</source>
+        <source>&lt;b&gt;%1&lt;/b&gt; address expired.</source>
+        <oldsource>Address expired</oldsource>
         <translation type="unfinished">Адреса је истекла</translation>
     </message>
     <message id="notification-transaction-received-message">
@@ -2250,7 +2247,8 @@ deploy the key at the node you trust completely.</oldsource>
         <translation type="unfinished">Примање &lt;b&gt;%1 BEAM&lt;/b&gt; од &lt;b&gt;%2&lt;/b&gt; није успело.</translation>
     </message>
     <message id="notification-transaction-sent">
-        <source>Transaction sent</source>
+        <source>Transaction was sent</source>
+        <oldsource>Transaction sent</oldsource>
         <translation type="unfinished">Трансакција послата</translation>
     </message>
     <message id="settings-update-wallet">
@@ -2267,12 +2265,73 @@ deploy the key at the node you trust completely.</oldsource>
         <translation type="unfinished">Износ валуте</translation>
     </message>
     <message id="tx-details-second-currency-notification">
-        <source> (for the day of transaction)</source>
+        <source>(for the day of transaction)</source>
+        <oldsource> (for the day of transaction)</oldsource>
         <translation type="unfinished">(на дан трансакције)</translation>
     </message>
     <message id="general-exchange-rate-not-available">
         <source>Exchange rate to %1 is not available</source>
         <translation type="unfinished">Курс за %1 није доступан</translation>
     </message>
-    </context>
+    <message id="general-identity">
+        <source>Identity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-exchange-rate-not-available">
+        <source>Exchange rate to %1 was not available at the time of transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-sender-identity">
+        <source>Sender identity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-details-receiver-identity">
+        <source>Receiver identity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-token">
+        <source>Token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notifications-activated">
+        <source>activated</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-completed">
+        <source>Atomic Swap offer completed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-expired">
+        <source>Atomic Swap offer expired</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-failed">
+        <source>Atomic Swap offer failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-beam-completed-message">
+        <source>Offer &lt;b&gt;%1 BEAM ➞ %2 %3&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; completed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-completed-message">
+        <source>Offer &lt;b&gt;%1 %3 ➞ %2 BEAM&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; completed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-beam-expired-message">
+        <source>Offer &lt;b&gt;%1 BEAM ➞ %2 %3&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; expired.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-expired-message">
+        <source>Offer &lt;b&gt;%1 %3 ➞ %2 BEAM&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; expired.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-beam-failed-message">
+        <source>Offer &lt;b&gt;%1 BEAM ➞ %2 %3&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; failed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="notification-swap-failed-message">
+        <source>Offer &lt;b&gt;%1 %3 ➞ %2 BEAM&lt;/b&gt; with transaction ID &lt;b&gt;%4&lt;/b&gt; failed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
 </TS>
