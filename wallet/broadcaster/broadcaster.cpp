@@ -38,7 +38,8 @@
 using namespace beam;
 using namespace beam::wallet;
 
-static const unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
+constexpr unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
+constexpr std::string_view TEMP_DB_FILE_NAME = "temp_wallet.db";
 
 io::Reactor::Ptr reactor;
 
@@ -171,14 +172,13 @@ namespace
 
     bool generateKeyPair(ECC::Scalar::Native& sk, PeerID& pk)
     {
-        std::string dbFileName = "temp_wallet.db";
-
-        if (WalletDB::isInitialized(dbFileName))
+        std::string temp_db_file_name(TEMP_DB_FILE_NAME);
+        if (WalletDB::isInitialized(temp_db_file_name))
         {
-            boost::filesystem::remove(dbFileName);
+            boost::filesystem::remove(temp_db_file_name);
         }
 
-        SecString pass("tempPass"); // random password should be used
+        SecString pass("tempPass"); // TODO: random password should be used
 
         WordList phrase;
         phrase = createMnemonic(getEntropy(), language::en);
@@ -191,27 +191,26 @@ namespace
         ECC::NoLeak<ECC::uintBig> walletSeed;
         walletSeed.V = seed.hash().V;
   
-        auto walletDB = WalletDB::init(dbFileName, pass, walletSeed);
+        auto walletDB = WalletDB::init(temp_db_file_name, pass, walletSeed);
         if (walletDB)
         {
             walletDB->get_SbbsPeerID(sk, pk, 1);
             return true;
         }
-        else
-        {
-            return false;
-        }
+        
+        return false;
     }
 
     int generateKeysCommand(const po::variables_map& vm, const Options& options)
     {
-        IWalletDB::Ptr walletDB;
         ECC::Scalar::Native sk;
         PeerID pk;
 
+        LOG_INFO() << "Key generation requested";
+
         if (!generateKeyPair(sk, pk))
         {
-            LOG_ERROR() << "key pair generating error";
+            LOG_ERROR() << "key generation error";
             return -1;
         }
 
@@ -220,11 +219,16 @@ namespace
         std::cout << "Private key: " << skToPrint.str() << std::endl;
         std::cout << "Public key: " << pk.str() << std::endl;
 
+        LOG_INFO() << "Key pair successfully generated";
+        boost::filesystem::remove(std::string(TEMP_DB_FILE_NAME));
+
         return 0;
     }
 
     int transmitCommand(const po::variables_map& vm, const Options& options)
     {
+        LOG_INFO() << "Message transmit requested";
+
         if (vm.count(cli::NODE_ADDR) == 0)
         {
             LOG_ERROR() << "node address should be specified";
