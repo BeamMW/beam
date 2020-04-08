@@ -183,7 +183,6 @@ SSLContext::Ptr SSLContext::create_client_context(const char* certFileName, cons
 
     setup_certificate(ctx, certFileName, privKeyFileName);
 
-    
     int verifyMode = (rejectUnauthorized == false) ?
         // if not using an anonymous cipher (by default disabled), the server will send a certificate which will be checked.
         // The result of the certificate verification process can be checked after the TLS/SSL handshake using the SSL_get_verify_result(3) function. 
@@ -195,7 +194,7 @@ SSLContext::Ptr SSLContext::create_client_context(const char* certFileName, cons
         // If no server certificate is sent, because an anonymous cipher is used, SSL_VERIFY_PEER is ignored.
         SSL_VERIFY_PEER;    
     
-    SSL_CTX_set_verify(ctx, verifyMode, verify_client);
+    SSL_CTX_set_verify(ctx, verifyMode, rejectUnauthorized ? verify_client : nullptr);
     
     setup_verification_paths(ctx);
 
