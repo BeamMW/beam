@@ -151,7 +151,8 @@ namespace beam::wallet
     MACRO(NoMasterKey,                   38, "Master key is needed for this transaction, but unavailable") \
     MACRO(KeyKeeperError,                39, "Key keeper malfunctioned") \
     MACRO(KeyKeeperUserAbort,            40, "Aborted by the user") \
-    MACRO(AssetExists,                   41, "Asset has been already registered")
+    MACRO(AssetExists,                   41, "Asset has been already registered") \
+    MACRO(InvalidAssetOwnerId,           42, "Invalid asset owner id") \
 
     enum TxFailureReason : int32_t
     {
@@ -505,11 +506,11 @@ namespace beam::wallet
         bool canDelete() const;
         std::string getStatusString() const;
         std::string getStatusStringApi() const;
+        std::string getTxTypeString() const;
         std::string getAmountInSecondCurrency(ExchangeRate::Currency) const;
         std::string getToken() const;
         std::string getSenderIdentity() const;
         std::string getReceiverIdentity() const;
-
         std::string getIdentity(bool isSender) const;
 
     //private:

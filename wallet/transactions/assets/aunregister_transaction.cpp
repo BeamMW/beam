@@ -60,7 +60,7 @@ namespace beam::wallet
     AssetUnregisterTransaction::AssetUnregisterTransaction(INegotiatorGateway& gateway
                                         , IWalletDB::Ptr walletDB
                                         , const TxID& txID)
-        : BaseTransaction{ gateway, std::move(walletDB), txID}
+        : AssetTransaction(gateway, std::move(walletDB), txID)
     {
     }
 
@@ -90,13 +90,19 @@ namespace beam::wallet
 
             if (GetState() == State::AssetCheck)
             {
-                Height auHeight = 0, acHeight = 0;
+                Height auHeight = 0;
                 GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-                GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-
-                if(auHeight || !acHeight)
+                if (auHeight)
                 {
                     OnFailed(TxFailureReason::AssetConfirmFailed);
+                    return;
+                }
+
+                Height acHeight = 0;
+                GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
+                if (!acHeight)
+                {
+                    ConfirmAsset();
                     return;
                 }
 
@@ -110,13 +116,14 @@ namespace beam::wallet
                 const WalletAsset info(fullInfo, acHeight);
 
                 //
-                // Asset ID must be valid
+                // Asset ID && Asset Owner ID must be valid
                 //
                 if (info.m_ID == Asset::s_InvalidID)
                 {
-                    OnFailed(TxFailureReason::NoAssetId, true);
+                    OnFailed(TxFailureReason::InvalidAssetId, true);
                     return;
                 }
+
                 SetParameter(TxParameterID::AssetID, info.m_ID);
 
                 //
@@ -124,7 +131,7 @@ namespace beam::wallet
                 //
                 if (info.m_Owner != _builder->GetAssetOwnerId())
                 {
-                    OnFailed(TxFailureReason::NoAssetId, true);
+                    OnFailed(TxFailureReason::InvalidAssetOwnerId, true);
                     return;
                 }
 
@@ -152,7 +159,6 @@ namespace beam::wallet
                 // Here we know that this asset is safe to unregister
                 // It is valid, 0 emission and this cannot be rolled back
                 //
-
                 if(!builder.GetInitialTxParams())
                 {
                     builder.AddRefund();

@@ -45,9 +45,21 @@ namespace
             {"value", tx.m_amount},
             {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
             {"create_time", tx.m_createTime},
-            {"income", !tx.m_sender}
+            {"income", !tx.m_sender},
+            {"asset_id", tx.m_assetId},
+            {"tx_type", tx.m_txType},
+            {"tx_type_string", tx.getTxTypeString()}
         };
 
+        if (tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume || tx.m_txType == TxType::AssetInfo)
+        {
+            if (!tx.m_assetMeta.empty())
+            {
+                msg["asset_meta"] = tx.m_assetMeta;
+            }
+        }
+
+        // TODO: check what's going on with height for asset info
         if (kernelProofHeight > 0)
         {
             msg["height"] = kernelProofHeight;
@@ -64,13 +76,18 @@ namespace
         }
         else if (tx.m_status != TxStatus::Canceled)
         {
-            msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
+            if (tx.m_txType != TxType::AssetInfo)
+            {
+                msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
+            }
         }
+
         auto token = tx.GetParameter<std::string>(TxParameterID::OriginalToken);
         if (token)
         {
             msg["token"] = *token;
         }
+
         if (showIdentities)
         {
             auto senderIdentity = tx.getSenderIdentity();
@@ -821,8 +838,16 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             send.comment = params["comment"].get<std::string>();
         }
 
-        send.txId = readTxIdParameter(id, params);
+        if(existsJsonParam(params, "asset_id"))
+        {
+            if (!params["asset_id"].is_number_unsigned() || params["asset_id"].get<uint32_t>() == 0)
+            {
+                throw jsonrpc_exception{ApiError::InvalidJsonRpc, "asset_id must be non zero 64bit unsigned integer", id};
+            }
+            send.assetId = params["asset_id"].get<uint32_t>();
+        }
 
+        send.txId = readTxIdParameter(id, params);
         getHandler().onMessage(id, send);
     }
 
@@ -904,25 +929,25 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     template<typename T>
     void ReadAssetParams(const JsonRpcId& id, const json& params, T& data)
     {
-        if (Api::existsJsonParam(params, "meta"))
+        if (Api::existsJsonParam(params, "asset_meta"))
         {
-            if (!params["meta"].is_string() || params["meta"].empty())
+            if (!params["asset_meta"].is_string() || params["asset_meta"].get<std::string>().empty())
             {
                 throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "meta should be non-empty string", id};
             }
-            data.meta = params["meta"].get<std::string>();
+            data.assetMeta = params["asset_meta"].get<std::string>();
         }
-        else if(Api::existsJsonParam(params, "assetid"))
+        else if(Api::existsJsonParam(params, "asset_id"))
         {
-            if (!params["assetid"].is_number_unsigned() || params["assetid"] == 0)
+            if (!params["asset_id"].is_number_unsigned() || params["asset_id"].get<uint32_t>() == 0)
             {
-                throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "assetid must be non zero 64bit unsigned integer", id};
+                throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "asset_id must be non zero 64bit unsigned integer", id};
             }
-            data.assetId = params["assetid"].get<uint32_t>();
+            data.assetId = params["asset_id"].get<uint32_t>();
         }
         else
         {
-            throw Api::jsonrpc_exception{ ApiError::InvalidJsonRpc, "assetid or meta is required", id };
+            throw Api::jsonrpc_exception{ ApiError::InvalidJsonRpc, "asset_id or meta is required", id };
         }
     }
 
@@ -1433,9 +1458,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"id", id},
             {"result",
                 {
-                    // TODO:ASSETS check if displayed in cli, refresh height
                     {"assetId",       res.AssetInfo.m_ID},
-                    {"value",         res.AssetInfo.m_Value.str()},
+                    {"value",         AmountBig::get_Lo(res.AssetInfo.m_Value)},
                     {"lockHeight",    res.AssetInfo.m_LockHeight},
                     {"refreshHeight", res.AssetInfo.m_RefreshHeight},
                     {"ownerId",       res.AssetInfo.m_Owner.str()},

@@ -295,6 +295,7 @@ namespace beam::wallet
         boost::optional<WalletID> from;
         boost::optional<uint64_t> session;
         boost::optional<TxID> txId;
+        boost::optional<Asset::ID> assetId;
         WalletID address;
         std::string comment;
         TxParameters txParameters;
@@ -309,7 +310,7 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = kMinFeeInGroth;
-        boost::optional<std::string> meta;
+        boost::optional<std::string> assetMeta;
         boost::optional<Asset::ID> assetId;
         boost::optional<CoinIDList> coins;
         boost::optional<uint64_t> session;
@@ -325,7 +326,7 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = kMinFeeInGroth;
-        boost::optional<std::string> meta;
+        boost::optional<std::string> assetMeta;
         boost::optional<Asset::ID> assetId;
         boost::optional<CoinIDList> coins;
         boost::optional<uint64_t> session;
@@ -339,7 +340,7 @@ namespace beam::wallet
 
     struct AssetInfo
     {
-        boost::optional<std::string> meta;
+        boost::optional<std::string> assetMeta;
         boost::optional<Asset::ID> assetId;
         boost::optional<TxID> txId;
 
@@ -488,7 +489,7 @@ namespace beam::wallet
 
     struct GetAssetInfo
     {
-        boost::optional<std::string> meta;
+        boost::optional<std::string> assetMeta;
         boost::optional<Asset::ID> assetId;
         struct Response
         {

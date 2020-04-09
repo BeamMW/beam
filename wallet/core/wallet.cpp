@@ -590,10 +590,11 @@ namespace beam::wallet
 
         if (!req.m_Res.m_Proof.empty())
         {
-            const auto& info = req.m_Res.m_Info;
-            m_WalletDB->saveAsset(info, m_WalletDB->getCurrentHeight());
+            const auto& info  = req.m_Res.m_Info;
+            const auto height = m_WalletDB->getCurrentHeight();
+            m_WalletDB->saveAsset(info, height);
 
-            if (tx->SetParameter(TxParameterID::AssetConfirmedHeight, info.m_LockHeight, req.m_SubTxID) &&
+            if (tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID) &&
                 tx->SetParameter(TxParameterID::AssetFullInfo, info, req.m_SubTxID) &&
                 tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID))
             {

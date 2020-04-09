@@ -345,7 +345,9 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const Send& data)
     {
-        LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee << " address = " << std::to_string(data.address) << ")";
+        LOG_DEBUG() << "Send(id = " << id
+                    << " asset_id = " << (data.assetId ? *data.assetId : 0)
+                    << " amount = " << data.value << " fee = " << data.fee << " address = " << std::to_string(data.address) << ")";
 
         try
         {
@@ -417,6 +419,11 @@ namespace beam::wallet
                 params.SetParameter(beam::wallet::TxParameterID::OriginalToken, *token);
             }
 
+            if(data.assetId)
+            {
+                params.SetParameter(TxParameterID::AssetID, *data.assetId);
+            }
+
             params.SetParameter(TxParameterID::MyID, from)
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
@@ -438,23 +445,23 @@ namespace beam::wallet
     {
         auto walletDB = _walletData.getWalletDB();
 
-        if (data.meta)
+        if (data.assetMeta)
         {
-            params.SetParameter(TxParameterID::AssetMetadata, *data.meta);
+            params.SetParameter(TxParameterID::AssetMetadata, *data.assetMeta);
             return true;
         }
         else if (data.assetId)
         {
             if (const auto asset = walletDB->findAsset(*data.assetId))
             {
-                std::string meta;
-                if(!fromByteBuffer(asset->m_Metadata.m_Value, meta))
+                std::string strmeta;
+                if(!fromByteBuffer(asset->m_Metadata.m_Value, strmeta))
                 {
                     doError(id, ApiError::InternalErrorJsonRpc, "Failed to load asset metadata.");
                     return false;
                 }
 
-                params.SetParameter(TxParameterID::AssetMetadata, meta);
+                params.SetParameter(TxParameterID::AssetMetadata, strmeta);
                 return true;
             }
             else
@@ -465,7 +472,7 @@ namespace beam::wallet
         }
 
         assert(!"presence of params should be checked already");
-        doError(id, ApiError::InternalErrorJsonRpc, "assetid or meta is required");
+        doError(id, ApiError::InternalErrorJsonRpc, "asset_id or meta is required");
         return false;
     }
 
@@ -486,9 +493,9 @@ namespace beam::wallet
     template<typename T>
     void WalletApiHandler::onIssueConsumeMessage(bool issue, const JsonRpcId& id, const T& data)
     {
-        LOG_DEBUG() << (issue ? " Issue" : " Consume") << "(id = " << id << " assetid = "
+        LOG_DEBUG() << (issue ? " Issue" : " Consume") << "(id = " << id << " asset_id = "
                     << (data.assetId ? *data.assetId : 0)
-                    << " meta = " << (data.meta ? *data.meta : "\"\"")
+                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
                     << " amount = " << data.value << " fee = " << data.fee
                     << ")";
         try
@@ -537,9 +544,9 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const GetAssetInfo& data)
     {
-        LOG_DEBUG() << " GetAssetInfo" << "(id = " << id << " assetid = "
+        LOG_DEBUG() << " GetAssetInfo" << "(id = " << id << " asset_id = "
                     << (data.assetId ? *data.assetId : 0)
-                    << " meta = " << (data.meta ? *data.meta : "\"\"")
+                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
                     << ")";
 
         auto walletDB = _walletData.getWalletDB();
@@ -549,10 +556,10 @@ namespace beam::wallet
         {
             info = walletDB->findAsset(*data.assetId);
         }
-        else if (data.meta)
+        else if (data.assetMeta)
         {
             const auto kdf = walletDB->get_MasterKdf();
-            const auto ownerID = GetAssetOwnerID(kdf, *data.meta);
+            const auto ownerID = GetAssetOwnerID(kdf, *data.assetMeta);
             info = walletDB->findAsset(ownerID);
         }
 
@@ -570,9 +577,9 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const AssetInfo& data)
     {
-        LOG_DEBUG() << " AssetInfo" << "(id = " << id << " assetid = "
+        LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = "
                     << (data.assetId ? *data.assetId : 0)
-                    << " meta = " << (data.meta ? *data.meta : "\"\"")
+                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
                     << ")";
         try
         {
@@ -800,8 +807,19 @@ namespace beam::wallet
         TxList::Response res;
 
         {
-            auto walletDB = _walletData.getWalletDB();
-            auto txList = walletDB->getTxHistory();
+            auto walletDB  = _walletData.getWalletDB();
+            auto txList    = walletDB->getTxHistory(TxType::Simple);
+            auto txIssue   = walletDB->getTxHistory(TxType::AssetIssue);
+            auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
+            auto txInfo    = walletDB->getTxHistory(TxType::AssetInfo);
+
+            txList.insert(txList.end(), txIssue.begin(), txIssue.end());
+            txList.insert(txList.end(), txConsume.begin(), txConsume.end());
+            txList.insert(txList.end(), txInfo.begin(), txInfo.end());
+
+            std::sort(txList.begin(), txList.end(), [](const TxDescription& a, const TxDescription& b) -> bool {
+                return a.m_minHeight > b.m_minHeight;
+             });
 
             Block::SystemState::ID stateID = {};
             _walletData.getWalletDB()->getSystemStateID(stateID);
@@ -846,7 +864,6 @@ namespace beam::wallet
         }
 
         doPagination(data.skip, data.count, res.resultList);
-
         doResponse(id, res);
     }
 

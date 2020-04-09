@@ -333,14 +333,22 @@ namespace beam::wallet
 
                 if (txState == State::AssetConfirmation)
                 {
-                    Height auHeight = 0, acHeight = 0;
+                    Height auHeight = 0;
                     GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-                    GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-                    if (auHeight || !acHeight)
+                    if (auHeight)
                     {
                         OnFailed(TxFailureReason::AssetConfirmFailed);
                         return;
                     }
+
+                    Height acHeight = 0;
+                    GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
+                    if (!acHeight)
+                    {
+                        ConfirmAsset();
+                        return;
+                    }
+
                     SetState(State::AssetCheck);
                 }
 
@@ -396,10 +404,6 @@ namespace beam::wallet
                         ConfirmAsset();
                         return;
                     }
-
-                    // TODO:ASSET check if we nee to compare metadata & owner
-                    //if ((item.m_Owner != owner) || (item.m_Metadata != md))
-			        //    throw FailTx("different asset data");
                 }
             }
 

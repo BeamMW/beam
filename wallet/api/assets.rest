@@ -1,4 +1,4 @@
-POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+POST http://127.0.0.1:15000/api/wallet HTTP/1.1
 content-type: application/json-rpc
 
 {
@@ -7,12 +7,12 @@ content-type: application/json-rpc
     "method": "tx_asset_issue",
     "params": {
          "value": 6,
-         "assetid": 1
+         "asset_id": 2
     }
 }
-###
 
-POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+###
+POST http://127.0.0.1:15000/api/wallet HTTP/1.1
 content-type: application/json-rpc
 
 {
@@ -21,12 +21,12 @@ content-type: application/json-rpc
     "method": "tx_asset_consume",
     "params": {
          "value": 4,
-         "assetid": 1
+         "asset_id": 1
     }
 }
-###
 
-POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+###
+POST http://127.0.0.1:15000/api/wallet HTTP/1.1
 content-type: application/json-rpc
 
 {
@@ -34,12 +34,12 @@ content-type: application/json-rpc
     "id": 1236,
     "method": "tx_asset_info",
     "params": {
-         "assetid": 1
+         "asset_id": 1
     }
 }
-###
 
-POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+###
+POST http://127.0.0.1:15000/api/wallet HTTP/1.1
 content-type: application/json-rpc
 
 {
@@ -47,12 +47,12 @@ content-type: application/json-rpc
     "id": 1236,
     "method": "get_asset_info",
     "params": {
-         "assetid": 1
+         "asset_id": 1
     }
 }
-###
 
-POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+###
+POST http://127.0.0.1:15000/api/wallet HTTP/1.1
 content-type: application/json-rpc
 
 {
@@ -60,7 +60,33 @@ content-type: application/json-rpc
     "id": 1236,
     "method": "tx_asset_info",
     "params": {
-         "assetid": 1
+         "asset_id": 1
     }
 }
+
+###
+POST http://127.0.0.1:15000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "tx_list",
+    "params": {}
+}
+
+###
+POST http://127.0.0.1:15000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+	"jsonrpc":"2.0",
+	"id": 4,
+	"method":"tx_status",
+	"params":
+	{
+		"txId" : "95ac4d97843340f88bfa8b50f0991623"
+	}
+}
+
 ###
