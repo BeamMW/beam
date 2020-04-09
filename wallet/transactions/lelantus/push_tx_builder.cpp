@@ -67,48 +67,62 @@ namespace beam::wallet::lelantus
 
         {
             TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
-            pKrn->m_Height.m_Min = GetMinHeight();
-            pKrn->m_Height.m_Max = GetMaxHeight();
-            pKrn->m_Fee = GetFee();
+            ECC::Scalar::Native outputK;
 
-            ShieldedTxo::Viewer viewer;
-            viewer.FromOwner(*m_Tx.GetWalletDB()->get_MasterKdf());
+            if (m_Tx.GetParameter(TxParameterID::Kernel, pKrn))
+            {
+                auto shieldedCoin = m_Tx.GetWalletDB()->getShieldedCoin(m_Tx.GetTxID());
+                assert(shieldedCoin);
+                outputK = shieldedCoin->m_skOutputG;
+            }
+            else
+            {
+                pKrn->m_Height.m_Min = GetMinHeight();
+                pKrn->m_Height.m_Max = GetMaxHeight();
+                pKrn->m_Fee = GetFee();
 
-            ShieldedTxo::Data::Params sdp;
-            ECC::uintBig serialNonce;
-            ECC::GenRandom(serialNonce);
+                ShieldedTxo::Viewer viewer;
+                viewer.FromOwner(*m_Tx.GetWalletDB()->get_MasterKdf());
 
-            sdp.m_Serial.Generate(pKrn->m_Txo.m_Serial, viewer, serialNonce);
+                ShieldedTxo::Data::Params sdp;
+                ECC::uintBig serialNonce;
+                ECC::GenRandom(serialNonce);
 
-            pKrn->UpdateMsg();
-            ECC::Oracle oracle;
-            oracle << pKrn->m_Msg;
+                sdp.m_Serial.Generate(pKrn->m_Txo.m_Serial, viewer, serialNonce);
 
-            ECC::uintBig outputNonce;
-            ECC::GenRandom(outputNonce);
+                pKrn->UpdateMsg();
+                ECC::Oracle oracle;
+                oracle << pKrn->m_Msg;
 
-            sdp.m_Output.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
-            // TODO: add ShieldedMessage if needed
-            // op.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
-            sdp.m_Output.m_Value = GetAmount();
-            sdp.Generate(pKrn->m_Txo, oracle, viewer, outputNonce);
+                ECC::uintBig outputNonce;
+                ECC::GenRandom(outputNonce);
 
-            // save shielded Coin
-            ShieldedCoin shieldedCoin;
-            shieldedCoin.m_value = GetAmount();
-            shieldedCoin.m_createTxId = m_Tx.GetTxID();
-            shieldedCoin.m_skSerialG = sdp.m_Serial.m_pK[0];
-            shieldedCoin.m_skOutputG = sdp.m_Output.m_k;
-            shieldedCoin.m_isCreatedByViewer = sdp.m_Serial.m_IsCreatedByViewer;
-            shieldedCoin.m_sender = sdp.m_Output.m_Sender;
-            shieldedCoin.m_message = sdp.m_Output.m_Message;
+                sdp.m_Output.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
+                // TODO: add ShieldedMessage if needed
+                // op.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
+                sdp.m_Output.m_Value = GetAmount();
+                sdp.Generate(pKrn->m_Txo, oracle, viewer, outputNonce);
 
-            m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);
-            m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, pKrn->m_Txo.m_Serial.m_SerialPub);
+                // save shielded Coin
+                ShieldedCoin shieldedCoin;
+                shieldedCoin.m_value = GetAmount();
+                shieldedCoin.m_createTxId = m_Tx.GetTxID();
+                shieldedCoin.m_skSerialG = sdp.m_Serial.m_pK[0];
+                shieldedCoin.m_skOutputG = sdp.m_Output.m_k;
+                shieldedCoin.m_isCreatedByViewer = sdp.m_Serial.m_IsCreatedByViewer;
+                shieldedCoin.m_sender = sdp.m_Output.m_Sender;
+                shieldedCoin.m_message = sdp.m_Output.m_Message;
 
-            // save KernelID
-            pKrn->MsgToID();
-            m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
+                outputK = sdp.m_Output.m_k;
+
+                m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);
+                m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, pKrn->m_Txo.m_Serial.m_SerialPub);
+
+                // save Kernel and KernelID
+                pKrn->MsgToID();
+                m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
+                m_Tx.SetParameter(TxParameterID::Kernel, pKrn);
+            }
 
             LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
                 << " Transaction created. Kernel: " << GetKernelIDString()
@@ -118,7 +132,7 @@ namespace beam::wallet::lelantus
             transaction->m_vKernels.push_back(std::move(pKrn));
 
             ECC::Scalar::Native offset = transaction->m_Offset;
-            offset -= sdp.m_Output.m_k;
+            offset -= outputK;
             transaction->m_Offset = offset;
         }
 

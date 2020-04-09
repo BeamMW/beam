@@ -118,7 +118,8 @@ namespace beam::wallet::lelantus
             return;
         }
 
-        if (proto::TxStatus::InvalidContext == nRegistered) // we have to ensure that this transaction hasn't already added to blockchain)
+        if (proto::TxStatus::InvalidContext == nRegistered ||   // we have to ensure that this transaction hasn't already added to blockchain
+            proto::TxStatus::InvalidInput == nRegistered)       // transaction could be sent to node previously
         {
             Height lastUnconfirmedHeight = 0;
             if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
