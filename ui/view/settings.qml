@@ -484,6 +484,7 @@ deploy the key at the node you trust completely."*/
                                     id: language
                                     Layout.preferredWidth: generalBlock.width * 0.33
                                     fontPixelSize: 14
+                                    enableScroll: true
                             
                                     model: viewModel.supportedLanguages
                                     currentIndex: viewModel.currentLanguageIndex

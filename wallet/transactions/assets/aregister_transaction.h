@@ -14,22 +14,17 @@
 
 #pragma once
 
-#include "wallet/core/common.h"
-#include "wallet/core/wallet_db.h"
-#include "wallet/core/base_transaction.h"
-
 #include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
+#include "asset_base_tx.h"
 #include "aregister_tx_builder.h"
 
 namespace beam::wallet
 {
     class BaseTxBuilder;
-
-    class AssetRegisterTransaction : public BaseTransaction
+    class AssetRegisterTransaction : public AssetTransaction
     {
-        typedef BaseTransaction super;
     public:
         class Creator : public BaseTransaction::Creator
         {
@@ -47,7 +42,6 @@ namespace beam::wallet
 
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
-        bool Rollback(Height height) override;
         bool IsLoopbackTransaction() const;
         void ConfirmAsset();
         AssetRegisterTxBuilder& GetTxBuilder();

@@ -34,27 +34,10 @@ namespace beam
     const char kCoinStatusIncoming[] = "In progress(incoming/change)";
     const char kCoinStatusConsumed[]    = "Consumed";
 
-    // Tx statuses
-    const char kTxStatusPending[] = "pending";
-    const char kTxStatusWaitingForSender[] = "waiting for sender";
-    const char kTxStatusWaitingForReceiver[] = "waiting for receiver";
-    const char kTxStatusInProgress[] = "in progress";
-    const char kTxStatusSendingToOwn[] = "sending to own address";
-    const char kTxStatusCancelled[] = "cancelled";
-    const char kTxStatusSent[] = "sent";
-    const char kTxStatusReceived[] = "received";
-    const char kTxStatusFailed[] = "failed";
-    const char kTxStatusSentToOwn[] = "sent to own address";
-    const char kTxStatusExpired[] = "expired";
-    const char kTxStatusConsumed[] = "asset consumed";
-    const char kTxStatusIssued[] = "asset issued";
-    const char kTxStatusRegistered[] = "asset registred";
-    const char kTxStatusUnregistered[] = "asset unregistred";
-    const char kTxStatusInfoProvided[] = "asset info provided";
-
     // Errors
     const char kErrorUnknownCoinStatus[] = "Unknown coin status";
-    const char kErrorUnknowmTxStatus[] = "Unknown status";
+    const char kErrorUnknownTxStatus[] = "Unknown transaction status";
+    const char kErrorUnknownTxType[] = "Unknown transaction type";
     const char kErrorUnknownSwapCoin[] = "Unknow SwapCoin";
     const char kErrorInvalidWID[] = "invalid WID";
     const char kErrorTreasuryBadN[] = "bad n (roundoff)";
@@ -166,9 +149,16 @@ namespace beam
 
     // Wallet info
     const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
-    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\nAsset ID: %1%\n\n%2%%3%\n%4%%5%\n%6%%7%\n%8%%9%\n\n";
-    const char kWalletUnreliableAsset[] = "This asset has been burned at block %1%. This allows owner to unregister asset and register it again with different metadata but the same Asset ID technically producing completely new asset. All coins and transactions before block %1% could potentially belong to another asset.\n\n";
-    const char kWalletAssetOwnerFormat[] = "\nAsset Owner ID: %1%\nYou own this asset";
+    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\n%1%%2%\n%3%%4%\n%5%%6%\n%7%%8%\n%9%%10%\n\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n\n";
+    const char kWalletUnreliableAsset[] = "This asset has been burned or reissued at block %1%. This allows owner to unregister asset and register it again with different metadata but the same Asset ID technically producing completely new asset. All coins and transactions before block %1% could potentially belong to another asset.\n\n";
+    const char kWalletNoInfo[] = "Asset info is not available. Asset may never exited, be unregisterd or asset info needs to be updated using asset_info command.\n\n";
+    const char kWalletAssetOwnerFormat[] = "Asset Owner ID";
+    const char kWalletAssetIDFormat[] = "Asset ID";
+    const char kWalletAssetNameFormat[] = "Asset Name";
+    const char kWalletAssetLockHeightFormat[] = "Lock Height";
+    const char kWalletAssetRefreshHeightFormat[] = "Refresh Height";
+    const char kBeamFee[] = " (BEAM Fee)";
+    const char kBeamRefund[] = " (BEAM Refund)";
     const char kWalletSummaryFieldCurHeight[] = "Current height";
     const char kWalletSummaryFieldCurStateID[] = "Current state ID";
     const char kWalletSummaryFieldAvailable[] = "Available";

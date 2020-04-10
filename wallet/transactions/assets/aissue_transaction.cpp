@@ -64,7 +64,7 @@ namespace beam::wallet
     AssetIssueTransaction::AssetIssueTransaction(bool issue, INegotiatorGateway& gateway
                                         , IWalletDB::Ptr walletDB
                                         , const TxID& txID)
-        : BaseTransaction{ gateway, std::move(walletDB), txID}
+        : AssetTransaction{ gateway, std::move(walletDB), txID}
         , _issue(issue)
     {
     }
@@ -108,14 +108,30 @@ namespace beam::wallet
 
         if (GetState() == State::AssetConfirm)
         {
-            Height auHeight = 0, acHeight = 0;
+            Height auHeight = 0;
             GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-            if (auHeight || !acHeight)
+            if (auHeight)
             {
                 OnFailed(TxFailureReason::AssetConfirmFailed);
                 return;
             }
+
+            Height acHeight = 0;
+            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
+            if (!acHeight)
+            {
+                ConfirmAsset();
+                return;
+            }
+
+            Asset::Full info;
+            if (!GetParameter(TxParameterID::AssetFullInfo, info) || !info.IsValid())
+            {
+                OnFailed(TxFailureReason::NoAssetInfo, true);
+                return;
+            }
+
+            SetParameter(TxParameterID::AssetID, info.m_ID);
             SetState(State::AssetCheck);
         }
 

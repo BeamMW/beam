@@ -57,7 +57,7 @@ namespace beam::wallet
     }
 
     AssetRegisterTransaction::AssetRegisterTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
-        : BaseTransaction{gateway, std::move(walletDB), txID}
+        : AssetTransaction(gateway, std::move(walletDB), txID)
     {
     }
 
@@ -160,6 +160,21 @@ namespace beam::wallet
                 ConfirmAsset();
                 return;
             }
+
+            Asset::Full info;
+            if (!GetParameter(TxParameterID::AssetFullInfo, info))
+            {
+                OnFailed(TxFailureReason::NoAssetInfo, true);
+                return;
+            }
+
+            if(_builder->GetAssetOwnerId() != info.m_Owner)
+            {
+                OnFailed(TxFailureReason::InvalidAssetOwnerId, true);
+                return;
+            }
+
+            SetParameter(TxParameterID::AssetID, info.m_ID);
         }
 
         SetState(State::Finalizing);
@@ -184,21 +199,6 @@ namespace beam::wallet
     void AssetRegisterTransaction::ConfirmAsset()
     {
         GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
-    }
-
-    bool AssetRegisterTransaction::Rollback(Height height)
-    {
-        bool rthis = false;
-        Height cheight(0);
-        if (GetParameter(TxParameterID::AssetConfirmedHeight, cheight) && (cheight > height))
-        {
-            SetParameter(TxParameterID::AssetConfirmedHeight, Height(0));
-            SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0));
-            SetParameter(TxParameterID::AssetFullInfo, Asset::Full());
-            rthis = true;
-        }
-        const bool rsuper = super::Rollback(height);
-        return rthis || rsuper;
     }
 
     bool AssetRegisterTransaction::IsLoopbackTransaction() const

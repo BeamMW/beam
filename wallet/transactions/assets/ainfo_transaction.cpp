@@ -60,8 +60,25 @@ namespace beam::wallet
     AssetInfoTransaction::AssetInfoTransaction(INegotiatorGateway& gateway
                                         , IWalletDB::Ptr walletDB
                                         , const TxID& txID)
-        : BaseTransaction{ gateway, std::move(walletDB), txID}
+        : AssetTransaction(gateway, std::move(walletDB), txID)
     {
+        // TODO:ASSETS consider moving this to base class and remove from all asset builders
+        Height minHeight = 0;
+        if (!GetParameter(TxParameterID::MinHeight, minHeight))
+        {
+            minHeight = GetWalletDB()->getCurrentHeight();
+            SetParameter(TxParameterID::MinHeight, minHeight);
+        }
+
+        Height maxHeight = 0;
+        if (!GetParameter(TxParameterID::MaxHeight, maxHeight))
+        {
+            Height lifetime = kDefaultTxLifetime;
+            GetParameter(TxParameterID::Lifetime, lifetime);
+
+            maxHeight = minHeight + lifetime;
+            SetParameter(TxParameterID::MaxHeight, maxHeight);
+        }
     }
 
     void AssetInfoTransaction::UpdateImpl()
@@ -72,34 +89,74 @@ namespace beam::wallet
             return;
         }
 
+        if (CheckExpired())
+        {
+            return;
+        }
+
         if (GetState() == State::Initial)
         {
             UpdateTxDescription(TxStatus::InProgress);
-            SetState(State::AssetCheck);
+            SetState(State::AssetConfirmation);
             ConfirmAsset();
             return;
         }
 
-        if (GetState() == State::AssetCheck)
+        if (GetState() == State::AssetConfirmation)
         {
-            Height auHeight = 0, acHeight = 0;
+            Height auHeight = 0;
             GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-
-            if (auHeight || !acHeight)
+            if (auHeight)
             {
                 OnFailed(TxFailureReason::AssetConfirmFailed);
                 return;
             }
 
+            Height acHeight = 0;
+            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
+            if (!acHeight)
+            {
+                ConfirmAsset();
+                return;
+            }
+
+            SetState(State::AssetCheck);
+        }
+
+        if (GetState() == State::AssetCheck)
+        {
             Asset::Full info;
             if (!GetParameter(TxParameterID::AssetFullInfo, info) || !info.IsValid())
             {
                 OnFailed(TxFailureReason::NoAssetInfo, true);
                 return;
             }
+
+            if (GetAssetID() != Asset::s_InvalidID)
+            {
+                if (GetAssetID() != info.m_ID)
+                {
+                    OnFailed(TxFailureReason::InvalidAssetId, true);
+                    return;
+                }
+            }
+
+            if (GetAssetOwnerID() != Asset::s_InvalidOwnerID)
+            {
+                if(GetAssetOwnerID() != info.m_Owner)
+                {
+                    OnFailed(TxFailureReason::InvalidAssetOwnerId, true);
+                    return;
+                }
+            }
+
+            std::string strMeta;
+            fromByteBuffer(info.m_Metadata.m_Value, strMeta);
+            SetParameter(TxParameterID::AssetMetadata, strMeta);
+            SetParameter(TxParameterID::AssetID, info.m_ID);
         }
 
+        SetState(State::Finalzing);
         CompleteTx();
     }
 
