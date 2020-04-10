@@ -905,6 +905,25 @@ namespace detail
 			return ar;
 		}
 
+        /// beam::Lelantus::Cfg serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::Lelantus::Cfg& cfg)
+        {
+            ar
+                & cfg.n
+                & cfg.M;
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::Lelantus::Cfg& cfg)
+        {
+            ar
+                & cfg.n
+                & cfg.M;
+            return ar;
+        }
+
 		/// beam::CoinID serialization
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::CoinID& v)

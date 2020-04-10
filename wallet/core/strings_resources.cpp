@@ -170,12 +170,13 @@ namespace beam
     const char kWalletSummaryFieldAvaliableFee[] = "Avaliable fee";
     const char kWalletSummaryFieldTotalFee[] = "Total fee";
     const char kWalletSummaryFieldTotalUnspent[] = "Total unspent";
-    const char kCoinsTableHeadFormat[] = "  | %1% | %2% | %3% | %4% | %5% | %6% |";
+    const char kCoinsTableHeadFormat[] = "  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
     const char kCoinColumnId[] = "ID";
     const char kCoinColumnMaturity[] = "Maturity";
     const char kCoinColumnStatus[] = "Status";
     const char kCoinColumnType[] = "Type";
-    const char kCoinsTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
+    const char kCoinColumnIsUnlinked[] = "Unlinked";
+    const char kCoinsTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%   %7%  ";
 
     // Tx history
     const char kTxHistoryTableHead[] = "TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
@@ -263,4 +264,8 @@ namespace beam
 
     const char kLaserCurrentState[] = "Current state is %1%";
 #endif  // BEAM_LASER_SUPPORT
+
+    // lelantus
+    const char kErrorShieldedIDMissing[] = "shielded id is missing";
+    const char kErrorWindowBeginMissing[] = "window begin is missing";
 }

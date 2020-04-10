@@ -36,6 +36,8 @@ namespace beam::wallet
         AssetReg,
         AssetUnreg,
         AssetInfo,
+        PushTransaction,
+        PullTransaction,
         ALL
     };
 
@@ -48,6 +50,9 @@ namespace beam::wallet
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
     constexpr Amount kMinFeeInGroth = 100;
+    constexpr Amount kShieldedCoinMinFeeInGroth = 1000;
+    constexpr Amount kShieldedTxMinFeeInGroth = kMinFeeInGroth + kShieldedCoinMinFeeInGroth;
+    inline const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
 
 #pragma pack (push, 1)
     struct WalletID
@@ -298,6 +303,12 @@ namespace beam::wallet
         ExchangeRates = 120,
         OriginalToken = 121,
 
+        // Lelantus
+        ShieldedOutputId = 120,
+        WindowBegin = 121,
+        ShieldedInputCfg = 122,
+        ShieldedInputMinCfg = 123,
+
         // private parameters
         PrivateFirstParam = 128,
 
@@ -348,6 +359,8 @@ namespace beam::wallet
         AtomicSwapExternalHeight = 207,
 
         InternalFailureReason = 210,
+    
+        ShieldedSerialPub = 220,
 
         State = 255
 
@@ -603,6 +616,8 @@ namespace beam::wallet
 
     struct INegotiatorGateway : IAsyncContext
     {
+        using ShieldedListCallback = std::function<void(TxoID, uint32_t, proto::ShieldedList&)>;
+        using ProofShildedOutputCallback = std::function<void(proto::ProofShieldedOutp)>;
         virtual ~INegotiatorGateway() {}
         virtual void on_tx_completed(const TxID& ) = 0;
         virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
@@ -613,6 +628,8 @@ namespace beam::wallet
         virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
         virtual void send_tx_params(const WalletID& peerID, const SetTxParameter&) = 0;
+        virtual void get_shielded_list(const TxID&, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) = 0;
+        virtual void get_proof_shielded_output(const TxID&, ECC::Point serialPublic, ProofShildedOutputCallback&& callback) {};
         virtual void UpdateOnNextTip(const TxID&) = 0;
     };
 

@@ -34,6 +34,7 @@ namespace beam
         extern const char* STORAGE;
         extern const char* WALLET_STORAGE;
         extern const char* MINING_THREADS;
+        extern const char* POW_SOLVE_TIME;
         extern const char* VERIFICATION_THREADS;
         extern const char* NONCEPREFIX_DIGITS;
         extern const char* NODE_PEER;
@@ -196,6 +197,14 @@ namespace beam
         extern const char* EXCHANGE_CURR;
         extern const char* EXCHANGE_RATE;
         extern const char* EXCHANGE_UNIT;
+
+        // lelantus
+        extern const char* INSERT_TO_POOL;
+        extern const char* EXTRACT_FROM_POOL;
+        extern const char* SHIELDED_UTXOS;
+        extern const char* SHIELDED_ID;
+        extern const char* WINDOW_BEGIN;
+        extern const char* SHIELDED_TX_HISTORY;
 
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;

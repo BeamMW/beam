@@ -767,6 +767,66 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
 {
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestShieldedList& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestShieldedList& req)
+{
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestProofShieldedInp& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestProofShieldedInp& req)
+{
+    if (!req.m_Res.m_Proof.empty())
+    {
+        ShieldedTxo::DescriptionInp desc;
+        desc.m_Height = req.m_Res.m_Height;
+        desc.m_SpendPk = req.m_Msg.m_SpendPk;
+
+        if (!m_Tip.IsValidProofShieldedInp(desc, req.m_Res.m_Proof))
+        {
+            ThrowUnexpected();
+        }
+    }
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestProofShieldedOutp& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestProofShieldedOutp& req)
+{
+    if (!req.m_Res.m_Proof.empty())
+    {
+        ShieldedTxo::DescriptionOutp desc;
+        desc.m_ID = req.m_Res.m_ID;
+        desc.m_Height = req.m_Res.m_Height;
+        desc.m_SerialPub = req.m_Msg.m_SerialPub;
+        desc.m_Commitment = req.m_Res.m_Commitment;
+
+        if (!m_Tip.IsValidProofShieldedOutp(desc, req.m_Res.m_Proof))
+        {
+            ThrowUnexpected();
+        }
+    }
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestStateSummary& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestStateSummary& req)
+{
+}
+
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
 {
     return (LoginFlags::Bbs & m_LoginFlags) && IsAtTip();

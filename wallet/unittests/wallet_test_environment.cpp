@@ -39,6 +39,7 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
     void send_tx_params(const WalletID& peerID, const wallet::SetTxParameter&) override {}
+    void get_shielded_list(const TxID&, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) override {}
     void UpdateOnNextTip(const TxID&) override {};
 };
 
@@ -1095,6 +1096,11 @@ private:
             Send(msgOut);
         }
 
+        void OnMsg(proto::GetStateSummary&& msg) override
+        {
+            Send(proto::StateSummary{});
+        }
+
         void OnDisconnect(const DisconnectReason& r) override
         {
             switch (r.m_Type)
@@ -1307,15 +1313,25 @@ ByteBuffer createTreasury(IWalletDB::Ptr db, const AmountList& amounts = { 5, 2,
     Treasury::get_ID(*db->get_MasterKdf(), pid, sk);
 
     Treasury::Parameters params;
-    params.m_Bursts = static_cast<uint32_t>(amounts.size());
+    params.m_Bursts = 1U;
     //params.m_Maturity0 = 1;
     params.m_MaturityStep = 1;
 
     Treasury::Entry* plan = treasury.CreatePlan(pid, 0, params);
-
+    beam::Height incubation = 0;
     for (size_t i = 0; i < amounts.size(); ++i)
     {
-        plan->m_Request.m_vGroups[i].m_vCoins.front().m_Value = amounts[i];
+        if (i == 0)
+        {
+            plan->m_Request.m_vGroups.front().m_vCoins.front().m_Value = amounts[i];
+            incubation = plan->m_Request.m_vGroups.front().m_vCoins.front().m_Incubation;
+            continue;
+        }
+
+        auto& c = plan->m_Request.m_vGroups.back().m_vCoins.emplace_back();
+
+        c.m_Incubation = incubation;
+        c.m_Value = amounts[i];
     }
 
     plan->m_pResponse.reset(new Treasury::Response);

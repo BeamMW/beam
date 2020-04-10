@@ -43,7 +43,7 @@ namespace beam::wallet
         virtual ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         Asset::ID GetAssetId() const;
-        bool GetInitialTxParams();
+        virtual bool GetInitialTxParams();
         bool GetInputs();
         bool GetOutputs();
         bool GetPeerPublicExcessAndNonce();

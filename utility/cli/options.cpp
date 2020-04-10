@@ -135,6 +135,7 @@ namespace beam
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
         const char* MINING_THREADS = "mining_threads";
+        const char* POW_SOLVE_TIME = "pow_solve_time";
         const char* VERIFICATION_THREADS = "verification_threads";
         const char* NONCEPREFIX_DIGITS = "nonceprefix_digits";
         const char* NODE_PEER = "peer";
@@ -294,6 +295,14 @@ namespace beam
         const char* EXCHANGE_RATE = "exch_rate";
         const char* EXCHANGE_UNIT = "exch_unit";
 
+        // lelantus
+        const char* INSERT_TO_POOL = "insert_to_pool";
+        const char* EXTRACT_FROM_POOL = "extract_from_pool";
+        const char* SHIELDED_UTXOS = "shielded_utxos";
+        const char* SHIELDED_ID = "shielded_id";
+        const char* WINDOW_BEGIN = "window_begin";
+        const char* SHIELDED_TX_HISTORY = "shielded_tx_history";
+
         // Defaults
         const Amount kMinimumFee = 100;
     }
@@ -325,7 +334,8 @@ namespace beam
         node_options.add_options()
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
-            (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
+            (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0). It works if FakePoW is enabled")
+            (cli::POW_SOLVE_TIME, po::value<uint32_t>()->default_value(15 * 1000), "pow solve time. It works if FakePoW is enabled")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::NONCEPREFIX_DIGITS, po::value<unsigned>()->default_value(0), "number of hex digits for nonce prefix for stratum client (0..6)")
@@ -457,6 +467,23 @@ namespace beam
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 #endif  // BEAM_LASER_SUPPORT
 
+        po::options_description lelantus_options("Lelantus options");
+        po::options_description visible_lelantus_options(lelantus_options);
+        visible_lelantus_options.add_options()
+            (cli::INSERT_TO_POOL, "insert utxos to shielded pool")
+            (cli::EXTRACT_FROM_POOL, "extract shielded utxo from shielded pool");
+
+        lelantus_options.add_options()
+            (cli::SHIELDED_UTXOS, "show shielded utxo in pool")
+            (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded utxo id")
+            (cli::WINDOW_BEGIN, po::value<Nonnegative<TxoID>>(), "window begin")
+            (cli::SHIELDED_TX_HISTORY, "show lelantus tx history");
+
+        for (auto opt : lelantus_options.options())
+        {
+            visible_lelantus_options.add(opt);
+        }
+
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
         if (flags & GENERAL_OPTIONS)
@@ -475,9 +502,11 @@ namespace beam
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
+            options.add(lelantus_options);
             if(Rules::get().CA.Enabled) options.add(wallet_assets_options);
             visible_options.add(wallet_options);
             visible_options.add(visible_swap_options);
+            visible_options.add(visible_lelantus_options);
             if(Rules::get().CA.Enabled) visible_options.add(wallet_assets_options);
 
 #ifdef BEAM_LASER_SUPPORT

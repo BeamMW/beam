@@ -322,6 +322,21 @@ namespace beam::wallet
         return false;
     }
 
+    bool Wallet::MyRequestProofShieldedOutp::operator < (const MyRequestProofShieldedOutp& x) const
+    {
+        return m_TxID < x.m_TxID;
+    }
+
+    bool Wallet::MyRequestShieldedList::operator < (const MyRequestShieldedList& x) const
+    {
+        return m_TxID < x.m_TxID;
+    }
+
+    bool Wallet::MyRequestStateSummary::operator < (const MyRequestStateSummary& x) const
+    {
+        return false;
+    }
+
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
         uint32_t n = get_ParentObj().SyncRemains();
@@ -430,6 +445,36 @@ namespace beam::wallet
         for (auto& endpoint : m_MessageEndpoints)
         {
             endpoint->Send(peerID, msg);
+        }
+    }
+
+    // Implementation of the INegotiatorGateway::get_shielded_list
+    void Wallet::get_shielded_list(const TxID& txId, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback)
+    {
+        MyRequestShieldedList::Ptr pVal(new MyRequestShieldedList);
+        pVal->m_callback = callback;
+        pVal->m_TxID = txId;
+
+        pVal->m_Msg.m_Id0 = startIndex;
+        pVal->m_Msg.m_Count = count;
+
+        if (PostReqUnique(*pVal))
+        {
+            LOG_INFO() << txId << " Get shielded list, start_index = " << startIndex << ", count = " << count;
+        }
+    }
+
+    void Wallet::get_proof_shielded_output(const TxID& txId, ECC::Point serialPublic, ProofShildedOutputCallback&& callback)
+    {
+        MyRequestProofShieldedOutp::Ptr pVal(new MyRequestProofShieldedOutp);
+        pVal->m_callback = callback;
+        pVal->m_TxID = txId;
+
+        pVal->m_Msg.m_SerialPub = serialPublic;
+
+        if (PostReqUnique(*pVal))
+        {
+            LOG_INFO() << txId << " Get proof of shielded output.";
         }
     }
 
@@ -676,9 +721,33 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::OnRequestComplete(MyRequestShieldedList& r)
+    {
+        r.m_callback(r.m_Msg.m_Id0, r.m_Msg.m_Count, r.m_Res);
+    }
+
+    void Wallet::OnRequestComplete(MyRequestProofShieldedInp& r)
+    {
+        // TODO(alex.starun): implement this
+    }
+
+    void Wallet::OnRequestComplete(MyRequestProofShieldedOutp& r)
+    {
+        if (!r.m_Res.m_Proof.empty())
+        {
+            r.m_callback(r.m_Res);
+        }
+    }
+
     void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
     {
         assert(false);
+    }
+
+    void Wallet::OnRequestComplete(MyRequestStateSummary& r)
+    {
+        // TODO: save full response?
+        storage::setVar(*m_WalletDB, kStateSummaryShieldedOutsDBPath, r.m_Res.m_ShieldedOuts);
     }
 
     void Wallet::RequestEvents()
@@ -722,18 +791,30 @@ namespace beam::wallet
 
             virtual void OnEvent(proto::Event::Base& evt_) override
             {
-                if (proto::Event::Type::Utxo != evt_.get_Type())
-                    return;
+                switch (evt_.get_Type())
+                {
+                    case proto::Event::Type::Shielded:
+                    {
+                        proto::Event::Shielded& shieldedEvt = Cast::Up<proto::Event::Shielded>(evt_);
+                        m_This.ProcessEventShieldedUtxo(shieldedEvt, m_Height);
+                        return;
+                    }
+                    case proto::Event::Type::Utxo:
+                    {
+                        proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
 
-                proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
+                        // filter-out false positives
 
-                // filter-out false positives
+                        if (!m_This.m_WalletDB->IsRecoveredMatch(evt.m_Cid, evt.m_Commitment))
+                            return;
 
-                if (!m_This.m_WalletDB->IsRecoveredMatch(evt.m_Cid, evt.m_Commitment))
-                    return;
-
-                bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
-                m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd);
+                        bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
+                        m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd);
+                        return;
+                    }
+                    default:
+                        break;
+                }
             }
         } p(*this);
         
@@ -810,6 +891,38 @@ namespace beam::wallet
         m_WalletDB->saveCoin(c);
     }
 
+    void Wallet::ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h)
+    {
+        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedEvt.m_kSerG);
+        if (!shieldedCoin)
+        {
+            shieldedCoin = ShieldedCoin{};
+        }
+
+        shieldedCoin->m_skSerialG = shieldedEvt.m_kSerG;
+        shieldedCoin->m_skOutputG = shieldedEvt.m_kOutG;
+        shieldedCoin->m_sender = shieldedEvt.m_Sender;
+        shieldedCoin->m_message = shieldedEvt.m_Message;
+        shieldedCoin->m_ID = shieldedEvt.m_ID;
+        shieldedCoin->m_isCreatedByViewer = 0 != (proto::Event::Flags::CreatedByViewer & shieldedEvt.m_Flags);
+        shieldedCoin->m_assetID = shieldedEvt.m_AssetID;
+        shieldedCoin->m_value = shieldedEvt.m_Value;
+
+        bool isAdd = 0 != (proto::Event::Flags::Add & shieldedEvt.m_Flags);
+        if (isAdd)
+        {
+            shieldedCoin->m_confirmHeight = std::min(shieldedCoin->m_confirmHeight, h);
+        }
+        else
+        {
+            shieldedCoin->m_spentHeight = std::min(shieldedCoin->m_spentHeight, h);
+        }
+
+        m_WalletDB->saveShieldedCoin(*shieldedCoin);
+
+        LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_ID << (isAdd ? " Confirmed" : " Spent") << ", Height=" << h;
+    }
+
     void Wallet::OnRolledBack()
     {
         Block::SystemState::Full sTip;
@@ -821,6 +934,7 @@ namespace beam::wallet
 
         m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
         m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
+        m_WalletDB->rollbackConfirmedShieldedUtxo(sTip.m_Height);
         m_WalletDB->rollbackAssets(sTip.m_Height);
 
         // Rollback active transaction
@@ -871,6 +985,7 @@ namespace beam::wallet
         LOG_INFO() << "Sync up to " << id;
 
         RequestEvents();
+        RequestStateSummary();
 
         for (auto& tx : m_NextTipTransactionToUpdate)
         {
@@ -1188,5 +1303,11 @@ namespace beam::wallet
             return IsValidTimeStamp(sTip.m_TimeStamp);
         }
         return true; // to allow made air-gapped transactions
+    }
+
+    void Wallet::RequestStateSummary()
+    {
+        MyRequestStateSummary::Ptr pReq(new MyRequestStateSummary);
+        PostReqUnique(*pReq);
     }
 }

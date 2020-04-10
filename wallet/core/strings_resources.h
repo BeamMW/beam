@@ -170,6 +170,7 @@ namespace beam
     extern const char kCoinColumnMaturity[];
     extern const char kCoinColumnStatus[];
     extern const char kCoinColumnType[];
+    extern const char kCoinColumnIsUnlinked[];
     extern const char kCoinsTableFormat[];
     // Tx history
     extern const char kTxHistoryTableHead[];
@@ -257,4 +258,8 @@ namespace beam
 
     extern const char kLaserCurrentState[];
 #endif  // BEAM_LASER_SUPPORT
+
+    // lelantus
+    extern const char kErrorShieldedIDMissing[];
+    extern const char kErrorWindowBeginMissing[];
 }

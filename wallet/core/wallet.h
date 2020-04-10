@@ -146,6 +146,8 @@ namespace beam::wallet
         void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         bool get_tip(Block::SystemState::Full& state) const override;
         void send_tx_params(const WalletID& peerID, const SetTxParameter&) override;
+        void get_shielded_list(const TxID& txId, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) override;
+        void get_proof_shielded_output(const TxID& txId, ECC::Point serialPublic, ProofShildedOutputCallback&& callback) override;
         void register_tx(const TxID& txId, Transaction::Ptr, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
 
@@ -182,6 +184,8 @@ namespace beam::wallet
         void ProcessEventUtxo(const CoinID&, Height h, Height hMaturity, bool bAdd);
         void SetEventsHeight(Height);
         Height GetEventsHeightNext();
+        void ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h);
+        void RequestStateSummary();
 
         BaseTransaction::Ptr GetTransaction(const WalletID& myID, const SetTxParameter& msg);
         BaseTransaction::Ptr ConstructTransaction(const TxID& id, TxType type);
@@ -204,7 +208,8 @@ namespace beam::wallet
 #define REQUEST_TYPES_Sync(macro) \
         macro(Utxo) \
         macro(Kernel) \
-        macro(Events)
+        macro(Events) \
+        macro(StateSummary)
 
         struct AllTasks {
 #define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };
@@ -239,6 +244,17 @@ namespace beam::wallet
             {
                 TxID m_TxID;
                 SubTxID m_SubTxID = kDefaultSubTxID;
+            };
+            struct ProofShieldedOutp
+            {
+                TxID m_TxID;
+                SubTxID m_SubTxID = kDefaultSubTxID;
+                ProofShildedOutputCallback m_callback;
+            };
+            struct ShieldedList
+            {
+                TxID m_TxID;
+                ShieldedListCallback m_callback;
             };
         };
 
