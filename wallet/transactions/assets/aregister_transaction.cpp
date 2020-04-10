@@ -15,9 +15,9 @@
 #include "aregister_transaction.h"
 #include "aissue_tx_builder.h"
 #include "core/block_crypt.h"
-#include "utility/logger.h"
 #include "wallet/core/strings_resources.h"
 #include "wallet/core/wallet.h"
+#include "utility/logger.h"
 
 namespace beam::wallet
 {
