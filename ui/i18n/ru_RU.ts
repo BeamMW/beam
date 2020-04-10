@@ -1243,7 +1243,7 @@ Update your settings and try again.</oldsource>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this token to the sender over an external secure channel or scan the QR code</source>
-        <translation type="unfinished">Send this address to the sender over an external secure channel or scan the QR code</translation>
+        <translation type="unfinished">Send this token to the sender over an external secure channel or scan the QR code</translation>
     </message>
     <message id="receive-amount-swap-label">
         <source>Receive amount</source>
