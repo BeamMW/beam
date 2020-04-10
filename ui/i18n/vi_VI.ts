@@ -8,8 +8,7 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source></source>
-        <oldsource>GROTH</oldsource>
+        <source>GROTH</source>
         <translation type="unfinished">Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="general-comment">
