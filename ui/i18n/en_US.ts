@@ -8,8 +8,7 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source></source>
-        <oldsource>GROTH</oldsource>
+        <source>GROTH</source>
         <translation type="unfinished">GROTH</translation>
     </message>
     <message id="general-comment">
@@ -1244,7 +1243,7 @@ Update your settings and try again.</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this token to the sender over an external secure channel or scan the QR code</source>
-        <translation>Send this address to the sender over an external secure channel or scan the QR code</translation>
+        <translation>Send this token to the sender over an external secure channel or scan the QR code</translation>
     </message>
     <message id="receive-amount-swap-label">
         <source>Receive amount</source>

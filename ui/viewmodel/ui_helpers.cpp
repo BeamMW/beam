@@ -126,6 +126,7 @@ namespace beamui
 
     QString AmountInGrothToUIString(const beam::Amount& value)
     {
+        //% "GROTH"
         return QString("%1 %2").arg(value).arg(qtTrId("general-groth"));
     }
 

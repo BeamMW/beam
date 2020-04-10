@@ -230,7 +230,7 @@ ColumnLayout {
     //    Layout.topMargin: 30
     //    font.pixelSize:   14
     //    color:            Style.content_main
-    //    //% "Send this address to the sender over an external secure channel or scan the QR code"
+    //    //% "Send this token to the sender over an external secure channel or scan the QR code"
     //    text: qsTrId("wallet-receive-addr-message")
     //}
 
