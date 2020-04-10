@@ -1764,13 +1764,12 @@ namespace beam::wallet
                 stm.get(1, coin.m_ID.m_SubIdx);
                 stm.get(2, coin.m_ID.m_Idx);
                 stm.get(3, coin.m_ID.m_Value);
-                stm.get(4, coin.m_ID.m_AssetID);
-                stm.get(5, coin.m_maturity);
-                stm.get(6, coin.m_confirmHeight);
-                stm.get(7, coin.m_spentHeight);
-                stm.get(8, coin.m_createTxId);
-                stm.get(9, coin.m_spentTxId);
-                stm.get(10, coin.m_sessionId);
+                stm.get(4, coin.m_maturity);
+                stm.get(5, coin.m_confirmHeight);
+                stm.get(6, coin.m_spentHeight);
+                stm.get(7, coin.m_createTxId);
+                stm.get(8, coin.m_spentTxId);
+                stm.get(9, coin.m_sessionId);
 
                 saveCoin(coin);
             }
