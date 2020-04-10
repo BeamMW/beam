@@ -199,6 +199,7 @@ namespace beam
     const char kSwapTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
     const char kTxHistoryColumnSwapAmount[] = "swap amount";
     const char kTxHistoryColumnSwapType[] = "swap type";
+    const char kOrphanedAseetTxs[] = "____Orphaned transactions____\n\nThis sections includes transactions that do not have valid Asset ID.\n";
 
     // Tx Details
     const char kTxDetailsFormat[] = "Transaction details:\n%1%Status: %2%";

@@ -18,6 +18,22 @@ namespace beam::wallet {
     AssetTransaction::AssetTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
         : BaseTransaction(gateway, std::move(walletDB), txID)
     {
+        Height minHeight = 0;
+        if (!GetParameter(TxParameterID::MinHeight, minHeight))
+        {
+            minHeight = GetWalletDB()->getCurrentHeight();
+            SetParameter(TxParameterID::MinHeight, minHeight);
+        }
+
+        Height maxHeight = 0;
+        if (!GetParameter(TxParameterID::MaxHeight, maxHeight))
+        {
+            Height lifetime = kDefaultTxLifetime;
+            GetParameter(TxParameterID::Lifetime, lifetime);
+
+            maxHeight = minHeight + lifetime;
+            SetParameter(TxParameterID::MaxHeight, maxHeight);
+        }
     }
 
     bool AssetTransaction::Rollback(Height height)

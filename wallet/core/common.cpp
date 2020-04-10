@@ -503,7 +503,7 @@ namespace beam::wallet
     {
         if (m_txType == TxType::AtomicSwap)
         {
-            // TODO:ASSETS. TODO:SWAP support
+            // TODO:SWAP
             BOOST_ASSERT_MSG(false, "status for swap is not implemented");
             return "unsupported";
         }

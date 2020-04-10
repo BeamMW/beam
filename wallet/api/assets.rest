@@ -85,7 +85,7 @@ content-type: application/json-rpc
 	"method":"tx_status",
 	"params":
 	{
-		"txId" : "95ac4d97843340f88bfa8b50f0991623"
+		"txId" : "0d25a91a614d4d9ca360a4208b272899"
 	}
 }
 

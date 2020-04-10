@@ -62,23 +62,6 @@ namespace beam::wallet
                                         , const TxID& txID)
         : AssetTransaction(gateway, std::move(walletDB), txID)
     {
-        // TODO:ASSETS consider moving this to base class and remove from all asset builders
-        Height minHeight = 0;
-        if (!GetParameter(TxParameterID::MinHeight, minHeight))
-        {
-            minHeight = GetWalletDB()->getCurrentHeight();
-            SetParameter(TxParameterID::MinHeight, minHeight);
-        }
-
-        Height maxHeight = 0;
-        if (!GetParameter(TxParameterID::MaxHeight, maxHeight))
-        {
-            Height lifetime = kDefaultTxLifetime;
-            GetParameter(TxParameterID::Lifetime, lifetime);
-
-            maxHeight = minHeight + lifetime;
-            SetParameter(TxParameterID::MaxHeight, maxHeight);
-        }
     }
 
     void AssetInfoTransaction::UpdateImpl()

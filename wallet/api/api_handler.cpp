@@ -620,11 +620,9 @@ namespace beam::wallet
 
             Status::Response result;
             result.tx = *tx;
-            result.kernelProofHeight = 0;
             result.systemHeight = stateID.m_Height;
             result.confirmations = 0;
-
-            storage::getTxParameter(*walletDB, tx->m_txId, TxParameterID::KernelProofHeight, result.kernelProofHeight);
+            result.txHeight = storage::DeduceTxHeight(*walletDB, *tx);
 
             doResponse(id, result);
         }
@@ -828,11 +826,9 @@ namespace beam::wallet
             {
                 Status::Response item;
                 item.tx = tx;
-                item.kernelProofHeight = 0;
+                item.txHeight = storage::DeduceTxHeight(*walletDB, tx);
                 item.systemHeight = stateID.m_Height;
                 item.confirmations = 0;
-
-                storage::getTxParameter(*walletDB, tx.m_txId, TxParameterID::KernelProofHeight, item.kernelProofHeight);
                 res.resultList.push_back(item);
             }
         }
@@ -857,8 +853,12 @@ namespace beam::wallet
             Result filteredList;
 
             for (const auto& it : res.resultList)
-                if (it.kernelProofHeight == *data.filter.height)
+            {
+                if (it.txHeight == *data.filter.height)
+                {
                     filteredList.push_back(it);
+                }
+            }
 
             res.resultList = std::move(filteredList);
         }

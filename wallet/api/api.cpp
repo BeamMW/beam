@@ -30,7 +30,7 @@ namespace
 {
     void GetStatusResponseJson(const TxDescription& tx,
         json& msg,
-        Height kernelProofHeight,
+        Height txHeight,
         Height systemHeight,
         bool showIdentities = false)
     {
@@ -59,14 +59,13 @@ namespace
             }
         }
 
-        // TODO: check what's going on with height for asset info
-        if (kernelProofHeight > 0)
+        if (txHeight > 0)
         {
-            msg["height"] = kernelProofHeight;
+            msg["height"] = txHeight;
 
-            if (systemHeight >= kernelProofHeight)
+            if (systemHeight >= txHeight)
             {
-                msg["confirmations"] = systemHeight - kernelProofHeight;
+                msg["confirmations"] = systemHeight - txHeight;
             }
         }
 
@@ -1492,8 +1491,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"result", {}}
         };
 
-        GetStatusResponseJson(
-            res.tx, msg["result"], res.kernelProofHeight, res.systemHeight, true);
+        GetStatusResponseJson(res.tx, msg["result"], res.txHeight, res.systemHeight, true);
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const Split::Response& res, json& msg)
@@ -1545,7 +1543,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             GetStatusResponseJson(
                 resItem.tx,
                 item,
-                resItem.kernelProofHeight,
+                resItem.txHeight,
                 resItem.systemHeight);
             msg["result"].push_back(item);
         }

@@ -4045,6 +4045,22 @@ namespace beam::wallet
             return Coin::Status::Unavailable;
         }
 
+        Height DeduceTxHeight(const IWalletDB& walletDB, const TxDescription &tx)
+        {
+            Height height = tx.m_minHeight;
+            if(!storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::KernelProofHeight, height))
+            {
+                if(!storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::KernelUnconfirmedHeight, height))
+                {
+                    if(!storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::AssetConfirmedHeight, height))
+                    {
+                        storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::AssetUnconfirmedHeight, height);
+                    }
+                }
+            }
+            return height;
+        }
+
         using nlohmann::json;
 
         namespace
@@ -4524,6 +4540,7 @@ namespace beam::wallet
 
         std::string ExportTxHistoryToCsv(const IWalletDB& db)
         {
+            // TODO:ASSETS TODO:SWAP add to history if necessary https://github.com/BeamMW/beam/issues/1362
             std::stringstream ss;
             ss << "Type" << ","
                << "Date | Time" << ","

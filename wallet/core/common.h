@@ -466,18 +466,18 @@ namespace beam::wallet
     struct TxDescription : public TxParameters
     {
         TxDescription() = default;
-
         TxDescription(const TxID& txId
-            , TxType txType = TxType::Simple
-            , Amount amount = 0
-            , Amount fee =0
-            , Asset::ID assetId = Asset::s_InvalidID
-            , Height minHeight = 0
+            , TxType txType           = TxType::Simple
+            , Amount amount           = 0
+            , Amount fee              = 0
+            , Asset::ID assetId       = Asset::s_InvalidID
+            , Height minHeight        = 0
             , const WalletID & peerId = Zero
-            , const WalletID& myId = Zero
-            , ByteBuffer&& message = {}
-            , Timestamp createTime = {}
-            , bool sender = true)
+            , const WalletID& myId    = Zero
+            , ByteBuffer&& message    = {}
+            , Timestamp createTime    = {}
+            , bool sender             = true
+        )
             : TxParameters(txId)
             , m_txId{ txId }
             , m_txType{ txType }
@@ -498,20 +498,19 @@ namespace beam::wallet
             , m_kernelID{ Zero }
             , m_failureReason{ TxFailureReason::Unknown }
         {
-
         }
 
-        bool canResume() const;
-        bool canCancel() const;
-        bool canDelete() const;
-        std::string getStatusString() const;
-        std::string getStatusStringApi() const;
-        std::string getTxTypeString() const;
-        std::string getAmountInSecondCurrency(ExchangeRate::Currency) const;
-        std::string getToken() const;
-        std::string getSenderIdentity() const;
-        std::string getReceiverIdentity() const;
-        std::string getIdentity(bool isSender) const;
+        [[nodiscard]] bool canResume() const;
+        [[nodiscard]] bool canCancel() const;
+        [[nodiscard]] bool canDelete() const;
+        [[nodiscard]] std::string getStatusString() const;
+        [[nodiscard]] std::string getStatusStringApi() const;
+        [[nodiscard]] std::string getTxTypeString() const;
+        [[nodiscard]] std::string getAmountInSecondCurrency(ExchangeRate::Currency) const;
+        [[nodiscard]] std::string getToken() const;
+        [[nodiscard]] std::string getSenderIdentity() const;
+        [[nodiscard]] std::string getReceiverIdentity() const;
+        [[nodiscard]] std::string getIdentity(bool isSender) const;
 
     //private:
         TxID m_txId = {};

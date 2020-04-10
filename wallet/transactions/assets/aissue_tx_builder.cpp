@@ -59,28 +59,17 @@ namespace beam::wallet
 
     bool AssetIssueTxBuilder::GetInitialTxParams()
     {
+        m_MinHeight = m_Tx.GetMandatoryParameter<Height>(TxParameterID::MinHeight, m_SubTxID);
+        m_MaxHeight = m_Tx.GetMandatoryParameter<Height>(TxParameterID::MaxHeight, m_SubTxID);
+
+        m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::ChangeAsset,m_ChangeAsset, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::Inputs,     m_Inputs,      m_SubTxID);
         m_Tx.GetParameter(TxParameterID::Outputs,    m_Outputs,     m_SubTxID);
+
         bool hasICoins = m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins,  m_SubTxID);
         bool hasOCoins = m_Tx.GetParameter(TxParameterID::OutputCoins,m_OutputCoins, m_SubTxID);
 
-        if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
-        {
-            m_MinHeight = m_Tx.GetWalletDB()->getCurrentHeight();
-            m_Tx.SetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID);
-        }
-
-        if (!m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight, m_SubTxID))
-        {
-            Height lifetime = kDefaultTxLifetime;
-            m_Tx.GetParameter(TxParameterID::Lifetime, lifetime,m_SubTxID);
-
-            m_MaxHeight = m_MinHeight + lifetime;
-            m_Tx.SetParameter(TxParameterID::MaxHeight, m_MaxHeight, m_SubTxID);
-        }
-
-        m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
         return hasICoins || hasOCoins;
     }
 

@@ -357,7 +357,7 @@ namespace beam::wallet
         struct Response
         {
             TxDescription tx;
-            Height kernelProofHeight;
+            Height txHeight;
             Height systemHeight;
             uint64_t confirmations;
         };
