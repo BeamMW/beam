@@ -28,7 +28,7 @@ RowLayout {
     property string secondCurrencyLabel
     property string searchFilter: ""
     property bool hideFiltered: false
-    property var searchRegExp: { return new RegExp(root.searchFilter, "gi");}
+    property var searchRegExp: function() { return new RegExp(root.searchFilter, "gi");}
 
     
     readonly property string amountPrefix: root.isIncome ? "+" : "-"
@@ -66,7 +66,7 @@ RowLayout {
 
     function getAmountInSecondCurrency() {
         if (root.amount !== "") {
-            let amountInSecondCurrency = BeamGlobals.calcAmountInSecondCurrency(
+            var amountInSecondCurrency = BeamGlobals.calcAmountInSecondCurrency(
                 root.amount,
                 root.secondCurrencyRate,
                 root.secondCurrencyLabel);

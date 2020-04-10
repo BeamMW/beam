@@ -7,7 +7,7 @@ import Beam.Wallet 1.0
 Dialog {
 	id: control
 
-	property var settingsViewModel: {
+	property var settingsViewModel: function() {
 		return {
 			checkWalletPassword: function() {
 				console.log("settingsViewModel::checkWalletPassword undefined");
