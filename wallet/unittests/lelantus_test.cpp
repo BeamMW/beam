@@ -870,11 +870,16 @@ int main()
     int logLevel = LOG_LEVEL_DEBUG;
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
-    Rules::get().UpdateChecksum();
     Height fork1Height = 6;
     Height fork2Height = 12;
     Rules::get().pForks[1].m_Height = fork1Height;
     Rules::get().pForks[2].m_Height = fork2Height;
+
+    Rules::get().Shielded.NMax = 64;
+    Rules::get().Shielded.NMin = 16;
+    Rules::get().Shielded.MaxWindowBacklog = Rules::get().Shielded.NMax;
+
+    Rules::get().UpdateChecksum();
 
     TestSimpleTx();
     TestManyTransactons(20, Lelantus::Cfg{2, 5}, Lelantus::Cfg{2, 3});

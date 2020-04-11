@@ -1548,11 +1548,6 @@ namespace beam
 		// future forks
 		for (size_t i = 2; i < _countof(pForks); i++)
 			pForks[i].m_Height = MaxHeight;
-
-		// TODO: remove after lelantus's tests
-		Shielded.NMax = 64;
-		Shielded.NMin = 16;
-		Shielded.MaxWindowBacklog = Shielded.NMax;
 	}
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
