@@ -272,8 +272,8 @@ namespace beam
 			// Hence "big" proofs won't need more than 128K most recent elements
 
 			// max shielded ins/outs per block
-			uint32_t MaxIns = 20;
-			uint32_t MaxOuts = 1000; // basically unlimited
+			uint32_t MaxIns = 20; // input processing is heavy
+			uint32_t MaxOuts = 30; // dust protection
 
 		} Shielded;
 
