@@ -1766,6 +1766,9 @@ namespace beam
 				m_Shielded.m_Cfg.n = 4;
 				m_Shielded.m_Cfg.M = 6; // 4K
 
+				verify_test(m_Shielded.m_Cfg.get_N() >= Rules::get().Shielded.NMin);
+				verify_test(m_Shielded.m_Cfg.get_N() <= Rules::get().Shielded.NMax);
+
 				assert(msgTx.m_Transaction);
 
 				{
