@@ -496,6 +496,7 @@ bool Client::OpenChannel(const WalletID& widTrg, Amount nMy, Amount nTrg)
 
 	c.m_Params.m_hRevisionMaxLifeTime = 20;
 	c.m_Params.m_hLockTime = 10;
+	c.m_Params.m_hPostLockReserve = 6;
 	c.m_Params.m_Fee = 101;
 
 	const Height hOpenGracefulTxLifeTime = 8;
