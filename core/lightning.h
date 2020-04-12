@@ -242,6 +242,7 @@ namespace Lightning {
 		void UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut);
 		void SendPeerInternal(Storage::Map&);
 		void SetWithdrawParams(WithdrawTx::CommonParam&, const Height& h, Height& h1, Height& h2) const;
+		void ForgetOutdatedRevisions(Height hTip);
 	};
 
 

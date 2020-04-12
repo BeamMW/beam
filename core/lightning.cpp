@@ -413,6 +413,32 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 	Update();
 }
 
+void Channel::ForgetOutdatedRevisions(Height hTip)
+{
+	// check if we can forget some oldest revisions. Don't do this while the request is in the progress (it may use it)
+	while (m_lstUpdates.size() > 1)
+	{
+
+		DataUpdate& d = m_lstUpdates.front();
+		assert(!m_State.m_Close.m_pPath); // no chance we're deleting the being-used revision
+
+		const HeightRange* pHR = d.get_HR();
+		if (!pHR)
+			break; // not ready?
+
+		Height h1 = pHR->m_Max + Rules::get().MaxRollback;
+		if (h1 < pHR->m_Max)
+			break; // overflow
+
+		if (h1 >= hTip)
+			break;
+
+		// outdated!
+		m_lstUpdates.DeleteFront();
+		OnRevisionOutdated(m_nRevision - static_cast<uint32_t>(m_lstUpdates.size()));
+	}
+}
+
 void Channel::Update()
 {
 	if (m_State.m_Close.m_hPhase2)
@@ -423,32 +449,6 @@ void Channel::Update()
 	assert(!m_lstUpdates.empty());
 
 	Height hTip = get_Tip();
-
-	if (!m_pRequest)
-	{
-		// check if we can forget some oldest revisions. Don't do this while the request is in the progress (it may use it)
-		while (m_lstUpdates.size() > 1)
-		{
-			DataUpdate& d = m_lstUpdates.front();
-			if (&d == m_State.m_Close.m_pPath)
-				break;
-
-			const HeightRange* pHR = d.get_HR();
-			if (!pHR)
-				break; // not ready?
-
-			Height h1 = pHR->m_Max + Rules::get().MaxRollback;
-			if (h1 < pHR->m_Max)
-				break; // overflow
-
-			if (h1 >= hTip)
-				break;
-
-			// outdated!
-			m_lstUpdates.DeleteFront();
-			OnRevisionOutdated(m_nRevision - static_cast<uint32_t>(m_lstUpdates.size()));
-		}
-	}
 
 	if (!m_pOpen->m_hOpened)
 	{
@@ -721,6 +721,8 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 		{
 			m_State.m_hQueryLast = get_Tip();
 			ZeroObject(m_State.m_Close); // msig0 is still intact
+
+			ForgetOutdatedRevisions(m_State.m_hQueryLast);
 		}
 		else
 		{
