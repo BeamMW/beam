@@ -163,6 +163,7 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 
 			bool bOk =
 				dataIn.Get(m_Params.m_hLockTime, Codes::HLock) &&
+				dataIn.Get(m_Params.m_hPostLockReserve, Codes::HPostLockReserve) &&
 				dataIn.Get(m_Params.m_hRevisionMaxLifeTime, Codes::HLifeTime) &&
 				dataIn.Get(m_Params.m_Fee, Codes::Fee) &&
 				dataIn.Get(nPeer, Codes::ValueMy) &&
@@ -1015,6 +1016,7 @@ bool Channel::Open(Amount nMy, Amount nOther, Height hOpenTxDh)
 	Storage::Map dataIn, dataOut;
 
 	dataOut.Set(m_Params.m_hLockTime, Codes::HLock);
+	dataOut.Set(m_Params.m_hPostLockReserve, Codes::HPostLockReserve);
 	dataOut.Set(m_Params.m_hRevisionMaxLifeTime, Codes::HLifeTime);
 	dataOut.Set(m_Params.m_Fee, Codes::Fee);
 	dataOut.Set(nMy, Codes::ValueMy);
