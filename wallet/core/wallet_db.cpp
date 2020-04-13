@@ -45,8 +45,7 @@
     each(spentHeight,    spentHeight,   INTEGER, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
     each(spentTxId,      spentTxId,     BLOB, obj) sep \
-    each(sessionId,      sessionId,     INTEGER NOT NULL, obj) sep \
-    each(isUnlinked,     isUnlinked,    BOOLEAN DEFAULT false, obj)
+    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
