@@ -1241,7 +1241,8 @@ Update your settings and try again.</oldsource>
         <translation>Vytvořit nabídku na výměnu</translation>
     </message>
     <message id="wallet-receive-addr-message">
-        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
+        <oldsource>Send this token to the sender over an external secure channel or scan the QR code</oldsource>
         <translation type="unfinished">Odešlete tuto adresu odesílateli přes externí zabezpečený kanál nebo naskenujte QR kód</translation>
     </message>
     <message id="receive-amount-swap-label">
@@ -2320,6 +2321,18 @@ znát všechny Vaše prostředky (UTXO). Ujistěte se, že jste vystavili klíč
     <message id="tx-details-error-label">
         <source>Error</source>
         <translation type="unfinished">Chyba</translation>
+    </message>
+    <message id="wallet-receive-my-addr-label">
+        <source>My address (auto-generated)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-addr-message-token">
+        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

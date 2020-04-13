@@ -1241,7 +1241,8 @@ Update your settings and try again.</oldsource>
         <translation>Tee swap-tarjous</translation>
     </message>
     <message id="wallet-receive-addr-message">
-        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
+        <oldsource>Send this token to the sender over an external secure channel or scan the QR code</oldsource>
         <translation type="unfinished">Lähetä tämä osoite siirron suorittajalle turvallista viestintävälinettä käyttäen tai skannaa QR-koodi</translation>
     </message>
     <message id="receive-amount-swap-label">
@@ -2322,6 +2323,18 @@ avaimen palvelimeen (node), johon luotat täysin.</translation>
     <message id="tx-details-error-label">
         <source>Error</source>
         <translation type="unfinished">Virhe</translation>
+    </message>
+    <message id="wallet-receive-my-addr-label">
+        <source>My address (auto-generated)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-addr-message-token">
+        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

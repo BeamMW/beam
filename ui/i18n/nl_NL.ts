@@ -1241,7 +1241,8 @@ Update your settings and try again.</oldsource>
         <translation>Swap aanbieding aanmaken</translation>
     </message>
     <message id="wallet-receive-addr-message">
-        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
+        <oldsource>Send this token to the sender over an external secure channel or scan the QR code</oldsource>
         <translation type="unfinished">Stuur dit adres naar de afzender via een extern beveiligd kanaal of scan de QR code</translation>
     </message>
     <message id="receive-amount-swap-label">
@@ -2320,6 +2321,18 @@ deploy the key at the node you trust completely.</oldsource>
     <message id="tx-details-error-label">
         <source>Error</source>
         <translation type="unfinished">Fout</translation>
+    </message>
+    <message id="wallet-receive-my-addr-label">
+        <source>My address (auto-generated)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-addr-message-token">
+        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

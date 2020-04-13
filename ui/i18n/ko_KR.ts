@@ -1241,7 +1241,8 @@ Update your settings and try again.</oldsource>
         <translation>스왑 오퍼 만들기</translation>
     </message>
     <message id="wallet-receive-addr-message">
-        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
+        <oldsource>Send this token to the sender over an external secure channel or scan the QR code</oldsource>
         <translation type="unfinished">해당 주소를 외부의 보안 채널로 보내는 사람에게 보내거나 QR 코드를 스캔하세요</translation>
     </message>
     <message id="receive-amount-swap-label">
@@ -2322,6 +2323,18 @@ deploy the key at the node you trust completely.</translation>
     <message id="tx-details-error-label">
         <source>Error</source>
         <translation type="unfinished">오류</translation>
+    </message>
+    <message id="wallet-receive-my-addr-label">
+        <source>My address (auto-generated)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-addr-message-token">
+        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

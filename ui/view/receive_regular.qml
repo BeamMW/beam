@@ -65,27 +65,27 @@ ColumnLayout {
             Layout.preferredWidth: parent.width * 0.65 - parent.spacing / 2
             Layout.alignment:      Qt.AlignTop
 
-            ////
-            //// My Address
-            ////
-            //SFText {
-            //    font.pixelSize: 14
-            //    font.styleName: "Bold"; font.weight: Font.Bold
-            //    color: Style.content_main
-            //    //% "My address (auto-generated)"
-            //    text: qsTrId("wallet-receive-my-addr-label")
-            //}
             //
-            //SFTextInput {
-            //    id:               myAddressID
-            //    Layout.fillWidth: true
-            //    font.pixelSize:   14
-            //    color:            Style.content_disabled
-            //    readOnly:         true
-            //    activeFocusOnTab: false
-            //    text:             viewModel.receiverAddress
-            //}
+            // My Address
             //
+            SFText {
+                font.pixelSize: 14
+                font.styleName: "Bold"; font.weight: Font.Bold
+                color: Style.content_main
+                //% "My address (auto-generated)"
+                text: qsTrId("wallet-receive-my-addr-label")
+            }
+            
+            SFTextInput {
+                id:               myAddressID
+                Layout.fillWidth: true
+                font.pixelSize:   14
+                color:            Style.content_disabled
+                readOnly:         true
+                activeFocusOnTab: false
+                text:             viewModel.receiverAddress
+            }
+            
             //CustomCheckBox {
             //    id:         useIDCheckBox
             //    //% "Use identity token"
@@ -103,7 +103,7 @@ ColumnLayout {
             // Amount
             //
             AmountInput {
-                //Layout.topMargin: 35
+                Layout.topMargin: 35
                 //% "Receive amount (optional)"
                 title:            qsTrId("receive-amount-label")
                 id:               receiveAmountInput
@@ -225,16 +225,17 @@ ColumnLayout {
         }
     }
 
-    //SFText {
-    //    Layout.alignment: Qt.AlignHCenter
-    //    Layout.topMargin: 30
-    //    font.pixelSize:   14
-    //    color:            Style.content_main
-    //    //% "Send this token to the sender over an external secure channel or scan the QR code"
-    //    text: qsTrId("wallet-receive-addr-message")
-    //}
+    SFText {
+        Layout.alignment: Qt.AlignHCenter
+        Layout.topMargin: 30
+        font.pixelSize:   14
+        color:            Style.content_main
+        //% "Send this address to the sender over an external secure channel or scan the QR code"
+        text: qsTrId("wallet-receive-addr-message")
+    }
 
     ColumnLayout {
+        visible: false
         Layout.fillWidth: true
         Layout.topMargin: 30
         Layout.alignment: Qt.AlignHCenter
@@ -247,12 +248,12 @@ ColumnLayout {
                 //% "Your receive token"
                 text:            qsTrId("wallet-receive-your-token")
             }
-
+    
             Item {
                 width:  17
                 height: 1
             }
-
+    
             SvgImage {
                 source:  tokenRow.visible ? "qrc:/assets/icon-grey-arrow-up.svg" : "qrc:/assets/icon-grey-arrow-down.svg"
                 anchors.verticalCenter: parent.verticalCenter
@@ -266,7 +267,7 @@ ColumnLayout {
                 }
             }
         }
-
+    
         Row {
             id:      tokenRow
             visible: false
@@ -281,7 +282,7 @@ ColumnLayout {
                 wrapMode:            Text.WrapAnywhere
             }
         }
-
+    
         Row {
             visible: tokenRow.visible
             Layout.topMargin: 10
@@ -291,7 +292,7 @@ ColumnLayout {
                 font.pixelSize:   14
                 color:            Style.content_main
                 //% "Send this token to the sender over an external secure channel or scan the QR code"
-                text: qsTrId("wallet-receive-addr-message")
+                text: qsTrId("wallet-receive-addr-message-token")
             }
         }
     }
@@ -336,6 +337,22 @@ ColumnLayout {
             icon.source:        "qrc:/assets/icon-copy.svg"
             onClicked:          {
                 BeamGlobals.copyToClipboard(viewModel.transactionToken);
+                receiveView.saveAddress();
+                onClosed();
+            }
+            enabled:            receiveView.isValid()
+            visible: false
+        }
+
+        CustomButton {
+            //% "Copy transaction address"
+            text:               qsTrId("wallet-receive-copy-address")
+            palette.buttonText: Style.content_opposite
+            icon.color:         Style.content_opposite
+            palette.button:     Style.active
+            icon.source:        "qrc:/assets/icon-copy.svg"
+            onClicked:          {
+                BeamGlobals.copyToClipboard(viewModel.receiverAddress);
                 receiveView.saveAddress();
                 onClosed();
             }
