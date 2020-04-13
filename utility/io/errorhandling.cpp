@@ -23,6 +23,8 @@ const char* error_str(ErrorCode errorCode) {
         case EC_WRITE_BUFFER_OVERFLOW: return "EC_WRITE_BUFFER_OVERFLOW";
         case EC_SSL_ERROR: return "EC_SSL_ERROR";
         case EC_HOST_RESOLVED_ERROR: return "EC_HOST_RESOLVED_ERROR";
+        case EC_PROXY_AUTH_ERROR: return "EC_PROXY_AUTH_ERROR";
+        case EC_PROXY_REPL_ERROR: return "EC_PROXY_REPL_ERROR";
 #define XX(code, _) case EC_ ## code: return "EC_" # code;
     UV_ERRNO_MAP(XX)
 #undef XX

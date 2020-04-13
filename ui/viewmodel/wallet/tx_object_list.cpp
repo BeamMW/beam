@@ -88,7 +88,7 @@ TxObjectList::TxObjectList()
 {
 }
 
-auto TxObjectList::roleNames() const -> QHash<int, QByteArray>
+QHash<int, QByteArray> TxObjectList::roleNames() const
 {
     static const auto roles = QHash<int, QByteArray>
     {
@@ -98,6 +98,7 @@ auto TxObjectList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::AmountGeneralWithCurrencySort), "amountGeneralWithCurrencySort" },
         { static_cast<int>(Roles::AmountGeneral), "amountGeneral" },
         { static_cast<int>(Roles::AmountGeneralSort), "amountGeneralSort" },
+        { static_cast<int>(Roles::SecondCurrencyRate), "secondCurrencyRate" },
         { static_cast<int>(Roles::AddressFrom), "addressFrom" },
         { static_cast<int>(Roles::AddressFromSort), "addressFromSort" },
         { static_cast<int>(Roles::AddressTo), "addressTo" },
@@ -122,12 +123,15 @@ auto TxObjectList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::HasPaymentProof), "hasPaymentProof" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" },
         { static_cast<int>(Roles::Search), "search" },
-        { static_cast<int>(Roles::StateDetails), "stateDetails" }
+        { static_cast<int>(Roles::StateDetails), "stateDetails" },
+        { static_cast<int>(Roles::Token), "token" },
+        { static_cast<int>(Roles::SenderIdentity), "senderIdentity"},
+        { static_cast<int>(Roles::ReceiverIdentity), "receiverIdentity"},
     };
     return roles;
 }
 
-auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
+QVariant TxObjectList::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_list.size())
     {
@@ -157,6 +161,8 @@ auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
             return value->getAmount();
         case Roles::AmountGeneralSort:
             return static_cast<qulonglong>(value->getAmountValue());
+        case Roles::SecondCurrencyRate:
+            return value->getSecondCurrencyRate();
             
         case Roles::AddressFrom:
         case Roles::AddressFromSort:
@@ -232,54 +238,22 @@ auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
             r.append(value->getAddressTo());
             r.append(" ");
             r.append(value->getComment());
+            r.append(" ");
+            r.append(value->getSenderIdentity());
+            r.append(" ");
+            r.append(value->getReceiverIdentity());
             return r;
         }
         case Roles::StateDetails:
             return value->getStateDetails();
+        case Roles::Token:
+            return value->getToken();
+        case Roles::SenderIdentity:
+            return value->getSenderIdentity();
+        case Roles::ReceiverIdentity:
+            return value->getReceiverIdentity();
 
         default:
             return QVariant();
-    }
-}
-
-void TxObjectList::remove(const std::vector<std::shared_ptr<TxObject>>& items)
-{
-    for (const auto& item : items)
-    {
-        auto it = std::find_if(std::begin(m_list), std::end(m_list),
-                            [&item](const auto& element) { return element->getTxID() == item->getTxID(); });
-        
-        if (it != std::end(m_list))
-        {
-            auto index = m_list.indexOf(*it);
-            beginRemoveRows(QModelIndex(), index, index);
-            m_list.removeAt(index);
-            endRemoveRows();
-        }
-    }
-}
-
-void TxObjectList::update(const std::vector<std::shared_ptr<TxObject>>& items)
-{
-    for (const auto& item : items)
-    {
-        auto it = std::find_if(std::begin(m_list), std::end(m_list),
-                            [&item](const auto& element) { return element->getTxID() == item->getTxID(); });
-        
-        // index to add item on last position by default
-        int index = (m_list.count() == 0) ? 0 : m_list.count() - 1;
-
-        if (it != std::end(m_list))
-        {
-            index = m_list.indexOf(*it);
-
-            beginRemoveRows(QModelIndex(), index, index);
-            m_list.removeAt(index);
-            endRemoveRows();
-        }
-
-        beginInsertRows(QModelIndex(), index, index);
-        m_list.insert(index, item);
-        endInsertRows();
     }
 }

@@ -120,16 +120,22 @@ set(UI_SRC
     viewmodel/start_view.cpp
     viewmodel/loading_view.h
     viewmodel/loading_view.cpp
-    viewmodel/utxo_view.h
-    viewmodel/utxo_view.cpp
-    viewmodel/utxo_view_status.h
-    viewmodel/utxo_view_type.h
+    viewmodel/utxo/utxo_item.h
+    viewmodel/utxo/utxo_item.cpp
+    viewmodel/utxo/utxo_item_list.h
+    viewmodel/utxo/utxo_item_list.cpp
+    viewmodel/utxo/utxo_view.h
+    viewmodel/utxo/utxo_view.cpp
+    viewmodel/utxo/utxo_view_status.h
+    viewmodel/utxo/utxo_view_type.h
+    viewmodel/notifications/notification_item.cpp
+    viewmodel/notifications/notifications_list.cpp
+    viewmodel/notifications/notifications_view.cpp
+    viewmodel/notifications/notifications_settings.cpp
+    viewmodel/notifications/push_notification_manager.cpp
+    viewmodel/notifications/exchange_rates_manager.cpp
     viewmodel/main_view.h
     viewmodel/main_view.cpp
-    viewmodel/dashboard_view.h
-    viewmodel/dashboard_view.cpp
-    viewmodel/notifications_view.h
-    viewmodel/notifications_view.cpp
     viewmodel/help_view.h
     viewmodel/help_view.cpp
     viewmodel/settings_view.h
@@ -235,10 +241,6 @@ endif()
 add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
 
-if(BEAM_ATOMIC_SWAP_SUPPORT)
-    target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_ATOMIC_SWAP_SUPPORT)
-endif()
-
 if(BEAM_HW_WALLET)
     target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_HW_WALLET)
 endif()
@@ -271,18 +273,13 @@ target_link_libraries(${TARGET_NAME} quazip_static)
 #endif()
 
 target_link_libraries(${TARGET_NAME}
-        wallet
-        swap
+        wallet_client
         mnemonic 
         Qt5::Qml
         Qt5::Quick 
         Qt5::Svg
         Qt5::PrintSupport
 )
-
-if (BEAM_ATOMIC_SWAP_SUPPORT)
-    target_link_libraries(${TARGET_NAME} swap)
-endif()
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(

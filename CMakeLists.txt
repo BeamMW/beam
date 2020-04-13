@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 4)
-set(VERSION_MINOR 1)
+set(VERSION_MINOR 2)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -128,7 +128,7 @@ if (BEAM_NO_QT_UI_WALLET)
     set(BEAM_QT_UI_WALLET FALSE)    
 endif()
 
-set(BEAM_USE_STATIC FALSE)
+option(BEAM_USE_STATIC "Build with staticaly linked libraries " FALSE)
 if(BEAM_LINK_TYPE MATCHES "Static")
     set(BEAM_USE_STATIC TRUE)
 endif()
@@ -148,12 +148,12 @@ if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
 
-# uncoment next line for testnet
+# uncomment next line for testnet
 #set(BEAM_TESTNET TRUE)
-# uncoment next line for mainnet
+# uncomment next line for mainnet
 set(BEAM_MAINNET TRUE)
 
-# uncoment next line for swap mainnet
+# uncomment next line for swap mainnet
 #set(SWAP_MAINNET TRUE)
 
 if(BEAM_TESTNET)
@@ -175,7 +175,10 @@ if(SWAP_MAINNET)
     add_definitions(-DSWAP_MAINNET)
 endif()
 
-option(BEAM_ATOMIC_SWAP_SUPPORT "Build with wallet with atomic swap support" ON)
+option(BEAM_ATOMIC_SWAP_SUPPORT "Build wallet with atomic swap support" ON)
+option(BEAM_LASER_SUPPORT "Build wallet with laser support" ON)
+
+option(BEAM_CONFIDENTIAL_ASSETS_SUPPORT "Build wallet with confidential assets support" ON)
 
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 
@@ -300,12 +303,14 @@ endfunction()
 
 if(IOS)
     set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
+    set(BEAM_LASER_SUPPORT OFF)
     add_compile_definitions(BOOST_NO_AUTO_PTR)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
     CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_IOS}" "lib/libboost_" ".a")
 elseif(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
     set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
+    set(BEAM_LASER_SUPPORT OFF)
     add_compile_definitions(BOOST_ERROR_CODE_HEADER_ONLY)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
 
@@ -321,8 +326,7 @@ elseif(ANDROID)
         set(ANDROID_SUFFIX "-clang-mt-a64-1_68.a")
     endif()
 
-    CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")
-    
+    CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")   
     
 else()
 
@@ -398,6 +402,7 @@ add_subdirectory(p2p)
 add_subdirectory(http)
 add_subdirectory(keykeeper)
 add_subdirectory(wallet)
+add_subdirectory(hw_crypto)
 add_subdirectory(node)
 add_subdirectory(mnemonic)
 

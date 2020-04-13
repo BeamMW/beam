@@ -14,7 +14,8 @@
 
 
 #include "util.h"
-#include "wallet/wallet_network.h"
+#include "wallet/core/wallet_network.h"
+#include "wallet/core/simple_transaction.h"
 #include "node/node.h"
 #include "utility/logger.h"
 #include <future>
@@ -24,7 +25,7 @@
 namespace beam {
     using namespace wallet;
 struct WalletDBObserver : IWalletDbObserver {
-    void onCoinsChanged() {
+    void onCoinsChanged(ChangeAction, const std::vector<Coin>&) {
         LOG_DEBUG() << _who << " " << __FUNCTION__;
     }
     void onTransactionChanged(ChangeAction, const std::vector<TxDescription>& )  {
@@ -71,14 +72,13 @@ WaitHandle run_wallet(const WalletParams& params) {
 //                params.walletDB->addPeer(receiverPeer);
 //            }
 
-            auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(params.walletDB, params.walletDB->get_MasterKdf());
-			Wallet wallet{ params.walletDB, keyKeeper, [](auto) { io::Reactor::get_Current().stop(); } };
+			Wallet wallet{ params.walletDB, [](auto) { io::Reactor::get_Current().stop(); } };
 
 			auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
 			nnet->m_Cfg.m_vNodes.push_back(params.nodeAddress);
 			nnet->Connect();
 
-			wallet.AddMessageEndpoint(std::make_shared<WalletNetworkViaBbs>(wallet, nnet, params.walletDB, keyKeeper));
+			wallet.AddMessageEndpoint(std::make_shared<WalletNetworkViaBbs>(wallet, nnet, params.walletDB));
 			wallet.SetNodeEndpoint(nnet);
 
             if (sender) {
@@ -176,15 +176,15 @@ void test_offline(bool twoNodes) {
 
     senderParams.reactor = io::Reactor::create();
     senderParams.walletDB = init_wallet_db("_sender", &nodeParams.walletSeed, senderParams.reactor);
-    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderParams.walletDB, senderParams.walletDB->get_MasterKdf());
 
     receiverParams.reactor = io::Reactor::create();
     receiverParams.walletDB = init_wallet_db("_receiver", 0, receiverParams.reactor);
 
-	WalletAddress wa = storage::createAddress(*senderParams.walletDB, keyKeeper);
+    WalletAddress wa;
+    senderParams.walletDB->createAddress(wa);
 	senderParams.walletDB->saveAddress(wa);
 	senderParams.sendFrom = wa.m_walletID;
-    wa = storage::createAddress(*senderParams.walletDB, keyKeeper);
+    senderParams.walletDB->createAddress(wa);
     receiverParams.walletDB->saveAddress(wa);
 	senderParams.sendTo = wa.m_walletID;
 

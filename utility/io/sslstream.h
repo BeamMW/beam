@@ -20,6 +20,7 @@ namespace beam { namespace io {
 
 class SslStream : public TcpStream {
 public:
+    // SslStream()
     ~SslStream() = default;
 
     /// Writes raw data, returns status code
@@ -35,6 +36,7 @@ private:
     friend class SslServer;
     friend class Reactor;
     friend class TcpConnectors;
+    friend class ProxyConnector;
 
     explicit SslStream(const SSLContext::Ptr& ctx);
 

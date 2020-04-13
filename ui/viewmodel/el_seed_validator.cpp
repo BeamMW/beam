@@ -14,7 +14,7 @@
 #include "el_seed_validator.h"
 
 #include "utility/string_helpers.h"
-#include "wallet/bitcoin/common.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/common.h"
 
 ELSeedValidator::ELSeedValidator(QObject* parent):
     QValidator(parent)

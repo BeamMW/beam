@@ -100,7 +100,7 @@ void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 		{
 			if (m_Hdr.IsValidProofUtxo(*m_Current, proof))
 			{
-				m_Maturity = std::max(m_Maturity, proof.m_State.m_Maturity);
+				std::setmax(m_Maturity, proof.m_State.m_Maturity);
 				isValid = true;
 				break;
 			}

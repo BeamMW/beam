@@ -111,6 +111,7 @@ namespace ECC
 
 		int cmp(const Scalar& x) const { return m_Value.cmp(x.m_Value); }
 		COMPARISON_VIA_CMP
+		std::string str() const;
 	};
 
 	std::ostream& operator << (std::ostream&, const Scalar&);
@@ -132,10 +133,14 @@ namespace ECC
 		int cmp(const Point&) const;
 		COMPARISON_VIA_CMP
 
-
 		Point& operator = (const Native&);
 		Point& operator = (const Point&);
 		Point& operator = (const Commitment&);
+
+		bool operator == (const Native&) const;
+
+		struct Storage; // affine form, platform-independent.
+		struct Compact; // affine form, platform-dependent. For internal tables
 	};
 
 	std::ostream& operator << (std::ostream&, const Point&);
@@ -151,9 +156,44 @@ namespace ECC
 
 	typedef beam::Amount Amount;
 
-	struct Signature
+	struct SignatureBase
 	{
+		//	Generalized Schnorr's signature. Very flexible.
+		//	1. Multiple generators
+		//	2. Multiple keys
+		//		This is different from multi-signature. Rather than proving sum of keys the prover must prove each key separately
+		//		It is verified by generating multiple challenges, and comparing vs multiple known pubkeys (each of which can be a linear combination of multiple generators)
+		// 
+		//	NOTE: Schnorr's multi-signature should be used carefully. If done naively it has the following potential weaknesses:
+		//	1. Key cancellation. (The attacker may exclude you and actually create a signature for its private key).
+		//		This isn't a problem for our case, but should be taken into consideration if used in other schemes.
+		//	2. Private Key leak. If the same message signed with the same key but co-signers use different nonces (altering the challenge) - there's a potential for key leak. 
+		//		This is indeed the case if the nonce is generated from the secret key and the message only.
+		//		In order to prevent this the signer **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
+
 		Point m_NoncePub;
+
+		void Expose(Oracle&, const Hash::Value& msg) const;
+		void get_Challenge(Scalar::Native&, const Hash::Value& msg) const; // suitable for 1 key (otherwise multiple challenges should be generated)
+
+		struct Config;
+
+		bool IsValid(const Config&, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk) const;
+		bool IsValidPartial(const Config&, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const;
+
+		void Sign(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes);
+		void SignRaw(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes) const;
+		void SignPartial(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, const Scalar::Native* pNonce, Scalar::Native* pRes) const;
+		void CreateNonces(const Config&, const Hash::Value& msg, const Scalar::Native* pSk, Scalar::Native* pRes);
+		void SetNoncePub(const Config&, const Scalar::Native* pNonce);
+	};
+
+
+	struct Signature
+		:public SignatureBase
+	{
+		static const Config& get_Config();
+
 		Scalar m_k;
 
 		bool IsValid(const Hash::Value& msg, const Point::Native& pk) const;
@@ -161,15 +201,17 @@ namespace ECC
 
 		// simple signature
 		void Sign(const Hash::Value& msg, const Scalar::Native& sk);
-
-		// multi-signature
-		struct MultiSig;
+		void SignPartial(const Hash::Value& msg, const Scalar::Native& sk, const Scalar::Native& nonce);
 
 		int cmp(const Signature&) const;
 		COMPARISON_VIA_CMP
+	};
 
-	private:
-		static void get_Challenge(Scalar::Native&, const Point&, const Hash::Value& msg);
+	template <uint32_t nG>
+	struct SignatureGeneralized
+		:public SignatureBase
+	{
+		Scalar m_pK[nG];
 	};
 
 	struct Key
@@ -183,17 +225,19 @@ namespace ECC
 			Type(uint32_t x) :FourCC(x) {}
 
 			// definitions for common types, that are used in several places. But values can be arbitrary, not only for this list
-			static const uint32_t Comission = FOURCC_FROM(fees);
-			static const uint32_t Coinbase  = FOURCC_FROM(mine);
-			static const uint32_t Regular   = FOURCC_FROM(norm);
-			static const uint32_t Change    = FOURCC_FROM(chng);
-			static const uint32_t Kernel    = FOURCC_FROM(kern); // tests only
-			static const uint32_t Kernel2   = FOURCC_FROM(kerM); // used by the miner
-			static const uint32_t Identity  = FOURCC_FROM(iden); // Node-Wallet auth
-			static const uint32_t ChildKey  = FOURCC_FROM(SubK);
-			static const uint32_t Bbs       = FOURCC_FROM(BbsM);
-			static const uint32_t Decoy     = FOURCC_FROM(dcoy);
-			static const uint32_t Treasury  = FOURCC_FROM(Tres);
+			static const uint32_t Comission   = FOURCC_FROM(fees);
+			static const uint32_t Coinbase    = FOURCC_FROM(mine);
+			static const uint32_t Regular     = FOURCC_FROM(norm);
+			static const uint32_t Change      = FOURCC_FROM(chng);
+			static const uint32_t Kernel      = FOURCC_FROM(kern); // tests only
+			static const uint32_t Kernel2     = FOURCC_FROM(kerM); // used by the miner
+			static const uint32_t ProtoID     = FOURCC_FROM(iden); // Node-Wallet auth
+			static const uint32_t WalletID    = FOURCC_FROM(tRid); // Wallet ID (historically used for treasury)
+			static const uint32_t ChildKey    = FOURCC_FROM(SubK);
+			static const uint32_t Bbs         = FOURCC_FROM(BbsM);
+			static const uint32_t Decoy       = FOURCC_FROM(dcoy);
+			static const uint32_t Treasury    = FOURCC_FROM(Tres);
+			static const uint32_t Asset       = FOURCC_FROM(Asst);
 		};
 
 		struct ID
@@ -206,10 +250,10 @@ namespace ECC
 			ID(Zero_) { ZeroObject(*this); }
 
 			ID(uint64_t nIdx, Type type, uint32_t nSubIdx = 0) // most common c'tor
+				: m_Idx(nIdx)
+				, m_Type(type)
+				, m_SubIdx(nSubIdx)
 			{
-				m_Idx = nIdx;
-				m_Type = type;
-				m_SubIdx = nSubIdx;
 			}
 
 			void get_Hash(Hash::Value&) const;
@@ -230,76 +274,6 @@ namespace ECC
 			COMPARISON_VIA_CMP
 		};
 
-		struct IDV
-			:public ID
-		{
-			struct Scheme
-			{
-				static const uint8_t V0 = 0;
-				static const uint8_t V1 = 1;
-				static const uint8_t BB21 = 2; // worakround for BB.2.1
-
-				static const uint32_t s_SubKeyBits = 24;
-				static const Index s_SubKeyMask = (static_cast<Index>(1) << s_SubKeyBits) - 1;
-			};
-
-
-			Amount m_Value;
-			IDV() {}
-			IDV(Zero_)
-				:ID(Zero)
-				,m_Value(0)
-			{
-				set_Subkey(0);
-			}
-
-			IDV(Amount v, uint64_t nIdx, Type type, Index nSubIdx = 0, Index nScheme = Scheme::V1)
-				:ID(nIdx, type)
-				,m_Value(v)
-			{
-				set_Subkey(nSubIdx, nScheme);
-			}
-
-			Index get_Scheme() const
-			{
-				return m_SubIdx >> Scheme::s_SubKeyBits;
-			}
-
-			Index get_Subkey() const
-			{
-				return m_SubIdx & Scheme::s_SubKeyMask;
-			}
-
-			void set_Subkey(Index nSubIdx, Index nScheme = Scheme::V1)
-			{
-				m_SubIdx = (nSubIdx & Scheme::s_SubKeyMask) | (nScheme << Scheme::s_SubKeyBits);
-			}
-
-#pragma pack (push, 1)
-			struct Packed
-				:public ID::Packed
-			{
-				beam::uintBigFor<Amount>::Type m_Value;
-				void operator = (const IDV&);
-			};
-#pragma pack (pop)
-
-			void operator = (const Packed&);
-
-			bool IsBb21Possible() const
-			{
-				return m_SubIdx && (Scheme::V0 == get_Scheme());
-			}
-
-			void set_WorkaroundBb21()
-			{
-				set_Subkey(get_Subkey(), Scheme::BB21);
-			}
-
-			int cmp(const IDV&) const;
-			COMPARISON_VIA_CMP
-		};
-
 		struct IPKdf
 		{
 			typedef std::shared_ptr<IPKdf> Ptr;
@@ -309,6 +283,8 @@ namespace ECC
 			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) = 0;
 
 			bool IsSame(IPKdf&);
+
+			virtual uint32_t ExportP(void*) const { return 0; } // returns the size, ptr is optional
 		};
 
 		struct IKdf
@@ -321,10 +297,10 @@ namespace ECC
 
 			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
 			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
+
+			virtual uint32_t ExportS(void*) const { return 0; } // returns the size, ptr is optional
 		};
 	};
-
-	std::ostream& operator << (std::ostream&, const Key::IDV&);
 
 	struct InnerProduct
 	{
@@ -344,9 +320,20 @@ namespace ECC
 		static void get_Dot(Scalar::Native& res, const Scalar::Native* pA, const Scalar::Native* pB);
 
 		// optional modifier for the used generators. Needed for the bulletproof.
-		struct Modifier {
-			const Scalar::Native* m_pMultiplier[2];
-			Modifier() { ZeroObject(m_pMultiplier); }
+		struct Modifier
+		{
+			struct Channel;
+
+			Channel* m_ppC[2]; // multipliers to vector elements
+			const Scalar::Native* m_pAmbient; // multiplier to all the other elements: LR and G
+
+			void Set(Scalar::Native& dst, const Scalar::Native& src, int i, int j) const;
+
+			Modifier()
+				:m_ppC{ 0 }
+				,m_pAmbient(nullptr)
+			{
+			}
 		};
 
 		void Create(Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
@@ -360,6 +347,7 @@ namespace ECC
 		struct Challenges;
 		bool IsValid(BatchContext&, Challenges&, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
+		struct CalculatorBase;
 	private:
 		struct Calculator;
 
@@ -374,9 +362,19 @@ namespace ECC
 		struct CreatorParams
 		{
 			NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
-			Key::IDV m_Kidv;
+			Amount m_Value;
+			beam::Blob m_Blob = beam::Blob(nullptr, 0); // max size is limited, together with m_Value should not exceed Scalar
 
-			struct Padded;
+			void BlobSave(uint8_t* p, size_t) const;
+			bool BlobRecover(const uint8_t* p, size_t);
+
+			struct Packed;
+
+			// more params to embed/recover, optional
+			const uintBig* m_pSeedSk = nullptr; // set only when recovering
+			Scalar::Native* m_pSk; // set only when recovering
+
+			Scalar::Native* m_pExtra = nullptr; // 2 more scalars can be embedded
 		};
 
 		struct Confidential
@@ -398,6 +396,7 @@ namespace ECC
 
 			struct Part3 {
 				Scalar m_TauX;
+				int cmp(const Part3& v) const { return m_TauX.cmp(v.m_TauX); }
 			} m_Part3;
 
 			Scalar m_Mu;
@@ -421,16 +420,16 @@ namespace ECC
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP
 
+			struct Nonces;
+
 			// multisig
 			struct MultiSig
 			{
 				Part1 m_Part1;
 				Part2 m_Part2;
 
-				struct Impl;
-
-				static bool CoSignPart(const uintBig& seedSk, Part2&);
-				void CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Oracle&, Part3&) const;
+				static bool CoSignPart(const Nonces&, Part2&);
+				void CoSignPart(const Nonces&, const Scalar::Native& sk, Oracle&, Part3&) const;
 			};
 
 			struct Phase {
@@ -442,14 +441,13 @@ namespace ECC
 				};
 			};
 
-			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, const Point::Native* pHGen = nullptr);
+			bool CoSign(const Nonces&, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, const Point::Native* pHGen = nullptr);
 
             static void GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle);
 
 		private:
-			struct ChallengeSet0;
-			struct ChallengeSet1;
-			struct ChallengeSet2;
+			struct ChallengeSet;
+			struct Vectors;
 			static void CalcA(Point&, const Scalar::Native& alpha, Amount v);
 		};
 

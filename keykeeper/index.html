@@ -1,40 +1,43 @@
 <!doctype html>
 <html>
+    <script src='wasm-key-keeper.js'></script>    
     <script>
-        var Module = {
-            onRuntimeInitialized: function() 
+
+        Module().then(function(Module) 
+        {
+            var phrase = Module.KeyKeeper.GeneratePhrase()
+            
+            console.log('seed phrase is: ', phrase);
+            console.log("IsAllowedWord('hurdle') -", Module.KeyKeeper.IsAllowedWord('hurdle'))
+            console.log("IsValidPhrase()", Module.KeyKeeper.IsValidPhrase(phrase))
+            console.log('world list size is', phrase.split(' ').length)
+
+            var keykeeper = new Module.KeyKeeper(phrase);
+
             {
-                var wordList = new Module.WordList();
-                ['copy', 'vendor', 'shallow', 'raven', 'coffee', 'appear', 'book', 'blast', 'lock', 'exchange', 'farm', 'glue'].forEach((word) => wordList.push_back(word));
+                var pk = keykeeper.generateCoinKey("j25vcm2HA5SIAQ==", 0);
 
-                var keykeeper = new Module.KeyKeeper(wordList);
+                console.log('public key is: data:application/octet-stream;base64,' + pk)
+                console.log('ownerKey is: data:application/octet-stream;base64,' + keykeeper.getOwnerKey('123'));
 
-                {
-                    var pk = keykeeper.generatePublicKey("j25vcm2HA5SIAQ==", true);
+                var slot = keykeeper.allocateNonceSlot();
+                console.log('allocated nonce slot: ' + slot);
 
-                    console.log('public key is: data:application/octet-stream;base64,' + pk)
-                    console.log('ownerKey is: data:application/octet-stream;base64,' + keykeeper.getOwnerKey('123'));
+                var nonce = keykeeper.generateNonce(slot);
+                console.log('generated nonce: data:application/octet-stream;base64,' + nonce);
 
-                    var slot = keykeeper.allocateNonceSlot();
-                    console.log('allocated nonce slot: ' + slot);
+                var output = keykeeper.generateOutput('A5SIAQ==', 'j25vcm2HA5SIAQ==');
+                console.log('output is: data:application/octet-stream;base64,' + output)
 
-                    var nonce = keykeeper.generateNonce(slot);
-                    console.log('generated nonce: data:application/octet-stream;base64,' + nonce);
+                // var sign = keykeeper.sign("gYBub3JtBAAAAAGo", 
+                //     "goBub3JtBAAAAAGQgG5vcm0EAAAAAZg=", 
+                //     "n4IJkOJI4RBuB+vSsRVv9eLrQYj/T63RKbuGQkPr9iQ=", 
+                //     0, 
+                //     "AqhhAmxrgJRDD8A004NtNAHW5OS1ejp71FSYb3+cZgdMFaQYoFTcAA==", 
+                //     "xfxiHFSO5kaPrJ3YmG2v9E2RC6g25Py2eGxhQ85G1T0B");
 
-                    var output = keykeeper.generateOutput('A5SIAQ==', 'j25vcm2HA5SIAQ==');
-                    console.log('output is: data:application/octet-stream;base64,' + output)
-
-                    var sign = keykeeper.sign("gYBub3JtBAAAAAGo", 
-                        "goBub3JtBAAAAAGQgG5vcm0EAAAAAZg=", 
-                        "n4IJkOJI4RBuB+vSsRVv9eLrQYj/T63RKbuGQkPr9iQ=", 
-                        0, 
-                        "AqhhAmxrgJRDD8A004NtNAHW5OS1ejp71FSYb3+cZgdMFaQYoFTcAA==", 
-                        "xfxiHFSO5kaPrJ3YmG2v9E2RC6g25Py2eGxhQ85G1T0B");
-
-                    console.log('sign is: data:application/octet-stream;base64,' + sign)
-                }
+                // console.log('sign is: data:application/octet-stream;base64,' + sign)
             }
-        };
+        })
     </script>
-    <script src='wasm-key-keeper.js'></script>
 </html>

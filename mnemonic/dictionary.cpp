@@ -6,7 +6,6 @@ namespace beam
     {
         const Dictionary en =
         {
-            {
                 "abandon",
                 "ability",
                 "able",
@@ -2055,12 +2054,10 @@ namespace beam
                 "zero",
                 "zone",
                 "zoo"
-            }
         };
 
         const Dictionary es =
         {
-            {
                 "ábaco",
                 "abdomen",
                 "abeja",
@@ -4109,12 +4106,10 @@ namespace beam
                 "zorro",
                 "zumo",
                 "zurdo"
-            }
         };
 
         const Dictionary ja =
         {
-            {
                 "あいこくしん",
                 "あいさつ",
                 "あいだ",
@@ -6163,12 +6158,10 @@ namespace beam
                 "わすれもの",
                 "わらう",
                 "われる"
-            }
         };
 
         const Dictionary it =
         {
-            {
                 "abaco",
                 "abbaglio",
                 "abbinato",
@@ -8217,12 +8210,10 @@ namespace beam
                 "zufolo",
                 "zulu",
                 "zuppa"
-            }
         };
 
         const Dictionary fr =
         {
-            {
                 "abaisser",
                 "abandon",
                 "abdiquer",
@@ -10271,12 +10262,10 @@ namespace beam
                 "zénith",
                 "zeste",
                 "zoologie"
-            }
         };
 
         const Dictionary cs =
         {
-            {
                 "abdikace",
                 "abeceda",
                 "adresa",
@@ -12325,12 +12314,10 @@ namespace beam
                 "zvrat",
                 "zvukovod",
                 "zvyk"
-            }
         };
 
         const Dictionary ru =
         {
-            {
                 "абажур",
                 "абзац",
                 "абонент",
@@ -14379,12 +14366,10 @@ namespace beam
                 "ячмень",
                 "ящерица",
                 "ящик"
-            }
         };
 
         const Dictionary uk =
         {
-            {
                 "абетка",
                 "або",
                 "абонент",
@@ -16433,12 +16418,10 @@ namespace beam
                 "іспит",
                 "істина",
                 "істота"
-            }
         };
 
         const Dictionary zh_Hans =
         {
-            {
                 "的",
                 "一",
                 "是",
@@ -18487,12 +18470,10 @@ namespace beam
                 "怨",
                 "矮",
                 "歇"
-            }
         };
 
         const Dictionary zh_Hant =
         {
-            {
                 "的",
                 "一",
                 "是",
@@ -20541,7 +20522,6 @@ namespace beam
                 "怨",
                 "矮",
                 "歇"
-            }
         };
     }
 }

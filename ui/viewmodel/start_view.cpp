@@ -33,8 +33,8 @@
 #include "model/app_model.h"
 #include "model/keyboard.h"
 #include "version.h"
-#include "wallet/secstring.h"
-#include "wallet/default_peers.h"
+#include "wallet/core/secstring.h"
+#include "wallet/core/default_peers.h"
 
 #include <boost/filesystem.hpp>
 #include <algorithm>

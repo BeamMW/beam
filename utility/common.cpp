@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "common.h"
+#include "executor.h"
 #include <exception>
 
 #ifndef WIN32
@@ -93,7 +94,203 @@ namespace beam
 		else
 			x.clear();
 	}
-}
+
+	int Blob::cmp(const Blob& x) const
+	{
+		int nRet = memcmp(p, x.p, std::min(n, x.n));
+		if (nRet)
+			return nRet;
+
+		if (n < x.n)
+			return -1;
+
+		return (n > x.n);
+	}
+
+	///////////////////////
+	// Executor
+	thread_local Executor* Executor::s_pInstance = nullptr;
+
+	void Executor::Context::get_Portion(uint32_t& i0, uint32_t& nCount, uint32_t nTotal)
+	{
+		uint32_t nThreads = m_pThis->get_Threads();
+		assert(m_iThread < nThreads);
+
+		if (nTotal)
+		{
+			i0 = get_Pos(nTotal, m_iThread, nThreads);
+			nCount = get_Pos(nTotal, m_iThread + 1, nThreads) - i0;
+		}
+		else
+		{
+			i0 = 0;
+			nCount = 0;
+		}
+	}
+
+	uint32_t Executor::Context::get_Pos(uint32_t nTotal, uint32_t iThread, uint32_t nThreads)
+	{
+		uint64_t val = nTotal;
+		val *= iThread;
+		val /= nThreads;
+		return static_cast<uint32_t>(val);
+	}
+
+	void ExecutorMT::InitSafe()
+	{
+		if (!m_vThreads.empty())
+			return;
+
+		m_Run = true;
+		m_pCtl = nullptr;
+		m_InProgress = 0;
+		m_FlushTarget = static_cast<uint32_t>(-1);
+
+		uint32_t nThreads = get_Threads();
+		m_vThreads.resize(nThreads);
+
+		for (uint32_t i = 0; i < nThreads; i++)
+			m_vThreads[i] = std::thread(&ExecutorMT::RunThread, this, i);
+	}
+
+	void ExecutorMT::Push(TaskAsync::Ptr&& pTask)
+	{
+		assert(pTask);
+		InitSafe();
+
+		std::unique_lock<std::mutex> scope(m_Mutex);
+
+		m_queTasks.push_back(*pTask.release());
+		m_InProgress++;
+
+		m_NewTask.notify_one();
+	}
+
+	uint32_t ExecutorMT::Flush(uint32_t nMaxTasks)
+	{
+		InitSafe();
+
+		std::unique_lock<std::mutex> scope(m_Mutex);
+		FlushLocked(scope, nMaxTasks);
+
+		return m_InProgress;
+	}
+
+	void ExecutorMT::FlushLocked(std::unique_lock<std::mutex>& scope, uint32_t nMaxTasks)
+	{
+		m_FlushTarget = nMaxTasks;
+
+		while (m_InProgress > nMaxTasks)
+			m_Flushed.wait(scope);
+
+		m_FlushTarget = static_cast<uint32_t>(-1);
+	}
+
+	void ExecutorMT::ExecAll(TaskSync& t)
+	{
+		InitSafe();
+
+		std::unique_lock<std::mutex> scope(m_Mutex);
+		FlushLocked(scope, 0);
+
+		assert(!m_pCtl && !m_InProgress);
+		m_pCtl = &t;
+		m_InProgress = get_Threads();
+
+		m_NewTask.notify_all();
+
+		FlushLocked(scope, 0);
+		assert(!m_pCtl);
+	}
+
+	void ExecutorMT::Stop()
+	{
+		if (m_vThreads.empty())
+			return;
+
+		{
+			std::unique_lock<std::mutex> scope(m_Mutex);
+			m_Run = false;
+			m_NewTask.notify_all();
+		}
+
+		for (size_t i = 0; i < m_vThreads.size(); i++)
+			if (m_vThreads[i].joinable())
+				m_vThreads[i].join();
+
+		m_vThreads.clear();
+
+		while (!m_queTasks.empty())
+		{
+			TaskAsync::Ptr pGuard(&m_queTasks.front());
+			m_queTasks.pop_front();
+		}
+	}
+
+	void ExecutorMT::RunThreadCtx(Context& ctx)
+	{
+		ctx.m_pThis = this;
+
+		while (true)
+		{
+			TaskAsync::Ptr pGuard;
+			TaskSync* pTask;
+
+			{
+				std::unique_lock<std::mutex> scope(m_Mutex);
+				while (true)
+				{
+					if (!m_Run)
+						return;
+
+					if (!m_queTasks.empty())
+					{
+						pGuard.reset(&m_queTasks.front());
+						pTask = pGuard.get();
+						m_queTasks.pop_front();
+						break;
+					}
+
+					if (m_pCtl)
+					{
+						pTask = m_pCtl;
+						break;
+					}
+
+					m_NewTask.wait(scope);
+				}
+			}
+
+			assert(pTask && m_InProgress);
+			pTask->Exec(ctx);
+
+			std::unique_lock<std::mutex> scope(m_Mutex);
+
+			assert(m_InProgress);
+			m_InProgress--;
+
+			if (pGuard)
+			{
+				// standard task
+				if (m_InProgress == m_FlushTarget)
+					m_Flushed.notify_one();
+			}
+			else
+			{
+				// control task
+				if (m_InProgress)
+					m_Flushed.wait(scope); // make sure we give other threads opportuinty to execute the control task
+				else
+				{
+					m_pCtl = nullptr;
+					m_Flushed.notify_all();
+				}
+			}
+
+		}
+	}
+
+} // namespace beam
 
 namespace std
 {

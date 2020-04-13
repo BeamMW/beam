@@ -110,17 +110,6 @@ namespace ECC {
         return operator << (s, point);
     }
 
-	std::ostream& operator << (std::ostream& s, const Key::IDV& x)
-	{
-		s
-			<< "Key=" << x.m_Type
-			<< "-" << x.get_Scheme()
-			<< ":" << x.get_Subkey()
-			<< ":" << x.m_Idx
-			<< ", Value=" << x.m_Value;
-		return s;
-	}
-
 	void GenRandom(void* p, uint32_t nSize)
 	{
 		// checkpoint?
@@ -188,6 +177,11 @@ namespace ECC {
 	{
 		m_Value = Zero;
 		return *this;
+	}
+
+	std::string Scalar::str() const
+	{
+		return m_Value.str();
 	}
 
 	Scalar::Native::Native()
@@ -446,7 +440,7 @@ namespace ECC {
         secp256k1_gej_set_infinity(this);
     }
 
-	bool Point::Native::ImportNnz(const Point& v)
+	bool Point::Native::ImportNnz(const Point& v, Storage* pS /* = nullptr */)
 	{
 		if (v.m_Y > 1)
 			return false; // should always be well-formed
@@ -461,16 +455,39 @@ namespace ECC {
 
 		secp256k1_gej_set_ge(this, &ge.V);
 
+		if (pS)
+			pS->FromNnz(ge.V);
+
 		return true;
 	}
 
-	bool Point::Native::Import(const Point& v)
+	void Point::Storage::FromNnz(secp256k1_ge& ge)
 	{
-		if (ImportNnz(v))
+		// normalization seems unnecessary, but it's minor
+		secp256k1_fe_normalize(&ge.x);
+		secp256k1_fe_normalize(&ge.y);
+
+		secp256k1_fe_get_b32(m_X.m_pData, &ge.x);
+		secp256k1_fe_get_b32(m_Y.m_pData, &ge.y);
+	}
+
+	bool Point::Native::Import(const Point& v, Storage* pS /* = nullptr */)
+	{
+		if (ImportNnz(v, pS))
 			return true;
 
 		*this = Zero;
+		if (pS)
+			ZeroObject(*pS);
+
 		return memis0(&v, sizeof(v));
+	}
+
+	void Point::Native::ExportNnz(secp256k1_ge& ge) const
+	{
+		NoLeak<secp256k1_gej> dup;
+		dup.V = *this;
+		secp256k1_ge_set_gej(&ge, &dup.V);
 	}
 
 	bool Point::Native::Export(Point& v) const
@@ -481,10 +498,8 @@ namespace ECC {
 			return false;
 		}
 
-		NoLeak<secp256k1_gej> dup;
-		dup.V = *this;
 		NoLeak<secp256k1_ge> ge;
-		secp256k1_ge_set_gej(&ge.V, &dup.V);
+		ExportNnz(ge.V);
 
 		// seems like normalization can be omitted (already done by secp256k1_ge_set_gej), but not guaranteed according to docs.
 		// But this has a negligible impact on the performance
@@ -502,6 +517,159 @@ namespace ECC {
 		v.m_Y = (secp256k1_fe_is_odd(&ge.y) != 0);
 	}
 
+	void Point::Native::Export(Storage& v) const
+	{
+		if (*this == Zero)
+			ZeroObject(v);
+		else
+		{
+			secp256k1_ge ge;
+			ExportNnz(ge);
+			v.FromNnz(ge);
+		}
+	}
+
+	bool Point::Native::Import(const Storage& v, bool bVerify)
+	{
+		if (memis0(&v, sizeof(v)))
+			*this = Zero;
+		else
+		{
+			secp256k1_ge ge;
+			ZeroObject(ge);
+
+			secp256k1_fe_set_b32(&ge.x, v.m_X.m_pData);
+			secp256k1_fe_set_b32(&ge.y, v.m_Y.m_pData);
+
+			if (bVerify && !secp256k1_ge_is_valid_var(&ge))
+			{
+				*this = Zero;
+				return false;
+			}
+
+			secp256k1_gej_set_ge(this, &ge);
+		}
+
+		return true;
+	}
+
+	void Point::Native::BatchNormalizer::Normalize()
+	{
+		secp256k1_fe zDenom;
+		NormalizeInternal(zDenom, true);
+	}
+
+	void Point::Native::BatchNormalizer::ToCommonDenominator(secp256k1_fe& zDenom)
+	{
+		secp256k1_fe_set_int(&zDenom, 1);
+		NormalizeInternal(zDenom, false);
+	}
+
+	void secp256k1_gej_rescale_XY(secp256k1_gej& gej, const secp256k1_fe& z)
+	{
+		// equivalent of secp256k1_gej_rescale, but doesn't change z coordinate
+		// A bit more effective when the value of z is know in advance (such as when normalizing)
+		secp256k1_fe zz;
+		secp256k1_fe_sqr(&zz, &z);
+
+		secp256k1_fe_mul(&gej.x, &gej.x, &zz);
+		secp256k1_fe_mul(&gej.y, &gej.y, &zz);
+		secp256k1_fe_mul(&gej.y, &gej.y, &z);
+	}
+
+	void Point::Native::BatchNormalizer::NormalizeInternal(secp256k1_fe& zDenom, bool bNormalize)
+	{
+		bool bEmpty = true;
+		Element elPrev = { 0 }; // init not necessary, just suppress the warning
+		Element el = { 0 };
+
+		for (Reset(); ; )
+		{
+			if (!MoveNext(el))
+				break;
+
+			if (bEmpty)
+			{
+				bEmpty = false;
+				*el.m_pFe = el.m_pPoint->z;
+			}
+			else
+				secp256k1_fe_mul(el.m_pFe, elPrev.m_pFe, &el.m_pPoint->z);
+
+			elPrev = el;
+		}
+
+		if (bEmpty)
+			return;
+
+		if (bNormalize)
+			secp256k1_fe_inv(&zDenom, elPrev.m_pFe); // the only expensive call
+
+		while (true)
+		{
+			bool bFetched = MovePrev(el);
+			if (bFetched) 
+				secp256k1_fe_mul(elPrev.m_pFe, el.m_pFe, &zDenom);
+			else
+				*elPrev.m_pFe = zDenom;
+
+			secp256k1_fe_mul(&zDenom, &zDenom, &elPrev.m_pPoint->z);
+
+			secp256k1_gej_rescale_XY(*elPrev.m_pPoint, *elPrev.m_pFe);
+			elPrev.m_pPoint->z = zDenom;
+
+			if (!bFetched)
+				break;
+
+			elPrev = el;
+		}
+	}
+
+	void Point::Native::BatchNormalizer::get_As(secp256k1_ge& ge, const Point::Native& ptNormalized)
+	{
+		ge.x = ptNormalized.x;
+		ge.y = ptNormalized.y;
+		ge.infinity = ptNormalized.infinity;
+	}
+
+	void Point::Native::BatchNormalizer::get_As(secp256k1_ge_storage& ge_s, const Point::Native& ptNormalized)
+	{
+		secp256k1_ge ge;
+		get_As(ge, ptNormalized);
+		secp256k1_ge_to_storage(&ge_s, &ge);
+	}
+
+	void Point::Native::BatchNormalizer_Arr::get_At(Element& el, uint32_t iIdx)
+	{
+		el.m_pPoint = m_pPts + iIdx;
+		el.m_pFe = m_pFes + iIdx;
+	}
+
+	void Point::Native::BatchNormalizer_Arr::Reset()
+	{
+		m_iIdx = 0;
+	}
+
+	bool Point::Native::BatchNormalizer_Arr::MoveNext(Element& el)
+	{
+		if (m_iIdx == m_Size)
+			return false;
+
+		get_At(el, m_iIdx);
+		m_iIdx++;
+		return true;
+	}
+
+	bool Point::Native::BatchNormalizer_Arr::MovePrev(Element& el)
+	{
+		if (m_iIdx < 2)
+			return false;
+
+		m_iIdx--;
+		get_At(el, m_iIdx - 1);
+		return true;
+	}
+
 	Point::Native& Point::Native::operator = (Zero_)
 	{
 		secp256k1_gej_set_infinity(this);
@@ -517,6 +685,30 @@ namespace ECC {
     {
         return !(operator == (v));
     }
+
+	bool Point::Native::operator == (const Native& v) const
+	{
+		Native val = -v;
+		val += *this;
+		return val == Zero;
+	}
+
+	bool Point::Native::operator == (const Point& v) const
+	{
+		// There's a fast way to compare the X coordinate (without normalizing the gej).
+		// But there is no known way to check the oddity of the Y coordinate
+		// Hence - we'll do the normalization.
+
+		// Import/Export seems to be the same complexity
+		ECC::Point v2;
+		Export(v2);
+		return v2 == v;
+	}
+
+	bool Point::operator == (const Native& pt) const
+	{
+		return pt == *this;
+	}
 
 	Point::Native& Point::Native::operator = (Minus v)
 	{
@@ -546,11 +738,12 @@ namespace ECC {
 	Point::Native& Point::Native::operator = (Mul v)
 	{
 		MultiMac::Casual mc;
-		mc.Init(v.x, v.y);
+		mc.Init(v.x);
 
 		MultiMac mm;
 		mm.m_pCasual = &mc;
 		mm.m_Casual = 1;
+		mm.m_pKCasual = Cast::NotConst(&v.y);
 		mm.Calculate(*this);
 
 		return *this;
@@ -604,44 +797,56 @@ namespace ECC {
         return data;
     }
 
+	Point::Compact::Converter::Converter()
+	{
+		m_Batch.m_Size = 0;
+	}
+
+	void Point::Compact::Converter::Flush()
+	{
+		m_Batch.Normalize();
+
+		for (uint32_t i = 0; i < m_Batch.m_Size; i++)
+			m_Batch.get_As(*m_ppC[i], m_Batch.m_pPts[i]);
+
+		m_Batch.m_Size = 0;
+	}
+
+	void Point::Compact::Converter::set_Deferred(Compact& trg, Point::Native& src)
+	{
+		if (m_Batch.m_Size == N)
+			Flush();
+
+		m_ppC[m_Batch.m_Size] = &trg;
+		m_Batch.m_pPts[m_Batch.m_Size] = src;
+		m_Batch.m_Size++;
+	}
+
+	void Point::Compact::Assign(secp256k1_ge& ge) const
+	{
+		secp256k1_ge_from_storage(&ge, this);
+	}
+
+	void Point::Compact::Assign(Point::Native& p, bool bSet) const
+	{
+		NoLeak<secp256k1_ge> ge;
+		Assign(ge.V);
+
+		if (bSet)
+			secp256k1_gej_set_ge(&p.get_Raw(), &ge.V);
+		else
+		{
+			if (Mode::Secure == ECC::g_Mode)
+				secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge.V);
+			else
+				secp256k1_gej_add_ge_var(&p.get_Raw(), &p.get_Raw(), &ge.V, nullptr);
+		}
+	}
+
 	/////////////////////
 	// Generator
 	namespace Generator
 	{
-		void FromPt(CompactPoint& out, Point::Native& p)
-		{
-#ifdef ECC_COMPACT_GEN
-			secp256k1_ge ge; // used only for non-secret
-			secp256k1_ge_set_gej(&ge, &p.get_Raw());
-			secp256k1_ge_to_storage(&out, &ge);
-#else // ECC_COMPACT_GEN
-			out = p.get_Raw();
-#endif // ECC_COMPACT_GEN
-		}
-
-		void ToPt(Point::Native& p, secp256k1_ge& ge, const CompactPoint& ge_s, bool bSet)
-		{
-#ifdef ECC_COMPACT_GEN
-
-			secp256k1_ge_from_storage(&ge, &ge_s);
-
-			if (bSet)
-				secp256k1_gej_set_ge(&p.get_Raw(), &ge);
-			else
-				secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge);
-
-#else // ECC_COMPACT_GEN
-
-			static_assert(sizeof(p) == sizeof(ge_s));
-
-			if (bSet)
-				p = (const Point::Native&) ge_s;
-			else
-				p += (const Point::Native&) ge_s;
-
-#endif // ECC_COMPACT_GEN
-		}
-
 		void CreatePointNnz(Point::Native& out, Oracle& oracle, Hash::Processor* phpRes)
 		{
 			Point pt;
@@ -655,7 +860,7 @@ namespace ECC {
 				*phpRes << pt;
 		}
 
-		bool CreatePts(CompactPoint* pPts, Point::Native& gpos, uint32_t nLevels, Oracle& oracle)
+		bool CreatePts(Point::Compact* pPts, Point::Native& gpos, uint32_t nLevels, Oracle& oracle, Point::Compact::Converter& cpc)
 		{
 			Point::Native nums, npos, pt;
 			CreatePointNnz(nums, oracle, NULL);
@@ -672,7 +877,7 @@ namespace ECC {
 					if (pt == Zero)
 						return false;
 
-					FromPt(*pPts++, pt);
+					cpc.set_Deferred(*pPts++, pt);
 
 					if (iPt == nPointsPerLevel)
 						break;
@@ -697,14 +902,13 @@ namespace ECC {
 			return true;
 		}
 
-		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords)
+		void SetMul(Point::Native& res, bool bSet, const Point::Compact* pPts, const Scalar::Native::uint* p, int nWords)
 		{
 			static_assert(8 % nBitsPerLevel == 0, "");
 			const int nLevelsPerWord = (sizeof(Scalar::Native::uint) << 3) / nBitsPerLevel;
 			static_assert(!(nLevelsPerWord & (nLevelsPerWord - 1)), "should be power-of-2");
 
-			NoLeak<CompactPoint> ge_s;
-			NoLeak<secp256k1_ge> ge;
+			NoLeak<Point::Compact> ge_s;
 
 			// iterating in lsb to msb order
 			for (int iWord = 0; iWord < nWords; iWord++)
@@ -727,7 +931,7 @@ namespace ECC {
 					*    (http://www.tau.ac.il/~tromer/papers/cache.pdf)
 					*/
 
-					const CompactPoint* pSel;
+					const Point::Compact* pSel;
 					if (Mode::Secure == g_Mode)
 					{
 						pSel = &ge_s.V;
@@ -737,41 +941,48 @@ namespace ECC {
 					else
 						pSel = pPts + nSel;
 
-					ToPt(res, ge.V, *pSel, bSet);
-					bSet = false;
+					if (bSet)
+					{
+						bSet = false;
+						res = *pSel;
+					}
+					else
+						res += *pSel;
 				}
 			}
 		}
 
-		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native& k)
+		void SetMul(Point::Native& res, bool bSet, const Point::Compact* pPts, const Scalar::Native& k)
 		{
 			SetMul(res, bSet, pPts, k.get().d, _countof(k.get().d));
 		}
 
-		void GeneratePts(const Point::Native& pt, Oracle& oracle, CompactPoint* pPts, uint32_t nLevels)
+		void GeneratePts(const Point::Native& pt, Oracle& oracle, Point::Compact* pPts, uint32_t nLevels, Point::Compact::Converter& cpc)
 		{
 			while (true)
 			{
 				Point::Native pt2 = pt;
-				if (CreatePts(pPts, pt2, nLevels, oracle))
+				if (CreatePts(pPts, pt2, nLevels, oracle, cpc))
 					break;
 			}
 		}
 
-		void Obscured::Initialize(const Point::Native& pt, Oracle& oracle)
+		void Obscured::Initialize(const Point::Native& pt, Oracle& oracle, Point::Compact::Converter& cpc)
 		{
 			Point::Native pt2;
 			while (true)
 			{
 				pt2 = pt;
-				if (CreatePts(m_pPts, pt2, nLevels, oracle))
+				if (CreatePts(m_pPts, pt2, nLevels, oracle, cpc))
 					break;
 			}
 
 			oracle >> m_AddScalar;
 
+			cpc.Flush(); // using self
+
 			Generator::SetMul(pt2, true, m_pPts, m_AddScalar); // pt2 = G * blind
-			FromPt(m_AddPt, pt2);
+			cpc.set_Deferred(m_AddPt, pt2);
 
 			m_AddScalar = -m_AddScalar;
 		}
@@ -780,8 +991,7 @@ namespace ECC {
 		{
 			if (Mode::Secure == g_Mode)
 			{
-				secp256k1_ge ge;
-				ToPt(res, ge, m_AddPt, bSet);
+				m_AddPt.Assign(res, bSet);
 
 				kTmp = k + m_AddScalar;
 
@@ -810,14 +1020,14 @@ namespace ECC {
 
 	/////////////////////
 	// MultiMac
-	void MultiMac::Prepared::Initialize(Oracle& oracle, Hash::Processor& hpRes)
+	void MultiMac::Prepared::Initialize(Oracle& oracle, Hash::Processor& hpRes, Point::Compact::Converter& cpc)
 	{
 		Point::Native val;
 		Generator::CreatePointNnz(val, oracle, &hpRes);
-		Initialize(val, oracle);
+		Initialize(val, oracle, cpc);
 	}
 
-	void MultiMac::Prepared::Initialize(Point::Native& val, Oracle& oracle)
+	void MultiMac::Prepared::Initialize(Point::Native& val, Oracle& oracle, Point::Compact::Converter& cpc)
 	{
 		Point::Native npos = val, nums = val * Two;
 
@@ -826,7 +1036,7 @@ namespace ECC {
 			if (i)
 				npos += nums;
 
-			Generator::FromPt(m_Fast.m_pPt[i], npos);
+			cpc.set_Deferred(m_Fast.m_pPt[i], npos);
 		}
 
 		while (true)
@@ -841,7 +1051,8 @@ namespace ECC {
 			{
 				if (npos == Zero)
 					bOk = false;
-				Generator::FromPt(m_Secure.m_pPt[i], npos);
+
+				cpc.set_Deferred(m_Secure.m_pPt[i], npos);
 
 				if (++i == _countof(m_Secure.m_pPt))
 					break;
@@ -849,14 +1060,16 @@ namespace ECC {
 				npos += val;
 			}
 
+			cpc.Flush(); // we use fast data in secure init
+
 			assert(Mode::Fast == g_Mode);
 			MultiMac mm;
 
 			const Prepared* ppPrep[] = { this };
 			mm.m_ppPrepared = ppPrep;
 			mm.m_pKPrep = &m_Secure.m_Scalar;
-			FastAux aux;
-			mm.m_pAuxPrepared = &aux;
+			Prepared::Fast::Wnaf wnaf;
+			mm.m_pWnafPrepared = &wnaf;
 			mm.m_Prepared = 1;
 
 			mm.Calculate(npos);
@@ -875,7 +1088,7 @@ namespace ECC {
 			if (bOk)
 			{
 				npos = -npos;
-				Generator::FromPt(m_Secure.m_Compensation, npos);
+				cpc.set_Deferred(m_Secure.m_Compensation, npos);
 				break;
 			}
 		}
@@ -883,40 +1096,34 @@ namespace ECC {
 
 	void MultiMac::Prepared::Assign(Point::Native& out, bool bSet) const
 	{
-		secp256k1_ge ge; // not secret
-		Generator::ToPt(out, ge, m_Fast.m_pPt[0], bSet);
+		m_Fast.m_pPt[0].Assign(out, bSet);
 	}
 
 	void MultiMac::Casual::Init(const Point::Native& p)
 	{
 		if (Mode::Fast == g_Mode)
 		{
-			m_nPrepared = 1;
-			m_pPt[1] = p;
+			Fast& f = U.F.get();
+			f.m_pPt[0] = p;
 		}
 		else
 		{
-			secp256k1_ge ge;
-			Generator::ToPt(m_pPt[0], ge, Context::get().m_Casual.m_Nums, true);
+			Secure& s = U.S.get();
+			s.m_pPt[0] = Context::get().m_Casual.m_Nums;
 
 			for (unsigned int i = 1; i < Secure::nCount; i++)
 			{
-				m_pPt[i] = m_pPt[i - 1];
-				m_pPt[i] += p;
+				s.m_pPt[i] = s.m_pPt[i - 1];
+				s.m_pPt[i] += p;
 			}
 		}
-	}
-
-	void MultiMac::Casual::Init(const Point::Native& p, const Scalar::Native& k)
-	{
-		Init(p);
-		m_K = k;
 	}
 
 	void MultiMac::Reset()
 	{
 		m_Casual = 0;
 		m_Prepared = 0;
+		m_ReuseFlag = Reuse::None;
 	}
 
 	unsigned int GetPortion(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd)
@@ -926,36 +1133,264 @@ namespace ECC {
 		return (n >> (iBitInWord & ~(nBitsWnd - 1))) & ((1 << nBitsWnd) - 1);
 	}
 
-
-	void MultiMac::FastAux::Schedule(const Scalar::Native& k, unsigned int iBitsRemaining, unsigned int nMaxOdd, unsigned int* pTbl, unsigned int iThisEntry)
+	struct MultiMac::WnafBase::Context
 	{
-		const Scalar::Native::uint* p = k.get().d;
-		const uint32_t nWordBits = sizeof(*p) << 3;
+		const Scalar::Native::uint* m_p;
+		unsigned int m_Flag;
+		unsigned int m_iBit;
+		unsigned int m_Carry;
 
-		assert(1 & nMaxOdd); // must be odd
-		unsigned int nVal = 0, nBitTrg = 0;
+		unsigned int NextOdd();
 
-		while (iBitsRemaining--)
+		void OnBit(unsigned int& res, unsigned int x)
 		{
-			nVal <<= 1;
-			if (nVal > nMaxOdd)
-				break;
-
-			uint32_t n = p[iBitsRemaining / nWordBits] >> (iBitsRemaining & (nWordBits - 1));
-
-			if (1 & n)
+			if (x)
 			{
-				nVal |= 1;
-				m_nOdd = nVal;
-				nBitTrg = iBitsRemaining;
+				res |= m_Flag;
+				m_Carry = 0;
 			}
 		}
+	};
 
-		if (nVal > 0)
+	unsigned int MultiMac::WnafBase::Context::NextOdd()
+	{
+		const unsigned int nWordBits = sizeof(*m_p) << 3;
+		const unsigned int nMsk = nWordBits - 1;
+
+		unsigned int res = 0;
+
+		while (true)
 		{
-			m_nNextItem = pTbl[nBitTrg];
-			pTbl[nBitTrg] = iThisEntry;
+			if (m_iBit >= ECC::nBits)
+			{
+				OnBit(res, m_Carry);
+
+				if (!res)
+					break;
+			}
+			else
+			{
+				unsigned int n = m_p[m_iBit / nWordBits] >> (m_iBit & nMsk);
+				OnBit(res, (1 & n) != m_Carry);
+			}
+
+			m_iBit++;
+			res >>= 1;
+
+			if (1 & res)
+				break;
 		}
+
+		return res;
+	}
+
+	void MultiMac::WnafBase::Shared::Reset()
+	{
+		ZeroObject(m_pTable);
+	}
+
+	unsigned int MultiMac::WnafBase::Shared::Add(Entry* pTrg, const Scalar::Native& k, unsigned int nWndBits, WnafBase& wnaf, unsigned int iElement)
+	{
+		const unsigned int nWndConsume = nWndBits + 1;
+
+		Context ctx;
+		ctx.m_p = k.get().d;
+		ctx.m_iBit = 0;
+		ctx.m_Carry = 0;
+		ctx.m_Flag = 1 << nWndConsume;
+
+		unsigned int iEntry = 0;
+
+		for ( ; ; iEntry++)
+		{
+			unsigned int nOdd = ctx.NextOdd();
+			if (!nOdd)
+				break;
+
+			assert(!ctx.m_Carry);
+			assert(1 & nOdd);
+			assert(!(nOdd >> nWndConsume));
+
+			assert(ctx.m_iBit >= nWndConsume);
+			unsigned int iIdx = ctx.m_iBit - nWndConsume;
+			assert(iIdx < _countof(m_pTable));
+
+			Entry& x = pTrg[iEntry];
+			x.m_iBit = static_cast<uint16_t>(iIdx);
+
+			if (nOdd >> nWndBits)
+			{
+				// hi bit is ON
+				nOdd ^= (1 << nWndConsume) - 2;
+
+				assert(1 & nOdd);
+				assert(!(nOdd >> nWndBits));
+
+				x.m_Odd = static_cast<int16_t>(nOdd) | Entry::s_Negative;
+
+				ctx.m_Carry = 1;
+			}
+			else
+				x.m_Odd = static_cast<int16_t>(nOdd);
+		}
+
+		unsigned int ret = iEntry--;
+		if (ret)
+		{
+			// add the highest bit
+			const Entry& x = pTrg[iEntry];
+			Link& lnk = m_pTable[x.m_iBit];
+			
+			wnaf.m_Next = lnk;
+			lnk.m_iElement = iElement;
+			lnk.m_iEntry = iEntry;
+		}
+
+		return ret;
+	}
+
+	unsigned int MultiMac::WnafBase::Shared::Fetch(unsigned int iBit, WnafBase& wnaf, const Entry* pE, bool& bNeg)
+	{
+		Link& lnkTop = m_pTable[iBit]; // alias
+		Link lnkThis = lnkTop;
+
+		const Entry& e = pE[lnkThis.m_iEntry];
+		assert(e.m_iBit == iBit);
+
+		lnkTop = wnaf.m_Next; // pop this entry
+
+		if (lnkThis.m_iEntry)
+		{
+			// insert next entry
+			lnkThis.m_iEntry--;
+
+			const Entry& e2 = pE[lnkThis.m_iEntry];
+			assert(e2.m_iBit < iBit);
+
+			Link& lnkTop2 = m_pTable[e2.m_iBit];
+			wnaf.m_Next = lnkTop2;
+			lnkTop2 = lnkThis;
+		}
+
+		unsigned int nOdd = e.m_Odd;
+		assert(1 & nOdd);
+
+		bNeg = !!(e.m_Odd & e.s_Negative);
+
+		if (bNeg)
+			nOdd &= ~e.s_Negative;
+
+		return nOdd;
+	}
+
+	struct MultiMac::Normalizer
+		:public Point::Native::BatchNormalizer
+	{
+		const MultiMac& m_This;
+
+		Normalizer(const MultiMac& mm) :m_This(mm) {}
+
+		struct Cursor
+		{
+			int m_iElement;
+			uint32_t m_iEntry;
+		};
+
+		Cursor m_Cursor;
+
+		void FromCursor(Element& el, const Cursor& cu) const;
+		bool MoveBkwd(Cursor& cu) const;
+
+		virtual void Reset() override;
+		virtual bool MoveNext(Element& el) override;
+
+		virtual bool MovePrev(Element& el) override;
+	};
+
+	void MultiMac::Normalizer::FromCursor(Element& el, const Cursor& cu) const
+	{
+		Casual& x = m_This.m_pCasual[cu.m_iElement];
+		Casual::Fast& f = x.U.F.get();
+
+		el.m_pPoint = f.m_pPt + cu.m_iEntry;
+		el.m_pFe = f.m_pFe + cu.m_iEntry;
+	}
+
+	bool MultiMac::Normalizer::MoveBkwd(Cursor& cu) const
+	{
+		while (true)
+		{
+			if (cu.m_iElement < m_This.m_Casual)
+			{
+				Casual& x = m_This.m_pCasual[cu.m_iElement];
+				Casual::Fast& f = x.U.F.get();
+
+				assert(cu.m_iEntry <= f.m_nNeeded);
+				f; // suppress warning in release build
+
+				if (cu.m_iEntry)
+				{
+					cu.m_iEntry--;
+					break;
+				}
+			}
+
+			if (!cu.m_iElement)
+				return false;
+
+			cu.m_iElement--;
+
+			Casual& x = m_This.m_pCasual[cu.m_iElement];
+			Casual::Fast& f = x.U.F.get();
+
+			cu.m_iEntry = f.m_nNeeded;
+		}
+
+		return true;
+	}
+
+	void MultiMac::Normalizer::Reset()
+	{
+		ZeroObject(m_Cursor);
+	}
+
+	bool MultiMac::Normalizer::MoveNext(Element& el)
+	{
+		while (true)
+		{
+			if (m_Cursor.m_iElement == m_This.m_Casual)
+				return false;
+
+			Casual& x = m_This.m_pCasual[m_Cursor.m_iElement];
+			Casual::Fast& f = x.U.F.get();
+
+			if (m_Cursor.m_iEntry < f.m_nNeeded)
+				break;
+
+			m_Cursor.m_iElement++;
+			m_Cursor.m_iEntry = 0;
+
+		}
+
+		FromCursor(el, m_Cursor);
+		m_Cursor.m_iEntry++;
+
+		return true;
+	}
+
+	bool MultiMac::Normalizer::MovePrev(Element& el)
+	{
+		Cursor cu1 = m_Cursor;
+		if (!MoveBkwd(cu1))
+			return false;
+
+		Cursor cu2 = cu1;
+		if (!MoveBkwd(cu2))
+			return false;
+
+		m_Cursor = cu1;
+		FromCursor(el, cu2);
+		return true;
 	}
 
 	void MultiMac::Calculate(Point::Native& res) const
@@ -967,83 +1402,159 @@ namespace ECC {
 
 		res = Zero;
 
-		unsigned int pTblCasual[nBits];
-		unsigned int pTblPrepared[nBits];
+		NoLeak<secp256k1_ge> ge;
+		NoLeak<Point::Compact> ge_s;
+		secp256k1_fe zDenom;
+		bool bDenomSet = false;
+
+		WnafBase::Shared wsP, wsC;
+
+		unsigned int iBit = ECC::nBits;
 
 		if (Mode::Fast == g_Mode)
 		{
-			ZeroObject(pTblCasual);
-			ZeroObject(pTblPrepared);
+			iBit++; // extra bit may be necessary because of interleaving
+			assert(iBit == _countof(wsP.m_pTable));
+
+			wsP.Reset();
+			wsC.Reset();
 
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
-				m_pAuxPrepared[iEntry].Schedule(m_pKPrep[iEntry], nBits, Prepared::Fast::nMaxOdd, pTblPrepared, iEntry + 1);
+			{
+				unsigned int nEntries = m_pWnafPrepared[iEntry].Init(wsP, m_pKPrep[iEntry], iEntry + 1);
+				assert(nEntries <= _countof(m_pWnafPrepared[iEntry].m_pVals));
+				nEntries; // suppress warning in release build
+			}
 
 			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 			{
 				Casual& x = m_pCasual[iEntry];
-				x.m_Aux.Schedule(x.m_K, nBits, Casual::Fast::nMaxOdd, pTblCasual, iEntry + 1);
+				Casual::Fast& f = x.U.F.get();
+
+				Point::Native& pt = f.m_pPt[0];
+				if (pt == Zero)
+				{
+					f.m_nNeeded = 0;
+					continue;
+				}
+
+				unsigned int nEntries = f.m_Wnaf.Init(wsC, m_pKCasual[iEntry], iEntry + 1);
+				assert(nEntries <= _countof(f.m_Wnaf.m_pVals));
+
+				if (Reuse::UseGenerated == m_ReuseFlag)
+				{
+					if (!bDenomSet)
+					{
+						bDenomSet = true;
+						zDenom = pt.get_Raw().z;
+					}
+
+					continue;
+				}
+
+				if (Reuse::Generate == m_ReuseFlag)
+					f.m_nNeeded = Casual::Fast::nCount; // all
+				else
+				{
+					// Find highest needed element, calculate all the needed ones
+					f.m_nNeeded = 0;
+					for (unsigned int i = 0; i < nEntries; i++)
+					{
+						const WnafBase::Entry& e = f.m_Wnaf.m_pVals[i];
+
+						unsigned int nOdd = e.m_Odd & ~e.s_Negative;
+						assert(nOdd & 1);
+
+						unsigned int nElem = (nOdd >> 1);
+						std::setmax(f.m_nNeeded, nElem + 1);
+					}
+					assert(f.m_nNeeded <= Casual::Fast::nCount);
+
+					if (f.m_nNeeded <= 1)
+						continue;
+				}
+
+				// Calculate all the needed elements
+				Point::Native ptX2 = pt * Two;
+
+				for (uint32_t nPrepared = 1; nPrepared < f.m_nNeeded; nPrepared++)
+					f.m_pPt[nPrepared] = f.m_pPt[nPrepared - 1] + ptX2;
 			}
 
+			if (Reuse::UseGenerated == m_ReuseFlag)
+			{
+				if (!bDenomSet)
+					secp256k1_fe_set_int(&zDenom, 1);
+			}
+			else
+			{
+				// Bring everything to the same denominator
+				Normalizer nrm(*this);
+				nrm.ToCommonDenominator(zDenom);
+			}
 		}
-
-		NoLeak<secp256k1_ge> ge;
-		NoLeak<CompactPoint> ge_s;
-
-		if (Mode::Secure == g_Mode)
+		else
+		{
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 				m_pKPrep[iEntry] += m_ppPrepared[iEntry]->m_Secure.m_Scalar;
+		}
 
-		for (unsigned int iBit = ECC::nBits; iBit--; )
+		while (iBit--)
 		{
 			if (!(res == Zero))
 				res = res * Two;
 
-			unsigned int iWord = iBit / nBitsPerWord;
-			unsigned int iBitInWord = iBit & (nBitsPerWord - 1);
-
 			if (Mode::Fast == g_Mode)
 			{
-				while (pTblCasual[iBit])
+				WnafBase::Link& lnkC = wsC.m_pTable[iBit]; // alias
+				while (lnkC.m_iElement)
 				{
-					unsigned int iEntry = pTblCasual[iBit];
-					Casual& x = m_pCasual[iEntry - 1];
-					pTblCasual[iBit] = x.m_Aux.m_nNextItem;
+					Casual& x = m_pCasual[lnkC.m_iElement - 1];
+					Casual::Fast& f = x.U.F.get();
+					Casual::Fast::Wnaf& wnaf = f.m_Wnaf;
 
-					assert(1 & x.m_Aux.m_nOdd);
-					unsigned int nElem = (x.m_Aux.m_nOdd >> 1) + 1;
-					assert(nElem < Casual::Fast::nCount);
+					bool bNeg;
+					unsigned int nOdd = wnaf.Fetch(wsC, iBit, bNeg);
 
-					for (; x.m_nPrepared < nElem; x.m_nPrepared++)
-					{
-						if (1 == x.m_nPrepared)
-							x.m_pPt[0] = x.m_pPt[1] * Two;
+					unsigned int nElem = (nOdd >> 1);
+					assert(nElem < f.m_nNeeded);
 
-						x.m_pPt[x.m_nPrepared + 1] = x.m_pPt[x.m_nPrepared] + x.m_pPt[0];
-					}
+					Point::Native::BatchNormalizer::get_As(ge.V, f.m_pPt[nElem]);
 
-					res += x.m_pPt[nElem];
+					if (bNeg)
+						secp256k1_ge_neg(&ge.V, &ge.V);
 
-					x.m_Aux.Schedule(x.m_K, iBit, Casual::Fast::nMaxOdd, pTblCasual, iEntry);
+					secp256k1_gej_add_ge_var(&res.get_Raw(), &res.get_Raw(), &ge.V, nullptr);
 				}
 
-
-				while (pTblPrepared[iBit])
+				WnafBase::Link& lnkP = wsP.m_pTable[iBit]; // alias
+				while (lnkP.m_iElement)
 				{
-					unsigned int iEntry = pTblPrepared[iBit];
-					FastAux& x = m_pAuxPrepared[iEntry - 1];
-					pTblPrepared[iBit] = x.m_nNextItem;
+					unsigned int iElement = lnkP.m_iElement - 1;
 
-					assert(1 & x.m_nOdd);
-					unsigned int nElem = (x.m_nOdd >> 1);
+					Prepared::Fast::Wnaf& wnaf = m_pWnafPrepared[iElement];
+
+					bool bNeg;
+					unsigned int nOdd = wnaf.Fetch(wsP, iBit, bNeg);
+
+					unsigned int nElem = (nOdd >> 1);
 					assert(nElem < Prepared::Fast::nCount);
 
-					Generator::ToPt(res, ge.V, m_ppPrepared[iEntry - 1]->m_Fast.m_pPt[nElem], false);
+					const Point::Compact& ptC = m_ppPrepared[iElement]->m_Fast.m_pPt[nElem];
 
-					x.Schedule(m_pKPrep[iEntry - 1], iBit, Prepared::Fast::nMaxOdd, pTblPrepared, iEntry);
+					secp256k1_ge_from_storage(&ge.V, &ptC);
+
+					if (bNeg)
+						secp256k1_ge_neg(&ge.V, &ge.V);
+
+					secp256k1_gej_add_zinv_var(&res.get_Raw(), &res.get_Raw(), &ge.V, &zDenom);
 				}
 			}
 			else
 			{
+				unsigned int iWord = iBit / nBitsPerWord;
+				unsigned int iBitInWord = iBit & (nBitsPerWord - 1);
+
 				// secure mode
 				if (!(iBit & (Casual::Secure::nBits - 1)))
 				{
@@ -1051,7 +1562,7 @@ namespace ECC {
 					{
 						Casual& x = m_pCasual[iEntry];
 
-						unsigned int nVal = GetPortion(x.m_K, iWord, iBitInWord, Casual::Secure::nBits);
+						unsigned int nVal = GetPortion(m_pKCasual[iEntry], iWord, iBitInWord, Casual::Secure::nBits);
 
 						//Point::Native ptVal;
 						//for (unsigned int i = 0; i < Casual::Secure::nCount; i++)
@@ -1059,7 +1570,7 @@ namespace ECC {
 						//
 						//res += ptVal;
 
-						res += x.m_pPt[nVal]; // cmov seems not needed, since the table is relatively small, and not in global mem (less predicatble addresses)
+						res += x.U.S.get().m_pPt[nVal]; // cmov seems not needed, since the table is relatively small, and not in global mem (less predicatble addresses)
 						// The version with cmov (commented-out above) is ~15% slower
 					}
 				}
@@ -1075,7 +1586,7 @@ namespace ECC {
 						for (unsigned int i = 0; i < _countof(x.m_pPt); i++)
 							object_cmov(ge_s.V, x.m_pPt[i], i == nVal);
 
-						Generator::ToPt(res, ge.V, ge_s.V, false);
+						res += ge_s.V;
 					}
 				}
 			}
@@ -1087,12 +1598,16 @@ namespace ECC {
 			{
 				const Prepared::Secure& x = m_ppPrepared[iEntry]->m_Secure;
 
-				Generator::ToPt(res, ge.V, x.m_Compensation, false);
+				res += x.m_Compensation;
 			}
 
 			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
-				Generator::ToPt(res, ge.V, Context::get().m_Casual.m_Compensation, false);
-
+				res += Context::get().m_Casual.m_Compensation;
+		}
+		else
+		{
+			// fix denominator
+			secp256k1_fe_mul(&res.get_Raw().z, &res.get_Raw().z, &zDenom);
 		}
 	}
 
@@ -1148,7 +1663,7 @@ namespace ECC {
 
 	/////////////////////
 	// Context
-	alignas(64) char g_pContextBuf[sizeof(Context)];
+	AlignedBuf<Context> g_ContextBuf;
 
 	// Currently - auto-init in global obj c'tor
 	Initializer g_Initializer;
@@ -1160,17 +1675,19 @@ namespace ECC {
 	const Context& Context::get()
 	{
 		assert(g_bContextInitialized);
-		return *reinterpret_cast<Context*>(g_pContextBuf);
+		return g_ContextBuf.get();
 	}
 
 	void InitializeContext()
 	{
-		Context& ctx = *reinterpret_cast<Context*>(g_pContextBuf);
+		Context& ctx = g_ContextBuf.get();
 
 		Mode::Scope scope(Mode::Fast);
 
 		Oracle oracle;
 		oracle << "Let the generator generation begin!";
+
+		Point::Compact::Converter cpc;
 
 		// make sure we get the same G,H for different generator kinds
 		Point::Native G_raw, H_raw, J_raw;
@@ -1186,39 +1703,39 @@ namespace ECC {
 		Generator::CreatePointNnz(J_raw, oracle, &hpRes);
 
 
-		ctx.G.Initialize(G_raw, oracle);
-		ctx.H.Initialize(H_raw, oracle);
-		ctx.H_Big.Initialize(H_raw, oracle);
-		ctx.J.Initialize(J_raw, oracle);
+		ctx.G.Initialize(G_raw, oracle, cpc);
+		ctx.H.Initialize(H_raw, oracle, cpc);
+		ctx.H_Big.Initialize(H_raw, oracle, cpc);
+		ctx.J.Initialize(J_raw, oracle, cpc);
+
+		cpc.Flush();
 
 		Point::Native pt, ptAux2(Zero);
 
-		ctx.m_Ipp.G_.Initialize(G_raw, oracle);
-		ctx.m_Ipp.H_.Initialize(H_raw, oracle);
+		ctx.m_Ipp.G_.Initialize(G_raw, oracle, cpc);
+		ctx.m_Ipp.H_.Initialize(H_raw, oracle, cpc);
+
+		// for historical reasons: make a temp copy of oracle to initialize what was not present earlier
+		Oracle o2 = oracle;
+		o2 << "v1";
+
+		ctx.m_Ipp.J_.Initialize(J_raw, o2, cpc);
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
 			for (uint32_t j = 0; j < 2; j++)
 			{
 				MultiMac::Prepared& p = ctx.m_Ipp.m_pGen_[j][i];
-				p.Initialize(oracle, hpRes);
+				p.Initialize(oracle, hpRes, cpc);
+
+				// fast data is already flushed
 
 				if (1 == j)
 				{
-#ifdef ECC_COMPACT_GEN
-
 					secp256k1_ge ge;
 					secp256k1_ge_from_storage(&ge, &p.m_Fast.m_pPt[0]);
 					secp256k1_ge_neg(&ge, &ge);
 					secp256k1_ge_to_storage(&ctx.m_Ipp.m_pGet1_Minus[i], &ge);
-
-#else // ECC_COMPACT_GEN
-
-					pt = p;
-					pt = -pt;
-					Generator::FromPt(ctx.m_Ipp.m_pGet1_Minus[i], pt);
-
-#endif // ECC_COMPACT_GEN
 				}
 				else
 					ptAux2 += p;
@@ -1226,9 +1743,9 @@ namespace ECC {
 		}
 
 		ptAux2 = -ptAux2;
-		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2, oracle);
+		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2, oracle, cpc);
 
-		ctx.m_Ipp.m_GenDot_.Initialize(oracle, hpRes);
+		ctx.m_Ipp.m_GenDot_.Initialize(oracle, hpRes, cpc);
 
 		const MultiMac::Prepared& genericNums = ctx.m_Ipp.m_GenDot_;
 		ctx.m_Casual.m_Nums = genericNums.m_Fast.m_pPt[0]; // whatever
@@ -1250,12 +1767,48 @@ namespace ECC {
 			mm.m_Prepared = 1;
 
 			mm.Calculate(pt);
-			Generator::FromPt(ctx.m_Casual.m_Compensation, pt);
+			cpc.set_Deferred(ctx.m_Casual.m_Compensation, pt);
 		}
+
+		ctx.m_Ipp.m_2Inv.SetInv(2U);
+
+		cpc.Flush();
 
 		hpRes
 			<< uint32_t(2) // increment this each time we change signature formula (rangeproof and etc.)
 			>> ctx.m_hvChecksum;
+
+		ctx.m_Sig.m_GenG.m_pGen = &ctx.G;
+		ctx.m_Sig.m_GenG.m_pGenPrep = &ctx.m_Ipp.G_;
+		ctx.m_Sig.m_GenG.m_nBatchIdx = InnerProduct::BatchContext::s_Idx_G;
+
+		ctx.m_Sig.m_CfgG1.m_nKeys = 1;
+		ctx.m_Sig.m_CfgG1.m_nG = 1;
+		ctx.m_Sig.m_CfgG1.m_pG = &ctx.m_Sig.m_GenG;
+
+		ctx.m_Sig.m_pGenGJ[0] = ctx.m_Sig.m_GenG;
+
+		ctx.m_Sig.m_pGenGJ[1].m_pGen = &ctx.J;
+		ctx.m_Sig.m_pGenGJ[1].m_pGenPrep = &ctx.m_Ipp.J_;
+		ctx.m_Sig.m_pGenGJ[1].m_nBatchIdx = InnerProduct::BatchContext::s_Idx_J;
+
+		ctx.m_Sig.m_pGenGH[0] = ctx.m_Sig.m_GenG;
+
+		ctx.m_Sig.m_pGenGH[1].m_pGen = &ctx.H_Big;
+		ctx.m_Sig.m_pGenGH[1].m_pGenPrep = &ctx.m_Ipp.H_;
+		ctx.m_Sig.m_pGenGH[1].m_nBatchIdx = InnerProduct::BatchContext::s_Idx_H;
+
+		ctx.m_Sig.m_CfgGJ1.m_nKeys = 1;
+		ctx.m_Sig.m_CfgGJ1.m_nG = 2;
+		ctx.m_Sig.m_CfgGJ1.m_pG = ctx.m_Sig.m_pGenGJ;
+
+		ctx.m_Sig.m_CfgG2.m_nKeys = 2;
+		ctx.m_Sig.m_CfgG2.m_nG = 1;
+		ctx.m_Sig.m_CfgG2.m_pG = &ctx.m_Sig.m_GenG;
+
+		ctx.m_Sig.m_CfgGH2.m_nKeys = 2;
+		ctx.m_Sig.m_CfgGH2.m_nG = 2;
+		ctx.m_Sig.m_CfgGH2.m_pG = ctx.m_Sig.m_pGenGH;
 
 #ifndef NDEBUG
 		g_bContextInitialized = true;
@@ -1315,18 +1868,6 @@ namespace ECC {
 		m_SubIdx = x.m_SubIdx;
 	}
 
-	void Key::IDV::operator = (const Packed& x)
-	{
-		ID::operator = (x);
-		x.m_Value.Export(m_Value);
-	}
-
-	void Key::IDV::Packed::operator = (const IDV& x)
-	{
-		ID::Packed::operator = (x);
-		m_Value = x.m_Value;
-	}
-
 	void Key::IKdf::DeriveKey(Scalar::Native& out, const Key::ID& kid)
 	{
 		Hash::Value hv; // the key hash is not secret
@@ -1359,19 +1900,6 @@ namespace ECC {
 		if (m_Idx < x.m_Idx)
 			return -1;
 		if (m_Idx > x.m_Idx)
-			return 1;
-		return 0;
-	}
-
-	int Key::IDV::cmp(const IDV& x) const
-	{
-		int n = ID::cmp(x);
-		if (n)
-			return n;
-
-		if (m_Value < x.m_Value)
-			return -1;
-		if (m_Value > x.m_Value)
 			return 1;
 		return 0;
 	}
@@ -1483,6 +2011,18 @@ namespace ECC {
 		Generate(sk_.V.m_Value);
 	}
 
+	void HKdf::GenerateChildParallel(Key::IKdf& kdf, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		kdf.DerivePKey(sk, hv);
+
+		NoLeak<Scalar> sk_;
+		sk_.V = sk;
+		Generate(sk_.V.m_Value);
+
+		m_kCoFactor *= sk;
+	}
+
 	void HKdf::CreateChild(Ptr& pRes, Key::IKdf& kdf, Key::Index iKdf)
 	{
 		std::shared_ptr<HKdf> pVal = std::make_shared<HKdf>();
@@ -1542,6 +2082,21 @@ namespace ECC {
 		out = m_PkJ * sk;
 	}
 
+	uint32_t HKdf::ExportP(void* p) const
+	{
+		HKdfPub pkdf;
+		if (p)
+			pkdf.GenerateFrom(*this);
+		return pkdf.ExportP(p);
+	}
+
+	uint32_t HKdf::ExportS(void* p) const
+	{
+		if (p)
+			Export(*reinterpret_cast<Packed*>(p));
+		return sizeof(Packed);
+	}
+
 	void HKdf::Export(Packed& v) const
 	{
 		v.m_Secret = m_Generator.m_Secret.V;
@@ -1552,6 +2107,13 @@ namespace ECC {
 	{
 		m_Generator.m_Secret.V = v.m_Secret;
 		return !m_kCoFactor.Import(v.m_kCoFactor);
+	}
+
+	uint32_t HKdfPub::ExportP(void* p) const
+	{
+		if (p)
+			Export(*reinterpret_cast<Packed*>(p));
+		return sizeof(Packed);
 	}
 
 	void HKdfPub::Export(Packed& v) const
@@ -1574,6 +2136,22 @@ namespace ECC {
 		m_Generator = v.m_Generator;
 		m_PkG = Context::get().G * v.m_kCoFactor;
 		m_PkJ = Context::get().J * v.m_kCoFactor;
+	}
+
+	void HKdfPub::GenerateChildParallel(Key::IPKdf& kdf, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		kdf.DerivePKey(sk, hv);
+
+		NoLeak<Scalar> sk_;
+		sk_.V = sk;
+
+		HKdf hkdf;
+		hkdf.Generate(sk_.V.m_Value);
+		GenerateFrom(hkdf);
+
+		m_PkG = m_PkG * sk;
+		m_PkJ = m_PkJ * sk;
 	}
 
 	/////////////////////
@@ -1600,76 +2178,187 @@ namespace ECC {
 
 	/////////////////////
 	// Signature
-	void Signature::get_Challenge(Scalar::Native& out, const Point& pt, const Hash::Value& msg)
+	void SignatureBase::Expose(Oracle& oracle, const Hash::Value& msg) const
 	{
-		Oracle() << pt << msg >> out;
+		oracle
+			<< m_NoncePub
+			<< msg;
 	}
 
-	void Signature::MultiSig::SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const
+	void SignatureBase::get_Challenge(Scalar::Native& out, const Hash::Value& msg) const
 	{
-		get_Challenge(k, m_NoncePub, msg);
-
-		k *= sk;
-		k += m_Nonce;
-		k = -k;
+		Oracle oracle;
+		Expose(oracle, msg);
+		oracle >> out;
 	}
 
-	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
+	bool SignatureBase::IsValid(const Config& cfg, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk) const
+	{
+		Point::Native noncePub;
+		if (!noncePub.Import(m_NoncePub))
+			return false;
+
+		return IsValidPartial(cfg, msg, pK, pPk, noncePub);
+	}
+
+	bool SignatureBase::IsValidPartial(const Config& cfg, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const
+	{
+		Mode::Scope scope(Mode::Fast);
+
+		Oracle oracle;
+		Expose(oracle, msg);
+
+		// TODO: remove this limitation, get adequate MultiMac instance by vcall to cfg, which would invoke us back
+		const uint32_t nMaxG = 2;
+		const uint32_t nMaxK = 2;
+		assert((cfg.m_nG <= nMaxG) && (cfg.m_nKeys <= nMaxK));
+
+		MultiMac_WithBufs<nMaxK, nMaxG> mm;
+
+		InnerProduct::BatchContext* pBc = InnerProduct::BatchContext::s_pInstance;
+		if (pBc)
+			pBc->EquationBegin();
+		else
+		{
+			mm.m_Prepared = cfg.m_nG;
+			mm.m_Casual = cfg.m_nKeys;
+		}
+
+		for (uint32_t iK = 0; iK < cfg.m_nKeys; iK++)
+		{
+			Scalar::Native e;
+			oracle >> e;
+
+			if (pBc)
+				pBc->AddCasual(pPk[iK], e);
+			else
+			{
+				mm.m_pCasual[iK].Init(pPk[iK]);
+				mm.m_pKCasual[iK] = e;
+			}
+		}
+
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+		{
+			if (pBc)
+				pBc->AddPrepared(cfg.m_pG[iG].m_nBatchIdx, pK[iG]);
+			else
+			{
+				mm.m_ppPrepared[iG] = cfg.m_pG[iG].m_pGenPrep;
+				mm.m_pKPrep[iG] = pK[iG];
+			}
+		}
+
+		if (pBc)
+		{
+			pBc->AddCasual(noncePub, pBc->m_Multiplier, true);
+			return true;
+		}
+
+		Point::Native pt;
+		mm.Calculate(pt);
+
+		pt += noncePub;
+		return pt == Zero;
+	}
+
+	void SignatureBase::SetNoncePub(const Config& cfg, const Scalar::Native* pNonce)
+	{
+		Point::Native pubNonce = (*cfg.m_pG[0].m_pGen) * pNonce[0];
+
+		for (uint32_t iG = 1; iG < cfg.m_nG; iG++)
+			pubNonce += (*cfg.m_pG[iG].m_pGen) * pNonce[iG];
+
+		m_NoncePub = pubNonce;
+	}
+
+	void SignatureBase::CreateNonces(const Config& cfg, const Hash::Value& msg, const Scalar::Native* pSk, Scalar::Native* pRes)
 	{
 		NonceGenerator nonceGen("beam-Schnorr");
 
 		NoLeak<Scalar> s_;
-		s_.V = sk;
-		nonceGen << s_.V.m_Value;
+
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+		{
+			s_.V = pSk[iG];
+			nonceGen << s_.V.m_Value;
+		}
+
+		nonceGen << msg;
 
 		GenRandom(s_.V.m_Value); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
-		nonceGen << s_.V.m_Value;
+		nonceGen
+			<< s_.V.m_Value;
 
-		MultiSig msig;
-		nonceGen >> msig.m_Nonce;
-		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+			nonceGen >> pRes[iG];
+	}
 
-		Scalar::Native k;
-		msig.SignPartial(k, msg, sk);
+	void SignatureBase::Sign(const Config& cfg, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes)
+	{
+		CreateNonces(cfg, msg, pSk, pRes);
+		SetNoncePub(cfg, pRes);
+		SignRaw(cfg, msg, pK, pSk, pRes);
+	}
 
-		m_NoncePub = msig.m_NoncePub;
-		m_k = k;
+	void SignatureBase::SignRaw(const Config& cfg, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes) const
+	{
+		Oracle oracle;
+		Expose(oracle, msg);
+
+		Scalar::Native e, k;
+
+		for (uint32_t iK = 0; iK < cfg.m_nKeys; iK++, pSk += cfg.m_nG)
+		{
+			oracle >> e; // challenge
+
+			for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+			{
+				k = pSk[iG] * e;
+				pRes[iG] += k;
+			}
+		}
+
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+		{
+			pRes[iG] = -pRes[iG];
+			pK[iG] = pRes[iG];
+		}
+	}
+
+	void SignatureBase::SignPartial(const Config& cfg, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, const Scalar::Native* pNonce, Scalar::Native* pRes) const
+	{
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+			pRes[iG] = pNonce[iG];
+
+		SignRaw(cfg, msg, pK, pSk, pRes);
+	}
+
+	const SignatureBase::Config& Signature::get_Config()
+	{
+		return ECC::Context::get().m_Sig.m_CfgG1;
+	}
+
+	void Signature::SignPartial(const Hash::Value& msg, const Scalar::Native& sk, const Scalar::Native& nonce)
+	{
+		Scalar::Native res;
+		SignatureBase::SignPartial(get_Config(), msg, &m_k, &sk, &nonce, &res);
+	}
+
+	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
+	{
+		Scalar::Native res;
+		SignatureBase::Sign(get_Config(), msg, &m_k, &sk, &res);
 	}
 
 	bool Signature::IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk) const
 	{
-		Mode::Scope scope(Mode::Fast);
-
-		Scalar::Native e;
-		get_Challenge(e, m_NoncePub, msg);
-
-		InnerProduct::BatchContext* pBc = InnerProduct::BatchContext::s_pInstance;
-		if (pBc)
-		{
-			pBc->EquationBegin();
-
-			pBc->AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_k);
-			pBc->AddCasual(pk, e);
-			pBc->AddCasual(pubNonce, 1U);
-
-			return true;
-		}
-
-		Point::Native pt = Context::get().G * m_k;
-
-		pt += pk * e;
-		pt += pubNonce;
-
-		return pt == Zero;
+		return SignatureBase::IsValidPartial(get_Config(), msg, &m_k, &pk, pubNonce);
 	}
 
 	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
 	{
-		Point::Native pubNonce;
-		if (!pubNonce.Import(m_NoncePub))
-			return false;
-
-		return IsValidPartial(msg, pubNonce, pk);
+		return SignatureBase::IsValid(get_Config(), msg, &m_k, &pk);
 	}
 
 	int Signature::cmp(const Signature& x) const
@@ -1715,10 +2404,10 @@ namespace ECC {
 
 		void Public::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle)
 		{
-			m_Value = cp.m_Kidv.m_Value;
+			m_Value = cp.m_Value;
 			assert(m_Value >= s_MinimumValue);
 
-			m_Recovery.m_Kid = cp.m_Kidv;
+			cp.BlobSave(reinterpret_cast<uint8_t*>(&m_Recovery.m_Kid), sizeof(m_Recovery.m_Kid));
 			XCryptKid(m_Recovery.m_Kid, cp, m_Recovery.m_Checksum);
 
 			Hash::Value hv;
@@ -1736,8 +2425,10 @@ namespace ECC {
 			if (!(m_Recovery.m_Checksum == hvChecksum))
 				return false;
 
-			Cast::Down<Key::ID>(cp.m_Kidv) = kid;
-			cp.m_Kidv.m_Value = m_Value;
+			if (!cp.BlobRecover(reinterpret_cast<const uint8_t*>(&kid), sizeof(kid)))
+				return false;
+
+			cp.m_Value = m_Value;
 			return true;
 		}
 

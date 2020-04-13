@@ -390,7 +390,11 @@ bool QuaZipDirPrivate::entryInfoList(QStringList nameFilters,
                 == Qt::CaseInsensitive)
             srt |= QDir::IgnoreCase;
         QuaZipDirComparator lessThan(srt);
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 2, 0))
+        std::sort(list.begin(), list.end(), lessThan);
+#else
         qSort(list.begin(), list.end(), lessThan);
+#endif
     }
     QuaZipDir_convertInfoList(list, result);
     return true;

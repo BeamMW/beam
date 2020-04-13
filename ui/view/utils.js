@@ -40,35 +40,48 @@ function getLogoTopGapSize(parentHeight) {
     return parentHeight * (parentHeight < 768 ? 0.13 : 0.18)
 }
 
-function openExternal(externalLink, settings, dialog) {
+function openExternal(externalLink, settings, dialog, onFinish) {
+    var onFinishCallback = onFinish && (typeof onFinish === "function")
+        ? onFinish
+        : function () {};
     if (settings.isAllowedBeamMWLinks) {
         Qt.openUrlExternally(externalLink);
+        onFinishCallback();
     } else {
         dialog.externalUrl = externalLink;
         dialog.onOkClicked = function () {
             settings.isAllowedBeamMWLinks = true;
+            onFinishCallback();
+        };
+        dialog.onCancelClicked = function() {
+            onFinishCallback();
         };
         dialog.open();
     }
 }
 
-function handleExternalLink(externalLink, settings, dialog) {
-    if (settings.isAllowedBeamMWLinks) {
-        Qt.openUrlExternally(externalLink);
-    } else {
-        dialog.externalUrl = externalLink;
-        dialog.onOkClicked = function () {
-            settings.isAllowedBeamMWLinks = true;
-        };
-        dialog.open();
-    }
+function openExternalWithConfirmation(externalLink, onFinish) {
+    var settingsViewModel = Qt.createQmlObject("import Beam.Wallet 1.0; SettingsViewModel {}", main);
+    var component = Qt.createComponent("controls/OpenExternalLinkConfirmation.qml");
+    var externalLinkConfirmation = component.createObject(main);
+    Utils.openExternal(
+        externalLink,
+        settingsViewModel,
+        externalLinkConfirmation, onFinish);
+}
+
+function navigateToDownloads() {
+    openExternalWithConfirmation("https://www.beam.mw/downloads")
 }
 
 function currenciesList() {
-    return ["BEAM", "BTC", "LTC", "QTUM"]
+    return [
+        BeamGlobals.getCurrencyLabel(Currency.CurrBeam),
+        BeamGlobals.getCurrencyLabel(Currency.CurrBtc),
+        BeamGlobals.getCurrencyLabel(Currency.CurrLtc),
+        BeamGlobals.getCurrencyLabel(Currency.CurrQtum)
+    ]
 }
 
-const symbolBeam  = "BEAM";
-const symbolBtc   = "BTC";
-const symbolLtc   = "LTC";
-const symbolQtum  = "QTUM";
+const maxAmount   = "254000000";
+const minAmount   = "0.00000001";

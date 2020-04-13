@@ -167,6 +167,9 @@ namespace beam
 		Blob(const uintBig_t<nBytes_>& x) :p(x.m_pData), n(x.nBytes) {}
 
 		void Export(ByteBuffer&) const;
+
+		int cmp(const Blob&) const;
+		COMPARISON_VIA_CMP
 	};
 
 	template <typename T>
@@ -205,6 +208,19 @@ namespace beam
 
 		void Induce(Type);
 	}
+
+	// compile-time calculation of x^n
+	template <uint32_t n> struct Power {
+		template <uint32_t x> struct Of {
+			static const uint32_t V = Power<n - 1>::template Of<x>::V * x;
+		};
+	};
+
+	template <> struct Power<0> {
+		template <uint32_t x> struct Of {
+			static const uint32_t V = 1;
+		};
+	};
 }
 
 namespace std
@@ -241,4 +257,17 @@ namespace std
 		char peekch() const;
 		void ungetch(char);
 	};
+
+	// for the following: receive the 2nd parameter by value, not by const reference. Otherwise could be linker error with static integral constants
+	template <typename TDst, typename TSrc>
+	inline void setmax(TDst& a, TSrc b) {
+		if (a < b)
+			a = b;
+	}
+
+	template <typename TDst, typename TSrc>
+	inline void setmin(TDst& a, TSrc b) {
+		if (a > b)
+			a = b;
+	}
 }

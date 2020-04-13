@@ -8,19 +8,9 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 ### ANNOUNCEMENTS
 
-Beam blockchian will **hard fork** on height 321,321 (approximately August 15th). Make sure to upgrade your wallets, nodes and mining software to the latest version. Hard Fork will have the following breaking changes:
-
-* PoW algorithm from Beam Hash I to Beam Hash II. More details on Beam Hash II can be found [here](https://docs.beam.mw/BeamHashII.pdf)
-* SBBS PoW (automatically performed by newer wallets) will become mandatory
-* A minimum fee of ( 10 * Number of kernels + 10 * Number of outputs ) will be enforced by the nodes. The default fee value in the wallet will be changed to 100 Groth
-* Support for Relative Time Locks
-
-
-
 
 [Download latest version](http://beam.mw/downloads)
-**Clear Cathode 3.0 with Hard Fork Support**
-
+**Double Doppler 4.0**
 
 
 ### JOIN OUR COMMUNITIES ON TELEGRAM
@@ -47,6 +37,8 @@ us-nodes.mainnet.beam.mw:8100
 
 ap-nodes.mainnet.beam.mw:8100
 
+ap-hk-nodes.mainnet.beam.mw:8100
+
 Latest documentation is here: https://documentation.beam.mw
 
 Things that make BEAM special include:
@@ -66,11 +58,17 @@ transactions, atomic swaps and more.
 years.
 * Implemented from scratch in C++.
 
-[Read our position paper](https://docs.beam.mw/BEAM_Position_Paper_v0.2.2.pdf)
 
 ### Roadmap
 
 See Beam roadmap for 2019 on https://beam.mw
+
+### Community projects
+
+Here is the list of Beam related projects created by our community members but NOT tested by Beam Team
+
+* [Beam Pay](https://github.com/vsnation/BeamPay) - a payment processor that allows for easy integration with your online store
+* [Beam Wallet Java API](https://github.com/beamfan/java-beam-api) - A Java library for the Beam cryptocurrency Wallet API.
 
 ### Current status
 
@@ -95,6 +93,16 @@ See Beam roadmap for 2019 on https://beam.mw
 - Payment proof
 - Ultra fast sync
 - Android Mobile wallet
+
+#### Clear Cathode 3.0 (July 2019)
+- PoW change (BeamHash II)
+- Atomic Swaps CLI support
+- Relative Time Locks and Laser Beam support
+
+#### Double Doppler 4.0 (December 2019)
+- Atomic Swaps desktop wallet support
+- Sync mechanism improvements
+
 
 See [How to build](https://github.com/BeamMW/beam/wiki/How-to-build)
 

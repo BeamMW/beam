@@ -23,7 +23,7 @@
 #include "node/node_client.h"
 #include "utility/io/errorhandling.h"
 #include "utility/io/reactor.h"
-#include "wallet/common.h"
+#include "wallet/core/common.h"
 
 class NodeModel 
     : public QObject

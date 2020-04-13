@@ -18,7 +18,7 @@
 #include "utility/helpers.h"
 #include "nlohmann/json.hpp"
 
-#include "wallet/bitcoin/bitcoin.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 
 #include "test_helpers.h"
 
@@ -188,7 +188,7 @@ void testConnection()
         if (!res) {
             LOG_ERROR() << error_str(res.error());
         }
-    }, 2000, true);
+    }, 2000, true, false);
 
     timer->start(5000, false, [&]() {
         mainReactor->stop();

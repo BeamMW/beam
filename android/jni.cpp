@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/wallet.h"
-#include "wallet/wallet_db.h"
-#include "wallet/wallet_network.h"
-#include "wallet/wallet_model_async.h"
-#include "wallet/default_peers.h"
+#include "wallet/core/wallet.h"
+#include "wallet/core/wallet_db.h"
+#include "wallet/core/wallet_network.h"
+#include "wallet/client/wallet_model_async.h"
+#include "wallet/core/default_peers.h"
 #include "keykeeper/local_private_key_keeper.h"
 
 #include "utility/bridge.h"
@@ -46,27 +46,6 @@ namespace
 {
     static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 
-    template<typename Observer, typename Notifier>
-    struct ScopedSubscriber
-    {
-        ScopedSubscriber(Observer* observer, const std::shared_ptr<Notifier>& notifier)
-            : m_observer(observer)
-            , m_notifier(notifier)
-        {
-            m_notifier->Subscribe(m_observer);
-        }
-
-        ~ScopedSubscriber()
-        {
-            m_notifier->Unsubscribe(m_observer);
-        }
-    private:
-        Observer * m_observer;
-        std::shared_ptr<Notifier> m_notifier;
-    };
-
-    using WalletSubscriber = ScopedSubscriber<IWalletObserver, Wallet>;
-
     // this code for node
     static unique_ptr<NodeModel> nodeModel;
 
@@ -81,6 +60,19 @@ namespace
         LOG_INFO() << "Beam Mobile Wallet " << appVersion << " (" << BRANCH_NAME << ") library: " << PROJECT_VERSION;
         LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
     }
+
+    std::map<Notification::Type,bool> initNotifications(bool initialValue)
+    {
+        return std::map<Notification::Type,bool> {
+            { Notification::Type::SoftwareUpdateAvailable,  initialValue },
+            { Notification::Type::BeamNews,                 initialValue },
+            { Notification::Type::TransactionStatusChanged, initialValue },
+            { Notification::Type::TransactionCompleted,     initialValue },
+            { Notification::Type::TransactionFailed,        initialValue },
+            { Notification::Type::AddressStatusChanged,     initialValue }
+        };
+    }
+
 }
 
 
@@ -121,18 +113,17 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
     }
 
     auto reactor = io::Reactor::create();
+    io::Reactor::Scope scope(*reactor);
+
     auto walletDB = WalletDB::init(
         appData + "/" WALLET_FILENAME,
         pass,
-        seed.hash(),
-        reactor
+        seed.hash()
     );
 
     if(walletDB)
     {
         LOG_DEBUG() << "wallet successfully created.";
-
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
         passwordHash.V = SecString(pass).hash().V;
         // generate default address
@@ -146,22 +137,23 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         }
         
         // generate default address
-        WalletAddress address = storage::createAddress(*walletDB, keyKeeper);
+        WalletAddress address;
+        walletDB->createAddress(address);
         address.m_label = "default";
         walletDB->saveAddress(address);
         
         if (restore)
         {
-            walletModel = make_unique<WalletModel>(walletDB, keyKeeper, "127.0.0.1:10005", reactor);
+            walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
         }
         else
         {
-            walletModel = make_unique<WalletModel>(walletDB, keyKeeper, JString(env, nodeAddrStr).value(), reactor);
+            walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
         }
 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        walletModel->start();
+        walletModel->start(initNotifications(false));
 
         return walletObj;
     }
@@ -210,8 +202,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
     string pass = JString(env, passStr).value();
     auto reactor = io::Reactor::create();
-    auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass, reactor);
-    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
+    io::Reactor::Scope scope(*reactor);
+    auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass);
 
     if(walletDB)
     {
@@ -219,11 +211,11 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
         passwordHash.V = SecString(pass).hash().V;
         
-        walletModel = make_unique<WalletModel>(walletDB, keyKeeper, JString(env, nodeAddrStr).value(), reactor);
+        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
                 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        walletModel->start();
+        walletModel->start(initNotifications(false));
 
         return walletObj;
     }
@@ -259,7 +251,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getDictionary)(JNIEnv *env, jo
     int i = 0;
     for (auto& word : language::en)
     {
-        jstring str = env->NewStringUTF(word.c_str());
+        jstring str = env->NewStringUTF(word);
         env->SetObjectArrayElement(dictionary, i++, str);
         env->DeleteLocalRef(str);
     }
@@ -592,6 +584,51 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(exportDataToJson)(JNIEnv *env,
     walletModel->getAsync()->exportDataToJson();
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(switchOnOffExchangeRates)(JNIEnv *env, jobject thiz, jboolean isActive)
+{
+    walletModel->getAsync()->switchOnOffExchangeRates(isActive);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(switchOnOffNotifications)(JNIEnv *env, jobject thiz,
+    jint notificationTypeEnum, jboolean isActive)
+{
+    if (notificationTypeEnum < static_cast<int>(Notification::Type::SoftwareUpdateAvailable)
+     || notificationTypeEnum > static_cast<int>(Notification::Type::BeamNews))
+    {
+        LOG_ERROR() << "Address expiration is not valid!!!";
+    }
+    
+    walletModel->getAsync()->switchOnOffNotifications(static_cast<Notification::Type>(notificationTypeEnum), isActive);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getNotifications)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->getNotifications();
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(markNotificationAsRead)(JNIEnv *env, jobject thiz, jstring idString)
+{
+    auto buffer = from_hex(JString(env, idString).value());
+    Blob rawData(buffer.data(), static_cast<uint32_t>(buffer.size()));
+    ECC::uintBig id(rawData);
+
+    walletModel->getAsync()->markNotificationAsRead(id);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteNotification)(JNIEnv *env, jobject thiz, jstring idString)
+{
+    auto buffer = from_hex(JString(env, idString).value());
+    Blob rawData(buffer.data(), static_cast<uint32_t>(buffer.size()));
+    ECC::uintBig id(rawData);
+
+    walletModel->getAsync()->deleteNotification(id);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getExchangeRates)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->getExchangeRates();
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;
@@ -646,6 +683,24 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/PaymentInfoDTO");
         PaymentInfoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/ExchangeRateDTO");
+        ExchangeRateClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/NotificationDTO");
+        NotificationClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO");
+        VersionInfoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
         env->DeleteLocalRef(cls);
     }
 

@@ -15,6 +15,7 @@
 #include "reactor.h"
 #include "coarsetimer.h"
 #include "sslstream.h"
+#include "proxy_connector.h"
 #include "utility/config.h"
 #include "utility/helpers.h"
 #include <assert.h>
@@ -61,7 +62,7 @@ public:
         return _connectRequests.count(tag) == 0;
     }
 
-    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec, bool isTls) {
+    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec, bool isTls, bool rejectUnauthorized = true) {
         assert(is_tag_free(tag));
 
         if (timeoutMsec >= 0) {
@@ -86,6 +87,7 @@ public:
         cr->tag = tag;
         new(&cr->callback) Callback(callback);
         cr->isTls = isTls;
+        cr->rejectUnauthorized = isTls ? rejectUnauthorized : false;
 
         _connectRequests[tag] = cr;
 
@@ -104,7 +106,7 @@ public:
                 if (errorCode == UV_ECANCELED) {
                     tcpConnectors->_cancelledConnectRequests.erase(cr);
                 } else {
-                    tcpConnectors->connect_callback(cr->tag, (uv_handle_t*)request->handle, cr->callback, cr->isTls, (ErrorCode)errorCode);
+                    tcpConnectors->connect_callback(cr->tag, (uv_handle_t*)request->handle, cr->callback, cr->isTls, cr->rejectUnauthorized, (ErrorCode)errorCode);
                 }
                 cr->callback.~Callback();
                 tcpConnectors->_connectRequestsPool.release(cr);
@@ -143,12 +145,13 @@ private:
         uint64_t tag;
         Callback callback;
         bool isTls;
+        bool rejectUnauthorized; // reject tls connection if server certification failed
     };
-
-    bool create_ssl_context() {
+    
+    bool create_ssl_context(bool rejectUnauthorized) {
         if (!_sslContext) {
             try {
-                _sslContext = SSLContext::create_client_context();
+                _sslContext = SSLContext::create_client_context(nullptr, nullptr, rejectUnauthorized);
             } catch (...) {
                 return false;
             }
@@ -156,7 +159,7 @@ private:
         return true;
     }
 
-    void connect_callback(uint64_t tag, uv_handle_t* h, const Callback& callback, bool isTls, ErrorCode errorCode) {
+    void connect_callback(uint64_t tag, uv_handle_t* h, const Callback& callback, bool isTls, bool rejectUnauthorized, ErrorCode errorCode) {
         if (_connectRequests.count(tag) == 0) {
             _reactor.async_close(h);
             return;
@@ -166,7 +169,7 @@ private:
         if (errorCode == 0) {
             TcpStream* streamPtr = 0;
             if (isTls) {
-                if (!create_ssl_context()) {
+                if (!create_ssl_context(rejectUnauthorized)) {
                     errorCode = EC_SSL_ERROR;
                 } else {
                     streamPtr = new SslStream(_sslContext);
@@ -375,6 +378,7 @@ Reactor::Reactor() :
     _stopEvent.data = this;
     _pendingWrites  = std::make_unique<PendingWrites>(*this);
     _tcpConnectors  = std::make_unique<TcpConnectors>(*this);
+    _proxyConnector = std::make_unique<ProxyConnector>(*this);
     _tcpShutdowns   = std::make_unique<TcpShutdowns>(*this);
     _creatingInternalObjects = false;
 }
@@ -393,6 +397,8 @@ Reactor::~Reactor() {
 		_pendingWrites->cancel_all();
 	if (_tcpShutdowns)
 		_tcpShutdowns->cancel_all();
+    if (_proxyConnector)
+        _proxyConnector->cancel_all();
 
     if (_stopEvent.data)
         uv_close((uv_handle_t*)&_stopEvent, 0);
@@ -436,6 +442,16 @@ void Reactor::run() {
 
     // HACK: it is likely that this is the end of the thread, we have to break cycle reference
     _tcpConnectors->destroy_connect_timer_if_needed();
+    _proxyConnector->destroy_connect_timer_if_needed();
+}
+
+void Reactor::run_once() {
+    if (!_loop.data) {
+        LOG_DEBUG() << "loop wasn't initialized";
+        return;
+    }
+    
+    uv_run(&_loop, UV_RUN_ONCE);
 }
 
 void Reactor::stop() {
@@ -548,6 +564,17 @@ TcpStream* Reactor::stream_connected(TcpStream* stream, uv_handle_t* h) {
     return stream;
 }
 
+TcpStream* Reactor::move_stream(TcpStream* newStream, TcpStream* oldStream) {
+    LOG_DEBUG() << "move_stream() handle: " << static_cast<void*>(oldStream->_handle);
+    oldStream->disable_read();
+    newStream->_handle = oldStream->_handle;
+    newStream->_handle->data = newStream;
+    newStream->_reactor = std::move(oldStream->_reactor);
+    oldStream->_handle = 0;
+    oldStream->_handle->data = 0;
+    return newStream;
+}
+
 ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     assert(acceptor->_handle);
 
@@ -586,6 +613,7 @@ Result Reactor::tcp_connect(
     const ConnectCallback& callback,
     int timeoutMsec,
     bool tlsConnect,
+    bool tlsRejectUnauthorized,
     Address bindTo
 ) {
     assert(callback);
@@ -614,8 +642,48 @@ Result Reactor::tcp_connect(
         }
     }
 
-    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, address, tag, callback, timeoutMsec, tlsConnect);
+    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, address, tag, callback, timeoutMsec, tlsConnect, tlsRejectUnauthorized);
+    if (!res) {
+        async_close(h);
+    }
 
+    return res;
+}
+
+/**
+ *  According to Tor specs SOCKS5 BIND command is not supported.
+ *  That is why bind is not mplemented here.
+ */
+Result Reactor::tcp_connect_with_proxy(
+    Address destAddr,
+    Address proxyAddr,
+    uint64_t tag,
+    const ConnectCallback& callback,
+    int timeoutMsec,
+    bool tlsConnect
+) {
+    // TODO dh: clarify proxy connection timeout calculation
+    // timeoutMsec = proxyServerConnectionTO + proxyToDestinationConnectionTO + proxyServerResponseTO
+    // now only proxyServerConnectionTO is set
+    assert(callback);
+    assert(!destAddr.empty());
+    assert(!proxyAddr.empty());
+    assert(_tcpConnectors->is_tag_free(tag));
+
+    if (!callback || destAddr.empty() || !_tcpConnectors->is_tag_free(tag)) {
+        return make_unexpected(EC_EINVAL);
+    }
+
+    uv_handle_t* h = _handlePool.alloc();
+    ErrorCode errorCode = (ErrorCode)uv_tcp_init(&_loop, (uv_tcp_t*)h);
+    if (errorCode != 0) {
+        _handlePool.release(h);
+        return make_unexpected(errorCode);
+    }
+
+    ConnectCallback on_tcp_connect = _proxyConnector->
+        create_connection(tag, destAddr, callback, timeoutMsec, tlsConnect);
+    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, proxyAddr, tag, on_tcp_connect, timeoutMsec, false);
     if (!res) {
         async_close(h);
     }
@@ -625,6 +693,7 @@ Result Reactor::tcp_connect(
 
 void Reactor::cancel_tcp_connect(uint64_t tag) {
     _tcpConnectors->cancel_tcp_connect(tag);
+    _proxyConnector->cancel_connection(tag);
 }
 
 void Reactor::async_close(uv_handle_t*& handle) {

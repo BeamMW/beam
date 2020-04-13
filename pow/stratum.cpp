@@ -91,9 +91,9 @@ void append_base(json& o, const Message& m) {
 
 ResultCode parse_base(const json& o, Message& m) {
     try {
-        m.id = o[l_id];
+        m.id = o[l_id].get<std::string>();
         if (m.id.empty()) return empty_id;
-        m.method_str = o[l_method];
+        m.method_str = o[l_method].get<std::string>();
         m.method = get_method(m.method_str);
         if (m.method == 0) return unknown_method;
     } catch (const std::exception& e) {
@@ -107,23 +107,23 @@ template <typename M> void parse(const json& o, M& m)
 {}
 
 template<> void parse(const json& o, Login& m) {
-    m.api_key = o[l_api_key];
+    m.api_key = o[l_api_key].get<std::string>();
 }
 
 template<> void parse(const json& o, Job& m) {
-    m.input = o[l_input];
+    m.input = o[l_input].get<std::string>();
     m.difficulty = o[l_difficulty];
     m.height = o[l_height];
 }
 
 template<> void parse(const json& o, Solution& m) {
-    m.nonce = o[l_nonce];
-    m.output = o[l_output];
+    m.nonce = o[l_nonce].get<std::string>();
+    m.output = o[l_output].get<std::string>();
 }
 
 template<> void parse(const json& o, Result& m) {
     m.code = o[l_code];
-    m.description = o[l_description];
+    m.description = o[l_description].get<std::string>();
     m.nonceprefix = o.value(l_nonceprefix, std::string());
 }
 

@@ -476,7 +476,7 @@ Dialog {
 		}
     }
 
-	ConfirmationDialog {
+    ConfirmationDialog {
         id:                 forbidEditAddressDialog
         width:              460
         //% "Edit address"

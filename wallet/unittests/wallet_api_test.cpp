@@ -13,10 +13,11 @@
 // limitations under the License.
 
 #include <iostream>
+#include <core/block_crypt.h>
 
 #include "test_helpers.h"
 
-#include "wallet/api.h"
+#include "wallet/api/api.h"
 #include "nlohmann/json.hpp"
 
 using namespace std;
@@ -314,6 +315,62 @@ namespace
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
 
+    void testInvalidIssueJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const Issue& data) override
+            {
+                WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+    }
+
+    void testIssueJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid issue api json!!!");
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const Issue& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.index > 0);
+                WALLET_CHECK(data.value > 0);
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            Issue::Response status;
+
+            api.getResponse(12345, status, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 12345);
+        }
+    }
+
     void testStatusJsonRpc(const std::string& msg)
     {
         class WalletApiHandler : public WalletApiHandlerBase
@@ -372,7 +429,7 @@ namespace
                 WALLET_CHECK(data.coins[1] == 12);
                 WALLET_CHECK(data.coins[2] == 13);
                 WALLET_CHECK(data.coins[3] == 50000000000000);
-                WALLET_CHECK(data.fee == 4);
+                WALLET_CHECK(data.fee == 100);
             }
         };
 
@@ -566,6 +623,92 @@ namespace
         }
     }
 
+    void testExportPaymentProofJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid list api json!!!");
+
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const ExportPaymentProof& data) override
+            {
+                WALLET_CHECK(id > 0);
+            }
+        };
+
+        WalletApiHandler handler;
+
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            ExportPaymentProof::Response response{};
+
+            auto proof = "8009f28991ef543253c8b6a2caf15cf99e23fb9c2b4ca30dc463c8ceb354d7979e80ef7d4255dd5e885200648abe5826d8e0ba0157d3e8cf9c42dcc8258b036986e50400371789ee82afc25ee29c9c57bcb1018b725a3a94c0ceb1fa7984ea13de4982553e0d78d925a362982182a971e654857b8e407e7ad2e9cb72b2b8228812f8ec50435351000c94e2c85996e9527d9b0c90a1843205a7ec8f99fa534083e5f1d055d9f53894";
+            
+            response.paymentProof = from_hex(proof);
+
+            api.getResponse(123, response, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+            WALLET_CHECK(res["result"]["payment_proof"] == proof);
+        }
+    }
+
+    void testVerifyPaymentProofJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid list api json!!!");
+
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const VerifyPaymentProof& data) override
+            {
+                WALLET_CHECK(id > 0);
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+        
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            VerifyPaymentProof::Response response{};
+       
+            auto proof = "8009f28991ef543253c8b6a2caf15cf99e23fb9c2b4ca30dc463c8ceb354d7979e80ef7d4255dd5e885200648abe5826d8e0ba0157d3e8cf9c42dcc8258b036986e50400371789ee82afc25ee29c9c57bcb1018b725a3a94c0ceb1fa7984ea13de4982553e0d78d925a362982182a971e654857b8e407e7ad2e9cb72b2b8228812f8ec50435351000c94e2c85996e9527d9b0c90a1843205a7ec8f99fa534083e5f1d055d9f53894";
+            response.paymentInfo = storage::PaymentInfo::FromByteBuffer(from_hex(proof));
+
+            api.getResponse(123, response, res);
+            testResultHeader(res);
+       
+            WALLET_CHECK(res["id"] == 123);
+            auto& result = res["result"];
+            WALLET_CHECK(result["is_valid"] == true);
+            WALLET_CHECK(result["sender"] == "9f28991ef543253c8b6a2caf15cf99e23fb9c2b4ca30dc463c8ceb354d7979e");
+            WALLET_CHECK(result["receiver"] == "ef7d4255dd5e885200648abe5826d8e0ba0157d3e8cf9c42dcc8258b036986e5");
+            WALLET_CHECK(result["amount"] == 2300000000);
+            WALLET_CHECK(result["kernel"] == "ee82afc25ee29c9c57bcb1018b725a3a94c0ceb1fa7984ea13de4982553e0d78");
+        }
+    }
+
     template<typename T>
     void testJsonRpcIdAsValue(const std::string& msg, const T& value)
     {
@@ -594,10 +737,172 @@ namespace
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    void testGetBalanceJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid list api json!!!");
+
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const GetBalance& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.coin == AtomicSwapCoin::Litecoin);
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            GetBalance::Response response{};
+
+            response.available = 1000;
+
+            api.getResponse(123, response, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+            auto& result = res["result"];
+            WALLET_CHECK(result["available"] == 1000);
+        }
+    }
+
+    void testDecodeTokenJsonRpc(const std::string& msg)
+    {
+        const std::string kToken = "6xfNAUemTbmp7KRCRydiGStMZe6oRh59LzS7uk1V4eTrUX1mKcCGY7jdtMtSs4XLt6Ug8jWnepMEZCrqSUw7PeKRDZ8yyVZu1WHXzootpybBjX3nVxxHRSdk4ncBGDh1cssmiJhswZC9PfsaJmRKqXJM3x9tcX7EZn5Vjg8";
+
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            WalletApiHandler(const std::string value)
+                : _value(value)
+            {}
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid list api json!!!");
+
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const DecodeToken& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.token == _value);
+            }
+
+        private:
+            std::string _value;
+        };
+
+        WalletApiHandler handler(kToken);
+        WalletApi api(handler);
+
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            DecodeToken::Response response{};
+
+            response.isMyOffer = false;
+            response.isPublic = true;
+
+            auto txParams = ParseParameters(kToken);
+
+            response.offer = SwapOffer(*txParams);
+
+            api.getResponse(123, response, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+            auto& result = res["result"];
+            WALLET_CHECK(result["is_public"] == true);
+            WALLET_CHECK(result["height_expired"] == 123428);
+            WALLET_CHECK(result["is_my_offer"] == false);
+            WALLET_CHECK(result["min_height"] == 123398);
+            WALLET_CHECK(result["receive_amount"] == 200000000);
+            WALLET_CHECK(result["receive_currency"] == "BEAM");
+            WALLET_CHECK(result["send_amount"] == 100000000);
+            WALLET_CHECK(result["send_currency"] == "BTC");
+            WALLET_CHECK(result["height_expired"] == 123428);
+            WALLET_CHECK(result["tx_id"] == "d218356770b34fe4aeab01fb12c6074c");
+        }
+    }
+
+    void testOfferStatusJsonRpc(const std::string& msg)
+    {
+        const std::string kTxId = "b35fd69030694009b8bf849140d9319e";
+
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            WalletApiHandler(const std::string value)
+                : _value(value)
+            {}
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid list api json!!!");
+
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const OfferStatus& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(to_hex(data.txId.data(), data.txId.size()) == _value);
+            }
+
+        private:
+            std::string _value;
+        };
+
+        WalletApiHandler handler(kTxId);
+        WalletApi api(handler);
+
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            OfferStatus::Response response{};
+
+            auto txParams = ParseParameters("6xfHuWNKr45XLyw1pYcB8hixKoF1g8mPRi9dHXL9jr8kqhcjiqntRXzbWmrsSrRLPecjr5vaWQa27ScTB24XdPs5LqSBb318knzZya7dGvNbkm9B1VRgc9hsaQuPu4nJjiYa9ePCCz7VsDNpoB9JKNSGkbFGG7UJR4GWbZe");
+
+            response.offer = SwapOffer(*txParams);
+
+            api.getResponse(123, response, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+            auto& result = res["result"];
+            WALLET_CHECK(result["tx_id"] == kTxId);
+            WALLET_CHECK(result["status"] == 0);
+            WALLET_CHECK(result["status_string"] == "pending");
+        }
+    }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 }
 
 int main()
 {
+    auto logger = beam::Logger::create();
     testInvalidJsonRpc([](const json& msg)
     {
         testErrorHeader(msg);
@@ -630,6 +935,7 @@ int main()
         "jsonrpc": "2.0",
         "id" : 123,
         "method" : "balance123",
+        "key" : "0123456789AbcDef8b7cb3804b5978d42312c841dbfa03a1c31fc2f0627eeed6e43f2",
         "params" : "bar"
     }));
 
@@ -743,6 +1049,165 @@ int main()
         }
     }));
 
+    //
+    // EXPLICITLY ENABLE Confidential assets to perform tests
+    //
+    Rules::get().CA.Enabled = true;
+
+    // Invalid asset index
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "session" : 15,
+            "value" : 12342342,
+            "index": -1
+        }
+    }));
+
+    // Invalid negative value (amount)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "session" : 15,
+            "value" : -1
+        }
+    }));
+
+    // Invalid zero value (amount)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "session" : 15,
+            "value" : 0
+        }
+    }));
+
+    // Invalid too big value (amount)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "session" : 15,
+            "value" : 1234234200000000000000000000000
+        }
+    }));
+
+    // Invalid fee
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "session" : 15,
+            "value" : 100,
+            "fee": 0
+        }
+    }));
+
+    // Bad coins (string instead of array)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "session" : 15,
+            "value" : 12342342,
+            "coins": "blah"
+        }
+    }));
+
+    // Bad coins (int instead of string id)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "session" : 15,
+            "value" : 12342342,
+            "coins": [22]
+        }
+    }));
+
+    // Bad session
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "value" : 12342342,
+            "session": "blah"
+        }
+    }));
+
+    // Bad txId (not a hex string)
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "session": 15,
+            "value" : 12342342,
+            "txId": 22
+        }
+    }));
+
+    // Bad txId string
+    testInvalidIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "session": 15,
+            "value" : 12342342,
+            "txId": "22"
+        }
+    }));
+
+    testIssueJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_issue",
+        "params" :
+        {
+            "index": 1,
+            "value" : 12342342
+        }
+    }));
+
     testStatusJsonRpc(JSON_CODE(
     {
         "jsonrpc": "2.0",
@@ -763,7 +1228,7 @@ int main()
         {
             "session" : 123,
             "coins" : [11, 12, 13, 50000000000000],
-            "fee" : 4
+            "fee" : 100
         }
     }));
 
@@ -900,6 +1365,63 @@ int main()
         "id" : "123",
         "method" : "generate_tx_id"
     }));
+
+    testExportPaymentProofJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : "123",
+        "method" : "export_payment_proof",
+        "params" :
+        {
+            "txId" : "10c4b760c842433cb58339a0fafef3db"
+        }
+    }));
+
+    testVerifyPaymentProofJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : "123",
+        "method" : "verify_payment_proof",
+        "params" :
+        {
+            "payment_proof" : "8009f28991ef543253c8b6a2caf15cf99e23fb9c2b4ca30dc463c8ceb354d7979e80ef7d4255dd5e885200648abe5826d8e0ba0157d3e8cf9c42dcc8258b036986e50400371789ee82afc25ee29c9c57bcb1018b725a3a94c0ceb1fa7984ea13de4982553e0d78d925a362982182a971e654857b8e407e7ad2e9cb72b2b8228812f8ec50435351000c94e2c85996e9527d9b0c90a1843205a7ec8f99fa534083e5f1d055d9f53894"
+        }
+    }));
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    testGetBalanceJsonRpc(JSON_CODE(
+        {
+            "jsonrpc": "2.0",
+            "id" : "123",
+            "method" : "swap_get_balance",
+            "params" :
+            {
+                "coin": "ltc"
+            }
+        }));
+
+    testDecodeTokenJsonRpc(JSON_CODE(
+        {
+            "jsonrpc": "2.0",
+            "id" : "123",
+            "method" : "swap_decode_token",
+            "params" :
+            {
+                "token": "6xfNAUemTbmp7KRCRydiGStMZe6oRh59LzS7uk1V4eTrUX1mKcCGY7jdtMtSs4XLt6Ug8jWnepMEZCrqSUw7PeKRDZ8yyVZu1WHXzootpybBjX3nVxxHRSdk4ncBGDh1cssmiJhswZC9PfsaJmRKqXJM3x9tcX7EZn5Vjg8"
+            }
+        }));
+
+    testOfferStatusJsonRpc(JSON_CODE(
+        {
+            "jsonrpc": "2.0",
+            "id" : "123",
+            "method" : "swap_offer_status",
+            "params" :
+            {
+                "tx_id": "b35fd69030694009b8bf849140d9319e"
+            }
+        }));
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     return WALLET_CHECK_RESULT;
 }

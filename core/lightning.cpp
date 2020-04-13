@@ -13,27 +13,14 @@
 // limitations under the License.
 
 #include "lightning.h"
+#include "lightning_codes.h"
 
+
+namespace {
+const beam::Height kPostLockReserveLag = 5;
+}  // namespace
 namespace beam {
 namespace Lightning {
-
-struct Channel::Codes
-	:public Negotiator::Codes
-{
-	static const uint32_t Control0 = 1024 << 16;
-
-	static const uint32_t Revision = Control0 + 3;
-
-	static const uint32_t Fee = Control0 + 11; // all txs
-	static const uint32_t H0 = Control0 + 12;
-	static const uint32_t H1 = Control0 + 13;
-	static const uint32_t HLock = Control0 + 14;
-
-	static const uint32_t ValueMy = Control0 + 21;
-	static const uint32_t ValueYours = Control0 + 22;
-	static const uint32_t ValueTansfer = Control0 + 25;
-	static const uint32_t CloseGraceful = Control0 + 31;
-};
 
 struct Channel::MuSigLocator
 	:public proto::FlyClient::RequestUtxo
@@ -42,7 +29,8 @@ struct Channel::MuSigLocator
 
 	virtual ~MuSigLocator() {}
 
-	size_t m_iIndex;
+	DataUpdate* m_pIndex; // set nullptr if we're looking for MSig0
+	uint32_t m_nRevision;
 	bool m_Initiator;
 };
 
@@ -54,14 +42,14 @@ Channel::State::Enum Channel::get_State() const
 	if (m_State.m_Close.m_hPhase2)
 		return State::Closed;
 
-	assert(!m_vUpdates.empty());
+	assert(!m_lstUpdates.empty());
 
 	if (!m_pOpen->m_hOpened)
 	{
 		if (m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max)
 			return State::OpenFailed;
 
-		if (DataUpdate::Type::None == m_vUpdates.front()->m_Type)
+		if (DataUpdate::Type::None == m_lstUpdates.front().m_Type)
 			return State::Opening0;
 
 		if (m_pNegCtx && (NegotiationCtx::Open == m_pNegCtx->m_eType))
@@ -75,22 +63,71 @@ Channel::State::Enum Channel::get_State() const
 	if (m_State.m_Close.m_hPhase1)
 		return State::Closing2;
 
-	if (m_State.m_Terminate)
+	if (m_State.m_Terminate || m_gracefulClose)
 		return State::Closing1;
 
+	auto& lastUpdate = m_lstUpdates.back();
+	if (!lastUpdate.get_HR())
+		return State::Updating;
+
 	return m_pNegCtx ? State::Updating : State::Open;
+}
+
+Channel::DataUpdate* Channel::UpdateList::get_NextSafe(DataUpdate& d) const
+{
+	iterator it = s_iterator_to(d);
+	return (++it == end()) ? nullptr : &(*it);
+}
+
+Channel::DataUpdate* Channel::UpdateList::get_PrevSafe(DataUpdate& d) const
+{
+	iterator it = s_iterator_to(d);
+	if (begin() == it)
+		return nullptr;
+	return &(*--it);
+}
+
+void Channel::UpdateList::Clear()
+{
+	while (!empty())
+		DeleteFront();
+}
+
+void Channel::UpdateList::DeleteFront()
+{
+	DataUpdate& d = front();
+	pop_front();
+	delete &d;
+}
+
+void Channel::UpdateList::DeleteBack()
+{
+	DataUpdate& d = back();
+	pop_back();
+	delete &d;
 }
 
 bool Channel::IsUnfairPeerClosed() const
 {
 	assert(m_State.m_Close.m_hPhase1);
-	assert(m_State.m_Close.m_iPath < m_vUpdates.size());
+	assert(m_State.m_Close.m_pPath);
 
-	return
-		!m_State.m_Close.m_Initiator &&
-		(m_State.m_Close.m_iPath + 1 < m_vUpdates.size()) &&
-		m_vUpdates[m_State.m_Close.m_iPath + 1]->m_PeerKeyValid;
+	if (m_State.m_Close.m_Initiator)
+		return false;
 
+	DataUpdate* p = m_lstUpdates.get_NextSafe(*m_State.m_Close.m_pPath);
+	return p && p->m_PeerKeyValid;
+}
+
+void Channel::DiscardLastRevision()
+{
+	if (m_nRevision && !m_lstUpdates.empty())
+	{
+		m_gracefulClose = false;
+		m_lstUpdates.DeleteBack();
+		--m_nRevision;
+		m_pNegCtx.reset();
+	}
 }
 
 void Channel::OnPeerData(Storage::Map& dataIn)
@@ -106,19 +143,19 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 		return;
 	}
 
-	if (nRev < m_vUpdates.size())
+	if (nRev < m_nRevision)
 		return;
 
-	if (nRev > m_vUpdates.size())
+	if (nRev > m_nRevision)
 	{
 		if (m_pNegCtx)
 			return;
 
-		if (nRev > m_vUpdates.size() + 1)
+		if (nRev > m_nRevision + 1)
 			return;
 
 		// new negotiation?
-		if (m_vUpdates.empty())
+		if (!m_nRevision)
 		{
 			// should be channel open request
 			Amount nMy = 0, nPeer = 0;
@@ -126,6 +163,7 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 
 			bool bOk =
 				dataIn.Get(m_Params.m_hLockTime, Codes::HLock) &&
+				dataIn.Get(m_Params.m_hRevisionMaxLifeTime, Codes::HLifeTime) &&
 				dataIn.Get(m_Params.m_Fee, Codes::Fee) &&
 				dataIn.Get(nPeer, Codes::ValueMy) &&
 				dataIn.Get(nMy, Codes::ValueYours);
@@ -134,8 +172,8 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 				return;
 			}
 
-				dataIn.Get(hr0.m_Min, Channel::Codes::H0);
-				dataIn.Get(hr0.m_Max, Channel::Codes::H1);
+			dataIn.Get(hr0.m_Min, Codes::H0);
+			dataIn.Get(hr0.m_Max, Codes::H1);
 
 			// TODO - ask permissions to open a channel with those conditions
 
@@ -147,10 +185,12 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 		{
 			// value transfer?
 			Amount val = 0;
-			if (!dataIn.Get(val, Codes::ValueTansfer))
+			Height h = 0;
+			if (!dataIn.Get(val, Codes::ValueTansfer) ||
+				!dataIn.Get(h, Codes::H0))
 				return;
 
-			Amount valMy = m_vUpdates.back()->m_Outp.m_Value;
+			Amount valMy = m_lstUpdates.back().m_Outp.m_Value;
 			val += valMy;
 
 			if (val < valMy)
@@ -159,7 +199,39 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 			uint32_t iClose = 0;
 			dataIn.Get(iClose, Codes::CloseGraceful);
 
-			if (!TransferInternal(val, 1, !!iClose))
+			if (h + kMaxBlackoutTime <= get_Tip())
+				return;
+
+			if (!TransferInternal(val, 1, h, !!iClose))
+				return;
+		}
+	}
+	else if (nRev == m_nRevision && nRev > 1)
+	{
+		// double-sided graceful close
+		uint32_t iClose = 0;
+		if (dataIn.Get(iClose, Codes::CloseGraceful) && !!iClose)
+		{
+			Height h = 0;
+			if (!dataIn.Get(h, Codes::H0))
+				return;
+
+			if (h + kMaxBlackoutTime <= get_Tip())
+				return;
+
+			if (m_pNegCtx && m_pNegCtx->m_eType == NegotiationCtx::Close)
+			{
+				DiscardLastRevision();
+				if (!m_iRole)
+					Transfer(0, true);
+
+				return;
+			}
+		}
+		else
+		{
+			Amount valueTransfer = 0;
+			if (dataIn.Get(valueTransfer, Codes::ValueTansfer))
 				return;
 		}
 	}
@@ -259,9 +331,9 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 				x.m_Tx0.Get(m_pOpen->m_hvKernel0, MultiTx::Codes::KernelID);
 			}
 
-			assert(m_vUpdates.size() == 1);
+			assert(m_nRevision == 1);
 
-			DataUpdate& d = *m_vUpdates.front();
+			DataUpdate& d = m_lstUpdates.back();
 			Cast::Down<ChannelWithdrawal::Result>(d) = std::move(res);
 			d.CheckStdType();
 		}
@@ -292,8 +364,8 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 			if (!(nDone1 & nFlags0))
 				break;
 
-			assert(m_vUpdates.size() > 1);
-			DataUpdate& d = *m_vUpdates.back();
+			assert(m_nRevision > 1);
+			DataUpdate& d = m_lstUpdates.back();
 
 			x.get_Result(d);
 			d.CheckStdType();
@@ -309,8 +381,8 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 
 			if (Status::Success == status)
 			{
-				assert(m_vUpdates.size() > 1);
-				DataUpdate& d = *m_vUpdates.back();
+				assert(m_nRevision > 1);
+				DataUpdate& d = m_lstUpdates.back();
 
 				x.Get(d.m_tx1, MultiTx::Codes::TxFinal);
 				x.Get(d.m_PeerKey.m_Value, MultiTx::Codes::KernelID); // just use this variable
@@ -347,13 +419,39 @@ void Channel::Update()
 
 	if (!m_pOpen)
 		return;
-	assert(!m_vUpdates.empty());
+	assert(!m_lstUpdates.empty());
 
 	Height hTip = get_Tip();
 
+	if (!m_pRequest)
+	{
+		// check if we can forget some oldest revisions. Don't do this while the request is in the progress (it may use it)
+		while (m_lstUpdates.size() > 1)
+		{
+			DataUpdate& d = m_lstUpdates.front();
+			if (&d == m_State.m_Close.m_pPath)
+				break;
+
+			const HeightRange* pHR = d.get_HR();
+			if (!pHR)
+				break; // not ready?
+
+			Height h1 = pHR->m_Max + Rules::get().MaxRollback;
+			if (h1 < pHR->m_Max)
+				break; // overflow
+
+			if (h1 >= hTip)
+				break;
+
+			// outdated!
+			m_lstUpdates.DeleteFront();
+			OnRevisionOutdated(m_nRevision - static_cast<uint32_t>(m_lstUpdates.size()));
+		}
+	}
+
 	if (!m_pOpen->m_hOpened)
 	{
-		if (DataUpdate::Type::None == m_vUpdates.front()->m_Type)
+		if (DataUpdate::Type::None == m_lstUpdates.front().m_Type)
 		{
 			// early negotiation stage
 			m_State.m_hQueryLast = hTip;
@@ -377,9 +475,9 @@ void Channel::Update()
 		assert(m_State.m_Terminate);
 
 		// msigN confirmed.
-		assert(m_State.m_Close.m_iPath < m_vUpdates.size());
+		assert(m_State.m_Close.m_pPath);
 
-		const DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
+		const DataUpdate& d = *m_State.m_Close.m_pPath;
 
 		if ((DataUpdate::Type::Punishment == d.m_Type) || (m_State.m_Close.m_hPhase1 + m_Params.m_hLockTime <= hTip + 1))
 		{
@@ -397,7 +495,7 @@ void Channel::Update()
 		return;
 	}
 
-	const DataUpdate& d = *m_vUpdates.back();
+	const DataUpdate& d = m_lstUpdates.back();
 	if (hTip > m_State.m_hQueryLast)
 	{
 		if (DataUpdate::Type::Direct == d.m_Type)
@@ -406,11 +504,23 @@ void Channel::Update()
 			ConfirmMuSig();
 	}
 
+	// auto-close if the most recent revision is going to expire soon
+	DataUpdate* pPath = SelectWithdrawalPath();
+	if (!m_State.m_Terminate)
+	{
+		const HeightRange* pHR = pPath->get_HR();
+		if (pHR && ((hTip + m_Params.m_hPostLockReserve + (m_iRole ? kPostLockReserveLag : 0)) > pHR->m_Max))
+		{
+			m_State.m_Terminate = true;
+			m_pNegCtx.reset();
+		}
+	}
+
+
 	if (m_State.m_Terminate)
 	{
-		size_t iPath = SelectWithdrawalPath();
-		if (iPath < m_vUpdates.size())
-			SendTxNoSpam(m_vUpdates[iPath]->m_tx1, hTip);
+		if (pPath)
+			SendTxNoSpam(pPath->m_tx1, hTip);
 	}
 	else
 	{
@@ -419,31 +529,31 @@ void Channel::Update()
 	}
 }
 
-size_t Channel::SelectWithdrawalPath()
+Channel::DataUpdate* Channel::SelectWithdrawalPath()
 {
-	// Select the termination path. Note: it may not be the most recent m_vUpdates, because it may (theoretically) be not ready yet.
+	// Select the termination path. Note: it may not be the most recent, because it may (theoretically) be not ready yet.
 	// Go from back to front, until we encounter a valid path
-	size_t iPath = m_vUpdates.size() - 1;
-
-	for (; ; iPath--)
+	for (UpdateList::reverse_iterator it = m_lstUpdates.rbegin(); m_lstUpdates.rend() != it; it++)
 	{
-		const DataUpdate& d = *m_vUpdates[iPath];
+		DataUpdate& d = *it;
 		if (DataUpdate::Type::None != d.m_Type)
-			break; // good enough
+			return &d; // good enough
 
 		// we must never reveal our key before we obtain the full withdrawal path
-		assert(iPath && !d.m_RevealedSelfKey);
+		assert(!d.m_RevealedSelfKey);
 	}
 
-	return iPath;
+	return nullptr;
 }
 
-Channel::DataUpdate& Channel::CreateUpdatePoint(uint32_t iRole, const Key::IDV& msA, const Key::IDV& msB, const Key::IDV& outp)
+Channel::DataUpdate& Channel::CreateUpdatePoint(uint32_t iRole, const CoinID& msA, const CoinID& msB, const CoinID& outp)
 {
-	m_vUpdates.push_back(std::unique_ptr<DataUpdate>(new DataUpdate));
-	DataUpdate& d = *m_vUpdates.back();
+	DataUpdate* pVal = new DataUpdate;
+	DataUpdate& d = *pVal; // alias
+	m_lstUpdates.push_back(d);
+	m_nRevision++;
 
-	const Key::IDV* pArr[] = { &msA, &msB };
+	const CoinID* pArr[] = { &msA, &msB };
 
 	d.m_Type = DataUpdate::Type::None;
 	d.m_msMy = *pArr[iRole];
@@ -492,12 +602,14 @@ void Channel::OnRolledBack()
 		if (h >= m_State.m_Close.m_hPhase2)
 			return;
 
-		OnCoin(m_vUpdates[m_State.m_Close.m_iPath]->m_Outp, m_State.m_Close.m_hPhase2, CoinState::Confirmed, true); // remove confirmation
+		OnCoin(m_State.m_Close.m_pPath->m_Outp, m_State.m_Close.m_hPhase2, CoinState::Confirmed, true); // remove confirmation
 
 		m_State.m_Close.m_hPhase2 = 0;
+		m_State.m_Close.m_pPath = nullptr;
+		m_State.m_Close.m_nRevision = 0;
 	}
 
-	m_State.m_hQueryLast = std::min(m_State.m_hQueryLast, h);
+	std::setmin(m_State.m_hQueryLast, h);
 
 	if (m_State.m_hTxSentLast > h)
 		m_State.m_hTxSentLast = 0; // could be lost
@@ -552,26 +664,35 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 		// continue search
 		if (r.m_Initiator)
 		{
-			assert(r.m_iIndex < m_vUpdates.size());
+			assert(r.m_pIndex);
 
 			r.m_Initiator = false;
-			r.m_Msg.m_Utxo = m_vUpdates[r.m_iIndex]->m_CommPeer1;
+			r.m_Msg.m_Utxo = r.m_pIndex->m_CommPeer1;
 		}
 		else
 		{
-			if (!r.m_iIndex)
+			if (r.m_pIndex)
 			{
-				// not found! (it's a problem)
-				m_State.m_hQueryLast = get_Tip();
-				Update();
-				return;
+				r.m_pIndex = m_lstUpdates.get_PrevSafe(*r.m_pIndex);
+				r.m_nRevision--;
+			}
+			else
+			{
+				r.m_pIndex = &m_lstUpdates.back();
+				r.m_nRevision = m_nRevision;
 			}
 
-			r.m_iIndex = std::min(r.m_iIndex, m_vUpdates.size());
 			while (true)
 			{
-				assert(r.m_iIndex);
-				const DataUpdate& d = *m_vUpdates[--r.m_iIndex];
+				if (!r.m_pIndex)
+				{
+					// not found! (it's a problem)
+					m_State.m_hQueryLast = get_Tip();
+					Update();
+					return;
+				}
+
+				const DataUpdate& d = *r.m_pIndex;
 
 				bool bIs2Phase = (DataUpdate::Type::TimeLocked == d.m_Type) || (DataUpdate::Type::Punishment == d.m_Type);
 				if (bIs2Phase)
@@ -580,6 +701,9 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 					r.m_Msg.m_Utxo = d.m_Comm1;
 					break;
 				}
+
+				r.m_pIndex = m_lstUpdates.get_PrevSafe(*r.m_pIndex);
+				r.m_nRevision--;
 			}
 
 		}
@@ -592,7 +716,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 	else
 	{
 		// bingo!
-		if (r.m_iIndex == static_cast<size_t>(-1))
+		if (!r.m_pIndex)
 		{
 			m_State.m_hQueryLast = get_Tip();
 			ZeroObject(m_State.m_Close); // msig0 is still intact
@@ -600,10 +724,14 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 		else
 		{
 			// withdrawal detected
+			if (m_gracefulClose || get_State() == State::Updating)
+				DiscardLastRevision();
+
 			m_State.m_hQueryLast = 0;
 			m_State.m_hTxSentLast = 0;
 
-			m_State.m_Close.m_iPath = r.m_iIndex;
+			m_State.m_Close.m_pPath = r.m_pIndex;
+			m_State.m_Close.m_nRevision = r.m_nRevision;
 			m_State.m_Close.m_Initiator = r.m_Initiator;
 			m_State.m_Close.m_hPhase1 = r.m_Res.m_Proofs.front().m_State.m_Maturity;
 
@@ -612,7 +740,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 
 			if (IsUnfairPeerClosed())
 			{
-				DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
+				DataUpdate& d = *r.m_pIndex;
 				if (DataUpdate::Type::TimeLocked == d.m_Type)
 					// punish it! Create an immediate withdraw tx, put it instead of m_txPeer2
 					CreatePunishmentTx();
@@ -625,12 +753,12 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 
 void Channel::CreatePunishmentTx()
 {
-	assert(m_State.m_Terminate && !m_State.m_Close.m_Initiator && (m_State.m_Close.m_iPath + 1 < m_vUpdates.size()));
+	assert(m_State.m_Terminate && !m_State.m_Close.m_Initiator && (m_State.m_Close.m_pPath));
 
-	DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
+	DataUpdate& d = *m_State.m_Close.m_pPath;
 	assert(DataUpdate::Type::TimeLocked == d.m_Type);
 
-	DataUpdate& d1 = *m_vUpdates[m_State.m_Close.m_iPath + 1];
+	DataUpdate& d1 = *m_lstUpdates.get_NextSafe(d);
 	assert(d1.m_PeerKeyValid);
 
 	// Create an immediate withdraw tx, put it instead of m_txPeer2
@@ -641,29 +769,32 @@ void Channel::CreatePunishmentTx()
 
 	assert(tx.m_vInputs.size() == 1); // msig0
 
+	ECC::Hash::Value hv;
+	d.m_msPeer.get_Hash(hv);
+
 	ECC::Scalar::Native offs, k;
-	pKdf->DeriveKey(offs, d.m_msPeer); // our part
+	pKdf->DeriveKey(offs, hv); // our part
 	offs += ECC::Scalar::Native(d1.m_PeerKey); // peer part
 
-	Key::IDV& kidvOut = d.m_Outp;
-	kidvOut.m_Value = d.m_msPeer.m_Value - m_Params.m_Fee;
-	kidvOut.m_Type = Key::Type::Regular;
-	AllocTxoID(kidvOut);
+	CoinID& cidOut = d.m_Outp;
+	cidOut.m_Value = d.m_msPeer.m_Value - m_Params.m_Fee;
+	cidOut.m_Type = Key::Type::Regular;
+	AllocTxoID(cidOut);
 
 	tx.m_vOutputs.resize(1);
 	Output::Ptr& pOutp = tx.m_vOutputs.back();
 	pOutp.reset(new Output);
 
-	pOutp->Create(Rules::get().pForks[1].m_Height, k, *pKdf, kidvOut, *pKdf);
+	pOutp->Create(m_State.m_Close.m_hPhase1, k, *pKdf, cidOut, *pKdf);
 
 	k = -k;
 	offs += k;
 
 	tx.m_vKernels.resize(1);
 	TxKernel::Ptr& pKrn = tx.m_vKernels.back();
-	pKrn.reset(new TxKernel);
+	pKrn.reset(new TxKernelStd);
 
-//	pKrn->m_Height.m_Min = m_State.m_Close.m_hPhase1; // not mandatory
+	pKrn->m_Height.m_Min = m_State.m_Close.m_hPhase1; // mandatory
 	pKrn->m_Fee = m_Params.m_Fee;
 
 	// extract (pseudo)random part into kernel. No need for extra-secure nonce generation
@@ -671,26 +802,22 @@ void Channel::CreatePunishmentTx()
 	offs += k;
 	k = -k;
 
-	pKrn->m_Commitment = ECC::Context::get().G * k;
-
-	ECC::Hash::Value hv;
-	pKrn->get_ID(hv);
-	pKrn->m_Signature.Sign(hv, k);
+	Cast::Up<TxKernelStd>(*pKrn).Sign(k);
 
 	tx.m_Offset = offs;
 
 	d.m_Type = DataUpdate::Type::Punishment;
-/*
-	{
-		// test
-		TxBase::Context::Params pars;
-		TxBase::Context ctx(pars);
-		ctx.m_Height.m_Min = m_State.m_Close.m_hPhase1;
 
-		bool bb = tx.IsValid(ctx);
-		bb = bb;
-	}
-*/
+	//{
+	//	// test
+	//	TxBase::Context::Params pars;
+	//	TxBase::Context ctx(pars);
+	//	ctx.m_Height.m_Min = m_State.m_Close.m_hPhase1;
+
+	//	bool bb = tx.IsValid(ctx);
+	//	bb = bb;
+	//}
+
 }
 
 void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
@@ -719,7 +846,7 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 
 		if (m_State.m_Close.m_hPhase1 && !m_State.m_Close.m_hPhase2)
 		{
-			const DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
+			const DataUpdate& d = *m_State.m_Close.m_pPath;
 			Merkle::Hash hv;
 			d.get_Phase2ID(hv, m_State.m_Close.m_Initiator);
 
@@ -730,7 +857,7 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 			}
 		}
 
-		const DataUpdate& d = *m_vUpdates.back();
+		DataUpdate& d = m_lstUpdates.back();
 		if (!m_State.m_Close.m_hPhase1 && !m_State.m_Close.m_hPhase2 && (DataUpdate::Type::Direct == d.m_Type) && (r.m_Msg.m_ID == d.m_PeerKey.m_Value))
 		{
 			// graceful closure detected
@@ -739,7 +866,8 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 			m_State.m_hQueryLast = 0;
 			m_State.m_hTxSentLast = 0;
 
-			m_State.m_Close.m_iPath = m_vUpdates.size() - 1;
+			m_State.m_Close.m_pPath = &d;
+			m_State.m_Close.m_nRevision = m_nRevision;
 			m_State.m_Close.m_Initiator = true; // doesn't matter
 
 			OnCoin(d.m_Outp, h, CoinState::Confirmed, false);
@@ -748,7 +876,7 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 	}
 	else
 	{
-		const DataUpdate& d = *m_vUpdates.back();
+		const DataUpdate& d = m_lstUpdates.back();
 		if (DataUpdate::Type::Direct == d.m_Type)
 			ConfirmMuSig();
 		else
@@ -844,7 +972,7 @@ void Channel::ConfirmMuSig()
 	}
 
 	MuSigLocator::Ptr pReq(new MuSigLocator);
-	pReq->m_iIndex = static_cast<size_t>(-1);
+	pReq->m_pIndex = nullptr;
 	pReq->m_Initiator = false;
 	pReq->m_Msg.m_Utxo = m_pOpen->m_Comm0;
 
@@ -863,7 +991,7 @@ void Channel::DataUpdate::get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const
 	if (tx.m_vKernels.empty())
 		hv = Zero; //?!
 	else
-		tx.m_vKernels.front()->get_ID(hv);
+		hv = tx.m_vKernels.front()->m_Internal.m_ID;
 }
 
 void Channel::DataUpdate::CheckStdType()
@@ -875,19 +1003,24 @@ void Channel::DataUpdate::CheckStdType()
 	}
 }
 
-bool Channel::Open(Amount nMy, Amount nOther, const HeightRange& hr0)
+bool Channel::Open(Amount nMy, Amount nOther, Height hOpenTxDh)
 {
+	HeightRange hr0;
+	hr0.m_Min = get_Tip();
+	hr0.m_Max = hr0.m_Min + hOpenTxDh;
+
 	if (!OpenInternal(0, nMy, nOther, hr0))
 		return false;
 
 	Storage::Map dataIn, dataOut;
 
 	dataOut.Set(m_Params.m_hLockTime, Codes::HLock);
+	dataOut.Set(m_Params.m_hRevisionMaxLifeTime, Codes::HLifeTime);
 	dataOut.Set(m_Params.m_Fee, Codes::Fee);
 	dataOut.Set(nMy, Codes::ValueMy);
 	dataOut.Set(nOther, Codes::ValueYours);
-	dataOut.Set(hr0.m_Min, Channel::Codes::H0);
-	dataOut.Set(hr0.m_Max, Channel::Codes::H1);
+	dataOut.Set(hr0.m_Min, Codes::H0);
+	dataOut.Set(hr0.m_Max, Codes::H1);
 
 	UpdateNegotiator(dataIn, dataOut);
 
@@ -901,16 +1034,18 @@ bool Channel::Transfer(Amount val, bool bCloseGraceful)
 	if (!m_pOpen)
 		return false;
 
-	Amount valMy = m_vUpdates.back()->m_Outp.m_Value;
+	Amount valMy = m_lstUpdates.back().m_Outp.m_Value;
 
 	if (valMy < val)
 		return false;
 
-	if (!TransferInternal(valMy - val, 0, bCloseGraceful))
+	Height h = get_Tip();
+	if (!TransferInternal(valMy - val, 0, h, bCloseGraceful))
 		return false;
 
 	Storage::Map dataIn, dataOut;
 	dataOut.Set(val, Codes::ValueTansfer);
+	dataOut.Set(h, Codes::H0);
 
 	if (bCloseGraceful)
 		dataOut.Set(uint32_t(1), Codes::CloseGraceful);
@@ -926,18 +1061,38 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 	if (m_pOpen || m_pNegCtx)
 		return false; // already in progress
 
+	// check params sanity
+	// hr0 lifetime - should be order of standard tx negotiation (several hours)
+	// m_hRevisionMaxLifeTime - can be long, but no longer than max kernel validity time (Rules::)
+	if (hr0.IsEmpty())
+		return false;
+	if (hr0.m_Max - hr0.m_Min >= m_Params.m_hRevisionMaxLifeTime)
+		return false; // typically it should be much smaller
+
+	Height hMaxLifeTimeWithLock = m_Params.m_hRevisionMaxLifeTime + m_Params.m_hLockTime; // this is the validity lifetime of the 2nd-stage withdrawal tx
+	if (hMaxLifeTimeWithLock < m_Params.m_hLockTime)
+		return false; // overflow
+
+	hMaxLifeTimeWithLock += m_Params.m_hPostLockReserve;
+	if (hMaxLifeTimeWithLock < m_Params.m_hPostLockReserve)
+		return false; // overflow
+
+	if (hMaxLifeTimeWithLock > Rules::get().MaxKernelValidityDH)
+		return false; // too large
+
 	Amount nMyFee = m_Params.m_Fee / 2;
 	if (iRole)
 		nMyFee = m_Params.m_Fee - nMyFee; // in case it's odd
 
-	std::vector<Key::IDV> vIn;
+	std::vector<CoinID> vIn;
 	Amount nRequired = nMy + nMyFee * 3; // fee to create msig0, plus 2-stage withdrawal
 
-	Amount nChange = SelectInputs(vIn, nRequired);
+	Amount nChange = SelectInputs(vIn, nRequired, 0);
 	if (nChange < nRequired)
 		return false;
 	nChange -= (nMy + nMyFee * 3);
 
+	m_iRole = iRole;
 	NegotiationCtx_Open* p = new NegotiationCtx_Open;
 	m_pNegCtx.reset(p);
 	m_pNegCtx->m_eType = NegotiationCtx::Open;
@@ -946,24 +1101,24 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 	get_Kdf(p->m_Inst.m_pKdf);
 
 
-	std::vector<ECC::Key::IDV> vChg, vOut;
+	std::vector<CoinID> vChg, vOut;
 
 	if (nChange)
 	{
-		Key::IDV& kidv = vChg.emplace_back();
-		kidv.m_Value = nChange;
-		kidv.m_Type = Key::Type::Change;
-		AllocTxoID(kidv);
+		CoinID& cid = vChg.emplace_back();
+		cid.m_Value = nChange;
+		cid.m_Type = Key::Type::Change;
+		AllocTxoID(cid);
 	}
 
 	{
-		Key::IDV& kidv = vOut.emplace_back();
-		kidv.m_Value = nMy;
-		kidv.m_Type = Key::Type::Regular;
-		AllocTxoID(kidv);
+		CoinID& cid = vOut.emplace_back();
+		cid.m_Value = nMy;
+		cid.m_Type = Key::Type::Regular;
+		AllocTxoID(cid);
 	}
 
-	ECC::Key::IDV ms0, msA, msB;
+	CoinID ms0, msA, msB;
 	ms0.m_Value = nMy + nOther + m_Params.m_Fee * 2;
 	msA.m_Value = msB.m_Value = ms0.m_Value - m_Params.m_Fee;
 	ms0.m_Type = msA.m_Type = msB.m_Type = FOURCC_FROM(MuSg);
@@ -976,19 +1131,19 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 		ChannelOpen::Worker wrk(p->m_Inst);
 
 		p->m_Inst.Set(iRole, Codes::Role);
-		p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+		p->m_Inst.Set(hr0.m_Min, Codes::Scheme);
 
-		MultiTx::KernelParam krn1;
-		krn1.m_pFee = &m_Params.m_Fee;
-		krn1.m_pH0 = &Cast::NotConst(hr0).m_Min;
-		krn1.m_pH1 = &Cast::NotConst(hr0).m_Max;
 
+		MultiTx::KernelParam krn0;
+		krn0.m_pFee = &m_Params.m_Fee;
+		krn0.m_pH0 = &Cast::NotConst(hr0).m_Min;
+		krn0.m_pH1 = &Cast::NotConst(hr0).m_Max;
+
+		Height h1, h2;
 		WithdrawTx::CommonParam cp;
-		cp.m_Krn1.m_pFee = &m_Params.m_Fee;
-		cp.m_Krn2.m_pFee = &m_Params.m_Fee;
-		cp.m_Krn2.m_pLock = &m_Params.m_hLockTime;
+		SetWithdrawParams(cp, hr0.m_Min, h1, h2);
 
-		p->m_Inst.Setup(true, &Cast::NotConst(vIn), &vChg, &ms0, krn1, &msA, &msB, &vOut, cp);
+		p->m_Inst.Setup(true, &Cast::NotConst(vIn), &vChg, &ms0, krn0, &msA, &msB, &vOut, cp);
 	}
 
 
@@ -1003,34 +1158,53 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 	m_pOpen->m_vInp = std::move(vIn);
 
 	if (vChg.empty())
-		ZeroObject(m_pOpen->m_kidvChange);
+		ZeroObject(m_pOpen->m_cidChange);
 	else
-		m_pOpen->m_kidvChange = vChg.front();
+		m_pOpen->m_cidChange = vChg.front();
 
 	CreateUpdatePoint(iRole, msA, msB, vOut.front());
 
 	return true;
 }
 
-bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGraceful)
+void Channel::SetWithdrawParams(WithdrawTx::CommonParam& cp, const Height& h, Height& h1, Height& h2) const
+{
+	h1 = h + m_Params.m_hRevisionMaxLifeTime;
+	h2 = h1 + m_Params.m_hLockTime + m_Params.m_hPostLockReserve;
+
+	cp.m_Krn1.m_pFee = &Cast::NotConst(m_Params).m_Fee;
+	cp.m_Krn1.m_pH0 = &Cast::NotConst(h);
+	cp.m_Krn1.m_pH1 = &h1;
+	cp.m_Krn2.m_pFee = &Cast::NotConst(m_Params).m_Fee;
+	cp.m_Krn2.m_pH0 = &Cast::NotConst(h);
+	cp.m_Krn2.m_pH1 = &h2;
+	cp.m_Krn2.m_pLock = &Cast::NotConst(m_Params.m_hLockTime);
+}
+
+
+bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, Height h, bool bCloseGraceful)
 {
 	if (m_pNegCtx || (State::Open != get_State()))
 		return false;
 
-	assert(m_pOpen && !m_State.m_Terminate && !m_vUpdates.empty());
+	assert(m_pOpen && !m_State.m_Terminate && !m_lstUpdates.empty());
 
-	if (DataUpdate::Type::Direct == m_vUpdates.back()->m_Type)
+	DataUpdate& d0 = m_lstUpdates.back();
+	if (DataUpdate::Type::Direct == d0.m_Type)
 		return false; // no negotiations past decision to (gracefully) close the channel
+
+	if (h < d0.get_H0())
+		return false; // attempt to decrease the height
 
 	Amount nMyFee = m_Params.m_Fee / 2;
 	if (iRole)
 		nMyFee = m_Params.m_Fee - nMyFee; // in case it's odd
 
-	std::vector<ECC::Key::IDV> vOut;
+	std::vector<CoinID> vOut;
 
-	Key::IDV& kidv = vOut.emplace_back();
-	kidv.m_Value = nMyNew;
-	kidv.m_Type = Key::Type::Regular;
+	CoinID& cid = vOut.emplace_back();
+	cid.m_Value = nMyNew;
+	cid.m_Type = Key::Type::Regular;
 
 	if (bCloseGraceful)
 	{
@@ -1040,23 +1214,27 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGracefu
 
 		MultiTx& n = p->m_Inst;
 		n.m_pStorage = &p->m_Data;
-		get_Kdf(n.m_pKdf);
+		get_Kdf(n.m_pKdf); 
 
-		kidv.m_Value += nMyFee;
-		AllocTxoID(kidv);
+		cid.m_Value += nMyFee;
+		AllocTxoID(cid);
 
 		n.Set(iRole, Codes::Role);
-		n.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+		n.Set(h, Codes::Scheme);
 
 
-		n.Set(m_pOpen->m_ms0, MultiTx::Codes::InpMsKidv);
+		n.Set(m_pOpen->m_ms0, MultiTx::Codes::InpMsCid);
 		n.Set(m_pOpen->m_Comm0, MultiTx::Codes::InpMsCommitment);
-		n.Set(vOut, MultiTx::Codes::OutpKidvs);
+		n.Set(vOut, MultiTx::Codes::OutpCids);
 		n.Set(m_Params.m_Fee, MultiTx::Codes::KrnFee);
+		n.Set(h, MultiTx::Codes::KrnH0);
+		n.Set(h + m_Params.m_hRevisionMaxLifeTime, MultiTx::Codes::KrnH1);
 
-		ECC::Key::IDV msDummy(Zero);
+		CoinID msDummy(Zero);
 		msDummy.m_Value = m_pOpen->m_ms0.m_Value - m_Params.m_Fee;
 		CreateUpdatePoint(iRole, msDummy, msDummy, vOut.front());
+
+		m_gracefulClose = true;
 	}
 	else
 	{
@@ -1067,27 +1245,24 @@ bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGracefu
 		p->m_Inst.m_pStorage = &p->m_Data;
 		get_Kdf(p->m_Inst.m_pKdf);
 
-		AllocTxoID(kidv);
+		AllocTxoID(cid);
 
-		ECC::Key::IDV msA, msB;
+		CoinID msA, msB;
 		msA.m_Value = msB.m_Value = m_pOpen->m_ms0.m_Value - m_Params.m_Fee;
 		msA.m_Type = msB.m_Type = FOURCC_FROM(MuSg);
 
 		AllocTxoID(msA);
 		AllocTxoID(msB);
 
-		DataUpdate& d0 = *m_vUpdates.back();
-
 		{
 			ChannelUpdate::Worker wrk(p->m_Inst);
 
 			p->m_Inst.Set(iRole, Codes::Role);
-			p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+			p->m_Inst.Set(h, Codes::Scheme);
 
+			Height h1, h2;
 			WithdrawTx::CommonParam cp;
-			cp.m_Krn1.m_pFee = &m_Params.m_Fee;
-			cp.m_Krn2.m_pFee = &m_Params.m_Fee;
-			cp.m_Krn2.m_pLock = &m_Params.m_hLockTime;
+			SetWithdrawParams(cp, h, h1, h2);
 
 			p->m_Inst.Setup(true, &m_pOpen->m_ms0, &m_pOpen->m_Comm0, &msA, &msB, &Cast::NotConst(vOut), cp, &d0.m_msMy, &d0.m_msPeer, &d0.m_CommPeer1);
 		}
@@ -1108,16 +1283,18 @@ void Channel::Close()
 	}
 }
 
-bool Channel::IsSafeToForget(Height hMaxRollback)
+bool Channel::IsSafeToForget() const
 {
 	if (!m_pOpen)
 		return true;
+
+	Height hMaxRollback = Rules::get().MaxRollback;
 
 	if (!m_pOpen->m_hOpened)
 	{
 		return
 			(m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max + hMaxRollback) || // too late
-			(DataUpdate::Type::None == m_vUpdates.front()->m_Type); // negotiation is at a very early stage
+			(DataUpdate::Type::None == m_lstUpdates.front().m_Type); // negotiation is at a very early stage
 	}
 
 	return m_State.m_Close.m_hPhase2 && (m_State.m_Close.m_hPhase2 + hMaxRollback <= get_Tip());
@@ -1137,12 +1314,12 @@ void Channel::Forget()
 	CancelTx();
 
 	m_pNegCtx.reset();
-	m_vUpdates.clear();
+	m_lstUpdates.Clear();
 	
 	ZeroObject(m_State);
 }
 
-void Channel::OnCoin(const std::vector<Key::IDV>& v, Height h, CoinState e, bool bReverse)
+void Channel::OnCoin(const std::vector<CoinID>& v, Height h, CoinState e, bool bReverse)
 {
 	for (size_t i = 0; i < v.size(); i++)
 		OnCoin(v[i], h, e, bReverse);
@@ -1154,15 +1331,15 @@ void Channel::OnInpCoinsChanged()
 
 	OnCoin(m_pOpen->m_vInp, m_pOpen->m_hOpened, CoinState::Spent, !m_pOpen->m_hOpened);
 
-	if (m_pOpen->m_kidvChange.m_Value)
-		OnCoin(m_pOpen->m_kidvChange, m_pOpen->m_hOpened, CoinState::Confirmed, !m_pOpen->m_hOpened);
+	if (m_pOpen->m_cidChange.m_Value)
+		OnCoin(m_pOpen->m_cidChange, m_pOpen->m_hOpened, CoinState::Confirmed, !m_pOpen->m_hOpened);
 }
 
 void Channel::SendPeerInternal(Storage::Map& dataOut)
 {
 	if (!dataOut.empty())
 	{
-		dataOut.Set(static_cast<uint32_t>(m_vUpdates.size()), Codes::Revision);
+		dataOut.Set(m_nRevision, Codes::Revision);
 		SendPeer(std::move(dataOut));
 	}
 }

@@ -16,7 +16,7 @@
 
 #include <QObject>
 #include <QTimer>
-#include "wallet/bitcoin/client.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
 
 class SwapCoinClientModel
     : public QObject

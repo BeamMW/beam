@@ -51,16 +51,16 @@ namespace beam
         void getOwnerKey(Result<std::string> callback) const;
         void generateNonce(uint8_t slot, Result<ECC::Point> callback) const;
         void getNoncePublic(uint8_t slot, Result<ECC::Point> callback) const;
-        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Point> callback) const;
-        void generateRangeProof(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::RangeProof::Confidential> callback) const;
-        void signTransaction(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const TxData& tx, Result<ECC::Scalar> callback) const;
+        void generateKey(const CoinID&, bool isCoinKey, Result<ECC::Point> callback) const;
+        void generateRangeProof(const CoinID& idv, bool isCoinKey, Result<ECC::RangeProof::Confidential> callback) const;
+        void signTransaction(const std::vector<CoinID>& inputs, const std::vector<CoinID>& outputs, const TxData& tx, Result<ECC::Scalar> callback) const;
 
         std::string getOwnerKeySync() const;
         ECC::Point generateNonceSync(uint8_t slot) const;
         ECC::Point getNoncePublicSync(uint8_t slot) const;
-        ECC::Point generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const;
-        ECC::RangeProof::Confidential generateRangeProofSync(const ECC::Key::IDV& idv, bool isCoinKey) const;
-        ECC::Scalar signTransactionSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const TxData& tx) const;
+        ECC::Point generateKeySync(const CoinID& idv, bool isCoinKey) const;
+        ECC::RangeProof::Confidential generateRangeProofSync(const CoinID& idv, bool isCoinKey) const;
+        ECC::Scalar signTransactionSync(const std::vector<CoinID>& inputs, const std::vector<CoinID>& outputs, const TxData& tx) const;
 
     private:
         std::shared_ptr<Client> m_client;

@@ -162,6 +162,7 @@ namespace beam
         const char* TREASURY_BLOCK = "treasury_path";
         const char* RESET_ID = "reset_id";
         const char* ERASE_ID = "erase_id";
+        const char* PRINT_TXO = "print_txo";
         const char* CHECKDB = "check_db";
         const char* VACUUM = "vacuum";
         const char* CRASH = "crash";
@@ -176,6 +177,7 @@ namespace beam
         const char* MINER_KEY = "miner_key";
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
+        const char* GET_TOKEN = "get_token";
         const char* NEW_ADDRESS_COMMENT = "comment";
         const char* EXPIRATION_TIME = "expiration_time";
         const char* SEND = "send";
@@ -187,7 +189,6 @@ namespace beam
         const char* PAYMENT_PROOF_EXPORT = "payment_proof_export";
         const char* PAYMENT_PROOF_VERIFY = "payment_proof_verify";
         const char* PAYMENT_PROOF_DATA = "payment_proof";
-        const char* PAYMENT_PROOF_REQUIRED = "payment_proof_required";
         const char* TX_ID = "tx_id";
         const char* SEED_PHRASE = "seed_phrase";
         const char* IGNORE_DICTIONARY = "ignore_dictionary";
@@ -213,11 +214,10 @@ namespace beam
         const char* IMPORT_DATA = "import_data";
         const char* IMPORT_EXPORT_PATH = "file_location";
         const char* IP_WHITELIST = "ip_whitelist";
-		const char* FAST_SYNC = "fast_sync";
-		const char* GENERATE_RECOVERY_PATH = "generate_recovery";
-		const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
-		const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
-        const char* COLD_WALLET = "cold_wallet";
+        const char* FAST_SYNC = "fast_sync";
+        const char* GENERATE_RECOVERY_PATH = "generate_recovery";
+        const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
+        const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
         const char* SWAP_INIT = "swap_init";
         const char* SWAP_ACCEPT = "swap_accept";
         const char* SWAP_TOKEN = "swap_token";
@@ -227,16 +227,39 @@ namespace beam
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* NODE_POLL_PERIOD = "node_poll_period";
+        const char* PROXY_USE = "proxy";
+        const char* PROXY_ADDRESS = "proxy_addr";
+        const char* ALLOWED_ORIGIN = "allowed_origin";
         // values
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";
         const char* EXPIRATION_TIME_NOW = "now";
+        // laser
+#ifdef BEAM_LASER_SUPPORT
+        const char* LASER = "laser";
+        const char* LASER_OPEN = "laser_open";
+        const char* LASER_TRANSFER = "laser_send";
+        const char* LASER_WAIT = "laser_receive";
+        const char* LASER_SERVE = "laser_listen";
+        const char* LASER_LIST = "laser_channels_list";
+        const char* LASER_DROP = "laser_drop";
+        const char* LASER_DELETE = "laser_delete";
+        const char* LASER_CLOSE_GRACEFUL = "laser_close";
+
+        const char* LASER_AMOUNT_MY = "laser_my_locked_amount";
+        const char* LASER_AMOUNT_TARGET = "laser_remote_locked_amount";
+        const char* LASER_TARGET_ADDR = "laser_address";
+        const char* LASER_FEE = "laser_fee";
+        const char* LASER_CHANNEL_ID = "laser_channel";        
+#endif  // BEAM_LASER_SUPPORT
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
         const char* API_USE_TLS = "use_tls";
         const char* API_TLS_CERT = "tls_cert";
         const char* API_TLS_KEY = "tls_key";
+        const char* API_TLS_REQUEST_CERTIFICATE = "tls_request_cert";
+        const char* API_TLS_REJECT_UNAUTHORIZED = "tls_reject_unauthorized";
         const char* API_USE_ACL= "use_acl";
         const char* API_ACL_PATH = "acl_path";
 
@@ -248,8 +271,31 @@ namespace beam
         const char* TR_COMMENT = "tr_comment";
         const char* TR_M = "tr_M";
         const char* TR_N = "tr_N";
+
         // ui
         const char* APPDATA_PATH = "appdata";
+
+        // assets
+        const char* ASSET_ISSUE       = "issue";
+        const char* ASSET_CONSUME     = "consume";
+        const char* ASSET_INFO        = "asset_info";
+        const char* ASSET_REGISTER    = "reg";
+        const char* ASSET_UNREGISTER  = "unreg";
+        const char* ASSET_INDEX       = "asset_idx";
+        const char* ASSET_ID          = "asset_id";
+        const char* METADATA          = "metadata";
+
+        // broadcaster
+        const char* GENERATE_KEYS     = "generate_keys";
+        const char* TRANSMIT          = "transmit";
+        const char* PRIVATE_KEY       = "key";
+        const char* MESSAGE_TYPE      = "msg_type";
+        const char* UPDATE_VERSION    = "upd_ver";
+        const char* UPDATE_TYPE       = "upd_type";
+        const char* EXCHANGE_CURR     = "exch_curr";
+        const char* EXCHANGE_RATE     = "exch_rate";
+        const char* EXCHANGE_UNIT     = "exch_unit";
+
         // Defaults
         const Amount kMinimumFee = 100;
     }
@@ -281,7 +327,7 @@ namespace beam
         node_options.add_options()
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
-            //(cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
+            (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::NONCEPREFIX_DIGITS, po::value<unsigned>()->default_value(0), "number of hex digits for nonce prefix for stratum client (0..6)")
@@ -291,6 +337,7 @@ namespace beam
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
+            (cli::PRINT_TXO, po::value<bool>()->default_value(false), "Print TXO movements (create/spend) recognized by the owner key.")
             (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check")
             (cli::VACUUM, po::value<bool>()->default_value(false), "DB vacuum (compact)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
@@ -317,10 +364,10 @@ namespace beam
             (cli::SEED_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39.")
             (cli::AMOUNT_FULL, po::value<Positive<double>>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
-            (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
+            (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver's address or token")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
-            (cli::TX_HISTORY, "print transacrions' history in info command")
+            (cli::TX_HISTORY, "print transactions' history in info command")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for new own address")
@@ -329,13 +376,17 @@ namespace beam
             (cli::KEY_SUBKEY, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Child key index.")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
             (cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
-            (cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
-            (cli::COLD_WALLET, "used to init cold wallet")
             (cli::IGNORE_DICTIONARY, "ignore dictionaty while validating seed phrase")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx]")
-            (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
+#ifdef BEAM_LASER_SUPPORT
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|get_token|laser]")
+#else
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|get_token]")
+#endif  // BEAM_LASER_SUPPORT
+            (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
+            (cli::PROXY_USE, po::value<bool>()->default_value(false), "Use socks5 proxy server for node connection")
+            (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "Proxy server address");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
@@ -381,6 +432,33 @@ namespace beam
             visible_swap_options.add(opt);
         }
 
+        po::options_description wallet_assets_options("Confidential assets options");
+        wallet_assets_options.add_options()
+            (cli::ASSET_INDEX, po::value<Positive<uint32_t>>(), "asset index")
+            (cli::ASSET_ID,    po::value<Positive<uint32_t>>(), "asset id")
+            (cli::METADATA,    po::value<string>(),             "asset metadata");
+
+#ifdef BEAM_LASER_SUPPORT
+        po::options_description laser_commands("Laser commands");
+        laser_commands.add_options()
+            (cli::LASER_LIST, "view all opened lightning channel")
+            (cli::LASER_WAIT, "wait for open incomming lightning channel")
+            (cli::LASER_OPEN, "open lightning channel")
+            (cli::LASER_SERVE, po::value<string>()->implicit_value(""), "listen lightning channels")
+            (cli::LASER_TRANSFER, po::value<Positive<double>>(), "send to lightning channel")
+            (cli::LASER_CLOSE_GRACEFUL, po::value<string>()->implicit_value(""), "close opened lightning channel. Use before lock time is up, only if other side is online")
+            (cli::LASER_DROP, po::value<string>()->implicit_value(""), "drop opened lightning channel. Use after lock time is up or if other side is offline")
+            (cli::LASER_DELETE, po::value<string>()->implicit_value(""), "delete closed laser channel from data base");
+
+        po::options_description laser_options("Laser options");
+        laser_options.add_options()
+            (cli::LASER_AMOUNT_MY, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::LASER_AMOUNT_TARGET, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::LASER_TARGET_ADDR, po::value<string>(), "address of laser receiver")
+            (cli::LASER_FEE, po::value<Nonnegative<Amount>>(), "fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
+#endif  // BEAM_LASER_SUPPORT
+
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
         if (flags & GENERAL_OPTIONS)
@@ -399,8 +477,17 @@ namespace beam
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
+            if(Rules::get().CA.Enabled) options.add(wallet_assets_options);
             visible_options.add(wallet_options);
             visible_options.add(visible_swap_options);
+            if(Rules::get().CA.Enabled) visible_options.add(wallet_assets_options);
+
+#ifdef BEAM_LASER_SUPPORT
+            options.add(laser_commands);
+            options.add(laser_options);
+            visible_options.add(laser_commands);
+            visible_options.add(laser_options);
+#endif  // BEAM_LASER_SUPPORT
         }
         if (flags & UI_OPTIONS)
         {

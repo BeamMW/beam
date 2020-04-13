@@ -15,7 +15,9 @@
 #pragma once
 
 #include "../core/radixtree.h"
+#include "../core/proto.h"
 #include "../utility/dvector.h"
+#include "../utility/executor.h"
 #include "db.h"
 #include "txpool.h"
 
@@ -38,6 +40,9 @@ class NodeProcessor
 	size_t m_nSizeUtxoComission;
 
 	struct MultiblockContext;
+	struct MultiSigmaContext;
+	struct MultiShieldedContext;
+	struct MultiAssetContext;
 
 	void RollbackTo(Height);
 	Height PruneOld();
@@ -46,20 +51,46 @@ class NodeProcessor
 	Height RaiseTxoHi(Height);
 	void Vacuum();
 	void InitializeUtxos();
+	bool TestDefinition();
 	void CommitUtxosAndDB();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg);
 
 	bool HandleTreasury(const Blob&);
 
-	bool HandleBlock(const NodeDB::StateID&, MultiblockContext&);
-	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd);
-	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd);
-	bool HandleBlockElement(const Input&, Height, bool bFwd);
-	bool HandleBlockElement(const Output&, Height, bool bFwd);
+	struct BlockInterpretCtx;
 
-	void RecognizeUtxos(TxBase::IReader&&, Height h);
+	template <typename T>
+	bool HandleElementVecFwd(const T& vec, BlockInterpretCtx&, size_t& n);
+	template <typename T>
+	void HandleElementVecBwd(const T& vec, BlockInterpretCtx&, size_t n);
 
-	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
+	bool HandleBlock(const NodeDB::StateID&, const Block::SystemState::Full&, MultiblockContext&);
+	bool HandleValidatedTx(const TxVectors::Full&, BlockInterpretCtx&);
+	bool HandleValidatedBlock(const Block::Body&, BlockInterpretCtx&);
+	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
+	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
+	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
+
+	void Recognize(const Input&, Height);
+	void Recognize(const Output&, Height, Key::IPKdf&);
+	void Recognize(const TxKernelShieldedInput&, Height);
+	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
+	void Recognize(const TxKernelAssetCreate&, Height, Key::IPKdf*);
+	void Recognize(const TxKernelAssetDestroy&, Height);
+	void Recognize(const TxKernelAssetEmit&, Height);
+
+	void InternalAssetAdd(Asset::Full&);
+	void InternalAssetDel(Asset::ID);
+
+	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
+
+#define THE_MACRO(id, name) bool HandleKernel(const TxKernel##name&, BlockInterpretCtx&);
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
+	static uint64_t ProcessKrnMmr(Merkle::Mmr&, std::vector<TxKernel::Ptr>&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
+
+	struct KrnFlyMmr;
 
 	static const uint32_t s_TxoNakedMin = sizeof(ECC::Point); // minimal output size - commitment
 	static const uint32_t s_TxoNakedMax = s_TxoNakedMin + 0x10; // In case the output has the Incubation period - extra size is needed (actually less than this).
@@ -72,11 +103,10 @@ class NodeProcessor
 	TxoID get_TxosBefore(Height);
 	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 
-	void InitCursor();
-	bool InitUtxoMapping(const char*);
+	void InitCursor(bool bMovingUp);
+	bool InitUtxoMapping(const char*, bool bForceReset);
+	void InitializeUtxos(const char*);
 	static void OnCorrupted();
-	void get_Definition(Merkle::Hash&, bool bForNextState);
-	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
@@ -135,7 +165,6 @@ class NodeProcessor
 public:
 
 	struct StartParams {
-		bool m_ResetCursor = false;
 		bool m_CheckIntegrity = false;
 		bool m_Vacuum = false;
 		bool m_ResetSelfID = false;
@@ -145,6 +174,9 @@ public:
 	void Initialize(const char* szPath);
 	void Initialize(const char* szPath, const StartParams&);
 
+	static void get_UtxoMappingPath(std::string&, const char*);
+
+	NodeProcessor();
 	virtual ~NodeProcessor();
 
 	struct Horizon {
@@ -190,6 +222,8 @@ public:
 		Height m_TxoLo;
 		Height m_TxoHi;
 
+		TxoID m_ShieldedOutputs;
+
 	} m_Extra;
 
 	struct SyncData
@@ -229,6 +263,46 @@ public:
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
 
+	struct Evaluator
+		:public Block::SystemState::Evaluator
+	{
+		NodeProcessor& m_Proc;
+		Evaluator(NodeProcessor&);
+
+		virtual bool get_History(Merkle::Hash&) override;
+		virtual bool get_Utxos(Merkle::Hash&) override;
+		virtual bool get_Shielded(Merkle::Hash&) override;
+		virtual bool get_Assets(Merkle::Hash&) override;
+	};
+
+	struct ProofBuilder
+		:public Evaluator
+	{
+		Merkle::Proof& m_Proof;
+		ProofBuilder(NodeProcessor& p, Merkle::Proof& proof)
+			:Evaluator(p)
+			,m_Proof(proof)
+		{
+		}
+
+	protected:
+		virtual void OnProof(Merkle::Hash&, bool);
+	};
+
+	struct ProofBuilderHard
+		:public Evaluator
+	{
+		Merkle::HardProof& m_Proof;
+		ProofBuilderHard(NodeProcessor& p, Merkle::HardProof& proof)
+			:Evaluator(p)
+			,m_Proof(proof)
+		{
+		}
+
+	protected:
+		virtual void OnProof(Merkle::Hash&, bool);
+	};
+
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
 
 	void CommitDB();
@@ -251,42 +325,43 @@ public:
 	virtual void OnModified() {}
 	virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {}
 
-	// parallel context-free execution
-	struct Task
+	struct MyExecutor
+		:public Executor
 	{
-		typedef std::unique_ptr<Task> Ptr;
-		virtual void Exec() = 0;
-        virtual ~Task() {};
-
-		struct Processor
+		struct MyContext
+			:public Context
 		{
-			virtual uint32_t get_Threads();
-			virtual void Push(Task::Ptr&&);
-			virtual uint32_t Flush(uint32_t nMaxTasks);
-			virtual void ExecAll(Task&);
+			ECC::InnerProduct::BatchContextEx<4> m_BatchCtx; // seems to be ok, for larger batches difference is marginal
 		};
+
+		MyContext m_Ctx;
+
+		virtual uint32_t get_Threads();
+		virtual void Push(TaskAsync::Ptr&&);
+		virtual uint32_t Flush(uint32_t nMaxTasks);
+		virtual void ExecAll(TaskSync&);
 	};
 
-	Task::Processor m_SyncProcessor;
-	virtual Task::Processor& get_TaskProcessor() { return m_SyncProcessor; }
+	std::unique_ptr<MyExecutor> m_pExecSync;
+
+	virtual Executor& get_Executor();
 
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
-	bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
-	struct IKeyWalker {
-		virtual bool OnKey(Key::IPKdf&, Key::Index) = 0;
-	};
-	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
-
-	bool Recover(Key::IDV&, const Output&, Height h);
+	virtual Key::IPKdf* get_ViewerKey() { return nullptr; }
+	virtual const ShieldedTxo::Viewer* get_ViewerShieldedKey() { return nullptr; }
 
 	void RescanOwnedTxos();
 
 	uint64_t FindActiveAtStrict(Height);
+	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);
 
-	bool ValidateTxContext(const Transaction&, const HeightRange&); // assuming context-free validation is already performed, but 
-	bool ValidateTxWrtHeight(const Transaction&, const HeightRange&);
+	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
+	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob&);
+
+	bool IsShieldedInPool(const Transaction&);
+	bool IsShieldedInPool(const TxKernelShieldedInput&);
 
 	struct GeneratedBlock
 	{
@@ -332,14 +407,21 @@ public:
 	bool EnumTxos(ITxoWalker&);
 	bool EnumTxos(ITxoWalker&, const HeightRange&);
 
+	struct ITxoWalker_Unspent
+		:public ITxoWalker
+	{
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
+	};
+
 	struct ITxoRecover
 		:public ITxoWalker
 	{
-		NodeProcessor& m_This;
-		ITxoRecover(NodeProcessor& x) :m_This(x) {}
+		Key::IPKdf& m_Key;
+		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
 
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
-		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV&) = 0;
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&) = 0;
 	};
 
 	struct ITxoWalker_UnspentNaked
@@ -348,31 +430,95 @@ public:
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
 	};
 
-#pragma pack (push, 1)
-	struct UtxoEvent
+	struct IKrnWalker
+		:public TxKernel::IWalker
 	{
-		typedef ECC::Point Key;
-		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
-
-		struct Value {
-			ECC::Key::IDV::Packed m_Kidv;
-			uintBigFor<Height>::Type m_Maturity;
-			AssetID m_AssetID;
-			uint8_t m_Added;
-		};
+		Height m_Height;
 	};
+
+	bool EnumKernels(IKrnWalker&, const HeightRange&);
+
+	struct KrnWalkerShielded
+		:public IKrnWalker
+	{
+		virtual bool OnKrn(const TxKernel& krn) override;
+		virtual bool OnKrnEx(const TxKernelShieldedInput&) { return true; }
+		virtual bool OnKrnEx(const TxKernelShieldedOutput&) { return true; }
+	};
+
+	struct KrnWalkerRecognize
+		:public IKrnWalker
+	{
+		NodeProcessor& m_Proc;
+		KrnWalkerRecognize(NodeProcessor& p) :m_Proc(p) {}
+
+		virtual bool OnKrn(const TxKernel& krn) override;
+	};
+
+#pragma pack (push, 1)
+	struct EventKey
+	{
+		// make sure we always distinguish different events by their keys
+		typedef ECC::Point Utxo;
+		typedef ECC::Point Shielded;
+
+		typedef PeerID AssetCtl;
+
+		// Utxo and Shielded use the same key type, hence the following flag (OR-ed with Y coordinate) makes the difference
+		static const uint8_t s_FlagShielded = 2;
+	};
+
+	struct ShieldedBase
+	{
+		uintBigFor<TxoID>::Type m_MmrIndex;
+		uintBigFor<Height>::Type m_Height;
+	};
+
+	struct ShieldedOutpPacked
+		:public ShieldedBase
+	{
+		ECC::Point m_Commitment;
+		uintBigFor<TxoID>::Type m_TxoID;
+	};
+
+	struct ShieldedInpPacked
+		:public ShieldedBase
+	{
+	};
+
 #pragma pack (pop)
 
-	virtual void OnUtxoEvent(const UtxoEvent::Value&, Height) {}
-	virtual void OnDummy(const Key::ID&, Height) {}
+	virtual void OnEvent(Height, const proto::Event::Base&) {}
+	virtual void OnDummy(const CoinID&, Height) {}
 
-	static bool IsDummy(const Key::IDV&);
+	static bool IsDummy(const CoinID&);
+
+	struct Mmr
+	{
+		Mmr(NodeDB&);
+		NodeDB::StatesMmr m_States;
+		NodeDB::StreamMmr m_Shielded;
+		NodeDB::StreamMmr m_Assets;
+
+	} m_Mmr;
 
 private:
-	size_t GenerateNewBlockInternal(BlockContext&);
+	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
+
+	template <typename TKey, typename TEvt>
+	bool FindEvent(const TKey&, TEvt&);
+
+	template <typename TEvt, typename TKey>
+	void AddEvent(Height, const TEvt&, const TKey&);
+
+	template <typename TEvt>
+	void AddEvent(Height, const TEvt&);
+
+	template <typename TEvt>
+	void AddEventInternal(Height, const TEvt&, const Blob& key);
 };
 
 struct LogSid

@@ -19,9 +19,9 @@
 #include "messages.h"
 #include "node_model.h"
 #include "helpers.h"
-#include "wallet/secstring.h"
-#include "keykeeper/private_key_keeper.h"
-#include "wallet/bitcoin/bridge_holder.h"
+#include "wallet/core/secstring.h"
+#include "wallet/core/private_key_keeper.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
 #include <memory>
 
 class AppModel final: public QObject
@@ -74,7 +74,6 @@ private:
     void onWalledOpened(const beam::SecString& pass);
     void backupDB(const std::string& dbFilePath);
     void restoreDBFromBackup(const std::string& dbFilePath);
-    void generateDefaultAddress();
 
 private:
     // SwapCoinClientModels must be destroyed after WalletModel
@@ -87,7 +86,6 @@ private:
     beam::bitcoin::IBridgeHolder::Ptr m_qtumBridgeHolder;
 
     WalletModel::Ptr m_wallet;
-    beam::wallet::IPrivateKeyKeeper::Ptr m_keyKeeper;
     NodeModel m_nodeModel;
     WalletSettings& m_settings;
     MessageManager m_messages;

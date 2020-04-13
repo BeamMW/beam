@@ -6,13 +6,43 @@ import QtGraphicalEffects 1.0
 import QtQuick.Window 2.2
 import "controls"
 import Beam.Wallet 1.0
+import "utils.js" as Utils
 
 Rectangle {
     id: main
 
+    property var openedNotifications: 0
+    property alias hasNewerVersion : updateInfoProvider.hasNewerVersion
+
     anchors.fill: parent
 
-	MainViewModel {id: viewModel}
+	MainViewModel {
+        id: viewModel
+    }
+
+    PushNotificationManager {
+        id: updateInfoProvider
+        onShowUpdateNotification: function(newVersion, currentVersion, id) {
+            var popup = Qt.createComponent("controls/NotificationPopup.qml").createObject(main);
+            popup.title = "New version v" + newVersion + " is avalable";
+            popup.message = "Your current version is v" + currentVersion + ". Please update to get the most of your Beam wallet.";
+            popup.acceptButtonText = "update now";
+            popup.onCancel = function () {
+                updateInfoProvider.onCancelPopup(id);
+                popup.close();
+            }
+            popup.onAccept = function () {
+                Utils.navigateToDownloads();
+            }
+            main.openedNotifications++;
+            popup.closed.connect(function() {
+                main.openedNotifications--;
+            })
+            
+            popup.verticalOffset = (main.openedNotifications - 1) * 200;
+            popup.open();
+        }
+    }
 
     ConfirmationDialog {
         id:                     closeDialog
@@ -88,20 +118,17 @@ Rectangle {
     }
 
     property var contentItems : [
-		//"dashboard",
 		"wallet", 
         "atomic_swap",
-		"addresses", 
+		"addresses",
+        "notifications",
 		"utxo",
-		//"notification", 
-		//"info",
 		"settings"]
     property int selectedItem
 
     Item {
         id: sidebar
         width: 70
-        height: 0
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.top: parent.top
@@ -160,6 +187,34 @@ Rectangle {
 
     					visible: control.activeFocus
                     }
+
+                    Item {
+                        visible: contentItems[index] == 'notifications' && viewModel.unreadNotifications > 0
+                        Rectangle {
+                            id: counter
+                            x: 42
+                            y: 9
+                            width: 16
+                            height: 16
+                            radius: width/2
+                            color: Style.active
+
+                            SFText {
+                                height: 14
+                                text: viewModel.unreadNotifications
+                                font.pixelSize: 12
+                                anchors.centerIn: counter
+                            }
+                        }
+                        DropShadow {
+                            anchors.fill: counter
+                            radius: 5
+                            samples: 9
+                            source: counter
+                            color: Style.active
+                        }
+                    }
+
                     Keys.onPressed: {
                         if ((event.key == Qt.Key_Return || event.key == Qt.Key_Enter || event.key == Qt.Key_Space) && selectedItem != index) 
                             updateItem(index);
@@ -185,6 +240,71 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             source: "qrc:/assets/logo.svg"
             smooth: true
+        }
+
+        Item {
+            property bool clicked: false
+            id: whereToBuyControl
+            width: parent.width
+            anchors.bottom: parent.bottom
+            height: 66
+            activeFocusOnTab: true
+
+            function clickHandler() {
+                whereToBuyControl.clicked = true;
+            }
+
+            onClickedChanged: {
+                if (clicked) {
+                    Utils.openExternalWithConfirmation(
+                        "https://www.beam.mw/#exchanges",
+                        function () {
+                            whereToBuyControl.clicked = false;
+                        });
+                }
+            }
+
+            SvgImage {
+                x: 21
+                y: 16
+                width: 28
+                height: 28
+                source: whereToBuyControl.clicked
+                    ? "qrc:/assets/icon-where-to-buy-beam-green.svg"
+                    : "qrc:/assets/icon-where-to-buy-beam-gray.svg"
+            }
+            Item {
+                Rectangle {
+                    id: indicator
+                    y: 6
+                    width: 4
+                    height: 48
+                    color: whereToBuyControl.clicked ? Style.active : Style.passive
+                }
+
+                DropShadow {
+                    anchors.fill: indicator
+                    radius: 5
+                    samples: 9
+                    color: Style.active
+                    source: indicator
+                }
+
+                visible: whereToBuyControl.activeFocus
+            }
+            Keys.onPressed: {
+                if ((event.key == Qt.Key_Return || event.key == Qt.Key_Enter || event.key == Qt.Key_Space) && whereToBuyControl.activeFocus)
+                    whereToBuyControl.clickHandler();
+            }
+
+            MouseArea {
+                id: mouseArea
+                anchors.fill: parent
+                onClicked: {
+                    whereToBuyControl.clickHandler();
+                }
+                hoverEnabled: true
+            }
         }
 
     }
@@ -230,6 +350,14 @@ Rectangle {
 
     function openSwapActiveTransactionsList() {
         updateItem("atomic_swap", {"shouldShowActiveTransactions": true})
+    }
+
+    function openTransactionDetails(id) {
+        updateItem("wallet", {"openedTxID": id})
+    }
+
+    function openSwapTransactionDetails(id) {
+        updateItem("atomic_swap", {"openedTxID": id})
     }
 
     function resetLockTimer() {

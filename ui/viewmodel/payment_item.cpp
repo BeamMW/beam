@@ -13,14 +13,14 @@
 // limitations under the License.
 #include "payment_item.h"
 #include "ui_helpers.h"
-#include "wallet/wallet.h"
+#include "wallet/core/wallet.h"
 #include "model/app_model.h"
 
 using namespace beam;
 using namespace beam::wallet;
 using namespace beamui;
 
-PaymentInfoItem::PaymentInfoItem(QObject* parent /*= nullptr*/)
+PaymentInfoItem::PaymentInfoItem(QObject* parent /* = nullptr */)
         : QObject(parent)
 {
 }

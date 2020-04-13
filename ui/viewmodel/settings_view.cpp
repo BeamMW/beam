@@ -21,17 +21,19 @@
 #include "model/helpers.h"
 #include "model/swap_coin_client_model.h"
 #include <thread>
-#include "wallet/secstring.h"
+#include "wallet/core/secstring.h"
 #include "qml_globals.h"
 #include <algorithm>
-#include "wallet/litecoin/settings.h"
-#include "wallet/qtum/settings.h"
 #include <boost/algorithm/string/trim.hpp>
 #include "utility/string_helpers.h"
 #include "mnemonic/mnemonic.h"
-#include "wallet/bitcoin/common.h"
-#include "wallet/qtum/common.h"
-#include "wallet/litecoin/common.h"
+#include "viewmodel/ui_helpers.h"
+
+#include "wallet/transactions/swaps/bridges/litecoin/settings.h"
+#include "wallet/transactions/swaps/bridges/qtum/settings.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/common.h"
+#include "wallet/transactions/swaps/bridges/qtum/common.h"
+#include "wallet/transactions/swaps/bridges/litecoin/common.h"
 
 using namespace beam;
 using namespace ECC;
@@ -48,15 +50,20 @@ namespace
         return {};
     }
 
-    QString formatAddress(const QString& address, uint16_t port)
+    QString formatAddress(const QString& address, const QString& port)
     {
         return QString("%1:%2").arg(address).arg(port);
+    }
+
+    QString formatPort(uint16_t port)
+    {
+        return port > 0 ? QString("%1").arg(port) : "";
     }
 
     struct UnpackedAddress 
     {
         QString address;
-        uint16_t port = 0;
+        QString port = 0;
     };
 
     UnpackedAddress parseAddress(const QString& address)
@@ -66,13 +73,7 @@ namespace
         if (separator > -1)
         {
             res.address = address.left(separator);
-            auto portStr = address.mid(separator + 1);
-            bool ok = false;
-            uint16_t port = portStr.toInt(&ok);
-            if (ok)
-            {
-                res.port = port;
-            }
+            res.port = address.mid(separator + 1);
         }
         else
         {
@@ -155,20 +156,7 @@ SwapCoinSettingsItem::~SwapCoinSettingsItem()
 
 QString SwapCoinSettingsItem::getFeeRateLabel() const
 {
-    switch (m_swapCoin)
-    {
-        case beam::wallet::AtomicSwapCoin::Bitcoin:
-            return QMLGlobals::btcFeeRateLabel();;
-        case beam::wallet::AtomicSwapCoin::Litecoin:
-            return QMLGlobals::ltcFeeRateLabel();
-        case beam::wallet::AtomicSwapCoin::Qtum:
-            return QMLGlobals::qtumFeeRateLabel();
-        default:
-        {
-            assert(false && "unexpected swap coin!");
-            return QString();
-        }
-    }
+    return beamui::getFeeRateLabel(beamui::convertSwapCoinToCurrency(m_swapCoin));
 }
 
 QString SwapCoinSettingsItem::getTitle() const
@@ -353,12 +341,12 @@ void SwapCoinSettingsItem::setNodeAddress(const QString& value)
     }
 }
 
-uint16_t SwapCoinSettingsItem::getNodePort() const
+QString SwapCoinSettingsItem::getNodePort() const
 {
     return m_nodePort;
 }
 
-void SwapCoinSettingsItem::setNodePort(const uint16_t& value)
+void SwapCoinSettingsItem::setNodePort(const QString& value)
 {
     if (value != m_nodePort)
     {
@@ -401,12 +389,12 @@ void SwapCoinSettingsItem::setNodeAddressElectrum(const QString& value)
     }
 }
 
-uint16_t SwapCoinSettingsItem::getNodePortElectrum() const
+QString SwapCoinSettingsItem::getNodePortElectrum() const
 {
     return m_nodePortElectrum;
 }
 
-void SwapCoinSettingsItem::setNodePortElectrum(const uint16_t& value)
+void SwapCoinSettingsItem::setNodePortElectrum(const QString& value)
 {
     if (value != m_nodePortElectrum)
     {
@@ -554,7 +542,7 @@ void SwapCoinSettingsItem::applyNodeSettings()
     {
         const std::string address = m_nodeAddress.toStdString();
         connectionSettings.m_address.resolve(address.c_str());
-        connectionSettings.m_address.port(m_nodePort);
+        connectionSettings.m_address.port(m_nodePort.toInt());
     }
 
     m_settings->SetConnectionOptions(connectionSettings);
@@ -791,19 +779,27 @@ void SwapCoinSettingsItem::applyNodeAddressElectrum(const QString& address)
     }
 }
 
-
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance().getSettings()}
-    , m_remoteNodePort(0)
+    , m_notificationsSettings(AppModel::getInstance().getSettings())
     , m_isValidNodeAddress{true}
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
     , m_supportedLanguages(WalletSettings::getSupportedLanguages())
+    , m_supportedAmountUnits(WalletSettings::getSupportedRateUnits())
 {
     undoChanges();
+
+    m_lockTimeout = m_settings.getLockTimeout();
+    m_isPasswordReqiredToSpendMoney = m_settings.isPasswordReqiredToSpendMoney();
+    m_isAllowedBeamMWLinks = m_settings.isAllowedBeamMWLinks();
+    m_currentLanguageIndex = m_supportedLanguages.indexOf(m_settings.getLanguageName());
+    m_secondCurrency = m_settings.getSecondCurrency();
+
     connect(&AppModel::getInstance().getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
     connect(&AppModel::getInstance().getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
     connect(AppModel::getInstance().getWallet().get(), SIGNAL(addressChecked(const QString&, bool)), SLOT(onAddressChecked(const QString&, bool)));
+    connect(&m_settings, SIGNAL(beamMWLinksChanged()), SIGNAL(beamMWLinksPermissionChanged()));
 
     m_timerId = startTimer(CHECK_INTERVAL);
 }
@@ -899,12 +895,12 @@ void SettingsViewModel::setLocalNodeRun(bool value)
     }
 }
 
-uint SettingsViewModel::getLocalNodePort() const
+QString SettingsViewModel::getLocalNodePort() const
 {
     return m_localNodePort;
 }
 
-void SettingsViewModel::setLocalNodePort(uint value)
+void SettingsViewModel::setLocalNodePort(const QString& value)
 {
     if (value != m_localNodePort)
     {
@@ -914,12 +910,12 @@ void SettingsViewModel::setLocalNodePort(uint value)
     }
 }
 
-uint SettingsViewModel::getRemoteNodePort() const
+QString SettingsViewModel::getRemoteNodePort() const
 {
     return m_remoteNodePort;
 }
 
-void SettingsViewModel::setRemoteNodePort(uint value)
+void SettingsViewModel::setRemoteNodePort(const QString& value)
 {
     if (value != m_remoteNodePort)
     {
@@ -959,8 +955,9 @@ void SettingsViewModel::setPasswordReqiredToSpendMoney(bool value)
     }
 }
 
-bool SettingsViewModel::isAllowedBeamMWLinks() const
+bool SettingsViewModel::isAllowedBeamMWLinks()
 {
+    m_isAllowedBeamMWLinks = m_settings.isAllowedBeamMWLinks();
     return m_isAllowedBeamMWLinks;
 }
 
@@ -968,9 +965,7 @@ void SettingsViewModel::allowBeamMWLinks(bool value)
 {
     if (value != m_isAllowedBeamMWLinks)
     {
-        m_isAllowedBeamMWLinks = value;
-        m_settings.setAllowedBeamMWLinks(m_isAllowedBeamMWLinks);
-        emit beamMWLinksAllowed();
+        m_settings.setAllowedBeamMWLinks(value);
     }
 }
 
@@ -1006,6 +1001,18 @@ void SettingsViewModel::setCurrentLanguage(QString value)
     }
 }
 
+QString SettingsViewModel::getSecondCurrency() const
+{
+    return m_secondCurrency;
+}
+
+void SettingsViewModel::setSecondCurrency(const QString& value)
+{
+    m_secondCurrency = value;
+    m_settings.setSecondCurrency(value);
+    emit secondCurrencyChanged();
+}
+
 uint SettingsViewModel::coreAmount() const
 {
     return std::thread::hardware_concurrency();
@@ -1032,7 +1039,7 @@ void SettingsViewModel::openUrl(const QString& url)
 
 void SettingsViewModel::refreshWallet()
 {
-    AppModel::getInstance().getWallet()->getAsync()->refresh();
+    AppModel::getInstance().getWallet()->getAsync()->rescan();
 }
 
 void SettingsViewModel::openFolder(const QString& path)
@@ -1058,7 +1065,7 @@ bool SettingsViewModel::isChanged() const
 {
     return formatAddress(m_nodeAddress, m_remoteNodePort) != m_settings.getNodeAddress()
         || m_localNodeRun != m_settings.getRunLocalNode()
-        || m_localNodePort != m_settings.getLocalNodePort()
+        || static_cast<uint>(m_localNodePort.toInt()) != m_settings.getLocalNodePort()
         || m_localNodePeers != m_settings.getLocalNodePeers();
 }
 
@@ -1072,7 +1079,7 @@ void SettingsViewModel::applyChanges()
 
     m_settings.setNodeAddress(formatAddress(m_nodeAddress, m_remoteNodePort));
     m_settings.setRunLocalNode(m_localNodeRun);
-    m_settings.setLocalNodePort(m_localNodePort);
+    m_settings.setLocalNodePort(m_localNodePort.toInt());
     m_settings.setLocalNodePeers(m_localNodePeers);
     m_settings.applyChanges();
     emit propertiesChanged();
@@ -1097,7 +1104,6 @@ QString SettingsViewModel::getWalletLocation() const
 
 void SettingsViewModel::undoChanges()
 {
-    auto remoteNodeAddress = m_settings.getNodeAddress();
     auto unpackedAddress = parseAddress(m_settings.getNodeAddress());
     setNodeAddress(unpackedAddress.address);
     if (unpackedAddress.port > 0)
@@ -1106,12 +1112,8 @@ void SettingsViewModel::undoChanges()
     }
 
     setLocalNodeRun(m_settings.getRunLocalNode());
-    setLocalNodePort(m_settings.getLocalNodePort());
-    setLockTimeout(m_settings.getLockTimeout());
+    setLocalNodePort(formatPort(m_settings.getLocalNodePort()));
     setLocalNodePeers(m_settings.getLocalNodePeers());
-    setPasswordReqiredToSpendMoney(m_settings.isPasswordReqiredToSpendMoney());
-    allowBeamMWLinks(m_settings.isAllowedBeamMWLinks());
-    setCurrentLanguageIndex(m_supportedLanguages.indexOf(m_settings.getLanguageName()));
 }
 
 void SettingsViewModel::reportProblem()
@@ -1145,4 +1147,9 @@ const QList<QObject*>& SettingsViewModel::getSwapCoinSettings()
         m_swapSettings.push_back(new SwapCoinSettingsItem(*AppModel::getInstance().getQtumClient(), beam::wallet::AtomicSwapCoin::Qtum));
     }
     return m_swapSettings;
+}
+
+QObject* SettingsViewModel::getNotificationsSettings()
+{
+    return &m_notificationsSettings;
 }

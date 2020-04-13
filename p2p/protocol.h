@@ -66,7 +66,7 @@ public:
                 MsgObject m;
                 des.reset(data, size);
                 if (!des.deserialize(m) || des.bytes_left() > 0) {
-                    errorHandler.on_protocol_error(fromStream, message_corrupted);
+                    errorHandler.on_protocol_error(fromStream, ProtocolError::message_corrupted);
                     return false;
                 }
                 return (static_cast<MsgHandler*>(msgHandler)->*MessageFn)(fromStream, std::move(m));
@@ -86,10 +86,27 @@ public:
                 MsgObject m;
                 des.reset(data, size);
                 if (!des.deserialize(m) || des.bytes_left() > 0) {
-                    errorHandler.on_protocol_error(fromStream, message_corrupted);
+                    errorHandler.on_protocol_error(fromStream, ProtocolError::message_corrupted);
                     return false;
                 }
                 return MessageFn(fromStream, std::move(m));
+            }
+        );
+    }
+
+    /// Adds custom message handler without object deserialization
+    template <
+        typename MsgHandler,
+        bool(MsgHandler::*MessageFn)(uint64_t, std::vector<uint8_t>&&)
+    >
+    void add_message_handler_wo_deserializer(MsgType type, MsgHandler* msgHandler, uint32_t minMsgSize, uint32_t maxMsgSize) {
+        add_custom_message_handler(
+            type, msgHandler, minMsgSize, maxMsgSize,
+            [](void* msgHandler, IErrorHandler& errorHandler, Deserializer& des, uint64_t fromStream, const void* data, size_t size) -> bool {
+                const uint8_t* begin = static_cast<const uint8_t*>(data);
+                const uint8_t* end = begin + size;
+                std::vector<uint8_t> m(begin, end);
+                return (static_cast<MsgHandler*>(msgHandler)->*MessageFn)(fromStream, std::move(m));
             }
         );
     }

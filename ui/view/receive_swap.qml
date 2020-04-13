@@ -75,7 +75,7 @@ Update your settings and try again."
     Item {
         Layout.fillWidth:    true
         Layout.topMargin:    75
-        Layout.bottomMargin: 50
+        //Layout.bottomMargin: 50
 
         SFText {
             x:                   parent.width / 2 - width / 2
@@ -85,6 +85,12 @@ Update your settings and try again."
             //% "Create a Swap Offer"
             text:                qsTrId("wallet-receive-swap-title")
         }
+    }
+
+    Item {
+        Layout.fillHeight: true
+        Layout.maximumHeight: 40
+        Layout.minimumHeight: 20
     }
 
     ScrollView {
@@ -116,7 +122,9 @@ Update your settings and try again."
                         hasFee:           true
                         currFeeTitle:     true
                         currency:         viewModel.sentCurrency
-                        amount:           viewModel.amountSent
+                        amountIn:         viewModel.amountSent
+                        secondCurrencyRateValue:    viewModel.secondCurrencySendRateValue
+                        secondCurrencyLabel:        viewModel.secondCurrencyLabel
                         multi:            true
                         resetAmount:      false
                         currColor:        currencyError() || !BeamGlobals.canReceive(currency) ? Style.validator_error : Style.content_main
@@ -176,7 +184,7 @@ please review your settings and try again"
                     // Comment
                     //
                     SFText {
-                        Layout.topMargin: 40
+                        Layout.topMargin: 30
                         font.pixelSize:   14
                         font.styleName:   "Bold"; font.weight: Font.Bold
                         color:            Style.content_main
@@ -195,6 +203,14 @@ please review your settings and try again"
                         text:             viewModel.addressComment
                         maximumLength:    BeamGlobals.maxCommentLength()
                         enabled:          !thisView.addressSaved
+                    }
+
+                    SFText {
+                        font.pixelSize:   14
+                        font.italic:      true
+                        color:            Style.content_secondary
+                        //% "Comments are local and won't be shared"
+                        text:             qsTrId("general-comment-local")
                     }
 
                     Binding {
@@ -251,7 +267,9 @@ please review your settings and try again"
                         hasFee:           true
                         currFeeTitle:     true
                         currency:         viewModel.receiveCurrency
-                        amount:           viewModel.amountToReceive
+                        amountIn:         viewModel.amountToReceive
+                        secondCurrencyRateValue:    viewModel.secondCurrencyReceiveRateValue
+                        secondCurrencyLabel:        viewModel.secondCurrencyLabel
                         multi:            true
                         resetAmount:      false
                         currColor:        currencyError() || !BeamGlobals.canReceive(currency) ? Style.validator_error : Style.content_main
@@ -305,7 +323,7 @@ please review your settings and try again"
                     }
 
                     SFText {
-                        Layout.topMargin: 18
+                        Layout.topMargin: 30
                         font.pixelSize:   14
                         font.styleName:   "Bold"
                         font.weight:      Font.Bold
@@ -319,8 +337,8 @@ please review your settings and try again"
                         Layout.topMargin: 3
                         Layout.fillWidth: true
 
-                        property double maxAmount: 254000000
-                        property double minAmount: 0.00000001
+                        property double maxAmount: parseFloat(Utils.maxAmount)
+                        property double minAmount: parseFloat(Utils.minAmount)
                         property bool rateValid:   true
                         property bool lockedByReceiveAmount: false
 
@@ -508,7 +526,7 @@ please review your settings and try again"
                     }
 
                     SvgImage {
-                        source:  tokenRow.visible ? "qrc:/assets/icon-grey-arrow-down.svg" : "qrc:/assets/icon-grey-arrow-up.svg"
+                        source:  tokenRow.visible ? "qrc:/assets/icon-grey-arrow-up.svg" : "qrc:/assets/icon-grey-arrow-down.svg"
                         anchors.verticalCenter: parent.verticalCenter
                         MouseArea {
                             anchors.fill: parent
@@ -548,10 +566,14 @@ please review your settings and try again"
                     }
                 }
             }
-
+            Item {
+                Layout.fillHeight: true
+                Layout.maximumHeight: 30
+                Layout.minimumHeight: 15
+            }
             Row {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 30
+                //Layout.topMargin: 30
                 spacing:          25
 
                 CustomButton {
