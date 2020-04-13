@@ -16,7 +16,6 @@
 
 #include <condition_variable>
 #include <boost/optional.hpp>
-#include "utility/logger.h"
 #include "asset_base_tx.h"
 #include "aregister_tx_builder.h"
 
