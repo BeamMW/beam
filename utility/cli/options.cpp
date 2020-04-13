@@ -287,13 +287,15 @@ namespace beam
         const char* ASSET_METADATA    = "asset_meta";
 
         // broadcaster
-        const char* PRIVATE_KEY = "key";
-        const char* MESSAGE_TYPE = "msg_type";
-        const char* UPDATE_VERSION = "upd_ver";
-        const char* UPDATE_TYPE = "upd_type";
-        const char* EXCHANGE_CURR = "exch_curr";
-        const char* EXCHANGE_RATE = "exch_rate";
-        const char* EXCHANGE_UNIT = "exch_unit";
+        const char* GENERATE_KEYS     = "generate_keys";
+        const char* TRANSMIT          = "transmit";
+        const char* PRIVATE_KEY       = "key";
+        const char* MESSAGE_TYPE      = "msg_type";
+        const char* UPDATE_VERSION    = "upd_ver";
+        const char* UPDATE_TYPE       = "upd_type";
+        const char* EXCHANGE_CURR     = "exch_curr";
+        const char* EXCHANGE_RATE     = "exch_rate";
+        const char* EXCHANGE_UNIT     = "exch_unit";
 
         // lelantus
         const char* INSERT_TO_POOL = "insert_to_pool";

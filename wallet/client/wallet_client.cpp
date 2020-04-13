@@ -28,7 +28,15 @@ namespace
 using namespace beam;
 using namespace beam::wallet;
 
-    const size_t kCollectorBufferSize = 50;
+const size_t kCollectorBufferSize = 50;
+
+#if defined(BEAM_TESTNET)
+const char kBroadcastValidatorPublicKey[] = "dc3df1d8cd489c3fe990eb8b4b8a58089a7706a5fc3b61b9c098047aac2c2812";
+#elif defined(BEAM_MAINNET)
+const char kBroadcastValidatorPublicKey[] = "8ea783eced5d65139bbdf432814a6ed91ebefe8079395f63a13beed1dfce39da";
+#else
+const char kBroadcastValidatorPublicKey[] = "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
+#endif
 
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
@@ -287,122 +295,131 @@ namespace beam::wallet
                               std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
         m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, txCreators, activeNotifications]()
+        {
+            try
             {
-                try
+                io::Reactor::Scope scope(*m_reactor);
+                io::Reactor::GracefulIntHandler gih(*m_reactor);
+
+                static const unsigned LOG_ROTATION_PERIOD_SEC = 3 * 3600; // 3 hours
+                static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
+                LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
+
+                auto wallet = make_shared<Wallet>(m_walletDB);
+                m_wallet = wallet;
+
+                if (txCreators)
                 {
-					io::Reactor::Scope scope(*m_reactor);
-					io::Reactor::GracefulIntHandler gih(*m_reactor);
-
-                    static const unsigned LOG_ROTATION_PERIOD_SEC = 3 * 3600; // 3 hours
-                    static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
-                    LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
-
-                    auto wallet = make_shared<Wallet>(m_walletDB);
-                    m_wallet = wallet;
-
-                    if (txCreators)
+                    for (auto&[txType, creator] : *txCreators)
                     {
-                        for (auto&[txType, creator] : *txCreators)
-                        {
-                            wallet->RegisterTransactionType(txType, creator);
-                        }
+                        wallet->RegisterTransactionType(txType, creator);
                     }
+                }
 
-                    wallet->ResumeAllTransactions();
+                wallet->ResumeAllTransactions();
 
-                    updateClientState();
+                updateClientState();
 
-                    auto nodeNetwork = make_shared<NodeNetwork>(*wallet, m_initialNodeAddrStr);
-                    m_nodeNetwork = nodeNetwork;
+                auto nodeNetwork = make_shared<NodeNetwork>(*wallet, m_initialNodeAddrStr);
+                m_nodeNetwork = nodeNetwork;
 
-                    using NodeNetworkSubscriber = ScopedSubscriber<INodeConnectionObserver, NodeNetwork>;
-                    auto nodeNetworkSubscriber = std::make_unique<NodeNetworkSubscriber>(static_cast<INodeConnectionObserver*>(this), nodeNetwork);
+                using NodeNetworkSubscriber = ScopedSubscriber<INodeConnectionObserver, NodeNetwork>;
+                auto nodeNetworkSubscriber =
+                    std::make_unique<NodeNetworkSubscriber>(static_cast<INodeConnectionObserver*>(this), nodeNetwork);
 
-                    auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
-                    m_walletNetwork = walletNetwork;
-                    wallet->SetNodeEndpoint(nodeNetwork);
-                    wallet->AddMessageEndpoint(walletNetwork);
+                auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
+                m_walletNetwork = walletNetwork;
+                wallet->SetNodeEndpoint(nodeNetwork);
+                wallet->AddMessageEndpoint(walletNetwork);
 
-                    auto wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
+                auto wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
-                    // Notification center initialization
-                    m_notificationCenter = make_shared<NotificationCenter>(*m_walletDB, activeNotifications, m_reactor->shared_from_this());
-                    using NotificationsSubscriber = ScopedSubscriber<INotificationsObserver, NotificationCenter>;
+                // Notification center initialization
+                m_notificationCenter =
+                    make_shared<NotificationCenter>(*m_walletDB, activeNotifications, m_reactor->shared_from_this());
+                using NotificationsSubscriber = ScopedSubscriber<INotificationsObserver, NotificationCenter>;
 
-                    struct MyNotificationsObserver : INotificationsObserver
+                struct MyNotificationsObserver : INotificationsObserver
+                {
+                    WalletClient& m_client;
+                    MyNotificationsObserver(WalletClient& client) : m_client(client) {}
+                    void onNotificationsChanged(ChangeAction action, const std::vector<Notification>& items) override
                     {
-                        WalletClient& m_client;
-                        MyNotificationsObserver(WalletClient& client) : m_client(client) {}
-                        void onNotificationsChanged(ChangeAction action, const std::vector<Notification>& items) override
-                        {
-                            m_client.updateNotifications();
-                            static_cast<INotificationsObserver&>(m_client).onNotificationsChanged(action, items);
-                        }
-                    } notificationObserver(*this);
+                        m_client.updateNotifications();
+                        static_cast<INotificationsObserver&>(m_client).onNotificationsChanged(action, items);
+                    }
+                } notificationObserver(*this);
 
-                    auto notificationsSubscriber = make_unique<NotificationsSubscriber>(&notificationObserver, m_notificationCenter);
-                    updateNotifications();
-                    // Broadcast router and broadcast message consumers initialization
-                    auto broadcastRouter = make_shared<BroadcastRouter>(*nodeNetwork, *walletNetwork);
-                    m_broadcastRouter = broadcastRouter;
+                auto notificationsSubscriber =
+                    make_unique<NotificationsSubscriber>(&notificationObserver, m_notificationCenter);
+                updateNotifications();
+                // Broadcast router and broadcast message consumers initialization
+                auto broadcastRouter = make_shared<BroadcastRouter>(*nodeNetwork, *walletNetwork);
+                m_broadcastRouter = broadcastRouter;
 
 
-                    using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
-                    // Swap offer board uses broadcasting messages
+                using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
+                // Swap offer board uses broadcasting messages
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                    OfferBoardProtocolHandler protocolHandler(m_walletDB->get_SbbsKdf(), m_walletDB);
+                OfferBoardProtocolHandler protocolHandler(m_walletDB->get_SbbsKdf(), m_walletDB);
 
-                    auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler);
-                    m_offersBulletinBoard = offersBulletinBoard;
+                auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler);
+                m_offersBulletinBoard = offersBulletinBoard;
 
-                    using SwapOffersBoardSubscriber = ScopedSubscriber<ISwapOffersObserver, SwapOffersBoard>;
+                using SwapOffersBoardSubscriber = ScopedSubscriber<ISwapOffersObserver, SwapOffersBoard>;
 
-                    auto walletDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);
-                    auto swapOffersBoardSubscriber = make_unique<SwapOffersBoardSubscriber>(static_cast<ISwapOffersObserver*>(this), offersBulletinBoard);
+                auto walletDbSubscriber = make_unique<WalletDbSubscriber>(
+                    static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);
+                auto swapOffersBoardSubscriber = make_unique<SwapOffersBoardSubscriber>(
+                    static_cast<ISwapOffersObserver*>(this), offersBulletinBoard);
 #endif
-                    // Broadcast validator initialization. It verifies messages signatures.
-                    auto broadcastValidator = make_shared<BroadcastMsgValidator>();
-                    {
-                        PeerID key;
-                        if (BroadcastMsgValidator::stringToPublicKey("db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec", key))
-                        {
-                            broadcastValidator->setPublisherKeys( { key } );
-                        }
-                    }
-
-                    // Other content providers using broadcast messages
-                    auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
-                    auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB, isSecondCurrencyEnabled);
-                    m_updatesProvider = updatesProvider;
-                    m_exchangeRateProvider = exchangeRateProvider;
-                    using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
-                    using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRateObserver, ExchangeRateProvider>;
-                    auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(m_notificationCenter.get()), updatesProvider);
-                    auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<IExchangeRateObserver*>(this), exchangeRateProvider);
-                    auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(m_notificationCenter.get()), m_walletDB);
-
-                    nodeNetwork->tryToConnect();
-                    m_reactor->run_ex([&wallet, &nodeNetwork](){
-                        wallet->CleanupNetwork();
-                        nodeNetwork->Disconnect();
-                    });
-
-                    assert(walletNetwork.use_count() == 1);
-                    walletNetwork.reset();
-
-                    nodeNetworkSubscriber.reset();
-                    assert(nodeNetwork.use_count() == 1);
-                    nodeNetwork.reset();
-                }
-                catch (const runtime_error& ex)
+                // Broadcast validator initialization. It verifies messages signatures.
+                auto broadcastValidator = make_shared<BroadcastMsgValidator>();
                 {
-                    LOG_ERROR() << ex.what();
-                    FailedToStartWallet();
+                    PeerID key;
+                    if (BroadcastMsgValidator::stringToPublicKey(kBroadcastValidatorPublicKey, key))
+                    {
+                        broadcastValidator->setPublisherKeys( { key } );
+                    }
                 }
-                catch (...) {
-                    LOG_UNHANDLED_EXCEPTION();
-                }
-            });
+
+                // Other content providers using broadcast messages
+                auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
+                auto exchangeRateProvider = make_shared<ExchangeRateProvider>(
+                    *broadcastRouter, *broadcastValidator, *m_walletDB, isSecondCurrencyEnabled);
+                m_updatesProvider = updatesProvider;
+                m_exchangeRateProvider = exchangeRateProvider;
+                using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
+                using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRateObserver, ExchangeRateProvider>;
+                auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(
+                    m_notificationCenter.get()), updatesProvider);
+                auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(
+                    static_cast<IExchangeRateObserver*>(this), exchangeRateProvider);
+                auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(
+                    static_cast<IWalletDbObserver*>(m_notificationCenter.get()), m_walletDB);
+
+                nodeNetwork->tryToConnect();
+                m_reactor->run_ex([&wallet, &nodeNetwork](){
+                    wallet->CleanupNetwork();
+                    nodeNetwork->Disconnect();
+                });
+
+                assert(walletNetwork.use_count() == 1);
+                walletNetwork.reset();
+
+                nodeNetworkSubscriber.reset();
+                assert(nodeNetwork.use_count() == 1);
+                nodeNetwork.reset();
+            }
+            catch (const runtime_error& ex)
+            {
+                LOG_ERROR() << ex.what();
+                FailedToStartWallet();
+            }
+            catch (...) {
+                LOG_UNHANDLED_EXCEPTION();
+            }
+        });
     }
 
     IWalletModelAsync::Ptr WalletClient::getAsync()
