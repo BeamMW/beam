@@ -16,7 +16,7 @@
 
 #include <QObject>
 
-#include "ui/model/settings.h"
+#include "model/settings.h"
 
 class NotificationsSettings : public QObject
 {

@@ -21,7 +21,7 @@
 #include "model/settings.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/client.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/settings.h"
-#include "ui/viewmodel/notifications/notifications_settings.h"
+#include "viewmodel/notifications/notifications_settings.h"
 
 class SwapCoinClientModel;
 
