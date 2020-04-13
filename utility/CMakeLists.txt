@@ -51,7 +51,6 @@ if (MSVC)
 endif()
 
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
-target_include_directories(utility PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_compile_features(utility PUBLIC cxx_std_17)
 

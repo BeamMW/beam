@@ -13,7 +13,7 @@
 // limitations under the License.
 #include "assets_utils.h"
 #include "wallet/core/common.h"
-#include "logger.h"
+#include "utility/logger.h"
 #include <regex>
 #include <set>
 

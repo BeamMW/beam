@@ -16,7 +16,7 @@
 
 #include <QObject>
 
-#include "ui/model/app_model.h"
+#include "model/app_model.h"
 
 /**
  *  Used to show user notification popup when a new wallet application was released.

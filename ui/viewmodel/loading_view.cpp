@@ -16,7 +16,7 @@
 
 #include <cmath>
 #include "model/app_model.h"
-#include "ui/viewmodel/ui_helpers.h"
+#include "viewmodel/ui_helpers.h"
 
 #include <qdebug.h>
 

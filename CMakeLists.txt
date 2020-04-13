@@ -53,7 +53,7 @@ find_package(Git)
 if(Git_FOUND)
     execute_process(
         COMMAND ${GIT_EXECUTABLE} status
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ERROR_VARIABLE RESULT_STRING
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -63,13 +63,13 @@ if(Git_FOUND)
     if(${LENGTH_RESULT_STRING} EQUAL 0)
         execute_process(
             COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             OUTPUT_VARIABLE GIT_COMMIT_HASH
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
         execute_process(
             COMMAND ${GIT_EXECUTABLE} rev-list HEAD --count
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             OUTPUT_VARIABLE VERSION_REVISION
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
@@ -80,7 +80,7 @@ if(Git_FOUND)
         if(NOT DEFINED BRANCH_NAME)
             execute_process(
                 COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
-                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 OUTPUT_VARIABLE BRANCH_NAME
                 OUTPUT_STRIP_TRAILING_WHITESPACE
             )
@@ -95,7 +95,18 @@ message("BRANCH_NAME: ${BRANCH_NAME}")
 
 project(beam VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_REVISION})
 
+set(BEAM_VERSION ${PROJECT_VERSION} PARENT_SCOPE)
+
 message("BEAM_VERSION: ${PROJECT_VERSION}")
+
+# imported target to setup dependency of beam
+add_library(beam INTERFACE IMPORTED GLOBAL)
+target_include_directories(beam INTERFACE 
+        ${PROJECT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/3rdparty)
+
+target_compile_features(beam INTERFACE cxx_std_17)
+
 
 file(WRITE ${PROJECT_SOURCE_DIR}/beam_version.gen "${PROJECT_VERSION}")
 
@@ -336,11 +347,15 @@ elseif(ANDROID)
 else()
 
     if(LINUX)
+        target_compile_definitions(beam INTERFACE
+            -DBOOST_NO_CXX11_SCOPED_ENUMS
+            -DBOOST_NO_AUTO_PTR)
         add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
         add_definitions(-DBOOST_NO_AUTO_PTR)
     endif()
 
     if (WIN32)
+        target_compile_definitions(beam INTERFACE -DNOMINMAX)
         add_definitions(-DNOMINMAX)
     endif()
 
@@ -350,6 +365,7 @@ else()
         set(Boost_USE_STATIC_RUNTIME ON)
     else()
         if (WIN32)
+            target_compile_definitions(beam INTERFACE -DBOOST_ALL_DYN_LINK )
             add_definitions( -DBOOST_ALL_DYN_LINK )
         endif()
     endif()
