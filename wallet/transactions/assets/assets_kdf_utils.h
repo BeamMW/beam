@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-#include "block_crypt.h"
+#include "core/block_crypt.h"
 #include "wallet/core/wallet_db.h"
 
 namespace beam::wallet
