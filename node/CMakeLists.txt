@@ -21,6 +21,7 @@ target_link_libraries(node
     PRIVATE
         sqlite
 )
-
-add_subdirectory(unittests)
+if(BEAM_TESTS_ENABLED)
+    add_subdirectory(unittests)
+endif()
 add_subdirectory(laser_beam_demo)

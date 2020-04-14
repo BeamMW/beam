@@ -41,5 +41,7 @@ if (NOT ANDROID AND NOT IOS)
     #find_package(Boost 1.67 REQUIRED COMPONENTS program_options)
     target_link_libraries(miner_client external_pow Boost::program_options)
 
-    add_subdirectory(unittests)
+    if(BEAM_TESTS_ENABLED)
+        add_subdirectory(unittests)
+    endif()
 endif()
