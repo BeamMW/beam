@@ -45,7 +45,8 @@
     each(spentHeight,    spentHeight,   INTEGER, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
     each(spentTxId,      spentTxId,     BLOB, obj) sep \
-    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
+    each(sessionId,      sessionId,     INTEGER NOT NULL, obj) sep \
+    each(isUnlinked,     isUnlinked,    BOOLEAN DEFAULT false, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
@@ -1104,6 +1105,13 @@ namespace beam::wallet
             }
         }
 
+        void AddIsUnlinkedColumn(sqlite3* db)
+        {
+            const char* req = "ALTER TABLE " STORAGE_NAME " ADD isUnlinked BOOL DEFAULT false;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
         void CreateShieldedCoinsTable(sqlite3* db)
         {
             const char* req = "CREATE TABLE " SHIELDED_COINS_NAME " (" ENUM_SHIELDED_COIN_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
@@ -1648,6 +1656,7 @@ namespace beam::wallet
 
                 case DbVersion19:
                     CreateShieldedCoinsTable(walletDB->_db);
+                    AddIsUnlinkedColumn(walletDB->_db);
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 
