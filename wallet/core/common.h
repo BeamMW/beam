@@ -304,10 +304,10 @@ namespace beam::wallet
         OriginalToken = 121,
 
         // Lelantus
-        ShieldedOutputId = 120,
-        WindowBegin = 121,
-        ShieldedInputCfg = 122,
-        ShieldedInputMinCfg = 123,
+        ShieldedOutputId = 122,
+        WindowBegin = 123,
+        ShieldedInputCfg = 124,
+        ShieldedInputMinCfg = 125,
 
         // private parameters
         PrivateFirstParam = 128,
