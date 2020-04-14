@@ -139,7 +139,7 @@ endif()
 
 option(BEAM_QT_UI_WALLET "Build wallet UI" TRUE)
 if (BEAM_NO_QT_UI_WALLET)
-    set(BEAM_QT_UI_WALLET FALSE)    
+    set(BEAM_QT_UI_WALLET FALSE)
 endif()
 
 option(BEAM_USE_STATIC "Build with staticaly linked libraries " FALSE)
@@ -148,6 +148,7 @@ if(BEAM_LINK_TYPE MATCHES "Static")
 endif()
 
 if(BEAM_USE_STATIC)
+    target_compile_definitions(beam INTERFACE -DBEAM_USE_STATIC)
     add_definitions(-DBEAM_USE_STATIC)
 endif()
 
@@ -159,8 +160,13 @@ endif()
 #add_definitions(-DLOG_VERBOSE_ENABLED=1)
 
 if(SHOW_CODE_LOCATION)
+    target_compile_definitions(beam INTERFACE -DSHOW_CODE_LOCATION=1)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
+
+option(BEAM_TESTNET "Build Testnet version" FALSE)
+option(BEAM_MAINNET "Build Mainnet version" FALSE)
+option(SWAP_MAINNET "Use mainnet blockchain when perform atomic swaps" FALSE)
 
 # uncomment next line for testnet
 #set(BEAM_TESTNET TRUE)
@@ -172,16 +178,16 @@ endif()
 
 if(BEAM_TESTNET)
     add_definitions(-DBEAM_TESTNET)
-    set(BEAM_SUFFIX_LOWER_CASE "testnet")
-    set(BEAM_SUFFIX_UPPER_CASE "Testnet")
-    set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}")
-    set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}")
+    set(BEAM_SUFFIX_LOWER_CASE "testnet" CACHE INTERNAL "")
+    set(BEAM_SUFFIX_UPPER_CASE "Testnet" CACHE INTERNAL "")
+    set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}" CACHE INTERNAL "")
+    set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
 elseif(BEAM_MAINNET)
     add_definitions(-DBEAM_MAINNET)
-    set(BEAM_SUFFIX_LOWER_CASE "")
-    set(BEAM_SUFFIX_UPPER_CASE "")
-    set(BEAM_TARGET_SUFFIX "")
-    set(BEAM_DISPLAY_SUFFIX "")
+    set(BEAM_SUFFIX_LOWER_CASE "" CACHE INTERNAL "")
+    set(BEAM_SUFFIX_UPPER_CASE "" CACHE INTERNAL "")
+    set(BEAM_TARGET_SUFFIX "" CACHE INTERNAL "")
+    set(BEAM_DISPLAY_SUFFIX "" CACHE INTERNAL "")
 endif()
 
 if(SWAP_MAINNET)
@@ -214,7 +220,6 @@ if(BEAM_HW_WALLET)
     set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE BOOL "")
 
     add_subdirectory(3rdparty/protobuf/cmake)
-
 endif()
 
 if(MSVC)
@@ -249,7 +254,6 @@ if(MSVC)
             endif(${flag_var} MATCHES "/MD")
         endforeach(flag_var)
     endif()
-
 else()
     if(NOT ANDROID AND NOT IOS)
         if(ARCH_NATIVE)
@@ -268,8 +272,6 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-const-variable") # so what?
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function") # mostly in 3rd-party libs
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value") # proto.h
-
-
 endif()
 
 if(BEAM_HW_WALLET)
@@ -338,7 +340,6 @@ elseif(ANDROID)
     endif()
 
     CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")   
-    
 else()
 
     if(LINUX)
