@@ -423,6 +423,7 @@ endif()
 
 #OpenSSL end
 
+target_compile_definitions(beam INTERFACE -DBC_STATIC)
 add_definitions(-DBC_STATIC)
 
 add_subdirectory(3rdparty)
