@@ -536,8 +536,8 @@ namespace beam::wallet
         switch (m_status)
         {
             case TxStatus::Pending: return "pending";
-            case TxStatus::InProgress: m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
-            case TxStatus::Registering: m_selfTx ? "self sending" : (m_sender == false ? "receiving" : "sending");
+            case TxStatus::InProgress: return m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
+            case TxStatus::Registering: return m_selfTx ? "self sending" : (m_sender == false ? "receiving" : "sending");
             case TxStatus::Failed: return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
             case TxStatus::Canceled: return "cancelled";
             case TxStatus::Completed:
