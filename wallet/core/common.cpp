@@ -491,11 +491,7 @@ namespace beam::wallet
         }
         else
         {
-            if (statusStr == "receiving" || statusStr == "sending")
-            {
-                return "in progress";
-            }
-            else if (statusStr == "completed")
+            if (statusStr == "completed")
             {
                 return "sent to own address";
             }
@@ -537,7 +533,7 @@ namespace beam::wallet
         {
             case TxStatus::Pending: return "pending";
             case TxStatus::InProgress: return m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
-            case TxStatus::Registering: return m_selfTx ? "self sending" : (m_sender == false ? "receiving" : "sending");
+            case TxStatus::Registering: return m_selfTx ? "self sending" : "in progress";
             case TxStatus::Failed: return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
             case TxStatus::Canceled: return "cancelled";
             case TxStatus::Completed:
