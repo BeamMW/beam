@@ -511,8 +511,13 @@ namespace beam::wallet
         switch (m_status)
         {
         case TxStatus::Pending: return "pending";
-        case TxStatus::InProgress: m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
-        case TxStatus::Registering: m_selfTx ? "self sending" : (m_sender == false ? "receiving" : "sending");
+        case TxStatus::InProgress:
+            switch (m_txType)
+            {
+                case TxType::AssetInfo: return "getting info";
+                default: m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
+            }
+        case TxStatus::Registering: return m_selfTx ? "self sending" : (m_sender == false ? "receiving" : "sending");
         case TxStatus::Failed: return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
         case TxStatus::Canceled: return "cancelled";
         case TxStatus::Completed:
@@ -523,7 +528,7 @@ namespace beam::wallet
                 case TxType::AssetConsume: return "asset consumed";
                 case TxType::AssetReg: return "asset registered";
                 case TxType::AssetUnreg: return "asset unregistered";
-                case TxType::AssetInfo: return  "asset info confirmed";
+                case TxType::AssetInfo: return  "asset confirmed";
                 default: return m_selfTx ? "completed" : (m_sender == false ? "received" : "sent");
             }
         }

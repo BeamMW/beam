@@ -53,10 +53,7 @@ namespace
 
         if (tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume || tx.m_txType == TxType::AssetInfo)
         {
-            if (!tx.m_assetMeta.empty())
-            {
-                msg["asset_meta"] = tx.m_assetMeta;
-            }
+            msg["asset_meta"] = tx.m_assetMeta;
         }
 
         if (txHeight > 0)
@@ -192,6 +189,35 @@ boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const json& params)
     }
 
     return txId;
+}
+
+boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json& params)
+{
+    if(Api::existsJsonParam(params, "asset_id"))
+    {
+        if (!params["asset_id"].is_number_unsigned() || params["asset_id"].get<uint32_t>() == 0)
+        {
+            throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "asset_id must be non zero 64bit unsigned integer",id};
+        }
+        return params["asset_id"].get<uint32_t>();
+    }
+    return boost::optional<Asset::ID>();
+}
+
+bool readAssetsParameter(const JsonRpcId& id, const json& params)
+{
+    if (Api::existsJsonParam(params, "assets"))
+    {
+        if (params["assets"].is_boolean())
+        {
+            return params["assets"].get<bool>();
+        }
+        else
+        {
+            throw Api::jsonrpc_exception{ ApiError::InvalidJsonRpc, "assets parameter must be boolean", id };
+        }
+    }
+    return false;
 }
 
 // return 0 if parameter not found
@@ -837,16 +863,9 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             send.comment = params["comment"].get<std::string>();
         }
 
-        if(existsJsonParam(params, "asset_id"))
-        {
-            if (!params["asset_id"].is_number_unsigned() || params["asset_id"].get<uint32_t>() == 0)
-            {
-                throw jsonrpc_exception{ApiError::InvalidJsonRpc, "asset_id must be non zero 64bit unsigned integer", id};
-            }
-            send.assetId = params["asset_id"].get<uint32_t>();
-        }
-
+        send.assetId = readAssetIdParameter(id, params);
         send.txId = readTxIdParameter(id, params);
+
         getHandler().onMessage(id, send);
     }
 
@@ -870,7 +889,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         checkJsonParam(params, "coins", id);
 
         if (!params["coins"].is_array() || params["coins"].size() <= 0)
-            throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coins parameter must be a nonempty array.", id };
+            throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coins parameter must be a non-empty array.", id };
 
         Split split;
 
@@ -892,6 +911,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             split.fee = minimumFee;
         }
 
+        split.assetId = readAssetIdParameter(id, params);
         split.txId = readTxIdParameter(id, params);
 
         getHandler().onMessage(id, split);
@@ -938,11 +958,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         }
         else if(Api::existsJsonParam(params, "asset_id"))
         {
-            if (!params["asset_id"].is_number_unsigned() || params["asset_id"].get<uint32_t>() == 0)
-            {
-                throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "asset_id must be non zero 64bit unsigned integer", id};
-            }
-            data.assetId = params["asset_id"].get<uint32_t>();
+            data.assetId = readAssetIdParameter(id, params);
         }
         else
         {
@@ -1021,6 +1037,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     void WalletApi::onGetUtxoMessage(const JsonRpcId& id, const json& params)
     {
         GetUtxo getUtxo;
+        getUtxo.withAssets = readAssetsParameter(id, params);
 
         if (existsJsonParam(params, "count"))
         {
@@ -1028,7 +1045,15 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {
                 getUtxo.count = params["count"];
             }
-            else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'count' parameter.", id };
+            else
+            {
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'count' parameter.", id};
+            }
+        }
+
+        if (existsJsonParam(params, "filter"))
+        {
+            getUtxo.filter.assetId = readAssetIdParameter(id, params["filter"]);
         }
 
         if (existsJsonParam(params, "skip"))
@@ -1037,7 +1062,10 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {
                 getUtxo.skip = params["skip"];
             }
-            else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.", id };
+            else
+            {
+                throw jsonrpc_exception{ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.", id};
+            }
         }
 
         getHandler().onMessage(id, getUtxo);
@@ -1070,6 +1098,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     void WalletApi::onTxListMessage(const JsonRpcId& id, const json& params)
     {
         TxList txList;
+        txList.withAssets = readAssetsParameter(id, params);
 
         if (existsJsonParam(params, "filter"))
         {
@@ -1084,6 +1113,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {
                 txList.filter.height = (Height)params["filter"]["height"];
             }
+
+            txList.filter.assetId = readAssetIdParameter(id, params["filter"]);
         }
 
         if (existsJsonParam(params, "count"))
@@ -1110,6 +1141,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     void WalletApi::onWalletStatusMessage(const JsonRpcId& id, const json& params)
     {
         WalletStatus walletStatus;
+        walletStatus.withAssets = readAssetsParameter(id, params);
         getHandler().onMessage(id, walletStatus);
     }
 
@@ -1392,6 +1424,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             msg["result"].push_back(
             { 
                 {"id", utxo.toStringID()},
+                {"asset_id", utxo.m_ID.m_AssetID},
                 {"amount", utxo.m_ID.m_Value},
                 {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
                 {"maturity", utxo.get_Maturity()},
@@ -1551,23 +1584,55 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::getResponse(const JsonRpcId& id, const WalletStatus::Response& res, json& msg)
     {
-        msg = json
+        if (res.totals)
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result",
-                {
-                    {"current_height", res.currentHeight},
-                    {"current_state_hash", to_hex(res.currentStateHash.m_pData, res.currentStateHash.nBytes)},
-                    {"prev_state_hash", to_hex(res.prevStateHash.m_pData, res.prevStateHash.nBytes)},
-                    {"available", res.available},
-                    {"receiving", res.receiving},
-                    {"sending", res.sending},
-                    {"maturing", res.maturing},
-                    {"difficulty", res.difficulty},
+            msg = json
+            {
+                {JsonRpcHrd, JsonRpcVerHrd},
+                {"id", id},
+                {"result",
+                    {
+                        {"current_height", res.currentHeight},
+                        {"current_state_hash", to_hex(res.currentStateHash.m_pData, res.currentStateHash.nBytes)},
+                        {"prev_state_hash", to_hex(res.prevStateHash.m_pData, res.prevStateHash.nBytes)},
+                        {"difficulty", res.difficulty},
+                        {"totals", json::array()}
+                    }
                 }
+            };
+
+            for(const auto& it: res.totals->allTotals)
+            {
+                const auto& totals = it.second;
+                msg["result"]["totals"].push_back({
+                    {"asset_id",   totals.AssetId},
+                    {"available",  totals.Avail},
+                    {"receiving",  totals.Incoming},
+                    {"sending",    totals.Outgoing},
+                    {"maturing",   totals.Maturing}
+                });
             }
-        };
+        }
+        else
+        {
+            msg = json
+            {
+                {JsonRpcHrd, JsonRpcVerHrd},
+                {"id", id},
+                {"result",
+                    {
+                        {"current_height", res.currentHeight},
+                        {"current_state_hash", to_hex(res.currentStateHash.m_pData, res.currentStateHash.nBytes)},
+                        {"prev_state_hash", to_hex(res.prevStateHash.m_pData, res.prevStateHash.nBytes)},
+                        {"available",  res.available},
+                        {"receiving",  res.receiving},
+                        {"sending",    res.sending},
+                        {"maturing",   res.maturing},
+                        {"difficulty", res.difficulty}
+                    }
+                }
+            };
+        }
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const GenerateTxId::Response& res, json& msg)

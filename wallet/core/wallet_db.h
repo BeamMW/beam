@@ -769,7 +769,7 @@ namespace beam::wallet
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
 
-        Height DeduceTxHeight(const IWalletDB& walletDB, const TxDescription &tx);
+        Height DeduceTxProofHeight(const IWalletDB& walletDB, const TxDescription &tx);
 
         bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, WalletAddress::ExpirationStatus status);
 
@@ -801,8 +801,6 @@ namespace beam::wallet
             AssetTotals GetTotals(Asset::ID) const;
             bool HasTotals(Asset::ID) const;
             mutable std::map<Asset::ID, AssetTotals> allTotals;
-
-        private:
             void Init(IWalletDB&);
         };
 

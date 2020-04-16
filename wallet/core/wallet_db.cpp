@@ -4313,9 +4313,9 @@ namespace beam::wallet
             return Coin::Status::Unavailable;
         }
 
-        Height DeduceTxHeight(const IWalletDB& walletDB, const TxDescription &tx)
+        Height DeduceTxProofHeight(const IWalletDB& walletDB, const TxDescription &tx)
         {
-            Height height = tx.m_minHeight;
+            Height height = 0;
             if(!storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::KernelProofHeight, height))
             {
                 if(!storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::KernelUnconfirmedHeight, height))

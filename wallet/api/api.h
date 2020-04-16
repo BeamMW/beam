@@ -368,6 +368,7 @@ namespace beam::wallet
         Amount fee = kMinFeeInGroth;
         AmountList coins;
         boost::optional<TxID> txId;
+        boost::optional<Asset::ID> assetId;
 
         struct Response
         {
@@ -400,6 +401,12 @@ namespace beam::wallet
     {
         int count = 0;
         int skip = 0;
+        bool withAssets = false;
+
+        struct
+        {
+            boost::optional<Asset::ID> assetId;
+        } filter;
 
         struct Response
         {
@@ -430,10 +437,13 @@ namespace beam::wallet
 
     struct TxList
     {
+        bool withAssets = false;
+
         struct
         {
-            boost::optional<TxStatus> status;
-            boost::optional<Height> height;
+            boost::optional<TxStatus>  status;
+            boost::optional<Height>    height;
+            boost::optional<Asset::ID> assetId;
         } filter;
 
         int count = 0;
@@ -447,16 +457,18 @@ namespace beam::wallet
 
     struct WalletStatus
     {
+        bool withAssets = false;
         struct Response
         {
             beam::Height currentHeight = 0;
             Merkle::Hash currentStateHash;
             Merkle::Hash prevStateHash;
+            double difficulty = 0;
             Amount available = 0;
             Amount receiving = 0;
             Amount sending = 0;
             Amount maturing = 0;
-            double difficulty = 0;
+            boost::optional<storage::Totals> totals;
         };
     };
 

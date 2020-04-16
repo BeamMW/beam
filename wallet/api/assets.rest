@@ -72,7 +72,9 @@ content-type: application/json-rpc
     "jsonrpc": "2.0",
     "id": 1236,
     "method": "tx_list",
-    "params": {}
+    "params": {
+       "assets": true
+    }
 }
 
 ###
@@ -85,8 +87,61 @@ content-type: application/json-rpc
 	"method":"tx_status",
 	"params":
 	{
-		"txId" : "0d25a91a614d4d9ca360a4208b272899"
+		"txId" : "837a68432ed34dbe98f758614188a7db"
 	}
+}
+
+###
+POST http://127.0.0.1:15000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "get_utxo"
+}
+
+###
+POST http://127.0.0.1:15000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "get_utxo",
+    "params": {
+         "assets": true,
+         "filter" : {
+             "asset_id": 1
+         }
+    }
+}
+
+###
+POST http://127.0.0.1:15000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "tx_split",
+    "params": {
+         "coins" : [2, 2],
+         "asset_id": 1
+    }
+}
+
+###
+POST http://127.0.0.1:15000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "wallet_status",
+    "params": {
+         "assets" : true
+    }
 }
 
 ###

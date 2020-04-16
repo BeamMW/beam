@@ -13,14 +13,12 @@
 // limitations under the License.
 
 #include "api_handler.h"
-
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/strings_resources.h"
 #include "wallet/transactions/assets/assets_kdf_utils.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/utils.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
 
 using namespace beam;
 
@@ -619,10 +617,10 @@ namespace beam::wallet
             walletDB->getSystemStateID(stateID);
 
             Status::Response result;
-            result.tx = *tx;
-            result.systemHeight = stateID.m_Height;
+            result.tx            = *tx;
+            result.systemHeight  = stateID.m_Height;
             result.confirmations = 0;
-            result.txHeight = storage::DeduceTxHeight(*walletDB, *tx);
+            result.txHeight      = storage::DeduceTxProofHeight(*walletDB, *tx);
 
             doResponse(id, result);
         }
@@ -634,7 +632,9 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const Split& data)
     {
-        LOG_DEBUG() << "Split(id = " << id << " coins = [";
+        LOG_DEBUG() << "Split(id = " << id
+                    << " asset_id " << (data.assetId ? *data.assetId : 0)
+                    << " coins = [";
         for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
         LOG_DEBUG() << "], fee = " << data.fee;
         try
@@ -650,9 +650,15 @@ namespace beam::wallet
                 return;
             }
 
-            auto txId = _walletData.getWallet().StartTransaction(CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
-                .SetParameter(TxParameterID::Fee, data.fee));
+            auto params = CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
+                    .SetParameter(TxParameterID::Fee, data.fee);
 
+            if (data.assetId)
+            {
+                params.SetParameter(TxParameterID::AssetID, *data.assetId);
+            }
+
+            auto txId = _walletData.getWallet().StartTransaction(params);
             doResponse(id, Send::Response{ txId });
         }
         catch (...)
@@ -722,17 +728,25 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const GetUtxo& data)
     {
-        LOG_DEBUG() << "GetUtxo(id = " << id << ")";
+        LOG_DEBUG() << "GetUtxo(id = " << id << " assets = " << data.withAssets
+                    << " asset_id = " << (data.filter.assetId ? *data.filter.assetId : 0)
+                    << ")";
 
         GetUtxo::Response response;
-        _walletData.getWalletDB()->visitCoins([&response](const Coin& c)->bool
+        _walletData.getWalletDB()->visitCoins([&response, &data](const Coin& c)->bool {
+            if(!data.withAssets && c.isAsset())
             {
-                response.utxos.push_back(c);
                 return true;
-            });
+            }
+            if (data.filter.assetId && !c.isAsset(*data.filter.assetId))
+            {
+                return true;
+            }
+            response.utxos.push_back(c);
+            return true;
+        });
 
         doPagination(data.skip, data.count, response.utxos);
-
         doResponse(id, response);
     }
 
@@ -763,8 +777,13 @@ namespace beam::wallet
 
         response.available = totals.Avail;
         response.receiving = totals.Incoming;
-        response.sending = totals.Outgoing;
-        response.maturing = totals.Maturing;
+        response.sending   = totals.Outgoing;
+        response.maturing  = totals.Maturing;
+
+        if (data.withAssets)
+        {
+            response.totals = allTotals;
+        }
 
         doResponse(id, response);
     }
@@ -805,15 +824,19 @@ namespace beam::wallet
         TxList::Response res;
 
         {
-            auto walletDB  = _walletData.getWalletDB();
-            auto txList    = walletDB->getTxHistory(TxType::Simple);
-            auto txIssue   = walletDB->getTxHistory(TxType::AssetIssue);
-            auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
-            auto txInfo    = walletDB->getTxHistory(TxType::AssetInfo);
+            auto walletDB = _walletData.getWalletDB();
+            auto txList = walletDB->getTxHistory(TxType::Simple);
 
-            txList.insert(txList.end(), txIssue.begin(), txIssue.end());
-            txList.insert(txList.end(), txConsume.begin(), txConsume.end());
-            txList.insert(txList.end(), txInfo.begin(), txInfo.end());
+            if (data.withAssets)
+            {
+                auto txIssue = walletDB->getTxHistory(TxType::AssetIssue);
+                auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
+                auto txInfo = walletDB->getTxHistory(TxType::AssetInfo);
+
+                txList.insert(txList.end(), txIssue.begin(), txIssue.end());
+                txList.insert(txList.end(), txConsume.begin(), txConsume.end());
+                txList.insert(txList.end(), txInfo.begin(), txInfo.end());
+            }
 
             std::sort(txList.begin(), txList.end(), [](const TxDescription& a, const TxDescription& b) -> bool {
                 return a.m_minHeight > b.m_minHeight;
@@ -824,43 +847,34 @@ namespace beam::wallet
 
             for (const auto& tx : txList)
             {
+                if (!data.withAssets && tx.m_assetId != Asset::s_InvalidID)
+                {
+                    continue;
+                }
+
+                if (data.filter.assetId && tx.m_assetId != *data.filter.assetId)
+                {
+                    continue;
+                }
+
+                if (data.filter.status && tx.m_status != *data.filter.status)
+                {
+                    continue;
+                }
+
+                const auto height = storage::DeduceTxProofHeight(*walletDB, tx);
+                if (data.filter.height && height != *data.filter.height)
+                {
+                    continue;
+                }
+
                 Status::Response item;
                 item.tx = tx;
-                item.txHeight = storage::DeduceTxHeight(*walletDB, tx);
+                item.txHeight = height;
                 item.systemHeight = stateID.m_Height;
                 item.confirmations = 0;
                 res.resultList.push_back(item);
             }
-        }
-
-        using Result = decltype(res.resultList);
-
-        // filter transactions by status if provided
-        if (data.filter.status)
-        {
-            Result filteredList;
-
-            for (const auto& it : res.resultList)
-                if (it.tx.m_status == *data.filter.status)
-                    filteredList.push_back(it);
-
-            res.resultList = std::move(filteredList);
-        }
-
-        // filter transactions by height if provided
-        if (data.filter.height)
-        {
-            Result filteredList;
-
-            for (const auto& it : res.resultList)
-            {
-                if (it.txHeight == *data.filter.height)
-                {
-                    filteredList.push_back(it);
-                }
-            }
-
-            res.resultList = std::move(filteredList);
         }
 
         doPagination(data.skip, data.count, res.resultList);

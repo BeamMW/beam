@@ -832,12 +832,12 @@ namespace
 
             for (auto& tx : txHistory) {
                 std::string direction = tx.m_sender ? kTxDirectionOut : kTxDirectionIn;
-                if (tx.m_txType == TxType::AssetInfo)
+                if (tx.m_txType == TxType::AssetInfo || tx.m_txType == TxType::AssetReg || tx.m_txType == TxType::AssetUnreg ||
+                    tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume)
                 {
                     direction = tx.getTxTypeString();
                 }
-                else if(tx.m_selfTx || tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume ||
-                        tx.m_txType == TxType::AssetReg || tx.m_txType == TxType::AssetUnreg)
+                else if(tx.m_selfTx)
                 {
                     direction = kTxDirectionSelf;
                 }
@@ -862,7 +862,7 @@ namespace
                     kernelId = kNA;
                 }
 
-                Height height = storage::DeduceTxHeight(*walletDB, tx);
+                Height height = storage::DeduceTxProofHeight(*walletDB, tx);
                 cout << boost::format(kTxHistoryTableFormat)
                         % boost::io::group(left,  setw(columnWidths[0]),  format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
                         % boost::io::group(left,  setw(columnWidths[1]),  static_cast<int64_t>(height))
