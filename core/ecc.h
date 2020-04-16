@@ -111,6 +111,7 @@ namespace ECC
 
 		int cmp(const Scalar& x) const { return m_Value.cmp(x.m_Value); }
 		COMPARISON_VIA_CMP
+		std::string str() const;
 	};
 
 	std::ostream& operator << (std::ostream&, const Scalar&);

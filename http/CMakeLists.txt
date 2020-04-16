@@ -8,11 +8,8 @@ set(HTTP_SRC
     ${PROJECT_SOURCE_DIR}/3rdparty/picohttpparser/picohttpparser.c)
 
 add_library(http STATIC ${HTTP_SRC})
-target_link_libraries(http utility)
+target_link_libraries(http PUBLIC utility)
 
-target_include_directories(http
-    INTERFACE 
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/>
-)
-
-add_subdirectory(unittests)
+if(BEAM_TESTS_ENABLED)
+    add_subdirectory(unittests)
+endif()

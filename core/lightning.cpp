@@ -200,7 +200,7 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 			uint32_t iClose = 0;
 			dataIn.Get(iClose, Codes::CloseGraceful);
 
-			if (!!iClose && h + kMaxBlackoutTime <= get_Tip())
+			if (h + kMaxBlackoutTime <= get_Tip())
 				return;
 
 			if (!TransferInternal(val, 1, h, !!iClose))
@@ -217,7 +217,7 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 			if (!dataIn.Get(h, Codes::H0))
 				return;
 
-			if (!!iClose && h + kMaxBlackoutTime <= get_Tip())
+			if (h + kMaxBlackoutTime <= get_Tip())
 				return;
 
 			if (m_pNegCtx && m_pNegCtx->m_eType == NegotiationCtx::Close)

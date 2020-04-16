@@ -20,7 +20,7 @@ using namespace beam;
 using namespace beam::wallet;
 using namespace beamui;
 
-PaymentInfoItem::PaymentInfoItem(QObject* parent /*= nullptr*/)
+PaymentInfoItem::PaymentInfoItem(QObject* parent /* = nullptr */)
         : QObject(parent)
 {
 }

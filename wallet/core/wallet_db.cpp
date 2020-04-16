@@ -1105,6 +1105,24 @@ namespace beam::wallet
             }
         }
 
+        void AddIsUnlinkedColumn(const WalletDB* walletDB, sqlite3* db)
+        {
+            const char* req_storage_is_unlinked_exist =
+                "SELECT COUNT(*) AS CNTREC FROM pragma_table_info('" STORAGE_NAME "') WHERE name='isUnlinked';";
+            int storage_is_unlinked_exist = 0;
+            for (sqlite::Statement stm(walletDB, req_storage_is_unlinked_exist); stm.step();)
+            {
+                stm.get(0, storage_is_unlinked_exist);
+            }
+
+            if (!storage_is_unlinked_exist)
+            {
+                const char* req = "ALTER TABLE " STORAGE_NAME " ADD COLUMN IF EXISTS isUnlinked BOOL DEFAULT false;";
+                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
+        }
+
         void CreateShieldedCoinsTable(sqlite3* db)
         {
             const char* req = "CREATE TABLE " SHIELDED_COINS_NAME " (" ENUM_SHIELDED_COIN_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
@@ -1648,7 +1666,9 @@ namespace beam::wallet
                     // no break
 
                 case DbVersion19:
+                    LOG_INFO() << "Converting DB from format 19...";
                     CreateShieldedCoinsTable(walletDB->_db);
+                    AddIsUnlinkedColumn(walletDB.get(), walletDB->_db);
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 

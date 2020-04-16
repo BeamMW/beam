@@ -51,7 +51,7 @@ add_definitions(-DQUAZIP_STATIC)
 
 target_include_directories(${TARGET_NAME} PRIVATE ${Qt5Core_INCLUDE_DIRS})
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_PREFIX_PATH}/include/QtZlib)
-target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/quazip)
+target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/3rdparty/quazip)
 
 if(MSVC)
     target_compile_options(${TARGET_NAME} PRIVATE "/wd4456")

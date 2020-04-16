@@ -17,4 +17,6 @@ target_link_libraries(${TARGET_NAME}
         pbkdf
 )
 
-add_subdirectory(unittests)
+if(BEAM_TESTS_ENABLED)
+    add_subdirectory(unittests)
+endif()

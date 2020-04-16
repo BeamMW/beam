@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <boost/filesystem.hpp>
-#include "logger.h"
+#include "utility/logger.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/common.h"
 #include "wallet/core/wallet_network.h"

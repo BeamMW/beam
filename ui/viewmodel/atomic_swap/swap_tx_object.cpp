@@ -145,39 +145,6 @@ auto SwapTxObject::isBeamSideSwap() const -> bool
     else return false;
 }
 
-QString SwapTxObject::getStatus() const
-{
-    switch (m_tx.m_status)
-    {
-    case wallet::TxStatus::Pending:
-        return "pending";
-
-    case wallet::TxStatus::Registering:
-    case wallet::TxStatus::InProgress:
-        return "in progress";
-
-    case wallet::TxStatus::Completed:
-        return "completed";
-
-    case wallet::TxStatus::Canceled:
-        return "canceled";
-
-    case wallet::TxStatus::Failed:
-        {
-            auto failureReason = m_tx.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
-            if (failureReason && *failureReason == TxFailureReason::TransactionExpired)
-            {
-                return "expired";
-            }
-            return "failed";
-        }
-
-    default:
-        assert(false && "Unknown TX status!");
-        return "unknown";
-    }
-}
-
 bool SwapTxObject::isExpired() const
 {
     auto failureReason = m_tx.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);

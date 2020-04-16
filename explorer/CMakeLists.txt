@@ -19,7 +19,9 @@ add_executable(${TARGET_NAME} explorer_node.cpp)
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(${TARGET_NAME} explorer Boost::boost cli)
 
-add_subdirectory(unittest)
+if(BEAM_TESTS_ENABLED)
+    add_subdirectory(unittest)
+endif()
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(

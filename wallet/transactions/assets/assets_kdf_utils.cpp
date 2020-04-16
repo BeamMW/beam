@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "assets_kdf_utils.h"
-#include "proto.h"
+#include "core/proto.h"
 
 namespace beam::wallet
 {

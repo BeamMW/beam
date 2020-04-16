@@ -27,7 +27,7 @@ namespace beam::wallet
         AssetRegisterTxBuilder(BaseTransaction& tx, SubTxID subTxID);
 
         bool GetInitialTxParams();
-        virtual Transaction::Ptr CreateTransaction();
+        Transaction::Ptr CreateTransaction();
 
         //
         // Coins, amounts & fees

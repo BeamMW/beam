@@ -20,7 +20,7 @@
 #include <QFileDialog>
 #include <QtQuick>
 
-#include "ui/model/app_model.h"
+#include "model/app_model.h"
 
 #include "wallet/transactions/swaps/bridges/bitcoin/settings.h"
 #include "wallet/core/default_peers.h"

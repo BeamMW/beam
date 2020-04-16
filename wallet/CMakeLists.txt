@@ -21,17 +21,19 @@ if (NOT ANDROID AND NOT IOS)
     if(BEAM_LASER_SUPPORT)
         add_subdirectory(laser)
     endif()
+    if(NOT BEAM_WALLET_CLIENT_LIBRARY)
+        add_subdirectory(cli)
 
-    add_subdirectory(cli)
+        add_subdirectory(api)
 
-    add_subdirectory(api)
+        add_subdirectory(broadcaster)
 
-    add_subdirectory(broadcaster)
+        add_subdirectory(service)
 
-    add_subdirectory(unittests)
-
-    add_subdirectory(service)
-
+        if(BEAM_TESTS_ENABLED)
+            add_subdirectory(unittests)
+        endif()
+    endif()
 endif()
 
 

@@ -6,11 +6,11 @@ import Beam.Wallet 1.0
 Dialog {
 	id: control
 
-	property var settingsViewModel: {
-		function checkWalletPassword() {
+	property var settingsViewModel: function() {
+		var checkWalletPassword = function() {
 			console.log("settingsViewModel::checkWalletPassword undefined");
 		}
-		function changeWalletPassword() {
+		var changeWalletPassword = function() {
 			console.log("settingsViewModel::changeWalletPassword undefined");
 		}
 	}

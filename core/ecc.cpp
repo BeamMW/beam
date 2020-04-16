@@ -179,6 +179,11 @@ namespace ECC {
 		return *this;
 	}
 
+	std::string Scalar::str() const
+	{
+		return m_Value.str();
+	}
+
 	Scalar::Native::Native()
     {
         secp256k1_scalar_clear(this);

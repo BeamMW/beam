@@ -9,4 +9,6 @@ set(P2P_SRC
 add_library(p2p STATIC ${P2P_SRC})
 target_link_libraries(p2p PUBLIC utility)
 
-add_subdirectory(unittest)
+if(BEAM_TESTS_ENABLED)
+    add_subdirectory(unittest)
+endif()

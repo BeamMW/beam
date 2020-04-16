@@ -154,10 +154,13 @@ int main() {
         CHECK_TRUE(test_sslio(false, false, selfSignedCert));
 
 // should work with installed test beam CA
-        CHECK_TRUE(test_sslio(false, false, serverCert));
+        CHECK_TRUE(test_sslio(false, false, serverCert, selfSignedCert));
+        // client has certificate, so it is AUTHORIZED, but certificate verification should fail
+        CHECK_FALSE(test_sslio(true, false, serverCert, selfSignedCert));
         CHECK_TRUE(test_sslio(true, false, serverCert));
         CHECK_TRUE(test_sslio(false, true, serverCert));
         CHECK_FALSE(test_sslio(true, true, serverCert));
+        CHECK_FALSE(test_sslio(true, true, serverCert, selfSignedCert));
         CHECK_TRUE(test_sslio(true, true, serverCert, clientCert));
     } catch (const exception& e) {
         LOG_ERROR() << e.what();

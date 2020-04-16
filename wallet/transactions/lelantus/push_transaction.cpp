@@ -14,7 +14,7 @@
 
 #include "push_transaction.h"
 
-#include "proto.h"
+#include "core/proto.h"
 #include "core/shielded.h"
 
 #include "push_tx_builder.h"

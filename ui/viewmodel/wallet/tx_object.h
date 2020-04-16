@@ -44,7 +44,7 @@ public:
     QString getKernelID() const;
     QString getTransactionID() const ;
     bool hasPaymentProof() const;
-    virtual QString getStatus() const;
+    QString getStatus() const;
     virtual QString getFailureReason() const;
     virtual QString getStateDetails() const;
     QString getToken() const;

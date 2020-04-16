@@ -484,28 +484,49 @@ namespace beam::wallet
     std::string TxDescription::getStatusString() const
     {
         const auto& statusStr = getStatusStringApi();
-        if (statusStr == "receiving" || statusStr == "sending")
+
+        if (m_txType == TxType::AtomicSwap)
         {
-            return "in progress";
+            return statusStr;
         }
-        else if (statusStr == "completed")
+        else
         {
-            return "sent to own address";
+            if (statusStr == "completed")
+            {
+                return "sent to own address";
+            }
+            else if (statusStr == "self sending")
+            {
+                return "sending to own address";
+            }
+            return statusStr;
         }
-        else if (statusStr == "self sending")
-        {
-            return "sending to own address";
-        }
-        return statusStr;
     }
 
     std::string TxDescription::getStatusStringApi() const
     {
         if (m_txType == TxType::AtomicSwap)
         {
-            // TODO:SWAP
-            BOOST_ASSERT_MSG(false, "status for swap is not implemented");
-            return "unsupported";
+            switch (m_status)
+            {
+                case wallet::TxStatus::Pending:     return "pending";
+                case wallet::TxStatus::Registering:
+                case wallet::TxStatus::InProgress:  return "in progress";
+                case wallet::TxStatus::Completed:   return "completed";
+                case wallet::TxStatus::Canceled:    return "canceled";
+                case wallet::TxStatus::Failed:
+                {
+                    auto failureReason = GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+                    if (failureReason && *failureReason == TxFailureReason::TransactionExpired)
+                    {
+                        return "expired";
+                    }
+                    return "failed";
+                }
+                default:
+                    BOOST_ASSERT_MSG(false, kErrorUnknownTxStatus);
+                    return "unknown";
+            }
         }
 
         switch (m_status)
@@ -531,10 +552,9 @@ namespace beam::wallet
                 case TxType::AssetInfo: return  "asset confirmed";
                 default: return m_selfTx ? "completed" : (m_sender == false ? "received" : "sent");
             }
-        }
-        default:
-            BOOST_ASSERT_MSG(false, kErrorUnknownTxStatus);
-            return "unknown";
+            default:
+                BOOST_ASSERT_MSG(false, kErrorUnknownTxStatus);
+                return "unknown";
         }
     }
 
