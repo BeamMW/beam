@@ -542,7 +542,6 @@ namespace beam::wallet
         case TxStatus::Failed: return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
         case TxStatus::Canceled: return "cancelled";
         case TxStatus::Completed:
-        {
             switch (m_txType)
             {
                 case TxType::AssetIssue: return "asset issued";
@@ -552,9 +551,9 @@ namespace beam::wallet
                 case TxType::AssetInfo: return  "asset confirmed";
                 default: return m_selfTx ? "completed" : (m_sender == false ? "received" : "sent");
             }
-            default:
-                BOOST_ASSERT_MSG(false, kErrorUnknownTxStatus);
-                return "unknown";
+        default:
+            BOOST_ASSERT_MSG(false, kErrorUnknownTxStatus);
+            return "unknown";
         }
     }
 
