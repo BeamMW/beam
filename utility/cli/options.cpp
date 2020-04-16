@@ -545,10 +545,23 @@ namespace beam
             macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
             macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
             macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
+            macro(Height, MaxRollback, "Max allowed rollback (reorg) depth") \
             macro(Height, Fork1, "Height of the 1st fork") \
             macro(Height, Fork2, "Height of the 2nd fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
-            macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
+            macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only") \
+            macro(Height, MaxKernelValidityDH, "Max implicit kernel lifespan after HF2 (a.k.a. kernel visibility horizon)") \
+            macro(bool, CA.Enabled, "Enable/disable CA (confidential assets)") \
+            macro(Amount, CA.DepositForList, "Deposit for new CA allocation") \
+            macro(Height, CA.LockPeriod, "Lock height for deposit after the CA is completely burned") \
+            macro(uint32_t, CA.m_ProofCfg.n, "Asset type anonymity set size n (n^M)") \
+            macro(uint32_t, CA.m_ProofCfg.M, "Asset type anonymity set size M (n^M)") \
+            macro(bool, Shielded.Enabled, "Enable/disable Shielded pool (Lelantus)") \
+            macro(uint32_t, Shielded.NMax, "Shielded anonymity set max") \
+            macro(uint32_t, Shielded.NMin, "Shielded anonymity set min") \
+            macro(uint32_t, Shielded.MaxWindowBacklog, "Shielded max backlog for large anonymity set") \
+            macro(uint32_t, Shielded.MaxIns, "Shielded max inputs per block") \
+            macro(uint32_t, Shielded.MaxOuts, "Shielded max outputs per block") \
 
 		#define Fork1 pForks[1].m_Height
 		#define Fork2 pForks[2].m_Height
