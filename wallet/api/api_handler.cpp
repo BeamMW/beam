@@ -947,6 +947,7 @@ namespace beam::wallet
 
             if (it != publicOffers.end())
             {
+                offer = MirrorSwapTxParams(offer);
                 offer.m_publisherId = it->m_publisherId;
             }
             offers.push_back(offer);
