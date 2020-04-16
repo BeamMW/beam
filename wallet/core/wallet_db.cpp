@@ -1117,7 +1117,7 @@ namespace beam::wallet
 
             if (!storage_is_unlinked_exist)
             {
-                const char* req = "ALTER TABLE " STORAGE_NAME " ADD COLUMN IF EXISTS isUnlinked BOOL DEFAULT false;";
+                const char* req = "ALTER TABLE " STORAGE_NAME " ADD isUnlinked BOOL DEFAULT false;";
                 int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, db);
             }
