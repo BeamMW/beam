@@ -35,7 +35,7 @@ add_library(external_pow STATIC
 
 target_link_libraries(external_pow p2p pow core)
 
-if (NOT ANDROID AND NOT IOS)
+if (NOT ANDROID AND NOT IOS AND NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_executable(miner_client miner_client.cpp ../core/block_crypt.cpp) # ???????????????????????????
 
     #find_package(Boost 1.67 REQUIRED COMPONENTS program_options)
