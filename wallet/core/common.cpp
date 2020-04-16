@@ -510,7 +510,7 @@ namespace beam::wallet
             switch (m_status)
             {
                 case wallet::TxStatus::Pending:     return "pending";
-                case wallet::TxStatus::Registering:
+                case wallet::TxStatus::Registering: return m_selfTx ? "self sending" : "in progress";
                 case wallet::TxStatus::InProgress:  return "in progress";
                 case wallet::TxStatus::Completed:   return "completed";
                 case wallet::TxStatus::Canceled:    return "canceled";
