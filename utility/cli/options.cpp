@@ -557,8 +557,10 @@ namespace beam
             macro(uint32_t, CA.m_ProofCfg.n, "Asset type anonymity set size n (n^M)") \
             macro(uint32_t, CA.m_ProofCfg.M, "Asset type anonymity set size M (n^M)") \
             macro(bool, Shielded.Enabled, "Enable/disable Shielded pool (Lelantus)") \
-            macro(uint32_t, Shielded.NMax, "Shielded anonymity set max") \
-            macro(uint32_t, Shielded.NMin, "Shielded anonymity set min") \
+            macro(uint32_t, Shielded.m_ProofMax.n, "Shielded anonymity set max n (n^M)") \
+            macro(uint32_t, Shielded.m_ProofMax.M, "Shielded anonymity set max M (n^M)") \
+            macro(uint32_t, Shielded.m_ProofMin.n, "Shielded anonymity set min n (n^M)") \
+            macro(uint32_t, Shielded.m_ProofMin.M, "Shielded anonymity set min M (n^M)") \
             macro(uint32_t, Shielded.MaxWindowBacklog, "Shielded max backlog for large anonymity set") \
             macro(uint32_t, Shielded.MaxIns, "Shielded max inputs per block") \
             macro(uint32_t, Shielded.MaxOuts, "Shielded max outputs per block") \

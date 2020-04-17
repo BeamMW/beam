@@ -1763,11 +1763,7 @@ namespace beam
 
 				sdp.m_Output.m_Value -= fee;
 
-				m_Shielded.m_Cfg.n = 4;
-				m_Shielded.m_Cfg.M = 6; // 4K
-
-				verify_test(m_Shielded.m_Cfg.get_N() >= Rules::get().Shielded.NMin);
-				verify_test(m_Shielded.m_Cfg.get_N() <= Rules::get().Shielded.NMax);
+				m_Shielded.m_Cfg = Rules::get().Shielded.m_ProofMax;
 
 				assert(msgTx.m_Transaction);
 
@@ -3019,6 +3015,8 @@ void TestAll()
 
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
+	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
+	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K
 	beam::Rules::get().UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");

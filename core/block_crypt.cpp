@@ -1521,9 +1521,6 @@ namespace beam
 
 	Rules::Rules()
 	{
-		CA.m_ProofCfg.n = 4;
-		CA.m_ProofCfg.M = 3; // 64 elements
-
 		TreasuryChecksum = {
 			0xcf, 0x9c, 0xc2, 0xdf, 0x67, 0xa2, 0x24, 0x19,
 			0x2d, 0x2f, 0x88, 0xda, 0x20, 0x20, 0x00, 0xac,
@@ -1637,6 +1634,15 @@ namespace beam
 		if (!IsForkHeightsConsistent())
 			throw std::runtime_error("Inconsistent Forks");
 
+		if (!CA.m_ProofCfg.get_N())
+			throw std::runtime_error("Bad CA/Sigma cfg");
+
+		uint32_t n1 = Shielded.m_ProofMin.get_N();
+		uint32_t n2 = Shielded.m_ProofMax.get_N();
+
+		if (!n1 || (n1 > n2))
+			throw std::runtime_error("Bad Shielded/Sigma cfg");
+
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Oracle oracle;
 		oracle
@@ -1687,8 +1693,10 @@ namespace beam
 			<< MaxKernelValidityDH
 			<< Shielded.Enabled
 			<< uint32_t(1) // our current strategy w.r.t. allowed anonymity set in shielded inputs
-			<< Shielded.NMax
-			<< Shielded.NMin
+			<< Shielded.m_ProofMax.n
+			<< Shielded.m_ProofMax.M
+			<< Shielded.m_ProofMin.n
+			<< Shielded.m_ProofMin.M
 			<< Shielded.MaxWindowBacklog
 			<< CA.Enabled
 			<< CA.DepositForList

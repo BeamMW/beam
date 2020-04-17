@@ -1040,7 +1040,7 @@ namespace
                     % boost::io::group(right, setw(columnWidths[5]), (c.m_confirmHeight != MaxHeight) ? std::to_string(c.m_confirmHeight) : "--")
                     % boost::io::group(right, setw(columnWidths[6]), (c.m_spentHeight != MaxHeight) ? std::to_string(c.m_spentHeight) : "--")
                     % boost::io::group(right, setw(columnWidths[7]), (anonymitySetForCoin) ? std::to_string(anonymitySetForCoin) : "--")
-                    % boost::io::group(right, setw(columnWidths[8]), Rules::get().Shielded.NMax)
+                    % boost::io::group(right, setw(columnWidths[8]), Rules::get().Shielded.m_ProofMax.get_N())
                     << std::endl;
             }
 
