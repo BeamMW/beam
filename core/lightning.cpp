@@ -996,13 +996,21 @@ const Transaction& Channel::DataUpdate::get_TxPhase2(bool bInitiator) const
 	return bInitiator ? m_tx2 : m_txPeer2;
 }
 
+bool Channel::DataUpdate::get_KernelIDSafe(Merkle::Hash& hv, const Transaction& tx)
+{
+	if (tx.m_vKernels.empty())
+	{
+		hv = Zero;
+		return false;
+	}
+
+	hv = tx.m_vKernels.front()->m_Internal.m_ID;
+	return true;
+}
+
 void Channel::DataUpdate::get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const
 {
-	const Transaction& tx = get_TxPhase2(bInitiator);
-	if (tx.m_vKernels.empty())
-		hv = Zero; //?!
-	else
-		hv = tx.m_vKernels.front()->m_Internal.m_ID;
+	get_KernelIDSafe(hv, get_TxPhase2(bInitiator));
 }
 
 void Channel::DataUpdate::CheckStdType()

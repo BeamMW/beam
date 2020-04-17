@@ -125,6 +125,8 @@ namespace Lightning {
 			const Transaction& get_TxPhase2(bool bInitiator) const;
 			void get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const;
 
+			static bool get_KernelIDSafe(Merkle::Hash& hv, const Transaction&);
+
 			void CheckStdType();
 		};
 
