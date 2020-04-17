@@ -24,4 +24,6 @@ target_link_libraries(node
 if(BEAM_TESTS_ENABLED)
     add_subdirectory(unittests)
 endif()
-add_subdirectory(laser_beam_demo)
+if (NOT BEAM_WALLET_CLIENT_LIBRARY)
+    add_subdirectory(laser_beam_demo)
+endif()

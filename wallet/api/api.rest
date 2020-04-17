@@ -28,9 +28,7 @@ content-type: application/json-rpc
     "jsonrpc": "2.0",
     "id": 1236,
     "method": "swap_offers_list",
-    "params": {
-        "filter" : "showAll"
-    }
+    "params": {}
 }
 
 ###
@@ -41,12 +39,8 @@ content-type: application/json-rpc
 {
     "jsonrpc": "2.0",
     "id": 1236,
-    "method": "swap_offers_list",
-    "params": {
-        "filter" : {
-            "status" : 0
-        }
-    }
+    "method": "swap_offers_board",
+    "params": {}
 }
 
 ###
@@ -64,7 +58,7 @@ content-type: application/json-rpc
         "receive_amount": 2000000000,
         "receive_currency": "btc",
         "beam_fee": 100,
-        "btc_fee_rate": 90000,
+        "fee_rate": 90000,
         "offer_expires": 30,
         "comment": "API"
     }
@@ -80,7 +74,7 @@ content-type: application/json-rpc
     "id": 126,
     "method": "swap_offer_status",
     "params": {
-        "token": "6xfSBNwZNcUuQxyeMD5Z6ET7Qu6nd8JAifXkDxJ9sQZeovHNcpgMswDAQkKM8DLnfefpeQkZhxqreQbr9aqAkhuZ9UZJrPbXj5s3hj61m6eq7PgXd8JE9zdvQfsVCfQfEDbNnnThYLBXKvi52ZmPEbWvQ7R7LATfmzccdN4"
+        "tx_id": "d6ca4e348bf347f4a1301af8c1b3efef"
     }
 }
 
@@ -127,7 +121,7 @@ content-type: application/json-rpc
         "send_amount": 5500000000,
         "send_currency": "beam",
         "beam_fee": 100,
-        "btc_fee_rate": 90000,
+        "fee_rate": 90000,
         "comment": "API-accept",
         "token" : "6xewkUBnRZXrRKwwnseyFaufaPvGAvcjMG1DmQKtJvyyKvamsmRgcAVoyBFcDWp93ZcF6sFuiGYUmoLFkrXQLnASyX53ppziXy1MNePox7TGRZX1smSBuNMBgQCoQzW2j3EEs3yqRXgF6wkpjMZq6iCrY1E9sxDoGGxwyEt"
     }

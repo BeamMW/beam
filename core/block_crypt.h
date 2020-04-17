@@ -241,7 +241,7 @@ namespace beam
 		} DA;
 
 		struct {
-			bool Enabled = false;
+			bool Enabled = true;
 			Amount DepositForList = Coin * 1000;
 			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
 			Sigma::Cfg m_ProofCfg;

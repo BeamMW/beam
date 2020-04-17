@@ -491,7 +491,11 @@ namespace beam::wallet
         }
         else
         {
-            if (statusStr == "completed")
+            if (statusStr == "receiving" || statusStr == "sending")
+            {
+                return "in progress";
+            }
+            else if (statusStr == "completed")
             {
                 return "sent to own address";
             }
@@ -510,7 +514,7 @@ namespace beam::wallet
             switch (m_status)
             {
                 case wallet::TxStatus::Pending:     return "pending";
-                case wallet::TxStatus::Registering: return m_selfTx ? "self sending" : "in progress";
+                case wallet::TxStatus::Registering:
                 case wallet::TxStatus::InProgress:  return "in progress";
                 case wallet::TxStatus::Completed:   return "completed";
                 case wallet::TxStatus::Canceled:    return "canceled";
@@ -548,7 +552,7 @@ namespace beam::wallet
                 case TxType::AssetConsume: return "asset consumed";
                 case TxType::AssetReg: return "asset registered";
                 case TxType::AssetUnreg: return "asset unregistered";
-                case TxType::AssetInfo: return  "asset confirmed";
+                case TxType::AssetInfo: return "asset confirmed";
                 default: return m_selfTx ? "completed" : (m_sender == false ? "received" : "sent");
             }
         default:

@@ -39,6 +39,8 @@ ap-nodes.mainnet.beam.mw:8100
 
 ap-hk-nodes.mainnet.beam.mw:8100
 
+shanghai-node.mainnet.beam.mw:8100
+
 Latest documentation is here: https://documentation.beam.mw
 
 Things that make BEAM special include:
