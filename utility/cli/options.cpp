@@ -545,7 +545,7 @@ namespace beam
             macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
             macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
             macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
-            macro(Height, MaxRollback, "Max allowed rollback (reorg) depth") \
+            macro(uint32_t, MaxRollback, "Max allowed rollback (reorg) depth") \
             macro(Height, Fork1, "Height of the 1st fork") \
             macro(Height, Fork2, "Height of the 2nd fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
