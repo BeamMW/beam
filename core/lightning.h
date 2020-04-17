@@ -46,6 +46,7 @@ namespace Lightning {
 
 		void OnRequestComplete(MuSigLocator&);
 		void OnRequestComplete(KernelLocator&);
+		void OnRequestCompleteInSearch(KernelLocator&);
 		void OnRequestComplete(proto::FlyClient::RequestTransaction&);
 
 		struct RequestHandler
@@ -124,6 +125,7 @@ namespace Lightning {
 
 			const Transaction& get_TxPhase2(bool bInitiator) const;
 			void get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const;
+			void get_Phase1ID(Merkle::Hash& hv, bool bInitiator) const;
 
 			static bool get_KernelIDSafe(Merkle::Hash& hv, const Transaction&);
 
