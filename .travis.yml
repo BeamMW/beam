@@ -462,7 +462,7 @@ before_script:
   - BEAM_DISPLAY_SUFFIX="Masternet"
   - BEAM_DISPLAY_SUFFIX2="-Masternet"
 
-after_success:
+after_script:
   # deploy using ftp server
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
   - tar -cvzf beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg
