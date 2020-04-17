@@ -36,7 +36,6 @@ matrix:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_HW_WALLET=Off .
         - make -j$(sysctl -n hw.ncpu)
         - ctest --verbose
-      after_success:
         - cpack
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
@@ -90,7 +89,6 @@ matrix:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_SIGN_MACOS_BINARY=On -DBEAM_HW_WALLET=Off .
         - make -j$(sysctl -n hw.ncpu)
         - ctest --verbose
-      after_success:
         - cpack
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
@@ -149,7 +147,6 @@ matrix:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_HW_WALLET=Off .
         - make -j$(nproc)
         - ctest --verbose
-      after_success:
         - cpack
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
@@ -201,7 +198,6 @@ matrix:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_HW_WALLET=Off .
         - make -j$(nproc)
         - ctest --verbose
-      after_success:
         - cpack
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
@@ -462,7 +458,7 @@ before_script:
   - BEAM_DISPLAY_SUFFIX="Masternet"
   - BEAM_DISPLAY_SUFFIX2="-Masternet"
 
-after_script:
+after_success:
   # deploy using ftp server
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
   - tar -cvzf beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg
