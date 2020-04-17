@@ -504,6 +504,8 @@ namespace beam::wallet
                     GetParameter(TxParameterID::MyID, widMy) &&
                     GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
                     GetParameter(TxParameterID::Amount, pc.m_Value);
+                    // TODO:ASSETS check if need to add to the success check
+                    GetParameter(TxParameterID::AssetID, pc.m_AssetID);
 
                 if (bSuccess)
                 {
