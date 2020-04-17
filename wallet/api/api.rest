@@ -32,6 +32,18 @@ content-type: application/json-rpc
 }
 
 ###
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 126,
+    "method": "swap_get_balance",
+    "params": {
+        "coin": "btc"
+    }
+}
+###
 
 POST http://127.0.0.1:10000/api/wallet HTTP/1.1
 content-type: application/json-rpc
@@ -74,7 +86,7 @@ content-type: application/json-rpc
     "id": 126,
     "method": "swap_offer_status",
     "params": {
-        "tx_id": "d6ca4e348bf347f4a1301af8c1b3efef"
+        "tx_id": "a36671ceb9d844e2baa44798ee1e915a"
     }
 }
 
@@ -88,7 +100,7 @@ content-type: application/json-rpc
     "id": 126,
     "method": "swap_cancel_offer",
     "params": {
-        "token": "6xfSBNwZNcUuQxyeMD5Z6ET7Qu6nd8JAifXkDxJ9sQZeovHNcpgMswDAQkKM8DLnfefpeQkZhxqreQbr9aqAkhuZ9UZJrPbXj5s3hj61m6eq7PgXd8JE9zdvQfsVCfQfEDbNnnThYLBXKvi52ZmPEbWvQ7R7LATfmzccdN4"
+        "txId" : "a36671ceb9d844e2baa44798ee1e915a"
     }
 }
 
@@ -102,7 +114,7 @@ content-type: application/json-rpc
     "id": 126,
     "method": "swap_publish_offer",
     "params": {
-        "token": "6xfSBNwZNcUuQxyeMD5Z6ET7Qu6nd8JAifXkDxJ9sQZeovHNcpgMswDAQkKM8DLnfefpeQkZhxqreQbr9aqAkhuZ9UZJrPbXj5s3hj61m6eq7PgXd8JE9zdvQfsVCfQfEDbNnnThYLBXKvi52ZmPEbWvQ7R7LATfmzccdN4"
+        "token": "TJfqqvZNnsGH33yWH8YYvma8eoUWKnecn6mfC97MrrdMw1a8q6hVTpTCrGqcmkzDCyxc6hrzARRUakreNGopRXUxfYAPGS1RS3sYdr3wrXtoycDNTsPWcDTzqUt68sMqCtRtEt2XGZR7x8QXqDXNiexecpdK467Wo8zehxNA"
     }
 }
 
