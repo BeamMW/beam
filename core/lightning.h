@@ -42,9 +42,10 @@ namespace Lightning {
 		void OnInpCoinsChanged();
 
 		struct MuSigLocator;
+		struct KernelLocator;
 
 		void OnRequestComplete(MuSigLocator&);
-		void OnRequestComplete(proto::FlyClient::RequestKernel&);
+		void OnRequestComplete(KernelLocator&);
 		void OnRequestComplete(proto::FlyClient::RequestTransaction&);
 
 		struct RequestHandler

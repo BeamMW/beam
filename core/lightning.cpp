@@ -34,6 +34,14 @@ struct Channel::MuSigLocator
 	bool m_Initiator;
 };
 
+struct Channel::KernelLocator
+	:public proto::FlyClient::RequestKernel
+{
+	typedef boost::intrusive_ptr<KernelLocator> Ptr;
+
+	virtual ~KernelLocator() {}
+};
+
 Channel::State::Enum Channel::get_State() const
 {
 	if (!m_pOpen)
@@ -643,7 +651,7 @@ void Channel::RequestHandler::OnComplete(proto::FlyClient::Request& x)
 		break;
 
 	case proto::FlyClient::Request::Type::Kernel:
-		get_ParentObj().OnRequestComplete(Cast::Up<proto::FlyClient::RequestKernel>(x));
+		get_ParentObj().OnRequestComplete(Cast::Up<KernelLocator>(x));
 		break;
 
 	case proto::FlyClient::Request::Type::Transaction:
@@ -823,7 +831,7 @@ void Channel::CreatePunishmentTx()
 
 }
 
-void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
+void Channel::OnRequestComplete(KernelLocator& r)
 {
 	Height h = r.m_Res.m_Proof.m_State.m_Height;
 	if (h)
@@ -881,7 +889,7 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 	{
 		const DataUpdate& d = m_lstUpdates.back();
 		if (DataUpdate::Type::Direct == d.m_Type)
-			ConfirmMuSig();
+			ConfirmMuSig(); // graceful close not confirmed, meanwhile re-check musig
 		else
 			m_State.m_hQueryLast = get_Tip();
 	}
@@ -949,7 +957,7 @@ void Channel::ConfirmKernel(const Merkle::Hash& hv, Height h)
 	{
 		if (proto::FlyClient::Request::Type::Kernel == m_pRequest->get_Type())
 		{
-			proto::FlyClient::RequestKernel& r = Cast::Up<proto::FlyClient::RequestKernel>(*m_pRequest);
+			KernelLocator& r = Cast::Up<KernelLocator>(*m_pRequest);
 			if (r.m_Msg.m_ID == hv)
 				return; // already querying
 		}
@@ -957,7 +965,7 @@ void Channel::ConfirmKernel(const Merkle::Hash& hv, Height h)
 		CancelRequest();
 	}
 
-	proto::FlyClient::RequestKernel::Ptr pReq(new proto::FlyClient::RequestKernel);
+	KernelLocator::Ptr pReq(new KernelLocator);
 	pReq->m_Msg.m_ID = hv;
 
 	get_Net().PostRequest(*pReq, m_RequestHandler);
