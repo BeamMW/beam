@@ -344,10 +344,17 @@ namespace beam
 		if (!comm.Import(m_Commitment))
 			return false;
 
-		ECC::Point::Native hGen;
-		if (m_pAsset && !m_pAsset->IsValid(hGen))
-			return false;
+		if (!m_pAsset)
+			return IsValid2(hScheme, comm, nullptr);
 
+		ECC::Point::Native hGen;
+		return
+			m_pAsset->IsValid(hGen) &&
+			IsValid2(hScheme, comm, &hGen);
+	}
+
+	bool Output::IsValid2(Height hScheme, ECC::Point::Native& comm, const ECC::Point::Native* pGen) const
+	{
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
 
@@ -359,7 +366,7 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(comm, oracle, &hGen);
+			return m_pConfidential->IsValid(comm, oracle, pGen);
 		}
 
 		if (!m_pPublic)
@@ -368,7 +375,7 @@ namespace beam
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
 			return false;
 
-		return m_pPublic->IsValid(comm, oracle, &hGen);
+		return m_pPublic->IsValid(comm, oracle, pGen);
 	}
 
 	void Output::operator = (const Output& v)

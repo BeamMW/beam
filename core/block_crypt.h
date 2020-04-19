@@ -523,6 +523,7 @@ namespace beam
 
 	private:
 		struct PackedKA; // Key::ID + Asset::ID
+		bool IsValid2(Height hScheme, ECC::Point::Native& comm, const ECC::Point::Native* pGen) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
