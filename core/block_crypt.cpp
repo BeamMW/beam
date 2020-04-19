@@ -347,6 +347,10 @@ namespace beam
 		if (!m_pAsset)
 			return IsValid2(hScheme, comm, nullptr);
 
+		const Rules& r = Rules::get();
+		if ((hScheme < r.pForks[2].m_Height) || !r.CA.Enabled)
+			return false;
+
 		ECC::Point::Native hGen;
 		return
 			m_pAsset->IsValid(hGen) &&
@@ -1115,6 +1119,9 @@ namespace beam
 		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
 			return false; // unsupported for that version
 
+		if (m_Txo.m_pAsset && !r.CA.Enabled)
+			return false; // unsupported for that version
+
 		ECC::Oracle oracle;
 		oracle << m_Msg;
 
@@ -1166,8 +1173,14 @@ namespace beam
 		ptNeg.m_Y = !ptNeg.m_Y; // probably faster than negating the result
 
 		ECC::Point::Native comm;
-		if (m_pAsset && !m_pAsset->IsValid(comm))
-			return false;
+		if (m_pAsset)
+		{
+			if (!r.CA.Enabled)
+				return false;
+
+			if (!m_pAsset->IsValid(comm))
+				return false;
+		}
 
 		if (!comm.ImportNnz(ptNeg))
 			return false;
