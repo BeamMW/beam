@@ -4301,18 +4301,25 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
                 virtual bool OnKrnEx(const TxKernelShieldedInput& krn) override
                 {
+                    uint8_t nFlags = 0;
+
                     m_Ser & m_Height;
-                    m_Ser & false;
+                    m_Ser & nFlags;
                     m_Ser & krn.m_SpendProof.m_SpendPk;
                     return true;
                 }
 
                 virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
                 {
-                    Cast::NotConst(krn).m_Txo.m_pAsset.reset(); // not needed for recovery atm
+                    uint8_t nFlags = RecoveryInfo::Flags::Output;
+                    if (krn.m_Txo.m_pAsset)
+                    {
+                        Cast::NotConst(krn).m_Txo.m_pAsset.reset(); // not needed for recovery atm
+                        nFlags |= RecoveryInfo::Flags::HadAsset;
+                    }
 
                     m_Ser & m_Height;
-                    m_Ser & true;
+                    m_Ser & nFlags;
                     m_Ser & krn.m_Txo;
                     m_Ser & krn.m_Msg;
                     return true;

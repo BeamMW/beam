@@ -516,16 +516,20 @@ namespace beam
 			if (MaxHeight == h)
 				break;
 
-			bool bIsOutp = true;
-			m_Der & bIsOutp;
+			uint8_t nFlags = 0;
+			m_Der & nFlags;
 
 			Merkle::Hash hv;
 
-			if (bIsOutp)
+			if (Flags::Output & nFlags)
 			{
 				ShieldedTxo txo;
 				m_Der & txo;
 				m_Der & hv;
+
+				assert(!txo.m_pAsset); // the asset proof itself is omitted.
+				if (Flags::HadAsset & nFlags)
+					txo.m_pAsset.reset(new Asset::Proof);
 
 				ShieldedTxo::DescriptionOutp dOutp;
 				dOutp.m_Commitment = txo.m_Commitment;
