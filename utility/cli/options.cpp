@@ -578,6 +578,21 @@ namespace beam
         return rules_options;
     }
 
+    bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
+    {
+        std::ifstream cfg(szFile);
+        if (!cfg)
+            return false;
+
+        po::store(po::parse_config_file(cfg, desc), vm);
+        return true;
+    }
+
+    bool ReadCfgFromFileCommon(po::variables_map& vm, const po::options_description& desc)
+    {
+        return ReadCfgFromFile(vm, desc, "beam-common.cfg");
+    }
+
     po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions)
     {
         po::variables_map vm;
@@ -592,14 +607,8 @@ namespace beam
         }
         po::store(parser.run(), vm); // value stored first is preferred
 
-        {
-            std::ifstream cfg(configFile);
-
-            if (cfg)
-            {
-                po::store(po::parse_config_file(cfg, options), vm);
-            }
-        }
+        ReadCfgFromFileCommon(vm, options);
+        ReadCfgFromFile(vm, options, configFile);
 
         getRulesOptions(vm);
 

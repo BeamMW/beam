@@ -369,14 +369,8 @@ int main_impl(int argc, char* argv[])
                 return 0;
             }
 
-            {
-                std::ifstream cfg("bbs.cfg");
-
-                if (cfg)
-                {
-                    po::store(po::parse_config_file(cfg, desc), vm);
-                }
-            }
+            ReadCfgFromFileCommon(vm, desc);
+            ReadCfgFromFile(vm, desc, "bbs.cfg");
         }
 
         vm.notify();
