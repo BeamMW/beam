@@ -361,8 +361,6 @@ void TestShortWindow()
                     auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
-                        .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
-                        .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
                         .SetParameter(TxParameterID::ShieldedOutputId, 40U);
 
                     sender.m_Wallet.StartTransaction(parameters);
@@ -371,8 +369,6 @@ void TestShortWindow()
                     auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
-                        .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
-                        .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
                         .SetParameter(TxParameterID::ShieldedOutputId, 42U);
 
                     sender.m_Wallet.StartTransaction(parameters);
@@ -381,8 +377,6 @@ void TestShortWindow()
                     auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
-                        .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
-                        .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
                         .SetParameter(TxParameterID::ShieldedOutputId, 43U);
 
                     sender.m_Wallet.StartTransaction(parameters);
@@ -393,8 +387,6 @@ void TestShortWindow()
                 auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                     .SetParameter(TxParameterID::Fee, kFee)
-                    .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
-                    .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
                     .SetParameter(TxParameterID::ShieldedOutputId, 62U);
 
                 sender.m_Wallet.StartTransaction(parameters);
@@ -404,8 +396,6 @@ void TestShortWindow()
                 auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                     .SetParameter(TxParameterID::Fee, kFee)
-                    .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
-                    .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
                     .SetParameter(TxParameterID::ShieldedOutputId, 180)
                     .SetParameter(TxParameterID::WindowBegin, 180U-64U);
 
@@ -506,8 +496,6 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
                     auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
-                        .SetParameter(TxParameterID::ShieldedInputCfg, cfg)
-                        .SetParameter(TxParameterID::ShieldedInputMinCfg, minCfg)
                         .SetParameter(TxParameterID::ShieldedOutputId, static_cast<TxoID>(index));
 
                     sender.m_Wallet.StartTransaction(parameters);

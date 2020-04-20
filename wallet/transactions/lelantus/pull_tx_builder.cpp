@@ -50,7 +50,7 @@ namespace beam::wallet::lelantus
     {
         if (m_shieldedList.empty())
         {
-            uint32_t windowSize = m_Tx.GetMandatoryParameter<Lelantus::Cfg>(TxParameterID::ShieldedInputCfg).get_N();
+            uint32_t windowSize = Rules::get().Shielded.m_ProofMax.get_N();
             TxoID windowBegin = 0;
 
             if (!m_Tx.GetParameter(TxParameterID::WindowBegin, windowBegin))
@@ -99,7 +99,7 @@ namespace beam::wallet::lelantus
         }
 
         {
-            Lelantus::Cfg cfg = m_Tx.GetMandatoryParameter<Lelantus::Cfg>(TxParameterID::ShieldedInputCfg);
+            Lelantus::Cfg cfg = Rules::get().Shielded.m_ProofMax;
             uint32_t windowSize = cfg.get_N();
             TxoID windowEnd = startIndex + m_shieldedList.size();
             bool isRestrictedMode = m_totalShieldedOuts > windowEnd + Rules::get().Shielded.MaxWindowBacklog;
@@ -108,7 +108,7 @@ namespace beam::wallet::lelantus
             {
                 // TODO: find better solution
                 // load Cfg for restricted mode
-                cfg = m_Tx.GetMandatoryParameter<Lelantus::Cfg>(TxParameterID::ShieldedInputMinCfg);
+                cfg = Rules::get().Shielded.m_ProofMin;
 
                 // update parameters
                 windowSize = cfg.get_N();
@@ -238,7 +238,7 @@ namespace beam::wallet::lelantus
 
         if (isRestrictedMode)
         {
-            uint32_t restrictedWindowSize = m_Tx.GetMandatoryParameter<Lelantus::Cfg>(TxParameterID::ShieldedInputMinCfg).get_N();
+            uint32_t restrictedWindowSize = Rules::get().Shielded.m_ProofMin.get_N();
             if (shieldedId < restrictedWindowSize)
             {
                 std::uniform_int_distribution<TxoID> distribution(0, shieldedId);
