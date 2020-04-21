@@ -1337,10 +1337,12 @@ void TestAssetsAPI()
     //
     Rules::get().CA.Enabled = true;
 
-    TestICTx<Issue>("tx_asset_issue");
-    TestICTx<Consume>("tx_asset_consume");
-    TestAITx();
-    TestGetAssetInfo();
+    //TestICTx<Issue>("tx_asset_issue");
+    //TestICTx<Consume>("tx_asset_consume");
+    //TestAITx();
+    //TestGetAssetInfo();
+
+    Rules::get().CA.Enabled = false;
 }
 
 int main()
