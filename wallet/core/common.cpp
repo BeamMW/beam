@@ -250,7 +250,7 @@ namespace beam::wallet
             << m_Sender
             << m_Value;
 
-        if (m_AssetID)
+        if (m_AssetID != Asset::s_InvalidID)
         {
             hp
                 << "asset"

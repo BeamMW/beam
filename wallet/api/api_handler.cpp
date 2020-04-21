@@ -439,7 +439,7 @@ namespace beam::wallet
     }
 
     template<typename T>
-    bool WalletApiHandler::setAssetParams(const JsonRpcId& id, TxParameters& params, const T& data)
+    bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const T& data)
     {
         auto walletDB = _walletData.getWalletDB();
 
@@ -474,9 +474,9 @@ namespace beam::wallet
         return false;
     }
 
-    template bool WalletApiHandler::setAssetParams(const JsonRpcId& id, TxParameters& params, const Issue& data);
-    template bool WalletApiHandler::setAssetParams(const JsonRpcId& id, TxParameters& params, const Consume& data);
-    template bool WalletApiHandler::setAssetParams(const JsonRpcId& id, TxParameters& params, const AssetInfo& data);
+    template bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Issue& data);
+    template bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Consume& data);
+    template bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const AssetInfo& data);
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const Issue& data)
     {
@@ -523,7 +523,7 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::Fee, data.fee)
                     .SetParameter(TxParameterID::PreselectedCoins, coins);
 
-            if(!setAssetParams(id, params, data))
+            if(!setTxAssetParams(id, params, data))
             {
                 return;
             }
@@ -590,7 +590,7 @@ namespace beam::wallet
 
             auto params = CreateTransactionParameters(TxType::AssetInfo, data.txId);
 
-            if(!setAssetParams(id, params, data))
+            if(!setTxAssetParams(id, params, data))
             {
                 return;
             }
