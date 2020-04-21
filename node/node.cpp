@@ -3061,7 +3061,7 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 	Processor& p = m_This.m_Processor;
 	if ((msg.m_Id0 < p.m_Extra.m_ShieldedOutputs) && msg.m_Count)
 	{
-        std::setmin(msg.m_Count, Rules::get().Shielded.NMax * 2); // no reason to ask for more
+        std::setmin(msg.m_Count, Rules::get().Shielded.m_ProofMax.get_N() * 2); // no reason to ask for more
 
 		TxoID n = p.m_Extra.m_ShieldedOutputs - msg.m_Id0;
 
@@ -4301,18 +4301,25 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
                 virtual bool OnKrnEx(const TxKernelShieldedInput& krn) override
                 {
+                    uint8_t nFlags = 0;
+
                     m_Ser & m_Height;
-                    m_Ser & false;
+                    m_Ser & nFlags;
                     m_Ser & krn.m_SpendProof.m_SpendPk;
                     return true;
                 }
 
                 virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
                 {
-                    Cast::NotConst(krn).m_Txo.m_pAsset.reset(); // not needed for recovery atm
+                    uint8_t nFlags = RecoveryInfo::Flags::Output;
+                    if (krn.m_Txo.m_pAsset)
+                    {
+                        Cast::NotConst(krn).m_Txo.m_pAsset.reset(); // not needed for recovery atm
+                        nFlags |= RecoveryInfo::Flags::HadAsset;
+                    }
 
                     m_Ser & m_Height;
-                    m_Ser & true;
+                    m_Ser & nFlags;
                     m_Ser & krn.m_Txo;
                     m_Ser & krn.m_Msg;
                     return true;

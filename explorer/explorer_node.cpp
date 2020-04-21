@@ -118,14 +118,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
             return false;
         }
 
-        {
-            std::ifstream cfg("explorer-node.cfg");
-
-            if (cfg)
-            {
-                po::store(po::parse_config_file(cfg, cliOptions), vm);
-            }
-        }
+        ReadCfgFromFileCommon(vm, cliOptions);
+        ReadCfgFromFile(vm, cliOptions, "explorer-node.cfg");
 
         vm.notify();
 

@@ -293,11 +293,9 @@ void TestShortWindow()
     // save defaults
     ScopedGlobalRules rules;
 
-    constexpr uint32_t kShieldedNMax = 64;
-    constexpr uint32_t kShieldedNMin = 16;
-    Rules::get().Shielded.NMax = kShieldedNMax;
-    Rules::get().Shielded.NMin = kShieldedNMin;
-    Rules::get().Shielded.MaxWindowBacklog = kShieldedNMax;
+    Rules::get().Shielded.m_ProofMax = { 2, 6 }; // 64
+    Rules::get().Shielded.m_ProofMin = { 2, 4 }; // 16
+    Rules::get().Shielded.MaxWindowBacklog = 64;
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
@@ -363,8 +361,6 @@ void TestShortWindow()
                     auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
-                        .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
-                        .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
                         .SetParameter(TxParameterID::ShieldedOutputId, 40U);
 
                     sender.m_Wallet.StartTransaction(parameters);
@@ -373,8 +369,6 @@ void TestShortWindow()
                     auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
-                        .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
-                        .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
                         .SetParameter(TxParameterID::ShieldedOutputId, 42U);
 
                     sender.m_Wallet.StartTransaction(parameters);
@@ -383,8 +377,6 @@ void TestShortWindow()
                     auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
-                        .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
-                        .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
                         .SetParameter(TxParameterID::ShieldedOutputId, 43U);
 
                     sender.m_Wallet.StartTransaction(parameters);
@@ -395,8 +387,6 @@ void TestShortWindow()
                 auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                     .SetParameter(TxParameterID::Fee, kFee)
-                    .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
-                    .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
                     .SetParameter(TxParameterID::ShieldedOutputId, 62U);
 
                 sender.m_Wallet.StartTransaction(parameters);
@@ -406,8 +396,6 @@ void TestShortWindow()
                 auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                     .SetParameter(TxParameterID::Fee, kFee)
-                    .SetParameter(TxParameterID::ShieldedInputCfg, Lelantus::Cfg{ 4, 3 })
-                    .SetParameter(TxParameterID::ShieldedInputMinCfg, Lelantus::Cfg{ 4, 2 })
                     .SetParameter(TxParameterID::ShieldedOutputId, 180)
                     .SetParameter(TxParameterID::WindowBegin, 180U-64U);
 
@@ -437,8 +425,8 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
     // save defaults
     ScopedGlobalRules rules;
 
-    Rules::get().Shielded.NMax = cfg.get_N();
-    Rules::get().Shielded.NMin = minCfg.get_N();
+    Rules::get().Shielded.m_ProofMax = cfg;
+    Rules::get().Shielded.m_ProofMin = minCfg;
     Rules::get().Shielded.MaxWindowBacklog = cfg.get_N();
     uint32_t minBlocksToCompletePullTxs = txCount / Rules::get().Shielded.MaxIns + 5;
 
@@ -508,8 +496,6 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
                     auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
-                        .SetParameter(TxParameterID::ShieldedInputCfg, cfg)
-                        .SetParameter(TxParameterID::ShieldedInputMinCfg, minCfg)
                         .SetParameter(TxParameterID::ShieldedOutputId, static_cast<TxoID>(index));
 
                     sender.m_Wallet.StartTransaction(parameters);

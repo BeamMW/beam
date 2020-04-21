@@ -402,6 +402,7 @@ namespace Negotiator {
 			// Peer's 2nd withdrawal tx
 			ECC::Point m_CommPeer1;
 			Transaction m_txPeer2;
+			Merkle::Hash m_hvTx1KernelID;
 
 			const HeightRange* get_HR() const;
 			Height get_H0() const; // min height

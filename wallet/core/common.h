@@ -306,8 +306,6 @@ namespace beam::wallet
         // Lelantus
         ShieldedOutputId = 122,
         WindowBegin = 123,
-        ShieldedInputCfg = 124,
-        ShieldedInputMinCfg = 125,
 
         // private parameters
         PrivateFirstParam = 128,

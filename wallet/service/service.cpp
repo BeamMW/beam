@@ -813,14 +813,8 @@ int main(int argc, char* argv[])
                 return 0;
             }
 
-            {
-                std::ifstream cfg("wallet-api.cfg");
-
-                if (cfg)
-                {
-                    po::store(po::parse_config_file(cfg, desc), vm);
-                }
-            }
+            ReadCfgFromFileCommon(vm, desc);
+            ReadCfgFromFile(vm, desc, "wallet-api.cfg");
 
             vm.notify();
 

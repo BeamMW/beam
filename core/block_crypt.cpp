@@ -344,10 +344,21 @@ namespace beam
 		if (!comm.Import(m_Commitment))
 			return false;
 
-		ECC::Point::Native hGen;
-		if (m_pAsset && !m_pAsset->IsValid(hGen))
+		if (!m_pAsset)
+			return IsValid2(hScheme, comm, nullptr);
+
+		const Rules& r = Rules::get();
+		if ((hScheme < r.pForks[2].m_Height) || !r.CA.Enabled)
 			return false;
 
+		ECC::Point::Native hGen;
+		return
+			m_pAsset->IsValid(hGen) &&
+			IsValid2(hScheme, comm, &hGen);
+	}
+
+	bool Output::IsValid2(Height hScheme, ECC::Point::Native& comm, const ECC::Point::Native* pGen) const
+	{
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
 
@@ -359,7 +370,7 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(comm, oracle, &hGen);
+			return m_pConfidential->IsValid(comm, oracle, pGen);
 		}
 
 		if (!m_pPublic)
@@ -368,7 +379,7 @@ namespace beam
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
 			return false;
 
-		return m_pPublic->IsValid(comm, oracle, &hGen);
+		return m_pPublic->IsValid(comm, oracle, pGen);
 	}
 
 	void Output::operator = (const Output& v)
@@ -1108,6 +1119,9 @@ namespace beam
 		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
 			return false; // unsupported for that version
 
+		if (m_Txo.m_pAsset && !r.CA.Enabled)
+			return false; // unsupported for that version
+
 		ECC::Oracle oracle;
 		oracle << m_Msg;
 
@@ -1159,8 +1173,14 @@ namespace beam
 		ptNeg.m_Y = !ptNeg.m_Y; // probably faster than negating the result
 
 		ECC::Point::Native comm;
-		if (m_pAsset && !m_pAsset->IsValid(comm))
-			return false;
+		if (m_pAsset)
+		{
+			if (!r.CA.Enabled)
+				return false;
+
+			if (!m_pAsset->IsValid(comm))
+				return false;
+		}
 
 		if (!comm.ImportNnz(ptNeg))
 			return false;
@@ -1521,9 +1541,6 @@ namespace beam
 
 	Rules::Rules()
 	{
-		CA.m_ProofCfg.n = 4;
-		CA.m_ProofCfg.M = 3; // 64 elements
-
 		TreasuryChecksum = {
 			0xcf, 0x9c, 0xc2, 0xdf, 0x67, 0xa2, 0x24, 0x19,
 			0x2d, 0x2f, 0x88, 0xda, 0x20, 0x20, 0x00, 0xac,
@@ -1637,6 +1654,15 @@ namespace beam
 		if (!IsForkHeightsConsistent())
 			throw std::runtime_error("Inconsistent Forks");
 
+		if (!CA.m_ProofCfg.get_N())
+			throw std::runtime_error("Bad CA/Sigma cfg");
+
+		uint32_t n1 = Shielded.m_ProofMin.get_N();
+		uint32_t n2 = Shielded.m_ProofMax.get_N();
+
+		if (!n1 || (n1 > n2))
+			throw std::runtime_error("Bad Shielded/Sigma cfg");
+
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Oracle oracle;
 		oracle
@@ -1687,8 +1713,10 @@ namespace beam
 			<< MaxKernelValidityDH
 			<< Shielded.Enabled
 			<< uint32_t(1) // our current strategy w.r.t. allowed anonymity set in shielded inputs
-			<< Shielded.NMax
-			<< Shielded.NMin
+			<< Shielded.m_ProofMax.n
+			<< Shielded.m_ProofMax.M
+			<< Shielded.m_ProofMin.n
+			<< Shielded.m_ProofMin.M
 			<< Shielded.MaxWindowBacklog
 			<< CA.Enabled
 			<< CA.DepositForList

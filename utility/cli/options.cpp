@@ -545,7 +545,7 @@ namespace beam
             macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
             macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
             macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
-            macro(Height, MaxRollback, "Max allowed rollback (reorg) depth") \
+            macro(uint32_t, MaxRollback, "Max allowed rollback (reorg) depth") \
             macro(Height, Fork1, "Height of the 1st fork") \
             macro(Height, Fork2, "Height of the 2nd fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
@@ -557,8 +557,10 @@ namespace beam
             macro(uint32_t, CA.m_ProofCfg.n, "Asset type anonymity set size n (n^M)") \
             macro(uint32_t, CA.m_ProofCfg.M, "Asset type anonymity set size M (n^M)") \
             macro(bool, Shielded.Enabled, "Enable/disable Shielded pool (Lelantus)") \
-            macro(uint32_t, Shielded.NMax, "Shielded anonymity set max") \
-            macro(uint32_t, Shielded.NMin, "Shielded anonymity set min") \
+            macro(uint32_t, Shielded.m_ProofMax.n, "Shielded anonymity set max n (n^M)") \
+            macro(uint32_t, Shielded.m_ProofMax.M, "Shielded anonymity set max M (n^M)") \
+            macro(uint32_t, Shielded.m_ProofMin.n, "Shielded anonymity set min n (n^M)") \
+            macro(uint32_t, Shielded.m_ProofMin.M, "Shielded anonymity set min M (n^M)") \
             macro(uint32_t, Shielded.MaxWindowBacklog, "Shielded max backlog for large anonymity set") \
             macro(uint32_t, Shielded.MaxIns, "Shielded max inputs per block") \
             macro(uint32_t, Shielded.MaxOuts, "Shielded max outputs per block") \
@@ -576,6 +578,21 @@ namespace beam
         return rules_options;
     }
 
+    bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
+    {
+        std::ifstream cfg(szFile);
+        if (!cfg)
+            return false;
+
+        po::store(po::parse_config_file(cfg, desc), vm);
+        return true;
+    }
+
+    bool ReadCfgFromFileCommon(po::variables_map& vm, const po::options_description& desc)
+    {
+        return ReadCfgFromFile(vm, desc, "beam-common.cfg");
+    }
+
     po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions)
     {
         po::variables_map vm;
@@ -590,14 +607,8 @@ namespace beam
         }
         po::store(parser.run(), vm); // value stored first is preferred
 
-        {
-            std::ifstream cfg(configFile);
-
-            if (cfg)
-            {
-                po::store(po::parse_config_file(cfg, options), vm);
-            }
-        }
+        ReadCfgFromFileCommon(vm, options);
+        ReadCfgFromFile(vm, options, configFile);
 
         getRulesOptions(vm);
 

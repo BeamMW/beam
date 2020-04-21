@@ -244,7 +244,7 @@ namespace beam
 			bool Enabled = true;
 			Amount DepositForList = Coin * 1000;
 			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
-			Sigma::Cfg m_ProofCfg;
+			Sigma::Cfg m_ProofCfg = { 4, 3 }; // 4^3 = 64
 		} CA;
 
 		uint32_t MaxRollback = 1440; // 1 day roughly
@@ -263,11 +263,11 @@ namespace beam
 		struct {
 			bool Enabled = true; // past Fork2
 
-			uint32_t NMax = 0x10000; // 64K
-			uint32_t NMin = 0x400; // 1K
+			Sigma::Cfg m_ProofMax = { 4, 8 }; // 4^8 = 64K
+			Sigma::Cfg m_ProofMin = { 4, 5 }; // 4^5 = 1K
 
-			// Max distance of the specified window from the tip where the prover is allowed to use big N.
-			// For proofs with bigger distance only NMin is supported
+			// Max distance of the specified window from the tip where the prover is allowed to use m_ProofMax.
+			// For proofs with bigger distance only m_ProofMin is supported
 			uint32_t MaxWindowBacklog = 0x10000; // 64K
 			// Hence "big" proofs won't need more than 128K most recent elements
 
@@ -523,6 +523,7 @@ namespace beam
 
 	private:
 		struct PackedKA; // Key::ID + Asset::ID
+		bool IsValid2(Height hScheme, ECC::Point::Native& comm, const ECC::Point::Native* pGen) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }

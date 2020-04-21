@@ -848,6 +848,8 @@ void ChannelWithdrawal::get_Result(Result& r)
 
 		r.m_CommPeer1 = rx.m_Comm1;
 		r.m_txPeer2 = std::move(rx.m_tx2);
+
+		x.m_Tx1.Get(r.m_hvTx1KernelID, MultiTx::Codes::KernelID);
 	}
 }
 

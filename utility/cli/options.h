@@ -230,6 +230,9 @@ namespace beam
 
     void getRulesOptions(po::variables_map& vm);
 
+    bool ReadCfgFromFile(po::variables_map&, const po::options_description&, const char* szFile);
+    bool ReadCfgFromFileCommon(po::variables_map&, const po::options_description&);
+
     int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue = LOG_LEVEL_DEBUG);
 
     std::vector<std::string> getCfgPeers(const po::variables_map& vm);

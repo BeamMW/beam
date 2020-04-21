@@ -3420,14 +3420,10 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 	if (krn.m_WindowEnd > m_Extra.m_ShieldedOutputs)
 		return false;
 
-	uint32_t N = krn.m_SpendProof.m_Cfg.get_N();
-	if (N < r.Shielded.NMin)
-		return false; // invalid cfg or anonymity set is too small
-
-	if (N > r.Shielded.NMin)
+	if (!(krn.m_SpendProof.m_Cfg == r.Shielded.m_ProofMin))
 	{
-		if (N > r.Shielded.NMax)
-			return false; // too large
+		if (!(krn.m_SpendProof.m_Cfg == r.Shielded.m_ProofMax))
+			return false; // cfg not allowed
 
 		if (m_Extra.m_ShieldedOutputs > krn.m_WindowEnd + r.Shielded.MaxWindowBacklog)
 			return false; // large anonymity set is no more allowed, expired

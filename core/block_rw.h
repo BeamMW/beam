@@ -42,6 +42,11 @@ namespace beam
 	// Full recovery info. Includes ChainWorkProof, and all the UTXO set which hash should correspond to the tip commitment
 	struct RecoveryInfo
 	{
+		struct Flags {
+			static const uint8_t Output = 1; // if not specified - considered as input
+			static const uint8_t HadAsset = 2; // The asset proof itself is omitted in recovery, but it affects the bulletproof's blinding factor
+		};
+
 		struct Writer
 		{
 			std::FStream m_Stream;
