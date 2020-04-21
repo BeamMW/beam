@@ -164,7 +164,7 @@ namespace beam::wallet
 
         double blocksPerBeamBlock = GetBlocksPerHour() / beam::Rules::get().DA.Target_s;
         Height beamCurrentHeight = m_tx.GetWalletDB()->getCurrentHeight();
-        Height beamHeightDiff = beamCurrentHeight - m_tx.GetMandatoryParameter<Height>(TxParameterID::MinHeight);
+        Height beamHeightDiff = beamCurrentHeight - m_tx.GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
 
         Height peerMinHeight = externalLockTime - GetLockTimeInBlocks();
         Height peerEstCurrentHeight = peerMinHeight + static_cast<Height>(std::ceil(blocksPerBeamBlock * beamHeightDiff));
