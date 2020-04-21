@@ -364,7 +364,7 @@ namespace
         {
             json res;
             typename T::Response status;
-
+            status.txId = { 1,2,3 };
             api.getResponse(12345, status, res);
             testResultHeader(res);
 
@@ -397,7 +397,7 @@ namespace
         {
             json res;
             typename AssetInfo::Response status;
-
+            status.txId = { 3,1,3 };
             api.getResponse(12345, status, res);
             testResultHeader(res);
 
@@ -855,7 +855,7 @@ namespace
         {
         public:
 
-            WalletApiHandler(const std::string value)
+            WalletApiHandler(const std::string& value)
                 : _value(value)
             {}
 
@@ -919,7 +919,7 @@ namespace
         {
         public:
 
-            WalletApiHandler(const std::string value)
+            WalletApiHandler(const std::string& value)
                 : _value(value)
             {}
 
