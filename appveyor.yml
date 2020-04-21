@@ -101,31 +101,31 @@ on_success:
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/pdb/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
 artifacts:
-  - path: beam-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+  - path: beam-node-%BEAM_VERSION%.zip
     name: BeamNode
 
-  - path: beam-wallet-cli%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+  - path: beam-wallet-cli-%BEAM_VERSION%.zip
     name: BeamWalletCli
 
-  - path: wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+  - path: wallet-api-%BEAM_VERSION%.zip
     name: BeamWalletApi
 
-  - path: wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+  - path: wallet-service-%BEAM_VERSION%.zip
     name: BeamWalletService
 
-  - path: sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+  - path: sbbs-monitor-%BEAM_VERSION%.zip
     name: BeamSbbsMonitor
 
-  - path: explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+  - path: explorer-node-%BEAM_VERSION%.zip
     name: BeamNodeExplorer
 
-  - path: broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+  - path: broadcaster-%BEAM_VERSION%.zip
     name: BeamBroadcaster
 
-  - path: pdb/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+  - path: pdb/beam-pdb-%BEAM_VERSION%.zip
     name: BeamPdb
 
-  - path: Beam-Wallet%BEAM_DISPLAY_SUFFIX2%-%BEAM_VERSION%.exe
+  - path: Beam-Wallet-%BEAM_VERSION%.exe
     name: BeamWallet
 
 deploy:
