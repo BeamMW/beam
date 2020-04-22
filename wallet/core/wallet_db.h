@@ -231,7 +231,7 @@ namespace beam::wallet
 
     struct ShieldedCoin
     {
-        static const TxoID kInvalidID = std::numeric_limits<TxoID>::max();
+        static const TxoID kTxoInvalidID = std::numeric_limits<TxoID>::max();
 
         bool IsAvailable() const
         {
@@ -243,7 +243,7 @@ namespace beam::wallet
 
         PeerID m_sender;
         ECC::uintBig m_message;
-        TxoID m_ID = kInvalidID;
+        TxoID m_ID = kTxoInvalidID;
         bool m_isCreatedByViewer = false;
         Asset::ID m_assetID = 0;
 

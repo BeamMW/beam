@@ -1032,7 +1032,7 @@ namespace
             {
                 TxoID anonymitySetForCoin = lastKnownShieldedOuts && (lastKnownShieldedOuts > c.m_ID) ? lastKnownShieldedOuts - c.m_ID : 0;
                 cout << boost::format(kShieldedCoinsTableHeadFormat)
-                    % boost::io::group(left, setw(columnWidths[0]), c.m_ID == ShieldedCoin::kInvalidID ? "--" : std::to_string(c.m_ID))
+                    % boost::io::group(left, setw(columnWidths[0]), c.m_ID == ShieldedCoin::kTxoInvalidID ? "--" : std::to_string(c.m_ID))
                     % boost::io::group(right, setw(columnWidths[1]), c.m_value / Rules::Coin)
                     % boost::io::group(right, setw(columnWidths[2]), c.m_value % Rules::Coin)
                     % boost::io::group(left, setw(columnWidths[3]), c.m_createTxId ? to_hex(c.m_createTxId->data(), c.m_createTxId->size()) : "")
