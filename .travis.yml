@@ -99,7 +99,7 @@ matrix:
         - export TZ=GMT-3
         - brew update
         - brew unlink cmake
-        - brew install cmake ccache rsync curl
+        - brew install cmake ccache
         - brew link cmake
         - export PATH="/usr/local/opt/ccache/libexec:$PATH"
         - brew uninstall --ignore-dependencies boost
