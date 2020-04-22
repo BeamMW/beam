@@ -27,33 +27,27 @@ namespace
 {
     constexpr uint32_t kSecondsPerHour = 60 * 60;
 
-    QString getWaitingPeerStr(const beam::wallet::TxParameters& txParameters)
+    QString getWaitingPeerStr(const beam::wallet::SwapTxDescription& tx, Height currentHeight)
     {
-        auto minHeight = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight);
-        auto responseTime = txParameters.GetParameter<beam::Height>(TxParameterID::PeerResponseTime);
-        QString time = "";
-        if (minHeight && responseTime)
-        {
-            time = beamui::convertBeamHeightDiffToTime(*minHeight + *responseTime - AppModel::getInstance().getWallet()->getCurrentHeight());
-        }
+        auto minHeight = tx.getMinHeight();
+        auto responseTime = tx.getResponseTime();
+
+        QString time = beamui::convertBeamHeightDiffToTime(minHeight + responseTime - currentHeight);
         //% "If nobody accepts the offer in %1, the offer will be automatically canceled"
         return qtTrId("swap-tx-state-initial").arg(time);
     }
 
-    QString getInProgressNormalStr(const beam::wallet::TxParameters& txParameters)
+    QString getInProgressNormalStr(const beam::wallet::SwapTxDescription& tx, Height currentHeight)
     {
-        auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide); // mandatory parameter
-        auto isRegistered = txParameters.GetParameter<uint8_t>(TxParameterID::TransactionRegistered, isBeamSide ? REDEEM_TX : BEAM_REDEEM_TX);
-        if (isRegistered)
+        if (tx.isRedeemTxRegistered())
         {
             return "";
         }
-
-        auto minHeightRefund = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight, BEAM_REFUND_TX);
+        
         QString time = "";
+        auto minHeightRefund = tx.getMinRefundTxHeight();
         if (minHeightRefund)
         {
-            auto currentHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
             if (currentHeight < *minHeightRefund)
             {
                 time = beamui::convertBeamHeightDiffToTime(*minHeightRefund - currentHeight);
@@ -62,8 +56,7 @@ namespace
             }
         }
         else {
-            auto maxHeightLockTx = txParameters.GetParameter<beam::Height>(TxParameterID::MaxHeight, BEAM_LOCK_TX);
-            auto currentHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
+            auto maxHeightLockTx = tx.getMaxLockTxHeight();
             if (maxHeightLockTx && currentHeight < *maxHeightLockTx)
             {
                 time = beamui::convertBeamHeightDiffToTime(*maxHeightLockTx - currentHeight);
@@ -74,22 +67,19 @@ namespace
         return "";
     }
 
-    QString getInProgressRefundingStr(const beam::wallet::TxParameters& txParameters, double blocksPerHour)
+    QString getInProgressRefundingStr(const beam::wallet::SwapTxDescription& tx, double blocksPerHour, Height currentBeamHeight)
     {
-        auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide); // mandatory parameter
-        auto isRegistered = txParameters.GetParameter<uint8_t>(TxParameterID::TransactionRegistered, isBeamSide ? BEAM_REFUND_TX : REFUND_TX);
-        if (isRegistered)
+        if (tx.isRefundTxRegistered())
         {
             //% "Swap failed, the money is being released back to your wallet"
             return qtTrId("swap-tx-state-refunding");
         }
 
-        QString coin;
         QString time;
-        if (isBeamSide)
+        QString coin;
+        if (tx.isBeamSideSwap())
         {
-            auto currentBeamHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
-            auto refundMinHeight = txParameters.GetParameter<Height>(TxParameterID::MinHeight, BEAM_REFUND_TX);
+            auto refundMinHeight = tx.getMinRefundTxHeight();
             if (refundMinHeight && currentBeamHeight < *refundMinHeight)
             {
                 time = beamui::convertBeamHeightDiffToTime(*refundMinHeight - currentBeamHeight);
@@ -98,18 +88,14 @@ namespace
         }
         else
         {
-            auto swapCoin = txParameters.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-            if (swapCoin)
+            auto currentCoinHeight = tx.getExternalHeight();
+            auto lockTime = tx.getExternalLockTime();
+            if (lockTime && currentCoinHeight && *currentCoinHeight < *lockTime && blocksPerHour)
             {
-                coin = beamui::toString(beamui::convertSwapCoinToCurrency(*swapCoin));
-                auto currentCoinHeight = txParameters.GetParameter<Height>(TxParameterID::AtomicSwapExternalHeight);
-                auto lockTime = txParameters.GetParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
-                if (lockTime && currentCoinHeight && *currentCoinHeight < *lockTime && blocksPerHour)
-                {
-                    double beamBlocksPerBlock = (kSecondsPerHour / beam::Rules().DA.Target_s) / blocksPerHour;
-                    double beamBlocks = (*lockTime - *currentCoinHeight) * beamBlocksPerBlock;
-                    time = beamui::convertBeamHeightDiffToTime(static_cast<int32_t>(std::round(beamBlocks)));
-                }
+                double beamBlocksPerBlock = (kSecondsPerHour / beam::Rules().DA.Target_s) / blocksPerHour;
+                double beamBlocks = (*lockTime - *currentCoinHeight) * beamBlocksPerBlock;
+                time = beamui::convertBeamHeightDiffToTime(static_cast<int32_t>(std::round(beamBlocks)));
+                coin = beamui::toString(beamui::convertSwapCoinToCurrency(tx.getSwapCoin()));
             }
         }
         if (time.isEmpty() || coin.isEmpty())
@@ -124,8 +110,7 @@ namespace
 
 SwapTxObject::SwapTxObject(const TxDescription& tx, uint32_t minTxConfirmations, double blocksPerHour, QObject* parent/* = nullptr*/)
         : TxObject(tx, parent),
-          m_isBeamSide(m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide)),
-          m_swapCoin(m_tx.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin)),
+          m_swapTx(tx),
           m_minTxConfirmations(minTxConfirmations),
           m_blocksPerHour(blocksPerHour)
 {
@@ -138,20 +123,12 @@ bool SwapTxObject::operator==(const SwapTxObject& other) const
 
 auto SwapTxObject::isBeamSideSwap() const -> bool
 {
-    if (m_isBeamSide)
-    {
-        return *m_isBeamSide;
-    }
-    else return false;
+    return m_swapTx.isBeamSideSwap();
 }
 
 bool SwapTxObject::isExpired() const
 {
-    auto failureReason = m_tx.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
-
-    return  m_tx.m_status == wallet::TxStatus::Failed &&
-            failureReason &&
-            *failureReason == TxFailureReason::TransactionExpired;
+    return m_swapTx.isExpired();
 }
 
 bool SwapTxObject::isInProgress() const
@@ -178,34 +155,12 @@ bool SwapTxObject::isCanceled() const
 
 bool SwapTxObject::isFailed() const
 {
-    auto failureReason = m_tx.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
-
-    return  m_tx.m_status == wallet::TxStatus::Failed && !failureReason;
+    return m_swapTx.isFailed();
 }
 
 bool SwapTxObject::isCancelAvailable() const
 {
-    auto txState = getTxDescription().GetParameter<wallet::AtomicSwapTransaction::State>(TxParameterID::State);
-    if (txState)
-    {
-        switch (*txState)
-        {
-            case wallet::AtomicSwapTransaction::State::Initial:
-            case wallet::AtomicSwapTransaction::State::BuildingBeamLockTX:
-            case wallet::AtomicSwapTransaction::State::BuildingBeamRedeemTX:
-            case wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX:
-            {
-                return true;
-            }
-            case wallet::AtomicSwapTransaction::State::HandlingContractTX:
-            {
-                return m_isBeamSide && *m_isBeamSide;
-            }
-            default:
-                break;
-        }
-    }
-    return m_tx.m_status == wallet::TxStatus::Pending;
+    return m_swapTx.isCancelAvailable();
 }
 
 bool SwapTxObject::isDeleteAvailable() const
@@ -217,17 +172,14 @@ bool SwapTxObject::isDeleteAvailable() const
 
 auto SwapTxObject::getSwapCoinName() const -> QString
 {
-    if (m_swapCoin)
+    switch (m_swapTx.getSwapCoin())
     {
-        switch (*m_swapCoin)
-        {
-            case AtomicSwapCoin::Bitcoin:   return toString(beamui::Currencies::Bitcoin);
-            case AtomicSwapCoin::Litecoin:  return toString(beamui::Currencies::Litecoin);
-            case AtomicSwapCoin::Qtum:      return toString(beamui::Currencies::Qtum);
-            case AtomicSwapCoin::Unknown:   return toString(beamui::Currencies::Unknown);
-        }
+        case AtomicSwapCoin::Bitcoin:   return toString(beamui::Currencies::Bitcoin);
+        case AtomicSwapCoin::Litecoin:  return toString(beamui::Currencies::Litecoin);
+        case AtomicSwapCoin::Qtum:      return toString(beamui::Currencies::Qtum);
+        case AtomicSwapCoin::Unknown:   // no break
+        default:                        return toString(beamui::Currencies::Unknown);
     }
-    return QString("unknown");
 }
 
 QString SwapTxObject::getSentAmountWithCurrency() const
@@ -282,138 +234,77 @@ beam::Amount SwapTxObject::getReceivedAmountValue() const
 
 QString SwapTxObject::getSwapAmountWithCurrency(bool sent) const
 {
-    if (!m_isBeamSide)
-    {
-        return "";
-    }
-
-    bool s = sent ? !*m_isBeamSide : *m_isBeamSide;
+    bool isBeamSide = m_swapTx.isBeamSideSwap();
+    bool s = sent ? !isBeamSide : isBeamSide;
     if (s)
     {
-        auto swapAmount = m_tx.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
-        if (swapAmount)
-        {
-            return AmountToUIString(*swapAmount, beamui::convertSwapCoinToCurrency(*m_swapCoin));
-        }
-        return "";
+        return AmountToUIString(m_swapTx.getSwapAmount(), beamui::convertSwapCoinToCurrency(m_swapTx.getSwapCoin()));
     }
     return getAmountWithCurrency();
 }
 
 beam::Amount SwapTxObject::getSwapAmountValue(bool sent) const
 {
-    if (!m_isBeamSide)
-    {
-        return 0;
-    }
-
-    bool s = sent ? !*m_isBeamSide : *m_isBeamSide;
+    bool isBeamSide = m_swapTx.isBeamSideSwap();
+    bool s = sent ? !isBeamSide : isBeamSide;
     if (s)
     {
-        auto swapAmount = m_tx.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
-        if (swapAmount)
-        {
-            return *swapAmount;
-        }
-        return 0;
+        return m_swapTx.getSwapAmount();
     }
     return m_tx.m_amount;
 }
 
 QString SwapTxObject::getFee() const
 {
-    if (m_isBeamSide)
+    auto fee = m_swapTx.getFee();
+    if (fee)
     {
-        auto fee = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::BEAM_LOCK_TX : SubTxIndex::BEAM_REDEEM_TX);
-        if (fee)
-        {
-            return beamui::AmountInGrothToUIString(*fee);
-        }
+        return beamui::AmountInGrothToUIString(*fee);
     }
     return QString();
 }
 
 QString SwapTxObject::getSwapCoinFeeRate() const
 {
-    if (m_isBeamSide)   // check if initialized
+    auto feeRate = m_swapTx.getSwapCoinFeeRate();
+    if (feeRate)
     {
-        auto feeRate = m_tx.GetParameter<beam::Amount>(
-            TxParameterID::Fee,
-            *m_isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
-
-        if (feeRate && m_swapCoin)
-        {
-            QString value = QString::number(*feeRate);
-            QString rateMeasure = beamui::getFeeRateLabel(beamui::convertSwapCoinToCurrency(*m_swapCoin));
-            return value + " " + rateMeasure;
-        }
+        QString value = QString::number(*feeRate);
+        QString rateMeasure = beamui::getFeeRateLabel(beamui::convertSwapCoinToCurrency(m_swapTx.getSwapCoin()));
+        return value + " " + rateMeasure;
     }
     return QString();
 }
 
 QString SwapTxObject::getSwapCoinFee() const
 {
-    if (m_isBeamSide)   // check if initialized
+    auto feeRate = m_swapTx.getSwapCoinFeeRate();
+    if (!feeRate)
     {
-        auto feeRate = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
-
-        if (feeRate && m_swapCoin)
-        {
-            Currency coinTypeQt;
-
-            switch (*m_swapCoin)
-            {
-            case AtomicSwapCoin::Bitcoin:
-                coinTypeQt = Currency::CurrBtc;
-                break;
-
-            case AtomicSwapCoin::Litecoin:
-                coinTypeQt = Currency::CurrLtc;
-                break;
-
-            case AtomicSwapCoin::Qtum:
-                coinTypeQt = Currency::CurrQtum;
-                break;
-            
-            default:
-                coinTypeQt = Currency::CurrStart;
-                break;
-            }
-
-            return QMLGlobals::calcTotalFee(coinTypeQt, *feeRate);
-        }
+        return QString();
     }
-    return QString();
+
+    Currency coinTypeQt;
+
+    switch (m_swapTx.getSwapCoin())
+    {
+        case AtomicSwapCoin::Bitcoin:   coinTypeQt = Currency::CurrBtc; break;
+        case AtomicSwapCoin::Litecoin:  coinTypeQt = Currency::CurrLtc; break;
+        case AtomicSwapCoin::Qtum:      coinTypeQt = Currency::CurrQtum; break;
+        default:                        coinTypeQt = Currency::CurrStart; break;
+    }
+    return QMLGlobals::calcTotalFee(coinTypeQt, *feeRate);
 }
 
 QString SwapTxObject::getFailureReason() const
 {
-    if (getTxDescription().m_status == wallet::TxStatus::Failed && getTxDescription().m_txType == beam::wallet::TxType::AtomicSwap)
+    if (m_swapTx.isRefunded())
     {
-        auto failureReason = getTxDescription().GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
-        if (!failureReason)
-        {
-            auto txState = getTxDescription().GetParameter<wallet::AtomicSwapTransaction::State>(TxParameterID::State);
-            if (txState && *txState == wallet::AtomicSwapTransaction::State::Refunded)
-            {
-                //% "Refunded"
-                return qtTrId("swap-tx-failure-refunded");
-            }
-            else
-            {
-                auto extFailureReason = getTxDescription().GetParameter<TxFailureReason>(TxParameterID::FailureReason);
-                if (extFailureReason)
-                {
-                    return getReasonString(*extFailureReason);
-                }
-            }
-        }
-        else
-        {
-            return getReasonString(*failureReason);
-        }
+        //% "Refunded"
+        return qtTrId("swap-tx-failure-refunded");
     }
-    return QString();
+    auto failureReason = m_swapTx.getFailureReason();
+    return getReasonString(failureReason ? *failureReason : beam::wallet::TxFailureReason::Unknown);
 }
 
 QString SwapTxObject::getStateDetails() const
@@ -425,32 +316,33 @@ QString SwapTxObject::getStateDetails() const
         case beam::wallet::TxStatus::Pending:
         case beam::wallet::TxStatus::InProgress:
             {
-                auto state = getTxDescription().GetParameter<wallet::AtomicSwapTransaction::State>(TxParameterID::State);
+                Height currentHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
+                auto state = m_swapTx.getState();
                 if (state)
                 {
                     switch (*state)
                     {
                     case wallet::AtomicSwapTransaction::State::Initial:
-                        return getWaitingPeerStr(getTxDescription());
+                        return getWaitingPeerStr(m_swapTx, currentHeight);
                     case wallet::AtomicSwapTransaction::State::BuildingBeamLockTX:
                     case wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX:
                     case wallet::AtomicSwapTransaction::State::BuildingBeamRedeemTX:
                     case wallet::AtomicSwapTransaction::State::HandlingContractTX:
                     case wallet::AtomicSwapTransaction::State::SendingBeamLockTX:
-                        return getInProgressNormalStr(getTxDescription());
+                        return getInProgressNormalStr(m_swapTx, currentHeight);
                     case wallet::AtomicSwapTransaction::State::SendingRedeemTX:
                     case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
-                        return getInProgressNormalStr(getTxDescription());
+                        return getInProgressNormalStr(m_swapTx, currentHeight);
                     case wallet::AtomicSwapTransaction::State::SendingRefundTX:
                     case wallet::AtomicSwapTransaction::State::SendingBeamRefundTX:
-                        return getInProgressRefundingStr(getTxDescription(), m_blocksPerHour);
+                        return getInProgressRefundingStr(m_swapTx, m_blocksPerHour, currentHeight);
                     default:
                         break;
                     }
                 }
                 else
                 {
-                    return getWaitingPeerStr(getTxDescription());
+                    return getWaitingPeerStr(m_swapTx, currentHeight);
                 }
             }
             break;
@@ -463,25 +355,25 @@ QString SwapTxObject::getStateDetails() const
 
 beam::wallet::AtomicSwapCoin SwapTxObject::getSwapCoinType() const
 {
-    return *m_swapCoin;
+    return m_swapTx.getSwapCoin();
 }
 
 namespace
 {
-    template<size_t V>
-    QString getSwapCoinTxId(const TxParameters& source)
+    template<size_t SubTxId>
+    QString getSwapCoinTxId(const SwapTxDescription& swapTxDescription)
     {
-        if (auto res = source.GetParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, V))
+        if (auto res = swapTxDescription.getSwapCoinTxId<SubTxId>(); res)
         {
-            return QString(res->c_str());
+            return QString::fromStdString(*res);
         }
         else return QString();
     }
     
-    template<size_t V>
-    QString getSwapCoinTxConfirmations(const TxParameters& source, uint32_t minTxConfirmations)
+    template<size_t SubTxId>
+    QString getSwapCoinTxConfirmations(const SwapTxDescription& swapTxDescription, uint32_t minTxConfirmations)
     {
-        if (auto res = source.GetParameter<uint32_t>(TxParameterID::Confirmations, V))
+        if (auto res = swapTxDescription.getSwapCoinTxConfirmations<SubTxId>(); res)
         {
             std::string result;
             if (minTxConfirmations)
@@ -498,12 +390,12 @@ namespace
         return QString();
     }
 
-    template<size_t V>
-    QString getBeamTxKernelId(const TxParameters& source)
+    template<size_t SubTxId>
+    QString getBeamTxKernelId(const SwapTxDescription& swapTxDescription)
     {
-        if (auto res = source.GetParameter<Merkle::Hash>(TxParameterID::KernelID, V); res)
+        if (auto res = swapTxDescription.getBeamTxKernelId<SubTxId>(); res)
         {
-            return QString::fromStdString(to_hex(res->m_pData, res->nBytes));
+            return QString::fromStdString(*res);
         }
         return QString();
     }
@@ -511,87 +403,65 @@ namespace
 
 QString SwapTxObject::getToken() const
 {
-    if (m_type != TxType::AtomicSwap)
+    auto swapToken = m_swapTx.getToken();
+    if (swapToken)
     {
-        return "";
+        return QString::fromStdString(*swapToken);
     }
-
-    auto isInitiator = m_tx.GetParameter<bool>(TxParameterID::IsInitiator);
-    
-    if (*isInitiator == false) 
-    {
-        const auto& mirroredTxParams = MirrorSwapTxParams(m_tx);
-        const auto& readyForTokenizeTxParams =
-            PrepareSwapTxParamsForTokenization(mirroredTxParams);
-        return QString::fromStdString(std::to_string(readyForTokenizeTxParams));
-    }
-
-    const auto& readyForTokenizeTxParams =
-            PrepareSwapTxParamsForTokenization(m_tx);
-    return QString::fromStdString(std::to_string(readyForTokenizeTxParams));
+    return QString();
 }
 
 bool SwapTxObject::isLockTxProofReceived() const
 {
-    Height proofHeight;
-    if (m_tx.GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_LOCK_TX))
-    {
-        return true;
-    }
-    else return false;
+    return m_swapTx.isLockTxProofReceived();
 }
 
 bool SwapTxObject::isRefundTxProofReceived() const
 {
-    Height proofHeight;
-    if (m_tx.GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REFUND_TX))
-    {
-        return true;
-    }
-    else return false;
+    return m_swapTx.isRefundTxProofReceived();
 }
 
 QString SwapTxObject::getSwapCoinLockTxId() const
 {
-    return getSwapCoinTxId<SubTxIndex::LOCK_TX>(m_tx);
+    return getSwapCoinTxId<SubTxIndex::LOCK_TX>(m_swapTx);
 }
 
 QString SwapTxObject::getSwapCoinRedeemTxId() const
 {
-    return getSwapCoinTxId<SubTxIndex::REDEEM_TX>(m_tx);
+    return getSwapCoinTxId<SubTxIndex::REDEEM_TX>(m_swapTx);
 }
 
 QString SwapTxObject::getSwapCoinRefundTxId() const
 {
-    return getSwapCoinTxId<SubTxIndex::REFUND_TX>(m_tx);
+    return getSwapCoinTxId<SubTxIndex::REFUND_TX>(m_swapTx);
 }
 
 QString SwapTxObject::getSwapCoinLockTxConfirmations() const
 {
-    return getSwapCoinTxConfirmations<SubTxIndex::LOCK_TX>(m_tx, m_minTxConfirmations);
+    return getSwapCoinTxConfirmations<SubTxIndex::LOCK_TX>(m_swapTx, m_minTxConfirmations);
 }
 
 QString SwapTxObject::getSwapCoinRedeemTxConfirmations() const
 {
-    return getSwapCoinTxConfirmations<SubTxIndex::REDEEM_TX>(m_tx, m_minTxConfirmations);
+    return getSwapCoinTxConfirmations<SubTxIndex::REDEEM_TX>(m_swapTx, m_minTxConfirmations);
 }
 
 QString SwapTxObject::getSwapCoinRefundTxConfirmations() const
 {
-    return getSwapCoinTxConfirmations<SubTxIndex::REFUND_TX>(m_tx, m_minTxConfirmations);
+    return getSwapCoinTxConfirmations<SubTxIndex::REFUND_TX>(m_swapTx, m_minTxConfirmations);
 }
 
 QString SwapTxObject::getBeamLockTxKernelId() const
 {
-    return getBeamTxKernelId<SubTxIndex::BEAM_LOCK_TX>(m_tx);
+    return getBeamTxKernelId<SubTxIndex::BEAM_LOCK_TX>(m_swapTx);
 }
 
 QString SwapTxObject::getBeamRedeemTxKernelId() const
 {
-    return getBeamTxKernelId<SubTxIndex::REDEEM_TX>(m_tx);
+    return getBeamTxKernelId<SubTxIndex::REDEEM_TX>(m_swapTx);
 }
 
 QString SwapTxObject::getBeamRefundTxKernelId() const
 {
-    return getBeamTxKernelId<SubTxIndex::REFUND_TX>(m_tx);
+    return getBeamTxKernelId<SubTxIndex::REFUND_TX>(m_swapTx);
 }

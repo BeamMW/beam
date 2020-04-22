@@ -59,6 +59,7 @@ bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
     // New offer
     if (it == m_offersCache.end())
     {
+        // TODO: add IsValid offer check here
         if (isOfferExpired(newOffer) && newOffer.m_status == SwapOfferStatus::Pending)
         {
             newOffer.m_status = SwapOfferStatus::Expired;

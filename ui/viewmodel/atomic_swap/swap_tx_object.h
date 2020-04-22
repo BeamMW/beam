@@ -14,6 +14,7 @@
 #pragma once
 
 #include "viewmodel/wallet/tx_object.h"
+#include "wallet/transactions/swaps/swap_tx_description.h"
 
 class SwapTxObject : public TxObject
 {
@@ -66,8 +67,7 @@ private:
     auto getSwapAmountValue(bool sent) const -> beam::Amount;
     auto getSwapAmountWithCurrency(bool sent) const -> QString;
 
-    boost::optional<bool> m_isBeamSide;
-    boost::optional<beam::wallet::AtomicSwapCoin> m_swapCoin;
+    beam::wallet::SwapTxDescription m_swapTx;
     uint32_t m_minTxConfirmations = 0;
     double m_blocksPerHour = 0;
 };
