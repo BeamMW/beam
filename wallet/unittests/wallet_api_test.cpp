@@ -419,7 +419,18 @@ namespace
             void onMessage(const JsonRpcId& id, const GetAssetInfo& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
+                WALLET_CHECK(data.assetId.is_initialized() || data.assetMeta.is_initialized());
+
+                if (data.assetId.is_initialized())
+                {
+                    WALLET_CHECK(*data.assetId > 0);
+                }
+
+                if (data.assetMeta.is_initialized())
+                {
+                    const auto meta = *data.assetMeta;
+                    WALLET_CHECK(!meta.empty());
+                }
             }
         };
 
@@ -1337,10 +1348,10 @@ void TestAssetsAPI()
     //
     Rules::get().CA.Enabled = true;
 
-    //TestICTx<Issue>("tx_asset_issue");
-    //TestICTx<Consume>("tx_asset_consume");
-    //TestAITx();
-    //TestGetAssetInfo();
+    TestICTx<Issue>("tx_asset_issue");
+    TestICTx<Consume>("tx_asset_consume");
+    TestAITx();
+    TestGetAssetInfo();
 
     Rules::get().CA.Enabled = false;
 }
@@ -1348,7 +1359,7 @@ void TestAssetsAPI()
 int main()
 {
     auto logger = beam::Logger::create();
- /*   testInvalidJsonRpc([](const json& msg)
+    testInvalidJsonRpc([](const json& msg)
     {
         testErrorHeader(msg);
 
@@ -1708,7 +1719,7 @@ int main()
             }
         }));
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-*/
+
     TestAssetsAPI();
 
     return WALLET_CHECK_RESULT;
