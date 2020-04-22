@@ -128,7 +128,7 @@ matrix:
         - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios/include/
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios
         - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios
-        - tar -cvzf beam-ios-$BEAM_VERSION.tar.gz --strip=3 /Users/travis/beam-ios
+        - tar -cvzf beam-ios-$BEAM_VERSION.tar.gz -C /Users/travis beam-ios
         - cp beam-ios-$BEAM_VERSION.tar.gz beam-ios.tar.gz
         - curl --retry 3 --ftp-create-dirs -T beam-ios-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
         - curl --retry 3 --ftp-create-dirs -T beam-ios.tar.gz $BUILDS_SERVER_LATEST_PATH/
@@ -178,7 +178,7 @@ matrix:
         - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios/include/
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios
         - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios
-        - tar -cvzf beam-ios-combined-$BEAM_VERSION.tar.gz --strip=3 /Users/travis/beam-ios
+        - tar -cvzf beam-ios-combined-$BEAM_VERSION.tar.gz -C /Users/travis beam-ios
         - cp beam-ios-combined-$BEAM_VERSION.tar.gz beam-ios-combined.tar.gz
         - curl --retry 3 --ftp-create-dirs -T beam-ios-combined-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
         - curl --retry 3 --ftp-create-dirs -T beam-ios-combined.tar.gz $BUILDS_SERVER_LATEST_PATH/
