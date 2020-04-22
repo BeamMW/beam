@@ -167,7 +167,7 @@ matrix:
         - git apply 3rdparty/protobuf-patch.diff
         - git apply os64combined.diff
         - cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=/Users/travis/toolchain-ios/ios.toolchain.cmake -DBEAM_NO_QT_UI_WALLET=ON -DPLATFORM=OS64COMBINED -GXcode -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -DBOOST_ROOT_IOS=$BOOST_ROOT_IOS -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build
-        - cmake --build ./build -t wallet_client mnemonic external_pow -- -j$(sysctl -n hw.ncpu)
+        - cmake --build ./build -t wallet_client mnemonic external_pow
       after_success:
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
