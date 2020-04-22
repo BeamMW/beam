@@ -138,6 +138,17 @@ namespace beam
 
 namespace beam::wallet
 {
+    template<> bool fromByteBuffer<std::string>(const ByteBuffer& b, std::string& value)
+    {
+        if (b.empty()) return false;
+
+        Deserializer d;
+        d.reset(b.data(), b.size());
+        d & value;
+
+        return true;
+    }
+
     int WalletID::cmp(const WalletID& x) const
     {
         int n = m_Channel.cmp(x.m_Channel);
