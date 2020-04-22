@@ -423,7 +423,8 @@ namespace
 
                 if (data.assetId.is_initialized())
                 {
-                    WALLET_CHECK(*data.assetId > 0);
+                    const auto assetId = *data.assetId;
+                    WALLET_CHECK(assetId > 0);
                 }
 
                 if (data.assetMeta.is_initialized())
