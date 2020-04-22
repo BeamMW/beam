@@ -120,7 +120,7 @@ matrix:
         - make wallet_client mnemonic external_pow -C ./build -j$(sysctl -n hw.ncpu)
       after_success:
         # extract build version
-        - BEAM_VERSION="$(cat build/beam_version.gen)" && rm build/beam_version.gen
+        - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
         - mkdir -p /Users/travis/beam-ios/include
         - mkdir -p /Users/travis/beam-ios/lib
