@@ -134,6 +134,56 @@ matrix:
         - curl --retry 3 --ftp-create-dirs -T beam-ios.tar.gz $BUILDS_SERVER_LATEST_PATH/
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios/" beam-ios-$BEAM_VERSION.tar.gz
         - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios/" beam-ios.tar.gz
+
+
+###############################################################################
+# IOS OS64COMBINED
+###############################################################################
+
+    - os: osx
+      language: cpp
+      cache: ccache
+      osx_image: xcode10.1
+      install:
+        - export TZ=GMT-3
+        - brew update
+        - brew unlink cmake
+        - brew install cmake ccache
+        - brew link cmake
+        - export PATH="/usr/local/opt/ccache/libexec:$PATH"
+        - brew uninstall --ignore-dependencies boost
+        - git clone --depth=1 https://github.com/BeamMW/boost-ios.git /Users/travis/boost-ios
+        - git clone --depth=1 https://github.com/BeamMW/openssl-ios.git /Users/travis/openssl-ios
+        - git clone --depth=1 https://github.com/leetal/ios-cmake.git /Users/travis/toolchain-ios
+      env: 
+        - BUILD_TYPE=Debug
+        - OPENSSL_ROOT_DIR="/Users/travis/openssl-ios/"
+        - OPENSSL_CRYPTO_LIBRARY="/Users/travis/openssl-ios/lib/libcrypto.a"
+        - OPENSSL_INCLUDE_DIR="/Users/travis/openssl-ios/include"
+        - OPENSSL_SSL_LIBRARY="/Users/travis/openssl-ios/lib/libssl.a"
+        - OPENSSL_LIBRARIES="/Users/travis/openssl-ios/lib"
+        - BOOST_ROOT_IOS="/Users/travis/boost-ios"
+      script:
+        - git apply 3rdparty/protobuf-patch.diff
+        - git apply os64combined.diff
+        - cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=/Users/travis/toolchain-ios/ios.toolchain.cmake -DBEAM_NO_QT_UI_WALLET=ON -DPLATFORM=OS64COMBINED -GXcode -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -DBOOST_ROOT_IOS=$BOOST_ROOT_IOS -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build
+        - cmake --build ./build -t wallet_client mnemonic external_pow -- -j$(sysctl -n hw.ncpu)
+      after_success:
+        # extract build version
+        - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
+        - echo BEAM_VERSION = $BEAM_VERSION
+        - mkdir -p /Users/travis/beam-ios/include
+        - mkdir -p /Users/travis/beam-ios/lib
+        - find ./build -name \*.a -type f -exec cp {} /Users/travis/beam-ios/lib/ \;
+        - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios/include/
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios
+        - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios
+        - tar -cvzf beam-ios-combined-$BEAM_VERSION.tar.gz --strip=3 /Users/travis/beam-ios
+        - cp beam-ios-combined-$BEAM_VERSION.tar.gz beam-ios-combined.tar.gz
+        - curl --retry 3 --ftp-create-dirs -T beam-ios-combined-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T beam-ios-combined.tar.gz $BUILDS_SERVER_LATEST_PATH/
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios/" beam-ios-combined-$BEAM_VERSION.tar.gz
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios/" beam-ios-combined.tar.gz
 ###############################################################################
 # Linux Debug
 ###############################################################################

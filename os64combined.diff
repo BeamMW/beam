@@ -1,0 +1,12 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 866a5a050..b51784a24 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -327,6 +327,7 @@ if(IOS)
+     set(BEAM_LASER_SUPPORT OFF)
+     set(BEAM_CONFIDENTIAL_ASSETS_SUPPORT OFF)
+     add_compile_definitions(BOOST_NO_AUTO_PTR)
++    add_compile_options("-Wno-shorten-64-to-32")
+     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
+     CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_IOS}" "lib/libboost_" ".a")
+ elseif(ANDROID)
