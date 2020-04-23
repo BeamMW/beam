@@ -22,8 +22,7 @@ SwapTxDescription::SwapTxDescription(const TxParameters& txParameters)
     , m_isBeamSide(*m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide))
     , m_status(*m_tx.GetParameter<TxStatus>(TxParameterID::Status))
 {
-    auto txType = m_tx.GetParameter<TxType>(TxParameterID::TransactionType);
-    assert(txType && *txType == TxType::AtomicSwap);
+    assert(*m_tx.GetParameter<TxType>(TxParameterID::TransactionType) == TxType::AtomicSwap);
 }
 
 AtomicSwapCoin SwapTxDescription::getSwapCoin() const
