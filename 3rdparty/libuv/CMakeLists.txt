@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.0)
 #enable_testing()
 
 message("start libuv")
+message("${CMAKE_SYSTEM_NAME}")
 message("${CMAKE_C_COMPILER_ID}")
 
 if(MSVC)
@@ -116,7 +117,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Android")
        src/unix/sysinfo-memory.c)
 endif()
 
-if(CMAKE_SYSTEM_NAME MATCHES "Android|Darwin|Linux|OS/390")
+if(CMAKE_SYSTEM_NAME MATCHES "Android|Darwin|iOS|Linux|OS/390")
   list(APPEND uv_sources src/unix/proctitle.c)
 endif()
 
@@ -129,11 +130,11 @@ if(CMAKE_SYSTEM_NAME MATCHES "DragonFly|FreeBSD|NetBSD|OpenBSD")
   list(APPEND uv_libraries kvm)
 endif()
 
-if(CMAKE_SYSTEM_NAME MATCHES "Darwin|DragonFly|FreeBSD|NetBSD|OpenBSD")
+if(CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS|DragonFly|FreeBSD|NetBSD|OpenBSD")
   list(APPEND uv_sources src/unix/bsd-ifaddrs.c src/unix/kqueue.c)
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+if(CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS")
   list(APPEND uv_defines _DARWIN_UNLIMITED_SELECT=1 _DARWIN_USE_64_BIT_INODE=1)
   list(APPEND uv_sources
        src/unix/darwin-proctitle.c
@@ -187,7 +188,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
   list(APPEND uv_sources src/unix/no-proctitle.c src/unix/sunos.c)
 endif()
 
-if(CMAKE_SYSTEM_NAME MATCHES "Darwin|DragonFly|FreeBSD|Linux|NetBSD|OpenBSD")
+if(CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS|DragonFly|FreeBSD|Linux|NetBSD|OpenBSD")
   list(APPEND uv_test_libraries util)
 endif()
 
