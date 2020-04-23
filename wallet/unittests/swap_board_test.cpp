@@ -37,6 +37,8 @@ namespace
     using PublicKey = PeerID;
 
     const string dbFileName = "wallet.db";
+    constexpr Height Fork1Height = Height(10);
+    constexpr Height Fork2Height = Height(20);
 
     void PublishOfferNoThrow(const SwapOffersBoard& board, const SwapOffer& offer)
     {
@@ -116,9 +118,9 @@ namespace
         }
         return txId;
     }
-    
+
     // Increment by 1 @id
-    TxID& incrementTxID(TxID& id)
+    TxID& operator++(TxID& id)
     {
         for (uint8_t& i : id)
         {
@@ -345,7 +347,7 @@ namespace
             {
                 // check that offers without mandatory parameters don't appear on board
                 SwapOffer o = correctOffer;
-                o.m_txId = incrementTxID(txID);
+                o.m_txId = ++txID;
                 cout << "\tparameter code " << static_cast<uint32_t>(parameter) << endl;
                 o.DeleteParameter(parameter);
                 PublishOfferNoThrow(Alice, o);
@@ -356,7 +358,7 @@ namespace
         {
             cout << "Case: AtomicSwapCoin parameter validation" << endl;
             SwapOffer o = correctOffer;
-            o.m_txId = incrementTxID(txID);
+            o.m_txId = ++txID;
             o.m_coin = AtomicSwapCoin::Unknown;
             PublishOfferNoThrow(Alice, o);
             WALLET_CHECK_NO_THROW(count = Alice.getOffersList().size());
@@ -365,7 +367,7 @@ namespace
         {
             cout << "Case: SwapOfferStatus parameter validation" << endl;
             SwapOffer o = correctOffer;
-            o.m_txId = incrementTxID(txID);
+            o.m_txId = ++txID;
             o.m_status = static_cast<SwapOfferStatus>(static_cast<uint32_t>(SwapOfferStatus::Failed) + 1);
             PublishOfferNoThrow(Alice, o);
             WALLET_CHECK_NO_THROW(count = Alice.getOffersList().size());
@@ -374,7 +376,7 @@ namespace
         {
             cout << "Case: correct offer" << endl;
             SwapOffer o = correctOffer;
-            o.m_txId = incrementTxID(txID);
+            o.m_txId = ++txID;
             PublishOfferNoThrow(Alice, o);
             WALLET_CHECK(Alice.getOffersList().size() == ++offersCount);
         }
@@ -404,6 +406,13 @@ namespace
         SwapOffer correctOffer;
         std::tie(correctOffer, std::ignore) =  generateTestOffer(storage);
         TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
+        HeightHash fork2state;
+        HeightHash startState;
+        fork2state.m_Height = Fork2Height;
+        startState.m_Height = Fork1Height;
+        // set offers not to expire during fork test
+        correctOffer.SetParameter(TxParameterID::MinHeight, Fork1Height);
+        correctOffer.SetParameter(TxParameterID::PeerResponseTime, (Fork2Height - Fork1Height) * Height(2));
         
         size_t offersCount = 0;
         {
@@ -420,21 +429,27 @@ namespace
             Bob.Subscribe(&testObserver);
             Cory.Subscribe(&testObserver);
             
+            Alice.onSystemStateChanged(startState);
+            Bob.onSystemStateChanged(startState);
+            Cory.onSystemStateChanged(startState);
+            
             cout << "Case: normal dispatch and notification" << endl;
             SwapOffer o1 = correctOffer;
             SwapOffer o2 = correctOffer;
             SwapOffer o3 = correctOffer;
-            o2.m_txId = incrementTxID(txID);
-            o3.m_txId = incrementTxID(txID);
+            o2.m_txId = ++txID;
+            o3.m_txId = ++txID;
             PublishOfferNoThrow(Alice, o1);
             PublishOfferNoThrow(Bob, o2);
             PublishOfferNoThrow(Cory, o3);
             offersCount += 3;
+            // everybody has to receive offer
             WALLET_CHECK(Alice.getOffersList().size() == offersCount);
             WALLET_CHECK(Bob.getOffersList().size() == offersCount);
             WALLET_CHECK(Cory.getOffersList().size() == offersCount);
-            WALLET_CHECK(executionCount == 9);
+            WALLET_CHECK(executionCount == offersCount * 3);
             {
+                // check mandatory offer parameters
                 auto receivedOffer = Bob.getOffersList().front();
                 std::array<TxParameterID,6> paramsToCompare {
                     TxParameterID::AtomicSwapCoin,
@@ -454,11 +469,9 @@ namespace
             }
 
             cout << "Case: fork 2 happens" << endl;
-            HeightHash fork2;
-		    fork2.m_Height = Rules::get().pForks[2].m_Height;
-            Alice.onSystemStateChanged(fork2);
-            Bob.onSystemStateChanged(fork2);
-            Cory.onSystemStateChanged(fork2);
+            Alice.onSystemStateChanged(fork2state);
+            Bob.onSystemStateChanged(fork2state);
+            Cory.onSystemStateChanged(fork2state);
             
             cout << "Case: ignore same TxID" << endl;
             SwapOffer o4 = correctOffer;
@@ -468,17 +481,17 @@ namespace
             WALLET_CHECK(Bob.getOffersList().size() == offersCount);
             WALLET_CHECK(Cory.getOffersList().size() == offersCount);
             WALLET_CHECK(Alice.getOffersList().front().m_coin == AtomicSwapCoin::Bitcoin);
-            WALLET_CHECK(executionCount == 9);
+            WALLET_CHECK(executionCount == offersCount * 3);
 
             cout << "Case: different TxID" << endl;
-            o4.m_txId = incrementTxID(txID);
+            o4.m_txId = ++txID;
             o4.m_coin = AtomicSwapCoin::Qtum;
             PublishOfferNoThrow(Cory, o4);
             offersCount++;
             WALLET_CHECK(Alice.getOffersList().size() == offersCount);
             WALLET_CHECK(Bob.getOffersList().size() == offersCount);
             WALLET_CHECK(Cory.getOffersList().size() == offersCount);
-            WALLET_CHECK(executionCount == 12);
+            WALLET_CHECK(executionCount == offersCount * 3);
 
             Alice.Unsubscribe(&testObserver);
             Bob.Unsubscribe(&testObserver);
@@ -486,13 +499,15 @@ namespace
 
             cout << "Case: unsubscribe stops notification" << endl;
             o4 = correctOffer;
-            o4.m_txId = incrementTxID(txID);
+            o4.m_txId = ++txID;
             o4.m_coin = AtomicSwapCoin::Litecoin;
             PublishOfferNoThrow(Bob, o4);
             offersCount++;
+            // list of offers has to grow
             WALLET_CHECK(Alice.getOffersList().size() == offersCount);
             WALLET_CHECK(Bob.getOffersList().size() == offersCount);
             WALLET_CHECK(Cory.getOffersList().size() == offersCount);
+            // amount of notifications has to be the same
             WALLET_CHECK(executionCount == 12);
         }
         
@@ -517,7 +532,7 @@ namespace
                 for (auto s : nonActiveStatuses)
                 {
                     SwapOffer o = correctOffer;
-                    o.m_txId = incrementTxID(txID);
+                    o.m_txId = ++txID;
                     cout << "\tparameter " << static_cast<uint32_t>(s) << endl;
                     o.m_status = s;
                     PublishOfferNoThrow(Alice, o);
@@ -528,7 +543,7 @@ namespace
             {
                 cout << "Case: notification on new offer in Pending status" << endl;
                 SwapOffer o = correctOffer;
-                o.m_txId = incrementTxID(txID);
+                o.m_txId = ++txID;
                 o.m_status = SwapOfferStatus::Pending;
                 PublishOfferNoThrow(Alice, o);
                 offersCount++;
@@ -567,11 +582,11 @@ namespace
             SwapOffer o3 = correctOffer;
             SwapOffer o4 = correctOffer;
             SwapOffer o5 = correctOffer;
-            o1.m_txId = incrementTxID(txID);
-            o2.m_txId = incrementTxID(txID);
-            o3.m_txId = incrementTxID(txID);
-            o4.m_txId = incrementTxID(txID);
-            o5.m_txId = incrementTxID(txID);
+            o1.m_txId = ++txID;
+            o2.m_txId = ++txID;
+            o3.m_txId = ++txID;
+            o4.m_txId = ++txID;
+            o5.m_txId = ++txID;
             PublishOfferNoThrow(Alice, o1);
             PublishOfferNoThrow(Alice, o2);
             PublishOfferNoThrow(Alice, o3);
@@ -631,9 +646,9 @@ namespace
             SwapOffer aliceOffer = correctOffer;
             SwapOffer aliceExpiredOffer = correctOffer;
             SwapOffer bobOffer = correctOffer;
-            aliceOffer.m_txId = incrementTxID(txID);
-            aliceExpiredOffer.m_txId = incrementTxID(txID);
-            bobOffer.m_txId = incrementTxID(txID);
+            aliceOffer.m_txId = ++txID;
+            aliceExpiredOffer.m_txId = ++txID;
+            bobOffer.m_txId = ++txID;
             PublishOfferNoThrow(Bob, bobOffer);
             PublishOfferNoThrow(Alice, aliceOffer);
             offerCount += 2;
@@ -747,6 +762,12 @@ int main()
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
+    
+    auto& rules = beam::Rules::get();
+    rules.FakePoW = true;
+    rules.UpdateChecksum();
+    rules.pForks[1].m_Height = Fork1Height;
+    rules.pForks[2].m_Height = Fork2Height;
 
     TestProtocolHandlerSignature();
     TestProtocolHandlerIntegration();

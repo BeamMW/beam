@@ -59,9 +59,9 @@ bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
     // New offer
     if (it == m_offersCache.end())
     {
-        if (!newOffer.IsValid())
+        if (!newOffer.IsValid() && newOffer.m_status == SwapOfferStatus::Pending)
         {
-            LOG_WARNING() << "offer board message is invalid";
+            LOG_WARNING() << "incoming offer is invalid";
             return false;
         }
         if (isOfferExpired(newOffer) && newOffer.m_status == SwapOfferStatus::Pending)
