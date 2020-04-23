@@ -176,12 +176,12 @@ namespace beam::wallet
             d & value;
             return true;
         }
-        ZeroObject(value);
+        if constexpr (std::is_trivially_destructible<T>::value && std::is_standard_layout<T>::value)
+        {
+            ZeroObject(value);
+        }
         return false;
     }
-
-    template<>
-    bool fromByteBuffer<std::string>(const ByteBuffer& b, std::string& value);
 
     template <typename T>
     ByteBuffer toByteBuffer(const T& value)
