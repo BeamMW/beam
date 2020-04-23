@@ -1483,22 +1483,6 @@ int main()
         }
     }));
 
-    // correct asset_id
-    testSendJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_send",
-        "params" :
-        {
-            "session" : 15,
-            "asset_id": 1,
-            "value" : 20,
-            "asset_id": 1,
-            "address" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6"
-        }
-    }));
-
     testJsonRpc<Send>(JSON_CODE(
     {
         "jsonrpc": "2.0",
