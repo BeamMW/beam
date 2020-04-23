@@ -195,9 +195,9 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
 {
     if(Api::existsJsonParam(params, "asset_id"))
     {
-        if (!params["asset_id"].is_number_unsigned() || params["asset_id"].get<uint32_t>() == 0)
+        if (!params["asset_id"].is_number_unsigned())
         {
-            throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "asset_id must be non zero 64bit unsigned integer",id};
+            throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "asset_id must be 64bit unsigned integer",id};
         }
         return params["asset_id"].get<uint32_t>();
     }

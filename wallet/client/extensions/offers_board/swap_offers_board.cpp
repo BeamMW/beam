@@ -59,6 +59,11 @@ bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
     // New offer
     if (it == m_offersCache.end())
     {
+        if (!newOffer.IsValid() && newOffer.m_status == SwapOfferStatus::Pending)
+        {
+            LOG_WARNING() << "incoming offer is invalid";
+            return false;
+        }
         if (isOfferExpired(newOffer) && newOffer.m_status == SwapOfferStatus::Pending)
         {
             newOffer.m_status = SwapOfferStatus::Expired;
@@ -132,9 +137,9 @@ bool SwapOffersBoard::isOfferExpired(const SwapOffer& offer) const
 {
     auto peerResponseTime = offer.GetParameter<Height>(TxParameterID::PeerResponseTime);
     auto minHeight = offer.GetParameter<Height>(TxParameterID::MinHeight);
-        if (peerResponseTime && minHeight)
-        {
-            auto expiresHeight = *minHeight + *peerResponseTime;
+    if (peerResponseTime && minHeight)
+    {
+        auto expiresHeight = *minHeight + *peerResponseTime;
         return expiresHeight <= m_currentHeight;
     }
     else return true;
@@ -280,7 +285,7 @@ void SwapOffersBoard::sendUpdateToNetwork(const TxID& offerID, const WalletID& p
 
 void SwapOffersBoard::broadcastOffer(const SwapOffer& offer, const WalletID& publisherID) const
 {
-    if (m_currentHeight < Rules::get().pForks[1].m_Height)
+    if (m_currentHeight < Rules::get().pForks[2].m_Height)
     {
         auto message = m_protocolHandler.createMessage(offer, publisherID);
         if (!message)

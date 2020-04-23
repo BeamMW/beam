@@ -176,7 +176,10 @@ namespace beam::wallet
             d & value;
             return true;
         }
-        ZeroObject(value);
+        if constexpr (std::is_trivially_destructible<T>::value && std::is_standard_layout<T>::value)
+        {
+            ZeroObject(value);
+        }
         return false;
     }
 

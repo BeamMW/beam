@@ -165,6 +165,7 @@ namespace
             void onMessage(const JsonRpcId& id, const GetUtxo& data) override
             {
                 WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.filter.assetId && *data.filter.assetId == 1);
             }
         };
 
@@ -224,9 +225,10 @@ namespace
             {
                 WALLET_CHECK(id > 0);
 
-                //WALLET_CHECK(data.session == 15);
+                WALLET_CHECK(data.session && *data.session == 15);
                 WALLET_CHECK(data.value == 12342342);
                 WALLET_CHECK(to_string(data.address) == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
+                WALLET_CHECK(data.assetId && *data.assetId == 1);
 
                 if(data.from)
                 {
@@ -495,7 +497,6 @@ namespace
             void onInvalidJsonRpc(const json& msg) override
             {
                 WALLET_CHECK(!"invalid split api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -503,12 +504,13 @@ namespace
             {
                 WALLET_CHECK(id > 0);
 
-                //WALLET_CHECK(data.session == 123);
+                // WALLET_CHECK(data.session == 123);
                 WALLET_CHECK(data.coins[0] == 11);
                 WALLET_CHECK(data.coins[1] == 12);
                 WALLET_CHECK(data.coins[2] == 13);
                 WALLET_CHECK(data.coins[3] == 50000000000000);
                 WALLET_CHECK(data.fee == 100);
+                WALLET_CHECK(data.assetId && *data.assetId == 1);
             }
         };
 
@@ -562,15 +564,14 @@ namespace
             void onInvalidJsonRpc(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
             void onMessage(const JsonRpcId& id, const TxList& data) override
             {
                 WALLET_CHECK(id > 0);
-
                 WALLET_CHECK(*data.filter.status == TxStatus::Completed);
+                WALLET_CHECK(data.filter.assetId && *data.filter.assetId == 1);
             }
         };
 
@@ -1429,7 +1430,14 @@ int main()
     {
         "jsonrpc": "2.0",
         "id" : 12345,
-        "method" : "get_utxo"
+        "method" : "get_utxo",
+        "params":
+        {
+            "filter":
+            {
+                "asset_id": 1
+            }
+        }
     }));
 
     testSendJsonRpc(JSON_CODE(
@@ -1440,6 +1448,7 @@ int main()
         "params" : 
         {
             "session" : 15,
+            "asset_id": 1,
             "value" : 12342342,
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
         }
@@ -1467,6 +1476,7 @@ int main()
         "params" : 
         {
             "session" : 15,
+            "asset_id": 1,
             "value" : 12342342,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
@@ -1481,12 +1491,13 @@ int main()
         "params" :
         {
             "session" : 15,
+            "asset_id": 1,
             "value" : 1234234200000000000000000000000,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
         }
     }), 
-    [](const json& msg) {}, 
+    [](const json& msg) {},
     [](const JsonRpcId& id, const Send& data)
     {
         WALLET_CHECK(!"The value is invalid!!!");
@@ -1503,6 +1514,20 @@ int main()
             "value" : 12342342,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "wagagel"
+        }
+    }));
+
+    // bad asset_id
+    testInvalidSendJsonRpc(JSON_CODE({
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_send",
+        "params" :
+        {
+            "session" : 15,
+            "value" : 20,
+            "asset_id": -1,
+            "address" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6"
         }
     }));
 
@@ -1526,7 +1551,8 @@ int main()
         {
             "session" : 123,
             "coins" : [11, 12, 13, 50000000000000],
-            "fee" : 100
+            "fee" : 100,
+            "asset_id": 1
         }
     }));
 
@@ -1552,7 +1578,8 @@ int main()
         {
             "filter" : 
             {
-                "status" : 3
+                "status" : 3,
+                "asset_id": 1
             }
         }
     }));
