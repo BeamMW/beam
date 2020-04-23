@@ -195,9 +195,9 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
 {
     if(Api::existsJsonParam(params, "asset_id"))
     {
-        if (!params["asset_id"].is_number_unsigned() || params["asset_id"].get<uint32_t>() == 0)
+        if (!params["asset_id"].is_number_unsigned())
         {
-            throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "asset_id must be non zero 64bit unsigned integer",id};
+            throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "asset_id must be 64bit unsigned integer",id};
         }
         return params["asset_id"].get<uint32_t>();
     }
@@ -596,6 +596,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             static std::regex keyRE(R"'(\"key\"\s*:\s*\"[\d\w]+\"\s*,?)'");
             LOG_INFO() << "got " << std::regex_replace(s, keyRE, "");
         }
+
         if (size == 0)
         {
             json msg
@@ -617,8 +618,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             json msg = json::parse(data, data + size);
 
-            if(!msg["id"].is_number_integer() 
-                && !msg["id"].is_string())
+            if(!msg["id"].is_number_integer() && !msg["id"].is_string())
                 throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "ID can be integer or string only." };
 
             JsonRpcId id = msg["id"];
@@ -658,7 +658,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             catch (const nlohmann::detail::exception& e)
             {
                 LOG_ERROR() << "json parse: " << e.what() << "\n" << getJsonString(data, size);
-
                 throw jsonrpc_exception{ ApiError::InvalidJsonRpc , e.what(), id };
             }
         }
@@ -712,26 +711,23 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 #undef ERROR_ITEM
 
         assert(false);
-
         return "unknown error.";
     }
 
     WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
         : Api(handler, acl)
     {
-#define REG_FUNC(api, name, writeAccess) \
+        #define REG_FUNC(api, name, writeAccess) \
         _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
-
         WALLET_API_METHODS(REG_FUNC)
+        #undef REG_FUNC
 
-#undef REG_FUNC
-#define REG_ALIASES_FUNC(aliasName, api, name, writeAccess) \
+        #define REG_ALIASES_FUNC(aliasName, api, name, writeAccess) \
         _methods[aliasName] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
-
-         WALLET_API_METHODS_ALIASES(REG_ALIASES_FUNC)
-#undef REG_ALIASES_FUNC
-            //WALLET_API_METHODS_ALIASES
-    };
+        WALLET_API_METHODS_ALIASES(REG_ALIASES_FUNC)
+        #undef REG_ALIASES_FUNC
+        //WALLET_API_METHODS_ALIASES
+    }
 
     IWalletApiHandler& WalletApi::getHandler() const
     {
@@ -742,7 +738,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         CreateAddress createAddress;
         FillAddressData(id, params, createAddress);
-
         getHandler().onMessage(id, createAddress);
     }
 
@@ -767,8 +762,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         editAddress.address.FromHex(params["address"]);
 
         FillAddressData(id, params, editAddress);
-
-
         getHandler().onMessage(id, editAddress);
     }
 
@@ -777,7 +770,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         checkJsonParam(params, "own", id);
 
         AddrList addrList;
-
         addrList.own = params["own"];
 
         getHandler().onMessage(id, addrList);
@@ -1693,6 +1685,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                     {"receiver", std::to_string(res.paymentInfo.m_Receiver)},
                     {"amount", res.paymentInfo.m_Amount},
                     {"kernel", std::to_string(res.paymentInfo.m_KernelID)},
+                    {"asset_id", res.paymentInfo.m_AssetID}
                     //{"signature", std::to_string(res.paymentInfo.m_Signature)}
                 }
             }

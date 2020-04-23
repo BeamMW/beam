@@ -180,6 +180,9 @@ namespace beam::wallet
         return false;
     }
 
+    template<>
+    bool fromByteBuffer<std::string>(const ByteBuffer& b, std::string& value);
+
     template <typename T>
     ByteBuffer toByteBuffer(const T& value)
     {

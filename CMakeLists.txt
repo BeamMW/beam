@@ -99,6 +99,7 @@ set(BEAM_VERSION ${PROJECT_VERSION} CACHE INTERNAL "")
 set(BEAM_VERSION_MAJOR ${VERSION_MAJOR} CACHE INTERNAL "")
 set(BEAM_VERSION_MINOR ${VERSION_MINOR} CACHE INTERNAL "")
 set(BEAM_VERSION_REVISION ${VERSION_REVISION} CACHE INTERNAL "")
+set(BEAM_BRANCH_NAME ${BRANCH_NAME} CACHE INTERNAL "")
 
 message("BEAM_VERSION: ${PROJECT_VERSION}")
 
@@ -140,11 +141,6 @@ if(BEAM_USE_AVX)
     add_definitions(-DBEAM_USE_AVX)
 endif()
 
-option(BEAM_QT_UI_WALLET "Build wallet UI" TRUE)
-if (BEAM_NO_QT_UI_WALLET)
-    set(BEAM_QT_UI_WALLET FALSE)
-endif()
-
 option(BEAM_USE_STATIC "Build with staticaly linked libraries " FALSE)
 if(BEAM_LINK_TYPE MATCHES "Static")
     set(BEAM_USE_STATIC TRUE)
@@ -156,9 +152,6 @@ if(BEAM_USE_STATIC)
 endif()
 
 option(BEAM_WALLET_CLIENT_LIBRARY "Build only binaries required for client app" FALSE)
-if (BEAM_WALLET_CLIENT_LIBRARY)
-    set(BEAM_QT_UI_WALLET FALSE)
-endif()
 
 #it's enabled by default for testnet
 #if(DEBUG_MESSAGES_IN_RELEASE_MODE)
@@ -185,12 +178,14 @@ option(SWAP_MAINNET "Use mainnet blockchain when perform atomic swaps" FALSE)
 #set(SWAP_MAINNET TRUE)
 
 if(BEAM_TESTNET)
+    target_compile_definitions(beam INTERFACE -DBEAM_TESTNET)
     add_definitions(-DBEAM_TESTNET)
     set(BEAM_SUFFIX_LOWER_CASE "testnet" CACHE INTERNAL "")
     set(BEAM_SUFFIX_UPPER_CASE "Testnet" CACHE INTERNAL "")
     set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}" CACHE INTERNAL "")
     set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
 elseif(BEAM_MAINNET)
+    target_compile_definitions(beam INTERFACE -DBEAM_MAINNET)
     add_definitions(-DBEAM_MAINNET)
     set(BEAM_SUFFIX_LOWER_CASE "" CACHE INTERNAL "")
     set(BEAM_SUFFIX_UPPER_CASE "" CACHE INTERNAL "")
@@ -446,80 +441,4 @@ endif()
 if(NOT ANDROID AND NOT IOS AND NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_subdirectory(beam)
     add_subdirectory(explorer)
-
-    if(BEAM_QT_UI_WALLET)
-        add_subdirectory(3rdparty/qrcode)
-        add_subdirectory(3rdparty/quazip)
-        add_subdirectory(ui)
-    endif()
- endif()
-
-########################################################
-### PACKAGING ##########################################
-########################################################
-if (BEAM_QT_UI_WALLET)
-    if (WIN32)
-        set(CPACK_GENERATOR "NSIS")
-        set(CPACK_SOURCE_GENERATOR "ZIP")
-        set(CPACK_NSIS_MUI_ICON "${PROJECT_SOURCE_DIR}/ui/icon.ico")
-        set(CPACK_NSIS_MUI_UNIICON "${PROJECT_SOURCE_DIR}/ui/icon.ico")
-        set(CPACK_NSIS_INSTALLED_ICON_NAME "${PROJECT_SOURCE_DIR}/ui/icon.ico")
-        set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "CreateShortCut \\\"$DESKTOP\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.lnk\\\" \\\"$INSTDIR\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.exe\\\"")
-        set(CPACK_NSIS_CREATE_ICONS_EXTRA "CreateShortCut \\\"$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.lnk\\\" \\\"$INSTDIR\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.exe\\\"")
-        set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "Delete \\\"$DESKTOP\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.lnk\\\"")
-        set(CPACK_NSIS_DELETE_ICONS_EXTRA "Delete \\\"$SMPROGRAMS\\\\$MUI_TEMP\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.lnk\\\"")
-
-        set(CPACK_NSIS_EXECUTABLES_DIRECTORY .)
-        set(CPACK_NSIS_MUI_FINISHPAGE_RUN "Beam Wallet${BEAM_DISPLAY_SUFFIX}.exe") 
-        set(CPACK_NSIS_PACKAGE_NAME "Beam Wallet${BEAM_DISPLAY_SUFFIX}")
-
-    elseif (APPLE)
-        set(CPACK_GENERATOR "Bundle")
-        set(CPACK_BUNDLE_NAME "Beam Wallet${BEAM_DISPLAY_SUFFIX}")
-        set(CPACK_BUNDLE_PLIST ui/Info.plist)
-        set(CPACK_BUNDLE_ICON ui/beam.icns)
-        set(CPACK_BUNDLE_STARTUP_COMMAND "ui/Beam Wallet${BEAM_DISPLAY_SUFFIX}")
-
-        if(BEAM_SIGN_MACOS_BINARY)
-            set(CPACK_COMMAND_CODESIGN "codesign -o runtime --timestamp")
-            set(CPACK_BUNDLE_APPLE_CERT_APP "Developer ID Application: Beam Development Limited (KNU2R94BJK)")
-        endif()
-    elseif (LINUX)
-        set(CPACK_GENERATOR "DEB")
-        set(CPACK_DEBIAN_PACKAGE_NAME "beamwallet${BEAM_SUFFIX_LOWER_CASE}")
-        set(CPACK_DEBIAN_PACKAGE_VERSION ${PROJECT_VERSION})
-        set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Beam <mail@beam-mw.com>")
-        set(CPACK_DEBIAN_PACKAGE_SECTION "Network")
-
-    endif ()
-
-    set(CPACK_PACKAGE_NAME "BeamWallet${BEAM_SUFFIX_UPPER_CASE}")
-    set(CPACK_PACKAGE_VENDOR "Beam Development Limited")
-    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Scalable confidential cryptocurrency")
-    set(CPACK_PACKAGE_VERSION_MAJOR "${VERSION_MAJOR}")
-    set(CPACK_PACKAGE_VERSION_MINOR "${VERSION_MINOR}")
-    set(CPACK_PACKAGE_VERSION_PATCH "${VERSION_REVISION}")
-    set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
-    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Beam Wallet${BEAM_DISPLAY_SUFFIX}")
-
-    set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/TERMS.txt")
-
-    include(CPack)
-
-    #if (BEAM_SIGN_PACKAGE AND WIN32)
-    #    add_custom_target(signing ALL  COMMENT "Signing Package...")
-    #
-    # 
-    #     # Signing the installer
-    #     add_custom_target(signing-installer)
-    #     set(BEAM_INSTALLER_NAME ${CPACK_NSIS_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}.exe)
-    #     
-    #     add_custom_command(
-    #         TARGET signing-installer
-    #         COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} ${BEAM_INSTALLER_NAME}
-    #         ## Other optional options:
-    #         # /tr timestampServerUrl 
-    #        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    #     )
-    #endif()
 endif()

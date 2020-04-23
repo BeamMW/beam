@@ -810,6 +810,7 @@ namespace beam::wallet
             WalletID m_Sender;
             WalletID m_Receiver;
 
+            Asset::ID m_AssetID;
             Amount m_Amount;
             Merkle::Hash m_KernelID;
             ECC::Signature m_Signature;
@@ -838,6 +839,53 @@ namespace beam::wallet
                     & m_Amount
                     & m_KernelID
                     & m_Signature;
+
+                //
+                // If you want to store something new just define new flag then
+                // set it if you want to write and add read/write block.
+                //
+                // This allows to read old proofs in new clients and also to produce
+                // proofs compatible with old clients (if possible, i.e. BEAM transactions
+                // do not need AssetID and we can keep an old format)
+                //
+                // Old client would be unable to read proofs if you would store anything below
+                //
+                enum ContentFlags
+                {
+                    HasAssetID = 1 << 0
+                };
+
+                uint32_t cflags = 0;
+
+                if (ar.is_readable())
+                {
+                    try
+                    {
+                        ar & cflags;
+                    }
+                    catch (const std::runtime_error &)
+                    {
+                        // old payment proof without flags and additional data
+                        // just ignore and continue
+                    }
+                }
+                else
+                {
+                    if (m_AssetID != Asset::s_InvalidID)
+                    {
+                        cflags |= ContentFlags::HasAssetID;
+                    }
+
+                    if (cflags)
+                    {
+                        ar & cflags;
+                    }
+                }
+
+                if (cflags & ContentFlags::HasAssetID)
+                {
+                    ar & m_AssetID;
+                }
             }
 
             bool IsValid() const;
