@@ -18,6 +18,7 @@
 
 class SwapTxObject : public TxObject
 {
+    // TODO: consider remove inheritance of TxObject
     Q_OBJECT
 
 public:
