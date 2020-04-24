@@ -720,16 +720,7 @@ namespace beam::wallet
             ByteBuffer b;
             if (db.getTxParameter(txID, subTxID, paramID, b))
             {
-                if (!b.empty())
-                {
-                    Deserializer d;
-                    d.reset(b.data(), b.size());
-                    d & value;
-                }
-                else
-                {
-                    ZeroObject(value);
-                }
+                fromByteBuffer(b, value);
                 return true;
             }
             return false;

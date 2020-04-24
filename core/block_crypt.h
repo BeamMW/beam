@@ -1307,3 +1307,19 @@ namespace beam
 inline ECC::Hash::Processor& operator << (ECC::Hash::Processor& hp, const beam::PeerID& pid) {
 	return hp << Cast::Down<ECC::Hash::Value>(pid);
 }
+
+// TODO: review this types, they don't have standard layout
+inline void ZeroObject(beam::CoinID& x)
+{
+	ZeroObjectUnchecked(x);
+}
+
+inline void ZeroObject(beam::Block::SystemState::Full& x)
+{
+	ZeroObjectUnchecked(x);
+}
+
+inline void ZeroObject(beam::Asset::Full& x)
+{
+	ZeroObjectUnchecked(x);
+}

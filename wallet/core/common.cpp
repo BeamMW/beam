@@ -172,6 +172,12 @@ namespace beam::wallet
         return m_Pk.ExportNnz(p);
     }
 
+    bool fromByteBuffer(const ByteBuffer& b, ByteBuffer& value)
+    {
+        value = b;
+        return true;
+    }
+
     ByteBuffer toByteBuffer(const ECC::Point::Native& value)
     {
         ECC::Point pt;
