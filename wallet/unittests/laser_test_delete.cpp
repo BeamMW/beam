@@ -41,6 +41,7 @@ int main()
     auto logger = Logger::create(logLevel, logLevel, logLevel, "laser_test", path.string());
 
     Rules::get().pForks[1].m_Height = 1;
+    Rules::get().pForks[2].m_Height = 2;
 	Rules::get().FakePoW = true;
     Rules::get().MaxRollback = 5;
 	Rules::get().UpdateChecksum();

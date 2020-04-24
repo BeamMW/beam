@@ -20,8 +20,13 @@ namespace beam::wallet
 SwapTxDescription::SwapTxDescription(const TxParameters& txParameters)
     : m_tx(txParameters)
     , m_isBeamSide(*m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide))
-    , m_status(*m_tx.GetParameter<TxStatus>(TxParameterID::Status))
+    , m_status(TxStatus::Pending)
 {
+    auto status = m_tx.GetParameter<TxStatus>(TxParameterID::Status);
+    if (status)
+    {
+        m_status = *status;
+    }
     assert(*m_tx.GetParameter<TxType>(TxParameterID::TransactionType) == TxType::AtomicSwap);
 }
 
@@ -140,7 +145,7 @@ boost::optional<AtomicSwapTransaction::State> SwapTxDescription::getState() cons
  * true - if sending Beams to get another coin.
  * false - if receiving Beams in trade for another coin.
  */
-bool SwapTxDescription::isBeamSideSwap() const
+bool SwapTxDescription::isBeamSide() const
 {
     return m_isBeamSide;
 }
