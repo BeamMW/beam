@@ -50,20 +50,19 @@ namespace beam::wallet
         bool isLockTxProofReceived() const;
         bool isRefundTxProofReceived() const;
 
-        // TODO: enable if SubTxId is correct SubTxIndex value
-        template<size_t SubTxId>
+        template<SubTxIndex SubTxId>
         boost::optional<std::string> getSwapCoinTxId() const
         {
             return m_tx.GetParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxId);
         };
 
-        template<size_t SubTxId>
+        template<SubTxIndex SubTxId>
         boost::optional<uint32_t> getSwapCoinTxConfirmations() const
         {
             return m_tx.GetParameter<uint32_t>(TxParameterID::Confirmations, SubTxId);
         };
 
-        template<size_t SubTxId>
+        template<SubTxIndex SubTxId>
         boost::optional<std::string> getBeamTxKernelId() const
         {
             if (auto res = m_tx.GetParameter<Merkle::Hash>(TxParameterID::KernelID, SubTxId); res)
