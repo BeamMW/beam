@@ -140,7 +140,7 @@ boost::optional<AtomicSwapTransaction::State> SwapTxDescription::getState() cons
  * true - if sending Beams to get another coin.
  * false - if receiving Beams in trade for another coin.
  */
-bool SwapTxDescription::isBeamSideSwap() const
+bool SwapTxDescription::isBeamSide() const
 {
     return m_isBeamSide;
 }

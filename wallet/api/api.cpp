@@ -20,6 +20,7 @@
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin_side.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum_side.h"
 #include "wallet/transactions/swaps/utils.h"
+#include "wallet/transactions/swaps/swap_tx_description.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include <regex>
@@ -94,6 +95,13 @@ namespace
                 msg["receiver_identity"] = receiverIdentity;
             }
         }
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        if (tx.m_txType == TxType::AtomicSwap)
+        {
+            AddSwapTxDetailsToJson(tx, msg);
+        }
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
     }
 
 json getNotImplError(const JsonRpcId& id)
@@ -313,6 +321,53 @@ std::string swapOfferStatusToString(const SwapOfferStatus& status)
     case SwapOfferStatus::InProgress : return "in progress";
     case SwapOfferStatus::Pending : return "pending";
     default : return "unknown";
+    }
+}
+
+void AddSwapTxDetailsToJson(const TxDescription& tx, json& msg)
+{
+    SwapTxDescription swapTx(tx);
+
+    auto beamLockTxKernelID = swapTx.getBeamTxKernelId<SubTxIndex::BEAM_LOCK_TX>();
+    if (beamLockTxKernelID)
+    {
+        msg["beam_lock_kernel_id"] = *beamLockTxKernelID;
+    }
+
+    std::string coinName = to_string(swapTx.getSwapCoin());
+    std::transform(coinName.begin(),
+                   coinName.end(),
+                   coinName.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+    if (!coinName.isEmpty())
+    {
+        coinName.push_back('_');
+    }
+
+    auto swapCoinLockTxID = swapTx.getSwapCoinTxId<SubTxIndex::LOCK_TX>();
+    if (swapCoinLockTxID)
+    {
+        std::string lockTxIdStr = "lock_tx_id";
+        msg[coinName + lockTxIdStr] = *swapCoinLockTxID;
+    }
+    auto swapCoinLockTxConfirmations = swapTx.getSwapCoinTxConfirmations<SubTxIndex::LOCK_TX>();
+    if (swapCoinLockTxConfirmations && swapTx.isBeamSide())
+    {
+        std::string lockTxConfirmationsStr = "lock_tx_confirmations";
+        msg[coinName + lockTxConfirmationsStr] = *swapCoinLockTxConfirmations;
+    }
+    
+    auto swapCoinRedeemTxID = swapTx.getSwapCoinTxId<SubTxIndex::REDEEM_TX>();
+    if (swapCoinRedeemTxID && swapTx.isBeamSide() && swapTx.isLockTxProofReceived())
+    {
+        std::string redeemTxIdStr = "redeem_tx_id";
+        msg[coinName + redeemTxIdStr] = *swapCoinRedeemTxID;
+    }
+    auto swapCoinRedeemTxConfirmations = swapTx.getSwapCoinTxConfirmations<SubTxIndex::REDEEM_TX>();
+    if (swapCoinRedeemTxConfirmations && swapTx.isBeamSide() && swapTx.isLockTxProofReceived())
+    {
+        std::string redeemTxConfirmationsStr = "redeem_tx_confirmations";
+        msg[coinName + redeemTxConfirmationsStr] = *swapCoinRedeemTxConfirmations;
     }
 }
 

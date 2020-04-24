@@ -39,7 +39,7 @@ namespace beam::wallet
         boost::optional<TxFailureReason> getFailureReason() const;
         boost::optional<AtomicSwapTransaction::State> getState() const;
 
-        bool isBeamSideSwap() const;
+        bool isBeamSide() const;
         bool isFailed() const;
         bool isExpired() const;
         bool isRefunded() const;
