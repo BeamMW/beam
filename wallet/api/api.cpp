@@ -29,80 +29,130 @@ namespace beam::wallet
 {    
 namespace
 {
-    void GetStatusResponseJson(const TxDescription& tx,
-        json& msg,
-        Height txHeight,
-        Height systemHeight,
-        bool showIdentities = false)
+    
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+void AddSwapTxDetailsToJson(const TxDescription& tx, json& msg)
+{
+    SwapTxDescription swapTx(tx);
+
+    auto beamLockTxKernelID = swapTx.getBeamTxKernelId<SubTxIndex::BEAM_LOCK_TX>();
+    if (beamLockTxKernelID)
     {
-        msg = json
-        {
-            {"txId", TxIDToString(tx.m_txId)},
-            {"status", tx.m_status},
-            {"status_string", tx.getStatusStringApi()},
-            {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
-            {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
-            {"fee", tx.m_fee},
-            {"value", tx.m_amount},
-            {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
-            {"create_time", tx.m_createTime},
-            {"income", !tx.m_sender},
-            {"asset_id", tx.m_assetId},
-            {"tx_type", tx.m_txType},
-            {"tx_type_string", tx.getTxTypeString()}
-        };
+        msg["beam_lock_kernel_id"] = *beamLockTxKernelID;
+    }
 
-        if (tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume || tx.m_txType == TxType::AssetInfo)
-        {
-            msg["asset_meta"] = tx.m_assetMeta;
-        }
+    std::string coinName = std::to_string(swapTx.getSwapCoin());
+    std::transform(coinName.begin(),
+                   coinName.end(),
+                   coinName.begin(),
+                   [](char c) -> char { return static_cast<char>(std::tolower(c)); });
+    if (!coinName.empty())
+    {
+        coinName.push_back('_');
+    }
 
-        if (txHeight > 0)
-        {
-            msg["height"] = txHeight;
+    auto swapCoinLockTxID = swapTx.getSwapCoinTxId<SubTxIndex::LOCK_TX>();
+    if (swapCoinLockTxID)
+    {
+        std::string lockTxIdStr = "lock_tx_id";
+        msg[coinName + lockTxIdStr] = *swapCoinLockTxID;
+    }
+    auto swapCoinLockTxConfirmations = swapTx.getSwapCoinTxConfirmations<SubTxIndex::LOCK_TX>();
+    if (swapCoinLockTxConfirmations && swapTx.isBeamSide())
+    {
+        std::string lockTxConfirmationsStr = "lock_tx_confirmations";
+        msg[coinName + lockTxConfirmationsStr] = *swapCoinLockTxConfirmations;
+    }
+    
+    auto swapCoinRedeemTxID = swapTx.getSwapCoinTxId<SubTxIndex::REDEEM_TX>();
+    if (swapCoinRedeemTxID && swapTx.isBeamSide() && swapTx.isLockTxProofReceived())
+    {
+        std::string redeemTxIdStr = "redeem_tx_id";
+        msg[coinName + redeemTxIdStr] = *swapCoinRedeemTxID;
+    }
+    auto swapCoinRedeemTxConfirmations = swapTx.getSwapCoinTxConfirmations<SubTxIndex::REDEEM_TX>();
+    if (swapCoinRedeemTxConfirmations && swapTx.isBeamSide() && swapTx.isLockTxProofReceived())
+    {
+        std::string redeemTxConfirmationsStr = "redeem_tx_confirmations";
+        msg[coinName + redeemTxConfirmationsStr] = *swapCoinRedeemTxConfirmations;
+    }
+}
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
-            if (systemHeight >= txHeight)
-            {
-                msg["confirmations"] = systemHeight - txHeight;
-            }
-        }
+void GetStatusResponseJson(const TxDescription& tx,
+    json& msg,
+    Height txHeight,
+    Height systemHeight,
+    bool showIdentities = false)
+{
+    msg = json
+    {
+        {"txId", TxIDToString(tx.m_txId)},
+        {"status", tx.m_status},
+        {"status_string", tx.getStatusStringApi()},
+        {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
+        {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
+        {"fee", tx.m_fee},
+        {"value", tx.m_amount},
+        {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
+        {"create_time", tx.m_createTime},
+        {"income", !tx.m_sender},
+        {"asset_id", tx.m_assetId},
+        {"tx_type", tx.m_txType},
+        {"tx_type_string", tx.getTxTypeString()}
+    };
 
-        if (tx.m_status == TxStatus::Failed)
-        {
-            msg["failure_reason"] = GetFailureMessage(tx.m_failureReason);
-        }
-        else if (tx.m_status != TxStatus::Canceled)
-        {
-            if (tx.m_txType != TxType::AssetInfo)
-            {
-                msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
-            }
-        }
+    if (tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume || tx.m_txType == TxType::AssetInfo)
+    {
+        msg["asset_meta"] = tx.m_assetMeta;
+    }
 
-        auto token = tx.GetParameter<std::string>(TxParameterID::OriginalToken);
-        if (token)
-        {
-            msg["token"] = *token;
-        }
+    if (txHeight > 0)
+    {
+        msg["height"] = txHeight;
 
-        if (showIdentities)
+        if (systemHeight >= txHeight)
         {
-            auto senderIdentity = tx.getSenderIdentity();
-            auto receiverIdentity = tx.getReceiverIdentity();
-            if (!senderIdentity.empty() && !receiverIdentity.empty())
-            {
-                msg["sender_identity"] = senderIdentity;
-                msg["receiver_identity"] = receiverIdentity;
-            }
+            msg["confirmations"] = systemHeight - txHeight;
         }
+    }
+
+    if (tx.m_status == TxStatus::Failed)
+    {
+        msg["failure_reason"] = GetFailureMessage(tx.m_failureReason);
+    }
+    else if (tx.m_status != TxStatus::Canceled)
+    {
+        if (tx.m_txType != TxType::AssetInfo)
+        {
+            msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
+        }
+    }
+
+    auto token = tx.GetParameter<std::string>(TxParameterID::OriginalToken);
+    if (token)
+    {
+        msg["token"] = *token;
+    }
+
+    if (showIdentities)
+    {
+        auto senderIdentity = tx.getSenderIdentity();
+        auto receiverIdentity = tx.getReceiverIdentity();
+        if (!senderIdentity.empty() && !receiverIdentity.empty())
+        {
+            msg["sender_identity"] = senderIdentity;
+            msg["receiver_identity"] = receiverIdentity;
+        }
+    }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-        if (tx.m_txType == TxType::AtomicSwap)
-        {
-            AddSwapTxDetailsToJson(tx, msg);
-        }
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
+    if (tx.m_txType == TxType::AtomicSwap)
+    {
+        AddSwapTxDetailsToJson(tx, msg);
     }
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+}
 
 json getNotImplError(const JsonRpcId& id)
 {
@@ -321,53 +371,6 @@ std::string swapOfferStatusToString(const SwapOfferStatus& status)
     case SwapOfferStatus::InProgress : return "in progress";
     case SwapOfferStatus::Pending : return "pending";
     default : return "unknown";
-    }
-}
-
-void AddSwapTxDetailsToJson(const TxDescription& tx, json& msg)
-{
-    SwapTxDescription swapTx(tx);
-
-    auto beamLockTxKernelID = swapTx.getBeamTxKernelId<SubTxIndex::BEAM_LOCK_TX>();
-    if (beamLockTxKernelID)
-    {
-        msg["beam_lock_kernel_id"] = *beamLockTxKernelID;
-    }
-
-    std::string coinName = to_string(swapTx.getSwapCoin());
-    std::transform(coinName.begin(),
-                   coinName.end(),
-                   coinName.begin(),
-                   [](unsigned char c){ return std::tolower(c); });
-    if (!coinName.isEmpty())
-    {
-        coinName.push_back('_');
-    }
-
-    auto swapCoinLockTxID = swapTx.getSwapCoinTxId<SubTxIndex::LOCK_TX>();
-    if (swapCoinLockTxID)
-    {
-        std::string lockTxIdStr = "lock_tx_id";
-        msg[coinName + lockTxIdStr] = *swapCoinLockTxID;
-    }
-    auto swapCoinLockTxConfirmations = swapTx.getSwapCoinTxConfirmations<SubTxIndex::LOCK_TX>();
-    if (swapCoinLockTxConfirmations && swapTx.isBeamSide())
-    {
-        std::string lockTxConfirmationsStr = "lock_tx_confirmations";
-        msg[coinName + lockTxConfirmationsStr] = *swapCoinLockTxConfirmations;
-    }
-    
-    auto swapCoinRedeemTxID = swapTx.getSwapCoinTxId<SubTxIndex::REDEEM_TX>();
-    if (swapCoinRedeemTxID && swapTx.isBeamSide() && swapTx.isLockTxProofReceived())
-    {
-        std::string redeemTxIdStr = "redeem_tx_id";
-        msg[coinName + redeemTxIdStr] = *swapCoinRedeemTxID;
-    }
-    auto swapCoinRedeemTxConfirmations = swapTx.getSwapCoinTxConfirmations<SubTxIndex::REDEEM_TX>();
-    if (swapCoinRedeemTxConfirmations && swapTx.isBeamSide() && swapTx.isLockTxProofReceived())
-    {
-        std::string redeemTxConfirmationsStr = "redeem_tx_confirmations";
-        msg[coinName + redeemTxConfirmationsStr] = *swapCoinRedeemTxConfirmations;
     }
 }
 
