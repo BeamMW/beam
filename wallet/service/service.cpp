@@ -44,6 +44,7 @@
 
 #include "keykeeper/wasm_key_keeper.h"
 #include "pipe.h"
+#include "utils.h"
 
 #include "websocket_server.h"
 
@@ -772,8 +773,11 @@ int main(int argc, char* argv[])
     using namespace beam;
     namespace po = boost::program_options;
 
-    const auto path = boost::filesystem::system_complete("./logs");
-    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "api_", path.string());
+    const char* LOG_FILES_DIR = "logs";
+    const char* LOG_FILES_PREFIX = "service_";
+
+    const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
+    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "LOG_FILES_PREFIX", path.string());
 
     try
     {
@@ -815,11 +819,11 @@ int main(int argc, char* argv[])
 
             ReadCfgFromFileCommon(vm, desc);
             ReadCfgFromFile(vm, desc, "wallet-api.cfg");
-
             vm.notify();
 
-            getRulesOptions(vm);
+            clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, beam::wallet::days2sec(options.logCleanupPeriod));
 
+            getRulesOptions(vm);
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
@@ -841,7 +845,7 @@ int main(int argc, char* argv[])
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
-        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, beam::wallet::days2sec(options.logCleanupPeriod));
 
         LOG_INFO() << "Starting server on port " << options.port;
         WalletApiServer server(reactor, options.port, options.allowedOrigin);

@@ -22,6 +22,7 @@
 #include "utility/log_rotation.h"
 #include "version.h"
 #include "pipe.h"
+#include "utils.h"
 
 #include <memory>
 #include <unordered_map>
@@ -481,7 +482,6 @@ namespace
         int m_requests = 0;
     };
 
-
     class Server : public wallet::WebSocketServer
     {
     public:
@@ -512,8 +512,8 @@ int main(int argc, char* argv[])
     using namespace beam;
     namespace po = boost::program_options;
 
-#define LOG_FILES_DIR "logs"
-#define LOG_FILES_PREFIX "monitor_"
+    const char* LOG_FILES_DIR = "logs";
+    const char* LOG_FILES_PREFIX = "monitor_";
 
     const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
     auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_FILES_PREFIX, path.string());
@@ -557,11 +557,9 @@ int main(int argc, char* argv[])
 
             ReadCfgFromFileCommon(vm, desc);
             ReadCfgFromFile(vm, desc, "monitor.cfg");
-
             vm.notify();
 
-            clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, options.logCleanupPeriod);
-
+            clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, beam::wallet::days2sec(options.logCleanupPeriod));
             getRulesOptions(vm);
 
             Rules::get().UpdateChecksum();
@@ -584,7 +582,7 @@ int main(int argc, char* argv[])
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
-        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, beam::wallet::days2sec(options.logCleanupPeriod));
 
         LOG_INFO() << "Starting server on port " << options.port;
         
