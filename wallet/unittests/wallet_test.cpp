@@ -2221,8 +2221,8 @@ void TestKeyKeeper()
     Peer& r = pPeer[1];
 
     // 1st sender invocation
-    IPrivateKeyKeeper2::Method::SignSender mS;
-    ZeroObject(mS); // not so good coz it contains vectors. nevermind, it's a test
+    IPrivateKeyKeeper2::Method::SignSender mS = {};
+    //ZeroObject(mS); // not so good coz it contains vectors. nevermind, it's a test
     mS.m_Peer = r.m_ID;
     mS.m_MyIDKey = s.m_KeyID;
     mS.m_Slot = 12;
@@ -2236,8 +2236,8 @@ void TestKeyKeeper()
     WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == s.m_pKk->InvokeSync(mS));
 
     // Receiver invocation
-    IPrivateKeyKeeper2::Method::SignReceiver mR;
-    ZeroObject(mR);
+    IPrivateKeyKeeper2::Method::SignReceiver mR = {};
+    //ZeroObject(mR);
     mR.m_Peer = s.m_ID;
     mR.m_MyIDKey = r.m_KeyID;
     mR.m_pKernel = std::move(mS.m_pKernel);

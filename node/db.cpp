@@ -100,9 +100,9 @@ namespace beam {
 #define TblAssets_LockHeight	"LockHeight"
 
 NodeDB::NodeDB()
-	:m_pDb(NULL)
+	:m_pDb(nullptr)
 {
-	ZeroObject(m_pPrep);
+
 }
 
 NodeDB::~NodeDB()

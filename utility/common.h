@@ -67,11 +67,19 @@ inline void memset0(void* p, size_t n) { memset(p, 0, n); }
 bool memis0(const void* p, size_t n); // Not "secure", not constant-time guarantee. Must not be used for secret datas
 void memxor(uint8_t* pDst, const uint8_t* pSrc, size_t n);
 
+template <typename T>
+inline void ZeroObjectUnchecked(T& x)
+{
+	memset0(&x, sizeof(x));
+}
 
 template <typename T>
 inline void ZeroObject(T& x)
 {
-	memset0(&x, sizeof(x));
+	// TODO: uncomment and fix
+	//static_assert(std::is_standard_layout_v<T>);
+	static_assert(std::is_trivially_destructible_v<T>);
+	ZeroObjectUnchecked(x);
 }
 
 #define COMPARISON_VIA_CMP \

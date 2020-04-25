@@ -331,10 +331,10 @@ namespace Negotiator {
 			struct Krn2
 				:public MultiTx::KernelParam
 			{
-				Height* m_pLock;
+				Height* m_pLock = nullptr;
 			} m_Krn2;
 
-			CommonParam() { ZeroObject(m_Krn2); }
+			CommonParam() { }
 		};
 
 		Multisig m_MSig; // msig1

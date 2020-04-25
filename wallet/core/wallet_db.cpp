@@ -428,21 +428,7 @@ namespace beam::wallet
         template<typename T>
         void deserialize(T& value, const ByteBuffer& blob)
         {
-            if (!blob.empty())
-            {
-                Deserializer d;
-                d.reset(blob.data(), blob.size());
-                d & value;
-            }
-            else
-            {
-                ZeroObject(value);
-            }
-        }
-
-        void deserialize(ByteBuffer& value, ByteBuffer& blob)
-        {
-            value = blob;
+            fromByteBuffer(blob, value);
         }
 
         vector<Coin> converIDsToCoins(const vector<Coin::ID>& coinIDs)

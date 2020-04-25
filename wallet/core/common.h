@@ -180,8 +180,14 @@ namespace beam::wallet
         {
             ZeroObject(value);
         }
+        else
+        {
+            value = T();
+        }
         return false;
     }
+
+    bool fromByteBuffer(const ByteBuffer& b, ByteBuffer& value);
 
     template <typename T>
     ByteBuffer toByteBuffer(const T& value)
@@ -410,17 +416,7 @@ namespace beam::wallet
                 return false;
             }
             const ByteBuffer& b = pit->second;
-
-            if (!b.empty())
-            {
-                Deserializer d;
-                d.reset(b.data(), b.size());
-                d& value;
-            }
-            else
-            {
-                ZeroObject(value);
-            }
+            fromByteBuffer(b, value);
             return true;
         }
 
@@ -575,17 +571,7 @@ namespace beam::wallet
                 return false;
             }
             const ByteBuffer& b = pit->second;
-                
-            if (!b.empty())
-            {
-                Deserializer d;
-                d.reset(b.data(), b.size());
-                d & value;
-            }
-            else
-            {
-                ZeroObject(value);
-            }
+            fromByteBuffer(b, value);
             return true;
         }
 
