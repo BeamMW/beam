@@ -777,7 +777,7 @@ int main(int argc, char* argv[])
     const char* LOG_FILES_PREFIX = "service_";
 
     const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
-    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "LOG_FILES_PREFIX", path.string());
+    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_FILES_PREFIX, path.string());
 
     try
     {
