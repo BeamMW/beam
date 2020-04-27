@@ -42,10 +42,11 @@ void AddSwapTxDetailsToJson(const TxDescription& tx, json& msg)
     }
 
     std::string coinName = std::to_string(swapTx.getSwapCoin());
+    std::locale loc;
     std::transform(coinName.begin(),
                    coinName.end(),
                    coinName.begin(),
-                   [](char c) -> char { return static_cast<char>(std::tolower(c)); });
+                   [&loc](char c) -> char { return std::tolower(c, loc); });
     if (!coinName.empty())
     {
         coinName.push_back('_');

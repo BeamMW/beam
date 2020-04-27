@@ -143,8 +143,8 @@ namespace
         o.SetParameter(TxParameterID::AtomicSwapIsBeamSide, std::rand() % 2);
         o.SetParameter(TxParameterID::Amount, Amount(std::rand() % 10000));
         o.SetParameter(TxParameterID::AtomicSwapAmount, Amount(std::rand() % 1000));
-        o.SetParameter(TxParameterID::MinHeight, Height(std::rand() % 1000));
-        o.SetParameter(TxParameterID::PeerResponseTime, Height(std::rand() % 500));
+        o.SetParameter(TxParameterID::MinHeight, Height(Fork1Height));
+        o.SetParameter(TxParameterID::PeerResponseTime, Height(10));
         o.SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
         return o;
     }
@@ -324,6 +324,10 @@ namespace
         BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
         OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf(), storage);
         SwapOffersBoard Alice(broadcastRouter, protocolHandler);
+
+        HeightHash startState;
+        startState.m_Height = Fork1Height;
+        Alice.onSystemStateChanged(startState);
 
         WALLET_CHECK(Alice.getOffersList().size() == 0);
 
@@ -569,6 +573,11 @@ namespace
         SwapOffersBoard Alice(broadcastRouterA, protocolHandler);
         SwapOffersBoard Bob(broadcastRouterB, protocolHandler);
 
+        HeightHash startState;
+        startState.m_Height = Fork1Height;
+        Alice.onSystemStateChanged(startState);
+        Bob.onSystemStateChanged(startState);
+
         SwapOffer correctOffer;
         std::tie(correctOffer, std::ignore) = generateTestOffer(storage);
         TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
@@ -596,14 +605,14 @@ namespace
             WALLET_CHECK(Bob.getOffersList().size() == offerCount);
             WALLET_CHECK(Alice.getOffersList().size() == offerCount);
 
-            TxDescription tx1(o1.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(789));
-            TxDescription tx2(o2.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(789));
-            TxDescription tx3(o3.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(789));
-            TxDescription tx4(o4.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(789));
-            TxDescription tx5(o4.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(789));
-            TxDescription tx6(o4.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(789));
+            TxDescription tx1(o1.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(Fork1Height));
+            TxDescription tx2(o2.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(Fork1Height));
+            TxDescription tx3(o3.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(Fork1Height));
+            TxDescription tx4(o4.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(Fork1Height));
+            TxDescription tx5(o4.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(Fork1Height));
+            TxDescription tx6(o4.m_txId, TxType::AtomicSwap, Amount(852), Amount(741), Height(Fork1Height));
             // this TxType is ignored
-            TxDescription tx7(o4.m_txId, TxType::Simple, Amount(852), Amount(741), Height(789));
+            TxDescription tx7(o4.m_txId, TxType::Simple, Amount(852), Amount(741), Height(Fork1Height));
             tx7.m_status = wallet::TxStatus::InProgress;
             // these states have to deactivate offer
             tx1.m_status = wallet::TxStatus::InProgress;
