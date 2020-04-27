@@ -144,6 +144,24 @@ bool SwapOffersBoard::isOfferExpired(const SwapOffer& offer) const
     else return true;
 }
 
+/**
+ *  Offers should not have lifetime longer than
+ *  underlaying BBS transport message lifetime.
+ *  Otherwise they will not exist in network for all lifetime.
+ */ 
+bool SwapOffersBoard::isOfferLifetimeTooLong(const SwapOffer& offer) const
+{
+    auto peerResponseTime = offer.GetParameter<Height>(TxParameterID::PeerResponseTime);
+    auto minHeight = offer.GetParameter<Height>(TxParameterID::MinHeight);
+    if (peerResponseTime && minHeight)
+    {
+        auto expiresHeight = *minHeight + *peerResponseTime;
+        Height messageLifetime = m_broadcastGateway.m_bbsTimeWindow / 60; // minutes ~ blocks
+        return m_currentHeight + messageLifetime <= expiresHeight;
+    }
+    else return true;
+}
+
 void SwapOffersBoard::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
 {
     if (action != ChangeAction::Removed)
@@ -238,6 +256,11 @@ void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
     if (isOfferExpired(offer))
     {
         throw ExpiredOfferException();
+    }
+
+    if (isOfferLifetimeTooLong(offer))
+    {
+        throw OfferLifetimeExceeded();
     }
 
     if (auto offerIt = m_offersCache.find(offer.m_txId); offerIt != m_offersCache.end())
