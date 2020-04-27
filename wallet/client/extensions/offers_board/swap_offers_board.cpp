@@ -59,24 +59,23 @@ bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
     // New offer
     if (it == m_offersCache.end())
     {
-        if (!newOffer.IsValid() && newOffer.m_status == SwapOfferStatus::Pending)
-        {
-            LOG_WARNING() << "incoming offer is invalid";
-            return false;
-        }
-        if (isOfferExpired(newOffer) && newOffer.m_status == SwapOfferStatus::Pending)
-        {
-            newOffer.m_status = SwapOfferStatus::Expired;
-        }
-        
-        m_offersCache[newOffer.m_txId] = newOffer;
-
         if (newOffer.m_status == SwapOfferStatus::Pending)
         {
+            if (!newOffer.IsValid())
+            {
+                LOG_WARNING() << "incoming offer is invalid";
+                return false;
+            }
+            if (isOfferExpired(newOffer))
+            {
+                newOffer.m_status = SwapOfferStatus::Expired;
+            }
+            m_offersCache[newOffer.m_txId] = newOffer;
             notifySubscribers(ChangeAction::Added, std::vector<SwapOffer>{newOffer});
         }
         else
         {
+            m_offersCache[newOffer.m_txId] = newOffer;
             // Don't push irrelevant offers to subscribers
         }
     }
