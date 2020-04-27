@@ -32,7 +32,6 @@ const Amount kFee = 100;
 const Height kOpenTxDh = 70;
 const Height kTestStartBlock = 4;
 const Height kNewBlockFuncStart = 3;
-const Height kCoinAvailableBlock = 3; // r
 const unsigned kNewBlockInterval = 200;
 
 struct LaserObserver : public laser::Mediator::Observer
