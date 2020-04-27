@@ -132,6 +132,7 @@ namespace beam
         extern const char* SWAP_BEAM_SIDE;
         extern const char* SWAP_TX_HISTORY;
         extern const char* NODE_POLL_PERIOD;
+        extern const char* WITH_SYNC_PIPES;
         extern const char* PROXY_USE;
         extern const char* PROXY_ADDRESS;
         extern const char* ALLOWED_ORIGIN;

@@ -229,6 +229,7 @@ namespace beam
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* NODE_POLL_PERIOD = "node_poll_period";
+        const char* WITH_SYNC_PIPES = "sync_pipes";
         const char* PROXY_USE = "proxy";
         const char* PROXY_ADDRESS = "proxy_addr";
         const char* ALLOWED_ORIGIN = "allowed_origin";

@@ -190,35 +190,36 @@ namespace
     class WalletApiServer : public WebSocketServer
     {
     public:
-
-        WalletApiServer(io::Reactor::Ptr reactor, const io::Address& nodeAddr, uint16_t port, const std::string& allowedOrigin)
+        WalletApiServer(io::Reactor::Ptr reactor, const io::Address& nodeAddr, uint16_t port, const std::string& allowedOrigin, bool withPipes)
             : WebSocketServer(reactor, port,
-            [this, reactor, &nodeAddr] (auto&& func) {
+            [this, reactor, &nodeAddr] (auto&& func)
+            {
                 return std::make_unique<ServiceApiConnection>(nodeAddr, func, reactor, _walletMap);
             },
-            [] () {
-#ifndef _WIN32                
-                Pipe syncPipe(Pipe::SyncFileDescriptor);
-                syncPipe.notifyListening();
-#endif
-            }, allowedOrigin)
-#ifndef _WIN32
-            , _heartbeatPipe(Pipe::HeartbeatFileDescriptor)
-#endif            
+            [withPipes] ()
+            {
+                if (withPipes)
+                {
+                    Pipe syncPipe(Pipe::SyncFileDescriptor);
+                    syncPipe.notifyListening();
+                }
+            },
+            allowedOrigin)
         {
-#ifndef _WIN32
-            _heartbeatTimer = io::Timer::create(*reactor);
-            _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this] () {
-                _heartbeatPipe.notifyAlive();
-            });
-#endif
+            if (withPipes)
+            {
+                _heartbeatPipe  = std::make_unique<Pipe>(Pipe::HeartbeatFileDescriptor);
+                _heartbeatTimer = io::Timer::create(*reactor);
+                _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this]() {
+                    assert(_heartbeatPipe != nullptr);
+                    _heartbeatPipe->notifyAlive();
+                });
+            }
         }
 
     private:
-#ifndef _WIN32    
         io::Timer::Ptr _heartbeatTimer;
-        Pipe _heartbeatPipe;
-#endif
+        std::unique_ptr<Pipe> _heartbeatPipe;
 
     private:
         struct WalletInfo
@@ -824,6 +825,7 @@ int main(int argc, char* argv[])
             Nonnegative<uint32_t> pollPeriod_ms;
             uint32_t logCleanupPeriod;
             std::string allowedOrigin;
+            bool withPipes = false;
         } options;
 
         io::Address node_addr;
@@ -837,6 +839,7 @@ int main(int argc, char* argv[])
                 (cli::ALLOWED_ORIGIN, po::value<std::string>(&options.allowedOrigin)->default_value(""), "allowed origin")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
+                (cli::WITH_SYNC_PIPES,  po::bool_switch(&options.withPipes)->default_value(false), "Enable or disable sync pipes")
             ;
 
             desc.add(createRulesOptionsDescription());
@@ -884,8 +887,8 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, beam::wallet::days2sec(options.logCleanupPeriod));
 
-        LOG_INFO() << "Starting server on port " << options.port;
-        WalletApiServer server(reactor, node_addr, options.port, options.allowedOrigin);
+        LOG_INFO() << "Starting server on port " << options.port << ", sync pipes " << options.withPipes;
+        WalletApiServer server(reactor, node_addr, options.port, options.allowedOrigin, options.withPipes);
         reactor->run();
 
         LOG_INFO() << "Done";
