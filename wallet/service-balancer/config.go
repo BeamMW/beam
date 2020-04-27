@@ -20,6 +20,7 @@ type Config struct {
 	WalletServicePath       string
 	WalletServiceFirstPort  int
 	WalletServiceLastPort   int
+	WalletServiceCnt        int
 	BbsMonitorPath			string
 	BbsMonitorFirstPort     int
 	BbsMonitorLastPort      int
@@ -136,6 +137,14 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 
 	if len(cfg.DatabasePath) == 0 {
 		return errors.New("missing database path")
+	}
+
+	if cfg.WalletServiceCnt == 0 {
+		if cfg.Debug {
+			cfg.WalletServiceCnt = 2
+		} else {
+			cfg.WalletServiceCnt = runtime.NumCPU() - 2
+		}
 	}
 
 	var mode = "RELEASE"

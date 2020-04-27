@@ -114,3 +114,5 @@ wallet/service/client/wasm-key-keeper.*
 wallet/service-balancer/logs/
 
 wallet/service-balancer/service-balancer
+
+wallet/service-balancer/sbbs-data/

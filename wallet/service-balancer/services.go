@@ -8,12 +8,7 @@ import (
 )
 
 func NewWalletServices () (* services.Services, error)  {
-	var svcsCnt = runtime.NumCPU() - 2
-	if config.Debug {
-		svcsCnt = 2
-	}
-
-	log.Printf("initializing wallet services, CPU count %v, service count %v", runtime.NumCPU(), svcsCnt)
+	log.Printf("initializing wallet services, CPU count %v, service count %v", runtime.NumCPU(), config.WalletServiceCnt)
 
 	var cliOptions []string
 	if len(config.AllowedOrigin) > 0 {
@@ -34,7 +29,7 @@ func NewWalletServices () (* services.Services, error)  {
 		CliOptions:       cliOptions,
 	}
 
-	return services.NewServices(&cfg, svcsCnt, "service")
+	return services.NewServices(&cfg, config.WalletServiceCnt, "service")
 }
 
 func NewBbsServices () (* services.Services, error) {
