@@ -73,7 +73,7 @@ namespace beam::wallet
         };
 
     private:
-        const TxParameters& m_tx;
+        const TxParameters m_tx;
         bool m_isBeamSide;
         TxStatus m_status;
     };
