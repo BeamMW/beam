@@ -43,6 +43,8 @@ namespace beam::wallet
     macro(-32009, SwapFailToAcceptOwnOffer,  "Can't accept own swap offer.")     \
     macro(-32010, SwapNotEnoughtBeams,       "Not enought beams.")               \
     macro(-32011, SwapFailToConnect,         "Doesn't have active connection.")  \
+    macro(-32012, DatabaseError,             "Database error")                   \
+    macro(-32013, DatabaseNotFound,          "Database not found")               \
 
     enum ApiError
     {

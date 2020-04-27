@@ -635,74 +635,86 @@ namespace
 
             void onMessage(const JsonRpcId& id, const OpenWallet& data) override
             {
-                LOG_DEBUG() << "OpenWallet(id = " << id << ")";
-
-                auto it = _walletMap.find(data.id);
-                if (it == _walletMap.end())
+                try
                 {
-                    _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass), createKeyKeeperFromDB(data.id, data.pass));
-                    _wallet = std::make_shared<Wallet>(_walletDB);
+                    LOG_DEBUG() << "OpenWallet(id = " << id << ")";
 
-                    Key::IPKdf::Ptr pKey = _walletDB->get_OwnerKdf();
-                    KeyString ks;
-                    ks.SetPassword(Blob(data.pass.data(), static_cast<uint32_t>(data.pass.size())));
-                    ks.m_sMeta = std::to_string(0);
-                    ks.ExportP(*pKey);
-                    _walletMap[data.id].ownerKey = ks.m_sRes;
-
-                }
-                else if (auto wdb = it->second.walletDB.lock(); wdb)
-                {
-                    _walletDB = wdb;
-                    _wallet = it->second.wallet.lock();
-                }
-                else
-                {
-                    _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass), createKeyKeeper(data.pass, it->second.ownerKey));
-                    _wallet = std::make_shared<Wallet>(_walletDB);
-                }
-                
-                if(!_walletDB)
-                {
-                    _apiConnection.doError(id, ApiError::InternalErrorJsonRpc, "Wallet not opened.");
-                    return;
-                }
-
-                _walletMap[data.id].walletDB = _walletDB;
-                _walletMap[data.id].wallet = _wallet;
-
-                LOG_INFO() << "wallet sucessfully opened...";
-
-                _wallet->ResumeAllTransactions();
-
-                auto nnet = std::make_shared<ServiceNodeConnection>(*_wallet);
-                nnet->m_Cfg.m_PollPeriod_ms = 0;//options.pollPeriod_ms.value;
-            
-                if (nnet->m_Cfg.m_PollPeriod_ms)
-                {
-                    LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
-                    uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
-                    if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+                    auto it = _walletMap.find(data.id);
+                    if (it == _walletMap.end())
                     {
-                        LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+                        _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass),
+                                                   createKeyKeeperFromDB(data.id, data.pass));
+                        _wallet = std::make_shared<Wallet>(_walletDB);
+
+                        Key::IPKdf::Ptr pKey = _walletDB->get_OwnerKdf();
+                        KeyString ks;
+                        ks.SetPassword(Blob(data.pass.data(), static_cast<uint32_t>(data.pass.size())));
+                        ks.m_sMeta = std::to_string(0);
+                        ks.ExportP(*pKey);
+                        _walletMap[data.id].ownerKey = ks.m_sRes;
+
+                    } else if (auto wdb = it->second.walletDB.lock(); wdb)
+                    {
+                        _walletDB = wdb;
+                        _wallet = it->second.wallet.lock();
+                    } else
+                    {
+                        _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass),
+                                                   createKeyKeeper(data.pass, it->second.ownerKey));
+                        _wallet = std::make_shared<Wallet>(_walletDB);
                     }
+
+                    if (!_walletDB)
+                    {
+                        _apiConnection.doError(id, ApiError::InternalErrorJsonRpc, "Wallet not opened.");
+                        return;
+                    }
+
+                    _walletMap[data.id].walletDB = _walletDB;
+                    _walletMap[data.id].wallet = _wallet;
+
+                    LOG_INFO() << "wallet sucessfully opened...";
+
+                    _wallet->ResumeAllTransactions();
+
+                    auto nnet = std::make_shared<ServiceNodeConnection>(*_wallet);
+                    nnet->m_Cfg.m_PollPeriod_ms = 0;//options.pollPeriod_ms.value;
+
+                    if (nnet->m_Cfg.m_PollPeriod_ms)
+                    {
+                        LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+                        uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+                        if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+                        {
+                            LOG_INFO() << "Node poll period has been automatically rounded up to block rate: "
+                                       << timeout_ms << " ms";
+                        }
+                    }
+                    uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
+                    if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+                    {
+                        LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than "
+                                      << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+                    }
+                    nnet->m_Cfg.m_vNodes.push_back(_nodeAddr);
+                    nnet->Connect();
+
+                    auto wnet = std::make_shared<WalletNetworkViaBbs>(*_wallet, nnet, _walletDB);
+                    _wallet->AddMessageEndpoint(wnet);
+                    _wallet->SetNodeEndpoint(nnet);
+
+                    // !TODO: not sure, do we need this id in the future
+                    auto session = generateUid();
+                    doResponse(id, OpenWallet::Response{session});
                 }
-                uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
-                if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+                catch(const DatabaseNotFoundException& ex)
                 {
-                    LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+                    _apiConnection.doError(id, ApiError::DatabaseNotFound, ex.what());
                 }
-                nnet->m_Cfg.m_vNodes.push_back(_nodeAddr);
-                nnet->Connect();
-
-                auto wnet = std::make_shared<WalletNetworkViaBbs>(*_wallet, nnet, _walletDB);
-                _wallet->AddMessageEndpoint(wnet);
-                _wallet->SetNodeEndpoint(nnet);
-
-                // !TODO: not sure, do we need this id in the future
-                auto session = generateUid();
-
-                doResponse(id, OpenWallet::Response{session});
+                catch(const DatabaseException& ex)
+                {
+                    _apiConnection.doError(id, ApiError::DatabaseError, ex.what());
+                }
             }
 
             void onMessage(const JsonRpcId& id, const wallet::Ping& data) override

@@ -287,7 +287,7 @@ namespace beam::wallet
     {
     public:
         explicit InvalidDatabaseVersionException()
-            : DatabaseException("")
+            : DatabaseException("Invalid database version")
         {
         }
     };
@@ -296,7 +296,7 @@ namespace beam::wallet
     {
     public:
         explicit DatabaseMigrationException()
-            : DatabaseException("")
+            : DatabaseException("Database migration error")
         {
         }
     };
@@ -305,7 +305,7 @@ namespace beam::wallet
     {
     public:
         explicit DatabaseNotFoundException()
-            : DatabaseException("")
+            : DatabaseException("Database not found")
         {
         }
     };
@@ -314,7 +314,7 @@ namespace beam::wallet
     {
     public:
         explicit FileIsNotDatabaseException()
-            : DatabaseException("")
+            : DatabaseException("File is not a database")
         {
         }
     };
