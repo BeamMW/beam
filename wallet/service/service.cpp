@@ -601,36 +601,43 @@ namespace
 
             void onMessage(const JsonRpcId& id, const CreateWallet& data) override
             {
-                LOG_DEBUG() << "CreateWallet(id = " << id << ")";
-
-                beam::KeyString ks;
-
-                ks.SetPassword(data.pass);
-                ks.m_sRes = data.ownerKey;
-
-                std::shared_ptr<ECC::HKdfPub> ownerKdf = std::make_shared<ECC::HKdfPub>();
-
-                if(ks.Import(*ownerKdf))
+                try
                 {
-                    auto keyKeeper = createKeyKeeper(ownerKdf);
-                    auto dbName = generateWalletID(ownerKdf);
-                    IWalletDB::Ptr walletDB = WalletDB::init(makeDBPath(dbName), SecString(data.pass), keyKeeper);
+                    LOG_DEBUG() << "CreateWallet(id = " << id << ")";
 
-                    if(walletDB)
+                    beam::KeyString ks;
+
+                    ks.SetPassword(data.pass);
+                    ks.m_sRes = data.ownerKey;
+
+                    std::shared_ptr<ECC::HKdfPub> ownerKdf = std::make_shared<ECC::HKdfPub>();
+
+                    if (ks.Import(*ownerKdf))
                     {
-                        _walletMap[dbName] = WalletInfo(data.ownerKey, {}, walletDB);
-                        // generate default address
-                        WalletAddress address;
-                        walletDB->createAddress(address);
-                        address.m_label = "default";
-                        walletDB->saveAddress(address);
+                        auto keyKeeper = createKeyKeeper(ownerKdf);
+                        auto dbName = generateWalletID(ownerKdf);
+                        IWalletDB::Ptr walletDB = WalletDB::init(makeDBPath(dbName), SecString(data.pass), keyKeeper);
 
-                        doResponse(id, CreateWallet::Response{dbName});
-                        return;
+                        if (walletDB)
+                        {
+                            _walletMap[dbName] = WalletInfo(data.ownerKey, {}, walletDB);
+                            // generate default address
+                            WalletAddress address;
+                            walletDB->createAddress(address);
+                            address.m_label = "default";
+                            walletDB->saveAddress(address);
+
+                            doResponse(id, CreateWallet::Response{dbName});
+                            return;
+                        }
                     }
-                }
 
-                _apiConnection.doError(id, ApiError::InternalErrorJsonRpc, "Wallet not created.");
+                    _apiConnection.doError(id, ApiError::InternalErrorJsonRpc, "Wallet not created.");
+                }
+                catch (const DatabaseException& ex)
+                {
+                     _apiConnection.doError(id, ApiError::DatabaseError, ex.what());
+                }
             }
 
             void onMessage(const JsonRpcId& id, const OpenWallet& data) override
