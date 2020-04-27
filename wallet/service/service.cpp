@@ -33,7 +33,6 @@
 
 #include "wallet/api/api_handler.h"
 #include "wallet/core/wallet_db.h"
-#include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
 
@@ -47,6 +46,7 @@
 #include "utils.h"
 
 #include "websocket_server.h"
+#include "node_connection.h"
 
 using json = nlohmann::json;
 
@@ -58,7 +58,22 @@ using namespace beam::wallet;
 
 namespace beam::wallet
 {
-    io::Address node_addr;
+    namespace {
+        std::string makeDBPath(const std::string& name)
+        {
+            const char *DB_FOLDER = "wallets";
+            auto path = boost::filesystem::system_complete(DB_FOLDER);
+
+            if (!boost::filesystem::exists(path))
+            {
+                boost::filesystem::create_directories(path);
+            }
+
+            std::string fname = std::string(name) + ".db";
+            path /= fname;
+            return path.string();
+        }
+    }
 
     WalletServiceApi::WalletServiceApi(IWalletServiceApiHandler& handler, ACL acl)
         : WalletApi(handler, acl)
@@ -176,10 +191,10 @@ namespace
     {
     public:
 
-        WalletApiServer(io::Reactor::Ptr reactor, uint16_t port, const std::string& allowedOrigin)
+        WalletApiServer(io::Reactor::Ptr reactor, const io::Address& nodeAddr, uint16_t port, const std::string& allowedOrigin)
             : WebSocketServer(reactor, port,
-            [this, reactor] (auto&& func) {
-                return std::make_unique<ServiceApiConnection>(func, reactor, _walletMap);
+            [this, reactor, &nodeAddr] (auto&& func) {
+                return std::make_unique<ServiceApiConnection>(nodeAddr, func, reactor, _walletMap);
             },
             [] () {
 #ifndef _WIN32                
@@ -486,12 +501,13 @@ namespace
             , public IApiConnectionHandler
         {
         public:
-            ServiceApiConnection(WebSocketServer::SendMessageFunc sendFunc, io::Reactor::Ptr reactor, WalletMap& walletMap)
+            ServiceApiConnection(const io::Address& nodeAddr, WebSocketServer::SendMessageFunc sendFunc, io::Reactor::Ptr reactor, WalletMap& walletMap)
                 : _apiConnection(this, *this, boost::none)
                 , _sendFunc(sendFunc)
                 , _reactor(reactor)
                 , _api(*this)
                 , _walletMap(walletMap)
+                , _nodeAddr(nodeAddr)
             {
                 assert(_sendFunc);
             }
@@ -598,7 +614,7 @@ namespace
                 {
                     auto keyKeeper = createKeyKeeper(ownerKdf);
                     auto dbName = generateWalletID(ownerKdf);
-                    IWalletDB::Ptr walletDB = WalletDB::init(dbName + ".db", SecString(data.pass), keyKeeper);
+                    IWalletDB::Ptr walletDB = WalletDB::init(makeDBPath(dbName), SecString(data.pass), keyKeeper);
 
                     if(walletDB)
                     {
@@ -624,7 +640,7 @@ namespace
                 auto it = _walletMap.find(data.id);
                 if (it == _walletMap.end())
                 {
-                    _walletDB = WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeperFromDB(data.id, data.pass));
+                    _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass), createKeyKeeperFromDB(data.id, data.pass));
                     _wallet = std::make_shared<Wallet>(_walletDB);
 
                     Key::IPKdf::Ptr pKey = _walletDB->get_OwnerKdf();
@@ -642,7 +658,7 @@ namespace
                 }
                 else
                 {
-                    _walletDB = WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeper(data.pass, it->second.ownerKey));
+                    _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass), createKeyKeeper(data.pass, it->second.ownerKey));
                     _wallet = std::make_shared<Wallet>(_walletDB);
                 }
                 
@@ -659,7 +675,7 @@ namespace
 
                 _wallet->ResumeAllTransactions();
 
-                auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*_wallet);
+                auto nnet = std::make_shared<ServiceNodeConnection>(*_wallet);
                 nnet->m_Cfg.m_PollPeriod_ms = 0;//options.pollPeriod_ms.value;
             
                 if (nnet->m_Cfg.m_PollPeriod_ms)
@@ -676,7 +692,7 @@ namespace
                 {
                     LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
                 }
-                nnet->m_Cfg.m_vNodes.push_back(node_addr);
+                nnet->m_Cfg.m_vNodes.push_back(_nodeAddr);
                 nnet->Connect();
 
                 auto wnet = std::make_shared<WalletNetworkViaBbs>(*_wallet, nnet, _walletDB);
@@ -744,7 +760,7 @@ namespace
 
             IPrivateKeyKeeper2::Ptr createKeyKeeperFromDB(const std::string& id, const std::string& pass)
             {
-                auto walletDB = WalletDB::open(id + ".db", SecString(pass));
+                auto walletDB = WalletDB::open(makeDBPath(id), SecString(pass));
                 Key::IPKdf::Ptr pKey = walletDB->get_OwnerKdf();
                 return createKeyKeeper(pKey);
             }
@@ -763,6 +779,7 @@ namespace
             Wallet::Ptr _wallet;
             WalletServiceApi _api;
             WalletMap& _walletMap;
+            io::Address _nodeAddr;
         };
 
     };
@@ -788,8 +805,9 @@ int main(int argc, char* argv[])
             Nonnegative<uint32_t> pollPeriod_ms;
             uint32_t logCleanupPeriod;
             std::string allowedOrigin;
-
         } options;
+
+        io::Address node_addr;
 
         {
             po::options_description desc("Wallet API general options");
@@ -848,7 +866,7 @@ int main(int argc, char* argv[])
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, beam::wallet::days2sec(options.logCleanupPeriod));
 
         LOG_INFO() << "Starting server on port " << options.port;
-        WalletApiServer server(reactor, options.port, options.allowedOrigin);
+        WalletApiServer server(reactor, node_addr, options.port, options.allowedOrigin);
         reactor->run();
 
         LOG_INFO() << "Done";

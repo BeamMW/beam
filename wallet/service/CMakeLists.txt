@@ -15,6 +15,7 @@ add_executable(${TARGET_NAME}
     service.cpp
     pipe.cpp
     utils.cpp
+        node_connection.cpp
 )
 
 target_compile_definitions(${TARGET_NAME} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
@@ -47,6 +48,7 @@ add_executable(${MONITOR_TARGET_NAME}
         monitor.cpp
         pipe.cpp
         utils.cpp
+        node_connection.cpp
         )
 
 target_include_directories(${MONITOR_TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
