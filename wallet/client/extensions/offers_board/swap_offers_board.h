@@ -65,7 +65,7 @@ public:
     class OfferLifetimeExceeded : public std::runtime_error
     {
     public:
-        OfferLifetimeExceeded() : std::runtime_error("Offer lifetime exceeded.") {}
+        OfferLifetimeExceeded() : std::runtime_error(" Offer lifetime exceeded.") {}
     };
 
     SwapOffersBoard(IBroadcastMsgGateway&, OfferBoardProtocolHandler&);

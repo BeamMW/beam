@@ -57,6 +57,9 @@ namespace
         catch(const SwapOffersBoard::ExpiredOfferException & e) {
             std::cout << offer.m_txId << e.what() << endl;
         }
+        catch(const SwapOffersBoard::OfferLifetimeExceeded & e) {
+            std::cout << offer.m_txId << e.what() << endl;
+        }
     }
 
     /**
@@ -763,6 +766,45 @@ namespace
         cout << "Test end" << endl;
     }
 
+    void TestOffersLifetimeCheck()
+    {
+        cout << endl << "Test offers lifetime check" << endl;
+
+        auto storage = createSqliteWalletDB();
+
+        OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf(), storage);
+        MockBbsNetwork mockNetwork;
+        BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
+        SwapOffersBoard Alice(broadcastRouter, protocolHandler);
+
+        HeightHash startState;
+        startState.m_Height = Fork1Height;
+        Alice.onSystemStateChanged(startState);
+
+        SwapOffer correctOffer;
+        std::tie(correctOffer, std::ignore) = generateTestOffer(storage);
+
+        {
+            cout << "Case: offer lifetime is more 12h" << endl;
+            SwapOffer o = correctOffer;
+            o.SetParameter(TxParameterID::MinHeight, Fork1Height);
+            o.SetParameter(TxParameterID::PeerResponseTime, Height(12*60));
+            
+            PublishOfferNoThrow(Alice, o);
+            WALLET_CHECK(Alice.getOffersList().size() == 0);
+        }
+        {
+            cout << "Case: offer lifetime is less 12h" << endl;
+            SwapOffer o = correctOffer;
+            o.SetParameter(TxParameterID::MinHeight, Fork1Height);
+            o.SetParameter(TxParameterID::PeerResponseTime, Height(12*59));
+            
+            PublishOfferNoThrow(Alice, o);
+            WALLET_CHECK(Alice.getOffersList().size() == 1);
+        }
+        cout << "Test end" << endl;
+    }
+
 } // namespace
 
 int main()
@@ -785,6 +827,7 @@ int main()
     TestCommunication();
     TestLinkedTransactionChanges();
     TestDelayedOfferUpdate();
+    TestOffersLifetimeCheck();
 
     boost::filesystem::remove(dbFileName);
 
