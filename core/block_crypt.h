@@ -125,8 +125,8 @@ namespace beam
 
 		struct Metadata
 		{
-			ByteBuffer m_Value;
-			ECC::Hash::Value m_Hash; // not serialized
+			ByteBuffer m_Value = {};
+			ECC::Hash::Value m_Hash = Zero; // not serialized
 
 			void Reset();
 			void UpdateHash(); // called automatically during deserialization
@@ -135,7 +135,7 @@ namespace beam
 
 		struct Info
 		{
-			AmountBig::Type m_Value;
+			AmountBig::Type m_Value = Zero;
 			PeerID m_Owner = Zero;
 			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
 			Metadata m_Metadata;

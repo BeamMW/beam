@@ -59,24 +59,23 @@ bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
     // New offer
     if (it == m_offersCache.end())
     {
-        if (!newOffer.IsValid() && newOffer.m_status == SwapOfferStatus::Pending)
-        {
-            LOG_WARNING() << "incoming offer is invalid";
-            return false;
-        }
-        if (isOfferExpired(newOffer) && newOffer.m_status == SwapOfferStatus::Pending)
-        {
-            newOffer.m_status = SwapOfferStatus::Expired;
-        }
-        
-        m_offersCache[newOffer.m_txId] = newOffer;
-
         if (newOffer.m_status == SwapOfferStatus::Pending)
         {
+            if (!newOffer.IsValid())
+            {
+                LOG_WARNING() << "incoming offer is invalid";
+                return false;
+            }
+            if (isOfferExpired(newOffer))
+            {
+                newOffer.m_status = SwapOfferStatus::Expired;
+            }
+            m_offersCache[newOffer.m_txId] = newOffer;
             notifySubscribers(ChangeAction::Added, std::vector<SwapOffer>{newOffer});
         }
         else
         {
+            m_offersCache[newOffer.m_txId] = newOffer;
             // Don't push irrelevant offers to subscribers
         }
     }
@@ -141,6 +140,24 @@ bool SwapOffersBoard::isOfferExpired(const SwapOffer& offer) const
     {
         auto expiresHeight = *minHeight + *peerResponseTime;
         return expiresHeight <= m_currentHeight;
+    }
+    else return true;
+}
+
+/**
+ *  Offers should not have lifetime longer than
+ *  underlaying BBS transport message lifetime.
+ *  Otherwise they will not exist in network for all lifetime.
+ */ 
+bool SwapOffersBoard::isOfferLifetimeTooLong(const SwapOffer& offer) const
+{
+    auto peerResponseTime = offer.GetParameter<Height>(TxParameterID::PeerResponseTime);
+    auto minHeight = offer.GetParameter<Height>(TxParameterID::MinHeight);
+    if (peerResponseTime && minHeight)
+    {
+        auto expiresHeight = *minHeight + *peerResponseTime;
+        Height messageLifetime = m_broadcastGateway.m_bbsTimeWindow / 60; // minutes ~ blocks
+        return m_currentHeight + messageLifetime <= expiresHeight;
     }
     else return true;
 }
@@ -239,6 +256,11 @@ void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
     if (isOfferExpired(offer))
     {
         throw ExpiredOfferException();
+    }
+
+    if (isOfferLifetimeTooLong(offer))
+    {
+        throw OfferLifetimeExceeded();
     }
 
     if (auto offerIt = m_offersCache.find(offer.m_txId); offerIt != m_offersCache.end())

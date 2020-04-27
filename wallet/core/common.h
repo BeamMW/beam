@@ -547,12 +547,12 @@ namespace beam::wallet
     // messages
     struct SetTxParameter
     {
-        WalletID m_From;
+        WalletID m_From = Zero;
         TxID m_TxID;
 
         TxType m_Type;
 
-        PackedTxParameters m_Parameters;
+        PackedTxParameters m_Parameters = {};
         
         // TODO use TxParameters here
         template <typename T>

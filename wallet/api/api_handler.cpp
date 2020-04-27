@@ -1090,7 +1090,7 @@ namespace beam::wallet
 
             if (!tx)
             {
-                doError(id, ApiError::InternalErrorJsonRpc, "Tranzaction not found.");
+                doError(id, ApiError::InternalErrorJsonRpc, "Transaction not found.");
                 return;
             }
 

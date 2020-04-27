@@ -30,8 +30,8 @@ namespace beam
     const char kCoinStatusUnavailable[] = "Unavailable";
     const char kCoinStatusSpent[] = "Spent";
     const char kCoinStatusMaturing[] = "Maturing";
-    const char kCoinStatusOutgoing[] = "In progress(outgoing)";
-    const char kCoinStatusIncoming[] = "In progress(incoming/change)";
+    const char kCoinStatusOutgoing[] = "Outgoing";
+    const char kCoinStatusIncoming[] = "Incoming/change";
     const char kCoinStatusConsumed[]    = "Consumed";
 
     // Errors

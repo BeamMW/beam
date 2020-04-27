@@ -59,7 +59,6 @@ namespace beam
         static constexpr size_t m_defaultMessageSize = 200;         // set experimentally
         static constexpr size_t m_minMessageSize = 1;
         static constexpr size_t m_maxMessageSize = 1024*1024*10;
-        static constexpr uint32_t m_bbsTimeWindow = 12*60*60;       // BBS message lifetime is 12 hours
 
         static const std::vector<BbsChannel> m_incomingBbsChannels;
         static const std::map<BroadcastContentType, BbsChannel> m_outgoingBbsChannelsMap;

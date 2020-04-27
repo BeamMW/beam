@@ -62,6 +62,12 @@ public:
         ExpiredOfferException() : std::runtime_error(" Can't publish expired offer.") {}
     };
 
+    class OfferLifetimeExceeded : public std::runtime_error
+    {
+    public:
+        OfferLifetimeExceeded() : std::runtime_error(" Offer lifetime exceeded.") {}
+    };
+
     SwapOffersBoard(IBroadcastMsgGateway&, OfferBoardProtocolHandler&);
     virtual ~SwapOffersBoard() {};
 
@@ -97,6 +103,7 @@ private:
     std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
 
     bool isOfferExpired(const SwapOffer& offer) const;
+    bool isOfferLifetimeTooLong(const SwapOffer& offer) const;
     bool onOfferFromNetwork(SwapOffer& newOffer);
     void broadcastOffer(const SwapOffer& content, const WalletID& wid) const;
     void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
