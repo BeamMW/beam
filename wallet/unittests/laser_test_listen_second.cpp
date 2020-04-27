@@ -44,27 +44,14 @@ int main()
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = Logger::create(logLevel, logLevel, logLevel, "laser_test", path.string());
 
-    Rules::get().pForks[1].m_Height = 1;
-    Rules::get().pForks[2].m_Height = 2;
-	Rules::get().FakePoW = true;
-    Rules::get().MaxRollback = 5;
-	Rules::get().UpdateChecksum();
+    InitTestRules();
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    auto wdbFirst = createSqliteWalletDB("laser_test_listen_2_first.db", false, false);
-    auto wdbSecond = createSqliteWalletDB("laser_test_listen_2_second.db", false, false);
-
-    const AmountList amounts = {100000000, 100000000, 100000000, 100000000};
-    for (auto amount : amounts)
-    {
-        Coin coinFirst = CreateAvailCoin(amount, kCoinAvailableBlock);
-        wdbFirst->storeCoin(coinFirst);
-
-        Coin coinSecond = CreateAvailCoin(amount, kCoinAvailableBlock);
-        wdbSecond->storeCoin(coinSecond);
-    }
+    auto wdbFirst = createSqliteWalletDB(std::string(test_name(__FILE__)) + "-w1.db", false, true);
+    wdbFirst->AllocateKidRange(100500);
+    auto wdbSecond = createSqliteWalletDB(std::string(test_name(__FILE__)) + "-w2.db", false, true);
 
     // m_hRevisionMaxLifeTime, m_hLockTime, m_hPostLockReserve, m_Fee
     Lightning::Channel::Params params = {kRevisionMaxLifeTime, kLockTime, kPostLockReserve, kFee};
@@ -190,10 +177,19 @@ int main()
 
     ConfigureNetwork(*laserFirst, *laserSecond);
 
-    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    TestNode node(newBlockFunc, kNewBlockFuncStart, kDefaultTestNodePort);
+    Node node;
+    NodeObserver observer([&]()
+    {
+        auto cursor = node.get_Processor().m_Cursor;
+        if (cursor.m_Sid.m_Height >= kNewBlockFuncStart)
+            newBlockFunc(cursor.m_Sid.m_Height);
+    });
 
-    timer->start(kNewBlockInterval, true, [&node]() {node.AddBlock(); });
+    auto binaryTreasury = MakeTreasury(wdbFirst, wdbSecond);
+    InitNodeToTest(
+        node, binaryTreasury, &observer, kDefaultTestNodePort,
+        kNewBlockInterval, std::string(test_name(__FILE__)) + "-n.db");
+
     mainReactor->run();
 
     return WALLET_CHECK_RESULT;

@@ -17,6 +17,7 @@
 #include <functional>
 #include <memory>
 
+#include "core/treasury.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/laser/mediator.h"
 
@@ -29,10 +30,10 @@ const Height kLockTime = 5;
 const Height kPostLockReserve = 30;
 const Amount kFee = 100;
 const Height kOpenTxDh = 70;
-const Height kTestStartBlock = 11;
-const Height kNewBlockFuncStart = 5;
-const Height kCoinAvailableBlock = 3;
-const unsigned kNewBlockInterval = 1000;
+const Height kTestStartBlock = 4;
+const Height kNewBlockFuncStart = 3;
+const Height kCoinAvailableBlock = 3; // r
+const unsigned kNewBlockInterval = 200;
 
 struct LaserObserver : public laser::Mediator::Observer
 {
@@ -84,4 +85,101 @@ void ConfigureNetwork(laser::Mediator& laserFirst, laser::Mediator& laserSecond)
 {
     laserFirst.SetNetwork(CreateNetwork(laserFirst), false);
     laserSecond.SetNetwork(CreateNetwork(laserSecond), false);
+}
+
+void MakeTreasuryImpl(const IWalletDB::Ptr& db,
+                      const Treasury::Parameters& treasury_params,
+                      Treasury& treasury,
+                      const AmountList& amounts)
+{
+    auto kdf = db->get_MasterKdf();
+
+    PeerID pid;
+    ECC::Scalar::Native sk;
+    Treasury::get_ID(*kdf, pid, sk);
+
+    Treasury::Entry* plan = treasury.CreatePlan(pid, 0, treasury_params);
+    beam::Height incubation = 0;
+    for (size_t i = 0; i < amounts.size(); ++i)
+    {
+        if (i == 0)
+        {
+            plan->m_Request.m_vGroups.front().m_vCoins.front().m_Value = amounts[i];
+            incubation = plan->m_Request.m_vGroups.front().m_vCoins.front().m_Incubation;
+            continue;
+        }
+
+        auto& c = plan->m_Request.m_vGroups.back().m_vCoins.emplace_back();
+
+        c.m_Incubation = incubation;
+        c.m_Value = amounts[i];
+    }
+
+    plan->m_pResponse.reset(new Treasury::Response);
+    uint64_t nIndex = 1;
+    plan->m_pResponse->Create(plan->m_Request, *kdf, nIndex);
+
+    for (const auto& group : plan->m_pResponse->m_vGroups)
+    {
+        for (const auto& treasuryCoin : group.m_vCoins)
+        {
+            CoinID cid;
+            if (treasuryCoin.m_pOutput->Recover(0, *kdf, cid))
+            {
+                Coin coin;
+                coin.m_ID = cid;
+                coin.m_maturity = treasuryCoin.m_pOutput->m_Incubation;
+                coin.m_confirmHeight = treasuryCoin.m_pOutput->m_Incubation;
+                db->saveCoin(coin);
+            }
+        }
+    }
+}
+
+ByteBuffer MakeTreasury(
+    const IWalletDB::Ptr& db1, const IWalletDB::Ptr& db2, const AmountList& amounts = {100000000, 100000000, 100000000, 100000000})
+{
+    Treasury treasury;
+    Treasury::Parameters treasury_params;
+    treasury_params.m_Bursts = 1;
+    treasury_params.m_Maturity0 = 1;
+    treasury_params.m_MaturityStep = 0;
+
+    MakeTreasuryImpl(db1, treasury_params, treasury, amounts);
+    MakeTreasuryImpl(db2, treasury_params, treasury, amounts);
+
+    Treasury::Data data;
+    data.m_sCustomMsg = "LN";
+    treasury.Build(data);
+
+    Serializer ser;
+    ser & data;
+
+    ByteBuffer result;
+    ser.swap_buf(result);
+
+    return result;
+}
+
+void InitTestRules()
+{
+    Rules::get().pForks[1].m_Height = 1;
+    Rules::get().pForks[2].m_Height = 2;
+	Rules::get().FakePoW = true;
+    Rules::get().MaxRollback = 5;
+	Rules::get().UpdateChecksum();
+}
+
+constexpr bool is_path_sep(char c)
+{
+    return c == '/' || c == '\\';
+}
+
+constexpr const char* test_name(const char* path)
+{
+    auto lastname = path;
+    for (auto p = path ; *p ; ++p) {
+        if (is_path_sep(*p) && *(p+1)) lastname = p+1;
+    }
+    return lastname;
 }
