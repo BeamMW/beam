@@ -125,8 +125,8 @@ namespace beam
 
 		struct Metadata
 		{
-			ByteBuffer m_Value;
-			ECC::Hash::Value m_Hash; // not serialized
+			ByteBuffer m_Value = {};
+			ECC::Hash::Value m_Hash = Zero; // not serialized
 
 			void Reset();
 			void UpdateHash(); // called automatically during deserialization
