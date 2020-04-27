@@ -135,7 +135,7 @@ namespace beam
 
 		struct Info
 		{
-			AmountBig::Type m_Value;
+			AmountBig::Type m_Value = Zero;
 			PeerID m_Owner = Zero;
 			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
 			Metadata m_Metadata;
