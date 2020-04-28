@@ -445,8 +445,9 @@ namespace beam::wallet
         std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
-            bool bIn = (coin.m_createTxId == m_ID);
-            bool bOut = (coin.m_spentTxId == m_ID);
+            bool bIn = (coin.m_createTxId && *coin.m_createTxId == m_ID);
+            bool bOut = (coin.m_spentTxId && *coin.m_spentTxId == m_ID);
+            LOG_DEBUG() << TRACE(coin.m_createTxId.is_initialized()) << TRACE(coin.m_spentTxId.is_initialized()) << TRACE(proofHeight) << TRACE(bIn) << TRACE(bOut);
             if (bIn || bOut)
             {
                 if (bIn)
