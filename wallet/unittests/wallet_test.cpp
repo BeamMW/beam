@@ -2221,8 +2221,8 @@ void TestKeyKeeper()
     Peer& r = pPeer[1];
 
     // 1st sender invocation
-    IPrivateKeyKeeper2::Method::SignSender mS = {};
-    //ZeroObject(mS); // not so good coz it contains vectors. nevermind, it's a test
+    IPrivateKeyKeeper2::Method::SignSender mS;
+    ZeroObjectUnchecked(mS); // not so good coz it contains vectors. nevermind, it's a test
     mS.m_Peer = r.m_ID;
     mS.m_MyIDKey = s.m_KeyID;
     mS.m_Slot = 12;
@@ -2236,8 +2236,8 @@ void TestKeyKeeper()
     WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == s.m_pKk->InvokeSync(mS));
 
     // Receiver invocation
-    IPrivateKeyKeeper2::Method::SignReceiver mR = {};
-    //ZeroObject(mR);
+    IPrivateKeyKeeper2::Method::SignReceiver mR;
+    ZeroObjectUnchecked(mR);
     mR.m_Peer = s.m_ID;
     mR.m_MyIDKey = r.m_KeyID;
     mR.m_pKernel = std::move(mS.m_pKernel);
@@ -2567,8 +2567,6 @@ int main()
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = beam::Logger::create(logLevel, logLevel, logLevel, "wallet_test", path.string());
 
-
-    /* DISABLE TEMPORARILY
     Rules::get().FakePoW = true;
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
@@ -2625,7 +2623,7 @@ int main()
 
     //TestBbsMessages();
     //TestBbsMessages2();
-    */
+
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
 }
