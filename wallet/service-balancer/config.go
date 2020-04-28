@@ -144,6 +144,10 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 			cfg.WalletServiceCnt = 2
 		} else {
 			cfg.WalletServiceCnt = runtime.NumCPU() - 2
+			if cfg.WalletServiceCnt == 0 {
+				log.Printf("CPU count %v, no count in settings, defaulting to 2", runtime.NumCPU())
+				cfg.WalletServiceCnt = 2
+			}
 		}
 	}
 
