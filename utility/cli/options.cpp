@@ -585,6 +585,7 @@ namespace beam
         if (!cfg)
             return false;
 
+        LOG_INFO() << "Reading config from " << szFile;
         po::store(po::parse_config_file(cfg, desc), vm);
         return true;
     }

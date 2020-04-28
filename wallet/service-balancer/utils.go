@@ -7,6 +7,7 @@ import (
 	"github.com/olahol/melody"
 	"log"
 	"net/http"
+	"os"
 	"reflect"
 	"runtime"
 )
@@ -40,7 +41,7 @@ func wrapHandler(handler func(r *http.Request)(interface{}, error)) http.Handler
 		}
 
 		if res == nil {
-			res = genericR{
+			res = genericR {
 			}
 		}
 
@@ -88,4 +89,13 @@ func checkOrigin(r *http.Request) error {
 	}
 
 	return nil
+}
+
+func getCWD() string {
+	res, err := os.Getwd()
+	if err != nil {
+		log.Printf("Error while getting working directory, %v", err)
+		return ""
+	}
+	return res
 }

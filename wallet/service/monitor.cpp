@@ -574,6 +574,7 @@ int main(int argc, char* argv[])
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet SBBS Monitor " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+            LOG_INFO() << "Current folder is " << boost::filesystem::current_path().string();
 
             if (vm.count(cli::NODE_ADDR) == 0)
             {
