@@ -134,7 +134,7 @@ void GetStatusResponseJson(const TxDescription& tx,
     }
     else if (tx.m_status != TxStatus::Canceled)
     {
-        if (tx.m_txType != TxType::AssetInfo)
+        if (tx.m_txType != TxType::AssetInfo && tx.m_txType != TxType::AtomicSwap)
         {
             msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
         }
