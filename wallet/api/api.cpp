@@ -35,6 +35,12 @@ void AddSwapTxDetailsToJson(const TxDescription& tx, json& msg)
 {
     SwapTxDescription swapTx(tx);
 
+    auto fee = swapTx.getFee();
+    if (fee)
+    {
+        msg["fee"] = *fee;
+    }
+
     auto beamLockTxKernelID = swapTx.getBeamTxKernelId<SubTxIndex::BEAM_LOCK_TX>();
     if (beamLockTxKernelID)
     {
@@ -93,7 +99,6 @@ void GetStatusResponseJson(const TxDescription& tx,
         {"status_string", tx.getStatusStringApi()},
         {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
         {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
-        {"fee", tx.m_fee},
         {"value", tx.m_amount},
         {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
         {"create_time", tx.m_createTime},
@@ -102,6 +107,11 @@ void GetStatusResponseJson(const TxDescription& tx,
         {"tx_type", tx.m_txType},
         {"tx_type_string", tx.getTxTypeString()}
     };
+
+    if (tx.m_txType != TxType::AtomicSwap)
+    {
+        msg["fee"] = tx.m_fee;
+    }
 
     if (tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume || tx.m_txType == TxType::AssetInfo)
     {
