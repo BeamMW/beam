@@ -253,10 +253,9 @@ namespace
         {
         public:
 
-            WasmKeyKeeperProxy(Key::IPKdf::Ptr ownerKdf, IApiConnectionHandler& connection, io::Reactor::Ptr reactor)
+            WasmKeyKeeperProxy(Key::IPKdf::Ptr ownerKdf, IApiConnectionHandler& connection)
                 : _ownerKdf(ownerKdf)
                 , _connection(connection)
-                , _reactor(reactor)
             {}
             virtual ~WasmKeyKeeperProxy(){}
 
@@ -473,7 +472,6 @@ namespace
         private:
             Key::IPKdf::Ptr _ownerKdf;
             IApiConnectionHandler& _connection;
-            io::Reactor::Ptr _reactor;
         };
 
         class MyApiConnection : public WalletApiHandler
@@ -787,7 +785,7 @@ namespace
 
             IPrivateKeyKeeper2::Ptr createKeyKeeper(Key::IPKdf::Ptr ownerKdf)
             {
-                return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, *this, _reactor);
+                return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, *this);
             }
 
         protected:

@@ -900,9 +900,15 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent));
         ShowAssetCoins(walletDB, Zero);
 
-        if (vm.count(cli::TX_HISTORY))
-        {
-            auto txHistory = walletDB->getTxHistory();
+        if (vm.count(cli::TX_HISTORY) || vm.count(cli::SHIELDED_TX_HISTORY))
+        {            
+            std::vector<TxDescription> txHistory;
+            
+            if (vm.count(cli::TX_HISTORY))
+            {
+                auto simpleTxHistory = walletDB->getTxHistory();
+                txHistory.insert(txHistory.end(), simpleTxHistory.begin(), simpleTxHistory.end());
+            }
 
             if (vm.count(cli::SHIELDED_TX_HISTORY))
             {
@@ -1008,10 +1014,10 @@ namespace
             const char kShieldedSpentTxID[] = "spentTxID";
             const char kShieldedConfirmHeight[] = "confirmHeight";
             const char kShieldedSpentHeight[] = "spentHeight";
-            const char kAnonymitySet[] = "anonymitySet(approx.)";
+            const char kAnonymitySet[] = "anonymitySet(approx)";
             const char kTargetAnonymitySet[] = "targetAnonymitySet";
 
-            const array<uint8_t, 9> columnWidths{ { 12, 10, 10, 32, 32, 13, 12, 21, 18} };
+            const array<uint8_t, 9> columnWidths{ { 12, 10, 10, 32, 32, 13, 11, 20, 18} };
             cout << boost::format(kShieldedCoinsTableHeadFormat)
                 % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
                 % boost::io::group(right, setw(columnWidths[1]), kBEAM)

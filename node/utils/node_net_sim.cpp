@@ -16,6 +16,7 @@
 #include "../../mnemonic/mnemonic.h"
 #include "../../utility/cli/options.h"
 #include "../../core/fly_client.h"
+#include <boost/core/ignore_unused.hpp>
 
 #define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
@@ -133,7 +134,7 @@ int main(int argc, char* argv[])
     using namespace beam;
 
     auto [options, visibleOptions] = createOptionsDescription(0);
-    visibleOptions; // suppress warning
+    boost::ignore_unused(visibleOptions);
     options.add_options()
         (cli::SEED_PHRASE, po::value<std::string>()->default_value(""), "seed phrase");
 

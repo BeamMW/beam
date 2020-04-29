@@ -138,20 +138,17 @@ int main()
         }
     };
 
-    ConfigureNetwork(*laserFirst, *laserSecond);
-
     Node node;
     NodeObserver observer([&]()
     {
         auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height >= kNewBlockFuncStart)
-            newBlockFunc(cursor.m_Sid.m_Height);
+        newBlockFunc(cursor.m_Sid.m_Height);
     });
-
     auto binaryTreasury = MakeTreasury(wdbFirst, wdbSecond);
     InitNodeToTest(
         node, binaryTreasury, &observer, kDefaultTestNodePort,
         kNewBlockInterval, std::string(test_name(__FILE__)) + "-n.db");
+    ConfigureNetwork(*laserFirst, *laserSecond);
 
     mainReactor->run();
 
