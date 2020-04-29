@@ -900,9 +900,15 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent));
         ShowAssetCoins(walletDB, Zero);
 
-        if (vm.count(cli::TX_HISTORY))
-        {
-            auto txHistory = walletDB->getTxHistory();
+        if (vm.count(cli::TX_HISTORY) || vm.count(cli::SHIELDED_TX_HISTORY))
+        {            
+            std::vector<TxDescription> txHistory;
+            
+            if (vm.count(cli::TX_HISTORY))
+            {
+                auto simpleTxHistory = walletDB->getTxHistory();
+                txHistory.insert(txHistory.end(), simpleTxHistory.begin(), simpleTxHistory.end());
+            }
 
             if (vm.count(cli::SHIELDED_TX_HISTORY))
             {
