@@ -1008,10 +1008,10 @@ namespace
             const char kShieldedSpentTxID[] = "spentTxID";
             const char kShieldedConfirmHeight[] = "confirmHeight";
             const char kShieldedSpentHeight[] = "spentHeight";
-            const char kAnonymitySet[] = "anonymitySet(approx.)";
+            const char kAnonymitySet[] = "anonymitySet(approx)";
             const char kTargetAnonymitySet[] = "targetAnonymitySet";
 
-            const array<uint8_t, 9> columnWidths{ { 12, 10, 10, 32, 32, 13, 12, 21, 18} };
+            const array<uint8_t, 9> columnWidths{ { 12, 10, 10, 32, 32, 13, 11, 20, 18} };
             cout << boost::format(kShieldedCoinsTableHeadFormat)
                 % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
                 % boost::io::group(right, setw(columnWidths[1]), kBEAM)
