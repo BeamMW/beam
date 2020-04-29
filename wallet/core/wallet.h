@@ -176,6 +176,7 @@ namespace beam::wallet
         void report_sync_progress();
         void notifySyncProgress();
         void UpdateTransaction(const TxID& txID);
+        void UpdateTransaction(BaseTransaction::Ptr tx);
         void UpdateOnSynced(BaseTransaction::Ptr tx);
         void UpdateOnNextTip(BaseTransaction::Ptr tx);
         void saveKnownState();

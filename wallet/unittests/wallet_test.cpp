@@ -326,9 +326,7 @@ namespace
         cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
 
         // check coins
-        LOG_DEBUG() << "Sender's coins";
         newSenderCoins = sender.GetCoins();
-        LOG_DEBUG() << "Receivers's coins";
         newReceiverCoins = receiver.GetCoins();
 
         WALLET_CHECK(newSenderCoins.size() == 5);

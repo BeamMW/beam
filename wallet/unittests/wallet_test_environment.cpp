@@ -507,19 +507,12 @@ struct TestWalletRig
 
     vector<Coin> GetCoins()
     {
-        std::stringstream ss;
-        ss << "[";
         vector<Coin> coins;
-        m_WalletDB->visitCoins([&coins, &ss](const Coin& c)->bool
+        m_WalletDB->visitCoins([&coins](const Coin& c)->bool
         {
             coins.push_back(c);
-            ss  << "\n\nValue: " << c.m_ID.m_Value
-                << "\nStatus: " << c.m_status
-                << "\nType: " << c.m_ID.m_Type;
             return true;
         });
-        ss << "\n]\n";
-        std::cout << ss.str();
         return coins;
     }
 
@@ -1105,7 +1098,7 @@ private:
 
         void OnMsg(proto::GetStateSummary&& msg) override
         {
-            Send(proto::StateSummary{});
+            Send(proto::StateSummary(Zero));
         }
 
         void OnDisconnect(const DisconnectReason& r) override
