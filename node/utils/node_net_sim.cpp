@@ -88,14 +88,95 @@ struct Context
     HeightMap m_mapConfirmed;
     HeightMap m_mapSpent;
 
+    struct EventsHandler
+        :public proto::FlyClient::Request::IHandler
+    {
+        Height m_hEvents = 0;
+        proto::FlyClient::Request::Ptr m_pReq;
+
+        virtual void OnComplete(proto::FlyClient::Request& r_) override
+        {
+            assert(&r_ == m_pReq.get());
+            m_pReq.reset();
+
+            proto::FlyClient::RequestEvents& r = Cast::Up<proto::FlyClient::RequestEvents>(r_);
+
+            struct MyParser :public proto::Event::IGroupParser
+            {
+                Context& m_This;
+                MyParser(Context& x) :m_This(x) {}
+
+                virtual void OnEvent(proto::Event::Base& evt) override
+                {
+                    if (proto::Event::Type::Utxo == evt.get_Type())
+                        return OnEventType(Cast::Up<proto::Event::Utxo>(evt));
+                    if (proto::Event::Type::Shielded == evt.get_Type())
+                        return OnEventType(Cast::Up<proto::Event::Shielded>(evt));
+                    if (proto::Event::Type::AssetCtl == evt.get_Type())
+                        return OnEventType(Cast::Up<proto::Event::AssetCtl>(evt));
+                }
+
+                void OnEventType(proto::Event::Utxo& evt)
+                {
+                }
+
+                void OnEventType(proto::Event::Shielded& evt)
+                {
+                }
+
+                void OnEventType(proto::Event::AssetCtl& evt)
+                {
+                }
+
+            } p(get_ParentObj());
+
+            uint32_t nCount = p.Proceed(r.m_Res.m_Events);
+
+            Height hTip = get_ParentObj().m_FlyClient.get_Height();
+
+            if (nCount < proto::Event::s_Max)
+                m_hEvents = hTip + 1;
+            else
+            {
+                m_hEvents = p.m_Height + 1;
+                if (m_hEvents < hTip + 1)
+                    AskEventsStrict();
+            }
+
+            if (!m_pReq)
+                get_ParentObj().OnEventsHandled();
+        }
+
+        void Abort()
+        {
+            if (m_pReq) {
+                m_pReq->m_pTrg = nullptr;
+                m_pReq.reset();
+            }
+        }
+
+        ~EventsHandler() {
+            Abort();
+        }
+
+        void AskEventsStrict()
+        {
+            assert(!m_pReq);
+
+            m_pReq = new proto::FlyClient::RequestEvents;
+            Cast::Up<proto::FlyClient::RequestEvents>(*m_pReq).m_Msg.m_HeightMin = m_hEvents;
+
+            get_ParentObj().m_Network.PostRequest(*m_pReq, *this);
+        }
+
+        IMPLEMENT_GET_PARENT_OBJ(Context, m_EventsHandler)
+
+    } m_EventsHandler;
 
 	struct MyFlyClient
 		:public proto::FlyClient
 //		,public proto::FlyClient::Request::IHandler
 	{
-
-		bool m_bRunning;
-		Height m_hRolledTo;
 
 		Block::SystemState::HistoryMap m_Hist;
 
@@ -110,7 +191,7 @@ struct Context
 
         virtual void OnNewTip() override
         {
-            get_ParentObj().ForgetOld();
+            get_ParentObj().OnNewTip();
         }
 
         virtual void OnRolledBack() override
@@ -137,6 +218,13 @@ struct Context
         IMPLEMENT_GET_PARENT_OBJ(Context, m_FlyClient)
 
     } m_FlyClient;
+
+    proto::FlyClient::NetworkStd m_Network;
+
+    Context()
+        :m_Network(m_FlyClient)
+    {
+    }
 
     void DeleteTxo(Txo& txo)
     {
@@ -175,15 +263,24 @@ struct Context
                 m_mapConfirmed.insert(txo.m_Height);
             }
         }
+
+        m_EventsHandler.Abort();
+        std::setmin(m_EventsHandler.m_hEvents, h + 1);
     }
 
-    void ForgetOld()
+    void OnNewTip()
     {
         Height h = m_FlyClient.get_Height();
-        if (h < Rules::get().MaxRollback)
-            return;
-        h -= Rules::get().MaxRollback;
 
+        if (h >= Rules::get().MaxRollback)
+            ForgetOld(h - Rules::get().MaxRollback);
+
+        if (!m_EventsHandler.m_pReq)
+            m_EventsHandler.AskEventsStrict();
+    }
+
+    void ForgetOld(Height h)
+    {
         while (!m_mapSpent.empty())
         {
             Txo& txo = m_mapSpent.begin()->get_ParentObj();
@@ -197,6 +294,10 @@ struct Context
         }
     }
 
+    void OnEventsHandled()
+    {
+        // decide w.r.t. test logic
+    }
 
 
 
