@@ -100,7 +100,6 @@ int main()
     NodeObserver observer([&]()
     {
         auto cursor = node.get_Processor().m_Cursor;
-        // if (cursor.m_Sid.m_Height >= kNewBlockFuncStart)
         newBlockFunc(cursor.m_Sid.m_Height);
     });
     auto binaryTreasury = MakeTreasury(wdbFirst, wdbSecond, 10);
