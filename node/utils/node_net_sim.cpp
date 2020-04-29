@@ -56,6 +56,38 @@ struct Context
 {
     Key::IKdf::Ptr m_pKdf;
 
+    struct Txo
+    {
+        struct Cid
+            :public boost::intrusive::set_base_hook<>
+        {
+            CoinID m_Value;
+            bool operator < (const Cid& cid) const { return m_Value < cid.m_Value; }
+
+            IMPLEMENT_GET_PARENT_OBJ(Txo, m_Cid)
+        } m_Cid;
+
+        struct HeightNode
+            :public boost::intrusive::set_base_hook<>
+        {
+            Height m_Confirmed = MaxHeight;
+            Height m_Spent = MaxHeight;
+
+            Height get() const { return std::min(m_Confirmed, m_Spent); }
+            bool operator < (const HeightNode& x) const { return get() < x.get(); }
+
+            IMPLEMENT_GET_PARENT_OBJ(Txo, m_Height)
+        } m_Height;
+
+    };
+
+    typedef boost::intrusive::multiset<Txo::HeightNode> HeightMap;
+    typedef boost::intrusive::multiset<Txo::Cid> CidMap;
+
+    CidMap m_mapCid;
+    HeightMap m_mapConfirmed;
+    HeightMap m_mapSpent;
+
 
 	struct MyFlyClient
 		:public proto::FlyClient
@@ -67,6 +99,10 @@ struct Context
 
 		Block::SystemState::HistoryMap m_Hist;
 
+        Height get_Height() const {
+            return m_Hist.m_Map.empty() ? 0 : m_Hist.m_Map.rbegin()->first;
+        }
+
 		//virtual void OnComplete(Request& r) override
 		//{
 		//
@@ -74,13 +110,12 @@ struct Context
 
         virtual void OnNewTip() override
         {
-            // tip already added
+            get_ParentObj().ForgetOld();
         }
 
         virtual void OnRolledBack() override
         {
-            // reversed states are already removed
-            m_hRolledTo = m_Hist.m_Map.empty() ? 0 : m_Hist.m_Map.rbegin()->first;
+            get_ParentObj().OnRolledBack();
         }
 
         virtual void get_Kdf(Key::IKdf::Ptr& pKdf) override
@@ -103,9 +138,64 @@ struct Context
 
     } m_FlyClient;
 
+    void DeleteTxo(Txo& txo)
+    {
+        if (MaxHeight != txo.m_Height.m_Spent)
+            m_mapSpent.erase(HeightMap::s_iterator_to(txo.m_Height));
+        else
+        {
+            if (MaxHeight != txo.m_Height.m_Confirmed)
+                m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
+        }
 
+        m_mapCid.erase(CidMap::s_iterator_to(txo.m_Cid));
 
+        delete &txo;
+    }
 
+    void OnRolledBack()
+    {
+        Height h = m_FlyClient.get_Height();
+
+        while (!m_mapSpent.empty())
+        {
+            Txo& txo = m_mapSpent.rbegin()->get_ParentObj();
+            assert(txo.m_Height.m_Spent != MaxHeight);
+            assert(txo.m_Height.m_Confirmed != MaxHeight);
+
+            if (txo.m_Height.m_Spent <= h)
+                break;
+
+            if (txo.m_Height.m_Confirmed > h)
+                DeleteTxo(txo);
+            else
+            {
+                txo.m_Height.m_Spent = MaxHeight;
+                m_mapSpent.erase(HeightMap::s_iterator_to(txo.m_Height));
+                m_mapConfirmed.insert(txo.m_Height);
+            }
+        }
+    }
+
+    void ForgetOld()
+    {
+        Height h = m_FlyClient.get_Height();
+        if (h < Rules::get().MaxRollback)
+            return;
+        h -= Rules::get().MaxRollback;
+
+        while (!m_mapSpent.empty())
+        {
+            Txo& txo = m_mapSpent.begin()->get_ParentObj();
+            assert(txo.m_Height.m_Spent != MaxHeight);
+            assert(txo.m_Height.m_Confirmed != MaxHeight);
+
+            if (txo.m_Height.m_Spent > h)
+                break;
+
+            DeleteTxo(txo);
+        }
+    }
 
 
 
