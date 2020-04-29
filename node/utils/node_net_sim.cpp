@@ -15,6 +15,7 @@
 #include "../node.h"
 #include "../../mnemonic/mnemonic.h"
 #include "../../utility/cli/options.h"
+#include <boost/core/ignore_unused.hpp>
 
 #define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
@@ -61,7 +62,7 @@ int main(int argc, char* argv[])
     using namespace beam;
 
     auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS);
-
+    boost::ignore_unused(visibleOptions);
     po::variables_map vm;
     try
     {
