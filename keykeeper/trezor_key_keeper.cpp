@@ -25,7 +25,7 @@ namespace beam::wallet
        // : m_OwnerKdf(ownerKdf)
     {}
 
-    Status::Type HardwareKeyKeeperProxy::InvokeSync(Method::get_Kdf& x)
+    IPrivateKeyKeeper2::Status::Type HardwareKeyKeeperProxy::InvokeSync(Method::get_Kdf& x)
     {
         //if (x.m_Root)
         //{
