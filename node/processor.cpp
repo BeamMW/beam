@@ -2697,10 +2697,7 @@ void NodeProcessor::InternalAssetAdd(Asset::Full& ai)
 	assert(ai.m_ID); // it's 1-based
 
 	if (m_Mmr.m_Assets.m_Count < ai.m_ID)
-	{
-		assert(m_Mmr.m_Assets.m_Count + 1 == ai.m_ID);
 		m_Mmr.m_Assets.ResizeTo(ai.m_ID);
-	}
 
 	Merkle::Hash hv;
 	ai.get_Hash(hv);
