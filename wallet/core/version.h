@@ -41,5 +41,6 @@ namespace beam
         bool operator==(const Version& other) const;
         bool operator!=(const Version& other) const;
         bool operator<(const Version& other) const;
+        bool operator<=(const Version& other) const;
     };
 }

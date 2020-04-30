@@ -290,6 +290,17 @@ namespace beam::wallet
         onPostFunctionToClientContext(move(func));
     }
 
+    Version WalletClient::getAppVersion()
+    {
+        // TODO: replace with current wallet library version
+        return beam::Version
+        {
+            0,
+            0,
+            0
+        };
+    }
+
     void WalletClient::start( std::map<Notification::Type,bool> activeNotifications,
                               bool isSecondCurrencyEnabled,
                               std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
@@ -1127,7 +1138,8 @@ namespace beam::wallet
 
     void WalletClient::updateNotifications()
     {
-        postFunctionToClientContext([this, count = m_notificationCenter->getUnreadCount()]()
+        const auto currentAppVersion = getAppVersion();
+        postFunctionToClientContext([this, count = m_notificationCenter->getUnreadCount(currentAppVersion)]()
         {
             m_unreadNotificationsCount = count;
         });
