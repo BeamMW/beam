@@ -85,6 +85,8 @@ namespace beam::wallet
     };
 #pragma pack (pop)
 
+    boost::optional<PeerID> FromHex(const std::string& s);
+
     bool check_receiver_address(const std::string& addr);
 
     struct PrintableAmount

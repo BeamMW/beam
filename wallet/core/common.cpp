@@ -22,6 +22,8 @@
 
 #include <iomanip>
 #include <boost/algorithm/string.hpp>
+
+#include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 using namespace std;
@@ -170,6 +172,20 @@ namespace beam::wallet
     {
         Point::Native p;
         return m_Pk.ExportNnz(p);
+    }
+
+    boost::optional<PeerID> FromHex(const std::string& s)
+    {
+        boost::optional<PeerID> res;
+        bool isValid = false;
+        auto buf = from_hex(s, &isValid);
+        if (!isValid)
+        {
+            return res;
+        }
+        res.emplace();
+        *res = Blob(buf);
+        return res;
     }
 
     bool fromByteBuffer(const ByteBuffer& b, ByteBuffer& value)

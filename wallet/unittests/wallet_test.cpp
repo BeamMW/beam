@@ -1398,6 +1398,14 @@ namespace
             WALLET_CHECK_NO_THROW(p = wallet::ParseParameters(a));
             WALLET_CHECK(p && *p->GetParameter<WalletID>(TxParameterID::PeerID) == id);
         }
+
+        {
+            std::string s = "3ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95";
+            auto identity = FromHex(s);
+            WALLET_CHECK(identity.is_initialized());
+            auto r = std::to_string(*identity);
+            WALLET_CHECK(r == s);
+        }
     }
 
     void TestConvertions()
@@ -2567,7 +2575,7 @@ int main()
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = beam::Logger::create(logLevel, logLevel, logLevel, "wallet_test", path.string());
 
-    /* DISABLE TEMPORARILY
+
     Rules::get().FakePoW = true;
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
@@ -2624,7 +2632,7 @@ int main()
 
     //TestBbsMessages();
     //TestBbsMessages2();
-    */
+
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
 }

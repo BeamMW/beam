@@ -81,6 +81,11 @@ struct KeyKeeper
         return _impl2.GetWalletID();
     }
 
+    std::string GetIdentity(const std::string& keyID)
+    {
+        return _impl2.GetIdentity(from_base64<uint64_t>(keyID)).str();
+    }
+
     std::string GetSbbsAddress(const std::string& ownID)
     {
         return _impl2.GetSbbsAddress(from_base64<uint64_t>(ownID));
@@ -89,6 +94,32 @@ struct KeyKeeper
     std::string GetSbbsAddressPrivate(const std::string& ownID)
     {
         return _impl2.GetSbbsAddressPrivate(from_base64<uint64_t>(ownID));
+    }
+
+    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, const std::string& amount)
+    {
+        WalletID walletID;
+        if (!walletID.FromHex(sbbsAddress))
+        {
+            return "";
+        }
+        auto identity = FromHex(identityStr);
+        if (!identity)
+        {
+            return "";
+        }
+
+        TxParameters parameters;
+        if (auto a = from_base64<beam::Amount>(amount); a > 0)
+        {
+            parameters.SetParameter(beam::wallet::TxParameterID::Amount, a);
+        }
+
+        parameters.SetParameter(beam::wallet::TxParameterID::PeerID, walletID);
+        parameters.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+        parameters.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *identity);
+
+        return std::to_string(parameters);
     }
 
     std::string InvokeServiceMethod(const std::string& data)
@@ -317,7 +348,7 @@ struct KeyKeeper
 
 private:
 
-    struct MyKeeKeeper
+    struct MyKeyKeeper
         : public LocalPrivateKeyKeeperStd
     {
         using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
@@ -326,14 +357,16 @@ private:
 
         std::string GetWalletID() const
         {
-            Key::ID kid(Zero);
-            kid.m_Type = ECC::Key::Type::WalletID;
+            return GetIdentity(0).str();
+        }
 
+        PeerID GetIdentity(uint64_t keyID) const
+        {
             ECC::Scalar::Native sk;
-            m_pKdf->DeriveKey(sk, kid);
+            m_pKdf->DeriveKey(sk, Key::ID(keyID, ECC::Key::Type::WalletID));
             PeerID pid;
             pid.FromSk(sk);
-            return pid.str();
+            return pid;
         }
 
         std::string GetSbbsAddress(uint64_t ownID)
@@ -413,18 +446,9 @@ private:
             get_SbbsWalletID(sk, wid, ownID);
         }
 
-        //void get_Identity(PeerID& pid, uint64_t ownID)// const
-        //{
-        //    ECC::Hash::Value hv;
-        //    Key::ID(ownID, Key::Type::WalletID).get_Hash(hv);
-        //    ECC::Point::Native pt;
-        //    get_OwnerKdf()->DerivePKeyG(pt, hv);
-        //    pid = ECC::Point(pt).m_X;
-        //}
-
-        /*mutable*/ ECC::Key::IKdf::Ptr m_pKdfSbbs;
+        ECC::Key::IKdf::Ptr m_pKdfSbbs;
     };
-    MyKeeKeeper _impl2;
+    MyKeyKeeper _impl2;
 };
 
 // Binding code
@@ -434,15 +458,14 @@ EMSCRIPTEN_BINDINGS()
         .constructor<const std::string&>()
         .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
         .function("getWalletID",            &KeyKeeper::GetWalletID)
+        .function("getIdentity",            &KeyKeeper::GetIdentity)
+        .function("getSendToken",           &KeyKeeper::GetSendToken)
         .function("getSbbsAddress",         &KeyKeeper::GetSbbsAddress)
         .function("getSbbsAddressPrivate",  &KeyKeeper::GetSbbsAddressPrivate)
         .function("invokeServiceMethod",    &KeyKeeper::InvokeServiceMethod)
         .class_function("GeneratePhrase",   &KeyKeeper::GeneratePhrase)
         .class_function("IsAllowedWord",    &KeyKeeper::IsAllowedWord)
         .class_function("IsValidPhrase",    &KeyKeeper::IsValidPhrase)
-        
-        // .function("func", &KeyKeeper::func)
-        // .property("prop", &KeyKeeper::getProp, &KeyKeeper::setProp)
-        // .class_function("StaticFunc", &KeyKeeper::StaticFunc)
+
         ;
 }
