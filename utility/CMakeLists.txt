@@ -8,9 +8,10 @@ set(UTILITY_SRC
     log_rotation.cpp
     helpers.cpp
     config.cpp
-	string_helpers.cpp
-	asynccontext.cpp
-	fsutils.cpp
+    string_helpers.cpp
+    asynccontext.cpp
+    fsutils.cpp
+    hex.cpp
 # ~etc
 )
 

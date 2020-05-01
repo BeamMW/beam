@@ -29,29 +29,6 @@ using namespace beam::wallet;
 using json = nlohmann::json;
 // #define PRINT_TEST_DATA 1
 
-namespace beam
-{
-    char* to_hex(char* dst, const void* bytes, size_t size) {
-        static const char digits[] = "0123456789abcdef";
-        char* d = dst;
-
-        const uint8_t* ptr = (const uint8_t*)bytes;
-        const uint8_t* end = ptr + size;
-        while (ptr < end) {
-            uint8_t c = *ptr++;
-            *d++ = digits[c >> 4];
-            *d++ = digits[c & 0xF];
-        }
-        *d = '\0';
-        return dst;
-    }
-
-    std::string to_hex(const void* bytes, size_t size) {
-        char* buf = (char*)alloca(2 * size + 1);
-        return std::string(to_hex(buf, bytes, size));
-    }
-}
-
 struct KeyKeeper
 {
     KeyKeeper(const std::string& phrase)
@@ -110,9 +87,13 @@ struct KeyKeeper
         }
 
         TxParameters parameters;
-        if (auto a = from_base64<beam::Amount>(amount); a > 0)
+        if (!amount.empty())
         {
-            parameters.SetParameter(beam::wallet::TxParameterID::Amount, a);
+            auto a = from_base64<beam::Amount>(amount);
+            if (a > 0)
+            {
+                parameters.SetParameter(beam::wallet::TxParameterID::Amount, a);
+            }
         }
 
         parameters.SetParameter(beam::wallet::TxParameterID::PeerID, walletID);

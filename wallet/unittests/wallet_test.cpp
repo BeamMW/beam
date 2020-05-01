@@ -1406,6 +1406,13 @@ namespace
             auto r = std::to_string(*identity);
             WALLET_CHECK(r == s);
         }
+
+        {
+
+            std::string amount = to_base64(Amount(0));
+            WALLET_CHECK(from_base64<beam::Amount>(amount) == 0);
+            WALLET_CHECK(from_base64<beam::Amount>(to_base64(Amount(100))) == 100);
+        }
     }
 
     void TestConvertions()
