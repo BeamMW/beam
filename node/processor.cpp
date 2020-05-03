@@ -2476,7 +2476,7 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 	oracle << v.m_Msg;
 
 	ShieldedTxo::Data::OutputParams op;
-	if (!op.Recover(txo, sp.m_SharedSecret, oracle, *pKeyShielded))
+	if (!op.Recover(txo, sp.m_SharedSecret, oracle))
 		return;
 
 	proto::Event::Shielded evt;

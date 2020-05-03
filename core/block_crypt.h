@@ -580,14 +580,14 @@ namespace beam
 		struct User
 		{
 			PeerID m_Sender;
-			ECC::uintBig m_Message;
+			ECC::uintBig m_pMessage[2];
 
 			template <typename Archive>
 			void serialize(Archive& ar)
 			{
 				ar
 					& m_Sender
-					& m_Message;
+					& m_pMessage;
 			}
 		};
 	};

@@ -1781,7 +1781,9 @@ namespace beam
 
 					ZeroObject(sdp.m_Output.m_User);
 					sdp.m_Output.m_User.m_Sender = 165U;
-					sdp.m_Output.m_User.m_Message = 243U;
+					sdp.m_Output.m_User.m_pMessage[0] = 243U;
+					sdp.m_Output.m_User.m_pMessage[1] = 2435U;
+
 					sdp.Generate(pKrn->m_Txo, oracle, viewer, 13U);
 
 					pKrn->MsgToID();

@@ -74,16 +74,15 @@ namespace beam
 			ECC::Scalar::Native m_k;
 			User m_User;
 
-			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const PublicGen&);
-			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const Viewer&);
-			bool Recover(const ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const Viewer&);
+			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&);
+			bool Recover(const ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&);
 
 		protected:
-			void GenerateInternal(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, Key::IPKdf& gen);
 			static void get_Seed(ECC::uintBig&, const ECC::Hash::Value& hvShared);
 			static uint8_t Msg2Scalar(ECC::Scalar::Native&, const ECC::uintBig&);
 			static void Scalar2Msg(ECC::uintBig&, const ECC::Scalar::Native&, uint32_t);
-			void get_skGen(ECC::Scalar::Native&, const ECC::Hash::Value& hvShared, Key::IPKdf& gen) const;
+			void get_sk(ECC::Scalar::Native&, const ECC::Hash::Value& hvShared) const;
+			void get_skGen(ECC::Scalar::Native&, const ECC::Hash::Value& hvShared) const;
 
 			struct Packed;
 		};
