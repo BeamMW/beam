@@ -1779,8 +1779,9 @@ namespace beam
 					ECC::Oracle oracle;
 					oracle << pKrn->m_Msg;
 
-					sdp.m_Output.m_Sender = 165U;
-					sdp.m_Output.m_Message = 243U;
+					ZeroObject(sdp.m_Output.m_User);
+					sdp.m_Output.m_User.m_Sender = 165U;
+					sdp.m_Output.m_User.m_Message = 243U;
 					sdp.Generate(pKrn->m_Txo, oracle, viewer, 13U);
 
 					pKrn->MsgToID();
@@ -2427,8 +2428,7 @@ namespace beam
 						verify_test(evt.m_ID == 0);
 
 						// Output parameters are fully recovered
-						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Sender == evt.m_Sender);
-						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Message == evt.m_Message);
+						verify_test(!memcmp(&m_This.m_Shielded.m_Params.m_Output.m_User, &evt.m_User, sizeof(evt.m_User)));
 						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Value == evt.m_Value);
 						verify_test(m_This.m_Shielded.m_Params.m_Output.m_AssetID == evt.m_AssetID);
 						verify_test(m_This.m_Shielded.m_Params.m_Output.m_k == evt.m_kOutG);

@@ -72,8 +72,7 @@ namespace beam
 			Amount m_Value;
 			Asset::ID m_AssetID = 0;
 			ECC::Scalar::Native m_k;
-			PeerID m_Sender;
-			ECC::uintBig m_Message;
+			User m_User;
 
 			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const PublicGen&);
 			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const Viewer&);

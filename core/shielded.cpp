@@ -299,8 +299,8 @@ namespace beam
 		Packed p;
 		p.m_Asset = m_AssetID;
 		p.m_Flags =
-			Msg2Scalar(pExtra[0], m_Sender) |
-			(Msg2Scalar(pExtra[1], m_Message) << 1);
+			Msg2Scalar(pExtra[0], m_User.m_Sender) |
+			(Msg2Scalar(pExtra[1], m_User.m_Message) << 1);
 
 		cp.m_Blob.p = &p;
 		cp.m_Blob.n = sizeof(p);
@@ -364,8 +364,8 @@ namespace beam
 			return false;
 
 
-		Scalar2Msg(m_Sender, pExtra[0], 1 & p.m_Flags);
-		Scalar2Msg(m_Message, pExtra[1], 2 & p.m_Flags);
+		Scalar2Msg(m_User.m_Sender, pExtra[0], 1 & p.m_Flags);
+		Scalar2Msg(m_User.m_Message, pExtra[1], 2 & p.m_Flags);
 
 		return true;
 	}

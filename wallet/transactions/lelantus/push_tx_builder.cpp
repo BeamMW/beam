@@ -97,9 +97,11 @@ namespace beam::wallet::lelantus
                 ECC::uintBig outputNonce;
                 ECC::GenRandom(outputNonce);
 
-                sdp.m_Output.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
+                ZeroObject(sdp.m_Output.m_User);
+
+                sdp.m_Output.m_User.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
                 // TODO: add ShieldedMessage if needed
-                // op.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
+                // sdp.m_Output.m_User.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
                 sdp.m_Output.m_Value = GetAmount();
                 sdp.Generate(pKrn->m_Txo, oracle, viewer, outputNonce);
 
@@ -110,8 +112,7 @@ namespace beam::wallet::lelantus
                 shieldedCoin.m_skSerialG = sdp.m_Serial.m_pK[0];
                 shieldedCoin.m_skOutputG = sdp.m_Output.m_k;
                 shieldedCoin.m_isCreatedByViewer = sdp.m_Serial.m_IsCreatedByViewer;
-                shieldedCoin.m_sender = sdp.m_Output.m_Sender;
-                shieldedCoin.m_message = sdp.m_Output.m_Message;
+                shieldedCoin.m_User = sdp.m_Output.m_User;
 
                 outputK = sdp.m_Output.m_k;
 

@@ -2004,9 +2004,9 @@ void TestLelantusKeys()
 	verify_test(ptSpend == sprs2.m_SpendPk);
 
 	beam::ShieldedTxo::Data::OutputParams oprs, oprs2;
-	oprs.m_Sender = 1U;
+	oprs.m_User.m_Sender = 1U;
 	oprs.m_Value = 3002U;
-	oprs.m_Message = Scalar::s_Order;
+	oprs.m_User.m_Message = Scalar::s_Order;
 	oprs.m_AssetID = 18;
 	{
 		Oracle oracle;
@@ -2020,14 +2020,13 @@ void TestLelantusKeys()
 		Oracle oracle;
 		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle, viewer));
 		verify_test(oprs.m_AssetID == oprs2.m_AssetID);
-		verify_test(oprs.m_Sender == oprs2.m_Sender);
-		verify_test(oprs.m_Message == oprs2.m_Message);
+		verify_test(!memcmp(&oprs.m_User, &oprs2.m_User, sizeof(oprs.m_User)));
 	}
 
-	oprs.m_Sender.Negate(); // won't fit ECC::Scalar, special handling should be done
-	oprs.m_Message.Negate();
-	oprs.m_Message.Inc();
-	oprs.m_Message.Negate(); // should be 1 less than the order
+	oprs.m_User.m_Sender.Negate(); // won't fit ECC::Scalar, special handling should be done
+	oprs.m_User.m_Message.Negate();
+	oprs.m_User.m_Message.Inc();
+	oprs.m_User.m_Message.Negate(); // should be 1 less than the order
 	oprs.m_AssetID = 0;
 
 	{
@@ -2037,9 +2036,7 @@ void TestLelantusKeys()
 	{
 		Oracle oracle;
 		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle, viewer));
-		verify_test(oprs.m_Sender == oprs2.m_Sender);
-		verify_test(oprs.m_Message == oprs2.m_Message);
-		verify_test(oprs.m_Message == oprs2.m_Message);
+		verify_test(!memcmp(&oprs.m_User, &oprs2.m_User, sizeof(oprs.m_User)));
 	}
 
 	{

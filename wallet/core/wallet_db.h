@@ -241,8 +241,8 @@ namespace beam::wallet
         ECC::Scalar m_skSerialG;
         ECC::Scalar m_skOutputG;
 
-        PeerID m_sender;
-        ECC::uintBig m_message;
+        ShieldedTxo::User m_User;
+
         TxoID m_ID = kTxoInvalidID;
         bool m_isCreatedByViewer = false;
         Asset::ID m_assetID = 0;

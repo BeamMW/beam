@@ -2483,8 +2483,7 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 	evt.m_ID = nID;
 	evt.m_Value = op.m_Value;
 	evt.m_AssetID = op.m_AssetID;
-	evt.m_Sender = op.m_Sender;
-	evt.m_Message = op.m_Message;
+	evt.m_User = op.m_User;
 	evt.m_kSerG = sp.m_pK[0];
 	evt.m_kOutG = op.m_k;
 	evt.m_Flags = proto::Event::Flags::Add;

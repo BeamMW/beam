@@ -903,8 +903,7 @@ namespace beam::wallet
 
         shieldedCoin->m_skSerialG = shieldedEvt.m_kSerG;
         shieldedCoin->m_skOutputG = shieldedEvt.m_kOutG;
-        shieldedCoin->m_sender = shieldedEvt.m_Sender;
-        shieldedCoin->m_message = shieldedEvt.m_Message;
+        shieldedCoin->m_User = shieldedEvt.m_User;
         shieldedCoin->m_ID = shieldedEvt.m_ID;
         shieldedCoin->m_isCreatedByViewer = 0 != (proto::Event::Flags::CreatedByViewer & shieldedEvt.m_Flags);
         shieldedCoin->m_assetID = shieldedEvt.m_AssetID;

@@ -157,8 +157,7 @@
 #define ENUM_SHIELDED_COIN_FIELDS(each, sep, obj) \
     each(skSerialG,             skSerialG,            BLOB NOT NULL PRIMARY KEY, obj) sep \
     each(skOutputG,             skOutputG,            BLOB NOT NULL, obj) sep \
-    each(sender,                sender,               BLOB, obj) sep \
-    each(message,               message,              BLOB, obj) sep \
+    each(User,                  User,                 BLOB, obj) sep \
     each(ID,                    ID,                   INTEGER NOT NULL, obj) sep \
     each(isCreatedByViewer,     isCreatedByViewer,    BOOLEAN, obj) sep \
     each(assetID,               assetID,              INTEGER, obj) sep \
@@ -562,6 +561,11 @@ namespace beam::wallet
                 bind(col, &s, sizeof(s));
             }
 
+            void bind(int col, const ShieldedTxo::User& x)
+            {
+                bind(col, &x, sizeof(x));
+            }
+
             void bind(int col, const char* val)
             {
                 int ret = sqlite3_bind_text(_stm, col, val, -1, nullptr);
@@ -647,6 +651,12 @@ namespace beam::wallet
             {
                 // read/write as a blob, skip serialization
                 getBlobStrict(col, &s, sizeof(s));
+            }
+
+            void get(int col, ShieldedTxo::User& x)
+            {
+                // read/write as a blob, skip serialization
+                getBlobStrict(col, &x, sizeof(x));
             }
 
             void get(int col, boost::optional<TxID>& id)
