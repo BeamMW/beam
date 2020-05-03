@@ -81,6 +81,7 @@ struct Context
             IMPLEMENT_GET_PARENT_OBJ(Txo, m_Height)
         } m_Height;
 
+        Height m_Maturity;
     };
 
     typedef boost::intrusive::multiset<Txo::HeightNode> HeightMap;
@@ -120,6 +121,43 @@ struct Context
 
                 void OnEventType(proto::Event::Utxo& evt)
                 {
+                    if (MaxHeight == m_Height)
+                        return; // it shouldn't be MaxHeight anyway!
+
+                    Txo::Cid cid;
+                    cid.m_Value = evt.m_Cid;
+
+                    CidMap::iterator it = m_This.m_mapCid.find(cid);
+
+                    if (proto::Event::Flags::Add & evt.m_Flags)
+                    {
+                        if (m_This.m_mapCid.end() == it)
+                        {
+                            Txo* pTxo = new Txo;
+                            pTxo->m_Cid.m_Value = cid.m_Value;
+                            m_This.m_mapCid.insert(pTxo->m_Cid);
+
+                            pTxo->m_Height.m_Confirmed = m_Height;
+                            m_This.m_mapConfirmed.insert(pTxo->m_Height);
+
+                            pTxo->m_Maturity = evt.m_Maturity;
+                        }
+                    }
+                    else
+                    {
+                        if (m_This.m_mapCid.end() != it)
+                        {
+                            Txo& txo = it->get_ParentObj();
+                            if (MaxHeight == txo.m_Height.m_Spent)
+                            {
+                                m_This.m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
+                                txo.m_Height.m_Spent = m_Height;
+                                m_This.m_mapSpent.insert(txo.m_Height);
+                                
+                                // update txs?
+                            }
+                        }
+                    }
                 }
 
                 void OnEventType(proto::Event::Shielded& evt)
@@ -177,7 +215,6 @@ struct Context
 
 	struct MyFlyClient
 		:public proto::FlyClient
-//		,public proto::FlyClient::Request::IHandler
 	{
 
 		Block::SystemState::HistoryMap m_Hist;
@@ -185,11 +222,6 @@ struct Context
         Height get_Height() const {
             return m_Hist.m_Map.empty() ? 0 : m_Hist.m_Map.rbegin()->first;
         }
-
-		//virtual void OnComplete(Request& r) override
-		//{
-		//
-		//}
 
         virtual void OnNewTip() override
         {
@@ -226,6 +258,12 @@ struct Context
     Context()
         :m_Network(m_FlyClient)
     {
+    }
+
+    ~Context()
+    {
+        while (!m_mapCid.empty())
+            DeleteTxo(m_mapConfirmed.begin()->get_ParentObj());
     }
 
     void DeleteTxo(Txo& txo)
@@ -322,15 +360,13 @@ void DoTest(Key::IKdf::Ptr& pKdf)
 } // namespace beam
 
 
-
-
-
-int main(int argc, char* argv[])
+int main_Guarded(int argc, char* argv[])
 {
     using namespace beam;
 
     io::Reactor::Ptr pReactor(io::Reactor::create());
     io::Reactor::Scope scope(*pReactor);
+    io::Reactor::GracefulIntHandler gih(*pReactor);
 
     auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
 
@@ -348,16 +384,7 @@ int main(int argc, char* argv[])
         options.add_options()
             (cli::SEED_PHRASE, po::value<std::string>()->default_value(""), "seed phrase");
 
-        po::variables_map vm;
-        try
-        {
-            vm = getOptions(argc, argv, "node_net_sim.cfg", options, true);
-        }
-        catch (const std::exception & e)
-        {
-            std::cout << e.what() << std::endl;
-            return 1;
-        }
+        po::variables_map vm = getOptions(argc, argv, "node_net_sim.cfg", options, true);
 
         if (!ReadSeed(pKdf, vm[cli::SEED_PHRASE].as<std::string>().c_str()))
         {
@@ -412,6 +439,8 @@ int main(int argc, char* argv[])
 
         ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
         Rules::get().FakePoW = true;
+        Rules::get().pForks[1].m_Height = 1;
+        Rules::get().pForks[2].m_Height = 2;
 
         node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 3000;
         node.m_Cfg.m_MiningThreads = 1;
@@ -430,4 +459,20 @@ int main(int argc, char* argv[])
     DoTest(pKdf);
 
     return 0;
+}
+
+int main(int argc, char* argv[])
+{
+    int ret = 0;
+    try
+    {
+        ret = main_Guarded(argc, argv);
+    }
+    catch (const std::exception & e)
+    {
+        std::cout << e.what() << std::endl;
+        return 1;
+    }
+
+    return ret;
 }
