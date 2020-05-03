@@ -16,6 +16,8 @@
 #include "../../mnemonic/mnemonic.h"
 #include "../../utility/cli/options.h"
 #include "../../core/fly_client.h"
+#include "../../core/treasury.h"
+#include "../../core/serialization_adapters.h"
 #include <boost/core/ignore_unused.hpp>
 
 #define LOG_VERBOSE_ENABLED 0
@@ -303,12 +305,15 @@ struct Context
 
 };
 
+uint16_t g_LocalNodePort = 16725;
+
 void DoTest(Key::IKdf::Ptr& pKdf)
 {
-    Node node;
-    node.m_Cfg.m_sPathLocal = "node_net_sim.db";
-    node.m_Keys.SetSingleKey(pKdf);
-    node.Initialize();
+    Context ctx;
+    ctx.m_pKdf = pKdf;
+    ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));
+    ctx.m_Network.Connect();
+
 
     io::Reactor::get_Current().run();
 }
@@ -324,33 +329,103 @@ int main(int argc, char* argv[])
 {
     using namespace beam;
 
-    auto [options, visibleOptions] = createOptionsDescription(0);
-    boost::ignore_unused(visibleOptions);
-    options.add_options()
-        (cli::SEED_PHRASE, po::value<std::string>()->default_value(""), "seed phrase");
+    io::Reactor::Ptr pReactor(io::Reactor::create());
+    io::Reactor::Scope scope(*pReactor);
 
-    po::variables_map vm;
-    try
-    {
-        vm = getOptions(argc, argv, "node_net_sim.cfg", options, true);
-    }
-    catch (const std::exception & e)
-    {
-        std::cout << e.what() << std::endl;
-        return 1;
-    }
+    auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
 
     Key::IKdf::Ptr pKdf;
-    if (!ReadSeed(pKdf, vm[cli::SEED_PHRASE].as<std::string>().c_str()))
+
+    Node node;
+    node.m_Cfg.m_sPathLocal = "node_net_sim.db";
+
+    bool bLocalMode = true;
+
+    if (!bLocalMode)
     {
-        std::cout << options << std::endl;
-        return 0;
+        auto [options, visibleOptions] = createOptionsDescription(0);
+        boost::ignore_unused(visibleOptions);
+        options.add_options()
+            (cli::SEED_PHRASE, po::value<std::string>()->default_value(""), "seed phrase");
+
+        po::variables_map vm;
+        try
+        {
+            vm = getOptions(argc, argv, "node_net_sim.cfg", options, true);
+        }
+        catch (const std::exception & e)
+        {
+            std::cout << e.what() << std::endl;
+            return 1;
+        }
+
+        if (!ReadSeed(pKdf, vm[cli::SEED_PHRASE].as<std::string>().c_str()))
+        {
+            std::cout << options << std::endl;
+            return 0;
+        }
+
+        std::vector<std::string> vPeers = getCfgPeers(vm);
+
+        uint16_t nPort = vm[cli::PORT].as<uint16_t>();
+        if (nPort)
+            g_LocalNodePort = nPort;
+
+        for (size_t i = 0; i < vPeers.size(); i++)
+        {
+            io::Address addr;
+            if (addr.resolve(vPeers[i].c_str()))
+            {
+                if (!addr.port())
+                    addr.port(nPort);
+
+                node.m_Cfg.m_Connect.push_back(addr);
+            }
+        }
+
+    }
+    else
+    {
+        ECC::HKdf::Create(pKdf, 225U);
+
+        PeerID pid;
+        ECC::Scalar::Native sk;
+        Treasury::get_ID(*pKdf, pid, sk);
+
+        Treasury tres;
+        Treasury::Parameters pars;
+        pars.m_Bursts = 1;
+        Treasury::Entry* pE = tres.CreatePlan(pid, Rules::get().Emission.Value0 / 5, pars);
+
+        pE->m_pResponse.reset(new Treasury::Response);
+        uint64_t nIndex = 1;
+        BEAM_VERIFY(pE->m_pResponse->Create(pE->m_Request, *pKdf, nIndex));
+
+        Treasury::Data data;
+        data.m_sCustomMsg = "test treasury";
+        tres.Build(data);
+
+        beam::Serializer ser;
+        ser & data;
+
+        ser.swap_buf(node.m_Cfg.m_Treasury);
+
+        ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
+        Rules::get().FakePoW = true;
+
+        node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 3000;
+        node.m_Cfg.m_MiningThreads = 1;
+
+        beam::DeleteFile(node.m_Cfg.m_sPathLocal.c_str());
     }
 
     Rules::get().UpdateChecksum();
 
-    io::Reactor::Ptr pReactor(io::Reactor::create());
-    io::Reactor::Scope scope(*pReactor);
+    node.m_Cfg.m_Listen.port(g_LocalNodePort);
+    node.m_Cfg.m_Listen.ip(INADDR_ANY);
+
+    node.m_Keys.SetSingleKey(pKdf);
+    node.Initialize();
 
     DoTest(pKdf);
 
