@@ -59,11 +59,11 @@ namespace beam
 
 		protected:
 			void GenerateInternal(Serial&, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
-			void set_PreimageFromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
 			void set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
+			void set_SharedSecretFromKs(ECC::Point& ptSerialPub, Key::IPKdf& gen);
 			void set_SharedSecret(const ECC::Point::Native&);
 			static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native*);
-			static void get_DH(ECC::Hash::Value&, const Serial&);
+			static void get_DH(ECC::Hash::Value&, const ECC::Point& ptSerialPub);
 			void get_Nonces(Key::IPKdf& gen, ECC::Scalar::Native*) const;
 		};
 
@@ -76,6 +76,7 @@ namespace beam
 
 			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&);
 			bool Recover(const ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&);
+			void Restore_kG(const ECC::Hash::Value& hvShared); // restores m_k, all other members must be set
 
 		protected:
 			static void get_Seed(ECC::uintBig&, const ECC::Hash::Value& hvShared);
@@ -83,6 +84,7 @@ namespace beam
 			static void Scalar2Msg(ECC::uintBig&, const ECC::Scalar::Native&, uint32_t);
 			void get_sk(ECC::Scalar::Native&, const ECC::Hash::Value& hvShared) const;
 			void get_skGen(ECC::Scalar::Native&, const ECC::Hash::Value& hvShared) const;
+			uint8_t set_kG(const ECC::Hash::Value& hvShared, ECC::Scalar::Native& kTmp); // returns overflow flag
 
 			struct Packed;
 		};

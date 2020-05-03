@@ -119,7 +119,7 @@ namespace beam
 		GenerateInternal(s, nonce, *v.m_pGen, v.m_pGen.get(), *v.m_pSer);
 	}
 
-	void ShieldedTxo::Data::SerialParams::set_PreimageFromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
+	void ShieldedTxo::Data::SerialParams::set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
 	{
 		ECC::NoLeak<ECC::Scalar> sk;
 		sk.V = m_pK[0];
@@ -138,11 +138,6 @@ namespace beam
 
 		sk.V = k;
 		m_SerialPreimage = Cast::Down<const ECC::Hash::Value>(HashTxt("k-pI") << sk.V.m_Value);
-	}
-
-	void ShieldedTxo::Data::SerialParams::set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
-	{
-		set_PreimageFromkG(gen, pGenPriv, ser);
 
 		ECC::Point::Native pt;
 		ser.DerivePKeyG(pt, m_SerialPreimage);
@@ -151,9 +146,9 @@ namespace beam
 		Lelantus::SpendKey::ToSerial(m_pK[1], m_SpendPk);
 	}
 
-	void ShieldedTxo::Data::SerialParams::get_DH(ECC::Hash::Value& res, const Serial& s)
+	void ShieldedTxo::Data::SerialParams::get_DH(ECC::Hash::Value& res, const ECC::Point& ptSerialPub)
 	{
-		HashTxt("DH") << s.m_SerialPub >> res;
+		HashTxt("DH") << ptSerialPub >> res;
 	}
 
 	void ShieldedTxo::Data::SerialParams::get_Nonces(Key::IPKdf& gen, ECC::Scalar::Native* pN) const
@@ -167,12 +162,26 @@ namespace beam
 		gen.DerivePKey(m_pK[0], HashTxt("kG") << nonce);
 		set_FromkG(gen, pGenPriv, ser);
 
+		set_SharedSecretFromKs(s.m_SerialPub, gen);
+
+		ECC::Scalar::Native pN[2];
+		get_Nonces(gen, pN);
+
+		// generalized Schnorr's sig
+		ECC::Hash::Value hv;
+		s.get_Hash(hv);
+		s.m_Signature.SetNoncePub(ECC::Context::get().m_Sig.m_CfgGJ1, pN);
+		s.m_Signature.SignRaw(ECC::Context::get().m_Sig.m_CfgGJ1, hv, s.m_Signature.m_pK, m_pK, pN);
+	}
+
+	void ShieldedTxo::Data::SerialParams::set_SharedSecretFromKs(ECC::Point& ptSerialPub, Key::IPKdf& gen)
+	{
 		ECC::Point::Native pt, pt1;
 		DoubleBlindedCommitment(pt, m_pK);
-		s.m_SerialPub = pt;
+		ptSerialPub = pt;
 
 		ECC::Hash::Value hv;
-		get_DH(hv, s);
+		get_DH(hv, ptSerialPub);
 
 		gen.DerivePKeyG(pt, hv);
 		gen.DerivePKeyJ(pt1, hv);
@@ -180,15 +189,8 @@ namespace beam
 		pt = pt * m_pK[0];
 		pt += pt1 * m_pK[1]; // shared point
 		set_SharedSecret(pt);
-
-		ECC::Scalar::Native pN[2];
-		get_Nonces(gen, pN);
-
-		// generalized Schnorr's sig
-		s.get_Hash(hv);
-		s.m_Signature.SetNoncePub(ECC::Context::get().m_Sig.m_CfgGJ1, pN);
-		s.m_Signature.SignRaw(ECC::Context::get().m_Sig.m_CfgGJ1, hv, s.m_Signature.m_pK, m_pK, pN);
 	}
+
 
 	void ShieldedTxo::Data::SerialParams::set_SharedSecret(const ECC::Point::Native& pt)
 	{
@@ -204,7 +206,7 @@ namespace beam
 			return false;
 
 		ECC::Hash::Value hv;
-		get_DH(hv, s);
+		get_DH(hv, s.m_SerialPub);
 
 		ECC::Scalar::Native k;
 		v.m_pGen->DeriveKey(k, hv);
@@ -247,7 +249,11 @@ namespace beam
 
 	void ShieldedTxo::Data::SerialParams::Restore(const Viewer& v)
 	{
-		set_PreimageFromkG(*v.m_pGen, m_IsCreatedByViewer ? v.m_pGen.get() : nullptr, *v.m_pSer);
+		set_FromkG(*v.m_pGen, v.m_pGen.get(), *v.m_pSer);
+
+		ECC::Point ptSerialPub;
+		set_SharedSecretFromKs(ptSerialPub, *v.m_pGen);
+
 	}
 
 	/////////////
@@ -281,16 +287,30 @@ namespace beam
 	};
 #pragma pack (pop)
 
+	uint8_t ShieldedTxo::Data::OutputParams::set_kG(const ECC::Hash::Value& hvShared, ECC::Scalar::Native& kTmp)
+	{
+		uint8_t nFlag = Msg2Scalar(kTmp, m_User.m_Sender);
+
+		get_sk(m_k, hvShared);
+		m_k += kTmp;
+
+		return nFlag;
+
+	}
+
+	void ShieldedTxo::Data::OutputParams::Restore_kG(const ECC::Hash::Value& hvShared)
+	{
+		ECC::Scalar::Native kTmp;
+		set_kG(hvShared, kTmp);
+	}
+
 	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, const ECC::Hash::Value& hvShared, ECC::Oracle& oracle)
 	{
 		ECC::Scalar::Native pExtra[2];
 
 		Packed p;
 		p.m_Asset = m_AssetID;
-		p.m_Flags = Msg2Scalar(pExtra[0], m_User.m_Sender);
-
-		get_sk(m_k, hvShared);
-		m_k += pExtra[0];
+		p.m_Flags = set_kG(hvShared, pExtra[0]);
 
 		static_assert(_countof(m_User.m_pMessage) == _countof(pExtra));
 

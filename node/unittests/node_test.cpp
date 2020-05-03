@@ -2433,7 +2433,6 @@ namespace beam
 						verify_test(!memcmp(&m_This.m_Shielded.m_Params.m_Output.m_User, &evt.m_User, sizeof(evt.m_User)));
 						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Value == evt.m_Value);
 						verify_test(m_This.m_Shielded.m_Params.m_Output.m_AssetID == evt.m_AssetID);
-						verify_test(m_This.m_Shielded.m_Params.m_Output.m_k == evt.m_kOutG);
 						
 
 						// Shielded parameters: recovered only the part that is sufficient to spend it
@@ -2450,6 +2449,13 @@ namespace beam
 						verify_test(m_This.m_Shielded.m_Params.m_Serial.m_SerialPreimage == sp.m_SerialPreimage);
 
 						// Recover the full data
+						ShieldedTxo::Data::OutputParams op;
+						op.m_Value = evt.m_Value;
+						op.m_AssetID = evt.m_AssetID;
+						op.m_User = evt.m_User;
+						op.Restore_kG(sp.m_SharedSecret);
+
+						verify_test(m_This.m_Shielded.m_Params.m_Output.m_k == op.m_k);
 
 						if (proto::Event::Flags::Add & evt.m_Flags)
 							m_This.m_Shielded.m_EvtAdd = true;

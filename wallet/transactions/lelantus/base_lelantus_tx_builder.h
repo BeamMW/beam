@@ -25,5 +25,9 @@ namespace beam::wallet::lelantus
 
         bool GetInitialTxParams() override;
         Height GetMaxHeight() const override;
+
+    protected:
+
+        static void Restore(ShieldedTxo::DataParams&, const ShieldedCoin&, const ShieldedTxo::Viewer&);
     };
 } // namespace beam::wallet::lelantus

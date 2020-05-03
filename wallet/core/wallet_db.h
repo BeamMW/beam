@@ -239,7 +239,6 @@ namespace beam::wallet
         }
 
         ECC::Scalar m_skSerialG;
-        ECC::Scalar m_skOutputG;
 
         ShieldedTxo::User m_User;
 

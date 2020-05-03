@@ -2485,7 +2485,6 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 	evt.m_AssetID = op.m_AssetID;
 	evt.m_User = op.m_User;
 	evt.m_kSerG = sp.m_pK[0];
-	evt.m_kOutG = op.m_k;
 	evt.m_Flags = proto::Event::Flags::Add;
 	if (sp.m_IsCreatedByViewer)
 		evt.m_Flags |= proto::Event::Flags::CreatedByViewer;

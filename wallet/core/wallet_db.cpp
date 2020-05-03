@@ -156,7 +156,6 @@
 
 #define ENUM_SHIELDED_COIN_FIELDS(each, sep, obj) \
     each(skSerialG,             skSerialG,            BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(skOutputG,             skOutputG,            BLOB NOT NULL, obj) sep \
     each(User,                  User,                 BLOB, obj) sep \
     each(ID,                    ID,                   INTEGER NOT NULL, obj) sep \
     each(isCreatedByViewer,     isCreatedByViewer,    BOOLEAN, obj) sep \
