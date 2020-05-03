@@ -57,6 +57,8 @@ namespace beam::wallet::lelantus
 
     Transaction::Ptr PullTxBuilder::CreateTransaction()
     {
+        Key::IKdf::Ptr pMaster = m_Tx.get_MasterKdfStrict();
+
         TxoID shieldedId = m_Tx.GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
         TxoID startIndex = m_Tx.GetMandatoryParameter<TxoID>(TxParameterID::WindowBegin);
 
@@ -70,7 +72,7 @@ namespace beam::wallet::lelantus
             for (const auto& id : m_OutputCoins)
             {
                 ECC::Scalar::Native outputSk;
-                CoinID::Worker(id).Create(outputSk, *id.get_ChildKdf(m_Tx.get_MasterKdfStrict()));
+                CoinID::Worker(id).Create(outputSk, *id.get_ChildKdf(pMaster));
                 offset -= outputSk;
             }
 
@@ -148,8 +150,6 @@ namespace beam::wallet::lelantus
                 {
                     throw TransactionFailedException(false, TxFailureReason::NoInputs);
                 }
-
-                Key::IKdf::Ptr pMaster = m_Tx.GetWalletDB()->get_MasterKdf();
 
                 ShieldedTxo::Viewer viewer;
                 viewer.FromOwner(*pMaster);
