@@ -511,6 +511,8 @@ namespace beam::wallet
             , m_failureReason{ TxFailureReason::Unknown }
         {
         }
+        explicit TxDescription(const TxParameters);
+        void fillFromTxParameters(const TxParameters&);
 
         [[nodiscard]] bool canResume() const;
         [[nodiscard]] bool canCancel() const;
@@ -544,6 +546,27 @@ namespace beam::wallet
         TxStatus m_status = TxStatus::Pending;
         Merkle::Hash m_kernelID = Zero;
         TxFailureReason m_failureReason = TxFailureReason::Unknown;
+
+        static constexpr std::array<TxParameterID,18> m_initialParameters = {
+            TxParameterID::TransactionType,
+            TxParameterID::Amount,
+            TxParameterID::Fee,
+            TxParameterID::MinHeight,
+            TxParameterID::PeerID,
+            TxParameterID::MyID,
+            TxParameterID::CreateTime,
+            TxParameterID::IsSender,
+            TxParameterID::Message,
+            TxParameterID::ChangeBeam,
+            TxParameterID::ChangeAsset,
+            TxParameterID::ModifyTime,
+            TxParameterID::Status,
+            TxParameterID::KernelID,
+            TxParameterID::FailureReason,
+            TxParameterID::IsSelfTx,
+            TxParameterID::AssetID,
+            TxParameterID::AssetMetadata
+        };
     };
 
     // messages

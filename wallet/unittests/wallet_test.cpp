@@ -1535,8 +1535,11 @@ namespace
         {
             std::map<Notification::Type,bool> activeNotifications {
                 { Notification::Type::SoftwareUpdateAvailable, true },
+                { Notification::Type::AddressStatusChanged, true },
+                { Notification::Type::Unused, true },
                 { Notification::Type::BeamNews, true },
-                { Notification::Type::TransactionStatusChanged, true }
+                { Notification::Type::TransactionFailed, true },
+                { Notification::Type::TransactionCompleted, true }
             };
             client.start(activeNotifications);
         }

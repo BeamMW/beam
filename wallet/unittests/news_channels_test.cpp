@@ -384,8 +384,11 @@ namespace
         std::map<Notification::Type,bool> activeTypes {
             { Notification::Type::SoftwareUpdateAvailable, true },
             { Notification::Type::AddressStatusChanged, true },
-            { Notification::Type::TransactionStatusChanged, true },
-            { Notification::Type::BeamNews, true }
+            { Notification::Type::Unused, true },
+            { Notification::Type::BeamNews, true },
+            { Notification::Type::TransactionFailed, true },
+            { Notification::Type::TransactionCompleted, true }
+
         };
         NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
 
@@ -506,8 +509,10 @@ namespace
         std::map<Notification::Type,bool> activeTypes {
             { Notification::Type::SoftwareUpdateAvailable, false },
             { Notification::Type::AddressStatusChanged, false },
-            { Notification::Type::TransactionStatusChanged, false },
-            { Notification::Type::BeamNews, false }
+            { Notification::Type::Unused, false },
+            { Notification::Type::BeamNews, false },
+            { Notification::Type::TransactionFailed, false },
+            { Notification::Type::TransactionCompleted, false }
         };
         NotificationCenter center(*storage, activeTypes, io::Reactor::get_Current().shared_from_this());
 
@@ -590,8 +595,10 @@ namespace
             std::map<Notification::Type,bool> activeTypes {
                 { Notification::Type::SoftwareUpdateAvailable, false },
                 { Notification::Type::AddressStatusChanged, true },
-                { Notification::Type::TransactionStatusChanged, false },
-                { Notification::Type::BeamNews, false }
+                { Notification::Type::Unused, false },
+                { Notification::Type::BeamNews, false },
+                { Notification::Type::TransactionFailed, false },
+                { Notification::Type::TransactionCompleted, false }
             };
             WalletAddress addr;
             storage->createAddress(addr);
@@ -630,8 +637,10 @@ namespace
             std::map<Notification::Type,bool> activeTypes {
                 { Notification::Type::SoftwareUpdateAvailable, false },
                 { Notification::Type::AddressStatusChanged, true },
-                { Notification::Type::TransactionStatusChanged, false },
-                { Notification::Type::BeamNews, false }
+                { Notification::Type::Unused, false },
+                { Notification::Type::BeamNews, false },
+                { Notification::Type::TransactionFailed, false },
+                { Notification::Type::TransactionCompleted, false }
             };
             const ECC::uintBig id2({
                 0,1,2,3,4,5,6,7,8,9,
