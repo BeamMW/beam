@@ -1138,8 +1138,8 @@ namespace beam::wallet
 
     void WalletClient::updateNotifications()
     {
-        const auto currentAppVersion = getAppVersion();
-        postFunctionToClientContext([this, count = m_notificationCenter->getUnreadCount(currentAppVersion)]()
+        size_t count = m_notificationCenter->getUnreadCount(VersionInfo::Application::DesktopWallet, getAppVersion());
+        postFunctionToClientContext([this, count]()
         {
             m_unreadNotificationsCount = count;
         });
