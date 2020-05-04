@@ -24,7 +24,7 @@ namespace beam::wallet
         {
             SoftwareUpdateAvailable,
             AddressStatusChanged,
-            TransactionStatusChanged,
+            Unused,   // free to use
             BeamNews,
             TransactionFailed,
             TransactionCompleted

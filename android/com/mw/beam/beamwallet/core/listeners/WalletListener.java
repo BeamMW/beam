@@ -275,6 +275,26 @@ public class WalletListener
 		System.out.println("versionRevision: " + content.versionRevision);
     }
 
+	static void onAddressChangedNotification(int action, NotificationDTO notificationInfo, WalletAddressDTO content)
+    {
+		System.out.println(">>>>>>>>>>>>>> async onAddressChangedNotification in Java");
+	}
+
+	static void onTransactionFailedNotification(int action, NotificationDTO notificationInfo, TxDescriptionDTO content)
+    {
+		System.out.println(">>>>>>>>>>>>>> async onTransactionFailedNotification in Java");
+	}
+
+	static void onTransactionCompletedNotification(int action, NotificationDTO notificationInfo, TxDescriptionDTO content)
+    {
+		System.out.println(">>>>>>>>>>>>>> async onTransactionCompletedNotification in Java");
+	}
+
+	static void onBeamNewsNotification()
+    {
+		System.out.println(">>>>>>>>>>>>>> async onBeamNewsNotification in Java");
+	}
+
 	static void onExchangeRates(ExchangeRateDTO[] rates)
     {
         System.out.println(">>>>>>>>>>>>>> async onExchangeRates in Java");
