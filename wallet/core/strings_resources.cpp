@@ -194,6 +194,7 @@ namespace beam
     const char kTxDirectionOut[] = "outgoing";
     const char kTxDirectionIn[] = "incoming";
     const char kTxHistoryEmpty[] = "No transactions";
+    const char kTxNoCoins[] = "No coins";
     const char kTxToken[] = "token";
     const char kSwapTxHistoryEmpty[] = "No swap transactions";
     const char kSwapTxHistoryTableHead[] = "SWAP TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";

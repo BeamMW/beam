@@ -189,6 +189,7 @@ namespace beam
         extern const char* ASSET_UNREGISTER;
         extern const char* ASSET_ID;
         extern const char* ASSET_METADATA;
+        extern const char* ASSETS;
 
         // broadcaster
         extern const char* GENERATE_KEYS;

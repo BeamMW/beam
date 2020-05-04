@@ -286,6 +286,7 @@ namespace beam
         const char* ASSET_UNREGISTER  = "asset_unreg";
         const char* ASSET_ID          = "asset_id";
         const char* ASSET_METADATA    = "asset_meta";
+        const char* ASSETS            = "assets";
 
         // broadcaster
         const char* GENERATE_KEYS     = "generate_keys";
@@ -447,7 +448,8 @@ namespace beam
         po::options_description wallet_assets_options("Confidential assets options");
         wallet_assets_options.add_options()
             (cli::ASSET_ID,       po::value<Positive<uint32_t>>(), "asset id")
-            (cli::ASSET_METADATA, po::value<string>(),             "asset metadata");
+            (cli::ASSET_METADATA, po::value<string>(),             "asset metadata")
+            (cli::ASSETS,         "display assets history in info command");
 
 #ifdef BEAM_LASER_SUPPORT
         po::options_description laser_commands("Laser commands");
