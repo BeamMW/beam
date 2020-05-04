@@ -679,7 +679,7 @@ namespace
         return 0;
     }
 
-    void ShowAssetInfo(IWalletDB::Ptr db, const storage::Totals::AssetTotals& totals)
+    Height ShowAssetInfo(IWalletDB::Ptr db, const storage::Totals::AssetTotals& totals)
     {
         auto isOwned  = false;
         std::string coinName = kNA;
@@ -722,6 +722,8 @@ namespace
         {
             cout << boost::format(kWalletUnreliableAsset) % info->m_LockHeight;
         }
+
+        return info->m_LockHeight;
     }
 
     std::pair<std::string, std::string> GetAssetNames(IWalletDB::Ptr walletDB, Asset::ID assetId)
@@ -740,47 +742,88 @@ namespace
         return std::make_pair(unitName, nthName);
     }
 
+    Height GetAssetLockHeight(IWalletDB::Ptr walletDB, Asset::ID assetId)
+    {
+        if (assetId != Asset::s_InvalidID)
+        {
+            const auto info = walletDB->findAsset(assetId);
+            if (info.is_initialized())
+            {
+                return info->m_LockHeight;
+            }
+        }
+        return 0;
+    }
+
     void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId)
     {
         const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
         const uint8_t idWidth = assetId == Asset::s_InvalidID ? 49 : 57;
         const array<uint8_t, 7> columnWidths{{idWidth, 14, 14, 18, 20, 8, 8}};
-        bool  printed = false;
 
-        walletDB->visitCoins([&](const Coin& c)->bool
-        {
+        const auto lockHeight = GetAssetLockHeight(walletDB, assetId);
+        std::vector<Coin> reliable;
+        std::vector<Coin> unreliable;
+
+        walletDB->visitCoins([&](const Coin& c)->bool {
             if (c.m_ID.m_AssetID == assetId)
             {
-                if (printed == false)
+                if (c.m_confirmHeight < lockHeight)
                 {
-                    printed = true;
-                    cout << boost::format(kCoinsTableHeadFormat)
-                         % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
-                         % boost::io::group(right, setw(columnWidths[1]), unitName)
-                         % boost::io::group(right, setw(columnWidths[2]), nthName)
-                         % boost::io::group(left, setw(columnWidths[3]), kCoinColumnMaturity)
-                         % boost::io::group(left, setw(columnWidths[4]), kCoinColumnStatus)
-                         % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
-                         % boost::io::group(left, setw(columnWidths[6]), kCoinColumnIsUnlinked)
-                         << std::endl;
+                    unreliable.push_back(c);
                 }
-
-                cout << boost::format(kCoinsTableFormat)
-                        % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
-                        % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
-                        % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
-                        % boost::io::group(left, setw(columnWidths[3]),
-                                           (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity))
-                                                                : "-"))
-                        % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
-                        % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
-                        % boost::io::group(right, boolalpha, setw(columnWidths[6]), c.m_isUnlinked)
-                     << std::endl;
+                else
+                {
+                    reliable.push_back(c);
+                }
             }
             return true;
         });
 
-        cout << (printed ? "" : kTxNoCoins) << endl;
+        const auto displayCoins = [&](const std::vector<Coin>& coins) {
+            if (coins.empty())
+            {
+                return;
+            }
+            for(const auto& c: coins) {
+                 cout << boost::format(kCoinsTableFormat)
+                        % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
+                        % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
+                        % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
+                        % boost::io::group(left, setw(columnWidths[3]),  (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-"))
+                        % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
+                        % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
+                        % boost::io::group(right, boolalpha, setw(columnWidths[6]), c.m_isUnlinked)
+                      << std::endl;
+            }
+        };
+
+        const bool hasCoins = !(reliable.empty() && unreliable.empty());
+        if (hasCoins)
+        {
+            cout << boost::format(kCoinsTableHeadFormat)
+                     % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
+                     % boost::io::group(right, setw(columnWidths[1]), unitName)
+                     % boost::io::group(right, setw(columnWidths[2]), nthName)
+                     % boost::io::group(left, setw(columnWidths[3]), kCoinColumnMaturity)
+                     % boost::io::group(left, setw(columnWidths[4]), kCoinColumnStatus)
+                     % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
+                     % boost::io::group(left, setw(columnWidths[6]), kCoinColumnIsUnlinked)
+                  << std::endl;
+
+            displayCoins(reliable);
+            if (!unreliable.empty())
+            {
+                cout << kTxHistoryUnreliableCoins;
+                displayCoins(unreliable);
+            }
+        }
+        else
+        {
+            cout << kTxNoCoins;
+        }
+
+        cout << endl;
     }
 
     void ShowAssetTxs(const IWalletDB::Ptr& walletDB, Asset::ID assetId)
@@ -820,6 +863,8 @@ namespace
         else
         {
             const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
+            const auto lockHeight = GetAssetLockHeight(walletDB, assetId);
+
             boost::ignore_unused(nthName);
             const auto amountHeader = boost::format(kAssetTxHistoryColumnAmount) % unitName;
 
@@ -834,6 +879,7 @@ namespace
                         % boost::io::group(left,  setw(columnWidths[6]),  kTxHistoryColumnKernelId)
                      << std::endl;
 
+            bool unreliableDisplayed = false;
             for (auto& tx : txHistory) {
                 std::string direction = tx.m_sender ? kTxDirectionOut : kTxDirectionIn;
                 if (tx.m_txType == TxType::AssetInfo || tx.m_txType == TxType::AssetReg || tx.m_txType == TxType::AssetUnreg ||
@@ -866,7 +912,13 @@ namespace
                     kernelId = kNA;
                 }
 
-                Height height = storage::DeduceTxProofHeight(*walletDB, tx);
+                Height height = storage::DeduceTxDisplayHeight(*walletDB, tx);
+                if (height < lockHeight && !unreliableDisplayed)
+                {
+                    unreliableDisplayed = true;
+                    cout << kTxHistoryUnreliableTxs;
+                }
+
                 cout << boost::format(kTxHistoryTableFormat)
                         % boost::io::group(left,  setw(columnWidths[0]),  format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
                         % boost::io::group(left,  setw(columnWidths[1]),  static_cast<int64_t>(height))

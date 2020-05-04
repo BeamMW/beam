@@ -4332,13 +4332,31 @@ namespace beam::wallet
         Height DeduceTxProofHeight(const IWalletDB& walletDB, const TxDescription &tx)
         {
             Height height = 0;
-            if(!storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::KernelProofHeight, height))
+
+            if (tx.m_txType == TxType::AssetInfo)
             {
-                if(!storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::KernelUnconfirmedHeight, height))
+                storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::AssetConfirmedHeight, height);
+            }
+            else
+            {
+                storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::KernelProofHeight, height);
+            }
+
+            return height;
+        }
+
+        Height DeduceTxDisplayHeight(const IWalletDB& walletDB, const TxDescription &tx)
+        {
+            auto height = DeduceTxProofHeight(walletDB, tx);
+            if (height == 0)
+            {
+                storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::KernelUnconfirmedHeight, height);
+                if (height == 0)
                 {
-                    if(!storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::AssetConfirmedHeight, height))
+                    storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::AssetUnconfirmedHeight, height);
+                    if (height == 0)
                     {
-                        storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::AssetUnconfirmedHeight, height);
+                        storage::getTxParameter(walletDB, tx.m_txId, TxParameterID::MinHeight, height);
                     }
                 }
             }

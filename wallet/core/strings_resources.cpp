@@ -170,7 +170,7 @@ namespace beam
     const char kWalletSummaryFieldAvaliableFee[] = "Avaliable fee";
     const char kWalletSummaryFieldTotalFee[] = "Total fee";
     const char kWalletSummaryFieldTotalUnspent[] = "Total unspent";
-    const char kCoinsTableHeadFormat[] = "  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
+    const char kCoinsTableHeadFormat[] = "COINS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
     const char kCoinColumnId[] = "ID";
     const char kCoinColumnMaturity[] = "Maturity";
     const char kCoinColumnStatus[] = "Status";
@@ -195,6 +195,8 @@ namespace beam
     const char kTxDirectionIn[] = "incoming";
     const char kTxHistoryEmpty[] = "No transactions";
     const char kTxNoCoins[] = "No coins";
+    const char kTxHistoryUnreliableTxs[] = "\n    ---- Transactions below might belong to another asset ----\n\n";
+    const char kTxHistoryUnreliableCoins[] = "\n    ---- Coins below might belong to another asset ----\n\n";
     const char kTxToken[] = "token";
     const char kSwapTxHistoryEmpty[] = "No swap transactions";
     const char kSwapTxHistoryTableHead[] = "SWAP TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";
