@@ -171,6 +171,10 @@ namespace
             WALLET_CHECK(Version(12,12,12) < Version(12,12,13));
             WALLET_CHECK(Version(12,12,12) < Version(13,13,13));
             WALLET_CHECK(!(Version(12,12,12) < Version(12,12,12)));
+            
+            WALLET_CHECK(Version(12,12,12) <= Version(12,12,12));
+            WALLET_CHECK(Version(12,12,12) <= Version(13,13,13));
+            WALLET_CHECK(!(Version(12,12,13) <= Version(12,12,12)));
         }
 
         {

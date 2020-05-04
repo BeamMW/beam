@@ -612,7 +612,7 @@ namespace beam
 				ECC::Oracle oracle;
 				oracle << hvMsg;
 
-				if (pars.m_Output.Recover(txo, pars.m_Serial.m_SharedSecret, oracle, *m_pViewer))
+				if (pars.m_Output.Recover(txo, pars.m_Serial.m_SharedSecret, oracle))
 					return OnShieldedOutRecognized(dout, pars);
 			}
 		}

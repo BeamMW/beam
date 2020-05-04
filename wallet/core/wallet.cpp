@@ -555,22 +555,26 @@ namespace beam::wallet
         auto it = m_ActiveTransactions.find(txID);
         if (it != m_ActiveTransactions.end())
         {
-            auto tx = it->second;
-            bool bSynced = !SyncRemains() && IsNodeInSync();
-
-            if (bSynced)
-            {
-                AsyncContextHolder holder(*this);
-                tx->Update();
-            }
-            else
-            {
-                UpdateOnSynced(tx);
-            }
+            UpdateTransaction(it->second);
         }
         else
         {
             LOG_DEBUG() << txID << " Unexpected event";
+        }
+    }
+
+    void Wallet::UpdateTransaction(BaseTransaction::Ptr tx)
+    {
+        bool bSynced = !SyncRemains() && IsNodeInSync();
+
+        if (bSynced)
+        {
+            AsyncContextHolder holder(*this);
+            tx->Update();
+        }
+        else
+        {
+            UpdateOnSynced(tx);
         }
     }
 
@@ -608,8 +612,7 @@ namespace beam::wallet
 
             if (tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height, r.m_SubTxID))
             {
-                AsyncContextHolder holder(*this);
-                tx->Update();
+                UpdateTransaction(tx);
             }
         }
         else
@@ -666,8 +669,7 @@ namespace beam::wallet
                     }
                 }
 
-                AsyncContextHolder holder(*this);
-                tx->Update();
+                UpdateTransaction(tx);
             }
             else
             {
@@ -900,9 +902,7 @@ namespace beam::wallet
         }
 
         shieldedCoin->m_skSerialG = shieldedEvt.m_kSerG;
-        shieldedCoin->m_skOutputG = shieldedEvt.m_kOutG;
-        shieldedCoin->m_sender = shieldedEvt.m_Sender;
-        shieldedCoin->m_message = shieldedEvt.m_Message;
+        shieldedCoin->m_User = shieldedEvt.m_User;
         shieldedCoin->m_ID = shieldedEvt.m_ID;
         shieldedCoin->m_isCreatedByViewer = 0 != (proto::Event::Flags::CreatedByViewer & shieldedEvt.m_Flags);
         shieldedCoin->m_assetID = shieldedEvt.m_AssetID;
@@ -1056,9 +1056,6 @@ namespace beam::wallet
             sTip.get_ID(id);
         else
             ZeroObject(id);
-
-        Block::SystemState::ID currentID;
-        m_WalletDB->getSystemStateID(currentID);
 
         m_WalletDB->setSystemStateID(id);
         LOG_INFO() << "Current state is " << id;

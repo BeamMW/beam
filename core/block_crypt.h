@@ -576,6 +576,20 @@ namespace beam
 		struct Viewer;
 		struct Data;
 		struct DataParams; // just a fwd-declaration of Data::Params
+
+		struct User
+		{
+			PeerID m_Sender;
+			ECC::uintBig m_pMessage[2];
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_Sender
+					& m_pMessage;
+			}
+		};
 	};
 
 #define BeamKernelsAll(macro) \

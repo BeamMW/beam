@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "base_lelantus_tx_builder.h"
+#include "core/shielded.h"
 
 namespace beam::wallet::lelantus
 {
@@ -39,4 +40,18 @@ namespace beam::wallet::lelantus
     {
         return m_Tx.GetMandatoryParameter<Height>(TxParameterID::MaxHeight, m_SubTxID);
     }
+
+    void BaseLelantusTxBuilder::Restore(ShieldedTxo::DataParams& sdp, const ShieldedCoin& sc, const ShieldedTxo::Viewer& viewer)
+    {
+        sdp.m_Serial.m_pK[0] = sc.m_skSerialG;
+        sdp.m_Serial.m_IsCreatedByViewer = sc.m_isCreatedByViewer;
+        sdp.m_Serial.Restore(viewer);
+
+        sdp.m_Output.m_Value = sc.m_value;
+        sdp.m_Output.m_AssetID = sc.m_assetID;
+        sdp.m_Output.m_User = sc.m_User;
+
+        sdp.m_Output.Restore_kG(sdp.m_Serial.m_SharedSecret);
+    }
+
 } // namespace beam::wallet::lelantus

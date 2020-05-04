@@ -30,8 +30,7 @@ const Height kLockTime = 5;
 const Height kPostLockReserve = 30;
 const Amount kFee = 100;
 const Height kOpenTxDh = 70;
-const Height kTestStartBlock = 10;
-const Height kNewBlockFuncStart = 9;
+const Height kTestStartBlock = 4;
 const unsigned kNewBlockInterval = 200;
 
 struct LaserObserver : public laser::Mediator::Observer
@@ -136,12 +135,14 @@ void MakeTreasuryImpl(const IWalletDB::Ptr& db,
 }
 
 ByteBuffer MakeTreasury(
-    const IWalletDB::Ptr& db1, const IWalletDB::Ptr& db2, const AmountList& amounts = {100000000, 100000000, 100000000, 100000000})
+    const IWalletDB::Ptr& db1, const IWalletDB::Ptr& db2,
+    Height maturity = 1,
+    const AmountList& amounts = {100000000, 100000000, 100000000, 100000000})
 {
     Treasury treasury;
     Treasury::Parameters treasury_params;
     treasury_params.m_Bursts = 1;
-    treasury_params.m_Maturity0 = 1;
+    treasury_params.m_Maturity0 = maturity;
     treasury_params.m_MaturityStep = 0;
 
     MakeTreasuryImpl(db1, treasury_params, treasury, amounts);

@@ -20,27 +20,6 @@
 
 namespace beam::wallet::lelantus
 {
-    namespace
-    {
-        ECC::Scalar::Native RestoreSkSpendKey(Key::IKdf::Ptr pKdf, const ShieldedCoin& shieldedCoin)
-        {
-            ShieldedTxo::Viewer viewer;
-            viewer.FromOwner(*pKdf);
-
-            ShieldedTxo::Data::SerialParams serialParams;
-            serialParams.m_pK[0] = shieldedCoin.m_skSerialG;
-            serialParams.m_IsCreatedByViewer = shieldedCoin.m_isCreatedByViewer;
-            serialParams.Restore(viewer);
-
-            ECC::Scalar::Native skSpendKey;
-            Key::IKdf::Ptr pSerialPrivate;
-            ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pKdf);
-            pSerialPrivate->DeriveKey(skSpendKey, serialParams.m_SerialPreimage);
-
-            return skSpendKey;
-        }
-    }
-
     PullTxBuilder::PullTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee)
         : BaseLelantusTxBuilder(tx, amount, fee)
     {
@@ -78,6 +57,8 @@ namespace beam::wallet::lelantus
 
     Transaction::Ptr PullTxBuilder::CreateTransaction()
     {
+        Key::IKdf::Ptr pMaster = m_Tx.get_MasterKdfStrict();
+
         TxoID shieldedId = m_Tx.GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
         TxoID startIndex = m_Tx.GetMandatoryParameter<TxoID>(TxParameterID::WindowBegin);
 
@@ -91,7 +72,7 @@ namespace beam::wallet::lelantus
             for (const auto& id : m_OutputCoins)
             {
                 ECC::Scalar::Native outputSk;
-                CoinID::Worker(id).Create(outputSk, *id.get_ChildKdf(m_Tx.get_MasterKdfStrict()));
+                CoinID::Worker(id).Create(outputSk, *id.get_ChildKdf(pMaster));
                 offset -= outputSk;
             }
 
@@ -170,14 +151,20 @@ namespace beam::wallet::lelantus
                     throw TransactionFailedException(false, TxFailureReason::NoInputs);
                 }
 
-                ECC::Scalar::Native skSpendKey = RestoreSkSpendKey(m_Tx.GetWalletDB()->get_MasterKdf(), *shieldedCoin);
-                ECC::Scalar::Native witnessSk = shieldedCoin->m_skSerialG;
-                witnessSk += shieldedCoin->m_skOutputG;
+                ShieldedTxo::Viewer viewer;
+                viewer.FromOwner(*pMaster);
+
+                ShieldedTxo::DataParams sdp;
+                Restore(sdp, *shieldedCoin, viewer);
+
+                Key::IKdf::Ptr pSerialPrivate;
+                ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pMaster);
+                pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Serial.m_SerialPreimage);
 
                 prover.m_Witness.V.m_L = shieldedWindowId;
-                prover.m_Witness.V.m_R = witnessSk;
+                prover.m_Witness.V.m_R = sdp.m_Serial.m_pK[0];
+                prover.m_Witness.V.m_R += sdp.m_Output.m_k;
                 prover.m_Witness.V.m_R_Output = inputSk;
-                prover.m_Witness.V.m_SpendSk = skSpendKey;
                 prover.m_Witness.V.m_V = GetAmount() + GetFee();
             }
             pKrn->UpdateMsg();

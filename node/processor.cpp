@@ -2476,17 +2476,15 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const S
 	oracle << v.m_Msg;
 
 	ShieldedTxo::Data::OutputParams op;
-	if (!op.Recover(txo, sp.m_SharedSecret, oracle, *pKeyShielded))
+	if (!op.Recover(txo, sp.m_SharedSecret, oracle))
 		return;
 
 	proto::Event::Shielded evt;
 	evt.m_ID = nID;
 	evt.m_Value = op.m_Value;
 	evt.m_AssetID = op.m_AssetID;
-	evt.m_Sender = op.m_Sender;
-	evt.m_Message = op.m_Message;
+	evt.m_User = op.m_User;
 	evt.m_kSerG = sp.m_pK[0];
-	evt.m_kOutG = op.m_k;
 	evt.m_Flags = proto::Event::Flags::Add;
 	if (sp.m_IsCreatedByViewer)
 		evt.m_Flags |= proto::Event::Flags::CreatedByViewer;
@@ -2697,10 +2695,7 @@ void NodeProcessor::InternalAssetAdd(Asset::Full& ai)
 	assert(ai.m_ID); // it's 1-based
 
 	if (m_Mmr.m_Assets.m_Count < ai.m_ID)
-	{
-		assert(m_Mmr.m_Assets.m_Count + 1 == ai.m_ID);
 		m_Mmr.m_Assets.ResizeTo(ai.m_ID);
-	}
 
 	Merkle::Hash hv;
 	ai.get_Hash(hv);

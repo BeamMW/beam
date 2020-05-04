@@ -364,9 +364,7 @@ namespace proto {
         macro(Amount, Value) \
         macro(Asset::ID, AssetID) \
         macro(ECC::Scalar, kSerG) \
-        macro(ECC::Scalar, kOutG) \
-        macro(PeerID, Sender) \
-        macro(ECC::uintBig, Message)
+        macro(ShieldedTxo::User, User)
 
 #define BeamEvent_AssetCtl(macro) \
         macro(uint8_t, Flags) \

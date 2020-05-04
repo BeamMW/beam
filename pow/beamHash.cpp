@@ -14,6 +14,7 @@
 
 #include "core/block_crypt.h"
 #include "crypto/equihashR.h"
+#include "crypto/beamHashIII.h"
 #include "uint256.h"
 #include "arith_uint256.h"
 #include <utility>
@@ -29,12 +30,15 @@ struct Block::PoW::Helper
 
 	EquihashR<150,5,0> BeamHashI;
 	EquihashR<150,5,3> BeamHashII;
+	BeamHash_III       BeamHashIII;
 
 	PoWScheme* getCurrentPoW(Height h) {
 		if (h < Rules::get().pForks[1].m_Height) {
 			return &BeamHashI;
-		} else {
+		} else if (h < Rules::get().pForks[2].m_Height) {
 			return &BeamHashII;
+		} else {
+			return &BeamHashIII;
 		}
 	}
 
@@ -70,7 +74,7 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, Height h, const 
         };
 
 
-    std::function<bool(EhSolverCancelCheck)> fnCancelInternal = [fnCancel](EhSolverCancelCheck pos) {
+    std::function<bool(SolverCancelCheck)> fnCancelInternal = [fnCancel](SolverCancelCheck pos) {
         return fnCancel(false);
     };
 
@@ -83,7 +87,7 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, Height h, const 
 			if (hlp.getCurrentPoW(h)->OptimisedSolve(hlp.m_Blake, fnValid, fnCancelInternal))
 				break;
 
-		} catch (const EhSolverCancelledException&) {
+		} catch (const SolverCancelledException&) {
 			return false;
 		}
 

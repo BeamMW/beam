@@ -22,6 +22,8 @@
 
 #include <iomanip>
 #include <boost/algorithm/string.hpp>
+
+#include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 using namespace std;
@@ -170,6 +172,20 @@ namespace beam::wallet
     {
         Point::Native p;
         return m_Pk.ExportNnz(p);
+    }
+
+    boost::optional<PeerID> FromHex(const std::string& s)
+    {
+        boost::optional<PeerID> res;
+        bool isValid = false;
+        auto buf = from_hex(s, &isValid);
+        if (!isValid)
+        {
+            return res;
+        }
+        res.emplace();
+        *res = Blob(buf);
+        return res;
     }
 
     bool fromByteBuffer(const ByteBuffer& b, ByteBuffer& value)
@@ -639,5 +655,31 @@ namespace beam::wallet
         uint64_t ret;
         val.Export(ret);
         return ret;
+    }
+
+    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, Amount amount)
+    {
+        WalletID walletID;
+        if (!walletID.FromHex(sbbsAddress))
+        {
+            return "";
+        }
+        auto identity = FromHex(identityStr);
+        if (!identity)
+        {
+            return "";
+        }
+
+        TxParameters parameters;
+        if (amount > 0)
+        {
+            parameters.SetParameter(beam::wallet::TxParameterID::Amount, amount);
+        }
+
+        parameters.SetParameter(beam::wallet::TxParameterID::PeerID, walletID);
+        parameters.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+        parameters.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *identity);
+
+        return std::to_string(parameters);
     }
 }  // namespace beam::wallet

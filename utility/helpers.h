@@ -20,6 +20,7 @@
 #include <future>
 #include <stdint.h>
 #include <assert.h>
+#include "hex.h"
 
 namespace beam {
 
@@ -38,16 +39,6 @@ inline std::string format_timestamp(const char* formatStr, uint64_t timestamp, b
     size_t n = format_timestamp(buf, 128, formatStr, timestamp, formatMsec);
     return std::string(buf, n);
 }
-
-// Converts bytes to base16 string, writes to dst buffer.
-// dst must contain at least size*2 bytes + 1
-char* to_hex(char* dst, const void* bytes, size_t size);
-
-// Converts bytes to base16 string.
-std::string to_hex(const void* bytes, size_t size);
-
-// Converts hexdec string to vector of bytes, if wholeStringIsNumber!=0 it will contain true if the whole string is base16
-std::vector<uint8_t> from_hex(const std::string& str, bool* wholeStringIsNumber=0);
 
 /// Wraps member fn into std::function via lambda
 template <typename R, typename ...Args, typename T> std::function<R(Args...)> bind_memfn(T* object, R(T::*fn)(Args...)) {

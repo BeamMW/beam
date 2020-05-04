@@ -348,8 +348,6 @@ namespace beam::wallet
             m_WalletDB->SlotFree(iSlot);
             SetParameter(TxParameterID::NonceSlot, IPrivateKeyKeeper2::Slot::Invalid);
         }
-
-
     }
 
     void BaseTransaction::FreeResources()
@@ -447,7 +445,6 @@ namespace beam::wallet
         {
             bool bIn = (coin.m_createTxId && *coin.m_createTxId == m_ID);
             bool bOut = (coin.m_spentTxId && *coin.m_spentTxId == m_ID);
-            LOG_DEBUG() << TRACE(coin.m_createTxId.is_initialized()) << TRACE(coin.m_spentTxId.is_initialized()) << TRACE(proofHeight) << TRACE(bIn) << TRACE(bOut);
             if (bIn || bOut)
             {
                 if (bIn)

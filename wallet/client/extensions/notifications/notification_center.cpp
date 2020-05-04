@@ -66,14 +66,29 @@ namespace beam::wallet
         m_activeNotifications[type] = onOff;
     }
 
-    size_t NotificationCenter::getUnreadCount() const
+    size_t NotificationCenter::getUnreadCount(VersionInfo::Application app, const Version& currentAppVersion) const
     {
         return std::count_if(m_cache.begin(), m_cache.end(),
-            [](const auto& p)
+            [app, &currentAppVersion](const auto& p)
             {
-                return p.second.m_state == Notification::State::Unread 
-                    && (p.second.m_type == Notification::Type::SoftwareUpdateAvailable 
-                        || p.second.m_type == Notification::Type::TransactionFailed);
+                if (p.second.m_state == Notification::State::Unread)
+                {
+                    if (p.second.m_type == Notification::Type::SoftwareUpdateAvailable)
+                    {
+                        VersionInfo info;
+                        if (fromByteBuffer(p.second.m_content, info) &&
+                            app == VersionInfo::Application::DesktopWallet &&
+                            currentAppVersion < info.m_version)
+                        {
+                            return true;
+                        }
+                    }
+                    if (p.second.m_type == Notification::Type::TransactionFailed)
+                    {
+                        return true;
+                    }
+                }
+                return false;
             });
     }
 
@@ -151,8 +166,6 @@ namespace beam::wallet
 
     void NotificationCenter::onNewWalletVersion(const VersionInfo& content, const ECC::uintBig& id)
     {
-        if (content.m_application != VersionInfo::Application::DesktopWallet) return;
-        
         auto search = m_cache.find(id);
         if (search == m_cache.cend())
         {
