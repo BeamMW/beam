@@ -4765,8 +4765,14 @@ namespace beam::wallet
                 storage::getTxParameter(walletDB, txID, TxParameterID::KernelID, pi.m_KernelID) &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::Amount, pi.m_Amount) &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::PaymentConfirmation, pi.m_Signature) &&
-                storage::getTxParameter(walletDB, txID, TxParameterID::MyAddressID, nAddrOwnID) &&
-                storage::getTxParameter(walletDB, txID, TxParameterID::AssetID, pi.m_AssetID);
+                storage::getTxParameter(walletDB, txID, TxParameterID::MyAddressID, nAddrOwnID);
+
+                // There might be old transactions without asset id
+                if (!storage::getTxParameter(walletDB, txID, TxParameterID::AssetID, pi.m_AssetID))
+                {
+                    pi.m_AssetID = Asset::s_InvalidID;
+                    LOG_DEBUG() << "ExportPaymentProof, transaction " << txID << " is without assetId, defaulting to 0";
+                }
 
             if (bSuccess)
             {
@@ -4983,9 +4989,7 @@ namespace beam::wallet
 
     bool WalletAsset::CanRollback(Height from) const
     {
-        return false;
-        // TODO:ASSETS commented for tests only
-        // const auto maxRollback = Rules::get().MaxRollback;
-        // return m_LockHeight + maxRollback > from;
+        const auto maxRollback = Rules::get().MaxRollback;
+        return m_LockHeight + maxRollback > from;
     }
 }
