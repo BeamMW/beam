@@ -862,8 +862,13 @@ namespace
         }
         else
         {
-            const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
             const auto lockHeight = GetAssetLockHeight(walletDB, assetId);
+            auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
+            if (assetId == Asset::s_InvalidID)
+            {
+                unitName = kAmountASSET;
+                nthName = kAmountAGROTH;
+            }
 
             boost::ignore_unused(nthName);
             const auto amountHeader = boost::format(kAssetTxHistoryColumnAmount) % unitName;
