@@ -73,9 +73,9 @@ struct KeyKeeper
         return _impl2.GetSbbsAddressPrivate(from_base64<uint64_t>(ownID));
     }
 
-    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, const std::string& amount = {})
+    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, uint32_t amount = 0)
     {
-        return wallet::GetSendToken(sbbsAddress, identityStr, amount);
+        return wallet::GetSendToken(sbbsAddress, identityStr, beam::Amount(amount));
     }
 
     std::string InvokeServiceMethod(const std::string& data)

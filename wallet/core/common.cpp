@@ -657,7 +657,7 @@ namespace beam::wallet
         return ret;
     }
 
-    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, const std::string& amount)
+    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, Amount amount)
     {
         WalletID walletID;
         if (!walletID.FromHex(sbbsAddress))
@@ -671,13 +671,9 @@ namespace beam::wallet
         }
 
         TxParameters parameters;
-        if (!amount.empty())
+        if (amount > 0)
         {
-            auto a = from_base64<beam::Amount>(amount);
-            if (a > 0)
-            {
-                parameters.SetParameter(beam::wallet::TxParameterID::Amount, a);
-            }
+            parameters.SetParameter(beam::wallet::TxParameterID::Amount, amount);
         }
 
         parameters.SetParameter(beam::wallet::TxParameterID::PeerID, walletID);
