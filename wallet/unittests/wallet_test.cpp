@@ -1356,49 +1356,51 @@ namespace
     {
         std::cout << "Testing tx parameters and token...\n";
 
-        WalletID myID(Zero);
-        WALLET_CHECK(myID.FromHex("7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3"));
         {
+
+            WalletID myID(Zero);
+            WALLET_CHECK(myID.FromHex("7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3"));
+            {
+                WalletID peerID(Zero);
+                WALLET_CHECK(peerID.FromHex("6fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
+                // WALLET_CHECK(peerID.IsValid());
+            }
+
             WalletID peerID(Zero);
-            WALLET_CHECK(peerID.FromHex("6fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
-           // WALLET_CHECK(peerID.IsValid());
+            WALLET_CHECK(peerID.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
+            auto params = CreateSimpleTransactionParameters()
+                .SetParameter(TxParameterID::MyID, myID)
+                .SetParameter(TxParameterID::PeerID, peerID)
+                .SetParameter(TxParameterID::Lifetime, Height(200));
+
+
+            string token = to_string(params);
+
+            auto restoredParams = wallet::ParseParameters(token);
+
+            WALLET_CHECK(restoredParams && *restoredParams == params);
+
+            string address = to_string(myID);
+            auto addrParams = wallet::ParseParameters(address);
+            WALLET_CHECK(addrParams && *addrParams->GetParameter<WalletID>(TxParameterID::PeerID) == myID);
+
+            const string addresses[] =
+            {
+                "7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3",
+                "9f03ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95",
+                "0103ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95",
+                "7f9f03ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95",
+                "0f9f03ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95"
+            };
+            for (const auto& a : addresses)
+            {
+                WalletID id(Zero);
+                WALLET_CHECK(id.FromHex(a));
+                boost::optional<TxParameters> p;
+                WALLET_CHECK_NO_THROW(p = wallet::ParseParameters(a));
+                WALLET_CHECK(p && *p->GetParameter<WalletID>(TxParameterID::PeerID) == id);
+            }
         }
-
-        WalletID peerID(Zero);
-        WALLET_CHECK(peerID.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
-        auto params = CreateSimpleTransactionParameters()
-            .SetParameter(TxParameterID::MyID, myID)
-            .SetParameter(TxParameterID::PeerID, peerID)
-            .SetParameter(TxParameterID::Lifetime, Height(200));
-
-
-        string token = to_string(params);
-
-        auto restoredParams = wallet::ParseParameters(token);
-
-        WALLET_CHECK(restoredParams && *restoredParams == params);
-
-        string address = to_string(myID);
-        auto addrParams = wallet::ParseParameters(address);
-        WALLET_CHECK(addrParams && *addrParams->GetParameter<WalletID>(TxParameterID::PeerID) == myID);
-
-        const string addresses[] =
-        {
-            "7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3",
-            "9f03ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95",
-            "0103ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95",
-            "7f9f03ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95",
-            "0f9f03ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95"
-        };
-        for (const auto& a : addresses)
-        {
-            WalletID id(Zero);
-            WALLET_CHECK(id.FromHex(a));
-            boost::optional<TxParameters> p;
-            WALLET_CHECK_NO_THROW(p = wallet::ParseParameters(a));
-            WALLET_CHECK(p && *p->GetParameter<WalletID>(TxParameterID::PeerID) == id);
-        }
-
         {
             std::string s = "3ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95";
             auto identity = FromHex(s);
@@ -1412,6 +1414,22 @@ namespace
             std::string amount = to_base64(Amount(0));
             WALLET_CHECK(from_base64<beam::Amount>(amount) == 0);
             WALLET_CHECK(from_base64<beam::Amount>(to_base64(Amount(100))) == 100);
+        }
+
+        {
+            std::string sbbsAddressStr = "7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3";
+            std::string identityStr = "3ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95";
+            auto token = GetSendToken(sbbsAddressStr, identityStr, to_base64(Amount(11)));
+            auto p = wallet::ParseParameters(token);
+            WALLET_CHECK(p.is_initialized());
+            const TxParameters& p2 = *p;
+            WalletID address;
+            WALLET_CHECK(address.FromHex(sbbsAddressStr));
+            WALLET_CHECK(*p2.GetParameter<WalletID>(TxParameterID::PeerID) == address);
+            auto  identity = FromHex(identityStr);
+            WALLET_CHECK(identity.is_initialized());
+            WALLET_CHECK(*identity == *p2.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID));
+            WALLET_CHECK(*p2.GetParameter<Amount>(TxParameterID::Amount) == Amount(11));
         }
     }
 

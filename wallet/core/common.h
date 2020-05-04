@@ -701,6 +701,8 @@ namespace beam::wallet
     // Check current time with the timestamp of last received block
     // If it is more than 10 minutes, the walelt is considered not in sync
     bool IsValidTimeStamp(Timestamp currentBlockTime_s, Timestamp tolerance_s = 60 * 10); // 10 minutes tolerance.
+
+    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, const std::string& amount);
 }    // beam::wallet
 
 namespace beam

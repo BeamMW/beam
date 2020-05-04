@@ -656,4 +656,34 @@ namespace beam::wallet
         val.Export(ret);
         return ret;
     }
+
+    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, const std::string& amount)
+    {
+        WalletID walletID;
+        if (!walletID.FromHex(sbbsAddress))
+        {
+            return "";
+        }
+        auto identity = FromHex(identityStr);
+        if (!identity)
+        {
+            return "";
+        }
+
+        TxParameters parameters;
+        if (!amount.empty())
+        {
+            auto a = from_base64<beam::Amount>(amount);
+            if (a > 0)
+            {
+                parameters.SetParameter(beam::wallet::TxParameterID::Amount, a);
+            }
+        }
+
+        parameters.SetParameter(beam::wallet::TxParameterID::PeerID, walletID);
+        parameters.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+        parameters.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *identity);
+
+        return std::to_string(parameters);
+    }
 }  // namespace beam::wallet
