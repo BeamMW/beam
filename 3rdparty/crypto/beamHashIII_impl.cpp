@@ -79,7 +79,7 @@ void stepElem::applyMix(uint32_t remLen) {
 
 	// Add in the bits of the index tree to the end of work bits
 	uint32_t padNum = ((512-remLen) + collisionBitSize) / (collisionBitSize + 1);
-	padNum = std::min<uint32_t>(padNum, indexTree.size());
+	padNum = std::min(padNum, static_cast<uint32_t>(indexTree.size()));
 
 	for (uint32_t i=0; i<padNum; i++) {
 		std::bitset<512> tmp(indexTree[i]);
@@ -116,7 +116,7 @@ bool stepElem::isZero() {
 }
 
 uint64_t getLowBits(stepElem test) {
-	std::bitset<workBitSize> mask(~0);
+	std::bitset<workBitSize> mask(~0ULL);
 	return (uint64_t) (test.workBits & mask).to_ulong();
 }
 /********
@@ -178,7 +178,7 @@ std::vector<uint8_t> GetMinimalFromIndices(std::vector<uint32_t> sol) {
 	std::bitset<800> mask(0xFF);
 
 	inStream.reset();
-	for (int32_t i = sol.size(); i>=0; i--) {
+	for (int32_t i = static_cast<uint32_t>(sol.size()); i>=0; i--) {
 		inStream = (inStream << (collisionBitSize+1));
 		inStream |= (uint64_t) sol[i];
 	}
@@ -361,7 +361,7 @@ bool BeamHash_III::OptimisedSolve(const blake2b_state& base_state,
 					std::vector<uint8_t> sol = GetMinimalFromIndices(temp.indexTree);
 
 					// Adding the extra nonce
-					for (uint32_t i=0; i<4; i++) sol.push_back(extraNonce[i]);
+					for (uint32_t k=0; k<4; k++) sol.push_back(extraNonce[k]);
 
 					if (validBlock(sol))  return true;
 				}
