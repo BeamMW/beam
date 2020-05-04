@@ -68,7 +68,7 @@ namespace beam::wallet {
         for(const auto& it: tokens)
         {
             auto eq = it.find_first_of('=');
-            if (!eq) continue;
+            if (eq == std::string::npos) continue;
             auto key = std::string(it.begin(), it.begin() + eq);
             auto val = std::string(it.begin() + eq + 1, it.end());
             _values[key] = val;
