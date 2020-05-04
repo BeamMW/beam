@@ -92,7 +92,7 @@ void stepElem::applyMix(uint32_t remLen) {
 	std::bitset<512> mask(0xFFFFFFFFFFFFFFFFUL);
 	uint64_t result = 0;
 	for (uint32_t i=0; i<8; i++) {
-		uint64_t tmp = (tempBits & mask).to_ulong();
+		uint64_t tmp = (tempBits & mask).to_ullong();
 		tempBits = tempBits >> 64;
 
 		result += sipHash::rotl(tmp, (29*(i+1)) & 0x3F);
@@ -108,7 +108,7 @@ void stepElem::applyMix(uint32_t remLen) {
 
 uint32_t stepElem::getCollisionBits() const {
 	std::bitset<workBitSize> mask((1 << collisionBitSize) - 1);
-	return (uint32_t) (workBits & mask).to_ulong();
+	return (uint32_t) (workBits & mask).to_ullong();
 }
 
 bool stepElem::isZero() {
@@ -117,7 +117,7 @@ bool stepElem::isZero() {
 
 uint64_t getLowBits(stepElem test) {
 	std::bitset<workBitSize> mask(~0ULL);
-	return (uint64_t) (test.workBits & mask).to_ulong();
+	return (uint64_t) (test.workBits & mask).to_ullong();
 }
 /********
 
@@ -166,7 +166,7 @@ std::vector<uint32_t> GetIndicesFromMinimal(std::vector<uint8_t> soln) {
 
 	std::vector<uint32_t> res;
 	for (uint32_t i=0; i<32; i++) {
-		res.push_back((uint32_t) (inStream & mask).to_ulong() );
+		res.push_back((uint32_t) (inStream & mask).to_ullong() );
 		inStream = (inStream >> (collisionBitSize+1));
 	}
 
@@ -185,7 +185,7 @@ std::vector<uint8_t> GetMinimalFromIndices(std::vector<uint32_t> sol) {
 
 	std::vector<uint8_t> res;
 	for (uint32_t i=0; i<100; i++) {
-		res.push_back((uint8_t) (inStream & mask).to_ulong() );
+		res.push_back((uint8_t) (inStream & mask).to_ullong() );
 		inStream = (inStream >> 8);
 	}
 
