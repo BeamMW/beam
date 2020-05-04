@@ -68,6 +68,7 @@ namespace {
     DEF_LABEL(height);
     DEF_LABEL(nonceprefix);
     DEF_LABEL(forkheight);
+    DEF_LABEL(forkheight2);
     DEF_LABEL(blockhash);
 #undef DEF_LABEL
 
@@ -205,6 +206,7 @@ bool append_json_msg(io::FragmentWriter& packer, const Result& m) {
     o[l_description] = m.description;
     if (!m.nonceprefix.empty()) o[l_nonceprefix] = m.nonceprefix;
     if (m.forkheight != MaxHeight) o[l_forkheight] = m.forkheight;
+    if (m.forkheight2 != MaxHeight) o[l_forkheight2] = m.forkheight2;
     if (!m.blockhash.empty()) o[l_blockhash] = m.blockhash;
     return serialize_json_msg(packer, o);
 }
