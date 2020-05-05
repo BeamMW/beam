@@ -25,7 +25,7 @@ using namespace std;
 
 namespace
 {
-    jobject fillNotificationInfo(JNIEnv* env, beam::wallet::Notification& notification)
+    jobject fillNotificationInfo(JNIEnv* env, const Notification& notification)
     {
         jobject jNotificationInfo = env->AllocObject(NotificationClass);
 
@@ -36,7 +36,7 @@ namespace
         return jNotificationInfo;
     }
 
-    jobject fillAddressData(JNIEnv* env, WalletAddress& address)
+    jobject fillAddressData(JNIEnv* env, const WalletAddress& address)
     {
         jobject addr = env->AllocObject(WalletAddressClass);
 
@@ -50,7 +50,7 @@ namespace
         return addr;
     }
 
-    jobject fillTransactionData(JNIEnv* env, TxDescription& txDescription)
+    jobject fillTransactionData(JNIEnv* env, const TxDescription& txDescription)
     {
         jobject tx = env->AllocObject(TxDescriptionClass);
 
@@ -161,11 +161,11 @@ namespace
         return ratesArray;
     }
 
-    void callSoftwareUpdateNotification(JNIEnv* env, beam::wallet::Notification& notification)
+    void callSoftwareUpdateNotification(JNIEnv* env, const Notification& notification, ChangeAction action)
     {
-        beam::wallet::VersionInfo versionInfo;
+        VersionInfo versionInfo;
 
-        if (beam::wallet::fromByteBuffer(notification.m_content, versionInfo))
+        if (fromByteBuffer(notification.m_content, versionInfo))
         {
             jobject jNotificationInfo = fillNotificationInfo(env, notification);
 
@@ -186,15 +186,15 @@ namespace
         }
     }
     
-    void callAddressStatusNotification(JNIEnv* env, beam::wallet::Notification& notification)
+    void callAddressStatusNotification(JNIEnv* env, const Notification& notification, ChangeAction action)
     {
-        beam::wallet::WalletAddress address;
+        WalletAddress address;
 
-        if (beam::wallet::fromByteBuffer(notification.m_content, address))
+        if (fromByteBuffer(notification.m_content, address))
         {
             jobject jNotificationInfo = fillNotificationInfo(env, notification);
 
-            jobject jAddress = fillAddressData(env, address)
+            jobject jAddress = fillAddressData(env, address);
 
             jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAddressChangedNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
             
@@ -205,18 +205,18 @@ namespace
         }
     }
 
-    void callTransactionFailed(JNIEnv* env, beam::wallet::Notification& notification)
+    void callTransactionFailed(JNIEnv* env, const Notification& notification, ChangeAction action)
     {
-        beam::wallet::TxToken token;
+        TxToken token;
 
-        if (beam::wallet::fromByteBuffer(notification.m_content, token))
+        if (fromByteBuffer(notification.m_content, token))
         {
             TxParameters txParameters = token.UnpackParameters();
             TxDescription txDescription(txParameters);
 
             jobject jNotificationInfo = fillNotificationInfo(env, notification);
 
-            jobject jTransaction = fillTransactionData(env, txDescription)
+            jobject jTransaction = fillTransactionData(env, txDescription);
 
             jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onTransactionFailedNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/TxDescriptionDTO;)V");
             
@@ -227,18 +227,18 @@ namespace
         }
     }
 
-    void callTransactionCompleted(JNIEnv* env, beam::wallet::Notification& notification)
+    void callTransactionCompleted(JNIEnv* env, const Notification& notification, ChangeAction action)
     {
-        beam::wallet::TxToken token;
+        TxToken token;
 
-        if (beam::wallet::fromByteBuffer(notification.m_content, token))
+        if (fromByteBuffer(notification.m_content, token))
         {
             TxParameters txParameters = token.UnpackParameters();
             TxDescription txDescription(txParameters);
 
             jobject jNotificationInfo = fillNotificationInfo(env, notification);
 
-            jobject jTransaction = fillTransactionData(env, txDescription)
+            jobject jTransaction = fillTransactionData(env, txDescription);
 
             jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onTransactionCompletedNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/TxDescriptionDTO;)V");
             
@@ -249,7 +249,7 @@ namespace
         }
     }
 
-    void callBeamNewsNotification(JNIEnv* env, beam::wallet::Notification& notification)
+    void callBeamNewsNotification(JNIEnv* env, const Notification& notification)
     {
         // TODO: deserialize notification content and fill JAVA data object
 
@@ -367,7 +367,7 @@ void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>&
     env->DeleteLocalRef(utxos);
 }
 
-void WalletModel::onAddressesChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::WalletAddress>& addresses)
+void WalletModel::onAddressesChanged(ChangeAction action, const std::vector<WalletAddress>& addresses)
 {
     LOG_DEBUG() << "onAddressesChanged()";
 
@@ -397,7 +397,7 @@ void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addres
 }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-void WalletModel::onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
+void WalletModel::onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers)
 {
     LOG_DEBUG() << "onSwapOffersChanged()";
 
@@ -558,10 +558,8 @@ void WalletModel::onExportDataToJson(const std::string& data)
     env->DeleteLocalRef(jdata);
 }
 
-void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>& notifications)
+void WalletModel::onNotificationsChanged(ChangeAction action, const std::vector<Notification>& notifications)
 {
-    using beam::wallet::Notification::Type NotificationType;
-
     LOG_DEBUG() << "onNotificationsChanged";
 
     JNIEnv* env = Android_JNI_getEnv();
@@ -570,26 +568,28 @@ void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, cons
     {
         switch(notification.m_type)
         {
-            case NotificationType::SoftwareUpdateAvailable:
-                callSoftwareUpdateNotification(env, notification);
+            case Notification::Type::SoftwareUpdateAvailable:
+                callSoftwareUpdateNotification(env, notification, action);
                 break;
-            case NotificationType::AddressStatusChanged:
-                callAddressStatusNotification(env, notification);
+            case Notification::Type::AddressStatusChanged:
+                callAddressStatusNotification(env, notification, action);
                 break;
-            case NotificationType::TransactionFailed:
-                callTransactionFailed(env, notification);
+            case Notification::Type::TransactionFailed:
+                callTransactionFailed(env, notification, action);
                 break;
-            case NotificationType::TransactionCompleted:
-                callTransactionCompleted(env, notification);
+            case Notification::Type::TransactionCompleted:
+                callTransactionCompleted(env, notification, action);
                 break;
-            case NotificationType::BeamNews:
-                callBeamNewsNotification(env, notification);
+            case Notification::Type::BeamNews:
+                callBeamNewsNotification(env, notification, action);
+                break;
+            default:
                 break;
         }
     }
 }
 
-void WalletModel::onExchangeRates(const std::vector<beam::wallet::ExchangeRate>& rates)
+void WalletModel::onExchangeRates(const std::vector<ExchangeRate>& rates)
 {
     LOG_DEBUG() << "onExchangeRates";
 
