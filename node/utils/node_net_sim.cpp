@@ -58,22 +58,24 @@ struct Context
 {
     Key::IKdf::Ptr m_pKdf;
 
+    template <typename TID, typename TBase>
     struct Txo
+        :public TBase
     {
-        struct Cid
+        struct ID
             :public boost::intrusive::set_base_hook<>
         {
-            CoinID m_Value;
-            bool operator < (const Cid& cid) const { return m_Value < cid.m_Value; }
+            TID m_Value;
+            bool operator < (const ID& x) const { return m_Value < x.m_Value; }
 
-            IMPLEMENT_GET_PARENT_OBJ(Txo, m_Cid)
-        } m_Cid;
+            IMPLEMENT_GET_PARENT_OBJ(Txo, m_ID)
+        } m_ID;
 
         struct HeightNode
             :public boost::intrusive::set_base_hook<>
         {
-            Height m_Confirmed = MaxHeight;
-            Height m_Spent = MaxHeight;
+            Height m_Confirmed;
+            Height m_Spent;
 
             Height get() const { return std::min(m_Confirmed, m_Spent); }
             bool operator < (const HeightNode& x) const { return get() < x.get(); }
@@ -81,15 +83,111 @@ struct Context
             IMPLEMENT_GET_PARENT_OBJ(Txo, m_Height)
         } m_Height;
 
+        typedef boost::intrusive::multiset<HeightNode> HeightMap;
+        typedef boost::intrusive::multiset<ID> IDMap;
+
+        struct Container
+        {
+            IDMap m_mapID;
+            HeightMap m_mapConfirmed;
+            HeightMap m_mapSpent;
+
+            Txo* CreateConfirmed(const TID& tid, Height h)
+            {
+                Txo* pTxo = new Txo;
+                pTxo->m_ID.m_Value = tid;
+                m_mapID.insert(pTxo->m_ID);
+
+                pTxo->m_Height.m_Spent = MaxHeight;
+
+                assert(MaxHeight != h);
+                pTxo->m_Height.m_Confirmed = h;
+                m_mapConfirmed.insert(pTxo->m_Height);
+
+                return pTxo;
+            }
+
+            void SetSpent(Txo& txo, Height h)
+            {
+                assert(MaxHeight != h);
+                assert(MaxHeight == txo.m_Height.m_Spent);
+                m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
+                txo.m_Height.m_Spent = h;
+                m_mapSpent.insert(txo.m_Height);
+            }
+
+            void Delete(Txo& txo)
+            {
+                if (MaxHeight != txo.m_Height.m_Spent)
+                    m_mapSpent.erase(HeightMap::s_iterator_to(txo.m_Height));
+                else
+                {
+                    if (MaxHeight != txo.m_Height.m_Confirmed)
+                        m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
+                }
+
+                m_mapID.erase(IDMap::s_iterator_to(txo.m_ID));
+
+                delete& txo;
+            }
+
+            void OnRolledBack(Height h)
+            {
+                while (!m_mapSpent.empty())
+                {
+                    Txo& txo = m_mapSpent.rbegin()->get_ParentObj();
+                    assert(txo.m_Height.m_Spent != MaxHeight);
+                    assert(txo.m_Height.m_Confirmed != MaxHeight);
+
+                    if (txo.m_Height.m_Spent <= h)
+                        break;
+
+                    if (txo.m_Height.m_Confirmed > h)
+                        Delete(txo);
+                    else
+                    {
+                        txo.m_Height.m_Spent = MaxHeight;
+                        m_mapSpent.erase(HeightMap::s_iterator_to(txo.m_Height));
+                        m_mapConfirmed.insert(txo.m_Height);
+                    }
+                }
+            }
+
+            ~Container()
+            {
+                Clear();
+            }
+
+            void Clear()
+            {
+                while (!m_mapID.empty())
+                    Delete(m_mapID.begin()->get_ParentObj());
+            }
+
+            void ForgetOld(Height h)
+            {
+                while (!m_mapSpent.empty())
+                {
+                    Txo& txo = m_mapSpent.begin()->get_ParentObj();
+                    assert(txo.m_Height.m_Spent != MaxHeight);
+                    assert(txo.m_Height.m_Confirmed != MaxHeight);
+
+                    if (txo.m_Height.m_Spent > h)
+                        break;
+
+                    Delete(txo);
+                }
+            }
+        };
+    };
+
+    struct TxoBase {
         Height m_Maturity;
     };
 
-    typedef boost::intrusive::multiset<Txo::HeightNode> HeightMap;
-    typedef boost::intrusive::multiset<Txo::Cid> CidMap;
+    typedef Txo<CoinID, TxoBase> TxoMW;
 
-    CidMap m_mapCid;
-    HeightMap m_mapConfirmed;
-    HeightMap m_mapSpent;
+    TxoMW::Container m_TxosMW;
 
     struct EventsHandler
         :public proto::FlyClient::Request::IHandler
@@ -124,38 +222,27 @@ struct Context
                     if (MaxHeight == m_Height)
                         return; // it shouldn't be MaxHeight anyway!
 
-                    Txo::Cid cid;
+                    TxoMW::ID cid;
                     cid.m_Value = evt.m_Cid;
 
-                    CidMap::iterator it = m_This.m_mapCid.find(cid);
+                    TxoMW::IDMap::iterator it = m_This.m_TxosMW.m_mapID.find(cid);
 
                     if (proto::Event::Flags::Add & evt.m_Flags)
                     {
-                        if (m_This.m_mapCid.end() == it)
+                        if (m_This.m_TxosMW.m_mapID.end() == it)
                         {
-                            Txo* pTxo = new Txo;
-                            pTxo->m_Cid.m_Value = cid.m_Value;
-                            m_This.m_mapCid.insert(pTxo->m_Cid);
-
-                            pTxo->m_Height.m_Confirmed = m_Height;
-                            m_This.m_mapConfirmed.insert(pTxo->m_Height);
-
+                            TxoMW* pTxo = m_This.m_TxosMW.CreateConfirmed(evt.m_Cid, m_Height);
                             pTxo->m_Maturity = evt.m_Maturity;
                         }
                     }
                     else
                     {
-                        if (m_This.m_mapCid.end() != it)
+                        if (m_This.m_TxosMW.m_mapID.end() != it)
                         {
-                            Txo& txo = it->get_ParentObj();
+                            TxoMW& txo = it->get_ParentObj();
                             if (MaxHeight == txo.m_Height.m_Spent)
-                            {
-                                m_This.m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
-                                txo.m_Height.m_Spent = m_Height;
-                                m_This.m_mapSpent.insert(txo.m_Height);
-                                
+                                m_This.m_TxosMW.SetSpent(txo, m_Height);
                                 // update txs?
-                            }
                         }
                     }
                 }
@@ -260,49 +347,12 @@ struct Context
     {
     }
 
-    ~Context()
-    {
-        while (!m_mapCid.empty())
-            DeleteTxo(m_mapConfirmed.begin()->get_ParentObj());
-    }
-
-    void DeleteTxo(Txo& txo)
-    {
-        if (MaxHeight != txo.m_Height.m_Spent)
-            m_mapSpent.erase(HeightMap::s_iterator_to(txo.m_Height));
-        else
-        {
-            if (MaxHeight != txo.m_Height.m_Confirmed)
-                m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
-        }
-
-        m_mapCid.erase(CidMap::s_iterator_to(txo.m_Cid));
-
-        delete &txo;
-    }
 
     void OnRolledBack()
     {
         Height h = m_FlyClient.get_Height();
 
-        while (!m_mapSpent.empty())
-        {
-            Txo& txo = m_mapSpent.rbegin()->get_ParentObj();
-            assert(txo.m_Height.m_Spent != MaxHeight);
-            assert(txo.m_Height.m_Confirmed != MaxHeight);
-
-            if (txo.m_Height.m_Spent <= h)
-                break;
-
-            if (txo.m_Height.m_Confirmed > h)
-                DeleteTxo(txo);
-            else
-            {
-                txo.m_Height.m_Spent = MaxHeight;
-                m_mapSpent.erase(HeightMap::s_iterator_to(txo.m_Height));
-                m_mapConfirmed.insert(txo.m_Height);
-            }
-        }
+        m_TxosMW.OnRolledBack(h);
 
         m_EventsHandler.Abort();
         std::setmin(m_EventsHandler.m_hEvents, h + 1);
@@ -313,30 +363,18 @@ struct Context
         Height h = m_FlyClient.get_Height();
 
         if (h >= Rules::get().MaxRollback)
-            ForgetOld(h - Rules::get().MaxRollback);
+            m_TxosMW.ForgetOld(h - Rules::get().MaxRollback);
 
         if (!m_EventsHandler.m_pReq)
             m_EventsHandler.AskEventsStrict();
     }
 
-    void ForgetOld(Height h)
-    {
-        while (!m_mapSpent.empty())
-        {
-            Txo& txo = m_mapSpent.begin()->get_ParentObj();
-            assert(txo.m_Height.m_Spent != MaxHeight);
-            assert(txo.m_Height.m_Confirmed != MaxHeight);
-
-            if (txo.m_Height.m_Spent > h)
-                break;
-
-            DeleteTxo(txo);
-        }
-    }
-
     void OnEventsHandled()
     {
         // decide w.r.t. test logic
+        Height h = m_FlyClient.get_Height();
+        if (h < Rules::get().pForks[2].m_Height)
+            return;
     }
 
 
@@ -474,6 +512,9 @@ int main_Guarded(int argc, char* argv[])
         };
 
         MyObserver obs(node);
+        Node::IObserver* pObs = &obs;
+        TemporarySwap<Node::IObserver*> tsObs(pObs, node.m_Cfg.m_Observer);
+
         io::Reactor::get_Current().run();
 
         if (!node.m_PostStartSynced)
