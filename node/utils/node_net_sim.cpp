@@ -394,9 +394,12 @@ int main_Guarded(int argc, char* argv[])
 
         std::vector<std::string> vPeers = getCfgPeers(vm);
 
-        uint16_t nPort = vm[cli::PORT].as<uint16_t>();
-        if (nPort)
-            g_LocalNodePort = nPort;
+        if (vm.count(cli::PORT))
+        {
+            uint16_t nPort = vm[cli::PORT].as<uint16_t>();
+            if (nPort)
+                g_LocalNodePort = nPort;
+        }
 
         for (size_t i = 0; i < vPeers.size(); i++)
         {
@@ -404,7 +407,7 @@ int main_Guarded(int argc, char* argv[])
             if (addr.resolve(vPeers[i].c_str()))
             {
                 if (!addr.port())
-                    addr.port(nPort);
+                    addr.port(g_LocalNodePort);
 
                 node.m_Cfg.m_Connect.push_back(addr);
             }
@@ -455,6 +458,27 @@ int main_Guarded(int argc, char* argv[])
 
     node.m_Keys.SetSingleKey(pKdf);
     node.Initialize();
+
+    if (!bLocalMode && !node.m_PostStartSynced)
+    {
+        struct MyObserver :public Node::IObserver
+        {
+            Node& m_Node;
+            MyObserver(Node& n) :m_Node(n) {}
+
+            virtual void OnSyncProgress() override
+            {
+                if (m_Node.m_PostStartSynced)
+                    io::Reactor::get_Current().stop();
+            }
+        };
+
+        MyObserver obs(node);
+        io::Reactor::get_Current().run();
+
+        if (!node.m_PostStartSynced)
+            return 1;
+    }
 
     DoTest(pKdf);
 
