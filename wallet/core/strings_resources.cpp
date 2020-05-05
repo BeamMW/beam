@@ -60,7 +60,8 @@ namespace beam
     const char kErrorExportDataFail[] = "Failed to save exported data.";
     const char kErrorReceiverAddrMissing[] = "receiver's address is missing";
     const char kErrorAmountMissing[] = "amount is missing";
-    const char kErrorNegativeAmount[] = "Unable to send negative amount of coins";
+    const char kErrorNegativeAmount[] = "Unable to send negative (%1%) amount of coins";
+    const char kErrorTooBigAmount[] = "Amount %1% is too big. Maximum supported amount is %2%.";
     const char kErrorZeroAmount[] = "Unable to send zero coins";
     const char kErrorFeeToLow[] = "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
     const char kErrorSwapFeeRateMissing[] = "swap fee rate is missing";

@@ -64,6 +64,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 
 #include <iomanip>
 #include <iterator>
@@ -1503,19 +1504,40 @@ namespace
             return false;
         }
 
-        auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
-        if (signedAmount < 0)
+        const auto strAmount = vm[cli::AMOUNT].as<std::string>();
+
+        try
         {
-            LOG_ERROR() << kErrorNegativeAmount;
-            return false;
+            boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount.c_str());
+            preciseAmount *= Rules::Coin;
+
+            if (preciseAmount == 0)
+            {
+                LOG_ERROR() << kErrorZeroAmount;
+                return false;
+            }
+
+            if (preciseAmount < 0)
+            {
+                LOG_ERROR() << (boost::format(kErrorNegativeAmount) % strAmount).str();
+                return false;
+            }
+
+            const auto limit = std::numeric_limits<Amount>::max();
+            if (preciseAmount > limit)
+            {
+                std::stringstream ssLimit;
+                ssLimit << PrintableAmount(limit);
+                LOG_ERROR() << (boost::format(kErrorTooBigAmount) % strAmount % ssLimit.str()).str();
+                return false;
+            }
+
+             amount = preciseAmount.convert_to<Amount>();
         }
-
-        signedAmount *= Rules::Coin; // convert beams to groths
-
-        amount = static_cast<ECC::Amount>(std::round(signedAmount));
-        if (amount == 0)
+        catch(const std::runtime_error& err)
         {
-            LOG_ERROR() << kErrorZeroAmount;
+            LOG_ERROR() << "the argument ('" << strAmount << "') for option '--amount' is invalid.";
+            LOG_ERROR() << err.what();
             return false;
         }
 
@@ -2286,7 +2308,7 @@ namespace
         return meta;
     }
 
-    TxID IssueConsumeAsset(bool issue, const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
+    boost::optional<TxID> IssueConsumeAsset(bool issue, const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
     {
         std::string meta;
 
@@ -2303,22 +2325,16 @@ namespace
             throw std::runtime_error(kErrorAssetIdOrMetaRequired);
         }
 
-        if (!vm.count(cli::AMOUNT))
+        Amount amountGroth = 0;
+        if(!ReadAmount(vm, amountGroth))
         {
-            throw std::runtime_error(kErrorAmountMissing);
+            return boost::none;
         }
 
-        const auto cliAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
-        const auto amountGroth = static_cast<ECC::Amount>(std::round(cliAmount * Rules::Coin));
-        if (amountGroth == 0)
+        Amount fee = 0;
+        if(!ReadFee(vm, fee, true))
         {
-            throw std::runtime_error(kErrorZeroAmount);
-        }
-
-        auto fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
-        if (fee < cli::kMinimumFee)
-        {
-            throw std::runtime_error(kErrorFeeToLow);
+            return boost::none;
         }
 
         auto params = CreateTransactionParameters(issue ? TxType::AssetIssue : TxType::AssetConsume)
@@ -2330,14 +2346,14 @@ namespace
         return wallet.StartTransaction(params);
     }
 
-    TxID RegisterAsset(const po::variables_map& vm, Wallet& wallet)
+    boost::optional<TxID> RegisterAsset(const po::variables_map& vm, Wallet& wallet)
     {
         const auto strMeta = ReadAssetMeta(vm);
-        const auto fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
 
-        if (fee < cli::kMinimumFee)
+        Amount fee = 0;
+        if (!ReadFee(vm, fee, true))
         {
-            throw std::runtime_error(kErrorFeeToLow);
+            return boost::none;
         }
 
         auto params = CreateTransactionParameters(TxType::AssetReg)
@@ -2349,7 +2365,7 @@ namespace
         return wallet.StartTransaction(params);
     }
 
-    TxID UnregisterAsset(const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
+    boost::optional<TxID> UnregisterAsset(const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
     {
         std::string meta;
 
@@ -2366,11 +2382,10 @@ namespace
             throw std::runtime_error(kErrorAssetIdOrMetaRequired);
         }
 
-        auto fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
-        if (fee < cli::kMinimumFee)
+        Amount fee = 0;
+        if (!ReadFee(vm, fee, true))
         {
-            LOG_ERROR() << "Test: " << kErrorFeeToLow;
-            throw std::runtime_error(kErrorFeeToLow);
+            return boost::none;
         }
 
         auto params = CreateTransactionParameters(TxType::AssetUnreg)
@@ -2662,7 +2677,7 @@ namespace
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
                 currentTxID = IssueConsumeAsset(true, vm, wallet, walletDB);
-                return 0;
+                return currentTxID ? 0 : -1;
             });
     }
 
@@ -2671,7 +2686,7 @@ namespace
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
                 currentTxID = IssueConsumeAsset(false, vm, wallet, walletDB);
-                return 0;
+                return currentTxID ? 0 : -1;
             });
     }
 
@@ -2680,7 +2695,7 @@ namespace
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
                 currentTxID = RegisterAsset(vm, wallet);
-                return 0;
+                return currentTxID ? 0 : -1;
             });
     }
 
@@ -2689,7 +2704,7 @@ namespace
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
                 currentTxID = UnregisterAsset(vm, wallet, walletDB);
-                return 0;
+                return currentTxID ? 0 : -1;
             });
     }
 

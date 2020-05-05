@@ -61,6 +61,7 @@ namespace beam
     extern const char kErrorReceiverAddrMissing[];
     extern const char kErrorAmountMissing[];
     extern const char kErrorNegativeAmount[];
+    extern const char kErrorTooBigAmount[];
     extern const char kErrorZeroAmount[];
     extern const char kErrorFeeToLow[];
     extern const char kErrorSwapFeeRateMissing[];
