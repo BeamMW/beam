@@ -249,13 +249,13 @@ namespace
         }
     }
 
-    void callBeamNewsNotification(JNIEnv* env, const Notification& notification)
+    void callBeamNewsNotification(JNIEnv* env, const Notification& notification, ChangeAction action)
     {
         // TODO: deserialize notification content and fill JAVA data object
 
-        jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onBeamNewsNotification", "()V");
+        jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onBeamNewsNotification", "(I)V");
 
-        env->CallStaticVoidMethod(WalletListenerClass, callback);
+        env->CallStaticVoidMethod(WalletListenerClass, callback, action);
     }
 }
 

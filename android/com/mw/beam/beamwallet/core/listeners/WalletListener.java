@@ -290,7 +290,7 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>>>>> async onTransactionCompletedNotification in Java");
 	}
 
-	static void onBeamNewsNotification()
+	static void onBeamNewsNotification(int action)
     {
 		System.out.println(">>>>>>>>>>>>>> async onBeamNewsNotification in Java");
 	}
