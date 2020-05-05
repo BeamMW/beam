@@ -187,7 +187,18 @@ struct Context
 
     typedef Txo<CoinID, TxoBase> TxoMW;
 
+    struct TxoShieldedBase
+    {
+        Amount m_Value;
+        Asset::ID m_AssetID;
+        ECC::Scalar m_kSerG;
+        ShieldedTxo::User m_User;
+    };
+
+    typedef Txo<TxoID, TxoShieldedBase> TxoSH;
+
     TxoMW::Container m_TxosMW;
+    TxoSH::Container m_TxosSH;
 
     struct EventsHandler
         :public proto::FlyClient::Request::IHandler
@@ -347,12 +358,12 @@ struct Context
     {
     }
 
-
     void OnRolledBack()
     {
         Height h = m_FlyClient.get_Height();
 
         m_TxosMW.OnRolledBack(h);
+        m_TxosSH.OnRolledBack(h);
 
         m_EventsHandler.Abort();
         std::setmin(m_EventsHandler.m_hEvents, h + 1);
@@ -363,7 +374,11 @@ struct Context
         Height h = m_FlyClient.get_Height();
 
         if (h >= Rules::get().MaxRollback)
-            m_TxosMW.ForgetOld(h - Rules::get().MaxRollback);
+        {
+            Height h0 = h - Rules::get().MaxRollback;
+            m_TxosMW.ForgetOld(h0);
+            m_TxosSH.ForgetOld(h0);
+        }
 
         if (!m_EventsHandler.m_pReq)
             m_EventsHandler.AskEventsStrict();
