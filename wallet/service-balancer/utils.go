@@ -29,7 +29,6 @@ func wrapHandler(handler func(r *http.Request)(interface{}, error)) http.Handler
 			return
 		}
 
-		var res interface{} = nil
 		res, err := handler(r)
 
 		if err != nil {

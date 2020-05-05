@@ -466,6 +466,88 @@ namespace beam::wallet
         return true;
     }
 
+    TxDescription::TxDescription(const TxParameters p)
+        : TxParameters(p)
+    {
+        fillFromTxParameters(*this);
+    }
+
+    void TxDescription::fillFromTxParameters(const TxParameters& parameters)
+    {
+        boost::optional<TxID> txId = parameters.GetTxID();
+        if (txId)
+        {
+            m_txId = *txId;
+        }
+
+        for (const TxParameterID p : m_initialParameters)
+        {
+            boost::optional<ByteBuffer> value = parameters.GetParameter(p);
+            if (value)
+            {
+                switch (p)
+                {
+                    case TxParameterID::TransactionType:
+                        fromByteBuffer(*value, m_txType);
+                        break;
+                    case TxParameterID::Amount:
+                        fromByteBuffer(*value, m_amount);
+                        break;
+                    case TxParameterID::Fee:
+                        fromByteBuffer(*value, m_fee);
+                        break;
+                    case TxParameterID::MinHeight:
+                        fromByteBuffer(*value, m_minHeight);
+                        break;
+                    case TxParameterID::PeerID:
+                        fromByteBuffer(*value, m_peerId);
+                        break;
+                    case TxParameterID::MyID:
+                        fromByteBuffer(*value, m_myId);
+                        break;
+                    case TxParameterID::CreateTime:
+                        fromByteBuffer(*value, m_createTime);
+                        break;
+                    case TxParameterID::IsSender:
+                        fromByteBuffer(*value, m_sender);
+                        break;
+                    case TxParameterID::Message:
+                        fromByteBuffer(*value, m_message);
+                        break;
+                    case TxParameterID::ChangeBeam:
+                        fromByteBuffer(*value, m_changeBeam);
+                        break;
+                    case TxParameterID::ChangeAsset:
+                        fromByteBuffer(*value, m_changeAsset);
+                        break;
+                    case TxParameterID::ModifyTime:
+                        fromByteBuffer(*value, m_modifyTime);
+                        break;
+                    case TxParameterID::Status:
+                        fromByteBuffer(*value, m_status);
+                        break;
+                    case TxParameterID::KernelID:
+                        fromByteBuffer(*value, m_kernelID);
+                        break;
+                    case TxParameterID::FailureReason:
+                        fromByteBuffer(*value, m_failureReason);
+                        break;
+                    case TxParameterID::IsSelfTx:
+                        fromByteBuffer(*value, m_selfTx);
+                        break;
+                    case TxParameterID::AssetID:
+                        fromByteBuffer(*value, m_assetId);
+                        break;
+                    case TxParameterID::AssetMetadata:
+                        fromByteBuffer(*value, m_assetMeta);
+                        break;
+                    default:
+                        break; // suppress warning
+                }
+            }
+        }
+    }
+
     bool TxDescription::canResume() const
     {
         return m_status == TxStatus::Pending
@@ -657,7 +739,7 @@ namespace beam::wallet
         return ret;
     }
 
-    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, const std::string& amount)
+    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, Amount amount)
     {
         WalletID walletID;
         if (!walletID.FromHex(sbbsAddress))
@@ -671,13 +753,9 @@ namespace beam::wallet
         }
 
         TxParameters parameters;
-        if (!amount.empty())
+        if (amount > 0)
         {
-            auto a = from_base64<beam::Amount>(amount);
-            if (a > 0)
-            {
-                parameters.SetParameter(beam::wallet::TxParameterID::Amount, a);
-            }
+            parameters.SetParameter(beam::wallet::TxParameterID::Amount, amount);
         }
 
         parameters.SetParameter(beam::wallet::TxParameterID::PeerID, walletID);

@@ -61,6 +61,7 @@ namespace beam
     extern const char kErrorReceiverAddrMissing[];
     extern const char kErrorAmountMissing[];
     extern const char kErrorNegativeAmount[];
+    extern const char kErrorTooBigAmount[];
     extern const char kErrorZeroAmount[];
     extern const char kErrorFeeToLow[];
     extern const char kErrorSwapFeeRateMissing[];
@@ -188,6 +189,9 @@ namespace beam
     extern const char kTxDirectionOut[];
     extern const char kTxDirectionIn[];
     extern const char kTxHistoryEmpty[];
+    extern const char kTxNoCoins[];
+    extern const char kTxHistoryUnreliableTxs[];
+    extern const char kTxHistoryUnreliableCoins[];
     extern const char kTxToken[];
     extern const char kSwapTxHistoryEmpty[];
     extern const char kSwapTxHistoryTableHead[];

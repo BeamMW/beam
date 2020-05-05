@@ -31,7 +31,9 @@ public class NotificationDTO
     {
         SoftwareUpdateAvailable, // 0
         AddressStatusChanged,
-        TransactionStatusChanged,
-        BeamNews
+        Unused,
+        BeamNews,
+        TransactionFailed,
+        TransactionCompleted
     }
 }

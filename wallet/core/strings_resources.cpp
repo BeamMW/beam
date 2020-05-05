@@ -60,7 +60,8 @@ namespace beam
     const char kErrorExportDataFail[] = "Failed to save exported data.";
     const char kErrorReceiverAddrMissing[] = "receiver's address is missing";
     const char kErrorAmountMissing[] = "amount is missing";
-    const char kErrorNegativeAmount[] = "Unable to send negative amount of coins";
+    const char kErrorNegativeAmount[] = "Unable to send negative (%1%) amount of coins";
+    const char kErrorTooBigAmount[] = "Amount %1% is too big. Maximum supported amount is %2%.";
     const char kErrorZeroAmount[] = "Unable to send zero coins";
     const char kErrorFeeToLow[] = "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
     const char kErrorSwapFeeRateMissing[] = "swap fee rate is missing";
@@ -170,7 +171,7 @@ namespace beam
     const char kWalletSummaryFieldAvaliableFee[] = "Avaliable fee";
     const char kWalletSummaryFieldTotalFee[] = "Total fee";
     const char kWalletSummaryFieldTotalUnspent[] = "Total unspent";
-    const char kCoinsTableHeadFormat[] = "  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
+    const char kCoinsTableHeadFormat[] = "COINS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
     const char kCoinColumnId[] = "ID";
     const char kCoinColumnMaturity[] = "Maturity";
     const char kCoinColumnStatus[] = "Status";
@@ -194,6 +195,9 @@ namespace beam
     const char kTxDirectionOut[] = "outgoing";
     const char kTxDirectionIn[] = "incoming";
     const char kTxHistoryEmpty[] = "No transactions";
+    const char kTxNoCoins[] = "No coins";
+    const char kTxHistoryUnreliableTxs[] = "\n    ---- Transactions below might belong to another asset ----\n\n";
+    const char kTxHistoryUnreliableCoins[] = "\n    ---- Coins below might belong to another asset ----\n\n";
     const char kTxToken[] = "token";
     const char kSwapTxHistoryEmpty[] = "No swap transactions";
     const char kSwapTxHistoryTableHead[] = "SWAP TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";

@@ -75,7 +75,7 @@ namespace
         return std::map<Notification::Type,bool> {
             { Notification::Type::SoftwareUpdateAvailable,  initialValue },
             { Notification::Type::BeamNews,                 initialValue },
-            { Notification::Type::TransactionStatusChanged, initialValue },
+            { Notification::Type::Unused,                   false },
             { Notification::Type::TransactionCompleted,     initialValue },
             { Notification::Type::TransactionFailed,        initialValue },
             { Notification::Type::AddressStatusChanged,     initialValue }

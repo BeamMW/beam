@@ -511,6 +511,8 @@ namespace beam::wallet
             , m_failureReason{ TxFailureReason::Unknown }
         {
         }
+        explicit TxDescription(const TxParameters);
+        void fillFromTxParameters(const TxParameters&);
 
         [[nodiscard]] bool canResume() const;
         [[nodiscard]] bool canCancel() const;
@@ -544,6 +546,27 @@ namespace beam::wallet
         TxStatus m_status = TxStatus::Pending;
         Merkle::Hash m_kernelID = Zero;
         TxFailureReason m_failureReason = TxFailureReason::Unknown;
+
+        static constexpr std::array<TxParameterID,18> m_initialParameters = {
+            TxParameterID::TransactionType,
+            TxParameterID::Amount,
+            TxParameterID::Fee,
+            TxParameterID::MinHeight,
+            TxParameterID::PeerID,
+            TxParameterID::MyID,
+            TxParameterID::CreateTime,
+            TxParameterID::IsSender,
+            TxParameterID::Message,
+            TxParameterID::ChangeBeam,
+            TxParameterID::ChangeAsset,
+            TxParameterID::ModifyTime,
+            TxParameterID::Status,
+            TxParameterID::KernelID,
+            TxParameterID::FailureReason,
+            TxParameterID::IsSelfTx,
+            TxParameterID::AssetID,
+            TxParameterID::AssetMetadata
+        };
     };
 
     // messages
@@ -702,7 +725,7 @@ namespace beam::wallet
     // If it is more than 10 minutes, the walelt is considered not in sync
     bool IsValidTimeStamp(Timestamp currentBlockTime_s, Timestamp tolerance_s = 60 * 10); // 10 minutes tolerance.
 
-    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, const std::string& amount);
+    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, Amount amount);
 }    // beam::wallet
 
 namespace beam

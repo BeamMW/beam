@@ -760,6 +760,7 @@ namespace beam::wallet
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
 
         Height DeduceTxProofHeight(const IWalletDB& walletDB, const TxDescription &tx);
+        Height DeduceTxDisplayHeight(const IWalletDB& walletDB, const TxDescription &tx);
 
         bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, WalletAddress::ExpirationStatus status);
 

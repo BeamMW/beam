@@ -96,7 +96,7 @@ func storeSub(params *SubParams) error {
 
 	return DB.Update(func(tx *badger.Txn) error {
 		key     := makeKey(params.SbbsAddress, params.NotificationEndpoint)
-		expires := time.Unix(params.ExpiresAt, 0).Sub(time.Now())
+		expires := time.Until(time.Unix(params.ExpiresAt, 0))
 		entry   := badger.NewEntry(key, value).WithTTL(expires)
 		return tx.SetEntry(entry)
 	})

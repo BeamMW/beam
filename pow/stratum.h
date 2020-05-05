@@ -126,6 +126,7 @@ struct Result : Message {
     std::string nonceprefix;
     std::string blockhash;
     uint64_t forkheight = MaxHeight;
+    uint64_t forkheight2 = MaxHeight;
 
     Result() = default;
 

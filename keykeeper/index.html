@@ -29,8 +29,10 @@
                 console.log('sbbs address #42 is: ' + address);
                 console.log('sbbs address private #42 is: ' + keykeeper.getSbbsAddressPrivate(id42));
 
-                console.log('token #42 (no amount) is: ' + keykeeper.getSendToken(address, identity, ""));
-                console.log('token #42 (amount 42) is: ' + keykeeper.getSendToken(address, identity, id42));
+               //console.log('token #42 (no amount) is: ' + keykeeper.getSendToken(address, identity));
+                console.log('token #42 (amount 0) is: ' + keykeeper.getSendToken(address, identity, 0));
+                console.log('token #42 (amount 42) is: ' + keykeeper.getSendToken(address, identity, 42));
+                console.log('token #42 (amount 42) is: ' + keykeeper.getSendToken(address, identity, -42));
             }
         })
     </script>
