@@ -35,10 +35,18 @@ void AddSwapTxDetailsToJson(const TxDescription& tx, json& msg)
 {
     SwapTxDescription swapTx(tx);
 
+    msg["is_beam_side"] = swapTx.isBeamSide();
+    msg["swap_value"] = swapTx.getSwapAmount();
+
     auto fee = swapTx.getFee();
     if (fee)
     {
         msg["fee"] = *fee;
+    }
+    auto feeRate = swapTx.getSwapCoinFeeRate();
+    if (feeRate)
+    {
+        msg["swap_fee_rate"] = *feeRate;
     }
 
     auto beamLockTxKernelID = swapTx.getBeamTxKernelId<SubTxIndex::BEAM_LOCK_TX>();
@@ -55,6 +63,7 @@ void AddSwapTxDetailsToJson(const TxDescription& tx, json& msg)
                    [&loc](char c) -> char { return std::tolower(c, loc); });
     if (!coinName.empty())
     {
+        msg["swap_coin"] = coinName;
         coinName.push_back('_');
     }
 
@@ -83,6 +92,12 @@ void AddSwapTxDetailsToJson(const TxDescription& tx, json& msg)
         std::string redeemTxConfirmationsStr = "redeem_tx_confirmations";
         msg[coinName + redeemTxConfirmationsStr] = *swapCoinRedeemTxConfirmations;
     }
+
+    auto failureReason = swapTx.getFailureReason();
+    if (failureReason)
+    {
+        msg["failure_reason"] = GetFailureMessage(*failureReason);
+    }
 }
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
@@ -102,7 +117,6 @@ void GetStatusResponseJson(const TxDescription& tx,
         {"value", tx.m_amount},
         {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
         {"create_time", tx.m_createTime},
-        {"income", !tx.m_sender},
         {"asset_id", tx.m_assetId},
         {"tx_type", tx.m_txType},
         {"tx_type_string", tx.getTxTypeString()}
@@ -111,6 +125,7 @@ void GetStatusResponseJson(const TxDescription& tx,
     if (tx.m_txType != TxType::AtomicSwap)
     {
         msg["fee"] = tx.m_fee;
+        msg["income"] = !tx.m_sender;
     }
 
     if (tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume || tx.m_txType == TxType::AssetInfo)
@@ -130,7 +145,10 @@ void GetStatusResponseJson(const TxDescription& tx,
 
     if (tx.m_status == TxStatus::Failed)
     {
-        msg["failure_reason"] = GetFailureMessage(tx.m_failureReason);
+        if (tx.m_txType != TxType::AtomicSwap)
+        {
+            msg["failure_reason"] = GetFailureMessage(tx.m_failureReason);
+        }
     }
     else if (tx.m_status != TxStatus::Canceled)
     {
