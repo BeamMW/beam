@@ -593,9 +593,9 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(switchOnOffNotifications)(JNIE
     jint notificationTypeEnum, jboolean isActive)
 {
     if (notificationTypeEnum < static_cast<int>(Notification::Type::SoftwareUpdateAvailable)
-     || notificationTypeEnum > static_cast<int>(Notification::Type::BeamNews))
+     || notificationTypeEnum > static_cast<int>(Notification::Type::TransactionCompleted))
     {
-        LOG_ERROR() << "Address expiration is not valid!!!";
+        LOG_ERROR() << "Notification type is not valid!!!";
     }
     
     walletModel->getAsync()->switchOnOffNotifications(static_cast<Notification::Type>(notificationTypeEnum), isActive);

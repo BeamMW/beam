@@ -28,6 +28,7 @@ namespace beam::wallet
             BeamNews,
             TransactionFailed,
             TransactionCompleted
+            // extend range check in jni.cpp on adding new type
         };
 
         enum class State : uint32_t
@@ -37,8 +38,7 @@ namespace beam::wallet
             Deleted
         };
 
-        // unique ID - probably same as BroadcastMsg::m_signature underlying type
-        ECC::uintBig m_ID;
+        ECC::uintBig m_ID;  // unique
         Type m_type;
         State m_state;
         Timestamp m_createTime;
