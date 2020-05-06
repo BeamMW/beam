@@ -1686,10 +1686,10 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 const auto& totals = it.second;
                 msg["result"]["totals"].push_back({
                     {"asset_id",   totals.AssetId},
-                    {"available",  totals.Avail},
-                    {"receiving",  totals.Incoming},
-                    {"sending",    totals.Outgoing},
-                    {"maturing",   totals.Maturing}
+                    {"available",  AmountBig::get_Lo(totals.Avail)},
+                    {"receiving",  AmountBig::get_Lo(totals.Incoming)},
+                    {"sending",    AmountBig::get_Lo(totals.Outgoing)},
+                    {"maturing",   AmountBig::get_Lo(totals.Maturing)}
                 });
             }
         }

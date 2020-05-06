@@ -1054,14 +1054,13 @@ namespace beam::wallet
         storage::Totals totalsCalc(*m_walletDB);
         const auto& totals = totalsCalc.GetTotals(Zero);
 
-        status.available = totals.Avail;
-        status.receivingIncoming = totals.ReceivingIncoming;
-        status.receivingChange = totals.ReceivingChange;
-        status.receiving = totals.Incoming;
-        status.sending = totals.Outgoing;
-        status.maturing = totals.Maturing;
-
-        status.update.lastTime = m_walletDB->getLastUpdateTime();
+        status.available         = AmountBig::get_Lo(totals.Avail);
+        status.receivingIncoming = AmountBig::get_Lo(totals.ReceivingIncoming);
+        status.receivingChange   = AmountBig::get_Lo(totals.ReceivingChange);
+        status.receiving         = AmountBig::get_Lo(totals.Incoming);
+        status.sending           = AmountBig::get_Lo(totals.Outgoing);
+        status.maturing          = AmountBig::get_Lo(totals.Maturing);
+        status.update.lastTime   = m_walletDB->getLastUpdateTime();
 
         ZeroObject(status.stateID);
         m_walletDB->getSystemStateID(status.stateID);
