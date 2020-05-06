@@ -83,7 +83,11 @@
 				</div>
 				<button type="button" class="send-button btn btn-danger">
 					Send
-				</button>				
+				</button>
+				<div class="form-group">Token: <span class="token"></span></div>
+				<div class="form-group">Own ID: <span class="ownID"></span></div>
+				<div class="form-group">Identity: <span class="identity"></span></div>
+				<div class="form-group">Address: <span class="address"></span></div>
 			<hr>
 			<h3>Transactions</h3>
 			<table class="table transactions">
@@ -111,6 +115,8 @@
 						<th>duration</th>
 						<th>expired</th>
 						<th>own</th>
+						<th>own id</th>
+						<th>identity</th>
 					</tr>
 				</thead>
 				<tbody></tbody>
@@ -280,8 +286,19 @@
 							<td>${item.duration}</td>
 							<td>${item.expired}</td>
 							<td>${item.own}</td>
+							<td>${item.own_id_str}</td>
+							<td>${item.identity}</td>
 							</tr>`))
 
+
+						var ownID = data.result[0].own_id_str;
+						var identity = keykeeper.getIdentity(ownID)
+						var token = keykeeper.getSendToken(data.result[0].address, data.result[0].identity, 0)
+
+						$('#wallet-panel .token').text(token)
+						$('#wallet-panel .ownID').text(ownID)
+						$('#wallet-panel .identity').text(identity)
+						$('#wallet-panel .address').text( keykeeper.getSbbsAddress(ownID))
 						showUtxo()
 					}
 					else if(data.error)

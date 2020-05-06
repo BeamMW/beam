@@ -453,8 +453,8 @@
       		return new Promise((resolve, reject) => {
 				if (!addr) reject()
 				return webpush.notifyServer(true, loginConnection, {
-					SbbsAddress: keykeeper.getSbbsAddress(addr.ownIDBase64),
-					SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.ownIDBase64),
+					SbbsAddress: keykeeper.getSbbsAddress(addr.own_id_str),
+					SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.own_id_str),
 					ExpiresAt: addr.create_time + addr.duration
 				})
 			})
@@ -470,8 +470,8 @@
 					return
 				}
       			return webpush.notifyServer(false, loginConnection, {
-					SbbsAddress: keykeeper.getSbbsAddress(addr.ownIDBase64),
-					SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.ownIDBase64)
+					SbbsAddress: keykeeper.getSbbsAddress(addr.own_id_str),
+					SbbsAddressPrivate: keykeeper.getSbbsAddressPrivate(addr.own_id_str)
 				})
 			})
 		}
