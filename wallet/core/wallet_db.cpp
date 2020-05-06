@@ -27,6 +27,7 @@
 #include "utility/std_extension.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "strings_resources.h"
+#include "core/uintBig.h"
 
 #define NOSEP
 #define COMMA ", "
@@ -145,7 +146,7 @@
 
 #define ENUM_ASSET_FIELDS(each, sep, obj) \
     each(ID,             ID,            INTEGER NOT NULL PRIMARY KEY,  obj) sep \
-    each(Value,          Value,         INTEGER,           obj) sep \
+    each(Value,          Value,         BLOB,              obj) sep \
     each(Owner,          Owner,         BLOB NOT NULL,     obj) sep \
     each(LockHeight,     LockHeight,    INTEGER,           obj) sep \
     each(Metadata,       Metadata,      BLOB,              obj) sep \
@@ -821,7 +822,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 20;
+        const int DbVersion   = 21;
+        const int DbVersion20 = 20;
         const int DbVersion19 = 19;
         const int DbVersion18 = 18;
         const int DbVersion17 = 17;
@@ -1063,6 +1065,38 @@ namespace beam::wallet
                               "CREATE INDEX RefreshHeightIndex ON " ASSETS_NAME "(RefreshHeight);";
             const auto ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
+        }
+
+        void MigrateAssetsFrom20(sqlite3* db)
+        {
+            assert(db != nullptr);
+
+            // assets table changed: value from INTEGER to BLOB
+            // move old data to temp table
+            {
+                const char* req = "ALTER TABLE " ASSETS_NAME " RENAME TO " ASSETS_NAME "_del;"
+                                  "DROP INDEX OwnerIndex;"
+                                  "DROP INDEX RefreshHeightIndex;";
+                int ret = sqlite3_exec(db, req, NULL, NULL, NULL);
+                throwIfError(ret, db);
+            }
+
+            // create new table
+            CreateAssetsTable(db);
+
+            // migration
+            {
+                const char* req = "INSERT INTO " ASSETS_NAME " (" ENUM_ASSET_FIELDS(LIST, COMMA, ) ") SELECT " ENUM_ASSET_FIELDS(LIST, COMMA, ) " FROM " ASSETS_NAME "_del;";
+                int ret = sqlite3_exec(db, req, NULL, NULL, NULL);
+                throwIfError(ret, db);
+            }
+
+            // remove tmp table
+            {
+                const char* req = "DROP TABLE " ASSETS_NAME "_del;";
+                int ret = sqlite3_exec(db, req, NULL, NULL, NULL);
+                throwIfError(ret, db);
+            }
         }
     
         void CreateNotificationsTable(sqlite3* db)
@@ -1665,6 +1699,11 @@ namespace beam::wallet
                     LOG_INFO() << "Converting DB from format 19...";
                     CreateShieldedCoinsTable(walletDB->_db);
                     AddIsUnlinkedColumn(walletDB.get(), walletDB->_db);
+                    // no break
+
+                case DbVersion20:
+                    LOG_INFO() << "Converting DB from format 20...";
+                    MigrateAssetsFrom20(walletDB->_db);
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 
@@ -1674,7 +1713,6 @@ namespace beam::wallet
                     {
                         throw DatabaseException("failed to drop private variables from public database");
                     }
-
                     break; // ok
 
                 default:
@@ -4108,7 +4146,7 @@ namespace beam::wallet
                     totals.MinCoinHeight = std::min(c.m_confirmHeight, totals.MinCoinHeight);
                 }
 
-                const Amount& value = c.m_ID.m_Value;
+                const AmountBig::Type value = c.m_ID.m_Value;
                 switch (c.m_status)
                 {
                 case Coin::Status::Available:

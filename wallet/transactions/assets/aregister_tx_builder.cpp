@@ -217,7 +217,7 @@ namespace beam::wallet
                 storage::Totals totals(*m_Tx.GetWalletDB());
                 const auto& beamTotals = totals.GetTotals(Zero);
                 LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
-                            << "Yout need " << PrintableAmount(amountWithFee) << " for deposit and fees"
+                            << "You need " << PrintableAmount(amountWithFee) << " for deposit and fees"
                             << " but have only " << PrintableAmount(beamTotals.Avail);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
