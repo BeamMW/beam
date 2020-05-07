@@ -258,9 +258,10 @@ namespace beam
 
 	/////////////
 	// OutputParams
-	void ShieldedTxo::Data::OutputParams::get_Seed(ECC::uintBig& res, const ECC::Hash::Value& hvShared)
+	void ShieldedTxo::Data::OutputParams::get_Seed(ECC::uintBig& res, const ECC::Hash::Value& hvShared, const ECC::Oracle& oracle)
 	{
-		HashTxt("bp-s")
+		ECC::Oracle(oracle) // copy
+			<< "bp-s"
 			<< hvShared
 			>> res;
 	}
@@ -344,16 +345,18 @@ namespace beam
 		else
 			txo.m_pAsset.reset();
 
-		get_Seed(cp.m_Seed.V, hvShared);
-
 		txo.Prepare(oracle);
+		get_Seed(cp.m_Seed.V, hvShared, oracle);
+
 		txo.m_RangeProof.CoSign(cp.m_Seed.V, skSign, cp, oracle, ECC::RangeProof::Confidential::Phase::SinglePass, &g.m_hGen);
 	}
 
 	bool ShieldedTxo::Data::OutputParams::Recover(const ShieldedTxo& txo, const ECC::Hash::Value& hvShared, ECC::Oracle& oracle)
 	{
+		txo.Prepare(oracle);
+
 		ECC::RangeProof::CreatorParams cp;
-		get_Seed(cp.m_Seed.V, hvShared);
+		get_Seed(cp.m_Seed.V, hvShared, oracle);
 
 		ECC::Scalar::Native pExtra[2];
 
@@ -365,7 +368,6 @@ namespace beam
 		cp.m_Blob.p = &p;
 		cp.m_Blob.n = sizeof(p);
 
-		txo.Prepare(oracle);
 		if (!txo.m_RangeProof.Recover(oracle, cp))
 			return false;
 

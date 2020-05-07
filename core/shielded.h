@@ -79,7 +79,7 @@ namespace beam
 			void Restore_kG(const ECC::Hash::Value& hvShared); // restores m_k, all other members must be set
 
 		protected:
-			static void get_Seed(ECC::uintBig&, const ECC::Hash::Value& hvShared);
+			static void get_Seed(ECC::uintBig&, const ECC::Hash::Value& hvShared, const ECC::Oracle&);
 			static uint8_t Msg2Scalar(ECC::Scalar::Native&, const ECC::uintBig&);
 			static void Scalar2Msg(ECC::uintBig&, const ECC::Scalar::Native&, uint32_t);
 			void get_sk(ECC::Scalar::Native&, const ECC::Hash::Value& hvShared) const;
