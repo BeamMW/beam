@@ -232,6 +232,7 @@ struct Context
         Amount m_Value;
         Asset::ID m_AssetID;
         ECC::Scalar m_kSerG;
+        bool m_IsCreatedByViewer;
         ShieldedTxo::User m_User;
     };
 
@@ -313,6 +314,7 @@ struct Context
                             pTxo->m_Value = evt.m_Value;
                             pTxo->m_AssetID = evt.m_AssetID;
                             pTxo->m_kSerG = evt.m_kSerG;
+                            pTxo->m_IsCreatedByViewer = (proto::Event::Flags::CreatedByViewer & evt.m_Flags) != 0;
                             pTxo->m_User = evt.m_User;
                         }
                     }
@@ -435,11 +437,14 @@ struct Context
 
     struct Cfg
     {
+        Transaction::FeeSettings m_Fees; // def
+
         Amount m_ShieldedValue = 100; // groth
         Amount m_BulletValue = 3000; // must be big enough to cover shielded out & in txs
         uint32_t m_BulletsMin = 10;
         uint32_t m_BulletsMax = 20;
         uint32_t m_ShieldedOutsTrg = 5;
+        uint32_t m_ShieldedInsTrg = 5;
 
     } m_Cfg;
 
@@ -622,13 +627,22 @@ struct Context
         kOffs += sk;
     }
 
+    void AddOutp(TxVectors::Full& txv, ECC::Scalar::Native& kOffs, Amount val, Asset::ID aid, Height hScheme)
+    {
+        CoinID cid(Zero);
+        ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
+        cid.m_Type = Key::Type::Regular;
+        cid.m_Value = val;
+        cid.m_AssetID = aid;
+
+        AddOutp(txv, kOffs, cid, hScheme);
+    }
+
     void AddSplitTx()
     {
         Height h = m_FlyClient.get_Height();
 
-        Transaction::FeeSettings fs;
-
-        Amount valFee = fs.m_Kernel + fs.m_Output * (m_Cfg.m_BulletsMax + 1); // minimum fee (assuming there's a change output)
+        Amount valFee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_Output * (m_Cfg.m_BulletsMax + 1); // minimum fee (assuming there's a change output)
         Amount valInp = m_Cfg.m_BulletValue * m_Cfg.m_BulletsMax + valFee;
 
         std::vector<TxoMW*> vInps;
@@ -656,22 +670,10 @@ struct Context
             AddInp(*pTx, kOffs, *vInps[i], hr.m_Max);
 
         for (uint32_t i = 0; i < m_Cfg.m_BulletsMax; i++)
-        {
-            CoinID cid(Zero);
-            ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
-            cid.m_Value = m_Cfg.m_BulletValue;
-
-            AddOutp(*pTx, kOffs, cid, hr.m_Min);
-        }
+            AddOutp(*pTx, kOffs, m_Cfg.m_BulletValue, 0, hr.m_Min);
 
         if (val > valInp)
-        {
-            CoinID cid(Zero);
-            ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
-            cid.m_Value = val - valInp;
-
-            AddOutp(*pTx, kOffs, cid, hr.m_Min);
-        }
+            AddOutp(*pTx, kOffs, val - valInp, 0, hr.m_Min);
 
         pTx->m_Offset = kOffs;
         pTx->Normalize();
@@ -691,8 +693,7 @@ struct Context
         TxKernelShieldedOutput::Ptr pKrn = std::make_unique<TxKernelShieldedOutput>();
         pKrn->m_Height = hr;
 
-        Transaction::FeeSettings fs;
-        pKrn->m_Fee = fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput;
+        pKrn->m_Fee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_Output + m_Cfg.m_Fees.m_ShieldedOutput;
 
         pKrn->UpdateMsg();
         ECC::Oracle oracle;
@@ -747,8 +748,7 @@ void DoTest(Key::IKdf::Ptr& pKdf)
 {
     Context ctx;
 
-    Transaction::FeeSettings fs;
-    if (ctx.m_Cfg.m_BulletValue < (fs.m_Kernel + fs.m_Output) * 2 + fs.m_ShieldedOutput + fs.m_ShieldedInput)
+    if (ctx.m_Cfg.m_BulletValue < (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput)
         throw std::runtime_error("Bullet/Fee settings not consistent");
 
     ctx.m_pKdf = pKdf;
