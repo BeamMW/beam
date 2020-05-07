@@ -83,6 +83,13 @@ struct Context
             IMPLEMENT_GET_PARENT_OBJ(Txo, m_Height)
         } m_Height;
 
+        bool IsSpent() const
+        {
+            return MaxHeight != m_Height.m_Spent;
+        }
+
+        Height m_LockedUntil = 0;
+
         typedef boost::intrusive::multiset<HeightNode> HeightMap;
         typedef boost::intrusive::multiset<ID> IDMap;
 
@@ -110,7 +117,7 @@ struct Context
             void SetSpent(Txo& txo, Height h)
             {
                 assert(MaxHeight != h);
-                assert(MaxHeight == txo.m_Height.m_Spent);
+                assert(!txo.IsSpent());
                 m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
                 txo.m_Height.m_Spent = h;
                 m_mapSpent.insert(txo.m_Height);
@@ -118,13 +125,10 @@ struct Context
 
             void Delete(Txo& txo)
             {
-                if (MaxHeight != txo.m_Height.m_Spent)
+                if (txo.IsSpent())
                     m_mapSpent.erase(HeightMap::s_iterator_to(txo.m_Height));
                 else
-                {
-                    if (MaxHeight != txo.m_Height.m_Confirmed)
-                        m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
-                }
+                    m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
 
                 m_mapID.erase(IDMap::s_iterator_to(txo.m_ID));
 
@@ -136,8 +140,7 @@ struct Context
                 while (!m_mapSpent.empty())
                 {
                     Txo& txo = m_mapSpent.rbegin()->get_ParentObj();
-                    assert(txo.m_Height.m_Spent != MaxHeight);
-                    assert(txo.m_Height.m_Confirmed != MaxHeight);
+                    assert(txo.IsSpent());
 
                     if (txo.m_Height.m_Spent <= h)
                         break;
@@ -169,8 +172,7 @@ struct Context
                 while (!m_mapSpent.empty())
                 {
                     Txo& txo = m_mapSpent.begin()->get_ParentObj();
-                    assert(txo.m_Height.m_Spent != MaxHeight);
-                    assert(txo.m_Height.m_Confirmed != MaxHeight);
+                    assert(txo.IsSpent());
 
                     if (txo.m_Height.m_Spent > h)
                         break;
@@ -230,6 +232,9 @@ struct Context
 
                 virtual void OnEvent(proto::Event::Base& evt) override
                 {
+                    if (MaxHeight == m_Height)
+                        return; // it shouldn't be anyway!
+
                     if (proto::Event::Type::Utxo == evt.get_Type())
                         return OnEventType(Cast::Up<proto::Event::Utxo>(evt));
                     if (proto::Event::Type::Shielded == evt.get_Type())
@@ -240,9 +245,6 @@ struct Context
 
                 void OnEventType(proto::Event::Utxo& evt)
                 {
-                    if (MaxHeight == m_Height)
-                        return; // it shouldn't be MaxHeight anyway!
-
                     TxoMW::ID cid;
                     cid.m_Value = evt.m_Cid;
 
@@ -261,7 +263,7 @@ struct Context
                         if (m_This.m_TxosMW.m_mapID.end() != it)
                         {
                             TxoMW& txo = it->get_ParentObj();
-                            if (MaxHeight == txo.m_Height.m_Spent)
+                            if (!txo.IsSpent())
                                 m_This.m_TxosMW.SetSpent(txo, m_Height);
                                 // update txs?
                         }
@@ -270,9 +272,6 @@ struct Context
 
                 void OnEventType(proto::Event::Shielded& evt)
                 {
-                    if (MaxHeight == m_Height)
-                        return; // it shouldn't be MaxHeight anyway!
-
                     TxoSH::ID cid;
                     cid.m_Value = evt.m_ID;
 
@@ -294,7 +293,7 @@ struct Context
                         if (m_This.m_TxosSH.m_mapID.end() != it)
                         {
                             TxoSH& txo = it->get_ParentObj();
-                            if (MaxHeight == txo.m_Height.m_Spent)
+                            if (!txo.IsSpent())
                                 m_This.m_TxosSH.SetSpent(txo, m_Height);
                             // update txs?
                         }
