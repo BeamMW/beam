@@ -486,30 +486,48 @@ struct Context
     CoinIDSet m_setTxsOut;
     CoinIDSet m_setSplit;
 
-    void HandleTxs(CoinIDSet& s, Height h)
+    uint32_t HandleTxs(CoinIDSet& s, Height h)
     {
+        uint32_t ret = 0;
         for (CoinIDSet::iterator it = s.begin(); s.end() != it; )
         {
             CoinIDSet::iterator itThis = it++;
 
             TxoMW* pTxo = m_TxosMW.Find(*itThis);
-            if (!pTxo || pTxo->IsSpent() || (pTxo->m_LockedUntil < h))
-                s.erase(itThis);
+            if (pTxo)
+            {
+                if (pTxo->IsSpent())
+                    ret++; // tx confirmed!
+                else
+                {
+                    if (pTxo->m_LockedUntil >= h)
+                        continue;
+                }
+            }
+
+            s.erase(itThis);
         }
+
+        return ret;
     }
 
     void OnEventsHandled()
     {
         // decide w.r.t. test logic
         Height h = m_FlyClient.get_Height();
+        std::cout << "H=" << h << std::endl;
+
         if (h < Rules::get().pForks[2].m_Height)
             return;
 
         HandleTxs(m_setSplit, h);
-        HandleTxs(m_setTxsOut, h);
+        uint32_t nDoneOuts = HandleTxs(m_setTxsOut, h);
+        if (nDoneOuts)
+            std::cout << "\tNew confirmed shielded outs: " << nDoneOuts << std::endl;
 
         TxoMW::HeightMap::iterator itBullet = m_TxosMW.m_mapConfirmed.begin();
 
+        nDoneOuts = 0;
         while (m_setTxsOut.size() < m_Cfg.m_ShieldedOutsTrg)
         {
             TxoMW* pTxo = FindNextAvailBullet(itBullet, h);
@@ -518,23 +536,31 @@ struct Context
 
             SendShieldedOutp(*pTxo);
             m_setTxsOut.insert(pTxo->m_ID.m_Value);
+            nDoneOuts++;
         }
 
-        if (m_setSplit.empty())
+        if (nDoneOuts)
+            std::cout << "\tSent shielded outs: " << nDoneOuts << std::endl;
+
+        std::cout << "\tPending shielded outs: " << m_setTxsOut.size() << std::endl;
+
+        // make sure we have enough bullets
+        uint32_t nFreeBullets = 0;
+        while (true)
         {
-            // make sure we have enough bullets
-            uint32_t nFreeBullets = 0;
-            while (true)
-            {
-                TxoMW* pTxo = FindNextAvailBullet(itBullet, h);
-                if (!pTxo)
-                    break;
+            TxoMW* pTxo = FindNextAvailBullet(itBullet, h);
+            if (!pTxo)
+                break;
 
-                nFreeBullets++;
-            }
+            nFreeBullets++;
+        }
 
-            if (nFreeBullets < m_Cfg.m_BulletsMin)
-                AddSplitTx();
+        std::cout << "\tBullets remaining: " << nFreeBullets << std::endl;
+
+        if (m_setSplit.empty() && (nFreeBullets < m_Cfg.m_BulletsMin))
+        {
+            AddSplitTx();
+            std::cout << "\tMaking more bullets..." << std::endl;
         }
     }
 
@@ -740,7 +766,7 @@ int main_Guarded(int argc, char* argv[])
     io::Reactor::Scope scope(*pReactor);
     io::Reactor::GracefulIntHandler gih(*pReactor);
 
-    auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
+    //auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
 
     Key::IKdf::Ptr pKdf;
 
@@ -816,6 +842,7 @@ int main_Guarded(int argc, char* argv[])
         ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
         Rules::get().FakePoW = true;
         Rules::get().MaxRollback = 10;
+        Rules::get().Shielded.MaxOuts = 2;
         Rules::get().pForks[1].m_Height = 1;
         Rules::get().pForks[2].m_Height = 2;
 
