@@ -23,5 +23,7 @@ namespace beam::wallet {
     protected:
         AssetTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID);
         bool Rollback(Height height) override;
+        bool BaseUpdate();
+        bool IsLoopbackTransaction() const;
     };
 }

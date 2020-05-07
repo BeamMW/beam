@@ -66,9 +66,8 @@ namespace beam::wallet
 
     void AssetUnregisterTransaction::UpdateImpl()
     {
-        if (!IsLoopbackTransaction())
+        if (!AssetTransaction::BaseUpdate())
         {
-            OnFailed(TxFailureReason::NotLoopback, true);
             return;
         }
 
@@ -173,11 +172,6 @@ namespace beam::wallet
         auto registered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, registered))
         {
-            if (CheckExpired())
-            {
-                return;
-            }
-
             auto transaction = builder.CreateTransaction();
             TxBase::Context::Params params;
 			TxBase::Context ctx(params);
@@ -225,11 +219,6 @@ namespace beam::wallet
     void AssetUnregisterTransaction::ConfirmAsset()
     {
         GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
-    }
-
-    bool AssetUnregisterTransaction::IsLoopbackTransaction() const
-    {
-        return GetMandatoryParameter<bool>(TxParameterID::IsSender) && IsInitiator();
     }
 
     bool AssetUnregisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const

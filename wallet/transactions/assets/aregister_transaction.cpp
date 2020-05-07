@@ -63,9 +63,8 @@ namespace beam::wallet
 
     void AssetRegisterTransaction::UpdateImpl()
     {
-        if (!IsLoopbackTransaction())
+        if (!AssetTransaction::BaseUpdate())
         {
-            OnFailed(TxFailureReason::NotLoopback, true);
             return;
         }
 
@@ -95,11 +94,6 @@ namespace beam::wallet
             if(const auto ainfo = m_WalletDB->findAsset(builder.GetAssetOwnerId()))
             {
                 OnFailed(TxFailureReason::AssetExists);
-                return;
-            }
-
-            if (CheckExpired())
-            {
                 return;
             }
 
@@ -199,11 +193,6 @@ namespace beam::wallet
     void AssetRegisterTransaction::ConfirmAsset()
     {
         GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
-    }
-
-    bool AssetRegisterTransaction::IsLoopbackTransaction() const
-    {
-        return GetMandatoryParameter<bool>(TxParameterID::IsSender) && IsInitiator();
     }
 
     bool AssetRegisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
