@@ -183,7 +183,7 @@ struct Context
             {
                 ID id;
                 id.m_Value = cid;
-                IDMap::iterator it = m_mapID.find(id);
+                typename IDMap::iterator it = m_mapID.find(id);
 
                 return (m_mapID.end() == it) ? nullptr : &it->get_ParentObj();
             }
