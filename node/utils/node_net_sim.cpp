@@ -57,7 +57,11 @@ bool ReadSeed(Key::IKdf::Ptr& pKdf, const char* szSeed)
 struct Context
 {
     Key::IKdf::Ptr m_pKdf;
+    Key::IKdf::Ptr m_pShieldedPrivate;
+
     ShieldedTxo::Viewer m_ShieldedViewer;
+
+    NodeProcessor* m_pProc; // shortcut, to get the shielded pool data instantly, instead of via queries
 
     template <typename TID, typename TBase>
     struct Txo
@@ -516,6 +520,7 @@ struct Context
 
     TxoMW::IDSet m_setTxsOut;
     TxoMW::IDSet m_setSplit;
+    TxoSH::IDSet m_setTxsIn;
 
     void OnEventsHandled()
     {
@@ -554,6 +559,21 @@ struct Context
             std::cout << "\tSent shielded outs: " << nDone << std::endl;
 
         std::cout << "\tPending shielded outs: " << m_setTxsOut.size() << std::endl;
+
+        nDone = 0;
+        for (TxoSH::HeightMap::iterator itShInp = m_TxosSH.m_mapConfirmed.begin();  (m_setTxsIn.size() < m_Cfg.m_ShieldedInsTrg) && (m_TxosSH.m_mapConfirmed.end() != itShInp); )
+        {
+            TxoSH& txo = itShInp->get_ParentObj();
+            itShInp++;
+
+            if (SendShieldedInp(txo))
+                m_setTxsIn.insert(txo.m_ID.m_Value);
+        }
+
+        if (nDone)
+            std::cout << "\tSent shielded ins: " << nDone << std::endl;
+
+        std::cout << "\tPending shielded ins: " << m_setTxsIn.size() << std::endl;
 
         // make sure we have enough bullets
         uint32_t nFreeBullets = 0;
@@ -724,6 +744,141 @@ struct Context
         SendTx(std::move(pTx));
     }
 
+    static uint32_t SelectSpendWindow(const TxoSH& txo, TxoID N, TxoID nShieldedOutputs, TxoID& nWindowEnd)
+    {
+        assert(txo.m_ID.m_Value < nShieldedOutputs);
+        assert(N);
+
+        uint32_t nIdx;
+        txo.m_kSerG.m_Value.ExportWord<0>(nIdx); // little randomization
+        nIdx %= N;
+
+        nWindowEnd = txo.m_ID.m_Value + N - nIdx;
+
+        if (nWindowEnd > nShieldedOutputs)
+        {
+            // withdrawal is not optimal. But since it's a test - let's proceed anyway
+            nWindowEnd = nShieldedOutputs;
+            nIdx = static_cast<uint32_t>(txo.m_ID.m_Value + N - nShieldedOutputs);
+        }
+
+        return nIdx;
+    }
+
+    bool SendShieldedInp(TxoSH& txo)
+    {
+        Height h = m_FlyClient.get_Height();
+        Amount fee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_ShieldedInput + m_Cfg.m_Fees.m_Output;
+
+        if ((txo.m_LockedUntil >= h) ||
+            txo.m_AssetID ||
+            (txo.m_Value < fee))
+            return false;
+
+        if (m_pProc->m_Extra.m_ShieldedOutputs <= txo.m_ID.m_Value)
+            return false; // should not happen!
+
+        Transaction::Ptr pTx = std::make_shared<Transaction>();
+        HeightRange hr(h, h + 10);
+
+        TxKernelShieldedInput::Ptr pKrn = std::make_unique<TxKernelShieldedInput>();
+        pKrn->m_Height = hr;
+        pKrn->m_Fee = fee;
+
+        const Rules& r = Rules::get();
+        pKrn->m_SpendProof.m_Cfg = r.Shielded.m_ProofMax;
+        uint32_t N = pKrn->m_SpendProof.m_Cfg.get_N();
+
+        uint32_t nIdx = SelectSpendWindow(txo, N, m_pProc->m_Extra.m_ShieldedOutputs, pKrn->m_WindowEnd);
+
+        if (m_pProc->m_Extra.m_ShieldedOutputs > pKrn->m_WindowEnd + r.Shielded.MaxWindowBacklog)
+        {
+            // try to reposition
+            pKrn->m_WindowEnd = m_pProc->m_Extra.m_ShieldedOutputs - r.Shielded.MaxWindowBacklog;
+
+            TxoID val = txo.m_ID.m_Value + N - pKrn->m_WindowEnd;
+            if (val < N)
+                nIdx = static_cast<uint32_t>(val);
+            else
+            {
+                // use smaller window
+                pKrn->m_SpendProof.m_Cfg = r.Shielded.m_ProofMin;
+                N = pKrn->m_SpendProof.m_Cfg.get_N();
+                nIdx = SelectSpendWindow(txo, N, m_pProc->m_Extra.m_ShieldedOutputs, pKrn->m_WindowEnd);
+            }
+        }
+
+        Sigma::CmListVec lst;
+        lst.m_vec.resize(N);
+
+        if (pKrn->m_WindowEnd >= N)
+            m_pProc->get_DB().ShieldedRead(pKrn->m_WindowEnd - N, &lst.m_vec.front(), N);
+        else
+        {
+            uint32_t nPad = static_cast<uint32_t>(N - pKrn->m_WindowEnd);
+            m_pProc->get_DB().ShieldedRead(0, &lst.m_vec.front() + nPad, N - nPad);
+
+            for (uint32_t i = 0; i < nPad; i++)
+            {
+                ECC::Point::Storage& v = lst.m_vec[i];
+                v.m_X = Zero;
+                v.m_Y = Zero;
+            }
+        }
+
+        ShieldedTxo::Data::Params sdp;
+        sdp.m_Serial.m_pK[0] = txo.m_kSerG;
+        sdp.m_Serial.m_IsCreatedByViewer = txo.m_IsCreatedByViewer;
+        sdp.m_Serial.Restore(m_ShieldedViewer);
+
+        sdp.m_Output.m_AssetID = txo.m_AssetID;
+        sdp.m_Output.m_Value = txo.m_Value;
+        sdp.m_Output.m_User = txo.m_User;
+        sdp.m_Output.Restore_kG(sdp.m_Serial.m_SharedSecret);
+
+        ECC::Scalar sk_;
+        ECC::GenRandom(sk_.m_Value);
+        ECC::Scalar::Native kOffs = sk_;
+
+        Lelantus::Prover p(lst, pKrn->m_SpendProof);
+        p.m_Witness.V.m_L = nIdx;
+        p.m_Witness.V.m_R = sdp.m_Serial.m_pK[0] + sdp.m_Output.m_k; // total blinding factor of the shielded element
+        p.m_Witness.V.m_R_Output = kOffs;
+        p.m_Witness.V.m_V = sdp.m_Output.m_Value;
+
+        m_pShieldedPrivate->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Serial.m_SerialPreimage);
+
+
+        ECC::Point::Native hGen;
+
+        //{
+        //    // not necessary for beams, just a demonstration of assets support
+        //    pKrn->m_pAsset = std::make_unique<Asset::Proof>();
+        //    p.m_Witness.V.m_R_Adj = p.m_Witness.V.m_R_Output;
+        //    pKrn->m_pAsset->Create(hGen, p.m_Witness.V.m_R_Adj, m_Shielded.m_Params.m_Output.m_Value, 0, hGen);
+        //}
+
+        pKrn->UpdateMsg();
+
+        ECC::Oracle o1;
+        o1 << pKrn->m_Msg;
+        p.Generate(Zero, o1, &hGen);
+
+        pKrn->MsgToID();
+
+        pTx->m_vKernels.push_back(std::move(pKrn));
+
+        AddOutp(*pTx, kOffs, txo.m_Value - fee, 0, hr.m_Min);
+
+        pTx->m_Offset = kOffs;
+        pTx->Normalize();
+
+        SendTx(std::move(pTx));
+
+        txo.m_LockedUntil = hr.m_Max;
+        return true;
+    }
+
     void SendTx(Transaction::Ptr&& pTx)
     {
         //TxBase::Context::Params pars;
@@ -744,15 +899,17 @@ struct Context
 
 uint16_t g_LocalNodePort = 16725;
 
-void DoTest(Key::IKdf::Ptr& pKdf)
+void DoTest(Key::IKdf::Ptr& pKdf, NodeProcessor& proc)
 {
     Context ctx;
+    ctx.m_pProc = &proc;
 
     if (ctx.m_Cfg.m_BulletValue < (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput)
         throw std::runtime_error("Bullet/Fee settings not consistent");
 
     ctx.m_pKdf = pKdf;
     ctx.m_ShieldedViewer.FromOwner(*pKdf);
+    ShieldedTxo::Viewer::GenerateSerPrivate(ctx.m_pShieldedPrivate, *pKdf);
     ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));
     ctx.m_Network.Connect();
 
@@ -848,6 +1005,9 @@ int main_Guarded(int argc, char* argv[])
         ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
         Rules::get().FakePoW = true;
         Rules::get().MaxRollback = 10;
+        Rules::get().Shielded.m_ProofMax = Sigma::Cfg(4, 3); // 64
+        Rules::get().Shielded.m_ProofMin = Sigma::Cfg(4, 2); // 16
+        Rules::get().Shielded.MaxWindowBacklog = 200;
         Rules::get().Shielded.MaxOuts = 2;
         Rules::get().pForks[1].m_Height = 1;
         Rules::get().pForks[2].m_Height = 2;
@@ -896,7 +1056,7 @@ int main_Guarded(int argc, char* argv[])
     else
         node.m_PostStartSynced = true;
 
-    DoTest(pKdf);
+    DoTest(pKdf, node.get_Processor());
 
     return 0;
 }
