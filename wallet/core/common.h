@@ -24,6 +24,7 @@
 #include <algorithm>
 #include "wallet/client/extensions/news_channels/version_info.h"
 #include "wallet/core/exchange_rate.h"
+#include "utility/std_extension.h"
 
 namespace beam::wallet
 {
@@ -756,4 +757,13 @@ namespace std
     string to_string(const beam::wallet::TxID&);
     string to_string(const beam::PeerID& id);
     string to_string(const beam::AmountBig::Type&);
+
+    template<>
+    struct hash<beam::wallet::WalletID>
+    {
+        size_t operator() (const beam::wallet::WalletID& key) const noexcept
+        {
+            return std::hash<ECC::uintBig>{}(key.m_Pk);
+        }
+    };
 }

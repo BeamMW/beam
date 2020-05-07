@@ -372,9 +372,9 @@ namespace beam::wallet
                 using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
                 // Swap offer board uses broadcasting messages
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                OfferBoardProtocolHandler protocolHandler(m_walletDB->get_SbbsKdf(), m_walletDB);
+                OfferBoardProtocolHandler protocolHandler(m_walletDB->get_SbbsKdf());
 
-                auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler);
+                auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler, m_walletDB);
                 m_offersBulletinBoard = offersBulletinBoard;
 
                 using SwapOffersBoardSubscriber = ScopedSubscriber<ISwapOffersObserver, SwapOffersBoard>;
