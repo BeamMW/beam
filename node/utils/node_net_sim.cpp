@@ -94,6 +94,8 @@ struct Context
         typedef boost::intrusive::multiset<HeightNode> HeightMap;
         typedef boost::intrusive::multiset<ID> IDMap;
 
+        typedef std::multiset<TID> IDSet;
+
         struct Container
         {
             IDMap m_mapID;
@@ -189,6 +191,31 @@ struct Context
                 typename IDMap::iterator it = m_mapID.find(id);
 
                 return (m_mapID.end() == it) ? nullptr : &it->get_ParentObj();
+            }
+
+            uint32_t HandleTxs(IDSet& s, Height h)
+            {
+                uint32_t ret = 0;
+                for (typename IDSet::iterator it = s.begin(); s.end() != it; )
+                {
+                    IDSet::iterator itThis = it++;
+
+                    Txo* pTxo = Find(*itThis);
+                    if (pTxo)
+                    {
+                        if (pTxo->IsSpent())
+                            ret++; // tx confirmed!
+                        else
+                        {
+                            if (pTxo->m_LockedUntil >= h)
+                                continue;
+                        }
+                    }
+
+                    s.erase(itThis);
+                }
+
+                return ret;
             }
 
         };
@@ -482,34 +509,8 @@ struct Context
         return nullptr;
     }
 
-    typedef std::multiset<CoinID> CoinIDSet;
-    CoinIDSet m_setTxsOut;
-    CoinIDSet m_setSplit;
-
-    uint32_t HandleTxs(CoinIDSet& s, Height h)
-    {
-        uint32_t ret = 0;
-        for (CoinIDSet::iterator it = s.begin(); s.end() != it; )
-        {
-            CoinIDSet::iterator itThis = it++;
-
-            TxoMW* pTxo = m_TxosMW.Find(*itThis);
-            if (pTxo)
-            {
-                if (pTxo->IsSpent())
-                    ret++; // tx confirmed!
-                else
-                {
-                    if (pTxo->m_LockedUntil >= h)
-                        continue;
-                }
-            }
-
-            s.erase(itThis);
-        }
-
-        return ret;
-    }
+    TxoMW::IDSet m_setTxsOut;
+    TxoMW::IDSet m_setSplit;
 
     void OnEventsHandled()
     {
@@ -520,14 +521,19 @@ struct Context
         if (h < Rules::get().pForks[2].m_Height)
             return;
 
-        HandleTxs(m_setSplit, h);
-        uint32_t nDoneOuts = HandleTxs(m_setTxsOut, h);
-        if (nDoneOuts)
-            std::cout << "\tNew confirmed shielded outs: " << nDoneOuts << std::endl;
+        m_TxosMW.HandleTxs(m_setSplit, h);
+
+        uint32_t nDone = m_TxosMW.HandleTxs(m_setTxsOut, h);
+        if (nDone)
+            std::cout << "\tNew confirmed shielded outs: " << nDone << std::endl;
+
+        nDone = m_TxosSH.HandleTxs(m_setTxsIn, h);
+        if (nDone)
+            std::cout << "\tNew confirmed shielded ins: " << nDone << std::endl;
 
         TxoMW::HeightMap::iterator itBullet = m_TxosMW.m_mapConfirmed.begin();
 
-        nDoneOuts = 0;
+        nDone = 0;
         while (m_setTxsOut.size() < m_Cfg.m_ShieldedOutsTrg)
         {
             TxoMW* pTxo = FindNextAvailBullet(itBullet, h);
@@ -536,11 +542,11 @@ struct Context
 
             SendShieldedOutp(*pTxo);
             m_setTxsOut.insert(pTxo->m_ID.m_Value);
-            nDoneOuts++;
+            nDone++;
         }
 
-        if (nDoneOuts)
-            std::cout << "\tSent shielded outs: " << nDoneOuts << std::endl;
+        if (nDone)
+            std::cout << "\tSent shielded outs: " << nDone << std::endl;
 
         std::cout << "\tPending shielded outs: " << m_setTxsOut.size() << std::endl;
 
