@@ -25,6 +25,7 @@ namespace beam::wallet {
         const char SHORT_NAME_KEY[]    = "SN";
         const char UNIT_NAME_KEY[]     = "UN";
         const char NTH_UNIT_NAME_KEY[] = "NTHUN";
+        const char ALLOWED_SYMBOLS[]   = " .,-_";
     }
 
     WalletAssetMeta::WalletAssetMeta(std::string meta)
@@ -74,17 +75,40 @@ namespace beam::wallet {
             _values[key] = val;
         }
 
-        _std = _values.find(NAME_KEY) != _values.end() &&
-               _values.find(SHORT_NAME_KEY) != _values.end() &&
-               _values.find(UNIT_NAME_KEY) != _values.end() &&
-               _values.find(NTH_UNIT_NAME_KEY) != _values.end();
+        const auto fieldValid = [&](const char* name) -> bool {
+            const auto it = _values.find(name);
+            if (it == _values.end()) return false;
+
+            return std::all_of(it->second.begin(), it->second.end(), [](const char ch) -> bool {
+                return std::isalnum(ch, std::locale::classic()) || std::string(" .,-_").find(ch) != std::string::npos;
+            });
+        };
+
+        _std = fieldValid(NAME_KEY) &&
+               fieldValid(SHORT_NAME_KEY) &&
+               fieldValid(UNIT_NAME_KEY) &&
+               fieldValid(NTH_UNIT_NAME_KEY);
     }
 
     void WalletAssetMeta::LogInfo(const std::string& prefix) const
     {
+        const auto isPrintable = [](const std::string& str) -> bool {
+            std::locale loc("");
+            return std::all_of(str.begin(), str.end(), [&loc](const char ch) -> bool {
+                return std::isprint(ch, loc);
+            });
+        };
+
         for(const auto& it: _values)
         {
-            LOG_INFO() << prefix << it.first << "=" << it.second;
+            std::string value = it.second;
+            if (!isPrintable(value))
+            {
+                std::stringstream  ss;
+                ss << "[CANNOT BE PRINTED, size is " << value.size() << " bytes]";
+                value = ss.str();
+            }
+            LOG_INFO() << prefix << it.first << "=" << value;
         }
     }
 
