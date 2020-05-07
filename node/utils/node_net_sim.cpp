@@ -178,6 +178,16 @@ struct Context
                     Delete(txo);
                 }
             }
+
+            Txo* Find(const TID& cid)
+            {
+                ID id;
+                id.m_Value = cid;
+                IDMap::iterator it = m_mapID.find(id);
+
+                return (m_mapID.end() == it) ? nullptr : &it->get_ParentObj();
+            }
+
         };
     };
 
@@ -260,6 +270,35 @@ struct Context
 
                 void OnEventType(proto::Event::Shielded& evt)
                 {
+                    if (MaxHeight == m_Height)
+                        return; // it shouldn't be MaxHeight anyway!
+
+                    TxoSH::ID cid;
+                    cid.m_Value = evt.m_ID;
+
+                    TxoSH::IDMap::iterator it = m_This.m_TxosSH.m_mapID.find(cid);
+
+                    if (proto::Event::Flags::Add & evt.m_Flags)
+                    {
+                        if (m_This.m_TxosSH.m_mapID.end() == it)
+                        {
+                            TxoSH* pTxo = m_This.m_TxosSH.CreateConfirmed(evt.m_ID, m_Height);
+                            pTxo->m_Value = evt.m_Value;
+                            pTxo->m_AssetID = evt.m_AssetID;
+                            pTxo->m_kSerG = evt.m_kSerG;
+                            pTxo->m_User = evt.m_User;
+                        }
+                    }
+                    else
+                    {
+                        if (m_This.m_TxosSH.m_mapID.end() != it)
+                        {
+                            TxoSH& txo = it->get_ParentObj();
+                            if (MaxHeight == txo.m_Height.m_Spent)
+                                m_This.m_TxosSH.SetSpent(txo, m_Height);
+                            // update txs?
+                        }
+                    }
                 }
 
                 void OnEventType(proto::Event::AssetCtl& evt)
@@ -311,6 +350,15 @@ struct Context
 
     } m_EventsHandler;
 
+    struct DummyHandler
+        :public proto::FlyClient::Request::IHandler
+    {
+        virtual void OnComplete(proto::FlyClient::Request& r_) override
+        {
+        };
+
+    } m_DummyHandler;
+
 	struct MyFlyClient
 		:public proto::FlyClient
 	{
@@ -358,6 +406,17 @@ struct Context
     {
     }
 
+    struct Cfg
+    {
+        Amount m_ShieldedValue = 100; // groth
+        Amount m_BulletValue = 300;
+        uint32_t m_Bullets = 10;
+
+    } m_Cfg;
+
+    typedef std::map<CoinID, Height> TxSplitMap;
+    TxSplitMap m_TxsSplit;
+
     void OnRolledBack()
     {
         Height h = m_FlyClient.get_Height();
@@ -384,15 +443,214 @@ struct Context
             m_EventsHandler.AskEventsStrict();
     }
 
+    bool IsBullet(const CoinID& cid) const
+    {
+        return
+            !cid.m_AssetID &&
+            (cid.m_Value == m_Cfg.m_BulletValue);
+    }
+
+    TxoMW* FindNextMature(TxoMW::HeightMap::iterator& it, Height h)
+    {
+        while (true)
+        {
+            if (m_TxosMW.m_mapConfirmed.end() == it)
+                break;
+
+            TxoMW& txo = it->get_ParentObj();
+            it++;
+
+            if (txo.m_Maturity <= h)
+                return &txo;
+        }
+
+        return nullptr;
+
+    }
+
+    TxoMW* FindNextBullet(TxoMW::HeightMap::iterator& it, Height h)
+    {
+        while (true)
+        {
+            TxoMW* pTxo = FindNextMature(it, h);
+            if (!pTxo)
+                break;
+
+            if (IsBullet(pTxo->m_ID.m_Value))
+                return pTxo;
+        }
+
+        return nullptr;
+    }
+
     void OnEventsHandled()
     {
         // decide w.r.t. test logic
         Height h = m_FlyClient.get_Height();
         if (h < Rules::get().pForks[2].m_Height)
             return;
+
+        // txs
+        for (TxSplitMap::iterator it = m_TxsSplit.begin(); m_TxsSplit.end() != it; )
+        {
+            TxSplitMap::iterator itThis = it++;
+
+            if (h <= itThis->second)
+            {
+                TxoMW* pTxo = m_TxosMW.Find(itThis->first);
+                if (pTxo && (MaxHeight == pTxo->m_Height.m_Spent))
+                    continue;
+            }
+
+            // either finished successfully or expired.
+            m_TxsSplit.erase(itThis);
+
+        }
+
+
+        // make sure we have enough bullets
+        if (m_TxsSplit.empty())
+        {
+            uint32_t nFreeBullets = 0;
+            for (TxoMW::HeightMap::iterator it = m_TxosMW.m_mapConfirmed.begin(); ; )
+            {
+                TxoMW* pTxo = FindNextBullet(it, h);
+                if (!pTxo)
+                    break;
+
+                // TODO: check if bullets are being spent
+                nFreeBullets++;
+            }
+
+            if (nFreeBullets < m_Cfg.m_Bullets)
+                AddSplitTx();
+        }
     }
 
+    Amount SelectInputs(Amount val, std::vector<CoinID>& v)
+    {
+        Height h = m_FlyClient.get_Height();
+        Amount ret = 0;
 
+        for (TxoMW::HeightMap::iterator it = m_TxosMW.m_mapConfirmed.begin(); ret < val; )
+        {
+            TxoMW* pTxo = FindNextMature(it, h);
+            if (!pTxo)
+                break; // not enough funds
+
+            const CoinID& cid = pTxo->m_ID.m_Value;
+
+            if (!IsBullet(cid) &&
+                !cid.m_AssetID &&
+                (m_TxsSplit.end() == m_TxsSplit.find(cid)))
+            {
+                v.push_back(cid);
+                ret += cid.m_Value;
+            }
+        }
+
+        return ret;
+    }
+
+    void AddInp(TxVectors::Full& txv, ECC::Scalar::Native& kOffs, const CoinID& cid)
+    {
+        Input::Ptr pInp = std::make_unique<Input>();
+
+        ECC::Scalar::Native sk;
+        CoinID::Worker(cid).Create(sk, pInp->m_Commitment, *cid.get_ChildKdf(m_pKdf));
+
+        txv.m_vInputs.push_back(std::move(pInp));
+        kOffs += sk;
+    }
+
+    void AddOutp(TxVectors::Full& txv, ECC::Scalar::Native& kOffs, const CoinID& cid, Height hScheme)
+    {
+        Output::Ptr pOutp = std::make_unique<Output>();
+
+        ECC::Scalar::Native sk;
+        pOutp->Create(hScheme, sk, *cid.get_ChildKdf(m_pKdf), cid, *m_pKdf);
+
+        txv.m_vOutputs.push_back(std::move(pOutp));
+        sk = -sk;
+        kOffs += sk;
+    }
+
+    void AddSplitTx()
+    {
+        Height h = m_FlyClient.get_Height();
+
+        Amount valFee = m_Cfg.m_BulletValue;
+        Amount valInp = m_Cfg.m_BulletValue * m_Cfg.m_Bullets + valFee;
+
+        std::vector<CoinID> vIds;
+        Amount val = SelectInputs(valInp, vIds);
+        if (val < valInp)
+            return;
+
+        Transaction::Ptr pTx = std::make_shared<Transaction>();
+
+        HeightRange hr(h, h + 10);
+
+        ECC::Scalar sk_;
+        ECC::GenRandom(sk_.m_Value);
+        ECC::Scalar::Native kOffs = sk_;
+
+        TxKernelStd::Ptr pKrn = std::make_unique<TxKernelStd>();
+        pKrn->m_Height = hr;
+        pKrn->m_Fee = valFee;
+
+        pKrn->Sign(kOffs);
+        pTx->m_vKernels.push_back(std::move(pKrn));
+        kOffs = -kOffs;
+
+        for (size_t i = 0; i < vIds.size(); i++)
+        {
+            const CoinID& cid = vIds[i];
+            m_TxsSplit[cid] = hr.m_Max;
+
+            AddInp(*pTx, kOffs, cid);
+        }
+
+        for (uint32_t i = 0; i < m_Cfg.m_Bullets; i++)
+        {
+            CoinID cid(Zero);
+            ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
+            cid.m_Value = m_Cfg.m_BulletValue;
+
+            AddOutp(*pTx, kOffs, cid, h + 1);
+        }
+
+        if (val > valInp)
+        {
+            CoinID cid(Zero);
+            ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
+            cid.m_Value = val - valInp;
+
+            AddOutp(*pTx, kOffs, cid, h + 1);
+        }
+
+        pTx->m_Offset = kOffs;
+        pTx->Normalize();
+
+        SendTx(std::move(pTx));
+
+    }
+
+    void SendTx(Transaction::Ptr&& pTx)
+    {
+        //TxBase::Context::Params pars;
+        //TxBase::Context ctx(pars);
+        //ctx.m_Height.m_Min = m_FlyClient.get_Height() + 1;
+
+        //if (!pTx->IsValid(ctx))
+        //    __debugbreak();
+
+        proto::FlyClient::RequestTransaction::Ptr pReq = new proto::FlyClient::RequestTransaction;
+        pReq->m_Msg.m_Transaction = std::move(pTx);
+
+        m_Network.PostRequest(*pReq, m_DummyHandler);
+
+    }
 
 };
 
@@ -478,7 +736,8 @@ int main_Guarded(int argc, char* argv[])
         Treasury tres;
         Treasury::Parameters pars;
         pars.m_Bursts = 1;
-        Treasury::Entry* pE = tres.CreatePlan(pid, Rules::get().Emission.Value0 / 5, pars);
+        pars.m_MaturityStep = 1;
+        Treasury::Entry* pE = tres.CreatePlan(pid, Rules::get().Emission.Value0 * 200, pars);
 
         pE->m_pResponse.reset(new Treasury::Response);
         uint64_t nIndex = 1;
@@ -509,6 +768,10 @@ int main_Guarded(int argc, char* argv[])
     node.m_Cfg.m_Listen.port(g_LocalNodePort);
     node.m_Cfg.m_Listen.ip(INADDR_ANY);
 
+    // disable dandelion (faster tx propagation)
+    node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
+    node.m_Cfg.m_Dandelion.m_FluffProbability = 0xFFFF;
+
     node.m_Keys.SetSingleKey(pKdf);
     node.Initialize();
 
@@ -535,6 +798,8 @@ int main_Guarded(int argc, char* argv[])
         if (!node.m_PostStartSynced)
             return 1;
     }
+    else
+        node.m_PostStartSynced = true;
 
     DoTest(pKdf);
 
