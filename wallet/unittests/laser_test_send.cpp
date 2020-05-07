@@ -181,7 +181,7 @@ int main()
             WALLET_CHECK(totals_1.Unspent == val1);
 
             AmountBig::Type val2{totals_2.Unspent};
-            val2 += AmountBig::Type(kTransferFirst * transfersCount + kFee);
+            val2 += AmountBig::Type(kTransferFirst * transfersCount - kFee);
             WALLET_CHECK(totals_2_a.Unspent == val2);
 
             LOG_INFO() << "Test laser SEND: finished";
