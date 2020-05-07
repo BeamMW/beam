@@ -918,7 +918,7 @@ bool Mediator::IsEnoughCoinsAvailable(Amount required)
     storage::Totals totalsCalc(*m_pWalletDB);
     const auto& totals = totalsCalc.GetTotals(Zero);
 
-    return totals.Avail >= required; 
+    return totals.Avail >= AmountBig::Type(required);
 }
 
 void Mediator::Subscribe()

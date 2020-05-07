@@ -57,6 +57,7 @@ bool ReadSeed(Key::IKdf::Ptr& pKdf, const char* szSeed)
 struct Context
 {
     Key::IKdf::Ptr m_pKdf;
+    ShieldedTxo::Viewer m_ShieldedViewer;
 
     template <typename TID, typename TBase>
     struct Txo
@@ -82,6 +83,13 @@ struct Context
 
             IMPLEMENT_GET_PARENT_OBJ(Txo, m_Height)
         } m_Height;
+
+        bool IsSpent() const
+        {
+            return MaxHeight != m_Height.m_Spent;
+        }
+
+        Height m_LockedUntil = 0;
 
         typedef boost::intrusive::multiset<HeightNode> HeightMap;
         typedef boost::intrusive::multiset<ID> IDMap;
@@ -110,7 +118,7 @@ struct Context
             void SetSpent(Txo& txo, Height h)
             {
                 assert(MaxHeight != h);
-                assert(MaxHeight == txo.m_Height.m_Spent);
+                assert(!txo.IsSpent());
                 m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
                 txo.m_Height.m_Spent = h;
                 m_mapSpent.insert(txo.m_Height);
@@ -118,13 +126,10 @@ struct Context
 
             void Delete(Txo& txo)
             {
-                if (MaxHeight != txo.m_Height.m_Spent)
+                if (txo.IsSpent())
                     m_mapSpent.erase(HeightMap::s_iterator_to(txo.m_Height));
                 else
-                {
-                    if (MaxHeight != txo.m_Height.m_Confirmed)
-                        m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
-                }
+                    m_mapConfirmed.erase(HeightMap::s_iterator_to(txo.m_Height));
 
                 m_mapID.erase(IDMap::s_iterator_to(txo.m_ID));
 
@@ -136,8 +141,7 @@ struct Context
                 while (!m_mapSpent.empty())
                 {
                     Txo& txo = m_mapSpent.rbegin()->get_ParentObj();
-                    assert(txo.m_Height.m_Spent != MaxHeight);
-                    assert(txo.m_Height.m_Confirmed != MaxHeight);
+                    assert(txo.IsSpent());
 
                     if (txo.m_Height.m_Spent <= h)
                         break;
@@ -169,8 +173,7 @@ struct Context
                 while (!m_mapSpent.empty())
                 {
                     Txo& txo = m_mapSpent.begin()->get_ParentObj();
-                    assert(txo.m_Height.m_Spent != MaxHeight);
-                    assert(txo.m_Height.m_Confirmed != MaxHeight);
+                    assert(txo.IsSpent());
 
                     if (txo.m_Height.m_Spent > h)
                         break;
@@ -178,6 +181,16 @@ struct Context
                     Delete(txo);
                 }
             }
+
+            Txo* Find(const TID& cid)
+            {
+                ID id;
+                id.m_Value = cid;
+                typename IDMap::iterator it = m_mapID.find(id);
+
+                return (m_mapID.end() == it) ? nullptr : &it->get_ParentObj();
+            }
+
         };
     };
 
@@ -220,6 +233,9 @@ struct Context
 
                 virtual void OnEvent(proto::Event::Base& evt) override
                 {
+                    if (MaxHeight == m_Height)
+                        return; // it shouldn't be anyway!
+
                     if (proto::Event::Type::Utxo == evt.get_Type())
                         return OnEventType(Cast::Up<proto::Event::Utxo>(evt));
                     if (proto::Event::Type::Shielded == evt.get_Type())
@@ -230,9 +246,6 @@ struct Context
 
                 void OnEventType(proto::Event::Utxo& evt)
                 {
-                    if (MaxHeight == m_Height)
-                        return; // it shouldn't be MaxHeight anyway!
-
                     TxoMW::ID cid;
                     cid.m_Value = evt.m_Cid;
 
@@ -251,7 +264,7 @@ struct Context
                         if (m_This.m_TxosMW.m_mapID.end() != it)
                         {
                             TxoMW& txo = it->get_ParentObj();
-                            if (MaxHeight == txo.m_Height.m_Spent)
+                            if (!txo.IsSpent())
                                 m_This.m_TxosMW.SetSpent(txo, m_Height);
                                 // update txs?
                         }
@@ -260,6 +273,32 @@ struct Context
 
                 void OnEventType(proto::Event::Shielded& evt)
                 {
+                    TxoSH::ID cid;
+                    cid.m_Value = evt.m_ID;
+
+                    TxoSH::IDMap::iterator it = m_This.m_TxosSH.m_mapID.find(cid);
+
+                    if (proto::Event::Flags::Add & evt.m_Flags)
+                    {
+                        if (m_This.m_TxosSH.m_mapID.end() == it)
+                        {
+                            TxoSH* pTxo = m_This.m_TxosSH.CreateConfirmed(evt.m_ID, m_Height);
+                            pTxo->m_Value = evt.m_Value;
+                            pTxo->m_AssetID = evt.m_AssetID;
+                            pTxo->m_kSerG = evt.m_kSerG;
+                            pTxo->m_User = evt.m_User;
+                        }
+                    }
+                    else
+                    {
+                        if (m_This.m_TxosSH.m_mapID.end() != it)
+                        {
+                            TxoSH& txo = it->get_ParentObj();
+                            if (!txo.IsSpent())
+                                m_This.m_TxosSH.SetSpent(txo, m_Height);
+                            // update txs?
+                        }
+                    }
                 }
 
                 void OnEventType(proto::Event::AssetCtl& evt)
@@ -311,6 +350,15 @@ struct Context
 
     } m_EventsHandler;
 
+    struct DummyHandler
+        :public proto::FlyClient::Request::IHandler
+    {
+        virtual void OnComplete(proto::FlyClient::Request& r_) override
+        {
+        };
+
+    } m_DummyHandler;
+
 	struct MyFlyClient
 		:public proto::FlyClient
 	{
@@ -358,6 +406,17 @@ struct Context
     {
     }
 
+    struct Cfg
+    {
+        Amount m_ShieldedValue = 100; // groth
+        Amount m_BulletValue = 3000; // must be big enough to cover shielded out & in txs
+        uint32_t m_BulletsMin = 10;
+        uint32_t m_BulletsMax = 20;
+        uint32_t m_ShieldedOutsTrg = 5;
+
+    } m_Cfg;
+
+
     void OnRolledBack()
     {
         Height h = m_FlyClient.get_Height();
@@ -384,15 +443,269 @@ struct Context
             m_EventsHandler.AskEventsStrict();
     }
 
+    bool IsBullet(const CoinID& cid) const
+    {
+        return
+            !cid.m_AssetID &&
+            (cid.m_Value == m_Cfg.m_BulletValue);
+    }
+
+    TxoMW* FindNextAvail(TxoMW::HeightMap::iterator& it, Height h)
+    {
+        while (true)
+        {
+            if (m_TxosMW.m_mapConfirmed.end() == it)
+                break;
+
+            TxoMW& txo = it->get_ParentObj();
+            it++;
+
+            if ((txo.m_Maturity <= h) && (txo.m_LockedUntil < h))
+                return &txo;
+        }
+
+        return nullptr;
+    }
+
+    TxoMW* FindNextAvailBullet(TxoMW::HeightMap::iterator& it, Height h)
+    {
+        while (true)
+        {
+            TxoMW* pTxo = FindNextAvail(it, h);
+            if (!pTxo)
+                break;
+
+            if (IsBullet(pTxo->m_ID.m_Value))
+                return pTxo;
+        }
+
+        return nullptr;
+    }
+
+    typedef std::multiset<CoinID> CoinIDSet;
+    CoinIDSet m_setTxsOut;
+    CoinIDSet m_setSplit;
+
+    void HandleTxs(CoinIDSet& s, Height h)
+    {
+        for (CoinIDSet::iterator it = s.begin(); s.end() != it; )
+        {
+            CoinIDSet::iterator itThis = it++;
+
+            TxoMW* pTxo = m_TxosMW.Find(*itThis);
+            if (!pTxo || pTxo->IsSpent() || (pTxo->m_LockedUntil < h))
+                s.erase(itThis);
+        }
+    }
+
     void OnEventsHandled()
     {
         // decide w.r.t. test logic
         Height h = m_FlyClient.get_Height();
         if (h < Rules::get().pForks[2].m_Height)
             return;
+
+        HandleTxs(m_setSplit, h);
+        HandleTxs(m_setTxsOut, h);
+
+        TxoMW::HeightMap::iterator itBullet = m_TxosMW.m_mapConfirmed.begin();
+
+        while (m_setTxsOut.size() < m_Cfg.m_ShieldedOutsTrg)
+        {
+            TxoMW* pTxo = FindNextAvailBullet(itBullet, h);
+            if (!pTxo)
+                break;
+
+            SendShieldedOutp(*pTxo);
+            m_setTxsOut.insert(pTxo->m_ID.m_Value);
+        }
+
+        if (m_setSplit.empty())
+        {
+            // make sure we have enough bullets
+            uint32_t nFreeBullets = 0;
+            while (true)
+            {
+                TxoMW* pTxo = FindNextAvailBullet(itBullet, h);
+                if (!pTxo)
+                    break;
+
+                nFreeBullets++;
+            }
+
+            if (nFreeBullets < m_Cfg.m_BulletsMin)
+                AddSplitTx();
+        }
     }
 
+    Amount SelectInputs(Amount val, std::vector<TxoMW*>& v)
+    {
+        Height h = m_FlyClient.get_Height();
+        Amount ret = 0;
 
+        for (TxoMW::HeightMap::iterator it = m_TxosMW.m_mapConfirmed.begin(); ret < val; )
+        {
+            TxoMW* pTxo = FindNextAvail(it, h);
+            if (!pTxo)
+                break; // not enough funds
+
+            const CoinID& cid = pTxo->m_ID.m_Value;
+
+            if (!IsBullet(cid) && !cid.m_AssetID)
+            {
+                v.push_back(pTxo);
+                ret += cid.m_Value;
+            }
+        }
+
+        return ret;
+    }
+
+    void AddInp(TxVectors::Full& txv, ECC::Scalar::Native& kOffs, const CoinID& cid)
+    {
+        Input::Ptr pInp = std::make_unique<Input>();
+
+        ECC::Scalar::Native sk;
+        CoinID::Worker(cid).Create(sk, pInp->m_Commitment, *cid.get_ChildKdf(m_pKdf));
+
+        txv.m_vInputs.push_back(std::move(pInp));
+        kOffs += sk;
+    }
+
+    void AddInp(TxVectors::Full& txv, ECC::Scalar::Native& kOffs, TxoMW& txo, Height hMax)
+    {
+        AddInp(txv, kOffs, txo.m_ID.m_Value);
+        txo.m_LockedUntil = hMax;
+    }
+
+    void AddOutp(TxVectors::Full& txv, ECC::Scalar::Native& kOffs, const CoinID& cid, Height hScheme)
+    {
+        Output::Ptr pOutp = std::make_unique<Output>();
+
+        ECC::Scalar::Native sk;
+        pOutp->Create(hScheme, sk, *cid.get_ChildKdf(m_pKdf), cid, *m_pKdf);
+
+        txv.m_vOutputs.push_back(std::move(pOutp));
+        sk = -sk;
+        kOffs += sk;
+    }
+
+    void AddSplitTx()
+    {
+        Height h = m_FlyClient.get_Height();
+
+        Transaction::FeeSettings fs;
+
+        Amount valFee = fs.m_Kernel + fs.m_Output * (m_Cfg.m_BulletsMax + 1); // minimum fee (assuming there's a change output)
+        Amount valInp = m_Cfg.m_BulletValue * m_Cfg.m_BulletsMax + valFee;
+
+        std::vector<TxoMW*> vInps;
+        Amount val = SelectInputs(valInp, vInps);
+        if (val < valInp)
+            return;
+
+        Transaction::Ptr pTx = std::make_shared<Transaction>();
+
+        HeightRange hr(h, h + 10);
+
+        ECC::Scalar sk_;
+        ECC::GenRandom(sk_.m_Value);
+        ECC::Scalar::Native kOffs = sk_;
+
+        TxKernelStd::Ptr pKrn = std::make_unique<TxKernelStd>();
+        pKrn->m_Height = hr;
+        pKrn->m_Fee = valFee;
+
+        pKrn->Sign(kOffs);
+        pTx->m_vKernels.push_back(std::move(pKrn));
+        kOffs = -kOffs;
+
+        for (size_t i = 0; i < vInps.size(); i++)
+            AddInp(*pTx, kOffs, *vInps[i], hr.m_Max);
+
+        for (uint32_t i = 0; i < m_Cfg.m_BulletsMax; i++)
+        {
+            CoinID cid(Zero);
+            ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
+            cid.m_Value = m_Cfg.m_BulletValue;
+
+            AddOutp(*pTx, kOffs, cid, hr.m_Min);
+        }
+
+        if (val > valInp)
+        {
+            CoinID cid(Zero);
+            ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
+            cid.m_Value = val - valInp;
+
+            AddOutp(*pTx, kOffs, cid, hr.m_Min);
+        }
+
+        pTx->m_Offset = kOffs;
+        pTx->Normalize();
+
+        SendTx(std::move(pTx));
+
+        m_setSplit.insert(vInps.front()->m_ID.m_Value);
+    }
+
+    void SendShieldedOutp(TxoMW& txo)
+    {
+        Height h = m_FlyClient.get_Height();
+
+        Transaction::Ptr pTx = std::make_shared<Transaction>();
+        HeightRange hr(h, h + 10);
+
+        TxKernelShieldedOutput::Ptr pKrn = std::make_unique<TxKernelShieldedOutput>();
+        pKrn->m_Height = hr;
+
+        Transaction::FeeSettings fs;
+        pKrn->m_Fee = fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput;
+
+        pKrn->UpdateMsg();
+        ECC::Oracle oracle;
+        oracle << pKrn->m_Msg;
+
+        ShieldedTxo::Data::Params sdp;
+        ZeroObject(sdp.m_Output.m_User);
+        sdp.m_Output.m_AssetID = txo.m_ID.m_Value.m_AssetID;
+        sdp.m_Output.m_Value = txo.m_ID.m_Value.m_Value - pKrn->m_Fee;
+
+        ECC::uintBig nonce;
+        ECC::GenRandom(nonce);
+        sdp.Generate(pKrn->m_Txo, oracle, m_ShieldedViewer, nonce);
+        pKrn->MsgToID();
+
+        //ECC::Point::Native pt;
+        //if (!pKrn->IsValid(hr.m_Min, pt))
+        //    __debugbreak();
+
+        pTx->m_vKernels.push_back(std::move(pKrn));
+        ECC::Scalar::Native kOffs = -sdp.m_Output.m_k;
+
+        AddInp(*pTx, kOffs, txo, hr.m_Max);
+
+        pTx->m_Offset = kOffs;
+        pTx->Normalize();
+
+        SendTx(std::move(pTx));
+    }
+
+    void SendTx(Transaction::Ptr&& pTx)
+    {
+        //TxBase::Context::Params pars;
+        //TxBase::Context ctx(pars);
+        //ctx.m_Height.m_Min = m_FlyClient.get_Height() + 1;
+
+        //if (!pTx->IsValid(ctx))
+        //    __debugbreak();
+
+        proto::FlyClient::RequestTransaction::Ptr pReq = new proto::FlyClient::RequestTransaction;
+        pReq->m_Msg.m_Transaction = std::move(pTx);
+
+        m_Network.PostRequest(*pReq, m_DummyHandler);
+
+    }
 
 };
 
@@ -401,7 +714,13 @@ uint16_t g_LocalNodePort = 16725;
 void DoTest(Key::IKdf::Ptr& pKdf)
 {
     Context ctx;
+
+    Transaction::FeeSettings fs;
+    if (ctx.m_Cfg.m_BulletValue < (fs.m_Kernel + fs.m_Output) * 2 + fs.m_ShieldedOutput + fs.m_ShieldedInput)
+        throw std::runtime_error("Bullet/Fee settings not consistent");
+
     ctx.m_pKdf = pKdf;
+    ctx.m_ShieldedViewer.FromOwner(*pKdf);
     ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));
     ctx.m_Network.Connect();
 
@@ -478,7 +797,8 @@ int main_Guarded(int argc, char* argv[])
         Treasury tres;
         Treasury::Parameters pars;
         pars.m_Bursts = 1;
-        Treasury::Entry* pE = tres.CreatePlan(pid, Rules::get().Emission.Value0 / 5, pars);
+        pars.m_MaturityStep = 1;
+        Treasury::Entry* pE = tres.CreatePlan(pid, Rules::get().Emission.Value0 * 200, pars);
 
         pE->m_pResponse.reset(new Treasury::Response);
         uint64_t nIndex = 1;
@@ -495,6 +815,7 @@ int main_Guarded(int argc, char* argv[])
 
         ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
         Rules::get().FakePoW = true;
+        Rules::get().MaxRollback = 10;
         Rules::get().pForks[1].m_Height = 1;
         Rules::get().pForks[2].m_Height = 2;
 
@@ -508,6 +829,10 @@ int main_Guarded(int argc, char* argv[])
 
     node.m_Cfg.m_Listen.port(g_LocalNodePort);
     node.m_Cfg.m_Listen.ip(INADDR_ANY);
+
+    // disable dandelion (faster tx propagation)
+    node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
+    node.m_Cfg.m_Dandelion.m_FluffProbability = 0xFFFF;
 
     node.m_Keys.SetSingleKey(pKdf);
     node.Initialize();
@@ -535,6 +860,8 @@ int main_Guarded(int argc, char* argv[])
         if (!node.m_PostStartSynced)
             return 1;
     }
+    else
+        node.m_PostStartSynced = true;
 
     DoTest(pKdf);
 

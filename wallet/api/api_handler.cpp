@@ -34,7 +34,7 @@ namespace
     {
         storage::Totals allTotals(*walletDB);
         const auto& totals = allTotals.GetTotals(Zero);
-        auto available = totals.Avail;
+        auto available = AmountBig::get_Lo(totals.Avail);
         if (beamAmount + beamFee > available)
         {
             throw NotEnoughtBeams();
@@ -775,10 +775,10 @@ namespace beam::wallet
         storage::Totals allTotals(*walletDB);
         const auto& totals = allTotals.GetTotals(Zero);
 
-        response.available = totals.Avail;
-        response.receiving = totals.Incoming;
-        response.sending   = totals.Outgoing;
-        response.maturing  = totals.Maturing;
+        response.available = AmountBig::get_Lo(totals.Avail);
+        response.receiving = AmountBig::get_Lo(totals.Incoming);
+        response.sending   = AmountBig::get_Lo(totals.Outgoing);
+        response.maturing  = AmountBig::get_Lo(totals.Maturing);
 
         if (data.withAssets)
         {

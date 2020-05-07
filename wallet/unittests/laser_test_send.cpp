@@ -176,9 +176,13 @@ int main()
             storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()));
             totals_2_a = totalsCalc_2.GetTotals(Zero);
 
-            WALLET_CHECK(totals_1.Unspent == totals_1_a.Unspent + kTransferFirst * transfersCount + kFee);
+            AmountBig::Type val1{totals_1_a.Unspent};
+            val1 += AmountBig::Type(kTransferFirst * transfersCount + kFee);
+            WALLET_CHECK(totals_1.Unspent == val1);
 
-            WALLET_CHECK(totals_2_a.Unspent + kFee == totals_2.Unspent + kTransferFirst * transfersCount);
+            AmountBig::Type val2{totals_2.Unspent};
+            val2 += AmountBig::Type(kTransferFirst * transfersCount - kFee);
+            WALLET_CHECK(totals_2_a.Unspent == val2);
 
             LOG_INFO() << "Test laser SEND: finished";
             io::Reactor::get_Current().stop();

@@ -1712,7 +1712,7 @@ namespace beam
 			<< pForks[2].m_Height
 			<< MaxKernelValidityDH
 			<< Shielded.Enabled
-			<< uint32_t(1) // our current strategy w.r.t. allowed anonymity set in shielded inputs
+			<< uint32_t(2) // increment this whenever we change something in the protocol
 			<< Shielded.m_ProofMax.n
 			<< Shielded.m_ProofMax.M
 			<< Shielded.m_ProofMin.n
@@ -2543,6 +2543,7 @@ namespace beam
 			>> hvSeed;
 
 		ECC::Oracle oracle;
+		oracle << m_hGen;
 		prover.Generate(hvSeed, oracle, genBlinded);
 	}
 
@@ -2585,6 +2586,8 @@ namespace beam
 	bool Asset::Proof::IsValid(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const
 	{
 		ECC::Oracle oracle;
+		oracle << m_hGen;
+
 		ECC::Scalar::Native kBias;
 		if (!Cast::Down<Sigma::Proof>(*this).IsValid(bc, oracle, Rules::get().CA.m_ProofCfg, pKs, kBias))
 			return false;

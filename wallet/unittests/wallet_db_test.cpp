@@ -1254,7 +1254,7 @@ void TestSelect7()
 
     storage::Totals totals(*db);
     auto t = totals.GetTotals(Zero);
-    WALLET_CHECK(t.Avail == 6'518'975'908'344);
+    WALLET_CHECK(t.Avail == AmountBig::Type(6'518'975'908'344U));
 
     SelectCoins(db, 6'456'001'778'569 + 1000, false);
 }

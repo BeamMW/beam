@@ -25,11 +25,13 @@
 
 #include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 
 using namespace std;
 using namespace ECC;
 using namespace beam;
 using boost::multiprecision::cpp_dec_float_50;
+using boost::multiprecision::cpp_int;
 
 namespace
 {
@@ -68,28 +70,41 @@ namespace std
 
     string to_string(const beam::wallet::PrintableAmount& amount)
     {
-        stringstream ss;
+        cpp_int intval;
+        import_bits(intval, amount.m_value.m_pData, amount.m_value.m_pData + decltype(amount.m_value)::nBytes);
 
         if (amount.m_showPoint)
         {
-            size_t maxGrothsLength = std::lround(std::log10(Rules::Coin));
-            ss << fixed << setprecision(maxGrothsLength) << double(amount.m_value) / Rules::Coin;
-            string s = ss.str();
-            boost::algorithm::trim_right_if(s, boost::is_any_of("0"));
-            boost::algorithm::trim_right_if(s, boost::is_any_of(",."));
-            return s;
+            const auto maxGroths = std::lround(std::log10(Rules::Coin));
+            cpp_dec_float_50 floatval(intval);
+
+            stringstream ss;
+            ss << fixed << setprecision(maxGroths) << floatval / Rules::Coin;
+            auto str   = ss.str();
+            const auto point = std::use_facet< std::numpunct<char>>(ss.getloc()).decimal_point();
+
+            boost::algorithm::trim_right_if(str, boost::is_any_of("0"));
+            boost::algorithm::trim_right_if(str, [point](const char ch) {return ch == point;});
+
+            return str;
         }
         else
         {
-            if (amount.m_value >= Rules::Coin)
+            stringstream ss;
+            cpp_int coin  = intval / Rules::Coin;
+            cpp_int groth = intval - coin * Rules::Coin;
+
+            if (intval >= Rules::Coin)
             {
-                ss << Amount(amount.m_value / Rules::Coin) << " " << (amount.m_coinName.empty() ? "beams" : amount.m_coinName);
+                ss << coin << " " << (amount.m_coinName.empty() ? "beams" : amount.m_coinName);
             }
-            Amount c = amount.m_value % Rules::Coin;
-            if (c > 0 || amount.m_value == 0)
+
+            if (groth > 0 || intval == 0)
             {
-                ss << (amount.m_value >= Rules::Coin ? (" ") : "") << c << " " << (amount.m_grothName.empty() ? "groth" : amount.m_grothName);
+                ss << (intval >= Rules::Coin ? (" ") : "")
+                   << groth << " " << (amount.m_grothName.empty() ? "groth" : amount.m_grothName);
             }
+
             return ss.str();
         }
     }

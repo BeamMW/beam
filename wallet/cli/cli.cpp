@@ -1496,7 +1496,7 @@ namespace
         return true;
     }
 
-    bool ReadAmount(const po::variables_map& vm, Amount& amount)
+    bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit = std::numeric_limits<Amount>::max(), bool asset = false)
     {
         if (vm.count(cli::AMOUNT) == 0)
         {
@@ -1523,11 +1523,10 @@ namespace
                 return false;
             }
 
-            const auto limit = std::numeric_limits<Amount>::max();
             if (preciseAmount > limit)
             {
                 std::stringstream ssLimit;
-                ssLimit << PrintableAmount(limit);
+                ssLimit << PrintableAmount(limit, false, asset ? kAmountASSET : "", asset ? kAmountAGROTH : "");
                 LOG_ERROR() << (boost::format(kErrorTooBigAmount) % strAmount % ssLimit.str()).str();
                 return false;
             }
@@ -2326,7 +2325,8 @@ namespace
         }
 
         Amount amountGroth = 0;
-        if(!ReadAmount(vm, amountGroth))
+        Amount limit = static_cast<Amount>(std::numeric_limits<AmountSigned>::max());
+        if(!ReadAmount(vm, amountGroth, limit, true))
         {
             return boost::none;
         }

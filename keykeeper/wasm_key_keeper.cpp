@@ -58,19 +58,19 @@ struct KeyKeeper
         return _impl2.GetWalletID();
     }
 
-    std::string GetIdentity(const std::string& keyID)
+    std::string GetIdentity(const std::string& keyIDstr)
     {
-        return _impl2.GetIdentity(from_base64<uint64_t>(keyID)).str();
+        return _impl2.GetIdentity(std::stoull(keyIDstr)).str();
     }
 
-    std::string GetSbbsAddress(const std::string& ownID)
+    std::string GetSbbsAddress(const std::string& ownIDstr)
     {
-        return _impl2.GetSbbsAddress(from_base64<uint64_t>(ownID));
+        return _impl2.GetSbbsAddress(std::stoull(ownIDstr));
     }
 
-    std::string GetSbbsAddressPrivate(const std::string& ownID)
+    std::string GetSbbsAddressPrivate(const std::string& ownIDstr)
     {
-        return _impl2.GetSbbsAddressPrivate(from_base64<uint64_t>(ownID));
+        return _impl2.GetSbbsAddressPrivate(std::stoull(ownIDstr));
     }
 
     std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, uint32_t amount = 0)
