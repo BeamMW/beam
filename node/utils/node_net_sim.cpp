@@ -444,11 +444,16 @@ struct Context
     {
         Transaction::FeeSettings m_Fees; // def
 
-        Amount m_BulletValue = 3000; // must be big enough to cover shielded out & in txs
-        uint32_t m_BulletsMin = 10;
-        uint32_t m_BulletsMax = 20;
-        uint32_t m_ShieldedOutsTrg = 5;
-        uint32_t m_ShieldedInsTrg = 5;
+#define CfgFieldsAll(macro) \
+        macro(Amount, BulletValue, 3000, "must be big enough to cover shielded out & in txs") \
+        macro(uint32_t, BulletsMin, 50, "min avail bullets") \
+        macro(uint32_t, BulletsMax, 100, "num of bullets to create at once") \
+        macro(uint32_t, ShieldedOutsTrg, 45, "target num of pending shielded outputs") \
+        macro(uint32_t, ShieldedInsTrg, 65, "target num of pending shielded inputs")
+
+#define THE_MACRO(type, name, def, comment) type m_##name = def;
+        CfgFieldsAll(THE_MACRO)
+#undef THE_MACRO
 
     } m_Cfg;
 
@@ -921,25 +926,6 @@ struct Context
 
 uint16_t g_LocalNodePort = 16725;
 
-void DoTest(Key::IKdf::Ptr& pKdf, NodeProcessor& proc)
-{
-    Context ctx;
-    ctx.m_pProc = &proc;
-
-    if (ctx.m_Cfg.m_BulletValue < (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput)
-        throw std::runtime_error("Bullet/Fee settings not consistent");
-
-    ctx.m_pKdf = pKdf;
-    ctx.m_ShieldedViewer.FromOwner(*pKdf);
-    ShieldedTxo::Viewer::GenerateSerPrivate(ctx.m_pShieldedPrivate, *pKdf);
-    ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));
-    ctx.m_Network.Connect();
-
-
-    io::Reactor::get_Current().run();
-}
-
-
 } // namespace beam
 
 
@@ -953,22 +939,42 @@ int main_Guarded(int argc, char* argv[])
 
     //auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
 
-    Key::IKdf::Ptr pKdf;
+    const char szLocalMode[] = "local_mode";
+
+#define THE_MACRO(type, name, def, comment) const char sz##name[] = #name;
+    CfgFieldsAll(THE_MACRO)
+#undef THE_MACRO
+
+    auto [options, visibleOptions] = createOptionsDescription(0);
+    boost::ignore_unused(visibleOptions);
+    options.add_options()
+        (cli::SEED_PHRASE, po::value<std::string>()->default_value(""), "seed phrase")
+        (szLocalMode, po::value<bool>()->default_value(false), "local mode")
+        
+#define THE_MACRO(type, name, def, comment) (sz##name, po::value<type>()->default_value(def), comment)
+        CfgFieldsAll(THE_MACRO)
+#undef THE_MACRO
+        
+        ;
+
+    po::variables_map vm = getOptions(argc, argv, "node_net_sim.cfg", options, true);
+
+    bool bLocalMode = vm[szLocalMode].as<bool>();
 
     Node node;
     node.m_Cfg.m_sPathLocal = "node_net_sim.db";
 
-    bool bLocalMode = true;
+    Context ctx;
+    ctx.m_pProc = &node.get_Processor();
+
+    Key::IKdf::Ptr pKdf;
+
+#define THE_MACRO(type, name, def, comment) ctx.m_Cfg.m_##name = vm[sz##name].as<type>();
+    CfgFieldsAll(THE_MACRO)
+#undef THE_MACRO
 
     if (!bLocalMode)
     {
-        auto [options, visibleOptions] = createOptionsDescription(0);
-        boost::ignore_unused(visibleOptions);
-        options.add_options()
-            (cli::SEED_PHRASE, po::value<std::string>()->default_value(""), "seed phrase");
-
-        po::variables_map vm = getOptions(argc, argv, "node_net_sim.cfg", options, true);
-
         if (!ReadSeed(pKdf, vm[cli::SEED_PHRASE].as<std::string>().c_str()))
         {
             std::cout << options << std::endl;
@@ -1077,7 +1083,16 @@ int main_Guarded(int argc, char* argv[])
     else
         node.m_PostStartSynced = true;
 
-    DoTest(pKdf, node.get_Processor());
+    if (ctx.m_Cfg.m_BulletValue < (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput)
+        throw std::runtime_error("Bullet/Fee settings not consistent");
+
+    ctx.m_pKdf = pKdf;
+    ctx.m_ShieldedViewer.FromOwner(*pKdf);
+    ShieldedTxo::Viewer::GenerateSerPrivate(ctx.m_pShieldedPrivate, *pKdf);
+    ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));
+    ctx.m_Network.Connect();
+
+    io::Reactor::get_Current().run();
 
     return 0;
 }
