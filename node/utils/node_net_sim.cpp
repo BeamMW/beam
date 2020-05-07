@@ -409,12 +409,12 @@ struct Context
     {
         Amount m_ShieldedValue = 100; // groth
         Amount m_BulletValue = 300;
-        uint32_t m_Bullets = 10;
+        uint32_t m_BulletsMin = 10;
+        uint32_t m_BulletsMax = 20;
 
     } m_Cfg;
 
-    typedef std::map<CoinID, Height> TxSplitMap;
-    TxSplitMap m_TxsSplit;
+    Height m_SplittingUntil = 0;
 
     void OnRolledBack()
     {
@@ -449,7 +449,7 @@ struct Context
             (cid.m_Value == m_Cfg.m_BulletValue);
     }
 
-    TxoMW* FindNextMature(TxoMW::HeightMap::iterator& it, Height h)
+    TxoMW* FindNextAvail(TxoMW::HeightMap::iterator& it, Height h)
     {
         while (true)
         {
@@ -459,19 +459,18 @@ struct Context
             TxoMW& txo = it->get_ParentObj();
             it++;
 
-            if (txo.m_Maturity <= h)
+            if ((txo.m_Maturity <= h) && (txo.m_LockedUntil < h))
                 return &txo;
         }
 
         return nullptr;
-
     }
 
-    TxoMW* FindNextBullet(TxoMW::HeightMap::iterator& it, Height h)
+    TxoMW* FindNextAvailBullet(TxoMW::HeightMap::iterator& it, Height h)
     {
         while (true)
         {
-            TxoMW* pTxo = FindNextMature(it, h);
+            TxoMW* pTxo = FindNextAvail(it, h);
             if (!pTxo)
                 break;
 
@@ -489,61 +488,40 @@ struct Context
         if (h < Rules::get().pForks[2].m_Height)
             return;
 
-        // txs
-        for (TxSplitMap::iterator it = m_TxsSplit.begin(); m_TxsSplit.end() != it; )
+        if (h > m_SplittingUntil)
         {
-            TxSplitMap::iterator itThis = it++;
-
-            if (h <= itThis->second)
-            {
-                TxoMW* pTxo = m_TxosMW.Find(itThis->first);
-                if (pTxo && (MaxHeight == pTxo->m_Height.m_Spent))
-                    continue;
-            }
-
-            // either finished successfully or expired.
-            m_TxsSplit.erase(itThis);
-
-        }
-
-
-        // make sure we have enough bullets
-        if (m_TxsSplit.empty())
-        {
+            // make sure we have enough bullets
             uint32_t nFreeBullets = 0;
             for (TxoMW::HeightMap::iterator it = m_TxosMW.m_mapConfirmed.begin(); ; )
             {
-                TxoMW* pTxo = FindNextBullet(it, h);
+                TxoMW* pTxo = FindNextAvailBullet(it, h);
                 if (!pTxo)
                     break;
 
-                // TODO: check if bullets are being spent
                 nFreeBullets++;
             }
 
-            if (nFreeBullets < m_Cfg.m_Bullets)
+            if (nFreeBullets < m_Cfg.m_BulletsMin)
                 AddSplitTx();
         }
     }
 
-    Amount SelectInputs(Amount val, std::vector<CoinID>& v)
+    Amount SelectInputs(Amount val, std::vector<TxoMW*>& v)
     {
         Height h = m_FlyClient.get_Height();
         Amount ret = 0;
 
         for (TxoMW::HeightMap::iterator it = m_TxosMW.m_mapConfirmed.begin(); ret < val; )
         {
-            TxoMW* pTxo = FindNextMature(it, h);
+            TxoMW* pTxo = FindNextAvail(it, h);
             if (!pTxo)
                 break; // not enough funds
 
             const CoinID& cid = pTxo->m_ID.m_Value;
 
-            if (!IsBullet(cid) &&
-                !cid.m_AssetID &&
-                (m_TxsSplit.end() == m_TxsSplit.find(cid)))
+            if (!IsBullet(cid) && !cid.m_AssetID)
             {
-                v.push_back(cid);
+                v.push_back(pTxo);
                 ret += cid.m_Value;
             }
         }
@@ -560,6 +538,12 @@ struct Context
 
         txv.m_vInputs.push_back(std::move(pInp));
         kOffs += sk;
+    }
+
+    void AddInp(TxVectors::Full& txv, ECC::Scalar::Native& kOffs, TxoMW& txo, Height hMax)
+    {
+        AddInp(txv, kOffs, txo.m_ID.m_Value);
+        txo.m_LockedUntil = hMax;
     }
 
     void AddOutp(TxVectors::Full& txv, ECC::Scalar::Native& kOffs, const CoinID& cid, Height hScheme)
@@ -579,10 +563,10 @@ struct Context
         Height h = m_FlyClient.get_Height();
 
         Amount valFee = m_Cfg.m_BulletValue;
-        Amount valInp = m_Cfg.m_BulletValue * m_Cfg.m_Bullets + valFee;
+        Amount valInp = m_Cfg.m_BulletValue * m_Cfg.m_BulletsMax + valFee;
 
-        std::vector<CoinID> vIds;
-        Amount val = SelectInputs(valInp, vIds);
+        std::vector<TxoMW*> vInps;
+        Amount val = SelectInputs(valInp, vInps);
         if (val < valInp)
             return;
 
@@ -602,21 +586,16 @@ struct Context
         pTx->m_vKernels.push_back(std::move(pKrn));
         kOffs = -kOffs;
 
-        for (size_t i = 0; i < vIds.size(); i++)
-        {
-            const CoinID& cid = vIds[i];
-            m_TxsSplit[cid] = hr.m_Max;
+        for (size_t i = 0; i < vInps.size(); i++)
+            AddInp(*pTx, kOffs, *vInps[i], hr.m_Max);
 
-            AddInp(*pTx, kOffs, cid);
-        }
-
-        for (uint32_t i = 0; i < m_Cfg.m_Bullets; i++)
+        for (uint32_t i = 0; i < m_Cfg.m_BulletsMax; i++)
         {
             CoinID cid(Zero);
             ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
             cid.m_Value = m_Cfg.m_BulletValue;
 
-            AddOutp(*pTx, kOffs, cid, h + 1);
+            AddOutp(*pTx, kOffs, cid, hr.m_Min);
         }
 
         if (val > valInp)
@@ -625,13 +604,15 @@ struct Context
             ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
             cid.m_Value = val - valInp;
 
-            AddOutp(*pTx, kOffs, cid, h + 1);
+            AddOutp(*pTx, kOffs, cid, hr.m_Min);
         }
 
         pTx->m_Offset = kOffs;
         pTx->Normalize();
 
         SendTx(std::move(pTx));
+
+        m_SplittingUntil = hr.m_Max;
 
     }
 
