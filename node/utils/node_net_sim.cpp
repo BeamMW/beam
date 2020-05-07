@@ -437,13 +437,13 @@ struct Context
     Context()
         :m_Network(m_FlyClient)
     {
+        m_Exec.m_Threads = std::thread::hardware_concurrency();
     }
 
     struct Cfg
     {
         Transaction::FeeSettings m_Fees; // def
 
-        Amount m_ShieldedValue = 100; // groth
         Amount m_BulletValue = 3000; // must be big enough to cover shielded out & in txs
         uint32_t m_BulletsMin = 10;
         uint32_t m_BulletsMax = 20;
@@ -451,6 +451,21 @@ struct Context
         uint32_t m_ShieldedInsTrg = 5;
 
     } m_Cfg;
+
+    struct Exec
+        :public beam::ExecutorMT
+    {
+        uint32_t m_Threads;
+
+        virtual uint32_t get_Threads() override { return m_Threads; }
+
+        virtual void RunThread(uint32_t iThread) override
+        {
+            ExecutorMT::Context ctx;
+            ctx.m_iThread = iThread;
+            RunThreadCtx(ctx);
+        }
+    } m_Exec;
 
 
     void OnRolledBack()
@@ -567,7 +582,10 @@ struct Context
             itShInp++;
 
             if (SendShieldedInp(txo))
+            {
                 m_setTxsIn.insert(txo.m_ID.m_Value);
+                nDone++;
+            }
         }
 
         if (nDone)
@@ -862,7 +880,11 @@ struct Context
 
         ECC::Oracle o1;
         o1 << pKrn->m_Msg;
-        p.Generate(Zero, o1, &hGen);
+
+        {
+            beam::Executor::Scope scope(m_Exec);
+            p.Generate(sk_.m_Value, o1, &hGen);
+        }
 
         pKrn->MsgToID();
 
@@ -1008,7 +1030,6 @@ int main_Guarded(int argc, char* argv[])
         Rules::get().Shielded.m_ProofMax = Sigma::Cfg(4, 3); // 64
         Rules::get().Shielded.m_ProofMin = Sigma::Cfg(4, 2); // 16
         Rules::get().Shielded.MaxWindowBacklog = 200;
-        Rules::get().Shielded.MaxOuts = 2;
         Rules::get().pForks[1].m_Height = 1;
         Rules::get().pForks[2].m_Height = 2;
 
