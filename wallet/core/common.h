@@ -755,4 +755,5 @@ namespace std
     string to_string(const beam::Version&);
     string to_string(const beam::wallet::TxID&);
     string to_string(const beam::PeerID& id);
+    string to_string(const beam::AmountBig::Type&);
 }

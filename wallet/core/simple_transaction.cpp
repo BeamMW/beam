@@ -381,7 +381,7 @@ namespace beam::wallet
                     };
 
                     HeightRange hrange = getRange(info);
-                    if (AmountBig::get_Lo(info.m_Value) > 0)
+                    if (info.m_Value > AmountBig::Type(0U))
                     {
                         m_WalletDB->visitCoins([&](const Coin& coin) -> bool {
                             if (coin.m_ID.m_AssetID != assetId) return true;

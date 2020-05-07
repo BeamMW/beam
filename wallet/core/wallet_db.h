@@ -789,10 +789,16 @@ namespace beam::wallet
 
             Totals();
             explicit Totals(IWalletDB& db);
-            AssetTotals GetTotals(Asset::ID) const;
-            bool HasTotals(Asset::ID) const;
-            mutable std::map<Asset::ID, AssetTotals> allTotals;
             void Init(IWalletDB&);
+
+            bool HasTotals(Asset::ID) const;
+            AssetTotals GetTotals(Asset::ID) const;
+
+            inline AssetTotals GetBeamTotals() const {
+                return GetTotals(Zero);
+            }
+
+            mutable std::map<Asset::ID, AssetTotals> allTotals;
         };
 
         // Used for Payment Proof feature

@@ -33,8 +33,8 @@ namespace
     void checkIsEnoughtBeamAmount(IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
     {
         storage::Totals allTotals(*walletDB);
-        const auto& totals = allTotals.GetTotals(Zero);
-        auto available = AmountBig::get_Lo(totals.Avail);
+        const auto& totals = allTotals.GetBeamTotals();
+        const auto available = AmountBig::get_Lo(totals.Avail);
         if (beamAmount + beamFee > available)
         {
             throw NotEnoughtBeams();
@@ -773,7 +773,7 @@ namespace beam::wallet
         }
 
         storage::Totals allTotals(*walletDB);
-        const auto& totals = allTotals.GetTotals(Zero);
+        const auto& totals = allTotals.GetBeamTotals();
 
         response.available = AmountBig::get_Lo(totals.Avail);
         response.receiving = AmountBig::get_Lo(totals.Incoming);

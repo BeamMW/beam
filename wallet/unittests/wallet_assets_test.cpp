@@ -64,7 +64,7 @@ void TestAssets() {
 
     const auto checkTotals = [&] (Amount beam, Amount amountAsset) {
         storage::Totals allTotals(*walletDB);
-        WALLET_CHECK(allTotals.GetTotals(Zero).Avail == AmountBig::Type(beam));
+        WALLET_CHECK(allTotals.GetBeamTotals().Avail == AmountBig::Type(beam));
         WALLET_CHECK(allTotals.GetTotals(assetId).Avail == AmountBig::Type(amountAsset));
     };
 

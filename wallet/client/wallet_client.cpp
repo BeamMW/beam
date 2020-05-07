@@ -1052,7 +1052,7 @@ namespace beam::wallet
     {
         WalletStatus status;
         storage::Totals totalsCalc(*m_walletDB);
-        const auto& totals = totalsCalc.GetTotals(Zero);
+        const auto& totals = totalsCalc.GetBeamTotals();
 
         status.available         = AmountBig::get_Lo(totals.Avail);
         status.receivingIncoming = AmountBig::get_Lo(totals.ReceivingIncoming);
