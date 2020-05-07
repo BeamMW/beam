@@ -937,7 +937,7 @@ int main_Guarded(int argc, char* argv[])
     io::Reactor::Scope scope(*pReactor);
     io::Reactor::GracefulIntHandler gih(*pReactor);
 
-    //auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
+    auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
 
     const char szLocalMode[] = "local_mode";
 
@@ -962,6 +962,7 @@ int main_Guarded(int argc, char* argv[])
     bool bLocalMode = vm[szLocalMode].as<bool>();
 
     Node node;
+    node.m_Cfg.m_VerificationThreads = -1;
     node.m_Cfg.m_sPathLocal = "node_net_sim.db";
 
     Context ctx;
