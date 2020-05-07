@@ -483,6 +483,7 @@ struct Context
     }
 
     typedef std::multiset<CoinID> CoinIDSet;
+    CoinIDSet m_setTxsOut;
     CoinIDSet m_setSplit;
 
     void HandleTxs(CoinIDSet& s, Height h)
@@ -505,8 +506,19 @@ struct Context
             return;
 
         HandleTxs(m_setSplit, h);
+        HandleTxs(m_setTxsOut, h);
 
         TxoMW::HeightMap::iterator itBullet = m_TxosMW.m_mapConfirmed.begin();
+
+        while (m_setTxsOut.size() < m_Cfg.m_ShieldedOutsTrg)
+        {
+            TxoMW* pTxo = FindNextAvailBullet(itBullet, h);
+            if (!pTxo)
+                break;
+
+            SendShieldedOutp(*pTxo);
+            m_setTxsOut.insert(pTxo->m_ID.m_Value);
+        }
 
         if (m_setSplit.empty())
         {
@@ -635,7 +647,48 @@ struct Context
         SendTx(std::move(pTx));
 
         m_setSplit.insert(vInps.front()->m_ID.m_Value);
+    }
 
+    void SendShieldedOutp(TxoMW& txo)
+    {
+        Height h = m_FlyClient.get_Height();
+
+        Transaction::Ptr pTx = std::make_shared<Transaction>();
+        HeightRange hr(h, h + 10);
+
+        TxKernelShieldedOutput::Ptr pKrn = std::make_unique<TxKernelShieldedOutput>();
+        pKrn->m_Height = hr;
+
+        Transaction::FeeSettings fs;
+        pKrn->m_Fee = fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput;
+
+        pKrn->UpdateMsg();
+        ECC::Oracle oracle;
+        oracle << pKrn->m_Msg;
+
+        ShieldedTxo::Data::Params sdp;
+        ZeroObject(sdp.m_Output.m_User);
+        sdp.m_Output.m_AssetID = txo.m_ID.m_Value.m_AssetID;
+        sdp.m_Output.m_Value = txo.m_ID.m_Value.m_Value - pKrn->m_Fee;
+
+        ECC::uintBig nonce;
+        ECC::GenRandom(nonce);
+        sdp.Generate(pKrn->m_Txo, oracle, m_ShieldedViewer, nonce);
+        pKrn->MsgToID();
+
+        //ECC::Point::Native pt;
+        //if (!pKrn->IsValid(hr.m_Min, pt))
+        //    __debugbreak();
+
+        pTx->m_vKernels.push_back(std::move(pKrn));
+        ECC::Scalar::Native kOffs = -sdp.m_Output.m_k;
+
+        AddInp(*pTx, kOffs, txo, hr.m_Max);
+
+        pTx->m_Offset = kOffs;
+        pTx->Normalize();
+
+        SendTx(std::move(pTx));
     }
 
     void SendTx(Transaction::Ptr&& pTx)
