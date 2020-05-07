@@ -1110,11 +1110,11 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         getHandler().onMessage(id, data);
     }
 
-    void WalletApi::onAssetInfoMessage(const JsonRpcId& id, const json& params)
+    void WalletApi::onTxAssetInfoMessage(const JsonRpcId& id, const json& params)
     {
         checkCAEnabled(id);
 
-        AssetInfo data;
+        TxAssetInfo data;
         ReadAssetParams(id, params, data);
 
         data.txId = readTxIdParameter(id, params);
@@ -1553,7 +1553,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const AssetInfo::Response& res, json& msg)
+    void WalletApi::getResponse(const JsonRpcId& id, const TxAssetInfo::Response& res, json& msg)
     {
         msg = json
         {

@@ -697,7 +697,7 @@ namespace beam::wallet
             tx->SetParameter(TxParameterID::AssetConfirmedHeight, Height(0), req.m_SubTxID);
             tx->SetParameter(TxParameterID::AssetFullInfo, Asset::Full(), req.m_SubTxID);
             tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, req.m_SubTxID);
-            UpdateOnNextTip(tx);
+            UpdateTransaction(tx);
         }
     }
 

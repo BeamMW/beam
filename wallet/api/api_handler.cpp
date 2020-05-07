@@ -476,7 +476,6 @@ namespace beam::wallet
 
     template bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Issue& data);
     template bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Consume& data);
-    template bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const AssetInfo& data);
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const Issue& data)
     {
@@ -573,7 +572,7 @@ namespace beam::wallet
         doResponse(id, resp);
     }
 
-    void WalletApiHandler::onMessage(const JsonRpcId& id, const AssetInfo& data)
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const TxAssetInfo& data)
     {
         LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = "
                     << (data.assetId ? *data.assetId : 0)
@@ -589,9 +588,17 @@ namespace beam::wallet
             }
 
             auto params = CreateTransactionParameters(TxType::AssetInfo, data.txId);
-
-            if(!setTxAssetParams(id, params, data))
+            if (data.assetMeta)
             {
+                params.SetParameter(TxParameterID::AssetMetadata, *data.assetMeta);
+            }
+            else if (data.assetId)
+            {
+                params.SetParameter(TxParameterID::AssetID, *data.assetId);
+            }
+            else
+            {
+                doError(id, ApiError::InternalErrorJsonRpc, "asset_id or meta is required");
                 return;
             }
 
