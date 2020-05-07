@@ -1077,7 +1077,7 @@ Node::~Node()
 
 	m_Processor.Stop();
 
-	if (!std::uncaught_exceptions())
+	if (!std::uncaught_exceptions() && m_Processor.get_DB().IsOpen())
 		m_PeerMan.OnFlush();
 
     LOG_INFO() << "Node stopped";
