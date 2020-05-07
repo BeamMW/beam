@@ -202,7 +202,7 @@ struct Context
                 uint32_t ret = 0;
                 for (typename IDSet::iterator it = s.begin(); s.end() != it; )
                 {
-                    IDSet::iterator itThis = it++;
+                    typename IDSet::iterator itThis = it++;
 
                     Txo* pTxo = Find(*itThis);
                     if (pTxo)
