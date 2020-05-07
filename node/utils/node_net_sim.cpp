@@ -57,6 +57,7 @@ bool ReadSeed(Key::IKdf::Ptr& pKdf, const char* szSeed)
 struct Context
 {
     Key::IKdf::Ptr m_pKdf;
+    ShieldedTxo::Viewer m_ShieldedViewer;
 
     template <typename TID, typename TBase>
     struct Txo
@@ -408,13 +409,13 @@ struct Context
     struct Cfg
     {
         Amount m_ShieldedValue = 100; // groth
-        Amount m_BulletValue = 300;
+        Amount m_BulletValue = 3000; // must be big enough to cover shielded out & in txs
         uint32_t m_BulletsMin = 10;
         uint32_t m_BulletsMax = 20;
+        uint32_t m_ShieldedOutsTrg = 5;
 
     } m_Cfg;
 
-    Height m_SplittingUntil = 0;
 
     void OnRolledBack()
     {
@@ -481,6 +482,21 @@ struct Context
         return nullptr;
     }
 
+    typedef std::multiset<CoinID> CoinIDSet;
+    CoinIDSet m_setSplit;
+
+    void HandleTxs(CoinIDSet& s, Height h)
+    {
+        for (CoinIDSet::iterator it = s.begin(); s.end() != it; )
+        {
+            CoinIDSet::iterator itThis = it++;
+
+            TxoMW* pTxo = m_TxosMW.Find(*itThis);
+            if (!pTxo || pTxo->IsSpent() || (pTxo->m_LockedUntil < h))
+                s.erase(itThis);
+        }
+    }
+
     void OnEventsHandled()
     {
         // decide w.r.t. test logic
@@ -488,13 +504,17 @@ struct Context
         if (h < Rules::get().pForks[2].m_Height)
             return;
 
-        if (h > m_SplittingUntil)
+        HandleTxs(m_setSplit, h);
+
+        TxoMW::HeightMap::iterator itBullet = m_TxosMW.m_mapConfirmed.begin();
+
+        if (m_setSplit.empty())
         {
             // make sure we have enough bullets
             uint32_t nFreeBullets = 0;
-            for (TxoMW::HeightMap::iterator it = m_TxosMW.m_mapConfirmed.begin(); ; )
+            while (true)
             {
-                TxoMW* pTxo = FindNextAvailBullet(it, h);
+                TxoMW* pTxo = FindNextAvailBullet(itBullet, h);
                 if (!pTxo)
                     break;
 
@@ -562,7 +582,9 @@ struct Context
     {
         Height h = m_FlyClient.get_Height();
 
-        Amount valFee = m_Cfg.m_BulletValue;
+        Transaction::FeeSettings fs;
+
+        Amount valFee = fs.m_Kernel + fs.m_Output * (m_Cfg.m_BulletsMax + 1); // minimum fee (assuming there's a change output)
         Amount valInp = m_Cfg.m_BulletValue * m_Cfg.m_BulletsMax + valFee;
 
         std::vector<TxoMW*> vInps;
@@ -612,7 +634,7 @@ struct Context
 
         SendTx(std::move(pTx));
 
-        m_SplittingUntil = hr.m_Max;
+        m_setSplit.insert(vInps.front()->m_ID.m_Value);
 
     }
 
@@ -639,7 +661,13 @@ uint16_t g_LocalNodePort = 16725;
 void DoTest(Key::IKdf::Ptr& pKdf)
 {
     Context ctx;
+
+    Transaction::FeeSettings fs;
+    if (ctx.m_Cfg.m_BulletValue < (fs.m_Kernel + fs.m_Output) * 2 + fs.m_ShieldedOutput + fs.m_ShieldedInput)
+        throw std::runtime_error("Bullet/Fee settings not consistent");
+
     ctx.m_pKdf = pKdf;
+    ctx.m_ShieldedViewer.FromOwner(*pKdf);
     ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));
     ctx.m_Network.Connect();
 
@@ -734,6 +762,7 @@ int main_Guarded(int argc, char* argv[])
 
         ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
         Rules::get().FakePoW = true;
+        Rules::get().MaxRollback = 10;
         Rules::get().pForks[1].m_Height = 1;
         Rules::get().pForks[2].m_Height = 2;
 
