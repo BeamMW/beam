@@ -129,10 +129,6 @@ namespace beam::wallet::lelantus
                 std::copy(m_shieldedList.begin(), m_shieldedList.end(), lst.m_vec.end() - m_shieldedList.size());
             }
 
-            ECC::Scalar::Native inputSk = Zero;
-            // TODO: need to generate "protected" random and get blinding factor through IPrivateKeyKeeper
-            inputSk.GenRandomNnz();
-
             assert(shieldedId < windowEnd && shieldedId >= startIndex);
             uint32_t shieldedWindowId = 0;
             if (isRestrictedMode)
@@ -164,16 +160,11 @@ namespace beam::wallet::lelantus
                 prover.m_Witness.V.m_L = shieldedWindowId;
                 prover.m_Witness.V.m_R = sdp.m_Serial.m_pK[0];
                 prover.m_Witness.V.m_R += sdp.m_Output.m_k;
-                prover.m_Witness.V.m_R_Output = inputSk;
                 prover.m_Witness.V.m_V = GetAmount() + GetFee();
             }
-            pKrn->UpdateMsg();
 
-            ECC::Oracle oracle;
-            oracle << pKrn->m_Msg;
-            prover.Generate(Zero, oracle);
+            pKrn->Sign(prover, 0);
 
-            pKrn->MsgToID();
             m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
 
 
@@ -190,7 +181,7 @@ namespace beam::wallet::lelantus
             transaction->m_vKernels.push_back(std::move(pKrn));
 
             ECC::Scalar::Native offset = transaction->m_Offset;
-            offset += inputSk;
+            offset += prover.m_Witness.V.m_R_Output;
             transaction->m_Offset = offset;
         }
 

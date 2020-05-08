@@ -859,41 +859,21 @@ struct Context
         sdp.m_Output.m_User = txo.m_User;
         sdp.m_Output.Restore_kG(sdp.m_Serial.m_SharedSecret);
 
-        ECC::Scalar sk_;
-        ECC::GenRandom(sk_.m_Value);
-        ECC::Scalar::Native kOffs = sk_;
-
         Lelantus::Prover p(lst, pKrn->m_SpendProof);
         p.m_Witness.V.m_L = nIdx;
         p.m_Witness.V.m_R = sdp.m_Serial.m_pK[0] + sdp.m_Output.m_k; // total blinding factor of the shielded element
-        p.m_Witness.V.m_R_Output = kOffs;
         p.m_Witness.V.m_V = sdp.m_Output.m_Value;
 
         m_pShieldedPrivate->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Serial.m_SerialPreimage);
 
-
-        ECC::Point::Native hGen;
-
-        //{
-        //    // not necessary for beams, just a demonstration of assets support
-        //    pKrn->m_pAsset = std::make_unique<Asset::Proof>();
-        //    p.m_Witness.V.m_R_Adj = p.m_Witness.V.m_R_Output;
-        //    pKrn->m_pAsset->Create(hGen, p.m_Witness.V.m_R_Adj, m_Shielded.m_Params.m_Output.m_Value, 0, hGen);
-        //}
-
-        pKrn->UpdateMsg();
-
-        ECC::Oracle o1;
-        o1 << pKrn->m_Msg;
-
         {
             beam::Executor::Scope scope(m_Exec);
-            p.Generate(sk_.m_Value, o1, &hGen);
-        }
-
-        pKrn->MsgToID();
+            pKrn->Sign(p, 0);
+        };
 
         pTx->m_vKernels.push_back(std::move(pKrn));
+
+        ECC::Scalar::Native kOffs = p.m_Witness.V.m_R_Output;
 
         AddOutp(*pTx, kOffs, txo.m_Value - fee, 0, hr.m_Min);
 
