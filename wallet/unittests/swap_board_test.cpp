@@ -851,8 +851,10 @@ namespace
         {
             cout << "Case: own incoming offers correctly set" << endl;
 
-            auto [ownOffer, ownID] = generateTestOffer(storage);
-            auto [foreignOffer, foreignID] = generateTestOffer(storage);
+            SwapOffer ownOffer, foreignOffer;
+            uint64_t ownID, foreignID;
+            std::tie(ownOffer, ownID) = generateTestOffer(storage);
+            std::tie(foreignOffer, foreignID) = generateTestOffer(storage);
             ownOffer.m_txId = ++txID;
             foreignOffer.m_txId = ++txID;
             ByteBuffer ownMsg = protocolHandler.createMessage(ownOffer, ownID);
