@@ -32,15 +32,9 @@
 
 namespace ECC {
 
-	void GenerateRandom(void* p, uint32_t n)
-	{
-		for (uint32_t i = 0; i < n; i++)
-			((uint8_t*) p)[i] = (uint8_t) rand();
-	}
-
 	void SetRandom(uintBig& x)
 	{
-		GenerateRandom(x.m_pData, x.nBytes);
+		GenRandom(x);
 	}
 
 	void SetRandom(Scalar::Native& x)
@@ -2947,6 +2941,9 @@ namespace beam
 
 void TestAll()
 {
+	ECC::PseudoRandomGenerator prg;
+	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
+
 	bool bClientProtoOnly = false;
 
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
