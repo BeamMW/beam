@@ -306,11 +306,10 @@ namespace
                 });
             broadcastRouter.registerListener(BroadcastContentType::SwapOffers, &testListener);
 
-            boost::optional<ByteBuffer> msg;
+            ByteBuffer msg;
             WALLET_CHECK_NO_THROW(msg = protocolHandler.createMessage(offer, storage->getAddress(offer.m_publisherId)->m_OwnID));
-            WALLET_CHECK(msg);
 
-            broadcastRouter.sendRawMessage(BroadcastContentType::SwapOffers, *msg);
+            broadcastRouter.sendRawMessage(BroadcastContentType::SwapOffers, msg);
 
             WALLET_CHECK(executed);
         }
@@ -807,6 +806,90 @@ namespace
         cout << "Test end" << endl;
     }
 
+    void TestOwnOfferCheck()
+    {
+        cout << endl << "Test own offer check based on addresses watching" << endl;
+
+        auto storage = createSqliteWalletDB();
+
+        OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf());
+        MockBbsNetwork mockNetwork;
+        BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
+        SwapOffersBoard Alice(broadcastRouter, protocolHandler, storage);
+
+        HeightHash startState;
+        startState.m_Height = Fork1Height;
+        Alice.onSystemStateChanged(startState);
+        
+        storage->Subscribe(&Alice);
+        TxID txID;
+        size_t offersOnBoard = 0;
+        {
+            cout << "Case: only own offers are published" << endl;
+
+            SwapOffer correctOffer, foreignOffer, removedOffer;
+            std::tie(correctOffer, std::ignore) = generateTestOffer(storage);
+            std::tie(foreignOffer, std::ignore) = generateTestOffer(storage);
+            std::tie(removedOffer, std::ignore) = generateTestOffer(storage);
+            txID = correctOffer.m_txId;
+            foreignOffer.m_txId = ++txID;
+            removedOffer.m_txId = ++txID;
+
+            storage->deleteAddress(foreignOffer.m_publisherId);
+            PublishOfferNoThrow(Alice, foreignOffer);
+            WALLET_CHECK(Alice.getOffersList().size() == offersOnBoard);
+
+            storage->deleteAddress(removedOffer.m_publisherId);
+
+            PublishOfferNoThrow(Alice, removedOffer);
+            WALLET_CHECK(Alice.getOffersList().size() == offersOnBoard);
+
+            PublishOfferNoThrow(Alice, correctOffer);
+            WALLET_CHECK(Alice.getOffersList().size() == ++offersOnBoard);
+            WALLET_CHECK(Alice.getOffersList()[0] == correctOffer);
+        }
+        {
+            cout << "Case: own incoming offers correctly set" << endl;
+
+            auto [ownOffer, ownID] = generateTestOffer(storage);
+            auto [foreignOffer, foreignID] = generateTestOffer(storage);
+            ownOffer.m_txId = ++txID;
+            foreignOffer.m_txId = ++txID;
+            ByteBuffer ownMsg = protocolHandler.createMessage(ownOffer, ownID);
+            ByteBuffer foreignMsg = protocolHandler.createMessage(foreignOffer, foreignID);
+            storage->deleteAddress(foreignOffer.m_publisherId);
+
+            uint32_t exCount = 0;
+            MockBoardObserver observer(
+                [&exCount, &ownOffer, &foreignOffer]
+                (ChangeAction action, const vector<SwapOffer>& offers)
+                {
+                    WALLET_CHECK(action == ChangeAction::Added);
+                    switch (exCount)
+                    {
+                    case 0:
+                        WALLET_CHECK(offers[0].m_txId == ownOffer.m_txId);
+                        WALLET_CHECK(offers[0].m_isOwn == true);
+                        break;
+                    case 1:
+                        WALLET_CHECK(offers[0].m_txId == foreignOffer.m_txId);
+                        WALLET_CHECK(offers[0].m_isOwn == false);
+                    default:
+                        break;
+                    }
+                    exCount++;
+                });
+            Alice.Subscribe(&observer);
+
+            broadcastRouter.sendRawMessage(BroadcastContentType::SwapOffers, ownMsg);
+            WALLET_CHECK(exCount == 1);
+            WALLET_CHECK(Alice.getOffersList().size() == ++offersOnBoard);
+            broadcastRouter.sendRawMessage(BroadcastContentType::SwapOffers, foreignMsg);
+            WALLET_CHECK(exCount == 2);
+            WALLET_CHECK(Alice.getOffersList().size() == ++offersOnBoard);
+        }
+    }
+
 } // namespace
 
 int main()
@@ -830,6 +913,7 @@ int main()
     TestLinkedTransactionChanges();
     TestDelayedOfferUpdate();
     TestOffersLifetimeCheck();
+    TestOwnOfferCheck();
 
     boost::filesystem::remove(dbFileName);
 

@@ -216,6 +216,7 @@ bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
 
     if (it == m_offersCache.end()) // New offer
     {
+        newOffer.m_isOwn = isOwnOffer(newOffer);
         if (newOffer.m_status == SwapOfferStatus::Pending)
         {
             if (!newOffer.IsValid())
@@ -229,7 +230,6 @@ bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
             }
             notifySubscribers(ChangeAction::Added, std::vector<SwapOffer>{ newOffer });
         }
-        newOffer.m_isOwn = isOwnOffer(newOffer);
         m_offersCache.emplace(newOffer.m_txId, newOffer);
     }
     else // Offer already exist
