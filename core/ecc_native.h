@@ -813,6 +813,35 @@ namespace ECC
 		Context() {}
 	};
 
+	// simple pseudo-random generator. For tests only
+	struct PseudoRandomGenerator
+	{
+		uintBig m_hv;
+		uint32_t m_Remaining;
+
+		PseudoRandomGenerator();
+
+		void Generate(void*, uint32_t nSize);
+
+		static thread_local PseudoRandomGenerator* s_pOverride; // set this to override the 'true' (standard) random generator. For tests, where repearability is needed.
+
+		struct Scope
+		{
+			PseudoRandomGenerator* m_pPrev;
+
+			Scope(PseudoRandomGenerator* p)
+			{
+				m_pPrev = s_pOverride;
+				s_pOverride = p;
+			}
+
+			~Scope()
+			{
+				s_pOverride = m_pPrev;
+			}
+		};
+	};
+
 	struct InnerProduct::BatchContext
 		:public MultiMac
 	{

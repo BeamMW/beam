@@ -82,46 +82,15 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 			TestFailed(#x, __LINE__); \
 	} while (false)
 
-inline void hex2bin(const char *hex_string, const size_t size_string, uint8_t *out_bytes)
-{
-  uint32_t buffer = 0;
-  for (size_t i = 0; i < size_string / 2; i++)
-  {
-#ifdef WIN32
-    sscanf_s(hex_string + 2 * i, "%2X", &buffer);
-#else
-    sscanf(hex_string + 2 * i, "%2X", &buffer);
-#endif
-    out_bytes[i] = (uint8_t)buffer;
-  }
-}
-
-int IS_EQUAL_HEX(const char *hex_str, const uint8_t *bytes, size_t str_size)
-{
-  std::vector<uint8_t> tmp(str_size / 2);
-  hex2bin(hex_str, str_size, &tmp[0]);
-  return memcmp(&tmp[0], bytes, str_size / 2) == 0;
-}
 
 namespace ECC {
 
 typedef beam::CoinID CoinID;
 
-void Test_SetUintBig(uintBig& uintbig, int value)
-{
-	memset(uintbig.m_pData, value, uintbig.nBytes);
-}
-
-void GenerateRandom(void* p, uint32_t n)
-{
-	for (uint32_t i = 0; i < n; i++)
-		((uint8_t*) p)[i] = (uint8_t) rand();
-}
-
 template <uint32_t nBytes>
 void SetRandom(beam::uintBig_t<nBytes>& x)
 {
-	GenerateRandom(x.m_pData, x.nBytes);
+	GenRandom(x);
 }
 
 void SetRandom(Scalar::Native& x)
@@ -160,7 +129,7 @@ void SetRandom(Key::IKdf::Ptr& pPtr)
 template <typename T>
 void SetRandomOrd(T& x)
 {
-	GenerateRandom(&x, sizeof(x));
+	GenRandom(&x, sizeof(x));
 }
 
 uint32_t get_LsBit(const uint8_t* pSrc, uint32_t nSrc, uint32_t iBit)
@@ -1634,7 +1603,7 @@ void TestDifficulty()
 
 	for (uint32_t i = 0; i < 200; i++)
 	{
-		GenerateRandom(&d, sizeof(d));
+		GenRandom(&d, sizeof(d));
 
 		uintBig trg;
 		if (!d.get_Target(trg))
@@ -1653,6 +1622,8 @@ void TestDifficulty()
 
 void TestRandom()
 {
+	PseudoRandomGenerator::Scope scopePrg(nullptr); // restore std
+
 	uintBig pV[2];
 	ZeroObject(pV);
 
@@ -2454,7 +2425,7 @@ void RunBenchmark()
 
 	{
 		uint8_t pBuf[0x400];
-		GenerateRandom(pBuf, sizeof(pBuf));
+		GenRandom(pBuf, sizeof(pBuf));
 
 		BenchmarkMeter bm("Hash.Init.1K.Out");
 		do
@@ -2616,6 +2587,8 @@ void RunBenchmark()
 	{
 		uint8_t pBuf[0x400];
 
+		PseudoRandomGenerator::Scope scopePrg(nullptr); // restore std
+
 		BenchmarkMeter bm("Random-1K");
 		bm.N = 10;
 		do
@@ -2657,6 +2630,9 @@ void RunBenchmark()
 int main()
 {
 	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+
+	ECC::PseudoRandomGenerator prg;
+	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
 	beam::Rules::get().CA.Enabled = true;
 	beam::Rules::get().pForks[1].m_Height = g_hFork;
