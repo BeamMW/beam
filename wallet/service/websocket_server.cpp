@@ -197,11 +197,13 @@ namespace beam::wallet
 
             void process_new_data()
             {
-                while (!m_dataQueue.empty())
+                while (true)
                 {
                     std::string data;
                     {
                         std::unique_lock<std::mutex> lock(m_queueMutex);
+                        if (m_dataQueue.empty())
+                            return;
                         data = m_dataQueue.front();
                         m_dataQueue.pop();
                     }
