@@ -14,29 +14,50 @@
 
 #include "trezor_key_keeper.h"
 #include "core/block_rw.h"
-#include "utility/logger.h"
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#	pragma GCC diagnostic push
+#else
+#	pragma warning (push, 0)
+#   pragma warning( disable : 4996 )
+#endif
+
+#include "client.hpp"
+#include "queue/working_queue.h"
+#include "device_manager.hpp"
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#	pragma GCC diagnostic pop
+#else
+#	pragma warning (pop)
+#endif
 
 namespace beam::wallet
 {
     using namespace ECC;
     using namespace std;
 
-    HardwareKeyKeeperProxy::HardwareKeyKeeperProxy()
-       // : m_OwnerKdf(ownerKdf)
-    {}
 
-    IPrivateKeyKeeper2::Status::Type HardwareKeyKeeperProxy::InvokeSync(Method::get_Kdf& x)
+    TrezorKeyKeeperProxy::TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager, Key::IPKdf::Ptr ownerKdf)
+        : m_DeviceManager(deviceManager)
+        , m_OwnerKdf(ownerKdf)
+        , m_PushEvent(io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { ProcessResponses(); }))
     {
-        //if (x.m_Root)
-        //{
-        //    assert(_ownerKdf);
-        //    x.m_pPKdf = _ownerKdf;
-        //    return Status::Success;
-        //}
+        
+    }
+
+    IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::get_Kdf& x)
+    {
+        if (m_OwnerKdf && (x.m_Root 
+            || x.m_iChild == Key::Index(-1))) // TODO temporary, remove this condition after integration
+        {
+            x.m_pPKdf = m_OwnerKdf;
+            return Status::Success;
+        }
         return PrivateKeyKeeper_AsyncNotify::InvokeSync(x);
     }
 
-    void HardwareKeyKeeperProxy::InvokeAsync(Method::get_Kdf& x, const Handler::Ptr& h)
+    void TrezorKeyKeeperProxy::InvokeAsync(Method::get_Kdf& x, const Handler::Ptr& h)
     {
         //json msg =
         //{
@@ -51,6 +72,40 @@ namespace beam::wallet
         //    }
         //};
         //
+
+        m_DeviceManager->call_BeamGetOwnerKey(true, [this, &x, h](const Message& msg, std::string session, size_t queue_size)
+        {
+            auto pubKdf = std::make_shared<ECC::HKdfPub>();
+
+            ///// Old
+            auto ownerKey = child_cast<Message, hw::trezor::messages::beam::BeamOwnerKey>(msg).key();
+            KeyString ks;
+            ks.SetPassword("LWkeNHJD");
+            ks.m_sRes = ownerKey;
+
+            ks.Import(*pubKdf);
+
+            ///// New
+
+            //const ECC::HKdfPub::Packed* packed = reinterpret_cast<const ECC::HKdfPub::Packed*>(child_cast<Message, hw::trezor::messages::beam::BeamOwnerKey>(msg).key().data());
+
+            //pubKdf->Import(*packed);
+
+            PushHandlerToCallerThread([this, &x, h, pubKdf]()
+            {
+                {
+                    
+                    x.m_pPKdf = pubKdf;
+
+                    if (x.m_Root)
+                    {
+                        m_OwnerKdf = pubKdf;
+                    }
+                }
+                PushOut(Status::Success, h);
+            });
+        });
+
         //
         //_connection.sendAsync(msg, [this, &x, h](const json& msg)
         //    {
@@ -68,27 +123,35 @@ namespace beam::wallet
         //    });
     }
 
-    void HardwareKeyKeeperProxy::InvokeAsync(Method::get_NumSlots& x, const Handler::Ptr& h)
+    IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::get_NumSlots& x)
     {
-        //json msg =
-        //{
-        //    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
-        //    {"id", 0},
-        //    {"method", "get_slots"}
-        //};
-        //
-        //_connection.sendAsync(msg, [this, &x, h](const json& msg)
-        //    {
-        //        Status::Type s = GetStatus(msg);
-        //        if (s == Status::Success)
-        //        {
-        //            x.m_Count = msg["count"];
-        //        }
-        //        PushOut(s, h);
-        //    });
+        x.m_Count = 8;
+        return Status::Success;
     }
 
-    void HardwareKeyKeeperProxy::InvokeAsync(Method::CreateOutput& x, const Handler::Ptr& h)
+    //void TrezorKeyKeeperProxy::InvokeAsync(Method::get_NumSlots& x, const Handler::Ptr& h)
+    //{
+    //    //json msg =
+    //    //{
+    //    //    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
+    //    //    {"id", 0},
+    //    //    {"method", "get_slots"}
+    //    //};
+    //    //
+    //    //_connection.sendAsync(msg, [this, &x, h](const json& msg)
+    //    //    {
+    //    //        Status::Type s = GetStatus(msg);
+    //    //        if (s == Status::Success)
+    //    //        {
+    //    //            x.m_Count = msg["count"];
+    //    //        }
+    //    //        PushOut(s, h);
+    //    //    });
+    //    x.m_Count = 8;
+    //    PushOut(Status::Success, h);
+    //}
+
+    void TrezorKeyKeeperProxy::InvokeAsync(Method::CreateOutput& x, const Handler::Ptr& h)
     {
         //json msg =
         //{
@@ -114,7 +177,7 @@ namespace beam::wallet
         //    });
     }
 
-    void HardwareKeyKeeperProxy::InvokeAsync(Method::SignReceiver& x, const Handler::Ptr& h)
+    void TrezorKeyKeeperProxy::InvokeAsync(Method::SignReceiver& x, const Handler::Ptr& h)
     {
         //json msg =
         //{
@@ -144,7 +207,7 @@ namespace beam::wallet
         //    });
     }
 
-    void HardwareKeyKeeperProxy::InvokeAsync(Method::SignSender& x, const Handler::Ptr& h)
+    void TrezorKeyKeeperProxy::InvokeAsync(Method::SignSender& x, const Handler::Ptr& h)
     {
         //json msg =
         //{
@@ -188,7 +251,7 @@ namespace beam::wallet
         //    });
     }
 
-    void HardwareKeyKeeperProxy::InvokeAsync(Method::SignSplit& x, const Handler::Ptr& h)
+    void TrezorKeyKeeperProxy::InvokeAsync(Method::SignSplit& x, const Handler::Ptr& h)
     {
         //json msg =
         //{
@@ -235,156 +298,29 @@ namespace beam::wallet
     //    return msg["status"];
     //}
 
+    void TrezorKeyKeeperProxy::PushHandlerToCallerThread(MessageHandler&& h)
+    {
+        {
+            unique_lock<mutex> lock(m_ResponseMutex);
+            m_ResponseHandlers.push(move(h));
+        }
+        m_PushEvent->post();
+    }
 
-//    ////////////////////////////////////
-//
-//    TrezorKeyKeeper::TrezorKeyKeeper()
-//        : m_hwWallet([this](const std::string& msg)
-//            {
-//                for (auto handler : m_handlers)
-//                    handler->onShowKeyKeeperError(msg);
-//            })
-//        , m_latestSlot(0)
-//    {
-//
-//    }
-//
-//    TrezorKeyKeeper::~TrezorKeyKeeper()
-//    {
-//
-//    }
-//
-//    Key::IKdf::Ptr TrezorKeyKeeper::get_SbbsKdf() const
-//    {
-//        // !TODO: temporary solution to init SBBS KDF with commitment
-//        // also, we could store SBBS Kdf in the WalletDB
-//
-//        if (!m_sbbsKdf)
-//        {
-//            if (m_hwWallet.isConnected())
-//            {
-//                ECC::HKdf::Create(m_sbbsKdf, m_hwWallet.generateKeySync({ 0, 0, Key::Type::Regular }, true).m_X);
-//            }
-//        }
-//           
-//        return m_sbbsKdf;
-//    }
-//
-//    void TrezorKeyKeeper::GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
-//    {
-//        assert(!"not implemented.");
-//    }
-//
-//    void TrezorKeyKeeper::GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
-//    {
-//        using namespace std;
-//
-//        auto thisHolder = shared_from_this();
-//        shared_ptr<Outputs> result = make_shared<Outputs>();
-//        shared_ptr<exception> storedException;
-//        shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
-//        *futureHolder = do_thread_async(
-//            [thisHolder, this, schemeHeight, ids, result, storedException]()
-//            {
-//                try
-//                {
-//                    *result = GenerateOutputsSync(schemeHeight, ids);
-//                }
-//                catch (const exception& ex)
-//                {
-//                    *storedException = ex;
-//                }
-//            },
-//            [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
-//            {
-//                if (storedException)
-//                {
-//                    exceptionCallback(*storedException);
-//                }
-//                else
-//                {
-//                    resultCallback(move(*result));
-//                }
-//                futureHolder.reset();
-//            });
-//    }
-//
-//    size_t TrezorKeyKeeper::AllocateNonceSlotSync()
-//    {
-//        m_latestSlot++;
-//        m_hwWallet.generateNonceSync((uint8_t)m_latestSlot);
-//        return m_latestSlot;
-//    }
-//
-//    IPrivateKeyKeeper::PublicKeys TrezorKeyKeeper::GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey)
-//    {
-//        PublicKeys result;
-//        result.reserve(ids.size());
-//
-//        for (const auto& idv : ids)
-//        {
-//            ECC::Point& publicKey = result.emplace_back();
-//            publicKey = m_hwWallet.generateKeySync(idv, createCoinKey);
-//        }
-//
-//        return result;
-//    }
-//
-//    ECC::Point TrezorKeyKeeper::GeneratePublicKeySync(const Key::IDV& id)
-//    {
-//        return m_hwWallet.generateKeySync(id, false);
-//    }
-//
-//    IPrivateKeyKeeper::Outputs TrezorKeyKeeper::GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
-//    {
-//        Outputs outputs;
-//        outputs.reserve(ids.size());
-//
-//        for (const auto& kidv : ids)
-//        {
-//            auto& output = outputs.emplace_back(std::make_unique<Output>());
-//            output->m_Commitment = m_hwWallet.generateKeySync(kidv, true);
-//
-//            output->m_pConfidential.reset(new ECC::RangeProof::Confidential);
-//            *output->m_pConfidential = m_hwWallet.generateRangeProofSync(kidv, false);
-//        }
-//
-//        return outputs;
-//    }
-//
-//    ECC::Point TrezorKeyKeeper::GenerateNonceSync(size_t slot)
-//    {
-//        assert(m_latestSlot >= slot);
-//        return m_hwWallet.getNoncePublicSync((uint8_t)slot);
-//    }
-//
-//    ECC::Scalar TrezorKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, Asset::ID assetId, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce)
-//    {
-//        // TODO:ASSETS implement
-//        assert(assetId == 0);
-//        HWWallet::TxData txData;
-//        txData.fee = kernelParamerters.fee;
-//        txData.height = kernelParamerters.height;
-//        txData.kernelCommitment = kernelParamerters.commitment;
-//        txData.kernelNonce = publicNonce;
-//        txData.nonceSlot = (uint32_t)nonceSlot;
-//        txData.offset = offset;
-//
-//        for (auto handler : m_handlers)
-//            handler->onShowKeyKeeperMessage();
-//
-//        auto res = m_hwWallet.signTransactionSync(inputs, outputs, txData);
-//
-//        for (auto handler : m_handlers)
-//            handler->onHideKeyKeeperMessage();
-//
-//        return res;
-//    }
-//
-//    void TrezorKeyKeeper::subscribe(Handler::Ptr handler)
-//    {
-//        assert(std::find(m_handlers.begin(), m_handlers.end(), handler) == m_handlers.end());
-//
-//        m_handlers.push_back(handler);
-//    }
+    void TrezorKeyKeeperProxy::ProcessResponses()
+    {
+        while (true)
+        {
+            MessageHandler h;
+            {
+                unique_lock<mutex> lock(m_ResponseMutex);
+                if (m_ResponseHandlers.empty())
+                    return;
+                h = std::move(m_ResponseHandlers.front());
+                m_ResponseHandlers.pop();
+            }
+            h();
+        }
+    }
+
 }
