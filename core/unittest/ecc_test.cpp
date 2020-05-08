@@ -1828,7 +1828,9 @@ void TestLelantus(bool bWithAsset)
 		p.m_Witness.V.m_R_Adj += -skGen;
 	}
 
-	std::vector<Point> vG;
+	beam::ByteBuffer bufProof;
+
+	PseudoRandomGenerator prg = *PseudoRandomGenerator::s_pOverride; // save prnd state
 
 	for (uint32_t iCycle = 0; iCycle < 3; iCycle++)
 	{
@@ -1853,20 +1855,27 @@ void TestLelantus(bool bWithAsset)
 
 		uint32_t t = beam::GetTime_ms();
 
+		*PseudoRandomGenerator::s_pOverride = prg; // restore prnd state
+
 		Oracle oracle;
 		p.Generate(Zero, oracle, &hGen);
 
 		if (!bWithAsset)
 			printf("\tProof time = %u ms, Threads=%u\n", beam::GetTime_ms() - t, ex.m_Threads);
 
+		// serialization
+		beam::Serializer ser_;
+		ser_ & proof;
+
 		if (iCycle)
 		{
 			// verify the result is the same (doesn't depend on thread num)
-			verify_test(proof.m_Part1.m_vG == vG);
+			beam::SerializeBuffer sb = ser_.buffer();
+			verify_test((sb.second == bufProof.size()) && !memcmp(sb.first, &bufProof.front(), sb.second));
 		}
 		else
 		{
-			vG.swap(proof.m_Part1.m_vG);
+			ser_.swap_buf(bufProof);
 		}
 	}
 
@@ -1885,19 +1894,16 @@ void TestLelantus(bool bWithAsset)
 	typedef InnerProduct::BatchContextEx<4> MyBatch;
 
 	{
-		// serialization
-		beam::Serializer ser_;
-		ser_ & proof;
-
+		// deserialization
 		proof.m_Part1.m_vG.clear();
 		proof.m_Part2.m_vF.clear();
 
 		beam::Deserializer der_;
-		der_.reset(ser_.buffer().first, ser_.buffer().second);
+		der_.reset(bufProof);
 		der_ & proof;
 
 		if (!bWithAsset)
-			printf("\tProof size = %u\n", (uint32_t)ser_.buffer().second);
+			printf("\tProof size = %u\n", (uint32_t) bufProof.size());
 	}
 
 	MyBatch bc;
