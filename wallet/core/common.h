@@ -24,6 +24,7 @@
 #include <algorithm>
 #include "wallet/client/extensions/news_channels/version_info.h"
 #include "wallet/core/exchange_rate.h"
+#include "utility/std_extension.h"
 
 namespace beam::wallet
 {
@@ -91,14 +92,14 @@ namespace beam::wallet
 
     struct PrintableAmount
     {
-        explicit PrintableAmount(const Amount& amount, bool showPoint = false, const std::string& coinName = "", const std::string& grothName ="")
+        explicit PrintableAmount(const AmountBig::Type amount, bool showPoint = false, const std::string& coinName = "", const std::string& grothName ="")
             : m_value{amount}
             , m_showPoint{showPoint}
             , m_coinName{coinName}
             , m_grothName{grothName}
         {}
 
-        const Amount& m_value;
+        const AmountBig::Type m_value;
         bool m_showPoint;
         std::string m_coinName;
         std::string m_grothName;
@@ -755,4 +756,14 @@ namespace std
     string to_string(const beam::Version&);
     string to_string(const beam::wallet::TxID&);
     string to_string(const beam::PeerID& id);
+    string to_string(const beam::AmountBig::Type&);
+
+    template<>
+    struct hash<beam::wallet::WalletID>
+    {
+        size_t operator() (const beam::wallet::WalletID& key) const noexcept
+        {
+            return std::hash<ECC::uintBig>{}(key.m_Pk);
+        }
+    };
 }

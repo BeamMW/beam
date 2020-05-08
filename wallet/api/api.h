@@ -79,7 +79,7 @@ namespace beam::wallet
     macro(Send,               "tx_send",              API_WRITE_ACCESS)   \
     macro(Issue,              "tx_asset_issue",       API_WRITE_ACCESS)   \
     macro(Consume,            "tx_asset_consume",     API_WRITE_ACCESS)   \
-    macro(AssetInfo,          "tx_asset_info",        API_WRITE_ACCESS)   \
+    macro(TxAssetInfo,        "tx_asset_info",        API_WRITE_ACCESS)   \
     macro(Status,             "tx_status",            API_READ_ACCESS)    \
     macro(Split,              "tx_split",             API_WRITE_ACCESS)   \
     macro(TxCancel,           "tx_cancel",            API_WRITE_ACCESS)   \
@@ -340,7 +340,7 @@ namespace beam::wallet
         };
     };
 
-    struct AssetInfo
+    struct TxAssetInfo
     {
         boost::optional<std::string> assetMeta;
         boost::optional<Asset::ID> assetId;

@@ -110,9 +110,48 @@ namespace ECC {
         return operator << (s, point);
     }
 
+	thread_local PseudoRandomGenerator* PseudoRandomGenerator::s_pOverride = nullptr;
+
+	PseudoRandomGenerator::PseudoRandomGenerator()
+	{
+		ZeroObject(*this);
+	}
+
+	void PseudoRandomGenerator::Generate(void* p, uint32_t nSize)
+	{
+		while (true)
+		{
+			if (!m_Remaining)
+			{
+				Hash::Processor() << m_hv >> m_hv;
+				m_Remaining = m_hv.nBytes;
+			}
+
+			if (m_Remaining >= nSize)
+			{
+				memcpy(p, m_hv.m_pData + m_hv.nBytes - m_Remaining, nSize);
+				m_Remaining -= nSize;
+				break;
+			}
+
+			memcpy(p, m_hv.m_pData + m_hv.nBytes - m_Remaining, m_Remaining);
+
+			((uint8_t*&) p) += m_Remaining;
+			nSize -= m_Remaining;
+
+			m_Remaining = 0;
+		}
+	}
+
 	void GenRandom(void* p, uint32_t nSize)
 	{
 		// checkpoint?
+
+		if (PseudoRandomGenerator::s_pOverride)
+		{
+			PseudoRandomGenerator::s_pOverride->Generate(p, nSize);
+			return;
+		}
 
 #ifdef WIN32
 

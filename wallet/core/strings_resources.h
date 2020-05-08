@@ -199,6 +199,8 @@ namespace beam
     extern const char kTxHistoryColumnSwapAmount[];
     extern const char kTxHistoryColumnSwapType[];
     extern const char kOrphanedAseetTxs[];
+    extern const char kNoAssetsInWallet[];
+    extern const char kNoAssetTxsInWallet[];
 
     // Tx Details
     extern const char kTxDetailsFormat[];

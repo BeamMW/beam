@@ -3552,10 +3552,10 @@ void NodeProcessor::ToInputWithMaturity(Input& inp, TxoID id)
 	inp.m_Commitment = outp.m_Commitment;
 	inp.m_Internal.m_ID = id;
 
-	NodeDB::StateID sidPrev;
-	m_DB.FindStateByTxoID(sidPrev, id); // relatively heavy operation: search for the original txo height
+	Height hCreate;
+	FindHeightByTxoID(hCreate, id); // relatively heavy operation: search for the original txo height
 
-	inp.m_Internal.m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
+	inp.m_Internal.m_Maturity = outp.get_MinMaturity(hCreate);
 }
 
 void NodeProcessor::RollbackTo(Height h)
@@ -3647,10 +3647,13 @@ void NodeProcessor::RollbackTo(Height h)
 
 	m_Mmr.m_States.ShrinkTo(m_Mmr.m_States.H2I(m_Cursor.m_Sid.m_Height));
 
-	InitCursor(false);
-	OnRolledBack();
-
 	m_Extra.m_Txos = id0;
+
+	InitCursor(false);
+	if (!TestDefinition())
+		OnCorrupted();
+
+	OnRolledBack();
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id, bool bAlreadyChecked)
@@ -4440,6 +4443,21 @@ TxoID NodeProcessor::get_TxosBefore(Height h)
 	return id;
 }
 
+TxoID NodeProcessor::FindHeightByTxoID(Height& h, TxoID id0)
+{
+	if (id0 < m_Extra.m_TxosTreasury)
+	{
+		h = 0;
+		return m_Extra.m_TxosTreasury;
+	}
+
+	NodeDB::StateID sid;
+	TxoID ret = m_DB.FindStateByTxoID(sid, id0);
+
+	h = sid.m_Height;
+	return ret;
+}
+
 bool NodeProcessor::EnumTxos(ITxoWalker& wlk)
 {
 	return EnumTxos(wlk, HeightRange(Rules::HeightGenesis - 1, m_Cursor.m_ID.m_Height));
@@ -4467,11 +4485,8 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 
 			if (wlk.m_ID >= id1)
 			{
-				NodeDB::StateID sid;
-				id1 = m_DB.FindStateByTxoID(sid, wlk.m_ID);
-
+				id1 = FindHeightByTxoID(h, wlk.m_ID);
 				assert(wlk.m_ID < id1);
-				h = sid.m_Height;
 			}
 		}
 

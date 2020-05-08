@@ -198,6 +198,10 @@ public:
 
 	void Close();
 	void Open(const char* szPath);
+	bool IsOpen() const
+	{
+		return nullptr != m_pDb;
+	}
 
 	void Vacuum();
 	void CheckIntegrity();

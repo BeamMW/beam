@@ -17,21 +17,32 @@
 namespace beam::wallet
 {
 
-SwapOffer::SwapOffer(const boost::optional<TxID>& txID) : TxParameters(txID) {}
+SwapOffer::SwapOffer(const boost::optional<TxID>& txID)
+    : TxParameters(txID)
+{
+    if (txID)
+    {
+        m_txId = *txID;
+    }
+}
 
 SwapOffer::SwapOffer(const TxID& txId,
                      SwapOfferStatus status,
                      WalletID publisherId,
-                     AtomicSwapCoin coin)
+                     AtomicSwapCoin coin,
+                     bool isOwn)
     : TxParameters(txId),
       m_txId(txId),
       m_status(status),
       m_publisherId(publisherId),
-      m_coin(coin) {}
+      m_coin(coin),
+      m_isOwn(isOwn)
+{
+}
 
 SwapOffer::SwapOffer(const TxParameters& params) 
     : TxParameters(params)
- {
+{
     auto id = GetTxID();
     if (id)
         m_txId = *id;

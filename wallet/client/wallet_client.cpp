@@ -372,9 +372,9 @@ namespace beam::wallet
                 using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
                 // Swap offer board uses broadcasting messages
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                OfferBoardProtocolHandler protocolHandler(m_walletDB->get_SbbsKdf(), m_walletDB);
+                OfferBoardProtocolHandler protocolHandler(m_walletDB->get_SbbsKdf());
 
-                auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler);
+                auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler, m_walletDB);
                 m_offersBulletinBoard = offersBulletinBoard;
 
                 using SwapOffersBoardSubscriber = ScopedSubscriber<ISwapOffersObserver, SwapOffersBoard>;
@@ -1052,16 +1052,15 @@ namespace beam::wallet
     {
         WalletStatus status;
         storage::Totals totalsCalc(*m_walletDB);
-        const auto& totals = totalsCalc.GetTotals(Zero);
+        const auto& totals = totalsCalc.GetBeamTotals();
 
-        status.available = totals.Avail;
-        status.receivingIncoming = totals.ReceivingIncoming;
-        status.receivingChange = totals.ReceivingChange;
-        status.receiving = totals.Incoming;
-        status.sending = totals.Outgoing;
-        status.maturing = totals.Maturing;
-
-        status.update.lastTime = m_walletDB->getLastUpdateTime();
+        status.available         = AmountBig::get_Lo(totals.Avail);
+        status.receivingIncoming = AmountBig::get_Lo(totals.ReceivingIncoming);
+        status.receivingChange   = AmountBig::get_Lo(totals.ReceivingChange);
+        status.receiving         = AmountBig::get_Lo(totals.Incoming);
+        status.sending           = AmountBig::get_Lo(totals.Outgoing);
+        status.maturing          = AmountBig::get_Lo(totals.Maturing);
+        status.update.lastTime   = m_walletDB->getLastUpdateTime();
 
         ZeroObject(status.stateID);
         m_walletDB->getSystemStateID(status.stateID);

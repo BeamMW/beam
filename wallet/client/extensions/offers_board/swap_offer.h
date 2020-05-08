@@ -26,7 +26,8 @@ struct SwapOffer : public TxParameters
     SwapOffer(const TxID& txId,
               SwapOfferStatus status,
               WalletID publisherId,
-              AtomicSwapCoin coin);
+              AtomicSwapCoin coin,
+              bool isOwn);
     SwapOffer(const TxParameters& params);
     /**
      * Used to set m_Parameters on default constructed SwapOffer
@@ -47,6 +48,7 @@ struct SwapOffer : public TxParameters
     SwapOfferStatus m_status = SwapOfferStatus::Pending;
     WalletID m_publisherId = Zero;
     mutable AtomicSwapCoin m_coin = AtomicSwapCoin::Unknown;
+    bool m_isOwn = false;
 };
     
 } // namespace beam::wallet

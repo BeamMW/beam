@@ -724,7 +724,7 @@ namespace
             cout << boost::format(kWalletUnreliableAsset) % info->m_LockHeight;
         }
 
-        return info->m_LockHeight;
+        return info ? info->m_LockHeight : 0;
     }
 
     std::pair<std::string, std::string> GetAssetNames(IWalletDB::Ptr walletDB, Asset::ID assetId)
@@ -967,12 +967,14 @@ namespace
         }
         else
         {
+            bool assetDisplayed = false;
             for (auto it : totals.allTotals)
             {
                 const auto assetId = it.second.AssetId;
                 if (assetId != Asset::s_InvalidID)
                 {
                     displayAsset(it.second);
+                    assetDisplayed = true;
                 }
             }
 
@@ -1008,9 +1010,8 @@ namespace
                 for (auto assetId: noCoins)
                 {
                     cout << endl << endl;
-                    ShowAssetInfo(walletDB, totals.GetTotals(assetId));
-                    ShowAssetCoins(walletDB, assetId);
-                    ShowAssetTxs(walletDB, assetId);
+                    displayAsset(totals.GetTotals(assetId));
+                    assetDisplayed = true;
                 }
 
                 if (hasOrphaned)
@@ -1018,6 +1019,18 @@ namespace
                     cout << endl << endl << kOrphanedAseetTxs << endl;
                     ShowAssetTxs(walletDB, 0);
                 }
+
+                if (!assetDisplayed && !hasOrphaned)
+                {
+                    // if any asset without transaction has been displayed before
+                    // 'no transactions' message has been displayed as well.
+                    cout << kNoAssetTxsInWallet << endl;
+                }
+            }
+
+            if (!assetDisplayed)
+            {
+                cout << kNoAssetsInWallet << endl;
             }
         }
     }
@@ -1030,7 +1043,7 @@ namespace
         storage::Totals totalsCalc(*walletDB);
 
         // Show info about BEAM
-        const auto& totals = totalsCalc.GetTotals(Zero);
+        const auto& totals = totalsCalc.GetBeamTotals();
         const unsigned kWidth = 26;
         cout << boost::format(kWalletSummaryFormat)
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurHeight) % stateID.m_Height
@@ -1496,7 +1509,7 @@ namespace
         return true;
     }
 
-    bool ReadAmount(const po::variables_map& vm, Amount& amount)
+    bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit = std::numeric_limits<Amount>::max(), bool asset = false)
     {
         if (vm.count(cli::AMOUNT) == 0)
         {
@@ -1523,11 +1536,10 @@ namespace
                 return false;
             }
 
-            const auto limit = std::numeric_limits<Amount>::max();
             if (preciseAmount > limit)
             {
                 std::stringstream ssLimit;
-                ssLimit << PrintableAmount(limit);
+                ssLimit << PrintableAmount(limit, false, asset ? kAmountASSET : "", asset ? kAmountAGROTH : "");
                 LOG_ERROR() << (boost::format(kErrorTooBigAmount) % strAmount % ssLimit.str()).str();
                 return false;
             }
@@ -2326,7 +2338,8 @@ namespace
         }
 
         Amount amountGroth = 0;
-        if(!ReadAmount(vm, amountGroth))
+        Amount limit = static_cast<Amount>(std::numeric_limits<AmountSigned>::max());
+        if(!ReadAmount(vm, amountGroth, limit, true))
         {
             return boost::none;
         }

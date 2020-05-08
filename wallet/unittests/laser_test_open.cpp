@@ -92,10 +92,10 @@ int main()
         if (height == kTestStartBlock)
         {
             storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
-            totals_1= totalsCalc_1.GetTotals(Zero);
+            totals_1= totalsCalc_1.GetBeamTotals();
 
             storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()));
-            totals_2= totalsCalc_2.GetTotals(Zero);
+            totals_2= totalsCalc_2.GetBeamTotals();
 
             laserFirst->WaitIncoming(100000000, 100000000, kFee);
             auto firstWalletID = laserFirst->getWaitingWalletID();
@@ -105,13 +105,13 @@ int main()
         if (channel_1 && channel_2)
         {
             storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
-            totals_1_a = totalsCalc_1.GetTotals(Zero);
+            totals_1_a = totalsCalc_1.GetBeamTotals();
             const auto& channelFirst = laserFirst->getChannel(channel_1);
 
             auto feeFirst = channelFirst->get_fee();
 
             storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()));
-            totals_2_a = totalsCalc_2.GetTotals(Zero);
+            totals_2_a = totalsCalc_2.GetBeamTotals();
             const auto& channelSecond = laserSecond->getChannel(channel_2);
 
             auto feeSecond = channelSecond->get_fee();
@@ -119,13 +119,13 @@ int main()
             Amount nFeeSecond = feeSecond / 2;
             Amount nFeeFirst = feeFirst - nFeeSecond;
 
-            WALLET_CHECK(
-                totals_1.Unspent ==
-                totals_1_a.Unspent + channelFirst->get_amountMy() + nFeeFirst * 3);
+            AmountBig::Type val1 {totals_1_a.Unspent};
+            val1 += AmountBig::Type(channelFirst->get_amountMy()+ nFeeFirst * 3);
+            WALLET_CHECK(totals_1.Unspent == val1);
 
-            WALLET_CHECK(
-                totals_2.Unspent ==
-                totals_2_a.Unspent + channelSecond->get_amountMy() + nFeeSecond * 3);
+            AmountBig::Type val2 {totals_2_a.Unspent};
+            val2 += AmountBig::Type(channelSecond->get_amountMy() + nFeeSecond * 3);
+            WALLET_CHECK(totals_2.Unspent == val2);
 
             LOG_INFO() << "Test laser OPEN: finished";
             io::Reactor::get_Current().stop();

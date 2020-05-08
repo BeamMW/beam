@@ -1077,7 +1077,7 @@ Node::~Node()
 
 	m_Processor.Stop();
 
-	if (!std::uncaught_exceptions())
+	if (!std::uncaught_exceptions() && m_Processor.get_DB().IsOpen())
 		m_PeerMan.OnFlush();
 
     LOG_INFO() << "Node stopped";
@@ -4264,9 +4264,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			// 2 ways to discover the UTXO create height: either directly by looking its TxoID in States table, or reverse-engineer it from Maturity
 			// Since currently maturity delta is independent of current height (not a function of height, not changed in current forks) - we prefer the 2nd method, which is faster.
 
-			//NodeDB::StateID sid;
-			//m_pDB->FindStateByTxoID(sid, id);
-			//val.m_CreateHeight = sid.m_Height;
+            //m_Processor.FindHeightByTxoID(val.m_CreateHeight, id);
 			//assert(val.m_Output.get_MinMaturity(val.m_CreateHeight) == d.m_Maturity);
 
 			Height hCreateHeight = d.m_Maturity - outp.get_MinMaturity(0);

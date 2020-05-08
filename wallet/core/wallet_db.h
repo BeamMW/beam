@@ -772,27 +772,33 @@ namespace beam::wallet
         {
             struct AssetTotals {
                 Asset::ID AssetId = Asset::s_InvalidID;
-                Amount   Avail = 0;
-                Amount   Maturing = 0;
-                Amount   Incoming = 0;
-                Amount   ReceivingIncoming = 0;
-                Amount   ReceivingChange = 0;
-                Amount   Unavail = 0;
-                Amount   Outgoing = 0;
-                Amount   AvailCoinbase = 0;
-                Amount   Coinbase = 0;
-                Amount   AvailFee = 0;
-                Amount   Fee = 0;
-                Amount   Unspent = 0;
-                Height   MinCoinHeight = 0;
+                AmountBig::Type Avail = 0U;
+                AmountBig::Type Maturing = 0U;
+                AmountBig::Type Incoming = 0U;
+                AmountBig::Type ReceivingIncoming = 0U;
+                AmountBig::Type ReceivingChange = 0U;
+                AmountBig::Type Unavail = 0U;
+                AmountBig::Type Outgoing = 0U;
+                AmountBig::Type AvailCoinbase = 0U;
+                AmountBig::Type Coinbase = 0U;
+                AmountBig::Type AvailFee = 0U;
+                AmountBig::Type Fee = 0U;
+                AmountBig::Type Unspent = 0U;
+                Height MinCoinHeight = 0;
             };
 
             Totals();
             explicit Totals(IWalletDB& db);
-            AssetTotals GetTotals(Asset::ID) const;
-            bool HasTotals(Asset::ID) const;
-            mutable std::map<Asset::ID, AssetTotals> allTotals;
             void Init(IWalletDB&);
+
+            bool HasTotals(Asset::ID) const;
+            AssetTotals GetTotals(Asset::ID) const;
+
+            inline AssetTotals GetBeamTotals() const {
+                return GetTotals(Zero);
+            }
+
+            mutable std::map<Asset::ID, AssetTotals> allTotals;
         };
 
         // Used for Payment Proof feature

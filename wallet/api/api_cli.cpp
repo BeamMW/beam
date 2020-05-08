@@ -261,10 +261,9 @@ public:
     {
         _broadcastRouter = std::make_shared<BroadcastRouter>(nnet, wnet);
         _offerBoardProtocolHandler =
-            std::make_shared<OfferBoardProtocolHandler>(
-                _walletDB->get_SbbsKdf(), _walletDB);
+            std::make_shared<OfferBoardProtocolHandler>(_walletDB->get_SbbsKdf());
         _offersBulletinBoard = std::make_shared<SwapOffersBoard>(
-            *_broadcastRouter, *_offerBoardProtocolHandler);
+            *_broadcastRouter, *_offerBoardProtocolHandler, _walletDB);
         _walletDbSubscriber = std::make_unique<WalletDbSubscriber>(
             static_cast<IWalletDbObserver*>(
                 _offersBulletinBoard.get()), _walletDB);

@@ -385,7 +385,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const AssetInfo& data) override
+            void onMessage(const JsonRpcId& id, const TxAssetInfo& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
@@ -398,7 +398,7 @@ namespace
 
         {
             json res;
-            typename AssetInfo::Response status;
+            typename TxAssetInfo::Response status;
             status.txId = { 3,1,3 };
             api.getResponse(12345, status, res);
             testResultHeader(res);
@@ -1258,7 +1258,7 @@ void TestGetAssetInfo()
 void TestAITx()
 {
     // Invalid asset id
-    testInvalidAssetJsonRpc<AssetInfo>(JSON_CODE(
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id"     : 12345,
@@ -1270,7 +1270,7 @@ void TestAITx()
     }));
 
     // Invalid meta
-    testInvalidAssetJsonRpc<AssetInfo>(JSON_CODE(
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id"     : 12345,
@@ -1282,7 +1282,7 @@ void TestAITx()
     }));
 
     // missing asset id & meta
-    testInvalidAssetJsonRpc<AssetInfo>(JSON_CODE(
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id"     : 12345,
@@ -1293,7 +1293,7 @@ void TestAITx()
     }));
 
     // Bad txId (not a hex string)
-    testInvalidAssetJsonRpc<AssetInfo>(JSON_CODE(
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id" : 12345,
@@ -1306,7 +1306,7 @@ void TestAITx()
     }));
 
     // Bad txId string
-    testInvalidAssetJsonRpc<AssetInfo>(JSON_CODE(
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id" : 12345,

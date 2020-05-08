@@ -33,8 +33,8 @@ namespace
     void checkIsEnoughtBeamAmount(IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
     {
         storage::Totals allTotals(*walletDB);
-        const auto& totals = allTotals.GetTotals(Zero);
-        auto available = totals.Avail;
+        const auto& totals = allTotals.GetBeamTotals();
+        const auto available = AmountBig::get_Lo(totals.Avail);
         if (beamAmount + beamFee > available)
         {
             throw NotEnoughtBeams();
@@ -476,7 +476,6 @@ namespace beam::wallet
 
     template bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Issue& data);
     template bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Consume& data);
-    template bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const AssetInfo& data);
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const Issue& data)
     {
@@ -573,7 +572,7 @@ namespace beam::wallet
         doResponse(id, resp);
     }
 
-    void WalletApiHandler::onMessage(const JsonRpcId& id, const AssetInfo& data)
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const TxAssetInfo& data)
     {
         LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = "
                     << (data.assetId ? *data.assetId : 0)
@@ -589,9 +588,17 @@ namespace beam::wallet
             }
 
             auto params = CreateTransactionParameters(TxType::AssetInfo, data.txId);
-
-            if(!setTxAssetParams(id, params, data))
+            if (data.assetMeta)
             {
+                params.SetParameter(TxParameterID::AssetMetadata, *data.assetMeta);
+            }
+            else if (data.assetId)
+            {
+                params.SetParameter(TxParameterID::AssetID, *data.assetId);
+            }
+            else
+            {
+                doError(id, ApiError::InternalErrorJsonRpc, "asset_id or meta is required");
                 return;
             }
 
@@ -773,12 +780,12 @@ namespace beam::wallet
         }
 
         storage::Totals allTotals(*walletDB);
-        const auto& totals = allTotals.GetTotals(Zero);
+        const auto& totals = allTotals.GetBeamTotals();
 
-        response.available = totals.Avail;
-        response.receiving = totals.Incoming;
-        response.sending   = totals.Outgoing;
-        response.maturing  = totals.Maturing;
+        response.available = AmountBig::get_Lo(totals.Avail);
+        response.receiving = AmountBig::get_Lo(totals.Incoming);
+        response.sending   = AmountBig::get_Lo(totals.Outgoing);
+        response.maturing  = AmountBig::get_Lo(totals.Maturing);
 
         if (data.withAssets)
         {
