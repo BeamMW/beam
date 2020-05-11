@@ -331,7 +331,7 @@ namespace beam::wallet
         PeerResponseHeight = 134,
         AssetConfirmedHeight = 135, // This is NOT the same as ProofHeight for kernel!
         AssetUnconfirmedHeight = 136,
-        AssetFullInfo = 137,
+        AssetInfoFull = 137,
 
         Offset = 140,
 

@@ -82,12 +82,12 @@ namespace beam::wallet
                            << " saving " << PrintableAmount(builder.GetFee(), false) << " transaction fee";
 
                 UpdateTxDescription(TxStatus::InProgress);
-                SetState(State::AssetCheck);
+                SetState(State::AssetConfirmation);
                 ConfirmAsset();
                 return;
             }
 
-            if (GetState() == State::AssetCheck)
+            if (GetState() == State::AssetConfirmation)
             {
                 Height auHeight = 0;
                 GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
@@ -105,8 +105,20 @@ namespace beam::wallet
                     return;
                 }
 
+                SetState(State::AssetCheck);
+            }
+
+            if (GetState() == State::AssetCheck)
+            {
                 Asset::Full fullInfo;
-                if (!GetParameter(TxParameterID::AssetFullInfo, fullInfo))
+                if (!GetParameter(TxParameterID::AssetInfoFull, fullInfo) || !fullInfo.IsValid())
+                {
+                    OnFailed(TxFailureReason::NoAssetInfo, true);
+                    return;
+                }
+
+                Height acHeight = 0;
+                if (!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || !acHeight)
                 {
                     OnFailed(TxFailureReason::NoAssetInfo, true);
                     return;
@@ -146,9 +158,7 @@ namespace beam::wallet
                 //
                 // Last burn to 0 should not be able to roll back
                 //
-                Block::SystemState::Full tip;
-                GetTip(tip);
-                if (info.CanRollback(tip.m_Height))
+                if (info.CanRollback(m_WalletDB->getCurrentHeight()))
                 {
                     OnFailed(TxFailureReason::AssetLocked, true);
                     return;
@@ -158,12 +168,15 @@ namespace beam::wallet
                 // Here we know that this asset is safe to unregister
                 // It is valid, 0 emission and this cannot be rolled back
                 //
+                SetState(State::Making);
+            }
+
+            if(GetState() == State::Making)
+            {
                 if(!builder.GetInitialTxParams())
                 {
                     builder.AddRefund();
                 }
-
-                SetState(State::Making);
                 builder.CreateOutputs();
                 builder.MakeKernel();
             }

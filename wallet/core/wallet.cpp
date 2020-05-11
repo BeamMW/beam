@@ -643,7 +643,7 @@ namespace beam::wallet
             m_WalletDB->saveAsset(info, height);
 
             if (tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID) &&
-                tx->SetParameter(TxParameterID::AssetFullInfo, info, req.m_SubTxID) &&
+                tx->SetParameter(TxParameterID::AssetInfoFull, info, req.m_SubTxID) &&
                 tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID))
             {
                 LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Received proof for Asset with ID " << info.m_ID;
@@ -652,6 +652,7 @@ namespace beam::wallet
                 LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Issued amount: "      << PrintableAmount(info.m_Value, false, kAmountASSET, kAmountAGROTH);
                 LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Lock Height: "        << info.m_LockHeight;
                 LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Metadata size: "      << info.m_Metadata.m_Value.size() << " bytes";
+                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Refresh height: "     << height;
 
                 const WalletAssetMeta meta(info);
                 meta.LogInfo();
@@ -695,7 +696,7 @@ namespace beam::wallet
             }
 
             tx->SetParameter(TxParameterID::AssetConfirmedHeight, Height(0), req.m_SubTxID);
-            tx->SetParameter(TxParameterID::AssetFullInfo, Asset::Full(), req.m_SubTxID);
+            tx->SetParameter(TxParameterID::AssetInfoFull, Asset::Full(), req.m_SubTxID);
             tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, req.m_SubTxID);
             UpdateTransaction(tx);
         }

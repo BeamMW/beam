@@ -23,17 +23,23 @@ namespace beam::wallet {
     bool AssetTransaction::Rollback(Height height)
     {
         bool rthis = false;
-        Height cheight = 0;
 
+        Height cheight = 0;
         if (GetParameter(TxParameterID::AssetConfirmedHeight, cheight) && (cheight > height))
         {
             SetParameter(TxParameterID::AssetConfirmedHeight, Height(0));
-            SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0));
-            SetParameter(TxParameterID::AssetFullInfo, Asset::Full());
+            SetParameter(TxParameterID::AssetInfoFull, Asset::Full());
             rthis = true;
         }
 
-        const bool rsuper = BaseTransaction::Rollback(height);
+        Height uheight = 0;
+        if (GetParameter(TxParameterID::AssetUnconfirmedHeight, uheight) && (uheight > height))
+        {
+            SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0));
+            rthis = true;
+        }
+
+        const auto rsuper = BaseTransaction::Rollback(height);
         return rthis || rsuper;
     }
 
