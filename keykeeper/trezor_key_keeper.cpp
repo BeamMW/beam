@@ -38,9 +38,8 @@ namespace beam::wallet
     using namespace std;
 
 
-    TrezorKeyKeeperProxy::TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager, Key::IPKdf::Ptr ownerKdf)
+    TrezorKeyKeeperProxy::TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager)
         : m_DeviceManager(deviceManager)
-        , m_OwnerKdf(ownerKdf)
         , m_PushEvent(io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { ProcessResponses(); }))
     {
         

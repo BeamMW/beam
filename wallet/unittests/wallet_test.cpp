@@ -2205,7 +2205,7 @@ void TestNegotiation()
 	}
 }
 
-void TestKeyKeeper()
+void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index = 3)
 {
     struct Peer
     {
@@ -2230,9 +2230,16 @@ void TestKeyKeeper()
         HKdf::Create(pKdf, 12345U + i); // random kdf
 
         Peer& p = pPeer[i];
-        p.m_pKk = std::make_shared<MyKeeKeeper>(pKdf);
-        Cast::Up<MyKeeKeeper>(*p.m_pKk).m_State.m_hvLast = 334U + i;
-        Cast::Up<MyKeeKeeper>(*p.m_pKk).m_State.Generate();
+        if (i != index)
+        {
+            p.m_pKk = std::make_shared<MyKeeKeeper>(pKdf);
+            Cast::Up<MyKeeKeeper>(*p.m_pKk).m_State.m_hvLast = 334U + i;
+            Cast::Up<MyKeeKeeper>(*p.m_pKk).m_State.Generate();
+        }
+        else
+        {
+            p.m_pKk = externalKeyKeeper;
+        }
 
         p.m_KeyID = 14 + i;
 
@@ -2349,189 +2356,185 @@ void TestKeyKeeper()
 
 #if defined(BEAM_HW_WALLET)
 
-IWalletDB::Ptr createSqliteWalletDB()
-{
-    const char* dbName = "wallet.db";
-    if (boost::filesystem::exists(dbName))
-    {
-        boost::filesystem::remove(dbName);
-    }
-    ECC::NoLeak<ECC::uintBig> seed;
-    seed.V = Zero;
-    auto walletDB = WalletDB::init(dbName, string("pass123"), seed, io::Reactor::get_Current().shared_from_this());
-    beam::Block::SystemState::ID id = { };
-    id.m_Height = 134;
-    walletDB->setSystemStateID(id);
-    return walletDB;
-}
-
-void TestHWTransaction(IPrivateKeyKeeper& pkk)
-{
-    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-    io::Reactor::Scope scope(*mainReactor);
-
-    Point::Native totalPublicExcess = Zero;
-
-    std::vector<Coin::ID> inputCoins =
-    {
-        {40, 0, Key::Type::Regular},
-    };
-
-    std::vector<Coin::ID> outputCoins =
-    {
-        {16, 0, Key::Type::Regular},
-        {24, 0, Key::Type::Regular},
-    };
-
-    beam::Amount fee = 0;
-    ECC::Scalar::Native offset = Zero;
-    offset.GenRandomNnz();
-
-    {
-
-        Point::Native publicAmount = Zero;
-        Amount amount = 0;
-        for (const auto& cid : inputCoins)
-        {
-            amount += cid.m_Value;
-        }
-        AmountBig::AddTo(publicAmount, amount);
-        amount = 0;
-        publicAmount = -publicAmount;
-        for (const auto& cid : outputCoins)
-        {
-            amount += cid.m_Value;
-        }
-        AmountBig::AddTo(publicAmount, amount);
-
-        Point::Native publicExcess = Context::get().G * offset;
-
-        {
-            Point::Native commitment;
-
-            for (const auto& output : outputCoins)
-            {
-                if (commitment.Import(pkk.GeneratePublicKeySync(output, Zero, true)))
-                {
-                    publicExcess += commitment;
-                }
-            }
-
-            publicExcess = -publicExcess;
-            for (const auto& input : inputCoins)
-            {
-                if (commitment.Import(pkk.GeneratePublicKeySync(input, Zero, true)))
-                {
-                    publicExcess += commitment;
-                }
-            }
-        }
-
-        publicExcess += publicAmount;
-
-        totalPublicExcess = publicExcess;
-    }
-
-    {
-        ECC::Point::Native peerPublicNonce = Zero;
-
-        TxKernel kernel;
-        kernel.m_Fee = fee;
-        kernel.m_Height = { 25000, 27500 };
-        kernel.m_Commitment = totalPublicExcess;
-
-        ECC::Hash::Value message;
-        kernel.get_Hash(message);
-
-        KernelParameters kernelParameters;
-        kernelParameters.fee = fee;
-
-        kernelParameters.height = { 25000, 27500 };
-        kernelParameters.commitment = totalPublicExcess;
-
-        Signature signature;
-
-        ECC::Point::Native publicNonce;
-        uint8_t nonceSlot = (uint8_t)pkk.AllocateNonceSlotSync();
-        publicNonce.Import(pkk.GenerateNonceSync(nonceSlot));
-
-
-        signature.m_NoncePub = publicNonce + peerPublicNonce;
-        signature.m_k = pkk.SignSync(inputCoins, outputCoins, offset, nonceSlot, kernelParameters, publicNonce + peerPublicNonce);
-
-        if (signature.IsValid(message, totalPublicExcess))
-        {
-            LOG_DEBUG() << "Ok, signature is valid :)";
-        }
-        else
-        {
-            LOG_ERROR() << "Error, invalid signature :(";
-        }
-    }
-}
+//IWalletDB::Ptr createSqliteWalletDB()
+//{
+//    const char* dbName = "wallet.db";
+//    if (boost::filesystem::exists(dbName))
+//    {
+//        boost::filesystem::remove(dbName);
+//    }
+//    ECC::NoLeak<ECC::uintBig> seed;
+//    seed.V = Zero;
+//    auto walletDB = WalletDB::init(dbName, string("pass123"), seed, io::Reactor::get_Current().shared_from_this());
+//    beam::Block::SystemState::ID id = { };
+//    id.m_Height = 134;
+//    walletDB->setSystemStateID(id);
+//    return walletDB;
+//}
+//
+//void TestHWTransaction(IPrivateKeyKeeper& pkk)
+//{
+//    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+//    io::Reactor::Scope scope(*mainReactor);
+//
+//    Point::Native totalPublicExcess = Zero;
+//
+//    std::vector<Coin::ID> inputCoins =
+//    {
+//        {40, 0, Key::Type::Regular},
+//    };
+//
+//    std::vector<Coin::ID> outputCoins =
+//    {
+//        {16, 0, Key::Type::Regular},
+//        {24, 0, Key::Type::Regular},
+//    };
+//
+//    beam::Amount fee = 0;
+//    ECC::Scalar::Native offset = Zero;
+//    offset.GenRandomNnz();
+//
+//    {
+//
+//        Point::Native publicAmount = Zero;
+//        Amount amount = 0;
+//        for (const auto& cid : inputCoins)
+//        {
+//            amount += cid.m_Value;
+//        }
+//        AmountBig::AddTo(publicAmount, amount);
+//        amount = 0;
+//        publicAmount = -publicAmount;
+//        for (const auto& cid : outputCoins)
+//        {
+//            amount += cid.m_Value;
+//        }
+//        AmountBig::AddTo(publicAmount, amount);
+//
+//        Point::Native publicExcess = Context::get().G * offset;
+//
+//        {
+//            Point::Native commitment;
+//
+//            for (const auto& output : outputCoins)
+//            {
+//                if (commitment.Import(pkk.GeneratePublicKeySync(output, Zero, true)))
+//                {
+//                    publicExcess += commitment;
+//                }
+//            }
+//
+//            publicExcess = -publicExcess;
+//            for (const auto& input : inputCoins)
+//            {
+//                if (commitment.Import(pkk.GeneratePublicKeySync(input, Zero, true)))
+//                {
+//                    publicExcess += commitment;
+//                }
+//            }
+//        }
+//
+//        publicExcess += publicAmount;
+//
+//        totalPublicExcess = publicExcess;
+//    }
+//
+//    {
+//        ECC::Point::Native peerPublicNonce = Zero;
+//
+//        TxKernel kernel;
+//        kernel.m_Fee = fee;
+//        kernel.m_Height = { 25000, 27500 };
+//        kernel.m_Commitment = totalPublicExcess;
+//
+//        ECC::Hash::Value message;
+//        kernel.get_Hash(message);
+//
+//        KernelParameters kernelParameters;
+//        kernelParameters.fee = fee;
+//
+//        kernelParameters.height = { 25000, 27500 };
+//        kernelParameters.commitment = totalPublicExcess;
+//
+//        Signature signature;
+//
+//        ECC::Point::Native publicNonce;
+//        uint8_t nonceSlot = (uint8_t)pkk.AllocateNonceSlotSync();
+//        publicNonce.Import(pkk.GenerateNonceSync(nonceSlot));
+//
+//
+//        signature.m_NoncePub = publicNonce + peerPublicNonce;
+//        signature.m_k = pkk.SignSync(inputCoins, outputCoins, offset, nonceSlot, kernelParameters, publicNonce + peerPublicNonce);
+//
+//        if (signature.IsValid(message, totalPublicExcess))
+//        {
+//            LOG_DEBUG() << "Ok, signature is valid :)";
+//        }
+//        else
+//        {
+//            LOG_ERROR() << "Error, invalid signature :(";
+//        }
+//    }
+//}
 
 #include "mnemonic/mnemonic.h"
 
-void TestHWCommitment()
-{
-    cout << "Test HW commitment" << std::endl;
-
-    Key::IDV kidv;
-    kidv.m_Value = 11100000000;
-    kidv.m_Idx = 1887367845482021531;
-    kidv.m_Type = 1852797549;
-    kidv.m_SubIdx = 16777216;
-
-    Point comm1, comm2;
-    {
-        Scalar::Native secretKey;
-
-        //beam::WordList generatedPhrases = {"budget", "focus", "surface", "plug", "dragon", "elephant", "token", "child", "kitchen", "coast", "lounge", "mean" };
-        beam::WordList generatedPhrases = { "copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue" };
-        
-        auto buf = beam::decodeMnemonic(generatedPhrases);
-
-        SecString secretSeed;
-        secretSeed.assign(buf.data(), buf.size());
-
-        Key::IKdf::Ptr kdf;
-        ECC::HKdf::Create(kdf, secretSeed.hash().V);
-
-        SwitchCommitment().Create(secretKey, comm1, *MasterKey::get_Child(kdf, kidv), kidv);
-
-        LOG_INFO() << "commitment is " << comm1;
-    }
-
-    {
-        HWWallet hw;
-
-        comm2 = hw.generateKeySync(kidv, true);
-
-        LOG_INFO() << "HW commitment is " << comm2;
-    }
-
-    WALLET_CHECK(comm1 == comm2);
-}
+//void TestHWCommitment()
+//{
+//    cout << "Test HW commitment" << std::endl;
+//
+//    Key::IDV kidv;
+//    kidv.m_Value = 11100000000;
+//    kidv.m_Idx = 1887367845482021531;
+//    kidv.m_Type = 1852797549;
+//    kidv.m_SubIdx = 16777216;
+//
+//    Point comm1, comm2;
+//    {
+//        Scalar::Native secretKey;
+//
+//        //beam::WordList generatedPhrases = {"budget", "focus", "surface", "plug", "dragon", "elephant", "token", "child", "kitchen", "coast", "lounge", "mean" };
+//        beam::WordList generatedPhrases = { "copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue" };
+//        
+//        auto buf = beam::decodeMnemonic(generatedPhrases);
+//
+//        SecString secretSeed;
+//        secretSeed.assign(buf.data(), buf.size());
+//
+//        Key::IKdf::Ptr kdf;
+//        ECC::HKdf::Create(kdf, secretSeed.hash().V);
+//
+//        SwitchCommitment().Create(secretKey, comm1, *MasterKey::get_Child(kdf, kidv), kidv);
+//
+//        LOG_INFO() << "commitment is " << comm1;
+//    }
+//
+//    {
+//        HWWallet hw;
+//
+//        comm2 = hw.generateKeySync(kidv, true);
+//
+//        LOG_INFO() << "HW commitment is " << comm2;
+//    }
+//
+//    WALLET_CHECK(comm1 == comm2);
+//}
 
 void TestHWWallet()
 {
     cout << "Test HW wallet" << std::endl;
+    
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
 
     HWWallet hw;
-    //hw.getOwnerKey([](const std::string& key)
-    //{
-    //    LOG_INFO() << "HWWallet.getOwnerKey(): " << key;
-    //});
 
-    //hw.generateNonce(1, [](const ECC::Point& nonce)
-    //{
-    //    LOG_INFO() << "HWWallet.generateNonce(): " << nonce;
-    //});
+    auto keyKeeper = hw.getKeyKeeper(hw.getDevices()[0]);
 
-    const ECC::Key::IDV kidv(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0);
+    const CoinID cid(100500, 15, Key::Type::Regular, 7);
 
-    ECC::Point pt2 = hw.generateKeySync(kidv, true);
-
+    ECC::Point::Native pt2;
+    WALLET_CHECK(keyKeeper->get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
     {
         // Recovery seed: copy, vendor, shallow, raven, coffee, appear, book, blast, lock, exchange, farm, glue
         uint8_t x[] = {0xce, 0xb2, 0x0d, 0xa2, 0x73, 0x07, 0x0e, 0xb9, 0xc8, 0x2e, 0x47, 0x5b, 0x6f, 0xa0, 0x7b, 0x85, 0x8d, 0x2c, 0x40, 0x9b, 0x9c, 0x24, 0x31, 0xba, 0x3a, 0x8e, 0x2c, 0xba, 0x7b, 0xa1, 0xb0, 0x04};
@@ -2541,55 +2544,58 @@ void TestHWWallet()
         WALLET_CHECK(pt == pt2);
     }
 
-    hw.generateRangeProof(kidv, false, [&pt2](const ECC::RangeProof::Confidential &rp) {
-        auto hGen = beam::SwitchCommitment(NULL).m_hGen;
+    TestKeyKeeper(keyKeeper, 0);
+    TestKeyKeeper(keyKeeper, 1);
+
+    //hw.generateRangeProof(kidv, false, [&pt2](const ECC::RangeProof::Confidential &rp) {
+    //    auto hGen = beam::SwitchCommitment(NULL).m_hGen;
 
 
-        ECC::Point::Native comm;
-        comm.Import(pt2);
-        {
-            Oracle oracle;
-            oracle << 0u;
-            oracle << pt2;
-            LOG_INFO() << "rp.IsValid(): " << rp.IsValid(comm, oracle, &hGen);
-        }
+    //    ECC::Point::Native comm;
+    //    comm.Import(pt2);
+    //    {
+    //        Oracle oracle;
+    //        oracle << 0u;
+    //        oracle << pt2;
+    //        LOG_INFO() << "rp.IsValid(): " << rp.IsValid(comm, oracle, &hGen);
+    //    }
 
-        {
-            Oracle oracle;
-            oracle << 0u;
-            oracle << pt2;
-            WALLET_CHECK(rp.IsValid(comm, oracle, &hGen));
-        }
-    });
+    //    {
+    //        Oracle oracle;
+    //        oracle << 0u;
+    //        oracle << pt2;
+    //        WALLET_CHECK(rp.IsValid(comm, oracle, &hGen));
+    //    }
+    //});
 
-    {
-        Height scheme = 100500;
-        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-        io::Reactor::Scope scope(*mainReactor);
-        TrezorKeyKeeper tk;
-        auto db = createSqliteWalletDB();
-        LocalPrivateKeyKeeper lpkk(db, db->get_MasterKdf());
-        IPrivateKeyKeeper& pkk = tk;
-        ECC::Point::Native comm2;
-        auto outputs = pkk.GenerateOutputsSync(scheme, { kidv });
-        WALLET_CHECK(outputs[0]->IsValid(scheme, comm2));
-    }
+    //{
+    //    Height scheme = 100500;
+    //    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    //    io::Reactor::Scope scope(*mainReactor);
+    //    TrezorKeyKeeper tk;
+    //    auto db = createSqliteWalletDB();
+    //    LocalPrivateKeyKeeper lpkk(db, db->get_MasterKdf());
+    //    IPrivateKeyKeeper& pkk = tk;
+    //    ECC::Point::Native comm2;
+    //    auto outputs = pkk.GenerateOutputsSync(scheme, { kidv });
+    //    WALLET_CHECK(outputs[0]->IsValid(scheme, comm2));
+    //}
 
-    // test transaction sign with local key keeper
-    {
-        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-        io::Reactor::Scope scope(*mainReactor);
+    //// test transaction sign with local key keeper
+    //{
+    //    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    //    io::Reactor::Scope scope(*mainReactor);
 
-        auto db = createSqliteWalletDB();
-        LocalPrivateKeyKeeper lpkk(db, db->get_MasterKdf());
-        TestHWTransaction(lpkk);
-    }
+    //    auto db = createSqliteWalletDB();
+    //    LocalPrivateKeyKeeper lpkk(db, db->get_MasterKdf());
+    //    TestHWTransaction(lpkk);
+    //}
 
-    // test transaction sign with HW key keeper
-    {
-        TrezorKeyKeeper trezor;
-        TestHWTransaction(trezor);
-    }
+    //// test transaction sign with HW key keeper
+    //{
+    //    auto keyKeeper = hw.getKeyKeeper(hw.getDevices()[0]);
+    //    TestHWTransaction(trezor);
+    //}
 
 }
 #endif
@@ -2615,48 +2621,48 @@ int main()
 
     //TestBbsDecrypt();
 
-    TestConvertions();
-    TestTxParameters();
-
-    TestClient();
-    TestWalletID();
-    TestSendingWithWalletID();
-
-    TestMultiUserWallet();
-
-    TestNegotiation();
-   
-    TestP2PWalletNegotiationST();
-
-    TestTxRollback();
-    
-    {
-        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-        io::Reactor::Scope scope(*mainReactor);
-        //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
-        TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
-    }
-    
-    TestSplitTransaction();
-   
-    TestMinimalFeeTransaction();
-   
-    TestTxToHimself();
-    
-    TestExpiredTransaction();
-    
-    TestTransactionUpdate();
-    //TestTxPerformance();
-    //TestTxNonces();
-   
-    TestTxExceptionHandling();
+    //TestConvertions();
+    //TestTxParameters();
+    //
+    //TestClient();
+    //TestWalletID();
+    //TestSendingWithWalletID();
+    //
+    //TestMultiUserWallet();
+    //
+    //TestNegotiation();
+    //
+    //TestP2PWalletNegotiationST();
+    //
+    //TestTxRollback();
+    //
+    //{
+    //    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    //    io::Reactor::Scope scope(*mainReactor);
+    //    //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
+    //    TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+    //}
+    //
+    //TestSplitTransaction();
+    //
+    //TestMinimalFeeTransaction();
+    //
+    //TestTxToHimself();
+    //
+    //TestExpiredTransaction();
+    //
+    //TestTransactionUpdate();
+    ////TestTxPerformance();
+    ////TestTxNonces();
+    //
+    //TestTxExceptionHandling();
     
    
     // @nesbox: disabled tests, they work only if device connected
-//#if defined(BEAM_HW_WALLET)
+#if defined(BEAM_HW_WALLET)
 //    TestHWCommitment();
-//    TestHWWallet();
-//#endif
+    TestHWWallet();
+#endif
 
     //TestBbsMessages();
     //TestBbsMessages2();

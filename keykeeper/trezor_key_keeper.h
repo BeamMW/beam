@@ -29,7 +29,7 @@ namespace beam::wallet
     {
         using MessageHandler = std::function<void()>;
     public:
-        TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager, Key::IPKdf::Ptr ownerKdf = {});
+        TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager);
         virtual ~TrezorKeyKeeperProxy() = default;
     private:
         Status::Type InvokeSync(Method::get_Kdf& x) override;
