@@ -235,8 +235,7 @@ struct Context
     {
         Amount m_Value;
         Asset::ID m_AssetID;
-        ECC::Scalar m_kSerG;
-        bool m_IsCreatedByViewer;
+        ShieldedTxo::BaseKey m_Key;
         ShieldedTxo::User m_User;
     };
 
@@ -317,8 +316,7 @@ struct Context
                             TxoSH* pTxo = m_This.m_TxosSH.CreateConfirmed(evt.m_ID, m_Height);
                             pTxo->m_Value = evt.m_Value;
                             pTxo->m_AssetID = evt.m_AssetID;
-                            pTxo->m_kSerG = evt.m_kSerG;
-                            pTxo->m_IsCreatedByViewer = (proto::Event::Flags::CreatedByViewer & evt.m_Flags) != 0;
+                            pTxo->m_Key = evt.m_Key;
                             pTxo->m_User = evt.m_User;
                         }
                     }
@@ -773,7 +771,7 @@ struct Context
         assert(N);
 
         uint32_t nIdx;
-        txo.m_kSerG.m_Value.ExportWord<0>(nIdx); // little randomization
+        txo.m_Key.m_kSerG.m_Value.ExportWord<0>(nIdx); // little randomization
         nIdx %= N;
 
         nWindowEnd = txo.m_ID.m_Value + N - nIdx;
@@ -850,8 +848,8 @@ struct Context
         }
 
         ShieldedTxo::Data::Params sdp;
-        sdp.m_Serial.m_pK[0] = txo.m_kSerG;
-        sdp.m_Serial.m_IsCreatedByViewer = txo.m_IsCreatedByViewer;
+        sdp.m_Serial.m_pK[0] = txo.m_Key.m_kSerG;
+        sdp.m_Serial.m_IsCreatedByViewer = txo.m_Key.m_IsCreatedByViewer;
         sdp.m_Serial.Restore(m_ShieldedViewer);
 
         sdp.m_Output.m_AssetID = txo.m_AssetID;

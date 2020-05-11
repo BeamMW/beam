@@ -105,8 +105,8 @@ namespace beam::wallet::lelantus
                 ShieldedCoin shieldedCoin;
                 shieldedCoin.m_value = GetAmount();
                 shieldedCoin.m_createTxId = m_Tx.GetTxID();
-                shieldedCoin.m_skSerialG = sdp.m_Serial.m_pK[0];
-                shieldedCoin.m_isCreatedByViewer = sdp.m_Serial.m_IsCreatedByViewer;
+                shieldedCoin.m_Key.m_kSerG = sdp.m_Serial.m_pK[0];
+                shieldedCoin.m_Key.m_IsCreatedByViewer = sdp.m_Serial.m_IsCreatedByViewer;
                 shieldedCoin.m_User = sdp.m_Output.m_User;
 
                 m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);

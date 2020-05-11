@@ -895,16 +895,15 @@ namespace beam::wallet
 
     void Wallet::ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h)
     {
-        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedEvt.m_kSerG);
+        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedEvt.m_Key);
         if (!shieldedCoin)
         {
             shieldedCoin = ShieldedCoin{};
+            shieldedCoin->m_Key = shieldedEvt.m_Key;
         }
 
-        shieldedCoin->m_skSerialG = shieldedEvt.m_kSerG;
         shieldedCoin->m_User = shieldedEvt.m_User;
         shieldedCoin->m_ID = shieldedEvt.m_ID;
-        shieldedCoin->m_isCreatedByViewer = 0 != (proto::Event::Flags::CreatedByViewer & shieldedEvt.m_Flags);
         shieldedCoin->m_assetID = shieldedEvt.m_AssetID;
         shieldedCoin->m_value = shieldedEvt.m_Value;
 

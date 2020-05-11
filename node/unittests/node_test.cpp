@@ -2411,8 +2411,8 @@ namespace beam
 						viewer.FromOwner(*m_This.m_Wallet.m_pKdf);
 
 						ShieldedTxo::Data::SerialParams sp;
-						sp.m_pK[0] = evt.m_kSerG;
-						sp.m_IsCreatedByViewer = 0 != (proto::Event::Flags::CreatedByViewer & evt.m_Flags);
+						sp.m_pK[0] = evt.m_Key.m_kSerG;
+						sp.m_IsCreatedByViewer = evt.m_Key.m_IsCreatedByViewer;
 						sp.Restore(viewer); // restores only what is necessary for spend
 
 						verify_test(m_This.m_Shielded.m_Params.m_Serial.m_IsCreatedByViewer == sp.m_IsCreatedByViewer);

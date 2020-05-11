@@ -577,6 +577,20 @@ namespace beam
 		struct Data;
 		struct DataParams; // just a fwd-declaration of Data::Params
 
+		struct BaseKey
+		{
+			bool m_IsCreatedByViewer;
+			ECC::Scalar m_kSerG;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_IsCreatedByViewer
+					& m_kSerG;
+			}
+		};
+
 		struct User
 		{
 			PeerID m_Sender;

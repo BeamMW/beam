@@ -43,8 +43,8 @@ namespace beam::wallet::lelantus
 
     void BaseLelantusTxBuilder::Restore(ShieldedTxo::DataParams& sdp, const ShieldedCoin& sc, const ShieldedTxo::Viewer& viewer)
     {
-        sdp.m_Serial.m_pK[0] = sc.m_skSerialG;
-        sdp.m_Serial.m_IsCreatedByViewer = sc.m_isCreatedByViewer;
+        sdp.m_Serial.m_pK[0] = sc.m_Key.m_kSerG;
+        sdp.m_Serial.m_IsCreatedByViewer = sc.m_Key.m_IsCreatedByViewer;
         sdp.m_Serial.Restore(viewer);
 
         sdp.m_Output.m_Value = sc.m_value;
