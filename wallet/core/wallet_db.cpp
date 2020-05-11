@@ -2101,7 +2101,7 @@ namespace beam::wallet
         };
 
         MyParser p(*this, prog);
-        p.m_pOwner = get_OwnerKdf();
+        p.Init(get_OwnerKdf());
 
         return p.Proceed(path.c_str());
 	}

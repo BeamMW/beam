@@ -2622,10 +2622,7 @@ namespace beam
 		};
 
 		MyParser p;
-		p.m_pOwner = cl.m_Wallet.m_pKdf;
-		p.m_vSh.resize(1);
-		p.m_vSh.front().FromOwner(*p.m_pOwner, 0);
-
+		p.Init(cl.m_Wallet.m_pKdf);
 		p.Proceed(beam::g_sz3); // check we can rebuild the Live consistently with shielded and assets
 
 		verify_test((p.m_SpendKeys.size() == 1) && (p.m_Spent == 1) && p.m_Utxos && p.m_Assets);

@@ -75,6 +75,8 @@ namespace beam
 			Key::IPKdf::Ptr m_pOwner;
 			std::vector<ShieldedTxo::Viewer> m_vSh;
 
+			void Init(const Key::IPKdf::Ptr&, Key::Index nMaxShieldedIdx = 1);
+
 			virtual bool OnUtxo(Height, const Output&) override;
 			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo&, const ECC::Hash::Value& hvMsg) override;
 			virtual bool OnAsset(Asset::Full&) override;

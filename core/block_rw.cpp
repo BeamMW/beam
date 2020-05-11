@@ -589,6 +589,18 @@ namespace beam
 		return true;
 	}
 
+	void RecoveryInfo::IRecognizer::Init(const Key::IPKdf::Ptr& pKdf, Key::Index nMaxShieldedIdx /* = 1 */)
+	{
+		m_pOwner = pKdf;
+		if (pKdf)
+		{
+			m_vSh.resize(nMaxShieldedIdx);
+			
+			for (Key::Index nIdx = 0; nIdx < nMaxShieldedIdx; nIdx++)
+				m_vSh[nIdx].FromOwner(*pKdf, nIdx);
+		}
+	}
+
 	bool RecoveryInfo::IRecognizer::OnUtxo(Height h, const Output& outp)
 	{
 		if (m_pOwner)
