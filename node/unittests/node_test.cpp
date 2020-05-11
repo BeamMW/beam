@@ -32,15 +32,9 @@
 
 namespace ECC {
 
-	void GenerateRandom(void* p, uint32_t n)
-	{
-		for (uint32_t i = 0; i < n; i++)
-			((uint8_t*) p)[i] = (uint8_t) rand();
-	}
-
 	void SetRandom(uintBig& x)
 	{
-		GenerateRandom(x.m_pData, x.nBytes);
+		GenRandom(x);
 	}
 
 	void SetRandom(Scalar::Native& x)
@@ -1830,9 +1824,6 @@ namespace beam
 				msgTx.m_Transaction = std::make_shared<Transaction>();
 				msgTx.m_Transaction->m_Offset = Zero;
 
-				ECC::Scalar::Native sk;
-				ECC::SetRandom(sk);
-
 				Height h = m_vStates.back().m_Height;
 
 				TxKernelShieldedInput::Ptr pKrn(new TxKernelShieldedInput);
@@ -1861,30 +1852,10 @@ namespace beam
 				Lelantus::Prover p(lst, pKrn->m_SpendProof);
 				p.m_Witness.V.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
 				p.m_Witness.V.m_R = m_Shielded.m_Params.m_Serial.m_pK[0] + m_Shielded.m_Params.m_Output.m_k; // total blinding factor of the shielded element
-				p.m_Witness.V.m_R_Output = sk;
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
 				p.m_Witness.V.m_V = m_Shielded.m_Params.m_Output.m_Value;
 
-				ECC::Point::Native hGen;
-
-				{
-					// not necessary for beams, just a demonstration of assets support
-					pKrn->m_pAsset = std::make_unique<Asset::Proof>();
-					p.m_Witness.V.m_R_Adj = p.m_Witness.V.m_R_Output;
-					pKrn->m_pAsset->Create(hGen, p.m_Witness.V.m_R_Adj, m_Shielded.m_Params.m_Output.m_Value, 0, hGen);
-				}
-
-				pKrn->UpdateMsg();
-
-				ECC::Oracle o1;
-				o1 << pKrn->m_Msg;
-				p.Generate(Zero, o1, &hGen);
-
-				pKrn->MsgToID();
-
-				{
-					// test
-				}
+				pKrn->Sign(p, 0, true); // hide asset, although it's beam
 
 				verify_test(m_Shielded.m_Params.m_Serial.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 
@@ -1892,7 +1863,7 @@ namespace beam
 				fee += Transaction::FeeSettings().m_ShieldedInput;
 
 				msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-				m_Wallet.UpdateOffset(*msgTx.m_Transaction, sk, false);
+				m_Wallet.UpdateOffset(*msgTx.m_Transaction, p.m_Witness.V.m_R_Output, false);
 
 				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h, 0, m_Shielded.m_Params.m_Output.m_Value, fee);
 
@@ -2947,6 +2918,9 @@ namespace beam
 
 void TestAll()
 {
+	ECC::PseudoRandomGenerator prg;
+	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
+
 	bool bClientProtoOnly = false;
 
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);

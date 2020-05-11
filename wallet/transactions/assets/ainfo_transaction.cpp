@@ -66,13 +66,7 @@ namespace beam::wallet
 
     void AssetInfoTransaction::UpdateImpl()
     {
-        if (!IsLoopbackTransaction())
-        {
-            OnFailed(TxFailureReason::NotLoopback, true);
-            return;
-        }
-
-        if (CheckExpired())
+        if (!AssetTransaction::BaseUpdate())
         {
             return;
         }
@@ -158,11 +152,6 @@ namespace beam::wallet
         }
 
         throw TransactionFailedException(true, TxFailureReason::NoAssetId);
-    }
-
-    bool AssetInfoTransaction::IsLoopbackTransaction() const
-    {
-        return GetMandatoryParameter<bool>(TxParameterID::IsSender) && IsInitiator();
     }
 
     bool AssetInfoTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const

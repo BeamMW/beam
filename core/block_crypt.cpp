@@ -1221,6 +1221,46 @@ namespace beam
 		s.m_InputsShielded++;
 	}
 
+	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, bool bHideAssetAlways /* = false */)
+	{
+		UpdateMsg();
+
+		ECC::Oracle oracle;
+		oracle << m_Msg;
+
+		// auto-generate seed for sigma proof and m_R_Output
+		ECC::NoLeak<ECC::uintBig> hvSeed;
+		ECC::GenRandom(hvSeed.V); // use both deterministic and random
+
+		Lelantus::Prover::Witness& w = p.m_Witness.V; // alias
+
+		ECC::Oracle(oracle) // copy
+			<< hvSeed.V
+			<< w.m_L
+			<< w.m_V
+			<< w.m_R
+			<< w.m_SpendSk
+			>> hvSeed.V;
+
+		ECC::NonceGenerator("krn.sh.i")
+			<< hvSeed.V
+			>> w.m_R_Output;
+
+		ECC::Point::Native hGen;
+
+		if (aid || bHideAssetAlways)
+		{
+			// not necessary for beams, just a demonstration of assets support
+			m_pAsset = std::make_unique<Asset::Proof>();
+			w.m_R_Adj = w.m_R_Output;
+			m_pAsset->Create(hGen, w.m_R_Adj, w.m_V, aid, hGen, &hvSeed.V);
+		}
+
+		p.Generate(hvSeed.V, oracle, &hGen);
+
+		MsgToID();
+	}
+
 	/////////////
 	// Transaction
 	Transaction::FeeSettings::FeeSettings()

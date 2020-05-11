@@ -152,7 +152,7 @@ namespace beam::wallet
             if (selectedCoins.empty())
             {
                 storage::Totals allTotals(*m_Tx.GetWalletDB());
-                const auto& totals = allTotals.GetTotals(Zero);
+                const auto& totals = allTotals.GetBeamTotals();
                 LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }

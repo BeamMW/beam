@@ -57,7 +57,11 @@ bool ReadSeed(Key::IKdf::Ptr& pKdf, const char* szSeed)
 struct Context
 {
     Key::IKdf::Ptr m_pKdf;
+    Key::IKdf::Ptr m_pShieldedPrivate;
+
     ShieldedTxo::Viewer m_ShieldedViewer;
+
+    NodeProcessor* m_pProc; // shortcut, to get the shielded pool data instantly, instead of via queries
 
     template <typename TID, typename TBase>
     struct Txo
@@ -93,6 +97,8 @@ struct Context
 
         typedef boost::intrusive::multiset<HeightNode> HeightMap;
         typedef boost::intrusive::multiset<ID> IDMap;
+
+        typedef std::multiset<TID> IDSet;
 
         struct Container
         {
@@ -191,6 +197,31 @@ struct Context
                 return (m_mapID.end() == it) ? nullptr : &it->get_ParentObj();
             }
 
+            uint32_t HandleTxs(IDSet& s, Height h)
+            {
+                uint32_t ret = 0;
+                for (typename IDSet::iterator it = s.begin(); s.end() != it; )
+                {
+                    typename IDSet::iterator itThis = it++;
+
+                    Txo* pTxo = Find(*itThis);
+                    if (pTxo)
+                    {
+                        if (pTxo->IsSpent())
+                            ret++; // tx confirmed!
+                        else
+                        {
+                            if (pTxo->m_LockedUntil >= h)
+                                continue;
+                        }
+                    }
+
+                    s.erase(itThis);
+                }
+
+                return ret;
+            }
+
         };
     };
 
@@ -205,6 +236,7 @@ struct Context
         Amount m_Value;
         Asset::ID m_AssetID;
         ECC::Scalar m_kSerG;
+        bool m_IsCreatedByViewer;
         ShieldedTxo::User m_User;
     };
 
@@ -286,6 +318,7 @@ struct Context
                             pTxo->m_Value = evt.m_Value;
                             pTxo->m_AssetID = evt.m_AssetID;
                             pTxo->m_kSerG = evt.m_kSerG;
+                            pTxo->m_IsCreatedByViewer = (proto::Event::Flags::CreatedByViewer & evt.m_Flags) != 0;
                             pTxo->m_User = evt.m_User;
                         }
                     }
@@ -404,17 +437,40 @@ struct Context
     Context()
         :m_Network(m_FlyClient)
     {
+        m_Exec.m_Threads = std::thread::hardware_concurrency();
     }
 
     struct Cfg
     {
-        Amount m_ShieldedValue = 100; // groth
-        Amount m_BulletValue = 3000; // must be big enough to cover shielded out & in txs
-        uint32_t m_BulletsMin = 10;
-        uint32_t m_BulletsMax = 20;
-        uint32_t m_ShieldedOutsTrg = 5;
+        Transaction::FeeSettings m_Fees; // def
+
+#define CfgFieldsAll(macro) \
+        macro(Amount, BulletValue, 3000, "must be big enough to cover shielded out & in txs") \
+        macro(uint32_t, BulletsMin, 50, "min avail bullets") \
+        macro(uint32_t, BulletsMax, 100, "num of bullets to create at once") \
+        macro(uint32_t, ShieldedOutsTrg, 45, "target num of pending shielded outputs") \
+        macro(uint32_t, ShieldedInsTrg, 65, "target num of pending shielded inputs")
+
+#define THE_MACRO(type, name, def, comment) type m_##name = def;
+        CfgFieldsAll(THE_MACRO)
+#undef THE_MACRO
 
     } m_Cfg;
+
+    struct Exec
+        :public beam::ExecutorMT
+    {
+        uint32_t m_Threads;
+
+        virtual uint32_t get_Threads() override { return m_Threads; }
+
+        virtual void RunThread(uint32_t iThread) override
+        {
+            ExecutorMT::Context ctx;
+            ctx.m_iThread = iThread;
+            RunThreadCtx(ctx);
+        }
+    } m_Exec;
 
 
     void OnRolledBack()
@@ -482,34 +538,32 @@ struct Context
         return nullptr;
     }
 
-    typedef std::multiset<CoinID> CoinIDSet;
-    CoinIDSet m_setTxsOut;
-    CoinIDSet m_setSplit;
-
-    void HandleTxs(CoinIDSet& s, Height h)
-    {
-        for (CoinIDSet::iterator it = s.begin(); s.end() != it; )
-        {
-            CoinIDSet::iterator itThis = it++;
-
-            TxoMW* pTxo = m_TxosMW.Find(*itThis);
-            if (!pTxo || pTxo->IsSpent() || (pTxo->m_LockedUntil < h))
-                s.erase(itThis);
-        }
-    }
+    TxoMW::IDSet m_setTxsOut;
+    TxoMW::IDSet m_setSplit;
+    TxoSH::IDSet m_setTxsIn;
 
     void OnEventsHandled()
     {
         // decide w.r.t. test logic
         Height h = m_FlyClient.get_Height();
+        std::cout << "H=" << h << std::endl;
+
         if (h < Rules::get().pForks[2].m_Height)
             return;
 
-        HandleTxs(m_setSplit, h);
-        HandleTxs(m_setTxsOut, h);
+        m_TxosMW.HandleTxs(m_setSplit, h);
+
+        uint32_t nDone = m_TxosMW.HandleTxs(m_setTxsOut, h);
+        if (nDone)
+            std::cout << "\tNew confirmed shielded outs: " << nDone << std::endl;
+
+        nDone = m_TxosSH.HandleTxs(m_setTxsIn, h);
+        if (nDone)
+            std::cout << "\tNew confirmed shielded ins: " << nDone << std::endl;
 
         TxoMW::HeightMap::iterator itBullet = m_TxosMW.m_mapConfirmed.begin();
 
+        nDone = 0;
         while (m_setTxsOut.size() < m_Cfg.m_ShieldedOutsTrg)
         {
             TxoMW* pTxo = FindNextAvailBullet(itBullet, h);
@@ -518,23 +572,49 @@ struct Context
 
             SendShieldedOutp(*pTxo);
             m_setTxsOut.insert(pTxo->m_ID.m_Value);
+            nDone++;
         }
 
-        if (m_setSplit.empty())
+        if (nDone)
+            std::cout << "\tSent shielded outs: " << nDone << std::endl;
+
+        std::cout << "\tPending shielded outs: " << m_setTxsOut.size() << std::endl;
+
+        nDone = 0;
+        for (TxoSH::HeightMap::iterator itShInp = m_TxosSH.m_mapConfirmed.begin();  (m_setTxsIn.size() < m_Cfg.m_ShieldedInsTrg) && (m_TxosSH.m_mapConfirmed.end() != itShInp); )
         {
-            // make sure we have enough bullets
-            uint32_t nFreeBullets = 0;
-            while (true)
+            TxoSH& txo = itShInp->get_ParentObj();
+            itShInp++;
+
+            if (SendShieldedInp(txo))
             {
-                TxoMW* pTxo = FindNextAvailBullet(itBullet, h);
-                if (!pTxo)
-                    break;
-
-                nFreeBullets++;
+                m_setTxsIn.insert(txo.m_ID.m_Value);
+                nDone++;
             }
+        }
 
-            if (nFreeBullets < m_Cfg.m_BulletsMin)
-                AddSplitTx();
+        if (nDone)
+            std::cout << "\tSent shielded ins: " << nDone << std::endl;
+
+        std::cout << "\tPending shielded ins: " << m_setTxsIn.size() << std::endl;
+
+        // make sure we have enough bullets
+        uint32_t nFreeBullets = 0;
+        while (true)
+        {
+            TxoMW* pTxo = FindNextAvailBullet(itBullet, h);
+            if (!pTxo)
+                break;
+
+            nFreeBullets++;
+        }
+
+        std::cout << "\tBullets remaining: " << nFreeBullets << std::endl;
+
+        if (m_setSplit.empty() && (nFreeBullets < m_Cfg.m_BulletsMin))
+        {
+            AddSplitTx();
+            std::cout << "\tMaking more bullets..." << std::endl;
         }
     }
 
@@ -590,13 +670,22 @@ struct Context
         kOffs += sk;
     }
 
+    void AddOutp(TxVectors::Full& txv, ECC::Scalar::Native& kOffs, Amount val, Asset::ID aid, Height hScheme)
+    {
+        CoinID cid(Zero);
+        ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
+        cid.m_Type = Key::Type::Regular;
+        cid.m_Value = val;
+        cid.m_AssetID = aid;
+
+        AddOutp(txv, kOffs, cid, hScheme);
+    }
+
     void AddSplitTx()
     {
         Height h = m_FlyClient.get_Height();
 
-        Transaction::FeeSettings fs;
-
-        Amount valFee = fs.m_Kernel + fs.m_Output * (m_Cfg.m_BulletsMax + 1); // minimum fee (assuming there's a change output)
+        Amount valFee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_Output * (m_Cfg.m_BulletsMax + 1); // minimum fee (assuming there's a change output)
         Amount valInp = m_Cfg.m_BulletValue * m_Cfg.m_BulletsMax + valFee;
 
         std::vector<TxoMW*> vInps;
@@ -624,22 +713,10 @@ struct Context
             AddInp(*pTx, kOffs, *vInps[i], hr.m_Max);
 
         for (uint32_t i = 0; i < m_Cfg.m_BulletsMax; i++)
-        {
-            CoinID cid(Zero);
-            ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
-            cid.m_Value = m_Cfg.m_BulletValue;
-
-            AddOutp(*pTx, kOffs, cid, hr.m_Min);
-        }
+            AddOutp(*pTx, kOffs, m_Cfg.m_BulletValue, 0, hr.m_Min);
 
         if (val > valInp)
-        {
-            CoinID cid(Zero);
-            ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
-            cid.m_Value = val - valInp;
-
-            AddOutp(*pTx, kOffs, cid, hr.m_Min);
-        }
+            AddOutp(*pTx, kOffs, val - valInp, 0, hr.m_Min);
 
         pTx->m_Offset = kOffs;
         pTx->Normalize();
@@ -659,8 +736,7 @@ struct Context
         TxKernelShieldedOutput::Ptr pKrn = std::make_unique<TxKernelShieldedOutput>();
         pKrn->m_Height = hr;
 
-        Transaction::FeeSettings fs;
-        pKrn->m_Fee = fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput;
+        pKrn->m_Fee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_Output + m_Cfg.m_Fees.m_ShieldedOutput;
 
         pKrn->UpdateMsg();
         ECC::Oracle oracle;
@@ -691,6 +767,125 @@ struct Context
         SendTx(std::move(pTx));
     }
 
+    static uint32_t SelectSpendWindow(const TxoSH& txo, TxoID N, TxoID nShieldedOutputs, TxoID& nWindowEnd)
+    {
+        assert(txo.m_ID.m_Value < nShieldedOutputs);
+        assert(N);
+
+        uint32_t nIdx;
+        txo.m_kSerG.m_Value.ExportWord<0>(nIdx); // little randomization
+        nIdx %= N;
+
+        nWindowEnd = txo.m_ID.m_Value + N - nIdx;
+
+        if (nWindowEnd > nShieldedOutputs)
+        {
+            // withdrawal is not optimal. But since it's a test - let's proceed anyway
+            nWindowEnd = nShieldedOutputs;
+            nIdx = static_cast<uint32_t>(txo.m_ID.m_Value + N - nShieldedOutputs);
+        }
+
+        return nIdx;
+    }
+
+    bool SendShieldedInp(TxoSH& txo)
+    {
+        Height h = m_FlyClient.get_Height();
+        Amount fee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_ShieldedInput + m_Cfg.m_Fees.m_Output;
+
+        if ((txo.m_LockedUntil >= h) ||
+            txo.m_AssetID ||
+            (txo.m_Value < fee))
+            return false;
+
+        if (m_pProc->m_Extra.m_ShieldedOutputs <= txo.m_ID.m_Value)
+            return false; // should not happen!
+
+        Transaction::Ptr pTx = std::make_shared<Transaction>();
+        HeightRange hr(h, h + 10);
+
+        TxKernelShieldedInput::Ptr pKrn = std::make_unique<TxKernelShieldedInput>();
+        pKrn->m_Height = hr;
+        pKrn->m_Fee = fee;
+
+        const Rules& r = Rules::get();
+        pKrn->m_SpendProof.m_Cfg = r.Shielded.m_ProofMax;
+        uint32_t N = pKrn->m_SpendProof.m_Cfg.get_N();
+
+        uint32_t nIdx = SelectSpendWindow(txo, N, m_pProc->m_Extra.m_ShieldedOutputs, pKrn->m_WindowEnd);
+
+        if (m_pProc->m_Extra.m_ShieldedOutputs > pKrn->m_WindowEnd + r.Shielded.MaxWindowBacklog)
+        {
+            // try to reposition
+            pKrn->m_WindowEnd = m_pProc->m_Extra.m_ShieldedOutputs - r.Shielded.MaxWindowBacklog;
+
+            TxoID val = txo.m_ID.m_Value + N - pKrn->m_WindowEnd;
+            if (val < N)
+                nIdx = static_cast<uint32_t>(val);
+            else
+            {
+                // use smaller window
+                pKrn->m_SpendProof.m_Cfg = r.Shielded.m_ProofMin;
+                N = pKrn->m_SpendProof.m_Cfg.get_N();
+                nIdx = SelectSpendWindow(txo, N, m_pProc->m_Extra.m_ShieldedOutputs, pKrn->m_WindowEnd);
+            }
+        }
+
+        Sigma::CmListVec lst;
+        lst.m_vec.resize(N);
+
+        if (pKrn->m_WindowEnd >= N)
+            m_pProc->get_DB().ShieldedRead(pKrn->m_WindowEnd - N, &lst.m_vec.front(), N);
+        else
+        {
+            uint32_t nPad = static_cast<uint32_t>(N - pKrn->m_WindowEnd);
+            m_pProc->get_DB().ShieldedRead(0, &lst.m_vec.front() + nPad, N - nPad);
+
+            for (uint32_t i = 0; i < nPad; i++)
+            {
+                ECC::Point::Storage& v = lst.m_vec[i];
+                v.m_X = Zero;
+                v.m_Y = Zero;
+            }
+        }
+
+        ShieldedTxo::Data::Params sdp;
+        sdp.m_Serial.m_pK[0] = txo.m_kSerG;
+        sdp.m_Serial.m_IsCreatedByViewer = txo.m_IsCreatedByViewer;
+        sdp.m_Serial.Restore(m_ShieldedViewer);
+
+        sdp.m_Output.m_AssetID = txo.m_AssetID;
+        sdp.m_Output.m_Value = txo.m_Value;
+        sdp.m_Output.m_User = txo.m_User;
+        sdp.m_Output.Restore_kG(sdp.m_Serial.m_SharedSecret);
+
+        Lelantus::Prover p(lst, pKrn->m_SpendProof);
+        p.m_Witness.V.m_L = nIdx;
+        p.m_Witness.V.m_R = sdp.m_Serial.m_pK[0] + sdp.m_Output.m_k; // total blinding factor of the shielded element
+        p.m_Witness.V.m_V = sdp.m_Output.m_Value;
+
+        m_pShieldedPrivate->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Serial.m_SerialPreimage);
+
+        {
+            beam::Executor::Scope scope(m_Exec);
+            pKrn->Sign(p, 0);
+        };
+
+        pTx->m_vKernels.push_back(std::move(pKrn));
+
+        ECC::Scalar::Native kOffs = p.m_Witness.V.m_R_Output;
+
+        AddOutp(*pTx, kOffs, txo.m_Value - fee, 0, hr.m_Min);
+
+        pTx->m_Offset = kOffs;
+        pTx->Normalize();
+
+        SendTx(std::move(pTx));
+
+        txo.m_LockedUntil = hr.m_Max;
+        return true;
+    }
+
     void SendTx(Transaction::Ptr&& pTx)
     {
         //TxBase::Context::Params pars;
@@ -711,24 +906,6 @@ struct Context
 
 uint16_t g_LocalNodePort = 16725;
 
-void DoTest(Key::IKdf::Ptr& pKdf)
-{
-    Context ctx;
-
-    Transaction::FeeSettings fs;
-    if (ctx.m_Cfg.m_BulletValue < (fs.m_Kernel + fs.m_Output) * 2 + fs.m_ShieldedOutput + fs.m_ShieldedInput)
-        throw std::runtime_error("Bullet/Fee settings not consistent");
-
-    ctx.m_pKdf = pKdf;
-    ctx.m_ShieldedViewer.FromOwner(*pKdf);
-    ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));
-    ctx.m_Network.Connect();
-
-
-    io::Reactor::get_Current().run();
-}
-
-
 } // namespace beam
 
 
@@ -742,22 +919,43 @@ int main_Guarded(int argc, char* argv[])
 
     auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
 
-    Key::IKdf::Ptr pKdf;
+    const char szLocalMode[] = "local_mode";
+
+#define THE_MACRO(type, name, def, comment) const char sz##name[] = #name;
+    CfgFieldsAll(THE_MACRO)
+#undef THE_MACRO
+
+    auto [options, visibleOptions] = createOptionsDescription(0);
+    boost::ignore_unused(visibleOptions);
+    options.add_options()
+        (cli::SEED_PHRASE, po::value<std::string>()->default_value(""), "seed phrase")
+        (szLocalMode, po::value<bool>()->default_value(false), "local mode")
+        
+#define THE_MACRO(type, name, def, comment) (sz##name, po::value<type>()->default_value(def), comment)
+        CfgFieldsAll(THE_MACRO)
+#undef THE_MACRO
+        
+        ;
+
+    po::variables_map vm = getOptions(argc, argv, "node_net_sim.cfg", options, true);
+
+    bool bLocalMode = vm[szLocalMode].as<bool>();
 
     Node node;
+    node.m_Cfg.m_VerificationThreads = -1;
     node.m_Cfg.m_sPathLocal = "node_net_sim.db";
 
-    bool bLocalMode = true;
+    Context ctx;
+    ctx.m_pProc = &node.get_Processor();
+
+    Key::IKdf::Ptr pKdf;
+
+#define THE_MACRO(type, name, def, comment) ctx.m_Cfg.m_##name = vm[sz##name].as<type>();
+    CfgFieldsAll(THE_MACRO)
+#undef THE_MACRO
 
     if (!bLocalMode)
     {
-        auto [options, visibleOptions] = createOptionsDescription(0);
-        boost::ignore_unused(visibleOptions);
-        options.add_options()
-            (cli::SEED_PHRASE, po::value<std::string>()->default_value(""), "seed phrase");
-
-        po::variables_map vm = getOptions(argc, argv, "node_net_sim.cfg", options, true);
-
         if (!ReadSeed(pKdf, vm[cli::SEED_PHRASE].as<std::string>().c_str()))
         {
             std::cout << options << std::endl;
@@ -816,6 +1014,9 @@ int main_Guarded(int argc, char* argv[])
         ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
         Rules::get().FakePoW = true;
         Rules::get().MaxRollback = 10;
+        Rules::get().Shielded.m_ProofMax = Sigma::Cfg(4, 3); // 64
+        Rules::get().Shielded.m_ProofMin = Sigma::Cfg(4, 2); // 16
+        Rules::get().Shielded.MaxWindowBacklog = 200;
         Rules::get().pForks[1].m_Height = 1;
         Rules::get().pForks[2].m_Height = 2;
 
@@ -863,7 +1064,16 @@ int main_Guarded(int argc, char* argv[])
     else
         node.m_PostStartSynced = true;
 
-    DoTest(pKdf);
+    if (ctx.m_Cfg.m_BulletValue < (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput)
+        throw std::runtime_error("Bullet/Fee settings not consistent");
+
+    ctx.m_pKdf = pKdf;
+    ctx.m_ShieldedViewer.FromOwner(*pKdf);
+    ShieldedTxo::Viewer::GenerateSerPrivate(ctx.m_pShieldedPrivate, *pKdf);
+    ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));
+    ctx.m_Network.Connect();
+
+    io::Reactor::get_Current().run();
 
     return 0;
 }

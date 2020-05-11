@@ -29,23 +29,23 @@ namespace beam::wallet
 
     public:
 
-        // With time possible to split this class to MessageCreator with access to storage (KDF and walletDB)
+        // With time possible to split this class to MessageCreator with access to KDF
         // and MessageParser without access
 
         /**
          *  Create message with swap offer according to protocol.
          *  Message includes signature and pubKey for validation.
          */
-        OfferBoardProtocolHandler(ECC::Key::IKdf::Ptr sbbsKdf, beam::wallet::IWalletDB::Ptr walletDB);
+        OfferBoardProtocolHandler(ECC::Key::IKdf::Ptr sbbsKdf);
     
         /**
          * Create message signed with private key
          *
          * @param content   Swap offer data
-         * @param wid       Signatory's public key 
+         * @param keyOwnID  Signatory's BBS key ID, used to derive Sk to create signature
          */
-        boost::optional<ByteBuffer> createMessage(const SwapOffer& content, const WalletID& wid) const; // Deprecated. TODO: dh remove after 2 fork
-        boost::optional<BroadcastMsg> createBroadcastMessage(const SwapOffer& content, const WalletID& wid) const;
+        ByteBuffer createMessage(const SwapOffer& content, uint64_t keyOwnID) const; // Deprecated. TODO: dh remove after 2 fork
+        BroadcastMsg createBroadcastMessage(const SwapOffer& content, uint64_t keyOwnID) const;
 
         /**
          *  Parse message and verify signature.

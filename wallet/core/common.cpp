@@ -133,6 +133,17 @@ namespace std
     {
         return EncodeToHex(id);
     }
+
+    string to_string(const beam::AmountBig::Type& amount)
+    {
+        cpp_int intval;
+        import_bits(intval, amount.m_pData, amount.m_pData + beam::AmountBig::Type::nBytes);
+
+        stringstream ss;
+        ss << intval;
+
+        return ss.str();
+    }
 }  // namespace std
 
 namespace beam

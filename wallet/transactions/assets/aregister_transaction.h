@@ -41,7 +41,6 @@ namespace beam::wallet
 
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
-        bool IsLoopbackTransaction() const;
         void ConfirmAsset();
         AssetRegisterTxBuilder& GetTxBuilder();
 

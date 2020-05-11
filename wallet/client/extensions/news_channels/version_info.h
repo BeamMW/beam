@@ -37,7 +37,7 @@ namespace beam::wallet
             Unknown
         };
 
-        Application m_application;
+        Application m_application = Application::Unknown;
         beam::Version m_version;
 
         SERIALIZE(m_application, m_version);

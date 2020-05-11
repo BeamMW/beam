@@ -215,7 +215,7 @@ namespace beam::wallet
             if (selectedCoins.empty())
             {
                 storage::Totals totals(*m_Tx.GetWalletDB());
-                const auto& beamTotals = totals.GetTotals(Zero);
+                const auto& beamTotals = totals.GetBeamTotals();
                 LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
                             << "You need " << PrintableAmount(amountWithFee) << " for deposit and fees"
                             << " but have only " << PrintableAmount(beamTotals.Avail);

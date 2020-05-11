@@ -14,6 +14,7 @@
 
 #include "wallet/api/api.h"
 #include "wallet/core/common_utils.h"
+#include "wallet/core/common.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offer_token.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_side.h"
@@ -22,8 +23,15 @@
 #include "wallet/transactions/swaps/utils.h"
 #include "wallet/transactions/swaps/swap_tx_description.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
 #include <regex>
+
+namespace beam::wallet {
+    namespace {
+        // This is for jscript compatibility
+        // Number.MAX_SAFE_INTEGER
+        const auto MAX_ALLOWED_INT = AmountBig::Type(9'007'199'254'740'991U);
+    }
+}
 
 namespace beam::wallet
 {    
@@ -1102,11 +1110,11 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         getHandler().onMessage(id, data);
     }
 
-    void WalletApi::onAssetInfoMessage(const JsonRpcId& id, const json& params)
+    void WalletApi::onTxAssetInfoMessage(const JsonRpcId& id, const json& params)
     {
         checkCAEnabled(id);
 
-        AssetInfo data;
+        TxAssetInfo data;
         ReadAssetParams(id, params, data);
 
         data.txId = readTxIdParameter(id, params);
@@ -1545,7 +1553,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const AssetInfo::Response& res, json& msg)
+    void WalletApi::getResponse(const JsonRpcId& id, const TxAssetInfo::Response& res, json& msg)
     {
         msg = json
         {
@@ -1570,8 +1578,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"id", id},
             {"result",
                 {
-                    {"assetId",       res.AssetInfo.m_ID},
-                    {"value",         AmountBig::get_Lo(res.AssetInfo.m_Value)},
+                    {"asset_id",      res.AssetInfo.m_ID},
                     {"lockHeight",    res.AssetInfo.m_LockHeight},
                     {"refreshHeight", res.AssetInfo.m_RefreshHeight},
                     {"ownerId",       res.AssetInfo.m_Owner.str()},
@@ -1580,7 +1587,14 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 }
             }
         };
+
+        auto& jsres = msg["result"];
+        if(res.AssetInfo.m_Value <= MAX_ALLOWED_INT) {
+            jsres["emission"] = AmountBig::get_Lo(res.AssetInfo.m_Value);
+        }
+        jsres["emission_str"] = std::to_string(res.AssetInfo.m_Value);
     }
+
     void WalletApi::getResponse(const JsonRpcId& id, const Consume::Response& res, json& msg)
     {
         msg = json
@@ -1684,13 +1698,31 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             for(const auto& it: res.totals->allTotals)
             {
                 const auto& totals = it.second;
-                msg["result"]["totals"].push_back({
-                    {"asset_id",   totals.AssetId},
-                    {"available",  AmountBig::get_Lo(totals.Avail)},
-                    {"receiving",  AmountBig::get_Lo(totals.Incoming)},
-                    {"sending",    AmountBig::get_Lo(totals.Outgoing)},
-                    {"maturing",   AmountBig::get_Lo(totals.Maturing)}
-                });
+                json jtotals;
+
+                jtotals["asset_id"] = totals.AssetId;
+
+                if (totals.Avail <= MAX_ALLOWED_INT) {
+                    jtotals["available"] = AmountBig::get_Lo(totals.Avail);
+                }
+                jtotals["available_str"] = std::to_string(totals.Avail);
+
+                if (totals.Incoming <= MAX_ALLOWED_INT) {
+                    jtotals["receiving"] = AmountBig::get_Lo(totals.Incoming);
+                }
+                jtotals["receiving_str"] = std::to_string(totals.Incoming);
+
+                if (totals.Outgoing <= MAX_ALLOWED_INT) {
+                    jtotals["sending"] = AmountBig::get_Lo(totals.Outgoing);
+                }
+                jtotals["sending_str"] = std::to_string(totals.Outgoing);
+
+                if (totals.Maturing <= MAX_ALLOWED_INT) {
+                    jtotals["maturing"] = AmountBig::get_Lo(totals.Maturing);
+                }
+                jtotals["maturing_str"] = std::to_string(totals.Maturing);
+
+                msg["result"]["totals"].push_back(jtotals);
             }
         }
         else
