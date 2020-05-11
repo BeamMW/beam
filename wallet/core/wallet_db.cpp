@@ -249,6 +249,7 @@ namespace beam::wallet
             }
 
             static const uint32_t s_Factor = 16;
+            static const uint64_t s_NoOverflowSrc = uint64_t(-1) / s_Factor;
 
             struct Partial
             {
@@ -275,8 +276,20 @@ namespace beam::wallet
                     ZeroObject(m_pSlots);
                 }
 
-                uint32_t get_Slot(Amount v) const
+                uint32_t get_Slot_Fast(Amount v) const
                 {
+                    uint64_t val = uint64_t(v) * s_Factor;
+                    assert(val / s_Factor == v); // overflow should not happen
+                    val /= m_Goal;
+
+                    return (val < s_Factor) ?
+                        static_cast<uint32_t>(val) :
+                        s_Factor;
+                }
+
+                uint32_t get_Slot_Big(Amount v) const
+                {
+                    // Use slower 'robust' arithmetics, guaranteed not to overflow
                     uintBigFor<uint32_t>::Type val;
                     val.SetDiv(uintBigFrom(v) * uintBigFrom(s_Factor), uintBigFrom(m_Goal));
 
@@ -285,6 +298,18 @@ namespace beam::wallet
 
                     std::setmin(res, s_Factor);
                     return res;
+                }
+
+                uint32_t get_Slot(Amount v) const
+                {
+                    if (v <= s_NoOverflowSrc)
+                    {
+                        uint32_t res = get_Slot_Fast(v);
+                        //assert(get_Slot_Big(v) == res);
+                        return res;
+                    }
+
+                    return get_Slot_Big(v);
                 }
 
                 void Append(Slot& rDst, Amount v, size_t i0)
