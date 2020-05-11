@@ -277,9 +277,13 @@ namespace beam::wallet
 
                 uint32_t get_Slot(Amount v) const
                 {
-                    uint64_t i = v * s_Factor / m_Goal; // TODO - overflow check!
-                    uint32_t res = (i >= s_Factor) ? s_Factor : static_cast<uint32_t>(i);
-                    assert(res <= s_Factor + 1);
+                    uintBigFor<uint32_t>::Type val;
+                    val.SetDiv(uintBigFrom(v) * uintBigFrom(s_Factor), uintBigFrom(m_Goal));
+
+                    uint32_t res;
+                    val.Export(res);
+
+                    std::setmin(res, s_Factor);
                     return res;
                 }
 
