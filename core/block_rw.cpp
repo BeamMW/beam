@@ -603,17 +603,17 @@ namespace beam
 
 	bool RecoveryInfo::IRecognizer::OnShieldedOut(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo& txo, const ECC::Hash::Value& hvMsg)
 	{
-		if (m_pViewer)
+		for (Key::Index nIdx = 0; nIdx < static_cast<Key::Index>(m_vSh.size()); nIdx++)
 		{
 			ShieldedTxo::DataParams pars;
 
-			if (pars.m_Serial.Recover(txo.m_Serial, *m_pViewer))
+			if (pars.m_Serial.Recover(txo.m_Serial, m_vSh[nIdx]))
 			{
 				ECC::Oracle oracle;
 				oracle << hvMsg;
 
 				if (pars.m_Output.Recover(txo, pars.m_Serial.m_SharedSecret, oracle))
-					return OnShieldedOutRecognized(dout, pars);
+					return OnShieldedOutRecognized(dout, pars, nIdx);
 			}
 		}
 

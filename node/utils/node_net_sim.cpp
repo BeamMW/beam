@@ -57,9 +57,6 @@ bool ReadSeed(Key::IKdf::Ptr& pKdf, const char* szSeed)
 struct Context
 {
     Key::IKdf::Ptr m_pKdf;
-    Key::IKdf::Ptr m_pShieldedPrivate;
-
-    ShieldedTxo::Viewer m_ShieldedViewer;
 
     NodeProcessor* m_pProc; // shortcut, to get the shielded pool data instantly, instead of via queries
 
@@ -745,9 +742,12 @@ struct Context
         sdp.m_Output.m_AssetID = txo.m_ID.m_Value.m_AssetID;
         sdp.m_Output.m_Value = txo.m_ID.m_Value.m_Value - pKrn->m_Fee;
 
+        ShieldedTxo::Viewer v;
+        v.FromOwner(*m_pKdf, 0);
+
         ECC::uintBig nonce;
         ECC::GenRandom(nonce);
-        sdp.Generate(pKrn->m_Txo, oracle, m_ShieldedViewer, nonce);
+        sdp.Generate(pKrn->m_Txo, oracle, v, nonce);
         pKrn->MsgToID();
 
         //ECC::Point::Native pt;
@@ -847,10 +847,13 @@ struct Context
             }
         }
 
+        ShieldedTxo::Viewer v;
+        v.FromOwner(*m_pKdf, txo.m_Key.m_nIdx);
+
         ShieldedTxo::Data::Params sdp;
         sdp.m_Serial.m_pK[0] = txo.m_Key.m_kSerG;
         sdp.m_Serial.m_IsCreatedByViewer = txo.m_Key.m_IsCreatedByViewer;
-        sdp.m_Serial.Restore(m_ShieldedViewer);
+        sdp.m_Serial.Restore(v);
 
         sdp.m_Output.m_AssetID = txo.m_AssetID;
         sdp.m_Output.m_Value = txo.m_Value;
@@ -862,7 +865,9 @@ struct Context
         p.m_Witness.V.m_R = sdp.m_Serial.m_pK[0] + sdp.m_Output.m_k; // total blinding factor of the shielded element
         p.m_Witness.V.m_V = sdp.m_Output.m_Value;
 
-        m_pShieldedPrivate->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Serial.m_SerialPreimage);
+        Key::IKdf::Ptr pShPriv;
+        ShieldedTxo::Viewer::GenerateSerPrivate(pShPriv, *m_pKdf, txo.m_Key.m_nIdx);
+        pShPriv->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Serial.m_SerialPreimage);
 
         {
             beam::Executor::Scope scope(m_Exec);
@@ -1066,8 +1071,6 @@ int main_Guarded(int argc, char* argv[])
         throw std::runtime_error("Bullet/Fee settings not consistent");
 
     ctx.m_pKdf = pKdf;
-    ctx.m_ShieldedViewer.FromOwner(*pKdf);
-    ShieldedTxo::Viewer::GenerateSerPrivate(ctx.m_pShieldedPrivate, *pKdf);
     ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));
     ctx.m_Network.Connect();
 

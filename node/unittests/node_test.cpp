@@ -1767,7 +1767,7 @@ namespace beam
 					pKrn->m_Fee = fee;
 
 					ShieldedTxo::Viewer viewer;
-					viewer.FromOwner(*m_Wallet.m_pKdf);
+					viewer.FromOwner(*m_Wallet.m_pKdf, 0);
 
 					pKrn->UpdateMsg();
 					ECC::Oracle oracle;
@@ -1785,7 +1785,7 @@ namespace beam
 					m_Shielded.m_SerialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
 
 					Key::IKdf::Ptr pSerPrivate;
-					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
+					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf, 0);
 					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sdp.m_Serial.m_SerialPreimage);
 
 					ECC::Point::Native pt;
@@ -2408,7 +2408,7 @@ namespace beam
 
 						// Shielded parameters: recovered only the part that is sufficient to spend it
 						ShieldedTxo::Viewer viewer;
-						viewer.FromOwner(*m_This.m_Wallet.m_pKdf);
+						viewer.FromOwner(*m_This.m_Wallet.m_pKdf, evt.m_Key.m_nIdx);
 
 						ShieldedTxo::Data::SerialParams sp;
 						sp.m_pK[0] = evt.m_Key.m_kSerG;
@@ -2599,7 +2599,7 @@ namespace beam
 				return true;
 			}
 
-			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars) override
+			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars, Key::Index) override
 			{
 				verify_test(m_SpendKeys.end() == m_SpendKeys.find(pars.m_Serial.m_SpendPk));
 				m_SpendKeys.insert(pars.m_Serial.m_SpendPk);
@@ -2623,10 +2623,8 @@ namespace beam
 
 		MyParser p;
 		p.m_pOwner = cl.m_Wallet.m_pKdf;
-
-		ShieldedTxo::Viewer viewer;
-		viewer.FromOwner(*p.m_pOwner);
-		p.m_pViewer = &viewer;
+		p.m_vSh.resize(1);
+		p.m_vSh.front().FromOwner(*p.m_pOwner, 0);
 
 		p.Proceed(beam::g_sz3); // check we can rebuild the Live consistently with shielded and assets
 

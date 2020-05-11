@@ -354,6 +354,7 @@ public:
 	{
 		Key::IPKdf* m_pMw;
 		ShieldedTxo::Viewer* m_pSh;
+		Key::Index m_nSh;
 		
 		bool IsEmpty() const;
 	};

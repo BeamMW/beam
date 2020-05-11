@@ -1949,10 +1949,10 @@ void TestLelantusKeys()
 	Key::IKdf::IPKdf& keyOwner = *pMaster;
 
 	beam::ShieldedTxo::Viewer viewer;
-	viewer.FromOwner(keyOwner);
+	viewer.FromOwner(keyOwner, 0);
 
 	Key::IKdf::Ptr pPrivateSpendGen;
-	viewer.GenerateSerPrivate(pPrivateSpendGen, *pMaster);
+	viewer.GenerateSerPrivate(pPrivateSpendGen, *pMaster, 0);
 	verify_test(viewer.m_pSer->IsSame(*pPrivateSpendGen));
 
 	beam::ShieldedTxo::PublicGen gen;

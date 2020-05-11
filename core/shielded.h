@@ -31,11 +31,11 @@ namespace beam
 		Key::IKdf::Ptr m_pGen;
 		Key::IPKdf::Ptr m_pSer;
 
-		void FromOwner(Key::IPKdf&);
-		static void GenerateSerPrivate(Key::IKdf::Ptr&, Key::IKdf&);
+		void FromOwner(Key::IPKdf&, Key::Index);
+		static void GenerateSerPrivate(Key::IKdf::Ptr&, Key::IKdf&, Key::Index);
 
 	private:
-		static void GenerateSerSrc(ECC::Hash::Value&, Key::IPKdf&);
+		static void GenerateSerSrc(ECC::Hash::Value&, Key::IPKdf&, Key::Index);
 	};
 
 	struct ShieldedTxo::Data

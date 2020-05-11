@@ -69,7 +69,8 @@ namespace beam::wallet::lelantus
             TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
 
             ShieldedTxo::Viewer viewer;
-            viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf());
+            const Key::Index nIdx = 0;
+            viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf(), nIdx);
 
             ShieldedTxo::DataParams sdp;
 
@@ -107,6 +108,7 @@ namespace beam::wallet::lelantus
                 shieldedCoin.m_createTxId = m_Tx.GetTxID();
                 shieldedCoin.m_Key.m_kSerG = sdp.m_Serial.m_pK[0];
                 shieldedCoin.m_Key.m_IsCreatedByViewer = sdp.m_Serial.m_IsCreatedByViewer;
+                shieldedCoin.m_Key.m_nIdx = nIdx;
                 shieldedCoin.m_User = sdp.m_Output.m_User;
 
                 m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);

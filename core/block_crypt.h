@@ -579,6 +579,7 @@ namespace beam
 
 		struct BaseKey
 		{
+			Key::Index m_nIdx;
 			bool m_IsCreatedByViewer;
 			ECC::Scalar m_kSerG;
 
@@ -586,6 +587,7 @@ namespace beam
 			void serialize(Archive& ar)
 			{
 				ar
+					& m_nIdx
 					& m_IsCreatedByViewer
 					& m_kSerG;
 			}

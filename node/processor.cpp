@@ -2466,35 +2466,38 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h)
 
 	ViewerKeys vk;
 	get_ViewerKeys(vk);
-	if (!vk.m_pSh)
-		return;
 
-	const ShieldedTxo& txo = v.m_Txo;
+	for (Key::Index nIdx = 0; nIdx < vk.m_nSh; nIdx++)
+	{
+		const ShieldedTxo& txo = v.m_Txo;
 
-	ShieldedTxo::Data::SerialParams sp;
-	if (!sp.Recover(txo.m_Serial, *vk.m_pSh))
-		return;
+		ShieldedTxo::Data::SerialParams sp;
+		if (!sp.Recover(txo.m_Serial, vk.m_pSh[nIdx]))
+			continue;
 
-	ECC::Oracle oracle;
-	oracle << v.m_Msg;
+		ECC::Oracle oracle;
+		oracle << v.m_Msg;
 
-	ShieldedTxo::Data::OutputParams op;
-	if (!op.Recover(txo, sp.m_SharedSecret, oracle))
-		return;
+		ShieldedTxo::Data::OutputParams op;
+		if (!op.Recover(txo, sp.m_SharedSecret, oracle))
+			continue;
 
-	proto::Event::Shielded evt;
-	evt.m_ID = nID;
-	evt.m_Value = op.m_Value;
-	evt.m_AssetID = op.m_AssetID;
-	evt.m_User = op.m_User;
-	evt.m_Key.m_kSerG = sp.m_pK[0];
-	evt.m_Key.m_IsCreatedByViewer = sp.m_IsCreatedByViewer;
-	evt.m_Flags = proto::Event::Flags::Add;
+		proto::Event::Shielded evt;
+		evt.m_ID = nID;
+		evt.m_Value = op.m_Value;
+		evt.m_AssetID = op.m_AssetID;
+		evt.m_User = op.m_User;
+		evt.m_Key.m_nIdx = nIdx;
+		evt.m_Key.m_IsCreatedByViewer = sp.m_IsCreatedByViewer;
+		evt.m_Key.m_kSerG = sp.m_pK[0];
+		evt.m_Flags = proto::Event::Flags::Add;
 
-	EventKey::Shielded key = sp.m_SpendPk;
-	key.m_Y |= EventKey::s_FlagShielded;
+		EventKey::Shielded key = sp.m_SpendPk;
+		key.m_Y |= EventKey::s_FlagShielded;
 
-	AddEvent(h, evt, key);
+		AddEvent(h, evt, key);
+		break;
+	}
 }
 
 void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
@@ -2572,7 +2575,7 @@ void NodeProcessor::get_ViewerKeys(ViewerKeys& vk)
 
 bool NodeProcessor::ViewerKeys::IsEmpty() const
 {
-	return !(m_pMw || m_pSh);
+	return !(m_pMw || m_nSh);
 }
 
 void NodeProcessor::RescanOwnedTxos()

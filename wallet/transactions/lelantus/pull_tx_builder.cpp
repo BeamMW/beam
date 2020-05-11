@@ -148,13 +148,13 @@ namespace beam::wallet::lelantus
                 }
 
                 ShieldedTxo::Viewer viewer;
-                viewer.FromOwner(*pMaster);
+                viewer.FromOwner(*pMaster, shieldedCoin->m_Key.m_nIdx);
 
                 ShieldedTxo::DataParams sdp;
                 Restore(sdp, *shieldedCoin, viewer);
 
                 Key::IKdf::Ptr pSerialPrivate;
-                ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pMaster);
+                ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pMaster, shieldedCoin->m_Key.m_nIdx);
                 pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Serial.m_SerialPreimage);
 
                 prover.m_Witness.V.m_L = shieldedWindowId;

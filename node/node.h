@@ -164,7 +164,7 @@ struct Node
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
 
-		ShieldedTxo::Viewer m_ShieldedViewer; // derived from owner
+		std::vector<ShieldedTxo::Viewer> m_vSh; // derived from owner
 
 	} m_Keys;
 

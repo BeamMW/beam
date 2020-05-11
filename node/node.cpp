@@ -764,9 +764,10 @@ void Node::Processor::Stop()
 void Node::Processor::get_ViewerKeys(ViewerKeys& vk)
 {
     vk.m_pMw = get_ParentObj().m_Keys.m_pOwner.get();
-    vk.m_pSh = get_ParentObj().m_Keys.m_pOwner ?
-        &get_ParentObj().m_Keys.m_ShieldedViewer :
-        nullptr;
+
+    vk.m_nSh = static_cast<Key::Index>(get_ParentObj().m_Keys.m_vSh.size());
+    if (vk.m_nSh)
+        vk.m_pSh = &get_ParentObj().m_Keys.m_vSh.front();
 }
 
 void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)
@@ -923,7 +924,10 @@ void Node::InitKeys()
 
 		}
 
-		m_Keys.m_ShieldedViewer.FromOwner(*m_Keys.m_pOwner);
+        m_Keys.m_vSh.resize(1); // Change this if/when we decide to use multiple keys
+
+        for (Key::Index nIdx = 0; nIdx < static_cast<Key::Index>(m_Keys.m_vSh.size()); nIdx++)
+    		m_Keys.m_vSh[nIdx].FromOwner(*m_Keys.m_pOwner, nIdx);
 	}
 	else
         m_Keys.m_pMiner = nullptr; // can't mine without owner view key, because it's used for Tagging
