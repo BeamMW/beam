@@ -27,6 +27,7 @@ namespace beam::wallet::lelantus
     {
         // create transaction
         auto transaction = std::make_shared<Transaction>();
+        ECC::Scalar::Native offset(Zero);
 
         transaction->m_vInputs = m_Tx.GetMandatoryParameter<std::vector<Input::Ptr>>(TxParameterID::Inputs);
 
@@ -39,30 +40,19 @@ namespace beam::wallet::lelantus
         }
 
         Key::IKdf::Ptr pMasterKdf = m_Tx.get_MasterKdfStrict();
+
+        for (auto id : GetInputCoins())
         {
-            ECC::Scalar::Native offset = Zero;
-
-            for (auto id : GetInputCoins())
-            {
-                ECC::Scalar::Native sk;
-                CoinID::Worker(id).Create(sk, *id.get_ChildKdf(pMasterKdf));
-                offset += sk;
-            }
-
-            transaction->m_Offset = offset;
+            ECC::Scalar::Native sk;
+            CoinID::Worker(id).Create(sk, *id.get_ChildKdf(pMasterKdf));
+            offset += sk;
         }
 
+        for (auto id : GetOutputCoins())
         {
-            ECC::Scalar::Native offset = transaction->m_Offset;
-
-            for (auto id : GetOutputCoins())
-            {
-                ECC::Scalar::Native sk;
-                CoinID::Worker(id).Create(sk, *id.get_ChildKdf(pMasterKdf));
-                offset -= sk;
-            }
-
-            transaction->m_Offset = offset;
+            ECC::Scalar::Native sk;
+            CoinID::Worker(id).Create(sk, *id.get_ChildKdf(pMasterKdf));
+            offset -= sk;
         }
 
         {
@@ -127,11 +117,10 @@ namespace beam::wallet::lelantus
 
             transaction->m_vKernels.push_back(std::move(pKrn));
 
-            ECC::Scalar::Native offset = transaction->m_Offset;
             offset -= sdp.m_Output.m_k;
-            transaction->m_Offset = offset;
         }
 
+        transaction->m_Offset = offset;
         transaction->Normalize();
 
         return transaction;
