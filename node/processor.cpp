@@ -2279,14 +2279,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		for (size_t i = 0; i < block.m_vInputs.size(); i++)
 			Recognize(*block.m_vInputs[i], sid.m_Height);
 
-		Key::IPKdf* pKey = get_ViewerKey();
-		if (pKey)
+		ViewerKeys vk;
+		get_ViewerKeys(vk);
+		if (vk.m_pMw)
 		{
 			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-				Recognize(*block.m_vOutputs[i], sid.m_Height, *pKey);
+				Recognize(*block.m_vOutputs[i], sid.m_Height, *vk.m_pMw);
 		}
 
-		if (pKey || get_ViewerShieldedKey())
+		if (!vk.IsEmpty())
 		{
 			KrnWalkerRecognize wlkKrn(*this);
 			wlkKrn.m_Height = sid.m_Height;
@@ -2437,11 +2438,11 @@ bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 		break;
 
 	case TxKernel::Subtype::ShieldedOutput:
-		m_Proc.Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height, m_Proc.get_ViewerShieldedKey());
+		m_Proc.Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height);
 		break;
 
 	case TxKernel::Subtype::AssetCreate:
-		m_Proc.Recognize(Cast::Up<TxKernelAssetCreate>(krn), m_Height, m_Proc.get_ViewerKey());
+		m_Proc.Recognize(Cast::Up<TxKernelAssetCreate>(krn), m_Height);
 		break;
 
 	case TxKernel::Subtype::AssetDestroy:
@@ -2459,17 +2460,19 @@ bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 	return true;
 }
 
-void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const ShieldedTxo::Viewer* pKeyShielded)
+void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h)
 {
 	TxoID nID = m_Extra.m_ShieldedOutputs++;
 
-	if (!pKeyShielded)
+	ViewerKeys vk;
+	get_ViewerKeys(vk);
+	if (!vk.m_pSh)
 		return;
 
 	const ShieldedTxo& txo = v.m_Txo;
 
 	ShieldedTxo::Data::SerialParams sp;
-	if (!sp.Recover(txo.m_Serial, *pKeyShielded))
+	if (!sp.Recover(txo.m_Serial, *vk.m_pSh))
 		return;
 
 	ECC::Oracle oracle;
@@ -2519,13 +2522,15 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 	AddEvent(h, evt, key);
 }
 
-void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, Key::IPKdf* pOwner)
+void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h)
 {
-	if (!pOwner)
+	ViewerKeys vk;
+	get_ViewerKeys(vk);
+	if (!vk.m_pMw)
 		return;
 
 	EventKey::AssetCtl key;
-	v.m_MetaData.get_Owner(key, *pOwner);
+	v.m_MetaData.get_Owner(key, *vk.m_pMw);
 	if (key != v.m_Owner)
 		return;
 
@@ -2559,6 +2564,16 @@ void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h)
 
 	evt.m_Flags = proto::Event::Flags::Delete;
 	AddEvent(h, evt);
+}
+
+void NodeProcessor::get_ViewerKeys(ViewerKeys& vk)
+{
+	ZeroObject(vk);
+}
+
+bool NodeProcessor::ViewerKeys::IsEmpty() const
+{
+	return !(m_pMw || m_pSh);
 }
 
 void NodeProcessor::RescanOwnedTxos()
@@ -2609,12 +2624,14 @@ void NodeProcessor::RescanOwnedTxos()
 		}
 	};
 
-	Key::IPKdf* pKey = get_ViewerKey();
-	if (pKey)
+	ViewerKeys vk;
+	get_ViewerKeys(vk);
+
+	if (vk.m_pMw)
 	{
 		LOG_INFO() << "Rescanning owned Txos...";
 
-		TxoRecover wlk(*pKey, *this);
+		TxoRecover wlk(*vk.m_pMw, *this);
 		EnumTxos(wlk);
 
 		LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
@@ -2624,7 +2641,7 @@ void NodeProcessor::RescanOwnedTxos()
 		LOG_INFO() << "Owned Txos reset";
 	}
 
-	if (pKey || get_ViewerShieldedKey())
+	if (!vk.IsEmpty())
 	{
 		LOG_INFO() << "Rescanning shielded Txos...";
 

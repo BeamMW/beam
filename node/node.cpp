@@ -761,16 +761,12 @@ void Node::Processor::Stop()
     }
 }
 
-Key::IPKdf* Node::Processor::get_ViewerKey()
+void Node::Processor::get_ViewerKeys(ViewerKeys& vk)
 {
-	return get_ParentObj().m_Keys.m_pOwner.get();
-}
-
-const ShieldedTxo::Viewer* Node::Processor::get_ViewerShieldedKey()
-{
-	return get_ParentObj().m_Keys.m_pOwner ?
-		&get_ParentObj().m_Keys.m_ShieldedViewer :
-		nullptr;
+    vk.m_pMw = get_ParentObj().m_Keys.m_pOwner.get();
+    vk.m_pSh = get_ParentObj().m_Keys.m_pOwner ?
+        &get_ParentObj().m_Keys.m_ShieldedViewer :
+        nullptr;
 }
 
 void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)

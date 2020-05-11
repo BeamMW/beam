@@ -74,8 +74,8 @@ class NodeProcessor
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, Height, Key::IPKdf&);
 	void Recognize(const TxKernelShieldedInput&, Height);
-	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
-	void Recognize(const TxKernelAssetCreate&, Height, Key::IPKdf*);
+	void Recognize(const TxKernelShieldedOutput&, Height);
+	void Recognize(const TxKernelAssetCreate&, Height);
 	void Recognize(const TxKernelAssetDestroy&, Height);
 	void Recognize(const TxKernelAssetEmit&, Height);
 
@@ -350,8 +350,15 @@ public:
 
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
 
-	virtual Key::IPKdf* get_ViewerKey() { return nullptr; }
-	virtual const ShieldedTxo::Viewer* get_ViewerShieldedKey() { return nullptr; }
+	struct ViewerKeys
+	{
+		Key::IPKdf* m_pMw;
+		ShieldedTxo::Viewer* m_pSh;
+		
+		bool IsEmpty() const;
+	};
+
+	virtual void get_ViewerKeys(ViewerKeys&);
 
 	void RescanOwnedTxos();
 
