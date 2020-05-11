@@ -70,6 +70,30 @@ namespace beam
 			m_pAsset.reset();
 	}
 
+	void ShieldedTxo::Voucher::get_Hash(ECC::Hash::Value& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "voucher.1"
+			<< m_Serial.m_SerialPub
+			<< m_Serial.m_Signature.m_NoncePub
+			<< m_SharedSecret
+			>> hv;
+	}
+
+	bool ShieldedTxo::Voucher::IsValid(const PeerID& pid) const
+	{
+		ECC::Point::Native pk;
+		if (!m_Serial.IsValid(pk))
+			return false;
+
+		ECC::Hash::Value hv;
+		get_Hash(hv);
+
+		return
+			pid.ExportNnz(pk) &&
+			m_Signature.IsValid(hv, pk);
+	}
+
 	/////////////
 	// Shielded keygen
 	struct ShieldedTxo::Data::HashTxt

@@ -606,6 +606,17 @@ namespace beam
 					& m_pMessage;
 			}
 		};
+
+		struct Voucher
+		{
+			// single-usage
+			Serial m_Serial;
+			ECC::Hash::Value m_SharedSecret;
+			ECC::Signature m_Signature;
+
+			void get_Hash(ECC::Hash::Value&) const;
+			bool IsValid(const PeerID&) const;
+		};
 	};
 
 #define BeamKernelsAll(macro) \
