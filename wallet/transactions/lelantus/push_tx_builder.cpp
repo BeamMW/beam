@@ -90,7 +90,9 @@ namespace beam::wallet::lelantus
 
                 ECC::uintBig nonce;
                 ECC::GenRandom(nonce);
-                sdp.Generate(pKrn->m_Txo, oracle, viewer, nonce);
+                sdp.m_Serial.Generate(pKrn->m_Txo.m_Serial, viewer, nonce);
+
+                sdp.GenerateOutp(pKrn->m_Txo, oracle);
 
                 // save shielded Coin
                 ShieldedCoin shieldedCoin;

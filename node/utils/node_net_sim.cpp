@@ -747,7 +747,9 @@ struct Context
 
         ECC::uintBig nonce;
         ECC::GenRandom(nonce);
-        sdp.Generate(pKrn->m_Txo, oracle, v, nonce);
+        sdp.m_Serial.Generate(pKrn->m_Txo.m_Serial, v, nonce);
+
+        sdp.GenerateOutp(pKrn->m_Txo, oracle);
         pKrn->MsgToID();
 
         //ECC::Point::Native pt;

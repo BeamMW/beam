@@ -419,18 +419,10 @@ namespace beam
 
 	/////////////
 	// Params (both)
-	void ShieldedTxo::Data::Params::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	void ShieldedTxo::Data::Params::GenerateOutp(ShieldedTxo& txo, ECC::Oracle& oracle)
 	{
-		m_Serial.Generate(txo.m_Serial, gen, nonce);
 		m_Output.Generate(txo, m_Serial.m_SharedSecret, oracle);
 	}
-
-	void ShieldedTxo::Data::Params::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v, const ECC::Hash::Value& nonce)
-	{
-		m_Serial.Generate(txo.m_Serial, v, nonce);
-		m_Output.Generate(txo, m_Serial.m_SharedSecret, oracle);
-	}
-
 	bool ShieldedTxo::Data::Params::Recover(const ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v)
 	{
 		return

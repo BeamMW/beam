@@ -94,8 +94,7 @@ namespace beam
 			SerialParams m_Serial;
 			OutputParams m_Output;
 
-			void Generate(ShieldedTxo&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce);
-			void Generate(ShieldedTxo&, ECC::Oracle&, const Viewer&, const ECC::Hash::Value& nonce);
+			void GenerateOutp(ShieldedTxo&, ECC::Oracle&);
 			bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
 		};
 

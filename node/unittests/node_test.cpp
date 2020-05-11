@@ -1766,8 +1766,13 @@ namespace beam
 					pKrn->m_Height.m_Min = h + 1;
 					pKrn->m_Fee = fee;
 
-					ShieldedTxo::Viewer viewer;
-					viewer.FromOwner(*m_Wallet.m_pKdf, 0);
+					{
+						// voucher
+						ShieldedTxo::Viewer viewer;
+						viewer.FromOwner(*m_Wallet.m_pKdf, 0);
+
+						sdp.m_Serial.Generate(pKrn->m_Txo.m_Serial, viewer, 13U);
+					}
 
 					pKrn->UpdateMsg();
 					ECC::Oracle oracle;
@@ -1778,7 +1783,7 @@ namespace beam
 					sdp.m_Output.m_User.m_pMessage[0] = 243U;
 					sdp.m_Output.m_User.m_pMessage[1] = 2435U;
 
-					sdp.Generate(pKrn->m_Txo, oracle, viewer, 13U);
+					sdp.GenerateOutp(pKrn->m_Txo, oracle);
 
 					pKrn->MsgToID();
 
