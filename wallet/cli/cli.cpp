@@ -2517,7 +2517,7 @@ namespace
             RegisterSwapTxCreators(wallet, walletDB);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #ifdef BEAM_CONFIDENTIAL_ASSETS_SUPPORT
-            if (withAssets)
+           if (Rules::get().CA.Enabled && withAssets)
             {
                 RegisterAssetCreators(wallet);
             }

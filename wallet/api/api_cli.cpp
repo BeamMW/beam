@@ -852,7 +852,7 @@ int main(int argc, char* argv[])
         server.initSwapFeature(*nnet, *wnet);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-        if (Rules::get().CA.Enabled)
+        if (Rules::get().CA.Enabled && withAssets)
         {
             RegisterAssetCreators(wallet);
         }
