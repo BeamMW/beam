@@ -1958,19 +1958,19 @@ void TestLelantusKeys()
 	beam::ShieldedTxo::PublicGen gen;
 	gen.FromViewer(viewer);
 
-	beam::ShieldedTxo::Data::SerialParams sprs, sprs2;
+	beam::ShieldedTxo::Data::TicketParams sprs, sprs2;
 	beam::ShieldedTxo txo;
 
 	Point::Native pt;
 
-	sprs.Generate(txo.m_Serial, gen, 115U);
-	verify_test(txo.m_Serial.IsValid(pt));
-	verify_test(sprs2.Recover(txo.m_Serial, viewer));
+	sprs.Generate(txo.m_Ticket, gen, 115U);
+	verify_test(txo.m_Ticket.IsValid(pt));
+	verify_test(sprs2.Recover(txo.m_Ticket, viewer));
 	verify_test(!sprs2.m_IsCreatedByViewer);
 
-	sprs.Generate(txo.m_Serial, viewer, 115U);
-	verify_test(txo.m_Serial.IsValid(pt));
-	verify_test(sprs2.Recover(txo.m_Serial, viewer));
+	sprs.Generate(txo.m_Ticket, viewer, 115U);
+	verify_test(txo.m_Ticket.IsValid(pt));
+	verify_test(sprs2.Recover(txo.m_Ticket, viewer));
 	verify_test(sprs2.m_IsCreatedByViewer);
 	verify_test(sprs2.m_SharedSecret == sprs.m_SharedSecret);
 

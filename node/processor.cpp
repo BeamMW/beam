@@ -2471,8 +2471,8 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h)
 	{
 		const ShieldedTxo& txo = v.m_Txo;
 
-		ShieldedTxo::Data::SerialParams sp;
-		if (!sp.Recover(txo.m_Serial, vk.m_pSh[nIdx]))
+		ShieldedTxo::Data::TicketParams sp;
+		if (!sp.Recover(txo.m_Ticket, vk.m_pSh[nIdx]))
 			continue;
 
 		ECC::Oracle oracle;
@@ -2935,7 +2935,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 
 bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
 {
-	const ECC::Point& key = krn.m_Txo.m_Serial.m_SerialPub;
+	const ECC::Point& key = krn.m_Txo.m_Ticket.m_SerialPub;
 	Blob blobKey(&key, sizeof(key));
 
 	if (bic.m_Fwd)
@@ -2971,7 +2971,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			{
 				ECC::Point::Native pt, pt2;
 				pt.Import(krn.m_Txo.m_Commitment); // don't care if Import fails (kernels are not necessarily tested at this stage)
-				pt2.Import(krn.m_Txo.m_Serial.m_SerialPub);
+				pt2.Import(krn.m_Txo.m_Ticket.m_SerialPub);
 				pt += pt2;
 
 				ECC::Point::Storage pt_s;
@@ -2985,7 +2985,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			if (bic.m_UpdateMmrs)
 			{
 				ShieldedTxo::DescriptionOutp d;
-				d.m_SerialPub = krn.m_Txo.m_Serial.m_SerialPub;
+				d.m_SerialPub = krn.m_Txo.m_Ticket.m_SerialPub;
 				d.m_Commitment = krn.m_Txo.m_Commitment;
 				d.m_ID = m_Extra.m_ShieldedOutputs;
 				d.m_Height = bic.m_Height;

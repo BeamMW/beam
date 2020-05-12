@@ -530,7 +530,7 @@ namespace beam
 
 	struct ShieldedTxo
 	{
-		struct Serial
+		struct Ticket
 		{
 			ECC::Point m_SerialPub; // blinded
 			ECC::SignatureGeneralized<2> m_Signature;
@@ -565,7 +565,7 @@ namespace beam
 		ECC::Point m_Commitment;
 		ECC::RangeProof::Confidential m_RangeProof;
 		Asset::Proof::Ptr m_pAsset;
-		Serial m_Serial;
+		Ticket m_Ticket;
 
 		void Prepare(ECC::Oracle&) const;
 		bool IsValid(ECC::Oracle&, ECC::Point::Native& comm, ECC::Point::Native& ser) const;
@@ -610,7 +610,7 @@ namespace beam
 		struct Voucher
 		{
 			// single-usage
-			Serial m_Serial;
+			Ticket m_Ticket;
 			ECC::Hash::Value m_SharedSecret;
 			ECC::Signature m_Signature;
 

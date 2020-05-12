@@ -533,7 +533,7 @@ namespace beam
 
 				ShieldedTxo::DescriptionOutp dOutp;
 				dOutp.m_Commitment = txo.m_Commitment;
-				dOutp.m_SerialPub = txo.m_Serial.m_SerialPub;
+				dOutp.m_SerialPub = txo.m_Ticket.m_SerialPub;
 				dOutp.m_ID = nOuts++;
 				dOutp.m_Height = h;
 
@@ -619,12 +619,12 @@ namespace beam
 		{
 			ShieldedTxo::DataParams pars;
 
-			if (pars.m_Serial.Recover(txo.m_Serial, m_vSh[nIdx]))
+			if (pars.m_Ticket.Recover(txo.m_Ticket, m_vSh[nIdx]))
 			{
 				ECC::Oracle oracle;
 				oracle << hvMsg;
 
-				if (pars.m_Output.Recover(txo, pars.m_Serial.m_SharedSecret, oracle))
+				if (pars.m_Output.Recover(txo, pars.m_Ticket.m_SharedSecret, oracle))
 					return OnShieldedOutRecognized(dout, pars, nIdx);
 			}
 		}

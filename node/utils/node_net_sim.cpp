@@ -747,7 +747,7 @@ struct Context
 
         ECC::uintBig nonce;
         ECC::GenRandom(nonce);
-        sdp.m_Serial.Generate(pKrn->m_Txo.m_Serial, v, nonce);
+        sdp.m_Ticket.Generate(pKrn->m_Txo.m_Ticket, v, nonce);
 
         sdp.GenerateOutp(pKrn->m_Txo, oracle);
         pKrn->MsgToID();
@@ -853,23 +853,23 @@ struct Context
         v.FromOwner(*m_pKdf, txo.m_Key.m_nIdx);
 
         ShieldedTxo::Data::Params sdp;
-        sdp.m_Serial.m_pK[0] = txo.m_Key.m_kSerG;
-        sdp.m_Serial.m_IsCreatedByViewer = txo.m_Key.m_IsCreatedByViewer;
-        sdp.m_Serial.Restore(v);
+        sdp.m_Ticket.m_pK[0] = txo.m_Key.m_kSerG;
+        sdp.m_Ticket.m_IsCreatedByViewer = txo.m_Key.m_IsCreatedByViewer;
+        sdp.m_Ticket.Restore(v);
 
         sdp.m_Output.m_AssetID = txo.m_AssetID;
         sdp.m_Output.m_Value = txo.m_Value;
         sdp.m_Output.m_User = txo.m_User;
-        sdp.m_Output.Restore_kG(sdp.m_Serial.m_SharedSecret);
+        sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
 
         Lelantus::Prover p(lst, pKrn->m_SpendProof);
         p.m_Witness.V.m_L = nIdx;
-        p.m_Witness.V.m_R = sdp.m_Serial.m_pK[0] + sdp.m_Output.m_k; // total blinding factor of the shielded element
+        p.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0] + sdp.m_Output.m_k; // total blinding factor of the shielded element
         p.m_Witness.V.m_V = sdp.m_Output.m_Value;
 
         Key::IKdf::Ptr pShPriv;
         ShieldedTxo::Viewer::GenerateSerPrivate(pShPriv, *m_pKdf, txo.m_Key.m_nIdx);
-        pShPriv->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Serial.m_SerialPreimage);
+        pShPriv->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
         {
             beam::Executor::Scope scope(m_Exec);

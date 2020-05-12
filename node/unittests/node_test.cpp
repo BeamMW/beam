@@ -1772,12 +1772,12 @@ namespace beam
 						ShieldedTxo::Viewer viewer;
 						viewer.FromOwner(*m_Wallet.m_pKdf, 0);
 
-						ShieldedTxo::Data::SerialParams sp;
-						sp.Generate(voucher.m_Serial, viewer, 13U);
+						ShieldedTxo::Data::TicketParams sp;
+						sp.Generate(voucher.m_Ticket, viewer, 13U);
 
 						voucher.m_SharedSecret = sp.m_SharedSecret;
 
-						m_Shielded.m_Params.m_Serial = sp; // save just for later verification.
+						m_Shielded.m_Params.m_Ticket = sp; // save just for later verification.
 
 						// skip the voucher signature
 					}
@@ -1787,8 +1787,8 @@ namespace beam
 					oracle << pKrn->m_Msg;
 
 					// substitute the voucher
-					pKrn->m_Txo.m_Serial = voucher.m_Serial;
-					sdp.m_Serial.m_SharedSecret = voucher.m_SharedSecret;
+					pKrn->m_Txo.m_Ticket = voucher.m_Ticket;
+					sdp.m_Ticket.m_SharedSecret = voucher.m_SharedSecret;
 
 					ZeroObject(sdp.m_Output.m_User);
 					sdp.m_Output.m_User.m_Sender = 165U;
@@ -1798,11 +1798,11 @@ namespace beam
 
 					pKrn->MsgToID();
 
-					m_Shielded.m_SerialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
+					m_Shielded.m_SerialPub = pKrn->m_Txo.m_Ticket.m_SerialPub;
 
 					Key::IKdf::Ptr pSerPrivate;
 					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf, 0);
-					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sdp.m_Serial.m_SerialPreimage);
+					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sdp.m_Ticket.m_SerialPreimage);
 
 					ECC::Point::Native pt;
 					verify_test(pKrn->IsValid(h + 1, pt));
@@ -1867,13 +1867,13 @@ namespace beam
 
 				Lelantus::Prover p(lst, pKrn->m_SpendProof);
 				p.m_Witness.V.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
-				p.m_Witness.V.m_R = m_Shielded.m_Params.m_Serial.m_pK[0] + m_Shielded.m_Params.m_Output.m_k; // total blinding factor of the shielded element
+				p.m_Witness.V.m_R = m_Shielded.m_Params.m_Ticket.m_pK[0] + m_Shielded.m_Params.m_Output.m_k; // total blinding factor of the shielded element
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
 				p.m_Witness.V.m_V = m_Shielded.m_Params.m_Output.m_Value;
 
 				pKrn->Sign(p, 0, true); // hide asset, although it's beam
 
-				verify_test(m_Shielded.m_Params.m_Serial.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
+				verify_test(m_Shielded.m_Params.m_Ticket.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 
 				Amount fee = 100;
 				fee += Transaction::FeeSettings().m_ShieldedInput;
@@ -1935,7 +1935,7 @@ namespace beam
 
 				ShieldedTxo::DescriptionInp d;
 				d.m_Height = msg.m_Height;
-				d.m_SpendPk = m_Shielded.m_Params.m_Serial.m_SpendPk;
+				d.m_SpendPk = m_Shielded.m_Params.m_Ticket.m_SpendPk;
 
 				verify_test(m_vStates.back().IsValidProofShieldedInp(d, msg.m_Proof));
 			}
@@ -2335,7 +2335,7 @@ namespace beam
 							m_Shielded.m_SpendConfirmed = true;
 
 							proto::GetProofShieldedInp msgOut;
-							msgOut.m_SpendPk = m_Shielded.m_Params.m_Serial.m_SpendPk;
+							msgOut.m_SpendPk = m_Shielded.m_Params.m_Ticket.m_SpendPk;
 							Send(msgOut);
 
 							printf("Waiting for shielded input proof...\n");
@@ -2426,14 +2426,14 @@ namespace beam
 						ShieldedTxo::Viewer viewer;
 						viewer.FromOwner(*m_This.m_Wallet.m_pKdf, evt.m_Key.m_nIdx);
 
-						ShieldedTxo::Data::SerialParams sp;
+						ShieldedTxo::Data::TicketParams sp;
 						sp.m_pK[0] = evt.m_Key.m_kSerG;
 						sp.m_IsCreatedByViewer = evt.m_Key.m_IsCreatedByViewer;
 						sp.Restore(viewer); // restores only what is necessary for spend
 
-						verify_test(m_This.m_Shielded.m_Params.m_Serial.m_IsCreatedByViewer == sp.m_IsCreatedByViewer);
-						verify_test(m_This.m_Shielded.m_Params.m_Serial.m_pK[0] == sp.m_pK[0]);
-						verify_test(m_This.m_Shielded.m_Params.m_Serial.m_SerialPreimage == sp.m_SerialPreimage);
+						verify_test(m_This.m_Shielded.m_Params.m_Ticket.m_IsCreatedByViewer == sp.m_IsCreatedByViewer);
+						verify_test(m_This.m_Shielded.m_Params.m_Ticket.m_pK[0] == sp.m_pK[0]);
+						verify_test(m_This.m_Shielded.m_Params.m_Ticket.m_SerialPreimage == sp.m_SerialPreimage);
 
 						// Recover the full data
 						ShieldedTxo::Data::OutputParams op;
@@ -2617,8 +2617,8 @@ namespace beam
 
 			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars, Key::Index) override
 			{
-				verify_test(m_SpendKeys.end() == m_SpendKeys.find(pars.m_Serial.m_SpendPk));
-				m_SpendKeys.insert(pars.m_Serial.m_SpendPk);
+				verify_test(m_SpendKeys.end() == m_SpendKeys.find(pars.m_Ticket.m_SpendPk));
+				m_SpendKeys.insert(pars.m_Ticket.m_SpendPk);
 				return true;
 			}
 

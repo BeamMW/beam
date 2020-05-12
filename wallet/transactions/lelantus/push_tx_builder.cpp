@@ -90,7 +90,7 @@ namespace beam::wallet::lelantus
 
                 ECC::uintBig nonce;
                 ECC::GenRandom(nonce);
-                sdp.m_Serial.Generate(pKrn->m_Txo.m_Serial, viewer, nonce);
+                sdp.m_Ticket.Generate(pKrn->m_Txo.m_Ticket, viewer, nonce);
 
                 sdp.GenerateOutp(pKrn->m_Txo, oracle);
 
@@ -98,13 +98,13 @@ namespace beam::wallet::lelantus
                 ShieldedCoin shieldedCoin;
                 shieldedCoin.m_value = GetAmount();
                 shieldedCoin.m_createTxId = m_Tx.GetTxID();
-                shieldedCoin.m_Key.m_kSerG = sdp.m_Serial.m_pK[0];
-                shieldedCoin.m_Key.m_IsCreatedByViewer = sdp.m_Serial.m_IsCreatedByViewer;
+                shieldedCoin.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
+                shieldedCoin.m_Key.m_IsCreatedByViewer = sdp.m_Ticket.m_IsCreatedByViewer;
                 shieldedCoin.m_Key.m_nIdx = nIdx;
                 shieldedCoin.m_User = sdp.m_Output.m_User;
 
                 m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);
-                m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, pKrn->m_Txo.m_Serial.m_SerialPub);
+                m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, pKrn->m_Txo.m_Ticket.m_SerialPub);
 
                 // save Kernel and KernelID
                 pKrn->MsgToID();

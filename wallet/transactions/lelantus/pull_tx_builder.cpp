@@ -155,10 +155,10 @@ namespace beam::wallet::lelantus
 
                 Key::IKdf::Ptr pSerialPrivate;
                 ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pMaster, shieldedCoin->m_Key.m_nIdx);
-                pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Serial.m_SerialPreimage);
+                pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
                 prover.m_Witness.V.m_L = shieldedWindowId;
-                prover.m_Witness.V.m_R = sdp.m_Serial.m_pK[0];
+                prover.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0];
                 prover.m_Witness.V.m_R += sdp.m_Output.m_k;
                 prover.m_Witness.V.m_V = GetAmount() + GetFee();
             }
