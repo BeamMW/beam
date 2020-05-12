@@ -5029,16 +5029,4 @@ namespace beam::wallet
             break;
         }
     }
-
-    WalletAsset::WalletAsset(const Asset::Full& full, Height refreshHeight)
-        : Asset::Full(full)
-        , m_RefreshHeight(refreshHeight)
-    {
-    }
-
-    bool WalletAsset::CanRollback(Height from) const
-    {
-        const auto maxRollback = Rules::get().MaxRollback;
-        return m_LockHeight + maxRollback > from;
-    }
 }

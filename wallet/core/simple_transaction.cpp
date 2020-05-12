@@ -266,7 +266,7 @@ namespace beam::wallet
                     //  where we can check that it is OK to receive this particular asset
                     //  and expect that it would not be changed / manipulated
                     //
-                    if(CheckAsset(builder.GetAssetId()) != AssetCheckResult::OK)
+                    if(CheckAsset(builder) != AssetCheckResult::OK)
                     {
                         // can be request for async operation or simple fail
                         // in both cases we should jump out of here
@@ -367,8 +367,9 @@ namespace beam::wallet
         CompleteTx();
     }
 
-    SimpleTransaction::AssetCheckResult SimpleTransaction::CheckAsset(Asset::ID assetId)
+    SimpleTransaction::AssetCheckResult SimpleTransaction::CheckAsset(const BaseTxBuilder& builder)
     {
+        const auto assetId = builder.GetAssetId();
         if (assetId == Asset::s_InvalidID)
         {
             // No asset - no error
@@ -383,6 +384,7 @@ namespace beam::wallet
             GetGateway().confirm_asset(GetTxID(), assetId, kDefaultSubTxID);
         };
 
+        bool printInfo = true;
         if (m_assetCheckState == ACInitial)
         {
             if (const auto oinfo = m_WalletDB->findAsset(assetId))
@@ -417,6 +419,7 @@ namespace beam::wallet
             }
 
             m_assetCheckState = ACCheck;
+            printInfo = false;
         }
 
         if (m_assetCheckState == ACCheck)
@@ -474,6 +477,14 @@ namespace beam::wallet
             {
                 confirmAsset();
                 return AssetCheckResult::Async;
+            }
+
+            if (printInfo)
+            {
+                if (const auto& asset = m_WalletDB->findAsset(assetId))
+                {
+                    asset->LogInfo(GetTxID(), builder.GetSubTxID());
+                }
             }
 
             return AssetCheckResult::OK;

@@ -35,6 +35,7 @@
 #include "variables_db.h"
 #include "wallet/client/extensions/notifications/notification.h"
 #include "wallet/client/extensions/news_channels/interface.h"
+#include "wallet/core/assets_utils.h"
 
 #include <string>
 
@@ -137,17 +138,6 @@ namespace beam::wallet
         static constexpr uint64_t AddressExpirationNever = 0;
         static constexpr uint64_t AddressExpiration24h   = 24 * 60 * 60;
         static constexpr uint64_t AddressExpiration1h    = 60 * 60;
-    };
-
-    class WalletAsset: public Asset::Full
-    {
-    public:
-        WalletAsset() = default;
-        WalletAsset(const Asset::Full& full, Height refreshHeight);
-        bool CanRollback(Height from) const;
-
-        Height  m_RefreshHeight = 0;
-        int32_t m_IsOwned = 0;
     };
 
     class ILaserChannelEntity

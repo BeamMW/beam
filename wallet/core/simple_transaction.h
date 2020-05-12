@@ -85,7 +85,7 @@ namespace beam::wallet
             OK,
         };
 
-        AssetCheckResult CheckAsset(Asset::ID assetId);
+        AssetCheckResult CheckAsset(const BaseTxBuilder& builder);
         AssetCheckState m_assetCheckState = AssetCheckState::ACInitial;
 
     private:
