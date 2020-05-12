@@ -642,42 +642,35 @@ namespace beam::wallet
             const auto height = m_WalletDB->getCurrentHeight();
             m_WalletDB->saveAsset(info, height);
 
-            if (tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID) &&
-                tx->SetParameter(TxParameterID::AssetInfoFull, info, req.m_SubTxID) &&
-                tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID))
+            tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID);
+            tx->SetParameter(TxParameterID::AssetInfoFull, info, req.m_SubTxID);
+            tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID);
+
+            LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Received proof for Asset with ID " << info.m_ID;
+            LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset ID: "           << info.m_ID;
+            LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Owner ID: "           << info.m_Owner;
+            LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Issued amount: "      << PrintableAmount(info.m_Value, false, kAmountASSET, kAmountAGROTH);
+            LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Lock Height: "        << info.m_LockHeight;
+            LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Metadata size: "      << info.m_Metadata.m_Value.size() << " bytes";
+            LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Refresh height: "     << height;
+
+            const WalletAssetMeta meta(info);
+            meta.LogInfo();
+
+            if (tx->GetType() == TxType::AssetReg)
             {
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Received proof for Asset with ID " << info.m_ID;
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset ID: "           << info.m_ID;
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Owner ID: "           << info.m_Owner;
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Issued amount: "      << PrintableAmount(info.m_Value, false, kAmountASSET, kAmountAGROTH);
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Lock Height: "        << info.m_LockHeight;
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Metadata size: "      << info.m_Metadata.m_Value.size() << " bytes";
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Refresh height: "     << height;
-
-                const WalletAssetMeta meta(info);
-                meta.LogInfo();
-
-                if (tx->GetType() == TxType::AssetReg)
-                {
-                    m_WalletDB->markAssetOwned(info.m_ID);
-                }
-
-                if(const auto wasset = m_WalletDB->findAsset(info.m_ID))
-                {
-                    if(wasset->m_IsOwned)
-                    {
-                        LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " You own this asset";
-                    }
-                }
-
-                UpdateTransaction(tx);
+                m_WalletDB->markAssetOwned(info.m_ID);
             }
-            else
+
+            if(const auto wasset = m_WalletDB->findAsset(info.m_ID))
             {
-                // should never happen
-                assert(!"failed to set AssetID");
-                return;
+                if(wasset->m_IsOwned)
+                {
+                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " You own this asset";
+                }
             }
+
+            UpdateTransaction(tx);
         }
         else
         {

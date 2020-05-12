@@ -43,9 +43,6 @@ namespace beam::wallet
 
             KernelConfirmation,
             OutputsConfirmation,
-
-            AssetConfirmation,
-            AssetCheck,
         };
 
         class Creator : public BaseTransaction::Creator
@@ -71,10 +68,26 @@ namespace beam::wallet
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         void SendInvitation(const BaseTxBuilder& builder, bool isSender);
         void ConfirmInvitation(const BaseTxBuilder& builder);
-        void ConfirmAsset();
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;
         State GetState() const;
+
+    private:
+        enum AssetCheckState {
+            ACInitial,
+            ACConfirmation,
+            ACCheck,
+        };
+
+        enum AssetCheckResult {
+            Fail,
+            Async,
+            OK,
+        };
+
+        AssetCheckResult CheckAsset(Asset::ID assetId);
+        AssetCheckState m_assetCheckState = AssetCheckState::ACInitial;
+
     private:
         std::shared_ptr<BaseTxBuilder> m_TxBuilder;
     };

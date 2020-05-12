@@ -94,6 +94,7 @@ namespace beam::wallet
             {
                 SetParameter(TxParameterID::AssetID, info->m_ID);
                 SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*info));
+                SetParameter(TxParameterID::AssetConfirmedHeight, info->m_RefreshHeight);
                 SetState(State::AssetCheck);
             }
             else
