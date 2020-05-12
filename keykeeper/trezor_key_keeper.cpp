@@ -208,78 +208,66 @@ namespace beam::wallet
         });
     }
 
-    IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::CreateOutput& m)
+    void TrezorKeyKeeperProxy::InvokeAsync(Method::CreateOutput& m, const Handler::Ptr& h)
     {
-        //if (m.m_hScheme < Rules::get().pForks[1].m_Height)
-        //    return Status::NotImplemented;
-        //
-        //if (!m_OwnerKdf)
-        //    return Status::Unspecified;
-        //
-        //Output::Ptr pOutp = std::make_unique<Output>();
-        //
-        //ECC::Point::Native comm;
-        //get_Commitment(comm, m.m_Cid);
-        //pOutp->m_Commitment = comm;
-        //
-        //// rangeproof
-        //ECC::Scalar::Native skDummy;
-        //ECC::HKdf kdfDummy;
-        //
-        //pOutp->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_1);
-        //assert(pOutp->m_pConfidential);
-        //
-        //BeamCrypto_RangeProof rp;
-        //rp.m_pKdf = &m_Ctx.m_MasterKey;
-        //CidCvt(rp.m_Cid, m.m_Cid);
-        //
-        //rp.m_pT[0] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1);
-        //rp.m_pT[1] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2);
-        //rp.m_pKExtra = nullptr;
-        //ZeroObject(rp.m_TauX);
-        //
-        //if (!BeamCrypto_RangeProof_Calculate(&rp)) // Phase 2
-        //    return Status::Unspecified;
-        //
-        //Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1) = rp.m_pT[0];
-        //Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2) = rp.m_pT[1];
-        //
-        //ECC::Scalar::Native tauX;
-        //tauX.get_Raw() = rp.m_TauX;
-        //pOutp->m_pConfidential->m_Part3.m_TauX = tauX;
-        //
-        //pOutp->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_2); // Phase 3
-        //
-        //m.m_pResult.swap(pOutp);
+        if (m.m_hScheme < Rules::get().pForks[1].m_Height)
+            return PushOut(Status::NotImplemented, h);
+        
+        if (!m_OwnerKdf)
+            return PushOut(Status::Unspecified, h);
+        
+        Output::Ptr pOutp = std::make_unique<Output>();
+        
+        ECC::Point::Native comm;
+        get_Commitment(comm, m.m_Cid);
+        pOutp->m_Commitment = comm;
+        
+        // rangeproof
+        ECC::Scalar::Native skDummy;
+        ECC::HKdf kdfDummy;
+        
+        pOutp->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_1);
+        assert(pOutp->m_pConfidential);
 
-        return Status::Success;
+        BeamCrypto_CoinID cid;
+        BeamCrypto_CompactPoint pt0, pt1;
+
+        CidCvt(cid, m.m_Cid);
+        pt0 = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1);
+        pt1 = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2);
+        auto copyableOutput = std::make_shared<Output::Ptr>(std::move(pOutp));
+        m_DeviceManager->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, [this, &m, h, copyableOutput](const Message& msg, std::string session, size_t queue_size)
+        {
+            bool isSuccessful = child_cast<Message, BeamRangeproofData>(msg).is_successful();
+            if (!isSuccessful)
+            {
+                PushHandlerToCallerThread([this, h]()
+                {
+                    PushOut(Status::Unspecified, h);
+                });
+            }
+            
+            secp256k1_scalar resTauX = ConvertResultTo<secp256k1_scalar>(child_cast<Message, BeamRangeproofData>(msg).data_taux());
+            PushHandlerToCallerThread([this, &m, h, resTauX, copyableOutput]()
+            {
+                Output::Ptr output = std::move(*copyableOutput);
+                //Ecc2BC(output->m_pConfidential->m_Part2.m_T1) = rp.m_pT[0];
+                //Ecc2BC(output->m_pConfidential->m_Part2.m_T2) = rp.m_pT[1];
+                    
+                ECC::Scalar::Native tauX;
+                tauX.get_Raw() = resTauX;
+                output->m_pConfidential->m_Part3.m_TauX = tauX;
+            
+                ECC::Scalar::Native skDummy;
+                ECC::HKdf kdfDummy;
+                output->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_2); // Phase 3
+            
+                m.m_pResult.swap(output);
+            
+                PushOut(Status::Success, h);
+            });
+        });
     }
-
-    //void TrezorKeyKeeperProxy::InvokeAsync(Method::CreateOutput& m, const Handler::Ptr& h)
-    //{
-    //    //json msg =
-    //    //{
-    //    //    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
-    //    //    {"id", 0},
-    //    //    {"method", "create_output"},
-    //    //    {"params",
-    //    //        {
-    //    //            {"scheme", to_base64(x.m_hScheme)},
-    //    //            {"id", to_base64(x.m_Cid)}
-    //    //        }
-    //    //    }
-    //    //};
-    //    //
-    //    //_connection.sendAsync(msg, [this, &x, h](const json& msg)
-    //    //    {
-    //    //        Status::Type s = GetStatus(msg);
-    //    //        if (s == Status::Success)
-    //    //        {
-    //    //            x.m_pResult = from_base64<Output::Ptr>(msg["result"]);
-    //    //        }
-    //    //        PushOut(s, h);
-    //    //    });
-    //}
 
     void TrezorKeyKeeperProxy::InvokeAsync(Method::SignReceiver& m, const Handler::Ptr& h)
     {
@@ -291,7 +279,7 @@ namespace beam::wallet
         txMutualInfo.m_MyIDKey = m.m_MyIDKey;
         txMutualInfo.m_Peer = Ecc2BC(m.m_Peer);
 
-        m_DeviceManager->call_BeamSignTransactionReceive(txCommon, txMutualInfo, [this, txCommon, &m, h](const Message& msg, std::string session, size_t queue_size) mutable
+        m_DeviceManager->call_BeamSignTransactionReceive(txCommon, txMutualInfo, [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
             const auto& txReceive = child_cast<Message, BeamSignTransactionReceive>(msg);
             TxExport(txCommon, txReceive.tx_common());
@@ -324,7 +312,7 @@ namespace beam::wallet
         txSenderParams.m_iSlot = m.m_Slot;
         txSenderParams.m_UserAgreement = Ecc2BC(m.m_UserAgreement);
 
-        m_DeviceManager->call_BeamSignTransactionSend(txCommon, txMutualInfo, txSenderParams, [this, txCommon, &m, h](const Message& msg, std::string session, size_t queue_size) mutable
+        m_DeviceManager->call_BeamSignTransactionSend(txCommon, txMutualInfo, txSenderParams, [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
             TxExport(txCommon, child_cast<Message, BeamSignTransactionSend>(msg).tx_common());
             BeamCrypto_UintBig userAgreement = ConvertResultTo<BeamCrypto_UintBig>(child_cast<Message, BeamSignTransactionSend>(msg).user_agreement());
@@ -343,7 +331,7 @@ namespace beam::wallet
         Vectors v;
         TxImport(txCommon, m, v);
 
-        m_DeviceManager->call_BeamSignTransactionSplit(txCommon, [this, txCommon, &m, h](const Message& msg, std::string session, size_t queue_size) mutable
+        m_DeviceManager->call_BeamSignTransactionSplit(txCommon, [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
             TxExport(txCommon, child_cast<Message, BeamSignTransactionSplit>(msg).tx_common());
             PushHandlerToCallerThread([this, &m, h, txCommon]()

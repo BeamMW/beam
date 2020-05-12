@@ -35,8 +35,8 @@ namespace beam::wallet
         Status::Type InvokeSync(Method::get_Kdf& m) override;
         void InvokeAsync(Method::get_Kdf& m, const Handler::Ptr& h) override;
         void InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h) override;
-        Status::Type InvokeSync(Method::CreateOutput& m) override;
-        //void InvokeAsync(Method::CreateOutput& m, const Handler::Ptr& h) override;
+        //Status::Type InvokeSync(Method::CreateOutput& m) override;
+        void InvokeAsync(Method::CreateOutput& m, const Handler::Ptr& h) override;
         void InvokeAsync(Method::SignReceiver& m, const Handler::Ptr& h) override;
         void InvokeAsync(Method::SignSender& m, const Handler::Ptr& h) override;
         void InvokeAsync(Method::SignSplit& m, const Handler::Ptr& h) override;
