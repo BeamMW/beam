@@ -83,8 +83,8 @@ namespace
 
         TestNodeNetwork::Shared tnns;
 
-        Wallet sender(senderWalletDB, f);
-        Wallet receiver(receiverWalletDB, f);
+        Wallet sender(senderWalletDB, true, f);
+        Wallet receiver(receiverWalletDB, true, f);
 
         auto twn = make_shared<TestWalletNetwork>();
         auto netNodeS = make_shared<TestNodeNetwork>(tnns, sender);
@@ -931,7 +931,7 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
-        SimpleTransaction::Creator simpleCreator(sender.m_WalletDB);
+        SimpleTransaction::Creator simpleCreator(sender.m_WalletDB, true);
         BaseTransaction::Creator& creator = simpleCreator;
         auto tx = creator.Create(gateway, sender.m_WalletDB, txID);
 
@@ -982,7 +982,7 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB());
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
-        SimpleTransaction::Creator simpleTxCreator(sender.m_WalletDB);
+        SimpleTransaction::Creator simpleTxCreator(sender.m_WalletDB, true);
         BaseTransaction::Creator& txCreator = simpleTxCreator;
         // process TransactionFailedException
         {
@@ -1541,7 +1541,7 @@ namespace
                 { Notification::Type::TransactionFailed, true },
                 { Notification::Type::TransactionCompleted, true }
             };
-            client.start(activeNotifications);
+            client.start(activeNotifications, true);
         }
         auto timer = io::Timer::create(*mainReactor);
         

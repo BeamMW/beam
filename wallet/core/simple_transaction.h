@@ -48,7 +48,7 @@ namespace beam::wallet
         class Creator : public BaseTransaction::Creator
         {
         public:
-            Creator(IWalletDB::Ptr walletDB);
+            Creator(IWalletDB::Ptr walletDB, bool withAssets);
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway
                                       , IWalletDB::Ptr walletDB
@@ -56,11 +56,13 @@ namespace beam::wallet
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
         private:
             IWalletDB::Ptr m_WalletDB;
+            bool m_withAssets;
         };
     private:
         SimpleTransaction(INegotiatorGateway& gateway
                         , IWalletDB::Ptr walletDB
-                        , const TxID& txID);
+                        , const TxID& txID
+                        , bool withAssets);
     private:
         TxType GetType() const override;
         bool IsInSafety() const override;
@@ -87,6 +89,7 @@ namespace beam::wallet
 
         AssetCheckResult CheckAsset(const BaseTxBuilder& builder);
         AssetCheckState m_assetCheckState = AssetCheckState::ACInitial;
+        bool m_withAssets;
 
     private:
         std::shared_ptr<BaseTxBuilder> m_TxBuilder;

@@ -2499,11 +2499,12 @@ namespace
             io::Reactor::get_Current().stop();
         };
 
+        const auto withAssets = vm[cli::WITH_ASSETS].as<bool>();
         auto txCompletedAction = isServer
             ? Wallet::TxCompletedAction()
             : onTxCompleteAction;
 
-        Wallet wallet{ walletDB,
+        Wallet wallet{ walletDB, withAssets,
                        std::move(txCompletedAction),
                        Wallet::UpdateCompletedAction() };
         {
@@ -2516,7 +2517,10 @@ namespace
             RegisterSwapTxCreators(wallet, walletDB);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #ifdef BEAM_CONFIDENTIAL_ASSETS_SUPPORT
-            RegisterAssetCreators(wallet);
+            if (withAssets)
+            {
+                RegisterAssetCreators(wallet);
+            }
 #endif  // BEAM_CONFIDENTIAL_ASSETS_SUPPORT
             wallet.ResumeAllTransactions();
 
