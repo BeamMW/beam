@@ -2621,41 +2621,41 @@ int main()
 
     //TestBbsDecrypt();
 
-    //TestConvertions();
-    //TestTxParameters();
-    //
-    //TestClient();
-    //TestWalletID();
-    //TestSendingWithWalletID();
-    //
-    //TestMultiUserWallet();
-    //
-    //TestNegotiation();
-    //
-    //TestP2PWalletNegotiationST();
-    //
-    //TestTxRollback();
-    //
-    //{
-    //    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-    //    io::Reactor::Scope scope(*mainReactor);
-    //    //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
-    //    TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
-    //}
-    //
-    //TestSplitTransaction();
-    //
-    //TestMinimalFeeTransaction();
-    //
-    //TestTxToHimself();
-    //
-    //TestExpiredTransaction();
-    //
-    //TestTransactionUpdate();
-    ////TestTxPerformance();
-    ////TestTxNonces();
-    //
-    //TestTxExceptionHandling();
+    TestConvertions();
+    TestTxParameters();
+    
+    TestClient();
+    TestWalletID();
+    TestSendingWithWalletID();
+    
+    TestMultiUserWallet();
+    
+    TestNegotiation();
+    
+    TestP2PWalletNegotiationST();
+    
+    TestTxRollback();
+    
+    {
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+        //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
+        TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+    }
+    
+    TestSplitTransaction();
+    
+    TestMinimalFeeTransaction();
+    
+    TestTxToHimself();
+    
+    TestExpiredTransaction();
+    
+    TestTransactionUpdate();
+    //TestTxPerformance();
+    //TestTxNonces();
+    
+    TestTxExceptionHandling();
     
    
     // @nesbox: disabled tests, they work only if device connected

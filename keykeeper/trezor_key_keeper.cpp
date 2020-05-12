@@ -36,7 +36,122 @@ namespace beam::wallet
 {
     using namespace ECC;
     using namespace std;
+    using namespace hw::trezor::messages::beam;
 
+    namespace
+    {
+        BeamCrypto_UintBig& Ecc2BC(const ECC::uintBig& x)
+        {
+            static_assert(sizeof(x) == sizeof(BeamCrypto_UintBig));
+            return (BeamCrypto_UintBig&)x;
+        }
+
+        BeamCrypto_CompactPoint& Ecc2BC(const ECC::Point& x)
+        {
+            static_assert(sizeof(x) == sizeof(BeamCrypto_CompactPoint));
+            return (BeamCrypto_CompactPoint&)x;
+        }
+
+        void CidCvt(BeamCrypto_CoinID& cid2, const CoinID& cid)
+        {
+            cid2.m_Idx = cid.m_Idx;
+            cid2.m_SubIdx = cid.m_SubIdx;
+            cid2.m_Type = cid.m_Type;
+            cid2.m_AssetID = cid.m_AssetID;
+            cid2.m_Amount = cid.m_Value;
+        }
+
+        template<typename T>
+        const T& ConvertResultTo(const std::string& result)
+        {
+            assert(result.size() == sizeof(T));
+            return *reinterpret_cast<const T*>(result.data());
+        }
+
+        struct Vectors
+        {
+            std::vector<BeamCrypto_CoinID> m_Inputs;
+            std::vector<BeamCrypto_CoinID> m_Outputs;
+        };
+
+        void TxImport(BeamCrypto_TxCommon& tx2, const IPrivateKeyKeeper2::Method::TxCommon& m, Vectors& v)
+        {
+            v.m_Inputs.resize(m.m_vInputs.size());
+            v.m_Outputs.resize(m.m_vOutputs.size());
+            if (!v.m_Inputs.empty() && !v.m_Outputs.empty())
+            {
+                for (size_t i = 0; i < v.m_Inputs.size(); ++i)
+                    CidCvt(v.m_Inputs[i], m.m_vInputs[i]);
+
+                for (size_t i = 0; i < v.m_Outputs.size(); ++i)
+                    CidCvt(v.m_Outputs[i], m.m_vOutputs[i]);
+        
+                tx2.m_pIns = &v.m_Inputs;
+                tx2.m_pOuts = &v.m_Outputs;
+            }
+        
+            // kernel
+            assert(m.m_pKernel);
+            tx2.m_Krn.m_Fee = m.m_pKernel->m_Fee;
+            tx2.m_Krn.m_hMin = m.m_pKernel->m_Height.m_Min;
+            tx2.m_Krn.m_hMax = m.m_pKernel->m_Height.m_Max;
+
+            tx2.m_Krn.m_Commitment = Ecc2BC(m.m_pKernel->m_Commitment);
+            tx2.m_Krn.m_Signature.m_NoncePub = Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub);
+            tx2.m_Krn.m_Signature.m_k = Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value);
+        
+            // offset
+            ECC::Scalar kOffs(m.m_kOffset);
+            tx2.m_kOffset = Ecc2BC(kOffs.m_Value);
+        }
+
+        void TxExport(BeamCrypto_CompactPoint& point, const BeamECCPoint& point2)
+        {
+            point.m_X = ConvertResultTo<BeamCrypto_UintBig>(point2.x());
+            point.m_Y = static_cast<uint8_t>(point2.y());
+        }
+
+        void TxExport(BeamCrypto_Signature& signature, const BeamSignature& signature2)
+        {
+            signature.m_k = ConvertResultTo<BeamCrypto_UintBig>(signature2.sign_k());
+            TxExport(signature.m_NoncePub, signature2.nonce_pub());
+        }
+
+        void TxExport(BeamCrypto_TxCommon& txCommon, const BeamTxCommon& tx2)
+        {
+            // kernel
+            const auto& kernelParams = tx2.kernel_params();
+            txCommon.m_Krn.m_Fee = kernelParams.fee();
+            txCommon.m_Krn.m_hMin = kernelParams.min_height();
+            txCommon.m_Krn.m_hMax = kernelParams.max_height();
+            
+            TxExport(txCommon.m_Krn.m_Commitment, kernelParams.commitment());
+            TxExport(txCommon.m_Krn.m_Signature, kernelParams.signature());
+
+            // offset
+            txCommon.m_kOffset = ConvertResultTo<BeamCrypto_UintBig>(tx2.offset_sk());
+        }
+
+        void TxExport(IPrivateKeyKeeper2::Method::TxCommon& m, const BeamCrypto_TxCommon& tx2)
+        {
+            // kernel
+            assert(m.m_pKernel);
+            m.m_pKernel->m_Fee = tx2.m_Krn.m_Fee;
+            m.m_pKernel->m_Height.m_Min = tx2.m_Krn.m_hMin;
+            m.m_pKernel->m_Height.m_Max = tx2.m_Krn.m_hMax;
+
+            Ecc2BC(m.m_pKernel->m_Commitment) = tx2.m_Krn.m_Commitment;
+            Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub) = tx2.m_Krn.m_Signature.m_NoncePub;
+            Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value) = tx2.m_Krn.m_Signature.m_k;
+
+            m.m_pKernel->UpdateID();
+
+            // offset
+            ECC::Scalar kOffs;
+            Ecc2BC(kOffs.m_Value) = tx2.m_kOffset;
+            m.m_kOffset = kOffs;
+        }
+    }
 
     TrezorKeyKeeperProxy::TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager)
         : m_DeviceManager(deviceManager)
@@ -45,96 +160,114 @@ namespace beam::wallet
         
     }
 
-    IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::get_Kdf& x)
+    IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::get_Kdf& m)
     {
-        if (m_OwnerKdf && (x.m_Root 
-            || x.m_iChild == Key::Index(-1))) // TODO temporary, remove this condition after integration
+        if (m_OwnerKdf && m.m_Root)
         {
-            x.m_pPKdf = m_OwnerKdf;
+            m.m_pPKdf = m_OwnerKdf;
             return Status::Success;
         }
-        return PrivateKeyKeeper_AsyncNotify::InvokeSync(x);
+        return PrivateKeyKeeper_AsyncNotify::InvokeSync(m);
     }
 
-    void TrezorKeyKeeperProxy::InvokeAsync(Method::get_Kdf& x, const Handler::Ptr& h)
+    void TrezorKeyKeeperProxy::InvokeAsync(Method::get_Kdf& m, const Handler::Ptr& h)
     {
-        //json msg =
-        //{
-        //    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
-        //    {"id", 0},
-        //    {"method", "get_kdf"},
-        //    {"params",
-        //        {
-        //            {"root", x.m_Root},
-        //            {"child_key_num", x.m_iChild}
-        //        }
-        //    }
-        //};
-        //
-
-        m_DeviceManager->call_BeamGetOwnerKey(true, [this, &x, h](const Message& msg, std::string session, size_t queue_size)
+        m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
             auto pubKdf = std::make_shared<ECC::HKdfPub>();
 
-            ///// Old
-            auto ownerKey = child_cast<Message, hw::trezor::messages::beam::BeamOwnerKey>(msg).key();
-            KeyString ks;
-            ks.SetPassword("LWkeNHJD");
-            ks.m_sRes = ownerKey;
+            const ECC::HKdfPub::Packed* packed = reinterpret_cast<const ECC::HKdfPub::Packed*>(child_cast<Message, hw::trezor::messages::beam::BeamPKdf>(msg).key().data());
 
-            ks.Import(*pubKdf);
+            pubKdf->Import(*packed);
 
-            ///// New
-
-            //const ECC::HKdfPub::Packed* packed = reinterpret_cast<const ECC::HKdfPub::Packed*>(child_cast<Message, hw::trezor::messages::beam::BeamOwnerKey>(msg).key().data());
-
-            //pubKdf->Import(*packed);
-
-            PushHandlerToCallerThread([this, &x, h, pubKdf]()
+            PushHandlerToCallerThread([this, &m, h, pubKdf]()
             {
                 {
-                    
-                    x.m_pPKdf = pubKdf;
+                    m.m_pPKdf = pubKdf;
 
-                    if (x.m_Root)
+                    if (m.m_Root)
                     {
-                        m_OwnerKdf = pubKdf;
+                        m_OwnerKdf = pubKdf; // cache owner kdf
                     }
                 }
                 PushOut(Status::Success, h);
             });
         });
-
-        //
-        //_connection.sendAsync(msg, [this, &x, h](const json& msg)
-        //    {
-        //        Status::Type s = GetStatus(msg);
-        //        if (s == Status::Success)
-        //        {
-        //            ByteBuffer buf = from_base64<ByteBuffer>(msg["pub_kdf"]);
-        //            ECC::HKdfPub::Packed* packed = reinterpret_cast<ECC::HKdfPub::Packed*>(&buf[0]);
-        //
-        //            auto pubKdf = std::make_shared<ECC::HKdfPub>();
-        //            pubKdf->Import(*packed);
-        //            x.m_pPKdf = pubKdf;
-        //        }
-        //        PushOut(s, h);
-        //    });
     }
 
-    IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::get_NumSlots& x)
+    void TrezorKeyKeeperProxy::InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h)
     {
-        x.m_Count = 8;
+        m_DeviceManager->call_BeamGetNumSlots(true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
+        {
+            uint32_t numSlots = child_cast<Message, BeamNumSlots>(msg).num_slots();
+            PushHandlerToCallerThread([this, &m, h, numSlots]()
+            {
+                m.m_Count = numSlots;
+                PushOut(Status::Success, h);
+            });
+        });
+    }
+
+    IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::CreateOutput& m)
+    {
+        //if (m.m_hScheme < Rules::get().pForks[1].m_Height)
+        //    return Status::NotImplemented;
+        //
+        //if (!m_OwnerKdf)
+        //    return Status::Unspecified;
+        //
+        //Output::Ptr pOutp = std::make_unique<Output>();
+        //
+        //ECC::Point::Native comm;
+        //get_Commitment(comm, m.m_Cid);
+        //pOutp->m_Commitment = comm;
+        //
+        //// rangeproof
+        //ECC::Scalar::Native skDummy;
+        //ECC::HKdf kdfDummy;
+        //
+        //pOutp->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_1);
+        //assert(pOutp->m_pConfidential);
+        //
+        //BeamCrypto_RangeProof rp;
+        //rp.m_pKdf = &m_Ctx.m_MasterKey;
+        //CidCvt(rp.m_Cid, m.m_Cid);
+        //
+        //rp.m_pT[0] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1);
+        //rp.m_pT[1] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2);
+        //rp.m_pKExtra = nullptr;
+        //ZeroObject(rp.m_TauX);
+        //
+        //if (!BeamCrypto_RangeProof_Calculate(&rp)) // Phase 2
+        //    return Status::Unspecified;
+        //
+        //Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1) = rp.m_pT[0];
+        //Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2) = rp.m_pT[1];
+        //
+        //ECC::Scalar::Native tauX;
+        //tauX.get_Raw() = rp.m_TauX;
+        //pOutp->m_pConfidential->m_Part3.m_TauX = tauX;
+        //
+        //pOutp->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_2); // Phase 3
+        //
+        //m.m_pResult.swap(pOutp);
+
         return Status::Success;
     }
 
-    //void TrezorKeyKeeperProxy::InvokeAsync(Method::get_NumSlots& x, const Handler::Ptr& h)
+    //void TrezorKeyKeeperProxy::InvokeAsync(Method::CreateOutput& m, const Handler::Ptr& h)
     //{
     //    //json msg =
     //    //{
     //    //    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
     //    //    {"id", 0},
-    //    //    {"method", "get_slots"}
+    //    //    {"method", "create_output"},
+    //    //    {"params",
+    //    //        {
+    //    //            {"scheme", to_base64(x.m_hScheme)},
+    //    //            {"id", to_base64(x.m_Cid)}
+    //    //        }
+    //    //    }
     //    //};
     //    //
     //    //_connection.sendAsync(msg, [this, &x, h](const json& msg)
@@ -142,160 +275,84 @@ namespace beam::wallet
     //    //        Status::Type s = GetStatus(msg);
     //    //        if (s == Status::Success)
     //    //        {
-    //    //            x.m_Count = msg["count"];
+    //    //            x.m_pResult = from_base64<Output::Ptr>(msg["result"]);
     //    //        }
     //    //        PushOut(s, h);
     //    //    });
-    //    x.m_Count = 8;
-    //    PushOut(Status::Success, h);
     //}
 
-    void TrezorKeyKeeperProxy::InvokeAsync(Method::CreateOutput& x, const Handler::Ptr& h)
+    void TrezorKeyKeeperProxy::InvokeAsync(Method::SignReceiver& m, const Handler::Ptr& h)
     {
-        //json msg =
-        //{
-        //    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
-        //    {"id", 0},
-        //    {"method", "create_output"},
-        //    {"params",
-        //        {
-        //            {"scheme", to_base64(x.m_hScheme)},
-        //            {"id", to_base64(x.m_Cid)}
-        //        }
-        //    }
-        //};
-        //
-        //_connection.sendAsync(msg, [this, &x, h](const json& msg)
-        //    {
-        //        Status::Type s = GetStatus(msg);
-        //        if (s == Status::Success)
-        //        {
-        //            x.m_pResult = from_base64<Output::Ptr>(msg["result"]);
-        //        }
-        //        PushOut(s, h);
-        //    });
+        BeamCrypto_TxCommon txCommon;
+        Vectors v;
+        TxImport(txCommon, m, v);
+
+        BeamCrypto_TxMutualInfo txMutualInfo;
+        txMutualInfo.m_MyIDKey = m.m_MyIDKey;
+        txMutualInfo.m_Peer = Ecc2BC(m.m_Peer);
+
+        m_DeviceManager->call_BeamSignTransactionReceive(txCommon, txMutualInfo, [this, txCommon, &m, h](const Message& msg, std::string session, size_t queue_size) mutable
+        {
+            const auto& txReceive = child_cast<Message, BeamSignTransactionReceive>(msg);
+            TxExport(txCommon, txReceive.tx_common());
+            BeamCrypto_Signature proofSignature;
+            TxExport(proofSignature, txReceive.tx_mutual_info().payment_proof_signature());
+
+            PushHandlerToCallerThread([this, &m, h, txCommon, proofSignature]()
+            {
+                TxExport(m, txCommon);
+                Ecc2BC(m.m_PaymentProofSignature.m_NoncePub) = proofSignature.m_NoncePub;
+                Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value) = proofSignature.m_k;
+                PushOut(Status::Success, h);
+            });
+        });
     }
 
-    void TrezorKeyKeeperProxy::InvokeAsync(Method::SignReceiver& x, const Handler::Ptr& h)
+    void TrezorKeyKeeperProxy::InvokeAsync(Method::SignSender& m, const Handler::Ptr& h)
     {
-        //json msg =
-        //{
-        //    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
-        //    {"id", 0},
-        //    {"method", "sign_receiver"},
-        //    {"params",
-        //        {
-        //            {"inputs",    to_base64(x.m_vInputs)},
-        //            {"outputs",   to_base64(x.m_vOutputs)},
-        //            {"kernel",    to_base64(x.m_pKernel)},
-        //            {"non_conv",  x.m_NonConventional},
-        //            {"peer_id",   to_base64(x.m_Peer)},
-        //            {"my_id_key", to_base64(x.m_MyIDKey)}
-        //        }
-        //    }
-        //};
-        //
-        //_connection.sendAsync(msg, [this, &x, h](const json& msg)
-        //    {
-        //        Status::Type s = GetStatus(msg);
-        //        if (s == Status::Success)
-        //        {
-        //            GetMutualResult(x, msg);
-        //        }
-        //        PushOut(s, h);
-        //    });
+        BeamCrypto_TxCommon txCommon;
+        Vectors v;
+        TxImport(txCommon, m, v);
+
+        BeamCrypto_TxMutualInfo txMutualInfo;
+        txMutualInfo.m_MyIDKey = m.m_MyIDKey;
+        txMutualInfo.m_Peer = Ecc2BC(m.m_Peer);
+        txMutualInfo.m_PaymentProofSignature.m_NoncePub = Ecc2BC(m.m_PaymentProofSignature.m_NoncePub);
+        txMutualInfo.m_PaymentProofSignature.m_k = Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value);
+
+        BeamCrypto_TxSenderParams txSenderParams;
+        txSenderParams.m_iSlot = m.m_Slot;
+        txSenderParams.m_UserAgreement = Ecc2BC(m.m_UserAgreement);
+
+        m_DeviceManager->call_BeamSignTransactionSend(txCommon, txMutualInfo, txSenderParams, [this, txCommon, &m, h](const Message& msg, std::string session, size_t queue_size) mutable
+        {
+            TxExport(txCommon, child_cast<Message, BeamSignTransactionSend>(msg).tx_common());
+            BeamCrypto_UintBig userAgreement = ConvertResultTo<BeamCrypto_UintBig>(child_cast<Message, BeamSignTransactionSend>(msg).user_agreement());
+            PushHandlerToCallerThread([this, &m, h, txCommon, userAgreement]()
+            {
+                TxExport(m, txCommon);
+                Ecc2BC(m.m_UserAgreement) = userAgreement;
+                PushOut(Status::Success, h);
+            });
+        });
     }
 
-    void TrezorKeyKeeperProxy::InvokeAsync(Method::SignSender& x, const Handler::Ptr& h)
+    void TrezorKeyKeeperProxy::InvokeAsync(Method::SignSplit& m, const Handler::Ptr& h)
     {
-        //json msg =
-        //{
-        //    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
-        //    {"id", 0},
-        //    {"method", "sign_sender"},
-        //    {"params",
-        //        {
-        //            {"inputs",    to_base64(x.m_vInputs)},
-        //            {"outputs",   to_base64(x.m_vOutputs)},
-        //            {"kernel",    to_base64(x.m_pKernel)},
-        //            {"non_conv",  x.m_NonConventional},
-        //            {"peer_id",   to_base64(x.m_Peer)},
-        //            {"my_id_key", to_base64(x.m_MyIDKey)},
-        //            {"slot",      x.m_Slot},
-        //            {"agreement", to_base64(x.m_UserAgreement)},
-        //            {"my_id",     to_base64(x.m_MyID)},
-        //            {"payment_proof_sig", to_base64(x.m_PaymentProofSignature)}
-        //        }
-        //    }
-        //};
-        //
-        //_connection.sendAsync(msg, [this, &x, h](const json& msg)
-        //    {
-        //        Status::Type s = GetStatus(msg);
-        //
-        //        if (s == Status::Success)
-        //        {
-        //            if (x.m_UserAgreement == Zero)
-        //            {
-        //                x.m_UserAgreement = from_base64<ECC::Hash::Value>(msg["agreement"]);
-        //                x.m_pKernel->m_Commitment = from_base64<ECC::Point>(msg["commitment"]);
-        //                x.m_pKernel->m_Signature.m_NoncePub = from_base64<ECC::Point>(msg["pub_nonce"]);
-        //            }
-        //            else
-        //            {
-        //                GetCommonResult(x, msg);
-        //            }
-        //        }
-        //        PushOut(s, h);
-        //    });
+        BeamCrypto_TxCommon txCommon;
+        Vectors v;
+        TxImport(txCommon, m, v);
+
+        m_DeviceManager->call_BeamSignTransactionSplit(txCommon, [this, txCommon, &m, h](const Message& msg, std::string session, size_t queue_size) mutable
+        {
+            TxExport(txCommon, child_cast<Message, BeamSignTransactionSplit>(msg).tx_common());
+            PushHandlerToCallerThread([this, &m, h, txCommon]()
+            {
+                TxExport(m, txCommon);
+                PushOut(Status::Success, h);
+            });
+        });
     }
-
-    void TrezorKeyKeeperProxy::InvokeAsync(Method::SignSplit& x, const Handler::Ptr& h)
-    {
-        //json msg =
-        //{
-        //    {WalletApi::JsonRpcHrd, WalletApi::JsonRpcVerHrd},
-        //    {"id", 0},
-        //    {"method", "sign_split"},
-        //    {"params",
-        //        {
-        //            {"inputs",   to_base64(x.m_vInputs)},
-        //            {"outputs",  to_base64(x.m_vOutputs)},
-        //            {"kernel",   to_base64(x.m_pKernel)},
-        //            {"non_conv", x.m_NonConventional}
-        //        }
-        //    }
-        //};
-        //
-        //_connection.sendAsync(msg, [this, &x, h](const json& msg)
-        //    {
-        //        Status::Type s = GetStatus(msg);
-        //        if (s == Status::Success)
-        //        {
-        //            GetCommonResult(x, msg);
-        //        }
-        //        PushOut(s, h);
-        //    });
-    }
-
-
-    //static void GetMutualResult(Method::TxMutual& x, const json& msg)
-    //{
-    //    x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
-    //    GetCommonResult(x, msg);
-    //}
-    //
-    //static void GetCommonResult(Method::TxCommon& x, const json& msg)
-    //{
-    //    auto offset = from_base64<ECC::Scalar>(msg["offset"]);
-    //    x.m_kOffset.Import(offset);
-    //    x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
-    //}
-    //
-    //static Status::Type GetStatus(const json& msg)
-    //{
-    //    return msg["status"];
-    //}
 
     void TrezorKeyKeeperProxy::PushHandlerToCallerThread(MessageHandler&& h)
     {
