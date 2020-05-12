@@ -27,7 +27,8 @@ namespace beam
             "ap-nodes.mainnet.beam.mw:8100",
             "eu-nodes.mainnet.beam.mw:8100",
             "us-nodes.mainnet.beam.mw:8100",
-            "ap-hk-nodes.mainnet.beam.mw:8100"
+            "ap-hk-nodes.mainnet.beam.mw:8100",
+            "shanghai-node.mainnet.beam.mw:8100"
 #endif
         };
 
