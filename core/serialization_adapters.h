@@ -857,6 +857,29 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::ShieldedTxo::Voucher serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::ShieldedTxo::Voucher& x)
+		{
+			ar
+				& x.m_Ticket
+				& x.m_SharedSecret
+				& x.m_Signature;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::ShieldedTxo::Voucher& x)
+		{
+			ar
+				& x.m_Ticket
+				& x.m_SharedSecret
+				& x.m_Signature;
+
+			return ar;
+		}
+
 		/// beam::ShieldedTxo serialization
 		template<typename Archive>
         static Archive& save(Archive& ar, const beam::ShieldedTxo& val)

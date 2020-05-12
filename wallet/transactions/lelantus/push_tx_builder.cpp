@@ -55,72 +55,80 @@ namespace beam::wallet::lelantus
             offset -= sk;
         }
 
-        {
-            TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
+        ShieldedTxo::Data::OutputParams op;
+        op.m_Value = GetAmount();
+        op.m_AssetID = 0; // TODO
+        ZeroObject(op.m_User);
 
+        op.m_User.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
+        // TODO: add ShieldedMessage if needed
+        // op.m_User.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
+
+        ShieldedTxo::Voucher voucher;
+        if (!m_Tx.GetParameter(TxParameterID::ShieldedVoucher, voucher))
+        {
+            // no voucher - means we're sending to ourselves. Create our voucher
             ShieldedTxo::Viewer viewer;
             const Key::Index nIdx = 0;
             viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf(), nIdx);
 
-            ShieldedTxo::DataParams sdp;
+            ECC::GenRandom(voucher.m_SharedSecret); // not yet, just a nonce placeholder
 
-            if (m_Tx.GetParameter(TxParameterID::Kernel, pKrn))
-            {
-                auto shieldedCoin = m_Tx.GetWalletDB()->getShieldedCoin(m_Tx.GetTxID());
-                assert(shieldedCoin);
+            ShieldedTxo::Data::TicketParams tp;
+            tp.Generate(voucher.m_Ticket, viewer, voucher.m_SharedSecret);
 
-                Restore(sdp, *shieldedCoin, viewer);
-            }
-            else
-            {
-                pKrn->m_Height.m_Min = GetMinHeight();
-                pKrn->m_Height.m_Max = GetMaxHeight();
-                pKrn->m_Fee = GetFee();
+            voucher.m_SharedSecret = tp.m_SharedSecret;
+            ZeroObject(voucher.m_Signature);
 
-                pKrn->UpdateMsg();
-                ECC::Oracle oracle;
-                oracle << pKrn->m_Msg;
+            m_Tx.SetParameter(TxParameterID::ShieldedVoucher, voucher);
 
-                ZeroObject(sdp.m_Output.m_User);
+            // save shielded Coin
+            ShieldedCoin shieldedCoin;
+            shieldedCoin.m_value = op.m_Value;
+            shieldedCoin.m_assetID = op.m_AssetID;
+            shieldedCoin.m_createTxId = m_Tx.GetTxID();
+            shieldedCoin.m_Key.m_kSerG = tp.m_pK[0];
+            shieldedCoin.m_Key.m_IsCreatedByViewer = tp.m_IsCreatedByViewer;
+            shieldedCoin.m_Key.m_nIdx = nIdx;
+            shieldedCoin.m_User = op.m_User;
 
-                sdp.m_Output.m_User.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
-                // TODO: add ShieldedMessage if needed
-                // sdp.m_Output.m_User.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
-                sdp.m_Output.m_Value = GetAmount();
-
-                ECC::uintBig nonce;
-                ECC::GenRandom(nonce);
-                sdp.m_Ticket.Generate(pKrn->m_Txo.m_Ticket, viewer, nonce);
-
-                sdp.GenerateOutp(pKrn->m_Txo, oracle);
-
-                // save shielded Coin
-                ShieldedCoin shieldedCoin;
-                shieldedCoin.m_value = GetAmount();
-                shieldedCoin.m_createTxId = m_Tx.GetTxID();
-                shieldedCoin.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
-                shieldedCoin.m_Key.m_IsCreatedByViewer = sdp.m_Ticket.m_IsCreatedByViewer;
-                shieldedCoin.m_Key.m_nIdx = nIdx;
-                shieldedCoin.m_User = sdp.m_Output.m_User;
-
-                m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);
-                m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, pKrn->m_Txo.m_Ticket.m_SerialPub);
-
-                // save Kernel and KernelID
-                pKrn->MsgToID();
-                m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
-                m_Tx.SetParameter(TxParameterID::Kernel, pKrn);
-            }
-
-            LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
-                << " Transaction created. Kernel: " << GetKernelIDString()
-                << ", min height: " << pKrn->m_Height.m_Min
-                << ", max height: " << pKrn->m_Height.m_Max;
-
-            transaction->m_vKernels.push_back(std::move(pKrn));
-
-            offset -= sdp.m_Output.m_k;
+            m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);
         }
+
+        op.Restore_kG(voucher.m_SharedSecret);
+
+        TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
+
+        if (!m_Tx.GetParameter(TxParameterID::Kernel, pKrn))
+        {
+            pKrn->m_Height.m_Min = GetMinHeight();
+            pKrn->m_Height.m_Max = GetMaxHeight();
+            pKrn->m_Fee = GetFee();
+
+            pKrn->UpdateMsg();
+            ECC::Oracle oracle;
+            oracle << pKrn->m_Msg;
+
+            pKrn->m_Txo.m_Ticket = voucher.m_Ticket;
+
+            op.Generate(pKrn->m_Txo, voucher.m_SharedSecret, oracle);
+
+            m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, voucher.m_Ticket.m_SerialPub);
+
+            // save Kernel and KernelID
+            pKrn->MsgToID();
+            m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
+            m_Tx.SetParameter(TxParameterID::Kernel, pKrn);
+        }
+
+        LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
+            << " Transaction created. Kernel: " << GetKernelIDString()
+            << ", min height: " << pKrn->m_Height.m_Min
+            << ", max height: " << pKrn->m_Height.m_Max;
+
+        transaction->m_vKernels.push_back(std::move(pKrn));
+
+        offset -= op.m_k;
 
         transaction->m_Offset = offset;
         transaction->Normalize();
