@@ -22,6 +22,7 @@ WALLET_TEST_INIT
 // tested module
 #include "wallet/client/extensions/news_channels/interface.h"
 #include "wallet/client/extensions/news_channels/updates_provider.h"
+#include "wallet/client/extensions/news_channels/wallet_updates_provider.h"
 #include "wallet/client/extensions/news_channels/exchange_rate_provider.h"
 #include "wallet/client/extensions/notifications/notification_center.h"
 
@@ -49,15 +50,22 @@ namespace
     struct MockNewsObserver : public INewsObserver, public IExchangeRateObserver
     {
         using OnVersion = function<void(const VersionInfo&, const ECC::uintBig&)>;
+        using OnWalletVersion = function<void(const WalletImplVerInfo&, const ECC::uintBig&)>;
         using OnRate = function<void(const std::vector<ExchangeRate>&)>;
 
-        MockNewsObserver(OnVersion onVers, OnRate onRate)
+        MockNewsObserver(OnVersion onVers, OnWalletVersion onWalletVers, OnRate onRate)
             : m_onVers(onVers)
-            , m_onRate(onRate) {};
+            , m_onWalletVers(onWalletVers)
+            , m_onRate(onRate)
+        {};
 
         virtual void onNewWalletVersion(const VersionInfo& v, const ECC::uintBig& s) override
         {
             m_onVers(v, s);
+        }
+        virtual void onNewWalletVersion(const WalletImplVerInfo& v, const ECC::uintBig& s) override
+        {
+            m_onWalletVers(v, s);
         }
         virtual void onExchangeRates(const std::vector<ExchangeRate>& r) override
         {
@@ -65,6 +73,7 @@ namespace
         }
 
         OnVersion m_onVers;
+        OnWalletVersion m_onWalletVers;
         OnRate m_onRate;
     };
 
@@ -221,33 +230,48 @@ namespace
         BroadcastRouter broadcastRouter(network, network);
         BroadcastMsgValidator validator;
         AppUpdateInfoProvider updatesProvider(broadcastRouter, validator);
+        WalletUpdatesProvider walletUpdatesProvider(broadcastRouter, validator);
         ExchangeRateProvider rateProvider(broadcastRouter, validator, *storage);
         
         int execCountVers = 0;
+        int execCountWalletVers = 0;
         int execCountRate = 0;
 
-        const VersionInfo verInfo { VersionInfo::Application::DesktopWallet, Version {123,456,789} };
+        const VersionInfo verInfo {
+            VersionInfo::Application::DesktopWallet,
+            Version {123,456,789}
+            };
+        const WalletImplVerInfo walletVerInfo {
+            VersionInfo::Application::DesktopWallet,
+            Version {123,456,789},
+            "Test title",
+            "bla-bla message",
+            1234
+            };
         std::vector<ExchangeRate> rates {
             { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 147852369, getTimestamp() } };
 
         const auto& [pk, sk] = deriveKeypair(storage, 321);
         BroadcastMsg msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
+        BroadcastMsg msgWV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(walletVerInfo), sk);
         BroadcastMsg msgR = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rates), sk);
         
         MockNewsObserver testObserver(
-            [&execCountVers, &verInfo]
-            (const VersionInfo& v, const ECC::uintBig& id)
+            [&execCountVers, &verInfo] (const VersionInfo& v, const ECC::uintBig& id)
             {
                 WALLET_CHECK(verInfo == v);
                 ++execCountVers;
             },
-            [&execCountRate, &rates]
-            (const std::vector<ExchangeRate>& r)
+            [&execCountWalletVers, &walletVerInfo] (const WalletImplVerInfo& v, const ECC::uintBig& id)
+            {
+                WALLET_CHECK(walletVerInfo == v);
+                ++execCountWalletVers;
+            },
+            [&execCountRate, &rates] (const std::vector<ExchangeRate>& r)
             {
                 WALLET_CHECK(rates == r);
                 ++execCountRate;
             });
-
 
         {
             // loading correct key with 2 additional just for filling
@@ -260,27 +284,37 @@ namespace
         {
             cout << "Case: subscribed on valid message" << endl;
             updatesProvider.Subscribe(&testObserver);
+            walletUpdatesProvider.Subscribe(&testObserver);
             rateProvider.Subscribe(&testObserver);
             broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            broadcastRouter.sendMessage(BroadcastContentType::WalletUpdates, msgWV);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgR);
             WALLET_CHECK(execCountVers == 1);
+            WALLET_CHECK(execCountWalletVers == 1);
             WALLET_CHECK(execCountRate == 1);
         }
         {
             cout << "Case: unsubscribed on valid message" << endl;
             updatesProvider.Unsubscribe(&testObserver);
+            walletUpdatesProvider.Unsubscribe(&testObserver);
             rateProvider.Unsubscribe(&testObserver);
             broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            broadcastRouter.sendMessage(BroadcastContentType::WalletUpdates, msgWV);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgR);
             WALLET_CHECK(execCountVers == 1);
+            WALLET_CHECK(execCountWalletVers == 1);
             WALLET_CHECK(execCountRate == 1);
         }
         {
             cout << "Case: subscribed back" << endl;
             updatesProvider.Subscribe(&testObserver);
+            walletUpdatesProvider.Subscribe(&testObserver);
             rateProvider.Subscribe(&testObserver);
             broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
+            broadcastRouter.sendMessage(BroadcastContentType::WalletUpdates, msgWV);
+            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgR);
             WALLET_CHECK(execCountVers == 2);
+            WALLET_CHECK(execCountWalletVers == 2);
             WALLET_CHECK(execCountRate == 1);   // the rate was the same so no need in the notification
         }
         {
@@ -296,10 +330,13 @@ namespace
             cout << "Case: compatibility with the previous ver:0.0.1" << endl;
             rates.front().m_updateTime = getTimestamp() + 1;
             msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
+            msgWV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(walletVerInfo), sk);
             msgR = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rates), sk);
             broadcastRouter.sendRawMessage(BroadcastContentType::SoftwareUpdates, createMessage(BroadcastContentType::SoftwareUpdates, msgV));
+            broadcastRouter.sendRawMessage(BroadcastContentType::WalletUpdates, createMessage(BroadcastContentType::WalletUpdates, msgWV));
             broadcastRouter.sendRawMessage(BroadcastContentType::ExchangeRates, createMessage(BroadcastContentType::ExchangeRates, msgR));
             WALLET_CHECK(execCountVers == 3);
+            WALLET_CHECK(execCountWalletVers == 2);     // BroadcastContentType::WalletUpdates are not implemented for protocol 0.0.1
             WALLET_CHECK(execCountRate == 2);
         }
         cout << "Test end" << endl;
@@ -384,7 +421,7 @@ namespace
         std::map<Notification::Type,bool> activeTypes {
             { Notification::Type::SoftwareUpdateAvailable, true },
             { Notification::Type::AddressStatusChanged, true },
-            { Notification::Type::Unused, true },
+            { Notification::Type::WalletImplUpdateAvailable, true },
             { Notification::Type::BeamNews, true },
             { Notification::Type::TransactionFailed, true },
             { Notification::Type::TransactionCompleted, true }
@@ -398,11 +435,28 @@ namespace
                 WALLET_CHECK(center.getNotifications().size() == 0);
             }
 
-            const ECC::uintBig id({0,1,2,3,4,5,6,7,8,9,
-                              0,1,2,3,4,5,6,7,8,9,
-                              0,1,2,3,4,5,6,7,8,9,
-                              0,1});
-            const VersionInfo info { VersionInfo::Application::DesktopWallet, Version(1,2,3) };
+            const ECC::uintBig id({ 0,1,2,3,4,5,6,7,8,9,
+                                    0,1,2,3,4,5,6,7,8,9,
+                                    0,1,2,3,4,5,6,7,8,9,
+                                    0,1});
+            const ECC::uintBig id2({0,1,2,3,4,5,6,7,8,9,
+                                    0,1,2,3,4,5,6,7,8,9,
+                                    0,1,2,3,4,5,6,7,8,9,
+                                    0,2});
+            const VersionInfo info {
+                VersionInfo::Application::DesktopWallet,
+                Version(1,2,3)
+                };
+            
+            const WalletImplVerInfo walletVerInfo {
+                VersionInfo::Application::DesktopWallet,
+                Version {123,456,789},
+                "Test title",
+                "bla-bla message",
+                1234
+                };
+
+            size_t notificationsCounter = 0;
             
             {
                 cout << "Case: create notification" << endl;
@@ -421,12 +475,39 @@ namespace
                 center.Subscribe(&observer);
                 center.onNewWalletVersion(info, id);
                 auto list = center.getNotifications();
-                WALLET_CHECK(list.size() == 1);
+                WALLET_CHECK(list.size() == ++notificationsCounter);
                 WALLET_CHECK(list[0].m_ID == id);
                 WALLET_CHECK(list[0].m_type == Notification::Type::SoftwareUpdateAvailable);
                 WALLET_CHECK(list[0].m_state == Notification::State::Unread);
                 WALLET_CHECK(list[0].m_createTime != 0);
                 WALLET_CHECK(list[0].m_content == toByteBuffer(info));
+                WALLET_CHECK(execCount == 1);
+                center.Unsubscribe(&observer);
+            }
+
+            {
+                cout << "Case: create wallet version notification" << endl;
+                size_t execCount = 0;
+                MockNotificationsObserver observer(
+                    [&execCount, &id2]
+                    (ChangeAction action, const std::vector<Notification>& list)
+                    {
+                        WALLET_CHECK(action == ChangeAction::Added);
+                        WALLET_CHECK(list.size() == 1);
+                        WALLET_CHECK(list[0].m_ID == id2);
+                        WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                        ++execCount;
+                    }
+                );
+                center.Subscribe(&observer);
+                center.onNewWalletVersion(walletVerInfo, id2);
+                auto list = center.getNotifications();
+                WALLET_CHECK(list.size() == ++notificationsCounter);
+                WALLET_CHECK(list[1].m_ID == id2);
+                WALLET_CHECK(list[1].m_type == Notification::Type::WalletImplUpdateAvailable);
+                WALLET_CHECK(list[1].m_state == Notification::State::Unread);
+                WALLET_CHECK(list[1].m_createTime != 0);
+                WALLET_CHECK(list[1].m_content == toByteBuffer(walletVerInfo));
                 WALLET_CHECK(execCount == 1);
                 center.Unsubscribe(&observer);
             }
@@ -449,7 +530,7 @@ namespace
                 center.Subscribe(&observer);
                 center.markNotificationAsRead(id);
                 auto list = center.getNotifications();
-                WALLET_CHECK(list.size() == 1);
+                WALLET_CHECK(list.size() == notificationsCounter);
                 WALLET_CHECK(list[0].m_ID == id);
                 WALLET_CHECK(list[0].m_type == Notification::Type::SoftwareUpdateAvailable);
                 WALLET_CHECK(list[0].m_state == Notification::State::Read);
@@ -475,9 +556,8 @@ namespace
                 );
                 center.Subscribe(&observer);
                 center.deleteNotification(id);
-                auto list = center.getNotifications();
                 // all notifications returned! even deleted.
-                WALLET_CHECK(list.size() == 1);
+                WALLET_CHECK(center.getNotifications().size() == notificationsCounter);
                 WALLET_CHECK(execCount == 1);
                 center.Unsubscribe(&observer);
             }
@@ -495,7 +575,7 @@ namespace
                 center.Subscribe(&observer);
                 center.onNewWalletVersion(info, id);
                 auto list = center.getNotifications();
-                WALLET_CHECK(list.size() == 1);
+                WALLET_CHECK(list.size() == notificationsCounter);
                 center.Unsubscribe(&observer);
             }
         }
@@ -509,7 +589,7 @@ namespace
         std::map<Notification::Type,bool> activeTypes {
             { Notification::Type::SoftwareUpdateAvailable, false },
             { Notification::Type::AddressStatusChanged, false },
-            { Notification::Type::Unused, false },
+            { Notification::Type::WalletImplUpdateAvailable, false },
             { Notification::Type::BeamNews, false },
             { Notification::Type::TransactionFailed, false },
             { Notification::Type::TransactionCompleted, false }
@@ -595,7 +675,7 @@ namespace
             std::map<Notification::Type,bool> activeTypes {
                 { Notification::Type::SoftwareUpdateAvailable, false },
                 { Notification::Type::AddressStatusChanged, true },
-                { Notification::Type::Unused, false },
+                { Notification::Type::WalletImplUpdateAvailable, false },
                 { Notification::Type::BeamNews, false },
                 { Notification::Type::TransactionFailed, false },
                 { Notification::Type::TransactionCompleted, false }
@@ -637,7 +717,7 @@ namespace
             std::map<Notification::Type,bool> activeTypes {
                 { Notification::Type::SoftwareUpdateAvailable, false },
                 { Notification::Type::AddressStatusChanged, true },
-                { Notification::Type::Unused, false },
+                { Notification::Type::WalletImplUpdateAvailable, false },
                 { Notification::Type::BeamNews, false },
                 { Notification::Type::TransactionFailed, false },
                 { Notification::Type::TransactionCompleted, false }

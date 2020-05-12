@@ -180,6 +180,22 @@ namespace beam::wallet
         }
     }
 
+    void NotificationCenter::onNewWalletVersion(const WalletImplVerInfo& content, const ECC::uintBig& id)
+    {
+        auto search = m_cache.find(id);
+        if (search == m_cache.cend())
+        {
+            createNotification(
+                Notification {
+                    id,
+                    Notification::Type::WalletImplUpdateAvailable,
+                    Notification::State::Unread,
+                    getTimestamp(),
+                    toByteBuffer(content)
+                });
+        }
+    }
+
     void NotificationCenter::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
     {
         if (action == ChangeAction::Added || action == ChangeAction::Updated)

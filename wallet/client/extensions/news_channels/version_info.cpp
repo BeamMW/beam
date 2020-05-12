@@ -53,5 +53,29 @@ namespace beam::wallet
     {
         return !(*this == other);
     }
+
+    Version WalletImplVerInfo::getBeamCoreVersion() const
+    {
+        return m_version;
+    }
+
+    uint32_t WalletImplVerInfo::getUIrevision() const
+    {
+        return m_UIrevision;
+    }
+
+    bool WalletImplVerInfo::operator==(const WalletImplVerInfo& other) const
+    {
+        return m_application == other.m_application
+            && m_version == other.m_version
+            && m_UIrevision == other.m_UIrevision
+            && m_title == other.m_title
+            && m_message == other.m_message;
+    }
+
+    bool WalletImplVerInfo::operator!=(const WalletImplVerInfo& other) const
+    {
+        return !(*this == other);
+    }
     
 } // namespace beam::wallet

@@ -70,6 +70,22 @@ bool parseUpdateInfo(const std::string& versionString, const std::string& typeSt
     return true;
 }
 
+bool parseWalletUpdateInfo(const std::string& versionString, const std::string& typeString, WalletImplVerInfo& walletVersionInfo)
+{
+    VersionInfo::Application appType = VersionInfo::from_string(typeString);
+    if (appType != VersionInfo::Application::DesktopWallet)
+    {
+        return false;
+    }
+    
+    // TODO: #1414 parse x.x.x.x type UI version from string
+    
+    // TODO: fill WalletImplVerInfo return value
+
+    return false;
+    // return true;
+}
+
 bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate, const std::string& unitString, std::vector<ExchangeRate>& result)
 {
     auto currency = ExchangeRate::from_string(currencyString);
@@ -87,13 +103,27 @@ bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate
 
 ByteBuffer generateUpdateMessage(const std::string& versionString, const std::string& typeString)
 {
-    VersionInfo result;
-    bool res = parseUpdateInfo(versionString, typeString, result);
-    if (!res)
     {
-        return ByteBuffer();
+        VersionInfo versionInfo;
+
+        bool res = parseUpdateInfo(versionString, typeString, versionInfo/*out*/);
+        if (res)
+        {
+            return toByteBuffer(versionInfo);
+        }
     }
-    return toByteBuffer(result);
+
+    {
+        WalletImplVerInfo walletVersionInfo;
+
+        bool res = parseWalletUpdateInfo(versionString, typeString, walletVersionInfo/*out*/);
+        if (res)
+        {
+            return toByteBuffer(walletVersionInfo);
+        }
+    }
+
+    return ByteBuffer();
 }
 
 ByteBuffer generateExchangeRates(const std::string& currencyString, const Amount& rate, const std::string& unitString)

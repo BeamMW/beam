@@ -26,7 +26,8 @@ namespace beam
     {
         SwapOffers,
         SoftwareUpdates,
-        ExchangeRates
+        ExchangeRates,
+        WalletUpdates       // used for Wallet Core library based implementations
     };
 
     /**

@@ -23,14 +23,13 @@ namespace beam::wallet
     /**
      *  Listen for notifications about new application version
      */
-    class AppUpdateInfoProvider
+    class WalletUpdatesProvider
         : public IBroadcastListener
     {
     public:
-        AppUpdateInfoProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&);
+        WalletUpdatesProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&);
 
         // IBroadcastListener implementation
-        bool onMessage(uint64_t unused, ByteBuffer&&) override;     // TODO: dh remove after 2 fork.
         bool onMessage(uint64_t unused, BroadcastMsg&&) override;
         
         // INewsObserver interface
@@ -39,7 +38,7 @@ namespace beam::wallet
         
     private:
 
-        void notifySubscribers(const VersionInfo&, const ECC::uintBig&) const;
+        void notifySubscribers(const WalletImplVerInfo&, const ECC::uintBig&) const;
 
 		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;
