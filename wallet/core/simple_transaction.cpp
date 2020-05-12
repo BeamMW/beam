@@ -180,9 +180,14 @@ namespace beam::wallet
                     << PrintableAmount(builder.GetAmount(), false,isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")
                     << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
 
+                if (isAsset)
+                {
+                    ss << ", asset ID: " << builder.GetAssetId();
+                }
+
                 if (hasID)
                 {
-                    ss << " my ID: " << myWalletID << ", peer ID: " << peerWalletID;
+                    ss << ", my ID: " << myWalletID << ", peer ID: " << peerWalletID;
                 }
                 LOG_INFO() << ss.str();
 
