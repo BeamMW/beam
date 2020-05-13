@@ -17,6 +17,7 @@
 
 #include "core/ecc_native.h"
 #include "core/block_crypt.h"
+#include "core/shielded.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "simple_transaction.h"
@@ -494,13 +495,111 @@ namespace beam::wallet
         send_tx_params(peerID, msg);
     }
 
+    void Wallet::RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount /* = 1 */)
+    {
+        SetTxParameter msg;
+        msg.m_From = myID;
+        msg.m_Type = TxType::VoucherRequest;
+
+        msg.AddParameter((TxParameterID) 0, nCount);
+
+        SendSpecialMsg(peerID, msg);
+    }
+
     void Wallet::OnSpecialMsg(const WalletID& myID, const SetTxParameter& msg)
     {
         switch (msg.m_Type)
         {
+        case TxType::VoucherRequest:
+            {
+                Key::IKdf::Ptr pKdf = m_WalletDB->get_MasterKdf();
+                if (!pKdf)
+                    return; // without master Kdf we can create the ticket, but can't sign it.
+
+                uint32_t nCount = 0;
+                msg.GetParameter((TxParameterID) 0, nCount);
+
+                if (!nCount)
+                    return; //?!
+                std::setmin(nCount, 30U);
+
+                auto address = m_WalletDB->getAddress(myID);
+                if (!address.is_initialized() || !address->m_OwnID)
+                    return;
+
+                ECC::Scalar::Native sk;
+                pKdf->DeriveKey(sk, Key::ID(address->m_OwnID, Key::Type::WalletID));
+                PeerID wid;
+                wid.FromSk(sk);
+
+                ShieldedTxo::Viewer v;
+                v.FromOwner(*pKdf, 0);
+
+                ECC::Hash::Value hv;
+                std::vector<ShieldedTxo::Voucher> res;
+
+                for (res.reserve(nCount); res.size() < nCount; )
+                {
+                    if (res.empty())
+                        ECC::GenRandom(hv);
+                    else
+                        ECC::Hash::Processor() << hv >> hv;
+
+                    ShieldedTxo::Voucher& voucher = res.emplace_back();
+
+                    ShieldedTxo::Data::TicketParams tp;
+                    tp.Generate(voucher.m_Ticket, v, hv);
+                    voucher.m_SharedSecret = tp.m_SharedSecret;
+
+                    ECC::Hash::Value hvMsg;
+                    voucher.get_Hash(hvMsg);
+                    voucher.m_Signature.Sign(hvMsg, sk);
+                }
+
+                SetTxParameter msgOut;
+                msgOut.m_Type = TxType::VoucherResponse;
+                msgOut.m_From = myID;
+                msgOut.AddParameter((TxParameterID) 0, std::move(res));
+
+                SendSpecialMsg(msg.m_From, msgOut);
+
+            }
+            break;
+
+        case TxType::VoucherResponse:
+            {
+                std::vector<ShieldedTxo::Voucher> res;
+                msg.GetParameter((TxParameterID) 0, res);
+                if (res.empty())
+                    return;
+
+                auto address = m_WalletDB->getAddress(msg.m_From);
+                if (!address.is_initialized())
+                    return;
+
+                ECC::Point::Native pk;
+                if (!address->m_Identity.ExportNnz(pk))
+                    return;
+
+                for (size_t i = 0; i < res.size(); i++)
+                {
+                    const ShieldedTxo::Voucher& voucher = res[i];
+                    if (!voucher.IsValid(pk))
+                        return;
+                }
+
+                OnVouchersFrom(*address, std::move(res));
+
+            }
+            break;
+
         default: // suppress watning
             break;
         }
+    }
+
+    void Wallet::OnVouchersFrom(const WalletAddress& addr, std::vector<ShieldedTxo::Voucher>&& res)
+    {
     }
 
     void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg)

@@ -128,6 +128,11 @@ namespace beam::wallet
 
         // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
         size_t GetUnsafeActiveTransactionsCount() const;
+
+        // voucher management
+        void RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount = 1);
+        virtual void OnVouchersFrom(const WalletAddress&, std::vector<ShieldedTxo::Voucher>&&);
+
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
     private:

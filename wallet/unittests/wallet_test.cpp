@@ -2353,6 +2353,62 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
     WALLET_CHECK(tx.IsValid(ctx));
 }
 
+void TestVouchers()
+{
+    cout << "\nTesting wallets vouchers exchange...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    TestNodeNetwork::Shared tnns;
+
+    struct MyWallet
+        :public Wallet
+    {
+        std::vector<ShieldedTxo::Voucher> m_Vouchers;
+        WalletAddress m_MyAddr;
+        TestNodeNetwork::Ptr m_MyNetwork;
+
+        MyWallet(IWalletDB::Ptr pDb, const std::shared_ptr<TestWalletNetwork>& pTwn, TestNodeNetwork::Shared& tnns)
+            :Wallet(pDb, true)
+        {
+            pDb->createAddress(m_MyAddr);
+            pDb->saveAddress(m_MyAddr);
+
+            m_MyNetwork = make_shared<TestNodeNetwork>(tnns, *this);
+
+            AddMessageEndpoint(pTwn);
+            SetNodeEndpoint(m_MyNetwork);
+
+            pTwn->m_Map[m_MyAddr.m_walletID].m_pSink = this;
+        }
+
+        virtual void OnVouchersFrom(const WalletAddress&, std::vector<ShieldedTxo::Voucher>&& res) override
+        {
+            m_Vouchers = std::move(res);
+            io::Reactor::get_Current().stop();
+        }
+    };
+
+    auto twn = make_shared<TestWalletNetwork>();
+
+    IWalletDB::Ptr pDbSnd = createSenderWalletDB();
+    MyWallet sender(pDbSnd, twn, tnns);
+    MyWallet receiver(createReceiverWalletDB(), twn, tnns);
+
+    WalletAddress addr = receiver.m_MyAddr;
+    addr.m_OwnID = 0;
+    pDbSnd->saveAddress(addr);
+
+    sender.RequestVouchersFrom(receiver.m_MyAddr.m_walletID, sender.m_MyAddr.m_walletID, 15);
+
+    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+    timer->start(1000, true, []() { io::Reactor::get_Current().stop(); });
+
+    mainReactor->run();
+
+    WALLET_CHECK(!sender.m_Vouchers.empty());
+}
 
 #if defined(BEAM_HW_WALLET)
 
@@ -2639,6 +2695,9 @@ int main()
     storage::HookErrors();
 
     TestKeyKeeper();
+
+    TestVouchers();
+
 /*
     //TestBbsDecrypt();
 

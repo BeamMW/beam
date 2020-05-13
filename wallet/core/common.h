@@ -39,6 +39,8 @@ namespace beam::wallet
         AssetInfo,
         PushTransaction,
         PullTransaction,
+        VoucherRequest,
+        VoucherResponse,
         ALL
     };
 
