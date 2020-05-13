@@ -616,6 +616,7 @@ namespace beam
 
 			void get_Hash(ECC::Hash::Value&) const;
 			bool IsValid(const PeerID&) const;
+			bool IsValid(const ECC::Point::Native&) const;
 		};
 	};
 
