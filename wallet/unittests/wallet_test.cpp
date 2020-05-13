@@ -29,7 +29,7 @@
 #include "node/node.h"
 #include "wallet/core/private_key_keeper.h"
 #include "keykeeper/local_private_key_keeper.h"
-//#include "keykeeper/trezor_key_keeper.h"
+#include "utility/hex.h"
 
 #include "test_helpers.h"
 
@@ -2479,46 +2479,66 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
 
 #include "mnemonic/mnemonic.h"
 
-//void TestHWCommitment()
-//{
-//    cout << "Test HW commitment" << std::endl;
-//
-//    Key::IDV kidv;
-//    kidv.m_Value = 11100000000;
-//    kidv.m_Idx = 1887367845482021531;
-//    kidv.m_Type = 1852797549;
-//    kidv.m_SubIdx = 16777216;
-//
-//    Point comm1, comm2;
-//    {
-//        Scalar::Native secretKey;
-//
-//        //beam::WordList generatedPhrases = {"budget", "focus", "surface", "plug", "dragon", "elephant", "token", "child", "kitchen", "coast", "lounge", "mean" };
-//        beam::WordList generatedPhrases = { "copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue" };
-//        
-//        auto buf = beam::decodeMnemonic(generatedPhrases);
-//
-//        SecString secretSeed;
-//        secretSeed.assign(buf.data(), buf.size());
-//
-//        Key::IKdf::Ptr kdf;
-//        ECC::HKdf::Create(kdf, secretSeed.hash().V);
-//
-//        SwitchCommitment().Create(secretKey, comm1, *MasterKey::get_Child(kdf, kidv), kidv);
-//
-//        LOG_INFO() << "commitment is " << comm1;
-//    }
-//
-//    {
-//        HWWallet hw;
-//
-//        comm2 = hw.generateKeySync(kidv, true);
-//
-//        LOG_INFO() << "HW commitment is " << comm2;
-//    }
-//
-//    WALLET_CHECK(comm1 == comm2);
-//}
+void TestHWCommitment()
+{
+   cout << "Test HW commitment" << std::endl;
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+//    CoinID cid;
+//    cid.m_Value = 11100000000;
+//    cid.m_Idx = 1887367845482021531;
+//    cid.m_Type = 1852797549;
+//    cid.m_SubIdx = 16777216;
+
+   const CoinID cid(100500, 15, Key::Type::Regular, 7);
+
+   Point comm1, comm2;
+   {
+       Scalar::Native secretKey;
+
+       //beam::WordList generatedPhrases = {"budget", "focus", "surface", "plug", "dragon", "elephant", "token", "child", "kitchen", "coast", "lounge", "mean" };
+       beam::WordList generatedPhrases = { "copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue" };
+       
+       auto buf = beam::decodeMnemonic(generatedPhrases);
+
+       SecString secretSeed;
+       secretSeed.assign(buf.data(), buf.size());
+
+       Key::IKdf::Ptr kdf;
+       ECC::HKdf::Create(kdf, secretSeed.hash().V);
+    
+       Key::IPKdf::Ptr pubKdf = kdf;
+       LocalPrivateKeyKeeperStd keyKeeper(kdf);
+        
+        
+        ECC::NoLeak<ECC::HKdfPub::Packed> p;
+		assert(pubKdf->ExportP(nullptr) == sizeof(p));
+		pubKdf->ExportP(&p);
+        const uint8_t* pp = reinterpret_cast<const uint8_t*>(&p.V);
+        cout << "Owner bin: " << to_hex(pp, sizeof(p.V)) << std::endl;  
+
+
+       ECC::Point::Native pt2;
+       WALLET_CHECK(keyKeeper.get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
+
+       comm1 = pt2;
+       LOG_INFO() << "commitment is " << comm1;
+   }
+
+   {
+       HWWallet hw;
+       auto keyKeeper = hw.getKeyKeeper(hw.getDevices()[0]);
+
+       ECC::Point::Native pt2;
+       WALLET_CHECK(keyKeeper->get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
+       comm2 = pt2;
+
+       LOG_INFO() << "HW commitment is " << comm2;
+   }
+
+   WALLET_CHECK(comm1 == comm2);
+}
 
 void TestHWWallet()
 {
@@ -2541,7 +2561,8 @@ void TestHWWallet()
         ECC::Point pt;
         pt.m_X = beam::Blob(x, 32);
         pt.m_Y = 1;
-        WALLET_CHECK(pt == pt2);
+        ECC::Point pt3 = pt2;
+        WALLET_CHECK(pt == pt3);
     }
 
     TestKeyKeeper(keyKeeper, 0);
@@ -2618,7 +2639,7 @@ int main()
     storage::HookErrors();
 
     TestKeyKeeper();
-
+/*
     //TestBbsDecrypt();
 
     TestConvertions();
@@ -2656,11 +2677,11 @@ int main()
     //TestTxNonces();
     
     TestTxExceptionHandling();
-    
+ */   
    
     // @nesbox: disabled tests, they work only if device connected
 #if defined(BEAM_HW_WALLET)
-//    TestHWCommitment();
+    TestHWCommitment();
     TestHWWallet();
 #endif
 
