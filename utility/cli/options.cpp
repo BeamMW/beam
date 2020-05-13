@@ -287,7 +287,7 @@ namespace beam
         const char* ASSET_ID          = "asset_id";
         const char* ASSET_METADATA    = "asset_meta";
         const char* ASSETS            = "assets";
-        const char* WITH_ASSETS       = "enable-assets";
+        const char* WITH_ASSETS       = "enable_assets";
 
         // broadcaster
         const char* GENERATE_KEYS     = "generate_keys";
