@@ -197,6 +197,9 @@ namespace beam::wallet
         void ProcessStoredMessages();
         bool IsNodeInSync() const;
 
+        void SendSpecialMsg(const WalletID& peerID, SetTxParameter&);
+        void OnSpecialMsg(const WalletID& myID, const SetTxParameter&);
+
     private:
 
         static const char s_szNextEvt[];

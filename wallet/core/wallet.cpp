@@ -488,8 +488,38 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::SendSpecialMsg(const WalletID& peerID, SetTxParameter& msg)
+    {
+        memset0(&msg.m_TxID.front(), msg.m_TxID.size());
+        send_tx_params(peerID, msg);
+    }
+
+    void Wallet::OnSpecialMsg(const WalletID& myID, const SetTxParameter& msg)
+    {
+        switch (msg.m_Type)
+        {
+        default: // suppress watning
+            break;
+        }
+    }
+
     void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg)
     {
+        if (memis0(&msg.m_TxID.front(), msg.m_TxID.size()))
+        {
+            // special command/request
+            try
+            {
+                OnSpecialMsg(myID, msg);
+            }
+            catch (const std::exception& exc)
+            {
+                LOG_WARNING() << "Special msg failed: " << exc.what();
+            }
+
+            return;
+        }
+
         auto t = GetTransaction(myID, msg);
         if (!t)
         {
