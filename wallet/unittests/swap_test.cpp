@@ -203,8 +203,8 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool u
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
 
-    TestWalletRig sender("sender", senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
-    TestWalletRig receiver("receiver", receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
     InitBitcoin(sender.m_Wallet, sender.m_WalletDB, *mainReactor, *senderSP);
     InitBitcoin(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, *receiverSP);
@@ -326,8 +326,8 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
-    TestWalletRig sender("sender", senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
-    TestWalletRig receiver("receiver", receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
     InitElectrum(sender.m_Wallet, sender.m_WalletDB, *mainReactor, *senderSP);
     InitElectrum(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, *receiverSP);
@@ -435,8 +435,8 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
-    TestWalletRig sender("sender", senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
-    TestWalletRig receiver("receiver", receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
     InitBitcoin(sender.m_Wallet, sender.m_WalletDB, *mainReactor, *senderSP);
     InitBitcoin(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, *receiverSP);
@@ -524,8 +524,8 @@ void TestSwapBTCRefundTransaction()
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
-    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
-    auto receiver = std::make_shared<TestWalletRig>("receiver", receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiver = std::make_shared<TestWalletRig>(receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
 
     InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
     InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
@@ -628,8 +628,8 @@ void TestSwapBTCQuickRefundTransaction()
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
-    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, Wallet::TxCompletedAction(), TestWalletRig::RegularWithoutPoWBbs);
-    auto receiver = std::make_shared<TestWalletRig>("receiver", receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, Wallet::TxCompletedAction(), TestWalletRig::RegularWithoutPoWBbs);
+    auto receiver = std::make_shared<TestWalletRig>(receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
 
     InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
     InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
@@ -724,8 +724,8 @@ void TestElectrumSwapBTCRefundTransaction()
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
     TestElectrumWallet btcWallet(*mainReactor, address);
-    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
-    auto receiver = std::make_shared<TestWalletRig>("receiver", receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiver = std::make_shared<TestWalletRig>(receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
 
     InitElectrum(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
     InitElectrum(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
@@ -822,8 +822,8 @@ void TestSwapBeamRefundTransaction()
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
-    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
-    auto receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiver = std::make_unique<TestWalletRig>(receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
 
     InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
     InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
@@ -941,8 +941,8 @@ void TestSwapBeamAndBTCRefundTransaction()
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
-    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
-    auto receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiver = std::make_unique<TestWalletRig>(receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
 
     vector<Coin> receiverCoins;
     io::AsyncEvent::Ptr eventToUpdate;
@@ -972,7 +972,7 @@ void TestSwapBeamAndBTCRefundTransaction()
             
             if (currentHeight - minHeight > 5 * 60 && !receiver)
             {
-                receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+                receiver = std::make_unique<TestWalletRig>(receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
                 InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
                 receiver->m_Wallet.ResumeAllTransactions();
             }
@@ -1078,8 +1078,8 @@ void TestSwapBTCRedeemAfterExpired()
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
-    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
-    auto receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiver = std::make_unique<TestWalletRig>(receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
 
     vector<Coin> receiverCoins;
     io::AsyncEvent::Ptr eventToUpdate;
@@ -1108,7 +1108,7 @@ void TestSwapBTCRedeemAfterExpired()
 
             if (currentHeight - minHeight > 6 * 60 && !sender)
             {
-                sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+                sender = std::make_unique<TestWalletRig>(senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
                 InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
                 sender->m_Wallet.ResumeAllTransactions();
             }
@@ -1189,8 +1189,8 @@ void TestElectrumSwapBeamRefundTransaction()
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
-    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
-    auto receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiver = std::make_unique<TestWalletRig>(receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
 
     InitElectrum(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
     InitElectrum(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
@@ -1290,7 +1290,7 @@ void ExpireByResponseTime(bool isBeamSide)
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
     auto senderSP = InitSettingsProvider(senderWalletDB, aliceSettings);
-    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction);
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, completedAction);
 
     InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
 
@@ -1365,8 +1365,8 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
-    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, isSender ? Wallet::TxCompletedAction() : completedAction);
-    auto receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, isSender ? completedAction : Wallet::TxCompletedAction());
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, isSender ? Wallet::TxCompletedAction() : completedAction);
+    auto receiver = std::make_unique<TestWalletRig>(receiverWalletDB, isSender ? completedAction : Wallet::TxCompletedAction());
 
     receiverBtcWallet.addPeer(senderAddress);
     InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
@@ -1465,8 +1465,8 @@ void TestExpireByLifeTime()
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
-    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
-    auto receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiver = std::make_unique<TestWalletRig>(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
     receiverBtcWallet.addPeer(senderAddress);
 
@@ -1500,7 +1500,7 @@ void TestExpireByLifeTime()
                 storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
                 if (txState == wallet::AtomicSwapTransaction::State::Failed)
                 {
-                    receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completeAction);
+                    receiver = std::make_unique<TestWalletRig>(receiverWalletDB, completeAction);
                     InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
                     receiver->m_Wallet.ResumeAllTransactions();
                 }
@@ -1604,8 +1604,8 @@ void TestIgnoringThirdPeer()
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
     auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
-    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
-    auto receiver = std::make_shared<TestWalletRig>("receiver", receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiver = std::make_shared<TestWalletRig>(receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
 
     InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
     InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);

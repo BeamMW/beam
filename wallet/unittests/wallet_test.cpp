@@ -134,7 +134,7 @@ namespace
         WALLET_CHECK(senderWalletDB->getTxHistory().empty());
 
         TestNode node;
-        TestWalletRig sender("sender", senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
+        TestWalletRig sender(senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
         helpers::StopWatch sw;
 
         sw.start();
@@ -204,8 +204,8 @@ namespace
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
@@ -442,8 +442,8 @@ namespace
         auto senderDB = createSenderWalletDB();
         TestNode node;
         {
-            TestWalletRig sender("sender", senderDB, f, TestWalletRig::Type::Regular, false, 0);
-            TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+            TestWalletRig sender(senderDB, f, TestWalletRig::Type::Regular, false, 0);
+            TestWalletRig receiver(createReceiverWalletDB(), f);
 
             sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
@@ -475,7 +475,7 @@ namespace
        }
 
         completedCount = 1;
-        TestWalletRig sender("sender", senderDB, f, TestWalletRig::Type::Regular, false, 0);
+        TestWalletRig sender(senderDB, f, TestWalletRig::Type::Regular, false, 0);
         mainReactor->run();
 
        // check coins
@@ -649,7 +649,7 @@ namespace
         WALLET_CHECK(senderWalletDB->getTxHistory().empty());
 
         TestNode node;
-        TestWalletRig sender("sender", senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
+        TestWalletRig sender(senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
         helpers::StopWatch sw;
 
         sw.start();
@@ -745,7 +745,7 @@ namespace
         WALLET_CHECK(senderWalletDB->getTxHistory().empty());
 
         TestNode node;
-        TestWalletRig sender("sender", senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
+        TestWalletRig sender(senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
 
 
         auto txId = sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
@@ -843,8 +843,8 @@ namespace
             }
         };
 
-        TestWalletRig sender("sender", createSenderWalletDB(), f);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f, TestWalletRig::Type::Offline);
+        TestWalletRig sender(createSenderWalletDB(), f);
+        TestWalletRig receiver(createReceiverWalletDB(), f, TestWalletRig::Type::Offline);
 
         auto newBlockFunc = [&receiver](Height height)
         {
@@ -927,8 +927,8 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
         EmptyTestGateway gateway;
-        TestWalletRig sender("sender", createSenderWalletDB());
-        TestWalletRig receiver("receiver", createReceiverWalletDB());
+        TestWalletRig sender(createSenderWalletDB());
+        TestWalletRig receiver(createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
         SimpleTransaction::Creator simpleCreator(sender.m_WalletDB, true);
@@ -978,8 +978,8 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        TestWalletRig sender("sender", createSenderWalletDB());
-        TestWalletRig receiver("receiver", createReceiverWalletDB());
+        TestWalletRig sender(createSenderWalletDB());
+        TestWalletRig receiver(createReceiverWalletDB());
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
         SimpleTransaction::Creator simpleTxCreator(sender.m_WalletDB, true);
@@ -1255,7 +1255,7 @@ namespace
         Node receiverNode;
         auto receiverNodeAddress = nodeCreator(receiverNode, treasury, 32126, "receiver_node.db", {senderNodeAddress});
 
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), [](auto) {});
+        TestWalletRig receiver(createReceiverWalletDB(), [](auto) {});
 
         SenderFlyClient flyClient(db, receiver.m_WalletID);
         flyClient.Connect(senderNodeAddress);
@@ -1309,8 +1309,8 @@ namespace
         Node receiverNode;
         auto receiverNodeAddress = nodeCreator(receiverNode, treasury, 32126, "receiver_node.db", { senderNodeAddress }, false);
 
-        TestWalletRig sender("sender", db, f, TestWalletRig::Type::Regular, false, 0, senderNodeAddress);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f, TestWalletRig::Type::Regular, false, 0, receiverNodeAddress);
+        TestWalletRig sender(db, f, TestWalletRig::Type::Regular, false, 0, senderNodeAddress);
+        TestWalletRig receiver(createReceiverWalletDB(), f, TestWalletRig::Type::Regular, false, 0, receiverNodeAddress);
 
         sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList(Count, Amount(5)))
             .SetParameter(TxParameterID::Fee, Amount(0))
@@ -1589,8 +1589,8 @@ namespace
         //};
         //
         ////TestNode node;
-        //TestWalletRig sender("sender", createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
-        //TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        //TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
+        //TestWalletRig receiver(createReceiverWalletDB(), f);
         //
         //Coin::ID inputID = Coin::ID(4, 10, Key::Type::Coinbase);
         //Coin::ID outputID = Coin::ID(3, 11, Key::Type::Regular);
@@ -1675,8 +1675,8 @@ namespace
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
@@ -1792,11 +1792,11 @@ namespace
         {
             stringstream ss;
             ss << "sender_" << i << ".db";
-            auto t = make_unique<TestWalletRig>("sender", createSenderWalletDBWithSeed(ss.str(), true), f, TestWalletRig::Type::Regular, false, 0);
+            auto t = make_unique<TestWalletRig>(createSenderWalletDBWithSeed(ss.str(), true), f, TestWalletRig::Type::Regular, false, 0);
             wallets.push_back(move(t));
         }
         
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
 
  //       WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
  //       WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());

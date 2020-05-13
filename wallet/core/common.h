@@ -319,6 +319,7 @@ namespace beam::wallet
         // Lelantus
         ShieldedOutputId = 122,
         WindowBegin = 123,
+        ShieldedVoucher = 124,
 
         // private parameters
         PrivateFirstParam = 128,
@@ -372,7 +373,6 @@ namespace beam::wallet
         InternalFailureReason = 210,
     
         ShieldedSerialPub = 220,
-        ShieldedVoucher = 221,
 
         State = 255
 

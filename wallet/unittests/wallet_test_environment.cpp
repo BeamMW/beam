@@ -426,7 +426,7 @@ struct TestWalletRig
         Offline
     };
 
-    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
+    TestWalletRig(IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
         : m_WalletDB{ walletDB }
         , m_Wallet{ m_WalletDB, move(action), Wallet::UpdateCompletedAction() }
     {
@@ -1211,8 +1211,8 @@ public:
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(m_TxCount, 6), f);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        TestWalletRig sender(createSenderWalletDB(m_TxCount, 6), f);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
 
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
         auto timestamp = GetTime_ms();

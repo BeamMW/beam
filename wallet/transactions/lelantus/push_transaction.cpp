@@ -27,6 +27,28 @@ namespace beam::wallet::lelantus
             .SetParameter(TxParameterID::MyID, myID);
     }
 
+    //ShieldedTxo::Voucher CreateNewVoucher(IWalletDB::Ptr db, const ECC::Scalar& sk)
+    //{
+    //    ShieldedTxo::Voucher voucher;
+    //    ShieldedTxo::Viewer viewer;
+    //    const Key::Index nIdx = 0;
+    //    viewer.FromOwner(*db->get_OwnerKdf(), nIdx);
+    //
+    //    ECC::GenRandom(voucher.m_SharedSecret); // not yet, just a nonce placeholder
+    //
+    //    ShieldedTxo::Data::TicketParams tp;
+    //    tp.Generate(voucher.m_Ticket, viewer, voucher.m_SharedSecret);
+    //
+    //    voucher.m_SharedSecret = tp.m_SharedSecret;
+    //
+    //    ECC::Hash::Value hv;
+    //    voucher.get_Hash(hv);
+    //
+    //    voucher.m_Signature.Sign(hv, sk);
+    //
+    //    return voucher;
+    //}
+
     BaseTransaction::Ptr PushTransaction::Creator::Create(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
         , const TxID& txID)
@@ -160,13 +182,14 @@ namespace beam::wallet::lelantus
 
                         // update shielded output
                         auto coin = GetWalletDB()->getShieldedCoin(GetTxID());
-                        assert(coin);
+                        if (coin) // payment to ourself
+                        {
+                            coin->m_ID = proof.m_ID;
+                            coin->m_confirmHeight = std::min(coin->m_confirmHeight, proof.m_Height);
 
-                        coin->m_ID = proof.m_ID;
-                        coin->m_confirmHeight = std::min(coin->m_confirmHeight, proof.m_Height);
-
-                        // save shielded output to DB
-                        GetWalletDB()->saveShieldedCoin(*coin);
+                            // save shielded output to DB
+                            GetWalletDB()->saveShieldedCoin(*coin);
+                        }
                     }
                     UpdateAsync();
                 });
