@@ -678,6 +678,7 @@ int main(int argc, char* argv[])
         io::Reactor::Ptr reactor = io::Reactor::create();
         WalletApi::ACL acl;
         std::vector<uint32_t> whitelist;
+        bool withAssets = false;
 
         {
             po::options_description desc("Wallet API general options");
@@ -806,8 +807,10 @@ int main(int argc, char* argv[])
             }
 
             walletDB = WalletDB::open(options.walletPath, pass);
-
             LOG_INFO() << "wallet sucessfully opened...";
+
+            // assets support
+            withAssets = vm[cli::WITH_ASSETS].as<bool>();
         }
 
         io::Address listenTo = io::Address().port(options.port);
@@ -815,8 +818,7 @@ int main(int argc, char* argv[])
         io::Reactor::GracefulIntHandler gih(*reactor);
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
-
-        Wallet wallet{ walletDB };
+        Wallet wallet{ walletDB, withAssets};
 
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
@@ -850,7 +852,7 @@ int main(int argc, char* argv[])
         server.initSwapFeature(*nnet, *wnet);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-        if (Rules::get().CA.Enabled)
+        if (Rules::get().CA.Enabled && withAssets)
         {
             RegisterAssetCreators(wallet);
         }

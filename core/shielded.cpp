@@ -80,18 +80,23 @@ namespace beam
 			>> hv;
 	}
 
-	bool ShieldedTxo::Voucher::IsValid(const PeerID& pid) const
+	bool ShieldedTxo::Voucher::IsValid(const ECC::Point::Native& pk) const
 	{
-		ECC::Point::Native pk;
-		if (!m_Ticket.IsValid(pk))
+		ECC::Point::Native pt;
+		if (!m_Ticket.IsValid(pt))
 			return false;
 
 		ECC::Hash::Value hv;
 		get_Hash(hv);
+		return m_Signature.IsValid(hv, pk);
+	}
 
+	bool ShieldedTxo::Voucher::IsValid(const PeerID& pid) const
+	{
+		ECC::Point::Native pk;
 		return
 			pid.ExportNnz(pk) &&
-			m_Signature.IsValid(hv, pk);
+			IsValid(pk);
 	}
 
 	/////////////

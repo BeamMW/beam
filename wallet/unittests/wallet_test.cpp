@@ -29,7 +29,7 @@
 #include "node/node.h"
 #include "wallet/core/private_key_keeper.h"
 #include "keykeeper/local_private_key_keeper.h"
-//#include "keykeeper/trezor_key_keeper.h"
+#include "utility/hex.h"
 
 #include "test_helpers.h"
 
@@ -83,8 +83,8 @@ namespace
 
         TestNodeNetwork::Shared tnns;
 
-        Wallet sender(senderWalletDB, f);
-        Wallet receiver(receiverWalletDB, f);
+        Wallet sender(senderWalletDB, true, f);
+        Wallet receiver(receiverWalletDB, true, f);
 
         auto twn = make_shared<TestWalletNetwork>();
         auto netNodeS = make_shared<TestNodeNetwork>(tnns, sender);
@@ -134,7 +134,7 @@ namespace
         WALLET_CHECK(senderWalletDB->getTxHistory().empty());
 
         TestNode node;
-        TestWalletRig sender("sender", senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
+        TestWalletRig sender(senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
         helpers::StopWatch sw;
 
         sw.start();
@@ -204,8 +204,8 @@ namespace
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
@@ -442,8 +442,8 @@ namespace
         auto senderDB = createSenderWalletDB();
         TestNode node;
         {
-            TestWalletRig sender("sender", senderDB, f, TestWalletRig::Type::Regular, false, 0);
-            TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+            TestWalletRig sender(senderDB, f, TestWalletRig::Type::Regular, false, 0);
+            TestWalletRig receiver(createReceiverWalletDB(), f);
 
             sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
@@ -475,7 +475,7 @@ namespace
        }
 
         completedCount = 1;
-        TestWalletRig sender("sender", senderDB, f, TestWalletRig::Type::Regular, false, 0);
+        TestWalletRig sender(senderDB, f, TestWalletRig::Type::Regular, false, 0);
         mainReactor->run();
 
        // check coins
@@ -649,7 +649,7 @@ namespace
         WALLET_CHECK(senderWalletDB->getTxHistory().empty());
 
         TestNode node;
-        TestWalletRig sender("sender", senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
+        TestWalletRig sender(senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
         helpers::StopWatch sw;
 
         sw.start();
@@ -745,7 +745,7 @@ namespace
         WALLET_CHECK(senderWalletDB->getTxHistory().empty());
 
         TestNode node;
-        TestWalletRig sender("sender", senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
+        TestWalletRig sender(senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
 
 
         auto txId = sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
@@ -843,8 +843,8 @@ namespace
             }
         };
 
-        TestWalletRig sender("sender", createSenderWalletDB(), f);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f, TestWalletRig::Type::Offline);
+        TestWalletRig sender(createSenderWalletDB(), f);
+        TestWalletRig receiver(createReceiverWalletDB(), f, TestWalletRig::Type::Offline);
 
         auto newBlockFunc = [&receiver](Height height)
         {
@@ -927,11 +927,11 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
         EmptyTestGateway gateway;
-        TestWalletRig sender("sender", createSenderWalletDB());
-        TestWalletRig receiver("receiver", createReceiverWalletDB());
+        TestWalletRig sender(createSenderWalletDB());
+        TestWalletRig receiver(createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
-        SimpleTransaction::Creator simpleCreator(sender.m_WalletDB);
+        SimpleTransaction::Creator simpleCreator(sender.m_WalletDB, true);
         BaseTransaction::Creator& creator = simpleCreator;
         auto tx = creator.Create(gateway, sender.m_WalletDB, txID);
 
@@ -978,11 +978,11 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        TestWalletRig sender("sender", createSenderWalletDB());
-        TestWalletRig receiver("receiver", createReceiverWalletDB());
+        TestWalletRig sender(createSenderWalletDB());
+        TestWalletRig receiver(createReceiverWalletDB());
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
-        SimpleTransaction::Creator simpleTxCreator(sender.m_WalletDB);
+        SimpleTransaction::Creator simpleTxCreator(sender.m_WalletDB, true);
         BaseTransaction::Creator& txCreator = simpleTxCreator;
         // process TransactionFailedException
         {
@@ -1255,7 +1255,7 @@ namespace
         Node receiverNode;
         auto receiverNodeAddress = nodeCreator(receiverNode, treasury, 32126, "receiver_node.db", {senderNodeAddress});
 
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), [](auto) {});
+        TestWalletRig receiver(createReceiverWalletDB(), [](auto) {});
 
         SenderFlyClient flyClient(db, receiver.m_WalletID);
         flyClient.Connect(senderNodeAddress);
@@ -1309,8 +1309,8 @@ namespace
         Node receiverNode;
         auto receiverNodeAddress = nodeCreator(receiverNode, treasury, 32126, "receiver_node.db", { senderNodeAddress }, false);
 
-        TestWalletRig sender("sender", db, f, TestWalletRig::Type::Regular, false, 0, senderNodeAddress);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f, TestWalletRig::Type::Regular, false, 0, receiverNodeAddress);
+        TestWalletRig sender(db, f, TestWalletRig::Type::Regular, false, 0, senderNodeAddress);
+        TestWalletRig receiver(createReceiverWalletDB(), f, TestWalletRig::Type::Regular, false, 0, receiverNodeAddress);
 
         sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList(Count, Amount(5)))
             .SetParameter(TxParameterID::Fee, Amount(0))
@@ -1541,7 +1541,7 @@ namespace
                 { Notification::Type::TransactionFailed, true },
                 { Notification::Type::TransactionCompleted, true }
             };
-            client.start(activeNotifications);
+            client.start(activeNotifications, true);
         }
         auto timer = io::Timer::create(*mainReactor);
         
@@ -1589,8 +1589,8 @@ namespace
         //};
         //
         ////TestNode node;
-        //TestWalletRig sender("sender", createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
-        //TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        //TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
+        //TestWalletRig receiver(createReceiverWalletDB(), f);
         //
         //Coin::ID inputID = Coin::ID(4, 10, Key::Type::Coinbase);
         //Coin::ID outputID = Coin::ID(3, 11, Key::Type::Regular);
@@ -1675,8 +1675,8 @@ namespace
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
@@ -1792,11 +1792,11 @@ namespace
         {
             stringstream ss;
             ss << "sender_" << i << ".db";
-            auto t = make_unique<TestWalletRig>("sender", createSenderWalletDBWithSeed(ss.str(), true), f, TestWalletRig::Type::Regular, false, 0);
+            auto t = make_unique<TestWalletRig>(createSenderWalletDBWithSeed(ss.str(), true), f, TestWalletRig::Type::Regular, false, 0);
             wallets.push_back(move(t));
         }
         
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
 
  //       WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
  //       WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
@@ -2353,6 +2353,62 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
     WALLET_CHECK(tx.IsValid(ctx));
 }
 
+void TestVouchers()
+{
+    cout << "\nTesting wallets vouchers exchange...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    TestNodeNetwork::Shared tnns;
+
+    struct MyWallet
+        :public Wallet
+    {
+        std::vector<ShieldedTxo::Voucher> m_Vouchers;
+        WalletAddress m_MyAddr;
+        TestNodeNetwork::Ptr m_MyNetwork;
+
+        MyWallet(IWalletDB::Ptr pDb, const std::shared_ptr<TestWalletNetwork>& pTwn, TestNodeNetwork::Shared& tnns)
+            :Wallet(pDb, true)
+        {
+            pDb->createAddress(m_MyAddr);
+            pDb->saveAddress(m_MyAddr);
+
+            m_MyNetwork = make_shared<TestNodeNetwork>(tnns, *this);
+
+            AddMessageEndpoint(pTwn);
+            SetNodeEndpoint(m_MyNetwork);
+
+            pTwn->m_Map[m_MyAddr.m_walletID].m_pSink = this;
+        }
+
+        virtual void OnVouchersFrom(const WalletAddress&, std::vector<ShieldedTxo::Voucher>&& res) override
+        {
+            m_Vouchers = std::move(res);
+            io::Reactor::get_Current().stop();
+        }
+    };
+
+    auto twn = make_shared<TestWalletNetwork>();
+
+    IWalletDB::Ptr pDbSnd = createSenderWalletDB();
+    MyWallet sender(pDbSnd, twn, tnns);
+    MyWallet receiver(createReceiverWalletDB(), twn, tnns);
+
+    WalletAddress addr = receiver.m_MyAddr;
+    addr.m_OwnID = 0;
+    pDbSnd->saveAddress(addr);
+
+    sender.RequestVouchersFrom(receiver.m_MyAddr.m_walletID, sender.m_MyAddr.m_walletID, 15);
+
+    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+    timer->start(1000, true, []() { io::Reactor::get_Current().stop(); });
+
+    mainReactor->run();
+
+    WALLET_CHECK(!sender.m_Vouchers.empty());
+}
 
 #if defined(BEAM_HW_WALLET)
 
@@ -2479,46 +2535,66 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
 
 #include "mnemonic/mnemonic.h"
 
-//void TestHWCommitment()
-//{
-//    cout << "Test HW commitment" << std::endl;
-//
-//    Key::IDV kidv;
-//    kidv.m_Value = 11100000000;
-//    kidv.m_Idx = 1887367845482021531;
-//    kidv.m_Type = 1852797549;
-//    kidv.m_SubIdx = 16777216;
-//
-//    Point comm1, comm2;
-//    {
-//        Scalar::Native secretKey;
-//
-//        //beam::WordList generatedPhrases = {"budget", "focus", "surface", "plug", "dragon", "elephant", "token", "child", "kitchen", "coast", "lounge", "mean" };
-//        beam::WordList generatedPhrases = { "copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue" };
-//        
-//        auto buf = beam::decodeMnemonic(generatedPhrases);
-//
-//        SecString secretSeed;
-//        secretSeed.assign(buf.data(), buf.size());
-//
-//        Key::IKdf::Ptr kdf;
-//        ECC::HKdf::Create(kdf, secretSeed.hash().V);
-//
-//        SwitchCommitment().Create(secretKey, comm1, *MasterKey::get_Child(kdf, kidv), kidv);
-//
-//        LOG_INFO() << "commitment is " << comm1;
-//    }
-//
-//    {
-//        HWWallet hw;
-//
-//        comm2 = hw.generateKeySync(kidv, true);
-//
-//        LOG_INFO() << "HW commitment is " << comm2;
-//    }
-//
-//    WALLET_CHECK(comm1 == comm2);
-//}
+void TestHWCommitment()
+{
+   cout << "Test HW commitment" << std::endl;
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+//    CoinID cid;
+//    cid.m_Value = 11100000000;
+//    cid.m_Idx = 1887367845482021531;
+//    cid.m_Type = 1852797549;
+//    cid.m_SubIdx = 16777216;
+
+   const CoinID cid(100500, 15, Key::Type::Regular, 7);
+
+   Point comm1, comm2;
+   {
+       Scalar::Native secretKey;
+
+       //beam::WordList generatedPhrases = {"budget", "focus", "surface", "plug", "dragon", "elephant", "token", "child", "kitchen", "coast", "lounge", "mean" };
+       beam::WordList generatedPhrases = { "copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue" };
+       
+       auto buf = beam::decodeMnemonic(generatedPhrases);
+
+       SecString secretSeed;
+       secretSeed.assign(buf.data(), buf.size());
+
+       Key::IKdf::Ptr kdf;
+       ECC::HKdf::Create(kdf, secretSeed.hash().V);
+    
+       Key::IPKdf::Ptr pubKdf = kdf;
+       LocalPrivateKeyKeeperStd keyKeeper(kdf);
+        
+        
+        ECC::NoLeak<ECC::HKdfPub::Packed> p;
+		assert(pubKdf->ExportP(nullptr) == sizeof(p));
+		pubKdf->ExportP(&p);
+        const uint8_t* pp = reinterpret_cast<const uint8_t*>(&p.V);
+        cout << "Owner bin: " << to_hex(pp, sizeof(p.V)) << std::endl;  
+
+
+       ECC::Point::Native pt2;
+       WALLET_CHECK(keyKeeper.get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
+
+       comm1 = pt2;
+       LOG_INFO() << "commitment is " << comm1;
+   }
+
+   {
+       HWWallet hw;
+       auto keyKeeper = hw.getKeyKeeper(hw.getDevices()[0]);
+
+       ECC::Point::Native pt2;
+       WALLET_CHECK(keyKeeper->get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
+       comm2 = pt2;
+
+       LOG_INFO() << "HW commitment is " << comm2;
+   }
+
+   WALLET_CHECK(comm1 == comm2);
+}
 
 void TestHWWallet()
 {
@@ -2541,7 +2617,8 @@ void TestHWWallet()
         ECC::Point pt;
         pt.m_X = beam::Blob(x, 32);
         pt.m_Y = 1;
-        WALLET_CHECK(pt == pt2);
+        ECC::Point pt3 = pt2;
+        WALLET_CHECK(pt == pt3);
     }
 
     TestKeyKeeper(keyKeeper, 0);
@@ -2619,6 +2696,9 @@ int main()
 
     TestKeyKeeper();
 
+    TestVouchers();
+
+/*
     //TestBbsDecrypt();
 
     TestConvertions();
@@ -2656,11 +2736,11 @@ int main()
     //TestTxNonces();
     
     TestTxExceptionHandling();
-    
+ */   
    
     // @nesbox: disabled tests, they work only if device connected
 #if defined(BEAM_HW_WALLET)
-//    TestHWCommitment();
+    TestHWCommitment();
     TestHWWallet();
 #endif
 

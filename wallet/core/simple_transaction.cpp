@@ -41,17 +41,17 @@ namespace beam::wallet
             .SetParameter(TxParameterID::Amount, std::accumulate(amountList.begin(), amountList.end(), Amount(0)));
     }
 
-    SimpleTransaction::Creator::Creator(IWalletDB::Ptr walletDB)
+    SimpleTransaction::Creator::Creator(IWalletDB::Ptr walletDB, bool withAssets)
         : m_WalletDB(walletDB)
+        , m_withAssets(withAssets)
     {
-
     }
 
     BaseTransaction::Ptr SimpleTransaction::Creator::Create(INegotiatorGateway& gateway
                                                           , IWalletDB::Ptr walletDB
                                                           , const TxID& txID)
     {
-        return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, txID));
+        return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, txID, m_withAssets));
     }
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -107,8 +107,10 @@ namespace beam::wallet
 
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
                                        , IWalletDB::Ptr walletDB
-                                       , const TxID& txID)
+                                       , const TxID& txID
+                                       , bool withAssets)
         : BaseTransaction{ gateway, walletDB, txID }
+        , m_withAssets(withAssets)
     {
 
     }
@@ -143,6 +145,12 @@ namespace beam::wallet
         BaseTxBuilder& builder = *sharedBuilder;
         builder.GetPeerInputsAndOutputs();
         const bool isAsset = builder.GetAssetId() != Asset::s_InvalidID;
+
+        if (isAsset == true && m_withAssets == false)
+        {
+            OnFailed(TxFailureReason::AssetsDisabled, true);
+            return;
+        }
 
         // Check if we already have signed kernel
         if ((isSender && !builder.LoadKernel())

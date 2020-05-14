@@ -303,10 +303,11 @@ namespace beam::wallet
     }
 
     void WalletClient::start( std::map<Notification::Type,bool> activeNotifications,
+                              bool withAssets,
                               bool isSecondCurrencyEnabled,
                               std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
-        m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, txCreators, activeNotifications]()
+        m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, withAssets, txCreators, activeNotifications]()
         {
             try
             {
@@ -317,7 +318,7 @@ namespace beam::wallet
                 static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
                 LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 
-                auto wallet = make_shared<Wallet>(m_walletDB);
+                auto wallet = make_shared<Wallet>(m_walletDB, withAssets);
                 m_wallet = wallet;
 
                 if (txCreators)

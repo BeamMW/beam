@@ -104,7 +104,7 @@ namespace beam::wallet
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
         using UpdateCompletedAction = std::function<void()>;
 
-        Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
+        Wallet(IWalletDB::Ptr walletDB, bool withAssets, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
         virtual ~Wallet();
         void CleanupNetwork();
 
@@ -128,6 +128,11 @@ namespace beam::wallet
 
         // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
         size_t GetUnsafeActiveTransactionsCount() const;
+
+        // voucher management
+        void RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount = 1);
+        virtual void OnVouchersFrom(const WalletAddress&, std::vector<ShieldedTxo::Voucher>&&);
+
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
     private:
@@ -196,6 +201,9 @@ namespace beam::wallet
         void MakeTransactionActive(BaseTransaction::Ptr tx);
         void ProcessStoredMessages();
         bool IsNodeInSync() const;
+
+        void SendSpecialMsg(const WalletID& peerID, SetTxParameter&);
+        void OnSpecialMsg(const WalletID& myID, const SetTxParameter&);
 
     private:
 

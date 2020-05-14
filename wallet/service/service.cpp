@@ -190,11 +190,11 @@ namespace
     class WalletApiServer : public WebSocketServer
     {
     public:
-        WalletApiServer(io::Reactor::Ptr reactor, const io::Address& nodeAddr, uint16_t port, const std::string& allowedOrigin, bool withPipes)
+        WalletApiServer(io::Reactor::Ptr reactor, bool withAssets, const io::Address& nodeAddr, uint16_t port, const std::string& allowedOrigin, bool withPipes)
             : WebSocketServer(reactor, port,
-            [this, reactor, &nodeAddr] (auto&& func)
+            [this, withAssets, reactor, &nodeAddr] (auto&& func)
             {
-                return std::make_unique<ServiceApiConnection>(nodeAddr, func, reactor, _walletMap);
+                return std::make_unique<ServiceApiConnection>(withAssets, nodeAddr, func, reactor, _walletMap);
             },
             [withPipes] ()
             {
@@ -500,13 +500,14 @@ namespace
             , public IApiConnectionHandler
         {
         public:
-            ServiceApiConnection(const io::Address& nodeAddr, WebSocketServer::SendMessageFunc sendFunc, io::Reactor::Ptr reactor, WalletMap& walletMap)
+            ServiceApiConnection(bool withAssets, const io::Address& nodeAddr, WebSocketServer::SendMessageFunc sendFunc, io::Reactor::Ptr reactor, WalletMap& walletMap)
                 : _apiConnection(this, *this, boost::none)
                 , _sendFunc(sendFunc)
                 , _reactor(reactor)
                 , _api(*this)
                 , _walletMap(walletMap)
                 , _nodeAddr(nodeAddr)
+                , _withAssets(withAssets)
             {
                 assert(_sendFunc);
             }
@@ -650,7 +651,7 @@ namespace
                     {
                         _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass),
                                                    createKeyKeeperFromDB(data.id, data.pass));
-                        _wallet = std::make_shared<Wallet>(_walletDB);
+                        _wallet = std::make_shared<Wallet>(_walletDB, _withAssets);
 
                         Key::IPKdf::Ptr pKey = _walletDB->get_OwnerKdf();
                         KeyString ks;
@@ -667,7 +668,7 @@ namespace
                     {
                         _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass),
                                                    createKeyKeeper(data.pass, it->second.ownerKey));
-                        _wallet = std::make_shared<Wallet>(_walletDB);
+                        _wallet = std::make_shared<Wallet>(_walletDB, _withAssets);
                     }
 
                     if (!_walletDB)
@@ -798,6 +799,7 @@ namespace
             WalletServiceApi _api;
             WalletMap& _walletMap;
             io::Address _nodeAddr;
+            bool _withAssets;
         };
 
     };
@@ -824,6 +826,7 @@ int main(int argc, char* argv[])
             uint32_t logCleanupPeriod;
             std::string allowedOrigin;
             bool withPipes = false;
+            bool withAssets = false;
         } options;
 
         io::Address node_addr;
@@ -837,7 +840,8 @@ int main(int argc, char* argv[])
                 (cli::ALLOWED_ORIGIN, po::value<std::string>(&options.allowedOrigin)->default_value(""), "allowed origin")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
-                (cli::WITH_SYNC_PIPES,  po::bool_switch(&options.withPipes)->default_value(false), "Enable or disable sync pipes")
+                (cli::WITH_SYNC_PIPES,  po::bool_switch(&options.withPipes)->default_value(false), "enable sync pipes")
+                (cli::WITH_ASSETS, po::bool_switch(&options.withAssets)->default_value(false), "enable confidential assets transactions")
             ;
 
             desc.add(createRulesOptionsDescription());
@@ -887,7 +891,7 @@ int main(int argc, char* argv[])
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, beam::wallet::days2sec(options.logCleanupPeriod));
 
         LOG_INFO() << "Starting server on port " << options.port << ", sync pipes " << options.withPipes;
-        WalletApiServer server(reactor, node_addr, options.port, options.allowedOrigin, options.withPipes);
+        WalletApiServer server(reactor, options.withAssets, node_addr, options.port, options.allowedOrigin, options.withPipes);
         reactor->run();
 
         LOG_INFO() << "Done";

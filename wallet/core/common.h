@@ -39,6 +39,8 @@ namespace beam::wallet
         AssetInfo,
         PushTransaction,
         PullTransaction,
+        VoucherRequest,
+        VoucherResponse,
         ALL
     };
 
@@ -161,6 +163,7 @@ namespace beam::wallet
     MACRO(KeyKeeperUserAbort,            40, "Aborted by the user") \
     MACRO(AssetExists,                   41, "Asset has been already registered") \
     MACRO(InvalidAssetOwnerId,           42, "Invalid asset owner id") \
+    MACRO(AssetsDisabled,                43, "Asset transactions are disabled in the wallet")
 
     enum TxFailureReason : int32_t
     {
@@ -318,6 +321,7 @@ namespace beam::wallet
         // Lelantus
         ShieldedOutputId = 122,
         WindowBegin = 123,
+        ShieldedVoucher = 124,
 
         // private parameters
         PrivateFirstParam = 128,
@@ -371,7 +375,6 @@ namespace beam::wallet
         InternalFailureReason = 210,
     
         ShieldedSerialPub = 220,
-        ShieldedVoucher = 221,
 
         State = 255
 
