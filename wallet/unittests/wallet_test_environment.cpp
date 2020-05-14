@@ -277,9 +277,9 @@ IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const
     return createSenderWalletDBWithSeed(SenderWalletDB, false, separateDBForPrivateData, amounts);
 }
 
-IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false)
+IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false, bool generateSeed = false)
 {
-    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, false);
+    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, generateSeed);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
     for (int i = 0; i < count; ++i)
     {
@@ -289,9 +289,9 @@ IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBFor
     return db;
 }
 
-IWalletDB::Ptr createReceiverWalletDB(bool separateDBForPrivateData = false)
+IWalletDB::Ptr createReceiverWalletDB(bool separateDBForPrivateData = false, bool generateSeed = false)
 {
-    return createSqliteWalletDB(ReceiverWalletDB, separateDBForPrivateData, false);
+    return createSqliteWalletDB(ReceiverWalletDB, separateDBForPrivateData, generateSeed);
 }
 
 struct TestGateway : wallet::INegotiatorGateway

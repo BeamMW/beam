@@ -175,14 +175,14 @@ void TestSimpleTx()
 }
 
 
-ShieldedTxo::Voucher CreateVoucher(IWalletDB::Ptr db, const PeerID& sender, const ECC::Scalar::Native& sk)
+ShieldedTxo::Voucher CreateVoucher(IWalletDB::Ptr db, uint64_t ownID)
 {
-    ShieldedTxo::Data::OutputParams op;
-    op.m_Value = 0;// amount;
-    op.m_AssetID = 0; // TODO
-    ZeroObject(op.m_User);
-
-    op.m_User.m_Sender = sender;
+    ECC::Hash::Value hv;
+    Key::ID(ownID, Key::Type::WalletID).get_Hash(hv);
+    ECC::Scalar::Native sk;
+    db->get_MasterKdf()->DeriveKey(sk, hv);
+    PeerID pid;
+    pid.FromSk(sk);
 
     ShieldedTxo::Voucher voucher;
     ShieldedTxo::Viewer viewer;
@@ -195,29 +195,9 @@ ShieldedTxo::Voucher CreateVoucher(IWalletDB::Ptr db, const PeerID& sender, cons
     tp.Generate(voucher.m_Ticket, viewer, voucher.m_SharedSecret);
 
     voucher.m_SharedSecret = tp.m_SharedSecret;
-    ZeroObject(voucher.m_Signature);
 
-    ECC::Hash::Value hv;
     voucher.get_Hash(hv);
     voucher.m_Signature.Sign(hv, sk);
-
-    // save shielded Coin
-    ShieldedCoin shieldedCoin;
-    shieldedCoin.m_value = op.m_Value;
-    shieldedCoin.m_assetID = op.m_AssetID;
-    //shieldedCoin.m_createTxId = m_Tx.GetTxID();
-    shieldedCoin.m_Key.m_kSerG = tp.m_pK[0];
-    shieldedCoin.m_Key.m_IsCreatedByViewer = tp.m_IsCreatedByViewer;
-    shieldedCoin.m_Key.m_nIdx = nIdx;
-    shieldedCoin.m_User = op.m_User;
-
-    LOG_DEBUG() << "!!!!!!!!!!!! " << shieldedCoin.m_Key.m_kSerG.str() << TRACE(shieldedCoin.m_Key.m_IsCreatedByViewer) << " " << TRACE(shieldedCoin.m_Key.m_nIdx);
-
-
-    db->saveShieldedCoin(shieldedCoin);
-
-    auto t = db->getShieldedCoin(shieldedCoin.m_Key);
-    WALLET_CHECK(t.is_initialized());
 
     return voucher;
 }
@@ -238,11 +218,11 @@ void TestDirectAnonimousPayment()
         }
     };
 
-    auto senderWalletDB = createSenderWalletDB(0, 0);
+    auto senderWalletDB = createSenderWalletDB(0, 0, false, true);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
     TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
-    auto receiverWalletDB = createReceiverWalletDB();
-    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);//, false, 0, io::Address::localhost().port(32126));
+    auto receiverWalletDB = createReceiverWalletDB(false, true);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
     auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>();
     sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pushTxCreator));
@@ -250,20 +230,9 @@ void TestDirectAnonimousPayment()
     auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
     receiver.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pullTxCreator));
 
-    //ECC::Hash::Value hv;
-    //Key::ID(56, Key::Type::WalletID).get_Hash(hv);
-    ECC::Scalar::Native sk;
-    PeerID pid;
-    //receiver.m_WalletDB->get_MasterKdf()->DeriveKey(sk, hv);
-    //PeerID pid;
-    //pid.FromSk(sk);
-
-    receiver.m_WalletDB->get_SbbsPeerID(sk, pid, receiver.m_OwnID);
-    WALLET_CHECK(pid == receiver.m_WalletID.m_Pk);
-    auto voucher = CreateVoucher(receiver.m_WalletDB, sender.m_WalletID.m_Pk, sk);
+    auto voucher = CreateVoucher(receiver.m_WalletDB, receiver.m_OwnID);
  
     Node node;
-    //Node node2;
     NodeObserver observer([&]()
         {
             auto cursor = node.get_Processor().m_Cursor;
@@ -279,8 +248,7 @@ void TestDirectAnonimousPayment()
             else if (cursor.m_Sid.m_Height == 40)
             {
                 auto parameters = lelantus::CreatePullTransactionParameters(receiver.m_WalletID)
-                    .SetParameter(TxParameterID::Amount, 2400)
-                    .SetParameter(TxParameterID::AmountList, AmountList{ 400, 2000 })
+                    .SetParameter(TxParameterID::Amount, 2600)
                     .SetParameter(TxParameterID::Fee, 1200)
                     .SetParameter(TxParameterID::ShieldedOutputId, 0U);
 
@@ -303,14 +271,6 @@ void TestDirectAnonimousPayment()
             {
                 return (tx.m_txType == TxType::PushTransaction) && tx.m_status == TxStatus::Completed;
             }));
-        for (const auto& tx : txHistory)
-        {
-            if (tx.m_txType == TxType::PushTransaction)
-            {
-                auto coins = sender.m_WalletDB->getCoinsCreatedByTx(tx.m_txId);
-                WALLET_CHECK(std::all_of(coins.begin(), coins.end(), [](const auto& coin) { return coin.m_isUnlinked; }));
-            }
-        }
     }
     
     {
@@ -324,7 +284,8 @@ void TestDirectAnonimousPayment()
             if (tx.m_txType == TxType::PullTransaction)
             {
                 auto coins = receiver.m_WalletDB->getCoinsCreatedByTx(tx.m_txId);
-                WALLET_CHECK(std::all_of(coins.begin(), coins.end(), [](const auto& coin) { return coin.m_isUnlinked; }));
+                WALLET_CHECK(coins.size() == 1);
+                WALLET_CHECK(coins[0].getAmount() == 2600);
             }
         }
     }
@@ -1019,7 +980,7 @@ int main()
     Rules::get().pForks[2].m_Height = fork2Height;
 
     TestSimpleTx();
-    //TestDirectAnonimousPayment();
+    TestDirectAnonimousPayment();
     TestManyTransactons(20, Lelantus::Cfg{2, 5}, Lelantus::Cfg{2, 3});
     TestManyTransactons(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
     TestManyTransactons(100, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
