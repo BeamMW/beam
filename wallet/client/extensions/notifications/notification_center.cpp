@@ -68,6 +68,7 @@ namespace beam::wallet
 
     size_t NotificationCenter::getUnreadCount(VersionInfo::Application app, const Version& currentAppVersion) const
     {
+        // TODO: #1414 change to use WalletImplVerInfo
         return std::count_if(m_cache.begin(), m_cache.end(),
             [app, &currentAppVersion](const auto& p)
             {

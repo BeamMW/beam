@@ -149,6 +149,9 @@ namespace
         case BroadcastContentType::ExchangeRates:
             header.type = 2;
             break;
+        case BroadcastContentType::WalletUpdates:
+            header.type = 3;
+            break;
         }
         header.size = static_cast<uint32_t>(content.size());
         header.write(packet.data());
@@ -489,13 +492,16 @@ namespace
                 cout << "Case: create wallet version notification" << endl;
                 size_t execCount = 0;
                 MockNotificationsObserver observer(
-                    [&execCount, &id2]
+                    [&execCount, &id2, &walletVerInfo]
                     (ChangeAction action, const std::vector<Notification>& list)
                     {
                         WALLET_CHECK(action == ChangeAction::Added);
                         WALLET_CHECK(list.size() == 1);
                         WALLET_CHECK(list[0].m_ID == id2);
+                        WALLET_CHECK(list[0].m_type == Notification::Type::WalletImplUpdateAvailable);
                         WALLET_CHECK(list[0].m_state == Notification::State::Unread);
+                        WALLET_CHECK(list[0].m_createTime != 0);
+                        WALLET_CHECK(list[0].m_content == toByteBuffer(walletVerInfo));
                         ++execCount;
                     }
                 );
@@ -503,11 +509,6 @@ namespace
                 center.onNewWalletVersion(walletVerInfo, id2);
                 auto list = center.getNotifications();
                 WALLET_CHECK(list.size() == ++notificationsCounter);
-                WALLET_CHECK(list[1].m_ID == id2);
-                WALLET_CHECK(list[1].m_type == Notification::Type::WalletImplUpdateAvailable);
-                WALLET_CHECK(list[1].m_state == Notification::State::Unread);
-                WALLET_CHECK(list[1].m_createTime != 0);
-                WALLET_CHECK(list[1].m_content == toByteBuffer(walletVerInfo));
                 WALLET_CHECK(execCount == 1);
                 center.Unsubscribe(&observer);
             }
@@ -517,13 +518,15 @@ namespace
                 cout << "Case: mark as read" << endl;
                 size_t execCount = 0;
                 MockNotificationsObserver observer(
-                    [&execCount, &id]
+                    [&execCount, &id, &info]
                     (ChangeAction action, const std::vector<Notification>& list)
                     {
                         WALLET_CHECK(action == ChangeAction::Updated);
                         WALLET_CHECK(list.size() == 1);
                         WALLET_CHECK(list[0].m_ID == id);
+                        WALLET_CHECK(list[0].m_type == Notification::Type::SoftwareUpdateAvailable);
                         WALLET_CHECK(list[0].m_state == Notification::State::Read);
+                        WALLET_CHECK(list[0].m_content == toByteBuffer(info));
                         ++execCount;
                     }
                 );
@@ -531,11 +534,6 @@ namespace
                 center.markNotificationAsRead(id);
                 auto list = center.getNotifications();
                 WALLET_CHECK(list.size() == notificationsCounter);
-                WALLET_CHECK(list[0].m_ID == id);
-                WALLET_CHECK(list[0].m_type == Notification::Type::SoftwareUpdateAvailable);
-                WALLET_CHECK(list[0].m_state == Notification::State::Read);
-                WALLET_CHECK(list[0].m_createTime != 0);
-                WALLET_CHECK(list[0].m_content == toByteBuffer(info));
                 WALLET_CHECK(execCount == 1);
                 center.Unsubscribe(&observer);
             }
