@@ -451,7 +451,7 @@ namespace beam
             (cli::ASSET_ID,       po::value<Positive<uint32_t>>(), "asset id")
             (cli::ASSET_METADATA, po::value<string>(),             "asset metadata")
             (cli::ASSETS,         "display assets history in info command")
-            (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable or disable asset transactions");
+            (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions");
 
 #ifdef BEAM_LASER_SUPPORT
         po::options_description laser_commands("Laser commands");

@@ -840,8 +840,8 @@ int main(int argc, char* argv[])
                 (cli::ALLOWED_ORIGIN, po::value<std::string>(&options.allowedOrigin)->default_value(""), "allowed origin")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
-                (cli::WITH_SYNC_PIPES,  po::bool_switch(&options.withPipes)->default_value(false), "enable or disable sync pipes")
-                (cli::WITH_ASSETS, po::bool_switch(&options.withAssets)->default_value(false), "enable or disable confidential assets")
+                (cli::WITH_SYNC_PIPES,  po::bool_switch(&options.withPipes)->default_value(false), "enable sync pipes")
+                (cli::WITH_ASSETS, po::bool_switch(&options.withAssets)->default_value(false), "enable confidential assets transactions")
             ;
 
             desc.add(createRulesOptionsDescription());

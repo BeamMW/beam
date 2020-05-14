@@ -163,7 +163,7 @@ namespace beam::wallet
     MACRO(KeyKeeperUserAbort,            40, "Aborted by the user") \
     MACRO(AssetExists,                   41, "Asset has been already registered") \
     MACRO(InvalidAssetOwnerId,           42, "Invalid asset owner id") \
-    MACRO(AssetsDisabled,                43, "Asset transactions are disabled")
+    MACRO(AssetsDisabled,                43, "Asset transactions are disabled in the wallet")
 
     enum TxFailureReason : int32_t
     {
