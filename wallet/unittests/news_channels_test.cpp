@@ -149,6 +149,10 @@ namespace
         case BroadcastContentType::ExchangeRates:
             header.type = 2;
             break;
+        default:
+            // TODO: handle all values
+            assert(false);
+            break;
         }
         header.size = static_cast<uint32_t>(content.size());
         header.write(packet.data());
