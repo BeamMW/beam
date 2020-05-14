@@ -670,7 +670,7 @@ namespace beam::wallet
             switch (m_txType)
             {
                 case TxType::AssetInfo: return "getting info";
-                default: m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
+                default: return m_selfTx ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
             }
         case TxStatus::Registering: return m_selfTx ? "self sending" : (m_sender == false ? "receiving" : "sending");
         case TxStatus::Failed: return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
