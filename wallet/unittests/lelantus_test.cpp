@@ -174,35 +174,7 @@ void TestSimpleTx()
     }
 }
 
-
-ShieldedTxo::Voucher CreateVoucher(IWalletDB::Ptr db, uint64_t ownID)
-{
-    ECC::Hash::Value hv;
-    Key::ID(ownID, Key::Type::WalletID).get_Hash(hv);
-    ECC::Scalar::Native sk;
-    db->get_MasterKdf()->DeriveKey(sk, hv);
-    PeerID pid;
-    pid.FromSk(sk);
-
-    ShieldedTxo::Voucher voucher;
-    ShieldedTxo::Viewer viewer;
-    const Key::Index nIdx = 0;
-    viewer.FromOwner(*db->get_OwnerKdf(), nIdx);
-
-    ECC::GenRandom(voucher.m_SharedSecret); // not yet, just a nonce placeholder
-
-    ShieldedTxo::Data::TicketParams tp;
-    tp.Generate(voucher.m_Ticket, viewer, voucher.m_SharedSecret);
-
-    voucher.m_SharedSecret = tp.m_SharedSecret;
-
-    voucher.get_Hash(hv);
-    voucher.m_Signature.Sign(hv, sk);
-
-    return voucher;
-}
-
-void TestDirectAnonimousPayment()
+void TestDirectAnonymousPayment()
 {
     cout << "\nTest direct anonimous payment with lelantus\n";
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
@@ -230,7 +202,7 @@ void TestDirectAnonimousPayment()
     auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
     receiver.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pullTxCreator));
 
-    auto voucher = CreateVoucher(receiver.m_WalletDB, receiver.m_OwnID);
+    auto voucher = lelantus::CreateVoucher(receiver.m_WalletDB, receiver.m_OwnID);
  
     Node node;
     NodeObserver observer([&]()
@@ -980,7 +952,7 @@ int main()
     Rules::get().pForks[2].m_Height = fork2Height;
 
     TestSimpleTx();
-    TestDirectAnonimousPayment();
+    TestDirectAnonymousPayment();
     TestManyTransactons(20, Lelantus::Cfg{2, 5}, Lelantus::Cfg{2, 3});
     TestManyTransactons(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
     TestManyTransactons(100, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });

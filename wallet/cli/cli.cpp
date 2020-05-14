@@ -540,12 +540,22 @@ namespace
         return InitDataBase(vm, false);
     }
 
+    void AddVoucherParameter(const po::variables_map& vm, TxParameters& params, IWalletDB::Ptr db, uint64_t ownID)
+    {
+        if (vm.find(cli::VOUCHER) != vm.end())
+        {
+            // add voucher parameter
+            params.SetParameter(TxParameterID::ShieldedVoucher, lelantus::CreateVoucher(db, ownID));
+            params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+        }
+    }
+
     int GetToken(const po::variables_map& vm)
     {
         TxParameters params;
-        if (vm.find(cli::RECEIVER_ADDR) != vm.end())
+        if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
         {
-            auto receiver = vm[cli::RECEIVER_ADDR].as<string>();
+            auto receiver = it->second.as<string>();
             bool isValid = true;
             WalletID walletID;
             ByteBuffer buffer = from_hex(receiver, &isValid);
@@ -568,6 +578,7 @@ namespace
             }
             params.SetParameter(TxParameterID::PeerID, walletID);
             params.SetParameter(TxParameterID::PeerSecureWalletID, address->m_Identity);
+            AddVoucherParameter(vm, params, walletDB, address->m_OwnID);
         }
         else
         {
@@ -576,9 +587,13 @@ namespace
             
             params.SetParameter(TxParameterID::PeerID, address.m_walletID);
             params.SetParameter(TxParameterID::PeerSecureWalletID, address.m_Identity);
+            AddVoucherParameter(vm, params, walletDB, address.m_OwnID);
         }
 
-        params.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+        if (!params.GetParameter(TxParameterID::TransactionType))
+        {
+            params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+        }
         LOG_INFO() << "token: " << to_string(params);
         return 0;
     }
@@ -2763,9 +2778,10 @@ namespace
 
                 WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
-                auto txParams = lelantus::CreatePushTransactionParameters(senderAddress.m_walletID)
-                    .SetParameter(TxParameterID::Amount, amount)
-                    .SetParameter(TxParameterID::Fee, fee);
+                auto txParams = lelantus::CreatePushTransactionParameters(senderAddress.m_walletID);
+                LoadReceiverParams(vm, txParams);
+                txParams.SetParameter(TxParameterID::Amount, amount)
+                        .SetParameter(TxParameterID::Fee, fee);
 
                 currentTxID = wallet.StartTransaction(txParams);
                 return 0;

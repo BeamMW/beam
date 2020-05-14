@@ -210,6 +210,7 @@ namespace beam
         extern const char* SHIELDED_ID;
         extern const char* WINDOW_BEGIN;
         extern const char* SHIELDED_TX_HISTORY;
+        extern const char* VOUCHER;
 
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;

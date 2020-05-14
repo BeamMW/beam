@@ -467,16 +467,29 @@ namespace beam::wallet
     {
         bool res = false;
         const TxParameters& p = receiverParams;
-        if (auto peerID = p.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); peerID)
+        if (auto peerID = p.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
         {
-            params.SetParameter(beam::wallet::TxParameterID::PeerID, *peerID);
+            params.SetParameter(TxParameterID::PeerID, *peerID);
             res = true;
         }
-        if (auto peerID = p.GetParameter<PeerID>(beam::wallet::TxParameterID::PeerSecureWalletID); peerID)
+        if (auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID); peerID)
         {
-            params.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *peerID);
+            params.SetParameter(TxParameterID::PeerSecureWalletID, *peerID);
+
+            if (auto voucher = p.GetParameter<ShieldedTxo::Voucher>(TxParameterID::ShieldedVoucher); voucher)
+            {
+                ECC::Point::Native pk;
+                peerID->ExportNnz(pk);
+                if (!voucher->IsValid(pk))
+                {
+                    LOG_ERROR() << "Voucher signature verification failed. Unauthorized voucher was provider.";
+                    return false;
+                }
+                params.SetParameter(TxParameterID::ShieldedVoucher, *voucher);
+            }
             res &= true;
         }
+
         return res;
     }
 

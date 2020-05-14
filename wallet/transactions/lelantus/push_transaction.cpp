@@ -27,27 +27,31 @@ namespace beam::wallet::lelantus
             .SetParameter(TxParameterID::MyID, myID);
     }
 
-    //ShieldedTxo::Voucher CreateNewVoucher(IWalletDB::Ptr db, const ECC::Scalar& sk)
-    //{
-    //    ShieldedTxo::Voucher voucher;
-    //    ShieldedTxo::Viewer viewer;
-    //    const Key::Index nIdx = 0;
-    //    viewer.FromOwner(*db->get_OwnerKdf(), nIdx);
-    //
-    //    ECC::GenRandom(voucher.m_SharedSecret); // not yet, just a nonce placeholder
-    //
-    //    ShieldedTxo::Data::TicketParams tp;
-    //    tp.Generate(voucher.m_Ticket, viewer, voucher.m_SharedSecret);
-    //
-    //    voucher.m_SharedSecret = tp.m_SharedSecret;
-    //
-    //    ECC::Hash::Value hv;
-    //    voucher.get_Hash(hv);
-    //
-    //    voucher.m_Signature.Sign(hv, sk);
-    //
-    //    return voucher;
-    //}
+    ShieldedTxo::Voucher CreateVoucher(IWalletDB::Ptr db, uint64_t ownID)
+    {
+        ECC::Hash::Value hv;
+        Key::ID(ownID, Key::Type::WalletID).get_Hash(hv);
+        ECC::Scalar::Native sk;
+        db->get_MasterKdf()->DeriveKey(sk, hv);
+        PeerID pid;
+        pid.FromSk(sk);
+
+        ShieldedTxo::Voucher voucher;
+        ShieldedTxo::Viewer viewer;
+        viewer.FromOwner(*db->get_OwnerKdf(), 0);
+
+        ECC::GenRandom(voucher.m_SharedSecret); // not yet, just a nonce placeholder
+
+        ShieldedTxo::Data::TicketParams tp;
+        tp.Generate(voucher.m_Ticket, viewer, voucher.m_SharedSecret);
+
+        voucher.m_SharedSecret = tp.m_SharedSecret;
+
+        voucher.get_Hash(hv);
+        voucher.m_Signature.Sign(hv, sk);
+
+        return voucher;
+    }
 
     BaseTransaction::Ptr PushTransaction::Creator::Create(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB

@@ -19,7 +19,7 @@
 namespace beam::wallet::lelantus
 {
     TxParameters CreatePushTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId = boost::none);
-    //ShieldedTxo::Voucher CreateNewVoucher(IWalletDB::Ptr db, const ECC::Scalar& sk);
+    ShieldedTxo::Voucher CreateVoucher(IWalletDB::Ptr db, uint64_t ownID);
 
     class PushTxBuilder;
 
