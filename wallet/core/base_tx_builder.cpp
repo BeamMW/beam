@@ -886,6 +886,12 @@ namespace beam::wallet
         m_Tx.SetParameter(TxParameterID::KernelID, m_Kernel->m_Internal.m_ID, m_SubTxID);
     }
 
+    void BaseTxBuilder::ResetKernelID()
+    {
+        m_Tx.SetParameter(TxParameterID::KernelID, Merkle::Hash{}, m_SubTxID);
+        m_KernelID.reset();
+    }
+
     string BaseTxBuilder::GetKernelIDString() const
     {
         Merkle::Hash kernelID;

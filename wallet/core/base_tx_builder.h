@@ -71,6 +71,7 @@ namespace beam::wallet
         const TxKernel& GetKernel() const;
         const Merkle::Hash& GetKernelID() const;
         void StoreKernelID();
+        void ResetKernelID();
         std::string GetKernelIDString() const;
         bool UpdateMaxHeight();
         bool IsAcceptableMaxHeight() const;

@@ -19,6 +19,7 @@
 #include "base58.h"
 #include "utility/string_helpers.h"
 #include "strings_resources.h"
+#include "core/shielded.h"
 
 #include <iomanip>
 #include <boost/algorithm/string.hpp>
@@ -482,16 +483,14 @@ namespace beam::wallet
         {
             params.SetParameter(TxParameterID::PeerSecureWalletID, *peerID);
 
-            if (auto voucher = p.GetParameter<ShieldedTxo::Voucher>(TxParameterID::ShieldedVoucher); voucher)
+            if (auto vouchers = p.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
             {
-                ECC::Point::Native pk;
-                peerID->ExportNnz(pk);
-                if (!voucher->IsValid(pk))
+                if (!IsValidVoucherList(*vouchers, *peerID))
                 {
                     LOG_ERROR() << "Voucher signature verification failed. Unauthorized voucher was provider.";
                     return false;
                 }
-                params.SetParameter(TxParameterID::ShieldedVoucher, *voucher);
+                params.SetParameter(TxParameterID::ShieldedVoucherList, *vouchers);
             }
             res &= true;
         }
@@ -800,13 +799,69 @@ namespace beam::wallet
         TxParameters parameters;
         if (amount > 0)
         {
-            parameters.SetParameter(beam::wallet::TxParameterID::Amount, amount);
+            parameters.SetParameter(TxParameterID::Amount, amount);
         }
 
-        parameters.SetParameter(beam::wallet::TxParameterID::PeerID, walletID);
-        parameters.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
-        parameters.SetParameter(beam::wallet::TxParameterID::PeerSecureWalletID, *identity);
+        parameters.SetParameter(TxParameterID::PeerID, walletID);
+        parameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+        parameters.SetParameter(TxParameterID::PeerSecureWalletID, *identity);
 
         return std::to_string(parameters);
+    }
+
+    ShieldedVoucherList GenerateVoucherList(ECC::Key::IKdf::Ptr pKdf, uint64_t ownID, size_t count)
+    {
+        ShieldedVoucherList res;
+        if (!pKdf || count == 0)
+            return res;
+
+        res.reserve(std::min(count, size_t(30)));
+
+        ECC::Scalar::Native sk;
+        pKdf->DeriveKey(sk, Key::ID(ownID, Key::Type::WalletID));
+        PeerID pid;
+        pid.FromSk(sk);
+
+        ECC::Hash::Value hv;
+        ShieldedTxo::Viewer viewer;
+        viewer.FromOwner(*pKdf, 0);
+        for (size_t i = 0; i < res.capacity(); ++i)
+        {
+            if (res.empty())
+                ECC::GenRandom(hv);
+            else
+                ECC::Hash::Processor() << hv >> hv;
+
+            ShieldedTxo::Voucher& voucher = res.emplace_back();
+
+            ShieldedTxo::Data::TicketParams tp;
+            tp.Generate(voucher.m_Ticket, viewer, hv);
+
+            voucher.m_SharedSecret = tp.m_SharedSecret;
+
+            ECC::Hash::Value hvMsg;
+            voucher.get_Hash(hvMsg);
+            voucher.m_Signature.Sign(hvMsg, sk);
+        }
+        return res;
+    }
+
+    bool IsValidVoucherList(const ShieldedVoucherList& vouchers, const PeerID& identity)
+    {
+        if (vouchers.empty())
+            return false;
+
+        ECC::Point::Native pk;
+        if (!identity.ExportNnz(pk))
+            return false;
+
+        for (const auto& voucher : vouchers)
+        {
+            if (!voucher.IsValid(pk))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 }  // namespace beam::wallet

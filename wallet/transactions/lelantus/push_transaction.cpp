@@ -27,32 +27,6 @@ namespace beam::wallet::lelantus
             .SetParameter(TxParameterID::MyID, myID);
     }
 
-    ShieldedTxo::Voucher CreateVoucher(IWalletDB::Ptr db, uint64_t ownID)
-    {
-        ECC::Hash::Value hv;
-        Key::ID(ownID, Key::Type::WalletID).get_Hash(hv);
-        ECC::Scalar::Native sk;
-        db->get_MasterKdf()->DeriveKey(sk, hv);
-        PeerID pid;
-        pid.FromSk(sk);
-
-        ShieldedTxo::Voucher voucher;
-        ShieldedTxo::Viewer viewer;
-        viewer.FromOwner(*db->get_OwnerKdf(), 0);
-
-        ECC::GenRandom(voucher.m_SharedSecret); // not yet, just a nonce placeholder
-
-        ShieldedTxo::Data::TicketParams tp;
-        tp.Generate(voucher.m_Ticket, viewer, voucher.m_SharedSecret);
-
-        voucher.m_SharedSecret = tp.m_SharedSecret;
-
-        voucher.get_Hash(hv);
-        voucher.m_Signature.Sign(hv, sk);
-
-        return voucher;
-    }
-
     BaseTransaction::Ptr PushTransaction::Creator::Create(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
         , const TxID& txID)
@@ -120,7 +94,8 @@ namespace beam::wallet::lelantus
         }
 
         uint8_t nRegistered = proto::TxStatus::Unspecified;
-        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
+        if (!GetParameter(TxParameterID::TransactionRegisteredInternal, nRegistered)
+            || nRegistered == proto::TxStatus::Unspecified)
         {
             if (CheckExpired())
             {
@@ -129,6 +104,11 @@ namespace beam::wallet::lelantus
 
             // Construct transaction
             auto transaction = m_TxBuilder->CreateTransaction();
+            if (!transaction)
+            {
+                OnFailed(TxFailureReason::NoVouchers);
+                return;
+            }
 
             // Verify final transaction
             TxBase::Context::Params pars;
@@ -150,6 +130,27 @@ namespace beam::wallet::lelantus
             Height lastUnconfirmedHeight = 0;
             if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
             {
+                ShieldedVoucherList vouchers;
+                if (proto::TxStatus::InvalidContext == nRegistered
+                    && GetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers))
+                {
+                    if (!vouchers.empty())
+                    {
+                        // reset transaction state and try another vouchers left
+                        SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0));
+                        SetParameter(TxParameterID::Kernel, TxKernelShieldedOutput::Ptr());
+                        m_TxBuilder->ResetKernelID();
+                        SetParameter(TxParameterID::TransactionRegisteredInternal, proto::TxStatus::Unspecified);
+
+                        UpdateAsync();
+                    }
+                    else
+                    {
+                        OnFailed(TxFailureReason::NoVouchers);
+                    }
+                    return;
+                }
+
                 OnFailed(TxFailureReason::FailedToRegister, true);
                 return;
             }

@@ -180,7 +180,7 @@ void TestDirectAnonymousPayment()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    int completedCount = 2;
+    int completedCount = 5;
     auto completeAction = [&mainReactor, &completedCount](auto)
     {
         --completedCount;
@@ -202,8 +202,10 @@ void TestDirectAnonymousPayment()
     auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
     receiver.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pullTxCreator));
 
-    auto voucher = lelantus::CreateVoucher(receiver.m_WalletDB, receiver.m_OwnID);
- 
+    auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_MasterKdf(), receiver.m_OwnID, 2);
+    WALLET_CHECK(IsValidVoucherList(vouchers, receiver.m_SecureWalletID));
+    WALLET_CHECK(!IsValidVoucherList(vouchers, sender.m_SecureWalletID));
+
     Node node;
     NodeObserver observer([&]()
         {
@@ -211,21 +213,49 @@ void TestDirectAnonymousPayment()
             if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
-                    .SetParameter(TxParameterID::Amount, 3800)
+                    .SetParameter(TxParameterID::Amount, 1800)
                     .SetParameter(TxParameterID::Fee, 1200)
-                    .SetParameter(TxParameterID::ShieldedVoucher, voucher);
+                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
 
+                sender.m_Wallet.StartTransaction(parameters);
+            }
+            else if (cursor.m_Sid.m_Height == 20)
+            {
+                // second attempt
+                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                    .SetParameter(TxParameterID::Amount, 1800)
+                    .SetParameter(TxParameterID::Fee, 1200)
+                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+            
+                sender.m_Wallet.StartTransaction(parameters);
+            }
+            else if (cursor.m_Sid.m_Height == 26)
+            {
+                // third attempt should fail - all vouchers have been used
+                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                    .SetParameter(TxParameterID::Amount, 1800)
+                    .SetParameter(TxParameterID::Fee, 1200)
+                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+            
                 sender.m_Wallet.StartTransaction(parameters);
             }
             else if (cursor.m_Sid.m_Height == 40)
             {
                 auto parameters = lelantus::CreatePullTransactionParameters(receiver.m_WalletID)
-                    .SetParameter(TxParameterID::Amount, 2600)
+                    .SetParameter(TxParameterID::Amount, 600)
                     .SetParameter(TxParameterID::Fee, 1200)
                     .SetParameter(TxParameterID::ShieldedOutputId, 0U);
 
                 receiver.m_Wallet.StartTransaction(parameters);
+
+                parameters = lelantus::CreatePullTransactionParameters(receiver.m_WalletID)
+                    .SetParameter(TxParameterID::Amount, 600)
+                    .SetParameter(TxParameterID::Fee, 1200)
+                    .SetParameter(TxParameterID::ShieldedOutputId, 1U);
+                
+                receiver.m_Wallet.StartTransaction(parameters);
             }
+
             else if (cursor.m_Sid.m_Height == 50)
             {
                 mainReactor->stop();
@@ -239,10 +269,10 @@ void TestDirectAnonymousPayment()
     WALLET_CHECK(completedCount == 0);
     {
         auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
-        WALLET_CHECK(std::all_of(txHistory.begin(), txHistory.end(), [](const auto& tx)
-            {
-                return (tx.m_txType == TxType::PushTransaction) && tx.m_status == TxStatus::Completed;
-            }));
+        std::sort(txHistory.begin(), txHistory.end(), [](const auto& left, const auto& right) {return left.m_status < right.m_status; });
+        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
+        WALLET_CHECK(txHistory[1].m_txType == TxType::PushTransaction && txHistory[1].m_status == TxStatus::Completed);
+        WALLET_CHECK(txHistory[2].m_txType == TxType::PushTransaction && txHistory[2].m_status == TxStatus::Failed);
     }
     
     {
@@ -257,7 +287,7 @@ void TestDirectAnonymousPayment()
             {
                 auto coins = receiver.m_WalletDB->getCoinsCreatedByTx(tx.m_txId);
                 WALLET_CHECK(coins.size() == 1);
-                WALLET_CHECK(coins[0].getAmount() == 2600);
+                WALLET_CHECK(coins[0].getAmount() == 600);
             }
         }
     }

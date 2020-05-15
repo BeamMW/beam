@@ -164,7 +164,8 @@ namespace beam::wallet
     MACRO(AssetExists,                   41, "Asset has been already registered") \
     MACRO(InvalidAssetOwnerId,           42, "Invalid asset owner id") \
     MACRO(AssetsDisabled,                43, "Asset transactions are disabled in the wallet") \
-    MACRO(Count,                         44, "PLEASE KEEP THIS ALWAYS LAST")
+    MACRO(NoVouchers,                    44, "You have no vouchers to insert coins to lelentus") \
+    MACRO(Count,                         45, "PLEASE KEEP THIS ALWAYS LAST")
 
     enum TxFailureReason : int32_t
     {
@@ -322,7 +323,7 @@ namespace beam::wallet
         // Lelantus
         ShieldedOutputId = 122,
         WindowBegin = 123,
-        ShieldedVoucher = 124,
+        ShieldedVoucherList = 124,
 
         // private parameters
         PrivateFirstParam = 128,
@@ -376,6 +377,8 @@ namespace beam::wallet
         InternalFailureReason = 210,
     
         ShieldedSerialPub = 220,
+        UnusedShieldedVoucherList = 221,
+        TransactionRegisteredInternal = 222, // used to overwrite previouse result
 
         State = 255
 
@@ -732,6 +735,11 @@ namespace beam::wallet
     bool IsValidTimeStamp(Timestamp currentBlockTime_s, Timestamp tolerance_s = 60 * 10); // 10 minutes tolerance.
 
     std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, Amount amount);
+
+    using ShieldedVoucherList = std::vector<ShieldedTxo::Voucher>;
+    ShieldedVoucherList GenerateVoucherList(ECC::Key::IKdf::Ptr pKdf, uint64_t ownID, size_t count);
+    bool IsValidVoucherList(const ShieldedVoucherList& vouchers, const PeerID& identity);
+
 }    // beam::wallet
 
 namespace beam

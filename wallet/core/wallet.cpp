@@ -521,45 +521,17 @@ namespace beam::wallet
 
                 if (!nCount)
                     return; //?!
-                std::setmin(nCount, 30U);
 
                 auto address = m_WalletDB->getAddress(myID);
                 if (!address.is_initialized() || !address->m_OwnID)
                     return;
 
-                ECC::Scalar::Native sk;
-                pKdf->DeriveKey(sk, Key::ID(address->m_OwnID, Key::Type::WalletID));
-                PeerID wid;
-                wid.FromSk(sk);
-
-                ShieldedTxo::Viewer v;
-                v.FromOwner(*pKdf, 0);
-
-                ECC::Hash::Value hv;
-                std::vector<ShieldedTxo::Voucher> res;
-
-                for (res.reserve(nCount); res.size() < nCount; )
-                {
-                    if (res.empty())
-                        ECC::GenRandom(hv);
-                    else
-                        ECC::Hash::Processor() << hv >> hv;
-
-                    ShieldedTxo::Voucher& voucher = res.emplace_back();
-
-                    ShieldedTxo::Data::TicketParams tp;
-                    tp.Generate(voucher.m_Ticket, v, hv);
-                    voucher.m_SharedSecret = tp.m_SharedSecret;
-
-                    ECC::Hash::Value hvMsg;
-                    voucher.get_Hash(hvMsg);
-                    voucher.m_Signature.Sign(hvMsg, sk);
-                }
+                auto res = GenerateVoucherList(pKdf, address->m_OwnID, nCount);
 
                 SetTxParameter msgOut;
                 msgOut.m_Type = TxType::VoucherResponse;
                 msgOut.m_From = myID;
-                msgOut.AddParameter((TxParameterID) 0, std::move(res));
+                msgOut.AddParameter(TxParameterID::ShieldedVoucherList, std::move(res));
 
                 SendSpecialMsg(msg.m_From, msgOut);
 
@@ -569,7 +541,7 @@ namespace beam::wallet
         case TxType::VoucherResponse:
             {
                 std::vector<ShieldedTxo::Voucher> res;
-                msg.GetParameter((TxParameterID) 0, res);
+                msg.GetParameter(TxParameterID::ShieldedVoucherList, res);
                 if (res.empty())
                     return;
 
@@ -577,16 +549,8 @@ namespace beam::wallet
                 if (!address.is_initialized())
                     return;
 
-                ECC::Point::Native pk;
-                if (!address->m_Identity.ExportNnz(pk))
+                if (!IsValidVoucherList(res, address->m_Identity))
                     return;
-
-                for (size_t i = 0; i < res.size(); i++)
-                {
-                    const ShieldedTxo::Voucher& voucher = res[i];
-                    if (!voucher.IsValid(pk))
-                        return;
-                }
 
                 OnVouchersFrom(*address, std::move(res));
 
@@ -639,6 +603,7 @@ namespace beam::wallet
         if (it != m_ActiveTransactions.end())
         {
             it->second->SetParameter(TxParameterID::TransactionRegistered, r.m_Res.m_Value, r.m_SubTxID);
+            it->second->SetParameter(TxParameterID::TransactionRegisteredInternal, r.m_Res.m_Value, r.m_SubTxID);
             UpdateTransaction(r.m_TxID);
         }
     }

@@ -64,43 +64,53 @@ namespace beam::wallet::lelantus
         // TODO: add ShieldedMessage if needed
         // op.m_User.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
 
-        ShieldedTxo::Voucher voucher;
-        if (!m_Tx.GetParameter(TxParameterID::ShieldedVoucher, voucher))
+        ShieldedVoucherList vouchers;
+        if (!m_Tx.GetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers))
         {
-            // no voucher - means we're sending to ourselves. Create our voucher
-            ShieldedTxo::Viewer viewer;
-            const Key::Index nIdx = 0;
-            viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf(), nIdx);
+            if (!m_Tx.GetParameter(TxParameterID::ShieldedVoucherList, vouchers))
+            {
+                // no voucher - means we're sending to ourselves. Create our voucher
+                ShieldedTxo::Voucher& voucher = vouchers.emplace_back();
+                ShieldedTxo::Viewer viewer;
+                const Key::Index nIdx = 0;
+                viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf(), nIdx);
 
-            ECC::GenRandom(voucher.m_SharedSecret); // not yet, just a nonce placeholder
+                ECC::GenRandom(voucher.m_SharedSecret); // not yet, just a nonce placeholder
 
-            ShieldedTxo::Data::TicketParams tp;
-            tp.Generate(voucher.m_Ticket, viewer, voucher.m_SharedSecret);
+                ShieldedTxo::Data::TicketParams tp;
+                tp.Generate(voucher.m_Ticket, viewer, voucher.m_SharedSecret);
 
-            voucher.m_SharedSecret = tp.m_SharedSecret;
-            ZeroObject(voucher.m_Signature);
+                voucher.m_SharedSecret = tp.m_SharedSecret;
+                ZeroObject(voucher.m_Signature);
 
-            m_Tx.SetParameter(TxParameterID::ShieldedVoucher, voucher);
+                // save shielded Coin
+                ShieldedCoin shieldedCoin;
+                shieldedCoin.m_value = op.m_Value;
+                shieldedCoin.m_assetID = op.m_AssetID;
+                shieldedCoin.m_createTxId = m_Tx.GetTxID();
+                shieldedCoin.m_Key.m_kSerG = tp.m_pK[0];
+                shieldedCoin.m_Key.m_IsCreatedByViewer = tp.m_IsCreatedByViewer;
+                shieldedCoin.m_Key.m_nIdx = nIdx;
+                shieldedCoin.m_User = op.m_User;
 
-            // save shielded Coin
-            ShieldedCoin shieldedCoin;
-            shieldedCoin.m_value = op.m_Value;
-            shieldedCoin.m_assetID = op.m_AssetID;
-            shieldedCoin.m_createTxId = m_Tx.GetTxID();
-            shieldedCoin.m_Key.m_kSerG = tp.m_pK[0];
-            shieldedCoin.m_Key.m_IsCreatedByViewer = tp.m_IsCreatedByViewer;
-            shieldedCoin.m_Key.m_nIdx = nIdx;
-            shieldedCoin.m_User = op.m_User;
-
-            m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);
+                m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);
+            }
+            m_Tx.SetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers);
         }
 
+        if (vouchers.empty())
+        {
+            LOG_ERROR() << "There are no vouchers to complete this transaction.";
+            return {};
+        }
+
+        const ShieldedTxo::Voucher& voucher = vouchers.back();
         op.Restore_kG(voucher.m_SharedSecret);
 
-        TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
-
-        if (!m_Tx.GetParameter(TxParameterID::Kernel, pKrn))
+        TxKernelShieldedOutput::Ptr pKrn;
+        if (!m_Tx.GetParameter(TxParameterID::Kernel, pKrn) || !pKrn)
         {
+            pKrn = std::make_unique<TxKernelShieldedOutput>();
             pKrn->m_Height.m_Min = GetMinHeight();
             pKrn->m_Height.m_Max = GetMaxHeight();
             pKrn->m_Fee = GetFee();
@@ -119,6 +129,9 @@ namespace beam::wallet::lelantus
             pKrn->MsgToID();
             m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
             m_Tx.SetParameter(TxParameterID::Kernel, pKrn);
+
+            vouchers.pop_back();
+            m_Tx.SetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers);
         }
 
         LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"

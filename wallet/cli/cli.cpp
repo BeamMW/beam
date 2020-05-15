@@ -542,11 +542,16 @@ namespace
 
     void AddVoucherParameter(const po::variables_map& vm, TxParameters& params, IWalletDB::Ptr db, uint64_t ownID)
     {
-        if (vm.find(cli::VOUCHER) != vm.end())
+        if (auto it = vm.find(cli::VOUCHER_COUNT); it != vm.end())
         {
-            // add voucher parameter
-            params.SetParameter(TxParameterID::ShieldedVoucher, lelantus::CreateVoucher(db, ownID));
-            params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+            auto kdf = db->get_MasterKdf();
+            auto vouchers = GenerateVoucherList(kdf, ownID, it->second.as<Positive<uint32_t>>().value);
+            if (!vouchers.empty())
+            {
+                // add voucher parameter
+                params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+                params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+            }
         }
     }
 
