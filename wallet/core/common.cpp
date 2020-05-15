@@ -25,14 +25,16 @@
 
 #include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
+
+#ifndef EMSCRIPTEN
 #include <boost/multiprecision/cpp_int.hpp>
+using boost::multiprecision::cpp_int;
+#endif
 
 using namespace std;
 using namespace ECC;
 using namespace beam;
 using boost::multiprecision::cpp_dec_float_50;
-using boost::multiprecision::cpp_int;
-
 namespace
 {
     // skips leading zeroes
@@ -68,6 +70,7 @@ namespace std
         return string(sz);
     }
 
+#ifndef EMSCRIPTEN
     string to_string(const beam::wallet::PrintableAmount& amount)
     {
         cpp_int intval;
@@ -108,6 +111,7 @@ namespace std
             return ss.str();
         }
     }
+#endif
 
     string to_string(const beam::wallet::TxParameters& value)
     {
@@ -134,6 +138,7 @@ namespace std
         return EncodeToHex(id);
     }
 
+#ifndef EMSCRIPTEN
     string to_string(const beam::AmountBig::Type& amount)
     {
         cpp_int intval;
@@ -144,6 +149,7 @@ namespace std
 
         return ss.str();
     }
+#endif
 }  // namespace std
 
 namespace beam

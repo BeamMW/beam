@@ -18,9 +18,9 @@
                 console.log('owner key is: ' + keykeeper.getOwnerKey("123"));
                 console.log('wallet ID is: ' + keykeeper.getWalletID());
                 
-                console.log('identity #0 is: ' + keykeeper.getIdentity("gA=="));
+                console.log('identity #0 is: ' + keykeeper.getIdentity("0"));
 
-                var id42 = "qg==";
+                var id42 = "42";
 
                 var identity = keykeeper.getIdentity(id42);
                 console.log('identity #42 is: ' + keykeeper.getIdentity(id42));
@@ -30,9 +30,10 @@
                 console.log('sbbs address private #42 is: ' + keykeeper.getSbbsAddressPrivate(id42));
 
                //console.log('token #42 (no amount) is: ' + keykeeper.getSendToken(address, identity));
-                console.log('token #42 (amount 0) is: ' + keykeeper.getSendToken(address, identity, 0));
-                console.log('token #42 (amount 42) is: ' + keykeeper.getSendToken(address, identity, 42));
-                console.log('token #42 (amount 42) is: ' + keykeeper.getSendToken(address, identity, -42));
+                console.log('token #42 (amount is empty) is: ' + keykeeper.getSendToken(address, identity, ""));
+                console.log('token #42 (amount 0) is: ' + keykeeper.getSendToken(address, identity, "0"));
+                console.log('token #42 (amount 42) is: ' + keykeeper.getSendToken(address, identity, "42"));
+                console.log('token #42 (amount -42) is: ' + keykeeper.getSendToken(address, identity, "-42"));
             }
         })
     </script>
