@@ -226,6 +226,16 @@ private:
                     m_Empty = false;
                 }
             }
+
+            void OnAsset(const Asset::Proof* pProof)
+            {
+                if (pProof)
+                {
+                    Next();
+                    auto t0 = pProof->m_Begin;
+                    m_os << "Asset [" << t0 << "-" << t0 + Rules::get().CA.m_ProofCfg.get_N() - 1 << "]";
+                }
+            }
         };
 
         static std::string get(const Output& outp)
@@ -250,14 +260,113 @@ private:
                 w.m_os << "Incubation +" << outp.m_Incubation;
             }
 
-            if (outp.m_pAsset)
+            w.OnAsset(outp.m_pAsset.get());
+
+            return w.m_os.str();
+        }
+
+        static std::string get(const Input& inp)
+        {
+            Writer w;
+
+            if (inp.m_Internal.m_Maturity != inp.m_Internal.m_CreateHeight)
             {
                 w.Next();
-                auto t0 = outp.m_pAsset->m_Begin;
-                w.m_os << "Asset [" << t0 << "-" << t0 + Rules::get().CA.m_ProofCfg.get_N() - 1 << "]";
+                w.m_os << "Maturity +" << (inp.m_Internal.m_Maturity - inp.m_Internal.m_CreateHeight);
             }
 
             return w.m_os.str();
+        }
+
+        static std::string get(const TxKernel& krn, Amount& fee)
+        {
+            struct MyWalker
+                :public TxKernel::IWalker
+            {
+                Writer m_Wr;
+                Amount m_Fee = 0;
+
+                virtual bool OnKrn(const TxKernel& krn) override
+                {
+                    m_Fee += krn.m_Fee;
+
+                    switch (krn.get_Subtype())
+                    {
+#define THE_MACRO(id, name) case id: OnKrnEx(Cast::Up<TxKernel##name>(krn)); break;
+                        BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+                    }
+
+                    return true;
+                }
+
+                void OnKrnEx(const TxKernelStd& krn)
+                {
+                    if (krn.m_pRelativeLock)
+                    {
+                        m_Wr.Next();
+                        m_Wr.m_os << "Rel.Lock ID=" << krn.m_pRelativeLock->m_ID << " H=" << krn.m_pRelativeLock->m_LockHeight;
+                    }
+
+                    if (krn.m_pHashLock)
+                    {
+                        m_Wr.Next();
+                        m_Wr.m_os << "Hash.Lock Preimage=" << krn.m_pHashLock->m_Value;
+                    }
+                }
+
+                void OnKrnEx(const TxKernelAssetCreate& krn)
+                {
+                    m_Wr.Next();
+                    m_Wr.m_os << "Asset.Create MD.Hash=" << krn.m_MetaData.m_Hash;
+                }
+
+                void OnKrnEx(const TxKernelAssetDestroy& krn)
+                {
+                    m_Wr.Next();
+                    m_Wr.m_os << "Asset.Destroy ID=" << krn.m_AssetID;
+                }
+
+                void OnKrnEx(const TxKernelAssetEmit& krn)
+                {
+                    m_Wr.Next();
+                    m_Wr.m_os << "Asset.Emit ID=" << krn.m_AssetID << " Value=" << krn.m_Value;
+                }
+
+                void OnKrnEx(const TxKernelShieldedOutput& krn)
+                {
+                    m_Wr.Next();
+                    m_Wr.m_os << "Shielded.Out";
+                    m_Wr.OnAsset(krn.m_Txo.m_pAsset.get());
+                }
+
+                void OnKrnEx(const TxKernelShieldedInput& krn)
+                {
+                    uint32_t n = krn.m_SpendProof.m_Cfg.get_N();
+
+                    TxoID id0 = krn.m_WindowEnd;
+                    if (id0 > n)
+                        id0 -= n;
+                    else
+                        id0 = 0;
+
+                    m_Wr.Next();
+                    m_Wr.m_os << "Shielded.In Set=[" << id0 << "-" << krn.m_WindowEnd - 1 << "]";
+                    m_Wr.OnAsset(krn.m_pAsset.get());
+                }
+
+            } wlk;
+
+            if (!krn.m_vNested.empty())
+            {
+                wlk.m_Wr.Next();
+                wlk.m_Wr.m_os << "Composite";
+            }
+
+            wlk.Process(krn);
+            fee = wlk.m_Fee;
+
+            return wlk.m_Wr.m_os.str();
         }
     };
 
@@ -292,7 +401,8 @@ private:
                 inputs.push_back(
                 json{
                     {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
-                    {"height",   v->m_Internal.m_CreateHeight}
+                    {"height",   v->m_Internal.m_CreateHeight},
+                    {"extra",  ExtraInfo::get(*v)}
                 }
                 );
             }
@@ -311,21 +421,16 @@ private:
             json kernels = json::array();
             for (const auto &v : block.m_vKernels) {
 
-				TxStats s;
-				v->AddStats(s);
-
-				ECC::Point::Native exc;
-				v->IsValid(height, exc);
-
-				ECC::Point comm(exc);
+                Amount fee = 0;
+                std::string sExtra = ExtraInfo::get(*v, fee);
 
                 kernels.push_back(
                     json{
                         {"id", hash_to_hex(buf, v->m_Internal.m_ID)},
-                        {"excess", uint256_to_hex(buf, comm.m_X)},
                         {"minHeight", v->m_Height.m_Min},
                         {"maxHeight", v->m_Height.m_Max},
-                        {"fee", AmountBig::get_Lo(s.m_Fee)}
+                        {"fee", fee},
+                        {"extra",  sExtra}
                     }
                 );
             }
