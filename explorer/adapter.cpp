@@ -211,6 +211,57 @@ private:
         return true;
     }
 
+    struct ExtraInfo
+    {
+        struct Writer
+        {
+            std::ostringstream m_os;
+            bool m_Empty = true;
+
+            void Next()
+            {
+                if (m_Empty)
+                {
+                    m_os << ", ";
+                    m_Empty = false;
+                }
+            }
+        };
+
+        static std::string get(const Output& outp)
+        {
+            Writer w;
+
+            if (outp.m_Coinbase)
+            {
+                w.Next();
+                w.m_os << "Coinbase";
+            }
+
+            if (outp.m_pPublic)
+            {
+                w.Next();
+                w.m_os << "Value=" << outp.m_pPublic->m_Value;
+            }
+
+            if (outp.m_Incubation)
+            {
+                w.Next();
+                w.m_os << "Incubation +" << outp.m_Incubation;
+            }
+
+            if (outp.m_pAsset)
+            {
+                w.Next();
+                auto t0 = outp.m_pAsset->m_Begin;
+                w.m_os << "Asset [" << t0 << "-" << t0 + Rules::get().CA.m_ProofCfg.get_N() - 1 << "]";
+            }
+
+            return w.m_os.str();
+        }
+    };
+
+
     bool extract_block_from_row(json& out, uint64_t row, Height height) {
         NodeDB& db = _nodeBackend.get_DB();
 
@@ -252,8 +303,7 @@ private:
                 json{
                     {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
                     {"maturity",   v->get_MinMaturity(height)},
-                    {"coinbase",   v->m_Coinbase},
-                    {"incubation", v->m_Incubation}
+                    {"extra",  ExtraInfo::get(*v)}
                 }
                 );
             }
