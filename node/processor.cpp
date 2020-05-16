@@ -3549,14 +3549,14 @@ bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
 	return true;
 }
 
-void NodeProcessor::ToInputWithMaturity(Input& inp, TxoID id)
+void NodeProcessor::ToInputWithMaturity(Input& inp)
 {
 	// awkward and relatively used, but this is not used frequently.
 	// NodeDB::StateInput doesn't contain the maturity of the spent UTXO. Hence we reconstruct it
 	// We find the original UTXO height, and then decode the UTXO body, and check its additional maturity factors (coinbase, incubation)
 
 	NodeDB::WalkerTxo wlk;
-	m_DB.TxoGetValue(wlk, id);
+	m_DB.TxoGetValue(wlk, inp.m_Internal.m_ID);
 
 	uint8_t pNaked[s_TxoNakedMax];
 	Blob val = wlk.m_Value;
@@ -3569,12 +3569,10 @@ void NodeProcessor::ToInputWithMaturity(Input& inp, TxoID id)
 	der & outp;
 
 	inp.m_Commitment = outp.m_Commitment;
-	inp.m_Internal.m_ID = id;
 
-	Height hCreate;
-	FindHeightByTxoID(hCreate, id); // relatively heavy operation: search for the original txo height
+	FindHeightByTxoID(inp.m_Internal.m_CreateHeight, inp.m_Internal.m_ID); // relatively heavy operation: search for the original txo height
 
-	inp.m_Internal.m_Maturity = outp.get_MinMaturity(hCreate);
+	inp.m_Internal.m_Maturity = outp.get_MinMaturity(inp.m_Internal.m_CreateHeight);
 }
 
 void NodeProcessor::RollbackTo(Height h)
@@ -3601,7 +3599,8 @@ void NodeProcessor::RollbackTo(Height h)
 				continue; // created and spent within this range - skip it
 
 			Input inp;
-			ToInputWithMaturity(inp, id);
+			inp.m_Internal.m_ID = id;
+			ToInputWithMaturity(inp);
 
 			if (!HandleBlockElement(inp, bic))
 				OnCorrupted();
@@ -4441,7 +4440,7 @@ bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	for (size_t i = 0; i < block.m_vInputs.size(); i++)
 	{
 		Input& inp = *block.m_vInputs[i];
-		ToInputWithMaturity(inp, inp.m_Internal.m_ID);
+		ToInputWithMaturity(inp);
 	}
 
 	return true;

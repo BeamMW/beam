@@ -98,7 +98,7 @@ class NodeProcessor
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
 	static bool TxoIsNaked(const Blob&);
 
-	void ToInputWithMaturity(Input&, TxoID);
+	void ToInputWithMaturity(Input&);
 
 	TxoID get_TxosBefore(Height);
 	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
