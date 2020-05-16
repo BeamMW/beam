@@ -13,10 +13,7 @@
 // limitations under the License.
 
 #include "push_transaction.h"
-
-#include "core/proto.h"
 #include "core/shielded.h"
-
 #include "push_tx_builder.h"
 
 namespace beam::wallet::lelantus
@@ -140,7 +137,9 @@ namespace beam::wallet::lelantus
                         SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0));
                         SetParameter(TxParameterID::Kernel, TxKernelShieldedOutput::Ptr());
                         m_TxBuilder->ResetKernelID();
-                        SetParameter(TxParameterID::TransactionRegisteredInternal, proto::TxStatus::Unspecified);
+
+                        const auto internalStatus = proto::TxStatus::Unspecified;
+                        SetParameter(TxParameterID::TransactionRegisteredInternal, internalStatus);
 
                         UpdateAsync();
                     }
