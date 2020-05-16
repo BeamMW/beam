@@ -292,7 +292,7 @@ private:
                 inputs.push_back(
                 json{
                     {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
-                    {"maturity",   v->m_Internal.m_Maturity}
+                    {"height",   v->m_Internal.m_CreateHeight}
                 }
                 );
             }
