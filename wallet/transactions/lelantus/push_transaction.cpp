@@ -15,6 +15,7 @@
 #include "push_transaction.h"
 #include "core/shielded.h"
 #include "push_tx_builder.h"
+#include "wallet/core/strings_resources.h"
 
 namespace beam::wallet::lelantus
 {
@@ -28,7 +29,7 @@ namespace beam::wallet::lelantus
         , IWalletDB::Ptr walletDB
         , const TxID& txID)
     {
-        return BaseTransaction::Ptr(new PushTransaction(gateway, walletDB, txID));
+        return BaseTransaction::Ptr(new PushTransaction(gateway, walletDB, txID, m_withAssets));
     }
 
     TxParameters PushTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -39,8 +40,10 @@ namespace beam::wallet::lelantus
 
     PushTransaction::PushTransaction(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
-        , const TxID& txID)
+        , const TxID& txID
+        , bool withAssets)
         : BaseTransaction(gateway, walletDB, txID)
+        , m_withAssets(withAssets)
     {
     }
 
@@ -65,16 +68,18 @@ namespace beam::wallet::lelantus
 
         if (!m_TxBuilder)
         {
-            m_TxBuilder = std::make_shared<PushTxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+            m_TxBuilder = std::make_shared<PushTxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee), m_withAssets);
         }
 
         if (!m_TxBuilder->GetInitialTxParams())
         {
             UpdateTxDescription(TxStatus::InProgress);
 
-            LOG_INFO() << GetTxID() << " Sending to shielded pool "
-                << PrintableAmount(m_TxBuilder->GetAmount())
-                << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
+            const bool isAsset = m_TxBuilder->IsAssetTx();
+            LOG_INFO()
+                 << GetTxID() << " Sending to shielded pool "
+                 << PrintableAmount(m_TxBuilder->GetAmount(), false, isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")
+                 << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
 
             m_TxBuilder->SelectInputs();
             m_TxBuilder->AddChange();

@@ -97,7 +97,6 @@ namespace beam::wallet
     BaseTxBuilder::BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList, Amount fee)
         : m_Tx{ tx }
         , m_SubTxID(subTxID)
-        , m_AssetId(Asset::s_InvalidID)
         , m_AmountList{ amountList }
         , m_Fee{ fee }
         , m_ChangeBeam{0}
@@ -115,7 +114,6 @@ namespace beam::wallet
         {
             m_Tx.GetParameter(TxParameterID::Fee, m_Fee, m_SubTxID);
         }
-        m_Tx.GetParameter(TxParameterID::AssetID, m_AssetId, m_SubTxID);
     }
 
     void BaseTxBuilder::SelectInputs()
@@ -135,7 +133,7 @@ namespace beam::wallet
                     preselAmountBeam += coin.getAmount();
                 else
                 {
-                    if (coin.isAsset(m_AssetId))
+                    if (coin.isAsset(GetAssetId()))
                         preselAmountAsset += coin.getAmount();
                 }
                 coin.m_spentTxId = m_Tx.GetTxID();
@@ -143,7 +141,7 @@ namespace beam::wallet
             m_Tx.GetWalletDB()->saveCoins(coins);
         }
 
-        const bool isBeamTransaction = m_AssetId == 0;
+        const bool isBeamTransaction = !IsAssetTx();
         const Amount amountBeamWithFee = (isBeamTransaction ? GetAmount() : 0) + GetFee();
         if (preselAmountBeam < amountBeamWithFee)
         {
@@ -161,11 +159,11 @@ namespace beam::wallet
         const Amount amountAsset = isBeamTransaction ? 0 : GetAmount();
         if (preselAmountAsset < amountAsset)
         {
-            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountAsset - preselAmountAsset, m_AssetId);
+            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountAsset - preselAmountAsset, GetAssetId());
             if (selectedCoins.empty())
             {
                 storage::Totals allTotals(*m_Tx.GetWalletDB());
-                const auto& totals = allTotals.GetTotals(m_AssetId);
+                const auto& totals = allTotals.GetTotals(GetAssetId());
                 LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail, false, kAmountASSET, kAmountAGROTH);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
@@ -208,7 +206,7 @@ namespace beam::wallet
 
     void BaseTxBuilder::GenerateAssetCoin(Amount amount, bool change)
     {
-        Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount, m_AssetId);
+        Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount, GetAssetId());
         if (change)
         {
             newUtxo.m_ID.m_Type = Key::Type::Change;
@@ -416,7 +414,14 @@ namespace beam::wallet
 
     Asset::ID BaseTxBuilder::GetAssetId() const
     {
-        return m_AssetId;
+        Asset::ID assetId = Asset::s_InvalidID;
+        m_Tx.GetParameter(TxParameterID::AssetID, assetId);
+        return assetId;
+    }
+
+    bool BaseTxBuilder::IsAssetTx() const
+    {
+        return GetAssetId() != Asset::s_InvalidID;
     }
 
     bool BaseTxBuilder::GetPeerPublicExcessAndNonce()
@@ -442,7 +447,6 @@ namespace beam::wallet
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs, m_SubTxID);
         bool hasInputs = m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins, m_SubTxID);
         bool hasOutputs = m_Tx.GetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::AssetID, m_AssetId, m_SubTxID);
 
         if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
         {

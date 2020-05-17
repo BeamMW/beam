@@ -399,7 +399,7 @@ namespace beam::wallet
         virtual void rollbackAssets(Height minHeight) = 0;
 
         // Shielded coins
-        virtual std::vector<ShieldedCoin> getShieldedCoins() const = 0;
+        virtual std::vector<ShieldedCoin> getShieldedCoins(Asset::ID assetId) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const = 0;
@@ -541,7 +541,7 @@ namespace beam::wallet
         void rollbackConfirmedUtxo(Height minHeight) override;
         void rollbackAssets(Height minHeight) override;
 
-        std::vector<ShieldedCoin> getShieldedCoins() const override;
+        std::vector<ShieldedCoin> getShieldedCoins(Asset::ID assetId) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const override;
@@ -772,6 +772,7 @@ namespace beam::wallet
                 AmountBig::Type AvailFee = 0U;
                 AmountBig::Type Fee = 0U;
                 AmountBig::Type Unspent = 0U;
+                AmountBig::Type Shielded = 0U;
                 Height MinCoinHeight = 0;
             };
 

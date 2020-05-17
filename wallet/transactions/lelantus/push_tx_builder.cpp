@@ -18,8 +18,8 @@
 
 namespace beam::wallet::lelantus
 {
-    PushTxBuilder::PushTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee)
-        : BaseLelantusTxBuilder(tx, amount, fee)
+    PushTxBuilder::PushTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets)
+        : BaseLelantusTxBuilder(tx, amount, fee, withAssets)
     {
     }
 
@@ -57,7 +57,7 @@ namespace beam::wallet::lelantus
 
         ShieldedTxo::Data::OutputParams op;
         op.m_Value = GetAmount();
-        op.m_AssetID = 0; // TODO
+        op.m_AssetID = GetAssetId();
         ZeroObject(op.m_User);
 
         op.m_User.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
@@ -120,6 +120,14 @@ namespace beam::wallet::lelantus
             oracle << pKrn->m_Msg;
 
             pKrn->m_Txo.m_Ticket = voucher.m_Ticket;
+
+            if (IsAssetTx())
+            {
+                pKrn->m_Txo.m_pAsset = std::make_unique<Asset::Proof>();
+                //pKrn->m_Txo.m_pAsset->Create()
+			    //m_pAsset->Create(wrk.m_hGen, skSign, cid.m_Value, cid.m_AssetID, wrk.m_hGen, bUseCoinKdf ? nullptr : &hv);
+                //pKrn->m_Txo.m_pAsset =
+            }
 
             op.Generate(pKrn->m_Txo, voucher.m_SharedSecret, oracle);
 

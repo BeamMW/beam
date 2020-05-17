@@ -20,8 +20,8 @@
 
 namespace beam::wallet::lelantus
 {
-    PullTxBuilder::PullTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee)
-        : BaseLelantusTxBuilder(tx, amount, fee)
+    PullTxBuilder::PullTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets)
+        : BaseLelantusTxBuilder(tx, amount, fee, withAssets)
     {
     }
 

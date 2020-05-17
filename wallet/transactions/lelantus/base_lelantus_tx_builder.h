@@ -21,13 +21,13 @@ namespace beam::wallet::lelantus
     class BaseLelantusTxBuilder : public BaseTxBuilder
     {
     public:
-        BaseLelantusTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee);
+        BaseLelantusTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets);
 
         bool GetInitialTxParams() override;
         Height GetMaxHeight() const override;
 
     protected:
-
         static void Restore(ShieldedTxo::DataParams&, const ShieldedCoin&, const ShieldedTxo::Viewer&);
+        bool m_withAssets;
     };
 } // namespace beam::wallet::lelantus

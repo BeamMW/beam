@@ -17,8 +17,9 @@
 
 namespace beam::wallet::lelantus
 {
-    BaseLelantusTxBuilder::BaseLelantusTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee)
+    BaseLelantusTxBuilder::BaseLelantusTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets)
         : BaseTxBuilder(tx, kDefaultSubTxID, amount, fee)
+        , m_withAssets(withAssets)
     {
     }
 
@@ -31,6 +32,12 @@ namespace beam::wallet::lelantus
         {
             maxHeight = GetMinHeight() + GetLifetime();
             m_Tx.SetParameter(TxParameterID::MaxHeight, maxHeight);
+        }
+
+        const bool isAsset = GetAssetId() != Asset::s_InvalidID;
+        if (isAsset == true && m_withAssets == false)
+        {
+            throw TransactionFailedException(true, TxFailureReason::AssetsDisabled);
         }
 
         return result;
@@ -53,5 +60,4 @@ namespace beam::wallet::lelantus
 
         sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
     }
-
 } // namespace beam::wallet::lelantus

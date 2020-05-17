@@ -29,7 +29,7 @@ namespace beam::wallet::lelantus
         , IWalletDB::Ptr walletDB
         , const TxID& txID)
     {
-        return BaseTransaction::Ptr(new PullTransaction(gateway, walletDB, txID));
+        return BaseTransaction::Ptr(new PullTransaction(gateway, walletDB, txID, m_withAssets));
     }
 
     TxParameters PullTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -40,8 +40,10 @@ namespace beam::wallet::lelantus
 
     PullTransaction::PullTransaction(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
-        , const TxID& txID)
+        , const TxID& txID
+        , bool withAssets)
         : BaseTransaction(gateway, walletDB, txID)
+        , m_withAssets(withAssets)
     {
     }
 
@@ -66,7 +68,7 @@ namespace beam::wallet::lelantus
 
         if (!m_TxBuilder)
         {
-            m_TxBuilder = std::make_shared<PullTxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+            m_TxBuilder = std::make_shared<PullTxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee), m_withAssets);
         }
 
         if (!m_TxBuilder->GetInitialTxParams())

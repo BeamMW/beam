@@ -2645,9 +2645,10 @@ namespace beam::wallet
         }
     }
 
-    std::vector<ShieldedCoin> WalletDB::getShieldedCoins() const
+    std::vector<ShieldedCoin> WalletDB::getShieldedCoins(Asset::ID assetId) const
     {
-        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY ID;");
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE assetID=?1 ORDER BY ID;");
+        stm.bind(1, assetId);
         std::vector<ShieldedCoin> coins;
 
         while (stm.step())

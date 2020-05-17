@@ -189,10 +189,11 @@ namespace beam
     extern const char kTxDirectionOut[];
     extern const char kTxDirectionIn[];
     extern const char kTxHistoryEmpty[];
-    extern const char kTxNoCoins[];
     extern const char kTxHistoryUnreliableTxs[];
     extern const char kTxHistoryUnreliableCoins[];
     extern const char kTxToken[];
+    extern const char kNoCoins[];
+    extern const char kNoShieldedCoins[];
     extern const char kSwapTxHistoryEmpty[];
     extern const char kSwapTxHistoryTableHead[];
     extern const char kSwapTxHistoryTableFormat[];
