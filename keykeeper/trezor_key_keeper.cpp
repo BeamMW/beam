@@ -236,7 +236,8 @@ namespace beam::wallet
         pt0 = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1);
         pt1 = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2);
         auto copyableOutput = std::make_shared<Output::Ptr>(std::move(pOutp));
-        m_DeviceManager->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, [this, &m, h, copyableOutput](const Message& msg, std::string session, size_t queue_size)
+        m_DeviceManager->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, nullptr, nullptr, 
+            [this, &m, h, copyableOutput](const Message& msg, std::string session, size_t queue_size)
         {
             bool isSuccessful = child_cast<Message, BeamRangeproofData>(msg).is_successful();
             if (!isSuccessful)
@@ -246,16 +247,24 @@ namespace beam::wallet
                     PushOut(Status::Unspecified, h);
                 });
             }
-            
-            secp256k1_scalar resTauX = ConvertResultTo<secp256k1_scalar>(child_cast<Message, BeamRangeproofData>(msg).data_taux());
-            PushHandlerToCallerThread([this, &m, h, resTauX, copyableOutput]()
+            struct SharedResult
+            {
+                secp256k1_scalar m_TauX;
+                BeamCrypto_CompactPoint m_Pt0;
+                BeamCrypto_CompactPoint m_Pt1;
+            };
+            auto res = std::make_shared<SharedResult>();
+            res->m_TauX = ConvertResultTo<secp256k1_scalar>(child_cast<Message, BeamRangeproofData>(msg).data_taux());
+            TxExport(res->m_Pt0, child_cast<Message, BeamRangeproofData>(msg).pt0());
+            TxExport(res->m_Pt1, child_cast<Message, BeamRangeproofData>(msg).pt1());
+            PushHandlerToCallerThread([this, &m, h, res = std::move(res), copyableOutput]()
             {
                 Output::Ptr output = std::move(*copyableOutput);
-                //Ecc2BC(output->m_pConfidential->m_Part2.m_T1) = rp.m_pT[0];
-                //Ecc2BC(output->m_pConfidential->m_Part2.m_T2) = rp.m_pT[1];
+                Ecc2BC(output->m_pConfidential->m_Part2.m_T1) = res->m_Pt0;
+                Ecc2BC(output->m_pConfidential->m_Part2.m_T2) = res->m_Pt1;
                     
                 ECC::Scalar::Native tauX;
-                tauX.get_Raw() = resTauX;
+                tauX.get_Raw() = res->m_TauX;
                 output->m_pConfidential->m_Part3.m_TauX = tauX;
             
                 ECC::Scalar::Native skDummy;
