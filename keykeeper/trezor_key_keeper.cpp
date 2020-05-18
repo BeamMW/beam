@@ -175,10 +175,9 @@ namespace beam::wallet
         m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
             auto pubKdf = std::make_shared<ECC::HKdfPub>();
+            const ECC::HKdfPub::Packed& packed = ConvertResultTo<ECC::HKdfPub::Packed>(child_cast<Message, hw::trezor::messages::beam::BeamPKdf>(msg).key());
 
-            const ECC::HKdfPub::Packed* packed = reinterpret_cast<const ECC::HKdfPub::Packed*>(child_cast<Message, hw::trezor::messages::beam::BeamPKdf>(msg).key().data());
-
-            pubKdf->Import(*packed);
+            pubKdf->Import(packed);
 
             PushHandlerToCallerThread([this, &m, h, pubKdf]()
             {
