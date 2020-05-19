@@ -76,7 +76,9 @@ namespace beam::wallet
     }
 
     WalletServiceApi::WalletServiceApi(IWalletServiceApiHandler& handler, ACL acl)
-        : WalletApi(handler, acl)
+        : WalletApi(handler,
+                false, // assets are forcibly disabled in wallet service
+                acl)
     {
 #define REG_FUNC(api, name, writeAccess) \
         _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};

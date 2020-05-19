@@ -2346,6 +2346,19 @@ namespace
         return nnet;
     }
 
+    void CheckAssetsAllowed(const po::variables_map& vm)
+    {
+        if (!Rules::get().CA.Enabled)
+        {
+            throw std::runtime_error(kErrorAssetsFork2);
+        }
+
+        if (!vm[cli::WITH_ASSETS].as<bool>())
+        {
+            throw std::runtime_error(kErrorAssetsDisabled);
+        }
+    }
+
     std::string ReadAssetMeta(const po::variables_map& vm)
     {
         if(!vm.count(cli::ASSET_METADATA))
@@ -2398,8 +2411,9 @@ namespace
 
     boost::optional<TxID> IssueConsumeAsset(bool issue, const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
     {
-        std::string meta;
+        CheckAssetsAllowed(vm);
 
+        std::string meta;
         if(vm.count(cli::ASSET_ID))
         {
             meta = AssetID2Meta(vm, walletDB);
@@ -2437,6 +2451,8 @@ namespace
 
     boost::optional<TxID> RegisterAsset(const po::variables_map& vm, Wallet& wallet)
     {
+        CheckAssetsAllowed(vm);
+
         const auto strMeta = ReadAssetMeta(vm);
 
         Amount fee = 0;
@@ -2456,8 +2472,9 @@ namespace
 
     boost::optional<TxID> UnregisterAsset(const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
     {
-        std::string meta;
+        CheckAssetsAllowed(vm);
 
+        std::string meta;
         if(vm.count(cli::ASSET_ID))
         {
             meta = AssetID2Meta(vm, walletDB);
@@ -2488,8 +2505,9 @@ namespace
 
     TxID GetAssetInfo(const po::variables_map& vm, Wallet& wallet)
     {
-        auto params = CreateTransactionParameters(TxType::AssetInfo);
+        CheckAssetsAllowed(vm);
 
+        auto params = CreateTransactionParameters(TxType::AssetInfo);
         if (vm.count(cli::ASSET_ID))
         {
             Asset::ID aid = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
@@ -2576,13 +2594,11 @@ namespace
         };
 
         const auto withAssets = vm[cli::WITH_ASSETS].as<bool>();
-        auto txCompletedAction = isServer
-            ? Wallet::TxCompletedAction()
-            : onTxCompleteAction;
+        auto txCompletedAction = isServer ? Wallet::TxCompletedAction() : onTxCompleteAction;
 
-        Wallet wallet{ walletDB, withAssets,
-                       std::move(txCompletedAction),
-                       Wallet::UpdateCompletedAction() };
+        Wallet wallet{walletDB, withAssets,
+                      std::move(txCompletedAction),
+                      Wallet::UpdateCompletedAction()};
         {
             wallet::AsyncContextHolder holder(wallet);
 
@@ -2632,6 +2648,12 @@ namespace
                 {
                     return -1;
                 }
+
+                if (assetId != Asset::s_InvalidID)
+                {
+                    CheckAssetsAllowed(vm);
+                }
+
                 WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
                 auto params = CreateSimpleTransactionParameters();
                 LoadReceiverParams(vm, params);
@@ -2835,6 +2857,7 @@ namespace
         Asset::ID assetId = Asset::s_InvalidID;
         if(vm.count(cli::ASSET_ID)) // asset id can be zero if beam only
         {
+            CheckAssetsAllowed(vm);
             assetId = vm[cli::ASSET_ID].as<Positive<uint32_t> >().value;
         }
 
@@ -2858,55 +2881,67 @@ namespace
             });
     }
 
+    boost::optional<TxID> ExtractFromShieldedPool(const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
+    {
+        TxoID shieldedId = 0;
+        Amount fee = 0;
+
+        if (!ReadFee(vm, fee, true) || !ReadShieldedId(vm, shieldedId))
+        {
+            return boost::none;
+        }
+
+        if (fee < kShieldedTxMinFeeInGroth)
+        {
+            LOG_ERROR () << "Fee is too small. Minimal fee is " << PrintableAmount(kShieldedTxMinFeeInGroth);
+            return boost::none;
+        }
+
+        auto shieldedCoin = walletDB->getShieldedCoin(shieldedId);
+        if (!shieldedCoin)
+        {
+            LOG_ERROR () << "Is not shielded UTXO id: " << shieldedId;
+            return boost::none;
+        }
+
+        const bool isAsset = shieldedCoin->m_assetID != Asset::s_InvalidID;
+        if (isAsset)
+        {
+            CheckAssetsAllowed(vm);
+        }
+        else
+        {
+            // BEAM
+            if (shieldedCoin->m_value <= fee)
+            {
+                LOG_ERROR() << "Shielded UTXO amount less or equal fee.";
+                return boost::none;
+            }
+        }
+
+        WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+
+        auto txParams = lelantus::CreatePullTransactionParameters(senderAddress.m_walletID)
+            // TODO check this param
+            .SetParameter(TxParameterID::Amount, isAsset ? shieldedCoin->m_value : shieldedCoin->m_value - fee)
+            .SetParameter(TxParameterID::Fee, fee)
+            .SetParameter(TxParameterID::AssetID, shieldedCoin->m_assetID)
+            .SetParameter(TxParameterID::ShieldedOutputId, shieldedId);
+
+        if (TxoID windowBegin = 0; ReadWindowBegin(vm, windowBegin))
+        {
+            txParams.SetParameter(TxParameterID::WindowBegin, windowBegin);
+        }
+
+        return wallet.StartTransaction(txParams);
+    }
+
     int ExtractFromShieldedPool(const po::variables_map& vm)
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                TxoID shieldedId = 0;
-                Amount fee = 0;
-
-                if (!ReadFee(vm, fee, true) || !ReadShieldedId(vm, shieldedId))
-                {
-                    return -1;
-                }
-
-                if (fee < kShieldedTxMinFeeInGroth)
-                {
-                    std::stringstream ss;
-                    ss << "Fee is too small. Minimal fee is " << PrintableAmount(kShieldedTxMinFeeInGroth);
-                    throw std::runtime_error(ss.str());
-                }
-
-                auto shieldedCoin = walletDB->getShieldedCoin(shieldedId);
-                if (!shieldedCoin)
-                {
-                    std::stringstream ss;
-                    ss << "Is not shielded UTXO id: " << shieldedId;
-                    // ss << "Fee is too small. Minimal fee is " << PrintableAmount(kShieldedTxMinFeeInGroth);
-                    throw std::runtime_error(ss.str());
-                }
-                if (shieldedCoin->m_value <= fee)
-                {
-                    std::stringstream ss;
-                    ss << "Shielded UTXO amount less or equal fee.";
-                    throw std::runtime_error(ss.str());
-                }
-
-                WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-
-                auto txParams = lelantus::CreatePullTransactionParameters(senderAddress.m_walletID)
-                    // TODO check this param
-                    .SetParameter(TxParameterID::Amount, shieldedCoin->m_value - fee)
-                    .SetParameter(TxParameterID::Fee, fee)
-                    .SetParameter(TxParameterID::ShieldedOutputId, shieldedId);
-
-                if (TxoID windowBegin = 0; ReadWindowBegin(vm, windowBegin))
-                {
-                    txParams.SetParameter(TxParameterID::WindowBegin, windowBegin);
-                }
-
-                currentTxID = wallet.StartTransaction(txParams);
-                return 0;
+                currentTxID = ExtractFromShieldedPool(vm, wallet, walletDB);
+                return currentTxID ? 0: -1;
             });
     }
 
@@ -2985,17 +3020,13 @@ int main_impl(int argc, char* argv[])
             po::notify(vm);
 
             unsigned logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
-
             clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
-
             Rules::get().UpdateChecksum();
 
             {
                 reactor = io::Reactor::create();
                 io::Reactor::Scope scope(*reactor);
-
                 io::Reactor::GracefulIntHandler gih(*reactor);
-
                 LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, logCleanupPeriod);
 
                 if (vm.count(cli::COMMAND) == 0)

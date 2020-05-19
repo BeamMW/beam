@@ -87,6 +87,7 @@ namespace beam::wallet
         , m_UpdateCompleted{ move(updateCompleted) }
         , m_LastSyncTotal(0)
         , m_OwnedNodesOnline(0)
+        , m_withAssets(withAssets)
     {
         assert(walletDB);
         // the only default type of transaction
@@ -232,6 +233,11 @@ namespace beam::wallet
         get_tip(state);
 
         return IsValidTimeStamp(state.m_TimeStamp);
+    }
+
+    bool Wallet::IsWithAssets() const
+    {
+        return m_withAssets;
     }
 
     size_t Wallet::GetUnsafeActiveTransactionsCount() const

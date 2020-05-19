@@ -125,6 +125,7 @@ namespace beam::wallet
         void ResumeAllTransactions();
 
         bool IsWalletInSync() const;
+        bool IsWithAssets() const;
 
         // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
         size_t GetUnsafeActiveTransactionsCount() const;
@@ -336,7 +337,6 @@ namespace beam::wallet
 
         // Number of tasks running during sync with Node
         uint32_t m_LastSyncTotal;
-
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
@@ -345,5 +345,8 @@ namespace beam::wallet
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;
         bool m_StoredMessagesProcessed = false; // this should happen only once, but not in destructor;
+
+        // Confidential assets enable/disable flag
+        bool m_withAssets;
     };
 }

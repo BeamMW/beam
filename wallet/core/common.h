@@ -165,7 +165,8 @@ namespace beam::wallet
     MACRO(InvalidAssetOwnerId,           42, "Invalid asset owner id") \
     MACRO(AssetsDisabled,                43, "Asset transactions are disabled in the wallet") \
     MACRO(NoVouchers,                    44, "You have no vouchers to insert coins to lelentus") \
-    MACRO(Count,                         45, "PLEASE KEEP THIS ALWAYS LAST")
+    MACRO(AssetsDisabledFork2,           45, "Asset transactions are not available until fork2") \
+    MACRO(Count,                         46, "PLEASE KEEP THIS ALWAYS LAST")
 
     enum TxFailureReason : int32_t
     {

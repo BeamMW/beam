@@ -35,9 +35,17 @@ namespace beam::wallet::lelantus
         }
 
         const bool isAsset = GetAssetId() != Asset::s_InvalidID;
-        if (isAsset == true && m_withAssets == false)
+        if (isAsset)
         {
-            throw TransactionFailedException(true, TxFailureReason::AssetsDisabled);
+            if (!Rules::get().CA.Enabled)
+            {
+                throw TransactionFailedException(true, TxFailureReason::AssetsDisabledFork2);
+            }
+
+            if (!m_withAssets)
+            {
+                throw TransactionFailedException(true, TxFailureReason::AssetsDisabled);
+            }
         }
 
         return result;

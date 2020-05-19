@@ -112,7 +112,6 @@ namespace beam::wallet
         : BaseTransaction{ gateway, walletDB, txID }
         , m_withAssets(withAssets)
     {
-
     }
 
     TxType SimpleTransaction::GetType() const
@@ -146,10 +145,19 @@ namespace beam::wallet
         builder.GetPeerInputsAndOutputs();
         const bool isAsset = builder.GetAssetId() != Asset::s_InvalidID;
 
-        if (isAsset == true && m_withAssets == false)
+        if (isAsset)
         {
-            OnFailed(TxFailureReason::AssetsDisabled, true);
-            return;
+            if (!Rules::get().CA.Enabled)
+            {
+                OnFailed(TxFailureReason::AssetsDisabledFork2, true);
+                return;
+            }
+
+            if(!m_withAssets)
+            {
+                OnFailed(TxFailureReason::AssetsDisabled, true);
+                return;
+            }
         }
 
         // Check if we already have signed kernel
