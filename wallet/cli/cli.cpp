@@ -27,6 +27,7 @@
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
+#include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
 
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
@@ -2020,6 +2021,10 @@ namespace
             {
                 return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>(vm, walletDB);
             }
+            case beam::wallet::AtomicSwapCoin::Dogecoin:
+            {
+                return HandleSwapCoin<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>(vm, walletDB);
+            }
             default:
             {
                 throw std::runtime_error("Unsupported coin for swap");
@@ -2054,6 +2059,11 @@ namespace
             case beam::wallet::AtomicSwapCoin::Qtum:
             {
                 ShowSwapSettings<qtum::SettingsProvider>(walletDB, "qtum");
+                break;
+            }
+            case beam::wallet::AtomicSwapCoin::Dogecoin:
+            {
+                ShowSwapSettings<dogecoin::SettingsProvider>(walletDB, "dogecoin");
                 break;
             }
             default:
@@ -2223,6 +2233,22 @@ namespace
                 throw std::runtime_error("The swap amount must be greater than the redemption fee.");
             }
             swapFeeRate = qtumSettings.GetFeeRate();
+        }
+        else if (swapCoin == wallet::AtomicSwapCoin::Dogecoin)
+        {
+            auto dogecoinSettingsProvider = std::make_shared<dogecoin::SettingsProvider>(walletDB);
+            dogecoinSettingsProvider->Initialize();
+            auto dogecoinSettings = dogecoinSettingsProvider->GetSettings();
+            if (!dogecoinSettings.IsInitialized())
+            {
+                throw std::runtime_error("Dogecoin settings should be initialized.");
+            }
+
+            if (!DogecoinSide::CheckAmount(*swapAmount, dogecoinSettings.GetFeeRate()))
+            {
+                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+            }
+            swapFeeRate = dogecoinSettings.GetFeeRate();
         }
         else
         {
