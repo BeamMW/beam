@@ -2537,63 +2537,66 @@ void TestVouchers()
 
 void TestHWCommitment()
 {
-   cout << "Test HW commitment" << std::endl;
+    cout << "Test HW commitment" << std::endl;
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-//    CoinID cid;
-//    cid.m_Value = 11100000000;
-//    cid.m_Idx = 1887367845482021531;
-//    cid.m_Type = 1852797549;
-//    cid.m_SubIdx = 16777216;
 
-   const CoinID cid(100500, 15, Key::Type::Regular, 7);
-
-   Point comm1, comm2;
-   {
-       Scalar::Native secretKey;
-
-       //beam::WordList generatedPhrases = {"budget", "focus", "surface", "plug", "dragon", "elephant", "token", "child", "kitchen", "coast", "lounge", "mean" };
-       beam::WordList generatedPhrases = { "copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue" };
-       
-       auto buf = beam::decodeMnemonic(generatedPhrases);
-
-       SecString secretSeed;
-       secretSeed.assign(buf.data(), buf.size());
-
-       Key::IKdf::Ptr kdf;
-       ECC::HKdf::Create(kdf, secretSeed.hash().V);
-    
-       Key::IPKdf::Ptr pubKdf = kdf;
-       LocalPrivateKeyKeeperStd keyKeeper(kdf);
-        
-        
-        ECC::NoLeak<ECC::HKdfPub::Packed> p;
-		assert(pubKdf->ExportP(nullptr) == sizeof(p));
-		pubKdf->ExportP(&p);
+    const CoinID cid(100500, 15, Key::Type::Regular, 7);
+    ECC::NoLeak<ECC::HKdfPub::Packed> owner1, owner2;
+    Point comm1, comm2;
+    auto extractOwner = [](Key::IPKdf::Ptr pubKdf, ECC::NoLeak<ECC::HKdfPub::Packed>& p)
+    {
+        assert(pubKdf->ExportP(nullptr) == sizeof(p));
+        pubKdf->ExportP(&p);
         const uint8_t* pp = reinterpret_cast<const uint8_t*>(&p.V);
         cout << "Owner bin: " << to_hex(pp, sizeof(p.V)) << std::endl;  
+    };
+    {
+        Scalar::Native secretKey;
 
+        //beam::WordList generatedPhrases = {"budget", "focus", "surface", "plug", "dragon", "elephant", "token", "child", "kitchen", "coast", "lounge", "mean" };
+        beam::WordList generatedPhrases = { "copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue" };
 
-       ECC::Point::Native pt2;
-       WALLET_CHECK(keyKeeper.get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
+        auto buf = beam::decodeMnemonic(generatedPhrases);
 
-       comm1 = pt2;
-       LOG_INFO() << "commitment is " << comm1;
-   }
+        SecString secretSeed;
+        secretSeed.assign(buf.data(), buf.size());
 
-   {
-       HWWallet hw;
-       auto keyKeeper = hw.getKeyKeeper(hw.getDevices()[0]);
+        Key::IKdf::Ptr kdf;
+        ECC::HKdf::Create(kdf, secretSeed.hash().V);
 
-       ECC::Point::Native pt2;
-       WALLET_CHECK(keyKeeper->get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
-       comm2 = pt2;
+        Key::IPKdf::Ptr pubKdf = kdf;
+        LocalPrivateKeyKeeperStd keyKeeper(kdf);
 
-       LOG_INFO() << "HW commitment is " << comm2;
-   }
+        extractOwner(pubKdf, owner1);
 
-   WALLET_CHECK(comm1 == comm2);
+        ECC::Point::Native pt2;
+        WALLET_CHECK(keyKeeper.get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
+
+        comm1 = pt2;
+        LOG_INFO() << "commitment is " << comm1;
+    }
+
+    {
+        HWWallet hw;
+        auto keyKeeper = hw.getKeyKeeper(hw.getDevices()[0]);
+
+        {
+            IPrivateKeyKeeper2::Method::get_Kdf m;
+            m.m_Root = true;
+            WALLET_CHECK(keyKeeper->InvokeSync(m) == IPrivateKeyKeeper2::Status::Success);
+            extractOwner(m.m_pPKdf, owner2);
+        }
+
+        ECC::Point::Native pt2;
+        WALLET_CHECK(keyKeeper->get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
+        comm2 = pt2;
+
+        LOG_INFO() << "HW commitment is " << comm2;
+    }
+
+    WALLET_CHECK(comm1 == comm2);
 }
 
 void TestHWWallet()
@@ -2607,79 +2610,15 @@ void TestHWWallet()
 
     auto keyKeeper = hw.getKeyKeeper(hw.getDevices()[0]);
 
-    const CoinID cid(100500, 15, Key::Type::Regular, 7);
 
-    ECC::Point::Native pt2;
-    WALLET_CHECK(keyKeeper->get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
-    {
-        // Recovery seed: copy, vendor, shallow, raven, coffee, appear, book, blast, lock, exchange, farm, glue
-        uint8_t x[] = {0xce, 0xb2, 0x0d, 0xa2, 0x73, 0x07, 0x0e, 0xb9, 0xc8, 0x2e, 0x47, 0x5b, 0x6f, 0xa0, 0x7b, 0x85, 0x8d, 0x2c, 0x40, 0x9b, 0x9c, 0x24, 0x31, 0xba, 0x3a, 0x8e, 0x2c, 0xba, 0x7b, 0xa1, 0xb0, 0x04};
-        ECC::Point pt;
-        pt.m_X = beam::Blob(x, 32);
-        pt.m_Y = 1;
-        ECC::Point pt3 = pt2;
-        WALLET_CHECK(pt == pt3);
-    }
-
-    TestKeyKeeper(keyKeeper, 0);
+    //TestKeyKeeper(keyKeeper, 0);
     TestKeyKeeper(keyKeeper, 1);
-
-    //hw.generateRangeProof(kidv, false, [&pt2](const ECC::RangeProof::Confidential &rp) {
-    //    auto hGen = beam::SwitchCommitment(NULL).m_hGen;
-
-
-    //    ECC::Point::Native comm;
-    //    comm.Import(pt2);
-    //    {
-    //        Oracle oracle;
-    //        oracle << 0u;
-    //        oracle << pt2;
-    //        LOG_INFO() << "rp.IsValid(): " << rp.IsValid(comm, oracle, &hGen);
-    //    }
-
-    //    {
-    //        Oracle oracle;
-    //        oracle << 0u;
-    //        oracle << pt2;
-    //        WALLET_CHECK(rp.IsValid(comm, oracle, &hGen));
-    //    }
-    //});
-
-    //{
-    //    Height scheme = 100500;
-    //    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-    //    io::Reactor::Scope scope(*mainReactor);
-    //    TrezorKeyKeeper tk;
-    //    auto db = createSqliteWalletDB();
-    //    LocalPrivateKeyKeeper lpkk(db, db->get_MasterKdf());
-    //    IPrivateKeyKeeper& pkk = tk;
-    //    ECC::Point::Native comm2;
-    //    auto outputs = pkk.GenerateOutputsSync(scheme, { kidv });
-    //    WALLET_CHECK(outputs[0]->IsValid(scheme, comm2));
-    //}
-
-    //// test transaction sign with local key keeper
-    //{
-    //    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-    //    io::Reactor::Scope scope(*mainReactor);
-
-    //    auto db = createSqliteWalletDB();
-    //    LocalPrivateKeyKeeper lpkk(db, db->get_MasterKdf());
-    //    TestHWTransaction(lpkk);
-    //}
-
-    //// test transaction sign with HW key keeper
-    //{
-    //    auto keyKeeper = hw.getKeyKeeper(hw.getDevices()[0]);
-    //    TestHWTransaction(trezor);
-    //}
-
 }
 #endif
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = LOG_LEVEL_DEBUG; 
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
@@ -2698,7 +2637,7 @@ int main()
 
     TestVouchers();
 
-/*
+
     //TestBbsDecrypt();
 
     TestConvertions();
@@ -2736,7 +2675,7 @@ int main()
     //TestTxNonces();
     
     TestTxExceptionHandling();
- */   
+    
    
     // @nesbox: disabled tests, they work only if device connected
 #if defined(BEAM_HW_WALLET)

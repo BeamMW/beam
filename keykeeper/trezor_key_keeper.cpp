@@ -175,9 +175,32 @@ namespace beam::wallet
         m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
             auto pubKdf = std::make_shared<ECC::HKdfPub>();
-            const ECC::HKdfPub::Packed& packed = ConvertResultTo<ECC::HKdfPub::Packed>(child_cast<Message, hw::trezor::messages::beam::BeamPKdf>(msg).key());
+            const BeamPKdf& beamKdf = child_cast<Message, BeamPKdf>(msg);
+            typedef struct
+            {
+                BeamCrypto_UintBig m_Secret;
+                BeamCrypto_CompactPoint m_CoFactorG;
+                BeamCrypto_CompactPoint m_CoFactorJ;
 
-            pubKdf->Import(packed);
+            } BeamCrypto_KdfPub;
+            BeamCrypto_KdfPub pkdf;
+            pkdf.m_Secret = ConvertResultTo<BeamCrypto_UintBig>(beamKdf.key());
+            
+            TxExport(pkdf.m_CoFactorG, beamKdf.cofactor_g());
+            TxExport(pkdf.m_CoFactorJ, beamKdf.cofactor_j());
+
+            ECC::HKdfPub::Packed packed;
+            Ecc2BC(packed.m_Secret) = pkdf.m_Secret;
+            Ecc2BC(packed.m_PkG) = pkdf.m_CoFactorG;
+            Ecc2BC(packed.m_PkJ) = pkdf.m_CoFactorJ;
+            if (!pubKdf->Import(packed))
+            {
+                PushHandlerToCallerThread([this, &m, h]()
+                {
+                    m.m_pPKdf.reset();
+                    PushOut(Status::Unspecified, h);
+                });
+            }
 
             PushHandlerToCallerThread([this, &m, h, pubKdf]()
             {
