@@ -203,6 +203,20 @@ namespace beam::wallet
         {
             for (const auto& item : items)
             {
+                Asset::ID assetId = Asset::s_InvalidID;
+                if (item.GetParameter(TxParameterID::AssetID, assetId))
+                {
+                    if (assetId != Asset::s_BeamID)
+                    {
+                        // GUI wallet doesn't support asset transactions at the moment
+                        // So we just block all asset-related notifications.
+                        // The only way to get asset-based tx in GUI when somebody
+                        // sends asset. Such transactions would automatically fail
+                        // and we do not want notifications about them
+                        continue;
+                    }
+                }
+
                 bool failed = (item.m_status == TxStatus::Failed || item.m_status == TxStatus::Canceled);
                 if (!failed && item.m_status != TxStatus::Completed)
                 {
