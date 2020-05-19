@@ -189,7 +189,7 @@ namespace beam::wallet
         IWalletData& walletData
         , WalletApi::ACL acl)
         : _walletData(walletData)
-        , _api(*this, acl)
+        , _api(*this, walletData.getWallet().IsAssetsEnabled(), acl)
     {
     }
 

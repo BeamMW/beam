@@ -810,9 +810,9 @@ int main(int argc, char* argv[])
             walletDB = WalletDB::open(options.walletPath, pass);
             LOG_INFO() << "wallet sucessfully opened...";
 
-            // assets support
-            if(Rules::get().CA.Enabled)
-                withAssets = vm[cli::WITH_ASSETS].as<bool>();
+            // this should be exactly CLI flag value to print correct error messages
+            // Rules::CA.Enabled would be checked as well but later
+            withAssets = vm[cli::WITH_ASSETS].as<bool>();
         }
 
         io::Address listenTo = io::Address().port(options.port);
