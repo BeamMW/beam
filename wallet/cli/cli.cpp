@@ -582,6 +582,9 @@ namespace
                 return -1;
             }
             params.SetParameter(TxParameterID::PeerID, walletID);
+#ifdef BEAM_LIB_VERSION
+            params.SetParameter(beam::wallet::TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
+#endif // BEAM_LIB_VERSION
             params.SetParameter(TxParameterID::PeerSecureWalletID, address->m_Identity);
             AddVoucherParameter(vm, params, walletDB, address->m_OwnID);
         }

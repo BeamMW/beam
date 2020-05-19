@@ -326,6 +326,10 @@ namespace beam::wallet
         WindowBegin = 123,
         ShieldedVoucherList = 124,
 
+        // Version
+        ClientVersion = 126,
+        LibraryVersion = 127,
+
         // private parameters
         PrivateFirstParam = 128,
 
