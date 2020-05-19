@@ -20,8 +20,8 @@
 
 namespace beam::wallet::lelantus
 {
-    PullTxBuilder::PullTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee)
-        : BaseLelantusTxBuilder(tx, amount, fee)
+    PullTxBuilder::PullTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets)
+        : BaseLelantusTxBuilder(tx, amount, fee, withAssets)
     {
     }
 
@@ -148,17 +148,17 @@ namespace beam::wallet::lelantus
                 }
 
                 ShieldedTxo::Viewer viewer;
-                viewer.FromOwner(*pMaster);
+                viewer.FromOwner(*pMaster, shieldedCoin->m_Key.m_nIdx);
 
                 ShieldedTxo::DataParams sdp;
                 Restore(sdp, *shieldedCoin, viewer);
 
                 Key::IKdf::Ptr pSerialPrivate;
-                ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pMaster);
-                pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Serial.m_SerialPreimage);
+                ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pMaster, shieldedCoin->m_Key.m_nIdx);
+                pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
                 prover.m_Witness.V.m_L = shieldedWindowId;
-                prover.m_Witness.V.m_R = sdp.m_Serial.m_pK[0];
+                prover.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0];
                 prover.m_Witness.V.m_R += sdp.m_Output.m_k;
                 prover.m_Witness.V.m_V = GetAmount() + GetFee();
             }

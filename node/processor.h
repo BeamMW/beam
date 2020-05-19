@@ -74,8 +74,8 @@ class NodeProcessor
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, Height, Key::IPKdf&);
 	void Recognize(const TxKernelShieldedInput&, Height);
-	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
-	void Recognize(const TxKernelAssetCreate&, Height, Key::IPKdf*);
+	void Recognize(const TxKernelShieldedOutput&, Height);
+	void Recognize(const TxKernelAssetCreate&, Height);
 	void Recognize(const TxKernelAssetDestroy&, Height);
 	void Recognize(const TxKernelAssetEmit&, Height);
 
@@ -98,7 +98,7 @@ class NodeProcessor
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
 	static bool TxoIsNaked(const Blob&);
 
-	void ToInputWithMaturity(Input&, TxoID);
+	void ToInputWithMaturity(Input&);
 
 	TxoID get_TxosBefore(Height);
 	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
@@ -350,8 +350,16 @@ public:
 
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
 
-	virtual Key::IPKdf* get_ViewerKey() { return nullptr; }
-	virtual const ShieldedTxo::Viewer* get_ViewerShieldedKey() { return nullptr; }
+	struct ViewerKeys
+	{
+		Key::IPKdf* m_pMw;
+		ShieldedTxo::Viewer* m_pSh;
+		Key::Index m_nSh;
+		
+		bool IsEmpty() const;
+	};
+
+	virtual void get_ViewerKeys(ViewerKeys&);
 
 	void RescanOwnedTxos();
 

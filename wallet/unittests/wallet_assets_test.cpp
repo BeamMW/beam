@@ -51,7 +51,7 @@ void TestAssets() {
     const auto walletDB = createSqliteWalletDB("sender_wallet.db", false, true);
     walletDB->AllocateKidRange(100500);
 
-    TestWalletRig sender("sender", walletDB, stopReactor);
+    TestWalletRig sender(walletDB, stopReactor);
     WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
 
     WALLET_CHECK(node.GetHeight() > Rules::get().pForks[1].m_Height);
@@ -407,7 +407,7 @@ void TestAssets() {
 
     const auto receiverWalletDB = createSqliteWalletDB("receiver_wallet.db", false, true);
     receiverWalletDB->AllocateKidRange(100500);
-    TestWalletRig receiver("receiver", receiverWalletDB, stopReactor);
+    TestWalletRig receiver(receiverWalletDB, stopReactor);
     WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
     RegisterAssetCreators(receiver.m_Wallet);
 

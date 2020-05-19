@@ -21,7 +21,7 @@ namespace beam::wallet::lelantus
     class PullTxBuilder : public BaseLelantusTxBuilder
     {
     public:
-        PullTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee);
+        PullTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets);
         // true if async
         bool GetShieldedList();
         Transaction::Ptr CreateTransaction() override;

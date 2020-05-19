@@ -363,7 +363,7 @@ namespace proto {
         macro(TxoID, ID) \
         macro(Amount, Value) \
         macro(Asset::ID, AssetID) \
-        macro(ECC::Scalar, kSerG) \
+        macro(ShieldedTxo::BaseKey, Key) \
         macro(ShieldedTxo::User, User)
 
 #define BeamEvent_AssetCtl(macro) \
@@ -381,7 +381,6 @@ namespace proto {
 
         struct Flags {
             static const uint8_t Add = 1; // otherwise it's spend
-            static const uint8_t CreatedByViewer = 2; // releveant for shielded
             static const uint8_t Delete = 2; // releveant for asset
         };
 

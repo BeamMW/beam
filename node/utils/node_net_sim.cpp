@@ -57,9 +57,6 @@ bool ReadSeed(Key::IKdf::Ptr& pKdf, const char* szSeed)
 struct Context
 {
     Key::IKdf::Ptr m_pKdf;
-    Key::IKdf::Ptr m_pShieldedPrivate;
-
-    ShieldedTxo::Viewer m_ShieldedViewer;
 
     NodeProcessor* m_pProc; // shortcut, to get the shielded pool data instantly, instead of via queries
 
@@ -235,8 +232,7 @@ struct Context
     {
         Amount m_Value;
         Asset::ID m_AssetID;
-        ECC::Scalar m_kSerG;
-        bool m_IsCreatedByViewer;
+        ShieldedTxo::BaseKey m_Key;
         ShieldedTxo::User m_User;
     };
 
@@ -317,8 +313,7 @@ struct Context
                             TxoSH* pTxo = m_This.m_TxosSH.CreateConfirmed(evt.m_ID, m_Height);
                             pTxo->m_Value = evt.m_Value;
                             pTxo->m_AssetID = evt.m_AssetID;
-                            pTxo->m_kSerG = evt.m_kSerG;
-                            pTxo->m_IsCreatedByViewer = (proto::Event::Flags::CreatedByViewer & evt.m_Flags) != 0;
+                            pTxo->m_Key = evt.m_Key;
                             pTxo->m_User = evt.m_User;
                         }
                     }
@@ -747,9 +742,14 @@ struct Context
         sdp.m_Output.m_AssetID = txo.m_ID.m_Value.m_AssetID;
         sdp.m_Output.m_Value = txo.m_ID.m_Value.m_Value - pKrn->m_Fee;
 
+        ShieldedTxo::Viewer v;
+        v.FromOwner(*m_pKdf, 0);
+
         ECC::uintBig nonce;
         ECC::GenRandom(nonce);
-        sdp.Generate(pKrn->m_Txo, oracle, m_ShieldedViewer, nonce);
+        sdp.m_Ticket.Generate(pKrn->m_Txo.m_Ticket, v, nonce);
+
+        sdp.GenerateOutp(pKrn->m_Txo, oracle);
         pKrn->MsgToID();
 
         //ECC::Point::Native pt;
@@ -773,7 +773,7 @@ struct Context
         assert(N);
 
         uint32_t nIdx;
-        txo.m_kSerG.m_Value.ExportWord<0>(nIdx); // little randomization
+        txo.m_Key.m_kSerG.m_Value.ExportWord<0>(nIdx); // little randomization
         nIdx %= N;
 
         nWindowEnd = txo.m_ID.m_Value + N - nIdx;
@@ -849,22 +849,27 @@ struct Context
             }
         }
 
+        ShieldedTxo::Viewer v;
+        v.FromOwner(*m_pKdf, txo.m_Key.m_nIdx);
+
         ShieldedTxo::Data::Params sdp;
-        sdp.m_Serial.m_pK[0] = txo.m_kSerG;
-        sdp.m_Serial.m_IsCreatedByViewer = txo.m_IsCreatedByViewer;
-        sdp.m_Serial.Restore(m_ShieldedViewer);
+        sdp.m_Ticket.m_pK[0] = txo.m_Key.m_kSerG;
+        sdp.m_Ticket.m_IsCreatedByViewer = txo.m_Key.m_IsCreatedByViewer;
+        sdp.m_Ticket.Restore(v);
 
         sdp.m_Output.m_AssetID = txo.m_AssetID;
         sdp.m_Output.m_Value = txo.m_Value;
         sdp.m_Output.m_User = txo.m_User;
-        sdp.m_Output.Restore_kG(sdp.m_Serial.m_SharedSecret);
+        sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
 
         Lelantus::Prover p(lst, pKrn->m_SpendProof);
         p.m_Witness.V.m_L = nIdx;
-        p.m_Witness.V.m_R = sdp.m_Serial.m_pK[0] + sdp.m_Output.m_k; // total blinding factor of the shielded element
+        p.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0] + sdp.m_Output.m_k; // total blinding factor of the shielded element
         p.m_Witness.V.m_V = sdp.m_Output.m_Value;
 
-        m_pShieldedPrivate->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Serial.m_SerialPreimage);
+        Key::IKdf::Ptr pShPriv;
+        ShieldedTxo::Viewer::GenerateSerPrivate(pShPriv, *m_pKdf, txo.m_Key.m_nIdx);
+        pShPriv->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
         {
             beam::Executor::Scope scope(m_Exec);
@@ -1068,8 +1073,6 @@ int main_Guarded(int argc, char* argv[])
         throw std::runtime_error("Bullet/Fee settings not consistent");
 
     ctx.m_pKdf = pKdf;
-    ctx.m_ShieldedViewer.FromOwner(*pKdf);
-    ShieldedTxo::Viewer::GenerateSerPrivate(ctx.m_pShieldedPrivate, *pKdf);
     ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));
     ctx.m_Network.Connect();
 

@@ -164,7 +164,7 @@ struct Node
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
 
-		ShieldedTxo::Viewer m_ShieldedViewer; // derived from owner
+		std::vector<ShieldedTxo::Viewer> m_vSh; // derived from owner
 
 	} m_Keys;
 
@@ -210,8 +210,7 @@ private:
 		void OnNewState() override;
 		void OnRolledBack() override;
 		void OnModified() override;
-		Key::IPKdf* get_ViewerKey() override;
-		const ShieldedTxo::Viewer* get_ViewerShieldedKey() override;
+		void get_ViewerKeys(ViewerKeys&) override;
 		void OnEvent(Height, const proto::Event::Base&) override;
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;

@@ -233,6 +233,8 @@ namespace beam
         const char* PROXY_USE = "proxy";
         const char* PROXY_ADDRESS = "proxy_addr";
         const char* ALLOWED_ORIGIN = "allowed_origin";
+        const char* VOUCHER_COUNT = "voucher_count";
+
         // values
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";
@@ -287,6 +289,7 @@ namespace beam
         const char* ASSET_ID          = "asset_id";
         const char* ASSET_METADATA    = "asset_meta";
         const char* ASSETS            = "assets";
+        const char* WITH_ASSETS       = "enable_assets";
 
         // broadcaster
         const char* GENERATE_KEYS     = "generate_keys";
@@ -392,6 +395,7 @@ namespace beam
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
             (cli::IGNORE_DICTIONARY, "ignore dictionaty while validating seed phrase")
+            (cli::VOUCHER_COUNT, po::value<Positive<uint32_t>>(), "generate given number of vouchers  for direct anonymous payments")
 #ifdef BEAM_LASER_SUPPORT
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|get_token|laser]")
 #else
@@ -449,7 +453,8 @@ namespace beam
         wallet_assets_options.add_options()
             (cli::ASSET_ID,       po::value<Positive<uint32_t>>(), "asset id")
             (cli::ASSET_METADATA, po::value<string>(),             "asset metadata")
-            (cli::ASSETS,         "display assets history in info command");
+            (cli::ASSETS,         "display assets history in info command")
+            (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions");
 
 #ifdef BEAM_LASER_SUPPORT
         po::options_description laser_commands("Laser commands");

@@ -678,6 +678,7 @@ int main(int argc, char* argv[])
         io::Reactor::Ptr reactor = io::Reactor::create();
         WalletApi::ACL acl;
         std::vector<uint32_t> whitelist;
+        bool withAssets = false;
 
         {
             po::options_description desc("Wallet API general options");
@@ -691,6 +692,7 @@ int main(int argc, char* argv[])
                 (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
+                (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions");
             ;
 
             po::options_description authDesc("User authorization options");
@@ -806,8 +808,11 @@ int main(int argc, char* argv[])
             }
 
             walletDB = WalletDB::open(options.walletPath, pass);
-
             LOG_INFO() << "wallet sucessfully opened...";
+
+            // this should be exactly CLI flag value to print correct error messages
+            // Rules::CA.Enabled would be checked as well but later
+            withAssets = vm[cli::WITH_ASSETS].as<bool>();
         }
 
         io::Address listenTo = io::Address().port(options.port);
@@ -815,8 +820,7 @@ int main(int argc, char* argv[])
         io::Reactor::GracefulIntHandler gih(*reactor);
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
-
-        Wallet wallet{ walletDB };
+        Wallet wallet{ walletDB, withAssets};
 
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
@@ -850,7 +854,7 @@ int main(int argc, char* argv[])
         server.initSwapFeature(*nnet, *wnet);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-        if (Rules::get().CA.Enabled)
+        if (Rules::get().CA.Enabled && withAssets)
         {
             RegisterAssetCreators(wallet);
         }

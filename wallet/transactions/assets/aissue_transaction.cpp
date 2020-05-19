@@ -93,7 +93,8 @@ namespace beam::wallet
             if (const auto info = m_WalletDB->findAsset(builder.GetAssetOwnerId()))
             {
                 SetParameter(TxParameterID::AssetID, info->m_ID);
-                SetParameter(TxParameterID::AssetFullInfo, *info);
+                SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*info));
+                SetParameter(TxParameterID::AssetConfirmedHeight, info->m_RefreshHeight);
                 SetState(State::AssetCheck);
             }
             else
@@ -123,27 +124,13 @@ namespace beam::wallet
                 return;
             }
 
-            Asset::Full info;
-            if (!GetParameter(TxParameterID::AssetFullInfo, info) || !info.IsValid())
-            {
-                OnFailed(TxFailureReason::NoAssetInfo, true);
-                return;
-            }
-
-            SetParameter(TxParameterID::AssetID, info.m_ID);
             SetState(State::AssetCheck);
         }
 
         if (GetState() == State::AssetCheck)
         {
             Asset::Full info;
-            if (!GetParameter(TxParameterID::AssetFullInfo, info))
-            {
-                OnFailed(TxFailureReason::NoAssetInfo, true);
-                return;
-            }
-
-            if (!info.IsValid())
+            if (!GetParameter(TxParameterID::AssetInfoFull, info) || !info.IsValid())
             {
                 OnFailed(TxFailureReason::NoAssetInfo, true);
                 return;

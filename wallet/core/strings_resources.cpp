@@ -195,7 +195,8 @@ namespace beam
     const char kTxDirectionOut[] = "outgoing";
     const char kTxDirectionIn[] = "incoming";
     const char kTxHistoryEmpty[] = "No transactions";
-    const char kTxNoCoins[] = "No coins";
+    const char kNoCoins[] = "No coins";
+    const char kNoShieldedCoins[] = "No Shielded coins";
     const char kTxHistoryUnreliableTxs[] = "\n    ---- Transactions below might belong to another asset ----\n\n";
     const char kTxHistoryUnreliableCoins[] = "\n    ---- Coins below might belong to another asset ----\n\n";
     const char kTxToken[] = "token";
@@ -238,6 +239,8 @@ namespace beam
     const char kErrorAssetNotFound[]         = "Asset not found in a local database. Check asset ID or provide asset metadata";
     const char kErrorAssetNotOwned[]         = "You do not own the asset";
     const char kErrorAssetLoadMeta[]         = "Cannot load asset metadata";
+    const char kErrorAssetsFork2[]           = "Confidential assets can be used only after fork2";
+    const char kErrorAssetsDisabled[]        = "Confidential assets are disabled. Add --enable_assets to command line";
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT

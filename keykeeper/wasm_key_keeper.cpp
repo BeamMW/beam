@@ -73,9 +73,12 @@ struct KeyKeeper
         return _impl2.GetSbbsAddressPrivate(std::stoull(ownIDstr));
     }
 
-    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, uint32_t amount = 0)
+    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, const std::string& amountStr)
     {
-        return wallet::GetSendToken(sbbsAddress, identityStr, beam::Amount(amount));
+        auto amountStrCopy = boost::erase_all_copy(amountStr, "-");
+        beam::Amount amount = amountStrCopy.empty() ? 0 : std::stoull(amountStrCopy);
+        
+        return wallet::GetSendToken(sbbsAddress, identityStr, amount);
     }
 
     std::string InvokeServiceMethod(const std::string& data)

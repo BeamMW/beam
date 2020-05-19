@@ -23,9 +23,9 @@ namespace beam
 {
     struct Version
     {
-        uint32_t m_major;
-        uint32_t m_minor;
-        uint32_t m_revision;
+        uint32_t m_major = 0;
+        uint32_t m_minor = 0;
+        uint32_t m_revision = 0;
 
         Version() = default;
         Version(uint32_t major, uint32_t minor, uint32_t rev)

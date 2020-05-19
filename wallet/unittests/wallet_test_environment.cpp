@@ -277,9 +277,9 @@ IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const
     return createSenderWalletDBWithSeed(SenderWalletDB, false, separateDBForPrivateData, amounts);
 }
 
-IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false)
+IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false, bool generateSeed = false)
 {
-    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, false);
+    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, generateSeed);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
     for (int i = 0; i < count; ++i)
     {
@@ -289,9 +289,9 @@ IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBFor
     return db;
 }
 
-IWalletDB::Ptr createReceiverWalletDB(bool separateDBForPrivateData = false)
+IWalletDB::Ptr createReceiverWalletDB(bool separateDBForPrivateData = false, bool generateSeed = false)
 {
-    return createSqliteWalletDB(ReceiverWalletDB, separateDBForPrivateData, false);
+    return createSqliteWalletDB(ReceiverWalletDB, separateDBForPrivateData, generateSeed);
 }
 
 struct TestGateway : wallet::INegotiatorGateway
@@ -367,7 +367,7 @@ class TestWallet : public Wallet
 {
 public:
     TestWallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction())
-        : Wallet{ walletDB, std::move(action), std::move(updateCompleted)}
+        : Wallet{ walletDB, true, std::move(action), std::move(updateCompleted)}
         , m_FlushTimer{ io::Timer::create(io::Reactor::get_Current()) }
     {
 
@@ -426,7 +426,7 @@ struct TestWalletRig
         Offline
     };
 
-    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
+    TestWalletRig(IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
         : m_WalletDB{ walletDB }
         , m_Wallet{ m_WalletDB, move(action), Wallet::UpdateCompletedAction() }
     {
@@ -1211,8 +1211,8 @@ public:
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(m_TxCount, 6), f);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        TestWalletRig sender(createSenderWalletDB(m_TxCount, 6), f);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
 
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
         auto timestamp = GetTime_ms();

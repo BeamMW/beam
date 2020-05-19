@@ -29,6 +29,7 @@ namespace beam::wallet
          *  @id         unique ID of notification (possibly HASH of content)
          */
         virtual void onNewWalletVersion(const VersionInfo& content, const ECC::uintBig& id) = 0;
+        virtual void onNewWalletVersion(const WalletImplVerInfo& content, const ECC::uintBig& id) = 0;
         // virtual void onBeamNews() = 0;
     };
 

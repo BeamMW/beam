@@ -23,6 +23,7 @@
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
 #include <core/block_crypt.h>
+#include <core/shielded.h>
 #include "nlohmann/json.hpp"
 #include "utility/std_extension.h"
 #include "keykeeper/local_private_key_keeper.h"
@@ -156,10 +157,9 @@
 #define ASSET_FIELDS ENUM_ASSET_FIELDS(LIST, COMMA, )
 
 #define ENUM_SHIELDED_COIN_FIELDS(each, sep, obj) \
-    each(skSerialG,             skSerialG,            BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(Key,                   Key,                  BLOB NOT NULL PRIMARY KEY, obj) sep \
     each(User,                  User,                 BLOB, obj) sep \
     each(ID,                    ID,                   INTEGER NOT NULL, obj) sep \
-    each(isCreatedByViewer,     isCreatedByViewer,    BOOLEAN, obj) sep \
     each(assetID,               assetID,              INTEGER, obj) sep \
     each(value,                 value,                INTEGER NOT NULL, obj) sep \
     each(confirmHeight,         confirmHeight,        INTEGER, obj) sep \
@@ -249,6 +249,7 @@ namespace beam::wallet
             }
 
             static const uint32_t s_Factor = 16;
+            static const uint64_t s_NoOverflowSrc = uint64_t(-1) / s_Factor;
 
             struct Partial
             {
@@ -275,12 +276,40 @@ namespace beam::wallet
                     ZeroObject(m_pSlots);
                 }
 
+                uint32_t get_Slot_Fast(Amount v) const
+                {
+                    uint64_t val = uint64_t(v) * s_Factor;
+                    assert(val / s_Factor == v); // overflow should not happen
+                    val /= m_Goal;
+
+                    return (val < s_Factor) ?
+                        static_cast<uint32_t>(val) :
+                        s_Factor;
+                }
+
+                uint32_t get_Slot_Big(Amount v) const
+                {
+                    // Use slower 'robust' arithmetics, guaranteed not to overflow
+                    uintBigFor<uint32_t>::Type val;
+                    val.SetDiv(uintBigFrom(v) * uintBigFrom(s_Factor), uintBigFrom(m_Goal));
+
+                    uint32_t res;
+                    val.Export(res);
+
+                    std::setmin(res, s_Factor);
+                    return res;
+                }
+
                 uint32_t get_Slot(Amount v) const
                 {
-                    uint64_t i = v * s_Factor / m_Goal; // TODO - overflow check!
-                    uint32_t res = (i >= s_Factor) ? s_Factor : static_cast<uint32_t>(i);
-                    assert(res <= s_Factor + 1);
-                    return res;
+                    if (v <= s_NoOverflowSrc)
+                    {
+                        uint32_t res = get_Slot_Fast(v);
+                        //assert(get_Slot_Big(v) == res);
+                        return res;
+                    }
+
+                    return get_Slot_Big(v);
                 }
 
                 void Append(Slot& rDst, Amount v, size_t i0)
@@ -561,6 +590,12 @@ namespace beam::wallet
                 bind(col, &s, sizeof(s));
             }
 
+            void bind(int col, const ShieldedTxo::BaseKey& x)
+            {
+                const auto& b = _buffers.emplace_back(toByteBuffer(x));
+                bind(col, b);
+            }
+
             void bind(int col, const ShieldedTxo::User& x)
             {
                 bind(col, &x, sizeof(x));
@@ -651,6 +686,13 @@ namespace beam::wallet
             {
                 // read/write as a blob, skip serialization
                 getBlobStrict(col, &s, sizeof(s));
+            }
+
+            void get(int col, ShieldedTxo::BaseKey& x)
+            {
+                ByteBuffer b;
+                get(col, b);
+                fromByteBuffer(b, x);
             }
 
             void get(int col, ShieldedTxo::User& x)
@@ -2059,7 +2101,7 @@ namespace beam::wallet
         };
 
         MyParser p(*this, prog);
-        p.m_pOwner = get_OwnerKdf();
+        p.Init(get_OwnerKdf());
 
         return p.Proceed(path.c_str());
 	}
@@ -2603,9 +2645,10 @@ namespace beam::wallet
         }
     }
 
-    std::vector<ShieldedCoin> WalletDB::getShieldedCoins() const
+    std::vector<ShieldedCoin> WalletDB::getShieldedCoins(Asset::ID assetId) const
     {
-        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY ID;");
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE assetID=?1 ORDER BY ID;");
+        stm.bind(1, assetId);
         std::vector<ShieldedCoin> coins;
 
         while (stm.step())
@@ -2650,10 +2693,10 @@ namespace beam::wallet
         return {};
     }
 
-    boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(const ECC::Scalar& skSerial) const
+    boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(const ShieldedTxo::BaseKey& key) const
     {
-        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE skSerialG = ?;");
-        stm.bind(1, skSerial);
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE Key = ?;");
+        stm.bind(1, key);
 
         if (stm.step())
         {
@@ -2719,12 +2762,12 @@ namespace beam::wallet
 
     bool WalletDB::updateShieldedCoinRaw(const ShieldedCoin& coin)
     {
-        const char* req = "UPDATE " SHIELDED_COINS_NAME " SET " ENUM_SHIELDED_COIN_FIELDS(SET_LIST, COMMA, ) "WHERE skSerialG = ?;";
+        const char* req = "UPDATE " SHIELDED_COINS_NAME " SET " ENUM_SHIELDED_COIN_FIELDS(SET_LIST, COMMA, ) "WHERE Key = ?;";
         sqlite::Statement stm(this, req);
         int colIdx = 0;
 
         ENUM_SHIELDED_COIN_FIELDS(STM_BIND_LIST, NOSEP, coin);
-        stm.bind(++colIdx, coin.m_skSerialG);
+        stm.bind(++colIdx, coin.m_Key);
         stm.step();
 
         return sqlite3_changes(_db) > 0;
@@ -2941,15 +2984,15 @@ namespace beam::wallet
 
     void WalletDB::restoreShieldedCoinsSpentByTx(const TxID& txId)
     {
-        std::vector<ECC::Scalar> updatedRows;
+        std::vector<ShieldedTxo::BaseKey> updatedRows;
         {
-            const char* req = "SELECT skSerialG FROM " SHIELDED_COINS_NAME " WHERE spentTxId=?1;";
+            const char* req = "SELECT Key FROM " SHIELDED_COINS_NAME " WHERE spentTxId=?1;";
             sqlite::Statement stm(this, req);
             stm.bind(1, txId);
             while (stm.step())
             {
-                ECC::Scalar& coinSerial = updatedRows.emplace_back();
-                stm.get(0, coinSerial);
+                ShieldedTxo::BaseKey& key = updatedRows.emplace_back();
+                stm.get(0, key);
             }
         }
         if (!updatedRows.empty())
@@ -2964,9 +3007,9 @@ namespace beam::wallet
             vector<ShieldedCoin> updatedCoins;
             updatedCoins.reserve(updatedRows.size());
 
-            for (const auto& serial : updatedRows)
+            for (const auto& key : updatedRows)
             {
-                updatedCoins.emplace_back(getShieldedCoin(serial).value());
+                updatedCoins.emplace_back(getShieldedCoin(key).value());
             }            
 
             notifyShieldedCoinsChanged(ChangeAction::Updated, updatedCoins);
@@ -4986,17 +5029,5 @@ namespace beam::wallet
         default:
             break;
         }
-    }
-
-    WalletAsset::WalletAsset(const Asset::Full& full, Height refreshHeight)
-        : Asset::Full(full)
-        , m_RefreshHeight(refreshHeight)
-    {
-    }
-
-    bool WalletAsset::CanRollback(Height from) const
-    {
-        const auto maxRollback = Rules::get().MaxRollback;
-        return m_LockHeight + maxRollback > from;
     }
 }

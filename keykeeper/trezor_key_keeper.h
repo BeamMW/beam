@@ -29,35 +29,17 @@ namespace beam::wallet
     {
         using MessageHandler = std::function<void()>;
     public:
-        TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager, Key::IPKdf::Ptr ownerKdf = {});
+        TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager);
         virtual ~TrezorKeyKeeperProxy() = default;
     private:
-        Status::Type InvokeSync(Method::get_Kdf& x) override;
-        void InvokeAsync(Method::get_Kdf& x, const Handler::Ptr& h) override;
-        //void InvokeAsync(Method::get_NumSlots& x, const Handler::Ptr& h) override;
-        Status::Type InvokeSync(Method::get_NumSlots& x) override;
-        void InvokeAsync(Method::CreateOutput& x, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::SignReceiver& x, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::SignSender& x, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::SignSplit& x, const Handler::Ptr& h) override;
-
-        //static void GetMutualResult(Method::TxMutual& x, const json& msg)
-        //{
-        //    x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
-        //    GetCommonResult(x, msg);
-        //}
-        //
-        //static void GetCommonResult(Method::TxCommon& x, const json& msg)
-        //{
-        //    auto offset = from_base64<ECC::Scalar>(msg["offset"]);
-        //    x.m_kOffset.Import(offset);
-        //    x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
-        //}
-        //
-        //static Status::Type GetStatus(const json& msg)
-        //{
-        //    return msg["status"];
-        //}
+        Status::Type InvokeSync(Method::get_Kdf& m) override;
+        void InvokeAsync(Method::get_Kdf& m, const Handler::Ptr& h) override;
+        void InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h) override;
+        //Status::Type InvokeSync(Method::CreateOutput& m) override;
+        void InvokeAsync(Method::CreateOutput& m, const Handler::Ptr& h) override;
+        void InvokeAsync(Method::SignReceiver& m, const Handler::Ptr& h) override;
+        void InvokeAsync(Method::SignSender& m, const Handler::Ptr& h) override;
+        void InvokeAsync(Method::SignSplit& m, const Handler::Ptr& h) override;
 
         void PushHandlerToCallerThread(MessageHandler&& h);
         void ProcessResponses();

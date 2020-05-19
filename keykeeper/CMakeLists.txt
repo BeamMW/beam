@@ -16,7 +16,7 @@ target_sources(keykeeper
 )
 
 if(EMSCRIPTEN)
-
+    target_compile_definitions(keykeeper PUBLIC EMSCRIPTEN)
     target_link_libraries(keykeeper PRIVATE secp256k1)
     target_include_directories(keykeeper PUBLIC 
         "${PROJECT_SOURCE_DIR}/.." 

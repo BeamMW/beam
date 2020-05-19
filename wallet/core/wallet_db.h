@@ -35,6 +35,7 @@
 #include "variables_db.h"
 #include "wallet/client/extensions/notifications/notification.h"
 #include "wallet/client/extensions/news_channels/interface.h"
+#include "wallet/core/assets_utils.h"
 
 #include <string>
 
@@ -139,17 +140,6 @@ namespace beam::wallet
         static constexpr uint64_t AddressExpiration1h    = 60 * 60;
     };
 
-    class WalletAsset: public Asset::Full
-    {
-    public:
-        WalletAsset() = default;
-        WalletAsset(const Asset::Full& full, Height refreshHeight);
-        bool CanRollback(Height from) const;
-
-        Height  m_RefreshHeight = 0;
-        int32_t m_IsOwned = 0;
-    };
-
     class ILaserChannelEntity
     {
     public:
@@ -238,12 +228,10 @@ namespace beam::wallet
             return m_confirmHeight != MaxHeight && !m_spentTxId;
         }
 
-        ECC::Scalar m_skSerialG;
-
+        ShieldedTxo::BaseKey m_Key;
         ShieldedTxo::User m_User;
 
         TxoID m_ID = kTxoInvalidID;
-        bool m_isCreatedByViewer = false;
         Asset::ID m_assetID = 0;
 
         Amount m_value = 0;
@@ -411,10 +399,10 @@ namespace beam::wallet
         virtual void rollbackAssets(Height minHeight) = 0;
 
         // Shielded coins
-        virtual std::vector<ShieldedCoin> getShieldedCoins() const = 0;
+        virtual std::vector<ShieldedCoin> getShieldedCoins(Asset::ID assetId) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const = 0;
-        virtual boost::optional<ShieldedCoin> getShieldedCoin(const ECC::Scalar& skSerial) const = 0;
+        virtual boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const = 0;
         virtual void saveShieldedCoin(const ShieldedCoin& shieldedCoin) = 0;
 
         // Rollback shielded UTXO set to known height (used in rollback scenario)
@@ -553,10 +541,10 @@ namespace beam::wallet
         void rollbackConfirmedUtxo(Height minHeight) override;
         void rollbackAssets(Height minHeight) override;
 
-        std::vector<ShieldedCoin> getShieldedCoins() const override;
+        std::vector<ShieldedCoin> getShieldedCoins(Asset::ID assetId) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const override;
-        boost::optional<ShieldedCoin> getShieldedCoin(const ECC::Scalar& skSerial) const override;
+        boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const override;
         void saveShieldedCoin(const ShieldedCoin& shieldedCoin) override;
         void rollbackConfirmedShieldedUtxo(Height minHeight) override;
 
@@ -784,6 +772,7 @@ namespace beam::wallet
                 AmountBig::Type AvailFee = 0U;
                 AmountBig::Type Fee = 0U;
                 AmountBig::Type Unspent = 0U;
+                AmountBig::Type Shielded = 0U;
                 Height MinCoinHeight = 0;
             };
 

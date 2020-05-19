@@ -104,7 +104,7 @@ namespace beam::wallet
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
         using UpdateCompletedAction = std::function<void()>;
 
-        Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
+        Wallet(IWalletDB::Ptr walletDB, bool withAssets, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
         virtual ~Wallet();
         void CleanupNetwork();
 
@@ -125,9 +125,15 @@ namespace beam::wallet
         void ResumeAllTransactions();
 
         bool IsWalletInSync() const;
+        bool IsWithAssets() const;
 
         // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
         size_t GetUnsafeActiveTransactionsCount() const;
+
+        // voucher management
+        void RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount = 1);
+        virtual void OnVouchersFrom(const WalletAddress&, std::vector<ShieldedTxo::Voucher>&&);
+
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
     private:
@@ -196,6 +202,9 @@ namespace beam::wallet
         void MakeTransactionActive(BaseTransaction::Ptr tx);
         void ProcessStoredMessages();
         bool IsNodeInSync() const;
+
+        void SendSpecialMsg(const WalletID& peerID, SetTxParameter&);
+        void OnSpecialMsg(const WalletID& myID, const SetTxParameter&);
 
     private:
 
@@ -328,7 +337,6 @@ namespace beam::wallet
 
         // Number of tasks running during sync with Node
         uint32_t m_LastSyncTotal;
-
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
@@ -337,5 +345,8 @@ namespace beam::wallet
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;
         bool m_StoredMessagesProcessed = false; // this should happen only once, but not in destructor;
+
+        // Confidential assets enable/disable flag
+        bool m_withAssets;
     };
 }

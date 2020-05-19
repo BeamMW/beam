@@ -17,8 +17,9 @@
 
 namespace beam::wallet::lelantus
 {
-    BaseLelantusTxBuilder::BaseLelantusTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee)
+    BaseLelantusTxBuilder::BaseLelantusTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets)
         : BaseTxBuilder(tx, kDefaultSubTxID, amount, fee)
+        , m_withAssets(withAssets)
     {
     }
 
@@ -33,6 +34,20 @@ namespace beam::wallet::lelantus
             m_Tx.SetParameter(TxParameterID::MaxHeight, maxHeight);
         }
 
+        const bool isAsset = GetAssetId() != Asset::s_InvalidID;
+        if (isAsset)
+        {
+            if (!Rules::get().CA.Enabled)
+            {
+                throw TransactionFailedException(true, TxFailureReason::AssetsDisabledFork2);
+            }
+
+            if (!m_withAssets)
+            {
+                throw TransactionFailedException(true, TxFailureReason::AssetsDisabled);
+            }
+        }
+
         return result;
     }
    
@@ -43,15 +58,14 @@ namespace beam::wallet::lelantus
 
     void BaseLelantusTxBuilder::Restore(ShieldedTxo::DataParams& sdp, const ShieldedCoin& sc, const ShieldedTxo::Viewer& viewer)
     {
-        sdp.m_Serial.m_pK[0] = sc.m_skSerialG;
-        sdp.m_Serial.m_IsCreatedByViewer = sc.m_isCreatedByViewer;
-        sdp.m_Serial.Restore(viewer);
+        sdp.m_Ticket.m_pK[0] = sc.m_Key.m_kSerG;
+        sdp.m_Ticket.m_IsCreatedByViewer = sc.m_Key.m_IsCreatedByViewer;
+        sdp.m_Ticket.Restore(viewer);
 
         sdp.m_Output.m_Value = sc.m_value;
         sdp.m_Output.m_AssetID = sc.m_assetID;
         sdp.m_Output.m_User = sc.m_User;
 
-        sdp.m_Output.Restore_kG(sdp.m_Serial.m_SharedSecret);
+        sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
     }
-
 } // namespace beam::wallet::lelantus

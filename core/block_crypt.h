@@ -110,6 +110,7 @@ namespace beam
 		typedef uint32_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
 		static const ID s_MaxCount  = uint32_t(1) << 30; // 1 billion. Of course practically it'll be very much smaller
 		static const ID s_InvalidID = 0;
+		static const ID s_BeamID    = 0;
 		static const PeerID s_InvalidOwnerID;
 
 		struct Base
@@ -419,6 +420,7 @@ namespace beam
 		struct Internal
 		{
 			Height m_Maturity = 0; // of the consumed (being-spent) UTXO
+			Height m_CreateHeight = 0;
 			TxoID m_ID = 0;
 		} m_Internal;
 
@@ -530,7 +532,7 @@ namespace beam
 
 	struct ShieldedTxo
 	{
-		struct Serial
+		struct Ticket
 		{
 			ECC::Point m_SerialPub; // blinded
 			ECC::SignatureGeneralized<2> m_Signature;
@@ -565,7 +567,7 @@ namespace beam
 		ECC::Point m_Commitment;
 		ECC::RangeProof::Confidential m_RangeProof;
 		Asset::Proof::Ptr m_pAsset;
-		Serial m_Serial;
+		Ticket m_Ticket;
 
 		void Prepare(ECC::Oracle&) const;
 		bool IsValid(ECC::Oracle&, ECC::Point::Native& comm, ECC::Point::Native& ser) const;
@@ -576,6 +578,22 @@ namespace beam
 		struct Viewer;
 		struct Data;
 		struct DataParams; // just a fwd-declaration of Data::Params
+
+		struct BaseKey
+		{
+			Key::Index m_nIdx;
+			bool m_IsCreatedByViewer;
+			ECC::Scalar m_kSerG;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_nIdx
+					& m_IsCreatedByViewer
+					& m_kSerG;
+			}
+		};
 
 		struct User
 		{
@@ -589,6 +607,18 @@ namespace beam
 					& m_Sender
 					& m_pMessage;
 			}
+		};
+
+		struct Voucher
+		{
+			// single-usage
+			Ticket m_Ticket;
+			ECC::Hash::Value m_SharedSecret;
+			ECC::Signature m_Signature;
+
+			void get_Hash(ECC::Hash::Value&) const;
+			bool IsValid(const PeerID&) const;
+			bool IsValid(const ECC::Point::Native&) const;
 		};
 	};
 
