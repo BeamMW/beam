@@ -290,6 +290,16 @@ namespace beam::wallet
     void BaseTransaction::ConfirmKernel(const Merkle::Hash& kernelID)
     {
         UpdateTxDescription(TxStatus::Registering);
+        Height lastUnconfirmedHeight = 0;
+        if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
+        {
+            Block::SystemState::Full state;
+            if (!GetTip(state) || state.m_Height == lastUnconfirmedHeight)
+            {
+                UpdateOnNextTip();
+                return;
+            }
+        }
         GetGateway().confirm_kernel(GetTxID(), kernelID);
     }
 

@@ -459,7 +459,7 @@ namespace beam::wallet
     void Wallet::get_shielded_list(const TxID& txId, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback)
     {
         MyRequestShieldedList::Ptr pVal(new MyRequestShieldedList);
-        pVal->m_callback = callback;
+        pVal->m_callback = std::move(callback);
         pVal->m_TxID = txId;
 
         pVal->m_Msg.m_Id0 = startIndex;
@@ -474,7 +474,7 @@ namespace beam::wallet
     void Wallet::get_proof_shielded_output(const TxID& txId, ECC::Point serialPublic, ProofShildedOutputCallback&& callback)
     {
         MyRequestProofShieldedOutp::Ptr pVal(new MyRequestProofShieldedOutp);
-        pVal->m_callback = callback;
+        pVal->m_callback = std::move(callback);
         pVal->m_TxID = txId;
 
         pVal->m_Msg.m_SerialPub = serialPublic;
@@ -720,7 +720,7 @@ namespace beam::wallet
             Block::SystemState::Full sTip;
             get_tip(sTip);
             tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
-            UpdateOnNextTip(tx);
+            UpdateTransaction(tx);
         }
     }
 
