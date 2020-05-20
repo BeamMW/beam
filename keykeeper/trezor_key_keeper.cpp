@@ -455,15 +455,28 @@ namespace beam::wallet
         pt0 = Ecc2BC(m_pRes->m_pConfidential->m_Part2.m_T1);
         pt1 = Ecc2BC(m_pRes->m_pConfidential->m_Part2.m_T2);
 
-        auto sharedCtx = std::make_shared<Ptr>(std::move(p)); 
+        // hack, to capture the std::unique_ptr.
+        // Similar to deprecated auto_ptr
+
+        struct AutoMovePtr
+        {
+            mutable Ptr m_p;
+            AutoMovePtr(Ptr&& p) :m_p(std::move(p)) {}
+            AutoMovePtr(const AutoMovePtr& x)
+            {
+                m_p.swap(x.m_p);
+            }
+        };
+
+        AutoMovePtr amp(std::move(p));
         m_This.m_DeviceManager->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, nullptr, nullptr, 
-            [this, sharedCtx](const Message& msg, std::string session, size_t queue_size)
+            [this, amp](const Message& msg, std::string session, size_t queue_size)
         {
             const BeamRangeproofData& brpd = child_cast<Message, BeamRangeproofData>(msg);
 
             if (!brpd.is_successful())
             {
-                Push(*sharedCtx, Status::Unspecified);
+                Push(amp.m_p, Status::Unspecified);
                 return;
             }
 
@@ -478,7 +491,7 @@ namespace beam::wallet
             TxExport(bccp, brpd.pt1());
             Ecc2BC(m_pRes->m_pConfidential->m_Part2.m_T2) = bccp;
 
-            Push(*sharedCtx, Status::Success); // final stage is deferred
+            Push(amp.m_p, Status::Success); // final stage is deferred
         });
     }
 
