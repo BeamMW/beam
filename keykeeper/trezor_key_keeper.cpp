@@ -321,13 +321,15 @@ namespace beam::wallet
 
         TrezorKeyKeeperProxy& m_This;
 
-        Method::CreateOutput m_Method;
+        Method::CreateOutput& m_Method;
 
         Key::IPKdf::Ptr m_pOwner;
         Key::IPKdf::Ptr m_pChild;
         Output::Ptr m_pRes;
 
-        CreateOutputCtx(TrezorKeyKeeperProxy& x) :m_This(x) {}
+        CreateOutputCtx(TrezorKeyKeeperProxy& x, Method::CreateOutput& m) 
+            : m_This(x)
+            , m_Method(m){}
         virtual ~CreateOutputCtx() {}
 
         void Proceed1(Ptr&);
@@ -453,29 +455,15 @@ namespace beam::wallet
         pt0 = Ecc2BC(m_pRes->m_pConfidential->m_Part2.m_T1);
         pt1 = Ecc2BC(m_pRes->m_pConfidential->m_Part2.m_T2);
 
-        // hack, to capture the std::unique_ptr.
-        // Similar to deprecated auto_ptr
-
-        struct AutoMovePtr
-        {
-            mutable Ptr m_p;
-            AutoMovePtr(Ptr&& p) :m_p(std::move(p)) {}
-            AutoMovePtr(const AutoMovePtr& x)
-            {
-                m_p.swap(x.m_p);
-            }
-        };
-
-        AutoMovePtr amp(std::move(p));
-
+        auto sharedCtx = std::make_shared<Ptr>(std::move(p)); 
         m_This.m_DeviceManager->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, nullptr, nullptr, 
-            [this, amp](const Message& msg, std::string session, size_t queue_size)
+            [this, sharedCtx](const Message& msg, std::string session, size_t queue_size)
         {
             const BeamRangeproofData& brpd = child_cast<Message, BeamRangeproofData>(msg);
 
             if (!brpd.is_successful())
             {
-                Push(amp.m_p, Status::Unspecified);
+                Push(*sharedCtx, Status::Unspecified);
                 return;
             }
 
@@ -490,7 +478,7 @@ namespace beam::wallet
             TxExport(bccp, brpd.pt1());
             Ecc2BC(m_pRes->m_pConfidential->m_Part2.m_T2) = bccp;
 
-            Push(amp.m_p, Status::Success); // final stage is deferred
+            Push(*sharedCtx, Status::Success); // final stage is deferred
         });
     }
 
@@ -513,9 +501,8 @@ namespace beam::wallet
         if (m.m_hScheme < Rules::get().pForks[1].m_Height)
             return PushOut(Status::NotImplemented, h);
         
-        CreateOutputCtx::Ptr pCtx = std::make_unique<CreateOutputCtx>(*this);
-        pCtx->m_Method = std::move(m);
-        pCtx->m_pHandler = std::move(h);
+        CreateOutputCtx::Ptr pCtx = std::make_unique<CreateOutputCtx>(*this, m);
+        pCtx->m_pHandler = h;
 
         pCtx->Proceed1(pCtx);
     }
