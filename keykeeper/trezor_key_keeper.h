@@ -19,6 +19,8 @@
 #include <queue>
 #include <functional>
 #include <mutex>
+#include <boost/intrusive/list.hpp>
+#include <boost/intrusive/set.hpp>
 
 class DeviceManager;
 
@@ -33,9 +35,9 @@ namespace beam::wallet
         virtual ~TrezorKeyKeeperProxy() = default;
     private:
         Status::Type InvokeSync(Method::get_Kdf& m) override;
+        Status::Type InvokeSync(Method::get_NumSlots& m) override;
         void InvokeAsync(Method::get_Kdf& m, const Handler::Ptr& h) override;
         void InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h) override;
-        //Status::Type InvokeSync(Method::CreateOutput& m) override;
         void InvokeAsync(Method::CreateOutput& m, const Handler::Ptr& h) override;
         void InvokeAsync(Method::SignReceiver& m, const Handler::Ptr& h) override;
         void InvokeAsync(Method::SignSender& m, const Handler::Ptr& h) override;
@@ -43,6 +45,42 @@ namespace beam::wallet
 
     private:
         std::shared_ptr<DeviceManager> m_DeviceManager;
-        Key::IPKdf::Ptr m_OwnerKdf;
+
+        struct Cache
+        {
+            std::mutex m_Mutex;
+
+            Key::IPKdf::Ptr m_pOwner;
+
+            struct ChildPKdf
+		        :public boost::intrusive::set_base_hook<>
+		        ,public boost::intrusive::list_base_hook<>
+            {
+                Key::Index m_iChild;
+                Key::IPKdf::Ptr m_pRes;
+                bool operator < (const ChildPKdf& v) const { return (m_iChild < v.m_iChild); }
+            };
+
+            typedef boost::intrusive::list<ChildPKdf> ChildPKdfList;
+            typedef boost::intrusive::multiset<ChildPKdf> ChildPKdfSet;
+
+            ChildPKdfList m_mruPKdfs;
+            ChildPKdfSet m_setPKdfs;
+
+            uint32_t m_Slots = 0;
+
+            ~Cache() { ShrinkMru(0); }
+
+            void ShrinkMru(uint32_t);
+
+            bool FindPKdf(Key::IPKdf::Ptr&, const Key::Index* pChild);
+            void AddPKdf(const Key::IPKdf::Ptr&, const Key::Index* pChild);
+
+        private:
+            void AddMru(ChildPKdf&);
+        };
+
+        Cache m_Cache;
+
     };
 }

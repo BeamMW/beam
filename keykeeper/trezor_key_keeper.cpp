@@ -153,6 +153,79 @@ namespace beam::wallet
         }
     }
 
+    void TrezorKeyKeeperProxy::Cache::ShrinkMru(uint32_t nCount)
+    {
+        while (m_mruPKdfs.size() > nCount)
+        {
+            ChildPKdf& x = m_mruPKdfs.back();
+            m_mruPKdfs.pop_back();
+
+            m_setPKdfs.erase(ChildPKdfSet::s_iterator_to(x));
+            delete &x;
+        }
+    }
+
+    void TrezorKeyKeeperProxy::Cache::AddMru(ChildPKdf& x)
+    {
+        m_mruPKdfs.push_front(x);
+    }
+
+    bool TrezorKeyKeeperProxy::Cache::FindPKdf(Key::IPKdf::Ptr& pRes, const Key::Index* pChild)
+    {
+        pRes.reset(); // for more safety
+
+        std::unique_lock<std::mutex> scope(m_Mutex);
+
+        if (pChild)
+        {
+            ChildPKdf key;
+            key.m_iChild = *pChild;
+
+            ChildPKdfSet::iterator it = m_setPKdfs.find(key);
+            if (m_setPKdfs.end() != it)
+            {
+                ChildPKdf& x = *it;
+                m_mruPKdfs.erase(ChildPKdfList::s_iterator_to(x));
+                AddMru(x);
+                pRes = x.m_pRes;
+            }
+        }
+        else
+        {
+            pRes = m_pOwner;
+        }
+
+        return pRes != nullptr;
+    }
+
+    void TrezorKeyKeeperProxy::Cache::AddPKdf(const Key::IPKdf::Ptr& pRes, const Key::Index* pChild)
+    {
+        std::unique_lock<std::mutex> scope(m_Mutex);
+
+        if (pChild)
+        {
+            std::unique_ptr<ChildPKdf> pItem = std::make_unique<ChildPKdf>();
+            pItem->m_iChild = *pChild;
+
+            ChildPKdfSet::iterator it = m_setPKdfs.find(*pItem);
+            if (m_setPKdfs.end() == it)
+            {
+                pItem->m_pRes = pRes;
+
+                m_setPKdfs.insert(*pItem);
+                AddMru(*pItem);
+                pItem.release();
+
+                ShrinkMru(1000); // don't let it grow indefinitely
+            }
+        }
+        else
+        {
+            if (!m_pOwner)
+                m_pOwner = pRes;
+        }
+    }
+
     TrezorKeyKeeperProxy::TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager)
         : m_DeviceManager(deviceManager)
     {
@@ -161,11 +234,9 @@ namespace beam::wallet
 
     IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::get_Kdf& m)
     {
-        if (m_OwnerKdf && m.m_Root)
-        {
-            m.m_pPKdf = m_OwnerKdf;
+        if (m_Cache.FindPKdf(m.m_pPKdf, m.m_Root ? nullptr : &m.m_iChild))
             return Status::Success;
-        }
+
         return PrivateKeyKeeper_WithMarshaller::InvokeSync(m);
     }
 
@@ -195,8 +266,7 @@ namespace beam::wallet
             auto pubKdf = std::make_shared<ECC::HKdfPub>();
             if (pubKdf->Import(packed))
             {
-                if (m.m_Root)
-                    m_OwnerKdf = pubKdf; // cache owner kdf
+                m_Cache.AddPKdf(pubKdf, m.m_Root ? nullptr : &m.m_iChild);
 
                 m.m_pPKdf = std::move(pubKdf);
                 PushOut(Status::Success, h);
@@ -208,12 +278,39 @@ namespace beam::wallet
         });
     }
 
+    IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::get_NumSlots& m)
+    {
+        {
+            std::unique_lock<std::mutex> scope(m_Cache.m_Mutex);
+            if (m_Cache.m_Slots)
+            {
+                m.m_Count = m_Cache.m_Slots;
+                return Status::Success;
+            }
+        }
+
+        return PrivateKeyKeeper_WithMarshaller::InvokeSync(m);
+    }
+
     void TrezorKeyKeeperProxy::InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h)
     {
         m_DeviceManager->call_BeamGetNumSlots(true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
             m.m_Count = child_cast<Message, BeamNumSlots>(msg).num_slots();
-            PushOut(Status::Success, h);
+
+            if (m.m_Count)
+            {
+                {
+                    std::unique_lock<std::mutex> scope(m_Cache.m_Mutex);
+                    m_Cache.m_Slots = m.m_Count;
+                }
+
+                PushOut(Status::Success, h);
+            }
+            else
+            {
+                PushOut(Status::Unspecified, h);
+            }
         });
     }
 
@@ -222,9 +319,15 @@ namespace beam::wallet
         if (m.m_hScheme < Rules::get().pForks[1].m_Height)
             return PushOut(Status::NotImplemented, h);
         
-        if (!m_OwnerKdf)
-            return PushOut(Status::Unspecified, h);
-        
+        Method::get_Kdf mOwner;
+        mOwner.m_iChild = 0;
+        mOwner.m_Root = true;
+        Status::Type s = InvokeSync(mOwner);
+        if (Status::Success != s)
+            return PushOut(s, h);
+
+        Key::IPKdf::Ptr pOwner = mOwner.m_pPKdf;
+
         Output::Ptr pOutp = std::make_unique<Output>();
         
         ECC::Point::Native comm;
@@ -235,7 +338,7 @@ namespace beam::wallet
         ECC::Scalar::Native skDummy;
         ECC::HKdf kdfDummy;
         
-        pOutp->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_1);
+        pOutp->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *pOwner, Output::OpCode::Mpc_1);
         assert(pOutp->m_pConfidential);
 
         BeamCrypto_CoinID cid;
@@ -246,7 +349,7 @@ namespace beam::wallet
         pt1 = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2);
         auto copyableOutput = std::make_shared<Output::Ptr>(std::move(pOutp));
         m_DeviceManager->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, nullptr, nullptr, 
-            [this, &m, h, copyableOutput](const Message& msg, std::string session, size_t queue_size)
+            [this, &m, h, copyableOutput, pOwner](const Message& msg, std::string session, size_t queue_size)
         {
             bool isSuccessful = child_cast<Message, BeamRangeproofData>(msg).is_successful();
             if (!isSuccessful)
@@ -276,7 +379,7 @@ namespace beam::wallet
             
             ECC::Scalar::Native skDummy;
             ECC::HKdf kdfDummy;
-            output->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_2); // Phase 3
+            output->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *pOwner, Output::OpCode::Mpc_2); // Phase 3
             
             m.m_pResult.swap(output);
             
