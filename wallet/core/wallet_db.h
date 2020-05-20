@@ -363,6 +363,7 @@ namespace beam::wallet
         // Selection logic will optimize for number of UTXOs and minimize change
         // Uses greedy algorithm up to a point and follows by some heuristics
         virtual std::vector<Coin> selectCoins(Amount amount, Asset::ID) = 0;
+        virtual std::vector<Coin> selectUnlinkedCoins(Amount amount, Asset::ID) = 0;
 
         // Some getters to get lists of coins by some input parameters
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const = 0;
@@ -516,6 +517,8 @@ namespace beam::wallet
 
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
+        std::vector<Coin> selectUnlinkedCoins(Amount amount, Asset::ID) override;
+        std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool unlinked);
 
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) const override;

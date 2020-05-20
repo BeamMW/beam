@@ -449,12 +449,20 @@ namespace beam
             visible_swap_options.add(opt);
         }
 
+        po::options_description wallet_assets_commands("Confidential assets commands");
+        wallet_assets_commands.add_options()
+            (cli::ASSET_REGISTER,   "register new asset on chain")
+            (cli::ASSET_UNREGISTER, "unregister asset from chain")
+            (cli::ASSET_ISSUE,      "issue asset coins")
+            (cli::ASSET_CONSUME,    "consume (burn) asset coins")
+            (cli::ASSET_INFO,       "receive asset information from node");
+
         po::options_description wallet_assets_options("Confidential assets options");
         wallet_assets_options.add_options()
-            (cli::ASSET_ID,       po::value<Positive<uint32_t>>(), "asset id")
-            (cli::ASSET_METADATA, po::value<string>(),             "asset metadata")
-            (cli::ASSETS,         "display assets history in info command")
-            (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions");
+            (cli::ASSET_ID,         po::value<Positive<uint32_t>>(), "asset id")
+            (cli::ASSET_METADATA,   po::value<string>(), "asset metadata")
+            (cli::ASSETS,           "display assets in info command")
+            (cli::WITH_ASSETS,      po::bool_switch()->default_value(false), "enable confidential assets transactions");
 
 #ifdef BEAM_LASER_SUPPORT
         po::options_description laser_commands("Laser commands");
@@ -477,47 +485,58 @@ namespace beam
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 #endif  // BEAM_LASER_SUPPORT
 
-        po::options_description lelantus_options("Lelantus options");
-        po::options_description visible_lelantus_options(lelantus_options);
-        visible_lelantus_options.add_options()
+        po::options_description lelantus_commands("Lelantus commands");
+        lelantus_commands.add_options()
             (cli::INSERT_TO_POOL, "insert utxos to shielded pool")
             (cli::EXTRACT_FROM_POOL, "extract shielded utxo from shielded pool");
 
+        po::options_description lelantus_options("Lelantus options");
         lelantus_options.add_options()
             (cli::SHIELDED_UTXOS, "show shielded utxo in pool")
             (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded utxo id")
             (cli::WINDOW_BEGIN, po::value<Nonnegative<TxoID>>(), "window begin")
             (cli::SHIELDED_TX_HISTORY, "show lelantus tx history");
 
-        for (auto opt : lelantus_options.options())
-        {
-            visible_lelantus_options.add(opt);
-        }
-
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
+
         if (flags & GENERAL_OPTIONS)
         {
             options.add(general_options);
             visible_options.add(general_options);
         }
+
         if (flags & NODE_OPTIONS)
         {
             options.add(node_options);
             options.add(node_treasury_options);
             visible_options.add(node_options);
         }
+
         if (flags & WALLET_OPTIONS)
         {
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
+            options.add(lelantus_commands);
             options.add(lelantus_options);
-            if(Rules::get().CA.Enabled) options.add(wallet_assets_options);
+
+            if(Rules::get().CA.Enabled)
+            {
+                options.add(wallet_assets_commands);
+                options.add(wallet_assets_options);
+            }
+
             visible_options.add(wallet_options);
             visible_options.add(visible_swap_options);
-            visible_options.add(visible_lelantus_options);
-            if(Rules::get().CA.Enabled) visible_options.add(wallet_assets_options);
+            visible_options.add(lelantus_commands);
+            visible_options.add(lelantus_options);
+
+            if(Rules::get().CA.Enabled)
+            {
+                visible_options.add(wallet_assets_commands);
+                visible_options.add(wallet_assets_options);
+            }
 
 #ifdef BEAM_LASER_SUPPORT
             options.add(laser_commands);
@@ -526,6 +545,7 @@ namespace beam
             visible_options.add(laser_options);
 #endif  // BEAM_LASER_SUPPORT
         }
+
         if (flags & UI_OPTIONS)
         {
             options.add(uioptions);

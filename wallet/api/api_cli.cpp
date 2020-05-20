@@ -198,7 +198,7 @@ class WalletApiServer
 {
 public:
     WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, io::Reactor& reactor, 
-        io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
+        io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist, bool withAssets)
         : _reactor(reactor)
         , _bindAddress(listenTo)
         , _useHttp(useHttp)
@@ -207,6 +207,7 @@ public:
         , _wallet(wallet)
         , _acl(acl)
         , _whitelist(whitelist)
+        , _withAssets(withAssets)
     {
         start();
     }
@@ -414,11 +415,12 @@ private:
             _walletData = std::make_unique<WalletData>(_walletDB, _wallet, *this);
         }
 
-    return std::static_pointer_cast<WalletApiHandler>(
-        std::make_shared<T>(*this
-                            , std::move(newStream)
-                            , *_walletData
-                            , _acl));
+        return std::static_pointer_cast<WalletApiHandler>(
+            std::make_shared<T>(*this
+                                , std::move(newStream)
+                                , *_walletData
+                                , _acl
+                                , _withAssets));
     }
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -456,9 +458,11 @@ private:
                     , io::TcpStream::Ptr&& newStream
                     , IWalletData& walletData
                     , WalletApi::ACL acl
+                    , bool withAssets
         )
         : WalletApiHandler(walletData
-                      , acl )
+                      , acl
+                      , withAssets)
         , _server(server)
         , _stream(std::move(newStream))
         , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -519,10 +523,12 @@ private:
                         , io::TcpStream::Ptr&& newStream
                         , IWalletData& walletData
                         , WalletApi::ACL acl
+                        , bool withAssets
             )
             : WalletApiHandler(
                   walletData
-                , acl)
+                , acl
+                , withAssets)
             , _server(server)
             , _keepalive(false)
             , _msgCreator(2000)
@@ -642,6 +648,7 @@ private:
     std::vector<uint64_t> _pendingToClose;
     WalletApi::ACL _acl;
     std::vector<uint32_t> _whitelist;
+    bool _withAssets;
 };
 }  // namespace
 
@@ -847,7 +854,7 @@ int main(int argc, char* argv[])
         wallet.SetNodeEndpoint(nnet);
 
         WalletApiServer server(walletDB, wallet, *reactor, 
-            listenTo, options.useHttp, acl, tlsOptions, whitelist);
+            listenTo, options.useHttp, acl, tlsOptions, whitelist, withAssets);
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
         RegisterSwapTxCreators(wallet, walletDB);

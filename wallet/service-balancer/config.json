@@ -1,9 +1,9 @@
 {
   "BeamNodeAddress":        "eu-node01.masternet.beam.mw:8100",
-  "WalletServicePath":      "/home/op/projects/beam-assets/cmake-build-debug/wallet/service/wallet-service-masternet",
+  "WalletServicePath":      "/home/op/projects/beam/cmake-build-debug/wallet/service/wallet-service-masternet",
   "WalletServiceFirstPort": 30000,
   "WalletServiceLastPort":  30100,
-  "BbsMonitorPath":         "/home/op/projects/beam-assets/cmake-build-debug/wallet/service/sbbs-monitor-masternet",
+  "BbsMonitorPath":         "/home/op/projects/beam/cmake-build-debug/wallet/service/sbbs-monitor-masternet",
   "BbsMonitorFirstPort":    32000,
   "BbsMonitorLastPort":     32100,
   "SerivcePublicAddress":   "127.0.0.1",

@@ -87,7 +87,6 @@ namespace beam::wallet
         , m_UpdateCompleted{ move(updateCompleted) }
         , m_LastSyncTotal(0)
         , m_OwnedNodesOnline(0)
-        , m_withAssets(withAssets)
     {
         assert(walletDB);
         // the only default type of transaction
@@ -235,11 +234,6 @@ namespace beam::wallet
         return IsValidTimeStamp(state.m_TimeStamp);
     }
 
-    bool Wallet::IsWithAssets() const
-    {
-        return m_withAssets;
-    }
-
     size_t Wallet::GetUnsafeActiveTransactionsCount() const
     {
         return std::count_if(m_ActiveTransactions.begin(), m_ActiveTransactions.end(), [](const auto& p)
@@ -378,6 +372,18 @@ namespace beam::wallet
     {
         if (auto it = m_ActiveTransactions.find(txID); it != m_ActiveTransactions.end())
         {
+            // check if we have already asked for kernel on given height
+            Height lastUnconfirmedHeight = 0;
+            if (it->second->GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight, subTxID) && lastUnconfirmedHeight > 0)
+            {
+                Block::SystemState::Full state;
+                if (!get_tip(state) || state.m_Height == lastUnconfirmedHeight)
+                {
+                    UpdateOnNextTip(it->second);
+                    return;
+                }
+            }
+
             MyRequestKernel::Ptr pVal(new MyRequestKernel);
             pVal->m_TxID = txID;
             pVal->m_SubTxID = subTxID;
@@ -459,7 +465,7 @@ namespace beam::wallet
     void Wallet::get_shielded_list(const TxID& txId, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback)
     {
         MyRequestShieldedList::Ptr pVal(new MyRequestShieldedList);
-        pVal->m_callback = callback;
+        pVal->m_callback = std::move(callback);
         pVal->m_TxID = txId;
 
         pVal->m_Msg.m_Id0 = startIndex;
@@ -474,7 +480,7 @@ namespace beam::wallet
     void Wallet::get_proof_shielded_output(const TxID& txId, ECC::Point serialPublic, ProofShildedOutputCallback&& callback)
     {
         MyRequestProofShieldedOutp::Ptr pVal(new MyRequestProofShieldedOutp);
-        pVal->m_callback = callback;
+        pVal->m_callback = std::move(callback);
         pVal->m_TxID = txId;
 
         pVal->m_Msg.m_SerialPub = serialPublic;
@@ -720,7 +726,7 @@ namespace beam::wallet
             Block::SystemState::Full sTip;
             get_tip(sTip);
             tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
-            UpdateOnNextTip(tx);
+            UpdateTransaction(tx);
         }
     }
 

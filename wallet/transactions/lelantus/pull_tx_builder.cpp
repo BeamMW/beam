@@ -59,21 +59,34 @@ namespace beam::wallet::lelantus
     {
         Key::IKdf::Ptr pMaster = m_Tx.get_MasterKdfStrict();
 
-        TxoID shieldedId = m_Tx.GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
-        TxoID startIndex = m_Tx.GetMandatoryParameter<TxoID>(TxParameterID::WindowBegin);
+        auto shieldedId = m_Tx.GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
+        auto startIndex = m_Tx.GetMandatoryParameter<TxoID>(TxParameterID::WindowBegin);
 
         // create transaction
         auto transaction = std::make_shared<Transaction>();
         transaction->m_vOutputs = move(m_Outputs);
+        if (IsAssetTx())
+        {
+            transaction->m_vInputs = m_Tx.GetMandatoryParameter<std::vector<Input::Ptr>>(TxParameterID::Inputs);
+        }
 
+        ECC::Point::Native hGen;
         {
             ECC::Scalar::Native offset = Zero;
+
+            for (auto id : GetInputCoins())
+            {
+                ECC::Scalar::Native inputSk;
+                CoinID::Worker(id).Create(inputSk, *id.get_ChildKdf(pMaster));
+                offset += inputSk;
+            }
 
             for (const auto& id : m_OutputCoins)
             {
                 ECC::Scalar::Native outputSk;
                 CoinID::Worker(id).Create(outputSk, *id.get_ChildKdf(pMaster));
                 offset -= outputSk;
+                hGen = CoinID::Worker(id).m_hGen;
             }
 
             transaction->m_Offset = offset;
@@ -160,13 +173,11 @@ namespace beam::wallet::lelantus
                 prover.m_Witness.V.m_L = shieldedWindowId;
                 prover.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0];
                 prover.m_Witness.V.m_R += sdp.m_Output.m_k;
-                prover.m_Witness.V.m_V = GetAmount() + GetFee();
+                prover.m_Witness.V.m_V = IsAssetTx() ? GetAmount() : GetAmount() + GetFee();
             }
 
-            pKrn->Sign(prover, 0);
-
+            pKrn->Sign(prover, GetAssetId());
             m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
-
 
             LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
                 << " Transaction created. Kernel: " << GetKernelIDString()
@@ -179,20 +190,18 @@ namespace beam::wallet::lelantus
                 << ", total shielded outs: " << m_totalShieldedOuts;
 
             transaction->m_vKernels.push_back(std::move(pKrn));
-
             ECC::Scalar::Native offset = transaction->m_Offset;
             offset += prover.m_Witness.V.m_R_Output;
             transaction->m_Offset = offset;
         }
 
         transaction->Normalize();
-
         return transaction;
     }
 
-    void PullTxBuilder::GenerateUnlinkedBeamCoin(Amount amount)
+    void PullTxBuilder::GenerateUnlinkedCoin(Amount amount)
     {
-        Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount, Zero);
+        Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount, GetAssetId());
 
         newUtxo.m_createTxId = m_Tx.GetTxID();
         newUtxo.m_isUnlinked = true;

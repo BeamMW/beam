@@ -820,7 +820,14 @@ namespace beam::wallet
         if (!pKdf || count == 0)
             return res;
 
-        res.reserve(std::min(count, size_t(30)));
+        const size_t MAX_VOUCHERS = 20;
+
+        if (MAX_VOUCHERS < count)
+        {
+            LOG_WARNING() << "You are trying to generate more than " << MAX_VOUCHERS << ". The list of vouchers will be truncated.";
+        }
+
+        res.reserve(std::min(count, MAX_VOUCHERS));
 
         ECC::Scalar::Native sk;
         pKdf->DeriveKey(sk, Key::ID(ownID, Key::Type::WalletID));

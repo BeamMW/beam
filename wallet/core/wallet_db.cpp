@@ -2186,12 +2186,25 @@ namespace beam::wallet
 
     vector<Coin> WalletDB::selectCoins(Amount amount, Asset::ID assetId)
     {
+        return selectCoinsEx(amount, assetId, false);
+    }
+
+    vector<Coin> WalletDB::selectUnlinkedCoins(Amount amount, Asset::ID assetId)
+    {
+        return selectCoinsEx(amount, assetId, true);
+    }
+
+    vector<Coin> WalletDB::selectCoinsEx(Amount amount, Asset::ID assetId, bool unlinked)
+    {
         vector<Coin> coins, coinsSel;
         Block::SystemState::ID stateID = {};
         getSystemStateID(stateID);
 
         {
-            sqlite::Statement stm(this, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE maturity>=0 AND maturity<=?1 AND spentHeight<0 ORDER BY amount ASC");
+            const char* query = unlinked ? "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE maturity>=0 AND maturity<=?1 AND spentHeight<0 AND isUnlinked=true ORDER BY amount ASC"
+                                         : "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE maturity>=0 AND maturity<=?1 AND spentHeight<0 ORDER BY amount ASC";
+
+            sqlite::Statement stm(this, query);
             stm.bind(1, stateID.m_Height);
 
             while (stm.step())

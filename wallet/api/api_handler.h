@@ -36,6 +36,7 @@ public:
     WalletApiHandler(
         IWalletData& walletData
       , WalletApi::ACL acl
+      , bool withAssets
     );
     virtual ~WalletApiHandler();
 
