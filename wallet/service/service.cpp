@@ -479,8 +479,8 @@ namespace
         class MyApiConnection : public WalletApiHandler
         {
         public:
-            MyApiConnection(IApiConnectionHandler* handler, IWalletData& walletData, WalletApi::ACL acl)
-                : WalletApiHandler(walletData, acl)
+            MyApiConnection(IApiConnectionHandler* handler, IWalletData& walletData, WalletApi::ACL acl, bool withAssets)
+                : WalletApiHandler(walletData, acl, withAssets)
                 , _handler(handler)
             {
             
@@ -503,7 +503,7 @@ namespace
         {
         public:
             ServiceApiConnection(bool withAssets, const io::Address& nodeAddr, WebSocketServer::SendMessageFunc sendFunc, io::Reactor::Ptr reactor, WalletMap& walletMap)
-                : _apiConnection(this, *this, boost::none)
+                : _apiConnection(this, *this, boost::none, withAssets)
                 , _sendFunc(sendFunc)
                 , _reactor(reactor)
                 , _api(*this)
