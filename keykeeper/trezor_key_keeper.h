@@ -25,7 +25,7 @@ class DeviceManager;
 namespace beam::wallet
 {
     class TrezorKeyKeeperProxy
-        : public PrivateKeyKeeper_AsyncNotify
+        : public PrivateKeyKeeper_WithMarshaller
     {
         using MessageHandler = std::function<void()>;
     public:
@@ -41,15 +41,8 @@ namespace beam::wallet
         void InvokeAsync(Method::SignSender& m, const Handler::Ptr& h) override;
         void InvokeAsync(Method::SignSplit& m, const Handler::Ptr& h) override;
 
-        void PushHandlerToCallerThread(MessageHandler&& h);
-        void ProcessResponses();
-
     private:
         std::shared_ptr<DeviceManager> m_DeviceManager;
         Key::IPKdf::Ptr m_OwnerKdf;
-        io::AsyncEvent::Ptr m_PushEvent;
-        std::queue<IPrivateKeyKeeper2::Handler::Ptr> m_Handlers;
-        std::mutex m_ResponseMutex;
-        std::queue<MessageHandler> m_ResponseHandlers;
     };
 }

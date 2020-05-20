@@ -155,9 +155,8 @@ namespace beam::wallet
 
     TrezorKeyKeeperProxy::TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager)
         : m_DeviceManager(deviceManager)
-        , m_PushEvent(io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { ProcessResponses(); }))
     {
-        
+        EnsureEvtOut();
     }
 
     IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::get_Kdf& m)
@@ -167,14 +166,13 @@ namespace beam::wallet
             m.m_pPKdf = m_OwnerKdf;
             return Status::Success;
         }
-        return PrivateKeyKeeper_AsyncNotify::InvokeSync(m);
+        return PrivateKeyKeeper_WithMarshaller::InvokeSync(m);
     }
 
     void TrezorKeyKeeperProxy::InvokeAsync(Method::get_Kdf& m, const Handler::Ptr& h)
     {
         m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
-            auto pubKdf = std::make_shared<ECC::HKdfPub>();
             const BeamPKdf& beamKdf = child_cast<Message, BeamPKdf>(msg);
             typedef struct
             {
@@ -193,27 +191,20 @@ namespace beam::wallet
             Ecc2BC(packed.m_Secret) = pkdf.m_Secret;
             Ecc2BC(packed.m_PkG) = pkdf.m_CoFactorG;
             Ecc2BC(packed.m_PkJ) = pkdf.m_CoFactorJ;
-            if (!pubKdf->Import(packed))
-            {
-                PushHandlerToCallerThread([this, &m, h]()
-                {
-                    m.m_pPKdf.reset();
-                    PushOut(Status::Unspecified, h);
-                });
-            }
 
-            PushHandlerToCallerThread([this, &m, h, pubKdf]()
+            auto pubKdf = std::make_shared<ECC::HKdfPub>();
+            if (pubKdf->Import(packed))
             {
-                {
-                    m.m_pPKdf = pubKdf;
+                if (m.m_Root)
+                    m_OwnerKdf = pubKdf; // cache owner kdf
 
-                    if (m.m_Root)
-                    {
-                        m_OwnerKdf = pubKdf; // cache owner kdf
-                    }
-                }
+                m.m_pPKdf = std::move(pubKdf);
                 PushOut(Status::Success, h);
-            });
+            }
+            else
+            {
+                PushOut(Status::Unspecified, h);
+            }
         });
     }
 
@@ -221,12 +212,8 @@ namespace beam::wallet
     {
         m_DeviceManager->call_BeamGetNumSlots(true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
-            uint32_t numSlots = child_cast<Message, BeamNumSlots>(msg).num_slots();
-            PushHandlerToCallerThread([this, &m, h, numSlots]()
-            {
-                m.m_Count = numSlots;
-                PushOut(Status::Success, h);
-            });
+            m.m_Count = child_cast<Message, BeamNumSlots>(msg).num_slots();
+            PushOut(Status::Success, h);
         });
     }
 
@@ -241,7 +228,7 @@ namespace beam::wallet
         Output::Ptr pOutp = std::make_unique<Output>();
         
         ECC::Point::Native comm;
-        get_Commitment(comm, m.m_Cid);
+        get_Commitment(comm, m.m_Cid); // TODO: don't block here!
         pOutp->m_Commitment = comm;
         
         // rangeproof
@@ -264,10 +251,8 @@ namespace beam::wallet
             bool isSuccessful = child_cast<Message, BeamRangeproofData>(msg).is_successful();
             if (!isSuccessful)
             {
-                PushHandlerToCallerThread([this, h]()
-                {
-                    PushOut(Status::Unspecified, h);
-                });
+                PushOut(Status::Unspecified, h);
+                return;
             }
             struct SharedResult
             {
@@ -279,24 +264,23 @@ namespace beam::wallet
             res->m_TauX = ConvertResultTo<secp256k1_scalar>(child_cast<Message, BeamRangeproofData>(msg).data_taux());
             TxExport(res->m_Pt0, child_cast<Message, BeamRangeproofData>(msg).pt0());
             TxExport(res->m_Pt1, child_cast<Message, BeamRangeproofData>(msg).pt1());
-            PushHandlerToCallerThread([this, &m, h, res = std::move(res), copyableOutput]()
-            {
-                Output::Ptr output = std::move(*copyableOutput);
-                Ecc2BC(output->m_pConfidential->m_Part2.m_T1) = res->m_Pt0;
-                Ecc2BC(output->m_pConfidential->m_Part2.m_T2) = res->m_Pt1;
+
+            // TODO: maybe move the rest to the caller thread (it's relatively heavy)
+            Output::Ptr output = std::move(*copyableOutput);
+            Ecc2BC(output->m_pConfidential->m_Part2.m_T1) = res->m_Pt0;
+            Ecc2BC(output->m_pConfidential->m_Part2.m_T2) = res->m_Pt1;
                     
-                ECC::Scalar::Native tauX;
-                tauX.get_Raw() = res->m_TauX;
-                output->m_pConfidential->m_Part3.m_TauX = tauX;
+            ECC::Scalar::Native tauX;
+            tauX.get_Raw() = res->m_TauX;
+            output->m_pConfidential->m_Part3.m_TauX = tauX;
             
-                ECC::Scalar::Native skDummy;
-                ECC::HKdf kdfDummy;
-                output->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_2); // Phase 3
+            ECC::Scalar::Native skDummy;
+            ECC::HKdf kdfDummy;
+            output->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_2); // Phase 3
             
-                m.m_pResult.swap(output);
+            m.m_pResult.swap(output);
             
-                PushOut(Status::Success, h);
-            });
+            PushOut(Status::Success, h);
         });
     }
 
@@ -317,13 +301,10 @@ namespace beam::wallet
             BeamCrypto_Signature proofSignature;
             TxExport(proofSignature, txReceive.tx_mutual_info().payment_proof_signature());
 
-            PushHandlerToCallerThread([this, &m, h, txCommon, proofSignature]()
-            {
-                TxExport(m, txCommon);
-                Ecc2BC(m.m_PaymentProofSignature.m_NoncePub) = proofSignature.m_NoncePub;
-                Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value) = proofSignature.m_k;
-                PushOut(Status::Success, h);
-            });
+            TxExport(m, txCommon);
+            Ecc2BC(m.m_PaymentProofSignature.m_NoncePub) = proofSignature.m_NoncePub;
+            Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value) = proofSignature.m_k;
+            PushOut(Status::Success, h);
         });
     }
 
@@ -347,12 +328,10 @@ namespace beam::wallet
         {
             TxExport(txCommon, child_cast<Message, BeamSignTransactionSend>(msg).tx_common());
             BeamCrypto_UintBig userAgreement = ConvertResultTo<BeamCrypto_UintBig>(child_cast<Message, BeamSignTransactionSend>(msg).user_agreement());
-            PushHandlerToCallerThread([this, &m, h, txCommon, userAgreement]()
-            {
-                TxExport(m, txCommon);
-                Ecc2BC(m.m_UserAgreement) = userAgreement;
-                PushOut(Status::Success, h);
-            });
+
+            TxExport(m, txCommon);
+            Ecc2BC(m.m_UserAgreement) = userAgreement;
+            PushOut(Status::Success, h);
         });
     }
 
@@ -365,37 +344,9 @@ namespace beam::wallet
         m_DeviceManager->call_BeamSignTransactionSplit(txCommon, [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
             TxExport(txCommon, child_cast<Message, BeamSignTransactionSplit>(msg).tx_common());
-            PushHandlerToCallerThread([this, &m, h, txCommon]()
-            {
-                TxExport(m, txCommon);
-                PushOut(Status::Success, h);
-            });
+            TxExport(m, txCommon);
+            PushOut(Status::Success, h);
         });
-    }
-
-    void TrezorKeyKeeperProxy::PushHandlerToCallerThread(MessageHandler&& h)
-    {
-        {
-            unique_lock<mutex> lock(m_ResponseMutex);
-            m_ResponseHandlers.push(move(h));
-        }
-        m_PushEvent->post();
-    }
-
-    void TrezorKeyKeeperProxy::ProcessResponses()
-    {
-        while (true)
-        {
-            MessageHandler h;
-            {
-                unique_lock<mutex> lock(m_ResponseMutex);
-                if (m_ResponseHandlers.empty())
-                    return;
-                h = std::move(m_ResponseHandlers.front());
-                m_ResponseHandlers.pop();
-            }
-            h();
-        }
     }
 
 }
