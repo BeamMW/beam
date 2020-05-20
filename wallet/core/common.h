@@ -39,6 +39,8 @@ namespace beam::wallet
         AssetInfo,
         PushTransaction,
         PullTransaction,
+        VoucherRequest,
+        VoucherResponse,
         ALL
     };
 
@@ -161,6 +163,10 @@ namespace beam::wallet
     MACRO(KeyKeeperUserAbort,            40, "Aborted by the user") \
     MACRO(AssetExists,                   41, "Asset has been already registered") \
     MACRO(InvalidAssetOwnerId,           42, "Invalid asset owner id") \
+    MACRO(AssetsDisabled,                43, "Asset transactions are disabled in the wallet") \
+    MACRO(NoVouchers,                    44, "You have no vouchers to insert coins to lelentus") \
+    MACRO(AssetsDisabledFork2,           45, "Asset transactions are not available until fork2") \
+    MACRO(Count,                         46, "PLEASE KEEP THIS ALWAYS LAST")
 
     enum TxFailureReason : int32_t
     {
@@ -318,6 +324,11 @@ namespace beam::wallet
         // Lelantus
         ShieldedOutputId = 122,
         WindowBegin = 123,
+        ShieldedVoucherList = 124,
+
+        // Version
+        ClientVersion = 126,
+        LibraryVersion = 127,
 
         // private parameters
         PrivateFirstParam = 128,
@@ -331,7 +342,7 @@ namespace beam::wallet
         PeerResponseHeight = 134,
         AssetConfirmedHeight = 135, // This is NOT the same as ProofHeight for kernel!
         AssetUnconfirmedHeight = 136,
-        AssetFullInfo = 137,
+        AssetInfoFull = 137,
 
         Offset = 140,
 
@@ -371,6 +382,8 @@ namespace beam::wallet
         InternalFailureReason = 210,
     
         ShieldedSerialPub = 220,
+        UnusedShieldedVoucherList = 221,
+        TransactionRegisteredInternal = 222, // used to overwrite previouse result
 
         State = 255
 
@@ -727,6 +740,11 @@ namespace beam::wallet
     bool IsValidTimeStamp(Timestamp currentBlockTime_s, Timestamp tolerance_s = 60 * 10); // 10 minutes tolerance.
 
     std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, Amount amount);
+
+    using ShieldedVoucherList = std::vector<ShieldedTxo::Voucher>;
+    ShieldedVoucherList GenerateVoucherList(ECC::Key::IKdf::Ptr pKdf, uint64_t ownID, size_t count);
+    bool IsValidVoucherList(const ShieldedVoucherList& vouchers, const PeerID& identity);
+
 }    // beam::wallet
 
 namespace beam

@@ -16,80 +16,40 @@
 
 #include "wallet/core/private_key_keeper.h"
 #include "hw_wallet.h"
+#include <queue>
+#include <functional>
+#include <mutex>
+
+class DeviceManager;
 
 namespace beam::wallet
 {
-    class HardwareKeyKeeperProxy
+    class TrezorKeyKeeperProxy
         : public PrivateKeyKeeper_AsyncNotify
     {
+        using MessageHandler = std::function<void()>;
     public:
-        HardwareKeyKeeperProxy();
-        virtual ~HardwareKeyKeeperProxy() = default;
+        TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager);
+        virtual ~TrezorKeyKeeperProxy() = default;
     private:
-        Status::Type InvokeSync(Method::get_Kdf& x) override;
-        void InvokeAsync(Method::get_Kdf& x, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::get_NumSlots& x, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::CreateOutput& x, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::SignReceiver& x, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::SignSender& x, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::SignSplit& x, const Handler::Ptr& h) override;
+        Status::Type InvokeSync(Method::get_Kdf& m) override;
+        void InvokeAsync(Method::get_Kdf& m, const Handler::Ptr& h) override;
+        void InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h) override;
+        //Status::Type InvokeSync(Method::CreateOutput& m) override;
+        void InvokeAsync(Method::CreateOutput& m, const Handler::Ptr& h) override;
+        void InvokeAsync(Method::SignReceiver& m, const Handler::Ptr& h) override;
+        void InvokeAsync(Method::SignSender& m, const Handler::Ptr& h) override;
+        void InvokeAsync(Method::SignSplit& m, const Handler::Ptr& h) override;
 
-        //static void GetMutualResult(Method::TxMutual& x, const json& msg)
-        //{
-        //    x.m_PaymentProofSignature = from_base64<ECC::Signature>(msg["payment_proof_sig"]);
-        //    GetCommonResult(x, msg);
-        //}
-        //
-        //static void GetCommonResult(Method::TxCommon& x, const json& msg)
-        //{
-        //    auto offset = from_base64<ECC::Scalar>(msg["offset"]);
-        //    x.m_kOffset.Import(offset);
-        //    x.m_pKernel = from_base64<TxKernelStd::Ptr>(msg["kernel"]);
-        //}
-        //
-        //static Status::Type GetStatus(const json& msg)
-        //{
-        //    return msg["status"];
-        //}
+        void PushHandlerToCallerThread(MessageHandler&& h);
+        void ProcessResponses();
 
     private:
-        //Key::IPKdf::Ptr m_OwnerKdf;
+        std::shared_ptr<DeviceManager> m_DeviceManager;
+        Key::IPKdf::Ptr m_OwnerKdf;
+        io::AsyncEvent::Ptr m_PushEvent;
+        std::queue<IPrivateKeyKeeper2::Handler::Ptr> m_Handlers;
+        std::mutex m_ResponseMutex;
+        std::queue<MessageHandler> m_ResponseHandlers;
     };
-
-
-    //class TrezorKeyKeeper : public IPrivateKeyKeeper
-    //    , public std::enable_shared_from_this<TrezorKeyKeeper>
-    //{
-    //public:
-    //    TrezorKeyKeeper();
-    //    virtual ~TrezorKeyKeeper();
-    //
-    //    struct DeviceNotConnected : std::runtime_error 
-    //    {
-    //        DeviceNotConnected() : std::runtime_error("") {}
-    //    };
-    //
-    //    Key::IKdf::Ptr get_SbbsKdf() const override;
-    //    void subscribe(Handler::Ptr handler) override;
-    //
-    //private:
-    //    void GeneratePublicKeys(const std::vector<CoinID>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-    //    void GenerateOutputs(Height schemeHeight, const std::vector<CoinID>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-    //
-    //    size_t AllocateNonceSlotSync() override;
-    //    PublicKeys GeneratePublicKeysSync(const std::vector<CoinID>& ids, bool createCoinKey) override;
-    //
-    //    ECC::Point GeneratePublicKeySync(const ECC::uintBig& id) override;
-    //    ECC::Point GenerateCoinKeySync(const CoinID& id) override;
-    //    Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<CoinID>& ids) override;
-    //    ECC::Point GenerateNonceSync(size_t slot) override;
-    //
-    //private:
-    //    beam::HWWallet m_hwWallet;
-    //    mutable Key::IKdf::Ptr m_sbbsKdf;
-    //
-    //    size_t m_latestSlot;
-    //
-    //    std::vector<IPrivateKeyKeeper::Handler::Ptr> m_handlers;
-    //};
 }

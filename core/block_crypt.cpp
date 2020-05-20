@@ -1247,6 +1247,8 @@ namespace beam
 			>> w.m_R_Output;
 
 		ECC::Point::Native hGen;
+		if (aid)
+			Asset::Base(aid).get_Generator(hGen);
 
 		if (aid || bHideAssetAlways)
 		{

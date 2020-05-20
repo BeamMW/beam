@@ -43,7 +43,8 @@ namespace beam::wallet
         void Unsubscribe(INotificationsObserver* observer);
 
         // INewsObserver implementation
-        virtual void onNewWalletVersion(const VersionInfo&, const ECC::uintBig&) override;
+        void onNewWalletVersion(const VersionInfo&, const ECC::uintBig&) override;
+        void onNewWalletVersion(const WalletImplVerInfo&, const ECC::uintBig&) override;
 
         // IWalletDbObserver implementation
         void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;

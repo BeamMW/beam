@@ -113,6 +113,7 @@ target_compile_features(beam INTERFACE cxx_std_17)
 
 
 file(WRITE ${PROJECT_SOURCE_DIR}/beam_version.gen "${PROJECT_VERSION}")
+add_definitions(-DBEAM_LIB_VERSION="${BEAM_VERSION}")
 
 if(UNIX AND NOT APPLE AND NOT ANDROID)
     set(LINUX TRUE CACHE INTERNAL "")

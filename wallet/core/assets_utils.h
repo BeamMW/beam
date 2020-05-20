@@ -39,4 +39,17 @@ namespace beam::wallet {
         bool _std;
         std::string _meta;
     };
+
+    class WalletAsset: public Asset::Full
+    {
+    public:
+        WalletAsset() = default;
+        WalletAsset(const Asset::Full& full, Height refreshHeight);
+        bool CanRollback(Height from) const;
+        void LogInfo(const std::string& prefix = std::string()) const;
+        void LogInfo(const TxID& txId, const SubTxID& subTxId) const;
+
+        Height  m_RefreshHeight = 0;
+        int32_t m_IsOwned = 0;
+    };
 }

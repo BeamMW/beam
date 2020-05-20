@@ -571,7 +571,7 @@ namespace beam::wallet
     class WalletApi : public Api
     {
     public:
-        WalletApi(IWalletApiHandler& handler, ACL acl = boost::none);
+        WalletApi(IWalletApiHandler& handler, bool withAssets, ACL acl = boost::none);
 
 #define RESPONSE_FUNC(api, name, _) \
         void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
@@ -592,5 +592,9 @@ namespace beam::wallet
 
         template<typename T>
         void onIssueConsumeMessage(bool issue, const JsonRpcId& id, const json& params);
+        void checkCAEnabled(const JsonRpcId& id);
+
+    private:
+        bool m_withAssets = false;
     };
 }  // namespace beam::wallet

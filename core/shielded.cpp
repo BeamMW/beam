@@ -16,7 +16,7 @@
 
 namespace beam
 {
-	void ShieldedTxo::Serial::get_Hash(ECC::Hash::Value& hv) const
+	void ShieldedTxo::Ticket::get_Hash(ECC::Hash::Value& hv) const
 	{
 		ECC::Hash::Processor()
 			<< "Out-S"
@@ -24,7 +24,7 @@ namespace beam
 			>> hv;
 	}
 
-	bool ShieldedTxo::Serial::IsValid(ECC::Point::Native& comm) const
+	bool ShieldedTxo::Ticket::IsValid(ECC::Point::Native& comm) const
 	{
 		if (!comm.Import(m_SerialPub))
 			return false;
@@ -37,17 +37,17 @@ namespace beam
 
 	void ShieldedTxo::Prepare(ECC::Oracle& oracle) const
 	{
-		// Since m_Serial doesn't contribute to the transaction balance, it MUST be exposed to the Oracle used with m_RangeProof.
+		// Since m_Ticket doesn't contribute to the transaction balance, it MUST be exposed to the Oracle used with m_RangeProof.
 		// m_Commitment also should be used (for the same reason it's used in regular Output)
 		oracle
-			<< m_Serial.m_SerialPub
-			<< m_Serial.m_Signature.m_NoncePub
+			<< m_Ticket.m_SerialPub
+			<< m_Ticket.m_Signature.m_NoncePub
 			<< m_Commitment;
 	}
 
 	bool ShieldedTxo::IsValid(ECC::Oracle& oracle, ECC::Point::Native& comm, ECC::Point::Native& ser) const
 	{
-		if (!(m_Serial.IsValid(ser) && comm.Import(m_Commitment)))
+		if (!(m_Ticket.IsValid(ser) && comm.Import(m_Commitment)))
 			return false;
 
 		ECC::Point::Native hGen;
@@ -60,7 +60,7 @@ namespace beam
 
 	void ShieldedTxo::operator = (const ShieldedTxo& v)
 	{
-		m_Serial = v.m_Serial;
+		m_Ticket = v.m_Ticket;
 		m_Commitment = v.m_Commitment;
 		m_RangeProof = v.m_RangeProof;
 
@@ -68,6 +68,35 @@ namespace beam
 			v.m_pAsset->Clone(m_pAsset);
 		else
 			m_pAsset.reset();
+	}
+
+	void ShieldedTxo::Voucher::get_Hash(ECC::Hash::Value& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "voucher.1"
+			<< m_Ticket.m_SerialPub
+			<< m_Ticket.m_Signature.m_NoncePub
+			<< m_SharedSecret
+			>> hv;
+	}
+
+	bool ShieldedTxo::Voucher::IsValid(const ECC::Point::Native& pk) const
+	{
+		ECC::Point::Native pt;
+		if (!m_Ticket.IsValid(pt))
+			return false;
+
+		ECC::Hash::Value hv;
+		get_Hash(hv);
+		return m_Signature.IsValid(hv, pk);
+	}
+
+	bool ShieldedTxo::Voucher::IsValid(const PeerID& pid) const
+	{
+		ECC::Point::Native pk;
+		return
+			pid.ExportNnz(pk) &&
+			IsValid(pk);
 	}
 
 	/////////////
@@ -102,24 +131,24 @@ namespace beam
 	};
 
 	/////////////
-	// SerialParams
-	void ShieldedTxo::Data::SerialParams::DoubleBlindedCommitment(ECC::Point::Native& res, const ECC::Scalar::Native* pK)
+	// TicketParams
+	void ShieldedTxo::Data::TicketParams::DoubleBlindedCommitment(ECC::Point::Native& res, const ECC::Scalar::Native* pK)
 	{
 		res = ECC::Context::get().G * pK[0];
 		res += ECC::Context::get().J * pK[1];
 	}
 
-	void ShieldedTxo::Data::SerialParams::Generate(Serial& s, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	void ShieldedTxo::Data::TicketParams::Generate(Ticket& s, const PublicGen& gen, const ECC::Hash::Value& nonce)
 	{
 		GenerateInternal(s, nonce, *gen.m_pGen, nullptr, *gen.m_pSer);
 	}
 
-	void ShieldedTxo::Data::SerialParams::Generate(Serial& s, const Viewer& v, const ECC::Hash::Value& nonce)
+	void ShieldedTxo::Data::TicketParams::Generate(Ticket& s, const Viewer& v, const ECC::Hash::Value& nonce)
 	{
 		GenerateInternal(s, nonce, *v.m_pGen, v.m_pGen.get(), *v.m_pSer);
 	}
 
-	void ShieldedTxo::Data::SerialParams::set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
+	void ShieldedTxo::Data::TicketParams::set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
 	{
 		ECC::NoLeak<ECC::Scalar> sk;
 		sk.V = m_pK[0];
@@ -146,18 +175,18 @@ namespace beam
 		Lelantus::SpendKey::ToSerial(m_pK[1], m_SpendPk);
 	}
 
-	void ShieldedTxo::Data::SerialParams::get_DH(ECC::Hash::Value& res, const ECC::Point& ptSerialPub)
+	void ShieldedTxo::Data::TicketParams::get_DH(ECC::Hash::Value& res, const ECC::Point& ptSerialPub)
 	{
 		HashTxt("DH") << ptSerialPub >> res;
 	}
 
-	void ShieldedTxo::Data::SerialParams::get_Nonces(Key::IPKdf& gen, ECC::Scalar::Native* pN) const
+	void ShieldedTxo::Data::TicketParams::get_Nonces(Key::IPKdf& gen, ECC::Scalar::Native* pN) const
 	{
 		gen.DerivePKey(pN[0], HashTxt("nG") << m_SharedSecret);
 		gen.DerivePKey(pN[1], HashTxt("nJ") << m_SharedSecret);
 	}
 
-	void ShieldedTxo::Data::SerialParams::GenerateInternal(Serial& s, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
+	void ShieldedTxo::Data::TicketParams::GenerateInternal(Ticket& s, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser)
 	{
 		gen.DerivePKey(m_pK[0], HashTxt("kG") << nonce);
 		set_FromkG(gen, pGenPriv, ser);
@@ -174,7 +203,7 @@ namespace beam
 		s.m_Signature.SignRaw(ECC::Context::get().m_Sig.m_CfgGJ1, hv, s.m_Signature.m_pK, m_pK, pN);
 	}
 
-	void ShieldedTxo::Data::SerialParams::set_SharedSecretFromKs(ECC::Point& ptSerialPub, Key::IPKdf& gen)
+	void ShieldedTxo::Data::TicketParams::set_SharedSecretFromKs(ECC::Point& ptSerialPub, Key::IPKdf& gen)
 	{
 		ECC::Point::Native pt, pt1;
 		DoubleBlindedCommitment(pt, m_pK);
@@ -192,12 +221,12 @@ namespace beam
 	}
 
 
-	void ShieldedTxo::Data::SerialParams::set_SharedSecret(const ECC::Point::Native& pt)
+	void ShieldedTxo::Data::TicketParams::set_SharedSecret(const ECC::Point::Native& pt)
 	{
 		HashTxt("sp-sec") << pt >> m_SharedSecret;
 	}
 
-	bool ShieldedTxo::Data::SerialParams::Recover(const Serial& s, const Viewer& v)
+	bool ShieldedTxo::Data::TicketParams::Recover(const Ticket& s, const Viewer& v)
 	{
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
@@ -247,7 +276,7 @@ namespace beam
 		return false;
 	}
 
-	void ShieldedTxo::Data::SerialParams::Restore(const Viewer& v)
+	void ShieldedTxo::Data::TicketParams::Restore(const Viewer& v)
 	{
 		set_FromkG(*v.m_pGen, v.m_pGen.get(), *v.m_pSer);
 
@@ -419,55 +448,47 @@ namespace beam
 
 	/////////////
 	// Params (both)
-	void ShieldedTxo::Data::Params::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	void ShieldedTxo::Data::Params::GenerateOutp(ShieldedTxo& txo, ECC::Oracle& oracle)
 	{
-		m_Serial.Generate(txo.m_Serial, gen, nonce);
-		m_Output.Generate(txo, m_Serial.m_SharedSecret, oracle);
+		m_Output.Generate(txo, m_Ticket.m_SharedSecret, oracle);
 	}
-
-	void ShieldedTxo::Data::Params::Generate(ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v, const ECC::Hash::Value& nonce)
-	{
-		m_Serial.Generate(txo.m_Serial, v, nonce);
-		m_Output.Generate(txo, m_Serial.m_SharedSecret, oracle);
-	}
-
 	bool ShieldedTxo::Data::Params::Recover(const ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v)
 	{
 		return
-			m_Serial.Recover(txo.m_Serial, v) &&
-			m_Output.Recover(txo, m_Serial.m_SharedSecret, oracle);
+			m_Ticket.Recover(txo.m_Ticket, v) &&
+			m_Output.Recover(txo, m_Ticket.m_SharedSecret, oracle);
 	}
 
 	/////////////
 	// Generators
-	void ShieldedTxo::Viewer::FromOwner(Key::IPKdf& key)
+	void ShieldedTxo::Viewer::FromOwner(Key::IPKdf& key, Key::Index nIdx/* = 0 */)
 	{
 		ECC::Scalar::Native sk;
-		key.DerivePKey(sk, Data::HashTxt("Own.Gen"));
+		key.DerivePKey(sk, Data::HashTxt("Own.Gen") << nIdx);
 		ECC::NoLeak<ECC::Scalar> s;
 		s.V = sk;
 
 		ECC::HKdf::Create(m_pGen, s.V.m_Value);
 
-		GenerateSerSrc(s.V.m_Value, key);
+		GenerateSerSrc(s.V.m_Value, key, nIdx);
 
 		m_pSer.reset(new ECC::HKdfPub);
 		Cast::Up<ECC::HKdfPub>(*m_pSer).GenerateChildParallel(key, s.V.m_Value);
 	}
 
-	void ShieldedTxo::Viewer::GenerateSerSrc(ECC::Hash::Value& res, Key::IPKdf& key)
+	void ShieldedTxo::Viewer::GenerateSerSrc(ECC::Hash::Value& res, Key::IPKdf& key, Key::Index nIdx)
 	{
 		ECC::Scalar::Native sk;
-		key.DerivePKey(sk, Data::HashTxt("Own.Ser"));
+		key.DerivePKey(sk, Data::HashTxt("Own.Ser") << nIdx);
 
 		static_assert(sizeof(res) == sizeof(ECC::Scalar));
 		((ECC::Scalar&) res) = sk;
 	}
 
-	void ShieldedTxo::Viewer::GenerateSerPrivate(Key::IKdf::Ptr& pOut, Key::IKdf& key)
+	void ShieldedTxo::Viewer::GenerateSerPrivate(Key::IKdf::Ptr& pOut, Key::IKdf& key, Key::Index nIdx /* = 0 */)
 	{
 		ECC::NoLeak<ECC::Hash::Value> hv;
-		GenerateSerSrc(hv.V, key);
+		GenerateSerSrc(hv.V, key, nIdx);
 
 		pOut.reset(new ECC::HKdf);
 		Cast::Up<ECC::HKdf>(*pOut).GenerateChildParallel(key, hv.V);

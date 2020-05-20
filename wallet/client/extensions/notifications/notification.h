@@ -24,10 +24,10 @@ namespace beam::wallet
         {
             SoftwareUpdateAvailable,
             AddressStatusChanged,
-            Unused,   // free to use
+            WalletImplUpdateAvailable,
             BeamNews,
             TransactionFailed,
-            TransactionCompleted
+            TransactionCompleted,
             // extend range check in jni.cpp on adding new type
         };
 

@@ -17,6 +17,7 @@
 
 #include "core/ecc_native.h"
 #include "core/block_crypt.h"
+#include "core/shielded.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "simple_transaction.h"
@@ -80,7 +81,7 @@ namespace beam::wallet
 
     const char Wallet::s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
 
-    Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
+    Wallet::Wallet(IWalletDB::Ptr walletDB,  bool withAssets, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
         , m_TxCompletedAction{ move(action) }
         , m_UpdateCompleted{ move(updateCompleted) }
@@ -89,7 +90,7 @@ namespace beam::wallet
     {
         assert(walletDB);
         // the only default type of transaction
-        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
+        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB, withAssets));
     }
 
     Wallet::~Wallet()
@@ -371,6 +372,18 @@ namespace beam::wallet
     {
         if (auto it = m_ActiveTransactions.find(txID); it != m_ActiveTransactions.end())
         {
+            // check if we have already asked for kernel on given height
+            Height lastUnconfirmedHeight = 0;
+            if (it->second->GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight, subTxID) && lastUnconfirmedHeight > 0)
+            {
+                Block::SystemState::Full state;
+                if (!get_tip(state) || state.m_Height == lastUnconfirmedHeight)
+                {
+                    UpdateOnNextTip(it->second);
+                    return;
+                }
+            }
+
             MyRequestKernel::Ptr pVal(new MyRequestKernel);
             pVal->m_TxID = txID;
             pVal->m_SubTxID = subTxID;
@@ -452,7 +465,7 @@ namespace beam::wallet
     void Wallet::get_shielded_list(const TxID& txId, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback)
     {
         MyRequestShieldedList::Ptr pVal(new MyRequestShieldedList);
-        pVal->m_callback = callback;
+        pVal->m_callback = std::move(callback);
         pVal->m_TxID = txId;
 
         pVal->m_Msg.m_Id0 = startIndex;
@@ -467,7 +480,7 @@ namespace beam::wallet
     void Wallet::get_proof_shielded_output(const TxID& txId, ECC::Point serialPublic, ProofShildedOutputCallback&& callback)
     {
         MyRequestProofShieldedOutp::Ptr pVal(new MyRequestProofShieldedOutp);
-        pVal->m_callback = callback;
+        pVal->m_callback = std::move(callback);
         pVal->m_TxID = txId;
 
         pVal->m_Msg.m_SerialPub = serialPublic;
@@ -488,8 +501,100 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::SendSpecialMsg(const WalletID& peerID, SetTxParameter& msg)
+    {
+        memset0(&msg.m_TxID.front(), msg.m_TxID.size());
+        send_tx_params(peerID, msg);
+    }
+
+    void Wallet::RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount /* = 1 */)
+    {
+        SetTxParameter msg;
+        msg.m_From = myID;
+        msg.m_Type = TxType::VoucherRequest;
+
+        msg.AddParameter((TxParameterID) 0, nCount);
+
+        SendSpecialMsg(peerID, msg);
+    }
+
+    void Wallet::OnSpecialMsg(const WalletID& myID, const SetTxParameter& msg)
+    {
+        switch (msg.m_Type)
+        {
+        case TxType::VoucherRequest:
+            {
+                Key::IKdf::Ptr pKdf = m_WalletDB->get_MasterKdf();
+                if (!pKdf)
+                    return; // without master Kdf we can create the ticket, but can't sign it.
+
+                uint32_t nCount = 0;
+                msg.GetParameter((TxParameterID) 0, nCount);
+
+                if (!nCount)
+                    return; //?!
+
+                auto address = m_WalletDB->getAddress(myID);
+                if (!address.is_initialized() || !address->m_OwnID)
+                    return;
+
+                auto res = GenerateVoucherList(pKdf, address->m_OwnID, nCount);
+
+                SetTxParameter msgOut;
+                msgOut.m_Type = TxType::VoucherResponse;
+                msgOut.m_From = myID;
+                msgOut.AddParameter(TxParameterID::ShieldedVoucherList, std::move(res));
+
+                SendSpecialMsg(msg.m_From, msgOut);
+
+            }
+            break;
+
+        case TxType::VoucherResponse:
+            {
+                std::vector<ShieldedTxo::Voucher> res;
+                msg.GetParameter(TxParameterID::ShieldedVoucherList, res);
+                if (res.empty())
+                    return;
+
+                auto address = m_WalletDB->getAddress(msg.m_From);
+                if (!address.is_initialized())
+                    return;
+
+                if (!IsValidVoucherList(res, address->m_Identity))
+                    return;
+
+                OnVouchersFrom(*address, std::move(res));
+
+            }
+            break;
+
+        default: // suppress watning
+            break;
+        }
+    }
+
+    void Wallet::OnVouchersFrom(const WalletAddress& addr, std::vector<ShieldedTxo::Voucher>&& res)
+    {
+    }
+
     void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg)
     {
+        if (memis0(&msg.m_TxID.front(), msg.m_TxID.size()))
+        {
+            // special command/request
+            try
+            {
+                OnSpecialMsg(myID, msg);
+            }
+            catch (const std::exception& exc)
+            {
+                LOG_WARNING() << "Special msg failed: " << exc.what();
+            }
+
+            return;
+        }
+
         auto t = GetTransaction(myID, msg);
         if (!t)
         {
@@ -510,6 +615,7 @@ namespace beam::wallet
         if (it != m_ActiveTransactions.end())
         {
             it->second->SetParameter(TxParameterID::TransactionRegistered, r.m_Res.m_Value, r.m_SubTxID);
+            it->second->SetParameter(TxParameterID::TransactionRegisteredInternal, r.m_Res.m_Value, r.m_SubTxID);
             UpdateTransaction(r.m_TxID);
         }
     }
@@ -620,7 +726,7 @@ namespace beam::wallet
             Block::SystemState::Full sTip;
             get_tip(sTip);
             tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
-            UpdateOnNextTip(tx);
+            UpdateTransaction(tx);
         }
     }
 
@@ -642,41 +748,26 @@ namespace beam::wallet
             const auto height = m_WalletDB->getCurrentHeight();
             m_WalletDB->saveAsset(info, height);
 
-            if (tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID) &&
-                tx->SetParameter(TxParameterID::AssetFullInfo, info, req.m_SubTxID) &&
-                tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID))
+            tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID);
+            tx->SetParameter(TxParameterID::AssetInfoFull, info, req.m_SubTxID);
+            tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID);
+
+            if (tx->GetType() == TxType::AssetReg)
             {
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Received proof for Asset with ID " << info.m_ID;
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset ID: "           << info.m_ID;
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Owner ID: "           << info.m_Owner;
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Issued amount: "      << PrintableAmount(info.m_Value, false, kAmountASSET, kAmountAGROTH);
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Lock Height: "        << info.m_LockHeight;
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Metadata size: "      << info.m_Metadata.m_Value.size() << " bytes";
-
-                const WalletAssetMeta meta(info);
-                meta.LogInfo();
-
-                if (tx->GetType() == TxType::AssetReg)
-                {
-                    m_WalletDB->markAssetOwned(info.m_ID);
-                }
-
-                if(const auto wasset = m_WalletDB->findAsset(info.m_ID))
-                {
-                    if(wasset->m_IsOwned)
-                    {
-                        LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " You own this asset";
-                    }
-                }
-
-                UpdateTransaction(tx);
+                m_WalletDB->markAssetOwned(info.m_ID);
             }
-            else
+
+            stringstream ss;
+            ss << req.m_TxID << "[" << req.m_SubTxID << "]";
+            const auto prefix = ss.str();
+            LOG_INFO() << prefix << " Received proof for Asset with ID " << info.m_ID;
+
+            if(const auto wasset = m_WalletDB->findAsset(info.m_ID))
             {
-                // should never happen
-                assert(!"failed to set AssetID");
-                return;
+                wasset->LogInfo(req.m_TxID, req.m_SubTxID);
             }
+
+            UpdateTransaction(tx);
         }
         else
         {
@@ -695,7 +786,7 @@ namespace beam::wallet
             }
 
             tx->SetParameter(TxParameterID::AssetConfirmedHeight, Height(0), req.m_SubTxID);
-            tx->SetParameter(TxParameterID::AssetFullInfo, Asset::Full(), req.m_SubTxID);
+            tx->SetParameter(TxParameterID::AssetInfoFull, Asset::Full(), req.m_SubTxID);
             tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, req.m_SubTxID);
             UpdateTransaction(tx);
         }
@@ -895,16 +986,15 @@ namespace beam::wallet
 
     void Wallet::ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h)
     {
-        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedEvt.m_kSerG);
+        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedEvt.m_Key);
         if (!shieldedCoin)
         {
             shieldedCoin = ShieldedCoin{};
+            shieldedCoin->m_Key = shieldedEvt.m_Key;
         }
 
-        shieldedCoin->m_skSerialG = shieldedEvt.m_kSerG;
         shieldedCoin->m_User = shieldedEvt.m_User;
         shieldedCoin->m_ID = shieldedEvt.m_ID;
-        shieldedCoin->m_isCreatedByViewer = 0 != (proto::Event::Flags::CreatedByViewer & shieldedEvt.m_Flags);
         shieldedCoin->m_assetID = shieldedEvt.m_AssetID;
         shieldedCoin->m_value = shieldedEvt.m_Value;
 

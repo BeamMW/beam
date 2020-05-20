@@ -19,6 +19,7 @@
 //#include "keykeeper/trezor_key_keeper.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
 #include "extensions/news_channels/updates_provider.h"
+#include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
 
 using namespace std;
@@ -302,10 +303,11 @@ namespace beam::wallet
     }
 
     void WalletClient::start( std::map<Notification::Type,bool> activeNotifications,
+                              bool withAssets,
                               bool isSecondCurrencyEnabled,
                               std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
-        m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, txCreators, activeNotifications]()
+        m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, withAssets, txCreators, activeNotifications]()
         {
             try
             {
@@ -316,7 +318,7 @@ namespace beam::wallet
                 static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
                 LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 
-                auto wallet = make_shared<Wallet>(m_walletDB);
+                auto wallet = make_shared<Wallet>(m_walletDB, withAssets);
                 m_wallet = wallet;
 
                 if (txCreators)
@@ -396,14 +398,19 @@ namespace beam::wallet
 
                 // Other content providers using broadcast messages
                 auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
+                auto walletUpdatesProvider = make_shared<WalletUpdatesProvider>(*broadcastRouter, *broadcastValidator);
                 auto exchangeRateProvider = make_shared<ExchangeRateProvider>(
                     *broadcastRouter, *broadcastValidator, *m_walletDB, isSecondCurrencyEnabled);
                 m_updatesProvider = updatesProvider;
                 m_exchangeRateProvider = exchangeRateProvider;
+                m_walletUpdatesProvider = walletUpdatesProvider;
                 using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
+                using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
                 using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRateObserver, ExchangeRateProvider>;
                 auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(
                     m_notificationCenter.get()), updatesProvider);
+                auto walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(
+                    m_notificationCenter.get()), walletUpdatesProvider);
                 auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(
                     static_cast<IExchangeRateObserver*>(this), exchangeRateProvider);
                 auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(

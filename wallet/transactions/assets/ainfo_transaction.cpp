@@ -103,7 +103,7 @@ namespace beam::wallet
         if (GetState() == State::AssetCheck)
         {
             Asset::Full info;
-            if (!GetParameter(TxParameterID::AssetFullInfo, info) || !info.IsValid())
+            if (!GetParameter(TxParameterID::AssetInfoFull, info) || !info.IsValid())
             {
                 OnFailed(TxFailureReason::NoAssetInfo, true);
                 return;

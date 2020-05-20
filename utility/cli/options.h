@@ -190,6 +190,7 @@ namespace beam
         extern const char* ASSET_ID;
         extern const char* ASSET_METADATA;
         extern const char* ASSETS;
+        extern const char* WITH_ASSETS;
 
         // broadcaster
         extern const char* GENERATE_KEYS;
@@ -209,6 +210,7 @@ namespace beam
         extern const char* SHIELDED_ID;
         extern const char* WINDOW_BEGIN;
         extern const char* SHIELDED_TX_HISTORY;
+        extern const char* VOUCHER_COUNT;
 
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;

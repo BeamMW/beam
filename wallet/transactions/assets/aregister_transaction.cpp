@@ -132,7 +132,6 @@ namespace beam::wallet
         {
             LOG_INFO() << GetTxID() << " Asset with the owner ID " << _builder->GetAssetOwnerId() << " successfully registered";
             SetState(State::AssetConfirmation);
-            // TODO:ASSETS consider running in separate transaction to not rollback if confirm failed
             ConfirmAsset();
             return;
         }
@@ -155,8 +154,13 @@ namespace beam::wallet
                 return;
             }
 
+            SetState(State::AssetCheck);
+        }
+
+        if(GetState() == State::AssetCheck)
+        {
             Asset::Full info;
-            if (!GetParameter(TxParameterID::AssetFullInfo, info))
+            if (!GetParameter(TxParameterID::AssetInfoFull, info) || !info.IsValid())
             {
                 OnFailed(TxFailureReason::NoAssetInfo, true);
                 return;

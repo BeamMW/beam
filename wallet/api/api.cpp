@@ -257,14 +257,6 @@ void checkTxId(const ByteBuffer& txId, const JsonRpcId& id)
         throw WalletApi::jsonrpc_exception{ ApiError::InvalidTxId, "Transaction ID has wrong format.", id };
 }
 
-void checkCAEnabled(const JsonRpcId& id)
-{
-    if (!Rules::get().CA.Enabled)
-    {
-        throw WalletApi::jsonrpc_exception{ApiError::NotSupported, "Confidential assets are not supported in this version.", id};
-    }
-}
-
 boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const json& params)
 {
     boost::optional<TxID> txId;
@@ -809,8 +801,9 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         return "unknown error.";
     }
 
-    WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
+    WalletApi::WalletApi(IWalletApiHandler& handler, bool withAssets, ACL acl)
         : Api(handler, acl)
+        , m_withAssets(withAssets)
     {
         #define REG_FUNC(api, name, writeAccess) \
         _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
@@ -896,6 +889,12 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         Send send;
         send.value = params["value"];
+        send.assetId = readAssetIdParameter(id, params);
+
+        if (send.assetId && *send.assetId != Asset::s_InvalidID)
+        {
+            checkCAEnabled(id);
+        }
 
         if (existsJsonParam(params, "coins"))
         {
@@ -950,9 +949,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             send.comment = params["comment"].get<std::string>();
         }
 
-        send.assetId = readAssetIdParameter(id, params);
         send.txId = readTxIdParameter(id, params);
-
         getHandler().onMessage(id, send);
     }
 
@@ -979,6 +976,11 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coins parameter must be a non-empty array.", id };
 
         Split split;
+        split.assetId = readAssetIdParameter(id, params);
+        if (split.assetId && *split.assetId != Asset::s_InvalidID)
+        {
+            checkCAEnabled(id);
+        }
 
         for (const auto& amount : params["coins"])
         {
@@ -998,9 +1000,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             split.fee = minimumFee;
         }
 
-        split.assetId = readAssetIdParameter(id, params);
         split.txId = readTxIdParameter(id, params);
-
         getHandler().onMessage(id, split);
     }
 
@@ -1063,6 +1063,19 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         onIssueConsumeMessage<Consume>(true, id, params);
     }
 
+    void WalletApi::checkCAEnabled(const JsonRpcId& id)
+    {
+        if (!Rules::get().CA.Enabled)
+        {
+            throw WalletApi::jsonrpc_exception{ApiError::NotSupported, "Confidential assets are not supported until fork2.", id};
+        }
+
+        if (!m_withAssets)
+        {
+            throw WalletApi::jsonrpc_exception{ApiError::NotSupported, "Confidential assets are disabled. Add --enable_assets to command line.", id};
+        }
+    }
+
     template<typename T>
     void WalletApi::onIssueConsumeMessage(bool issue, const JsonRpcId& id, const json& params)
     {
@@ -1102,8 +1115,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onGetAssetInfoMessage(const JsonRpcId& id, const json& params)
     {
-        checkCAEnabled(id);
-
         GetAssetInfo data;
         ReadAssetParams(id, params, data);
 

@@ -31,6 +31,7 @@ namespace beam::wallet
         BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
         virtual ~BaseTxBuilder() = default;
         void SelectInputs();
+        void SelectFeeInputsPreferUnlinked();
         void AddChange();
         void GenerateAssetCoin(Amount amount, bool change);
         void GenerateBeamCoin(Amount amount, bool change);
@@ -43,6 +44,7 @@ namespace beam::wallet
         virtual ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         Asset::ID GetAssetId() const;
+        bool IsAssetTx() const;
         virtual bool GetInitialTxParams();
         bool GetInputs();
         bool GetOutputs();
@@ -71,6 +73,7 @@ namespace beam::wallet
         const TxKernel& GetKernel() const;
         const Merkle::Hash& GetKernelID() const;
         void StoreKernelID();
+        void ResetKernelID();
         std::string GetKernelIDString() const;
         bool UpdateMaxHeight();
         bool IsAcceptableMaxHeight() const;
@@ -116,7 +119,6 @@ namespace beam::wallet
         SubTxID m_SubTxID;
 
         // input
-        Asset::ID m_AssetId;
         AmountList m_AmountList;
         Amount m_Fee;
         Amount m_ChangeBeam;

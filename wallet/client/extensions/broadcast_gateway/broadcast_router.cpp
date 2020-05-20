@@ -31,14 +31,16 @@ const std::map<BroadcastContentType, BbsChannel> BroadcastRouter::m_outgoingBbsC
 {
     { BroadcastContentType::SwapOffers, proto::Bbs::s_BtcSwapOffersChannel },
     { BroadcastContentType::SoftwareUpdates, proto::Bbs::s_BroadcastChannel },
-    { BroadcastContentType::ExchangeRates, proto::Bbs::s_BroadcastChannel }
+    { BroadcastContentType::ExchangeRates, proto::Bbs::s_BroadcastChannel },
+    { BroadcastContentType::WalletUpdates, proto::Bbs::s_BroadcastChannel }
 };
 
 const std::map<BroadcastContentType, MsgType> BroadcastRouter::m_messageTypeMap =
 {
     { BroadcastContentType::SwapOffers, MsgType(0) },
     { BroadcastContentType::SoftwareUpdates, MsgType(1) },
-    { BroadcastContentType::ExchangeRates, MsgType(2) }
+    { BroadcastContentType::ExchangeRates, MsgType(2) },
+    { BroadcastContentType::WalletUpdates, MsgType(3) }
 };
 
 /**

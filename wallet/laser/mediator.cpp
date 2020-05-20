@@ -45,7 +45,7 @@ inline bool CanBeDeleted(int state)
            state == beam::Lightning::Channel::State::Closed;
 }
 
-const beam::Timestamp kDefaultLaserTolerance = 60 * (beam::Lightning::kMaxBlackoutTime >> 1);
+const beam::Timestamp kDefaultLaserTolerance = 60 * (beam::Lightning::kMaxBlackoutTime - 1);
 }  // namespace
 
 namespace beam::wallet::laser

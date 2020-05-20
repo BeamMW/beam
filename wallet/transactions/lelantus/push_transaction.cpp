@@ -13,11 +13,9 @@
 // limitations under the License.
 
 #include "push_transaction.h"
-
-#include "core/proto.h"
 #include "core/shielded.h"
-
 #include "push_tx_builder.h"
+#include "wallet/core/strings_resources.h"
 
 namespace beam::wallet::lelantus
 {
@@ -31,7 +29,7 @@ namespace beam::wallet::lelantus
         , IWalletDB::Ptr walletDB
         , const TxID& txID)
     {
-        return BaseTransaction::Ptr(new PushTransaction(gateway, walletDB, txID));
+        return BaseTransaction::Ptr(new PushTransaction(gateway, walletDB, txID, m_withAssets));
     }
 
     TxParameters PushTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -42,8 +40,10 @@ namespace beam::wallet::lelantus
 
     PushTransaction::PushTransaction(INegotiatorGateway& gateway
         , IWalletDB::Ptr walletDB
-        , const TxID& txID)
+        , const TxID& txID
+        , bool withAssets)
         : BaseTransaction(gateway, walletDB, txID)
+        , m_withAssets(withAssets)
     {
     }
 
@@ -68,16 +68,18 @@ namespace beam::wallet::lelantus
 
         if (!m_TxBuilder)
         {
-            m_TxBuilder = std::make_shared<PushTxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+            m_TxBuilder = std::make_shared<PushTxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee), m_withAssets);
         }
 
         if (!m_TxBuilder->GetInitialTxParams())
         {
             UpdateTxDescription(TxStatus::InProgress);
 
-            LOG_INFO() << GetTxID() << " Sending to shielded pool "
-                << PrintableAmount(m_TxBuilder->GetAmount())
-                << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
+            const bool isAsset = m_TxBuilder->IsAssetTx();
+            LOG_INFO()
+                 << GetTxID() << " Sending to shielded pool "
+                 << PrintableAmount(m_TxBuilder->GetAmount(), false, isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")
+                 << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
 
             m_TxBuilder->SelectInputs();
             m_TxBuilder->AddChange();
@@ -94,7 +96,8 @@ namespace beam::wallet::lelantus
         }
 
         uint8_t nRegistered = proto::TxStatus::Unspecified;
-        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
+        if (!GetParameter(TxParameterID::TransactionRegisteredInternal, nRegistered)
+            || nRegistered == proto::TxStatus::Unspecified)
         {
             if (CheckExpired())
             {
@@ -103,6 +106,11 @@ namespace beam::wallet::lelantus
 
             // Construct transaction
             auto transaction = m_TxBuilder->CreateTransaction();
+            if (!transaction)
+            {
+                OnFailed(TxFailureReason::NoVouchers);
+                return;
+            }
 
             // Verify final transaction
             TxBase::Context::Params pars;
@@ -124,6 +132,29 @@ namespace beam::wallet::lelantus
             Height lastUnconfirmedHeight = 0;
             if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
             {
+                ShieldedVoucherList vouchers;
+                if (proto::TxStatus::InvalidContext == nRegistered
+                    && GetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers))
+                {
+                    if (!vouchers.empty())
+                    {
+                        // reset transaction state and try another vouchers left
+                        SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0));
+                        SetParameter(TxParameterID::Kernel, TxKernelShieldedOutput::Ptr());
+                        m_TxBuilder->ResetKernelID();
+
+                        const auto internalStatus = proto::TxStatus::Unspecified;
+                        SetParameter(TxParameterID::TransactionRegisteredInternal, internalStatus);
+
+                        UpdateAsync();
+                    }
+                    else
+                    {
+                        OnFailed(TxFailureReason::NoVouchers);
+                    }
+                    return;
+                }
+
                 OnFailed(TxFailureReason::FailedToRegister, true);
                 return;
             }
@@ -160,13 +191,14 @@ namespace beam::wallet::lelantus
 
                         // update shielded output
                         auto coin = GetWalletDB()->getShieldedCoin(GetTxID());
-                        assert(coin);
+                        if (coin) // payment to ourself
+                        {
+                            coin->m_ID = proof.m_ID;
+                            coin->m_confirmHeight = std::min(coin->m_confirmHeight, proof.m_Height);
 
-                        coin->m_ID = proof.m_ID;
-                        coin->m_confirmHeight = std::min(coin->m_confirmHeight, proof.m_Height);
-
-                        // save shielded output to DB
-                        GetWalletDB()->saveShieldedCoin(*coin);
+                            // save shielded output to DB
+                            GetWalletDB()->saveShieldedCoin(*coin);
+                        }
                     }
                     UpdateAsync();
                 });
