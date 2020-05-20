@@ -372,6 +372,18 @@ namespace beam::wallet
     {
         if (auto it = m_ActiveTransactions.find(txID); it != m_ActiveTransactions.end())
         {
+            // check if we have already asked for kernel on given height
+            Height lastUnconfirmedHeight = 0;
+            if (it->second->GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight, subTxID) && lastUnconfirmedHeight > 0)
+            {
+                Block::SystemState::Full state;
+                if (!get_tip(state) || state.m_Height == lastUnconfirmedHeight)
+                {
+                    UpdateOnNextTip(it->second);
+                    return;
+                }
+            }
+
             MyRequestKernel::Ptr pVal(new MyRequestKernel);
             pVal->m_TxID = txID;
             pVal->m_SubTxID = subTxID;
