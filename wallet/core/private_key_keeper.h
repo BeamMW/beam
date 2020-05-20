@@ -215,7 +215,7 @@ namespace beam::wallet
 	};
 
 	class ThreadedPrivateKeyKeeper
-		:public PrivateKeyKeeper_AsyncNotify
+		:public PrivateKeyKeeper_WithMarshaller
 	{
         IPrivateKeyKeeper2::Ptr m_pKeyKeeper;
 
