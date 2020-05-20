@@ -65,7 +65,10 @@ namespace beam::wallet::lelantus
         // create transaction
         auto transaction = std::make_shared<Transaction>();
         transaction->m_vOutputs = move(m_Outputs);
-        transaction->m_vInputs  = m_Tx.GetMandatoryParameter<std::vector<Input::Ptr>>(TxParameterID::Inputs);
+        if (IsAssetTx())
+        {
+            transaction->m_vInputs = m_Tx.GetMandatoryParameter<std::vector<Input::Ptr>>(TxParameterID::Inputs);
+        }
 
         ECC::Point::Native hGen;
         {
