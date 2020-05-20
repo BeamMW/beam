@@ -2543,6 +2543,7 @@ void TestHWCommitment()
     io::Reactor::Scope scope(*mainReactor);
 
     const CoinID cid(100500, 15, Key::Type::Regular, 7);
+    const Height hScheme = 100500;
     ECC::NoLeak<ECC::HKdfPub::Packed> owner1, owner2;
     Point comm1, comm2;
     auto extractOwner = [](Key::IPKdf::Ptr pubKdf, ECC::NoLeak<ECC::HKdfPub::Packed>& p)
@@ -2576,6 +2577,17 @@ void TestHWCommitment()
 
         comm1 = pt2;
         LOG_INFO() << "commitment is " << comm1;
+
+        
+        {
+            ECC::Point::Native comm3;
+            IPrivateKeyKeeper2::Method::CreateOutput m;
+            m.m_Cid = cid;
+            m.m_hScheme = hScheme;
+            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == keyKeeper.InvokeSync(m));
+            WALLET_CHECK(m.m_pResult && m.m_pResult->IsValid(hScheme, comm3));
+            WALLET_CHECK(comm3 == pt2);
+        }
     }
 
     {
@@ -2594,6 +2606,16 @@ void TestHWCommitment()
         comm2 = pt2;
 
         LOG_INFO() << "HW commitment is " << comm2;
+
+        {
+            ECC::Point::Native comm3;
+            IPrivateKeyKeeper2::Method::CreateOutput m;
+            m.m_Cid = cid;
+            m.m_hScheme = hScheme;
+            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == keyKeeper->InvokeSync(m));
+            WALLET_CHECK(m.m_pResult && m.m_pResult->IsValid(hScheme, comm3));
+            WALLET_CHECK(comm3 == pt2);
+        }
     }
 
     WALLET_CHECK(comm1 == comm2);
