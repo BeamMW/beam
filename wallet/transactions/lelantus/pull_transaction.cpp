@@ -15,6 +15,7 @@
 #include "pull_transaction.h"
 #include "core/shielded.h"
 #include "pull_tx_builder.h"
+#include "wallet/core/strings_resources.h"
 
 namespace beam::wallet::lelantus
 {
@@ -77,15 +78,18 @@ namespace beam::wallet::lelantus
 
             for (const auto& amount : m_TxBuilder->GetAmountList())
             {
-                m_TxBuilder->GenerateUnlinkedBeamCoin(amount);
+                m_TxBuilder->GenerateUnlinkedCoin(amount);
             }
 
             TxoID shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
             auto shieldedCoin = GetWalletDB()->getShieldedCoin(shieldedId);
 
+            const auto unitName = m_TxBuilder->IsAssetTx() ? kAmountASSET : "";
+            const auto nthName  = m_TxBuilder->IsAssetTx() ? kAmountAGROTH : "";
+
             LOG_INFO() << GetTxID() << " Extracting from shielded pool:"
-                << " ID - " << shieldedId << ", amount - " << shieldedCoin->m_value
-                << ", receiving amount - " << PrintableAmount(m_TxBuilder->GetAmount())
+                << " ID - " << shieldedId << ", amount - " << PrintableAmount(shieldedCoin->m_value, false, unitName, nthName)
+                << ", receiving amount - " << PrintableAmount(m_TxBuilder->GetAmount(), false, unitName, nthName)
                 << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
 
             // validate input
@@ -95,14 +99,23 @@ namespace beam::wallet::lelantus
                     throw TransactionFailedException(false, TxFailureReason::NoInputs);
                 }
 
-                Amount requiredAmount = m_TxBuilder->GetAmount() + m_TxBuilder->GetFee();
-
-                if (shieldedCoin->m_value < requiredAmount)
+                // If BEAM only we pay fee from shielded input
+                // If asset we must have BEAM inputs
+                if (m_TxBuilder->IsAssetTx())
                 {
-                    LOG_ERROR() << GetTxID() << " The ShieldedCoin value("
-                        << PrintableAmount(shieldedCoin->m_value)
-                        << ") is less than the required value(" << PrintableAmount(requiredAmount) << ")";
-                    throw TransactionFailedException(false, TxFailureReason::NoInputs, "");
+                    m_TxBuilder->SelectFeeInputsPreferUnlinked();
+                    m_TxBuilder->AddChange();
+                }
+                else
+                {
+                    Amount requiredAmount = m_TxBuilder->GetAmount() + m_TxBuilder->GetFee();
+                    if (shieldedCoin->m_value < requiredAmount)
+                    {
+                        LOG_ERROR() << GetTxID() << " The ShieldedCoin value("
+                                    << PrintableAmount(shieldedCoin->m_value)
+                                    << ") is less than the required value(" << PrintableAmount(requiredAmount) << ")";
+                        throw TransactionFailedException(false, TxFailureReason::NoInputs, "");
+                    }
                 }
 
                 // update "m_spentTxId" for shieldedCoin
@@ -110,7 +123,12 @@ namespace beam::wallet::lelantus
                 GetWalletDB()->saveShieldedCoin(*shieldedCoin);
             }
         }
-        
+
+        if (m_TxBuilder->CreateInputs())
+        {
+            return;
+        }
+
         if (m_TxBuilder->CreateOutputs())
         {
             return;

@@ -31,6 +31,7 @@ namespace beam::wallet
         BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
         virtual ~BaseTxBuilder() = default;
         void SelectInputs();
+        void SelectFeeInputsPreferUnlinked();
         void AddChange();
         void GenerateAssetCoin(Amount amount, bool change);
         void GenerateBeamCoin(Amount amount, bool change);

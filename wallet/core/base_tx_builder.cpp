@@ -116,6 +116,67 @@ namespace beam::wallet
         }
     }
 
+    void BaseTxBuilder::SelectFeeInputsPreferUnlinked()
+    {
+        CoinIDList preselectedCoinIDs;
+        vector<Coin> coins;
+
+        Amount preselAmountBeam = 0;
+        if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselectedCoinIDs, m_SubTxID) && !preselectedCoinIDs.empty())
+        {
+            coins = m_Tx.GetWalletDB()->getCoinsByID(preselectedCoinIDs);
+            for (auto& coin : coins)
+            {
+                if (!coin.isAsset())
+                {
+                    preselAmountBeam += coin.getAmount();
+                    coin.m_spentTxId = m_Tx.GetTxID();
+                }
+            }
+            m_Tx.GetWalletDB()->saveCoins(coins);
+        }
+
+        const Amount amountBeam = GetFee();
+        if (preselAmountBeam < amountBeam)
+        {
+            auto selectedCoins = m_Tx.GetWalletDB()->selectUnlinkedCoins(amountBeam, Zero);
+            if (selectedCoins.empty())
+            {
+                selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountBeam, Zero);
+            }
+
+            if (selectedCoins.empty())
+            {
+                storage::Totals allTotals(*m_Tx.GetWalletDB());
+                const auto& totals = allTotals.GetBeamTotals();
+                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail);
+                throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
+            }
+
+            copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
+        }
+
+        m_InputCoins.reserve(coins.size());
+        Amount totalBeam = 0;
+        for (auto& coin : coins)
+        {
+            coin.m_spentTxId = m_Tx.GetTxID();
+            if (!coin.isAsset())
+            {
+                totalBeam += coin.m_ID.m_Value;
+            }
+            m_InputCoins.push_back(coin.m_ID);
+        }
+
+        m_ChangeBeam  = totalBeam  - amountBeam;
+        m_ChangeAsset = 0;
+
+        m_Tx.SetParameter(TxParameterID::ChangeBeam, m_ChangeBeam, false, m_SubTxID);
+        m_Tx.SetParameter(TxParameterID::ChangeAsset, m_ChangeAsset, false, m_SubTxID);
+        m_Tx.SetParameter(TxParameterID::InputCoins, m_InputCoins, false, m_SubTxID);
+        m_Tx.GetWalletDB()->saveCoins(coins);
+    }
+
     void BaseTxBuilder::SelectInputs()
     {
         CoinIDList preselectedCoinIDs;
