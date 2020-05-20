@@ -118,10 +118,30 @@ void GetStatusResponseJson(const TxDescription& tx,
     std::unique_ptr<TxStatusInterpreter> statusInterpreter = nullptr;
     if (tx.m_txType == TxType::Simple)
     {
-        statusInterpreter = std::make_unique<TxStatusInterpreter>(tx);
+        struct ApiTxStatusInterpreter : public TxStatusInterpreter
+        {
+            ApiTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+            std::string getStatus() const override
+            {
+                if (m_status == TxStatus::Registering)
+                    return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
+                return TxStatusInterpreter::getStatus();
+            }
+        };
+        statusInterpreter = std::make_unique<ApiTxStatusInterpreter>(tx);
     }
     else if (tx.m_txType >= TxType::AssetIssue && tx.m_txType <= TxType::AssetInfo)
     {
+        struct ApiAssetTxStatusInterpreter : public AssetTxStatusInterpreter
+        {
+            ApiAssetTxStatusInterpreter(const TxParameters& txParams) : AssetTxStatusInterpreter(txParams) {};
+            std::string getStatus() const override
+            {
+                if (m_status == TxStatus::Registering)
+                    return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
+                return AssetTxStatusInterpreter::getStatus();
+            }
+        };
         statusInterpreter = std::make_unique<AssetTxStatusInterpreter>(tx);
     }
     else if (tx.m_txType == TxType::AtomicSwap)

@@ -543,10 +543,10 @@ namespace beam::wallet
         value = txParams.GetParameter(TxParameterID::IsSender);
         if (value) fromByteBuffer(*value, m_sender);
 
-        value = txParams.GetParameter(TxParameterID::IsSender);
+        value = txParams.GetParameter(TxParameterID::IsSelfTx);
         if (value) fromByteBuffer(*value, m_selfTx);
 
-        value = txParams.GetParameter(TxParameterID::IsSender);
+        value = txParams.GetParameter(TxParameterID::FailureReason);
         if (value) fromByteBuffer(*value, m_failureReason);
     }
 
@@ -558,7 +558,7 @@ namespace beam::wallet
             case TxStatus::InProgress:
                 return m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
             case TxStatus::Registering: 
-                return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
+                return m_selfTx ? "self sending" : "in progress";
             case TxStatus::Failed: 
                 return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
             case TxStatus::Canceled: return "cancelled";
