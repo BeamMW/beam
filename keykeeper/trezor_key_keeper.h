@@ -36,12 +36,12 @@ namespace beam::wallet
     private:
         Status::Type InvokeSync(Method::get_Kdf& m) override;
         Status::Type InvokeSync(Method::get_NumSlots& m) override;
-        void InvokeAsync(Method::get_Kdf& m, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::CreateOutput& m, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::SignReceiver& m, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::SignSender& m, const Handler::Ptr& h) override;
-        void InvokeAsync(Method::SignSplit& m, const Handler::Ptr& h) override;
+
+#define THE_MACRO(method) \
+		void InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) override;
+
+        KEY_KEEPER_METHODS(THE_MACRO)
+#undef THE_MACRO
 
     private:
         std::shared_ptr<DeviceManager> m_DeviceManager;
@@ -82,5 +82,7 @@ namespace beam::wallet
 
         Cache m_Cache;
 
+        struct CreateOutputCtx;
+        void PushOut1(Task::Ptr& p);
     };
 }
