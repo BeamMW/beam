@@ -22,7 +22,7 @@
 #include "core/shielded.h"
 
 #include <algorithm>
- #include <iomanip>
+#include <iomanip>
 #include <regex>
 #include <boost/algorithm/string.hpp>
 
@@ -114,7 +114,7 @@ namespace std
             return ss.str();
         }
     }
-#endif
+#endif  // EMSCRIPTEN
 
     string to_string(const beam::wallet::TxParameters& value)
     {
@@ -152,7 +152,7 @@ namespace std
 
         return ss.str();
     }
-#endif
+#endif  // EMSCRIPTEN
 }  // namespace std
 
 namespace beam
@@ -535,6 +535,66 @@ namespace beam::wallet
         return true;
     }
 
+    TxStatusInterpreter::TxStatusInterpreter(const TxParameters& txParams) : m_txParams(txParams)
+    {
+        auto value = txParams.GetParameter(TxParameterID::Status);
+        if (value) fromByteBuffer(*value, m_status);
+
+        value = txParams.GetParameter(TxParameterID::IsSender);
+        if (value) fromByteBuffer(*value, m_sender);
+
+        value = txParams.GetParameter(TxParameterID::IsSender);
+        if (value) fromByteBuffer(*value, m_selfTx);
+
+        value = txParams.GetParameter(TxParameterID::IsSender);
+        if (value) fromByteBuffer(*value, m_failureReason);
+    }
+
+    std::string TxStatusInterpreter::getStatus() const
+    {
+        switch (m_status)
+        {
+            case TxStatus::Pending: return "pending";
+            case TxStatus::InProgress:
+                return m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
+            case TxStatus::Registering: 
+                return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
+            case TxStatus::Failed: 
+                return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
+            case TxStatus::Canceled: return "cancelled";
+            case TxStatus::Completed:
+                return m_selfTx ? "completed" : (m_sender ? "sent" : "received");
+            default:
+                BOOST_ASSERT_MSG(false, kErrorUnknownTxStatus);
+                return "unknown";
+        }
+    }
+
+    AssetTxStatusInterpreter::AssetTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
+    {
+        boost::optional<ByteBuffer> value = txParams.GetParameter(TxParameterID::TransactionType);
+        if (value) fromByteBuffer(*value, m_txType);
+    }
+
+    std::string AssetTxStatusInterpreter::getStatus() const
+    {
+        if (m_status == TxStatus::InProgress && m_txType == TxType::AssetInfo) return "getting info";
+        if (m_status == TxStatus::Completed)
+        {
+            switch (m_txType)
+            {
+                case TxType::AssetIssue: return "asset issued";
+                case TxType::AssetConsume: return "asset consumed";
+                case TxType::AssetReg: return "asset registered";
+                case TxType::AssetUnreg: return "asset unregistered";
+                case TxType::AssetInfo: return "asset confirmed";
+                default: break;
+            }
+        }
+
+        return TxStatusInterpreter::getStatus();
+    }
+
     TxDescription::TxDescription(const TxParameters p)
         : TxParameters(p)
     {
@@ -650,86 +710,6 @@ namespace beam::wallet
         case TxType::AssetInfo: return "asset info";
         default:
             BOOST_ASSERT_MSG(false, kErrorUnknownTxType);
-            return "unknown";
-        }
-    }
-
-    std::string TxDescription::getStatusString() const
-    {
-        const auto& statusStr = getStatusStringApi();
-
-        if (m_txType == TxType::AtomicSwap)
-        {
-            return statusStr;
-        }
-        else
-        {
-            if (statusStr == "receiving" || statusStr == "sending")
-            {
-                return "in progress";
-            }
-            else if (statusStr == "completed")
-            {
-                return "sent to own address";
-            }
-            else if (statusStr == "self sending")
-            {
-                return "sending to own address";
-            }
-            return statusStr;
-        }
-    }
-
-    std::string TxDescription::getStatusStringApi() const
-    {
-        if (m_txType == TxType::AtomicSwap)
-        {
-            switch (m_status)
-            {
-                case wallet::TxStatus::Pending:     return "pending";
-                case wallet::TxStatus::Registering:
-                case wallet::TxStatus::InProgress:  return "in progress";
-                case wallet::TxStatus::Completed:   return "completed";
-                case wallet::TxStatus::Canceled:    return "canceled";
-                case wallet::TxStatus::Failed:
-                {
-                    auto failureReason = GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
-                    if (failureReason && *failureReason == TxFailureReason::TransactionExpired)
-                    {
-                        return "expired";
-                    }
-                    return "failed";
-                }
-                default:
-                    BOOST_ASSERT_MSG(false, kErrorUnknownTxStatus);
-                    return "unknown";
-            }
-        }
-
-        switch (m_status)
-        {
-        case TxStatus::Pending: return "pending";
-        case TxStatus::InProgress:
-            switch (m_txType)
-            {
-                case TxType::AssetInfo: return "getting info";
-                default: return m_selfTx ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
-            }
-        case TxStatus::Registering: return m_selfTx ? "self sending" : (m_sender == false ? "receiving" : "sending");
-        case TxStatus::Failed: return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
-        case TxStatus::Canceled: return "cancelled";
-        case TxStatus::Completed:
-            switch (m_txType)
-            {
-                case TxType::AssetIssue: return "asset issued";
-                case TxType::AssetConsume: return "asset consumed";
-                case TxType::AssetReg: return "asset registered";
-                case TxType::AssetUnreg: return "asset unregistered";
-                case TxType::AssetInfo: return "asset confirmed";
-                default: return m_selfTx ? "completed" : (m_sender == false ? "received" : "sent");
-            }
-        default:
-            BOOST_ASSERT_MSG(false, kErrorUnknownTxStatus);
             return "unknown";
         }
     }
