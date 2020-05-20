@@ -789,7 +789,7 @@ namespace
             cout << "Case: offer lifetime is more 12h" << endl;
             SwapOffer o = correctOffer;
             o.SetParameter(TxParameterID::MinHeight, Fork1Height);
-            o.SetParameter(TxParameterID::PeerResponseTime, Height(12*60));
+            o.SetParameter(TxParameterID::PeerResponseTime, Height(12*60 + 1));
             
             PublishOfferNoThrow(Alice, o);
             WALLET_CHECK(Alice.getOffersList().size() == 0);
