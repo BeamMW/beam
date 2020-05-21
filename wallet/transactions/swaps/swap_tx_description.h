@@ -19,6 +19,17 @@
 
 namespace beam::wallet
 {
+    struct SwapTxStatusInterpreter : public TxStatusInterpreter
+    {
+        explicit SwapTxStatusInterpreter(const TxParameters& txParams)
+            : TxStatusInterpreter(txParams), m_txParams(txParams) {};
+        virtual ~SwapTxStatusInterpreter() {}
+        std::string getStatus() const override;
+
+        private:
+        const TxParameters& m_txParams;
+    };
+
     struct SwapTxDescription
     {
         SwapTxDescription(const TxParameters&);

@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include "wallet/core/common.h"
 #include "core/ecc_native.h"
 #include "core/merkle.h"
 
@@ -488,6 +487,35 @@ namespace beam::wallet
 
     boost::optional<TxParameters> ParseParameters(const std::string& text);
 
+    struct TxStatusInterpreter
+    {
+        using Creator = std::function<TxStatusInterpreter(const TxParameters& txParams)>;
+        explicit TxStatusInterpreter(const TxParameters& txParams);
+        virtual ~TxStatusInterpreter() {}
+        virtual std::string getStatus() const;
+
+        const TxParameters& m_txParams;
+        TxStatus m_status = TxStatus::Pending;
+        bool m_sender = false;
+        bool m_selfTx = false;
+        TxFailureReason m_failureReason = TxFailureReason::Unknown;
+    };
+
+    struct SimpleTxStatusInterpreter : public TxStatusInterpreter
+    {
+        explicit SimpleTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+        std::string getStatus() const override;
+    };
+
+    struct AssetTxStatusInterpreter : public TxStatusInterpreter
+    {
+        explicit AssetTxStatusInterpreter(const TxParameters& txParams);
+        virtual ~AssetTxStatusInterpreter() {}
+        std::string getStatus() const override;
+
+        wallet::TxType m_txType = wallet::TxType::AssetInfo;
+    };
+
     // Specifies key transaction parameters for interaction with Wallet Clients
     struct TxDescription : public TxParameters
     {
@@ -531,8 +559,6 @@ namespace beam::wallet
         [[nodiscard]] bool canResume() const;
         [[nodiscard]] bool canCancel() const;
         [[nodiscard]] bool canDelete() const;
-        [[nodiscard]] std::string getStatusString() const;
-        [[nodiscard]] std::string getStatusStringApi() const;
         [[nodiscard]] std::string getTxTypeString() const;
         [[nodiscard]] std::string getAmountInSecondCurrency(ExchangeRate::Currency) const;
         [[nodiscard]] std::string getToken() const;

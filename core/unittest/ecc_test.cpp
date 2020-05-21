@@ -925,8 +925,8 @@ void TestRangeProof(bool bCustomTag)
 	CoinID cid(20300, 1, Key::Type::Regular);
 	cid.m_AssetID = aib.m_ID;
 
+	if (!bCustomTag) // coinbase with asset isn't allowed
 	{
-
 		beam::Output outp;
 		outp.m_Coinbase = true; // others may be disallowed
 		outp.Create(g_hFork, sk, kdf, cid, kdf, beam::Output::OpCode::Public);

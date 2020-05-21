@@ -250,13 +250,13 @@ void NodeClient::runLocalNode()
         node.m_Cfg.m_MiningThreads = 0;
         node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
 
-        if(m_ownerKey)
-        {
-            node.m_Keys.m_pOwner = m_ownerKey;
-        }
-        else
+        if (m_pKdf)
         {
             node.m_Keys.SetSingleKey(m_pKdf);
+        }
+        else if(m_ownerKey)
+        {
+            node.m_Keys.m_pOwner = m_ownerKey;
         }
 
 		node.m_Cfg.m_Horizon.SetStdFastSync();

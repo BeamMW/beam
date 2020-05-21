@@ -14,8 +14,39 @@
 
 #include "swap_tx_description.h"
 
+#include "wallet/core/strings_resources.h"
+
 namespace beam::wallet
 {
+
+std::string SwapTxStatusInterpreter::getStatus() const
+{
+    switch (m_status)
+    {
+        case wallet::TxStatus::Pending: return "pending";
+        case wallet::TxStatus::Registering: return "in progress";
+        case wallet::TxStatus::InProgress:
+        {
+            auto refundConfirmations =
+                m_txParams.GetParameter<uint32_t>(TxParameterID::Confirmations, SubTxIndex::REFUND_TX);
+            return refundConfirmations ? "failing": "in progress";
+        }
+        case wallet::TxStatus::Completed: return "completed";
+        case wallet::TxStatus::Canceled: return "canceled";
+        case wallet::TxStatus::Failed:
+        {
+            auto failureReason = m_txParams.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+            if (failureReason && *failureReason == TxFailureReason::TransactionExpired)
+            {
+                return "expired";
+            }
+            return "failed";
+        }
+        default:
+            BOOST_ASSERT_MSG(false, kErrorUnknownTxStatus);
+            return "unknown";
+    }
+}
 
 SwapTxDescription::SwapTxDescription(const TxParameters& txParameters)
     : m_tx(txParameters)

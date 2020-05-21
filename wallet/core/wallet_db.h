@@ -480,8 +480,12 @@ namespace beam::wallet
         virtual std::vector<ExchangeRate> getExchangeRates() const = 0;
         virtual void saveExchangeRate(const ExchangeRate&) = 0;
 
+        void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
+        TxStatusInterpreter getStatusInterpreter(const TxParameters& txParams) const;
+
        private:
            bool get_CommitmentSafe(ECC::Point& comm, const CoinID&, IPrivateKeyKeeper2*);
+           std::map<TxType, TxStatusInterpreter::Creator> m_statusInterpreterCreators;
     };
 
     namespace sqlite

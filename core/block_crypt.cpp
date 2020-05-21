@@ -376,6 +376,17 @@ namespace beam
 		if (!m_pPublic)
 			return false;
 
+		if (m_Coinbase)
+		{
+			if (pGen)
+				return false; // should contain unobscured default asset
+		}
+		else
+		{
+			if (!Rules::get().AllowPublicUtxos)
+				return false;
+		}
+
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
 			return false;
 

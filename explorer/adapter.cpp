@@ -221,10 +221,9 @@ private:
             void Next()
             {
                 if (m_Empty)
-                {
-                    m_os << ", ";
                     m_Empty = false;
-                }
+                else
+                    m_os << ", ";
             }
 
             void OnAsset(const Asset::Proof* pProof)
@@ -238,7 +237,7 @@ private:
             }
         };
 
-        static std::string get(const Output& outp)
+        static std::string get(const Output& outp, Height h, Height hMaturity)
         {
             Writer w;
 
@@ -260,20 +259,13 @@ private:
                 w.m_os << "Incubation +" << outp.m_Incubation;
             }
 
-            w.OnAsset(outp.m_pAsset.get());
-
-            return w.m_os.str();
-        }
-
-        static std::string get(const Input& inp)
-        {
-            Writer w;
-
-            if (inp.m_Internal.m_Maturity != inp.m_Internal.m_CreateHeight)
+            if (hMaturity != h)
             {
                 w.Next();
-                w.m_os << "Maturity +" << (inp.m_Internal.m_Maturity - inp.m_Internal.m_CreateHeight);
+                w.m_os << "Maturity=" << hMaturity;
             }
+
+            w.OnAsset(outp.m_pAsset.get());
 
             return w.m_os.str();
         }
@@ -378,6 +370,7 @@ private:
 		Block::SystemState::ID id;
 		Block::Body block;
 		bool ok = true;
+        std::vector<Output::Ptr> vOutsIn;
 
         try {
             db.get_State(row, blockState);
@@ -386,7 +379,7 @@ private:
 			NodeDB::StateID sid;
 			sid.m_Row = row;
 			sid.m_Height = id.m_Height;
-			_nodeBackend.ExtractBlockWithExtra(block, sid);
+			_nodeBackend.ExtractBlockWithExtra(block, vOutsIn, sid);
 
 		} catch (...) {
             ok = false;
@@ -396,13 +389,22 @@ private:
         if (ok) {
             char buf[80];
 
+            assert(block.m_vInputs.size() == vOutsIn.size());
+
             json inputs = json::array();
-            for (const auto &v : block.m_vInputs) {
+            for (size_t i = 0; i < block.m_vInputs.size(); i++)
+            {
+                const Input& inp = *block.m_vInputs[i];
+                const Output& outp = *vOutsIn[i];
+                assert(inp.m_Commitment == outp.m_Commitment);
+
+                Height hCreate = inp.m_Internal.m_Maturity - outp.get_MinMaturity(0);
+
                 inputs.push_back(
                 json{
-                    {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
-                    {"height",   v->m_Internal.m_CreateHeight},
-                    {"extra",  ExtraInfo::get(*v)}
+                    {"commitment", uint256_to_hex(buf, outp.m_Commitment.m_X)},
+                    {"height",   hCreate},
+                    {"extra",  ExtraInfo::get(outp, hCreate, inp.m_Internal.m_Maturity)}
                 }
                 );
             }
@@ -412,8 +414,7 @@ private:
                 outputs.push_back(
                 json{
                     {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
-                    {"maturity",   v->get_MinMaturity(height)},
-                    {"extra",  ExtraInfo::get(*v)}
+                    {"extra",  ExtraInfo::get(*v, height, v->get_MinMaturity(height))}
                 }
                 );
             }

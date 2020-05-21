@@ -115,11 +115,45 @@ void GetStatusResponseJson(const TxDescription& tx,
     Height systemHeight,
     bool showIdentities = false)
 {
+    std::unique_ptr<TxStatusInterpreter> statusInterpreter = nullptr;
+    if (tx.m_txType == TxType::Simple)
+    {
+        struct ApiTxStatusInterpreter : public TxStatusInterpreter
+        {
+            ApiTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+            virtual ~ApiTxStatusInterpreter() {}
+            std::string getStatus() const override
+            {
+                if (m_status == TxStatus::Registering)
+                    return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
+                return TxStatusInterpreter::getStatus();
+            }
+        };
+        statusInterpreter = std::make_unique<ApiTxStatusInterpreter>(tx);
+    }
+    else if (tx.m_txType >= TxType::AssetIssue && tx.m_txType <= TxType::AssetInfo)
+    {
+        struct ApiAssetTxStatusInterpreter : public AssetTxStatusInterpreter
+        {
+            ApiAssetTxStatusInterpreter(const TxParameters& txParams) : AssetTxStatusInterpreter(txParams) {};
+            std::string getStatus() const override
+            {
+                if (m_status == TxStatus::Registering)
+                    return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
+                return AssetTxStatusInterpreter::getStatus();
+            }
+        };
+        statusInterpreter = std::make_unique<AssetTxStatusInterpreter>(tx);
+    }
+    else if (tx.m_txType == TxType::AtomicSwap)
+    {
+        statusInterpreter = std::make_unique<SwapTxStatusInterpreter>(tx);
+    }
     msg = json
     {
         {"txId", TxIDToString(tx.m_txId)},
         {"status", tx.m_status},
-        {"status_string", tx.getStatusStringApi()},
+        {"status_string", statusInterpreter ? statusInterpreter->getStatus() : "unknown"},
         {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
         {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
         {"value", tx.m_amount},

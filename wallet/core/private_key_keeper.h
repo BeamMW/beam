@@ -155,10 +155,10 @@ namespace beam::wallet
         Status::Type InvokeSyncInternal(TMethod& m);
     };
 
-
-	class PrivateKeyKeeper_AsyncNotify // by default emulates async calls by synchronous, and then asynchronously posts completion status
-		:public IPrivateKeyKeeper2
-	{
+    // implements async notification mechanism, base for async implementations
+    class PrivateKeyKeeper_WithMarshaller
+        :public IPrivateKeyKeeper2
+    {
     protected:
 
 		io::AsyncEvent::Ptr m_pNewOut;
@@ -169,9 +169,18 @@ namespace beam::wallet
             typedef std::unique_ptr<Task> Ptr;
 
             Handler::Ptr m_pHandler;
+
+            virtual void Execute(Task::Ptr&) = 0;
+            virtual ~Task() {} // necessary for derived classes, that may add arbitrary data memebers
+        };
+
+        struct TaskFin
+            :public Task
+        {
             Status::Type m_Status;
 
-            virtual ~Task() {} // necessary for derived classes, that may add arbitrary data memebers
+            virtual void Execute(Task::Ptr&) override;
+            virtual ~TaskFin() {}
         };
 
 		struct TaskList
@@ -184,18 +193,19 @@ namespace beam::wallet
 			~TaskList() { Clear(); }
 		};
 
-		TaskList m_queIn;
-		TaskList m_queOut;
+        std::mutex m_MutexOut;
+        TaskList m_queOut;
 
         void EnsureEvtOut();
         void PushOut(Task::Ptr& p);
         void PushOut(Status::Type, const Handler::Ptr&);
-        
-        virtual void OnNewOut();
-        static void CallNewOut(TaskList&);
 
-    public:
+        void OnNewOut();
+    };
 
+	struct PrivateKeyKeeper_AsyncNotify // by default emulates async calls by synchronous, and then asynchronously posts completion status
+		:public PrivateKeyKeeper_WithMarshaller
+	{
 #define THE_MACRO(method) \
 		void InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) override;
 
@@ -205,7 +215,7 @@ namespace beam::wallet
 	};
 
 	class ThreadedPrivateKeyKeeper
-		:public PrivateKeyKeeper_AsyncNotify
+		:public PrivateKeyKeeper_WithMarshaller
 	{
         IPrivateKeyKeeper2::Ptr m_pKeyKeeper;
 
@@ -215,10 +225,8 @@ namespace beam::wallet
 		std::mutex m_MutexIn;
 		std::condition_variable m_NewIn;
 
-		std::mutex m_MutexOut;
-
         struct Task
-            :public PrivateKeyKeeper_AsyncNotify::Task
+            :public TaskFin
         {
             virtual void Exec(IPrivateKeyKeeper2&) = 0;
         };
@@ -227,8 +235,6 @@ namespace beam::wallet
 
         void PushIn(Task::Ptr& p);
         void Thread();
-
-        virtual void OnNewOut() override;
 
     public:
 

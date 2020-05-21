@@ -2161,6 +2161,29 @@ namespace beam::wallet
         pid = ECC::Point(pt).m_X;
     }
 
+    void IWalletDB::addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator)
+    {
+        m_statusInterpreterCreators[txType] = interpreterCreator;
+    }
+
+    TxStatusInterpreter IWalletDB::getStatusInterpreter(const TxParameters& txParams) const
+    {
+        if (auto txTypeO = txParams.GetParameter(TxParameterID::TransactionType); txTypeO)
+        {
+            TxType txType = TxType::Simple;
+            fromByteBuffer(*txTypeO, txType);
+
+            auto it = m_statusInterpreterCreators.find(txType);
+            if (it != m_statusInterpreterCreators.end())
+            {
+                auto creator = it->second;
+                return creator(txParams);
+            }
+        }
+
+        return TxStatusInterpreter(txParams);
+    }
+
     vector<Coin> WalletDB::selectCoins(Amount amount, Asset::ID assetId)
     {
         return selectCoinsEx(amount, assetId, false);
@@ -4920,13 +4943,14 @@ namespace beam::wallet
                 std::string amountInUsd = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Usd);
                 std::string amountInBtc = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Bitcoin);
 
+                auto statusInterpreter = db.getStatusInterpreter(tx);
                 ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type
                    << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","   // Date | Time
                    << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                     // Amount, BEAM
                    << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
                    << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
                    << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                        // Transaction fee, BEAM
-                   << tx.getStatusString() << ","                                                   // Status
+                   << statusInterpreter.getStatus() << ","                                          // Status
                    << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
                    << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID
                    << std::to_string(tx.m_kernelID) << ","                                          // Kernel ID

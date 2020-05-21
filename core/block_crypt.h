@@ -420,7 +420,6 @@ namespace beam
 		struct Internal
 		{
 			Height m_Maturity = 0; // of the consumed (being-spent) UTXO
-			Height m_CreateHeight = 0;
 			TxoID m_ID = 0;
 		} m_Internal;
 

@@ -153,28 +153,97 @@ namespace beam::wallet
         }
     }
 
+    void TrezorKeyKeeperProxy::Cache::ShrinkMru(uint32_t nCount)
+    {
+        while (m_mruPKdfs.size() > nCount)
+        {
+            ChildPKdf& x = m_mruPKdfs.back();
+            m_mruPKdfs.pop_back();
+
+            m_setPKdfs.erase(ChildPKdfSet::s_iterator_to(x));
+            delete &x;
+        }
+    }
+
+    void TrezorKeyKeeperProxy::Cache::AddMru(ChildPKdf& x)
+    {
+        m_mruPKdfs.push_front(x);
+    }
+
+    bool TrezorKeyKeeperProxy::Cache::FindPKdf(Key::IPKdf::Ptr& pRes, const Key::Index* pChild)
+    {
+        pRes.reset(); // for more safety
+
+        std::unique_lock<std::mutex> scope(m_Mutex);
+
+        if (pChild)
+        {
+            ChildPKdf key;
+            key.m_iChild = *pChild;
+
+            ChildPKdfSet::iterator it = m_setPKdfs.find(key);
+            if (m_setPKdfs.end() != it)
+            {
+                ChildPKdf& x = *it;
+                m_mruPKdfs.erase(ChildPKdfList::s_iterator_to(x));
+                AddMru(x);
+                pRes = x.m_pRes;
+            }
+        }
+        else
+        {
+            pRes = m_pOwner;
+        }
+
+        return pRes != nullptr;
+    }
+
+    void TrezorKeyKeeperProxy::Cache::AddPKdf(const Key::IPKdf::Ptr& pRes, const Key::Index* pChild)
+    {
+        std::unique_lock<std::mutex> scope(m_Mutex);
+
+        if (pChild)
+        {
+            std::unique_ptr<ChildPKdf> pItem = std::make_unique<ChildPKdf>();
+            pItem->m_iChild = *pChild;
+
+            ChildPKdfSet::iterator it = m_setPKdfs.find(*pItem);
+            if (m_setPKdfs.end() == it)
+            {
+                pItem->m_pRes = pRes;
+
+                m_setPKdfs.insert(*pItem);
+                AddMru(*pItem);
+                pItem.release();
+
+                ShrinkMru(1000); // don't let it grow indefinitely
+            }
+        }
+        else
+        {
+            if (!m_pOwner)
+                m_pOwner = pRes;
+        }
+    }
+
     TrezorKeyKeeperProxy::TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager)
         : m_DeviceManager(deviceManager)
-        , m_PushEvent(io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { ProcessResponses(); }))
     {
-        
+        EnsureEvtOut();
     }
 
     IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::get_Kdf& m)
     {
-        if (m_OwnerKdf && m.m_Root)
-        {
-            m.m_pPKdf = m_OwnerKdf;
+        if (m_Cache.FindPKdf(m.m_pPKdf, m.m_Root ? nullptr : &m.m_iChild))
             return Status::Success;
-        }
-        return PrivateKeyKeeper_AsyncNotify::InvokeSync(m);
+
+        return PrivateKeyKeeper_WithMarshaller::InvokeSync(m);
     }
 
     void TrezorKeyKeeperProxy::InvokeAsync(Method::get_Kdf& m, const Handler::Ptr& h)
     {
         m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
-            auto pubKdf = std::make_shared<ECC::HKdfPub>();
             const BeamPKdf& beamKdf = child_cast<Message, BeamPKdf>(msg);
             typedef struct
             {
@@ -193,41 +262,251 @@ namespace beam::wallet
             Ecc2BC(packed.m_Secret) = pkdf.m_Secret;
             Ecc2BC(packed.m_PkG) = pkdf.m_CoFactorG;
             Ecc2BC(packed.m_PkJ) = pkdf.m_CoFactorJ;
-            if (!pubKdf->Import(packed))
-            {
-                PushHandlerToCallerThread([this, &m, h]()
-                {
-                    m.m_pPKdf.reset();
-                    PushOut(Status::Unspecified, h);
-                });
-            }
 
-            PushHandlerToCallerThread([this, &m, h, pubKdf]()
+            auto pubKdf = std::make_shared<ECC::HKdfPub>();
+            if (pubKdf->Import(packed))
             {
-                {
-                    m.m_pPKdf = pubKdf;
+                m_Cache.AddPKdf(pubKdf, m.m_Root ? nullptr : &m.m_iChild);
 
-                    if (m.m_Root)
-                    {
-                        m_OwnerKdf = pubKdf; // cache owner kdf
-                    }
-                }
+                m.m_pPKdf = std::move(pubKdf);
                 PushOut(Status::Success, h);
-            });
+            }
+            else
+            {
+                PushOut(Status::Unspecified, h);
+            }
         });
+    }
+
+    IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::get_NumSlots& m)
+    {
+        {
+            std::unique_lock<std::mutex> scope(m_Cache.m_Mutex);
+            if (m_Cache.m_Slots)
+            {
+                m.m_Count = m_Cache.m_Slots;
+                return Status::Success;
+            }
+        }
+
+        return PrivateKeyKeeper_WithMarshaller::InvokeSync(m);
     }
 
     void TrezorKeyKeeperProxy::InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h)
     {
         m_DeviceManager->call_BeamGetNumSlots(true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
-            uint32_t numSlots = child_cast<Message, BeamNumSlots>(msg).num_slots();
-            PushHandlerToCallerThread([this, &m, h, numSlots]()
+            m.m_Count = child_cast<Message, BeamNumSlots>(msg).num_slots();
+
+            if (m.m_Count)
             {
-                m.m_Count = numSlots;
+                {
+                    std::unique_lock<std::mutex> scope(m_Cache.m_Mutex);
+                    m_Cache.m_Slots = m.m_Count;
+                }
+
                 PushOut(Status::Success, h);
-            });
+            }
+            else
+            {
+                PushOut(Status::Unspecified, h);
+            }
         });
+    }
+
+    struct TrezorKeyKeeperProxy::CreateOutputCtx
+        :public TaskFin
+    {
+        typedef std::unique_ptr<CreateOutputCtx> Ptr;
+
+        TrezorKeyKeeperProxy& m_This;
+
+        Method::CreateOutput& m_Method;
+
+        Key::IPKdf::Ptr m_pOwner;
+        Key::IPKdf::Ptr m_pChild;
+        Output::Ptr m_pRes;
+
+        CreateOutputCtx(TrezorKeyKeeperProxy& x, Method::CreateOutput& m) 
+            : m_This(x)
+            , m_Method(m){}
+        virtual ~CreateOutputCtx() {}
+
+        void Proceed1(Ptr&);
+        void Proceed2(Ptr&);
+        void Proceed3(Ptr&);
+
+        static void Push(Ptr& p, Status::Type s)
+        {
+            p->m_Status = s;
+            TrezorKeyKeeperProxy& x = p->m_This;
+            Task::Ptr pTask = std::move(p);
+            x.PushOut1(pTask);
+        }
+
+        struct HandlerBase
+            :public Handler
+        {
+            CreateOutputCtx::Ptr m_pCtx;
+
+            virtual void OnDone(Status::Type s) override
+            {
+                if (Status::Success == s)
+                    OnDoneOk();
+                else
+                    Push(m_pCtx, s);
+            }
+
+            virtual void OnDoneOk() = 0;
+        };
+
+        // TaskFin
+        virtual void Execute(Task::Ptr&) override;
+    };
+
+    void TrezorKeyKeeperProxy::PushOut1(Task::Ptr& p)
+    {
+        PrivateKeyKeeper_WithMarshaller::PushOut(p);
+    }
+
+    void TrezorKeyKeeperProxy::CreateOutputCtx::Proceed1(Ptr& p)
+    {
+        if (m_This.m_Cache.FindPKdf(m_pOwner, nullptr))
+            Proceed2(p);
+        else
+        {
+            struct MyHandler :public HandlerBase
+            {
+                Method::get_Kdf m_Method;
+
+                virtual ~MyHandler() {}
+                virtual void OnDoneOk() override
+                {
+                    m_pCtx->m_pOwner = std::move(m_Method.m_pPKdf);
+                    m_pCtx->Proceed2(m_pCtx);
+                }
+            };
+
+            Handler::Ptr pHandler = std::make_shared<MyHandler>();
+            MyHandler& h = Cast::Up<MyHandler>(*pHandler);
+
+            h.m_Method.m_iChild = 0;
+            h.m_Method.m_Root = true;
+
+            m_This.InvokeAsync(h.m_Method, pHandler);
+        }
+    }
+
+    void TrezorKeyKeeperProxy::CreateOutputCtx::Proceed2(Ptr& p)
+    {
+        Method::get_Kdf m;
+        m.From(m_Method.m_Cid);
+
+        if (m.m_Root)
+            m_pChild = m_pOwner;
+        else
+        {
+            if (!m_This.m_Cache.FindPKdf(m_pChild, &m.m_iChild))
+            {
+                struct MyHandler :public HandlerBase
+                {
+                    Method::get_Kdf m_Method;
+
+                    virtual ~MyHandler() {}
+                    virtual void OnDoneOk() override
+                    {
+                        m_pCtx->m_pChild = std::move(m_Method.m_pPKdf);
+                        m_pCtx->Proceed3(m_pCtx);
+                    }
+                };
+
+                Handler::Ptr pHandler = std::make_shared<MyHandler>();
+                MyHandler& h = Cast::Up<MyHandler>(*pHandler);
+
+                h.m_Method = m;
+                m_This.InvokeAsync(h.m_Method, pHandler);
+
+                return;
+            }
+        }
+
+        Proceed3(p);
+    }
+
+    void TrezorKeyKeeperProxy::CreateOutputCtx::Proceed3(Ptr& p)
+    {
+        m_pRes = std::make_unique<Output>();
+        
+        ECC::Point::Native comm;
+        CoinID::Worker(m_Method.m_Cid).Recover(comm, *m_pChild);
+        m_pRes->m_Commitment = comm;
+        
+        // rangeproof
+        ECC::Scalar::Native skDummy;
+        ECC::HKdf kdfDummy;
+        
+        m_pRes->Create(m_Method.m_hScheme, skDummy, kdfDummy, m_Method.m_Cid, *m_pOwner, Output::OpCode::Mpc_1);
+        assert(m_pRes->m_pConfidential);
+
+        BeamCrypto_CoinID cid;
+        BeamCrypto_CompactPoint pt0, pt1;
+
+        CidCvt(cid, m_Method.m_Cid);
+        pt0 = Ecc2BC(m_pRes->m_pConfidential->m_Part2.m_T1);
+        pt1 = Ecc2BC(m_pRes->m_pConfidential->m_Part2.m_T2);
+
+        // hack, to capture the std::unique_ptr.
+        // Similar to deprecated auto_ptr
+
+        struct AutoMovePtr
+        {
+            mutable Ptr m_p;
+            AutoMovePtr(Ptr&& p) :m_p(std::move(p)) {}
+            AutoMovePtr(const AutoMovePtr& x)
+            {
+                m_p.swap(x.m_p);
+            }
+        };
+
+        AutoMovePtr amp(std::move(p));
+        m_This.m_DeviceManager->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, nullptr, nullptr, 
+            [this, amp](const Message& msg, std::string session, size_t queue_size)
+        {
+            const BeamRangeproofData& brpd = child_cast<Message, BeamRangeproofData>(msg);
+
+            if (!brpd.is_successful())
+            {
+                Push(amp.m_p, Status::Unspecified);
+                return;
+            }
+
+            ECC::Scalar::Native tauX;
+            tauX.get_Raw() = ConvertResultTo<secp256k1_scalar>(brpd.data_taux());
+            m_pRes->m_pConfidential->m_Part3.m_TauX = tauX;
+
+            BeamCrypto_CompactPoint bccp;
+            TxExport(bccp, brpd.pt0());
+            Ecc2BC(m_pRes->m_pConfidential->m_Part2.m_T1) = bccp;
+
+            TxExport(bccp, brpd.pt1());
+            Ecc2BC(m_pRes->m_pConfidential->m_Part2.m_T2) = bccp;
+
+            Push(amp.m_p, Status::Success); // final stage is deferred
+        });
+    }
+
+    void TrezorKeyKeeperProxy::CreateOutputCtx::Execute(Task::Ptr& p)
+    {
+        if (Status::Success == m_Status)
+        {
+            ECC::Scalar::Native skDummy;
+            ECC::HKdf kdfDummy;
+            m_pRes->Create(m_Method.m_hScheme, skDummy, kdfDummy, m_Method.m_Cid, *m_pOwner, Output::OpCode::Mpc_2); // Phase 3
+
+            m_Method.m_pResult.swap(m_pRes);
+        }
+
+        TaskFin::Execute(p);
     }
 
     void TrezorKeyKeeperProxy::InvokeAsync(Method::CreateOutput& m, const Handler::Ptr& h)
@@ -235,69 +514,10 @@ namespace beam::wallet
         if (m.m_hScheme < Rules::get().pForks[1].m_Height)
             return PushOut(Status::NotImplemented, h);
         
-        if (!m_OwnerKdf)
-            return PushOut(Status::Unspecified, h);
-        
-        Output::Ptr pOutp = std::make_unique<Output>();
-        
-        ECC::Point::Native comm;
-        get_Commitment(comm, m.m_Cid);
-        pOutp->m_Commitment = comm;
-        
-        // rangeproof
-        ECC::Scalar::Native skDummy;
-        ECC::HKdf kdfDummy;
-        
-        pOutp->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_1);
-        assert(pOutp->m_pConfidential);
+        CreateOutputCtx::Ptr pCtx = std::make_unique<CreateOutputCtx>(*this, m);
+        pCtx->m_pHandler = h;
 
-        BeamCrypto_CoinID cid;
-        BeamCrypto_CompactPoint pt0, pt1;
-
-        CidCvt(cid, m.m_Cid);
-        pt0 = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1);
-        pt1 = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2);
-        auto copyableOutput = std::make_shared<Output::Ptr>(std::move(pOutp));
-        m_DeviceManager->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, nullptr, nullptr, 
-            [this, &m, h, copyableOutput](const Message& msg, std::string session, size_t queue_size)
-        {
-            bool isSuccessful = child_cast<Message, BeamRangeproofData>(msg).is_successful();
-            if (!isSuccessful)
-            {
-                PushHandlerToCallerThread([this, h]()
-                {
-                    PushOut(Status::Unspecified, h);
-                });
-            }
-            struct SharedResult
-            {
-                secp256k1_scalar m_TauX;
-                BeamCrypto_CompactPoint m_Pt0;
-                BeamCrypto_CompactPoint m_Pt1;
-            };
-            auto res = std::make_shared<SharedResult>();
-            res->m_TauX = ConvertResultTo<secp256k1_scalar>(child_cast<Message, BeamRangeproofData>(msg).data_taux());
-            TxExport(res->m_Pt0, child_cast<Message, BeamRangeproofData>(msg).pt0());
-            TxExport(res->m_Pt1, child_cast<Message, BeamRangeproofData>(msg).pt1());
-            PushHandlerToCallerThread([this, &m, h, res = std::move(res), copyableOutput]()
-            {
-                Output::Ptr output = std::move(*copyableOutput);
-                Ecc2BC(output->m_pConfidential->m_Part2.m_T1) = res->m_Pt0;
-                Ecc2BC(output->m_pConfidential->m_Part2.m_T2) = res->m_Pt1;
-                    
-                ECC::Scalar::Native tauX;
-                tauX.get_Raw() = res->m_TauX;
-                output->m_pConfidential->m_Part3.m_TauX = tauX;
-            
-                ECC::Scalar::Native skDummy;
-                ECC::HKdf kdfDummy;
-                output->Create(m.m_hScheme, skDummy, kdfDummy, m.m_Cid, *m_OwnerKdf, Output::OpCode::Mpc_2); // Phase 3
-            
-                m.m_pResult.swap(output);
-            
-                PushOut(Status::Success, h);
-            });
-        });
+        pCtx->Proceed1(pCtx);
     }
 
     void TrezorKeyKeeperProxy::InvokeAsync(Method::SignReceiver& m, const Handler::Ptr& h)
@@ -317,13 +537,10 @@ namespace beam::wallet
             BeamCrypto_Signature proofSignature;
             TxExport(proofSignature, txReceive.tx_mutual_info().payment_proof_signature());
 
-            PushHandlerToCallerThread([this, &m, h, txCommon, proofSignature]()
-            {
-                TxExport(m, txCommon);
-                Ecc2BC(m.m_PaymentProofSignature.m_NoncePub) = proofSignature.m_NoncePub;
-                Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value) = proofSignature.m_k;
-                PushOut(Status::Success, h);
-            });
+            TxExport(m, txCommon);
+            Ecc2BC(m.m_PaymentProofSignature.m_NoncePub) = proofSignature.m_NoncePub;
+            Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value) = proofSignature.m_k;
+            PushOut(Status::Success, h);
         });
     }
 
@@ -347,12 +564,10 @@ namespace beam::wallet
         {
             TxExport(txCommon, child_cast<Message, BeamSignTransactionSend>(msg).tx_common());
             BeamCrypto_UintBig userAgreement = ConvertResultTo<BeamCrypto_UintBig>(child_cast<Message, BeamSignTransactionSend>(msg).user_agreement());
-            PushHandlerToCallerThread([this, &m, h, txCommon, userAgreement]()
-            {
-                TxExport(m, txCommon);
-                Ecc2BC(m.m_UserAgreement) = userAgreement;
-                PushOut(Status::Success, h);
-            });
+
+            TxExport(m, txCommon);
+            Ecc2BC(m.m_UserAgreement) = userAgreement;
+            PushOut(Status::Success, h);
         });
     }
 
@@ -365,37 +580,9 @@ namespace beam::wallet
         m_DeviceManager->call_BeamSignTransactionSplit(txCommon, [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
             TxExport(txCommon, child_cast<Message, BeamSignTransactionSplit>(msg).tx_common());
-            PushHandlerToCallerThread([this, &m, h, txCommon]()
-            {
-                TxExport(m, txCommon);
-                PushOut(Status::Success, h);
-            });
+            TxExport(m, txCommon);
+            PushOut(Status::Success, h);
         });
-    }
-
-    void TrezorKeyKeeperProxy::PushHandlerToCallerThread(MessageHandler&& h)
-    {
-        {
-            unique_lock<mutex> lock(m_ResponseMutex);
-            m_ResponseHandlers.push(move(h));
-        }
-        m_PushEvent->post();
-    }
-
-    void TrezorKeyKeeperProxy::ProcessResponses()
-    {
-        while (true)
-        {
-            MessageHandler h;
-            {
-                unique_lock<mutex> lock(m_ResponseMutex);
-                if (m_ResponseHandlers.empty())
-                    return;
-                h = std::move(m_ResponseHandlers.front());
-                m_ResponseHandlers.pop();
-            }
-            h();
-        }
     }
 
 }

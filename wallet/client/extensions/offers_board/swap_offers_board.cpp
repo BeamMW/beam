@@ -293,7 +293,7 @@ bool SwapOffersBoard::isOfferLifetimeTooLong(const SwapOffer& offer) const
     {
         auto expiresHeight = *minHeight + *peerResponseTime;
         Height messageLifetime = m_broadcastGateway.m_bbsTimeWindow / 60; // minutes ~ blocks
-        return m_currentHeight + messageLifetime <= expiresHeight;
+        return m_currentHeight + messageLifetime < expiresHeight;
     }
     else return true;
 }
