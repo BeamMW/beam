@@ -982,12 +982,16 @@ namespace beam
 			sid.m_Row = np.FindActiveAtStrict(h);
 
 			Block::Body block;
-			np.ExtractBlockWithExtra(block, sid);
+			std::vector<Output::Ptr> vOutsIn;
+			np.ExtractBlockWithExtra(block, vOutsIn, sid);
+
+			verify_test(vOutsIn.size() == block.m_vInputs.size());
 
 			// inputs must come with maturities!
 			for (size_t i = 0; i < block.m_vInputs.size(); i++)
 			{
 				const Input& inp = *block.m_vInputs[i];
+				verify_test(inp.m_Commitment == vOutsIn[i]->m_Commitment);
 				verify_test(inp.m_Internal.m_ID && inp.m_Internal.m_Maturity);
 			}
 		}

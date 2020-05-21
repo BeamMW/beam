@@ -98,7 +98,7 @@ class NodeProcessor
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
 	static bool TxoIsNaked(const Blob&);
 
-	void ToInputWithMaturity(Input&);
+	void ToInputWithMaturity(Input&, Output&, bool bNake);
 
 	TxoID get_TxosBefore(Height);
 	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
@@ -242,7 +242,7 @@ public:
 	void SaveSyncData();
 	void LogSyncData();
 
-	bool ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
+	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&);
 
 	struct DataStatus {
 		enum Enum {

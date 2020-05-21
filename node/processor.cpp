@@ -3549,7 +3549,7 @@ bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
 	return true;
 }
 
-void NodeProcessor::ToInputWithMaturity(Input& inp)
+void NodeProcessor::ToInputWithMaturity(Input& inp, Output& outp, bool bNake)
 {
 	// awkward and relatively used, but this is not used frequently.
 	// NodeDB::StateInput doesn't contain the maturity of the spent UTXO. Hence we reconstruct it
@@ -3560,19 +3560,21 @@ void NodeProcessor::ToInputWithMaturity(Input& inp)
 
 	uint8_t pNaked[s_TxoNakedMax];
 	Blob val = wlk.m_Value;
-	TxoToNaked(pNaked, val);
+
+	if (bNake)
+		TxoToNaked(pNaked, val);
 
 	Deserializer der;
 	der.reset(val.p, val.n);
 
-	Output outp;
 	der & outp;
 
 	inp.m_Commitment = outp.m_Commitment;
 
-	FindHeightByTxoID(inp.m_Internal.m_CreateHeight, inp.m_Internal.m_ID); // relatively heavy operation: search for the original txo height
+	Height hCreate = 0;
+	FindHeightByTxoID(hCreate, inp.m_Internal.m_ID); // relatively heavy operation: search for the original txo height
 
-	inp.m_Internal.m_Maturity = outp.get_MinMaturity(inp.m_Internal.m_CreateHeight);
+	inp.m_Internal.m_Maturity = outp.get_MinMaturity(hCreate);
 }
 
 void NodeProcessor::RollbackTo(Height h)
@@ -3600,7 +3602,8 @@ void NodeProcessor::RollbackTo(Height h)
 
 			Input inp;
 			inp.m_Internal.m_ID = id;
-			ToInputWithMaturity(inp);
+			Output outp;
+			ToInputWithMaturity(inp, outp, true);
 
 			if (!HandleBlockElement(inp, bic))
 				OnCorrupted();
@@ -4426,7 +4429,7 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	return mbc.Flush();
 }
 
-bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
+bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID& sid)
 {
 	ByteBuffer bbE;
 	if (!GetBlockInternal(sid, &bbE, nullptr, 0, 0, 0, false, &block))
@@ -4436,11 +4439,15 @@ bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	der.reset(bbE);
 	der & Cast::Down<TxVectors::Eternal>(block);
 
-	// Set maturity to inputs
+	vOutsIn.reserve(block.m_vInputs.size());
+
 	for (size_t i = 0; i < block.m_vInputs.size(); i++)
 	{
 		Input& inp = *block.m_vInputs[i];
-		ToInputWithMaturity(inp);
+		Output::Ptr& pOutp = vOutsIn.emplace_back();
+		pOutp = std::make_unique<Output>();
+
+		ToInputWithMaturity(inp, *pOutp, false);
 	}
 
 	return true;
