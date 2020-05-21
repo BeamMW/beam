@@ -2927,7 +2927,8 @@ namespace
 
         txParams.SetParameter(TxParameterID::Amount, amount)
                 .SetParameter(TxParameterID::Fee, fee)
-                .SetParameter(TxParameterID::AssetID, assetId);
+                .SetParameter(TxParameterID::AssetID, assetId)
+                .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
 
         return wallet.StartTransaction(txParams);
     }
@@ -2982,11 +2983,11 @@ namespace
         WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
         auto txParams = lelantus::CreatePullTransactionParameters(senderAddress.m_walletID)
-            // TODO check this param
             .SetParameter(TxParameterID::Amount, isAsset ? shieldedCoin->m_value : shieldedCoin->m_value - fee)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, shieldedCoin->m_assetID)
-            .SetParameter(TxParameterID::ShieldedOutputId, shieldedId);
+            .SetParameter(TxParameterID::ShieldedOutputId, shieldedId)
+            .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
 
         if (TxoID windowBegin = 0; ReadWindowBegin(vm, windowBegin))
         {
