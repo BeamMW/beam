@@ -501,6 +501,12 @@ namespace beam::wallet
         TxFailureReason m_failureReason = TxFailureReason::Unknown;
     };
 
+    struct SimpleTxStatusInterpreter : public TxStatusInterpreter
+    {
+        explicit SimpleTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+        std::string getStatus() const override;
+    };
+
     struct AssetTxStatusInterpreter : public TxStatusInterpreter
     {
         explicit AssetTxStatusInterpreter(const TxParameters& txParams);

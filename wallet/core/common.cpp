@@ -558,7 +558,7 @@ namespace beam::wallet
             case TxStatus::InProgress:
                 return m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
             case TxStatus::Registering: 
-                return m_selfTx ? "self sending" : "in progress";
+                return m_selfTx ? "self sending" : (m_sender == false ? "receiving" : "sending");
             case TxStatus::Failed: 
                 return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
             case TxStatus::Canceled: return "cancelled";
@@ -568,6 +568,18 @@ namespace beam::wallet
                 BOOST_ASSERT_MSG(false, kErrorUnknownTxStatus);
                 return "unknown";
         }
+    }
+
+    std::string SimpleTxStatusInterpreter::getStatus() const
+    {
+        const auto& status = TxStatusInterpreter::getStatus();
+        if (status == "receiving" || status == "sending")
+            return "in progress";
+        else if (status == "completed")
+            return "sent to own address";
+        else if (status == "self sending")
+            return "sending to own address";
+        return status;
     }
 
     AssetTxStatusInterpreter::AssetTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
