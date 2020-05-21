@@ -175,7 +175,6 @@ namespace beam
     extern const char kCoinsTableFormat[];
     // Tx history
     extern const char kTxHistoryTableHead[];
-    extern const char kAssetTxHistoryTableHead[];
     extern const char kTxHistoryTableFormat[];
     extern const char kTxHistoryColumnDatetTime[];
     extern const char kTxHistoryColumnHeight[];
