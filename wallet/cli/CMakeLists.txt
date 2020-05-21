@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
+
 set(CLI_SRC
     cli.cpp
 )
@@ -13,6 +14,7 @@ if(BEAM_LASER_SUPPORT)
 endif()
 
 add_executable(${TARGET_NAME} ${CLI_SRC})
+target_compile_definitions(${TARGET_NAME} PRIVATE APP_NAME=\"${TARGET_NAME}\")
 
 if(LINUX)
     target_link_libraries(${TARGET_NAME}
