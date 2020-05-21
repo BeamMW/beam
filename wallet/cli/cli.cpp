@@ -36,6 +36,7 @@
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
 #include "core/block_rw.h"
+#include <algorithm>
 //#include "unittests/util.h"
 #include "mnemonic/mnemonic.h"
 #include "utility/string_helpers.h"
@@ -1019,7 +1020,10 @@ namespace
             }
         }
 
-        const array<uint8_t, 9> columnWidths{ { 12, 10, 10, 32, 32, 13, 11, 20, 18} };
+        const uint8_t nameWidth = std::max<uint8_t>(10, unitName.size());
+        const uint8_t nthWidth  = std::max<uint8_t>(10, nthName.size());
+
+        const array<uint8_t, 9> columnWidths{ { 12, nameWidth, nthWidth, 32, 32, 13, 11, 20, 18} };
         cout << "SHIELDED COINS\n\n"
              << boost::format(kShieldedCoinsTableHeadFormat)
                 % boost::io::group(left, setw(columnWidths[0]),  kCoinColumnId)
