@@ -121,6 +121,7 @@ void GetStatusResponseJson(const TxDescription& tx,
         struct ApiTxStatusInterpreter : public TxStatusInterpreter
         {
             ApiTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+            virtual ~ApiTxStatusInterpreter() {}
             std::string getStatus() const override
             {
                 if (m_status == TxStatus::Registering)

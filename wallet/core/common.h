@@ -491,6 +491,7 @@ namespace beam::wallet
     {
         using Creator = std::function<TxStatusInterpreter(const TxParameters& txParams)>;
         explicit TxStatusInterpreter(const TxParameters& txParams);
+        virtual ~TxStatusInterpreter() {}
         virtual std::string getStatus() const;
 
         const TxParameters& m_txParams;
@@ -503,6 +504,7 @@ namespace beam::wallet
     struct AssetTxStatusInterpreter : public TxStatusInterpreter
     {
         explicit AssetTxStatusInterpreter(const TxParameters& txParams);
+        virtual ~AssetTxStatusInterpreter() {}
         std::string getStatus() const override;
 
         wallet::TxType m_txType = wallet::TxType::AssetInfo;

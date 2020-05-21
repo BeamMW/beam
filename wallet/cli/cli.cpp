@@ -175,6 +175,7 @@ namespace
                     auto value = txParams.GetParameter(wallet::TxParameterID::State);
                     if (value) fromByteBuffer(*value, m_state);
                 }
+                virtual ~CliSwapTxStatusInterpreter() {}
                 std::string getStatus() const override
                 {
                     return wallet::getSwapTxStatus(m_state);

@@ -23,6 +23,7 @@ namespace beam::wallet
     {
         explicit SwapTxStatusInterpreter(const TxParameters& txParams)
             : TxStatusInterpreter(txParams), m_txParams(txParams) {};
+        virtual ~SwapTxStatusInterpreter() {}
         std::string getStatus() const override;
 
         private:
