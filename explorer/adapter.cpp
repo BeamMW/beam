@@ -221,10 +221,9 @@ private:
             void Next()
             {
                 if (m_Empty)
-                {
-                    m_os << ", ";
                     m_Empty = false;
-                }
+                else
+                    m_os << ", ";
             }
 
             void OnAsset(const Asset::Proof* pProof)
