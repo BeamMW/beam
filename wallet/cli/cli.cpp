@@ -943,7 +943,7 @@ namespace
             const auto amountHeader = boost::format(kAssetTxHistoryColumnAmount) % unitName;
 
             const array<uint8_t, 7> columnWidths{{20, 10, 17, 18, 20, 33, 65}};
-                cout << boost::format(kAssetTxHistoryTableHead)
+                cout << boost::format(kTxHistoryTableHead)
                         % boost::io::group(left,  setw(columnWidths[0]),  kTxHistoryColumnDatetTime)
                         % boost::io::group(left,  setw(columnWidths[1]),  kTxHistoryColumnHeight)
                         % boost::io::group(left,  setw(columnWidths[2]),  kTxHistoryColumnDirection)
@@ -1047,8 +1047,8 @@ namespace
             }
         }
 
-        const uint8_t nameWidth = std::max<uint8_t>(10, unitName.size());
-        const uint8_t nthWidth  = std::max<uint8_t>(10, nthName.size());
+        const uint8_t nameWidth = std::max<uint8_t>(10, static_cast<uint8_t>(unitName.size()));
+        const uint8_t nthWidth  = std::max<uint8_t>(10, static_cast<uint8_t>(nthName.size()));
 
         const array<uint8_t, 9> columnWidths{ { 12, nameWidth, nthWidth, 32, 32, 13, 11, 20, 18} };
         cout << "SHIELDED COINS\n\n"
@@ -1284,7 +1284,7 @@ namespace
             else
             {
                 const array<uint8_t, 6> columnWidths{ {20, 26, 18, 15, 23, 33} };
-                cout << boost::format(kTxHistoryTableHead)
+                cout << boost::format(kSwapTxHistoryTableHead)
                     % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
                     % boost::io::group(right, setw(columnWidths[1]), kTxHistoryColumnAmount)
                     % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnSwapAmount)
